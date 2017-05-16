@@ -18,18 +18,21 @@ module Pos.Communication.Limits
     , mcVssCertificateLenLimit
     ) where
 
+import           Universum
+
 import           Control.Lens                       (each)
 import           Crypto.Hash                        (Blake2b_224, Blake2b_256)
 import qualified Crypto.PVSS                        as PVSS
 import           GHC.Exts                           (IsList (..))
 import qualified Test.QuickCheck                    as T
-import           Universum
 
 import           Pos.Binary.Class                   (AsBinary (..))
 import           Pos.Block.Network.Types            (MsgBlock, MsgGetHeaders (..),
                                                      MsgHeaders (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
 import qualified Pos.Constants                      as Const
+import           Pos.Core                           (BlockVersionData (..),
+                                                     coinPortionToDouble)
 import           Pos.Crypto                         (AbstractHash, EncShare, PublicKey,
                                                      SecretProof, SecretSharingExtra (..),
                                                      Share, Signature, VssPublicKey)
@@ -38,7 +41,6 @@ import           Pos.Ssc.GodTossing.Arbitrary       ()
 import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..))
 import           Pos.Ssc.GodTossing.Types.Message   (GtMsgContents (..))
 import           Pos.Txp.Network.Types              (TxMsgContents)
-import           Pos.Types                          (coinPortionToDouble)
 import           Pos.Update.Core.Types              (UpdateProposal (..), UpdateVote (..))
 
 -- Reexports
@@ -54,8 +56,11 @@ commitmentsNumLimit :: Int
 commitmentsNumLimit = round $ 1 / coinPortionToDouble Const.genesisMpcThd
 
 -- | Upper bound on number of votes carried with single `UpdateProposal`.
-updateVoteNumLimit :: Int
-updateVoteNumLimit = round $ 1 / coinPortionToDouble Const.genesisUpdateVoteThd
+updateVoteNumLimit :: DB.MonadGStateCore m => m Int
+updateVoteNumLimit =
+    -- succ is just in case
+    succ . ceiling . recip . coinPortionToDouble . bvdUpdateVoteThd <$>
+    DB.gsAdoptedBVData
 
 mcCommitmentMsgLenLimit :: Limit GtMsgContents
 mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
@@ -101,8 +106,9 @@ instance MessageLimited (DataMsg UpdateVote) where
 instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
     getMsgLenLimit _ = do
         proposalLimit <- Limit <$> DB.gsMaxProposalSize
+        voteNumLimit <- updateVoteNumLimit
         return $
-            DataMsg <$> ((,) <$> proposalLimit <+> vector updateVoteNumLimit)
+            DataMsg <$> ((,) <$> proposalLimit <+> vector voteNumLimit)
 
 instance MessageLimited (DataMsg GtMsgContents) where
     type LimitType (DataMsg GtMsgContents) =

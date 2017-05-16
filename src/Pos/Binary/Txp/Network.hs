@@ -8,8 +8,7 @@ import           Universum
 
 import           Pos.Binary.Class              (Bi (..), label)
 import           Pos.Communication.Types.Relay (DataMsg (..))
-import           Pos.Txp.Network.Types         (TxMsgTag (..))
-import           Pos.Txp.Network.Types         (TxMsgContents (..))
+import           Pos.Txp.Network.Types         (TxMsgContents (..), TxMsgTag (..))
 
 ----------------------------------------------------------------------------
 -- Network

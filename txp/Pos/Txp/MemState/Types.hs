@@ -75,16 +75,21 @@ $(deriveJSON defaultOptions ''MemPoolModifyReason)
 --   remains a goal. But we can't free it up right now because the current
 --   mockable system doesn't work well with ether.
 data TxpMetrics = TxpMetrics
-    { txpMetricsMemPoolSize :: !(IO Byte, Byte -> IO ())
-      -- | How long is spent trying to modify the mempool.
-      --   Reading should give an estimator of the next modify time.
-    , txpMetricsModifyTime  :: !(IO Microsecond, Microsecond -> IO ())
+    { -- | Called when a thread begins to wait to modify the mempool.
+      txpMetricsWait :: !(IO ())
+      -- | Called when a thread is granted the lock on the mempool. Parameter
+      --   indicates how long it waited.
+    , txpMetricsAcquire :: !(Microsecond -> IO ())
+      -- | Called when a thread is finished modifying the mempool and has
+      --   released the lock. Parameters indicates time elapsed since acquiring
+      --   the lock, and new mempool size.
+    , txpMetricsRelease :: !(Microsecond -> Byte -> IO ())
     }
 
--- | A TxpMetrics which always give 0 and never does any writes. Use it if
---   you don't care about metrics.
+-- | A TxpMetrics never does any writes. Use it if you don't care about metrics.
 ignoreTxpMetrics :: TxpMetrics
 ignoreTxpMetrics = TxpMetrics
-    { txpMetricsMemPoolSize = (pure 0, const (pure ()))
-    , txpMetricsModifyTime  = (pure 0, const (pure ()))
+    { txpMetricsWait = (pure ())
+    , txpMetricsAcquire = (const (pure ()))
+    , txpMetricsRelease = (const (const (pure ())))
     }

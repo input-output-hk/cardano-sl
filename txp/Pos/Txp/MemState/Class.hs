@@ -28,8 +28,7 @@ import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import qualified Ether
 import           System.IO.Unsafe       (unsafePerformIO)
-import           System.Wlog            (WithLogger, logDebug)
-import           Formatting             (sformat, (%), shown)
+import           System.Wlog            (WithLogger)
 
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxOutAux)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
@@ -94,28 +93,30 @@ modifyTxpLocalData
     :: (MonadIO m, MonadBaseControl IO m, MonadTxpMem ext m)
     => (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext)) -> m a
 modifyTxpLocalData f =
-    askTxpMemAndMetrics >>= \(TxpLocalData{..}, TxpMetrics{..}) -> withLock $ do
-        beginTime <- currentTime
-        !(res, !newSize) <- atomically $ do
-            curUM  <- STM.readTVar txpUtxoModifier
-            curMP  <- STM.readTVar txpMemPool
-            curUndos <- STM.readTVar txpUndos
-            curTip <- STM.readTVar txpTip
-            curExtra <- STM.readTVar txpExtra
-            let (res, (newUM, newMP, newUndos, newTip, newExtra))
-                  = f (curUM, curMP, curUndos, curTip, curExtra)
-            STM.writeTVar txpUtxoModifier newUM
-            STM.writeTVar txpMemPool newMP
-            STM.writeTVar txpUndos newUndos
-            STM.writeTVar txpTip newTip
-            STM.writeTVar txpExtra newExtra
-            pure (res, _mpSize newMP)
-        endTime <- currentTime
-        let duration = endTime - beginTime
-        logDebug $ sformat ("modifyTxpLocalData took " % shown) duration
-        liftIO $ snd txpMetricsMemPoolSize newSize
-        liftIO $ snd txpMetricsModifyTime duration
-        pure res
+    askTxpMemAndMetrics >>= \(TxpLocalData{..}, TxpMetrics{..}) -> do
+        timeBeginWait <- currentTime
+        liftIO txpMetricsWait
+        withLock $ do
+            timeEndWait <- currentTime
+            liftIO $ txpMetricsAcquire (timeEndWait - timeBeginWait)
+            timeBeginModify <- currentTime
+            (res, newSize) <- atomically $ do
+                curUM  <- STM.readTVar txpUtxoModifier
+                curMP  <- STM.readTVar txpMemPool
+                curUndos <- STM.readTVar txpUndos
+                curTip <- STM.readTVar txpTip
+                curExtra <- STM.readTVar txpExtra
+                let (res, (newUM, newMP, newUndos, newTip, newExtra))
+                      = f (curUM, curMP, curUndos, curTip, curExtra)
+                STM.writeTVar txpUtxoModifier newUM
+                STM.writeTVar txpMemPool newMP
+                STM.writeTVar txpUndos newUndos
+                STM.writeTVar txpTip newTip
+                STM.writeTVar txpExtra newExtra
+                pure (res, _mpSize newMP)
+            timeEndModify <- currentTime
+            liftIO $ txpMetricsRelease (timeEndModify - timeBeginModify) newSize
+            pure res
  where
    withLock = L.bracket_ (takeMVar txpLocalDataLock) (putMVar txpLocalDataLock ())
 

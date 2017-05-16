@@ -51,7 +51,6 @@ import           Node                            (Node, NodeAction (..), NodeEnd
 import           Node.Util.Monitor               (setupMonitor, stopMonitor)
 import qualified STMContainers.Map               as SM
 import qualified System.Metrics                  as Metrics
-import qualified System.Metrics.Distribution     as Metrics.Distr
 import qualified System.Metrics.Gauge            as Metrics.Gauge
 import           System.Random                   (newStdGen)
 import qualified System.Remote.Monitoring        as Monitoring
@@ -216,18 +215,39 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
         --   fdef06b1ace22e9d91c5a81f7902eb5d4b6eb44f
         -- for flexible EKG setup.
         ekgStore <- liftIO $ Metrics.newStore
-        ekgMemPoolGauge <- liftIO $ Metrics.createGauge (pack "MemPoolSize") ekgStore
-        ekgMemPoolDistr <- liftIO $ Metrics.createDistribution (pack "MemPoolTime") ekgStore
-        let txpMetrics = TxpMetrics
-                { txpMetricsMemPoolSize =
-                      ( fromIntegral <$> Metrics.Gauge.read ekgMemPoolGauge
-                      , Metrics.Gauge.set ekgMemPoolGauge . fromIntegral
-                      )
-                , txpMetricsModifyTime =
-                      ( round . Metrics.Distr.mean <$> Metrics.Distr.read ekgMemPoolDistr
-                      , Metrics.Distr.add ekgMemPoolDistr . fromIntegral
-                      )
-                }
+        ekgMemPoolSize <- liftIO $ Metrics.createGauge (pack "MemPoolSize") ekgStore
+        ekgMemPoolWaitTime <- liftIO $ Metrics.createGauge (pack "MemPoolWaitTime") ekgStore
+        ekgMemPoolModifyTime <- liftIO $ Metrics.createGauge (pack "MemPoolModifyTime") ekgStore
+        ekgMemPoolQueueLength <- liftIO $ Metrics.createGauge (pack "MemPoolQueueLength") ekgStore
+
+        -- An exponential moving average is used for the time gauges (wait
+        -- and modify durations). The parameter alpha is chosen somewhat
+        -- arbitrarily.
+        -- FIXME take alpha from configuration/CLI, or use a better
+        -- estimator.
+        let alpha :: Double
+            alpha = 0.75
+            txpMetrics = TxpMetrics
+                { txpMetricsWait = Metrics.Gauge.inc ekgMemPoolQueueLength
+
+                , txpMetricsAcquire = \timeWaited -> do
+                      Metrics.Gauge.dec ekgMemPoolQueueLength
+                      timeWaited' <- Metrics.Gauge.read ekgMemPoolWaitTime
+                      -- Assume a 0-value estimate means we haven't taken
+                      -- any samples yet.
+                      let new_ = if timeWaited' == 0
+                                then fromIntegral timeWaited
+                                else round $ alpha * fromIntegral timeWaited + (1 - alpha) * fromIntegral timeWaited'
+                      Metrics.Gauge.set ekgMemPoolWaitTime new_
+
+                , txpMetricsRelease = \timeElapsed memPoolSize -> do
+                      Metrics.Gauge.set ekgMemPoolSize (fromIntegral memPoolSize)
+                      timeElapsed' <- Metrics.Gauge.read ekgMemPoolModifyTime
+                      let new_ = if timeElapsed' == 0
+                                then fromIntegral timeElapsed
+                                else round $ alpha * fromIntegral timeElapsed + (1 - alpha) * fromIntegral timeElapsed'
+                      Metrics.Gauge.set ekgMemPoolModifyTime new_
+            }
 
         -- TODO [CSL-775] need an effect-free way of running this into IO.
         let runIO :: forall t . RealMode ssc t -> IO t

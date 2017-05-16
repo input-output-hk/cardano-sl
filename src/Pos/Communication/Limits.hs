@@ -144,12 +144,14 @@ instance MessageLimited (DataMsg GtMsgContents) where
         sharesLimit <-
             (MCShares <$> msgLenLimit <+>) <$>
             getMsgLenLimit (Proxy @InnerSharesMap)
+        -- 'succ' is used here, because 1 byte is spent on tag.
+        -- See 'instance Bi GtMsgContents'.
         return $
-            each %~ fmap DataMsg $
+            each %~ succ . fmap DataMsg $
             ( commLimit
-            , (MCOpening <$> msgLenLimit <+> msgLenLimit) + 1 -- TODO: investigate this '+ 1'
+            , MCOpening <$> msgLenLimit <+> msgLenLimit
             , sharesLimit
-            , (MCVssCertificate <$> msgLenLimit) + 1 -- TODO: investigate this '+ 1'
+            , MCVssCertificate <$> msgLenLimit
             )
 
 ----------------------------------------------------------------------------

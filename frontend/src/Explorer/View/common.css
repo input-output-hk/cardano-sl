@@ -97,13 +97,13 @@
   .amount {
     box-item: center;
 
-    padding: 5px 10px 5px 20px;
+    padding: 5px 20px 5px 10px;
     color: var(--color0);
     border-radius: 4px;
 
     background-color: var(--color10);
     background-repeat: no-repeat;
-    background-position: 7px center;
+    background-position: right 7px center;
     background-size: 8px 7px;
   }
 }
@@ -199,9 +199,9 @@
   }
 
   .plain-amount {
-    padding-left: 10px;
+    padding-right: 10px;
     background-repeat: no-repeat;
-    background-position: left center;
+    background-position: right center;
     background-size: 8px 7px;
   }
 

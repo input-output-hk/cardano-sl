@@ -11,7 +11,7 @@ import Prelude
 import Data.Array (length, null, slice)
 import Data.DateTime (diff)
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.String (take)
 import Data.Time.Duration (Milliseconds)
 import Explorer.I18n.Lang (Language, translate)
@@ -20,15 +20,15 @@ import Explorer.Lenses.State (blocksViewState, blsViewPagination, blsViewPaginat
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (State, CBlockEntries)
+import Explorer.Types.State (CBlockEntries, CCurrency(..), State)
 import Explorer.Util.Factory (mkEpochIndex)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
-import Explorer.View.Common (getMaxPaginationNumber, noData, paginationView)
+import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cbeBlkHash, cbeEpoch, cbeSlot, cbeBlockLead, cbeSize, cbeTotalSent, cbeTxNum)
-import Pux.Html (Html, div, text, h3, p) as P
+import Pux.Html (Html, div, text, span, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
 import Pux.Router (link) as P
 
@@ -120,30 +120,37 @@ blockRow state (CBlockEntry entry) =
         [ blockColumn { label: show $ entry ^. cbeEpoch
                       , mRoute: Just <<< Epoch <<< mkEpochIndex $ entry ^. cbeEpoch
                       , clazz: CSS.blocksColumnEpoch
+                      , mCurrency: Nothing
                       }
         , blockColumn { label: show $ entry ^. cbeSlot
                       , mRoute: Just <<< Block $ entry ^. cbeBlkHash
                       , clazz: CSS.blocksColumnSlot
+                      , mCurrency: Nothing
                       }
         , blockColumn { label: labelAge
                       , mRoute: Nothing
                       , clazz: CSS.blocksColumnAge
+                      , mCurrency: Nothing
                       }
         , blockColumn { label: show $ entry ^. cbeTxNum
                       , mRoute: Nothing
                       , clazz: CSS.blocksColumnTxs
+                      , mCurrency: Nothing
                       }
         , blockColumn { label: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
                       , mRoute: Nothing
                       , clazz: CSS.blocksColumnTotalSent
+                      , mCurrency: Just ADA
                       }
         , blockColumn { label: labelBlockLead
                       , mRoute: Nothing
                       , clazz: CSS.blocksColumnLead
+                      , mCurrency: Nothing
                       }
         , blockColumn { label: show $ entry ^. cbeSize
                       , mRoute: Nothing
                       , clazz: CSS.blocksColumnSize
+                      , mCurrency: Nothing
                       }
         ]
     where
@@ -156,6 +163,7 @@ blockRow state (CBlockEntry entry) =
 type BlockColumnProps =
     { label :: String
     , clazz :: String
+    , mCurrency :: Maybe CCurrency
     , mRoute :: Maybe Route
     }
 
@@ -167,6 +175,13 @@ blockColumn props =
     in
     tag
         [ P.className props.clazz ]
+        if isJust props.mCurrency
+        then
+        [ P.span
+          [ P.className $ currencyCSSClass props.mCurrency ]
+          [ P.text props.label ]
+        ]
+        else
         [ P.text props.label ]
 
 type BlocksHeaderProps =

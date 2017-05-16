@@ -180,8 +180,7 @@ instance MessageLimitedPure UpdateVote where
 instance MessageLimitedPure (DataMsg UpdateVote) where
     msgLenLimit = DataMsg <$> msgLenLimit
 
-instance MessageLimited (DataMsg UpdateVote) where
-    getMsgLenLimit _ = return msgLenLimit
+instance MessageLimited (DataMsg UpdateVote)
 
 instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
     getMsgLenLimit _ = do

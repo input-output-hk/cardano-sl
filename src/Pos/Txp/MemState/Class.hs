@@ -100,8 +100,12 @@ modifyTxpLocalData
     => (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext)) -> m a
 modifyTxpLocalData f =
     askTxpMemAndMetrics >>= \(TxpLocalData{..}, TxpMetrics{..}) -> do
+        timeBeginWait <- currentTime
+        liftIO txpMetricsWait
         _ <- takeMVar txpLocalDataLock
-        beginTime <- currentTime
+        timeEndWait <- currentTime
+        liftIO $ txpMetricsAcquire (timeEndWait - timeBeginWait)
+        timeBeginModify <- currentTime
         (res, newSize) <- atomically $ do
             curUM  <- STM.readTVar txpUtxoModifier
             curMP  <- STM.readTVar txpMemPool
@@ -116,12 +120,9 @@ modifyTxpLocalData f =
             STM.writeTVar txpTip newTip
             STM.writeTVar txpExtra newExtra
             pure (res, _mpLocalTxsSize newMP)
-        endTime <- currentTime
-        let duration = endTime - beginTime
-        logDebug $ sformat ("modifyTxpLocalData took " % shown) duration
-        liftIO $ snd txpMetricsMemPoolSize newSize
-        liftIO $ snd txpMetricsModifyTime duration
+        timeEndModify <- currentTime
         putMVar txpLocalDataLock ()
+        liftIO $ txpMetricsRelease (timeEndModify - timeBeginModify) newSize
         pure res
 
 setTxpLocalData

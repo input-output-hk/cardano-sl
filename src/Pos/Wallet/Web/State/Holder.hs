@@ -6,17 +6,16 @@ module Pos.Wallet.Web.State.Holder
        , getWalletState
        ) where
 
-import qualified Control.Monad.Ether        as Ether.E
-import           Pos.Wallet.Web.State.State (WalletState, WalletWebDBTag,
-                                             getWalletWebState)
+import qualified Ether
+import           Pos.Wallet.Web.State.State (WalletState, getWalletWebState)
 import           Universum
 
 -- | Holder for web wallet data
-type WalletWebDB = Ether.E.ReaderT WalletWebDBTag WalletState
+type WalletWebDB = Ether.ReaderT' WalletState
 
 -- | Execute `WalletWebDB` action with given `WalletState`
 runWalletWebDB :: WalletState -> WalletWebDB m a -> m a
-runWalletWebDB = flip $ Ether.E.runReaderT (Proxy @WalletWebDBTag)
+runWalletWebDB = flip $ Ether.runReaderT
 
 getWalletState :: Monad m => WalletWebDB m WalletState
 getWalletState = getWalletWebState

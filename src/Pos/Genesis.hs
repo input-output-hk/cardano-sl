@@ -120,6 +120,7 @@ genesisDevHdwAccountSecretKeys :: [EncryptedSecretKey]
 genesisDevHdwAccountSecretKeys =
     genesisDevHdwSecretKeys <&> \key ->
         snd $
+        fromMaybe (error "Passphrase doesn't match in Genesis") $
         deriveLvl2KeyPair
             emptyPassphrase
             key

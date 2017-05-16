@@ -46,14 +46,15 @@ module Pos.Wallet.Web.State.State
        , removeWSet
        , removeWallet
        , removeAccount
+       , totallyRemoveAccount
        , addUpdate
        , removeNextUpdate
        , updateHistoryCache
        ) where
 
-import qualified Control.Monad.Ether          as Ether.E
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent)
+import qualified Ether
 import           Mockable                     (MonadMockable)
 import           Universum
 
@@ -72,10 +73,10 @@ import           Pos.Wallet.Web.State.Storage (AccountLookupMode (..), WalletSto
 data WalletWebDBTag
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
-type MonadWalletWebDB = Ether.E.MonadReader WalletWebDBTag WalletState
+type MonadWalletWebDB = Ether.MonadReader' WalletState
 
 getWalletWebState :: MonadWalletWebDB m => m WalletState
-getWalletWebState = Ether.E.ask (Proxy @WalletWebDBTag)
+getWalletWebState = Ether.ask'
 
 -- | Constraint for working with web wallet DB
 type WebWalletModeDB m = (MonadWalletWebDB m, MonadIO m, MonadMockable m)
@@ -186,6 +187,9 @@ removeWallet = updateDisk . A.RemoveWallet
 
 removeAccount :: WebWalletModeDB m => CAccountAddress -> m ()
 removeAccount = updateDisk . A.RemoveAccount
+
+totallyRemoveAccount :: WebWalletModeDB m => CAccountAddress -> m ()
+totallyRemoveAccount = updateDisk . A.TotallyRemoveAccount
 
 addUpdate :: WebWalletModeDB m => CUpdateInfo -> m ()
 addUpdate = updateDisk . A.AddUpdate

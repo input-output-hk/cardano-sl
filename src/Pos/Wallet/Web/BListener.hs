@@ -26,7 +26,7 @@ import           Pos.Types                  (HeaderHash, blockTxas, headerHash,
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier          as MM
 
-import           Pos.Wallet.KeyStorage      (MonadKeys (..))
+import           Pos.Wallet.KeyStorage      (MonadKeys)
 import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
 import           Pos.Wallet.Web.ClientTypes (CAddress, WS)
 import           Pos.Wallet.Web.State       (WalletWebDB)

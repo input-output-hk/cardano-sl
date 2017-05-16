@@ -39,13 +39,15 @@ import qualified Data.HashMap.Strict        as HM
 import           Data.List.NonEmpty         ((<|))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text                  as T
+import qualified Ether
 import           Formatting                 (build, int, ords, sformat, stext, (%))
 import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (toBytes)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
                                              isVerSuccess, verResToMonadError)
-import           System.Wlog                (CanLog, HasLoggerName, logDebug, logInfo)
+import           System.Wlog                (CanLog, HasLoggerName, logDebug, logError,
+                                             logInfo)
 import           Universum
 
 import qualified Pos.Binary.Class           as Bi
@@ -60,9 +62,7 @@ import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
                                              epochSlots, lastKnownBlockVersion,
                                              recoveryHeadersMessage, slotSecurityParam)
-import           Pos.Context                (NodeContext (ncNodeParams, ncTxpGlobalSettings),
-                                             getNodeContext, lrcActionOnEpochReason,
-                                             npSecretKey)
+import           Pos.Context                (lrcActionOnEpochReason, npSecretKey)
 import           Pos.Core                   (BlockVersion (..), EpochIndex, HeaderHash,
                                              diffEpochOrSlot)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
@@ -72,19 +72,21 @@ import           Pos.DB                     (DBError (..), MonadDB, MonadDBCore)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
-import           Pos.Delegation.Logic       (delegationVerifyBlocks, getProxyMempool)
+import           Pos.Delegation.Logic       (clearProxyMemPool, delegationVerifyBlocks,
+                                             getProxyMempool)
 import           Pos.Exception              (assertionFailed, reportFatalError)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
-import           Pos.Reporting              (reportingFatal)
+import           Pos.Reporting              (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Slotting.Class         (getCurrentSlot)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
-import           Pos.Ssc.Extra              (sscGetLocalPayload, sscVerifyBlocks)
+import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal,
+                                             sscVerifyBlocks)
 import           Pos.Txp.Core               (TxAux, TxId, TxPayload, mkTxPayload,
                                              topsortTxs)
-import           Pos.Txp.MemState           (getLocalTxsNUndo)
+import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxsNUndo)
 import           Pos.Txp.Settings           (TxpBlock, TxpGlobalSettings (..))
 import           Pos.Types                  (Block, BlockHeader, EpochOrSlot (..),
                                              GenesisBlock, IsGenesisHeader, IsMainHeader,
@@ -99,15 +101,14 @@ import           Pos.Types                  (Block, BlockHeader, EpochOrSlot (..
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
-import           Pos.Update.Logic           (usCanCreateBlock, usPreparePayload,
-                                             usVerifyBlocks)
+import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
+                                             usPreparePayload, usVerifyBlocks)
 import           Pos.Update.Poll            (PollModifier)
-import           Pos.Util                   (Some (Some), inAssertMode, maybeThrow,
-                                             neZipWith3, spanSafe, _neHead, _neLast)
+import           Pos.Util                   (Some (Some), maybeThrow, neZipWith3,
+                                             spanSafe, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
                                              toNewestFirst, toOldestFirst)
-import           Pos.Util.LogSafe           (logDebugS, logInfoS)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 ----------------------------------------------------------------------------
 -- Common
@@ -500,7 +501,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
         (Just leaders) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
-    TxpGlobalSettings {..} <- ncTxpGlobalSettings <$> getNodeContext
+    TxpGlobalSettings {..} <- Ether.ask'
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
         map toTxpBlock blocks
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
@@ -774,7 +775,7 @@ createMainBlock sId pSk =
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
         tipHeader <- DB.getTipBlockHeader
-        logInfoS $ sformat msgFmt tipHeader
+        logInfo $ sformat msgFmt tipHeader
         canWrtUs <- usCanCreateBlock
         case (canCreateBlock sId tipHeader, canWrtUs) of
             (_, False) ->
@@ -797,6 +798,9 @@ canCreateBlock sId tipHeader
         si {siSlot = min (epochSlots - 1) (siSlot si + slotSecurityParam)}
     maxSlotId = addSafe $ epochOrSlot (`SlotId` 0) identity headSlot
 
+-- Create main block and apply it, if block passed checks,
+-- otherwise clear mem pools and try again.
+-- Returns valid block or fail.
 -- Here we assume that blkSemaphore has been taken.
 createMainBlockFinish
     :: forall ssc m.
@@ -806,39 +810,64 @@ createMainBlockFinish
     -> BlockHeader ssc
     -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish slotId pSk prevHeader = do
-    (localTxs, txUndo) <- getLocalTxsNUndo
-    sscData <- sscGetLocalPayload @ssc slotId
-    usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
-    (localPSKs, pskUndo) <- lift getProxyMempool
-    let convertTx (txId, (tx, _, _)) = WithHash tx txId
-    sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
-    sk <- npSecretKey . ncNodeParams <$> getNodeContext
-    -- for now let's be cautious and not generate blocks that are larger than
-    -- maxBlockSize/4
-    sizeLimit <- fromIntegral . toBytes . (`div` 4) <$> UDB.getMaxBlockSize
-    blk <- createMainBlockPure sizeLimit prevHeader sortedTxs pSk
-                  slotId localPSKs sscData usPayload sk
-    let prependToUndo undos tx =
-            fromMaybe (error "Undo for tx not found")
-                      (HM.lookup (fst tx) txUndo) : undos
-    lift $ inAssertMode $ verifyBlocksPrefix (one (Right blk)) >>= \case
-        Left err ->
-            assertionFailed $ sformat ("We've created bad block: "%stext) err
-        Right _ -> pass
-    (pModifier, verUndo) <-
-        runExceptT (usVerifyBlocks False (one (toUpdateBlock (Right blk)))) >>= \case
-            Left _ ->
-                throwError "Couldn't get pModifier while creating MainBlock"
-            Right o -> pure o
-    let blockUndo = Undo (reverse $ foldl' prependToUndo [] sortedTxs)
-                         pskUndo
-                         (verUndo ^. _Wrapped . _neHead)
-    evaluateNF_ (blockUndo, blk)
-    logDebugS "Created main block/undos, applying"
-    lift $ blk <$ applyBlocksUnsafe (one (Right blk, blockUndo)) (Just pModifier)
+    unchecked@(uncheckedBlock, _, _) <- createBlundFromMemPool
+    (block, undo, pModifier) <-
+        verifyCreatedBlock uncheckedBlock >>=
+        either fallbackCreateBlock (const $ pure unchecked)
+    logDebug "Created main block/undos, applying"
+    lift $ block <$ applyBlocksUnsafe (one (Right block, undo)) (Just pModifier)
   where
+    createBlundFromMemPool :: ExceptT Text m (MainBlock ssc, Undo, PollModifier)
+    createBlundFromMemPool = do
+        -- Get MemPool
+        (localTxs, txUndo) <- getLocalTxsNUndo
+        sscData <- sscGetLocalPayload @ssc slotId
+        usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
+        (localPSKs, pskUndo) <- lift getProxyMempool
+        -- Create block
+        let convertTx (txId, (tx, _, _)) = WithHash tx txId
+        sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
+        sk <- Ether.asks' npSecretKey
+        -- for now let's be cautious and not generate blocks that are larger than
+        -- maxBlockSize/4
+        sizeLimit <- fromIntegral . toBytes . (`div` 4) <$> UDB.getMaxBlockSize
+        block <- createMainBlockPure
+                     sizeLimit prevHeader sortedTxs pSk
+                     slotId localPSKs sscData usPayload sk
+        -- Create undo
+        (pModifier, verUndo) <-
+            runExceptT (usVerifyBlocks False (one (toUpdateBlock (Right block)))) >>=
+            either (const $ throwError "Couldn't get pModifier while creating MainBlock") pure
+        undo <- Undo <$> (reverse <$> foldM (prependToUndo txUndo) [] sortedTxs)
+                     <*> pure pskUndo
+                     <*> pure (verUndo ^. _Wrapped . _neHead)
+        () <- (undo `deepseq` block) `deepseq` pure ()
+        pure (block, undo, pModifier)
     onBrokenTopo = throwError "Topology of local transactions is broken!"
+    onAbsentUndo = throwError "Undo for tx from local transactions not found"
     onNoUS = "can't obtain US payload to create block"
+    prependToUndo txUndo undos tx =
+        case (:undos) <$> HM.lookup (fst tx) txUndo of
+            Just res -> pure res
+            Nothing  -> onAbsentUndo
+    verifyCreatedBlock :: MainBlock ssc -> ExceptT Text m (Either Text ())
+    verifyCreatedBlock block = lift $ void <$> verifyBlocksPrefix (one (Right block))
+    clearMempools = do
+        clearTxpMemPool
+        sscResetLocal
+        clearUSMemPool
+        clearProxyMemPool
+    fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
+    fallbackCreateBlock er = do
+        logError $ sformat ("We've created bad main block: "%stext) er
+        lift $ reportMisbehaviourMasked version $
+            sformat ("We've created bad main block: "%build) er
+        logDebug $ "Creating empty block"
+        clearMempools
+        emptyBlund@(emptyBlock, _, _) <- createBlundFromMemPool
+        verifyCreatedBlock emptyBlock >>=
+            either (assertionFailed . sformat ("We couldn't create even block with empty payload: "%stext))
+            (const $ pure emptyBlund)
 
 createMainBlockPure
     :: (MonadError Text m, SscHelpersClass ssc)

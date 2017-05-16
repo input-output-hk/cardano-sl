@@ -9,20 +9,22 @@ module Pos.Delegation.Methods
        , sendProxyConfirmSKOuts
        ) where
 
+import           Universum
+
+import qualified Ether
 import           Formatting                 (build, sformat, (%))
 import           System.Wlog                (logDebug)
-import           Universum
 
 import           Pos.Binary.Communication   ()
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (Action', OutSpecs, oneMsgH, toOutSpecs)
-import           Pos.Context                (getNodeContext, ncNodeParams, npSecretKey)
+import           Pos.Context                (NodeParams, npSecretKey)
 import           Pos.Crypto                 (SignTag (SignProxySK), proxySign)
 import           Pos.Delegation.Types       (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.Discovery.Broadcast    (sendToNeighbors)
 import           Pos.Discovery.Class        (MonadDiscovery)
 import           Pos.Types                  (ProxySKHeavy, ProxySKLight)
-import           Pos.WorkMode               (MinWorkMode, WorkMode)
+import           Pos.WorkMode.Class         (MinWorkMode, WorkMode)
 
 -- | Sends epoch psk to neighbours
 sendProxySKLight
@@ -55,7 +57,7 @@ sendProxyConfirmSK
 sendProxyConfirmSK psk = \sendActions -> do
     logDebug $
         sformat ("Generating delivery proof and propagating it to neighbors: "%build) psk
-    sk <- npSecretKey . ncNodeParams <$> getNodeContext
+    sk <- npSecretKey <$> Ether.ask @NodeParams
     let proof = proxySign SignProxySK sk psk psk -- but still proving is
                                                  -- nothing but fear
     sendToNeighbors sendActions $ ConfirmProxySK psk proof

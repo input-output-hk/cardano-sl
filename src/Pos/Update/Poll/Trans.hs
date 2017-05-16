@@ -9,30 +9,28 @@ module Pos.Update.Poll.Trans
        , execPollT
        ) where
 
-import           Control.Lens                 (uses, (%=), (.=))
-import qualified Control.Monad.Ether.Implicit as Ether
-import           Control.Monad.State          (MonadState (..))
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.HashSet                 as HS
-import           System.Wlog                  (logWarning)
+import           Control.Lens          (uses, (%=), (.=))
+import           Control.Monad.State   (MonadState (..))
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.HashSet          as HS
+import qualified Ether
+import           System.Wlog           (logWarning)
 import           Universum
 
-import           Pos.Binary.Update            ()
-import           Pos.Core                     (addressHash)
-import           Pos.Crypto                   (hash)
-import           Pos.Types                    (SoftwareVersion (..))
-import           Pos.Update.Core              (UpdateProposal (..))
-import           Pos.Update.Poll.Class        (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Types        (BlockVersionState (..),
-                                               DecidedProposalState (..),
-                                               PollModifier (..), ProposalState (..),
-                                               UndecidedProposalState (..),
-                                               cpsSoftwareVersion, pmActivePropsL,
-                                               pmAdoptedBVFullL, pmBVsL, pmConfirmedL,
-                                               pmConfirmedPropsL, pmEpochProposersL,
-                                               pmSlottingDataL, psProposal)
-import           Pos.Util                     (ether)
-import qualified Pos.Util.Modifier            as MM
+import           Pos.Binary.Update     ()
+import           Pos.Core              (addressHash)
+import           Pos.Crypto            (hash)
+import           Pos.Types             (SoftwareVersion (..))
+import           Pos.Update.Core       (UpdateProposal (..))
+import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
+                                        PollModifier (..), ProposalState (..),
+                                        UndecidedProposalState (..), cpsSoftwareVersion,
+                                        pmActivePropsL, pmAdoptedBVFullL, pmBVsL,
+                                        pmConfirmedL, pmConfirmedPropsL,
+                                        pmEpochProposersL, pmSlottingDataL, psProposal)
+import           Pos.Util              (ether)
+import qualified Pos.Util.Modifier     as MM
 
 ----------------------------------------------------------------------------
 -- Tranformer
@@ -43,20 +41,20 @@ import qualified Pos.Util.Modifier            as MM
 --
 -- [WARNING] This transformer uses StateT and is intended for
 -- single-threaded usage only.
-type PollT = Ether.StateT PollModifier
+type PollT = Ether.LazyStateT' PollModifier
 
 ----------------------------------------------------------------------------
 -- Runners
 ----------------------------------------------------------------------------
 
 runPollT :: PollModifier -> PollT m a -> m (a, PollModifier)
-runPollT = flip Ether.runStateT
+runPollT = flip Ether.runLazyStateT
 
 evalPollT :: Monad m => PollModifier -> PollT m a -> m a
-evalPollT = flip Ether.evalStateT
+evalPollT = flip Ether.evalLazyStateT
 
 execPollT :: Monad m => PollModifier -> PollT m a -> m PollModifier
-execPollT = flip Ether.execStateT
+execPollT = flip Ether.execLazyStateT
 
 ----------------------------------------------------------------------------
 -- MonadPoll

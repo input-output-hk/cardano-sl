@@ -14,6 +14,7 @@ import           Control.Monad.Catch        (bracketOnError)
 import           Control.Monad.STM          (retry)
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
+import qualified Ether
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (forConcurrently)
 import           Paths_cardano_sl           (version)
@@ -49,8 +50,7 @@ import           Pos.Update.DB              (getCompetingBVStates)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
 import           Pos.Util                   (logWarningWaitLinear, maybeThrow)
 import           Pos.Util.Chrono            (NewestFirst (..), toOldestFirst)
-import           Pos.Util.Context           (askContext)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m, MonadDBCore m)
@@ -84,7 +84,7 @@ lrcSingleShotImpl
     :: (WorkMode ssc m, MonadDBCore m)
     => Bool -> EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl withSemaphore epoch consumers = do
-    lock <- askContext @LrcContext lcLrcSync
+    lock <- Ether.asks' lcLrcSync
     tryAcquireExclusiveLock epoch lock onAcquiredLock
   where
     onAcquiredLock = do

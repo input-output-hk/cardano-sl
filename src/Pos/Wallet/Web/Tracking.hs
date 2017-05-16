@@ -22,10 +22,11 @@ import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
+import qualified Ether
 import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Pure             (genesisHash)
 import           Pos.Block.Types            (Blund, undoTx)
-import           Pos.Context                (WithNodeContext)
+import           Pos.Context                (BlkSemaphore)
 import           Pos.Core                   (HasDifficulty (..))
 import           Pos.Core.Address           (AddrPkAttrs (..), Address (..),
                                              makePubKeyAddress)
@@ -62,7 +63,7 @@ type CAccModifier = MM.MapModifier CAccountAddress ()
 type BlockLockMode ssc m =
     ( SscHelpersClass ssc
     , WithLogger m
-    , WithNodeContext ssc m
+    , Ether.MonadReader' BlkSemaphore m
     , MonadDB m
     , MonadMask m)
 
@@ -83,8 +84,8 @@ instance {-# OVERLAPPABLE #-}
 
 instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
          => MonadWalletTracking (WalletWebDB m) where
-    syncWSetsAtStart = syncWSetsWithGStateLock
-    syncOnImport = selectAccountsFromUtxoLock . pure
+    syncWSetsAtStart = syncWSetsWithGStateLock @WalletSscType
+    syncOnImport = selectAccountsFromUtxoLock @WalletSscType . pure
     txMempoolToModifier encSK = do
         let wHash (i, (t, _, _)) = WithHash t i
         txs <- getLocalTxs

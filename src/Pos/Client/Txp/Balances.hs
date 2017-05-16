@@ -4,28 +4,35 @@ module Pos.Client.Txp.Balances
        ( MonadBalances(..)
        , getOwnUtxo
        , getBalanceFromUtxo
+       , BalancesRedirect
+       , runBalancesRedirect
        ) where
 
 import           Universum
 
-import           Control.Monad.Trans    (MonadTrans)
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.HashSet           as HS
-import qualified Data.Map               as M
-import           Formatting             (sformat, stext, (%))
-import           System.Wlog            (WithLogger, logWarning)
+import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
+import qualified Data.HashMap.Strict          as HM
+import qualified Data.HashSet                 as HS
+import qualified Data.Map                     as M
+import qualified Ether
+import           Formatting                   (sformat, stext, (%))
+import           System.Wlog                  (WithLogger, logWarning)
 
-import           Pos.Crypto             (WithHash (..), shortHashF)
-import           Pos.DB                 (MonadDB)
-import qualified Pos.DB.GState          as GS
-import qualified Pos.DB.GState.Balances as GS
-import           Pos.Txp                (GenericToilModifier (..), TxOutAux (..),
-                                         TxpHolder, Utxo, addrBelongsToSet, applyToil,
-                                         getLocalTxsNUndo, getUtxoModifier, runToilAction,
-                                         topsortTxs, txOutValue, _bvStakes)
-import           Pos.Types              (Address (..), AddressIgnoringAttributes (..),
-                                         Coin, mkCoin, sumCoins, unsafeIntegerToCoin)
-import qualified Pos.Util.Modifier      as MM
+import           Pos.Core                     (AddressIgnoringAttributes (AddressIA))
+import           Pos.Crypto                   (WithHash (..), shortHashF)
+import           Pos.DB                       (MonadDB)
+import qualified Pos.DB.GState                as GS
+import qualified Pos.DB.GState.Balances       as GS
+import           Pos.Txp                      (GenericToilModifier (..), MonadTxpMem,
+                                               TxOutAux (..), Utxo, addrBelongsToSet,
+                                               applyToil, getLocalTxsNUndo,
+                                               getUtxoModifier, runToilAction, topsortTxs,
+                                               txOutValue, _bvStakes)
+import           Pos.Types                    (Address (..), Coin, mkCoin, sumCoins,
+                                               unsafeIntegerToCoin)
+import qualified Pos.Util.Modifier            as MM
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -49,10 +56,18 @@ getBalanceFromUtxo addr =
     unsafeIntegerToCoin . sumCoins .
     map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
 
-getOwnUtxo :: MonadBalances m => Address -> m Utxo
-getOwnUtxo = getOwnUtxos . one
+data BalancesRedirectTag
 
-instance (MonadDB m, MonadMask m, WithLogger m) => MonadBalances (TxpHolder __ m) where
+type BalancesRedirect =
+    Ether.TaggedTrans BalancesRedirectTag IdentityT
+
+runBalancesRedirect :: BalancesRedirect m a -> m a
+runBalancesRedirect = coerce
+
+instance
+    (MonadDB m, MonadMask m, WithLogger m, MonadTxpMem ext m, t ~ IdentityT) =>
+        MonadBalances (Ether.TaggedTrans BalancesRedirectTag t m)
+  where
     getOwnUtxos addr = do
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoModifier
@@ -81,3 +96,6 @@ instance (MonadDB m, MonadMask m, WithLogger m) => MonadBalances (TxpHolder __ m
                          " using mempool, reason: "%stext) addrKeyHash er
         getFromDb = fromMaybe (mkCoin 0) <$> GS.getRealStake addrKeyHash
     getBalance addr = getBalanceFromUtxo addr
+
+getOwnUtxo :: MonadBalances m => Address -> m Utxo
+getOwnUtxo = getOwnUtxos . one

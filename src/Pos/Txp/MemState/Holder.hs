@@ -3,13 +3,12 @@
 -- | Monad transformer which implements MonadTxpMem based on ReaderT.
 
 module Pos.Txp.MemState.Holder
-       ( TxpHolder
+       ( TxpHolderTag
+       , GenericTxpLocalData
        , mkTxpLocalData
-       , runTxpHolder
        ) where
 
 import qualified Control.Concurrent.STM as STM
-import qualified Control.Monad.Ether    as Ether.E
 import           Data.Default           (Default (def))
 import           Universum
 
@@ -23,8 +22,6 @@ import           Pos.Txp.Toil.Types     (UtxoModifier)
 -- Holder
 ----------------------------------------------------------------------------
 
-type TxpHolder ext = Ether.E.ReaderT TxpHolderTag (GenericTxpLocalData ext)
-
 mkTxpLocalData
     :: (Default e, MonadIO m)
     => UtxoModifier -> HeaderHash -> m (GenericTxpLocalData e)
@@ -34,6 +31,3 @@ mkTxpLocalData uv initTip = TxpLocalData
     <*> liftIO (STM.newTVarIO mempty)
     <*> liftIO (STM.newTVarIO initTip)
     <*> liftIO (STM.newTVarIO def)
-
-runTxpHolder :: GenericTxpLocalData ext -> TxpHolder ext m a -> m a
-runTxpHolder = flip (Ether.E.runReaderT (Proxy @TxpHolderTag))

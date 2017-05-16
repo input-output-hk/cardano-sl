@@ -9,7 +9,7 @@ import           System.Wlog                (WithLogger)
 
 import           Pos.Communication.Protocol (ListenerSpec, OutSpecs)
 import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 
 -- | Class for defining listeners in DHT @SSC@ implementation.

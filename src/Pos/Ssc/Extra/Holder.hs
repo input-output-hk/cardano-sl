@@ -4,15 +4,14 @@
 -- | Monad transformer which stores SSC data.
 
 module Pos.Ssc.Extra.Holder
-       ( SscHolder
-       , mkSscHolderState
-       , mkStateAndRunSscHolder
-       , runSscHolder
-       , ignoreSscHolder
+       ( SscMemTag
+       , SscState
+       , mkSscState
+       , bottomSscState
        ) where
 
 import qualified Control.Concurrent.STM  as STM
-import qualified Control.Monad.Ether     as Ether.E
+import qualified Ether
 import           System.Wlog             (WithLogger)
 import           Universum
 
@@ -23,57 +22,21 @@ import           Pos.Ssc.Class.LocalData (SscLocalDataClass (sscNewLocalData))
 import           Pos.Ssc.Class.Storage   (SscGStateClass (sscLoadGlobalState))
 import           Pos.Ssc.Extra.Class     (SscMemTag)
 import           Pos.Ssc.Extra.Types     (SscState (..))
-import           Pos.Util.Context        (HasContext)
 
-type SscHolder ssc = Ether.E.ReaderT SscMemTag (SscState ssc)
-
--- | Run 'SscHolder' reading GState from DB (restoring from blocks)
--- and using default (uninitialized) local state.
-runSscHolder
-    :: forall ssc m a.
-       ( --WithLogger m
-       --, WithNodeContext ssc m
-       --, SscGStateClass ssc
-       --, SscLocalDataClass ssc
-       --, MonadDB m
-       --, MonadSlots m
-       )
-    => SscState ssc
-    -> SscHolder ssc m a
-    -> m a
-runSscHolder st holder = Ether.E.runReaderT (Proxy @SscMemTag) holder st
-
-mkStateAndRunSscHolder
-    :: forall ssc m a.
-       ( WithLogger m
-       , HasContext LrcContext m
-       , SscGStateClass ssc
-       , SscLocalDataClass ssc
-       , MonadDB m
-       , MonadSlots m
-       )
-    => SscHolder ssc m a
-    -> m a
-mkStateAndRunSscHolder holder = do
-    st <- mkSscHolderState
-    runSscHolder st holder
-
-mkSscHolderState
+mkSscState
     :: forall ssc m .
        ( WithLogger m
-       , HasContext LrcContext m
+       , Ether.MonadReader' LrcContext m
        , SscGStateClass ssc
        , SscLocalDataClass ssc
        , MonadDB m
        , MonadSlots m
        )
     => m (SscState ssc)
-mkSscHolderState = do
+mkSscState = do
     gState <- sscLoadGlobalState @ssc
     ld <- sscNewLocalData @ssc
     liftIO $ SscState <$> STM.newTVarIO gState <*> STM.newTVarIO ld
 
-ignoreSscHolder :: SscHolder ssc m a -> m a
-ignoreSscHolder holder =
-    Ether.E.runReaderT (Proxy @SscMemTag)
-        holder (error "SSC var: don't force me")
+bottomSscState :: SscState ssc
+bottomSscState = error "SSC var: don't force me"

@@ -7,11 +7,13 @@ module Pos.Block.Network.Announce
        , handleHeadersCommunication
        ) where
 
+import           Universum
+
 import           Data.Reflection            (Reifies)
+import qualified Ether
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (throw)
 import           System.Wlog                (logDebug)
-import           Universum
 
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic            (getHeadersFromManyTo)
@@ -22,7 +24,7 @@ import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (ConversationActions (..), NodeId (..),
                                              OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
-import           Pos.Context                (getNodeContext, ncNodeParams, npAttackTypes,
+import           Pos.Context                (NodeParams, npAttackTypes,
                                              recoveryInProgress)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.Block               as DB
@@ -32,7 +34,7 @@ import           Pos.Security               (AttackType (..), NodeAttackedError 
                                              shouldIgnoreAddress)
 import           Pos.Types                  (MainBlockHeader, headerHash)
 import           Pos.Util.TimeWarp          (nodeIdToAddress)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 announceBlockOuts :: OutSpecs
 announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy (MsgHeaders ssc))
@@ -44,13 +46,13 @@ announceBlock
     => SendActions m -> MainBlockHeader ssc -> m ()
 announceBlock sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    cont <- getNodeContext
+    nodeParams <- Ether.ask @NodeParams
     let throwOnIgnored (NodeId (_, nId)) =
             whenJust (nodeIdToAddress nId) $ \addr ->
-                when (shouldIgnoreAddress cont addr) $
+                when (shouldIgnoreAddress nodeParams addr) $
                 throw AttackNoBlocksTriggered
         sendActions' =
-            if AttackNoBlocks `elem` npAttackTypes (ncNodeParams cont)
+            if AttackNoBlocks `elem` npAttackTypes nodeParams
                 then sendActions
                      { sendTo =
                            \nId msg -> do

@@ -114,12 +114,12 @@ createHDAddressH
     -> EncryptedSecretKey
     -> [Word32]
     -> Word32
-    -> (Address, EncryptedSecretKey)
+    -> Maybe (Address, EncryptedSecretKey)
 createHDAddressH passphrase walletPassphrase parent parentPath childIndex = do
-    let derivedSK = deriveHDSecretKey passphrase parent childIndex
+    derivedSK <- deriveHDSecretKey passphrase parent childIndex
     let addressPayload = packHDAddressAttr walletPassphrase $ parentPath ++ [childIndex]
     let pk = encToPublic derivedSK
-    (makePubKeyHdwAddress addressPayload pk, derivedSK)
+    return (makePubKeyHdwAddress addressPayload pk, derivedSK)
 
 -- | Create address from public key via non-hardened way.
 createHDAddressNH :: HDPassphrase -> PublicKey -> [Word32] -> Word32 -> (Address, PublicKey)

@@ -1,50 +1,46 @@
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | 'MonadSlots' implementation which uses Ntp servers.
 
 module Pos.Slotting.Ntp
        ( NtpSlottingState
        , NtpSlottingVar
-
-       , NtpSlotting
        , askNtpSlotting
        , askFullNtpSlotting
        , mkNtpSlottingVar
-       , runNtpSlotting
+       , SlotsRedirect
+       , runSlotsRedirect
        ) where
 
-import qualified Control.Concurrent.STM           as STM
-import           Control.Lens                     (makeLenses)
-import qualified Control.Monad.Ether.Implicit     as Ether
-import           Control.Monad.Reader             (withReaderT)
-import           Control.Monad.Trans.Control      (MonadBaseControl)
-import           Control.Monad.Trans.Ether.Tagged (TaggedTrans (..))
-import           Data.List                        ((!!))
-import           Data.Time.Units                  (Microsecond, convertUnit)
-import           Formatting                       (int, sformat, shown, stext, (%))
-import           Mockable                         (Catch, CurrentTime, Delay, Fork,
-                                                   Mockables, Throw, currentTime, delay)
-import           NTP.Client                       (NtpClientSettings (..), ntpSingleShot,
-                                                   startNtpClient)
-import           NTP.Example                      ()
-import           Serokell.Util                    (sec)
-import           System.Wlog                      (WithLogger, logDebug, logInfo,
-                                                   logWarning)
+import qualified Control.Concurrent.STM       as STM
+import           Control.Lens                 (makeLenses)
+import           Control.Monad.Trans.Control  (MonadBaseControl)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
+import           Data.List                    ((!!))
+import           Data.Time.Units              (Microsecond, convertUnit)
+import qualified Ether
+import           Formatting                   (int, sformat, shown, stext, (%))
+import           Mockable                     (Catch, CurrentTime, Delay, Fork, Mockables,
+                                               Throw, currentTime, delay)
+import           NTP.Client                   (NtpClientSettings (..), ntpSingleShot,
+                                               startNtpClient)
+import           NTP.Example                  ()
+import           Serokell.Util                (sec)
+import           System.Wlog                  (WithLogger, logDebug, logInfo, logWarning)
 import           Universum
 
-import qualified Pos.Core.Constants               as C
-import           Pos.Core.Slotting                (flattenEpochIndex, unflattenSlotId)
-import           Pos.Core.Types                   (EpochIndex, SlotId (..),
-                                                   Timestamp (..))
+import qualified Pos.Core.Constants           as C
+import           Pos.Core.Slotting            (flattenEpochIndex, unflattenSlotId)
+import           Pos.Core.Types               (EpochIndex, SlotId (..), Timestamp (..))
 
-import           Pos.Slotting.Class               (MonadSlots (..))
-import qualified Pos.Slotting.Constants           as C
-import           Pos.Slotting.MemState.Class      (MonadSlotsData (..))
-import           Pos.Slotting.Types               (EpochSlottingData (..),
-                                                   SlottingData (..))
-
+import           Pos.Slotting.Class           (MonadSlots (..))
+import qualified Pos.Slotting.Constants       as C
+import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
+import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData (..))
 ----------------------------------------------------------------------------
 -- State
 ----------------------------------------------------------------------------
@@ -69,22 +65,15 @@ makeLenses ''NtpSlottingState
 -- Transformer
 ----------------------------------------------------------------------------
 
--- | Monad transformer which implements NTP-based solution for slotting.
+-- | Monad which implements NTP-based solution for slotting.
 -- Flag means whether to use real NTP servers or rely on local time.
-type NtpSlotting = Ether.ReaderT (Bool, NtpSlottingVar)
-
-type RealNtpSlotting = Ether.ReaderT NtpSlottingVar
-
-type MonadNtpSlotting = Ether.MonadReader (Bool, NtpSlottingVar)
+type MonadNtpSlotting = Ether.MonadReader' (Bool, NtpSlottingVar)
 
 askNtpSlotting :: MonadNtpSlotting m => m NtpSlottingVar
-askNtpSlotting = Ether.asks @(Bool, NtpSlottingVar) snd
+askNtpSlotting = Ether.asks' @(Bool, NtpSlottingVar) snd
 
 askFullNtpSlotting :: MonadNtpSlotting m => m (Bool, NtpSlottingVar)
-askFullNtpSlotting = Ether.ask
-
-askRealNtpSlotting :: Monad m => RealNtpSlotting m NtpSlottingVar
-askRealNtpSlotting = Ether.ask
+askFullNtpSlotting = Ether.ask'
 
 ----------------------------------------------------------------------------
 -- MonadSlots implementation
@@ -106,27 +95,30 @@ type SlottingConstraint m =
         ]
     )
 
-instance SlottingConstraint m =>
-         MonadSlots (NtpSlotting m) where
+data SlotsRedirectTag
+
+type SlotsRedirect =
+    Ether.TaggedTrans SlotsRedirectTag IdentityT
+
+runSlotsRedirect :: SlotsRedirect m a -> m a
+runSlotsRedirect = coerce
+
+instance
+    (MonadNtpSlotting m, SlottingConstraint m, MonadIO m, t ~ IdentityT) =>
+         MonadSlots (Ether.TaggedTrans SlotsRedirectTag t m)
+  where
     getCurrentSlot =
-        ifNtpUsed (lift simpleGetCurrentSlot)
-                  (local' ntpGetCurrentSlot)
+        ifNtpUsed ntpGetCurrentSlot simpleGetCurrentSlot
     getCurrentSlotBlocking =
-        ifNtpUsed (lift simpleGetCurrentSlotBlocking)
-                  (local' ntpGetCurrentSlotBlocking)
+        ifNtpUsed ntpGetCurrentSlotBlocking simpleGetCurrentSlotBlocking
     getCurrentSlotInaccurate =
-        ifNtpUsed (lift simpleGetCurrentSlotInaccurate)
-                  (local' ntpGetCurrentSlotInaccurate)
+        ifNtpUsed ntpGetCurrentSlotInaccurate simpleGetCurrentSlotInaccurate
     currentTimeSlotting =
-        ifNtpUsed (lift simpleCurrentTimeSlotting)
-                  (local' ntpCurrentTime)
+        ifNtpUsed ntpCurrentTime simpleCurrentTimeSlotting
     slottingWorkers = [ntpSyncWorker]
 
-local' :: Monad m => RealNtpSlotting m a -> NtpSlotting m a
-local' (TaggedTrans tr) = TaggedTrans $ withReaderT snd tr
-
-ifNtpUsed :: Monad m => NtpSlotting m a -> NtpSlotting m a -> NtpSlotting m a
-ifNtpUsed f t = Ether.asks @(Bool, NtpSlottingVar) fst >>= bool f t
+ifNtpUsed :: MonadNtpSlotting m => m a -> m a -> m a
+ifNtpUsed t f = Ether.asks' @(Bool, NtpSlottingVar) fst >>= bool f t
 
 ----------------------------------------------------------------------------
 -- Getting current slot
@@ -139,7 +131,9 @@ data SlotStatus
                                         -- penult epoch is attached.
     | CurrentSlot !SlotId               -- ^ Slot is calculated successfully.
 
-ntpGetCurrentSlot :: SlottingConstraint m => RealNtpSlotting m (Maybe SlotId)
+ntpGetCurrentSlot
+    :: (SlottingConstraint m, MonadNtpSlotting m)
+    => m (Maybe SlotId)
 ntpGetCurrentSlot = ntpGetCurrentSlotImpl >>= \case
     CurrentSlot slot -> pure $ Just slot
     OutdatedSlottingData i -> do
@@ -157,26 +151,30 @@ ntpGetCurrentSlot = ntpGetCurrentSlotImpl >>= \case
         sd <- getSlottingData
         logWarning $ "Slotting data: " <> show sd
 
-ntpGetCurrentSlotInaccurate :: SlottingConstraint m => RealNtpSlotting m SlotId
+ntpGetCurrentSlotInaccurate
+    :: (SlottingConstraint m, MonadNtpSlotting m)
+    => m SlotId
 ntpGetCurrentSlotInaccurate = do
     res <- ntpGetCurrentSlotImpl
     case res of
         CurrentSlot slot -> pure slot
         CantTrust _        -> do
-            var <- askRealNtpSlotting
+            var <- askNtpSlotting
             _nssLastSlot <$> atomically (STM.readTVar var)
         OutdatedSlottingData penult ->
             ntpCurrentTime >>= approxSlotUsingOutdated penult
 
-ntpGetCurrentSlotImpl :: SlottingConstraint m => RealNtpSlotting m SlotStatus
+ntpGetCurrentSlotImpl
+    :: (SlottingConstraint m, MonadNtpSlotting m)
+    => m SlotStatus
 ntpGetCurrentSlotImpl = do
-    var <- askRealNtpSlotting
+    var <- askNtpSlotting
     NtpSlottingState {..} <- atomically $ STM.readTVar var
     t <- Timestamp . (+ _nssLastMargin) <$> currentTime
     case canWeTrustLocalTime _nssLastLocalTime t of
       Nothing -> do
           penult <- sdPenultEpoch <$> getSlottingData
-          res <- lift $ fmap (max _nssLastSlot) <$> getCurrentSlotDo t
+          res <- fmap (max _nssLastSlot) <$> getCurrentSlotDo t
           let setLastSlot s =
                   atomically $ STM.modifyTVar' var (nssLastSlot %~ max s)
           whenJust res setLastSlot
@@ -197,7 +195,9 @@ ntpGetCurrentSlotImpl = do
              Just $ ret $ "curtime is less then last - error: " <> show C.ntpMaxError
            | otherwise -> Nothing
 
-ntpGetCurrentSlotBlocking :: SlottingConstraint m => RealNtpSlotting m SlotId
+ntpGetCurrentSlotBlocking
+    :: (SlottingConstraint m, MonadNtpSlotting m)
+    => m SlotId
 ntpGetCurrentSlotBlocking = ntpGetCurrentSlotImpl >>= \case
     CantTrust _ -> do
         delay C.ntpPollDelay
@@ -208,10 +208,10 @@ ntpGetCurrentSlotBlocking = ntpGetCurrentSlotImpl >>= \case
     CurrentSlot slot -> pure slot
 
 ntpCurrentTime
-    :: SlottingConstraint m
-    => RealNtpSlotting m Timestamp
+    :: (SlottingConstraint m, MonadNtpSlotting m)
+    => m Timestamp
 ntpCurrentTime = do
-    var <- askRealNtpSlotting
+    var <- askNtpSlotting
     lastMargin <- view nssLastMargin <$> atomically (STM.readTVar var)
     Timestamp . (+ lastMargin) <$> currentTime
 
@@ -286,19 +286,16 @@ mkNtpSlottingVar = do
         logInfo $ "Waiting for response from NTP servers"
         ntpSingleShot settings
 
-runNtpSlotting :: (Bool, NtpSlottingVar) -> NtpSlotting m a -> m a
-runNtpSlotting = flip Ether.runReaderT
-
 ----------------------------------------------------------------------------
 -- Workers
 ----------------------------------------------------------------------------
 
 -- Worker for synchronization of local time and global time.
 ntpSyncWorker
-    :: SlottingConstraint m
-    => NtpSlotting m ()
+    :: (SlottingConstraint m, MonadNtpSlotting m)
+    => m ()
 ntpSyncWorker =
-    ifNtpUsed pass (askNtpSlotting >>= void . startNtpClient . ntpSettings)
+    ifNtpUsed (askNtpSlotting >>= void . startNtpClient . ntpSettings) pass
 
 ntpHandlerDo
     :: (MonadIO m, WithLogger m)

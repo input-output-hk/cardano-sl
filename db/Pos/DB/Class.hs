@@ -17,19 +17,19 @@ module Pos.DB.Class
 import           Universum
 
 import           Control.Lens                   (ASetter')
-import qualified Control.Monad.Ether.Implicit   as Ether
 import           Control.Monad.Trans            (MonadTrans (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import qualified Database.RocksDB               as Rocks
+import qualified Ether
 
 import           Pos.Core                       (BlockVersionData)
 import           Pos.DB.Types                   (DB (..), NodeDBs, blockIndexDB, gStateDB,
                                                  lrcDB, miscDB)
 
-type MonadDB m = (Ether.MonadReader NodeDBs m, MonadIO m, MonadCatch m)
+type MonadDB m = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadCatch m)
 
 getNodeDBs :: MonadDB m => m NodeDBs
-getNodeDBs = Ether.ask
+getNodeDBs = Ether.ask'
 
 usingReadOptions
     :: MonadDB m
@@ -38,7 +38,7 @@ usingReadOptions
     -> m a
     -> m a
 usingReadOptions opts l =
-    Ether.local (over l (\db -> db {rocksReadOpts = opts}))
+    Ether.local' (over l (\db -> db {rocksReadOpts = opts}))
 
 usingWriteOptions
     :: MonadDB m
@@ -47,7 +47,7 @@ usingWriteOptions
     -> m a
     -> m a
 usingWriteOptions opts l =
-    Ether.local (over l (\db -> db {rocksWriteOpts = opts}))
+    Ether.local' (over l (\db -> db {rocksWriteOpts = opts}))
 
 getBlockIndexDB :: MonadDB m => m DB
 getBlockIndexDB = view blockIndexDB <$> getNodeDBs

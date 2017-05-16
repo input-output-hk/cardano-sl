@@ -3,7 +3,8 @@
 module Pos.Context.Functions
        (
          -- * Genesis
-         genesisUtxoM
+         GenesisUtxo(..)
+       , genesisUtxoM
        , genesisLeadersM
 
          -- * Block semaphore.
@@ -24,46 +25,46 @@ module Pos.Context.Functions
 import qualified Control.Concurrent.STM as STM
 import           Data.Time              (diffUTCTime, getCurrentTime)
 import           Data.Time.Units        (Microsecond, fromMicroseconds)
+import qualified Ether
 import           Universum
 
-import           Pos.Context.Class      (WithNodeContext, getNodeContext)
-import           Pos.Context.Context    (NodeContext (..), ncGenesisLeaders,
-                                         ncGenesisUtxo, ncStartTime)
+import           Pos.Context.Context    (BlkSemaphore (..), GenesisLeaders (..),
+                                         GenesisUtxo (..), MonadRecoveryHeader,
+                                         RecoveryHeaderTag, StartTime (..))
 import           Pos.Lrc.Context        (LrcContext (..), LrcSyncData (..))
 import           Pos.Lrc.Error          (LrcError (..))
 import           Pos.Txp.Toil.Types     (Utxo)
 import           Pos.Types              (EpochIndex, HeaderHash, SlotLeaders)
 import           Pos.Util               (maybeThrow, readTVarConditional)
-import           Pos.Util.Context       (HasContext, askContext)
 
 ----------------------------------------------------------------------------
 -- Genesis
 ----------------------------------------------------------------------------
 
-genesisUtxoM :: (Functor m, WithNodeContext ssc m) => m Utxo
-genesisUtxoM = ncGenesisUtxo <$> getNodeContext
+genesisUtxoM :: (Functor m, Ether.MonadReader' GenesisUtxo m) => m Utxo
+genesisUtxoM = Ether.asks' unGenesisUtxo
 
-genesisLeadersM :: (Functor m, WithNodeContext ssc m) => m SlotLeaders
-genesisLeadersM = ncGenesisLeaders <$> getNodeContext
+genesisLeadersM :: (Functor m, Ether.MonadReader' GenesisLeaders m) => m SlotLeaders
+genesisLeadersM = Ether.asks' unGenesisLeaders
 
 ----------------------------------------------------------------------------
 -- Semaphore-related logic
 ----------------------------------------------------------------------------
 
 takeBlkSemaphore
-    :: (MonadIO m, WithNodeContext ssc m)
+    :: (MonadIO m, Ether.MonadReader' BlkSemaphore m)
     => m HeaderHash
-takeBlkSemaphore = takeMVar . ncBlkSemaphore =<< getNodeContext
+takeBlkSemaphore = takeMVar =<< Ether.asks' unBlkSemaphore
 
 putBlkSemaphore
-    :: (MonadIO m, WithNodeContext ssc m)
+    :: (MonadIO m, Ether.MonadReader' BlkSemaphore m)
     => HeaderHash -> m ()
-putBlkSemaphore tip = flip putMVar tip . ncBlkSemaphore =<< getNodeContext
+putBlkSemaphore tip = flip putMVar tip =<< Ether.asks' unBlkSemaphore
 
 readBlkSemaphore
-    :: (MonadIO m, WithNodeContext ssc m)
+    :: (MonadIO m, Ether.MonadReader' BlkSemaphore m)
     => m HeaderHash
-readBlkSemaphore = readMVar . ncBlkSemaphore =<< getNodeContext
+readBlkSemaphore = readMVar =<< Ether.asks' unBlkSemaphore
 
 ----------------------------------------------------------------------------
 -- LRC synchronization
@@ -71,14 +72,14 @@ readBlkSemaphore = readMVar . ncBlkSemaphore =<< getNodeContext
 
 -- | Block until LRC data is available for given epoch.
 waitLrc
-    :: (MonadIO m, HasContext LrcContext m)
+    :: (MonadIO m, Ether.MonadReader' LrcContext m)
     => EpochIndex -> m ()
 waitLrc epoch = do
-    sync <- askContext @LrcContext lcLrcSync
+    sync <- Ether.asks' @LrcContext lcLrcSync
     () <$ readTVarConditional ((>= epoch) . lastEpochWithLrc) sync
 
 lrcActionOnEpoch
-    :: (MonadIO m, HasContext LrcContext m, MonadThrow m)
+    :: (MonadIO m, Ether.MonadReader' LrcContext m, MonadThrow m)
     => EpochIndex
     -> (EpochIndex -> m (Maybe a))
     -> m a
@@ -88,7 +89,7 @@ lrcActionOnEpoch epoch =
         "action on lrcCallOnEpoch couldn't be performed properly"
 
 lrcActionOnEpochReason
-    :: (MonadIO m, HasContext LrcContext m, MonadThrow m)
+    :: (MonadIO m, Ether.MonadReader' LrcContext m, MonadThrow m)
     => EpochIndex
     -> Text
     -> (EpochIndex -> m (Maybe a))
@@ -101,17 +102,17 @@ lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
 -- Misc
 ----------------------------------------------------------------------------
 
--- | Returns node uptime based on current time and 'ncStartTime'.
-getUptime :: (MonadIO m, WithNodeContext ssc m) => m Microsecond
+-- | Returns node uptime based on current time and 'StartTime'.
+getUptime :: (MonadIO m, Ether.MonadReader' StartTime m) => m Microsecond
 getUptime = do
     curTime <- liftIO getCurrentTime
-    startTime <- ncStartTime <$> getNodeContext
+    startTime <- Ether.asks' unStartTime
     let seconds = toRational $ curTime `diffUTCTime` startTime
     pure $ fromMicroseconds $ round $ seconds * 1000 * 1000
 
--- | Returns if 'ncRecoveryHeader' is 'Just' which is equivalent to
+-- | Returns if 'RecoveryHeader' is 'Just' which is equivalent to
 -- “we're doing recovery”.
-recoveryInProgress :: (MonadIO m, WithNodeContext ssc m) => m Bool
+recoveryInProgress :: (MonadIO m, MonadRecoveryHeader ssc m) => m Bool
 recoveryInProgress = do
-    var <- ncRecoveryHeader <$> getNodeContext
+    var <- Ether.ask @RecoveryHeaderTag
     isJust <$> atomically (STM.tryReadTMVar var)

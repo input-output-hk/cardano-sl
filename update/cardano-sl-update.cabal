@@ -45,6 +45,7 @@ library
                      , cardano-sl-lrc
                      , concurrent-extra
                      , data-default
+                     , ether >= 0.5
                      , exceptions
                      , formatting
                      , hashable
@@ -63,6 +64,7 @@ library
                      , text-format
                      , th-lift-instances
                      , time-units
+                     , transformers
                      , universum
                      , unordered-containers
 

@@ -13,14 +13,14 @@ import           Universum
 import           Pos.Binary                 ()
 
 import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
-import           Pos.Communication.Protocol (SendActions, NodeId)
+import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.Communication.Specs    (sendProposalOuts, sendVoteOuts)
 import           Pos.DB.Limits              (MonadDBLimits)
 
 import           Pos.Crypto                 (SafeSigner, SignTag (SignUSVote), hash,
                                              safeSign, safeToPublic)
 import           Pos.Update                 (UpdateProposal, UpdateVote (..))
-import           Pos.WorkMode               (MinWorkMode)
+import           Pos.WorkMode.Class         (MinWorkMode)
 
 -- | Send UpdateVote to given addresses
 submitVote

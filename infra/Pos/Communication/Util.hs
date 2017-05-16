@@ -164,7 +164,6 @@ wrapListener
      , Mockable Delay m
      , MonadIO m
      , WithLogger m
---     , WithNodeContext ssc m
      )
   => LoggerName -> Listener m -> Listener m
 wrapListener lname =

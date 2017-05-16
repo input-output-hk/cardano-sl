@@ -125,7 +125,7 @@ data CCurrency
 
 -- | Client hash
 newtype CHash = CHash Text
-    deriving (Show, Eq, Generic, Buildable, Ord)
+    deriving (Show, Eq, Ord, Generic, Buildable)
 
 instance Hashable CHash where
     hashWithSalt s (CHash h) = hashWithSalt s h
@@ -133,7 +133,7 @@ instance Hashable CHash where
 -- | Client address
 -- @w@ is phantom type and stands for type of item this address belongs to.
 newtype CAddress w = CAddress CHash
-    deriving (Show, Eq, Generic, Hashable, Buildable, Ord)
+    deriving (Show, Eq, Ord, Generic, Hashable, Buildable)
 
 -- | Marks address as belonging to wallet set.
 data WS = WS
@@ -155,7 +155,7 @@ addressToCAddress = CAddress . CHash . sformat F.build
 cAddressToAddress :: CAddress w -> Either Text Address
 cAddressToAddress (CAddress (CHash h)) = decodeTextAddress h
 
-encToCAddress :: EncryptedSecretKey -> CAddress WS
+encToCAddress :: EncryptedSecretKey -> CAddress w
 encToCAddress = addressToCAddress . makePubKeyAddress . encToPublic
 
 -- | Client transaction id

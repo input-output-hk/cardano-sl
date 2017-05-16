@@ -10,9 +10,9 @@ module Pos.Util.Iterator
        , runListHolderT
        ) where
 
-import           Control.Monad.State (StateT (..))
-import           Control.Monad.Trans (MonadTrans)
-import           Control.Monad.Trans.Lift.Local   (LiftLocal (..))
+import           Control.Monad.State            (StateT (..))
+import           Control.Monad.Trans            (MonadTrans)
+import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Universum
 
 -- | MonadIterator encapsulates iteration by collection elements of type @a@.
@@ -33,7 +33,9 @@ class Monad m => MonadIterator a m where
     default curItem :: (MonadTrans t, MonadIterator a n, t n ~ m) => m (Maybe a)
     curItem = lift curItem
 
-instance MonadIterator a m => MonadIterator a (StateT s m)
+instance {-# OVERLAPPABLE #-}
+    (MonadIterator a m, MonadTrans t, Monad (t m)) =>
+        MonadIterator a (t m)
 
 -- | Encapsulation of list iterator.
 newtype ListHolderT s m a = ListHolderT (StateT [s] m a)

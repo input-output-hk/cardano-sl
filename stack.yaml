@@ -88,7 +88,6 @@ extra-deps:
 - servant-0.10                    # servant-multipart supports version servant-10 only
 - servant-server-0.10             # so it triggers another dependencies to be v10
 - servant-swagger-1.1.2.1
-- servant-docs-0.10
 - servant-multipart-0.10
 - ether-0.5.0.0
 - transformers-lift-0.2.0.1

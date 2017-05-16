@@ -31,7 +31,6 @@ if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" ]]; then
 fi
 
 stack exec --nix -- cardano-wallet-hs2purs
-stack exec --nix -- cardano-wallet-web-docs
 
 pushd daedalus
   nix-shell --run "npm install && npm run build:prod"

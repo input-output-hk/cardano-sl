@@ -78,13 +78,11 @@ emptyBlocksView message =
 currentBlocks :: State -> CBlockEntries
 currentBlocks state =
     if expanded
-    then slice minBlockIndex (minBlockIndex + maxBlockRows) blocks
+    then slice 0 maxBlockRows blocks
     else slice 0 minBlockRows blocks
     where
         blocks = withDefault [] $ state ^. latestBlocks
         expanded = state ^. dashboardBlocksExpanded
-        currentBlockPage = state ^. (dashboardViewState <<< dbViewBlockPagination)
-        minBlockIndex = (currentBlockPage - 1) * maxBlockRows
 
 blocksFooterView :: State -> P.Html Action
 blocksFooterView state =

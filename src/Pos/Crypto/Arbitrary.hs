@@ -14,7 +14,7 @@ import           Data.DeriveTH               (derive, makeArbitrary)
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate,
-                                              vector)
+                                              oneof, vector)
 
 import           Pos.Binary.Class            (AsBinary (..), AsBinaryClass (..), Bi)
 import           Pos.Binary.Crypto           ()
@@ -215,7 +215,10 @@ instance (HashAlgorithm algo, Bi a) => Arbitrary (AbstractHash algo a) where
 ----------------------------------------------------------------------------
 
 instance Arbitrary PassPhrase where
-    arbitrary = ByteArray.pack <$> vector 32
+    arbitrary = oneof [
+        pure mempty,
+        ByteArray.pack <$> vector 32
+        ]
 
 ----------------------------------------------------------------------------
 -- HD

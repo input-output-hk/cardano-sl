@@ -60,7 +60,7 @@ import           Pos.DB.Class                  (MonadGStateCore)
 import           Pos.Discovery                 (getPeers)
 import           Pos.Reporting.MemState        (MonadReportingMem, rcReportServers)
 import           Pos.Reporting.Methods         (sendReport, sendReportNodeNologs)
-import           Pos.Txp.Core                  (TxOut (..), TxOutAux (..))
+import           Pos.Txp.Core                  (TxAux (..), TxOut (..), TxOutAux (..))
 import           Pos.Util                      (maybeThrow)
 import           Pos.Util.BackupPhrase         (BackupPhrase, safeKeysFromPhrase, toSeed)
 import           Pos.Util.UserSecret           (readUserSecret, usKeys)
@@ -389,7 +389,7 @@ sendExtended sendActions cpassphrase srcCAddr dstCAddr c curr title desc = do
         etx <- submitTx sendActions ss (toList na) (one $ TxOutAux (TxOut dstAddr c) [])
         case etx of
             Left err -> throwM . Internal $ sformat ("Cannot send transaction: "%stext) err
-            Right (tx, _, _) -> do
+            Right (TxAux {taTx = tx}) -> do
                 logInfo $
                     sformat ("Successfully sent "%coinF%" from "%ords%" address to "%addressF)
                     c idx dstAddr
@@ -538,10 +538,10 @@ redeemAdaInternal sendActions walletId seedBs = do
     etx <- submitRedemptionTx sendActions redeemSK (toList na) dstAddr
     case etx of
         Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
-        Right ((tx, _, _), redeemAddress, redeemBalance) -> do
+        Right (TxAux {..}, redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             addHistoryTx dstCAddr ADA "ADA redemption" ""
-              (THEntry (hash tx) tx False [TxOut redeemAddress redeemBalance] Nothing)
+              (THEntry (hash taTx) taTx False [TxOut redeemAddress redeemBalance] Nothing)
 
 
 reportingInitialized :: forall m. WalletWebMode m => CInitialized -> m ()

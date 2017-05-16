@@ -30,7 +30,7 @@ import           Pos.Crypto          (PublicKey, RedeemSecretKey, SafeSigner,
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Script          (Script)
 import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
-import           Pos.Txp             (Tx (..), TxAux, TxDistribution (..), TxIn (..),
+import           Pos.Txp             (Tx (..), TxAux (..), TxDistribution (..), TxIn (..),
                                       TxInWitness (..), TxOut (..), TxOutAux (..),
                                       TxSigData (..), Utxo, filterUtxoByAddr)
 import           Pos.Types           (Address, Coin, makePubKeyAddress, makeRedeemAddress,
@@ -47,9 +47,12 @@ type TxError = Text
 -- | Generic function to create a transaction, given desired inputs, outputs and a
 -- way to construct witness from signature data
 makeAbstractTx :: (TxSigData -> TxInWitness) -> TxInputs -> TxOutputs -> TxAux
-makeAbstractTx mkWit txInputs outputs = ( UnsafeTx txInputs txOutputs txAttributes
-                                        , txWitness
-                                        , txDist)
+makeAbstractTx mkWit txInputs outputs =
+    TxAux
+    { taTx = UnsafeTx txInputs txOutputs txAttributes
+    , taWitness = txWitness
+    , taDistribution = txDist
+    }
   where
     txOutputs = map toaOut outputs
     txAttributes = mkAttributes ()
@@ -58,10 +61,11 @@ makeAbstractTx mkWit txInputs outputs = ( UnsafeTx txInputs txOutputs txAttribut
     txDistHash = hash txDist
     txWitness = V.fromList $ toList $ map (mkWit . makeTxSigData) txInputs
     makeTxSigData txIn =
-        TxSigData { txSigInput     = txIn
-                  , txSigOutsHash  = txOutHash
-                  , txSigDistrHash = txDistHash
-                  }
+        TxSigData
+        { txSigInput = txIn
+        , txSigOutsHash = txOutHash
+        , txSigDistrHash = txDistHash
+        }
 
 -- | Makes a transaction which use P2PKH addresses as a source
 makePubKeyTx :: SafeSigner -> TxInputs -> TxOutputs -> TxAux

@@ -6,11 +6,11 @@ module Pos.Txp.Network.Types
        ) where
 
 import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, (%))
+import           Formatting          (bprint, (%))
 import           Universum
 
 import           Pos.Binary.Core     ()
-import           Pos.Txp.Core        (Tx, TxDistribution, TxWitness)
+import           Pos.Txp.Core        (TxAux (..), txaF)
 
 data TxMsgTag = TxMsgTag deriving (Eq, Show)
 
@@ -18,11 +18,11 @@ instance Buildable TxMsgTag where
     build _ = "TxMsgTag"
 
 -- | Data message. Can be used to send one transaction per message.
-data TxMsgContents = TxMsgContents
-    { dmTx           :: !Tx
-    , dmWitness      :: !TxWitness
-    , dmDistribution :: !TxDistribution
+-- Transaction is sent with auxilary data.
+newtype TxMsgContents = TxMsgContents
+    { getTxMsgContents :: TxAux
     } deriving (Generic, Show, Eq)
 
 instance Buildable TxMsgContents where
-    build TxMsgContents {..} = bprint ("TxMsgContents { tx="%build%", .. }") dmTx
+    build (TxMsgContents txAux) =
+        bprint ("TxMsgContents { txAux ="%txaF%", .. }") txAux

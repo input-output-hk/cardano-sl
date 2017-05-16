@@ -20,7 +20,7 @@ instance Bi TxMsgTag where
     get = pure TxMsgTag
 
 instance Bi (DataMsg TxMsgContents) where
-    put (DataMsg (TxMsgContents dmTx dmWitness dmDistr)) =
-        put dmTx >> put dmWitness >> put dmDistr
+    put (DataMsg (TxMsgContents txAux)) =
+        put txAux
     get = label "DataMsg TxMsgContents" $
-        DataMsg <$> (TxMsgContents <$> get <*> get <*> get)
+        DataMsg <$> (TxMsgContents <$> get)

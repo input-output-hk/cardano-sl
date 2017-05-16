@@ -12,7 +12,6 @@ import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..), getRemainingB
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Txp.Core.Types as T
-import qualified Pos.Txp.Core.Types as T
 
 ----------------------------------------------------------------------------
 -- Core
@@ -85,6 +84,11 @@ instance Bi T.TxSigData where
         txSigOutsHash  <- get
         txSigDistrHash <- get
         return T.TxSigData{..}
+
+instance Bi T.TxAux where
+    put (T.TxAux tx witness distr) =
+        put tx >> put witness >> put distr
+    get = label "DataMsg TxMsgContents" $ T.TxAux <$> get <*> get <*> get
 
 instance Bi T.TxProof where
     put (T.TxProof {..}) = do

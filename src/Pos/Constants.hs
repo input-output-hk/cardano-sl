@@ -30,7 +30,6 @@ module Pos.Constants
        , blockRetrievalQueueSize
        , propagationQueueSize
        , defaultPeers
-       , sysTimeBroadcastSlots
        , vssMaxTTL
        , vssMinTTL
        , recoveryHeadersMessage
@@ -115,11 +114,6 @@ genesisN = fromIntegral . ccGenesisN $ compileConfig
 -- Also see 'Pos.CompileConfig.ccMaxLocalTxs'.
 maxLocalTxs :: Integral i => i
 maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
-
--- | /Time-lord/ node announces system start time by broadcast. She does it
--- during first 'Pos.CompileConfig.ccSysTimeBroadcastSlots' slots.
-sysTimeBroadcastSlots :: Integral i => i
-sysTimeBroadcastSlots = fromIntegral . ccSysTimeBroadcastSlots $ compileConfig
 
 networkConnectionTimeout :: Microsecond
 networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ compileConfig

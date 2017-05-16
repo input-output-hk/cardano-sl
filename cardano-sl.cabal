@@ -1320,6 +1320,7 @@ executable cardano-post-mortem
   hs-source-dirs:      src/post-mortem
   main-is:             Main.hs
   other-modules:       JSONLog 
+                     , Options
                      , Statistics
                      , Statistics.Block
                      , Statistics.Graph
@@ -1338,6 +1339,7 @@ executable cardano-post-mortem
                      , fgl
                      , graphviz
                      , foldl
+                     , optparse-applicative
                      , pipes
                      , pipes-bytestring
                      , pipes-interleave

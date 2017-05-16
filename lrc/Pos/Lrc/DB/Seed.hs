@@ -12,7 +12,7 @@ module Pos.Lrc.DB.Seed
 
 import           Universum
 
-import           Pos.Binary.Class  (encodeStrict)
+import           Pos.Binary.Class  (encode)
 import           Pos.Core.Types    (EpochIndex (..), SharedSeed)
 import           Pos.DB.Class      (MonadDB)
 import           Pos.Lrc.DB.Common (getBi, putBi)
@@ -36,4 +36,4 @@ isInitialized = isJust <$> getSeed (EpochIndex 0)
 ----------------------------------------------------------------------------
 
 seedKey :: EpochIndex -> ByteString
-seedKey = mappend "s/" . encodeStrict
+seedKey = mappend "s/" . encode

@@ -11,7 +11,7 @@ import           Node.Message                     (MessageName (..))
 
 import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
-                                                   decodeFull, encodeStrict,
+                                                   decodeFull, encode,
                                                    getRemainingByteString,
                                                    getSmallWithLength, getWord8, label,
                                                    putByteString, putSmallWithLength,
@@ -74,7 +74,7 @@ instance Bi HandlerSpec where
         0                        -> pure $ UnknownHandler 0 mempty
         1                        -> getSmallWithLength (ConvHandler <$> get)
         t | (t .&. 0xc0) == 0x40 ->
-            pure . ConvHandler . MessageName . encodeStrict $
+            pure . ConvHandler . MessageName . encode $
             UnsignedVarInt (fromIntegral (t .&. 0x3f) :: Word)
           | otherwise            ->
             getSmallWithLength (UnknownHandler t <$> getRemainingByteString)

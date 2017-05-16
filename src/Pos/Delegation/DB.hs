@@ -49,7 +49,7 @@ import qualified Data.HashSet           as HS
 import qualified Database.RocksDB       as Rocks
 import           Formatting             (build, sformat, (%))
 
-import           Pos.Binary.Class       (encodeStrict)
+import           Pos.Binary.Class       (encode)
 import           Pos.Crypto             (PublicKey, pskDelegatePk, pskIssuerPk,
                                          verifyProxySecretKey)
 import           Pos.DB                 (DBError (DBMalformed))
@@ -199,16 +199,16 @@ instance RocksBatchOp DelegationOp where
         | not (verifyProxySecretKey psk) =
           error $ "Tried to insert invalid psk: " <> pretty psk
         | otherwise =
-          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (encodeStrict psk)]
+          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (encode psk)]
     toBatchOp (PskFromEdgeAction (DlgEdgeDel issuerPk)) =
         [Rocks.Del $ pskKey $ addressHash issuerPk]
     toBatchOp (AddTransitiveDlg iPk dPk) =
-        [Rocks.Put (transDlgKey $ addressHash iPk) (encodeStrict dPk)]
+        [Rocks.Put (transDlgKey $ addressHash iPk) (encode dPk)]
     toBatchOp (DelTransitiveDlg iPk) =
         [Rocks.Del $ transDlgKey $ addressHash iPk]
     toBatchOp (SetTransitiveDlgRev dPk iPks)
         | HS.null iPks = [Rocks.Del $ transRevDlgKey dPk]
-        | otherwise    = [Rocks.Put (transRevDlgKey dPk) (encodeStrict iPks)]
+        | otherwise    = [Rocks.Put (transRevDlgKey dPk) (encode iPks)]
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -238,7 +238,7 @@ runDlgTransMapIterator = runDBnMapIterator @DlgTransIter _gStateDB
 
 -- Storing Hash IssuerPk -> ProxySKHeavy
 pskKey :: StakeholderId -> ByteString
-pskKey s = "d/p/" <> encodeStrict s
+pskKey s = "d/p/" <> encode s
 
 transDlgKey :: StakeholderId -> ByteString
 transDlgKey = encodeWithKeyPrefix @DlgTransIter
@@ -248,7 +248,7 @@ iterTransPrefix = "d/t/"
 
 -- Reverse index of iterTransitive
 transRevDlgKey :: PublicKey -> ByteString
-transRevDlgKey pk = "d/tb/" <> encodeStrict pk
+transRevDlgKey pk = "d/tb/" <> encode pk
 
 ----------------------------------------------------------------------------
 -- Helper functions

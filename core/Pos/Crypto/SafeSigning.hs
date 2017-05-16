@@ -26,7 +26,6 @@ module Pos.Crypto.SafeSigning
 import qualified Cardano.Crypto.Wallet as CC
 import           Data.ByteArray        (ByteArray, ByteArrayAccess, ScrubbedBytes)
 import qualified Data.ByteString       as BS
-import qualified Data.ByteString.Lazy  as BSL
 import           Data.Coerce           (coerce)
 import           Data.Text.Buildable   (build)
 import qualified Data.Text.Buildable   as B
@@ -107,7 +106,7 @@ signRaw' mbTag (PassPhrase pp) (EncryptedSecretKey sk _) x =
 sign'
     :: Bi a
     => SignTag -> PassPhrase -> EncryptedSecretKey -> a -> Signature a
-sign' t pp sk = coerce . signRaw' (Just t) pp sk . BSL.toStrict . Bi.encode
+sign' t pp sk = coerce . signRaw' (Just t) pp sk . Bi.encode
 
 safeCreateKeypairFromSeed
     :: BS.ByteString
@@ -186,7 +185,7 @@ safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
   where
     Signature sig = safeSign SignProxySK ss $
                       mconcat
-                          ["00", CC.unXPub delegatePk, Bi.encodeStrict o]
+                          ["00", CC.unXPub delegatePk, Bi.encode o]
 
 -- | Creates proxy secret key
 safeCreateProxySecretKey :: (Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w

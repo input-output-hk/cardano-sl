@@ -73,7 +73,7 @@ import           Servant.Multipart      (FileData, FromMultipart (..), lookupFil
                                          lookupInput)
 
 import           Pos.Aeson.Types        ()
-import           Pos.Binary.Class       (decodeFull, encodeStrict)
+import           Pos.Binary.Class       (decodeFull, encode)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Coin          (mkCoin)
 import           Pos.Core.Types         (ScriptVersion)
@@ -187,7 +187,7 @@ instance Show CPassPhrase where
 
 passPhraseToCPassPhrase :: PassPhrase -> CPassPhrase
 passPhraseToCPassPhrase passphrase =
-    CPassPhrase . Base16.encode $ encodeStrict passphrase
+    CPassPhrase . Base16.encode $ encode passphrase
 
 cPassPhraseToPassPhrase
     :: CPassPhrase -> Either Text PassPhrase

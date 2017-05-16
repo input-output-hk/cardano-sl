@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE BinaryLiterals      #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DataKinds           #-}
@@ -15,21 +16,34 @@
 module Pos.Binary.Class
        ( Bi (..)
        , encode
-       , encodeStrict
+       , decodeFull
+       {-
+       , encode
        , decode
        , decodeOrFail
        , decodeFull
+       -}
 
+       -- * Store re-exports
+       , Size(..)
+       , Peek
+       , Poke
        -- * Primitives for serialization
        , getWord8
        , putWord8
+       {-
        , getByteString
        , putByteString
        , label
+-}
+
+       -- * The 'StaticSize' wrapper
+       , StaticSize(..)
 
        -- * The 'Raw' wrapper
        , Raw
 
+{-
        -- * Different sizes for ints
        , UnsignedVarInt(..)
        , SignedVarInt(..)
@@ -39,16 +53,16 @@ module Pos.Binary.Class
        -- * Primitives for limiting serialization
        , limitGet
        , isolate64
-
+-}
        -- * Bi to SafeCopy
        , getCopyBi
        , putCopyBi
-
        -- * Binary serialization
        , AsBinary (..)
        , AsBinaryClass (..)
        , fromBinaryM
 
+{-
        -- * Serialization with length
        , putWithLength
        , getWithLength
@@ -60,11 +74,13 @@ module Pos.Binary.Class
        , getRemainingByteString
        , getAsciiString1b
        , putAsciiString1b
+       -}
        , biSize
        ) where
 
 import           Universum
 
+{-
 import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
 import           Data.Binary.Get             (ByteOffset, getByteString,
@@ -77,16 +93,11 @@ import           Data.Binary.Put             (PutM, putByteString, putCharUtf8,
                                               runPutM)
 import           Data.Bits                   (Bits (..))
 import qualified Data.ByteString             as BS
-import qualified Data.ByteString.Lazy        as BSL
 import           Data.Char                   (isAscii)
 import           Data.Hashable               (Hashable (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
-import           Data.SafeCopy               (Contained, SafeCopy (..), contain, safeGet,
-                                              safePut)
-import qualified Data.Serialize              as Cereal (Get, Put)
 import qualified Data.Set                    as S
-import           Data.Tagged                 (Tagged (Tagged))
 import qualified Data.Text.Encoding          as T
 import           Data.Time.Units             (Microsecond, Millisecond)
 import qualified Data.Vector                 as V
@@ -98,6 +109,18 @@ import           GHC.TypeLits                (ErrorMessage (..), TypeError)
 import           Serokell.Data.Memory.Units  (Byte, fromBytes, toBytes)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Unsafe.Coerce               (unsafeCoerce)
+-}
+
+import           Control.Lens               (_Left)
+import           Data.SafeCopy              (Contained, SafeCopy (..), contain, safeGet,
+                                             safePut)
+import qualified Data.Serialize             as Cereal (Get, Put)
+import           Data.Store                 (Peek, Poke, Size (..))
+import qualified Data.Store.Core            as Store
+import           Data.Store.Internal        (StaticSize (..))
+import qualified Data.Store.Internal        as Store
+import qualified Data.Text                  as T
+import           Serokell.Data.Memory.Units (Byte)
 
 ----------------------------------------------------------------------------
 -- Bi typeclass
@@ -109,23 +132,27 @@ import           Unsafe.Coerce               (unsafeCoerce)
 -- Write @instance Bi SomeType where@ without any method definitions if you
 -- want to use the 'Binary' instance for your type.
 class Bi t where
-    put :: t -> Put
-    get :: Get t
+    size :: Size t
+    put :: t -> Poke ()
+    get :: Peek t
 
 --instance Serializable t => B.Binary t where
 --    get = get
 --    put = put
 
--- | Encode a value to a lazy bytestring
-encode :: Bi a => a -> LByteString
-encode = runPut . put
+-- | Encode a value to a strict bytestring
+encode :: Bi a => a -> ByteString
+encode x = Store.unsafeEncodeWith (put x) (getSize x)
 {-# INLINE encode #-}
 
--- | Encode a value to a strict bytestring.  Use with caution, because
--- converting to strict ByteString is expensive.
-encodeStrict :: Bi a => a -> ByteString
-encodeStrict = BSL.toStrict . encode
-{-# INLINE encodeStrict #-}
+getSize :: Bi a => a -> Int
+getSize = Store.getSizeWith size
+{-# INLINE getSize #-}
+
+decodeFull :: Bi a => ByteString -> Either Text a
+decodeFull = over _Left Store.peekExMessage . Store.decodeWith get
+
+{-
 
 -- | Decode a value from a lazy ByteString, reconstructing the
 -- original structure.
@@ -147,6 +174,10 @@ decodeFull bs = case (runGetOrFail get) bs of
         | BSL.null unconsumed -> Right a
         | otherwise -> Left "decodeFull: unconsumed input"
 
+-}
+
+
+
 ----------------------------------------------------------------------------
 -- Raw
 ----------------------------------------------------------------------------
@@ -157,6 +188,8 @@ decodeFull bs = case (runGetOrFail get) bs of
 -- TODO: maybe it should be in "Pos.Crypto"?
 newtype Raw = Raw ByteString
     deriving (Bi, Eq, Ord, Show, Typeable, NFData)
+
+{-
 
 ----------------------------------------------------------------------------
 -- Variable-sized numbers
@@ -501,60 +534,66 @@ instance Bi Char where
           | w <= 0x10ffff = return $! toEnum $ fromEnum w
           | otherwise = fail "Not a valid Unicode code point!"
 
+-}
+
 ----------------------------------------------------------------------------
 -- Numeric data
 ----------------------------------------------------------------------------
 
--- These instances just copy 'Binary'
+-- These instances just copy 'Store'
 
-instance Bi Integer where
-  get = Binary.get
-  {-# INLINE get #-}
-  put = Binary.put
-  {-# INLINE put #-}
+instance Bi Integer where -- FIXME: fixed endianness
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
 
-instance Bi Int16 where             -- 2 bytes, big endian
-  get = Binary.get
-  {-# INLINE get #-}
-  put = Binary.put
-  {-# INLINE put #-}
+instance Bi Int where -- FIXME: remove this instance in favor of the wrappers
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
 
-instance Bi Int32 where             -- 4 bytes, big endian
-  get = Binary.get
-  {-# INLINE get #-}
-  put = Binary.put
-  {-# INLINE put #-}
+instance Bi Int16 where -- FIXME: fixed endianness
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
 
-instance Bi Int64 where             -- 8 bytes, big endian
-  get = Binary.get
-  {-# INLINE get #-}
-  put = Binary.put
-  {-# INLINE put #-}
+instance Bi Int32 where -- FIXME: fixed endianness
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
 
-instance Bi Word8 where             -- single byte
-  get = Binary.get
-  {-# INLINE get #-}
-  put = Binary.put
-  {-# INLINE put #-}
+instance Bi Int64 where -- FIXME: fixed endianness
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
 
-instance Bi Word16 where            -- 2 bytes, big endian
-  get = Binary.get
-  {-# INLINE get #-}
-  put = Binary.put
-  {-# INLINE put #-}
+instance Bi Word8 where -- FIXME: fixed endianness
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
 
-instance Bi Word32 where            -- 4 bytes, big endian
-  get = Binary.get
-  {-# INLINE get #-}
-  put = Binary.put
-  {-# INLINE put #-}
+getWord8 :: Peek Word8
+getWord8 = get @Word8
+
+putWord8 :: Word8 -> Poke ()
+putWord8 = put @Word8
+
+instance Bi Word16 where -- FIXME: fixed endianness
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
+
+instance Bi Word32 where -- FIXME: fixed endianness
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
 
 instance Bi Word64 where            -- 8 bytes, big endian
-  get = Binary.get
-  {-# INLINE get #-}
-  put = Binary.put
-  {-# INLINE put #-}
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
 
+{-
 ----------------------------------------------------------------------------
 -- Tagged
 ----------------------------------------------------------------------------
@@ -585,31 +624,57 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a, b, c, d) where
     {-# INLINE get #-}
     get = liftM4 (,,,) get get get get
 
+-}
+
 instance Bi ByteString where
-    put bs = put (UnsignedVarInt (BS.length bs)) <> putByteString bs
-    get = do
-        UnsignedVarInt n <- get
-        getByteString n
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
 
 instance Bi LByteString where
-    put bs = put (UnsignedVarInt (BSL.length bs)) <> putLazyByteString bs
-    get = do
-        UnsignedVarInt n <- get
-        getLazyByteString n
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
 
 instance Bi Text where
-    put t = put (T.encodeUtf8 t)
-    get = do
-        bs <- get
-        case T.decodeUtf8' bs of
-            Left e  -> fail (show e)
-            Right a -> return a
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
+
+instance KnownNat n => Bi (StaticSize n ByteString) where
+    size = Store.size
+    put = Store.poke
+    get = Store.peek
+
+constSize :: forall a . Bi a => Int
+constSize =  case size :: Size a of
+  VarSize   _ -> error "constSize: VarSize"
+  ConstSize a -> a
+
+execPoke :: Poke a -> Store.PokeState -> Store.Offset -> IO Store.Offset
+execPoke p ptr offset = fst <$> Store.runPoke p ptr offset
+
+mkPoke
+    :: (Store.PokeState -> Store.Offset -> IO Store.Offset)
+    -> Poke ()
+mkPoke f = Store.Poke (\ptr offset -> (,()) <$> f ptr offset)
 
 instance Bi a => Bi [a] where
-    put xs = put (UnsignedVarInt (length xs)) <> mapM_ put xs
-    get = do UnsignedVarInt n <- get
-             getMany (n :: Int)
+    size =
+        VarSize $ \t -> case size :: Size a of
+            ConstSize n -> (n * length t) + constSize @Int
+            VarSize f   -> foldl' (\acc x -> acc + f x) (constSize @Int) t
+    put t = do
+        put (length t)
+        mkPoke (\ptr offset ->
+            foldlM (\offset' a -> execPoke (put a) ptr offset') offset t)
+    get = do
+      len <- get
+      replicateM len get
 
+
+
+{-
 -- | 'getMany n' get 'n' elements in order, without blowing the stack.
 getMany :: Bi a => Int -> Get [a]
 getMany n = go [] n
@@ -807,6 +872,8 @@ prompt' kf ks =
             Nothing -> kf
   in loop
 
+-}
+
 ----------------------------------------------------------------------------
 -- SafeCopy
 ----------------------------------------------------------------------------
@@ -818,11 +885,11 @@ putCopyBi x = contain $ safePut (encode x)
 
 -- | A helper for "Data.SafeCopy" that creates 'getCopy' given a 'Bi'
 -- instance.
-getCopyBi :: Bi a => String -> Contained (Cereal.Get a)
+getCopyBi :: Bi a => Text -> Contained (Cereal.Get a)
 getCopyBi typeName = contain $ do
     bs <- safeGet
     case decodeFull bs of
-        Left err -> fail ("getCopy@" ++ typeName ++ ": " ++ err)
+        Left err -> (fail . T.unpack) ("getCopy@" <> typeName <> ": " <> err)
         Right x  -> return x
 
 ----------------------------------------------------------------------------
@@ -840,11 +907,12 @@ instance SafeCopy (AsBinary a) where
 
 class AsBinaryClass a where
     asBinary :: a -> AsBinary a
-    fromBinary :: AsBinary a -> Either String a
+    fromBinary :: AsBinary a -> Either Text a
 
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
-fromBinaryM = either fail return . fromBinary
+fromBinaryM = either (fail . T.unpack) return . fromBinary
 
+{-
 ----------------------------------------------------------------------------
 -- Serialization with length
 ----------------------------------------------------------------------------
@@ -924,7 +992,8 @@ getAsciiString1b typeName limit = getWord8 >>= \sz -> do
 putAsciiString1b :: String -> Put
 putAsciiString1b str =  putWord8 (fromIntegral $ length str)
                      >> putByteString (BS.pack $ map (fromIntegral . ord) str)
+-}
 
 -- | Compute size of something serializable in bytes.
 biSize :: Bi a => a -> Byte
-biSize = fromIntegral . length . encode
+biSize = fromIntegral . getSize

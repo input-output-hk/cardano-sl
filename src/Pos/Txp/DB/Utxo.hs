@@ -40,7 +40,7 @@ import           Serokell.Util        (Color (Red), colorize)
 import           Serokell.Util.Text   (listJson, pairF)
 import           System.Wlog          (WithLogger, logError)
 
-import           Pos.Binary.Class     (encodeStrict)
+import           Pos.Binary.Class     (encode)
 import           Pos.Binary.Core      ()
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
 import           Pos.DB.Class         (MonadDB, MonadDBPure, getGStateDB)
@@ -84,7 +84,7 @@ instance Buildable UtxoOp where
 
 instance RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =
-        [Rocks.Put (txInKey txIn) (encodeStrict txOut)]
+        [Rocks.Put (txInKey txIn) (encode txOut)]
     toBatchOp (DelTxIn txIn) = [Rocks.Del $ txInKey txIn]
 
 ----------------------------------------------------------------------------

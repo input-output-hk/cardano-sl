@@ -25,10 +25,9 @@ import qualified Crypto.KDF.PBKDF2            as PBKDF2
 import qualified Crypto.MAC.Poly1305          as Poly
 import           Data.ByteArray               as BA (convert)
 import           Data.ByteString.Char8        as B
-import qualified Data.ByteString.Lazy         as BSL
 import           Universum
 
-import           Pos.Binary.Class             (Bi, decodeFull, encodeStrict)
+import           Pos.Binary.Class             (Bi, decodeFull, encode)
 import           Pos.Crypto.Hashing           (hash)
 import           Pos.Crypto.SafeSigning       (EncryptedSecretKey (..), PassPhrase)
 import           Pos.Crypto.Signing           (PublicKey (..))
@@ -110,7 +109,7 @@ addrAttrNonce = "serokellfore"
 -- | Serialize tree path and encrypt it using passphrase via ChaChaPoly1305.
 packHDAddressAttr :: HDPassphrase -> [Word32] -> HDAddressPayload
 packHDAddressAttr (HDPassphrase passphrase) path = do
-    let !pathSer = encodeStrict path
+    let !pathSer = encode path
     let !packCF =
           encryptChaChaPoly
               addrAttrNonce
@@ -132,7 +131,7 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
     case unpackCF of
         Left er ->
             fail $ "Error in unpackHDAddressAttr, during decryption: " <> show er
-        Right p -> case decodeFull $ BSL.fromStrict p of
+        Right p -> case decodeFull p of
             Left er ->
                 fail $ "Error in unpackHDAddressAttr, during deserialization: " <> show er
             Right path -> pure path

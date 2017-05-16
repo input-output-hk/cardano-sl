@@ -147,5 +147,5 @@ getHolderId Nothing = do
     putText "IF YOU INTEND TO GENERATE GENESIS FOR PRODUCTION, \
             \STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. \
             \THIS IS SERIOUS."
-    liftIO $ BS.writeFile skPath $ Bi.encodeStrict sk
+    liftIO $ BS.writeFile skPath $ Bi.encode sk
     pure $ addressHash pk

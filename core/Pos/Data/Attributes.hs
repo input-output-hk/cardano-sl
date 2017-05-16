@@ -27,9 +27,12 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
 import qualified Prelude
 
+{-
 import           Pos.Binary.Class    (getRemainingByteString, getWithLength,
                                       getWithLengthLimited, getWord8, putByteString,
                                       putWithLength, putWord8)
+-}
+import           Pos.Binary.Class
 
 mkAttributes :: h -> Attributes h
 mkAttributes dat = Attributes dat BS.empty
@@ -78,10 +81,10 @@ areAttributesKnown = null . attrRemain
 -- maximum input length and the attribute value 'h' itself.
 --
 -- The mapper will be applied until it returns 'Nothing'.
-getAttributes :: (Word8 -> h -> Maybe (Get h))
+getAttributes :: (Word8 -> h -> Maybe (Peek h))
               -> Maybe Word32
               -> h
-              -> Get (Attributes h)
+              -> Peek (Attributes h)
 getAttributes keyGetMapper maxLen initData =
     maybeLimit $ do
         let readWhileKnown dat = ifM G.isEmpty (return dat) $ do
@@ -99,7 +102,7 @@ getAttributes keyGetMapper maxLen initData =
 
 -- | Generate 'Put' given the way to serialize inner attribute value
 -- into set of keys and values.
-putAttributes :: (h -> [(Word8, Put)]) -> Attributes h -> Put
+putAttributes :: (h -> [(Word8, Poke ())]) -> Attributes h -> Poke ()
 putAttributes putMapper Attributes {..} =
     putWithLength $ do
         mapM_ putAttr kvs

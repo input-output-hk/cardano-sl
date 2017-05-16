@@ -101,6 +101,9 @@ library
                     , transformers
                     , transformers-base
                     , transformers-lift
+                    , mmorph
+                    , reflection
+                    , resourcet
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
                       -- 'Get' in Pos.Binary.Class. So, if you need to bump
@@ -113,6 +116,7 @@ library
                      , cereal
                      , concurrent-extra
                      , containers
+                     , contravariant
                      , cryptonite
                      , cryptonite-openssl >= 0.5
                      , data-default
@@ -139,6 +143,8 @@ library
                      , semigroups
                      , serokell-util
                      , stm
+                     , store
+                     , store-core
                      , tagged
                      , template-haskell
                      , text

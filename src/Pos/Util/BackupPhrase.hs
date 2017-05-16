@@ -16,7 +16,7 @@ import qualified Prelude
 import           Universum
 
 import           Crypto.Hash         (Blake2b_256)
-import           Pos.Binary          (Bi (..), encodeStrict, label)
+import           Pos.Binary          (Bi, encode, label)
 import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhrase,
                                       SecretKey, VssKeyPair, deterministicKeyGen,
                                       deterministicVssKeyGen, safeDeterministicKeyGen,
@@ -62,7 +62,7 @@ toSeed :: BackupPhrase -> Either Text ByteString
 toSeed = first toText . fromMnemonic . unwords . bpToList
 
 toHashSeed :: BackupPhrase -> Either Text ByteString
-toHashSeed bp = encodeStrict . blake2b <$> toSeed bp
+toHashSeed bp = encode . blake2b <$> toSeed bp
   where blake2b :: Bi a => a -> AbstractHash Blake2b_256 b
         blake2b = unsafeAbstractHash
 

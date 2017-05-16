@@ -36,7 +36,7 @@ import           Serokell.Util          (Color (Red), colorize)
 import           System.Wlog            (WithLogger, logError)
 import           Universum
 
-import           Pos.Binary.Class       (encodeStrict)
+import           Pos.Binary.Class       (encode)
 import qualified Pos.Constants          as Const
 import           Pos.Crypto             (shortHashF)
 import           Pos.DB.Class           (MonadDB, MonadDBPure)
@@ -73,10 +73,10 @@ instance Buildable BalancesOp where
         bprint ("PutFtsStake ("%shortHashF%", "%coinF%")") ad c
 
 instance RocksBatchOp BalancesOp where
-    toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (encodeStrict c)]
+    toBatchOp (PutFtsSum c)      = [Rocks.Put ftsSumKey (encode c)]
     toBatchOp (PutFtsStake ad c) =
         if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
-        else [Rocks.Put (ftsStakeKey ad) (encodeStrict c)]
+        else [Rocks.Put (ftsStakeKey ad) (encode c)]
 
 ----------------------------------------------------------------------------
 -- Overloaded getters (for fixed balances for bootstrap era)

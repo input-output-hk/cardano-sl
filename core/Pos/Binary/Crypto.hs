@@ -13,17 +13,19 @@ import qualified Crypto.ECC.Edwards25519  as Ed25519
 import           Crypto.Hash              (digestFromByteString, hashDigestSize)
 import qualified Crypto.PVSS              as Pvss
 import qualified Crypto.Sign.Ed25519      as EdStandard
+import qualified Data.ByteString          as BS
 import qualified Data.Binary              as Binary
 import           Data.Binary.Get          (getByteString, label)
 import           Data.Binary.Put          (putByteString)
 import qualified Data.ByteArray           as ByteArray
 import qualified Data.ByteString          as BS
 import           Data.SafeCopy            (SafeCopy (..))
+import           Data.Functor.Contravariant (contramap)
 import           Formatting               (int, sformat, stext, (%))
 
-import           Pos.Binary.Class         (AsBinary (..), Bi (..), getCopyBi, putCopyBi)
+import           Pos.Binary.Class         (AsBinary (..), Bi (..), getCopyBi, putCopyBi, Size(..), StaticSize(..))
 import           Pos.Crypto.Hashing       (AbstractHash (..), Hash, HashAlgorithm,
-                                           WithHash (..), withHash)
+                                           WithHash (..), withHash, hashDigestSize', reifyHashDigestSize)
 import           Pos.Crypto.HD            (HDAddressPayload (..))
 import           Pos.Crypto.RedeemSigning (RedeemPublicKey (..), RedeemSecretKey (..),
                                            RedeemSignature (..))
@@ -36,6 +38,7 @@ import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
                                            SecretKey (..), Signature (..), Signed (..))
 
 instance Bi a => Bi (WithHash a) where
+    size = contramap whData size
     put = put . whData
     get = withHash <$> get
 
@@ -48,18 +51,20 @@ instance Bi a => SafeCopy (WithHash a) where
 ----------------------------------------------------------------------------
 
 instance HashAlgorithm algo => Bi (AbstractHash algo a) where
-    {-# SPECIALIZE instance Bi (Hash a) #-}
-    get = label "AbstractHash" $ do
-        bs <- fmap BS.copy $ getByteString $ hashDigestSize @algo $
-              error "Pos.Crypto.Hashing.get: HashAlgorithm value is evaluated!"
-        case digestFromByteString bs of
-            -- It's impossible because getByteString will already fail if
-            -- there weren't enough bytes available
-            Nothing -> fail "Pos.Crypto.Hashing.get: impossible"
-            Just x  -> return (AbstractHash x)
-    put (AbstractHash h) =
-        putByteString (ByteArray.convert h)
+    size = ConstSize (hashDigestSize' @algo)
+    put (AbstractHash digest) =
+        reifyHashDigestSize @algo (\(Proxy :: Proxy n) ->
+            let bs = ByteArray.convert digest :: BS.ByteString
+            in put (StaticSize @n bs))
+    get =
+        reifyHashDigestSize @algo (\(Proxy :: Proxy n) -> do
+            sbs <- get
+            let bs = unStaticSize @n sbs :: BS.ByteString
+            case digestFromByteString bs of
+                Nothing -> error "AbstractHash.peek: impossible"
+                Just x  -> pure (AbstractHash x))
 
+{-
 ----------------------------------------------------------------------------
 -- SecretSharing
 ----------------------------------------------------------------------------
@@ -257,3 +262,5 @@ instance Bi EdStandard.Signature where
 deriving instance Bi RedeemPublicKey
 deriving instance Bi RedeemSecretKey
 deriving instance Bi (RedeemSignature a)
+
+-}

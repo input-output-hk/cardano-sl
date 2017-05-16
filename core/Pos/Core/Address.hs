@@ -59,7 +59,7 @@ addrAlphabet :: Alphabet
 addrAlphabet = bitcoinAlphabet
 
 addrToBase58 :: Bi Address => Address -> ByteString
-addrToBase58 = encodeBase58 addrAlphabet . Bi.encodeStrict
+addrToBase58 = encodeBase58 addrAlphabet . Bi.encode
 
 instance Bi Address => Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58

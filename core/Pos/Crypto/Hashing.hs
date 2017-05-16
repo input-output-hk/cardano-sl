@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
@@ -29,18 +31,20 @@ module Pos.Crypto.Hashing
          -- * Utility
        , CastHash (castHash)
        , HashAlgorithm
+       , hashDigestSize'
+       , reifyHashDigestSize
        ) where
 
 import           Control.Lens         (makeLensesFor)
-import           Crypto.Hash          (Blake2b_256, Digest, HashAlgorithm)
-import qualified Crypto.Hash          as Hash (hash, hashlazy)
+import           Crypto.Hash          (Blake2b_256, Digest, HashAlgorithm, hashDigestSize)
+import qualified Crypto.Hash          as Hash (hash)
 import qualified Data.ByteArray       as ByteArray
-import qualified Data.ByteString.Lazy as BSL
 import           Data.Hashable        (Hashable (hashWithSalt), hashPtrWithSalt)
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (Format, bprint, fitLeft, later, (%.))
 import qualified Serokell.Util.Base16 as B16
 import           System.IO.Unsafe     (unsafeDupablePerformIO)
+import           Data.Reflection      (reifyNat)
 import           Universum
 
 import           Pos.Binary.Class     (Bi, Raw)
@@ -88,14 +92,25 @@ instance Hashable (AbstractHash algo a) where
 instance Buildable.Buildable (AbstractHash algo a) where
     build = bprint shortHashF
 
+hashDigestSize' :: forall algo . HashAlgorithm algo => Int
+hashDigestSize' = hashDigestSize @algo
+    (error "Pos.Crypto.Hashing.hashDigestSize': HashAlgorithm value is evaluated!")
+
+reifyHashDigestSize
+    :: forall algo r.
+       HashAlgorithm algo
+    => (forall n . KnownNat n => Proxy n -> r)
+    -> r
+reifyHashDigestSize = reifyNat (fromIntegral (hashDigestSize' @algo))
+
 -- | Parses given hash in base16 form.
 decodeAbstractHash
     :: forall algo a.
        Bi (AbstractHash algo a)
     => Text -> AbstractHash algo a
-decodeAbstractHash = Bi.decode . processRes . B16.decode
+decodeAbstractHash = processRes . Bi.decodeFull . processRes . B16.decode
   where
-    processRes (Right x) = BSL.fromStrict x
+    processRes (Right x) = x
     processRes (Left e)  = error $ "decode hash error: " <> e
 
 -- | Parses given hash in base16 form.
@@ -112,7 +127,7 @@ abstractHash = unsafeAbstractHash
 unsafeAbstractHash
     :: (HashAlgorithm algo, Bi a)
     => a -> AbstractHash algo b
-unsafeAbstractHash = AbstractHash . Hash.hashlazy . Bi.encode
+unsafeAbstractHash = AbstractHash . Hash.hash . Bi.encode
 
 -- | Type alias for commonly used hash
 type Hash = AbstractHash Blake2b_256

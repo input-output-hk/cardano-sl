@@ -36,7 +36,7 @@ import           Formatting            (bprint, sformat, shown, string, (%))
 import           Serokell.Util.Text    (listJson)
 import           Universum
 
-import           Pos.Binary.Class      (Bi, decodeFull, encodeStrict)
+import           Pos.Binary.Class      (Bi, decodeFull, encode)
 import           Pos.DB.Class          (DBTag, MonadDBPure (..))
 import           Pos.DB.Error          (DBError (DBMalformed))
 import           Pos.DB.Iterator.Class (DBIteratorClass (..))
@@ -52,7 +52,7 @@ openDB fp = DB def def def
 encodeWithKeyPrefix
     :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => IterKey i -> ByteString
-encodeWithKeyPrefix = (iterKeyPrefix @i Proxy <>) . encodeStrict
+encodeWithKeyPrefix = (iterKeyPrefix @i Proxy <>) . encode
 
 -- | Read ByteString from RocksDb using given key.
 rocksGetBytes :: (MonadIO m) => ByteString -> DB -> m (Maybe ByteString)
@@ -139,7 +139,7 @@ rocksPutBytes k v DB {..} = Rocks.put rocksDB rocksWriteOpts k v
 
 -- | Write serializable value to RocksDb for given key.
 rocksPutBi :: (Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
-rocksPutBi k v = rocksPutBytes k (encodeStrict v)
+rocksPutBi k v = rocksPutBytes k (encode v)
 
 rocksDelete :: (MonadIO m) => ByteString -> DB -> m ()
 rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k

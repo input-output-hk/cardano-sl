@@ -18,7 +18,7 @@ import           Universum
 
 import qualified Ether
 
-import           Pos.Binary.Class      (encodeStrict)
+import           Pos.Binary.Class      (encode)
 import           Pos.Binary.Core       ()
 import           Pos.Context.Context   (GenesisLeaders)
 import           Pos.Context.Functions (genesisLeadersM)
@@ -54,4 +54,4 @@ prepareLrcLeaders =
 ----------------------------------------------------------------------------
 
 leadersKey :: EpochIndex -> ByteString
-leadersKey = mappend "l/" . encodeStrict
+leadersKey = mappend "l/" . encode

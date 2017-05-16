@@ -46,7 +46,7 @@ import           System.FilePath              ((</>))
 import           System.IO.Error              (isDoesNotExistError)
 
 import           Pos.Binary.Block             ()
-import           Pos.Binary.Class             (Bi, decodeFull, encodeStrict)
+import           Pos.Binary.Class             (Bi, decodeFull, encode)
 import           Pos.Block.Core               (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Block.Core               as BC
 import           Pos.Block.Types              (Blund, Undo (..))
@@ -69,6 +69,7 @@ import           Pos.Util.Chrono              (NewestFirst (..))
 
 -- Get block with given hash from Block DB.  This function has too
 -- strict constraint, consider using 'blkGetBlock'.
+
 getBlock
     :: forall ssc m. (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (Block ssc))
@@ -298,7 +299,7 @@ getData fp = flip catch handle $ liftIO $
         | otherwise = throwM e
 
 putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
-putData fp = liftIO . BS.writeFile fp . encodeStrict
+putData fp = liftIO . BS.writeFile fp . encode
 
 deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
 deleteData fp = (liftIO $ removeFile fp) `catch` handle

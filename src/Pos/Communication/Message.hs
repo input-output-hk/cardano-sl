@@ -6,7 +6,7 @@ import           Universum
 
 import           Node.Message                     (Message (..), MessageName (..))
 
-import           Pos.Binary.Class                 (UnsignedVarInt (..), encodeStrict)
+import           Pos.Binary.Class                 (UnsignedVarInt (..), encode)
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
                                                    MsgHeaders)
 import           Pos.Communication.MessagePart    (MessagePart (..))
@@ -20,7 +20,7 @@ import           Pos.Types                        (ProxySKHeavy, ProxySKLight)
 import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote)
 
 varIntMName :: Int -> MessageName
-varIntMName = MessageName . encodeStrict . UnsignedVarInt
+varIntMName = MessageName . encode . UnsignedVarInt
 
 instance Message Void where
     messageName _ = varIntMName 0

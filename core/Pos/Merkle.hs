@@ -21,7 +21,7 @@ import qualified Data.Foldable    as Foldable
 import           Prelude          (Show (..))
 import           Universum        hiding (show)
 
-import           Pos.Binary.Class (Bi, Raw, encodeStrict)
+import           Pos.Binary.Class (Bi, Raw, encode)
 import           Pos.Crypto       (Hash, hashRaw)
 
 -- | Data type for root of merkle tree.
@@ -69,7 +69,7 @@ mkLeaf a =
     MerkleLeaf
     { mVal  = a
     , mRoot = MerkleRoot $ coerce $
-              hashRaw (one 0 <> encodeStrict a)
+              hashRaw (one 0 <> encode a)
     }
 
 mkBranch :: MerkleNode a -> MerkleNode a -> MerkleNode a

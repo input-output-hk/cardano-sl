@@ -30,6 +30,6 @@ initTLS caFilePath = do
   where
     daedalusTLSOptions :: Options RequestOptions
     daedalusTLSOptions =
-           protocol := "https"
-        <> hostname := "127.0.0.1"
+           protocol := "https:"
+        <> hostname := "localhost"
         <> port     := 8090

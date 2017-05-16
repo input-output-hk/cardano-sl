@@ -149,12 +149,12 @@ argsParser = do
     walletTLSCertPath <- strOption $
         long    "tlscert" <>
         metavar "FILEPATH" <>
-        value   "certificate.pem" <>
+        value   "server.crt" <>
         help    "Path to file with TLS certificate"
     walletTLSKeyPath <- strOption $
         long    "tlskey" <>
         metavar "FILEPATH" <>
-        value   "key.pem" <>
+        value   "server.key" <>
         help    "Path to file with TLS key"
 #ifdef WITH_WALLET
     enableWallet <- switch $

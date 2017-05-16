@@ -22,7 +22,7 @@ import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..), SocketSubscriptionAction(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, pullLatestTxs, route, socket, subscriptions, syncAction, totalBlocks, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, pullLatestTxs, route, socket, subscriptions, syncAction, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -391,25 +391,17 @@ update RequestTotalBlocksToPaginateBlocks state =
           set loading true $
           -- Don't allow polling if we are doing a request
           set pullLatestBlocks false $
-          -- set totalBlocks newTotalBlocks $
-          -- set latestBlocks newLatestBlocks $
-          set (dashboardViewState <<< dbViewLoadingBlockPagination) true
+          set (dashboardViewState <<< dbViewLoadingTotalBlocks) true
           state
     , effects:
           [ attempt fetchTotalBlocks >>= pure <<< ReceiveTotalBlocksToPaginateBlocks
           ]
     }
-    where
-        -- Note: Set `totalBlocks` to `Loading` only once (at initial request)
-        totalBlocks' = state ^. totalBlocks
-        newTotalBlocks = if isNotAsked totalBlocks' then Loading else totalBlocks'
-        -- Note: Set `latestBlocks` to `Loading` only once (at initial request)
-        latestBlocks' = state ^. latestBlocks
-        newLatestBlocks = if isNotAsked latestBlocks' then Loading else latestBlocks'
 
 update (ReceiveTotalBlocksToPaginateBlocks (Right total)) state =
     { state:
           set totalBlocks (Success total) $
+          set (dashboardViewState <<< dbViewLoadingTotalBlocks) false $
           set pullLatestBlocks (syncByPolling $ state ^. syncAction)
           state
     , effects:
@@ -423,6 +415,7 @@ update (ReceiveTotalBlocksToPaginateBlocks (Left error)) state =
     noEffects $
     set loading false $
     set totalBlocks (Failure error) $
+    set (dashboardViewState <<< dbViewLoadingTotalBlocks) false $
     set pullLatestBlocks (syncByPolling $ state ^. syncAction) $
     set (dashboardViewState <<< dbViewLoadingBlockPagination) true
     state

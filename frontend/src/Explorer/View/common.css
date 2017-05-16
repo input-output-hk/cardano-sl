@@ -230,6 +230,20 @@
     text-align: center;
 }
 
+.pagination-wrapper {
+  position: relative;
+}
+
+.pagination-cover {
+    @extend .hide;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: color(var(--color3) a(0.5));
+}
+
 .pagination {
 
   padding: 8px 6px;
@@ -237,7 +251,7 @@
   border: solid 1px var(--color11);
   display: inline-block;
 
-  &__wrapper {
+  &__container {
     box: horizontal center;
   }
 

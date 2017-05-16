@@ -6,7 +6,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (cExpand, cOf, cLoading, dashboard, dbLastBlocks, common, dbExploreBlocks, cNoData) as I18nL
-import Explorer.Lenses.State (dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, lang, latestBlocks, totalBlocks)
+import Explorer.Lenses.State (dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, lang, latestBlocks, totalBlocks)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State, CBlockEntries)
@@ -95,6 +95,8 @@ blocksFooterView state =
                         , editable: state ^. (dashboardViewState <<< dbViewBlockPaginationEditable)
                         , editableAction: DashboardEditBlocksPageNumber
                         , invalidPageAction: DashboardInvalidBlocksPageNumber
+                        , disabled: state ^. (dashboardViewState <<< dbViewLoadingTotalBlocks) ||
+                                    state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)
                         }
     else
         P.div

@@ -52,6 +52,7 @@ import Data.String (split, null, trim, joinWith, Pattern (..))
 import Daedalus.Crypto (isValidMnemonic, blake2b, bytesToB16)
 import Data.Types (mkTime)
 import Data.Types as DT
+import Data.Int53 (fromInt)
 
 space :: Pattern
 space = Pattern " "
@@ -142,8 +143,8 @@ mkCWalletMeta wType wCurrency wName wAssurance wUnit =
 
 mkCInitialized :: Int -> Int -> CT.CInitialized
 mkCInitialized total preInit =
-    CT.CInitialized { cTotalTime: total
-                    , cPreInit: preInit
+    CT.CInitialized { cTotalTime: fromInt total
+                    , cPreInit: fromInt preInit
                     }
 
 mkCWalletInit :: String -> String -> String -> CAddress WS -> CT.CWalletInit

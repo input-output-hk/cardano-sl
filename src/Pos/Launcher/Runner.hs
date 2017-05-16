@@ -55,10 +55,10 @@ import qualified System.Metrics.Gauge            as Metrics.Gauge
 import           System.Random                   (newStdGen)
 import qualified System.Remote.Monitoring        as Monitoring
 import qualified System.Remote.Monitoring.Statsd as Monitoring
-import           System.Wlog                     (LoggerConfig (..), WithLogger,
-                                                  getLoggerName, logError, logInfo,
-                                                  productionB, releaseAllHandlers,
-                                                  setupLogging, usingLoggerName)
+import           System.Wlog                     (LoggerConfig (..), WithLogger, logError,
+                                                  logInfo, logDebug, productionB,
+                                                  releaseAllHandlers, setupLogging,
+                                                  getLoggerName, usingLoggerName)
 import           Universum                       hiding (bracket, finally)
 
 import           Pos.Binary                      ()
@@ -227,27 +227,36 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
         -- estimator.
         let alpha :: Double
             alpha = 0.75
+            -- This TxpMetrics specifies what to do when waiting on the
+            -- mempool lock, when the mempool lock has been granted, and
+            -- when that lock has been released. It updates EKG metrics
+            -- and also logs each data point at debug level.
             txpMetrics = TxpMetrics
-                { txpMetricsWait = Metrics.Gauge.inc ekgMemPoolQueueLength
+                { txpMetricsWait = \reason -> do
+                      liftIO $ Metrics.Gauge.inc ekgMemPoolQueueLength
+                      qlen <- liftIO $ Metrics.Gauge.read ekgMemPoolQueueLength
+                      logDebug $ sformat ("MemPool metrics wait: "%shown%" queue length is "%shown) reason qlen
 
                 , txpMetricsAcquire = \timeWaited -> do
-                      Metrics.Gauge.dec ekgMemPoolQueueLength
-                      timeWaited' <- Metrics.Gauge.read ekgMemPoolWaitTime
+                      liftIO $ Metrics.Gauge.dec ekgMemPoolQueueLength
+                      timeWaited' <- liftIO $ Metrics.Gauge.read ekgMemPoolWaitTime
                       -- Assume a 0-value estimate means we haven't taken
                       -- any samples yet.
                       let new_ = if timeWaited' == 0
                                 then fromIntegral timeWaited
                                 else round $ alpha * fromIntegral timeWaited + (1 - alpha) * fromIntegral timeWaited'
-                      Metrics.Gauge.set ekgMemPoolWaitTime new_
+                      liftIO $ Metrics.Gauge.set ekgMemPoolWaitTime new_
+                      logDebug $ sformat ("MemPool metrics acquire: wait time was "%shown) timeWaited
 
                 , txpMetricsRelease = \timeElapsed memPoolSize -> do
-                      Metrics.Gauge.set ekgMemPoolSize (fromIntegral memPoolSize)
-                      timeElapsed' <- Metrics.Gauge.read ekgMemPoolModifyTime
+                      liftIO $ Metrics.Gauge.set ekgMemPoolSize (fromIntegral memPoolSize)
+                      timeElapsed' <- liftIO $ Metrics.Gauge.read ekgMemPoolModifyTime
                       let new_ = if timeElapsed' == 0
                                 then fromIntegral timeElapsed
                                 else round $ alpha * fromIntegral timeElapsed + (1 - alpha) * fromIntegral timeElapsed'
-                      Metrics.Gauge.set ekgMemPoolModifyTime new_
-            }
+                      liftIO $ Metrics.Gauge.set ekgMemPoolModifyTime new_
+                      logDebug $ sformat ("MemPool metrics release: modify time was "%shown%" size is "%shown) timeElapsed memPoolSize
+                }
 
         -- TODO [CSL-775] need an effect-free way of running this into IO.
         let runIO :: forall t . RealMode ssc t -> IO t

@@ -44,7 +44,6 @@ import qualified Cardano.Crypto.Wallet  as CC
 -- import qualified Cardano.Crypto.Wallet.Encrypted as CC
 -- import qualified Crypto.ECC.Edwards25519         as Ed25519
 import           Data.ByteArray         (ScrubbedBytes)
-import qualified Data.ByteArray         as BA
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Coerce            (coerce)
@@ -120,7 +119,7 @@ parseFullPublicKey s = do
     pure a
 
 emptyPass :: ScrubbedBytes
-emptyPass = BA.replicate 32 0
+emptyPass = mempty
 
 -- TODO: this is just a placeholder for actual (not ready yet) derivation
 -- of keypair from seed in cardano-crypto API

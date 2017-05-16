@@ -6,17 +6,12 @@
 {-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Communication.Limits
-    (
-      module Pos.Communication.Limits.Types
+       (
+         module Pos.Communication.Limits.Types
 
-    , updateVoteNumLimit
-    , commitmentsNumLimit
-
-    , mcCommitmentMsgLenLimit
-    , mcOpeningLenLimit
-    , mcSharesMsgLenLimit
-    , mcVssCertificateLenLimit
-    ) where
+       , updateVoteNumLimit
+       , commitmentsNumLimit
+       ) where
 
 import           Universum
 
@@ -24,7 +19,6 @@ import           Control.Lens                       (each)
 import           Crypto.Hash                        (Blake2b_224, Blake2b_256)
 import qualified Crypto.PVSS                        as PVSS
 import           GHC.Exts                           (IsList (..))
-import qualified Test.QuickCheck                    as T
 
 import           Pos.Binary.Class                   (AsBinary (..))
 import           Pos.Block.Network.Types            (MsgBlock, MsgGetHeaders (..),
@@ -38,7 +32,9 @@ import           Pos.Crypto                         (AbstractHash, EncShare, Pub
                                                      Share, Signature, VssPublicKey)
 import qualified Pos.DB.Class                       as DB
 import           Pos.Ssc.GodTossing.Arbitrary       ()
-import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..))
+import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..), InnerSharesMap,
+                                                     Opening, SignedCommitment,
+                                                     VssCertificate)
 import           Pos.Ssc.GodTossing.Types.Message   (GtMsgContents (..))
 import           Pos.Txp.Network.Types              (TxMsgContents)
 import           Pos.Update.Core.Types              (UpdateProposal (..), UpdateVote (..))
@@ -48,99 +44,12 @@ import           Pos.Communication.Limits.Instances ()
 import           Pos.Communication.Limits.Types
 
 ----------------------------------------------------------------------------
--- Constants
+-- Instances (MessageLimited[Pure])
 ----------------------------------------------------------------------------
 
--- | Upper bound on number of `PVSS.Commitment`s in single `Commitment`.
-commitmentsNumLimit :: Int
-commitmentsNumLimit = round $ 1 / coinPortionToDouble Const.genesisMpcThd
-
--- | Upper bound on number of votes carried with single `UpdateProposal`.
-updateVoteNumLimit :: DB.MonadGStateCore m => m Int
-updateVoteNumLimit =
-    -- succ is just in case
-    succ . ceiling . recip . coinPortionToDouble . bvdUpdateVoteThd <$>
-    DB.gsAdoptedBVData
-
-mcCommitmentMsgLenLimit :: Limit GtMsgContents
-mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
-
-mcOpeningLenLimit :: Limit GtMsgContents
-mcOpeningLenLimit = 62
-
-mcSharesMsgLenLimit :: Limit GtMsgContents
-mcSharesMsgLenLimit =
-    MCShares <$> msgLenLimit <+> multiMap commitmentsNumLimit
-
-mcVssCertificateLenLimit :: Limit GtMsgContents
-mcVssCertificateLenLimit = 169
-
 ----------------------------------------------------------------------------
--- Instances
+---- Core and lower
 ----------------------------------------------------------------------------
-
-instance MessageLimited (MsgBlock ssc) where
-    getMsgLenLimit _ = Limit <$> DB.gsMaxBlockSize
-
-instance MessageLimited MsgGetHeaders where
-    getMsgLenLimit _ = return $
-        MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
-      where
-        maxGetHeadersNum = ceiling $
-            log ((fromIntegral :: Int -> Double) Const.blkSecurityParam) + 5
-
-instance MessageLimited (MsgHeaders ssc) where
-    getMsgLenLimit _ = do
-        headerLimit <- Limit <$> DB.gsMaxHeaderSize
-        return $
-            MsgHeaders <$> vectorOf Const.recoveryHeadersMessage headerLimit
-
-instance MessageLimited (DataMsg TxMsgContents) where
-    getMsgLenLimit _ = do
-        txLimit <- Limit <$> DB.gsMaxTxSize
-        return $ DataMsg <$> txLimit
-
-instance MessageLimited (DataMsg UpdateVote) where
-    getMsgLenLimit _ = return msgLenLimit
-
-instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
-    getMsgLenLimit _ = do
-        proposalLimit <- Limit <$> DB.gsMaxProposalSize
-        voteNumLimit <- updateVoteNumLimit
-        return $
-            DataMsg <$> ((,) <$> proposalLimit <+> vector voteNumLimit)
-
-instance MessageLimited (DataMsg GtMsgContents) where
-    type LimitType (DataMsg GtMsgContents) =
-        ( Limit (DataMsg GtMsgContents)
-        , Limit (DataMsg GtMsgContents)
-        , Limit (DataMsg GtMsgContents)
-        , Limit (DataMsg GtMsgContents)
-        )
-    getMsgLenLimit _ =
-        return $ each %~ fmap DataMsg $
-            ( mcCommitmentMsgLenLimit
-            , mcOpeningLenLimit
-            , mcSharesMsgLenLimit
-            , mcVssCertificateLenLimit
-            )
-
-instance MessageLimitedPure Commitment where
-    msgLenLimit =
-        Commitment <$> msgLenLimit <+> msgLenLimit
-                   <+> multiMap commitmentsNumLimit
-
-instance MessageLimitedPure SecretSharingExtra where
-    msgLenLimit =
-        SecretSharingExtra <$> msgLenLimit <+> vector commitmentsNumLimit
-
-instance MessageLimitedPure UpdateVote where
-    msgLenLimit =
-        UpdateVote <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
-                   <+> msgLenLimit
-
-instance MessageLimitedPure (DataMsg UpdateVote) where
-    msgLenLimit = DataMsg <$> msgLenLimit
 
 instance MessageLimitedPure (Signature a) where
     msgLenLimit = 64
@@ -175,61 +84,188 @@ instance MessageLimitedPure (AbstractHash Blake2b_224 a) where
 instance MessageLimitedPure (AbstractHash Blake2b_256 a) where
     msgLenLimit = 32
 
--- instance MessageLimitedPure Word32 where
-    -- msgLenLimit = 4
+----------------------------------------------------------------------------
+---- GodTossing
+----------------------------------------------------------------------------
 
--- instance MessageLimitedPure SystemTag where
-    -- msgLenLimit = 6
+-- | Upper bound on number of `PVSS.Commitment`s in single
+-- `Commitment`.  Actually it's a maximum number of participants in
+-- GodTossing. So it also limits number of shares, for instance.
+commitmentsNumLimit :: DB.MonadGStateCore m => m Int
+commitmentsNumLimit =
+    -- succ is just in case
+    succ . ceiling . recip . coinPortionToDouble . bvdMpcThd <$>
+    DB.gsAdoptedBVData
 
--- instance MessageLimitedPure UpdateData where
-    -- msgLenLimit = 128
+instance MessageLimited SecretSharingExtra where
+    getMsgLenLimit _ = do
+        numLimit <- commitmentsNumLimit
+        return $ SecretSharingExtra <$> msgLenLimit <+> vector numLimit
+
+instance MessageLimited (AsBinary SecretSharingExtra) where
+    -- 20 is a magic constant copy-pasted from 'MessageLimitedPure' instance
+    getMsgLenLimit _ =
+        coerce . (20 +) <$> getMsgLenLimit (Proxy @SecretSharingExtra)
+
+instance MessageLimited Commitment where
+    getMsgLenLimit _ = do
+        extraLimit <- getMsgLenLimit (Proxy @(AsBinary SecretSharingExtra))
+        numLimit <- commitmentsNumLimit
+        return $
+            Commitment <$> extraLimit <+> msgLenLimit <+> multiMap numLimit
+
+instance MessageLimited SignedCommitment where
+    getMsgLenLimit _ = do
+        commLimit <- getMsgLenLimit (Proxy @Commitment)
+        return $ (,,) <$> msgLenLimit <+> commLimit <+> msgLenLimit
+
+instance MessageLimitedPure Opening where
+    msgLenLimit = 33
+
+instance MessageLimited InnerSharesMap where
+    getMsgLenLimit _ = do
+        numLimit <- commitmentsNumLimit
+        return $ multiMap numLimit
+
+-- There is some precaution in this limit. 171 means that epoch is
+-- extremely large. It shouldn't happen in practice, but adding few
+-- bytes to the limit is harmless.
+instance MessageLimitedPure VssCertificate where
+    msgLenLimit = 171
+
+instance MessageLimited (DataMsg GtMsgContents) where
+    type LimitType (DataMsg GtMsgContents) = ( Limit (DataMsg GtMsgContents)
+                                             , Limit (DataMsg GtMsgContents)
+                                             , Limit (DataMsg GtMsgContents)
+                                             , Limit (DataMsg GtMsgContents))
+    getMsgLenLimit _ = do
+        commLimit <-
+            fmap MCCommitment <$> getMsgLenLimit (Proxy @SignedCommitment)
+        sharesLimit <-
+            (MCShares <$> msgLenLimit <+>) <$>
+            getMsgLenLimit (Proxy @InnerSharesMap)
+        return $
+            each %~ fmap DataMsg $
+            ( commLimit
+            , (MCOpening <$> msgLenLimit <+> msgLenLimit) + 1 -- TODO: investigate this '+ 1'
+            , sharesLimit
+            , (MCVssCertificate <$> msgLenLimit) + 1 -- TODO: investigate this '+ 1'
+            )
+
+----------------------------------------------------------------------------
+---- Txp
+----------------------------------------------------------------------------
+
+instance MessageLimited (DataMsg TxMsgContents) where
+    getMsgLenLimit _ = do
+        txLimit <- Limit <$> DB.gsMaxTxSize
+        return $ DataMsg <$> txLimit
+
+----------------------------------------------------------------------------
+---- Update System
+----------------------------------------------------------------------------
+
+-- | Upper bound on number of votes carried with single `UpdateProposal`.
+updateVoteNumLimit :: DB.MonadGStateCore m => m Int
+updateVoteNumLimit =
+    -- succ is just in case
+    succ . ceiling . recip . coinPortionToDouble . bvdUpdateVoteThd <$>
+    DB.gsAdoptedBVData
+
+instance MessageLimitedPure UpdateVote where
+    msgLenLimit =
+        UpdateVote <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
+                   <+> msgLenLimit
+
+instance MessageLimitedPure (DataMsg UpdateVote) where
+    msgLenLimit = DataMsg <$> msgLenLimit
+
+instance MessageLimited (DataMsg UpdateVote) where
+    getMsgLenLimit _ = return msgLenLimit
+
+instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
+    getMsgLenLimit _ = do
+        proposalLimit <- Limit <$> DB.gsMaxProposalSize
+        voteNumLimit <- updateVoteNumLimit
+        return $
+            DataMsg <$> ((,) <$> proposalLimit <+> vector voteNumLimit)
+
+----------------------------------------------------------------------------
+---- Blocks/headers
+----------------------------------------------------------------------------
+
+instance MessageLimited (MsgBlock ssc) where
+    getMsgLenLimit _ = Limit <$> DB.gsMaxBlockSize
+
+instance MessageLimited MsgGetHeaders where
+    getMsgLenLimit _ = return $
+        MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
+      where
+        maxGetHeadersNum = ceiling $
+            log ((fromIntegral :: Int -> Double) Const.blkSecurityParam) + 5
+
+instance MessageLimited (MsgHeaders ssc) where
+    getMsgLenLimit _ = do
+        headerLimit <- Limit <$> DB.gsMaxHeaderSize
+        return $
+            MsgHeaders <$> vectorOf Const.recoveryHeadersMessage headerLimit
 
 ----------------------------------------------------------------------------
 -- Arbitrary
 ----------------------------------------------------------------------------
 
-instance T.Arbitrary (MaxSize Commitment) where
-    arbitrary = MaxSize <$>
-        (Commitment <$> T.arbitrary <*> T.arbitrary
-                    <*> aMultimap commitmentsNumLimit)
+-- TODO [CSL-859]
+-- These instances were assuming that commitment limit is constant, but
+-- it's not, because threshold can change.
+-- P. S. Also it would be good to move them somewhere (and clean-up
+-- this module), because currently it's quite messy (I think). @gromak
+-- By messy I mean at least that it contains some 'Arbitrary' stuff, which we
+-- usually put somewhere outside. Also I don't like that it knows about
+-- GodTossing (I think instances for GodTossing should be in GodTossing),
+-- but it can wait.
 
-instance T.Arbitrary (MaxSize SecretSharingExtra) where
-    arbitrary = do
-        SecretSharingExtra gen commitments <- T.arbitrary
-        let commitments' = alignLength commitmentsNumLimit commitments
-        return $ MaxSize $ SecretSharingExtra gen commitments'
-      where
-        alignLength n = take n . cycle
+-- instance T.Arbitrary (MaxSize Commitment) where
+--     arbitrary = MaxSize <$>
+--         (Commitment <$> T.arbitrary <*> T.arbitrary
+--                     <*> aMultimap commitmentsNumLimit)
 
-instance T.Arbitrary (MaxSize GtMsgContents) where
-    arbitrary = MaxSize <$>
-        T.oneof [aCommitment, aOpening, aShares, aVssCert]
-      where
-        aCommitment = MCCommitment <$>
-            ((,,) <$> T.arbitrary
-                  <*> (getOfMaxSize <$> T.arbitrary)
-                  <*> T.arbitrary)
-        aOpening = MCOpening <$> T.arbitrary <*> T.arbitrary
-        aShares =
-            MCShares <$> T.arbitrary
-                     <*> aMultimap commitmentsNumLimit
-        aVssCert = MCVssCertificate <$> T.arbitrary
+-- instance T.Arbitrary (MaxSize SecretSharingExtra) where
+--     arbitrary = do
+--         SecretSharingExtra gen commitments <- T.arbitrary
+--         let commitments' = alignLength commitmentsNumLimit commitments
+--         return $ MaxSize $ SecretSharingExtra gen commitments'
+--       where
+--         alignLength n = take n . cycle
 
-instance T.Arbitrary (MaxSize (DataMsg GtMsgContents)) where
-    arbitrary = fmap DataMsg <$> T.arbitrary
+-- instance T.Arbitrary (MaxSize GtMsgContents) where
+--     arbitrary = MaxSize <$>
+--         T.oneof [aCommitment, aOpening, aShares, aVssCert]
+--       where
+--         aCommitment = MCCommitment <$>
+--             ((,,) <$> T.arbitrary
+--                   <*> (getOfMaxSize <$> T.arbitrary)
+--                   <*> T.arbitrary)
+--         aOpening = MCOpening <$> T.arbitrary <*> T.arbitrary
+--         aShares =
+--             MCShares <$> T.arbitrary
+--                      <*> aMultimap commitmentsNumLimit
+--         aVssCert = MCVssCertificate <$> T.arbitrary
+
+-- instance T.Arbitrary (MaxSize (DataMsg GtMsgContents)) where
+--     arbitrary = fmap DataMsg <$> T.arbitrary
 
 ----------------------------------------------------------------------------
 -- Utils
 ----------------------------------------------------------------------------
 
--- | Generates multimap which has given number of keys, each associated
--- with a single value
-aMultimap
-    :: (Eq k, Hashable k, T.Arbitrary k, T.Arbitrary v)
-    => Int -> T.Gen (HashMap k (NonEmpty v))
-aMultimap k =
-    let pairs = (,) <$> T.arbitrary <*> ((:|) <$> T.arbitrary <*> pure [])
-    in  fromList <$> T.vectorOf k pairs
+-- -- | Generates multimap which has given number of keys, each associated
+-- -- with a single value
+-- aMultimap
+--     :: (Eq k, Hashable k, T.Arbitrary k, T.Arbitrary v)
+--     => Int -> T.Gen (HashMap k (NonEmpty v))
+-- aMultimap k =
+--     let pairs = (,) <$> T.arbitrary <*> ((:|) <$> T.arbitrary <*> pure [])
+--     in  fromList <$> T.vectorOf k pairs
 
 -- | Given a limit for a list item, generate limit for a list with N elements
 vectorOf :: IsList l => Int -> Limit (Item l) -> Limit l

@@ -198,12 +198,14 @@ instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
 instance MessageLimited (MsgBlock ssc) where
     getMsgLenLimit _ = Limit <$> DB.gsMaxBlockSize
 
-instance MessageLimited MsgGetHeaders where
-    getMsgLenLimit _ = return $
-        MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
+instance MessageLimitedPure MsgGetHeaders where
+    msgLenLimit = MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
       where
-        maxGetHeadersNum = ceiling $
+        maxGetHeadersNum =
+            ceiling $
             log ((fromIntegral :: Int -> Double) Const.blkSecurityParam) + 5
+
+instance MessageLimited MsgGetHeaders
 
 instance MessageLimited (MsgHeaders ssc) where
     getMsgLenLimit _ = do

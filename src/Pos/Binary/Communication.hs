@@ -15,9 +15,8 @@ import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
                                                    decodeFull, encodeStrict,
                                                    getByteString, getRemainingByteString,
-                                                   getSmallWithLength, getWithLength,
-                                                   getWord8, label, putByteString,
-                                                   putSmallWithLength, putWithLength,
+                                                   getSmallWithLength, getWord8, label,
+                                                   putByteString, putSmallWithLength,
                                                    putWord8)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
@@ -54,16 +53,8 @@ instance Ssc ssc => Bi (MsgHeaders ssc) where
     get = label "MsgHeaders" $ MsgHeaders <$> get
 
 instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
-    -- We encode block size and then the block itself so that we'd be able to
-    -- reject the block if it's of the wrong size without consuming the whole
-    -- block.
-    put (MsgBlock b) =
-        -- NB: When serializing, we don't check that the size of the
-        -- serialized block is smaller than the allowed size. Note that
-        -- we *depend* on this behavior in e.g. 'handleGetBlocks' in
-        -- "Pos.Block.Network.Listeners". Grep for #put_checkBlockSize.
-        putWithLength (put b)
-    get = label "MsgBlock" $ getWithLength $ MsgBlock <$> get
+    put (MsgBlock b) = put b
+    get = label "MsgBlock" $ MsgBlock <$> get
 
 ----------------------------------------------------------------------------
 -- Transaction processing

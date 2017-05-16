@@ -14,7 +14,7 @@ import qualified Pos.Types                                 as PT
 import qualified Pos.Util.BackupPhrase                     as BP
 import qualified Pos.Wallet.Web                            as CT
 
-import           PSTypes                                   (psHash, psPosixTime)
+import           PSTypes                                   (psInt53, psPosixTime)
 
 
 main :: IO ()
@@ -63,13 +63,13 @@ main =
       customBridge =
           defaultBridge <|> posixTimeBridge <|> wordBridge <|>
           word8Bridge <|> word16Bridge <|> word32Bridge <|>
-          word64Bridge <|> hashBridge
+          word64Bridge
 
 posixTimeBridge :: BridgePart
 posixTimeBridge = typeName ^== "NominalDiffTime" >> pure psPosixTime
 
 wordBridge :: BridgePart
-wordBridge = typeName ^== "Word" >> pure psInt
+wordBridge = typeName ^== "Word" >> pure psInt53
 
 word8Bridge :: BridgePart
 word8Bridge = typeName ^== "Word8" >> pure psInt
@@ -78,10 +78,10 @@ word16Bridge :: BridgePart
 word16Bridge = typeName ^== "Word16" >> pure psInt
 
 word32Bridge :: BridgePart
-word32Bridge = typeName ^== "Word32" >> pure psInt
+word32Bridge = typeName ^== "Word32" >> pure psInt53
 
+-- FIXME: this is not actually correct, but we don't
+-- use >= Int53 except for Coin, and Coin is representat
+-- as String in `0.4` branch
 word64Bridge :: BridgePart
-word64Bridge = typeName ^== "Word64" >> pure psInt
-
-hashBridge :: BridgePart
-hashBridge = typeName ^== "Hash" >> pure psHash
+word64Bridge = typeName ^== "Word64" >> pure psInt53

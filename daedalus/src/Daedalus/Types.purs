@@ -52,6 +52,7 @@ import Data.String (split, null, trim, joinWith, Pattern (..))
 import Daedalus.Crypto (isValidMnemonic, blake2b, bytesToB16)
 import Data.Types (mkTime)
 import Data.Types as DT
+import Data.Int53 (fromInt, toString)
 
 space :: Pattern
 space = Pattern " "
@@ -94,7 +95,7 @@ showCCurrency = dropModuleName <<< gShow
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses
 walletAddressToUrl :: CWalletAddress -> String
-walletAddressToUrl (CWalletAddress r) = _address r.cwaWSAddress <> "@" <> show r.cwaIndex
+walletAddressToUrl (CWalletAddress r) = _address r.cwaWSAddress <> "@" <> toString r.cwaIndex
 
 _hash :: CHash -> String
 _hash (CHash h) = h
@@ -142,8 +143,8 @@ mkCWalletMeta wType wCurrency wName wAssurance wUnit =
 
 mkCInitialized :: Int -> Int -> CT.CInitialized
 mkCInitialized total preInit =
-    CT.CInitialized { cTotalTime: total
-                    , cPreInit: preInit
+    CT.CInitialized { cTotalTime: fromInt total
+                    , cPreInit: fromInt preInit
                     }
 
 mkCWalletInit :: String -> String -> String -> CAddress WS -> CT.CWalletInit

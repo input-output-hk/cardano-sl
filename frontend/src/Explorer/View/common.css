@@ -49,10 +49,13 @@
   font-family: var(--fontFamily0-Regular);
   font-size: 10px;
 
-  .hash {
+  .hash-container {
     overflow: hidden;
     text-overflow: ellipsis;
     lost-column: 1/1;
+  }
+
+  .hash {
     color: var(--color8);
     line-height: var(--transaction-header-height);
     button: standard-button;
@@ -60,7 +63,7 @@
   }
 
   @media (--md) {
-    .hash {
+    .hash-container {
       lost-column: 7/12;
     }
   }
@@ -94,13 +97,13 @@
   .amount {
     box-item: center;
 
-    padding: 5px 10px 5px 20px;
+    padding: 5px 20px 5px 10px;
     color: var(--color0);
     border-radius: 4px;
 
     background-color: var(--color10);
     background-repeat: no-repeat;
-    background-position: 7px center;
+    background-position: right 7px center;
     background-size: 8px 7px;
   }
 }
@@ -122,6 +125,7 @@
   .from-hash-container {
     box-item: center;
     overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   @media (--md) {
@@ -131,9 +135,6 @@
   }
 
   .from-hash {
-    overflow: hidden;
-    display: block;
-    text-overflow: ellipsis;
     button: standard-button;
     button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
     padding: 18px 0 12px 0;
@@ -155,12 +156,14 @@
     }
   }
 
-  .to-hash {
+  .to-hash-wrapper {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .to-hash {
     button: standard-button;
     button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
-    display: block;
     padding-bottom: 12px;
   }
 
@@ -196,9 +199,9 @@
   }
 
   .plain-amount {
-    padding-left: 10px;
+    padding-right: 10px;
     background-repeat: no-repeat;
-    background-position: left center;
+    background-position: right center;
     background-size: 8px 7px;
   }
 

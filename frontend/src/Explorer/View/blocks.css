@@ -40,9 +40,13 @@
 
   &__epoch {
     lost-column: 3/12;
+    button: standard-button;
+    button-color: var(--color8) var(--color5) var(--color5);
   }
   &__slot {
     lost-column: 3/12;
+    button: standard-button;
+    button-color: var(--color8) var(--color5) var(--color5);
   }
   &__age {
     lost-column: 6/12 3;
@@ -52,6 +56,14 @@
   }
   &__totalSend {
     @extend .hide;
+
+    .ada {
+      padding-right: 10px;
+      background-repeat: no-repeat;
+      background-position: right center;
+      background-size: 8px 7px;
+    }
+
   }
   &__lead {
     @extend .hide;

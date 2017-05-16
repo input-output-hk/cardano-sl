@@ -14,6 +14,7 @@ import           System.Directory     (listDirectory)
 import           System.FilePath      ((</>))
 
 import           Pos.Util.JsonLog     (JLEvent, JLTimedEvent (..))
+import           Types
 import           Universum
 import           Util.Aeson           (parseJSONP)
 import           Util.Safe            (runWithFiles)
@@ -35,8 +36,8 @@ parseLogP :: MonadIO m => Handle -> Producer JLTimedEvent m ()
 parseLogP h = fromHandle h >-> parseJSONP
 
 data IndexedJLTimedEvent = IndexedJLTimedEvent
-    { ijlNodeIndex :: !Int
-    , ijlTimestamp :: !Integer
+    { ijlNodeIndex :: !NodeIndex
+    , ijlTimestamp :: !Timestamp
     , ijlEvent     :: !JLEvent
     }
 

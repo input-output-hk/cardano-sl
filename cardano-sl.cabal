@@ -1323,6 +1323,7 @@ executable cardano-post-mortem
                      , Statistics
                      , Statistics.Block
                      , Statistics.Tx
+                     , Types
                      , Util.Aeson
                      , Util.Pipes
                      , Util.Safe

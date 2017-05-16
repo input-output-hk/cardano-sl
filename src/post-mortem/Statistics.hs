@@ -1,6 +1,6 @@
 module Statistics
     ( runJSONFold
-    , txReceivedCreatedF
+    , receivedCreatedF
     , module Statistics.Tx
     , module Statistics.Block
     ) where
@@ -8,34 +8,22 @@ module Statistics
 import           Control.Foldl   (Fold (..))
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
-import           Data.Set        (Set)
-import qualified Data.Set        as S
 
 import JSONLog
 import Statistics.Block
 import Statistics.Tx
+import Types
 import Universum
 import Util.Pipes    (fold')
 
 runJSONFold :: FilePath -> Fold IndexedJLTimedEvent a -> IO a
 runJSONFold logDir fd = runParseLogs logDir $ fold' fd
 
-txReceivedCreatedF :: Fold IndexedJLTimedEvent (Map Text (Maybe Integer))
-txReceivedCreatedF = f <$> txReceivedF <*> txBlocksF <*> (blockChain <$> blockHeadersF)
+receivedCreatedF :: Fold IndexedJLTimedEvent (Map TxHash (Maybe Timestamp))
+receivedCreatedF = f <$> txReceivedF <*> inBlockChainF
   where
-    f :: Map Text Integer 
-      -> Map Text [(Integer, Text)] 
-      -> [Text] 
-      -> Map Text (Maybe Integer)
-    f rm bm cs = M.mapWithKey g rm
+    f :: Map TxHash Timestamp -> Map TxHash Timestamp -> Map TxHash (Maybe Timestamp)
+    f rm cm = M.mapWithKey g rm
       where
-        chain :: Set Text
-        chain = S.fromList cs
-
-        g :: Text -> Integer -> (Maybe Integer)
-        g tx received =
-            let tss = [ts | (ts, h) <-  M.findWithDefault [] tx bm, 
-                            S.member h chain]
-            in  case tss of
-                    [] -> Nothing
-                    _  -> Just $ minimum tss - received
+        g :: TxHash -> Timestamp -> Maybe Timestamp
+        g tx ts = maybe Nothing (\ts' -> Just $ ts' - ts) $ M.lookup tx cm

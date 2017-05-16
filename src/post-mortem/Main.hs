@@ -9,7 +9,7 @@ main :: IO ()
 main = do
     [logDir] <- getArgs
     err $ "logs directory: " ++ show logDir
-    rc <- runJSONFold logDir txReceivedCreatedF
+    rc <- runJSONFold logDir receivedCreatedF
     let total = M.size rc
     let included = sort $ mapMaybe snd $ M.toList rc
     err $ "total number of received transactions: " ++ show total

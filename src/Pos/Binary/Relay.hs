@@ -12,7 +12,6 @@ import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg (..),
                                                    MempoolMsg (..), ReqMsg (..))
 import           Pos.Crypto                       (hash)
 import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
-import           Pos.Txp.Network.Types            (TxMsgContents (..))
 import           Pos.Update.Core                  (UpdateProposal, UpdateVote (..))
 
 instance (Bi tag, Bi key) => Bi (InvMsg key tag) where
@@ -35,12 +34,6 @@ instance (Bi tag) => Bi (MempoolMsg tag) where
 instance Bi (DataMsg GtMsgContents) where
     put (DataMsg dmContents) = put dmContents
     get = label "DataMsg GtMsgContents" $ DataMsg <$> get
-
-instance Bi (DataMsg TxMsgContents) where
-    put (DataMsg (TxMsgContents dmTx dmWitness dmDistr)) =
-        put dmTx >> put dmWitness >> put dmDistr
-    get = label "DataMsg TxMsgContents" $
-        DataMsg <$> (TxMsgContents <$> get <*> get <*> get)
 
 instance Bi (DataMsg (UpdateProposal, [UpdateVote])) where
     put (DataMsg dmContents) = put dmContents

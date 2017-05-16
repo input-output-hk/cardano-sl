@@ -154,6 +154,8 @@ library
                         Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Ssc.GodTossing.Types
                         Pos.Binary.Txp
+                        Pos.Binary.Txp.Core
+                        Pos.Binary.Txp.Network
 
                         -- Block processing
                         Pos.Block.Error

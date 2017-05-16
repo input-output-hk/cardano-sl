@@ -10,15 +10,15 @@ module Pos.Txp.Core.Core
 
 import           Universum
 
-import           Pos.Binary.Core    ()
-import           Pos.Binary.Crypto  ()
-import           Pos.Binary.Txp     ()
-import           Pos.Core.Address   ()
-import           Pos.Core.Types     (Address (..))
-import           Pos.Crypto         (hash)
-import           Pos.Merkle         (mtRoot)
-import           Pos.Txp.Core.Types (TxAux, TxId, TxIn (..), TxOut (..), TxOutAux (..),
-                                     TxOutDistribution, TxPayload (..), TxProof (..))
+import           Pos.Binary.Core     ()
+import           Pos.Binary.Crypto   ()
+import           Pos.Binary.Txp.Core ()
+import           Pos.Core.Address    ()
+import           Pos.Core.Types      (Address (..))
+import           Pos.Crypto          (hash)
+import           Pos.Merkle          (mtRoot)
+import           Pos.Txp.Core.Types  (TxAux, TxId, TxIn (..), TxOut (..), TxOutAux (..),
+                                      TxOutDistribution, TxPayload (..), TxProof (..))
 
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.

@@ -15,7 +15,7 @@ module Pos.Wallet.Web.Account
        , AddrGenSeed
        ) where
 
-import           Data.List                  (elemIndex, (!!))
+import           Data.List                  (elemIndex)
 import           Formatting                 (build, sformat, (%))
 import           System.Random              (Random, randomIO)
 import           Universum
@@ -48,11 +48,11 @@ getSKByAddr
     :: AccountMode m
     => CAddress WS
     -> m EncryptedSecretKey
-getSKByAddr cAddr = do
-    idx <- getAddrIdx cAddr
-    sks <- getSecretKeys
-    let sk = sks !! idx
-    return sk
+getSKByAddr addr = do
+    msk <- find (\k -> encToCAddress k == addr) <$> getSecretKeys
+    maybeThrow notFound msk
+  where notFound =
+          Internal $ sformat ("No wallet set with address "%build%" found") addr
 
 getSKByAccAddr
     :: AccountMode m
@@ -148,10 +148,14 @@ deriveAccountSK
     -> Word32
     -> m (Address, EncryptedSecretKey)
 deriveAccountSK passphrase CWalletAddress{..} accIndex = do
-    key <- getSKByAddr cwaWSAddress
+    -- this function is used in conditions when several secret keys with same
+    -- public key are stored, thus checking for passphrase here as well
+    let niceSK k = encToCAddress k == cwaWSAddress
+    key <- maybeThrow noKey . find niceSK =<< getSecretKeys
     maybeThrow badPass $
         deriveLvl2KeyPair passphrase key cwaIndex accIndex
   where
+    noKey   = Internal "No secret key with such address found"
     badPass = Internal "deriveAccountSK: passphrase doesn't match"
 
 deriveAccountAddress

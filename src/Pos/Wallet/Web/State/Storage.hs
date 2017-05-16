@@ -39,6 +39,7 @@ module Pos.Wallet.Web.State.Storage
        , removeWSet
        , removeWallet
        , removeAccount
+       , totallyRemoveAccount
        , addUpdate
        , removeNextUpdate
        , testReset
@@ -241,6 +242,11 @@ removeAccount accAddr@(walletAddrByAccount -> wAddr) = do
     existed <- wsWalletInfos . ix wAddr . wiAccounts . at accAddr <<.= Nothing
     whenJust existed $ \_ ->
         wsWalletInfos . ix wAddr . wiRemovedAccounts . at accAddr ?= ()
+
+totallyRemoveAccount :: CAccountAddress -> Update ()
+totallyRemoveAccount accAddr@(walletAddrByAccount -> wAddr) = do
+    wsWalletInfos . ix wAddr . wiAccounts . at accAddr .= Nothing
+    wsWalletInfos . ix wAddr . wiRemovedAccounts . at accAddr .= Nothing
 
 addUpdate :: CUpdateInfo -> Update ()
 addUpdate ui = wsReadyUpdates %= (++ [ui])

@@ -46,6 +46,7 @@ module Pos.Wallet.Web.State.State
        , removeWSet
        , removeWallet
        , removeAccount
+       , totallyRemoveAccount
        , addUpdate
        , removeNextUpdate
        , updateHistoryCache
@@ -186,6 +187,9 @@ removeWallet = updateDisk . A.RemoveWallet
 
 removeAccount :: WebWalletModeDB m => CAccountAddress -> m ()
 removeAccount = updateDisk . A.RemoveAccount
+
+totallyRemoveAccount :: WebWalletModeDB m => CAccountAddress -> m ()
+totallyRemoveAccount = updateDisk . A.TotallyRemoveAccount
 
 addUpdate :: WebWalletModeDB m => CUpdateInfo -> m ()
 addUpdate = updateDisk . A.AddUpdate

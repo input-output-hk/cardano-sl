@@ -1321,6 +1321,7 @@ executable cardano-post-mortem
   main-is:             Main.hs
   other-modules:       JSONLog 
                      , Statistics
+                     , Statistics.Block
                      , Statistics.Tx
                      , Util.Aeson
                      , Util.Pipes

@@ -4,25 +4,18 @@ import           System.IO       (hPutStrLn)
 import           Statistics
 import           Universum
 
+
 main :: IO ()
 main = do
     [logDir] <- getArgs
-    (ds, n)  <- test logDir
-    let c = n + length ds
-    hPutStrLn stderr $ show c ++ " transactions, " ++ show n ++ " outliers"
-    for_ (sort ds) print
-
-test :: FilePath -> IO ([Integer], Int)
-test logDir = do
-    m <- runJSONFold logDir $ transformTxData f <$> txDataF
-    return $ M.foldl' g ([], 0) m
-    
+    err $ "logs directory: " ++ show logDir
+    rc <- runJSONFold logDir txReceivedCreatedF
+    let total = M.size rc
+    let included = sort $ mapMaybe snd $ M.toList rc
+    err $ "total number of received transactions: " ++ show total
+    err $ "included in blockchain: " ++ show (length included)
+    err $ "lost transactions: " ++ show (total - length included)
+    for_ included print 
   where
-    f :: [(Int, Integer)] -> [(Int, Integer)] -> Maybe Integer
-    f [] _  = Nothing
-    f _  [] = Nothing
-    f xs ys = Just $ maximum (map snd ys) - minimum (map snd xs)
-
-    g :: ([Integer], Int) -> Maybe Integer -> ([Integer], Int)
-    g (ds, !n) Nothing  = (ds    , n + 1)
-    g (ds, !n) (Just d) = (d : ds, n)
+    err :: String -> IO ()
+    err = hPutStrLn stderr

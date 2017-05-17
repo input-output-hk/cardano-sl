@@ -42,6 +42,7 @@ data CompileConfig = CompileConfig
       -- ^ Timeout for holding light psks confirmations
     , ccDlgCacheParam                 :: !Int
       -- ^ This value parameterizes size of cache used in Delegation.
+      -- Not bytes, but number of elements.
     , ccEnhancedMessageTimeout        :: !Word
       -- ^ We consider node as known if it was pinged at most 10 sec ago.
     , ccRecoveryHeadersMessage        :: !Int
@@ -60,5 +61,6 @@ data CompileConfig = CompileConfig
 -- Hardware/system
 ----------------------------------------------------------------------------
     , ccMemPoolLimitRatio             :: !Word
-      -- ^ This ratio affects mempool size limit.
+      -- ^ Size of mem pool will be limited by this value muliplied by block
+      -- size limit.
     } deriving (Show)

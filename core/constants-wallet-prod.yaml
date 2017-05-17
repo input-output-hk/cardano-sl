@@ -42,6 +42,7 @@ lightDlgConfirmationTimeout: 500
 # by this value multiplied by some constant. You are adviced to look at code
 # if you need exact values, because it may change and most likely nobody will
 # update this comment.
+# The size is number of elements, not bytes.
 dlgCacheParam: 500
 
 # Update system

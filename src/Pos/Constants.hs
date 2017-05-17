@@ -151,6 +151,7 @@ lightDlgConfirmationTimeout :: (Integral a) => a
 lightDlgConfirmationTimeout = fromIntegral . ccLightDlgConfirmationTimeout $ compileConfig
 
 -- | This value parameterizes size of cache used in Delegation.
+-- Not bytes, but number of elements.
 dlgCacheParam :: Integral n => n
 dlgCacheParam = fromIntegral . ccDlgCacheParam $ compileConfig
 

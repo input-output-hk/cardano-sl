@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -em -o xtrace
 
 export EXTRA_STACK="--no-haddock-deps"
 
@@ -21,10 +21,12 @@ touch $(stack --nix list-dependencies --separator '-' | sed 's/$/.log/' | sed 's
 tail -f .stack-work/logs/* &
 
 stack --nix --no-terminal install happy \
-  $EXTRA_STACK --fast --jobs=4
+  $EXTRA_STACK --fast --ghc-options="+RTS -M7G -RTS" --jobs=4
+
+free -h
 
 stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl \
-  $EXTRA_STACK --fast --jobs=2 \
+  $EXTRA_STACK --fast --ghc-options="+RTS -M7G -RTS" --jobs=2 \
   --flag cardano-sl:-asserts \
   --flag cardano-sl-core:-dev-mode | ts
 
@@ -45,3 +47,5 @@ popd
 echo "Packing up daedalus-bridge ..."
 XZ_OPT=-1 tar cJf s3/daedalus-bridge-$TRAVIS_OS_NAME-${TRAVIS_BRANCH/\//-}.tar.xz daedalus/
 echo "Done"
+
+kill %1

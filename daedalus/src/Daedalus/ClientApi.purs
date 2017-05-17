@@ -293,11 +293,23 @@ newAccount = mkEffFn2 \wId spendingPassword -> fromAff <<< map encodeJson <<<
 -- Arguments: currency for which we are checking address, string representation of an address to check
 -- Returns true if address is valid in specific currency or false otherwise
 -- Example in nodejs:
--- | >  api.isValidAddress('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW').then(console.log).catch(console.log)
+-- | > api.isValidAddress('1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > true
+-- |
+-- | > api.isValidAddress('19MxMbcEskurDMdVX1h32Fi94Nojxp1gvwMYbDziZoPjGmJdssagaugyCqUUJVySKBdA1DUHbpYmQd6yTeFQqfrWWKx9gs').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > true
+-- |
+-- | > api.isValidAddress('19MxMbcEskurDMdVX1h32Fi94Nojxp1gvwMYbDziZoPjGmJdssagaugyCqUUJVySKBdA1DUHbpYmQd6yTeFQqfrWWKx9g').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > false
+-- |
+-- | > api.isValidAddress('1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs9').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > false
 isValidAddress :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Boolean)
-isValidAddress = mkEffFn2 \currency -> fromAff <<< B.isValidAddress (mkCCurrency currency)
+isValidAddress = mkEffFn2 \addr currency -> fromAff $ B.isValidAddress addr (mkCCurrency currency)
 
 --------------------------------------------------------------------------------
 -- Profiles --------------------------------------------------------------------
@@ -329,7 +341,20 @@ updateLocale = mkEffFn1 \locale -> fromAff <<< map getProfileLocale <<< B.update
 -- Arguments: wallet object/id, address id/hash, amount to send, spending password (leave empty string if you don't want to use spending password)
 -- Returns a created transaction
 -- Example in nodejs:
---
+-- | > api.newPayment({"cwaWSAddress": "1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8", "cwaIndex": 2147483648}, '19MxMbcEskurDMdVX1h32Fi94Nojxp1gvwMYbDziZoPjGmJdssagaugyCqUUJVySKBdA1DUHbpYmQd6yTeFQqfrWWKx9gs', 1, '').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > { ctOutputAddrs:
+-- |    [ '19MxMbcEskurDMdVX1h32Fi94Nojxp1gvwMYbDziZoPjGmJdssagaugyCqUUJVySKBdA1DUHbpYmQd6yTeFQqfrWWKx9gs',
+-- |      '19FHEbfuy6YkncN6nn6rd2AdMSXacfNiJDv6aDMZSojZpDwmFQzEzjYNAqWoj7ENTxBfQSKbfZSUokNddip5bzvpkyxyWh' ],
+-- |   ctMeta:
+-- |    { ctmTitle: '',
+-- |      ctmDescription: '',
+-- |      ctmDate: 1494934471.9788823,
+-- |      ctmCurrency: 'ADA' },
+-- |   ctInputAddrs: [ '19FLnEFfkaLsZqBqYHjPmCypZNHNZ7SBfMsntKgspqA96F18s6eeDy5GYjHmwXSECG6jRqWh9qqEAicpEXrNhpb8PuRNVL' ],
+-- |   ctId: 'c2cf810bff21698dace837d23356336098f207b1d70d16ac83e058fcd0ace732',
+-- |   ctConfirmations: 0,
+-- |   ctAmount: { getCoin: '50000' } }
 newPayment :: forall eff. EffFn4 (ajax :: AJAX | eff) Json String String String (Promise Json)
 newPayment = mkEffFn4 \wFrom addrTo amount spendingPassword -> fromAff <<< map encodeJson $ either (throwError <<< error) id
     $ B.newPayment
@@ -342,7 +367,20 @@ newPayment = mkEffFn4 \wFrom addrTo amount spendingPassword -> fromAff <<< map e
 -- Arguments: wallet object/id, address id/hash, amount to send, currency, title, description, spending password (leave empty string if you don't want to use spending password)
 -- Returns a created transaction
 -- Example in nodejs:
---
+-- | > api.newPaymentExtended({"cwaWSAddress": "1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8", "cwaIndex": 2147483648}, '19MxMbcEskurDMdVX1h32Fi94Nojxp1gvwMYbDziZoPjGmJdssagaugyCqUUJVySKBdA1DUHbpYmQd6yTeFQqfrWWKx9gs', 10, 'ADA', 'Programming task', 'Programming the new brilliant cryptocurrency', '').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > { ctOutputAddrs:
+-- |    [ '19MxMbcEskurDMdVX1h32Fi94Nojxp1gvwMYbDziZoPjGmJdssagaugyCqUUJVySKBdA1DUHbpYmQd6yTeFQqfrWWKx9gs',
+-- |      '19KBCF3J8yWLyigbEaCw3KuzhioRRQXmvskSm4AyF1zeyj7884Cn11ar8ASiBuBBx73vBK4f2rz94AxVrQngNGpEtDKoDD' ],
+-- |   ctMeta:
+-- |    { ctmTitle: 'Programming task',
+-- |      ctmDescription: 'Programming the new brilliant cryptocurrency',
+-- |      ctmDate: 1494935150.0468125,
+-- |      ctmCurrency: 'ADA' },
+-- |   ctInputAddrs: [ '19FHEbfuy6YkncN6nn6rd2AdMSXacfNiJDv6aDMZSojZpDwmFQzEzjYNAqWoj7ENTxBfQSKbfZSUokNddip5bzvpkyxyWh' ],
+-- |   ctId: '580b35fb3bd94075926ce2c7c93b9cdbfc8dab3b3a9cd76410254507f33d8ac8',
+-- |   ctConfirmations: 0,
+-- |   ctAmount: { getCoin: '49999' } }
 newPaymentExtended :: forall eff. EffFn7 (ajax :: AJAX | eff) Json String String String String String String (Promise Json)
 newPaymentExtended = mkEffFn7 \wFrom addrTo amount curr title desc spendingPassword -> fromAff <<< map encodeJson $ either (throwError <<< error) id
     $ B.newPaymentExtended
@@ -358,7 +396,9 @@ newPaymentExtended = mkEffFn7 \wFrom addrTo amount curr title desc spendingPassw
 -- Arguments: wallet object/id, transaction id/hash, currency, title, description, date
 -- Returns
 -- Example in nodejs:
---
+-- | > api.updateTransaction({"cwaWSAddress": "1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8", "cwaIndex": 2147483648}, 'cc7576fef33a4a60865f9149792fa7359f44eca6745aeb1ba751185bab9bd7ac', 'ADA', 'Manager task', 'Managing people and other stuff', 1494935150.0468155).then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > {}
 updateTransaction :: forall eff. EffFn6 (ajax :: AJAX | eff) Json String String String String Number (Promise Unit)
 updateTransaction = mkEffFn6 \wId ctxId ctmCurrency ctmTitle ctmDescription ctmDate -> fromAff <<< either (throwError <<< error) id
     $ B.updateTransaction
@@ -370,7 +410,27 @@ updateTransaction = mkEffFn6 \wId ctxId ctmCurrency ctmTitle ctmDescription ctmD
 -- Arguments: wallet object/id, skip, limit
 -- Returns a pair of transacts retrieved from the history and total number of transactions in specified wallet
 -- Example in nodejs:
---
+-- | > api.getHistory({"cwaWSAddress": "1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8", "cwaIndex": 2147483648}, 0, 10).then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > [ [ { ctOutputAddrs: [Object],
+-- |       ctMeta: [Object],
+-- |       ctInputAddrs: [Object],
+-- |       ctId: 'c2cf810bff21698dace837d23356336098f207b1d70d16ac83e058fcd0ace732',
+-- |       ctConfirmations: 0,
+-- |       ctAmount: [Object] },
+-- |     { ctOutputAddrs: [Object],
+-- |       ctMeta: [Object],
+-- |       ctInputAddrs: [Object],
+-- |       ctId: '580b35fb3bd94075926ce2c7c93b9cdbfc8dab3b3a9cd76410254507f33d8ac8',
+-- |       ctConfirmations: 0,
+-- |       ctAmount: [Object] },
+-- |     { ctOutputAddrs: [Object],
+-- |       ctMeta: [Object],
+-- |       ctInputAddrs: [Object],
+-- |       ctId: 'cc7576fef33a4a60865f9149792fa7359f44eca6745aeb1ba751185bab9bd7ac',
+-- |       ctConfirmations: 0,
+-- |       ctAmount: [Object] } ],
+-- |   3 ]
 getHistory :: forall eff. EffFn3 (ajax :: AJAX | eff) Json Int Int (Promise Json)
 getHistory = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $ either (throwError <<< error) id
     $ B.getHistory
@@ -382,7 +442,21 @@ getHistory = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $ either (th
 -- Arguments: wallet object/id, search string, skip, limit
 -- Returns a pair of transacts retrieved from the history and total number of transactions in specified wallet
 -- Example in nodejs:
---
+-- | > api.searchHistory({"cwaWSAddress": "1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8", "cwaIndex": 2147483648}, 'task', 0, 10).then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > [ [ { ctOutputAddrs: [Object],
+-- |       ctMeta: [Object],
+-- |       ctInputAddrs: [Object],
+-- |       ctId: '580b35fb3bd94075926ce2c7c93b9cdbfc8dab3b3a9cd76410254507f33d8ac8',
+-- |       ctConfirmations: 0,
+-- |       ctAmount: [Object] },
+-- |     { ctOutputAddrs: [Object],
+-- |       ctMeta: [Object],
+-- |       ctInputAddrs: [Object],
+-- |       ctId: 'cc7576fef33a4a60865f9149792fa7359f44eca6745aeb1ba751185bab9bd7ac',
+-- |       ctConfirmations: 0,
+-- |       ctAmount: [Object] } ],
+-- |   3 ]
 searchHistory :: forall eff. EffFn4 (ajax :: AJAX | eff) Json String Int Int (Promise Json)
 searchHistory = mkEffFn4 \wId search skip limit -> fromAff <<< map encodeJson $ either (throwError <<< error) id
     $ B.searchHistory
@@ -396,7 +470,27 @@ searchHistory = mkEffFn4 \wId search skip limit -> fromAff <<< map encodeJson $ 
 -- Arguments: wallet object/id, narrow the search to account hash/id, search string, skip, limit
 -- Returns a pair of transacts retrieved from the history and total number of transactions in specified wallet/account
 -- Example in nodejs:
---
+-- | > api.searchAccountHistory({"cwaWSAddress": "1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8", "cwaIndex": 2147483648}, '19GfdoC3ytim4rsTXRMp5At6Bmt512XkcbUwGV69jqWvuRhU5HS5gNAbQ6JpUDavDiKRNMb9iyp6vKUCdJiaKLJdhmcQN9', '', 0, 10).then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > [ [ { ctOutputAddrs: [Object],
+-- |       ctMeta: [Object],
+-- |       ctInputAddrs: [Object],
+-- |       ctId: 'c2cf810bff21698dace837d23356336098f207b1d70d16ac83e058fcd0ace732',
+-- |       ctConfirmations: 0,
+-- |       ctAmount: [Object] },
+-- |     { ctOutputAddrs: [Object],
+-- |       ctMeta: [Object],
+-- |       ctInputAddrs: [Object],
+-- |       ctId: '580b35fb3bd94075926ce2c7c93b9cdbfc8dab3b3a9cd76410254507f33d8ac8',
+-- |       ctConfirmations: 0,
+-- |       ctAmount: [Object] },
+-- |     { ctOutputAddrs: [Object],
+-- |       ctMeta: [Object],
+-- |       ctInputAddrs: [Object],
+-- |       ctId: 'cc7576fef33a4a60865f9149792fa7359f44eca6745aeb1ba751185bab9bd7ac',
+-- |       ctConfirmations: 0,
+-- |       ctAmount: [Object] } ],
+-- |   3 ]
 searchAccountHistory :: forall eff. EffFn5 (ajax :: AJAX | eff) Json String String Int Int (Promise Json)
 searchAccountHistory = mkEffFn5 \wId account search skip limit -> fromAff <<< map encodeJson $ either (throwError <<< error) id
     $ B.searchHistory
@@ -410,26 +504,49 @@ searchAccountHistory = mkEffFn5 \wId account search skip limit -> fromAff <<< ma
 --------------------------------------------------------------------------------
 -- Updates ---------------------------------------------------------------------
 
+-- Example in nodejs:
+-- | > api.nextUpdate().then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > Error: ServerError: Pos.Wallet.Web.Error.Internal "No updates available"
+-- |     at Object.exports.error (/home/ksaric/projects/haskell/cardano-sl/daedalus/output/Control.Monad.Eff.Exception/foreign.js:8:10)
+-- |     at mkServerError (/home/ksaric/projects/haskell/cardano-sl/daedalus/output/Daedalus.BackendApi/index.js:94:44)
+-- |     at /home/ksaric/projects/haskell/cardano-sl/daedalus/output/Data.Either/index.js:256:33
+-- |     at /home/ksaric/projects/haskell/cardano-sl/daedalus/output/Data.Either/index.js:230:24
+-- |     at /home/ksaric/projects/haskell/cardano-sl/daedalus/output/Daedalus.BackendApi/index.js:102:127
+-- |     at /home/ksaric/projects/haskell/cardano-sl/daedalus/output/Daedalus.BackendApi/index.js:128:207
+-- |     at /home/ksaric/projects/haskell/cardano-sl/daedalus/output/Control.Monad.Aff/foreign.js:182:21
+-- |     at /home/ksaric/projects/haskell/cardano-sl/daedalus/output/Control.Monad.Aff/foreign.js:147:5
+-- |     at /home/ksaric/projects/haskell/cardano-sl/daedalus/output/Control.Monad.Aff/foreign.js:176:17
+-- |     at /home/ksaric/projects/haskell/cardano-sl/daedalus/output/Control.Monad.Aff/foreign.js:182:25
 nextUpdate :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 nextUpdate = fromAff $ map encodeJson B.nextUpdate
 
+-- Example in nodejs:
+-- | > api.applyUpdate().then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > {}
 applyUpdate :: forall eff. Eff (ajax :: AJAX | eff) (Promise Unit)
 applyUpdate = fromAff B.applyUpdate
 
 --------------------------------------------------------------------------------
 -- Redemptions -----------------------------------------------------------------
 
+-- Example in nodejs:
 redeemAda :: forall eff. EffFn3 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String Json String (Promise Json)
 redeemAda = mkEffFn3 \seed wId spendingPassword -> fromAff <<< map encodeJson <<< either (throwError <<< error) id
     $ B.redeemAda (mkCPassPhrase spendingPassword)
     <$> mkCWalletRedeem seed
     <$> decodeJson wId
 
+-- Example in nodejs:
 redeemAdaPaperVend :: forall eff. EffFn4 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String Json String (Promise Json)
 redeemAdaPaperVend = mkEffFn4 \seed mnemonic wId spendingPassword -> fromAff <<< map encodeJson <<< either throwError (B.redeemAdaPaperVend $ mkCPassPhrase spendingPassword) $ mkCPaperVendWalletRedeem seed mnemonic =<< lmap error (decodeJson wId)
 
 -- Valid redeem code is base64 encoded 32byte data
 -- NOTE: this method handles both base64 and base64url base on rfc4648: see more https://github.com/menelaos/purescript-b64/blob/59e2e9189358a4c8e3eef8662ca281906844e783/src/Data/String/Base64.purs#L182
+-- Example in nodejs:
+-- | > api.isValidRedemptionKey('lwIF94R9AYRwBy0BkVVpLhwtsG3CmqDvMahlQr3xKEY=')
+-- | true
 isValidRedemptionKey :: String -> Boolean
 isValidRedemptionKey code = either (const false) (const $ endsWithEqual && 44 == length code) $ B64.decode code
   where
@@ -437,41 +554,82 @@ isValidRedemptionKey code = either (const false) (const $ endsWithEqual && 44 ==
     endsWithEqual = isJust $ stripSuffix (Pattern "=") code
 
 -- Valid paper vend key is base58 encoded 32byte data
+-- Example in nodejs:
+-- | > api.isValidPaperVendRedemptionKey('lwIF94R9AYRwBy0BkVVpLhwtsG3CmqDvMahlQr3xKEY=')
+-- | false
 isValidPaperVendRedemptionKey :: String -> Boolean
 isValidPaperVendRedemptionKey code = maybe false ((==) 32 <<< A.length) $ B58.decode code
 
 --------------------------------------------------------------------------------
 -- Reporting ---------------------------------------------------------------------
 
+-- Example in nodejs:
+-- | > api.reportInit(1, 1).then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > {}
 reportInit :: forall eff. EffFn2 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) Int Int (Promise Unit)
 reportInit = mkEffFn2 \total -> fromAff <<< B.reportInit <<< mkCInitialized total
 
 --------------------------------------------------------------------------------
 -- Settings ---------------------------------------------------------------------
 
+-- Example in nodejs:
+-- | > api.blockchainSlotDuration().then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > 7000
 blockchainSlotDuration :: forall eff. Eff (ajax :: AJAX | eff) (Promise Int)
 blockchainSlotDuration = fromAff B.blockchainSlotDuration
 
+-- Example in nodejs:
+-- | > api.systemVersion().then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > { svNumber: 0, svAppName: { getApplicationName: 'cardano-sl' } }
 systemVersion :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 systemVersion = fromAff $ map encodeJson B.systemVersion
 
+-- Example in nodejs:
+-- | > api.syncProgress().then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > { _spPeers: 0,
+-- |   _spNetworkCD: null,
+-- |   _spLocalCD: { getChainDifficulty: 4 } }
 syncProgress :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 syncProgress = fromAff $ map encodeJson B.syncProgress
-
 
 --------------------------------------------------------------------------------
 -- Mnemonics ---------------------------------------------------------------------
 
+-- Example in nodejs:
+-- | > api.generateMnemonic()
+-- | 'obtain divide top receive purchase shuffle opinion circle future spare athlete quantum'
 generateMnemonic :: forall eff. Eff (crypto :: Crypto.CRYPTO | eff) String
 generateMnemonic = Crypto.generateMnemonic
 
 -- | bip39.validateMnemonic and has at least len words
+-- Example in nodejs:
+-- | > api.isValidMnemonic(12, 'obtain divide top receive purchase shuffle opinion circle future spare athlete quantum')
+-- | true
 isValidMnemonic :: forall eff. EffFn2 (crypto :: Crypto.CRYPTO | eff) Int String Boolean
 isValidMnemonic = mkEffFn2 \len -> pure <<< either (const false) (const true) <<< mkBackupPhrase len
 
 --------------------------------------------------------------------------------
 -- Websockets ---------------------------------------------------------------------
 
+-- Example for testing
+-- | > wscat -c ws://127.0.0.1:8090                              
+-- |
+-- | connected (press CTRL+C to quit)
+-- |
+-- | < {"tag":"ConnectionOpened"}
+-- |
+-- | < {"tag":"NetworkDifficultyChanged","contents":{"getChainDifficulty":1}}
+-- | < {"tag":"LocalDifficultyChanged","contents":{"getChainDifficulty":1}}
+-- | < {"tag":"NetworkDifficultyChanged","contents":{"getChainDifficulty":2}}
+-- | < {"tag":"LocalDifficultyChanged","contents":{"getChainDifficulty":2}}
+-- | < {"tag":"NetworkDifficultyChanged","contents":{"getChainDifficulty":3}}
+-- | < {"tag":"LocalDifficultyChanged","contents":{"getChainDifficulty":3}}
+-- | < {"tag":"NetworkDifficultyChanged","contents":{"getChainDifficulty":4}}
+-- | < {"tag":"LocalDifficultyChanged","contents":{"getChainDifficulty":4}}
 notify :: forall eff. EffFn2 (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) (NotifyCb eff) (ErrorCb eff) Unit
 notify = mkEffFn2 \messageCb errorCb -> do
     -- TODO (akegalj) grab global (mutable) state of  here

@@ -15,6 +15,7 @@ import           Network.Transport.Abstract  (Transport)
 import qualified STMContainers.Map           as SM
 import           System.Wlog                 (logDebug, logInfo, usingLoggerName)
 
+import           Pos.Block.BListener         (runBListenerStub)
 import           Pos.Communication           (ActionSpec (..), ListenersWithOut, NodeId,
                                               OutSpecs, PeerId, WorkerSpec,
                                               allStubListeners)
@@ -70,7 +71,7 @@ runWalletStaticPeers peerId transport peers wp =
     runWalletStaticPeersMode peerId transport peers wp . runWallet
 
 runWallet
-    :: WalletMode ssc m
+    :: WalletMode m
     => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
@@ -109,6 +110,7 @@ runRawStaticPeersWallet peerId transport peers WalletParams {..}
             runPeerStateRedirect .
             runUpdatesNotImplemented .
             runBlockchainInfoNotImplemented .
+            runBListenerStub .
             runDiscoveryConstT peers .
             runServer_ peerId transport listeners outs . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa

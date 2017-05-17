@@ -23,6 +23,7 @@ import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (logInfo, usingLoggerName)
 
+import           Pos.Block.BListener           (runBListenerStub)
 import           Pos.Client.Txp.Balances       (runBalancesRedirect)
 import           Pos.Client.Txp.History        (runTxHistoryRedirect)
 import           Pos.Communication.PeerState   (PeerStateSnapshot, PeerStateTag,
@@ -48,39 +49,36 @@ import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTa
                                                 askTxpMem)
 import           Pos.Update.DB                 (runDbLimitsRedirect)
 import           Pos.Wallet.KeyStorage         (addSecretKey)
+import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.WalletMode         (runBlockchainInfoRedirect,
                                                 runUpdatesRedirect)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, walletApplication,
                                                 walletServeImpl, walletServer,
                                                 walletServerOuts)
-import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, WalletWebSockets,
-                                                getWalletWebSockets, runWalletWS)
-import           Pos.Wallet.Web.State          (WalletState, WalletWebDB, runWalletWebDB)
-import           Pos.Wallet.Web.State.State    (getWalletWebState)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSockets,
+                                                runWalletWS)
+import           Pos.Wallet.Web.State          (WalletState, getWalletWebState,
+                                                runWalletWebDB)
 import           Pos.WorkMode                  (RawRealModeK, TxpExtra_TMP)
 
-
 walletServeWebFull
-    :: forall ssc.
-       (SscConstraint ssc)
-    => SendActions (RawRealModeK ssc)
+    :: SscConstraint WalletSscType
+    => SendActions (WalletWebHandler (RawRealModeK WalletSscType))
     -> Bool      -- whether to include genesis keys
-    -> FilePath  -- to Daedalus acid-state
-    -> Bool      -- Rebuild flag
     -> Word16
-    -> RawRealModeK ssc ()
+    -> WalletWebHandler (RawRealModeK WalletSscType) ()
 walletServeWebFull sendActions debug = walletServeImpl action
   where
-    action :: WalletWebHandler (RawRealModeK ssc) Application
+    action :: WalletWebHandler (RawRealModeK WalletSscType) Application
     action = do
         logInfo "DAEDALUS has STARTED!"
         when (isDevelopment && debug) $
             mapM_ (addSecretKey . noPassEncrypt) genesisDevSecretKeys
         walletApplication $ walletServer sendActions nat
 
-type WebHandler ssc = WalletWebSockets (WalletWebDB (RawRealModeK ssc))
+type WebHandler = WalletWebHandler (RawRealModeK WalletSscType)
 
-nat :: WebHandler ssc (WebHandler ssc :~> Handler)
+nat :: WebHandler (WebHandler :~> Handler)
 nat = do
     ws         <- getWalletWebState
     tlw        <- askTxpMem
@@ -97,11 +95,10 @@ nat = do
                               psCtx conn slotVar ntpSlotVar kinst)
 
 convertHandler
-    :: forall ssc a .
-       NodeContext ssc              -- (.. insert monad `m` here ..)
+    :: NodeContext WalletSscType              -- (.. insert monad `m` here ..)
     -> NodeDBs
     -> GenericTxpLocalData TxpExtra_TMP
-    -> SscState ssc
+    -> SscState WalletSscType
     -> WalletState
     -> (TVar DelegationWrap)
     -> PeerStateSnapshot
@@ -109,7 +106,7 @@ convertHandler
     -> SlottingVar
     -> (Bool, NtpSlottingVar)
     -> KademliaDHTInstance
-    -> WebHandler ssc a
+    -> WebHandler a
     -> Handler a
 convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                conn slotVar ntpSlotVar kinst handler = do
@@ -136,6 +133,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
            . runDbCoreRedirect
            . runUpdatesRedirect
            . runBlockchainInfoRedirect
+           . runBListenerStub
            . runDiscoveryKademliaT kinst
            . runWalletWebDB ws
            . runWalletWS conn

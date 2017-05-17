@@ -251,9 +251,7 @@ applyTxToUtxo (WithHash UnsafeTx {..} txid) distr = do
 -- | Rollback application of given transaction to Utxo using Undo
 -- data.  This function assumes that transaction has been really
 -- applied and doesn't check anything.
-rollbackTxUtxo
-    :: (MonadUtxo m)
-    => (TxAux, TxUndo) -> m ()
+rollbackTxUtxo :: MonadUtxo m => (TxAux, TxUndo) -> m ()
 rollbackTxUtxo ((tx@UnsafeTx{..}, _, _), undo) = do
     let txid = hash tx
     mapM_ utxoDel $ take (length _txOutputs) $ map (TxIn txid) [0..]

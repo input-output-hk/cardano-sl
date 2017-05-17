@@ -21,6 +21,8 @@ module Pos.Util.UserSecret
        , takeUserSecret
        , writeUserSecret
        , writeUserSecretRelease
+
+       , ensureModeIs600
        ) where
 
 import           Control.Exception    (onException)
@@ -120,8 +122,10 @@ getAccessMode path = do
 -- | Set mode 600 on a given file, regardless of its current mode.
 setMode600 :: (MonadIO m) => FilePath -> m ()
 setMode600 path = liftIO $ PSX.setFileMode path mode600
+#endif
 
 ensureModeIs600 :: (MonadIO m, WithLogger m) => FilePath -> m ()
+#ifdef POSIX
 ensureModeIs600 path = do
     accessMode <- getAccessMode path
     unless (accessMode == mode600) $ do
@@ -129,6 +133,9 @@ ensureModeIs600 path = do
             sformat ("Key file at "%build%" has access mode "%oct%" instead of 600. Fixing it automatically.")
             path accessMode
         setMode600 path
+#else
+ensureModeIs600 _ = do
+    pure ()
 #endif
 
 -- | Create user secret file at the given path, but only when one doesn't

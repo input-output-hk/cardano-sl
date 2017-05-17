@@ -13,21 +13,38 @@ module Pos.Wallet.Web.State.Acidic
        , update
 
        , GetProfile (..)
+       , GetWalletAddresses (..)
        , GetWalletMetas (..)
        , GetWalletMeta (..)
+       , GetWSetMetas (..)
+       , GetWSetMeta (..)
+       , GetWSetPassLU (..)
+       , GetWSetSyncTip (..)
+       , GetWSetAddresses (..)
+       , GetWalletAccounts (..)
+       , DoesAccountExist (..)
        , GetTxMeta (..)
        , GetUpdates (..)
        , GetNextUpdate (..)
        , TestReset (..)
        , GetHistoryCache (..)
        , CreateWallet (..)
+       , AddAccount (..)
+       , AddRemovedAccount (..)
+       , CreateWSet (..)
        , SetProfile (..)
        , SetWalletMeta (..)
+       , SetWSetMeta (..)
+       , SetWSetPassLU (..)
+       , SetWSetSyncTip (..)
        , SetWalletTransactionMeta (..)
        , SetWalletHistory (..)
        , GetWalletHistory (..)
        , AddOnlyNewTxMeta (..)
+       , RemoveWSet (..)
        , RemoveWallet (..)
+       , RemoveAccount (..)
+       , TotallyRemoveAccount (..)
        , AddUpdate (..)
        , RemoveNextUpdate (..)
        , UpdateHistoryCache (..)
@@ -73,20 +90,37 @@ makeAcidic ''WalletStorage
     [
       'WS.testReset
     , 'WS.getProfile
+    , 'WS.getWalletAddresses
     , 'WS.getWalletMetas
     , 'WS.getWalletMeta
+    , 'WS.getWSetMetas
+    , 'WS.getWSetMeta
+    , 'WS.getWSetPassLU
+    , 'WS.getWSetSyncTip
+    , 'WS.getWSetAddresses
+    , 'WS.getWalletAccounts
+    , 'WS.doesAccountExist
     , 'WS.getTxMeta
     , 'WS.getUpdates
     , 'WS.getNextUpdate
     , 'WS.getHistoryCache
     , 'WS.createWallet
+    , 'WS.createWSet
+    , 'WS.addAccount
+    , 'WS.addRemovedAccount
     , 'WS.setProfile
     , 'WS.setWalletMeta
+    , 'WS.setWSetMeta
+    , 'WS.setWSetPassLU
+    , 'WS.setWSetSyncTip
     , 'WS.setWalletTransactionMeta
     , 'WS.setWalletHistory
     , 'WS.getWalletHistory
     , 'WS.addOnlyNewTxMeta
+    , 'WS.removeWSet
     , 'WS.removeWallet
+    , 'WS.removeAccount
+    , 'WS.totallyRemoveAccount
     , 'WS.addUpdate
     , 'WS.removeNextUpdate
     , 'WS.updateHistoryCache

@@ -155,8 +155,8 @@ newAccount pass = postRBody $ queryParams ["account"] [qParam "passphrase" $ _pa
 --------------------------------------------------------------------------------
 -- Addresses -------------------------------------------------------------------
 
-isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
-isValidAddress cCurrency addr = getR $ noQueryParam ["addresses", addr, "currencies", showCCurrency cCurrency]
+isValidAddress :: forall eff. String -> CCurrency -> Aff (ajax :: AJAX | eff) Boolean
+isValidAddress addr cCurrency = getR $ noQueryParam ["addresses", addr, "currencies", showCCurrency cCurrency]
 
 --------------------------------------------------------------------------------
 -- Profiles --------------------------------------------------------------------

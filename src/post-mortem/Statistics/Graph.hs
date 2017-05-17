@@ -42,7 +42,7 @@ graphF = f <$> blockHeadersF
         in  G.graphToDot G.nonClusteredParams { G.fmtNode = fmt } g
       where
         chain :: Set BlockHash
-        chain = S.fromList $ blockChain m
+        chain = blockChain m
 
         fmt :: (Int, BlockHeader) -> G.Attributes
         fmt (_, bh) = [ A.Label $ A.StrLabel $ L.pack $ unlines labels

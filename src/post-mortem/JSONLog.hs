@@ -36,7 +36,7 @@ parseLogP :: MonadIO m => Handle -> Producer JLTimedEvent m ()
 parseLogP h = fromHandle h >-> parseJSONP
 
 data IndexedJLTimedEvent = IndexedJLTimedEvent
-    { ijlNodeIndex :: !NodeIndex
+    { ijlNode      :: !NodeIndex
     , ijlTimestamp :: !Timestamp
     , ijlEvent     :: !JLEvent
     }
@@ -56,7 +56,7 @@ runParseLogs logDir f = do
   where
     producer :: Int -> Handle -> Producer IndexedJLTimedEvent IO ()
     producer n h = parseLogP h >-> P.map (\JLTimedEvent{..} ->
-        IndexedJLTimedEvent { ijlNodeIndex = n
+        IndexedJLTimedEvent { ijlNode      = n
                             , ijlTimestamp = jlTimestamp
                             , ijlEvent     = jlEvent
                             })

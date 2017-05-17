@@ -1,10 +1,12 @@
 module Statistics
     ( runJSONFold
     , receivedCreatedF
-    , module Statistics.Tx
     , module Statistics.Block
     , module Statistics.Chart
+    , module Statistics.CSV
     , module Statistics.Graph
+    , module Statistics.MemPool
+    , module Statistics.Tx
     ) where
 
 import           Control.Foldl   (Fold (..))
@@ -14,7 +16,9 @@ import qualified Data.Map.Strict as M
 import JSONLog
 import Statistics.Block
 import Statistics.Chart
+import Statistics.CSV
 import Statistics.Graph
+import Statistics.MemPool
 import Statistics.Tx
 import Types
 import Universum

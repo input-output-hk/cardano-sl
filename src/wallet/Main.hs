@@ -45,7 +45,6 @@ import           Pos.Genesis                (genesisDevSecretKeys,
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              bracketResources, stakesDistr)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
-import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (coinF, makePubKeyAddress)
@@ -71,7 +70,7 @@ import           WalletOptions              (WalletAction (..), WalletOptions (.
 
 type CmdRunner = ReaderT ([SecretKey], [NodeId])
 
-runCmd :: WalletMode ssc m => SendActions m -> Command -> CmdRunner m ()
+runCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()
 runCmd _ (Balance addr) = lift (getBalance addr) >>=
                           putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) = do
@@ -224,11 +223,11 @@ runCmdOuts = mconcat [ sendProxySKLightOuts
                      , sendProposalOuts
                      ]
 
-evalCmd :: WalletMode ssc m => SendActions m -> Command -> CmdRunner m ()
+evalCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()
 evalCmd _ Quit = pure ()
 evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
-evalCommands :: WalletMode ssc m => SendActions m -> CmdRunner m ()
+evalCommands :: WalletMode m => SendActions m -> CmdRunner m ()
 evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -238,7 +237,7 @@ evalCommands sa = do
         Left err  -> putStrLn err >> evalCommands sa
         Right cmd -> evalCmd sa cmd
 
-initialize :: WalletMode ssc m => WalletOptions -> m [NodeId]
+initialize :: WalletMode m => WalletOptions -> m [NodeId]
 initialize WalletOptions{..} = do
     peers <- S.toList <$> getPeers
     bool (pure peers) getPeersUntilSome (null peers)
@@ -253,14 +252,14 @@ initialize WalletOptions{..} = do
         then getPeersUntilSome
         else pure peers
 
-runWalletRepl :: WalletMode ssc m => WalletOptions -> Worker' m
+runWalletRepl :: WalletMode m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
     let keysPool = if isDevelopment then genesisDevSecretKeys else []
     runReaderT (evalCmd sa Help) (keysPool, na)
 
-runWalletCmd :: WalletMode ssc m => WalletOptions -> Text -> Worker' m
+runWalletCmd :: WalletMode m => WalletOptions -> Text -> Worker' m
 runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str
@@ -327,11 +326,8 @@ main = do
                 Cmd cmd -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
-                    case CLI.sscAlgo woCommonArgs of
-                        GodTossingAlgo -> walletServeWebLite (Proxy @SscGodTossing)
-                                              sendActions webDaedalusDbPath False webPort
-                        NistBeaconAlgo -> walletServeWebLite (Proxy @SscNistBeacon)
-                                              sendActions webDaedalusDbPath False webPort
+                    walletServeWebLite (Proxy @SscGodTossing)
+                                       sendActions webDaedalusDbPath False webPort
 #endif
 
         case CLI.sscAlgo woCommonArgs of

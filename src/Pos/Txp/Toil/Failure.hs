@@ -36,9 +36,9 @@ data ToilVerFailure
 instance Buildable ToilVerFailure where
     build ToilKnown =
         "transaction already is in the mem pool"
-    build (ToilTipsMismatch oldTip newTip) =
-        bprint ("tips mismatch, old tip is "%build%", new one is"%build)
-        oldTip newTip
+    build (ToilTipsMismatch dbTip localTip) =
+        bprint ("tips mismatch, tip from DB is "%build%", local tip is "%build)
+        dbTip localTip
     build (ToilOverwhelmed limit) =
         bprint ("max size of the mem pool is reached which is "%memory) limit
     build (ToilNotUnspent txId) =

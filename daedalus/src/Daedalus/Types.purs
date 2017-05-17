@@ -11,7 +11,6 @@ module Daedalus.Types
        , mkCAddress
        , mkCWalletMeta
        , mkCWalletInit
-       , mkCWalletInitIgnoreChecksum
        , mkCTxMeta
        , mkCTxId
        , mkCCurrency
@@ -25,11 +24,13 @@ module Daedalus.Types
        , mkCPassPhrase
        , emptyCPassPhrase
        , getProfileLocale
+       , walletAddressToUrl
+       , mkCWalletSetInit
        ) where
 
 import Prelude
 
-import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..), CPassPhrase (..), CCoin (..))
+import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..), CPassPhrase (..), CCoin (..), WS (..), CWalletAddress (..), CWalletSetMeta (..))
 
 import Pos.Wallet.Web.ClientTypes as CT
 import Pos.Core.Types as C
@@ -39,6 +40,7 @@ import Pos.Util.BackupPhrase as BP
 
 import Control.Monad.Eff.Exception (error, Error)
 import Data.Either (either, Either (..))
+import Data.Maybe (Maybe (..))
 import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Argonaut.Core (fromString)
 import Data.Generic (gShow)
@@ -50,6 +52,7 @@ import Data.String (split, null, trim, joinWith, Pattern (..))
 import Daedalus.Crypto (isValidMnemonic, blake2b, bytesToB16)
 import Data.Types (mkTime)
 import Data.Types as DT
+import Data.Int53 (fromInt, toString)
 
 space :: Pattern
 space = Pattern " "
@@ -91,11 +94,13 @@ showCCurrency = dropModuleName <<< gShow
 
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses
+walletAddressToUrl :: CWalletAddress -> String
+walletAddressToUrl (CWalletAddress r) = _address r.cwaWSAddress <> "@" <> toString r.cwaIndex
 
 _hash :: CHash -> String
 _hash (CHash h) = h
 
-_address :: CAddress -> String
+_address :: forall a. CAddress a -> String
 _address (CAddress a) = _hash a
 
 _passPhrase :: CPassPhrase -> String
@@ -104,10 +109,11 @@ _passPhrase (CPassPhrase p) = p
 emptyCPassPhrase :: CPassPhrase
 emptyCPassPhrase = CPassPhrase ""
 
-mkCPassPhrase :: String -> CPassPhrase
-mkCPassPhrase = CPassPhrase <<< bytesToB16 <<< blake2b
+mkCPassPhrase :: String -> Maybe CPassPhrase
+mkCPassPhrase "" = Nothing
+mkCPassPhrase pass = Just <<< CPassPhrase <<< bytesToB16 $ blake2b pass
 
-mkCAddress :: String -> CAddress
+mkCAddress :: forall a. String -> CAddress a
 mkCAddress = CAddress <<< CHash
 
 _ccoin :: CCoin -> String
@@ -137,37 +143,37 @@ mkCWalletMeta wType wCurrency wName wAssurance wUnit =
 
 mkCInitialized :: Int -> Int -> CT.CInitialized
 mkCInitialized total preInit =
-    CT.CInitialized { cTotalTime: total
-                    , cPreInit: preInit
+    CT.CInitialized { cTotalTime: fromInt total
+                    , cPreInit: fromInt preInit
                     }
 
-mkCWalletInit :: String -> String -> String -> String -> Either Error CT.CWalletInit
-mkCWalletInit wType wCurrency wName mnemonic =
-    mkCWalletInit' wType wCurrency wName <$> mkBackupPhrase backupMnemonicLen mnemonic
-
-mkCWalletInitIgnoreChecksum :: String -> String -> String -> String -> Either Error CT.CWalletInit
-mkCWalletInitIgnoreChecksum wType wCurrency wName mnemonic= do
-    mkCWalletInit' wType wCurrency wName <$> mkBackupPhraseIgnoreChecksum backupMnemonicLen mnemonic
-
-mkCWalletInit' :: String -> String -> String -> BackupPhrase -> CT.CWalletInit
-mkCWalletInit' wType wCurrency wName bp =
-    CT.CWalletInit { cwBackupPhrase: bp
+mkCWalletInit :: String -> String -> String -> CAddress WS -> CT.CWalletInit
+mkCWalletInit wType wCurrency wName wSetId =
+    CT.CWalletInit { cwInitWSetId: wSetId
                    , cwInitMeta: mkCWalletMeta wType wCurrency wName "CWANormal" 0 -- FIXME: don't use string!
                    }
 
-mkCWalletRedeem :: String -> String -> CT.CWalletRedeem
-mkCWalletRedeem seed wId = do
-    CT.CWalletRedeem { crWalletId: mkCAddress wId
+mkCWalletSetInit :: String -> String -> Either Error CT.CWalletSetInit
+mkCWalletSetInit wSetName mnemonic = do
+    bp <- mkBackupPhrase backupMnemonicLen mnemonic
+    pure $ CT.CWalletSetInit { cwsInitMeta: CWalletSetMeta {cwsName: wSetName }
+                             , cwsBackupPhrase: bp
+                             }
+
+
+mkCWalletRedeem :: String -> CWalletAddress -> CT.CWalletRedeem
+mkCWalletRedeem seed wAddress = do
+    CT.CWalletRedeem { crWalletId: wAddress
                      , crSeed: seed
                      }
 
-mkCPaperVendWalletRedeem :: String -> String -> String -> Either Error CT.CPaperVendWalletRedeem
-mkCPaperVendWalletRedeem seed mnemonic wId = do
+mkCPaperVendWalletRedeem :: String -> String -> CWalletAddress -> Either Error CT.CPaperVendWalletRedeem
+mkCPaperVendWalletRedeem seed mnemonic wAddress = do
     bp <- mkBackupPhrase paperVendMnemonicLen mnemonic
-    pure $ CT.CPaperVendWalletRedeem { pvWalletId: mkCAddress wId
-                                    , pvBackupPhrase: bp
-                                    , pvSeed: seed
-                                    }
+    pure $ CT.CPaperVendWalletRedeem { pvWalletId: wAddress
+                                     , pvBackupPhrase: bp
+                                     , pvSeed: seed
+                                     }
 
 _ctxIdValue :: CT.CTxId -> String
 _ctxIdValue (CT.CTxId tx) = _hash tx

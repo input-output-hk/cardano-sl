@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Signing done with public/private keys.
 module Pos.Crypto.Signing
@@ -6,6 +6,7 @@ module Pos.Crypto.Signing
        -- * Keys
          PublicKey (..)
        , SecretKey (..)
+       , emptyPass
        , keyGen
        , deterministicKeyGen
        , toPublic

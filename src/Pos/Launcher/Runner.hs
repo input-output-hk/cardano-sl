@@ -7,6 +7,7 @@
 module Pos.Launcher.Runner
        ( -- * High level runners
          runRawRealMode
+       , runRawKBasedMode
        , runProductionMode
        , runStatsMode
        , runServiceMode
@@ -51,6 +52,7 @@ import           System.Wlog                  (LoggerConfig (..), WithLogger, lo
 import           Universum                    hiding (bracket, finally)
 
 import           Pos.Binary                   ()
+import           Pos.Block.BListener          (runBListenerStub)
 import           Pos.CLI                      (readLoggerConfig)
 import           Pos.Client.Txp.Balances      (runBalancesRedirect)
 import           Pos.Client.Txp.History       (runTxHistoryRedirect)
@@ -107,8 +109,9 @@ import           Pos.Update.MemState          (newMemVar)
 import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
 import           Pos.Worker                   (allWorkersCount)
-import           Pos.WorkMode                 (ProductionMode, RawRealMode, ServiceMode,
-                                               StaticMode, StatsMode)
+import           Pos.WorkMode                 (ProductionMode, RawRealMode, RawRealModeK,
+                                               ServiceMode, StaticMode, StatsMode,
+                                               WorkMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -168,7 +171,8 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                    runDbLimitsRedirect .
                    runDbCoreRedirect .
                    runUpdatesRedirect .
-                   runBlockchainInfoRedirect $
+                   runBlockchainInfoRedirect .
+                   runBListenerStub $
                    act
 
         let startMonitoring node' = case lpEkgPort of
@@ -207,6 +211,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
            runDbCoreRedirect .
            runUpdatesRedirect .
            runBlockchainInfoRedirect .
+           runBListenerStub .
            runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
                \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
@@ -267,6 +272,37 @@ runServer_ peerId transport packedLS outSpecs =
     acquire = const pass
     release = const pass
 
+-- | Launch some mode, providing way to convert it to 'RawRealMode' and back.
+runRawKBasedMode
+    :: forall ssc m a.
+       (SscConstraint ssc, WorkMode ssc m)
+    => (forall b. m b -> RawRealModeK ssc b)
+    -> (forall b. RawRealModeK ssc b -> m b)
+    -> PeerId
+    -> Transport m
+    -> KademliaDHTInstance
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec m a, OutSpecs)
+    -> Production a
+runRawKBasedMode unwrap wrap peerId transport kinst np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
+    runRawRealMode
+        peerId
+        (hoistTransport hoistDown transport)
+        np
+        sscnp
+        listeners
+        outSpecs $
+    ActionSpec
+        $ \vI sendActions -> hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
+  where
+    hoistUp = wrap . lift
+    hoistDown = runDiscoveryKademliaT kinst . unwrap
+    listeners =
+        hoistDown $
+        first (hoistListenerSpec hoistDown hoistUp <$>) <$>
+        allListeners
+
 -- | ProductionMode runner.
 runProductionMode
     :: forall ssc a.
@@ -278,23 +314,7 @@ runProductionMode
     -> SscParams ssc
     -> (ActionSpec (ProductionMode ssc) a, OutSpecs)
     -> Production a
-runProductionMode peerId transport kinst np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode
-        peerId
-        (hoistTransport hoistDown transport)
-        np
-        sscnp
-        listeners
-        outSpecs $
-    ActionSpec $ \vI sendActions ->
-        hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
-  where
-    hoistUp = lift . lift
-    hoistDown = runDiscoveryKademliaT kinst . getNoStatsT
-    listeners =
-        hoistDown $
-        first (hoistListenerSpec hoistDown hoistUp <$>) <$>
-        allListeners
+runProductionMode = runRawKBasedMode getNoStatsT lift
 
 -- | StatsMode runner.
 -- [CSL-169]: spawn here additional listener, which would accept stat queries
@@ -309,23 +329,9 @@ runStatsMode
     -> SscParams ssc
     -> (ActionSpec (StatsMode ssc) a, OutSpecs)
     -> Production a
-runStatsMode peerId transport kinst np@NodeParams{..} sscnp (ActionSpec action, outSpecs) = do
+runStatsMode peerId transport kinst np sscnp action = do
     statMap <- liftIO SM.newIO
-    let hoistUp = lift . lift
-    let hoistDown = runDiscoveryKademliaT kinst . runStatsT' statMap
-    let listeners =
-            hoistDown $
-            first (hoistListenerSpec hoistDown hoistUp <$>) <$>
-            allListeners
-    runRawRealMode
-        peerId
-        (hoistTransport hoistDown transport)
-        np
-        sscnp
-        listeners
-        outSpecs .
-        ActionSpec $ \vI sendActions ->
-            hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
+    runRawKBasedMode (runStatsT' statMap) lift peerId transport kinst np sscnp action
 
 runStaticMode
     :: forall ssc a.

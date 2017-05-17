@@ -3,6 +3,7 @@
 module Pos.Communication.Tx
        ( TxMode
        , submitTx
+       , submitMTx
        , submitRedemptionTx
        , submitTxRaw
        , sendTxOuts
@@ -15,9 +16,10 @@ import           System.Wlog                (logInfo)
 import           Universum
 
 import           Pos.Binary                 ()
-import           Pos.Client.Txp.Balances    (MonadBalances (..))
+import           Pos.Client.Txp.Balances    (MonadBalances (..), getOwnUtxo)
 import           Pos.Client.Txp.History     (MonadTxHistory (..))
-import           Pos.Client.Txp.Util        (TxError, createRedemptionTx, createTx)
+import           Pos.Client.Txp.Util        (TxError, createMTx, createRedemptionTx,
+                                             createTx)
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
@@ -29,7 +31,7 @@ import           Pos.Types                  (Address, Coin, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.WorkMode.Class         (MinWorkMode)
 
-type TxMode ssc m
+type TxMode m
     = ( MinWorkMode m
       , MonadBalances m
       , MonadTxHistory m
@@ -39,7 +41,7 @@ type TxMode ssc m
       )
 
 submitAndSave
-    :: TxMode ssc m
+    :: TxMode m
     => SendActions m -> [NodeId] -> TxAux -> ExceptT TxError m TxAux
 submitAndSave sendActions na txw = do
     let txId = hash (txw ^. _1)
@@ -47,23 +49,38 @@ submitAndSave sendActions na txw = do
     lift $ saveTx (txId, txw)
     return txw
 
+-- | Construct Tx using multiple secret keys and given list of desired outputs.
+submitMTx
+    :: TxMode m
+    => SendActions m
+    -> NonEmpty (SafeSigner, Address)
+    -> [NodeId]
+    -> NonEmpty TxOutAux
+    -> m (Either TxError TxAux)
+submitMTx sendActions hdwSigner na outputs = do
+    let addrs = map snd $ toList hdwSigner
+    utxo <- getOwnUtxos addrs
+    runExceptT $ do
+        txw <- ExceptT $ return $ createMTx utxo hdwSigner outputs
+        submitAndSave sendActions na txw
+
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx
-    :: TxMode ssc m
+    :: TxMode m
     => SendActions m
     -> SafeSigner
     -> [NodeId]
     -> NonEmpty TxOutAux
     -> m (Either TxError TxAux)
 submitTx sendActions ss na outputs = do
-    utxo <- getOwnUtxo $ makePubKeyAddress $ safeToPublic ss
+    utxo <- getOwnUtxos . one $ makePubKeyAddress (safeToPublic ss)
     runExceptT $ do
         txw <- ExceptT $ return $ createTx utxo ss outputs
         submitAndSave sendActions na txw
 
 -- | Construct redemption Tx using redemption secret key and a output address
 submitRedemptionTx
-    :: TxMode ssc m
+    :: TxMode m
     => SendActions m
     -> RedeemSecretKey
     -> [NodeId]

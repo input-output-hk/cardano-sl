@@ -49,6 +49,7 @@ library
   exposed-modules:      Pos.Aeson
                         Pos.Binary
                         Pos.Block.Arbitrary
+                        Pos.Block.BListener
                         Pos.Block.Logic
                         Pos.Block.Network
                         Pos.Block.Pure
@@ -389,8 +390,10 @@ library
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
-                        Pos.Wallet.Web.ClientTypes
+                        Pos.Wallet.Web.Account
                         Pos.Wallet.Web.Api
+                        Pos.Wallet.Web.BListener
+                        Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Methods
@@ -403,6 +406,8 @@ library
                         Pos.Wallet.Web.State.Limits
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
+                        Pos.Wallet.Web.Tracking
+                        Pos.Wallet.Web.Util
 
   build-depends:        IfElse
                       , QuickCheck
@@ -574,12 +579,14 @@ executable cardano-node
                      , formatting
                      , lens
                      , log-warper
+                     , mtl
                      , network-transport
                      , node-sketch
                      , network-transport-tcp
                      , optparse-simple
                      , parsec
                      , serokell-util >= 0.1.3.4
+                     , stm-containers
                      , time
                      , time-units
                      , universum >= 0.1.11

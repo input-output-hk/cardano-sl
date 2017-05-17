@@ -24,6 +24,7 @@ import qualified Ether
 import           Mockable.Production          (Production)
 import           System.Wlog                  (LoggerNameBox (..))
 
+import           Pos.Block.BListener          (BListenerStub)
 import           Pos.Client.Txp.Balances      (BalancesRedirect)
 import           Pos.Client.Txp.History       (TxHistoryRedirect)
 import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
@@ -50,6 +51,7 @@ import           Pos.WorkMode.Class           (MinWorkMode, TxpExtra_TMP, WorkMo
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =
+    BListenerStub (
     BlockchainInfoRedirect (
     UpdatesRedirect (
     DbCoreRedirect (
@@ -70,7 +72,7 @@ type RawRealMode ssc =
         ) (
     Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox Production
-    )))))))))))
+    ))))))))))))
 
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)

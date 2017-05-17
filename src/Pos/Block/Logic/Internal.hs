@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
@@ -20,11 +21,14 @@ import           Control.Lens         (each, _Wrapped)
 import           Control.Monad.Catch  (bracketOnError)
 import qualified Data.List.NonEmpty   as NE
 import qualified Ether
+import           Formatting           (build, sformat, (%))
 import           Paths_cardano_sl     (version)
 import           Serokell.Util        (Color (Red), colorize)
+import           System.Wlog          (logWarning)
 
+import           Pos.Block.BListener  (MonadBListener (..))
 import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
-import           Pos.Context          (putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Context          (BlkSemaphore, putBlkSemaphore, takeBlkSemaphore)
 import           Pos.Core             (IsGenesisHeader, IsMainHeader)
 import           Pos.DB               (SomeBatchOp (..))
 import qualified Pos.DB.Block         as DB
@@ -40,7 +44,6 @@ import           Pos.Explorer.Txp     (eTxNormalize)
 #else
 import           Pos.Txp.Logic        (txNormalize)
 #endif
-
 import           Pos.Ssc.Class        (Ssc)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Settings     (TxpBlund, TxpGlobalSettings (..))
@@ -71,7 +74,7 @@ toUpdateBlock = bimap convertGenesis convertMain
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
 withBlkSemaphore
-    :: WorkMode ssc m
+    :: Each [MonadIO, MonadMask, Ether.MonadReader' BlkSemaphore] '[m]
     => (HeaderHash -> m (a, HeaderHash)) -> m a
 withBlkSemaphore action =
     bracketOnError takeBlkSemaphore putBlkSemaphore doAction
@@ -82,9 +85,9 @@ withBlkSemaphore action =
 
 -- | Version of withBlkSemaphore which doesn't have any result.
 withBlkSemaphore_
-    :: WorkMode ssc m
+    :: Each [MonadIO, MonadMask, Ether.MonadReader' BlkSemaphore] '[m]
     => (HeaderHash -> m HeaderHash) -> m ()
-withBlkSemaphore_ = withBlkSemaphore . (fmap ((), ) .)
+withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break
@@ -112,6 +115,9 @@ applyBlocksUnsafeDo
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to put blocks first
     mapM_ putToDB blunds
+    -- If the program is interrupted at this point (after putting on block),
+    -- we will rollback all wallet sets at the next launch.
+    onApplyBlocks blunds `catch` logWarn
     TxpGlobalSettings {..} <- Ether.ask'
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
@@ -148,14 +154,19 @@ applyBlocksUnsafeDo blunds pModifier = do
     inMainBatch = SomeBatchOp . getOldestFirst $
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
     putToDB (blk, undo) = DB.putBlock undo blk
+    logWarn :: SomeException -> m ()
+    logWarn = logWarning . sformat ("onApplyBlocks raised exception: "%build)
 
 -- | Rollback sequence of blocks, head-newest order exepected with
 -- head being current tip. It's also assumed that lock on block db is
 -- taken.  application is taken already.
 rollbackBlocksUnsafe
-    :: (WorkMode ssc m)
+    :: forall ssc m .(WorkMode ssc m)
     => NewestFirst NE (Blund ssc) -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal version $ do
+    -- If program is interrupted after call @onRollbackBlocks@,
+    -- we will load all wallet set not rolled yet at the next launch.
+    onRollbackBlocks toRollback `catch` logWarn
     delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
@@ -190,6 +201,8 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
         fmap (GS.RemoveForwardLink . view prevBlockL . fst) toRollback
     isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
     isGenesis0 (Right _)         = False
+    logWarn :: SomeException -> m ()
+    logWarn = logWarning . sformat ("onRollbackBlocks raised exception: "%build)
 
 -- [CSL-780] Need something more elegant, at least eliminate copy-paste.
 -- Should be done soon™.

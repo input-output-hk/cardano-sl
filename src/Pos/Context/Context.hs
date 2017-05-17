@@ -39,6 +39,7 @@ import           Pos.Update.Params             (UpdateParams)
 import           Pos.Util.Chrono               (NE, NewestFirst)
 import           Pos.Util.Context              (ContextPart (..))
 import           Pos.Util.UserSecret           (UserSecret)
+import           Pos.Util.JsonLog              (JLEvent)
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -46,8 +47,9 @@ import           Pos.Util.UserSecret           (UserSecret)
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
-    { ncJLFile              :: !(Maybe (MVar Handle))
+    { ncJLFile              :: !(Maybe (MVar Handle, JLEvent -> IO Bool))
     -- ^ Handle to the JSON log file if JSON logging is enabled.
+    --   Also, an IO to decide whether to a log a given event.
     , ncSscContext          :: !(SscNodeContext ssc)
     -- @georgeee please add documentation when you see this comment
     , ncUpdateContext       :: !UpdateContext

@@ -57,6 +57,7 @@ import           Pos.Txp                   (MonadUtxoRead, Tx (..), TxAux, TxDis
 import           Pos.Types                 (Address, Block, ChainDifficulty, HeaderHash,
                                             blockTxas, difficultyL, prevBlockL)
 import           Pos.Util                  (ether, maybeThrow)
+import           Pos.Util.JsonLog          (MonadJL)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -185,6 +186,7 @@ instance {-# OVERLAPPABLE #-}
 instance ( MonadDB m
          , MonadThrow m
          , WithLogger m
+         , MonadJL m
          , MonadSlots m
          , PC.WithNodeContext s m) =>
          MonadTxHistory (TxpHolder TxpExtra_TMP m) where

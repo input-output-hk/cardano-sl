@@ -53,7 +53,7 @@ type TxpLocalDataPure = GenericTxpLocalDataPure ()
 data TxpMetrics = TxpMetrics
     { -- | Called when a thread begins to wait to modify the mempool.
       --   Parameter is the reason for modifying the mempool.
-      txpMetricsWait :: !(String -> LoggerNameBox IO ())
+      txpMetricsWait :: !(Text -> LoggerNameBox IO ())
       -- | Called when a thread is granted the lock on the mempool. Parameter
       --   indicates how long it waited.
     , txpMetricsAcquire :: !(Microsecond -> LoggerNameBox IO ())

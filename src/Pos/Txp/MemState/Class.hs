@@ -25,6 +25,7 @@ import qualified Control.Concurrent.STM as STM
 import qualified Control.Monad.Ether    as Ether.E
 import           Data.Default           (Default (..))
 import qualified Data.HashMap.Strict    as HM
+import           Data.IORef             (IORef)
 import           System.IO.Unsafe       (unsafePerformIO)
 import           System.Wlog            (WithLogger, logDebug, usingLoggerName,
                                          getLoggerName)
@@ -37,12 +38,15 @@ import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
                                          TxpMetrics (..))
 import           Pos.Txp.Toil.Types     (MemPool (..), UtxoModifier)
 import           Pos.Util.TimeWarp      (currentTime)
+import           Pos.Util.JsonLog       (MonadJL, jlLog, JLMemPool(..),
+                                         JLEvent(JLMemPoolEvent))
 
 data TxpHolderTag
 
 -- | Reduced equivalent of @MonadReader (GenericTxpLocalData mw) m@.
 type MonadTxpMem ext m =
     ( Ether.E.MonadReader TxpHolderTag (GenericTxpLocalData ext, TxpMetrics) m
+    , MonadJL m
     , WithLogger m
     )
 
@@ -96,21 +100,31 @@ txpLocalDataLock :: MVar ()
 txpLocalDataLock = unsafePerformIO $ newMVar ()
 {-# NOINLINE txpLocalDataLock #-}
 
+-- | An IORef to hold the current number of threads waiting on the
+--   txpLocalDataLock. It's incremented before taking it, and decremented
+--   after it's taken, so it's not necessarily exact.
+txpLocalDataLockQueueLength :: IORef Int
+txpLocalDataLockQueueLength = unsafePerformIO $ newIORef 0
+{-# NOINLINE txpLocalDataLockQueueLength #-}
+
 modifyTxpLocalData
     :: (MonadIO m, MonadTxpMem ext m, WithLogger m)
-    => String
+    => Text
     -> (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext))
     -> m a
 modifyTxpLocalData reason f =
     askTxpMemAndMetrics >>= \(TxpLocalData{..}, TxpMetrics{..}) -> do
         lname <- getLoggerName
         liftIO . usingLoggerName lname $ txpMetricsWait reason
+        qlength <- atomicModifyIORef' txpLocalDataLockQueueLength $ \i -> (i + 1, i)
         timeBeginWait <- currentTime
         _ <- takeMVar txpLocalDataLock
         timeEndWait <- currentTime
-        liftIO . usingLoggerName lname $ txpMetricsAcquire (timeEndWait - timeBeginWait)
+        _ <- atomicModifyIORef' txpLocalDataLockQueueLength $ \i -> (i - 1, ())
+        let timeWait = timeEndWait - timeBeginWait
+        liftIO . usingLoggerName lname $ txpMetricsAcquire timeWait
         timeBeginModify <- currentTime
-        (res, newSize) <- atomically $ do
+        (res, oldSize, newSize) <- atomically $ do
             curUM  <- STM.readTVar txpUtxoModifier
             curMP  <- STM.readTVar txpMemPool
             curUndos <- STM.readTVar txpUndos
@@ -123,22 +137,35 @@ modifyTxpLocalData reason f =
             STM.writeTVar txpUndos newUndos
             STM.writeTVar txpTip newTip
             STM.writeTVar txpExtra newExtra
-            pure (res, _mpLocalTxsSize newMP)
+            pure (res, _mpLocalTxsSize curMP, _mpLocalTxsSize newMP)
         timeEndModify <- currentTime
         putMVar txpLocalDataLock ()
+        let timeModify = timeEndModify - timeBeginModify
         liftIO . usingLoggerName lname $ txpMetricsRelease (timeEndModify - timeBeginModify) newSize
+        let jsonEvent = JLMemPoolEvent $ JLMemPool
+                { jlmReason      = reason
+                , jlmQueueLength = qlength
+                  -- Wait and modify times in the JLMemPool datatype are
+                  -- not Microseconds, because Microseconds has no aeson
+                  -- instances.
+                , jlmWait        = fromIntegral timeWait
+                , jlmModify      = fromIntegral timeModify
+                , jlmSizeBefore  = oldSize
+                , jlmSizeAfter   = newSize
+                }
+        jlLog jsonEvent
         pure res
 
 setTxpLocalData
     :: (MonadIO m, MonadTxpMem ext m)
-    => String
+    => Text
     -> GenericTxpLocalDataPure ext
     -> m ()
 setTxpLocalData reason x = modifyTxpLocalData reason (const ((), x))
 
 clearTxpMemPool
     :: (MonadIO m, MonadTxpMem ext m, Default ext)
-    => String
+    => Text
     -> m ()
 clearTxpMemPool reason = modifyTxpLocalData reason clearF
   where

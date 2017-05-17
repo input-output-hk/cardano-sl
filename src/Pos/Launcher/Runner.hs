@@ -451,7 +451,8 @@ runCH mJLHandle allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
-    let ncJLFile = mJLHandle 
+    let logDecider = const (pure True)
+        ncJLFile = flip (,) logDecider <$> mJLHandle 
         ctx      =
             NodeContext
             { ncConnectedPeers = peersVar

@@ -89,7 +89,7 @@ runRawStaticPeersWallet
     -> Production a
 runRawStaticPeersWallet peerId transport peers WalletParams {..}
                         listeners (ActionSpec action, outs) =
-    usingJsonLogFilePath wpJLFilePath . usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
+    usingJsonLogFilePath (flip (,) alwaysLog <$> wpJLFilePath) . usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
         runWithoutReportingContext .
             runWalletDB db .
@@ -99,6 +99,7 @@ runRawStaticPeersWallet peerId transport peers WalletParams {..}
             runServer_ peerId transport listeners outs . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa
   where
+    alwaysLog = const (pure True)
     LoggingParams {..} = bpLoggingParams wpBaseParams
     openDB =
         maybe

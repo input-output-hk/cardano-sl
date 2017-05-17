@@ -24,6 +24,7 @@ import           Pos.Txp                (GenericToilModifier (..), TxOutAux (..)
 import           Pos.Types              (Address (..), Coin, mkCoin, sumCoins,
                                          unsafeIntegerToCoin)
 import qualified Pos.Util.Modifier      as MM
+import           Pos.Util.JsonLog       (MonadJL)
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -47,7 +48,7 @@ getBalanceFromUtxo addr =
     unsafeIntegerToCoin . sumCoins .
     map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
 
-instance (MonadDB m, MonadMask m, WithLogger m) => MonadBalances (TxpHolder __ m) where
+instance (MonadDB m, MonadMask m, MonadJL m, WithLogger m) => MonadBalances (TxpHolder __ m) where
     getOwnUtxo addr = do
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoModifier

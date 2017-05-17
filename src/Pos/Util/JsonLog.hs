@@ -9,6 +9,7 @@ module Pos.Util.JsonLog
        , JLBlock (..)
        , JLTxS (..)
        , JLTxR (..)
+       , JLMemPool (..)
        , JLTimedEvent (..)
        , jlCreatedBlock
        , jlAdoptedBlock
@@ -80,13 +81,30 @@ data JLTxR = JLTxR
 fromJLSlotId :: JLSlotId -> SlotId
 fromJLSlotId (ep, sl) = SlotId (fromIntegral ep) (fromIntegral sl)
 
+-- | Json log of one mempool modification.
+data JLMemPool = JLMemPool
+    { -- | Reason for modifying the mempool
+      jlmReason      :: Text
+      -- | Queue length when trying to modify the mempool (not including this
+      --   modifier, so it could be 0).
+    , jlmQueueLength :: Int
+      -- | Time spent waiting for the lock (microseconds)
+    , jlmWait        :: Integer
+      -- | Time spent doing the modification (microseconds, while holding the lock).
+    , jlmModify      :: Integer
+      -- | Size of the mempool before the modification.
+    , jlmSizeBefore  :: Int
+      -- | Size of the mempool after the modification.
+    , jlmSizeAfter   :: Int
+    } deriving Show
+
 -- | Json log event.
 data JLEvent = JLCreatedBlock JLBlock
              | JLAdoptedBlock BlockId
              | JLTpsStat Int
-             | JLMemPoolSize Int
              | JLTxSent JLTxS
              | JLTxReceived JLTxR 
+             | JLMemPoolEvent JLMemPool
   deriving Show
 
 -- | 'JLEvent' with 'Timestamp' -- corresponding time of this event.
@@ -98,6 +116,7 @@ data JLTimedEvent = JLTimedEvent
 $(deriveJSON defaultOptions ''JLBlock)
 $(deriveJSON defaultOptions ''JLTxS)
 $(deriveJSON defaultOptions ''JLTxR)
+$(deriveJSON defaultOptions ''JLMemPool)
 $(deriveJSON defaultOptions ''JLEvent)
 $(deriveJSON defaultOptions ''JLTimedEvent)
 
@@ -123,10 +142,12 @@ jlAdoptedBlock :: Ssc ssc => Block ssc -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHash . headerHash
 
 -- | Append event into log by given 'Handle'
-appendJL :: (MonadIO m) => Maybe (MVar Handle) -> JLEvent -> m ()
-appendJL mv ev = whenJust mv $ \v -> do
+appendJL :: (MonadIO m) => Maybe (MVar Handle, JLEvent -> IO Bool) -> JLEvent -> m ()
+appendJL mv ev = whenJust mv $ \(v, decide) -> do
     time <- currentTime
-    liftIO $ withMVar v $ flip LBS.hPut $ encode $ JLTimedEvent (fromIntegral time) ev
+    shouldLog <- liftIO $ decide ev
+    when shouldLog $
+        liftIO $ withMVar v $ flip LBS.hPut $ encode $ JLTimedEvent (fromIntegral time) ev
 
 -- | Monad for things that can log Json log events.
 class Monad m => MonadJL m where
@@ -143,7 +164,8 @@ instance {-# OVERLAPPABLE #-}
 -- JsonLogFilePathBox monad transformer
 ---------------------------------------------------------------
 
-newtype JsonLogFilePathBox m a = JsonLogFilePathBox { jsonLogFilePathBoxEntry :: ReaderT (Maybe (MVar Handle)) m a }
+newtype JsonLogFilePathBox m a = JsonLogFilePathBox
+    { jsonLogFilePathBoxEntry :: ReaderT (Maybe (MVar Handle, JLEvent -> IO Bool)) m a }
     deriving (Functor, Applicative, Monad, MonadTrans,
               CanLog, MonadIO, MonadFix, MonadMask, MonadCatch, MonadThrow)
 
@@ -165,13 +187,13 @@ type instance Gauge (JsonLogFilePathBox m) = Gauge m
 
 instance Monad m => WrappedM (JsonLogFilePathBox m) where
 
-    type UnwrappedM (JsonLogFilePathBox m) = ReaderT (Maybe (MVar Handle)) m
+    type UnwrappedM (JsonLogFilePathBox m) = ReaderT (Maybe (MVar Handle, JLEvent -> IO Bool)) m
 
     _WrappedM = iso jsonLogFilePathBoxEntry JsonLogFilePathBox
 
 instance ( Mockable d m
-         , MFunctor' d (JsonLogFilePathBox m) (ReaderT (Maybe (MVar Handle)) m)
-         , MFunctor' d (ReaderT (Maybe (MVar Handle)) m) m
+         , MFunctor' d (JsonLogFilePathBox m) (ReaderT (Maybe (MVar Handle, JLEvent -> IO Bool)) m)
+         , MFunctor' d (ReaderT (Maybe (MVar Handle, JLEvent -> IO Bool)) m) m
          ) => Mockable d (JsonLogFilePathBox m) where
     liftMockable = liftMockableWrappedM
 
@@ -179,11 +201,15 @@ instance MonadIO m => MonadJL (JsonLogFilePathBox m) where
 
     jlLog event = JsonLogFilePathBox $ ask >>= flip appendJL event
         
-usingJsonLogFilePath :: (MonadIO m, MonadMask m) => Maybe FilePath -> JsonLogFilePathBox m a -> m a
-usingJsonLogFilePath mpath m =
+usingJsonLogFilePath
+    :: (MonadIO m, MonadMask m)
+    => Maybe (FilePath, JLEvent -> IO Bool)
+    -> JsonLogFilePathBox m a
+    -> m a
+usingJsonLogFilePath mPathAndDecider m =
     let m' = jsonLogFilePathBoxEntry m
-    in  case mpath of
+    in  case mPathAndDecider of
             Nothing   -> runReaderT m' Nothing
-            Just path -> bracket (openFile path WriteMode) (liftIO . hClose) $ \h -> do
+            Just (path, decide) -> bracket (openFile path WriteMode) (liftIO . hClose) $ \h -> do
                 hMV <- newMVar h
-                runReaderT m' $ Just hMV
+                runReaderT m' $ Just (hMV, decide)

@@ -10,7 +10,7 @@ import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
 import           Pos.DB.Class               (MonadDBCore)
 import           Pos.Lrc.Consumer           (LrcConsumer)
 import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 -- | Class for @SSC@ workers.
 class Ssc ssc => SscWorkersClass ssc where

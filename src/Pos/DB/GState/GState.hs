@@ -8,13 +8,14 @@ module Pos.DB.GState.GState
        , usingGStateSnapshot
        ) where
 
-import           Control.Monad.Catch        (MonadMask)
-import qualified Database.RocksDB           as Rocks
-import           System.Wlog                (WithLogger)
 import           Universum
 
-import           Pos.Context.Class          (WithNodeContext, getNodeContext)
-import           Pos.Context.Context        (ncSystemStart)
+import           Control.Monad.Catch        (MonadMask)
+import qualified Database.RocksDB           as Rocks
+import qualified Ether
+import           System.Wlog                (WithLogger)
+
+import           Pos.Context.Context        (GenesisUtxo (..), NodeParams (..))
 import           Pos.Context.Functions      (genesisUtxoM)
 import           Pos.DB.Class               (MonadDB, getNodeDBs, usingReadOptions)
 import           Pos.DB.GState.Balances     (getRealTotalStake)
@@ -30,8 +31,10 @@ import           Pos.Update.DB              (prepareGStateUS)
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB
-    :: forall ssc m.
-       (WithNodeContext ssc m, MonadDB m)
+    :: forall m.
+       ( Ether.MonadReader' NodeParams m
+       , Ether.MonadReader' GenesisUtxo m
+       , MonadDB m )
     => HeaderHash -> m ()
 prepareGStateDB initialTip = do
     prepareGStateCommon initialTip
@@ -39,7 +42,7 @@ prepareGStateDB initialTip = do
     prepareGStateUtxo genesisUtxo
     prepareGtDB genesisCertificates
     prepareGStateBalances genesisUtxo
-    systemStart <- ncSystemStart <$> getNodeContext
+    systemStart <- Ether.asks' npSystemStart
     prepareGStateUS systemStart
 
 -- | Check that GState DB is consistent.

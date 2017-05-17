@@ -31,7 +31,7 @@ import           Pos.Txp.Logic              (txProcessTransaction)
 import           Pos.Txp.MemState           (getMemPool)
 import           Pos.Txp.Network.Types      (TxMsgContents (..), TxMsgTag (..))
 import           Pos.Txp.Toil.Types         (MemPool (..))
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 txProxy :: RelayProxy TxId TxMsgTag TxMsgContents
 txProxy = RelayProxy

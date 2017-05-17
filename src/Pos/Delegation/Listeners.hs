@@ -11,17 +11,18 @@ module Pos.Delegation.Listeners
        --, handleCheckProxySKConfirmed
        ) where
 
+import           Universum
+
+import qualified Ether
 import           Formatting                 (build, sformat, shown, (%))
 import           Pos.Communication.Util     (stubListenerOneMsg)
 import           System.Wlog                (WithLogger, logDebug, logInfo)
-import           Universum
 
 
 import           Pos.Binary.Communication   ()
 import           Pos.Communication.Protocol (ListenerSpec, OutSpecs, SendActions (..),
                                              listenerOneMsg, mergeLs, oneMsgH, toOutSpecs)
-import           Pos.Context                (getNodeContext, ncBlkSemaphore, ncNodeParams,
-                                             npPropagation)
+import           Pos.Context                (BlkSemaphore (..), NodeParams, npPropagation)
 import           Pos.Delegation.Logic       (ConfirmPskLightVerdict (..),
                                              PskHeavyVerdict (..), PskLightVerdict (..),
                                              processConfirmProxySk, processProxySKHeavy,
@@ -32,7 +33,7 @@ import           Pos.Delegation.Methods     (sendProxyConfirmSK, sendProxyConfir
 import           Pos.Delegation.Types       (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.Discovery              (sendToNeighbors)
 import           Pos.Types                  (ProxySKLight)
-import           Pos.WorkMode               (WorkMode)
+import           Pos.WorkMode.Class         (WorkMode)
 
 -- | Listeners for requests related to delegation processing.
 delegationListeners
@@ -69,11 +70,11 @@ handleSendProxySK = listenerOneMsg outSpecs $
         logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
         verdict <- processProxySKHeavy @ssc pSk
         logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
-        doPropagate <- npPropagation . ncNodeParams <$> getNodeContext
+        doPropagate <- npPropagation <$> Ether.ask @NodeParams
         if | verdict == PHIncoherent -> do
                -- We're probably updating state over epoch, so leaders
                -- can be calculated incorrectly.
-               blkSemaphore <- ncBlkSemaphore <$> getNodeContext
+               blkSemaphore <- Ether.asks' unBlkSemaphore
                void $ readMVar blkSemaphore
                handleDo sendActions req
            | verdict == PHAdded && doPropagate -> do
@@ -108,7 +109,7 @@ handleSendProxySK = listenerOneMsg outSpecs $
       :: (WorkMode ssc m)
       => PskLightVerdict -> ProxySKLight -> SendActions m -> m ()
     propagateProxySKLight PLUnrelated pSk sendActions =
-        whenM (npPropagation . ncNodeParams <$> getNodeContext) $ do
+        whenM (npPropagation <$> Ether.ask @NodeParams) $ do
             logDebug $ sformat ("Propagating lightweight PSK: "%build) pSk
             sendProxySKLight pSk sendActions
     propagateProxySKLight PLAdded pSk sendActions = sendProxyConfirmSK pSk sendActions
@@ -138,7 +139,7 @@ handleConfirmProxySK = listenerOneMsg outSpecs $
     propagateConfirmProxySK CPValid
                             confPSK@(ConfirmProxySK pSk _)
                             sendActions = do
-        whenM (npPropagation . ncNodeParams <$> getNodeContext) $ do
+        whenM (npPropagation <$> Ether.ask @NodeParams) $ do
             logDebug $ sformat ("Propagating psk confirmation for psk: "%build) pSk
             sendToNeighbors sendActions confPSK
     propagateConfirmProxySK _ _ _ = pass

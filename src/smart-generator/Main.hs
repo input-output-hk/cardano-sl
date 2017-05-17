@@ -39,6 +39,7 @@ import           Pos.Txp                    (TxAux)
 import           Pos.Update.Params          (UpdateParams (..))
 import           Pos.Util.JsonLog           ()
 import           Pos.Util.UserSecret        (simpleUserSecret)
+import           Pos.Util.Util              (powerLift)
 import           Pos.Worker                 (allWorkers)
 import           Pos.WorkMode               (StaticMode)
 
@@ -259,10 +260,10 @@ main = do
             }
 
     bracketResources baseParams TCP.Unaddressable $ \transport -> do
-        let powerLift :: forall ssc t . Production t -> StaticMode ssc t
-            powerLift = lift.lift.lift.lift.lift.lift.lift.lift.lift.lift.lift
-            transport' :: forall ssc . Transport (StaticMode ssc)
-            transport' = hoistTransport powerLift transport
+        let transport' :: forall ssc . Transport (StaticMode ssc)
+            transport' = hoistTransport
+                (powerLift :: forall t . Production t -> StaticMode ssc t)
+                transport
 
         let peerId = CLI.peerId goCommonArgs
         let systemStart = CLI.sysStart goCommonArgs

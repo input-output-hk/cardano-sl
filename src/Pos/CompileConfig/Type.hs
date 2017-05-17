@@ -30,8 +30,6 @@ data CompileConfig = CompileConfig
       -- ^ Max number of transactions in Storage
     , ccDefaultPeers                  :: ![String]
       -- ^ List of default peers
-    , ccSysTimeBroadcastSlots         :: !Int
-      -- ^ Number of slots to broadcast system time
     , ccMpcSendInterval               :: !Word
       -- ^ Length of interval for sending MPC message
     , ccMdNoBlocksSlotThreshold       :: !Int

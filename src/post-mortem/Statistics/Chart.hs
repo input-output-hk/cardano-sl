@@ -33,11 +33,15 @@ getData m = map normalize pairs
                         , fromIntegral n / fromIntegral total
                         )
 
-chart :: Map TxHash (Maybe Timestamp) -> FilePath -> IO ()
-chart m f =  toFile def f $ do
+chart :: [(String, Map TxHash (Maybe Timestamp))] -> FilePath -> IO ()
+chart xs f =  toFile def f $ do
     layout_title .= "Time to Inclusion into the Blockchain"
     layout_x_axis . laxis_title .= "time (seconds)"
     layout_y_axis . laxis_title .= "transaction ratio"
 
-    setColors [opaque blue]
-    plot (line "" [(0, 0) : getData m])
+    setColors $ map opaque $ concat $ repeat
+        [ blue, red, green, orchid, violet, salmon, yellow, pink
+        , darkblue, darkred, darkgreen, darkorchid, darkviolet, darksalmon
+        , lightblue, lightgreen, darksalmon, lightpink, orange, brown
+        ]
+    for_ xs $ \(s, m) -> plot (line s [(0, 0) : getData m])

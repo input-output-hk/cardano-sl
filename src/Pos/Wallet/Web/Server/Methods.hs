@@ -434,7 +434,8 @@ getWalletAccAddrsOrThrow mode wCAddr =
     getWalletAccounts mode wCAddr >>= maybeThrow noWallet
   where
     noWallet =
-        Internal $ sformat ("No wallet with address "%build%" found") wCAddr
+        RequestError $
+        sformat ("No wallet with address " %build % " found") wCAddr
 
 getAccounts :: WalletWebMode m => CWalletAddress -> m [CAccount]
 getAccounts = getWalletAccAddrsOrThrow Existing >=> mapM getAccount
@@ -453,7 +454,7 @@ getWallet cAddr = do
     pure $ CWallet cAddr meta mergedAccs
   where
     noWallet =
-        Internal $ sformat ("No wallet with address "%build%" found") cAddr
+        RequestError $ sformat ("No wallet with address "%build%" found") cAddr
 
 getWSet :: WalletWebMode m => CAddress WS -> m CWalletSet
 getWSet cAddr = do
@@ -463,13 +464,13 @@ getWSet cAddr = do
     passLU     <- getWSetPassLU cAddr >>= maybeThrow noWSet
     pure $ CWalletSet cAddr meta walletsNum hasPass passLU
   where
-    noWSet = Internal $
+    noWSet = RequestError $
         sformat ("No wallet set with address "%build%" found") cAddr
 
 -- TODO: probably poor naming
 decodeCAddressOrFail :: MonadThrow m => CAddress w -> m Address
 decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
-  where wrongAddress err = throwM . Internal $
+  where wrongAddress err = throwM . RequestError $
             sformat ("Error while decoding CAddress: "%stext) err
 
 getWSetWalletAddrs :: WalletWebMode m => CAddress WS -> m [CWalletAddress]
@@ -480,7 +481,7 @@ getWallets mCAddr = do
     whenJust mCAddr $ \cAddr -> getWSetMeta cAddr `whenNothingM_` noWSet cAddr
     mapM getWallet =<< maybe getWalletAddresses getWSetWalletAddrs mCAddr
   where
-    noWSet cAddr = throwM . Internal $
+    noWSet cAddr = throwM . RequestError $
         sformat ("No wallet set with address "%build%" found") cAddr
 
 getWSets :: WalletWebMode m => m [CWalletSet]
@@ -489,7 +490,7 @@ getWSets = getWSetAddresses >>= mapM getWSet
 decodeCPassPhraseOrFail
     :: WalletWebMode m => MCPassPhrase -> m PassPhrase
 decodeCPassPhraseOrFail (Just cpass) =
-    either (const . throwM $ Internal "Decoding of passphrase failed") return $
+    either (\_ -> throwM $ RequestError "Decoding of passphrase failed") return $
     cPassPhraseToPassPhrase cpass
 decodeCPassPhraseOrFail Nothing = return emptyPassphrase
 
@@ -547,7 +548,7 @@ getMoneySourceWallet (WalletSetMoneySource wsAddr) = do
     wAddr <- (head <$> getWSetWalletAddrs wsAddr) >>= maybeThrow noWallets
     getMoneySourceWallet (WalletMoneySource wAddr)
   where
-    noWallets = Internal "Wallet set has no wallets"  -- TODO [CSM-236]: not internal
+    noWallets = InternalError "Wallet set has no wallets"
 
 sendMoney
     :: WalletWebMode m
@@ -584,9 +585,9 @@ sendMoney sendActions cpassphrase moneySource dstDistr curr title desc = do
         -> m (Coin, NonEmpty (CAccountAddress, Coin))
     selectSrcAccounts reqCoins accounts
         | reqCoins == mkCoin 0 =
-            throwM $ Internal "Spending non-positive amount of money!"
+            throwM $ RequestError "Spending non-positive amount of money!"
         | [] <- accounts =
-            throwM . Internal $
+            throwM . RequestError $
             sformat ("Not enough money (need " %build % " more)") reqCoins
         | acc:accs <- accounts = do
             balance <- getAccountBalance acc
@@ -611,7 +612,7 @@ sendMoney sendActions cpassphrase moneySource dstDistr curr title desc = do
 
     withSafeSigners (sk :| sks) passphrase action =
         withSafeSigner sk (return passphrase) $ \mss -> do
-            ss <- mss `whenNothing` throwM (Internal "Passphrase doesn't match")
+            ss <- maybeThrow (RequestError "Passphrase doesn't match") mss
             case nonEmpty sks of
                 Nothing -> action (ss :| [])
                 Just sks' -> do
@@ -628,7 +629,7 @@ sendMoney sendActions cpassphrase moneySource dstDistr curr title desc = do
             etx <- submitMTx sendActions hdwSigner (toList na) txs
             case etx of
                 Left err ->
-                    throwM . Internal $
+                    throwM . RequestError $
                     sformat ("Cannot send transaction: " %stext) err
                 Right (tx, _, _) -> do
                     logInfo $
@@ -757,7 +758,7 @@ createWSetSafe
 createWSetSafe cAddr wsMeta = do
     wSetExists <- isJust <$> getWSetMeta cAddr
     when wSetExists $
-        throwM $ Internal "Wallet set with that mnemonics already exists"
+        throwM $ RequestError "Wallet set with that mnemonics already exists"
     curTime <- liftIO getPOSIXTime
     createWSet cAddr wsMeta curTime
     getWSet cAddr
@@ -796,7 +797,7 @@ deleteWallet = removeWallet
 
 renameWSet :: WalletWebMode m => CAddress WS -> Text -> m CWalletSet
 renameWSet addr newName = do
-    meta <- getWSetMeta addr >>= maybeThrow (Internal "No such wallet set")
+    meta <- getWSetMeta addr >>= maybeThrow (RequestError "No such wallet set")
     setWSetMeta addr meta{ cwsName = newName }
     getWSet addr
 
@@ -813,7 +814,7 @@ rederiveAccountAddress newSK newCPass oldAcc = do
         , caaAddress   = addressToCAddress accAddr
         }
   where
-    badPass = Internal "rederiveAccountAddress: passphrase doesn't match"
+    badPass = RequestError "Passphrase doesn't match"
 
 data AccountsSnapshot = AccountsSnapshot
     { asExisting :: [CAccountAddress]
@@ -862,7 +863,7 @@ cloneWalletSetWithPass newSK newPass wsAddr = do
                 newAccs
         return (oldAccs, newAccs)
   where
-    noWMeta = Internal "Suddenly can't get wallet meta" -- TODO [CSM-236]: not Internal
+    noWMeta = InternalError "Can't get wallet meta (inconsistent db)"
     cloneAccounts oldWAddr lookupMode addToDB = do
         accAddrs <- getWalletAccAddrsOrThrow lookupMode oldWAddr
         forM accAddrs $ \accAddr@CAccountAddress {..} -> do
@@ -911,11 +912,12 @@ changeWSetPassphrase sa wsAddr oldCPass newCPass = do
     mapM_ totallyRemoveAccount $ asDeleted <> asExisting $ oldAccs
     deleteSK oldPass
   where
-    badPass = Internal "Invalid old passphrase given"
+    badPass = RequestError "Invalid old passphrase given"
     deleteSK passphrase = do
         let nice k = encToCAddress k == wsAddr && isJust (checkPassMatches passphrase k)
         midx <- findIndex nice <$> getSecretKeys
-        idx  <- midx `whenNothing` throwM (Internal "No key with such address and pass found")
+        idx  <- RequestError "No key with such address and pass found"
+                `maybeThrow` midx
         deleteSecretKey (fromIntegral idx)
 
 -- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
@@ -927,7 +929,7 @@ isValidAddress _ _       = pure False
 -- | Get last update info
 nextUpdate :: WalletWebMode m => m CUpdateInfo
 nextUpdate = getNextUpdate >>=
-             maybeThrow (Internal "No updates available")
+             maybeThrow (RequestError "No updates available")
 
 applyUpdate :: WalletWebMode m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
@@ -939,7 +941,8 @@ redeemAda sendActions cpassphrase CWalletRedeem {..} = do
         $ rightToMaybe (B64.decode crSeed) <|> rightToMaybe (B64.decodeUrl crSeed)
     redeemAdaInternal sendActions cpassphrase crWalletId seedBs
   where
-    invalidBase64 = throwM . Internal $ "Seed is invalid base64(url) string: " <> crSeed
+    invalidBase64 =
+        throwM . RequestError $ "Seed is invalid base64(url) string: " <> crSeed
 
 -- Decrypts certificate based on:
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L205
@@ -959,9 +962,12 @@ redeemAdaPaperVend sendActions cpassphrase CPaperVendWalletRedeem {..} = do
         $ aesDecrypt seedEncBs aesKey
     redeemAdaInternal sendActions cpassphrase pvWalletId seedDecBs
   where
-    invalidBase58 = throwM . Internal $ "Seed is invalid base58 string: " <> pvSeed
-    invalidMnemonic e = throwM . Internal $ "Invalid mnemonic: " <> toText e
-    decryptionFailed e = throwM . Internal $ "Decryption failed: " <> show e
+    invalidBase58 =
+        throwM . RequestError $ "Seed is invalid base58 string: " <> pvSeed
+    invalidMnemonic e =
+        throwM . RequestError $ "Invalid mnemonic: " <> toText e
+    decryptionFailed e =
+        throwM . RequestError $ "Decryption failed: " <> show e
 
 redeemAdaInternal
     :: WalletWebMode m
@@ -972,7 +978,7 @@ redeemAdaInternal
     -> m CTx
 redeemAdaInternal sendActions cpassphrase walletId seedBs = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
-    (_, redeemSK) <- maybeThrow (Internal "Seed is not 32-byte long") $
+    (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     -- new redemption wallet
     _ <- getWallet walletId
@@ -983,7 +989,8 @@ redeemAdaInternal sendActions cpassphrase walletId seedBs = do
     na <- getPeers
     etx <- submitRedemptionTx sendActions redeemSK (toList na) dstAddr
     case etx of
-        Left err -> throwM . Internal $ "Cannot send redemption transaction: " <> err
+        Left err -> throwM . RequestError $
+                    "Cannot send redemption transaction: " <> err
         Right ((tx, _, _), redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             let txInputs = [TxOut redeemAddress redeemBalance]
@@ -1027,7 +1034,7 @@ importWSet cpassphrase (toString -> fp) =
             importWSetSecret cpassphrase
   where
     secretReadError =
-        throwM . Internal . sformat ("Failed to read secret: "%build)
+        throwM . RequestError . sformat ("Failed to read secret: "%build)
 
 importWSetSecret
     :: WalletWebMode m
@@ -1066,7 +1073,7 @@ addInitialRichAccount keyId =
             wusAccounts = [(walletGenesisIndex, accountGenesisIndex)]
         void $ importWSetSecret Nothing WalletUserSecret{..}
   where
-    noKey = Internal $ sformat ("No genesis key #"%build) keyId
+    noKey = InternalError $ sformat ("No genesis key #"%build) keyId
     wSetExistsHandler =
         logDebug . sformat ("Initial wallet set already exists ("%build%")")
 

@@ -43,6 +43,7 @@ import           Pos.Binary.Class      (Bi (..), decodeFull, encode)
 import           Pos.Binary.Crypto     ()
 import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
 
+import           Pos.Types             (Address)
 import           System.Directory      (renameFile)
 import           System.FilePath       (takeDirectory, takeFileName)
 import           System.IO             (hClose)
@@ -76,10 +77,15 @@ data UserSecret = UserSecret
 makeLenses ''UserSecret
 
 -- | Show instance to be able to include it into NodeParams
-instance Show UserSecret where
+instance Bi Address => Show UserSecret where
     show UserSecret {..} =
-        formatToString ("UserSecret { _usKeys = "%listJson%", _usVss = "%build%", _usPath = "%build%"}")
-            _usKeys _usVss _usPath
+        formatToString
+            ("UserSecret { _usKeys = "%listJson%", _usVss = "%build%
+             ", _usPath = "%build%", _usWalletSet = "%build%"}")
+            _usKeys
+            _usVss
+            _usPath
+            _usWalletSet
 
 -- | Path of lock file for the provided path.
 lockFilePath :: FilePath -> FilePath

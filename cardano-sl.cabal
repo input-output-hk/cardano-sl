@@ -126,6 +126,9 @@ library
                         Pos.Util.JsonLog
                         Pos.Util.UserSecret
 
+                        -- Wallets
+                        Pos.Wallet.Web.Secret
+
                         -- Worker, work mode
                         Pos.Worker
                         Pos.WorkMode
@@ -396,7 +399,6 @@ library
                         Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Doc
                         Pos.Wallet.Web.Error
-                        Pos.Wallet.Web.Secret
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Full

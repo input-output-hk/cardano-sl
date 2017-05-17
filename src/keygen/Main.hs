@@ -62,7 +62,7 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
             RichPoorStakes {..} -> sdRichStake
             _ -> error "cardano-keygen: impossible type of generated testnet stake"
         genesisAddrs = map (makePubKeyAddress . fst) genesisList
-                    <> map (makePubKeyAddress . view _3) poorsList
+                    <> map (view _3) poorsList
         genesisVssCerts = HM.fromList
                           $ map (_1 %~ addressHash)
                           $ take (fromIntegral tsoRichmen) genesisList

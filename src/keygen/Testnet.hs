@@ -16,14 +16,14 @@ import           Universum
 import           Pos.Binary           (asBinary)
 import qualified Pos.Constants        as Const
 import           Pos.Crypto           (EncryptedSecretKey, PublicKey, RedeemPublicKey,
-                                       SecretKey, emptyPassphrase, encToPublic, keyGen,
-                                       noPassEncrypt, redeemDeterministicKeyGen,
-                                       safeKeyGen, secureRandomBS, toPublic,
-                                       toVssPublicKey, vssKeyGen)
+                                       SecretKey, emptyPassphrase, keyGen, noPassEncrypt,
+                                       redeemDeterministicKeyGen, safeKeyGen,
+                                       secureRandomBS, toPublic, toVssPublicKey,
+                                       vssKeyGen)
 import           Pos.Genesis          (StakeDistribution (..), accountGenesisIndex,
                                        walletGenesisIndex)
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
-import           Pos.Types            (coinPortionToDouble, unsafeIntegerToCoin)
+import           Pos.Types            (Address, coinPortionToDouble, unsafeIntegerToCoin)
 import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
                                        usPrimKey, usVss, usWalletSet,
                                        writeUserSecretRelease)
@@ -41,9 +41,9 @@ rearrangeKeyfile fp = do
 generateKeyfile
     :: (MonadIO m, MonadFail m, WithLogger m)
     => Bool
-    -> Maybe (SecretKey, EncryptedSecretKey)  -- key & hd wallet root key
+    -> Maybe (SecretKey, EncryptedSecretKey)  -- plain key & hd wallet root key
     -> FilePath
-    -> m (PublicKey, VssCertificate, PublicKey)  -- ^ key, certificate & hd wallet root key
+    -> m (PublicKey, VssCertificate, Address)  -- ^ plain key, certificate & hd wallet account address
 generateKeyfile isPrim mbSk fp = do
     initializeUserSecret fp
     (sk, hdwSk) <- case mbSk of
@@ -51,22 +51,24 @@ generateKeyfile isPrim mbSk fp = do
         Nothing -> (,) <$> (snd <$> keyGen) <*> (snd <$> safeKeyGen emptyPassphrase)
     vss <- vssKeyGen
     us <- takeUserSecret fp
+
     writeUserSecretRelease $
         us & (if isPrim
               then usPrimKey .~ Just sk
               else (usKeys %~ (noPassEncrypt sk :))
                  . (usWalletSet ?~ mkGenesisWalletUserSecret hdwSk))
            & usVss .~ Just vss
+
     expiry <- liftIO $
         fromIntegral <$>
         randomRIO @Int (Const.vssMinTTL - 1, Const.vssMaxTTL - 1)
     let vssPk = asBinary $ toVssPublicKey vss
         vssCert = mkVssCertificate sk vssPk expiry
-        hdwAccSk =
-            snd $ fromMaybe (error "generateKeyfile: pass mismatch") $
+        hdwAccountPk =
+            fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
             deriveLvl2KeyPair emptyPassphrase hdwSk
                 walletGenesisIndex accountGenesisIndex
-    return (toPublic sk, vssCert, encToPublic hdwAccSk)
+    return (toPublic sk, vssCert, hdwAccountPk)
 
 mkGenesisWalletUserSecret
     :: EncryptedSecretKey -> WalletUserSecret
@@ -90,7 +92,7 @@ genTestnetStakes TestStakeOptions{..} =
     checkConsistency $ RichPoorStakes {..}
   where
     richs = fromIntegral tsoRichmen
-    poors = fromIntegral tsoPoors
+    poors = fromIntegral tsoPoors * 2  -- for plain and hd wallet keys
     testStake = fromIntegral tsoTotalStake
 
     -- Calculate actual stakes

@@ -18,6 +18,7 @@ import           Universum
 import           Control.Lens                       (each)
 import           Crypto.Hash                        (Blake2b_224, Blake2b_256)
 import qualified Crypto.PVSS                        as PVSS
+import           Data.Coerce                        (coerce)
 import           GHC.Exts                           (IsList (..))
 
 import           Pos.Binary.Class                   (AsBinary (..))
@@ -59,8 +60,13 @@ instance MessageLimitedPure (Signature a) where
 instance MessageLimitedPure PublicKey where
     msgLenLimit = 64
 
+-- Sometimes 'AsBinary a' is serialized with some overhead compared to
+-- 'a'. This overhead is estimated as at most 20.
+maxAsBinaryOverhead :: Limit a
+maxAsBinaryOverhead = 20
+
 instance MessageLimitedPure a => MessageLimitedPure (AsBinary a) where
-    msgLenLimit = coerce (msgLenLimit :: Limit a) + 20
+    msgLenLimit = coerce (msgLenLimit @a) + maxAsBinaryOverhead
 
 instance MessageLimitedPure SecretProof where
     msgLenLimit = 64
@@ -105,9 +111,9 @@ instance MessageLimited SecretSharingExtra where
         return $ SecretSharingExtra <$> msgLenLimit <+> vector numLimit
 
 instance MessageLimited (AsBinary SecretSharingExtra) where
-    -- 20 is a magic constant copy-pasted from 'MessageLimitedPure' instance
     getMsgLenLimit _ =
-        coerce . (20 +) <$> getMsgLenLimit (Proxy @SecretSharingExtra)
+        coerce . (maxAsBinaryOverhead +) <$>
+        getMsgLenLimit (Proxy @SecretSharingExtra)
 
 instance MessageLimited Commitment where
     getMsgLenLimit _ = do
@@ -305,6 +311,3 @@ multiMap
 multiMap k =
     -- max message length is reached when each key has single value
     vectorOf k $ (,) <$> msgLenLimit <+> vector 1
-
-coerce :: Limit a -> Limit b
-coerce (Limit x) = Limit x

@@ -81,6 +81,7 @@ import           Pos.Txp.Core                     (TxOut (..), TxOutAux (..))
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
+import           Pos.Util.UserSecret              (readUserSecret, usWalletSet)
 import           Pos.Wallet.KeyStorage            (MonadKeys, addSecretKey,
                                                    deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.SscType               (WalletSscType)
@@ -110,14 +111,15 @@ import           Pos.Wallet.Web.ClientTypes       (Acc, CAccount (..),
                                                    CWalletSetInit (..),
                                                    CWalletSetMeta (..), MCPassPhrase,
                                                    NotifyEvent (..), SyncProgress (..),
-                                                   WS, WalletUserSecret (..),
-                                                   addressToCAddress, cAddressToAddress,
+                                                   WS, addressToCAddress,
+                                                   cAddressToAddress,
                                                    cPassPhraseToPassPhrase, encToCAddress,
-                                                   mkCCoin, mkCTx, mkCTxId,
-                                                   readWalletUserSecret, toCUpdateInfo,
+                                                   mkCCoin, mkCTx, mkCTxId, toCUpdateInfo,
                                                    txContainsTitle, txIdToCTxId,
                                                    walletAddrByAccount)
-import           Pos.Wallet.Web.Error             (WalletError (..))
+import           Pos.Wallet.Web.Error             (WalletError (Internal),
+                                                   rewrapToWalletError)
+import           Pos.Wallet.Web.Secret            (WalletUserSecret (..))
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
                                                    WalletWebSockets, closeWSConnection,
                                                    getWalletWebSockets,
@@ -804,13 +806,14 @@ renameWSet addr newName = do
 rederiveAccountAddress
     :: WalletWebMode m
     => EncryptedSecretKey -> MCPassPhrase -> CAccountAddress -> m CAccountAddress
-rederiveAccountAddress newSK newCPass oldAcc = do
+rederiveAccountAddress newSK newCPass CAccountAddress{..} = do
     newPass <- decodeCPassPhraseOrFail newCPass
     (accAddr, _) <- maybeThrow badPass $
-        deriveLvl2KeyPair newPass newSK (caaWalletIndex oldAcc) (caaAccountIndex oldAcc)
-    return oldAcc
+        deriveLvl2KeyPair newPass newSK caaWalletIndex caaAccountIndex
+    return CAccountAddress
         { caaWSAddress = encToCAddress newSK
         , caaAddress   = addressToCAddress accAddr
+        , ..
         }
   where
     badPass = Internal "rederiveAccountAddress: passphrase doesn't match"
@@ -1021,13 +1024,13 @@ importWSet
     => MCPassPhrase
     -> Text
     -> m CWalletSet
-importWSet cpassphrase (toString -> fp) =
-    readWalletUserSecret fp >>=
-        either secretReadError pure >>=
-            importWSetSecret cpassphrase
+importWSet cpassphrase (toString -> fp) = do
+    secret <- rewrapToWalletError $ readUserSecret fp
+    wSecret <- maybeThrow noWalletSecret (secret ^. usWalletSet)
+    importWSetSecret cpassphrase wSecret
   where
-    secretReadError =
-        throwM . Internal . sformat ("Failed to read secret: "%build)
+    noWalletSecret =
+        Internal "This key doesn't contain HD wallet info"
 
 importWSetSecret
     :: WalletWebMode m

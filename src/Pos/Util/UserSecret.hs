@@ -12,6 +12,7 @@ module Pos.Util.UserSecret
        ( UserSecret
        , usKeys
        , usVss
+       , usWalletSet
        , usPrimKey
        , getUSPath
        , simpleUserSecret
@@ -25,36 +26,37 @@ module Pos.Util.UserSecret
        , ensureModeIs600
        ) where
 
-import           Control.Exception    (onException)
-import           Control.Lens         (makeLenses, to)
-import           Data.Binary.Get      (label)
-import qualified Data.ByteString.Lazy as BSL
-import           Data.Default         (Default (..))
-import           Formatting           (build, formatToString, (%))
+import           Control.Exception     (onException)
+import           Control.Lens          (makeLenses, to)
+import           Data.Binary.Get       (label)
+import qualified Data.ByteString.Lazy  as BSL
+import           Data.Default          (Default (..))
+import           Formatting            (build, formatToString, (%))
 import qualified Prelude
-import           Serokell.Util.Text   (listJson)
-import           System.FileLock      (FileLock, SharedExclusive (..), lockFile,
-                                       unlockFile, withFileLock)
-import qualified Turtle               as T
+import           Serokell.Util.Text    (listJson)
+import           System.FileLock       (FileLock, SharedExclusive (..), lockFile,
+                                        unlockFile, withFileLock)
+import qualified Turtle                as T
 import           Universum
 
-import           Pos.Binary.Class     (Bi (..), decodeFull, encode)
-import           Pos.Binary.Crypto    ()
-import           Pos.Crypto           (EncryptedSecretKey, SecretKey, VssKeyPair)
+import           Pos.Binary.Class      (Bi (..), decodeFull, encode)
+import           Pos.Binary.Crypto     ()
+import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
 
-import           System.Directory     (renameFile)
-import           System.FilePath      (takeDirectory, takeFileName)
-import           System.IO            (hClose)
-import           System.IO.Temp       (openBinaryTempFile)
-import           System.Wlog          (WithLogger)
+import           System.Directory      (renameFile)
+import           System.FilePath       (takeDirectory, takeFileName)
+import           System.IO             (hClose)
+import           System.IO.Temp        (openBinaryTempFile)
+import           System.Wlog           (WithLogger)
 
-import           Pos.Wallet.Web.Error (WalletError (..))
+import           Pos.Wallet.Web.Error  (WalletError (..))
+import           Pos.Wallet.Web.Secret (WalletUserSecret)
 
 #ifdef POSIX
-import           Formatting           (oct, sformat)
-import qualified System.Posix.Files   as PSX
-import qualified System.Posix.Types   as PSX (FileMode)
-import           System.Wlog          (logWarning)
+import           Formatting            (oct, sformat)
+import qualified System.Posix.Files    as PSX
+import qualified System.Posix.Types    as PSX (FileMode)
+import           System.Wlog           (logWarning)
 #endif
 
 -- Because of the Formatting import
@@ -63,11 +65,12 @@ import           System.Wlog          (logWarning)
 -- | User secret data. Includes secret keys only for now (not
 -- including auxiliary @_usPath@).
 data UserSecret = UserSecret
-    { _usKeys    :: [EncryptedSecretKey]
-    , _usPrimKey :: Maybe SecretKey
-    , _usVss     :: Maybe VssKeyPair
-    , _usPath    :: FilePath
-    , _usLock    :: Maybe FileLock
+    { _usKeys      :: [EncryptedSecretKey]
+    , _usPrimKey   :: Maybe SecretKey
+    , _usVss       :: Maybe VssKeyPair
+    , _usWalletSet :: Maybe WalletUserSecret
+    , _usPath      :: FilePath
+    , _usLock      :: Maybe FileLock
     }
 
 makeLenses ''UserSecret
@@ -96,17 +99,26 @@ simpleUserSecret :: SecretKey -> FilePath -> UserSecret
 simpleUserSecret sk fp = def & usPrimKey .~ Just sk & usPath .~ fp
 
 instance Default UserSecret where
-    def = UserSecret [] Nothing Nothing "" Nothing
+    def = UserSecret [] Nothing Nothing Nothing "" Nothing
 
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
-    put UserSecret{..} = put _usVss >> put _usPrimKey >> put _usKeys
+    put UserSecret{..} = do
+        put _usVss
+        put _usPrimKey
+        put _usKeys
+        put _usWalletSet
     get = label "UserSecret" $ do
         vss <- get
         pkey <- get
         keys <- get
-        return $ def & usVss .~ vss & usPrimKey .~ pkey & usKeys .~ keys
+        wset <- get
+        return $ def
+            & usVss .~ vss
+            & usPrimKey .~ pkey
+            & usKeys .~ keys
+            & usWalletSet .~ wset
 
 #ifdef POSIX
 -- | Constant that defines file mode 600 (readable & writable only by owner).

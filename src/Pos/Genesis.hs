@@ -79,22 +79,6 @@ genesisDevPublicKeys = map fst genesisDevKeyPairs
 genesisDevSecretKeys :: [SecretKey]
 genesisDevSecretKeys = map snd genesisDevKeyPairs
 
--- | List of addresses in genesis. See 'genesisPublicKeys'.
-genesisAddresses :: [Address]
-genesisAddresses
-    | Const.isDevelopment = map makePubKeyAddress genesisDevPublicKeys
-    | otherwise           = gdAddresses compileGenData
-
-genesisStakeDistribution :: StakeDistribution
-genesisStakeDistribution
-    | Const.isDevelopment = def
-    | otherwise           = gdDistribution compileGenData
-
-genesisBalances :: HashMap StakeholderId Coin
-genesisBalances
-    | Const.isDevelopment = mempty
-    | otherwise           = gdBootstrapBalances compileGenData
-
 generateHdwGenesisSecretKey :: Int -> EncryptedSecretKey
 generateHdwGenesisSecretKey =
     snd .
@@ -115,6 +99,22 @@ walletGenesisIndex = firstNonHardened
 -- | Second index in derivation path for HD account, which is put to genesis utxo
 accountGenesisIndex :: Word32
 accountGenesisIndex = firstNonHardened
+
+-- | List of addresses in genesis. See 'genesisPublicKeys'.
+genesisAddresses :: [Address]
+genesisAddresses
+    | Const.isDevelopment = map makePubKeyAddress genesisDevPublicKeys
+    | otherwise           = gdAddresses compileGenData
+
+genesisStakeDistribution :: StakeDistribution
+genesisStakeDistribution
+    | Const.isDevelopment = def
+    | otherwise           = gdDistribution compileGenData
+
+genesisBalances :: HashMap StakeholderId Coin
+genesisBalances
+    | Const.isDevelopment = mempty
+    | otherwise           = gdBootstrapBalances compileGenData
 
 genesisDevHdwAccountSecretKeys :: [EncryptedSecretKey]
 genesisDevHdwAccountSecretKeys =
@@ -210,10 +210,13 @@ genesisUtxo sd =
         )
     tailAddresses = map (makePubKeyAddress . fst . generateGenesisKeyPair)
         [Const.genesisN ..]
-    hdwAddresses =
-        take Const.genesisN $
-        makePubKeyAddress . encToPublic <$> genesisDevHdwAccountSecretKeys
-    hwdDistr = (mkCoin 50000, [])  -- TODO: manage
+    hdwAddresses
+        | Const.isDevelopment =
+            take Const.genesisN $
+            makePubKeyAddress . encToPublic <$> genesisDevHdwAccountSecretKeys
+        | otherwise = []  -- already exist in 'GenesisData'
+    -- not much money to avoid making wallets slot leaders
+    hwdDistr = (mkCoin 100, [])  -- TODO: manage
 
 genesisDelegation :: HashMap StakeholderId [StakeholderId]
 genesisDelegation = mempty

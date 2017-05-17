@@ -21,10 +21,10 @@ touch $(stack --nix list-dependencies --separator '-' | sed 's/$/.log/' | sed 's
 tail -f .stack-work/logs/* &
 
 stack --nix --no-terminal install happy \
-  $EXTRA_STACK --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4
+  $EXTRA_STACK --fast --ghc-options="+RTS -A128m -n2m -RTS" --jobs=4
 
 stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl \
-  $EXTRA_STACK --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4 \
+  $EXTRA_STACK --fast --ghc-options="+RTS -A128m -n2m -RTS" --jobs=1 \
   --flag cardano-sl:-asserts \
   --flag cardano-sl-core:-dev-mode | ts
 

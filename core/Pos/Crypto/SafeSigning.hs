@@ -9,7 +9,6 @@ module Pos.Crypto.SafeSigning
        , emptyPassphrase
        , noPassEncrypt
        , checkPassMatches
-       , unsafeFromEncSecretKey
        , changeEncPassphrase
        , encToPublic
        , safeSign
@@ -79,10 +78,6 @@ noPassEncrypt (SecretKey k) = mkEncSecret emptyPassphrase k
 
 checkPassMatches :: (Bi PassPhrase, Alternative f) => PassPhrase -> EncryptedSecretKey -> f ()
 checkPassMatches pp (EncryptedSecretKey _ pph) = guard (hash pp == pph)
-
-unsafeFromEncSecretKey :: Bi PassPhrase => EncryptedSecretKey -> Maybe SecretKey
-unsafeFromEncSecretKey key@(EncryptedSecretKey sk _) =
-    checkPassMatches emptyPassphrase key $> SecretKey sk
 
 changeEncPassphrase
     :: Bi PassPhrase

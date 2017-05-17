@@ -71,7 +71,7 @@ packages:
 #  extra-dep: true
 - location:
     git: https://github.com/int-index/ether
-    commit: 47c83be09a4b94044f27c23f0ced4d0adf4047ec
+    commit: 8fa391384b06b27b36b21cd0cd6ff96ae386929a
   extra-dep: true
 
 nix:

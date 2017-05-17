@@ -16,6 +16,10 @@ if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
   export EXTRA_STACK="--flag cardano-sl:for-installer $EXTRA_STACK"
 fi
 
+mkdir -p .stack-work/logs
+touch $(stack --nix list-dependencies --separator '-' | sed 's/$/.log/' | sed 's/^/.stack-work\/logs\//')
+tail -f .stack-work/logs/* &
+
 stack --nix --no-terminal install happy \
   $EXTRA_STACK --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4
 

@@ -8,6 +8,8 @@ module Pos.Crypto.SafeSigning
        , SafeSigner
        , emptyPassphrase
        , noPassEncrypt
+       , checkPassMatches
+       , changeEncPassphrase
        , encToPublic
        , safeSign
        , safeToPublic
@@ -59,6 +61,10 @@ instance Buildable PassPhrase where
 emptyPassphrase :: PassPhrase
 emptyPassphrase = PassPhrase mempty
 
+{-instance Monoid PassPhrase where
+    mempty = PassPhrase mempty
+    mappend (PassPhrase p1) (PassPhrase p2) = PassPhrase (p1 `mappend` p2)-}
+
 mkEncSecret :: Bi PassPhrase => PassPhrase -> CC.XPrv -> EncryptedSecretKey
 mkEncSecret pp payload = EncryptedSecretKey payload (hash pp)
 
@@ -69,6 +75,19 @@ encToPublic (EncryptedSecretKey sk _) = PublicKey (CC.toXPub sk)
 -- | Re-wrap unencrypted secret key as an encrypted one
 noPassEncrypt :: Bi PassPhrase => SecretKey -> EncryptedSecretKey
 noPassEncrypt (SecretKey k) = mkEncSecret emptyPassphrase k
+
+checkPassMatches :: (Bi PassPhrase, Alternative f) => PassPhrase -> EncryptedSecretKey -> f ()
+checkPassMatches pp (EncryptedSecretKey _ pph) = guard (hash pp == pph)
+
+changeEncPassphrase
+    :: Bi PassPhrase
+    => PassPhrase
+    -> PassPhrase
+    -> EncryptedSecretKey
+    -> Maybe EncryptedSecretKey
+changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _) = do
+    checkPassMatches oldPass esk
+    return $ mkEncSecret newPass $ CC.xPrvChangePass oldPass newPass sk
 
 signRaw' :: Maybe SignTag
          -> PassPhrase
@@ -134,7 +153,7 @@ withSafeSigner
     -> m a
 withSafeSigner sk ppGetter action = do
     pp <- ppGetter
-    let mss = guard (hash pp == eskHash sk) $> SafeSigner sk pp
+    let mss = checkPassMatches pp sk $> SafeSigner sk pp
     action mss
 
 -- | We need this to be able to perform signing with unencrypted `SecretKey`s,

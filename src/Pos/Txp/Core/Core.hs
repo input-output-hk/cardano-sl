@@ -2,6 +2,7 @@
 
 module Pos.Txp.Core.Core
        ( addrBelongsTo
+       , addrBelongsToSet
        , mkTxProof
        , txInToPair
        , txOutStake
@@ -10,12 +11,13 @@ module Pos.Txp.Core.Core
 
 import           Universum
 
+import qualified Data.HashSet        as HS
 import           Data.List           (zipWith3)
 
 import           Pos.Binary.Core     ()
 import           Pos.Binary.Crypto   ()
 import           Pos.Binary.Txp.Core ()
-import           Pos.Core.Address    ()
+import           Pos.Core.Address    (AddressIgnoringAttributes (..))
 import           Pos.Core.Types      (Address (..))
 import           Pos.Crypto          (hash)
 import           Pos.Merkle          (mtRoot)
@@ -26,7 +28,13 @@ import           Pos.Txp.Core.Types  (TxAux (..), TxId, TxIn (..), TxOut (..),
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.
 addrBelongsTo :: TxOutAux -> Address -> Bool
-TxOutAux {..} `addrBelongsTo` addr = addr == txOutAddress toaOut
+addrBelongsTo TxOutAux {..} = ((==) `on` AddressIA) (txOutAddress toaOut)
+
+-- | Extended version of `addBelongsTo`, allows to compare against several
+-- addresses.
+addrBelongsToSet :: TxOutAux -> HashSet AddressIgnoringAttributes -> Bool
+TxOutAux {..} `addrBelongsToSet` addrs =
+    AddressIA (txOutAddress toaOut) `HS.member` addrs
 
 -- | Make a pair from 'TxIn'.
 txInToPair :: TxIn -> (TxId, Word32)

@@ -18,6 +18,7 @@ import           System.Wlog                 (WithLogger)
 import           Universum
 
 import qualified Ether
+import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (BlkSemaphore, MonadBlockRetrievalQueue,
@@ -84,6 +85,7 @@ type WorkMode ssc m
       , MonadJL m
       , WithPeerState m
       , MonadShutdownMem m
+      , MonadBListener m
       , MonadDiscovery m
       )
 

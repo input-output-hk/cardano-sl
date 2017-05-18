@@ -718,9 +718,9 @@ babel-plugin-transform-strict-mode@^6.22.0:
     babel-runtime "^6.22.0"
     babel-types "^6.22.0"
 
-babel-polyfill@^6.7.4:
-  version "6.22.0"
-  resolved "https://registry.yarnpkg.com/babel-polyfill/-/babel-polyfill-6.22.0.tgz#1ac99ebdcc6ba4db1e2618c387b2084a82154a3b"
+babel-polyfill@^6.23.0, babel-polyfill@^6.7.4:
+  version "6.23.0"
+  resolved "https://registry.yarnpkg.com/babel-polyfill/-/babel-polyfill-6.23.0.tgz#8364ca62df8eafb830499f699177466c3b03499d"
   dependencies:
     babel-runtime "^6.22.0"
     core-js "^2.4.0"
@@ -1508,6 +1508,10 @@ cssom@0.3.x, "cssom@>= 0.3.2 < 0.4.0":
   resolved "https://registry.yarnpkg.com/cssstyle/-/cssstyle-0.2.37.tgz#541097234cb2513c83ceed3acddc27ff27987d54"
   dependencies:
     cssom "0.3.x"
+
+"custom-event-polyfill@https://github.com/serokell/custom-event-polyfill/":
+  version "0.3.0"
+  resolved "https://github.com/serokell/custom-event-polyfill/#c44fc9d062abd06a898ff7c27da08207c43f774d"
 
 dargs@^5.1.0:
   version "5.1.0"

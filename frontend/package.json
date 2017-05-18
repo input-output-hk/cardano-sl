@@ -29,6 +29,8 @@
   },
   "homepage": "https://github.com/input-output-hk/cardano-sl-explorer-frontend#readme",
   "dependencies": {
+    "babel-polyfill": "^6.23.0",
+    "custom-event-polyfill": "https://github.com/serokell/custom-event-polyfill/",
     "react": "^15.4.2",
     "react-dom": "^15.4.2",
     "socket.io-client": "^1.7.3"

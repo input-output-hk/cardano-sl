@@ -68,6 +68,7 @@ blocksView state =
                                   , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
                                   , editableAction: BlocksEditBlocksPageNumber
                                   , invalidPageAction: BlocksInvalidBlocksPageNumber
+                                  , disabled: false
                                   }
                           in
                           P.div

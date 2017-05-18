@@ -89,6 +89,7 @@ type DashboardViewState =
     , dbViewBlockPagination :: Int
     , dbViewNextBlockPagination :: Int
     , dbViewLoadingBlockPagination :: Boolean
+    , dbViewLoadingTotalBlocks :: Boolean
     , dbViewBlockPaginationEditable :: Boolean
     , dbViewTxsExpanded :: Boolean
     , dbViewSelectedApiCode :: DashboardAPICode

@@ -68,6 +68,7 @@ blockView state =
                                                       , editable: state ^. (viewStates <<< blockDetail <<< blockTxPaginationEditable)
                                                       , editableAction: BlockEditTxsPageNumber
                                                       , invalidPageAction: BlockInvalidTxsPageNumber
+                                                      , disabled: false
                                                       }
                                   ]
                 ]

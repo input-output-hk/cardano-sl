@@ -22,7 +22,7 @@ import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..), SocketSubscriptionAction(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, pullLatestTxs, route, socket, subscriptions, syncAction, totalBlocks, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, pullLatestTxs, route, socket, subscriptions, syncAction, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -67,6 +67,34 @@ update (SocketConnected connected') state =
             else pure NoOp
           ]
     }
+
+update (SocketSubscribePaginatedBlocks offset) state =
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' ->
+                  -- FIXME (jk)
+                  -- `SubBlock` has to be changed with another event type
+                  -- We do need a new type on backend side
+                  -- which accept an `offset :: Int`
+                  liftEff <<< emit' socket' <<< toEvent $ Subscribe SubBlock
+              Nothing -> pure unit
+          pure NoOp
+    ]}
+
+update (SocketUnsubscribePaginatedBlocks offset) state =
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' ->
+                  -- FIXME (jk)
+                  -- `SubBlock` has to be changed with another event type
+                  -- We do need a new type on backend side
+                  -- which accept an `offset :: Int`
+                  liftEff <<< emit' socket' <<< toEvent $ Unsubscribe SubBlock
+              Nothing -> pure unit
+          pure NoOp
+    ]}
 
 update (SocketBlocksUpdated (Right blocks)) state =
     noEffects $
@@ -178,19 +206,22 @@ update (DashboardExpandTransactions expanded) state = noEffects $
 
 update (DashboardPaginateBlocks newPage) state =
     { state:
-          if doRequest
-          then set (dashboardViewState <<< dbViewNextBlockPagination) newPage state
-          else set (dashboardViewState <<< dbViewBlockPagination) newPage state
+          set (dashboardViewState <<< dbViewNextBlockPagination) newPage state
     , effects:
-          if doRequest
-          then [ pure $ RequestPaginatedBlocks (RequestLimit limit) (RequestOffset offset) ]
-          else []
+          if (syncByPolling $ state ^. syncAction)
+          then
+          -- get total blocks first before we do a request to get blocks
+          [ pure RequestTotalBlocksToPaginateBlocks ]
+          else
+          [ pure $ SocketUnsubscribePaginatedBlocks offset
+          , pure $ RequestPaginatedBlocks
+                      (RequestLimit maxBlockRows)
+                      (RequestOffset $ (newPage - minPagination) * maxBlockRows)
+          ]
     }
     where
-        doRequest = doPaginateBlocksRequest state newPage maxBlockRows
-        buffer = maxBlockRows
-        limit = limitPaginateBlocksRequest state newPage maxBlockRows buffer
-        offset = offsetPaginateBlocksRequest state
+        currentPage = state ^. (dashboardViewState <<< dbViewBlockPagination)
+        offset = (currentPage - minPagination) * maxBlockRows
 
 update (DashboardEditBlocksPageNumber target editable) state =
     { state:
@@ -387,100 +418,39 @@ update NoOp state = noEffects state
 
 -- http endpoints
 
-update RequestTotalBlocks state =
+update RequestTotalBlocksToPaginateBlocks state =
     { state:
-          set totalBlocks Loading state
+          set loading true $
+          -- Don't allow polling if we are doing a request
+          set pullLatestBlocks false $
+          set (dashboardViewState <<< dbViewLoadingTotalBlocks) true
+          state
     , effects:
-          [ attempt fetchTotalBlocks >>= pure <<< ReceiveTotalBlocks
+          [ attempt fetchTotalBlocks >>= pure <<< ReceiveTotalBlocksToPaginateBlocks
           ]
     }
 
-update (ReceiveTotalBlocks (Right total)) state =
+update (ReceiveTotalBlocksToPaginateBlocks (Right total)) state =
     { state:
-          set totalBlocks (Success total) state
-    , effects:
-        -- request `latestBlocks` if needed only
-        if isNotAsked $ state ^. latestBlocks
-        then [ pure RequestInitialBlocks ]
-        else []
-    }
-
-update (ReceiveTotalBlocks (Left error)) state =
-    noEffects $
-    set totalBlocks (Failure error)
-    $ over errors (\errors' -> (show error) : errors') state
-
-update RequestInitialBlocks state =
-    { state:
-          set loading true $
-          set latestBlocks Loading
-          state
-    , effects:
-        [ attempt (fetchLatestBlocks (RequestLimit maxBlockRows) (RequestOffset 0)) >>=
-            pure <<< ReceiveInitialBlocks
-        ]
-    }
-
-update (ReceiveInitialBlocks (Right blocks)) state =
-    { state:
-          set loading false $
-          -- add blocks
-          set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) $
+          set totalBlocks (Success total) $
+          set (dashboardViewState <<< dbViewLoadingTotalBlocks) false $
           set pullLatestBlocks (syncByPolling $ state ^. syncAction)
           state
     , effects:
-          -- add subscription of `SubBlock` if we are on `Dashboard` only
-          if (state ^. route) == Dashboard
-          then  [ pure $ SocketUpdateSubscriptions
-                            [ SocketSubscription SubBlock ]
-                            KeepPrevSubscriptions
-                ]
-          else []
+          [ pure $ RequestPaginatedBlocks (RequestLimit maxBlockRows) (RequestOffset offset) ]
     }
-
-update (ReceiveInitialBlocks (Left error)) state =
-    noEffects $
-    set loading false <<<
-    set latestBlocks (Failure error) $
-    set pullLatestBlocks (syncByPolling $ state ^. syncAction) $
-    over errors (\errors' -> (show error) : errors') state
-
--- START #Pulling blocks
--- Pulling blocks is just a workaround to avoid issues w/ socket-io
--- TODO (jk) Remove this workaround if socket-io is back
-update RequestBlocksUpdate state =
-     { state:
-           set loading true $
-           -- _Important note_:
-           -- Don't do `set latestBlocks Loading` here,
-           -- we will empty `latestBlocks` in this case !!!
-           state
-     , effects: [ attempt (fetchLatestBlocks (RequestLimit 10) (RequestOffset 0)) >>= pure <<< ReceiveBlocksUpdate ]
-     }
-
-update (ReceiveBlocksUpdate (Right blocks)) state =
-    noEffects $
-    set loading false <<<
-    set latestBlocks (Success newBlocks) $
-    set totalBlocks (Success newTotalBlocks) state
     where
-        prevBlocks = withDefault [] $ state ^. latestBlocks
-        numberOfBlocksToCompare = 50
-        prevBlocksToCompare = take numberOfBlocksToCompare prevBlocks
-        prevBlocksRest = drop numberOfBlocksToCompare prevBlocks
-        blocksToAdd = sortBlocksByEpochSlot' $ unionBlocks blocks prevBlocksToCompare
-        newBlocks = blocksToAdd <> prevBlocksRest
-        previousTotalBlocks = withDefault 0 $ state ^. totalBlocks
-        newTotalBlocks = (length newBlocks) - (length prevBlocks) + previousTotalBlocks
+        newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination)
+        offset = (newPage - minPagination) * maxBlockRows
 
-update (ReceiveBlocksUpdate (Left error)) state =
+update (ReceiveTotalBlocksToPaginateBlocks (Left error)) state =
     noEffects $
-    set loading false <<<
-    set latestBlocks (Failure error) $
-    over errors (\errors' -> (show error) : errors') state
-
--- END #Pulling blocks
-
+    set loading false $
+    set totalBlocks (Failure error) $
+    set (dashboardViewState <<< dbViewLoadingTotalBlocks) false $
+    set pullLatestBlocks (syncByPolling $ state ^. syncAction) $
+    set (dashboardViewState <<< dbViewLoadingBlockPagination) true
+    state
 
 update (RequestPaginatedBlocks limit offset) state =
     { state:
@@ -494,19 +464,24 @@ update (RequestPaginatedBlocks limit offset) state =
     }
 
 update (ReceivePaginatedBlocks (Right blocks)) state =
-    noEffects $
-    set loading false $
-    set (dashboardViewState <<< dbViewBlockPagination) (state ^. (dashboardViewState <<< dbViewNextBlockPagination)) $
-    set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
-    set latestBlocks (Success newBlocks) state
+    { state:
+          set loading false $
+          set (dashboardViewState <<< dbViewBlockPagination) newPage $
+          set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
+          set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) state
+    , effects:
+        if (syncBySocket $ state ^. syncAction)
+        then [ pure $ SocketSubscribePaginatedBlocks offset ]
+        else []
+    }
     where
-        previousBlocks = withDefault [] $ state ^. latestBlocks
-        newBlocks = sortBlocksByEpochSlot' $ unionBlocks blocks previousBlocks
+        newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination)
+        offset = (newPage - minPagination) * maxBlockRows
 
 update (ReceivePaginatedBlocks (Left error)) state =
     noEffects $
     set loading false <<<
-    set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
+    set (dashboardViewState <<< dbViewLoadingBlockPagination) false <<<
     set latestBlocks (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
@@ -692,22 +667,16 @@ routeEffects Dashboard state =
     , effects:
         [ pure ScrollTop
         ]
-        -- get `totalBlocks` only once
+        -- get first blocks page (with first visit to Dashboard only)
         <>  ( if isNotAsked $ state ^. totalBlocks
-              then [ pure RequestTotalBlocks ]
+              then [ pure $ DashboardPaginateBlocks minPagination ]
               else []
             )
-        -- request `latestBlocks` if needed
+        -- update current blocks page (by using `syncByPolling` only)
         <>  ( if  (isSuccess $ state ^. totalBlocks) &&
-                  (isNotAsked $ state ^. latestBlocks) &&
-                  (not $ state ^. pullLatestBlocks)
-              then [ pure RequestInitialBlocks ]
-              else []
-            )
-        -- pull latest blocks if needed
-        <>  ( if  (syncByPolling $ state ^. syncAction) &&
+                  (syncByPolling $ state ^. syncAction) &&
                   (state ^. pullLatestBlocks)
-              then [ pure RequestBlocksUpdate ]
+              then [ pure $ DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)]
               else []
             )
         -- request `latestTransactions` if needed
@@ -722,14 +691,12 @@ routeEffects Dashboard state =
               then [ pure RequestTxsUpdate ]
               else []
             )
-        -- subscribe to `SubBlock` and `SubTx `if needed
+        -- subscribe to `SubTx `if needed
         <>  ( if  (syncBySocket $ state ^. syncAction) &&
-                  (isSuccess $ state ^. latestBlocks) &&
                   (isSuccess $ state ^. latestTransactions)
               then [ pure $ SocketUpdateSubscriptions
-                              [ SocketSubscription SubBlock
-                              , SocketSubscription SubTx
-                              ] UnsubscribePrevSubscriptions
+                              [ SocketSubscription SubTx
+                              ] KeepPrevSubscriptions
                   ]
               else []
             )
@@ -830,28 +797,3 @@ routeEffects NotFound state =
         , pure $ SocketUpdateSubscriptions [] UnsubscribePrevSubscriptions
         ]
     }
-
--- helper functions
-
--- | Checks if we do need to make a request to get data of next block pagination or not
-doPaginateBlocksRequest :: State -> Int -> Int -> Boolean
-doPaginateBlocksRequest state nextPage blockRows =
-    nextPage > state ^. (dashboardViewState <<< dbViewBlockPagination)
-    && lengthBlocks < (nextPage * blockRows)
-    && lengthBlocks < (withDefault 0 $ state ^. totalBlocks)
-    where
-        lengthBlocks = length $ withDefault [] (state ^. latestBlocks)
-
--- | Determines the `limit` to request pagination of blocks
--- | _Note_: We add some extra "buffer" to get more blocks as needed,
--- | just to avoid to lost any data
-limitPaginateBlocksRequest :: State -> Int -> Int -> Int -> Int
-limitPaginateBlocksRequest state nextPage blockRows buffer =
-    (nextPage * blockRows - length latestBlocks') + buffer
-    where
-        latestBlocks' = withDefault [] (state ^. latestBlocks)
-
--- | Determines the `offset` to request pagination of blocks
-offsetPaginateBlocksRequest :: State -> Int
-offsetPaginateBlocksRequest state =
-    length $ withDefault [] (state ^. latestBlocks)

@@ -30,19 +30,17 @@ data Action
     | SocketTxsUpdated (Either Error CTxEntries)
     | SocketUpdateSubscriptions (Array SocketSubscription) SocketSubscriptionAction
     | SocketReconnectSubscriptions
+    | SocketSubscribePaginatedBlocks Int
+    | SocketUnsubscribePaginatedBlocks Int
     -- socket endpoints for debugging only
     | SocketCallMe
     | SocketCallMeString String
     | SocketCallMeCTxId CTxId
     -- http endpoints
-    | RequestTotalBlocks
-    | ReceiveTotalBlocks (Either Error Int)
-    | RequestInitialBlocks
-    | ReceiveInitialBlocks (Either Error CBlockEntries)
+    | RequestTotalBlocksToPaginateBlocks
+    | ReceiveTotalBlocksToPaginateBlocks (Either Error Int)
     | RequestPaginatedBlocks RequestLimit RequestOffset
     | ReceivePaginatedBlocks (Either Error CBlockEntries)
-    | RequestBlocksUpdate                               -- TODO (jk) Remove it if socket-io will be fixed
-    | ReceiveBlocksUpdate (Either Error CBlockEntries)  -- TODO (jk) Remove it if socket-io will be fixed
     | RequestBlockSummary CHash
     | ReceiveBlockSummary (Either Error CBlockSummary)
     | RequestBlockTxs CHash

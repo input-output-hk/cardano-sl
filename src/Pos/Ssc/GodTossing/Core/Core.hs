@@ -33,6 +33,7 @@ module Pos.Ssc.GodTossing.Core.Core
        , _gpCertificates
        , mkGtProof
        , stripGtPayload
+       , defaultGtPayload
        ) where
 
 import           Universum
@@ -315,3 +316,11 @@ stripGtPayload lim payload = case payload of
   where
     limCerts = lim `div` 3 -- certificates are 1/3 less important than everything else
                            -- this is a random choice in fact
+
+-- | Default godtossing payload depending on local slot index.
+defaultGtPayload :: LocalSlotIndex -> GtPayload
+defaultGtPayload lsi
+    | isCommitmentIdx lsi = CommitmentsPayload mempty mempty
+    | isOpeningIdx lsi = OpeningsPayload mempty mempty
+    | isSharesIdx lsi = SharesPayload mempty mempty
+    | otherwise = CertificatesPayload mempty

@@ -26,6 +26,7 @@ module Pos.Block.Pure
        ) where
 
 import           Control.Lens               (ix)
+import           Control.Monad.Except       (MonadError (throwError))
 import           Data.Default               (Default (def))
 import           Data.List                  (groupBy)
 import           Formatting                 (build, int, sformat, (%))
@@ -157,7 +158,7 @@ mkMainHeader prevHeader slotId sk pSk body extra =
 
 -- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'.
 mkMainBlock
-    :: (BiSsc ssc, SscHelpersClass ssc, MonadFail m)
+    :: (BiSsc ssc, SscHelpersClass ssc, MonadError Text m)
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
@@ -173,7 +174,7 @@ mkMainBlock prevHeader slotId sk proxyInfo body extraH extraB =
         extraB
 
 recreateMainBlock
-    :: (BiSsc ssc, SscHelpersClass ssc, MonadFail m)
+    :: (BiSsc ssc, SscHelpersClass ssc, MonadError Text m)
     => MainBlockHeader ssc
     -> Body (MainBlockchain ssc)
     -> MainExtraBodyData
@@ -182,7 +183,7 @@ recreateMainBlock _gbHeader _gbBody _gbExtra = do
     let gb = GenericBlock{..}
     case verifyBBlock gb of
         Right _  -> pass
-        Left err -> fail $ toString err
+        Left err -> throwError err
     pure gb
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.

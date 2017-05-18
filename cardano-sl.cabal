@@ -121,6 +121,8 @@ library
 
                         -- Utilities/helpers
                         Pos.Util
+                        Pos.Util.Undefined
+                        Pos.Util.Arbitrary
                         Pos.Util.Limits
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
@@ -348,10 +350,6 @@ library
                         Pos.Update.Poll.RollTrans
                         Pos.Update.Poll.Trans
                         Pos.Update.Worker
-
-                        -- Utilities/helpers
-                        Pos.Util.Arbitrary
-                        Pos.Util.Undefined
 
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer

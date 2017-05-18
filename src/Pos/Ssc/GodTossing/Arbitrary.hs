@@ -1,22 +1,29 @@
--- | Arbitrary instances for GodTossing types.
+{-# LANGUAGE ScopedTypeVariables #-}
+
+-- | Arbitrary instances and generators for GodTossing types.
 
 module Pos.Ssc.GodTossing.Arbitrary
        ( BadCommAndOpening (..)
        , BadCommitment (..)
        , BadSignedCommitment (..)
        , CommitmentOpening (..)
+       , commitmentMapEpochGen
+       , vssCertificateEpochGen
        ) where
 
 import qualified Data.HashMap.Strict              as HM
-import           Test.QuickCheck                  (Arbitrary (..), Gen, elements, oneof)
+import           Test.QuickCheck                  (Arbitrary (..), Gen, choose, elements,
+                                                   listOf, oneof)
 import           Universum
 
 import           Pos.Binary.Class                 (asBinary)
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Types.Relay    (DataMsg (..))
+import           Pos.Constants                    (vssMaxTTL, vssMinTTL)
 import           Pos.Core.Address                 (addressHash)
-import           Pos.Crypto                       (deterministicVssKeyGen, toPublic,
-                                                   toVssPublicKey)
+import           Pos.Core.Types                   (EpochIndex)
+import           Pos.Crypto                       (SecretKey, deterministicVssKeyGen,
+                                                   toPublic, toVssPublicKey)
 import           Pos.Ssc.Arbitrary                (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.GodTossing.Core          (Commitment (..), CommitmentsMap,
                                                    GtPayload (..), GtProof (..),
@@ -92,6 +99,7 @@ commitmentsAndOpenings =
     vssPk = toVssPublicKey $ deterministicVssKeyGen "ababahalamaha"
 {-# NOINLINE commitmentsAndOpenings #-}
 
+
 instance Arbitrary CommitmentOpening where
     arbitrary = elements commitmentsAndOpenings
 
@@ -104,11 +112,24 @@ instance Arbitrary Commitment where
 instance Arbitrary CommitmentsMap where
     arbitrary = mkCommitmentsMap <$> arbitrary
 
+-- | Generates commitment map having commitments from given epoch.
+commitmentMapEpochGen :: EpochIndex -> Gen CommitmentsMap
+commitmentMapEpochGen i = do
+    (coms :: [(SecretKey, Commitment)]) <- listOf $ (,) <$> arbitrary <*> arbitrary
+    pure $ mkCommitmentsMap $
+        map (\(sk,com) -> mkSignedCommitment sk i com) coms
+
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
 
 instance Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
+
+-- | Generates vss certificate that has epoch in [e+vssMin,e+vssMax].
+vssCertificateEpochGen :: EpochIndex -> Gen VssCertificate
+vssCertificateEpochGen x = do
+    e <- choose (vssMinTTL, vssMaxTTL-1)
+    mkVssCertificate <$> arbitrary <*> arbitrary <*> pure (e + x)
 
 ----------------------------------------------------------------------------
 -- Gt (God Tossing) types

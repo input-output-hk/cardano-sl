@@ -7,7 +7,7 @@ module Pos.Ssc.Class.Helpers
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Core.Types             (EpochIndex)
+import           Pos.Core.Types             (EpochIndex, LocalSlotIndex)
 import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Types.Block.Types      (MainBlockHeader)
 
@@ -20,3 +20,5 @@ class Ssc ssc => SscHelpersClass ssc where
     -- fits into passed limit. If limit is too low (0), we can return
     -- 'Nothing'.
     sscStripPayload :: Byte -> SscPayload ssc -> Maybe (SscPayload ssc)
+    -- | Returns default payload for the given local slot index.
+    sscDefaultPayload :: LocalSlotIndex -> (SscPayload ssc)

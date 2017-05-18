@@ -82,7 +82,7 @@ import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
 import           Pos.Reporting              (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Slotting.Class         (getCurrentSlot)
-import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscStripPayload),
+import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload),
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal,
                                              sscVerifyBlocks)
@@ -888,11 +888,13 @@ createMainBlockPure
     -> m (MainBlock ssc)
 createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
     flip evalStateT limit $ do
+        -- default ssc to put in case we won't fit a normal one
+        let defSsc = (sscDefaultPayload @ssc (siSlot sId) :: SscPayload ssc)
+
         -- account for block header and serialization overhead, etc;
-        let defSsc = (def :: SscPayload ssc)
         let musthaveBody = Types.MainBody
                 (fromMaybe (error "createMainBlockPure: impossible") $ mkTxPayload mempty)
-                def [] def
+                defSsc [] def
         musthaveBlock <-
             either throwError pure $
             mkMainBlock (Just prevHeader) sId sk pSk musthaveBody extraH extraB
@@ -929,7 +931,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         txPayload <- either throwError pure $ mkTxPayload txs'
         let body = Types.MainBody txPayload sscPayload psks' usPayload'
         let finalBlock = mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
-        maybe (error "Coudln't create block") pure finalBlock
+        either (\s -> throwError $ "Couldn't create block: " <> s) pure finalBlock
   where
     -- take from a list until the limit is exhausted or the list ends
     takeSome lst = do

@@ -51,6 +51,7 @@ instance Ssc SscNistBeacon where
 instance SscHelpersClass SscNistBeacon where
     sscVerifyPayload = const $ const $ Right ()
     sscStripPayload _ () = Just ()
+    sscDefaultPayload _ = ()
 
 instance SscWorkersClass SscNistBeacon where
     sscWorkers = Tagged ([], mempty)

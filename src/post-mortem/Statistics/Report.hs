@@ -27,8 +27,7 @@ reportTxFate f m = withFile f WriteMode $ \h -> do
     hPutStrLn h ""
     hPutStrLn h "transactions in fork:"
     for_ (M.toList m') $ \(tx, InFork s) ->
-        hPutStrLn h $ show tx ++ ": " ++ show (unwords $ map (T.take 6 . snd) $ S.toList s)
-        
+        hPutStrLn h $ toString tx ++ ": " ++ toString (unwords $ map (T.take 6 . snd) $ S.toList s)
 
 isFork :: TxFate -> Bool
 isFork (InFork _) = True

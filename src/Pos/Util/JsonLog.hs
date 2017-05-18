@@ -24,8 +24,8 @@ import           Control.Concurrent.MVar  (withMVar)
 import           Control.Lens             (iso)
 import           Control.Monad.Fix        (MonadFix)
 import           Control.Monad.Trans      (MonadTrans (..))
-import           Data.Aeson               (encode)
-import           Data.Aeson.TH            (deriveJSON)
+import           Data.Aeson               (encode, FromJSON (..), withObject, (.:), genericParseJSON)
+import           Data.Aeson.TH            (deriveJSON, deriveToJSON)
 import qualified Data.ByteString.Lazy     as LBS
 import           Formatting               (sformat)
 import           Mockable                 (liftMockableWrappedM, MFunctor')
@@ -105,7 +105,7 @@ data JLEvent = JLCreatedBlock JLBlock
              | JLTxSent JLTxS
              | JLTxReceived JLTxR 
              | JLMemPoolEvent JLMemPool
-  deriving Show
+  deriving (Show, Generic)
 
 -- | 'JLEvent' with 'Timestamp' -- corresponding time of this event.
 data JLTimedEvent = JLTimedEvent
@@ -117,8 +117,14 @@ $(deriveJSON defaultOptions ''JLBlock)
 $(deriveJSON defaultOptions ''JLTxS)
 $(deriveJSON defaultOptions ''JLTxR)
 $(deriveJSON defaultOptions ''JLMemPool)
-$(deriveJSON defaultOptions ''JLEvent)
+$(deriveToJSON defaultOptions ''JLEvent)
 $(deriveJSON defaultOptions ''JLTimedEvent)
+
+instance FromJSON JLEvent where
+
+    parseJSON = \v -> 
+        (    (genericParseJSON defaultOptions v)
+         <|> (withObject "JLEvent" $ \o -> JLMemPoolEvent <$> (JLMemPool "UNKNOWN" 0 0 0 0 <$> o .: "memPoolSize")) v)
 
 -- | Return event of created block.
 jlCreatedBlock :: BiSsc ssc => Block ssc -> JLEvent

@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Type stored in the Txp holder.
 
 module Pos.Txp.MemState.Types
@@ -5,12 +7,14 @@ module Pos.Txp.MemState.Types
        , GenericTxpLocalDataPure
        , TxpLocalData
        , TxpLocalDataPure
+       , MemPoolModifyReason (..)
        , TxpMetrics (..)
        , ignoreTxpMetrics
        ) where
 
 import           GHC.Base               (Int, IO)
 import           Universum
+import           Data.Aeson.TH          (deriveJSON, defaultOptions)
 import           Data.Time.Units        (Microsecond)
 import           System.Wlog            (LoggerNameBox)
 
@@ -46,6 +50,19 @@ type TxpLocalData = GenericTxpLocalData ()
 -- | Pure version of TxpLocalData.
 type TxpLocalDataPure = GenericTxpLocalDataPure ()
 
+-- | Enumeration of all reasons for modifying the mempool.
+data MemPoolModifyReason =
+      -- | Apply a block created by someone else.
+      ApplyBlock
+      -- | Apply a block created by us.
+    | CreateBlock
+      -- | Include a transaction.
+    | ProcessTransaction
+    | Unknown
+    deriving Show
+
+$(deriveJSON defaultOptions ''MemPoolModifyReason)
+
 -- | Effectful setters for metrics related to the Txp data.
 --   TODO this should not be fixed at IO, if being able to mock features
 --   remains a goal. But we can't free it up right now because the current
@@ -53,7 +70,7 @@ type TxpLocalDataPure = GenericTxpLocalDataPure ()
 data TxpMetrics = TxpMetrics
     { -- | Called when a thread begins to wait to modify the mempool.
       --   Parameter is the reason for modifying the mempool.
-      txpMetricsWait :: !(Text -> LoggerNameBox IO ())
+      txpMetricsWait :: !(MemPoolModifyReason -> LoggerNameBox IO ())
       -- | Called when a thread is granted the lock on the mempool. Parameter
       --   indicates how long it waited.
     , txpMetricsAcquire :: !(Microsecond -> LoggerNameBox IO ())

@@ -22,7 +22,7 @@ import qualified Pos.DB.GState        as GS
 import           Pos.Txp.Core         (Tx (..), TxAux, TxId)
 import           Pos.Txp.MemState     (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                        getUtxoModifier, modifyTxpLocalData,
-                                       setTxpLocalData)
+                                       setTxpLocalData, MemPoolModifyReason (..))
 import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (..),
                                        ToilEnv, ToilVerFailure (..), Utxo, execToilTLocal,
                                        getToilEnv, normalizeToil, processTx, runDBTxp,
@@ -56,7 +56,7 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
                    catMaybes $
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    pRes <- modifyTxpLocalData "txProcessTransaction" $
+    pRes <- modifyTxpLocalData ProcessTransaction $
             processTxDo resolved toilEnv tipBefore itw
     case pRes of
         Left er -> do
@@ -91,10 +91,12 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
 -- | 2. Remove invalid transactions from MemPool
 -- | 3. Set new tip to txp local data
 txNormalize
-    :: (MonadDB m, MonadTxpMem () m) => m ()
-txNormalize = do
+    :: (MonadDB m, MonadTxpMem () m)
+    => MemPoolModifyReason
+    -> m ()
+txNormalize reason= do
     utxoTip <- GS.getTip
     localTxs <- getLocalTxs
     ToilModifier {..} <-
         runDBTxp $ execToilTLocal mempty def mempty $ normalizeToil localTxs
-    setTxpLocalData "txNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+    setTxpLocalData reason (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

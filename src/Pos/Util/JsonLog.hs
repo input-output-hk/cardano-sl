@@ -49,6 +49,7 @@ import           Pos.Ssc.Class.Types      (Ssc)
 import           Pos.Types                (BiSsc, Block, SlotId (..), blockHeader, blockTxs,
                                            epochIndexL, gbHeader, gbhPrevBlock, headerHash,
                                            headerSlot)
+import           Pos.Txp.MemState.Types   (MemPoolModifyReason (Unknown))
 import           Pos.Util.TimeWarp        (currentTime)
 
 type BlockId = Text
@@ -84,7 +85,7 @@ fromJLSlotId (ep, sl) = SlotId (fromIntegral ep) (fromIntegral sl)
 -- | Json log of one mempool modification.
 data JLMemPool = JLMemPool
     { -- | Reason for modifying the mempool
-      jlmReason      :: Text
+      jlmReason      :: MemPoolModifyReason
       -- | Queue length when trying to modify the mempool (not including this
       --   modifier, so it could be 0).
     , jlmQueueLength :: Int
@@ -96,6 +97,8 @@ data JLMemPool = JLMemPool
     , jlmSizeBefore  :: Int
       -- | Size of the mempool after the modification.
     , jlmSizeAfter   :: Int
+      -- | How much memory was allocated during the modification.
+    , jlmAllocated   :: Int
     } deriving Show
 
 -- | Json log event.
@@ -124,7 +127,7 @@ instance FromJSON JLEvent where
 
     parseJSON = \v -> 
         (    (genericParseJSON defaultOptions v)
-         <|> (withObject "JLEvent" $ \o -> JLMemPoolEvent <$> (JLMemPool "UNKNOWN" 0 0 0 0 <$> o .: "memPoolSize")) v)
+         <|> (withObject "JLEvent" $ \o -> JLMemPoolEvent <$> (JLMemPool Unknown 0 0 0 0 0 <$> o .: "memPoolSize")) v)
 
 -- | Return event of created block.
 jlCreatedBlock :: BiSsc ssc => Block ssc -> JLEvent

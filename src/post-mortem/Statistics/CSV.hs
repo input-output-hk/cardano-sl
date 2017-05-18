@@ -24,4 +24,4 @@ txCntInChainMemPoolToCSV f txCnt mp = withFile f WriteMode $ \h -> do
     csvLine h txType node time txCount = hPutStrLn h $ show time ++ "," ++ show txCount ++ "," ++ txType ++ "," ++ show node
     
     toTxType :: String -> JLMemPool -> String
-    toTxType s JLMemPool{..} = "mp_" ++ toString jlmReason ++ "_" ++ s
+    toTxType s JLMemPool{..} = "mp_" ++ show jlmReason ++ "_" ++ s

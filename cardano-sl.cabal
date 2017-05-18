@@ -331,13 +331,6 @@ library
                         Pos.Update.Network.Types
                         Pos.Update.Poll
                         Pos.Update.Poll.DBPoll
-                        Pos.Update.Poll.Logic
-                        Pos.Update.Poll.Logic.Apply
-                        Pos.Update.Poll.Logic.Base
-                        Pos.Update.Poll.Logic.Normalize
-                        Pos.Update.Poll.Logic.Rollback
-                        Pos.Update.Poll.Logic.Softfork
-                        Pos.Update.Poll.Logic.Version
                         Pos.Update.Worker
 
                         -- Utilities/helpers

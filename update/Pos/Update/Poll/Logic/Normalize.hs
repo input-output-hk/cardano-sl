@@ -14,9 +14,9 @@ import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (logWarning)
 import           Universum
 
-import           Pos.Constants               (genesisUpdateProposalThd)
 import           Pos.Core                    (Coin, EpochIndex, SlotId, applyCoinPortion)
 import           Pos.Crypto                  (PublicKey, hash)
+import           Pos.Update.Constants        (genesisUpdateProposalThd)
 import           Pos.Update.Core             (LocalVotes, UpId, UpdateProposals,
                                               UpdateVote (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
@@ -26,7 +26,7 @@ import           Pos.Update.Poll.Logic.Apply (verifyAndApplyProposal,
 import           Pos.Update.Poll.Types       (DecidedProposalState (..),
                                               ProposalState (..),
                                               UndecidedProposalState (..))
-import           Pos.Util                    (getKeys)
+import           Pos.Util.Util               (getKeys)
 
 -- | Normalize given proposals and votes with respect to current Poll
 -- state, i. e. remove everything that is invalid. Valid data is

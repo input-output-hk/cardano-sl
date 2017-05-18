@@ -6,6 +6,7 @@ module Params
        , getBaseParams
        , getNodeParams
        , gtSscParams
+       , getPeersFromArgs
        ) where
 
 import           System.Wlog         (LoggerName, WithLogger)
@@ -15,8 +16,8 @@ import qualified Pos.CLI             as CLI
 import           Pos.Constants       (isDevelopment)
 import           Pos.Core.Types      (Timestamp (..))
 import           Pos.Crypto          (VssKeyPair)
-import           Pos.DHT.Real        (KademliaParams (..))
-import           Pos.DHT.Real        (readDhtPeersFile)
+import           Pos.DHT.Model       (DHTNode)
+import           Pos.DHT.Real        (KademliaParams (..), readDhtPeersFile)
 import           Pos.Genesis         (genesisStakeDistribution, genesisUtxo)
 import           Pos.Ssc.GodTossing  (GtParams (..))
 import           Pos.Update.Params   (UpdateParams (..))
@@ -37,12 +38,16 @@ loggingParams tag Args{..} =
     , lpEkgPort = monitorPort
     }
 
+getPeersFromArgs :: Args -> IO [DHTNode]
+getPeersFromArgs Args {..} = do
+    filePeers <- maybe (return []) readDhtPeersFile dhtPeersFile
+    pure $ dhtPeersList ++ filePeers
+
 -- | Load up the KademliaParams. It's in IO because we may have to read a
 --   file to find some peers.
 getKademliaParams :: Args -> IO KademliaParams
-getKademliaParams Args {..} = do
-    filePeers <- maybe (return []) readDhtPeersFile dhtPeersFile
-    let allPeers = dhtPeersList ++ filePeers
+getKademliaParams args@Args{..} = do
+    allPeers <- getPeersFromArgs args
     return $ KademliaParams
                  { kpNetworkAddress  = dhtNetworkAddress
                  , kpPeers           = allPeers

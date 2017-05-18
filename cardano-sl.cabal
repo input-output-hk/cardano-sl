@@ -573,6 +573,7 @@ executable cardano-node
                      , cardano-sl-lrc
                      , cardano-sl-update
                      , cardano-sl
+                     , containers
                      , data-default
                      , directory
                      , ether

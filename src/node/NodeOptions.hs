@@ -71,8 +71,7 @@ data Args = Args
     , monitorPort               :: !(Maybe Int)
     , noNTP                     :: !Bool
     , staticPeers               :: !Bool
-    }
-  deriving Show
+    } deriving Show
 
 argsParser :: Parser Args
 argsParser = do

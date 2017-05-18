@@ -8,6 +8,7 @@
 module Main where
 
 import           Data.Maybe                 (fromJust)
+import qualified Data.Set                   as S (fromList)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Data.Time.Units            (toMicroseconds)
 import qualified Ether
@@ -24,16 +25,19 @@ import qualified Data.ByteString.Char8      as BS8 (unpack)
 
 import           Pos.Binary                 ()
 import qualified Pos.CLI                    as CLI
-import           Pos.Communication          (ActionSpec (..), OutSpecs, WorkerSpec,
-                                             worker, wrapActionSpec)
+import           Pos.Communication          (ActionSpec (..), NodeId, OutSpecs,
+                                             WorkerSpec, worker, wrapActionSpec)
 import           Pos.Constants              (isDevelopment)
 import           Pos.Context                (MonadNodeContext)
 import           Pos.Core.Types             (Timestamp (..))
+import           Pos.DHT.Model              (dhtNodeToNodeId)
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
                                              foreverRejoinNetwork)
 import           Pos.DHT.Workers            (dhtWorkers)
-import           Pos.Launcher               (NodeParams (..), bracketResourcesKademlia,
-                                             runNode, runNodeProduction, runNodeStats)
+import           Pos.Launcher               (NodeParams (..), bracketResources,
+                                             bracketResourcesKademlia, runNode,
+                                             runNodeProduction, runNodeStatic,
+                                             runNodeStats)
 import           Pos.Shutdown               (triggerShutdown)
 import           Pos.Ssc.Class              (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
@@ -46,7 +50,7 @@ import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Wallet                 (WalletSscType)
 import           Pos.WorkMode               (ProductionMode, RawRealMode, RawRealModeK,
-                                             StatsMode)
+                                             StaticMode, StatsMode)
 #ifdef WITH_WEB
 import           Pos.Web                    (serveWebBase, serveWebGT)
 import           Pos.WorkMode               (WorkMode)
@@ -61,7 +65,7 @@ import           Pos.Wallet.Web             (WalletProductionMode, WalletStatsMo
 
 import           NodeOptions                (Args (..), getNodeOptions)
 import           Params                     (getBaseParams, getKademliaParams,
-                                             getNodeParams, gtSscParams)
+                                             getNodeParams, getPeersFromArgs, gtSscParams)
 
 getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
 getNodeSystemStart cliOrConfigSystemStart
@@ -84,11 +88,11 @@ getNodeSystemStart cliOrConfigSystemStart
     timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
 
 action
-    :: KademliaDHTInstance
+    :: Either KademliaDHTInstance (Set NodeId)
     -> Args
     -> (forall ssc . Transport (RawRealMode ssc))
     -> Production ()
-action kademliaInst args@Args {..} transport = do
+action peerHolder args@Args {..} transport = do
     systemStart <- getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
@@ -101,60 +105,69 @@ action kademliaInst args@Args {..} transport = do
         gtParams = gtSscParams args vssSK
 #ifdef WITH_WEB
     when enableWallet $ do
-        let currentPluginsGT
-                :: (MonadNodeContext SscGodTossing m, WorkMode SscGodTossing m)
-                => [m ()]
+        let currentPluginsGT :: (MonadNodeContext SscGodTossing m, WorkMode SscGodTossing m) => [m ()]
             currentPluginsGT = pluginsGT args
         bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
             bracketWalletWS $ \conn -> do
-                let wDhtWorkers :: WorkMode SscGodTossing m => ([WorkerSpec m], OutSpecs)
-                    wDhtWorkers =
-                        first
-                            (map $ wrapActionSpec $ "worker" <> "dht")
-                            (dhtWorkers kademliaInst)
+                let wDhtWorkers :: WorkMode SscGodTossing m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
+                    wDhtWorkers kademliaInst = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers kademliaInst)
                 let allPlugins :: (MonadNodeContext SscGodTossing m, WorkMode SscGodTossing m)
-                               => ([WorkerSpec m], OutSpecs)
-                    allPlugins = mconcat [ wDhtWorkers, convPlugins currentPluginsGT]
-                case (enableStats, CLI.sscAlgo commonArgs) of
-                    (True, GodTossingAlgo) -> do
+                               => KademliaDHTInstance
+                               -> ([WorkerSpec m], OutSpecs)
+                    allPlugins kademliaInst = mconcat [wDhtWorkers kademliaInst, convPlugins currentPluginsGT]
+
+                case (peerHolder, enableStats, CLI.sscAlgo commonArgs) of
+                    (Right peers, _, GodTossingAlgo) -> error "Not implemented yet"
+                    (Left kademliaInst, True, GodTossingAlgo) -> do
                         runWStatsMode db conn
                             (CLI.peerId commonArgs) (hoistTransport (lift . liftWMode) transport) kademliaInst
                             currentParams gtParams
-                            (runNode @SscGodTossing (allPlugins <> walletStats args))
-                    (False, GodTossingAlgo) -> do
+                            (runNode @SscGodTossing (allPlugins kademliaInst <> walletStats args))
+                    (Left kademliaInst, False, GodTossingAlgo) -> do
                         runWProductionMode db conn
                             (CLI.peerId commonArgs) (hoistTransport (lift . liftWMode) transport) kademliaInst
                             currentParams gtParams
-                            (runNode @SscGodTossing (allPlugins <> walletProd args))
-                    (_, NistBeaconAlgo) ->
+                            (runNode @SscGodTossing (allPlugins kademliaInst <> walletProd args))
+                    (_, _, NistBeaconAlgo) ->
                         logError "Wallet does not support NIST beacon!"
 #endif
     if not enableWallet then do
-        let wDhtWorkers :: WorkMode ssc1 m => ([WorkerSpec m], OutSpecs)
-            wDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers kademliaInst)
+        let wDhtWorkers :: WorkMode ssc1 m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
+            wDhtWorkers kademliaInst = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers kademliaInst)
         let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
             sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
 
-        if enableStats then do
-            let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
-                runner =
-                    runNodeStats @ssc
-                        (CLI.peerId commonArgs)
-                        (hoistTransport (lift . lift) transport)
-                        kademliaInst
-                        (mconcat [wDhtWorkers, utwStats])
-                        currentParams
-            either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
-        else do
-            let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
-                runner =
-                    runNodeProduction @ssc
-                        (CLI.peerId commonArgs)
-                        (hoistTransport (lift . lift) transport)
-                        kademliaInst
-                        (mconcat [wDhtWorkers, utwProd])
-                        currentParams
-            either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
+        case (peerHolder, enableStats) of
+            (Right peers, _) -> do
+                let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
+                    runner =
+                        runNodeStatic @ssc
+                            (CLI.peerId commonArgs)
+                            (hoistTransport (lift . lift) transport)
+                            peers
+                            mempty
+                            currentParams
+                either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
+            (Left kademliaInst, True) -> do
+                let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
+                    runner =
+                        runNodeStats @ssc
+                            (CLI.peerId commonArgs)
+                            (hoistTransport (lift . lift) transport)
+                            kademliaInst
+                            (mconcat [wDhtWorkers kademliaInst, utwStats])
+                            currentParams
+                either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
+            (Left kademliaInst, False) -> do
+                let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
+                    runner =
+                        runNodeProduction @ssc
+                            (CLI.peerId commonArgs)
+                            (hoistTransport (lift . lift) transport)
+                            kademliaInst
+                            (mconcat [wDhtWorkers kademliaInst, utwProd])
+                            currentParams
+                either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
     else
         logError $ "You try to run wallet, but code wasn't compiled with wallet flag"
   where
@@ -249,14 +262,22 @@ main = do
     printFlags
     args <- getNodeOptions
     let baseParams = getBaseParams "node" args
-    let (bindHost, bindPort) = bindAddress args
-    let (externalHost, externalPort) = externalAddress args
-    let tcpAddr = TCP.Addressable $
-            TCP.TCPAddrInfo (BS8.unpack bindHost) (show $ bindPort)
-                            (const (BS8.unpack externalHost, show $ externalPort))
-    kademliaParams <- liftIO $ getKademliaParams args
-    bracketResourcesKademlia baseParams tcpAddr kademliaParams $ \kademliaInstance transport ->
-        let transport' = hoistTransport
-                (powerLift :: forall ssc t . Production t -> RawRealMode ssc t)
-                transport
-        in  foreverRejoinNetwork kademliaInstance (action kademliaInstance args transport')
+    if staticPeers args then do
+        allPeers <- S.fromList . map dhtNodeToNodeId <$> getPeersFromArgs args
+        bracketResources baseParams TCP.Unaddressable $ \transport -> do
+            let transport' = hoistTransport
+                    (powerLift :: forall ssc t . Production t -> RawRealMode ssc t)
+                    transport
+            action (Right allPeers) args transport'
+    else do
+        let (bindHost, bindPort) = bindAddress args
+        let (externalHost, externalPort) = externalAddress args
+        let tcpAddr = TCP.Addressable $
+                TCP.TCPAddrInfo (BS8.unpack bindHost) (show $ bindPort)
+                                (const (BS8.unpack externalHost, show $ externalPort))
+        kademliaParams <- liftIO $ getKademliaParams args
+        bracketResourcesKademlia baseParams tcpAddr kademliaParams $ \kademliaInstance transport ->
+            let transport' = hoistTransport
+                    (powerLift :: forall ssc t . Production t -> RawRealMode ssc t)
+                    transport
+            in  foreverRejoinNetwork kademliaInstance (action (Left kademliaInstance) args transport')

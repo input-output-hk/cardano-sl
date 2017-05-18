@@ -250,6 +250,8 @@ data CTxSummary = CTxSummary
     , ctsTxTimeIssued    :: !POSIXTime
     , ctsBlockTimeIssued :: !(Maybe POSIXTime)
     , ctsBlockHeight     :: !(Maybe Word)
+    , ctsBlockEpoch      :: !(Maybe Word64)
+    , ctsBlockSlot       :: !(Maybe Word16)
     , ctsRelayedBy       :: !(Maybe CNetworkAddress)
     , ctsTotalInput      :: !CCoin
     , ctsTotalOutput     :: !CCoin
@@ -305,7 +307,7 @@ toTxBrief txi txe = CTxBrief {..}
     txinputs      = convertTxOutputs $ map toaOut $ NE.toList $ teInputOutputs txe
     txOutputs     = convertTxOutputs . NE.toList $ _txOutputs tx
 
--- TODO (ks) : Needs to be refactored!
+-- | Sums the coins of inputs and outputs
 sumCoinOfInputsOutputs :: [(CAddress, Coin)] -> CCoin
 sumCoinOfInputsOutputs addressList =
     mkCCoin $ mkCoin $ fromIntegral $ sum addressCoinList

@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -6,6 +7,11 @@
 module Pos.Wallet.Web.Server.Full
        ( walletServeWebFull
        , walletServerOuts
+       , liftWMode
+       , runWStatsMode
+       , runWProductionMode
+       , WalletStatsMode
+       , WalletProductionMode
        ) where
 
 import           Universum
@@ -13,19 +19,23 @@ import           Universum
 import           Control.Concurrent.STM        (TVar)
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
+import           Control.Monad.Trans           (MonadTrans)
 import           Data.Tagged                   (Tagged (..))
 import qualified Ether
-import           Mockable                      (runProduction)
+import           Mockable                      (Production, runProduction)
+import           Network.Transport.Abstract    (Transport)
 import           Network.Wai                   (Application)
 import           Pos.Slotting.Ntp              (runSlotsRedirect)
 import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
+import qualified STMContainers.Map             as SM
 import           System.Wlog                   (logInfo, usingLoggerName)
 
 import           Pos.Block.BListener           (runBListenerStub)
 import           Pos.Client.Txp.Balances       (runBalancesRedirect)
 import           Pos.Client.Txp.History        (runTxHistoryRedirect)
+import           Pos.Communication             (ActionSpec (..), OutSpecs, PeerId)
 import           Pos.Communication.PeerState   (PeerStateSnapshot, PeerStateTag,
                                                 WithPeerState (..), getAllStates,
                                                 peerStateFromSnapshot,
@@ -40,11 +50,15 @@ import           Pos.Delegation.Class          (DelegationWrap, askDelegationSta
 import           Pos.DHT.Real                  (KademliaDHTInstance)
 import           Pos.Discovery                 (askDHTInstance, runDiscoveryKademliaT)
 import           Pos.Genesis                   (genesisDevSecretKeys)
+import           Pos.Launcher.Param            (NodeParams (..))
+import           Pos.Launcher.Runner           (runRawKBasedMode)
 import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
                                                 askFullNtpSlotting, askSlotting,
                                                 runSlotsDataRedirect)
-import           Pos.Ssc.Class                 (SscConstraint)
+import           Pos.Ssc.Class                 (SscConstraint, SscParams)
 import           Pos.Ssc.Extra                 (SscMemTag, SscState)
+import           Pos.Statistics                (NoStatsT, StatsMap, StatsT, getNoStatsT,
+                                                runStatsT')
 import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
                                                 askTxpMem)
 import           Pos.Update.DB                 (runDbLimitsRedirect)
@@ -60,6 +74,75 @@ import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSock
 import           Pos.Wallet.Web.State          (WalletState, getWalletWebState,
                                                 runWalletWebDB)
 import           Pos.WorkMode                  (RawRealModeK, TxpExtra_TMP)
+
+
+----------------------------------------------------------------------------
+-- Runners
+----------------------------------------------------------------------------
+
+type WalletProductionMode = NoStatsT $ WalletWebHandler (RawRealModeK WalletSscType)
+
+type WalletStatsMode = StatsT $ WalletWebHandler (RawRealModeK WalletSscType)
+
+liftWMode
+    :: ( Each '[MonadTrans] [t1, t2, t3]
+       , Each '[Monad] [m, t3 m, t2 (t3 m)]
+       )
+    => m a -> (t1 $ t2 $ t3 m) a
+liftWMode = lift . lift . lift
+
+unwrapWPMode
+    :: WalletState
+    -> ConnectionsVar
+    -> WalletProductionMode a
+    -> RawRealModeK WalletSscType a
+unwrapWPMode db conn = runWalletWebDB db . runWalletWS conn . getNoStatsT
+
+unwrapWSMode
+    :: WalletState
+    -> ConnectionsVar
+    -> StatsMap
+    -> WalletStatsMode a
+    -> RawRealModeK WalletSscType a
+unwrapWSMode db conn statMap = runWalletWebDB db . runWalletWS conn . runStatsT' statMap
+
+-- | WalletProductionMode runner.
+runWProductionMode
+    :: SscConstraint WalletSscType
+    => WalletState
+    -> ConnectionsVar
+    -> PeerId
+    -> Transport WalletProductionMode
+    -> KademliaDHTInstance
+    -> NodeParams
+    -> SscParams WalletSscType
+    -> (ActionSpec WalletProductionMode a, OutSpecs)
+    -> Production a
+runWProductionMode db conn = runRawKBasedMode (unwrapWPMode db conn) liftWMode
+
+-- | WalletProductionMode runner.
+runWStatsMode
+    :: SscConstraint WalletSscType
+    => WalletState
+    -> ConnectionsVar
+    -> PeerId
+    -> Transport WalletStatsMode
+    -> KademliaDHTInstance
+    -> NodeParams
+    -> SscParams WalletSscType
+    -> (ActionSpec WalletStatsMode a, OutSpecs)
+    -> Production a
+runWStatsMode db conn peer transport kinst param sscp runAction = do
+    statMap <- liftIO SM.newIO
+    runRawKBasedMode
+        (unwrapWSMode db conn statMap)
+        liftWMode
+        peer
+        transport
+        kinst
+        param
+        sscp
+        runAction
 
 walletServeWebFull
     :: SscConstraint WalletSscType

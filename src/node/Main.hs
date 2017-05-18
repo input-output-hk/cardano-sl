@@ -6,7 +6,6 @@
 
 module Main where
 
-import           Control.Monad.Trans        (MonadTrans)
 import           Data.Maybe                 (fromJust)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Data.Time.Units            (toMicroseconds)
@@ -24,8 +23,8 @@ import qualified Data.ByteString.Char8      as BS8 (unpack)
 
 import           Pos.Binary                 ()
 import qualified Pos.CLI                    as CLI
-import           Pos.Communication          (ActionSpec (..), OutSpecs, PeerId,
-                                             WorkerSpec, worker, wrapActionSpec)
+import           Pos.Communication          (ActionSpec (..), OutSpecs, WorkerSpec,
+                                             worker, wrapActionSpec)
 import           Pos.Constants              (isDevelopment)
 import           Pos.Context                (MonadNodeContext)
 import           Pos.Core.Types             (Timestamp (..))
@@ -33,15 +32,13 @@ import           Pos.DHT.Real               (KademliaDHTInstance (..),
                                              foreverRejoinNetwork)
 import           Pos.DHT.Workers            (dhtWorkers)
 import           Pos.Launcher               (NodeParams (..), bracketResourcesKademlia,
-                                             runNode, runNodeProduction, runNodeStats,
-                                             runRawKBasedMode)
+                                             runNode, runNodeProduction, runNodeStats)
 import           Pos.Shutdown               (triggerShutdown)
-import           Pos.Ssc.Class              (SscConstraint, SscParams)
+import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
-import           Pos.Statistics             (NoStatsT, StatsMap, StatsT, getNoStatsT,
-                                             getStatsMap, runStatsT')
+import           Pos.Statistics             (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Update.Context         (ucUpdateSemaphore)
 import           Pos.Util                   (inAssertMode)
 import           Pos.Util.UserSecret        (usVss)
@@ -49,16 +46,15 @@ import           Pos.Util.Util              (powerLift)
 import           Pos.Wallet                 (WalletSscType)
 import           Pos.WorkMode               (ProductionMode, RawRealMode, RawRealModeK,
                                              StatsMode)
-import qualified STMContainers.Map          as SM
 #ifdef WITH_WEB
 import           Pos.Web                    (serveWebBase, serveWebGT)
 import           Pos.WorkMode               (WorkMode)
 #ifdef WITH_WALLET
-import           Pos.Wallet.Web             (ConnectionsVar, WalletState,
+import           Pos.Wallet.Web             (WalletProductionMode, WalletStatsMode,
                                              WalletWebHandler, bracketWalletWS,
-                                             bracketWalletWebDB, runWalletWS,
-                                             runWalletWebDB, walletServeWebFull,
-                                             walletServerOuts)
+                                             bracketWalletWebDB, liftWMode,
+                                             runWProductionMode, runWStatsMode,
+                                             walletServeWebFull, walletServerOuts)
 #endif
 #endif
 
@@ -262,71 +258,6 @@ updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
     void $ takeMVar =<< Ether.asks' ucUpdateSemaphore
     triggerShutdown
-
--- Related to [CSM-175] stuff.
-type WalletProductionMode = NoStatsT $ WalletWebHandler (RawRealModeK WalletSscType)
-
-type WalletStatsMode = StatsT $ WalletWebHandler (RawRealModeK WalletSscType)
-
-liftWMode
-    :: ( Each '[MonadTrans] [t1, t2, t3]
-       , Each '[Monad] [m, t3 m, t2 (t3 m)]
-       )
-    => m a -> (t1 $ t2 $ t3 m) a
-liftWMode = lift . lift . lift
-
-unwrapWPMode
-    :: WalletState
-    -> ConnectionsVar
-    -> WalletProductionMode a
-    -> RawRealModeK WalletSscType a
-unwrapWPMode db conn = runWalletWebDB db . runWalletWS conn . getNoStatsT
-
-unwrapWSMode
-    :: WalletState
-    -> ConnectionsVar
-    -> StatsMap
-    -> WalletStatsMode a
-    -> RawRealModeK WalletSscType a
-unwrapWSMode db conn statMap = runWalletWebDB db . runWalletWS conn . runStatsT' statMap
-
--- | WalletProductionMode runner.
-runWProductionMode
-    :: SscConstraint WalletSscType
-    => WalletState
-    -> ConnectionsVar
-    -> PeerId
-    -> Transport WalletProductionMode
-    -> KademliaDHTInstance
-    -> NodeParams
-    -> SscParams WalletSscType
-    -> (ActionSpec WalletProductionMode a, OutSpecs)
-    -> Production a
-runWProductionMode db conn = runRawKBasedMode (unwrapWPMode db conn) liftWMode
-
--- | WalletProductionMode runner.
-runWStatsMode
-    :: SscConstraint WalletSscType
-    => WalletState
-    -> ConnectionsVar
-    -> PeerId
-    -> Transport WalletStatsMode
-    -> KademliaDHTInstance
-    -> NodeParams
-    -> SscParams WalletSscType
-    -> (ActionSpec WalletStatsMode a, OutSpecs)
-    -> Production a
-runWStatsMode db conn peer transport kinst param sscp runAction = do
-    statMap <- liftIO SM.newIO
-    runRawKBasedMode
-        (unwrapWSMode db conn statMap)
-        liftWMode
-        peer
-        transport
-        kinst
-        param
-        sscp
-        runAction
 
 walletProd
     :: SscConstraint WalletSscType

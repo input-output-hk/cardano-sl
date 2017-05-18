@@ -37,9 +37,8 @@ import qualified Data.Set                    as S
 import           Network.EngineIO            (SocketId)
 import           Network.SocketIO            (Socket)
 import           Serokell.Util.Concurrent    (modifyTVarS)
-import           System.Wlog                 (LoggerNameBox, PureLogger, WithLogger,
-                                              dispatchEvents, getLoggerName, runPureLog,
-                                              usingLoggerName)
+import           System.Wlog                 (NamedPureLogger, WithLogger,
+                                              launchNamedPureLog)
 
 import           Pos.Types                   (Address, ChainDifficulty)
 import           Universum
@@ -86,14 +85,9 @@ mkConnectionsState =
 withConnState
     :: (MonadIO m, WithLogger m)
     => ConnectionsVar
-    -> LoggerNameBox (PureLogger (StateT ConnectionsState STM)) a
+    -> NamedPureLogger (StateT ConnectionsState STM) a
     -> m a
-withConnState var action = do
-    loggerName <- getLoggerName
-    (res, logs) <- atomically $ modifyTVarS var $
-        runPureLog $ usingLoggerName loggerName action
-    dispatchEvents logs
-    return res
+withConnState var = launchNamedPureLog $ liftIO . atomically . modifyTVarS var
 
 askingConnState
     :: MonadIO m
@@ -104,6 +98,7 @@ askingConnState var action = do
     v <- liftIO $ readTVarIO var
     runReaderT action v
 
+-- TODO: not used, may be removed
 newtype ExplorerSockets m a = ExplorerSockets
     { getExplorerSockets :: ReaderT ConnectionsVar m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch,

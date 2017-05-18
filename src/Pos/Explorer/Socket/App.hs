@@ -32,8 +32,8 @@ import           Snap.Core                        (MonadSnap, route)
 import qualified Snap.CORS                        as CORS
 import           Snap.Http.Server                 (httpServe)
 import qualified Snap.Internal.Http.Server.Config as Config
-import           System.Wlog                      (CanLog, LoggerName, LoggerNameBox,
-                                                   PureLogger, Severity (..), WithLogger,
+import           System.Wlog                      (CanLog, LoggerName, NamedPureLogger,
+                                                   Severity (..), WithLogger,
                                                    getLoggerName, logDebug, logInfo,
                                                    logMessage, logWarning,
                                                    modifyLoggerName, usingLoggerName)
@@ -98,7 +98,7 @@ notifierHandler connVar loggerName = do
  where
     -- handlers provide context for logging and `ConnectionsVar` changes
     asHandler
-        :: (a -> SocketId -> (LoggerNameBox $ PureLogger $ StateT ConnectionsState STM) ())
+        :: (a -> SocketId -> (NamedPureLogger $ StateT ConnectionsState STM) ())
         -> a
         -> ReaderT Socket IO ()
     asHandler f arg = inHandlerCtx . f arg . socketId =<< ask
@@ -107,7 +107,7 @@ notifierHandler connVar loggerName = do
 
     inHandlerCtx
         :: (MonadIO m, CanLog m, MonadBaseControl IO m)
-        => LoggerNameBox (PureLogger (StateT ConnectionsState STM)) a
+        => NamedPureLogger (StateT ConnectionsState STM) a
         -> m ()
     inHandlerCtx =
         -- currently @NotifierError@s aren't caught

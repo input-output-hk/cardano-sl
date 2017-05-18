@@ -3,7 +3,7 @@ module Explorer.View.Address where
 import Prelude
 import Data.Array (length, (!!))
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
 import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, currentAddressSummary, lang, viewStates)
@@ -15,7 +15,7 @@ import Explorer.View.Common (currencyCSSClass, mkTxBodyViewProps, mkTxHeaderView
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, _CAddress, caAddress, caBalance, caTxList, caTxNum, getCoin)
-import Pux.Html (Html, div, text, h3, p) as P
+import Pux.Html (Html, div, text, span, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML, id_) as P
 import Pux.Router (link) as P
 
@@ -117,7 +117,7 @@ addressQr _ lang =
 type SummaryRowItem =
     { label :: String
     , value :: String
-    , currency :: Maybe CCurrency
+    , mCurrency :: Maybe CCurrency
     }
 
 type SummaryItems = Array SummaryRowItem
@@ -126,15 +126,15 @@ addressDetailRowItems :: CAddressSummary -> Language -> SummaryItems
 addressDetailRowItems (CAddressSummary address) lang =
     [ { label: translate (I18nL.common <<< I18nL.cAddress) lang
       , value: address ^. (caAddress <<< _CAddress)
-      , currency: Nothing
+      , mCurrency: Nothing
     }
     , { label: translate (I18nL.common <<< I18nL.cTransactions) lang
       , value: show $ address ^. caTxNum
-      , currency: Nothing
+      , mCurrency: Nothing
     }
     , { label: translate (I18nL.address <<< I18nL.addFinalBalance) lang
       , value: address ^. (caBalance <<< _CCoin <<< getCoin)
-      , currency: Just ADA
+      , mCurrency: Just ADA
       }
     ]
 
@@ -146,7 +146,14 @@ addressDetailRow item =
             [ P.className "address-detail__column label" ]
             [ P.text item.label ]
         , P.div
-              [ P.className $ "address-detail__column amount" <> currencyCSSClass item.currency ]
+              [ P.className $ "address-detail__column amount" ]
+              if isJust item.mCurrency
+              then
+              [ P.span
+                [ P.className $ currencyCSSClass item.mCurrency ]
+                [ P.text item.value ]
+              ]
+              else
               [ P.text item.value ]
         ]
 

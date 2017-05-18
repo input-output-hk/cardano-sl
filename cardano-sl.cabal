@@ -342,7 +342,6 @@ library
                         Pos.Update.Poll.Logic.Rollback
                         Pos.Update.Poll.Logic.Softfork
                         Pos.Update.Poll.Logic.Version
-                        Pos.Update.Poll.Pure
                         Pos.Update.Worker
 
                         -- Utilities/helpers

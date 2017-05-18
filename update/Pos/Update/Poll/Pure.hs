@@ -16,9 +16,9 @@ import           System.Wlog               (CanLog, HasLoggerName (..), LogEvent
                                             NamedPureLogger, logDebug, logWarning,
                                             runNamedPureLog)
 
-import           Pos.Binary                (Bi)
+import           Pos.Binary.Class          (Bi)
+import           Pos.Core                  (SoftwareVersion (..))
 import           Pos.Crypto                (hash)
-import           Pos.Types                 (SoftwareVersion (..))
 import           Pos.Update.Core           (UpdateProposal (..))
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
 import qualified Pos.Update.Poll.PollState as Poll

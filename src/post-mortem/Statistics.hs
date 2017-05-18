@@ -6,6 +6,7 @@ module Statistics
     , module Statistics.CSV
     , module Statistics.Graph
     , module Statistics.MemPool
+    , module Statistics.Report
     , module Statistics.Tx
     ) where
 
@@ -19,6 +20,7 @@ import Statistics.Chart
 import Statistics.CSV
 import Statistics.Graph
 import Statistics.MemPool
+import Statistics.Report
 import Statistics.Tx
 import Types
 import Universum

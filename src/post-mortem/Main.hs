@@ -23,7 +23,7 @@ processLogDir :: FilePath -> IO (String, Map TxHash (Maybe Timestamp))
 processLogDir logDir = do
     err $ "processing log directory " ++ show logDir ++ " ..."
 
-    (rc, g, mp, cr) <- runJSONFold logDir $ (,,,) <$> receivedCreatedF <*> graphF <*> memPoolF <*> txCntInChainF
+    (rc, g, mp, cr, ft) <- runJSONFold logDir $ (,,,,) <$> receivedCreatedF <*> graphF <*> memPoolF <*> txCntInChainF <*> txFateF
     let total    = M.size rc
         included = sort $ mapMaybe snd $ M.toList rc
         lost     = total - length included
@@ -41,6 +41,10 @@ processLogDir logDir = do
     let csvFile = getName "csv" dirName "csv"
     txCntInChainMemPoolToCSV csvFile cr mp
     err $ "wrote csv file to " ++ show csvFile
+
+    let reportFile = getName "report" dirName "txt"
+    reportTxFate reportFile ft
+    err $ "wrote report file to " ++ show reportFile
 
     err $ "processing log directory " ++ show logDir ++ " done"
     err ""

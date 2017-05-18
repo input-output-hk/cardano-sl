@@ -16,4 +16,4 @@ memPoolF = Fold step [] id
     step :: [(NodeIndex, Timestamp, Int)] -> IndexedJLTimedEvent -> [(NodeIndex, Timestamp, Int)]
     step xs IndexedJLTimedEvent{..} = case ijlEvent of
         JLMemPoolEvent (JLMemPool {..}) -> (ijlNode, ijlTimestamp, jlmSizeAfter) : xs
-        _               -> xs
+        _                               -> xs

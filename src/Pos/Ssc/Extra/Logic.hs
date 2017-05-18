@@ -133,8 +133,8 @@ sscCalculateSeed epoch = do
 sscGetLocalPayload
     :: forall ssc m.
        (MonadIO m, MonadSscMem ssc m, SscLocalDataClass ssc, WithLogger m)
-    => Maybe Word64 -> SlotId -> m (SscPayload ssc)
-sscGetLocalPayload limit = sscRunLocalQuery . sscGetLocalPayloadQ @ssc limit
+    => SlotId -> m (SscPayload ssc)
+sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 
 -- 'MonadDB' is needed to get richmen and tip header.
 -- Node context is needed to get richmen.

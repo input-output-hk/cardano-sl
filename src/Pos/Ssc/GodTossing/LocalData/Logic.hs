@@ -1,5 +1,4 @@
-{-# LANGUAGE Rank2Types   #-}
-{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE Rank2Types #-}
 
 -- | This module defines methods which operate on GtLocalData.
 
@@ -40,15 +39,14 @@ import           Pos.Ssc.Extra                      (MonadSscMem, sscRunGlobalQu
                                                      sscRunLocalQuery, sscRunLocalSTM)
 import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerSharesMap,
                                                      Opening, SignedCommitment,
-                                                     VssCertificate, getCommitmentsMap,
-                                                     isCommitmentIdx, isOpeningIdx,
-                                                     isSharesIdx, mkCommitmentsMap,
-                                                     mkCommitmentsMapUnsafe,
+                                                     VssCertificate, isCommitmentIdx,
+                                                     isOpeningIdx, isSharesIdx,
+                                                     mkCommitmentsMap,
                                                      mkVssCertificatesMap)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
                                                      ldModifier)
-import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossModifier,
-                                                     TossT, TossVerFailure (..),
+import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT,
+                                                     TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
                                                      execTossT, hasCertificateToss,
                                                      hasCommitmentToss, hasOpeningToss,
@@ -58,7 +56,6 @@ import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossM
                                                      verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
-import           Pos.Util.Limits                    (bisize, takeFromMap)
 
 ----------------------------------------------------------------------------
 -- Methods from type class
@@ -72,40 +69,15 @@ instance SscLocalDataClass SscGodTossing where
       where
         slot0 = SlotId 0 0
 
--- | Transforms GtPayload to fit under size limit.
-stripGtPayload :: (MonadReader TossModifier m) => Word64 -> GtPayload -> m GtPayload
-stripGtPayload lim payload | bisize payload <= lim = pure payload
-stripGtPayload lim payload = case payload of
-    (CertificatesPayload vssmap) ->
-        pure $ CertificatesPayload $ takeFromMap lim vssmap
-    (CommitmentsPayload (getCommitmentsMap -> comms0) certs0) -> do
-        let certs = takeFromMap limCerts certs0
-        let comms = takeFromMap (lim - bisize certs) comms0
-        pure $ CommitmentsPayload (mkCommitmentsMapUnsafe comms) certs
-    (OpeningsPayload openings0 certs0) -> do
-        -- TODO this striping procedure should try to select openings that
-        -- match commitments
-        let certs = takeFromMap limCerts certs0
-        let openings = takeFromMap (lim - bisize certs) openings0
-        pure $ OpeningsPayload openings certs
-    (SharesPayload shares0 certs0) -> do
-        let certs = takeFromMap limCerts certs0
-        let shares = takeFromMap (lim - bisize certs) shares0
-        pure $ SharesPayload shares certs
-  where
-    limCerts = lim `div` 3 -- certificates are 1/3 less important than everything else
-                           -- this is a random choice in fact
-
-getLocalPayload :: Maybe Word64 -> SlotId -> LocalQuery SscGodTossing GtPayload
-getLocalPayload limit SlotId {..} = do
+getLocalPayload :: SlotId -> LocalQuery SscGodTossing GtPayload
+getLocalPayload SlotId {..} = do
     expectedEpoch <- view ldEpoch
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
     isExpected <-
         if expectedEpoch == siEpoch then pure True
         else False <$ logWarning warningMsg
-    magnify' ldModifier $ do
-        naive <- getPayload isExpected <*> getCertificates isExpected
-        maybe pure stripGtPayload limit $ naive
+    magnify' ldModifier $
+        getPayload isExpected <*> getCertificates isExpected
   where
     warningFmt = "getLocalPayload: unexpected epoch ("%int%", stored one is "%int%")"
     getPayload True

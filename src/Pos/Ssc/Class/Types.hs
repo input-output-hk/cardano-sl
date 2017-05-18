@@ -6,6 +6,7 @@ module Pos.Ssc.Class.Types
        ( Ssc(..)
        ) where
 
+import           Data.Default        (Default)
 import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
 import           Universum
@@ -30,6 +31,7 @@ class ( Typeable ssc
       , Bi (SscPayload ssc)
       , NFData (SscPayload ssc)
       , NFData (SscProof ssc)
+      , Default (SscPayload ssc)
       ) =>
       Ssc ssc where
 

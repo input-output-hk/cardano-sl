@@ -1212,7 +1212,7 @@ test-suite cardano-test
                        Test.Pos.Arbitrary.Infra.Communication
                        Test.Pos.Arbitrary.Infra.DHT
                        Test.Pos.BinarySpec
-                       Test.Pos.Block.BlockSpec
+                       Test.Pos.Block.LogicSpec
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
                        Test.Pos.Communication.Identity.BinarySpec

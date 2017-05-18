@@ -32,6 +32,7 @@ module Pos.Ssc.GodTossing.Core.Core
        -- * Payload and proof
        , _gpCertificates
        , mkGtProof
+       , stripGtPayload
        ) where
 
 import           Universum
@@ -43,9 +44,11 @@ import qualified Data.List.NonEmpty             as NE
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder         (Builder)
 import           Formatting                     (Format, bprint, int, (%))
+import           Serokell.Data.Memory.Units     (Byte)
 import           Serokell.Util                  (VerificationRes, listJson, verifyGeneric)
 
-import           Pos.Binary.Class               (AsBinary, Bi, asBinary, fromBinaryM)
+import           Pos.Binary.Class               (AsBinary, Bi, asBinary, biSize,
+                                                 fromBinaryM)
 import           Pos.Binary.Crypto              ()
 import           Pos.Binary.Ssc.GodTossing.Core ()
 import           Pos.Constants                  (blkSecurityParam, vssMaxTTL, vssMinTTL)
@@ -68,6 +71,7 @@ import           Pos.Ssc.GodTossing.Core.Types  (Commitment (..),
                                                  VssCertificate (vcExpiryEpoch),
                                                  VssCertificatesMap,
                                                  mkCommitmentsMapUnsafe)
+import           Pos.Util.Limits                (stripHashMap)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed
@@ -290,3 +294,24 @@ mkGtProof payload =
       where
         proof constr hm cert =
             constr (hash hm) (hash cert)
+
+-- | Transforms GtPayload to fit under size limit.
+stripGtPayload :: Byte -> GtPayload -> Maybe GtPayload
+stripGtPayload lim payload | biSize payload <= lim = Just payload
+stripGtPayload lim payload = case payload of
+    (CertificatesPayload vssmap) -> CertificatesPayload <$> stripHashMap lim vssmap
+    (CommitmentsPayload (getCommitmentsMap -> comms0) certs0) -> do
+        let certs = stripHashMap limCerts certs0
+        let comms = stripHashMap (lim - biSize certs) comms0
+        CommitmentsPayload <$> (mkCommitmentsMapUnsafe <$> comms) <*> certs
+    (OpeningsPayload openings0 certs0) -> do
+        let certs = stripHashMap limCerts certs0
+        let openings = stripHashMap (lim - biSize certs) openings0
+        OpeningsPayload <$> openings <*> certs
+    (SharesPayload shares0 certs0) -> do
+        let certs = stripHashMap limCerts certs0
+        let shares = stripHashMap (lim - biSize certs) shares0
+        SharesPayload <$> shares <*> certs
+  where
+    limCerts = lim `div` 3 -- certificates are 1/3 less important than everything else
+                           -- this is a random choice in fact

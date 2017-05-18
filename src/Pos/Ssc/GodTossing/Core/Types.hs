@@ -37,6 +37,7 @@ module Pos.Ssc.GodTossing.Core.Types
        , NodeSet
        ) where
 
+import           Data.Default        (Default (def))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
 import           Formatting          (bprint, build, int, (%))
@@ -227,6 +228,9 @@ data GtPayload
     | SharesPayload       !SharesMap      !VssCertificatesMap
     | CertificatesPayload !VssCertificatesMap
     deriving (Eq, Show, Generic)
+
+instance Default GtPayload where
+    def = CertificatesPayload HM.empty
 
 -- | Proof of GtPayload.
 data GtProof

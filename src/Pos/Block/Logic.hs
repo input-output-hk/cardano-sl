@@ -30,7 +30,7 @@ module Pos.Block.Logic
        , createMainBlockPure
        ) where
 
-import           Control.Lens               ((-=), (.=), _Wrapped)
+import           Control.Lens               (uses, (-=), (.=), _Wrapped)
 import           Control.Monad.Catch        (try)
 import           Control.Monad.Except       (ExceptT (ExceptT), MonadError (throwError),
                                              runExceptT, withExceptT)
@@ -43,7 +43,7 @@ import qualified Data.Text                  as T
 import qualified Ether
 import           Formatting                 (build, int, ords, sformat, stext, (%))
 import           Paths_cardano_sl           (version)
-import           Serokell.Data.Memory.Units (toBytes)
+import           Serokell.Data.Memory.Units (Byte, toBytes)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
                                              isVerSuccess, verResToMonadError)
@@ -51,6 +51,7 @@ import           System.Wlog                (CanLog, HasLoggerName, logDebug, lo
                                              logInfo)
 import           Universum
 
+import           Pos.Binary.Class           (biSize)
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                              toUpdateBlock, withBlkSemaphore,
@@ -81,7 +82,7 @@ import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
 import           Pos.Reporting              (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Slotting.Class         (getCurrentSlot)
-import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
+import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscStripPayload),
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal,
                                              sscVerifyBlocks)
@@ -821,14 +822,18 @@ createMainBlockFinish slotId pSk prevHeader = do
     createBlundFromMemPool = do
         -- Get MemPool
         (localTxs, txUndo) <- getLocalTxsNUndo
-        sscData <- sscGetLocalPayload @ssc Nothing slotId
+        sscData <- sscGetLocalPayload @ssc slotId
         usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
         (localPSKs, pskUndo) <- lift getProxyMempool
         -- Create block
         let convertTx (txId, (tx, _, _)) = WithHash tx txId
         sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
         sk <- Ether.asks' npSecretKey
-        sizeLimit <- fromIntegral . toBytes <$> UDB.getMaxBlockSize
+        -- 50 bytes is substracted to account for different unexpected
+        -- overhead.  You can see that in bitcoin blocks are 1-2kB less
+        -- than limit. So i guess it's fine in general.
+        sizeLimit <-
+            fromIntegral . toBytes . (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
         block <- createMainBlockPure
             sizeLimit prevHeader (map snd sortedTxs) pSk
             slotId localPSKs sscData usPayload sk
@@ -869,8 +874,9 @@ createMainBlockFinish slotId pSk prevHeader = do
             (const $ pure emptyBlund)
 
 createMainBlockPure
-    :: (MonadError Text m, SscHelpersClass ssc)
-    => Word64                   -- ^ Block size limit (real max.value)
+    :: forall m ssc .
+       (MonadError Text m, SscHelpersClass ssc)
+    => Byte                   -- ^ Block size limit (real max.value)
     -> BlockHeader ssc
     -> [TxAux]
     -> Maybe ProxySKEither
@@ -882,19 +888,30 @@ createMainBlockPure
     -> m (MainBlock ssc)
 createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
     flip evalStateT limit $ do
-        -- account for block header and serialization overhead, etc; also
-        -- include all SSC data because a) deciding is hard and b) we don't
-        -- yet have a way to strip generic SSC data
+        -- account for block header and serialization overhead, etc;
+        let defSsc = (def :: SscPayload ssc)
         let musthaveBody = Types.MainBody
                 (fromMaybe (error "createMainBlockPure: impossible") $ mkTxPayload mempty)
-                sscData [] def
+                def [] def
         musthaveBlock <-
             either throwError pure $
             mkMainBlock (Just prevHeader) sId sk pSk musthaveBody extraH extraB
         let mhbSize = length $ Bi.encode musthaveBlock
         when (mhbSize > fromIntegral limit) $ throwError $
             "Musthave block size is more than limit: " <> show mhbSize
-        count musthaveBlock
+        identity -= biSize musthaveBlock
+
+        -- include ssc data limited with max half of block space if it's possible
+        sscPayload <- ifM (uses identity (<= biSize defSsc)) (pure defSsc) $ do
+            halfLeft <- uses identity (`div` 2)
+            -- halfLeft > 0, otherwize sscStripPayload may fail
+            let sscPayload = sscStripPayload @ssc halfLeft sscData
+            flip (maybe $ pure defSsc) sscPayload $ \sscP -> do
+                -- we subtract size of empty map because it's
+                -- already included in musthaveBlock
+                identity -= (biSize sscP - biSize defSsc)
+                pure sscP
+
         -- include delegation certificates and US payload
         let prioritizeUS = even (flattenSlotId sId)
         (psks', usPayload') <-
@@ -910,11 +927,10 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         txs' <- takeSome txs
         -- return the resulting block
         txPayload <- either throwError pure $ mkTxPayload txs'
-        let body = Types.MainBody txPayload sscData psks' usPayload'
+        let body = Types.MainBody txPayload sscPayload psks' usPayload'
         let finalBlock = mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
         maybe (error "Coudln't create block") pure finalBlock
   where
-    count x = identity -= fromIntegral (length (Bi.encode x))
     -- take from a list until the limit is exhausted or the list ends
     takeSome lst = do
         let go lim [] = (lim, [])

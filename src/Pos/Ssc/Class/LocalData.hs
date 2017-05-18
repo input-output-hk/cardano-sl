@@ -30,10 +30,8 @@ type LocalUpdate ssc a = forall m . (MonadState (SscLocalData ssc) m, WithLogger
 class Ssc ssc => SscLocalDataClass ssc where
     -- | Get local payload to be put into main block and for given
     -- 'SlotId'. If payload for given 'SlotId' can't be constructed,
-    -- empty payload can be returned. 'Maybe Word64' parameter is
-    -- optional maximum size limit of returned payload to regulate size on
-    -- block creation (with respet to 'Bi' instance).
-    sscGetLocalPayloadQ :: Maybe Word64 -> SlotId -> LocalQuery ssc (SscPayload ssc)
+    -- empty payload can be returned.
+    sscGetLocalPayloadQ :: SlotId -> LocalQuery ssc (SscPayload ssc)
     -- | Make 'SscLocalData' valid for given epoch, richmen and global state.
     -- of best known chain).
     sscNormalizeU :: EpochIndex

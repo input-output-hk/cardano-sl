@@ -28,7 +28,6 @@ module Pos.Block.Pure
 import           Control.Lens               (ix)
 import           Data.Default               (Default (def))
 import           Data.List                  (groupBy)
-import           Data.Tagged                (untag)
 import           Formatting                 (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Verify       (VerificationRes (..), verifyGeneric)
@@ -488,10 +487,9 @@ verifyBlock VerifyBlockParams {..} blk =
             case blk of
                 Left _ -> mempty
                 Right mainBlk -> toVerRes $
-                    untag
-                        sscVerifyPayload
-                        (Right (mainBlk ^. gbHeader))
-                        (mainBlk ^. blockMpc)
+                    sscVerifyPayload
+                    (Right (mainBlk ^. gbHeader))
+                    (mainBlk ^. blockMpc)
         | otherwise = mempty
     proxySKsDups psks =
         filter (\x -> length x > 1) $

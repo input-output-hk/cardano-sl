@@ -127,7 +127,7 @@ instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload, Bi EpochIndex) =>
         , mpUpdateProof = mkUpdateProof _mbUpdatePayload
         }
     verifyBBlock GenericBlock{..} =
-        first pretty $ untag sscVerifyPayload (Right _gbHeader) (_mbMpc _gbBody)
+        first pretty $ sscVerifyPayload (Right _gbHeader) (_mbMpc _gbBody)
 
 --deriving instance Ssc ssc => Show (SscProof ssc)
 --deriving instance Ssc ssc => Eq (SscProof ssc)

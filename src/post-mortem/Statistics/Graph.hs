@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Statistics.Graph
     ( graphF
     , writeGraph
@@ -16,6 +17,7 @@ import           Data.Set                          (Set)
 import qualified Data.Set                          as S
 import qualified Data.Text                         as T
 import qualified Data.Text.Lazy                    as L
+import           System.IO                         (hPutStrLn)
 import           Turtle                            hiding (FilePath, f, g, toText)
 import qualified Turtle.Prelude                    as T
 
@@ -61,9 +63,11 @@ graphF = f <$> blockHeadersF
 writeGraph :: FilePath -> DotGraph Int -> IO ()
 writeGraph f g = with (T.mktempfile "." "graph.dot") $ \tmp -> do
     with (T.writeonly tmp) $ flip hPutDot g
-    with (T.readonly tmp) $ \h -> do
-        ex <- T.shell (toText $ "/usr/bin/dot -Tpng -o'" ++ f ++ "'")
-                      (T.inhandle h)
-        case ex of
-            ExitSuccess -> return ()
-            _           -> throwM ex
+    with (T.readonly tmp) $ \h -> T.which "dot" >>= \case
+            Just dotPath -> do
+                ex <- T.shell (toText $ show dotPath ++ " -Tpng -o'" ++ f ++ "'")
+                              (T.inhandle h)
+                case ex of
+                    ExitSuccess -> return ()
+                    _           -> hPutStrLn Universum.stderr $ "Creating the graph failed, " ++ show ex
+            Nothing -> hPutStrLn Universum.stderr $ "Cannot produce graph without dot. Please install graphviz."

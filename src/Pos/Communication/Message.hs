@@ -20,6 +20,10 @@ import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
 varIntMName :: Int -> MessageName
 varIntMName = MessageName . encodeStrict . UnsignedVarInt
 
+instance Message Void where
+    messageName _ = varIntMName 0
+    formatMessage _ = "Void"
+
 instance Message SendProxySK where
     messageName _ = varIntMName 2
     formatMessage _ = "SendProxySK"

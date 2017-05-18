@@ -32,7 +32,7 @@ module Pos.Explorer.Socket.Methods
        , groupTxsInfo
        ) where
 
-import           Control.Lens                   (at, ix, non, (.=), _Just)
+import           Control.Lens                   (at, ix, lens, non, (.=), _Just)
 import           Control.Monad.State            (MonadState)
 import           Data.Aeson                     (ToJSON)
 import qualified Data.Map                       as M
@@ -59,8 +59,8 @@ import           System.Wlog                    (WithLogger, logDebug, logError,
 import           Universum
 
 import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Socket.Holder     (ConnectionsState, ccAddress, ccBlock,
-                                                 ccBlockOff, ccConnection,
+import           Pos.Explorer.Socket.Holder     (ClientContext, ConnectionsState,
+                                                 ccAddress, ccBlockOff, ccConnection,
                                                  csAddressSubscribers,
                                                  csBlocksOffSubscribers,
                                                  csBlocksSubscribers, csClients,
@@ -97,7 +97,7 @@ data ServerEvent
     | BlocksUpdated
     | BlocksOffUpdated
     | TxsUpdated
-    -- TODO: test events, remove
+    -- TODO: test events, remove one day
     | CallYou
     | CallYouString
     | CallYouTxId
@@ -121,6 +121,20 @@ type SubscriptionMode m =
     , MonadState ConnectionsState m
     )
 
+-- | This describes points related to some subscribtion action.
+-- Each subscription type has its own /client data/ which user provides
+-- as parameter when subscribes, it is then stored in 'ClientContext' type.
+data SubscriptionParam cli = SubscriptionParam
+    { -- | Identificator of current session
+      spSessId       :: SocketId
+      -- | Description of this subscription
+    , spDesc         :: cli -> Text
+      -- | Sets current session subscribed / unsubscribed
+    , spSubscription :: cli -> Lens' ConnectionsState (Maybe ())
+      -- | Sets related client data present / absent
+    , spCliData      :: Lens' ClientContext (Maybe cli)
+    }
+
 startSession
     :: SubscriptionMode m
     => Socket -> m ()
@@ -141,25 +155,79 @@ finishSession sessId =
 
 subscribe
     :: SubscriptionMode m
-    => SocketId -> Text -> Lens' ConnectionsState (Maybe ()) -> m ()
-subscribe sessId desc stateZoom = do
-    session <- use $ csClients . at sessId
+    => cli -> SubscriptionParam cli -> m ()
+subscribe cliData sp@SubscriptionParam{..} = do
+    unsubscribe sp
+    session <- use $ csClients . at spSessId
     case session of
         Just _  -> do
-            stateZoom .= Just ()
+            spSubscription cliData .= Just ()
+            csClients . ix spSessId . spCliData .= Just cliData
             logDebug $ sformat ("Client #"%shown%" subscribed to "%stext%" \
-                       \updates") sessId desc
+                       \updates") spSessId (spDesc cliData)
         _       ->
             logWarning $ sformat ("Unregistered client tries to subscribe on "%
-                         stext%" updates") desc
+                         stext%" updates") (spDesc cliData)
 
 unsubscribe
     :: SubscriptionMode m
-    => SocketId -> Text -> Lens' ConnectionsState (Maybe ()) -> m ()
-unsubscribe sessId desc stateZoom = do
-    stateZoom .= Nothing
-    logDebug $ sformat ("Client #"%shown%" unsubscribed from "%stext%" \
-               \updates") sessId desc
+    => SubscriptionParam cli -> m ()
+unsubscribe SubscriptionParam{..} = do
+    mCliData <- preuse $ csClients . ix spSessId . spCliData . _Just
+    case mCliData of
+        Just cliData -> do
+            csClients . ix spSessId . spCliData .= Nothing
+            spSubscription cliData .= Nothing
+            logDebug $ sformat ("Client #"%shown%" unsubscribed from "%stext%
+                       " updates") spSessId (spDesc cliData)
+        Nothing ->
+            logDebug $ sformat ("Client #"%shown%" unsubscribes from action \
+                       \at which it wasn't subscribed") spSessId
+
+-- | This is hack which makes client data look like always be present in
+-- 'ClientContext'.
+-- It's exploited in 'unsubscribe' then, because it works only if client data
+-- is present.
+noCliDataKept :: Lens' a (Maybe ())
+noCliDataKept = lens (\_ -> Just ()) const
+
+addrSubParam :: SocketId -> SubscriptionParam Address
+addrSubParam sessId =
+    SubscriptionParam
+        { spSessId        = sessId
+        , spDesc          = ("address " <> ) . show
+        , spSubscription  = \addr ->
+            csAddressSubscribers . at addr . non S.empty . at sessId
+        , spCliData       = ccAddress
+        }
+
+blockSubParam :: SocketId -> SubscriptionParam ()
+blockSubParam sessId =
+    SubscriptionParam
+        { spSessId       = sessId
+        , spDesc         = const "blockchain"
+        , spSubscription = \_ -> csBlocksSubscribers . at sessId
+        , spCliData      = noCliDataKept
+        }
+
+blockOffSubParam :: SocketId -> SubscriptionParam Word
+blockOffSubParam sessId =
+    SubscriptionParam
+        { spSessId       = sessId
+        , spDesc         = ("blockchain with offset " <> ) . show
+        , spSubscription = \offset ->
+            csBlocksOffSubscribers . at offset . non mempty . at sessId
+        , spCliData      = ccBlockOff
+        }
+
+txsSubParam :: SocketId -> SubscriptionParam ()
+txsSubParam sessId =
+    SubscriptionParam
+        { spSessId       = sessId
+        , spDesc         = const "txs"
+        , spSubscription = \_ -> csTxsSubscribers . at sessId
+        , spCliData      = noCliDataKept
+        }
 
 -- | Unsubscribes on any previous address and subscribes on given one.
 subscribeAddr
@@ -167,67 +235,42 @@ subscribeAddr
     => CAddress -> SocketId -> m ()
 subscribeAddr caddr sessId = do
     addr <- fromCAddressOrThrow caddr
-    unsubscribeAddr sessId
-    csClients . at sessId . _Just . ccAddress .= Just addr
-    subscribe
-        sessId
-        (sformat ("address "%shown) addr)
-        (csAddressSubscribers . at addr . non S.empty . at sessId)
+    subscribe addr (addrSubParam sessId)
 
 unsubscribeAddr
     :: SubscriptionMode m
     => SocketId -> m ()
-unsubscribeAddr sessId = do
-    maddr <- preuse $ csClients . ix sessId . ccAddress . _Just
-    whenJust maddr $ \addr -> do
-        csClients . at sessId . _Just . ccAddress .= Nothing
-        unsubscribe
-            sessId
-            (sformat ("address "%shown) addr)
-            (csAddressSubscribers . at addr . non S.empty . at sessId)
+unsubscribeAddr sessId = unsubscribe (addrSubParam sessId)
 
 subscribeBlocks
     :: SubscriptionMode m
     => SocketId -> m ()
-subscribeBlocks sessId = do
-    -- TODO: set ChainDifficulty:
-    -- csClients . at sessId . _Just . ccBlock .= Just pId
-    subscribe sessId "blockchain" (csBlocksSubscribers . at sessId)
+subscribeBlocks sessId = subscribe () (blockSubParam sessId)
 
 unsubscribeBlocks
     :: SubscriptionMode m
     => SocketId -> m ()
-unsubscribeBlocks sessId = do
-    csClients . at sessId . _Just . ccBlock .= Nothing
-    unsubscribe sessId "blockchain" (csBlocksSubscribers . at sessId)
+unsubscribeBlocks sessId = unsubscribe (blockSubParam sessId)
 
 subscribeBlocksOff
     :: SubscriptionMode m
     => Word -> SocketId -> m ()
-subscribeBlocksOff offset sessId = do
-    csClients . at sessId . _Just . ccBlockOff .= Just offset
-    subscribe sessId "blockchain with offset"
-        (csBlocksOffSubscribers . at offset . non mempty . at sessId)
+subscribeBlocksOff offset sessId = subscribe offset (blockOffSubParam sessId)
 
 unsubscribeBlocksOff
     :: SubscriptionMode m
     => SocketId -> m ()
-unsubscribeBlocksOff sessId = do
-    moffset <- preuse $ csClients . ix sessId . ccBlockOff . _Just
-    whenJust moffset $ \offset -> do
-        csClients . at sessId . _Just . ccBlockOff .= Nothing
-        unsubscribe sessId "blockchain with offset"
-            (csBlocksOffSubscribers . at offset . non mempty . at sessId)
+unsubscribeBlocksOff sessId = unsubscribe (blockOffSubParam sessId)
 
 subscribeTxs
     :: SubscriptionMode m
     => SocketId -> m ()
-subscribeTxs sessId = subscribe sessId "txs" (csTxsSubscribers . at sessId)
+subscribeTxs sessId = subscribe () (txsSubParam sessId)
 
 unsubscribeTxs
     :: SubscriptionMode m
     => SocketId -> m ()
-unsubscribeTxs sessId = unsubscribe sessId "txs" (csTxsSubscribers . at sessId)
+unsubscribeTxs sessId = unsubscribe (txsSubParam sessId)
 
 unsubscribeFully
     :: SubscriptionMode m
@@ -252,7 +295,7 @@ broadcast
     => event -> args -> Set SocketId -> m ()
 broadcast event args recipients = do
     forM_ recipients $ \sockid -> do
-        mSock <- preview $ csClients . at sockid . _Just . ccConnection
+        mSock <- preview $ csClients . ix sockid . ccConnection
         case mSock of
             Nothing   -> logError $
                 sformat ("No socket with SocketId="%shown%" registered") sockid

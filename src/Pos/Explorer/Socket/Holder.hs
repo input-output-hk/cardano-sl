@@ -8,6 +8,7 @@ module Pos.Explorer.Socket.Holder
        , runExplorerSockets
        , runNewExplorerSockets
 
+       , ClientContext
        , ConnectionsState
        , ConnectionsVar
        , mkClientContext
@@ -21,7 +22,6 @@ module Pos.Explorer.Socket.Holder
        , csTxsSubscribers
        , csClients
        , ccAddress
-       , ccBlock
        , ccBlockOff
        , ccConnection
        ) where
@@ -40,18 +40,17 @@ import           Serokell.Util.Concurrent    (modifyTVarS)
 import           System.Wlog                 (NamedPureLogger, WithLogger,
                                               launchNamedPureLog)
 
-import           Pos.Types                   (Address, ChainDifficulty)
+import           Pos.Types                   (Address)
 import           Universum
 
 data ClientContext = ClientContext
     { _ccAddress    :: !(Maybe Address)
-    , _ccBlock      :: !(Maybe ChainDifficulty)
     , _ccBlockOff   :: !(Maybe Word)
     , _ccConnection :: !Socket
     }
 
 mkClientContext :: Socket -> ClientContext
-mkClientContext = ClientContext Nothing Nothing Nothing
+mkClientContext = ClientContext Nothing Nothing
 
 makeClassy ''ClientContext
 

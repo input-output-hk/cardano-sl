@@ -182,7 +182,7 @@ readUserSecret path = do
     ensureModeIs600 path
 #endif
     takeReadLock path $ do
-        content <- either (throwM . Internal . toText) pure . decodeFull =<< BSL.readFile path
+        content <- either (throwM . RequestError . toText) pure . decodeFull =<< BSL.readFile path
         pure $ content & usPath .~ path
 
 -- | Reads user secret from the given file.

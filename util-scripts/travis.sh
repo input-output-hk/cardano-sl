@@ -25,13 +25,12 @@ stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl \
   --flag cardano-sl:-asserts \
   --flag cardano-sl-core:-dev-mode | ts
 
-if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" ]]; then
+if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" && "$TRAVIS_PULL_REQUEST" == "false" ]]; then
   ./update_wallet_web_api_docs.sh
 #  ./update_haddock.sh
 fi
 
 stack exec --nix -- cardano-wallet-hs2purs
-stack exec --nix -- cardano-wallet-web-docs
 
 pushd daedalus
   nix-shell --run "npm install && npm run build:prod"

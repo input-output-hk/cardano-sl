@@ -5,6 +5,7 @@ module Statistics.Report
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import qualified Data.Set        as S
+import qualified Data.Text       as T
 import           System.IO       (hPutStrLn)
 
 import Statistics.Block (TxFate (..))
@@ -26,7 +27,7 @@ reportTxFate f m = withFile f WriteMode $ \h -> do
     hPutStrLn h ""
     hPutStrLn h "transactions in fork:"
     for_ (M.toList m') $ \(tx, InFork s) ->
-        hPutStrLn h $ show tx ++ ": " ++ show (unwords $ map snd $ S.toList s)
+        hPutStrLn h $ show tx ++ ": " ++ show (unwords $ map (T.take 6 . snd) $ S.toList s)
         
 
 isFork :: TxFate -> Bool

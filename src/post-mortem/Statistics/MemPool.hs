@@ -8,8 +8,18 @@ import           JSONLog          (IndexedJLTimedEvent (..))
 import           Pos.Util.JsonLog (JLEvent (..), JLMemPool (..))
 import           Prelude          (id)
 import           Types
-import           Universum
 
+memPoolF :: Fold IndexedJLTimedEvent [(NodeIndex, Timestamp, JLMemPool)]
+memPoolF = Fold step [] id
+  where
+    step :: [(NodeIndex, Timestamp, JLMemPool)]
+         -> IndexedJLTimedEvent
+         -> [(NodeIndex, Timestamp, JLMemPool)]
+    step xs IndexedJLTimedEvent{..} = case ijlEvent of
+        JLMemPoolEvent mp -> (ijlNode, ijlTimestamp, mp) : xs
+        _                 -> xs
+
+{-
 memPoolF :: Fold IndexedJLTimedEvent [(NodeIndex, Timestamp, Int)]
 memPoolF = Fold step [] id
   where
@@ -17,3 +27,4 @@ memPoolF = Fold step [] id
     step xs IndexedJLTimedEvent{..} = case ijlEvent of
         JLMemPoolEvent (JLMemPool {..}) -> (ijlNode, ijlTimestamp, jlmSizeAfter) : xs
         _                               -> xs
+        -}

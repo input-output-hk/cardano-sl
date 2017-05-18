@@ -155,6 +155,8 @@ library
                         Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Ssc.GodTossing.Types
                         Pos.Binary.Txp
+                        Pos.Binary.Txp.Core
+                        Pos.Binary.Txp.Network
 
                         -- Block processing
                         Pos.Block.Error
@@ -380,7 +382,7 @@ library
                         Pos.Wallet.KeyStorage
                         Pos.Wallet.State
                         Pos.Wallet.State.Acidic
-                        Pos.Wallet.State.Limits
+                        Pos.Wallet.State.Core
                         Pos.Wallet.State.State
                         Pos.Wallet.State.Storage
                         Pos.Wallet.State.Storage.Block
@@ -402,7 +404,7 @@ library
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.Holder
-                        Pos.Wallet.Web.State.Limits
+                        Pos.Wallet.Web.State.Core
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
                         Pos.Wallet.Web.Tracking

@@ -11,7 +11,7 @@ import           Data.List             (zipWith3)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty    as NE
 import qualified Data.Map              as M
-import qualified Data.Vector           as V (fromList, singleton, toList)
+import qualified Data.Vector           as V (fromList, toList)
 import           Formatting            (build, int, sformat, shown, (%))
 import           Serokell.Util.Text    (listJsonIndent)
 import           Test.Hspec            (Expectation, Spec, describe, expectationFailure,
@@ -32,10 +32,11 @@ import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
                                         multisigValidator, shaStressRedeemer,
                                         sigStressRedeemer, stdlibValidator)
 import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure (..),
-                                        Tx (..), TxAux, TxDistribution (..), TxIn (..),
-                                        TxInWitness (..), TxOut (..), TxOutAux (..),
-                                        TxSigData (..), TxWitness, Utxo, VTxContext (..),
-                                        applyTxToUtxoPure, verifyTxUtxo, verifyTxUtxoPure)
+                                        Tx (..), TxAux (..), TxDistribution (..),
+                                        TxIn (..), TxInWitness (..), TxOut (..),
+                                        TxOutAux (..), TxSigData (..), TxWitness, Utxo,
+                                        VTxContext (..), applyTxToUtxoPure, verifyTxUtxo,
+                                        verifyTxUtxoPure)
 import           Pos.Types             (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
                                         SmallGoodTx (..), checkPubKeyAddress,
                                         makePubKeyAddress, makeScriptAddress, mkCoin,
@@ -95,8 +96,9 @@ verifyTxInUtxo (SmallGoodTx (GoodTx ls)) =
         newDistr = TxDistribution (map toaDistr outs)
         utxo = foldr (\(tx, d) -> applyTxToUtxoPure (withHash tx) d) mempty txs
         vtxContext = VTxContext False
+        txAux = TxAux newTx witness newDistr
     in isRight $
-       verifyTxUtxoPure vtxContext utxo (newTx, witness, newDistr)
+       verifyTxUtxoPure vtxContext utxo txAux
 
 badSigsTx :: SmallBadSigsTx -> Bool
 badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
@@ -104,7 +106,7 @@ badSigsTx (SmallBadSigsTx (getBadSigsTx -> ls)) =
             getTxFromGoodTx ls
         ctx = VTxContext False
         transactionIsNotVerified =
-            isLeft $ verifyTxUtxoPure ctx utxo (tx, txWits, dist)
+            isLeft $ verifyTxUtxoPure ctx utxo $ TxAux tx txWits dist
         notAllSignaturesAreValid =
             any
                 (signatureIsNotValid
@@ -117,7 +119,7 @@ validateGoodTx (SmallGoodTx (getGoodTx -> ls)) =
     let quadruple@((tx, dist), utxo, _, txWits) = getTxFromGoodTx ls
         ctx = VTxContext False
         transactionIsVerified =
-            isRight $ verifyTxUtxoPure ctx utxo (tx, txWits, dist)
+            isRight $ verifyTxUtxoPure ctx utxo $ TxAux tx txWits dist
         transactionReallyIsGood = individualTxPropertyVerifier quadruple
     in transactionIsVerified == transactionReallyIsGood
 
@@ -433,7 +435,8 @@ scriptTxSpec = describe "script transactions" $ do
                 , txSigOutsHash = hash (one randomPkOutput)
                 , txSigDistrHash = hash txDistr
                 }
-        in tryApplyTx utxo (tx, V.singleton (mkWit txSigData), txDistr)
+            txAux = TxAux tx (one (mkWit txSigData)) txDistr
+        in tryApplyTx utxo txAux
 
 -- | Test that errors in a 'VerFailure' match given regexes.
 errorsShouldMatch :: Either ToilVerFailure a -> [Text] -> Expectation

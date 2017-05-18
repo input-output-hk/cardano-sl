@@ -41,9 +41,9 @@ import           Pos.DB.Class               (MonadDB)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Ssc.Class              (SscHelpersClass)
-import           Pos.Txp.Core               (Tx (..), TxAux, TxIn (..), TxOutAux (..),
-                                             TxUndo, getTxDistribution, toaOut,
-                                             topsortTxs, txOutAddress)
+import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..),
+                                             TxOutAux (..), TxUndo, getTxDistribution,
+                                             toaOut, topsortTxs, txOutAddress)
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
 import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT,
                                              evalToilTEmpty, runDBTxp)
@@ -87,7 +87,7 @@ instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
     syncWSetsAtStart = syncWSetsWithGStateLock @WalletSscType
     syncOnImport = selectAccountsFromUtxoLock @WalletSscType . pure
     txMempoolToModifier encSK = do
-        let wHash (i, (t, _, _)) = WithHash t i
+        let wHash (i, TxAux {..}) = WithHash taTx i
         txs <- getLocalTxs
         case topsortTxs wHash txs of
             Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
@@ -232,12 +232,13 @@ trackingApplyTxs (getEncInfo -> encInfo) txs =
     snd3 (_, x, _) = x
     applyTxOut txid (idx, out, dist) = utxoPut (TxIn txid idx) (TxOutAux out dist)
     applyTx :: CAccModifier -> TxAux -> m CAccModifier
-    applyTx mapModifier (tx@(UnsafeTx (NE.toList -> inps) (NE.toList -> outs) _), _, distr) = do
+    applyTx mapModifier TxAux {..} = do
+        let tx@(UnsafeTx (NE.toList -> inps) (NE.toList -> outs) _) = taTx
         let txid = hash tx
         resolvedInputs <- catMaybes <$> mapM (\tin -> fmap (tin, ) <$> utxoGet tin) inps
         let ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut . snd) resolvedInputs
         let ownOutputs = selectOwnAccounts encInfo (txOutAddress . snd3) $
-                         zip3 [0..] outs (NE.toList $ getTxDistribution distr)
+                         zip3 [0..] outs (NE.toList $ getTxDistribution taDistribution)
         -- Delete and insert only own addresses to avoid large the underlying UtxoModifier.
         mapM_ (utxoDel . fst . fst) ownInputs -- del TxIn's (like in the applyTxToUtxo)
         mapM_ (applyTxOut txid . fst) ownOutputs -- add TxIn -> TxOutAux (like in the applyTxToUtxo)
@@ -253,7 +254,8 @@ trackingRollbackTxs (getEncInfo -> encInfo) txs =
     foldl' rollbackTx mempty txs
   where
     rollbackTx :: CAccModifier -> (TxAux, TxUndo) -> CAccModifier
-    rollbackTx mapModifier ((UnsafeTx _ (NE.toList -> outs) _, _, _), NE.toList -> undoL) = do
+    rollbackTx mapModifier (TxAux {..}, NE.toList -> undoL) = do
+        let UnsafeTx _ (toList -> outs) _ = taTx
         let ownInputs = map snd . selectOwnAccounts encInfo (txOutAddress . toaOut) $ undoL
         let ownOutputs = map snd . selectOwnAccounts encInfo txOutAddress $ outs
         -- Rollback isn't needed, because we don't use @utxoGet@

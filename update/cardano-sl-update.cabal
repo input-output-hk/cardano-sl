@@ -27,6 +27,7 @@ library
                        Pos.Update.Poll.Modifier
                        Pos.Update.Poll.PollState
                        Pos.Update.Poll.Trans
+                       Pos.Update.Poll.RollTrans
 
                        -- MemState
                        Pos.Update.MemState

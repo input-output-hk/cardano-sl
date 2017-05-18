@@ -392,9 +392,6 @@ instance BiSsc ssc => Buildable (BlockHeader ssc) where
 -- HasEpochIndex
 ----------------------------------------------------------------------------
 
-instance HasEpochIndex SlotId where
-    epochIndexL f SlotId {..} = (\a -> SlotId {siEpoch = a, ..}) <$> f siEpoch
-
 instance HasEpochIndex (MainBlock ssc) where
     epochIndexL = gbHeader . gbhConsensus . mcdSlot . epochIndexL
 
@@ -406,10 +403,6 @@ instance HasEpochIndex (GenesisBlock ssc) where
 
 instance HasEpochIndex (GenesisBlockHeader ssc) where
     epochIndexL = gbhConsensus . gcdEpoch
-
-instance (HasEpochIndex a, HasEpochIndex b) =>
-         HasEpochIndex (Either a b) where
-    epochIndexL = choosing epochIndexL epochIndexL
 
 ----------------------------------------------------------------------------
 -- HasEpochOrSlot

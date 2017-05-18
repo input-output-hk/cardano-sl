@@ -21,11 +21,12 @@ module Pos.Core.Class
        , IsMainHeader (..)
        ) where
 
-import           Control.Lens   (Getter, to)
+import           Control.Lens   (Getter, choosing, lens, to)
 import           Universum
 
 import           Pos.Core.Types (BlockVersion, ChainDifficulty, EpochIndex,
-                                 EpochOrSlot (..), HeaderHash, SlotId, SoftwareVersion)
+                                 EpochOrSlot (..), HeaderHash, SlotId, SoftwareVersion,
+                                 siEpoch)
 import           Pos.Crypto     (PublicKey)
 import           Pos.Util.Util  (Some, applySome, liftLensSome)
 
@@ -76,6 +77,13 @@ class HasEpochIndex a where
     epochIndexL :: Lens' a EpochIndex
 
 SOME_LENS_CLASS(HasEpochIndex, epochIndexL, HasEpochIndex)
+
+instance HasEpochIndex SlotId where
+    epochIndexL = lens siEpoch (\s a -> s {siEpoch = a})
+
+instance (HasEpochIndex a, HasEpochIndex b) =>
+         HasEpochIndex (Either a b) where
+    epochIndexL = choosing epochIndexL epochIndexL
 
 -- HasEpochOrSlot
 class HasEpochOrSlot a where

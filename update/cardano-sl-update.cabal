@@ -22,6 +22,7 @@ library
                        Pos.Binary.Update
 
                        -- Poll
+                       Pos.Update.Poll.Class
                        Pos.Update.Poll.Types
                        Pos.Update.Poll.Modifier
                        Pos.Update.Poll.PollState

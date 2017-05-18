@@ -334,7 +334,6 @@ library
                         Pos.Update.Network.Listeners
                         Pos.Update.Network.Types
                         Pos.Update.Poll
-                        Pos.Update.Poll.Class
                         Pos.Update.Poll.DBPoll
                         Pos.Update.Poll.Failure
                         Pos.Update.Poll.Logic

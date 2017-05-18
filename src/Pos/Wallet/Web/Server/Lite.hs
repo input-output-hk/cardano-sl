@@ -35,7 +35,7 @@ import           Pos.Wallet.KeyStorage         (KeyData)
 import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.State              (getWalletState)
 import qualified Pos.Wallet.State              as WS
-import           Pos.Wallet.State.Limits       (runDbLimitsWalletRedirect)
+import           Pos.Wallet.State.Core         (runGStateCoreWalletRedirect)
 import           Pos.Wallet.WalletMode         (WalletStaticPeersMode,
                                                 runBalancesWalletRedirect,
                                                 runBlockchainInfoNotImplemented,
@@ -107,7 +107,7 @@ convertHandler mws kd ws wsConn peers handler = do
                 , Tagged @ReportingContext emptyReportingContext )
            . runTxHistoryWalletRedirect
            . runBalancesWalletRedirect
-           . runDbLimitsWalletRedirect
+           . runGStateCoreWalletRedirect
            . runPeerStateRedirect
            . runUpdatesNotImplemented
            . runBlockchainInfoNotImplemented

@@ -18,9 +18,6 @@ module Pos.Wallet.State.Acidic
        , GetUtxo (..)
        , GetOldestUtxo (..)
        , GetTxHistory (..)
-
-       , GetSlotDuration (..)
-       , GetMaxBlockSize (..)
        ) where
 
 import           Universum
@@ -69,6 +66,4 @@ makeAcidic ''Storage
     , 'WS.getUtxo
     , 'WS.getOldestUtxo
     , 'WS.getTxHistory
-    , 'WS.getSlotDuration
-    , 'WS.getMaxBlockSize
     ]

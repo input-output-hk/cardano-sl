@@ -34,7 +34,7 @@ import           Pos.Constants                      (memPoolLimitRatio)
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
                                                      SlotId (..), StakeholderId)
 import           Pos.DB                             (MonadDB,
-                                                     MonadDBCore (dbAdoptedBVData))
+                                                     MonadGStateCore (gsAdoptedBVData))
 import qualified Pos.Lrc.DB                         as LrcDB
 import           Pos.Lrc.Types                      (RichmenStake)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
@@ -166,8 +166,8 @@ sscIsDataUseful tag id =
 
 type GtDataProcessingMode m =
     ( WithLogger m
-    , MonadDB m      -- to get richmen
-    , MonadDBCore m  -- to get block size limit
+    , MonadDB m          -- to get richmen
+    , MonadGStateCore m  -- to get block size limit
     , MonadSlots m
     , MonadSscMem SscGodTossing m
     , MonadError TossVerFailure m
@@ -217,7 +217,7 @@ sscProcessData tag payload =
     generalizeExceptT $ do
         getCurrentSlot >>= checkSlot
         ld <- sscRunLocalQuery ask
-        maxBlockSize <- bvdMaxBlockSize <$> dbAdoptedBVData
+        maxBlockSize <- bvdMaxBlockSize <$> gsAdoptedBVData
         let epoch = ld ^. ldEpoch
         LrcDB.getRichmenSsc epoch >>= \case
             Nothing -> throwError $ TossUnknownRichmen epoch

@@ -250,7 +250,7 @@ processProxySKHeavy psk = do
         headEpoch
         "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
         LrcDB.getRichmenDlg
-    maxBlockSize <- bvdMaxBlockSize <$> DB.dbAdoptedBVData
+    maxBlockSize <- bvdMaxBlockSize <$> DB.gsAdoptedBVData
     let msg = SendProxySKHeavy psk
         consistent = verifyProxySecretKey psk
         issuer = pskIssuerPk psk

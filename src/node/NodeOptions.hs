@@ -70,6 +70,7 @@ data Args = Args
     , updateWithPackage         :: !Bool
     , monitorPort               :: !(Maybe Int)
     , noNTP                     :: !Bool
+    , staticPeers               :: !Bool
     }
   deriving Show
 
@@ -181,7 +182,9 @@ argsParser = do
     noNTP <- switch $
         long "no-ntp" <>
         help "Whether to use real NTP servers to synchronise time or rely on local time"
-
+    staticPeers <- switch $
+        long "static-peers" <>
+        help "Don't use Kademlia, use only static peers"
     pure Args{..}
 
 getNodeOptions :: IO Args

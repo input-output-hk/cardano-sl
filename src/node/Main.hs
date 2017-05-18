@@ -7,7 +7,6 @@
 module Main where
 
 import           Control.Monad.Trans        (MonadTrans)
-import           Data.List                  ((!!))
 import           Data.Maybe                 (fromJust)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Data.Time.Units            (toMicroseconds)
@@ -18,7 +17,7 @@ import           Network.Transport.Abstract (Transport, hoistTransport)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
 import           Node                       (hoistSendActions)
 import           Serokell.Util              (sec)
-import           System.Wlog                (LoggerName, WithLogger, logError, logInfo)
+import           System.Wlog                (logError, logInfo)
 import           Universum
 
 import qualified Data.ByteString.Char8      as BS8 (unpack)
@@ -30,31 +29,22 @@ import           Pos.Communication          (ActionSpec (..), OutSpecs, PeerId,
 import           Pos.Constants              (isDevelopment)
 import           Pos.Context                (MonadNodeContext)
 import           Pos.Core.Types             (Timestamp (..))
-import           Pos.Crypto                 (SecretKey, VssKeyPair, keyGen, vssKeyGen)
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
-                                             KademliaParams (..), foreverRejoinNetwork,
-                                             readDhtPeersFile)
+                                             foreverRejoinNetwork)
 import           Pos.DHT.Workers            (dhtWorkers)
-import           Pos.Genesis                (genesisDevSecretKeys,
-                                             genesisStakeDistribution, genesisUtxo)
-import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             NodeParams (..), bracketResourcesKademlia,
+import           Pos.Launcher               (NodeParams (..), bracketResourcesKademlia,
                                              runNode, runNodeProduction, runNodeStats,
-                                             runRawKBasedMode, stakesDistr)
+                                             runRawKBasedMode)
 import           Pos.Shutdown               (triggerShutdown)
 import           Pos.Ssc.Class              (SscConstraint, SscParams)
-import           Pos.Ssc.GodTossing         (GtParams (..), SscGodTossing,
-                                             genesisDevVssKeyPairs)
+import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Statistics             (NoStatsT, StatsMap, StatsT, getNoStatsT,
                                              getStatsMap, runStatsT')
 import           Pos.Update.Context         (ucUpdateSemaphore)
-import           Pos.Update.Params          (UpdateParams (..))
 import           Pos.Util                   (inAssertMode)
-import           Pos.Util.BackupPhrase      (keysFromPhrase)
-import           Pos.Util.UserSecret        (UserSecret, peekUserSecret, usPrimKey, usVss,
-                                             writeUserSecret)
+import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Wallet                 (WalletSscType)
 import           Pos.WorkMode               (ProductionMode, RawRealMode, RawRealModeK,
@@ -73,35 +63,10 @@ import           Pos.Wallet.Web             (ConnectionsVar, WalletState,
 #endif
 
 import           NodeOptions                (Args (..), getNodeOptions)
+import           Params                     (getBaseParams, getKademliaParams,
+                                             getNodeParams, gtSscParams)
 
-loggingParams :: LoggerName -> Args -> LoggingParams
-loggingParams tag Args{..} =
-    LoggingParams
-    { lpHandlerPrefix = CLI.logPrefix commonArgs
-    , lpConfigPath    = CLI.logConfig commonArgs
-    , lpRunnerTag = tag
-    , lpEkgPort = monitorPort
-    }
-
--- | Load up the KademliaParams. It's in IO because we may have to read a
---   file to find some peers.
-getKademliaParams :: Args -> IO KademliaParams
-getKademliaParams Args {..} = do
-    filePeers <- maybe (return []) readDhtPeersFile dhtPeersFile
-    let allPeers = dhtPeersList ++ filePeers
-    return $ KademliaParams
-                 { kpNetworkAddress  = dhtNetworkAddress
-                 , kpPeers           = allPeers
-                 , kpKey             = dhtKey
-                 , kpExplicitInitial = dhtExplicitInitial
-                 , kpDump            = kademliaDumpPath
-                 }
-
-getBaseParams :: LoggerName -> Args -> BaseParams
-getBaseParams loggingTag args@Args {..} =
-    BaseParams { bpLoggingParams = loggingParams loggingTag args }
-
-getNodeSystemStart :: (MonadIO m) => Timestamp -> m Timestamp
+getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
 getNodeSystemStart cliOrConfigSystemStart
   | cliOrConfigSystemStart >= 1400000000 =
     -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
@@ -255,108 +220,6 @@ action kademliaInst args@Args {..} transport = do
         logError $ "You try to run wallet, but code wasn't compiled with wallet flag"
   where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
-
-userSecretWithGenesisKey
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
-userSecretWithGenesisKey Args{..} userSecret
-    | isDevelopment = case devSpendingGenesisI of
-          Nothing -> fetchPrimaryKey userSecret
-          Just i -> do
-              let sk = genesisDevSecretKeys !! i
-                  us = userSecret & usPrimKey .~ Just sk
-              writeUserSecret us
-              return (sk, us)
-    | otherwise = fetchPrimaryKey userSecret
-
-getKeyfilePath :: Args -> FilePath
-getKeyfilePath Args {..}
-    | isDevelopment = case devSpendingGenesisI of
-          Nothing -> keyfilePath
-          Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
-    | otherwise = keyfilePath
-
-updateUserSecretVSS
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
-updateUserSecretVSS Args{..} us
-    | isDevelopment = case devVssGenesisI of
-          Nothing -> fillUserSecretVSS us
-          Just i  -> return $ us & usVss .~ Just (genesisDevVssKeyPairs !! i)
-    | otherwise = fillUserSecretVSS us
-
-fetchPrimaryKey :: (MonadIO m, MonadFail m) => UserSecret -> m (SecretKey, UserSecret)
-fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of
-    Just sk -> return (sk, userSecret)
-    Nothing -> do
-        putText "Found no signing keys in keyfile, generating random one..."
-        sk <- snd <$> keyGen
-        let us = userSecret & usPrimKey .~ Just sk
-        writeUserSecret us
-        return (sk, us)
-
-fillUserSecretVSS :: (MonadIO m, MonadFail m) => UserSecret -> m UserSecret
-fillUserSecretVSS userSecret = case userSecret ^. usVss of
-    Just _  -> return userSecret
-    Nothing -> do
-        putText "Found no VSS keypair in keyfile, generating random one..."
-        vss <- vssKeyGen
-        let us = userSecret & usVss .~ Just vss
-        writeUserSecret us
-        return us
-
-processUserSecret
-    :: (MonadIO m, MonadFail m)
-    => Args -> UserSecret -> m (SecretKey, UserSecret)
-processUserSecret args@Args {..} userSecret = case backupPhrase of
-    Nothing -> updateUserSecretVSS args userSecret >>= userSecretWithGenesisKey args
-    Just ph -> do
-        (sk, vss) <- either keyFromPhraseFailed pure $ keysFromPhrase ph
-        let us = userSecret & usPrimKey .~ Just sk & usVss .~ Just vss
-        writeUserSecret us
-        return (sk, us)
-  where
-    keyFromPhraseFailed msg = fail $ "Key creation from phrase failed: " <> show msg
-
-getNodeParams
-    :: (MonadIO m, MonadFail m, MonadThrow m, WithLogger m)
-    => Args -> Timestamp -> m NodeParams
-getNodeParams args@Args {..} systemStart = do
-    (primarySK, userSecret) <-
-        userSecretWithGenesisKey args =<<
-        updateUserSecretVSS args =<<
-        peekUserSecret (getKeyfilePath args)
-    return NodeParams
-        { npDbPathM = dbPath
-        , npRebuildDb = rebuildDB
-        , npSecretKey = primarySK
-        , npUserSecret = userSecret
-        , npSystemStart = systemStart
-        , npBaseParams = getBaseParams "node" args
-        , npCustomUtxo = genesisUtxo $
-              if isDevelopment
-                  then stakesDistr (CLI.flatDistr commonArgs)
-                                   (CLI.bitcoinDistr commonArgs)
-                                   (CLI.richPoorDistr commonArgs)
-                                   (CLI.expDistr commonArgs)
-                  else genesisStakeDistribution
-        , npJLFile = jlPath
-        , npAttackTypes = maliciousEmulationAttacks
-        , npAttackTargets = maliciousEmulationTargets
-        , npPropagation = not (CLI.disablePropagation commonArgs)
-        , npReportServers = CLI.reportServers commonArgs
-        , npUpdateParams = UpdateParams
-            { upUpdatePath = updateLatestPath
-            , upUpdateWithPkg = updateWithPackage
-            , upUpdateServers = CLI.updateServers commonArgs
-            }
-        , npUseNTP = not noNTP
-        }
-
-gtSscParams :: Args -> VssKeyPair -> GtParams
-gtSscParams Args {..} vssSK =
-    GtParams
-    { gtpSscEnabled = True
-    , gtpVssKeyPair = vssSK
-    }
 
 #ifdef WITH_WEB
 plugins ::

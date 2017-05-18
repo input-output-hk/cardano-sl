@@ -17,18 +17,16 @@ import qualified Ether
 import           Formatting          (build, sformat, shown, (%))
 import           Mockable            (fork)
 import           Paths_cardano_sl    (version)
-import           Serokell.Util       (sec)
 import           System.Exit         (ExitCode (..))
 import           System.Wlog         (getLoggerName, logError, logInfo)
 import           Universum
 
-import           Pos.Communication   (ActionSpec (..), NodeId, OutSpecs, WorkerSpec,
+import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
                                       wrapActionSpec)
 import           Pos.Context         (BlkSemaphore (..), npPubKeyAddress, npPublicKey)
 import           Pos.DB.Class        (MonadDBCore)
 import qualified Pos.DB.GState       as GS
 import           Pos.Delegation      (initDelegation)
-import           Pos.Discovery.Class (findPeers)
 import           Pos.Lrc.Context     (LrcSyncData (..), lcLrcSync)
 import qualified Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourMasked)
@@ -38,7 +36,7 @@ import           Pos.Ssc.Class       (SscConstraint)
 import           Pos.Types           (SlotId (..), addressHash)
 import           Pos.Update          (MemState (..), mvState)
 import           Pos.Update.Context  (UpdateContext (ucMemState))
-import           Pos.Util            (inAssertMode, waitRandomInterval)
+import           Pos.Util            (inAssertMode)
 import           Pos.Util.LogSafe    (logInfoS)
 import           Pos.Worker          (allWorkers, allWorkersCount)
 import           Pos.WorkMode.Class  (WorkMode)
@@ -61,7 +59,6 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     logInfoS $ sformat ("My public key is: "%build%
                         ", address: "%build%
                         ", pk hash: "%build) pk addr pkHash
-    void $ fork $ waitForPeers =<< findPeers
     initDelegation @ssc
     initLrc
     initUSMemState
@@ -93,19 +90,6 @@ runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins
   where
     (workers', wOuts) = allWorkers
     plugins'' = map (wrapActionSpec "plugin") plugins'
-
--- | Try to discover peers repeatedly until at least one live peer is found
---
--- FIXME seems an interrupt-style system would be better. The discovery
--- system can call you back when a new node comes in.
--- Would that be a good model? Run some IO for every peer?
-waitForPeers :: WorkMode ssc m => Set NodeId -> m ()
-waitForPeers peers = case toList peers of
-    ps@(_:_) -> logInfo (sformat ("Known peers: "%shown) ps)
-    []       -> do
-        logInfo "Couldn't connect to any peer, trying again..."
-        waitRandomInterval (sec 3) (sec 10)
-        waitForPeers peers
 
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do

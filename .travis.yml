@@ -9,7 +9,7 @@ script:
 - "./scripts/build.sh"
 - nix-shell --run "yarn test"
 - popd
-- nix-shell --run "stack exec --nix -- cardano-explorer-docs"
+- "./update_explorer_web_api_docs.sh"
 notifications:
   email: false
   slack:

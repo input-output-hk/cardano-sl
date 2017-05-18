@@ -10,8 +10,11 @@ module Pos.Explorer.Web.Server
        , explorerServeImpl
        , explorerApp
        , explorerHandlers
+
+       -- function useful for socket-io server
        , topsortTxsOrFail
        , getMempoolTxs
+       , getLastBlocks
        ) where
 
 import           Control.Lens                   (at)
@@ -33,48 +36,38 @@ import qualified Pos.DB.DB                      as DB
 import qualified Pos.DB.GState                  as GS
 import qualified Pos.DB.GState.Balances         as GS
 
+import           Pos.DB.Class                   (MonadDB)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class                  (SscHelpersClass)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxAux, TxId,
-                                                 TxOutAux (..), getLocalTxs,
-                                                 getMemPool, mpLocalTxs,
-                                                 topsortTxs, txOutValue,
-                                                 _txOutputs)
-import           Pos.Types                      (Address (..), Block,
-                                                 EpochIndex, HeaderHash,
-                                                 LocalSlotIndex (..), MainBlock,
-                                                 Timestamp, blockSlot, blockTxs,
-                                                 difficultyL, gbHeader,
+import           Pos.Txp                        (Tx (..), TxAux, TxId, TxOutAux (..),
+                                                 getLocalTxs, getMemPool, mpLocalTxs,
+                                                 topsortTxs, txOutValue, _txOutputs)
+import           Pos.Types                      (Address (..), Block, EpochIndex,
+                                                 HeaderHash, LocalSlotIndex (..),
+                                                 MainBlock, Timestamp, blockSlot,
+                                                 blockTxs, difficultyL, gbHeader,
                                                  gbhConsensus, genesisHash,
-                                                 getChainDifficulty, mcdSlot,
-                                                 mkCoin, prevBlockL, siEpoch,
-                                                 siSlot, sumCoins,
-                                                 unsafeIntegerToCoin,
-                                                 unsafeSubCoin)
+                                                 getChainDifficulty, mcdSlot, mkCoin,
+                                                 prevBlockL, siEpoch, siSlot, sumCoins,
+                                                 unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
-import           Pos.DB.Class                   (MonadDB)
 
 import           Pos.Explorer                   (TxExtra (..), getTxExtra)
-import qualified Pos.Explorer                   as EX (getAddrHistory,
-                                                       getTxExtra)
+import qualified Pos.Explorer                   as EX (getAddrHistory, getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
-                                                 CAddressSummary (..),
-                                                 CBlockEntry (..),
-                                                 CBlockSummary (..), CHash,
-                                                 CTxBrief (..), CTxEntry (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
+                                                 CBlockEntry (..), CBlockSummary (..),
+                                                 CHash, CTxBrief (..), CTxEntry (..),
                                                  CTxId (..), CTxSummary (..),
-                                                 TxInternal (..),
-                                                 convertTxOutputs, fromCAddress,
-                                                 fromCHash, fromCTxId, mkCCoin,
-                                                 tiToTxEntry, toBlockEntry,
-                                                 toBlockSummary, toPosixTime,
-                                                 toTxBrief)
+                                                 TxInternal (..), convertTxOutputs,
+                                                 fromCAddress, fromCHash, fromCTxId,
+                                                 mkCCoin, tiToTxEntry, toBlockEntry,
+                                                 toBlockSummary, toPosixTime, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 

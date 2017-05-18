@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -13,13 +14,16 @@ module Pos.Explorer.Socket.Methods
        , finishSession
        , subscribeAddr
        , subscribeBlocks
+       , subscribeBlocksOff
        , subscribeTxs
        , unsubscribeAddr
        , unsubscribeBlocks
+       , unsubscribeBlocksOff
        , unsubscribeTxs
 
        , notifyAddrSubscribers
        , notifyBlocksSubscribers
+       , notifyBlocksOffSubscribers
        , notifyTxsSubscribers
        , getBlocksFromTo
        , addrsTouchedByTx
@@ -28,7 +32,7 @@ module Pos.Explorer.Socket.Methods
        , groupTxsInfo
        ) where
 
-import           Control.Lens                   (at, non, (.=), _Just)
+import           Control.Lens                   (at, ix, non, (.=), _Just)
 import           Control.Monad.State            (MonadState)
 import           Data.Aeson                     (ToJSON)
 import qualified Data.Map                       as M
@@ -44,7 +48,6 @@ import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as DB
 import           Pos.Explorer                   (TxExtra (..))
 import qualified Pos.Explorer                   as DB
-import           Pos.Slotting.Class             (MonadSlots)
 import           Pos.Ssc.Class                  (SscHelpersClass)
 import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
                                                  txOutAddress)
@@ -57,20 +60,24 @@ import           Universum
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Socket.Holder     (ConnectionsState, ccAddress, ccBlock,
-                                                 ccConnection, csAddressSubscribers,
+                                                 ccBlockOff, ccConnection,
+                                                 csAddressSubscribers,
+                                                 csBlocksOffSubscribers,
                                                  csBlocksSubscribers, csClients,
                                                  csTxsSubscribers, mkClientContext)
 import           Pos.Explorer.Socket.Util       (EventName (..), emitTo)
 import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxEntry (..), TxInternal (..),
                                                  fromCAddress, tiToTxEntry, toBlockEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Explorer.Web.Server        (topsortTxsOrFail)
+import           Pos.Explorer.Web.Server        (ExplorerMode, getLastBlocks,
+                                                 topsortTxsOrFail)
 
 -- * Event names
 
 data Subscription
     = SubAddr
     | SubBlock
+    | SubBlockOff  -- ^ subscribe on blocks with given offset
     | SubTx
     deriving (Show, Generic)
 
@@ -88,6 +95,7 @@ instance EventName ClientEvent where
 data ServerEvent
     = AddrUpdated
     | BlocksUpdated
+    | BlocksOffUpdated
     | TxsUpdated
     -- TODO: test events
     | CallYou
@@ -164,9 +172,9 @@ unsubscribeAddr
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
 unsubscribeAddr sessId = do
-    maddr <- preuse $ csClients . at sessId . _Just . ccAddress . _Just
-    csClients . at sessId . _Just . ccAddress .= Nothing
-    whenJust maddr $ \addr ->
+    maddr <- preuse $ csClients . ix sessId . ccAddress . _Just
+    whenJust maddr $ \addr -> do
+        csClients . at sessId . _Just . ccAddress .= Nothing
         unsubscribe
             sessId
             (sformat ("address "%shown) addr)
@@ -187,6 +195,24 @@ unsubscribeBlocks sessId = do
     csClients . at sessId . _Just . ccBlock .= Nothing
     unsubscribe sessId "blockchain" (csBlocksSubscribers . at sessId)
 
+subscribeBlocksOff
+    :: (MonadState ConnectionsState m, WithLogger m)
+    => Word -> SocketId -> m ()
+subscribeBlocksOff offset sessId = do
+    csClients . at sessId . _Just . ccBlockOff .= Just offset
+    subscribe sessId "blockchain with offset"
+        (csBlocksOffSubscribers . at offset . non mempty . at sessId)
+
+unsubscribeBlocksOff
+    :: (MonadState ConnectionsState m, WithLogger m)
+    => SocketId -> m ()
+unsubscribeBlocksOff sessId = do
+    moffset <- preuse $ csClients . ix sessId . ccBlockOff . _Just
+    whenJust moffset $ \offset -> do
+        csClients . at sessId . _Just . ccBlockOff .= Nothing
+        unsubscribe sessId "blockchain with offset"
+            (csBlocksOffSubscribers . at offset . non mempty . at sessId)
+
 subscribeTxs
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
@@ -201,15 +227,22 @@ unsubscribeFully
     :: (MonadState ConnectionsState m, WithLogger m)
     => SocketId -> m ()
 unsubscribeFully sessId = do
+    logDebug $ sformat ("Client #"%shown%" unsubscribes from all updates")
+               sessId
     unsubscribeAddr sessId
     unsubscribeBlocks sessId
+    unsubscribeBlocksOff sessId
     unsubscribeTxs sessId
 
 -- * Notifications
 
+type NotificationMode m =
+    ( ExplorerMode m
+    , MonadReader ConnectionsState m
+    )
+
 broadcast
-    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
-        EventName event, ToJSON args)
+    :: (NotificationMode m, EventName event, ToJSON args)
     => event -> args -> Set SocketId -> m ()
 broadcast event args recipients = do
     forM_ recipients $ \sockid -> do
@@ -224,15 +257,14 @@ broadcast event args recipients = do
         sformat ("Failed to send to SocketId="%shown%": "%shown) sockid
 
 notifyAddrSubscribers
-    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m)
+    :: NotificationMode m
     => Address -> [CTxEntry] -> m ()
 notifyAddrSubscribers addr cTxEntries = do
     mRecipients <- view $ csAddressSubscribers . at addr
     whenJust mRecipients $ broadcast AddrUpdated cTxEntries
 
 notifyBlocksSubscribers
-    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
-        MonadSlots m, MonadDB m, SscHelpersClass ssc)
+    :: (NotificationMode m, SscHelpersClass ssc)
     => [Block ssc] -> m ()
 notifyBlocksSubscribers blocks = do
     recipients <- view csBlocksSubscribers
@@ -242,9 +274,17 @@ notifyBlocksSubscribers blocks = do
     toClientType (Left _)          = return Nothing
     toClientType (Right mainBlock) = Just <$> toBlockEntry mainBlock
 
+notifyBlocksOffSubscribers
+    :: NotificationMode m
+    => Int -> m ()
+notifyBlocksOffSubscribers newBlocksNum = do
+    recipientsByOffset <- M.toList <$> view csBlocksOffSubscribers
+    for_ recipientsByOffset $ \(offset, recipients) -> do
+        cblocks <- getLastBlocks (fromIntegral newBlocksNum) offset
+        broadcast BlocksOffUpdated cblocks recipients
+
 notifyTxsSubscribers
-    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
-        MonadDB m)
+    :: NotificationMode m
     => [CTxEntry] -> m ()
 notifyTxsSubscribers cTxEntries =
     view csTxsSubscribers >>= broadcast TxsUpdated cTxEntries

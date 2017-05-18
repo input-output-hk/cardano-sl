@@ -15,10 +15,9 @@ import qualified Control.Concurrent.STM           as STM
 import           Control.Lens                     ((<<.=))
 import           Control.Monad.Trans.Control      (MonadBaseControl)
 import           Data.Aeson                       (Value)
-import           Data.List                        (intersperse)
 import qualified Data.Set                         as S
 import           Data.Time.Units                  (Millisecond)
-import           Formatting                       (bprint, build, int, sformat, (%))
+import           Formatting                       (int, sformat, (%))
 import qualified GHC.Exts                         as Exts
 import           Network.EngineIO                 (SocketId)
 import           Network.EngineIO.Snap            (snapAPI)
@@ -28,6 +27,7 @@ import           Network.SocketIO                 (RoutingTable, Socket,
 import           Pos.Core                         (addressF)
 import qualified Pos.DB.GState                    as DB
 import           Pos.Ssc.Class                    (SscHelpersClass)
+import           Serokell.Util.Text               (listJson)
 import           Snap.Core                        (MonadSnap, route)
 import qualified Snap.CORS                        as CORS
 import           Snap.Http.Server                 (httpServe)
@@ -48,11 +48,13 @@ import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent
                                                    getBlockTxs, getBlocksFromTo,
                                                    getTxInfo, groupTxsInfo,
                                                    notifyAddrSubscribers,
+                                                   notifyBlocksOffSubscribers,
                                                    notifyBlocksSubscribers,
                                                    notifyTxsSubscribers, startSession,
                                                    subscribeAddr, subscribeBlocks,
-                                                   subscribeTxs, unsubscribeAddr,
-                                                   unsubscribeBlocks, unsubscribeTxs)
+                                                   subscribeBlocksOff, subscribeTxs,
+                                                   unsubscribeAddr, unsubscribeBlocks,
+                                                   unsubscribeBlocksOff, unsubscribeTxs)
 import           Pos.Explorer.Socket.Util         (emit, emitJSON, forkAccompanion, on,
                                                    on_, runPeriodicallyUnless)
 import           Pos.Explorer.Web.ClientTypes     (CTxId, cteId)
@@ -80,15 +82,18 @@ notifierHandler
     => ConnectionsVar -> LoggerName -> m ()
 notifierHandler connVar loggerName = do
     _ <- asHandler' startSession
-    on  (Subscribe SubAddr)    $ asHandler subscribeAddr
-    on_ (Subscribe SubBlock)   $ asHandler_ subscribeBlocks
-    on_ (Subscribe SubTx   )   $ asHandler_ subscribeTxs
-    on_ (Unsubscribe SubAddr)  $ asHandler_ unsubscribeAddr
-    on_ (Unsubscribe SubBlock) $ asHandler_ unsubscribeBlocks
-    on_ (Unsubscribe SubTx)    $ asHandler_ unsubscribeTxs
-    on_ CallMe                 $ emitJSON CallYou empty
-    on CallMeString            $ \(s :: Value) -> emit CallYouString s
-    on CallMeTxId              $ \(txid :: CTxId) -> emit CallYouTxId txid
+    on  (Subscribe SubAddr)       $ asHandler  subscribeAddr
+    on_ (Subscribe SubBlock)      $ asHandler_ subscribeBlocks
+    on  (Subscribe SubBlockOff)   $ asHandler  subscribeBlocksOff
+    on_ (Subscribe SubTx)         $ asHandler_ subscribeTxs
+    on_ (Unsubscribe SubAddr)     $ asHandler_ unsubscribeAddr
+    on_ (Unsubscribe SubBlock)    $ asHandler_ unsubscribeBlocksOff
+    on_ (Unsubscribe SubBlockOff) $ asHandler_ unsubscribeBlocks
+    on_ (Unsubscribe SubTx)       $ asHandler_ unsubscribeTxs
+
+    on_ CallMe                    $ emitJSON CallYou empty
+    on CallMeString               $ \(s :: Value) -> emit CallYouString s
+    on CallMeTxId                 $ \(txid :: CTxId) -> emit CallYouTxId txid
     appendDisconnectHandler . void $ asHandler_ finishSession
  where
     -- handlers provide context for logging and `ConnectionsVar` changes
@@ -114,7 +119,8 @@ notifierServer
 notifierServer settings connVar = do
     loggerName <- getLoggerName
     liftIO $ do
-        handler <- liftIO $ initialize snapAPI $ notifierHandler connVar loggerName
+        handler <- liftIO . initialize snapAPI $
+            notifierHandler connVar loggerName
         httpServe (toSnapConfig settings loggerName) $
             CORS.applyCORS CORS.defaultOptions $
             route [("/socket.io", handler)]
@@ -124,51 +130,51 @@ periodicPollChanges
        (ExplorerMode m, SscHelpersClass ssc)
     => ConnectionsVar -> m Bool -> m ()
 periodicPollChanges connVar closed =
-    runPeriodicallyUnless (500 :: Millisecond) closed (Nothing, mempty) $
-    askingConnState connVar $ do
+    runPeriodicallyUnless (500 :: Millisecond) closed (Nothing, mempty) $ do
         curBlock   <- DB.getTip
-        mempoolTxs <- lift . lift $ S.fromList <$> getMempoolTxs
+        mempoolTxs <- lift $ S.fromList <$> getMempoolTxs
 
         mWasBlock     <- _1 <<.= Just curBlock
         wasMempoolTxs <- _2 <<.= mempoolTxs
 
-        mNewBlocks <-
-            if mWasBlock == Just curBlock
-                then return Nothing
-                else forM mWasBlock $ \wasBlock -> do
-                    mBlocks <- getBlocksFromTo @ssc curBlock wasBlock
-                    case mBlocks of
-                        Nothing     -> do
-                            logWarning "Failed to fetch blocks from db"
-                            return []
-                        Just blocks -> return blocks
-        let newBlocks = fromMaybe [] mNewBlocks
+        lift . askingConnState connVar $ do
+            mNewBlocks <-
+                if mWasBlock == Just curBlock
+                    then return Nothing
+                    else forM mWasBlock $ \wasBlock -> do
+                        mBlocks <- getBlocksFromTo @ssc curBlock wasBlock
+                        case mBlocks of
+                            Nothing     -> do
+                                logWarning "Failed to fetch blocks from db"
+                                return []
+                            Just blocks -> return blocks
+            let newBlocks = fromMaybe [] mNewBlocks
 
-        -- notify about blocks
-        when (not $ null newBlocks) $ do
-            notifyBlocksSubscribers newBlocks
-            logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
-                       (length newBlocks)
+            -- notify about blocks and blocks with offset
+            unless (null newBlocks) $ do
+                notifyBlocksSubscribers newBlocks
+                notifyBlocksOffSubscribers (length newBlocks)
+                logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
+                    (length newBlocks)
 
-        newBlockchainTxs <- concat <$> forM newBlocks getBlockTxs
-        let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
+            newBlockchainTxs <- concat <$> forM newBlocks getBlockTxs
+            let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
 
-        txsInfo <- mapM getTxInfo (newBlockchainTxs <> newLocalTxs)
-        let groupedTxInfo = Exts.toList $ groupTxsInfo txsInfo
+            txsInfo <- mapM getTxInfo (newBlockchainTxs <> newLocalTxs)
+            let groupedTxInfo = Exts.toList $ groupTxsInfo txsInfo
 
-        -- notify abuot transactions
-        forM_ groupedTxInfo $ \(addr, cTxEntries) -> do
-            notifyAddrSubscribers addr cTxEntries
-            logDebug $ sformat ("Notified address "%addressF%" about "
-                       %int%" transactions") addr (length cTxEntries)
+            -- notify abuot transactions
+            forM_ groupedTxInfo $ \(addr, cTxEntries) -> do
+                notifyAddrSubscribers addr cTxEntries
+                logDebug $ sformat ("Notified address "%addressF%" about "
+                           %int%" transactions") addr (length cTxEntries)
 
-        -- notify about transactions
-        let cTxEntries = fst <$> txsInfo
-        when (not $ null cTxEntries) $ do
-            notifyTxsSubscribers cTxEntries
-            logDebug $ sformat ("Broadcasted transactions: "%build)
-                       (mconcat . intersperse "," $
-                       bprint build . cteId <$> cTxEntries)
+            -- notify about transactions
+            let cTxEntries = fst <$> txsInfo
+            unless (null cTxEntries) $ do
+                notifyTxsSubscribers cTxEntries
+                logDebug $ sformat ("Broadcasted transactions: "%listJson)
+                           (cteId <$> cTxEntries)
 
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp

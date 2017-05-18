@@ -1,9 +1,14 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Types describing runtime errors related to Wallet.
 
 module Pos.Wallet.Web.Error
        ( WalletError (..)
+       , _InternalError
+       , _RequestError
        ) where
 
+import           Control.Lens        (makePrisms)
 import qualified Data.Text.Buildable
 import           Formatting          (bprint, stext, (%))
 import           Universum
@@ -15,6 +20,8 @@ data WalletError
     -- | Internal info, which ideally should never happen
     | InternalError !Text
     deriving (Show, Generic)
+
+makePrisms ''WalletError
 
 instance Exception WalletError
 

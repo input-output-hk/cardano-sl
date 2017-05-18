@@ -49,7 +49,7 @@ import           Servant.API                      ((:<|>) ((:<|>)),
                                                    FromHttpApiData (parseUrlPiece))
 import           Servant.Multipart                (fdFilePath)
 import           Servant.Server                   (Handler, Server, ServerT, err403,
-                                                   runHandler, serve)
+                                                   err500, runHandler, serve)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
 import           System.Wlog                      (logDebug, logError, logInfo)
 
@@ -117,7 +117,7 @@ import           Pos.Wallet.Web.ClientTypes       (Acc, CAccount (..),
                                                    readWalletUserSecret, toCUpdateInfo,
                                                    txContainsTitle, txIdToCTxId,
                                                    walletAddrByAccount)
-import           Pos.Wallet.Web.Error             (WalletError (..))
+import           Pos.Wallet.Web.Error             (WalletError (..), _RequestError)
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
                                                    WalletWebSockets, closeWSConnection,
                                                    getWalletWebSockets,
@@ -400,10 +400,13 @@ servantHandlers sendActions =
     apiSettingsSoftwareVersion  = catchWalletError (pure curSoftwareVersion)
     apiSettingsSyncProgress     = catchWalletError syncProgress
 
-    catchWalletError            = catchOtherError . try
-    catchOtherError             = E.handleAll $ \e -> do
+    catchWalletError action     = catchOtherError $ tryWalletError action
+    tryWalletError
+        | isDevelopment = try
+        | otherwise     = E.tryJust $ \e -> (e ^? _RequestError) $> e
+    catchOtherError = E.handleAll $ \e -> do
         logError $ sformat ("Uncaught error in wallet method: "%shown) e
-        throwM e
+        throwM err500
 
 -- getAddresses :: WalletWebMode m => m [CAddress]
 -- getAddresses = map addressToCAddress <$> myAddresses

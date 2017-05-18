@@ -80,7 +80,7 @@ cleanMnemonic = joinWith " " <<< filter (not <<< null) <<< split space <<< trim
 mkBackupPhraseIgnoreChecksum :: Int -> String -> Either Error BackupPhrase
 mkBackupPhraseIgnoreChecksum len mnemonic =
     if not $ hasExactlyNwords len mnemonicCleaned
-        then Left $ error "Invalid mnemonic: mnemonic should have at least " <> show len <> " words"
+        then Left $ error $ "Invalid mnemonic: mnemonic should have at least " <> show len <> " words"
         else Right $ BackupPhrase { bpToList: split space mnemonicCleaned }
   where
     hasExactlyNwords len' = (==) len' <<< length <<< split space

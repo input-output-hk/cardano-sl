@@ -122,7 +122,7 @@ module.exports = {
     hot: !isProd,
     contentBase: path.join(__dirname, 'src'),
     port: 3100,
-    host: 'localhost',
+    host: '0.0.0.0',
     historyApiFallback: true,
     watchOptions: {
       aggregateTimeout: 300,

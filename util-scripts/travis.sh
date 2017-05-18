@@ -22,7 +22,7 @@ stack --nix --no-terminal install happy \
 
 stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl \
   $EXTRA_STACK --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4 \
-  --flag cardano-sl:-asserts \
+  --flag cardano-sl-core:-asserts \
   --flag cardano-sl-core:-dev-mode | ts
 
 if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" && "$TRAVIS_PULL_REQUEST" == "false" ]]; then

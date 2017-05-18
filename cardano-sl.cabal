@@ -12,10 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-flag asserts
-  default:     True
-  manual:      True
-
 Flag with-web
   default:     True
   manual:      True
@@ -545,8 +541,6 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(asserts)
-    cpp-options: -DASSERTS_ON
   if flag(with-web)
     cpp-options: -DWITH_WEB
   if flag(with-wallet)

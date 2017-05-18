@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveTraversable   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -19,7 +18,6 @@ module Pos.Util
        , (<//>)
        , readerToState
        , eitherPanic
-       , inAssertMode
        , diffDoubleMap
        , maybeThrow'
 
@@ -112,17 +110,6 @@ readerToState = gets . runReader
 -- | A helper for simple error handling in executables
 eitherPanic :: Show a => Text -> Either a b -> b
 eitherPanic msgPrefix = either (error . (msgPrefix <>) . show) identity
-
--- | This function performs checks at compile-time for different actions.
--- May slowdown implementation. To disable such checks (especially in benchmarks)
--- one should compile with: @stack build --flag cardano-sl:-asserts@
-inAssertMode :: Applicative m => m a -> m ()
-#ifdef ASSERTS_ON
-inAssertMode x = x *> pure ()
-#else
-inAssertMode _ = pure ()
-#endif
-{-# INLINE inAssertMode #-}
 
 -- | Remove elements which are in 'b' from 'a'
 diffDoubleMap

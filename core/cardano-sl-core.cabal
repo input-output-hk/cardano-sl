@@ -15,6 +15,10 @@ data-files:
   constants-prod.yaml
   constants-wallet-prod.yaml
 
+flag asserts
+  default:     True
+  manual:      True
+
 flag dev-mode
   default:     True
   manual:      True
@@ -164,6 +168,8 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+  if flag(asserts)
+    cpp-options: -DASSERTS_ON
   if flag(dev-mode)
     cpp-options: -DDEV_MODE
   if flag(embed-config) || !flag(dev-mode)

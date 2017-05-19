@@ -35,7 +35,7 @@ import           Pos.Ssc.Class              (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing         (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
-import           Pos.Txp                    (TxAux)
+import           Pos.Txp                    (TxAux (..))
 import           Pos.Update.Params          (UpdateParams (..))
 import           Pos.Util.JsonLog           ()
 import           Pos.Util.UserSecret        (simpleUserSecret)
@@ -68,7 +68,7 @@ seedInitTx sendActions recipShare bp initTx = do
     delay genesisSlotDuration
     -- If next tx is present in utxo, then everything is all right
     tx <- liftIO $ curBambooTx bp 1
-    isVer <- isTxVerified $ view _1 tx
+    isVer <- isTxVerified $ taTx tx
     if isVer
         then pure ()
         else seedInitTx sendActions recipShare bp initTx
@@ -183,10 +183,10 @@ runSmartGen peerId transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
                             logInfo "Resend the transaction parent again"
                             submitTxRaw sA na parent
 
-                        Right (transaction, witness, distr) -> do
+                        Right ta@(TxAux transaction _ _) -> do
                             let curTxId = hash transaction
                             logInfo $ sformat ("Sending transaction #"%int) idx
-                            submitTxRaw sA na (transaction, witness, distr)
+                            submitTxRaw sA na ta
                             when (startT >= startMeasurementsT) $ liftIO $ do
                                 atomically $ modifyTVar' realTxNum (+1)
                                 -- put timestamp to current txmap

@@ -29,7 +29,7 @@ import           Pos.Crypto           (ProxySecretKey, PublicKey, SecretKey,
 import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
 import           Pos.Ssc.Arbitrary    (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
-import           Pos.Txp.Core         (Tx (..), TxDistribution (..), TxPayload, TxWitness,
+import           Pos.Txp.Core         (TxAux (..), TxDistribution (..), TxPayload, mkTx,
                                        mkTxPayload)
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
@@ -161,12 +161,18 @@ instance (Ssc ssc, Arbitrary (SscProof ssc)) => Arbitrary (T.MainToSign ssc) whe
 -- well, and the lengths of its list of outputs must also be the same as the length of its
 -- corresponding TxDistribution item.
 
-txOutDistGen :: Gen [(Tx, TxWitness, TxDistribution)]
-txOutDistGen = listOf $ do
-    txInW <- arbitrary
-    txIns <- arbitrary
-    (txOuts, txDist) <- second TxDistribution . NE.unzip <$> arbitrary
-    return (UnsafeTx txIns txOuts $ mkAttributes (), txInW, txDist)
+txOutDistGen :: Gen [TxAux]
+txOutDistGen =
+    listOf $ do
+        txInW <- arbitrary
+        txIns <- arbitrary
+        (txOuts, txDist) <- second TxDistribution . NE.unzip <$> arbitrary
+        let tx =
+                either
+                    (error . mappend "failed to create tx in txOutDistGen: ")
+                    identity $
+                mkTx txIns txOuts (mkAttributes ())
+        return $ TxAux tx (txInW) txDist
 
 instance Arbitrary TxPayload where
     arbitrary =

@@ -22,7 +22,7 @@ import           Pos.Communication.Relay    (Relay (..), RelayProxy (..), relayL
                                              relayStubListeners)
 import           Pos.Crypto                 (hash)
 import           Pos.Statistics             (StatProcessTx (..), statlogCountEvent)
-import           Pos.Txp.Core.Types         (TxAux, TxId)
+import           Pos.Txp.Core.Types         (TxAux (..), TxId)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local     (eTxProcessTransaction)
 #else
@@ -49,7 +49,7 @@ txStubListeners = relayStubListeners txProxy
 instance ( WorkMode ssc m
          ) => Relay m TxMsgTag TxId TxMsgContents where
     contentsToTag _ = pure TxMsgTag
-    contentsToKey (TxMsgContents tx _ _) = pure $ hash tx
+    contentsToKey = pure . hash . taTx . getTxMsgContents
 
     verifyInvTag       _ = pure VerSuccess
     verifyReqTag       _ = pure VerSuccess
@@ -59,27 +59,25 @@ instance ( WorkMode ssc m
     handleInv _ txId = not . HM.member txId  . _mpLocalTxs <$> getMemPool
 
     handleReq _ txId =
-        fmap toContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
-      where
-        toContents (tx, tw, td) = TxMsgContents tx tw td
+        fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
 
     handleMempool _ = HM.keys . _mpLocalTxs <$> getMemPool
 
-    handleData (TxMsgContents tx tw td) = handleTxDo (hash tx, (tx, tw, td))
+    handleData (TxMsgContents txAux) = handleTxDo txAux
 
 -- Real tx processing
 -- CHECK: @handleTxDo
 -- #txProcessTransaction
 handleTxDo
     :: WorkMode ssc m
-    => (TxId, TxAux) -> m Bool
-handleTxDo tx = do
+    => TxAux -> m Bool
+handleTxDo txAux = do
+    let txId = hash (taTx txAux)
 #ifdef WITH_EXPLORER
-    res <- runExceptT $ eTxProcessTransaction tx
+    res <- runExceptT $ eTxProcessTransaction (txId, txAux)
 #else
-    res <- runExceptT $ txProcessTransaction tx
+    res <- runExceptT $ txProcessTransaction (txId, txAux)
 #endif
-    let txId = fst tx
     case res of
         Right _ -> do
             statlogCountEvent StatProcessTx 1

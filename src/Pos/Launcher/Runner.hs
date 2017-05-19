@@ -68,8 +68,8 @@ import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers
 import           Pos.Core                     (Timestamp ())
 import           Pos.Crypto                   (createProxySecretKey, encToPublic)
 import           Pos.DB                       (MonadDB, NodeDBs)
-import           Pos.DB.DB                    (initNodeDBs, openNodeDBs)
-import           Pos.DB.DB                    (runDbCoreRedirect)
+import           Pos.DB.DB                    (initNodeDBs, openNodeDBs,
+                                               runGStateCoreRedirect)
 import           Pos.DB.GState                (getTip)
 import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (DelegationWrap)
@@ -96,7 +96,6 @@ import           Pos.Txp                      (mkTxpLocalData)
 import           Pos.Txp.DB                   (genesisFakeTotalStake,
                                                runBalanceIterBootstrap)
 import           Pos.Txp.MemState             (TxpHolderTag)
-import           Pos.Update.DB                (runDbLimitsRedirect)
 import           Pos.Wallet.WalletMode        (runBlockchainInfoRedirect,
                                                runUpdatesRedirect)
 #ifdef WITH_EXPLORER
@@ -169,8 +168,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                    runBalancesRedirect .
                    runTxHistoryRedirect .
                    runPeerStateRedirect .
-                   runDbLimitsRedirect .
-                   runDbCoreRedirect .
+                   runGStateCoreRedirect .
                    runUpdatesRedirect .
                    runBlockchainInfoRedirect .
                    runBListenerStub $
@@ -208,8 +206,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
            runBalancesRedirect .
            runTxHistoryRedirect .
            runPeerStateRedirect .
-           runDbLimitsRedirect .
-           runDbCoreRedirect .
+           runGStateCoreRedirect .
            runUpdatesRedirect .
            runBlockchainInfoRedirect .
            runBListenerStub .

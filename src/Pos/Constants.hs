@@ -25,7 +25,6 @@ module Pos.Constants
        , genesisN
 
        -- * Other constants
-       , maxLocalTxs
        , networkConnectionTimeout
        , blockRetrievalQueueSize
        , propagationQueueSize
@@ -37,6 +36,7 @@ module Pos.Constants
 
        -- * Delegation
        , lightDlgConfirmationTimeout
+       , dlgCacheParam
 
        -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -44,6 +44,9 @@ module Pos.Constants
 
        -- * Update system constants
        , appSystemTag
+
+       -- * Hardware/system constants
+       , memPoolLimitRatio
        ) where
 
 import           Data.Time.Units             (Microsecond)
@@ -100,21 +103,6 @@ genesisN = fromIntegral . ccGenesisN $ compileConfig
 -- Other constants
 ----------------------------------------------------------------------------
 
--- | Maximum amount of transactions we have in storage
--- (i.e. we can accept without putting them in block).
--- There're next kind of storages in our implementation:
---
--- * temporary storage of transactions
---
--- * utxo map that corresponds to it
---
--- * utxo of blocks in history
---
--- This constant is size of first set.
--- Also see 'Pos.CompileConfig.ccMaxLocalTxs'.
-maxLocalTxs :: Integral i => i
-maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
-
 networkConnectionTimeout :: Microsecond
 networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ compileConfig
 
@@ -162,6 +150,11 @@ messageCacheTimeout = fromIntegral . ccMessageCacheTimeout $ compileConfig
 lightDlgConfirmationTimeout :: (Integral a) => a
 lightDlgConfirmationTimeout = fromIntegral . ccLightDlgConfirmationTimeout $ compileConfig
 
+-- | This value parameterizes size of cache used in Delegation.
+-- Not bytes, but number of elements.
+dlgCacheParam :: Integral n => n
+dlgCacheParam = fromIntegral . ccDlgCacheParam $ compileConfig
+
 ----------------------------------------------------------------------------
 -- Malicious activity
 ----------------------------------------------------------------------------
@@ -193,3 +186,12 @@ appSystemTag = $(do
             | otherwise ->
                   fail "Failed to init appSystemTag: \
                        \couldn't find env var \"CSL_SYSTEM_TAG\"")
+
+----------------------------------------------------------------------------
+-- Hardware/system
+----------------------------------------------------------------------------
+
+-- | Size of mem pool will be limited by this value muliplied by block
+-- size limit.
+memPoolLimitRatio :: Integral i => i
+memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ compileConfig

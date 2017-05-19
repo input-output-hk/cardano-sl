@@ -25,8 +25,8 @@ import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
-import           Pos.DB.Limits              (MonadDBLimits)
-import           Pos.Txp.Core               (TxAux, TxOut (..), TxOutAux (..), txaF)
+import           Pos.DB.Class               (MonadGStateCore)
+import           Pos.Txp.Core               (TxAux (..), TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (Address, Coin, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.WorkMode.Class         (MinWorkMode)
@@ -37,17 +37,17 @@ type TxMode m
       , MonadTxHistory m
       , MonadMockable m
       , MonadMask m
-      , MonadDBLimits m
+      , MonadGStateCore m
       )
 
 submitAndSave
     :: TxMode m
     => SendActions m -> [NodeId] -> TxAux -> ExceptT TxError m TxAux
-submitAndSave sendActions na txw = do
-    let txId = hash (txw ^. _1)
-    lift $ submitTxRaw sendActions na txw
-    lift $ saveTx (txId, txw)
-    return txw
+submitAndSave sendActions na txAux@TxAux {..} = do
+    let txId = hash taTx
+    lift $ submitTxRaw sendActions na txAux
+    lift $ saveTx (txId, txAux)
+    return txAux
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 submitMTx
@@ -101,10 +101,10 @@ submitRedemptionTx sendActions rsk na output = do
 
 -- | Send the ready-to-use transaction
 submitTxRaw
-    :: (MinWorkMode m, MonadDBLimits m)
+    :: (MinWorkMode m, MonadGStateCore m)
     => SendActions m -> [NodeId] -> TxAux -> m ()
-submitTxRaw sa na tx = do
-    let txId = hash (tx ^. _1)
-    logInfo $ sformat ("Submitting transaction: "%txaF) tx
+submitTxRaw sa na txAux@TxAux {..} = do
+    let txId = hash taTx
+    logInfo $ sformat ("Submitting transaction: "%txaF) txAux
     logInfo $ sformat ("Transaction id: "%build) txId
-    void $ mapConcurrently (flip (sendTx sa) tx) na
+    void $ mapConcurrently (flip (sendTx sa) txAux) na

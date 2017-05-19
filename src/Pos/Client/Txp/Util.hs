@@ -34,7 +34,7 @@ import           Pos.Crypto          (PublicKey, RedeemSecretKey, SafeSigner,
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Script          (Script)
 import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
-import           Pos.Txp             (Tx (..), TxAux, TxDistribution (..), TxIn (..),
+import           Pos.Txp             (Tx (..), TxAux (..), TxDistribution (..), TxIn (..),
                                       TxInWitness (..), TxOut (..), TxOutAux (..),
                                       TxSigData (..), Utxo, filterUtxoByAddrs)
 import           Pos.Types           (Address, Coin, makePubKeyAddress, makePubKeyAddress,
@@ -56,9 +56,12 @@ makeAbstractTx :: (owner -> TxSigData -> TxInWitness)
                -> TxOwnedInputs owner
                -> TxOutputs
                -> TxAux
-makeAbstractTx mkWit txInputs outputs = ( UnsafeTx (map snd txInputs) txOutputs txAttributes
-                                        , txWitness
-                                        , txDist)
+makeAbstractTx mkWit txInputs outputs =
+    TxAux
+    { taTx = UnsafeTx (map snd txInputs) txOutputs txAttributes
+    , taWitness = txWitness
+    , taDistribution = txDist
+    }
   where
     txOutputs = map toaOut outputs
     txAttributes = mkAttributes ()
@@ -68,10 +71,11 @@ makeAbstractTx mkWit txInputs outputs = ( UnsafeTx (map snd txInputs) txOutputs 
     txWitness = V.fromList $ toList $ txInputs <&>
         \(addr, txIn) -> mkWit addr $ makeTxSigData txIn
     makeTxSigData txIn =
-        TxSigData { txSigInput     = txIn
-                  , txSigOutsHash  = txOutHash
-                  , txSigDistrHash = txDistHash
-                  }
+        TxSigData
+        { txSigInput = txIn
+        , txSigOutsHash = txOutHash
+        , txSigDistrHash = txDistHash
+        }
 
 -- | Like `makePubKeyTx`, but allows usage of different signers
 makeMPubKeyTx :: (owner -> SafeSigner)

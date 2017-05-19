@@ -19,7 +19,7 @@ import           Universum
 import           Pos.Core             (HeaderHash)
 import           Pos.DB.Class         (MonadDB)
 import qualified Pos.DB.GState        as GS
-import           Pos.Txp.Core         (Tx (..), TxAux, TxId)
+import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId)
 import           Pos.Txp.MemState     (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                        getUtxoModifier, modifyTxpLocalData,
                                        setTxpLocalData)
@@ -40,7 +40,8 @@ type TxpLocalWorkMode m =
 txProcessTransaction
     :: TxpLocalWorkMode m
     => (TxId, TxAux) -> m ()
-txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
+txProcessTransaction itw@(txId, txAux) = do
+    let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
     localUM <- getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If

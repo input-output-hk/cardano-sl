@@ -54,7 +54,7 @@ badVoteIsNotAdded uv@Upd.UpdateVote {..} up@Upd.UpdatePayload {..} mp =
         maybe True (/= uv) (HM.lookup uvKey <=< HM.lookup uvProposalId $ mpLocalVotes)
 
 keysWithoutVoteRemainSo :: PublicKey -> Upd.UpdatePayload -> Upd.MemPool -> Property
-keysWithoutVoteRemainSo pk up@Upd.UpdatePayload {..} mp@(Upd.MemPool _ lv) =
+keysWithoutVoteRemainSo pk up@Upd.UpdatePayload {..} mp@(Upd.MemPool _ lv _) =
     keyHasNotVoted ==> keyHasNoNewVotes
   where
     Upd.MemPool {..} = Upd.addToMemPool up mp

@@ -5,7 +5,7 @@ module Pos.Binary.Ssc.GodTossing.Types where
 import           Universum
 
 import           Pos.Binary.Class               (Bi (..), label)
-import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..))
+import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData (VssCertData (..))
 
 instance Bi GtGlobalState where
@@ -26,3 +26,11 @@ instance Bi VssCertData where
         put expiredCerts
     get = label "VssCertData" $
         VssCertData <$> get <*> get <*> get <*> get <*> get <*> get
+
+----------------------------------------------------------------------------
+-- SecretStorage Type
+----------------------------------------------------------------------------
+instance Bi GtSecretStorage where
+    put (GtSecretStorage c o e) = put c >> put o >> put e
+    get = label "GtSecretStorage" $
+        GtSecretStorage <$> get <*> get <*> get

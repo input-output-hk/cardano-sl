@@ -42,7 +42,7 @@ myRootAddresses = encToCAddress <<$>> getSecretKeys
 getAddrIdx :: AccountMode m => CAddress WS -> m Int
 getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
   where notFound =
-          Internal $ sformat ("No wallet set with address "%build%" found") addr
+          RequestError $ sformat ("No wallet set with address "%build%" found") addr
 
 getSKByAddr
     :: AccountMode m
@@ -52,7 +52,7 @@ getSKByAddr addr = do
     msk <- find (\k -> encToCAddress k == addr) <$> getSecretKeys
     maybeThrow notFound msk
   where notFound =
-          Internal $ sformat ("No wallet set with address "%build%" found") addr
+          RequestError $ sformat ("No wallet set with address "%build%" found") addr
 
 getSKByAccAddr
     :: AccountMode m
@@ -64,7 +64,10 @@ getSKByAccAddr passphrase accAddr@CAccountAddress {..} = do
         deriveAccountSK passphrase (walletAddrByAccount accAddr) caaAccountIndex
     let accCAddr = addressToCAddress addr
     if accCAddr /= caaAddress
-        then throwM . Internal $ "Account is contradictory!"
+             -- if you see this error, maybe you generated public key address with
+             -- no hd wallet attribute (if so, address would be ~half shorter than
+             -- others)
+        then throwM . InternalError $ "Account is contradictory!"
         else return accKey
 
 genSaveRootAddress
@@ -79,7 +82,8 @@ genSaveRootAddress passphrase ph = encToCAddress <$> genSaveSK
             $ safeKeysFromPhrase passphrase ph
         addSecretKey sk
         return sk
-    keyFromPhraseFailed msg = throwM . Internal $ "Key creation from phrase failed: " <> msg
+    keyFromPhraseFailed msg =
+        throwM . RequestError $ "Key creation from phrase failed: " <> msg
 
 data GenSeed a
     = DeterminedSeed a
@@ -92,7 +96,7 @@ generateUnique
     => Text -> GenSeed a -> (a -> m b) -> (a -> b -> m Bool) -> m b
 generateUnique desc RandomSeed generator isDuplicate = loop (100 :: Int)
   where
-    loop 0 = throwM . Internal $
+    loop 0 = throwM . RequestError $
              sformat (build%": generation of unique item seems too difficult, \
                       \you are approaching the limit") desc
     loop i = do
@@ -105,8 +109,9 @@ generateUnique desc RandomSeed generator isDuplicate = loop (100 :: Int)
 generateUnique desc (DeterminedSeed seed) generator notFit = do
     value <- generator (fromIntegral seed)
     whenM (notFit seed value) $
-        throwM . Internal $ sformat (build%": this value is already taken")
-                            desc
+        throwM . InternalError $
+        sformat (build%": this value is already taken")
+        desc
     return value
 
 genUniqueWalletAddress
@@ -155,8 +160,8 @@ deriveAccountSK passphrase CWalletAddress{..} accIndex = do
     maybeThrow badPass $
         deriveLvl2KeyPair passphrase key cwaIndex accIndex
   where
-    noKey   = Internal "No secret key with such address found"
-    badPass = Internal "deriveAccountSK: passphrase doesn't match"
+    noKey   = RequestError "No secret key with such address found"
+    badPass = RequestError "Passphrase doesn't match"
 
 deriveAccountAddress
     :: AccountMode m

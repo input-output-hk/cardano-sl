@@ -72,7 +72,7 @@ import           Pos.DB                     (DBError (..), MonadDB, MonadDBCore)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
-import           Pos.Delegation.Logic       (clearProxyMemPool, delegationVerifyBlocks,
+import           Pos.Delegation.Logic       (clearDlgMemPool, delegationVerifyBlocks,
                                              getProxyMempool)
 import           Pos.Exception              (assertionFailed, reportFatalError)
 import qualified Pos.Lrc.DB                 as LrcDB
@@ -84,7 +84,7 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal,
                                              sscVerifyBlocks)
-import           Pos.Txp.Core               (TxAux, TxId, TxPayload, mkTxPayload,
+import           Pos.Txp.Core               (TxAux (..), TxId, TxPayload, mkTxPayload,
                                              topsortTxs)
 import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxsNUndo)
 import           Pos.Txp.Settings           (TxpBlock, TxpGlobalSettings (..))
@@ -825,7 +825,7 @@ createMainBlockFinish slotId pSk prevHeader = do
         usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
         (localPSKs, pskUndo) <- lift getProxyMempool
         -- Create block
-        let convertTx (txId, (tx, _, _)) = WithHash tx txId
+        let convertTx (txId, txAux) = WithHash (taTx txAux) txId
         sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
         sk <- Ether.asks' npSecretKey
         -- for now let's be cautious and not generate blocks that are larger than
@@ -856,7 +856,7 @@ createMainBlockFinish slotId pSk prevHeader = do
         clearTxpMemPool
         sscResetLocal
         clearUSMemPool
-        clearProxyMemPool
+        clearDlgMemPool
     fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
     fallbackCreateBlock er = do
         logError $ sformat ("We've created bad main block: "%stext) er

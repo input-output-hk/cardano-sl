@@ -34,6 +34,8 @@ import           Pos.DHT.Model              (dhtNodeToNodeId)
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
                                              foreverRejoinNetwork)
 import           Pos.DHT.Workers            (dhtWorkers)
+import           Pos.Discovery              (askDHTInstance, getPeers, runDiscoveryConstT,
+                                             runDiscoveryKademliaT)
 import           Pos.Launcher               (NodeParams (..), bracketResources,
                                              bracketResourcesKademlia, runNode,
                                              runNodeProduction, runNodeStatic,
@@ -55,37 +57,19 @@ import           Pos.WorkMode               (ProductionMode, RawRealMode, RawRea
 import           Pos.Web                    (serveWebBase, serveWebGT)
 import           Pos.WorkMode               (WorkMode)
 #ifdef WITH_WALLET
-import           Pos.Wallet.Web             (WalletProductionMode, WalletStatsMode,
-                                             WalletWebHandler, bracketWalletWS,
-                                             bracketWalletWebDB, liftWMode,
-                                             runWProductionMode, runWStatsMode,
-                                             walletServeWebFull, walletServerOuts)
+import           Pos.Wallet.Web             (WalletProductionMode, WalletStaticMode,
+                                             WalletStatsMode, WalletWebHandler,
+                                             bracketWalletWS, bracketWalletWebDB,
+                                             liftWMode, runWProductionMode,
+                                             runWStaticMode, runWStatsMode,
+                                             walletServeWebFull, walletServeWebFullS,
+                                             walletServerOuts)
 #endif
 #endif
 
 import           NodeOptions                (Args (..), getNodeOptions)
 import           Params                     (getBaseParams, getKademliaParams,
                                              getNodeParams, getPeersFromArgs, gtSscParams)
-
-getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
-getNodeSystemStart cliOrConfigSystemStart
-  | cliOrConfigSystemStart >= 1400000000 =
-    -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
-    -- It was chosen arbitrarily as some date far enough in the past.
-    -- See CSL-983 for more information.
-    pure cliOrConfigSystemStart
-  | otherwise = do
-    let frameLength = timestampToSeconds cliOrConfigSystemStart
-    currentPOSIXTime <- liftIO $ round <$> getPOSIXTime
-    -- The whole timeline is split into frames, with the first frame starting
-    -- at UNIX epoch start. We're looking for a time `t` which would be in the
-    -- middle of the same frame as the current UNIX time.
-    let currentFrame = currentPOSIXTime `div` frameLength
-        t = currentFrame * frameLength + (frameLength `div` 2)
-    pure $ Timestamp $ sec $ fromIntegral t
-  where
-    timestampToSeconds :: Timestamp -> Integer
-    timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
 
 action
     :: Either KademliaDHTInstance (Set NodeId)
@@ -117,13 +101,17 @@ action peerHolder args@Args {..} transport = do
                     allPlugins kademliaInst = mconcat [wDhtWorkers kademliaInst, convPlugins currentPluginsGT]
 
                 case (peerHolder, enableStats, CLI.sscAlgo commonArgs) of
-                    (Right peers, _, GodTossingAlgo) -> error "Not implemented yet"
-                    (Left kademliaInst, True, GodTossingAlgo) -> do
+                    (Right peers, _, GodTossingAlgo) ->
+                        runWStaticMode db conn
+                            (CLI.peerId commonArgs) (hoistTransport (lift . liftWMode) transport) peers
+                            currentParams gtParams
+                            (runNode @SscGodTossing $ (convPlugins currentPluginsGT) <> walletStatic args)
+                    (Left kademliaInst, True, GodTossingAlgo) ->
                         runWStatsMode db conn
                             (CLI.peerId commonArgs) (hoistTransport (lift . liftWMode) transport) kademliaInst
                             currentParams gtParams
                             (runNode @SscGodTossing (allPlugins kademliaInst <> walletStats args))
-                    (Left kademliaInst, False, GodTossingAlgo) -> do
+                    (Left kademliaInst, False, GodTossingAlgo) ->
                         runWProductionMode db conn
                             (CLI.peerId commonArgs) (hoistTransport (lift . liftWMode) transport) kademliaInst
                             currentParams gtParams
@@ -145,7 +133,7 @@ action peerHolder args@Args {..} transport = do
                             (CLI.peerId commonArgs)
                             (hoistTransport (lift . lift) transport)
                             peers
-                            mempty
+                            utwStatic
                             currentParams
                 either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
             (Left kademliaInst, True) -> do
@@ -194,26 +182,39 @@ pluginsGT Args {..}
     | otherwise = []
 #endif
 
-utwProd :: SscConstraint ssc =>([WorkerSpec (ProductionMode ssc)], OutSpecs)
+utwProd :: SscConstraint ssc => ([WorkerSpec (ProductionMode ssc)], OutSpecs)
 utwProd = first (map liftPlugin) updateTriggerWorker
   where
-    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa ->
-        lift . p vI $ hoistSendActions getNoStatsT lift sa
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
+        ki <- askDHTInstance
+        lift . lift . p vI $ hoistSendActions (runDiscoveryKademliaT ki . getNoStatsT) (lift . lift) sa
 
 utwStats :: SscConstraint ssc => ([WorkerSpec (StatsMode ssc)], OutSpecs)
 utwStats = first (map liftPlugin) updateTriggerWorker
   where
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
         s <- getStatsMap
-        lift . p vI $ hoistSendActions (runStatsT' s) lift sa
+        ki <- askDHTInstance
+        lift . lift . p vI $ hoistSendActions (runDiscoveryKademliaT ki . runStatsT' s) (lift . lift) sa
+
+utwStatic :: SscConstraint ssc => ([WorkerSpec (StaticMode ssc)], OutSpecs)
+utwStatic = first (map liftPlugin) updateTriggerWorker
+  where
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
+        peers <- getPeers
+        lift . lift . p vI $ hoistSendActions (runDiscoveryConstT peers . getNoStatsT) (lift . lift) sa
 
 updateTriggerWorker
     :: SscConstraint ssc
-    => ([WorkerSpec (RawRealModeK ssc)], OutSpecs)
+    => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
     void $ takeMVar =<< Ether.asks' ucUpdateSemaphore
     triggerShutdown
+
+----------------------------------------------------------------------------
+-- Wallet stuff
+----------------------------------------------------------------------------
 
 walletProd
     :: SscConstraint WalletSscType
@@ -233,6 +234,20 @@ walletStats args = first (map liftPlugin) (walletServe args)
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
         sm <- getStatsMap
         lift . p vI $ hoistSendActions (runStatsT' sm) lift sa
+
+walletStatic
+    :: SscConstraint WalletSscType
+    => Args
+    -> ([WorkerSpec WalletStaticMode], OutSpecs)
+walletStatic Args{..} = first (map liftPlugin) walletServeStatic
+  where
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa ->
+        lift . p vI $ hoistSendActions getNoStatsT lift sa
+    walletServeStatic = first pure $ worker walletServerOuts $ \sendActions ->
+        walletServeWebFullS
+            sendActions
+            walletDebug
+            walletPort
 
 walletServe
     :: SscConstraint WalletSscType
@@ -256,6 +271,27 @@ printFlags = do
     putText "[Attention] Wallet-mode is on"
 #endif
     inAssertMode $ putText "Asserts are ON"
+
+
+getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
+getNodeSystemStart cliOrConfigSystemStart
+  | cliOrConfigSystemStart >= 1400000000 =
+    -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
+    -- It was chosen arbitrarily as some date far enough in the past.
+    -- See CSL-983 for more information.
+    pure cliOrConfigSystemStart
+  | otherwise = do
+    let frameLength = timestampToSeconds cliOrConfigSystemStart
+    currentPOSIXTime <- liftIO $ round <$> getPOSIXTime
+    -- The whole timeline is split into frames, with the first frame starting
+    -- at UNIX epoch start. We're looking for a time `t` which would be in the
+    -- middle of the same frame as the current UNIX time.
+    let currentFrame = currentPOSIXTime `div` frameLength
+        t = currentFrame * frameLength + (frameLength `div` 2)
+    pure $ Timestamp $ sec $ fromIntegral t
+  where
+    timestampToSeconds :: Timestamp -> Integer
+    timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
 
 main :: IO ()
 main = do

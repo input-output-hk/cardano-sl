@@ -58,16 +58,16 @@ instance ( WorkMode ssc m
     verifyMempoolTag   _ = pure VerSuccess
     verifyDataContents _ = pure VerSuccess
 
-    handleInv _ txId = not . HM.member txId  . _mpLocalTxs <$> getMemPool
+    handleInv _ _ txId = not . HM.member txId  . _mpLocalTxs <$> getMemPool
 
-    handleReq _ txId =
+    handleReq _ _ txId =
         fmap toContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
       where
         toContents (tx, tw, td) = TxMsgContents tx tw td
 
-    handleMempool _ = HM.keys . _mpLocalTxs <$> getMemPool
+    handleMempool _ _ = HM.keys . _mpLocalTxs <$> getMemPool
 
-    handleData (TxMsgContents tx tw td) = handleTxDo (hash tx, (tx, tw, td))
+    handleData _ (TxMsgContents tx tw td) = handleTxDo (hash tx, (tx, tw, td))
 
 -- Real tx processing
 -- CHECK: @handleTxDo

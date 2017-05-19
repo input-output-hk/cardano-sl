@@ -116,7 +116,7 @@ getTxMempoolInvs sendActions node = do
                       Nothing -> return []
                       Just (Right _) -> throw UnexpectedData
                       Just (Left inv@InvMsg{..}) -> do
-                          useful <- handleInvL txProxy inv
+                          useful <- handleInvL txProxy node inv
                           case useful of
                               Nothing  -> getInvs
                               Just key -> (key:) <$> getInvs
@@ -147,7 +147,7 @@ requestTxs sendActions node txIds = do
                     dt' <- recv
                     case withLimitedLength <$> dt' of
                         Nothing -> error "didn't get an answer to Req"
-                        Just x  -> expectData (handleDataL txProxy) x
+                        Just x  -> expectData (handleDataL txProxy node) x
             for_ txIds $ \id ->
                 getTx id `catch` handler id
     logInfo $ sformat

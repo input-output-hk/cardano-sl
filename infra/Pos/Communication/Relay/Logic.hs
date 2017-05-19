@@ -51,9 +51,10 @@ import           Pos.Communication.Limits.Types     (LimitedLength, LimitedLengt
 import           Pos.Communication.MessagePart      (MessagePart)
 import           Pos.Communication.PeerState        (WithPeerState)
 import           Pos.Communication.Protocol         (ConversationActions (..),
-                                                     ListenerSpec, NodeId, OutSpecs,
-                                                     SendActions (..), WorkerSpec,
-                                                     listenerConv, mergeLs, worker)
+                                                     ListenerSpec, NodeId,
+                                                     OutSpecs, SendActions (..),
+                                                     WorkerSpec, listenerConv,
+                                                     mergeLs, worker)
 import           Pos.Communication.Relay.Class      (MonadRelayMem, Relay (..),
                                                      askRelayMem)
 import           Pos.Communication.Relay.Types      (RelayContext (..), RelayProxy (..),
@@ -90,12 +91,13 @@ handleInvL
        , MinRelayWorkMode m
        )
     => RelayProxy key tag contents
+    -> NodeId
     -> InvMsg key tag
     -> m (Maybe key)
-handleInvL proxy msg@(InvMsg{..}) =
+handleInvL proxy __nodeId msg@(InvMsg{..}) =
     processMessage Nothing "Inventory" imTag verifyInvTag $ do
         let _ = invCatchType proxy msg
-        invRes <- handleInv imTag imKey
+        invRes <- handleInv __nodeId imTag imKey
         if invRes then
             Just imKey <$ logDebug (sformat
               ("We'll request data "%build%" for key "%build%", because it's useful")
@@ -118,7 +120,7 @@ handleReqL
     -> m (ListenerSpec m, OutSpecs)
 handleReqL proxy = reifyMsgLimit (Proxy @(ReqMsg key tag)) $
   \(_ :: Proxy s) -> return $ listenerConv $
-    \_ __peerId ConversationActions{..} ->
+    \_ __nodeId ConversationActions{..} ->
     let handlingLoop = do
             mbMsg <- fmap (withLimitedLength @s) <$> recv
             whenJust mbMsg $ \msg@ReqMsg{..} -> do
@@ -130,7 +132,7 @@ handleReqL proxy = reifyMsgLimit (Proxy @(ReqMsg key tag)) $
                         logHaveData = logDebug $ sformat
                             ("We have data "%build%" for key "%build)
                             rmTag rmKey
-                    dtMB <- handleReq rmTag rmKey
+                    dtMB <- handleReq __nodeId rmTag rmKey
                     case dtMB of
                         Nothing -> logNoData
                         Just dt -> logHaveData >> send (constructDataMsg dt)
@@ -153,11 +155,11 @@ handleMempoolL
     -> m (ListenerSpec m, OutSpecs)
 handleMempoolL proxy = reifyMsgLimit (Proxy @(MempoolMsg tag)) $
   \(_ :: Proxy s) -> return $ listenerConv $
-    \_ __peerId ConversationActions{..} ->
+    \_ __nodeId ConversationActions{..} ->
     whenJustM recv $ \(withLimitedLength @s -> msg@MempoolMsg{..}) -> do
       let _ = mempoolCatchType proxy msg
       processMessage () "Mempool" mmTag verifyMempoolTag $ do
-          res <- handleMempool mmTag
+          res <- handleMempool __nodeId mmTag
           case nonEmpty res of
               Nothing -> logDebug $ sformat
                   ("We don't have mempool data "%build) mmTag
@@ -182,13 +184,14 @@ handleDataL
        , RelayWorkMode m
        )
     => RelayProxy key tag contents
+    -> NodeId
     -> DataMsg contents
     -> m ()
-handleDataL proxy msg@(DataMsg {..}) =
+handleDataL proxy __nodeId msg@(DataMsg {..}) =
     processMessage () "Data" dmContents verifyDataContents $ do
         let _ = dataCatchType proxy msg
         dmKey <- contentsToKey dmContents
-        ifM (handleData dmContents)
+        ifM (handleData __nodeId dmContents)
             (handleDataLDo dmKey) $
                 logDebug $ sformat
                     ("Ignoring data "%build%" for key "%build) dmContents dmKey
@@ -246,7 +249,7 @@ relayListeners proxy =
         [handleReqL proxy, handleMempoolL proxy, invDataListener]
   where
     invDataListener = reifyMsgLimit (Proxy @(InvOrData tag key contents)) $
-      \(_ :: Proxy s) -> return $ listenerConv $ \_ __peerId
+      \(_ :: Proxy s) -> return $ listenerConv $ \_ __nodeId
         (ConversationActions{..}::(ConversationActions
                                   (ReqMsg key tag)
                                   (SmartLimit s (InvOrData tag key contents))
@@ -255,12 +258,12 @@ relayListeners proxy =
             inv' <- recv
             whenJust (withLimitedLength <$> inv') $ expectInv $
                 \inv@InvMsg{..} -> do
-                    useful <- handleInvL proxy inv
+                    useful <- handleInvL proxy __nodeId inv
                     whenJust useful $ \ne -> do
                         send $ ReqMsg imTag ne
                         dt' <- recv
                         whenJust (withLimitedLength <$> dt') $ expectData $
-                            \dt -> handleDataL proxy dt
+                            \dt -> handleDataL proxy __nodeId dt
 
 relayStubListeners
     :: ( WithLogger m
@@ -355,7 +358,7 @@ relayWorkers allOutSpecs =
         -> ConversationActions
              (InvOrData tag1 key1 contents1) (ReqMsg key1 tag1) m
         -> m ()
-    convHandler inv __peerId ConversationActions{..} = send inv
+    convHandler inv __nodeId ConversationActions{..} = send inv
 
     handleWE e = do
         logError $ sformat ("relayWorker: error caught "%shown) e

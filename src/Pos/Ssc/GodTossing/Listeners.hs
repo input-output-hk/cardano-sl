@@ -62,11 +62,11 @@ instance WorkMode SscGodTossing m =>
     verifyMempoolTag   _ = pure VerSuccess
     verifyDataContents _ = pure VerSuccess
 
-    handleInv = sscIsDataUseful
-    handleReq tag addr =
+    handleInv _ = sscIsDataUseful
+    handleReq _ tag addr =
         toContents tag addr . view ldModifier <$> sscRunLocalQuery ask
-    handleMempool _ = pure []
-    handleData dat = do
+    handleMempool _ _ = pure []
+    handleData _ dat = do
         addr <- contentsToKey dat
         -- [CSL-685] TODO: Add here malicious emulation for network addresses
         -- when TW will support getting peer address properly

@@ -6,15 +6,16 @@ module Pos.Communication.Relay.Class
        , askRelayMem
        ) where
 
-import qualified Control.Monad.Ether.Implicit   as Ether
-import           Node.Message                   (Message)
-import           Serokell.Util.Verify           (VerificationRes)
+import qualified Control.Monad.Ether.Implicit     as Ether
+import           Node.Message                     (Message)
+import           Serokell.Util.Verify             (VerificationRes)
 import           Universum
 
-import           Pos.Communication.Limits.Types (MessageLimited)
-import           Pos.Communication.Relay.Types  (RelayContext)
-import           Pos.Communication.Types.Relay  (DataMsg, InvOrData, MempoolMsg,
-                                                 ReqMsg (..))
+import           Pos.Communication.Limits.Types   (MessageLimited)
+import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Communication.Relay.Types    (RelayContext)
+import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, MempoolMsg,
+                                                   ReqMsg (..))
 
 -- | Typeclass for general Inv/Req/Dat framework. It describes monads,
 -- that store data described by tag, where "key" stands for node
@@ -45,16 +46,16 @@ class ( Buildable tag
     verifyDataContents :: contents -> m VerificationRes
 
     -- | Handle inv msg and return whether it's useful or not
-    handleInv :: tag -> key -> m Bool
+    handleInv :: NodeId -> tag -> key -> m Bool
 
     -- | Handle req msg and return (Just data) in case requested data can be provided
-    handleReq :: tag -> key -> m (Maybe contents)
+    handleReq :: NodeId -> tag -> key -> m (Maybe contents)
 
     -- | Handle mempool msg and return all keys we want to send
-    handleMempool :: tag -> m [key]
+    handleMempool :: NodeId -> tag -> m [key]
 
     -- | Handle data msg and return True if message is to be propagated
-    handleData :: contents -> m Bool
+    handleData :: NodeId -> contents -> m Bool
 
 type MonadRelayMem = Ether.MonadReader RelayContext
 

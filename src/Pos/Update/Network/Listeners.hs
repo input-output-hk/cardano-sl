@@ -62,10 +62,10 @@ instance UpdateMode m =>
     verifyMempoolTag   _ = pure VerSuccess
     verifyDataContents _ = pure VerSuccess
 
-    handleInv _ = isProposalNeeded
-    handleReq _ = getLocalProposalNVotes
-    handleMempool _ = pure []
-    handleData (proposal, votes) = do
+    handleInv _ _ = isProposalNeeded
+    handleReq _ _ = getLocalProposalNVotes
+    handleMempool _ _ = pure []
+    handleData _ (proposal, votes) = do
         res <- processProposal proposal
         logProp res
         let processed = isRight res
@@ -95,10 +95,10 @@ instance UpdateMode m =>
     verifyMempoolTag _ = pure VerSuccess
     verifyDataContents UpdateVote{..} = pure VerSuccess
 
-    handleInv _ (id, pk, dec) = isVoteNeeded id pk dec
-    handleReq _ (id, pk, dec) = getLocalVote id pk dec
-    handleMempool _ = pure []
-    handleData uv = do
+    handleInv _ _ (id, pk, dec) = isVoteNeeded id pk dec
+    handleReq _ _ (id, pk, dec) = getLocalVote id pk dec
+    handleMempool _ _ = pure []
+    handleData _ uv = do
         res <- processVote uv
         logProcess res
         pure $ isRight res

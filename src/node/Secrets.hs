@@ -5,17 +5,16 @@ module Secrets
        , userSecretWithGenesisKey
        ) where
 
-import           Data.List             ((!!))
+import           Data.List           ((!!))
 import           Universum
 
-import           Pos.Constants         (isDevelopment)
-import           Pos.Crypto            (SecretKey, keyGen, vssKeyGen)
-import           Pos.Genesis           (genesisDevSecretKeys)
-import           Pos.Ssc.GodTossing    (genesisDevVssKeyPairs)
-import           Pos.Util.BackupPhrase (keysFromPhrase)
-import           Pos.Util.UserSecret   (UserSecret, usPrimKey, usVss, writeUserSecret)
+import           Pos.Constants       (isDevelopment)
+import           Pos.Crypto          (SecretKey, keyGen, vssKeyGen)
+import           Pos.Genesis         (genesisDevSecretKeys)
+import           Pos.Ssc.GodTossing  (genesisDevVssKeyPairs)
+import           Pos.Util.UserSecret (UserSecret, usPrimKey, usVss, writeUserSecret)
 
-import           NodeOptions           (Args (..))
+import           NodeOptions         (Args (..))
 
 userSecretWithGenesisKey
     :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
@@ -57,16 +56,16 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
         writeUserSecret us
         return us
 
-processUserSecret
-    :: (MonadIO m, MonadFail m)
-    => Args -> UserSecret -> m (SecretKey, UserSecret)
-processUserSecret args@Args {..} userSecret = case backupPhrase of
-    Nothing -> updateUserSecretVSS args userSecret >>= userSecretWithGenesisKey args
-    Just ph -> do
-        (sk, vss) <- either keyFromPhraseFailed pure $ keysFromPhrase ph
-        let us = userSecret & usPrimKey .~ Just sk & usVss .~ Just vss
-        writeUserSecret us
-        return (sk, us)
-  where
-    keyFromPhraseFailed msg = fail $ "Key creation from phrase failed: " <> show msg
+-- processUserSecret
+--     :: (MonadIO m, MonadFail m)
+--     => Args -> UserSecret -> m (SecretKey, UserSecret)
+-- processUserSecret args@Args {..} userSecret = case backupPhrase of
+--     Nothing -> updateUserSecretVSS args userSecret >>= userSecretWithGenesisKey args
+--     Just ph -> do
+--         (sk, vss) <- either keyFromPhraseFailed pure $ keysFromPhrase ph
+--         let us = userSecret & usPrimKey .~ Just sk & usVss .~ Just vss
+--         writeUserSecret us
+--         return (sk, us)
+--   where
+--     keyFromPhraseFailed msg = fail $ "Key creation from phrase failed: " <> show msg
 

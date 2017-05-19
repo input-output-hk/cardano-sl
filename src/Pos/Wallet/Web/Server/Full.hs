@@ -185,21 +185,23 @@ type WebHandler = WalletWebHandler (RawRealModeK WalletSscType)
 
 type WebHandlerS = WalletWebHandler (RawRealModeS WalletSscType)
 
+-- TODO: eliminate copy-paste
+
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do
-    ws         <- getWalletWebState
-    tlw        <- askTxpMem
-    ssc        <- askSscMem
-    delWrap    <- askDelegationState
-    psCtx      <- getAllStates
-    nc         <- Ether.ask @NodeContextTag
-    modernDB   <- getNodeDBs
-    conn       <- getWalletWebSockets
-    slotVar    <- askSlotting
-    ntpSlotVar <- askFullNtpSlotting
-    kinst      <- askDHTInstance
-    pure $ NT (\h -> convertHandler nc modernDB tlw ssc ws delWrap
-                              psCtx conn slotVar ntpSlotVar (Left (kinst, h)))
+    ws1         <- getWalletWebState
+    tlw1        <- askTxpMem
+    ssc1        <- askSscMem
+    delWrap1    <- askDelegationState
+    psCtx1      <- getAllStates
+    nc1         <- Ether.ask @NodeContextTag
+    modernDB1   <- getNodeDBs
+    conn1       <- getWalletWebSockets
+    slotVar1    <- askSlotting
+    ntpSlotVar1 <- askFullNtpSlotting
+    kinst1      <- askDHTInstance
+    pure $ NT (\h -> convertHandler nc1 modernDB1 tlw1 ssc1 ws1 delWrap1
+                              psCtx1 conn1 slotVar1 ntpSlotVar1 (Left (kinst1, h)))
 
 natS :: WebHandlerS (WebHandlerS :~> Handler)
 natS = do

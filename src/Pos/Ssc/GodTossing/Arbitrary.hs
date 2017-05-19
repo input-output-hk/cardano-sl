@@ -125,7 +125,8 @@ instance Arbitrary Opening where
 instance Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
 
--- | Generates vss certificate that has epoch in [e+vssMin,e+vssMax].
+-- | For given epoch @e@ enerates vss certificate having epoch in
+-- range @[e+vssMin,e+vssMax)@.
 vssCertificateEpochGen :: EpochIndex -> Gen VssCertificate
 vssCertificateEpochGen x = do
     e <- choose (vssMinTTL, vssMaxTTL-1)

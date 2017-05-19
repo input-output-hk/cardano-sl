@@ -35,7 +35,7 @@ stripHashMap lim m'
     | lim < biSize (HM.empty :: HashMap k v) = Nothing
     | otherwise = Just $ takeFromMapDo m' HM.empty
   where
-    -- given two maps m and n where size of m is less then
+    -- given two maps m and n where size of m is less than
     -- limit it tries to add as much as possible to it from n
     populate m _ | biSize m > lim = error "getLocalPayload@takeFromMap@populate"
     populate m n | HM.null n = m

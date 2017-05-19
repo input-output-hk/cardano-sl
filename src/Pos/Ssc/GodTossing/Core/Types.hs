@@ -112,12 +112,12 @@ type OpeningsMap = HashMap StakeholderId Opening
 -- | Each node generates several 'SharedSeed's, breaks every
 -- 'SharedSeed' into 'Share's, and sends those encrypted shares to
 -- other nodes (for i-th commitment at i-th element of NonEmpty
--- list). That's exactly what forms 'InnerSharesList'.
+-- list). That's exactly what forms 'InnerSharesMap'.
 type InnerSharesMap = HashMap StakeholderId (NonEmpty (AsBinary Share))
 
 -- | In a 'SharesMap', for each node we collect shares which said node
 -- has received and decrypted. Specifically, if node identified by
--- 'Address' X has received NonEmpty list of shares from node
+-- 'StakeholderId' X has received NonEmpty list of shares from node
 -- identified by key Y, this NonEmpty list will be at @sharesMap ! X !
 -- Y@.
 type SharesMap = HashMap StakeholderId InnerSharesMap

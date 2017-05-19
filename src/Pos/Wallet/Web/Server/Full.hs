@@ -60,8 +60,7 @@ import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
                                                 runSlotsDataRedirect)
 import           Pos.Ssc.Class                 (SscConstraint, SscParams)
 import           Pos.Ssc.Extra                 (SscMemTag, SscState)
-import           Pos.Statistics                (NoStatsT, StatsMap, StatsT, getNoStatsT,
-                                                runStatsT')
+import           Pos.Statistics                (NoStatsT, StatsT, getNoStatsT, runStatsT')
 import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
                                                 askTxpMem)
 import           Pos.Update.DB                 (runDbLimitsRedirect)
@@ -101,7 +100,9 @@ runWProductionMode
     -> SscParams WalletSscType
     -> (ActionSpec WalletProductionMode a, OutSpecs)
     -> Production a
-runWProductionMode db conn = runRawKBasedMode (unwrapWPMode db conn) liftWMode
+runWProductionMode db conn = runRawKBasedMode unwrapWPMode liftWMode
+  where
+    unwrapWPMode = runWalletWebDB db . runWalletWS conn . getNoStatsT
 
 -- | WalletProductionMode runner.
 runWStatsMode
@@ -118,7 +119,7 @@ runWStatsMode
 runWStatsMode db conn peer transport kinst param sscp runAction = do
     statMap <- liftIO SM.newIO
     runRawKBasedMode
-        (unwrapWSMode db conn statMap)
+        (unwrapWSMode statMap)
         liftWMode
         peer
         transport
@@ -126,6 +127,8 @@ runWStatsMode db conn peer transport kinst param sscp runAction = do
         param
         sscp
         runAction
+  where
+    unwrapWSMode statMap = runWalletWebDB db . runWalletWS conn . runStatsT' statMap
 
 -- | WalletProductionMode runner.
 runWStaticMode
@@ -148,21 +151,6 @@ liftWMode
        )
     => m a -> (t1 $ t2 $ t3 m) a
 liftWMode = lift . lift . lift
-
-unwrapWPMode
-    :: WalletState
-    -> ConnectionsVar
-    -> WalletProductionMode a
-    -> RawRealModeK WalletSscType a
-unwrapWPMode db conn = runWalletWebDB db . runWalletWS conn . getNoStatsT
-
-unwrapWSMode
-    :: WalletState
-    -> ConnectionsVar
-    -> StatsMap
-    -> WalletStatsMode a
-    -> RawRealModeK WalletSscType a
-unwrapWSMode db conn statMap = runWalletWebDB db . runWalletWS conn . runStatsT' statMap
 
 walletServeWebFull
     :: SscConstraint WalletSscType

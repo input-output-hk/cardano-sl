@@ -273,6 +273,33 @@ runServer_ peerId transport packedLS outSpecs =
     acquire = const pass
     release = const pass
 
+runRawBasedMode
+    :: forall ssc m a.
+       (SscConstraint ssc, WorkMode ssc m)
+    => (forall b. m b -> RawRealMode ssc b)
+    -> (forall b. RawRealMode ssc b -> m b)
+    -> PeerId
+    -> Transport m
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec m a, OutSpecs)
+    -> Production a
+runRawBasedMode unwrap wrap peerId transport np@NodeParams{..} sscnp (ActionSpec action, outSpecs) =
+    runRawRealMode
+        peerId
+        (hoistTransport unwrap transport)
+        np
+        sscnp
+        listeners
+        outSpecs $
+    ActionSpec
+        $ \vI sendActions -> unwrap . action vI $ hoistSendActions wrap unwrap sendActions
+  where
+    listeners =
+        unwrap $
+        first (hoistListenerSpec unwrap wrap <$>) <$>
+        allListeners
+
 -- | Launch some mode, providing way to convert it to 'RawRealMode' and back.
 runRawKBasedMode
     :: forall ssc m a.
@@ -286,23 +313,8 @@ runRawKBasedMode
     -> SscParams ssc
     -> (ActionSpec m a, OutSpecs)
     -> Production a
-runRawKBasedMode unwrap wrap peerId transport kinst np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode
-        peerId
-        (hoistTransport hoistDown transport)
-        np
-        sscnp
-        listeners
-        outSpecs $
-    ActionSpec
-        $ \vI sendActions -> hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
-  where
-    hoistUp = wrap . lift
-    hoistDown = runDiscoveryKademliaT kinst . unwrap
-    listeners =
-        hoistDown $
-        first (hoistListenerSpec hoistDown hoistUp <$>) <$>
-        allListeners
+runRawKBasedMode unwrap wrap peerId transport kinst =
+    runRawBasedMode (runDiscoveryKademliaT kinst . unwrap) (wrap . lift) peerId transport
 
 runRawSBasedMode
     :: forall ssc m a.
@@ -316,23 +328,8 @@ runRawSBasedMode
     -> SscParams ssc
     -> (ActionSpec m a, OutSpecs)
     -> Production a
-runRawSBasedMode unwrap wrap peerId transport peers np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode
-        peerId
-        (hoistTransport hoistDown transport)
-        np
-        sscnp
-        listeners
-        outSpecs $
-    ActionSpec
-        $ \vI sendActions -> hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
-  where
-    hoistUp = wrap . lift
-    hoistDown =  runDiscoveryConstT peers . unwrap
-    listeners =
-        hoistDown $
-        first (hoistListenerSpec hoistDown hoistUp <$>) <$>
-        allListeners
+runRawSBasedMode unwrap wrap peerId transport peers =
+    runRawBasedMode (runDiscoveryConstT peers . unwrap) (wrap . lift) peerId transport
 
 -- | ProductionMode runner.
 runProductionMode

@@ -7,6 +7,7 @@
 
 module Main where
 
+import           Control.Monad.Trans        (MonadTrans)
 import           Data.Maybe                 (fromJust)
 import qualified Data.Set                   as S (fromList)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
@@ -84,44 +85,44 @@ action peerHolder args@Args {..} transport = do
     currentParams <- getNodeParams args systemStart
     putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
     putText $ "If stats is on: " <> show enableStats
+    putText $ "Static peers is on: " <> show staticPeers
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-        gtParams = gtSscParams args vssSK
+    let gtParams = gtSscParams args vssSK
+    let wDhtWorkers :: WorkMode ssc m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
+        wDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") . dhtWorkers
+
 #ifdef WITH_WEB
     when enableWallet $ do
         let currentPluginsGT :: (MonadNodeContext SscGodTossing m, WorkMode SscGodTossing m) => [m ()]
             currentPluginsGT = pluginsGT args
         bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
             bracketWalletWS $ \conn -> do
-                let wDhtWorkers :: WorkMode SscGodTossing m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
-                    wDhtWorkers kademliaInst = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers kademliaInst)
                 let allPlugins :: (MonadNodeContext SscGodTossing m, WorkMode SscGodTossing m)
                                => KademliaDHTInstance
                                -> ([WorkerSpec m], OutSpecs)
-                    allPlugins kademliaInst = mconcat [wDhtWorkers kademliaInst, convPlugins currentPluginsGT]
+                    allPlugins ki = mconcat [wDhtWorkers ki, convPlugins currentPluginsGT]
 
                 case (peerHolder, enableStats, CLI.sscAlgo commonArgs) of
                     (Right peers, _, GodTossingAlgo) ->
                         runWStaticMode db conn
-                            (CLI.peerId commonArgs) (hoistTransport (lift . liftWMode) transport) peers
+                            (CLI.peerId commonArgs) transportW peers
                             currentParams gtParams
                             (runNode @SscGodTossing $ (convPlugins currentPluginsGT) <> walletStatic args)
-                    (Left kademliaInst, True, GodTossingAlgo) ->
+                    (Left kad, True, GodTossingAlgo) ->
                         runWStatsMode db conn
-                            (CLI.peerId commonArgs) (hoistTransport (lift . liftWMode) transport) kademliaInst
+                            (CLI.peerId commonArgs) transportW kad
                             currentParams gtParams
-                            (runNode @SscGodTossing (allPlugins kademliaInst <> walletStats args))
-                    (Left kademliaInst, False, GodTossingAlgo) ->
+                            (runNode @SscGodTossing (allPlugins kad <> walletStats args))
+                    (Left kad, False, GodTossingAlgo) ->
                         runWProductionMode db conn
-                            (CLI.peerId commonArgs) (hoistTransport (lift . liftWMode) transport) kademliaInst
+                            (CLI.peerId commonArgs) transportW kad
                             currentParams gtParams
-                            (runNode @SscGodTossing (allPlugins kademliaInst <> walletProd args))
+                            (runNode @SscGodTossing (allPlugins kad <> walletProd args))
                     (_, _, NistBeaconAlgo) ->
                         logError "Wallet does not support NIST beacon!"
 #endif
     if not enableWallet then do
-        let wDhtWorkers :: WorkMode ssc1 m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
-            wDhtWorkers kademliaInst = first (map $ wrapActionSpec $ "worker" <> "dht") (dhtWorkers kademliaInst)
         let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
             sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
 
@@ -131,35 +132,56 @@ action peerHolder args@Args {..} transport = do
                     runner =
                         runNodeStatic @ssc
                             (CLI.peerId commonArgs)
-                            (hoistTransport (lift . lift) transport)
+                            transportR
                             peers
                             utwStatic
                             currentParams
                 either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
-            (Left kademliaInst, True) -> do
+            (Left kad, True) -> do
                 let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
                     runner =
                         runNodeStats @ssc
                             (CLI.peerId commonArgs)
-                            (hoistTransport (lift . lift) transport)
-                            kademliaInst
-                            (mconcat [wDhtWorkers kademliaInst, utwStats])
+                            transportR
+                            kad
+                            (mconcat [wDhtWorkers kad, utwStats])
                             currentParams
                 either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
-            (Left kademliaInst, False) -> do
+            (Left kad, False) -> do
                 let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
                     runner =
                         runNodeProduction @ssc
                             (CLI.peerId commonArgs)
-                            (hoistTransport (lift . lift) transport)
-                            kademliaInst
-                            (mconcat [wDhtWorkers kademliaInst, utwProd])
+                            transportR
+                            kad
+                            (mconcat [wDhtWorkers kad, utwProd])
                             currentParams
                 either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
     else
         logError $ "You try to run wallet, but code wasn't compiled with wallet flag"
   where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
+
+    transportR ::
+        forall ssc t0 t1 .
+        ( Each '[MonadTrans] [t0, t1]
+        , Each '[Monad] [ t1 (RawRealMode ssc)
+                        , t0 (t1 (RawRealMode ssc))
+                        ]
+        )
+        => Transport (t0 $ t1 (RawRealMode ssc))
+    transportR = hoistTransport (lift . lift) transport
+
+    transportW ::
+        forall ssc t0 t1 t2 t3 .
+        ( Each '[MonadTrans] [t0, t1, t2, t3]
+        , Each '[Monad] [ t3 (RawRealMode ssc)
+                        , t2 (t3 (RawRealMode ssc))
+                        , t1 (t2 (t3 (RawRealMode ssc)))
+                        , t0 (t1 (t2 (t3 (RawRealMode ssc))))]
+        )
+        => Transport (t0 $ t1 $ t2 $ t3 (RawRealMode ssc))
+    transportW = hoistTransport (lift . liftWMode) transport
 
 #ifdef WITH_WEB
 plugins ::

@@ -181,9 +181,7 @@ recreateMainBlock
     -> m (MainBlock ssc)
 recreateMainBlock _gbHeader _gbBody _gbExtra = do
     let gb = GenericBlock{..}
-    case verifyBBlock gb of
-        Right _  -> pass
-        Left err -> throwError err
+    whenLeft (verifyBBlock gb) throwError
     pure gb
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.

@@ -31,21 +31,20 @@
 
       &__input {
         border: none;
-        color: color(var(--color0) a(0.3));
         font-size: 13px;
         font-family: var(--fontFamily0-Light);
         padding: 0 5px;
+        color: var(--color0);
 
         background-color: transparent;
 
-        &.focused {
-          color: var(--color0);
+        &::placeholder {
+            color: color(var(--color0) a(0.3));
         }
 
-
         &--address-tx {
-          width: 100%;
-          box-item: stretch;
+          /*width: 100%;*/
+          box-item: flex-1;
         }
 
         &--epoch {

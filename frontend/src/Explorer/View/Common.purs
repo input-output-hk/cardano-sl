@@ -368,11 +368,13 @@ langView state =
       $ map (langItemView state) langItems
 
 langItemView :: State -> Language -> P.Html Action
-langItemView state lang =
+langItemView state lang' =
+  let selected = (show lang') == (show $ state ^. lang) in
   P.option
-    [ P.value $ show lang
+    [ P.value $ show lang'
+    , P.className $ if selected then "selected" else ""
     ]
-    [ P.text $ show lang ]
+    [ P.text $ show lang' ]
 
 -- -----------------
 -- helper

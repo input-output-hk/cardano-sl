@@ -330,7 +330,6 @@
   height: var(--height-footer-bottom);
   font-family: var(--fontFamily0-Light);
   font-size: 10px;
-  color: color(var(--color0) a(0.5));
   border: none;
   width: auto;
   appearance: none;
@@ -343,5 +342,12 @@
 
   &:hover{
     cursor: pointer;
+  }
+
+  option {
+      color: var(--color8);
+      &.selected {
+        color: color(var(--color0) a(0.5));
+      }
   }
 }

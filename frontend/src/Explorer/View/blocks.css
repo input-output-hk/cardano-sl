@@ -70,6 +70,7 @@
   }
   &__size {
     @extend .hide;
+    white-space: nowrap;
   }
 }
 

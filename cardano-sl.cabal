@@ -475,6 +475,7 @@ library
                       , optparse-applicative
                       , optparse-simple
                       , parsec
+                      , parsec3-numbers
                       , plutus-prototype
                       , pvss
                       , quickcheck-instances

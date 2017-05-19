@@ -90,6 +90,7 @@ extra-deps:
 - servant-swagger-1.1.2.1
 - servant-docs-0.10
 - servant-multipart-0.10
+- parsec3-numbers-0.1.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

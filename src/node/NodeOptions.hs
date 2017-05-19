@@ -26,6 +26,8 @@ import           Pos.DHT.Real.CLI           (dhtExplicitInitialOption, dhtKeyOpt
 import           Pos.Security.CLI           (AttackTarget, AttackType)
 import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp          (NetworkAddress)
+import           Pos.Launcher               (Backpressure, noBackpressure,
+                                             parseBackpressure)
 
 data Args = Args
     { dbPath                    :: !FilePath
@@ -70,6 +72,7 @@ data Args = Args
     , updateWithPackage         :: !Bool
     , monitorPort               :: !(Maybe Int)
     , noNTP                     :: !Bool
+    , backpressure              :: !Backpressure
     }
   deriving Show
 
@@ -181,6 +184,12 @@ argsParser = do
     noNTP <- switch $
         long "no-ntp" <>
         help "Whether to use real NTP servers to synchronise time or rely on local time"
+
+    backpressure <-
+        option (fromParsec parseBackpressure) $
+        long    "backpressure" <>
+        value noBackpressure <>
+        metavar "UINT UINT UINT UINT"
 
     pure Args{..}
 

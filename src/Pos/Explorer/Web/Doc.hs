@@ -210,6 +210,8 @@ instance ToSample CTxSummary where
             , ctsTxTimeIssued    = posixTime
             , ctsBlockTimeIssued = Nothing
             , ctsBlockHeight     = Just 11
+            , ctsBlockEpoch      = Nothing
+            , ctsBlockSlot       = Nothing
             , ctsRelayedBy       = Nothing
             , ctsTotalInput      = mkCCoin $ mkCoin 33333
             , ctsTotalOutput     = mkCCoin $ mkCoin 33333

@@ -6,46 +6,41 @@ module Pos.Communication.Types.Relay
        , MempoolMsg (..)
        , DataMsg (..)
        , InvOrData
+       , InvOrDataTK
        ) where
 
 import           Control.Lens        (Wrapped (..), iso)
+import           Data.Tagged         (Tagged)
 import qualified Data.Text.Buildable as B
 import           Formatting          (bprint, build, (%))
 import           Universum
 
 -- | Inventory message. Can be used to announce the fact that you have
 -- some data.
-data InvMsg key tag = InvMsg
-    { imTag :: !tag
-    , imKey :: !key
+data InvMsg key = InvMsg
+    { imKey :: !key
     }
-
-deriving instance (Show key, Show tag) => Show (InvMsg key tag)
-deriving instance (Eq key, Eq tag) => Eq (InvMsg key tag)
+    deriving (Show, Eq)
 
 -- | Request message. Can be used to request data (ideally data which
 -- was previously announced by inventory message).
-data ReqMsg key tag = ReqMsg
-    { rmTag :: !tag
-    , rmKey :: !key
+data ReqMsg key = ReqMsg
+    { rmKey :: !key
     }
-
-deriving instance (Show key, Show tag) => Show (ReqMsg key tag)
-deriving instance (Eq key, Eq tag) => Eq (ReqMsg key tag)
+    deriving (Show, Eq)
 
 data MempoolMsg tag = MempoolMsg
-    { mmTag  :: !tag
-    }
-
-deriving instance Show tag => Show (MempoolMsg tag)
-deriving instance Eq tag => Eq (MempoolMsg tag)
+    deriving (Show, Eq)
 
 -- | Data message. Can be used to send actual data.
 data DataMsg contents = DataMsg
     { dmContents :: !contents
     } deriving (Show, Eq)
 
-type InvOrData tag key contents = Either (InvMsg key tag) (DataMsg contents)
+type InvOrData key contents = Either (InvMsg key) (DataMsg contents)
+
+-- | InvOrData with key tagged by contents
+type InvOrDataTK key contents = InvOrData (Tagged contents key) contents
 
 instance (Buildable contents) =>
          Buildable (DataMsg contents) where

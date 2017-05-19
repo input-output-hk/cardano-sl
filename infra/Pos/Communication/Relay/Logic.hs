@@ -11,58 +11,54 @@ module Pos.Communication.Relay.Logic
        , MempoolMsg (..)
        , DataMsg (..)
        , relayListeners
-       , relayStubListeners
        , relayWorkers
-       , RelayProxy (..)
        , InvOrData
-
-       , handleInvL
-       , handleReqL
-       , handleMempoolL
-       , handleDataL
+       , handleDataDo
+       , handleInvDo
 
        , invReqDataFlow
+       , invReqDataFlowTK
        , invReqDataFlowNeighbors
+       , invReqDataFlowNeighborsTK
        ) where
 
 import           Control.Concurrent.STM             (isFullTBQueue, readTBQueue,
                                                      writeTBQueue)
+import           Data.Proxy                         (asProxyTypeOf)
+import           Data.Tagged                        (Tagged, tagWith)
+import           Data.Typeable                      (typeRep)
 import           Formatting                         (build, sformat, shown, stext, (%))
 import           Mockable                           (Mockable, MonadMockable, Throw,
                                                      handleAll, throw, throw)
 import           Node.Message                       (Message)
 import           Paths_cardano_sl_infra             (version)
-import           Serokell.Util.Text                 (listJson)
-import           Serokell.Util.Verify               (VerificationRes (..))
 import           System.Wlog                        (WithLogger, logDebug, logError,
                                                      logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Class                   (Bi (..))
 import           Pos.Binary.Infra.Communication     ()
+import           Pos.Communication.Limits.Instances ()
 import           Pos.Communication.Limits.Types     (LimitedLength, LimitedLengthExt (..),
-                                                     SmartLimit, recvLimited,
-                                                     reifyMsgLimit, withLimitedLength)
-import           Pos.Communication.MessagePart      (MessagePart)
+                                                     MessageLimited, SmartLimit,
+                                                     recvLimited, reifyMsgLimit,
+                                                     withLimitedLength)
 import           Pos.Communication.PeerState        (WithPeerState)
 import           Pos.Communication.Protocol         (ConversationActions (..),
                                                      ListenerSpec, NodeId, OutSpecs,
                                                      SendActions (..), WorkerSpec,
                                                      listenerConv, mergeLs, worker)
-import           Pos.Communication.Relay.Class      (MonadRelayMem, Relay (..),
-                                                     askRelayMem)
-import           Pos.Communication.Relay.Types      (RelayContext (..), RelayProxy (..),
-                                                     SomeInvMsg (..))
+import           Pos.Communication.Relay.Class      (InvReqDataParams (..),
+                                                     MempoolParams (..), MonadRelayMem,
+                                                     Relay (..), askRelayMem)
+import           Pos.Communication.Relay.Types      (RelayContext (..), SomeInvMsg (..))
 import           Pos.Communication.Relay.Util       (expectData, expectInv)
 import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), InvOrData,
                                                      MempoolMsg (..), ReqMsg (..))
-import           Pos.Communication.Util             (stubListenerConv)
 import           Pos.DB.Limits                      (MonadDBLimits)
 import           Pos.Discovery.Broadcast            (converseToNeighbors)
 import           Pos.Discovery.Class                (MonadDiscovery)
 import           Pos.Reporting                      (MonadReportingMem, reportingFatal)
-
-import           Pos.Communication.Limits.Instances ()
 
 type MinRelayWorkMode m =
     ( WithLogger m
@@ -76,124 +72,91 @@ type RelayWorkMode m =
     , MonadRelayMem m
     )
 
--- Returns useful keys.
-handleInvL
-    :: forall m key tag contents.
-       ( Bi (InvMsg key tag)
-       , Bi (ReqMsg key tag)
-       , Relay m tag key contents
-       , MinRelayWorkMode m
-       )
-    => RelayProxy key tag contents
-    -> InvMsg key tag
-    -> m (Maybe key)
-handleInvL proxy msg@(InvMsg{..}) =
-    processMessage Nothing "Inventory" imTag verifyInvTag $ do
-        let _ = invCatchType proxy msg
-        invRes <- handleInv imTag imKey
-        if invRes then
-            Just imKey <$ logDebug (sformat
-              ("We'll request data "%build%" for key "%build%", because it's useful")
-              imTag imKey)
-        else
-            Nothing <$ logDebug (sformat
-              ("Ignoring inv "%build%" for key "%build%", because it's useless")
-              imTag imKey)
-
 handleReqL
-    :: forall key tag contents m .
-       ( Bi (ReqMsg key tag)
-       , Bi (InvOrData tag key contents)
-       , Message (InvOrData tag key contents)
-       , Relay m tag key contents
+    :: forall key contents m .
+       ( Bi (ReqMsg key)
+       , Bi (InvOrData key contents)
+       , Message (InvOrData key contents)
+       , Message (ReqMsg key)
+       , Buildable key
        , MinRelayWorkMode m
        , MonadDBLimits m
        )
-    => RelayProxy key tag contents
+    => (key -> m (Maybe contents))
     -> m (ListenerSpec m, OutSpecs)
-handleReqL proxy = reifyMsgLimit (Proxy @(ReqMsg key tag)) $
+handleReqL handleReq = reifyMsgLimit (Proxy @(ReqMsg key)) $
   \(_ :: Proxy s) -> return $ listenerConv $
     \_ __peerId ConversationActions{..} ->
     let handlingLoop = do
             mbMsg <- fmap (withLimitedLength @s) <$> recv
-            whenJust mbMsg $ \msg@ReqMsg{..} -> do
-                let _ = reqCatchType proxy msg
-                processMessage () "Request" rmTag verifyReqTag $ do
-                    let logNoData = logDebug $ sformat
-                            ("We don't have data "%build%" for key "%build)
-                            rmTag rmKey
-                        logHaveData = logDebug $ sformat
-                            ("We have data "%build%" for key "%build)
-                            rmTag rmKey
-                    dtMB <- handleReq rmTag rmKey
-                    case dtMB of
-                        Nothing -> logNoData
-                        Just dt -> logHaveData >> send (constructDataMsg dt)
+            whenJust mbMsg $ \ReqMsg{..} -> do
+                dtMB <- handleReq rmKey
+                case dtMB of
+                    Nothing -> logNoData rmKey
+                    Just dt -> logHaveData rmKey >> send (constructDataMsg dt)
                 handlingLoop
     in handlingLoop
   where
-    constructDataMsg :: contents -> InvOrData tag key contents
+    constructDataMsg :: contents -> InvOrData key contents
     constructDataMsg = Right . DataMsg
+    logNoData rmKey = logDebug $ sformat
+        ("We don't have data for key "%build)
+        rmKey
+    logHaveData rmKey= logDebug $ sformat
+        ("We have data for key "%build)
+        rmKey
 
 handleMempoolL
-    :: forall key tag contents m .
-       ( Bi (MempoolMsg tag)
-       , Bi (InvOrData tag key contents)
-       , Message (InvOrData tag key contents)
-       , Relay m tag key contents
-       , MinRelayWorkMode m
+    :: forall m.
+       ( MinRelayWorkMode m
        , MonadDBLimits m
        )
-    => RelayProxy key tag contents
-    -> m (ListenerSpec m, OutSpecs)
-handleMempoolL proxy = reifyMsgLimit (Proxy @(MempoolMsg tag)) $
+    => MempoolParams m
+    -> [m (ListenerSpec m, OutSpecs)]
+handleMempoolL NoMempool = []
+handleMempoolL (KeyMempool tagP handleMempool) = pure $ reifyMsgLimit mmP $
   \(_ :: Proxy s) -> return $ listenerConv $
     \_ __peerId ConversationActions{..} ->
-    whenJustM recv $ \(withLimitedLength @s -> msg@MempoolMsg{..}) -> do
-      let _ = mempoolCatchType proxy msg
-      processMessage () "Mempool" mmTag verifyMempoolTag $ do
-          res <- handleMempool mmTag
-          case nonEmpty res of
-              Nothing -> logDebug $ sformat
-                  ("We don't have mempool data "%build) mmTag
-              Just xs -> do
-                  logDebug $ sformat ("We have mempool data "%build) mmTag
-                  mapM_ (send . constructInvMsg mmTag) xs
+    whenJustM recv $ \(withLimitedLength @s -> msg@MempoolMsg) -> do
+      let _ = msg `asProxyTypeOf` mmP
+      res <- handleMempool
+      case nonEmpty res of
+          Nothing ->
+              logDebug $ sformat
+                  ("We don't have mempool data "%shown) (typeRep tagP)
+          Just xs -> do
+              logDebug $ sformat ("We have mempool data "%shown) (typeRep tagP)
+              mapM_ (send . InvMsg) xs
   where
-    constructInvMsg :: tag -> key -> InvOrData tag key contents
-    constructInvMsg tag = Left . InvMsg tag
+    mmP = (const Proxy :: Proxy tag -> Proxy (MempoolMsg tag)) tagP
 
 -- Returns True if we should propagate.
-handleDataL
-    :: forall tag key contents m .
-       ( Bi (InvMsg key tag)
-       , Bi (ReqMsg key tag)
-       , Bi key
-       , Bi tag
-       , Bi (DataMsg contents)
-       , MessagePart tag
-       , MessagePart contents
-       , Relay m tag key contents
-       , RelayWorkMode m
+handleDataDo
+    :: forall key contents m .
+       ( RelayWorkMode m
+       , Buildable key
+       , Buildable contents
+       , Message (InvOrData key contents)
+       , Message (ReqMsg key)
+       , Bi (InvOrData key contents)
+       , Bi (ReqMsg key)
        )
-    => RelayProxy key tag contents
-    -> DataMsg contents
+    => (contents -> m key)
+    -> (contents -> m Bool)
+    -> contents
     -> m ()
-handleDataL proxy msg@(DataMsg {..}) =
-    processMessage () "Data" dmContents verifyDataContents $ do
-        let _ = dataCatchType proxy msg
-        dmKey <- contentsToKey dmContents
-        ifM (handleData dmContents)
-            (handleDataLDo dmKey) $
-                logDebug $ sformat
-                    ("Ignoring data "%build%" for key "%build) dmContents dmKey
+handleDataDo contentsToKey handleData dmContents = do
+    dmKey <- contentsToKey dmContents
+    ifM (handleData dmContents)
+        (propagate dmKey) $
+            logDebug $ sformat
+                ("Ignoring data "%build%" for key "%build) dmContents dmKey
   where
-    handleDataLDo dmKey = do
+    propagate dmKey = do
         shouldPropagate <- _rlyIsPropagation <$> askRelayMem
         if shouldPropagate then do
-            tag <- contentsToTag dmContents
-            let inv :: InvOrData tag key contents
-                inv = Left $ InvMsg tag dmKey
+            let inv :: InvOrData key contents
+                inv = Left $ InvMsg dmKey
             addToRelayQueue inv
             logInfo $ sformat
                 ("Adopted data "%build%" "%
@@ -205,113 +168,79 @@ handleDataL proxy msg@(DataMsg {..}) =
                   "key "%build%", no propagation")
                 dmContents dmKey
 
-processMessage
-  :: (Buildable param, WithLogger m)
-  => a -> Text -> param -> (param -> m VerificationRes) -> m a -> m a
-processMessage defaultRes name param verifier action = do
-    verRes <- verifier param
-    case verRes of
-      VerSuccess -> action
-      VerFailure reasons ->
-          defaultRes <$
-              logWarning (sformat
-                ("Wrong "%stext%": invalid "%build%": "%listJson)
-                name param reasons)
+handleInvDo
+    :: forall key m .
+       ( RelayWorkMode m
+       , Buildable key
+       )
+    => (key -> m Bool)
+    -> key
+    -> m (Maybe key)
+handleInvDo handleInv imKey =
+    ifM (handleInv imKey)
+        (Just imKey <$ logUseful)
+        (Nothing <$ logUseless)
+  where
+    logUseless = logDebug $ sformat
+        ("Ignoring inv for key "%build%", because it's useless")
+        imKey
+    logUseful = logDebug $ sformat
+        ("We'll request data for key "%build%", because it's useful")
+        imKey
 
 relayListeners
-  :: forall m key tag contents.
-     ( Bi key
-     , Bi tag
-     , Bi (InvMsg key tag)
-     , Bi (DataMsg contents)
-     , Bi (ReqMsg key tag)
-     , Bi (MempoolMsg tag)
-     , Bi (InvOrData tag key contents)
-     , MessagePart contents
-     , MessagePart tag
-     , Relay m tag key contents
-     , Mockable Throw m
+  :: forall m.
+     ( Mockable Throw m
      , WithLogger m
      , RelayWorkMode m
      , MonadDBLimits m
      )
-  => RelayProxy key tag contents -> m ([ListenerSpec m], OutSpecs)
-relayListeners proxy =
-    mergeLs <$> sequence
-        [handleReqL proxy, handleMempoolL proxy, invDataListener]
-  where
-    invDataListener = reifyMsgLimit (Proxy @(InvOrData tag key contents)) $
-      \(_ :: Proxy s) -> return $ listenerConv $ \_ __peerId
-        (ConversationActions{..}::(ConversationActions
-                                  (ReqMsg key tag)
-                                  (SmartLimit s (InvOrData tag key contents))
-                                  m)
-        ) -> do
-            inv' <- recv
-            whenJust (withLimitedLength <$> inv') $ expectInv $
-                \inv@InvMsg{..} -> do
-                    useful <- handleInvL proxy inv
-                    whenJust useful $ \ne -> do
-                        send $ ReqMsg imTag ne
-                        dt' <- recv
-                        whenJust (withLimitedLength <$> dt') $ expectData $
-                            \dt -> handleDataL proxy dt
+  => Relay m -> m ([ListenerSpec m], OutSpecs)
+relayListeners (InvReqData mP irdP@InvReqDataParams{..}) =
+    (fmap mergeLs . sequence) $
+        [handleReqL handleReq, invDataListener irdP] ++ handleMempoolL mP
 
-relayStubListeners
-    :: ( WithLogger m
-       , Bi (InvMsg key tag)
-       , Bi (ReqMsg key tag)
-       , Bi (MempoolMsg tag)
-       , Bi (DataMsg contents)
-       , Message (InvOrData tag key contents)
-       , Message (ReqMsg key tag)
-       , Message (MempoolMsg tag)
-       )
-    => RelayProxy key tag contents -> ([ListenerSpec m], OutSpecs)
-relayStubListeners p = mergeLs
-    [ stubListenerConv $ invDataMsgProxy p
-    , stubListenerConv $ reqMsgProxy p
-    , stubListenerConv $ mempoolMsgProxy p
-    ]
-
--- For stub listeners (e.g. reqMsgProxy), the first parameter in the Proxy is
--- “what the listener listens to” and the second is “what the listener sends
--- back”.
-
-invCatchType :: RelayProxy key tag contents -> InvMsg key tag -> ()
-invCatchType _ _ = ()
-
-reqCatchType :: RelayProxy key tag contents -> ReqMsg key tag -> ()
-reqCatchType _ _ = ()
-reqMsgProxy :: RelayProxy key tag contents
-            -> Proxy (ReqMsg key tag, InvOrData tag key contents)
-reqMsgProxy _ = Proxy
-
-mempoolCatchType :: RelayProxy key tag contents -> MempoolMsg tag -> ()
-mempoolCatchType _ _ = ()
-mempoolMsgProxy :: RelayProxy key tag contents
-                -> Proxy (MempoolMsg tag, InvOrData tag key contents)
-mempoolMsgProxy _ = Proxy
-
-dataCatchType :: RelayProxy key tag contents -> DataMsg contents -> ()
-dataCatchType _ _ = ()
-
-invDataMsgProxy :: RelayProxy key tag contents
-                -> Proxy (InvOrData tag key contents, ReqMsg key tag)
-invDataMsgProxy _ = Proxy
-
+invDataListener
+  :: forall m key contents.
+     ( RelayWorkMode m
+     , MonadDBLimits m
+     , Message (ReqMsg key)
+     , Message (InvOrData key contents)
+     , Bi (ReqMsg key)
+     , Bi (InvOrData key contents)
+     , Buildable contents
+     , Buildable key
+     , MessageLimited (DataMsg contents)
+     )
+  => InvReqDataParams key contents m
+  -> m (ListenerSpec m, OutSpecs)
+invDataListener InvReqDataParams{..} = reifyMsgLimit (Proxy @(InvOrData key contents)) $
+  \(_ :: Proxy s) -> return $ listenerConv $ \_ __peerId
+    (ConversationActions{..}::(ConversationActions
+                              (ReqMsg key)
+                              (SmartLimit s (InvOrData key contents))
+                              m)
+    ) -> do
+        inv' <- recv
+        whenJust (withLimitedLength <$> inv') $ expectInv $
+            \InvMsg{..} -> do
+                useful <- handleInvDo handleInv imKey
+                whenJust useful $ \ne -> do
+                    send $ ReqMsg ne
+                    dt' <- recv
+                    whenJust (withLimitedLength <$> dt') $ expectData $
+                        \DataMsg{..} -> handleDataDo contentsToKey handleData dmContents
 
 addToRelayQueue
-    :: forall tag key contents m.
-       ( Bi (InvOrData tag key contents)
-       , Bi (ReqMsg key tag)
-       , Message (InvOrData tag key contents)
-       , Message (ReqMsg key tag)
-       , Buildable tag
+    :: forall key contents m.
+       ( Bi (InvOrData key contents)
+       , Bi (ReqMsg key)
+       , Message (InvOrData key contents)
+       , Message (ReqMsg key)
        , Buildable key
        , RelayWorkMode m
        )
-    => InvOrData tag key contents -> m ()
+    => InvOrData key contents -> m ()
 addToRelayQueue inv = do
     queue <- _rlyPropagationQueue <$> askRelayMem
     isFull <- atomically $ isFullTBQueue queue
@@ -338,17 +267,16 @@ relayWorkers allOutSpecs =
         forever $ atomically (readTBQueue queue) >>= \case
             SomeInvMsg i@(Left (InvMsg{..})) -> do
                 logDebug $ sformat
-                    ("Propagation data with key: "%build%
-                     " and tag: "%build) imKey imTag
+                    ("Propagation data with key: "%build) imKey
                 converseToNeighbors sendActions (convHandler i)
             SomeInvMsg (Right _) ->
                 logWarning $ "DataMsg is contains in inv propagation queue"
 
     convHandler
-        :: InvOrData tag1 key1 contents1
+        :: InvOrData key1 contents1
         -> NodeId
         -> ConversationActions
-             (InvOrData tag1 key1 contents1) (ReqMsg key1 tag1) m
+             (InvOrData key1 contents1) (ReqMsg key1) m
         -> m ()
     convHandler inv __peerId ConversationActions{..} = send inv
 
@@ -360,73 +288,102 @@ relayWorkers allOutSpecs =
 -- Helpers for Communication.Methods
 ----------------------------------------------------------------------------
 
-invReqDataFlowNeighbors
-    :: forall tag id contents m.
-       ( Message (InvOrData tag id contents)
-       , Message (ReqMsg id tag)
-       , Buildable id
-
+invReqDataFlowNeighborsTK
+    :: forall key contents m.
+       ( Message (InvOrData (Tagged contents key) contents)
+       , Message (ReqMsg (Tagged contents key))
+       , Buildable key
+       , Typeable contents
        , MinRelayWorkMode m
        , MonadDBLimits m
        , MonadDiscovery m
-
-       , Bi tag
-       , Bi id
-       , Bi (InvOrData tag id contents)
-       , Bi (ReqMsg id tag)
+       , Bi (InvOrData (Tagged contents key) contents)
+       , Bi (ReqMsg (Tagged contents key))
        )
-    => Text -> SendActions m -> tag -> id -> contents -> m ()
-invReqDataFlowNeighbors what sendActions tag id dt = handleAll handleE $
-    reifyMsgLimit (Proxy @(ReqMsg id tag)) $ \lim -> do
-        converseToNeighbors sendActions (invReqDataFlowDo what tag id dt lim)
+    => Text -> SendActions m -> key -> contents -> m ()
+invReqDataFlowNeighborsTK what sendActions key dt =
+    invReqDataFlowNeighbors what sendActions key' dt
+  where
+    contProxy = (const Proxy :: contents -> Proxy contents) dt
+    key' = tagWith contProxy key
+
+invReqDataFlowTK
+    :: forall key contents m.
+       ( Message (InvOrData (Tagged contents key) contents)
+       , Message (ReqMsg (Tagged contents key))
+       , Buildable key
+       , Typeable contents
+       , MinRelayWorkMode m
+       , MonadDBLimits m
+       , Bi (InvOrData (Tagged contents key) contents)
+       , Bi (ReqMsg (Tagged contents key))
+       )
+    => Text -> SendActions m -> NodeId -> key -> contents -> m ()
+invReqDataFlowTK what sendActions addr key dt =
+    invReqDataFlow what sendActions addr key' dt
+  where
+    contProxy = (const Proxy :: contents -> Proxy contents) dt
+    key' = tagWith contProxy key
+
+invReqDataFlowNeighbors
+    :: forall key contents m.
+       ( Message (InvOrData key contents)
+       , Message (ReqMsg key)
+       , Buildable key
+       , MinRelayWorkMode m
+       , MonadDBLimits m
+       , MonadDiscovery m
+       , Bi (InvOrData key contents)
+       , Bi (ReqMsg key)
+       )
+    => Text -> SendActions m -> key -> contents -> m ()
+invReqDataFlowNeighbors what sendActions key dt = handleAll handleE $
+    reifyMsgLimit (Proxy @(ReqMsg key)) $ \lim -> do
+        converseToNeighbors sendActions (invReqDataFlowDo what key dt lim)
   where
     handleE e = logWarning $
-        sformat ("Error sending "%stext%", id = "%build%" to neighbors: "%shown) what id e
+        sformat ("Error sending "%stext%", key = "%build%" to neighbors: "%shown) what key e
 
 invReqDataFlow
-    :: forall tag id contents m.
-       ( Message (InvOrData tag id contents)
-       , Message (ReqMsg id tag)
-       , Buildable id
+    :: forall key contents m.
+       ( Message (InvOrData key contents)
+       , Message (ReqMsg key)
+       , Bi (InvOrData key contents)
+       , Bi (ReqMsg key)
+       , Buildable key
        , MinRelayWorkMode m
        , MonadDBLimits m
-       , Bi tag
-       , Bi id
-       , Bi (InvOrData tag id contents)
-       , Bi (ReqMsg id tag)
        )
-    => Text -> SendActions m -> NodeId -> tag -> id -> contents -> m ()
-invReqDataFlow what sendActions addr tag id dt = handleAll handleE $
-    reifyMsgLimit (Proxy @(ReqMsg id tag)) $ \lim ->
-        withConnectionTo sendActions addr (const (invReqDataFlowDo what tag id dt lim addr))
+    => Text -> SendActions m -> NodeId -> key -> contents -> m ()
+invReqDataFlow what sendActions addr key dt = handleAll handleE $
+    reifyMsgLimit (Proxy @(ReqMsg key)) $ \lim ->
+        withConnectionTo sendActions addr (const (invReqDataFlowDo what key dt lim addr))
   where
     handleE e = logWarning $
-        sformat ("Error sending "%stext%", id = "%build%" to "%shown%": "%shown) what id addr e
+        sformat ("Error sending "%stext%", key = "%build%" to "%shown%": "%shown) what key addr e
 
 invReqDataFlowDo
-    :: ( Message (InvOrData tag id contents)
-       , Message (ReqMsg id tag)
-       , Buildable id
+    :: ( Message (InvOrData key contents)
+       , Message (ReqMsg key)
+       , Bi (InvOrData key contents)
+       , Bi (ReqMsg key)
+       , Buildable key
        , MinRelayWorkMode m
        , MonadDBLimits m
-       , Bi tag
-       , Bi id
-       , Bi (InvOrData tag id contents)
-       , Bi (ReqMsg id tag)
        )
     => Text
-    -> tag
-    -> id
+    -> key
     -> contents
     -> Proxy s
     -> NodeId
-    -> ConversationActions (InvOrData tag id contents) (LimitedLength s (ReqMsg id tag)) m
+    -> ConversationActions (InvOrData key contents) (LimitedLength s (ReqMsg key)) m
     -> m ()
-invReqDataFlowDo what tag id dt _ nodeId conv = do
-    send conv $ Left $ InvMsg tag id
+invReqDataFlowDo what key dt _ nodeId conv = do
+    send conv $ Left $ InvMsg key
     recvLimited conv >>= maybe handleD replyWithData
   where
-    replyWithData (ReqMsg _ _) = send conv $ Right $ DataMsg dt
+    -- TODO need to check we're asked for same key we have
+    replyWithData (ReqMsg _) = send conv $ Right $ DataMsg dt
     handleD = logDebug $
         sformat ("InvReqDataFlow ("%stext%"): "%shown %" closed conversation on \
-                 \Inv id = "%build) what nodeId id
+                 \Inv key = "%build) what nodeId key

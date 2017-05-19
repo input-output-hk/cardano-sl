@@ -18,7 +18,6 @@ module Pos.Communication.Limits
     , mcVssCertificateLenLimit
     ) where
 
-import           Control.Lens                       (each)
 import           Crypto.Hash                        (Blake2b_224, Blake2b_256)
 import qualified Crypto.PVSS                        as PVSS
 import           GHC.Exts                           (IsList (..))
@@ -36,7 +35,8 @@ import           Pos.Crypto                         (AbstractHash, EncShare, Pub
 import qualified Pos.DB.Limits                      as DB
 import           Pos.Ssc.GodTossing.Arbitrary       ()
 import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..))
-import           Pos.Ssc.GodTossing.Types.Message   (GtMsgContents (..))
+import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpening (..),
+                                                     MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Network.Types              (TxMsgContents)
 import           Pos.Types                          (coinPortionToDouble)
 import           Pos.Update.Core.Types              (UpdateProposal (..), UpdateVote (..))
@@ -57,18 +57,18 @@ commitmentsNumLimit = round $ 1 / coinPortionToDouble Const.genesisMpcThd
 updateVoteNumLimit :: Int
 updateVoteNumLimit = round $ 1 / coinPortionToDouble Const.genesisUpdateVoteThd
 
-mcCommitmentMsgLenLimit :: Limit GtMsgContents
+mcCommitmentMsgLenLimit :: Limit MCCommitment
 mcCommitmentMsgLenLimit = MCCommitment <$> msgLenLimit
 
-mcOpeningLenLimit :: Limit GtMsgContents
-mcOpeningLenLimit = 62
+mcOpeningLenLimit :: Limit MCOpening
+mcOpeningLenLimit = 61
 
-mcSharesMsgLenLimit :: Limit GtMsgContents
+mcSharesMsgLenLimit :: Limit MCShares
 mcSharesMsgLenLimit =
     MCShares <$> msgLenLimit <+> multiMap commitmentsNumLimit
 
-mcVssCertificateLenLimit :: Limit GtMsgContents
-mcVssCertificateLenLimit = 169
+mcVssCertificateLenLimit :: Limit MCVssCertificate
+mcVssCertificateLenLimit = 168
 
 ----------------------------------------------------------------------------
 -- Instances
@@ -111,20 +111,25 @@ instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
         return $
             DataMsg <$> ((,) <$> proposalLimit <+> vector updateVoteNumLimit)
 
-instance MessageLimited (DataMsg GtMsgContents) where
-    type LimitType (DataMsg GtMsgContents) =
-        ( Limit (DataMsg GtMsgContents)
-        , Limit (DataMsg GtMsgContents)
-        , Limit (DataMsg GtMsgContents)
-        , Limit (DataMsg GtMsgContents)
-        )
-    getMsgLenLimit _ =
-        return $ each %~ fmap DataMsg $
-            ( mcCommitmentMsgLenLimit
-            , mcOpeningLenLimit
-            , mcSharesMsgLenLimit
-            , mcVssCertificateLenLimit
-            )
+instance MessageLimited (DataMsg MCCommitment) where
+    type LimitType (DataMsg MCCommitment) =
+        Limit (DataMsg MCCommitment)
+    getMsgLenLimit _ = return $ DataMsg <$> mcCommitmentMsgLenLimit
+
+instance MessageLimited (DataMsg MCOpening) where
+    type LimitType (DataMsg MCOpening) =
+        Limit (DataMsg MCOpening)
+    getMsgLenLimit _ = return $ DataMsg <$> mcOpeningLenLimit
+
+instance MessageLimited (DataMsg MCShares) where
+    type LimitType (DataMsg MCShares) =
+        Limit (DataMsg MCShares)
+    getMsgLenLimit _ = return $ DataMsg <$> mcSharesMsgLenLimit
+
+instance MessageLimited (DataMsg MCVssCertificate) where
+    type LimitType (DataMsg MCVssCertificate) =
+        Limit (DataMsg MCVssCertificate)
+    getMsgLenLimit _ = return $ DataMsg <$> mcVssCertificateLenLimit
 
 instance MessageLimitedPure Commitment where
     msgLenLimit =
@@ -202,21 +207,32 @@ instance T.Arbitrary (MaxSize SecretSharingExtra) where
       where
         alignLength n = take n . cycle
 
-instance T.Arbitrary (MaxSize GtMsgContents) where
-    arbitrary = MaxSize <$>
-        T.oneof [aCommitment, aOpening, aShares, aVssCert]
-      where
-        aCommitment = MCCommitment <$>
+instance T.Arbitrary (MaxSize MCCommitment) where
+    arbitrary = fmap MaxSize $ MCCommitment <$>
             ((,,) <$> T.arbitrary
                   <*> (getOfMaxSize <$> T.arbitrary)
                   <*> T.arbitrary)
-        aOpening = MCOpening <$> T.arbitrary <*> T.arbitrary
-        aShares =
-            MCShares <$> T.arbitrary
-                     <*> aMultimap commitmentsNumLimit
-        aVssCert = MCVssCertificate <$> T.arbitrary
 
-instance T.Arbitrary (MaxSize (DataMsg GtMsgContents)) where
+instance T.Arbitrary (MaxSize MCOpening) where
+    arbitrary = fmap MaxSize $ MCOpening <$> T.arbitrary <*> T.arbitrary
+
+instance T.Arbitrary (MaxSize MCShares) where
+    arbitrary = fmap MaxSize $ MCShares <$> T.arbitrary
+                     <*> aMultimap commitmentsNumLimit
+
+instance T.Arbitrary (MaxSize MCVssCertificate) where
+    arbitrary = fmap MaxSize $ MCVssCertificate <$> T.arbitrary
+
+instance T.Arbitrary (MaxSize (DataMsg MCCommitment)) where
+    arbitrary = fmap DataMsg <$> T.arbitrary
+
+instance T.Arbitrary (MaxSize (DataMsg MCOpening)) where
+    arbitrary = fmap DataMsg <$> T.arbitrary
+
+instance T.Arbitrary (MaxSize (DataMsg MCShares)) where
+    arbitrary = fmap DataMsg <$> T.arbitrary
+
+instance T.Arbitrary (MaxSize (DataMsg MCVssCertificate)) where
     arbitrary = fmap DataMsg <$> T.arbitrary
 
 ----------------------------------------------------------------------------

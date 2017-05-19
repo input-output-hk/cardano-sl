@@ -11,30 +11,43 @@ import           Pos.Binary.Update                ()
 import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg (..),
                                                    MempoolMsg (..), ReqMsg (..))
 import           Pos.Crypto                       (hash)
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..))
+import           Pos.Ssc.GodTossing.Types.Message (MCCommitment (..), MCOpening (..),
+                                                   MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Network.Types            (TxMsgContents (..))
 import           Pos.Update.Core                  (UpdateProposal, UpdateVote (..))
 
-instance (Bi tag, Bi key) => Bi (InvMsg key tag) where
-    put InvMsg {..} = put imTag >> put imKey
-    get = label "InvMsg" $ liftM2 InvMsg get get
+instance (Bi key) => Bi (InvMsg key) where
+    put InvMsg {..} = put imKey
+    get = label "InvMsg" $ InvMsg <$> get
 
-instance (Bi tag, Bi key) => Bi (ReqMsg key tag) where
-    put ReqMsg {..} = put rmTag >> put rmKey
-    get = label "ReqMsg" $ liftM2 ReqMsg get get
+instance (Bi key) => Bi (ReqMsg key) where
+    put ReqMsg {..} = put rmKey
+    get = label "ReqMsg" $ ReqMsg <$> get
 
-instance (Bi tag) => Bi (MempoolMsg tag) where
+instance Bi (MempoolMsg tag) where
     -- The extra byte is needed because time-warp doesn't work with
     -- possibly-empty messages. 228 was chosen as homage to @pva701
-    put MempoolMsg {..} = putWord8 228 >> put mmTag
+    put MempoolMsg = putWord8 228
     get = label "MempoolMsg" $ do
         x <- getWord8
         when (x /= 228) $ fail "wrong byte"
-        MempoolMsg <$> get
+        pure MempoolMsg
 
-instance Bi (DataMsg GtMsgContents) where
-    put (DataMsg dmContents) = put dmContents
-    get = label "DataMsg GtMsgContents" $ DataMsg <$> get
+instance Bi (DataMsg MCCommitment) where
+    put (DataMsg (MCCommitment signedComm)) = put signedComm
+    get = fmap DataMsg $ label "DataMsg MCCommitment" $ MCCommitment <$> get
+
+instance Bi (DataMsg MCOpening) where
+    put (DataMsg (MCOpening st op)) = put st >> put op
+    get = fmap DataMsg $ label "DataMsg MCOpening" $ liftM2 MCOpening get get
+
+instance Bi (DataMsg MCShares) where
+    put (DataMsg (MCShares st im)) = put st >> put im
+    get = fmap DataMsg $ label "DataMsg MCShares" $ liftM2 MCShares get get
+
+instance Bi (DataMsg MCVssCertificate) where
+    put (DataMsg (MCVssCertificate vssCert)) = put vssCert
+    get = fmap DataMsg $ label "DataMsg MCVssCertificate" $ MCVssCertificate <$> get
 
 instance Bi (DataMsg TxMsgContents) where
     put (DataMsg (TxMsgContents dmTx dmWitness dmDistr)) =

@@ -29,6 +29,7 @@ import qualified Data.ByteString.Lazy  as LBS
 import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
 import qualified Data.Semigroup        as Semigroup
 import           Data.Serialize        (runGet, runPut)
+import           Data.Tagged           (Tagged (..))
 import           Data.Typeable         (typeRep)
 import           Formatting            (formatToString, int, (%))
 import           Prelude               (read)
@@ -44,6 +45,9 @@ import           Test.QuickCheck       (Arbitrary (arbitrary), Property, conjoin
                                         suchThat, vectorOf, (.&&.), (===))
 
 import           Universum
+
+instance Arbitrary a => Arbitrary (Tagged s a) where
+    arbitrary = Tagged <$> arbitrary
 
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
 binaryEncodeDecode a = Bin.runGet parser (encode a) === a

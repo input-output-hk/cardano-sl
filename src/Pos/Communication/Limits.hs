@@ -15,7 +15,6 @@ module Pos.Communication.Limits
 
 import           Universum
 
-import           Control.Lens                       (each)
 import           Crypto.Hash                        (Blake2b_224, Blake2b_256)
 import qualified Crypto.PVSS                        as PVSS
 import           Data.Coerce                        (coerce)
@@ -36,7 +35,8 @@ import           Pos.Ssc.GodTossing.Arbitrary       ()
 import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..), InnerSharesMap,
                                                      Opening, SignedCommitment,
                                                      VssCertificate)
-import           Pos.Ssc.GodTossing.Types.Message   (GtMsgContents (..))
+import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpening (..),
+                                                     MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Core                       (TxAux)
 import           Pos.Txp.Network.Types              (TxMsgContents (..))
 import           Pos.Types                          (Block, BlockHeader)
@@ -141,26 +141,31 @@ instance MessageLimited InnerSharesMap where
 instance MessageLimitedPure VssCertificate where
     msgLenLimit = 171
 
-instance MessageLimited (DataMsg GtMsgContents) where
-    type LimitType (DataMsg GtMsgContents) = ( Limit (DataMsg GtMsgContents)
-                                             , Limit (DataMsg GtMsgContents)
-                                             , Limit (DataMsg GtMsgContents)
-                                             , Limit (DataMsg GtMsgContents))
-    getMsgLenLimit _ = do
-        commLimit <-
-            fmap MCCommitment <$> getMsgLenLimit (Proxy @SignedCommitment)
-        sharesLimit <-
-            (MCShares <$> msgLenLimit <+>) <$>
+instance MessageLimited (DataMsg MCCommitment) where
+    type LimitType (DataMsg MCCommitment) =
+        Limit (DataMsg MCCommitment)
+    getMsgLenLimit _ =
+        fmap (DataMsg . MCCommitment)
+          <$> getMsgLenLimit (Proxy @SignedCommitment)
+
+instance MessageLimited (DataMsg MCOpening) where
+    type LimitType (DataMsg MCOpening) =
+        Limit (DataMsg MCOpening)
+    getMsgLenLimit _ = pure $ fmap DataMsg $
+        MCOpening <$> msgLenLimit <+> msgLenLimit
+
+instance MessageLimited (DataMsg MCShares) where
+    type LimitType (DataMsg MCShares) =
+        Limit (DataMsg MCShares)
+    getMsgLenLimit _ = (fmap . fmap) DataMsg $
+          (MCShares <$> msgLenLimit <+>) <$>
             getMsgLenLimit (Proxy @InnerSharesMap)
-        -- 'succ' is used here, because 1 byte is spent on tag.
-        -- See 'instance Bi GtMsgContents'.
-        return $
-            each %~ succ . fmap DataMsg $
-            ( commLimit
-            , MCOpening <$> msgLenLimit <+> msgLenLimit
-            , sharesLimit
-            , MCVssCertificate <$> msgLenLimit
-            )
+
+instance MessageLimited (DataMsg MCVssCertificate) where
+    type LimitType (DataMsg MCVssCertificate) =
+        Limit (DataMsg MCVssCertificate)
+    getMsgLenLimit _ = pure $ fmap DataMsg $
+        MCVssCertificate <$> msgLenLimit
 
 ----------------------------------------------------------------------------
 ---- Txp
@@ -253,7 +258,7 @@ instance MessageLimited (MsgHeaders ssc) where
 --     arbitrary = MaxSize <$>
 --         (Commitment <$> T.arbitrary <*> T.arbitrary
 --                     <*> aMultimap commitmentsNumLimit)
-
+--
 -- instance T.Arbitrary (MaxSize SecretSharingExtra) where
 --     arbitrary = do
 --         SecretSharingExtra gen commitments <- T.arbitrary
@@ -261,22 +266,33 @@ instance MessageLimited (MsgHeaders ssc) where
 --         return $ MaxSize $ SecretSharingExtra gen commitments'
 --       where
 --         alignLength n = take n . cycle
-
--- instance T.Arbitrary (MaxSize GtMsgContents) where
---     arbitrary = MaxSize <$>
---         T.oneof [aCommitment, aOpening, aShares, aVssCert]
---       where
---         aCommitment = MCCommitment <$>
+--
+-- instance T.Arbitrary (MaxSize MCCommitment) where
+--     arbitrary = fmap MaxSize $ MCCommitment <$>
 --             ((,,) <$> T.arbitrary
 --                   <*> (getOfMaxSize <$> T.arbitrary)
 --                   <*> T.arbitrary)
---         aOpening = MCOpening <$> T.arbitrary <*> T.arbitrary
---         aShares =
---             MCShares <$> T.arbitrary
+--
+-- instance T.Arbitrary (MaxSize MCOpening) where
+--     arbitrary = fmap MaxSize $ MCOpening <$> T.arbitrary <*> T.arbitrary
+--
+-- instance T.Arbitrary (MaxSize MCShares) where
+--     arbitrary = fmap MaxSize $ MCShares <$> T.arbitrary
 --                      <*> aMultimap commitmentsNumLimit
---         aVssCert = MCVssCertificate <$> T.arbitrary
-
--- instance T.Arbitrary (MaxSize (DataMsg GtMsgContents)) where
+--
+-- instance T.Arbitrary (MaxSize MCVssCertificate) where
+--     arbitrary = fmap MaxSize $ MCVssCertificate <$> T.arbitrary
+--
+-- instance T.Arbitrary (MaxSize (DataMsg MCCommitment)) where
+--     arbitrary = fmap DataMsg <$> T.arbitrary
+--
+-- instance T.Arbitrary (MaxSize (DataMsg MCOpening)) where
+--     arbitrary = fmap DataMsg <$> T.arbitrary
+--
+-- instance T.Arbitrary (MaxSize (DataMsg MCShares)) where
+--     arbitrary = fmap DataMsg <$> T.arbitrary
+--
+-- instance T.Arbitrary (MaxSize (DataMsg MCVssCertificate)) where
 --     arbitrary = fmap DataMsg <$> T.arbitrary
 
 ----------------------------------------------------------------------------

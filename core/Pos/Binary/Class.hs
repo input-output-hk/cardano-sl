@@ -97,6 +97,7 @@ import           Unsafe.Coerce               (unsafeCoerce)
 import           Data.SafeCopy               (Contained, SafeCopy (..), contain,
                                               safeGet, safePut)
 import qualified Data.Serialize              as Cereal (Get, Put)
+import           Data.Tagged                 (Tagged(Tagged))
 
 ----------------------------------------------------------------------------
 -- Bi typeclass
@@ -523,6 +524,14 @@ instance Bi Word8              -- single byte
 instance Bi Word16             -- 2 bytes, big endian
 instance Bi Word32             -- 4 bytes, big endian
 instance Bi Word64             -- 8 bytes, big endian
+
+----------------------------------------------------------------------------
+-- Tagged
+----------------------------------------------------------------------------
+
+instance Bi a => Bi (Tagged s a) where
+    put (Tagged a) = put a
+    get = Tagged <$> get
 
 ----------------------------------------------------------------------------
 -- Containers

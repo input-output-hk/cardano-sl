@@ -12,12 +12,13 @@ module Pos.WorkMode.Class
     , TxpExtra_TMP
     ) where
 
-import           Control.Monad.Catch         (MonadMask)
-import           Mockable                    (MonadMockable)
-import           System.Wlog                 (WithLogger)
 import           Universum
 
+import           Control.Monad.Catch         (MonadMask)
 import qualified Ether
+import           Mockable                    (MonadMockable)
+import           System.Wlog                 (WithLogger)
+
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
@@ -26,7 +27,6 @@ import           Pos.Context                 (BlkSemaphore, MonadBlockRetrievalQ
                                               MonadRecoveryHeader, MonadSscContext,
                                               NodeParams, StartTime, TxpGlobalSettings)
 import           Pos.DB.Class                (MonadDB, MonadDBCore)
-import           Pos.DB.DB                   ()
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Discovery.Class         (MonadDiscovery)
 import           Pos.Lrc.Context             (LrcContext)

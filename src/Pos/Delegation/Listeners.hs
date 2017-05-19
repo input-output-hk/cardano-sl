@@ -15,13 +15,13 @@ import           Universum
 
 import qualified Ether
 import           Formatting                 (build, sformat, shown, (%))
-import           Pos.Communication.Util     (stubListenerOneMsg)
 import           System.Wlog                (WithLogger, logDebug, logInfo)
 
 
 import           Pos.Binary.Communication   ()
 import           Pos.Communication.Protocol (ListenerSpec, OutSpecs, SendActions (..),
                                              listenerOneMsg, mergeLs, oneMsgH, toOutSpecs)
+import           Pos.Communication.Util     (stubListenerOneMsg)
 import           Pos.Context                (BlkSemaphore (..), NodeParams, npPropagation)
 import           Pos.Delegation.Logic       (ConfirmPskLightVerdict (..),
                                              PskHeavyVerdict (..), PskLightVerdict (..),

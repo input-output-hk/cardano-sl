@@ -20,7 +20,7 @@ module Pos.Ssc.GodTossing.LocalData.Logic
 
 import           Universum
 
-import           Control.Lens                       (Getter, (+=), (.=))
+import           Control.Lens                       ((+=), (.=))
 import           Control.Monad.Except               (MonadError (throwError), runExceptT)
 import qualified Data.HashMap.Strict                as HM
 import           Formatting                         (int, sformat, (%))
@@ -50,8 +50,8 @@ import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerShares
                                                      mkVssCertificatesMap)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
                                                      ldModifier, ldSize)
-import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossModifier,
-                                                     TossT, TossVerFailure (..),
+import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT,
+                                                     TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
                                                      execTossT, hasCertificateToss,
                                                      hasCommitmentToss, hasOpeningToss,

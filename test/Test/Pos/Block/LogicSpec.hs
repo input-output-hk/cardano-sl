@@ -44,7 +44,7 @@ spec = describe "Block.Logic" $ do
     -- way to get maximum of them. Some settings produce 390b empty
     -- block, some -- 431b.
     let emptyBSize0 :: Byte
-        emptyBSize0 = biSize (noSscBlock infLimit [] prevHeader0 sk0 def []) -- in bytes
+        emptyBSize0 = biSize (noSscBlock infLimit prevHeader0 [] [] def sk0) -- in bytes
         emptyBSize :: Integral n => n
         emptyBSize = round $ (1.5 * fromIntegral emptyBSize0 :: Double)
 
@@ -57,7 +57,7 @@ spec = describe "Block.Logic" $ do
             forAll (choose (emptyBSize, emptyBSize * 10)) $ \(fromBytes -> limit) ->
             forAll arbitrary $ \(prevHeader, sk, updatePayload, proxyCerts) ->
             forAll validGtPayloadGen $ \(gtPayload, slotId) ->
-            forAll (makeSmall $ listOf1 genTx) $ \txs ->
+            forAll (makeSmall $ listOf1 genTxAux) $ \txs ->
             let blk = producePureBlock limit prevHeader txs Nothing slotId
                                        proxyCerts gtPayload updatePayload sk
             in leftToCounter blk $ \b ->
@@ -66,14 +66,14 @@ spec = describe "Block.Logic" $ do
                    s <= fromIntegral limit
         prop "removes transactions when necessary" $
             forAll arbitrary $ \(prevHeader, sk) ->
-            forAll (makeSmall $ listOf1 genTx) $ \txs ->
+            forAll (makeSmall $ listOf1 genTxAux) $ \txs ->
             forAll (elements [0,0.5,0.9]) $ \(delta :: Double) ->
-            let blk0 = noSscBlock infLimit [] prevHeader sk def []
-                blk1 = noSscBlock infLimit txs prevHeader sk def []
+            let blk0 = noSscBlock infLimit prevHeader [] [] def sk
+                blk1 = noSscBlock infLimit prevHeader txs [] def sk
             in leftToCounter ((,) <$> blk0 <*> blk1) $ \(b0, b1) ->
                 let s = biSize b0 +
                         round ((fromIntegral $ biSize b1 - biSize b0) * delta)
-                    blk2 = noSscBlock s txs prevHeader sk def []
+                    blk2 = noSscBlock s prevHeader txs  [] def sk
                 in counterexample ("Tested with block size limit: " <> show s) $
                    leftToCounter blk2 (const True)
         prop "strips ssc data when necessary" $
@@ -98,14 +98,27 @@ spec = describe "Block.Logic" $ do
     leftToCounter :: (ToString s, Testable p) => Either s a -> (a -> p) -> Property
     leftToCounter x c = either (\t -> counterexample (toString t) False) (property . c) x
 
+    emptyBlk :: Testable p => (Either Text (MainBlock SscGodTossing) -> p) -> Property
     emptyBlk foo =
         forAll arbitrary $ \(prevHeader, sk, slotId) ->
         foo $ producePureBlock infLimit prevHeader [] Nothing slotId [] (defGTP slotId) def sk
-    genTx = goodTxToTxAux . getSmallGoodTx <$> arbitrary
-    noSscBlock limit txs prevHeader sk updatePayload proxyCerts =
+
+    genTxAux :: Gen TxAux
+    genTxAux = goodTxToTxAux . getSmallGoodTx <$> arbitrary
+
+    noSscBlock
+        :: Byte
+        -> BlockHeader SscGodTossing
+        -> [TxAux]
+        -> [ProxySKHeavy]
+        -> UpdatePayload
+        -> SecretKey
+        -> Either Text (MainBlock SscGodTossing)
+    noSscBlock limit prevHeader txs proxyCerts updatePayload sk =
         let neutralSId = SlotId 0 (blkSecurityParam * 2)
         in producePureBlock
             limit prevHeader txs Nothing neutralSId proxyCerts (defGTP neutralSId) updatePayload sk
+
     producePureBlock
         :: Byte
         -> BlockHeader SscGodTossing

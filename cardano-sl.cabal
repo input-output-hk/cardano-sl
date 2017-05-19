@@ -1251,6 +1251,7 @@ test-suite cardano-test
                        Test.Pos.Update.MemStateSpec
                        Test.Pos.Update.PollSpec
                        Test.Pos.Util
+                       Test.Pos.Util.LimitsSpec
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0

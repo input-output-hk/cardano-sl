@@ -1,15 +1,16 @@
--- | Txp failures.
+-- | Toil failures.
 
 module Pos.Txp.Toil.Failure
        ( ToilVerFailure (..)
        ) where
+
+import           Universum
 
 import qualified Data.Text.Buildable
 import           Formatting                 (bprint, build, int, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Base16       (base16F)
 import           Serokell.Util.Verify       (formatAllErrors)
-import           Universum
 
 import           Pos.Core                   (HeaderHash)
 import           Pos.Txp.Core               (TxIn)
@@ -19,7 +20,8 @@ data ToilVerFailure
     = ToilKnown -- ^ Transaction is already in the storage (cache)
     | ToilTipsMismatch { ttmOldTip :: !HeaderHash
                        , ttmNewTip :: !HeaderHash}
-    | ToilOverwhelmed -- ^ Local transaction storage is full -- can't accept more txs
+    | ToilOverwhelmed !Byte -- ^ Local transaction storage is full --
+                            -- can't accept more txs. Current limit is attached.
     | ToilNotUnspent !TxIn -- ^ Tx input is not a known unspent input.
     | ToilOutGTIn { tInputSum  :: !Integer
                  ,  tOutputSum :: !Integer}
@@ -34,11 +36,11 @@ data ToilVerFailure
 instance Buildable ToilVerFailure where
     build ToilKnown =
         "transaction already is in the mem pool"
-    build (ToilTipsMismatch oldTip newTip) =
-        bprint ("tips mismatch, old tip is "%build%", new one is"%build)
-        oldTip newTip
-    build ToilOverwhelmed =
-        "max size of the mem pool is reached"
+    build (ToilTipsMismatch dbTip localTip) =
+        bprint ("tips mismatch, tip from DB is "%build%", local tip is "%build)
+        dbTip localTip
+    build (ToilOverwhelmed limit) =
+        bprint ("max size of the mem pool is reached which is "%memory) limit
     build (ToilNotUnspent txId) =
         bprint ("input is not a known unspent input: "%build) txId
     build (ToilOutGTIn {..}) =

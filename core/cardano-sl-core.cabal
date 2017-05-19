@@ -68,9 +68,10 @@ library
                        Pos.Util.Config
                        Pos.Util.HVect
                        Pos.Util.Iterator
+                       Pos.Util.LRU
+                       Pos.Util.Mnemonics
                        Pos.Util.Modifier
                        Pos.Util.Util
-                       Pos.Util.Mnemonics
 
   other-modules:       Pos.Util.Config.Path
                        Pos.Util.Config.Get
@@ -111,6 +112,7 @@ library
                      , formatting
                      , hashable
                      , lens
+                     , lrucache
                      , memory
                      , mtl
                      , node-sketch

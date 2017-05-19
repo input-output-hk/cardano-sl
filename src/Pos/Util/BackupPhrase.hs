@@ -16,7 +16,7 @@ import qualified Prelude
 import           Universum
 
 import           Crypto.Hash         (Blake2b_256)
-import           Pos.Binary          (Bi, encodeStrict)
+import           Pos.Binary          (Bi (..), encodeStrict, label)
 import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhrase,
                                       SecretKey, VssKeyPair, deterministicKeyGen,
                                       deterministicVssKeyGen, safeDeterministicKeyGen,
@@ -28,6 +28,10 @@ import           Pos.Util.Mnemonics  (fromMnemonic, toMnemonic)
 newtype BackupPhrase = BackupPhrase
     { bpToList :: [Text]
     } deriving (Eq, Generic)
+
+instance Bi BackupPhrase where
+    put BackupPhrase{..} = put bpToList
+    get = label "BackupPhrase" $ BackupPhrase <$> get
 
 -- | Number of words in backup phrase
 backupPhraseWordsNum :: Int

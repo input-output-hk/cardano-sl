@@ -43,6 +43,7 @@ import           Mockable                     (Production)
 import           Pos.Reporting.MemState       (ReportingContext)
 import           System.Wlog                  (LoggerNameBox, WithLogger)
 
+import           Pos.Block.BListener          (BListenerStub)
 import           Pos.Client.Txp.Balances      (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History       (MonadTxHistory (..), deriveAddrHistory)
 import           Pos.Communication            (TxMode)
@@ -59,7 +60,7 @@ import           Pos.Discovery                (DiscoveryConstT, DiscoveryKademli
 import           Pos.Shutdown                 (MonadShutdownMem, triggerShutdown)
 import           Pos.Slotting                 (MonadSlots (..), getLastKnownSlotDuration)
 import           Pos.Ssc.Class                (Ssc, SscHelpersClass)
-import           Pos.Txp                      (filterUtxoByAddr, runUtxoStateT)
+import           Pos.Txp                      (filterUtxoByAddrs, runUtxoStateT)
 import           Pos.Types                    (BlockHeader, ChainDifficulty, difficultyL,
                                                flattenEpochOrSlot, flattenSlotId)
 import           Pos.Update                   (ConfirmedProposalState (..))
@@ -68,7 +69,7 @@ import           Pos.Util                     (maybeThrow)
 import           Pos.Wallet.KeyStorage        (KeyData, MonadKeys)
 import qualified Pos.Wallet.State             as WS
 import           Pos.Wallet.State.Acidic      (WalletState)
-import           Pos.Wallet.State.Limits      (DbLimitsWalletRedirect)
+import           Pos.Wallet.State.Core        (GStateCoreWalletRedirect)
 
 data BalancesWalletRedirectTag
 
@@ -82,7 +83,7 @@ instance
     (MonadIO m, t ~ IdentityT, Ether.MonadReader' WS.WalletState m) =>
         MonadBalances (Ether.TaggedTrans BalancesWalletRedirectTag t m)
   where
-    getOwnUtxo addr = filterUtxoByAddr addr <$> WS.getUtxo
+    getOwnUtxos addrs = filterUtxoByAddrs addrs <$> WS.getUtxo
     getBalance = getBalanceFromUtxo
 
 -- | Get tx history for Address
@@ -100,12 +101,12 @@ instance
     , Ether.MonadReader' WS.WalletState m
     ) => MonadTxHistory (Ether.TaggedTrans TxHistoryWalletRedirectTag t m)
   where
-    getTxHistory = Tagged $ \addr _ -> do
+    getTxHistory = Tagged $ \addrs _ -> do
         chain <- WS.getBestChain
         utxo <- WS.getOldestUtxo
         _ <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
             runMaybeT $ flip runUtxoStateT utxo $
-            deriveAddrHistory addr chain
+            deriveAddrHistory addrs chain
         pure $ error "getTxHistory is not implemented for light wallet"
     saveTx _ = pure ()
 
@@ -271,8 +272,8 @@ instance
 -- Composite restrictions
 ---------------------------------------------------------------
 
-type WalletMode ssc m
-    = ( TxMode ssc m
+type WalletMode m
+    = ( TxMode m
       , MonadKeys m
       , MonadBlockchainInfo m
       , MonadUpdates m
@@ -285,10 +286,11 @@ type WalletMode ssc m
 ---------------------------------------------------------------
 
 type RawWalletMode =
+    BListenerStub (
     BlockchainInfoNotImplemented (
     UpdatesNotImplemented (
     PeerStateRedirect (
-    DbLimitsWalletRedirect (
+    GStateCoreWalletRedirect (
     BalancesWalletRedirect (
     TxHistoryWalletRedirect (
     Ether.ReadersT
@@ -299,7 +301,8 @@ type RawWalletMode =
         ) (
     LoggerNameBox (
     Production
-    ))))))))
+    )))))))))
 
 type WalletRealMode = DiscoveryKademliaT RawWalletMode
+
 type WalletStaticPeersMode = DiscoveryConstT RawWalletMode

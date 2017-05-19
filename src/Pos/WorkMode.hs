@@ -24,13 +24,14 @@ import qualified Ether
 import           Mockable.Production          (Production)
 import           System.Wlog                  (LoggerNameBox (..))
 
+import           Pos.Block.BListener          (BListenerStub)
 import           Pos.Client.Txp.Balances      (BalancesRedirect)
 import           Pos.Client.Txp.History       (TxHistoryRedirect)
 import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
                                                PeerStateTag)
 import           Pos.Context                  (NodeContext)
 import           Pos.DB                       (NodeDBs)
-import           Pos.DB.DB                    (DbCoreRedirect)
+import           Pos.DB.DB                    (GStateCoreRedirect)
 import           Pos.Delegation.Class         (DelegationWrap)
 import           Pos.Discovery.Holders        (DiscoveryConstT, DiscoveryKademliaT)
 import           Pos.Slotting.MemState        (SlottingVar)
@@ -39,7 +40,6 @@ import           Pos.Slotting.Ntp             (NtpSlottingVar, SlotsRedirect)
 import           Pos.Ssc.Extra                (SscMemTag, SscState)
 import           Pos.Statistics.MonadStats    (NoStatsT, StatsT)
 import           Pos.Txp.MemState             (GenericTxpLocalData, TxpHolderTag)
-import           Pos.Update.DB                (DbLimitsRedirect)
 import           Pos.Wallet.WalletMode        (BlockchainInfoRedirect, UpdatesRedirect)
 import           Pos.WorkMode.Class           (MinWorkMode, TxpExtra_TMP, WorkMode)
 
@@ -50,10 +50,10 @@ import           Pos.WorkMode.Class           (MinWorkMode, TxpExtra_TMP, WorkMo
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
 type RawRealMode ssc =
+    BListenerStub (
     BlockchainInfoRedirect (
     UpdatesRedirect (
-    DbCoreRedirect (
-    DbLimitsRedirect (
+    GStateCoreRedirect (
     PeerStateRedirect (
     TxHistoryRedirect (
     BalancesRedirect (

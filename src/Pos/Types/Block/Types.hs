@@ -75,16 +75,16 @@ data MainToSign ssc
 -- inside the constrained interval).
 data BlockSignature ssc
     = BlockSignature (Signature (MainToSign ssc))
-    | BlockPSignatureEpoch (ProxySigLight (MainToSign ssc))
-    | BlockPSignatureSimple (ProxySigHeavy (MainToSign ssc))
+    | BlockPSignatureLight (ProxySigLight (MainToSign ssc))
+    | BlockPSignatureHeavy (ProxySigHeavy (MainToSign ssc))
     deriving (Show, Eq, Generic)
 
 instance NFData (BodyProof (MainBlockchain ssc)) => NFData (BlockSignature ssc)
 
 instance Buildable (BlockSignature ssc) where
-    build (BlockSignature s)        = bprint ("BlockSignature: "%build) s
-    build (BlockPSignatureEpoch s)  = bprint ("BlockPSignatureEpoch: "%build) s
-    build (BlockPSignatureSimple s) = bprint ("BlockPSignatureSimple: "%build) s
+    build (BlockSignature s)       = bprint ("BlockSignature: "%build) s
+    build (BlockPSignatureLight s) = bprint ("BlockPSignatureLight: "%build) s
+    build (BlockPSignatureHeavy s) = bprint ("BlockPSignatureHeavy: "%build) s
 
 -- | Represents main block body attributes: map from 1-byte integer to
 -- arbitrary-type value. To be used for extending block with new

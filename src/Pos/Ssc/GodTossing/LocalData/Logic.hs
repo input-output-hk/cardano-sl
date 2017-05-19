@@ -18,18 +18,23 @@ module Pos.Ssc.GodTossing.LocalData.Logic
          -- ** instance SscLocalDataClass SscGodTossing
        ) where
 
-import           Control.Lens                       ((.=))
+import           Universum
+
+import           Control.Lens                       (Getter, (+=), (.=))
 import           Control.Monad.Except               (MonadError (throwError), runExceptT)
 import qualified Data.HashMap.Strict                as HM
 import           Formatting                         (int, sformat, (%))
+import           Serokell.Data.Memory.Units         (Byte)
 import           Serokell.Util                      (magnify')
 import           System.Wlog                        (WithLogger, logWarning)
-import           Universum
 
+import           Pos.Binary.Class                   (biSize)
 import           Pos.Binary.Ssc                     ()
-import           Pos.Core.Types                     (EpochIndex, SlotId (..),
-                                                     StakeholderId)
-import           Pos.DB                             (MonadDB)
+import           Pos.Constants                      (memPoolLimitRatio)
+import           Pos.Core                           (BlockVersionData (..), EpochIndex,
+                                                     SlotId (..), StakeholderId)
+import           Pos.DB                             (MonadDB,
+                                                     MonadGStateCore (gsAdoptedBVData))
 import qualified Pos.Lrc.DB                         as LrcDB
 import           Pos.Lrc.Types                      (RichmenStake)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
@@ -44,15 +49,16 @@ import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerShares
                                                      mkCommitmentsMap,
                                                      mkVssCertificatesMap)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
-                                                     ldModifier)
-import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT,
-                                                     TossVerFailure (..),
+                                                     ldModifier, ldSize)
+import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossModifier,
+                                                     TossT, TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
                                                      execTossT, hasCertificateToss,
                                                      hasCommitmentToss, hasOpeningToss,
                                                      hasSharesToss, isGoodSlotForTag,
-                                                     normalizeToss, tmCertificates,
-                                                     tmCommitments, tmOpenings, tmShares,
+                                                     normalizeToss, refreshToss,
+                                                     tmCertificates, tmCommitments,
+                                                     tmOpenings, tmShares,
                                                      verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
@@ -65,7 +71,8 @@ instance SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
     sscNormalizeU = normalize
     sscNewLocalData =
-        GtLocalData mempty . siEpoch . fromMaybe slot0 <$> getCurrentSlot
+        GtLocalData mempty . siEpoch . fromMaybe slot0 <$> getCurrentSlot <*>
+        pure 1
       where
         slot0 = SlotId 0 0
 
@@ -101,6 +108,7 @@ normalize epoch richmen gs = do
         execTossT mempty $ normalizeToss epoch oldModifier
     ldModifier .= newModifier
     ldEpoch .= epoch
+    ldSize .= biSize newModifier
 
 ----------------------------------------------------------------------------
 -- Data processing/retrieval
@@ -148,7 +156,8 @@ sscIsDataUseful tag id =
 
 type GtDataProcessingMode m =
     ( WithLogger m
-    , MonadDB m  -- to get richmen
+    , MonadDB m          -- to get richmen
+    , MonadGStateCore m  -- to get block size limit
     , MonadSlots m
     , MonadSscMem SscGodTossing m
     , MonadError TossVerFailure m
@@ -198,6 +207,7 @@ sscProcessData tag payload =
     generalizeExceptT $ do
         getCurrentSlot >>= checkSlot
         ld <- sscRunLocalQuery ask
+        maxBlockSize <- bvdMaxBlockSize <$> gsAdoptedBVData
         let epoch = ld ^. ldEpoch
         LrcDB.getRichmenSsc epoch >>= \case
             Nothing -> throwError $ TossUnknownRichmen epoch
@@ -205,7 +215,7 @@ sscProcessData tag payload =
                 gs <- sscRunGlobalQuery ask
                 ExceptT $
                     sscRunLocalSTM $
-                    sscProcessDataDo (epoch, richmen) gs payload
+                    sscProcessDataDo (epoch, richmen) maxBlockSize gs payload
   where
     generalizeExceptT action = either throwError pure =<< runExceptT action
     checkSlot Nothing = throwError CurrentSlotUnknown
@@ -219,23 +229,40 @@ sscProcessData tag payload =
 sscProcessDataDo
     :: (MonadState GtLocalData m, WithLogger m)
     => (EpochIndex, RichmenStake)
+    -> Byte
     -> GtGlobalState
     -> GtPayload
     -> m (Either TossVerFailure ())
-sscProcessDataDo richmenData gs payload =
+sscProcessDataDo richmenData maxBlockSize gs payload =
     runExceptT $ do
         storedEpoch <- use ldEpoch
         let givenEpoch = fst richmenData
         let multiRichmen = HM.fromList [richmenData]
         unless (storedEpoch == givenEpoch) $
             throwError $ DifferentEpoches storedEpoch givenEpoch
-        oldTM <- use ldModifier
+        let maxMemPoolSize = maxBlockSize * memPoolLimitRatio
+        curSize <- use ldSize
+        let exhausted = curSize >= maxMemPoolSize
+        -- If our mempool is exhausted we drop some data from it.
+        oldTM <-
+            if | not exhausted -> use ldModifier
+               | otherwise ->
+                   evalPureTossWithLogger multiRichmen gs .
+                   execTossT mempty . refreshToss givenEpoch =<<
+                   use ldModifier
         newTM <-
             ExceptT $
             evalPureTossWithLogger multiRichmen gs $
             runExceptT $
             execTossT oldTM $ verifyAndApplyGtPayload (Left storedEpoch) payload
         ldModifier .= newTM
+        -- If mempool was exhausted, it's easier to recompute total size.
+        -- Otherwise (most common case) we don't want to spend time on it and
+        -- just add size of new data.
+        -- Note that if data is invalid, all this computation will be
+        -- discarded.
+        if | exhausted -> ldSize .= biSize newTM
+           | otherwise -> ldSize += biSize payload
 
 ----------------------------------------------------------------------------
 -- Clean-up

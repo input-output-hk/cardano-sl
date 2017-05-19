@@ -5,6 +5,7 @@ module Pos.Update.Poll.Logic
        ( verifyAndApplyUSPayload
        , rollbackUS
        , normalizePoll
+       , refreshPoll
        , filterProposalsByThd
 
        -- * Base

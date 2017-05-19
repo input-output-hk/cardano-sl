@@ -17,6 +17,7 @@
     width: 267.5px;
     height: 152.5px;
     box-item: center;
+    display: block;
   }
 
   @media (--xs) {

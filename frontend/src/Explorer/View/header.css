@@ -50,6 +50,7 @@
   }
 
   .logo__img {
+    display: block;
     width: 39px;
     height: 36px;
   }

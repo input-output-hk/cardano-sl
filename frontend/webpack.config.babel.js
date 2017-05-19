@@ -68,6 +68,10 @@ module.exports = {
     )
   ],
   entry: [
+    // https://babeljs.io/docs/usage/polyfill/
+    'babel-polyfill',
+    // https://github.com/serokell/custom-event-polyfill/
+    'custom-event-polyfill',
     path.join(__dirname, 'src/index.js')
   ],
   resolve: {
@@ -122,7 +126,7 @@ module.exports = {
     hot: !isProd,
     contentBase: path.join(__dirname, 'src'),
     port: 3100,
-    host: 'localhost',
+    host: '0.0.0.0',
     historyApiFallback: true,
     watchOptions: {
       aggregateTimeout: 300,

@@ -7,7 +7,7 @@ module Test.Pos.Block.LogicSpec
 import           Universum
 
 import           Data.Default               (def)
-import           Serokell.Data.Memory.Units (Byte, fromBytes)
+import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit, fromBytes)
 import           Test.Hspec                 (Spec, describe, runIO)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Gen, Property, Testable, arbitrary, choose,
@@ -15,7 +15,6 @@ import           Test.QuickCheck            (Gen, Property, Testable, arbitrary,
                                              listOf, listOf1, oneof, property)
 
 import           Pos.Binary.Class           (biSize)
-import qualified Pos.Binary.Class           as Bi
 import           Pos.Block.Arbitrary        ()
 import           Pos.Block.Logic            (createMainBlockPure)
 import qualified Pos.Communication          ()
@@ -50,7 +49,7 @@ spec = describe "Block.Logic" $ do
         emptyBSize = round $ (1.5 * fromIntegral emptyBSize0 :: Double)
 
     describe "createMainBlockPure" $ do
-        prop "empty block size is sane" $ emptyBlk $ \blk ->
+        prop "empty block size is sane" $ emptyBlk $ \blk0 -> leftToCounter blk0 $ \blk ->
             let s = biSize blk
             in counterexample ("Real block size: " <> show s) $
                s <= 500 && s <= genesisMaxBlockSize
@@ -62,7 +61,7 @@ spec = describe "Block.Logic" $ do
             let blk = producePureBlock limit prevHeader txs Nothing slotId
                                        proxyCerts gtPayload updatePayload sk
             in leftToCounter blk $ \b ->
-                let s = length (Bi.encode b)
+                let s = biSize b
                 in counterexample ("Real block size: " <> show s) $
                    s <= fromIntegral limit
         prop "removes transactions when necessary" $
@@ -94,7 +93,7 @@ spec = describe "Block.Logic" $ do
                    leftToCounter blk2 (const True)
   where
     defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
-    infLimit = fromIntegral ((10 :: Word64) ^ (9 :: Word64)) :: Byte
+    infLimit = convertUnit @Gigabyte @Byte 1
 
     leftToCounter :: (ToString s, Testable p) => Either s a -> (a -> p) -> Property
     leftToCounter x c = either (\t -> counterexample (toString t) False) (property . c) x

@@ -898,7 +898,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
             either throwError pure $
             mkMainBlock (Just prevHeader) sId sk pSk musthaveBody extraH extraB
         let mhbSize = biSize musthaveBlock
-        when (mhbSize > fromIntegral limit) $ throwError $
+        when (mhbSize > limit) $ throwError $
             "Musthave block size is more than limit: " <> show mhbSize
         identity -= biSize musthaveBlock
 

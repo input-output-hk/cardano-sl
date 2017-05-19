@@ -88,21 +88,22 @@ handleHeadersCommunication conv _ = do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
         ifM recoveryInProgress onRecovery $ do
             headers <- case (mghFrom,mghTo) of
-                ([], Nothing) -> Right . one <$> getLastMainBlock
+                ([], Nothing) -> Right . one <$> getLastMainHeader
                 ([], Just h)  ->
                     maybeToRight "getBlockHeader returned Nothing" . fmap one <$>
                     DB.getBlockHeader @ssc h
                 (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
             either onNoHeaders handleSuccess headers
   where
-    -- retrieves last main block if there's any
-    getLastMainBlock :: m (BlockHeader ssc)
-    getLastMainBlock = do
+    -- retrieves header of the newest main block if there's any,
+    -- genesis otherwise.
+    getLastMainHeader :: m (BlockHeader ssc)
+    getLastMainHeader = do
         (tip :: Block ssc) <- DB.getTipBlock @ssc
-        let tipHash = tip ^. blockHeader
+        let tipHeader = tip ^. blockHeader
         case tip of
-            Left _  -> fromMaybe tipHash <$> DB.getBlockHeader (tip ^. prevBlockL)
-            Right _ -> pure tipHash
+            Left _  -> fromMaybe tipHeader <$> DB.getBlockHeader (tip ^. prevBlockL)
+            Right _ -> pure tipHeader
     handleSuccess h = do
         onSuccess
         send conv (MsgHeaders h)

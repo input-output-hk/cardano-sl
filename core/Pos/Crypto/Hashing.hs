@@ -1,3 +1,5 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
@@ -32,15 +34,20 @@ module Pos.Crypto.Hashing
        ) where
 
 import           Control.Lens         (makeLensesFor)
-import           Crypto.Hash          (Blake2b_256, Digest, HashAlgorithm)
+import           Crypto.Hash          (Blake2b_256, Digest, HashAlgorithm,
+                                       digestFromByteString, hashDigestSize)
 import qualified Crypto.Hash          as Hash (hash, hashlazy)
 import qualified Data.ByteArray       as ByteArray
+import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BSL
 import           Data.Hashable        (Hashable (hashWithSalt), hashPtrWithSalt)
+import           Data.Reflection      (reifyNat)
+import qualified Data.Store.Internal  as Store
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (Format, bprint, fitLeft, later, (%.))
 import qualified Serokell.Util.Base16 as B16
 import           System.IO.Unsafe     (unsafeDupablePerformIO)
+
 import           Universum
 
 import           Pos.Binary.Class     (Bi, Raw)
@@ -87,6 +94,31 @@ instance Hashable (AbstractHash algo a) where
 
 instance Buildable.Buildable (AbstractHash algo a) where
     build = bprint shortHashF
+
+hashDigestSize' :: forall algo . HashAlgorithm algo => Int
+hashDigestSize' = hashDigestSize @algo
+    (error "Pos.Crypto.Hashing.hashDigestSize': HashAlgorithm value is evaluated!")
+
+reifyHashDigestSize
+    :: forall algo r.
+       HashAlgorithm algo
+    => (forall n . KnownNat n => Proxy n -> r)
+    -> r
+reifyHashDigestSize = reifyNat (fromIntegral (hashDigestSize' @algo))
+
+instance HashAlgorithm algo => Store.Store (AbstractHash algo a) where
+    size = Store.ConstSize (hashDigestSize' @algo)
+    poke (AbstractHash digest) =
+        reifyHashDigestSize @algo (\(Proxy :: Proxy n) ->
+            let bs = ByteArray.convert digest :: BS.ByteString
+            in Store.poke (Store.StaticSize @n bs))
+    peek =
+        reifyHashDigestSize @algo (\(Proxy :: Proxy n) -> do
+            sbs <- Store.peek
+            let bs = Store.unStaticSize @n sbs :: BS.ByteString
+            case digestFromByteString bs of
+                Nothing -> error "AbstractHash.peek: impossible"
+                Just x  -> pure (AbstractHash x))
 
 -- | Parses given hash in base16 form.
 decodeAbstractHash

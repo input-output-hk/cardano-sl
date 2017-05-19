@@ -134,6 +134,8 @@ library
                      , vector
                      , witherable
                      , yaml
+                     , reflection
+                     , store
 
   default-language:    Haskell2010
 

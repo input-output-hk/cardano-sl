@@ -11,8 +11,10 @@ module Pos.DB.Functions
        , encodeWithKeyPrefix
        , rocksDelete
        , rocksGetBi
+       , rocksGetStore
        , rocksGetBytes
        , rocksPutBi
+       , rocksPutStore
        , rocksPutBytes
        , rocksDecodeWP
        , rocksDecodeMaybe
@@ -29,6 +31,8 @@ module Pos.DB.Functions
 import qualified Data.ByteString       as BS (drop, isPrefixOf)
 import qualified Data.ByteString.Lazy  as BSL
 import           Data.Default          (def)
+import           Data.Store            (Store)
+import qualified Data.Store            as Store
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB      as Rocks
 import           Formatting            (bprint, sformat, shown, string, (%))
@@ -64,6 +68,15 @@ rocksGetBi
 rocksGetBi key db = do
     bytes <- rocksGetBytes key db
     traverse (rocksDecode . (ToDecodeValue key)) bytes
+
+-- | Read serialized value from RocksDB using given key.
+rocksGetStore
+    :: forall v m.
+       (Store v, MonadIO m, MonadThrow m)
+    => ByteString -> DB -> m (Maybe v)
+rocksGetStore key db = do
+    bytes <- rocksGetBytes key db
+    traverse (liftIO . Store.decodeIO) bytes
 
 data ToDecode
     = ToDecodeKey !ByteString
@@ -127,6 +140,9 @@ rocksPutBytes k v DB {..} = Rocks.put rocksDB rocksWriteOpts k v
 -- | Write serializable value to RocksDb for given key.
 rocksPutBi :: (Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
 rocksPutBi k v = rocksPutBytes k (encodeStrict v)
+
+rocksPutStore :: (Store v, MonadIO m) => ByteString -> v -> DB -> m ()
+rocksPutStore k v = rocksPutBytes k (Store.encode v)
 
 rocksDelete :: (MonadIO m) => ByteString -> DB -> m ()
 rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k

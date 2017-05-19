@@ -153,7 +153,6 @@ library
                         Pos.Binary.Relay
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
-                        Pos.Binary.Ssc.GodTossing.Types
                         Pos.Binary.Txp
                         Pos.Binary.Txp.Core
                         Pos.Binary.Txp.Network
@@ -503,6 +502,8 @@ library
                       , vector
                       , wreq
                       , yaml
+                      , store
+                      , th-utilities
 
   if !os(windows)
     build-depends:      unix
@@ -522,6 +523,9 @@ library
   ghc-options:         -Wall
                        -fno-warn-orphans
                        -O2
+  ghc-prof-options:    -fprof-auto
+                       -O2
+                       -funbox-strict-fields
 
   -- linker speed up for linux
   if os(linux)
@@ -597,6 +601,9 @@ executable cardano-node
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+  ghc-prof-options:    -fprof-auto
+                       -O2
+                       -funbox-strict-fields
 
   -- linker speed up for linux
   if os(linux)

@@ -7,28 +7,45 @@
 module Pos.Wallet.Web.Api
        ( WalletApi
        , walletApi
+
        , TestReset
-       , GetWallet 
+
+       , GetWalletSet
+       , GetWalletSets
+       , NewWalletSet
+       , RestoreWalletSet
+       , RenameWalletSet
+       , ImportWalletSet
+       , ChangeWalletSetPassphrase
+
+       , GetWallet
        , GetWallets
        , UpdateWallet
        , DeleteWallet
-       , ImportKey
-       , WalletRestore
        , NewWallet
+
+       , NewAccount
+
        , IsValidAddress
+
        , GetProfile
        , UpdateProfile
+
        , NewPayment
        , NewPaymentExt
        , UpdateTx
        , GetHistory
        , SearchHistory
+
        , NextUpdate
        , ApplyUpdate
+
        , RedeemADA
        , RedeemADAPaperVend
+
        , ReportingInitialized
        , ReportingElectroncrash
+
        , GetSlotsDuration
        , GetVersion
        , GetSyncProgress
@@ -41,11 +58,13 @@ import           Servant.Multipart          (MultipartForm)
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (CAddress, CCurrency, CElectronCrashReport,
-                                             CInitialized, CPaperVendWalletRedeem,
-                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, SyncProgress)
+import           Pos.Wallet.Web.ClientTypes (Acc, CAccount, CAddress, CCurrency,
+                                             CElectronCrashReport, CInitialized,
+                                             CPaperVendWalletRedeem, CPassPhrase,
+                                             CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
+                                             CWallet, CWalletAddress, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, CWalletSet,
+                                             CWalletSet, CWalletSetInit, SyncProgress, WS)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 -- | Common prefix for all endpoints.
@@ -58,44 +77,106 @@ type TestReset = API
     :> "reset"
     :> Post '[JSON] (Either WalletError ())
 
+-------------------------------------------------------------------------
+-- Wallet sets
+-------------------------------------------------------------------------
+
+type GetWalletSet = API
+    :> "wallets"
+    :> "sets"
+    :> Capture "walletSetId" (CAddress WS)
+    :> Get '[JSON] (Either WalletError CWalletSet)
+
+type GetWalletSets = API
+    :> "wallets"
+    :> "sets"
+    :> Get '[JSON] (Either WalletError [CWalletSet])
+
+type NewWalletSet = API
+    :> "wallets"
+    :> "sets"
+    :> "new"
+    :> QueryParam "passphrase" CPassPhrase
+    :> ReqBody '[JSON] CWalletSetInit
+    :> Post '[JSON] (Either WalletError CWalletSet)
+
+type RestoreWalletSet = API
+    :> "wallets"
+    :> "sets"
+    :> "restore"
+    :> QueryParam "passphrase" CPassPhrase
+    :> ReqBody '[JSON] CWalletSetInit
+    :> Post '[JSON] (Either WalletError CWalletSet)
+
+type RenameWalletSet = API
+    :> "wallets"
+    :> "sets"
+    :> "rename"
+    :> Capture "walletSetId" (CAddress WS)
+    :> Capture "name" Text
+    :> Post '[JSON] (Either WalletError CWalletSet)
+
+type ImportWalletSet = API
+    :> "wallets"
+    :> "sets"
+    :> "keys"
+    :> QueryParam "passphrase" CPassPhrase
+    :> ReqBody '[JSON] Text
+    :> Post '[JSON] (Either WalletError CWalletSet)
+
+type ChangeWalletSetPassphrase = API
+    :> "wallets"
+    :> "sets"
+    :> "password"
+    :> Capture "walletSetId" (CAddress WS)
+    :> QueryParam "old" CPassPhrase
+    :> QueryParam "new" CPassPhrase
+    :> Post '[JSON] (Either WalletError ())
+
+-------------------------------------------------------------------------
+-- Wallets
+-------------------------------------------------------------------------
+
 type GetWallet = API
     :> "wallets"
-    :> Capture "walletId" CAddress
+    :> Capture "walletId" CWalletAddress
     :> Get '[JSON] (Either WalletError CWallet)
 
 type GetWallets = API
     :> "wallets"
+    :> QueryParam "walletSetId" (CAddress WS)
     :> Get '[JSON] (Either WalletError [CWallet])
 
 type UpdateWallet = API
     :> "wallets"
-    :> Capture "walletId" CAddress
+    :> Capture "walletId" CWalletAddress
     :> ReqBody '[JSON] CWalletMeta
     :> Put '[JSON] (Either WalletError CWallet)
 
-type DeleteWallet = API
-    :> "wallets"
-    :> Capture "walletId" CAddress
-    :> Delete '[JSON] (Either WalletError ())
-
-type ImportKey = API
-    :> "wallets"
-    :> "keys"
-    :> ReqBody '[JSON] Text
-    :> Post '[JSON] (Either WalletError CWallet)
-
-type WalletRestore = API
-    :> "wallets"
-    :> "restore"
-    :> Capture "passphrase" CPassPhrase
-    :> ReqBody '[JSON] CWalletInit
-    :> Post '[JSON] (Either WalletError CWallet)
-
 type NewWallet = API
     :> "wallets"
-    :> Capture "passphrase" CPassPhrase
+    :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
     :> Post '[JSON] (Either WalletError CWallet)
+
+type DeleteWallet = API
+    :> "wallets"
+    :> Capture "walletId" CWalletAddress
+    :> Delete '[JSON] (Either WalletError ())
+
+-------------------------------------------------------------------------
+-- Accounts
+-------------------------------------------------------------------------
+
+type NewAccount = API
+    :> "account"
+    :> QueryParam "passphrase" CPassPhrase
+    :> ReqBody '[JSON] CWalletAddress
+    :> Post '[JSON] (Either WalletError CAccount)
+
+-------------------------------------------------------------------------
+-- Addresses
+-------------------------------------------------------------------------
 
 type IsValidAddress = API
     :> "addresses"
@@ -103,6 +184,10 @@ type IsValidAddress = API
     :> "currencies"
     :> Capture "currency" CCurrency
     :> Get '[JSON] (Either WalletError Bool)
+
+-------------------------------------------------------------------------
+-- Profile(s)
+-------------------------------------------------------------------------
 
 type GetProfile = API
     :> "profile"
@@ -113,31 +198,37 @@ type UpdateProfile = API
     :> ReqBody '[JSON] CProfile
     :> Post '[JSON] (Either WalletError CProfile)
 
+
+-------------------------------------------------------------------------
+-- Transactions
+-------------------------------------------------------------------------
+
 type NewPayment = API
     :> "txs"
     :> "payments"
-    :> Capture "passphrase" CPassPhrase
-    :> Capture "from" CAddress
-    :> Capture "to" CAddress
+    :> QueryParam "passphrase" CPassPhrase
+    :> Capture "from" CWalletAddress
+    :> Capture "to" (CAddress Acc)
     :> Capture "amount" Coin
     :> Post '[JSON] (Either WalletError CTx)
 
 type NewPaymentExt = API
     :> "txs"
     :> "payments"
-    :> Capture "passphrase" CPassPhrase
-    :> Capture "from" CAddress
-    :> Capture "to" CAddress
+    :> QueryParam "passphrase" CPassPhrase
+    :> Capture "from" CWalletAddress
+    :> Capture "to" (CAddress Acc)
     :> Capture "amount" Coin
     :> Capture "currency" CCurrency
     :> Capture "title" Text
     :> Capture "description" Text
     :> Post '[JSON] (Either WalletError CTx)
 
+
 type UpdateTx = API
     :> "txs"
     :> "payments"
-    :> Capture "address" CAddress
+    :> Capture "address" CWalletAddress
     :> Capture "transaction" CTxId
     :> ReqBody '[JSON] CTxMeta
     :> Post '[JSON] (Either WalletError ())
@@ -145,7 +236,7 @@ type UpdateTx = API
 type GetHistory = API
     :> "txs"
     :> "histories"
-    :> Capture "address" CAddress
+    :> Capture "walletId" CWalletAddress
     :> QueryParam "skip" Word
     :> QueryParam "limit" Word
     :> Get '[JSON] (Either WalletError ([CTx], Word))
@@ -153,11 +244,17 @@ type GetHistory = API
 type SearchHistory = API
     :> "txs"
     :> "histories"
-    :> Capture "address" CAddress
+    :> Capture "walletId" CWalletAddress
     :> Capture "search" Text
+    :> QueryParam "account" (CAddress Acc)
     :> QueryParam "skip" Word
     :> QueryParam "limit" Word
     :> Get '[JSON] (Either WalletError ([CTx], Word))
+
+
+-------------------------------------------------------------------------
+-- Updates
+-------------------------------------------------------------------------
 
 type NextUpdate = API
     :> "update"
@@ -167,9 +264,15 @@ type ApplyUpdate = API
     :> "update"
     :> Post '[JSON] (Either WalletError ())
 
+
+-------------------------------------------------------------------------
+-- Redemptions
+-------------------------------------------------------------------------
+
 type RedeemADA = API
     :> "redemptions"
     :> "ada"
+    :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletRedeem
     :> Post '[JSON] (Either WalletError CTx)
 
@@ -177,8 +280,14 @@ type RedeemADAPaperVend = API
     :> "papervend"
     :> "redemptions"
     :> "ada"
+    :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CPaperVendWalletRedeem
     :> Post '[JSON] (Either WalletError CTx)
+
+
+-------------------------------------------------------------------------
+-- Reporting
+-------------------------------------------------------------------------
 
 type ReportingInitialized = API
     :> "reporting"
@@ -191,6 +300,11 @@ type ReportingElectroncrash = API
     :> "electroncrash"
     :> MultipartForm CElectronCrashReport
     :> Post '[JSON] (Either WalletError ())
+
+
+-------------------------------------------------------------------------
+-- Settings
+-------------------------------------------------------------------------
 
 type GetSlotsDuration = API
     :> "settings"
@@ -216,21 +330,39 @@ type WalletApi =
      TestReset
     :<|>
      -------------------------------------------------------------------------
+     -- Wallet sets
+     -------------------------------------------------------------------------
+     GetWalletSet
+    :<|>
+     GetWalletSets
+    :<|>
+     NewWalletSet
+    :<|>
+     RestoreWalletSet
+    :<|>
+     RenameWalletSet
+    :<|>
+     ImportWalletSet
+    :<|>
+     ChangeWalletSetPassphrase
+    :<|>
+     -------------------------------------------------------------------------
      -- Wallets
      -------------------------------------------------------------------------
-     GetWallet 
+     GetWallet
     :<|>
      GetWallets
     :<|>
      UpdateWallet
     :<|>
+     NewWallet
+    :<|>
      DeleteWallet
     :<|>
-     ImportKey
-    :<|>
-     WalletRestore 
-    :<|>
-     NewWallet
+     -------------------------------------------------------------------------
+     -- Accounts
+     -------------------------------------------------------------------------
+     NewAccount
     :<|>
      -------------------------------------------------------------------------
      -- Addresses
@@ -267,7 +399,7 @@ type WalletApi =
      -------------------------------------------------------------------------
      -- Updates
      -------------------------------------------------------------------------
-     NextUpdate 
+     NextUpdate
     :<|>
      ApplyUpdate
     :<|>
@@ -281,18 +413,18 @@ type WalletApi =
      -------------------------------------------------------------------------
      -- Reporting
      -------------------------------------------------------------------------
-     ReportingInitialized 
+     ReportingInitialized
     :<|>
-     ReportingElectroncrash 
+     ReportingElectroncrash
     :<|>
      -------------------------------------------------------------------------
      -- Settings
      -------------------------------------------------------------------------
      GetSlotsDuration
     :<|>
-     GetVersion 
+     GetVersion
     :<|>
-     GetSyncProgress 
+     GetSyncProgress
 
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi

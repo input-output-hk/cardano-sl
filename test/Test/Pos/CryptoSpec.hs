@@ -76,6 +76,11 @@ spec = describe "Crypto" $ do
             prop
                 "passphrase doesn't match"
                 mismatchingPassphraseFails
+            prop
+                -- if you see this case failing, then passphrase changing endpoint
+                -- in wallets have to be reconsidered
+                "passphrase change doesn't modify key address"
+                passphraseChangeLeavesAddressUnmodified
 
         describe "Identity testing" $ do
             describe "Bi instances" $ do
@@ -557,3 +562,14 @@ mismatchingPassphraseFails genPass signPass = ioProperty $ do
     (_, key) <- Crypto.safeKeyGen genPass
     Crypto.withSafeSigner key (return signPass) $ \signer ->
         return $ genPass /= signPass ==> property (isNothing signer)
+
+passphraseChangeLeavesAddressUnmodified
+    :: Crypto.PassPhrase
+    -> Crypto.PassPhrase
+    -> Property
+passphraseChangeLeavesAddressUnmodified oldPass newPass = ioProperty $ do
+    (_, oldKey) <- Crypto.safeKeyGen oldPass
+    let newKey = fromMaybe (error "Passphrase didn't match") $
+                 Crypto.changeEncPassphrase oldPass newPass oldKey
+    return $ Crypto.encToPublic oldKey === Crypto.encToPublic newKey
+

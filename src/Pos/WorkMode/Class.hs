@@ -18,15 +18,15 @@ import           System.Wlog                 (WithLogger)
 import           Universum
 
 import qualified Ether
+import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (BlkSemaphore, MonadBlockRetrievalQueue,
                                               MonadLastKnownHeader, MonadProgressHeader,
                                               MonadRecoveryHeader, MonadSscContext,
                                               NodeParams, StartTime, TxpGlobalSettings)
-import           Pos.DB.Class                (MonadDB)
+import           Pos.DB.Class                (MonadDB, MonadDBCore)
 import           Pos.DB.DB                   ()
-import           Pos.DB.Limits               (MonadDBLimits)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Discovery.Class         (MonadDiscovery)
 import           Pos.Lrc.Context             (LrcContext)
@@ -60,7 +60,7 @@ type WorkMode ssc m
       , MonadMask m
       , MonadSlots m
       , MonadDB m
-      , MonadDBLimits m
+      , MonadDBCore m
       , MonadTxpMem TxpExtra_TMP m
       , MonadRelayMem m
       , MonadDelegation m
@@ -85,6 +85,7 @@ type WorkMode ssc m
       , MonadJL m
       , WithPeerState m
       , MonadShutdownMem m
+      , MonadBListener m
       , MonadDiscovery m
       )
 
@@ -95,4 +96,3 @@ type MinWorkMode m
       , MonadIO m
       , WithPeerState m
       )
-

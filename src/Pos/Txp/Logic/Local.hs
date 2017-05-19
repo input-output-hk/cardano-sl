@@ -19,7 +19,7 @@ import           Universum
 import           Pos.Core             (HeaderHash)
 import           Pos.DB.Class         (MonadDB)
 import qualified Pos.DB.GState        as GS
-import           Pos.Txp.Core         (Tx (..), TxAux, TxId)
+import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId)
 import           Pos.Txp.MemState     (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                        getUtxoModifier, modifyTxpLocalData,
                                        setTxpLocalData)
@@ -40,8 +40,9 @@ type TxpLocalWorkMode m =
 txProcessTransaction
     :: TxpLocalWorkMode m
     => (TxId, TxAux) -> m ()
-txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
-    tipBefore <- GS.getTip
+txProcessTransaction itw@(txId, txAux) = do
+    let UnsafeTx {..} = taTx txAux
+    tipDB <- GS.getTip
     localUM <- getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
@@ -57,7 +58,7 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     pRes <- modifyTxpLocalData $
-            processTxDo resolved toilEnv tipBefore itw
+            processTxDo resolved toilEnv tipDB itw
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
@@ -72,8 +73,8 @@ txProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
         -> (TxId, TxAux)
         -> TxpLocalDataPure
         -> (Either ToilVerFailure (), TxpLocalDataPure)
-    processTxDo resolved toilEnv tipBefore tx txld@(uv, mp, undo, tip, ())
-        | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
+    processTxDo resolved toilEnv tipDB tx txld@(uv, mp, undo, tip, ())
+        | tipDB /= tip = (Left $ ToilTipsMismatch tipDB tip, txld)
         | otherwise =
             let res = (runExceptT $
                       flip runUtxoReaderT resolved $

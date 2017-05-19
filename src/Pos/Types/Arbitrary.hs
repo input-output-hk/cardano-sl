@@ -57,7 +57,7 @@ import           Pos.Merkle                 (MerkleRoot (..), MerkleTree, mkMerk
 import           Pos.Script                 (Script)
 import           Pos.Script.Examples        (badIntRedeemer, goodIntRedeemer,
                                              intValidator)
-import           Pos.Txp.Core.Types         (Tx (..), TxAux, TxDistribution (..),
+import           Pos.Txp.Core.Types         (Tx (..), TxAux (..), TxDistribution (..),
                                              TxIn (..), TxInWitness (..), TxOut (..),
                                              TxOutAux (..), TxProof (..), TxSigData (..),
                                              mkTx)
@@ -351,7 +351,7 @@ newtype GoodTx = GoodTx
 newtype SmallGoodTx = SmallGoodTx { getSmallGoodTx :: GoodTx } deriving (Show)
 
 goodTxToTxAux :: GoodTx -> TxAux
-goodTxToTxAux (GoodTx l) = (tx,witness,distr)
+goodTxToTxAux (GoodTx l) = TxAux tx witness distr
   where
     tx = fromMaybe (error "goodTxToTxAux created malformed tx") $
          mkTx (map (view _2) l) (map (toaOut . view _3) l) def

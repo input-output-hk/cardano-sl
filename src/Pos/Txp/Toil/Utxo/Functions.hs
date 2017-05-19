@@ -28,7 +28,7 @@ import           Pos.Crypto                (SignTag (SignTxIn), WithHash (..), c
 import           Pos.Data.Attributes       (Attributes (attrRemain), areAttributesKnown)
 import           Pos.Script                (Script (..), isKnownScriptVersion,
                                             txScriptCheck)
-import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux,
+import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..),
                                             TxDistribution (..), TxIn (..),
                                             TxInWitness (..), TxOut (..), TxOutAux (..),
                                             TxSigData (..), TxUndo, TxWitness, txOutputs)
@@ -74,7 +74,7 @@ verifyTxUtxo
     => VTxContext
     -> TxAux
     -> m TxUndo
-verifyTxUtxo ctx@VTxContext {..} ta@(UnsafeTx {..}, witnesses, _) = do
+verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses _) = do
     verifyConsistency _txInputs witnesses
     verResToMonadError (ToilInvalidOutputs . formatFirstError) $
         verifyOutputs ctx ta
@@ -109,7 +109,7 @@ verifyConsistency inputs witnesses
     errMsg = sformat errFmt (length inputs) (length witnesses)
 
 verifyOutputs :: VTxContext -> TxAux -> VerificationRes
-verifyOutputs VTxContext {..} (UnsafeTx {..}, _, distrs)=
+verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _ distrs)=
     verifyGeneric $
         [ ( length _txOutputs == length (getTxDistribution distrs)
           , "length of outputs != length of tx distribution")
@@ -156,10 +156,13 @@ verifyInputs :: VTxContext
              -> NonEmpty (TxIn, TxOutAux)
              -> TxAux
              -> VerificationRes
-verifyInputs VTxContext {..} resolvedInputs (view txOutputs -> outs, witnesses, distrs) =
+verifyInputs VTxContext {..} resolvedInputs TxAux {..} =
     verifyGeneric . concat $
     zipWith3 inputPredicates [0 ..] (toList resolvedInputs) (toList witnesses)
   where
+    outs = taTx ^. txOutputs
+    witnesses = taWitness
+    distrs = taDistribution
     outsHash  = hash outs
     distrHash = hash distrs
     inputPredicates
@@ -254,7 +257,8 @@ applyTxToUtxo (WithHash UnsafeTx {..} txid) distr = do
 rollbackTxUtxo
     :: (MonadUtxo m)
     => (TxAux, TxUndo) -> m ()
-rollbackTxUtxo ((tx@UnsafeTx{..}, _, _), undo) = do
+rollbackTxUtxo (txAux, undo) = do
+    let tx@UnsafeTx {..} = taTx txAux
     let txid = hash tx
     mapM_ utxoDel $ take (length _txOutputs) $ map (TxIn txid) [0..]
     mapM_ (uncurry utxoPut) $ NE.zip _txInputs undo

@@ -86,7 +86,8 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefau
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal,
                                              sscVerifyBlocks)
-import           Pos.Txp.Core               (TxAux, TxPayload, mkTxPayload, topsortTxs)
+import           Pos.Txp.Core               (TxAux (..), TxPayload, mkTxPayload,
+                                             topsortTxs)
 import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxsNUndo)
 import           Pos.Txp.Settings           (TxpBlock, TxpGlobalSettings (..))
 import           Pos.Types                  (Block, BlockHeader, EpochOrSlot (..),
@@ -826,7 +827,7 @@ createMainBlockFinish slotId pSk prevHeader = do
         usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
         (localPSKs, pskUndo) <- lift getProxyMempool
         -- Create block
-        let convertTx (txId, (tx, _, _)) = WithHash tx txId
+        let convertTx (txId, txAux) = WithHash (taTx txAux) txId
         sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
         sk <- Ether.asks' npSecretKey
         -- 50 bytes is substracted to account for different unexpected

@@ -458,7 +458,7 @@ getMainBlock h =
 -- | Get transaction extra from the database, and if you don't find it
 -- throw an exception.
 getTxExtraOrFail :: MonadDB m => TxId -> m TxExtra
-getTxExtraOrFail id = getTxExtra id >>= maybeThrow exception
+getTxExtraOrFail txId = getTxExtra txId >>= maybeThrow exception
   where
     exception = Internal "Transaction not found"
 

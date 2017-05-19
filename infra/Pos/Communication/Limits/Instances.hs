@@ -52,17 +52,9 @@ instance Limiter (Limit t, Limit t, Limit t, Limit t) where
 -- Instances for MessageLimited
 ----------------------------------------------------------------------------
 
-instance MessageLimited (InvMsg key) where
-    type LimitType (InvMsg key) = Limit (InvMsg key)
-    getMsgLenLimit _ = return msgLenLimit
-
-instance MessageLimited (ReqMsg key) where
-    type LimitType (ReqMsg key) = Limit (ReqMsg key)
-    getMsgLenLimit _ = return msgLenLimit
-
-instance MessageLimited (MempoolMsg tag) where
-    type LimitType (MempoolMsg tag) = Limit (MempoolMsg tag)
-    getMsgLenLimit _ = return msgLenLimit
+instance MessageLimited (InvMsg key)
+instance MessageLimited (ReqMsg key)
+instance MessageLimited (MempoolMsg tag)
 
 instance MessageLimited (DataMsg contents)
       => MessageLimited (InvOrData key contents) where

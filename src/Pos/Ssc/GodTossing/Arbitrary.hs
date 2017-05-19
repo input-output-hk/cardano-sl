@@ -7,14 +7,15 @@ module Pos.Ssc.GodTossing.Arbitrary
        , CommitmentOpening (..)
        ) where
 
+import           Universum
+
 import qualified Data.HashMap.Strict              as HM
 import           Test.QuickCheck                  (Arbitrary (..), Gen, elements, oneof)
-import           Universum
 
 import           Pos.Binary.Class                 (asBinary)
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Types.Relay    (DataMsg (..))
-import           Pos.Core.Address                 (addressHash)
+import           Pos.Core                         (SlotId (..), addressHash)
 import           Pos.Crypto                       (deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Ssc.Arbitrary                (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.GodTossing.Core          (Commitment (..), CommitmentsMap,
@@ -26,6 +27,7 @@ import           Pos.Ssc.GodTossing.Core          (Commitment (..), CommitmentsM
                                                    isSharesId, mkCommitmentsMap,
                                                    mkCommitmentsMap, mkSignedCommitment,
                                                    mkVssCertificate)
+import           Pos.Ssc.GodTossing.Toss.Types    (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message (GtTag (..), MCCommitment (..),
                                                    MCOpening (..), MCShares (..),
@@ -33,7 +35,6 @@ import           Pos.Ssc.GodTossing.Types.Message (GtTag (..), MCCommitment (..)
 import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
-import           Pos.Types                        (SlotId (..))
 import           Pos.Types.Arbitrary.Unsafe       ()
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)
@@ -176,6 +177,11 @@ instance Arbitrary GtGlobalState where
 
 instance Arbitrary GtSecretStorage where
     arbitrary = GtSecretStorage <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary TossModifier where
+    arbitrary =
+        makeSmall $
+        TossModifier <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 ------------------------------------------------------------------------------------------
 -- Message types

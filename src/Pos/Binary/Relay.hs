@@ -13,7 +13,6 @@ import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg (..),
 import           Pos.Crypto                       (hash)
 import           Pos.Ssc.GodTossing.Types.Message (MCCommitment (..), MCOpening (..),
                                                    MCShares (..), MCVssCertificate (..))
-import           Pos.Txp.Network.Types            (TxMsgContents (..))
 import           Pos.Update.Core                  (UpdateProposal, UpdateVote (..))
 
 instance (Bi key) => Bi (InvMsg key) where
@@ -48,12 +47,6 @@ instance Bi (DataMsg MCShares) where
 instance Bi (DataMsg MCVssCertificate) where
     put (DataMsg (MCVssCertificate vssCert)) = put vssCert
     get = fmap DataMsg $ label "DataMsg MCVssCertificate" $ MCVssCertificate <$> get
-
-instance Bi (DataMsg TxMsgContents) where
-    put (DataMsg (TxMsgContents dmTx dmWitness dmDistr)) =
-        put dmTx >> put dmWitness >> put dmDistr
-    get = label "DataMsg TxMsgContents" $
-        DataMsg <$> (TxMsgContents <$> get <*> get <*> get)
 
 instance Bi (DataMsg (UpdateProposal, [UpdateVote])) where
     put (DataMsg dmContents) = put dmContents

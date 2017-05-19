@@ -16,6 +16,7 @@ module Pos.Util.Util
 
        , maybeThrow
        , getKeys
+       , sortWithMDesc
 
        -- * Ether
        , ether
@@ -241,6 +242,14 @@ maybeThrow e = maybe (throwM e) pure
 -- | Create HashSet from HashMap's keys
 getKeys :: HashMap k v -> HashSet k
 getKeys = fromMap . void
+
+-- | Use some monadic action to evaluate priority of value and sort a
+-- list of values based on this priority. The order is descending
+-- because I need it.
+sortWithMDesc :: (Monad m, Ord b) => (a -> m b) -> [a] -> m [a]
+sortWithMDesc f = fmap (map fst . sortWith (Down . snd)) . mapM f'
+  where
+    f' x = (x, ) <$> f x
 
 -- | Make a Reader or State computation work in an Ether transformer. Useful
 -- to make lenses work with Ether.

@@ -1,5 +1,3 @@
-{-# LANGUAGE LambdaCase #-}
-
 -- | Binary specification for txp-related (Pos.Txp) messages.
 
 module Test.Pos.Txp.Identity.BinarySpec
@@ -30,6 +28,7 @@ spec =
         binaryTest @T.TxOut
         binaryTest @T.TxOutAux
         binaryTest @T.Tx
+        binaryTest @T.TxAux
         binaryTest @T.TxProof
         binaryTest @SmallTxPayload
       describe "Network" $ do

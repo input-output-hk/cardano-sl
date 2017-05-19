@@ -35,8 +35,15 @@ vssMaxTTL: 6 # epochs
 vssMinTTL: 2 # epochs
 mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter)
 
-# Lightweight delegation
+# Delegation
 lightDlgConfirmationTimeout: 500
+# This value parameterizes size of dlg cache. There are two types of messages:
+# normal messages and confirmation messages. Both of them are limited in size
+# by this value multiplied by some constant. You are adviced to look at code
+# if you need exact values, because it may change and most likely nobody will
+# update this comment.
+# The size is number of elements, not bytes.
+dlgCacheParam: 500
 
 # Update system
 applicationName: cardano-sl
@@ -50,7 +57,6 @@ ntpPollDelay: 60000000 # 1 min
 ntpMaxError: 120000000 # 2 mins
 
 # Misc
-maxLocalTxs: 1000
 protocolMagic: 50987833
 enhancedMessageTimeout: 10
 enhancedMessageBroadcast: 2
@@ -58,3 +64,6 @@ messageCacheTimeout: 30
 propagationQueueSize: 100
 blockRetrievalQueueSize: 100
 recoveryHeadersMessage: 100 # should be greater than k
+
+# These constants mostly depend on hardware capabilities
+memPoolLimitRatio: 2 # mem pool will be limited by this value muliplied by block size limit

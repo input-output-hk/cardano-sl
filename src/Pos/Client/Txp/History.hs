@@ -55,7 +55,7 @@ import           Pos.Explorer                 (eTxProcessTransaction)
 #else
 import           Pos.Txp                      (MonadTxpMem, txProcessTransaction)
 #endif
-import           Pos.Txp                      (MonadUtxoRead, Tx (..), TxAux,
+import           Pos.Txp                      (MonadUtxoRead, Tx (..), TxAux (..),
                                                TxDistribution, TxId, TxOut, TxOutAux (..),
                                                TxWitness, Utxo, UtxoStateT, applyTxToUtxo,
                                                evalUtxoStateT, filterUtxoByAddrs,
@@ -145,8 +145,9 @@ deriveAddrHistoryPartial hist addrs chain =
   where
     updateAll (Left _) hst = pure hst
     updateAll (Right blk) hst = do
+        let mapper TxAux {..} = (withHash taTx, taWitness, taDistribution)
         txs <- getRelatedTxs addrs $
-                   map (over _1 withHash) (blk ^. blockTxas)
+                   map mapper (blk ^. blockTxas)
         let difficulty = blk ^. difficultyL
             txs' = map (thDifficulty .~ Just difficulty) txs
         return $ DL.fromList txs' <> hst
@@ -219,7 +220,8 @@ instance
                        maybeThrow (DBMalformed "A block mysteriously disappeared!")
                 deriveAddrHistoryPartial txs addrs [blk]
             localFetcher blkTxs = do
-                let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
+                let mp (txid, TxAux {..}) =
+                      (WithHash taTx txid, taWitness, taDistribution)
                 ltxs <- lift . lift $ getLocalTxs
                 txs <- getRelatedTxs addrs $ map mp ltxs
                 return $ txs ++ blkTxs

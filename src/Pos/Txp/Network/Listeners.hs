@@ -23,7 +23,7 @@ import           Pos.Communication.Relay    (InvReqDataParams (..), MempoolParam
                                              Relay (..), relayListeners)
 import           Pos.Crypto                 (hash)
 import           Pos.Statistics             (StatProcessTx (..), statlogCountEvent)
-import           Pos.Txp.Core.Types         (TxAux, TxId)
+import           Pos.Txp.Core.Types         (TxAux (..), TxId)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local     (eTxProcessTransaction)
 #else
@@ -49,14 +49,12 @@ txInvReqDataParams =
        , handleData = txHandleData
        }
   where
-    txContentsToKey (TxMsgContents tx _ _) = pure . Tagged  $ hash tx
+    txContentsToKey = pure . Tagged . hash . taTx . getTxMsgContents
     txHandleInv (Tagged txId) =
         not . HM.member txId  . _mpLocalTxs <$> getMemPool
     txHandleReq (Tagged txId) =
-        fmap toContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
-    txHandleData (TxMsgContents tx tw td) =
-        handleTxDo (hash tx, (tx, tw, td))
-    toContents (tx, tw, td) = TxMsgContents tx tw td
+        fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
+    txHandleData (TxMsgContents txAux) = handleTxDo txAux
 
 txRelay
     :: WorkMode ssc m
@@ -73,14 +71,14 @@ txRelay =
 -- #txProcessTransaction
 handleTxDo
     :: WorkMode ssc m
-    => (TxId, TxAux) -> m Bool
-handleTxDo tx = do
+    => TxAux -> m Bool
+handleTxDo txAux = do
+    let txId = hash (taTx txAux)
 #ifdef WITH_EXPLORER
-    res <- runExceptT $ eTxProcessTransaction tx
+    res <- runExceptT $ eTxProcessTransaction (txId, txAux)
 #else
-    res <- runExceptT $ txProcessTransaction tx
+    res <- runExceptT $ txProcessTransaction (txId, txAux)
 #endif
-    let txId = fst tx
     case res of
         Right _ -> do
             statlogCountEvent StatProcessTx 1

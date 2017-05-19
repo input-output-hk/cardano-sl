@@ -30,7 +30,7 @@ import           Pos.Wallet.KeyStorage       (KeyData, keyDataFromFile)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
 import           Pos.Wallet.State            (closeState, openMemState, openState)
 import           Pos.Wallet.State.Acidic     (WalletState)
-import           Pos.Wallet.State.Limits     (runDbLimitsWalletRedirect)
+import           Pos.Wallet.State.Core       (runGStateCoreWalletRedirect)
 import           Pos.Wallet.WalletMode       (WalletMode, WalletStaticPeersMode,
                                               runBalancesWalletRedirect,
                                               runBlockchainInfoNotImplemented,
@@ -106,7 +106,7 @@ runRawStaticPeersWallet peerId transport peers WalletParams {..}
             , Tagged @ReportingContext emptyReportingContext ) .
             runTxHistoryWalletRedirect .
             runBalancesWalletRedirect .
-            runDbLimitsWalletRedirect .
+            runGStateCoreWalletRedirect .
             runPeerStateRedirect .
             runUpdatesNotImplemented .
             runBlockchainInfoNotImplemented .

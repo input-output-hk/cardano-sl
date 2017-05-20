@@ -34,10 +34,25 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Verify       (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Block.Types     ()
+import           Pos.Binary.Block.Core      ()
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Binary.Core            ()
 import           Pos.Binary.Update          ()
+import           Pos.Block.Core             (BiSsc, Block, BlockHeader,
+                                             BlockSignature (..), Body (..),
+                                             ConsensusData (..), GenesisBlock,
+                                             GenesisBlockHeader, GenesisBlockchain,
+                                             GenesisExtraBodyData (..),
+                                             GenesisExtraHeaderData (..), MainBlock,
+                                             MainBlockHeader, MainBlockchain,
+                                             MainExtraBodyData (..), MainExtraHeaderData,
+                                             MainToSign (..), blockLeaders, blockMpc,
+                                             blockProxySKs, gebAttributes, gehAttributes,
+                                             getBlockHeader, getBlockHeader,
+                                             headerLeaderKey, mcdDifficulty, mcdLeaderKey,
+                                             mcdSignature, mcdSlot, mebAttributes,
+                                             mehAttributes)
+import           Pos.Block.Core.Instances   (Body (..), ConsensusData (..))
 import           Pos.Constants              (epochSlots)
 import           Pos.Core                   (ChainDifficulty, EpochIndex, EpochOrSlot,
                                              HasDifficulty (..), HasEpochIndex (..),
@@ -53,20 +68,6 @@ import           Pos.Crypto                 (Hash, SecretKey, SignTag (..), chec
                                              pskOmega, sign, toPublic, unsafeHash)
 import           Pos.Data.Attributes        (Attributes (attrRemain), mkAttributes)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
-import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), blockLeaders,
-                                             blockMpc, blockProxySKs, getBlockHeader,
-                                             getBlockHeader, headerLeaderKey,
-                                             mcdDifficulty, mcdLeaderKey, mcdSignature,
-                                             mcdSlot)
-import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
-                                             BlockSignature (..), GenesisBlock,
-                                             GenesisBlockHeader, GenesisBlockchain,
-                                             GenesisExtraBodyData (..),
-                                             GenesisExtraHeaderData (..), MainBlock,
-                                             MainBlockHeader, MainBlockchain,
-                                             MainExtraBodyData (..), MainExtraHeaderData,
-                                             MainToSign (..), gebAttributes,
-                                             gehAttributes, mebAttributes, mehAttributes)
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 import           Pos.Util.Util              (Some (Some))

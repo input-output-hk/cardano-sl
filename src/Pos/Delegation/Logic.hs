@@ -50,6 +50,7 @@ import           Universum
 
 import           Pos.Binary.Class         (biSize)
 import           Pos.Binary.Communication ()
+import           Pos.Block.Core           (Block, blockProxySKs)
 import           Pos.Block.Types          (Blund, Undo (undoPsk))
 import           Pos.Constants            (lightDlgConfirmationTimeout, memPoolLimitRatio,
                                            messageCacheTimeout)
@@ -77,8 +78,7 @@ import           Pos.Exception            (cardanoExceptionFromException,
 import           Pos.Lrc.Context          (LrcContext)
 import qualified Pos.Lrc.DB               as LrcDB
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
-import           Pos.Types                (Block, ProxySKHeavy, ProxySKLight,
-                                           ProxySigLight, blockProxySKs)
+import           Pos.Types                (ProxySKHeavy, ProxySKLight, ProxySigLight)
 import           Pos.Util                 (withReadLifted, withWriteLifted, _neHead,
                                            _neLast)
 import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..))

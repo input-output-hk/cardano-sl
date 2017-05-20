@@ -113,9 +113,6 @@ library
                         Pos.Types
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
-                        Pos.Types.Block
-                        Pos.Types.Block.Types
-                        Pos.Types.Block.Instances
 
                         -- Update system
                         Pos.Update
@@ -149,8 +146,8 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Block
-                        Pos.Binary.Block.Types
                         Pos.Binary.Block.Block
+                        Pos.Binary.Block.Core
                         Pos.Binary.Communication
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
@@ -165,7 +162,9 @@ library
 
                         -- Block processing
                         Pos.Block.Core.Genesis
+                        Pos.Block.Core.Instances
                         Pos.Block.Core.Main
+                        Pos.Block.Core.Union
                         Pos.Block.Error
                         Pos.Block.Logic.Internal
                         Pos.Block.Network.Announce

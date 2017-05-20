@@ -21,6 +21,9 @@ import           System.Wlog                    (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Binary.Ssc                 ()
+import           Pos.Block.Core                 (Block, blockMpc)
+import           Pos.Core                       (EpochIndex (..), SlotId (..),
+                                                 epochIndexL, epochOrSlotG, gbHeader)
 import           Pos.DB                         (MonadDB, SomeBatchOp (..))
 import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
@@ -38,9 +41,6 @@ import           Pos.Ssc.GodTossing.Type        (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), gsCommitments,
                                                  gsOpenings, gsShares, gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Types                      (Block, EpochIndex (..), SlotId (..),
-                                                 blockMpc, epochIndexL, epochOrSlotG,
-                                                 gbHeader)
 import           Pos.Util                       (_neHead, _neLast)
 import           Pos.Util.Chrono                (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Util                  (Some (Some))

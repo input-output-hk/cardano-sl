@@ -20,6 +20,7 @@ import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, list
                                        oneof, vectorOf)
 
 import           Pos.Binary.Class     (Bi, Raw, biSize)
+import qualified Pos.Block.Core       as T
 import           Pos.Block.Network    as T
 import qualified Pos.Block.Pure       as T
 import           Pos.Constants        (epochSlots)

@@ -21,6 +21,7 @@ import           System.Wlog                (logDebug, logError, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication   ()
+import           Pos.Block.Core             (Block, BlockHeader, blockHeader)
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
                                              classifyNewHeader, needRecovery)
@@ -36,14 +37,13 @@ import           Pos.Communication.Protocol (ConversationActions (..), NodeId, O
                                              toOutSpecs, worker)
 import           Pos.Context                (BlockRetrievalQueueTag, ProgressHeaderTag,
                                              RecoveryHeaderTag)
+import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
+                                             prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Class               (MonadDBCore)
 import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (SscWorkersClass)
-import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
-                                             HeaderHash, blockHeader, difficultyL,
-                                             prevBlockL)
 import           Pos.Util                   (_neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode.Class         (WorkMode)

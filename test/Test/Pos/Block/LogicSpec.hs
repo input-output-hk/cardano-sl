@@ -16,6 +16,7 @@ import           Test.QuickCheck            (Gen, Property, Testable, arbitrary,
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Arbitrary        ()
+import           Pos.Block.Core             (BlockHeader, MainBlock)
 import           Pos.Block.Logic            (createMainBlockPure)
 import qualified Pos.Communication          ()
 import           Pos.Constants              (blkSecurityParam, genesisMaxBlockSize)
@@ -26,9 +27,8 @@ import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              commitmentMapEpochGen, mkVssCertificatesMap,
                                              vssCertificateEpochGen)
 import           Pos.Txp.Core               (TxAux)
-import           Pos.Types                  (BlockHeader, MainBlock, ProxySKEither,
-                                             ProxySKHeavy, SmallGoodTx (..),
-                                             goodTxToTxAux)
+import           Pos.Types                  (ProxySKEither, ProxySKHeavy,
+                                             SmallGoodTx (..), goodTxToTxAux)
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util.Arbitrary         (makeSmall)
 

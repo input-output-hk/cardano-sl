@@ -27,6 +27,7 @@ import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey
                                                   Signed (..))
 import           Pos.Ssc.Class.Types             (Ssc (..))
 
+import           Pos.Block.Core
 import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..),
                                                   ApplicationName (..), BlockVersion (..),
                                                   BlockVersionData (..),
@@ -46,7 +47,6 @@ import           Pos.Txp.Core.Types              (Tx (..), TxDistribution (..), 
                                                   TxInWitness (..), TxOut (..),
                                                   TxOutAux (..), TxPayload (..),
                                                   TxProof (..))
-import           Pos.Types.Block
 import           Pos.Update.Core.Types           (SystemTag (..), UpdateData (..),
                                                   UpdatePayload (..), UpdateProposal (..),
                                                   UpdateVote (..))

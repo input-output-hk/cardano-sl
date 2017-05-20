@@ -10,7 +10,6 @@ module Pos.Types
        , module Pos.Core.Types
        , module Pos.Core.Version
        , module Pos.Types.Arbitrary
-       , module Pos.Types.Block
        ) where
 
 import           Pos.Binary.Core     ()
@@ -23,4 +22,3 @@ import           Pos.Core.Types
 import           Pos.Core.Version
 import           Pos.SafeCopy        ()
 import           Pos.Types.Arbitrary
-import           Pos.Types.Block

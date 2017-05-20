@@ -30,12 +30,11 @@ import           Universum               hiding (catchAll)
 
 import           Pos.Binary.Block        ()
 import           Pos.Binary.Core         ()
-import           Pos.Core                (headerSlotL)
+import           Pos.Block.Core          (BiSsc, Block, blockHeader, blockTxs)
+import           Pos.Core                (SlotId (..), epochIndexL, gbHeader,
+                                          gbhPrevBlock, headerHash, headerSlotL)
 import           Pos.Crypto              (Hash, hash, hashHexF)
 import           Pos.Ssc.Class.Types     (Ssc)
-import           Pos.Types               (BiSsc, Block, SlotId (..), blockHeader,
-                                          blockTxs, epochIndexL, gbHeader, gbhPrevBlock,
-                                          headerHash)
 import           Pos.Util.TimeWarp       (currentTime)
 
 type BlockId = Text

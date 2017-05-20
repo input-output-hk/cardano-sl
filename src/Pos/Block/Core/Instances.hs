@@ -4,7 +4,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
-module Pos.Types.Block.Instances
+module Pos.Block.Core.Instances
        ( BodyProof (..)
        , ConsensusData (..)
        , Body (..)
@@ -52,6 +52,13 @@ import           Serokell.Util         (Color (Magenta), colorize, listJson)
 import           Pos.Binary.Class      (Bi)
 import           Pos.Binary.Core       ()
 import           Pos.Binary.Txp        ()
+import           Pos.Block.Core.Union  (BiHeader, BiSsc, Block, BlockHeader,
+                                        BlockSignature, GenesisBlock, GenesisBlockHeader,
+                                        GenesisBlockchain, GenesisExtraBodyData,
+                                        GenesisExtraHeaderData, MainBlock,
+                                        MainBlockHeader, MainBlockchain,
+                                        MainExtraBodyData, MainExtraHeaderData,
+                                        mehBlockVersion, mehSoftwareVersion)
 import           Pos.Core              (Blockchain (..), ChainDifficulty, EpochIndex (..),
                                         EpochOrSlot (..), GenericBlock (..),
                                         GenericBlockHeader (..), HasBlockVersion (..),
@@ -69,13 +76,6 @@ import           Pos.Ssc.Class.Types   (Ssc (..))
 import           Pos.Txp.Core          (Tx, TxAux (..), TxDistribution, TxPayload,
                                         TxProof, TxWitness, mkTxProof, txpDistributions,
                                         txpTxs, txpWitnesses)
-import           Pos.Types.Block.Types (BiHeader, BiSsc, Block, BlockHeader,
-                                        BlockSignature, GenesisBlock, GenesisBlockHeader,
-                                        GenesisBlockchain, GenesisExtraBodyData,
-                                        GenesisExtraHeaderData, MainBlock,
-                                        MainBlockHeader, MainBlockchain,
-                                        MainExtraBodyData, MainExtraHeaderData,
-                                        mehBlockVersion, mehSoftwareVersion)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
 import           Pos.Util.Util         (Some (Some))

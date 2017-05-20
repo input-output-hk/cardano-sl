@@ -1,11 +1,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Pos.Types.Block.Types
+module Pos.Block.Core.Union
        ( BiSsc
        , BlockHeader
        , Block
        , BiHeader
 
+       , module Pos.Core.Block
        , module Pos.Block.Core.Genesis
        , module Pos.Block.Core.Main
        ) where
@@ -13,10 +14,12 @@ module Pos.Types.Block.Types
 import           Universum
 
 import           Pos.Binary.Class       (Bi)
+import           Pos.Ssc.Class.Types    (Ssc (..))
+
+-- Re-exports
 import           Pos.Block.Core.Genesis
 import           Pos.Block.Core.Main
-import           Pos.Core.Block         (GenericBlockHeader (..))
-import           Pos.Ssc.Class.Types    (Ssc (..))
+import           Pos.Core.Block
 
 ----------------------------------------------------------------------------
 -- GenesisBlock ∪ MainBlock

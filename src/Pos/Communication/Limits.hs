@@ -22,6 +22,7 @@ import           Data.Coerce                        (coerce)
 import           GHC.Exts                           (IsList (..))
 
 import           Pos.Binary.Class                   (AsBinary (..))
+import           Pos.Block.Core                     (Block, BlockHeader)
 import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetHeaders (..),
                                                      MsgHeaders (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
@@ -39,7 +40,6 @@ import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..), InnerShare
 import           Pos.Ssc.GodTossing.Types.Message   (GtMsgContents (..))
 import           Pos.Txp.Core                       (TxAux)
 import           Pos.Txp.Network.Types              (TxMsgContents (..))
-import           Pos.Types                          (Block, BlockHeader)
 import           Pos.Update.Core.Types              (UpdateProposal (..), UpdateVote (..))
 
 -- Reexports

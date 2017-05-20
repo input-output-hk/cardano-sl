@@ -55,15 +55,15 @@ import           Pos.Explorer                 (eTxProcessTransaction)
 #else
 import           Pos.Txp                      (MonadTxpMem, txProcessTransaction)
 #endif
+import           Pos.Block.Core               (Block, blockTxas)
+import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
+                                               difficultyL, prevBlockL)
 import           Pos.Txp                      (MonadUtxoRead, Tx (..), TxAux (..),
                                                TxDistribution, TxId, TxOut, TxOutAux (..),
                                                TxWitness, Utxo, UtxoStateT, applyTxToUtxo,
                                                evalUtxoStateT, filterUtxoByAddrs,
                                                getLocalTxs, runUtxoStateT, topsortTxs,
                                                txOutAddress, utxoGet)
-import           Pos.Types                    (Address, Block, ChainDifficulty,
-                                               HeaderHash, blockTxas, difficultyL,
-                                               prevBlockL)
 import           Pos.Util                     (ether, maybeThrow)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import

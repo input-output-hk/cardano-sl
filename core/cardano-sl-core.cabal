@@ -60,6 +60,7 @@ library
                        Pos.Binary.Crypto
                        Pos.Binary.Core
                        Pos.Binary.Core.Address
+                       Pos.Binary.Core.Block
                        Pos.Binary.Core.Coin
                        Pos.Binary.Core.Script
                        Pos.Binary.Core.Types

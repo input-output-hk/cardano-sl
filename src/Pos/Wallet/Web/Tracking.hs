@@ -13,22 +13,24 @@ module Pos.Wallet.Web.Tracking
        , MonadWalletTracking (..)
        ) where
 
+import           Universum
+
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
+import qualified Ether
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
-import           Universum
 
-import qualified Ether
+import           Pos.Block.Core             (BlockHeader, blockTxas, getBlockHeader)
 import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Pure             (genesisHash)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Context                (BlkSemaphore)
-import           Pos.Core                   (HasDifficulty (..))
-import           Pos.Core.Address           (AddrPkAttrs (..), Address (..),
+import           Pos.Core                   (AddrPkAttrs (..), Address (..),
+                                             HasDifficulty (..), HeaderHash, headerHash,
                                              makePubKeyAddress)
 import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
                                              WithHash (..), deriveHDPassphrase,
@@ -47,8 +49,6 @@ import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..),
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
 import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT,
                                              evalToilTEmpty, runDBTxp)
-import           Pos.Types                  (BlockHeader, HeaderHash, blockTxas,
-                                             getBlockHeader, headerHash)
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
 

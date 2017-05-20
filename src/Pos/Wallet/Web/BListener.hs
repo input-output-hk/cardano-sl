@@ -8,21 +8,22 @@ module Pos.Wallet.Web.BListener
        ( -- BListener instance.
        ) where
 
+import           Universum
+
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable)
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug)
-import           Universum
 
 import           Pos.Block.BListener        (MonadBListener (..))
+import           Pos.Block.Core             (blockTxas)
 import           Pos.Block.Types            (Blund, undoTx)
+import           Pos.Core                   (HeaderHash, headerHash, prevBlockL)
 import           Pos.DB.Class               (MonadDB)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux, TxUndo)
 import           Pos.Txp.Toil               (evalToilTEmpty, runDBTxp)
-import           Pos.Types                  (HeaderHash, blockTxas, headerHash,
-                                             prevBlockL)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier          as MM
 

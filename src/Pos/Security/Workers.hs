@@ -18,6 +18,8 @@ import           Serokell.Util              (sec)
 import           System.Wlog                (logWarning)
 
 import           Pos.Binary.Ssc             ()
+import           Pos.Block.Core             (Block, BlockHeader, MainBlock, blockMpc,
+                                             blockSlot)
 import           Pos.Block.Logic            (needRecovery)
 import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
 import           Pos.Block.Pure             (genesisHash)
@@ -26,6 +28,9 @@ import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
 import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
 import           Pos.Context                (getUptime, npPublicKey, recoveryInProgress)
+import           Pos.Core                   (EpochIndex, SlotId (..), addressHash,
+                                             flattenEpochOrSlot, flattenSlotId,
+                                             headerHash, headerLeaderKeyL, prevBlockL)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (getBlockHeader)
@@ -40,10 +45,6 @@ import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              getCommitmentsMap)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
-import           Pos.Types                  (Block, BlockHeader, EpochIndex, MainBlock,
-                                             SlotId (..), addressHash, blockMpc,
-                                             blockSlot, flattenEpochOrSlot, flattenSlotId,
-                                             headerHash, headerLeaderKey, prevBlockL)
 import           Pos.Util                   (mconcatPair)
 import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.WorkMode.Class         (WorkMode)
@@ -88,7 +89,7 @@ checkEclipsed ourPk slotId x = notEclipsed x
     -- been eclipsed.  Here's how we determine that a block is good
     -- (i.e. main block generated not by us):
     isGoodBlock (Left _)   = False
-    isGoodBlock (Right mb) = mb ^. headerLeaderKey /= ourPk
+    isGoodBlock (Right mb) = mb ^. headerLeaderKeyL /= ourPk
     -- Okay, now let's iterate until we see a good blocks or until we
     -- go past the threshold and there's no point in looking anymore:
     notEclipsed header = do

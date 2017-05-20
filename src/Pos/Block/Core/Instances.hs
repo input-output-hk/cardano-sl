@@ -84,7 +84,7 @@ import           Pos.Util.Util         (Some (Some))
 
 instance (BiHeader ssc, SscHelpersClass ssc, Bi UpdatePayload) =>
          Blockchain (MainBlockchain ssc) where
-    -- | Proof of transactions list and MPC data.
+    -- | Proof of everything contained in the payload.
     data BodyProof (MainBlockchain ssc) = MainProof
         { mpTxProof       :: !TxProof
         , mpMpcProof      :: !(SscProof ssc)
@@ -94,7 +94,8 @@ instance (BiHeader ssc, SscHelpersClass ssc, Bi UpdatePayload) =>
     data ConsensusData (MainBlockchain ssc) = MainConsensusData
         { -- | Id of the slot for which this block was generated.
         _mcdSlot       :: !SlotId
-        , -- | Public key of slot leader. Maybe later we'll see it is redundant.
+        , -- | Public key of the slot leader. It's essential to have it here,
+          -- because FTS gives us only hash of public key (aka 'StakeholderId').
         _mcdLeaderKey  :: !PublicKey
         , -- | Difficulty of chain ending in this block.
         _mcdDifficulty :: !ChainDifficulty
@@ -104,16 +105,16 @@ instance (BiHeader ssc, SscHelpersClass ssc, Bi UpdatePayload) =>
     type BBlockHeader (MainBlockchain ssc) = BlockHeader ssc
     type ExtraHeaderData (MainBlockchain ssc) = MainExtraHeaderData
 
-    -- | In our cryptocurrency, body consists of a list of transactions
-    -- and MPC messages.
+    -- | In our cryptocurrency, body consists of payloads of all block
+    -- components.
     data Body (MainBlockchain ssc) = MainBody
         { -- | Txp payload.
           _mbTxPayload :: !TxPayload
-        , -- | Data necessary for MPC.
+        , -- | Ssc payload.
           _mbMpc :: !(SscPayload ssc)
-        , -- | No-ttl heavyweight delegation certificates.
+        , -- | Heavyweight delegation payload (no-ttl certificates).
           _mbProxySKs :: ![ProxySKHeavy]
-          -- | Additional update information for update system.
+          -- | Additional update information for the update system.
         , _mbUpdatePayload :: !UpdatePayload
         } deriving (Generic, Typeable)
 

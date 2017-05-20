@@ -7,8 +7,6 @@ module Pos.Ssc.GodTossing.LocalData.Types
        , ldSize
        ) where
 
--- import           Universum
-
 import           Control.Lens                  (makeLenses)
 import           Serokell.Data.Memory.Units    (Byte)
 

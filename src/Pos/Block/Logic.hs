@@ -27,9 +27,10 @@ module Pos.Block.Logic
        , applyWithRollback
        , createGenesisBlock
        , createMainBlock
+       , createMainBlockPure
        ) where
 
-import           Control.Lens               ((-=), (.=), _Wrapped)
+import           Control.Lens               (uses, (-=), (.=), _Wrapped)
 import           Control.Monad.Catch        (try)
 import           Control.Monad.Except       (ExceptT (ExceptT), MonadError (throwError),
                                              runExceptT, withExceptT)
@@ -42,7 +43,7 @@ import qualified Data.Text                  as T
 import qualified Ether
 import           Formatting                 (build, int, ords, sformat, stext, (%))
 import           Paths_cardano_sl           (version)
-import           Serokell.Data.Memory.Units (toBytes)
+import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
                                              isVerSuccess, verResToMonadError)
@@ -50,7 +51,7 @@ import           System.Wlog                (CanLog, HasLoggerName, logDebug, lo
                                              logInfo)
 import           Universum
 
-import qualified Pos.Binary.Class           as Bi
+import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                              toUpdateBlock, withBlkSemaphore,
                                              withBlkSemaphore_)
@@ -80,11 +81,11 @@ import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Worker             (lrcSingleShotNoLock)
 import           Pos.Reporting              (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Slotting.Class         (getCurrentSlot)
-import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass,
+import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload),
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal,
                                              sscVerifyBlocks)
-import           Pos.Txp.Core               (TxAux (..), TxId, TxPayload, mkTxPayload,
+import           Pos.Txp.Core               (TxAux (..), TxPayload, mkTxPayload,
                                              topsortTxs)
 import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxsNUndo)
 import           Pos.Txp.Settings           (TxpBlock, TxpGlobalSettings (..))
@@ -828,12 +829,14 @@ createMainBlockFinish slotId pSk prevHeader = do
         let convertTx (txId, txAux) = WithHash (taTx txAux) txId
         sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
         sk <- Ether.asks' npSecretKey
-        -- for now let's be cautious and not generate blocks that are larger than
-        -- maxBlockSize/4
-        sizeLimit <- fromIntegral . toBytes . (`div` 4) <$> UDB.getMaxBlockSize
+        -- 100 bytes is substracted to account for different unexpected
+        -- overhead.  You can see that in bitcoin blocks are 1-2kB less
+        -- than limit. So i guess it's fine in general.
+        sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
         block <- createMainBlockPure
-                     sizeLimit prevHeader sortedTxs pSk
-                     slotId localPSKs sscData usPayload sk
+            sizeLimit prevHeader (map snd sortedTxs) pSk
+            slotId localPSKs sscData usPayload sk
+        lift $ logInfo $ "Created main block of size: " <> show (biSize block)
         -- Create undo
         (pModifier, verUndo) <-
             runExceptT (usVerifyBlocks False (one (toUpdateBlock (Right block)))) >>=
@@ -870,10 +873,11 @@ createMainBlockFinish slotId pSk prevHeader = do
             (const $ pure emptyBlund)
 
 createMainBlockPure
-    :: (MonadError Text m, SscHelpersClass ssc)
-    => Word64                   -- ^ Block size limit (TODO: imprecise)
+    :: forall m ssc .
+       (MonadError Text m, SscHelpersClass ssc)
+    => Byte                   -- ^ Block size limit (real max.value)
     -> BlockHeader ssc
-    -> [(TxId, TxAux)]
+    -> [TxAux]
     -> Maybe ProxySKEither
     -> SlotId
     -> [ProxySKHeavy]
@@ -883,16 +887,32 @@ createMainBlockPure
     -> m (MainBlock ssc)
 createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
     flip evalStateT limit $ do
-        -- account for block header and serialization overhead, etc; also
-        -- include all SSC data because a) deciding is hard and b) we don't
-        -- yet have a way to strip generic SSC data
+        -- default ssc to put in case we won't fit a normal one
+        let defSsc = (sscDefaultPayload @ssc (siSlot sId) :: SscPayload ssc)
+
+        -- account for block header and serialization overhead, etc;
         let musthaveBody = Types.MainBody
                 (fromMaybe (error "createMainBlockPure: impossible") $ mkTxPayload mempty)
-                sscData [] def
+                defSsc [] def
         musthaveBlock <-
             either throwError pure $
             mkMainBlock (Just prevHeader) sId sk pSk musthaveBody extraH extraB
-        count musthaveBlock
+        let mhbSize = biSize musthaveBlock
+        when (mhbSize > limit) $ throwError $
+            "Musthave block size is more than limit: " <> show mhbSize
+        identity -= biSize musthaveBlock
+
+        -- include ssc data limited with max half of block space if it's possible
+        sscPayload <- ifM (uses identity (<= biSize defSsc)) (pure defSsc) $ do
+            halfLeft <- uses identity (`div` 2)
+            -- halfLeft > 0, otherwize sscStripPayload may fail
+            let sscPayload = sscStripPayload @ssc halfLeft sscData
+            flip (maybe $ pure defSsc) sscPayload $ \sscP -> do
+                -- we subtract size of empty map because it's
+                -- already included in musthaveBlock
+                identity -= (biSize sscP - biSize defSsc)
+                pure sscP
+
         -- include delegation certificates and US payload
         let prioritizeUS = even (flattenSlotId sId)
         (psks', usPayload') <-
@@ -905,19 +925,17 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
                 usPayload' <- includeUSPayload
                 return (psks', usPayload')
         -- include transactions
-        txs' <- takeSome (map snd txs)
+        txs' <- takeSome txs
         -- return the resulting block
         txPayload <- either throwError pure $ mkTxPayload txs'
-        let body = Types.MainBody txPayload sscData psks' usPayload'
-        maybe (error "Coudln't create block") return $
-              mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
+        let body = Types.MainBody txPayload sscPayload psks' usPayload'
+        mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
-    count x = identity -= fromIntegral (length (Bi.encode x))
     -- take from a list until the limit is exhausted or the list ends
     takeSome lst = do
         let go lim [] = (lim, [])
             go lim (x:xs) =
-                let len = fromIntegral $ length (Bi.encode x)
+                let len = fromIntegral $ biSize x
                 in if len > lim
                      then (lim, [])
                      else over _2 (x:) $ go (lim - len) xs
@@ -928,7 +946,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
     -- because we have already counted empty payload but whatever)
     includeUSPayload = do
         lim <- use identity
-        let len = fromIntegral $ length (Bi.encode usPayload)
+        let len = fromIntegral $ biSize usPayload
         if len <= lim
             then (identity -= len) >> return usPayload
             else return def

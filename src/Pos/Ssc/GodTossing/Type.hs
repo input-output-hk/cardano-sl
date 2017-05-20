@@ -13,7 +13,8 @@ import           Pos.Binary.Core                    ()
 import           Pos.Binary.Ssc                     ()
 import           Pos.Ssc.Class.Helpers              (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types                (Ssc (..))
-import           Pos.Ssc.GodTossing.Core            (GtPayload, GtProof, mkGtProof)
+import           Pos.Ssc.GodTossing.Core            (GtPayload, GtProof, defaultGtPayload,
+                                                     mkGtProof, stripGtPayload)
 import           Pos.Ssc.GodTossing.Error           (SeedError)
 import           Pos.Ssc.GodTossing.Functions       (sanityChecksGtPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData)
@@ -42,4 +43,6 @@ instance Ssc SscGodTossing where
     sscCreateNodeContext = Tagged createGtContext
 
 instance SscHelpersClass SscGodTossing where
-    sscVerifyPayload = Tagged sanityChecksGtPayload
+    sscVerifyPayload = sanityChecksGtPayload
+    sscStripPayload = stripGtPayload
+    sscDefaultPayload = defaultGtPayload

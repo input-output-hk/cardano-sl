@@ -1,7 +1,5 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
--- needed for stylish-haskell :(
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Block.Core.Instances

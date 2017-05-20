@@ -30,11 +30,12 @@ import           Universum               hiding (catchAll)
 
 import           Pos.Binary.Block        ()
 import           Pos.Binary.Core         ()
+import           Pos.Core                (headerSlotL)
 import           Pos.Crypto              (Hash, hash, hashHexF)
 import           Pos.Ssc.Class.Types     (Ssc)
 import           Pos.Types               (BiSsc, Block, SlotId (..), blockHeader,
                                           blockTxs, epochIndexL, gbHeader, gbhPrevBlock,
-                                          headerHash, headerSlot)
+                                          headerHash)
 import           Pos.Util.TimeWarp       (currentTime)
 
 type BlockId = Text
@@ -80,7 +81,7 @@ jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
               Left _   -> []
               Right mB -> map fromTx . toList $ mB ^. blockTxs
     slot :: SlotId
-    slot = either (\h -> SlotId (h ^. epochIndexL) 0) (view $ gbHeader . headerSlot) $ block
+    slot = either (\h -> SlotId (h ^. epochIndexL) 0) (view $ gbHeader . headerSlotL) $ block
     fromTx = showHash . hash
 
 showHash :: Hash a -> Text

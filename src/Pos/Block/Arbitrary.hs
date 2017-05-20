@@ -403,7 +403,7 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                     -- with any slot index, or any in the same epoch but with a greater or
                     -- equal slot index than the header.
                     Right h -> -- Nothing {-
-                        let (T.SlotId e s) = view T.headerSlot h
+                        let (T.SlotId e s) = view Core.headerSlotL h
                             rndEpoch = betweenXAndY e maxBound
                             rndSlotIdx = if rndEpoch > e
                                 then betweenZeroAndN (epochSlots - 1)

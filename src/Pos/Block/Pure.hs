@@ -44,7 +44,7 @@ import           Pos.Core                   (ChainDifficulty, EpochIndex, EpochO
                                              HasEpochOrSlot (..), HasHeaderHash (..),
                                              HeaderHash, ProxySKEither, SlotId (..),
                                              SlotLeaders, addressHash, gbhExtra,
-                                             prevBlockL)
+                                             headerSlotL, prevBlockL)
 import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
                                              gbExtra, gbHeader)
@@ -55,7 +55,7 @@ import           Pos.Data.Attributes        (Attributes (attrRemain), mkAttribut
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Types.Block.Instances  (Body (..), ConsensusData (..), blockLeaders,
                                              blockMpc, blockProxySKs, getBlockHeader,
-                                             getBlockHeader, headerLeaderKey, headerSlot,
+                                             getBlockHeader, headerLeaderKey,
                                              mcdDifficulty, mcdLeaderKey, mcdSignature,
                                              mcdSlot)
 import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
@@ -69,6 +69,7 @@ import           Pos.Types.Block.Types      (BiSsc, Block, BlockHeader,
                                              gehAttributes, mebAttributes, mehAttributes)
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
+import           Pos.Util.Util              (Some (Some))
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty
@@ -377,7 +378,7 @@ verifyHeader VerifyHeaderParams {..} h =
 
     -- CHECK: Verifies that the slot does not lie in the future.
     relatedToCurrentSlot curSlotId =
-        [ ( either (const True) ((<= curSlotId) . view headerSlot) h
+        [ ( either (const True) ((<= curSlotId) . view headerSlotL) h
           , "block is from slot which hasn't happened yet")
         ]
 
@@ -388,7 +389,7 @@ verifyHeader VerifyHeaderParams {..} h =
             Right mainHeader ->
                 [ ( (Just (addressHash $ mainHeader ^. headerLeaderKey) ==
                      leaders ^?
-                     ix (fromIntegral $ siSlot $ mainHeader ^. headerSlot))
+                     ix (fromIntegral $ siSlot $ mainHeader ^. headerSlotL))
                   , "block's leader is different from expected one")
                 ]
 
@@ -463,7 +464,7 @@ instance Default (VerifyBlockParams ssc) where
 -- #verifyHeader
 -- #verifyGenericBlock
 verifyBlock
-    :: (SscHelpersClass ssc, BiSsc ssc)
+    :: forall ssc. (SscHelpersClass ssc, BiSsc ssc)
     => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
@@ -486,8 +487,8 @@ verifyBlock VerifyBlockParams {..} blk =
             case blk of
                 Left _ -> mempty
                 Right mainBlk -> toVerRes $
-                    sscVerifyPayload
-                    (Right (mainBlk ^. gbHeader))
+                    sscVerifyPayload @ssc
+                    (Right $ Some (mainBlk ^. gbHeader))
                     (mainBlk ^. blockMpc)
         | otherwise = mempty
     proxySKsDups psks =

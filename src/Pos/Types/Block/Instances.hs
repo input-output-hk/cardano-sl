@@ -24,7 +24,6 @@ module Pos.Types.Block.Instances
        , getBlockHeader
        , headerLeaderKey
        , headerSignature
-       , headerSlot
        , mbMpc
        , mbTxPayload
        , mbTxs
@@ -52,6 +51,7 @@ import           Serokell.Util         (Color (Magenta), colorize, listJson)
 
 import           Pos.Binary.Class      (Bi)
 import           Pos.Binary.Core       ()
+import           Pos.Binary.Txp        ()
 import           Pos.Core              (Blockchain (..), ChainDifficulty, EpochIndex (..),
                                         EpochOrSlot (..), GenericBlock (..),
                                         GenericBlockHeader (..), HasBlockVersion (..),
@@ -78,12 +78,13 @@ import           Pos.Types.Block.Types (BiHeader, BiSsc, Block, BlockHeader,
                                         mehBlockVersion, mehSoftwareVersion)
 import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdateProposal,
                                         mkUpdateProof)
+import           Pos.Util.Util         (Some (Some))
 
 ----------------------------------------------------------------------------
 -- MainBlock
 ----------------------------------------------------------------------------
 
-instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload) =>
+instance (BiHeader ssc, SscHelpersClass ssc, Bi UpdatePayload) =>
          Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
@@ -128,8 +129,9 @@ instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload) =>
         , mpProxySKsProof = hash _mbProxySKs
         , mpUpdateProof = mkUpdateProof _mbUpdatePayload
         }
-    verifyBBlock GenericBlock{..} =
-        first pretty $ sscVerifyPayload (Right _gbHeader) (_mbMpc _gbBody)
+    verifyBBlock GenericBlock {..} =
+        first pretty $
+        sscVerifyPayload @ssc (Right (Some _gbHeader)) (_mbMpc _gbBody)
 
 --deriving instance Ssc ssc => Show (SscProof ssc)
 --deriving instance Ssc ssc => Eq (SscProof ssc)
@@ -254,10 +256,6 @@ MAKE_LENS(mbUpdatePayload, _mbUpdatePayload)
 gbLeaders :: Lens' (Body (GenesisBlockchain ssc)) SlotLeaders
 MAKE_LENS(gbLeaders, _gbLeaders)
 
--- | Lens from 'MainBlockHeader' to 'SlotId'.
-headerSlot :: Lens' (MainBlockHeader ssc) SlotId
-headerSlot = gbhConsensus . mcdSlot
-
 -- | Lens from 'MainBlockHeader' to 'PublicKey'.
 headerLeaderKey :: Lens' (MainBlockHeader ssc) PublicKey
 headerLeaderKey = gbhConsensus . mcdLeaderKey
@@ -267,8 +265,8 @@ headerSignature :: Lens' (MainBlockHeader ssc) (BlockSignature ssc)
 headerSignature = gbhConsensus . mcdSignature
 
 -- | Lens from 'MainBlock' to 'SlotId'.
-blockSlot :: Lens' (MainBlock ssc) SlotId
-blockSlot = gbHeader . headerSlot
+blockSlot :: BiHeader ssc => Lens' (MainBlock ssc) SlotId
+blockSlot = gbHeader . headerSlotL
 
 -- | Lens from 'MainBlock' to 'PublicKey'.
 blockLeaderKey :: Lens' (MainBlock ssc) PublicKey
@@ -548,7 +546,7 @@ instance BiHeader ssc => IsGenesisHeader (GenesisBlockHeader ssc)
 
 instance BiHeader ssc => IsHeader (MainBlockHeader ssc)
 instance BiHeader ssc => IsMainHeader (MainBlockHeader ssc) where
-    headerSlotL = headerSlot
+    headerSlotL = gbhConsensus . mcdSlot
     headerLeaderKeyL = headerLeaderKey
 
 instance BiHeader ssc => IsHeader (BlockHeader ssc)

@@ -43,6 +43,7 @@ import           Pos.Types                      (Block, EpochIndex (..), SlotId 
                                                  gbHeader)
 import           Pos.Util                       (_neHead, _neLast)
 import           Pos.Util.Chrono                (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Util                  (Some (Some))
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -126,13 +127,16 @@ verifyAndApplyMultiRichmen onlyCerts richmenData =
   where
     verifyAndApplyDo (Left blk) = applyGenesisBlock $ blk ^. epochIndexL
     verifyAndApplyDo (Right blk) =
-        verifyAndApplyGtPayload (Right $ blk ^. gbHeader) $ filterPayload (blk ^. blockMpc)
-    filterPayload payload | onlyCerts = leaveOnlyCerts payload
-                          | otherwise = payload
-    leaveOnlyCerts (CommitmentsPayload _ certs) = CommitmentsPayload mempty certs
-    leaveOnlyCerts (OpeningsPayload _ certs)    = OpeningsPayload mempty certs
-    leaveOnlyCerts (SharesPayload _ certs)      = SharesPayload mempty certs
-    leaveOnlyCerts c@(CertificatesPayload _)    = c
+        verifyAndApplyGtPayload (Right $ Some $ blk ^. gbHeader) $
+        filterPayload (blk ^. blockMpc)
+    filterPayload payload
+        | onlyCerts = leaveOnlyCerts payload
+        | otherwise = payload
+    leaveOnlyCerts (CommitmentsPayload _ certs) =
+        CommitmentsPayload mempty certs
+    leaveOnlyCerts (OpeningsPayload _ certs) = OpeningsPayload mempty certs
+    leaveOnlyCerts (SharesPayload _ certs) = SharesPayload mempty certs
+    leaveOnlyCerts c@(CertificatesPayload _) = c
 
 tossToUpdate :: MultiRichmenStake -> PureToss a -> GSUpdate a
 tossToUpdate richmenData action = do

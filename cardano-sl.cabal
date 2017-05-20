@@ -50,6 +50,7 @@ library
                         Pos.Binary
                         Pos.Block.Arbitrary
                         Pos.Block.BListener
+                        Pos.Block.Core
                         Pos.Block.Logic
                         Pos.Block.Network
                         Pos.Block.Pure
@@ -163,6 +164,8 @@ library
                         Pos.Binary.Txp.Network
 
                         -- Block processing
+                        Pos.Block.Core.Genesis
+                        Pos.Block.Core.Main
                         Pos.Block.Error
                         Pos.Block.Logic.Internal
                         Pos.Block.Network.Announce

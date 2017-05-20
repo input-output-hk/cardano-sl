@@ -1,4 +1,3 @@
-
 -- | Instance of SscListenersClass
 
 module Pos.Ssc.GodTossing.Listeners
@@ -9,20 +8,22 @@ module Pos.Ssc.GodTossing.Listeners
 import           Universum
 
 import           Control.Lens                     (at, to)
-import           Data.Tagged                      (Tagged (..))
+import           Data.Tagged                      (Tagged (..), tagWith)
 import qualified Ether
 import           Formatting                       (build, sformat, (%))
-import           Serokell.Util.Verify             (VerificationRes (..))
 import           System.Wlog                      (logDebug)
 
+import           Pos.Binary.Class                 (Bi)
 import           Pos.Binary.Communication         ()
 import           Pos.Binary.Crypto                ()
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
-import           Pos.Communication.Limits         ()
+import           Pos.Communication.Limits         (MessageLimited)
 import           Pos.Communication.Message        ()
-import           Pos.Communication.Relay          (Relay (..), RelayProxy (..),
-                                                   relayListeners, relayStubListeners)
+import           Pos.Communication.MessagePart    (MessagePart)
+import           Pos.Communication.Relay          (DataMsg, InvReqDataParams (..),
+                                                   MempoolParams (NoMempool), Relay (..),
+                                                   relayListeners)
 import           Pos.Context                      (NodeParams)
 import           Pos.Security                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners          (SscListenersClass (..))
@@ -36,79 +37,89 @@ import           Pos.Ssc.GodTossing.Toss          (GtTag (..), TossModifier,
                                                    tmCertificates, tmCommitments,
                                                    tmOpenings, tmShares)
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types.Message (GtMsgContents (..), msgContentsTag)
+import           Pos.Ssc.GodTossing.Types.Message (MCCommitment (..), MCOpening (..),
+                                                   MCShares (..), MCVssCertificate (..))
 import           Pos.Types                        (StakeholderId, addressHash)
 import           Pos.WorkMode.Class               (WorkMode)
 
 instance SscListenersClass SscGodTossing where
-    sscListeners =
-        Tagged <$> relayListeners
-                    (RelayProxy :: RelayProxy StakeholderId GtTag GtMsgContents)
+    sscListeners = fmap Tagged . fmap mconcat . sequence $
+        [ relayListeners commitmentRelay
+        , relayListeners openingRelay
+        , relayListeners sharesRelay
+        , relayListeners vssCertRelay
+        ]
     sscStubListeners =
-        Tagged $ relayStubListeners
-                    (RelayProxy :: RelayProxy StakeholderId GtTag GtMsgContents)
+        Tagged $ mempty
 
-instance WorkMode SscGodTossing m =>
-         Relay m GtTag StakeholderId GtMsgContents where
-    contentsToTag = pure . msgContentsTag
-    contentsToKey x =
-        pure $
-        case x of
-            MCShares k _            -> k
-            MCOpening k _           -> k
-            MCCommitment (pk, _, _) -> addressHash pk
-            MCVssCertificate vc     -> getCertId vc
+commitmentRelay :: WorkMode SscGodTossing m => Relay m
+commitmentRelay =
+  sscRelay CommitmentMsg
+           (\(MCCommitment (pk, _, _)) -> addressHash pk)
+           (\id tm -> MCCommitment <$> tm ^. tmCommitments . to getCommitmentsMap . at id)
+           (\(MCCommitment comm) -> sscProcessCommitment comm)
 
-    verifyInvTag       _ = pure VerSuccess
-    verifyReqTag       _ = pure VerSuccess
-    verifyMempoolTag   _ = pure VerSuccess
-    verifyDataContents _ = pure VerSuccess
+openingRelay :: WorkMode SscGodTossing m => Relay m
+openingRelay =
+  sscRelay OpeningMsg
+           (\(MCOpening k _) -> k)
+           (\id tm -> MCOpening id <$> tm ^. tmOpenings . at id)
+           (\(MCOpening key open) -> sscProcessOpening key open)
 
-    handleInv = sscIsDataUseful
-    handleReq tag addr =
-        toContents tag addr . view ldModifier <$> sscRunLocalQuery ask
-    handleMempool _ = pure []
-    handleData dat = do
-        addr <- contentsToKey dat
-        -- [CSL-685] TODO: Add here malicious emulation for network addresses
-        -- when TW will support getting peer address properly
-        handleDataDo addr =<< flip shouldIgnorePkAddress addr <$> Ether.ask @NodeParams
-      where
-        ignoreFmt =
-            "Malicious emulation: data " %build % " for id " %build %
-            " is ignored"
-        handleDataDo id shouldIgnore
-            | shouldIgnore = False <$ logDebug (sformat ignoreFmt id dat)
-            | otherwise = sscProcessMessage dat
+sharesRelay :: WorkMode SscGodTossing m => Relay m
+sharesRelay =
+  sscRelay SharesMsg
+           (\(MCShares k _) -> k)
+           (\id tm -> MCShares id <$> tm ^. tmShares . at id)
+           (\(MCShares key shares) -> sscProcessShares key shares)
+
+vssCertRelay :: WorkMode SscGodTossing m => Relay m
+vssCertRelay =
+  sscRelay VssCertificateMsg
+           (\(MCVssCertificate vc) -> getCertId vc)
+           (\id tm -> MCVssCertificate <$> tm ^. tmCertificates . at id)
+           (\(MCVssCertificate cert) -> sscProcessCertificate cert)
+
+sscRelay :: ( WorkMode SscGodTossing m
+            , Buildable err
+            , Buildable contents
+            , Typeable contents
+            , MessageLimited (DataMsg contents)
+            , Bi (DataMsg contents)
+            , MessagePart contents
+            )
+         => GtTag
+         -> (contents -> StakeholderId)
+         -> (StakeholderId -> TossModifier -> Maybe contents)
+         -> (contents -> ExceptT err m ())
+         -> Relay m
+sscRelay gtTag contentsToKey toContents processData =
+    InvReqData NoMempool $
+        InvReqDataParams
+          { contentsToKey = pure . tagWith contentsProxy . contentsToKey
+          , handleInv = sscIsDataUseful gtTag . unTagged
+          , handleReq =
+              \(Tagged addr) -> toContents addr . view ldModifier <$> sscRunLocalQuery ask
+          , handleData = \dat -> do
+                let addr = contentsToKey dat
+                -- [CSL-685] TODO: Add here malicious emulation for network addresses
+                -- when TW will support getting peer address properly
+                handleDataDo dat addr =<< flip shouldIgnorePkAddress addr <$> Ether.ask @NodeParams
+          }
+  where
+    contentsProxy = (const Proxy :: (contents -> k) -> Proxy contents) contentsToKey
+    ignoreFmt =
+        "Malicious emulation: data " %build % " for id " %build %
+        " is ignored"
+    handleDataDo dat id shouldIgnore
+        | shouldIgnore = False <$ logDebug (sformat ignoreFmt id dat)
+        | otherwise = sscProcessMessage processData dat
 
 sscProcessMessage
-    :: WorkMode SscGodTossing m
-    => GtMsgContents -> m Bool
-sscProcessMessage dat =
+    :: (WorkMode SscGodTossing m, Buildable err)
+    => (a -> ExceptT err m ()) -> a -> m Bool
+sscProcessMessage sscProcessMessageDo dat =
     runExceptT (sscProcessMessageDo dat) >>= \case
         Left err ->
             False <$ logDebug (sformat ("Data is rejected, reason: " %build) err)
         Right () -> return True
-  where
-    sscProcessMessageDo (MCCommitment comm)     = sscProcessCommitment comm
-    sscProcessMessageDo (MCOpening id open)     = sscProcessOpening id open
-    sscProcessMessageDo (MCShares id shares)    = sscProcessShares id shares
-    sscProcessMessageDo (MCVssCertificate cert) = sscProcessCertificate cert
-
-toContents :: GtTag -> StakeholderId -> TossModifier -> Maybe GtMsgContents
-toContents CommitmentMsg id tm =
-    MCCommitment <$> tm ^. tmCommitments . to getCommitmentsMap . at id
-toContents OpeningMsg id tm = MCOpening id <$> tm ^. tmOpenings . at id
-toContents SharesMsg id tm = MCShares id <$> tm ^. tmShares . at id
-toContents VssCertificateMsg id tm =
-    MCVssCertificate <$> tm ^. tmCertificates . at id
-
--- toContents CommitmentMsg addr (CommitmentsPayload comm _) =
---     MCCommitment <$> lookup addr (getCommitmentsMap comm)
--- toContents OpeningMsg addr (OpeningsPayload opens _) =
---     MCOpening addr <$> lookup addr opens
--- toContents SharesMsg addr (SharesPayload shares _) =
---     MCShares addr <$> lookup addr shares
--- toContents VssCertificateMsg addr payload =
---     MCVssCertificate <$> lookup addr (_gpCertificates payload)
--- toContents _ _ _ = Nothing

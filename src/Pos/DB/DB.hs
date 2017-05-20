@@ -13,8 +13,8 @@ module Pos.DB.DB
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
        , sanityCheckDB
-       , DbCoreRedirect
-       , runDbCoreRedirect
+       , GStateCoreRedirect
+       , runGStateCoreRedirect
        ) where
 
 import           Universum
@@ -37,7 +37,7 @@ import           Pos.Context.Context              (GenesisLeaders, GenesisUtxo,
 import           Pos.Context.Functions            (genesisLeadersM)
 import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
                                                    loadBlundsWhile, prepareBlockDB)
-import           Pos.DB.Class                     (MonadDB, MonadDBCore (..))
+import           Pos.DB.Class                     (MonadDB, MonadGStateCore (..))
 import           Pos.DB.Error                     (DBError (DBMalformed))
 import           Pos.DB.Functions                 (openDB)
 import           Pos.DB.GState.BlockExtra         (prepareGStateBlockExtra)
@@ -108,6 +108,7 @@ getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
     onFailure = throwM $ DBMalformed "there is no block corresponding to tip"
 
 -- | Get BlockHeader corresponding to tip.
+-- TODO don't load tip block, fix it.
 getTipBlockHeader
     :: (SscHelpersClass ssc, MonadDB m)
     => m (BlockHeader ssc)
@@ -142,19 +143,19 @@ ensureDirectoryExists
 ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 
 ----------------------------------------------------------------------------
--- MonadDBCore instance
+-- MonadGStateCore instance
 ----------------------------------------------------------------------------
 
-data DbCoreRedirectTag
+data GStateCoreRedirectTag
 
-type DbCoreRedirect =
-    Ether.TaggedTrans DbCoreRedirectTag IdentityT
+type GStateCoreRedirect =
+    Ether.TaggedTrans GStateCoreRedirectTag IdentityT
 
-runDbCoreRedirect :: DbCoreRedirect m a -> m a
-runDbCoreRedirect = coerce
+runGStateCoreRedirect :: GStateCoreRedirect m a -> m a
+runGStateCoreRedirect = coerce
 
 instance
     (MonadDB m, t ~ IdentityT) =>
-        MonadDBCore (Ether.TaggedTrans DbCoreRedirectTag t m)
+        MonadGStateCore (Ether.TaggedTrans GStateCoreRedirectTag t m)
   where
-    dbAdoptedBVData = getAdoptedBVData
+    gsAdoptedBVData = getAdoptedBVData

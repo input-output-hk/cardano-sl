@@ -26,7 +26,7 @@ import           Pos.Types       (ProxySKHeavy, ProxySKLight, ProxySigLight)
 data SendProxySK
     = SendProxySKLight !ProxySKLight
     | SendProxySKHeavy !ProxySKHeavy
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Ord, Generic)
 
 instance Hashable SendProxySK
 
@@ -42,7 +42,7 @@ instance Hashable SendProxySK
 -- before lower cert's @EpochIndex@.
 data ConfirmProxySK =
     ConfirmProxySK !ProxySKLight !(ProxySigLight ProxySKLight)
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Ord, Generic)
 
 ---- | Request to check if a node has any info about PSK delivery.
 --data CheckProxySKConfirmed =

@@ -15,7 +15,7 @@ type WalletWebDB = Ether.ReaderT' WalletState
 
 -- | Execute `WalletWebDB` action with given `WalletState`
 runWalletWebDB :: WalletState -> WalletWebDB m a -> m a
-runWalletWebDB = flip Ether.runReaderT
+runWalletWebDB = flip $ Ether.runReaderT
 
 getWalletState :: Monad m => WalletWebDB m WalletState
 getWalletState = getWalletWebState

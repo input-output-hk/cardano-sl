@@ -16,6 +16,7 @@ module Pos.Util.Util
 
        , maybeThrow
        , getKeys
+       , sortWithMDesc
 
        -- * Ether
        , ether
@@ -58,12 +59,15 @@ import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (MonadResource (..))
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
+import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
 import           Data.Time.Units                (Attosecond, Day, Femtosecond, Fortnight,
                                                  Hour, Microsecond, Millisecond, Minute,
                                                  Nanosecond, Picosecond, Second, Week,
                                                  toMicroseconds)
+import           Data.Typeable                  (typeRep)
 import qualified Ether
+import qualified Formatting                     as F
 import qualified Language.Haskell.TH.Syntax     as TH
 import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
                                                  MFunctor' (..), Mockable (..), Promise,
@@ -239,6 +243,14 @@ maybeThrow e = maybe (throwM e) pure
 getKeys :: HashMap k v -> HashSet k
 getKeys = fromMap . void
 
+-- | Use some monadic action to evaluate priority of value and sort a
+-- list of values based on this priority. The order is descending
+-- because I need it.
+sortWithMDesc :: (Monad m, Ord b) => (a -> m b) -> [a] -> m [a]
+sortWithMDesc f = fmap (map fst . sortWith (Down . snd)) . mapM f'
+  where
+    f' x = (x, ) <$> f x
+
 -- | Make a Reader or State computation work in an Ether transformer. Useful
 -- to make lenses work with Ether.
 ether :: trans m a -> Ether.TaggedTrans tag trans m a
@@ -252,3 +264,9 @@ instance {-# OVERLAPPING #-} PowerLift m m where
 
 instance (MonadTrans t, PowerLift m n, Monad n) => PowerLift m (t n) where
   powerLift = lift . powerLift @m @n
+
+instance (Typeable s, Buildable a) => Buildable (Tagged s a) where
+    build tt@(Tagged v) = F.bprint ("Tagged " F.% F.shown F.% " " F.% F.build) ts v
+      where
+        ts = typeRep proxy
+        proxy = (const Proxy :: Tagged s a -> Proxy s) tt

@@ -1,11 +1,10 @@
-{-# LANGUAGE LambdaCase #-}
-
 -- | Binary specification for txp-related (Pos.Txp) messages.
 
 module Test.Pos.Txp.Identity.BinarySpec
        ( spec
        ) where
 
+import           Data.Tagged              (Tagged)
 import           Test.Hspec               (Spec, describe)
 import           Universum
 
@@ -29,16 +28,17 @@ spec =
         binaryTest @T.TxOut
         binaryTest @T.TxOutAux
         binaryTest @T.Tx
+        binaryTest @T.TxAux
         binaryTest @T.TxProof
         binaryTest @SmallTxPayload
       describe "Network" $ do
-        networkBinaryTest @(R.InvMsg T.TxId T.TxMsgTag)
-        networkBinaryTest @(R.ReqMsg T.TxId T.TxMsgTag)
-        networkBinaryTest @(R.MempoolMsg T.TxMsgTag)
+        networkBinaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
+        networkBinaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
+        networkBinaryTest @(R.MempoolMsg T.TxMsgContents)
         networkBinaryTest @(R.DataMsg T.TxMsgContents)
     describe "Message length limit" $ do
-      msgLenLimitedTest @(R.InvMsg T.TxId T.TxMsgTag)
-      msgLenLimitedTest @(R.ReqMsg T.TxId T.TxMsgTag)
-      msgLenLimitedTest @(R.MempoolMsg T.TxMsgTag)
+      msgLenLimitedTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
+      msgLenLimitedTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))
+      msgLenLimitedTest @(R.MempoolMsg T.TxMsgContents)
       -- No check for (DataMsg T.TxMsgContents) since overal message size
       -- is forcely limited

@@ -32,7 +32,8 @@ import qualified Pos.DB.DB                  as DB
 import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Security               (AttackType (..), NodeAttackedError (..),
                                              shouldIgnoreAddress)
-import           Pos.Types                  (MainBlockHeader, headerHash)
+import           Pos.Types                  (Block, BlockHeader, MainBlockHeader,
+                                             blockHeader, headerHash, prevBlockL)
 import           Pos.Util.TimeWarp          (nodeIdToAddress)
 import           Pos.WorkMode.Class         (WorkMode)
 
@@ -83,13 +84,22 @@ handleHeadersCommunication conv _ = do
         logDebug $ sformat ("Got request on handleGetHeaders: "%build) mgh
         ifM recoveryInProgress onRecovery $ do
             headers <- case (mghFrom,mghTo) of
-                ([], Nothing) -> Right . one <$> DB.getTipBlockHeader @ssc
+                ([], Nothing) -> Right . one <$> getLastMainHeader
                 ([], Just h)  ->
                     maybeToRight "getBlockHeader returned Nothing" . fmap one <$>
                     DB.getBlockHeader @ssc h
                 (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
             either onNoHeaders handleSuccess headers
   where
+    -- retrieves header of the newest main block if there's any,
+    -- genesis otherwise.
+    getLastMainHeader :: m (BlockHeader ssc)
+    getLastMainHeader = do
+        (tip :: Block ssc) <- DB.getTipBlock @ssc
+        let tipHeader = tip ^. blockHeader
+        case tip of
+            Left _  -> fromMaybe tipHeader <$> DB.getBlockHeader (tip ^. prevBlockL)
+            Right _ -> pure tipHeader
     handleSuccess h = do
         onSuccess
         send conv (MsgHeaders h)

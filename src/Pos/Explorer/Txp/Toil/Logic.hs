@@ -21,7 +21,7 @@ import           Pos.Core                    (Address, HeaderHash, Timestamp)
 import           Pos.Crypto                  (WithHash (..), hash)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Class (MonadTxExtra (..), MonadTxExtraRead (..))
-import           Pos.Txp.Core                (Tx (..), TxAux, TxId, TxOut (..),
+import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, TxOut (..),
                                               TxOutAux (..), TxUndo, topsortTxs)
 import           Pos.Txp.Toil                (ToilVerFailure (..))
 import qualified Pos.Txp.Toil                as Txp
@@ -47,11 +47,12 @@ eApplyToil curTime txun hh = do
     Txp.applyToil txun
     mapM_ applier $ zip [0..] txun
   where
-    applier (i, (txaux@(tx, _, _), txundo)) = do
-        let id = hash tx
+    applier (i, (txAux, txundo)) = do
+        let tx = taTx txAux
+            id = hash tx
             newExtra = TxExtra (Just (hh, i)) curTime txundo
         extra <- fromMaybe newExtra <$> getTxExtra id
-        putTxExtraWithHistory id extra $ getTxRelatedAddrs txaux txundo
+        putTxExtraWithHistory id extra $ getTxRelatedAddrs txAux txundo
 
 -- | Rollback transactions from one block.
 eRollbackToil :: EGlobalToilMode m => [(TxAux, TxUndo)] -> m ()
@@ -59,8 +60,9 @@ eRollbackToil txun = do
     Txp.rollbackToil txun
     mapM_ extraRollback txun
   where
-    extraRollback (txaux@(tx, _, _), txundo) =
-        delTxExtraWithHistory (hash tx) $ getTxRelatedAddrs txaux txundo
+    extraRollback (txAux, txundo) =
+        delTxExtraWithHistory (hash (taTx txAux)) $
+        getTxRelatedAddrs txAux txundo
 
 ----------------------------------------------------------------------------
 -- Local
@@ -88,9 +90,9 @@ eNormalizeToil
 eNormalizeToil txs = mapM_ normalize ordered
   where
     ordered = fromMaybe txs $ topsortTxs wHash txs
-    wHash (i, ((t, _, _), _)) = WithHash t i
+    wHash (i, (txAux, _)) = WithHash (taTx txAux) i
     normalize = runExceptT . uncurry eProcessTx . repair
-    repair (i, (txaux, extra)) = ((i, txaux), extra)
+    repair (i, (txAux, extra)) = ((i, txAux), extra)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -126,7 +128,7 @@ delTxExtraWithHistory id addrs = do
         NewestFirst . delete id . getNewestFirst
 
 getTxRelatedAddrs :: TxAux -> TxUndo -> NonEmpty Address
-getTxRelatedAddrs (UnsafeTx {..}, _, _) undo =
+getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} undo =
     map txOutAddress _txOutputs `unionNE` map (txOutAddress . toaOut) undo
   where
     toSet = HS.fromList . toList

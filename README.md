@@ -30,7 +30,7 @@ This repository hosts the prototype implementation of "A Provably Secure
 Proof-of-Stake Blockchain Protocol", the latest version of which can be found
 in the [IOHK website](https://iohk.io/research/papers/a-provably-secure-proof-of-stake-blockchain-protocol/).
 
-### Where to start
+### Where to start?
 
 It is recommended to start by reading the documentation, which is available [here](https://cardanodocs.com/introduction/).
 Its repository is [here](https://github.com/input-output-hk/cardanodocs.com).

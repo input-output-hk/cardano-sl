@@ -52,26 +52,18 @@ instance Limiter (Limit t, Limit t, Limit t, Limit t) where
 -- Instances for MessageLimited
 ----------------------------------------------------------------------------
 
-instance MessageLimited (InvMsg key tag) where
-    type LimitType (InvMsg key tag) = Limit (InvMsg key tag)
-    getMsgLenLimit _ = return msgLenLimit
-
-instance MessageLimited (ReqMsg key tag) where
-    type LimitType (ReqMsg key tag) = Limit (ReqMsg key tag)
-    getMsgLenLimit _ = return msgLenLimit
-
-instance MessageLimited (MempoolMsg tag) where
-    type LimitType (MempoolMsg tag) = Limit (MempoolMsg tag)
-    getMsgLenLimit _ = return msgLenLimit
+instance MessageLimited (InvMsg key)
+instance MessageLimited (ReqMsg key)
+instance MessageLimited (MempoolMsg tag)
 
 instance MessageLimited (DataMsg contents)
-      => MessageLimited (InvOrData tag key contents) where
-    type LimitType (InvOrData tag key contents) =
-        ( LimitType (InvMsg key tag)
+      => MessageLimited (InvOrData key contents) where
+    type LimitType (InvOrData key contents) =
+        ( LimitType (InvMsg key)
         , LimitType (DataMsg contents)
         )
     getMsgLenLimit _ = do
-        invLim  <- getMsgLenLimit $ Proxy @(InvMsg key tag)
+        invLim  <- getMsgLenLimit $ Proxy @(InvMsg key)
         dataLim <- getMsgLenLimit $ Proxy @(DataMsg contents)
         -- 1 byte is added because of `Either`
         return (1 `addLimit` invLim, 1 `addLimit` dataLim)
@@ -80,10 +72,10 @@ instance MessageLimited (DataMsg contents)
 -- Instances for MessageLimitedPure
 ----------------------------------------------------------------------------
 
-instance MessageLimitedPure (InvMsg key tag) where
+instance MessageLimitedPure (InvMsg key) where
     msgLenLimit = Limit Const.maxInvSize
 
-instance MessageLimitedPure (ReqMsg key tag) where
+instance MessageLimitedPure (ReqMsg key) where
     msgLenLimit = Limit Const.maxReqSize
 
 instance MessageLimitedPure (MempoolMsg tag) where

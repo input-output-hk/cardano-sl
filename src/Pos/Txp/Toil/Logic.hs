@@ -16,20 +16,20 @@ module Pos.Txp.Toil.Logic
        , verifyAndApplyTx
        ) where
 
-import           Control.Monad.Except  (MonadError (..))
-import           System.Wlog           (WithLogger)
 import           Universum
 
-import           Pos.Binary.Class      (biSize)
-import           Pos.Constants         (maxLocalTxs)
-import           Pos.Crypto            (WithHash (..), hash)
+import           Control.Monad.Except  (MonadError (..))
+import           System.Wlog           (WithLogger)
 
-import           Pos.Txp.Core          (TxAux, TxId, TxUndo, TxpUndo, topsortTxs)
+import           Pos.Binary.Class      (biSize)
+import           Pos.Constants         (memPoolLimitRatio)
+import           Pos.Crypto            (WithHash (..), hash)
+import           Pos.Txp.Core          (TxAux (..), TxId, TxUndo, TxpUndo, topsortTxs)
 import           Pos.Txp.Toil.Balances (applyTxsToBalances, rollbackTxsBalances)
 import           Pos.Txp.Toil.Class    (MonadBalances (..), MonadToilEnv (..),
                                         MonadTxPool (..), MonadUtxo (..))
 import           Pos.Txp.Toil.Failure  (ToilVerFailure (..))
-import           Pos.Txp.Toil.Types    (ToilEnv (teMaxTxSize))
+import           Pos.Txp.Toil.Types    (ToilEnv (teMaxBlockSize, teMaxTxSize))
 import qualified Pos.Txp.Toil.Utxo     as Utxo
 
 ----------------------------------------------------------------------------
@@ -78,9 +78,9 @@ rollbackToil txun = do
 ----------------------------------------------------------------------------
 
 type LocalToilMode m = ( MonadUtxo m
-                      , MonadToilEnv m
-                      , MonadTxPool m
-                      )
+                       , MonadToilEnv m
+                       , MonadTxPool m
+                       )
 
 -- CHECK: @processTx
 -- | Verify one transaction and also add it to mem pool and apply to utxo
@@ -90,7 +90,10 @@ processTx
     => (TxId, TxAux) -> m TxUndo
 processTx tx@(id, aux) = do
     whenM (hasTx id) $ throwError ToilKnown
-    whenM ((>= maxLocalTxs) <$> poolSize) $ throwError ToilOverwhelmed
+    maxBlockSize <- teMaxBlockSize <$> getToilEnv
+    let maxPoolSize = memPoolLimitRatio * maxBlockSize
+    whenM ((>= maxPoolSize) <$> poolSize) $
+        throwError (ToilOverwhelmed maxPoolSize)
     undo <- verifyAndApplyTx True tx
     undo <$ putTxWithUndo id aux undo
 
@@ -103,7 +106,7 @@ normalizeToil
 normalizeToil txs = mapM_ normalize ordered
   where
     ordered = fromMaybe txs $ topsortTxs wHash txs
-    wHash (i, (t, _, _)) = WithHash t i
+    wHash (i, txAux) = WithHash (taTx txAux) i
     normalize = runExceptT . processTx
 
 ----------------------------------------------------------------------------
@@ -133,7 +136,7 @@ verifyAndApplyTx verifyVersions tx@(_, txAux) = do
     ctx = Utxo.VTxContext verifyVersions
 
 withTxId :: TxAux -> (TxId, TxAux)
-withTxId aux@(tx, _, _) = (hash tx, aux)
+withTxId aux = (hash (taTx aux), aux)
 
 applyTxToUtxo' :: MonadUtxo m => (TxId, TxAux) -> m ()
-applyTxToUtxo' (i, (t, _, d)) = Utxo.applyTxToUtxo (WithHash t i) d
+applyTxToUtxo' (i, TxAux tx _ distr) = Utxo.applyTxToUtxo (WithHash tx i) distr

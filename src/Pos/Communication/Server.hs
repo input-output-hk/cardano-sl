@@ -15,12 +15,11 @@ import           Pos.Binary.Communication    ()
 import           Pos.Block.Network.Listeners (blockListeners, blockStubListeners)
 import           Pos.Communication.Protocol  (ListenerSpec (..), OutSpecs)
 import           Pos.Communication.Util      (wrapListener)
---import           Pos.Delegation.Listeners    (delegationListeners,
---                                              delegationStubListeners)
+--import           Pos.Delegation.Listeners    (delegationListeners)
 import           Pos.Ssc.Class               (SscHelpersClass (..),
                                               SscListenersClass (..), SscWorkersClass)
-import           Pos.Txp                     (txListeners, txStubListeners)
-import           Pos.Update                  (usListeners, usStubListeners)
+import           Pos.Txp                     (txListeners)
+import           Pos.Update                  (usListeners)
 import           Pos.Util                    (mconcatPair)
 import           Pos.WorkMode.Class          (WorkMode)
 
@@ -48,10 +47,10 @@ allStubListeners
 allStubListeners = unproxy $ \sscProxy ->
     mconcatPair
         [ proxy blockStubListeners sscProxy
-        , proxy sscStubListeners sscProxy
-        , txStubListeners
+        --, proxy sscStubListeners sscProxy
+        --, txStubListeners
         --, delegationStubListeners
-        , usStubListeners
+        --, usStubListeners
         ]
 
 -- | Logger name for server.

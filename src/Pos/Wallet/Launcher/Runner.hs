@@ -15,6 +15,7 @@ import           Network.Transport.Abstract  (Transport)
 import qualified STMContainers.Map           as SM
 import           System.Wlog                 (logDebug, logInfo, usingLoggerName)
 
+import           Pos.Block.BListener         (runBListenerStub)
 import           Pos.Communication           (ActionSpec (..), ListenersWithOut, NodeId,
                                               OutSpecs, WorkerSpec, allStubListeners)
 import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect)
@@ -28,7 +29,7 @@ import           Pos.Wallet.KeyStorage       (KeyData, keyDataFromFile)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
 import           Pos.Wallet.State            (closeState, openMemState, openState)
 import           Pos.Wallet.State.Acidic     (WalletState)
-import           Pos.Wallet.State.Limits     (runDbLimitsWalletRedirect)
+import           Pos.Wallet.State.Core       (runGStateCoreWalletRedirect)
 import           Pos.Wallet.WalletMode       (WalletMode, WalletStaticPeersMode,
                                               runBalancesWalletRedirect,
                                               runBlockchainInfoNotImplemented,
@@ -67,7 +68,7 @@ runWalletStaticPeers transport peers wp =
     runWalletStaticPeersMode transport peers wp . runWallet
 
 runWallet
-    :: WalletMode ssc m
+    :: WalletMode m
     => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
@@ -101,10 +102,11 @@ runRawStaticPeersWallet transport peers WalletParams {..}
             , Tagged @ReportingContext emptyReportingContext ) .
             runTxHistoryWalletRedirect .
             runBalancesWalletRedirect .
-            runDbLimitsWalletRedirect .
+            runGStateCoreWalletRedirect .
             runPeerStateRedirect .
             runUpdatesNotImplemented .
             runBlockchainInfoNotImplemented .
+            runBListenerStub .
             runDiscoveryConstT peers .
             runServer_ transport listeners outs . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa

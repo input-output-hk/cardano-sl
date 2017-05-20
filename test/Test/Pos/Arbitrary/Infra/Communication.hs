@@ -12,14 +12,14 @@ import           Pos.Communication.Types.Relay    (InvMsg (..), MempoolMsg (..),
                                                    ReqMsg (..))
 import           Pos.Types.Arbitrary              ()
 
-instance (Arbitrary key, Arbitrary tag) => Arbitrary (ReqMsg key tag) where
-    arbitrary = ReqMsg <$> arbitrary <*> arbitrary
+instance (Arbitrary key) => Arbitrary (ReqMsg key) where
+    arbitrary = ReqMsg <$> arbitrary
 
-instance (Arbitrary tag) => Arbitrary (MempoolMsg tag) where
-    arbitrary = MempoolMsg <$> arbitrary
+instance Arbitrary (MempoolMsg tag) where
+    arbitrary = pure MempoolMsg
 
-instance (Arbitrary key, Arbitrary tag) => Arbitrary (InvMsg key tag) where
-    arbitrary = InvMsg <$> arbitrary <*> arbitrary
+instance (Arbitrary key) => Arbitrary (InvMsg key) where
+    arbitrary = InvMsg <$> arbitrary
 
 instance Arbitrary HandlerSpec where
     arbitrary = oneof

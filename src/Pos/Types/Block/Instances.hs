@@ -41,13 +41,15 @@ module Pos.Types.Block.Instances
        , blockHeaderHash
        ) where
 
+import           Universum
+
 import           Control.Lens          (Getter, choosing, to)
+import           Data.List             (zipWith3)
 import           Data.Tagged           (untag)
 import           Data.Text.Buildable   (Buildable)
 import qualified Data.Text.Buildable   as Buildable
 import           Formatting            (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util         (Color (Magenta), colorize, listJson)
-import           Universum
 
 import           Pos.Binary.Class      (Bi)
 import           Pos.Core              (Blockchain (..), ChainDifficulty, EpochIndex (..),
@@ -64,9 +66,9 @@ import           Pos.Crypto            (Hash, PublicKey, hash, hashHexF, unsafeH
 import           Pos.Merkle            (MerkleTree)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types   (Ssc (..))
-import           Pos.Txp.Core          (Tx, TxAux, TxDistribution, TxPayload, TxProof,
-                                        TxWitness, mkTxProof, txpDistributions, txpTxs,
-                                        txpWitnesses)
+import           Pos.Txp.Core          (Tx, TxAux (..), TxDistribution, TxPayload,
+                                        TxProof, TxWitness, mkTxProof, txpDistributions,
+                                        txpTxs, txpWitnesses)
 import           Pos.Types.Block.Types (BiHeader, BiSsc, Block, BlockHeader,
                                         BlockSignature, GenesisBlock, GenesisBlockHeader,
                                         GenesisBlockchain, GenesisExtraBodyData,
@@ -289,9 +291,9 @@ blockTxs = gbBody . mbTxs
 blockTxas :: Getter (MainBlock ssc) [TxAux]
 blockTxas =
     gbBody .
-    to (\b -> zip3 (toList (b ^. mbTxs))
-                   (b ^. mbWitnesses)
-                   (b ^. mbTxAddrDistributions))
+    to (\b -> zipWith3 TxAux (toList (b ^. mbTxs))
+                             (b ^. mbWitnesses)
+                             (b ^. mbTxAddrDistributions))
 
 -- | Lens from 'MainBlock' to 'ProxySKHeavy' list.
 blockProxySKs :: Lens' (MainBlock ssc) [ProxySKHeavy]

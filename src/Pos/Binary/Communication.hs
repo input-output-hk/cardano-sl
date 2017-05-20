@@ -13,9 +13,8 @@ import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
                                                    decodeFull, encodeStrict,
                                                    getRemainingByteString,
-                                                   getSmallWithLength, getWithLength,
-                                                   getWord8, label, putByteString,
-                                                   putSmallWithLength, putWithLength,
+                                                   getSmallWithLength, getWord8, label,
+                                                   putByteString, putSmallWithLength,
                                                    putWord8)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
@@ -23,7 +22,6 @@ import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..
 import           Pos.Delegation.Types             (ConfirmProxySK (..), SendProxySK (..))
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.Class.Types              (Ssc (..))
-import           Pos.Txp.Network.Types            (TxMsgTag (..))
 import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
 
 
@@ -32,6 +30,8 @@ import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgT
 ----------------------------------------------------------------------------
 
 deriving instance Bi MessageName
+
+-- TODO: move into each component
 
 ----------------------------------------------------------------------------
 -- Blocks
@@ -50,24 +50,8 @@ instance Ssc ssc => Bi (MsgHeaders ssc) where
     get = label "MsgHeaders" $ MsgHeaders <$> get
 
 instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
-    -- We encode block size and then the block itself so that we'd be able to
-    -- reject the block if it's of the wrong size without consuming the whole
-    -- block.
-    put (MsgBlock b) =
-        -- NB: When serializing, we don't check that the size of the
-        -- serialized block is smaller than the allowed size. Note that
-        -- we *depend* on this behavior in e.g. 'handleGetBlocks' in
-        -- "Pos.Block.Network.Listeners". Grep for #put_checkBlockSize.
-        putWithLength (put b)
-    get = label "MsgBlock" $ getWithLength $ MsgBlock <$> get
-
-----------------------------------------------------------------------------
--- Transaction processing
-----------------------------------------------------------------------------
-
-instance Bi TxMsgTag where
-    put TxMsgTag = pure ()
-    get = pure TxMsgTag
+    put (MsgBlock b) = put b
+    get = label "MsgBlock" $ MsgBlock <$> get
 
 ----------------------------------------------------------------------------
 -- Delegation/PSK
@@ -92,7 +76,7 @@ instance Bi ConfirmProxySK where
 --instance Bi CheckProxySKConfirmedRes where
 --    put (CheckProxySKConfirmedRes res) = put res
 --    get = CheckProxySKConfirmedRes <$> get
---
+
 ----------------------------------------------------------------------------
 -- Update system
 ----------------------------------------------------------------------------
@@ -104,6 +88,11 @@ instance Bi ProposalMsgTag where
 instance Bi VoteMsgTag where
     put VoteMsgTag = pure ()
     get = pure VoteMsgTag
+
+----------------------------------------------------------------------------
+-- Protocol version info and related
+----------------------------------------------------------------------------
+
 
 -- Encoding of HandlerSpec is as follow:
 --

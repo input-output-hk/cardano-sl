@@ -1,8 +1,7 @@
 {-# LANGUAGE ExistentialQuantification #-}
 
 module Pos.Communication.Relay.Types
-       ( RelayProxy (..)
-       , RelayError (..)
+       ( RelayError (..)
        , SomeInvMsg (..)
        , RelayInvQueue
        , RelayContext (..)
@@ -15,8 +14,6 @@ import           Universum
 import           Pos.Binary.Class              (Bi)
 import           Pos.Communication.Types.Relay (InvOrData, ReqMsg (..))
 
-data RelayProxy key tag contents = RelayProxy
-
 data RelayError = UnexpectedInv
                 | UnexpectedData
   deriving (Generic, Show)
@@ -24,14 +21,13 @@ data RelayError = UnexpectedInv
 instance Exception RelayError
 
 data SomeInvMsg =
-    forall tag key contents .
-        ( Message (InvOrData tag key contents)
-        , Bi (InvOrData tag key contents)
-        , Buildable tag,
-          Buildable key
-        , Message (ReqMsg key tag)
-        , Bi (ReqMsg key tag))
-        => SomeInvMsg !(InvOrData tag key contents)
+    forall key contents .
+        ( Message (InvOrData key contents)
+        , Bi (InvOrData key contents)
+        , Buildable key
+        , Message (ReqMsg key)
+        , Bi (ReqMsg key))
+        => SomeInvMsg !(InvOrData key contents)
 
 -- | Queue of InvMsges which should be propagated.
 type RelayInvQueue = TBQueue SomeInvMsg

@@ -11,7 +11,14 @@ module Pos.DB.Class
        , getUtxoDB
        , getLrcDB
        , getMiscDB
-       , MonadDBCore(..)
+
+       -- * GState Core
+       , MonadGStateCore (..)
+       , gsMaxBlockSize
+       , gsMaxHeaderSize
+       , gsMaxTxSize
+       , gsMaxProposalSize
+       , MonadDBCore
        ) where
 
 import           Universum
@@ -21,8 +28,9 @@ import           Control.Monad.Trans            (MonadTrans (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import qualified Database.RocksDB               as Rocks
 import qualified Ether
+import           Serokell.Data.Memory.Units     (Byte)
 
-import           Pos.Core                       (BlockVersionData)
+import           Pos.Core                       (BlockVersionData (..))
 import           Pos.DB.Types                   (DB (..), NodeDBs, blockIndexDB, gStateDB,
                                                  lrcDB, miscDB)
 
@@ -61,13 +69,33 @@ getLrcDB = view lrcDB <$> getNodeDBs
 getMiscDB :: MonadDB m => m DB
 getMiscDB = view miscDB <$> getNodeDBs
 
--- | This type class provides functions to get core data from DB.
-class MonadDB m => MonadDBCore m where
-    dbAdoptedBVData :: m BlockVersionData
+-- | This type class provides functions to get core data from GState.
+-- The idea is that actual getters may be defined at high levels, but
+-- may be needed at lower levels.
+--
+-- This class doesn't have a 'MonadDB' constraint, because alternative
+-- DBs my be used to provide this data. There is also 'MonadDBCore' constraint
+-- which unites 'MonadDB' and 'GStateCore'.
+class Monad m => MonadGStateCore m where
+    gsAdoptedBVData :: m BlockVersionData
 
 instance {-# OVERLAPPABLE #-}
-    (MonadDBCore m, MonadTrans t, LiftLocal t,
-     MonadIO (t m), MonadCatch (t m)) =>
-        MonadDBCore (t m)
+    (MonadGStateCore m, MonadTrans t, LiftLocal t,
+     Monad (t m)) =>
+        MonadGStateCore (t m)
   where
-    dbAdoptedBVData = lift dbAdoptedBVData
+    gsAdoptedBVData = lift gsAdoptedBVData
+
+gsMaxBlockSize :: MonadGStateCore m => m Byte
+gsMaxBlockSize = bvdMaxBlockSize <$> gsAdoptedBVData
+
+gsMaxHeaderSize :: MonadGStateCore m => m Byte
+gsMaxHeaderSize = bvdMaxHeaderSize <$> gsAdoptedBVData
+
+gsMaxTxSize :: MonadGStateCore m => m Byte
+gsMaxTxSize = bvdMaxTxSize <$> gsAdoptedBVData
+
+gsMaxProposalSize :: MonadGStateCore m => m Byte
+gsMaxProposalSize = bvdMaxProposalSize <$> gsAdoptedBVData
+
+type MonadDBCore m = (MonadDB m, MonadGStateCore m)

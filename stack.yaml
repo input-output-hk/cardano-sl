@@ -69,6 +69,10 @@ packages:
 #    git: https://github.com/haskell-crypto/cryptonite.git
 #    commit: 2932df9e243aa7ae7eb2b25d7c60fa77a30c6fb5
 #  extra-dep: true
+- location:
+    git: https://github.com/int-index/ether
+    commit: 8fa391384b06b27b36b21cd0cd6ff96ae386929a
+  extra-dep: true
 
 nix:
   shell-file: shell.nix
@@ -89,7 +93,6 @@ extra-deps:
 - servant-server-0.10             # so it triggers another dependencies to be v10
 - servant-swagger-1.1.2.1
 - servant-multipart-0.10
-- ether-0.5.0.0
 - transformers-lift-0.2.0.1
 
 # This is for CI to pass --fast to all dependencies

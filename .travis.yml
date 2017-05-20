@@ -16,6 +16,7 @@ cache:
 before_install:
 - echo $TRAVIS_OS_NAME
 - free
+- df
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
 - mkdir -p ~/.local/bin s3
 - export PATH=$HOME/.local/bin:$PATH

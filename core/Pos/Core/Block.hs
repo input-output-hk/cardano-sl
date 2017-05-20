@@ -7,14 +7,19 @@ module Pos.Core.Block
        , GenericBlock (..)
 
        -- * Lenses
+       -- ** Header
+       , gbhPrevBlock
+       , gbhBodyProof
+       , gbhConsensus
+       , gbhExtra
+
+       -- ** Block
        , gbBody
        , gbHeader
        , gbExtra
+       , gbPrevBlock
        , gbBodyProof
-       , gbhConsensus
-       , gbhExtra
-       , gbhPrevBlock
-       , gbhBodyProof
+       , gbConsensus
        ) where
 
 import           Control.Lens   (makeLenses)
@@ -135,6 +140,14 @@ instance (BHeaderHash b ~ HeaderHash) =>
          HasPrevBlock (GenericBlock b) where
     prevBlockL = gbHeader . gbhPrevBlock
 
+-- | Lens from 'GenericBlock' to 'BHeaderHash' of its parent.
+gbPrevBlock :: Lens' (GenericBlock b) (BHeaderHash b)
+gbPrevBlock = gbHeader . gbhPrevBlock
+
 -- | Lens from 'GenericBlock' to 'BodyProof'.
 gbBodyProof :: Lens' (GenericBlock b) (BodyProof b)
 gbBodyProof = gbHeader . gbhBodyProof
+
+-- | Lens from 'GenericBlock' to 'ConsensusData'.
+gbConsensus :: Lens' (GenericBlock b) (ConsensusData b)
+gbConsensus = gbHeader . gbhConsensus

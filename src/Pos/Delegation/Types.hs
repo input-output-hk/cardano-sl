@@ -9,13 +9,15 @@ module Pos.Delegation.Types
        -- in Test.Pos.Communication.Identity.BinarySpec
        --, CheckProxySKConfirmed (..)
        --, CheckProxySKConfirmedRes (..)
+       , DlgPayload
        ) where
 
-import           Data.DeriveTH   (derive, makeArbitrary)
-import           Test.QuickCheck (Arbitrary (..), choose)
+import           Data.DeriveTH       (derive, makeArbitrary)
+import           Test.QuickCheck     (Arbitrary (..), choose)
 import           Universum
 
-import           Pos.Types       (ProxySKHeavy, ProxySKLight, ProxySigLight)
+import           Pos.Core            (ProxySKHeavy, ProxySKLight, ProxySigLight)
+import           Pos.Types.Arbitrary ()
 
 ----------------------------------------------------------------------------
 -- Generic PSKs propagation
@@ -53,6 +55,12 @@ data ConfirmProxySK =
 --data CheckProxySKConfirmedRes =
 --    CheckProxySKConfirmedRes !Bool
 --    deriving (Show, Eq, Generic)
+
+----------------------------------------------------------------------------
+-- Heavyweight delegation payload
+----------------------------------------------------------------------------
+
+type DlgPayload = [ProxySKHeavy]
 
 ----------------------------------------------------------------------------
 -- Arbitrary instances

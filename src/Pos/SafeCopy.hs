@@ -246,14 +246,14 @@ instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
          SafeCopy (Body (MainBlockchain ssc)) where
     getCopy = contain $ do
         _mbTxPayload     <- safeGet
-        _mbMpc           <- safeGet
-        _mbProxySKs      <- safeGet
+        _mbSscPayload    <- safeGet
+        _mbDlgPayload      <- safeGet
         _mbUpdatePayload <- safeGet
         return $! MainBody{..}
     putCopy MainBody {..} = contain $ do
         safePut _mbTxPayload
-        safePut _mbMpc
-        safePut _mbProxySKs
+        safePut _mbSscPayload
+        safePut _mbDlgPayload
         safePut _mbUpdatePayload
 
 instance SafeCopy (Body (GenesisBlockchain ssc)) where

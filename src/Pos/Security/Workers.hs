@@ -18,8 +18,8 @@ import           Serokell.Util              (sec)
 import           System.Wlog                (logWarning)
 
 import           Pos.Binary.Ssc             ()
-import           Pos.Block.Core             (Block, BlockHeader, MainBlock, blockMpc,
-                                             blockSlot)
+import           Pos.Block.Core             (Block, BlockHeader, MainBlock,
+                                             mainBlockSscPayload)
 import           Pos.Block.Logic            (needRecovery)
 import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
 import           Pos.Block.Pure             (genesisHash)
@@ -29,8 +29,9 @@ import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThr
                                              mdNoCommitmentsEpochThreshold)
 import           Pos.Context                (getUptime, npPublicKey, recoveryInProgress)
 import           Pos.Core                   (EpochIndex, SlotId (..), addressHash,
-                                             flattenEpochOrSlot, flattenSlotId,
-                                             headerHash, headerLeaderKeyL, prevBlockL)
+                                             epochIndexL, flattenEpochOrSlot,
+                                             flattenSlotId, headerHash, headerLeaderKeyL,
+                                             prevBlockL)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (getBlockHeader)
@@ -171,9 +172,9 @@ checkForIgnoredCommitmentsWorkerImpl tvar slotId = do
     checkCommitmentsInBlock :: MainBlock SscGodTossing -> m ()
     checkCommitmentsInBlock block = do
         ourId <- Ether.asks' (addressHash . npPublicKey)
-        let commitmentInBlockchain = isCommitmentInPayload ourId (block ^. blockMpc)
+        let commitmentInBlockchain = isCommitmentInPayload ourId (block ^. mainBlockSscPayload)
         when commitmentInBlockchain $
-            atomically $ writeTVar tvar $ siEpoch $ block ^. blockSlot
+            atomically $ writeTVar tvar $ block ^. epochIndexL
     isCommitmentInPayload addr (CommitmentsPayload commitments _) =
         HM.member addr $ getCommitmentsMap commitments
     isCommitmentInPayload _ _ = False

@@ -24,6 +24,7 @@ import           Pos.Core                   (Blockchain (..), ChainDifficulty,
                                              GenericBlock (..), GenericBlockHeader (..),
                                              IsMainHeader (..), ProxySKHeavy, SlotId (..))
 import           Pos.Crypto                 (Hash, PublicKey, hash)
+import           Pos.Delegation.Types       (DlgPayload)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Txp.Core               (TxPayload, TxProof, mkTxProof)
@@ -62,9 +63,9 @@ instance ( BiHeader ssc
         { -- | Txp payload.
           _mbTxPayload :: !TxPayload
         , -- | Ssc payload.
-          _mbMpc :: !(SscPayload ssc)
+          _mbSscPayload :: !(SscPayload ssc)
         , -- | Heavyweight delegation payload (no-ttl certificates).
-          _mbProxySKs :: ![ProxySKHeavy]
+          _mbDlgPayload :: !DlgPayload
           -- | Additional update information for the update system.
         , _mbUpdatePayload :: !UpdatePayload
         } deriving (Generic, Typeable)
@@ -75,13 +76,13 @@ instance ( BiHeader ssc
     mkBodyProof MainBody{..} =
         MainProof
         { mpTxProof = mkTxProof _mbTxPayload
-        , mpMpcProof = untag @ssc mkSscProof _mbMpc
-        , mpProxySKsProof = hash _mbProxySKs
+        , mpMpcProof = untag @ssc mkSscProof _mbSscPayload
+        , mpProxySKsProof = hash _mbDlgPayload
         , mpUpdateProof = mkUpdateProof _mbUpdatePayload
         }
     verifyBBlock GenericBlock {..} =
         first pretty $
-        sscVerifyPayload @ssc (Right (Some _gbHeader)) (_mbMpc _gbBody)
+        sscVerifyPayload @ssc (Right (Some _gbHeader)) (_mbSscPayload _gbBody)
 
 deriving instance Ssc ssc => Show (BodyProof (MainBlockchain ssc))
 deriving instance Ssc ssc => Eq (BodyProof (MainBlockchain ssc))

@@ -50,7 +50,7 @@ import           Universum
 
 import           Pos.Binary.Class         (biSize)
 import           Pos.Binary.Communication ()
-import           Pos.Block.Core           (Block, blockProxySKs)
+import           Pos.Block.Core           (Block, mainBlockDlgPayload)
 import           Pos.Block.Types          (Blund, Undo (undoPsk))
 import           Pos.Constants            (lightDlgConfirmationTimeout, memPoolLimitRatio,
                                            messageCacheTimeout)
@@ -125,7 +125,7 @@ getPSKsFromThisEpoch
        (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m [ProxySKHeavy]
 getPSKsFromThisEpoch tip =
-    concatMap (either (const []) (view blockProxySKs)) <$>
+    concatMap (either (const []) (view mainBlockDlgPayload)) <$>
         (DB.loadBlocksWhile @ssc) isRight tip
 
 ----------------------------------------------------------------------------
@@ -341,7 +341,7 @@ delegationVerifyBlocks blocks = do
         dvCurEpoch .= HS.empty
         pure []
     verifyBlock richmen (Right blk) = do
-        let proxySKs = view blockProxySKs blk
+        let proxySKs = view mainBlockDlgPayload blk
             issuers = map pskIssuerPk proxySKs
         when (any (not . (`HS.member` richmen) . addressHash) issuers) $
             throwError $ sformat ("Block "%build%" contains psk issuers that "%
@@ -387,7 +387,7 @@ delegationApplyBlocks blocks = do
             dwEpochId .= (block ^. epochIndexL)
         pure (SomeBatchOp ([]::[GS.DelegationOp]))
     applyBlock (Right block) = do
-        let proxySKs = view blockProxySKs block
+        let proxySKs = view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
             (toDelete,toReplace) =
                 partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
@@ -440,7 +440,7 @@ delegationRollbackBlocks blunds = do
     rollbackBlund :: Blund ssc -> SomeBatchOp
     rollbackBlund (Left _, _) = SomeBatchOp ([]::[GS.DelegationOp])
     rollbackBlund (Right block, undo) =
-        let proxySKs = view blockProxySKs block
+        let proxySKs = view mainBlockDlgPayload block
             toReplace =
                 map pskIssuerPk $
                 filter (\ProxySecretKey{..} -> pskIssuerPk /= pskDelegatePk)

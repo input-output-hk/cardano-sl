@@ -17,6 +17,8 @@ module Pos.Util.JsonLog
        , JLFile(..)
        ) where
 
+import           Universum               hiding (catchAll)
+
 import           Control.Concurrent.MVar (withMVar)
 import           Data.Aeson              (encode)
 import           Data.Aeson.TH           (deriveJSON)
@@ -26,15 +28,15 @@ import           Formatting              (sformat, shown, (%))
 import           Mockable                (Catch, Mockable, catchAll)
 import           Serokell.Aeson.Options  (defaultOptions)
 import           System.Wlog             (CanLog, HasLoggerName, logWarning)
-import           Universum               hiding (catchAll)
 
 import           Pos.Binary.Block        ()
 import           Pos.Binary.Core         ()
-import           Pos.Block.Core          (BiSsc, Block, blockHeader, blockTxs)
+import           Pos.Block.Core          (BiSsc, Block, blockHeader, mainBlockTxPayload)
 import           Pos.Core                (SlotId (..), epochIndexL, gbHeader,
                                           gbhPrevBlock, headerHash, headerSlotL)
 import           Pos.Crypto              (Hash, hash, hashHexF)
 import           Pos.Ssc.Class.Types     (Ssc)
+import           Pos.Txp.Core            (txpTxs)
 import           Pos.Util.TimeWarp       (currentTime)
 
 type BlockId = Text
@@ -78,7 +80,7 @@ jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
     jlSlot = (fromIntegral $ siEpoch slot, fromIntegral $ siSlot slot)
     jlTxs = case block of
               Left _   -> []
-              Right mB -> map fromTx . toList $ mB ^. blockTxs
+              Right mB -> map fromTx . toList $ mB ^. mainBlockTxPayload . txpTxs
     slot :: SlotId
     slot = either (\h -> SlotId (h ^. epochIndexL) 0) (view $ gbHeader . headerSlotL) $ block
     fromTx = showHash . hash

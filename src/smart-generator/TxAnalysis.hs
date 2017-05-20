@@ -18,14 +18,14 @@ import           Mockable              (catchAll, delay)
 import           System.FilePath.Posix ((</>))
 import           System.Wlog           (logWarning)
 
-import           Pos.Block.Core        (blockSlot, blockTxs)
+import           Pos.Block.Core        (mainBlockSlot, mainBlockTxPayload)
 import           Pos.Constants         (blkSecurityParam, genesisSlotDuration)
 import           Pos.Core              (SlotId (..))
 import           Pos.Crypto            (hash)
 import           Pos.DB.DB             (loadBlundsFromTipByDepth)
 import           Pos.Slotting          (getCurrentSlotBlocking, getSlotStartEmpatically)
 import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.Txp               (TxId)
+import           Pos.Txp               (TxId, txpTxs)
 import           Pos.WorkMode          (StaticMode)
 
 import           Util                  (verifyCsvFile, verifyCsvFormat)
@@ -70,10 +70,10 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
         Just (Right block) -> do
             st <- readIORef sentTimes
             ls <- readIORef lastSlot
-            let curSlot = block^.blockSlot
+            let curSlot = block ^. mainBlockSlot
             when (ls < curSlot) $ do
                 let toCheck = M.keys st
-                    txsMerkle = block^.blockTxs
+                    txsMerkle = block ^. mainBlockTxPayload . txpTxs
                     txIds = map hash $ toList txsMerkle
                     verified = toCheck `intersect` txIds
 

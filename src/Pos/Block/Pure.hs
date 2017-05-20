@@ -47,12 +47,12 @@ import           Pos.Block.Core               (BiSsc, Block, BlockHeader,
                                                MainBlockHeader, MainBlockchain,
                                                MainExtraBodyData (..),
                                                MainExtraHeaderData, MainToSign (..),
-                                               blockLeaders, blockMpc, blockProxySKs,
                                                gebAttributes, gehAttributes,
-                                               getBlockHeader, getBlockHeader,
-                                               headerLeaderKey, mcdDifficulty,
-                                               mcdLeaderKey, mcdSignature, mcdSlot,
-                                               mebAttributes, mehAttributes)
+                                               genBlockLeaders, getBlockHeader,
+                                               getBlockHeader, mainBlockDlgPayload,
+                                               mainBlockSscPayload, mainHeaderLeaderKey,
+                                               mcdDifficulty, mcdLeaderKey, mcdSignature,
+                                               mcdSlot, mebAttributes, mehAttributes)
 import           Pos.Block.Core.Genesis.Chain (Body (..), ConsensusData (..))
 import           Pos.Block.Core.Main.Chain    (ConsensusData (..))
 import           Pos.Constants                (epochSlots)
@@ -390,7 +390,7 @@ verifyHeader VerifyHeaderParams {..} h =
         case h of
             Left _ -> []
             Right mainHeader ->
-                [ ( (Just (addressHash $ mainHeader ^. headerLeaderKey) ==
+                [ ( (Just (addressHash $ mainHeader ^. mainHeaderLeaderKey) ==
                      leaders ^?
                      ix (fromIntegral $ siSlot $ mainHeader ^. headerSlotL))
                   , "block's leader is different from expected one")
@@ -492,7 +492,7 @@ verifyBlock VerifyBlockParams {..} blk =
                 Right mainBlk -> toVerRes $
                     sscVerifyPayload @ssc
                     (Right $ Some (mainBlk ^. gbHeader))
-                    (mainBlk ^. blockMpc)
+                    (mainBlk ^. mainBlockSscPayload)
         | otherwise = mempty
     proxySKsDups psks =
         filter (\x -> length x > 1) $
@@ -503,7 +503,7 @@ verifyBlock VerifyBlockParams {..} blk =
           (flip (either $ const mempty) blk) $ \mainBlk ->
             let bEpoch = mainBlk ^. epochIndexL
                 notMatchingEpochs = filter ((/= bEpoch) . pskOmega) proxySKs
-                proxySKs = mainBlk ^. blockProxySKs
+                proxySKs = mainBlk ^. mainBlockDlgPayload
                 duplicates = proxySKsDups proxySKs in
                 verifyGeneric
             [ ( null duplicates
@@ -563,7 +563,7 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step s
     step (leaders, prevHeader, res) blk =
         let newLeaders =
                 case blk of
-                    Left genesisBlock -> Just $ genesisBlock ^. blockLeaders
+                    Left genesisBlock -> Just $ genesisBlock ^. genBlockLeaders
                     Right _           -> leaders
             vhp =
                 VerifyHeaderParams

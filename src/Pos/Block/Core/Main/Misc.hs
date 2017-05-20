@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
 
 -- | Miscellaneous instances, etc. Related to the main blockchain of course.
 
@@ -13,8 +14,14 @@ import           Formatting                 (bprint, build, int, stext, (%))
 import           Serokell.Util              (Color (Magenta), colorize, listJson)
 
 import           Pos.Block.Core.Main.Chain  (Body (..), ConsensusData (..))
-import           Pos.Block.Core.Main.Lens   (headerLeaderKey, mbTxs, mcdDifficulty,
-                                             mcdSlot, mehBlockVersion, mehSoftwareVersion)
+import           Pos.Block.Core.Main.Lens   (mainBlockBlockVersion, mainBlockDifficulty,
+                                             mainBlockSlot, mainBlockSlot,
+                                             mainBlockSoftwareVersion,
+                                             mainHeaderBlockVersion, mainHeaderDifficulty,
+                                             mainHeaderLeaderKey, mainHeaderSlot,
+                                             mainHeaderSoftwareVersion, mbTxs,
+                                             mcdDifficulty, mehBlockVersion,
+                                             mehSoftwareVersion)
 import           Pos.Block.Core.Main.Types  (MainBlock, MainBlockHeader, MainBlockchain,
                                              MainExtraHeaderData)
 import           Pos.Block.Core.Union.Types (BiHeader, BiSsc, blockHeaderHash)
@@ -24,7 +31,7 @@ import           Pos.Core                   (EpochOrSlot (..), GenericBlock (..)
                                              HasEpochIndex (..), HasEpochOrSlot (..),
                                              HasHeaderHash (..), HasSoftwareVersion (..),
                                              HeaderHash, IsHeader, IsMainHeader (..),
-                                             gbHeader, gbhConsensus, gbhExtra, slotIdF)
+                                             slotIdF)
 import           Pos.Crypto                 (hashHexF)
 
 instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
@@ -64,9 +71,9 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
             _gbHeader
             (length txs)
             txs
-            (length _mbProxySKs)
-            _mbProxySKs
-            _mbMpc
+            (length _mbDlgPayload)
+            _mbDlgPayload
+            _mbSscPayload
             _mbUpdatePayload
             _gbExtra
       where
@@ -74,13 +81,13 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
         txs = _gbBody ^. mbTxs
 
 instance HasEpochIndex (MainBlock ssc) where
-    epochIndexL = gbHeader . gbhConsensus . mcdSlot . epochIndexL
+    epochIndexL = mainBlockSlot . epochIndexL
 
 instance HasEpochIndex (MainBlockHeader ssc) where
-    epochIndexL = gbhConsensus . mcdSlot . epochIndexL
+    epochIndexL = mainHeaderSlot . epochIndexL
 
 instance HasEpochOrSlot (MainBlockHeader ssc) where
-    getEpochOrSlot = EpochOrSlot . Right . _mcdSlot . _gbhConsensus
+    getEpochOrSlot = EpochOrSlot . Right . view mainHeaderSlot
 
 instance HasEpochOrSlot (MainBlock ssc) where
     getEpochOrSlot = getEpochOrSlot . _gbHeader
@@ -93,14 +100,14 @@ instance BiHeader ssc =>
          HasHeaderHash (MainBlock ssc) where
     headerHash = blockHeaderHash . Right . _gbHeader
 
-instance HasDifficulty (ConsensusData (MainBlockchain ssc)) where
+instance HasDifficulty (ConsensusData $ MainBlockchain ssc) where
     difficultyL = mcdDifficulty
 
 instance HasDifficulty (MainBlockHeader ssc) where
-    difficultyL = gbhConsensus . difficultyL
+    difficultyL = mainHeaderDifficulty
 
 instance HasDifficulty (MainBlock ssc) where
-    difficultyL = gbHeader . difficultyL
+    difficultyL = mainBlockDifficulty
 
 instance HasBlockVersion MainExtraHeaderData where
     blockVersionL = mehBlockVersion
@@ -109,19 +116,19 @@ instance HasSoftwareVersion MainExtraHeaderData where
     softwareVersionL = mehSoftwareVersion
 
 instance HasBlockVersion (MainBlock ssc) where
-    blockVersionL = gbHeader . blockVersionL
+    blockVersionL = mainBlockBlockVersion
 
 instance HasSoftwareVersion (MainBlock ssc) where
-    softwareVersionL = gbHeader . softwareVersionL
+    softwareVersionL = mainBlockSoftwareVersion
 
 instance HasBlockVersion (MainBlockHeader ssc) where
-    blockVersionL = gbhExtra . blockVersionL
+    blockVersionL = mainHeaderBlockVersion
 
 instance HasSoftwareVersion (MainBlockHeader ssc) where
-    softwareVersionL = gbhExtra . softwareVersionL
+    softwareVersionL = mainHeaderSoftwareVersion
 
 instance BiHeader ssc => IsHeader (MainBlockHeader ssc)
 
 instance BiHeader ssc => IsMainHeader (MainBlockHeader ssc) where
-    headerSlotL = gbhConsensus . mcdSlot
-    headerLeaderKeyL = headerLeaderKey
+    headerSlotL = mainHeaderSlot
+    headerLeaderKeyL = mainHeaderLeaderKey

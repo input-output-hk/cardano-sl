@@ -21,7 +21,7 @@ import           System.Wlog                    (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Binary.Ssc                 ()
-import           Pos.Block.Core                 (Block, blockMpc)
+import           Pos.Block.Core                 (Block, mainBlockSscPayload)
 import           Pos.Core                       (EpochIndex (..), SlotId (..),
                                                  epochIndexL, epochOrSlotG, gbHeader)
 import           Pos.DB                         (MonadDB, SomeBatchOp (..))
@@ -106,7 +106,7 @@ rollbackBlocks blocks = tossToUpdate mempty $ rollbackGT oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
     payloads =
-        NewestFirst . map (view blockMpc) . rights . toList $ blocks
+        NewestFirst . map (view mainBlockSscPayload) . rights . toList $ blocks
 
 verifyAndApply
     :: RichmenStake
@@ -128,7 +128,7 @@ verifyAndApplyMultiRichmen onlyCerts richmenData =
     verifyAndApplyDo (Left blk) = applyGenesisBlock $ blk ^. epochIndexL
     verifyAndApplyDo (Right blk) =
         verifyAndApplyGtPayload (Right $ Some $ blk ^. gbHeader) $
-        filterPayload (blk ^. blockMpc)
+        filterPayload (blk ^. mainBlockSscPayload)
     filterPayload payload
         | onlyCerts = leaveOnlyCerts payload
         | otherwise = payload

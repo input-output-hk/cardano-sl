@@ -1,56 +1,91 @@
 {-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeOperators   #-}
 
 -- | Lenses for main blockchain types.
+--
+-- Lenses whose name starts with `mainBlock' are from 'MainBlock' to
+-- small parts of it. It makes it clear what exactly is stored in
+-- 'MainBlock'. Similar fact is true for `mainHeader' prefix.
 
 module Pos.Block.Core.Main.Lens
-       ( mbMpc
-       , mbTxPayload
-       , mbTxs
-       , mbWitnesses
-       , mbProxySKs
-       , mbUpdatePayload
-       , mcdSlot
-       , mcdLeaderKey
-       , mcdDifficulty
-       , mcdSignature
+       (
+         -- * MainToSign
+         msHeaderHash
+       , msBodyProof
+       , msSlot
+       , msChainDiff
+       , msExtraHeader
 
+         -- * Extra types
        , mehBlockVersion
        , mehSoftwareVersion
        , mehAttributes
        , mebAttributes
 
-       , headerLeaderKey
-       , headerSignature
+         -- * MainConsensusData
+       , mcdSlot
+       , mcdLeaderKey
+       , mcdDifficulty
+       , mcdSignature
 
-       , blockLeaderKey
-       , blockMpc
-       , blockSignature
-       , blockSlot
-       , blockTxs
-       , blockTxas
-       , blockProxySKs
+         -- * MainBlockHeader
+       , mainHeaderPrevBlock
+       , mainHeaderProof
+       , mainHeaderSlot
+       , mainHeaderLeaderKey
+       , mainHeaderDifficulty
+       , mainHeaderSignature
+       , mainHeaderBlockVersion
+       , mainHeaderSoftwareVersion
+       , mainHeaderAttributes
+
+         -- * MainBody
+       , mbSscPayload
+       , mbTxPayload
+       , mbDlgPayload
+       , mbUpdatePayload
+       , mbTxs
+       , mbWitnesses
+       , mbTxAddrDistributions
+
+         -- * MainBlock
+       , mainBlockPrevBlock
+       , mainBlockProof
+       , mainBlockSlot
+       , mainBlockLeaderKey
+       , mainBlockDifficulty
+       , mainBlockSignature
+       , mainBlockBlockVersion
+       , mainBlockSoftwareVersion
+       , mainBlockHeaderAttributes
+       , mainBlockTxPayload
+       , mainBlockSscPayload
+       , mainBlockDlgPayload
+       , mainBlockUpdatePayload
+       , mainBlockAttributes
        ) where
 
 import           Universum
 
-import           Control.Lens               (Getter, makeLenses, to)
-import           Data.List                  (zipWith3)
+import           Control.Lens              (makeLenses)
 
-import           Pos.Block.Core.Main.Chain  (Body (..), ConsensusData (..))
-import           Pos.Block.Core.Main.Types  (BlockSignature, MainBlock, MainBlockHeader,
-                                             MainBlockchain, MainExtraBodyData,
-                                             MainExtraHeaderData)
-import           Pos.Block.Core.Union.Types (BiHeader)
-import           Pos.Core                   (ChainDifficulty, ProxySKHeavy, SlotId,
-                                             gbBody, gbHeader, gbhConsensus)
-import           Pos.Crypto                 (PublicKey)
-import           Pos.Merkle                 (MerkleTree)
-import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Txp.Core               (Tx, TxAux (..), TxDistribution, TxPayload,
-                                             TxWitness, txpDistributions, txpTxs,
-                                             txpWitnesses)
-import           Pos.Update.Core.Types      (UpdatePayload)
+import           Pos.Block.Core.Main.Chain (Body (..), BodyProof (..), ConsensusData (..))
+import           Pos.Block.Core.Main.Types (BlockBodyAttributes, BlockHeaderAttributes,
+                                            BlockSignature, MainBlock, MainBlockHeader,
+                                            MainBlockchain, MainExtraBodyData,
+                                            MainExtraHeaderData, MainToSign (..))
+import           Pos.Core                  (BlockVersion, ChainDifficulty, HeaderHash,
+                                            SlotId, SoftwareVersion, gbBody, gbExtra,
+                                            gbHeader, gbPrevBlock, gbhBodyProof,
+                                            gbhConsensus, gbhExtra, gbhPrevBlock)
+import           Pos.Crypto                (PublicKey)
+import           Pos.Delegation.Types      (DlgPayload)
+import           Pos.Merkle                (MerkleTree)
+import           Pos.Ssc.Class.Types       (Ssc (..))
+import           Pos.Txp.Core              (Tx, TxDistribution, TxPayload, TxWitness,
+                                            txpDistributions, txpTxs, txpWitnesses)
+import           Pos.Update.Core.Types     (UpdatePayload)
 
 -- -- ***TODO*** -- --
 -- This comment and macros are copy-pasted and it's bad, but I
@@ -66,6 +101,23 @@ import           Pos.Update.Core.Types      (UpdatePayload)
 -- UPDATE: the issue is https://github.com/ekmett/lens/issues/733
 
 #define MAKE_LENS(l, field) l f s = (\y -> s {field = y}) <$> f (field s)
+
+----------------------------------------------------------------------------
+-- MainToSign
+----------------------------------------------------------------------------
+
+makeLenses ''MainToSign
+
+----------------------------------------------------------------------------
+-- Extra types
+----------------------------------------------------------------------------
+
+makeLenses ''MainExtraHeaderData
+makeLenses ''MainExtraBodyData
+
+----------------------------------------------------------------------------
+-- MainConsensusData
+----------------------------------------------------------------------------
 
 -- makeLensesData ''ConsensusData ''(MainBlockchain ssc)
 
@@ -84,6 +136,54 @@ MAKE_LENS(mcdDifficulty, _mcdDifficulty)
 -- | Lens for 'Signature' of 'MainBlockchain' in 'ConsensusData'.
 mcdSignature :: Lens' (ConsensusData (MainBlockchain ssc)) (BlockSignature ssc)
 MAKE_LENS(mcdSignature, _mcdSignature)
+
+----------------------------------------------------------------------------
+-- MainBlockHeader
+----------------------------------------------------------------------------
+
+-- | Lens from 'MainBlockHeader' to 'HeaderHash' of its parent.
+mainHeaderPrevBlock :: Lens' (MainBlockHeader ssc) HeaderHash
+mainHeaderPrevBlock = gbhPrevBlock
+
+-- | Lens from 'MainBlockHeader' to 'MainProof'.
+mainHeaderProof ::
+       Lens' (MainBlockHeader ssc) (BodyProof $ MainBlockchain ssc)
+mainHeaderProof = gbhBodyProof
+
+-- | Lens from 'MainBlockHeader' to 'SlotId'.
+mainHeaderSlot :: Lens' (MainBlockHeader ssc) SlotId
+mainHeaderSlot = gbhConsensus . mcdSlot
+
+-- | Lens from 'MainBlockHeader' to 'PublicKey'.
+mainHeaderLeaderKey :: Lens' (MainBlockHeader ssc) PublicKey
+mainHeaderLeaderKey = gbhConsensus . mcdLeaderKey
+
+-- | Lens from 'MainBlockHeader' to 'ChainDifficulty'.
+mainHeaderDifficulty :: Lens' (MainBlockHeader ssc) ChainDifficulty
+mainHeaderDifficulty = gbhConsensus . mcdDifficulty
+
+-- | Lens from 'MainBlockHeader' to 'Signature'.
+mainHeaderSignature :: Lens' (MainBlockHeader ssc) (BlockSignature ssc)
+mainHeaderSignature = gbhConsensus . mcdSignature
+
+-- | Lens from 'MainBlockHeader' to 'BlockVersion'.
+mainHeaderBlockVersion ::
+       Lens' (MainBlockHeader ssc) BlockVersion
+mainHeaderBlockVersion = gbhExtra . mehBlockVersion
+
+-- | Lens from 'MainBlockHeader' to 'SoftwareVersion'.
+mainHeaderSoftwareVersion ::
+       Lens' (MainBlockHeader ssc) SoftwareVersion
+mainHeaderSoftwareVersion = gbhExtra . mehSoftwareVersion
+
+-- | Lens from 'MainBlockHeader' to 'BlockHeaderAttributes'.
+mainHeaderAttributes ::
+       Lens' (MainBlockHeader ssc) BlockHeaderAttributes
+mainHeaderAttributes = gbhExtra . mehAttributes
+
+----------------------------------------------------------------------------
+-- MainBody
+----------------------------------------------------------------------------
 
 -- makeLensesData ''Body ''(MainBlockchain ssc)
 
@@ -104,61 +204,76 @@ mbTxAddrDistributions :: Lens' (Body (MainBlockchain ssc)) [TxDistribution]
 mbTxAddrDistributions = mbTxPayload . txpDistributions
 
 -- | Lens for 'SscPayload' in main block body.
-mbMpc :: Lens' (Body (MainBlockchain ssc)) (SscPayload ssc)
-MAKE_LENS(mbMpc, _mbMpc)
+mbSscPayload :: Lens' (Body (MainBlockchain ssc)) (SscPayload ssc)
+MAKE_LENS(mbSscPayload, _mbSscPayload)
 
 -- | Lens for ProxySKs in main block body.
-mbProxySKs :: Lens' (Body (MainBlockchain ssc)) [ProxySKHeavy]
-MAKE_LENS(mbProxySKs, _mbProxySKs)
+mbDlgPayload :: Lens' (Body (MainBlockchain ssc)) DlgPayload
+MAKE_LENS(mbDlgPayload, _mbDlgPayload)
 
 -- | Lens for 'UpdatePayload' in main block body.
 mbUpdatePayload :: Lens' (Body (MainBlockchain ssc)) UpdatePayload
 MAKE_LENS(mbUpdatePayload, _mbUpdatePayload)
 
-makeLenses ''MainExtraHeaderData
-makeLenses ''MainExtraBodyData
+----------------------------------------------------------------------------
+-- MainBlock
+----------------------------------------------------------------------------
 
--- | Lens from 'MainBlockHeader' to 'PublicKey'.
-headerLeaderKey :: Lens' (MainBlockHeader ssc) PublicKey
-headerLeaderKey = gbhConsensus . mcdLeaderKey
+-- | Lens from 'MainBlock' to 'HeaderHash' of its parent.
+mainBlockPrevBlock :: Lens' (MainBlock ssc) HeaderHash
+mainBlockPrevBlock = gbPrevBlock
 
--- | Lens from 'MainBlockHeader' to 'Signature'.
-headerSignature :: Lens' (MainBlockHeader ssc) (BlockSignature ssc)
-headerSignature = gbhConsensus . mcdSignature
-
--- | Lens from 'MainBlockHeader' to 'SlotId'.
-headerSlot :: Lens' (MainBlockHeader ssc) SlotId
-headerSlot = gbhConsensus . mcdSlot
+-- | Lens from 'MainBlock' to 'MainProof'.
+mainBlockProof :: Lens' (MainBlock ssc) (BodyProof $ MainBlockchain ssc)
+mainBlockProof = gbHeader . mainHeaderProof
 
 -- | Lens from 'MainBlock' to 'SlotId'.
-blockSlot :: BiHeader ssc => Lens' (MainBlock ssc) SlotId
-blockSlot = gbHeader . headerSlot
+mainBlockSlot :: Lens' (MainBlock ssc) SlotId
+mainBlockSlot = gbHeader . mainHeaderSlot
 
 -- | Lens from 'MainBlock' to 'PublicKey'.
-blockLeaderKey :: Lens' (MainBlock ssc) PublicKey
-blockLeaderKey = gbHeader . headerLeaderKey
+mainBlockLeaderKey :: Lens' (MainBlock ssc) PublicKey
+mainBlockLeaderKey = gbHeader . mainHeaderLeaderKey
+
+-- | Lens from 'MainBlock' to 'ChainDifficulty'.
+mainBlockDifficulty :: Lens' (MainBlock ssc) ChainDifficulty
+mainBlockDifficulty = gbHeader . mainHeaderDifficulty
 
 -- | Lens from 'MainBlock' to 'Signature'.
-blockSignature :: Lens' (MainBlock ssc) (BlockSignature ssc)
-blockSignature = gbHeader . headerSignature
+mainBlockSignature :: Lens' (MainBlock ssc) (BlockSignature ssc)
+mainBlockSignature = gbHeader . mainHeaderSignature
+
+-- | Lens from 'MainBlock' to 'BlockVersion'.
+mainBlockBlockVersion ::
+       Lens' (MainBlock ssc) BlockVersion
+mainBlockBlockVersion = gbHeader . mainHeaderBlockVersion
+
+-- | Lens from 'MainBlock' to 'SoftwareVersion'.
+mainBlockSoftwareVersion ::
+       Lens' (MainBlock ssc) SoftwareVersion
+mainBlockSoftwareVersion = gbHeader . mainHeaderSoftwareVersion
+
+-- | Lens from 'MainBlock' to 'BlockHeaderAttributes'.
+mainBlockHeaderAttributes ::
+       Lens' (MainBlock ssc) BlockHeaderAttributes
+mainBlockHeaderAttributes = gbHeader . mainHeaderAttributes
+
+-- | Lens from 'MainBlock' to 'TxPayload'.
+mainBlockTxPayload :: Lens' (MainBlock ssc) TxPayload
+mainBlockTxPayload = gbBody . mbTxPayload
 
 -- | Lens from 'MainBlock' to 'SscPayload'.
-blockMpc :: Lens' (MainBlock ssc) (SscPayload ssc)
-blockMpc = gbBody . mbMpc
+mainBlockSscPayload :: Lens' (MainBlock ssc) (SscPayload ssc)
+mainBlockSscPayload = gbBody . mbSscPayload
 
--- | Lens from 'MainBlock' to 'MerkleTree'.
-blockTxs :: Lens' (MainBlock ssc) (MerkleTree Tx)
-blockTxs = gbBody . mbTxs
+-- | Lens from 'MainBlock' to 'UpdatePayload'.
+mainBlockUpdatePayload :: Lens' (MainBlock ssc) UpdatePayload
+mainBlockUpdatePayload = gbBody . mbUpdatePayload
 
--- | Getter from 'MainBlock' to a list of transactions together with
--- auxiliary data.
-blockTxas :: Getter (MainBlock ssc) [TxAux]
-blockTxas =
-    gbBody .
-    to (\b -> zipWith3 TxAux (toList (b ^. mbTxs))
-                             (b ^. mbWitnesses)
-                             (b ^. mbTxAddrDistributions))
+-- | Lens from 'MainBlock' to 'DlgPayload'.
+mainBlockDlgPayload :: Lens' (MainBlock ssc) DlgPayload
+mainBlockDlgPayload = gbBody . mbDlgPayload
 
--- | Lens from 'MainBlock' to 'ProxySKHeavy' list.
-blockProxySKs :: Lens' (MainBlock ssc) [ProxySKHeavy]
-blockProxySKs = gbBody . mbProxySKs
+-- | Lens from 'MainBlock' to 'BlockBodyAttributes'.
+mainBlockAttributes :: Lens' (MainBlock ssc) BlockBodyAttributes
+mainBlockAttributes = gbExtra . mebAttributes

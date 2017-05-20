@@ -49,14 +49,14 @@ instance Bi (BC.ConsensusData (BC.MainBlockchain ssc)) where
 instance (Ssc ssc) => Bi (BC.Body (BC.MainBlockchain ssc)) where
     put BC.MainBody{..} = do
         put _mbTxPayload
-        put _mbMpc
-        put _mbProxySKs
+        put _mbSscPayload
+        put _mbDlgPayload
         put _mbUpdatePayload
     get = label "MainBody" $ do
-        _mbTxPayload           <- get
-        _mbMpc                 <- get
-        _mbProxySKs            <- get
-        _mbUpdatePayload       <- get
+        _mbTxPayload     <- get
+        _mbSscPayload    <- get
+        _mbDlgPayload    <- get
+        _mbUpdatePayload <- get
         return BC.MainBody{..}
 
 instance Bi BC.MainExtraHeaderData where

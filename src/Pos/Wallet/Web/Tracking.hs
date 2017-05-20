@@ -15,6 +15,7 @@ module Pos.Wallet.Web.Tracking
 
 import           Universum
 
+import           Control.Lens               (to)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
@@ -24,7 +25,8 @@ import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 
-import           Pos.Block.Core             (BlockHeader, blockTxas, getBlockHeader)
+import           Pos.Block.Core             (BlockHeader, getBlockHeader,
+                                             mainBlockTxPayload)
 import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Pure             (genesisHash)
 import           Pos.Block.Types            (Blund, undoTx)
@@ -44,8 +46,9 @@ import qualified Pos.DB.DB                  as DB
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..),
-                                             TxOutAux (..), TxUndo, getTxDistribution,
-                                             toaOut, topsortTxs, txOutAddress)
+                                             TxOutAux (..), TxUndo, flattenTxPayload,
+                                             getTxDistribution, toaOut, topsortTxs,
+                                             txOutAddress)
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
 import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT,
                                              evalToilTEmpty, runDBTxp)
@@ -208,7 +211,7 @@ syncWSetsWithGState encSK = do
     constTrue = \_ _ -> True
     mappendR r mm = pure (r <> mm)
     diff = (^. difficultyL)
-    gbTxs = either (const []) (^. blockTxas)
+    gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
     rollbackBlock :: Blund ssc -> CAccModifier
     rollbackBlock (b, u) = trackingRollbackTxs encSK $ zip (gbTxs b) (undoTx u)

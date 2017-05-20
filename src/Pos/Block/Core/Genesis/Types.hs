@@ -10,14 +10,10 @@ module Pos.Block.Core.Genesis.Types
        , GenesisBodyAttributes
        , GenesisExtraHeaderData (..)
        , GenesisHeaderAttributes
-
-       , gehAttributes
-       , gebAttributes
        ) where
 
 import           Universum
 
-import           Control.Lens        (makeLenses)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, (%))
 
@@ -68,6 +64,3 @@ type GenesisBlockHeader ssc = GenericBlockHeader (GenesisBlockchain ssc)
 
 -- | Genesis block parametrized by 'GenesisBlockchain'.
 type GenesisBlock ssc = GenericBlock (GenesisBlockchain ssc)
-
-makeLenses ''GenesisExtraHeaderData
-makeLenses ''GenesisExtraBodyData

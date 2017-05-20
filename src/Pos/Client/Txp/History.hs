@@ -55,15 +55,16 @@ import           Pos.Explorer                 (eTxProcessTransaction)
 #else
 import           Pos.Txp                      (MonadTxpMem, txProcessTransaction)
 #endif
-import           Pos.Block.Core               (Block, blockTxas)
+import           Pos.Block.Core               (Block, mainBlockTxPayload)
 import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
                                                difficultyL, prevBlockL)
 import           Pos.Txp                      (MonadUtxoRead, Tx (..), TxAux (..),
                                                TxDistribution, TxId, TxOut, TxOutAux (..),
                                                TxWitness, Utxo, UtxoStateT, applyTxToUtxo,
                                                evalUtxoStateT, filterUtxoByAddrs,
-                                               getLocalTxs, runUtxoStateT, topsortTxs,
-                                               txOutAddress, utxoGet)
+                                               flattenTxPayload, getLocalTxs,
+                                               runUtxoStateT, topsortTxs, txOutAddress,
+                                               utxoGet)
 import           Pos.Util                     (ether, maybeThrow)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -147,7 +148,7 @@ deriveAddrHistoryPartial hist addrs chain =
     updateAll (Right blk) hst = do
         let mapper TxAux {..} = (withHash taTx, taWitness, taDistribution)
         txs <- getRelatedTxs addrs $
-                   map mapper (blk ^. blockTxas)
+                   map mapper $ flattenTxPayload (blk ^. mainBlockTxPayload)
         let difficulty = blk ^. difficultyL
             txs' = map (thDifficulty .~ Just difficulty) txs
         return $ DL.fromList txs' <> hst

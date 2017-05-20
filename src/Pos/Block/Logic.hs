@@ -55,7 +55,7 @@ import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (Block, BlockHeader, GenesisBlock, MainBlock,
                                              MainExtraBodyData (..),
                                              MainExtraHeaderData (..), blockHeader,
-                                             blockLeaders, mbTxPayload)
+                                             genBlockLeaders, mbTxPayload)
 import qualified Pos.Block.Core             as BC
 import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                              toUpdateBlock, withBlkSemaphore,
@@ -468,7 +468,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         LrcDB.getLeaders
     case blocks ^. _Wrapped . _neHead of
         (Left block) ->
-            when (block ^. blockLeaders /= leaders) $
+            when (block ^. genBlockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     (adoptedBV, adoptedBVD) <- UDB.getAdoptedBVFull

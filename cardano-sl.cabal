@@ -320,9 +320,6 @@ library
                         Pos.Txp.Toil.Utxo.Util
                         Pos.Txp.Worker
 
-                        -- Types
-                        Pos.Types.SharedSeed
-
                         -- Workers
                         Pos.Worker.Stats
 

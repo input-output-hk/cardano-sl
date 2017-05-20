@@ -1,15 +1,16 @@
 -- | Functionality related to SharedSeed.
 
-module Pos.Types.SharedSeed
+module Pos.Core.SharedSeed
        (
        ) where
+
+import           Universum
 
 import qualified Data.ByteString       as BS (pack, zipWith)
 import qualified Data.ByteString.Char8 as BSC (pack)
 import qualified Data.Semigroup        (Semigroup (..))
-import           Universum
 
-import           Pos.Constants         (sharedSeedLength)
+import           Pos.Core.Constants    (sharedSeedLength)
 import           Pos.Core.Types        (SharedSeed (..))
 
 instance Semigroup SharedSeed where

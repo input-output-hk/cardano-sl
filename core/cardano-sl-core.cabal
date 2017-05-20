@@ -34,6 +34,7 @@ library
                        Pos.Core.Coin
                        Pos.Core.Constants
                        Pos.Core.Script
+                       Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
                        Pos.Core.Types

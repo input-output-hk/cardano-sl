@@ -11,9 +11,7 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 data-files:
-  constants-dev.yaml
-  constants-prod.yaml
-  constants-wallet-prod.yaml
+  constants.yaml
 
 flag dev-mode
   default:     True
@@ -76,6 +74,7 @@ library
                        Pos.Util.Util
 
   other-modules:       Pos.Util.Config.Path
+                       Pos.Util.Config.Get
 
   build-depends:      QuickCheck
                     , aeson
@@ -167,6 +166,6 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
   if flag(dev-mode)
-    cpp-options: -DDEV_MODE
+    cpp-options: -DDEV_MODE -DCONFIG=dev
   if flag(embed-config) || !flag(dev-mode)
     cpp-options: -DEMBED_CONFIG

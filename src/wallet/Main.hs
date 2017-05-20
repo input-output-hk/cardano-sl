@@ -38,7 +38,6 @@ import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVot
                                              hash, hashHexF, noPassEncrypt, safeSign,
                                              toPublic, unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes        (mkAttributes)
-import           Pos.Delegation             (sendProxySKOuts)
 import           Pos.Discovery              (findPeers, getPeers)
 import           Pos.Genesis                (genesisDevSecretKeys,
                                              genesisStakeDistribution, genesisUtxo)
@@ -216,8 +215,7 @@ runCmd _ (AddKeyFromFile f) = do
 runCmd _ Quit = pure ()
 
 runCmdOuts :: OutSpecs
-runCmdOuts = mconcat [ sendProxySKOuts
-                     , sendTxOuts
+runCmdOuts = mconcat [ sendTxOuts
                      , sendVoteOuts
                      , sendProposalOuts
                      ]

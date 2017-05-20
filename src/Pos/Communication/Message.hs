@@ -12,12 +12,12 @@ import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGe
 import           Pos.Communication.MessagePart    (MessagePart (..))
 import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, InvOrData, MempoolMsg,
                                                    ReqMsg)
-import           Pos.Delegation.Types             (ConfirmProxySK, SendProxySK)
 import           Pos.Ssc.GodTossing.Types.Message (MCCommitment, MCOpening, MCShares,
                                                    MCVssCertificate)
-import           Pos.Txp.Network.Types            (TxMsgContents, TxMsgTag)
+import           Pos.Txp.Network.Types            (TxMsgContents)
+import           Pos.Types                        (ProxySKHeavy, ProxySKLight,
+                                                   ProxySigLight)
 import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote)
-import           Pos.Update.Network.Types         (ProposalMsgTag, VoteMsgTag)
 
 varIntMName :: Int -> MessageName
 varIntMName = MessageName . encodeStrict . UnsignedVarInt
@@ -25,22 +25,6 @@ varIntMName = MessageName . encodeStrict . UnsignedVarInt
 instance Message Void where
     messageName _ = varIntMName 0
     formatMessage _ = "Void"
-
-instance Message SendProxySK where
-    messageName _ = varIntMName 2
-    formatMessage _ = "SendProxySK"
-
-instance Message ConfirmProxySK where
-    messageName _ = varIntMName 3
-    formatMessage _ = "ConfirmProxySK"
-
---instance Message CheckProxySKConfirmed where
---    messageName _ = varIntMName _
---    formatMessage _ = "CheckProxySKConfirmed"
---
---instance Message CheckProxySKConfirmedRes where
---    messageName _ = varIntMName _
---    formatMessage _ = "CheckProxySKConfirmedRes"
 
 instance Message MsgGetHeaders where
     messageName _ = varIntMName 4
@@ -58,21 +42,12 @@ instance Message (MsgBlock ssc) where
     messageName _ = varIntMName 7
     formatMessage _ = "Block"
 
-instance MessagePart TxMsgTag where
-    pMessageName _ = varIntMName 0
-
 instance MessagePart TxMsgContents where
     pMessageName _ = varIntMName 0
-
-instance MessagePart ProposalMsgTag where
-    pMessageName _ = varIntMName 1
 
 -- | Instance for `UpdateProposal`
 instance MessagePart (UpdateProposal, [UpdateVote]) where
     pMessageName _ = varIntMName 1
-
-instance MessagePart VoteMsgTag where
-    pMessageName _ = varIntMName 2
 
 -- | Instance for `UpdateVote`
 instance MessagePart UpdateVote where
@@ -89,6 +64,15 @@ instance MessagePart MCShares where
 
 instance MessagePart MCVssCertificate where
     pMessageName _ = varIntMName 6
+
+instance MessagePart ProxySKLight where
+    pMessageName _ = varIntMName 7
+
+instance MessagePart ProxySKHeavy where
+    pMessageName _ = varIntMName 8
+
+instance MessagePart (ProxySKLight, ProxySigLight ProxySKLight) where
+    pMessageName _ = varIntMName 9
 
 instance (MessagePart key) =>
          Message (ReqMsg key) where

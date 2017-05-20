@@ -188,8 +188,6 @@ library
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
                         Pos.Delegation.Lrc
-                        Pos.Delegation.Methods
-                        Pos.Delegation.Types
                         Pos.Delegation.Worker
 
                         -- Launcher

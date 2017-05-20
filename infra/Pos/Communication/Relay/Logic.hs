@@ -20,6 +20,7 @@ module Pos.Communication.Relay.Logic
        , invReqDataFlowTK
        , invReqDataFlowNeighbors
        , invReqDataFlowNeighborsTK
+       , addToRelayQueue
        ) where
 
 import           Control.Concurrent.STM             (isFullTBQueue, readTBQueue,

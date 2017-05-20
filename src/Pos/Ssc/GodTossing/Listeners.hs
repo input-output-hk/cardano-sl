@@ -19,8 +19,7 @@ import           Pos.Binary.Crypto                ()
 import           Pos.Binary.Relay                 ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Limits         (MessageLimited)
-import           Pos.Communication.Message        ()
-import           Pos.Communication.MessagePart    (MessagePart)
+import           Pos.Communication.Message        (MessagePart)
 import           Pos.Communication.Relay          (DataMsg, InvReqDataParams (..),
                                                    MempoolParams (NoMempool), Relay (..),
                                                    relayListeners)

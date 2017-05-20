@@ -13,6 +13,8 @@ import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg (..),
 import           Pos.Crypto                       (hash)
 import           Pos.Ssc.GodTossing.Types.Message (MCCommitment (..), MCOpening (..),
                                                    MCShares (..), MCVssCertificate (..))
+import           Pos.Types                        (ProxySKHeavy, ProxySKLight,
+                                                   ProxySigLight)
 import           Pos.Update.Core                  (UpdateProposal, UpdateVote (..))
 
 instance (Bi key) => Bi (InvMsg key) where
@@ -60,3 +62,15 @@ instance Bi (DataMsg (UpdateProposal, [UpdateVote])) where
 instance Bi (DataMsg UpdateVote) where
     put (DataMsg uv) = put uv
     get = label "DataMsg UpdateVote" $ DataMsg <$> get
+
+instance Bi (DataMsg ProxySKLight) where
+    put (DataMsg p) = put p
+    get = label "DataMsg ProxySKLight" $ DataMsg <$> get
+
+instance Bi (DataMsg ProxySKHeavy) where
+    put (DataMsg p) = put p
+    get = label "DataMsg ProxySKHeavy" $ DataMsg <$> get
+
+instance Bi (DataMsg (ProxySKLight, ProxySigLight ProxySKLight)) where
+    put (DataMsg p) = put p
+    get = label "DataMsg (ProxySKLight, ProxySigLight ProxySKLight)" $ DataMsg <$> get

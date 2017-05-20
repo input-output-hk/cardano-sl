@@ -15,7 +15,7 @@ import           Pos.Binary.Communication    ()
 import           Pos.Block.Network.Listeners (blockListeners, blockStubListeners)
 import           Pos.Communication.Protocol  (ListenerSpec (..), OutSpecs)
 import           Pos.Communication.Util      (wrapListener)
---import           Pos.Delegation.Listeners    (delegationListeners)
+import           Pos.Delegation.Listeners    (delegationListeners)
 import           Pos.Ssc.Class               (SscHelpersClass (..),
                                               SscListenersClass (..), SscWorkersClass)
 import           Pos.Txp                     (txListeners)
@@ -31,7 +31,7 @@ allListeners = mconcatPair <$> sequence
         [ modifier "block"       <$> blockListeners
         , modifier "ssc" . untag <$> sscListeners
         , modifier "tx"          <$> txListeners
-        --, modifier "delegation"  <$> pure delegationListeners
+        , modifier "delegation"  <$> delegationListeners
         , modifier "update"      <$> usListeners
         ]
   where

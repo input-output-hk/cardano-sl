@@ -27,9 +27,11 @@ import           Pos.Communication.Types.Relay      (DataMsg (..))
 import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
                                                      coinPortionToDouble)
-import           Pos.Crypto                         (AbstractHash, EncShare, PublicKey,
-                                                     SecretProof, SecretSharingExtra (..),
-                                                     Share, Signature, VssPublicKey)
+import           Pos.Crypto                         (AbstractHash, EncShare,
+                                                     ProxySecretKey, ProxySignature,
+                                                     PublicKey, SecretProof,
+                                                     SecretSharingExtra (..), Share,
+                                                     Signature, VssPublicKey)
 import qualified Pos.DB.Class                       as DB
 import           Pos.Ssc.GodTossing.Arbitrary       ()
 import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..), InnerSharesMap,
@@ -39,7 +41,9 @@ import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpenin
                                                      MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Core                       (TxAux)
 import           Pos.Txp.Network.Types              (TxMsgContents (..))
-import           Pos.Types                          (Block, BlockHeader)
+import           Pos.Types                          (Block, BlockHeader, EpochIndex,
+                                                     ProxySKHeavy, ProxySKLight,
+                                                     ProxySigLight)
 import           Pos.Update.Core.Types              (UpdateProposal (..), UpdateVote (..))
 
 -- Reexports
@@ -91,6 +95,19 @@ instance MessageLimitedPure (AbstractHash Blake2b_224 a) where
 
 instance MessageLimitedPure (AbstractHash Blake2b_256 a) where
     msgLenLimit = 32
+
+instance MessageLimitedPure w => MessageLimitedPure (ProxySecretKey w) where
+    msgLenLimit = coerce (msgLenLimit @w)
+                    + 2 * (coerce (msgLenLimit @PublicKey))
+                    + (coerce (msgLenLimit @(Signature w)))
+
+instance MessageLimitedPure w => MessageLimitedPure (ProxySignature w a) where
+    msgLenLimit = coerce (msgLenLimit @w)
+                    + (coerce (msgLenLimit @PublicKey))
+                    + 2 * (coerce (msgLenLimit @(Signature w)))
+
+instance MessageLimitedPure EpochIndex where
+    msgLenLimit = 8
 
 ----------------------------------------------------------------------------
 ---- GodTossing
@@ -166,6 +183,23 @@ instance MessageLimited (DataMsg MCVssCertificate) where
         Limit (DataMsg MCVssCertificate)
     getMsgLenLimit _ = pure $ fmap DataMsg $
         MCVssCertificate <$> msgLenLimit
+
+----------------------------------------------------------------------------
+---- Delegation
+----------------------------------------------------------------------------
+
+instance MessageLimitedPure (DataMsg ProxySKLight) where
+    msgLenLimit = DataMsg <$> msgLenLimit
+
+instance MessageLimitedPure (DataMsg ProxySKHeavy) where
+    msgLenLimit = DataMsg <$> msgLenLimit
+
+instance MessageLimitedPure (DataMsg (ProxySKLight, ProxySigLight ProxySKLight)) where
+    msgLenLimit = DataMsg <$> msgLenLimit
+
+instance MessageLimited (DataMsg ProxySKLight)
+instance MessageLimited (DataMsg ProxySKHeavy)
+instance MessageLimited (DataMsg (ProxySKLight, ProxySigLight ProxySKLight))
 
 ----------------------------------------------------------------------------
 ---- Txp

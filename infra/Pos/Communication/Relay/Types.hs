@@ -1,18 +1,20 @@
-{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs #-}
 
 module Pos.Communication.Relay.Types
        ( RelayError (..)
-       , SomeInvMsg (..)
-       , RelayInvQueue
+       , PropagationMsg (..)
+       , RelayPropagationQueue
        , RelayContext (..)
        ) where
 
 import           Control.Concurrent.STM        (TBQueue)
+import qualified Data.Text.Buildable           as Buildable
+import           Formatting                    (bprint, build, (%))
 import           Node.Message                  (Message)
 import           Universum
 
 import           Pos.Binary.Class              (Bi)
-import           Pos.Communication.Types.Relay (InvOrData, ReqMsg (..))
+import           Pos.Communication.Types.Relay (DataMsg, InvOrData, ReqMsg)
 
 data RelayError = UnexpectedInv
                 | UnexpectedData
@@ -20,19 +22,30 @@ data RelayError = UnexpectedInv
 
 instance Exception RelayError
 
-data SomeInvMsg =
-    forall key contents .
+data PropagationMsg where
+    InvReqDataPM ::
         ( Message (InvOrData key contents)
         , Bi (InvOrData key contents)
         , Buildable key
         , Message (ReqMsg key)
         , Bi (ReqMsg key))
-        => SomeInvMsg !(InvOrData key contents)
+        => !key -> !contents -> PropagationMsg
+    DataOnlyPM ::
+        ( Message (DataMsg contents)
+        , Bi (DataMsg contents)
+        , Buildable contents)
+        => !contents -> PropagationMsg
+
+instance Buildable PropagationMsg where
+    build (InvReqDataPM key _) =
+        bprint ("<data for key "%build%">") key
+    build (DataOnlyPM conts) =
+        Buildable.build conts
 
 -- | Queue of InvMsges which should be propagated.
-type RelayInvQueue = TBQueue SomeInvMsg
+type RelayPropagationQueue = TBQueue PropagationMsg
 
 data RelayContext = RelayContext
     { _rlyIsPropagation    :: !Bool
-    , _rlyPropagationQueue :: !RelayInvQueue
+    , _rlyPropagationQueue :: !RelayPropagationQueue
     }

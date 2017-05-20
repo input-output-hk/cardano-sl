@@ -49,10 +49,12 @@ import           Pos.Communication.Protocol         (Conversation (..),
                                                      ListenerSpec, NodeId, OutSpecs,
                                                      SendActions (..), WorkerSpec,
                                                      listenerConv, mergeLs, worker)
-import           Pos.Communication.Relay.Class      (InvReqDataParams (..),
+import           Pos.Communication.Relay.Class      (DataParams (..),
+                                                     InvReqDataParams (..),
                                                      MempoolParams (..), MonadRelayMem,
                                                      Relay (..), askRelayMem)
-import           Pos.Communication.Relay.Types      (RelayContext (..), SomeInvMsg (..))
+import           Pos.Communication.Relay.Types      (PropagationMsg (..),
+                                                     RelayContext (..))
 import           Pos.Communication.Relay.Util       (expectData, expectInv)
 import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), InvOrData,
                                                      MempoolMsg (..), ReqMsg (..))
@@ -131,6 +133,33 @@ handleMempoolL (KeyMempool tagP handleMempool) = pure $ reifyMsgLimit mmP $
   where
     mmP = (const Proxy :: Proxy tag -> Proxy (MempoolMsg tag)) tagP
 
+handleDataOnlyL
+    :: forall contents m .
+       ( Bi (DataMsg contents)
+       , Message Void
+       , Message (DataMsg contents)
+       , Buildable contents
+       , RelayWorkMode m
+       , MonadGStateCore m
+       , MessageLimited (DataMsg contents)
+       )
+    => (contents -> m Bool)
+    -> m (ListenerSpec m, OutSpecs)
+handleDataOnlyL handleData = reifyMsgLimit (Proxy @(DataMsg contents)) $
+  \(_ :: Proxy s) -> return $ listenerConv $
+    \_ __peerId (conv :: ConversationActions Void (SmartLimit s (DataMsg contents)) m) ->
+    let handlingLoop = do
+            mbMsg <- fmap (withLimitedLength @s) <$> recv conv
+            whenJust mbMsg $ \DataMsg{..} -> do
+                ifM (handleData dmContents)
+                    (propagateData $ DataOnlyPM dmContents)
+                    (logUseless dmContents)
+                handlingLoop
+    in handlingLoop
+  where
+    logUseless dmContents = logDebug $ sformat
+        ("Ignoring data "%build) dmContents
+
 -- Returns True if we should propagate.
 handleDataDo
     :: forall key contents m .
@@ -149,25 +178,27 @@ handleDataDo
 handleDataDo contentsToKey handleData dmContents = do
     dmKey <- contentsToKey dmContents
     ifM (handleData dmContents)
-        (propagate dmKey) $
+        (propagateData $ InvReqDataPM dmKey dmContents) $
             logDebug $ sformat
                 ("Ignoring data "%build%" for key "%build) dmContents dmKey
-  where
-    propagate dmKey = do
-        shouldPropagate <- _rlyIsPropagation <$> askRelayMem
-        if shouldPropagate then do
-            let inv :: InvOrData key contents
-                inv = Left $ InvMsg dmKey
-            addToRelayQueue inv
-            logInfo $ sformat
-                ("Adopted data "%build%" "%
-                  "for key "%build%", data has been pushed to propagation queue...")
-                dmContents dmKey
-        else
-            logInfo $ sformat
-                ("Adopted data "%build%" for "%
-                  "key "%build%", no propagation")
-                dmContents dmKey
+
+propagateData
+    :: RelayWorkMode m
+    => PropagationMsg
+    -> m ()
+propagateData pm = do
+    shouldPropagate <- _rlyIsPropagation <$> askRelayMem
+    if shouldPropagate then do
+        addToRelayQueue pm
+        logInfo $ sformat
+            ("Adopted data, pushed "%build%
+              " to propagation queue...")
+            pm
+    else
+        logInfo $ sformat
+            ("Adopted data "%
+              build%", propagation is off")
+            pm
 
 handleInvDo
     :: forall key m .
@@ -195,11 +226,15 @@ relayListeners
      , WithLogger m
      , RelayWorkMode m
      , MonadGStateCore m
+     , Message Void
      )
   => Relay m -> m ([ListenerSpec m], OutSpecs)
 relayListeners (InvReqData mP irdP@InvReqDataParams{..}) =
     (fmap mergeLs . sequence) $
         [handleReqL handleReq, invDataListener irdP] ++ handleMempoolL mP
+relayListeners (Data DataParams{..}) =
+    (fmap mergeLs . sequence) $
+        [handleDataOnlyL handleDataOnly]
 
 invDataListener
   :: forall m key contents.
@@ -233,22 +268,16 @@ invDataListener InvReqDataParams{..} = reifyMsgLimit (Proxy @(InvOrData key cont
                         \DataMsg{..} -> handleDataDo contentsToKey handleData dmContents
 
 addToRelayQueue
-    :: forall key contents m.
-       ( Bi (InvOrData key contents)
-       , Bi (ReqMsg key)
-       , Message (InvOrData key contents)
-       , Message (ReqMsg key)
-       , Buildable key
-       , RelayWorkMode m
-       )
-    => InvOrData key contents -> m ()
-addToRelayQueue inv = do
+    :: forall m.
+       RelayWorkMode m
+    => PropagationMsg -> m ()
+addToRelayQueue pm = do
     queue <- _rlyPropagationQueue <$> askRelayMem
     isFull <- atomically $ isFullTBQueue queue
     if isFull then
         logWarning $ "Propagation queue is full, no propagation"
     else
-        atomically $ writeTBQueue queue (SomeInvMsg inv)
+        atomically $ writeTBQueue queue pm
 
 relayWorkers
     :: forall m.
@@ -257,6 +286,7 @@ relayWorkers
        , RelayWorkMode m
        , MonadMask m
        , MonadReportingMem m
+       , Message Void
        )
     => OutSpecs -> ([WorkerSpec m], OutSpecs)
 relayWorkers allOutSpecs =
@@ -266,19 +296,30 @@ relayWorkers allOutSpecs =
     action sendActions = do
         queue <- _rlyPropagationQueue <$> askRelayMem
         forever $ atomically (readTBQueue queue) >>= \case
-            SomeInvMsg i@(Left (InvMsg{..})) -> do
+            InvReqDataPM key contents -> do
                 logDebug $ sformat
-                    ("Propagation data with key: "%build) imKey
-                converseToNeighbors sendActions $ \__node -> pure $ Conversation $ convHandler i
-            SomeInvMsg (Right _) ->
-                logWarning $ "DataMsg is contains in inv propagation queue"
+                    ("Propagation data with key: "%build) key
+                converseToNeighbors sendActions $ \__node ->
+                    pure $ Conversation $ irdHandler key contents
+            DataOnlyPM contents -> do
+                logDebug $ sformat
+                    ("Propagation data: "%build) contents
+                converseToNeighbors sendActions $ \__node ->
+                    pure $ Conversation $ doHandler contents
 
-    convHandler
-        :: InvOrData key1 contents1
+    doHandler
+        :: contents1
+        -> ConversationActions
+             (DataMsg contents1) Void m
+        -> m ()
+    doHandler contents conv = send conv $ DataMsg contents
+
+    irdHandler
+        :: key1 -> contents1
         -> ConversationActions
              (InvOrData key1 contents1) (ReqMsg key1) m
         -> m ()
-    convHandler inv conv = send conv inv
+    irdHandler key __conts conv = send conv $ Left $ InvMsg key
 
     handleWE e = do
         logError $ sformat ("relayWorker: error caught "%shown) e

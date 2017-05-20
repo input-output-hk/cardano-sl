@@ -4,6 +4,7 @@
 module Pos.Communication.Relay.Class
        ( Relay (..)
        , InvReqDataParams (..)
+       , DataParams (..)
        , MempoolParams (..)
        , MonadRelayMem
        , askRelayMem
@@ -33,6 +34,13 @@ data Relay m where
       , Message (InvOrData key contents)
       , MessageLimited (DataMsg contents)
       ) => MempoolParams m -> InvReqDataParams key contents m -> Relay m
+  Data ::
+      ( Buildable contents
+      , Typeable contents
+      , Bi (DataMsg contents)
+      , Message (DataMsg contents)
+      , MessageLimited (DataMsg contents)
+      ) => DataParams contents m -> Relay m
 
 data MempoolParams m where
     NoMempool :: MempoolParams m
@@ -63,6 +71,11 @@ data InvReqDataParams key contents m =
         -- | Handle data msg and return True if message is to be propagated
         , handleData    :: contents -> m Bool
         }
+
+data DataParams contents m = DataParams
+        { handleDataOnly :: contents -> m Bool
+        }
+
 
 type MonadRelayMem = Ether.MonadReader' RelayContext
 

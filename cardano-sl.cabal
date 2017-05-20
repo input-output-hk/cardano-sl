@@ -162,9 +162,18 @@ library
 
                         -- Block processing
                         Pos.Block.Core.Genesis
-                        Pos.Block.Core.Instances
+                        Pos.Block.Core.Genesis.Chain
+                        Pos.Block.Core.Genesis.Lens
+                        Pos.Block.Core.Genesis.Misc
+                        Pos.Block.Core.Genesis.Types
                         Pos.Block.Core.Main
+                        Pos.Block.Core.Main.Chain
+                        Pos.Block.Core.Main.Lens
+                        Pos.Block.Core.Main.Misc
+                        Pos.Block.Core.Main.Types
                         Pos.Block.Core.Union
+                        Pos.Block.Core.Union.Misc
+                        Pos.Block.Core.Union.Types
                         Pos.Block.Error
                         Pos.Block.Logic.Internal
                         Pos.Block.Network.Announce

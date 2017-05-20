@@ -25,52 +25,54 @@ module Pos.Block.Pure
        , verifyHeaders
        ) where
 
-import           Control.Lens               (ix)
-import           Control.Monad.Except       (MonadError (throwError))
-import           Data.Default               (Default (def))
-import           Data.List                  (groupBy)
-import           Formatting                 (build, int, sformat, (%))
-import           Serokell.Data.Memory.Units (Byte, memory)
-import           Serokell.Util.Verify       (VerificationRes (..), verifyGeneric)
+import           Control.Lens                 (ix)
+import           Control.Monad.Except         (MonadError (throwError))
+import           Data.Default                 (Default (def))
+import           Data.List                    (groupBy)
+import           Formatting                   (build, int, sformat, (%))
+import           Serokell.Data.Memory.Units   (Byte, memory)
+import           Serokell.Util.Verify         (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Block.Core      ()
-import qualified Pos.Binary.Class           as Bi
-import           Pos.Binary.Core            ()
-import           Pos.Binary.Update          ()
-import           Pos.Block.Core             (BiSsc, Block, BlockHeader,
-                                             BlockSignature (..), Body (..),
-                                             ConsensusData (..), GenesisBlock,
-                                             GenesisBlockHeader, GenesisBlockchain,
-                                             GenesisExtraBodyData (..),
-                                             GenesisExtraHeaderData (..), MainBlock,
-                                             MainBlockHeader, MainBlockchain,
-                                             MainExtraBodyData (..), MainExtraHeaderData,
-                                             MainToSign (..), blockLeaders, blockMpc,
-                                             blockProxySKs, gebAttributes, gehAttributes,
-                                             getBlockHeader, getBlockHeader,
-                                             headerLeaderKey, mcdDifficulty, mcdLeaderKey,
-                                             mcdSignature, mcdSlot, mebAttributes,
-                                             mehAttributes)
-import           Pos.Block.Core.Instances   (Body (..), ConsensusData (..))
-import           Pos.Constants              (epochSlots)
-import           Pos.Core                   (ChainDifficulty, EpochIndex, EpochOrSlot,
-                                             HasDifficulty (..), HasEpochIndex (..),
-                                             HasEpochOrSlot (..), HasHeaderHash (..),
-                                             HeaderHash, ProxySKEither, SlotId (..),
-                                             SlotLeaders, addressHash, gbhExtra,
-                                             headerSlotL, prevBlockL)
-import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
-                                             GenericBlockHeader (..), gbBody, gbBodyProof,
-                                             gbExtra, gbHeader)
-import           Pos.Crypto                 (Hash, SecretKey, SignTag (..), checkSig,
-                                             proxySign, proxyVerify, pskIssuerPk,
-                                             pskOmega, sign, toPublic, unsafeHash)
-import           Pos.Data.Attributes        (Attributes (attrRemain), mkAttributes)
-import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
-import           Pos.Update.Core            (BlockVersionData (..))
-import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
-import           Pos.Util.Util              (Some (Some))
+import           Pos.Binary.Block.Core        ()
+import qualified Pos.Binary.Class             as Bi
+import           Pos.Binary.Core              ()
+import           Pos.Binary.Update            ()
+import           Pos.Block.Core               (BiSsc, Block, BlockHeader,
+                                               BlockSignature (..), Body (..),
+                                               ConsensusData (..), GenesisBlock,
+                                               GenesisBlockHeader, GenesisBlockchain,
+                                               GenesisExtraBodyData (..),
+                                               GenesisExtraHeaderData (..), MainBlock,
+                                               MainBlockHeader, MainBlockchain,
+                                               MainExtraBodyData (..),
+                                               MainExtraHeaderData, MainToSign (..),
+                                               blockLeaders, blockMpc, blockProxySKs,
+                                               gebAttributes, gehAttributes,
+                                               getBlockHeader, getBlockHeader,
+                                               headerLeaderKey, mcdDifficulty,
+                                               mcdLeaderKey, mcdSignature, mcdSlot,
+                                               mebAttributes, mehAttributes)
+import           Pos.Block.Core.Genesis.Chain (Body (..), ConsensusData (..))
+import           Pos.Block.Core.Main.Chain    (ConsensusData (..))
+import           Pos.Constants                (epochSlots)
+import           Pos.Core                     (ChainDifficulty, EpochIndex, EpochOrSlot,
+                                               HasDifficulty (..), HasEpochIndex (..),
+                                               HasEpochOrSlot (..), HasHeaderHash (..),
+                                               HeaderHash, ProxySKEither, SlotId (..),
+                                               SlotLeaders, addressHash, gbhExtra,
+                                               headerSlotL, prevBlockL)
+import           Pos.Core.Block               (Blockchain (..), GenericBlock (..),
+                                               GenericBlockHeader (..), gbBody,
+                                               gbBodyProof, gbExtra, gbHeader)
+import           Pos.Crypto                   (Hash, SecretKey, SignTag (..), checkSig,
+                                               proxySign, proxyVerify, pskIssuerPk,
+                                               pskOmega, sign, toPublic, unsafeHash)
+import           Pos.Data.Attributes          (Attributes (attrRemain), mkAttributes)
+import           Pos.Ssc.Class.Helpers        (SscHelpersClass (..))
+import           Pos.Update.Core              (BlockVersionData (..))
+import           Pos.Util.Chrono              (NewestFirst (..), OldestFirst)
+import           Pos.Util.Util                (Some (Some))
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty

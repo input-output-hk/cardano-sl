@@ -1,5 +1,5 @@
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Pos.Core.Block
        ( Blockchain (..)
@@ -20,6 +20,7 @@ module Pos.Core.Block
 import           Control.Lens   (makeLenses)
 import           Universum
 
+import           Pos.Core.Class (HasPrevBlock (..))
 import           Pos.Core.Types (HeaderHash)
 
 ----------------------------------------------------------------------------
@@ -58,7 +59,6 @@ class Blockchain p where
     checkBodyProof body proof = mkBodyProof body == proof
 
     verifyBBlock :: GenericBlock p -> Either Text ()
-
 
 -- | Header of block contains some kind of summary. There are various
 -- benefits which people get by separating header from other data.
@@ -126,6 +126,14 @@ deriving instance
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
+
+instance (BHeaderHash b ~ HeaderHash) =>
+         HasPrevBlock (GenericBlockHeader b) where
+    prevBlockL = gbhPrevBlock
+
+instance (BHeaderHash b ~ HeaderHash) =>
+         HasPrevBlock (GenericBlock b) where
+    prevBlockL = gbHeader . gbhPrevBlock
 
 -- | Lens from 'GenericBlock' to 'BodyProof'.
 gbBodyProof :: Lens' (GenericBlock b) (BodyProof b)

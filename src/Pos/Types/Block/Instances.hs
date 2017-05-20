@@ -46,12 +46,12 @@ import           Universum
 import           Control.Lens          (Getter, choosing, to)
 import           Data.List             (zipWith3)
 import           Data.Tagged           (untag)
-import           Data.Text.Buildable   (Buildable)
 import qualified Data.Text.Buildable   as Buildable
 import           Formatting            (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util         (Color (Magenta), colorize, listJson)
 
 import           Pos.Binary.Class      (Bi)
+import           Pos.Binary.Core       ()
 import           Pos.Core              (Blockchain (..), ChainDifficulty, EpochIndex (..),
                                         EpochOrSlot (..), GenericBlock (..),
                                         GenericBlockHeader (..), HasBlockVersion (..),
@@ -83,7 +83,7 @@ import           Pos.Update.Core.Types (UpdatePayload, UpdateProof, UpdatePropos
 -- MainBlock
 ----------------------------------------------------------------------------
 
-instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload, Bi EpochIndex) =>
+instance (SscHelpersClass ssc, Bi TxWitness, Bi UpdatePayload) =>
          Blockchain (MainBlockchain ssc) where
     -- | Proof of transactions list and MPC data.
     data BodyProof (MainBlockchain ssc) = MainProof
@@ -394,9 +394,6 @@ instance BiSsc ssc => Buildable (BlockHeader ssc) where
 -- HasEpochIndex
 ----------------------------------------------------------------------------
 
-instance HasEpochIndex SlotId where
-    epochIndexL f SlotId {..} = (\a -> SlotId {siEpoch = a, ..}) <$> f siEpoch
-
 instance HasEpochIndex (MainBlock ssc) where
     epochIndexL = gbHeader . gbhConsensus . mcdSlot . epochIndexL
 
@@ -408,10 +405,6 @@ instance HasEpochIndex (GenesisBlock ssc) where
 
 instance HasEpochIndex (GenesisBlockHeader ssc) where
     epochIndexL = gbhConsensus . gcdEpoch
-
-instance (HasEpochIndex a, HasEpochIndex b) =>
-         HasEpochIndex (Either a b) where
-    epochIndexL = choosing epochIndexL epochIndexL
 
 ----------------------------------------------------------------------------
 -- HasEpochOrSlot
@@ -429,16 +422,9 @@ instance HasEpochOrSlot (MainBlock ssc) where
 instance HasEpochOrSlot (GenesisBlock ssc) where
     getEpochOrSlot = getEpochOrSlot . _gbHeader
 
-instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
-         HasEpochOrSlot (Either a b) where
-    getEpochOrSlot = either getEpochOrSlot getEpochOrSlot
-
 ----------------------------------------------------------------------------
 -- HasHeaderHash
 ----------------------------------------------------------------------------
-
-instance HasHeaderHash HeaderHash where
-    headerHash = identity
 
 {- The story of unnecessary constraints
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -523,10 +509,6 @@ instance HasDifficulty (Block ssc) where
 -- HasPrevBlock
 ----------------------------------------------------------------------------
 
--- | Class for something that has previous block (lens to 'Hash' for this block).
-instance HasPrevBlock s => HasPrevBlock (s, z) where
-    prevBlockL = _1 . prevBlockL
-
 instance (BHeaderHash b ~ HeaderHash) =>
          HasPrevBlock (GenericBlockHeader b) where
     prevBlockL = gbhPrevBlock
@@ -534,10 +516,6 @@ instance (BHeaderHash b ~ HeaderHash) =>
 instance (BHeaderHash b ~ HeaderHash) =>
          HasPrevBlock (GenericBlock b) where
     prevBlockL = gbHeader . gbhPrevBlock
-
-instance (HasPrevBlock s, HasPrevBlock s') =>
-         HasPrevBlock (Either s s') where
-    prevBlockL = choosing prevBlockL prevBlockL
 
 ----------------------------------------------------------------------------
 -- Has*Version

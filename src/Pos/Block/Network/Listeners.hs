@@ -4,17 +4,11 @@
 
 module Pos.Block.Network.Listeners
        ( blockListeners
-       , blockStubListeners
        ) where
 
-import           Data.Reflection            (reify)
-import           Data.Tagged                (Tagged, proxy, unproxy)
 import           Formatting                 (build, sformat, (%))
-import qualified Node                       as N
-import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (listJson)
-import           System.Wlog                (WithLogger, logDebug, logWarning,
-                                             modifyLoggerName)
+import           System.Wlog                (logDebug, logWarning)
 import           Universum
 
 import           Pos.Binary.Communication   ()
@@ -24,13 +18,11 @@ import           Pos.Block.Network.Logic    (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Limits   (recvLimited, reifyMsgLimit)
-import           Pos.Communication.Protocol (ConversationActions (..), HandlerSpec (..),
-                                             ListenerSpec (..), OutSpecs, listenerConv,
-                                             mergeLs, messageName)
-import           Pos.Communication.Util     (stubListenerConv)
+import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
+                                             OutSpecs, listenerConv, mergeLs)
 import qualified Pos.DB.Block               as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
-import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
+import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.WorkMode.Class         (WorkMode)
 
@@ -42,33 +34,6 @@ blockListeners = mergeLs <$> sequence
     , handleGetBlocks
     , handleBlockHeaders
     ]
-
-blockStubListeners
-    :: ( SscHelpersClass ssc, WithLogger m )
-    => Tagged ssc ([ListenerSpec m], OutSpecs)
-blockStubListeners = unproxy $ \sscProxy -> mergeLs
-    [ stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgGetHeaders, MsgHeaders ssc)) sscProxy
-    , proxy stubListenerConv' sscProxy
-    , stubListenerConv $ (const Proxy :: Proxy ssc -> Proxy (MsgHeaders ssc, MsgGetHeaders)) sscProxy
-    ]
-
-stubListenerConv'
-    :: (SscHelpersClass ssc, WithLogger m)
-    => Tagged ssc (ListenerSpec m, OutSpecs)
-stubListenerConv' = unproxy $ \(_ :: Proxy ssc) ->
-    reify (0 :: Byte) $ \(_ :: Proxy s0) ->
-        let rcvName = messageName (Proxy :: Proxy MsgGetBlocks)
-            sndName = messageName (Proxy :: Proxy (MsgBlock b))
-            listener _ = N.ListenerActionConversation $
-              \_d __nId (_convActions :: N.ConversationActions
-                                             (MsgBlock ssc)
-                                             MsgGetBlocks m) ->
-                  modifyLoggerName (<> "stub") $
-                        logDebug $ sformat
-                            ("Stub listener ("%build%", Conv "%build%"): received message")
-                            rcvName
-                            sndName
-         in (ListenerSpec listener (rcvName, ConvHandler sndName), mempty)
 
 -- | Handles GetHeaders request which means client wants to get
 -- headers from some checkpoints that are older than optional @to@

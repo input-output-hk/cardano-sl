@@ -7,7 +7,7 @@ module Pos.Wallet.Launcher.Runner
 
 import           Universum                   hiding (bracket)
 
-import           Data.Tagged                 (Tagged (..), untag)
+import           Data.Tagged                 (Tagged (..))
 import qualified Ether
 import           Formatting                  (sformat, shown, (%))
 import           Mockable                    (Production, bracket, fork, sleepForever)
@@ -17,13 +17,12 @@ import           System.Wlog                 (logDebug, logInfo, usingLoggerName
 
 import           Pos.Block.BListener         (runBListenerStub)
 import           Pos.Communication           (ActionSpec (..), ListenersWithOut, NodeId,
-                                              OutSpecs, WorkerSpec, allStubListeners)
+                                              OutSpecs, WorkerSpec)
 import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect)
 import           Pos.Discovery               (findPeers, runDiscoveryConstT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               runServer_)
 import           Pos.Reporting.MemState      (ReportingContext, emptyReportingContext)
-import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Util.Util               ()
 import           Pos.Wallet.KeyStorage       (KeyData, keyDataFromFile)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
@@ -40,13 +39,13 @@ import           Pos.Wallet.WalletMode       (WalletMode, WalletStaticPeersMode,
 -- meaningful listeners
 allListeners
     :: ListenersWithOut WalletStaticPeersMode
-allListeners = untag @SscGodTossing allStubListeners
+allListeners = mempty
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
 -- meaningful ones
 -- allWorkers :: WalletMode ssc m => [m ()]
 allWorkers :: Monoid b => ([a], b)
-allWorkers = ([], mempty)
+allWorkers = mempty
 
 -- | WalletMode runner
 runWalletStaticPeersMode

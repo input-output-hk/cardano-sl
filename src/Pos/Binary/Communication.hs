@@ -21,7 +21,6 @@ import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.Class.Types              (Ssc (..))
-import           Pos.Update.Network.Types         (ProposalMsgTag (..), VoteMsgTag (..))
 
 
 ----------------------------------------------------------------------------
@@ -51,18 +50,6 @@ instance Ssc ssc => Bi (MsgHeaders ssc) where
 instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
     put (MsgBlock b) = put b
     get = label "MsgBlock" $ MsgBlock <$> get
-
-----------------------------------------------------------------------------
--- Update system
-----------------------------------------------------------------------------
-
-instance Bi ProposalMsgTag where
-    put ProposalMsgTag = pure ()
-    get = pure ProposalMsgTag
-
-instance Bi VoteMsgTag where
-    put VoteMsgTag = pure ()
-    get = pure VoteMsgTag
 
 ----------------------------------------------------------------------------
 -- Protocol version info and related

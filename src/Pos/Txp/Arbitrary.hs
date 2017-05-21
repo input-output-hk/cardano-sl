@@ -12,11 +12,10 @@ import           Test.QuickCheck               (Arbitrary (..))
 import           Pos.Binary.Update             ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Txp.Core                  (TxAux (..))
-import           Pos.Txp.Network.Types         (TxMsgContents (..), TxMsgTag (..))
+import           Pos.Txp.Network.Types         (TxMsgContents (..))
 import           Pos.Types.Arbitrary           ()
 
 derive makeArbitrary ''TxAux
-derive makeArbitrary ''TxMsgTag
 derive makeArbitrary ''TxMsgContents
 
 instance Arbitrary (DataMsg TxMsgContents) where

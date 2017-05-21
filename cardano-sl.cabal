@@ -333,7 +333,6 @@ library
                         Pos.Update.Lrc
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
-                        Pos.Update.Network.Types
                         Pos.Update.Poll
                         Pos.Update.Poll.Class
                         Pos.Update.Poll.DBPoll

@@ -1,8 +1,7 @@
 -- | Types used for communication about Blocks.
 
 module Pos.Txp.Network.Types
-       ( TxMsgTag (..)
-       , TxMsgContents (..)
+       ( TxMsgContents (..)
        ) where
 
 import qualified Data.Text.Buildable as Buildable
@@ -11,11 +10,6 @@ import           Universum
 
 import           Pos.Binary.Core     ()
 import           Pos.Txp.Core        (TxAux (..), txaF)
-
-data TxMsgTag = TxMsgTag deriving (Eq, Show)
-
-instance Buildable TxMsgTag where
-    build _ = "TxMsgTag"
 
 -- | Data message. Can be used to send one transaction per message.
 -- Transaction is sent with auxilary data.

@@ -1,8 +1,7 @@
 -- | Communication-specific utility functions.
 
 module Pos.Communication.Util
-       ( stubListenerConv
-       , wrapListener
+       ( wrapListener
        , wrapActionSpec
        , wrapSendActions
        ) where
@@ -27,28 +26,6 @@ import           Pos.Communication.Protocol  (ActionSpec (..), HandlerSpec (..),
                                               mapActionSpec, mapListener, mapListener')
 import           Pos.Util.TimeLimit          (CanLogInParallel, execWithTimeLimit,
                                               logWarningWaitLinear)
-
-stubListenerConv
-    :: (WithLogger m, Message snd, Message rcv, Bi rcv, Bi snd)
-    => Proxy (rcv, snd) -> (ListenerSpec m, OutSpecs)
-stubListenerConv p = (ListenerSpec listener (rcvName, ConvHandler sndName), mempty)
-  where
-    modP :: Proxy (rcv, snd) -> Proxy (N.ConversationActions snd rcv m)
-    modP _ = Proxy
-    sndProxy :: Proxy (rcv, snd) -> Proxy snd
-    sndProxy _ = Proxy
-    rcvProxy :: Proxy (rcv, snd) -> Proxy rcv
-    rcvProxy _ = Proxy
-    rcvName = messageName $ rcvProxy p
-    sndName = messageName $ sndProxy p
-    listener _ = N.ListenerActionConversation $
-      \_d __nId convActions ->
-          let _ = convActions `asProxyTypeOf` modP p
-           in modifyLoggerName (<> "stub") $
-                logDebug $ sformat
-                    ("Stub listener ("%build%", Conv "%build%"): received message")
-                    rcvName
-                    sndName
 
 sendActionsWithWaitLog :: ( CanLogInParallel m )
             => N.SendActions BiP PeerData m

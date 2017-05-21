@@ -2,23 +2,21 @@
 
 module Pos.Communication.Server
        ( allListeners
-       , allStubListeners
        , serverLoggerName
        ) where
 
 import           Universum
 
-import           Data.Tagged                 (Tagged, proxy, unproxy, untag)
-import           System.Wlog                 (LoggerName, WithLogger)
+import           Data.Tagged                 (untag)
+import           System.Wlog                 (LoggerName)
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Network.Listeners (blockListeners, blockStubListeners)
+import           Pos.Block.Network.Listeners (blockListeners)
 import           Pos.Communication.Protocol  (ListenerSpec (..), OutSpecs)
 import           Pos.Communication.Relay     (relayListeners)
 import           Pos.Communication.Util      (wrapListener)
 import           Pos.Delegation.Listeners    (delegationRelays)
-import           Pos.Ssc.Class               (SscHelpersClass (..),
-                                              SscListenersClass (..), SscWorkersClass)
+import           Pos.Ssc.Class               (SscListenersClass (..), SscWorkersClass)
 import           Pos.Txp                     (txRelays)
 import           Pos.Update                  (usRelays)
 import           Pos.Util                    (mconcatPair)
@@ -40,19 +38,6 @@ allListeners = mconcatPair <$> sequence
       where
         pModifier (ListenerSpec h spec) =
             ListenerSpec (\vI -> wrapListener (serverLoggerName <> lname) $ h vI) spec
-
--- | All listeners running on one node.
-allStubListeners
-    :: (SscListenersClass ssc, WithLogger m, SscHelpersClass ssc)
-    => Tagged ssc ([ListenerSpec m], OutSpecs)
-allStubListeners = unproxy $ \sscProxy ->
-    mconcatPair
-        [ proxy blockStubListeners sscProxy
-        --, proxy sscStubListeners sscProxy
-        --, txStubListeners
-        --, delegationStubListeners
-        --, usStubListeners
-        ]
 
 -- | Logger name for server.
 serverLoggerName :: LoggerName

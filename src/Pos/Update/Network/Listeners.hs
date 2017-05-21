@@ -4,24 +4,23 @@ module Pos.Update.Network.Listeners
        ( usRelays
        ) where
 
-import           Data.Tagged                (Tagged (..), tagWith)
-import           Formatting                 (build, sformat, (%))
-import           System.Wlog                (logDebug, logWarning)
+import           Data.Tagged               (Tagged (..), tagWith)
+import           Formatting                (build, sformat, (%))
+import           System.Wlog               (logDebug, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication   ()
-import           Pos.Binary.Relay           ()
-import           Pos.Communication.Limits   ()
-import           Pos.Communication.Message  ()
-import           Pos.Communication.Protocol (ListenerSpec, OutSpecs)
-import           Pos.Communication.Relay    (InvReqDataParams (..), MempoolParams (..),
-                                             Relay (..), relayListeners)
-import           Pos.Crypto                 (hash)
-import           Pos.Update.Core            (UpdateProposal (..), UpdateVote (..))
-import           Pos.Update.Logic.Local     (getLocalProposalNVotes, getLocalVote,
-                                             isProposalNeeded, isVoteNeeded,
-                                             processProposal, processVote)
-import           Pos.Update.Mode            (UpdateMode)
+import           Pos.Binary.Communication  ()
+import           Pos.Binary.Relay          ()
+import           Pos.Communication.Limits  ()
+import           Pos.Communication.Message ()
+import           Pos.Communication.Relay   (InvReqDataParams (..), MempoolParams (..),
+                                            Relay (..))
+import           Pos.Crypto                (hash)
+import           Pos.Update.Core           (UpdateProposal (..), UpdateVote (..))
+import           Pos.Update.Logic.Local    (getLocalProposalNVotes, getLocalVote,
+                                            isProposalNeeded, isVoteNeeded,
+                                            processProposal, processVote)
+import           Pos.Update.Mode           (UpdateMode)
 
 -- | Relays for data related to update system
 usRelays :: UpdateMode m

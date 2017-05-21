@@ -118,9 +118,9 @@ mainHeaderFormation prevHeader slotId signer body extra =
                  else Left $ curried w
         in (delegateSK, Just $ proxy)
     difficulty = maybe 0 (succ . view T.difficultyL) prevHeader
-    makeSignature toSign (Left psk)  = T.BlockPSignatureEpoch $
+    makeSignature toSign (Left psk)  = T.BlockPSignatureLight $
         proxySign SignMainBlockLight sk psk toSign
-    makeSignature toSign (Right psk) = T.BlockPSignatureSimple $
+    makeSignature toSign (Right psk) = T.BlockPSignatureHeavy $
         proxySign SignMainBlockHeavy sk psk toSign
     signature prevHash p =
         let toSign = T.MainToSign prevHash p slotId difficulty extra

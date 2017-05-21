@@ -10,10 +10,9 @@ module Pos.Types
        , module Pos.Core.Types
        , module Pos.Core.Version
        , module Pos.Types.Arbitrary
-       , module Pos.Types.Block
        ) where
 
-import           Pos.Binary.Core      ()
+import           Pos.Binary.Core     ()
 import           Pos.Core.Address
 import           Pos.Core.Block
 import           Pos.Core.Class
@@ -21,7 +20,5 @@ import           Pos.Core.Coin
 import           Pos.Core.Slotting
 import           Pos.Core.Types
 import           Pos.Core.Version
-import           Pos.SafeCopy         ()
+import           Pos.SafeCopy        ()
 import           Pos.Types.Arbitrary
-import           Pos.Types.Block
-import           Pos.Types.SharedSeed ()

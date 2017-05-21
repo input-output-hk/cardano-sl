@@ -18,10 +18,11 @@ import           Universum
 
 import           Pos.Constants                   (slotSecurityParam)
 import           Pos.Core                        (EpochIndex, EpochOrSlot (..),
+                                                  IsMainHeader,
                                                   LocalSlotIndex (getSlotIndex),
                                                   SlotId (siSlot), StakeholderId,
                                                   epochIndexL, epochOrSlot,
-                                                  getEpochOrSlot, mkCoin)
+                                                  getEpochOrSlot, headerSlotL, mkCoin)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload (..),
                                                   InnerSharesMap, Opening,
                                                   SignedCommitment, VssCertificate,
@@ -34,16 +35,16 @@ import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..),
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type         ()
-import           Pos.Types                       (MainBlockHeader)
 import           Pos.Util                        (inAssertMode, sortWithMDesc)
 import           Pos.Util.Chrono                 (NewestFirst (..))
+import           Pos.Util.Util                   (Some)
 
 -- | Verify 'GtPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise
 -- TossVerFailure is thrown using 'MonadError' type class.
 verifyAndApplyGtPayload
     :: (MonadToss m, MonadError TossVerFailure m)
-    => Either EpochIndex (MainBlockHeader ssc) -> GtPayload -> m ()
+    => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
 verifyAndApplyGtPayload eoh payload = do
     -- We can't trust payload from mempool, so we must call @sanityChecksGtPayload@.
     whenLeft eoh $ const $ sanityChecksGtPayload eoh payload
@@ -59,7 +60,7 @@ verifyAndApplyGtPayload eoh payload = do
     case eoh of
         Left _       -> pass
         Right header -> do
-            let eos = getEpochOrSlot header
+            let eos = EpochOrSlot $ Right $ header ^. headerSlotL
             setEpochOrSlot eos
             let slot = epochOrSlot (const 0) (getSlotIndex . siSlot) eos
             -- We can freely clear shares after 'slotSecurityParam'

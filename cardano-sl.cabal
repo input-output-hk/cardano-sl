@@ -50,6 +50,7 @@ library
                         Pos.Binary
                         Pos.Block.Arbitrary
                         Pos.Block.BListener
+                        Pos.Block.Core
                         Pos.Block.Logic
                         Pos.Block.Network
                         Pos.Block.Pure
@@ -112,9 +113,6 @@ library
                         Pos.Types
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
-                        Pos.Types.Block
-                        Pos.Types.Block.Types
-                        Pos.Types.Block.Instances
 
                         -- Update system
                         Pos.Update
@@ -148,8 +146,8 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Block
-                        Pos.Binary.Block.Types
                         Pos.Binary.Block.Block
+                        Pos.Binary.Block.Core
                         Pos.Binary.Communication
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
@@ -163,6 +161,19 @@ library
                         Pos.Binary.Txp.Network
 
                         -- Block processing
+                        Pos.Block.Core.Genesis
+                        Pos.Block.Core.Genesis.Chain
+                        Pos.Block.Core.Genesis.Lens
+                        Pos.Block.Core.Genesis.Misc
+                        Pos.Block.Core.Genesis.Types
+                        Pos.Block.Core.Main
+                        Pos.Block.Core.Main.Chain
+                        Pos.Block.Core.Main.Lens
+                        Pos.Block.Core.Main.Misc
+                        Pos.Block.Core.Main.Types
+                        Pos.Block.Core.Union
+                        Pos.Block.Core.Union.Misc
+                        Pos.Block.Core.Union.Types
                         Pos.Block.Error
                         Pos.Block.Logic.Internal
                         Pos.Block.Network.Announce
@@ -319,9 +330,6 @@ library
                         Pos.Txp.Toil.Utxo.Pure
                         Pos.Txp.Toil.Utxo.Util
                         Pos.Txp.Worker
-
-                        -- Types
-                        Pos.Types.SharedSeed
 
                         -- Workers
                         Pos.Worker.Stats

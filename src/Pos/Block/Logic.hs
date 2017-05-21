@@ -52,6 +52,11 @@ import           System.Wlog                (CanLog, HasLoggerName, logDebug, lo
 import           Universum
 
 import           Pos.Binary.Class           (biSize)
+import           Pos.Block.Core             (Block, BlockHeader, GenesisBlock, MainBlock,
+                                             MainExtraBodyData (..),
+                                             MainExtraHeaderData (..), blockHeader,
+                                             genBlockLeaders, mbTxPayload)
+import qualified Pos.Block.Core             as BC
 import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                              toUpdateBlock, withBlkSemaphore,
                                              withBlkSemaphore_)
@@ -64,8 +69,15 @@ import           Pos.Constants              (blkSecurityParam, curSoftwareVersio
                                              epochSlots, lastKnownBlockVersion,
                                              recoveryHeadersMessage, slotSecurityParam)
 import           Pos.Context                (lrcActionOnEpochReason, npSecretKey)
-import           Pos.Core                   (BlockVersion (..), EpochIndex, HeaderHash,
-                                             diffEpochOrSlot)
+import           Pos.Core                   (BlockVersion (..), EpochIndex,
+                                             EpochOrSlot (..), HeaderHash,
+                                             IsGenesisHeader, IsMainHeader, ProxySKEither,
+                                             ProxySKHeavy, SlotId (..), SlotLeaders,
+                                             diffEpochOrSlot, difficultyL, epochIndexL,
+                                             epochOrSlot, epochOrSlotG, flattenSlotId,
+                                             gbBody, gbHeader, getEpochOrSlot, headerHash,
+                                             headerHashG, headerSlotL, prevBlockL,
+                                             prevBlockL)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash,
                                              shortHashF)
 import           Pos.Data.Attributes        (mkAttributes)
@@ -89,17 +101,6 @@ import           Pos.Txp.Core               (TxAux (..), TxPayload, mkTxPayload,
                                              topsortTxs)
 import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxsNUndo)
 import           Pos.Txp.Settings           (TxpBlock, TxpGlobalSettings (..))
-import           Pos.Types                  (Block, BlockHeader, EpochOrSlot (..),
-                                             GenesisBlock, IsGenesisHeader, IsMainHeader,
-                                             MainBlock, MainExtraBodyData (..),
-                                             MainExtraHeaderData (..), ProxySKEither,
-                                             ProxySKHeavy, SlotId (..), SlotLeaders,
-                                             blockHeader, blockLeaders, difficultyL,
-                                             epochIndexL, epochOrSlot, epochOrSlotG,
-                                             flattenSlotId, gbBody, gbHeader,
-                                             getEpochOrSlot, headerHash, headerHashG,
-                                             headerSlotL, mbTxPayload, prevBlockL)
-import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
@@ -467,7 +468,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         LrcDB.getLeaders
     case blocks ^. _Wrapped . _neHead of
         (Left block) ->
-            when (block ^. blockLeaders /= leaders) $
+            when (block ^. genBlockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     (adoptedBV, adoptedBVD) <- UDB.getAdoptedBVFull
@@ -891,7 +892,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         let defSsc = (sscDefaultPayload @ssc (siSlot sId) :: SscPayload ssc)
 
         -- account for block header and serialization overhead, etc;
-        let musthaveBody = Types.MainBody
+        let musthaveBody = BC.MainBody
                 (fromMaybe (error "createMainBlockPure: impossible") $ mkTxPayload mempty)
                 defSsc [] def
         musthaveBlock <-
@@ -928,7 +929,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
         txs' <- takeSome txs
         -- return the resulting block
         txPayload <- either throwError pure $ mkTxPayload txs'
-        let body = Types.MainBody txPayload sscPayload psks' usPayload'
+        let body = BC.MainBody txPayload sscPayload psks' usPayload'
         mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     -- take from a list until the limit is exhausted or the list ends

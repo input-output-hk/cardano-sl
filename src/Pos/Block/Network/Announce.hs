@@ -16,6 +16,8 @@ import           Mockable                   (throw)
 import           System.Wlog                (logDebug)
 
 import           Pos.Binary.Communication   ()
+import           Pos.Block.Core             (Block, BlockHeader, MainBlockHeader,
+                                             blockHeader)
 import           Pos.Block.Logic            (getHeadersFromManyTo)
 import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Limits   (Limit, LimitedLength, recvLimited,
@@ -26,14 +28,13 @@ import           Pos.Communication.Protocol (ConversationActions (..), NodeId (.
                                              toOutSpecs)
 import           Pos.Context                (NodeParams, npAttackTypes,
                                              recoveryInProgress)
+import           Pos.Core                   (headerHash, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Security               (AttackType (..), NodeAttackedError (..),
                                              shouldIgnoreAddress)
-import           Pos.Types                  (Block, BlockHeader, MainBlockHeader,
-                                             blockHeader, headerHash, prevBlockL)
 import           Pos.Util.TimeWarp          (nodeIdToAddress)
 import           Pos.WorkMode.Class         (WorkMode)
 

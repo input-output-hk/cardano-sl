@@ -4,9 +4,7 @@
 -- | Global state of generic Shared Seed Calculation implementation.
 
 module Pos.Ssc.Class.Storage
-       (
-         -- * Modern
-         SscGStateClass (..)
+       ( SscGStateClass (..)
        , SscGlobalQuery
        , SscGlobalUpdate
        , SscVerifier
@@ -17,10 +15,11 @@ import           Data.Tagged          (Tagged)
 import           System.Wlog          (WithLogger)
 import           Universum
 
+import           Pos.Block.Core       (Block)
+import           Pos.Core             (EpochIndex, SharedSeed)
 import           Pos.DB               (MonadDB, SomeBatchOp)
 import           Pos.Lrc.Types        (RichmenStake)
 import           Pos.Ssc.Class.Types  (Ssc (..))
-import           Pos.Types            (Block, EpochIndex, SharedSeed)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 
 ----------------------------------------------------------------------------

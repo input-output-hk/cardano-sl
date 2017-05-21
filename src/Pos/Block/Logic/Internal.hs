@@ -27,9 +27,13 @@ import           Serokell.Util        (Color (Red), colorize)
 import           System.Wlog          (logWarning)
 
 import           Pos.Block.BListener  (MonadBListener (..))
+import           Pos.Block.Core       (Block, GenesisBlock, MainBlock, mbTxPayload,
+                                       mbUpdatePayload)
 import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
 import           Pos.Context          (BlkSemaphore, putBlkSemaphore, takeBlkSemaphore)
-import           Pos.Core             (IsGenesisHeader, IsMainHeader)
+import           Pos.Core             (HeaderHash, IsGenesisHeader, IsMainHeader,
+                                       epochIndexL, gbBody, gbHeader, headerHash,
+                                       headerHashG, prevBlockL)
 import           Pos.DB               (SomeBatchOp (..))
 import qualified Pos.DB.Block         as DB
 import qualified Pos.DB.DB            as DB
@@ -47,10 +51,6 @@ import           Pos.Txp.Logic        (txNormalize)
 import           Pos.Ssc.Class        (Ssc)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Settings     (TxpBlund, TxpGlobalSettings (..))
-import           Pos.Types            (Block, GenesisBlock, HeaderHash, MainBlock,
-                                       epochIndexL, gbBody, gbHeader, headerHash,
-                                       headerHashG, mbTxPayload, mbUpdatePayload,
-                                       prevBlockL)
 import           Pos.Update.Core      (UpdateBlock, UpdatePayload)
 import qualified Pos.Update.DB        as UDB
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)

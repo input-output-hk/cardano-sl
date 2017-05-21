@@ -4,16 +4,17 @@ module Pos.Ssc.Class.Helpers
        ( SscHelpersClass (..)
        ) where
 
-import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
-import           Pos.Core.Types             (EpochIndex, LocalSlotIndex)
+import           Serokell.Data.Memory.Units (Byte)
+
+import           Pos.Core                   (EpochIndex, IsMainHeader, LocalSlotIndex)
 import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Types.Block.Types      (MainBlockHeader)
+import           Pos.Util.Util              (Some)
 
 class Ssc ssc => SscHelpersClass ssc where
     sscVerifyPayload
-        :: Either EpochIndex (MainBlockHeader ssc)
+        :: Either EpochIndex (Some IsMainHeader)
         -> SscPayload ssc
         -> Either (SscVerifyError ssc) ()
     -- | Removes parts of payload so its binary representation length

@@ -37,6 +37,7 @@ import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication   ()
 import           Pos.Binary.Txp             ()
+import           Pos.Block.Core             (Block, BlockHeader, blockHeader)
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
                                              classifyNewHeader, getHeadersOlderExp,
@@ -53,6 +54,8 @@ import           Pos.Communication.Protocol (ConversationActions (..), NodeId, O
                                              SendActions (..), convH, toOutSpecs)
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
                                              RecoveryHeaderTag, recoveryInProgress)
+import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
+                                             gbHeader, headerHashG, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
@@ -61,13 +64,9 @@ import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked)
 import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
-import           Pos.Types                  (Block, BlockHeader, HasHeaderHash (..),
-                                             HeaderHash, blockHeader, difficultyL,
-                                             gbHeader, headerHashG, prevBlockL)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode.Class         (WorkMode)
-
 
 ----------------------------------------------------------------------------
 -- Exceptions

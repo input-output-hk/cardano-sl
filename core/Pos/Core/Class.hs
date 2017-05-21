@@ -21,11 +21,13 @@ module Pos.Core.Class
        , IsMainHeader (..)
        ) where
 
-import           Control.Lens   (Getter, to)
 import           Universum
 
+import           Control.Lens   (Getter, choosing, to)
+
 import           Pos.Core.Types (BlockVersion, ChainDifficulty, EpochIndex,
-                                 EpochOrSlot (..), HeaderHash, SlotId, SoftwareVersion)
+                                 EpochOrSlot (..), HeaderHash, SlotId (..),
+                                 SoftwareVersion)
 import           Pos.Crypto     (PublicKey)
 import           Pos.Util.Util  (Some, applySome, liftLensSome)
 
@@ -39,10 +41,20 @@ import           Pos.Util.Util  (Some, applySome, liftLensSome)
 ----------------------------------------------------------------------------
 
 -- HasPrevBlock
+-- | Class for something that has previous block (lens to 'Hash' for this block).
 class HasPrevBlock s where
     prevBlockL :: Lens' s HeaderHash
 
 SOME_LENS_CLASS(HasPrevBlock, prevBlockL, HasPrevBlock)
+
+instance (HasPrevBlock s, HasPrevBlock s') =>
+         HasPrevBlock (Either s s') where
+    prevBlockL = choosing prevBlockL prevBlockL
+
+
+-- Perhaps it is not the best instance.
+instance {-# OVERLAPPABLE #-} HasPrevBlock s => HasPrevBlock (s, z) where
+    prevBlockL = _1 . prevBlockL
 
 -- HasDifficulty
 class HasDifficulty a where
@@ -68,6 +80,9 @@ class HasHeaderHash a where
 
 SOME_FUNC_CLASS(HasHeaderHash, headerHash, HasHeaderHash)
 
+instance HasHeaderHash HeaderHash where
+    headerHash = identity
+
 headerHashG :: HasHeaderHash a => Getter a HeaderHash
 headerHashG = to headerHash
 
@@ -76,6 +91,13 @@ class HasEpochIndex a where
     epochIndexL :: Lens' a EpochIndex
 
 SOME_LENS_CLASS(HasEpochIndex, epochIndexL, HasEpochIndex)
+
+instance HasEpochIndex SlotId where
+    epochIndexL f SlotId {..} = (\a -> SlotId {siEpoch = a, ..}) <$> f siEpoch
+
+instance (HasEpochIndex a, HasEpochIndex b) =>
+         HasEpochIndex (Either a b) where
+    epochIndexL = choosing epochIndexL epochIndexL
 
 -- HasEpochOrSlot
 class HasEpochOrSlot a where
@@ -92,6 +114,9 @@ instance HasEpochOrSlot SlotId where
     getEpochOrSlot = EpochOrSlot . Right
 instance HasEpochOrSlot EpochOrSlot where
     getEpochOrSlot = identity
+instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
+         HasEpochOrSlot (Either a b) where
+    getEpochOrSlot = either getEpochOrSlot getEpochOrSlot
 
 ----------------------------------------------------------------------------
 -- Classes for headers

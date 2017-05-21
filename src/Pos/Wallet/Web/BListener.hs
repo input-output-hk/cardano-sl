@@ -8,21 +8,23 @@ module Pos.Wallet.Web.BListener
        ( -- BListener instance.
        ) where
 
+import           Universum
+
+import           Control.Lens               (to)
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable)
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug)
-import           Universum
 
 import           Pos.Block.BListener        (MonadBListener (..))
+import           Pos.Block.Core             (mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
+import           Pos.Core                   (HeaderHash, headerHash, prevBlockL)
 import           Pos.DB.Class               (MonadDB)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
-import           Pos.Txp.Core               (TxAux, TxUndo)
+import           Pos.Txp.Core               (TxAux, TxUndo, flattenTxPayload)
 import           Pos.Txp.Toil               (evalToilTEmpty, runDBTxp)
-import           Pos.Types                  (HeaderHash, blockTxas, headerHash,
-                                             prevBlockL)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier          as MM
 
@@ -62,7 +64,7 @@ onApplyTracking blunds = do
         mapModifier <- runDBTxp $ evalToilTEmpty $ trackingApplyTxs encSK txs
         applyModifierToWSet wsAddr newTip mapModifier
         logMsg "applied" (getOldestFirst blunds) wsAddr mapModifier
-    gbTxs = either (const []) (^. blockTxas)
+    gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
 -- Perform this action under block lock.
 onRollbackTracking
@@ -83,7 +85,7 @@ onRollbackTracking blunds = do
         let mapModifier = trackingRollbackTxs encSK txs
         applyModifierToWSet wsAddr newTip mapModifier
         logMsg "rolled back" (getNewestFirst blunds) wsAddr mapModifier
-    gbTxs = either (const []) (^. blockTxas)
+    gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
     blundTxUn (b, u) = zip (gbTxs b) (undoTx u)
 
 logMsg

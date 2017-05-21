@@ -504,7 +504,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     -- if any and create a hashmap of these.
     pskCerts <-
         fmap (HM.fromList . catMaybes) $
-        forM (mapMaybe rightToMaybe $ NE.toList $ blocks ^. _Wrapped) $ \b ->
+        forM (rights $ NE.toList $ blocks ^. _Wrapped) $ \b ->
         let issuer = b ^. mainBlockLeaderKey
         in fmap (issuer,) <$> GS.getPSKByIssuer issuer
     verResToMonadError formatAllErrors $

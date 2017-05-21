@@ -566,8 +566,8 @@ pskHeavyMapApplyBlock block m = flip execState m $ do
     let (toDelete,toReplace) =
             partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
                       (view mainBlockDlgPayload block)
-    forM_ toDelete $ \psk -> identity %= HM.delete (pskIssuerPk psk)
-    forM_ toReplace $ \psk -> identity %= HM.insert (pskIssuerPk psk) psk
+    for_ toDelete $ \psk -> identity %= HM.delete (pskIssuerPk psk)
+    for_ toReplace $ \psk -> identity %= HM.insert (pskIssuerPk psk) psk
 
 
 -- CHECK: @verifyBlocks

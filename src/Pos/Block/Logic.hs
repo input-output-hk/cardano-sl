@@ -93,11 +93,12 @@ import           Pos.Types                  (Block, BlockHeader, EpochOrSlot (..
                                              MainBlock, MainExtraBodyData (..),
                                              MainExtraHeaderData (..), ProxySKEither,
                                              ProxySKHeavy, SlotId (..), SlotLeaders,
-                                             blockHeader, blockLeaders, difficultyL,
-                                             epochIndexL, epochOrSlot, epochOrSlotG,
-                                             flattenSlotId, gbBody, gbHeader,
-                                             getEpochOrSlot, headerHash, headerHashG,
-                                             headerSlotL, mbTxPayload, prevBlockL)
+                                             blockHeader, blockLeaderKey, blockLeaders,
+                                             difficultyL, epochIndexL, epochOrSlot,
+                                             epochOrSlotG, flattenSlotId, gbBody,
+                                             gbHeader, getEpochOrSlot, headerHash,
+                                             headerHashG, headerSlotL, mbTxPayload,
+                                             prevBlockL)
 import qualified Pos.Types                  as Types
 import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
@@ -497,9 +498,16 @@ verifyBlocksPrefix blocks = runExceptT $ do
     let adoptedMajMin = toMajMin adoptedBV
     let dataMustBeKnown = lastKnownMajMin > adoptedMajMin
                        || lastKnownBlockVersion == adoptedBV
+    -- For all issuers of blocks we're processing retrieve their PSK
+    -- if any and create a hashmap of these.
+    pskCerts <-
+        fmap (HM.fromList . catMaybes) $
+        forM (mapMaybe rightToMaybe $ NE.toList $ blocks ^. _Wrapped) $ \b ->
+        let issuer = b ^. blockLeaderKey
+        in fmap (issuer,) <$> GS.getPSKByIssuer issuer
     verResToMonadError formatAllErrors $
         Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
-        (Just leaders) blocks
+        (Just leaders) (Just pskCerts) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     TxpGlobalSettings {..} <- Ether.ask'
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $

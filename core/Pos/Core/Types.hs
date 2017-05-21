@@ -39,6 +39,7 @@ module Pos.Core.Types
        , ProxySigHeavy
        , ProxySKHeavy
        , ProxySKEither
+       , ProxySKHeavyMap
 
        , SharedSeed (..)
        , SlotLeaders
@@ -245,6 +246,9 @@ type ProxySKHeavy = ProxySecretKey EpochIndex
 
 -- | Some proxy secret key.
 type ProxySKEither = Either ProxySKLight ProxySKHeavy
+
+-- | Map from issuers to heavy certs.
+type ProxySKHeavyMap = HashMap PublicKey ProxySKHeavy
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw

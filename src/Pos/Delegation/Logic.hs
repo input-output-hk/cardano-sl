@@ -19,8 +19,8 @@ module Pos.Delegation.Logic
        , clearProxyMemPool
        , PskHeavyVerdict (..)
        , processProxySKHeavy
-       , delegationApplyBlocks
        , delegationVerifyBlocks
+       , delegationApplyBlocks
        , delegationRollbackBlocks
 
        -- * Lightweight psks handling
@@ -51,6 +51,7 @@ import           Pos.Block.Types            (Blund, Undo (undoPsk))
 import           Pos.Constants              (lightDlgConfirmationTimeout,
                                              messageCacheTimeout)
 import           Pos.Context                (NodeParams (..), lrcActionOnEpochReason)
+import           Pos.Core                   (ProxySKHeavyMap)
 import           Pos.Crypto                 (ProxySecretKey (..), PublicKey,
                                              SignTag (SignProxySK), pdDelegatePk,
                                              proxyVerify, shortHashF, toPublic,
@@ -244,7 +245,7 @@ processProxySKHeavy psk = do
 data DelVerState = DelVerState
     { _dvCurEpoch      :: HashSet PublicKey
       -- ^ Set of issuers that have already posted certificates this epoch
-    , _dvPSKMapAdded   :: HashMap PublicKey ProxySKHeavy
+    , _dvPSKMapAdded   :: ProxySKHeavyMap
       -- ^ Psks added to database.
     , _dvPSKSetRemoved :: HashSet PublicKey
       -- ^ Psks removed from database.

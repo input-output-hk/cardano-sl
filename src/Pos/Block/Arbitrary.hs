@@ -46,8 +46,8 @@ newtype BodyDependsOnConsensus b = BodyDependsOnConsensus
 instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
     Arbitrary (T.BlockSignature ssc) where
     arbitrary = oneof [ T.BlockSignature <$> arbitrary
-                      , T.BlockPSignatureEpoch <$> arbitrary
-                      , T.BlockPSignatureSimple <$> arbitrary
+                      , T.BlockPSignatureLight <$> arbitrary
+                      , T.BlockPSignatureHeavy <$> arbitrary
                       ]
 
 properBlock
@@ -293,18 +293,17 @@ recursiveHeaderGen (eitherOfLeader : leaders)
         -- will have a simple signature, laziness will prevent them from
         -- being calculated. Otherwise, they'll be the proxy secret key's ω.
         let slotId = T.SlotId epochCounter slotCounter
-            (leader, proxySK) =
-                case eitherOfLeader of
-                    Left sk -> (sk, Nothing)
-                    Right (issuerSK, delegateSK, isSigEpoch) ->
-                        let w = (lowEpoch, highEpoch)
-                            delegatePK = toPublic delegateSK
-                            curried :: Bi w => w -> ProxySecretKey w
-                            curried = createProxySecretKey issuerSK delegatePK
-                            proxy = if isSigEpoch
-                                    then Right $ curried epochCounter
-                                    else Left $ curried w
-                        in (delegateSK, Just $ proxy)
+            (leader, proxySK) = case eitherOfLeader of
+                Left sk -> (sk, Nothing)
+                Right (issuerSK, delegateSK, isSigEpoch) ->
+                    let w = (lowEpoch, highEpoch)
+                        delegatePK = toPublic delegateSK
+                        curried :: Bi w => w -> ProxySecretKey w
+                        curried = createProxySecretKey issuerSK delegatePK
+                        proxy = if isSigEpoch
+                                then Right $ curried epochCounter
+                                else Left $ curried w
+                    in (delegateSK, Just $ proxy)
         pure $ Right $
             T.mkMainHeader (Just prevHeader) slotId leader proxySK body extraHData
 recursiveHeaderGen [] _ b = return b
@@ -416,6 +415,7 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                 , T.vhpNextHeader = next
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
                 , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
+                , T.vhpHeavyCerts = Nothing -- TODO CSL-1132 put something in here
                 , T.vhpMaxSize = Just (biSize header)
                 , T.vhpVerifyNoUnknown = not hasUnknownAttributes
                 }

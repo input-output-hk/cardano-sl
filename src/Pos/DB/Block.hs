@@ -36,6 +36,8 @@ import           Universum
 
 import           Pos.Binary.Block          ()
 import           Pos.Binary.Class          (Bi, decodeFull, encodeStrict)
+import           Pos.Block.Core            (Block, BlockHeader, GenesisBlock)
+import qualified Pos.Block.Core            as BC
 import           Pos.Block.Pure            (genesisHash)
 import           Pos.Block.Types           (Blund, Undo (..))
 import           Pos.Core                  (HasDifficulty (difficultyL),
@@ -47,8 +49,6 @@ import           Pos.DB.Error              (DBError (DBMalformed))
 import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
 import           Pos.DB.Types              (blockDataDir)
 import           Pos.Ssc.Class.Helpers     (SscHelpersClass)
-import           Pos.Types                 (Block, BlockHeader, GenesisBlock)
-import qualified Pos.Types                 as T
 import           Pos.Util                  (maybeThrow)
 import           Pos.Util.Chrono           (NewestFirst (..))
 
@@ -83,7 +83,7 @@ putBlock undo blk = do
     let h = headerHash blk
     flip putData blk =<< blockDataPath h
     flip putData undo =<< undoDataPath h
-    putBi (blockIndexKey h) (T.getBlockHeader blk)
+    putBi (blockIndexKey h) (BC.getBlockHeader blk)
 
 deleteBlock :: (MonadDB m) => HeaderHash -> m ()
 deleteBlock hh = do

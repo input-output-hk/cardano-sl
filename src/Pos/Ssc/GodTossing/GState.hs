@@ -21,6 +21,9 @@ import           System.Wlog                    (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Binary.Ssc                 ()
+import           Pos.Block.Core                 (Block, mainBlockSscPayload)
+import           Pos.Core                       (EpochIndex (..), SlotId (..),
+                                                 epochIndexL, epochOrSlotG, gbHeader)
 import           Pos.DB                         (MonadDB, SomeBatchOp (..))
 import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
@@ -38,11 +41,9 @@ import           Pos.Ssc.GodTossing.Type        (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), gsCommitments,
                                                  gsOpenings, gsShares, gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Types                      (Block, EpochIndex (..), SlotId (..),
-                                                 blockMpc, epochIndexL, epochOrSlotG,
-                                                 gbHeader)
 import           Pos.Util                       (_neHead, _neLast)
 import           Pos.Util.Chrono                (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Util                  (Some (Some))
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -105,7 +106,7 @@ rollbackBlocks blocks = tossToUpdate mempty $ rollbackGT oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
     payloads =
-        NewestFirst . map (view blockMpc) . rights . toList $ blocks
+        NewestFirst . map (view mainBlockSscPayload) . rights . toList $ blocks
 
 verifyAndApply
     :: RichmenStake
@@ -126,13 +127,16 @@ verifyAndApplyMultiRichmen onlyCerts richmenData =
   where
     verifyAndApplyDo (Left blk) = applyGenesisBlock $ blk ^. epochIndexL
     verifyAndApplyDo (Right blk) =
-        verifyAndApplyGtPayload (Right $ blk ^. gbHeader) $ filterPayload (blk ^. blockMpc)
-    filterPayload payload | onlyCerts = leaveOnlyCerts payload
-                          | otherwise = payload
-    leaveOnlyCerts (CommitmentsPayload _ certs) = CommitmentsPayload mempty certs
-    leaveOnlyCerts (OpeningsPayload _ certs)    = OpeningsPayload mempty certs
-    leaveOnlyCerts (SharesPayload _ certs)      = SharesPayload mempty certs
-    leaveOnlyCerts c@(CertificatesPayload _)    = c
+        verifyAndApplyGtPayload (Right $ Some $ blk ^. gbHeader) $
+        filterPayload (blk ^. mainBlockSscPayload)
+    filterPayload payload
+        | onlyCerts = leaveOnlyCerts payload
+        | otherwise = payload
+    leaveOnlyCerts (CommitmentsPayload _ certs) =
+        CommitmentsPayload mempty certs
+    leaveOnlyCerts (OpeningsPayload _ certs) = OpeningsPayload mempty certs
+    leaveOnlyCerts (SharesPayload _ certs) = SharesPayload mempty certs
+    leaveOnlyCerts c@(CertificatesPayload _) = c
 
 tossToUpdate :: MultiRichmenStake -> PureToss a -> GSUpdate a
 tossToUpdate richmenData action = do

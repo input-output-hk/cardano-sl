@@ -8,22 +8,19 @@ module Pos.Communication.Util
 
 import           Universum
 
-import           Data.Proxy                  (asProxyTypeOf)
 import           Data.Time.Units             (Microsecond)
-import           Formatting                  (build, sformat, shown, (%))
+import           Formatting                  (sformat, shown, (%))
 import           Mockable                    (Async, Bracket, Delay, Mockable)
 import qualified Node                        as N
 import           Serokell.Util.Base16        (base16F)
-import           System.Wlog                 (LoggerName, WithLogger, logDebug,
-                                              logWarning, modifyLoggerName)
+import           System.Wlog                 (LoggerName, WithLogger, logWarning,
+                                              modifyLoggerName)
 
-import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.BiP       (BiP)
 import           Pos.Communication.Constants (networkReceiveTimeout)
-import           Pos.Communication.Protocol  (ActionSpec (..), HandlerSpec (..), Listener,
-                                              ListenerSpec (..), Message (..),
-                                              MessageName (..), OutSpecs, PeerData,
-                                              mapActionSpec, mapListener, mapListener')
+import           Pos.Communication.Protocol  (ActionSpec (..), Listener, Message (..),
+                                              MessageName (..), PeerData, mapActionSpec,
+                                              mapListener, mapListener')
 import           Pos.Util.TimeLimit          (CanLogInParallel, execWithTimeLimit,
                                               logWarningWaitLinear)
 

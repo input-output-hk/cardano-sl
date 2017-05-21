@@ -27,6 +27,7 @@ import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey
                                                   Signed (..))
 import           Pos.Ssc.Class.Types             (Ssc (..))
 
+import           Pos.Block.Core
 import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..),
                                                   ApplicationName (..), BlockVersion (..),
                                                   BlockVersionData (..),
@@ -46,7 +47,6 @@ import           Pos.Txp.Core.Types              (Tx (..), TxDistribution (..), 
                                                   TxInWitness (..), TxOut (..),
                                                   TxOutAux (..), TxPayload (..),
                                                   TxProof (..))
-import           Pos.Types.Block
 import           Pos.Update.Core.Types           (SystemTag (..), UpdateData (..),
                                                   UpdatePayload (..), UpdateProposal (..),
                                                   UpdateVote (..))
@@ -246,14 +246,14 @@ instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
          SafeCopy (Body (MainBlockchain ssc)) where
     getCopy = contain $ do
         _mbTxPayload     <- safeGet
-        _mbMpc           <- safeGet
-        _mbProxySKs      <- safeGet
+        _mbSscPayload    <- safeGet
+        _mbDlgPayload      <- safeGet
         _mbUpdatePayload <- safeGet
         return $! MainBody{..}
     putCopy MainBody {..} = contain $ do
         safePut _mbTxPayload
-        safePut _mbMpc
-        safePut _mbProxySKs
+        safePut _mbSscPayload
+        safePut _mbDlgPayload
         safePut _mbUpdatePayload
 
 instance SafeCopy (Body (GenesisBlockchain ssc)) where

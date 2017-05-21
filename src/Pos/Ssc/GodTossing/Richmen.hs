@@ -2,8 +2,6 @@ module Pos.Ssc.GodTossing.Richmen
        ( gtLrcConsumer
        ) where
 
--- import           Universum
-
 import           Pos.Core         (BlockVersionData (bvdMpcThd))
 import qualified Pos.DB           as DB
 import           Pos.Lrc.Consumer (LrcConsumer (..), lrcConsumerFromComponentSimple)

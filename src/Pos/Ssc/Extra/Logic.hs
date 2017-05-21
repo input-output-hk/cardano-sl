@@ -37,7 +37,10 @@ import           System.Wlog             (NamedPureLogger, WithLogger, launchNam
                                           logDebug)
 import           Universum
 
+import           Pos.Block.Core          (Block)
 import           Pos.Context             (lrcActionOnEpochReason)
+import           Pos.Core                (EpochIndex, HeaderHash, SharedSeed, SlotId,
+                                          epochIndexL, headerHash)
 import           Pos.DB                  (MonadDB, SomeBatchOp)
 import           Pos.DB.DB               (getTipBlockHeader)
 import           Pos.Exception           (assertionFailed)
@@ -51,8 +54,6 @@ import           Pos.Ssc.Class.Storage   (SscGStateClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Extra.Class     (MonadSscMem, askSscMem)
 import           Pos.Ssc.Extra.Types     (SscState (sscGlobal, sscLocal))
-import           Pos.Types               (Block, EpochIndex, HeaderHash, SharedSeed,
-                                          SlotId, epochIndexL, headerHash)
 import           Pos.Util                (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono         (NE, NewestFirst, OldestFirst)
 

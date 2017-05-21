@@ -18,7 +18,6 @@ module Pos.Constants
        , networkDiameter
 
        -- * SSC constants
-       , sharedSeedLength
        , mpcSendInterval
 
        -- * Genesis constants
@@ -49,12 +48,13 @@ module Pos.Constants
        , memPoolLimitRatio
        ) where
 
+import           Universum                   hiding (lift)
+
 import           Data.Time.Units             (Microsecond)
 import           Language.Haskell.TH.Syntax  (lift, runIO)
 import           Serokell.Util               (ms, sec)
 import           System.Environment          (lookupEnv)
 import qualified Text.Parsec                 as P
-import           Universum                   hiding (lift)
 
 import           Pos.CompileConfig           (CompileConfig (..), compileConfig)
 import           Pos.DHT.Model.Types         (DHTNode, dhtNodeParser)
@@ -80,10 +80,6 @@ networkDiameter = sec . ccNetworkDiameter $ compileConfig
 ----------------------------------------------------------------------------
 -- SSC
 ----------------------------------------------------------------------------
-
--- | Length of shared seed.
-sharedSeedLength :: Integral a => a
-sharedSeedLength = 32
 
 -- | Length of interval during which node should send her MPC
 -- message. Relevant only for one SSC implementation.

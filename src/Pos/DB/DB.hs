@@ -30,11 +30,13 @@ import           System.Directory                 (createDirectoryIfMissing,
 import           System.FilePath                  ((</>))
 import           System.Wlog                      (WithLogger)
 
+import           Pos.Block.Core                   (Block, BlockHeader, getBlockHeader)
 import           Pos.Block.Pure                   (mkGenesisBlock)
 import           Pos.Block.Types                  (Blund)
 import           Pos.Context.Context              (GenesisLeaders, GenesisUtxo,
                                                    NodeParams)
 import           Pos.Context.Functions            (genesisLeadersM)
+import           Pos.Core                         (headerHash)
 import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
                                                    loadBlundsWhile, prepareBlockDB)
 import           Pos.DB.Class                     (MonadDB, MonadGStateCore (..))
@@ -47,8 +49,6 @@ import           Pos.DB.Misc                      (prepareMiscDB)
 import           Pos.DB.Types                     (NodeDBs (..))
 import           Pos.Lrc.DB                       (prepareLrcDB)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
-import           Pos.Types                        (Block, BlockHeader, getBlockHeader,
-                                                   headerHash)
 import           Pos.Update.DB                    (getAdoptedBVData)
 import           Pos.Util                         (inAssertMode)
 import           Pos.Util.Chrono                  (NewestFirst)

@@ -44,6 +44,7 @@ import           Pos.Reporting.MemState       (ReportingContext)
 import           System.Wlog                  (LoggerNameBox, WithLogger)
 
 import           Pos.Block.BListener          (BListenerStub)
+import           Pos.Block.Core               (BlockHeader)
 import           Pos.Client.Txp.Balances      (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History       (MonadTxHistory (..), deriveAddrHistory)
 import           Pos.Communication            (TxMode)
@@ -51,6 +52,8 @@ import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
                                                PeerStateTag, WithPeerState)
 import           Pos.Constants                (blkSecurityParam)
 import qualified Pos.Context                  as PC
+import           Pos.Core                     (ChainDifficulty, difficultyL,
+                                               flattenEpochOrSlot, flattenSlotId)
 import           Pos.DB                       (MonadDB)
 import qualified Pos.DB.Block                 as DB
 import           Pos.DB.Error                 (DBError (..))
@@ -61,8 +64,6 @@ import           Pos.Shutdown                 (MonadShutdownMem, triggerShutdown
 import           Pos.Slotting                 (MonadSlots (..), getLastKnownSlotDuration)
 import           Pos.Ssc.Class                (Ssc, SscHelpersClass)
 import           Pos.Txp                      (filterUtxoByAddrs, runUtxoStateT)
-import           Pos.Types                    (BlockHeader, ChainDifficulty, difficultyL,
-                                               flattenEpochOrSlot, flattenSlotId)
 import           Pos.Update                   (ConfirmedProposalState (..))
 import           Pos.Update.Context           (UpdateContext (ucUpdateSemaphore))
 import           Pos.Util                     (maybeThrow)

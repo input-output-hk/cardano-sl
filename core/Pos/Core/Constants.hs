@@ -1,10 +1,14 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Constants that the rest of the code needs to know. They're available
--- from this module directly, instead of being passed as a config.
+-- | Constants that the rest of the code needs to know. They're
+-- available from this module directly, instead of being passed as a
+-- config. Also some constants aren't configurable.
+
 module Pos.Core.Constants
-       ( CoreConstants(..)
+       ( sharedSeedLength
+
+       , CoreConstants(..)
        , coreConstants
 
        , epochSlots
@@ -23,6 +27,14 @@ import           Universum
 
 import           Pos.Core.Timestamp     (Timestamp (..))
 import           Pos.Util.Config        (IsConfig (..), configParser, parseFromCslConfig)
+
+----------------------------------------------------------------------------
+-- Constants which are not configurable
+----------------------------------------------------------------------------
+
+-- | Length of shared seed.
+sharedSeedLength :: Integral a => a
+sharedSeedLength = 32
 
 ----------------------------------------------------------------------------
 -- Config itself

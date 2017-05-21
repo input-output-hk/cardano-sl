@@ -47,9 +47,12 @@ import qualified Ether
 import           Ether.Internal                (HList (..), HasLens (..), Tags, TagsK)
 import           System.Wlog                   (LoggerConfig)
 
+import           Pos.Block.Core                (BlockHeader)
 import           Pos.Communication.Relay       (RelayPropagationQueue)
 import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
+import           Pos.Core                      (Address, HeaderHash, SlotLeaders,
+                                                makePubKeyAddress)
 import           Pos.Crypto                    (PublicKey, toPublic)
 import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
@@ -59,8 +62,6 @@ import           Pos.Shutdown.Types            (ShutdownContext (..))
 import           Pos.Ssc.Class.Types           (Ssc (SscNodeContext))
 import           Pos.Txp.Settings              (TxpGlobalSettings)
 import           Pos.Txp.Toil.Types            (Utxo)
-import           Pos.Types                     (Address, BlockHeader, HeaderHash,
-                                                SlotLeaders, makePubKeyAddress)
 import           Pos.Update.Context            (UpdateContext)
 import           Pos.Update.Params             (UpdateParams)
 import           Pos.Util.Chrono               (NE, NewestFirst)

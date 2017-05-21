@@ -20,7 +20,7 @@ module Pos.Ssc.GodTossing.LocalData.Logic
 
 import           Universum
 
-import           Control.Lens                       (Getter, (+=), (.=))
+import           Control.Lens                       ((+=), (.=))
 import           Control.Monad.Except               (MonadError (throwError), runExceptT)
 import qualified Data.HashMap.Strict                as HM
 import           Formatting                         (int, sformat, (%))
@@ -50,8 +50,8 @@ import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerShares
                                                      mkVssCertificatesMap)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
                                                      ldModifier, ldSize)
-import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossModifier,
-                                                     TossT, TossVerFailure (..),
+import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT,
+                                                     TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
                                                      execTossT, hasCertificateToss,
                                                      hasCommitmentToss, hasOpeningToss,
@@ -79,29 +79,19 @@ instance SscLocalDataClass SscGodTossing where
 getLocalPayload :: SlotId -> LocalQuery SscGodTossing GtPayload
 getLocalPayload SlotId {..} = do
     expectedEpoch <- view ldEpoch
-    let warningFmt =
-            "getLocalPayload: unexpected epoch (" %int % ", stored one is " %int %
-            ")"
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
     isExpected <-
-        if | expectedEpoch == siEpoch -> return True
-           | otherwise -> False <$ logWarning warningMsg
-    magnify' ldModifier $ getPayload isExpected <*> getCertificates isExpected
+        if expectedEpoch == siEpoch then pure True
+        else False <$ logWarning warningMsg
+    magnify' ldModifier $
+        getPayload isExpected <*> getCertificates isExpected
   where
-    getPayload isExpected
-        | isCommitmentIdx siSlot =
-            CommitmentsPayload <$> getPayloadDo isExpected tmCommitments
-        | isOpeningIdx siSlot =
-            OpeningsPayload <$> getPayloadDo isExpected tmOpenings
-        | isSharesIdx siSlot =
-            SharesPayload <$> getPayloadDo isExpected tmShares
-        | otherwise = pure CertificatesPayload
-    getPayloadDo
-        :: (MonadReader TossModifier m, Monoid a)
-        => Bool -> Getter TossModifier a -> m a
-    getPayloadDo isExpected getter
-        | isExpected = view getter
-        | otherwise = pure mempty
+    warningFmt = "getLocalPayload: unexpected epoch ("%int%", stored one is "%int%")"
+    getPayload True
+        | isCommitmentIdx siSlot = CommitmentsPayload <$> view tmCommitments
+        | isOpeningIdx siSlot = OpeningsPayload <$> view tmOpenings
+        | isSharesIdx siSlot = SharesPayload <$> view tmShares
+    getPayload _ = pure CertificatesPayload
     getCertificates isExpected
         | isExpected = view tmCertificates
         | otherwise = pure mempty

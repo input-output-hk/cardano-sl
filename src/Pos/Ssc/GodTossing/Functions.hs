@@ -22,9 +22,9 @@ import           Universum
 
 import           Pos.Binary.Crypto               ()
 import           Pos.Binary.Ssc.GodTossing.Core  ()
+import           Pos.Core                        (EpochIndex (..), IsMainHeader,
+                                                  SlotId (..), StakeholderId, headerSlotL)
 import           Pos.Core.Slotting               (crucialSlot)
-import           Pos.Core.Types                  (EpochIndex (..), SlotId (..),
-                                                  StakeholderId)
 import           Pos.Crypto                      (Threshold)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), VssCertificatesMap,
@@ -36,11 +36,12 @@ import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Types.Types  (GtGlobalState (..))
 import qualified Pos.Ssc.GodTossing.VssCertData  as VCD
-import           Pos.Types.Block                 (MainBlockHeader, headerSlot)
+import           Pos.Util.Util                   (Some)
 
 ----------------------------------------------------------------------------
 -- Simple predicates for GodTossing.Types.Base
 ----------------------------------------------------------------------------
+
 hasCommitment :: StakeholderId -> GtGlobalState -> Bool
 hasCommitment id = HM.member id . getCommitmentsMap . _gsCommitments
 
@@ -71,26 +72,26 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 -- We also do some general sanity checks.
 sanityChecksGtPayload
     :: MonadError TossVerFailure m
-    => Either EpochIndex (MainBlockHeader ssc) -> GtPayload -> m ()
+    => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
 sanityChecksGtPayload eoh payload = case payload of
     CommitmentsPayload comms certs -> do
-        whenMB eoh isComm
+        whenHeader eoh isComm
         commChecks comms
         certsChecks certs
     OpeningsPayload        _ certs -> do
-        whenMB eoh isOpen
+        whenHeader eoh isOpen
         certsChecks certs
     SharesPayload          _ certs -> do
-        whenMB eoh isShare
+        whenHeader eoh isShare
         certsChecks certs
     CertificatesPayload      certs -> do
-        whenMB eoh isOther
+        whenHeader eoh isOther
         certsChecks certs
   where
-    whenMB (Left _) _   = pass
-    whenMB (Right mb) f = f $ mb ^. headerSlot
+    whenHeader (Left _) _       = pass
+    whenHeader (Right header) f = f $ header ^. headerSlotL
 
-    epochId  = either identity (view $ headerSlot . to siEpoch) eoh
+    epochId = either identity (view $ headerSlotL . to siEpoch) eoh
     isComm  slotId = unless (isCommitmentId slotId) $ throwError $ NotCommitmentPhase slotId
     isOpen  slotId = unless (isOpeningId slotId) $ throwError $ NotOpeningPhase slotId
     isShare slotId = unless (isSharesId slotId) $ throwError $ NotSharesPhase slotId

@@ -21,6 +21,7 @@ import           Data.Coerce                        (coerce)
 import           GHC.Exts                           (IsList (..))
 
 import           Pos.Binary.Class                   (AsBinary (..))
+import           Pos.Block.Core                     (Block, BlockHeader)
 import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetHeaders (..),
                                                      MsgHeaders (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
@@ -41,9 +42,8 @@ import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpenin
                                                      MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Core                       (TxAux)
 import           Pos.Txp.Network.Types              (TxMsgContents (..))
-import           Pos.Types                          (Block, BlockHeader, EpochIndex,
-                                                     ProxySKHeavy, ProxySKLight,
-                                                     ProxySigLight)
+import           Pos.Types                          (EpochIndex, ProxySKHeavy,
+                                                     ProxySKLight, ProxySigLight)
 import           Pos.Update.Core.Types              (UpdateProposal (..), UpdateVote (..))
 
 -- Reexports

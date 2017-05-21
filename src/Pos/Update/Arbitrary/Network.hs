@@ -7,11 +7,10 @@ module Pos.Update.Arbitrary.Network
        ) where
 
 import           Data.DeriveTH             (derive, makeArbitrary)
-import           Test.QuickCheck           (Arbitrary (..), listOf, vector)
+import           Test.QuickCheck           (Arbitrary (..), listOf)
 import           Universum
 
 import           Pos.Binary.Update         ()
-import           Pos.Communication.Limits  (MaxSize (..), updateVoteNumLimit)
 import           Pos.Communication.Relay   (DataMsg (..))
 import           Pos.Crypto                (SignTag (SignUSVote), hash, sign, toPublic)
 import           Pos.Types.Arbitrary       ()
@@ -38,7 +37,9 @@ instance Arbitrary (DataMsg (UpdateProposal, [UpdateVote])) where
         votes <- listOf genVote
         pure $ DataMsg (up, votes)
 
-instance Arbitrary (MaxSize (DataMsg (UpdateProposal, [UpdateVote]))) where
-    arbitrary =
-        -- we don't care about sensibility
-        MaxSize . DataMsg <$> ((,) <$> arbitrary <*> vector updateVoteNumLimit)
+-- TODO [CSL-859]
+-- FYI: difficulty now is that 'updateVoteNumLimit' is not constant.
+-- instance Arbitrary (MaxSize (DataMsg (UpdateProposal, [UpdateVote]))) where
+--     arbitrary =
+--         -- we don't care about sensibility
+--         MaxSize . DataMsg <$> ((,) <$> arbitrary <*> vector updateVoteNumLimit)

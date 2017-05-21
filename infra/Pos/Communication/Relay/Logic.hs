@@ -40,6 +40,7 @@ import           Universum
 
 import           Pos.Binary.Class                   (Bi (..))
 import           Pos.Binary.Infra.Communication     ()
+import           Pos.Communication.Limits.Instances ()
 import           Pos.Communication.Limits.Types     (LimitedLength, LimitedLengthExt (..),
                                                      SmartLimit, recvLimited,
                                                      reifyMsgLimit, withLimitedLength)
@@ -57,12 +58,10 @@ import           Pos.Communication.Relay.Util       (expectData, expectInv)
 import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), InvOrData,
                                                      MempoolMsg (..), ReqMsg (..))
 import           Pos.Communication.Util             (stubListenerConv)
-import           Pos.DB.Limits                      (MonadDBLimits)
+import           Pos.DB.Class                       (MonadGStateCore)
 import           Pos.Discovery.Broadcast            (converseToNeighbors)
 import           Pos.Discovery.Class                (MonadDiscovery)
 import           Pos.Reporting                      (MonadReportingMem, reportingFatal)
-
-import           Pos.Communication.Limits.Instances ()
 
 type MinRelayWorkMode m =
     ( WithLogger m
@@ -107,7 +106,7 @@ handleReqL
        , Message (InvOrData tag key contents)
        , Relay m tag key contents
        , MinRelayWorkMode m
-       , MonadDBLimits m
+       , MonadGStateCore m
        )
     => RelayProxy key tag contents
     -> m (ListenerSpec m, OutSpecs)
@@ -142,7 +141,7 @@ handleMempoolL
        , Message (InvOrData tag key contents)
        , Relay m tag key contents
        , MinRelayWorkMode m
-       , MonadDBLimits m
+       , MonadGStateCore m
        )
     => RelayProxy key tag contents
     -> m (ListenerSpec m, OutSpecs)
@@ -233,7 +232,7 @@ relayListeners
      , Mockable Throw m
      , WithLogger m
      , RelayWorkMode m
-     , MonadDBLimits m
+     , MonadGStateCore m
      )
   => RelayProxy key tag contents -> m ([ListenerSpec m], OutSpecs)
 relayListeners proxy =
@@ -367,7 +366,7 @@ invReqDataFlowNeighbors
        , Buildable id
 
        , MinRelayWorkMode m
-       , MonadDBLimits m
+       , MonadGStateCore m
        , MonadDiscovery m
 
        , Bi tag
@@ -389,7 +388,7 @@ invReqDataFlow
        , Message (ReqMsg id tag)
        , Buildable id
        , MinRelayWorkMode m
-       , MonadDBLimits m
+       , MonadGStateCore m
        , Bi tag
        , Bi id
        , Bi (InvOrData tag id contents)
@@ -408,7 +407,7 @@ invReqDataFlowDo
        , Message (ReqMsg id tag)
        , Buildable id
        , MinRelayWorkMode m
-       , MonadDBLimits m
+       , MonadGStateCore m
        , Bi tag
        , Bi id
        , Bi (InvOrData tag id contents)

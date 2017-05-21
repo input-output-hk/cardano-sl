@@ -37,5 +37,12 @@ instance (Monad m, MonadDB m) => MonadBalancesRead (DBTxp m) where
     getTotalStake = getRealTotalStake
     getStake = getRealStake
 
-instance (Monad m, MonadDB m) => MonadToilEnv (DBTxp m) where
-    getToilEnv = ToilEnv . bvdMaxTxSize <$> getAdoptedBVData
+instance (Monad m, MonadDB m) =>
+         MonadToilEnv (DBTxp m) where
+    getToilEnv = constructEnv <$> getAdoptedBVData
+      where
+        constructEnv BlockVersionData {..} =
+            ToilEnv
+            { teMaxBlockSize = bvdMaxBlockSize
+            , teMaxTxSize = bvdMaxTxSize
+            }

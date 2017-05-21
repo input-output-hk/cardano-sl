@@ -13,22 +13,26 @@ module Pos.Wallet.Web.Tracking
        , MonadWalletTracking (..)
        ) where
 
+import           Universum
+
+import           Control.Lens               (to)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
+import qualified Ether
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
-import           Universum
 
-import qualified Ether
+import           Pos.Block.Core             (BlockHeader, getBlockHeader,
+                                             mainBlockTxPayload)
 import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Pure             (genesisHash)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Context                (BlkSemaphore)
-import           Pos.Core                   (HasDifficulty (..))
-import           Pos.Core.Address           (AddrPkAttrs (..), Address (..),
+import           Pos.Core                   (AddrPkAttrs (..), Address (..),
+                                             HasDifficulty (..), HeaderHash, headerHash,
                                              makePubKeyAddress)
 import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
                                              WithHash (..), deriveHDPassphrase,
@@ -41,14 +45,13 @@ import           Pos.DB.Class               (MonadDB)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Ssc.Class              (SscHelpersClass)
-import           Pos.Txp.Core               (Tx (..), TxAux, TxIn (..), TxOutAux (..),
-                                             TxUndo, getTxDistribution, toaOut,
-                                             topsortTxs, txOutAddress)
+import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..),
+                                             TxOutAux (..), TxUndo, flattenTxPayload,
+                                             getTxDistribution, toaOut, topsortTxs,
+                                             txOutAddress)
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
 import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT,
                                              evalToilTEmpty, runDBTxp)
-import           Pos.Types                  (BlockHeader, HeaderHash, blockTxas,
-                                             getBlockHeader, headerHash)
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
 
@@ -87,7 +90,7 @@ instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
     syncWSetsAtStart = syncWSetsWithGStateLock @WalletSscType
     syncOnImport = selectAccountsFromUtxoLock @WalletSscType . pure
     txMempoolToModifier encSK = do
-        let wHash (i, (t, _, _)) = WithHash t i
+        let wHash (i, TxAux {..}) = WithHash taTx i
         txs <- getLocalTxs
         case topsortTxs wHash txs of
             Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
@@ -208,7 +211,7 @@ syncWSetsWithGState encSK = do
     constTrue = \_ _ -> True
     mappendR r mm = pure (r <> mm)
     diff = (^. difficultyL)
-    gbTxs = either (const []) (^. blockTxas)
+    gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
     rollbackBlock :: Blund ssc -> CAccModifier
     rollbackBlock (b, u) = trackingRollbackTxs encSK $ zip (gbTxs b) (undoTx u)
@@ -232,12 +235,13 @@ trackingApplyTxs (getEncInfo -> encInfo) txs =
     snd3 (_, x, _) = x
     applyTxOut txid (idx, out, dist) = utxoPut (TxIn txid idx) (TxOutAux out dist)
     applyTx :: CAccModifier -> TxAux -> m CAccModifier
-    applyTx mapModifier (tx@(UnsafeTx (NE.toList -> inps) (NE.toList -> outs) _), _, distr) = do
+    applyTx mapModifier TxAux {..} = do
+        let tx@(UnsafeTx (NE.toList -> inps) (NE.toList -> outs) _) = taTx
         let txid = hash tx
         resolvedInputs <- catMaybes <$> mapM (\tin -> fmap (tin, ) <$> utxoGet tin) inps
         let ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut . snd) resolvedInputs
         let ownOutputs = selectOwnAccounts encInfo (txOutAddress . snd3) $
-                         zip3 [0..] outs (NE.toList $ getTxDistribution distr)
+                         zip3 [0..] outs (NE.toList $ getTxDistribution taDistribution)
         -- Delete and insert only own addresses to avoid large the underlying UtxoModifier.
         mapM_ (utxoDel . fst . fst) ownInputs -- del TxIn's (like in the applyTxToUtxo)
         mapM_ (applyTxOut txid . fst) ownOutputs -- add TxIn -> TxOutAux (like in the applyTxToUtxo)
@@ -253,7 +257,8 @@ trackingRollbackTxs (getEncInfo -> encInfo) txs =
     foldl' rollbackTx mempty txs
   where
     rollbackTx :: CAccModifier -> (TxAux, TxUndo) -> CAccModifier
-    rollbackTx mapModifier ((UnsafeTx _ (NE.toList -> outs) _, _, _), NE.toList -> undoL) = do
+    rollbackTx mapModifier (TxAux {..}, NE.toList -> undoL) = do
+        let UnsafeTx _ (toList -> outs) _ = taTx
         let ownInputs = map snd . selectOwnAccounts encInfo (txOutAddress . toaOut) $ undoL
         let ownOutputs = map snd . selectOwnAccounts encInfo txOutAddress $ outs
         -- Rollback isn't needed, because we don't use @utxoGet@

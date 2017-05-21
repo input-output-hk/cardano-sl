@@ -15,18 +15,20 @@ module Pos.Wallet.State.Storage.Block
        , blkSetHead
        ) where
 
+import           Universum
+
 import           Control.Lens              (at, makeClassy, (.=))
 import           Control.Monad.Loops       (unfoldrM)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import           Data.Default              (Default, def)
 import qualified Data.HashMap.Strict       as HM
 import           Data.SafeCopy             (base, deriveSafeCopySimple)
-import           Universum
 
+import           Pos.Block.Core            (Block)
+import           Pos.Core                  (HeaderHash, prevBlockL)
 import           Pos.Crypto                (unsafeHash)
 import           Pos.SafeCopy              ()
 import           Pos.Ssc.GodTossing        (SscGodTossing)
-import           Pos.Types                 (Block, HeaderHash, prevBlockL)
 
 type Block' = Block SscGodTossing
 

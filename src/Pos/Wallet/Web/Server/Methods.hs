@@ -70,14 +70,14 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
-import           Pos.DB.Limits                    (MonadDBLimits)
+import           Pos.DB.Class                     (MonadGStateCore)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (accountGenesisIndex,
                                                    genesisDevHdwSecretKeys,
                                                    walletGenesisIndex)
 import           Pos.Reporting.MemState           (MonadReportingMem, rcReportServers)
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
-import           Pos.Txp.Core                     (TxOut (..), TxOutAux (..))
+import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..))
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
@@ -157,7 +157,7 @@ type WalletWebMode m
       , MonadKeys m -- FIXME: Why isn't it implied by the
                     -- WalletMode constraint above?
       , WebWalletModeDB m
-      , MonadDBLimits m
+      , MonadGStateCore m
       , MonadWalletWebSockets m
       , MonadReportingMem m
       , MonadWalletTracking m
@@ -634,7 +634,7 @@ sendMoney sendActions cpassphrase moneySource dstDistr curr title desc = do
                 Left err ->
                     throwM . RequestError $
                     sformat ("Cannot send transaction: " %stext) err
-                Right (tx, _, _) -> do
+                Right (TxAux {taTx = tx}) -> do
                     logInfo $
                         sformat ("Successfully spent money from "%
                                  listF ", " addressF % " addresses on " %
@@ -994,12 +994,11 @@ redeemAdaInternal sendActions cpassphrase walletId seedBs = do
     case etx of
         Left err -> throwM . RequestError $
                     "Cannot send redemption transaction: " <> err
-        Right ((tx, _, _), redeemAddress, redeemBalance) -> do
+        Right (TxAux {..}, redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             let txInputs = [TxOut redeemAddress redeemBalance]
             addHistoryTx walletId ADA "ADA redemption" ""
-                (THEntry (hash tx) tx txInputs Nothing [srcAddr] [dstAddr])
-
+                (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr])
 
 reportingInitialized :: WalletWebMode m => CInitialized -> m ()
 reportingInitialized cinit = do

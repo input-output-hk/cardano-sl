@@ -23,7 +23,7 @@ module Pos.Txp.Core.Types
 
        -- * Tx
        , Tx (..)
-       , TxAux
+       , TxAux (..)
        , mkTx
        , txInputs
        , txOutputs
@@ -201,7 +201,11 @@ data Tx = UnsafeTx
 makeLenses ''Tx
 
 -- | Transaction + auxiliary data
-type TxAux = (Tx, TxWitness, TxDistribution)
+data TxAux = TxAux
+    { taTx           :: !Tx
+    , taWitness      :: !TxWitness
+    , taDistribution :: !TxDistribution
+    } deriving (Generic, Show, Eq)
 
 instance Hashable Tx
 
@@ -220,12 +224,15 @@ instance Bi Tx => Buildable Tx where
 txF :: Bi Tx => Format r (Tx -> r)
 txF = build
 
--- | Specialized formatter for 'Tx' with auxiliary data
+-- | Specialized formatter for 'TxAux'.
 txaF :: Bi Tx => Format r (TxAux -> r)
-txaF = later $ \(tx, w, d) ->
+txaF = later $ \(TxAux tx w d) ->
     bprint (build%"\n"%
             "witnesses: "%listJsonIndent 4%"\n"%
             "distribution: "%build) tx w d
+
+instance Bi Tx => Buildable TxAux where
+    build = bprint txaF
 
 -- | Create valid Tx or fail.
 -- Verify inputs and outputs are non empty; have enough coins.
@@ -297,9 +304,10 @@ makeLenses ''TxPayload
 --   number of outputs in corresponding transaction.
 mkTxPayload
     :: (Bi Tx, MonadFail m)
-    => [(Tx, TxWitness, TxDistribution)] -> m TxPayload
+    => [TxAux] -> m TxPayload
 mkTxPayload txws = do
-    let (txs, _txpWitnesses, _txpDistributions) = unzip3 txws
+    let (txs, _txpWitnesses, _txpDistributions) =
+            unzip3 . map (liftA3 (,,) taTx taWitness taDistribution) $ txws
     let _txpTxs = mkMerkleTree txs
     let payload = UnsafeTxPayload {..}
     mapM_ checkLen (zip3 [0 ..] txs _txpDistributions) $> payload

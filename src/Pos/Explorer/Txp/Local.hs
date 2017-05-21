@@ -22,7 +22,7 @@ import           Pos.Core                     (HeaderHash, Timestamp)
 import           Pos.DB.Class                 (MonadDB)
 import qualified Pos.DB.GState                as GS
 import           Pos.Slotting                 (MonadSlots (currentTimeSlotting))
-import           Pos.Txp.Core                 (Tx (..), TxAux, TxId)
+import           Pos.Txp.Core                 (Tx (..), TxAux (..), TxId)
 import           Pos.Txp.MemState             (GenericTxpLocalDataPure, MonadTxpMem,
                                                getLocalTxsMap, getTxpExtra,
                                                getUtxoModifier, modifyTxpLocalData,
@@ -67,7 +67,7 @@ instance Monad m => MonadTxExtraRead (NoExtra m) where
 eTxProcessTransaction
     :: ETxpLocalWorkMode m
     => (TxId, TxAux) -> m ()
-eTxProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
+eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     tipBefore <- GS.getTip
     localUM <- getUtxoModifier
     -- Note: snapshot isn't used here, because it's not necessary.  If

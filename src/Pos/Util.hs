@@ -32,9 +32,6 @@ module Pos.Util
        , _neTail
        , _neLast
 
-       -- * LRU
-       , clearLRU
-
        , eitherToVerRes
 
        -- * Concurrency
@@ -65,7 +62,6 @@ import           Control.Lens.Internal.FieldTH    (makeFieldOpticsForDec)
 import qualified Control.Monad                    as Monad (fail)
 import           Control.Monad.STM                (retry)
 import           Control.Monad.Trans.Resource     (ResourceT)
-import qualified Data.Cache.LRU                   as LRU
 import           Data.Hashable                    (Hashable)
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (span, zipWith3)
@@ -203,14 +199,6 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
-
-----------------------------------------------------------------------------
--- LRU cache
-----------------------------------------------------------------------------
-
--- | Remove all items from LRU, retaining maxSize property.
-clearLRU :: Ord k => LRU.LRU k v -> LRU.LRU k v
-clearLRU = LRU.newLRU . LRU.maxSize
 
 ----------------------------------------------------------------------------
 -- Deserialized wrapper

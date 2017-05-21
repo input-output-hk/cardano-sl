@@ -12,5 +12,5 @@ import           Pos.Lrc.Consumer (LrcConsumer (..), lrcConsumerFromComponentSim
 import           Pos.Lrc.DB       (RCDlg)
 
 -- | Consumer will be called on every Richmen computation.
-delegationLrcConsumer :: DB.MonadDBCore m => LrcConsumer m
+delegationLrcConsumer :: (DB.MonadDBCore m) => LrcConsumer m
 delegationLrcConsumer = lrcConsumerFromComponentSimple @RCDlg bvdHeavyDelThd

@@ -16,16 +16,15 @@ import           Pos.WorkMode.Class  (WorkMode)
 #ifdef WITH_WALLET
 import           Data.Time.Units     (Second, convertUnit)
 import           Formatting          (build, int, sformat, shown, (%))
-import           Mockable            (delay, throw)
+import           Mockable            (delay)
 import           Serokell.Util       (listJson)
 import           System.Wlog         (logDebug, logInfo, logWarning)
 
 import           Pos.Communication   (Conversation (..), ConversationActions (..),
                                       DataMsg (..), InvMsg (..), InvOrData,
                                       InvReqDataParams (..), MempoolMsg (..), NodeId,
-                                      RelayError (UnexpectedData), ReqMsg (..),
-                                      SendActions, SmartLimit, TxMsgContents, convH,
-                                      expectData, handleDataDo, handleInvDo,
+                                      ReqMsg (..), SendActions, SmartLimit, TxMsgContents,
+                                      convH, expectData, handleDataDo, handleInvDo,
                                       reifyMsgLimit, toOutSpecs, withConnectionTo,
                                       withLimitedLength, worker)
 import           Pos.Discovery.Class (getPeers)
@@ -93,7 +92,7 @@ queryTxsSpec =
     toOutSpecs
         [ -- used by 'getTxMempoolInvs'
           convH (Proxy @(MempoolMsg TxMsgContents))
-                (Proxy @(InvOrData TxIdT TxMsgContents))
+                (Proxy @(InvMsg TxIdT))
           -- used by 'requestTxs'
         , convH (Proxy @(ReqMsg TxIdT))
                 (Proxy @(InvOrData TxIdT TxMsgContents))
@@ -106,11 +105,11 @@ getTxMempoolInvs
     => SendActions m -> NodeId -> m [TxId]
 getTxMempoolInvs sendActions node = do
     logInfo ("Querying tx mempool from node " <> show node)
-    reifyMsgLimit (Proxy @(InvOrData TxIdT TxMsgContents)) $
+    reifyMsgLimit (Proxy @(InvMsg TxIdT)) $
       \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_ -> pure $ Conversation $
         \(conv :: (ConversationActions
                                   (MempoolMsg TxMsgContents)
-                                  (SmartLimit s (InvOrData TxIdT TxMsgContents))
+                                  (SmartLimit s (InvMsg TxIdT))
                                   m)
         ) -> do
             send conv MempoolMsg
@@ -118,8 +117,7 @@ getTxMempoolInvs sendActions node = do
                   inv' <- recv conv
                   case withLimitedLength <$> inv' of
                       Nothing -> return []
-                      Just (Right _) -> throw UnexpectedData
-                      Just (Left InvMsg{..}) -> do
+                      Just (InvMsg{..}) -> do
                           useful <-
                             case txInvReqDataParams of
                               InvReqDataParams {..} ->

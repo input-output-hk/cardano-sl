@@ -29,7 +29,7 @@ import qualified Data.ByteString           as BS (readFile, writeFile)
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Default              (Default (def))
 import           Formatting                (build, formatToString, sformat, (%))
-import           System.Directory          (removeFile)
+import           System.Directory          (removeFile, createDirectoryIfMissing)
 import           System.FilePath           ((</>))
 import           System.IO.Error           (isDoesNotExistError)
 import           Universum
@@ -81,6 +81,7 @@ putBlock
     => Undo -> Block ssc -> m ()
 putBlock undo blk = do
     let h = headerHash blk
+    liftIO $ createDirectoryIfMissing False $ dirDataPath h
     flip putData blk =<< blockDataPath h
     flip putData undo =<< undoDataPath h
     putBi (blockIndexKey h) (BC.getBlockHeader blk)
@@ -246,6 +247,10 @@ deleteData fp = (liftIO $ removeFile fp) `catch` handle
     handle e
         | isDoesNotExistError e = pure ()
         | otherwise = throwM e
+
+dirDataPath :: MonadDB m => HeaderHash -> m FilePath
+dirDataPath (formatToString hashHexF -> fn) =
+    getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> fn
 
 blockDataPath :: MonadDB m => HeaderHash -> m FilePath
 blockDataPath (formatToString (hashHexF%".block") -> fn) =

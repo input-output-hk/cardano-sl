@@ -3,7 +3,7 @@
 -- | Server listeners for delegation logic
 
 module Pos.Delegation.Listeners
-       ( delegationListeners
+       ( delegationRelays
        ) where
 
 import           Universum
@@ -17,10 +17,8 @@ import           System.Wlog                   (logDebug, logInfo)
 import           Pos.Binary                    ()
 import           Pos.Communication.Limits      ()
 import           Pos.Communication.Message     ()
-import           Pos.Communication.Protocol    (ListenerSpec, OutSpecs)
 import           Pos.Communication.Relay       (DataParams (..), PropagationMsg (..),
-                                                Relay (..), addToRelayQueue,
-                                                relayListeners)
+                                                Relay (..), addToRelayQueue)
 import           Pos.Communication.Relay.Types ()
 import           Pos.Context                   (BlkSemaphore (..), NodeParams,
                                                 npSecretKey)
@@ -37,13 +35,13 @@ instance Buildable (ProxySKLight, ProxySigLight ProxySKLight) where
     build = pairBuilder
 
 -- | Listeners for requests related to delegation processing.
-delegationListeners
+delegationRelays
     :: WorkMode ssc m
-    => m ([ListenerSpec m], OutSpecs)
-delegationListeners = fmap mconcat . sequence $
-        [ relayListeners pskLightRelay
-        , relayListeners pskHeavyRelay
-        , relayListeners confirmPskRelay
+    => [Relay m]
+delegationRelays =
+        [ pskLightRelay
+        , pskHeavyRelay
+        , confirmPskRelay
         ]
 
 pskLightRelay

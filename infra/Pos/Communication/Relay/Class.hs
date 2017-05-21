@@ -28,6 +28,7 @@ data Relay m where
       , Buildable key
       , Typeable contents
       , Typeable key
+      , Eq key
       , Bi (ReqMsg key)
       , Bi (InvOrData key contents)
       , Message (ReqMsg key)

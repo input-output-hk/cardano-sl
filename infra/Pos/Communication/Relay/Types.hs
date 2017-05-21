@@ -27,6 +27,7 @@ data PropagationMsg where
         ( Message (InvOrData key contents)
         , Bi (InvOrData key contents)
         , Buildable key
+        , Eq key
         , Message (ReqMsg key)
         , Bi (ReqMsg key))
         => !key -> !contents -> PropagationMsg

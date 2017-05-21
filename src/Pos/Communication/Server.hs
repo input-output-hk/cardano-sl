@@ -14,12 +14,13 @@ import           System.Wlog                 (LoggerName, WithLogger)
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Network.Listeners (blockListeners, blockStubListeners)
 import           Pos.Communication.Protocol  (ListenerSpec (..), OutSpecs)
+import           Pos.Communication.Relay     (relayListeners)
 import           Pos.Communication.Util      (wrapListener)
-import           Pos.Delegation.Listeners    (delegationListeners)
+import           Pos.Delegation.Listeners    (delegationRelays)
 import           Pos.Ssc.Class               (SscHelpersClass (..),
                                               SscListenersClass (..), SscWorkersClass)
-import           Pos.Txp                     (txListeners)
-import           Pos.Update                  (usListeners)
+import           Pos.Txp                     (txRelays)
+import           Pos.Update                  (usRelays)
 import           Pos.Util                    (mconcatPair)
 import           Pos.WorkMode.Class          (WorkMode)
 
@@ -29,10 +30,10 @@ allListeners
     => m ([ListenerSpec m], OutSpecs)
 allListeners = mconcatPair <$> sequence
         [ modifier "block"       <$> blockListeners
-        , modifier "ssc" . untag <$> sscListeners
-        , modifier "tx"          <$> txListeners
-        , modifier "delegation"  <$> delegationListeners
-        , modifier "update"      <$> usListeners
+        , modifier "ssc"         <$> relayListeners (untag sscRelays)
+        , modifier "tx"          <$> relayListeners txRelays
+        , modifier "delegation"  <$> relayListeners delegationRelays
+        , modifier "update"      <$> relayListeners usRelays
         ]
   where
     modifier lname = over _1 (map pModifier)

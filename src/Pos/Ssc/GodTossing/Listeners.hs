@@ -21,8 +21,7 @@ import           Pos.Binary.Ssc                   ()
 import           Pos.Communication.Limits         (MessageLimited)
 import           Pos.Communication.Message        (MessagePart)
 import           Pos.Communication.Relay          (DataMsg, InvReqDataParams (..),
-                                                   MempoolParams (NoMempool), Relay (..),
-                                                   relayListeners)
+                                                   MempoolParams (NoMempool), Relay (..))
 import           Pos.Context                      (NodeParams)
 import           Pos.Security                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners          (SscListenersClass (..))
@@ -42,14 +41,12 @@ import           Pos.Types                        (StakeholderId, addressHash)
 import           Pos.WorkMode.Class               (WorkMode)
 
 instance SscListenersClass SscGodTossing where
-    sscListeners = fmap Tagged . fmap mconcat . sequence $
-        [ relayListeners commitmentRelay
-        , relayListeners openingRelay
-        , relayListeners sharesRelay
-        , relayListeners vssCertRelay
+    sscRelays = Tagged
+        [ commitmentRelay
+        , openingRelay
+        , sharesRelay
+        , vssCertRelay
         ]
-    sscStubListeners =
-        Tagged $ mempty
 
 commitmentRelay :: WorkMode SscGodTossing m => Relay m
 commitmentRelay =

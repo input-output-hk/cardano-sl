@@ -4,7 +4,6 @@ module Pos.Communication.Specs
        ( sendTxOuts
        , sendVoteOuts
        , sendProposalOuts
-       , allOutSpecs
        , createOutSpecs
        ) where
 
@@ -14,11 +13,8 @@ import           Universum
 import           Pos.Communication.Message     ()
 import           Pos.Communication.Protocol    (OutSpecs, convH, toOutSpecs)
 import           Pos.Communication.Types.Relay (InvOrData, InvOrDataTK, ReqMsg)
-import           Pos.Ssc.GodTossing.Types      (MCCommitment, MCOpening, MCShares,
-                                                MCVssCertificate)
 import           Pos.Txp.Core.Types            (TxId)
 import           Pos.Txp.Network.Types         (TxMsgContents (..))
-import           Pos.Types                     (StakeholderId)
 import           Pos.Update.Core.Types         (UpId, UpdateProposal, UpdateVote, VoteId)
 
 createOutSpecs :: forall key contents .
@@ -39,14 +35,3 @@ sendVoteOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK VoteId UpdateVote))
 
 sendProposalOuts :: OutSpecs
 sendProposalOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK UpId (UpdateProposal, [UpdateVote])))
-
-allOutSpecs :: OutSpecs
-allOutSpecs = mconcat [
-      sendTxOuts
-    , sendVoteOuts
-    , sendProposalOuts
-    , createOutSpecs (Proxy :: Proxy (InvOrDataTK StakeholderId MCCommitment))
-    , createOutSpecs (Proxy :: Proxy (InvOrDataTK StakeholderId MCOpening))
-    , createOutSpecs (Proxy :: Proxy (InvOrDataTK StakeholderId MCShares))
-    , createOutSpecs (Proxy :: Proxy (InvOrDataTK StakeholderId MCVssCertificate))
-    ]

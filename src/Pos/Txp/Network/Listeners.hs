@@ -3,41 +3,34 @@
 -- | Server which handles transactions.
 
 module Pos.Txp.Network.Listeners
-       ( txListeners
-       , txRelay
+       ( txRelays
        , txInvReqDataParams
        ) where
 
-import qualified Data.HashMap.Strict        as HM
-import           Data.Tagged                (Tagged (..), tagWith)
-import           Formatting                 (build, sformat, (%))
-import           System.Wlog                (logInfo)
+import qualified Data.HashMap.Strict       as HM
+import           Data.Tagged               (Tagged (..), tagWith)
+import           Formatting                (build, sformat, (%))
+import           System.Wlog               (logInfo)
 import           Universum
 
-import           Pos.Binary.Communication   ()
-import           Pos.Binary.Relay           ()
-import           Pos.Communication.Limits   ()
-import           Pos.Communication.Message  ()
-import           Pos.Communication.Protocol (ListenerSpec, OutSpecs)
-import           Pos.Communication.Relay    (InvReqDataParams (..), MempoolParams (..),
-                                             Relay (..), relayListeners)
-import           Pos.Crypto                 (hash)
-import           Pos.Statistics             (StatProcessTx (..), statlogCountEvent)
-import           Pos.Txp.Core.Types         (TxAux (..), TxId)
+import           Pos.Binary.Communication  ()
+import           Pos.Binary.Relay          ()
+import           Pos.Communication.Limits  ()
+import           Pos.Communication.Message ()
+import           Pos.Communication.Relay   (InvReqDataParams (..), MempoolParams (..),
+                                            Relay (..))
+import           Pos.Crypto                (hash)
+import           Pos.Statistics            (StatProcessTx (..), statlogCountEvent)
+import           Pos.Txp.Core.Types        (TxAux (..), TxId)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp.Local     (eTxProcessTransaction)
+import           Pos.Explorer.Txp.Local    (eTxProcessTransaction)
 #else
-import           Pos.Txp.Logic              (txProcessTransaction)
+import           Pos.Txp.Logic             (txProcessTransaction)
 #endif
-import           Pos.Txp.MemState           (getMemPool)
-import           Pos.Txp.Network.Types      (TxMsgContents (..))
-import           Pos.Txp.Toil.Types         (MemPool (..))
-import           Pos.WorkMode.Class         (WorkMode)
-
-txListeners
-    :: WorkMode ssc m
-    => m ([ListenerSpec m], OutSpecs)
-txListeners = relayListeners txRelay
+import           Pos.Txp.MemState          (getMemPool)
+import           Pos.Txp.Network.Types     (TxMsgContents (..))
+import           Pos.Txp.Toil.Types        (MemPool (..))
+import           Pos.WorkMode.Class        (WorkMode)
 
 txInvReqDataParams :: WorkMode ssc m
     => InvReqDataParams (Tagged TxMsgContents TxId) TxMsgContents m
@@ -56,10 +49,10 @@ txInvReqDataParams =
         fmap TxMsgContents . HM.lookup txId . _mpLocalTxs <$> getMemPool
     txHandleData (TxMsgContents txAux) = handleTxDo txAux
 
-txRelay
+txRelays
     :: WorkMode ssc m
-    => Relay m
-txRelay =
+    => [Relay m]
+txRelays = pure $
     InvReqData (KeyMempool (Proxy :: Proxy TxMsgContents)
                            (map tag . HM.keys . _mpLocalTxs <$> getMemPool)) $
                txInvReqDataParams

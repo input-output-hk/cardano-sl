@@ -1,7 +1,7 @@
 -- | Server which handles update system.
 
 module Pos.Update.Network.Listeners
-       ( usListeners
+       ( usRelays
        ) where
 
 import           Data.Tagged                (Tagged (..), tagWith)
@@ -23,13 +23,10 @@ import           Pos.Update.Logic.Local     (getLocalProposalNVotes, getLocalVot
                                              processProposal, processVote)
 import           Pos.Update.Mode            (UpdateMode)
 
--- | Listeners for requests related to update system
-usListeners
-    :: (UpdateMode m)
-    => m ([ListenerSpec m], OutSpecs)
-usListeners = liftM2 mappend
-                (relayListeners proposalRelay)
-                (relayListeners voteRelay)
+-- | Relays for data related to update system
+usRelays :: UpdateMode m
+    => [Relay m]
+usRelays = [proposalRelay, voteRelay]
 
 ----------------------------------------------------------------------------
 -- UpdateProposal relays

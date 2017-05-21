@@ -48,8 +48,9 @@ import           Pos.Communication.PeerState        (WithPeerState)
 import           Pos.Communication.Protocol         (Conversation (..),
                                                      ConversationActions (..),
                                                      ListenerSpec, NodeId, OutSpecs,
-                                                     SendActions (..), WorkerSpec,
-                                                     listenerConv, mergeLs, worker)
+                                                     SendActions (..), WorkerSpec, convH,
+                                                     listenerConv, mergeLs, toOutSpecs,
+                                                     worker)
 import           Pos.Communication.Relay.Class      (DataParams (..),
                                                      InvReqDataParams (..),
                                                      MempoolParams (..), MonadRelayMem,
@@ -166,6 +167,7 @@ handleDataDo
     :: forall key contents m .
        ( RelayWorkMode m
        , Buildable key
+       , Eq key
        , Buildable contents
        , Message (InvOrData key contents)
        , Message (ReqMsg key)
@@ -221,7 +223,7 @@ handleInvDo handleInv imKey =
         ("We'll request data for key "%build%", because it's useful")
         imKey
 
-relayListeners
+relayListenersOne
   :: forall m.
      ( Mockable Throw m
      , WithLogger m
@@ -230,12 +232,23 @@ relayListeners
      , Message Void
      )
   => Relay m -> m ([ListenerSpec m], OutSpecs)
-relayListeners (InvReqData mP irdP@InvReqDataParams{..}) =
+relayListenersOne (InvReqData mP irdP@InvReqDataParams{..}) =
     (fmap mergeLs . sequence) $
         [handleReqL handleReq, invDataListener irdP] ++ handleMempoolL mP
-relayListeners (Data DataParams{..}) =
+relayListenersOne (Data DataParams{..}) =
     (fmap mergeLs . sequence) $
         [handleDataOnlyL handleDataOnly]
+
+relayListeners
+  :: forall m.
+     ( Mockable Throw m
+     , WithLogger m
+     , RelayWorkMode m
+     , MonadGStateCore m
+     , Message Void
+     )
+  => [Relay m] -> m ([ListenerSpec m], OutSpecs)
+relayListeners = fmap mconcat . sequence . map relayListenersOne
 
 invDataListener
   :: forall m key contents.
@@ -247,6 +260,7 @@ invDataListener
      , Bi (InvOrData key contents)
      , Buildable contents
      , Buildable key
+     , Eq key
      , MessageLimited (DataMsg contents)
      )
   => InvReqDataParams key contents m
@@ -280,6 +294,22 @@ addToRelayQueue pm = do
     else
         atomically $ writeTBQueue queue pm
 
+relayWorkersOut :: Message Void => Relay m -> OutSpecs
+relayWorkersOut (InvReqData _ irdp) = toOutSpecs
+      [ convH invProxy reqProxy
+      ]
+  where
+    invProxy = (const Proxy :: InvReqDataParams key contents m
+                            -> Proxy (InvOrData key contents)) irdp
+    reqProxy = (const Proxy :: InvReqDataParams key contents m
+                            -> Proxy (ReqMsg key)) irdp
+relayWorkersOut (Data dp) = toOutSpecs
+      [ convH dataProxy (Proxy @Void)
+      ]
+  where
+    dataProxy = (const Proxy :: DataParams contents m
+                            -> Proxy (DataMsg contents)) dp
+
 relayWorkers
     :: forall m.
        ( Mockable Throw m
@@ -289,8 +319,21 @@ relayWorkers
        , MonadReportingMem m
        , Message Void
        )
+    => [Relay m] -> ([WorkerSpec m], OutSpecs)
+relayWorkers rls = relayWorkersImpl $
+    mconcat $ map relayWorkersOut rls
+
+relayWorkersImpl
+    :: forall m.
+       ( Mockable Throw m
+       , MonadDiscovery m
+       , RelayWorkMode m
+       , MonadMask m
+       , MonadReportingMem m
+       , Message Void
+       )
     => OutSpecs -> ([WorkerSpec m], OutSpecs)
-relayWorkers allOutSpecs =
+relayWorkersImpl allOutSpecs =
     first (:[]) $ worker allOutSpecs $ \sendActions ->
         handleAll handleWE $ reportingFatal version $ action sendActions
   where
@@ -316,11 +359,19 @@ relayWorkers allOutSpecs =
     doHandler contents conv = send conv $ DataMsg contents
 
     irdHandler
-        :: key1 -> contents1
+        :: Eq key1 => key1 -> contents1
         -> ConversationActions
              (InvOrData key1 contents1) (ReqMsg key1) m
         -> m ()
-    irdHandler key __conts conv = send conv $ Left $ InvMsg key
+    irdHandler key conts conv = do
+        send conv $ Left $ InvMsg key
+        let whileNotK = do
+              rm <- recv conv
+              whenJust rm $ \ReqMsg{..} -> do
+                if rmKey == key
+                   then send conv $ Right $ DataMsg conts
+                   else whileNotK
+        whileNotK
 
     handleWE e = do
         logError $ sformat ("relayWorker: error caught "%shown) e

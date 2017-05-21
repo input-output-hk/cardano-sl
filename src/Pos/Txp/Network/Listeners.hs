@@ -1,4 +1,5 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP        #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Server which handles transactions.
 
@@ -50,7 +51,7 @@ txInvReqDataParams =
     txHandleData (TxMsgContents txAux) = handleTxDo txAux
 
 txRelays
-    :: WorkMode ssc m
+    :: forall ssc m. WorkMode ssc m
     => [Relay m]
 txRelays = pure $
     InvReqData (KeyMempool (Proxy :: Proxy TxMsgContents)

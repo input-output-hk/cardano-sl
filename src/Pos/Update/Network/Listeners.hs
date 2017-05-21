@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 -- | Server which handles update system.
 
 module Pos.Update.Network.Listeners
@@ -23,7 +24,7 @@ import           Pos.Update.Logic.Local    (getLocalProposalNVotes, getLocalVote
 import           Pos.Update.Mode           (UpdateMode)
 
 -- | Relays for data related to update system
-usRelays :: UpdateMode m
+usRelays :: forall m. UpdateMode m
     => [Relay m]
 usRelays = [proposalRelay, voteRelay]
 

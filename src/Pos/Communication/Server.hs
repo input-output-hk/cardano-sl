@@ -3,6 +3,10 @@
 module Pos.Communication.Server
        ( allListeners
        , serverLoggerName
+       , sscRelays
+       , txRelays
+       , delegationRelays
+       , usRelays
        ) where
 
 import           Universum

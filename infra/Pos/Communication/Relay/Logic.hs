@@ -12,6 +12,7 @@ module Pos.Communication.Relay.Logic
        , DataMsg (..)
        , relayListeners
        , relayWorkers
+       , relayPropagateOut
        , InvOrData
        , handleDataDo
        , handleInvDo
@@ -21,6 +22,7 @@ module Pos.Communication.Relay.Logic
        , invReqDataFlowNeighbors
        , invReqDataFlowNeighborsTK
        , addToRelayQueue
+       , dataFlow
        ) where
 
 import           Control.Concurrent.STM             (isFullTBQueue, readTBQueue,
@@ -294,8 +296,11 @@ addToRelayQueue pm = do
     else
         atomically $ writeTBQueue queue pm
 
-relayWorkersOut :: Message Void => Relay m -> OutSpecs
-relayWorkersOut (InvReqData _ irdp) = toOutSpecs
+relayPropagateOut :: Message Void => [Relay m] -> OutSpecs
+relayPropagateOut = mconcat . map propagateOutImpl
+
+propagateOutImpl :: Message Void => Relay m -> OutSpecs
+propagateOutImpl (InvReqData _ irdp) = toOutSpecs
       [ convH invProxy reqProxy
       ]
   where
@@ -303,7 +308,7 @@ relayWorkersOut (InvReqData _ irdp) = toOutSpecs
                             -> Proxy (InvOrData key contents)) irdp
     reqProxy = (const Proxy :: InvReqDataParams key contents m
                             -> Proxy (ReqMsg key)) irdp
-relayWorkersOut (Data dp) = toOutSpecs
+propagateOutImpl (Data dp) = toOutSpecs
       [ convH dataProxy (Proxy @Void)
       ]
   where
@@ -320,8 +325,7 @@ relayWorkers
        , Message Void
        )
     => [Relay m] -> ([WorkerSpec m], OutSpecs)
-relayWorkers rls = relayWorkersImpl $
-    mconcat $ map relayWorkersOut rls
+relayWorkers rls = relayWorkersImpl $ relayPropagateOut rls
 
 relayWorkersImpl
     :: forall m.
@@ -480,3 +484,20 @@ invReqDataFlowDo what key dt _ nodeId conv = do
     handleD = logDebug $
         sformat ("InvReqDataFlow ("%stext%"): "%shown %" closed conversation on \
                  \Inv key = "%build) what nodeId key
+
+dataFlow
+    :: forall contents m.
+       ( Message (DataMsg contents)
+       , Bi (DataMsg contents)
+       , Buildable contents
+       , MinRelayWorkMode m
+       , Message Void
+       )
+    => Text -> SendActions m -> NodeId -> contents -> m ()
+dataFlow what sendActions addr dt = handleAll handleE $
+    withConnectionTo sendActions addr
+      (const (pure $ Conversation $ \(conv :: ConversationActions (DataMsg contents) Void m) ->
+                          send conv $ DataMsg dt))
+  where
+    handleE e = logWarning $
+        sformat ("Error sending "%stext%", data = "%build%" to "%shown%": "%shown) what dt addr e

@@ -17,6 +17,10 @@ module Pos.Crypto.SafeSigning
        , safeDeterministicKeyGen
        , withSafeSigner
        , fakeSigner
+       , createProxyCert
+       , createProxySecretKey
+       , safeCreateProxyCert
+       , safeCreateProxySecretKey
        ) where
 
 import qualified Cardano.Crypto.Wallet as CC
@@ -33,9 +37,10 @@ import           Pos.Binary.Class      (Bi, Raw)
 import qualified Pos.Binary.Class      as Bi
 import           Pos.Crypto.Hashing    (Hash, hash)
 import           Pos.Crypto.Random     (secureRandomBS)
-import           Pos.Crypto.Signing    (PublicKey (..), SecretKey (..), Signature (..),
+import           Pos.Crypto.Signing    (ProxyCert (..), ProxySecretKey (..),
+                                        PublicKey (..), SecretKey (..), Signature (..),
                                         sign, toPublic)
-import           Pos.Crypto.SignTag    (SignTag, signTag)
+import           Pos.Crypto.SignTag    (SignTag (SignProxySK), signTag)
 
 data EncryptedSecretKey = EncryptedSecretKey
     { eskPayload :: !CC.XPrv
@@ -160,3 +165,27 @@ withSafeSigner sk ppGetter action = do
 -- where `SafeSigner` is required
 fakeSigner :: SecretKey -> SafeSigner
 fakeSigner = FakeSigner
+
+
+-- | Proxy certificate creation from secret key of issuer, public key
+-- of delegate and the message space ω.
+createProxyCert :: (Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
+createProxyCert = safeCreateProxyCert . fakeSigner
+
+-- | Creates proxy secret key
+createProxySecretKey :: (Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
+createProxySecretKey = safeCreateProxySecretKey . fakeSigner
+
+-- | Proxy certificate creation from secret key of issuer, public key
+-- of delegate and the message space ω.
+safeCreateProxyCert :: (Bi w) => SafeSigner -> PublicKey -> w -> ProxyCert w
+safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
+  where
+    Signature sig = safeSign SignProxySK ss $
+                      mconcat
+                          ["00", CC.unXPub delegatePk, Bi.encodeStrict o]
+
+-- | Creates proxy secret key
+safeCreateProxySecretKey :: (Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w
+safeCreateProxySecretKey ss delegatePk w =
+    ProxySecretKey w (safeToPublic ss) delegatePk $ safeCreateProxyCert ss delegatePk w

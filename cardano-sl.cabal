@@ -205,6 +205,7 @@ library
                         Pos.Communication.Server
                         Pos.Communication.Specs
                         Pos.Communication.Limits
+                        Pos.Communication.Update
 
                         -- DB
                         Pos.DB.GState.BlockExtra
@@ -385,7 +386,6 @@ library
                         Pos.Wallet.State.Storage
                         Pos.Wallet.State.Storage.Block
                         Pos.Wallet.State.Storage.Tx
-                        Pos.Wallet.Update
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes

@@ -14,4 +14,5 @@ import           Pos.Communication.Server    as M
 import           Pos.Communication.Specs     as M
 import           Pos.Communication.Tx        as M
 import           Pos.Communication.Types     as M
+import           Pos.Communication.Update    as M
 import           Pos.Communication.Util      as M

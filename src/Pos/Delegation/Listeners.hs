@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Server listeners for delegation logic
@@ -36,7 +37,7 @@ instance Buildable (ProxySKLight, ProxySigLight ProxySKLight) where
 
 -- | Listeners for requests related to delegation processing.
 delegationRelays
-    :: WorkMode ssc m
+    :: forall ssc m. WorkMode ssc m
     => [Relay m]
 delegationRelays =
         [ pskLightRelay

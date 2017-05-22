@@ -26,7 +26,6 @@ instance showEndpointError :: Show EndpointError where
 newtype RequestLimit = RequestLimit Int
 newtype RequestOffset = RequestOffset Int
 
-
 -- Wrapper of 'Subscription' built by 'purescript bridge'
 -- needed to derive generice instances of it
 newtype SocketSubscription = SocketSubscription Subscription
@@ -35,4 +34,8 @@ derive instance newtypeSocketSubscription :: Newtype SocketSubscription _
 instance eqSocketSubscription :: Eq SocketSubscription where
   eq = gEq
 
-data SocketSubscriptionAction = KeepPrevSubscriptions | UnsubscribePrevSubscriptions
+-- todo (ks): Why would we want to have previous subscriptions? We can remove this.
+-- Immutability!
+data SocketSubscriptionAction
+    = KeepPrevSubscriptions
+    | UnsubscribePrevSubscriptions

@@ -9,6 +9,7 @@ module Pos.WorkMode
 
        -- * Actual modes
        , RawRealModeK
+       , RawRealModeS
        , ProductionMode
        , RawRealMode
        , ServiceMode
@@ -31,7 +32,7 @@ import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
                                                PeerStateTag)
 import           Pos.Context                  (NodeContext)
 import           Pos.DB                       (NodeDBs)
-import           Pos.DB.DB                    (DbCoreRedirect)
+import           Pos.DB.DB                    (GStateCoreRedirect)
 import           Pos.Delegation.Class         (DelegationWrap)
 import           Pos.Discovery.Holders        (DiscoveryConstT, DiscoveryKademliaT)
 import           Pos.Slotting.MemState        (SlottingVar)
@@ -40,7 +41,6 @@ import           Pos.Slotting.Ntp             (NtpSlottingVar, SlotsRedirect)
 import           Pos.Ssc.Extra                (SscMemTag, SscState)
 import           Pos.Statistics.MonadStats    (NoStatsT, StatsT)
 import           Pos.Txp.MemState             (GenericTxpLocalData, TxpHolderTag)
-import           Pos.Update.DB                (DbLimitsRedirect)
 import           Pos.Wallet.WalletMode        (BlockchainInfoRedirect, UpdatesRedirect)
 import           Pos.WorkMode.Class           (MinWorkMode, TxpExtra_TMP, WorkMode)
 
@@ -54,8 +54,7 @@ type RawRealMode ssc =
     BListenerStub (
     BlockchainInfoRedirect (
     UpdatesRedirect (
-    DbCoreRedirect (
-    DbLimitsRedirect (
+    GStateCoreRedirect (
     PeerStateRedirect (
     TxHistoryRedirect (
     BalancesRedirect (
@@ -72,10 +71,13 @@ type RawRealMode ssc =
         ) (
     Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox Production
-    ))))))))))))
+    )))))))))))
 
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)
+
+-- | RawRealMode + static peers.
+type RawRealModeS ssc = DiscoveryConstT (RawRealMode ssc)
 
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.
@@ -85,7 +87,7 @@ type ProductionMode ssc = NoStatsT $ RawRealModeK ssc
 type StatsMode ssc = StatsT $ RawRealModeK ssc
 
 -- | Fixed peer discovery without stats.
-type StaticMode ssc = NoStatsT $ DiscoveryConstT (RawRealMode ssc)
+type StaticMode ssc = NoStatsT $ RawRealModeS ssc
 
 -- | ServiceMode is the mode in which support nodes work.
 type ServiceMode =

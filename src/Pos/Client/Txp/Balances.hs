@@ -26,10 +26,11 @@ import           Pos.DB                       (MonadDB)
 import qualified Pos.DB.GState                as GS
 import qualified Pos.DB.GState.Balances       as GS
 import           Pos.Txp                      (GenericToilModifier (..), MonadTxpMem,
-                                               TxOutAux (..), Utxo, addrBelongsToSet,
-                                               applyToil, getLocalTxsNUndo,
-                                               getUtxoModifier, runToilAction, topsortTxs,
-                                               txOutValue, _bvStakes)
+                                               TxAux (..), TxOutAux (..), Utxo,
+                                               addrBelongsToSet, applyToil,
+                                               getLocalTxsNUndo, getUtxoModifier,
+                                               runToilAction, topsortTxs, txOutValue,
+                                               _bvStakes)
 import           Pos.Types                    (Address (..), Coin, mkCoin, sumCoins,
                                                unsafeIntegerToCoin)
 import qualified Pos.Util.Modifier            as MM
@@ -80,7 +81,7 @@ instance
 
     getBalance PubKeyAddress{..} = do
         (txs, undos) <- getLocalTxsNUndo
-        let wHash (i, (t, _, _)) = WithHash t i
+        let wHash (i, TxAux tx _ _) = WithHash tx i
         case topsortTxs wHash txs of
             Nothing -> do
                 logWarn "couldn't topsort mempool txs"

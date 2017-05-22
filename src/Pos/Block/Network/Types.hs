@@ -12,8 +12,9 @@ import           Formatting          (bprint, build, (%))
 import           Serokell.Util.Text  (listJson)
 import           Universum
 
+import           Pos.Block.Core      (Block, BlockHeader)
+import           Pos.Core            (HeaderHash)
 import           Pos.Ssc.Class.Types (Ssc (SscPayload))
-import           Pos.Types           (Block, BlockHeader, HeaderHash)
 import           Pos.Util.Chrono     (NE, NewestFirst)
 
 -- | 'GetHeaders' message. Behaviour of the response depends on

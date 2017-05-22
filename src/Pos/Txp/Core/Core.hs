@@ -11,16 +11,19 @@ module Pos.Txp.Core.Core
 
 import           Universum
 
-import qualified Data.HashSet       as HS
-import           Pos.Binary.Core    ()
-import           Pos.Binary.Crypto  ()
-import           Pos.Binary.Txp     ()
-import           Pos.Core.Address   (AddressIgnoringAttributes (..))
-import           Pos.Core.Types     (Address (..))
-import           Pos.Crypto         (hash)
-import           Pos.Merkle         (mtRoot)
-import           Pos.Txp.Core.Types (TxAux, TxId, TxIn (..), TxOut (..), TxOutAux (..),
-                                     TxOutDistribution, TxPayload (..), TxProof (..))
+import qualified Data.HashSet        as HS
+import           Data.List           (zipWith3)
+
+import           Pos.Binary.Core     ()
+import           Pos.Binary.Crypto   ()
+import           Pos.Binary.Txp.Core ()
+import           Pos.Core.Address    (AddressIgnoringAttributes (..))
+import           Pos.Core.Types      (Address (..))
+import           Pos.Crypto          (hash)
+import           Pos.Merkle          (mtRoot)
+import           Pos.Txp.Core.Types  (TxAux (..), TxId, TxIn (..), TxOut (..),
+                                      TxOutAux (..), TxOutDistribution, TxPayload (..),
+                                      TxProof (..))
 
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.
@@ -57,4 +60,4 @@ mkTxProof UnsafeTxPayload {..} =
 -- | Convert 'TxPayload' into a flat list of `TxAux`s.
 flattenTxPayload :: TxPayload -> [TxAux]
 flattenTxPayload UnsafeTxPayload {..} =
-    zip3 (toList _txpTxs) _txpWitnesses _txpDistributions
+    zipWith3 TxAux (toList _txpTxs) _txpWitnesses _txpDistributions

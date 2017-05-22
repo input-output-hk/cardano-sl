@@ -18,8 +18,9 @@ import           System.Wlog         (WithLogger, logDebug)
 
 import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
                                       unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Txp.Core        (Tx (..), TxAux, TxOutAux (..), TxOutDistribution,
-                                      TxUndo, getTxDistribution, txOutStake)
+import           Pos.Txp.Core        (Tx (..), TxAux (..), TxOutAux (..),
+                                      TxOutDistribution, TxUndo, getTxDistribution,
+                                      txOutStake)
 import           Pos.Txp.Toil.Class  (MonadBalances (..), MonadBalancesRead (..))
 import           Pos.Types           (mkCoin)
 
@@ -93,6 +94,6 @@ concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     txasTxOutDistr = concatMap concatDistr txas
     undoTxInDistr = concatMap txOutStake (foldMap toList undo)
-    concatDistr (UnsafeTx {..}, _, distr) =
+    concatDistr (TxAux UnsafeTx {..} _ distr) =
         concatMap txOutStake $
         toList (NE.zipWith TxOutAux _txOutputs (getTxDistribution distr))

@@ -7,37 +7,44 @@ module Pos.Ssc.GodTossing.Toss.Logic
        , applyGenesisBlock
        , rollbackGT
        , normalizeToss
+       , refreshToss
        ) where
 
+import           Control.Lens                    (at)
 import           Control.Monad.Except            (MonadError, runExceptT)
 import qualified Data.HashMap.Strict             as HM
 import           System.Wlog                     (logError)
 import           Universum
 
 import           Pos.Constants                   (slotSecurityParam)
+import           Pos.Core                        (EpochIndex, EpochOrSlot (..),
+                                                  IsMainHeader,
+                                                  LocalSlotIndex (getSlotIndex),
+                                                  SlotId (siSlot), StakeholderId,
+                                                  epochIndexL, epochOrSlot,
+                                                  getEpochOrSlot, headerSlotL, mkCoin)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload (..),
+                                                  InnerSharesMap, Opening,
+                                                  SignedCommitment, VssCertificate,
                                                   getCommitmentsMap,
                                                   mkCommitmentsMapUnsafe, _gpCertificates)
 import           Pos.Ssc.GodTossing.Functions    (sanityChecksGtPayload)
 import           Pos.Ssc.GodTossing.Toss.Base    (checkPayload)
-import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..))
+import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..),
+                                                  MonadTossRead (getRichmen))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type         ()
-import           Pos.Types                       (EpochIndex, EpochOrSlot (..),
-                                                  LocalSlotIndex (getSlotIndex),
-                                                  MainBlockHeader, SlotId (siSlot),
-                                                  epochIndexL, epochOrSlot,
-                                                  getEpochOrSlot)
-import           Pos.Util                        (inAssertMode)
+import           Pos.Util                        (inAssertMode, sortWithMDesc)
 import           Pos.Util.Chrono                 (NewestFirst (..))
+import           Pos.Util.Util                   (Some)
 
 -- | Verify 'GtPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise
 -- TossVerFailure is thrown using 'MonadError' type class.
 verifyAndApplyGtPayload
     :: (MonadToss m, MonadError TossVerFailure m)
-    => Either EpochIndex (MainBlockHeader ssc) -> GtPayload -> m ()
+    => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
 verifyAndApplyGtPayload eoh payload = do
     -- We can't trust payload from mempool, so we must call @sanityChecksGtPayload@.
     whenLeft eoh $ const $ sanityChecksGtPayload eoh payload
@@ -53,7 +60,7 @@ verifyAndApplyGtPayload eoh payload = do
     case eoh of
         Left _       -> pass
         Right header -> do
-            let eos = getEpochOrSlot header
+            let eos = EpochOrSlot $ Right $ header ^. headerSlotL
             setEpochOrSlot eos
             let slot = epochOrSlot (const 0) (getSlotIndex . siSlot) eos
             -- We can freely clear shares after 'slotSecurityParam'
@@ -105,13 +112,55 @@ rollbackGT oldestEOS (NewestFirst payloads)
 normalizeToss
     :: forall m . MonadToss m
     => EpochIndex -> TossModifier -> m ()
-normalizeToss epoch TossModifier{..} = do
-    putsUseful $ map (flip CommitmentsPayload mempty . mkCommitmentsMapUnsafe . one) $
-                 HM.toList $
-                 getCommitmentsMap _tmCommitments
-    putsUseful $ map (flip OpeningsPayload mempty . one) $ HM.toList _tmOpenings
-    putsUseful $ map (flip SharesPayload mempty . one) $ HM.toList _tmShares
-    putsUseful $ map (CertificatesPayload . one) $ HM.toList _tmCertificates
+normalizeToss epoch TossModifier {..} =
+    normalizeTossDo
+        epoch
+        ( HM.toList (getCommitmentsMap _tmCommitments)
+        , HM.toList _tmOpenings
+        , HM.toList _tmShares
+        , HM.toList _tmCertificates)
+
+-- | Apply the most valuable from given 'TossModifier' and drop the
+-- rest. This function can be used if mempool is exhausted.
+refreshToss
+    :: forall m . MonadToss m
+    => EpochIndex -> TossModifier -> m ()
+refreshToss epoch TossModifier {..} = do
+    comms <-
+        takeMostValuable epoch (HM.toList (getCommitmentsMap _tmCommitments))
+    opens <- takeMostValuable epoch (HM.toList _tmOpenings)
+    shares <- takeMostValuable epoch (HM.toList _tmShares)
+    certs <- takeMostValuable epoch (HM.toList _tmCertificates)
+    normalizeTossDo epoch (comms, opens, shares, certs)
+
+takeMostValuable ::
+       MonadToss m
+    => EpochIndex
+    -> [(StakeholderId, x)]
+    -> m [(StakeholderId, x)]
+takeMostValuable epoch items = take toTake <$> sortWithMDesc resolver items
+  where
+    toTake = 2 * length items `div` 3
+    resolver (id, _) =
+        fromMaybe (mkCoin 0) . (view (at id)) . fromMaybe mempty <$>
+        getRichmen epoch
+
+type TossModifierLists
+     = ( [(StakeholderId, SignedCommitment)]
+       , [(StakeholderId, Opening)]
+       , [(StakeholderId, InnerSharesMap)]
+       , [(StakeholderId, VssCertificate)])
+
+normalizeTossDo
+    :: forall m . MonadToss m
+    => EpochIndex -> TossModifierLists -> m ()
+normalizeTossDo epoch (comms, opens, shares, certs) = do
+    putsUseful $
+        map (flip CommitmentsPayload mempty . mkCommitmentsMapUnsafe . one) $
+        comms
+    putsUseful $ map (flip OpeningsPayload mempty . one) opens
+    putsUseful $ map (flip SharesPayload mempty . one) shares
+    putsUseful $ map (CertificatesPayload . one) certs
   where
     putsUseful :: [GtPayload] -> m ()
     putsUseful entries = do

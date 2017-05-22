@@ -8,6 +8,7 @@ module Pos.Launcher.Runner
        ( -- * High level runners
          runRawRealMode
        , runRawKBasedMode
+       , runRawSBasedMode
        , runProductionMode
        , runStatsMode
        , runServiceMode
@@ -67,8 +68,8 @@ import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers
 import           Pos.Core                     (Timestamp ())
 import           Pos.Crypto                   (createProxySecretKey, encToPublic)
 import           Pos.DB                       (MonadDB, NodeDBs)
-import           Pos.DB.DB                    (initNodeDBs, openNodeDBs)
-import           Pos.DB.DB                    (runDbCoreRedirect)
+import           Pos.DB.DB                    (initNodeDBs, openNodeDBs,
+                                               runGStateCoreRedirect)
 import           Pos.DB.GState                (getTip)
 import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (DelegationWrap)
@@ -95,7 +96,6 @@ import           Pos.Txp                      (mkTxpLocalData)
 import           Pos.Txp.DB                   (genesisFakeTotalStake,
                                                runBalanceIterBootstrap)
 import           Pos.Txp.MemState             (TxpHolderTag)
-import           Pos.Update.DB                (runDbLimitsRedirect)
 import           Pos.Wallet.WalletMode        (runBlockchainInfoRedirect,
                                                runUpdatesRedirect)
 #ifdef WITH_EXPLORER
@@ -110,8 +110,8 @@ import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
 import           Pos.Worker                   (allWorkersCount)
 import           Pos.WorkMode                 (ProductionMode, RawRealMode, RawRealModeK,
-                                               ServiceMode, StaticMode, StatsMode,
-                                               WorkMode)
+                                               RawRealModeS, ServiceMode, StaticMode,
+                                               StatsMode, WorkMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -168,8 +168,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                    runBalancesRedirect .
                    runTxHistoryRedirect .
                    runPeerStateRedirect .
-                   runDbLimitsRedirect .
-                   runDbCoreRedirect .
+                   runGStateCoreRedirect .
                    runUpdatesRedirect .
                    runBlockchainInfoRedirect .
                    runBListenerStub $
@@ -207,8 +206,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
            runBalancesRedirect .
            runTxHistoryRedirect .
            runPeerStateRedirect .
-           runDbLimitsRedirect .
-           runDbCoreRedirect .
+           runGStateCoreRedirect .
            runUpdatesRedirect .
            runBlockchainInfoRedirect .
            runBListenerStub .
@@ -272,6 +270,33 @@ runServer_ peerId transport packedLS outSpecs =
     acquire = const pass
     release = const pass
 
+runRawBasedMode
+    :: forall ssc m a.
+       (SscConstraint ssc, WorkMode ssc m)
+    => (forall b. m b -> RawRealMode ssc b)
+    -> (forall b. RawRealMode ssc b -> m b)
+    -> PeerId
+    -> Transport m
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec m a, OutSpecs)
+    -> Production a
+runRawBasedMode unwrap wrap peerId transport np@NodeParams{..} sscnp (ActionSpec action, outSpecs) =
+    runRawRealMode
+        peerId
+        (hoistTransport unwrap transport)
+        np
+        sscnp
+        listeners
+        outSpecs $
+    ActionSpec
+        $ \vI sendActions -> unwrap . action vI $ hoistSendActions wrap unwrap sendActions
+  where
+    listeners =
+        unwrap $
+        first (hoistListenerSpec unwrap wrap <$>) <$>
+        allListeners
+
 -- | Launch some mode, providing way to convert it to 'RawRealMode' and back.
 runRawKBasedMode
     :: forall ssc m a.
@@ -285,23 +310,23 @@ runRawKBasedMode
     -> SscParams ssc
     -> (ActionSpec m a, OutSpecs)
     -> Production a
-runRawKBasedMode unwrap wrap peerId transport kinst np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode
-        peerId
-        (hoistTransport hoistDown transport)
-        np
-        sscnp
-        listeners
-        outSpecs $
-    ActionSpec
-        $ \vI sendActions -> hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
-  where
-    hoistUp = wrap . lift
-    hoistDown = runDiscoveryKademliaT kinst . unwrap
-    listeners =
-        hoistDown $
-        first (hoistListenerSpec hoistDown hoistUp <$>) <$>
-        allListeners
+runRawKBasedMode unwrap wrap peerId transport kinst =
+    runRawBasedMode (runDiscoveryKademliaT kinst . unwrap) (wrap . lift) peerId transport
+
+runRawSBasedMode
+    :: forall ssc m a.
+       (SscConstraint ssc, WorkMode ssc m)
+    => (forall b. m b -> RawRealModeS ssc b)
+    -> (forall b. RawRealModeS ssc b -> m b)
+    -> PeerId
+    -> Transport m
+    -> Set NodeId
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec m a, OutSpecs)
+    -> Production a
+runRawSBasedMode unwrap wrap peerId transport peers =
+    runRawBasedMode (runDiscoveryConstT peers . unwrap) (wrap . lift) peerId transport
 
 -- | ProductionMode runner.
 runProductionMode
@@ -343,23 +368,7 @@ runStaticMode
     -> SscParams ssc
     -> (ActionSpec (StaticMode ssc) a, OutSpecs)
     -> Production a
-runStaticMode peerId transport peers np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode
-        peerId
-        (hoistTransport hoistDown transport)
-        np
-        sscnp
-        listeners
-        outSpecs $
-    ActionSpec $ \vI sendActions ->
-        hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
-  where
-    hoistUp = lift . lift
-    hoistDown = runDiscoveryConstT peers . getNoStatsT
-    listeners =
-        hoistDown $
-        first (hoistListenerSpec hoistDown hoistUp <$>) <$>
-        allListeners
+runStaticMode = runRawSBasedMode getNoStatsT lift
 
 ----------------------------------------------------------------------------
 -- Lower level runners

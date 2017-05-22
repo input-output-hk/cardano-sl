@@ -9,7 +9,7 @@ import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (difference, drop, length, take, (:))
+import Data.Array (drop, length, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -36,6 +36,7 @@ import Explorer.View.Blocks (maxBlockRows)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Explorer.View.Dashboard.Transactions (maxTransactionRows)
 import Network.HTTP.Affjax (AJAX)
+import Control.Monad.Eff.Console (CONSOLE, log)
 import Network.RemoteData (RemoteData(..), isNotAsked, isSuccess, withDefault)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
@@ -44,11 +45,11 @@ import Pux.Router (navigateTo) as P
 
 update :: forall eff. Action -> State ->
     EffModel State Action
-    (dom :: DOM
+    ( dom :: DOM
     , ajax :: AJAX
     , socket :: SocketIO
     , now :: NOW
-    -- , console :: CONSOLE
+    , console :: CONSOLE
     | eff
     )
 
@@ -132,7 +133,8 @@ update (SocketCallMeCTxId id) state =
           pure NoOp
     ]}
 
-update (SocketUpdateSubscriptions nextSubs subAction ) state =
+-- let's keep it simple
+update (SocketUpdateSubscriptions nextSubs subAction) state =
     { state: set (socket <<< subscriptions) nextSubs state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
@@ -146,16 +148,14 @@ update (SocketUpdateSubscriptions nextSubs subAction ) state =
               Nothing -> pure unit
           pure NoOp
     ]}
-        where
-            currentSubs = state ^. socket <<< subscriptions
-            diffNextFromCurrentSubs = difference currentSubs nextSubs
-            unsubPrevSubscriptions socket'' =
-                traverse_ (liftEff <<< emit' socket'' <<< toEvent <<< Unsubscribe <<< unwrap) diffNextFromCurrentSubs
-            diffCurrentFromNextSubs = difference nextSubs currentSubs
-            subNextSubscriptions socket'' =
-                traverse_ (liftEff <<< emit' socket'' <<< toEvent <<< Subscribe <<< unwrap) diffCurrentFromNextSubs
+    where
+      currentSubs = state ^. socket <<< subscriptions
 
+      unsubPrevSubscriptions socket'' =
+          traverse_ (liftEff <<< emit' socket'' <<< toEvent <<< Unsubscribe <<< unwrap) currentSubs
 
+      subNextSubscriptions socket'' =
+          traverse_ (liftEff <<< emit' socket'' <<< toEvent <<< Subscribe <<< unwrap) nextSubs
 
 update SocketReconnectSubscriptions state =
     let currentSubs = state ^. socket <<< subscriptions in
@@ -163,7 +163,11 @@ update SocketReconnectSubscriptions state =
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> do
+                -- first unsubscribe from existing subscriptions
+                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Unsubscribe <<< unwrap) currentSubs
+                -- then subscribe to them again
                 traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Subscribe <<< unwrap) currentSubs
+
               Nothing -> pure unit
           pure NoOp
     ]}
@@ -428,14 +432,7 @@ update (ReceiveInitialBlocks (Right blocks)) state =
           set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) $
           set pullLatestBlocks (syncByPolling $ state ^. syncAction)
           state
-    , effects:
-          -- add subscription of `SubBlock` if we are on `Dashboard` only
-          if (state ^. route) == Dashboard
-          then  [ pure $ SocketUpdateSubscriptions
-                            [ SocketSubscription SubBlock ]
-                            KeepPrevSubscriptions
-                ]
-          else []
+    , effects: []
     }
 
 update (ReceiveInitialBlocks (Left error)) state =
@@ -582,15 +579,7 @@ update (ReceiveInitialTxs (Right txs)) state =
                                           withDefault [] currentTxs
               )
           state
-    , effects:
-          -- add subscription of `SubTx` if we are on `Dashboard` only
-          if (state ^. route) == Dashboard
-          then [ pure $ SocketUpdateSubscriptions
-                            [ SocketSubscription SubTx]
-                            KeepPrevSubscriptions
-                ]
-          else []
-
+    , effects: []
     }
 
 update (ReceiveInitialTxs (Left error)) state = noEffects $
@@ -723,9 +712,7 @@ routeEffects Dashboard state =
               else []
             )
         -- subscribe to `SubBlock` and `SubTx `if needed
-        <>  ( if  (syncBySocket $ state ^. syncAction) &&
-                  (isSuccess $ state ^. latestBlocks) &&
-                  (isSuccess $ state ^. latestTransactions)
+        <>  ( if  (syncBySocket $ state ^. syncAction)
               then [ pure $ SocketUpdateSubscriptions
                               [ SocketSubscription SubBlock
                               , SocketSubscription SubTx

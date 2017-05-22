@@ -64,17 +64,14 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary 
                                                  CBlockEntry (..), CBlockSummary (..),
                                                  CHash, CTxBrief (..), CTxEntry (..),
                                                  CTxId (..), CTxSummary (..),
-                                                 TxInternal (..), convertTxOutputs,
-                                                 fromCAddress, fromCHash, fromCTxId,
-                                                 mkCCoin, tiToTxEntry, toBlockEntry,
-                                                 toBlockSummary, toPosixTime, toTxBrief)
+                                                 TxInternal (..),
+                                                 convertTxOutputs, fromCAddress,
+                                                 fromCHash, fromCTxId, mkCCoin,
+                                                 tiToTxEntry, toBlockEntry,
+                                                 toBlockSummary, toPosixTime,
+                                                 toTxBrief, getEpochIndex,
+                                                 getSlotIndex)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-
-
-
-
-
-
 
 ----------------------------------------------------------------
 -- Top level functionality
@@ -246,53 +243,85 @@ getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
     _ -> throwM $
          Internal "Non-P2PKH addresses are not supported in Explorer yet"
 
+-- | Get transaction summary from transaction id. Looks at both the database
+-- and the memory (mempool) for the transaction. What we have at the mempool
+-- are transactions that have to be written in the blockchain.
 getTxSummary :: ExplorerMode m => CTxId -> m CTxSummary
 getTxSummary cTxId = do
     -- There are two places whence we can fetch a transaction: MemPool and DB.
     -- However, TxExtra should be added in the DB when a transaction is added
     -- to MemPool. So we start with TxExtra and then figure out whence to fetch
     -- the rest.
-    txId <- cTxIdToTxId cTxId
-    txExtra <- getTxExtraOrFail txId
+    txId                    <- cTxIdToTxId cTxId
+    -- Get from database, txExtra
+    txExtra                 <- getTxExtraOrFail txId
 
-    let blockchainPlace = teBlockchainPlace txExtra
-        inputOutputs = map toaOut $ NE.toList $ teInputOutputs txExtra
-        receivedTime = teReceivedTime txExtra
+    -- Return transaction extra (txExtra) fields
+    let blockchainPlace     = teBlockchainPlace txExtra
+        inputOutputs        = map toaOut $ NE.toList $ teInputOutputs txExtra
+        receivedTime        = teReceivedTime txExtra
 
-    (ctsBlockTimeIssued, ctsBlockHeight, outputs) <-
-        case blockchainPlace of
-            Nothing -> do
-                -- Fetching transaction from MemPool.
-                tx <- fetchTxFromMempoolOrFail txId
-                let txOutputs = convertTxOutputs . NE.toList . _txOutputs $
-                        view _1 tx
-                pure (Nothing, Nothing, txOutputs)
-            Just (headerHash, txIndexInBlock) -> do
-                -- Fetching transaction from DB.
-                mb <- getMainBlock headerHash
-                blkSlotStart <- getBlkSlotStart mb
-                let blockHeight = fromIntegral $ mb ^. difficultyL
-                tx <- maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
-                      atMay (toList $ mb ^. blockTxs) (fromIntegral txIndexInBlock)
-                let txOutputs = convertTxOutputs . NE.toList $ _txOutputs tx
-                    ts = toPosixTime <$> blkSlotStart
-                pure (ts, Just blockHeight, txOutputs)
+    -- fetch block fields (DB or mempool)
+    blockFields <- fetchBlockFields txId blockchainPlace
 
-    let ctsId = cTxId
-        ctsOutputs = map (second mkCCoin) outputs
-        ctsTxTimeIssued = toPosixTime receivedTime
-        ctsRelayedBy = Nothing
-        ctsTotalInput = mkCCoin totalInput
-        totalInput = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
-        ctsInputs = map (second mkCCoin) $ convertTxOutputs inputOutputs
-        ctsTotalOutput = mkCCoin totalOutput
-        totalOutput = unsafeIntegerToCoin $ sumCoins $ map snd outputs
+    let ctsBlockTimeIssued  = blockFields ^. _1
+        ctsBlockHeight      = blockFields ^. _2
+        ctsBlockEpoch       = blockFields ^. _3
+        ctsBlockSlot        = blockFields ^. _4
+        outputs             = blockFields ^. _5
 
+        ctsId               = cTxId
+        ctsOutputs          = map (second mkCCoin) outputs
+        ctsTxTimeIssued     = toPosixTime receivedTime
+        ctsRelayedBy        = Nothing
+        ctsTotalInput       = mkCCoin totalInput
+        totalInput          = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
+        ctsInputs           = map (second mkCCoin) $ convertTxOutputs inputOutputs
+        ctsTotalOutput      = mkCCoin totalOutput
+        totalOutput         = unsafeIntegerToCoin $ sumCoins $ map snd outputs
+
+    -- Verify that strange things don't happen with transactions
     when (totalOutput > totalInput) $
         throwM $ Internal "Detected tx with output greater than input"
 
     let ctsFees = mkCCoin $ unsafeSubCoin totalInput totalOutput
     pure $ CTxSummary {..}
+      where
+
+        -- General fetch that fetches either from DB or mempool
+        fetchBlockFields txId Nothing =
+            fetchBlockFieldsFromMempool txId
+
+        fetchBlockFields _    (Just (headerHash, txIndexInBlock)) =
+            fetchBlockFieldsFromDb headerHash txIndexInBlock
+
+        -- Fetching transaction from MemPool.
+        fetchBlockFieldsFromMempool txId = do
+            tx              <- fetchTxFromMempoolOrFail txId
+
+            let txOutputs   = convertTxOutputs . NE.toList . _txOutputs $
+                    view _1 tx
+            pure (Nothing, Nothing, Nothing, Nothing, txOutputs)
+
+        -- Fetching transaction from DB.
+        fetchBlockFieldsFromDb headerHash txIndexInBlock =  do
+
+            mb                <- getMainBlock headerHash
+            blkSlotStart      <- getBlkSlotStart mb
+
+            let blockHeight   = fromIntegral $ mb ^. difficultyL
+
+            -- Get block epoch and slot index
+            let blkHeaderSlot = mb ^. blockSlot
+            let epochIndex    = getEpochIndex $ siEpoch blkHeaderSlot
+            let slotIndex     = getSlotIndex  $ siSlot  blkHeaderSlot
+
+            tx <- maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
+                  atMay (toList $ mb ^. blockTxs) (fromIntegral txIndexInBlock)
+
+            let txOutputs     = convertTxOutputs . NE.toList $ _txOutputs tx
+                ts            = toPosixTime <$> blkSlotStart
+            pure (ts, Just blockHeight, Just epochIndex, Just slotIndex, txOutputs)
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -346,10 +375,11 @@ filterAllBlocks headerHash predicate acc
 unwrapOrThrow :: ExplorerMode m => Either Text a -> m a
 unwrapOrThrow = either (throwM . Internal) pure
 
+-- | Get transaction from memory (STM) or throw exception.
 fetchTxFromMempoolOrFail :: ExplorerMode m => TxId -> m TxAux
 fetchTxFromMempoolOrFail txId =
-    maybeThrow (Internal "Transaction not found in the mempool") =<<
-    view (mpLocalTxs . at txId) <$> getMemPool
+    view (mpLocalTxs . at txId) <$> getMemPool >>=
+    maybeThrow (Internal "Transaction not found in the mempool")
 
 getMempoolTxs :: ExplorerMode m => m [TxInternal]
 getMempoolTxs = do
@@ -400,29 +430,32 @@ topsortTxsOrFail f =
     maybeThrow (Internal "Dependency loop in txs set") .
     topsortTxs f
 
+-- | Convert server address to client address,
+-- with the possible exception (effect).
 cAddrToAddr :: MonadThrow m => CAddress -> m Address
-cAddrToAddr cAddr =
-    fromCAddress cAddr &
-    either (const $ throwM $ Internal "Invalid address!") pure
+cAddrToAddr cAddr = either exception pure (fromCAddress cAddr)
+  where
+    exception = const $ throwM $ Internal "Invalid address!"
 
+-- | Convert server transaction to client transaction,
+-- with the possible exception (effect).
 cTxIdToTxId :: MonadThrow m => CTxId -> m TxId
-cTxIdToTxId cTxId =
-    fromCTxId cTxId &
-    either (const $ throwM $ Internal "Invalid transaction id!") pure
+cTxIdToTxId cTxId = either exception pure (fromCTxId cTxId)
+  where
+    exception = const $ throwM $ Internal "Invalid transaction id!"
 
 getMainBlock :: ExplorerMode m => HeaderHash -> m (MainBlock SscGodTossing)
 getMainBlock h =
     DB.getBlock h >>=
     maybeThrow (Internal "No block found") >>=
     either (const $ throwM $ Internal "Block is genesis block") pure
-{-}
-getTxExtra :: ExplorerMode m => TxId -> m (Maybe TxExtra)
-getTxExtra id =
-    MM.lookupM EX.getTxExtra id =<< getTxExtra
--}
-getTxExtraOrFail :: ExplorerMode m => TxId -> m TxExtra
-getTxExtraOrFail id =
-    maybeThrow (Internal "Transaction not found") =<< getTxExtra id
+
+-- | Get transaction extra from the database, and if you don't find it
+-- throw an exception.
+getTxExtraOrFail :: MonadDB m => TxId -> m TxExtra
+getTxExtraOrFail txId = getTxExtra txId >>= maybeThrow exception
+  where
+    exception = Internal "Transaction not found"
 
 getTxMain :: ExplorerMode m => TxId -> TxExtra -> m Tx
 getTxMain id TxExtra {..} = case teBlockchainPlace of

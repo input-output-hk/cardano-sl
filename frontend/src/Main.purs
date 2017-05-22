@@ -16,6 +16,7 @@ import Explorer.Update (update) as Ex
 import Explorer.Util.Config (SyncAction(..), hostname, isProduction, secureProtocol)
 import Explorer.View.Layout (view)
 import Network.HTTP.Affjax (AJAX)
+import Control.Monad.Eff.Console (CONSOLE)
 import Pos.Explorer.Socket.Methods (ServerEvent(..))
 import Prelude (bind, const, pure, ($), (*), (<$>), (<<<), (<>), (=<<))
 import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
@@ -25,7 +26,7 @@ import Signal (Signal, (~>))
 import Signal.Channel (channel, subscribe)
 import Signal.Time (every, second)
 
-type AppEffects = (dom :: DOM, ajax :: AJAX, socket :: SocketIO, now :: NOW)
+type AppEffects = (dom :: DOM, ajax :: AJAX, socket :: SocketIO, now :: NOW, console :: CONSOLE)
 
 type AppConfig = (Config Ex.State Ex.Action AppEffects)
 

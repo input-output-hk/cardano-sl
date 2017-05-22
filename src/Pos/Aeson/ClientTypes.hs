@@ -11,15 +11,16 @@ import           Pos.Wallet.Web.ClientTypes (Acc, CAccount, CAccountAddress, CAd
                                              CCoin, CHash, CInitialized, CInitialized,
                                              CPaperVendWalletRedeem, CProfile, CProfile,
                                              CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CWallet, CWalletAddress, CWalletAssurance,
-                                             CWalletInit, CWalletMeta, CWalletRedeem,
-                                             CWalletSet, CWalletSetInit, CWalletSetMeta,
-                                             NotifyEvent, SyncProgress, WS)
+                                             CWallet, CWalletAddress, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, CWalletSet,
+                                             CWalletSetAssurance, CWalletSetInit,
+                                             CWalletSetMeta, NotifyEvent, SyncProgress,
+                                             WS)
 import           Pos.Wallet.Web.Error       (WalletError)
 
 deriveJSON defaultOptions ''CWalletAddress
 deriveJSON defaultOptions ''CAccountAddress
-deriveJSON defaultOptions ''CWalletAssurance
+deriveJSON defaultOptions ''CWalletSetAssurance
 deriveJSON defaultOptions ''CWalletMeta
 deriveJSON defaultOptions ''CWalletInit
 deriveJSON defaultOptions ''CWalletRedeem

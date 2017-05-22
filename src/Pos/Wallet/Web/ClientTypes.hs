@@ -21,7 +21,7 @@ module Pos.Wallet.Web.ClientTypes
       , CAccountAddress (..)
       , CAccount (..)
       , CWallet (..)
-      , CWalletAssurance (..)
+      , CWalletSetAssurance (..)
       , CWalletMeta (..)
       , CWalletInit (..)
       , CWalletSet (..)
@@ -32,6 +32,7 @@ module Pos.Wallet.Web.ClientTypes
       , CPaperVendWalletRedeem (..)
       , CCoin
       , mkCCoin
+      , coinFromCCoin
       , PassPhraseLU
       , CElectronCrashReport (..)
       , NotifyEvent (..)
@@ -77,6 +78,7 @@ import           System.Wlog            (WithLogger)
 import           Pos.Aeson.Types        ()
 import           Pos.Binary.Class       (Bi (..), decodeFull, encode, encodeStrict, label)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
+import           Pos.Core.Coin          (mkCoin)
 import           Pos.Core.Types         (ScriptVersion)
 import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, encToPublic,
                                          hashHexF)
@@ -224,7 +226,7 @@ data CAccountAddress = CAccountAddress
       caaAccountIndex :: Word32
     , -- | Actual adress of this account
       caaId           :: CAddress Acc
-    } deriving (Eq, Show, Generic, Typeable)
+    } deriving (Eq, Ord, Show, Generic, Typeable)
 
 instance Buildable CAccountAddress where
     build CAccountAddress{..} =
@@ -233,27 +235,30 @@ instance Buildable CAccountAddress where
 
 walletAddrByAccount :: CAccountAddress -> CWalletAddress
 walletAddrByAccount CAccountAddress{..} = CWalletAddress
-    { cwaWSId = caaWSId
-    , cwaIndex     = caaWalletIndex
+    { cwaWSId  = caaWSId
+    , cwaIndex = caaWalletIndex
     }
 
 instance Hashable CAccountAddress
 
 newtype CCoin = CCoin
-    { getCoin :: Text
-    } deriving (Show, Generic)
+    { getCCoin :: Text
+    } deriving (Show, Eq, Generic)
 
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
+
+coinFromCCoin :: CCoin -> Maybe Coin
+coinFromCCoin = fmap mkCoin . readMaybe . toString . getCCoin
 
 -- | Passphrase last update time
 type PassPhraseLU = POSIXTime
 
 -- | A level of assurance for the wallet "meta type"
-data CWalletAssurance
+data CWalletSetAssurance
     = CWAStrict
     | CWANormal
-    deriving (Show, Generic)
+    deriving (Show, Eq, Generic)
 
 -- | Single account in a wallet
 data CAccount = CAccount
@@ -264,12 +269,10 @@ data CAccount = CAccount
 -- Includes data which are not provided by Cardano
 data CWalletMeta = CWalletMeta
     { cwName      :: !Text
-    , cwAssurance :: !CWalletAssurance
-    , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
     } deriving (Show, Generic)
 
 instance Default CWalletMeta where
-    def = CWalletMeta "Personal Wallet" CWANormal 0
+    def = CWalletMeta "Personal Wallet"
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
@@ -277,6 +280,7 @@ data CWallet = CWallet
     { cwId       :: !CWalletAddress
     , cwMeta     :: !CWalletMeta
     , cwAccounts :: ![CAccount]
+    , cwAmount   :: !CCoin
     } deriving (Show, Generic, Typeable)
 
 -- | Query data for wallet creation
@@ -293,18 +297,20 @@ data CWalletRedeem = CWalletRedeem
 
 -- | Meta data of 'CWalletSet'
 data CWalletSetMeta = CWalletSetMeta
-    { cwsName :: !Text
+    { cwsName      :: !Text
+    , cwsAssurance :: !CWalletSetAssurance
+    , cwsUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
     } deriving (Show, Eq, Generic)
 
-
 instance Default CWalletSetMeta where
-  def = CWalletSetMeta "Personal Wallet Set"
+    def = CWalletSetMeta "Personal Wallet Set" CWANormal 0
 
 -- | Client Wallet Set (CW)
 data CWalletSet = CWalletSet
     { cwsId            :: !(CAddress WS)
     , cwsWSetMeta      :: !CWalletSetMeta
     , cwsWalletsNumber :: !Int
+    , cwsAmount        :: !CCoin
     , cwsHasPassphrase :: !Bool
     , cwsPassphraseLU  :: !PassPhraseLU  -- last update time
     } deriving (Eq, Show, Generic)

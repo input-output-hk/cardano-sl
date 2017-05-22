@@ -63,7 +63,7 @@ import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (Acc, CAccountAddress, CAccountAddress (..),
                                              CAddress, CCoin, CHash, CProfile, CTxId,
                                              CTxMeta, CUpdateInfo, CWalletAddress,
-                                             CWalletAssurance, CWalletMeta,
+                                             CWalletMeta, CWalletSetAssurance,
                                              CWalletSetMeta, PassPhraseLU, WS,
                                              walletAddrByAccount)
 
@@ -270,7 +270,7 @@ deriveSafeCopySimple 0 'base ''Acc
 deriveSafeCopySimple 0 'base ''BackupPhrase
 deriveSafeCopySimple 0 'base ''CWalletAddress
 deriveSafeCopySimple 0 'base ''CAccountAddress
-deriveSafeCopySimple 0 'base ''CWalletAssurance
+deriveSafeCopySimple 0 'base ''CWalletSetAssurance
 deriveSafeCopySimple 0 'base ''CWalletMeta
 deriveSafeCopySimple 0 'base ''CWalletSetMeta
 deriveSafeCopySimple 0 'base ''CTxId

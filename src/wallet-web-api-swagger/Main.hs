@@ -97,7 +97,7 @@ instance ToParamSchema W.CWalletAddress where
         & type_ .~ SwaggerString
         & format ?~ "walletSetAddress@walletKeyIndex"
 
-instance ToSchema      W.CWalletAssurance
+instance ToSchema      W.CWalletSetAssurance
 instance ToSchema      W.CWalletMeta
 instance ToSchema      W.CWalletSetMeta
 instance ToSchema      W.CWalletInit

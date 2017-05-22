@@ -61,8 +61,9 @@ import           Pos.Communication                (OutSpecs, SendActions, sendTx
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Core                         (Address (..), Coin, addressF,
                                                    decodeTextAddress, makePubKeyAddress,
-                                                   makeRedeemAddress, mkCoin,
-                                                   unsafeAddCoin, unsafeSubCoin)
+                                                   makeRedeemAddress, mkCoin, sumCoins,
+                                                   unsafeAddCoin, unsafeIntegerToCoin,
+                                                   unsafeSubCoin)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
                                                    aesDecrypt, changeEncPassphrase,
                                                    checkPassMatches, deriveAesKeyBS,
@@ -96,7 +97,7 @@ import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    getSKByAddr, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes       (Acc, CAccount (..),
-                                                   CAccountAddress (..), CAddress,
+                                                   CAccountAddress (..), CAddress, CCoin,
                                                    CElectronCrashReport (..),
                                                    CInitialized,
                                                    CPaperVendWalletRedeem (..),
@@ -111,8 +112,8 @@ import           Pos.Wallet.Web.ClientTypes       (Acc, CAccount (..),
                                                    NotifyEvent (..), SyncProgress (..),
                                                    WS, WalletUserSecret (..),
                                                    addressToCAddress, cAddressToAddress,
-                                                   cPassPhraseToPassPhrase, encToCAddress,
-                                                   mkCCoin, mkCTx, mkCTxId,
+                                                   cPassPhraseToPassPhrase, coinFromCCoin,
+                                                   encToCAddress, mkCCoin, mkCTx, mkCTxId,
                                                    readWalletUserSecret, toCUpdateInfo,
                                                    txContainsTitle, txIdToCTxId,
                                                    walletAddrByAccount)
@@ -439,32 +440,34 @@ getWalletAccAddrsOrThrow mode wCAddr =
         RequestError $
         sformat ("No wallet with address " %build % " found") wCAddr
 
-getAccounts :: WalletWebMode m => CWalletAddress -> m [CAccount]
-getAccounts = getWalletAccAddrsOrThrow Existing >=> mapM getAccount
-
 getWallet :: WalletWebMode m => CWalletAddress -> m CWallet
-getWallet cAddr = do
-    encSK <- getSKByAddr (cwaWSId cAddr)
-    accounts <- getAccounts cAddr
+getWallet wAddr = do
+    encSK <- getSKByAddr (cwaWSId wAddr)
+    accAddrs <- getWalletAccAddrsOrThrow Existing wAddr
     modifier <- txMempoolToModifier encSK
     let insertions = map fst (MM.insertions modifier)
-    let modAccs = S.fromList $ map caaId $ insertions ++ MM.deletions modifier
-    let filteredAccs = filter (flip S.notMember modAccs . caId) accounts
-    mempoolAccs <- mapM getAccount insertions
-    let mergedAccs = filteredAccs ++ mempoolAccs
-    meta <- getWalletMeta cAddr >>= maybeThrow noWallet
-    pure $ CWallet cAddr meta mergedAccs
+    let modAccs = S.fromList $ insertions ++ MM.deletions modifier
+    let filteredAccs = filter (`S.notMember` modAccs) accAddrs
+    let mergedAccAddrs = filteredAccs ++ insertions
+    mergedAccs <- mapM getAccount mergedAccAddrs
+    balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
+               mapM getAccountBalance mergedAccAddrs
+    meta <- getWalletMeta wAddr >>= maybeThrow noWallet
+    pure $ CWallet wAddr meta mergedAccs balance
   where
     noWallet =
-        RequestError $ sformat ("No wallet with address "%build%" found") cAddr
+        RequestError $ sformat ("No wallet with address "%build%" found") wAddr
 
 getWSet :: WalletWebMode m => CAddress WS -> m CWalletSet
 getWSet cAddr = do
     meta       <- getWSetMeta cAddr >>= maybeThrow noWSet
-    walletsNum <- length <$> getWallets (Just cAddr)
+    wallets    <- getWallets (Just cAddr)
+    let walletsNum = length wallets
+    balance    <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
+                     mapM (decodeCCoinOrFail . cwAmount) wallets
     hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKByAddr cAddr
     passLU     <- getWSetPassLU cAddr >>= maybeThrow noWSet
-    pure $ CWalletSet cAddr meta walletsNum hasPass passLU
+    pure $ CWalletSet cAddr meta walletsNum balance hasPass passLU
   where
     noWSet = RequestError $
         sformat ("No wallet set with address "%build%" found") cAddr
@@ -474,6 +477,10 @@ decodeCAddressOrFail :: MonadThrow m => CAddress w -> m Address
 decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
   where wrongAddress err = throwM . RequestError $
             sformat ("Error while decoding CAddress: "%stext) err
+
+decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
+decodeCCoinOrFail c =
+    coinFromCCoin c `whenNothing` throwM (RequestError "Wrong coin format")
 
 getWSetWalletAddrs :: WalletWebMode m => CAddress WS -> m [CWalletAddress]
 getWSetWalletAddrs wSet = filter ((== wSet) . cwaWSId) <$> getWalletAddresses
@@ -1041,7 +1048,7 @@ importWSetSecret cpassphrase WalletUserSecret{..} = do
     let key    = wusRootKey
         addr   = makePubKeyAddress $ encToPublic key
         wsAddr = addressToCAddress addr
-        wsMeta = CWalletSetMeta wusWSetName
+        wsMeta = def { cwsName = wusWSetName }
     addSecretKey key
     importedWSet <- createWSetSafe wsAddr wsMeta
 

@@ -1,4 +1,4 @@
-resolver: lts-8.2
+resolver: lts-8.5
 
 packages:
   - '.'
@@ -7,12 +7,12 @@ packages:
       commit: b4b0a6774368b9bbea96d7a03a1a451b6fc3cfea
     extra-dep: true
   - location:
-      git: https://github.com/avieth/network-transport
+      git: https://github.com/serokell/network-transport
       commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
     extra-dep: true
   - location:
-      git: https://github.com/avieth/network-transport-tcp
-      commit: eb1ed2fe4d4419c860ce060cb1091f7c8959134f
+      git: https://github.com/serokell/network-transport-tcp
+      commit: a6c04c35f3a1d786bc5e57fd04cf3e2a043179f3
     extra-dep: true
   - location:
       git: https://github.com/avieth/network-transport-inmemory

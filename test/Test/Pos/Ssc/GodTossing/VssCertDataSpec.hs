@@ -16,8 +16,8 @@ import           Pos.Core.Slotting     (flattenEpochOrSlot, unflattenSlotId)
 import           Pos.Ssc.GodTossing    (GtGlobalState (..), MultiRichmenStake,
                                         VssCertData (..), VssCertificate (..), delete,
                                         empty, expiryEoS, filter, getCertId,
-                                        gsVssCertificates, insert, keys, lookup,
-                                        mkVssCertificate, member, rollbackGT, runPureToss,
+                                        gsVssCertificates, insert, keys, lookup, member,
+                                        mkVssCertificate, rollbackGT, runPureToss,
                                         setLastKnownSlot)
 import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotId,
                                         SlotId (..))
@@ -194,7 +194,6 @@ verifyRollback (Rollback mrs oldGtGlobalState rollbackEoS vssCerts) =
             runPureToss mrs newGtGlobalState $ rollbackGT rollbackEoS (NewestFirst [])
     in conjoin $ fmap (\cert ->
                           isJust (lookup (getCertId cert) newVssCertData) &&
-                          maybe True
-                                (/= cert)
-                                (lookup (getCertId cert) rolledVssCertData))
+                          (/= Just cert)
+                              (lookup (getCertId cert) rolledVssCertData))
                  vssCerts

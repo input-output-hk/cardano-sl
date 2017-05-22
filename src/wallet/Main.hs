@@ -3,7 +3,9 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Main where
+module Main
+  ( main
+  ) where
 
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.Reader       (MonadReader (..), ReaderT, ask, runReaderT)

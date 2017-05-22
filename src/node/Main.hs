@@ -4,7 +4,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
-module Main where
+module Main
+  ( main
+  ) where
 
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.List                  ((!!))

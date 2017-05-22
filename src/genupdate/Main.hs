@@ -1,4 +1,6 @@
-module Main where
+module Main
+  ( main
+  ) where
 
 import qualified Codec.Archive.Tar    as Tar
 import qualified Control.Foldl        as Fold

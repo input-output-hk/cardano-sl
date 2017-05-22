@@ -11,6 +11,7 @@ module Daedalus.Types
        , mkCAddress
        , mkCWalletMeta
        , mkCWalletInit
+       , mkCWalletAddress
        , mkCTxMeta
        , mkCTxId
        , mkCCurrency
@@ -95,7 +96,7 @@ showCCurrency = dropModuleName <<< gShow
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses
 walletAddressToUrl :: CWalletAddress -> String
-walletAddressToUrl (CWalletAddress r) = _address r.cwaWSAddress <> "@" <> toString r.cwaIndex
+walletAddressToUrl (CWalletAddress r) = r
 
 _hash :: CHash -> String
 _hash (CHash h) = h
@@ -125,6 +126,9 @@ mkCCoin amount = CCoin { getCoin: amount }
 -- NOTE: use genericRead maybe https://github.com/paluh/purescript-generic-read-example
 mkCWalletType :: String -> CT.CWalletType
 mkCWalletType = either (const CT.CWTPersonal) id <<< decodeJson <<< fromString
+
+mkCWalletAddress :: String -> CT.CWalletAddress
+mkCWalletAddress = CWalletAddress
 
 mkCCurrency :: String -> CT.CCurrency
 mkCCurrency = either (const CT.ADA) id <<< decodeJson <<< fromString

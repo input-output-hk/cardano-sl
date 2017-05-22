@@ -22,7 +22,7 @@ stack --nix --no-terminal install happy \
 
 stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl \
   $EXTRA_STACK --fast --jobs=4 \
-  --ghc-options="-j -DCONFIG=wallet +RTS -A128m -n2m -RTS" \
+  --ghc-options="-j -DCONFIG=wallet +RTS -A2G -n2m -RTS" \
   --flag cardano-sl:-asserts \
   --flag cardano-sl-core:-dev-mode | ts
 

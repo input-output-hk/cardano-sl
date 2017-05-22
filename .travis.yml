@@ -3,8 +3,6 @@ language: nix
 sudo: true
 matrix:
   include:
-    - os: osx
-      osx_image: xcode7.3
     - env: HLINT=true
     - os: osx
       osx_image: xcode8.3

@@ -54,7 +54,6 @@ import           Pos.Statistics             (NoStatsT, StatsMap, StatsT, getNoSt
 import           Pos.Update.Context         (ucUpdateSemaphore)
 import           Pos.Update.Params          (UpdateParams (..))
 import           Pos.Util                   (inAssertMode)
-import           Pos.Util.BackupPhrase      (keysFromPhrase)
 import           Pos.Util.UserSecret        (UserSecret, peekUserSecret, usPrimKey, usVss,
                                              writeUserSecret)
 import           Pos.Util.Util              (powerLift)
@@ -63,7 +62,7 @@ import           Pos.WorkMode               (ProductionMode, RawRealMode, RawRea
                                              StatsMode)
 import qualified STMContainers.Map          as SM
 #ifdef WITH_WEB
-import           Pos.Web                    (serveWebBase, serveWebGT)
+import           Pos.Web                    (serveWebGT)
 import           Pos.WorkMode               (WorkMode)
 #ifdef WITH_WALLET
 import           Pos.Wallet.Web             (ConnectionsVar, WalletState,
@@ -305,19 +304,6 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
         writeUserSecret us
         return us
 
-processUserSecret
-    :: (MonadIO m, MonadFail m)
-    => Args -> UserSecret -> m (SecretKey, UserSecret)
-processUserSecret args@Args {..} userSecret = case backupPhrase of
-    Nothing -> updateUserSecretVSS args userSecret >>= userSecretWithGenesisKey args
-    Just ph -> do
-        (sk, vss) <- either keyFromPhraseFailed pure $ keysFromPhrase ph
-        let us = userSecret & usPrimKey .~ Just sk & usVss .~ Just vss
-        writeUserSecret us
-        return (sk, us)
-  where
-    keyFromPhraseFailed msg = fail $ "Key creation from phrase failed: " <> show msg
-
 getNodeParams
     :: (MonadIO m, MonadFail m, MonadThrow m, WithLogger m)
     => Args -> Timestamp -> m NodeParams
@@ -359,17 +345,6 @@ gtSscParams Args {..} vssSK =
     { gtpSscEnabled = True
     , gtpVssKeyPair = vssSK
     }
-
-#ifdef WITH_WEB
-plugins ::
-    ( SscConstraint ssc
-    , WorkMode ssc m
-    , MonadNodeContext ssc m
-    ) => Args -> [m ()]
-plugins Args {..}
-    | enableWeb = [serveWebBase webPort]
-    | otherwise = []
-#endif
 
 #ifdef WITH_WEB
 pluginsGT ::

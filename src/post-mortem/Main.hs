@@ -10,14 +10,21 @@ import           Universum
 
 main :: IO ()
 main = do
-    Options{..} <- parseOptions
-    err "logs directories: "
-    for_ logDirs $ \d -> err $ " - " ++ show d
-    err ""
-   
-    xs <- forM logDirs processLogDir
-    chart xs "times.svg"
-    err "wrote times chart"
+    opts <- parseOptions
+    case opts of
+        Overview logDirs    -> do
+            err "logs directories: "
+            for_ logDirs $ \d -> err $ " - " ++ show d
+            err ""
+            xs <- forM logDirs processLogDir
+            chart xs "times.svg"
+            err "wrote times chart"
+        Focus txHash logDir -> do
+            err $ "transaction hash: " ++ show txHash
+            err $ "logs directory: " ++ show logDir 
+            let focusFile = ("focus_" ++ extractName logDir ++ "_" ++ toString txHash) <.> "csv"
+            runJSONFold logDir (focusF txHash) >>= focusToCSV focusFile
+            err $ "wrote result to " ++ show focusFile
 
 processLogDir :: FilePath -> IO (String, Map TxHash (Maybe Timestamp))
 processLogDir logDir = do
@@ -35,15 +42,15 @@ processLogDir logDir = do
 
     let dirName   = extractName logDir
     let graphFile = getName "graph" dirName "png"
-    writeGraph graphFile g
-    err $ "wrote graph png to " ++ show graphFile
+    b <- writeGraph graphFile g
+    when b $ err $ "wrote graph png to " ++ show graphFile
 
     let csvFile = getName "csv" dirName "csv"
     txCntInChainMemPoolToCSV csvFile cr mp
     err $ "wrote csv file to " ++ show csvFile
 
     let reportFile = getName "report" dirName "txt"
-    reportTxFate reportFile ft
+    void (reportTxFate reportFile ft)
     err $ "wrote report file to " ++ show reportFile
 
     err $ "processing log directory " ++ show logDir ++ " done"

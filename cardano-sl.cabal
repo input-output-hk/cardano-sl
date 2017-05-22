@@ -1325,6 +1325,7 @@ executable cardano-post-mortem
                      , Statistics.Block
                      , Statistics.Chart
                      , Statistics.CSV
+                     , Statistics.Focus
                      , Statistics.Graph
                      , Statistics.MemPool
                      , Statistics.Report

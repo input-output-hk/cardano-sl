@@ -4,6 +4,7 @@ module Statistics
     , module Statistics.Block
     , module Statistics.Chart
     , module Statistics.CSV
+    , module Statistics.Focus
     , module Statistics.Graph
     , module Statistics.MemPool
     , module Statistics.Report
@@ -18,6 +19,7 @@ import JSONLog
 import Statistics.Block
 import Statistics.Chart
 import Statistics.CSV
+import Statistics.Focus
 import Statistics.Graph
 import Statistics.MemPool
 import Statistics.Report

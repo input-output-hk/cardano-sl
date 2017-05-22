@@ -18,7 +18,7 @@ import qualified Data.Set                          as S
 import qualified Data.Text                         as T
 import qualified Data.Text.Lazy                    as L
 import           System.IO                         (hPutStrLn)
-import           Turtle                            hiding (FilePath, f, g, toText)
+import           Turtle                            hiding (FilePath, f, g, toText, stderr)
 import qualified Turtle.Prelude                    as T
 
 import           JSONLog                           (IndexedJLTimedEvent)
@@ -60,14 +60,15 @@ graphF = f <$> blockHeadersF
                      , show (bhSlot bh)
                      ]
 
-writeGraph :: FilePath -> DotGraph Int -> IO ()
+writeGraph :: FilePath -> DotGraph Int -> IO Bool
 writeGraph f g = with (T.mktempfile "." "graph.dot") $ \tmp -> do
     with (T.writeonly tmp) $ flip hPutDot g
-    with (T.readonly tmp) $ \h -> T.which "dot" >>= \case
-            Just dotPath -> do
-                ex <- T.shell (toText $ show dotPath ++ " -Tpng -o'" ++ f ++ "'")
-                              (T.inhandle h)
+    with (T.readonly tmp) $ \h -> do
+        b <-G.isGraphvizInstalled
+        if b 
+            then do
+                ex <- T.proc "dot" ["-Tpng", toText $ "-o" ++ f] (T.inhandle h)
                 case ex of
-                    ExitSuccess -> return ()
-                    _           -> hPutStrLn Universum.stderr $ "Creating the graph failed, " ++ show ex
-            Nothing -> hPutStrLn Universum.stderr $ "Cannot produce graph without dot. Please install graphviz."
+                    ExitSuccess -> return True
+                    _           -> hPutStrLn Universum.stderr ("Creating the graph failed, " ++ show ex) >> return False
+            else hPutStrLn stderr "Cannot produce graph without dot. Please install graphviz." >> return False

@@ -20,11 +20,7 @@ nix:
 
 ## Generate documentation
 
-```bash
-stack exec cardano-explorer-docs
-```
-
-Then check out ./cardano-explorer-web-api.md
+Generated documentation for Explorer Web API is available [online](https://cardanodocs.com/technical/explorer/api/).
 
 ## Run mock server
 

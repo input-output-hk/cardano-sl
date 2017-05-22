@@ -54,7 +54,7 @@ import           Pos.Update.DB                    (getAdoptedBVData)
 import           Pos.Util                         (inAssertMode)
 import           Pos.Util.Chrono                  (NewestFirst)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer                     (prepareExplorerDB)
+import           Pos.Explorer.DB                  (prepareExplorerDB)
 #endif
 
 -- | Open all DBs stored on disk.

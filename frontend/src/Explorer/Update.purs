@@ -9,7 +9,7 @@ import Control.SocketIO.Client (SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (difference, drop, length, take, (:))
+import Data.Array (drop, length, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -22,7 +22,7 @@ import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..), SocketSubscriptionAction(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, pullLatestTxs, route, socket, subscriptions, syncAction, totalBlocks, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, pullLatestTxs, socket, subscriptions, syncAction, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -36,6 +36,7 @@ import Explorer.View.Blocks (maxBlockRows)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Explorer.View.Dashboard.Transactions (maxTransactionRows)
 import Network.HTTP.Affjax (AJAX)
+import Control.Monad.Eff.Console (CONSOLE)
 import Network.RemoteData (RemoteData(..), isNotAsked, isSuccess, withDefault)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
@@ -44,11 +45,11 @@ import Pux.Router (navigateTo) as P
 
 update :: forall eff. Action -> State ->
     EffModel State Action
-    (dom :: DOM
+    ( dom :: DOM
     , ajax :: AJAX
     , socket :: SocketIO
     , now :: NOW
-    -- , console :: CONSOLE
+    , console :: CONSOLE
     | eff
     )
 
@@ -160,7 +161,8 @@ update (SocketCallMeCTxId id) state =
           pure NoOp
     ]}
 
-update (SocketUpdateSubscriptions nextSubs subAction ) state =
+-- let's keep it simple
+update (SocketUpdateSubscriptions nextSubs subAction) state =
     { state: set (socket <<< subscriptions) nextSubs state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
@@ -174,16 +176,14 @@ update (SocketUpdateSubscriptions nextSubs subAction ) state =
               Nothing -> pure unit
           pure NoOp
     ]}
-        where
-            currentSubs = state ^. socket <<< subscriptions
-            diffNextFromCurrentSubs = difference currentSubs nextSubs
-            unsubPrevSubscriptions socket'' =
-                traverse_ (liftEff <<< emit' socket'' <<< toEvent <<< Unsubscribe <<< unwrap) diffNextFromCurrentSubs
-            diffCurrentFromNextSubs = difference nextSubs currentSubs
-            subNextSubscriptions socket'' =
-                traverse_ (liftEff <<< emit' socket'' <<< toEvent <<< Subscribe <<< unwrap) diffCurrentFromNextSubs
+    where
+      currentSubs = state ^. socket <<< subscriptions
 
+      unsubPrevSubscriptions socket'' =
+          traverse_ (liftEff <<< emit' socket'' <<< toEvent <<< Unsubscribe <<< unwrap) currentSubs
 
+      subNextSubscriptions socket'' =
+          traverse_ (liftEff <<< emit' socket'' <<< toEvent <<< Subscribe <<< unwrap) nextSubs
 
 update SocketReconnectSubscriptions state =
     let currentSubs = state ^. socket <<< subscriptions in
@@ -191,7 +191,11 @@ update SocketReconnectSubscriptions state =
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> do
+                -- first unsubscribe from existing subscriptions
+                traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Unsubscribe <<< unwrap) currentSubs
+                -- then subscribe to them again
                 traverse_ (liftEff <<< emit' socket' <<< toEvent <<< Subscribe <<< unwrap) currentSubs
+
               Nothing -> pure unit
           pure NoOp
     ]}
@@ -557,15 +561,7 @@ update (ReceiveInitialTxs (Right txs)) state =
                                           withDefault [] currentTxs
               )
           state
-    , effects:
-          -- add subscription of `SubTx` if we are on `Dashboard` only
-          if (state ^. route) == Dashboard
-          then [ pure $ SocketUpdateSubscriptions
-                            [ SocketSubscription SubTx]
-                            KeepPrevSubscriptions
-                ]
-          else []
-
+    , effects: []
     }
 
 update (ReceiveInitialTxs (Left error)) state = noEffects $
@@ -691,12 +687,14 @@ routeEffects Dashboard state =
               then [ pure RequestTxsUpdate ]
               else []
             )
-        -- subscribe to `SubTx `if needed
+        -- subscribe to `SubBlock` and `SubTx `if needed
         <>  ( if  (syncBySocket $ state ^. syncAction) &&
+                  (isSuccess $ state ^. latestBlocks) &&
                   (isSuccess $ state ^. latestTransactions)
               then [ pure $ SocketUpdateSubscriptions
-                              [ SocketSubscription SubTx
-                              ] KeepPrevSubscriptions
+                              [ SocketSubscription SubBlock
+                              , SocketSubscription SubTx
+                              ] UnsubscribePrevSubscriptions
                   ]
               else []
             )

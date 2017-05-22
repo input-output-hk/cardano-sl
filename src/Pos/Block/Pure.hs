@@ -6,8 +6,6 @@
 module Pos.Block.Pure
        ( blockDifficultyIncrement
        , headerDifficultyIncrement
-       , mkGenericBlock
-       , mkGenericHeader
        , mkMainBlock
        , recreateMainBlock
        , mkMainHeader
@@ -40,8 +38,8 @@ import           Pos.Binary.Core              ()
 import           Pos.Binary.Update            ()
 import           Pos.Block.Core               (BiSsc, Block, BlockHeader,
                                                BlockSignature (..), Body (..),
-                                               ConsensusData (..), GenesisBlock,
-                                               GenesisBlockHeader, GenesisBlockchain,
+                                               GenesisBlock, GenesisBlockHeader,
+                                               GenesisBlockchain,
                                                GenesisExtraBodyData (..),
                                                GenesisExtraHeaderData (..), MainBlock,
                                                MainBlockHeader, MainBlockchain,
@@ -55,7 +53,7 @@ import           Pos.Block.Core               (BiSsc, Block, BlockHeader,
                                                mcdSlot, mebAttributes, mehAttributes)
 import           Pos.Block.Core.Genesis.Chain (Body (..), ConsensusData (..))
 import           Pos.Block.Core.Main.Chain    (ConsensusData (..))
-import           Pos.Constants                (epochSlots, genesisHash)
+import           Pos.Constants                (epochSlots)
 import           Pos.Core                     (ChainDifficulty, EpochIndex, EpochOrSlot,
                                                HasDifficulty (..), HasEpochIndex (..),
                                                HasEpochOrSlot (..), HasHeaderHash (..),
@@ -64,7 +62,8 @@ import           Pos.Core                     (ChainDifficulty, EpochIndex, Epoc
                                                gbhExtra, headerSlotL, prevBlockL)
 import           Pos.Core.Block               (Blockchain (..), GenericBlock (..),
                                                GenericBlockHeader (..), gbBody,
-                                               gbBodyProof, gbExtra, gbHeader)
+                                               gbBodyProof, gbExtra, gbHeader,
+                                               mkGenericHeader)
 import           Pos.Crypto                   (ProxySecretKey (..), SecretKey,
                                                SignTag (..), checkSig, pdCert, proxySign,
                                                proxyVerify, sign, toPublic)
@@ -83,47 +82,6 @@ headerDifficultyIncrement (Right _) = 1
 -- | Difficulty of the Block, which is determined from header.
 blockDifficultyIncrement :: Block ssc -> ChainDifficulty
 blockDifficultyIncrement = headerDifficultyIncrement . getBlockHeader
-
--- | Smart constructor for 'GenericBlockHeader'.
-mkGenericHeader
-    :: forall b.
-       ( HasHeaderHash (BBlockHeader b)
-       , Blockchain b
-       , BHeaderHash b ~ HeaderHash
-       )
-    => Maybe (BBlockHeader b)
-    -> Body b
-    -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
-    -> ExtraHeaderData b
-    -> GenericBlockHeader b
-mkGenericHeader prevHeader body consensus extra =
-    GenericBlockHeader
-    { _gbhPrevBlock = h
-    , _gbhBodyProof = proof
-    , _gbhConsensus = consensus h proof
-    , _gbhExtra = extra
-    }
-  where
-    h :: HeaderHash
-    h = maybe genesisHash headerHash prevHeader
-    proof = mkBodyProof body
-
--- | Smart constructor for 'GenericBlock'. Uses 'mkGenericBlockHeader'.
-mkGenericBlock
-    :: forall b.
-       ( HasHeaderHash (BBlockHeader b)
-       , Blockchain b
-       , BHeaderHash b ~ HeaderHash
-       )
-    => Maybe (BBlockHeader b)
-    -> Body b
-    -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
-    -> ExtraHeaderData b
-    -> ExtraBodyData b
-    -> GenericBlock b
-mkGenericBlock prevHeader _gbBody consensus extraH _gbExtra = GenericBlock{..}
-  where
-    _gbHeader = mkGenericHeader prevHeader _gbBody consensus extraH
 
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader

@@ -1,10 +1,18 @@
+{-# LANGUAGE Rank2Types      #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
+
+-- | This module contains some general definitions related to blocks
+-- and headers. The heart of this module is 'Blockchain' type class.
 
 module Pos.Core.Block
        ( Blockchain (..)
        , GenericBlockHeader (..)
        , GenericBlock (..)
+
+       -- * Smart constructors
+       , mkGenericHeader
+       , mkGenericBlock
 
        -- * Lenses
        -- ** Header
@@ -22,14 +30,15 @@ module Pos.Core.Block
        , gbConsensus
        ) where
 
-import           Control.Lens   (makeLenses)
+import           Control.Lens       (makeLenses)
 import           Universum
 
-import           Pos.Core.Class (HasPrevBlock (..))
-import           Pos.Core.Types (HeaderHash)
+import           Pos.Core.Class     (HasHeaderHash (..), HasPrevBlock (..))
+import           Pos.Core.Constants (genesisHash)
+import           Pos.Core.Types     (HeaderHash)
 
 ----------------------------------------------------------------------------
--- GenericBlock
+-- Blockchain class
 ----------------------------------------------------------------------------
 
 -- | Blockchain type class generalizes some functionality common for
@@ -64,6 +73,10 @@ class Blockchain p where
     checkBodyProof body proof = mkBodyProof body == proof
 
     verifyBBlock :: GenericBlock p -> Either Text ()
+
+----------------------------------------------------------------------------
+-- Generic types
+----------------------------------------------------------------------------
 
 -- | Header of block contains some kind of summary. There are various
 -- benefits which people get by separating header from other data.
@@ -128,6 +141,55 @@ deriving instance
 --    , NFData (Body b)
 --    , NFData (ExtraBodyData b)
 --    ) => NFData (GenericBlock b)
+
+----------------------------------------------------------------------------
+-- Smart constructors
+----------------------------------------------------------------------------
+
+-- | Smart constructor for 'GenericBlockHeader'.
+mkGenericHeader
+    :: forall b.
+       ( HasHeaderHash (BBlockHeader b)
+       , Blockchain b
+       , BHeaderHash b ~ HeaderHash
+       )
+    => Maybe (BBlockHeader b)
+    -> Body b
+    -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
+    -> ExtraHeaderData b
+    -> GenericBlockHeader b
+mkGenericHeader prevHeader body consensus extra =
+    GenericBlockHeader
+    { _gbhPrevBlock = h
+    , _gbhBodyProof = proof
+    , _gbhConsensus = consensus h proof
+    , _gbhExtra = extra
+    }
+  where
+    h :: HeaderHash
+    h = maybe genesisHash headerHash prevHeader
+    proof = mkBodyProof body
+
+-- | Smart constructor for 'GenericBlock'. Uses 'mkGenericBlockHeader'.
+mkGenericBlock
+    :: forall b.
+       ( HasHeaderHash (BBlockHeader b)
+       , Blockchain b
+       , BHeaderHash b ~ HeaderHash
+       )
+    => Maybe (BBlockHeader b)
+    -> Body b
+    -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
+    -> ExtraHeaderData b
+    -> ExtraBodyData b
+    -> GenericBlock b
+mkGenericBlock prevHeader _gbBody consensus extraH _gbExtra = GenericBlock{..}
+  where
+    _gbHeader = mkGenericHeader prevHeader _gbBody consensus extraH
+
+----------------------------------------------------------------------------
+-- Lenses
+----------------------------------------------------------------------------
 
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock

@@ -97,9 +97,9 @@ getMemPool = getTxpLocalData (STM.readTVar . txpMemPool)
 getTxpExtra :: (MonadIO m, MonadTxpMem e m) => m e
 getTxpExtra = getTxpLocalData (STM.readTVar . txpExtra)
 
-txpLocalDataLock :: MVar ()
-txpLocalDataLock = unsafePerformIO $ newMVar ()
-{-# NOINLINE txpLocalDataLock #-}
+-- txpLocalDataLock :: MVar ()
+-- txpLocalDataLock = unsafePerformIO $ newMVar ()
+-- {-# NOINLINE txpLocalDataLock #-}
 
 -- | An IORef to hold the current number of threads waiting on the
 --   txpLocalDataLock. It's incremented before taking it, and decremented
@@ -119,7 +119,7 @@ modifyTxpLocalData reason f =
         liftIO . usingLoggerName lname $ txpMetricsWait reason
         qlength <- atomicModifyIORef' txpLocalDataLockQueueLength $ \i -> (i + 1, i)
         timeBeginWait <- currentTime
-        _ <- takeMVar txpLocalDataLock
+        -- _ <- takeMVar txpLocalDataLock
         timeEndWait <- currentTime
         _ <- atomicModifyIORef' txpLocalDataLockQueueLength $ \i -> (i - 1, ())
         let timeWait = timeEndWait - timeBeginWait
@@ -142,7 +142,7 @@ modifyTxpLocalData reason f =
             pure (res, _mpLocalTxsSize curMP, _mpLocalTxsSize newMP)
         timeEndModify <- currentTime
         allocEndModify <- liftIO Conc.getAllocationCounter
-        putMVar txpLocalDataLock ()
+        -- putMVar txpLocalDataLock ()
         let timeModify = timeEndModify - timeBeginModify
             -- Allocation counter counts down, so
             -- allocBeginModify >= allocEndModify

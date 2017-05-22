@@ -35,7 +35,7 @@ packages:
 - location:
     git: https://github.com/thoughtpolice/hs-ed25519
     # We're waiting on next release
-    commit: 57adb970e198a9b377769ab46e776ec29f19cff6
+    commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git

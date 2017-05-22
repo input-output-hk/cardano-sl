@@ -61,11 +61,11 @@ import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (Acc, CAccountAddress, CAccountAddress (..),
-                                             CAddress, CCoin, CCurrency, CHash, CProfile,
-                                             CTxId, CTxMeta, CUpdateInfo, CWalletAddress,
+                                             CAddress, CCoin, CHash, CProfile, CTxId,
+                                             CTxMeta, CUpdateInfo, CWalletAddress,
                                              CWalletAssurance, CWalletMeta,
-                                             CWalletSetMeta, CWalletType, PassPhraseLU,
-                                             WS, walletAddrByAccount)
+                                             CWalletSetMeta, PassPhraseLU, WS,
+                                             walletAddrByAccount)
 
 type TransactionHistory = HashMap CTxId CTxMeta
 
@@ -270,8 +270,6 @@ deriveSafeCopySimple 0 'base ''Acc
 deriveSafeCopySimple 0 'base ''BackupPhrase
 deriveSafeCopySimple 0 'base ''CWalletAddress
 deriveSafeCopySimple 0 'base ''CAccountAddress
-deriveSafeCopySimple 0 'base ''CCurrency
-deriveSafeCopySimple 0 'base ''CWalletType
 deriveSafeCopySimple 0 'base ''CWalletAssurance
 deriveSafeCopySimple 0 'base ''CWalletMeta
 deriveSafeCopySimple 0 'base ''CWalletSetMeta

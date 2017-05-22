@@ -81,8 +81,6 @@ instance ToSchema      (W.CAddress W.WS)
 instance ToSchema      (W.CAddress W.Acc)
 instance ToParamSchema (W.CAddress W.WS)
 instance ToParamSchema (W.CAddress W.Acc)
-instance ToSchema      W.CCurrency
-instance ToParamSchema W.CCurrency
 instance ToSchema      W.CProfile
 instance ToSchema      W.WalletError
 
@@ -104,7 +102,6 @@ instance ToSchema      W.CWalletMeta
 instance ToSchema      W.CWalletSetMeta
 instance ToSchema      W.CWalletInit
 instance ToSchema      W.CWalletSetInit
-instance ToSchema      W.CWalletType
 instance ToSchema      W.CWalletRedeem
 instance ToSchema      W.CWalletSet
 instance ToSchema      W.CWallet

@@ -7,7 +7,6 @@
 module Pos.Wallet.Web.ClientTypes
       ( SyncProgress (..)
       , CAddress (..)
-      , CCurrency (..)
       , CHash (..)
       , CPassPhrase (..)
       , MCPassPhrase
@@ -22,7 +21,6 @@ module Pos.Wallet.Web.ClientTypes
       , CAccountAddress (..)
       , CAccount (..)
       , CWallet (..)
-      , CWalletType (..)
       , CWalletAssurance (..)
       , CWalletMeta (..)
       , CWalletInit (..)
@@ -114,14 +112,6 @@ data NotifyEvent
     | UpdateAvailable
     | ConnectionClosed
     deriving (Show, Generic)
-
--- | Currencies handled by client.
--- Note: Cardano does not deal with other currency than ADA yet.
-data CCurrency
-    = ADA
-    | BTC
-    | ETH
-    deriving (Show, Read, Generic)
 
 -- | Client hash
 newtype CHash = CHash Text
@@ -259,12 +249,6 @@ mkCCoin = CCoin . show . unsafeGetCoin
 -- | Passphrase last update time
 type PassPhraseLU = POSIXTime
 
--- | A wallet can be used as personal or shared wallet
-data CWalletType
-    = CWTPersonal
-    | CWTShared
-    deriving (Show, Generic)
-
 -- | A level of assurance for the wallet "meta type"
 data CWalletAssurance
     = CWAStrict
@@ -279,15 +263,13 @@ data CAccount = CAccount
 
 -- Includes data which are not provided by Cardano
 data CWalletMeta = CWalletMeta
-    { cwType      :: !CWalletType
-    , cwCurrency  :: !CCurrency
-    , cwName      :: !Text
+    { cwName      :: !Text
     , cwAssurance :: !CWalletAssurance
     , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
     } deriving (Show, Generic)
 
 instance Default CWalletMeta where
-    def = CWalletMeta CWTPersonal ADA "Personal Wallet" CWANormal 0
+    def = CWalletMeta "Personal Wallet" CWANormal 0
 
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
@@ -379,8 +361,7 @@ instance Default CProfile where
 
 -- | meta data of transactions
 data CTxMeta = CTxMeta
-    { ctmCurrency    :: CCurrency
-    , ctmTitle       :: Text
+    { ctmTitle       :: Text
     , ctmDescription :: Text
     , ctmDate        :: POSIXTime
     } deriving (Show, Generic)
@@ -403,8 +384,7 @@ txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . ctMet
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta
-    { cexCurrency    :: CCurrency
-    , cexTitle       :: Text
+    { cexTitle       :: Text
     , cexDescription :: Text
     , cexDate        :: POSIXTime
     , cexRate        :: Text

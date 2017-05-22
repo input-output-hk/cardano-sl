@@ -97,7 +97,6 @@ import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes       (Acc, CAccount (..),
                                                    CAccountAddress (..), CAddress,
-                                                   CCurrency (ADA),
                                                    CElectronCrashReport (..),
                                                    CInitialized,
                                                    CPaperVendWalletRedeem (..),
@@ -382,11 +381,11 @@ servantHandlers sendActions =
     apiNewWallet                = (\a -> catchWalletError . newWallet RandomSeed a)
     apiDeleteWallet             = catchWalletError . deleteWallet
     apiNewAccount               = (\a -> catchWalletError . newAccount RandomSeed a)
-    apiIsValidAddress           = (\a -> catchWalletError . isValidAddress a)
+    apiIsValidAddress           = (catchWalletError . isValidAddress)
     apiGetUserProfile           = catchWalletError getUserProfile
     apiUpdateUserProfile        = catchWalletError . updateUserProfile
     apiTxsPayments              = (\a b c -> catchWalletError . send sendActions a b c)
-    apiTxsPaymentsExt           = (\a b c d e f -> catchWalletError . sendExtended sendActions a b c d e f)
+    apiTxsPaymentsExt           = (\a b c d e -> catchWalletError . sendExtended sendActions a b c d e)
     apiUpdateTransaction        = (\a b -> catchWalletError . updateTransaction a b)
     apiGetHistory               = (\a b -> catchWalletError . getHistory a b)
     apiSearchHistory            = (\a b c d -> catchWalletError . searchHistory a b c d)
@@ -506,7 +505,7 @@ send
     -> Coin
     -> m CTx
 send sendActions cpass srcCAddr dstCAddr c =
-    sendExtended sendActions cpass srcCAddr dstCAddr c ADA mempty mempty
+    sendExtended sendActions cpass srcCAddr dstCAddr c mempty mempty
 
 sendExtended
     :: WalletWebMode m
@@ -515,17 +514,15 @@ sendExtended
     -> CWalletAddress
     -> CAddress Acc
     -> Coin
-    -> CCurrency
     -> Text
     -> Text
     -> m CTx
-sendExtended sa cpassphrase srcWallet dstAccount coin curr title desc =
+sendExtended sa cpassphrase srcWallet dstAccount coin title desc =
     sendMoney
         sa
         cpassphrase
         (WalletMoneySource srcWallet)
         (one (dstAccount, coin))
-        curr
         title
         desc
 
@@ -559,11 +556,10 @@ sendMoney
     -> Maybe CPassPhrase
     -> MoneySource
     -> NonEmpty (CAddress Acc, Coin)
-    -> CCurrency
     -> Text
     -> Text
     -> m CTx
-sendMoney sendActions cpassphrase moneySource dstDistr curr title desc = do
+sendMoney sendActions cpassphrase moneySource dstDistr title desc = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
     allAccounts <- getMoneySourceAccounts moneySource
     let dstAccAddrsSet = S.fromList $ map fst $ toList dstDistr
@@ -646,7 +642,7 @@ sendMoney sendActions cpassphrase moneySource dstDistr curr title desc = do
                     -- TODO [CSM-251]: if money source is wallet set, then this is not fully correct
                     srcWallet <- getMoneySourceWallet moneySource
                     mapM_ removeAccount srcAccounts
-                    addHistoryTx srcWallet curr title desc $
+                    addHistoryTx srcWallet title desc $
                         THEntry txHash tx srcTxOuts Nothing (toList srcAccAddrs) dstAddrs
 
     listF separator formatter =
@@ -686,7 +682,7 @@ getHistory wAddr skip limit = do
                     taCachedUtxo
                     (cached <> cachedTxs)
 
-            forM fullHistory $ addHistoryTx wAddr ADA mempty mempty
+            forM fullHistory $ addHistoryTx wAddr mempty mempty
     pure (paginate cHistory, fromIntegral $ length cHistory)
   where
     paginate = take defaultLimit . drop defaultSkip
@@ -714,16 +710,15 @@ searchHistory wAddr search mAccAddr skip limit =
 addHistoryTx
     :: WalletWebMode m
     => CWalletAddress
-    -> CCurrency
     -> Text
     -> Text
     -> TxHistoryEntry
     -> m CTx
-addHistoryTx cAddr curr title desc wtx@THEntry{..} = do
+addHistoryTx cAddr title desc wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
-    meta <- CTxMeta curr title desc <$> liftIO getPOSIXTime
+    meta <- CTxMeta title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId _thTxId
     addOnlyNewTxMeta cAddr cId meta
     meta' <- fromMaybe meta <$> getTxMeta cAddr cId
@@ -890,7 +885,7 @@ moveMoneyToClone sa oldPass wsAddr oldAccs newAccs = do
     whenNotNull dist $ \dist' ->
         unless (all ((== mkCoin 0) . snd) dist) $
         void $
-        sendMoney sa oldPass ms dist' ADA "Wallet set cloning transaction" ""
+        sendMoney sa oldPass ms dist' "Wallet set cloning transaction" ""
 
 changeWSetPassphrase
     :: WalletWebMode m
@@ -923,11 +918,10 @@ changeWSetPassphrase sa wsAddr oldCPass newCPass = do
                 `maybeThrow` midx
         deleteSecretKey (fromIntegral idx)
 
--- NOTE: later we will have `isValidAddress :: CCurrency -> CAddress -> m Bool` which should work for arbitrary crypto
-isValidAddress :: WalletWebMode m => Text -> CCurrency -> m Bool
-isValidAddress sAddr ADA =
+-- NOTE: later we will have `isValidAddress :: CAddress -> m Bool` which should work for arbitrary crypto
+isValidAddress :: WalletWebMode m => Text -> m Bool
+isValidAddress sAddr =
     pure . isRight $ decodeTextAddress sAddr
-isValidAddress _ _       = pure False
 
 -- | Get last update info
 nextUpdate :: WalletWebMode m => m CUpdateInfo
@@ -997,7 +991,7 @@ redeemAdaInternal sendActions cpassphrase walletId seedBs = do
         Right (TxAux {..}, redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             let txInputs = [TxOut redeemAddress redeemBalance]
-            addHistoryTx walletId ADA "ADA redemption" ""
+            addHistoryTx walletId "ADA redemption" ""
                 (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr])
 
 reportingInitialized :: WalletWebMode m => CInitialized -> m ()
@@ -1136,9 +1130,6 @@ instance FromHttpApiData CAccountAddress where
 -- we are not checking whether received Text is really valid CTxId
 instance FromHttpApiData CTxId where
     parseUrlPiece = pure . mkCTxId
-
-instance FromHttpApiData CCurrency where
-    parseUrlPiece = readEither . toString
 
 instance FromHttpApiData CPassPhrase where
     parseUrlPiece = pure . CPassPhrase

@@ -23,10 +23,8 @@ main =
       "daedalus/src/Generated"
       (buildBridge customBridge)
       [ mkSumType (Proxy @CT.WalletError)
-      , mkSumType (Proxy @CT.CCurrency)
       , mkSumType (Proxy @CT.CWalletMeta)
       , mkSumType (Proxy @CT.CWalletInit)
-      , mkSumType (Proxy @CT.CWalletType)
       , mkSumType (Proxy @CT.CWallet)
       , mkSumType (Proxy @CT.CWalletSet)
       , mkSumType (Proxy @CT.CWalletSetInit)

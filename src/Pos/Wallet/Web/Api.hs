@@ -58,7 +58,7 @@ import           Servant.Multipart          (MultipartForm)
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (Acc, CAccount, CAddress, CCurrency,
+import           Pos.Wallet.Web.ClientTypes (Acc, CAccount, CAddress,
                                              CElectronCrashReport, CInitialized,
                                              CPaperVendWalletRedeem, CPassPhrase,
                                              CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
@@ -181,8 +181,6 @@ type NewAccount = API
 type IsValidAddress = API
     :> "addresses"
     :> Capture "address" Text
-    :> "currencies"
-    :> Capture "currency" CCurrency
     :> Get '[JSON] (Either WalletError Bool)
 
 -------------------------------------------------------------------------
@@ -219,7 +217,6 @@ type NewPaymentExt = API
     :> Capture "from" CWalletAddress
     :> Capture "to" (CAddress Acc)
     :> Capture "amount" Coin
-    :> Capture "currency" CCurrency
     :> Capture "title" Text
     :> Capture "description" Text
     :> Post '[JSON] (Either WalletError CTx)

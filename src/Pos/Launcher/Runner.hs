@@ -28,6 +28,7 @@ module Pos.Launcher.Runner
 import           Control.Concurrent.STM       (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                 (each, to, _tail)
 import           Control.Monad.Fix            (MonadFix)
+import qualified Data.ByteString.Char8        as BS8
 import           Data.Default                 (def)
 import           Data.Tagged                  (Tagged (..), untag)
 import qualified Data.Time                    as Time
@@ -430,9 +431,11 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
 ----------------------------------------------------------------------------
 
 nodeStartMsg :: WithLogger m => BaseParams -> m ()
-nodeStartMsg BaseParams {..} = logInfo msg
+nodeStartMsg BaseParams {..} = do
+    logInfo msg1
   where
-    msg = sformat ("Started node.")
+    msg1 = sformat ("Application: " %build% ", last known block version " %build)
+                   Const.curSoftwareVersion Const.lastKnownBlockVersion
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do
@@ -474,6 +477,7 @@ createTransportTCP
     => TCP.TCPAddr
     -> m (Transport m)
 createTransportTCP addrInfo = do
+    loggerName <- getLoggerName
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
@@ -483,6 +487,9 @@ createTransportTCP addrInfo = do
              -- when new connections are made. This prevents an easy denial
              -- of service attack.
              , TCP.tcpCheckPeerHost = True
+             , TCP.tcpServerExceptionHandler = \e ->
+                     usingLoggerName (loggerName <> "transport") $
+                         logError $ sformat ("Exception in tcp server: " % shown) e
              })
     transportE <-
         liftIO $ TCP.createTransport addrInfo tcpParams

@@ -22,10 +22,10 @@ import           Pos.Block.Core             (Block, BlockHeader, MainBlock,
                                              mainBlockSscPayload)
 import           Pos.Block.Logic            (needRecovery)
 import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
-import           Pos.Block.Pure             (genesisHash)
 import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
                                              localWorker, worker)
-import           Pos.Constants              (blkSecurityParam, mdNoBlocksSlotThreshold,
+import           Pos.Constants              (blkSecurityParam, genesisHash,
+                                             mdNoBlocksSlotThreshold,
                                              mdNoCommitmentsEpochThreshold)
 import           Pos.Context                (getUptime, npPublicKey, recoveryInProgress)
 import           Pos.Core                   (EpochIndex, SlotId (..), addressHash,

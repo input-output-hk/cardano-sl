@@ -14,8 +14,6 @@ module Pos.Block.Pure
        , mkGenesisHeader
        , mkGenesisBlock
 
-       , genesisHash
-
        , VerifyBlockParams (..)
        , VerifyHeaderParams (..)
        , verifyBlock
@@ -25,6 +23,8 @@ module Pos.Block.Pure
        , verifyHeaders
        ) where
 
+import           Universum
+
 import           Control.Lens                 (ix, (%=))
 import           Control.Monad.Except         (MonadError (throwError))
 import           Data.Default                 (Default (def))
@@ -33,7 +33,6 @@ import           Data.List                    (groupBy, partition)
 import           Formatting                   (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units   (Byte, memory)
 import           Serokell.Util.Verify         (VerificationRes (..), verifyGeneric)
-import           Universum
 
 import           Pos.Binary.Block.Core        ()
 import qualified Pos.Binary.Class             as Bi
@@ -56,7 +55,7 @@ import           Pos.Block.Core               (BiSsc, Block, BlockHeader,
                                                mcdSlot, mebAttributes, mehAttributes)
 import           Pos.Block.Core.Genesis.Chain (Body (..), ConsensusData (..))
 import           Pos.Block.Core.Main.Chain    (ConsensusData (..))
-import           Pos.Constants                (epochSlots)
+import           Pos.Constants                (epochSlots, genesisHash)
 import           Pos.Core                     (ChainDifficulty, EpochIndex, EpochOrSlot,
                                                HasDifficulty (..), HasEpochIndex (..),
                                                HasEpochOrSlot (..), HasHeaderHash (..),
@@ -66,9 +65,9 @@ import           Pos.Core                     (ChainDifficulty, EpochIndex, Epoc
 import           Pos.Core.Block               (Blockchain (..), GenericBlock (..),
                                                GenericBlockHeader (..), gbBody,
                                                gbBodyProof, gbExtra, gbHeader)
-import           Pos.Crypto                   (Hash, ProxySecretKey (..), SecretKey,
+import           Pos.Crypto                   (ProxySecretKey (..), SecretKey,
                                                SignTag (..), checkSig, pdCert, proxySign,
-                                               proxyVerify, sign, toPublic, unsafeHash)
+                                               proxyVerify, sign, toPublic)
 import           Pos.Data.Attributes          (Attributes (attrRemain), mkAttributes)
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass (..))
 import           Pos.Update.Core              (BlockVersionData (..))
@@ -84,11 +83,6 @@ headerDifficultyIncrement (Right _) = 1
 -- | Difficulty of the Block, which is determined from header.
 blockDifficultyIncrement :: Block ssc -> ChainDifficulty
 blockDifficultyIncrement = headerDifficultyIncrement . getBlockHeader
-
--- | Predefined 'Hash' of 'GenesisBlock'.
-genesisHash :: Hash a
-genesisHash = unsafeHash ("patak" :: Text)
-{-# INLINE genesisHash #-}
 
 -- | Smart constructor for 'GenericBlockHeader'.
 mkGenericHeader

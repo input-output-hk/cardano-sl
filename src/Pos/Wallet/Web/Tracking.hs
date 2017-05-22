@@ -28,8 +28,8 @@ import           System.Wlog                (WithLogger, logDebug, logInfo, logW
 import           Pos.Block.Core             (BlockHeader, getBlockHeader,
                                              mainBlockTxPayload)
 import           Pos.Block.Logic            (withBlkSemaphore_)
-import           Pos.Block.Pure             (genesisHash)
 import           Pos.Block.Types            (Blund, undoTx)
+import           Pos.Constants              (genesisHash)
 import           Pos.Context                (BlkSemaphore)
 import           Pos.Core                   (AddrPkAttrs (..), Address (..),
                                              HasDifficulty (..), HeaderHash, headerHash,

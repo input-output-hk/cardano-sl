@@ -21,8 +21,8 @@ import           Universum
 
 import           Pos.Binary.Class      (encodeStrict)
 import           Pos.Block.Core        (Block, BlockHeader, blockHeader)
-import           Pos.Block.Pure        (genesisHash)
 import           Pos.Block.Types       (Blund)
+import           Pos.Constants         (genesisHash)
 import           Pos.Core              (HasHeaderHash, HeaderHash, headerHash)
 import           Pos.Crypto            (shortHashF)
 import           Pos.DB.Block          (getBlockWithUndo)

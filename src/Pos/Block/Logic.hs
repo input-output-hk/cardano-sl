@@ -61,13 +61,13 @@ import qualified Pos.Block.Core             as BC
 import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                              toUpdateBlock, withBlkSemaphore,
                                              withBlkSemaphore_)
-import           Pos.Block.Pure             (VerifyHeaderParams (..), genesisHash,
-                                             mkGenesisBlock, mkMainBlock, verifyHeader,
-                                             verifyHeaders)
+import           Pos.Block.Pure             (VerifyHeaderParams (..), mkGenesisBlock,
+                                             mkMainBlock, verifyHeader, verifyHeaders)
 import qualified Pos.Block.Pure             as Pure
 import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
-                                             epochSlots, lastKnownBlockVersion,
+                                             epochSlots, genesisHash,
+                                             lastKnownBlockVersion,
                                              recoveryHeadersMessage, slotSecurityParam)
 import           Pos.Context                (lrcActionOnEpochReason, npSecretKey)
 import           Pos.Core                   (BlockVersion (..), EpochIndex,

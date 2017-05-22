@@ -38,8 +38,8 @@ import           Pos.Binary.Block          ()
 import           Pos.Binary.Class          (Bi, decodeFull, encodeStrict)
 import           Pos.Block.Core            (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Block.Core            as BC
-import           Pos.Block.Pure            (genesisHash)
 import           Pos.Block.Types           (Blund, Undo (..))
+import           Pos.Constants             (genesisHash)
 import           Pos.Core                  (HasDifficulty (difficultyL),
                                             HasPrevBlock (prevBlockL), HeaderHash,
                                             headerHash)

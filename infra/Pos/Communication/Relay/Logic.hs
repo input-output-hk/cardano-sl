@@ -42,10 +42,8 @@ import           Universum
 import           Pos.Binary.Class                   (Bi (..))
 import           Pos.Binary.Infra.Communication     ()
 import           Pos.Communication.Limits.Instances ()
-import           Pos.Communication.Limits.Types     (LimitedLength, LimitedLengthExt (..),
-                                                     MessageLimited, SmartLimit,
+import           Pos.Communication.Limits.Types     (LimitedLength, MessageLimited,
                                                      recvLimited, reifyMsgLimit,
-                                                     withLimitedLength,
                                                      withLimitedLength')
 import           Pos.Communication.Listener         (SizedCAHandler (..), convToSProxy,
                                                      listenerConv)
@@ -95,7 +93,7 @@ handleReqL
     => (key -> m (Maybe contents))
     -> (ListenerSpec m, OutSpecs)
 handleReqL handleReq = listenerConv $ \__ourVerInfo ->
-  SizedCAHandler $ \peerId conv ->
+  SizedCAHandler $ \__peerId conv ->
       let handlingLoop = do
               mbMsg <- fmap (withLimitedLength' $ convToSProxy conv) <$> recv conv
               whenJust mbMsg $ \ReqMsg{..} -> do
@@ -124,7 +122,7 @@ handleMempoolL
     -> [(ListenerSpec m, OutSpecs)]
 handleMempoolL NoMempool = []
 handleMempoolL (KeyMempool tagP handleMempool) = pure $ listenerConv $ \__ourVerInfo ->
-  SizedCAHandler $ \peerId conv ->
+  SizedCAHandler $ \__peerId conv ->
       let handlingLoop = do
               mbMsg <- fmap (withLimitedLength' $ convToSProxy conv) <$> recv conv
               whenJust mbMsg $ \msg@MempoolMsg -> do
@@ -155,7 +153,7 @@ handleDataOnlyL
     => (contents -> m Bool)
     -> (ListenerSpec m, OutSpecs)
 handleDataOnlyL handleData = listenerConv $ \__ourVerInfo ->
-  SizedCAHandler (\peerId conv ->
+  SizedCAHandler (\__peerId conv ->
       let handlingLoop = do
               mbMsg <- fmap (withLimitedLength' $ convToSProxy conv) <$> recv conv
               whenJust mbMsg $ \DataMsg{..} -> do
@@ -272,7 +270,7 @@ invDataListener
   => InvReqDataParams key contents m
   -> (ListenerSpec m, OutSpecs)
 invDataListener InvReqDataParams{..} = listenerConv $ \__ourVerInfo ->
-  SizedCAHandler $ \peerId conv ->
+  SizedCAHandler $ \__peerId conv ->
       let limit = withLimitedLength' $ convToSProxy conv
           handlingLoop = do
               inv' <- fmap limit <$> recv conv

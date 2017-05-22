@@ -9,18 +9,17 @@ import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
 import Data.Time.NominalDiffTime (mkTime)
+import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..))
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Lenses.State (dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, pullLatestBlocks, syncAction, totalBlocks, connected,  socket, subscriptions)
-import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..), SocketSubscriptionAction(..))
-import Pos.Explorer.Socket.Methods (Subscription(..))
+import Explorer.Lenses.State (dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, totalBlocks, connected, socket, subscriptions)
 import Explorer.State (initialState)
 import Explorer.Test.MockFactory (mkCBlockEntry, mkEmptyCTxEntry, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Update (update)
-import Explorer.Util.Config (SyncAction(..))
 import Explorer.Util.Factory (mkCHash, mkCTxId)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.RemoteData (RemoteData(..), isNotAsked, withDefault)
+import Pos.Explorer.Socket.Methods (Subscription(..))
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -73,9 +72,6 @@ testUpdate =
         describe "handles RequestTotalBlocksToPaginateBlocks action" do
             let effModel = update RequestTotalBlocksToPaginateBlocks initialState
                 state = _.state effModel
-            it "to update pullLatestBlocks"
-                let result = state ^. pullLatestBlocks
-                in result `shouldEqual` false
             it "to update dbViewLoadingTotalBlocks"
                 let result = state ^. (dashboardViewState <<< dbViewLoadingTotalBlocks)
                 in result `shouldEqual` true
@@ -88,20 +84,6 @@ testUpdate =
                     result = withDefault 0 $ state ^. totalBlocks
                 in
                 result `shouldEqual` total
-            it "to enable pullLatestBlocks"
-                let initialState' = set syncAction SyncByPolling initialState
-                    effModel = update (ReceiveTotalBlocksToPaginateBlocks $ Right total) initialState'
-                    state = _.state effModel
-                    result = state ^. pullLatestBlocks
-                in
-                result `shouldEqual` true
-            it "to disable pullLatestBlocks"
-                let initialState' = set syncAction SyncBySocket initialState
-                    effModel = update (ReceiveTotalBlocksToPaginateBlocks $ Right total) initialState'
-                    state = _.state effModel
-                    result = state ^. pullLatestBlocks
-                in
-                result `shouldEqual` false
 
         describe "handles RequestPaginatedBlocks action" do
             let effModel = update (RequestPaginatedBlocks (RequestLimit 1) (RequestOffset 0)) initialState
@@ -178,7 +160,7 @@ testUpdate =
                         ]
                 in (gShow result) `shouldEqual` (gShow expected)
 
-        describe "handles ReceiveInitialTxs action" do
+        describe "handles ReceiveLastTxs action" do
             -- Mock txs
             let txA = setTimeOfTx (mkTime 0.1) $ setIdOfTx (mkCTxId "A") mkEmptyCTxEntry
                 txB = setTimeOfTx (mkTime 0.2) $ setIdOfTx (mkCTxId "B") mkEmptyCTxEntry
@@ -218,9 +200,47 @@ testUpdate =
                     result = state ^. socket <<< connected
                 in result `shouldEqual` false
 
-        describe "uses action SocketUpdateSubscriptions with unsubscribe" do
+        describe "uses action SocketAddSubscription" do
+            it "to add a first subscription"
+                let subscription = SocketSubscription SubBlock
+                    effModel = update (SocketAddSubscription subscription) initialState
+                    state = _.state effModel
+                    result = state ^. socket <<< subscriptions
+                in (gShow result) `shouldEqual` (gShow [subscription])
+            it "to add another subscription"
+                let initialState' = set (socket <<< subscriptions)
+                                        [ SocketSubscription SubTx
+                                        ]
+                                        initialState
+                    effModel = update (SocketAddSubscription $ SocketSubscription SubBlock) initialState'
+                    state = _.state effModel
+                    result = state ^. socket <<< subscriptions
+                    expected =  [ SocketSubscription SubTx
+                                , SocketSubscription SubBlock
+                                ]
+                in (gShow result) `shouldEqual` (gShow expected)
+
+        describe "uses action SocketRemoveSubscription" do
+            it "to not remove anything, if we do have an empty list of subscriptions"
+                let effModel = update (SocketRemoveSubscription $ SocketSubscription SubBlock) initialState
+                    state = _.state effModel
+                    result = length $ state ^. socket <<< subscriptions
+                in result `shouldEqual` 0
+            it "to remove a subscription"
+                let subscription = SocketSubscription SubBlock
+                    initialState' = set (socket <<< subscriptions)
+                                        [ SocketSubscription SubTx
+                                        , SocketSubscription SubBlock
+                                        ]
+                                        initialState
+                    effModel = update (SocketRemoveSubscription $ SocketSubscription SubBlock) initialState'
+                    state = _.state effModel
+                    result = state ^. socket <<< subscriptions
+                in (gShow result) `shouldEqual` (gShow [SocketSubscription SubTx])
+
+        describe "uses action SocketUpdateSubscriptions" do
             let subs = [ SocketSubscription SubBlock, SocketSubscription SubTx ]
-                action = (SocketUpdateSubscriptions subs UnsubscribePrevSubscriptions)
+                action = (SocketUpdateSubscriptions subs)
 
             it "to update subscriptions if there are none"
                 let effModel = update action initialState
@@ -235,15 +255,15 @@ testUpdate =
                 in (length result) `shouldEqual` 2
 
             it "to update subscriptions if there are existing subs"
-                let initialState' = set (socket <<< subscriptions) subs state
-                    effModel = update action initialState
+                let initialState' = set (socket <<< subscriptions) subs initialState
+                    effModel = update action initialState'
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
                 in (gShow result) `shouldEqual` (gShow subs)
 
             it "to update subscriptions to two subs if there are existing subs"
-                let initialState' = set (socket <<< subscriptions) subs state
-                    effModel = update action initialState
+                let initialState' = set (socket <<< subscriptions) subs initialState
+                    effModel = update action initialState'
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
                 in (length result) `shouldEqual` 2

@@ -14,8 +14,6 @@ import Explorer.Util.Factory (mkCAddress)
 import Network.RemoteData (RemoteData(..))
 import Partial.Unsafe (unsafePartial)
 
-
-
 initialState :: State
 initialState =
     { lang: English
@@ -25,8 +23,8 @@ initialState =
         , connection: Nothing
         , subscriptions: []
         }
-    -- , syncAction: SyncBySocket
-    , syncAction: SyncByPolling
+    , syncAction: SyncBySocket
+    -- , syncAction: SyncByPolling
     , viewStates:
         { globalViewState:
             { gViewMobileMenuOpenend: false

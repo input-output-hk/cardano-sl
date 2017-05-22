@@ -19,6 +19,9 @@ module Node (
       Node(..)
     , LL.NodeEnvironment(..)
     , LL.defaultNodeEnvironment
+    , LL.ReceiveDelay
+    , LL.noReceiveDelay
+    , LL.constantReceiveDelay
     , nodeEndPointAddress
     , NodeAction(..)
     , node
@@ -267,7 +270,7 @@ data NodeAction packing peerData m t = NodeAction [Listener packing peerData m] 
 
 simpleNodeEndPoint
     :: NT.Transport m
-    -> SharedAtomicT m (LL.NodeState peerData m)
+    -> m (LL.Statistics m)
     -> LL.NodeEndPoint m
 simpleNodeEndPoint transport _ = LL.NodeEndPoint {
       newNodeEndPoint = NT.newEndPoint transport
@@ -299,14 +302,15 @@ node
        , MonadFix m, Serializable packing MessageName, WithLogger m
        , Serializable packing peerData
        )
-    => (SharedAtomicT m (LL.NodeState peerData m) -> LL.NodeEndPoint m)
+    => (m (LL.Statistics m) -> LL.NodeEndPoint m)
+    -> (m (LL.Statistics m) -> LL.ReceiveDelay m)
     -> StdGen
     -> packing
     -> peerData
     -> LL.NodeEnvironment m
     -> (Node m -> NodeAction packing peerData m t)
     -> m t
-node mkEndPoint prng packing peerData nodeEnv k = do
+node mkEndPoint mkReceiveDelay prng packing peerData nodeEnv k = do
     rec { let nId = LL.nodeId llnode
         ; let endPoint = LL.nodeEndPoint llnode
         ; let nodeUnit = Node nId endPoint (LL.nodeStatistics llnode)
@@ -319,7 +323,8 @@ node mkEndPoint prng packing peerData nodeEnv k = do
         ; llnode <- LL.startNode
               packing
               peerData
-              (mkEndPoint . LL.nodeState)
+              (mkEndPoint . LL.nodeStatistics)
+              (mkReceiveDelay . LL.nodeStatistics)
               prng
               nodeEnv
               (handlerIn listenerIndex sendActions)

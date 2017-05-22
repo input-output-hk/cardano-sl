@@ -23,7 +23,7 @@ import qualified Network.Transport.TCP      as TCP
 import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
                                              sendTo, defaultNodeEnvironment,
-                                             simpleNodeEndPoint)
+                                             simpleNodeEndPoint, noReceiveDelay)
 import           Node.Message               (BinaryP (..))
 import           ReceiverOptions            (Args (..), argsParser)
 
@@ -47,7 +47,7 @@ main = do
     let prng = mkStdGen 0
 
     runProduction $ usingLoggerName "receiver" $ do
-        node (simpleNodeEndPoint transport) prng BinaryP () defaultNodeEnvironment $ \_ ->
+        node (simpleNodeEndPoint transport) (const noReceiveDelay) prng BinaryP () defaultNodeEnvironment $ \_ ->
             NodeAction [pingListener noPong] $ \_ -> do
                 threadDelay (fromIntegral duration :: Second)
   where

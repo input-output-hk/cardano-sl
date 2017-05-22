@@ -95,7 +95,7 @@ showCCurrency = dropModuleName <<< gShow
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses
 walletAddressToUrl :: CWalletAddress -> String
-walletAddressToUrl (CWalletAddress r) = _address r.cwaWSAddress <> "@" <> toString r.cwaIndex
+walletAddressToUrl (CWalletAddress r) = _address r.cwaWSId <> "@" <> toString r.cwaIndex
 
 _hash :: CHash -> String
 _hash (CHash h) = h

@@ -44,16 +44,28 @@ getPSKByIssuer
 getPSKByIssuer (either addressHash identity -> issuer) =
     rocksGetBi (pskKey issuer) =<< getUtxoDB
 
--- | Given an issuer, retrieves all certificates
+-- | Given an issuer, retrieves all certificate chains starting in
+-- issuer. This function performs a series of consequental db reads so
+-- it must be used under the shared lock.
 getPSKTree
     :: MonadDB m
     => Either PublicKey StakeholderId -> m (HashMap PublicKey ProxySKHeavy)
-getPSKTree (either addressHash identity -> issuer) =
+getPSKTree = getPSKTreeInternal HS.empty
+
+-- See doc for 'getPSKTree'. This function also stops bfs if
+-- encounters anyone in 'toIgnore' set.
+getPSKTreeInternal
+    :: MonadDB m
+    => HashSet StakeholderId
+    -> Either PublicKey StakeholderId
+    -> m (HashMap PublicKey ProxySKHeavy)
+getPSKTreeInternal toIgnore (either addressHash identity -> issuer) =
     fmap (view _1) $ flip execStateT (HM.empty, [issuer], HS.empty) bfs
   where
     bfs = use _2 >>= \case
-        [] -> pass
-        (x:_) -> do
+        []                           -> pass
+        (x:_) | HS.member x toIgnore -> (_2 %= drop 1) >> bfs
+        (x:_)                        -> do
             whenM (uses _3 $ HS.member x) $
                 throwM $ DBMalformed "getPSKTree: found a PSK loop"
             _2 %= drop 1
@@ -64,13 +76,17 @@ getPSKTree (either addressHash identity -> issuer) =
                 _3 %= HS.insert (addressHash is)
             bfs
 
--- | Retrieves hashmap from all issuers supplied. See 'getPSKTree'.
+-- | Retrieves hashmap from all issuers supplied. See
+-- 'getPSKTree'. This function must be used under outside shared lock.
 getPSKTreeAll
     :: (MonadDB m)
     => Either [PublicKey] [StakeholderId]
     -> m (HashMap PublicKey ProxySKHeavy)
 getPSKTreeAll (either (fmap addressHash) identity -> issuers) =
-    mconcat <$> mapM getPSKTree (map Right issuers)
+    foldlM foldFoo HM.empty (map Right issuers)
+  where
+    -- Don't revisit branches we retrieved earlier.
+    foldFoo cur = getPSKTreeInternal (HS.fromList $ map addressHash $ HM.keys cur)
 
 -- | Checks if stakeholder is psk issuer.
 isIssuerByAddressHash :: MonadDB m => StakeholderId -> m Bool

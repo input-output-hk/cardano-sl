@@ -73,64 +73,35 @@ import           Pos.Util.UserSecret           (UserSecret)
 ----------------------------------------------------------------------------
 
 data NodeContextTag
-
-type MonadNodeContext ssc =
-    Ether.MonadReader NodeContextTag (NodeContext ssc)
+type MonadNodeContext ssc = Ether.MonadReader NodeContextTag (NodeContext ssc)
 
 data LastKnownHeaderTag
-
 type LastKnownHeader ssc = TVar (Maybe (BlockHeader ssc))
-
-type MonadLastKnownHeader ssc =
-    Ether.MonadReader LastKnownHeaderTag (LastKnownHeader ssc)
+type MonadLastKnownHeader ssc = Ether.MonadReader LastKnownHeaderTag (LastKnownHeader ssc)
 
 data ProgressHeaderTag
-
 type ProgressHeader ssc = STM.TMVar (BlockHeader ssc)
-
-type MonadProgressHeader ssc =
-    Ether.MonadReader ProgressHeaderTag (ProgressHeader ssc)
+type MonadProgressHeader ssc = Ether.MonadReader ProgressHeaderTag (ProgressHeader ssc)
 
 data BlockRetrievalQueueTag
-
-type BlockRetrievalQueue ssc =
-    TBQueue (NodeId, NewestFirst NE (BlockHeader ssc))
-
+type BlockRetrievalQueue ssc = TBQueue (NodeId, NewestFirst NE (BlockHeader ssc))
 type MonadBlockRetrievalQueue ssc =
     Ether.MonadReader BlockRetrievalQueueTag (BlockRetrievalQueue ssc)
 
 data RecoveryHeaderTag
-
-type RecoveryHeader ssc =
-    STM.TMVar (NodeId, BlockHeader ssc)
-
-type MonadRecoveryHeader ssc =
-    Ether.MonadReader RecoveryHeaderTag (RecoveryHeader ssc)
+type RecoveryHeader ssc = STM.TMVar (NodeId, BlockHeader ssc)
+type MonadRecoveryHeader ssc = Ether.MonadReader RecoveryHeaderTag (RecoveryHeader ssc)
 
 data SscContextTag
+type MonadSscContext ssc = Ether.MonadReader SscContextTag (SscNodeContext ssc)
 
-type MonadSscContext ssc =
-    Ether.MonadReader SscContextTag (SscNodeContext ssc)
 
-newtype GenesisUtxo = GenesisUtxo
-    { unGenesisUtxo :: Utxo
-    }
+newtype GenesisUtxo = GenesisUtxo { unGenesisUtxo :: Utxo }
+newtype GenesisLeaders = GenesisLeaders { unGenesisLeaders :: SlotLeaders }
+newtype ConnectedPeers = ConnectedPeers { unConnectedPeers :: STM.TVar (Set NodeId) }
+newtype BlkSemaphore = BlkSemaphore { unBlkSemaphore :: MVar HeaderHash }
+newtype StartTime = StartTime { unStartTime :: UTCTime }
 
-newtype GenesisLeaders = GenesisLeaders
-    { unGenesisLeaders :: SlotLeaders
-    }
-
-newtype ConnectedPeers = ConnectedPeers
-    { unConnectedPeers :: STM.TVar (Set NodeId)
-    }
-
-newtype BlkSemaphore = BlkSemaphore
-    { unBlkSemaphore :: MVar HeaderHash
-    }
-
-newtype StartTime = StartTime
-    { unStartTime :: UTCTime
-    }
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext

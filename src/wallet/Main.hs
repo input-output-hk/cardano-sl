@@ -34,11 +34,13 @@ import           Pos.Communication          (NodeId, OutSpecs, SendActions, Work
                                              WorkerSpec, sendTxOuts, submitTx, worker)
 import           Pos.Constants              (genesisBlockVersionData, isDevelopment)
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVote),
-                                             emptyPassphrase, encToPublic, fakeSigner,
-                                             hash, hashHexF, noPassEncrypt, safeSign,
-                                             toPublic, unsafeHash, withSafeSigner)
+                                             createProxySecretKey, emptyPassphrase,
+                                             encToPublic, fakeSigner, hash, hashHexF,
+                                             noPassEncrypt, safeSign, toPublic,
+                                             unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes        (mkAttributes)
-import           Pos.Delegation             (sendProxySKHeavyOuts, sendProxySKLightOuts)
+import           Pos.Delegation             (sendProxySKHeavy, sendProxySKHeavyOuts,
+                                             sendProxySKLight, sendProxySKLightOuts)
 import           Pos.Discovery              (findPeers, getPeers)
 import           Pos.Genesis                (genesisDevSecretKeys,
                                              genesisStakeDistribution, genesisUtxo)
@@ -191,21 +193,20 @@ runCmd _ ListAddresses = do
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $
        putText . uncurry (sformat $ "    #"%int%":   "%build)
-runCmd __sendActions (DelegateLight __i __j) = error "Not implemented"
---   (skeys, _) <- ask
---   let issuerSk = skeys !! i
---       delegatePk = undefined
---       psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
---   lift $ sendProxySKLight psk sendActions
---   putText "Sent lightweight cert"
-runCmd __sendActions (DelegateHeavy __i __j __epochMaybe) = error "Not implemented"
---   (skeys, _) <- ask
---   let issuerSk = skeys !! i
---       delegatePk = undefined
---       epoch = fromMaybe 0 epochMaybe
---       psk = createProxySecretKey issuerSk delegatePk epoch
---   lift $ sendProxySKHeavy psk sendActions
---   putText "Sent heavyweight cert"
+runCmd sendActions (DelegateLight i j startEpoch lastEpochM) = do
+   (skeys, _) <- ask
+   let issuerSk = skeys !! i
+       delegatePk = toPublic $ skeys !! j
+       psk = createProxySecretKey issuerSk delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
+   lift $ sendProxySKLight psk sendActions
+   putText "Sent lightweight cert"
+runCmd sendActions (DelegateHeavy i j curEpoch) = do
+   (skeys, _) <- ask
+   let issuerSk = skeys !! i
+       delegatePk = toPublic $ skeys !! j
+       psk = createProxySecretKey issuerSk delegatePk curEpoch
+   lift $ sendProxySKHeavy psk sendActions
+   putText "Sent heavyweight cert"
 runCmd _ (AddKeyFromPool i) = do
    (skeys, _) <- ask
    let key = skeys !! i

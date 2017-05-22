@@ -209,12 +209,12 @@ instance SafeCopy (BodyProof (GenesisBlockchain ssc)) where
 instance SafeCopy (BlockSignature ssc) where
     getCopy = contain $ Cereal.getWord8 >>= \case
         0 -> BlockSignature <$> safeGet
-        1 -> BlockPSignatureEpoch <$> safeGet
-        2 -> BlockPSignatureSimple <$> safeGet
+        1 -> BlockPSignatureLight <$> safeGet
+        2 -> BlockPSignatureHeavy <$> safeGet
         t -> fail $ "getCopy@BlockSignature: couldn't read tag: " <> show t
     putCopy (BlockSignature sig)       = contain $ Cereal.putWord8 0 >> safePut sig
-    putCopy (BlockPSignatureEpoch proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
-    putCopy (BlockPSignatureSimple proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
+    putCopy (BlockPSignatureLight proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
+    putCopy (BlockPSignatureHeavy proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
 
 instance SafeCopy (ConsensusData (MainBlockchain ssc)) where
     getCopy =

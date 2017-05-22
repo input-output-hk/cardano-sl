@@ -41,8 +41,8 @@ data Command
           }
     | Help
     | ListAddresses
-    | DelegateLight !Int !Int
-    | DelegateHeavy !Int !Int !(Maybe EpochIndex)
+    | DelegateLight !Int !Int !EpochIndex !(Maybe EpochIndex) -- first and last epoch of psk ttl
+    | DelegateHeavy !Int !Int !EpochIndex -- last argument is current epoch
     | AddKeyFromPool !Int
     | AddKeyFromFile !FilePath
     | Quit
@@ -91,8 +91,8 @@ balance :: Parser Command
 balance = Balance <$> address
 
 delegateL, delegateH :: Parser Command
-delegateL = DelegateLight <$> num <*> num
-delegateH = DelegateHeavy <$> num <*> num <*> optional num
+delegateL = DelegateLight <$> num <*> num <*> num <*> optional num
+delegateH = DelegateHeavy <$> num <*> num <*> num
 
 addKeyFromPool, addKeyFromFile :: Parser Command
 addKeyFromPool = AddKeyFromPool <$> num

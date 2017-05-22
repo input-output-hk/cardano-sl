@@ -18,14 +18,17 @@ import           Pos.Util.Iterator   (MonadIterator (..))
 import           Pos.Util.Util       (getKeys)
 
 
--- | Function helper for delegated richmen.
--- Iterate by Delegate -> [Issuer] map and compute two set:
--- 1. Old richmen who delegated own stake and isn't richman more.
+-- | Function helper for delegated richmen. Iterates @Delegate ->
+-- [Issuer]@ map and computes the following two set:
+--
+-- 1. Old richmen set: those who delegated their own stake and thus
+-- lost richmen status.
+--
 -- 2. Delegates who became richmen.
 findDelegationStakes
     :: forall m . MonadIterator (StakeholderId, [StakeholderId]) m
-    => (StakeholderId -> m Bool) -- helper
-    -> (StakeholderId -> m (Maybe Coin)) -- helper
+    => (StakeholderId -> m Bool)         -- ^ Check if user is issuer?
+    -> (StakeholderId -> m (Maybe Coin)) -- ^ Gets effective stake.
     -> Coin
     -> m (RichmenSet, RichmenStake) -- old richmen, new richmen
 findDelegationStakes isIssuer stakeResolver t = do
@@ -38,9 +41,9 @@ findDelegationStakes isIssuer stakeResolver t = do
         maybe (pure richmen) (onItem richmen >=> step)
     onItem (old, new) (delegate, issuers) = do
         sumIssuers <-
-          foldM (\cr id -> (unsafeAddCoin cr) <$> safeBalance id)
-                (mkCoin 0)
-                issuers
+            foldM (\cr id -> (unsafeAddCoin cr) <$> safeBalance id)
+                  (mkCoin 0)
+                  issuers
         isIss <- isIssuer delegate
         curStake <- if isIss then pure sumIssuers
                     else (unsafeAddCoin sumIssuers) <$> safeBalance delegate
@@ -49,11 +52,11 @@ findDelegationStakes isIssuer stakeResolver t = do
               else new
 
         oldRichmen <-
-          foldM (\hs is ->
-                    ifM ((>= t) <$> safeBalance is)
-                        (pure $ HS.insert is hs) (pure hs))
-                old
-                issuers
+            foldM (\hs is -> ifM ((>= t) <$> safeBalance is)
+                                 (pure $ HS.insert is hs)
+                                 (pure hs))
+                  old
+                  issuers
         pure (oldRichmen, newRichmen)
     safeBalance id = fromMaybe (mkCoin 0) <$> stakeResolver id
 
@@ -66,8 +69,7 @@ findRichmenStake t = step mempty
   where
     step :: RichmenStake -> m RichmenStake
     step hm = nextItem >>=
-        maybe (pure hm)
-              (\stake -> step (tryAdd stake hm))
+        maybe (pure hm) (\stake -> step (tryAdd stake hm))
     tryAdd
         :: (StakeholderId, Coin)
         -> HashMap StakeholderId Coin

@@ -4,42 +4,77 @@
 -- | Part of GState DB which stores data necessary for heavyweight delegation.
 
 module Pos.Delegation.DB
-       ( getPSKByIssuerAddressHash
-       , getPSKByIssuer
+       ( getPSKByIssuer
+       , getPSKTree
+       , getPSKTreeAll
        , isIssuerByAddressHash
+
        , DelegationOp (..)
 
        , runPskIterator
        , runPskMapIterator
        ) where
 
-import qualified Database.RocksDB as Rocks
+import           Control.Lens        (uses, (%=))
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet        as HS
+import qualified Database.RocksDB    as Rocks
 import           Universum
 
-import           Pos.Binary.Class (encodeStrict)
-import           Pos.Crypto       (PublicKey, pskDelegatePk, pskIssuerPk)
-import           Pos.DB.Class     (MonadDB, getUtxoDB)
-import           Pos.DB.Functions (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
-import           Pos.DB.Iterator  (DBIteratorClass (..), DBnIterator, DBnMapIterator,
-                                   IterType, runDBnIterator, runDBnMapIterator)
-import           Pos.DB.Types     (NodeDBs (_gStateDB))
-import           Pos.Types        (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Binary.Class    (encodeStrict)
+import           Pos.Crypto          (PublicKey, pskDelegatePk, pskIssuerPk)
+import           Pos.DB.Class        (MonadDB, getUtxoDB)
+import           Pos.DB.Error        (DBError (DBMalformed))
+import           Pos.DB.Functions    (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
+import           Pos.DB.Iterator     (DBIteratorClass (..), DBnIterator, DBnMapIterator,
+                                      IterType, runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Types        (NodeDBs (_gStateDB))
+import           Pos.Types           (ProxySKHeavy, StakeholderId, addressHash)
 
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors
 ----------------------------------------------------------------------------
 
--- | Retrieves certificate by issuer address (hash of public key) if present.
-getPSKByIssuerAddressHash :: MonadDB m => StakeholderId -> m (Maybe ProxySKHeavy)
-getPSKByIssuerAddressHash addrHash = rocksGetBi (pskKey addrHash) =<< getUtxoDB
+-- | Retrieves certificate by issuer public key or his
+-- address/stakeholder id, if present.
+getPSKByIssuer
+    :: MonadDB m
+    => Either PublicKey StakeholderId -> m (Maybe ProxySKHeavy)
+getPSKByIssuer (either addressHash identity -> issuer) =
+    rocksGetBi (pskKey issuer) =<< getUtxoDB
 
--- | Retrieves certificate by issuer public key if present.
-getPSKByIssuer :: MonadDB m => PublicKey -> m (Maybe ProxySKHeavy)
-getPSKByIssuer = getPSKByIssuerAddressHash . addressHash
+-- | Given an issuer, retrieves all certificates
+getPSKTree
+    :: MonadDB m
+    => Either PublicKey StakeholderId -> m (HashMap PublicKey ProxySKHeavy)
+getPSKTree (either addressHash identity -> issuer) =
+    fmap (view _1) $ flip execStateT (HM.empty, [issuer], HS.empty) bfs
+  where
+    bfs = use _2 >>= \case
+        [] -> pass
+        (x:_) -> do
+            whenM (uses _3 $ HS.member x) $
+                throwM $ DBMalformed "getPSKTree: found a PSK loop"
+            _2 %= drop 1
+            pskM <- lift $ getPSKByIssuer $ Right x
+            whenJust pskM $ \psk -> do
+                let is = pskIssuerPk psk
+                _1 %= HM.insert is psk
+                _3 %= HS.insert (addressHash is)
+            bfs
 
+-- | Retrieves hashmap from all issuers supplied. See 'getPSKTree'.
+getPSKTreeAll
+    :: (MonadDB m)
+    => Either [PublicKey] [StakeholderId]
+    -> m (HashMap PublicKey ProxySKHeavy)
+getPSKTreeAll (either (fmap addressHash) identity -> issuers) =
+    mconcat <$> mapM getPSKTree (map Right issuers)
+
+-- | Checks if stakeholder is psk issuer.
 isIssuerByAddressHash :: MonadDB m => StakeholderId -> m Bool
-isIssuerByAddressHash = fmap isJust . getPSKByIssuerAddressHash
+isIssuerByAddressHash = fmap isJust . getPSKByIssuer . Right
 
 ----------------------------------------------------------------------------
 -- Batch operations

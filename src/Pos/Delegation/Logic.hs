@@ -179,7 +179,7 @@ getProxyMempool = do
     sks <- runDelegationStateAction $
         uses dwProxySKPool HM.elems
     let issuers = map pskIssuerPk sks
-    toRollback <- catMaybes <$> mapM GS.getPSKByIssuer issuers
+    toRollback <- catMaybes <$> mapM (GS.getPSKByIssuer . Left) issuers
     pure (sks, toRollback)
 
 clearDlgMemPool
@@ -327,7 +327,7 @@ delegationVerifyBlocks blocks = do
         isRemoved <- HS.member issuer <$> use dvPSKSetRemoved
         if isRemoved
         then pure Nothing
-        else maybe (GS.getPSKByIssuer issuer) (pure . Just) isAddedM
+        else maybe (GS.getPSKByIssuer $ Left issuer) (pure . Just) isAddedM
     withMapAdd psk = do
         let issuer = pskIssuerPk psk
         dvPSKMapAdded %= HM.insert issuer psk

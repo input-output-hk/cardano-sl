@@ -104,22 +104,20 @@ convertSendActions
        )
     => VerInfo -> N.SendActions BiP PeerData m -> SendActions m
 convertSendActions ourVerInfo sA = SendActions
-    { withConnectionTo = \nodeId mkConv -> do
-          N.withConnectionTo sA nodeId $ \pVI ->
-              let alts = mkConv pVI
-                  alts' = map (checkingOutSpecs' nodeId (vIInHandlers pVI)) alts
-               in case sequence alts' of
-                    Left (Conversation l) -> N.Conversation $ \conv -> do
-                        mapM_ logOSNR alts'
-                        l conv
-                    Right errs ->
-                        case NE.head alts of
-                            Conversation l_ -> N.Conversation $ \conv -> do
-                                let _ = l_ conv
-                                logWarning $ sformat
-                                  ("Failed to choose appropriate conversation: "%listJson)
-                                  errs
-                                throw $ NE.head errs
+    { withConnectionTo = \nodeId mkConv -> N.withConnectionTo sA nodeId $ \pVI ->
+          let alts = mkConv pVI
+              alts' = map (checkingOutSpecs' nodeId (vIInHandlers pVI)) alts
+          in case sequence alts' of
+               Left (Conversation l) -> N.Conversation $ \conv -> do
+                   mapM_ logOSNR alts'
+                   l conv
+               Right errs -> case NE.head alts of
+                   Conversation l_ -> N.Conversation $ \conv -> do
+                       let _ = l_ conv
+                       logWarning $ sformat
+                           ("Failed to choose appropriate conversation: "%listJson)
+                           errs
+                       throw $ NE.head errs
     }
   where
     ourOutSpecs = vIOutHandlers ourVerInfo
@@ -145,9 +143,10 @@ convertSendActions ourVerInfo sA = SendActions
                   Right $ PeerInSpecNotReported nodeId spec
            | otherwise -> Left action
 
-data SpecError = OutSpecNotReported (MessageName, HandlerSpec)
-               | PeerInSpecNotReported NodeId (MessageName, HandlerSpec)
-  deriving (Generic, Show)
+data SpecError
+    = OutSpecNotReported (MessageName, HandlerSpec)
+    | PeerInSpecNotReported NodeId (MessageName, HandlerSpec)
+    deriving (Generic, Show)
 
 instance Exception SpecError
 
@@ -278,4 +277,3 @@ unpackLSpecs =
     lsToPair (ListenerSpec h spec) = (h, spec)
     convert :: Monoid out => ([(l, i)], out) -> ([l], [i], out)
     convert (xs, out) = (map fst xs, map snd xs, out)
-

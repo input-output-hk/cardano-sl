@@ -198,14 +198,9 @@ propagateData pm = do
     if shouldPropagate then do
         addToRelayQueue pm
         logInfo $ sformat
-            ("Adopted data, pushed "%build%
-              " to propagation queue...")
+            ("Adopted data, pushed "%build%" to propagation queue...")
             pm
-    else
-        logInfo $ sformat
-            ("Adopted data "%
-              build%", propagation is off")
-            pm
+    else logInfo $ sformat ("Adopted data "%build%", propagation is off") pm
 
 handleInvDo
     :: forall key m .
@@ -459,10 +454,12 @@ invReqDataFlow
     => Text -> SendActions m -> NodeId -> key -> contents -> m ()
 invReqDataFlow what sendActions addr key dt = handleAll handleE $
     reifyMsgLimit (Proxy @(ReqMsg key)) $ \lim ->
-        withConnectionTo sendActions addr (const (pure $ Conversation $ invReqDataFlowDo what key dt lim addr))
+        withConnectionTo sendActions addr $
+        const $ pure $ Conversation $ invReqDataFlowDo what key dt lim addr
   where
     handleE e = logWarning $
-        sformat ("Error sending "%stext%", key = "%build%" to "%shown%": "%shown) what key addr e
+        sformat ("Error sending "%stext%", key = "%build%" to "%shown%": "%shown)
+                what key addr e
 
 invReqDataFlowDo
     :: ( Message (InvOrData key contents)
@@ -486,9 +483,11 @@ invReqDataFlowDo what key dt _ nodeId conv = do
   where
     -- TODO need to check we're asked for same key we have
     replyWithData (ReqMsg _) = send conv $ Right $ DataMsg dt
-    handleD = logDebug $
+    handleD =
+        logDebug $
         sformat ("InvReqDataFlow ("%stext%"): "%shown %" closed conversation on \
-                 \Inv key = "%build) what nodeId key
+                 \Inv key = "%build)
+                what nodeId key
 
 dataFlow
     :: forall contents m.
@@ -504,5 +503,7 @@ dataFlow what sendActions addr dt = handleAll handleE $
       (const (pure $ Conversation $ \(conv :: ConversationActions (DataMsg contents) Void m) ->
                           send conv $ DataMsg dt))
   where
-    handleE e = logWarning $
-        sformat ("Error sending "%stext%", data = "%build%" to "%shown%": "%shown) what dt addr e
+    handleE e =
+        logWarning $
+        sformat ("Error sending "%stext%", data = "%build%" to "%shown%": "%shown)
+                what dt addr e

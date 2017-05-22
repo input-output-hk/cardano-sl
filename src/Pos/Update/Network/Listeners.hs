@@ -36,18 +36,18 @@ proposalRelay
     :: UpdateMode m
     => Relay m
 proposalRelay =
-    InvReqData NoMempool $
-               InvReqDataParams
-                  { contentsToKey = \(up, _) -> pure . tag  $ hash up
-                  , handleInv = isProposalNeeded . unTagged
-                  , handleReq = getLocalProposalNVotes . unTagged
-                  , handleData =
-                      \(proposal, votes) -> do
-                          res <- processProposal proposal
-                          logProp res
-                          let processed = isRight res
-                          processed <$ when processed (mapM_ processVoteLog votes)
-                  }
+    InvReqData
+        NoMempool $
+        InvReqDataParams
+           { contentsToKey = \(up, _) -> pure . tag  $ hash up
+           , handleInv = isProposalNeeded . unTagged
+           , handleReq = getLocalProposalNVotes . unTagged
+           , handleData = \(proposal, votes) -> do
+                 res <- processProposal proposal
+                 logProp res
+                 let processed = isRight res
+                 processed <$ when processed (mapM_ processVoteLog votes)
+           }
   where
     tag = tagWith (Proxy :: Proxy (UpdateProposal, [UpdateVote]))
     processVoteLog = processVote >=> logVote
@@ -68,18 +68,18 @@ voteRelay
     :: UpdateMode m
     => Relay m
 voteRelay =
-    InvReqData NoMempool $
-               InvReqDataParams
-                  { contentsToKey = \UpdateVote{..} ->
-                        pure $ tag (uvProposalId, uvKey, uvDecision)
-                  , handleInv = \(Tagged (id, pk, dec)) -> isVoteNeeded id pk dec
-                  , handleReq = \(Tagged (id, pk, dec)) -> getLocalVote id pk dec
-                  , handleData =
-                      \uv -> do
-                          res <- processVote uv
-                          logProcess res
-                          pure $ isRight res
-                  }
+    InvReqData
+        NoMempool $
+        InvReqDataParams
+           { contentsToKey = \UpdateVote{..} ->
+                 pure $ tag (uvProposalId, uvKey, uvDecision)
+           , handleInv = \(Tagged (id, pk, dec)) -> isVoteNeeded id pk dec
+           , handleReq = \(Tagged (id, pk, dec)) -> getLocalVote id pk dec
+           , handleData = \uv -> do
+                 res <- processVote uv
+                 logProcess res
+                 pure $ isRight res
+           }
   where
     tag = tagWith (Proxy :: Proxy UpdateVote)
     logProcess (Left cause) =

@@ -48,22 +48,21 @@ delegationRelays =
 pskLightRelay
     :: WorkMode ssc m
     => Relay m
-pskLightRelay =
-    Data $ DataParams $ \pSk -> do
-        -- do it in worker once in ~sometimes instead of on every request
-        verdict <- processProxySKLight pSk
-        logResult pSk verdict
-        case verdict of
-            PLUnrelated -> return True
-            PLAdded -> do
-               logDebug $
-                   sformat ("Generating delivery proof and propagating it to neighbors: "%build) pSk
-               sk <- npSecretKey <$> Ether.ask @NodeParams
-               let proof = proxySign SignProxySK sk pSk pSk -- but still proving is
-                                                            -- nothing but fear
-               addToRelayQueue (DataOnlyPM (pSk, proof))
-               return False
-            _ -> return False
+pskLightRelay = Data $ DataParams $ \pSk -> do
+    -- do it in worker once in ~sometimes instead of on every request
+    verdict <- processProxySKLight pSk
+    logResult pSk verdict
+    case verdict of
+        PLUnrelated -> return True
+        PLAdded -> do
+           logDebug $
+               sformat ("Generating delivery proof and propagating it to neighbors: "%build) pSk
+           sk <- npSecretKey <$> Ether.ask @NodeParams
+           let proof = proxySign SignProxySK sk pSk pSk -- but still proving is
+                                                        -- nothing but fear
+           addToRelayQueue (DataOnlyPM (pSk, proof))
+           return False
+        _ -> return False
   where
     logResult pSk PLAdded =
         logInfo $ sformat ("Got valid related proxy secret key: "%build) pSk
@@ -78,8 +77,7 @@ pskLightRelay =
 pskHeavyRelay
     :: WorkMode ssc m
     => Relay m
-pskHeavyRelay =
-    Data $ DataParams $ handlePsk
+pskHeavyRelay = Data $ DataParams $ handlePsk
   where
     handlePsk :: forall ssc m. WorkMode ssc m => ProxySKHeavy -> m Bool
     handlePsk pSk = do
@@ -99,12 +97,11 @@ pskHeavyRelay =
 confirmPskRelay
     :: WorkMode ssc m
     => Relay m
-confirmPskRelay =
-    Data $ DataParams $ \(pSk, proof) -> do
-        verdict <- processConfirmProxySk pSk proof
-        case verdict of
-            CPValid -> pure True
-            _       -> pure False
+confirmPskRelay = Data $ DataParams $ \(pSk, proof) -> do
+    verdict <- processConfirmProxySk pSk proof
+    pure $ case verdict of
+        CPValid -> True
+        _       -> False
 
 --handleCheckProxySKConfirmed
 --    :: forall ssc m.

@@ -34,22 +34,6 @@ data SizedCAHandler snd rcv m =
 convToSProxy :: ConversationActions snd (SmartLimit s rcv) m -> Proxy s
 convToSProxy _ = Proxy
 
--- -- | Handles MsgHeaders request, unsolicited usecase
--- abc
---     :: forall ssc m.
---        (SscWorkersClass ssc, WorkMode ssc m)
---     => (ListenerSpec' m, OutSpecs)
--- abc = listenerConv' $ \_ ->
---         let h pId conv = do
---               mHeaders <- recvLimited conv
---               logDebug "handleBlockHeaders: got some unsolicited block header(s)"
---          in (SizedCAHandler h :: SizedCAHandler MsgGetHeaders (MsgHeaders ssc) m)
---
--- data SizedCAHandler snd rcv m =
---     SizedCAHandler
---       (forall s. Reifies s (LimitType rcv) =>
---             NodeId -> ConversationActions snd (SmartLimit s rcv) m -> m ())
-
 listenerConv
     :: ( Bi snd
        , Bi rcv
@@ -65,17 +49,16 @@ listenerConv h = (lspec, mempty)
   where
     spec = (rcvMsgName, ConvHandler sndMsgName)
     lspec =
-      flip ListenerSpec spec $
-        \ourVerInfo -> reifyMsgLimit rcvProxy $
-          \(_ :: Proxy s) ->
-            let convProxy = (const Proxy :: (a -> SizedCAHandler snd rcv m)
-                             -> Proxy (ConversationActions snd (SmartLimit s rcv) m)) h
-             in case h ourVerInfo of
-                  SizedCAHandler handle -> return $ N.ListenerActionConversation $
-                      \peerVerInfo' nNodeId conv -> do
-                          let _ = conv `asProxyTypeOf` convProxy
-                          checkingInSpecs ourVerInfo peerVerInfo' spec nNodeId $
-                              handle @s nNodeId conv
+      flip ListenerSpec spec $ \ourVerInfo ->
+      reifyMsgLimit rcvProxy $ \(_ :: Proxy s) ->
+          let convProxy = (const Proxy :: (a -> SizedCAHandler snd rcv m)
+                           -> Proxy (ConversationActions snd (SmartLimit s rcv) m)) h
+          in case h ourVerInfo of
+              SizedCAHandler handle ->
+                  pure $ N.ListenerActionConversation $ \peerVerInfo' nNodeId conv -> do
+                      let _ = conv `asProxyTypeOf` convProxy
+                      checkingInSpecs ourVerInfo peerVerInfo' spec nNodeId $
+                          handle @s nNodeId conv
 
     sndProxy = (const Proxy :: (a -> SizedCAHandler snd rcv m) -> Proxy snd) h
     rcvProxy = (const Proxy :: (a -> SizedCAHandler snd rcv m) -> Proxy rcv) h

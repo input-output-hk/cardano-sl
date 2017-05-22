@@ -50,45 +50,46 @@ instance SscListenersClass SscGodTossing where
 
 commitmentRelay :: WorkMode SscGodTossing m => Relay m
 commitmentRelay =
-  sscRelay CommitmentMsg
-           (\(MCCommitment (pk, _, _)) -> addressHash pk)
-           (\id tm -> MCCommitment <$> tm ^. tmCommitments . to getCommitmentsMap . at id)
-           (\(MCCommitment comm) -> sscProcessCommitment comm)
+    sscRelay CommitmentMsg
+             (\(MCCommitment (pk, _, _)) -> addressHash pk)
+             (\id tm -> MCCommitment <$> tm ^. tmCommitments . to getCommitmentsMap . at id)
+             (\(MCCommitment comm) -> sscProcessCommitment comm)
 
 openingRelay :: WorkMode SscGodTossing m => Relay m
 openingRelay =
-  sscRelay OpeningMsg
-           (\(MCOpening k _) -> k)
-           (\id tm -> MCOpening id <$> tm ^. tmOpenings . at id)
-           (\(MCOpening key open) -> sscProcessOpening key open)
+    sscRelay OpeningMsg
+             (\(MCOpening k _) -> k)
+             (\id tm -> MCOpening id <$> tm ^. tmOpenings . at id)
+             (\(MCOpening key open) -> sscProcessOpening key open)
 
 sharesRelay :: WorkMode SscGodTossing m => Relay m
 sharesRelay =
-  sscRelay SharesMsg
-           (\(MCShares k _) -> k)
-           (\id tm -> MCShares id <$> tm ^. tmShares . at id)
-           (\(MCShares key shares) -> sscProcessShares key shares)
+    sscRelay SharesMsg
+             (\(MCShares k _) -> k)
+             (\id tm -> MCShares id <$> tm ^. tmShares . at id)
+             (\(MCShares key shares) -> sscProcessShares key shares)
 
 vssCertRelay :: WorkMode SscGodTossing m => Relay m
 vssCertRelay =
-  sscRelay VssCertificateMsg
-           (\(MCVssCertificate vc) -> getCertId vc)
-           (\id tm -> MCVssCertificate <$> tm ^. tmCertificates . at id)
-           (\(MCVssCertificate cert) -> sscProcessCertificate cert)
+    sscRelay VssCertificateMsg
+             (\(MCVssCertificate vc) -> getCertId vc)
+             (\id tm -> MCVssCertificate <$> tm ^. tmCertificates . at id)
+             (\(MCVssCertificate cert) -> sscProcessCertificate cert)
 
-sscRelay :: ( WorkMode SscGodTossing m
-            , Buildable err
-            , Buildable contents
-            , Typeable contents
-            , MessageLimited (DataMsg contents)
-            , Bi (DataMsg contents)
-            , MessagePart contents
-            )
-         => GtTag
-         -> (contents -> StakeholderId)
-         -> (StakeholderId -> TossModifier -> Maybe contents)
-         -> (contents -> ExceptT err m ())
-         -> Relay m
+sscRelay
+    :: ( WorkMode SscGodTossing m
+       , Buildable err
+       , Buildable contents
+       , Typeable contents
+       , MessageLimited (DataMsg contents)
+       , Bi (DataMsg contents)
+       , MessagePart contents
+       )
+    => GtTag
+    -> (contents -> StakeholderId)
+    -> (StakeholderId -> TossModifier -> Maybe contents)
+    -> (contents -> ExceptT err m ())
+    -> Relay m
 sscRelay gtTag contentsToKey toContents processData =
     InvReqData NoMempool $
         InvReqDataParams

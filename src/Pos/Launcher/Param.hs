@@ -67,6 +67,7 @@ data Backpressure = Backpressure
     }
     deriving Show
 
+noBackpressure :: Backpressure
 noBackpressure = Backpressure
     { bpressLevelOne = (maxBound, 0)
     , bpressLevelTwo = (maxBound, 0)

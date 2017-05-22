@@ -63,7 +63,7 @@ getSKByAccAddr passphrase accAddr@CAccountAddress {..} = do
     (addr, accKey) <-
         deriveAccountSK passphrase (walletAddrByAccount accAddr) caaAccountIndex
     let accCAddr = addressToCAddress addr
-    if accCAddr /= caaAddress
+    if accCAddr /= caaId
              -- if you see this error, maybe you generated public key address with
              -- no hd wallet attribute (if so, address would be ~half shorter than
              -- others)
@@ -155,7 +155,7 @@ deriveAccountSK
 deriveAccountSK passphrase CWalletAddress{..} accIndex = do
     -- this function is used in conditions when several secret keys with same
     -- public key are stored, thus checking for passphrase here as well
-    let niceSK k = encToCAddress k == cwaWSAddress
+    let niceSK k = encToCAddress k == cwaWSId
     key <- maybeThrow noKey . find niceSK =<< getSecretKeys
     maybeThrow badPass $
         deriveLvl2KeyPair passphrase key cwaIndex accIndex
@@ -171,7 +171,7 @@ deriveAccountAddress
     -> m CAccountAddress
 deriveAccountAddress passphrase wAddr@CWalletAddress{..} caaAccountIndex = do
     (accAddr, _) <- deriveAccountSK passphrase wAddr caaAccountIndex
-    let caaWSAddress   = cwaWSAddress
+    let caaWSId   = cwaWSId
         caaWalletIndex = cwaIndex
-        caaAddress     = addressToCAddress accAddr
+        caaId     = addressToCAddress accAddr
     return CAccountAddress{..}

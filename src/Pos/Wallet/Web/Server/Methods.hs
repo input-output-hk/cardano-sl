@@ -423,12 +423,12 @@ updateUserProfile profile = setProfile profile >> getUserProfile
 
 getAccountBalance :: WalletWebMode m => CAccountAddress -> m Coin
 getAccountBalance cAccAddr =
-    getBalance <=< decodeCAddressOrFail $ caaAddress cAccAddr
+    getBalance <=< decodeCAddressOrFail $ caaId cAccAddr
 
 getAccount :: WalletWebMode m => CAccountAddress -> m CAccount
 getAccount cAddr = do
     balance <- mkCCoin <$> getAccountBalance cAddr
-    return $ CAccount (caaAddress cAddr) balance
+    return $ CAccount (caaId cAddr) balance
 
 getWalletAccAddrsOrThrow
     :: (WebWalletModeDB m, MonadThrow m)
@@ -445,12 +445,12 @@ getAccounts = getWalletAccAddrsOrThrow Existing >=> mapM getAccount
 
 getWallet :: WalletWebMode m => CWalletAddress -> m CWallet
 getWallet cAddr = do
-    encSK <- getSKByAddr (cwaWSAddress cAddr)
+    encSK <- getSKByAddr (cwaWSId cAddr)
     accounts <- getAccounts cAddr
     modifier <- txMempoolToModifier encSK
     let insertions = map fst (MM.insertions modifier)
-    let modAccs = S.fromList $ map caaAddress $ insertions ++ MM.deletions modifier
-    let filteredAccs = filter (flip S.notMember modAccs . caAddress) accounts
+    let modAccs = S.fromList $ map caaId $ insertions ++ MM.deletions modifier
+    let filteredAccs = filter (flip S.notMember modAccs . caId) accounts
     mempoolAccs <- mapM getAccount insertions
     let mergedAccs = filteredAccs ++ mempoolAccs
     meta <- getWalletMeta cAddr >>= maybeThrow noWallet
@@ -477,7 +477,7 @@ decodeCAddressOrFail = either wrongAddress pure . cAddressToAddress
             sformat ("Error while decoding CAddress: "%stext) err
 
 getWSetWalletAddrs :: WalletWebMode m => CAddress WS -> m [CWalletAddress]
-getWSetWalletAddrs wSet = filter ((== wSet) . cwaWSAddress) <$> getWalletAddresses
+getWSetWalletAddrs wSet = filter ((== wSet) . cwaWSId) <$> getWalletAddresses
 
 getWallets :: WalletWebMode m => Maybe (CAddress WS) -> m [CWallet]
 getWallets mCAddr = do
@@ -567,7 +567,7 @@ sendMoney sendActions cpassphrase moneySource dstDistr curr title desc = do
     passphrase <- decodeCPassPhraseOrFail cpassphrase
     allAccounts <- getMoneySourceAccounts moneySource
     let dstAccAddrsSet = S.fromList $ map fst $ toList dstDistr
-        notDstAccounts = filter (\a -> not $ caaAddress a `S.member` dstAccAddrsSet) allAccounts
+        notDstAccounts = filter (\a -> not $ caaId a `S.member` dstAccAddrsSet) allAccounts
         coins = foldr1 unsafeAddCoin $ snd <$> dstDistr
     distr@(remaining, spendings) <- selectSrcAccounts coins notDstAccounts
     logDebug $ buildDistribution distr
@@ -577,7 +577,7 @@ sendMoney sendActions cpassphrase moneySource dstDistr curr title desc = do
         return $ TxOutAux (TxOut addr coin) []
     let txOutsWithRem = maybe txOuts (\remTx -> remTx :| toList txOuts) mRemTx
     srcTxOuts <- forM (toList spendings) $ \(cAddr, c) -> do
-        addr <- decodeCAddressOrFail $ caaAddress cAddr
+        addr <- decodeCAddressOrFail $ caaId cAddr
         return (TxOut addr c)
     sendDo passphrase (fst <$> spendings) txOutsWithRem srcTxOuts
   where
@@ -609,7 +609,7 @@ sendMoney sendActions cpassphrase moneySource dstDistr curr title desc = do
         | otherwise = do
             relatedWallet <- getMoneySourceWallet moneySource
             account       <- newAccount RandomSeed cpassphrase relatedWallet
-            remAddr       <- decodeCAddressOrFail (caAddress account)
+            remAddr       <- decodeCAddressOrFail (caId account)
             let remTx = TxOutAux (TxOut remAddr remaining) []
             return $ Just remTx
 
@@ -625,7 +625,7 @@ sendMoney sendActions cpassphrase moneySource dstDistr curr title desc = do
     sendDo passphrase srcAccounts txs srcTxOuts = do
         na <- getPeers
         sks <- forM srcAccounts $ getSKByAccAddr passphrase
-        srcAccAddrs <- forM srcAccounts $ decodeCAddressOrFail . caaAddress
+        srcAccAddrs <- forM srcAccounts $ decodeCAddressOrFail . caaId
         let dstAddrs = txOutAddress . toaOut <$> toList txs
         withSafeSigners sks passphrase $ \ss -> do
             let hdwSigner = NE.zip ss srcAccAddrs
@@ -655,7 +655,7 @@ sendMoney sendActions cpassphrase moneySource dstDistr curr title desc = do
     buildDistribution (remaining, spendings) =
         let entries =
                 spendings <&> \(CAccountAddress {..}, c) ->
-                    F.bprint (build % ": " %build) c caaAddress
+                    F.bprint (build % ": " %build) c caaId
             remains = F.bprint ("Remaining: " %build) remaining
         in sformat
                ("Transaction input distribution:\n" %listF "\n" build %
@@ -668,7 +668,7 @@ getHistory
     => CWalletAddress -> Maybe Word -> Maybe Word -> m ([CTx], Word)
 getHistory wAddr skip limit = do
     cAccAddrs <- getWalletAccAddrsOrThrow Ever wAddr
-    accAddrs <- forM cAccAddrs (decodeCAddressOrFail . caaAddress)
+    accAddrs <- forM cAccAddrs (decodeCAddressOrFail . caaId)
     cHistory <-
         do  (minit, cachedTxs) <- transCache <$> getHistoryCache wAddr
 
@@ -786,7 +786,7 @@ updateTransaction = setWalletTransactionMeta
 deleteWSet :: WalletWebMode m => CAddress WS -> m ()
 deleteWSet wsAddr = do
     wallets <- getWallets (Just wsAddr)
-    mapM_ (deleteWallet . cwAddress) wallets
+    mapM_ (deleteWallet . cwId) wallets
     deleteWSetSK wsAddr
     removeWSet wsAddr
 -}
@@ -813,8 +813,8 @@ rederiveAccountAddress newSK newCPass oldAcc = do
     (accAddr, _) <- maybeThrow badPass $
         deriveLvl2KeyPair newPass newSK (caaWalletIndex oldAcc) (caaAccountIndex oldAcc)
     return oldAcc
-        { caaWSAddress = encToCAddress newSK
-        , caaAddress   = addressToCAddress accAddr
+        { caaWSId = encToCAddress newSK
+        , caaId   = addressToCAddress accAddr
         }
   where
     badPass = RequestError "Passphrase doesn't match"
@@ -886,7 +886,7 @@ moveMoneyToClone sa oldPass wsAddr oldAccs newAccs = do
     let ms = WalletSetMoneySource wsAddr
     dist <-
         forM (zip oldAccs newAccs) $ \(oldAcc, newAcc) ->
-            (caaAddress newAcc, ) <$> getAccountBalance oldAcc
+            (caaId newAcc, ) <$> getAccountBalance oldAcc
     whenNotNull dist $ \dist' ->
         unless (all ((== mkCoin 0) . snd) dist) $
         void $
@@ -988,7 +988,7 @@ redeemAdaInternal sendActions cpassphrase walletId seedBs = do
 
     let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
     dstCAddr <- genUniqueAccountAddress RandomSeed passphrase walletId
-    dstAddr <- decodeCAddressOrFail $ caaAddress dstCAddr
+    dstAddr <- decodeCAddressOrFail $ caaId dstCAddr
     na <- getPeers
     etx <- submitRedemptionTx sendActions redeemSK (toList na) dstAddr
     case etx of
@@ -1112,9 +1112,9 @@ instance FromHttpApiData CWalletAddress where
     parseUrlPiece url =
         case T.splitOn "@" url of
             [part1, part2] -> do
-                cwaWSAddress <- parseUrlPiece part1
-                cwaIndex     <- maybe (Left "Invalid wallet index") Right $
-                                readMaybe $ toString part2
+                cwaWSId  <- parseUrlPiece part1
+                cwaIndex <- maybe (Left "Invalid wallet index") Right $
+                            readMaybe $ toString part2
                 return CWalletAddress{..}
             _ -> Left "Expected 2 parts separated by '@'"
 
@@ -1123,12 +1123,12 @@ instance FromHttpApiData CAccountAddress where
     parseUrlPiece url =
         case T.splitOn "@" url of
             [part1, part2, part3, part4] -> do
-                caaWSAddress    <- parseUrlPiece part1
+                caaWSId <- parseUrlPiece part1
                 caaWalletIndex  <- maybe (Left "Invalid wallet index") Right $
                                    readMaybe $ toString part2
                 caaAccountIndex <- maybe (Left "Invalid account index") Right $
                                    readMaybe $ toString part3
-                caaAddress      <- parseUrlPiece part4
+                caaId <- parseUrlPiece part4
                 return CAccountAddress{..}
             _ -> Left "Expected 4 parts separated by '@'"
 

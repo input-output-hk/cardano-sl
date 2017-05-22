@@ -213,37 +213,37 @@ cPassPhraseToPassPhrase (CPassPhrase text) =
 -- | Wallet identifier
 data CWalletAddress = CWalletAddress
     { -- | Address of wallet set this wallet belongs to
-      cwaWSAddress :: CAddress WS
+      cwaWSId  :: CAddress WS
     , -- | Derivation index of this wallet key
-      cwaIndex     :: Word32
+      cwaIndex :: Word32
     } deriving (Eq, Show, Generic, Typeable)
 
 instance Hashable CWalletAddress
 
 instance Buildable CWalletAddress where
     build CWalletAddress{..} =
-        bprint (F.build%"@"%F.build) cwaWSAddress cwaIndex
+        bprint (F.build%"@"%F.build) cwaWSId cwaIndex
 
 -- | Account identifier
 data CAccountAddress = CAccountAddress
     { -- | Address of wallet set this account belongs to
-      caaWSAddress    :: CAddress WS
+      caaWSId         :: CAddress WS
     , -- | First index in derivation path of this account key
       caaWalletIndex  :: Word32
     , -- | Second index in derivation path of this account key
       caaAccountIndex :: Word32
     , -- | Actual adress of this account
-      caaAddress      :: CAddress Acc
+      caaId           :: CAddress Acc
     } deriving (Eq, Show, Generic, Typeable)
 
 instance Buildable CAccountAddress where
     build CAccountAddress{..} =
         bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
-        caaWSAddress caaWalletIndex caaAccountIndex caaAddress
+        caaWSId caaWalletIndex caaAccountIndex caaId
 
 walletAddrByAccount :: CAccountAddress -> CWalletAddress
 walletAddrByAccount CAccountAddress{..} = CWalletAddress
-    { cwaWSAddress = caaWSAddress
+    { cwaWSId = caaWSId
     , cwaIndex     = caaWalletIndex
     }
 
@@ -273,8 +273,8 @@ data CWalletAssurance
 
 -- | Single account in a wallet
 data CAccount = CAccount
-    { caAddress :: !(CAddress Acc)
-    , caAmount  :: !CCoin
+    { caId     :: !(CAddress Acc)
+    , caAmount :: !CCoin
     } deriving (Show, Generic)
 
 -- Includes data which are not provided by Cardano
@@ -292,7 +292,7 @@ instance Default CWalletMeta where
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
 data CWallet = CWallet
-    { cwAddress  :: !CWalletAddress
+    { cwId       :: !CWalletAddress
     , cwMeta     :: !CWalletMeta
     , cwAccounts :: ![CAccount]
     } deriving (Show, Generic, Typeable)
@@ -320,7 +320,7 @@ instance Default CWalletSetMeta where
 
 -- | Client Wallet Set (CW)
 data CWalletSet = CWalletSet
-    { cwsAddress       :: !(CAddress WS)
+    { cwsId            :: !(CAddress WS)
     , cwsWSetMeta      :: !CWalletSetMeta
     , cwsWalletsNumber :: !Int
     , cwsHasPassphrase :: !Bool
@@ -409,7 +409,7 @@ data CTExMeta = CTExMeta
     , cexDate        :: POSIXTime
     , cexRate        :: Text
     , cexLabel       :: Text -- counter part of client's 'exchange' value
-    , cexAddress     :: CAddress Acc
+    , cexId          :: CAddress Acc
     } deriving (Show, Generic)
 
 -- | Update system data

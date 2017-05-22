@@ -6,11 +6,11 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION, error)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (getProfileLocale, mkCAddress, mkCCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkBackupPhrase, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCWalletSetInit)
+import Daedalus.Types (getProfileLocale, mkCAddress, mkCCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkBackupPhrase, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCWalletSetInit, mkCWalletAddress)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Bifunctor (lmap)
 import Data.Argonaut (Json)
-import Data.Argonaut.Generic.Aeson (encodeJson, decodeJson)
+import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.String.Base64 as B64
 import Data.Base58 as B58
 import Data.Array as A
@@ -153,7 +153,7 @@ changeWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff $ B.changeWall
 -- Wallets ---------------------------------------------------------------------
 
 -- | Get a wallet.
--- Arguments: wallet object/identifier
+-- Arguments: wallet identifier
 -- Returns json representation of a wallet
 -- Example in nodejs:
 -- | > api.getWallet({"cwaWSAddress": "1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW","cwaIndex": 1759060325}).then(console.log).catch(console.log)
@@ -170,8 +170,8 @@ changeWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff $ B.changeWall
 -- |   cwAccounts:
 -- |    [ { caAmount: [Object],
 -- |        caAddress: '19LniCeNbAxec4FkyxPHCHDzUSnnf4ZymZChq2s9JmYjyr9senVjp4PnbNJ5DPXB8WrWhHCV6Dv2Qv9jdUR5bfNfhdt2vs' } ] }
-getWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) Json (Promise Json)
-getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< either (throwError <<< error) B.getWallet <<< decodeJson
+getWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
+getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallet <<< mkCWalletAddress
 
 -- | Get all wallets.
 -- Arguments:
@@ -231,11 +231,9 @@ getSetWallets = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallets <<< Just 
 -- |   cwAccounts:
 -- |    [ { caAmount: [Object],
 -- |        caAddress: '19LniCeNbAxec4FkyxPHCHDzUSnnf4ZymZChq2s9JmYjyr9senVjp4PnbNJ5DPXB8WrWhHCV6Dv2Qv9jdUR5bfNfhdt2vs' } ] }
-updateWallet :: forall eff. EffFn6 (ajax :: AJAX | eff) Json String String String String Int (Promise Json)
+updateWallet :: forall eff. EffFn6 (ajax :: AJAX | eff) String String String String String Int (Promise Json)
 updateWallet = mkEffFn6 \wId wType wCurrency wName wAssurance wUnit -> fromAff <<< map encodeJson <<<
-    either (throwError <<< error)
-        (flip B.updateWallet $ mkCWalletMeta wType wCurrency wName wAssurance wUnit)
-        $ decodeJson wId
+    B.updateWallet (mkCWalletAddress wId) $ mkCWalletMeta wType wCurrency wName wAssurance wUnit
 
 -- | Creates a new wallet.
 -- Arguments: address/hash/id of a wallet set, type, currency, name, mnemonics, spending password (if empty string is given, wallet will be created with no spending password)
@@ -267,8 +265,8 @@ newWallet = mkEffFn5 \wSetId wType wCurrency wName spendingPassword -> fromAff <
 -- | > api.deleteWallet({"cwaWSAddress": "1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW","cwaIndex": 293230236}).then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > {}
-deleteWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) Json (Promise Unit)
-deleteWallet = mkEffFn1 $ fromAff <<< either (throwError <<< error) B.deleteWallet <<< decodeJson
+deleteWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Unit)
+deleteWallet = mkEffFn1 $ fromAff <<< B.deleteWallet <<< mkCWalletAddress
 
 --------------------------------------------------------------------------------
 -- Accounts ------------------------------------------------------------------
@@ -281,10 +279,10 @@ deleteWallet = mkEffFn1 $ fromAff <<< either (throwError <<< error) B.deleteWall
 -- | Promise { <pending> }
 -- | > { caAmount: { getCoin: '0' },
 -- |   caAddress: '19HWBLraiv8SKtGD3GnTuQZwND8YL5UTTXogPUnpcGzJbNcYHYxm321ovX7NxRsrr1E947AFVFjS4YXtdbgZe8iUgdZCNa' }
-newAccount :: forall eff . EffFn2 (ajax :: AJAX | eff) Json String
+newAccount :: forall eff . EffFn2 (ajax :: AJAX | eff) String String
   (Promise Json)
 newAccount = mkEffFn2 \wId spendingPassword -> fromAff <<< map encodeJson <<<
-    either (throwError <<< error) (B.newAccount $ mkCPassPhrase spendingPassword) $ decodeJson wId
+    B.newAccount (mkCPassPhrase spendingPassword) $ mkCWalletAddress wId
 
 --------------------------------------------------------------------------------
 -- Addresses ------------------------------------------------------------------
@@ -355,13 +353,13 @@ updateLocale = mkEffFn1 \locale -> fromAff <<< map getProfileLocale <<< B.update
 -- |   ctId: 'c2cf810bff21698dace837d23356336098f207b1d70d16ac83e058fcd0ace732',
 -- |   ctConfirmations: 0,
 -- |   ctAmount: { getCoin: '50000' } }
-newPayment :: forall eff. EffFn4 (ajax :: AJAX | eff) Json String String String (Promise Json)
-newPayment = mkEffFn4 \wFrom addrTo amount spendingPassword -> fromAff <<< map encodeJson $ either (throwError <<< error) id
-    $ B.newPayment
-    <$> (pure $ mkCPassPhrase spendingPassword)
-    <*> (decodeJson wFrom)
-    <*> (pure $ mkCAddress addrTo)
-    <*> (pure $ mkCCoin amount)
+newPayment :: forall eff. EffFn4 (ajax :: AJAX | eff) String String String String (Promise Json)
+newPayment = mkEffFn4 \wFrom addrTo amount spendingPassword -> fromAff <<< map encodeJson $
+    B.newPayment
+    (mkCPassPhrase spendingPassword)
+    (mkCWalletAddress wFrom)
+    (mkCAddress addrTo)
+    (mkCCoin amount)
 
 -- | Creates a new payment.
 -- Arguments: wallet object/id, address id/hash, amount to send, currency, title, description, spending password (leave empty string if you don't want to use spending password)
@@ -381,16 +379,16 @@ newPayment = mkEffFn4 \wFrom addrTo amount spendingPassword -> fromAff <<< map e
 -- |   ctId: '580b35fb3bd94075926ce2c7c93b9cdbfc8dab3b3a9cd76410254507f33d8ac8',
 -- |   ctConfirmations: 0,
 -- |   ctAmount: { getCoin: '49999' } }
-newPaymentExtended :: forall eff. EffFn7 (ajax :: AJAX | eff) Json String String String String String String (Promise Json)
-newPaymentExtended = mkEffFn7 \wFrom addrTo amount curr title desc spendingPassword -> fromAff <<< map encodeJson $ either (throwError <<< error) id
-    $ B.newPaymentExtended
-    <$> (pure $ mkCPassPhrase spendingPassword)
-    <*> (decodeJson wFrom)
-    <*> (pure $ mkCAddress addrTo)
-    <*> (pure $ mkCCoin amount)
-    <*> (pure $ mkCCurrency curr)
-    <*> (pure title)
-    <*> (pure desc)
+newPaymentExtended :: forall eff. EffFn7 (ajax :: AJAX | eff) String String String String String String String (Promise Json)
+newPaymentExtended = mkEffFn7 \wFrom addrTo amount curr title desc spendingPassword -> fromAff <<< map encodeJson $
+    B.newPaymentExtended
+    (mkCPassPhrase spendingPassword)
+    (mkCWalletAddress wFrom)
+    (mkCAddress addrTo)
+    (mkCCoin amount)
+    (mkCCurrency curr)
+    title
+    desc
 
 -- | Updates transaction meta data.
 -- Arguments: wallet object/id, transaction id/hash, currency, title, description, date
@@ -399,12 +397,12 @@ newPaymentExtended = mkEffFn7 \wFrom addrTo amount curr title desc spendingPassw
 -- | > api.updateTransaction({"cwaWSAddress": "1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8", "cwaIndex": 2147483648}, 'cc7576fef33a4a60865f9149792fa7359f44eca6745aeb1ba751185bab9bd7ac', 'ADA', 'Manager task', 'Managing people and other stuff', 1494935150.0468155).then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > {}
-updateTransaction :: forall eff. EffFn6 (ajax :: AJAX | eff) Json String String String String Number (Promise Unit)
-updateTransaction = mkEffFn6 \wId ctxId ctmCurrency ctmTitle ctmDescription ctmDate -> fromAff <<< either (throwError <<< error) id
-    $ B.updateTransaction
-    <$> (decodeJson wId)
-    <*> (pure $ mkCTxId ctxId)
-    <*> (pure $ mkCTxMeta ctmCurrency ctmTitle ctmDescription ctmDate)
+updateTransaction :: forall eff. EffFn6 (ajax :: AJAX | eff) String String String String String Number (Promise Unit)
+updateTransaction = mkEffFn6 \wId ctxId ctmCurrency ctmTitle ctmDescription ctmDate -> fromAff $
+    B.updateTransaction
+    (mkCWalletAddress wId)
+    (mkCTxId ctxId)
+    (mkCTxMeta ctmCurrency ctmTitle ctmDescription ctmDate)
 
 -- | Get transactions of specified wallet
 -- Arguments: wallet object/id, skip, limit
@@ -431,12 +429,12 @@ updateTransaction = mkEffFn6 \wId ctxId ctmCurrency ctmTitle ctmDescription ctmD
 -- |       ctConfirmations: 0,
 -- |       ctAmount: [Object] } ],
 -- |   3 ]
-getHistory :: forall eff. EffFn3 (ajax :: AJAX | eff) Json Int Int (Promise Json)
-getHistory = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $ either (throwError <<< error) id
-    $ B.getHistory
-    <$> (decodeJson wId)
-    <*> (pure $ Just skip)
-    <*> (pure $ Just limit)
+getHistory :: forall eff. EffFn3 (ajax :: AJAX | eff) String Int Int (Promise Json)
+getHistory = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $
+    B.getHistory
+    (mkCWalletAddress wId)
+    (Just skip)
+    (Just limit)
 
 -- | Gets transactions that match some search criteria
 -- Arguments: wallet object/id, search string, skip, limit
@@ -457,14 +455,14 @@ getHistory = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $ either (th
 -- |       ctConfirmations: 0,
 -- |       ctAmount: [Object] } ],
 -- |   3 ]
-searchHistory :: forall eff. EffFn4 (ajax :: AJAX | eff) Json String Int Int (Promise Json)
-searchHistory = mkEffFn4 \wId search skip limit -> fromAff <<< map encodeJson $ either (throwError <<< error) id
-    $ B.searchHistory
-    <$> (decodeJson wId)
-    <*> pure Nothing
-    <*> (pure search)
-    <*> (pure $ Just skip)
-    <*> (pure $ Just limit)
+searchHistory :: forall eff. EffFn4 (ajax :: AJAX | eff) String String Int Int (Promise Json)
+searchHistory = mkEffFn4 \wId search skip limit -> fromAff <<< map encodeJson $
+    B.searchHistory
+    (mkCWalletAddress wId)
+    Nothing
+    search
+    (Just skip)
+    (Just limit)
 
 -- | Gets transactions that match some search criteria
 -- Arguments: wallet object/id, narrow the search to account hash/id, search string, skip, limit
@@ -491,14 +489,14 @@ searchHistory = mkEffFn4 \wId search skip limit -> fromAff <<< map encodeJson $ 
 -- |       ctConfirmations: 0,
 -- |       ctAmount: [Object] } ],
 -- |   3 ]
-searchAccountHistory :: forall eff. EffFn5 (ajax :: AJAX | eff) Json String String Int Int (Promise Json)
-searchAccountHistory = mkEffFn5 \wId account search skip limit -> fromAff <<< map encodeJson $ either (throwError <<< error) id
-    $ B.searchHistory
-    <$> (decodeJson wId)
-    <*> (pure $ Just $ mkCAddress account)
-    <*> (pure search)
-    <*> (pure $ Just skip)
-    <*> (pure $ Just limit)
+searchAccountHistory :: forall eff. EffFn5 (ajax :: AJAX | eff) String String String Int Int (Promise Json)
+searchAccountHistory = mkEffFn5 \wId account search skip limit -> fromAff <<< map encodeJson $
+    B.searchHistory
+    (mkCWalletAddress wId)
+    (Just $ mkCAddress account)
+    search
+    (Just skip)
+    (Just limit)
 
 
 --------------------------------------------------------------------------------
@@ -532,15 +530,15 @@ applyUpdate = fromAff B.applyUpdate
 -- Redemptions -----------------------------------------------------------------
 
 -- Example in nodejs:
-redeemAda :: forall eff. EffFn3 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String Json String (Promise Json)
-redeemAda = mkEffFn3 \seed wId spendingPassword -> fromAff <<< map encodeJson <<< either (throwError <<< error) id
-    $ B.redeemAda (mkCPassPhrase spendingPassword)
-    <$> mkCWalletRedeem seed
-    <$> decodeJson wId
+redeemAda :: forall eff. EffFn3 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String (Promise Json)
+redeemAda = mkEffFn3 \seed wId spendingPassword -> fromAff <<< map encodeJson $
+    B.redeemAda
+    (mkCPassPhrase spendingPassword)
+    (mkCWalletRedeem seed $ mkCWalletAddress wId)
 
 -- Example in nodejs:
-redeemAdaPaperVend :: forall eff. EffFn4 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String Json String (Promise Json)
-redeemAdaPaperVend = mkEffFn4 \seed mnemonic wId spendingPassword -> fromAff <<< map encodeJson <<< either throwError (B.redeemAdaPaperVend $ mkCPassPhrase spendingPassword) $ mkCPaperVendWalletRedeem seed mnemonic =<< lmap error (decodeJson wId)
+redeemAdaPaperVend :: forall eff. EffFn4 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String String (Promise Json)
+redeemAdaPaperVend = mkEffFn4 \seed mnemonic wId spendingPassword -> fromAff <<< map encodeJson <<< either throwError (B.redeemAdaPaperVend $ mkCPassPhrase spendingPassword) $ mkCPaperVendWalletRedeem seed mnemonic $ mkCWalletAddress wId
 
 -- Valid redeem code is base64 encoded 32byte data
 -- NOTE: this method handles both base64 and base64url base on rfc4648: see more https://github.com/menelaos/purescript-b64/blob/59e2e9189358a4c8e3eef8662ca281906844e783/src/Data/String/Base64.purs#L182
@@ -616,7 +614,7 @@ isValidMnemonic = mkEffFn2 \len -> pure <<< either (const false) (const true) <<
 -- Websockets ---------------------------------------------------------------------
 
 -- Example for testing
--- | > wscat -c ws://127.0.0.1:8090                              
+-- | > wscat -c ws://127.0.0.1:8090
 -- |
 -- | connected (press CTRL+C to quit)
 -- |

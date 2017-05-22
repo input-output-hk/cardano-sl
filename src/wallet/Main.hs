@@ -46,7 +46,6 @@ import           Pos.Genesis                (genesisDevSecretKeys,
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              bracketResources, stakesDistr)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
-import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (coinF, makePubKeyAddress)

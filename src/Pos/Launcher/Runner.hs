@@ -28,7 +28,6 @@ module Pos.Launcher.Runner
 import           Control.Concurrent.STM       (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                 (each, to, _tail)
 import           Control.Monad.Fix            (MonadFix)
-import qualified Data.ByteString.Char8        as BS8
 import           Data.Default                 (def)
 import           Data.Tagged                  (Tagged (..), untag)
 import qualified Data.Time                    as Time
@@ -47,8 +46,9 @@ import           Node                         (Node, NodeAction (..),
 import           Node.Util.Monitor            (setupMonitor, stopMonitor)
 import qualified STMContainers.Map            as SM
 import           System.Random                (newStdGen)
-import           System.Wlog                  (LoggerConfig (..), WithLogger, logError,
-                                               logInfo, productionB, releaseAllHandlers,
+import           System.Wlog                  (LoggerConfig (..), WithLogger,
+                                               getLoggerName, logError, logInfo,
+                                               productionB, releaseAllHandlers,
                                                setupLogging, usingLoggerName)
 import           Universum                    hiding (bracket, finally)
 

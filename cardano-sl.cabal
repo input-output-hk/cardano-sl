@@ -573,6 +573,8 @@ executable cardano-node
   hs-source-dirs:      src/node
   main-is:             Main.hs
   other-modules:       NodeOptions
+                     , Params
+                     , Secrets
   build-depends:       base
                      , binary
                      , bytestring
@@ -581,6 +583,7 @@ executable cardano-node
                      , cardano-sl-lrc
                      , cardano-sl-update
                      , cardano-sl
+                     , containers
                      , data-default
                      , directory
                      , ether

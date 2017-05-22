@@ -40,6 +40,10 @@ lightDlgConfirmationTimeout: 500
 
 # Update system
 applicationName: cardano-sl
+applicationVersion: 0
+lastKnownBVMajor: 0
+lastKnownBVMinor: 0
+lastKnownBVAlt: 0
 
 # Production start time
 productionNetworkStartTime: 0

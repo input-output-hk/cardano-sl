@@ -43,15 +43,15 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: b48bd9b099e47d8c39aa6ddce261aa76f8488d75
+    commit: 22f8f3913bad6cc229b3c6e348ef8457e5a55b47
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
-    git: https://github.com/avieth/network-transport-tcp
-    commit: ca42a954a15792f5ea8dc203e56fac8175b99c33
+    git: https://github.com/serokell/network-transport-tcp
+    commit: a6c04c35f3a1d786bc5e57fd04cf3e2a043179f3
   extra-dep: true
 - location:
-    git: https://github.com/avieth/network-transport
+    git: https://github.com/serokell/network-transport
     commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
   extra-dep: true
 - location:
@@ -74,16 +74,19 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
+- foundation-0.0.8
+- memory-0.14.5
 - universum-0.3
 - time-units-1.0.0
 - serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.1.1      
+- log-warper-1.1.1
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.6.2
 - purescript-bridge-0.8.0.1
-- cryptonite-0.22
+- cryptonite-0.23
+- cryptonite-openssl-0.6
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
 - servant-0.10                    # servant-multipart supports version servant-10 only
 - servant-server-0.10             # so it triggers another dependencies to be v10

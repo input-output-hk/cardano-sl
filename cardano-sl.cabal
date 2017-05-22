@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             0.4.3
+version:             0.4.4
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -140,6 +140,7 @@ library
                         Pos.Binary.Relay
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
+                        Pos.Binary.Ssc.GodTossing.Types
                         Pos.Binary.Txp
 
                         -- Block processing
@@ -240,6 +241,7 @@ library
                         Pos.Ssc.GodTossing.Core
                         Pos.Ssc.GodTossing.Core.Core
                         Pos.Ssc.GodTossing.Core.Types
+                        Pos.Ssc.GodTossing.DB
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
@@ -429,8 +431,8 @@ library
                       , concurrent-extra
                       , conduit >= 1.2.8
                       , containers
-                      , cryptonite >= 0.19 && <= 0.22
-                      , cryptonite-openssl >= 0.5
+                      , cryptonite >= 0.23 && <= 0.23
+                      , cryptonite-openssl >= 0.6
                       , data-default
                       , deepseq
                       , derive
@@ -1100,6 +1102,47 @@ executable cardano-launcher
                        TupleSections
   if os(windows)
     LD-Options:     -mwindows
+
+executable cardano-addr-convert
+  hs-source-dirs:      src/addr-convert
+  main-is:             Main.hs
+  build-depends:       base
+                     , bytestring
+                     , cardano-sl
+                     , cardano-sl-core
+                     , directory
+                     , filepath
+                     , process
+                     , serokell-util
+                     , system-filepath
+                     , text
+                     , turtle
+                     , universum
+                     , lens
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -Wall
+                       -O2
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
 
 test-suite cardano-test
   main-is:             Test.hs

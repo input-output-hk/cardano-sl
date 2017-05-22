@@ -139,9 +139,10 @@ instance MonadBaseControl IO m => MonadBaseControl IO (NtpSlotting m) where
 
 type SlottingConstraint m =
     ( MonadIO m
+    , MonadBaseControl IO m
     , WithLogger m
     , MonadSlotsData m
-    , MonadCatch m
+    , MonadMask m
     , Mockables m
         [ Fork
         , Throw
@@ -286,7 +287,9 @@ ntpCurrentTime = do
 
 mkNtpSlottingVar
     :: ( MonadIO m
+       , MonadBaseControl IO m
        , WithLogger m
+       , MonadMask m
        , Mockables m
         [ CurrentTime
         , Delay

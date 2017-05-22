@@ -44,10 +44,10 @@ import           Node                        (Node, NodeAction (..),
 import           Node.Util.Monitor           (setupMonitor, stopMonitor)
 import qualified STMContainers.Map           as SM
 import           System.Random               (newStdGen)
-import           System.Wlog                 (LoggerConfig (..), WithLogger, logError,
-                                              logInfo, mapperB, productionB,
-                                              releaseAllHandlers, setupLogging,
-                                              usingLoggerName)
+import           System.Wlog                 (LoggerConfig (..), WithLogger,
+                                              getLoggerName, logError, logInfo, mapperB,
+                                              productionB, releaseAllHandlers,
+                                              setupLogging, usingLoggerName)
 import           Universum                   hiding (bracket, finally)
 
 import           Pos.Binary                  ()
@@ -314,9 +314,13 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext act = do
 ----------------------------------------------------------------------------
 
 nodeStartMsg :: WithLogger m => BaseParams -> m ()
-nodeStartMsg BaseParams {..} = logInfo msg
+nodeStartMsg BaseParams {..} = do
+    logInfo msg1
+    logInfo msg2
   where
-    msg = sformat ("Started node, joining to DHT network " %build) bpDHTPeers
+    msg1 = sformat ("Application: " %build% ", last known block version " %build)
+                   Const.curSoftwareVersion Const.lastKnownBlockVersion
+    msg2 = sformat ("Started node, joining to DHT network " %build) bpDHTPeers
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do
@@ -368,12 +372,16 @@ createTransport
     :: (MonadIO m, WithLogger m, Mockable Throw m)
     => TCP.TCPAddr -> m Transport
 createTransport addrInfo = do
+    loggerName <- getLoggerName
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
                    Just $ fromIntegral Const.networkConnectionTimeout
              , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
              , TCP.tcpCheckPeerHost = True
+             , TCP.tcpServerExceptionHandler = \e ->
+                     usingLoggerName (loggerName <> "transport") $
+                         logError $ sformat ("Exception in tcp server: " % shown) e
              })
     transportE <-
         liftIO $ TCP.createTransport addrInfo tcpParams

@@ -87,7 +87,8 @@ import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal,
                                              sscVerifyBlocks)
 import           Pos.Txp.Core               (TxAux, TxId, TxPayload, mkTxPayload,
                                              topsortTxs)
-import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxsNUndo)
+import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxsNUndo,
+                                             MemPoolModifyReason (..))
 import           Pos.Txp.Settings           (TxpBlock, TxpGlobalSettings (..))
 import           Pos.Types                  (Block, BlockHeader, EpochOrSlot (..),
                                              GenesisBlock, IsGenesisHeader, IsMainHeader,
@@ -854,7 +855,7 @@ createMainBlockFinish slotId pSk prevHeader = do
     verifyCreatedBlock :: MainBlock ssc -> ExceptT Text m (Either Text ())
     verifyCreatedBlock block = lift $ void <$> verifyBlocksPrefix (one (Right block))
     clearMempools = do
-        clearTxpMemPool "createMainBlockFinish"
+        clearTxpMemPool CreateBlock
         sscResetLocal
         clearUSMemPool
         clearProxyMemPool

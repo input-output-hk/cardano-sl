@@ -31,11 +31,12 @@ import           System.Wlog            (WithLogger, logDebug, usingLoggerName,
                                          getLoggerName)
 import           Formatting             (sformat, (%), shown)
 import           Universum
+import qualified GHC.Conc               as Conc
 
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxOutAux)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
                                          GenericTxpLocalDataPure,
-                                         TxpMetrics (..))
+                                         TxpMetrics (..), MemPoolModifyReason)
 import           Pos.Txp.Toil.Types     (MemPool (..), UtxoModifier)
 import           Pos.Util.TimeWarp      (currentTime)
 import           Pos.Util.JsonLog       (MonadJL, jlLog, JLMemPool(..),
@@ -109,7 +110,7 @@ txpLocalDataLockQueueLength = unsafePerformIO $ newIORef 0
 
 modifyTxpLocalData
     :: (MonadIO m, MonadTxpMem ext m, WithLogger m)
-    => Text
+    => MemPoolModifyReason
     -> (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext))
     -> m a
 modifyTxpLocalData reason f =
@@ -123,6 +124,7 @@ modifyTxpLocalData reason f =
         _ <- atomicModifyIORef' txpLocalDataLockQueueLength $ \i -> (i - 1, ())
         let timeWait = timeEndWait - timeBeginWait
         liftIO . usingLoggerName lname $ txpMetricsAcquire timeWait
+        allocBeginModify <- liftIO Conc.getAllocationCounter
         timeBeginModify <- currentTime
         (res, oldSize, newSize) <- atomically $ do
             curUM  <- STM.readTVar txpUtxoModifier
@@ -139,8 +141,12 @@ modifyTxpLocalData reason f =
             STM.writeTVar txpExtra newExtra
             pure (res, _mpLocalTxsSize curMP, _mpLocalTxsSize newMP)
         timeEndModify <- currentTime
+        allocEndModify <- liftIO Conc.getAllocationCounter
         putMVar txpLocalDataLock ()
         let timeModify = timeEndModify - timeBeginModify
+            -- Allocation counter counts down, so
+            -- allocBeginModify >= allocEndModify
+            allocModify = allocBeginModify - allocEndModify
         liftIO . usingLoggerName lname $ txpMetricsRelease (timeEndModify - timeBeginModify) newSize
         let jsonEvent = JLMemPoolEvent $ JLMemPool
                 { jlmReason      = reason
@@ -152,20 +158,23 @@ modifyTxpLocalData reason f =
                 , jlmModify      = fromIntegral timeModify
                 , jlmSizeBefore  = oldSize
                 , jlmSizeAfter   = newSize
+                  -- fromIntegral :: Int64 -> Int
+                  -- It's probably fine.
+                , jlmAllocated   = fromIntegral allocModify
                 }
         jlLog jsonEvent
         pure res
 
 setTxpLocalData
     :: (MonadIO m, MonadTxpMem ext m)
-    => Text
+    => MemPoolModifyReason
     -> GenericTxpLocalDataPure ext
     -> m ()
 setTxpLocalData reason x = modifyTxpLocalData reason (const ((), x))
 
 clearTxpMemPool
     :: (MonadIO m, MonadTxpMem ext m, Default ext)
-    => Text
+    => MemPoolModifyReason
     -> m ()
 clearTxpMemPool reason = modifyTxpLocalData reason clearF
   where

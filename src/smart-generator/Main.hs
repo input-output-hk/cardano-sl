@@ -30,7 +30,8 @@ import           Pos.Discovery              (MonadDiscovery, findPeers, getPeers
 import           Pos.Genesis                (genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), bracketResources, initLrc,
-                                             runNode', runStaticMode, stakesDistr)
+                                             runNode', runStaticMode, stakesDistr,
+                                             noBackpressure)
 import           Pos.Ssc.Class              (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing         (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
@@ -292,6 +293,7 @@ main = do
                     , upUpdateServers = []
                     }
                 , npUseNTP = True
+                , npBackpressure = noBackpressure
                 }
             gtParams =
                 GtParams

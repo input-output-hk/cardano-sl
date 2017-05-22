@@ -34,6 +34,7 @@ import           Pos.Exception        (assertionFailed)
 import           Pos.Reporting        (reportingFatal)
 import           Pos.Slotting         (putSlottingData)
 import           Pos.Txp.Core         (TxPayload)
+import           Pos.Txp.MemState     (MemPoolModifyReason (..))
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp     (eTxNormalize)
 #else
@@ -132,9 +133,9 @@ applyBlocksUnsafeDo blunds pModifier = do
         ]
     sscNormalize
 #ifdef WITH_EXPLORER
-    eTxNormalize
+    eTxNormalize ApplyBlock
 #else
-    txNormalize
+    txNormalize ApplyBlock
 #endif
     usNormalize
     DB.sanityCheckDB

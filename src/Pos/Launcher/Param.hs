@@ -4,6 +4,9 @@ module Pos.Launcher.Param
        ( LoggingParams (..)
        , BaseParams (..)
        , NodeParams (..)
+       , Backpressure (..)
+       , noBackpressure
+       , parseBackpressure
        ) where
 
 import           Pos.Crypto          (SecretKey)
@@ -13,6 +16,11 @@ import           Pos.Types           (Timestamp)
 import           Pos.Update.Params   (UpdateParams)
 import           Pos.Util.UserSecret (UserSecret)
 import           System.Wlog         (LoggerName)
+import           Data.Time.Units     (Microsecond)
+import           Data.Word           (Word32)
+import qualified Text.Parsec.String  as P
+import qualified Text.Parsec.Char    as P
+import qualified Text.Parsec.Number  as P
 import           Universum
 
 -- | Contains all parameters required for hierarchical logger initialization.
@@ -44,4 +52,36 @@ data NodeParams = NodeParams
     , npReportServers :: ![Text]            -- ^ List of report server URLs
     , npUpdateParams  :: !UpdateParams      -- ^ Params for update system
     , npUseNTP        :: !Bool
+    , npBackpressure  :: !Backpressure
     } deriving (Show)
+
+data Backpressure = Backpressure
+    { -- | Threshold and delay for the first level. When the estimate exceeds
+      --   the threshold, delay for this interval.
+      bpressLevelOne :: (Word32, Microsecond)
+      -- | Threshold and delay for the second level. When the estimate exceeds
+      --   the threshold, delay for this interval.
+      --   If this threshold is less than the level one threshold, then the
+      --   level two delay will never be induced.
+    , bpressLevelTwo :: (Word32, Microsecond)
+    }
+    deriving Show
+
+noBackpressure = Backpressure
+    { bpressLevelOne = (maxBound, 0)
+    , bpressLevelTwo = (maxBound, 0)
+    }
+
+parseBackpressure :: P.Parser Backpressure
+parseBackpressure = do
+    lowerThreshold <- P.decimal
+    _ <- P.char ' '
+    lowerDelay <- P.decimal
+    _ <- P.char ' '
+    upperThreshold <- P.decimal
+    _ <- P.char ' '
+    upperDelay <- P.decimal
+    pure $ Backpressure
+        { bpressLevelOne = (lowerThreshold, lowerDelay)
+        , bpressLevelTwo = (upperThreshold, upperDelay)
+        }

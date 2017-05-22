@@ -241,7 +241,6 @@ library
                         Pos.SafeCopy
 
                         -- SSC
-                        Pos.Ssc.Class.Types
                         Pos.Ssc.Class.Helpers
                         Pos.Ssc.Class.Storage
                         Pos.Ssc.Class.Workers
@@ -421,6 +420,7 @@ library
                       , cardano-sl-db
                       , cardano-sl-infra
                       , cardano-sl-lrc
+                      , cardano-sl-ssc
                       , cardano-sl-update
                       , cereal
                       , concurrent-extra

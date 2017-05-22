@@ -12,7 +12,7 @@ set -o pipefail
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   build.sh                           build
 #   build.sh -t                        build and run tests
-#   build.sh core|db|update|infra|sl   build only a specific project
+#   build.sh core|db|...|sl            build only a specific project
 #   build.sh -c                        do stack clean
 #
 # Consider symlinking the script as `b` into the cardano-sl folder because 
@@ -32,7 +32,7 @@ set -o pipefail
 # * Pass --ram or do `touch .ram`. if you have lots of RAM and want to
 #   make builds faster
 
-projects="core db lrc infra update"
+projects="core db lrc infra ssc update"
 
 args=''
 

@@ -51,8 +51,7 @@ import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Statistics             (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Update.Context         (ucUpdateSemaphore)
 import           Pos.Util                   (inAssertMode)
-import           Pos.Util.UserSecret        (UserSecret, peekUserSecret, usPrimKey, usVss,
-                                             writeUserSecret)
+import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Wallet                 (WalletSscType)
 import           Pos.WorkMode               (ProductionMode, RawRealMode, RawRealModeK,
@@ -164,96 +163,6 @@ action peerHolder args@Args {..} transport = do
   where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 
-<<<<<<< HEAD
-userSecretWithGenesisKey
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
-userSecretWithGenesisKey Args{..} userSecret
-    | isDevelopment = case devSpendingGenesisI of
-          Nothing -> fetchPrimaryKey userSecret
-          Just i -> do
-              let sk = genesisDevSecretKeys !! i
-                  us = userSecret & usPrimKey .~ Just sk
-              writeUserSecret us
-              return (sk, us)
-    | otherwise = fetchPrimaryKey userSecret
-
-getKeyfilePath :: Args -> FilePath
-getKeyfilePath Args {..}
-    | isDevelopment = case devSpendingGenesisI of
-          Nothing -> keyfilePath
-          Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
-    | otherwise = keyfilePath
-
-updateUserSecretVSS
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
-updateUserSecretVSS Args{..} us
-    | isDevelopment = case devVssGenesisI of
-          Nothing -> fillUserSecretVSS us
-          Just i  -> return $ us & usVss .~ Just (genesisDevVssKeyPairs !! i)
-    | otherwise = fillUserSecretVSS us
-
-fetchPrimaryKey :: (MonadIO m, MonadFail m) => UserSecret -> m (SecretKey, UserSecret)
-fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of
-    Just sk -> return (sk, userSecret)
-    Nothing -> do
-        putText "Found no signing keys in keyfile, generating random one..."
-        sk <- snd <$> keyGen
-        let us = userSecret & usPrimKey .~ Just sk
-        writeUserSecret us
-        return (sk, us)
-
-fillUserSecretVSS :: (MonadIO m, MonadFail m) => UserSecret -> m UserSecret
-fillUserSecretVSS userSecret = case userSecret ^. usVss of
-    Just _  -> return userSecret
-    Nothing -> do
-        putText "Found no VSS keypair in keyfile, generating random one..."
-        vss <- vssKeyGen
-        let us = userSecret & usVss .~ Just vss
-        writeUserSecret us
-        return us
-
-getNodeParams
-    :: (MonadIO m, MonadFail m, MonadThrow m, WithLogger m)
-    => Args -> Timestamp -> m NodeParams
-getNodeParams args@Args {..} systemStart = do
-    (primarySK, userSecret) <-
-        userSecretWithGenesisKey args =<<
-        updateUserSecretVSS args =<<
-        peekUserSecret (getKeyfilePath args)
-    return NodeParams
-        { npDbPathM = dbPath
-        , npRebuildDb = rebuildDB
-        , npSecretKey = primarySK
-        , npUserSecret = userSecret
-        , npSystemStart = systemStart
-        , npBaseParams = getBaseParams "node" args
-        , npCustomUtxo = genesisUtxo $
-              if isDevelopment
-                  then stakesDistr (CLI.flatDistr commonArgs)
-                                   (CLI.bitcoinDistr commonArgs)
-                                   (CLI.richPoorDistr commonArgs)
-                                   (CLI.expDistr commonArgs)
-                  else genesisStakeDistribution
-        , npJLFile = jlPath
-        , npAttackTypes = maliciousEmulationAttacks
-        , npAttackTargets = maliciousEmulationTargets
-        , npPropagation = not (CLI.disablePropagation commonArgs)
-        , npReportServers = CLI.reportServers commonArgs
-        , npUpdateParams = UpdateParams
-            { upUpdatePath = updateLatestPath
-            , upUpdateWithPkg = updateWithPackage
-            , upUpdateServers = CLI.updateServers commonArgs
-            }
-        , npUseNTP = not noNTP
-        }
-
-gtSscParams :: Args -> VssKeyPair -> GtParams
-gtSscParams Args {..} vssSK =
-    GtParams
-    { gtpSscEnabled = True
-    , gtpVssKeyPair = vssSK
-    }
-=======
     transportR ::
         forall ssc t0 t1 .
         ( Each '[MonadTrans] [t0, t1]
@@ -274,7 +183,6 @@ gtSscParams Args {..} vssSK =
         )
         => Transport (t0 $ t1 $ t2 $ t3 (RawRealMode ssc))
     transportW = hoistTransport (lift . lift . lift . lift) transport
->>>>>>> origin/master
 
 #ifdef WITH_WEB
 pluginsGT ::

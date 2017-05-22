@@ -20,15 +20,15 @@ import           Formatting            (bprint, build, (%))
 import           Universum
 
 import           Pos.Binary.Class      (encodeStrict)
+import           Pos.Block.Core        (Block, BlockHeader, blockHeader)
 import           Pos.Block.Pure        (genesisHash)
 import           Pos.Block.Types       (Blund)
+import           Pos.Core              (HasHeaderHash, HeaderHash, headerHash)
 import           Pos.Crypto            (shortHashF)
 import           Pos.DB.Block          (getBlockWithUndo)
 import           Pos.DB.Class          (MonadDB, getUtxoDB)
 import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBi, rocksPutBi)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
-import           Pos.Types             (Block, BlockHeader, HasHeaderHash, HeaderHash,
-                                        blockHeader, headerHash)
 import           Pos.Util.Chrono       (OldestFirst (..))
 
 ----------------------------------------------------------------------------

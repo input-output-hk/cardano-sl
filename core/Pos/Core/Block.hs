@@ -1,5 +1,5 @@
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Pos.Core.Block
        ( Blockchain (..)
@@ -7,19 +7,25 @@ module Pos.Core.Block
        , GenericBlock (..)
 
        -- * Lenses
+       -- ** Header
+       , gbhPrevBlock
+       , gbhBodyProof
+       , gbhConsensus
+       , gbhExtra
+
+       -- ** Block
        , gbBody
        , gbHeader
        , gbExtra
+       , gbPrevBlock
        , gbBodyProof
-       , gbhConsensus
-       , gbhExtra
-       , gbhPrevBlock
-       , gbhBodyProof
+       , gbConsensus
        ) where
 
 import           Control.Lens   (makeLenses)
 import           Universum
 
+import           Pos.Core.Class (HasPrevBlock (..))
 import           Pos.Core.Types (HeaderHash)
 
 ----------------------------------------------------------------------------
@@ -58,7 +64,6 @@ class Blockchain p where
     checkBodyProof body proof = mkBodyProof body == proof
 
     verifyBBlock :: GenericBlock p -> Either Text ()
-
 
 -- | Header of block contains some kind of summary. There are various
 -- benefits which people get by separating header from other data.
@@ -127,6 +132,22 @@ deriving instance
 makeLenses ''GenericBlockHeader
 makeLenses ''GenericBlock
 
+instance (BHeaderHash b ~ HeaderHash) =>
+         HasPrevBlock (GenericBlockHeader b) where
+    prevBlockL = gbhPrevBlock
+
+instance (BHeaderHash b ~ HeaderHash) =>
+         HasPrevBlock (GenericBlock b) where
+    prevBlockL = gbHeader . gbhPrevBlock
+
+-- | Lens from 'GenericBlock' to 'BHeaderHash' of its parent.
+gbPrevBlock :: Lens' (GenericBlock b) (BHeaderHash b)
+gbPrevBlock = gbHeader . gbhPrevBlock
+
 -- | Lens from 'GenericBlock' to 'BodyProof'.
 gbBodyProof :: Lens' (GenericBlock b) (BodyProof b)
 gbBodyProof = gbHeader . gbhBodyProof
+
+-- | Lens from 'GenericBlock' to 'ConsensusData'.
+gbConsensus :: Lens' (GenericBlock b) (ConsensusData b)
+gbConsensus = gbHeader . gbhConsensus

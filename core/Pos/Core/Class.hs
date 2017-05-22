@@ -40,10 +40,20 @@ import           Pos.Util.Util  (Some, applySome, liftLensSome)
 ----------------------------------------------------------------------------
 
 -- HasPrevBlock
+-- | Class for something that has previous block (lens to 'Hash' for this block).
 class HasPrevBlock s where
     prevBlockL :: Lens' s HeaderHash
 
 SOME_LENS_CLASS(HasPrevBlock, prevBlockL, HasPrevBlock)
+
+instance (HasPrevBlock s, HasPrevBlock s') =>
+         HasPrevBlock (Either s s') where
+    prevBlockL = choosing prevBlockL prevBlockL
+
+
+-- Perhaps it is not the best instance.
+instance {-# OVERLAPPABLE #-} HasPrevBlock s => HasPrevBlock (s, z) where
+    prevBlockL = _1 . prevBlockL
 
 -- HasDifficulty
 class HasDifficulty a where
@@ -68,6 +78,9 @@ class HasHeaderHash a where
     headerHash :: a -> HeaderHash
 
 SOME_FUNC_CLASS(HasHeaderHash, headerHash, HasHeaderHash)
+
+instance HasHeaderHash HeaderHash where
+    headerHash = identity
 
 headerHashG :: HasHeaderHash a => Getter a HeaderHash
 headerHashG = to headerHash
@@ -100,6 +113,9 @@ instance HasEpochOrSlot SlotId where
     getEpochOrSlot = EpochOrSlot . Right
 instance HasEpochOrSlot EpochOrSlot where
     getEpochOrSlot = identity
+instance (HasEpochOrSlot a, HasEpochOrSlot b) =>
+         HasEpochOrSlot (Either a b) where
+    getEpochOrSlot = either getEpochOrSlot getEpochOrSlot
 
 ----------------------------------------------------------------------------
 -- Classes for headers

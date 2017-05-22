@@ -26,8 +26,6 @@ data CompileConfig = CompileConfig
 ----------------------------------------------------------------------------
     , ccNetworkDiameter               :: !Int
       -- ^ Estimated time for broadcasting messages
-    , ccMaxLocalTxs                   :: !Word
-      -- ^ Max number of transactions in Storage
     , ccDefaultPeers                  :: ![String]
       -- ^ List of default peers
     , ccMpcSendInterval               :: !Word
@@ -42,6 +40,9 @@ data CompileConfig = CompileConfig
       -- ^ VSS certificates min timeout to live (number of epochs)
     , ccLightDlgConfirmationTimeout   :: !Int
       -- ^ Timeout for holding light psks confirmations
+    , ccDlgCacheParam                 :: !Int
+      -- ^ This value parameterizes size of cache used in Delegation.
+      -- Not bytes, but number of elements.
     , ccEnhancedMessageTimeout        :: !Word
       -- ^ We consider node as known if it was pinged at most 10 sec ago.
     , ccRecoveryHeadersMessage        :: !Int
@@ -55,4 +56,11 @@ data CompileConfig = CompileConfig
       -- ^ Block retrieval queue capacity
     , ccPropagationQueueSize          :: !Int
       -- ^ InvMsg propagation queue capacity
+
+----------------------------------------------------------------------------
+-- Hardware/system
+----------------------------------------------------------------------------
+    , ccMemPoolLimitRatio             :: !Word
+      -- ^ Size of mem pool will be limited by this value muliplied by block
+      -- size limit.
     } deriving (Show)

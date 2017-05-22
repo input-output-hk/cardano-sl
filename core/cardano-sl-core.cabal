@@ -11,9 +11,7 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 data-files:
-  constants-dev.yaml
-  constants-prod.yaml
-  constants-wallet-prod.yaml
+  constants.yaml
 
 flag asserts
   default:     True
@@ -40,6 +38,7 @@ library
                        Pos.Core.Coin
                        Pos.Core.Constants
                        Pos.Core.Script
+                       Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
                        Pos.Core.Types
@@ -65,6 +64,7 @@ library
                        Pos.Binary.Crypto
                        Pos.Binary.Core
                        Pos.Binary.Core.Address
+                       Pos.Binary.Core.Block
                        Pos.Binary.Core.Coin
                        Pos.Binary.Core.Script
                        Pos.Binary.Core.Types
@@ -74,11 +74,13 @@ library
                        Pos.Util.Config
                        Pos.Util.HVect
                        Pos.Util.Iterator
+                       Pos.Util.LRU
+                       Pos.Util.Mnemonics
                        Pos.Util.Modifier
                        Pos.Util.Util
-                       Pos.Util.Mnemonics
 
   other-modules:       Pos.Util.Config.Path
+                       Pos.Util.Config.Get
 
   build-depends:      QuickCheck
                     , aeson
@@ -116,6 +118,7 @@ library
                      , formatting
                      , hashable
                      , lens
+                     , lrucache
                      , memory
                      , mtl
                      , node-sketch
@@ -171,6 +174,6 @@ library
   if flag(asserts)
     cpp-options: -DASSERTS_ON
   if flag(dev-mode)
-    cpp-options: -DDEV_MODE
+    cpp-options: -DDEV_MODE -DCONFIG=dev
   if flag(embed-config) || !flag(dev-mode)
     cpp-options: -DEMBED_CONFIG

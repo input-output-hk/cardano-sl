@@ -15,13 +15,14 @@ import qualified Data.HashMap.Strict as HM
 import qualified Ether
 import           Universum
 
+import           Pos.Binary.Class    (biSize)
 import           Pos.Txp.Toil.Class  (MonadBalances (..), MonadBalancesRead (..),
                                       MonadTxPool (..), MonadUtxo (..),
                                       MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types  (GenericToilModifier (..), MemPool, ToilModifier,
                                       UndoMap, UtxoModifier, bvStakes, bvTotal,
-                                      mpLocalTxs, mpLocalTxsSize, tmBalances, tmMemPool,
-                                      tmUndos, tmUtxo)
+                                      mpLocalTxs, mpSize, tmBalances, tmMemPool, tmUndos,
+                                      tmUtxo)
 import           Pos.Util            (ether)
 import qualified Pos.Util.Modifier   as MM
 
@@ -62,10 +63,10 @@ instance Monad m => MonadTxPool (ToilT __ m) where
         has <- use $ tmMemPool . mpLocalTxs . to (HM.member id)
         unless has $ do
             tmMemPool . mpLocalTxs . at id .= Just tx
-            tmMemPool . mpLocalTxsSize += 1
+            tmMemPool . mpSize += biSize tx + biSize id
             tmUndos . at id .= Just undo
 
-    poolSize = ether $ use $ tmMemPool . mpLocalTxsSize
+    poolSize = ether $ use $ tmMemPool . mpSize
 
 ----------------------------------------------------------------------------
 -- Runners

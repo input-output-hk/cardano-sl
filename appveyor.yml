@@ -85,6 +85,7 @@ test_script:
       --bench
       --no-run-benchmarks
       --work-dir %STACK_WORK%
+      --ghc-options="-DCONFIG=wallet"
       --flag cardano-sl:for-installer
       --flag cardano-sl:with-web
       --flag cardano-sl:with-wallet

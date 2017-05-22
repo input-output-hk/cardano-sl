@@ -46,6 +46,7 @@ library
                         Pos.Binary
                         Pos.Block.Arbitrary
                         Pos.Block.BListener
+                        Pos.Block.Core
                         Pos.Block.Logic
                         Pos.Block.Network
                         Pos.Block.Pure
@@ -108,9 +109,6 @@ library
                         Pos.Types
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Unsafe
-                        Pos.Types.Block
-                        Pos.Types.Block.Types
-                        Pos.Types.Block.Instances
 
                         -- Update system
                         Pos.Update
@@ -118,6 +116,9 @@ library
 
                         -- Utilities/helpers
                         Pos.Util
+                        Pos.Util.Undefined
+                        Pos.Util.Arbitrary
+                        Pos.Util.Limits
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
                         Pos.Util.UserSecret
@@ -141,18 +142,34 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Block
-                        Pos.Binary.Block.Types
                         Pos.Binary.Block.Block
+                        Pos.Binary.Block.Core
                         Pos.Binary.Communication
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Ssc
                         Pos.Binary.Ssc.GodTossing.Core
+                        Pos.Binary.Ssc.GodTossing.Toss
                         Pos.Binary.Ssc.GodTossing.Types
                         Pos.Binary.Txp
+                        Pos.Binary.Txp.Core
+                        Pos.Binary.Txp.Network
 
                         -- Block processing
+                        Pos.Block.Core.Genesis
+                        Pos.Block.Core.Genesis.Chain
+                        Pos.Block.Core.Genesis.Lens
+                        Pos.Block.Core.Genesis.Misc
+                        Pos.Block.Core.Genesis.Types
+                        Pos.Block.Core.Main
+                        Pos.Block.Core.Main.Chain
+                        Pos.Block.Core.Main.Lens
+                        Pos.Block.Core.Main.Misc
+                        Pos.Block.Core.Main.Types
+                        Pos.Block.Core.Union
+                        Pos.Block.Core.Union.Misc
+                        Pos.Block.Core.Union.Types
                         Pos.Block.Error
                         Pos.Block.Logic.Internal
                         Pos.Block.Network.Announce
@@ -310,9 +327,6 @@ library
                         Pos.Txp.Toil.Utxo.Util
                         Pos.Txp.Worker
 
-                        -- Types
-                        Pos.Types.SharedSeed
-
                         -- Workers
                         Pos.Worker.Stats
 
@@ -332,10 +346,6 @@ library
                         Pos.Update.Poll
                         Pos.Update.Poll.DBPoll
                         Pos.Update.Worker
-
-                        -- Utilities/helpers
-                        Pos.Util.Arbitrary
-                        Pos.Util.Undefined
 
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer
@@ -364,7 +374,7 @@ library
                         Pos.Wallet.KeyStorage
                         Pos.Wallet.State
                         Pos.Wallet.State.Acidic
-                        Pos.Wallet.State.Limits
+                        Pos.Wallet.State.Core
                         Pos.Wallet.State.State
                         Pos.Wallet.State.Storage
                         Pos.Wallet.State.Storage.Block
@@ -386,7 +396,7 @@ library
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.Holder
-                        Pos.Wallet.Web.State.Limits
+                        Pos.Wallet.Web.State.Core
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
                         Pos.Wallet.Web.Tracking
@@ -1200,6 +1210,7 @@ test-suite cardano-test
                        Test.Pos.Arbitrary.Infra.Communication
                        Test.Pos.Arbitrary.Infra.DHT
                        Test.Pos.BinarySpec
+                       Test.Pos.Block.LogicSpec
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
                        Test.Pos.Communication.Identity.BinarySpec
@@ -1230,6 +1241,7 @@ test-suite cardano-test
                        Test.Pos.Update.MemStateSpec
                        Test.Pos.Update.PollSpec
                        Test.Pos.Util
+                       Test.Pos.Util.LimitsSpec
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.UtilSpec
   type:                exitcode-stdio-1.0
@@ -1238,7 +1250,7 @@ test-suite cardano-test
                      , binary
                      , bytestring
                      , cardano-sl-core
-                     , cardano-sl-infra >= 0.1
+                     , cardano-sl-infra
                      , cardano-sl-update
                      , cardano-sl
                      , cereal

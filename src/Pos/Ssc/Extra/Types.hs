@@ -1,4 +1,5 @@
--- | Types which are related to SSC, but not to concrete SSC.
+-- | Types which are related to SSC, but not to the concrete
+-- implementation.
 
 module Pos.Ssc.Extra.Types
        ( SscState (..)

@@ -31,8 +31,8 @@ import           System.Directory                 (createDirectoryIfMissing,
 import           System.FilePath                  ((</>))
 import           System.Wlog                      (WithLogger)
 
-import           Pos.Block.Core                   (Block, BlockHeader, getBlockHeader)
-import           Pos.Block.Pure                   (mkGenesisBlock)
+import           Pos.Block.Core                   (Block, BlockHeader, getBlockHeader,
+                                                   mkGenesisBlock)
 import           Pos.Block.Types                  (Blund)
 import           Pos.Context.Context              (GenesisLeaders, GenesisUtxo,
                                                    NodeParams)

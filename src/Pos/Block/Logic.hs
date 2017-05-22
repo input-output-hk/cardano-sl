@@ -56,13 +56,13 @@ import           Pos.Block.Core             (Block, BlockHeader, GenesisBlock, M
                                              MainExtraBodyData (..),
                                              MainExtraHeaderData (..), blockHeader,
                                              genBlockLeaders, mainBlockLeaderKey,
-                                             mbTxPayload)
+                                             mbTxPayload, mkGenesisBlock, mkMainBlock)
 import qualified Pos.Block.Core             as BC
 import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                              toUpdateBlock, withBlkSemaphore,
                                              withBlkSemaphore_)
-import           Pos.Block.Pure             (VerifyHeaderParams (..), mkGenesisBlock,
-                                             mkMainBlock, verifyHeader, verifyHeaders)
+import           Pos.Block.Pure             (VerifyHeaderParams (..), verifyHeader,
+                                             verifyHeaders)
 import qualified Pos.Block.Pure             as Pure
 import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,

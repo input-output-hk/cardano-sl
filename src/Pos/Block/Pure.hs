@@ -6,11 +6,6 @@
 module Pos.Block.Pure
        ( blockDifficultyIncrement
        , headerDifficultyIncrement
-       , mkMainBlock
-       , recreateMainBlock
-       , mkMainHeader
-       , mkGenesisHeader
-       , mkGenesisBlock
 
        , VerifyBlockParams (..)
        , VerifyHeaderParams (..)
@@ -23,55 +18,44 @@ module Pos.Block.Pure
 
 import           Universum
 
-import           Control.Lens                 (ix, (%=))
-import           Control.Monad.Except         (MonadError (throwError))
-import           Data.Default                 (Default (def))
-import qualified Data.HashMap.Strict          as HM
-import           Data.List                    (groupBy, partition)
-import           Formatting                   (build, int, sformat, (%))
-import           Serokell.Data.Memory.Units   (Byte, memory)
-import           Serokell.Util.Verify         (VerificationRes (..), verifyGeneric)
+import           Control.Lens               (ix, (%=))
+import           Data.Default               (Default (def))
+import qualified Data.HashMap.Strict        as HM
+import           Data.List                  (groupBy, partition)
+import           Formatting                 (build, int, sformat, (%))
+import           Serokell.Data.Memory.Units (Byte, memory)
+import           Serokell.Util.Verify       (VerificationRes (..), verifyGeneric)
 
-import           Pos.Binary.Block.Core        ()
-import qualified Pos.Binary.Class             as Bi
-import           Pos.Binary.Core              ()
-import           Pos.Binary.Update            ()
-import           Pos.Block.Core               (BiSsc, Block, BlockHeader,
-                                               BlockSignature (..), Body (..),
-                                               GenesisBlock, GenesisBlockHeader,
-                                               GenesisBlockchain,
-                                               GenesisExtraBodyData (..),
-                                               GenesisExtraHeaderData (..), MainBlock,
-                                               MainBlockHeader, MainBlockchain,
-                                               MainExtraBodyData (..),
-                                               MainExtraHeaderData, MainToSign (..),
-                                               gbhConsensus, gebAttributes, gehAttributes,
-                                               genBlockLeaders, getBlockHeader,
-                                               getBlockHeader, mainBlockDlgPayload,
-                                               mainBlockSscPayload, mainHeaderLeaderKey,
-                                               mcdDifficulty, mcdLeaderKey, mcdSignature,
-                                               mcdSlot, mebAttributes, mehAttributes)
-import           Pos.Block.Core.Genesis.Chain (Body (..), ConsensusData (..))
-import           Pos.Block.Core.Main.Chain    (ConsensusData (..))
-import           Pos.Constants                (epochSlots)
-import           Pos.Core                     (ChainDifficulty, EpochIndex, EpochOrSlot,
-                                               HasDifficulty (..), HasEpochIndex (..),
-                                               HasEpochOrSlot (..), HasHeaderHash (..),
-                                               HeaderHash, ProxySKEither, ProxySKHeavyMap,
-                                               SlotId (..), SlotLeaders, addressHash,
-                                               gbhExtra, headerSlotL, prevBlockL)
-import           Pos.Core.Block               (Blockchain (..), GenericBlock (..),
-                                               GenericBlockHeader (..), gbBody,
-                                               gbBodyProof, gbExtra, gbHeader,
-                                               mkGenericHeader)
-import           Pos.Crypto                   (ProxySecretKey (..), SecretKey,
-                                               SignTag (..), checkSig, pdCert, proxySign,
-                                               proxyVerify, sign, toPublic)
-import           Pos.Data.Attributes          (Attributes (attrRemain), mkAttributes)
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass (..))
-import           Pos.Update.Core              (BlockVersionData (..))
-import           Pos.Util.Chrono              (NewestFirst (..), OldestFirst)
-import           Pos.Util.Util                (Some (Some))
+import           Pos.Binary.Block.Core      ()
+import qualified Pos.Binary.Class           as Bi
+import           Pos.Binary.Core            ()
+import           Pos.Binary.Update          ()
+import           Pos.Block.Core             (BiSsc, Block, BlockHeader,
+                                             BlockSignature (..), MainBlock,
+                                             MainToSign (..), gbhConsensus, gebAttributes,
+                                             gehAttributes, genBlockLeaders,
+                                             getBlockHeader, getBlockHeader,
+                                             mainBlockDlgPayload, mainBlockSscPayload,
+                                             mainHeaderLeaderKey, mcdDifficulty,
+                                             mcdLeaderKey, mcdSignature, mcdSlot,
+                                             mebAttributes, mehAttributes)
+import           Pos.Constants              (epochSlots)
+import           Pos.Core                   (ChainDifficulty, EpochOrSlot,
+                                             HasDifficulty (..), HasEpochIndex (..),
+                                             HasEpochOrSlot (..), HasHeaderHash (..),
+                                             HeaderHash, ProxySKHeavyMap, SlotId (..),
+                                             SlotLeaders, addressHash, gbhExtra,
+                                             headerSlotL, prevBlockL)
+import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
+                                             GenericBlockHeader (..), gbBody, gbBodyProof,
+                                             gbExtra, gbHeader)
+import           Pos.Crypto                 (ProxySecretKey (..), SignTag (..), checkSig,
+                                             pdCert, proxyVerify)
+import           Pos.Data.Attributes        (Attributes (attrRemain))
+import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
+import           Pos.Update.Core            (BlockVersionData (..))
+import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
+import           Pos.Util.Util              (Some (Some))
 
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
@@ -82,95 +66,6 @@ headerDifficultyIncrement (Right _) = 1
 -- | Difficulty of the Block, which is determined from header.
 blockDifficultyIncrement :: Block ssc -> ChainDifficulty
 blockDifficultyIncrement = headerDifficultyIncrement . getBlockHeader
-
--- | Smart constructor for 'MainBlockHeader'.
-mkMainHeader
-    :: (BiSsc ssc, SscHelpersClass ssc)
-    => Maybe (BlockHeader ssc)
-    -> SlotId
-    -> SecretKey
-    -> Maybe ProxySKEither
-    -> Body (MainBlockchain ssc)
-    -> MainExtraHeaderData
-    -> MainBlockHeader ssc
-mkMainHeader prevHeader slotId sk pSk body extra =
-        mkGenericHeader prevHeader body consensus extra
-  where
-    difficulty = maybe 0 (succ . view difficultyL) prevHeader
-    makeSignature toSign (Left psk) = BlockPSignatureLight $
-        proxySign SignMainBlockLight sk psk toSign
-    makeSignature toSign (Right psk) = BlockPSignatureHeavy $
-        proxySign SignMainBlockHeavy sk psk toSign
-    signature prevHash proof =
-        let toSign = MainToSign prevHash proof slotId difficulty extra
-        in maybe (BlockSignature $ sign SignMainBlock sk toSign)
-                 (makeSignature toSign)
-             pSk
-    consensus prevHash proof =
-        MainConsensusData
-        { _mcdSlot = slotId
-        , _mcdLeaderKey = maybe (toPublic sk) (either pskIssuerPk pskIssuerPk) pSk
-        , _mcdDifficulty = difficulty
-        , _mcdSignature = signature prevHash proof
-        }
-
--- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'.
-mkMainBlock
-    :: (BiSsc ssc, SscHelpersClass ssc, MonadError Text m)
-    => Maybe (BlockHeader ssc)
-    -> SlotId
-    -> SecretKey
-    -> Maybe ProxySKEither
-    -> Body (MainBlockchain ssc)
-    -> MainExtraHeaderData
-    -> MainExtraBodyData
-    -> m (MainBlock ssc)
-mkMainBlock prevHeader slotId sk proxyInfo body extraH extraB =
-    recreateMainBlock
-        (mkMainHeader prevHeader slotId sk proxyInfo body extraH)
-        body
-        extraB
-
-recreateMainBlock
-    :: (BiSsc ssc, SscHelpersClass ssc, MonadError Text m)
-    => MainBlockHeader ssc
-    -> Body (MainBlockchain ssc)
-    -> MainExtraBodyData
-    -> m (MainBlock ssc)
-recreateMainBlock _gbHeader _gbBody _gbExtra = do
-    let gb = GenericBlock{..}
-    whenLeft (verifyBBlock gb) throwError
-    pure gb
-
--- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
-mkGenesisHeader
-    :: BiSsc ssc
-    => Maybe (BlockHeader ssc)
-    -> EpochIndex
-    -> Body (GenesisBlockchain ssc)
-    -> GenesisBlockHeader ssc
-mkGenesisHeader prevHeader epoch body =
-    mkGenericHeader prevHeader body consensus (GenesisExtraHeaderData $ mkAttributes ())
-  where
-    difficulty = maybe 0 (view difficultyL) prevHeader
-    consensus _ _ =
-        GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
-
--- | Smart constructor for 'GenesisBlock'. Uses 'mkGenesisHeader'.
-mkGenesisBlock
-    :: BiSsc ssc
-    => Maybe (BlockHeader ssc)
-    -> EpochIndex
-    -> SlotLeaders
-    -> GenesisBlock ssc
-mkGenesisBlock prevHeader epoch leaders =
-    GenericBlock
-    { _gbHeader = mkGenesisHeader prevHeader epoch body
-    , _gbBody = body
-    , _gbExtra = GenesisExtraBodyData $ mkAttributes ()
-    }
-  where
-    body = GenesisBody leaders
 
 -- CHECK: @verifyConsensusLocal
 -- Verifies block signature (also proxy) and that slot id is in the correct range.

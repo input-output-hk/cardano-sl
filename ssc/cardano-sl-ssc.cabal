@@ -14,9 +14,15 @@ cabal-version:       >=1.10
 library
   exposed-modules:
     Pos.Ssc.Class.Types
+    Pos.Ssc.Class.LocalData
+    Pos.Ssc.Class.Helpers
 
   build-depends:       base
                      , cardano-sl-core
+                     , cardano-sl-db
+                     , cardano-sl-infra
+                     , cardano-sl-lrc
+                     , log-warper
                      , serokell-util
                      , tagged
                      , text-format

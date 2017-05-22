@@ -241,11 +241,9 @@ library
                         Pos.SafeCopy
 
                         -- SSC
-                        Pos.Ssc.Class.Helpers
                         Pos.Ssc.Class.Storage
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
-                        Pos.Ssc.Class.LocalData
 
                         Pos.Ssc.Extra.Class
                         Pos.Ssc.Extra.Holder

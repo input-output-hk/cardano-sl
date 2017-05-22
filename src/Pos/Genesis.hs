@@ -199,10 +199,11 @@ bitcoinDistributionImpl ratio coins (coinIdx, coin) =
 -- | Genesis 'Utxo'.
 genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
-    M.fromList $
-        zipWith zipF (stakeDistribution sd)
+    M.fromList $ concat
+        [ zipWith zipF (stakeDistribution sd)
             (genesisAddresses <> tailAddresses)
-     <> map (zipF hwdDistr) hdwAddresses
+        , map (zipF hwdDistr) hdwAddresses
+        ]
   where
     zipF (coin, distr) addr =
         ( TxIn (unsafeHash addr) 0
@@ -210,13 +211,15 @@ genesisUtxo sd =
         )
     tailAddresses = map (makePubKeyAddress . fst . generateGenesisKeyPair)
         [Const.genesisN ..]
-    hdwAddresses
-        | Const.isDevelopment =
-            take Const.genesisN $
-            makePubKeyAddress . encToPublic <$> genesisDevHdwAccountSecretKeys
-        | otherwise = []  -- already exist in 'GenesisData'
     -- not much money to avoid making wallets slot leaders
-    hwdDistr = (mkCoin 100, [])  -- TODO: manage
+    hwdDistr = (mkCoin 100, [])
+    -- should be enough for testing.
+    -- greater number would increase effective number of slot leaders as well :/
+    genesisDevHdwKeyNum = 2
+    hdwAddresses =
+        take genesisDevHdwKeyNum $
+        makePubKeyAddress . encToPublic <$> genesisDevHdwAccountSecretKeys
+
 
 genesisDelegation :: HashMap StakeholderId [StakeholderId]
 genesisDelegation = mempty

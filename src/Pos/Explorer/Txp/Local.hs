@@ -26,7 +26,8 @@ import           Pos.Txp.Core                     (Tx (..), TxAux, TxId)
 import           Pos.Txp.MemState                 (GenericTxpLocalDataPure, MonadTxpMem,
                                                    getLocalTxsMap, getTxpExtra,
                                                    getUtxoModifier, modifyTxpLocalData,
-                                                   setTxpLocalData, MemPoolModifyReason (..))
+                                                   setTxpLocalData, MemPoolModifyReason (..),
+                                                   TransactionProvenance (..))
 import           Pos.Txp.Toil                     (GenericToilModifier (..),
                                                    MonadUtxoRead (..), ToilEnv,
                                                    ToilVerFailure (..), Utxo, getToilEnv,
@@ -66,8 +67,10 @@ instance Monad m => MonadTxExtraRead (NoExtra m) where
 
 eTxProcessTransaction
     :: ETxpLocalWorkMode m
-    => (TxId, TxAux) -> m ()
-eTxProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
+    => TransactionProvenance
+    -> (TxId, TxAux)
+    -> m ()
+eTxProcessTransaction txProvenance itw@(txId, (UnsafeTx{..}, _, _)) = do
     tipBefore <- GS.getTip
     localUM <- getUtxoModifier
     -- Note: snapshot isn't used here, because it's not necessary.  If
@@ -84,7 +87,7 @@ eTxProcessTransaction itw@(txId, (UnsafeTx{..}, _, _)) = do
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     curTime <- currentTimeSlotting
-    pRes <- modifyTxpLocalData ProcessTransaction $
+    pRes <- modifyTxpLocalData (ProcessTransaction txProvenance) $
             processTxDo resolved toilEnv tipBefore itw curTime
     case pRes of
         Left er -> do

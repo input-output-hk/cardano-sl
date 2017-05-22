@@ -17,7 +17,7 @@ import           Pos.Binary.Communication   ()
 import           Pos.Binary.Relay           ()
 import           Pos.Communication.Limits   ()
 import           Pos.Communication.Message  ()
-import           Pos.Communication.Protocol (ListenerSpec, OutSpecs)
+import           Pos.Communication.Protocol (ListenerSpec, OutSpecs, NodeId (..))
 import           Pos.Communication.Relay    (Relay (..), RelayProxy (..), relayListeners,
                                              relayStubListeners)
 import           Pos.Crypto                 (hash)
@@ -28,7 +28,7 @@ import           Pos.Explorer.Txp.Local     (eTxProcessTransaction)
 #else
 import           Pos.Txp.Logic              (txProcessTransaction)
 #endif
-import           Pos.Txp.MemState           (getMemPool)
+import           Pos.Txp.MemState           (getMemPool, TransactionProvenance (..))
 import           Pos.Txp.Network.Types      (TxMsgContents (..), TxMsgTag (..))
 import           Pos.Txp.Toil.Types         (MemPool (..))
 import           Pos.Util.JsonLog           (MonadJL (..), JLEvent (..), JLTxR (..))
@@ -67,20 +67,22 @@ instance ( WorkMode ssc m
 
     handleMempool _ _ = HM.keys . _mpLocalTxs <$> getMemPool
 
-    handleData _ (TxMsgContents tx tw td) = handleTxDo (hash tx, (tx, tw, td))
+    handleData peer (TxMsgContents tx tw td) = handleTxDo peer (hash tx, (tx, tw, td))
 
 -- Real tx processing
 -- CHECK: @handleTxDo
 -- #txProcessTransaction
 handleTxDo
     :: WorkMode ssc m
-    => (TxId, TxAux) -> m Bool
-handleTxDo tx = do
+    => NodeId
+    -> (TxId, TxAux)
+    -> m Bool
+handleTxDo (NodeId (peer, _)) tx = do
     ts <- currentTime
 #ifdef WITH_EXPLORER
-    res <- runExceptT $ eTxProcessTransaction tx
+    res <- runExceptT $ eTxProcessTransaction (FromPeer peer) tx
 #else
-    res <- runExceptT $ txProcessTransaction tx
+    res <- runExceptT $ txProcessTransaction (FromPeer peer) tx
 #endif
     let txId = fst tx
     let json me = jlLog $ JLTxReceived $ JLTxR

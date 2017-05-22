@@ -89,6 +89,7 @@ library
   build-depends:        aeson
                       , base
                       , parsec
+                      , base64-bytestring
                       , binary
                       , bytestring
                       , cardano-sl-core

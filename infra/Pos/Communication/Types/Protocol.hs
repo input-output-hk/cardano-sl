@@ -34,10 +34,13 @@ module Pos.Communication.Types.Protocol
        ) where
 
 import qualified Control.Monad         as Monad (fail)
+import           Data.Aeson            (ToJSON (..), FromJSON (..))
 import           Data.Hashable         (Hashable)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Text.Buildable   as B
+import qualified Data.Text.Encoding    as Text (encodeUtf8, decodeUtf8)
 import qualified Data.ByteString       as BS (length)
+import qualified Data.ByteString.Base64 as B64 (encode, decode)
 import           Formatting            (bprint, build, hex, int, sformat, stext, (%))
 import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
@@ -103,6 +106,16 @@ data ConversationActions body rcv m = ConversationActions {
 
 newtype PeerId = PeerId ByteString
   deriving (Eq, Ord, Show, Generic, Hashable)
+
+instance ToJSON PeerId where
+    toJSON (PeerId bs) = toJSON (Text.decodeUtf8 (B64.encode bs))
+
+instance FromJSON PeerId where
+    parseJSON v = do
+        bs <- Text.encodeUtf8 <$> parseJSON v
+        case B64.decode bs of
+            Left err -> fail err
+            Right decoded -> pure $ PeerId decoded
 
 instance Buildable PeerId where
     build (PeerId bs) = bprint base16F bs

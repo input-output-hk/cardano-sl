@@ -8,7 +8,6 @@ module Pos.Wallet.Web.Server.Full
        ( walletServeWebFull
        , walletServeWebFullS
        , walletServerOuts
-       , liftWMode
        , runWStatsMode
        , runWProductionMode
        , runWStaticMode
@@ -20,7 +19,6 @@ module Pos.Wallet.Web.Server.Full
 import           Control.Concurrent.STM        (TVar)
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
-import           Control.Monad.Trans           (MonadTrans)
 import           Data.Tagged                   (Tagged (..))
 import qualified Ether
 import           Mockable                      (Production, runProduction)
@@ -99,7 +97,10 @@ runWProductionMode
     -> SscParams WalletSscType
     -> (ActionSpec WalletProductionMode a, OutSpecs)
     -> Production a
-runWProductionMode db conn = runRawKBasedMode unwrapWPMode liftWMode
+runWProductionMode db conn =
+    runRawKBasedMode
+        unwrapWPMode
+        (lift . lift . lift)
   where
     unwrapWPMode = runWalletWebDB db . runWalletWS conn . getNoStatsT
 
@@ -119,7 +120,7 @@ runWStatsMode db conn peer transport kinst param sscp runAction = do
     statMap <- liftIO SM.newIO
     runRawKBasedMode
         (unwrapWSMode statMap)
-        liftWMode
+        (lift . lift . lift)
         peer
         transport
         kinst
@@ -142,14 +143,7 @@ runWStaticMode
     -> (ActionSpec WalletStaticMode a, OutSpecs)
     -> Production a
 runWStaticMode db conn =
-    runRawSBasedMode (runWalletWebDB db . runWalletWS conn . getNoStatsT) liftWMode
-
-liftWMode
-    :: ( Each '[MonadTrans] [t1, t2, t3]
-       , Each '[Monad] [m, t3 m, t2 (t3 m)]
-       )
-    => m a -> (t1 $ t2 $ t3 m) a
-liftWMode = lift . lift . lift
+    runRawSBasedMode (runWalletWebDB db . runWalletWS conn . getNoStatsT) (lift . lift . lift)
 
 walletServeWebFull
     :: SscConstraint WalletSscType

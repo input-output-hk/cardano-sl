@@ -61,10 +61,9 @@ import           Pos.WorkMode               (WorkMode)
 import           Pos.Wallet.Web             (WalletProductionMode, WalletStaticMode,
                                              WalletStatsMode, WalletWebHandler,
                                              bracketWalletWS, bracketWalletWebDB,
-                                             liftWMode, runWProductionMode,
-                                             runWStaticMode, runWStatsMode,
-                                             walletServeWebFull, walletServeWebFullS,
-                                             walletServerOuts)
+                                             runWProductionMode, runWStaticMode,
+                                             runWStatsMode, walletServeWebFull,
+                                             walletServeWebFullS, walletServerOuts)
 #endif
 #endif
 
@@ -181,7 +180,7 @@ action peerHolder args@Args {..} transport = do
                         , t0 (t1 (t2 (t3 (RawRealMode ssc))))]
         )
         => Transport (t0 $ t1 $ t2 $ t3 (RawRealMode ssc))
-    transportW = hoistTransport (lift . liftWMode) transport
+    transportW = hoistTransport (lift . lift . lift . lift) transport
 
 #ifdef WITH_WEB
 plugins ::

@@ -19,6 +19,7 @@ module Pos.Communication.Limits.Types
 
        , MaxSize (..)
        , (<+>)
+       , withLimitedLength'
        ) where
 
 import           Universum
@@ -119,6 +120,9 @@ instance MessageLimitedPure Bool where
 newtype LimitedLengthExt s l a = LimitedLength
     { withLimitedLength :: a
     } deriving (Eq, Ord, Show)
+
+withLimitedLength' :: Proxy s -> LimitedLengthExt s l a -> a
+withLimitedLength' _ = withLimitedLength
 
 deriving instance Message a => Message (LimitedLengthExt s l a)
 

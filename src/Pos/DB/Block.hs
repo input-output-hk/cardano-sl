@@ -54,7 +54,7 @@ import           Pos.Util.Chrono           (NewestFirst (..))
 
 -- | Get block with given hash from Block DB.
 getBlock
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: forall ssc m. (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (Block ssc))
 getBlock = blockDataPath >=> getData
 

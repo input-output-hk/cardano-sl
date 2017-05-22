@@ -5,7 +5,6 @@
 
 module Pos.Communication.Protocol
        ( module Pos.Communication.Types.Protocol
-       , listenerConv
        , hoistSendActions
        , mapListener
        , mapListener'
@@ -18,11 +17,13 @@ module Pos.Communication.Protocol
        , localWorker
        , toAction
        , unpackLSpecs
-       , hoistListenerSpec
+       , hoistMkListeners
        , onNewSlotWorker
        , localOnNewSlotWorker
        , onNewSlotWithLoggingWorker
        , convertSendActions
+       , checkingInSpecs
+       , constantListeners
        ) where
 
 import qualified Data.HashMap.Strict              as HM
@@ -38,7 +39,6 @@ import           Serokell.Util.Text               (listJson)
 import           System.Wlog                      (WithLogger, logWarning)
 import           Universum
 
-import           Pos.Binary.Class                 (Bi)
 import           Pos.Communication.BiP            (BiP)
 import           Pos.Communication.PeerState      (WithPeerState (..))
 import           Pos.Communication.Types.Protocol
@@ -84,13 +84,17 @@ hoistSendActions nat rnat SendActions {..} = SendActions withConnectionTo'
                 Conversation $ \cactions ->
                     rnat (l (N.hoistConversationActions nat cactions))
 
-hoistListenerSpec
-    :: (forall a. m a -> n a)
+hoistMkListeners
+    :: Monad n
+    => (forall a. m a -> n a)
     -> (forall a. n a -> m a)
-    -> ListenerSpec m
-    -> ListenerSpec n
-hoistListenerSpec nat rnat (ListenerSpec h s) =
-    ListenerSpec (\vI -> N.hoistListenerAction nat rnat $ h vI) s
+    -> MkListeners m
+    -> MkListeners n
+hoistMkListeners nat rnat (MkListeners act ins outs) = MkListeners act' ins outs
+  where
+    act' v p = do
+      ls <- nat (act v p)
+      pure $ map (N.hoistListenerAction nat rnat) ls
 
 convertSendActions
     :: ( WithLogger m
@@ -156,44 +160,6 @@ instance Buildable SpecError where
         bprint
           ("Attempting to send to "%build%": endpoint unsupported by peer "%build)
           spec nodeId
-
-listenerConv
-    :: ( Bi snd
-       , Bi rcv
-       , Message snd
-       , Message rcv
-       , WithLogger m
-       , WithPeerState m
-       , Mockable SharedAtomic m
-       )
-    => (VerInfo -> NodeId -> ConversationActions snd rcv m -> m ())
-    -> (ListenerSpec m, OutSpecs)
-listenerConv h = (lspec, mempty)
-  where
-    spec = (rcvMsgName, ConvHandler sndMsgName)
-    lspec = flip ListenerSpec spec $
-              \ourVerInfo -> N.ListenerActionConversation $
-                \peerVerInfo' nNodeId conv -> do
-                    checkingInSpecs ourVerInfo peerVerInfo' spec nNodeId $
-                        h ourVerInfo
-                          nNodeId
-                          conv
-    convProxy = convProxy' h
-    convProxy' :: (a -> b -> c -> d) -> Proxy c
-    convProxy' _ = Proxy
-    sndMsgName = messageName $ sndProxy convProxy
-    rcvMsgName = messageName $ rcvProxy convProxy
-
-unpackLSpecs :: ([ListenerSpec m], OutSpecs) -> (VerInfo -> [Listener m], InSpecs, OutSpecs)
-unpackLSpecs =
-    over _1 (\ls verInfo -> map ($ verInfo) ls) .
-    over _2 (InSpecs . HM.fromList) .
-    convert . first (map lsToPair)
-  where
-    lsToPair (ListenerSpec h spec) = (h, spec)
-    convert :: Monoid out => ([(l, i)], out) -> ([l], [i], out)
-    convert (xs, out) = (map fst xs, map snd xs, out)
-
 
 type WorkerConstr m =
     ( WithLogger m
@@ -296,4 +262,20 @@ rcvProxy _ = Proxy
 
 sndProxy :: Proxy (ConversationActions snd rcv m) -> Proxy snd
 sndProxy _ = Proxy
+
+-- Provides set of listeners which doesn't depend on PeerData
+constantListeners :: Monad m => [(ListenerSpec m, OutSpecs)] -> MkListeners m
+constantListeners = toMkL . unpackLSpecs . second mconcat . unzip
+  where
+    toMkL (lGet, ins, outs) = MkListeners (\vI _ -> lGet vI) ins outs
+
+unpackLSpecs :: Monad m => ([ListenerSpec m], OutSpecs) -> (VerInfo -> m [Listener m], InSpecs, OutSpecs)
+unpackLSpecs =
+    over _1 (\ls verInfo -> sequence $ map ($ verInfo) ls) .
+    over _2 (InSpecs . HM.fromList) .
+    convert . first (map lsToPair)
+  where
+    lsToPair (ListenerSpec h spec) = (h, spec)
+    convert :: Monoid out => ([(l, i)], out) -> ([l], [i], out)
+    convert (xs, out) = (map fst xs, map snd xs, out)
 

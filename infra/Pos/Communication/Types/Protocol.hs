@@ -7,7 +7,7 @@ module Pos.Communication.Types.Protocol
        ( HandlerSpec (..)
        , VerInfo (..)
        , HandlerSpecs
-       , inSpecs
+       , checkInSpecs
        , notInSpecs
        , ListenerSpec (..)
        , InSpecs (..)
@@ -22,10 +22,9 @@ module Pos.Communication.Types.Protocol
        , Worker'
        , NSendActions
        , PeerData
-       , mergeLs
        , toOutSpecs
        , convH
-       , ListenersWithOut
+       , MkListeners (..)
        , WorkerSpec
        , ActionSpec (..)
        , N.NodeId
@@ -116,16 +115,16 @@ instance Buildable VerInfo where
                                 (HM.toList vIInHandlers)
                                 (HM.toList vIOutHandlers)
 
-inSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
-inSpecs (name, sp) specs = case name `HM.lookup` specs of
+checkInSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
+checkInSpecs (name, sp) specs = case name `HM.lookup` specs of
                               Just sp' -> sp == sp'
                               _        -> False
 
 notInSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
-notInSpecs sp' = not . inSpecs sp'
+notInSpecs sp' = not . checkInSpecs sp'
 
 data ListenerSpec m = ListenerSpec
-    { lsHandler :: VerInfo -> Listener m -- ^ Handler accepts out verInfo and returns listener
+    { lsHandler :: VerInfo -> m (Listener m) -- ^ Handler accepts out verInfo and returns listener
     , lsInSpec  :: (MessageName, HandlerSpec)
     }
 
@@ -157,10 +156,18 @@ instance Monoid OutSpecs where
                     ("Conflicting key output spec: "%build%" "%build)
                     (name, h1) (name, h2)
 
-mergeLs :: [(ListenerSpec m, OutSpecs)] -> ([ListenerSpec m], OutSpecs)
-mergeLs = second mconcat . unzip
-
 toOutSpecs :: [(MessageName, HandlerSpec)] -> OutSpecs
 toOutSpecs = OutSpecs . HM.fromList
 
-type ListenersWithOut m = ([ListenerSpec m], OutSpecs)
+data MkListeners m = MkListeners
+        { mkListeners :: VerInfo -> PeerData -> m [Listener m]
+        -- ^ Accepts our ver info and their peerData and returns set of listeners
+        , inSpecs     :: InSpecs
+        , outSpecs    :: OutSpecs
+        }
+
+instance Monad m => Monoid (MkListeners m) where
+    mempty = MkListeners (\_ _ -> pure []) mempty mempty
+    a `mappend` b = MkListeners act (inSpecs a `mappend` inSpecs b) (outSpecs a `mappend` outSpecs b)
+      where
+        act vI pD = liftM2 (++) (mkListeners a vI pD) (mkListeners b vI pD)

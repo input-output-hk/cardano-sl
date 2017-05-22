@@ -46,9 +46,10 @@ import           Node                         (Node, NodeAction (..),
 import           Node.Util.Monitor            (setupMonitor, stopMonitor)
 import qualified STMContainers.Map            as SM
 import           System.Random                (newStdGen)
-import           System.Wlog                  (LoggerConfig (..), WithLogger, logError,
-                                               logInfo, productionB, releaseAllHandlers,
-                                               setupLogging, usingLoggerName)
+import           System.Wlog                  (LoggerConfig (..), WithLogger, logDebug,
+                                               logError, logInfo, productionB,
+                                               releaseAllHandlers, setupLogging,
+                                               usingLoggerName)
 import           Universum                    hiding (bracket, finally)
 
 import           Pos.Binary                   ()
@@ -57,9 +58,9 @@ import           Pos.CLI                      (readLoggerConfig)
 import           Pos.Client.Txp.Balances      (runBalancesRedirect)
 import           Pos.Client.Txp.History       (runTxHistoryRedirect)
 import           Pos.Communication            (ActionSpec (..), BiP (..), InSpecs (..),
-                                               ListenersWithOut, NodeId, OutSpecs (..),
+                                               MkListeners (..), NodeId, OutSpecs (..),
                                                VerInfo (..), allListeners,
-                                               hoistListenerSpec, unpackLSpecs)
+                                               hoistMkListeners)
 import           Pos.Communication.PeerState  (PeerStateTag, runPeerStateRedirect)
 import qualified Pos.Constants                as Const
 import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers (..),
@@ -126,7 +127,7 @@ runRawRealMode
     => Transport (RawRealMode ssc)
     -> NodeParams
     -> SscParams ssc
-    -> RawRealMode ssc (ListenersWithOut (RawRealMode ssc))
+    -> MkListeners (RawRealMode ssc)
     -> OutSpecs
     -> ActionSpec (RawRealMode ssc) a
     -> Production a
@@ -223,7 +224,7 @@ mkSlottingVar sysStart = do
 runServiceMode
     :: Transport ServiceMode
     -> BaseParams
-    -> ListenersWithOut ServiceMode
+    -> MkListeners ServiceMode
     -> OutSpecs
     -> ActionSpec ServiceMode a
     -> Production a
@@ -238,31 +239,33 @@ runServiceMode transport bp@BaseParams {..} listeners outSpecs (ActionSpec actio
 runServer
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
     => Transport m
-    -> m (ListenersWithOut m)
+    -> MkListeners m
     -> OutSpecs
     -> (Node m -> m t)
     -> (t -> m ())
     -> ActionSpec m b
     -> m b
-runServer transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
-    packedLS  <- packedLS_M
-    let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
-        ourVerInfo =
-            VerInfo Const.protocolMagic Const.lastKnownBlockVersion ins $ outs <> wouts
-        listeners = listeners' ourVerInfo
+runServer transport mkL (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     stdGen <- liftIO newStdGen
-    logInfo $ sformat ("Our verInfo "%build) ourVerInfo
+    logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
     node (simpleNodeEndPoint transport) stdGen BiP ourVerInfo defaultNodeEnvironment $ \__node ->
-        -- CSL-831 TODO use __peerVerInfo
-        NodeAction (\__peerVerInfo -> listeners) $ \sendActions -> do
+        NodeAction mkListeners' $ \sendActions -> do
             t <- withNode __node
             action ourVerInfo sendActions `finally` afterNode t
+  where
+    InSpecs ins = inSpecs mkL
+    OutSpecs outs = outSpecs mkL
+    ourVerInfo =
+        VerInfo Const.protocolMagic Const.lastKnownBlockVersion ins $ outs <> wouts
+    mkListeners' theirVerInfo = do
+        logDebug $ sformat ("Incoming connection: theirVerInfo="%build) theirVerInfo
+        mkListeners mkL ourVerInfo theirVerInfo
 
 runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
-    => Transport m -> ListenersWithOut m -> OutSpecs -> ActionSpec m b -> m b
-runServer_ transport packedLS outSpecs =
-    runServer transport (pure packedLS) outSpecs acquire release
+    => Transport m -> MkListeners m -> OutSpecs -> ActionSpec m b -> m b
+runServer_ transport mkl outSpecs =
+    runServer transport mkl outSpecs acquire release
   where
     acquire = const pass
     release = const pass
@@ -291,10 +294,7 @@ runRawKBasedMode unwrap wrap transport kinst np@NodeParams {..} sscnp (ActionSpe
   where
     hoistUp = wrap . lift
     hoistDown = runDiscoveryKademliaT kinst . unwrap
-    listeners =
-        hoistDown $
-        first (hoistListenerSpec hoistDown hoistUp <$>) <$>
-        allListeners
+    listeners = hoistMkListeners hoistDown hoistUp allListeners
 
 -- | ProductionMode runner.
 runProductionMode
@@ -345,10 +345,7 @@ runStaticMode transport peers np@NodeParams {..} sscnp (ActionSpec action, outSp
   where
     hoistUp = lift . lift
     hoistDown = runDiscoveryConstT peers . getNoStatsT
-    listeners =
-        hoistDown $
-        first (hoistListenerSpec hoistDown hoistUp <$>) <$>
-        allListeners
+    listeners = hoistMkListeners hoistDown hoistUp allListeners
 
 ----------------------------------------------------------------------------
 -- Lower level runners

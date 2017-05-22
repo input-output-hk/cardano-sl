@@ -22,8 +22,8 @@ import           GHC.Exts                           (IsList (..))
 
 import           Pos.Binary.Class                   (AsBinary (..))
 import           Pos.Block.Core                     (Block, BlockHeader)
-import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetHeaders (..),
-                                                     MsgHeaders (..))
+import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks (..),
+                                                     MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
 import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
@@ -247,6 +247,11 @@ instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
 ----------------------------------------------------------------------------
 ---- Blocks/headers
 ----------------------------------------------------------------------------
+
+instance MessageLimitedPure MsgGetBlocks where
+    msgLenLimit = MsgGetBlocks <$> msgLenLimit <+> msgLenLimit
+
+instance MessageLimited MsgGetBlocks
 
 instance MessageLimited (BlockHeader ssc) where
     getMsgLenLimit _ = Limit <$> DB.gsMaxHeaderSize

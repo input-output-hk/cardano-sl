@@ -16,7 +16,7 @@ import qualified STMContainers.Map           as SM
 import           System.Wlog                 (logDebug, logInfo, usingLoggerName)
 
 import           Pos.Block.BListener         (runBListenerStub)
-import           Pos.Communication           (ActionSpec (..), ListenersWithOut, NodeId,
+import           Pos.Communication           (ActionSpec (..), MkListeners, NodeId,
                                               OutSpecs, WorkerSpec)
 import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect)
 import           Pos.Discovery               (findPeers, runDiscoveryConstT)
@@ -35,12 +35,6 @@ import           Pos.Wallet.WalletMode       (WalletMode, WalletStaticPeersMode,
                                               runTxHistoryWalletRedirect,
                                               runUpdatesNotImplemented)
 
--- TODO: Move to some `Pos.Wallet.Communication` and provide
--- meaningful listeners
-allListeners
-    :: ListenersWithOut WalletStaticPeersMode
-allListeners = mempty
-
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
 -- meaningful ones
 -- allWorkers :: WalletMode ssc m => [m ()]
@@ -55,7 +49,7 @@ runWalletStaticPeersMode
     -> (ActionSpec WalletStaticPeersMode a, OutSpecs)
     -> Production a
 runWalletStaticPeersMode transport peers wp@WalletParams {..} =
-    runRawStaticPeersWallet transport peers wp allListeners
+    runRawStaticPeersWallet transport peers wp mempty
 
 runWalletStaticPeers
     :: Transport WalletStaticPeersMode
@@ -86,7 +80,7 @@ runRawStaticPeersWallet
     :: Transport WalletStaticPeersMode
     -> Set NodeId
     -> WalletParams
-    -> ListenersWithOut WalletStaticPeersMode
+    -> MkListeners WalletStaticPeersMode
     -> (ActionSpec WalletStaticPeersMode a, OutSpecs)
     -> Production a
 runRawStaticPeersWallet transport peers WalletParams {..}

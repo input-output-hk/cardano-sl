@@ -5,7 +5,7 @@ import DOM.HTML.Types (HTMLElement, HTMLInputElement)
 import Data.DateTime (DateTime)
 import Data.Either (Either)
 import Data.Maybe (Maybe)
-import Explorer.Api.Types (RequestLimit, RequestOffset, SocketSubscription)
+import Explorer.Api.Types (RequestLimit, RequestOffset, SocketOffset(..), SocketSubscription)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, Search)
@@ -30,8 +30,9 @@ data Action
     | SocketTxsUpdated (Either Error CTxEntries)
     | SocketAddSubscription SocketSubscription
     | SocketRemoveSubscription SocketSubscription
-    | SocketUpdateSubscriptions (Array SocketSubscription)
+    | SocketClearSubscriptions
     | SocketReconnectSubscriptions
+    | SocketSubscribePaginatedBlocks SocketOffset
     -- socket endpoints for debugging only
     | SocketCallMe
     | SocketCallMeString String

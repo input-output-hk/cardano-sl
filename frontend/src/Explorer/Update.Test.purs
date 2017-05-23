@@ -9,10 +9,10 @@ import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
 import Data.Time.NominalDiffTime (mkTime)
-import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..))
+import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Lenses.State (connected, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, totalBlocks)
-import Explorer.State (initialState)
+import Explorer.State (initialState, mkSocketSubscriptionItem)
 import Explorer.Test.MockFactory (mkCBlockEntry, mkEmptyCTxEntry, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Update (update)
@@ -206,17 +206,17 @@ testUpdate =
                     effModel = update (SocketAddSubscription subscription) initialState
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
-                in (gShow result) `shouldEqual` (gShow [subscription])
+                in (gShow result) `shouldEqual` (gShow [mkSocketSubscriptionItem subscription SocketNoData])
             it "to add another subscription"
                 let initialState' = set (socket <<< subscriptions)
-                                        [ SocketSubscription SubTx
+                                        [ mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
                                         ]
                                         initialState
                     effModel = update (SocketAddSubscription $ SocketSubscription SubBlock) initialState'
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
-                    expected =  [ SocketSubscription SubTx
-                                , SocketSubscription SubBlock
+                    expected =  [ mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
+                                , mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
                                 ]
                 in (gShow result) `shouldEqual` (gShow expected)
 
@@ -229,14 +229,15 @@ testUpdate =
             it "to remove a subscription"
                 let subscription = SocketSubscription SubBlock
                     initialState' = set (socket <<< subscriptions)
-                                        [ SocketSubscription SubTx
-                                        , SocketSubscription SubBlock
+                                        [ mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
+                                        , mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
                                         ]
                                         initialState
                     effModel = update (SocketRemoveSubscription $ SocketSubscription SubBlock) initialState'
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
-                in (gShow result) `shouldEqual` (gShow [SocketSubscription SubTx])
+                in  (gShow result) `shouldEqual` 
+                    (gShow [mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData])
 
         describe "uses action SocketClearSubscriptions" do
 
@@ -248,8 +249,8 @@ testUpdate =
 
             it "to remove all subscription"
                 let initialState' = set (socket <<< subscriptions)
-                                        [ SocketSubscription SubTx
-                                        , SocketSubscription SubBlock
+                                        [ mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
+                                        , mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
                                         ]
                                         initialState
                     effModel = update SocketClearSubscriptions initialState'

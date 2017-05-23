@@ -14,20 +14,22 @@ import DOM.HTML.HTMLInputElement (select)
 import Data.Array (filter, length, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
+import Data.Generic (class Generic)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
+import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTotalBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
-import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..))
+import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
 import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, syncAction, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination)
+import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination, mkSocketSubscriptionItem)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (Search(..), State)
+import Explorer.Types.State (Search(..), SocketSubscriptionItem(..), State)
 import Explorer.Util.Config (SyncAction(..), syncBySocket)
 import Explorer.Util.DOM (scrollTop, targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Data (sortBlocksByEpochSlot', sortTxsByTime', unionBlocks, unionTxs)
@@ -37,7 +39,6 @@ import Explorer.View.Blocks (maxBlockRows)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Explorer.View.Dashboard.Transactions (maxTransactionRows)
 import Network.HTTP.Affjax (AJAX)
-import Control.Monad.Eff.Console (CONSOLE, log)
 import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
@@ -136,24 +137,43 @@ update (SocketCallMeCTxId id) state =
 -- | Creates a new socket subscription
 update (SocketAddSubscription sub) state =
     { state:
-          over (socket <<< subscriptions) (\subs -> snoc subs sub) state
+          over (socket <<< subscriptions) (\subs -> snoc subs subItem) state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ socketSubscribeEvent socket' sub
+              Just socket' -> liftEff $ socketSubscribeEvent socket' subItem
               Nothing -> pure unit
           pure NoOp
     ]}
+    where
+        subItem = mkSocketSubscriptionItem sub SocketNoData
+
+-- | Subscribes to SubBlockOff by a given offset
+update (SocketSubscribePaginatedBlocks (SocketOffset offset)) state =
+    { state:
+          over (socket <<< subscriptions) (\subs -> snoc subs subItem) state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' -> liftEff $ socketSubscribeEventWithData socket' subItem offset
+              Nothing -> pure unit
+          pure NoOp
+    ]}
+    where
+        subItem = mkSocketSubscriptionItem (SocketSubscription SubBlockOff) SocketNoData
 
 -- | Removes an existing socket subscription
 update (SocketRemoveSubscription sub) state =
     { state:
-          over (socket <<< subscriptions) (filter ((/=) sub)) state
+          over (socket <<< subscriptions)
+                (filter (\sub' -> sub /= (_.socketSub $ unwrap sub')))
+                state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ socketUnsubscribeEvent socket' sub
+              Just socket' -> liftEff $ socketUnsubscribeEvent socket' subItem
               Nothing -> pure unit
           pure NoOp
     ]}
+    where
+        subItem = mkSocketSubscriptionItem sub SocketNoData
 
 -- | Removes all existing socket subscriptions
 update (SocketClearSubscriptions) state =
@@ -199,8 +219,7 @@ update (DashboardPaginateBlocks newPage) state =
             -- ^ get number of total blocks first before we do a request to get data of blocks
           ]
           <> (  if (syncBySocket $ state ^. syncAction)
-                then  [ pure <<< SocketRemoveSubscription $ SocketSubscription SubBlock ]
-                -- ^ TODO: Use new event type (`CSE-120`) to remove subscription
+                then  [ pure <<< SocketRemoveSubscription $ SocketSubscription SubBlockOff ]
                 else [])
     }
     where
@@ -451,8 +470,7 @@ update (ReceivePaginatedBlocks (Right blocks)) state =
           set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) state
     , effects:
         if (syncBySocket $ state ^. syncAction)
-        then [ pure <<< SocketAddSubscription $ SocketSubscription SubBlock ]
-               -- ^ TODO: Use new event type (`CSE-120`) to add subscription
+        then [ pure <<< SocketSubscribePaginatedBlocks $ SocketOffset offset ]
         else []
     }
     where
@@ -708,12 +726,23 @@ routeEffects NotFound state =
         ]
     }
 
-socketSubscribeEvent :: forall eff . Socket -> SocketSubscription
+socketSubscribeEvent :: forall eff . Socket -> SocketSubscriptionItem
     -> Eff (socket :: SocketIO | eff) Unit
-socketSubscribeEvent socket (SocketSubscription event)  =
-    emit' socket (toEvent $ Subscribe event)
+socketSubscribeEvent socket (SocketSubscriptionItem item)  =
+    emit' socket event
+    where
+        event = toEvent <<< Subscribe <<< unwrap $ _.socketSub item
 
-socketUnsubscribeEvent :: forall eff . Socket -> SocketSubscription
+socketSubscribeEventWithData :: forall d eff . (Generic d) => Socket
+    -> SocketSubscriptionItem -> d -> Eff (socket :: SocketIO | eff) Unit
+socketSubscribeEventWithData socket (SocketSubscriptionItem item) data'  =
+    emit socket event data'
+    where
+        event = toEvent <<< Subscribe <<< unwrap $ _.socketSub item
+
+socketUnsubscribeEvent :: forall eff . Socket -> SocketSubscriptionItem
     -> Eff (socket :: SocketIO | eff) Unit
-socketUnsubscribeEvent socket (SocketSubscription event)  =
-    emit' socket (toEvent $ Unsubscribe event)
+socketUnsubscribeEvent socket (SocketSubscriptionItem item)  =
+    emit' socket event
+    where
+        event = toEvent <<< Unsubscribe <<< unwrap $ _.socketSub item

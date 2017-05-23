@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Internal block logic. Mostly needed for use in 'Pos.Lrc' -- using
@@ -9,8 +8,6 @@
 module Pos.Block.Logic.Internal
        ( applyBlocksUnsafe
        , rollbackBlocksUnsafe
-       , withBlkSemaphore
-       , withBlkSemaphore_
        , toUpdateBlock
        ) where
 
@@ -18,7 +15,6 @@ import           Universum
 
 import           Control.Arrow        ((&&&))
 import           Control.Lens         (each, _Wrapped)
-import           Control.Monad.Catch  (bracketOnError)
 import qualified Data.List.NonEmpty   as NE
 import qualified Ether
 import           Formatting           (build, sformat, (%))
@@ -30,10 +26,8 @@ import           Pos.Block.BListener  (MonadBListener (..))
 import           Pos.Block.Core       (Block, GenesisBlock, MainBlock, mbTxPayload,
                                        mbUpdatePayload)
 import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
-import           Pos.Context          (BlkSemaphore, putBlkSemaphore, takeBlkSemaphore)
-import           Pos.Core             (HeaderHash, IsGenesisHeader, IsMainHeader,
-                                       epochIndexL, gbBody, gbHeader, headerHash,
-                                       headerHashG, prevBlockL)
+import           Pos.Core             (IsGenesisHeader, IsMainHeader, epochIndexL, gbBody,
+                                       gbHeader, headerHash, headerHashG, prevBlockL)
 import           Pos.DB               (SomeBatchOp (..))
 import qualified Pos.DB.Block         as DB
 import qualified Pos.DB.DB            as DB
@@ -70,24 +64,6 @@ toUpdateBlock = bimap convertGenesis convertMain
     convertGenesis = Some . view gbHeader
     convertMain :: MainBlock ssc -> (Some IsMainHeader, UpdatePayload)
     convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbUpdatePayload)
-
--- | Run action acquiring lock on block application. Argument of
--- action is an old tip, result is put as a new tip.
-withBlkSemaphore
-    :: Each [MonadIO, MonadMask, Ether.MonadReader' BlkSemaphore] '[m]
-    => (HeaderHash -> m (a, HeaderHash)) -> m a
-withBlkSemaphore action =
-    bracketOnError takeBlkSemaphore putBlkSemaphore doAction
-  where
-    doAction tip = do
-        (res, newTip) <- action tip
-        res <$ putBlkSemaphore newTip
-
--- | Version of withBlkSemaphore which doesn't have any result.
-withBlkSemaphore_
-    :: Each [MonadIO, MonadMask, Ether.MonadReader' BlkSemaphore] '[m]
-    => (HeaderHash -> m HeaderHash) -> m ()
-withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break

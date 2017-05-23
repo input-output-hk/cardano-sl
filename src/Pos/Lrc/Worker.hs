@@ -22,8 +22,8 @@ import           Serokell.Util.Exceptions   ()
 import           System.Wlog                (logInfo, logWarning)
 
 import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
-                                             withBlkSemaphore_)
+import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe)
+import           Pos.Block.Logic.Util       (withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
 import           Pos.Core                   (Coin)

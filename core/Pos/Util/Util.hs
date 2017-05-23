@@ -34,6 +34,16 @@ module Pos.Util.Util
        -- * Asserts
        , inAssertMode
 
+       -- * Concurrency
+       , clearMVar
+       , forcePutMVar
+       , readMVarConditional
+       , readUntilEqualMVar
+       , readTVarConditional
+       , readUntilEqualTVar
+       , withReadLifted
+       , withWriteLifted
+
        -- * Instances
        -- ** Lift Byte
        -- ** FromJSON Byte
@@ -62,9 +72,12 @@ module Pos.Util.Util
 import           Universum
 import           Unsafe                         (unsafeInit, unsafeLast)
 
+import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
+                                                   releaseRead, releaseWrite)
 import           Control.Lens                   (ALens', Getter, Getting, cloneLens, to)
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Morph            (MFunctor (..))
+import           Control.Monad.STM              (retry)
 import           Control.Monad.Trans.Class      (MonadTrans)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
@@ -304,3 +317,56 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
+
+----------------------------------------------------------------------------
+-- Concurrency utilites (MVar/TVar/RWLock..)
+----------------------------------------------------------------------------
+
+clearMVar :: MonadIO m => MVar a -> m ()
+clearMVar = void . tryTakeMVar
+
+forcePutMVar :: MonadIO m => MVar a -> a -> m ()
+forcePutMVar mvar val = do
+    unlessM (tryPutMVar mvar val) $ do
+        _ <- tryTakeMVar mvar
+        forcePutMVar mvar val
+
+-- | Block until value in MVar satisfies given predicate. When value
+-- satisfies, it is returned.
+readMVarConditional :: (MonadIO m) => (x -> Bool) -> MVar x -> m x
+readMVarConditional predicate mvar = do
+    rData <- readMVar mvar -- first we try to read for optimization only
+    if predicate rData then pure rData
+    else do
+        tData <- takeMVar mvar         -- now take data
+        if predicate tData then do     -- check again
+            _ <- tryPutMVar mvar tData -- try to put taken value
+            pure tData
+        else
+            readMVarConditional predicate mvar
+
+-- | Read until value is equal to stored value comparing by some function.
+readUntilEqualMVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> MVar x -> a -> m x
+readUntilEqualMVar f mvar expVal = readMVarConditional ((expVal ==) . f) mvar
+
+-- | Block until value in TVar satisfies given predicate. When value
+-- satisfies, it is returned.
+readTVarConditional :: (MonadIO m) => (x -> Bool) -> TVar x -> m x
+readTVarConditional predicate tvar = atomically $ do
+    res <- readTVar tvar
+    if predicate res then pure res
+    else retry
+
+-- | Read until value is equal to stored value comparing by some function.
+readUntilEqualTVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> TVar x -> a -> m x
+readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar
+
+withReadLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
+withReadLifted l = bracket_ (liftIO $ acquireRead l) (liftIO $ releaseRead l)
+
+withWriteLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
+withWriteLifted l = bracket_ (liftIO $ acquireWrite l) (liftIO $ releaseWrite l)

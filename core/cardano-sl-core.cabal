@@ -87,13 +87,15 @@ library
                     , autoexporter
                     , base
                     , base58-bytestring
+                    , concurrent-extra
                     , ether >= 0.5
                     , log-warper >= 1.0.3
+                    , mmorph
+                    , resourcet
+                    , stm
                     , transformers
                     , transformers-base
                     , transformers-lift
-                    , mmorph
-                    , resourcet
                       -- This constraint on 'binary' is so strict because
                       -- we're relying on the internal representation of
                       -- 'Get' in Pos.Binary.Class. So, if you need to bump

@@ -30,7 +30,7 @@ module Pos.Block.Logic
        , createMainBlockPure
        ) where
 
-import           Control.Lens               (uses, (-=), (.=), _Wrapped)
+import           Control.Lens               (each, uses, (-=), (.=), _Right, _Wrapped)
 import           Control.Monad.Catch        (try)
 import           Control.Monad.Except       (ExceptT (ExceptT), MonadError (throwError),
                                              runExceptT, withExceptT)
@@ -62,9 +62,8 @@ import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUn
                                              toUpdateBlock, withBlkSemaphore,
                                              withBlkSemaphore_)
 import           Pos.Block.Pure             (VerifyHeaderParams (..), genesisHash,
-                                             mkGenesisBlock, mkMainBlock, verifyHeader,
-                                             verifyHeaders)
-import qualified Pos.Block.Pure             as Pure
+                                             mkGenesisBlock, mkMainBlock, verifyBlocks,
+                                             verifyHeader, verifyHeaders)
 import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Constants              (blkSecurityParam, curSoftwareVersion,
                                              epochSlots, lastKnownBlockVersion,
@@ -450,7 +449,7 @@ getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
 -- -- #usVerifyBlocks
 -- | Verify new blocks. If parent of the first block is not our tip,
 -- verification fails. This function checks everything from block, including
--- header, transactions, delegation data, SSC data, US data.
+-- header, transactions, delegation data, SSC data, US data. Should be
 verifyBlocksPrefix
     :: forall ssc m.
        WorkMode ssc m
@@ -502,13 +501,11 @@ verifyBlocksPrefix blocks = runExceptT $ do
                        || lastKnownBlockVersion == adoptedBV
     -- For all issuers of blocks we're processing retrieve their PSK
     -- if any and create a hashmap of these.
-    pskCerts <-
-        fmap (HM.fromList . catMaybes) $
-        forM (rights $ NE.toList $ blocks ^. _Wrapped) $ \b ->
-        let issuer = b ^. mainBlockLeaderKey
-        in fmap (issuer,) <$> GS.getPSKByIssuer issuer
+    pskCerts <- do
+        let issuers = blocks ^.. _Wrapped . each . _Right . mainBlockLeaderKey
+        GS.getPSKTreeAll $ Left issuers
     verResToMonadError formatAllErrors $
-        Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
+        verifyBlocks curSlot dataMustBeKnown adoptedBVD
         (Just leaders) (Just pskCerts) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     TxpGlobalSettings {..} <- Ether.ask'
@@ -554,7 +551,7 @@ verifyAndApplyBlocks
 verifyAndApplyBlocks rollback =
     reportingFatal version . verifyAndApplyBlocksInternal True rollback
 
--- See the description for verifyAndApplyBlocks. This method also
+-- See the description for 'verifyAndApplyBlocks'. This method also
 -- parameterizes LRC calculation which can be turned on/off with the first
 -- flag.
 verifyAndApplyBlocksInternal
@@ -878,7 +875,8 @@ createMainBlockFinish slotId pSk prevHeader = do
         clearMempools
         emptyBlund@(emptyBlock, _, _) <- createBlundFromMemPool
         verifyCreatedBlock emptyBlock >>=
-            either (assertionFailed . sformat ("We couldn't create even block with empty payload: "%stext))
+            either (assertionFailed .
+                    sformat ("We couldn't create even block with empty payload: "%stext))
             (const $ pure emptyBlund)
 
 createMainBlockPure

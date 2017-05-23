@@ -203,6 +203,7 @@ library
                         Pos.Delegation.Logic
                         Pos.Delegation.Lrc
                         Pos.Delegation.Methods
+                        Pos.Delegation.Pure
                         Pos.Delegation.Types
                         Pos.Delegation.Worker
 

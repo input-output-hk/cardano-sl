@@ -25,11 +25,11 @@ module Pos.Block.Pure
        , verifyHeaders
        ) where
 
-import           Control.Lens                 (ix, (%=))
+import           Control.Lens                 (ix)
 import           Control.Monad.Except         (MonadError (throwError))
 import           Data.Default                 (Default (def))
 import qualified Data.HashMap.Strict          as HM
-import           Data.List                    (groupBy, partition)
+import           Data.List                    (groupBy)
 import           Formatting                   (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units   (Byte, memory)
 import           Serokell.Util.Verify         (VerificationRes (..), verifyGeneric)
@@ -60,9 +60,9 @@ import           Pos.Constants                (epochSlots)
 import           Pos.Core                     (ChainDifficulty, EpochIndex, EpochOrSlot,
                                                HasDifficulty (..), HasEpochIndex (..),
                                                HasEpochOrSlot (..), HasHeaderHash (..),
-                                               HeaderHash, ProxySKEither, ProxySKHeavyMap,
-                                               SlotId (..), SlotLeaders, addressHash,
-                                               gbhExtra, headerSlotL, prevBlockL)
+                                               HeaderHash, ProxySKEither, SlotId (..),
+                                               SlotLeaders, addressHash, gbhExtra,
+                                               headerSlotL, prevBlockL)
 import           Pos.Core.Block               (Blockchain (..), GenericBlock (..),
                                                GenericBlockHeader (..), gbBody,
                                                gbBodyProof, gbExtra, gbHeader)
@@ -70,6 +70,8 @@ import           Pos.Crypto                   (Hash, ProxySecretKey (..), Secret
                                                SignTag (..), checkSig, pdCert, proxySign,
                                                proxyVerify, sign, toPublic, unsafeHash)
 import           Pos.Data.Attributes          (Attributes (attrRemain), mkAttributes)
+import           Pos.Delegation.Pure          (dlgMemPoolApplyBlock)
+import           Pos.Delegation.Types         (DlgMemPool)
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass (..))
 import           Pos.Update.Core              (BlockVersionData (..))
 import           Pos.Util.Chrono              (NewestFirst (..), OldestFirst)
@@ -269,7 +271,7 @@ data VerifyHeaderParams ssc = VerifyHeaderParams
     , vhpCurrentSlot     :: !(Maybe SlotId)
     , vhpLeaders         :: !(Maybe SlotLeaders)
       -- ^ Set of leaders for the epoch related block is from
-    , vhpHeavyCerts      :: !(Maybe ProxySKHeavyMap)
+    , vhpHeavyCerts      :: !(Maybe DlgMemPool)
       -- ^ Subset of heavy certs delegation map, where keys only
       -- contain public keys of block issuers passed to checking
       -- function.
@@ -554,26 +556,16 @@ verifyBlock VerifyBlockParams {..} blk =
                  , sformat ("main block has unknown attributes: "%build) attrs)
                ]
 
--- Type alias for common type used inside 'verifyBlocks'
+-- Type alias for the fold accumulator used inside 'verifyBlocks'
 type VerifyBlocksIter ssc =
-    (Maybe SlotLeaders, Maybe ProxySKHeavyMap, Maybe (BlockHeader ssc), VerificationRes)
-
--- Applies block certificates to 'ProxySKHeavyMap'. Used in
--- 'verifyBlocks'. It's not the best place for it here, but i can't
--- put it to "Delegation.Logic" because it leads to dependency cycle.
-pskHeavyMapApplyBlock :: MainBlock ssc -> ProxySKHeavyMap -> ProxySKHeavyMap
-pskHeavyMapApplyBlock block m = flip execState m $ do
-    let (toDelete,toReplace) =
-            partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
-                      (view mainBlockDlgPayload block)
-    for_ toDelete $ \psk -> identity %= HM.delete (pskIssuerPk psk)
-    for_ toReplace $ \psk -> identity %= HM.insert (pskIssuerPk psk) psk
-
+    ( Maybe SlotLeaders
+    , Maybe DlgMemPool
+    , Maybe (BlockHeader ssc)
+    , VerificationRes)
 
 -- CHECK: @verifyBlocks
 -- Verifies a sequence of blocks.
 -- #verifyBlock
-
 -- | Verify a sequence of blocks.
 --
 -- foldl' is used here which eliminates laziness of triple. It doesn't affect
@@ -590,7 +582,7 @@ verifyBlocks
     -> Bool
     -> BlockVersionData
     -> Maybe SlotLeaders
-    -> Maybe ProxySKHeavyMap
+    -> Maybe DlgMemPool
     -> OldestFirst f (Block ssc)
     -> VerificationRes
 verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . foldl' step start
@@ -603,8 +595,8 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . fold
                 Left genesisBlock -> Just $ genesisBlock ^. genBlockLeaders
                 Right _           -> leaders
             newPsks = case blk of
-                Left _  ->         psks
-                Right b ->         pskHeavyMapApplyBlock b <$> psks
+                Left _  -> psks
+                Right b -> dlgMemPoolApplyBlock b <$> psks
             vhp =
                 VerifyHeaderParams
                 { vhpVerifyConsensus = True

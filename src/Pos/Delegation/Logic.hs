@@ -55,9 +55,8 @@ import           Pos.Block.Types          (Blund, Undo (undoPsk))
 import           Pos.Constants            (lightDlgConfirmationTimeout, memPoolLimitRatio,
                                            messageCacheTimeout)
 import           Pos.Context              (NodeParams (..), lrcActionOnEpochReason)
-import           Pos.Core                 (HeaderHash, ProxySKHeavyMap, addressHash,
-                                           bvdMaxBlockSize, epochIndexL, headerHash,
-                                           prevBlockL)
+import           Pos.Core                 (HeaderHash, addressHash, bvdMaxBlockSize,
+                                           epochIndexL, headerHash, prevBlockL)
 import           Pos.Crypto               (ProxySecretKey (..), PublicKey,
                                            SignTag (SignProxySK), pdDelegatePk,
                                            proxyVerify, shortHashF, toPublic,
@@ -73,6 +72,7 @@ import           Pos.Delegation.Class     (DelegationWrap (..), DlgMemPool,
                                            MonadDelegation, askDelegationState,
                                            dwConfirmationCache, dwEpochId, dwMessageCache,
                                            dwPoolSize, dwProxySKPool, dwThisEpochPosted)
+import           Pos.Delegation.Pure      (dlgMemPoolDetectLoop)
 import           Pos.Delegation.Types     (SendProxySK (..))
 import           Pos.Exception            (cardanoExceptionFromException,
                                            cardanoExceptionToException)
@@ -263,6 +263,7 @@ processProxySKHeavy psk = do
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
         alreadyPosted <- uses dwThisEpochPosted $ HS.member issuer
         epochMatches <- (headEpoch ==) <$> use dwEpochId
+        producesLoop <- uses dwProxySKPool $ dlgMemPoolDetectLoop psk
         dwMessageCache %= LRU.insert msg curTime
         let maxMemPoolSize = memPoolLimitRatio * maxBlockSize
             -- Here it would be good to add size of data we want to insert
@@ -273,6 +274,8 @@ processProxySKHeavy psk = do
                      | not omegaCorrect -> PHInvalid "PSK epoch is different from current"
                      | alreadyPosted -> PHInvalid "issuer has already posted PSK this epoch"
                      | not enoughStake -> PHInvalid "issuer doesn't have enough stake"
+                     | isJust producesLoop ->
+                           PHInvalid $ "adding psk causes loop at: " <> pretty producesLoop
                      | cached -> PHCached
                      | exists -> PHExists
                      | exhausted -> PHExhausted
@@ -284,7 +287,7 @@ processProxySKHeavy psk = do
 data DelVerState = DelVerState
     { _dvCurEpoch      :: HashSet PublicKey
       -- ^ Set of issuers that have already posted certificates this epoch
-    , _dvPSKMapAdded   :: ProxySKHeavyMap
+    , _dvPSKMapAdded   :: DlgMemPool
       -- ^ Psks added to database.
     , _dvPSKSetRemoved :: HashSet PublicKey
       -- ^ Psks removed from database.

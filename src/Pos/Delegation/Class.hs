@@ -30,14 +30,13 @@ import           Universum
 
 import           Pos.Constants              (dlgCacheParam)
 import           Pos.Crypto                 (PublicKey)
-import           Pos.Delegation.Types       (SendProxySK)
-import           Pos.Types                  (EpochIndex, ProxySKHeavy, ProxySKLight)
+import           Pos.Delegation.Types       (DlgMemPool, SendProxySK)
+import           Pos.Types                  (EpochIndex, ProxySKLight)
 
 ---------------------------------------------------------------------------
 -- Delegation in-memory data
 ----------------------------------------------------------------------------
 
-type DlgMemPool = HashMap PublicKey ProxySKHeavy
 
 -- | In-memory storage needed for delegation logic.
 data DelegationWrap = DelegationWrap

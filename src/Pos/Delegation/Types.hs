@@ -10,6 +10,7 @@ module Pos.Delegation.Types
        --, CheckProxySKConfirmed (..)
        --, CheckProxySKConfirmedRes (..)
        , DlgPayload
+       , DlgMemPool
        ) where
 
 import           Data.DeriveTH       (derive, makeArbitrary)
@@ -17,6 +18,7 @@ import           Test.QuickCheck     (Arbitrary (..), choose)
 import           Universum
 
 import           Pos.Core            (ProxySKHeavy, ProxySKLight, ProxySigLight)
+import           Pos.Crypto          (PublicKey)
 import           Pos.Types.Arbitrary ()
 
 ----------------------------------------------------------------------------
@@ -60,7 +62,11 @@ data ConfirmProxySK =
 -- Heavyweight delegation payload
 ----------------------------------------------------------------------------
 
+-- | Delegation payload of the main block.
 type DlgPayload = [ProxySKHeavy]
+
+-- | Map from issuer public keys to related heavy certs.
+type DlgMemPool = HashMap PublicKey ProxySKHeavy
 
 ----------------------------------------------------------------------------
 -- Arbitrary instances

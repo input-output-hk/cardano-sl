@@ -15,21 +15,22 @@ module Pos.Delegation.DB
        , runPskMapIterator
        ) where
 
-import           Control.Lens        (uses, (%=))
-import qualified Data.HashMap.Strict as HM
-import qualified Data.HashSet        as HS
-import qualified Database.RocksDB    as Rocks
+import           Control.Lens         (uses, (%=))
+import qualified Data.HashMap.Strict  as HM
+import qualified Data.HashSet         as HS
+import qualified Database.RocksDB     as Rocks
 import           Universum
 
-import           Pos.Binary.Class    (encodeStrict)
-import           Pos.Crypto          (PublicKey, pskDelegatePk, pskIssuerPk)
-import           Pos.DB.Class        (MonadDB, getUtxoDB)
-import           Pos.DB.Error        (DBError (DBMalformed))
-import           Pos.DB.Functions    (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
-import           Pos.DB.Iterator     (DBIteratorClass (..), DBnIterator, DBnMapIterator,
-                                      IterType, runDBnIterator, runDBnMapIterator)
-import           Pos.DB.Types        (NodeDBs (_gStateDB))
-import           Pos.Types           (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Binary.Class     (encodeStrict)
+import           Pos.Crypto           (PublicKey, pskDelegatePk, pskIssuerPk)
+import           Pos.DB.Class         (MonadDB, getUtxoDB)
+import           Pos.DB.Error         (DBError (DBMalformed))
+import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
+import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
+                                       IterType, runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Types         (NodeDBs (_gStateDB))
+import           Pos.Delegation.Types (DlgMemPool)
+import           Pos.Types            (ProxySKHeavy, StakeholderId, addressHash)
 
 
 ----------------------------------------------------------------------------
@@ -49,22 +50,20 @@ getPSKByIssuer (either addressHash identity -> issuer) =
 -- it must be used under the shared lock.
 getPSKTree
     :: MonadDB m
-    => Either PublicKey StakeholderId -> m (HashMap PublicKey ProxySKHeavy)
+    => Either PublicKey StakeholderId -> m DlgMemPool
 getPSKTree = getPSKTreeInternal HS.empty
 
--- See doc for 'getPSKTree'. This function also stops bfs if
+-- See doc for 'getPSKTree'. This function also stops traversal if
 -- encounters anyone in 'toIgnore' set.
 getPSKTreeInternal
     :: MonadDB m
-    => HashSet StakeholderId
-    -> Either PublicKey StakeholderId
-    -> m (HashMap PublicKey ProxySKHeavy)
+    => HashSet StakeholderId -> Either PublicKey StakeholderId -> m DlgMemPool
 getPSKTreeInternal toIgnore (either addressHash identity -> issuer) =
-    fmap (view _1) $ flip execStateT (HM.empty, [issuer], HS.empty) bfs
+    fmap (view _1) $ flip execStateT (HM.empty, [issuer], HS.empty) trav
   where
-    bfs = use _2 >>= \case
+    trav = use _2 >>= \case
         []                           -> pass
-        (x:_) | HS.member x toIgnore -> (_2 %= drop 1) >> bfs
+        (x:_) | HS.member x toIgnore -> (_2 %= drop 1) >> trav
         (x:_)                        -> do
             whenM (uses _3 $ HS.member x) $
                 throwM $ DBMalformed "getPSKTree: found a PSK loop"
@@ -74,14 +73,13 @@ getPSKTreeInternal toIgnore (either addressHash identity -> issuer) =
                 let is = pskIssuerPk psk
                 _1 %= HM.insert is psk
                 _3 %= HS.insert (addressHash is)
-            bfs
+            trav
 
 -- | Retrieves hashmap from all issuers supplied. See
 -- 'getPSKTree'. This function must be used under outside shared lock.
 getPSKTreeAll
     :: (MonadDB m)
-    => Either [PublicKey] [StakeholderId]
-    -> m (HashMap PublicKey ProxySKHeavy)
+    => Either [PublicKey] [StakeholderId] -> m DlgMemPool
 getPSKTreeAll (either (fmap addressHash) identity -> issuers) =
     foldlM foldFoo HM.empty (map Right issuers)
   where

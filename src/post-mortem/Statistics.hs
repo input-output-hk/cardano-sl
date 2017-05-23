@@ -6,6 +6,7 @@ module Statistics
     , module Statistics.CSV
     , module Statistics.Focus
     , module Statistics.Graph
+    , module Statistics.Histogram
     , module Statistics.MemPool
     , module Statistics.Report
     , module Statistics.Tx
@@ -21,6 +22,7 @@ import Statistics.Chart
 import Statistics.CSV
 import Statistics.Focus
 import Statistics.Graph
+import Statistics.Histogram
 import Statistics.MemPool
 import Statistics.Report
 import Statistics.Tx
@@ -32,7 +34,7 @@ runJSONFold :: FilePath -> Fold IndexedJLTimedEvent a -> IO a
 runJSONFold logDir fd = runParseLogs logDir $ fold' fd
 
 receivedCreatedF :: Fold IndexedJLTimedEvent (Map TxHash (Maybe Timestamp))
-receivedCreatedF = f <$> txReceivedF <*> inBlockChainF
+receivedCreatedF = f <$> txFirstReceivedF <*> inBlockChainF
   where
     f :: Map TxHash Timestamp -> Map TxHash Timestamp -> Map TxHash (Maybe Timestamp)
     f rm cm = M.mapWithKey g rm

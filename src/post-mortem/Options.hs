@@ -11,9 +11,10 @@ import Universum
 data Options =
       Overview ![FilePath]
     | Focus !TxHash !FilePath
+    | TxRelay ![FilePath]
 
-overViewOptions :: Parser Options
-overViewOptions = Overview <$> (some (argument str 
+overviewOptions :: Parser Options
+overviewOptions = Overview <$> (some (argument str 
     (  metavar "LOGDIRS..."
     <> help "directories containing the log files"
     )))
@@ -28,10 +29,17 @@ focusedOptions = Focus <$> (toText <$> argument str
                                 <> help "directoy containing the logfiles"
                                 ))
 
+txRelayOptions :: Parser Options
+txRelayOptions = TxRelay <$> (some (argument str 
+    (  metavar "LOGDIRS..."
+    <> help "directories containing the log files"
+    )))
+
 options :: Parser Options
 options = hsubparser
-    (  command "overview" (info overViewOptions (progDesc "analyzes the json logs from LOGDIRS..."))
+    (  command "overview" (info overviewOptions (progDesc "analyzes the json logs from LOGDIRS..."))
     <> command "focus"    (info focusedOptions  (progDesc "analyzes transaction FOCUS in log folder LOGDIR"))
+    <> command "txrelay"  (info txRelayOptions  (progDesc "analyzes transaction relays in the json logs from LOGDIRS..."))
     )
 
 parseOptions :: IO Options

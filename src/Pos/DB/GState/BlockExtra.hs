@@ -26,7 +26,7 @@ import           Pos.Constants         (genesisHash)
 import           Pos.Core              (HasHeaderHash, HeaderHash, headerHash)
 import           Pos.Crypto            (shortHashF)
 import           Pos.DB.Block          (getBlockWithUndo)
-import           Pos.DB.Class          (MonadDB, getUtxoDB)
+import           Pos.DB.Class          (MonadDB, getGStateDB)
 import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBi, rocksPutBi)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Util.Chrono       (OldestFirst (..))
@@ -40,14 +40,14 @@ resolveForwardLink
     :: (HasHeaderHash a, MonadDB m)
     => a -> m (Maybe HeaderHash)
 resolveForwardLink x =
-    rocksGetBi (forwardLinkKey $ headerHash x) =<< getUtxoDB
+    rocksGetBi (forwardLinkKey $ headerHash x) =<< getGStateDB
 
 -- | Check if given hash representing block is in main chain.
 isBlockInMainChain
     :: (HasHeaderHash a, MonadDB m)
     => a -> m Bool
 isBlockInMainChain h = do
-    db <- getUtxoDB
+    db <- getGStateDB
     maybe False (\() -> True) <$> rocksGetBi (mainChainKey $ headerHash h) db
 
 ----------------------------------------------------------------------------
@@ -150,7 +150,7 @@ loadBlocksUpWhile start condition = loadUpWhile fst start condition
 
 prepareGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
 prepareGStateBlockExtra firstGenesisHash = do
-    db <- getUtxoDB
+    db <- getGStateDB
     rocksPutBi (mainChainKey firstGenesisHash) () db
     rocksPutBi (forwardLinkKey genesisHash) firstGenesisHash db
 

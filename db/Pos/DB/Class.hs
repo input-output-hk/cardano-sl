@@ -1,24 +1,50 @@
+{-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | Class which provides access to database.
+-- | A set of type classes which provide access to database.
+--
+-- 'MonadDB' is the main class (actually just a set of constraints) which
+-- wraps 'NodeDBs' which contains RocksDB databases. This class can be
+-- used to manipulate RocksDB directly. It may be useful when you need
+-- an access to advanced features of RocksDB.
+--
+-- Apart from that we have two more classes here.
+--
+-- 'MonadDBPure' contains only 'dbGet' method.  The advantage of it is
+-- that you don't need to do any 'IO' to use it which makes it
+-- suitable for pure testing.
+-- TODO: add put to this monad (actually putBatch is more important).
+--
+-- 'MonadGStateCore' contains functions to retrieve some data from
+-- GState DB without knowledge of where this data is located (where in
+-- code and where in DB, i. e. by which key). For example, if X wants
+-- to get data maintained by Y and doesn't know about Y, it can use
+-- 'MonadGStateCore' (which is at pretty low level).
 
 module Pos.DB.Class
-       ( MonadDB
-       , getNodeDBs
-       , usingReadOptions
-       , usingWriteOptions
-       , getBlockIndexDB
-       , getUtxoDB
-       , getLrcDB
-       , getMiscDB
+       (
+         -- * Pure
+         DBTag (..)
+       , dbTagToLens
+       , MonadDBPure (..)
 
-       -- * GState Core
+         -- * GState Core
        , MonadGStateCore (..)
        , gsMaxBlockSize
        , gsMaxHeaderSize
        , gsMaxTxSize
        , gsMaxProposalSize
        , MonadDBCore
+
+         -- * RocksDB
+       , MonadDB
+       , getNodeDBs
+       , usingReadOptions
+       , usingWriteOptions
+       , getBlockIndexDB
+       , getGStateDB
+       , getLrcDB
+       , getMiscDB
        ) where
 
 import           Universum
@@ -34,40 +60,40 @@ import           Pos.Core                       (BlockVersionData (..))
 import           Pos.DB.Types                   (DB (..), NodeDBs, blockIndexDB, gStateDB,
                                                  lrcDB, miscDB)
 
-type MonadDB m = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadCatch m)
+----------------------------------------------------------------------------
+-- Pure
+----------------------------------------------------------------------------
 
-getNodeDBs :: MonadDB m => m NodeDBs
-getNodeDBs = Ether.ask'
+-- | Tag which denotes one of DBs used by application.
+data DBTag
+    = BlockIndexDB
+    | GStateDB
+    | LrcDB
+    | MiscDB
+    deriving (Eq)
 
-usingReadOptions
-    :: MonadDB m
-    => Rocks.ReadOptions
-    -> ASetter' NodeDBs DB
-    -> m a
-    -> m a
-usingReadOptions opts l =
-    Ether.local' (over l (\db -> db {rocksReadOpts = opts}))
+dbTagToLens :: DBTag -> Lens' NodeDBs DB
+dbTagToLens BlockIndexDB = blockIndexDB
+dbTagToLens GStateDB     = gStateDB
+dbTagToLens LrcDB        = lrcDB
+dbTagToLens MiscDB       = miscDB
 
-usingWriteOptions
-    :: MonadDB m
-    => Rocks.WriteOptions
-    -> ASetter' NodeDBs DB
-    -> m a
-    -> m a
-usingWriteOptions opts l =
-    Ether.local' (over l (\db -> db {rocksWriteOpts = opts}))
+-- | Pure interface to the database.
+-- TODO: add some ways to put something.
+class MonadThrow m => MonadDBPure m where
+    dbGet :: DBTag -> ByteString -> m (Maybe ByteString)
 
-getBlockIndexDB :: MonadDB m => m DB
-getBlockIndexDB = view blockIndexDB <$> getNodeDBs
+    default dbGet :: (MonadTrans t, MonadDBPure n, t n ~ m) =>
+        DBTag -> ByteString -> m (Maybe ByteString)
+    dbGet tag = lift . dbGet tag
 
-getUtxoDB :: MonadDB m => m DB
-getUtxoDB = view gStateDB <$> getNodeDBs
+instance {-# OVERLAPPABLE #-}
+    (MonadDBPure m, MonadTrans t, MonadThrow (t m)) =>
+        MonadDBPure (t m)
 
-getLrcDB :: MonadDB m => m DB
-getLrcDB = view lrcDB <$> getNodeDBs
-
-getMiscDB :: MonadDB m => m DB
-getMiscDB = view miscDB <$> getNodeDBs
+----------------------------------------------------------------------------
+-- GState abstraction
+----------------------------------------------------------------------------
 
 -- | This type class provides functions to get core data from GState.
 -- The idea is that actual getters may be defined at high levels, but
@@ -99,3 +125,43 @@ gsMaxProposalSize :: MonadGStateCore m => m Byte
 gsMaxProposalSize = bvdMaxProposalSize <$> gsAdoptedBVData
 
 type MonadDBCore m = (MonadDB m, MonadGStateCore m)
+
+----------------------------------------------------------------------------
+-- RocksDB
+----------------------------------------------------------------------------
+
+type MonadDB m
+     = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadCatch m)
+
+getNodeDBs :: MonadDB m => m NodeDBs
+getNodeDBs = Ether.ask'
+
+usingReadOptions
+    :: MonadDB m
+    => Rocks.ReadOptions
+    -> ASetter' NodeDBs DB
+    -> m a
+    -> m a
+usingReadOptions opts l =
+    Ether.local' (over l (\db -> db {rocksReadOpts = opts}))
+
+usingWriteOptions
+    :: MonadDB m
+    => Rocks.WriteOptions
+    -> ASetter' NodeDBs DB
+    -> m a
+    -> m a
+usingWriteOptions opts l =
+    Ether.local' (over l (\db -> db {rocksWriteOpts = opts}))
+
+getBlockIndexDB :: MonadDB m => m DB
+getBlockIndexDB = view blockIndexDB <$> getNodeDBs
+
+getGStateDB :: MonadDB m => m DB
+getGStateDB = view gStateDB <$> getNodeDBs
+
+getLrcDB :: MonadDB m => m DB
+getLrcDB = view lrcDB <$> getNodeDBs
+
+getMiscDB :: MonadDB m => m DB
+getMiscDB = view miscDB <$> getNodeDBs

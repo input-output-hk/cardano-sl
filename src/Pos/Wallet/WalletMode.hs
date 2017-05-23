@@ -54,7 +54,7 @@ import           Pos.Constants                (blkSecurityParam)
 import qualified Pos.Context                  as PC
 import           Pos.Core                     (ChainDifficulty, difficultyL,
                                                flattenEpochOrSlot, flattenSlotId)
-import           Pos.DB                       (MonadDB)
+import           Pos.DB                       (DBPureRedirect, MonadDB, MonadDBPure)
 import qualified Pos.DB.Block                 as DB
 import           Pos.DB.Error                 (DBError (..))
 import qualified Pos.DB.GState                as GS
@@ -138,7 +138,7 @@ instance {-# OVERLAPPABLE #-}
         MonadBlockchainInfo (t m)
 
 -- | Helpers for avoiding copy-paste
-topHeader :: (SscHelpersClass ssc, MonadDB m) => m (BlockHeader ssc)
+topHeader :: (SscHelpersClass ssc, MonadDB m, MonadDBPure m) => m (BlockHeader ssc)
 topHeader = maybeThrow (DBMalformed "No block with tip hash!") =<<
             DB.getBlockHeader =<< GS.getTip
 
@@ -190,6 +190,7 @@ instance
     , Ether.MonadReader' PC.ConnectedPeers m
     , MonadIO m
     , MonadDB m
+    , MonadDBPure m
     , MonadSlots m
     ) => MonadBlockchainInfo (Ether.TaggedTrans BlockchainInfoRedirectTag t m)
   where
@@ -294,6 +295,7 @@ type RawWalletMode =
     GStateCoreWalletRedirect (
     BalancesWalletRedirect (
     TxHistoryWalletRedirect (
+    DBPureRedirect (
     Ether.ReadersT
         ( Tagged PeerStateTag (PeerStateCtx Production)
         , Tagged KeyData KeyData
@@ -302,7 +304,7 @@ type RawWalletMode =
         ) (
     LoggerNameBox (
     Production
-    )))))))))
+    ))))))))))
 
 type WalletRealMode = DiscoveryKademliaT RawWalletMode
 

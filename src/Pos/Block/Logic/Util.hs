@@ -28,7 +28,7 @@ import           Pos.Context         (BlkSemaphore, putBlkSemaphore, takeBlkSema
 import           Pos.Core            (HeaderHash, diffEpochOrSlot, getEpochOrSlot,
                                       headerHash, prevBlockL)
 import           Pos.Crypto          (shortHashF)
-import           Pos.DB              (MonadDB)
+import           Pos.DB              (MonadDB, MonadDBPure)
 import qualified Pos.DB.DB           as DB
 import qualified Pos.DB.GState       as GS
 import           Pos.Slotting.Class  (MonadSlots, getCurrentSlot)
@@ -99,7 +99,8 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
 -- now, 'needRecovery' will still return 'True'.
 --
 needRecovery ::
-       forall ssc m. (MonadSlots m, MonadDB m, SscHelpersClass ssc)
+       forall ssc m.
+       (MonadSlots m, MonadDB m, MonadDBPure m, SscHelpersClass ssc)
     => m Bool
 needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
   where

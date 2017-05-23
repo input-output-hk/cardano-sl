@@ -20,6 +20,7 @@ import           Pos.Communication           (ActionSpec (..), ListenersWithOut,
                                               OutSpecs, PeerId, WorkerSpec,
                                               allStubListeners)
 import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect)
+import           Pos.DB                      (runDBPureRedirect)
 import           Pos.Discovery               (findPeers, runDiscoveryConstT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               runServer_)
@@ -104,6 +105,7 @@ runRawStaticPeersWallet peerId transport peers WalletParams {..}
             , Tagged @KeyData keyData
             , Tagged @WalletState db
             , Tagged @ReportingContext emptyReportingContext ) .
+            runDBPureRedirect .
             runTxHistoryWalletRedirect .
             runBalancesWalletRedirect .
             runGStateCoreWalletRedirect .

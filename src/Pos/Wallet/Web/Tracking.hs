@@ -41,7 +41,7 @@ import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
 import           Pos.Crypto.HDDiscovery     (discoverHDAddresses)
 import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
-import           Pos.DB.Class               (MonadDB)
+import           Pos.DB.Class               (MonadDB, MonadDBPure)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Ssc.Class              (SscHelpersClass)
@@ -68,6 +68,7 @@ type BlockLockMode ssc m =
     , WithLogger m
     , Ether.MonadReader' BlkSemaphore m
     , MonadDB m
+    , MonadDBPure m
     , MonadMask m)
 
 class Monad m => MonadWalletTracking m where
@@ -156,6 +157,7 @@ syncWSetsWithGState
     :: forall ssc m .
     ( WebWalletModeDB m
     , MonadDB m
+    , MonadDBPure m
     , WithLogger m
     , SscHelpersClass ssc)
     => EncryptedSecretKey

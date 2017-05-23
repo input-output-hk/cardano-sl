@@ -33,6 +33,8 @@ module Pos.Delegation.Logic
        , isProxySKConfirmed
        ) where
 
+import           Universum
+
 import           Control.Exception        (Exception (..))
 import           Control.Lens             (at, makeLenses, uses, (%%=), (%=), (+=), (-=),
                                            (.=), _Wrapped)
@@ -46,7 +48,6 @@ import           Data.Time.Clock          (UTCTime, addUTCTime, getCurrentTime)
 import qualified Ether
 import           Formatting               (bprint, build, sformat, stext, (%))
 import           System.Wlog              (WithLogger)
-import           Universum
 
 import           Pos.Binary.Class         (biSize)
 import           Pos.Binary.Communication ()
@@ -62,7 +63,7 @@ import           Pos.Crypto               (ProxySecretKey (..), PublicKey,
                                            SignTag (SignProxySK), pdDelegatePk,
                                            proxyVerify, shortHashF, toPublic,
                                            verifyProxySecretKey)
-import           Pos.DB                   (DBError (DBMalformed), MonadDB,
+import           Pos.DB                   (DBError (DBMalformed), MonadDB, MonadDBPure,
                                            SomeBatchOp (..))
 import qualified Pos.DB                   as DB
 import qualified Pos.DB.Block             as DB
@@ -117,7 +118,7 @@ invalidateProxyCaches curTime = do
   where
     toDiffTime (t :: Integer) = fromIntegral t
 
-type DelegationWorkMode m = (MonadDelegation m, MonadDB m, WithLogger m)
+type DelegationWorkMode m = (MonadDelegation m, MonadDB m, WithLogger m, MonadDBPure m)
 
 -- Retrieves psk certificated that have been accumulated before given
 -- block. The block itself should be in DB.
@@ -157,7 +158,7 @@ instance B.Buildable DelegationError where
 -- * Loads `_dwThisEpochPosted` from database
 initDelegation
     :: forall ssc m.
-       (SscHelpersClass ssc, MonadDB m, MonadDelegation m)
+       (SscHelpersClass ssc, MonadDB m, MonadDelegation m, MonadDBPure m)
     => m ()
 initDelegation = do
     tip <- DB.getTipBlockHeader @ssc
@@ -174,7 +175,7 @@ initDelegation = do
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
 getProxyMempool
-    :: (MonadDB m, MonadDelegation m)
+    :: (MonadIO m, MonadDBPure m, MonadDelegation m)
     => m ([ProxySKHeavy], [ProxySKHeavy])
 getProxyMempool = do
     sks <- runDelegationStateAction $
@@ -237,6 +238,7 @@ processProxySKHeavy
     :: forall ssc m.
        ( SscHelpersClass ssc
        , MonadDB m
+       , MonadDBPure m
        , DB.MonadDBCore m
        , MonadDelegation m
        , Ether.MonadReader' LrcContext m
@@ -302,8 +304,13 @@ makeLenses ''DelVerState
 --
 -- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
 -- point of view.
-delegationVerifyBlocks
-    :: forall ssc m. (SscHelpersClass ssc, MonadDB m, Ether.MonadReader' LrcContext m)
+delegationVerifyBlocks ::
+       forall ssc m.
+       ( SscHelpersClass ssc
+       , MonadDB m
+       , Ether.MonadReader' LrcContext m
+       , MonadDBPure m
+       )
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE [ProxySKHeavy]))
 delegationVerifyBlocks blocks = do

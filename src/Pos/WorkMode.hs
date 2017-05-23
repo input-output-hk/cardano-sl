@@ -31,7 +31,7 @@ import           Pos.Client.Txp.History       (TxHistoryRedirect)
 import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
                                                PeerStateTag)
 import           Pos.Context                  (NodeContext)
-import           Pos.DB                       (NodeDBs)
+import           Pos.DB                       (DBPureRedirect, NodeDBs)
 import           Pos.DB.DB                    (GStateCoreRedirect)
 import           Pos.Delegation.Class         (DelegationWrap)
 import           Pos.Discovery.Holders        (DiscoveryConstT, DiscoveryKademliaT)
@@ -59,6 +59,7 @@ type RawRealMode ssc =
     BalancesRedirect (
     SlotsRedirect (
     SlotsDataRedirect (
+    DBPureRedirect (
     Ether.ReadersT
         ( Tagged NodeDBs NodeDBs
         , Tagged SlottingVar SlottingVar
@@ -70,7 +71,7 @@ type RawRealMode ssc =
         ) (
     Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox Production
-    )))))))))))
+    ))))))))))))
 
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)

@@ -14,6 +14,7 @@ module Pos.DB.DB
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
        , sanityCheckDB
+
        , GStateCoreRedirect
        , runGStateCoreRedirect
        ) where
@@ -40,7 +41,8 @@ import           Pos.Context.Functions            (genesisLeadersM)
 import           Pos.Core                         (headerHash)
 import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
                                                    loadBlundsWhile, prepareBlockDB)
-import           Pos.DB.Class                     (MonadDB, MonadGStateCore (..))
+import           Pos.DB.Class                     (MonadDB, MonadDBPure (..),
+                                                   MonadGStateCore (..))
 import           Pos.DB.Error                     (DBError (DBMalformed))
 import           Pos.DB.Functions                 (openDB)
 import           Pos.DB.GState.BlockExtra         (prepareGStateBlockExtra)
@@ -91,7 +93,9 @@ initNodeDBs
        , Ether.MonadReader' GenesisUtxo m
        , Ether.MonadReader' GenesisLeaders m
        , Ether.MonadReader' NodeParams m
-       , MonadDB m )
+       , MonadDB m
+       , MonadDBPure m
+       )
     => m ()
 initNodeDBs = do
     leaders0 <- genesisLeadersM
@@ -108,7 +112,7 @@ initNodeDBs = do
 
 -- | Get block corresponding to tip.
 getTipBlock
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
     => m (Block ssc)
 getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
   where
@@ -117,26 +121,26 @@ getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
 -- | Get BlockHeader corresponding to tip.
 -- TODO don't load tip block, fix it.
 getTipBlockHeader
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
     => m (BlockHeader ssc)
 getTipBlockHeader = getBlockHeader <$> getTipBlock
 
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
     => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
     => Word -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB
-    :: (MonadMask m, MonadDB m, WithLogger m)
+    :: (MonadMask m, MonadDB m, WithLogger m, MonadDBPure m)
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
 
@@ -162,7 +166,7 @@ runGStateCoreRedirect :: GStateCoreRedirect m a -> m a
 runGStateCoreRedirect = coerce
 
 instance
-    (MonadDB m, t ~ IdentityT) =>
+    (MonadDBPure m, t ~ IdentityT) =>
         MonadGStateCore (Ether.TaggedTrans GStateCoreRedirectTag t m)
   where
     gsAdoptedBVData = getAdoptedBVData

@@ -9,6 +9,7 @@ module Pos.DB.Functions
 
        -- * Key/Value helpers
        , encodeWithKeyPrefix
+       , dbGetBi
        , rocksDelete
        , rocksGetBi
        , rocksGetBytes
@@ -36,6 +37,7 @@ import           Serokell.Util.Text    (listJson)
 import           Universum
 
 import           Pos.Binary.Class      (Bi, decodeFull, encodeStrict)
+import           Pos.DB.Class          (DBTag, MonadDBPure (..))
 import           Pos.DB.Error          (DBError (DBMalformed))
 import           Pos.DB.Iterator.Class (DBIteratorClass (..))
 import           Pos.DB.Types          (DB (..))
@@ -55,6 +57,17 @@ encodeWithKeyPrefix = (iterKeyPrefix @i Proxy <>) . encodeStrict
 -- | Read ByteString from RocksDb using given key.
 rocksGetBytes :: (MonadIO m) => ByteString -> DB -> m (Maybe ByteString)
 rocksGetBytes key DB {..} = Rocks.get rocksDB rocksReadOpts key
+
+-- TODO: get rid of duplicated code
+
+-- | Read serialized value associated with given key from pure DB.
+dbGetBi
+    :: forall v m.
+       (Bi v, MonadDBPure m, MonadThrow m)
+    => DBTag -> ByteString -> m (Maybe v)
+dbGetBi tag key = do
+    bytes <- dbGet tag key
+    traverse (rocksDecode . (ToDecodeValue key)) bytes
 
 -- | Read serialized value from RocksDB using given key.
 rocksGetBi

@@ -38,7 +38,7 @@ import           Pos.Core                  (EpochOrSlot (..), HeaderHash, SlotId
                                             headerHash, headerHashG, headerSlotL,
                                             prevBlockL, prevBlockL)
 import           Pos.Crypto                (hash)
-import           Pos.DB                    (MonadDB)
+import           Pos.DB                    (MonadDB, MonadDBPure)
 import qualified Pos.DB.Block              as DB
 import qualified Pos.DB.DB                 as DB
 import qualified Pos.DB.GState             as GS
@@ -205,7 +205,7 @@ classifyHeaders headers = do
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
     :: forall ssc m.
-       (MonadDB m, SscHelpersClass ssc, CanLog m, HasLoggerName m)
+       (MonadDB m, MonadDBPure m, SscHelpersClass ssc, CanLog m, HasLoggerName m)
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
@@ -252,7 +252,7 @@ getHeadersFromManyTo checkpoints startM = runExceptT $ do
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
     :: forall ssc m.
-       (MonadDB m, SscHelpersClass ssc)
+       (MonadDB m, MonadDBPure m, SscHelpersClass ssc)
     => Maybe HeaderHash -> m (OldestFirst [] HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip

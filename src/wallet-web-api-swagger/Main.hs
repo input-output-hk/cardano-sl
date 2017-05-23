@@ -14,7 +14,9 @@
 -- version of wallet web API description at cardanodocs.com website
 -- (please see 'update_wallet_web_api_docs.sh' for technical details).
 
-module Main where
+module Main
+  ( main
+  ) where
 
 import           Universum
 

@@ -1,6 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Main where
+module Main
+  ( main
+  ) where
 
 import           Control.Lens         (each, _head)
 import           Data.Aeson           (eitherDecode)

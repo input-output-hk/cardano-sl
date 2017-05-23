@@ -44,7 +44,6 @@ import           Pos.Txp.MemState             (GenericTxpLocalData, TxpHolderTag
 import           Pos.Wallet.WalletMode        (BlockchainInfoRedirect, UpdatesRedirect)
 import           Pos.WorkMode.Class           (MinWorkMode, TxpExtra_TMP, WorkMode)
 
-
 ----------------------------------------------------------------------------
 -- Concrete types
 ----------------------------------------------------------------------------

@@ -47,8 +47,9 @@ import           Node                         (Node, NodeAction (..),
 import           Node.Util.Monitor            (setupMonitor, stopMonitor)
 import qualified STMContainers.Map            as SM
 import           System.Random                (newStdGen)
-import           System.Wlog                  (LoggerConfig (..), WithLogger, logError,
-                                               logInfo, productionB, releaseAllHandlers,
+import           System.Wlog                  (LoggerConfig (..), WithLogger,
+                                               getLoggerName, logError, logInfo,
+                                               productionB, releaseAllHandlers,
                                                setupLogging, usingLoggerName)
 import           Universum                    hiding (bracket, finally)
 
@@ -442,9 +443,11 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
 ----------------------------------------------------------------------------
 
 nodeStartMsg :: WithLogger m => BaseParams -> m ()
-nodeStartMsg BaseParams {..} = logInfo msg
+nodeStartMsg BaseParams {..} = do
+    logInfo msg1
   where
-    msg = sformat ("Started node.")
+    msg1 = sformat ("Application: " %build% ", last known block version " %build)
+                   Const.curSoftwareVersion Const.lastKnownBlockVersion
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do
@@ -486,6 +489,7 @@ createTransportTCP
     => TCP.TCPAddr
     -> m (Transport m)
 createTransportTCP addrInfo = do
+    loggerName <- getLoggerName
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
@@ -495,6 +499,9 @@ createTransportTCP addrInfo = do
              -- when new connections are made. This prevents an easy denial
              -- of service attack.
              , TCP.tcpCheckPeerHost = True
+             , TCP.tcpServerExceptionHandler = \e ->
+                     usingLoggerName (loggerName <> "transport") $
+                         logError $ sformat ("Exception in tcp server: " % shown) e
              })
     transportE <-
         liftIO $ TCP.createTransport addrInfo tcpParams

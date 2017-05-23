@@ -3,13 +3,16 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Main where
+module Main
+  ( main
+  ) where
 
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.Reader       (MonadReader (..), ReaderT, ask, runReaderT)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import qualified Data.ByteString            as BS
+import qualified Data.HashMap.Strict        as HM
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as S (fromList, toList)
@@ -50,9 +53,8 @@ import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (coinF, makePubKeyAddress)
-import           Pos.Update                 (BlockVersionData (..), UpdateVote (..),
-                                             mkUpdateProposalWSign, patakUpdateData,
-                                             skovorodaUpdateData)
+import           Pos.Update                 (BlockVersionData (..), UpdateData (..),
+                                             UpdateVote (..), mkUpdateProposalWSign)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Wallet                 (WalletMode, WalletParams (..),
@@ -146,7 +148,8 @@ runCmd sendActions ProposeUpdate{..} = do
             , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
             , bvdMaxBlockSize = puMaxBlockSize
             }
-    let udata = maybe patakUpdateData skovorodaUpdateData diffFile
+    let udata' h = HM.fromList [(puSystemTag, UpdateData h h h h)]
+    let udata = maybe (error "Failed to read prop file") udata' diffFile
     let whenCantCreate = error . mappend "Failed to create update proposal: "
     lift $ withSafeSigner skey (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"

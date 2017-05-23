@@ -155,20 +155,15 @@ update (SocketRemoveSubscription sub) state =
           pure NoOp
     ]}
 
--- | It subscribes a list of new subscriptions
--- | and unsubscribes all previous subscriptions
--- | We do need such an action handler on every page changes
-update (SocketUpdateSubscriptions subs) state =
+-- | Removes all existing socket subscriptions
+update (SocketClearSubscriptions) state =
     { state:
-          set (socket <<< subscriptions) subs state
+          set (socket <<< subscriptions) [] state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> do
-                  -- 1. Unsubscribe all existing subscriptions
                   traverse_ (liftEff <<< socketUnsubscribeEvent socket')
                       (state ^. socket <<< subscriptions)
-                  -- 2. Subscribe to all new subscriptions
-                  traverse_ (liftEff <<< socketSubscribeEvent socket') subs
               Nothing -> pure unit
           pure NoOp
     ]}
@@ -624,7 +619,7 @@ routeEffects (Tx tx) state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure SocketClearSubscriptions
         , pure $ RequestTxSummary tx
         ]
     }
@@ -638,7 +633,7 @@ routeEffects (Address cAddress) state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure SocketClearSubscriptions
         , pure $ RequestAddressSummary cAddress
         ]
     }
@@ -688,7 +683,7 @@ routeEffects (Block hash) state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure SocketClearSubscriptions
         , pure $ RequestBlockSummary hash
         , pure $ RequestBlockTxs hash
         ]
@@ -698,7 +693,7 @@ routeEffects Playground state =
     { state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure SocketClearSubscriptions
         ]
     }
 
@@ -709,16 +704,16 @@ routeEffects NotFound state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ SocketUpdateSubscriptions []
+        , pure SocketClearSubscriptions
         ]
     }
 
 socketSubscribeEvent :: forall eff . Socket -> SocketSubscription
     -> Eff (socket :: SocketIO | eff) Unit
 socketSubscribeEvent socket (SocketSubscription event)  =
-    emit' socket <<< toEvent $ Subscribe event
+    emit' socket (toEvent $ Subscribe event)
 
 socketUnsubscribeEvent :: forall eff . Socket -> SocketSubscription
     -> Eff (socket :: SocketIO | eff) Unit
 socketUnsubscribeEvent socket (SocketSubscription event)  =
-    emit' socket <<< toEvent $ Unsubscribe event
+    emit' socket (toEvent $ Unsubscribe event)

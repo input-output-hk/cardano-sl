@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE GADTs               #-}
 
 {-# OPTIONS -fno-cross-module-specialise #-}
 
@@ -34,20 +35,22 @@ import qualified Data.Time                    as Time
 import qualified Ether
 import           Formatting                   (build, sformat, shown, (%))
 import           Mockable                     (CurrentTime, Mockable, MonadMockable,
-                                               Production (..), Throw, bracket, finally,
-                                               throw)
+                                               Production (..), Throw, bracket,
+                                               throw, killThread)
 import           Network.QDisc.Fair           (fairQDisc)
 import           Network.Transport.Abstract   (Transport, closeTransport, hoistTransport)
 import           Network.Transport.Concrete   (concrete)
 import qualified Network.Transport.TCP        as TCP
-import           Node                         (Node, NodeAction (..),
+import           Node                         (Node, NodeAction (..), Statistics,
                                                defaultNodeEnvironment, hoistSendActions,
-                                               node, simpleNodeEndPoint)
+                                               node, NodeEndPoint, simpleNodeEndPoint,
+                                               ReceiveDelay, noReceiveDelay)
 import           Node.Util.Monitor            (setupMonitor, stopMonitor)
 import qualified STMContainers.Map            as SM
 import qualified System.Metrics               as Metrics
 import           System.Random                (newStdGen)
 import qualified System.Remote.Monitoring     as Monitoring
+import qualified System.Remote.Monitoring.Statsd as Monitoring
 import           System.Wlog                  (LoggerConfig (..), WithLogger,
                                                getLoggerName, logDebug, logError, logInfo,
                                                productionB, releaseAllHandlers,
@@ -91,6 +94,7 @@ import           Pos.Slotting.Ntp             (runSlotsRedirect)
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext)
 import           Pos.Ssc.Extra                (SscMemTag, bottomSscState, mkSscState)
+import           Pos.Statistics               (EkgParams (..), StatsdParams (..))
 import           Pos.Txp                      (mkTxpLocalData)
 import           Pos.Txp.DB                   (genesisFakeTotalStake,
                                                runBalanceIterBootstrap)
@@ -128,6 +132,7 @@ runRealMode
     -> (ActionSpec (RealMode ssc) a, OutSpecs)
     -> Production a
 runRealMode = runRealBasedMode identity identity
+{-# NOINLINE runRealMode #-}
 
 -- | Run activity in something convertible to 'RealMode' and back.
 runRealBasedMode
@@ -171,7 +176,9 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
         initNC <- untag @ssc sscCreateNodeContext sscnp
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
         let allWorkersNum = allWorkersCount @ssc @(RealMode ssc) :: Int
-        let runCHHere = runCH @ssc allWorkersNum discoveryCtx np initNC modernDBs
+        let runCHHere :: (Mockable CurrentTime m, MonadIO m, MonadMask m)
+                      => Ether.ReadersT (NodeContext ssc) m t -> m t
+            runCHHere = runCH @ssc allWorkersNum discoveryCtx np initNC modernDBs
         -- TODO [CSL-775] ideally initialization logic should be in scenario.
         runCHHere .
             flip Ether.runReaderT' modernDBs .
@@ -214,19 +221,6 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
                    runGStateCoreRedirect .
                    runBListenerStub $
                    act
-
-        ekgStore <- liftIO $ Metrics.newStore
-        -- To start monitoring, add the time-warp metrics and the GC
-        -- metrics then spin up the server.
-        let startMonitoring node' = case lpEkgPort of
-                Nothing   -> return Nothing
-                Just port -> Just <$> do
-                     ekgStore' <- setupMonitor runIO node' ekgStore
-                     liftIO $ Metrics.registerGcMetrics ekgStore'
-                     liftIO $ Monitoring.forkServerWith ekgStore' "127.0.0.1" port
-
-        let stopMonitoring it = whenJust it stopMonitor
-
         sscState <-
            runCHHere .
            flip Ether.runReadersT
@@ -256,12 +250,42 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
            runPeerStateRedirect .
            runGStateCoreRedirect .
            runBListenerStub .
-           (\(RealMode m) -> m) .
-           runServer transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
+            (\(RealMode m) -> m) .
+            runServer (simpleNodeEndPoint transport) (const noReceiveDelay) listeners outSpecs (startMonitoring runIO) stopMonitoring . ActionSpec $
                \vI sa -> nodeStartMsg npBaseParams >> action vI sa
+
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
-{-# NOINLINE runRealMode #-}
+
+    startMonitoring (runIO :: forall t . RealMode ssc t -> IO t) node' =
+        case npEnableMetrics of
+            False -> return Nothing
+            True -> Just <$> do
+                ekgStore <- liftIO $ Metrics.newStore
+                ekgStore' <- setupMonitor runIO node' ekgStore
+                liftIO $ Metrics.registerGcMetrics ekgStore'
+                mEkgServer <- case npEkgParams of
+                    Nothing -> return Nothing
+                    Just (EkgParams {..}) -> Just <$> do
+                        liftIO $ Monitoring.forkServerWith ekgStore' ekgHost ekgPort
+                mStatsdServer <- case npStatsdParams of
+                    Nothing -> return Nothing
+                    Just (StatsdParams {..}) -> Just <$> do
+                        let statsdOptions = Monitoring.defaultStatsdOptions
+                                { Monitoring.host = statsdHost
+                                , Monitoring.port = statsdPort
+                                , Monitoring.flushInterval = statsdInterval
+                                , Monitoring.debug = statsdDebug
+                                , Monitoring.prefix = statsdPrefix
+                                , Monitoring.suffix = statsdSuffix
+                                }
+                        liftIO $ Monitoring.forkStatsd statsdOptions ekgStore'
+                return (mEkgServer, mStatsdServer)
+
+    stopMonitoring Nothing = return ()
+    stopMonitoring (Just (mEkg, mStatsd)) = do
+        maybe (pure ()) (killThread . Monitoring.statsdThreadId) mStatsd
+        maybe (pure ()) stopMonitor mEkg
 
 -- | Create new 'SlottingVar' using data from DB.
 mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
@@ -289,20 +313,20 @@ runServiceMode transport bp@BaseParams {..} listeners outSpecs (ActionSpec actio
 
 runServer
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
-    => Transport m
+    => (m (Statistics m) -> NodeEndPoint m)
+    -> (m (Statistics m) -> ReceiveDelay m)
     -> MkListeners m
     -> OutSpecs
     -> (Node m -> m t)
     -> (t -> m ())
     -> ActionSpec m b
     -> m b
-runServer transport mkL (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
+runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
-    node (simpleNodeEndPoint transport) (const $ pure Nothing) stdGen BiP ourVerInfo defaultNodeEnvironment $ \__node ->
-        NodeAction mkListeners' $ \sendActions -> do
-            t <- withNode __node
-            action ourVerInfo sendActions `finally` afterNode t
+    node mkTransport mkReceiveDelay stdGen BiP ourVerInfo defaultNodeEnvironment $ \__node ->
+        NodeAction mkListeners' $ \sendActions ->
+            bracket (withNode __node) afterNode (const (action ourVerInfo sendActions))
   where
     InSpecs ins = inSpecs mkL
     OutSpecs outs = outSpecs mkL
@@ -311,12 +335,11 @@ runServer transport mkL (OutSpecs wouts) withNode afterNode (ActionSpec action) 
     mkListeners' theirVerInfo = do
         logDebug $ sformat ("Incoming connection: theirVerInfo="%build) theirVerInfo
         mkListeners mkL ourVerInfo theirVerInfo
-
 runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
     => Transport m -> MkListeners m -> OutSpecs -> ActionSpec m b -> m b
 runServer_ transport mkl outSpecs =
-    runServer transport mkl outSpecs acquire release
+    runServer (simpleNodeEndPoint transport) (const noReceiveDelay) mkl outSpecs acquire release
   where
     acquire = const pass
     release = const pass

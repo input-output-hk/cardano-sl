@@ -11,13 +11,12 @@ import Control.SocketIO.Client (Socket, SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (filter, length, snoc, take, (:))
+import Data.Array (filter, head, length, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
-import Data.Generic (class Generic)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTotalBlocks, fetchTxSummary, searchEpoch)
@@ -135,7 +134,7 @@ update (SocketCallMeCTxId id) state =
     ]}
 
 -- | Creates a new socket subscription
-update (SocketAddSubscription sub) state =
+update (SocketAddSubscription subItem) state =
     { state:
           over (socket <<< subscriptions) (\subs -> snoc subs subItem) state
     , effects : [ do
@@ -144,36 +143,18 @@ update (SocketAddSubscription sub) state =
               Nothing -> pure unit
           pure NoOp
     ]}
-    where
-        subItem = mkSocketSubscriptionItem sub SocketNoData
-
--- | Subscribes to SubBlockOff by a given offset
-update (SocketSubscribePaginatedBlocks (SocketOffset offset)) state =
-    { state:
-          over (socket <<< subscriptions) (\subs -> snoc subs subItem) state
-    , effects : [ do
-          _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ socketSubscribeEventWithData socket' subItem offset
-              Nothing -> pure unit
-          pure NoOp
-    ]}
-    where
-        subItem = mkSocketSubscriptionItem (SocketSubscription SubBlockOff) SocketNoData
 
 -- | Removes an existing socket subscription
-update (SocketRemoveSubscription sub) state =
+update (SocketRemoveSubscription subItem) state =
     { state:
-          over (socket <<< subscriptions)
-                (filter (\sub' -> sub /= (_.socketSub $ unwrap sub')))
-                state
+          over (socket <<< subscriptions) (filter ((/=) subItem)) state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> liftEff $ socketUnsubscribeEvent socket' subItem
               Nothing -> pure unit
           pure NoOp
     ]}
-    where
-        subItem = mkSocketSubscriptionItem sub SocketNoData
+
 
 -- | Removes all existing socket subscriptions
 update (SocketClearSubscriptions) state =
@@ -219,12 +200,17 @@ update (DashboardPaginateBlocks newPage) state =
             -- ^ get number of total blocks first before we do a request to get data of blocks
           ]
           <> (  if (syncBySocket $ state ^. syncAction)
-                then  [ pure <<< SocketRemoveSubscription $ SocketSubscription SubBlockOff ]
+                -- Unsubscribe previous subscription if available
+                then fromMaybe [] $ snoc [] <<< pure <<< SocketRemoveSubscription <$> mSubItem
                 else [])
     }
     where
         currentPage = state ^. (dashboardViewState <<< dbViewBlockPagination)
         offset = (currentPage - minPagination) * maxBlockRows
+        -- _Note:_ We do know that we have just one subscription of `SubBlockOff` at time,
+        -- so we can try to grab it
+        subItems = state ^. (socket <<< subscriptions)
+        mSubItem = head $ filter ((==) (SocketSubscription SubBlockOff) <<< _.socketSub <<< unwrap) subItems
 
 update (DashboardEditBlocksPageNumber target editable) state =
     { state:
@@ -470,12 +456,13 @@ update (ReceivePaginatedBlocks (Right blocks)) state =
           set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) state
     , effects:
         if (syncBySocket $ state ^. syncAction)
-        then [ pure <<< SocketSubscribePaginatedBlocks $ SocketOffset offset ]
+        then [ pure $ SocketAddSubscription subItem ]
         else []
     }
     where
         newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination)
         offset = (newPage - minPagination) * maxBlockRows
+        subItem = mkSocketSubscriptionItem (SocketSubscription SubBlockOff) (SocketOffsetData $ SocketOffset offset)
 
 update (ReceivePaginatedBlocks (Left error)) state =
     noEffects $
@@ -556,9 +543,11 @@ update (ReceiveLastTxs (Right txs)) state =
           state
     , effects:
         if (syncBySocket $ state ^. syncAction)
-        then [ pure <<< SocketAddSubscription $ SocketSubscription SubTx ]
+        then [ pure $ SocketAddSubscription subItem ]
         else []
     }
+    where
+        subItem = mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
 
 update (ReceiveLastTxs (Left error)) state = noEffects $
     set loading false $
@@ -728,17 +717,15 @@ routeEffects NotFound state =
 
 socketSubscribeEvent :: forall eff . Socket -> SocketSubscriptionItem
     -> Eff (socket :: SocketIO | eff) Unit
-socketSubscribeEvent socket (SocketSubscriptionItem item)  =
-    emit' socket event
+socketSubscribeEvent socket (SocketSubscriptionItem item) =
+    subscribe socket event subData
     where
         event = toEvent <<< Subscribe <<< unwrap $ _.socketSub item
+        subData = _.socketSubData item
 
-socketSubscribeEventWithData :: forall d eff . (Generic d) => Socket
-    -> SocketSubscriptionItem -> d -> Eff (socket :: SocketIO | eff) Unit
-socketSubscribeEventWithData socket (SocketSubscriptionItem item) data'  =
-    emit socket event data'
-    where
-        event = toEvent <<< Subscribe <<< unwrap $ _.socketSub item
+        subscribe :: Socket -> String -> SocketSubscriptionData -> Eff (socket :: SocketIO | eff) Unit
+        subscribe s e SocketNoData = emit' s e
+        subscribe s e (SocketOffsetData (SocketOffset o)) = emit s e o
 
 socketUnsubscribeEvent :: forall eff . Socket -> SocketSubscriptionItem
     -> Eff (socket :: SocketIO | eff) Unit

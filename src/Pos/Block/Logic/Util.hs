@@ -34,6 +34,9 @@ import           Pos.Util            (_neHead)
 import           Pos.Util.Chrono     (NE, OldestFirst (getOldestFirst))
 import           Pos.WorkMode.Class  (WorkMode)
 
+-- | This function can be used to create a message when tip mismatch
+-- is detected (usually between tip stored in DB and some other tip
+-- received from somewhere).
 tipMismatchMsg :: Text -> HeaderHash -> HeaderHash -> Text
 tipMismatchMsg action storedTip attemptedTip =
     sformat

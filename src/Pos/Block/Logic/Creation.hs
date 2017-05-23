@@ -68,13 +68,13 @@ import           Pos.WorkMode.Class         (WorkMode)
 -- | Create genesis block if necessary.
 --
 -- We create genesis block for current epoch when head of currently
--- known best chain is MainBlock corresponding to one of last
+-- known best chain is a 'MainBlock' corresponding to one of last
 -- `slotSecurityParam` slots of (i - 1)-th epoch. Main check is that
--- epoch is `(last stored epoch + 1)`, but we also don't want to
+-- given 'epoch' is `(last stored epoch + 1)`, but we also don't want to
 -- create genesis block on top of blocks from previous epoch which are
 -- not from last slotSecurityParam slots, because it's practically
 -- impossible for them to be valid.
--- [CSL-481] We can do consider doing it though.
+-- [CSL-481] We can consider doing it though.
 createGenesisBlock
     :: forall ssc m.
        WorkMode ssc m
@@ -93,7 +93,7 @@ shouldCreateGenesisBlock :: EpochIndex -> EpochOrSlot -> Bool
 -- Genesis block for 0-th epoch is hardcoded.
 shouldCreateGenesisBlock 0 _ = False
 shouldCreateGenesisBlock epoch headEpochOrSlot =
-    doCheck $ epochOrSlot (`SlotId` 0) identity headEpochOrSlot
+    epochOrSlot (const False) doCheck headEpochOrSlot
   where
     doCheck SlotId {..} =
         siEpoch == epoch - 1 && siSlot >= epochSlots - slotSecurityParam
@@ -270,7 +270,6 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
                 (fromMaybe (error "createMainBlockPure: impossible") $ mkTxPayload mempty)
                 defSsc [] def
         musthaveBlock <-
-            either throwError pure $
             mkMainBlock (Just prevHeader) sId sk pSk musthaveBody extraH extraB
         let mhbSize = biSize musthaveBlock
         when (mhbSize > limit) $ throwError $

@@ -26,8 +26,8 @@ import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
-import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress,
-                                             CWalletAddress (..), WS, addressToCAddress,
+import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress, WS,
+                                             WalletAddress (..), addressToCAddress,
                                              encToCAddress, walletAddrByAccount)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AccountLookupMode (..), WebWalletModeDB,
@@ -118,11 +118,11 @@ genUniqueWalletAddress
     :: AccountMode m
     => AddrGenSeed
     -> CAddress WS
-    -> m CWalletAddress
+    -> m WalletAddress
 genUniqueWalletAddress genSeed wsCAddr =
     generateUnique "wallet generation"
                    genSeed
-                   (return . CWalletAddress wsCAddr)
+                   (return . WalletAddress wsCAddr)
                    notFit
   where
     notFit idx addr = andM
@@ -134,9 +134,9 @@ genUniqueAccountAddress
     :: AccountMode m
     => AddrGenSeed
     -> PassPhrase
-    -> CWalletAddress
+    -> WalletAddress
     -> m CAccountAddress
-genUniqueAccountAddress genSeed passphrase wCAddr@CWalletAddress{..} =
+genUniqueAccountAddress genSeed passphrase wCAddr@WalletAddress{..} =
     generateUnique "account generation" genSeed mkAccount notFit
   where
     mkAccount caaAccountIndex =
@@ -149,16 +149,16 @@ genUniqueAccountAddress genSeed passphrase wCAddr@CWalletAddress{..} =
 deriveAccountSK
     :: AccountMode m
     => PassPhrase
-    -> CWalletAddress
+    -> WalletAddress
     -> Word32
     -> m (Address, EncryptedSecretKey)
-deriveAccountSK passphrase CWalletAddress{..} accIndex = do
+deriveAccountSK passphrase WalletAddress{..} accIndex = do
     -- this function is used in conditions when several secret keys with same
     -- public key are stored, thus checking for passphrase here as well
-    let niceSK k = encToCAddress k == cwaWSId
+    let niceSK k = encToCAddress k == waWSId
     key <- maybeThrow noKey . find niceSK =<< getSecretKeys
     maybeThrow badPass $
-        deriveLvl2KeyPair passphrase key cwaIndex accIndex
+        deriveLvl2KeyPair passphrase key waIndex accIndex
   where
     noKey   = RequestError "No secret key with such address found"
     badPass = RequestError "Passphrase doesn't match"
@@ -166,12 +166,12 @@ deriveAccountSK passphrase CWalletAddress{..} accIndex = do
 deriveAccountAddress
     :: AccountMode m
     => PassPhrase
-    -> CWalletAddress
+    -> WalletAddress
     -> Word32
     -> m CAccountAddress
-deriveAccountAddress passphrase wAddr@CWalletAddress{..} caaAccountIndex = do
+deriveAccountAddress passphrase wAddr@WalletAddress{..} caaAccountIndex = do
     (accAddr, _) <- deriveAccountSK passphrase wAddr caaAccountIndex
-    let caaWSId   = cwaWSId
-        caaWalletIndex = cwaIndex
+    let caaWSId   = waWSId
+        caaWalletIndex = waIndex
         caaId     = addressToCAddress accAddr
     return CAccountAddress{..}

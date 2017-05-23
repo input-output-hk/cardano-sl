@@ -29,13 +29,13 @@ instance Ssc ssc =>
     get = label "MainProof" $ BC.MainProof <$> get <*> get <*> get <*> get
 
 instance Bi (BC.BlockSignature ssc) where
-    put (BC.BlockSignature sig)             = putWord8 0 >> put sig
-    put (BC.BlockPSignatureEpoch proxySig)  = putWord8 1 >> put proxySig
-    put (BC.BlockPSignatureSimple proxySig) = putWord8 2 >> put proxySig
+    put (BC.BlockSignature sig)            = putWord8 0 >> put sig
+    put (BC.BlockPSignatureLight proxySig) = putWord8 1 >> put proxySig
+    put (BC.BlockPSignatureHeavy proxySig) = putWord8 2 >> put proxySig
     get = label "BlockSignature" $ getWord8 >>= \case
         0 -> BC.BlockSignature <$> get
-        1 -> BC.BlockPSignatureEpoch <$> get
-        2 -> BC.BlockPSignatureSimple <$> get
+        1 -> BC.BlockPSignatureLight <$> get
+        2 -> BC.BlockPSignatureHeavy <$> get
         t -> fail $ "get@BlockSignature: unknown tag: " <> show t
 
 instance Bi (BC.ConsensusData (BC.MainBlockchain ssc)) where

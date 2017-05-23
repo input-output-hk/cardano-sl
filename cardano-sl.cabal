@@ -442,7 +442,7 @@ library
                       , concurrent-extra
                       , conduit >= 1.2.8
                       , containers
-                      , cryptonite >= 0.19 && <= 0.22
+                      , cryptonite >= 0.23 && <= 0.23
                       , cryptonite-openssl >= 0.6
                       , data-default
                       , deepseq
@@ -573,6 +573,8 @@ executable cardano-node
   hs-source-dirs:      src/node
   main-is:             Main.hs
   other-modules:       NodeOptions
+                     , Params
+                     , Secrets
   build-depends:       base
                      , binary
                      , bytestring
@@ -581,6 +583,7 @@ executable cardano-node
                      , cardano-sl-lrc
                      , cardano-sl-update
                      , cardano-sl
+                     , containers
                      , data-default
                      , directory
                      , ether

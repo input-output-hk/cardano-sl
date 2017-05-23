@@ -17,6 +17,7 @@ module Pos.Wallet.Web.ClientTypes
       , CTxMeta (..)
       , CTExMeta (..)
       , CInitialized (..)
+      , WalletAddress (..)
       , CWalletAddress (..)
       , CAccountAddress (..)
       , CAccount (..)
@@ -53,6 +54,8 @@ module Pos.Wallet.Web.ClientTypes
       , WalletUserSecret (..)
       , readWalletUserSecret
       , writeWalletUserSecret
+      , fromCWalletAddress
+      , toCWalletAddress
       ) where
 
 import           Universum
@@ -62,7 +65,7 @@ import qualified Data.ByteString.Lazy   as LBS
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Default           (Default, def)
 import           Data.Hashable          (Hashable (..))
-import           Data.Text              (Text, isInfixOf, toLower)
+import           Data.Text              (Text, isInfixOf, splitOn, toLower)
 import           Data.Text.Buildable    (build)
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Data.Typeable          (Typeable)
@@ -203,18 +206,34 @@ cPassPhraseToPassPhrase (CPassPhrase text) =
 ----------------------------------------------------------------------------
 
 -- | Wallet identifier
-data CWalletAddress = CWalletAddress
+data WalletAddress = WalletAddress
     { -- | Address of wallet set this wallet belongs to
-      cwaWSId  :: CAddress WS
+      waWSId  :: CAddress WS
     , -- | Derivation index of this wallet key
-      cwaIndex :: Word32
+      waIndex :: Word32
     } deriving (Eq, Show, Generic, Typeable)
 
-instance Hashable CWalletAddress
+instance Hashable WalletAddress
 
-instance Buildable CWalletAddress where
-    build CWalletAddress{..} =
-        bprint (F.build%"@"%F.build) cwaWSId cwaIndex
+instance Buildable WalletAddress where
+    build WalletAddress{..} =
+        bprint (F.build%"@"%F.build) waWSId waIndex
+
+newtype CWalletAddress = CWalletAddress Text
+    deriving (Eq, Show, Generic, Buildable)
+
+toCWalletAddress :: WalletAddress -> CWalletAddress
+toCWalletAddress = CWalletAddress . sformat F.build
+
+fromCWalletAddress :: CWalletAddress -> Either Text WalletAddress
+fromCWalletAddress (CWalletAddress url) =
+    case splitOn "@" url of
+        [part1, part2] -> do
+            waWSAddress <- addressToCAddress <$> decodeTextAddress part1
+            waIndex     <- maybe (Left "Invalid wallet index") Right $
+                            readMaybe $ toString part2
+            return WalletAddress{..}
+        _ -> Left "Expected 2 parts separated by '@'"
 
 -- | Account identifier
 data CAccountAddress = CAccountAddress
@@ -233,10 +252,10 @@ instance Buildable CAccountAddress where
         bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
         caaWSId caaWalletIndex caaAccountIndex caaId
 
-walletAddrByAccount :: CAccountAddress -> CWalletAddress
-walletAddrByAccount CAccountAddress{..} = CWalletAddress
-    { cwaWSId  = caaWSId
-    , cwaIndex = caaWalletIndex
+walletAddrByAccount :: CAccountAddress -> WalletAddress
+walletAddrByAccount CAccountAddress{..} = WalletAddress
+    { waWSId  = caaWSId
+    , waIndex = caaWalletIndex
     }
 
 instance Hashable CAccountAddress
@@ -328,8 +347,8 @@ class WithDerivationPath a where
 instance WithDerivationPath (CAddress WS) where
     getDerivationPath _ = []
 
-instance WithDerivationPath CWalletAddress where
-    getDerivationPath CWalletAddress{..} = [cwaIndex]
+instance WithDerivationPath WalletAddress where
+    getDerivationPath WalletAddress{..} = [waIndex]
 
 instance WithDerivationPath CAccountAddress where
     getDerivationPath CAccountAddress{..} = [caaWalletIndex, caaAccountIndex]

@@ -11,6 +11,7 @@ module Daedalus.Types
        , mkCAddress
        , mkCWalletMeta
        , mkCWalletInit
+       , mkCWalletAddress
        , mkCTxMeta
        , mkCTxId
        , mkCProfile
@@ -88,7 +89,7 @@ mkBackupPhraseIgnoreChecksum len mnemonic =
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses
 walletAddressToUrl :: CWalletAddress -> String
-walletAddressToUrl (CWalletAddress r) = _address r.cwaWSId <> "@" <> toString r.cwaIndex
+walletAddressToUrl (CWalletAddress r) = r
 
 _hash :: CHash -> String
 _hash (CHash h) = h
@@ -123,6 +124,9 @@ mkCWalletMeta :: String -> CT.CWalletMeta
 mkCWalletMeta wName =
     CT.CWalletMeta { cwName: wName
                    }
+
+mkCWalletAddress :: String -> CT.CWalletAddress
+mkCWalletAddress = CWalletAddress
 
 mkCInitialized :: Int -> Int -> CT.CInitialized
 mkCInitialized total preInit =

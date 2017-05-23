@@ -245,6 +245,8 @@ library
                         Pos.Statistics.MonadStats
                         Pos.Statistics.StatEntry
                         Pos.Statistics.Tx
+                        Pos.Statistics.Ekg
+                        Pos.Statistics.Statsd
 
                         -- Txp
                         Pos.Txp.Arbitrary
@@ -363,6 +365,7 @@ library
                       , ed25519
                       , ekg
                       , ekg-core
+                      , ekg-statsd
                       , ether >= 0.5
                       , exceptions
                       , file-embed >= 0.0.10

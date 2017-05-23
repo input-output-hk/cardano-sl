@@ -12,6 +12,7 @@ import           System.Wlog         (LoggerName)
 
 import           Pos.Crypto          (SecretKey)
 import           Pos.Security.Params (SecurityParams)
+import           Pos.Statistics      (EkgParams, StatsdParams)
 import           Pos.Txp.Toil.Types  (Utxo)
 import           Pos.Types           (Timestamp)
 import           Pos.Update.Params   (UpdateParams)
@@ -22,7 +23,6 @@ data LoggingParams = LoggingParams
     { lpRunnerTag     :: !LoggerName        -- ^ Prefix for logger, like "time-slave"
     , lpHandlerPrefix :: !(Maybe FilePath)  -- ^ Prefix of path for all logs
     , lpConfigPath    :: !(Maybe FilePath)  -- ^ Path to logger configuration
-    , lpEkgPort       :: !(Maybe Int)
     } deriving (Show)
 
 -- | Contains basic & networking parameters for running node.
@@ -45,4 +45,7 @@ data NodeParams = NodeParams
     , npUpdateParams   :: !UpdateParams      -- ^ Params for update system
     , npSecurityParams :: !SecurityParams    -- ^ Params for "Pos.Security"
     , npUseNTP         :: !Bool
+    , npEnableMetrics :: !Bool              -- ^ Gather runtime statistics.
+    , npEkgParams     :: !(Maybe EkgParams) -- ^ EKG statistics monitoring.
+    , npStatsdParams  :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
     } deriving (Show)

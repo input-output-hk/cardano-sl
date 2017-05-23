@@ -14,6 +14,7 @@ mkdir -p $DIR_TYPES_LENSES
 purescript-derive-lenses \
   < $DIR_TYPES/State.purs \
   --moduleName Explorer.Lenses.State \
+  --moduleImports "import Explorer.Api.Types (SocketSubscription, SocketSubscriptionData)" \
   > $DIR_TYPES_LENSES/State.purs
 
 # - - - - - - - - - - -

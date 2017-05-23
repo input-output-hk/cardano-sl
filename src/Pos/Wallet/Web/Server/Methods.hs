@@ -93,8 +93,9 @@ import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
 import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    genSaveRootAddress,
                                                    genUniqueAccountAddress,
-                                                   genUniqueWalletAddress, getSKByAccAddr,
-                                                   getSKByAddr, myRootAddresses)
+                                                   genUniqueWalletAddress, getAddrIdx,
+                                                   getSKByAccAddr, getSKByAddr,
+                                                   myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
 import           Pos.Wallet.Web.ClientTypes       (Acc, CAccount (..),
                                                    CAccountAddress (..), CAddress, CCoin,
@@ -135,8 +136,9 @@ import           Pos.Wallet.Web.State             (AccountLookupMode (..), Walle
                                                    getWSetPassLU, getWalletAccounts,
                                                    getWalletAddresses, getWalletMeta,
                                                    openState, removeAccount,
-                                                   removeNextUpdate, removeWallet,
-                                                   setProfile, setWSetMeta, setWalletMeta,
+                                                   removeNextUpdate, removeWSet,
+                                                   removeWallet, setProfile, setWSetMeta,
+                                                   setWalletMeta,
                                                    setWalletTransactionMeta, testReset,
                                                    totallyRemoveAccount,
                                                    updateHistoryCache)
@@ -310,6 +312,8 @@ servantHandlers sendActions =
     :<|>
      apiRenameWSet
     :<|>
+     apiDeleteWSet
+    :<|>
      apiImportWSet
     :<|>
      apiChangeWSetPassphrase
@@ -374,8 +378,9 @@ servantHandlers sendActions =
     apiGetWSet                  = catchWalletError ... getWSet
     apiGetWSets                 = catchWalletError ... getWSets
     apiNewWSet                  = catchWalletError ... newWSet
-    apiRenameWSet               = catchWalletError ... renameWSet
     apiRestoreWSet              = catchWalletError ... newWSet
+    apiRenameWSet               = catchWalletError ... renameWSet
+    apiDeleteWSet               = catchWalletError ... deleteWSet
     apiImportWSet               = catchWalletError ... importWSet
     apiChangeWSetPassphrase     = catchWalletError ... changeWSetPassphrase sendActions
     apiGetWallet                = catchWalletError ... getWallet
@@ -800,15 +805,12 @@ updateTransaction cWAddr txId txMeta = do
     wAddr <- decodeCWalletAddressOrFail cWAddr
     setWalletTransactionMeta wAddr txId txMeta
 
--- TODO: uncomment onc required
-{-
 deleteWSet :: WalletWebMode m => CAddress WS -> m ()
 deleteWSet wsAddr = do
     wallets <- getWallets (Just wsAddr)
     mapM_ (deleteWallet . cwId) wallets
-    deleteWSetSK wsAddr
     removeWSet wsAddr
--}
+    deleteSecretKey . fromIntegral =<< getAddrIdx wsAddr
 
 deleteWallet :: WalletWebMode m => CWalletAddress -> m ()
 deleteWallet = decodeCWalletAddressOrFail >=> removeWallet

@@ -15,6 +15,7 @@ module Pos.Wallet.Web.Api
        , NewWalletSet
        , RestoreWalletSet
        , RenameWalletSet
+       , DeleteWalletSet
        , ImportWalletSet
        , ChangeWalletSetPassphrase
 
@@ -115,6 +116,12 @@ type RenameWalletSet = API
     :> Capture "walletSetId" (CAddress WS)
     :> Capture "name" Text
     :> Post '[JSON] (Either WalletError CWalletSet)
+
+type DeleteWalletSet = API
+    :> "wallets"
+    :> "sets"
+    :> Capture "walletSetId" (CAddress WS)
+    :> Delete '[JSON] (Either WalletError ())
 
 type ImportWalletSet = API
     :> "wallets"
@@ -338,6 +345,8 @@ type WalletApi =
      RestoreWalletSet
     :<|>
      RenameWalletSet
+    :<|>
+     DeleteWalletSet
     :<|>
      ImportWalletSet
     :<|>

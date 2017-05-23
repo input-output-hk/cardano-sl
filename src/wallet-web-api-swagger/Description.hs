@@ -15,6 +15,7 @@ testResetDescription
   , newWSetDescription
   , restoreWSetDescription
   , renameWSetDescription
+  , deleteWSetDescription
   , importWSetDescription
   , changeWSetPassphraseDescription
 
@@ -57,6 +58,7 @@ getWSetsDescription               = "Get information about all available wallet 
 newWSetDescription                = "Create a new wallet set."
 restoreWSetDescription            = "Create a new wallet set."
 renameWSetDescription             = "Change name of given wallet set."
+deleteWSetDescription             = "Delete given wallet set with all contained wallets."
 importWSetDescription             = "Import user's secret key from the path to generate wallet set."
 changeWSetPassphraseDescription   = "Change passphrase of given wallet set."
 

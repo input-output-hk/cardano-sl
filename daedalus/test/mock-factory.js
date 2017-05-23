@@ -3,7 +3,7 @@ export const mockSuccessResponse = (response={}) => ({ Right: response });
 export const mockErrorResponse = (errMsg='Any error') => ({ Left: errMsg });
 
 export const mockWallet = (address='abc', props={}) => ({...
-  { cwAddress: `${address}`,
+  { cwId: `${address}`,
     cwAmount: {
       getCoin: 33333
     },

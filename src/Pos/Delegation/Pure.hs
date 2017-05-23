@@ -3,6 +3,7 @@
 module Pos.Delegation.Pure
        ( dlgMemPoolApplyBlock
        , dlgMemPoolDetectLoop
+       , dlgReachesIssuance
        ) where
 
 
@@ -14,8 +15,8 @@ import qualified Data.HashSet         as HS
 import           Data.List            (partition)
 
 import           Pos.Block.Core       (MainBlock, mainBlockDlgPayload)
-import           Pos.Core             (ProxySKHeavy)
-import           Pos.Crypto           (ProxySecretKey (..), PublicKey)
+import           Pos.Core             (EpochIndex, ProxySKHeavy)
+import           Pos.Crypto           (ProxyCert, ProxySecretKey (..), PublicKey)
 import           Pos.Delegation.Types (DlgMemPool)
 
 
@@ -39,3 +40,26 @@ dlgMemPoolDetectLoop toAdd pskm =
         next <- uses _1 $ HM.lookup cur
         _2 %= HS.insert cur
         maybe (pure Nothing) (trav . pskDelegatePk) next
+
+-- | Given an 'DlgMemPool', issuer, delegate and his psk, checks if
+-- delegate is allowed to issue the block. This does not check that
+-- delegate didn't issue a psk to somebody else.
+dlgReachesIssuance :: DlgMemPool
+                   -> PublicKey
+                   -> PublicKey
+                   -> ProxyCert EpochIndex
+                   -> Bool
+dlgReachesIssuance pskm i d cert = i == d || reach i
+  where
+    -- Delegate 'd' has right to issue block instead of issuer 'i' if
+    -- there's a delegation chain:
+    --
+    -- i → x₁ → x₂ → … xₖ → d
+    --
+    -- where every arrow is psk present in the 'pskm', and the last
+    -- psk xₖ → d has the same certificate as 'cert'.
+    reach curUser = case HM.lookup curUser pskm of
+        Nothing -> False
+        Just ProxySecretKey{..}
+            | pskDelegatePk == d -> pskCert == cert
+            | otherwise -> reach pskDelegatePk

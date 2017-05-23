@@ -5,8 +5,8 @@
 
 module Pos.Delegation.DB
        ( getPSKByIssuer
-       , getPSKTree
-       , getPSKTreeAll
+       , getPSKChain
+       , getPSKForest
        , isIssuerByAddressHash
 
        , DelegationOp (..)
@@ -48,17 +48,17 @@ getPSKByIssuer (either addressHash identity -> issuer) =
 -- | Given an issuer, retrieves all certificate chains starting in
 -- issuer. This function performs a series of consequental db reads so
 -- it must be used under the shared lock.
-getPSKTree
+getPSKChain
     :: MonadDB m
     => Either PublicKey StakeholderId -> m DlgMemPool
-getPSKTree = getPSKTreeInternal HS.empty
+getPSKChain = getPSKChainInternal HS.empty
 
 -- See doc for 'getPSKTree'. This function also stops traversal if
 -- encounters anyone in 'toIgnore' set.
-getPSKTreeInternal
+getPSKChainInternal
     :: MonadDB m
     => HashSet StakeholderId -> Either PublicKey StakeholderId -> m DlgMemPool
-getPSKTreeInternal toIgnore (either addressHash identity -> issuer) =
+getPSKChainInternal toIgnore (either addressHash identity -> issuer) =
     fmap (view _1) $ flip execStateT (HM.empty, [issuer], HS.empty) trav
   where
     trav = use _2 >>= \case
@@ -75,16 +75,17 @@ getPSKTreeInternal toIgnore (either addressHash identity -> issuer) =
                 _3 %= HS.insert (addressHash is)
             trav
 
--- | Retrieves hashmap from all issuers supplied. See
--- 'getPSKTree'. This function must be used under outside shared lock.
-getPSKTreeAll
+-- | Retrieves certificate forest, where given issuers are trees'
+-- leaves. Executes 'getPSKChain' for every issuer and merges. This
+-- function must be used under outside shared lock.
+getPSKForest
     :: (MonadDB m)
     => Either [PublicKey] [StakeholderId] -> m DlgMemPool
-getPSKTreeAll (either (fmap addressHash) identity -> issuers) =
+getPSKForest (either (fmap addressHash) identity -> issuers) =
     foldlM foldFoo HM.empty (map Right issuers)
   where
     -- Don't revisit branches we retrieved earlier.
-    foldFoo cur = getPSKTreeInternal (HS.fromList $ map addressHash $ HM.keys cur)
+    foldFoo cur = getPSKChainInternal (HS.fromList $ map addressHash $ HM.keys cur)
 
 -- | Checks if stakeholder is psk issuer.
 isIssuerByAddressHash :: MonadDB m => StakeholderId -> m Bool

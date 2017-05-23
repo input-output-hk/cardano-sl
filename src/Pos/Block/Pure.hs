@@ -66,11 +66,12 @@ import           Pos.Core                     (ChainDifficulty, EpochIndex, Epoc
 import           Pos.Core.Block               (Blockchain (..), GenericBlock (..),
                                                GenericBlockHeader (..), gbBody,
                                                gbBodyProof, gbExtra, gbHeader)
-import           Pos.Crypto                   (Hash, ProxySecretKey (..), SecretKey,
-                                               SignTag (..), checkSig, pdCert, proxySign,
+import           Pos.Crypto                   (Hash, ProxySecretKey (..),
+                                               ProxySignature (..), SecretKey,
+                                               SignTag (..), checkSig, proxySign,
                                                proxyVerify, sign, toPublic, unsafeHash)
 import           Pos.Data.Attributes          (Attributes (attrRemain), mkAttributes)
-import           Pos.Delegation.Pure          (dlgMemPoolApplyBlock)
+import           Pos.Delegation.Pure          (dlgMemPoolApplyBlock, dlgReachesIssuance)
 import           Pos.Delegation.Types         (DlgMemPool)
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass (..))
 import           Pos.Update.Core              (BlockVersionData (..))
@@ -420,17 +421,23 @@ verifyHeader VerifyHeaderParams {..} h =
 
     heavyCertValid validCerts = flip (either mempty) h $ \h' ->
         case h' ^. gbhConsensus ^. mcdSignature of
-            (BlockPSignatureHeavy proxySig) ->
+            (BlockPSignatureHeavy pSig) ->
                 -- Block consensus public key is issuer's one, so we can
                 -- use it to index heavy psks map.
-                [ ( maybe False (\psk -> pskCert psk == pdCert proxySig) $
-                    HM.lookup (h' ^. mainHeaderLeaderKey) validCerts
-                  , sformat ("proxy signature's "%build%" related proxy cert "%
-                             "can't be found/doesn't match the one in current "%
-                             "allowed heavy psks set")
-                            proxySig
-                  ) ]
-            _                               -> mempty
+                let delegate = pdDelegatePk pSig
+                    issuer = h' ^. mainHeaderLeaderKey
+                    delegatePsk = HM.lookup delegate validCerts
+                in [ ( delegatePsk == Nothing
+                     , sformat ("delegate has issued the psk himself ("%build%") "%
+                                "so he can't issue the block, signature: "%build)
+                               delegatePsk pSig)
+                   , ( dlgReachesIssuance validCerts issuer delegate (pdCert pSig)
+                     , sformat ("proxy signature's "%build%" related proxy cert "%
+                                "can't be found/doesn't match the one in current "%
+                                "allowed heavy psks set")
+                               pSig)
+                   ]
+            _                           -> mempty
 
 -- | Verifies a set of block headers. Only basic consensus check and
 -- linking checks are performed!

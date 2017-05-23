@@ -443,34 +443,6 @@ getWalletAccAddrsOrThrow mode wCAddr =
         sformat ("No wallet with address " %build % " found") wCAddr
 
 getWallet :: WalletWebMode m => CWalletAddress -> m CWallet
--- <<<<<<< HEAD
--- getWallet wAddr = do
---     encSK <- getSKByAddr (cwaWSId wAddr)
---     accAddrs <- getWalletAccAddrsOrThrow Existing wAddr
---     modifier <- txMempoolToModifier encSK
---     let insertions = map fst (MM.insertions modifier)
---     let modAccs = S.fromList $ insertions ++ MM.deletions modifier
---     let filteredAccs = filter (`S.notMember` modAccs) accAddrs
---     let mergedAccAddrs = filteredAccs ++ insertions
---     mergedAccs <- mapM getAccount mergedAccAddrs
---     balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
---                mapM getAccountBalance mergedAccAddrs
---     meta <- getWalletMeta wAddr >>= maybeThrow noWallet
---     pure $ CWallet wAddr meta mergedAccs balance
--- =======
--- getWallet cAddr = do
---     addr <- decodeCWalletAddressOrFail  cAddr
---     encSK <- getSKByAddr (waWSAddress addr)
---     accounts <- getAccounts cAddr
---     modifier <- txMempoolToModifier encSK
---     let insertions = map fst (MM.insertions modifier)
---     let modAccs = S.fromList $ map caaAddress $ insertions ++ MM.deletions modifier
---     let filteredAccs = filter (flip S.notMember modAccs . caAddress) accounts
---     mempoolAccs <- mapM getAccount insertions
---     let mergedAccs = filteredAccs ++ mempoolAccs
---     meta <- getWalletMeta addr >>= maybeThrow noWallet
---     pure $ CWallet cAddr meta mergedAccs
--- >>>>>>> origin/master
 getWallet cAddr = do
     addr <- decodeCWalletAddressOrFail  cAddr
     encSK <- getSKByAddr (waWSId addr)

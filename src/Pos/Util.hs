@@ -37,30 +37,26 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
-import           Universum                        hiding (bracket, finally)
+import           Universum                     hiding (bracket, finally)
 
-import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
-                                                   releaseRead, releaseWrite)
-import           Control.Lens                     (lensRules)
-import           Control.Lens.Internal.FieldTH    (makeFieldOpticsForDec)
-import qualified Control.Monad                    as Monad (fail)
-import           Control.Monad.STM                (retry)
-import           Control.Monad.Trans.Resource     (ResourceT)
-import           Data.Hashable                    (Hashable)
-import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (span, zipWith3)
-import qualified Data.Text                        as T
-import qualified Language.Haskell.TH              as TH
-import           Serokell.Util                    (VerificationRes (..))
-import           System.Wlog                      (LoggerNameBox (..))
-import           Text.Parsec                      (ParsecT)
-import           Unsafe                           (unsafeInit, unsafeLast)
+import           Control.Lens                  (lensRules)
+import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
+import qualified Control.Monad                 as Monad (fail)
+import           Control.Monad.Trans.Resource  (ResourceT)
+import           Data.Hashable                 (Hashable)
+import qualified Data.HashMap.Strict           as HM
+import           Data.List                     (span, zipWith3)
+import qualified Data.Text                     as T
+import qualified Language.Haskell.TH           as TH
+import           Serokell.Util                 (VerificationRes (..))
+import           System.Wlog                   (LoggerNameBox (..))
+import           Text.Parsec                   (ParsecT)
 -- SafeCopy instance for HashMap
-import           Serokell.AcidState               ()
+import           Serokell.AcidState            ()
 
 import           Pos.Util.Arbitrary
 import           Pos.Util.TimeLimit
-import           Pos.Util.Undefined               ()
+import           Pos.Util.Undefined            ()
 import           Pos.Util.Util
 
 -- | Specialized version of 'mappend' for restricted to pair type.

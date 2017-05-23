@@ -3,6 +3,7 @@ module Main.Test where
 import Prelude
 import Control.Monad.Eff (Eff)
 import Data.Time.Test (testNominalDiffTime)
+import Explorer.Api.Socket.Test (testApiSocket)
 import Explorer.Routes.Test (testRoutes)
 import Explorer.Update.Test (testUpdate)
 import Explorer.Util.Config.Test (testConfigUtil)
@@ -16,6 +17,7 @@ import Test.Spec.Runner (RunnerEffects, run)
 
 main :: Eff (RunnerEffects ()) Unit
 main = run [consoleReporter] do
+    testApiSocket
     testCommonViews
     testConfigUtil
     testCSS

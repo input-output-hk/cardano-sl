@@ -23,13 +23,11 @@ type State =
     , syncAction :: SyncAction
     , viewStates :: ViewStates
     , latestBlocks :: RemoteData Error CBlockEntries
-    , pullLatestBlocks :: Boolean         -- TODO (jk) Remove it if socket-io will be fixed
     , totalBlocks :: RemoteData Error Int
     , currentBlockSummary :: Maybe CBlockSummary
     , currentBlockTxs :: Maybe CTxBriefs
     , currentTxSummary :: RemoteData Error CTxSummary
     , latestTransactions :: RemoteData Error CTxEntries
-    , pullLatestTxs :: Boolean            -- TODO (jk) Remove it if socket-io will be fixed
     , currentCAddress :: CAddress
     , currentAddressSummary :: RemoteData Error CAddressSummary
     , currentBlocksResult :: RemoteData Error CBlockEntries
@@ -89,6 +87,7 @@ type DashboardViewState =
     , dbViewBlockPagination :: Int
     , dbViewNextBlockPagination :: Int
     , dbViewLoadingBlockPagination :: Boolean
+    , dbViewLoadingTotalBlocks :: Boolean
     , dbViewBlockPaginationEditable :: Boolean
     , dbViewTxsExpanded :: Boolean
     , dbViewSelectedApiCode :: DashboardAPICode

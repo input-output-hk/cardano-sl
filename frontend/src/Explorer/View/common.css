@@ -230,6 +230,20 @@
     text-align: center;
 }
 
+.pagination-wrapper {
+  position: relative;
+}
+
+.pagination-cover {
+    @extend .hide;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: color(var(--color3) a(0.5));
+}
+
 .pagination {
 
   padding: 8px 6px;
@@ -237,7 +251,7 @@
   border: solid 1px var(--color11);
   display: inline-block;
 
-  &__wrapper {
+  &__container {
     box: horizontal center;
   }
 
@@ -316,7 +330,6 @@
   height: var(--height-footer-bottom);
   font-family: var(--fontFamily0-Light);
   font-size: 10px;
-  color: color(var(--color0) a(0.5));
   border: none;
   width: auto;
   appearance: none;
@@ -326,8 +339,17 @@
   background-size: 8px 8px;
   padding-right: 10px;
   box-item: center;
+  color: color(var(--color0) a(0.5));
 
   &:hover{
     cursor: pointer;
+  }
+
+  option {
+      color: var(--color8);
+      background-color: var(--color0); /* needed for Firefox */
+      &.selected {
+        color: color(var(--color0) a(0.5));
+      }
   }
 }

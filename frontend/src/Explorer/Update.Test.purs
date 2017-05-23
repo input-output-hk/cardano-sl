@@ -9,20 +9,19 @@ import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
 import Data.Time.NominalDiffTime (mkTime)
+import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..))
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..), SocketSubscriptionAction(..))
-import Pos.Explorer.Socket.Methods (Subscription(..))
-import Explorer.Lenses.State (connected, dbViewBlockPagination, lang, latestBlocks, latestTransactions, socket, totalBlocks, subscriptions)
+import Explorer.Lenses.State (connected, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, totalBlocks)
 import Explorer.State (initialState)
 import Explorer.Test.MockFactory (mkCBlockEntry, mkEmptyCTxEntry, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Update (doPaginateBlocksRequest, limitPaginateBlocksRequest, offsetPaginateBlocksRequest, update)
+import Explorer.Update (update)
 import Explorer.Util.Factory (mkCHash, mkCTxId)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
-import Network.RemoteData (RemoteData(..), withDefault)
+import Network.RemoteData (RemoteData(..), isNotAsked, withDefault)
+import Pos.Explorer.Socket.Methods (Subscription(..))
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
-import Pux (onlyEffects, mapEffects)
 
 testUpdate :: forall r. StateT (Array (Group (Aff r Unit))) Identity Unit
 testUpdate =
@@ -34,58 +33,6 @@ testUpdate =
                     state = _.state effModel
                     result = state ^. lang
                 in result `shouldEqual` German
-
-        describe "uses action ReceiveTotalBlocks" do
-            it "to update totalBlocks"
-                let effModel =  update (ReceiveTotalBlocks (Right 12)) initialState
-                    state = _.state effModel
-                    result = withDefault 0 $ state ^. totalBlocks
-                in result `shouldEqual` 12
-
-        describe "uses action ReceiveInitialBlocks" do
-            let blocks =  [ setEpochSlotOfBlock 0 3 mkCBlockEntry
-                          , setEpochSlotOfBlock 0 2 mkCBlockEntry
-                          , setEpochSlotOfBlock 0 1 mkCBlockEntry
-                          ]
-                effModel = update (ReceiveInitialBlocks (Right blocks)) initialState
-                state = _.state effModel
-                latestBlocks' = withDefault [] $ state ^. latestBlocks
-            it "to update latestBlocks" do
-                (gShow latestBlocks') `shouldEqual` (gShow blocks)
-
-        describe "uses action ReceiveBlocksUpdate" do
-            -- Mock blocks with epoch, slots and hashes
-            let blockA = setEpochSlotOfBlock 0 1 $ setHashOfBlock (mkCHash "A") mkCBlockEntry
-                blockB = setEpochSlotOfBlock 0 2 $ setHashOfBlock (mkCHash "B") mkCBlockEntry
-                blockC = setEpochSlotOfBlock 1 0 $ setHashOfBlock (mkCHash "C") mkCBlockEntry
-                blockD = setEpochSlotOfBlock 1 1 $ setHashOfBlock (mkCHash "D") mkCBlockEntry
-                currentBlocks =
-                    [ blockA
-                    , blockB
-                    ]
-                -- set `latestBlocks` + `totalBlocks` to simulate that we have already blocks before
-                initialState' =
-                    set latestBlocks (Success currentBlocks) $
-                    set totalBlocks (Success $ length currentBlocks) initialState
-                newBlocks =
-                    [ blockB
-                    , blockC
-                    , blockD
-                    ]
-                effModel = update (ReceiveBlocksUpdate (Right newBlocks)) initialState'
-                state = _.state effModel
-            it "to update latestBlocks w/o duplicates"
-                let result = withDefault [] $ state ^. latestBlocks
-                    expected =
-                        [ blockD
-                        , blockC
-                        , blockB
-                        , blockA
-                        ]
-                in (gShow result) `shouldEqual` (gShow expected)
-            it "to count totalBlocks"
-                let result = withDefault 0 $ state ^. totalBlocks
-                in result `shouldEqual` 4
 
         describe "uses action SocketBlocksUpdated" do
             -- Mock blocks with epoch, slots and hashes
@@ -121,6 +68,31 @@ testUpdate =
                 let result = withDefault 0 $ state ^. totalBlocks
                 in result `shouldEqual` 4
 
+
+        describe "handles RequestTotalBlocksToPaginateBlocks action" do
+            let effModel = update RequestTotalBlocksToPaginateBlocks initialState
+                state = _.state effModel
+            it "to update dbViewLoadingTotalBlocks"
+                let result = state ^. (dashboardViewState <<< dbViewLoadingTotalBlocks)
+                in result `shouldEqual` true
+
+        describe "handles ReceiveTotalBlocksToPaginateBlocks action" do
+            let total = 101
+            it "to update totalBlocks"
+                let effModel = update (ReceiveTotalBlocksToPaginateBlocks $ Right total) initialState
+                    state = _.state effModel
+                    result = withDefault 0 $ state ^. totalBlocks
+                in
+                result `shouldEqual` total
+
+        describe "handles RequestPaginatedBlocks action" do
+            let effModel = update (RequestPaginatedBlocks (RequestLimit 1) (RequestOffset 0)) initialState
+                state = _.state effModel
+            it "to set dbViewLoadingBlockPagination to true" do
+                (state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)) `shouldEqual` true
+            it "to not update state of latestBlocks" do
+                (isNotAsked $ state ^. latestBlocks) `shouldEqual` true
+
         describe "uses action ReceivePaginatedBlocks" do
             -- Mock blocks with epoch, slots and hashes
             let blockA = setEpochSlotOfBlock 2 1 $ setHashOfBlock (mkCHash "A") mkCBlockEntry
@@ -131,10 +103,14 @@ testUpdate =
                 currentBlocks =
                     [ blockA
                     , blockB
+                    , blockC
                     ]
+                newPage = 2
                 -- set `latestBlocks` to simulate that we have already blocks before
                 initialState' =
-                    set latestBlocks (Success currentBlocks) initialState
+                    set latestBlocks (Success currentBlocks) $
+                    set (dashboardViewState <<< dbViewNextBlockPagination) newPage
+                    initialState
                 paginatedBlocks =
                     [ blockC
                     , blockD
@@ -144,89 +120,15 @@ testUpdate =
                 state = _.state effModel
             it "to add blocks to latestBlocks"
                 let result = withDefault [] $ state ^. latestBlocks
-                    expected =
-                        [ blockA
-                        , blockB
-                        , blockC
-                        , blockD
-                        , blockE
-                        ]
-                in (gShow result) `shouldEqual` (gShow expected)
-
-        describe "doPaginateBlocksRequest" do
-            let currentBlocks =
-                    [ mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    ]
-                state =
-                    set latestBlocks (Success currentBlocks) $
-                    set totalBlocks (Success 117) $
-                    set (dashboardViewState <<< dbViewBlockPagination) 1 initialState
-
-            it "should return true if we are on page 1, but were not at another page before"
-                let result = doPaginateBlocksRequest state 2 10
-                in result `shouldEqual` true
-
-        describe "limitPaginateBlocksRequest" do
-            let -- add 12 blocks
-                currentBlocks =
-                    [ mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    ]
-                initialState' =
-                    set latestBlocks (Success currentBlocks) initialState
-
-            it "if we want to go from page 1 to 2"
-                let state = set (dashboardViewState <<< dbViewBlockPagination) 1 initialState'
-                    result = limitPaginateBlocksRequest state 2 10 2
-                in result `shouldEqual` 10
-
-            it "if we want to jump from page 1 to 30"
-                let state = set (dashboardViewState <<< dbViewBlockPagination) 1 initialState'
-                    result = limitPaginateBlocksRequest state 30 10 2
-                in result `shouldEqual` 290
-
-        describe "offsetPaginateBlocksRequest" do
-            let -- add 12 blocks
-                currentBlocks =
-                    [ mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    , mkCBlockEntry
-                    ]
-                initialState' =
-                    set latestBlocks (Success currentBlocks) initialState
-
-            it "if we want to go from page 1 to 2"
-                let state = set (dashboardViewState <<< dbViewBlockPagination) 1 initialState'
-                    result = offsetPaginateBlocksRequest state
-                in result `shouldEqual` 12
+                in (gShow result) `shouldEqual` (gShow paginatedBlocks)
+            it "to set loading to false" do
+                (state ^. loading) `shouldEqual` false
+            it "to update dbViewBlockPagination by using dbViewNextBlockPagination" do
+                (state ^. (dashboardViewState <<< dbViewBlockPagination))
+                    `shouldEqual` newPage
+            it "to set dbViewLoadingBlockPagination to false" do
+                (state ^. (dashboardViewState <<< dbViewLoadingBlockPagination))
+                    `shouldEqual` false
 
         describe "uses action SocketTxsUpdated" do
             -- Mock txs
@@ -258,7 +160,7 @@ testUpdate =
                         ]
                 in (gShow result) `shouldEqual` (gShow expected)
 
-        describe "handles ReceiveInitialTxs action" do
+        describe "handles ReceiveLastTxs action" do
             -- Mock txs
             let txA = setTimeOfTx (mkTime 0.1) $ setIdOfTx (mkCTxId "A") mkEmptyCTxEntry
                 txB = setTimeOfTx (mkTime 0.2) $ setIdOfTx (mkCTxId "B") mkEmptyCTxEntry
@@ -279,6 +181,13 @@ testUpdate =
                         ]
                 in (gShow result) `shouldEqual` (gShow expected)
 
+        describe "handles DashboardPaginateBlocks action" do
+            let newPage = 4
+                effModel = update (DashboardPaginateBlocks newPage) initialState
+                state = _.state effModel
+            it "to set dbViewNextBlockPagination"
+                let result = state ^. (dashboardViewState <<< dbViewNextBlockPagination)
+                in result `shouldEqual` newPage
         describe "uses action SocketConnected" do
             it "to update connection to connected"
                 let effModel = update (SocketConnected true) initialState
@@ -291,9 +200,47 @@ testUpdate =
                     result = state ^. socket <<< connected
                 in result `shouldEqual` false
 
-        describe "uses action SocketUpdateSubscriptions with unsubscribe" do
+        describe "uses action SocketAddSubscription" do
+            it "to add a first subscription"
+                let subscription = SocketSubscription SubBlock
+                    effModel = update (SocketAddSubscription subscription) initialState
+                    state = _.state effModel
+                    result = state ^. socket <<< subscriptions
+                in (gShow result) `shouldEqual` (gShow [subscription])
+            it "to add another subscription"
+                let initialState' = set (socket <<< subscriptions)
+                                        [ SocketSubscription SubTx
+                                        ]
+                                        initialState
+                    effModel = update (SocketAddSubscription $ SocketSubscription SubBlock) initialState'
+                    state = _.state effModel
+                    result = state ^. socket <<< subscriptions
+                    expected =  [ SocketSubscription SubTx
+                                , SocketSubscription SubBlock
+                                ]
+                in (gShow result) `shouldEqual` (gShow expected)
+
+        describe "uses action SocketRemoveSubscription" do
+            it "to not remove anything, if we do have an empty list of subscriptions"
+                let effModel = update (SocketRemoveSubscription $ SocketSubscription SubBlock) initialState
+                    state = _.state effModel
+                    result = length $ state ^. socket <<< subscriptions
+                in result `shouldEqual` 0
+            it "to remove a subscription"
+                let subscription = SocketSubscription SubBlock
+                    initialState' = set (socket <<< subscriptions)
+                                        [ SocketSubscription SubTx
+                                        , SocketSubscription SubBlock
+                                        ]
+                                        initialState
+                    effModel = update (SocketRemoveSubscription $ SocketSubscription SubBlock) initialState'
+                    state = _.state effModel
+                    result = state ^. socket <<< subscriptions
+                in (gShow result) `shouldEqual` (gShow [SocketSubscription SubTx])
+
+        describe "uses action SocketUpdateSubscriptions" do
             let subs = [ SocketSubscription SubBlock, SocketSubscription SubTx ]
-                action = (SocketUpdateSubscriptions subs UnsubscribePrevSubscriptions)
+                action = (SocketUpdateSubscriptions subs)
 
             it "to update subscriptions if there are none"
                 let effModel = update action initialState
@@ -308,15 +255,15 @@ testUpdate =
                 in (length result) `shouldEqual` 2
 
             it "to update subscriptions if there are existing subs"
-                let initialState' = set (socket <<< subscriptions) subs state
-                    effModel = update action initialState
+                let initialState' = set (socket <<< subscriptions) subs initialState
+                    effModel = update action initialState'
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
                 in (gShow result) `shouldEqual` (gShow subs)
 
             it "to update subscriptions to two subs if there are existing subs"
-                let initialState' = set (socket <<< subscriptions) subs state
-                    effModel = update action initialState
+                let initialState' = set (socket <<< subscriptions) subs initialState
+                    effModel = update action initialState'
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
                 in (length result) `shouldEqual` 2

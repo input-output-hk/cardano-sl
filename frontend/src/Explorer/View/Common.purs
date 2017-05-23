@@ -210,6 +210,7 @@ type PaginationViewProps =
     , changePageAction :: (Int -> Action)
     , editableAction :: (P.Target -> Boolean -> Action)
     , invalidPageAction :: (P.Target -> Action)
+    , disabled :: Boolean
     }
 
 txPaginationView :: PaginationViewProps -> P.Html Action
@@ -221,73 +222,87 @@ txPaginationView props =
 paginationView :: PaginationViewProps -> P.Html Action
 paginationView props =
     P.div
-        [ P.className "pagination" ]
+        [ P.className "pagination-wrapper"]
         [ P.div
-            [ P.className "pagination__wrapper" ]
-            [ P.div
-                [ P.className $ "btn-page" <> disablePrevBtnClazz
-                , P.onClick prevClickHandler ]
-                [ P.div
-                    [ P.className "icon bg-triangle-left" ]
-                    []
-                ]
-            , P.input
-                ([ P.className "page-number"
-                , P.disabled $ props.maxPage == props.minPage
-                , P.min $ show props.minPage
-                , P.max $ show props.maxPage
-                , P.onFocus \event -> props.editableAction (_.target event) true
-                , P.onBlur \event -> props.editableAction (_.target event) false
-                ]
-                <>  if props.editable
-                    then [ P.onKey "enter" onEnterHandler ]
-                    else [ P.value <<< show $ props.currentPage ]
-                )
-                []
-            , P.p
-                [ P.className "label" ]
-                [ P.text props.label ]
-            , P.input
-                [ P.className "page-number"
-                , P.disabled true
-                , P.type_ "search"
-                , P.value $ show props.maxPage
-                ]
-                []
-            , P.div
-                [ P.className $ "btn-page" <> disableNextBtnClazz
-                  , P.onClick nextClickHandler ]
-                [ P.div
-                    [ P.className "icon bg-triangle-right" ]
-                    []
-                ]
-            ]
-        ]
-        where
-          disablePrevBtnClazz = if props.currentPage == props.minPage then " disabled" else ""
-          disableNextBtnClazz = if props.currentPage == props.maxPage then " disabled" else ""
-          nextClickHandler :: P.MouseEvent -> Action
-          nextClickHandler event =
-              if props.currentPage < props.maxPage then
-              props.changePageAction $ props.currentPage + 1
-              else
-              NoOp
+              [ P.className "pagination" ]
+              [ P.div
+                  [ P.className "pagination__container" ]
+                  [ P.div
+                      [ P.className $ "btn-page" <> disablePrevBtnClazz
+                      , P.onClick prevClickHandler ]
+                      [ P.div
+                          [ P.className "icon bg-triangle-left" ]
+                          []
+                      ]
+                  , P.input
+                      ([ P.className "page-number"
+                      , P.disabled $ props.maxPage == props.minPage
+                      , P.min $ show props.minPage
+                      , P.max $ show props.maxPage
+                      , P.onFocus \event -> props.editableAction (_.target event) true
+                      , P.onBlur \event -> props.editableAction (_.target event) false
+                      ]
+                      <>  if props.editable
+                          then [ P.onKey "enter" onEnterHandler ]
+                          else [ P.value <<< show $ props.currentPage ]
+                      )
+                      []
+                  , P.p
+                      [ P.className "label" ]
+                      [ P.text props.label ]
+                  , P.input
+                      [ P.className "page-number"
+                      , P.disabled true
+                      , P.type_ "search"
+                      , P.value $ show props.maxPage
+                      ]
+                      []
+                  , P.div
+                      [ P.className $ "btn-page" <> disableNextBtnClazz
+                        , P.onClick nextClickHandler ]
+                      [ P.div
+                          [ P.className "icon bg-triangle-right" ]
+                          []
+                      ]
+                  ]
+              ]
+          , P.div
+              [ P.className $ "pagination-cover"
+                    <>  if props.disabled
+                        then " show"
+                        else ""
+              , P.onClick $ const NoOp
+              ]
+              []
+          ]
+          where
+            disablePrevBtnClazz = if props.currentPage == props.minPage then " disabled" else ""
+            disableNextBtnClazz = if props.currentPage == props.maxPage then " disabled" else ""
+            nextClickHandler :: P.MouseEvent -> Action
+            nextClickHandler event =
+                if props.currentPage < props.maxPage then
+                props.changePageAction $ props.currentPage + 1
+                else
+                NoOp
 
-          prevClickHandler :: P.MouseEvent -> Action
-          prevClickHandler _ =
-              if props.currentPage > props.minPage then
-              props.changePageAction $ props.currentPage - 1
-              else
-              NoOp
+            prevClickHandler :: P.MouseEvent -> Action
+            prevClickHandler _ =
+                if props.currentPage > props.minPage && not props.disabled then
+                props.changePageAction $ props.currentPage - 1
+                else
+                NoOp
 
-          onEnterHandler :: P.KeyboardEvent -> Action
-          onEnterHandler event =
-              if page >= props.minPage && page <= props.maxPage
-              then props.changePageAction page
-              else props.invalidPageAction target
-              where
-                  target = _.target event
-                  page = fromMaybe props.currentPage $ fromString $ _.value target
+            onEnterHandler :: P.KeyboardEvent -> Action
+            onEnterHandler event =
+                if props.disabled
+                then NoOp
+                else
+                    if page >= props.minPage && page <= props.maxPage
+                    then props.changePageAction page
+                    else props.invalidPageAction target
+                    where
+                        target = _.target event
+                        page = fromMaybe props.currentPage $ fromString $ _.value target
 
 
 
@@ -353,11 +368,13 @@ langView state =
       $ map (langItemView state) langItems
 
 langItemView :: State -> Language -> P.Html Action
-langItemView state lang =
+langItemView state lang' =
+  let selected = (show lang') == (show $ state ^. lang) in
   P.option
-    [ P.value $ show lang
+    [ P.value $ show lang'
+    , P.className $ if selected then "selected" else ""
     ]
-    [ P.text $ show lang ]
+    [ P.text $ show lang' ]
 
 -- -----------------
 -- helper

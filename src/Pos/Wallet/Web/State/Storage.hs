@@ -62,10 +62,10 @@ import           Pos.Types                  (HeaderHash)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (Acc, CAccountAddress, CAccountAddress (..),
                                              CAddress, CCoin, CHash, CProfile, CTxId,
-                                             CTxMeta, CUpdateInfo, CWalletAddress,
-                                             CWalletMeta, CWalletSetAssurance,
-                                             CWalletSetMeta, PassPhraseLU, WS,
-                                             WalletAddress, walletAddrByAccount)
+                                             CTxMeta, CUpdateInfo, CWalletMeta,
+                                             CWalletSetAssurance, CWalletSetMeta,
+                                             PassPhraseLU, WS, WalletAddress,
+                                             walletAddrByAccount)
 
 type TransactionHistory = HashMap CTxId CTxMeta
 

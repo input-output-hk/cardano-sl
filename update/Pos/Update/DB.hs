@@ -54,7 +54,7 @@ import           Pos.Core                   (ApplicationName, BlockVersion,
                                              Timestamp (..))
 import           Pos.Core.Constants         (epochSlots)
 import           Pos.Crypto                 (hash)
-import           Pos.DB.Class               (MonadDB, getUtxoDB)
+import           Pos.DB.Class               (MonadDB, getGStateDB)
 import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
                                              rocksWriteBatch)
@@ -202,7 +202,7 @@ prepareGStateUS systemStart =
                 { esdSlotDuration = genesisSlotDuration
                 , esdStart        = epoch1Start
                 }
-        db <- getUtxoDB
+        db <- getGStateDB
         flip rocksWriteBatch db $
             PutSlottingData genesisSlottingData :
             PutEpochProposers mempty :

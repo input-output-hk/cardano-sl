@@ -19,7 +19,7 @@ import           Pos.Binary.Class      (encodeStrict)
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core              (unsafeAddCoin)
 import           Pos.Core.Types        (Address, Coin)
-import           Pos.DB.Class          (MonadDB, getUtxoDB)
+import           Pos.DB.Class          (MonadDB, getGStateDB)
 import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBytes)
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
@@ -56,7 +56,7 @@ balancesInitFlag :: ByteString
 balancesInitFlag = "e/init/"
 
 areBalancesInitialized :: MonadDB m => m Bool
-areBalancesInitialized = isJust <$> (getUtxoDB >>= rocksGetBytes balancesInitFlag)
+areBalancesInitialized = isJust <$> (getGStateDB >>= rocksGetBytes balancesInitFlag)
 
 putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True

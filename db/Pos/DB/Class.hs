@@ -8,7 +8,7 @@ module Pos.DB.Class
        , usingReadOptions
        , usingWriteOptions
        , getBlockIndexDB
-       , getUtxoDB
+       , getGStateDB
        , getLrcDB
        , getMiscDB
 
@@ -60,8 +60,8 @@ usingWriteOptions opts l =
 getBlockIndexDB :: MonadDB m => m DB
 getBlockIndexDB = view blockIndexDB <$> getNodeDBs
 
-getUtxoDB :: MonadDB m => m DB
-getUtxoDB = view gStateDB <$> getNodeDBs
+getGStateDB :: MonadDB m => m DB
+getGStateDB = view gStateDB <$> getNodeDBs
 
 getLrcDB :: MonadDB m => m DB
 getLrcDB = view lrcDB <$> getNodeDBs

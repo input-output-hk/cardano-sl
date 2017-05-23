@@ -42,7 +42,7 @@ import           Universum
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Binary.Core      ()
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
-import           Pos.DB.Class         (MonadDB, getUtxoDB)
+import           Pos.DB.Class         (MonadDB, getGStateDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
                                        rocksGetBytes)
@@ -219,4 +219,4 @@ initializationFlagKey = "ut/gutxo/"
 ----------------------------------------------------------------------------
 
 isUtxoInitialized :: MonadDB m => m Bool
-isUtxoInitialized = isJust <$> (getUtxoDB >>= rocksGetBytes initializationFlagKey)
+isUtxoInitialized = isJust <$> (getGStateDB >>= rocksGetBytes initializationFlagKey)

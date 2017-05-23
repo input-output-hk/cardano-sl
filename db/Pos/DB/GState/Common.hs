@@ -30,7 +30,7 @@ import           Pos.Binary.Class    (Bi, encodeStrict)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (HeaderHash)
 import           Pos.Crypto          (shortHashF)
-import           Pos.DB.Class        (MonadDB, getUtxoDB)
+import           Pos.DB.Class        (MonadDB, getGStateDB)
 import           Pos.DB.Error        (DBError (DBMalformed))
 import           Pos.DB.Functions    (RocksBatchOp (..), rocksDelete, rocksGetBi,
                                       rocksPutBi, rocksWriteBatch)
@@ -43,18 +43,18 @@ import           Pos.Util.Util       (maybeThrow)
 gsGetBi
     :: (MonadDB m, Bi v)
     => ByteString -> m (Maybe v)
-gsGetBi k = rocksGetBi k =<< getUtxoDB
+gsGetBi k = rocksGetBi k =<< getGStateDB
 
 gsPutBi
     :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
-gsPutBi k v = rocksPutBi k v =<< getUtxoDB
+gsPutBi k v = rocksPutBi k v =<< getGStateDB
 
 gsDelete :: (MonadDB m) => ByteString -> m ()
-gsDelete k = rocksDelete k =<< getUtxoDB
+gsDelete k = rocksDelete k =<< getGStateDB
 
 writeBatchGState :: (RocksBatchOp a, MonadDB m) => [a] -> m ()
-writeBatchGState batch = rocksWriteBatch batch =<< getUtxoDB
+writeBatchGState batch = rocksWriteBatch batch =<< getGStateDB
 
 ----------------------------------------------------------------------------
 -- Common getters

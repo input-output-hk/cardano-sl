@@ -24,7 +24,7 @@ import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Crypto           (PublicKey, pskDelegatePk, pskIssuerPk)
-import           Pos.DB.Class         (MonadDB, getUtxoDB)
+import           Pos.DB.Class         (MonadDB, getGStateDB)
 import           Pos.DB.Error         (DBError (DBMalformed))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
@@ -44,7 +44,7 @@ getPSKByIssuer
     :: MonadDB m
     => Either PublicKey StakeholderId -> m (Maybe ProxySKHeavy)
 getPSKByIssuer (either addressHash identity -> issuer) =
-    rocksGetBi (pskKey issuer) =<< getUtxoDB
+    rocksGetBi (pskKey issuer) =<< getGStateDB
 
 -- | Given an issuer, retrieves all certificate chains starting in
 -- issuer. This function performs a series of consequental db reads so
@@ -95,7 +95,7 @@ isIssuerByAddressHash = fmap isJust . getPSKByIssuer . Right
 -- | Given issuer @i@ returns @d@ such that there exists @x1..xn@ with
 -- @i->x1->...->xn->d@.
 getDelegationTransitive :: MonadDB m => PublicKey -> m (Maybe PublicKey)
-getDelegationTransitive iPk = rocksGetBi (transPskKey iPk) =<< getUtxoDB
+getDelegationTransitive iPk = rocksGetBi (transPskKey iPk) =<< getGStateDB
 
 ----------------------------------------------------------------------------
 -- Batch operations

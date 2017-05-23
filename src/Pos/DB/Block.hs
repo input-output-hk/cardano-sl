@@ -81,7 +81,7 @@ putBlock
     => Undo -> Block ssc -> m ()
 putBlock undo blk = do
     let h = headerHash blk
-    liftIO $ createDirectoryIfMissing False $ dirDataPath h
+    liftIO . createDirectoryIfMissing False =<< dirDataPath h
     flip putData blk =<< blockDataPath h
     flip putData undo =<< undoDataPath h
     putBi (blockIndexKey h) (BC.getBlockHeader blk)
@@ -249,16 +249,18 @@ deleteData fp = (liftIO $ removeFile fp) `catch` handle
         | otherwise = throwM e
 
 dirDataPath :: MonadDB m => HeaderHash -> m FilePath
-dirDataPath (formatToString hashHexF -> fn) =
-    getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> fn
+dirDataPath (formatToString hashHexF -> fn) = gitDirDataPath fn
 
 blockDataPath :: MonadDB m => HeaderHash -> m FilePath
 blockDataPath (formatToString (hashHexF%".block") -> fn) =
-    getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> fn
+    gitDirDataPath fn <&> (</> drop 2 fn)
 
 undoDataPath :: MonadDB m => HeaderHash -> m FilePath
 undoDataPath (formatToString (hashHexF%".undo") -> fn) =
-    getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> fn
+    gitDirDataPath fn <&> (</> drop 2 fn)
+
+gitDirDataPath :: MonadDB m => [Char] -> m FilePath
+gitDirDataPath fn = getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> take 2 fn
 
 ----------------------------------------------------------------------------
 -- Private functions

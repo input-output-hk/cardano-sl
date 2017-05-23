@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -27,12 +28,13 @@ import           Pos.Context         (BlkSemaphore, putBlkSemaphore, takeBlkSema
 import           Pos.Core            (HeaderHash, diffEpochOrSlot, getEpochOrSlot,
                                       headerHash, prevBlockL)
 import           Pos.Crypto          (shortHashF)
+import           Pos.DB              (MonadDB)
 import qualified Pos.DB.DB           as DB
 import qualified Pos.DB.GState       as GS
-import           Pos.Slotting.Class  (getCurrentSlot)
+import           Pos.Slotting.Class  (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.Class       (Ssc, SscHelpersClass)
 import           Pos.Util            (_neHead)
 import           Pos.Util.Chrono     (NE, OldestFirst (getOldestFirst))
-import           Pos.WorkMode.Class  (WorkMode)
 
 -- | This function can be used to create a message when tip mismatch
 -- is detected (usually between tip stored in DB and some other tip
@@ -50,7 +52,7 @@ tipMismatchMsg action storedTip attemptedTip =
 -- header's parent hash. Iterates from newest to oldest until meets
 -- first header that's in main chain. O(n).
 lcaWithMainChain
-    :: (WorkMode ssc m)
+    :: (MonadDB m, Ssc ssc)
     => OldestFirst NE (BlockHeader ssc) -> m (Maybe HeaderHash)
 lcaWithMainChain headers =
     lcaProceed Nothing $
@@ -96,7 +98,9 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
 -- This function checks for #1. Note that even if we're doing recovery right
 -- now, 'needRecovery' will still return 'True'.
 --
-needRecovery :: forall ssc m. WorkMode ssc m => m Bool
+needRecovery ::
+       forall ssc m. (MonadSlots m, MonadDB m, SscHelpersClass ssc)
+    => m Bool
 needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
   where
     isTooOld currentSlot = do

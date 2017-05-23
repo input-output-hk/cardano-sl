@@ -147,7 +147,7 @@ classifyHeaders headers = do
     haveOldestParent <- isJust <$> DB.getBlockHeader @ssc oldestParentHash
     let headersValid = isVerSuccess $
                        verifyHeaders True (headers & _Wrapped %~ toList)
-    needRecovery_ <- needRecovery
+    needRecovery_ <- needRecovery @ssc
     mbCurrentSlot <- getCurrentSlot
     let newestHeaderConvertedSlot =
             case newestHeader ^. epochOrSlotG of

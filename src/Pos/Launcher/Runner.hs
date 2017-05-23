@@ -8,6 +8,7 @@ module Pos.Launcher.Runner
        ( -- * High level runners
          runRawRealMode
        , runRawKBasedMode
+       , runRawSBasedMode
        , runProductionMode
        , runStatsMode
        , runServiceMode
@@ -46,8 +47,9 @@ import           Node                         (Node, NodeAction (..),
 import           Node.Util.Monitor            (setupMonitor, stopMonitor)
 import qualified STMContainers.Map            as SM
 import           System.Random                (newStdGen)
-import           System.Wlog                  (LoggerConfig (..), WithLogger, logError,
-                                               logInfo, productionB, releaseAllHandlers,
+import           System.Wlog                  (LoggerConfig (..), WithLogger,
+                                               getLoggerName, logError, logInfo,
+                                               productionB, releaseAllHandlers,
                                                setupLogging, usingLoggerName)
 import           Universum                    hiding (bracket, finally)
 
@@ -109,8 +111,8 @@ import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
 import           Pos.Worker                   (allWorkersCount)
 import           Pos.WorkMode                 (ProductionMode, RawRealMode, RawRealModeK,
-                                               ServiceMode, StaticMode, StatsMode,
-                                               WorkMode)
+                                               RawRealModeS, ServiceMode, StaticMode,
+                                               StatsMode, WorkMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -269,6 +271,33 @@ runServer_ peerId transport packedLS outSpecs =
     acquire = const pass
     release = const pass
 
+runRawBasedMode
+    :: forall ssc m a.
+       (SscConstraint ssc, WorkMode ssc m)
+    => (forall b. m b -> RawRealMode ssc b)
+    -> (forall b. RawRealMode ssc b -> m b)
+    -> PeerId
+    -> Transport m
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec m a, OutSpecs)
+    -> Production a
+runRawBasedMode unwrap wrap peerId transport np@NodeParams{..} sscnp (ActionSpec action, outSpecs) =
+    runRawRealMode
+        peerId
+        (hoistTransport unwrap transport)
+        np
+        sscnp
+        listeners
+        outSpecs $
+    ActionSpec
+        $ \vI sendActions -> unwrap . action vI $ hoistSendActions wrap unwrap sendActions
+  where
+    listeners =
+        unwrap $
+        first (hoistListenerSpec unwrap wrap <$>) <$>
+        allListeners
+
 -- | Launch some mode, providing way to convert it to 'RawRealMode' and back.
 runRawKBasedMode
     :: forall ssc m a.
@@ -282,23 +311,23 @@ runRawKBasedMode
     -> SscParams ssc
     -> (ActionSpec m a, OutSpecs)
     -> Production a
-runRawKBasedMode unwrap wrap peerId transport kinst np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode
-        peerId
-        (hoistTransport hoistDown transport)
-        np
-        sscnp
-        listeners
-        outSpecs $
-    ActionSpec
-        $ \vI sendActions -> hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
-  where
-    hoistUp = wrap . lift
-    hoistDown = runDiscoveryKademliaT kinst . unwrap
-    listeners =
-        hoistDown $
-        first (hoistListenerSpec hoistDown hoistUp <$>) <$>
-        allListeners
+runRawKBasedMode unwrap wrap peerId transport kinst =
+    runRawBasedMode (runDiscoveryKademliaT kinst . unwrap) (wrap . lift) peerId transport
+
+runRawSBasedMode
+    :: forall ssc m a.
+       (SscConstraint ssc, WorkMode ssc m)
+    => (forall b. m b -> RawRealModeS ssc b)
+    -> (forall b. RawRealModeS ssc b -> m b)
+    -> PeerId
+    -> Transport m
+    -> Set NodeId
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec m a, OutSpecs)
+    -> Production a
+runRawSBasedMode unwrap wrap peerId transport peers =
+    runRawBasedMode (runDiscoveryConstT peers . unwrap) (wrap . lift) peerId transport
 
 -- | ProductionMode runner.
 runProductionMode
@@ -340,23 +369,7 @@ runStaticMode
     -> SscParams ssc
     -> (ActionSpec (StaticMode ssc) a, OutSpecs)
     -> Production a
-runStaticMode peerId transport peers np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode
-        peerId
-        (hoistTransport hoistDown transport)
-        np
-        sscnp
-        listeners
-        outSpecs $
-    ActionSpec $ \vI sendActions ->
-        hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
-  where
-    hoistUp = lift . lift
-    hoistDown = runDiscoveryConstT peers . getNoStatsT
-    listeners =
-        hoistDown $
-        first (hoistListenerSpec hoistDown hoistUp <$>) <$>
-        allListeners
+runStaticMode = runRawSBasedMode getNoStatsT lift
 
 ----------------------------------------------------------------------------
 -- Lower level runners
@@ -430,9 +443,11 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
 ----------------------------------------------------------------------------
 
 nodeStartMsg :: WithLogger m => BaseParams -> m ()
-nodeStartMsg BaseParams {..} = logInfo msg
+nodeStartMsg BaseParams {..} = do
+    logInfo msg1
   where
-    msg = sformat ("Started node.")
+    msg1 = sformat ("Application: " %build% ", last known block version " %build)
+                   Const.curSoftwareVersion Const.lastKnownBlockVersion
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do
@@ -474,6 +489,7 @@ createTransportTCP
     => TCP.TCPAddr
     -> m (Transport m)
 createTransportTCP addrInfo = do
+    loggerName <- getLoggerName
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
@@ -483,6 +499,9 @@ createTransportTCP addrInfo = do
              -- when new connections are made. This prevents an easy denial
              -- of service attack.
              , TCP.tcpCheckPeerHost = True
+             , TCP.tcpServerExceptionHandler = \e ->
+                     usingLoggerName (loggerName <> "transport") $
+                         logError $ sformat ("Exception in tcp server: " % shown) e
              })
     transportE <-
         liftIO $ TCP.createTransport addrInfo tcpParams

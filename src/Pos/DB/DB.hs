@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -52,6 +53,9 @@ import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Update.DB                    (getAdoptedBVData)
 import           Pos.Util                         (inAssertMode)
 import           Pos.Util.Chrono                  (NewestFirst)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer.DB                  (prepareExplorerDB)
+#endif
 
 -- | Open all DBs stored on disk.
 openNodeDBs
@@ -98,6 +102,9 @@ initNodeDBs = do
     prepareGStateBlockExtra initialTip
     prepareLrcDB
     prepareMiscDB
+#ifdef WITH_EXPLORER
+    prepareExplorerDB
+#endif
 
 -- | Get block corresponding to tip.
 getTipBlock

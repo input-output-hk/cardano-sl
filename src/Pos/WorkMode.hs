@@ -9,6 +9,7 @@ module Pos.WorkMode
 
        -- * Actual modes
        , RawRealModeK
+       , RawRealModeS
        , ProductionMode
        , RawRealMode
        , ServiceMode
@@ -43,7 +44,6 @@ import           Pos.Txp.MemState             (GenericTxpLocalData, TxpHolderTag
 import           Pos.Wallet.WalletMode        (BlockchainInfoRedirect, UpdatesRedirect)
 import           Pos.WorkMode.Class           (MinWorkMode, TxpExtra_TMP, WorkMode)
 
-
 ----------------------------------------------------------------------------
 -- Concrete types
 ----------------------------------------------------------------------------
@@ -75,6 +75,9 @@ type RawRealMode ssc =
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)
 
+-- | RawRealMode + static peers.
+type RawRealModeS ssc = DiscoveryConstT (RawRealMode ssc)
+
 -- | ProductionMode is an instance of WorkMode which is used
 -- (unsurprisingly) in production.
 type ProductionMode ssc = NoStatsT $ RawRealModeK ssc
@@ -83,7 +86,7 @@ type ProductionMode ssc = NoStatsT $ RawRealModeK ssc
 type StatsMode ssc = StatsT $ RawRealModeK ssc
 
 -- | Fixed peer discovery without stats.
-type StaticMode ssc = NoStatsT $ DiscoveryConstT (RawRealMode ssc)
+type StaticMode ssc = NoStatsT $ RawRealModeS ssc
 
 -- | ServiceMode is the mode in which support nodes work.
 type ServiceMode =

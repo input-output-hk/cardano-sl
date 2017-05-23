@@ -21,7 +21,6 @@ module Pos.Util
        , eitherPanic
        , inAssertMode
        , diffDoubleMap
-       , maybeThrow'
 
        -- * NonEmpty
        , neZipWith3
@@ -68,7 +67,6 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (span, zipWith3)
 import qualified Data.Text                        as T
 import qualified Language.Haskell.TH              as TH
-import           Mockable                         (Mockable, Throw, throw)
 import           Serokell.Util                    (VerificationRes (..))
 import           System.Wlog                      (LoggerNameBox (..))
 import           Text.Parsec                      (ParsecT)
@@ -141,9 +139,6 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
                 in if null diff
                        then res
                        else HM.insert extKey diff res
-
-maybeThrow' :: (Mockable Throw m, Exception e) => e -> Maybe a -> m a
-maybeThrow' e = maybe (throw e) pure
 
 ----------------------------------------------------------------------------
 -- NonEmpty

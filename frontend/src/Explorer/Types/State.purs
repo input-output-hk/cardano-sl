@@ -5,8 +5,9 @@ import Control.SocketIO.Client (Socket)
 import Data.DateTime (DateTime)
 import Data.Generic (class Generic, gShow)
 import Data.Maybe (Maybe)
+import Data.Newtype (class Newtype)
 import Data.Tuple (Tuple)
-import Explorer.Api.Types (SocketSubscription)
+import Explorer.Api.Types (SocketSubscription, SocketSubscriptionData)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Util.Config (SyncAction)
@@ -51,8 +52,19 @@ type SearchEpochSlotQuery = Tuple (Maybe Int) (Maybe Int)
 type SocketState =
     { connected :: Boolean
     , connection :: Maybe Socket
-    , subscriptions :: Array SocketSubscription
+    , subscriptions :: SocketSubscriptionItems
     }
+
+type SocketSubscriptionItems = Array SocketSubscriptionItem
+
+newtype SocketSubscriptionItem = SocketSubscriptionItem
+    { socketSub :: SocketSubscription
+    , socketSubData :: SocketSubscriptionData
+    }
+
+derive instance gSocketSubscriptionItem :: Generic SocketSubscriptionItem
+derive instance ntSocketSubscriptionItem :: Newtype SocketSubscriptionItem _
+derive instance eqSocketSubscriptionItem :: Eq SocketSubscriptionItem
 
 data DashboardAPICode = Curl | Node | JQuery
 derive instance eqDashboardAPICode :: Eq DashboardAPICode

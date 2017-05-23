@@ -9,10 +9,10 @@ import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
 import Data.Time.NominalDiffTime (mkTime)
-import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..))
+import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Lenses.State (connected, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, totalBlocks)
-import Explorer.State (initialState)
+import Explorer.State (initialState, mkSocketSubscriptionItem)
 import Explorer.Test.MockFactory (mkCBlockEntry, mkEmptyCTxEntry, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Update (update)
@@ -202,114 +202,60 @@ testUpdate =
 
         describe "uses action SocketAddSubscription" do
             it "to add a first subscription"
-                let subscription = SocketSubscription SubBlock
-                    effModel = update (SocketAddSubscription subscription) initialState
+                let subItem = mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
+                    effModel = update (SocketAddSubscription subItem) initialState
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
-                in (gShow result) `shouldEqual` (gShow [subscription])
+                in (gShow result) `shouldEqual` (gShow [subItem])
             it "to add another subscription"
                 let initialState' = set (socket <<< subscriptions)
-                                        [ SocketSubscription SubTx
+                                        [ mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
                                         ]
                                         initialState
-                    effModel = update (SocketAddSubscription $ SocketSubscription SubBlock) initialState'
+                    subItem = mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
+                    effModel = update (SocketAddSubscription subItem) initialState'
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
-                    expected =  [ SocketSubscription SubTx
-                                , SocketSubscription SubBlock
+                    expected =  [ mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
+                                , mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
                                 ]
                 in (gShow result) `shouldEqual` (gShow expected)
 
         describe "uses action SocketRemoveSubscription" do
             it "to not remove anything, if we do have an empty list of subscriptions"
-                let effModel = update (SocketRemoveSubscription $ SocketSubscription SubBlock) initialState
+                let subItem = mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
+                    effModel = update (SocketRemoveSubscription subItem) initialState
                     state = _.state effModel
                     result = length $ state ^. socket <<< subscriptions
                 in result `shouldEqual` 0
             it "to remove a subscription"
-                let subscription = SocketSubscription SubBlock
+                let subItem = mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
                     initialState' = set (socket <<< subscriptions)
-                                        [ SocketSubscription SubTx
-                                        , SocketSubscription SubBlock
+                                        [ mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
+                                        , mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
                                         ]
                                         initialState
-                    effModel = update (SocketRemoveSubscription $ SocketSubscription SubBlock) initialState'
+                    effModel = update (SocketRemoveSubscription subItem) initialState'
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
-                in (gShow result) `shouldEqual` (gShow [SocketSubscription SubTx])
+                in  (gShow result) `shouldEqual`
+                    (gShow [mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData])
 
-        describe "uses action SocketUpdateSubscriptions" do
-            let subs = [ SocketSubscription SubBlock, SocketSubscription SubTx ]
-                action = (SocketUpdateSubscriptions subs)
+        describe "uses action SocketClearSubscriptions" do
 
-            it "to update subscriptions if there are none"
-                let effModel = update action initialState
+            it "to remove nothing if no subscription available"
+                let effModel = update SocketClearSubscriptions initialState
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
-                in (gShow result) `shouldEqual` (gShow subs)
+                in length result `shouldEqual` 0
 
-            it "to update subscriptions to two subs there are none"
-                let effModel = update action initialState
+            it "to remove all subscription"
+                let initialState' = set (socket <<< subscriptions)
+                                        [ mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
+                                        , mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
+                                        ]
+                                        initialState
+                    effModel = update SocketClearSubscriptions initialState'
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
-                in (length result) `shouldEqual` 2
-
-            it "to update subscriptions if there are existing subs"
-                let initialState' = set (socket <<< subscriptions) subs initialState
-                    effModel = update action initialState'
-                    state = _.state effModel
-                    result = state ^. socket <<< subscriptions
-                in (gShow result) `shouldEqual` (gShow subs)
-
-            it "to update subscriptions to two subs if there are existing subs"
-                let initialState' = set (socket <<< subscriptions) subs initialState
-                    effModel = update action initialState'
-                    state = _.state effModel
-                    result = state ^. socket <<< subscriptions
-                in (length result) `shouldEqual` 2
-
-        -- todo (ks): We need a way to `tick` the Pux state.
-
-        -- describe "uses action SocketUpdateSubscriptions with existing subs" do
-        --     let existingSubs = [ SocketSubscription SubBlock
-        --                        , SocketSubscription SubTx ]
-        --         subs = [ SocketSubscription SubBlock
-        --                , SocketSubscription SubTx ]
-        --
-        --         actionExisting = (SocketUpdateSubscriptions existingSubs KeepPrevSubscriptions)
-        --         actionSubs = (SocketUpdateSubscriptions subs KeepPrevSubscriptions)
-        --
-        --         initialState' = set (socket <<< subscriptions) existingSubs initialState
-        --
-        --     it "to update subscriptions if there are existing subs"
-        --         let effModel = update actionSubs initialState'
-        --             state = _.state effModel
-        --             result = state ^. socket <<< subscriptions
-        --         in (gShow result) `shouldEqual` (gShow (existingSubs <> subs))
-        --
-        --     it "to update subscriptions to four if there are existing subs"
-        --         let effModel = update actionSubs initialState'
-        --             state = _.state effModel
-        --             result = state ^. socket <<< subscriptions
-        --             in (length result) `shouldEqual` 4
-        --
-        -- describe "uses action SocketUpdateSubscriptions with single existing sub" do
-        --     let existingSubs = [ SocketSubscription SubTx ]
-        --         subs = [ SocketSubscription SubBlock, SocketSubscription SubTx ]
-        --         action = (SocketUpdateSubscriptions subs KeepPrevSubscriptions)
-        --
-        --         initialState' = set (socket <<< subscriptions) existingSubs initialState
-        --
-        --     it "to update subscriptions if there are existing subs"
-        --         let effModel = update action initialState'
-        --             effState = mapEffects id effModel
-        --             state = _.state effState
-        --             result = state ^. socket <<< subscriptions
-        --         in (gShow result) `shouldEqual` (gShow (subs <> existingSubs))
-        --
-        --     it "to update subscriptions if there are existing subs"
-        --         let effModel = update action initialState'
-        --             effState = mapEffects id effModel
-        --             state = _.state effState
-        --             result = state ^. socket <<< subscriptions
-        --         in (length result) `shouldEqual` 3
+                in length result `shouldEqual` 0

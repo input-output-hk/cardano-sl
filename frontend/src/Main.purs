@@ -1,6 +1,7 @@
 module Main where
 
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Now (NOW)
 import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
@@ -16,7 +17,6 @@ import Explorer.Update (update) as Ex
 import Explorer.Util.Config (SyncAction(..), hostname, isProduction, secureProtocol)
 import Explorer.View.Layout (view)
 import Network.HTTP.Affjax (AJAX)
-import Control.Monad.Eff.Console (CONSOLE)
 import Pos.Explorer.Socket.Methods (ServerEvent(..))
 import Prelude (bind, const, pure, ($), (*), (<$>), (<<<), (<>), (=<<))
 import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
@@ -41,7 +41,7 @@ socketConfig appConfig = do
     on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
     on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
     on socket' (Ex.toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel
-    on socket' (Ex.toEvent BlocksUpdated) $ Ex.blocksUpdatedEventHandler actionChannel
+    on socket' (Ex.toEvent BlocksOffUpdated) $ Ex.blocksUpdatedEventHandler actionChannel
 --  on socket' (toEvent CallYou) $ Ex.callYouEventHandler actionChannel
 --  on socket' (toEvent CallYouString) $ Ex.callYouStringEventHandler actionChannel
 --  on socket' (toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel

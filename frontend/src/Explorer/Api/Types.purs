@@ -32,4 +32,17 @@ newtype SocketSubscription = SocketSubscription Subscription
 derive instance gSocketSubscription :: Generic SocketSubscription
 derive instance newtypeSocketSubscription :: Newtype SocketSubscription _
 instance eqSocketSubscription :: Eq SocketSubscription where
-  eq = gEq
+    eq = gEq
+
+newtype SocketOffset = SocketOffset Int
+derive instance gSocketOffset :: Generic SocketOffset
+
+-- | Types of socket data emitted to back end
+-- | It can be extended if we will have any other data
+data SocketSubscriptionData
+    = SocketNoData
+    | SocketOffsetData SocketOffset
+
+derive instance gSocketSubscriptionData :: Generic SocketSubscriptionData
+instance eqSocketSubscriptionData :: Eq SocketSubscriptionData where
+    eq = gEq

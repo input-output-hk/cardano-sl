@@ -13,6 +13,7 @@ set -o pipefail
 #   build.sh                           build
 #   build.sh -t                        build and run tests
 #   build.sh core|db|...|sl            build only a specific project
+#   build.sh -k                        typecheck but do not build
 #   build.sh -c                        do stack clean
 #
 # Consider symlinking the script as `b` into the cardano-sl folder because 
@@ -46,6 +47,7 @@ ram=false
 prod=false
 wallet=true
 explorer=false
+no_code=false
 
 if [ -e .no-nix ]; then
   no_nix=true
@@ -62,6 +64,9 @@ do
   # -c = clean
   elif [[ $var == "-c" ]]; then
     clean=true
+  # -k = -fno-code
+  elif [[ $var == "-k" ]]; then
+    no_code=true
   # --no-nix = don't use Nix
   elif [[ $var == "--no-nix" ]]; then
     no_nix=true
@@ -167,8 +172,13 @@ for prj in $to_build; do
       --dependencies-only                   \
       $args                                 \
       $prj
+  if [[ $no_code == true ]]; then
+    ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"
+  else
+    ghc_opts_2="$ghc_opts"
+  fi
   stack build                               \
-      --ghc-options="$ghc_opts"             \
+      --ghc-options="$ghc_opts_2"           \
       $commonargs $norun                    \
       $fast                                 \
       $args                                 \

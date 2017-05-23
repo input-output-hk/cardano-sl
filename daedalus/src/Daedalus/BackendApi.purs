@@ -128,6 +128,9 @@ importWalletSet pass = postRBody $ queryParams ["wallets", "sets", "keys"] [qPar
 changeWalletSetPass :: forall eff. CAddress WS -> Maybe CPassPhrase -> Maybe CPassPhrase -> Aff (ajax :: AJAX | eff) Unit
 changeWalletSetPass wSetId old new = postR $ queryParams ["wallets", "sets", "password", _address wSetId] [qParam "old" $ _passPhrase <$> old, qParam "new" $ _passPhrase <$> new]
 
+deleteWalletSet :: forall eff. CAddress WS -> Aff (ajax :: AJAX | eff) Unit
+deleteWalletSet wSetId = deleteR $ noQueryParam ["wallets", "sets", _address wSetId]
+
 --------------------------------------------------------------------------------
 -- Wallets ---------------------------------------------------------------------
 

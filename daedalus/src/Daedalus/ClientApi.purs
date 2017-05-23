@@ -153,6 +153,18 @@ importWalletSet = mkEffFn2 \filePath spendingPassword -> fromAff <<< map encodeJ
 changeWalletSetPass :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String (Promise Unit)
 changeWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff $ B.changeWalletSetPass (mkCAddress wSetId) (mkCPassPhrase oldPass) (mkCPassPhrase newPass)
 
+-- | Deletes a wallet set.
+-- Arguments: wallet set identifier
+-- Returns:
+-- Example in nodejs:
+-- | ```js
+-- | > api.deleteWalletSet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW').then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > {}
+-- | ```
+deleteWalletSet :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Unit)
+deleteWalletSet = mkEffFn1 $ fromAff <<< B.deleteWalletSet <<< mkCAddress
+
 --------------------------------------------------------------------------------
 -- Wallets ---------------------------------------------------------------------
 

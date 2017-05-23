@@ -347,6 +347,7 @@
 
   option {
       color: var(--color8);
+      background-color: var(--color0); /* needed for Firefox */
       &.selected {
         color: color(var(--color0) a(0.5));
       }

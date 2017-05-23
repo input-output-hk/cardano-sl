@@ -55,7 +55,8 @@ import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (Block, BlockHeader, GenesisBlock, MainBlock,
                                              MainExtraBodyData (..),
                                              MainExtraHeaderData (..), blockHeader,
-                                             genBlockLeaders, mbTxPayload)
+                                             genBlockLeaders, mainBlockLeaderKey,
+                                             mbTxPayload)
 import qualified Pos.Block.Core             as BC
 import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe,
                                              toUpdateBlock, withBlkSemaphore,
@@ -499,9 +500,16 @@ verifyBlocksPrefix blocks = runExceptT $ do
     let adoptedMajMin = toMajMin adoptedBV
     let dataMustBeKnown = lastKnownMajMin > adoptedMajMin
                        || lastKnownBlockVersion == adoptedBV
+    -- For all issuers of blocks we're processing retrieve their PSK
+    -- if any and create a hashmap of these.
+    pskCerts <-
+        fmap (HM.fromList . catMaybes) $
+        forM (rights $ NE.toList $ blocks ^. _Wrapped) $ \b ->
+        let issuer = b ^. mainBlockLeaderKey
+        in fmap (issuer,) <$> GS.getPSKByIssuer issuer
     verResToMonadError formatAllErrors $
         Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
-        (Just leaders) blocks
+        (Just leaders) (Just pskCerts) blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     TxpGlobalSettings {..} <- Ether.ask'
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $

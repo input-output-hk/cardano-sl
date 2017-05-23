@@ -103,7 +103,7 @@ insertThenLookup
 insertThenLookup k v1 v2 hm mapMod =
     let newMap = Core.insert k v1 mapMod
         newHMap = HM.insert k v2 hm
-    in v1 /= v2 ==> maybe False (== v1) $ Core.lookup (flip HM.lookup newHMap) k newMap
+    in v1 /= v2 ==> (== Just v1) $ Core.lookup (flip HM.lookup newHMap) k newMap
 
 insertInHMDeleteThenLookup
     :: (Show k, Show v, Eq k, Eq v, Hashable k)

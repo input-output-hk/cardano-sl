@@ -1,4 +1,6 @@
-module Util where
+module Util
+  ( module Util
+  ) where
 
 import           Data.Text  (Text)
 import           Formatting (build, fixed, int, sformat, (%))

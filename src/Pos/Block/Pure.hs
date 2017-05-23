@@ -25,10 +25,11 @@ module Pos.Block.Pure
        , verifyHeaders
        ) where
 
-import           Control.Lens                 (ix)
+import           Control.Lens                 (ix, (%=))
 import           Control.Monad.Except         (MonadError (throwError))
 import           Data.Default                 (Default (def))
-import           Data.List                    (groupBy)
+import qualified Data.HashMap.Strict          as HM
+import           Data.List                    (groupBy, partition)
 import           Formatting                   (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units   (Byte, memory)
 import           Serokell.Util.Verify         (VerificationRes (..), verifyGeneric)
@@ -47,7 +48,7 @@ import           Pos.Block.Core               (BiSsc, Block, BlockHeader,
                                                MainBlockHeader, MainBlockchain,
                                                MainExtraBodyData (..),
                                                MainExtraHeaderData, MainToSign (..),
-                                               gebAttributes, gehAttributes,
+                                               gbhConsensus, gebAttributes, gehAttributes,
                                                genBlockLeaders, getBlockHeader,
                                                getBlockHeader, mainBlockDlgPayload,
                                                mainBlockSscPayload, mainHeaderLeaderKey,
@@ -59,20 +60,21 @@ import           Pos.Constants                (epochSlots)
 import           Pos.Core                     (ChainDifficulty, EpochIndex, EpochOrSlot,
                                                HasDifficulty (..), HasEpochIndex (..),
                                                HasEpochOrSlot (..), HasHeaderHash (..),
-                                               HeaderHash, ProxySKEither, SlotId (..),
-                                               SlotLeaders, addressHash, gbhExtra,
-                                               headerSlotL, prevBlockL)
+                                               HeaderHash, ProxySKEither, ProxySKHeavyMap,
+                                               SlotId (..), SlotLeaders, addressHash,
+                                               gbhExtra, headerSlotL, prevBlockL)
 import           Pos.Core.Block               (Blockchain (..), GenericBlock (..),
                                                GenericBlockHeader (..), gbBody,
                                                gbBodyProof, gbExtra, gbHeader)
-import           Pos.Crypto                   (Hash, SecretKey, SignTag (..), checkSig,
-                                               proxySign, proxyVerify, pskIssuerPk,
-                                               pskOmega, sign, toPublic, unsafeHash)
+import           Pos.Crypto                   (Hash, ProxySecretKey (..), SecretKey,
+                                               SignTag (..), checkSig, pdCert, proxySign,
+                                               proxyVerify, sign, toPublic, unsafeHash)
 import           Pos.Data.Attributes          (Attributes (attrRemain), mkAttributes)
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass (..))
 import           Pos.Update.Core              (BlockVersionData (..))
 import           Pos.Util.Chrono              (NewestFirst (..), OldestFirst)
 import           Pos.Util.Util                (Some (Some))
+
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty
@@ -140,12 +142,12 @@ mkMainHeader
     -> MainExtraHeaderData
     -> MainBlockHeader ssc
 mkMainHeader prevHeader slotId sk pSk body extra =
-    mkGenericHeader prevHeader body consensus extra
+        mkGenericHeader prevHeader body consensus extra
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
-    makeSignature toSign (Left psk) = BlockPSignatureEpoch $
+    makeSignature toSign (Left psk) = BlockPSignatureLight $
         proxySign SignMainBlockLight sk psk toSign
-    makeSignature toSign (Right psk) = BlockPSignatureSimple $
+    makeSignature toSign (Right psk) = BlockPSignatureHeavy $
         proxySign SignMainBlockHeavy sk psk toSign
     signature prevHash proof =
         let toSign = MainToSign prevHash proof slotId difficulty extra
@@ -233,14 +235,14 @@ verifyConsensusLocal (Right header) =
   where
     verifyBlockSignature (BlockSignature sig) =
         checkSig SignMainBlock pk signature sig
-    verifyBlockSignature (BlockPSignatureEpoch proxySig) =
+    verifyBlockSignature (BlockPSignatureLight proxySig) =
         proxyVerify SignMainBlockLight
             pk
             proxySig
             (\(epochLow, epochHigh) ->
                epochLow <= epochId && epochId <= epochHigh)
             signature
-    verifyBlockSignature (BlockPSignatureSimple proxySig) =
+    verifyBlockSignature (BlockPSignatureHeavy proxySig) =
         proxyVerify SignMainBlockHeavy
             pk
             proxySig
@@ -258,14 +260,22 @@ verifyConsensusLocal (Right header) =
 -- | Extra data which may be used by verifyHeader function to do more checks.
 data VerifyHeaderParams ssc = VerifyHeaderParams
     { vhpVerifyConsensus :: !Bool
+      -- ^ Flag to check signatures and slot index bounds. Doesn't
+      -- check that heavyweight cert is allowed to do that, use
+      -- 'vhpHeavyCerts' instead.
     , vhpPrevHeader      :: !(Maybe (BlockHeader ssc))
-    -- ^ Nothing means that block is unknown, not genesis.
+      -- ^ Nothing means that block is unknown, not genesis.
     , vhpNextHeader      :: !(Maybe (BlockHeader ssc))
     , vhpCurrentSlot     :: !(Maybe SlotId)
     , vhpLeaders         :: !(Maybe SlotLeaders)
+      -- ^ Set of leaders for the epoch related block is from
+    , vhpHeavyCerts      :: !(Maybe ProxySKHeavyMap)
+      -- ^ Subset of heavy certs delegation map, where keys only
+      -- contain public keys of block issuers passed to checking
+      -- function.
     , vhpMaxSize         :: !(Maybe Byte)
     , vhpVerifyNoUnknown :: !Bool
-    -- ^ Check that header has no unknown attributes.
+      -- ^ Check that header has no unknown attributes.
     } deriving (Show, Eq)
 
 -- | By default nothing is checked.
@@ -277,6 +287,7 @@ instance Default (VerifyHeaderParams ssc) where
         , vhpNextHeader = Nothing
         , vhpCurrentSlot = Nothing
         , vhpLeaders = Nothing
+        , vhpHeavyCerts = Nothing
         , vhpMaxSize = Nothing
         , vhpVerifyNoUnknown = False
         }
@@ -285,24 +296,24 @@ maybeEmpty :: Monoid m => (a -> m) -> Maybe a -> m
 maybeEmpty = maybe mempty
 
 -- CHECK: @verifyHeader
--- | Check some predicates (determined by VerifyHeaderParams) about
--- BlockHeader.
+-- | Check some predicates (determined by 'VerifyHeaderParams') about
+-- 'BlockHeader'.
 -- #verifyConsensusLocal
 --
 verifyHeader
     :: forall ssc . BiSsc ssc
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
-    consensusRes <> verifyGeneric checks
+    verifyConsensus <> verifyGeneric checks
   where
-    consensusRes | vhpVerifyConsensus = verifyConsensusLocal h
-                 | otherwise = mempty
+    verifyConsensus = bool mempty (verifyConsensusLocal h) vhpVerifyConsensus
     checks =
         mconcat
             [ maybeEmpty relatedToPrevHeader vhpPrevHeader
             , maybeEmpty relatedToNextHeader vhpNextHeader
             , maybeEmpty relatedToCurrentSlot vhpCurrentSlot
             , maybeEmpty relatedToLeaders vhpLeaders
+            , maybeEmpty heavyCertValid vhpHeavyCerts
             , checkSize
             , bool mempty (verifyNoUnknown h) vhpVerifyNoUnknown
             ]
@@ -319,9 +330,7 @@ verifyHeader VerifyHeaderParams {..} h =
               ("incorrect difficulty (expected "%int%", found "%int%")")
               expectedDifficulty
               actualDifficulty)
-    checkSlot :: EpochOrSlot
-              -> EpochOrSlot
-              -> (Bool, Text)
+    checkSlot :: EpochOrSlot -> EpochOrSlot -> (Bool, Text)
     checkSlot oldSlot newSlot =
         ( oldSlot < newSlot
         , sformat
@@ -407,7 +416,22 @@ verifyHeader VerifyHeaderParams {..} h =
              , sformat ("main header has unknown attributes: "%build) attrs)
            ]
 
--- | Verifies a set of block headers.
+    heavyCertValid validCerts = flip (either mempty) h $ \h' ->
+        case h' ^. gbhConsensus ^. mcdSignature of
+            (BlockPSignatureHeavy proxySig) ->
+                -- Block consensus public key is issuer's one, so we can
+                -- use it to index heavy psks map.
+                [ ( maybe False (\psk -> pskCert psk == pdCert proxySig) $
+                    HM.lookup (h' ^. mainHeaderLeaderKey) validCerts
+                  , sformat ("proxy signature's "%build%" related proxy cert "%
+                             "can't be found/doesn't match the one in current "%
+                             "allowed heavy psks set")
+                            proxySig
+                  ) ]
+            _                               -> mempty
+
+-- | Verifies a set of block headers. Only basic consensus check and
+-- linking checks are performed!
 verifyHeaders
     :: BiSsc ssc
     => Bool -> NewestFirst [] (BlockHeader ssc) -> VerificationRes
@@ -530,6 +554,22 @@ verifyBlock VerifyBlockParams {..} blk =
                  , sformat ("main block has unknown attributes: "%build) attrs)
                ]
 
+-- Type alias for common type used inside 'verifyBlocks'
+type VerifyBlocksIter ssc =
+    (Maybe SlotLeaders, Maybe ProxySKHeavyMap, Maybe (BlockHeader ssc), VerificationRes)
+
+-- Applies block certificates to 'ProxySKHeavyMap'. Used in
+-- 'verifyBlocks'. It's not the best place for it here, but i can't
+-- put it to "Delegation.Logic" because it leads to dependency cycle.
+pskHeavyMapApplyBlock :: MainBlock ssc -> ProxySKHeavyMap -> ProxySKHeavyMap
+pskHeavyMapApplyBlock block m = flip execState m $ do
+    let (toDelete,toReplace) =
+            partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
+                      (view mainBlockDlgPayload block)
+    for_ toDelete $ \psk -> identity %= HM.delete (pskIssuerPk psk)
+    for_ toReplace $ \psk -> identity %= HM.insert (pskIssuerPk psk) psk
+
+
 -- CHECK: @verifyBlocks
 -- Verifies a sequence of blocks.
 -- #verifyBlock
@@ -550,21 +590,21 @@ verifyBlocks
     -> Bool
     -> BlockVersionData
     -> Maybe SlotLeaders
+    -> Maybe ProxySKHeavyMap
     -> OldestFirst f (Block ssc)
     -> VerificationRes
-verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
+verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . foldl' step start
   where
-    start :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
-    start = (initLeaders, Nothing, mempty)
-    step
-        :: (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
-        -> Block ssc
-        -> (Maybe SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
-    step (leaders, prevHeader, res) blk =
-        let newLeaders =
-                case blk of
-                    Left genesisBlock -> Just $ genesisBlock ^. genBlockLeaders
-                    Right _           -> leaders
+    start :: VerifyBlocksIter ssc
+    start = (initLeaders, initPsks, Nothing, mempty)
+    step :: VerifyBlocksIter ssc -> Block ssc -> VerifyBlocksIter ssc
+    step (leaders, psks, prevHeader, res) blk =
+        let newLeaders = case blk of
+                Left genesisBlock -> Just $ genesisBlock ^. genBlockLeaders
+                Right _           -> leaders
+            newPsks = case blk of
+                Left _  ->         psks
+                Right b ->         pskHeavyMapApplyBlock b <$> psks
             vhp =
                 VerifyHeaderParams
                 { vhpVerifyConsensus = True
@@ -572,6 +612,7 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step s
                 , vhpNextHeader = Nothing
                 , vhpLeaders = newLeaders
                 , vhpCurrentSlot = curSlotId
+                , vhpHeavyCerts = psks
                 , vhpMaxSize = Just (bvdMaxHeaderSize bvd)
                 , vhpVerifyNoUnknown = verifyNoUnknown
                 }
@@ -584,4 +625,4 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step s
                 , vbpMaxSize = Just (bvdMaxBlockSize bvd)
                 , vbpVerifyNoUnknown = verifyNoUnknown
                 }
-        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)
+        in (newLeaders, newPsks, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)

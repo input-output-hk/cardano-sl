@@ -2,7 +2,9 @@
 
 -- | Test on functions trimming data to given limit.
 
-module Test.Pos.Util.LimitsSpec where
+module Test.Pos.Util.LimitsSpec
+    ( spec
+    ) where
 
 
 import           Universum

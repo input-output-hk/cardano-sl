@@ -1,6 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Main where
+module Main
+  ( main
+  ) where
 
 import           Control.Lens         (each, _head)
 import           Data.Aeson           (eitherDecode)
@@ -20,8 +22,8 @@ import           Pos.Binary           (decodeFull, encode)
 import           Pos.Core             (coinToInteger, mkCoin, unsafeAddCoin,
                                        unsafeIntegerToCoin)
 import           Pos.Genesis          (GenesisData (..), StakeDistribution (..),
-                                       genesisDevHdwSecretKeys, genesisDevSecretKeys,
-                                       getTotalStake)
+                                       genesisDevHdwSecretKeys, genesisDevHdwSecretKeys,
+                                       genesisDevSecretKeys, getTotalStake)
 import           Pos.Types            (addressDetailedF, addressHash, makePubKeyAddress,
                                        makeRedeemAddress)
 
@@ -31,8 +33,7 @@ import           KeygenOptions        (AvvmStakeOptions (..), FakeAvvmOptions (.
                                        KeygenOptions (..), TestStakeOptions (..),
                                        optsInfo)
 import           Testnet              (genTestnetStakes, generateFakeAvvm,
-                                       generateHdwKeyfile, generateKeyfile,
-                                       rearrangeKeyfile)
+                                       generateKeyfile, rearrangeKeyfile)
 
 replace :: FilePath -> FilePath -> FilePath -> FilePath
 replace a b = toString . (T.replace `on` toText) a b . toText
@@ -54,7 +55,7 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
     poorsList <- forM [1 .. tsoPoors] $ \i ->
         generateKeyfile False Nothing (applyPattern tsoPattern i)
 
-    let genesisList = richmenList ++ poorsList
+    let genesisList = richmenList ++ poorsList <&> \(k, vc, _) -> (k, vc)
 
     putText $ show totalStakeholders <> " keyfiles are generated"
 
@@ -63,6 +64,7 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
             RichPoorStakes {..} -> sdRichStake
             _ -> error "cardano-keygen: impossible type of generated testnet stake"
         genesisAddrs = map (makePubKeyAddress . fst) genesisList
+                    <> map (view _3) poorsList
         genesisVssCerts = HM.fromList
                           $ map (_1 %~ addressHash)
                           $ take (fromIntegral tsoRichmen) genesisList
@@ -122,10 +124,9 @@ dumpKeys :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 dumpKeys pat = do
     let keysDir = takeDirectory pat
     liftIO $ createDirectoryIfMissing True keysDir
-    for_ (zip [1..] genesisDevSecretKeys) $ \(i :: Int, k) ->
-        generateKeyfile False (Just k) $ applyPattern pat i
-    for_ (zip [1..] genesisDevHdwSecretKeys) $ \(i :: Int, k) ->
-        generateHdwKeyfile k $ applyPattern (pat <> ".hd") i
+    for_ (zip3 [1 ..] genesisDevSecretKeys genesisDevHdwSecretKeys) $
+        \(i :: Int, k, wk) ->
+        generateKeyfile False (Just (k, wk)) $ applyPattern pat i
 
 reassignBalances :: GenesisData -> GenesisData
 reassignBalances GenesisData{..} = GenesisData

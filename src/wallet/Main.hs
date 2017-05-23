@@ -3,13 +3,16 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Main where
+module Main
+  ( main
+  ) where
 
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.Reader       (MonadReader (..), ReaderT, ask, runReaderT)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import qualified Data.ByteString            as BS
+import qualified Data.HashMap.Strict        as HM
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as S (fromList, toList)
@@ -34,11 +37,13 @@ import           Pos.Communication          (NodeId, OutSpecs, SendActions, Work
                                              WorkerSpec, sendTxOuts, submitTx, worker)
 import           Pos.Constants              (genesisBlockVersionData, isDevelopment)
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVote),
-                                             emptyPassphrase, encToPublic, fakeSigner,
-                                             hash, hashHexF, noPassEncrypt, safeSign,
-                                             toPublic, unsafeHash, withSafeSigner)
+                                             createProxySecretKey, emptyPassphrase,
+                                             encToPublic, fakeSigner, hash, hashHexF,
+                                             noPassEncrypt, safeSign, toPublic,
+                                             unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes        (mkAttributes)
-import           Pos.Delegation             (sendProxySKHeavyOuts, sendProxySKLightOuts)
+import           Pos.Delegation             (sendProxySKHeavy, sendProxySKHeavyOuts,
+                                             sendProxySKLight, sendProxySKLightOuts)
 import           Pos.Discovery              (findPeers, getPeers)
 import           Pos.Genesis                (genesisDevSecretKeys,
                                              genesisStakeDistribution, genesisUtxo)
@@ -48,9 +53,8 @@ import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (coinF, makePubKeyAddress)
-import           Pos.Update                 (BlockVersionData (..), UpdateVote (..),
-                                             mkUpdateProposalWSign, patakUpdateData,
-                                             skovorodaUpdateData)
+import           Pos.Update                 (BlockVersionData (..), UpdateData (..),
+                                             UpdateVote (..), mkUpdateProposalWSign)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Wallet                 (WalletMode, WalletParams (..),
@@ -144,7 +148,8 @@ runCmd sendActions ProposeUpdate{..} = do
             , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
             , bvdMaxBlockSize = puMaxBlockSize
             }
-    let udata = maybe patakUpdateData skovorodaUpdateData diffFile
+    let udata' h = HM.fromList [(puSystemTag, UpdateData h h h h)]
+    let udata = maybe (error "Failed to read prop file") udata' diffFile
     let whenCantCreate = error . mappend "Failed to create update proposal: "
     lift $ withSafeSigner skey (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
@@ -191,21 +196,20 @@ runCmd _ ListAddresses = do
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $
        putText . uncurry (sformat $ "    #"%int%":   "%build)
-runCmd __sendActions (DelegateLight __i __j) = error "Not implemented"
---   (skeys, _) <- ask
---   let issuerSk = skeys !! i
---       delegatePk = undefined
---       psk = createProxySecretKey issuerSk delegatePk (EpochIndex 0, EpochIndex 50)
---   lift $ sendProxySKLight psk sendActions
---   putText "Sent lightweight cert"
-runCmd __sendActions (DelegateHeavy __i __j __epochMaybe) = error "Not implemented"
---   (skeys, _) <- ask
---   let issuerSk = skeys !! i
---       delegatePk = undefined
---       epoch = fromMaybe 0 epochMaybe
---       psk = createProxySecretKey issuerSk delegatePk epoch
---   lift $ sendProxySKHeavy psk sendActions
---   putText "Sent heavyweight cert"
+runCmd sendActions (DelegateLight i j startEpoch lastEpochM) = do
+   (skeys, _) <- ask
+   let issuerSk = skeys !! i
+       delegatePk = toPublic $ skeys !! j
+       psk = createProxySecretKey issuerSk delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
+   lift $ sendProxySKLight psk sendActions
+   putText "Sent lightweight cert"
+runCmd sendActions (DelegateHeavy i j curEpoch) = do
+   (skeys, _) <- ask
+   let issuerSk = skeys !! i
+       delegatePk = toPublic $ skeys !! j
+       psk = createProxySecretKey issuerSk delegatePk curEpoch
+   lift $ sendProxySKHeavy psk sendActions
+   putText "Sent heavyweight cert"
 runCmd _ (AddKeyFromPool i) = do
    (skeys, _) <- ask
    let key = skeys !! i

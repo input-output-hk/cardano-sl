@@ -91,6 +91,7 @@ extra-deps:
 - servant-docs-0.10
 - servant-multipart-0.10
 - parsec3-numbers-0.1.0
+- cryptonite-openssl-0.6
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

@@ -19,6 +19,11 @@ module Pos.Util.Util
        , getKeys
        , sortWithMDesc
 
+       -- * Lenses
+       , _neHead
+       , _neTail
+       , _neLast
+
        -- * Ether
        , ether
        , Ether.TaggedTrans
@@ -54,6 +59,9 @@ module Pos.Util.Util
        -- *** HasLoggerName Ether.StateT
        ) where
 
+import           Universum
+import           Unsafe                         (unsafeInit, unsafeLast)
+
 import           Control.Lens                   (ALens', Getter, Getting, cloneLens, to)
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Morph            (MFunctor (..))
@@ -78,7 +86,6 @@ import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
                                                  LoggerNameBox (..))
-import           Universum
 
 ----------------------------------------------------------------------------
 -- Some
@@ -276,3 +283,24 @@ inAssertMode x = x *> pure ()
 inAssertMode _ = pure ()
 #endif
 {-# INLINE inAssertMode #-}
+
+----------------------------------------------------------------------------
+-- Lenses
+----------------------------------------------------------------------------
+
+-- | Lens for the head of 'NonEmpty'.
+--
+-- We can't use '_head' because it doesn't work for 'NonEmpty':
+-- <https://github.com/ekmett/lens/issues/636#issuecomment-213981096>.
+-- Even if we could though, it wouldn't be a lens, only a traversal.
+_neHead :: Lens' (NonEmpty a) a
+_neHead f (x :| xs) = (:| xs) <$> f x
+
+-- | Lens for the tail of 'NonEmpty'.
+_neTail :: Lens' (NonEmpty a) [a]
+_neTail f (x :| xs) = (x :|) <$> f xs
+
+-- | Lens for the last element of 'NonEmpty'.
+_neLast :: Lens' (NonEmpty a) a
+_neLast f (x :| []) = (:| []) <$> f x
+_neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)

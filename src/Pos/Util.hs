@@ -16,6 +16,7 @@ module Pos.Util
        , mappendPair
        , mconcatPair
        , (<//>)
+       , eitherToVerRes
        , readerToState
        , eitherPanic
        , diffDoubleMap
@@ -27,11 +28,6 @@ module Pos.Util
 
        -- * Lenses
        , makeLensesData
-       , _neHead
-       , _neTail
-       , _neLast
-
-       , eitherToVerRes
 
        -- * Concurrency
        , clearMVar
@@ -70,7 +66,6 @@ import           Mockable                         (Mockable, Throw, throw)
 import           Serokell.Util                    (VerificationRes (..))
 import           System.Wlog                      (LoggerNameBox (..))
 import           Text.Parsec                      (ParsecT)
-import           Unsafe                           (unsafeInit, unsafeLast)
 -- SafeCopy instance for HashMap
 import           Serokell.AcidState               ()
 
@@ -174,23 +169,6 @@ makeLensesData familyName typeParamName = do
     decToType (TH.NewtypeD _ n _ _ _ _) = return (TH.ConT n)
     decToType other                     =
         fail ("makeLensesIndexed: decToType failed on: " ++ show other)
-
--- | Lens for the head of 'NonEmpty'.
---
--- We can't use '_head' because it doesn't work for 'NonEmpty':
--- <https://github.com/ekmett/lens/issues/636#issuecomment-213981096>.
--- Even if we could though, it wouldn't be a lens, only a traversal.
-_neHead :: Lens' (NonEmpty a) a
-_neHead f (x :| xs) = (:| xs) <$> f x
-
--- | Lens for the tail of 'NonEmpty'.
-_neTail :: Lens' (NonEmpty a) [a]
-_neTail f (x :| xs) = (x :|) <$> f xs
-
--- | Lens for the last element of 'NonEmpty'.
-_neLast :: Lens' (NonEmpty a) a
-_neLast f (x :| []) = (:| []) <$> f x
-_neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
 
 ----------------------------------------------------------------------------
 -- Deserialized wrapper

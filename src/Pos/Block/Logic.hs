@@ -30,6 +30,8 @@ module Pos.Block.Logic
        , createMainBlockPure
        ) where
 
+import           Universum
+
 import           Control.Lens               (uses, (-=), (.=), _Wrapped)
 import           Control.Monad.Catch        (try)
 import           Control.Monad.Except       (ExceptT (ExceptT), MonadError (throwError),
@@ -49,7 +51,6 @@ import           Serokell.Util.Verify       (VerificationRes (..), formatAllErro
                                              isVerSuccess, verResToMonadError)
 import           System.Wlog                (CanLog, HasLoggerName, logDebug, logError,
                                              logInfo)
-import           Universum
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (Block, BlockHeader, GenesisBlock, MainBlock,
@@ -98,6 +99,7 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefau
                                              SscWorkersClass (..))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal,
                                              sscVerifyBlocks)
+import           Pos.Ssc.Util               (toSscBlock)
 import           Pos.Txp.Core               (TxAux (..), TxPayload, mkTxPayload,
                                              topsortTxs)
 import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxsNUndo)
@@ -510,7 +512,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     verResToMonadError formatAllErrors $
         Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
         (Just leaders) (Just pskCerts) blocks
-    _ <- withExceptT pretty $ sscVerifyBlocks blocks
+    _ <- withExceptT pretty $ sscVerifyBlocks (map toSscBlock blocks)
     TxpGlobalSettings {..} <- Ether.ask'
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
         map toTxpBlock blocks

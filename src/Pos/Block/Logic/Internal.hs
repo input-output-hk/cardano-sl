@@ -50,6 +50,7 @@ import           Pos.Txp.Logic        (txNormalize)
 #endif
 import           Pos.Ssc.Class        (Ssc)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
+import           Pos.Ssc.Util         (toSscBlock)
 import           Pos.Txp.Settings     (TxpBlund, TxpGlobalSettings (..))
 import           Pos.Update.Core      (UpdateBlock, UpdatePayload)
 import qualified Pos.Update.DB        as UDB
@@ -122,12 +123,11 @@ applyBlocksUnsafeDo blunds pModifier = do
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
-    sscBatch <- SomeBatchOp <$> sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
-    let putTip = SomeBatchOp $
-                 GS.PutTip $
-                 headerHash $
-                 NE.last $
-                 getOldestFirst blunds
+    sscBatch <- SomeBatchOp <$>
+        -- TODO: pass not only 'Nothing'
+        sscApplyBlocks (map toSscBlock blocks) Nothing
+    let tip = NE.last (getOldestFirst blunds)
+    let putTip = SomeBatchOp $ GS.PutTip $ headerHash tip
     GS.writeBatchGState
         [ putTip
         , delegateBatch
@@ -137,7 +137,7 @@ applyBlocksUnsafeDo blunds pModifier = do
         , inMainBatch
         , sscBatch
         ]
-    sscNormalize
+    sscNormalize (tip ^. _1 . epochIndexL)
 #ifdef WITH_EXPLORER
     eTxNormalize
 #else
@@ -173,7 +173,8 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- Ether.ask'
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
-    sscBatch <- SomeBatchOp <$> sscRollbackBlocks (fmap fst toRollback)
+    sscBatch <- SomeBatchOp <$>
+        sscRollbackBlocks (map (toSscBlock . fst) toRollback)
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $

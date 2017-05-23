@@ -65,6 +65,7 @@ data MemPoolModifyReason =
     | CreateBlock
       -- | Include a transaction. It came from this peer.
     | ProcessTransaction TransactionProvenance
+    | Custom Text
     | Unknown
     deriving Show
 

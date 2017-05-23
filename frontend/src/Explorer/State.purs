@@ -58,12 +58,10 @@ initialState =
             }
         }
     , latestBlocks: NotAsked
-    , pullLatestBlocks: false -- TODO (jk) Remove it if socket-io will be fixed
     , totalBlocks: NotAsked
     , currentBlockSummary: Nothing
     , currentBlockTxs: Nothing
     , latestTransactions: NotAsked
-    , pullLatestTxs: false    -- TODO (jk) Remove it if socket-io will be fixed
     , currentTxSummary: NotAsked
     , currentCAddress: mkCAddress ""
     , currentAddressSummary: NotAsked

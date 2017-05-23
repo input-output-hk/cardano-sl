@@ -5,7 +5,7 @@ import DOM.HTML.Types (HTMLElement, HTMLInputElement)
 import Data.DateTime (DateTime)
 import Data.Either (Either)
 import Data.Maybe (Maybe)
-import Explorer.Api.Types (RequestLimit, RequestOffset, SocketSubscription, SocketSubscriptionAction)
+import Explorer.Api.Types (RequestLimit, RequestOffset, SocketSubscription)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, Search)
@@ -28,10 +28,10 @@ data Action
     | SocketConnected Boolean
     | SocketBlocksUpdated (Either Error CBlockEntries)
     | SocketTxsUpdated (Either Error CTxEntries)
-    | SocketUpdateSubscriptions (Array SocketSubscription) SocketSubscriptionAction
+    | SocketAddSubscription SocketSubscription
+    | SocketRemoveSubscription SocketSubscription
+    | SocketUpdateSubscriptions (Array SocketSubscription)
     | SocketReconnectSubscriptions
-    | SocketSubscribePaginatedBlocks Int
-    | SocketUnsubscribePaginatedBlocks Int
     -- socket endpoints for debugging only
     | SocketCallMe
     | SocketCallMeString String
@@ -45,10 +45,8 @@ data Action
     | ReceiveBlockSummary (Either Error CBlockSummary)
     | RequestBlockTxs CHash
     | ReceiveBlockTxs (Either Error CTxBriefs)
-    | RequestInitialTxs
-    | ReceiveInitialTxs (Either Error CTxEntries)
-    | RequestTxsUpdate                                -- TODO (jk) Remove it if socket-io will be fixed
-    | ReceiveTxsUpdate (Either Error CTxEntries)      -- TODO (jk) Remove it if socket-io will be fixed
+    | RequestLastTxs
+    | ReceiveLastTxs (Either Error CTxEntries)
     | RequestTxSummary CTxId
     | ReceiveTxSummary (Either Error CTxSummary)
     | RequestAddressSummary CAddress

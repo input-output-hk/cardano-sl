@@ -1,5 +1,6 @@
 module Statistics.Tx
     ( txReceivedF
+    , txFirstReceivedF
     ) where
 
 import           Control.Foldl   (Fold (..))
@@ -8,18 +9,17 @@ import qualified Data.Map.Strict as M
 
 import JSONLog
 import Pos.Util.JsonLog          (JLEvent (..), JLTxR (..))
-import Prelude                   (id)
+import Prelude                   (id, head)
 import Types
-import Universum
+import Universum                 hiding (head)
 
-txReceivedF :: Fold IndexedJLTimedEvent (Map TxHash Timestamp)
-txReceivedF = Fold step M.empty id
+txReceivedF :: Fold IndexedJLTimedEvent (Map TxHash [(Timestamp, NodeIndex)])
+txReceivedF = M.map reverse <$> Fold step M.empty id
   where
-    step :: Map TxHash Timestamp -> IndexedJLTimedEvent -> Map TxHash Timestamp
+    step :: Map TxHash [(Timestamp, NodeIndex)] -> IndexedJLTimedEvent -> Map TxHash [(Timestamp, NodeIndex)]
     step m IndexedJLTimedEvent{..} = case ijlEvent of
-        JLTxReceived JLTxR{..} -> M.alter (f ijlTimestamp) jlrTxId m
+        JLTxReceived JLTxR{..} -> M.insertWith (++) jlrTxId [(ijlTimestamp, ijlNode)] m
         _                      -> m
 
-    f :: Timestamp -> Maybe Timestamp -> Maybe Timestamp
-    f ts Nothing    = Just ts
-    f ts (Just ts') = Just $ min ts ts'
+txFirstReceivedF :: Fold IndexedJLTimedEvent (Map TxHash Timestamp)
+txFirstReceivedF = M.map (fst . head) <$> txReceivedF

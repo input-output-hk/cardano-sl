@@ -20,7 +20,7 @@ import qualified Data.Text        as T
 import           JSONLog          (IndexedJLTimedEvent (..))
 import           Pos.Util.JsonLog (JLEvent (..), JLBlock (..))
 import           Prelude          (id)
-import           Statistics.Tx    (txReceivedF)
+import           Statistics.Tx    (txFirstReceivedF)
 import           Types
 import           Universum        hiding (fold)
 
@@ -120,7 +120,7 @@ txInBlockChain (InBlockChain ts _ _) = Just ts
 txInBlockChain (InFork _)            = Nothing
 
 txFateF :: Fold IndexedJLTimedEvent (SMap TxHash TxFate) 
-txFateF = f <$> txReceivedF <*> txBlocksF <*> blockChainF
+txFateF = f <$> txFirstReceivedF <*> txBlocksF <*> blockChainF
   where
     f :: SMap TxHash Timestamp -> SMap TxHash [(Timestamp, BlockHash)] -> Set BlockHash -> SMap TxHash TxFate
     f received blocks chain = MS.fromList [(tx, fate tx) | tx <- MS.keys received]

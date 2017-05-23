@@ -2,8 +2,8 @@
 
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Communication.Relay.Logic
        ( Relay (..)
@@ -30,11 +30,11 @@ module Pos.Communication.Relay.Logic
 
 import           Control.Concurrent.STM             (isFullTBQueue, readTBQueue,
                                                      writeTBQueue)
-import           Data.Aeson.TH                      (deriveJSON, defaultOptions)
+import           Data.Aeson.TH                      (defaultOptions, deriveJSON)
 import           Formatting                         (build, sformat, shown, stext, (%))
-import           Mockable                           (Mockable, MonadMockable, Throw,
-                                                     handleAll, throw, throw,
-                                                     CurrentTime, currentTime)
+import           Mockable                           (CurrentTime, Mockable, MonadMockable,
+                                                     Throw, currentTime, handleAll, throw,
+                                                     throw)
 import           Node.Message                       (Message)
 import           Paths_cardano_sl_infra             (version)
 import           Serokell.Util.Text                 (listJson)
@@ -176,6 +176,7 @@ handleDataL
        ( Bi (InvMsg key tag)
        , Bi (ReqMsg key tag)
        , Bi key
+       , Eq key
        , Bi tag
        , Bi (DataMsg contents)
        , MessagePart tag
@@ -202,7 +203,7 @@ handleDataL proxy __nodeId msg@(DataMsg {..}) =
             tag <- contentsToTag dmContents
             let inv :: InvOrData tag key contents
                 inv = Left $ InvMsg tag dmKey
-            addToRelayQueue inv
+            addToRelayQueue tag dmKey dmContents
             logInfo $ sformat
                 ("Adopted data "%build%" "%
                   "for key "%build%", data has been pushed to propagation queue...")
@@ -228,7 +229,8 @@ processMessage defaultRes name param verifier action = do
 
 relayListeners
   :: forall m key tag contents.
-     ( Bi key
+     ( Eq key
+     , Bi key
      , Bi tag
      , Bi (InvMsg key tag)
      , Bi (DataMsg contents)
@@ -317,16 +319,17 @@ addToRelayQueue
        , Message (ReqMsg key tag)
        , Buildable tag
        , Buildable key
+       , Eq key
        , RelayWorkMode m
        )
-    => InvOrData tag key contents -> m ()
-addToRelayQueue inv = do
+    => tag -> key -> contents -> m ()
+addToRelayQueue tag key conts = do
     queue <- _rlyPropagationQueue <$> askRelayMem
     isFull <- atomically $ isFullTBQueue queue
     if isFull then
         logWarning $ "Propagation queue is full, no propagation"
     else
-        atomically $ writeTBQueue queue (SomeInvMsg inv)
+        atomically $ writeTBQueue queue (SomeInvMsg tag key conts)
 
 relayWorkers
     :: forall m.
@@ -344,21 +347,30 @@ relayWorkers allOutSpecs =
     action sendActions = do
         queue <- _rlyPropagationQueue <$> askRelayMem
         forever $ atomically (readTBQueue queue) >>= \case
-            SomeInvMsg i@(Left (InvMsg{..})) -> do
+            SomeInvMsg tag key contents -> do
                 logDebug $ sformat
                     ("Propagation data with key: "%build%
-                     " and tag: "%build) imKey imTag
-                converseToNeighbors sendActions (convHandler i)
-            SomeInvMsg (Right _) ->
-                logWarning $ "DataMsg is contains in inv propagation queue"
+                     " and tag: "%build) key tag
+                converseToNeighbors sendActions (convHandler tag key contents)
 
     convHandler
-        :: InvOrData tag1 key1 contents1
+        :: Eq key1
+        => tag1
+        -> key1
+        -> contents1
         -> NodeId
         -> ConversationActions
              (InvOrData tag1 key1 contents1) (ReqMsg key1 tag1) m
         -> m ()
-    convHandler inv __nodeId ConversationActions{..} = send inv
+    convHandler tag key conts __peerId conv = do
+        send conv $ Left $ InvMsg tag key
+        let whileNotK = do
+              rm <- recv conv
+              whenJust rm $ \ReqMsg{..} -> do
+                if rmKey == key
+                   then send conv $ Right $ DataMsg conts
+                   else whileNotK
+        whileNotK
 
     handleWE e = do
         logError $ sformat ("relayWorker: error caught "%shown) e

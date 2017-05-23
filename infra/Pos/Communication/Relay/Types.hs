@@ -27,11 +27,12 @@ data SomeInvMsg =
     forall tag key contents .
         ( Message (InvOrData tag key contents)
         , Bi (InvOrData tag key contents)
-        , Buildable tag,
-          Buildable key
+        , Buildable tag
+        , Buildable key
+        , Eq key
         , Message (ReqMsg key tag)
         , Bi (ReqMsg key tag))
-        => SomeInvMsg !(InvOrData tag key contents)
+        => SomeInvMsg !tag !key !contents
 
 -- | Queue of InvMsges which should be propagated.
 type RelayInvQueue = TBQueue SomeInvMsg

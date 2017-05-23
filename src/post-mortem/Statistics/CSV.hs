@@ -1,12 +1,15 @@
 module Statistics.CSV
     ( txCntInChainMemPoolToCSV
+    , focusToCSV
     ) where
 
-import System.IO (hPutStrLn)
+import           System.IO        (hPutStrLn)
+import qualified Data.Text        as T
 
-import Pos.Util.JsonLog (JLMemPool (..))
-import Types
-import Universum
+import           Statistics.Focus (Focus (..))
+import           Pos.Util.JsonLog (JLMemPool (..))
+import           Types
+import           Universum
 
 txCntInChainMemPoolToCSV :: FilePath 
                          -> [(NodeIndex, Timestamp, Int)] 
@@ -25,3 +28,24 @@ txCntInChainMemPoolToCSV f txCnt mp = withFile f WriteMode $ \h -> do
     
     toTxType :: String -> JLMemPool -> String
     toTxType s JLMemPool{..} = "mp_" ++ show jlmReason ++ "_" ++ s
+
+focusToCSV :: FilePath -> [(Timestamp, NodeIndex, Focus)] -> IO ()
+focusToCSV f xs = withFile f WriteMode $ \h -> do
+    hPutStrLn h "time,delta_first_seconds,delta_step_seconds,node,type,block/error"
+    case xs of
+        []                -> return ()
+        ((ts0, _, _) : _) -> foldM_ (step h ts0) ts0 xs
+  where
+    step :: Handle -> Timestamp -> Timestamp -> (Timestamp, NodeIndex, Focus) -> IO Timestamp
+    step h ts0 ts (ts', n, y) = do
+        let dt0 = fromIntegral (ts' - ts0) / 1000000 :: Double
+            dt  = fromIntegral (ts' - ts ) / 1000000 :: Double
+        case y of
+            Received me         -> csvLine h ts' dt0 dt n "received" $ maybe "" show me
+            InCreatedBlock hash -> csvLine h ts' dt0 dt n "created" $ T.take 6 hash
+            InAdoptedBlock hash -> csvLine h ts' dt0 dt n "adopted" $ T.take 6 hash
+        return ts'
+
+    csvLine :: Handle -> Timestamp -> Double -> Double -> NodeIndex -> String -> BlockHash -> IO ()
+    csvLine h ts dt0 dt node t he =
+        hPutStrLn h $ show ts ++ "," ++ show dt0 ++ "," ++ show dt ++ "," ++ show node ++ "," ++ t ++ "," ++ toString he 

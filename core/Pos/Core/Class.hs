@@ -21,8 +21,9 @@ module Pos.Core.Class
        , IsMainHeader (..)
        ) where
 
-import           Control.Lens   (Getter, choosing, lens, to)
 import           Universum
+
+import           Control.Lens   (Getter, choosing, lens, to)
 
 import           Pos.Core.Types (BlockVersion, ChainDifficulty, EpochIndex,
                                  EpochOrSlot (..), HeaderHash, SlotId, SoftwareVersion,

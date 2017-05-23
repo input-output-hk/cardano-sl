@@ -229,8 +229,8 @@ fromCWalletAddress :: CWalletAddress -> Either Text WalletAddress
 fromCWalletAddress (CWalletAddress url) =
     case splitOn "@" url of
         [part1, part2] -> do
-            waWSAddress <- addressToCAddress <$> decodeTextAddress part1
-            waIndex     <- maybe (Left "Invalid wallet index") Right $
+            waWSId  <- addressToCAddress <$> decodeTextAddress part1
+            waIndex <- maybe (Left "Invalid wallet index") Right $
                             readMaybe $ toString part2
             return WalletAddress{..}
         _ -> Left "Expected 2 parts separated by '@'"

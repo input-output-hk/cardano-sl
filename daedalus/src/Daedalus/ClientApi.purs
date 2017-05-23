@@ -6,7 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION, error)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (getProfileLocale, mkCAddress, mkCCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCCurrency, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkBackupPhrase, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCWalletSetInit)
+import Daedalus.Types (getProfileLocale, mkCAddress, mkCCoin, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCProfile, mkCWalletInit, mkCWalletRedeem, mkBackupPhrase, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCWalletSetInit)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Bifunctor (lmap)
 import Data.Argonaut (Json)
@@ -86,10 +86,10 @@ getWalletSets = fromAff $ map encodeJson B.getWalletSets
 -- |   cwsHasPassphrase: true,
 -- |   cwsId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW' }
 -- | ```
-newWalletSet :: forall eff . EffFn3 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String
+newWalletSet :: forall eff . EffFn5 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String Int String String
   (Promise Json)
-newWalletSet = mkEffFn3 \wSetName mnemonic spendingPassword -> fromAff <<< map encodeJson <<<
-    either throwError (B.newWalletSet $ mkCPassPhrase spendingPassword) $ mkCWalletSetInit wSetName mnemonic
+newWalletSet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword -> fromAff <<< map encodeJson <<<
+    either throwError (B.newWalletSet $ mkCPassPhrase spendingPassword) $ mkCWalletSetInit wSetName wsAssurance wsUnit mnemonic
 
 -- TODO: note that restoreWalletSet and newWalletSet are the same. They will be unified in future
 
@@ -104,8 +104,8 @@ newWalletSet = mkEffFn3 \wSetName mnemonic spendingPassword -> fromAff <<< map e
 -- |   cwsPassphraseLU: 1494846878.0783634,
 -- |   cwsHasPassphrase: true,
 -- |   cwsId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW' }
-restoreWalletSet :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String (Promise Json)
-restoreWalletSet = mkEffFn3 \wSetName mnemonic spendingPassword -> fromAff <<< map encodeJson <<< either throwError (B.restoreWalletSet $ mkCPassPhrase spendingPassword) $ mkCWalletSetInit wSetName mnemonic
+restoreWalletSet :: forall eff. EffFn5 (ajax :: AJAX | eff) String String Int String String (Promise Json)
+restoreWalletSet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword -> fromAff <<< map encodeJson <<< either throwError (B.restoreWalletSet $ mkCPassPhrase spendingPassword) $ mkCWalletSetInit wSetName wsAssurance wsUnit mnemonic
 
 -- | Rename a wallet set.
 -- Arguments: wallet set id/hash, name
@@ -162,7 +162,6 @@ changeWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff $ B.changeWall
 -- |    { cwUnit: 0,
 -- |      cwType: 'CWTPersonal',
 -- |      cwName: 'drugs',
--- |      cwCurrency: 'ADA',
 -- |      cwAssurance: 'CWANormal' },
 -- |   cwId:
 -- |    { cwaWSId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
@@ -183,7 +182,6 @@ getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< either (throwError <<< err
 -- |      { cwUnit: 0,
 -- |        cwType: 'CWTPersonal',
 -- |        cwName: 'drugs',
--- |        cwCurrency: 'ADA',
 -- |        cwAssurance: 'CWANormal' },
 -- |     cwId:
 -- |      { cwaWSId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
@@ -203,7 +201,6 @@ getWallets = fromAff $ map encodeJson $ B.getWallets Nothing
 -- |      { cwUnit: 0,
 -- |        cwType: 'CWTPersonal',
 -- |        cwName: 'Initial wallet',
--- |        cwCurrency: 'ADA',
 -- |        cwAssurance: 'CWANormal' },
 -- |     cwId:
 -- |      { cwaWSId: '1fbPUqmdG1PdYpKxhw8qYc5hC342W3STosbcZNMqsadodxL',
@@ -223,7 +220,6 @@ getSetWallets = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallets <<< Just 
 -- |    { cwUnit: 0,
 -- |      cwType: 'CWTPersonal',
 -- |      cwName: 'Initial wallet',
--- |      cwCurrency: 'ADA',
 -- |      cwAssurance: 'CWANormal' },
 -- |   cwId:
 -- |    { cwaWSId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
@@ -231,10 +227,10 @@ getSetWallets = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallets <<< Just 
 -- |   cwAccounts:
 -- |    [ { caAmount: [Object],
 -- |        caId: '19LniCeNbAxec4FkyxPHCHDzUSnnf4ZymZChq2s9JmYjyr9senVjp4PnbNJ5DPXB8WrWhHCV6Dv2Qv9jdUR5bfNfhdt2vs' } ] }
-updateWallet :: forall eff. EffFn6 (ajax :: AJAX | eff) Json String String String String Int (Promise Json)
-updateWallet = mkEffFn6 \wId wType wCurrency wName wAssurance wUnit -> fromAff <<< map encodeJson <<<
+updateWallet :: forall eff. EffFn2 (ajax :: AJAX | eff) Json String (Promise Json)
+updateWallet = mkEffFn2 \wId wName -> fromAff <<< map encodeJson <<<
     either (throwError <<< error)
-        (flip B.updateWallet $ mkCWalletMeta wType wCurrency wName wAssurance wUnit)
+        (flip B.updateWallet $ mkCWalletMeta wName)
         $ decodeJson wId
 
 -- | Creates a new wallet.
@@ -247,7 +243,6 @@ updateWallet = mkEffFn6 \wId wType wCurrency wName wAssurance wUnit -> fromAff <
 -- |    { cwUnit: 0,
 -- |      cwType: 'CWTPersonal',
 -- |      cwName: 'drugs',
--- |      cwCurrency: 'ADA',
 -- |      cwAssurance: 'CWANormal' },
 -- |   cwId:
 -- |    { cwaWSId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
@@ -255,10 +250,10 @@ updateWallet = mkEffFn6 \wId wType wCurrency wName wAssurance wUnit -> fromAff <
 -- |   cwAccounts:
 -- |    [ { caAmount: [Object],
 -- |        caId: '19J7gniLEvSDAsHmjTeRUb5wAp8ssFLhUdchabk8FjVBqgDET6LdNa8ZbeZo6tsht4o52hwQ259CLSSoc3iXyEWsZXaEG1' } ] }
-newWallet :: forall eff. EffFn5 (ajax :: AJAX | eff) String String String String String
+newWallet :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String
   (Promise Json)
-newWallet = mkEffFn5 \wSetId wType wCurrency wName spendingPassword -> fromAff <<< map encodeJson <<<
-    B.newWallet (mkCPassPhrase spendingPassword) $ mkCWalletInit wType wCurrency wName (mkCAddress wSetId)
+newWallet = mkEffFn3 \wSetId wName spendingPassword -> fromAff <<< map encodeJson <<<
+    B.newWallet (mkCPassPhrase spendingPassword) $ mkCWalletInit wName (mkCAddress wSetId)
 
 -- | Deletes a wallet.
 -- Arguments: wallet object/identifier
@@ -308,8 +303,8 @@ newAccount = mkEffFn2 \wId spendingPassword -> fromAff <<< map encodeJson <<<
 -- | > api.isValidAddress('1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs9').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > false
-isValidAddress :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Boolean)
-isValidAddress = mkEffFn2 \addr currency -> fromAff $ B.isValidAddress addr (mkCCurrency currency)
+isValidAddress :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Boolean)
+isValidAddress = mkEffFn1 $ fromAff <<< B.isValidAddress
 
 --------------------------------------------------------------------------------
 -- Profiles --------------------------------------------------------------------
@@ -381,14 +376,13 @@ newPayment = mkEffFn4 \wFrom addrTo amount spendingPassword -> fromAff <<< map e
 -- |   ctId: '580b35fb3bd94075926ce2c7c93b9cdbfc8dab3b3a9cd76410254507f33d8ac8',
 -- |   ctConfirmations: 0,
 -- |   ctAmount: { getCoin: '49999' } }
-newPaymentExtended :: forall eff. EffFn7 (ajax :: AJAX | eff) Json String String String String String String (Promise Json)
-newPaymentExtended = mkEffFn7 \wFrom addrTo amount curr title desc spendingPassword -> fromAff <<< map encodeJson $ either (throwError <<< error) id
+newPaymentExtended :: forall eff. EffFn6 (ajax :: AJAX | eff) Json String String String String String (Promise Json)
+newPaymentExtended = mkEffFn6 \wFrom addrTo amount title desc spendingPassword -> fromAff <<< map encodeJson $ either (throwError <<< error) id
     $ B.newPaymentExtended
     <$> (pure $ mkCPassPhrase spendingPassword)
     <*> (decodeJson wFrom)
     <*> (pure $ mkCAddress addrTo)
     <*> (pure $ mkCCoin amount)
-    <*> (pure $ mkCCurrency curr)
     <*> (pure title)
     <*> (pure desc)
 
@@ -616,7 +610,7 @@ isValidMnemonic = mkEffFn2 \len -> pure <<< either (const false) (const true) <<
 -- Websockets ---------------------------------------------------------------------
 
 -- Example for testing
--- | > wscat -c ws://127.0.0.1:8090                              
+-- | > wscat -c ws://127.0.0.1:8090
 -- |
 -- | connected (press CTRL+C to quit)
 -- |

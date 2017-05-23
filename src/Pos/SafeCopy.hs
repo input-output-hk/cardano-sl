@@ -174,8 +174,8 @@ instance ( SafeCopy (BHeaderHash b)
         do _gbHeader <- safeGet
            _gbBody <- safeGet
            _gbExtra <- safeGet
-           return $! GenericBlock {..}
-    putCopy GenericBlock {..} =
+           return $! UnsafeGenericBlock {..}
+    putCopy UnsafeGenericBlock {..} =
         contain $
         do safePut _gbHeader
            safePut _gbBody

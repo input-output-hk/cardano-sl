@@ -13,6 +13,7 @@ module Pos.Core.Block
        -- * Smart constructors
        , mkGenericHeader
        , mkGenericBlock
+       , recreateGenericBlock
 
        -- * Lenses
        -- ** Header
@@ -30,12 +31,14 @@ module Pos.Core.Block
        , gbConsensus
        ) where
 
-import           Control.Lens       (makeLenses)
 import           Universum
 
-import           Pos.Core.Class     (HasHeaderHash (..), HasPrevBlock (..))
-import           Pos.Core.Constants (genesisHash)
-import           Pos.Core.Types     (HeaderHash)
+import           Control.Lens         (makeLenses)
+import           Control.Monad.Except (MonadError (throwError))
+
+import           Pos.Core.Class       (HasHeaderHash (..), HasPrevBlock (..))
+import           Pos.Core.Constants   (genesisHash)
+import           Pos.Core.Types       (HeaderHash)
 
 ----------------------------------------------------------------------------
 -- Blockchain class
@@ -72,7 +75,7 @@ class Blockchain p where
     default checkBodyProof :: Eq (BodyProof p) => Body p -> BodyProof p -> Bool
     checkBodyProof body proof = mkBodyProof body == proof
 
-    verifyBBlock :: GenericBlock p -> Either Text ()
+    verifyBBlock :: MonadError Text m => GenericBlock p -> m ()
 
 ----------------------------------------------------------------------------
 -- Generic types
@@ -114,7 +117,13 @@ instance
 
 -- | In general Block consists of header and body. It may contain
 -- extra data as well.
-data GenericBlock b = GenericBlock
+--
+-- The constructor has `Unsafe' prefix in its name, because there are
+-- some invariants which must hold for the contents of block. For
+-- instance, for generic block proof of body must correspond to the
+-- body itself. Also there may be other invariants specific for
+-- particular blockchains.
+data GenericBlock b = UnsafeGenericBlock
     { _gbHeader :: !(GenericBlockHeader b)
     , _gbBody   :: !(Body b)
     , _gbExtra  :: !(ExtraBodyData b)
@@ -170,22 +179,40 @@ mkGenericHeader prevHeader body consensus extra =
     h = maybe genesisHash headerHash prevHeader
     proof = mkBodyProof body
 
--- | Smart constructor for 'GenericBlock'. Uses 'mkGenericBlockHeader'.
+-- | Smart constructor for 'GenericBlock'.
 mkGenericBlock
-    :: forall b.
+    :: forall b m.
        ( HasHeaderHash (BBlockHeader b)
        , Blockchain b
        , BHeaderHash b ~ HeaderHash
+       , MonadError Text m
        )
     => Maybe (BBlockHeader b)
     -> Body b
     -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
     -> ExtraHeaderData b
     -> ExtraBodyData b
-    -> GenericBlock b
-mkGenericBlock prevHeader _gbBody consensus extraH _gbExtra = GenericBlock{..}
+    -> m (GenericBlock b)
+mkGenericBlock prevHeader body consensus extraH extra =
+    recreateGenericBlock header body extra
   where
-    _gbHeader = mkGenericHeader prevHeader _gbBody consensus extraH
+    header = mkGenericHeader prevHeader body consensus extraH
+
+-- | Smart constructor for 'GenericBlock' which allows to recreate it.
+recreateGenericBlock
+    :: forall b m.
+       ( Blockchain b
+       , MonadError Text m
+       )
+    => (GenericBlockHeader b)
+    -> Body b
+    -> ExtraBodyData b
+    -> m (GenericBlock b)
+recreateGenericBlock _gbHeader _gbBody _gbExtra = do
+    unless (checkBodyProof _gbBody (_gbhBodyProof _gbHeader)) $
+        throwError "mkGenericBlock: incorrect proof of body"
+    let res = UnsafeGenericBlock {..}
+    res <$ verifyBBlock res
 
 ----------------------------------------------------------------------------
 -- Lenses

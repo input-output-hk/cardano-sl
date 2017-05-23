@@ -13,6 +13,7 @@ import           Pos.Binary.Class   (Bi (..), label)
 import qualified Pos.Core.Block     as T
 import           Pos.Core.Constants (protocolMagic)
 import qualified Pos.Core.Types     as T
+import           Pos.Util.Util      (eitherToFail)
 
 -- | This instance required only for Arbitrary instance of HeaderHash
 -- due to @instance Bi a => Hash a@.
@@ -48,19 +49,13 @@ instance ( Bi (T.BHeaderHash b)
          , T.Blockchain b
          ) =>
          Bi (T.GenericBlock b) where
-    put T.GenericBlock {..} = do
+    put T.UnsafeGenericBlock {..} = do
         put _gbHeader
         put _gbBody
         put _gbExtra
     get =
         label "GenericBlock" $ do
-            _gbHeader <- get
-            _gbBody <- get
-            _gbExtra <- get
-            unless (T.checkBodyProof _gbBody (T._gbhBodyProof _gbHeader)) $
-                fail "get@GenericBlock: incorrect proof of body"
-            let gb = T.GenericBlock {..}
-            case T.verifyBBlock gb of
-                Left err -> fail $ toString $ "get@GenericBlock failed: " <> err
-                Right _  -> pass
-            return gb
+            header <- get
+            body <- get
+            extra <- get
+            eitherToFail $ T.recreateGenericBlock header body extra

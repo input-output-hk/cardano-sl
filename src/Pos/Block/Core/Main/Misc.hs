@@ -5,13 +5,12 @@
 
 module Pos.Block.Core.Main.Misc
        ( mkMainBlock
-       , recreateMainBlock
        , mkMainHeader
        ) where
 
 import           Universum
 
-import           Control.Monad.Except       (MonadError (throwError))
+import           Control.Monad.Except       (MonadError)
 import qualified Data.Text.Buildable        as Buildable
 import           Formatting                 (bprint, build, int, stext, (%))
 import           Serokell.Util              (Color (Magenta), colorize, listJson)
@@ -32,14 +31,14 @@ import           Pos.Block.Core.Main.Types  (BlockSignature (..), MainBlock,
                                              MainToSign (..))
 import           Pos.Block.Core.Union.Types (BiHeader, BiSsc, BlockHeader,
                                              blockHeaderHash)
-import           Pos.Core                   (Blockchain (..), EpochOrSlot (..),
-                                             GenericBlock (..), GenericBlockHeader (..),
+import           Pos.Core                   (EpochOrSlot (..), GenericBlock (..),
+                                             GenericBlockHeader (..),
                                              HasBlockVersion (..), HasDifficulty (..),
                                              HasEpochIndex (..), HasEpochOrSlot (..),
                                              HasHeaderHash (..), HasSoftwareVersion (..),
                                              HeaderHash, IsHeader, IsMainHeader (..),
                                              ProxySKEither, SlotId, mkGenericHeader,
-                                             slotIdF)
+                                             recreateGenericBlock, slotIdF)
 import           Pos.Crypto                 (ProxySecretKey (..), SecretKey, SignTag (..),
                                              hashHexF, proxySign, sign, toPublic)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
@@ -67,7 +66,7 @@ instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
         MainConsensusData {..} = _gbhConsensus
 
 instance BiSsc ssc => Buildable (MainBlock ssc) where
-    build GenericBlock {..} =
+    build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
              "  "%build%
@@ -198,20 +197,7 @@ mkMainBlock
     -> MainExtraBodyData
     -> m (MainBlock ssc)
 mkMainBlock prevHeader slotId sk proxyInfo body extraH extraB =
-    recreateMainBlock
+    recreateGenericBlock
         (mkMainHeader prevHeader slotId sk proxyInfo body extraH)
         body
         extraB
-
--- | Recreate 'MainBlock' from existing data. It also verifies
--- consistency of this data and may fail.
-recreateMainBlock
-    :: (SanityConstraint ssc, MonadError Text m)
-    => MainBlockHeader ssc
-    -> Body (MainBlockchain ssc)
-    -> MainExtraBodyData
-    -> m (MainBlock ssc)
-recreateMainBlock _gbHeader _gbBody _gbExtra = do
-    let gb = GenericBlock{..}
-    whenLeft (verifyBBlock gb) throwError
-    pure gb

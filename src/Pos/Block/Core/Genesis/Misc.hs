@@ -13,6 +13,7 @@ import qualified Data.Text.Buildable          as Buildable
 import           Formatting                   (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util                (Color (Magenta), colorize, listJson)
 
+import           Pos.Binary.Block.Core        ()
 import           Pos.Block.Core.Genesis.Chain (Body (..), ConsensusData (..))
 import           Pos.Block.Core.Genesis.Lens  (gcdDifficulty, gcdEpoch)
 import           Pos.Block.Core.Genesis.Types (GenesisBlock, GenesisBlockHeader,
@@ -27,7 +28,7 @@ import           Pos.Core                     (EpochIndex, EpochOrSlot (..),
                                                HasEpochOrSlot (..), HasHeaderHash (..),
                                                HeaderHash, IsGenesisHeader, IsHeader,
                                                SlotLeaders, gbHeader, gbhConsensus,
-                                               mkGenericHeader)
+                                               mkGenericHeader, recreateGenericBlock)
 import           Pos.Crypto                   (hashHexF)
 import           Pos.Data.Attributes          (mkAttributes)
 
@@ -54,7 +55,7 @@ instance BiSsc ssc => Buildable (GenesisBlockHeader ssc) where
         GenesisConsensusData {..} = _gbhConsensus
 
 instance BiSsc ssc => Buildable (GenesisBlock ssc) where
-    build GenericBlock {..} =
+    build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
              "  "%build%
@@ -110,8 +111,7 @@ instance BiHeader ssc => IsGenesisHeader (GenesisBlockHeader ssc)
 ----------------------------------------------------------------------------
 
 type SanityConstraint ssc
-     = ( BiSsc ssc
-       , HasDifficulty $ BlockHeader ssc
+     = ( HasDifficulty $ BlockHeader ssc
        , HasHeaderHash $ BlockHeader ssc
        )
 
@@ -129,7 +129,7 @@ mkGenesisHeader prevHeader epoch body =
     consensus _ _ =
         GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
 
--- | Smart constructor for 'GenesisBlock'. Uses 'mkGenesisHeader'.
+-- | Smart constructor for 'GenesisBlock'.
 mkGenesisBlock
     :: SanityConstraint ssc
     => Maybe (BlockHeader ssc)
@@ -137,10 +137,9 @@ mkGenesisBlock
     -> SlotLeaders
     -> GenesisBlock ssc
 mkGenesisBlock prevHeader epoch leaders =
-    GenericBlock
-    { _gbHeader = mkGenesisHeader prevHeader epoch body
-    , _gbBody = body
-    , _gbExtra = GenesisExtraBodyData $ mkAttributes ()
-    }
+    either disaster identity $ recreateGenericBlock header body extra
   where
+    header = mkGenesisHeader prevHeader epoch body
     body = GenesisBody leaders
+    extra = GenesisExtraBodyData $ mkAttributes ()
+    disaster = error . mappend "mkGenesisBlock: "

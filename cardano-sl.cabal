@@ -410,6 +410,9 @@ library
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Full
+                        Pos.Wallet.Web.Server.Full.Common
+                        Pos.Wallet.Web.Server.Full.K
+                        Pos.Wallet.Web.Server.Full.S
                         Pos.Wallet.Web.Server.Lite
                         Pos.Wallet.Web.Server.Sockets
                         Pos.Wallet.Web.State

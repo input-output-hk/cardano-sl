@@ -176,8 +176,8 @@ _ctxIdValue (CT.CTxId tx) = _hash tx
 mkCTxId :: String -> CT.CTxId
 mkCTxId = CT.CTxId <<< CHash
 
-mkCTxMeta :: String -> String -> String -> Number -> CT.CTxMeta
-mkCTxMeta currency title description date =
+mkCTxMeta :: String -> String -> Number -> CT.CTxMeta
+mkCTxMeta title description date =
     CT.CTxMeta { ctmTitle: title
                , ctmDescription: description
                , ctmDate: mkTime date

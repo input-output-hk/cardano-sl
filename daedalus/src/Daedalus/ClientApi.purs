@@ -412,12 +412,12 @@ newPaymentExtended = mkEffFn6 \wFrom addrTo amount title desc spendingPassword -
 -- | Promise { <pending> }
 -- | > {}
 -- | ```
-updateTransaction :: forall eff. EffFn6 (ajax :: AJAX | eff) String String String String String Number (Promise Unit)
-updateTransaction = mkEffFn6 \wId ctxId ctmCurrency ctmTitle ctmDescription ctmDate -> fromAff $
+updateTransaction :: forall eff. EffFn5 (ajax :: AJAX | eff) String String String String Number (Promise Unit)
+updateTransaction = mkEffFn5 \wId ctxId ctmTitle ctmDescription ctmDate -> fromAff $
     B.updateTransaction
     (mkCWalletAddress wId)
     (mkCTxId ctxId)
-    (mkCTxMeta ctmCurrency ctmTitle ctmDescription ctmDate)
+    (mkCTxMeta ctmTitle ctmDescription ctmDate)
 
 -- | Get transactions of specified wallet
 -- Arguments: wallet object/id, skip, limit

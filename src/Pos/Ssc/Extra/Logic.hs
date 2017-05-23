@@ -24,6 +24,8 @@ module Pos.Ssc.Extra.Logic
        , sscVerifyBlocks
        ) where
 
+import           Universum
+
 import           Control.Concurrent.STM  (readTVar, writeTVar)
 import           Control.Lens            (_Wrapped)
 import           Control.Monad.Except    (MonadError, runExceptT)
@@ -35,7 +37,6 @@ import           Formatting              (build, int, sformat, (%))
 import           Serokell.Util           (listJson)
 import           System.Wlog             (NamedPureLogger, WithLogger, launchNamedPureLog,
                                           logDebug)
-import           Universum
 
 import           Pos.Block.Core          (Block)
 import           Pos.Context             (lrcActionOnEpochReason)
@@ -54,6 +55,7 @@ import           Pos.Ssc.Class.Storage   (SscGStateClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Extra.Class     (MonadSscMem, askSscMem)
 import           Pos.Ssc.Extra.Types     (SscState (sscGlobal, sscLocal))
+import           Pos.Ssc.Util            (toSscBlock)
 import           Pos.Util                (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono         (NE, NewestFirst, OldestFirst)
 
@@ -271,7 +273,7 @@ sscRollbackBlocks
        SscGlobalApplyMode ssc m
     => NewestFirst NE (Block ssc) -> m [SomeBatchOp]
 sscRollbackBlocks blocks = sscRunGlobalUpdate $ do
-    sscRollbackU blocks
+    sscRollbackU @ssc (map toSscBlock blocks)
     untag @ssc . sscGlobalStateToBatch <$> get
 
 -- | Verify sequence of blocks and return global state which
@@ -295,7 +297,8 @@ sscVerifyBlocks blocks = do
     richmenSet <- getRichmenFromLrc "sscVerifyBlocks" epoch
     globalVar <- sscGlobal <$> askSscMem
     gs <- atomically $ readTVar globalVar
-    execStateT (sscVerifyAndApplyBlocks richmenSet blocks) gs
+    let sscBlocks = map toSscBlock blocks
+    execStateT (sscVerifyAndApplyBlocks @ssc richmenSet sscBlocks) gs
 
 ----------------------------------------------------------------------------
 -- Utils

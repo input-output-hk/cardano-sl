@@ -519,8 +519,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
   where
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
 
--- [CSL-780] Need something more elegant, at least eliminate copy-paste.
--- Should be done soon™.
+-- [CSL-1156] Need something more elegant, at least eliminate copy-paste.
 toTxpBlock
     :: forall ssc.
        Ssc ssc

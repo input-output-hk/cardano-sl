@@ -16,14 +16,22 @@ library
     Pos.Ssc.Class.Types
     Pos.Ssc.Class.LocalData
     Pos.Ssc.Class.Helpers
+    Pos.Ssc.Class.Storage
+
+    Pos.Ssc.Extra.Types
+    Pos.Ssc.Extra.Holder
+    Pos.Ssc.Extra.Class
 
   build-depends:       base
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , ether
                      , log-warper
+                     , mtl
                      , serokell-util
+                     , stm
                      , tagged
                      , text-format
                      , universum

@@ -4,6 +4,7 @@
 
 module Pos.Ssc.Class.Types
        ( Ssc(..)
+       , SscBlock
        ) where
 
 import           Data.Tagged         (Tagged)
@@ -11,6 +12,8 @@ import           Data.Text.Buildable (Buildable)
 import           Universum
 
 import           Pos.Binary.Class    (Bi)
+import           Pos.Core            (IsGenesisHeader, IsMainHeader)
+import           Pos.Util.Util       (Some)
 
 -- | Main Shared Seed Calculation type class. Stores all needed type
 -- parameters for general implementation of SSC.
@@ -56,3 +59,7 @@ class ( Typeable ssc
 
     -- | Create SscNodeContext
     sscCreateNodeContext :: MonadIO m => Tagged ssc (SscParams ssc -> m (SscNodeContext ssc))
+
+-- [CSL-1156] Find a better way for this
+type SscBlock ssc =
+    Either (Some IsGenesisHeader) (Some IsMainHeader, SscPayload ssc)

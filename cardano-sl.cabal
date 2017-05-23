@@ -241,14 +241,12 @@ library
                         Pos.SafeCopy
 
                         -- SSC
-                        Pos.Ssc.Class.Storage
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
 
-                        Pos.Ssc.Extra.Class
-                        Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.Logic
-                        Pos.Ssc.Extra.Types
+
+                        Pos.Ssc.Util
 
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Core

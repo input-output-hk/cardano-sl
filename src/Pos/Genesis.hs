@@ -79,22 +79,6 @@ genesisDevPublicKeys = map fst genesisDevKeyPairs
 genesisDevSecretKeys :: [SecretKey]
 genesisDevSecretKeys = map snd genesisDevKeyPairs
 
--- | List of addresses in genesis. See 'genesisPublicKeys'.
-genesisAddresses :: [Address]
-genesisAddresses
-    | Const.isDevelopment = map makePubKeyAddress genesisDevPublicKeys
-    | otherwise           = gdAddresses compileGenData
-
-genesisStakeDistribution :: StakeDistribution
-genesisStakeDistribution
-    | Const.isDevelopment = def
-    | otherwise           = gdDistribution compileGenData
-
-genesisBalances :: HashMap StakeholderId Coin
-genesisBalances
-    | Const.isDevelopment = mempty
-    | otherwise           = gdBootstrapBalances compileGenData
-
 generateHdwGenesisSecretKey :: Int -> EncryptedSecretKey
 generateHdwGenesisSecretKey =
     snd .
@@ -115,6 +99,22 @@ walletGenesisIndex = firstNonHardened
 -- | Second index in derivation path for HD account, which is put to genesis utxo
 accountGenesisIndex :: Word32
 accountGenesisIndex = firstNonHardened
+
+-- | List of addresses in genesis. See 'genesisPublicKeys'.
+genesisAddresses :: [Address]
+genesisAddresses
+    | Const.isDevelopment = map makePubKeyAddress genesisDevPublicKeys
+    | otherwise           = gdAddresses compileGenData
+
+genesisStakeDistribution :: StakeDistribution
+genesisStakeDistribution
+    | Const.isDevelopment = def
+    | otherwise           = gdDistribution compileGenData
+
+genesisBalances :: HashMap StakeholderId Coin
+genesisBalances
+    | Const.isDevelopment = mempty
+    | otherwise           = gdBootstrapBalances compileGenData
 
 genesisDevHdwAccountSecretKeys :: [EncryptedSecretKey]
 genesisDevHdwAccountSecretKeys =
@@ -199,10 +199,11 @@ bitcoinDistributionImpl ratio coins (coinIdx, coin) =
 -- | Genesis 'Utxo'.
 genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
-    M.fromList $
-        zipWith zipF (stakeDistribution sd)
+    M.fromList $ concat
+        [ zipWith zipF (stakeDistribution sd)
             (genesisAddresses <> tailAddresses)
-     <> map (zipF hwdDistr) hdwAddresses
+        , map (zipF hwdDistr) hdwAddresses
+        ]
   where
     zipF (coin, distr) addr =
         ( TxIn (unsafeHash addr) 0
@@ -210,10 +211,15 @@ genesisUtxo sd =
         )
     tailAddresses = map (makePubKeyAddress . fst . generateGenesisKeyPair)
         [Const.genesisN ..]
+    -- not much money to avoid making wallets slot leaders
+    hwdDistr = (mkCoin 100, [])
+    -- should be enough for testing.
+    -- greater number would increase effective number of slot leaders as well :/
+    genesisDevHdwKeyNum = 2
     hdwAddresses =
-        take Const.genesisN $
+        take genesisDevHdwKeyNum $
         makePubKeyAddress . encToPublic <$> genesisDevHdwAccountSecretKeys
-    hwdDistr = (mkCoin 50000, [])  -- TODO: manage
+
 
 genesisDelegation :: HashMap StakeholderId [StakeholderId]
 genesisDelegation = mempty

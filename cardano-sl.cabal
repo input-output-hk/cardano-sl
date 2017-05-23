@@ -127,6 +127,9 @@ library
                         Pos.Util.JsonLog
                         Pos.Util.UserSecret
 
+                        -- Wallets
+                        Pos.Wallet.Web.Secret
+
                         -- Worker, work mode
                         Pos.Worker
                         Pos.WorkMode

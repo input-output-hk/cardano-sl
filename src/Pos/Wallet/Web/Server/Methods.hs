@@ -30,7 +30,6 @@ import           Data.List                        (findIndex)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
 import           Data.Tagged                      (untag)
-import qualified Data.Text                        as T
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
 import           Data.Time.Units                  (Microsecond, Second)
@@ -82,6 +81,7 @@ import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOut
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
+import           Pos.Util.UserSecret              (readUserSecret, usWalletSet)
 import           Pos.Wallet.KeyStorage            (MonadKeys, addSecretKey,
                                                    deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.SscType               (WalletSscType)
@@ -111,15 +111,15 @@ import           Pos.Wallet.Web.ClientTypes       (Acc, CAccount (..),
                                                    CWalletSetMeta (..), MCPassPhrase,
                                                    NotifyEvent (..), SyncProgress (..),
                                                    WS, WalletAddress (..),
-                                                   WalletUserSecret (..),
                                                    addressToCAddress, cAddressToAddress,
                                                    cPassPhraseToPassPhrase, coinFromCCoin,
                                                    encToCAddress, fromCWalletAddress,
-                                                   mkCCoin, mkCTx, mkCTxId,
-                                                   readWalletUserSecret, toCUpdateInfo,
+                                                   mkCCoin, mkCTx, mkCTxId, toCUpdateInfo,
                                                    toCWalletAddress, txContainsTitle,
                                                    txIdToCTxId, walletAddrByAccount)
-import           Pos.Wallet.Web.Error             (WalletError (..), _RequestError)
+import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError,
+                                                   _RequestError)
+import           Pos.Wallet.Web.Secret            (WalletUserSecret (..))
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
                                                    WalletWebSockets, closeWSConnection,
                                                    getWalletWebSockets,
@@ -827,13 +827,14 @@ renameWSet addr newName = do
 rederiveAccountAddress
     :: WalletWebMode m
     => EncryptedSecretKey -> MCPassPhrase -> CAccountAddress -> m CAccountAddress
-rederiveAccountAddress newSK newCPass oldAcc = do
+rederiveAccountAddress newSK newCPass CAccountAddress{..} = do
     newPass <- decodeCPassPhraseOrFail newCPass
     (accAddr, _) <- maybeThrow badPass $
-        deriveLvl2KeyPair newPass newSK (caaWalletIndex oldAcc) (caaAccountIndex oldAcc)
-    return oldAcc
-        { caaWSId = encToCAddress newSK
-        , caaId   = addressToCAddress accAddr
+        deriveLvl2KeyPair newPass newSK caaWalletIndex caaAccountIndex
+    return CAccountAddress
+        { caaWSId      = encToCAddress newSK
+        , caaId        = addressToCAddress accAddr
+        , ..
         }
   where
     badPass = RequestError "Passphrase doesn't match"
@@ -1050,13 +1051,13 @@ importWSet
     => MCPassPhrase
     -> Text
     -> m CWalletSet
-importWSet cpassphrase (toString -> fp) =
-    readWalletUserSecret fp >>=
-        either secretReadError pure >>=
-            importWSetSecret cpassphrase
+importWSet cpassphrase (toString -> fp) = do
+    secret <- rewrapToWalletError $ readUserSecret fp
+    wSecret <- maybeThrow noWalletSecret (secret ^. usWalletSet)
+    importWSetSecret cpassphrase wSecret
   where
-    secretReadError =
-        throwM . RequestError . sformat ("Failed to read secret: "%build)
+    noWalletSecret =
+        RequestError "This key doesn't contain HD wallet info"
 
 importWSetSecret
     :: WalletWebMode m
@@ -1130,20 +1131,6 @@ instance FromHttpApiData (CAddress w) where
 
 instance FromHttpApiData CWalletAddress where
     parseUrlPiece = fmap CWalletAddress . parseUrlPiece
-
--- TODO: this is not used, and perhaps won't be
-instance FromHttpApiData CAccountAddress where
-    parseUrlPiece url =
-        case T.splitOn "@" url of
-            [part1, part2, part3, part4] -> do
-                caaWSId <- parseUrlPiece part1
-                caaWalletIndex  <- maybe (Left "Invalid wallet index") Right $
-                                   readMaybe $ toString part2
-                caaAccountIndex <- maybe (Left "Invalid account index") Right $
-                                   readMaybe $ toString part3
-                caaId <- parseUrlPiece part4
-                return CAccountAddress{..}
-            _ -> Left "Expected 4 parts separated by '@'"
 
 -- FIXME: unsafe (temporary, will be removed probably in future)
 -- we are not checking whether received Text is really valid CTxId

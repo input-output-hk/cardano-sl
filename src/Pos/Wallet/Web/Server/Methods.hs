@@ -30,7 +30,6 @@ import           Data.List                        (findIndex)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
 import           Data.Tagged                      (untag)
-import qualified Data.Text                        as T
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
 import           Data.Time.Units                  (Microsecond, Second)

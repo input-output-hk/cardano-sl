@@ -427,11 +427,13 @@ verifyHeader VerifyHeaderParams {..} h =
                 let delegate = pdDelegatePk pSig
                     issuer = h' ^. mainHeaderLeaderKey
                     delegatePsk = HM.lookup delegate validCerts
+                    validCertsResolver pk = Identity $ HM.lookup pk validCerts
                 in [ ( delegatePsk == Nothing
                      , sformat ("delegate has issued the psk himself ("%build%") "%
                                 "so he can't issue the block, signature: "%build)
                                delegatePsk pSig)
-                   , ( dlgReachesIssuance validCerts issuer delegate (pdCert pSig)
+                   , ( runIdentity $
+                       dlgReachesIssuance validCertsResolver issuer delegate (pdCert pSig)
                      , sformat ("proxy signature's "%build%" related proxy cert "%
                                 "can't be found/doesn't match the one in current "%
                                 "allowed heavy psks set")

@@ -47,11 +47,8 @@ lrcConsumerFromComponent thd ifNeedCompute callback =
     { lcThreshold = thd
     , lcIfNeedCompute = ifNeedCompute
     , lcComputedCallback = callback
-    , lcConsiderDelegated = rcConsiderDelegated proxy
+    , lcConsiderDelegated = rcConsiderDelegated $ Proxy @c
     }
-  where
-    proxy :: Proxy c
-    proxy = Proxy
 
 -- | Create simple LrcConsumer using constants from RichmenComponent
 -- which uses only LRC DB.

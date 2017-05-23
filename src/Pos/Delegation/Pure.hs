@@ -44,12 +44,15 @@ dlgMemPoolDetectLoop toAdd pskm =
 -- | Given an 'DlgMemPool', issuer, delegate and his psk, checks if
 -- delegate is allowed to issue the block. This does not check that
 -- delegate didn't issue a psk to somebody else.
-dlgReachesIssuance :: DlgMemPool
-                   -> PublicKey
-                   -> PublicKey
-                   -> ProxyCert EpochIndex
-                   -> Bool
-dlgReachesIssuance pskm i d cert = i == d || reach i
+dlgReachesIssuance
+    :: (Monad m)
+    => (PublicKey -> m (Maybe ProxySKHeavy)) -- ^ Resolving function (HM.lookup in pure case)
+    -> PublicKey                             -- ^ Issuer
+    -> PublicKey                             -- ^ Delegate
+    -> ProxyCert EpochIndex                  -- ^ Proxy cert of i->d psk/psig
+    -> m Bool
+dlgReachesIssuance _ i d _ | i == d = pure True
+dlgReachesIssuance resolve i d cert = reach i
   where
     -- Delegate 'd' has right to issue block instead of issuer 'i' if
     -- there's a delegation chain:
@@ -58,8 +61,8 @@ dlgReachesIssuance pskm i d cert = i == d || reach i
     --
     -- where every arrow is psk present in the 'pskm', and the last
     -- psk xₖ → d has the same certificate as 'cert'.
-    reach curUser = case HM.lookup curUser pskm of
-        Nothing -> False
+    reach curUser = resolve curUser >>= \case
+        Nothing -> pure False
         Just ProxySecretKey{..}
-            | pskDelegatePk == d -> pskCert == cert
-            | otherwise -> reach pskDelegatePk
+            | pskDelegatePk == d -> pure $ pskCert == cert
+            | otherwise          -> reach pskDelegatePk

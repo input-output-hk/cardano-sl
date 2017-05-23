@@ -8,11 +8,12 @@ module Pos.Delegation.DB
        , getPSKChain
        , getPSKForest
        , isIssuerByAddressHash
+       , getDelegationTransitive
 
        , DelegationOp (..)
 
-       , runPskIterator
-       , runPskMapIterator
+       , runPskTransIterator
+       , runPskTransMapIterator
        ) where
 
 import           Control.Lens         (uses, (%=))
@@ -91,6 +92,11 @@ getPSKForest (either (fmap addressHash) identity -> issuers) =
 isIssuerByAddressHash :: MonadDB m => StakeholderId -> m Bool
 isIssuerByAddressHash = fmap isJust . getPSKByIssuer . Right
 
+-- | Given issuer @i@ returns @d@ such that there exists @x1..xn@ with
+-- @i->x1->...->xn->d@.
+getDelegationTransitive :: MonadDB m => PublicKey -> m (Maybe PublicKey)
+getDelegationTransitive iPk = rocksGetBi (transPskKey iPk) =<< getUtxoDB
+
 ----------------------------------------------------------------------------
 -- Batch operations
 ----------------------------------------------------------------------------
@@ -100,6 +106,10 @@ data DelegationOp
     -- ^ Adds PSK. Overwrites if present.
     | DelPSK !PublicKey
     -- ^ Removes PSK by issuer PK.
+    | AddTransitiveDlg PublicKey PublicKey
+    -- ^ Transitive delegation relation adding.
+    | DelTransitiveDlg PublicKey
+    -- ^ Remove i -> d link for i.
 
 instance RocksBatchOp DelegationOp where
     toBatchOp (AddPSK psk)
@@ -107,29 +117,31 @@ instance RocksBatchOp DelegationOp where
         | otherwise =
             [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk)
                        (encodeStrict psk)]
-    toBatchOp (DelPSK issuerPk) =
-        [Rocks.Del $ pskKey $ addressHash issuerPk]
+    toBatchOp (DelPSK issuerPk) = [Rocks.Del $ pskKey $ addressHash issuerPk]
+    toBatchOp (AddTransitiveDlg iPk dPk) = [Rocks.Put (transPskKey iPk) (encodeStrict dPk)]
+    toBatchOp (DelTransitiveDlg iPk) = [Rocks.Del $ transPskKey iPk]
 
 ----------------------------------------------------------------------------
 -- Iteration
 ----------------------------------------------------------------------------
 
-data PskIter
+-- Transitive relation iteration
+data PskTransIter
 
-instance DBIteratorClass PskIter where
-    type IterKey PskIter = StakeholderId
-    type IterValue PskIter = ProxySKHeavy
-    iterKeyPrefix _ = iterationPrefix
+instance DBIteratorClass PskTransIter where
+    type IterKey PskTransIter = PublicKey
+    type IterValue PskTransIter = PublicKey
+    iterKeyPrefix _ = iterTransPrefix
 
-runPskIterator
+runPskTransIterator
     :: forall m a . MonadDB m
-    => DBnIterator PskIter a -> m a
-runPskIterator = runDBnIterator @PskIter _gStateDB
+    => DBnIterator PskTransIter a -> m a
+runPskTransIterator = runDBnIterator @PskTransIter _gStateDB
 
-runPskMapIterator
+runPskTransMapIterator
     :: forall v m a . MonadDB m
-    => DBnMapIterator PskIter v a -> (IterType PskIter -> v) -> m a
-runPskMapIterator = runDBnMapIterator @PskIter _gStateDB
+    => DBnMapIterator PskTransIter v a -> (IterType PskTransIter -> v) -> m a
+runPskTransMapIterator = runDBnMapIterator @PskTransIter _gStateDB
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -137,7 +149,10 @@ runPskMapIterator = runDBnMapIterator @PskIter _gStateDB
 
 -- Storing Hash IssuerPk -> ProxySKHeavy
 pskKey :: StakeholderId -> ByteString
-pskKey = encodeWithKeyPrefix @PskIter
+pskKey s = "d/p/" <> encodeStrict s
 
-iterationPrefix :: ByteString
-iterationPrefix = "d/p/"
+transPskKey :: PublicKey -> ByteString
+transPskKey = encodeWithKeyPrefix @PskTransIter
+
+iterTransPrefix :: ByteString
+iterTransPrefix = "d/t/"

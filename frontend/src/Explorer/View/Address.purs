@@ -69,6 +69,7 @@ addressView state =
                                                   , editable: state ^. (viewStates <<< addressDetail <<< addressTxPaginationEditable)
                                                   , editableAction: AddressEditTxsPageNumber
                                                   , invalidPageAction: AddressInvalidTxsPageNumber
+                                                  , disabled: false
                                                   }
                                             ]
                                     ]

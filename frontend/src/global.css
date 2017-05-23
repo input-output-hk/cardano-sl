@@ -89,7 +89,14 @@
   src: url("../static/fonts/montserrat-bold_[allfont.ru].ttf") format("truetype");
 }
 
+/* ---------------------------
+  ie
+------------------------------ */
 
+/* hide arrow of select */
+select::-ms-expand {
+    display: none;
+}
 
 /* ---------------------------
   embedded svg

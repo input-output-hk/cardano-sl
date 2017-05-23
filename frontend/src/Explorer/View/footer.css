@@ -73,9 +73,11 @@
 
       .logo__container {
         box: horizontal;
+        height: 100%;
       }
 
       .logo__cardano-name {
+        display: block;
         width: 90.2px;
         height: 26px;
         box-item: center;
@@ -93,6 +95,7 @@
         height: 26px;
         margin-left: 24px;
         box-item: center;
+        display: block;
       }
 
       @media (--md) {
@@ -120,6 +123,7 @@
         box-sizing: border-box;
         text-transform: uppercase;
         box-item: center;
+        display: block;
       }
 
       @media (--md) {

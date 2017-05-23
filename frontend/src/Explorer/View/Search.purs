@@ -40,7 +40,6 @@ searchInputView state =
         [ P.input
             [ P.className $ "explorer-search__input explorer-search__input--address-tx"
                           <> addrHiddenClazz
-                          <> focusedClazz
             , P.type_ "text"
             , P.placeholder $ if dbViewSearchInputFocused
                               then ""

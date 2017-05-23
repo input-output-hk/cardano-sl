@@ -33,9 +33,3 @@ derive instance gSocketSubscription :: Generic SocketSubscription
 derive instance newtypeSocketSubscription :: Newtype SocketSubscription _
 instance eqSocketSubscription :: Eq SocketSubscription where
   eq = gEq
-
--- todo (ks): Why would we want to have previous subscriptions? We can remove this.
--- Immutability!
-data SocketSubscriptionAction
-    = KeepPrevSubscriptions
-    | UnsubscribePrevSubscriptions

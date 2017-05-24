@@ -87,8 +87,8 @@ notifierHandler connVar loggerName = do
     on  (Subscribe SubBlockOff)   $ asHandler  subscribeBlocksOff
     on_ (Subscribe SubTx)         $ asHandler_ subscribeTxs
     on_ (Unsubscribe SubAddr)     $ asHandler_ unsubscribeAddr
-    on_ (Unsubscribe SubBlock)    $ asHandler_ unsubscribeBlocksOff
-    on_ (Unsubscribe SubBlockOff) $ asHandler_ unsubscribeBlocks
+    on_ (Unsubscribe SubBlock)    $ asHandler_ unsubscribeBlocks
+    on_ (Unsubscribe SubBlockOff) $ asHandler_ unsubscribeBlocksOff
     on_ (Unsubscribe SubTx)       $ asHandler_ unsubscribeTxs
 
     on_ CallMe                    $ emitJSON CallYou empty

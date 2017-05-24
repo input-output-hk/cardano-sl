@@ -26,21 +26,22 @@ import           Control.Monad.Catch              (MonadMask)
 import           Control.Monad.Trans.Identity     (IdentityT (..))
 import           Data.Coerce                      (coerce)
 import qualified Ether
+import           Formatting                       (sformat, stext, (%))
 import           System.Directory                 (createDirectoryIfMissing,
                                                    doesDirectoryExist,
                                                    removeDirectoryRecursive)
 import           System.FilePath                  ((</>))
 import           System.Wlog                      (WithLogger)
 
-import           Pos.Block.Core                   (Block, BlockHeader, getBlockHeader,
-                                                   mkGenesisBlock)
+import           Pos.Block.Core                   (Block, BlockHeader, mkGenesisBlock)
 import           Pos.Block.Types                  (Blund)
 import           Pos.Context.Context              (GenesisLeaders, GenesisUtxo,
                                                    NodeParams)
 import           Pos.Context.Functions            (genesisLeadersM)
-import           Pos.Core                         (headerHash)
-import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
-                                                   loadBlundsWhile, prepareBlockDB)
+import           Pos.Core                         (HeaderHash, headerHash)
+import           Pos.DB.Block                     (getBlock, getBlockHeader,
+                                                   loadBlundsByDepth, loadBlundsWhile,
+                                                   prepareBlockDB)
 import           Pos.DB.Class                     (MonadDB, MonadDBPure (..),
                                                    MonadGStateCore (..))
 import           Pos.DB.Error                     (DBError (DBMalformed))
@@ -112,18 +113,24 @@ initNodeDBs = do
 
 -- | Get block corresponding to tip.
 getTipBlock
-    :: (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
+    :: forall ssc m. (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
     => m (Block ssc)
-getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
-  where
-    onFailure = throwM $ DBMalformed "there is no block corresponding to tip"
+getTipBlock = getTipSomething @ssc "block" getBlock
 
 -- | Get BlockHeader corresponding to tip.
--- TODO don't load tip block, fix it.
 getTipBlockHeader
-    :: (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
+    :: forall ssc m. (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
     => m (BlockHeader ssc)
-getTipBlockHeader = getBlockHeader <$> getTipBlock
+getTipBlockHeader = getTipSomething @ssc "header" getBlockHeader
+
+getTipSomething
+    :: (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
+    => Text -> (HeaderHash -> m (Maybe smth)) -> m smth
+getTipSomething smthDescription smthGetter =
+    maybe onFailure pure =<< smthGetter =<< getTip
+  where
+    fmt = "there is no "%stext%" corresponding to tip"
+    onFailure = throwM $ DBMalformed $ sformat fmt smthDescription
 
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.

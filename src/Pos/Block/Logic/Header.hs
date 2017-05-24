@@ -27,7 +27,7 @@ import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..), isVerSuccess)
 import           System.Wlog               (CanLog, HasLoggerName, logDebug)
 
-import           Pos.Block.Core            (BlockHeader, blockHeader)
+import           Pos.Block.Core            (BlockHeader)
 import           Pos.Block.Logic.Util      (lcaWithMainChain, needRecovery)
 import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeader,
                                             verifyHeaders)
@@ -79,11 +79,11 @@ classifyNewHeader
 classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
 classifyNewHeader (Right header) = do
     curSlot <- getCurrentSlot
-    tipBlock <- DB.getTipBlock
-    let tipEoS= getEpochOrSlot tipBlock
+    tipHeader <- DB.getTipBlockHeader
+    let tipEoS = getEpochOrSlot tipHeader
     let newHeaderEoS = getEpochOrSlot header
     let newHeaderSlot = header ^. headerSlotL
-    let tip = headerHash tipBlock
+    let tip = headerHash tipHeader
     -- First of all we check whether header is from current slot and
     -- ignore it if it's not.
     pure $ if
@@ -103,7 +103,7 @@ classifyNewHeader (Right header) = do
             let vhp =
                     def
                     { vhpVerifyConsensus = True
-                    , vhpPrevHeader = Just $ tipBlock ^. blockHeader
+                    , vhpPrevHeader = Just tipHeader
                     }
                 verRes = verifyHeader vhp (Right header)
             in case verRes of
@@ -111,7 +111,7 @@ classifyNewHeader (Right header) = do
                    VerFailure errors -> mkCHRinvalid errors
         -- If header's parent is not our tip, we check whether it's
         -- more difficult than our main chain.
-        | tipBlock ^. difficultyL < header ^. difficultyL -> CHAlternative
+        | tipHeader ^. difficultyL < header ^. difficultyL -> CHAlternative
         -- If header can't continue main chain and is not more
         -- difficult than main chain, it's useless.
         | otherwise ->

@@ -2,6 +2,7 @@ module Explorer.Api.Socket where
 
 import Prelude
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (Error)
 import Control.SocketIO.Client (Event, Host)
 import Data.Argonaut.Core (Json)
@@ -84,13 +85,13 @@ txsUpdatedHandler channel json =
     let result = decodeResult' json in
     send channel $ SocketTxsUpdated result
 
--- all following event handler are for debugging only
 
-callYouEventHandler :: forall eff. ActionChannel -> Foreign
-    -> Eff (channel :: CHANNEL | eff) Unit
-callYouEventHandler channel _ = do
-    traceShowM "callYouEventHandler"
-    send channel NoOp
+callYouEventHandler :: forall eff. ActionChannel -> Foreign -> Eff eff Unit
+callYouEventHandler channel _ =
+    -- just an empty callback to be connected with socket.io
+    pure unit
+
+-- all following event handler are for debugging only
 
 callYouStringEventHandler :: forall eff. ActionChannel -> String
     -> Eff (channel :: CHANNEL | eff) Unit

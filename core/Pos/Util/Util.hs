@@ -85,12 +85,15 @@ import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (MonadResource (..))
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
+import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
 import           Data.Time.Units                (Attosecond, Day, Femtosecond, Fortnight,
                                                  Hour, Microsecond, Millisecond, Minute,
                                                  Nanosecond, Picosecond, Second, Week,
                                                  toMicroseconds)
+import           Data.Typeable                  (typeRep)
 import qualified Ether
+import qualified Formatting                     as F
 import qualified Language.Haskell.TH.Syntax     as TH
 import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
                                                  MFunctor' (..), Mockable (..), Promise,
@@ -290,6 +293,12 @@ instance {-# OVERLAPPING #-} PowerLift m m where
 
 instance (MonadTrans t, PowerLift m n, Monad n) => PowerLift m (t n) where
   powerLift = lift . powerLift @m @n
+
+instance (Typeable s, Buildable a) => Buildable (Tagged s a) where
+    build tt@(Tagged v) = F.bprint ("Tagged " F.% F.shown F.% " " F.% F.build) ts v
+      where
+        ts = typeRep proxy
+        proxy = (const Proxy :: Tagged s a -> Proxy s) tt
 
 -- | This function performs checks at compile-time for different actions.
 -- May slowdown implementation. To disable such checks (especially in benchmarks)

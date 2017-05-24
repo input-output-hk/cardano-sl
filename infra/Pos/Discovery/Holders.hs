@@ -71,7 +71,7 @@ type DiscoveryKademliaEnv m =
 instance (DiscoveryKademliaEnv m) => MonadDiscovery (DiscoveryKademliaT m) where
     getPeers = do
         kademliaInstance <- askDHTInstance
-        S.fromList . fmap dhtNodeToNodeId <$>
+        S.fromList . fmap (snd . dhtNodeToNodeId) <$>
             kademliaGetKnownPeers kademliaInstance
     findPeers = do
         kademliaInstance <- askDHTInstance

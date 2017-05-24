@@ -30,10 +30,8 @@ module Pos.Crypto.Signing
 
        -- * Proxy signature scheme
        , ProxyCert (..)
-       , createProxyCert
        , verifyProxyCert
        , ProxySecretKey (..)
-       , createProxySecretKey
        , verifyProxySecretKey
        , ProxySignature (..)
        , proxySign
@@ -61,7 +59,7 @@ import           Pos.Binary.Class       (Bi, Raw)
 import qualified Pos.Binary.Class       as Bi
 import           Pos.Crypto.Hashing     (hash)
 import           Pos.Crypto.Random      (secureRandomBS)
-import           Pos.Crypto.SignTag     (SignTag, signTag)
+import           Pos.Crypto.SignTag     (SignTag (SignProxySK), signTag)
 
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
@@ -213,23 +211,12 @@ newtype ProxyCert w = ProxyCert { unProxyCert :: CC.XSignature }
 instance B.Buildable (ProxyCert w) where
     build _ = "<proxy_cert>"
 
--- | Proxy certificate creation from secret key of issuer, public key
--- of delegate and the message space ω.
-createProxyCert :: (Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
-createProxyCert (SecretKey issuerSk) (PublicKey delegatePk) o =
-    coerce $
-    ProxyCert $
-    CC.sign emptyPass issuerSk $
-    mconcat
-        ["00", CC.unXPub delegatePk, Bi.encodeStrict o]
-
 -- | Checks if certificate is valid, given issuer pk, delegate pk and ω.
 verifyProxyCert :: (Bi w) => PublicKey -> PublicKey -> w -> ProxyCert w -> Bool
-verifyProxyCert (PublicKey issuerPk) (PublicKey delegatePk) o (ProxyCert sig) =
-    CC.verify
-        issuerPk
+verifyProxyCert issuerPk (PublicKey delegatePk) o (ProxyCert sig) =
+    checkSig SignProxySK issuerPk
         (mconcat ["00", CC.unXPub delegatePk, Bi.encodeStrict o])
-        sig
+        (Signature sig)
 
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.
@@ -251,11 +238,6 @@ instance {-# OVERLAPPABLE #-}
 instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey (w,w)) where
     build (ProxySecretKey w iPk dPk _) =
         bprint ("ProxySk { w = "%pairF%", iPk = "%build%", dPk = "%build%" }") w iPk dPk
-
--- | Creates proxy secret key
-createProxySecretKey :: (Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
-createProxySecretKey issuerSk delegatePk w =
-    ProxySecretKey w (toPublic issuerSk) delegatePk $ createProxyCert issuerSk delegatePk w
 
 -- | Checks if proxy secret key is valid (the signature/cert inside is
 -- correct).

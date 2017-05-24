@@ -8,7 +8,7 @@ import           Test.Hspec               (Spec, describe)
 import           Universum
 
 import qualified Pos.Communication        as C
-import qualified Pos.Delegation           as D
+--import qualified Pos.Delegation           as D
 
 import           Test.Pos.Arbitrary.Infra ()
 import           Test.Pos.Util            (networkBinaryTest)
@@ -18,7 +18,5 @@ spec = describe "Communication" $ do
     describe "Bi instances" $ do
         networkBinaryTest @C.HandlerSpec
         networkBinaryTest @C.VerInfo
-        networkBinaryTest @D.SendProxySK
-        networkBinaryTest @D.ConfirmProxySK
         --binaryTest @D.CheckProxySKConfirmed
         --binaryTest @D.CheckProxySKConfirmedRes

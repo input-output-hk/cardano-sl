@@ -50,8 +50,9 @@ import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (.
 import           Pos.Block.Pure             (verifyHeaders)
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
-import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
-                                             SendActions (..), convH, toOutSpecs)
+import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
+                                             NodeId, OutSpecs, SendActions (..), convH,
+                                             toOutSpecs)
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
                                              RecoveryHeaderTag, recoveryInProgress)
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
@@ -107,7 +108,7 @@ triggerRecovery :: forall ssc m.
 triggerRecovery sendActions = unlessM recoveryInProgress $ do
     logDebug "Recovery started, requesting tips from neighbors"
     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
-        converseToNeighbors sendActions (requestTip limitProxy) `catch`
+        converseToNeighbors sendActions (pure . Conversation . requestTip limitProxy) `catch`
             \(e :: SomeException) -> do
                logDebug ("Error happened in triggerRecovery: " <> show e)
                throwM e
@@ -128,14 +129,14 @@ requestTip
     -> NodeId
     -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
     -> m ()
-requestTip _ peerId conv = do
+requestTip _ nodeId conv = do
     logDebug "Requesting tip..."
     send conv (MsgGetHeaders [] Nothing)
     whenJustM (recvLimited conv) handleTip
   where
     handleTip (MsgHeaders (NewestFirst (tip:|[]))) = do
         logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
-        handleUnsolicitedHeader tip peerId conv
+        handleUnsolicitedHeader tip nodeId conv
     handleTip _ = pass
 
 ----------------------------------------------------------------------------
@@ -161,8 +162,8 @@ handleUnsolicitedHeaders
     -> NodeId
     -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
     -> m ()
-handleUnsolicitedHeaders (header :| []) peerId conv =
-    handleUnsolicitedHeader header peerId conv
+handleUnsolicitedHeaders (header :| []) nodeId conv =
+    handleUnsolicitedHeader header nodeId conv
 -- TODO: ban node for sending more than one unsolicited header.
 handleUnsolicitedHeaders (h:|hs) _ _ = do
     logWarning "Someone sent us nonzero amount of headers we didn't expect"
@@ -175,7 +176,7 @@ handleUnsolicitedHeader
     -> NodeId
     -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
     -> m ()
-handleUnsolicitedHeader header peerId conv = do
+handleUnsolicitedHeader header nodeId conv = do
     logDebug $ sformat
         ("handleUnsolicitedHeader: single header "%shortHashF%
          " was propagated, processing")
@@ -185,12 +186,12 @@ handleUnsolicitedHeader header peerId conv = do
     case classificationRes of
         CHContinues -> do
             logDebug $ sformat continuesFormat hHash
-            addToBlockRequestQueue (one header) peerId Nothing
+            addToBlockRequestQueue (one header) nodeId Nothing
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
             mghM <- mkHeadersRequest (Just hHash)
             whenJust mghM $ \mgh ->
-                requestHeaders mgh peerId (Just header) Proxy conv
+                requestHeaders mgh nodeId (Just header) Proxy conv
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
             logDebug $ sformat ("handleUnsolicited: header "%shortHashF%
@@ -249,7 +250,7 @@ requestHeaders
     -> Proxy s
     -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
     -> m ()
-requestHeaders mgh peerId origTip _ conv = do
+requestHeaders mgh nodeId origTip _ conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
@@ -261,23 +262,23 @@ requestHeaders mgh peerId origTip _ conv = do
             (map headerHash headers)
         case matchRequestedHeaders headers mgh inRecovery of
             MRGood           -> do
-                handleRequestedHeaders headers peerId origTip
+                handleRequestedHeaders headers nodeId origTip
             MRUnexpected msg -> handleUnexpected headers msg
   where
     onNothing = do
         logWarning "requestHeaders: received Nothing, waiting for MsgHeaders"
         throwM $ DialogUnexpected $
-            sformat ("requestHeaders: received Nothing from "%build) peerId
+            sformat ("requestHeaders: received Nothing from "%build) nodeId
     handleUnexpected hs msg = do
         -- TODO: ban node for sending unsolicited header in conversation
         logWarning $ sformat
             ("requestHeaders: headers received were not requested or are invalid"%
              ", peer id: "%build%", reason:"%stext)
-            peerId msg
+            nodeId msg
         logWarning $ sformat
             ("requestHeaders: unexpected or invalid headers: "%listJson) hs
         throwM $ DialogUnexpected $
-            sformat ("requestHeaders: received unexpected headers from "%build) peerId
+            sformat ("requestHeaders: received unexpected headers from "%build) nodeId
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
@@ -287,7 +288,7 @@ handleRequestedHeaders
     -> NodeId
     -> Maybe (BlockHeader ssc)
     -> m ()
-handleRequestedHeaders headers peerId origTip = do
+handleRequestedHeaders headers nodeId origTip = do
     logDebug "handleRequestedHeaders: headers were requested, will process"
     classificationRes <- classifyHeaders headers
     let newestHeader = headers ^. _Wrapped . _neHead
@@ -304,7 +305,7 @@ handleRequestedHeaders headers peerId origTip = do
                     "handleRequestedHeaders: couldn't find LCA child " <>
                     "within headers returned, most probably classifyHeaders is broken"
                 Just headersPostfix ->
-                    addToBlockRequestQueue (NewestFirst headersPostfix) peerId origTip
+                    addToBlockRequestQueue (NewestFirst headersPostfix) nodeId origTip
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid reason ->
@@ -331,7 +332,7 @@ addToBlockRequestQueue
     -> NodeId
     -> Maybe (BlockHeader ssc)
     -> m ()
-addToBlockRequestQueue headers peerId mrecoveryTip = do
+addToBlockRequestQueue headers nodeId mrecoveryTip = do
     queue <- Ether.ask @BlockRetrievalQueueTag
     recHeaderVar <- Ether.ask @RecoveryHeaderTag
     lastKnownH <- Ether.ask @LastKnownHeaderTag
@@ -342,7 +343,7 @@ addToBlockRequestQueue headers peerId mrecoveryTip = do
             let replace = tryTakeTMVar recHeaderVar >>= \case
                     Just (_, header')
                         | not (recoveryTip `isMoreDifficult` header') -> pass
-                    _ -> putTMVar recHeaderVar (peerId, recoveryTip)
+                    _ -> putTMVar recHeaderVar (nodeId, recoveryTip)
             tryReadTMVar recHeaderVar >>= \case
                 Nothing -> replace
                 Just (_,curRecHeader) ->
@@ -352,14 +353,14 @@ addToBlockRequestQueue headers peerId mrecoveryTip = do
         updateRecoveryHeader mrecoveryTip
         ifM (isFullTBQueue queue)
             (pure False)
-            (True <$ writeTBQueue queue (peerId, headers))
+            (True <$ writeTBQueue queue (nodeId, headers))
     if added
-    then logDebug $ sformat ("Added to block request queue: peerId="%build%
+    then logDebug $ sformat ("Added to block request queue: nodeId="%build%
                              ", headers="%listJson)
-                            peerId (fmap headerHash headers)
+                            nodeId (fmap headerHash headers)
     else logWarning $ sformat ("Failed to add headers from "%build%
                                " to block retrieval queue: queue is full")
-                              peerId
+                              nodeId
   where
     a `isMoreDifficult` b = a ^. difficultyL > b ^. difficultyL
 
@@ -385,13 +386,13 @@ handleBlocks
     -> OldestFirst NE (Block ssc)
     -> SendActions m
     -> m ()
-handleBlocks peerId blocks sendActions = do
+handleBlocks nodeId blocks sendActions = do
     logDebug "handleBlocks: processing"
     inAssertMode $
         logInfo $
             sformat ("Processing sequence of blocks: " %listJson % "...") $
                     fmap headerHash blocks
-    maybe onNoLca (handleBlocksWithLca peerId sendActions blocks) =<<
+    maybe onNoLca (handleBlocksWithLca nodeId sendActions blocks) =<<
         lcaWithMainChain (map (view blockHeader) blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
   where
@@ -407,12 +408,12 @@ handleBlocksWithLca
     -> OldestFirst NE (Block ssc)
     -> HeaderHash
     -> m ()
-handleBlocksWithLca peerId sendActions blocks lcaHash = do
+handleBlocksWithLca nodeId sendActions blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
     -- Head blund in result is the youngest one.
     toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
     maybe (applyWithoutRollback sendActions blocks)
-          (applyWithRollback peerId sendActions blocks lcaHash)
+          (applyWithRollback nodeId sendActions blocks lcaHash)
           (_Wrapped nonEmpty toRollback)
   where
     lcaFmt = "Handling block w/ LCA, which is "%shortHashF
@@ -463,7 +464,7 @@ applyWithRollback
     -> HeaderHash
     -> NewestFirst NE (Blund ssc)
     -> m ()
-applyWithRollback peerId sendActions toApply lca toRollback = do
+applyWithRollback nodeId sendActions toApply lca toRollback = do
     logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
@@ -491,7 +492,7 @@ applyWithRollback peerId sendActions toApply lca toRollback = do
         unlessM recoveryInProgress $ do
             logDebug "Reporting rollback happened"
             reportMisbehaviourMasked version $
-                sformat reportF peerId toRollbackHashes toApplyHashes
+                sformat reportF nodeId toRollbackHashes toApplyHashes
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =
         OldestFirst $

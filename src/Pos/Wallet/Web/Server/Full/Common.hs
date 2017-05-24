@@ -54,11 +54,9 @@ import           Pos.Wallet.Web.State          (WalletState, getWalletWebState,
                                                 runWalletWebDB)
 import           Pos.WorkMode                  (RawRealModeK, RawRealModeS, TxpExtra_TMP)
 
-
 type WebHandler = WalletWebHandler (RawRealModeK WalletSscType)
 
 type WebHandlerS = WalletWebHandler (RawRealModeS WalletSscType)
-
 
 -- TODO: eliminate copy-paste
 

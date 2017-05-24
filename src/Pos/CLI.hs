@@ -24,7 +24,6 @@ module Pos.CLI
        , listenNetworkAddressOption
 
        , sysStartOption
-       , peerIdOption
        , nodeIdOption
        ) where
 
@@ -44,17 +43,17 @@ import qualified Text.Parsec.Char                     as P
 import qualified Text.Parsec.String                   as P
 
 import           Pos.Binary.Core                      ()
+import           Pos.Communication                    (NodeId)
 import           Pos.Constants                        (isDevelopment, staticSysStart)
 import           Pos.Core                             (Address (..), AddressHash,
-                                                       decodeTextAddress, Timestamp (..))
-import           Pos.Communication                    (PeerId (..), NodeId (..), nodeIdParser,
-                                                       peerIdParser)
+                                                       Timestamp (..), decodeTextAddress)
 import           Pos.Crypto                           (PublicKey)
 import           Pos.Security.CLI                     (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util                             ()
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
-                                                       addrParserNoWildcard)
+                                                       addrParserNoWildcard,
+                                                       addressToNodeId)
 
 -- | Decides which secret-sharing algorithm to use.
 sscAlgoParser :: P.Parser SscAlgo
@@ -113,8 +112,6 @@ data CommonArgs = CommonArgs
     , expDistr           :: !Bool
     , sysStart           :: !Timestamp
       -- ^ The system start time.
-    , peerId             :: !PeerId
-      -- ^ A node's peer identifier.
     } deriving Show
 
 commonArgsParser :: Opt.Parser CommonArgs
@@ -135,7 +132,6 @@ commonArgsParser = do
     expDistr      <- if isDevelopment then expDistrOption    else pure False
     --
     sysStart <- sysStartParser
-    peerId   <- peerIdOption
     pure CommonArgs{..}
 
 sysStartParser :: Opt.Parser Timestamp
@@ -163,8 +159,8 @@ networkAddressOption longOption helpMsg =
 
 nodeIdOption :: String -> String -> Opt.Parser NodeId
 nodeIdOption longOption helpMsg =
-    Opt.option (fromParsec nodeIdParser) $
-        templateParser longOption "HOST:PORT/PEER_ID" helpMsg
+    Opt.option (fromParsec $ addressToNodeId <$> addrParser) $
+        templateParser longOption "HOST:PORT" helpMsg
 
 optionalLogConfig :: Opt.Parser (Maybe FilePath)
 optionalLogConfig =
@@ -305,16 +301,7 @@ listenNetworkAddressOption na =
     helpMsg = "Ip and port on which to bind and listen."
 
 sysStartOption :: Opt.Parser Timestamp
-sysStartOption = Opt.option (Timestamp . sec <$> Opt.auto) $ 
+sysStartOption = Opt.option (Timestamp . sec <$> Opt.auto) $
     Opt.long    "system-start" <>
     Opt.metavar "TIMESTAMP" <>
     Opt.value   staticSysStart
-
-peerIdOption :: Opt.Parser PeerId
-peerIdOption = Opt.option (fromParsec peerIdParser) $
-    Opt.long    "peer-id" <>
-    Opt.metavar "PEERID" <>
-    Opt.help helpMsg
-  where
-    helpMsg = "Identifier for this node. "
-        <> "Must be exactly 14 bytes, base64url encoded."

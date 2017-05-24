@@ -3,48 +3,19 @@
 -- | Delegation-related network and local types.
 
 module Pos.Delegation.Types
-       ( SendProxySK (..)
-       , ConfirmProxySK (..)
+       (
        -- if you uncomment these, also uncomment tests
        -- in Test.Pos.Communication.Identity.BinarySpec
        --, CheckProxySKConfirmed (..)
        --, CheckProxySKConfirmedRes (..)
-       , DlgPayload
+
+         DlgPayload
+       , ProxySKLightConfirmation
        ) where
 
-import           Data.DeriveTH       (derive, makeArbitrary)
-import           Test.QuickCheck     (Arbitrary (..), choose)
-import           Universum
+import           Pos.Core (ProxySKHeavy, ProxySKLight, ProxySigLight)
 
-import           Pos.Core            (ProxySKHeavy, ProxySKLight, ProxySigLight)
-import           Pos.Types.Arbitrary ()
-
-----------------------------------------------------------------------------
--- Generic PSKs propagation
-----------------------------------------------------------------------------
-
--- | Message with delegated proxy secret key. Is used to propagate
--- both epoch-oriented psks (lightweight) and simple (heavyweight).
-data SendProxySK
-    = SendProxySKLight !ProxySKLight
-    | SendProxySKHeavy !ProxySKHeavy
-    deriving (Show, Eq, Ord, Generic)
-
-instance Hashable SendProxySK
-
-----------------------------------------------------------------------------
--- Lightweight PSKs confirmation mechanism
-----------------------------------------------------------------------------
-
--- | Confirmation of proxy signature delivery. Delegate should take
--- the proxy signing key he has and sign this key with itself. If the
--- signature is correct, then it was done by delegate (guaranteed by
--- PSK scheme). Checking @w@ can be done with @(const True)@
--- predicate, because certificate may be sent in epoch id that's
--- before lower cert's @EpochIndex@.
-data ConfirmProxySK =
-    ConfirmProxySK !ProxySKLight !(ProxySigLight ProxySKLight)
-    deriving (Show, Eq, Ord, Generic)
+type ProxySKLightConfirmation = (ProxySKLight, ProxySigLight ProxySKLight)
 
 ---- | Request to check if a node has any info about PSK delivery.
 --data CheckProxySKConfirmed =
@@ -66,7 +37,5 @@ type DlgPayload = [ProxySKHeavy]
 -- Arbitrary instances
 ----------------------------------------------------------------------------
 
-derive makeArbitrary ''SendProxySK
-derive makeArbitrary ''ConfirmProxySK
 --derive makeArbitrary ''CheckProxySKConfirmed
 --derive makeArbitrary ''CheckProxySKConfirmedRes

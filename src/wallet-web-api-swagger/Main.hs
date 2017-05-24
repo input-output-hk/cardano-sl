@@ -89,8 +89,6 @@ instance ToSchema      (W.CAddress W.WS)
 instance ToSchema      (W.CAddress W.Acc)
 instance ToParamSchema (W.CAddress W.WS)
 instance ToParamSchema (W.CAddress W.Acc)
-instance ToSchema      W.CCurrency
-instance ToParamSchema W.CCurrency
 instance ToSchema      W.CProfile
 instance ToSchema      W.WalletError
 
@@ -107,12 +105,11 @@ instance ToParamSchema W.CWalletAddress where
         & type_ .~ SwaggerString
         & format ?~ "walletSetAddress@walletKeyIndex"
 
-instance ToSchema      W.CWalletAssurance
+instance ToSchema      W.CWalletSetAssurance
 instance ToSchema      W.CWalletMeta
 instance ToSchema      W.CWalletSetMeta
 instance ToSchema      W.CWalletInit
 instance ToSchema      W.CWalletSetInit
-instance ToSchema      W.CWalletType
 instance ToSchema      W.CWalletRedeem
 instance ToSchema      W.CWalletSet
 instance ToSchema      W.CWallet
@@ -161,6 +158,7 @@ swaggerSpecForWalletApi = toSwagger W.walletApi
     & newWSet                . description ?~ D.newWSetDescription
     & restoreWSet            . description ?~ D.restoreWSetDescription
     & renameWSet             . description ?~ D.renameWSetDescription
+    & deleteWSet             . description ?~ D.deleteWSetDescription
     & importWSet             . description ?~ D.importWSetDescription
     & changeWSetPassphrase   . description ?~ D.changeWSetPassphraseDescription
 
@@ -205,6 +203,7 @@ swaggerSpecForWalletApi = toSwagger W.walletApi
     newWSet                = walletOp @W.NewWalletSet
     restoreWSet            = walletOp @W.RestoreWalletSet
     renameWSet             = walletOp @W.RenameWalletSet
+    deleteWSet             = walletOp @W.DeleteWalletSet
     importWSet             = walletOp @W.ImportWalletSet
     changeWSetPassphrase   = walletOp @W.ChangeWalletSetPassphrase
 

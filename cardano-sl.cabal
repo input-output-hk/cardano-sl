@@ -205,7 +205,6 @@ library
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
                         Pos.Delegation.Lrc
-                        Pos.Delegation.Methods
                         Pos.Delegation.Types
                         Pos.Delegation.Worker
 
@@ -224,6 +223,7 @@ library
                         Pos.Communication.Server
                         Pos.Communication.Specs
                         Pos.Communication.Limits
+                        Pos.Communication.Update
 
                         -- DB
                         Pos.DB.GState.BlockExtra
@@ -344,7 +344,6 @@ library
                         Pos.Update.Lrc
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
-                        Pos.Update.Network.Types
                         Pos.Update.Poll
                         Pos.Update.Poll.DBPoll
                         Pos.Update.Worker
@@ -381,7 +380,6 @@ library
                         Pos.Wallet.State.Storage
                         Pos.Wallet.State.Storage.Block
                         Pos.Wallet.State.Storage.Tx
-                        Pos.Wallet.Update
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
@@ -442,6 +440,8 @@ library
                       , directory
                       , dlist
                       , ed25519
+                      , ekg
+                      , ekg-core
                       , ether >= 0.5
                       , exceptions
                       , file-embed >= 0.0.10
@@ -1283,6 +1283,7 @@ test-suite cardano-test
                      , regex-tdfa-text
                      , safecopy
                      , serokell-util >= 0.1.3.4
+                     , tagged
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers

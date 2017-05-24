@@ -36,16 +36,17 @@ import           Pos.Constants              (curSoftwareVersion, lastKnownBlockV
                                              slotSecurityParam)
 import           Pos.Context                (lrcActionOnEpochReason, npSecretKey)
 import           Pos.Core                   (EpochIndex, EpochOrSlot (..), HeaderHash,
-                                             ProxySKEither, ProxySKHeavy, SlotId (..),
-                                             SlotLeaders, crucialSlot, epochOrSlot,
-                                             flattenSlotId, getEpochOrSlot, getSlotIndex,
-                                             headerHash, mkLocalSlotIndex)
+                                             ProxySKEither, SlotId (..), SlotLeaders,
+                                             crucialSlot, epochOrSlot, flattenSlotId,
+                                             getEpochOrSlot, getSlotIndex, headerHash,
+                                             mkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
-import           Pos.Delegation.Logic       (clearDlgMemPool, getProxyMempool)
+import           Pos.Delegation.Logic       (clearDlgMemPool, getDlgMempool)
+import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Lrc.Error              (LrcError (..))
@@ -60,6 +61,7 @@ import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload, usVerifyBlocks)
 import           Pos.Update.Poll            (PollModifier)
 import           Pos.Util                   (maybeThrow, _neHead)
+import           Pos.Util.Util              (leftToPanic)
 import           Pos.WorkMode.Class         (WorkMode)
 
 ----------------------------------------------------------------------------
@@ -204,7 +206,7 @@ createMainBlockFinish slotId pSk prevHeader = do
         (localTxs, txUndo) <- getLocalTxsNUndo
         sscData <- sscGetLocalPayload @ssc slotId
         usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
-        (localPSKs, pskUndo) <- lift getProxyMempool
+        (dlgPayload, pskUndo) <- getDlgMempool
         -- Create block
         let convertTx (txId, txAux) = WithHash (taTx txAux) txId
         sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
@@ -215,7 +217,7 @@ createMainBlockFinish slotId pSk prevHeader = do
         sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
         block <- createMainBlockPure
             sizeLimit prevHeader (map snd sortedTxs) pSk
-            slotId localPSKs sscData usPayload sk
+            slotId dlgPayload sscData usPayload sk
         lift $ logInfo $ "Created main block of size: " <> show (biSize block)
         -- Create undo
         (pModifier, verUndo) <-
@@ -260,20 +262,21 @@ createMainBlockPure
     -> [TxAux]
     -> Maybe ProxySKEither
     -> SlotId
-    -> [ProxySKHeavy]
+    -> DlgPayload
     -> SscPayload ssc
     -> UpdatePayload
     -> SecretKey
     -> m (MainBlock ssc)
-createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
+createMainBlockPure limit prevHeader txs pSk sId dlgPay sscData usPayload sk =
     flip evalStateT limit $ do
         -- default ssc to put in case we won't fit a normal one
         let defSsc = (sscDefaultPayload @ssc (siSlot sId) :: SscPayload ssc)
 
         -- account for block header and serialization overhead, etc;
         let musthaveBody = BC.MainBody
-                (fromMaybe (error "createMainBlockPure: impossible") $ mkTxPayload mempty)
-                defSsc [] def
+                (leftToPanic @Text "createMainBlockPure: impossible " $
+                 mkTxPayload mempty)
+                defSsc def def
         musthaveBlock <-
             mkMainBlock (Just prevHeader) sId sk pSk musthaveBody extraH extraB
         let mhbSize = biSize musthaveBlock
@@ -294,6 +297,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
 
         -- include delegation certificates and US payload
         let prioritizeUS = even (flattenSlotId sId)
+        let psks = getDlgPayload dlgPay
         (psks', usPayload') <-
             if prioritizeUS then do
                 usPayload' <- includeUSPayload
@@ -303,11 +307,12 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
                 psks' <- takeSome psks
                 usPayload' <- includeUSPayload
                 return (psks', usPayload')
+        let dlgPay' = leftToPanic "createMainBlockPure: " $ mkDlgPayload psks'
         -- include transactions
         txs' <- takeSome txs
         -- return the resulting block
         txPayload <- either throwError pure $ mkTxPayload txs'
-        let body = BC.MainBody txPayload sscPayload psks' usPayload'
+        let body = BC.MainBody txPayload sscPayload dlgPay' usPayload'
         mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
   where
     -- take from a list until the limit is exhausted or the list ends

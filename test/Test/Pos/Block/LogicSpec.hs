@@ -22,16 +22,16 @@ import qualified Pos.Communication          ()
 import           Pos.Constants              (blkSecurityParam, genesisMaxBlockSize)
 import           Pos.Core                   (SlotId (..), unsafeMkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey)
+import           Pos.Delegation             (DlgPayload)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              commitmentMapEpochGen, mkVssCertificatesMap,
                                              vssCertificateEpochGen)
 import           Pos.Txp.Core               (TxAux)
-import           Pos.Types                  (ProxySKEither, ProxySKHeavy,
-                                             SmallGoodTx (..), goodTxToTxAux)
+import           Pos.Types                  (ProxySKEither, SmallGoodTx (..),
+                                             goodTxToTxAux)
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util.Arbitrary         (makeSmall)
-
 
 spec :: Spec
 spec = describe "Block.Logic" $ do
@@ -44,7 +44,7 @@ spec = describe "Block.Logic" $ do
     -- way to get maximum of them. Some settings produce 390b empty
     -- block, some -- 431b.
     let emptyBSize0 :: Byte
-        emptyBSize0 = biSize (noSscBlock infLimit prevHeader0 [] [] def sk0) -- in bytes
+        emptyBSize0 = biSize (noSscBlock infLimit prevHeader0 [] def def sk0) -- in bytes
         emptyBSize :: Integral n => n
         emptyBSize = round $ (1.5 * fromIntegral emptyBSize0 :: Double)
 
@@ -68,12 +68,12 @@ spec = describe "Block.Logic" $ do
             forAll arbitrary $ \(prevHeader, sk) ->
             forAll (makeSmall $ listOf1 genTxAux) $ \txs ->
             forAll (elements [0,0.5,0.9]) $ \(delta :: Double) ->
-            let blk0 = noSscBlock infLimit prevHeader [] [] def sk
-                blk1 = noSscBlock infLimit prevHeader txs [] def sk
+            let blk0 = noSscBlock infLimit prevHeader [] def def sk
+                blk1 = noSscBlock infLimit prevHeader txs def def sk
             in leftToCounter ((,) <$> blk0 <*> blk1) $ \(b0, b1) ->
                 let s = biSize b0 +
                         round ((fromIntegral $ biSize b1 - biSize b0) * delta)
-                    blk2 = noSscBlock s prevHeader txs  [] def sk
+                    blk2 = noSscBlock s prevHeader txs def def sk
                 in counterexample ("Tested with block size limit: " <> show s) $
                    leftToCounter blk2 (const True)
         prop "strips ssc data when necessary" $
@@ -81,9 +81,9 @@ spec = describe "Block.Logic" $ do
             forAll validGtPayloadGen $ \(gtPayload, slotId) ->
             forAll (elements [0,0.5,0.9]) $ \(delta :: Double) ->
             let blk0 = producePureBlock infLimit prevHeader [] Nothing
-                                        slotId [] (defGTP slotId) def sk
+                                        slotId def (defGTP slotId) def sk
                 withPayload lim =
-                    producePureBlock lim prevHeader [] Nothing slotId [] gtPayload def sk
+                    producePureBlock lim prevHeader [] Nothing slotId def gtPayload def sk
                 blk1 = withPayload infLimit
             in leftToCounter ((,) <$> blk0 <*> blk1) $ \(b0,b1) ->
                 let s = biSize b0 +
@@ -101,7 +101,7 @@ spec = describe "Block.Logic" $ do
     emptyBlk :: Testable p => (Either Text (MainBlock SscGodTossing) -> p) -> Property
     emptyBlk foo =
         forAll arbitrary $ \(prevHeader, sk, slotId) ->
-        foo $ producePureBlock infLimit prevHeader [] Nothing slotId [] (defGTP slotId) def sk
+        foo $ producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
 
     genTxAux :: Gen TxAux
     genTxAux = goodTxToTxAux . getSmallGoodTx <$> arbitrary
@@ -110,7 +110,7 @@ spec = describe "Block.Logic" $ do
         :: Byte
         -> BlockHeader SscGodTossing
         -> [TxAux]
-        -> [ProxySKHeavy]
+        -> DlgPayload
         -> UpdatePayload
         -> SecretKey
         -> Either Text (MainBlock SscGodTossing)
@@ -125,7 +125,7 @@ spec = describe "Block.Logic" $ do
         -> [TxAux]
         -> Maybe ProxySKEither
         -> SlotId
-        -> [ProxySKHeavy]
+        -> DlgPayload
         -> SscPayload SscGodTossing
         -> UpdatePayload
         -> SecretKey

@@ -74,8 +74,8 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
             (stext%":\n"%
              "  "%build%
              "  transactions ("%int%" items): "%listJson%"\n"%
-             "  proxy signing keys ("%int%" items): "%listJson%"\n"%
-             build%"\n"%
+             "  "%build%"\n"%
+             "  "%build%"\n"%
              "  update payload: "%build%"\n"%
              "  "%build
             )
@@ -83,7 +83,6 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
             _gbHeader
             (length txs)
             txs
-            (length _mbDlgPayload)
             _mbDlgPayload
             _mbSscPayload
             _mbUpdatePayload

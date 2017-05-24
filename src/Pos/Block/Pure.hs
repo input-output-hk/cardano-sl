@@ -20,7 +20,7 @@ import           Universum
 import           Control.Lens               (ix, (%=))
 import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
-import           Data.List                  (groupBy, partition)
+import           Data.List                  (partition)
 import           Formatting                 (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Verify       (VerificationRes (..), verifyGeneric)
@@ -45,6 +45,7 @@ import           Pos.Core                   (ChainDifficulty, EpochOrSlot,
 import           Pos.Core.Block             (gbExtra)
 import           Pos.Crypto                 (ProxySecretKey (..), pdCert)
 import           Pos.Data.Attributes        (Attributes (attrRemain))
+import           Pos.Delegation.Types       (getDlgPayload)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
@@ -276,21 +277,14 @@ verifyBlock VerifyBlockParams {..} blk =
         , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
         ]
   where
-    proxySKsDups psks =
-        filter (\x -> length x > 1) $
-        groupBy ((==) `on` pskIssuerPk) $
-        sortOn pskIssuerPk psks
     verifyProxySKs
         | vbpVerifyProxySKs =
           (flip (either $ const mempty) blk) $ \mainBlk ->
             let bEpoch = mainBlk ^. epochIndexL
                 notMatchingEpochs = filter ((/= bEpoch) . pskOmega) proxySKs
-                proxySKs = mainBlk ^. mainBlockDlgPayload
-                duplicates = proxySKsDups proxySKs in
+                proxySKs = getDlgPayload $ mainBlk ^. mainBlockDlgPayload in
                 verifyGeneric
-            [ ( null duplicates
-              , "Some of block's PSKs have the same issuer, which is prohibited"),
-              ( null notMatchingEpochs
+            [ ( null notMatchingEpochs
               , "Block contains psk(s) that have non-matching epoch index")
             ]
         | otherwise = mempty
@@ -323,7 +317,7 @@ pskHeavyMapApplyBlock :: MainBlock ssc -> ProxySKHeavyMap -> ProxySKHeavyMap
 pskHeavyMapApplyBlock block m = flip execState m $ do
     let (toDelete,toReplace) =
             partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
-                      (view mainBlockDlgPayload block)
+                      (getDlgPayload $ view mainBlockDlgPayload block)
     for_ toDelete $ \psk -> identity %= HM.delete (pskIssuerPk psk)
     for_ toReplace $ \psk -> identity %= HM.insert (pskIssuerPk psk) psk
 

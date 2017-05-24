@@ -16,6 +16,7 @@ import           Data.Tagged                (untag)
 
 import           Pos.Binary.Class           (Bi)
 import           Pos.Binary.Core            ()
+import           Pos.Binary.Delegation      ()
 import           Pos.Binary.Txp             ()
 import           Pos.Binary.Update          ()
 import           Pos.Block.Core.Main.Types  (MainBlock, MainBlockchain, MainExtraBodyData,
@@ -24,7 +25,7 @@ import           Pos.Block.Core.Union.Types (BiHeader, Block, BlockHeader,
                                              BlockSignature (..))
 import           Pos.Core                   (Blockchain (..), ChainDifficulty,
                                              GenericBlockHeader (..), IsMainHeader (..),
-                                             ProxySKHeavy, SlotId (..))
+                                             SlotId (..))
 import           Pos.Crypto                 (Hash, PublicKey, hash)
 import           Pos.Delegation.Types       (DlgPayload)
 import           Pos.Ssc.Class.Types        (Ssc (..))
@@ -41,7 +42,7 @@ instance ( BiHeader ssc
     data BodyProof (MainBlockchain ssc) = MainProof
         { mpTxProof       :: !TxProof
         , mpMpcProof      :: !(SscProof ssc)
-        , mpProxySKsProof :: !(Hash [ProxySKHeavy])
+        , mpProxySKsProof :: !(Hash DlgPayload)
         , mpUpdateProof   :: !UpdateProof
         } deriving (Generic)
     data ConsensusData (MainBlockchain ssc) = MainConsensusData

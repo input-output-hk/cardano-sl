@@ -38,6 +38,7 @@ import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..)
                                                   SlotId (..), SoftwareVersion (..))
 import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Data.Attributes             (Attributes (..))
+import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
                                                   MerkleTree (..))
 import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..), CommitmentsMap,
@@ -119,6 +120,8 @@ deriveSafeCopySimple 0 'base ''Tx
 deriveSafeCopySimple 0 'base ''TxProof
 deriveSafeCopySimple 0 'base ''TxPayload
 deriveSafeCopySimple 0 'base ''SharedSeed
+
+deriveSafeCopySimple 0 'base ''DlgPayload
 
 deriveSafeCopySimple 0 'base ''MainExtraBodyData
 deriveSafeCopySimple 0 'base ''MainExtraHeaderData
@@ -247,7 +250,7 @@ instance (Ssc ssc, SafeCopy (SscPayload ssc)) =>
     getCopy = contain $ do
         _mbTxPayload     <- safeGet
         _mbSscPayload    <- safeGet
-        _mbDlgPayload      <- safeGet
+        _mbDlgPayload    <- safeGet
         _mbUpdatePayload <- safeGet
         return $! MainBody{..}
     putCopy MainBody {..} = contain $ do

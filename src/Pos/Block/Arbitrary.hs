@@ -10,9 +10,9 @@ module Pos.Block.Arbitrary
 import           Universum
 
 import           Control.Lens         (to)
+import qualified Data.HashMap.Strict  as HM
 import           Data.Ix              (range)
 import qualified Data.List.NonEmpty   as NE
-import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (bprint, build, (%))
 import           Prelude              (Show (..))
@@ -26,9 +26,10 @@ import           Pos.Block.Network    as T
 import qualified Pos.Block.Pure       as T
 import           Pos.Constants        (epochSlots)
 import qualified Pos.Core             as Core
-import           Pos.Crypto           (ProxySecretKey, PublicKey, SecretKey,
+import           Pos.Crypto           (ProxySecretKey (pskIssuerPk), PublicKey, SecretKey,
                                        createProxySecretKey, toPublic)
 import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
+import           Pos.Delegation.Types (DlgPayload, mkDlgPayload)
 import           Pos.Ssc.Arbitrary    (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
 import           Pos.Txp.Core         (TxAux (..), TxDistribution (..), TxPayload, mkTx,
@@ -175,6 +176,14 @@ instance Arbitrary TxPayload where
         fromMaybe (error "arbitrary@TxPayload: mkTxPayload failed") .
         mkTxPayload <$>
         txOutDistGen
+
+instance Arbitrary DlgPayload where
+    arbitrary =
+        leftToPanic "arbitrary @DlgPayload: " .
+        mkDlgPayload . toList . HM.fromList . map convert <$>
+        arbitrary
+      where
+        convert psk = (pskIssuerPk psk, psk)
 
 newtype SmallTxPayload =
     SmallTxPayload TxPayload

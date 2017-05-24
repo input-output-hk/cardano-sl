@@ -148,6 +148,7 @@ library
                         Pos.Binary.Block.Block
                         Pos.Binary.Block.Core
                         Pos.Binary.Communication
+                        Pos.Binary.Delegation
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
                         Pos.Binary.Relay

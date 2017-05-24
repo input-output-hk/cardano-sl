@@ -17,6 +17,7 @@ module Pos.Wallet.Web.Api
        , NewWalletSet
        , RestoreWalletSet
        , RenameWalletSet
+       , DeleteWalletSet
        , ImportWalletSet
        , ChangeWalletSetPassphrase
 
@@ -60,7 +61,7 @@ import           Servant.Multipart          (MultipartForm)
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (Acc, CAccount, CAddress, CCurrency,
+import           Pos.Wallet.Web.ClientTypes (Acc, CAccount, CAddress,
                                              CElectronCrashReport, CInitialized,
                                              CPaperVendWalletRedeem, CPassPhrase,
                                              CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
@@ -117,6 +118,12 @@ type RenameWalletSet =
     :> Capture "walletSetId" (CAddress WS)
     :> Capture "name" Text
     :> Post '[JSON] (Either WalletError CWalletSet)
+
+type DeleteWalletSet =
+       "wallets"
+    :> "sets"
+    :> Capture "walletSetId" (CAddress WS)
+    :> Delete '[JSON] (Either WalletError ())
 
 type ImportWalletSet =
        "wallets"
@@ -183,8 +190,6 @@ type NewAccount =
 type IsValidAddress =
        "addresses"
     :> Capture "address" Text
-    :> "currencies"
-    :> Capture "currency" CCurrency
     :> Get '[JSON] (Either WalletError Bool)
 
 -------------------------------------------------------------------------
@@ -221,7 +226,6 @@ type NewPaymentExt =
     :> Capture "from" CWalletAddress
     :> Capture "to" (CAddress Acc)
     :> Capture "amount" Coin
-    :> Capture "currency" CCurrency
     :> Capture "title" Text
     :> Capture "description" Text
     :> Post '[JSON] (Either WalletError CTx)
@@ -343,6 +347,8 @@ type WalletApi = ApiPrefix :> (
      RestoreWalletSet
     :<|>
      RenameWalletSet
+    :<|>
+     DeleteWalletSet
     :<|>
      ImportWalletSet
     :<|>

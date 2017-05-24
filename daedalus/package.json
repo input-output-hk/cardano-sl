@@ -45,8 +45,9 @@
     "webpack-dev-server": "2.4.2",
     "xhr2": "^0.1.4"
   },
+  "//": "NOTE: if you will be bumping bip39 to >=2.2.0 be aware of https://issues.serokell.io/issue/VD-95 . In this case you will have to modify how we validate paperVendMnemonics. Affected endpoints: isValidMnemonic, redeemAdaPaperVend",
   "dependencies": {
-    "bip39": "^2.2.0",
+    "bip39": "2.2.0",
     "bs58": "^4.0.0",
     "blakejs": "^1.0.1",
     "json-loader": "^0.5.4"

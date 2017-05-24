@@ -10,39 +10,45 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeOperators       #-}
 
-module Main where
+module Main
+  ( main
+  ) where
 
+import           Control.Lens                       (mapped, (?~))
+import           Data.Aeson                         (encode)
+import qualified Data.ByteString.Lazy.Char8         as BSL8
+import           Data.Swagger                       (NamedSchema (..), Operation, Swagger,
+                                                     SwaggerType (..), ToParamSchema (..),
+                                                     ToSchema (..), declareNamedSchema,
+                                                     declareSchemaRef,
+                                                     defaultSchemaOptions, description,
+                                                     format, genericDeclareNamedSchema,
+                                                     host, info, name, properties,
+                                                     required, title, type_, version)
+import           Data.Typeable                      (Typeable, typeRep)
+import           Data.Version                       (showVersion)
+import           Options.Applicative.Simple         (execParser, footer, fullDesc, header,
+                                                     help, helper, infoOption, long,
+                                                     progDesc)
+import qualified Options.Applicative.Simple         as S
+import           Servant                            ((:>))
+import           Servant.Multipart                  (FileData (..), MultipartForm)
+import           Servant.Swagger                    (HasSwagger (toSwagger),
+                                                     subOperations)
+import           Servant.Swagger.Internal.TypeLevel (IsSubAPI)
 import           Universum
 
-import           Options.Applicative.Simple (execParser, footer, fullDesc, header, help,
-                                             helper, infoOption, long, progDesc)
-import qualified Options.Applicative.Simple as S
-import           Control.Lens               (mapped, (?~))
-import           Data.Aeson                 (encode)
-import qualified Data.ByteString.Lazy.Char8 as BSL8
-import           Data.Swagger               (NamedSchema (..), Operation, Swagger,
-                                             SwaggerType (..), ToParamSchema (..),
-                                             ToSchema (..), declareNamedSchema,
-                                             declareSchemaRef, defaultSchemaOptions,
-                                             description, format,
-                                             genericDeclareNamedSchema, host, info, name,
-                                             properties, required, title, type_, version)
-import           Data.Typeable              (Typeable, typeRep)
-import           Data.Version               (showVersion)
-import           Servant                    ((:>))
-import           Servant.Multipart          (FileData (..), MultipartForm)
-import           Servant.Swagger            (HasSwagger (toSwagger), subOperations)
+import qualified Paths_cardano_sl                   as CSL
+import           Pos.Types                          (ApplicationName, BlockVersion,
+                                                     ChainDifficulty, Coin,
+                                                     SoftwareVersion)
+import           Pos.Util.BackupPhrase              (BackupPhrase)
+import qualified Pos.Wallet.Web                     as W
 
-import qualified Paths_cardano_sl           as CSL
-import           Pos.Types                  (ApplicationName, BlockVersion,
-                                             ChainDifficulty, Coin, SoftwareVersion)
-import           Pos.Util.BackupPhrase      (BackupPhrase)
-import qualified Pos.Wallet.Web             as W
-
-import qualified Description                as D
+import qualified Description                        as D
 
 showProgramInfoIfRequired :: FilePath -> IO ()
-showProgramInfoIfRequired generatedJSON = execParser programInfo >> return ()
+showProgramInfoIfRequired generatedJSON = void $ execParser programInfo
   where
     programInfo = S.info (helper <*> versionOption) $
         fullDesc <> progDesc "Generate Swagger specification for Wallet web API."

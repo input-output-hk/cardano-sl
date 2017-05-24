@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Main where
 
 import           Universum
@@ -12,7 +14,7 @@ import           System.Directory      (doesDirectoryExist, listDirectory)
 import           System.Environment    (getProgName)
 import           System.FilePath.Posix ((</>), (<.>))
 import           System.Process        (readProcess)
-import           Data.Text             (Text, pack)
+import           Data.Text             (Text)
 import           Data.List             (intersperse)
 
 import           Paths_cardano_sl      (version)
@@ -33,7 +35,7 @@ optionsParser = do
     return CLIDocsOptions{..}
 
 getCLIDocsOptions :: FilePath -> IO CLIDocsOptions
-getCLIDocsOptions pathToMarkdownFile = execParser programInfo >>= return
+getCLIDocsOptions pathToMarkdownFile = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc "Generate Markdown chapter for cardanodocs.com."
@@ -68,7 +70,7 @@ main = do
     -- | We run executable to get its help info.
     getHelpInfo binDir exe = do
         helpOutput <- readProcess fullPath args stdIn
-        return (exe, pack helpOutput)
+        return (exe, toText helpOutput)
       where
         fullPath = binDir </> exe
         args     = ["--help"]
@@ -106,7 +108,7 @@ generateSection (exe, helpInfoForThisExecutable) = mconcat
     , pre
     ]
   where
-    subHeader = "## " <> pack exe
+    subHeader = "## " <> toText exe
     pre       = "~~~"
 
 nl :: Text

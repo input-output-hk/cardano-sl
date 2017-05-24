@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Main
   ( main
   ) where
@@ -45,7 +47,7 @@ optionsParser = do
     pure UpdateGenOptions{..}
 
 getUpdateGenOptions :: IO UpdateGenOptions
-getUpdateGenOptions = execParser programInfo >>= return
+getUpdateGenOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc ("")

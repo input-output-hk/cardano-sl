@@ -11,11 +11,11 @@ module KeygenOptions
 
 import           Data.String.QQ               (s)
 import           Data.Version                 (showVersion)
+import           Options.Applicative          (Parser, auto, execParser, footerDoc,
+                                               fullDesc, header, help, helper, info,
+                                               infoOption, long, metavar, option,
+                                               progDesc, short, strOption, switch, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Options.Applicative          (Parser, auto, execParser, footerDoc, fullDesc,
-                                               header, help, helper, info, infoOption, long,
-                                               metavar, option, progDesc, short, strOption,
-                                               switch, value)
 import           Universum                    hiding (show)
 
 import           Paths_cardano_sl             (version)
@@ -50,7 +50,6 @@ data FakeAvvmOptions = FakeAvvmOptions
     , faoOneStake    :: Word64
     } deriving (Show)
 
-<<<<<<< a639bf8213ce4c8748bc8d9b91e03f7aeb82f972
 optionsParser :: Parser KeygenOptions
 optionsParser = do
     koGenesisDir <- strOption $
@@ -61,7 +60,7 @@ optionsParser = do
     koRearrangeMask <- optional $ strOption $
         long    "rearrange-mask" <>
         metavar "PATTERN" <>
-        help    "Secret keyfiles to re-arrange."
+        help    "Secret keyfiles to rearrange."
     koDumpDevGenKeys <- optional $ strOption $
         long    "dump-dev-genesis-keys" <>
         metavar "PATTERN" <>
@@ -140,7 +139,7 @@ fakeAvvmParser = do
     return FakeAvvmOptions{..}
 
 getKeygenOptions :: IO KeygenOptions
-getKeygenOptions = execParser programInfo >>= return
+getKeygenOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc "Produce 'genesis-*' directory with generated keys."
@@ -154,7 +153,7 @@ getKeygenOptions = execParser programInfo >>= return
 usageExample :: Maybe Doc
 usageExample = Just [s|
 Command example:
-  
+
   stack exec -- cardano-keygen                          \
     --genesis-file genesis.bin                          \
     -f secrets/secret-{}.key                            \

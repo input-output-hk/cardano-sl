@@ -2,24 +2,24 @@
 -- stack --install-ghc runghc --package turtle
 
 {-# LANGUAGE ApplicativeDo   #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE QuasiQuotes     #-}
+{-# LANGUAGE RecordWildCards #-}
 
+import qualified Control.Foldl                as F
+import           Data.Function                (on)
+import           Data.List                    (foldl', sortBy)
+import qualified Data.Map.Strict              as M
 import           Data.String.QQ               (s)
+import qualified Data.Text                    as T
 import           Data.Version                 (showVersion)
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Options.Applicative.Simple   (Parser, execParser, footerDoc, fullDesc,
                                                help, helper, info, infoOption, long,
                                                metavar, progDesc, short)
 import qualified Options.Applicative.Simple   as S
 import           Options.Applicative.Text     (textOption)
 import           Paths_cardano_sl             (version)
-import qualified Control.Foldl                as F
-import           Data.Function                (on)
-import           Data.List                    (foldl', sortBy)
-import qualified Data.Map.Strict              as M
-import qualified Data.Text                    as T
 import           Prelude                      hiding (FilePath)
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Turtle                       hiding (s)
 
 data ChecksOptions = ChecksOptions
@@ -42,7 +42,7 @@ optionsParser = do
     pure ChecksOptions{..}
 
 getChecksOptions :: IO ChecksOptions
-getChecksOptions = execParser programInfo >>= return
+getChecksOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc ("Extract comments from Haskell source code and store it in output file.")
@@ -56,13 +56,13 @@ getChecksOptions = execParser programInfo >>= return
 usageExample :: Maybe Doc
 usageExample = Just [s|
 Command example:
-  
+
   stack exec -- cardano-checks /tmp/cardano-sl /tmp/checks.md
 
 Example of output file content:
 
   # Checks
-  
+
   ## Module Pos.Crypto.SecretSharing
   Verify an encrypted share using SecretSharingExtra.
   _(line 182)_

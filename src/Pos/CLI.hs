@@ -146,7 +146,7 @@ sysStartParser = Opt.option (Timestamp . sec <$> Opt.auto) $
     -- from `staticSysStart`, which gets it from the config file.
     defaultValue =
         if isDevelopment then mempty else Opt.value staticSysStart
-    helpMsg = "Time when system started. Mandatory in development mode. Format - seconds since Unix-epoch."
+    helpMsg = "System start time. Mandatory in development mode. Format - seconds since Unix-epoch."
 
 templateParser :: (HasName f, HasMetavar f) => String -> String -> String -> Opt.Mod f a
 templateParser long metavar help =
@@ -285,7 +285,7 @@ externalNetworkAddressOption na =
          <> maybe mempty Opt.value na
   where
     helpMsg = "IP and port of external address. "
-        <> "Please make sure these IP and port (at which node is running) are actually accessible "
+        <> "Please make sure these IP and port (on which node is running) are accessible "
         <> "otherwise proper work of CSL isn't guaranteed. "
         <> "0.0.0.0 is not accepted as a valid host."
 
@@ -298,23 +298,14 @@ listenNetworkAddressOption na =
          <> Opt.showDefault
          <> maybe mempty Opt.value na
   where
-<<<<<<< 414817a6f8c8de405553c8ba1325e1366dc7b60e
-    helpMsg = "Ip and port on which to bind and listen."
+    helpMsg = "IP and port on which to bind and listen. Please make sure these IP "
+        <> "and port are accessible, otherwise proper work of CSL isn't guaranteed."
 
 sysStartOption :: Opt.Parser Timestamp
 sysStartOption = Opt.option (Timestamp . sec <$> Opt.auto) $
     Opt.long    "system-start" <>
     Opt.metavar "TIMESTAMP" <>
-    Opt.value   staticSysStart
-=======
-    helpMsg = "IP and port on which to bind and listen. Please make sure these IP "
-        <> "and port are actually accessible, otherwise proper work of CSL isn't guaranteed."
-
-peerIdOption :: Opt.Parser PeerId
-peerIdOption = Opt.option (fromParsec peerIdParser) $
-    Opt.long    "peer-id" <>
-    Opt.metavar "PEER_ID" <>
-    Opt.help helpMsg
+    Opt.value   staticSysStart <>
+    Opt.help    helpMsg
   where
-    helpMsg = "Identifier of this node. Must be exactly 14 bytes, base64url encoded."
->>>>>>> Rebasing to last master, resolve conflicts.
+    helpMsg = "System start time. Format - seconds since Unix Epoch."

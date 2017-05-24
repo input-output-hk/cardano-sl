@@ -6,12 +6,13 @@ module GenOptions
        , getGenOptions
        ) where
 
-import           Data.String.QQ
+import           Data.String.QQ               (s)
 import           Data.Version                 (showVersion)
+import           Options.Applicative          (Parser, auto, execParser, footerDoc,
+                                               fullDesc, header, help, helper, info,
+                                               infoOption, long, metavar, option,
+                                               progDesc, short, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Options.Applicative          (Parser, auto, execParser, footerDoc, fullDesc,
-                                               header, help, helper, info, infoOption, long,
-                                               metavar, option, progDesc, short, value)
 
 import           Universum
 
@@ -67,7 +68,7 @@ optionsParser = do
         short   't' <>
         long    "tps" <>
         metavar "DOUBLE" <>
-        help    "TPS (transactions per second),"
+        help    "TPS (transactions per second)."
     goTpsIncreaseStep <- option auto $
         short   'S' <>
         long    "tps-step" <>
@@ -96,7 +97,7 @@ optionsParser = do
     return GenOptions{..}
 
 getGenOptions :: IO GenOptions
-getGenOptions = execParser programInfo >>= return
+getGenOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc "It starts a stress test to see an actual number of generated transactions per second (TPS)."
@@ -110,7 +111,7 @@ getGenOptions = execParser programInfo >>= return
 usageExample :: Maybe Doc
 usageExample = Just [s|
 Command example:
- 
+
   stack exec -- cardano-smart-generator                     \
     -i 0                                                    \
     --disable-propagation                                   \

@@ -7,12 +7,13 @@ module AnalyzerOptions
        , getAnalyzerOptions
        ) where
 
-import           Data.String.QQ
+import           Data.String.QQ               (s)
 import           Data.Version                 (showVersion)
+import           Options.Applicative.Simple   (Parser, auto, execParser, footerDoc,
+                                               fullDesc, header, help, helper, info,
+                                               infoOption, long, metavar, option,
+                                               progDesc, short, strOption, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Options.Applicative.Simple   (Parser, auto, execParser, footerDoc, fullDesc,
-                                               header, help, helper, info, infoOption, long,
-                                               metavar, option, progDesc, short, strOption, value)
 
 import           Universum
 
@@ -43,7 +44,7 @@ argsParser = Args
                   <> help "Amount of blocks needed for confirmation.")
 
 getAnalyzerOptions :: IO Args
-getAnalyzerOptions = execParser programInfo >>= return
+getAnalyzerOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> argsParser) $
         fullDesc <> progDesc "Analyze JSON log and store information in CSV file."

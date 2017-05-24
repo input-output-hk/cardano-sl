@@ -1058,7 +1058,6 @@ executable cardano-genupdate
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
                        BangPatterns
-                       QuasiQuotes
                        ApplicativeDo
                        RecordWildCards
 
@@ -1214,7 +1213,6 @@ executable cardano-addr-convert
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
-                        QuasiQuotes
                         ApplicativeDo
 
 executable cardano-cli-docs
@@ -1247,7 +1245,6 @@ executable cardano-cli-docs
                         RecordWildCards
                         OverloadedStrings
                         ApplicativeDo
-                        QuasiQuotes
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

@@ -1,3 +1,5 @@
+{-# LANGUAGE QuasiQuotes #-}
+
 module Main (main) where
 
 import           Universum
@@ -31,7 +33,7 @@ optionsParser = do
     return AddrConvertOptions{..}
 
 getAddrConvertOptions :: IO AddrConvertOptions
-getAddrConvertOptions = execParser programInfo >>= return
+getAddrConvertOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc  "Produce public key and write it in stdout."

@@ -10,14 +10,15 @@ module WalletOptions
        , getWalletOptions
        ) where
 
-import           Data.String.QQ
+import           Data.String.QQ               (s)
 import           Data.Version                 (showVersion)
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Options.Applicative          (CommandFields, Mod, Parser, auto,
-                                               command, execParser, footerDoc, fullDesc, help, header,
-                                               helper, info, infoOption, long, metavar, option, option, progDesc,
+import           Options.Applicative          (CommandFields, Mod, Parser, auto, command,
+                                               execParser, footerDoc, fullDesc, header,
+                                               help, helper, info, infoOption, long,
+                                               metavar, option, option, progDesc,
                                                subparser, switch, value)
 import           Serokell.Util.OptParse       (strOption)
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Universum
 
 import           Paths_cardano_sl             (version)
@@ -103,7 +104,7 @@ argsParser = do
     pure WalletOptions{..}
 
 getWalletOptions :: IO WalletOptions
-getWalletOptions = execParser programInfo >>= return
+getWalletOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> argsParser) $
         fullDesc <> progDesc "Cardano SL CLI-wallet."

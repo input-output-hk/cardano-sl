@@ -2,18 +2,18 @@ module Main
   ( main
   ) where
 
-import           Data.Version                 (showVersion)
-import           Options.Applicative.Simple   (Parser, execParser, fullDesc,
-                                               header, help, helper, info, infoOption, long,
-                                               metavar, progDesc, short, strOption)
-import           Paths_cardano_sl             (version)
-import qualified Data.ByteString.Char8        as BS
-import           Network.Kademlia.HashNodeId  (HashId (..), Nonce (..), genNonce,
-                                               hashAddress)
-import           Serokell.Util.Base64         (encodeUrl)
+import qualified Data.ByteString.Char8       as BS
+import           Data.Version                (showVersion)
+import           Network.Kademlia.HashNodeId (HashId (..), Nonce (..), genNonce,
+                                              hashAddress)
+import           Options.Applicative.Simple  (Parser, execParser, fullDesc, header, help,
+                                              helper, info, infoOption, long, metavar,
+                                              progDesc, short, strOption)
+import           Paths_cardano_sl            (version)
+import           Serokell.Util.Base64        (encodeUrl)
 import           Universum
 
-import           Pos.Crypto                   (runSecureRandom)
+import           Pos.Crypto                  (runSecureRandom)
 
 nonceLen :: Int
 nonceLen = 14
@@ -46,7 +46,7 @@ optionsParser = do
     pure KeyGenOptions{..}
 
 getKeyGenOptions :: IO KeyGenOptions
-getKeyGenOptions = execParser programInfo >>= return
+getKeyGenOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc ("Generated key will be print to stdout.")
@@ -60,4 +60,4 @@ main :: IO ()
 main = do
     KeyGenOptions{..} <- getKeyGenOptions
     key <- generateKey $ BS.pack nonce
-    putStrLn . fromMaybe "Invalid nonce length, it must contain 14 characters." . fmap encodeUrl $ key
+    putStrLn . fromMaybe "Invalid nonce length, it must be 14 characters." . fmap encodeUrl $ key

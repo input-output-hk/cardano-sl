@@ -11,13 +11,14 @@ module NodeOptions
 
 import           Data.String.QQ               (s)
 import           Data.Version                 (showVersion)
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
-import           Options.Applicative.Simple   (Parser, auto, execParser, footerDoc, fullDesc,
-                                               header, help, helper, info, infoOption, long,
-                                               metavar, option, progDesc, showDefault, strOption,
-                                               switch, value)
+import           Options.Applicative.Simple   (Parser, auto, execParser, footerDoc,
+                                               fullDesc, header, help, helper, info,
+                                               infoOption, long, metavar, option,
+                                               progDesc, showDefault, strOption, switch,
+                                               value)
 import           Prelude                      (show)
 import           Serokell.Util.OptParse       (fromParsec)
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Universum                    hiding (show)
 
 import           Paths_cardano_sl             (version)
@@ -82,7 +83,7 @@ argsParser = do
         long    "db-path" <>
         metavar "FILEPATH" <>
         value   "node-db" <>
-        help    "Path to directory with node’s database (called Global State). \
+        help    "Path to directory with all DBs used by the node. \
                 \If specified path doesn’t exist, a directory will be created."
     rebuildDB <- switch $
         long "rebuild-db" <>
@@ -92,7 +93,7 @@ argsParser = do
         then (optional $ option auto $
                   long    "spending-genesis" <>
                   metavar "INT" <>
-                  help    "Index of using secret key in genesis.")
+                  help    "Used genesis secret key index.")
         else pure Nothing
     devVssGenesisI <- if isDevelopment
         then (optional $ option auto $
@@ -200,7 +201,7 @@ addrNodeOption =
         help "Identifier of a node in a Kademlia network"
 
 getNodeOptions :: IO Args
-getNodeOptions = execParser programInfo >>= return
+getNodeOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> argsParser) $
         fullDesc <> progDesc "Cardano SL main server node."
@@ -214,7 +215,7 @@ getNodeOptions = execParser programInfo >>= return
 usageExample :: Maybe Doc
 usageExample = Just [s|
 Command example:
-  
+
   stack exec -- cardano-node                                             \
     --db-path node-db0                                                   \
     --rebuild-db                                                         \

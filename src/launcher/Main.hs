@@ -1,24 +1,24 @@
 {-# LANGUAGE ApplicativeDo     #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE RankNTypes        #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-import qualified Data.String.QQ               as Q
-import           Data.Version                 (showVersion)
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Control.Concurrent           (modifyMVar_)
 import           Control.Concurrent.Async     (Async, cancel, poll, waitAny,
                                                withAsyncWithUnmask)
 import           Data.List                    (isSuffixOf)
+import qualified Data.String.QQ               as Q
+import           Data.Version                 (showVersion)
 import qualified Filesystem.Path              as FP
 import           Filesystem.Path.CurrentOS    (encodeString)
 import           Options.Applicative.Simple   (Mod, OptionFields, Parser, auto,
-                                               execParser, footerDoc, fullDesc, header, help,
-                                               helper, info, infoOption, long, metavar, option,
-                                               progDesc, short, strOption)
+                                               execParser, footerDoc, fullDesc, header,
+                                               help, helper, info, infoOption, long,
+                                               metavar, option, progDesc, short,
+                                               strOption)
 import           System.Directory             (getTemporaryDirectory)
 import           System.FilePath              ((</>))
 import qualified System.IO                    as IO
@@ -26,10 +26,11 @@ import           System.Process               (ProcessHandle)
 import qualified System.Process               as Process
 import           System.Timeout               (timeout)
 import           System.Wlog                  (lcFilePrefix)
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Turtle                       (ExitCode (..), FilePath, Line, Shell,
-                                               appendonly, d, echo, fork, format, fp, mktemp,
-                                               mktree, outhandle, printf, proc, rm, s, sh,
-                                               sleep, testfile, wait, (%))
+                                               appendonly, d, echo, fork, format, fp,
+                                               mktemp, mktree, outhandle, printf, proc,
+                                               rm, s, sh, sleep, testfile, wait, (%))
 import           Universum                    hiding (FilePath)
 
 -- Modules needed for the “Turtle internals” session
@@ -117,7 +118,7 @@ optionsParser = do
     pure LO{..}
 
 getLauncherOptions :: IO LauncherOptions
-getLauncherOptions = execParser programInfo >>= return
+getLauncherOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> optionsParser) $
         fullDesc <> progDesc ""

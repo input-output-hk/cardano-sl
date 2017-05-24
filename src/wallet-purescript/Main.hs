@@ -3,15 +3,15 @@ module Main
        ) where
 
 import           Data.Version                              (showVersion)
-import           Options.Applicative.Simple                (execParser, fullDesc,
-                                                            header, help, helper, info, infoOption,
-                                                            long, progDesc)
 import           Language.PureScript.Bridge                (BridgePart, buildBridge,
                                                             defaultBridge, mkSumType,
                                                             typeName, writePSTypes, (<|>),
                                                             (^==))
 import           Language.PureScript.Bridge.PSTypes        (psInt)
 import           Language.PureScript.Bridge.TypeParameters (A)
+import           Options.Applicative.Simple                (execParser, fullDesc, header,
+                                                            help, helper, info,
+                                                            infoOption, long, progDesc)
 import           Universum
 
 import           Paths_cardano_sl                          (version)
@@ -22,7 +22,7 @@ import qualified Pos.Wallet.Web                            as CT
 import           PSTypes                                   (psInt53, psPosixTime)
 
 showProgramInfoIfRequired :: IO ()
-showProgramInfoIfRequired = execParser programInfo >> return ()
+showProgramInfoIfRequired = void $ execParser programInfo
   where
     programInfo = info (helper <*> versionOption) $
         fullDesc <> progDesc ("Generate PureScript types based on Haskell types. "

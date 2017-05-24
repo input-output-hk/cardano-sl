@@ -27,8 +27,8 @@ translation =
         , cSlots: "Slots"
         , cAge: "Since"
         , cTotalSent: "Total Sent"
-        , cRelayedBy: "Slot leader"
-        , cSizeKB: "Size (kB)"
+        , cBlockLead: "Slot leader"
+        , cSize: "Size (bytes)"
         , cExpand: "Expand"
         , cCollapse: "Collapse"
         , cNoData: "No data"
@@ -54,7 +54,7 @@ translation =
         , navTools: "Tools"
         }
     , hero:
-        { hrSubtitle: "most effective way to research cryptocurrencies network"
+        { hrSubtitle: "Search addresses, transactions, epochs & slots on the Cardano network"
         , hrSearch: "Search for addresses, transactions, slots and epochs"
         , hrTime: "Time"
         }
@@ -99,6 +99,7 @@ translation =
         , txIncluded: "Included In Slots"
         , txRelayed: "Relayed by IP"
         , txEmpty: "No transactions"
+        , txFees: "Transaction fee"
         , txNotFound: "Transaction does not exist."
         }
     , block:
@@ -107,7 +108,8 @@ translation =
         , blPrevBlock: "Previous slot"
         , blNextBlock: "Next slot"
         , blRoot: "Merkle root"
-        , blNotFound: "Epoch / slot do not exist."
+        , blEpochSlotNotFound: "Epoch / slot do not exist."
+        , blSlotNotFound: "Slot does not exist."
         }
     , footer:
         { fooResources: "Resources"

@@ -8,6 +8,7 @@ module Pos.Explorer.Socket.Holder
        , runExplorerSockets
        , runNewExplorerSockets
 
+       , ClientContext
        , ConnectionsState
        , ConnectionsVar
        , mkClientContext
@@ -17,10 +18,11 @@ module Pos.Explorer.Socket.Holder
 
        , csAddressSubscribers
        , csBlocksSubscribers
+       , csBlocksOffSubscribers
        , csTxsSubscribers
        , csClients
        , ccAddress
-       , ccBlock
+       , ccBlockOff
        , ccConnection
        ) where
 
@@ -35,16 +37,15 @@ import qualified Data.Set                    as S
 import           Network.EngineIO            (SocketId)
 import           Network.SocketIO            (Socket)
 import           Serokell.Util.Concurrent    (modifyTVarS)
-import           System.Wlog                 (LoggerNameBox, PureLogger, WithLogger,
-                                              dispatchEvents, getLoggerName, runPureLog,
-                                              usingLoggerName)
+import           System.Wlog                 (NamedPureLogger, WithLogger,
+                                              launchNamedPureLog)
 
-import           Pos.Types                   (Address, ChainDifficulty)
+import           Pos.Types                   (Address)
 import           Universum
 
 data ClientContext = ClientContext
     { _ccAddress    :: !(Maybe Address)
-    , _ccBlock      :: !(Maybe ChainDifficulty)
+    , _ccBlockOff   :: !(Maybe Word)
     , _ccConnection :: !Socket
     }
 
@@ -55,13 +56,15 @@ makeClassy ''ClientContext
 
 data ConnectionsState = ConnectionsState
     { -- | Active sessions
-      _csClients            :: !(M.Map SocketId ClientContext)
+      _csClients              :: !(M.Map SocketId ClientContext)
       -- | Sessions subscribed to given address.
-    , _csAddressSubscribers :: !(M.Map Address (S.Set SocketId))
+    , _csAddressSubscribers   :: !(M.Map Address (S.Set SocketId))
       -- | Sessions subscribed to notifications about new blocks.
-    , _csBlocksSubscribers  :: !(S.Set SocketId)
+    , _csBlocksSubscribers    :: !(S.Set SocketId)
+      -- | Sessions subscribed to notifications about new blocks with offset.
+    , _csBlocksOffSubscribers :: !(M.Map Word (S.Set SocketId))
       -- | Sessions subscribed to notifications about new transactions.
-    , _csTxsSubscribers     :: !(S.Set SocketId)
+    , _csTxsSubscribers       :: !(S.Set SocketId)
     }
 
 makeClassy ''ConnectionsState
@@ -74,20 +77,16 @@ mkConnectionsState =
     { _csClients = mempty
     , _csAddressSubscribers = mempty
     , _csBlocksSubscribers = mempty
+    , _csBlocksOffSubscribers = mempty
     , _csTxsSubscribers = mempty
     }
 
 withConnState
     :: (MonadIO m, WithLogger m)
     => ConnectionsVar
-    -> LoggerNameBox (PureLogger (StateT ConnectionsState STM)) a
+    -> NamedPureLogger (StateT ConnectionsState STM) a
     -> m a
-withConnState var action = do
-    loggerName <- getLoggerName
-    (res, logs) <- atomically $ modifyTVarS var $
-        runPureLog $ usingLoggerName loggerName action
-    dispatchEvents logs
-    return res
+withConnState var = launchNamedPureLog $ liftIO . atomically . modifyTVarS var
 
 askingConnState
     :: MonadIO m
@@ -98,6 +97,7 @@ askingConnState var action = do
     v <- liftIO $ readTVarIO var
     runReaderT action v
 
+-- TODO: not used, may be removed
 newtype ExplorerSockets m a = ExplorerSockets
     { getExplorerSockets :: ReaderT ConnectionsVar m a
     } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch,

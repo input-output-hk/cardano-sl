@@ -73,9 +73,11 @@
 
       .logo__container {
         box: horizontal;
+        height: 100%;
       }
 
       .logo__cardano-name {
+        display: block;
         width: 90.2px;
         height: 26px;
         box-item: center;
@@ -93,6 +95,7 @@
         height: 26px;
         margin-left: 24px;
         box-item: center;
+        display: block;
       }
 
       @media (--md) {
@@ -120,6 +123,7 @@
         box-sizing: border-box;
         text-transform: uppercase;
         box-item: center;
+        display: block;
       }
 
       @media (--md) {
@@ -162,8 +166,22 @@
       font-size: 10px;
       padding-right: 10px;
     }
-  }
 
+    .version {
+      font-family: var(--fontFamily0-Light);
+      font-size: 9px;
+      color: color(var(--color3) a(0.3))
+    }
+
+    .commit {
+        font-family: var(--fontFamily0-Light);
+        font-size: 9px;
+        padding-left: 5px;
+
+        button: standard-button;
+        button-color: color(var(--color3) a(0.3)) color(var(--color3) a(0.3)) color(var(--color3) a(0.3));
+    }
+  }
 
   @media (--md) {
     &__bottom {

@@ -1,3 +1,4 @@
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -13,13 +14,16 @@ module Pos.Explorer.Socket.Methods
        , finishSession
        , subscribeAddr
        , subscribeBlocks
+       , subscribeBlocksOff
        , subscribeTxs
        , unsubscribeAddr
        , unsubscribeBlocks
+       , unsubscribeBlocksOff
        , unsubscribeTxs
 
        , notifyAddrSubscribers
        , notifyBlocksSubscribers
+       , notifyBlocksOffSubscribers
        , notifyTxsSubscribers
        , getBlocksFromTo
        , addrsTouchedByTx
@@ -28,7 +32,7 @@ module Pos.Explorer.Socket.Methods
        , groupTxsInfo
        ) where
 
-import           Control.Lens                   (at, non, (.=), _Just)
+import           Control.Lens                   (at, ix, lens, non, (.=), _Just)
 import           Control.Monad.State            (MonadState)
 import           Data.Aeson                     (ToJSON)
 import qualified Data.Map                       as M
@@ -44,7 +48,6 @@ import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as DB
 import           Pos.Explorer                   (TxExtra (..))
 import qualified Pos.Explorer                   as DB
-import           Pos.Slotting.Class             (MonadSlots)
 import           Pos.Ssc.Class                  (SscHelpersClass)
 import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
                                                  txOutAddress)
@@ -56,21 +59,25 @@ import           System.Wlog                    (WithLogger, logDebug, logError,
 import           Universum
 
 import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Socket.Holder     (ConnectionsState, ccAddress, ccBlock,
-                                                 ccConnection, csAddressSubscribers,
+import           Pos.Explorer.Socket.Holder     (ClientContext, ConnectionsState,
+                                                 ccAddress, ccBlockOff, ccConnection,
+                                                 csAddressSubscribers,
+                                                 csBlocksOffSubscribers,
                                                  csBlocksSubscribers, csClients,
                                                  csTxsSubscribers, mkClientContext)
 import           Pos.Explorer.Socket.Util       (EventName (..), emitTo)
 import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxEntry (..), TxInternal (..),
                                                  fromCAddress, tiToTxEntry, toBlockEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Explorer.Web.Server        (topsortTxsOrFail)
+import           Pos.Explorer.Web.Server        (ExplorerMode, getLastBlocks,
+                                                 topsortTxsOrFail)
 
 -- * Event names
 
 data Subscription
     = SubAddr
     | SubBlock
+    | SubBlockOff  -- ^ subscribe on blocks with given offset
     | SubTx
     deriving (Show, Generic)
 
@@ -88,8 +95,9 @@ instance EventName ClientEvent where
 data ServerEvent
     = AddrUpdated
     | BlocksUpdated
+    | BlocksOffUpdated
     | TxsUpdated
-    -- TODO: test events
+    -- TODO: test events, remove one day
     | CallYou
     | CallYouString
     | CallYouTxId
@@ -107,8 +115,28 @@ fromCAddressOrThrow =
 
 -- * Client requests provessing
 
+type SubscriptionMode m =
+    ( WithLogger m
+    , MonadThrow m
+    , MonadState ConnectionsState m
+    )
+
+-- | This describes points related to some subscribtion action.
+-- Each subscription type has its own /client data/ which user provides
+-- as parameter when subscribes, it is then stored in 'ClientContext' type.
+data SubscriptionParam cli = SubscriptionParam
+    { -- | Identificator of current session
+      spSessId       :: SocketId
+      -- | Description of this subscription
+    , spDesc         :: cli -> Text
+      -- | Sets current session subscribed / unsubscribed
+    , spSubscription :: cli -> Lens' ConnectionsState (Maybe ())
+      -- | Sets related client data present / absent
+    , spCliData      :: Lens' ClientContext (Maybe cli)
+    }
+
 startSession
-    :: (MonadState ConnectionsState m, WithLogger m)
+    :: SubscriptionMode m
     => Socket -> m ()
 startSession conn = do
     let cc = mkClientContext conn
@@ -117,7 +145,7 @@ startSession conn = do
     logDebug $ sformat ("New session has started (#"%shown%")") id
 
 finishSession
-    :: (MonadState ConnectionsState m, WithLogger m)
+    :: SubscriptionMode m
     => SocketId -> m ()
 finishSession sessId =
     whenJustM (use $ csClients . at sessId) $ \_ -> do
@@ -126,94 +154,148 @@ finishSession sessId =
         logDebug $ sformat ("Session #"%shown%" has finished") sessId
 
 subscribe
-    :: (MonadState ConnectionsState m, WithLogger m)
-    => SocketId -> Text -> Lens' ConnectionsState (Maybe ()) -> m ()
-subscribe sessId desc stateZoom = do
-    session <- use $ csClients . at sessId
+    :: SubscriptionMode m
+    => cli -> SubscriptionParam cli -> m ()
+subscribe cliData sp@SubscriptionParam{..} = do
+    unsubscribe sp
+    session <- use $ csClients . at spSessId
     case session of
         Just _  -> do
-            stateZoom .= Just ()
+            spSubscription cliData .= Just ()
+            csClients . ix spSessId . spCliData .= Just cliData
             logDebug $ sformat ("Client #"%shown%" subscribed to "%stext%" \
-                       \updates") sessId desc
+                       \updates") spSessId (spDesc cliData)
         _       ->
             logWarning $ sformat ("Unregistered client tries to subscribe on "%
-                         stext%" updates") desc
+                         stext%" updates") (spDesc cliData)
 
 unsubscribe
-    :: (MonadState ConnectionsState m, WithLogger m)
-    => SocketId -> Text -> Lens' ConnectionsState (Maybe ()) -> m ()
-unsubscribe sessId desc stateZoom = do
-    stateZoom .= Nothing
-    logDebug $ sformat ("Client #"%shown%" unsubscribed from "%stext%" \
-               \updates") sessId desc
+    :: SubscriptionMode m
+    => SubscriptionParam cli -> m ()
+unsubscribe SubscriptionParam{..} = do
+    mCliData <- preuse $ csClients . ix spSessId . spCliData . _Just
+    case mCliData of
+        Just cliData -> do
+            csClients . ix spSessId . spCliData .= Nothing
+            spSubscription cliData .= Nothing
+            logDebug $ sformat ("Client #"%shown%" unsubscribed from "%stext%
+                       " updates") spSessId (spDesc cliData)
+        Nothing ->
+            logDebug $ sformat ("Client #"%shown%" unsubscribes from action \
+                       \at which it wasn't subscribed") spSessId
+
+-- | This is hack which makes client data look like always be present in
+-- 'ClientContext'.
+-- It's exploited in 'unsubscribe' then, because it works only if client data
+-- is present.
+noCliDataKept :: Lens' a (Maybe ())
+noCliDataKept = lens (\_ -> Just ()) const
+
+addrSubParam :: SocketId -> SubscriptionParam Address
+addrSubParam sessId =
+    SubscriptionParam
+        { spSessId        = sessId
+        , spDesc          = ("address " <> ) . show
+        , spSubscription  = \addr ->
+            csAddressSubscribers . at addr . non S.empty . at sessId
+        , spCliData       = ccAddress
+        }
+
+blockSubParam :: SocketId -> SubscriptionParam ()
+blockSubParam sessId =
+    SubscriptionParam
+        { spSessId       = sessId
+        , spDesc         = const "blockchain"
+        , spSubscription = \_ -> csBlocksSubscribers . at sessId
+        , spCliData      = noCliDataKept
+        }
+
+blockOffSubParam :: SocketId -> SubscriptionParam Word
+blockOffSubParam sessId =
+    SubscriptionParam
+        { spSessId       = sessId
+        , spDesc         = ("blockchain with offset " <> ) . show
+        , spSubscription = \offset ->
+            csBlocksOffSubscribers . at offset . non mempty . at sessId
+        , spCliData      = ccBlockOff
+        }
+
+txsSubParam :: SocketId -> SubscriptionParam ()
+txsSubParam sessId =
+    SubscriptionParam
+        { spSessId       = sessId
+        , spDesc         = const "txs"
+        , spSubscription = \_ -> csTxsSubscribers . at sessId
+        , spCliData      = noCliDataKept
+        }
 
 -- | Unsubscribes on any previous address and subscribes on given one.
 subscribeAddr
-    :: (MonadState ConnectionsState m, WithLogger m, MonadThrow m)
+    :: SubscriptionMode m
     => CAddress -> SocketId -> m ()
 subscribeAddr caddr sessId = do
     addr <- fromCAddressOrThrow caddr
-    unsubscribeAddr sessId
-    csClients . at sessId . _Just . ccAddress .= Just addr
-    subscribe
-        sessId
-        (sformat ("address "%shown) addr)
-        (csAddressSubscribers . at addr . non S.empty . at sessId)
+    subscribe addr (addrSubParam sessId)
 
 unsubscribeAddr
-    :: (MonadState ConnectionsState m, WithLogger m)
+    :: SubscriptionMode m
     => SocketId -> m ()
-unsubscribeAddr sessId = do
-    maddr <- preuse $ csClients . at sessId . _Just . ccAddress . _Just
-    csClients . at sessId . _Just . ccAddress .= Nothing
-    whenJust maddr $ \addr ->
-        unsubscribe
-            sessId
-            (sformat ("address "%shown) addr)
-            (csAddressSubscribers . at addr . non S.empty . at sessId)
+unsubscribeAddr sessId = unsubscribe (addrSubParam sessId)
 
 subscribeBlocks
-    :: (MonadState ConnectionsState m, WithLogger m)
+    :: SubscriptionMode m
     => SocketId -> m ()
-subscribeBlocks sessId = do
-    -- TODO: set ChainDifficulty:
-    -- csClients . at sessId . _Just . ccBlock .= Just pId
-    subscribe sessId "blockchain" (csBlocksSubscribers . at sessId)
+subscribeBlocks sessId = subscribe () (blockSubParam sessId)
 
 unsubscribeBlocks
-    :: (MonadState ConnectionsState m, WithLogger m)
+    :: SubscriptionMode m
     => SocketId -> m ()
-unsubscribeBlocks sessId = do
-    csClients . at sessId . _Just . ccBlock .= Nothing
-    unsubscribe sessId "blockchain" (csBlocksSubscribers . at sessId)
+unsubscribeBlocks sessId = unsubscribe (blockSubParam sessId)
+
+subscribeBlocksOff
+    :: SubscriptionMode m
+    => Word -> SocketId -> m ()
+subscribeBlocksOff offset sessId = subscribe offset (blockOffSubParam sessId)
+
+unsubscribeBlocksOff
+    :: SubscriptionMode m
+    => SocketId -> m ()
+unsubscribeBlocksOff sessId = unsubscribe (blockOffSubParam sessId)
 
 subscribeTxs
-    :: (MonadState ConnectionsState m, WithLogger m)
+    :: SubscriptionMode m
     => SocketId -> m ()
-subscribeTxs sessId = subscribe sessId "txs" (csTxsSubscribers . at sessId)
+subscribeTxs sessId = subscribe () (txsSubParam sessId)
 
 unsubscribeTxs
-    :: (MonadState ConnectionsState m, WithLogger m)
+    :: SubscriptionMode m
     => SocketId -> m ()
-unsubscribeTxs sessId = unsubscribe sessId "txs" (csTxsSubscribers . at sessId)
+unsubscribeTxs sessId = unsubscribe (txsSubParam sessId)
 
 unsubscribeFully
-    :: (MonadState ConnectionsState m, WithLogger m)
+    :: SubscriptionMode m
     => SocketId -> m ()
 unsubscribeFully sessId = do
+    logDebug $ sformat ("Client #"%shown%" unsubscribes from all updates")
+               sessId
     unsubscribeAddr sessId
     unsubscribeBlocks sessId
+    unsubscribeBlocksOff sessId
     unsubscribeTxs sessId
 
 -- * Notifications
 
+type NotificationMode m =
+    ( ExplorerMode m
+    , MonadReader ConnectionsState m
+    )
+
 broadcast
-    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
-        EventName event, ToJSON args)
+    :: (NotificationMode m, EventName event, ToJSON args)
     => event -> args -> Set SocketId -> m ()
 broadcast event args recipients = do
     forM_ recipients $ \sockid -> do
-        mSock <- preview $ csClients . at sockid . _Just . ccConnection
+        mSock <- preview $ csClients . ix sockid . ccConnection
         case mSock of
             Nothing   -> logError $
                 sformat ("No socket with SocketId="%shown%" registered") sockid
@@ -224,15 +306,14 @@ broadcast event args recipients = do
         sformat ("Failed to send to SocketId="%shown%": "%shown) sockid
 
 notifyAddrSubscribers
-    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m)
+    :: NotificationMode m
     => Address -> [CTxEntry] -> m ()
 notifyAddrSubscribers addr cTxEntries = do
     mRecipients <- view $ csAddressSubscribers . at addr
     whenJust mRecipients $ broadcast AddrUpdated cTxEntries
 
 notifyBlocksSubscribers
-    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
-        MonadSlots m, SscHelpersClass ssc)
+    :: (NotificationMode m, SscHelpersClass ssc)
     => [Block ssc] -> m ()
 notifyBlocksSubscribers blocks = do
     recipients <- view csBlocksSubscribers
@@ -242,9 +323,17 @@ notifyBlocksSubscribers blocks = do
     toClientType (Left _)          = return Nothing
     toClientType (Right mainBlock) = Just <$> toBlockEntry mainBlock
 
+notifyBlocksOffSubscribers
+    :: NotificationMode m
+    => Int -> m ()
+notifyBlocksOffSubscribers newBlocksNum = do
+    recipientsByOffset <- M.toList <$> view csBlocksOffSubscribers
+    for_ recipientsByOffset $ \(offset, recipients) -> do
+        cblocks <- getLastBlocks (fromIntegral newBlocksNum) offset
+        broadcast BlocksOffUpdated cblocks recipients
+
 notifyTxsSubscribers
-    :: (MonadIO m, MonadReader ConnectionsState m, WithLogger m, MonadCatch m,
-        MonadDB m)
+    :: NotificationMode m
     => [CTxEntry] -> m ()
 notifyTxsSubscribers cTxEntries =
     view csTxsSubscribers >>= broadcast TxsUpdated cTxEntries

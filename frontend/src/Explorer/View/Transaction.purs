@@ -2,20 +2,19 @@ module Explorer.View.Transaction (transactionView) where
 
 import Prelude
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..), fromMaybe)
-import Network.RemoteData (RemoteData(..))
+import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cBack2Dashboard, cDateFormat, cLoading, cTransaction, txNotFound, cTransactionFeed, cSummary, tx, cTotalOutput, txRelayed, txIncluded, txTime) as I18nL
+import Explorer.I18n.Lenses (common, cBack2Dashboard, cDateFormat, cLoading, cTransaction, txNotFound, txFees, cSummary, tx, cTotalOutput, txIncluded, txTime) as I18nL
 import Explorer.Lenses.State (currentTxSummary, lang)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkTxBodyViewProps, mkTxHeaderViewProps, noData, txBodyView, txHeaderView)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin)
+import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CNetworkAddress, ctsBlockHeight, ctsFees, ctsRelayedBy, ctsTotalOutput, ctsTxTimeIssued)
-import Pux.Html (Html, div, text, h3, p, table, tr, td) as P
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, ctsBlockHeight, ctsFees, ctsTotalOutput, ctsTxTimeIssued)
+import Pux.Html (Html, div, text, h3, p, span, table, tr, td) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
 import Pux.Router (link) as P
 
@@ -67,7 +66,7 @@ type SummaryItems = Array SummaryItem
 type SummaryItem =
     { label :: String
     , value :: String
-    , currency :: Maybe CCurrency
+    , mCurrency :: Maybe CCurrency
     }
 
 summaryItems :: CTxSummary -> Language -> SummaryItems
@@ -75,31 +74,21 @@ summaryItems (CTxSummary txSummary) lang =
     [ { label: translate (I18nL.tx <<< I18nL.txTime) lang
       , value: let dateFormat = translate (I18nL.common <<< I18nL.cDateFormat) lang in
                fromMaybe noData <<< prettyDate dateFormat $ txSummary ^. ctsTxTimeIssued
-      , currency: Nothing
+      , mCurrency: Nothing
       }
     , { label: translate (I18nL.tx <<< I18nL.txIncluded) lang
-      , value: let  bHeight = case txSummary ^. ctsBlockHeight of
-                                Nothing -> noData
-                                Just bHeight' -> show bHeight'
-                    bTime = case txSummary ^. ctsRelayedBy of
-                                Nothing -> noData
-                                Just bTime' -> show $ bTime' ^. _CNetworkAddress
-                in bHeight <> " (" <> bTime <> ")"
-      , currency: Nothing
-      }
-    , { label: translate (I18nL.tx <<< I18nL.txRelayed) lang
-      , value:  case txSummary ^. ctsRelayedBy of
-                    Nothing -> noData
-                    Just relayedBy -> show $ relayedBy ^. _CNetworkAddress
-      , currency: Nothing
+      , value: case txSummary ^. ctsBlockHeight of
+                  Nothing -> noData
+                  Just bHeight' -> show bHeight'
+      , mCurrency: Nothing
       }
     , { label: translate (I18nL.common <<< I18nL.cTotalOutput) lang
       , value: txSummary ^. (ctsTotalOutput <<< _CCoin <<< getCoin)
-      , currency: Just ADA
+      , mCurrency: Just ADA
       }
-    , { label: translate (I18nL.common <<< I18nL.cTransactionFeed) lang
+    , { label: translate (I18nL.tx <<< I18nL.txFees) lang
       , value: txSummary ^. (ctsFees <<< _CCoin <<< getCoin)
-      , currency: Just ADA
+      , mCurrency: Just ADA
       }
     ]
 
@@ -111,10 +100,17 @@ summaryRow item =
     P.tr
         []
         [ P.td
-            [ P.className "" ]
+            []
             [ P.text item.label ]
         , P.td
-            [ P.className $ "" <> currencyCSSClass item.currency  ]
+            []
+            if isJust item.mCurrency
+            then
+            [ P.span
+              [ P.className $ currencyCSSClass item.mCurrency ]
+              [ P.text item.value ]
+            ]
+            else
             [ P.text item.value ]
         ]
 

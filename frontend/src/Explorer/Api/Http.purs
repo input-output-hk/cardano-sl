@@ -11,8 +11,8 @@ import Data.HTTP.Method (Method(..))
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.Api.Helper (decodeResult)
-import Explorer.Api.Types (EndpointError(..), Endpoint)
-import Explorer.Types.State (CBlockEntries, CTxEntries, CTxBriefs)
+import Explorer.Api.Types (Endpoint, EndpointError(..), RequestLimit(..), RequestOffset(..))
+import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
@@ -22,7 +22,6 @@ import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummar
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
 
 endpointPrefix :: String
--- endpointPrefix = "http://localhost:8100/api/"
 endpointPrefix = "/api/"
 
 -- result helper
@@ -49,8 +48,11 @@ post = request $ defaultRequest { method = Left POST }
 -- api
 
 -- blocks
-fetchLatestBlocks :: forall eff. Aff (ajax::AJAX | eff) CBlockEntries
-fetchLatestBlocks = get "blocks/last"
+fetchTotalBlocks :: forall eff. Aff (ajax::AJAX | eff) Int
+fetchTotalBlocks = get "blocks/total"
+
+fetchLatestBlocks :: forall eff. RequestLimit -> RequestOffset -> Aff (ajax::AJAX | eff) CBlockEntries
+fetchLatestBlocks (RequestLimit limit) (RequestOffset offset) = get $ "blocks/last/?limit=" <> show limit <> "&offset=" <> show offset
 
 fetchBlockSummary :: forall eff. CHash -> Aff (ajax::AJAX | eff) CBlockSummary
 fetchBlockSummary (CHash hash) = get $ "blocks/summary/" <> hash
@@ -59,8 +61,9 @@ fetchBlockTxs :: forall eff. CHash -> Aff (ajax::AJAX | eff) CTxBriefs
 fetchBlockTxs (CHash hash) = get $ "blocks/txs/" <> hash
 
 -- txs
-fetchLatestTxs :: forall eff. Aff (ajax::AJAX | eff) CTxEntries
-fetchLatestTxs = get "txs/last"
+fetchLatestTxs :: forall eff. RequestLimit -> RequestOffset -> Aff (ajax::AJAX | eff) CTxEntries
+fetchLatestTxs (RequestLimit limit) (RequestOffset offset) =
+    get $ "txs/last/?limit=" <> show limit <> "&offset=" <> show offset
 
 fetchTxSummary :: forall eff. CTxId -> Aff (ajax::AJAX | eff) CTxSummary
 fetchTxSummary id = get $ "txs/summary/" <> id ^. (_CTxId <<< _CHash)

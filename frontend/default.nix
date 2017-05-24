@@ -20,7 +20,7 @@ let
 in stdenv.mkDerivation {
   name = "explorer-bridge";
 
-  buildInputs = with hspkgs; [ nodejs nodePackages.bower purescript purescript-derive-lenses ];
+  buildInputs = with hspkgs; [ nodejs yarn nodePackages.bower purescript purescript-derive-lenses ];
 
   src = null;
 }

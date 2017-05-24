@@ -3,19 +3,19 @@ module Explorer.View.Block (blockView) where
 import Prelude
 import Data.Array (length, null, (!!))
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cBlock, common, cOf, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cSlot, cTransactions) as I18nL
-import Explorer.Lenses.State (blockDetail, blockTxPagination, currentBlockSummary, currentBlockTxs, lang, viewStates)
+import Explorer.I18n.Lenses (cBlock, blSlotNotFound, common, cBack2Dashboard, cOf, cLoading, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cSlot, cTransactions, tx, txNotFound, txEmpty) as I18nL
+import Explorer.Lenses.State (blockDetail, blockTxPagination, blockTxPaginationEditable, currentBlockSummary, currentBlockTxs, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
+import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CCurrency(..), State)
-import Explorer.Util.DOM (targetToHTMLInputElement)
-import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin)
+import Explorer.Types.State (CCurrency(..), State, CTxBriefs)
+import Explorer.View.Common (currencyCSSClass, emptyView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
+import Network.RemoteData (RemoteData(..), isFailure)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
-import Pux.Html (Html, div, text, h3) as P
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, _CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
+import Pux.Html (Html, div, text, h3, span) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Router (link) as P
 
@@ -23,7 +23,10 @@ import Pux.Router (link) as P
 
 blockView :: State -> P.Html Action
 blockView state =
-    let lang' = state ^. lang in
+    let lang' = state ^. lang
+        blockSummary = state ^. currentBlockSummary
+        blockTxs = state ^. currentBlockTxs
+    in
     P.div
         [ P.className "explorer-block" ]
         [ P.div
@@ -33,7 +36,11 @@ blockView state =
                   [ P.h3
                         [ P.className "headline"]
                         [ P.text $ translate (I18nL.common <<< I18nL.cBlock) lang' ]
-                    , blockSummaryView (state ^. currentBlockSummary) lang'
+                    , case blockSummary of
+                          NotAsked -> blockSummaryEmptyView ""
+                          Loading -> blockSummaryEmptyView $ translate (I18nL.common <<< I18nL.cLoading) lang'
+                          Failure _ -> blockSummaryEmptyView $ translate (I18nL.block <<< I18nL.blSlotNotFound) lang'
+                          Success block -> blockSummaryView block lang'
                   ]
 
             ]
@@ -44,31 +51,23 @@ blockView state =
                 [ P.h3
                       [ P.className "headline"]
                       [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
-                , case state ^. currentBlockTxs of
-                      Nothing -> txEmptyContentView lang'
-                      Just blockTxs ->
-                          if null blockTxs then
-                              txEmptyContentView lang'
-                          else
-                              let txPagination = state ^. (viewStates <<< blockDetail <<< blockTxPagination)
-                                  currentTxBrief = blockTxs !! (txPagination - 1)
-                              in
-                              P.div
-                                  []
-                                  [ txHeaderView lang' $ case currentTxBrief of
-                                                              Nothing -> mkTxHeaderViewProps mkEmptyViewProps
-                                                              Just txBrief -> mkTxHeaderViewProps txBrief
-                                  , txBodyView $ case currentTxBrief of
-                                                      Nothing -> mkTxBodyViewProps mkEmptyViewProps
-                                                      Just txBrief -> mkTxBodyViewProps txBrief
-                                  , txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                                      , currentPage: txPagination
-                                                      , maxPage: length blockTxs
-                                                      , changePageAction: BlockPaginateTxs
-                                                      , onFocusAction: SelectInputText <<< targetToHTMLInputElement
-                                                      }
-                                  ]
+                , case blockTxs of
+                      NotAsked -> txEmptyContentView ""
+                      Loading -> txEmptyContentView $ translate (I18nL.common <<< I18nL.cLoading) lang'
+                      Failure _ -> txEmptyContentView $ translate (I18nL.tx <<< I18nL.txNotFound) lang'
+                      Success txs -> blockTxsView txs state
                 ]
+            , if (isFailure blockSummary && isFailure blockTxs)
+              -- Show back button if both results ^ are failed
+              then
+                  P.div
+                      [ P.className "explorer-block__container" ]
+                      [ P.link (toUrl Dashboard)
+                          [ P.className "btn-back" ]
+                          [ P.text $ translate (I18nL.common <<< I18nL.cBack2Dashboard) lang' ]
+                      ]
+              else
+                  emptyView
             ]
         ]
 
@@ -77,7 +76,7 @@ blockView state =
 type SummaryRowItem =
     { label :: String
     , amount :: String
-    , currency :: Maybe CCurrency
+    , mCurrency :: Maybe CCurrency
     }
 
 type SummaryItems = Array SummaryRowItem
@@ -86,23 +85,23 @@ mkSummaryItems :: Language -> CBlockEntry -> SummaryItems
 mkSummaryItems lang (CBlockEntry entry) =
     [ { label: translate (I18nL.common <<< I18nL.cTransactions) lang
       , amount: show $ entry ^. cbeTxNum
-      , currency: Nothing
+      , mCurrency: Nothing
       }
     , { label: translate (I18nL.common <<< I18nL.cTotalOutput) lang
       , amount: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
-      , currency: Just ADA
+      , mCurrency: Just ADA
       }
     , { label: translate (I18nL.block <<< I18nL.blEstVolume) lang
       , amount: "0"
-      , currency: Just ADA
+      , mCurrency: Just ADA
       }
     , { label: translate (I18nL.block <<< I18nL.blFees) lang
       , amount: "0"
-      , currency: Just ADA
+      , mCurrency: Just ADA
       }
     , { label: translate (I18nL.common <<< I18nL.cSlot) lang
       , amount: show $ entry ^. cbeSlot
-      , currency: Nothing
+      , mCurrency: Nothing
       }
     ]
 
@@ -114,16 +113,25 @@ summaryRow item =
             [ P.className "column column__label" ]
             [ P.text item.label ]
         , P.div
-              [ P.className $ "column column__amount" <> currencyCSSClass item.currency ]
-              [ P.text item.amount ]
+              [ P.className $ "column column__amount" ]
+              if isJust item.mCurrency
+              then
+                  [ P.span
+                        [ P.className $ currencyCSSClass item.mCurrency ]
+                        [ P.text item.amount ]
+                  ]
+              else
+                  [ P.text item.amount ]
         ]
 
-blockSummaryView :: Maybe CBlockSummary -> Language -> P.Html Action
-blockSummaryView Nothing _ =
+blockSummaryEmptyView :: String -> P.Html Action
+blockSummaryEmptyView message =
     P.div
-        [ P.className "blocks-wrapper" ]
-        [P.text "" ]
-blockSummaryView (Just block) lang =
+        [ P.className "summary-empty__container" ]
+        [P.text message ]
+
+blockSummaryView :: CBlockSummary -> Language -> P.Html Action
+blockSummaryView block lang =
     P.div
       [ P.className "blocks-wrapper" ]
       [ P.div
@@ -197,3 +205,32 @@ hashesRow item =
                               [ P.className $ "column column__hash--link" ]
                               [ P.text item.hash ]
         ]
+
+blockTxsView :: CTxBriefs -> State -> P.Html Action
+blockTxsView txs state =
+    if null txs then
+        txEmptyContentView $ translate (I18nL.tx <<< I18nL.txEmpty) (state ^. lang)
+    else
+        let txPagination = state ^. (viewStates <<< blockDetail <<< blockTxPagination)
+            currentTxBrief = txs !! (txPagination - 1)
+            lang' = state ^. lang
+        in
+        P.div
+            []
+            [ txHeaderView lang' $ case currentTxBrief of
+                                        Nothing -> mkTxHeaderViewProps mkEmptyViewProps
+                                        Just txBrief -> mkTxHeaderViewProps txBrief
+            , txBodyView $ case currentTxBrief of
+                                Nothing -> mkTxBodyViewProps mkEmptyViewProps
+                                Just txBrief -> mkTxBodyViewProps txBrief
+            , txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                                , currentPage: txPagination
+                                , minPage: minPagination
+                                , maxPage: length txs
+                                , changePageAction: BlockPaginateTxs
+                                , editable: state ^. (viewStates <<< blockDetail <<< blockTxPaginationEditable)
+                                , editableAction: BlockEditTxsPageNumber
+                                , invalidPageAction: BlockInvalidTxsPageNumber
+                                , disabled: false
+                                }
+            ]

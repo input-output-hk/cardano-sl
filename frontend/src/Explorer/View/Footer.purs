@@ -2,11 +2,13 @@ module Explorer.View.Footer (footerView) where
 
 import Prelude
 import Data.Lens ((^.))
+import Data.String (take)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (common, cApi, footer, fooLinks, fooResources, fooFollow, fooIohkSupportP, fooDocumentation, fooGithub, fooLinkedin, fooTwitter, fooDaedalusWallet, fooWhyCardano, fooCardanoRoadmap, fooCardanoADAFaucet, fooCardanoSLDocumentation) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
+import Explorer.Util.Config (commitHash, version)
 import Explorer.View.Common (langView)
 import Pux.Html (Html, div, text, nav, a, p, span) as P
 import Pux.Html.Attributes (className, href) as P
@@ -59,6 +61,17 @@ footerView state =
               ,  P.div
                   [ P.className "content content__right"]
                   [ langView state ]
+              ]
+          , P.div
+              [ P.className "explorer-footer__container" ]
+              [ P.span
+                  [ P.className "version" ]
+                  [ P.text $ "v. " <> (show version) ]
+              , P.a
+                  [ P.className "commit"
+                  , P.href $ "https://github.com/input-output-hk/cardano-sl-explorer/commit/" <> commitHash
+                  ]
+                  [ P.text $ "( " <> (take 7 $ commitHash) <> " )" ]
               ]
           ]
     ]
@@ -143,7 +156,7 @@ navItemsRow2 lang =
       , link: "https://tada.iohk.io/"
       }
     , { label: translate (I18nL.footer <<< I18nL.fooCardanoSLDocumentation) lang
-      , link: "https://cardano-docs.iohk.io/introduction/"
+      , link: "https://cardanodocs.com/introduction/"
       }
     ]
 

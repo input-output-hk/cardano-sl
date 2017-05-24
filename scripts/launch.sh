@@ -77,13 +77,18 @@ while [[ $i -lt $panesCnt ]]; do
 
   stake_distr=" --flat-distr \"($n, 100000)\" "
   kademlia_dump_path="kademlia$i.dump"
+  static_peers=''
+
+  if [[ $STATIC_PEERS != "" ]]; then
+      static_peers=' --static-peers'
+  fi
 
   if [[ "$CSL_PRODUCTION" != "" ]]; then
       stake_distr=""
   fi
 
   if [[ $i -lt $n ]]; then
-    tmux send-keys "$(node_cmd $i "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path" "$system_start")" C-m
+    tmux send-keys "$(node_cmd $i "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path" "$system_start") $static_peers" C-m
   else
     tmux send-keys "NODE_COUNT=$n $base/bench/runSmartGen.sh 0 -R 1 -N 2 -t $TPS -S 3 --init-money 100000 --recipients-share 0" C-m
   fi

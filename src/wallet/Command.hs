@@ -11,7 +11,7 @@ import qualified Data.List.NonEmpty         as NE
 import           Prelude                    (read, show)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Parse        (parseIntegralSafe)
-import           Text.Parsec                (many1, parse, try, (<?>))
+import           Text.Parsec                (many1, parse, parserFail, try, (<?>))
 import           Text.Parsec.Char           (alphaNum, anyChar, digit, noneOf, space,
                                              spaces, string)
 import           Text.Parsec.Combinator     (eof, manyTill)
@@ -25,7 +25,7 @@ import           Pos.Crypto                 (Hash, PublicKey, decodeHash)
 import           Pos.Txp                    (TxOut (..))
 import           Pos.Types                  (Address (..), BlockVersion, Coin, EpochIndex,
                                              SoftwareVersion, decodeTextAddress, mkCoin)
-import           Pos.Update                 (UpId)
+import           Pos.Update                 (SystemTag, UpId, mkSystemTag)
 
 data Command
     = Balance Address
@@ -39,12 +39,13 @@ data Command
           , puSlotDurationSec :: Int
           , puMaxBlockSize    :: Byte
           , puSoftwareVersion :: SoftwareVersion
+          , puSystemTag       :: SystemTag
           , puFilePath        :: Maybe FilePath
           }
     | Help
     | ListAddresses
-    | DelegateLight !Int !PublicKey
-    | DelegateHeavy !Int !PublicKey !(Maybe EpochIndex)
+    | DelegateLight !Int !PublicKey !EpochIndex !(Maybe EpochIndex) -- first and last epoch of psk ttl
+    | DelegateHeavy !Int !PublicKey !EpochIndex -- last argument is current epoch
     | AddKeyFromPool !Int
     | AddKeyFromFile !FilePath
     | Quit
@@ -103,8 +104,8 @@ base58PkParser = do
     takeRes = pure . view _3
 
 delegateL, delegateH :: Parser Command
-delegateL = DelegateLight <$> num <*> base58PkParser
-delegateH = DelegateHeavy <$> num <*> base58PkParser <*> optional num
+delegateL = DelegateLight <$> num <*> base58PkParser <*> num <*> optional num
+delegateH = DelegateHeavy <$> num <*> base58PkParser <*> num
 
 addKeyFromPool, addKeyFromFile :: Parser Command
 addKeyFromPool = AddKeyFromPool <$> num
@@ -128,7 +129,13 @@ proposeUpdate =
     lexeme parseIntegralSafe <*>
     lexeme parseIntegralSafe <*>
     lexeme parseSoftwareVersion <*>
+    lexeme parseSystemTag <*>
     optional (lexeme (many1 anyChar))
+
+parseSystemTag :: Parser SystemTag
+parseSystemTag =
+    either parserFail pure . mkSystemTag . toText =<<
+        (many alphaNum)
 
 command :: Parser Command
 command = try (text "balance") *> balance <|>

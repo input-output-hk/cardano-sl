@@ -92,12 +92,12 @@ instance RocksBatchOp UtxoOp where
 
 prepareGStateUtxo :: MonadDB m => Utxo -> m ()
 prepareGStateUtxo genesisUtxo =
-    unlessM isUtxoInitialized $ do
-        -- put genesis utxo
+    unlessM isUtxoInitialized putGenesisUtxo
+  where
+    putGenesisUtxo = do
         let utxoList = M.toList genesisUtxo
         writeBatchGState $ concatMap createBatchOp utxoList
         gsPutBi initializationFlagKey True
-  where
     createBatchOp (txin, txout) =
         [AddTxOut txin txout]
 
@@ -212,7 +212,7 @@ iterationUtxoPrefix :: ByteString
 iterationUtxoPrefix = "ut/t/"
 
 initializationFlagKey :: ByteString
-initializationFlagKey = "ut/gutxo"
+initializationFlagKey = "ut/gutxo/"
 
 ----------------------------------------------------------------------------
 -- Details

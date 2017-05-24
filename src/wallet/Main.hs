@@ -4,7 +4,9 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Main where
+module Main
+  ( main
+  ) where
 
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.Reader       (MonadReader (..), ReaderT, ask, runReaderT)
@@ -12,6 +14,7 @@ import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import qualified Data.ByteString            as BS
 import           Data.ByteString.Base58     (bitcoinAlphabet, encodeBase58)
+import qualified Data.HashMap.Strict        as HM
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as S (fromList, toList)
@@ -52,10 +55,9 @@ import           Pos.Launcher               (BaseParams (..), LoggingParams (..)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
-import           Pos.Types                  (EpochIndex (..), coinF, makePubKeyAddress)
-import           Pos.Update                 (BlockVersionData (..), UpdateVote (..),
-                                             mkUpdateProposalWSign, patakUpdateData,
-                                             skovorodaUpdateData)
+import           Pos.Types                  (coinF, makePubKeyAddress)
+import           Pos.Update                 (BlockVersionData (..), UpdateData (..),
+                                             UpdateVote (..), mkUpdateProposalWSign)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Wallet                 (WalletMode, WalletParams (..),
@@ -154,7 +156,8 @@ runCmd sendActions ProposeUpdate{..} = do
             , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
             , bvdMaxBlockSize = puMaxBlockSize
             }
-    let udata = maybe patakUpdateData skovorodaUpdateData diffFile
+    let udata' h = HM.fromList [(puSystemTag, UpdateData h h h h)]
+    let udata = maybe (error "Failed to read prop file") udata' diffFile
     let whenCantCreate = error . mappend "Failed to create update proposal: "
     lift $ withSafeSigner skey (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
@@ -204,27 +207,26 @@ runCmd _ ListAddresses = do
                     i (makePubKeyAddress pk) (toBase58Text pk)
   where
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . encodeStrict
-runCmd sendActions (DelegateLight i delegatePk) = do
+runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do
    CmdCtx{na} <- ask
    skeys <- getSecretKeys
    let issuerSk = skeys !! i
    lift $ withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
-          let psk = safeCreateProxySecretKey ss delegatePk (EpochIndex 0, EpochIndex 50)
-          forM_ na $ \nodeId ->
+          let psk = safeCreateProxySecretKey ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
+          for_ na $ \nodeId ->
              dataFlow "pskLight" sendActions nodeId psk
    putText "Sent lightweight cert"
-runCmd sendActions (DelegateHeavy i delegatePk epochMaybe) = do
+runCmd sendActions (DelegateHeavy i delegatePk curEpoch) = do
    CmdCtx{na} <- ask
    skeys <- getSecretKeys
    let issuerSk = skeys !! i
-       epoch = fromMaybe 0 epochMaybe
    lift $ withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
-          let psk = safeCreateProxySecretKey ss delegatePk epoch
-          forM_ na $ \nodeId ->
+          let psk = safeCreateProxySecretKey ss delegatePk curEpoch
+          for_ na $ \nodeId ->
              dataFlow "pskHeavy" sendActions nodeId psk
    putText "Sent heavyweight cert"
 runCmd _ (AddKeyFromPool i) = do

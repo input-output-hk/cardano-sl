@@ -12,7 +12,8 @@ set -o pipefail
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   build.sh                           build
 #   build.sh -t                        build and run tests
-#   build.sh core|db|update|infra|sl   build only a specific project
+#   build.sh core|db|...|sl            build only a specific project
+#   build.sh -k                        typecheck but do not build
 #   build.sh -c                        do stack clean
 #
 # Consider symlinking the script as `b` into the cardano-sl folder because 
@@ -45,6 +46,8 @@ no_nix=false
 ram=false
 prod=false
 wallet=true
+explorer=false
+no_code=false
 
 if [ -e .no-nix ]; then
   no_nix=true
@@ -61,6 +64,9 @@ do
   # -c = clean
   elif [[ $var == "-c" ]]; then
     clean=true
+  # -k = -fno-code
+  elif [[ $var == "-k" ]]; then
+    no_code=true
   # --no-nix = don't use Nix
   elif [[ $var == "--no-nix" ]]; then
     no_nix=true
@@ -73,6 +79,9 @@ do
   # --no-wallet = don't build in wallet mode
   elif [[ $var == "--no-wallet" ]]; then
     wallet=false
+  # disabling --fast
+  elif [[ $var == "--explorer" ]]; then
+    explorer=true
   # disabling --fast
   elif [[ $var == "-O2" ]]; then
     no_fast=true
@@ -97,6 +106,10 @@ fi
 if [[ $prod == true ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-dev-mode"
   export CSL_SYSTEM_TAG=linux64
+fi
+
+if [[ $explorer == true ]]; then
+  commonargs="$commonargs --flag cardano-sl:with-explorer"
 fi
 
 if [[ $wallet == false ]]; then
@@ -159,8 +172,13 @@ for prj in $to_build; do
       --dependencies-only                   \
       $args                                 \
       $prj
+  if [[ $no_code == true ]]; then
+    ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"
+  else
+    ghc_opts_2="$ghc_opts"
+  fi
   stack build                               \
-      --ghc-options="$ghc_opts"             \
+      --ghc-options="$ghc_opts_2"           \
       $commonargs $norun                    \
       $fast                                 \
       $args                                 \

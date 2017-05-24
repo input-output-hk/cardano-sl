@@ -35,7 +35,7 @@ packages:
 - location:
     git: https://github.com/thoughtpolice/hs-ed25519
     # We're waiting on next release
-    commit: 57adb970e198a9b377769ab46e776ec29f19cff6
+    commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
@@ -43,15 +43,15 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 68d795d3cdc701b4bde068b64cd8f4c27bedeb96
+    commit: 4d1175a0ea1b0d129e235d1601f163e9cc1a6f32
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
-    git: https://github.com/avieth/network-transport-tcp
-    commit: ca42a954a15792f5ea8dc203e56fac8175b99c33
+    git: https://github.com/serokell/network-transport-tcp
+    commit: a6c04c35f3a1d786bc5e57fd04cf3e2a043179f3
   extra-dep: true
 - location:
-    git: https://github.com/avieth/network-transport
+    git: https://github.com/serokell/network-transport
     commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
   extra-dep: true
 - location:
@@ -82,7 +82,7 @@ extra-deps:
 - log-warper-1.1.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - purescript-bridge-0.8.0.1
-- cryptonite-0.22
+- cryptonite-0.23
 - cryptonite-openssl-0.6
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
 - servant-0.10                    # servant-multipart supports version servant-10 only

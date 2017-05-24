@@ -47,8 +47,8 @@ newtype BodyDependsOnConsensus b = BodyDependsOnConsensus
 instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
     Arbitrary (T.BlockSignature ssc) where
     arbitrary = oneof [ T.BlockSignature <$> arbitrary
-                      , T.BlockPSignatureEpoch <$> arbitrary
-                      , T.BlockPSignatureSimple <$> arbitrary
+                      , T.BlockPSignatureLight <$> arbitrary
+                      , T.BlockPSignatureHeavy <$> arbitrary
                       ]
 
 properBlock
@@ -258,15 +258,15 @@ maxEpochs = 0
 -- | Generation of arbitrary, valid headerchain along with a list of leaders for
 -- each epoch.
 --
--- Because `verifyHeaders` assumes the head of the list is the most recent
+-- Because 'verifyHeaders' assumes the head of the list is the most recent
 -- block, this function is tail-recursive: while keeping track of the current
 -- block and epoch/slot, it adds the most recent one to the head of the header list
 -- it'll return when done.
 --
--- The `[Either SecretKey (SecretKey, SecretKey, Bool)]` type is for determining what
--- kind of signature the slot's block will have. If it's `Left sk`, it'll be a simple
--- `BlockSignature`; if it's `Right (issuerSK, delegateSK, b)`, it will be a proxy
--- signature, and if `b :: Bool` is false, it'll be a simple proxy secret key.
+-- The @[Either SecretKey (SecretKey, SecretKey, Bool)]@ type is for determining what
+-- kind of signature the slot's block will have. If it's @Left sk@, it'll be a simple
+-- 'BlockSignature'; if it's @Right (issuerSK, delegateSK, b)@, it will be a proxy
+-- signature, and if @b :: Bool@ is false, it'll be a simple proxy secret key.
 -- Otherwise, it'll be a proxy secret key with epochs, whose lower and upper epoch
 -- bounds will be randomly generated.
 --
@@ -274,24 +274,27 @@ maxEpochs = 0
 -- * genesis blocks have no leaders, and that
 -- * if an epoch is `n` slots long, every `n+1`-th block will be of the genesis kind.
 recursiveHeaderGen
-    :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc, Integral a)
+    :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc)
     => [Either SecretKey (SecretKey, SecretKey, Bool)]
-    -> [(a, a)]
+    -> [T.SlotId]
     -> [T.BlockHeader ssc]
     -> Gen [T.BlockHeader ssc]
 recursiveHeaderGen (eitherOfLeader : leaders)
-                   ((epoch, slot) : rest)
-                   blockchain@(prevHeader : _) = do
-    curHeader <- genHeader
-    recursiveHeaderGen leaders rest (curHeader : blockchain)
+                   (T.SlotId{..} : rest)
+                   blockchain@(prevHeader : _)
+    | siSlot > epochSlots = pure []
+    | otherwise = do
+        curHeader <- genHeader
+        recursiveHeaderGen leaders rest (curHeader : blockchain)
   where
-    epochCounter = fromIntegral epoch
-    slotCounter = fromIntegral slot
+    epochCounter = fromIntegral siEpoch
+    slotCounter = fromIntegral siSlot
     genHeader
-      | slot == epochSlots = do
-        body <- arbitrary
-        return $ Left $ T.mkGenesisHeader (Just prevHeader) (epochCounter + 1) body
-      | otherwise = do
+      | siSlot == epochSlots = do
+          body <- arbitrary
+          return $ Left $ T.mkGenesisHeader (Just prevHeader) (epochCounter + 1) body
+      | otherwise = genMainHeader
+    genMainHeader = do
         body <- arbitrary
         extraHData <- arbitrary
         lowEpoch <- choose (0, epochCounter)
@@ -300,18 +303,17 @@ recursiveHeaderGen (eitherOfLeader : leaders)
         -- will have a simple signature, laziness will prevent them from
         -- being calculated. Otherwise, they'll be the proxy secret key's ω.
         let slotId = T.SlotId epochCounter slotCounter
-            (leader, proxySK) =
-                case eitherOfLeader of
-                    Left sk -> (sk, Nothing)
-                    Right (issuerSK, delegateSK, isSigEpoch) ->
-                        let w = (lowEpoch, highEpoch)
-                            delegatePK = toPublic delegateSK
-                            curried :: Bi w => w -> ProxySecretKey w
-                            curried = createProxySecretKey issuerSK delegatePK
-                            proxy = if isSigEpoch
-                                    then Right $ curried epochCounter
-                                    else Left $ curried w
-                        in (delegateSK, Just $ proxy)
+            (leader, proxySK) = case eitherOfLeader of
+                Left sk -> (sk, Nothing)
+                Right (issuerSK, delegateSK, isSigEpoch) ->
+                    let w = (lowEpoch, highEpoch)
+                        delegatePK = toPublic delegateSK
+                        curried :: Bi w => w -> ProxySecretKey w
+                        curried = createProxySecretKey issuerSK delegatePK
+                        proxy = if isSigEpoch
+                                then Right $ curried epochCounter
+                                else Left $ curried w
+                    in (delegateSK, Just proxy)
         pure $ Right $
             T.mkMainHeader (Just prevHeader) slotId leader proxySK body extraHData
 recursiveHeaderGen [] _ b = return b
@@ -346,11 +348,14 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
         firstGenesisBody <- arbitrary
         let firstHeader = Left $ T.mkGenesisHeader Nothing startingEpoch firstGenesisBody
             actualLeaders = map (toPublic . either identity (view _1)) leadersList
+            slotIdsRange =
+                map (\(a,b) -> T.SlotId a (fromIntegral b)) $
+                range ((startingEpoch, 0), (fromIntegral fullEpochs, epochSlots)) ++
+                zip (repeat $ fromIntegral (fullEpochs + 1)) [0 .. incompleteEpochSize - 1]
         (, actualLeaders) <$>
             recursiveHeaderGen
                 leadersList
-                (range ((startingEpoch, 0), (fromIntegral fullEpochs, epochSlots)) ++
-                zip (repeat $ fromIntegral (fullEpochs + 1)) [0 .. incompleteEpochSize - 1])
+                slotIdsRange
                 -- This `range` will give us pairs with all complete epochs and for each,
                 -- every slot therein.
                 [firstHeader]
@@ -423,6 +428,9 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                 , T.vhpNextHeader = next
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
                 , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
+                -- Not used in verifyHeaders, because we can't update
+                -- this hashmap w/o block body.
+                , T.vhpHeavyCerts = Nothing
                 , T.vhpMaxSize = Just (biSize header)
                 , T.vhpVerifyNoUnknown = not hasUnknownAttributes
                 }

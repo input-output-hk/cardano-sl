@@ -7,7 +7,7 @@ import           Universum
 
 import           Serokell.Util.Parse    (parseIntegralSafe)
 import           Text.Parsec            (parserFail, try)
-import           Text.Parsec.Char       (anyChar, char, letter, string)
+import           Text.Parsec.Char       (alphaNum, char, letter, string)
 import           Text.Parsec.Combinator (manyTill)
 import           Text.Parsec.Text       (Parser)
 
@@ -28,6 +28,6 @@ parseSoftwareVersion :: Parser SoftwareVersion
 parseSoftwareVersion = do
     svAppName <-
         either parserFail pure . mkApplicationName . toText =<<
-        ((:) <$> letter <*> manyTill anyChar (try $ string "-"))
+        ((:) <$> letter <*> manyTill (alphaNum <|> char '-') (try $ string ":"))
     svNumber <- parseIntegralSafe
     return SoftwareVersion {..}

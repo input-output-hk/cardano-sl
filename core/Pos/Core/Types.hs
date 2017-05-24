@@ -39,6 +39,7 @@ module Pos.Core.Types
        , ProxySigHeavy
        , ProxySKHeavy
        , ProxySKEither
+       , ProxySKHeavyMap
 
        , SharedSeed (..)
        , SlotLeaders
@@ -228,8 +229,8 @@ headerHashF = build
 -- Proxy signatures and delegation
 ----------------------------------------------------------------------------
 
--- | Proxy signature used in csl -- holds a pair of epoch
--- indices. Block is valid if its epoch index is inside this range.
+-- | Proxy signature, that holds a pair of epoch indices. Block is
+-- valid if its epoch index is inside this range.
 type ProxySigLight a = ProxySignature (EpochIndex, EpochIndex) a
 
 -- | Same alias for the proxy secret key (see 'ProxySigLight').
@@ -237,14 +238,18 @@ type ProxySKLight = ProxySecretKey (EpochIndex, EpochIndex)
 
 -- | Simple proxy signature without ttl/epoch index
 -- constraints. 'EpochIndex' inside is needed for replay attack
--- prevention.
+-- prevention (it should match epoch of the block psk is announced
+-- in).
 type ProxySigHeavy a = ProxySignature EpochIndex a
 
--- | Correspondent SK for no-ttl proxy signature scheme.
+-- | Heavy delegation psk.
 type ProxySKHeavy = ProxySecretKey EpochIndex
 
 -- | Some proxy secret key.
 type ProxySKEither = Either ProxySKLight ProxySKHeavy
+
+-- | Map from issuers to heavy certs.
+type ProxySKHeavyMap = HashMap PublicKey ProxySKHeavy
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw
@@ -341,7 +346,7 @@ unsafeCoinPortionFromDouble x
 -- | Index of epoch.
 newtype EpochIndex = EpochIndex
     { getEpochIndex :: Word64
-    } deriving (Show, Eq, Ord, Num, Enum, Integral, Real, Generic, Hashable, Bounded, Typeable, NFData)
+    } deriving (Show, Eq, Ord, Num, Enum, Ix, Integral, Real, Generic, Hashable, Bounded, Typeable, NFData)
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)

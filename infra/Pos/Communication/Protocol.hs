@@ -270,7 +270,7 @@ constantListeners = toMkL . unpackLSpecs . second mconcat . unzip
 
 unpackLSpecs :: Monad m => ([ListenerSpec m], OutSpecs) -> (VerInfo -> m [Listener m], InSpecs, OutSpecs)
 unpackLSpecs =
-    over _1 (\ls verInfo -> sequence $ map ($ verInfo) ls) .
+    over _1 (\ls verInfo -> mapM ($ verInfo) ls) .
     over _2 (InSpecs . HM.fromList) .
     convert . first (map lsToPair)
   where

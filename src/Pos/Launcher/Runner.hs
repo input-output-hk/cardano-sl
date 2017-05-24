@@ -8,6 +8,7 @@ module Pos.Launcher.Runner
        ( -- * High level runners
          runRawRealMode
        , runRawKBasedMode
+       , runRawSBasedMode
        , runProductionMode
        , runStatsMode
        , runServiceMode
@@ -45,11 +46,13 @@ import           Node                         (Node, NodeAction (..),
                                                node, simpleNodeEndPoint)
 import           Node.Util.Monitor            (setupMonitor, stopMonitor)
 import qualified STMContainers.Map            as SM
+import qualified System.Metrics               as Metrics
 import           System.Random                (newStdGen)
-import           System.Wlog                  (LoggerConfig (..), WithLogger, logDebug,
-                                               logError, logInfo, productionB,
-                                               releaseAllHandlers, setupLogging,
-                                               usingLoggerName)
+import qualified System.Remote.Monitoring     as Monitoring
+import           System.Wlog                  (LoggerConfig (..), WithLogger,
+                                               getLoggerName, logDebug, logError, logInfo,
+                                               productionB, releaseAllHandlers,
+                                               setupLogging, usingLoggerName)
 import           Universum                    hiding (bracket, finally)
 
 import           Pos.Binary                   ()
@@ -110,8 +113,8 @@ import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
 import           Pos.Worker                   (allWorkersCount)
 import           Pos.WorkMode                 (ProductionMode, RawRealMode, RawRealModeK,
-                                               ServiceMode, StaticMode, StatsMode,
-                                               WorkMode)
+                                               RawRealModeS, ServiceMode, StaticMode,
+                                               StatsMode, WorkMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -173,9 +176,15 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
                    runBListenerStub $
                    act
 
+        ekgStore <- liftIO $ Metrics.newStore
+        -- To start monitoring, add the time-warp metrics and the GC
+        -- metrics then spin up the server.
         let startMonitoring node' = case lpEkgPort of
                 Nothing   -> return Nothing
-                Just port -> Just <$> setupMonitor port runIO node'
+                Just port -> Just <$> do
+                     ekgStore' <- setupMonitor runIO node' ekgStore
+                     liftIO $ Metrics.registerGcMetrics ekgStore'
+                     liftIO $ Monitoring.forkServerWith ekgStore' "127.0.0.1" port
 
         let stopMonitoring it = whenJust it stopMonitor
 
@@ -248,7 +257,7 @@ runServer
 runServer transport mkL (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
-    node (simpleNodeEndPoint transport) stdGen BiP ourVerInfo defaultNodeEnvironment $ \__node ->
+    node (simpleNodeEndPoint transport) (const $ pure Nothing) stdGen BiP ourVerInfo defaultNodeEnvironment $ \__node ->
         NodeAction mkListeners' $ \sendActions -> do
             t <- withNode __node
             action ourVerInfo sendActions `finally` afterNode t
@@ -270,6 +279,28 @@ runServer_ transport mkl outSpecs =
     acquire = const pass
     release = const pass
 
+runRawBasedMode
+    :: forall ssc m a.
+       (SscConstraint ssc, WorkMode ssc m)
+    => (forall b. m b -> RawRealMode ssc b)
+    -> (forall b. RawRealMode ssc b -> m b)
+    -> Transport m
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec m a, OutSpecs)
+    -> Production a
+runRawBasedMode unwrap wrap transport np@NodeParams{..} sscnp (ActionSpec action, outSpecs) =
+    runRawRealMode
+        (hoistTransport unwrap transport)
+        np
+        sscnp
+        listeners
+        outSpecs $
+    ActionSpec
+        $ \vI sendActions -> unwrap . action vI $ hoistSendActions wrap unwrap sendActions
+  where
+    listeners = hoistMkListeners unwrap wrap allListeners
+
 -- | Launch some mode, providing way to convert it to 'RawRealMode' and back.
 runRawKBasedMode
     :: forall ssc m a.
@@ -282,19 +313,22 @@ runRawKBasedMode
     -> SscParams ssc
     -> (ActionSpec m a, OutSpecs)
     -> Production a
-runRawKBasedMode unwrap wrap transport kinst np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode
-        (hoistTransport hoistDown transport)
-        np
-        sscnp
-        listeners
-        outSpecs $
-    ActionSpec
-        $ \vI sendActions -> hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
-  where
-    hoistUp = wrap . lift
-    hoistDown = runDiscoveryKademliaT kinst . unwrap
-    listeners = hoistMkListeners hoistDown hoistUp allListeners
+runRawKBasedMode unwrap wrap transport kinst =
+    runRawBasedMode (runDiscoveryKademliaT kinst . unwrap) (wrap . lift) transport
+
+runRawSBasedMode
+    :: forall ssc m a.
+       (SscConstraint ssc, WorkMode ssc m)
+    => (forall b. m b -> RawRealModeS ssc b)
+    -> (forall b. RawRealModeS ssc b -> m b)
+    -> Transport m
+    -> Set NodeId
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec m a, OutSpecs)
+    -> Production a
+runRawSBasedMode unwrap wrap transport peers =
+    runRawBasedMode (runDiscoveryConstT peers . unwrap) (wrap . lift) transport
 
 -- | ProductionMode runner.
 runProductionMode
@@ -333,19 +367,7 @@ runStaticMode
     -> SscParams ssc
     -> (ActionSpec (StaticMode ssc) a, OutSpecs)
     -> Production a
-runStaticMode transport peers np@NodeParams {..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode
-        (hoistTransport hoistDown transport)
-        np
-        sscnp
-        listeners
-        outSpecs $
-    ActionSpec $ \vI sendActions ->
-        hoistDown . action vI $ hoistSendActions hoistUp hoistDown sendActions
-  where
-    hoistUp = lift . lift
-    hoistDown = runDiscoveryConstT peers . getNoStatsT
-    listeners = hoistMkListeners hoistDown hoistUp allListeners
+runStaticMode = runRawSBasedMode getNoStatsT lift
 
 ----------------------------------------------------------------------------
 -- Lower level runners
@@ -419,9 +441,11 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
 ----------------------------------------------------------------------------
 
 nodeStartMsg :: WithLogger m => BaseParams -> m ()
-nodeStartMsg BaseParams {..} = logInfo msg
+nodeStartMsg BaseParams {..} = do
+    logInfo msg1
   where
-    msg = sformat ("Started node.")
+    msg1 = sformat ("Application: " %build% ", last known block version " %build)
+                   Const.curSoftwareVersion Const.lastKnownBlockVersion
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do
@@ -463,6 +487,7 @@ createTransportTCP
     => TCP.TCPAddr
     -> m (Transport m)
 createTransportTCP addrInfo = do
+    loggerName <- getLoggerName
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
@@ -472,6 +497,9 @@ createTransportTCP addrInfo = do
              -- when new connections are made. This prevents an easy denial
              -- of service attack.
              , TCP.tcpCheckPeerHost = True
+             , TCP.tcpServerExceptionHandler = \e ->
+                     usingLoggerName (loggerName <> "transport") $
+                         logError $ sformat ("Exception in tcp server: " % shown) e
              })
     transportE <-
         liftIO $ TCP.createTransport addrInfo tcpParams

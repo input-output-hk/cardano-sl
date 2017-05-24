@@ -133,11 +133,7 @@ wrapListener lname =
 
 wrapActionSpec
   :: ( CanLogInParallel m
-     , Mockable Async m
      , Mockable Bracket m
-     , Mockable Delay m
-     , MonadIO m
-     , WithLogger m
      )
   => LoggerName -> ActionSpec m a -> ActionSpec m a
 wrapActionSpec lname =

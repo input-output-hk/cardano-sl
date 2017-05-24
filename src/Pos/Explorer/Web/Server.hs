@@ -17,7 +17,7 @@ module Pos.Explorer.Web.Server
        , getLastBlocks
        ) where
 
-import           Control.Lens                   (at)
+import           Control.Lens                   (at, _Wrapped)
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
@@ -47,7 +47,7 @@ import           Pos.Types                      (Address (..), Block, EpochIndex
                                                  HeaderHash, LocalSlotIndex (..),
                                                  MainBlock, Timestamp, blockSlot,
                                                  blockTxs, difficultyL, gbHeader,
-                                                 gbhConsensus, genesisHash,
+                                                 gbhConsensus, genesisHash, headerHashG,
                                                  getChainDifficulty, mcdSlot, mkCoin,
                                                  prevBlockL, siEpoch, siSlot, sumCoins,
                                                  unsafeIntegerToCoin, unsafeSubCoin)
@@ -130,7 +130,7 @@ explorerHandlers _sendActions =
     tryEpochSlotSearch   epoch maybeSlot =
       catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    defaultLimit limit   = (fromIntegral $ fromMaybe 100 limit)
+    defaultLimit limit   = (fromIntegral $ fromMaybe 10 limit)
     defaultSkip  skip    = (fromIntegral $ fromMaybe 0 skip)
 
 -- | Get the total number of blocks/slots currently available.
@@ -176,24 +176,92 @@ getBlocksByEpoch epochIndex mSlotIndex = do
       where
         findBlocksByEpochPred mb = (siEpoch $ mb ^. blockSlot) == epochIndex &&
                 fromMaybe True ((siSlot (mb ^. blockSlot) ==) <$> mSlotIndex)
+
+-- | Get last blocks from the blockchain.
+-- 
+-- What we see when offset < blocksTotal is:
+-- 
+--  * we start at blocksTotal - offset (we have 180 blocks and we offset them
+--    by 170 - we start at the block 10)
+-- 
+--  * we end at blocksTotal - offset - limit (we have 180 blocks and we offset them
+--    by 170 and set the limit to 10 - we end at the block 0)
 --
-getLastBlocks :: ExplorerMode m => Word -> Word -> m [CBlockEntry]
-getLastBlocks lim off = do
-    tip <- GS.getTip
-    let getNextBlk h _ = fmap (view prevBlockL) $
-            DB.getBlockHeader @SscGodTossing h >>=
-            maybeThrow (Internal "Block database is malformed!")
-    start <- foldlM getNextBlk tip [0..off]
+-- Why this offset/limit scheme - https://www.petefreitag.com/item/451.cfm
+getLastBlocks :: (ExplorerMode m) => Word -> Word -> m [CBlockEntry]
+getLastBlocks limit offset = do
+    -- Get tip block header hash.
+    tipHash     <- GS.getTip
 
-    let unfolder n h = do
-            when (n == 0) $
-                fail "limit!"
-            MaybeT (DB.getBlock @SscGodTossing h) >>= \mBlock -> case mBlock of
-                Left gb -> unfolder n (gb ^. prevBlockL)
-                Right mb -> (,) <$> lift (toBlockEntry mb) <*>
-                            pure (n - 1, mb ^. prevBlockL)
-    flip unfoldrM (lim, start) $ \(n, h) -> runMaybeT $ unfolder n h
+    -- Get total blocks in the blockchain. What if race condition?
+    blocksTotal <- toInteger <$> getBlocksTotalNumber
 
+    -- Make sure we aren't offseting more than the beginning of the blockchain.
+    when (offsetInt >= blocksTotal) $
+        throwM $ Internal "Offset cannot be greater than total blocks number."
+
+    -- Calculate from where to where we should take blocks.
+    let blocksEndIndex   = blocksTotal - offsetInt
+    let blocksStartIndex = max 0 (blocksEndIndex - limitInt)
+
+    -- Find the end main block at the end index if it exists, and return it.
+    foundEndBlock <- findMainBlockWithIndex @SscGodTossing tipHash blocksEndIndex >>=
+        maybeThrow (Internal "Block with specified index cannot be found!")
+
+    -- Get the header hash from the found end block.
+    let foundEndHeaderHash  = foundEndBlock ^. headerHashG
+
+    -- Take blocks until you reach the start index.
+    let takeBlocks block    = getBlockIndex block > blocksStartIndex
+
+    -- Now we can reuse an existing function to fetch blocks.
+    foundBlocks   <- DB.loadBlocksWhile @SscGodTossing takeBlocks foundEndHeaderHash
+
+    -- Unwrap the blocks from @NewestFirst@ wrapper.
+    let blocks     = foundBlocks ^. _Wrapped
+    -- We want just the Main blocks, not the Genesis blocks, so we fetch them.
+    let mainBlocks = rights blocks
+
+    -- Transfrom all @MainBlock@ to @CBlockEntry@.
+    pure mainBlocks >>= traverse toBlockEntry
+  where
+    offsetInt           = toInteger offset
+    limitInt            = toInteger limit
+    getBlockIndex block = toInteger $ getChainDifficulty $ block ^. difficultyL
+
+    -- | Find block matching the sent index/difficulty.
+    findMainBlockWithIndex
+        :: (SscHelpersClass ssc, ExplorerMode m)
+        => HeaderHash
+        -> Integer
+        -> m (Maybe (MainBlock ssc))
+    findMainBlockWithIndex headerHash index
+        -- When we reach the genesis block, return @Nothing@. This is
+        -- literaly the first block ever, so we reached the begining of the
+        -- whole blockchain and there is nothing more to search.
+        | headerHash == genesisHash = pure $ Nothing
+        -- Otherwise iterate back from the top block (called tip) and
+        -- search for the block satisfying the predicate.
+        | otherwise = do
+            -- Get the block with the sent hash, throw exception if/when the block
+            -- search fails.
+            block <- DB.getBlock headerHash >>=
+                maybeThrow (Internal "Block with hash cannot be found!")
+            -- If there is a block then iterate backwards with the predicate
+            let prevBlock = block ^. prevBlockL
+
+            if getBlockIndex block == index
+                -- When the predicate is true, return the block
+                then pure $ genericToMainBlock block
+                -- When the predicate is false, keep searching backwards
+                else findMainBlockWithIndex prevBlock index
+      where
+        -- idiotic, but otherwise inference errors (block ^? _Right)
+        genericToMainBlock (Left  _    ) = Nothing
+        genericToMainBlock (Right block) = Just block
+
+
+-- | Get last transactions from the blockchain
 getLastTxs :: ExplorerMode m => Word -> Word -> m [CTxEntry]
 getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
     mempoolTxs <- getMempoolTxs

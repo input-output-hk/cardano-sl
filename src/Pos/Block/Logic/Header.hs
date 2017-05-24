@@ -25,7 +25,7 @@ import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
 import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..), isVerSuccess)
-import           System.Wlog               (CanLog, HasLoggerName, logDebug)
+import           System.Wlog               (WithLogger, logDebug)
 
 import           Pos.Block.Core            (BlockHeader)
 import           Pos.Block.Logic.Util      (lcaWithMainChain, needRecovery)
@@ -38,16 +38,15 @@ import           Pos.Core                  (EpochOrSlot (..), HeaderHash, SlotId
                                             headerHash, headerHashG, headerSlotL,
                                             prevBlockL, prevBlockL)
 import           Pos.Crypto                (hash)
-import           Pos.DB                    (MonadDB, MonadDBPure)
+import           Pos.DB                    (MonadDBPure)
 import qualified Pos.DB.Block              as DB
 import qualified Pos.DB.DB                 as DB
 import qualified Pos.DB.GState             as GS
-import           Pos.Slotting.Class        (getCurrentSlot)
+import           Pos.Slotting.Class        (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class             (SscHelpersClass)
 import           Pos.Util                  (_neHead, _neLast)
 import           Pos.Util.Chrono           (NE, NewestFirst (..), OldestFirst (..),
                                             toNewestFirst, toOldestFirst)
-import           Pos.WorkMode.Class        (WorkMode)
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -73,7 +72,7 @@ mkCHRinvalid = CHInvalid . T.intercalate "; "
 -- | Classify new header announced by some node. Result is represented
 -- as ClassifyHeaderRes type.
 classifyNewHeader
-    :: (WorkMode ssc m)
+    :: (MonadSlots m, SscHelpersClass ssc, MonadDBPure m)
     => BlockHeader ssc -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
 classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
@@ -136,9 +135,14 @@ data ClassifyHeadersRes ssc
 -- * CHsUseless is also returned if we aren't too far behind the current slot
 --    (i.e. if 'needRecovery' is false) but the newest header in the list isn't
 --    from the current slot. See CSL-177.
-classifyHeaders
-    :: forall ssc m.
-       WorkMode ssc m
+classifyHeaders ::
+       forall ssc m.
+       ( MonadDBPure m
+       , SscHelpersClass ssc
+       , MonadSlots m
+       , MonadCatch m
+       , WithLogger m
+       )
     => NewestFirst NE (BlockHeader ssc)
     -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers = do
@@ -205,7 +209,7 @@ classifyHeaders headers = do
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
     :: forall ssc m.
-       (MonadDB m, DB.MonadBlockDB ssc m, CanLog m, HasLoggerName m)
+       (DB.MonadBlockDB ssc m, WithLogger m)
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
@@ -252,7 +256,7 @@ getHeadersFromManyTo checkpoints startM = runExceptT $ do
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
     :: forall ssc m.
-       (MonadDB m, MonadDBPure m, SscHelpersClass ssc)
+       (MonadDBPure m, SscHelpersClass ssc)
     => Maybe HeaderHash -> m (OldestFirst [] HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
@@ -288,7 +292,7 @@ getHeadersOlderExp upto = do
 -- range @[from..to]@ will be found.
 getHeadersFromToIncl
     :: forall ssc m .
-       (DB.MonadBlockDB ssc m)
+       (MonadDBPure m, SscHelpersClass ssc)
     => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
 getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist

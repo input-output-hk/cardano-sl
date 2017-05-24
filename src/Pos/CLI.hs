@@ -138,6 +138,7 @@ sysStartParser :: Opt.Parser Timestamp
 sysStartParser = Opt.option (Timestamp . sec <$> Opt.auto) $
     Opt.long    "system-start" <>
     Opt.metavar "TIMESTAMP" <>
+    Opt.help    helpMsg <>
     defaultValue
   where
     -- In development mode, this parameter is mandatory.
@@ -145,6 +146,7 @@ sysStartParser = Opt.option (Timestamp . sec <$> Opt.auto) $
     -- from `staticSysStart`, which gets it from the config file.
     defaultValue =
         if isDevelopment then mempty else Opt.value staticSysStart
+    helpMsg = "Time when system started. Mandatory in development mode. Format - seconds since Unix-epoch."
 
 templateParser :: (HasName f, HasMetavar f) => String -> String -> String -> Opt.Mod f a
 templateParser long metavar help =
@@ -165,22 +167,22 @@ nodeIdOption longOption helpMsg =
 optionalLogConfig :: Opt.Parser (Maybe FilePath)
 optionalLogConfig =
     Opt.optional $ Opt.strOption $
-        templateParser "log-config" "FILEPATH" "Path to logger configuration"
+        templateParser "log-config" "FILEPATH" "Path to logger configuration."
 
 optionalLogPrefix :: Opt.Parser (Maybe String)
 optionalLogPrefix =
     optional $ Opt.strOption $
-        templateParser "logs-prefix" "FILEPATH" "Prefix to logger output path"
+        templateParser "logs-prefix" "FILEPATH" "Prefix to logger output path."
 
 optionalJSONPath :: Opt.Parser (Maybe FilePath)
 optionalJSONPath =
     Opt.optional $ Opt.strOption $
-        templateParser "json-log" "FILEPATH" "Path to json log file"
+        templateParser "json-log" "FILEPATH" "Path to JSON log file."
 
 portOption :: Word16 -> Opt.Parser Word16
 portOption portNum =
     Opt.option Opt.auto $
-        templateParser "port" "PORT" "Port to work on"
+        templateParser "port" "PORT" "Port to work on."
         <> Opt.value portNum
         <> Opt.showDefault
 
@@ -189,7 +191,7 @@ sscAlgoOption =
     Opt.option (fromParsec sscAlgoParser) $
         templateParser "ssc-algo"
                        "ALGO"
-                       "Shared Seed Calculation algorithm which nodes will use"
+                       "Shared Seed Calculation algorithm which nodes will use."
         <> Opt.value GodTossingAlgo
         <> Opt.showDefault
 
@@ -199,7 +201,7 @@ disablePropagationOption =
         (Opt.long "disable-propagation" <>
          Opt.help "Disable network propagation (transactions, SSC data, blocks). I.e.\
                   \ all data is to be sent only by entity who creates data and entity is\
-                  \ yosend it to all peers on his own")
+                  \ yosend it to all peers on his own.")
 
 reportServersOption :: Opt.Parser [Text]
 reportServersOption =
@@ -209,14 +211,14 @@ reportServersOption =
         (templateParser
              "report-server"
              "URI"
-             "Reporting server to send crash/error logs on")
+             "Reporting server to send crash/error logs on.")
 
 updateServersOption :: Opt.Parser [Text]
 updateServersOption =
     many $
     toText <$>
     Opt.strOption
-        (templateParser "update-server" "URI" "Server to download updates from")
+        (templateParser "update-server" "URI" "Server to download updates from.")
 
 flatDistrOptional :: Opt.Parser (Maybe (Int, Int))
 flatDistrOptional =
@@ -225,7 +227,7 @@ flatDistrOptional =
             templateParser
                 "flat-distr"
                 "(INT,INT)"
-                "Use flat stake distribution with given parameters (nodes, coins)"
+                "Use flat stake distribution with given parameters (nodes, coins)."
 
 btcDistrOptional :: Opt.Parser (Maybe (Int, Int))
 btcDistrOptional =
@@ -234,8 +236,7 @@ btcDistrOptional =
             templateParser
                 "bitcoin-distr"
                 "(INT,INT)"
-                "Use bitcoin stake distribution with given parameters (nodes,\
-                \ coins)"
+                "Use bitcoin stake distribution with given parameters (nodes,coins)."
 
 rnpDistrOptional :: Opt.Parser (Maybe (Int, Int, Integer, Double))
 rnpDistrOptional =
@@ -246,7 +247,7 @@ rnpDistrOptional =
                 "(INT,INT,INT,FLOAT)"
                 "Use rich'n'poor stake distribution with given parameters\
                 \ (number of richmen, number of poors, total stake, richmen's\
-                \ share of stake)"
+                \ share of stake)."
 
 expDistrOption :: Opt.Parser Bool
 expDistrOption =
@@ -258,7 +259,7 @@ timeLordOption =
     Opt.switch
         (Opt.long "time-lord" <>
          Opt.help "Peer is time lord, i.e. one responsible for system start time decision\
-                  \ & propagation (used only in development)")
+                  \ and propagation (used only in development mode).")
 
 webPortOption :: Word16 -> String -> Opt.Parser Word16
 webPortOption portNum help =
@@ -283,10 +284,9 @@ externalNetworkAddressOption na =
          <> Opt.showDefault
          <> maybe mempty Opt.value na
   where
-    helpMsg = "Ip and port of external address. "
-        <> "Please mind that you need to specify actual accessible "
-        <> "ip of host, at which node is run,"
-        <> " otherwise work of CSL is not guaranteed. "
+    helpMsg = "IP and port of external address. "
+        <> "Please make sure these IP and port (at which node is running) are actually accessible "
+        <> "otherwise proper work of CSL isn't guaranteed. "
         <> "0.0.0.0 is not accepted as a valid host."
 
 listenNetworkAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
@@ -298,6 +298,7 @@ listenNetworkAddressOption na =
          <> Opt.showDefault
          <> maybe mempty Opt.value na
   where
+<<<<<<< 414817a6f8c8de405553c8ba1325e1366dc7b60e
     helpMsg = "Ip and port on which to bind and listen."
 
 sysStartOption :: Opt.Parser Timestamp
@@ -305,3 +306,15 @@ sysStartOption = Opt.option (Timestamp . sec <$> Opt.auto) $
     Opt.long    "system-start" <>
     Opt.metavar "TIMESTAMP" <>
     Opt.value   staticSysStart
+=======
+    helpMsg = "IP and port on which to bind and listen. Please make sure these IP "
+        <> "and port are actually accessible, otherwise proper work of CSL isn't guaranteed."
+
+peerIdOption :: Opt.Parser PeerId
+peerIdOption = Opt.option (fromParsec peerIdParser) $
+    Opt.long    "peer-id" <>
+    Opt.metavar "PEER_ID" <>
+    Opt.help helpMsg
+  where
+    helpMsg = "Identifier of this node. Must be exactly 14 bytes, base64url encoded."
+>>>>>>> Rebasing to last master, resolve conflicts.

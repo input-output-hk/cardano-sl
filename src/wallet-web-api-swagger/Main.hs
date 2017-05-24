@@ -10,49 +10,55 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | This program builds Swagger specification for wallet web API and converts it to JSON.
--- We run this program during CI build.
--- Produced JSON will be used to create online
--- version of wallet web API description at cardanodocs.com website
--- (please see 'update_wallet_web_api_docs.sh' for technical details).
-
-module Main
-  ( main
-  ) where
+module Main where
 
 import           Universum
 
-import           Control.Lens                       (mapped, (?~))
-import           Data.Aeson                         (encode)
-import qualified Data.ByteString.Lazy.Char8         as BSL8
-import           Data.Swagger                       (NamedSchema (..), Operation, Swagger,
-                                                     SwaggerType (..), ToParamSchema (..),
-                                                     ToSchema (..), declareNamedSchema,
-                                                     declareSchemaRef,
-                                                     defaultSchemaOptions, description,
-                                                     format, genericDeclareNamedSchema,
-                                                     host, info, name, properties,
-                                                     required, title, type_, version)
-import           Data.Typeable                      (Typeable, typeRep)
-import           Data.Version                       (showVersion)
-import           Servant                            ((:>))
-import           Servant.Multipart                  (FileData (..), MultipartForm)
-import           Servant.Swagger                    (HasSwagger (toSwagger),
-                                                     subOperations)
-import           Servant.Swagger.Internal.TypeLevel (IsSubAPI)
+import           Options.Applicative.Simple (execParser, footer, fullDesc, header, help,
+                                             helper, infoOption, long, progDesc)
+import qualified Options.Applicative.Simple as S
+import           Control.Lens               (mapped, (?~))
+import           Data.Aeson                 (encode)
+import qualified Data.ByteString.Lazy.Char8 as BSL8
+import           Data.Swagger               (NamedSchema (..), Operation, Swagger,
+                                             SwaggerType (..), ToParamSchema (..),
+                                             ToSchema (..), declareNamedSchema,
+                                             declareSchemaRef, defaultSchemaOptions,
+                                             description, format,
+                                             genericDeclareNamedSchema, host, info, name,
+                                             properties, required, title, type_, version)
+import           Data.Typeable              (Typeable, typeRep)
+import           Data.Version               (showVersion)
+import           Servant                    ((:>))
+import           Servant.Multipart          (FileData (..), MultipartForm)
+import           Servant.Swagger            (HasSwagger (toSwagger), subOperations)
 
-import qualified Paths_cardano_sl                   as CSL
-import           Pos.Types                          (ApplicationName, BlockVersion,
-                                                     ChainDifficulty, Coin,
-                                                     SoftwareVersion)
-import           Pos.Util.BackupPhrase              (BackupPhrase)
-import qualified Pos.Wallet.Web                     as W
+import qualified Paths_cardano_sl           as CSL
+import           Pos.Types                  (ApplicationName, BlockVersion,
+                                             ChainDifficulty, Coin, SoftwareVersion)
+import           Pos.Util.BackupPhrase      (BackupPhrase)
+import qualified Pos.Wallet.Web             as W
 
-import qualified Description                        as D
+import qualified Description                as D
+
+showProgramInfoIfRequired :: FilePath -> IO ()
+showProgramInfoIfRequired generatedJSON = execParser programInfo >> return ()
+  where
+    programInfo = S.info (helper <*> versionOption) $
+        fullDesc <> progDesc "Generate Swagger specification for Wallet web API."
+                 <> header   "Cardano SL Wallet web API docs generator."
+                 <> footer   ("This program runs during 'cardano-sl' building on Travis CI. " <>
+                              "Generated file '" <> generatedJSON <> "' will be used to produce HTML documentation. " <>
+                              "This documentation will be published at cardanodocs.com using 'update_wallet_web_api_docs.sh'.")
+
+    versionOption = infoOption
+        ("cardano-swagger-" <> showVersion CSL.version)
+        (long "version" <> help "Show version.")
 
 
 main :: IO ()
 main = do
+    showProgramInfoIfRequired jsonFile
     BSL8.writeFile jsonFile $ encode swaggerSpecForWalletApi
     putStrLn $ "Done. See " <> jsonFile <> "."
   where

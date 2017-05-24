@@ -1,28 +1,89 @@
 #!/usr/bin/env stack
 -- stack --install-ghc runghc --package turtle
 
+{-# LANGUAGE ApplicativeDo   #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE QuasiQuotes     #-}
 
-import qualified Control.Foldl   as F
-import           Data.Function   (on)
-import           Data.List       (foldl', sortBy)
-import qualified Data.Map.Strict as M
-import qualified Data.Text       as T
-import           Prelude         hiding (FilePath)
-import           Turtle
+import           Data.String.QQ               (s)
+import           Data.Version                 (showVersion)
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import           Options.Applicative.Simple   (Parser, execParser, footerDoc, fullDesc,
+                                               help, helper, info, infoOption, long,
+                                               metavar, progDesc, short)
+import qualified Options.Applicative.Simple   as S
+import           Options.Applicative.Text     (textOption)
+import           Paths_cardano_sl             (version)
+import qualified Control.Foldl                as F
+import           Data.Function                (on)
+import           Data.List                    (foldl', sortBy)
+import qualified Data.Map.Strict              as M
+import qualified Data.Text                    as T
+import           Prelude                      hiding (FilePath)
+import           Turtle                       hiding (s)
+
+data ChecksOptions = ChecksOptions
+    { sourcesDir :: !Text
+    , outputFile :: !Text
+    } deriving (Show)
+
+optionsParser :: Parser ChecksOptions
+optionsParser = do
+    sourcesDir <- textOption $
+           short   's'
+        <> long    "sources-dir"
+        <> metavar "PATH"
+        <> help    "Path to directory with Haskell source files."
+    outputFile <- textOption $
+           short   'o'
+        <> long    "output"
+        <> metavar "PATH"
+        <> help    "Path to output file, *.md or *.pdf are assumed."
+    pure ChecksOptions{..}
+
+getChecksOptions :: IO ChecksOptions
+getChecksOptions = execParser programInfo >>= return
+  where
+    programInfo = info (helper <*> versionOption <*> optionsParser) $
+        fullDesc <> progDesc ("Extract comments from Haskell source code and store it in output file.")
+                 <> S.header "Extractor of checks comments."
+                 <> footerDoc usageExample
+
+    versionOption = infoOption
+        ("cardano-checks-" <> showVersion version)
+        (long "version" <> help "Show version.")
+
+usageExample :: Maybe Doc
+usageExample = Just [s|
+Command example:
+  
+  stack exec -- cardano-checks /tmp/cardano-sl /tmp/checks.md
+
+Example of output file content:
+
+  # Checks
+  
+  ## Module Pos.Crypto.SecretSharing
+  Verify an encrypted share using SecretSharingExtra.
+  _(line 182)_
+  Verify that Share has been decrypted correctly.
+  _(line 188)_
+  Verify that SecretProof corresponds to Secret.
+  _(line 194)_
+
+  ## Module Pos.Crypto.Signing
+  Verify a signature.|]
 
 main :: IO ()
 main = do
-    xs <- arguments
-    case xs of
-      [folder, file] -> do
-          folder' <- realpath $ fromText folder
-          let file' = fromText file
-              md    = filesToMd $ hsFiles folder'
-          case extension file' of
-            Just "md"  -> output file' md
-            Just "pdf" -> pandoc file md
-            _          -> err "Expected *.md or *.pdf extension for output file."
-      _              -> err "Expected source folder and output file as arguments."
+    ChecksOptions{..} <- getChecksOptions
+    folder' <- realpath $ fromText sourcesDir
+    let file' = fromText outputFile
+        md    = filesToMd $ hsFiles folder'
+    case extension file' of
+        Just "md"  -> output file' md
+        Just "pdf" -> pandoc outputFile md
+        _          -> err "Expected *.md or *.pdf extension for output file."
 
 type Tag = Text
 

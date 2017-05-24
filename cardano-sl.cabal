@@ -536,6 +536,7 @@ executable cardano-node
                      , Params
                      , Secrets
   build-depends:       base
+                     , ansi-wl-pprint
                      , binary
                      , bytestring
                      , cardano-sl-core
@@ -559,6 +560,7 @@ executable cardano-node
                      , parsec
                      , serokell-util >= 0.1.3.4
                      , stm-containers
+                     , string-qq
                      , time
                      , time-units
                      , universum >= 0.1.11
@@ -610,6 +612,7 @@ executable cardano-analyzer
   if !flag(for-installer)
    build-depends:      base
                      , aeson
+                     , ansi-wl-pprint
                      , attoparsec
                      , bytestring
                      , cardano-sl-core
@@ -618,6 +621,7 @@ executable cardano-analyzer
                      , log-warper
                      , optparse-simple
                      , serokell-util >= 0.1.3.4
+                     , string-qq
                      , text
                      , time
                      , time-units
@@ -670,6 +674,7 @@ executable cardano-wallet
   if !flag(for-installer)
    build-depends:      QuickCheck
                      , base
+                     , ansi-wl-pprint
                      , base58-bytestring
                      , binary
                      , bytestring
@@ -753,6 +758,7 @@ executable cardano-wallet-hs2purs
   build-depends:       base
                      , cardano-sl-core
                      , cardano-sl
+                     , optparse-simple
                      , purescript-bridge
                      , universum >= 0.1.11
   default-language:    Haskell2010
@@ -810,6 +816,7 @@ executable cardano-smart-generator
    build-depends:      QuickCheck
                      , base
                      , aeson
+                     , ansi-wl-pprint
                      , array
                      , bytestring
                      , data-default
@@ -832,6 +839,7 @@ executable cardano-smart-generator
                      , random-shuffle
                      , serokell-util >= 0.1.3.4
                      , stm
+                     , string-qq
                      , text
                      , time
                      , time-units
@@ -901,7 +909,7 @@ executable cardano-dht-keygen
                      , lens
                      , lifted-async
                      , log-warper
-                     , optparse-applicative
+                     , optparse-simple
                      , parsec
                      , random
                      , random-shuffle
@@ -944,6 +952,7 @@ executable cardano-dht-keygen
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        ApplicativeDo
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -961,6 +970,7 @@ executable cardano-swagger
                      , bytestring
                      , cardano-sl
                      , lens
+                     , optparse-simple
                      , swagger2
                      , servant
                      , servant-server
@@ -995,8 +1005,12 @@ executable cardano-checks
   main-is:             Main.hs
   if !flag(for-installer)
    build-depends:      base
+                     , ansi-wl-pprint
                      , containers
                      , foldl
+                     , optparse-simple
+                     , optparse-text
+                     , string-qq
                      , text
                      , turtle
   default-language:    Haskell2010
@@ -1019,9 +1033,13 @@ executable cardano-genupdate
   hs-source-dirs:      src/genupdate
   main-is:             Main.hs
   build-depends:       base
+                     , ansi-wl-pprint
                      , bytestring
                      , cryptonite
                      , foldl
+                     , optparse-simple
+                     , optparse-text
+                     , string-qq
                      , system-filepath
                      , tar
                      , text
@@ -1040,6 +1058,9 @@ executable cardano-genupdate
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
                        BangPatterns
+                       QuasiQuotes
+                       ApplicativeDo
+                       RecordWildCards
 
 executable cardano-keygen
   hs-source-dirs:      src/keygen
@@ -1052,6 +1073,7 @@ executable cardano-keygen
                      , Glob
                      , base
                      , aeson
+                     , ansi-wl-pprint
                      , cardano-sl-core
                      , cardano-sl
                      , ed25519
@@ -1061,6 +1083,7 @@ executable cardano-keygen
                      , text
                      , lens
                      , optparse-applicative >= 0.12
+                     , string-qq
                      , unordered-containers
                      , bytestring >= 0.10
                      , random >= 1.1
@@ -1106,9 +1129,10 @@ executable cardano-keygen
 executable cardano-launcher
   hs-source-dirs:      src/launcher
   main-is:             Main.hs
-  build-depends:       async
+  build-depends:       ansi-wl-pprint
+                     , async 
                      , base
-                     , optparse-applicative
+                     , optparse-simple
                      , cardano-report-server >= 0.1.1
                      , log-warper
                      , cardano-sl
@@ -1116,6 +1140,7 @@ executable cardano-launcher
                      , directory
                      , filepath
                      , process
+                     , string-qq
                      , system-filepath
                      , text
                      , turtle
@@ -1144,13 +1169,17 @@ executable cardano-addr-convert
   hs-source-dirs:      src/addr-convert
   main-is:             Main.hs
   build-depends:       base
+                     , ansi-wl-pprint
                      , bytestring
                      , cardano-sl
                      , cardano-sl-core
                      , directory
                      , filepath
+                     , optparse-applicative
+                     , optparse-text
                      , process
                      , serokell-util
+                     , string-qq
                      , system-filepath
                      , text
                      , turtle
@@ -1185,6 +1214,46 @@ executable cardano-addr-convert
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        QuasiQuotes
+                        ApplicativeDo
+
+executable cardano-cli-docs
+  hs-source-dirs:      src/cli-docs
+  main-is:             Main.hs
+  if !flag(for-installer)
+   build-depends:      base
+                     , bytestring
+                     , directory
+                     , filepath
+                     , optparse-applicative
+                     , process
+                     , string-qq
+                     , text
+                     , universum >= 0.1.11
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   NoImplicitPrelude
+                        BangPatterns
+                        RecordWildCards
+                        OverloadedStrings
+                        ApplicativeDo
+                        QuasiQuotes
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  if flag(for-installer)
+    buildable: False
 
 test-suite cardano-test
   main-is:             Test.hs

@@ -2,13 +2,18 @@ module Main
   ( main
   ) where
 
-import qualified Data.ByteString.Char8       as BS
-import           Network.Kademlia.HashNodeId (HashId (..), Nonce (..), genNonce,
-                                              hashAddress)
-import           Serokell.Util.Base64        (encodeUrl)
+import           Data.Version                 (showVersion)
+import           Options.Applicative.Simple   (Parser, execParser, fullDesc,
+                                               header, help, helper, info, infoOption, long,
+                                               metavar, progDesc, short, strOption)
+import           Paths_cardano_sl             (version)
+import qualified Data.ByteString.Char8        as BS
+import           Network.Kademlia.HashNodeId  (HashId (..), Nonce (..), genNonce,
+                                               hashAddress)
+import           Serokell.Util.Base64         (encodeUrl)
 import           Universum
 
-import           Pos.Crypto                  (runSecureRandom)
+import           Pos.Crypto                   (runSecureRandom)
 
 nonceLen :: Int
 nonceLen = 14
@@ -27,10 +32,32 @@ unHashId (HashId bs) = bs
 randomDHTKey :: IO BS.ByteString
 randomDHTKey = unHashId . hashAddress <$> runSecureRandom genNonce
 
-processArg :: [Char] -> IO ()
-processArg arg = do
-    key <- generateKey $ BS.pack arg
-    putStrLn . fromMaybe "Invalid nonce length" . fmap encodeUrl $ key
+data KeyGenOptions = KeyGenOptions
+    { nonce :: !String
+    } deriving (Show)
+
+optionsParser :: Parser KeyGenOptions
+optionsParser = do
+    nonce <- strOption $
+           short   'n'
+        <> long    "nonce"
+        <> metavar "STRING"
+        <> help    "14-characters string."
+    pure KeyGenOptions{..}
+
+getKeyGenOptions :: IO KeyGenOptions
+getKeyGenOptions = execParser programInfo >>= return
+  where
+    programInfo = info (helper <*> versionOption <*> optionsParser) $
+        fullDesc <> progDesc ("Generated key will be print to stdout.")
+                 <> header "Generator of random key for Kademlia DHT."
+
+    versionOption = infoOption
+        ("cardano-dht-keygen-" <> showVersion version)
+        (long "version" <> help "Show version.")
 
 main :: IO ()
-main = mapM_ processArg =<< getArgs
+main = do
+    KeyGenOptions{..} <- getKeyGenOptions
+    key <- generateKey $ BS.pack nonce
+    putStrLn . fromMaybe "Invalid nonce length, it must contain 14 characters." . fmap encodeUrl $ key

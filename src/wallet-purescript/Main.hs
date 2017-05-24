@@ -2,6 +2,10 @@ module Main
        ( main
        ) where
 
+import           Data.Version                              (showVersion)
+import           Options.Applicative.Simple                (execParser, fullDesc,
+                                                            header, help, helper, info, infoOption,
+                                                            long, progDesc)
 import           Language.PureScript.Bridge                (BridgePart, buildBridge,
                                                             defaultBridge, mkSumType,
                                                             typeName, writePSTypes, (<|>),
@@ -10,15 +14,29 @@ import           Language.PureScript.Bridge.PSTypes        (psInt)
 import           Language.PureScript.Bridge.TypeParameters (A)
 import           Universum
 
+import           Paths_cardano_sl                          (version)
 import qualified Pos.Types                                 as PT
 import qualified Pos.Util.BackupPhrase                     as BP
 import qualified Pos.Wallet.Web                            as CT
 
 import           PSTypes                                   (psInt53, psPosixTime)
 
+showProgramInfoIfRequired :: IO ()
+showProgramInfoIfRequired = execParser programInfo >> return ()
+  where
+    programInfo = info (helper <*> versionOption) $
+        fullDesc <> progDesc ("Generate PureScript types based on Haskell types. "
+                              <> "Program produces .purs-files in 'daedalus/src/Generated' subdirectory. "
+                              <> "These types are used to build Daedalus wallet.")
+                 <> header "Cardano SL PureScript types generator."
+
+    versionOption = infoOption
+        ("cardano-wallet-hs2purs-" <> showVersion version)
+        (long "version" <> help "Show version.")
 
 main :: IO ()
-main =
+main = do
+    showProgramInfoIfRequired
     writePSTypes
       "daedalus/src/Generated"
       (buildBridge customBridge)

@@ -244,21 +244,17 @@ verifyHeaders (NewestFirst (headers@(_:xh))) = mconcat verified
 data VerifyBlockParams ssc = VerifyBlockParams
     { vbpVerifyHeader    :: !(Maybe (VerifyHeaderParams ssc))
       -- ^ Verifies header accordingly to params ('verifyHeader')
-    , vbpVerifyProxySKs  :: !Bool
-      -- ^ Check that's number of sks is limited (1000 for now).
     , vbpMaxSize         :: !(Maybe Byte)
     -- ^ Maximal block size.
     , vbpVerifyNoUnknown :: !Bool
     -- ^ Check that block has no unknown attributes.
     }
 
--- TODO: get rid of this module
 -- | By default nothing is checked.
 instance Default (VerifyBlockParams ssc) where
     def =
         VerifyBlockParams
         { vbpVerifyHeader = Nothing
-        , vbpVerifyProxySKs = False
         , vbpMaxSize =  Nothing
         , vbpVerifyNoUnknown = False
         }
@@ -272,22 +268,10 @@ verifyBlock
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
         [ maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
-        , verifyProxySKs
         , maybeEmpty checkSize vbpMaxSize
         , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
         ]
   where
-    verifyProxySKs
-        | vbpVerifyProxySKs =
-          (flip (either $ const mempty) blk) $ \mainBlk ->
-            let bEpoch = mainBlk ^. epochIndexL
-                notMatchingEpochs = filter ((/= bEpoch) . pskOmega) proxySKs
-                proxySKs = getDlgPayload $ mainBlk ^. mainBlockDlgPayload in
-                verifyGeneric
-            [ ( null notMatchingEpochs
-              , "Block contains psk(s) that have non-matching epoch index")
-            ]
-        | otherwise = mempty
     checkSize maxSize = verifyGeneric [
       (Bi.biSize blk <= maxSize,
        sformat ("block's size exceeds limit ("%memory%" > "%memory%")")
@@ -370,7 +354,6 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . fold
             vbp =
                 VerifyBlockParams
                 { vbpVerifyHeader = Just vhp
-                , vbpVerifyProxySKs = True
                 , vbpMaxSize = Just (bvdMaxBlockSize bvd)
                 , vbpVerifyNoUnknown = verifyNoUnknown
                 }

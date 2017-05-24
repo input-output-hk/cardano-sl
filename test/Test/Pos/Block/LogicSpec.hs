@@ -22,7 +22,7 @@ import qualified Pos.Communication          ()
 import           Pos.Constants              (blkSecurityParam, genesisMaxBlockSize)
 import           Pos.Core                   (SlotId (..), unsafeMkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey)
-import           Pos.Delegation             (DlgPayload)
+import           Pos.Delegation             (DlgPayload, genDlgPayload)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              commitmentMapEpochGen, mkVssCertificatesMap,
@@ -55,11 +55,12 @@ spec = describe "Block.Logic" $ do
                s <= 500 && s <= genesisMaxBlockSize
         prop "doesn't create blocks bigger than the limit" $
             forAll (choose (emptyBSize, emptyBSize * 10)) $ \(fromBytes -> limit) ->
-            forAll arbitrary $ \(prevHeader, sk, updatePayload, proxyCerts) ->
+            forAll arbitrary $ \(prevHeader, sk, updatePayload) ->
             forAll validGtPayloadGen $ \(gtPayload, slotId) ->
+            forAll (genDlgPayload (siEpoch slotId)) $ \dlgPayload ->
             forAll (makeSmall $ listOf1 genTxAux) $ \txs ->
             let blk = producePureBlock limit prevHeader txs Nothing slotId
-                                       proxyCerts gtPayload updatePayload sk
+                                       dlgPayload gtPayload updatePayload sk
             in leftToCounter blk $ \b ->
                 let s = biSize b
                 in counterexample ("Real block size: " <> show s) $

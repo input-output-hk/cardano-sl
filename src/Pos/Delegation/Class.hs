@@ -13,11 +13,12 @@ module Pos.Delegation.Class
        , dwPoolSize
        , dwEpochId
        , dwThisEpochPosted
+
+       , DelegationVar
        , MonadDelegation
        , askDelegationState
        ) where
 
-import           Control.Concurrent.STM     (TVar)
 import           Control.Lens               (makeLenses)
 import qualified Data.Cache.LRU             as LRU
 import           Data.Default               (Default (def))
@@ -32,12 +33,15 @@ import           Pos.Constants              (dlgCacheParam)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.Delegation.Types       (DlgMemPool, SendProxySK)
 import           Pos.Types                  (EpochIndex, ProxySKLight)
+import           Pos.Util.Concurrent.RWVar  (RWVar)
 
 ---------------------------------------------------------------------------
 -- Delegation in-memory data
 ----------------------------------------------------------------------------
 
-
+-- Notice: LRU caches in datatypes are only there to emulate
+-- throw-away-old-entries queue behaviour, we don't ever update LRUs
+-- with LRU.lookup.
 -- | In-memory storage needed for delegation logic.
 data DelegationWrap = DelegationWrap
     { _dwMessageCache      :: LRU.LRU SendProxySK UTCTime
@@ -75,15 +79,17 @@ instance Default DelegationWrap where
         msgCacheLimit = Just dlgCacheParam
         confCacheLimit = Just (dlgCacheParam `div` 5)
 
+
 ----------------------------------------------------------------------------
 -- Class definition
 ----------------------------------------------------------------------------
 
--- | Equivalent of @MonadReader (TVar DelegationWrap) m@. Currently
--- we're locking on the whole delegation wrap at once. Locking on
+type DelegationVar = RWVar DelegationWrap
+
+-- | We're locking on the whole delegation wrap at once. Locking on
 -- independent components is better in performance, so there's a place
 -- for optimization here.
-type MonadDelegation = Ether.MonadReader' (TVar DelegationWrap)
+type MonadDelegation = Ether.MonadReader' DelegationVar
 
-askDelegationState :: MonadDelegation m => m (TVar DelegationWrap)
+askDelegationState :: MonadDelegation m => m DelegationVar
 askDelegationState = Ether.ask'

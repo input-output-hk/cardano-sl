@@ -865,7 +865,7 @@ createMainBlockFinish slotId pSk prevHeader = do
         clearTxpMemPool
         sscResetLocal
         clearUSMemPool
-        clearDlgMemPool
+        lift $ clearDlgMemPool
     fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
     fallbackCreateBlock er = do
         logError $ sformat ("We've created bad main block: "%stext) er

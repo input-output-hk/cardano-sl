@@ -33,7 +33,7 @@ import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
 import           Pos.Context                  (NodeContext)
 import           Pos.DB                       (NodeDBs)
 import           Pos.DB.DB                    (GStateCoreRedirect)
-import           Pos.Delegation.Class         (DelegationWrap)
+import           Pos.Delegation.Class         (DelegationVar)
 import           Pos.Discovery.Holders        (DiscoveryConstT, DiscoveryKademliaT)
 import           Pos.Slotting.MemState        (SlottingVar)
 import           Pos.Slotting.MemState.Holder (SlotsDataRedirect)
@@ -65,7 +65,7 @@ type RawRealMode ssc =
         , Tagged (Bool, NtpSlottingVar) (Bool, NtpSlottingVar)
         , Tagged SscMemTag (SscState ssc)
         , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
-        , Tagged (TVar DelegationWrap) (TVar DelegationWrap)
+        , Tagged DelegationVar DelegationVar
         , Tagged PeerStateTag (PeerStateCtx Production)
         ) (
     Ether.ReadersT (NodeContext ssc) (

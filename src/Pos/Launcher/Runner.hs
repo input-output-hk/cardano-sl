@@ -73,7 +73,7 @@ import           Pos.DB.DB                    (initNodeDBs, openNodeDBs,
                                                runGStateCoreRedirect)
 import           Pos.DB.GState                (getTip)
 import           Pos.DB.Misc                  (addProxySecretKey)
-import           Pos.Delegation.Class         (DelegationWrap)
+import           Pos.Delegation.Class         (DelegationVar)
 import           Pos.DHT.Real                 (KademliaDHTInstance,
                                                KademliaDHTInstanceConfig (..),
                                                KademliaParams (..), startDHTInstance,
@@ -107,6 +107,7 @@ import           Pos.Txp                      (txpGlobalSettings)
 import           Pos.Update.Context           (UpdateContext (..))
 import qualified Pos.Update.DB                as GState
 import           Pos.Update.MemState          (newMemVar)
+import           Pos.Util.Concurrent.RWVar    as RWV
 import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
 import           Pos.Worker                   (allWorkersCount)
@@ -147,11 +148,11 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
         slottingVar <- Ether.runReaderT' (mkSlottingVar npSystemStart) modernDBs
         txpVar <- mkTxpLocalData mempty initTip
         ntpSlottingVar <- mkNtpSlottingVar
+        dlgVar <- RWV.new def
 
         -- TODO [CSL-775] need an effect-free way of running this into IO.
         let runIO :: forall t . RawRealMode ssc t -> IO t
-            runIO act = do
-               deleg <- newTVarIO def
+            runIO act =
                runProduction .
                    usingLoggerName lpRunnerTag .
                    runCH @ssc allWorkersNum np initNC modernDBs .
@@ -161,7 +162,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                       , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
                       , Tagged @SscMemTag bottomSscState
                       , Tagged @TxpHolderTag txpVar
-                      , Tagged @(TVar DelegationWrap) deleg
+                      , Tagged @DelegationVar dlgVar
                       , Tagged @PeerStateTag stateM_
                       ) .
                    runSlotsDataRedirect .
@@ -191,7 +192,6 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
            runSlotsDataRedirect .
            runSlotsRedirect $
            mkSscState @ssc
-        deleg <- newTVarIO def
         runCH allWorkersNum np initNC modernDBs .
            flip Ether.runReadersT
                ( Tagged @NodeDBs modernDBs
@@ -199,7 +199,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
                , Tagged @SscMemTag sscState
                , Tagged @TxpHolderTag txpVar
-               , Tagged @(TVar DelegationWrap) deleg
+               , Tagged @DelegationVar dlgVar
                , Tagged @PeerStateTag stateM
                ) .
            runSlotsDataRedirect .

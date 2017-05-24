@@ -34,8 +34,8 @@ module Pos.Delegation.Logic
        ) where
 
 import           Control.Exception          (Exception (..))
-import           Control.Lens               (at, makeLenses, uses, (%%=), (%=), (+=),
-                                             (-=), (.=), _Wrapped)
+import           Control.Lens               (at, makeLenses, uses, (%=), (+=), (-=), (.=),
+                                             _Wrapped)
 import           Control.Monad.Except       (runExceptT, throwError)
 import qualified Data.Cache.LRU             as LRU
 import qualified Data.HashMap.Strict        as HM
@@ -83,33 +83,29 @@ import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Types                  (ProxySKHeavy, ProxySKLight, ProxySigLight)
 import           Pos.Util                   (_neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Concurrent.RWLock as RWL
+import qualified Pos.Util.Concurrent.RWLock as RWL
+import qualified Pos.Util.Concurrent.RWVar  as RWV
 import           Pos.Util.LRU               (filterLRU)
 
 ----------------------------------------------------------------------------
 -- Different helpers to simplify logic
 ----------------------------------------------------------------------------
 
--- | Convenient monad to work in 'DelegationWrap' context while being
--- in STM.
-type DelegationStateAction = StateT DelegationWrap STM
+-- | Convenient monad to work in 'DelegationWrap' state context.
+type DelegationStateAction m = StateT DelegationWrap m
 
 -- | Effectively takes a lock on ProxyCaches mvar in NodeContext and
 -- allows you to run some computation producing updated ProxyCaches
 -- and return value. Will put MVar back on exception.
 runDelegationStateAction
-    :: (MonadIO m, MonadDelegation m)
-    => DelegationStateAction a -> m a
+    :: (MonadIO m, MonadMask m, MonadDelegation m)
+    => DelegationStateAction m a -> m a
 runDelegationStateAction action = do
     var <- askDelegationState
-    atomically $ do
-        startState <- readTVar var
-        (res, newState) <- runStateT action startState
-        writeTVar var newState
-        pure res
+    RWV.modify var $ \startState -> swap <$> runStateT action startState
 
 -- | Invalidates proxy caches using built-in constants.
-invalidateProxyCaches :: UTCTime -> DelegationStateAction ()
+invalidateProxyCaches :: (Monad m) => UTCTime -> DelegationStateAction m ()
 invalidateProxyCaches curTime = do
     dwMessageCache %=
         filterLRU (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
@@ -117,8 +113,6 @@ invalidateProxyCaches curTime = do
         filterLRU (\t -> addUTCTime (toDiffTime lightDlgConfirmationTimeout) t > curTime)
   where
     toDiffTime (t :: Integer) = fromIntegral t
-
-type DelegationWorkMode m = (MonadDelegation m, MonadDB m, WithLogger m)
 
 -- Retrieves psk certificated that have been accumulated before given
 -- block. The block itself should be in DB.
@@ -158,7 +152,7 @@ instance B.Buildable DelegationError where
 -- * Loads `_dwThisEpochPosted` from database
 initDelegation
     :: forall ssc m.
-       (SscHelpersClass ssc, MonadDB m, MonadDelegation m)
+       (SscHelpersClass ssc, MonadDB m, MonadDelegation m, MonadMask m)
     => m ()
 initDelegation = do
     tip <- DB.getTipBlockHeader @ssc
@@ -175,7 +169,7 @@ initDelegation = do
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
 getProxyMempool
-    :: (MonadDB m, MonadDelegation m)
+    :: (MonadDB m, MonadDelegation m, MonadMask m)
     => m ([ProxySKHeavy], [ProxySKHeavy])
 getProxyMempool = do
     sks <- runDelegationStateAction $
@@ -185,11 +179,11 @@ getProxyMempool = do
     pure (sks, toRollback)
 
 clearDlgMemPool
-    :: (MonadDB m, MonadDelegation m)
+    :: (MonadDB m, MonadDelegation m, MonadMask m)
     => m ()
 clearDlgMemPool = runDelegationStateAction clearDlgMemPoolAction
 
-clearDlgMemPoolAction :: DelegationStateAction ()
+clearDlgMemPoolAction :: (Monad m) => DelegationStateAction m ()
 clearDlgMemPoolAction = do
     dwProxySKPool .= mempty
     dwPoolSize .= 1
@@ -197,12 +191,12 @@ clearDlgMemPoolAction = do
 -- Put value into Proxy SK Pool. Value must not exist in pool.
 -- Caller must ensure it.
 -- Caller must also ensure that size limit allows to put more data.
-putToDlgMemPool :: PublicKey -> ProxySKHeavy -> DelegationStateAction ()
+putToDlgMemPool :: (Monad m) => PublicKey -> ProxySKHeavy -> DelegationStateAction m ()
 putToDlgMemPool pk psk = do
     dwProxySKPool . at pk .= Just psk
     dwPoolSize += biSize pk + biSize psk
 
-deleteFromDlgMemPool :: PublicKey -> DelegationStateAction ()
+deleteFromDlgMemPool :: (Monad m) => PublicKey -> DelegationStateAction m ()
 deleteFromDlgMemPool pk =
     use (dwProxySKPool . at pk) >>= \case
         Nothing -> pass
@@ -212,7 +206,7 @@ deleteFromDlgMemPool pk =
 
 -- Caller must ensure that there won't be too much data (more than limit) as
 -- a result of transformation.
-modifyDlgMemPool :: (DlgMemPool -> DlgMemPool) -> DelegationStateAction ()
+modifyDlgMemPool :: (Monad m) => (DlgMemPool -> DlgMemPool) -> DelegationStateAction m ()
 modifyDlgMemPool f = do
     memPool <- use dwProxySKPool
     let newPool = f memPool
@@ -238,6 +232,7 @@ processProxySKHeavy
     :: forall ssc m.
        ( SscHelpersClass ssc
        , MonadDB m
+       , MonadMask m
        , DB.MonadDBCore m
        , MonadDelegation m
        , Ether.MonadReader' LrcContext m
@@ -369,7 +364,8 @@ delegationVerifyBlocks blocks = do
 -- returns batchops. It works correctly only in case blocks don't
 -- cross over epoch. So genesis block is either absent or the head.
 delegationApplyBlocks
-    :: forall ssc m. (DelegationWorkMode m)
+    :: forall ssc m.
+       (MonadDelegation m, MonadDB m, WithLogger m, MonadMask m)
     => OldestFirst NE (Block ssc) -> m (NonEmpty SomeBatchOp)
 delegationApplyBlocks blocks = do
     tip <- GS.getTip
@@ -411,6 +407,7 @@ delegationRollbackBlocks
        ( SscHelpersClass ssc
        , MonadDelegation m
        , MonadDB m
+       , MonadMask m
        , Ether.MonadReader' LrcContext m
        )
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
@@ -516,7 +513,7 @@ data ConfirmPskLightVerdict
 -- | Takes a lightweight psk, delegate proof of delivery. Checks if
 -- it's valid or not. Caches message in any case.
 processConfirmProxySk
-    :: (MonadDelegation m, MonadIO m)
+    :: (MonadDelegation m, MonadIO m, MonadMask m)
     => ProxySKLight -> ProxySigLight ProxySKLight -> m ConfirmPskLightVerdict
 processConfirmProxySk psk proof = do
     curTime <- liftIO getCurrentTime
@@ -533,6 +530,9 @@ processConfirmProxySk psk proof = do
                   | otherwise -> CPInvalid
 
 -- | Checks if we hold a confirmation for given PSK.
-isProxySKConfirmed :: ProxySKLight -> DelegationStateAction Bool
-isProxySKConfirmed psk =
-    isJust <$> (dwConfirmationCache %%= swap . LRU.lookup psk)
+isProxySKConfirmed
+    :: (MonadIO m, MonadMask m, MonadDelegation m)
+    => ProxySKLight -> m Bool
+isProxySKConfirmed psk = do
+    var <- askDelegationState
+    RWV.with var $ \v -> pure $ isJust $ snd $ LRU.lookup psk (v ^. dwConfirmationCache)

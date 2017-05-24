@@ -27,6 +27,16 @@ before_install:
 # TODO: https://github.com/NixOS/nixpkgs/issues/21200
 - travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar
   xz --strip-components=1 -C ~/.local/bin
+- sudo service --status-all
+- sudo free -m -t
+- sudo /etc/init.d/memcached stop
+- sudo /etc/init.d/mysql stop
+- sudo /etc/init.d/postgresql stop
+- sudo free -m -t
+
+after_failure:
+- sudo free -m -t
+- sudo dmesg
 
 script:
 - if [[ "$HLINT" == "true" ]]; then

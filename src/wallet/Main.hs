@@ -1,4 +1,3 @@
-{-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -122,8 +121,7 @@ runCmd sendActions (SendToAllGenesis amount delay_) = do
 runCmd sendActions v@(Vote idx decision upid) = do
     logDebug $ "Submitting a vote :" <> show v
     CmdCtx{na} <- ask
-    skeys <- getSecretKeys
-    let skey = skeys !! idx
+    skey <- (!! idx) <$> getSecretKeys
     msignature <- lift $ withSafeSigner skey (pure emptyPassphrase) $ mapM $
                         \ss -> pure $ safeSign SignUSVote ss (upid, decision)
     case msignature of
@@ -143,14 +141,13 @@ runCmd sendActions v@(Vote idx decision upid) = do
 runCmd sendActions ProposeUpdate{..} = do
     logDebug "Proposing update..."
     CmdCtx{na} <- ask
-    skeys <- getSecretKeys
+    skey <- (!! puIdx) <$> getSecretKeys
     (diffFile :: Maybe (Hash Raw)) <- runMaybeT $ do
         filePath <- MaybeT $ pure puFilePath
         fileData <- liftIO $ BS.readFile filePath
         let h = unsafeHash fileData
         liftIO $ putText $ sformat ("Read file succesfuly, its hash: "%hashHexF) h
         pure h
-    let skey = skeys !! puIdx
     let bvd = genesisBlockVersionData
             { bvdScriptVersion = puScriptVersion
             , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
@@ -209,8 +206,7 @@ runCmd _ ListAddresses = do
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . encodeStrict
 runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do
    CmdCtx{na} <- ask
-   skeys <- getSecretKeys
-   let issuerSk = skeys !! i
+   issuerSk <- (!! i) <$> getSecretKeys
    lift $ withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
@@ -220,8 +216,7 @@ runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do
    putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i delegatePk curEpoch) = do
    CmdCtx{na} <- ask
-   skeys <- getSecretKeys
-   let issuerSk = skeys !! i
+   issuerSk <- (!! i) <$> getSecretKeys
    lift $ withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
@@ -257,8 +252,8 @@ evalCommands sa = do
     line <- getLine
     let cmd = parseCommand line
     case cmd of
-        Left err  -> putStrLn err >> evalCommands sa
-        Right cmd -> evalCmd sa cmd
+        Left err   -> putStrLn err >> evalCommands sa
+        Right cmd_ -> evalCmd sa cmd_
 
 initialize :: WalletMode m => WalletOptions -> m [NodeId]
 initialize WalletOptions{..} = do

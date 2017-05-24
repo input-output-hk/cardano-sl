@@ -20,7 +20,7 @@ import qualified STMContainers.Map                 as SM
 import           System.Wlog                       (logInfo)
 import           Universum
 
-import           Pos.Communication                 (ActionSpec (..), OutSpecs, PeerId)
+import           Pos.Communication                 (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol        (SendActions)
 import           Pos.Constants                     (isDevelopment)
 import           Pos.Crypto                        (noPassEncrypt)

@@ -17,8 +17,7 @@ import           Network.Wai                       (Application)
 import           System.Wlog                       (logInfo)
 import           Universum
 
-import           Pos.Communication                 (ActionSpec (..), NodeId, OutSpecs,
-                                                    PeerId)
+import           Pos.Communication                 (ActionSpec (..), NodeId, OutSpecs)
 import           Pos.Communication.Protocol        (SendActions)
 import           Pos.Constants                     (isDevelopment)
 import           Pos.Crypto                        (noPassEncrypt)

@@ -11,20 +11,24 @@ module Pos.Delegation.DB
 
        , runPskIterator
        , runPskMapIterator
+
+       , getDelegators
        ) where
 
-import qualified Database.RocksDB as Rocks
 import           Universum
 
-import           Pos.Binary.Class (encodeStrict)
-import           Pos.Crypto       (PublicKey, pskDelegatePk, pskIssuerPk)
-import           Pos.DB.Class     (MonadDB, getUtxoDB)
-import           Pos.DB.Functions (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
-import           Pos.DB.Iterator  (DBIteratorClass (..), DBnIterator, DBnMapIterator,
-                                   IterType, runDBnIterator, runDBnMapIterator)
-import           Pos.DB.Types     (NodeDBs (_gStateDB))
-import           Pos.Types        (ProxySKHeavy, StakeholderId, addressHash)
+import qualified Data.HashMap.Strict as HM
+import qualified Database.RocksDB    as Rocks
 
+import           Pos.Binary.Class    (encodeStrict)
+import           Pos.Crypto          (PublicKey, pskDelegatePk, pskIssuerPk)
+import           Pos.DB.Class        (MonadDB, getUtxoDB)
+import           Pos.DB.Functions    (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
+import           Pos.DB.Iterator     (DBIteratorClass (..), DBnIterator, DBnMapIterator,
+                                      IterType, runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Types        (NodeDBs (_gStateDB))
+import           Pos.Types           (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Util.Iterator   (nextItem)
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors
@@ -91,3 +95,19 @@ pskKey = encodeWithKeyPrefix @PskIter
 
 iterationPrefix :: ByteString
 iterationPrefix = "d/p/"
+
+----------------------------------------------------------------------------
+-- Helper functions
+----------------------------------------------------------------------------
+
+-- | For each stakeholder, say who has delegated to that stakeholder.
+--
+-- NB. It's not called @getIssuers@ because we already have issuers (i.e.
+-- block issuers)
+getDelegators :: MonadDB m => m (HashMap StakeholderId [StakeholderId])
+getDelegators = runPskMapIterator (step mempty) conv
+  where
+    step hm = nextItem >>= maybe (pure hm) (\(iss, del) -> do
+        let curList = HM.lookupDefault [] del hm
+        step (HM.insert del (iss:curList) hm))
+    conv (id, cert) = (id, addressHash (pskDelegatePk cert))

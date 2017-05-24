@@ -23,11 +23,11 @@ module Pos.Core.Class
 
 import           Universum
 
-import           Control.Lens   (Getter, choosing, to)
+import           Control.Lens   (Getter, choosing, lens, to)
 
 import           Pos.Core.Types (BlockVersion, ChainDifficulty, EpochIndex,
-                                 EpochOrSlot (..), HeaderHash, SlotId (..),
-                                 SoftwareVersion)
+                                 EpochOrSlot (..), HeaderHash, SlotId, SoftwareVersion,
+                                 siEpoch)
 import           Pos.Crypto     (PublicKey)
 import           Pos.Util.Util  (Some, applySome, liftLensSome)
 
@@ -93,7 +93,7 @@ class HasEpochIndex a where
 SOME_LENS_CLASS(HasEpochIndex, epochIndexL, HasEpochIndex)
 
 instance HasEpochIndex SlotId where
-    epochIndexL f SlotId {..} = (\a -> SlotId {siEpoch = a, ..}) <$> f siEpoch
+    epochIndexL = lens siEpoch (\s a -> s {siEpoch = a})
 
 instance (HasEpochIndex a, HasEpochIndex b) =>
          HasEpochIndex (Either a b) where
@@ -129,30 +129,33 @@ depending on cardano-sl:
 
   * 'difficultyL'
   * 'epochIndexL'
+  * 'epochOrSlotG'
   * 'prevBlockL'
   * 'headerHashG'
 -}
 class (HasDifficulty header
       ,HasEpochIndex header
+      ,HasEpochOrSlot header
       ,HasPrevBlock header
       ,HasHeaderHash header) =>
       IsHeader header
 
-SOME_LENS_CLASS(HasDifficulty, difficultyL, IsHeader)
-SOME_LENS_CLASS(HasEpochIndex, epochIndexL, IsHeader)
-SOME_LENS_CLASS(HasPrevBlock,  prevBlockL,  IsHeader)
-SOME_FUNC_CLASS(HasHeaderHash, headerHash,  IsHeader)
+SOME_LENS_CLASS(HasDifficulty,  difficultyL,    IsHeader)
+SOME_LENS_CLASS(HasEpochIndex,  epochIndexL,    IsHeader)
+SOME_FUNC_CLASS(HasEpochOrSlot, getEpochOrSlot, IsHeader)
+SOME_LENS_CLASS(HasPrevBlock,   prevBlockL,     IsHeader)
+SOME_FUNC_CLASS(HasHeaderHash,  headerHash,     IsHeader)
 
 instance IsHeader (Some IsHeader)
 
--- | A class for genesis headers. Currently doesn't provide any data beyond
--- what 'IsHeader' provides.
+-- | A class for genesis headers.
 class IsHeader header => IsGenesisHeader header
 
-SOME_LENS_CLASS(HasDifficulty, difficultyL, IsGenesisHeader)
-SOME_LENS_CLASS(HasEpochIndex, epochIndexL, IsGenesisHeader)
-SOME_LENS_CLASS(HasPrevBlock,  prevBlockL,  IsGenesisHeader)
-SOME_FUNC_CLASS(HasHeaderHash, headerHash,  IsGenesisHeader)
+SOME_LENS_CLASS(HasDifficulty,  difficultyL,    IsGenesisHeader)
+SOME_LENS_CLASS(HasEpochIndex,  epochIndexL,    IsGenesisHeader)
+SOME_FUNC_CLASS(HasEpochOrSlot, getEpochOrSlot, IsGenesisHeader)
+SOME_LENS_CLASS(HasPrevBlock,   prevBlockL,     IsGenesisHeader)
+SOME_FUNC_CLASS(HasHeaderHash,  headerHash,     IsGenesisHeader)
 
 instance IsHeader        (Some IsGenesisHeader)
 instance IsGenesisHeader (Some IsGenesisHeader)
@@ -176,6 +179,7 @@ class (IsHeader header
 
 SOME_LENS_CLASS(HasDifficulty,      difficultyL,      IsMainHeader)
 SOME_LENS_CLASS(HasEpochIndex,      epochIndexL,      IsMainHeader)
+SOME_FUNC_CLASS(HasEpochOrSlot,     getEpochOrSlot,   IsMainHeader)
 SOME_LENS_CLASS(HasPrevBlock,       prevBlockL,       IsMainHeader)
 SOME_FUNC_CLASS(HasHeaderHash,      headerHash,       IsMainHeader)
 SOME_LENS_CLASS(HasBlockVersion,    blockVersionL,    IsMainHeader)

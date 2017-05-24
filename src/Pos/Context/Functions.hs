@@ -31,11 +31,10 @@ import           Universum
 import           Pos.Context.Context    (BlkSemaphore (..), GenesisLeaders (..),
                                          GenesisUtxo (..), MonadRecoveryHeader,
                                          RecoveryHeaderTag, StartTime (..))
-import           Pos.Lrc.Context        (LrcContext (..), LrcSyncData (..))
-import           Pos.Lrc.Error          (LrcError (..))
+import           Pos.Lrc.Context        (lrcActionOnEpoch, lrcActionOnEpochReason,
+                                         waitLrc)
 import           Pos.Txp.Toil.Types     (Utxo)
-import           Pos.Types              (EpochIndex, HeaderHash, SlotLeaders)
-import           Pos.Util               (maybeThrow, readTVarConditional)
+import           Pos.Types              (HeaderHash, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -65,38 +64,6 @@ readBlkSemaphore
     :: (MonadIO m, Ether.MonadReader' BlkSemaphore m)
     => m HeaderHash
 readBlkSemaphore = readMVar =<< Ether.asks' unBlkSemaphore
-
-----------------------------------------------------------------------------
--- LRC synchronization
-----------------------------------------------------------------------------
-
--- | Block until LRC data is available for given epoch.
-waitLrc
-    :: (MonadIO m, Ether.MonadReader' LrcContext m)
-    => EpochIndex -> m ()
-waitLrc epoch = do
-    sync <- Ether.asks' @LrcContext lcLrcSync
-    () <$ readTVarConditional ((>= epoch) . lastEpochWithLrc) sync
-
-lrcActionOnEpoch
-    :: (MonadIO m, Ether.MonadReader' LrcContext m, MonadThrow m)
-    => EpochIndex
-    -> (EpochIndex -> m (Maybe a))
-    -> m a
-lrcActionOnEpoch epoch =
-    lrcActionOnEpochReason
-        epoch
-        "action on lrcCallOnEpoch couldn't be performed properly"
-
-lrcActionOnEpochReason
-    :: (MonadIO m, Ether.MonadReader' LrcContext m, MonadThrow m)
-    => EpochIndex
-    -> Text
-    -> (EpochIndex -> m (Maybe a))
-    -> m a
-lrcActionOnEpochReason epoch reason actionDependsOnLrc = do
-    waitLrc epoch
-    actionDependsOnLrc epoch >>= maybeThrow (LrcDataUnknown epoch reason)
 
 ----------------------------------------------------------------------------
 -- Misc

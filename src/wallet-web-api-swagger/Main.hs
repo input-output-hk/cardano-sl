@@ -1,4 +1,6 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE OverloadedLists     #-}
@@ -20,29 +22,33 @@ module Main
 
 import           Universum
 
-import           Control.Lens               (mapped, (?~))
-import           Data.Aeson                 (encode)
-import qualified Data.ByteString.Lazy.Char8 as BSL8
-import           Data.Swagger               (NamedSchema (..), Operation, Swagger,
-                                             SwaggerType (..), ToParamSchema (..),
-                                             ToSchema (..), declareNamedSchema,
-                                             declareSchemaRef, defaultSchemaOptions,
-                                             description, format,
-                                             genericDeclareNamedSchema, host, info, name,
-                                             properties, required, title, type_, version)
-import           Data.Typeable              (Typeable, typeRep)
-import           Data.Version               (showVersion)
-import           Servant                    ((:>))
-import           Servant.Multipart          (FileData (..), MultipartForm)
-import           Servant.Swagger            (HasSwagger (toSwagger), subOperations)
+import           Control.Lens                       (mapped, (?~))
+import           Data.Aeson                         (encode)
+import qualified Data.ByteString.Lazy.Char8         as BSL8
+import           Data.Swagger                       (NamedSchema (..), Operation, Swagger,
+                                                     SwaggerType (..), ToParamSchema (..),
+                                                     ToSchema (..), declareNamedSchema,
+                                                     declareSchemaRef,
+                                                     defaultSchemaOptions, description,
+                                                     format, genericDeclareNamedSchema,
+                                                     host, info, name, properties,
+                                                     required, title, type_, version)
+import           Data.Typeable                      (Typeable, typeRep)
+import           Data.Version                       (showVersion)
+import           Servant                            ((:>))
+import           Servant.Multipart                  (FileData (..), MultipartForm)
+import           Servant.Swagger                    (HasSwagger (toSwagger),
+                                                     subOperations)
+import           Servant.Swagger.Internal.TypeLevel (IsSubAPI)
 
-import qualified Paths_cardano_sl           as CSL
-import           Pos.Types                  (ApplicationName, BlockVersion,
-                                             ChainDifficulty, Coin, SoftwareVersion)
-import           Pos.Util.BackupPhrase      (BackupPhrase)
-import qualified Pos.Wallet.Web             as W
+import qualified Paths_cardano_sl                   as CSL
+import           Pos.Types                          (ApplicationName, BlockVersion,
+                                                     ChainDifficulty, Coin,
+                                                     SoftwareVersion)
+import           Pos.Util.BackupPhrase              (BackupPhrase)
+import qualified Pos.Wallet.Web                     as W
 
-import qualified Description                as D
+import qualified Description                        as D
 
 main :: IO ()
 main = do
@@ -131,8 +137,14 @@ instance {-# OVERLAPPING #-} (Typeable a, ToSchema a) => ToSchema (Either W.Wall
     declareNamedSchema proxy = genericDeclareNamedSchema defaultSchemaOptions proxy
         & mapped . name ?~ show (typeRep (Proxy @(Either W.WalletError a)))
 
--- | Helper type for subApi, we use it to create description.
-type Op = Traversal' Swagger Operation
+-- | Wallet API operations.
+walletOp
+    :: forall sub.
+       ( IsSubAPI (W.ApiPrefix :> sub) W.WalletApi
+       , HasSwagger (W.ApiPrefix :> sub)
+       )
+    => Traversal' Swagger Operation
+walletOp = subOperations (Proxy @(W.ApiPrefix :> sub)) W.walletApi
 
 -- | Build Swagger-specification from 'walletApi'.
 swaggerSpecForWalletApi :: Swagger
@@ -186,44 +198,44 @@ swaggerSpecForWalletApi = toSwagger W.walletApi
   where
     -- | SubOperations for all endpoints in 'walletApi'.
     -- We need it to fill description sections in produced HTML-documentation.
-    testReset              = subOperations (Proxy @W.TestReset) W.walletApi :: Op
+    testReset              = walletOp @W.TestReset
 
-    getWSet                = subOperations (Proxy @W.GetWalletSet) W.walletApi :: Op
-    getWSets               = subOperations (Proxy @W.GetWalletSets) W.walletApi :: Op
-    newWSet                = subOperations (Proxy @W.NewWalletSet) W.walletApi :: Op
-    restoreWSet            = subOperations (Proxy @W.RestoreWalletSet) W.walletApi :: Op
-    renameWSet             = subOperations (Proxy @W.RenameWalletSet) W.walletApi :: Op
-    importWSet             = subOperations (Proxy @W.ImportWalletSet) W.walletApi :: Op
-    changeWSetPassphrase   = subOperations (Proxy @W.ChangeWalletSetPassphrase) W.walletApi :: Op
+    getWSet                = walletOp @W.GetWalletSet
+    getWSets               = walletOp @W.GetWalletSets
+    newWSet                = walletOp @W.NewWalletSet
+    restoreWSet            = walletOp @W.RestoreWalletSet
+    renameWSet             = walletOp @W.RenameWalletSet
+    importWSet             = walletOp @W.ImportWalletSet
+    changeWSetPassphrase   = walletOp @W.ChangeWalletSetPassphrase
 
-    getWallet              = subOperations (Proxy @W.GetWallet) W.walletApi :: Op
-    getWallets             = subOperations (Proxy @W.GetWallets) W.walletApi :: Op
-    updateWallet           = subOperations (Proxy @W.UpdateWallet) W.walletApi :: Op
-    newWallet              = subOperations (Proxy @W.NewWallet) W.walletApi :: Op
-    deleteWallet           = subOperations (Proxy @W.DeleteWallet) W.walletApi :: Op
+    getWallet              = walletOp @W.GetWallet
+    getWallets             = walletOp @W.GetWallets
+    updateWallet           = walletOp @W.UpdateWallet
+    newWallet              = walletOp @W.NewWallet
+    deleteWallet           = walletOp @W.DeleteWallet
 
-    newAccount             = subOperations (Proxy @W.NewAccount) W.walletApi :: Op
+    newAccount             = walletOp @W.NewAccount
 
-    isValidAddress         = subOperations (Proxy @W.IsValidAddress) W.walletApi :: Op
+    isValidAddress         = walletOp @W.IsValidAddress
 
-    getProfile             = subOperations (Proxy @W.GetProfile) W.walletApi :: Op
-    updateProfile          = subOperations (Proxy @W.UpdateProfile) W.walletApi :: Op
+    getProfile             = walletOp @W.GetProfile
+    updateProfile          = walletOp @W.UpdateProfile
 
-    newPayment             = subOperations (Proxy @W.NewPayment) W.walletApi :: Op
-    newPaymentExt          = subOperations (Proxy @W.NewPaymentExt) W.walletApi :: Op
-    updateTx               = subOperations (Proxy @W.UpdateTx) W.walletApi :: Op
-    getHistory             = subOperations (Proxy @W.GetHistory) W.walletApi :: Op
-    searchHistory          = subOperations (Proxy @W.SearchHistory) W.walletApi :: Op
+    newPayment             = walletOp @W.NewPayment
+    newPaymentExt          = walletOp @W.NewPaymentExt
+    updateTx               = walletOp @W.UpdateTx
+    getHistory             = walletOp @W.GetHistory
+    searchHistory          = walletOp @W.SearchHistory
 
-    nextUpdate             = subOperations (Proxy @W.NextUpdate) W.walletApi :: Op
-    applyUpdate            = subOperations (Proxy @W.ApplyUpdate) W.walletApi :: Op
+    nextUpdate             = walletOp @W.NextUpdate
+    applyUpdate            = walletOp @W.ApplyUpdate
 
-    redeemADA              = subOperations (Proxy @W.RedeemADA) W.walletApi :: Op
-    redeemADAPaperVend     = subOperations (Proxy @W.RedeemADAPaperVend) W.walletApi :: Op
+    redeemADA              = walletOp @W.RedeemADA
+    redeemADAPaperVend     = walletOp @W.RedeemADAPaperVend
 
-    reportingInitialized   = subOperations (Proxy @W.ReportingInitialized) W.walletApi :: Op
-    reportingElectroncrash = subOperations (Proxy @W.ReportingElectroncrash) W.walletApi :: Op
+    reportingInitialized   = walletOp @W.ReportingInitialized
+    reportingElectroncrash = walletOp @W.ReportingElectroncrash
 
-    getSlotsDuration       = subOperations (Proxy @W.GetSlotsDuration) W.walletApi :: Op
-    getVersion             = subOperations (Proxy @W.GetVersion) W.walletApi :: Op
-    getSyncProgress        = subOperations (Proxy @W.GetSyncProgress) W.walletApi :: Op
+    getSlotsDuration       = walletOp @W.GetSlotsDuration
+    getVersion             = walletOp @W.GetVersion
+    getSyncProgress        = walletOp @W.GetSyncProgress

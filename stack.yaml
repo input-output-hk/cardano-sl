@@ -11,6 +11,7 @@ packages:
 - infra
 - db
 - lrc
+- ssc
 
 - location:
     git: https://github.com/serokell/time-units.git
@@ -74,7 +75,7 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.4.1
+- universum-0.4.2
 - time-units-1.0.0
 - serokell-util-0.1.5.0
 - pvss-0.1
@@ -99,6 +100,7 @@ apply-ghc-options: everything
 ghc-options:
   cardano-sl-core:   -Werror
   cardano-sl-db:     -Werror
+  cardano-sl-ssc:    -Werror
   cardano-sl-infra:  -Werror
   cardano-sl-lrc:    -Werror
   cardano-sl-update: -Werror

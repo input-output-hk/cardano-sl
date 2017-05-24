@@ -12,11 +12,11 @@ module Pos.Ssc.Class.LocalData
 import           System.Wlog         (WithLogger)
 import           Universum
 
+import           Pos.Core            (EpochIndex, SlotId)
 import           Pos.DB.Class        (MonadDB)
 import           Pos.Lrc.Types       (RichmenStake)
 import           Pos.Slotting.Class  (MonadSlots)
 import           Pos.Ssc.Class.Types (Ssc (..))
-import           Pos.Types           (EpochIndex, SlotId)
 
 ----------------------------------------------------------------------------
 -- Modern

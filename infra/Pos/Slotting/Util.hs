@@ -41,10 +41,7 @@ import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
 import           Pos.Slotting.MemState  (MonadSlotsData (..))
 import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData (..))
-
--- TODO eliminate this copy-paste when would refactor Pos.Util
-maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
-maybeThrow e = maybe (throwM e) pure
+import           Pos.Util.Util          (maybeThrow)
 
 -- | Get flat id of current slot based on MonadSlots.
 getCurrentSlotFlat :: MonadSlots m => m (Maybe FlatSlotId)

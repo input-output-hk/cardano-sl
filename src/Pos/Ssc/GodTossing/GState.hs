@@ -11,7 +11,7 @@ module Pos.Ssc.GodTossing.GState
        , getStableCerts
        ) where
 
-import           Control.Lens                   ((.=), _Wrapped)
+import           Control.Lens                   (choosing, (.=), _Wrapped)
 import           Control.Monad.Except           (MonadError (throwError), runExceptT)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
@@ -21,12 +21,12 @@ import           System.Wlog                    (WithLogger, logDebug, logInfo)
 import           Universum
 
 import           Pos.Binary.Ssc                 ()
-import           Pos.Block.Core                 (Block, mainBlockSscPayload)
 import           Pos.Core                       (EpochIndex (..), SlotId (..),
-                                                 epochIndexL, epochOrSlotG, gbHeader)
+                                                 epochIndexL, epochOrSlotG)
 import           Pos.DB                         (MonadDB, SomeBatchOp (..))
 import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
+import           Pos.Ssc.Class.Types            (SscBlock)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificatesMap)
 import qualified Pos.Ssc.GodTossing.DB          as DB
@@ -43,7 +43,6 @@ import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), gsCommitmen
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Util                       (_neHead, _neLast)
 import           Pos.Util.Chrono                (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Util                  (Some (Some))
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -101,34 +100,35 @@ dumpGlobalState = one . SomeBatchOp . DB.gtGlobalStateToBatch
 
 type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m) => m a
 
-rollbackBlocks :: NewestFirst NE (Block SscGodTossing) -> GSUpdate ()
+rollbackBlocks :: NewestFirst NE (SscBlock SscGodTossing) -> GSUpdate ()
 rollbackBlocks blocks = tossToUpdate mempty $ rollbackGT oldestEOS payloads
   where
-    oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
-    payloads =
-        NewestFirst . map (view mainBlockSscPayload) . rights . toList $ blocks
+    oldestEOS = blocks ^. _Wrapped . _neLast .
+                          choosing epochOrSlotG (_1 . epochOrSlotG)
+    payloads = over _Wrapped (map snd . rights . toList) blocks
 
 verifyAndApply
     :: RichmenStake
-    -> OldestFirst NE (Block SscGodTossing)
+    -> OldestFirst NE (SscBlock SscGodTossing)
     -> SscVerifier SscGodTossing ()
 verifyAndApply richmenStake blocks = verifyAndApplyMultiRichmen False richmenData blocks
   where
-    epoch = blocks ^. _Wrapped . _neHead . epochIndexL
+    epoch = blocks ^. _Wrapped . _neHead .
+                      choosing epochIndexL (_1 . epochIndexL)
     richmenData = HM.fromList [(epoch, richmenStake)]
 
 verifyAndApplyMultiRichmen
     :: Bool
     -> MultiRichmenStake
-    -> OldestFirst NE (Block SscGodTossing)
+    -> OldestFirst NE (SscBlock SscGodTossing)
     -> SscVerifier SscGodTossing ()
 verifyAndApplyMultiRichmen onlyCerts richmenData =
     tossToVerifier richmenData . mapM_ verifyAndApplyDo
   where
-    verifyAndApplyDo (Left blk) = applyGenesisBlock $ blk ^. epochIndexL
-    verifyAndApplyDo (Right blk) =
-        verifyAndApplyGtPayload (Right $ Some $ blk ^. gbHeader) $
-        filterPayload (blk ^. mainBlockSscPayload)
+    verifyAndApplyDo (Left header) = applyGenesisBlock $ header ^. epochIndexL
+    verifyAndApplyDo (Right (header, payload)) =
+        verifyAndApplyGtPayload (Right header) $
+        filterPayload payload
     filterPayload payload
         | onlyCerts = leaveOnlyCerts payload
         | otherwise = payload

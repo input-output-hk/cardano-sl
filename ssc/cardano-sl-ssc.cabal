@@ -1,7 +1,7 @@
-name:                cardano-sl-lrc
+name:                cardano-sl-ssc
 version:             0.4.4
-synopsis:            Cardano SL - Leaders and Richmen computation
-description:         Cardano SL - Leaders and Richmen computation
+synopsis:            Cardano SL - the SSC class
+description:         Cardano SL - the SSC class
 license:             MIT
 license-file:        LICENSE
 author:              Serokell
@@ -12,31 +12,31 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Pos.Lrc.Fts
-                       Pos.Lrc.Types
-                       Pos.Lrc.Error
-                       Pos.Lrc.Core
-                       Pos.Lrc.Consumer
-                       Pos.Lrc.Class
-                       Pos.Lrc.Genesis
+  exposed-modules:
+    Pos.Ssc.Class.Types
+    Pos.Ssc.Class.LocalData
+    Pos.Ssc.Class.Helpers
+    Pos.Ssc.Class.Storage
 
-                       Pos.Lrc.Context
-
-                       Pos.Lrc.DB.Common
-                       Pos.Lrc.DB.Issuers
-                       Pos.Lrc.DB.Seed
-                       Pos.Lrc.DB.RichmenBase
+    Pos.Ssc.Extra.Types
+    Pos.Ssc.Extra.Holder
+    Pos.Ssc.Extra.Class
 
   build-depends:       base
-                     , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
+                     , cardano-sl-infra
+                     , cardano-sl-lrc
                      , ether
-                     , formatting
-                     , lens
+                     , log-warper
+                     , mtl
+                     , serokell-util
+                     , stm
+                     , tagged
                      , text-format
                      , universum
-                     , unordered-containers
+
+  default-language:    Haskell2010
 
   default-extensions:  DeriveDataTypeable
                        DeriveGeneric
@@ -58,8 +58,6 @@ library
                        ConstraintKinds
                        UndecidableInstances
                        BangPatterns
-
-  default-language:    Haskell2010
 
   ghc-options:         -Wall
                        -fno-warn-orphans

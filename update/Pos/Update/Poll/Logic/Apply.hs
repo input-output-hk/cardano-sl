@@ -17,7 +17,6 @@ import           System.Wlog                   (logDebug, logInfo, logNotice)
 import           Universum
 
 import           Pos.Binary.Class              (biSize)
-import           Pos.Constants                 (blkSecurityParam, genesisUpdateVoteThd)
 import           Pos.Core                      (ChainDifficulty, Coin, EpochIndex,
                                                 HeaderHash, IsMainHeader (..),
                                                 SlotId (siEpoch), SoftwareVersion (..),
@@ -27,8 +26,10 @@ import           Pos.Core                      (ChainDifficulty, Coin, EpochInde
                                                 flattenSlotId, headerHashG, headerSlotL,
                                                 sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
+import           Pos.Core.Constants            (blkSecurityParam)
 import           Pos.Crypto                    (hash, shortHashF)
 import           Pos.Data.Attributes           (areAttributesKnown)
+import           Pos.Update.Constants          (genesisUpdateVoteThd)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
                                                 UpdatePayload (..), UpdateProposal (..),
                                                 UpdateVote (..))
@@ -45,7 +46,7 @@ import           Pos.Update.Poll.Types         (ConfirmedProposalState (..),
                                                 ProposalState (..),
                                                 UndecidedProposalState (..),
                                                 UpsExtra (..), psProposal)
-import           Pos.Util                      (Some (..))
+import           Pos.Util.Util                 (Some (..))
 
 type ApplyMode m = (MonadError PollVerFailure m, MonadPoll m)
 

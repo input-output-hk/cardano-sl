@@ -60,8 +60,8 @@ initialState =
         }
     , latestBlocks: NotAsked
     , totalBlocks: NotAsked
-    , currentBlockSummary: Nothing
-    , currentBlockTxs: Nothing
+    , currentBlockSummary: NotAsked
+    , currentBlockTxs: NotAsked
     , latestTransactions: NotAsked
     , currentTxSummary: NotAsked
     , currentCAddress: mkCAddress ""

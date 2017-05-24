@@ -108,7 +108,8 @@ translation =
         , blPrevBlock: "前のスロット"
         , blNextBlock: "次のスロット"
         , blRoot: "ハッシュ根"
-        , blNotFound: "エポック / スロットは存在していません。"
+        , blEpochSlotNotFound: "エポック / スロットは存在していません。"
+        , blSlotNotFound: "スロットは存在していません。"
         }
     , footer:
         { fooResources: "Resources"

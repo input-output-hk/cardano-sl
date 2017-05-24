@@ -29,13 +29,19 @@
 
   margin-top: 24px;
   padding: 18px 24px;
-  margin: 0 24px;
+  margin: 0 18px;
 
   border-radius: 2px;
   button: outline-button;
   button-color: var(--color5) var(--color4) var(--color4);
   button-border: 1px var(--color5) transparent transparent;
   button-background: transparent var(--color5) var(--color5);
+}
+
+@media (--md) {
+  .btn-back {
+      margin: 0 24px;
+  }
 }
 
 
@@ -306,12 +312,18 @@
 .tx-empty {
 
   &__container {
-    padding: 10px 24px;
+    padding: 10px 18px;
 
     font-size: 10px;
     font-family: var(--fontFamily0-Regular);
     color: var(--color13);
 
+  }
+
+  @media (--md) {
+    &__container {
+        padding: 10px 24px;
+    }
   }
 }
 

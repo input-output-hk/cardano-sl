@@ -25,8 +25,8 @@ type State =
     , viewStates :: ViewStates
     , latestBlocks :: RemoteData Error CBlockEntries
     , totalBlocks :: RemoteData Error Int
-    , currentBlockSummary :: Maybe CBlockSummary
-    , currentBlockTxs :: Maybe CTxBriefs
+    , currentBlockSummary :: RemoteData Error CBlockSummary
+    , currentBlockTxs :: RemoteData Error CTxBriefs
     , currentTxSummary :: RemoteData Error CTxSummary
     , latestTransactions :: RemoteData Error CTxEntries
     , currentCAddress :: CAddress

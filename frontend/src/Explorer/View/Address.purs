@@ -5,7 +5,7 @@ import Data.Array (length, (!!))
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), isJust)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
+import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance, tx, txEmpty) as I18nL
 import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, currentAddressSummary, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, minPagination)
@@ -55,7 +55,7 @@ addressView state =
                                           [ P.text $ translate (I18nL.common <<< I18nL.cTransactions) lang' ]
                                     , case currentTxBrief of
                                         Nothing ->
-                                            txEmptyContentView lang'
+                                            txEmptyContentView $ translate (I18nL.tx <<< I18nL.txEmpty) lang'
                                         Just txBrief ->
                                             P.div []
                                             [ txHeaderView lang' $ mkTxHeaderViewProps txBrief

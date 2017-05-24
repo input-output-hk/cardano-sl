@@ -472,17 +472,22 @@ update (ReceivePaginatedBlocks (Left error)) state =
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestBlockSummary hash) state =
-    { state: set loading true $ state
+    { state:
+          set loading true $
+          set currentBlockSummary Loading
+          state
     , effects: [ attempt (fetchBlockSummary hash) >>= pure <<< ReceiveBlockSummary ]
     }
 update (ReceiveBlockSummary (Right blockSummary)) state =
     noEffects $
     set loading false $
-    set currentBlockSummary (Just blockSummary) state
+    set currentBlockSummary (Success blockSummary) state
 update (ReceiveBlockSummary (Left error)) state =
     noEffects $
     set loading false $
-    over errors (\errors' -> (show error) : errors') state
+    set currentBlockSummary (Failure error) $
+    over errors (\errors' -> (show error) : errors')
+    state
 
 -- Epoch, slot
 
@@ -505,18 +510,21 @@ update (ReceiveSearchBlocks (Left error)) state =
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestBlockTxs hash) state =
-    { state: set loading true $ state
+    { state:
+          set loading true $
+          set currentBlockTxs Loading
+          state
     , effects: [ attempt (fetchBlockTxs hash) >>= pure <<< ReceiveBlockTxs ]
     }
 update (ReceiveBlockTxs (Right txs)) state =
     noEffects $
     set loading false <<<
-    set currentBlockTxs (Just txs) $
+    set currentBlockTxs (Success txs) $
     state
 update (ReceiveBlockTxs (Left error)) state =
     noEffects $
     set loading false $
-    set currentBlockTxs Nothing $
+    set currentBlockTxs (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
 update (RequestLastTxs) state =
@@ -684,7 +692,6 @@ routeEffects Calculator state =
 
 routeEffects (Block hash) state =
     { state:
-        set currentBlockSummary Nothing $
         set (viewStates <<< globalViewState <<< gViewTitle)
             (translate (I18nL.common <<< I18nL.cBlock) $ state ^. lang)
             state

@@ -17,11 +17,11 @@ import qualified Data.HashSet                as HS
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (logWarning)
 
-import           Pos.Constants               (genesisUpdateProposalThd)
 import           Pos.Core                    (Coin, EpochIndex, SlotId (siEpoch),
                                               addressHash, applyCoinPortion, mkCoin,
                                               unsafeAddCoin)
 import           Pos.Crypto                  (PublicKey, hash)
+import           Pos.Update.Constants        (genesisUpdateProposalThd)
 import           Pos.Update.Core             (LocalVotes, UpId, UpdateProposal,
                                               UpdateProposals, UpdateVote (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
@@ -31,7 +31,7 @@ import           Pos.Update.Poll.Logic.Apply (verifyAndApplyProposal,
 import           Pos.Update.Poll.Types       (DecidedProposalState (..),
                                               ProposalState (..),
                                               UndecidedProposalState (..))
-import           Pos.Util                    (getKeys, sortWithMDesc)
+import           Pos.Util.Util               (getKeys, sortWithMDesc)
 
 -- | Normalize given proposals and votes with respect to current Poll
 -- state, i. e. apply all valid data and discard invalid data.  This

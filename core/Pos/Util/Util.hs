@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -18,12 +19,30 @@ module Pos.Util.Util
        , getKeys
        , sortWithMDesc
 
+       -- * Lenses
+       , _neHead
+       , _neTail
+       , _neLast
+
        -- * Ether
        , ether
        , Ether.TaggedTrans
 
        -- * Lifting monads
        , PowerLift(..)
+
+       -- * Asserts
+       , inAssertMode
+
+       -- * Concurrency
+       , clearMVar
+       , forcePutMVar
+       , readMVarConditional
+       , readUntilEqualMVar
+       , readTVarConditional
+       , readUntilEqualTVar
+       , withReadLifted
+       , withWriteLifted
 
        -- * Instances
        -- ** Lift Byte
@@ -50,9 +69,15 @@ module Pos.Util.Util
        -- *** HasLoggerName Ether.StateT
        ) where
 
+import           Universum
+import           Unsafe                         (unsafeInit, unsafeLast)
+
+import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
+                                                   releaseRead, releaseWrite)
 import           Control.Lens                   (ALens', Getter, Getting, cloneLens, to)
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Morph            (MFunctor (..))
+import           Control.Monad.STM              (retry)
 import           Control.Monad.Trans.Class      (MonadTrans)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
@@ -74,7 +99,6 @@ import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
                                                  LoggerNameBox (..))
-import           Universum
 
 ----------------------------------------------------------------------------
 -- Some
@@ -261,3 +285,88 @@ instance {-# OVERLAPPING #-} PowerLift m m where
 
 instance (MonadTrans t, PowerLift m n, Monad n) => PowerLift m (t n) where
   powerLift = lift . powerLift @m @n
+
+-- | This function performs checks at compile-time for different actions.
+-- May slowdown implementation. To disable such checks (especially in benchmarks)
+-- one should compile with: @stack build --flag cardano-sl-core:-asserts@
+inAssertMode :: Applicative m => m a -> m ()
+#ifdef ASSERTS_ON
+inAssertMode x = x *> pure ()
+#else
+inAssertMode _ = pure ()
+#endif
+{-# INLINE inAssertMode #-}
+
+----------------------------------------------------------------------------
+-- Lenses
+----------------------------------------------------------------------------
+
+-- | Lens for the head of 'NonEmpty'.
+--
+-- We can't use '_head' because it doesn't work for 'NonEmpty':
+-- <https://github.com/ekmett/lens/issues/636#issuecomment-213981096>.
+-- Even if we could though, it wouldn't be a lens, only a traversal.
+_neHead :: Lens' (NonEmpty a) a
+_neHead f (x :| xs) = (:| xs) <$> f x
+
+-- | Lens for the tail of 'NonEmpty'.
+_neTail :: Lens' (NonEmpty a) [a]
+_neTail f (x :| xs) = (x :|) <$> f xs
+
+-- | Lens for the last element of 'NonEmpty'.
+_neLast :: Lens' (NonEmpty a) a
+_neLast f (x :| []) = (:| []) <$> f x
+_neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
+
+----------------------------------------------------------------------------
+-- Concurrency utilites (MVar/TVar/RWLock..)
+----------------------------------------------------------------------------
+
+clearMVar :: MonadIO m => MVar a -> m ()
+clearMVar = void . tryTakeMVar
+
+forcePutMVar :: MonadIO m => MVar a -> a -> m ()
+forcePutMVar mvar val = do
+    unlessM (tryPutMVar mvar val) $ do
+        _ <- tryTakeMVar mvar
+        forcePutMVar mvar val
+
+-- | Block until value in MVar satisfies given predicate. When value
+-- satisfies, it is returned.
+readMVarConditional :: (MonadIO m) => (x -> Bool) -> MVar x -> m x
+readMVarConditional predicate mvar = do
+    rData <- readMVar mvar -- first we try to read for optimization only
+    if predicate rData then pure rData
+    else do
+        tData <- takeMVar mvar         -- now take data
+        if predicate tData then do     -- check again
+            _ <- tryPutMVar mvar tData -- try to put taken value
+            pure tData
+        else
+            readMVarConditional predicate mvar
+
+-- | Read until value is equal to stored value comparing by some function.
+readUntilEqualMVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> MVar x -> a -> m x
+readUntilEqualMVar f mvar expVal = readMVarConditional ((expVal ==) . f) mvar
+
+-- | Block until value in TVar satisfies given predicate. When value
+-- satisfies, it is returned.
+readTVarConditional :: (MonadIO m) => (x -> Bool) -> TVar x -> m x
+readTVarConditional predicate tvar = atomically $ do
+    res <- readTVar tvar
+    if predicate res then pure res
+    else retry
+
+-- | Read until value is equal to stored value comparing by some function.
+readUntilEqualTVar
+    :: (Eq a, MonadIO m)
+    => (x -> a) -> TVar x -> a -> m x
+readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar
+
+withReadLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
+withReadLifted l = bracket_ (liftIO $ acquireRead l) (liftIO $ releaseRead l)
+
+withWriteLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
+withWriteLifted l = bracket_ (liftIO $ acquireWrite l) (liftIO $ releaseWrite l)

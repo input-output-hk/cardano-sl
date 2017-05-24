@@ -22,9 +22,22 @@ library
                        Pos.Binary.Update
 
                        -- Poll
+                       Pos.Update.Poll.Class
                        Pos.Update.Poll.Types
                        Pos.Update.Poll.Modifier
                        Pos.Update.Poll.PollState
+                       Pos.Update.Poll.Trans
+                       Pos.Update.Poll.RollTrans
+                       Pos.Update.Poll.Failure
+                       Pos.Update.Poll.Pure
+                       -- Poll.Logic
+                       Pos.Update.Poll.Logic
+                       Pos.Update.Poll.Logic.Apply
+                       Pos.Update.Poll.Logic.Base
+                       Pos.Update.Poll.Logic.Version
+                       Pos.Update.Poll.Logic.Normalize
+                       Pos.Update.Poll.Logic.Rollback
+                       Pos.Update.Poll.Logic.Softfork
 
                        -- MemState
                        Pos.Update.MemState
@@ -44,6 +57,7 @@ library
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , concurrent-extra
+                     , containers
                      , data-default
                      , ether >= 0.5
                      , exceptions

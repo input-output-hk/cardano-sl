@@ -39,7 +39,7 @@ type TxpGlobalRollbackMode m = ( WithLogger m
                                , MonadDB m
                                )
 
--- [CSL-780] Maybe find better approach (at least wrap into normal types).
+-- [CSL-1156] Maybe find better approach (at least wrap into normal types).
 type TxpBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, TxPayload)
 type TxpBlund = (TxpBlock, TxpUndo)
 

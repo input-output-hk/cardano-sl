@@ -59,7 +59,7 @@ import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLas
 import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode.Class   (WorkMode)
 
--- [CSL-780] Totally need something more elegant
+-- [CSL-1156] Totally need something more elegant
 toUpdateBlock
     :: forall ssc.
        Ssc ssc
@@ -204,8 +204,7 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     logWarn :: SomeException -> m ()
     logWarn = logWarning . sformat ("onRollbackBlocks raised exception: "%build)
 
--- [CSL-780] Need something more elegant, at least eliminate copy-paste.
--- Should be done soon™.
+-- [CSL-1156] Need something more elegant, at least eliminate copy-paste.
 toTxpBlund
     :: forall ssc.
        Ssc ssc

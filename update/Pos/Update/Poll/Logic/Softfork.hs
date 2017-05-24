@@ -13,7 +13,7 @@ import           Serokell.Util.Text         (listJson)
 import           System.Wlog                (logInfo)
 import           Universum
 
-import           Pos.Types                  (BlockVersion, Coin, EpochIndex, HeaderHash,
+import           Pos.Core                   (BlockVersion, Coin, EpochIndex, HeaderHash,
                                              SlotId (..), StakeholderId, applyCoinPortion,
                                              crucialSlot, sumCoins, unsafeIntegerToCoin)
 import           Pos.Update.Core            (BlockVersionData (..))
@@ -22,7 +22,7 @@ import           Pos.Update.Poll.Failure    (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base (adoptBlockVersion, canBeAdoptedBV,
                                              updateSlottingData)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
-import           Pos.Util                   (inAssertMode)
+import           Pos.Util.Util              (inAssertMode)
 
 -- | Record the fact that main block with given version and leader has
 -- been issued by for the given slot.

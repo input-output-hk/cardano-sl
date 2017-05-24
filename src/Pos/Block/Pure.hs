@@ -11,7 +11,6 @@ module Pos.Block.Pure
        , VerifyHeaderParams (..)
        , verifyBlock
        , verifyBlocks
-       , verifyGenericBlock
        , verifyHeader
        , verifyHeaders
        ) where
@@ -35,23 +34,20 @@ import           Pos.Block.Core             (BiSsc, Block, BlockHeader,
                                              gebAttributes, gehAttributes,
                                              genBlockLeaders, getBlockHeader,
                                              getBlockHeader, mainBlockDlgPayload,
-                                             mainBlockSscPayload, mainHeaderLeaderKey,
-                                             mcdSignature, mebAttributes, mehAttributes)
+                                             mainHeaderLeaderKey, mcdSignature,
+                                             mebAttributes, mehAttributes)
 import           Pos.Core                   (ChainDifficulty, EpochOrSlot,
                                              HasDifficulty (..), HasEpochIndex (..),
                                              HasEpochOrSlot (..), HasHeaderHash (..),
                                              HeaderHash, ProxySKHeavyMap, SlotId (..),
                                              SlotLeaders, addressHash, gbhExtra,
                                              getSlotIndex, headerSlotL, prevBlockL)
-import           Pos.Core.Block             (Blockchain (..), GenericBlock (..), gbBody,
-                                             gbBodyProof, gbExtra, gbHeader)
+import           Pos.Core.Block             (gbExtra)
 import           Pos.Crypto                 (ProxySecretKey (..), pdCert)
 import           Pos.Data.Attributes        (Attributes (attrRemain))
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
-import           Pos.Util.Util              (Some (Some))
-
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty
@@ -241,27 +237,12 @@ verifyHeaders (NewestFirst (headers@(_:xh))) = mconcat verified
     toVHP p = def { vhpPrevHeader = p }
 
 
--- CHECK: @verifyGenericBlock
--- | Perform cheap checks of GenericBlock, which can be done using
--- only block itself. Checks which can be done using only header are
--- ignored here. It is assumed that they will be done separately.
-verifyGenericBlock :: forall b . Blockchain b => GenericBlock b -> VerificationRes
-verifyGenericBlock blk =
-    verifyGeneric
-        [ ( checkBodyProof (blk ^. gbBody) (blk ^. gbBodyProof)
-          , "body proof doesn't prove body")
-        ]
-
 -- | Parameters of Block static verification.
 -- Note: to check that block references previous block and/or is referenced
 -- by next block, use header verification (via vbpVerifyHeader).
 data VerifyBlockParams ssc = VerifyBlockParams
     { vbpVerifyHeader    :: !(Maybe (VerifyHeaderParams ssc))
       -- ^ Verifies header accordingly to params ('verifyHeader')
-    , vbpVerifyGeneric   :: !Bool
-      -- ^ Checks 'verifyGenesisBlock' property.
-    , vbpVerifySsc       :: !Bool
-      -- ^ Verifies ssc payload with 'sscVerifyPayload'.
     , vbpVerifyProxySKs  :: !Bool
       -- ^ Check that's number of sks is limited (1000 for now).
     , vbpMaxSize         :: !(Maybe Byte)
@@ -276,8 +257,6 @@ instance Default (VerifyBlockParams ssc) where
     def =
         VerifyBlockParams
         { vbpVerifyHeader = Nothing
-        , vbpVerifyGeneric = False
-        , vbpVerifySsc = False
         , vbpVerifyProxySKs = False
         , vbpMaxSize =  Nothing
         , vbpVerifyNoUnknown = False
@@ -286,35 +265,17 @@ instance Default (VerifyBlockParams ssc) where
 -- CHECK: @verifyBlock
 -- | Check predicates defined by VerifyBlockParams.
 -- #verifyHeader
--- #verifyGenericBlock
 verifyBlock
     :: forall ssc. (SscHelpersClass ssc, BiSsc ssc)
     => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
-        [ verifyG
-        , maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
-        , verifySsc
+        [ maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
         , verifyProxySKs
         , maybeEmpty checkSize vbpMaxSize
         , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
         ]
   where
-    toVerRes (Right _) = VerSuccess
-    toVerRes (Left e)  = VerFailure [sformat build e]
-
-    verifyG
-        | vbpVerifyGeneric = either verifyGenericBlock verifyGenericBlock blk
-        | otherwise = mempty
-    verifySsc
-        | vbpVerifySsc =
-            case blk of
-                Left _ -> mempty
-                Right mainBlk -> toVerRes $
-                    sscVerifyPayload @ssc
-                    (Right $ Some (mainBlk ^. gbHeader))
-                    (mainBlk ^. mainBlockSscPayload)
-        | otherwise = mempty
     proxySKsDups psks =
         filter (\x -> length x > 1) $
         groupBy ((==) `on` pskIssuerPk) $
@@ -415,8 +376,6 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . fold
             vbp =
                 VerifyBlockParams
                 { vbpVerifyHeader = Just vhp
-                , vbpVerifyGeneric = True
-                , vbpVerifySsc = True
                 , vbpVerifyProxySKs = True
                 , vbpMaxSize = Just (bvdMaxBlockSize bvd)
                 , vbpVerifyNoUnknown = verifyNoUnknown

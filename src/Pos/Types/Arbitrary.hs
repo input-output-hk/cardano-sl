@@ -31,7 +31,6 @@ import           Data.List.NonEmpty        ((<|))
 import qualified Data.List.NonEmpty        as NE
 import           Data.Time.Units           (Microsecond, Millisecond, fromMicroseconds)
 import qualified Data.Vector               as V
-import           System.Random             (Random)
 import           Test.QuickCheck           (Arbitrary (..), Gen, choose, elements, oneof,
                                             scale, suchThat)
 import           Test.QuickCheck.Instances ()
@@ -46,8 +45,7 @@ import           Pos.Core.Address          (makePubKeyAddress, makeRedeemAddress
                                             makeScriptAddress)
 import           Pos.Core.Coin             (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Types            (BlockVersion (..), Coin, SoftwareVersion (..),
-                                            applicationNameMaxLength, getSlotIndex,
-                                            mkApplicationName, mkLocalSlotIndex)
+                                            applicationNameMaxLength, mkApplicationName)
 import qualified Pos.Core.Types            as Types
 import           Pos.Crypto                (Hash, PublicKey, SecretKey, Share,
                                             SignTag (SignTxIn), hash, sign, toPublic)
@@ -60,8 +58,8 @@ import           Pos.Txp.Core.Types        (Tx (..), TxAux (..), TxDistribution 
                                             TxIn (..), TxInWitness (..), TxOut (..),
                                             TxOutAux (..), TxProof (..), TxSigData (..),
                                             mkTx)
+import           Pos.Types.Arbitrary.Core  ()
 import           Pos.Util                  (makeSmall)
-import           Pos.Util.Util             (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types
@@ -245,30 +243,6 @@ newtype SafeWord = SafeWord
 
 instance Arbitrary SafeWord where
     arbitrary = SafeWord . Types.getCoinPortion <$> arbitrary
-
-maxReasonableEpoch :: Integral a => a
-maxReasonableEpoch = 5 * 1000 * 1000 * 1000 * 1000  -- 5 * 10^12, because why not
-
-deriving instance Random Types.EpochIndex
-
-instance Arbitrary Types.EpochIndex where
-    arbitrary = choose (0, maxReasonableEpoch)
-
-instance Arbitrary Types.LocalSlotIndex where
-    arbitrary =
-        leftToPanic "arbitrary@LocalSlotIndex: " . mkLocalSlotIndex <$>
-        choose (getSlotIndex minBound, getSlotIndex maxBound)
-
-instance Arbitrary Types.SlotId where
-    arbitrary = Types.SlotId
-        <$> arbitrary
-        <*> arbitrary
-
-instance Arbitrary Types.EpochOrSlot where
-    arbitrary = oneof [
-          Types.EpochOrSlot . Left <$> arbitrary
-        , Types.EpochOrSlot . Right <$> arbitrary
-        ]
 
 instance Arbitrary TxInWitness where
     arbitrary = oneof [

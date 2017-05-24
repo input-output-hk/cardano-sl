@@ -108,6 +108,7 @@ library
 
                         Pos.Types
                         Pos.Types.Arbitrary
+                        Pos.Types.Arbitrary.Core
                         Pos.Types.Arbitrary.Unsafe
 
                         -- Update system
@@ -202,6 +203,7 @@ library
                         Pos.Crypto.HDDiscovery
 
                         -- Heavy delegation
+                        Pos.Delegation.Arbitrary
                         Pos.Delegation.Class
                         Pos.Delegation.DB
                         Pos.Delegation.Helpers

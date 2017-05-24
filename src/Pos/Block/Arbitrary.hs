@@ -9,35 +9,34 @@ module Pos.Block.Arbitrary
 
 import           Universum
 
-import           Control.Lens         (to)
-import qualified Data.HashMap.Strict  as HM
-import           Data.Ix              (range)
-import qualified Data.List.NonEmpty   as NE
-import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (bprint, build, (%))
-import           Prelude              (Show (..))
-import           System.Random        (mkStdGen, randomR)
-import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, listOf, oneof,
-                                       oneof, vectorOf)
+import           Control.Lens             (to)
+import           Data.Ix                  (range)
+import qualified Data.List.NonEmpty       as NE
+import qualified Data.Text.Buildable      as Buildable
+import           Formatting               (bprint, build, (%))
+import           Prelude                  (Show (..))
+import           System.Random            (mkStdGen, randomR)
+import           Test.QuickCheck          (Arbitrary (..), Gen, choose, listOf, listOf,
+                                           oneof, oneof, vectorOf)
 
-import           Pos.Binary.Class     (Bi, Raw, biSize)
-import qualified Pos.Block.Core       as T
-import           Pos.Block.Network    as T
-import qualified Pos.Block.Pure       as T
-import           Pos.Constants        (epochSlots)
-import qualified Pos.Core             as Core
-import           Pos.Crypto           (ProxySecretKey (pskIssuerPk), PublicKey, SecretKey,
-                                       createProxySecretKey, toPublic)
-import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
-import           Pos.Delegation.Types (DlgPayload, mkDlgPayload)
-import           Pos.Ssc.Arbitrary    (SscPayloadDependsOnSlot (..))
-import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
-import           Pos.Txp.Core         (TxAux (..), TxDistribution (..), TxPayload, mkTx,
-                                       mkTxPayload)
-import qualified Pos.Types            as T
-import           Pos.Update.Arbitrary ()
-import           Pos.Util.Arbitrary   (makeSmall)
-import           Pos.Util.Util        (leftToPanic)
+import           Pos.Binary.Class         (Bi, Raw, biSize)
+import qualified Pos.Block.Core           as T
+import           Pos.Block.Network        as T
+import qualified Pos.Block.Pure           as T
+import           Pos.Constants            (epochSlots)
+import qualified Pos.Core                 as Core
+import           Pos.Crypto               (ProxySecretKey (pskIssuerPk), PublicKey,
+                                           SecretKey, createProxySecretKey, toPublic)
+import           Pos.Data.Attributes      (Attributes (..), mkAttributes)
+import           Pos.Delegation.Arbitrary (genDlgPayload)
+import           Pos.Ssc.Arbitrary        (SscPayloadDependsOnSlot (..))
+import           Pos.Ssc.Class            (Ssc (..), SscHelpersClass)
+import           Pos.Txp.Core             (TxAux (..), TxDistribution (..), TxPayload,
+                                           mkTx, mkTxPayload)
+import qualified Pos.Types                as T
+import           Pos.Update.Arbitrary     ()
+import           Pos.Util.Arbitrary       (makeSmall)
+import           Pos.Util.Util            (leftToPanic)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot
     { genBodyDepsOnSlot :: Core.SlotId -> Gen (T.Body b)
@@ -177,14 +176,6 @@ instance Arbitrary TxPayload where
         mkTxPayload <$>
         txOutDistGen
 
-instance Arbitrary DlgPayload where
-    arbitrary =
-        leftToPanic "arbitrary @DlgPayload: " .
-        mkDlgPayload . toList . HM.fromList . map convert <$>
-        arbitrary
-      where
-        convert psk = (pskIssuerPk psk, psk)
-
 newtype SmallTxPayload =
     SmallTxPayload TxPayload
     deriving (Show, Eq, Bi)
@@ -200,9 +191,9 @@ instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
         txPayload   <- arbitrary
         generator   <- genPayloadDependsOnSlot @ssc <$> arbitrary
         mpcData     <- generator slotId
-        mpcProxySKs <- arbitrary
+        dlgPayload  <- genDlgPayload $ Core.siEpoch slotId
         mpcUpload   <- arbitrary
-        return $ T.MainBody txPayload mpcData mpcProxySKs mpcUpload
+        return $ T.MainBody txPayload mpcData dlgPayload mpcUpload
 
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
     arbitrary = makeSmall $ do

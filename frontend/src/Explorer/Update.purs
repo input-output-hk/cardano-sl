@@ -70,6 +70,15 @@ update (SocketConnected connected') state =
           ]
     }
 
+update SocketPing state =
+    { state
+    , effects : [ do
+          _ <- case state ^. (socket <<< connection) of
+              Just socket' -> liftEff <<< emit' socket' $ toEvent CallMe
+              Nothing -> pure unit
+          pure NoOp
+    ]}
+
 update (SocketBlocksUpdated (Right blocks)) state =
     noEffects $
     set latestBlocks (Success newBlocks') $

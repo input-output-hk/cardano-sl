@@ -7,7 +7,7 @@ import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
 import Data.Lens ((^.), set)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Explorer.Api.Socket (blocksUpdatedEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
+import Explorer.Api.Socket (blocksUpdatedEventHandler, callYouEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
 import Explorer.I18n.Lang (Language(..), detectLocale)
 import Explorer.Lenses.State (connection, lang, socket, syncAction)
 import Explorer.Routes (match)
@@ -36,18 +36,22 @@ socketConfig appConfig = do
     -- socket
     actionChannel <- channel $ Ex.SocketConnected false
     let socketSignal = subscribe actionChannel :: Signal Ex.Action
+        pingSignal = every (10.0 * second) ~> const Ex.SocketPing
     socketHost <- Ex.mkSocketHost (secureProtocol isProduction) <$> hostname
     socket' <- connect socketHost
     on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
     on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
     on socket' (Ex.toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel
     on socket' (Ex.toEvent BlocksOffUpdated) $ Ex.blocksUpdatedEventHandler actionChannel
---  on socket' (toEvent CallYou) $ Ex.callYouEventHandler actionChannel
---  on socket' (toEvent CallYouString) $ Ex.callYouStringEventHandler actionChannel
---  on socket' (toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel
+    -- Note:
+    -- `CallYou` is the answer of `CallMe`.
+    -- Handling both events are needed a to be connected with socket.io manually
+    on socket' (Ex.toEvent CallYou) $ Ex.callYouEventHandler actionChannel
+--  on socket' (Ex.toEvent CallYouString) $ Ex.callYouStringEventHandler actionChannel
+--  on socket' (Ex.toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel
     pure $ appConfig
         { initialState = set (socket <<< connection) (Just socket') appConfig.initialState
-        , inputs = [socketSignal] <> appConfig.inputs
+        , inputs = [ socketSignal, pingSignal ] <> appConfig.inputs
         }
 
 -- | Config to synchronize data by polling

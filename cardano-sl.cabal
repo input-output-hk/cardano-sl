@@ -167,6 +167,7 @@ library
                         Pos.Block.Core.Genesis.Types
                         Pos.Block.Core.Main
                         Pos.Block.Core.Main.Chain
+                        Pos.Block.Core.Main.Helpers
                         Pos.Block.Core.Main.Lens
                         Pos.Block.Core.Main.Misc
                         Pos.Block.Core.Main.Types

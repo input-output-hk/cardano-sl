@@ -12,28 +12,28 @@ module Pos.Block.Core.Main.Chain
 
 import           Universum
 
-import           Control.Monad.Except       (MonadError (throwError))
 import           Data.Tagged                (untag)
 
+import           Pos.Binary.Class           (Bi)
 import           Pos.Binary.Core            ()
 import           Pos.Binary.Txp             ()
 import           Pos.Binary.Update          ()
-import           Pos.Block.Core.Union.Types (BiHeader, Block, BlockHeader, BlockSignature,
-                                             MainBlock, MainBlockchain, MainExtraBodyData,
+import           Pos.Block.Core.Main.Types  (MainBlock, MainBlockchain, MainExtraBodyData,
                                              MainExtraHeaderData)
+import           Pos.Block.Core.Union.Types (BiHeader, Block, BlockHeader,
+                                             BlockSignature (..))
 import           Pos.Core                   (Blockchain (..), ChainDifficulty,
-                                             GenericBlock (..), GenericBlockHeader (..),
-                                             IsMainHeader (..), ProxySKHeavy, SlotId (..))
+                                             GenericBlockHeader (..), IsMainHeader (..),
+                                             ProxySKHeavy, SlotId (..))
 import           Pos.Crypto                 (Hash, PublicKey, hash)
 import           Pos.Delegation.Types       (DlgPayload)
-import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Txp.Core               (TxPayload, TxProof, mkTxProof)
 import           Pos.Update.Core.Types      (UpdatePayload, UpdateProof, mkUpdateProof)
-import           Pos.Util.Util              (Some (Some))
 
 instance ( BiHeader ssc
-         , SscHelpersClass ssc
+         , Ssc ssc
+         , Bi $ BodyProof $ MainBlockchain ssc
          , IsMainHeader (GenericBlockHeader $ MainBlockchain ssc)) =>
          Blockchain (MainBlockchain ssc) where
 
@@ -81,9 +81,6 @@ instance ( BiHeader ssc
         , mpProxySKsProof = hash _mbDlgPayload
         , mpUpdateProof = mkUpdateProof _mbUpdatePayload
         }
-    verifyBBlock UnsafeGenericBlock {..} =
-        either (throwError . pretty) pure $
-        sscVerifyPayload @ssc (Right (Some _gbHeader)) (_mbSscPayload _gbBody)
 
 deriving instance Ssc ssc => Show (BodyProof (MainBlockchain ssc))
 deriving instance Ssc ssc => Eq (BodyProof (MainBlockchain ssc))

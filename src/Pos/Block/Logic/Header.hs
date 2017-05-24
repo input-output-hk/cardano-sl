@@ -100,8 +100,7 @@ classifyNewHeader (Right header) = do
         | tip == header ^. prevBlockL ->
             let vhp =
                     def
-                    { vhpVerifyConsensus = True
-                    , vhpPrevHeader = Just tipHeader
+                    { vhpPrevHeader = Just tipHeader
                     }
                 verRes = verifyHeader vhp (Right header)
             in case verRes of
@@ -149,7 +148,7 @@ classifyHeaders headers = do
     let tip = headerHash tipHeader
     haveOldestParent <- isJust <$> DB.blkGetHeader @ssc oldestParentHash
     let headersValid = isVerSuccess $
-                       verifyHeaders True (headers & _Wrapped %~ toList)
+                       verifyHeaders (headers & _Wrapped %~ toList)
     needRecovery_ <- needRecovery @ssc
     mbCurrentSlot <- getCurrentSlot
     let newestHeaderConvertedSlot =

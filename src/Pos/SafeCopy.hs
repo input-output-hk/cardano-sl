@@ -153,8 +153,8 @@ instance ( SafeCopy (BHeaderHash b)
            _gbhBodyProof <- safeGet
            _gbhConsensus <- safeGet
            _gbhExtra <- safeGet
-           return $! GenericBlockHeader {..}
-    putCopy GenericBlockHeader {..} =
+           return $! UnsafeGenericBlockHeader {..}
+    putCopy UnsafeGenericBlockHeader {..} =
         contain $
         do safePut _gbhPrevBlock
            safePut _gbhBodyProof

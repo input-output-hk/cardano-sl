@@ -43,7 +43,7 @@ import qualified Pos.Lrc.DB               as LrcDB
 import           Pos.Lrc.Worker           (lrcSingleShotNoLock)
 import           Pos.Reporting            (reportingFatal)
 import           Pos.Slotting.Class       (getCurrentSlot)
-import           Pos.Ssc.Class            (Ssc (..), SscWorkersClass (..))
+import           Pos.Ssc.Class            (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
 import           Pos.Txp.Core             (TxPayload)
 import           Pos.Txp.Settings         (TxpBlock, TxpGlobalSettings (..))
@@ -142,7 +142,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
 -- [CSL-1156] Need something more elegant, at least eliminate copy-paste.
 toTxpBlock
     :: forall ssc.
-       Ssc ssc
+       SscHelpersClass ssc
     => Block ssc -> TxpBlock
 toTxpBlock = bimap convertGenesis convertMain
   where

@@ -10,41 +10,44 @@ module Pos.Block.Core.Main.Misc
 
 import           Universum
 
-import           Control.Monad.Except       (MonadError)
-import qualified Data.Text.Buildable        as Buildable
-import           Formatting                 (bprint, build, int, stext, (%))
-import           Serokell.Util              (Color (Magenta), colorize, listJson)
+import           Control.Monad.Except        (MonadError)
+import qualified Data.Text.Buildable         as Buildable
+import           Formatting                  (bprint, build, int, stext, (%))
+import           Serokell.Util               (Color (Magenta), colorize, listJson)
 
-import           Pos.Binary.Block.Core      ()
-import           Pos.Block.Core.Main.Chain  (Body (..), ConsensusData (..))
-import           Pos.Block.Core.Main.Lens   (mainBlockBlockVersion, mainBlockDifficulty,
-                                             mainBlockSlot, mainBlockSlot,
-                                             mainBlockSoftwareVersion,
-                                             mainHeaderBlockVersion, mainHeaderDifficulty,
-                                             mainHeaderLeaderKey, mainHeaderSlot,
-                                             mainHeaderSoftwareVersion, mbTxs,
-                                             mcdDifficulty, mehBlockVersion,
-                                             mehSoftwareVersion)
-import           Pos.Block.Core.Main.Types  (BlockSignature (..), MainBlock,
-                                             MainBlockHeader, MainBlockchain,
-                                             MainExtraBodyData (..), MainExtraHeaderData,
-                                             MainToSign (..))
-import           Pos.Block.Core.Union.Types (BiHeader, BiSsc, BlockHeader,
-                                             blockHeaderHash)
-import           Pos.Core                   (EpochOrSlot (..), GenericBlock (..),
-                                             GenericBlockHeader (..),
-                                             HasBlockVersion (..), HasDifficulty (..),
-                                             HasEpochIndex (..), HasEpochOrSlot (..),
-                                             HasHeaderHash (..), HasSoftwareVersion (..),
-                                             HeaderHash, IsHeader, IsMainHeader (..),
-                                             ProxySKEither, SlotId, mkGenericHeader,
-                                             recreateGenericBlock, slotIdF)
-import           Pos.Crypto                 (ProxySecretKey (..), SecretKey, SignTag (..),
-                                             hashHexF, proxySign, sign, toPublic)
-import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
+import           Pos.Binary.Block.Core       ()
+import           Pos.Block.Core.Main.Chain   (Body (..), ConsensusData (..))
+import           Pos.Block.Core.Main.Helpers ()
+import           Pos.Block.Core.Main.Lens    (mainBlockBlockVersion, mainBlockDifficulty,
+                                              mainBlockSlot, mainBlockSlot,
+                                              mainBlockSoftwareVersion,
+                                              mainHeaderBlockVersion,
+                                              mainHeaderDifficulty, mainHeaderLeaderKey,
+                                              mainHeaderSlot, mainHeaderSoftwareVersion,
+                                              mbTxs, mcdDifficulty, mehBlockVersion,
+                                              mehSoftwareVersion)
+import           Pos.Block.Core.Main.Types   (BlockSignature (..), MainBlock,
+                                              MainBlockHeader, MainBlockchain,
+                                              MainExtraBodyData (..), MainExtraHeaderData,
+                                              MainToSign (..))
+import           Pos.Block.Core.Union.Types  (BiHeader, BiSsc, BlockHeader,
+                                              blockHeaderHash)
+import           Pos.Core                    (EpochOrSlot (..), GenericBlock (..),
+                                              GenericBlockHeader (..),
+                                              HasBlockVersion (..), HasDifficulty (..),
+                                              HasEpochIndex (..), HasEpochOrSlot (..),
+                                              HasHeaderHash (..), HasSoftwareVersion (..),
+                                              HeaderHash, IsHeader, IsMainHeader (..),
+                                              ProxySKEither, SlotId, mkGenericHeader,
+                                              recreateGenericBlock, slotIdF)
+import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
+                                              SignTag (..), hashHexF, proxySign, sign,
+                                              toPublic)
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
+import           Pos.Util.Util               (leftToPanic)
 
 instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
-    build gbh@GenericBlockHeader {..} =
+    build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
              "    hash: "%hashHexF%"\n"%
@@ -164,22 +167,28 @@ mkMainHeader
     -> MainExtraHeaderData
     -> MainBlockHeader ssc
 mkMainHeader prevHeader slotId sk pSk body extra =
-        mkGenericHeader prevHeader body consensus extra
+    -- here we know that header creation can't fail, because the only invariant
+    -- which we check in 'verifyBBlockHeader' is signature correctness, which
+    -- is enforced in this function
+    leftToPanic "mkMainHeader: " $
+    mkGenericHeader prevHeader body consensus extra
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
-    makeSignature toSign (Left psk) = BlockPSignatureLight $
-        proxySign SignMainBlockLight sk psk toSign
-    makeSignature toSign (Right psk) = BlockPSignatureHeavy $
-        proxySign SignMainBlockHeavy sk psk toSign
+    makeSignature toSign (Left psk) =
+        BlockPSignatureLight $ proxySign SignMainBlockLight sk psk toSign
+    makeSignature toSign (Right psk) =
+        BlockPSignatureHeavy $ proxySign SignMainBlockHeavy sk psk toSign
     signature prevHash proof =
         let toSign = MainToSign prevHash proof slotId difficulty extra
-        in maybe (BlockSignature $ sign SignMainBlock sk toSign)
-                 (makeSignature toSign)
-             pSk
+        in maybe
+               (BlockSignature $ sign SignMainBlock sk toSign)
+               (makeSignature toSign)
+               pSk
     consensus prevHash proof =
         MainConsensusData
         { _mcdSlot = slotId
-        , _mcdLeaderKey = maybe (toPublic sk) (either pskIssuerPk pskIssuerPk) pSk
+        , _mcdLeaderKey =
+              maybe (toPublic sk) (either pskIssuerPk pskIssuerPk) pSk
         , _mcdDifficulty = difficulty
         , _mcdSignature = signature prevHash proof
         }

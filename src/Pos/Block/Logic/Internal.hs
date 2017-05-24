@@ -42,7 +42,7 @@ import           Pos.Explorer.Txp     (eTxNormalize)
 #else
 import           Pos.Txp.Logic        (txNormalize)
 #endif
-import           Pos.Ssc.Class        (Ssc)
+import           Pos.Ssc.Class        (SscHelpersClass)
 import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
 import           Pos.Txp.Settings     (TxpBlund, TxpGlobalSettings (..))
 import           Pos.Update.Core      (UpdateBlock, UpdatePayload)
@@ -56,7 +56,7 @@ import           Pos.WorkMode.Class   (WorkMode)
 -- [CSL-1156] Totally need something more elegant
 toUpdateBlock
     :: forall ssc.
-       Ssc ssc
+       SscHelpersClass ssc
     => Block ssc -> UpdateBlock
 toUpdateBlock = bimap convertGenesis convertMain
   where
@@ -183,7 +183,7 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
 -- [CSL-1156] Need something more elegant, at least eliminate copy-paste.
 toTxpBlund
     :: forall ssc.
-       Ssc ssc
+       SscHelpersClass ssc
     => Blund ssc -> TxpBlund
 toTxpBlund = bimap (bimap convertGenesis convertMain) undoTx
   where

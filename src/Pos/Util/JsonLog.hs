@@ -36,7 +36,7 @@ import           Pos.Core                (SlotId (..), epochIndexL, gbHeader,
                                           gbhPrevBlock, getSlotIndex, headerHash,
                                           headerSlotL, mkLocalSlotIndex)
 import           Pos.Crypto              (Hash, hash, hashHexF)
-import           Pos.Ssc.Class.Types     (Ssc)
+import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Txp.Core            (txpTxs)
 import           Pos.Util.TimeWarp       (currentTime)
 import           Pos.Util.Util           (leftToPanic)
@@ -94,7 +94,7 @@ showHash :: Hash a -> Text
 showHash = sformat hashHexF
 
 -- | Returns event of created 'Block'.
-jlAdoptedBlock :: Ssc ssc => Block ssc -> JLEvent
+jlAdoptedBlock :: SscHelpersClass ssc => Block ssc -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHash . headerHash
 
 -- | Append event into log by given 'FilePath'.

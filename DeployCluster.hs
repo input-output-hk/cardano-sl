@@ -3,20 +3,19 @@
 
 {-# LANGUAGE RecordWildCards #-}
 
-import           Options.Applicative.Simple  (Parser,
-                                              simpleOptions, empty,
-                                              flag', strOption, option,
-                                              value, showDefault, auto, long, metavar, help,
-                                              (<|>))
+import           Control.Monad               (unless, when)
+import           Control.Monad.IO.Class      (liftIO)
+import           Data.Char                   (toLower)
 import           Data.Conduit.Shell
 import           Data.Conduit.Shell.Segments (strings)
 import           Data.List                   (intersperse)
+import           Data.Maybe                  (isNothing)
 import           Data.Monoid                 ((<>))
-import           Data.Char                   (toLower)
-import           Control.Monad.IO.Class      (liftIO)
-import           Control.Monad               (unless, when)
-import           System.FilePath.Posix       ((</>))
+import           Options.Applicative.Simple  (Parser, auto, empty, flag', help, long,
+                                              metavar, option, optional, showDefault,
+                                              simpleOptions, strOption, value, (<|>))
 import           System.Exit                 (die)
+import           System.FilePath.Posix       ((</>))
 
 main :: IO ()
 main = do
@@ -37,14 +36,15 @@ deploymentScript Options{..} = do
     echo "Press Enter to continue, type 'exit' to stop script."
     continueIfNotExit
     showInitialInfoAboutCluster
-    when itIsProductionCluster buildCardanoSLInProdMode
+    when (itIsProductionCluster && isNothing genesisDir) $
+        buildCardanoSLInProdMode
     makeSureClusterNameIsUnique
     cloneBaseForNewCluster
     createMainConfigYAML
     if itIsProductionCluster
         then do
-            generateNewKeys
-            commitAndPushNewGenesisFiles
+            when (isNothing genesisDir) $
+                generateNewKeys >> commitAndPushNewGenesisFiles
             uploadGeneratedKeysToCluster
             preparingGenerateScript
         else do
@@ -69,7 +69,7 @@ deploymentScript Options{..} = do
     prodConfigName       = "production.yaml"
     devConfigName        = "config.yaml"
     generateScript       = "generate.sh"
-    cardanoNix           = "deployments/cardano.nix"
+    cardanoNix           = "deployments/cardano-nodes-env-production.nix"
     genesisKeysDirPrefix = "genesis-qanet-"
     genesisBin           = "genesis.bin"
     genesisInfo          = "genesis.info"
@@ -89,9 +89,9 @@ deploymentScript Options{..} = do
     --------------------------------------------------------------------------------------
 
     runCommandOnDeployer = ssh deployerServer
-    
+
     getCurrentCommit = head <$> strings (git "rev-parse" "HEAD")
-    getCurrentBranch = head <$> strings (git "branch" $| sed "-n" "-e" "s/^\\* \\(.*\\)/\\1/p")   
+    getCurrentBranch = head <$> strings (git "branch" $| sed "-n" "-e" "s/^\\* \\(.*\\)/\\1/p")
     getCurrentDate   = head <$> strings (date "+%F")
 
     continueIfNotExit =
@@ -124,7 +124,8 @@ deploymentScript Options{..} = do
     cloneBaseForNewCluster = do
         echo ""
         echo ">>> Clone base for a new cluster" clusterName "..."
-        runCommandOnDeployer $ "git clone -q https://github.com/input-output-hk/iohk-nixops.git " <> clusterName
+        runCommandOnDeployer $ "git clone -q https://github.com/input-output-hk/iohk-nixops.git "
+                                  <> clusterName <> " && cd " <> clusterName <> " && git checkout " <> clusterBranch
 
     createMainConfigYAML = do
         echo ""
@@ -143,8 +144,8 @@ deploymentScript Options{..} = do
         echo ""
         echo ">>> Generate new keys for a cluster's nodes..."
         -- TODO: Probably N-value should be defined in CLI-option too.
-        shell $ "M=" <> show numberOfNodes <> " N=120 ./util-scripts/generate-genesis.sh"
-    
+        shell $ "M=" <> show numberOfNodes <> " N=12000 ./util-scripts/generate-genesis.sh"
+
     commitAndPushNewGenesisFiles = do
         echo ""
         echo ">>> Commit and push updated genesis.* files..."
@@ -152,6 +153,7 @@ deploymentScript Options{..} = do
         cp (genesisKeysDirPrefix <> currentDate </> genesisBin)
            (genesisKeysDirPrefix <> currentDate </> genesisInfo)
            "."
+        git "reset"
         git "add" genesisBin genesisInfo
         git "commit" "-m" ("[" <> issueId <> "] Update genesis.* files for new keys.")
         getCurrentBranch >>= git "push" "origin"
@@ -160,10 +162,11 @@ deploymentScript Options{..} = do
         echo ""
         echo ">>> Upload generated keys to new cluster (after deployment these keys will be copied to nodes)..."
         currentDate <- getCurrentDate
-        runCommandOnDeployer $ "cd " <> clusterRoot <> " && mkdir " <> genesisKeysDirPrefix <> currentDate
-        scp "-r" (genesisKeysDirPrefix <> currentDate </> "nodes")
-                 (deployerServer <> ":" <> clusterRoot </> genesisKeysDirPrefix <> currentDate)
- 
+        let _genesisDir = maybe (genesisKeysDirPrefix <> currentDate) id genesisDir
+        runCommandOnDeployer $ "cd " <> clusterRoot <> " && mkdir " <> _genesisDir
+        scp "-r" (_genesisDir </> "nodes")
+                 (deployerServer <> ":" <> clusterRoot </> _genesisDir)
+
     preparingGenerateScript = do
         echo ""
         echo ">>> Update 'cardano-sl' commit in" pathToGenerateScript "..."
@@ -187,8 +190,9 @@ deploymentScript Options{..} = do
         echo ""
         echo ">>> Copy generated keys from a cluster to all nodes..."
         currentDate <- getCurrentDate
+        let _genesisDir = maybe (genesisKeysDirPrefix <> currentDate) id genesisDir
         runCommandOnDeployer $ concat $
-            intersperse "&&" [ "cd " <> clusterRoot </> genesisKeysDirPrefix <> currentDate
+            intersperse "&&" [ "cd " <> clusterRoot </> _genesisDir
                              ,    "for i in {0.." <> show numberOfNodes <> "};"
                                <> "do nixops scp -d " <> clusterName <> " --to node$i key$((i+1)) " <> nodeFilesRoot <> "key$((i+1)).sk;"
                                <> "done"
@@ -199,10 +203,10 @@ deploymentScript Options{..} = do
     prepareNodesForDeployment = do
         echo ""
         echo ">>> Now you have to prepare cluster's nodes for deployment. This step cannot be automated because of"
-        echo "specific settings for AWS regions for nodes, elastic IPs, etc. So please go to cluster, open" pathToCardanoNix
+        echo "specific settings for AWS regions for nodes, elastic IPs, etc. So please go to cluster, open deployments/cardano-nodes-config.nix"
         echo "file and (un)comment corresponding 'genAttrs'-sections. After you finished press Enter. Type 'exit' to stop script."
         continueIfNotExit
-    
+
     removeNodesDatabases = do
         echo ""
         echo ">>> Remove databases on all nodes..."
@@ -233,7 +237,7 @@ deploymentScript Options{..} = do
         echo "$ nixops delete -d" clusterName
 
 -- | What can we do with cluster?
-data ClusterAction 
+data ClusterAction
     = Create
     | Build
     | Deploy
@@ -256,11 +260,13 @@ data Options = Options
     , issueId               :: String
     , numberOfNodes         :: Int
     , nixPkgs               :: String
+    , clusterBranch         :: String
+    , genesisDir            :: Maybe String
     }
 
 optionsParser :: Parser Options
 optionsParser = Options
-    <$> ( flag' True  (long "prod") 
+    <$> ( flag' True  (long "prod")
       <|> flag' False (long "dev") )
     <*> strOption (
          long       "user"
@@ -280,3 +286,13 @@ optionsParser = Options
          long       "nixpkgs"
       <> metavar    "ID"
       <> help       "ID of the nixpkgs snapshot using to build a new cluster , for example 'b9628313300b7c9e4cc88b91b7c98dfe3cfd9fc4'." )
+    <*> strOption (
+         long       "cluster-branch"
+      <> metavar    "GIT_BRANCH"
+      <> value      "master"
+      <> showDefault
+      <> help       "Branch to initialize cluster with" )
+    <*> optional (strOption (
+         long       "genesis-dir"
+      <> metavar    "DIR"
+      <> help       "Path to already generated genesis dir" ))

@@ -50,7 +50,7 @@ verifyAndApplyGtPayload eoh payload = do
     -- @sanityChecksGtPayload@.
     whenLeft eoh $ const $ sanityChecksGtPayload eoh payload
     -- We perform @sanityChecksGtPayload@ for block when we construct it
-    -- it (in the 'recreateGenericBlock').  So this check is just in case.
+    -- (in the 'recreateGenericBlock').  So this check is just in case.
     inAssertMode $
         whenRight eoh $ const $ sanityChecksGtPayload eoh payload
     let blockCerts = _gpCertificates payload

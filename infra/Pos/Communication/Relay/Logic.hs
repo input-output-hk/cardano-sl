@@ -163,7 +163,7 @@ handleDataOnlyL handleData = listenerConv $ \__ourVerInfo ->
                   handlingLoop
        in handlingLoop) :: SizedCAHandler Void (DataMsg contents) m
   where
-    logUseless dmContents = logDebug $ sformat
+    logUseless dmContents = logWarning $ sformat
         ("Ignoring data "%build) dmContents
 
 -- Returns True if we should propagate.

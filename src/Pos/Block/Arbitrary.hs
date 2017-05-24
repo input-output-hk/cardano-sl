@@ -35,6 +35,7 @@ import           Pos.Txp.Core         (TxAux (..), TxDistribution (..), TxPayloa
 import qualified Pos.Types            as T
 import           Pos.Update.Arbitrary ()
 import           Pos.Util.Arbitrary   (makeSmall)
+import           Pos.Util.Util        (leftToPanic)
 
 newtype BodyDependsOnConsensus b = BodyDependsOnConsensus
     { genBodyDepsOnConsensus :: T.ConsensusData b -> Gen (T.Body b)
@@ -285,15 +286,14 @@ recursiveHeaderGen
 recursiveHeaderGen (eitherOfLeader : leaders)
                    (T.SlotId{..} : rest)
                    blockchain@(prevHeader : _)
-    | siSlot > epochSlots = pure []
+    | Core.getSlotIndex siSlot > epochSlots = pure []
     | otherwise = do
         curHeader <- genHeader
         recursiveHeaderGen leaders rest (curHeader : blockchain)
   where
-    epochCounter = fromIntegral siEpoch
-    slotCounter = fromIntegral siSlot
+    epochCounter = siEpoch
     genHeader
-      | siSlot == epochSlots = do
+      | Core.getSlotIndex siSlot == epochSlots = do
           body <- arbitrary
           return $ Left $ T.mkGenesisHeader (Just prevHeader) (epochCounter + 1) body
       | otherwise = genMainHeader
@@ -305,7 +305,7 @@ recursiveHeaderGen (eitherOfLeader : leaders)
         -- These two values may not be used at all. If the slot in question
         -- will have a simple signature, laziness will prevent them from
         -- being calculated. Otherwise, they'll be the proxy secret key's ω.
-        let slotId = T.SlotId epochCounter slotCounter
+        let slotId = T.SlotId epochCounter siSlot
             (leader, proxySK) = case eitherOfLeader of
                 Left sk -> (sk, Nothing)
                 Right (issuerSK, delegateSK, isSigEpoch) ->
@@ -344,15 +344,17 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
          Arbitrary (BlockHeaderList ssc) where
     arbitrary = BHL <$> do
         fullEpochs <- choose (startingEpoch, maxEpochs)
-        incompleteEpochSize <- T.LocalSlotIndex <$> choose (1, epochSlots - 1)
+        incompleteEpochSize <- choose (1, epochSlots - 1)
         leadersList <-
-            vectorOf ((epochSlots * fullEpochs) + fromIntegral incompleteEpochSize)
+            vectorOf ((epochSlots * fullEpochs) + incompleteEpochSize)
                 arbitrary
         firstGenesisBody <- arbitrary
         let firstHeader = Left $ T.mkGenesisHeader Nothing startingEpoch firstGenesisBody
             actualLeaders = map (toPublic . either identity (view _1)) leadersList
             slotIdsRange =
-                map (\(a,b) -> T.SlotId a (fromIntegral b)) $
+                map (\(a,b) -> T.SlotId a
+                      (leftToPanic "arbitrary @BlockHeaderList: " $
+                       T.mkLocalSlotIndex $ fromIntegral b)) $
                 range ((startingEpoch, 0), (fromIntegral fullEpochs, epochSlots)) ++
                 zip (repeat $ fromIntegral (fullEpochs + 1)) [0 .. incompleteEpochSize - 1]
         (, actualLeaders) <$>
@@ -413,10 +415,14 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                     -- equal slot index than the header.
                     Right h -> -- Nothing {-
                         let (T.SlotId e s) = view Core.headerSlotL h
+                            rndEpoch :: Core.EpochIndex
                             rndEpoch = betweenXAndY e maxBound
-                            rndSlotIdx = if rndEpoch > e
+                            rndSlotIdx :: Core.LocalSlotIndex
+                            rndSlotIdx = leftToPanic "arbitrary @HeaderAndParams: " $
+                                         Core.mkLocalSlotIndex $
+                              if rndEpoch > e
                                 then betweenZeroAndN (epochSlots - 1)
-                                else betweenXAndY s (epochSlots - 1)
+                                else betweenXAndY (Core.getSlotIndex s) (epochSlots - 1)
                             rndSlot = T.SlotId rndEpoch rndSlotIdx
                         in Just rndSlot
             hasUnknownAttributes =

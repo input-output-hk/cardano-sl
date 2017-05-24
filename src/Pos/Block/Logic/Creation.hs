@@ -32,13 +32,14 @@ import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, toUpdateBlock)
 import           Pos.Block.Logic.Util       (withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Types            (Undo (..))
-import           Pos.Constants              (curSoftwareVersion, epochSlots,
-                                             lastKnownBlockVersion, slotSecurityParam)
+import           Pos.Constants              (curSoftwareVersion, lastKnownBlockVersion,
+                                             slotSecurityParam)
 import           Pos.Context                (lrcActionOnEpochReason, npSecretKey)
 import           Pos.Core                   (EpochIndex, EpochOrSlot (..), HeaderHash,
                                              ProxySKEither, ProxySKHeavy, SlotId (..),
-                                             SlotLeaders, epochOrSlot, flattenSlotId,
-                                             getEpochOrSlot, headerHash)
+                                             SlotLeaders, crucialSlot, epochOrSlot,
+                                             flattenSlotId, getEpochOrSlot, getSlotIndex,
+                                             headerHash, mkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.DB                     (DBError (..))
@@ -95,8 +96,8 @@ shouldCreateGenesisBlock 0 _ = False
 shouldCreateGenesisBlock epoch headEpochOrSlot =
     epochOrSlot (const False) doCheck headEpochOrSlot
   where
-    doCheck SlotId {..} =
-        siEpoch == epoch - 1 && siSlot >= epochSlots - slotSecurityParam
+    doCheck SlotId {siSlot = slot, ..} =
+        siEpoch == epoch - 1 && slot > siSlot (crucialSlot epoch)
 
 createGenesisBlockDo
     :: forall ssc m.
@@ -171,8 +172,12 @@ canCreateBlock sId tipHeader
   where
     headSlot = getEpochOrSlot tipHeader
     addSafe si =
-        si {siSlot = min (epochSlots - 1) (siSlot si + slotSecurityParam)}
-    maxSlotId = addSafe $ epochOrSlot (`SlotId` 0) identity headSlot
+        si
+        { siSlot =
+              either (const maxBound) identity $
+              mkLocalSlotIndex (getSlotIndex (siSlot si) + slotSecurityParam)
+        }
+    maxSlotId = addSafe $ epochOrSlot (`SlotId` minBound) identity headSlot
 
 -- Create main block and apply it, if block passed checks,
 -- otherwise clear mem pools and try again.

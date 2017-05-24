@@ -39,13 +39,12 @@ import           Pos.Block.Core             (BiSsc, Block, BlockHeader,
                                              mainHeaderLeaderKey, mcdDifficulty,
                                              mcdLeaderKey, mcdSignature, mcdSlot,
                                              mebAttributes, mehAttributes)
-import           Pos.Constants              (epochSlots)
 import           Pos.Core                   (ChainDifficulty, EpochOrSlot,
                                              HasDifficulty (..), HasEpochIndex (..),
                                              HasEpochOrSlot (..), HasHeaderHash (..),
                                              HeaderHash, ProxySKHeavyMap, SlotId (..),
                                              SlotLeaders, addressHash, gbhExtra,
-                                             headerSlotL, prevBlockL)
+                                             getSlotIndex, headerSlotL, prevBlockL)
 import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
                                              gbExtra, gbHeader)
@@ -77,7 +76,6 @@ verifyConsensusLocal (Right header) =
     verifyGeneric
         [ ( verifyBlockSignature $ consensus ^. mcdSignature
           , "can't verify signature")
-        , (siSlot slotId < epochSlots, "slot index is not less than epochSlots")
         ]
   where
     verifyBlockSignature (BlockSignature sig) =
@@ -248,7 +246,8 @@ verifyHeader VerifyHeaderParams {..} h =
             Right mainHeader ->
                 [ ( (Just (addressHash $ mainHeader ^. mainHeaderLeaderKey) ==
                      leaders ^?
-                     ix (fromIntegral $ siSlot $ mainHeader ^. headerSlotL))
+                     ix (fromIntegral $ getSlotIndex $
+                         siSlot $ mainHeader ^. headerSlotL))
                   , "block's leader is different from expected one")
                 ]
 

@@ -154,7 +154,7 @@ classifyHeaders headers = do
     mbCurrentSlot <- getCurrentSlot
     let newestHeaderConvertedSlot =
             case newestHeader ^. epochOrSlotG of
-                EpochOrSlot (Left e)  -> SlotId e 0
+                EpochOrSlot (Left e)  -> SlotId e minBound
                 EpochOrSlot (Right s) -> s
     if | not headersValid ->
              pure $ CHsInvalid "Header chain is invalid"

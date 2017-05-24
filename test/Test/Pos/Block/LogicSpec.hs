@@ -20,7 +20,7 @@ import           Pos.Block.Core             (BlockHeader, MainBlock)
 import           Pos.Block.Logic            (createMainBlockPure)
 import qualified Pos.Communication          ()
 import           Pos.Constants              (blkSecurityParam, genesisMaxBlockSize)
-import           Pos.Core                   (SlotId (..))
+import           Pos.Core                   (SlotId (..), unsafeMkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
@@ -115,7 +115,7 @@ spec = describe "Block.Logic" $ do
         -> SecretKey
         -> Either Text (MainBlock SscGodTossing)
     noSscBlock limit prevHeader txs proxyCerts updatePayload sk =
-        let neutralSId = SlotId 0 (blkSecurityParam * 2)
+        let neutralSId = SlotId 0 (unsafeMkLocalSlotIndex $ blkSecurityParam * 2)
         in producePureBlock
             limit prevHeader txs Nothing neutralSId proxyCerts (defGTP neutralSId) updatePayload sk
 
@@ -135,11 +135,12 @@ spec = describe "Block.Logic" $ do
 validGtPayloadGen :: Gen (GtPayload, SlotId)
 validGtPayloadGen = do
     vssCerts <- makeSmall $ fmap mkVssCertificatesMap $ listOf $ vssCertificateEpochGen 0
+    let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex i)
     oneof [ do commMap <- makeSmall $ commitmentMapEpochGen 0
-               pure (CommitmentsPayload commMap vssCerts, SlotId 0 0)
+               pure (CommitmentsPayload commMap vssCerts, SlotId 0 minBound)
           , do openingsMap <- makeSmall arbitrary
-               pure (OpeningsPayload openingsMap vssCerts, SlotId 0 (4 * blkSecurityParam + 1))
+               pure (OpeningsPayload openingsMap vssCerts, mkSlot (4 * blkSecurityParam + 1))
           , do sharesMap <- makeSmall arbitrary
-               pure (SharesPayload sharesMap vssCerts, SlotId 0 (8 * blkSecurityParam))
-          , pure (CertificatesPayload vssCerts, SlotId 0 (7 * blkSecurityParam))
+               pure (SharesPayload sharesMap vssCerts, mkSlot (8 * blkSecurityParam))
+          , pure (CertificatesPayload vssCerts, mkSlot (7 * blkSecurityParam))
           ]

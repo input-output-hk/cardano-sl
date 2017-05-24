@@ -26,7 +26,7 @@ import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUn
 import           Pos.Block.Logic.Util       (withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
-import           Pos.Core                   (Coin)
+import           Pos.Core                   (Coin, getSlotIndex)
 import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
@@ -56,7 +56,7 @@ lrcOnNewSlotWorker
     :: (SscWorkersClass ssc, WorkMode ssc m, MonadDBCore m)
     => (WorkerSpec m, OutSpecs)
 lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
-    when (siSlot < slotSecurityParam) $
+    when (getSlotIndex siSlot < slotSecurityParam) $
     (lrcSingleShot siEpoch `catch` reportError) `catch` onLrcError
   where
     reportError (SomeException e) = do

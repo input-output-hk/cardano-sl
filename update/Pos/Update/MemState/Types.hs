@@ -50,7 +50,7 @@ data MemState = MemState
 
 mkMemState :: MemState
 mkMemState = MemState
-    { msSlot = SlotId 0 0
+    { msSlot = SlotId 0 minBound
     , msTip = unsafeHash ("dratuti" :: Text)
     , msPool = def
     , msModifier = def

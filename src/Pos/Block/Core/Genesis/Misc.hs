@@ -31,6 +31,7 @@ import           Pos.Core                     (EpochIndex, EpochOrSlot (..),
                                                mkGenericHeader, recreateGenericBlock)
 import           Pos.Crypto                   (hashHexF)
 import           Pos.Data.Attributes          (mkAttributes)
+import           Pos.Util.Util                (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- Buildable
@@ -137,9 +138,8 @@ mkGenesisBlock
     -> SlotLeaders
     -> GenesisBlock ssc
 mkGenesisBlock prevHeader epoch leaders =
-    either disaster identity $ recreateGenericBlock header body extra
+    leftToPanic "mkGenesisBlock: " $ recreateGenericBlock header body extra
   where
     header = mkGenesisHeader prevHeader epoch body
     body = GenesisBody leaders
     extra = GenesisExtraBodyData $ mkAttributes ()
-    disaster = error . mappend "mkGenesisBlock: "

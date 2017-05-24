@@ -33,11 +33,13 @@ import           Pos.Binary.Block        ()
 import           Pos.Binary.Core         ()
 import           Pos.Block.Core          (BiSsc, Block, blockHeader, mainBlockTxPayload)
 import           Pos.Core                (SlotId (..), epochIndexL, gbHeader,
-                                          gbhPrevBlock, headerHash, headerSlotL)
+                                          gbhPrevBlock, getSlotIndex, headerHash,
+                                          headerSlotL, mkLocalSlotIndex)
 import           Pos.Crypto              (Hash, hash, hashHexF)
 import           Pos.Ssc.Class.Types     (Ssc)
 import           Pos.Txp.Core            (txpTxs)
 import           Pos.Util.TimeWarp       (currentTime)
+import           Pos.Util.Util           (leftToPanic)
 
 type BlockId = Text
 type TxId = Text
@@ -53,7 +55,10 @@ data JLBlock = JLBlock
 
 -- | Get 'SlotId' from 'JLSlotId'.
 fromJLSlotId :: JLSlotId -> SlotId
-fromJLSlotId (ep, sl) = SlotId (fromIntegral ep) (fromIntegral sl)
+fromJLSlotId (ep, sl) =
+    SlotId
+        (fromIntegral ep)
+        (leftToPanic "fromJLSlotId: " $ mkLocalSlotIndex sl)
 
 -- | Json log event.
 data JLEvent = JLCreatedBlock JLBlock
@@ -77,12 +82,12 @@ jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
   where
     jlHash = showHash $ headerHash block
     jlPrevBlock = showHash $ either (view gbhPrevBlock) (view gbhPrevBlock) (block ^. blockHeader)
-    jlSlot = (fromIntegral $ siEpoch slot, fromIntegral $ siSlot slot)
+    jlSlot = (fromIntegral $ siEpoch slot, fromIntegral $ getSlotIndex $ siSlot slot)
     jlTxs = case block of
               Left _   -> []
               Right mB -> map fromTx . toList $ mB ^. mainBlockTxPayload . txpTxs
     slot :: SlotId
-    slot = either (\h -> SlotId (h ^. epochIndexL) 0) (view $ gbHeader . headerSlotL) $ block
+    slot = either (\h -> SlotId (h ^. epochIndexL) minBound) (view $ gbHeader . headerSlotL) $ block
     fromTx = showHash . hash
 
 showHash :: Hash a -> Text

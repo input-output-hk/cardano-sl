@@ -73,7 +73,6 @@ import           Pos.Delegation.Class     (DelegationWrap (..), DlgMemPool,
                                            MonadDelegation, askDelegationState,
                                            dwConfirmationCache, dwEpochId, dwMessageCache,
                                            dwPoolSize, dwProxySKPool, dwThisEpochPosted)
-import           Pos.Delegation.Types     (SendProxySK (..))
 import           Pos.Exception            (cardanoExceptionFromException,
                                            cardanoExceptionToException)
 import           Pos.Lrc.Context          (LrcContext)
@@ -252,7 +251,7 @@ processProxySKHeavy psk = do
         "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
         LrcDB.getRichmenDlg
     maxBlockSize <- bvdMaxBlockSize <$> DB.gsAdoptedBVData
-    let msg = SendProxySKHeavy psk
+    let msg = Right psk
         consistent = verifyProxySecretKey psk
         issuer = pskIssuerPk psk
         enoughStake = addressHash issuer `elem` richmen
@@ -482,7 +481,7 @@ processProxySKLight psk = do
     res <- runDelegationStateAction $ do
         let related = toPublic sk == pskDelegatePk psk
             exists = psk `elem` psks
-            msg = SendProxySKLight psk
+            msg = Left psk
             valid = verifyProxySecretKey psk
             selfSigned = pskDelegatePk psk == pskIssuerPk psk
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache

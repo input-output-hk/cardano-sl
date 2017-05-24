@@ -23,7 +23,7 @@ import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..)
 import           Pos.Communication.Limits   (Limit, LimitedLength, recvLimited,
                                              reifyMsgLimit)
 import           Pos.Communication.Message  ()
-import           Pos.Communication.Protocol (ConversationActions (..), NodeId (..),
+import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
 import           Pos.Context                (NodeParams, npAttackTypes,
@@ -49,18 +49,14 @@ announceBlock
 announceBlock sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     nodeParams <- Ether.ask @NodeParams
-    let throwOnIgnored (NodeId (_, nId)) =
+    let throwOnIgnored nId =
             whenJust (nodeIdToAddress nId) $ \addr ->
                 when (shouldIgnoreAddress nodeParams addr) $
                 throw AttackNoBlocksTriggered
         sendActions' =
             if AttackNoBlocks `elem` npAttackTypes nodeParams
                 then sendActions
-                     { sendTo =
-                           \nId msg -> do
-                               throwOnIgnored nId
-                               sendTo sendActions nId msg
-                     , withConnectionTo =
+                     { withConnectionTo =
                            \nId handler -> do
                                throwOnIgnored nId
                                withConnectionTo sendActions nId handler
@@ -69,14 +65,14 @@ announceBlock sendActions header = do
     reifyMsgLimit (Proxy @MsgGetHeaders) $ \limitProxy -> do
         converseToNeighbors sendActions' $ announceBlockDo limitProxy
   where
-    announceBlockDo limitProxy nodeId conv = do
+    announceBlockDo limitProxy nodeId = pure $ Conversation $ \cA -> do
         logDebug $
             sformat
                 ("Announcing block "%shortHashF%" to "%build)
                 (headerHash header)
                 nodeId
-        send conv $ MsgHeaders (one (Right header))
-        handleHeadersCommunication conv limitProxy
+        send cA $ MsgHeaders (one (Right header))
+        handleHeadersCommunication cA limitProxy
 
 handleHeadersCommunication
     :: forall ssc m s.

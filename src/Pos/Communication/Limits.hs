@@ -15,7 +15,7 @@ module Pos.Communication.Limits
 
 import           Universum
 
-import           Control.Lens                       (each)
+import qualified Cardano.Crypto.Wallet              as CC
 import           Crypto.Hash                        (Blake2b_224, Blake2b_256)
 import qualified Crypto.PVSS                        as PVSS
 import           Data.Coerce                        (coerce)
@@ -23,23 +23,28 @@ import           GHC.Exts                           (IsList (..))
 
 import           Pos.Binary.Class                   (AsBinary (..))
 import           Pos.Block.Core                     (Block, BlockHeader)
-import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetHeaders (..),
-                                                     MsgHeaders (..))
+import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks (..),
+                                                     MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
 import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
                                                      coinPortionToDouble)
-import           Pos.Crypto                         (AbstractHash, EncShare, PublicKey,
+import           Pos.Crypto                         (AbstractHash, EncShare,
+                                                     ProxyCert (..), ProxySecretKey (..),
+                                                     ProxySignature (..), PublicKey,
                                                      SecretProof, SecretSharingExtra (..),
-                                                     Share, Signature, VssPublicKey)
+                                                     Share, Signature (..), VssPublicKey)
 import qualified Pos.DB.Class                       as DB
+import           Pos.Delegation.Types               (ProxySKLightConfirmation)
 import           Pos.Ssc.GodTossing.Arbitrary       ()
 import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..), InnerSharesMap,
                                                      Opening, SignedCommitment,
                                                      VssCertificate)
-import           Pos.Ssc.GodTossing.Types.Message   (GtMsgContents (..))
+import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpening (..),
+                                                     MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Core                       (TxAux)
 import           Pos.Txp.Network.Types              (TxMsgContents (..))
+import           Pos.Types                          (EpochIndex)
 import           Pos.Update.Core.Types              (UpdateProposal (..), UpdateVote (..))
 
 -- Reexports
@@ -54,8 +59,11 @@ import           Pos.Communication.Limits.Types
 ---- Core and lower
 ----------------------------------------------------------------------------
 
-instance MessageLimitedPure (Signature a) where
+instance MessageLimitedPure CC.XSignature where
     msgLenLimit = 64
+
+instance MessageLimitedPure (Signature a) where
+    msgLenLimit = Signature <$> msgLenLimit
 
 instance MessageLimitedPure PublicKey where
     msgLenLimit = 64
@@ -91,6 +99,29 @@ instance MessageLimitedPure (AbstractHash Blake2b_224 a) where
 
 instance MessageLimitedPure (AbstractHash Blake2b_256 a) where
     msgLenLimit = 32
+
+instance MessageLimitedPure EpochIndex where
+    msgLenLimit = 10
+
+-----------------------------------------------------------------
+-- Delegation
+-----------------------------------------------------------------
+
+instance MessageLimitedPure (ProxyCert w) where
+    msgLenLimit = ProxyCert <$> msgLenLimit
+
+instance MessageLimitedPure w => MessageLimitedPure (ProxySecretKey w) where
+    msgLenLimit = ProxySecretKey <$> msgLenLimit <+> msgLenLimit
+                                 <+> msgLenLimit <+> msgLenLimit
+
+instance MessageLimitedPure w => MessageLimitedPure (ProxySignature w a) where
+    msgLenLimit = ProxySignature <$> msgLenLimit <+> msgLenLimit
+                                 <+> msgLenLimit <+> msgLenLimit
+
+instance MessageLimitedPure w => MessageLimited (ProxySecretKey w)
+instance MessageLimitedPure w => MessageLimited (ProxySignature w a)
+
+instance MessageLimited ProxySKLightConfirmation
 
 ----------------------------------------------------------------------------
 ---- GodTossing
@@ -141,26 +172,39 @@ instance MessageLimited InnerSharesMap where
 instance MessageLimitedPure VssCertificate where
     msgLenLimit = 171
 
-instance MessageLimited (DataMsg GtMsgContents) where
-    type LimitType (DataMsg GtMsgContents) = ( Limit (DataMsg GtMsgContents)
-                                             , Limit (DataMsg GtMsgContents)
-                                             , Limit (DataMsg GtMsgContents)
-                                             , Limit (DataMsg GtMsgContents))
-    getMsgLenLimit _ = do
-        commLimit <-
-            fmap MCCommitment <$> getMsgLenLimit (Proxy @SignedCommitment)
-        sharesLimit <-
-            (MCShares <$> msgLenLimit <+>) <$>
-            getMsgLenLimit (Proxy @InnerSharesMap)
-        -- 'succ' is used here, because 1 byte is spent on tag.
-        -- See 'instance Bi GtMsgContents'.
-        return $
-            each %~ succ . fmap DataMsg $
-            ( commLimit
-            , MCOpening <$> msgLenLimit <+> msgLenLimit
-            , sharesLimit
-            , MCVssCertificate <$> msgLenLimit
-            )
+instance MessageLimitedPure MCOpening where
+    msgLenLimit = MCOpening <$> msgLenLimit <+> msgLenLimit
+
+instance MessageLimitedPure MCVssCertificate where
+    msgLenLimit = MCVssCertificate <$> msgLenLimit
+
+instance MessageLimited MCOpening
+instance MessageLimited MCVssCertificate
+
+instance MessageLimited MCCommitment where
+    type LimitType MCCommitment = Limit MCCommitment
+    getMsgLenLimit _ = fmap MCCommitment
+          <$> getMsgLenLimit (Proxy @SignedCommitment)
+
+instance MessageLimited MCShares where
+    type LimitType MCShares = Limit MCShares
+    getMsgLenLimit _ = (MCShares <$> msgLenLimit <+>)
+          <$> getMsgLenLimit (Proxy @InnerSharesMap)
+
+----------------------------------------------------------------------------
+---- Data msg
+----------------------------------------------------------------------------
+
+-- Binary instances for DataMsg are now separated because we want
+-- to do additional checks in get, but data payload is serialized
+-- in straightforward way
+
+instance MessageLimitedPure a => MessageLimitedPure (DataMsg a) where
+    msgLenLimit = DataMsg <$> msgLenLimit
+
+instance MessageLimited a => MessageLimited (DataMsg a) where
+    type LimitType (DataMsg a) = LimitType a
+    getMsgLenLimit _ = getMsgLenLimit (Proxy @a)
 
 ----------------------------------------------------------------------------
 ---- Txp
@@ -169,10 +213,8 @@ instance MessageLimited (DataMsg GtMsgContents) where
 instance MessageLimited TxAux where
     getMsgLenLimit _ = Limit <$> DB.gsMaxTxSize
 
-instance MessageLimited (DataMsg TxMsgContents) where
-    getMsgLenLimit _ = do
-        txLimit <- getMsgLenLimit (Proxy @TxAux)
-        return $ DataMsg . TxMsgContents <$> txLimit
+instance MessageLimited TxMsgContents where
+    getMsgLenLimit _ = fmap TxMsgContents <$> getMsgLenLimit (Proxy @TxAux)
 
 ----------------------------------------------------------------------------
 ---- Update System
@@ -190,24 +232,25 @@ instance MessageLimitedPure UpdateVote where
         UpdateVote <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
                    <+> msgLenLimit
 
-instance MessageLimitedPure (DataMsg UpdateVote) where
-    msgLenLimit = DataMsg <$> msgLenLimit
-
-instance MessageLimited (DataMsg UpdateVote)
+instance MessageLimited UpdateVote
 
 instance MessageLimited UpdateProposal where
     getMsgLenLimit _ = Limit <$> DB.gsMaxProposalSize
 
-instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
+instance MessageLimited (UpdateProposal, [UpdateVote]) where
     getMsgLenLimit _ = do
         proposalLimit <- getMsgLenLimit (Proxy @UpdateProposal)
         voteNumLimit <- updateVoteNumLimit
-        return $
-            DataMsg <$> ((,) <$> proposalLimit <+> vector voteNumLimit)
+        return ((,) <$> proposalLimit <+> vector voteNumLimit)
 
 ----------------------------------------------------------------------------
 ---- Blocks/headers
 ----------------------------------------------------------------------------
+
+instance MessageLimitedPure MsgGetBlocks where
+    msgLenLimit = MsgGetBlocks <$> msgLenLimit <+> msgLenLimit
+
+instance MessageLimited MsgGetBlocks
 
 instance MessageLimited (BlockHeader ssc) where
     getMsgLenLimit _ = Limit <$> DB.gsMaxHeaderSize
@@ -253,7 +296,7 @@ instance MessageLimited (MsgHeaders ssc) where
 --     arbitrary = MaxSize <$>
 --         (Commitment <$> T.arbitrary <*> T.arbitrary
 --                     <*> aMultimap commitmentsNumLimit)
-
+--
 -- instance T.Arbitrary (MaxSize SecretSharingExtra) where
 --     arbitrary = do
 --         SecretSharingExtra gen commitments <- T.arbitrary
@@ -261,22 +304,33 @@ instance MessageLimited (MsgHeaders ssc) where
 --         return $ MaxSize $ SecretSharingExtra gen commitments'
 --       where
 --         alignLength n = take n . cycle
-
--- instance T.Arbitrary (MaxSize GtMsgContents) where
---     arbitrary = MaxSize <$>
---         T.oneof [aCommitment, aOpening, aShares, aVssCert]
---       where
---         aCommitment = MCCommitment <$>
+--
+-- instance T.Arbitrary (MaxSize MCCommitment) where
+--     arbitrary = fmap MaxSize $ MCCommitment <$>
 --             ((,,) <$> T.arbitrary
 --                   <*> (getOfMaxSize <$> T.arbitrary)
 --                   <*> T.arbitrary)
---         aOpening = MCOpening <$> T.arbitrary <*> T.arbitrary
---         aShares =
---             MCShares <$> T.arbitrary
+--
+-- instance T.Arbitrary (MaxSize MCOpening) where
+--     arbitrary = fmap MaxSize $ MCOpening <$> T.arbitrary <*> T.arbitrary
+--
+-- instance T.Arbitrary (MaxSize MCShares) where
+--     arbitrary = fmap MaxSize $ MCShares <$> T.arbitrary
 --                      <*> aMultimap commitmentsNumLimit
---         aVssCert = MCVssCertificate <$> T.arbitrary
-
--- instance T.Arbitrary (MaxSize (DataMsg GtMsgContents)) where
+--
+-- instance T.Arbitrary (MaxSize MCVssCertificate) where
+--     arbitrary = fmap MaxSize $ MCVssCertificate <$> T.arbitrary
+--
+-- instance T.Arbitrary (MaxSize (DataMsg MCCommitment)) where
+--     arbitrary = fmap DataMsg <$> T.arbitrary
+--
+-- instance T.Arbitrary (MaxSize (DataMsg MCOpening)) where
+--     arbitrary = fmap DataMsg <$> T.arbitrary
+--
+-- instance T.Arbitrary (MaxSize (DataMsg MCShares)) where
+--     arbitrary = fmap DataMsg <$> T.arbitrary
+--
+-- instance T.Arbitrary (MaxSize (DataMsg MCVssCertificate)) where
 --     arbitrary = fmap DataMsg <$> T.arbitrary
 
 ----------------------------------------------------------------------------

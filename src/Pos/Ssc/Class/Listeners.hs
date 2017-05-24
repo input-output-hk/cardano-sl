@@ -4,20 +4,15 @@ module Pos.Ssc.Class.Listeners
        ( SscListenersClass(..)
        ) where
 
-import           Data.Tagged                (Tagged)
-import           System.Wlog                (WithLogger)
+import           Data.Tagged             (Tagged)
 
-import           Pos.Communication.Protocol (ListenerSpec, OutSpecs)
-import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.WorkMode.Class         (WorkMode)
+import           Pos.Communication.Relay (Relay)
+import           Pos.Ssc.Class.Types     (Ssc (..))
+import           Pos.WorkMode.Class      (WorkMode)
 
 
 -- | Class for defining listeners in DHT @SSC@ implementation.
 class Ssc ssc => SscListenersClass ssc where
-    sscListeners
+    sscRelays
         :: WorkMode ssc m
-        => m (Tagged ssc ([ListenerSpec m], OutSpecs))
-
-    sscStubListeners
-        :: WithLogger m
-        => Tagged ssc ([ListenerSpec m], OutSpecs)
+        => Tagged ssc [Relay m]

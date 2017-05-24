@@ -1,6 +1,8 @@
 -- | Contains part of 'Pos.Util.UserSecret' related to wallets
 
-module Pos.Wallet.Web.Secret where
+module Pos.Wallet.Web.Secret
+  ( WalletUserSecret (..)
+  ) where
 
 import qualified Data.Text.Buildable
 import           Formatting          (Format, bprint, build, later, (%))

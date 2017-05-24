@@ -1,3 +1,4 @@
+{-# LANGUAGE GADTs      #-}
 {-# LANGUAGE RankNTypes #-}
 
 -- | Protocol/versioning related communication types.
@@ -6,38 +7,31 @@ module Pos.Communication.Types.Protocol
        ( HandlerSpec (..)
        , VerInfo (..)
        , HandlerSpecs
-       , inSpecs
+       , checkInSpecs
        , notInSpecs
        , ListenerSpec (..)
        , InSpecs (..)
        , OutSpecs (..)
-       , PeerId (..)
        , Listener
        , Worker
        , Action
-       , NodeId (..)
        , SendActions (..)
-       , ConversationActions (..)
+       , N.ConversationActions (..)
+       , Conversation (..)
        , Action'
        , Worker'
        , NSendActions
        , PeerData
-       , mergeLs
        , toOutSpecs
-       , oneMsgH
        , convH
-       , ListenersWithOut
+       , MkListeners (..)
        , WorkerSpec
        , ActionSpec (..)
-       , peerIdParser
-       , nodeIdParser
+       , N.NodeId
        ) where
 
-import qualified Control.Monad         as Monad (fail)
-import           Data.Hashable         (Hashable)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Text.Buildable   as B
-import qualified Data.ByteString       as BS (length)
 import           Formatting            (bprint, build, hex, int, sformat, stext, (%))
 import qualified Node                  as N
 import           Node.Message          (Message (..), MessageName (..))
@@ -48,12 +42,9 @@ import           Universum
 import           Pos.Binary.Class      (Bi)
 import           Pos.Communication.BiP (BiP)
 import           Pos.Core.Types        (BlockVersion)
-import           Pos.Util.TimeWarp     (addrParser, addressToNodeId, nodeIdToAddress)
-import qualified Serokell.Util.Parse   as P
-import qualified Text.Parsec           as P
-import qualified Text.Parsec.String    as P
+import           Pos.Util.TimeWarp     (nodeIdToAddress)
 
-type PeerData = (PeerId, VerInfo)
+type PeerData = VerInfo
 
 type Listener = N.Listener BiP PeerData
 type Worker m = Action m ()
@@ -64,64 +55,37 @@ type NSendActions = N.SendActions BiP PeerData
 newtype ActionSpec m a = ActionSpec (VerInfo -> Action m a)
 type WorkerSpec m = ActionSpec m ()
 
-newtype NodeId = NodeId (PeerId, N.NodeId)
-  deriving (Show, Eq, Ord, Hashable)
-
--- TODO Implement Buildable N.NodeId and get rid of this ugly shit
-instance Buildable NodeId where
-    build (NodeId (peerId, nNodeId)) =
-        let addr = maybe "<unknown host:port>" (uncurry $ sformat (stext%":"%int)) $
+-- TODO move to time-warp-nt
+instance Buildable N.NodeId where
+    build nNodeId =
+        maybe "<unknown host:port>" (uncurry $ bprint (stext%":"%int)) $
                    first decodeUtf8 <$>
                    nodeIdToAddress nNodeId
-        in bprint (stext%"/"%build) addr peerId
 
 data SendActions m = SendActions {
-       -- | Send a isolated (sessionless) message to a node
-       sendTo :: forall msg .
-              ( Bi msg, Message msg )
-              => NodeId
-              -> msg
-              -> m (),
-
        -- | Establish a bi-direction conversation session with a node.
        withConnectionTo
-           :: forall snd rcv t .
-            ( Bi snd, Message snd, Bi rcv, Message rcv )
-           => NodeId
-           -> (m PeerData -> ConversationActions snd rcv m -> m t)
+           :: forall t .
+              N.NodeId
+           -> (PeerData -> NonEmpty (Conversation m t))
            -> m t
 }
 
-data ConversationActions body rcv m = ConversationActions {
-       -- | Send a message within the context of this conversation
-       send :: body -> m ()
-
-       -- | Receive a message within the context of this conversation.
-       --   'Nothing' means end of input (peer ended conversation).
-     , recv :: m (Maybe rcv)
-}
-
-newtype PeerId = PeerId ByteString
-  deriving (Eq, Ord, Show, Generic, Hashable)
-
-instance Buildable PeerId where
-    build (PeerId bs) = bprint base16F bs
+data Conversation m t where
+    Conversation
+        :: ( Bi snd, Message snd, Bi rcv, Message rcv )
+        => (N.ConversationActions snd rcv m -> m t)
+        -> Conversation m t
 
 data HandlerSpec
     = ConvHandler { hsReplyType :: MessageName}
-    | OneMsgHandler
     | UnknownHandler Word8 ByteString
     deriving (Show, Generic, Eq)
 
 convH :: (Message snd, Message rcv) => Proxy snd -> Proxy rcv -> (MessageName, HandlerSpec)
 convH pSnd pReply = (messageName pSnd, ConvHandler $ messageName pReply)
 
-oneMsgH :: Message snd => Proxy snd -> (MessageName, HandlerSpec)
-oneMsgH pSnd = (messageName pSnd, OneMsgHandler)
-
 instance Buildable HandlerSpec where
-    build OneMsgHandler =
-        "OneMsg"
     build (ConvHandler (MessageName replyType)) =
         bprint ("Conv "%base16F) replyType
     build (UnknownHandler htype hcontent) =
@@ -151,16 +115,16 @@ instance Buildable VerInfo where
                                 (HM.toList vIInHandlers)
                                 (HM.toList vIOutHandlers)
 
-inSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
-inSpecs (name, sp) specs = case name `HM.lookup` specs of
+checkInSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
+checkInSpecs (name, sp) specs = case name `HM.lookup` specs of
                               Just sp' -> sp == sp'
                               _        -> False
 
 notInSpecs :: (MessageName, HandlerSpec) -> HandlerSpecs -> Bool
-notInSpecs sp' = not . inSpecs sp'
+notInSpecs sp' = not . checkInSpecs sp'
 
 data ListenerSpec m = ListenerSpec
-    { lsHandler :: VerInfo -> Listener m -- ^ Handler accepts out verInfo and returns listener
+    { lsHandler :: VerInfo -> m (Listener m) -- ^ Handler accepts out verInfo and returns listener
     , lsInSpec  :: (MessageName, HandlerSpec)
     }
 
@@ -192,30 +156,22 @@ instance Monoid OutSpecs where
                     ("Conflicting key output spec: "%build%" "%build)
                     (name, h1) (name, h2)
 
-mergeLs :: [(ListenerSpec m, OutSpecs)] -> ([ListenerSpec m], OutSpecs)
-mergeLs = second mconcat . unzip
-
 toOutSpecs :: [(MessageName, HandlerSpec)] -> OutSpecs
 toOutSpecs = OutSpecs . HM.fromList
 
-type ListenersWithOut m = ([ListenerSpec m], OutSpecs)
+-- | Data type to represent listeners, provided upon our version info and peerData
+-- received from other node, in and out specs for all listeners which may be provided
+data MkListeners m = MkListeners
+        { mkListeners :: VerInfo -> PeerData -> m [Listener m]
+        -- ^ Accepts our version info and their peerData and returns set of listeners
+        , inSpecs     :: InSpecs
+        -- ^ Aggregated specs for what we accept on incoming connections
+        , outSpecs    :: OutSpecs
+        -- ^ Aggregated specs for which outgoing connections we might initiate
+        }
 
-----------
--- Parsers
-----------
-
--- | Parser for PeerId. Any base64 string.
-peerIdParser :: P.Parser PeerId
-peerIdParser = do
-    bytes <- P.base64Url
-    when (BS.length bytes /= 14) $ Monad.fail "PeerId must be exactly 14 bytes"
-    return $ PeerId bytes
-
--- | Parser for NodeId
---   host:port/peerId
-nodeIdParser :: P.Parser NodeId
-nodeIdParser = do
-    addr <- addrParser
-    _ <- P.char '/'
-    peerId <- peerIdParser
-    return $ NodeId (peerId, addressToNodeId addr)
+instance Monad m => Monoid (MkListeners m) where
+    mempty = MkListeners (\_ _ -> pure []) mempty mempty
+    a `mappend` b = MkListeners act (inSpecs a `mappend` inSpecs b) (outSpecs a `mappend` outSpecs b)
+      where
+        act vI pD = liftM2 (++) (mkListeners a vI pD) (mkListeners b vI pD)

@@ -7,6 +7,7 @@ module Test.Pos.Ssc.GodTossing.Identity.BinarySpec
 import           Universum
 
 import           Crypto.Hash                            (Blake2b_224, Blake2b_256)
+import           Data.Tagged                            (Tagged)
 import           Test.Hspec                             (Spec, describe)
 
 import           Pos.Binary                             ()
@@ -28,10 +29,13 @@ spec = describe "GodTossing" $ do
         binaryTest @GT.VssCertificate
         binaryTest @GT.GtProof
         binaryTest @GT.GtPayload
-        binaryTest @(R.InvMsg StakeholderId GT.GtTag)
-        binaryTest @(R.ReqMsg StakeholderId GT.GtTag)
-        binaryTest @(R.MempoolMsg GT.GtTag)
-        binaryTest @(R.DataMsg GT.GtMsgContents)
+        binaryTest @(R.InvMsg (Tagged GT.MCCommitment StakeholderId))
+        binaryTest @(R.ReqMsg (Tagged GT.MCCommitment StakeholderId))
+        binaryTest @(R.MempoolMsg GT.MCCommitment)
+        binaryTest @(R.DataMsg GT.MCCommitment)
+        binaryTest @(R.DataMsg GT.MCOpening)
+        binaryTest @(R.DataMsg GT.MCShares)
+        binaryTest @(R.DataMsg GT.MCVssCertificate)
         binaryTest @GT.GtSecretStorage
         binaryTest @GT.TossModifier
     describe "Message length limit" $ do
@@ -49,22 +53,22 @@ spec = describe "GodTossing" $ do
         msgLenLimitedTest @GT.Opening
         msgLenLimitedTest @GT.VssCertificate
 
-        msgLenLimitedTest @(R.InvMsg StakeholderId GT.GtTag)
-        msgLenLimitedTest @(R.ReqMsg StakeholderId GT.GtTag)
-        msgLenLimitedTest @(R.MempoolMsg GT.GtTag)
-        -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg GT.GtMsgContents))
+        msgLenLimitedTest @(R.InvMsg (Tagged GT.MCCommitment StakeholderId))
+        msgLenLimitedTest @(R.ReqMsg (Tagged GT.MCCommitment StakeholderId))
+        msgLenLimitedTest @(R.MempoolMsg GT.MCCommitment)
+        -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg GT.MCCommitment))
         --     (C.MaxSize . R.DataMsg <$> C.mcCommitmentMsgLenLimit)
         --     "MCCommitment"
         --     (has GT._MCCommitment . R.dmContents . C.getOfMaxSize)
-        -- msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
+        -- msgLenLimitedTest' @(R.DataMsg GT.MCOpening)
         --     (R.DataMsg <$> C.mcOpeningLenLimit)
         --     "MCOpening"
         --     (has GT._MCOpening . R.dmContents)
-        -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg GT.GtMsgContents))
+        -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg GT.MCShares))
         --     (C.MaxSize . R.DataMsg <$> C.mcSharesMsgLenLimit)
         --     "MCShares"
         --     (has GT._MCShares . R.dmContents . C.getOfMaxSize)
-        -- msgLenLimitedTest' @(R.DataMsg GT.GtMsgContents)
+        -- msgLenLimitedTest' @(R.DataMsg GT.MCVssCertificate)
         --     (R.DataMsg <$> C.mcVssCertificateLenLimit)
         --     "MCVssCertificate"
         --     (has GT._MCVssCertificate . R.dmContents)

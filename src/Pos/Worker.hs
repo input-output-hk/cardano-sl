@@ -11,27 +11,29 @@ module Pos.Worker
 
 import           Universum
 
-import           Data.Tagged             (untag)
+import           Data.Tagged          (untag)
 
-import           Pos.Block.Worker        (blkWorkers)
-import           Pos.Communication       (OutSpecs, WorkerSpec, localWorker, relayWorkers,
-                                          wrapActionSpec)
-import           Pos.Communication.Specs (allOutSpecs)
-import           Pos.DB                  (MonadDBCore)
-import           Pos.Delegation          (dlgWorkers)
-import           Pos.Lrc.Worker          (lrcOnNewSlotWorker)
-import           Pos.Security.Workers    (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting.Class      (MonadSlots (slottingWorkers))
-import           Pos.Slotting.Util       (logNewSlotWorker)
-import           Pos.Ssc.Class.Workers   (SscWorkersClass, sscWorkers)
-import           Pos.Txp.Worker          (txpWorkers)
-import           Pos.Update              (usWorkers)
-import           Pos.Util                (mconcatPair)
-import           Pos.WorkMode.Class      (WorkMode)
+import           Pos.Block.Worker     (blkWorkers)
+import           Pos.Communication    (OutSpecs, WorkerSpec, localWorker, relayWorkers,
+                                       wrapActionSpec)
+import           Pos.DB               (MonadDBCore)
+import           Pos.Delegation       (delegationRelays, dlgWorkers)
+import           Pos.Lrc.Worker       (lrcOnNewSlotWorker)
+import           Pos.Security.Workers (SecurityWorkersClass, securityWorkers)
+import           Pos.Slotting.Class   (MonadSlots (slottingWorkers))
+import           Pos.Slotting.Util    (logNewSlotWorker)
+import           Pos.Ssc.Class        (SscListenersClass (sscRelays),
+                                       SscWorkersClass (sscWorkers))
+import           Pos.Txp              (txRelays)
+import           Pos.Txp.Worker       (txpWorkers)
+import           Pos.Update           (usRelays, usWorkers)
+import           Pos.Util             (mconcatPair)
+import           Pos.WorkMode.Class   (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
-    :: ( SscWorkersClass ssc
+    :: ( SscListenersClass ssc
+       , SscWorkersClass ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc m
        , MonadDBCore m
@@ -54,7 +56,8 @@ allWorkers = mconcatPair
     , wrap' "txp"        $ txpWorkers
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
-    , wrap' "relay"      $ relayWorkers allOutSpecs
+    , wrap' "relay"      $ relayWorkers $ mconcat
+        [delegationRelays, untag sscRelays, txRelays, usRelays]
 
     -- I don't know, guys, I don't know :(
     -- , const ([], mempty) statsWorkers
@@ -67,6 +70,11 @@ allWorkers = mconcatPair
 -- FIXME this shouldn't be needed.
 allWorkersCount
     :: forall ssc m.
-       (MonadDBCore m, SscWorkersClass ssc, SecurityWorkersClass ssc, WorkMode ssc m)
+       ( SscListenersClass ssc
+       , MonadDBCore m
+       , SscWorkersClass ssc
+       , SecurityWorkersClass ssc
+       , WorkMode ssc m
+       )
     => Int
 allWorkersCount = length $ fst (allWorkers @ssc @m)

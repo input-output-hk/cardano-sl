@@ -107,17 +107,17 @@ action peerHolder args@Args {..} transport = do
                 case (peerHolder, enableStats, CLI.sscAlgo commonArgs) of
                     (Right peers, _, GodTossingAlgo) ->
                         runWStaticMode db conn
-                            (CLI.peerId commonArgs) transportW peers
+                            transportW peers
                             currentParams gtParams
                             (runNode @SscGodTossing $ (convPlugins currentPluginsGT) <> walletStatic args)
                     (Left kad, True, GodTossingAlgo) ->
                         runWStatsMode db conn
-                            (CLI.peerId commonArgs) transportW kad
+                            transportW kad
                             currentParams gtParams
                             (runNode @SscGodTossing (allPlugins kad <> walletStats args))
                     (Left kad, False, GodTossingAlgo) ->
                         runWProductionMode db conn
-                            (CLI.peerId commonArgs) transportW kad
+                            transportW kad
                             currentParams gtParams
                             (runNode @SscGodTossing (allPlugins kad <> walletProd args))
                     (_, _, NistBeaconAlgo) ->
@@ -132,7 +132,6 @@ action peerHolder args@Args {..} transport = do
                 let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
                     runner =
                         runNodeStatic @ssc
-                            (CLI.peerId commonArgs)
                             transportR
                             peers
                             utwStatic
@@ -142,7 +141,6 @@ action peerHolder args@Args {..} transport = do
                 let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
                     runner =
                         runNodeStats @ssc
-                            (CLI.peerId commonArgs)
                             transportR
                             kad
                             (mconcat [wDhtWorkers kad, utwStats])
@@ -152,7 +150,6 @@ action peerHolder args@Args {..} transport = do
                 let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
                     runner =
                         runNodeProduction @ssc
-                            (CLI.peerId commonArgs)
                             transportR
                             kad
                             (mconcat [wDhtWorkers kad, utwProd])
@@ -311,7 +308,7 @@ main = do
     args <- getNodeOptions
     let baseParams = getBaseParams "node" args
     if staticPeers args then do
-        allPeers <- S.fromList . map dhtNodeToNodeId <$> getPeersFromArgs args
+        allPeers <- S.fromList . map (snd . dhtNodeToNodeId) <$> getPeersFromArgs args
         bracketResources baseParams TCP.Unaddressable $ \transport -> do
             let transport' = hoistTransport
                     (powerLift :: forall ssc t . Production t -> RawRealMode ssc t)

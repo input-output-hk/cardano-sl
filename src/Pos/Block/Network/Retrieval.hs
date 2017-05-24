@@ -32,9 +32,9 @@ import           Pos.Block.Network.Logic    (handleBlocks, mkBlocksRequest,
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgHeaders (..))
 import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
-import           Pos.Communication.Protocol (ConversationActions (..), NodeId, OutSpecs,
-                                             SendActions (..), WorkerSpec, convH,
-                                             toOutSpecs, worker)
+import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
+                                             NodeId, OutSpecs, SendActions (..),
+                                             WorkerSpec, convH, toOutSpecs, worker)
 import           Pos.Context                (BlockRetrievalQueueTag, ProgressHeaderTag,
                                              RecoveryHeaderTag)
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
@@ -123,29 +123,29 @@ retrievalWorkerImpl sendActions =
         handleAll (handleBlockRetrievalE chunk) $
         reportingFatal version $
         workerHandle sendActions chunk
-    handleBlockRetrievalE (peerId, headers) e = do
+    handleBlockRetrievalE (nodeId, headers) e = do
         logWarning $ sformat
-            ("Error handling peerId="%build%", headers="%listJson%": "%shown)
-            peerId (fmap headerHash headers) e
+            ("Error handling nodeId="%build%", headers="%listJson%": "%shown)
+            nodeId (fmap headerHash headers) e
         dropUpdateHeader
-        dropRecoveryHeaderAndRepeat sendActions peerId
+        dropRecoveryHeaderAndRepeat sendActions nodeId
     --
-    handleHeadersRecovery (peerId, rHeader) = do
+    handleHeadersRecovery (nodeId, rHeader) = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
                  \ so we will request more headers"
         whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
-            handleAll (handleHeadersRecoveryE peerId) $
+            handleAll (handleHeadersRecoveryE nodeId) $
             reportingFatal version $
             reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
-            withConnectionTo sendActions peerId $ \_peerData ->
-                requestHeaders mghNext peerId (Just rHeader) limPx
-    handleHeadersRecoveryE peerId e = do
+            withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
+                requestHeaders mghNext nodeId (Just rHeader) limPx
+    handleHeadersRecoveryE nodeId e = do
         logWarning $ sformat
             ("Failed while trying to get more headers "%
-             "for recovery from peerId="%build%", error: "%shown)
-            peerId e
+             "for recovery from nodeId="%build%", error: "%shown)
+            nodeId e
         dropUpdateHeader
-        dropRecoveryHeaderAndRepeat sendActions peerId
+        dropRecoveryHeaderAndRepeat sendActions nodeId
 
 dropUpdateHeader :: WorkMode ssc m => m ()
 dropUpdateHeader = do
@@ -155,36 +155,36 @@ dropUpdateHeader = do
 -- | The returned 'Bool' signifies whether given peer was kicked and recovery
 -- was stopped.
 --
--- NB. The reason @peerId@ is passed is that we want to avoid a race
+-- NB. The reason @nodeId@ is passed is that we want to avoid a race
 -- condition. If you work with peer P and header H, after failure you want to
 -- drop communication with P; however, if at the same time a new block
 -- arrives and another thread replaces peer and header to (P2, H2), you want
 -- to continue working with P2 and ignore the exception that happened with P.
--- So, @peerId@ is used to check that the peer wasn't replaced mid-execution.
+-- So, @nodeId@ is used to check that the peer wasn't replaced mid-execution.
 dropRecoveryHeader
     :: WorkMode ssc m
     => NodeId
     -> m Bool
-dropRecoveryHeader peerId = do
+dropRecoveryHeader nodeId = do
     recHeaderVar <- Ether.ask @RecoveryHeaderTag
     (kicked,realPeer) <- atomically $ do
         let processKick (peer,_) = do
-                let p = peer == peerId
+                let p = peer == nodeId
                 when p $ void $ tryTakeTMVar recHeaderVar
                 pure (p, Just peer)
         maybe (pure (True,Nothing)) processKick =<< tryReadTMVar recHeaderVar
     when kicked $ logWarning $
-        sformat ("Recovery mode communication dropped with peer "%build) peerId
+        sformat ("Recovery mode communication dropped with peer "%build) nodeId
     unless kicked $
         logDebug $ "Recovery mode wasn't disabled: " <>
-                   maybe "noth" show realPeer <> " vs " <> show peerId
+                   maybe "noth" show realPeer <> " vs " <> show nodeId
     pure kicked
 
 dropRecoveryHeaderAndRepeat
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m -> NodeId -> m ()
-dropRecoveryHeaderAndRepeat sendActions peerId = do
-    kicked <- dropRecoveryHeader peerId
+dropRecoveryHeaderAndRepeat sendActions nodeId = do
+    kicked <- dropRecoveryHeader nodeId
     when kicked $ attemptRestartRecovery
   where
     attemptRestartRecovery = do
@@ -203,17 +203,17 @@ workerHandle
     => SendActions m
     -> (NodeId, NewestFirst NE (BlockHeader ssc))
     -> m ()
-workerHandle sendActions (peerId, headers) = do
+workerHandle sendActions (nodeId, headers) = do
     logDebug $ sformat
-        ("retrievalWorker: handling peerId="%build%", headers="%listJson)
-        peerId (fmap headerHash headers)
+        ("retrievalWorker: handling nodeId="%build%", headers="%listJson)
+        nodeId (fmap headerHash headers)
     classificationRes <- classifyHeaders' headers
     let newestHeader = headers ^. _Wrapped . _neHead
         newestHash = headerHash newestHeader
         oldestHash = headerHash $ headers ^. _Wrapped . _neLast
     case classificationRes of
         CHsValid lcaChild ->
-            void $ handleCHsValid sendActions peerId lcaChild newestHash
+            void $ handleCHsValid sendActions nodeId lcaChild newestHash
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid reason ->
@@ -244,13 +244,14 @@ handleCHsValid
     -> BlockHeader ssc
     -> HeaderHash
     -> m ()
-handleCHsValid sendActions peerId lcaChild newestHash = do
+handleCHsValid sendActions nodeId lcaChild newestHash = do
     let lcaChildHash = headerHash lcaChild
     logDebug $ sformat validFormat lcaChildHash newestHash
     reifyMsgLimit (Proxy @(MsgBlock ssc)) $ \(_ :: Proxy s0) ->
-      withConnectionTo sendActions peerId $
-      \_peerData (conv :: ConversationActions MsgGetBlocks
-            (LimitedLength s0 (MsgBlock ssc)) m) -> do
+      withConnectionTo sendActions nodeId $
+      \_ -> pure $ Conversation $
+          \(conv :: ConversationActions MsgGetBlocks
+             (LimitedLength s0 (MsgBlock ssc)) m) -> do
         send conv $ mkBlocksRequest lcaChildHash newestHash
         chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
         recHeaderVar <- Ether.ask @RecoveryHeaderTag
@@ -259,13 +260,13 @@ handleCHsValid sendActions peerId lcaChild newestHash = do
                 logWarning $ sformat
                     ("Error retrieving blocks from "%shortHashF%
                      " to "%shortHashF%" from peer "%build%": "%stext)
-                    lcaChildHash newestHash peerId e
-                dropRecoveryHeaderAndRepeat sendActions peerId
+                    lcaChildHash newestHash nodeId e
+                dropRecoveryHeaderAndRepeat sendActions nodeId
             Right blocks -> do
                 logDebug $ sformat
                     ("retrievalWorker: retrieved blocks "%listJson)
                     (map (headerHash . view blockHeader) blocks)
-                handleBlocks peerId blocks sendActions
+                handleBlocks nodeId blocks sendActions
                 dropUpdateHeader
                 -- If we've downloaded any block with bigger
                 -- difficulty than ncrecoveryheader, we're

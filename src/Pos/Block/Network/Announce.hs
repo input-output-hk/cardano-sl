@@ -9,6 +9,7 @@ module Pos.Block.Network.Announce
 
 import           Universum
 
+import           Control.Monad.Except       (runExceptT)
 import           Data.Reflection            (Reifies)
 import qualified Ether
 import           Formatting                 (build, sformat, (%))
@@ -93,7 +94,8 @@ handleHeadersCommunication conv _ = do
                 ([], Just h)  ->
                     maybeToRight "getBlockHeader returned Nothing" . fmap one <$>
                     DB.blkGetHeader @ssc h
-                (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
+                (c1:cxs, _)   -> runExceptT
+                    (getHeadersFromManyTo (c1:|cxs) mghTo)
             either onNoHeaders handleSuccess headers
   where
     -- retrieves header of the newest main block if there's any,

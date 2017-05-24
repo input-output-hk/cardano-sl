@@ -16,8 +16,7 @@ module Pos.Block.Logic.Header
 import           Universum
 
 import           Control.Lens              (_Wrapped)
-import           Control.Monad.Except      (ExceptT (ExceptT), MonadError (throwError),
-                                            runExceptT)
+import           Control.Monad.Except      (MonadError (throwError))
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.Default              (Default (def))
 import           Data.List.NonEmpty        ((<|))
@@ -209,33 +208,33 @@ classifyHeaders headers = do
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
     :: forall ssc m.
-       (DB.MonadBlockDB ssc m, WithLogger m)
+       (DB.MonadBlockDB ssc m, WithLogger m, MonadError Text m)
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
-    -> m (Either Text (NewestFirst NE (BlockHeader ssc)))
-getHeadersFromManyTo checkpoints startM = runExceptT $ do
-    lift $ logDebug $
+    -> m (NewestFirst NE (BlockHeader ssc))
+getHeadersFromManyTo checkpoints startM = do
+    logDebug $
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
                 checkpoints startM
-    validCheckpoints <- toExceptT "Failed to retrieve checkpoints" $
+    validCheckpoints <- noteM "Failed to retrieve checkpoints" $
         nonEmpty . catMaybes <$>
         mapM (DB.blkGetHeader @ssc) (toList checkpoints)
-    tip <- lift GS.getTip
+    tip <- GS.getTip
     unless (all ((/= tip) . headerHash) validCheckpoints) $
         throwError "Found checkpoint that is equal to our tip"
     let startFrom = fromMaybe tip startM
         parentIsCheckpoint bh =
             any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
         whileCond bh = not (parentIsCheckpoint bh)
-    headers <- toExceptT "Failed to load headers by depth" . fmap (_Wrapped nonEmpty) $
+    headers <- noteM "Failed to load headers by depth" . fmap (_Wrapped nonEmpty) $
         DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
     if parentIsCheckpoint $ headers ^. _Wrapped . _neHead
     then pure headers
     else do
         logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
         inMainCheckpoints <-
-            toExceptT "Filtered set of valid checkpoints is empty" $ nonEmpty <$>
+            noteM "Filtered set of valid checkpoints is empty" $ nonEmpty <$>
             filterM (GS.isBlockInMainChain . headerHash)
                     (toList validCheckpoints)
         logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
@@ -243,13 +242,13 @@ getHeadersFromManyTo checkpoints startM = runExceptT $ do
                 maximumBy (comparing getEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
-        res <- toExceptT "loadHeadersUpWhile returned empty list" $
+        res <- noteM "loadHeadersUpWhile returned empty list" $
             pure $ _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
         logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
         pure res
   where
-    toExceptT :: (Monad n) => Text -> n (Maybe a) -> ExceptT Text n a
-    toExceptT r x = ExceptT $ maybeToRight r <$> x
+    noteM :: (MonadError e n) => e -> n (Maybe a) -> n a
+    noteM reason action = note reason =<< action
 
 -- | Given a starting point hash (we take tip if it's not in storage)
 -- it returns not more than 'blkSecurityParam' blocks distributed

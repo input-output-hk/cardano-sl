@@ -26,7 +26,8 @@ import           Pos.Context                 (BlkSemaphore, MonadBlockRetrievalQ
                                               MonadLastKnownHeader, MonadProgressHeader,
                                               MonadRecoveryHeader, MonadSscContext,
                                               NodeParams, StartTime, TxpGlobalSettings)
-import           Pos.DB.Class                (MonadDBCore, MonadDBPure)
+import           Pos.DB.Block                (MonadBlockDB)
+import           Pos.DB.Class                (MonadDBCore)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Discovery.Class         (MonadDiscovery)
 import           Pos.Lrc.Context             (LrcContext)
@@ -60,7 +61,7 @@ type WorkMode ssc m
       , MonadMask m
       , MonadSlots m
       , MonadDBCore m
-      , MonadDBPure m
+      , MonadBlockDB ssc m
       , MonadTxpMem TxpExtra_TMP m
       , MonadRelayMem m
       , MonadDelegation m

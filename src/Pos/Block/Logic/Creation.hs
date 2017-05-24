@@ -108,7 +108,7 @@ createGenesisBlockDo
 createGenesisBlockDo epoch leaders tip = do
     let noHeaderMsg =
             "There is no header is DB corresponding to tip from semaphore"
-    tipHeader <- maybeThrow (DBMalformed noHeaderMsg) =<< DB.getBlockHeader tip
+    tipHeader <- maybeThrow (DBMalformed noHeaderMsg) =<< DB.blkGetHeader tip
     logDebug $ sformat msgTryingFmt epoch tipHeader
     createGenesisBlockFinally tipHeader
   where
@@ -150,7 +150,7 @@ createMainBlock sId pSk =
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
-        tipHeader <- DB.getTipBlockHeader
+        tipHeader <- DB.getTipHeader
         logInfo $ sformat msgFmt tipHeader
         canWrtUs <- usCanCreateBlock
         case (canCreateBlock sId tipHeader, canWrtUs) of

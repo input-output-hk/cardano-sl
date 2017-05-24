@@ -52,7 +52,7 @@ tipMismatchMsg action storedTip attemptedTip =
 -- header's parent hash. Iterates from newest to oldest until meets
 -- first header that's in main chain. O(n).
 lcaWithMainChain
-    :: (MonadDB m, Ssc ssc)
+    :: (MonadDBPure m, Ssc ssc)
     => OldestFirst NE (BlockHeader ssc) -> m (Maybe HeaderHash)
 lcaWithMainChain headers =
     lcaProceed Nothing $
@@ -105,7 +105,7 @@ needRecovery ::
 needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
   where
     isTooOld currentSlot = do
-        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipBlockHeader @ssc
+        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader @ssc
         let distance = getEpochOrSlot currentSlot `diffEpochOrSlot`
                        lastKnownBlockSlot
         pure (distance > slotSecurityParam)

@@ -10,7 +10,7 @@ module Pos.DB.DB
        , initNodeDBs
        , getTip
        , getTipBlock
-       , getTipBlockHeader
+       , getTipHeader
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
        , sanityCheckDB
@@ -39,9 +39,9 @@ import           Pos.Context.Context              (GenesisLeaders, GenesisUtxo,
                                                    NodeParams)
 import           Pos.Context.Functions            (genesisLeadersM)
 import           Pos.Core                         (HeaderHash, headerHash)
-import           Pos.DB.Block                     (getBlock, getBlockHeader,
-                                                   loadBlundsByDepth, loadBlundsWhile,
-                                                   prepareBlockDB)
+import           Pos.DB.Block                     (MonadBlockDB, blkGetBlock,
+                                                   blkGetHeader, loadBlundsByDepth,
+                                                   loadBlundsWhile, prepareBlockDB)
 import           Pos.DB.Class                     (MonadDB, MonadDBPure (..),
                                                    MonadGStateCore (..))
 import           Pos.DB.Error                     (DBError (DBMalformed))
@@ -111,20 +111,20 @@ initNodeDBs = do
     prepareExplorerDB
 #endif
 
--- | Get block corresponding to tip.
+-- | Get 'Block' corresponding to tip.
 getTipBlock
-    :: forall ssc m. (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
+    :: forall ssc m. (MonadBlockDB ssc m)
     => m (Block ssc)
-getTipBlock = getTipSomething @ssc "block" getBlock
+getTipBlock = getTipSomething @ssc "block" blkGetBlock
 
--- | Get BlockHeader corresponding to tip.
-getTipBlockHeader
-    :: forall ssc m. (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
+-- | Get 'BlockHeader' corresponding to tip.
+getTipHeader
+    :: forall ssc m. (SscHelpersClass ssc, MonadDBPure m)
     => m (BlockHeader ssc)
-getTipBlockHeader = getTipSomething @ssc "header" getBlockHeader
+getTipHeader = getTipSomething @ssc "header" blkGetHeader
 
 getTipSomething
-    :: (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
+    :: (SscHelpersClass ssc, MonadDBPure m)
     => Text -> (HeaderHash -> m (Maybe smth)) -> m smth
 getTipSomething smthDescription smthGetter =
     maybe onFailure pure =<< smthGetter =<< getTip
@@ -135,14 +135,14 @@ getTipSomething smthDescription smthGetter =
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
+    :: (MonadBlockDB ssc m, MonadDBPure m)
     => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (SscHelpersClass ssc, MonadDB m, MonadDBPure m)
+    :: (MonadBlockDB ssc m, MonadDBPure m)
     => Word -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 

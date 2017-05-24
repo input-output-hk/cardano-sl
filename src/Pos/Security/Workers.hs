@@ -34,15 +34,14 @@ import           Pos.Core                   (EpochIndex, SlotId (..), addressHas
                                              prevBlockL)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
-import           Pos.DB.Block               (getBlockHeader)
-import           Pos.DB.Class               (MonadDB)
-import           Pos.DB.DB                  (getTipBlockHeader, loadBlundsFromTipByDepth)
+import           Pos.DB.Block               (MonadBlockDB, blkGetHeader)
+import           Pos.DB.DB                  (getTipHeader, loadBlundsFromTipByDepth)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
 import           Pos.Security.Class         (SecurityWorkersClass (..))
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Slotting               (getCurrentSlot, getLastKnownSlotDuration,
                                              onNewSlot)
-import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
+import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              getCommitmentsMap)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
@@ -68,7 +67,7 @@ checkForReceivedBlocksWorker =
     worker requestTipOuts checkForReceivedBlocksWorkerImpl
 
 checkEclipsed
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (MonadBlockDB ssc m)
     => PublicKey -> SlotId -> BlockHeader ssc -> m Bool
 checkEclipsed ourPk slotId x = notEclipsed x
   where
@@ -99,7 +98,7 @@ checkEclipsed ourPk slotId x = notEclipsed x
            | prevBlock == genesisHash -> pure True
            | isGoodBlock header       -> pure True
            | otherwise                ->
-                 getBlockHeader prevBlock >>= \case
+                 blkGetHeader prevBlock >>= \case
                      Just h  -> notEclipsed h
                      Nothing -> onBlockLoadFailure header $> True
 
@@ -114,7 +113,7 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
         ourPk <- Ether.asks' npPublicKey
         let onSlotDefault slotId = do
-                header <- getTipBlockHeader @ssc
+                header <- getTipHeader @ssc
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
         whenJustM getCurrentSlot onSlotDefault
   where

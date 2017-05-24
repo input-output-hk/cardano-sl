@@ -40,7 +40,7 @@ import           Pos.Context             (lrcActionOnEpochReason)
 import           Pos.Core                (EpochIndex, HeaderHash, SharedSeed, SlotId,
                                           epochIndexL, headerHash)
 import           Pos.DB                  (MonadDB, MonadDBPure, SomeBatchOp)
-import           Pos.DB.DB               (getTipBlockHeader)
+import           Pos.DB.DB               (getTipHeader)
 import           Pos.Exception           (assertionFailed)
 import           Pos.Lrc.Context         (LrcContext)
 import qualified Pos.Lrc.DB              as LrcDB
@@ -156,7 +156,7 @@ sscNormalize
        )
     => m ()
 sscNormalize = do
-    tipEpoch <- view epochIndexL <$> getTipBlockHeader @ssc
+    tipEpoch <- view epochIndexL <$> getTipHeader @ssc
     richmenData <- getRichmenFromLrc "sscNormalize" tipEpoch
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem

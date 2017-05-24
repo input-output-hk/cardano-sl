@@ -69,6 +69,7 @@ import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers
 import           Pos.Core                     (Timestamp ())
 import           Pos.Crypto                   (createProxySecretKey, encToPublic)
 import           Pos.DB                       (MonadDBPure, NodeDBs, runDBPureRedirect)
+import           Pos.DB.Block                 (runBlockDBRedirect)
 import           Pos.DB.DB                    (initNodeDBs, openNodeDBs,
                                                runGStateCoreRedirect)
 import           Pos.DB.GState                (getTip)
@@ -170,6 +171,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                       , Tagged @PeerStateTag stateM_
                       ) .
                    runDBPureRedirect .
+                   runBlockDBRedirect .
                    runSlotsDataRedirect .
                    runSlotsRedirect .
                    runBalancesRedirect .
@@ -210,6 +212,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                , Tagged @PeerStateTag stateM
                ) .
            runDBPureRedirect .
+           runBlockDBRedirect .
            runSlotsDataRedirect .
            runSlotsRedirect .
            runBalancesRedirect .

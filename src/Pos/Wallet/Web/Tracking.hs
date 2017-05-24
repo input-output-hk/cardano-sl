@@ -41,10 +41,9 @@ import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
 import           Pos.Crypto.HDDiscovery     (discoverHDAddresses)
 import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
-import           Pos.DB.Class               (MonadDB, MonadDBPure)
+import           Pos.DB.Class               (MonadDB)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
-import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..),
                                              TxOutAux (..), TxUndo, flattenTxPayload,
                                              getTxDistribution, toaOut, topsortTxs,
@@ -64,12 +63,12 @@ import qualified Pos.Wallet.Web.State       as WS
 type CAccModifier = MM.MapModifier CAccountAddress ()
 
 type BlockLockMode ssc m =
-    ( SscHelpersClass ssc
-    , WithLogger m
+    ( WithLogger m
     , Ether.MonadReader' BlkSemaphore m
     , MonadDB m
-    , MonadDBPure m
-    , MonadMask m)
+    , DB.MonadBlockDB ssc m
+    , MonadMask m
+    )
 
 class Monad m => MonadWalletTracking m where
     syncWSetsAtStart :: [EncryptedSecretKey] -> m ()
@@ -157,13 +156,12 @@ syncWSetsWithGState
     :: forall ssc m .
     ( WebWalletModeDB m
     , MonadDB m
-    , MonadDBPure m
-    , WithLogger m
-    , SscHelpersClass ssc)
+    , DB.MonadBlockDB ssc m
+    , WithLogger m)
     => EncryptedSecretKey
     -> m ()
 syncWSetsWithGState encSK = do
-    tipHeader <- DB.getTipBlockHeader @ssc
+    tipHeader <- DB.getTipHeader @ssc
     let wsAddr = encToCAddress encSK
     whenJustM (WS.getWSetSyncTip wsAddr) $ \wsTip ->
         if | wsTip == genesisHash && headerHash tipHeader == genesisHash ->
@@ -173,7 +171,7 @@ syncWSetsWithGState encSK = do
            | otherwise -> sync wsAddr wsTip tipHeader
   where
     sync :: CAddress WS -> HeaderHash -> BlockHeader ssc -> m ()
-    sync wsAddr wsTip tipHeader = DB.getBlockHeader wsTip >>= \case
+    sync wsAddr wsTip tipHeader = DB.blkGetHeader wsTip >>= \case
         Nothing ->
             logWarning $
                 sformat ("Couldn't get block header of walletset "%build

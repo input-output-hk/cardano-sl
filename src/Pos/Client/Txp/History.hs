@@ -208,7 +208,7 @@ instance
             if h == bot
             then return Nothing
             else do
-                header <- DB.getBlockHeader @ssc h >>=
+                header <- DB.runBlockDBRedirect $ DB.blkGetHeader @ssc h >>=
                     maybeThrow (DBMalformed "Best blockchain is non-continuous")
                 let prev = header ^. prevBlockL
                 return $ Just (h, prev)
@@ -218,7 +218,7 @@ instance
             nonCachedHashes = take blkSecurityParam hashList
 
         let blockFetcher h txs = do
-                blk <- lift . lift $ DB.getBlock @ssc h >>=
+                blk <- lift . lift . DB.runBlockDBRedirect $ DB.blkGetBlock @ssc h >>=
                        maybeThrow (DBMalformed "A block mysteriously disappeared!")
                 deriveAddrHistoryPartial txs addrs [blk]
             localFetcher blkTxs = do

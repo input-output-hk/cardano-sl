@@ -124,7 +124,7 @@ type DelegationWorkMode m = (MonadDelegation m, MonadDB m, WithLogger m, MonadDB
 -- block. The block itself should be in DB.
 getPSKsFromThisEpoch
     :: forall ssc m.
-       (SscHelpersClass ssc, MonadDB m)
+       DB.MonadBlockDB ssc m
     => HeaderHash -> m [ProxySKHeavy]
 getPSKsFromThisEpoch tip =
     concatMap (either (const []) (view mainBlockDlgPayload)) <$>
@@ -158,10 +158,10 @@ instance B.Buildable DelegationError where
 -- * Loads `_dwThisEpochPosted` from database
 initDelegation
     :: forall ssc m.
-       (SscHelpersClass ssc, MonadDB m, MonadDelegation m, MonadDBPure m)
+       (MonadIO m, DB.MonadBlockDB ssc m, MonadDelegation m)
     => m ()
 initDelegation = do
-    tip <- DB.getTipBlockHeader @ssc
+    tip <- DB.getTipHeader @ssc
     let tipEpoch = tip ^. epochIndexL
     fromGenesisPsks <-
         map pskIssuerPk <$> (getPSKsFromThisEpoch @ssc) (headerHash tip)
@@ -246,7 +246,7 @@ processProxySKHeavy
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk = do
     curTime <- liftIO getCurrentTime
-    headEpoch <- view epochIndexL <$> DB.getTipBlockHeader @ssc
+    headEpoch <- view epochIndexL <$> DB.getTipHeader @ssc
     richmen <-
         toList <$>
         lrcActionOnEpochReason
@@ -306,10 +306,9 @@ makeLenses ''DelVerState
 -- point of view.
 delegationVerifyBlocks ::
        forall ssc m.
-       ( SscHelpersClass ssc
-       , MonadDB m
+       ( DB.MonadBlockDB ssc m
+       , DB.MonadDB m
        , Ether.MonadReader' LrcContext m
-       , MonadDBPure m
        )
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE [ProxySKHeavy]))
@@ -413,16 +412,16 @@ delegationApplyBlocks blocks = do
 -- rollback arbitrary number of blocks.
 delegationRollbackBlocks
     :: forall ssc m.
-       ( SscHelpersClass ssc
-       , MonadDelegation m
-       , MonadDB m
+       ( MonadDelegation m
+       , DB.MonadDB m
+       , DB.MonadBlockDB ssc m
        , Ether.MonadReader' LrcContext m
        )
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
 delegationRollbackBlocks blunds = do
     tipBlockAfterRollback <-
         maybe (throwM malformedLastParent) pure =<<
-        DB.getBlock @ssc (blunds ^. _Wrapped . _neLast . _1 . prevBlockL)
+        DB.blkGetBlock @ssc (blunds ^. _Wrapped . _neLast . _1 . prevBlockL)
     let epochAfterRollback = tipBlockAfterRollback ^. epochIndexL
     richmen <-
         HS.fromList . toList <$>

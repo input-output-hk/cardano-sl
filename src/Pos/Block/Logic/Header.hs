@@ -79,7 +79,7 @@ classifyNewHeader
 classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
 classifyNewHeader (Right header) = do
     curSlot <- getCurrentSlot
-    tipHeader <- DB.getTipBlockHeader
+    tipHeader <- DB.getTipHeader
     let tipEoS = getEpochOrSlot tipHeader
     let newHeaderEoS = getEpochOrSlot header
     let newHeaderSlot = header ^. headerSlotL
@@ -142,9 +142,9 @@ classifyHeaders
     => NewestFirst NE (BlockHeader ssc)
     -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers = do
-    tipHeader <- DB.getTipBlockHeader @ssc
+    tipHeader <- DB.getTipHeader @ssc
     let tip = headerHash tipHeader
-    haveOldestParent <- isJust <$> DB.getBlockHeader @ssc oldestParentHash
+    haveOldestParent <- isJust <$> DB.blkGetHeader @ssc oldestParentHash
     let headersValid = isVerSuccess $
                        verifyHeaders True (headers & _Wrapped %~ toList)
     needRecovery_ <- needRecovery @ssc
@@ -182,7 +182,7 @@ classifyHeaders headers = do
         lift $ logDebug $
             sformat ("Classifying headers: "%listJson) $ map (view headerHashG) headers
         lca <-
-            MaybeT . DB.getBlockHeader =<<
+            MaybeT . DB.blkGetHeader =<<
             MaybeT (lcaWithMainChain $ toOldestFirst headers)
         let depthDiff = tipHeader ^. difficultyL - lca ^. difficultyL
         lcaChild <- MaybeT $ pure $
@@ -205,7 +205,7 @@ classifyHeaders headers = do
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
     :: forall ssc m.
-       (MonadDB m, MonadDBPure m, SscHelpersClass ssc, CanLog m, HasLoggerName m)
+       (MonadDB m, DB.MonadBlockDB ssc m, CanLog m, HasLoggerName m)
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
@@ -216,7 +216,7 @@ getHeadersFromManyTo checkpoints startM = runExceptT $ do
                 checkpoints startM
     validCheckpoints <- toExceptT "Failed to retrieve checkpoints" $
         nonEmpty . catMaybes <$>
-        mapM (DB.getBlockHeader @ssc) (toList checkpoints)
+        mapM (DB.blkGetHeader @ssc) (toList checkpoints)
     tip <- lift GS.getTip
     unless (all ((/= tip) . headerHash) validCheckpoints) $
         throwError "Found checkpoint that is equal to our tip"
@@ -229,19 +229,19 @@ getHeadersFromManyTo checkpoints startM = runExceptT $ do
     if parentIsCheckpoint $ headers ^. _Wrapped . _neHead
     then pure headers
     else do
-        lift $ logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
+        logDebug $ "getHeadersFromManyTo: giving headers in recovery mode"
         inMainCheckpoints <-
             toExceptT "Filtered set of valid checkpoints is empty" $ nonEmpty <$>
             filterM (GS.isBlockInMainChain . headerHash)
                     (toList validCheckpoints)
-        lift $ logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
+        logDebug $ "getHeadersFromManyTo: got checkpoints in main chain"
         let lowestCheckpoint =
                 maximumBy (comparing getEpochOrSlot) inMainCheckpoints
             loadUpCond _ h = h < recoveryHeadersMessage
-        up <- lift $ GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
+        up <- GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
         res <- toExceptT "loadHeadersUpWhile returned empty list" $
             pure $ _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
-        lift $ logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
+        logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
         pure res
   where
     toExceptT :: (Monad n) => Text -> n (Maybe a) -> ExceptT Text n a
@@ -288,12 +288,12 @@ getHeadersOlderExp upto = do
 -- range @[from..to]@ will be found.
 getHeadersFromToIncl
     :: forall ssc m .
-       (MonadDB m, SscHelpersClass ssc)
+       (DB.MonadBlockDB ssc m)
     => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
 getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist
-    start <- MaybeT $ DB.getBlockHeader @ssc newer
-    end   <- MaybeT $ DB.getBlockHeader @ssc older
+    start <- MaybeT $ DB.blkGetHeader @ssc newer
+    end   <- MaybeT $ DB.blkGetHeader @ssc older
     guard $ getEpochOrSlot start >= getEpochOrSlot end
     let lowerBound = getEpochOrSlot end
     if newer == older
@@ -309,7 +309,7 @@ getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
         | nextHash == genesisHash = mzero
         | nextHash == older = pure $ nextHash <| hashes
         | otherwise = do
-            nextHeader <- MaybeT $ (DB.getBlockHeader @ssc) nextHash
+            nextHeader <- MaybeT $ (DB.blkGetHeader @ssc) nextHash
             guard $ getEpochOrSlot nextHeader > lowerBound
             -- hashes are being prepended so the oldest hash will be the last
             -- one to be prepended and thus the order is OldestFirst

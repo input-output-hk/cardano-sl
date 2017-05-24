@@ -92,7 +92,7 @@ handleHeadersCommunication conv _ = do
                 ([], Nothing) -> Right . one <$> getLastMainHeader
                 ([], Just h)  ->
                     maybeToRight "getBlockHeader returned Nothing" . fmap one <$>
-                    DB.getBlockHeader @ssc h
+                    DB.blkGetHeader @ssc h
                 (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
             either onNoHeaders handleSuccess headers
   where
@@ -103,7 +103,7 @@ handleHeadersCommunication conv _ = do
         (tip :: Block ssc) <- DB.getTipBlock @ssc
         let tipHeader = tip ^. blockHeader
         case tip of
-            Left _  -> fromMaybe tipHeader <$> DB.getBlockHeader (tip ^. prevBlockL)
+            Left _  -> fromMaybe tipHeader <$> DB.blkGetHeader (tip ^. prevBlockL)
             Right _ -> pure tipHeader
     handleSuccess h = do
         onSuccess

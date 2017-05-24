@@ -17,12 +17,13 @@ module Pos.Ssc.GodTossing.Types.Message
 
 import           Control.Lens                  (makePrisms)
 import qualified Data.Text.Buildable           as Buildable
+import           Formatting                    (bprint, build, (%))
 import           Universum
 
 import           Pos.Ssc.GodTossing.Core       (InnerSharesMap, Opening, SignedCommitment,
-                                                VssCertificate)
+                                                VssCertificate, getCertId)
 import           Pos.Ssc.GodTossing.Toss.Types (GtTag (..))
-import           Pos.Types                     (StakeholderId)
+import           Pos.Types                     (StakeholderId, addressHash)
 
 class HasGtTag a where
     toGtTag :: a -> GtTag
@@ -45,17 +46,20 @@ makePrisms ''MCShares
 makePrisms ''MCVssCertificate
 
 instance Buildable MCCommitment where
-    build _ = "commitment contents"
+    build (MCCommitment (pk, _, _))  =
+        bprint ("commitment contents from "%build) $ addressHash pk
 
 instance Buildable MCOpening where
-    build _ = "opening contents"
+    build (MCOpening k _) =
+        bprint ("opening contents from "%build) k
 
 instance Buildable MCShares where
-    build _ = "shares contents"
+    build (MCShares k _) =
+        bprint ("shares contents from "%build) k
 
 instance Buildable MCVssCertificate where
-    build _ = "VSS certificate contents"
-
+    build (MCVssCertificate c) =
+        bprint ("VSS certificate contents from "%build) $ getCertId c
 
 instance HasGtTag MCCommitment where
     toGtTag _ = CommitmentMsg

@@ -59,8 +59,7 @@ data MempoolParams m where
 data InvReqDataParams key contents m =
     InvReqDataParams
         {
-        -- | Same for key. Sometime contents has key inside already, so
-        -- it's redundant to double-pass it everywhere.
+        -- | Get key for given contents.
           contentsToKey :: contents -> m key
 
         -- | Handle inv msg and return whether it's useful or not

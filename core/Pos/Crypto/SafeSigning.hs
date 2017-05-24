@@ -166,6 +166,9 @@ withSafeSigner sk ppGetter action = do
 fakeSigner :: SecretKey -> SafeSigner
 fakeSigner = FakeSigner
 
+-- [CSL-1157] `createProxyCert` and `createProxySecretKey` are not safe and
+--   left here because of their implementation details
+--   in future should be removed completely, now left for compatibility with tests
 
 -- | Proxy certificate creation from secret key of issuer, public key
 -- of delegate and the message space ω.

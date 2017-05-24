@@ -29,10 +29,11 @@ import           Pos.Delegation.Logic          (ConfirmPskLightVerdict (..),
                                                 PskLightVerdict (..),
                                                 processConfirmProxySk,
                                                 processProxySKHeavy, processProxySKLight)
-import           Pos.Types                     (ProxySKHeavy, ProxySKLight, ProxySigLight)
+import           Pos.Delegation.Types          (ProxySKLightConfirmation)
+import           Pos.Types                     (ProxySKHeavy)
 import           Pos.WorkMode.Class            (WorkMode)
 
-instance Buildable (ProxySKLight, ProxySigLight ProxySKLight) where
+instance Buildable ProxySKLightConfirmation where
     build = pairBuilder
 
 -- | Listeners for requests related to delegation processing.
@@ -61,7 +62,9 @@ pskLightRelay = Data $ DataParams $ \pSk -> do
            let proof = proxySign SignProxySK sk pSk pSk -- but still proving is
                                                         -- nothing but fear
            addToRelayQueue (DataOnlyPM (pSk, proof))
-           return False
+
+           -- Broadcasted further for case we have multiple nodes up with same secret key
+           return True
         _ -> return False
   where
     logResult pSk PLAdded =
@@ -108,9 +111,9 @@ confirmPskRelay = Data $ DataParams $ \(pSk, proof) -> do
 --       (WorkMode ssc m)
 --    => (ListenerSpec m, OutSpecs)
 --handleCheckProxySKConfirmed = listenerOneMsg outSpecs $
---    \_ peerId sendActions (CheckProxySKConfirmed pSk :: CheckProxySKConfirmed) -> do
+--    \_ nodeId sendActions (CheckProxySKConfirmed pSk :: CheckProxySKConfirmed) -> do
 --        logDebug $ sformat ("Got request to check if psk: "%build%" was delivered.") pSk
 --        res <- runDelegationStateAction $ isProxySKConfirmed pSk
---        sendTo sendActions peerId $ CheckProxySKConfirmedRes res
+--        sendTo sendActions nodeId $ CheckProxySKConfirmedRes res
 --  where
 --    outSpecs = toOutSpecs [oneMsgH (Proxy :: Proxy CheckProxySKConfirmedRes)]

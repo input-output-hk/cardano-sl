@@ -45,8 +45,8 @@ handleGetHeaders
        (WorkMode ssc m)
     => (ListenerSpec m, OutSpecs)
 handleGetHeaders = listenerConv $ \__ourVerInfo ->
-  SizedCAHandler $ \peerId conv -> do
-      logDebug $ "handleGetHeaders: request from " <> show peerId
+  SizedCAHandler $ \nodeId conv -> do
+      logDebug $ "handleGetHeaders: request from " <> show nodeId
       handleHeadersCommunication conv (convToSProxy conv)
 
 handleGetBlocks
@@ -54,17 +54,17 @@ handleGetBlocks
        (WorkMode ssc m)
     => (ListenerSpec m, OutSpecs)
 handleGetBlocks = listenerConv $ \__ourVerInfo ->
-  SizedCAHandler $ \peerId conv -> do
+  SizedCAHandler $ \nodeId conv -> do
     mbMsg <- fmap (withLimitedLength' $ convToSProxy conv) <$> recv conv
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("Got request on handleGetBlocks: "%build%" from "%build)
-            mgb peerId
+            mgb nodeId
         mHashes <- getHeadersFromToIncl @ssc mgbFrom mgbTo
         case mHashes of
             Just hashes -> do
                 logDebug $ sformat
                     ("handleGetBlocks: started sending blocks to "%build%" one-by-one: "%listJson)
-                    peerId hashes
+                    nodeId hashes
                 for_ hashes $ \hHash -> do
                     block <- maybe failMalformed pure =<< DB.getBlock @ssc hHash
                     send conv (MsgBlock block)
@@ -82,8 +82,8 @@ handleBlockHeaders
        (SscWorkersClass ssc, WorkMode ssc m)
     => (ListenerSpec m, OutSpecs)
 handleBlockHeaders = listenerConv $ \__ourVerInfo ->
-  SizedCAHandler $ \peerId conv -> do
+  SizedCAHandler $ \nodeId conv -> do
     logDebug "handleBlockHeaders: got some unsolicited block header(s)"
     mHeaders <- fmap (withLimitedLength' $ convToSProxy conv) <$> recv conv
     whenJust mHeaders $ \(MsgHeaders headers) ->
-        handleUnsolicitedHeaders (getNewestFirst headers) peerId conv
+        handleUnsolicitedHeaders (getNewestFirst headers) nodeId conv

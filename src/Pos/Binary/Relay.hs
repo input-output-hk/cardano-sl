@@ -11,10 +11,10 @@ import           Pos.Binary.Update                ()
 import           Pos.Communication.Types.Relay    (DataMsg (..), InvMsg (..),
                                                    MempoolMsg (..), ReqMsg (..))
 import           Pos.Crypto                       (hash)
+import           Pos.Delegation.Types             (ProxySKLightConfirmation)
 import           Pos.Ssc.GodTossing.Types.Message (MCCommitment (..), MCOpening (..),
                                                    MCShares (..), MCVssCertificate (..))
-import           Pos.Types                        (ProxySKHeavy, ProxySKLight,
-                                                   ProxySigLight)
+import           Pos.Types                        (ProxySKHeavy, ProxySKLight)
 import           Pos.Update.Core                  (UpdateProposal, UpdateVote (..))
 
 instance (Bi key) => Bi (InvMsg key) where
@@ -71,6 +71,6 @@ instance Bi (DataMsg ProxySKHeavy) where
     put (DataMsg p) = put p
     get = label "DataMsg ProxySKHeavy" $ DataMsg <$> get
 
-instance Bi (DataMsg (ProxySKLight, ProxySigLight ProxySKLight)) where
+instance Bi (DataMsg ProxySKLightConfirmation) where
     put (DataMsg p) = put p
-    get = label "DataMsg (ProxySKLight, ProxySigLight ProxySKLight)" $ DataMsg <$> get
+    get = label "DataMsg ProxySKLightConfirmation" $ DataMsg <$> get

@@ -12,11 +12,11 @@ import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGe
 import           Pos.Communication.MessagePart    (MessagePart (..))
 import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, InvOrData, MempoolMsg,
                                                    ReqMsg)
+import           Pos.Delegation.Types             (ProxySKLightConfirmation)
 import           Pos.Ssc.GodTossing.Types.Message (MCCommitment, MCOpening, MCShares,
                                                    MCVssCertificate)
 import           Pos.Txp.Network.Types            (TxMsgContents)
-import           Pos.Types                        (ProxySKHeavy, ProxySKLight,
-                                                   ProxySigLight)
+import           Pos.Types                        (ProxySKHeavy, ProxySKLight)
 import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote)
 
 varIntMName :: Int -> MessageName
@@ -71,7 +71,7 @@ instance MessagePart ProxySKLight where
 instance MessagePart ProxySKHeavy where
     pMessageName _ = varIntMName 8
 
-instance MessagePart (ProxySKLight, ProxySigLight ProxySKLight) where
+instance MessagePart ProxySKLightConfirmation where
     pMessageName _ = varIntMName 9
 
 instance (MessagePart key) =>

@@ -159,11 +159,15 @@ instance Monoid OutSpecs where
 toOutSpecs :: [(MessageName, HandlerSpec)] -> OutSpecs
 toOutSpecs = OutSpecs . HM.fromList
 
+-- | Data type to represent listeners, provided upon our version info and peerData
+-- received from other node, in and out specs for all listeners which may be provided
 data MkListeners m = MkListeners
         { mkListeners :: VerInfo -> PeerData -> m [Listener m]
-        -- ^ Accepts our ver info and their peerData and returns set of listeners
+        -- ^ Accepts our version info and their peerData and returns set of listeners
         , inSpecs     :: InSpecs
+        -- ^ Aggregated specs for what we accept on incoming connections
         , outSpecs    :: OutSpecs
+        -- ^ Aggregated specs for which outgoing connections we might initiate
         }
 
 instance Monad m => Monoid (MkListeners m) where

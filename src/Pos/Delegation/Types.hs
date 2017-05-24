@@ -10,9 +10,12 @@ module Pos.Delegation.Types
        --, CheckProxySKConfirmedRes (..)
 
          DlgPayload
+       , ProxySKLightConfirmation
        ) where
 
-import           Pos.Core (ProxySKHeavy)
+import           Pos.Core (ProxySKHeavy, ProxySKLight, ProxySigLight)
+
+type ProxySKLightConfirmation = (ProxySKLight, ProxySigLight ProxySKLight)
 
 ---- | Request to check if a node has any info about PSK delivery.
 --data CheckProxySKConfirmed =

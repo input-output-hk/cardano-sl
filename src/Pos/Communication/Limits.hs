@@ -15,6 +15,7 @@ module Pos.Communication.Limits
 
 import           Universum
 
+import qualified Cardano.Crypto.Wallet              as CC
 import           Crypto.Hash                        (Blake2b_224, Blake2b_256)
 import qualified Crypto.PVSS                        as PVSS
 import           Data.Coerce                        (coerce)
@@ -29,11 +30,12 @@ import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
                                                      coinPortionToDouble)
 import           Pos.Crypto                         (AbstractHash, EncShare,
-                                                     ProxySecretKey, ProxySignature,
-                                                     PublicKey, SecretProof,
-                                                     SecretSharingExtra (..), Share,
-                                                     Signature, VssPublicKey)
+                                                     ProxyCert (..), ProxySecretKey (..),
+                                                     ProxySignature (..), PublicKey,
+                                                     SecretProof, SecretSharingExtra (..),
+                                                     Share, Signature (..), VssPublicKey)
 import qualified Pos.DB.Class                       as DB
+import           Pos.Delegation.Types               (ProxySKLightConfirmation)
 import           Pos.Ssc.GodTossing.Arbitrary       ()
 import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..), InnerSharesMap,
                                                      Opening, SignedCommitment,
@@ -42,8 +44,7 @@ import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpenin
                                                      MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Core                       (TxAux)
 import           Pos.Txp.Network.Types              (TxMsgContents (..))
-import           Pos.Types                          (EpochIndex, ProxySKHeavy,
-                                                     ProxySKLight, ProxySigLight)
+import           Pos.Types                          (EpochIndex)
 import           Pos.Update.Core.Types              (UpdateProposal (..), UpdateVote (..))
 
 -- Reexports
@@ -58,8 +59,11 @@ import           Pos.Communication.Limits.Types
 ---- Core and lower
 ----------------------------------------------------------------------------
 
-instance MessageLimitedPure (Signature a) where
+instance MessageLimitedPure CC.XSignature where
     msgLenLimit = 64
+
+instance MessageLimitedPure (Signature a) where
+    msgLenLimit = Signature <$> msgLenLimit
 
 instance MessageLimitedPure PublicKey where
     msgLenLimit = 64
@@ -96,18 +100,28 @@ instance MessageLimitedPure (AbstractHash Blake2b_224 a) where
 instance MessageLimitedPure (AbstractHash Blake2b_256 a) where
     msgLenLimit = 32
 
+instance MessageLimitedPure EpochIndex where
+    msgLenLimit = 10
+
+-----------------------------------------------------------------
+-- Delegation
+-----------------------------------------------------------------
+
+instance MessageLimitedPure (ProxyCert w) where
+    msgLenLimit = ProxyCert <$> msgLenLimit
+
 instance MessageLimitedPure w => MessageLimitedPure (ProxySecretKey w) where
-    msgLenLimit = coerce (msgLenLimit @w)
-                    + 2 * (coerce (msgLenLimit @PublicKey))
-                    + (coerce (msgLenLimit @(Signature w)))
+    msgLenLimit = ProxySecretKey <$> msgLenLimit <+> msgLenLimit
+                                 <+> msgLenLimit <+> msgLenLimit
 
 instance MessageLimitedPure w => MessageLimitedPure (ProxySignature w a) where
-    msgLenLimit = coerce (msgLenLimit @w)
-                    + (coerce (msgLenLimit @PublicKey))
-                    + 2 * (coerce (msgLenLimit @(Signature w)))
+    msgLenLimit = ProxySignature <$> msgLenLimit <+> msgLenLimit
+                                 <+> msgLenLimit <+> msgLenLimit
 
-instance MessageLimitedPure EpochIndex where
-    msgLenLimit = 8
+instance MessageLimitedPure w => MessageLimited (ProxySecretKey w)
+instance MessageLimitedPure w => MessageLimited (ProxySignature w a)
+
+instance MessageLimited ProxySKLightConfirmation
 
 ----------------------------------------------------------------------------
 ---- GodTossing
@@ -158,48 +172,39 @@ instance MessageLimited InnerSharesMap where
 instance MessageLimitedPure VssCertificate where
     msgLenLimit = 171
 
-instance MessageLimited (DataMsg MCCommitment) where
-    type LimitType (DataMsg MCCommitment) =
-        Limit (DataMsg MCCommitment)
-    getMsgLenLimit _ =
-        fmap (DataMsg . MCCommitment)
+instance MessageLimitedPure MCOpening where
+    msgLenLimit = MCOpening <$> msgLenLimit <+> msgLenLimit
+
+instance MessageLimitedPure MCVssCertificate where
+    msgLenLimit = MCVssCertificate <$> msgLenLimit
+
+instance MessageLimited MCOpening
+instance MessageLimited MCVssCertificate
+
+instance MessageLimited MCCommitment where
+    type LimitType MCCommitment = Limit MCCommitment
+    getMsgLenLimit _ = fmap MCCommitment
           <$> getMsgLenLimit (Proxy @SignedCommitment)
 
-instance MessageLimited (DataMsg MCOpening) where
-    type LimitType (DataMsg MCOpening) =
-        Limit (DataMsg MCOpening)
-    getMsgLenLimit _ = pure $ fmap DataMsg $
-        MCOpening <$> msgLenLimit <+> msgLenLimit
-
-instance MessageLimited (DataMsg MCShares) where
-    type LimitType (DataMsg MCShares) =
-        Limit (DataMsg MCShares)
-    getMsgLenLimit _ = (fmap . fmap) DataMsg $
-          (MCShares <$> msgLenLimit <+>) <$>
-            getMsgLenLimit (Proxy @InnerSharesMap)
-
-instance MessageLimited (DataMsg MCVssCertificate) where
-    type LimitType (DataMsg MCVssCertificate) =
-        Limit (DataMsg MCVssCertificate)
-    getMsgLenLimit _ = pure $ fmap DataMsg $
-        MCVssCertificate <$> msgLenLimit
+instance MessageLimited MCShares where
+    type LimitType MCShares = Limit MCShares
+    getMsgLenLimit _ = (MCShares <$> msgLenLimit <+>)
+          <$> getMsgLenLimit (Proxy @InnerSharesMap)
 
 ----------------------------------------------------------------------------
----- Delegation
+---- Data msg
 ----------------------------------------------------------------------------
 
-instance MessageLimitedPure (DataMsg ProxySKLight) where
+-- Binary instances for DataMsg are now separated because we want
+-- to do additional checks in get, but data payload is serialized
+-- in straightforward way
+
+instance MessageLimitedPure a => MessageLimitedPure (DataMsg a) where
     msgLenLimit = DataMsg <$> msgLenLimit
 
-instance MessageLimitedPure (DataMsg ProxySKHeavy) where
-    msgLenLimit = DataMsg <$> msgLenLimit
-
-instance MessageLimitedPure (DataMsg (ProxySKLight, ProxySigLight ProxySKLight)) where
-    msgLenLimit = DataMsg <$> msgLenLimit
-
-instance MessageLimited (DataMsg ProxySKLight)
-instance MessageLimited (DataMsg ProxySKHeavy)
-instance MessageLimited (DataMsg (ProxySKLight, ProxySigLight ProxySKLight))
+instance MessageLimited a => MessageLimited (DataMsg a) where
+    type LimitType (DataMsg a) = LimitType a
+    getMsgLenLimit _ = getMsgLenLimit (Proxy @a)
 
 ----------------------------------------------------------------------------
 ---- Txp
@@ -208,10 +213,8 @@ instance MessageLimited (DataMsg (ProxySKLight, ProxySigLight ProxySKLight))
 instance MessageLimited TxAux where
     getMsgLenLimit _ = Limit <$> DB.gsMaxTxSize
 
-instance MessageLimited (DataMsg TxMsgContents) where
-    getMsgLenLimit _ = do
-        txLimit <- getMsgLenLimit (Proxy @TxAux)
-        return $ DataMsg . TxMsgContents <$> txLimit
+instance MessageLimited TxMsgContents where
+    getMsgLenLimit _ = fmap TxMsgContents <$> getMsgLenLimit (Proxy @TxAux)
 
 ----------------------------------------------------------------------------
 ---- Update System
@@ -229,20 +232,16 @@ instance MessageLimitedPure UpdateVote where
         UpdateVote <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
                    <+> msgLenLimit
 
-instance MessageLimitedPure (DataMsg UpdateVote) where
-    msgLenLimit = DataMsg <$> msgLenLimit
-
-instance MessageLimited (DataMsg UpdateVote)
+instance MessageLimited UpdateVote
 
 instance MessageLimited UpdateProposal where
     getMsgLenLimit _ = Limit <$> DB.gsMaxProposalSize
 
-instance MessageLimited (DataMsg (UpdateProposal, [UpdateVote])) where
+instance MessageLimited (UpdateProposal, [UpdateVote]) where
     getMsgLenLimit _ = do
         proposalLimit <- getMsgLenLimit (Proxy @UpdateProposal)
         voteNumLimit <- updateVoteNumLimit
-        return $
-            DataMsg <$> ((,) <$> proposalLimit <+> vector voteNumLimit)
+        return ((,) <$> proposalLimit <+> vector voteNumLimit)
 
 ----------------------------------------------------------------------------
 ---- Blocks/headers

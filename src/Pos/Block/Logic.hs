@@ -503,7 +503,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     -- if any and create a hashmap of these.
     pskCerts <- do
         let issuers = blocks ^.. _Wrapped . each . _Right . mainBlockLeaderKey
-        GS.getPSKForest $ Left issuers
+        GS.getPskForest $ Left issuers
     verResToMonadError formatAllErrors $
         verifyBlocks curSlot dataMustBeKnown adoptedBVD
         (Just leaders) (Just pskCerts) blocks

@@ -4,16 +4,17 @@
 -- | Part of GState DB which stores data necessary for heavyweight delegation.
 
 module Pos.Delegation.DB
-       ( getPSKByIssuer
-       , getPSKChain
-       , getPSKForest
+       ( getPskByIssuer
+       , getPskChain
+       , getPskForest
        , isIssuerByAddressHash
-       , getDelegationTransitive
+       , getDlgTransitive
+       , getDlgTransitiveReverse
 
        , DelegationOp (..)
 
-       , runPskTransIterator
-       , runPskTransMapIterator
+       , runDlgTransIterator
+       , runDlgTransMapIterator
        ) where
 
 import           Control.Lens         (uses, (%=))
@@ -40,26 +41,26 @@ import           Pos.Types            (ProxySKHeavy, StakeholderId, addressHash)
 
 -- | Retrieves certificate by issuer public key or his
 -- address/stakeholder id, if present.
-getPSKByIssuer
+getPskByIssuer
     :: MonadDB m
     => Either PublicKey StakeholderId -> m (Maybe ProxySKHeavy)
-getPSKByIssuer (either addressHash identity -> issuer) =
+getPskByIssuer (either addressHash identity -> issuer) =
     rocksGetBi (pskKey issuer) =<< getGStateDB
 
 -- | Given an issuer, retrieves all certificate chains starting in
 -- issuer. This function performs a series of consequental db reads so
 -- it must be used under the shared lock.
-getPSKChain
+getPskChain
     :: MonadDB m
     => Either PublicKey StakeholderId -> m DlgMemPool
-getPSKChain = getPSKChainInternal HS.empty
+getPskChain = getPskChainInternal HS.empty
 
--- See doc for 'getPSKTree'. This function also stops traversal if
+-- See doc for 'getPskTree'. This function also stops traversal if
 -- encounters anyone in 'toIgnore' set.
-getPSKChainInternal
+getPskChainInternal
     :: MonadDB m
     => HashSet StakeholderId -> Either PublicKey StakeholderId -> m DlgMemPool
-getPSKChainInternal toIgnore (either addressHash identity -> issuer) =
+getPskChainInternal toIgnore (either addressHash identity -> issuer) =
     fmap (view _1) $ flip execStateT (HM.empty, [issuer], HS.empty) trav
   where
     trav = use _2 >>= \case
@@ -67,9 +68,9 @@ getPSKChainInternal toIgnore (either addressHash identity -> issuer) =
         (x:_) | HS.member x toIgnore -> (_2 %= drop 1) >> trav
         (x:_)                        -> do
             whenM (uses _3 $ HS.member x) $
-                throwM $ DBMalformed "getPSKTree: found a PSK loop"
+                throwM $ DBMalformed "getPskTree: found a PSK loop"
             _2 %= drop 1
-            pskM <- lift $ getPSKByIssuer $ Right x
+            pskM <- lift $ getPskByIssuer $ Right x
             whenJust pskM $ \psk -> do
                 let is = pskIssuerPk psk
                 _1 %= HM.insert is psk
@@ -77,71 +78,82 @@ getPSKChainInternal toIgnore (either addressHash identity -> issuer) =
             trav
 
 -- | Retrieves certificate forest, where given issuers are trees'
--- leaves. Executes 'getPSKChain' for every issuer and merges. This
+-- leaves. Executes 'getPskChain' for every issuer and merges. This
 -- function must be used under outside shared lock.
-getPSKForest
+getPskForest
     :: (MonadDB m)
     => Either [PublicKey] [StakeholderId] -> m DlgMemPool
-getPSKForest (either (fmap addressHash) identity -> issuers) =
+getPskForest (either (fmap addressHash) identity -> issuers) =
     foldlM foldFoo HM.empty (map Right issuers)
   where
     -- Don't revisit branches we retrieved earlier.
-    foldFoo cur = getPSKChainInternal (HS.fromList $ map addressHash $ HM.keys cur)
+    foldFoo cur = getPskChainInternal (HS.fromList $ map addressHash $ HM.keys cur)
 
 -- | Checks if stakeholder is psk issuer.
 isIssuerByAddressHash :: MonadDB m => StakeholderId -> m Bool
-isIssuerByAddressHash = fmap isJust . getPSKByIssuer . Right
+isIssuerByAddressHash = fmap isJust . getPskByIssuer . Right
 
 -- | Given issuer @i@ returns @d@ such that there exists @x1..xn@ with
 -- @i->x1->...->xn->d@.
-getDelegationTransitive :: MonadDB m => PublicKey -> m (Maybe PublicKey)
-getDelegationTransitive iPk = rocksGetBi (transPskKey iPk) =<< getGStateDB
+getDlgTransitive :: MonadDB m => PublicKey -> m (Maybe PublicKey)
+getDlgTransitive iPk = rocksGetBi (transDlgKey iPk) =<< getGStateDB
+
+-- | Reverse map of transitive delegation. Given a delegate @d@
+-- returns all @i@ such that 'getDlgTransitive' returns @d@ on @i@.
+getDlgTransitiveReverse :: MonadDB m => PublicKey -> m [PublicKey]
+getDlgTransitiveReverse dPk =
+    fmap (fromMaybe []) . rocksGetBi (transRevDlgKey dPk) =<< getGStateDB
 
 ----------------------------------------------------------------------------
 -- Batch operations
 ----------------------------------------------------------------------------
 
 data DelegationOp
-    = AddPSK !ProxySKHeavy
-    -- ^ Adds PSK. Overwrites if present.
-    | DelPSK !PublicKey
+    = AddPsk !ProxySKHeavy
+    -- ^ Adds Psk. Overwrites if present.
+    | DelPsk !PublicKey
     -- ^ Removes PSK by issuer PK.
     | AddTransitiveDlg PublicKey PublicKey
     -- ^ Transitive delegation relation adding.
     | DelTransitiveDlg PublicKey
     -- ^ Remove i -> d link for i.
+    | SetTransitiveDlgRev PublicKey [PublicKey]
+    -- ^ Set value to map d -> [i], reverse index of transitive dlg
 
 instance RocksBatchOp DelegationOp where
-    toBatchOp (AddPSK psk)
+    toBatchOp (AddPsk psk)
         | pskIssuerPk psk == pskDelegatePk psk = [] -- panic maybe
         | otherwise =
             [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk)
                        (encodeStrict psk)]
-    toBatchOp (DelPSK issuerPk) = [Rocks.Del $ pskKey $ addressHash issuerPk]
-    toBatchOp (AddTransitiveDlg iPk dPk) = [Rocks.Put (transPskKey iPk) (encodeStrict dPk)]
-    toBatchOp (DelTransitiveDlg iPk) = [Rocks.Del $ transPskKey iPk]
+    toBatchOp (DelPsk issuerPk) = [Rocks.Del $ pskKey $ addressHash issuerPk]
+    toBatchOp (AddTransitiveDlg iPk dPk) = [Rocks.Put (transDlgKey iPk) (encodeStrict dPk)]
+    toBatchOp (DelTransitiveDlg iPk) = [Rocks.Del $ transDlgKey iPk]
+    toBatchOp (SetTransitiveDlgRev dPk []) = [Rocks.Del $ transRevDlgKey dPk]
+    toBatchOp (SetTransitiveDlgRev dPk iPks) =
+        [Rocks.Put (transRevDlgKey dPk) (encodeStrict iPks)]
 
 ----------------------------------------------------------------------------
 -- Iteration
 ----------------------------------------------------------------------------
 
 -- Transitive relation iteration
-data PskTransIter
+data DlgTransIter
 
-instance DBIteratorClass PskTransIter where
-    type IterKey PskTransIter = PublicKey
-    type IterValue PskTransIter = PublicKey
+instance DBIteratorClass DlgTransIter where
+    type IterKey DlgTransIter = PublicKey
+    type IterValue DlgTransIter = PublicKey
     iterKeyPrefix _ = iterTransPrefix
 
-runPskTransIterator
+runDlgTransIterator
     :: forall m a . MonadDB m
-    => DBnIterator PskTransIter a -> m a
-runPskTransIterator = runDBnIterator @PskTransIter _gStateDB
+    => DBnIterator DlgTransIter a -> m a
+runDlgTransIterator = runDBnIterator @DlgTransIter _gStateDB
 
-runPskTransMapIterator
+runDlgTransMapIterator
     :: forall v m a . MonadDB m
-    => DBnMapIterator PskTransIter v a -> (IterType PskTransIter -> v) -> m a
-runPskTransMapIterator = runDBnMapIterator @PskTransIter _gStateDB
+    => DBnMapIterator DlgTransIter v a -> (IterType DlgTransIter -> v) -> m a
+runDlgTransMapIterator = runDBnMapIterator @DlgTransIter _gStateDB
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -151,8 +163,12 @@ runPskTransMapIterator = runDBnMapIterator @PskTransIter _gStateDB
 pskKey :: StakeholderId -> ByteString
 pskKey s = "d/p/" <> encodeStrict s
 
-transPskKey :: PublicKey -> ByteString
-transPskKey = encodeWithKeyPrefix @PskTransIter
+transDlgKey :: PublicKey -> ByteString
+transDlgKey = encodeWithKeyPrefix @DlgTransIter
 
 iterTransPrefix :: ByteString
 iterTransPrefix = "d/t/"
+
+-- Reverse index of iterTransitive
+transRevDlgKey :: PublicKey -> ByteString
+transRevDlgKey pk = "d/tb/" <> encodeStrict pk

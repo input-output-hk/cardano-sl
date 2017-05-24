@@ -16,7 +16,7 @@ import           Universum
 
 import           Pos.DB.Class        (MonadDB)
 import           Pos.DB.GState       (getEffectiveStake, isIssuerByAddressHash,
-                                      runPskTransMapIterator)
+                                      runDlgTransMapIterator)
 import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
 import           Pos.Lrc.Types       (FullRichmenData, RichmenStake)
 import           Pos.Types           (Coin, StakeholderId, addressHash, sumCoins,
@@ -40,7 +40,7 @@ findDelRichUsingPrecomp precomputed t = do
     pure (new `HM.union` (precomputed `HM.difference` (HS.toMap old)))
   where
     computeDelIssMap :: m (HashMap StakeholderId [StakeholderId])
-    computeDelIssMap = runPskTransMapIterator (step mempty) identity
+    computeDelIssMap = runDlgTransMapIterator (step mempty) identity
     step hm =
         nextItem >>= maybe (pure hm) (\(addressHash -> iss, addressHash -> del) -> do
         let curList = HM.lookupDefault [] del hm

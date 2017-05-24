@@ -29,7 +29,7 @@ import           Pos.Context                 (npPublicKey)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.Class                (MonadDBCore)
-import           Pos.DB.GState               (getPSKByIssuer)
+import           Pos.DB.GState               (getPskByIssuer)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Slotting                (currentTimeSlotting,
@@ -114,7 +114,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
                       map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
         logLeadersF $ sformat ("Current slot leader: "%build) leader
         logDebugS $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
-        heavyPskM <- getPSKByIssuer (Right leader)
+        heavyPskM <- getPskByIssuer (Right leader)
         logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
         let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
         let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM

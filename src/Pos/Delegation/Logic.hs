@@ -33,57 +33,58 @@ module Pos.Delegation.Logic
        , isProxySKConfirmed
        ) where
 
-import           Control.Exception        (Exception (..))
-import           Control.Lens             (at, makeLenses, uses, (%%=), (%=), (+=), (-=),
-                                           (.=), _Wrapped)
-import           Control.Monad.Except     (runExceptT, throwError)
-import qualified Data.Cache.LRU           as LRU
-import qualified Data.HashMap.Strict      as HM
-import qualified Data.HashSet             as HS
-import           Data.List                (partition)
-import qualified Data.Text.Buildable      as B
-import           Data.Time.Clock          (UTCTime, addUTCTime, getCurrentTime)
+import           Control.Exception          (Exception (..))
+import           Control.Lens               (at, makeLenses, uses, (%%=), (%=), (+=),
+                                             (-=), (.=), _Wrapped)
+import           Control.Monad.Except       (runExceptT, throwError)
+import qualified Data.Cache.LRU             as LRU
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.HashSet               as HS
+import           Data.List                  (partition)
+import qualified Data.Text.Buildable        as B
+import           Data.Time.Clock            (UTCTime, addUTCTime, getCurrentTime)
 import qualified Ether
-import           Formatting               (bprint, build, sformat, stext, (%))
-import           System.Wlog              (WithLogger)
+import           Formatting                 (bprint, build, sformat, stext, (%))
+import           System.Wlog                (WithLogger)
 import           Universum
 
-import           Pos.Binary.Class         (biSize)
-import           Pos.Binary.Communication ()
-import           Pos.Block.Core           (Block, mainBlockDlgPayload)
-import           Pos.Block.Types          (Blund, Undo (undoPsk))
-import           Pos.Constants            (lightDlgConfirmationTimeout, memPoolLimitRatio,
-                                           messageCacheTimeout)
-import           Pos.Context              (NodeParams (..), lrcActionOnEpochReason)
-import           Pos.Core                 (HeaderHash, addressHash, bvdMaxBlockSize,
-                                           epochIndexL, headerHash, prevBlockL)
-import           Pos.Crypto               (ProxySecretKey (..), PublicKey,
-                                           SignTag (SignProxySK), pdDelegatePk,
-                                           proxyVerify, shortHashF, toPublic,
-                                           verifyProxySecretKey)
-import           Pos.DB                   (DBError (DBMalformed), MonadDB,
-                                           SomeBatchOp (..))
-import qualified Pos.DB                   as DB
-import qualified Pos.DB.Block             as DB
-import qualified Pos.DB.DB                as DB
-import qualified Pos.DB.GState            as GS
-import qualified Pos.DB.Misc              as Misc
-import           Pos.Delegation.Class     (DelegationWrap (..), DlgMemPool,
-                                           MonadDelegation, askDelegationState,
-                                           dwConfirmationCache, dwEpochId, dwMessageCache,
-                                           dwPoolSize, dwProxySKPool, dwThisEpochPosted)
-import           Pos.Delegation.Pure      (dlgMemPoolDetectLoop)
-import           Pos.Delegation.Types     (SendProxySK (..))
-import           Pos.Exception            (cardanoExceptionFromException,
-                                           cardanoExceptionToException)
-import           Pos.Lrc.Context          (LrcContext)
-import qualified Pos.Lrc.DB               as LrcDB
-import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
-import           Pos.Types                (ProxySKHeavy, ProxySKLight, ProxySigLight)
-import           Pos.Util                 (withReadLifted, withWriteLifted, _neHead,
-                                           _neLast)
-import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Util.LRU             (filterLRU)
+import           Pos.Binary.Class           (biSize)
+import           Pos.Binary.Communication   ()
+import           Pos.Block.Core             (Block, mainBlockDlgPayload)
+import           Pos.Block.Types            (Blund, Undo (undoPsk))
+import           Pos.Constants              (lightDlgConfirmationTimeout,
+                                             memPoolLimitRatio, messageCacheTimeout)
+import           Pos.Context                (NodeParams (..), lrcActionOnEpochReason)
+import           Pos.Core                   (HeaderHash, addressHash, bvdMaxBlockSize,
+                                             epochIndexL, headerHash, prevBlockL)
+import           Pos.Crypto                 (ProxySecretKey (..), PublicKey,
+                                             SignTag (SignProxySK), pdDelegatePk,
+                                             proxyVerify, shortHashF, toPublic,
+                                             verifyProxySecretKey)
+import           Pos.DB                     (DBError (DBMalformed), MonadDB,
+                                             SomeBatchOp (..))
+import qualified Pos.DB                     as DB
+import qualified Pos.DB.Block               as DB
+import qualified Pos.DB.DB                  as DB
+import qualified Pos.DB.GState              as GS
+import qualified Pos.DB.Misc                as Misc
+import           Pos.Delegation.Class       (DelegationWrap (..), DlgMemPool,
+                                             MonadDelegation, askDelegationState,
+                                             dwConfirmationCache, dwEpochId,
+                                             dwMessageCache, dwPoolSize, dwProxySKPool,
+                                             dwThisEpochPosted)
+import           Pos.Delegation.Pure        (dlgMemPoolDetectLoop)
+import           Pos.Delegation.Types       (SendProxySK (..))
+import           Pos.Exception              (cardanoExceptionFromException,
+                                             cardanoExceptionToException)
+import           Pos.Lrc.Context            (LrcContext)
+import qualified Pos.Lrc.DB                 as LrcDB
+import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
+import           Pos.Types                  (ProxySKHeavy, ProxySKLight, ProxySigLight)
+import           Pos.Util                   (_neHead, _neLast)
+import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Concurrent.RWLock as RWL
+import           Pos.Util.LRU               (filterLRU)
 
 ----------------------------------------------------------------------------
 -- Different helpers to simplify logic
@@ -341,9 +342,7 @@ delegationVerifyBlocks blocks = do
         if inAdded
         then dvPSKMapAdded %= HM.delete issuer
         else dvPSKSetRemoved %= HS.insert issuer
-    verifyBlock _ (Left _) = do
-        dvCurEpoch .= HS.empty
-        pure []
+    verifyBlock _ (Left _) = [] <$ (dvCurEpoch .= HS.empty)
     verifyBlock richmen (Right blk) = do
         let proxySKs = view mainBlockDlgPayload blk
             issuers = map pskIssuerPk proxySKs
@@ -481,7 +480,7 @@ processProxySKLight psk = do
     sk <- Ether.asks' npSecretKey
     curTime <- liftIO getCurrentTime
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
-    psks <- withReadLifted miscLock Misc.getProxySecretKeys
+    psks <- RWL.withRead miscLock Misc.getProxySecretKeys
     res <- runDelegationStateAction $ do
         let related = toPublic sk == pskDelegatePk psk
             exists = psk `elem` psks
@@ -497,9 +496,9 @@ processProxySKLight psk = do
                   | not related -> PLUnrelated
                   | otherwise -> PLAdded
     -- (2) We're writing to DB
-    when (res == PLAdded) $ withWriteLifted miscLock $
+    when (res == PLAdded) $ RWL.withWrite miscLock $
         Misc.addProxySecretKey psk
-    when (res == PLRemoved) $ withWriteLifted miscLock $
+    when (res == PLRemoved) $ RWL.withWrite miscLock $
         Misc.removeProxySecretKey $ pskIssuerPk psk
     pure res
 

@@ -440,7 +440,6 @@ library
                       , cardano-sl-lrc
                       , cardano-sl-update
                       , cereal
-                      , concurrent-extra
                       , conduit >= 1.2.8
                       , containers
                       , cryptonite >= 0.23 && <= 0.23

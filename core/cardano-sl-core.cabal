@@ -66,6 +66,9 @@ library
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Version
 
+                       Pos.Util.Concurrent
+                       Pos.Util.Concurrent.RWLock
+                       Pos.Util.Concurrent.RWVar
                        Pos.Util.Chrono
                        Pos.Util.Config
                        Pos.Util.HVect
@@ -100,6 +103,7 @@ library
                      , bytestring
                      , cardano-crypto
                      , cereal
+                     , concurrent-extra
                      , containers
                      , cryptonite
                      , cryptonite-openssl >= 0.5
@@ -126,6 +130,7 @@ library
                      , safecopy
                      , semigroups
                      , serokell-util
+                     , stm
                      , tagged
                      , template-haskell
                      , text

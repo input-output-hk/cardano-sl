@@ -419,6 +419,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
                         else runBalanceIterBootstrap $
                              followTheSatoshiM genesisSeed genesisFakeTotalStake
     ucMemState <- newMemVar
+    ucDownloadingUpdates <- newTVarIO mempty
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty

@@ -66,6 +66,7 @@ backupMnemonicLen = 12
 paperVendMnemonicLen :: Int
 paperVendMnemonicLen = 9
 
+-- NOTE: if you will be bumping bip39 to >=2.2.0 be aware of https://issues.serokell.io/issue/VD-95 . In this case you will have to modify how we validate paperVendMnemonics.
 mkBackupPhrase :: Int -> String -> Either Error BackupPhrase
 mkBackupPhrase len mnemonic = mkBackupPhraseIgnoreChecksum len mnemonic >>= const do
     if not $ isValidMnemonic mnemonicCleaned
@@ -162,6 +163,7 @@ mkCWalletRedeem seed wAddress = do
                      , crSeed: seed
                      }
 
+-- NOTE: if you will be bumping bip39 to >=2.2.0 be aware of https://issues.serokell.io/issue/VD-95 . In this case you will have to modify how we validate paperVendMnemonics.
 mkCPaperVendWalletRedeem :: String -> String -> CWalletAddress -> Either Error CT.CPaperVendWalletRedeem
 mkCPaperVendWalletRedeem seed mnemonic wAddress = do
     bp <- mkBackupPhrase paperVendMnemonicLen mnemonic

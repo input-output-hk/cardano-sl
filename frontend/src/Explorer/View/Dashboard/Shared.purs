@@ -3,6 +3,7 @@ module Explorer.View.Dashboard.Shared (headerView) where
 import Data.Maybe (Maybe(..))
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
+import Explorer.View.Common (emptyView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Pux.Html (Html, div, h3, text) as P
 import Pux.Html.Attributes (className) as P
@@ -26,4 +27,4 @@ headerView state (HeaderOptions options) =
               P.div
                   [ P.className "more__link bg-arrow-right" ]
                   [ P.text link'.label ]
-          Nothing -> P.div [] []
+          Nothing -> emptyView

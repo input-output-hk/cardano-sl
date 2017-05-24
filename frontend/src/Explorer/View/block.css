@@ -100,6 +100,24 @@
     }
   }
 
+  .summary-empty {
+
+    &__container {
+      padding: 10px 18px;
+
+      font-size: 10px;
+      font-family: var(--fontFamily0-Regular);
+      color: var(--color13);
+
+    }
+
+    @media (--md) {
+      &__container {
+          padding: 10px 24px;
+      }
+    }
+  }
+
   .transaction-header {
     background-color: var(--color7); /* overridden */
   }

@@ -108,7 +108,8 @@ translation =
         , blPrevBlock: "Vorheriger Slot"
         , blNextBlock: "Nächster Slot"
         , blRoot: "Oberer Slot"
-        , blNotFound: "Epoche / Slot existiert nicht."
+        , blEpochSlotNotFound: "Epoche / Slot existiert nicht."
+        , blSlotNotFound: "Slot existiert nicht."
         }
     , footer:
         { fooResources: "Ressourcen"

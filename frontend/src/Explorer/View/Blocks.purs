@@ -15,7 +15,7 @@ import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.String (take)
 import Data.Time.Duration (Milliseconds)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (block, blNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
+import Explorer.I18n.Lenses (block, blEpochSlotNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
 import Explorer.Lenses.State (blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
@@ -100,7 +100,7 @@ failureView lang =
         []
         [ P.p
             [ P.className CSS.blocksFailed ]
-            [ P.text $ translate (I18nL.block <<< I18nL.blNotFound) lang ]
+            [ P.text $ translate (I18nL.block <<< I18nL.blEpochSlotNotFound) lang ]
         , P.link (toUrl Dashboard)
             [ P.className "btn-back" ]
             [ P.text $ translate (I18nL.common <<< I18nL.cBack2Dashboard) lang ]

@@ -108,7 +108,8 @@ translation =
         , blPrevBlock: "Previous slot"
         , blNextBlock: "Next slot"
         , blRoot: "Merkle root"
-        , blNotFound: "Epoch / slot do not exist."
+        , blEpochSlotNotFound: "Epoch / slot do not exist."
+        , blSlotNotFound: "Slot does not exist."
         }
     , footer:
         { fooResources: "Resources"

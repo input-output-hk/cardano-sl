@@ -4,6 +4,7 @@ module Explorer.View.Common (
     , txBodyView
     , emptyTxBodyView
     , emptyTxHeaderView
+    , emptyView
     , getMaxPaginationNumber
     , mkTxHeaderViewProps
     , class TxHeaderViewPropsFactory
@@ -27,7 +28,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
-import Explorer.I18n.Lenses (common, cDateFormat, tx, txEmpty) as I18nL
+import Explorer.I18n.Lenses (common, cDateFormat) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (initialState)
@@ -314,10 +315,10 @@ getMaxPaginationNumber quantity max =
 -- txs empty view
 -- -----------------
 
-txEmptyContentView :: Language -> P.Html Action
-txEmptyContentView lang = P.div
+txEmptyContentView :: String -> P.Html Action
+txEmptyContentView message = P.div
                         [ P.className "tx-empty__container" ]
-                        [ P.text $ translate (I18nL.tx <<< I18nL.txEmpty) lang ]
+                        [ P.text message ]
 
 -- -----------------
 -- logo
@@ -402,3 +403,6 @@ placeholderView label =
     P.div
         [ P.className "explorer-dashboard__content" ]
         [ P.text label ]
+
+emptyView :: P.Html Action
+emptyView = P.div [] []

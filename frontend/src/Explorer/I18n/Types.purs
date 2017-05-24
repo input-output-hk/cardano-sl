@@ -138,7 +138,8 @@ type Block =
     , blPrevBlock :: String
     , blNextBlock :: String
     , blRoot :: String
-    , blNotFound :: String
+    , blEpochSlotNotFound :: String
+    , blSlotNotFound :: String
     }
 
 -- translations of footer

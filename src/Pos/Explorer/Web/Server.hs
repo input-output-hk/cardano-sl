@@ -212,7 +212,7 @@ getLastBlocks limit offset = do
     let foundEndHeaderHash  = foundEndBlock ^. headerHashG
 
     -- Take blocks until you reach the start index.
-    let takeBlocks block    = getBlockIndex block > blocksStartIndex
+    let takeBlocks block    = getBlockIndex block >= blocksStartIndex
 
     -- Now we can reuse an existing function to fetch blocks.
     foundBlocks   <- DB.loadBlocksWhile @SscGodTossing takeBlocks foundEndHeaderHash
@@ -251,7 +251,7 @@ getLastBlocks limit offset = do
             let prevBlock = block ^. prevBlockL
 
             if getBlockIndex block == index
-                -- When the predicate is true, return the block
+                -- When the predicate is true, return the @Main@ block
                 then pure $ block ^? _Right
                 -- When the predicate is false, keep searching backwards
                 else findMainBlockWithIndex prevBlock index

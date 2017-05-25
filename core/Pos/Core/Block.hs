@@ -79,7 +79,11 @@ class Blockchain p where
 
 -- | Extension of 'Blockchain' type class with helper functions.
 class Blockchain p => BlockchainHelpers p where
+    -- | Verify consistency of block header. This function should do
+    -- all checks which can be done without any extra data.
     verifyBBlockHeader :: MonadError Text m => GenericBlockHeader p -> m ()
+    -- | Verify consistency of block. This function should do
+    -- all checks which can be done without any extra data.
     verifyBBlock :: MonadError Text m => GenericBlock p -> m ()
 
 ----------------------------------------------------------------------------

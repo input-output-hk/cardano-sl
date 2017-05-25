@@ -28,13 +28,15 @@ import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBloc
                                              MainExtraHeaderData (..), mkGenesisBlock,
                                              mkMainBlock)
 import qualified Pos.Block.Core             as BC
-import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, toUpdateBlock)
+import           Pos.Block.Logic.Internal   (BlockApplyMode, applyBlocksUnsafe,
+                                             toUpdateBlock)
 import           Pos.Block.Logic.Util       (withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Types            (Undo (..))
 import           Pos.Constants              (curSoftwareVersion, lastKnownBlockVersion,
                                              slotSecurityParam)
-import           Pos.Context                (lrcActionOnEpochReason, npSecretKey)
+import           Pos.Context                (BlkSemaphore, NodeParams,
+                                             lrcActionOnEpochReason, npSecretKey)
 import           Pos.Core                   (EpochIndex, EpochOrSlot (..), HeaderHash,
                                              ProxySKEither, SlotId (..), SlotLeaders,
                                              crucialSlot, epochOrSlot, flattenSlotId,
@@ -62,7 +64,12 @@ import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
 import           Pos.Update.Poll            (PollModifier)
 import           Pos.Util                   (maybeThrow, _neHead)
 import           Pos.Util.Util              (leftToPanic)
-import           Pos.WorkMode.Class         (WorkMode)
+
+type CreationMode ssc m
+     = ( BlockApplyMode ssc m
+       , Ether.MonadReader' BlkSemaphore m
+       , Ether.MonadReader' NodeParams m
+       )
 
 ----------------------------------------------------------------------------
 -- GenesisBlock creation
@@ -80,7 +87,7 @@ import           Pos.WorkMode.Class         (WorkMode)
 -- [CSL-481] We can consider doing it though.
 createGenesisBlock
     :: forall ssc m.
-       WorkMode ssc m
+       CreationMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlock epoch = reportingFatal version $ do
     leadersOrErr <-
@@ -103,7 +110,7 @@ shouldCreateGenesisBlock epoch headEpochOrSlot =
 
 createGenesisBlockDo
     :: forall ssc m.
-       WorkMode ssc m
+       BlockApplyMode ssc m
     => EpochIndex
     -> SlotLeaders
     -> HeaderHash
@@ -144,7 +151,7 @@ createGenesisBlockDo epoch leaders tip = do
 -- given SlotId
 createMainBlock
     :: forall ssc m.
-       (WorkMode ssc m)
+       (CreationMode ssc m)
     => SlotId
     -> Maybe ProxySKEither
     -> m (Either Text (MainBlock ssc))
@@ -187,7 +194,7 @@ canCreateBlock sId tipHeader
 -- Here we assume that blkSemaphore has been taken.
 createMainBlockFinish
     :: forall ssc m.
-       (WorkMode ssc m)
+       (CreationMode ssc m)
     => SlotId
     -> Maybe ProxySKEither
     -> BlockHeader ssc

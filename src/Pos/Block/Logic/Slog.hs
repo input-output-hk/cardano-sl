@@ -18,6 +18,7 @@ module Pos.Block.Logic.Slog
 
        , SlogApplyMode
        , slogApplyBlocks
+       , slogRollbackBlocks
        ) where
 
 import           Universum
@@ -28,6 +29,7 @@ import qualified Data.HashMap.Strict   as HM
 import qualified Data.List.NonEmpty    as NE
 import qualified Ether
 import           Formatting            (build, sformat, (%))
+import           Serokell.Util         (Color (Red), colorize)
 import           Serokell.Util.Verify  (formatAllErrors, verResToMonadError)
 import           System.Wlog           (WithLogger, logWarning)
 
@@ -45,12 +47,14 @@ import           Pos.DB.Block          (putBlund)
 import           Pos.DB.Class          (MonadDB, MonadDBPure)
 import           Pos.DB.DB             (sanityCheckDB)
 import qualified Pos.DB.GState         as GS
+import           Pos.Exception         (assertionFailed)
 import           Pos.Lrc.Context       (LrcContext)
 import qualified Pos.Lrc.DB            as LrcDB
 import           Pos.Slotting          (MonadSlots (getCurrentSlot), putSlottingData)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
-import           Pos.Util              (_neHead)
-import           Pos.Util.Chrono       (NE, OldestFirst (getOldestFirst))
+import           Pos.Util              (inAssertMode, _neHead, _neLast)
+import           Pos.Util.Chrono       (NE, NewestFirst (getNewestFirst),
+                                        OldestFirst (getOldestFirst))
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -177,3 +181,37 @@ slogApplyBlocks blunds = do
     -- ↓ was written by @pva701
     logWarn :: SomeException -> m ()
     logWarn = logWarning . sformat ("onApplyBlocks raised exception: " %build)
+
+-- | This function does everything that should be done when rollback
+-- happens and that is not done in other components.
+slogRollbackBlocks ::
+       forall ssc m. SlogApplyMode ssc m
+    => NewestFirst NE (Blund ssc)
+    -> m SomeBatchOp
+slogRollbackBlocks blunds = do
+    inAssertMode $
+        when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
+        assertionFailed $
+        colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
+    -- If program is interrupted after call @onRollbackBlocks@,
+    -- we will load all wallet set not rolled yet at the next launch.
+    onRollbackBlocks blunds `catch` logWarn
+    let putTip = SomeBatchOp $
+                 GS.PutTip $
+                 headerHash $
+                 (NE.last $ getNewestFirst blunds) ^. prevBlockL
+    sanityCheckDB
+    return $ SomeBatchOp [putTip, forwardLinksBatch, inMainBatch]
+  where
+    blocks = fmap fst blunds
+    inMainBatch =
+        SomeBatchOp . getNewestFirst $
+        fmap (GS.SetInMainChain False . view headerHashG) blocks
+    forwardLinksBatch =
+        SomeBatchOp . getNewestFirst $
+        fmap (GS.RemoveForwardLink . view prevBlockL) blocks
+    isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
+    isGenesis0 (Right _)         = False
+    -- ↓ was written by @pva701
+    logWarn :: SomeException -> m ()
+    logWarn = logWarning . sformat ("onRollbackBlocks raised exception: "%build)

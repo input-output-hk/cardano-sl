@@ -17,25 +17,18 @@ module Pos.Block.Logic.Internal
 import           Universum
 
 import           Control.Lens         (each, _Wrapped)
-import qualified Data.List.NonEmpty   as NE
 import qualified Ether
-import           Formatting           (build, sformat, (%))
 import           Paths_cardano_sl     (version)
-import           Serokell.Util        (Color (Red), colorize)
-import           System.Wlog          (logWarning)
 
-import           Pos.Block.BListener  (MonadBListener (..))
 import           Pos.Block.Core       (Block, GenesisBlock, MainBlock, mbTxPayload,
                                        mbUpdatePayload)
-import           Pos.Block.Logic.Slog (slogApplyBlocks)
+import           Pos.Block.Logic.Slog (slogApplyBlocks, slogRollbackBlocks)
 import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
 import           Pos.Core             (IsGenesisHeader, IsMainHeader, epochIndexL, gbBody,
-                                       gbHeader, headerHash, headerHashG, prevBlockL)
+                                       gbHeader)
 import           Pos.DB               (SomeBatchOp (..))
-import qualified Pos.DB.DB            as DB
 import qualified Pos.DB.GState        as GS
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
-import           Pos.Exception        (assertionFailed)
 import           Pos.Reporting        (reportingFatal)
 import           Pos.Txp.Core         (TxPayload)
 #ifdef WITH_EXPLORER
@@ -49,7 +42,7 @@ import           Pos.Txp.Settings     (TxpBlock, TxpBlund, TxpGlobalSettings (..
 import           Pos.Update.Core      (UpdateBlock, UpdatePayload)
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
-import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLast)
+import           Pos.Util             (Some (..), spanSafe)
 import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode.Class   (WorkMode)
 
@@ -120,45 +113,21 @@ rollbackBlocksUnsafe
     :: forall ssc m .(WorkMode ssc m)
     => NewestFirst NE (Blund ssc) -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal version $ do
-    -- If program is interrupted after call @onRollbackBlocks@,
-    -- we will load all wallet set not rolled yet at the next launch.
-    onRollbackBlocks toRollback `catch` logWarn
-    delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
+    slogRoll <- slogRollbackBlocks toRollback
+    dlgRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- Ether.ask'
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
     sscBatch <- SomeBatchOp <$> sscRollbackBlocks (fmap fst toRollback)
-    let putTip = SomeBatchOp $
-                 GS.PutTip $
-                 headerHash $
-                 (NE.last $ getNewestFirst toRollback) ^. prevBlockL
     GS.writeBatchGState
-        [ putTip
-        , delRoll
+        [ dlgRoll
         , usRoll
         , txRoll
-        , forwardLinksBatch
-        , inMainBatch
         , sscBatch
+        , slogRoll
         ]
-    DB.sanityCheckDB
-    inAssertMode $
-        when (isGenesis0 (toRollback ^. _Wrapped . _neLast . _1)) $
-        assertionFailed $
-        colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
-  where
-    inMainBatch =
-        SomeBatchOp . getNewestFirst $
-        fmap (GS.SetInMainChain False . view headerHashG . fst) toRollback
-    forwardLinksBatch =
-        SomeBatchOp . getNewestFirst $
-        fmap (GS.RemoveForwardLink . view prevBlockL . fst) toRollback
-    isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
-    isGenesis0 (Right _)         = False
-    logWarn :: SomeException -> m ()
-    logWarn = logWarning . sformat ("onRollbackBlocks raised exception: "%build)
 
 ----------------------------------------------------------------------------
 -- Garbage

@@ -985,6 +985,7 @@ executable cardano-swagger
                      , cardano-sl
                      , lens
                      , swagger2
+                     , servant
                      , servant-server
                      , servant-multipart
                      , servant-swagger

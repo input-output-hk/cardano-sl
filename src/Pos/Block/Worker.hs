@@ -25,7 +25,7 @@ import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
                                               onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
-import           Pos.Context                 (npPublicKey)
+import           Pos.Context                 (npPublicKey, recoveryCommGuard)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.Class                (MonadDBCore)
@@ -65,7 +65,7 @@ blkWorkers =
 
 -- Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
-blkOnNewSlot = onNewSlotWorker True announceBlockOuts blkOnNewSlotImpl
+blkOnNewSlot = recoveryCommGuard $ onNewSlotWorker True announceBlockOuts blkOnNewSlotImpl
 
 blkOnNewSlotImpl
     :: WorkMode ssc m

@@ -37,7 +37,8 @@ import           Pos.Communication.Types          (InvOrDataTK)
 import           Pos.Constants                    (mpcSendInterval, slotSecurityParam,
                                                    vssMaxTTL)
 import           Pos.Context                      (SscContextTag, lrcActionOnEpochReason,
-                                                   npPublicKey, npSecretKey)
+                                                   npPublicKey, npSecretKey,
+                                                   recoveryCommGuard)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPublicKey,
                                                    randomNumber, runSecureRandom)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
@@ -88,7 +89,7 @@ instance SscWorkersClass SscGodTossing where
 onNewSlotSsc
     :: (WorkMode SscGodTossing m)
     => (WorkerSpec m, OutSpecs)
-onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions -> do
+onNewSlotSsc = recoveryCommGuard $ onNewSlotWorker True outs $ \slotId sendActions -> do
     richmen <- lrcActionOnEpochReason (siEpoch slotId)
         "couldn't get SSC richmen"
         getRichmenSsc

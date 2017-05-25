@@ -20,21 +20,23 @@ module Pos.Context.Functions
          -- * Misc
        , getUptime
        , recoveryInProgress
+       , recoveryCommGuard
        ) where
 
-import qualified Control.Concurrent.STM as STM
-import           Data.Time              (diffUTCTime, getCurrentTime)
-import           Data.Time.Units        (Microsecond, fromMicroseconds)
+import qualified Control.Concurrent.STM     as STM
+import           Data.Time                  (diffUTCTime, getCurrentTime)
+import           Data.Time.Units            (Microsecond, fromMicroseconds)
 import qualified Ether
 import           Universum
 
-import           Pos.Context.Context    (BlkSemaphore (..), GenesisLeaders (..),
-                                         GenesisUtxo (..), MonadRecoveryHeader,
-                                         RecoveryHeaderTag, StartTime (..))
-import           Pos.Lrc.Context        (lrcActionOnEpoch, lrcActionOnEpochReason,
-                                         waitLrc)
-import           Pos.Txp.Toil.Types     (Utxo)
-import           Pos.Types              (HeaderHash, SlotLeaders)
+import           Pos.Communication.Protocol (ActionSpec (..), OutSpecs, WorkerSpec)
+import           Pos.Context.Context        (BlkSemaphore (..), GenesisLeaders (..),
+                                             GenesisUtxo (..), MonadRecoveryHeader,
+                                             RecoveryHeaderTag, StartTime (..))
+import           Pos.Lrc.Context            (lrcActionOnEpoch, lrcActionOnEpochReason,
+                                             waitLrc)
+import           Pos.Txp.Toil.Types         (Utxo)
+import           Pos.Types                  (HeaderHash, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -83,3 +85,11 @@ recoveryInProgress :: (MonadIO m, MonadRecoveryHeader ssc m) => m Bool
 recoveryInProgress = do
     var <- Ether.ask @RecoveryHeaderTag
     isJust <$> atomically (STM.tryReadTMVar var)
+
+
+
+recoveryCommGuard
+    :: (MonadIO m, MonadRecoveryHeader ssc m)
+    => (WorkerSpec m, OutSpecs) -> (WorkerSpec m, OutSpecs)
+recoveryCommGuard (ActionSpec worker, outs) =
+    (,outs) . ActionSpec $ \vI sA -> unlessM recoveryInProgress $ worker vI sA

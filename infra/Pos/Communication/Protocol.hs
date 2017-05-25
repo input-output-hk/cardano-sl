@@ -204,6 +204,18 @@ type OnNewSlotComm m =
     , MonadDiscovery m
     )
 
+type LocalOnNewSlotComm m =
+    ( MonadIO m
+    , MonadSlots m
+    , MonadMask m
+    , WithLogger m
+    , Mockable Fork m
+    , Mockable Delay m
+    , MonadReportingMem m
+    , MonadShutdownMem m
+    , MonadDiscovery m
+    )
+
 onNewSlot'
     :: OnNewSlotComm m
     => Bool -> Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
@@ -223,16 +235,8 @@ onNewSlotWithLoggingWorker
 onNewSlotWithLoggingWorker b outs = onNewSlot' True b . workerHelper outs
 
 localOnNewSlotWorker
-    :: ( MonadIO m
-       , MonadSlots m
-       , MonadMask m
-       , WithLogger m
-       , Mockable Fork m
-       , Mockable Delay m
-       , MonadReportingMem m
-       , MonadShutdownMem m
-       , MonadDiscovery m
-       ) => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
+    :: LocalOnNewSlotComm m
+    => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
 localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlot b h, mempty)
 
 localWorker :: m () -> (WorkerSpec m, OutSpecs)

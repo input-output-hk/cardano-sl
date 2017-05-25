@@ -100,7 +100,6 @@ applyBlocksUnsafeDo blunds pModifier = do
 #endif
     usNormalize
   where
-    -- hehe it's not unsafe yet TODO
     blocks = fmap fst blunds
 
 -- | Rollback sequence of blocks, head-newest order exepected with

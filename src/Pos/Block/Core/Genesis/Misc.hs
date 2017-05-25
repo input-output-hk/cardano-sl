@@ -1,7 +1,10 @@
+{-# LANGUAGE TypeOperators #-}
+
 -- | Miscellaneous instances, etc. Related to the genesis blockchain of course.
 
 module Pos.Block.Core.Genesis.Misc
-       (
+       ( mkGenesisHeader
+       , mkGenesisBlock
        ) where
 
 import           Universum
@@ -10,18 +13,24 @@ import qualified Data.Text.Buildable          as Buildable
 import           Formatting                   (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util                (Color (Magenta), colorize, listJson)
 
+import           Pos.Binary.Block.Core        ()
 import           Pos.Block.Core.Genesis.Chain (Body (..), ConsensusData (..))
 import           Pos.Block.Core.Genesis.Lens  (gcdDifficulty, gcdEpoch)
 import           Pos.Block.Core.Genesis.Types (GenesisBlock, GenesisBlockHeader,
-                                               GenesisBlockchain)
-import           Pos.Block.Core.Union.Types   (BiHeader, BiSsc, blockHeaderHash)
-import           Pos.Core                     (EpochOrSlot (..), GenericBlock (..),
-                                               GenericBlockHeader (..),
+                                               GenesisBlockchain,
+                                               GenesisExtraBodyData (..),
+                                               GenesisExtraHeaderData (..))
+import           Pos.Block.Core.Union.Types   (BiHeader, BiSsc, BlockHeader,
+                                               blockHeaderHash)
+import           Pos.Core                     (EpochIndex, EpochOrSlot (..),
+                                               GenericBlock (..), GenericBlockHeader (..),
                                                HasDifficulty (..), HasEpochIndex (..),
                                                HasEpochOrSlot (..), HasHeaderHash (..),
                                                HeaderHash, IsGenesisHeader, IsHeader,
-                                               gbHeader, gbhConsensus)
+                                               SlotLeaders, gbHeader, gbhConsensus,
+                                               mkGenericHeader, recreateGenericBlock)
 import           Pos.Crypto                   (hashHexF)
+import           Pos.Data.Attributes          (mkAttributes)
 
 ----------------------------------------------------------------------------
 -- Buildable
@@ -46,7 +55,7 @@ instance BiSsc ssc => Buildable (GenesisBlockHeader ssc) where
         GenesisConsensusData {..} = _gbhConsensus
 
 instance BiSsc ssc => Buildable (GenesisBlock ssc) where
-    build GenericBlock {..} =
+    build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
              "  "%build%
@@ -96,3 +105,41 @@ instance HasDifficulty (GenesisBlock ssc) where
 
 instance BiHeader ssc => IsHeader (GenesisBlockHeader ssc)
 instance BiHeader ssc => IsGenesisHeader (GenesisBlockHeader ssc)
+
+----------------------------------------------------------------------------
+-- Smart constructors
+----------------------------------------------------------------------------
+
+type SanityConstraint ssc
+     = ( HasDifficulty $ BlockHeader ssc
+       , HasHeaderHash $ BlockHeader ssc
+       )
+
+-- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
+mkGenesisHeader
+    :: SanityConstraint ssc
+    => Maybe (BlockHeader ssc)
+    -> EpochIndex
+    -> Body (GenesisBlockchain ssc)
+    -> GenesisBlockHeader ssc
+mkGenesisHeader prevHeader epoch body =
+    mkGenericHeader prevHeader body consensus (GenesisExtraHeaderData $ mkAttributes ())
+  where
+    difficulty = maybe 0 (view difficultyL) prevHeader
+    consensus _ _ =
+        GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
+
+-- | Smart constructor for 'GenesisBlock'.
+mkGenesisBlock
+    :: SanityConstraint ssc
+    => Maybe (BlockHeader ssc)
+    -> EpochIndex
+    -> SlotLeaders
+    -> GenesisBlock ssc
+mkGenesisBlock prevHeader epoch leaders =
+    either disaster identity $ recreateGenericBlock header body extra
+  where
+    header = mkGenesisHeader prevHeader epoch body
+    body = GenesisBody leaders
+    extra = GenesisExtraBodyData $ mkAttributes ()
+    disaster = error . mappend "mkGenesisBlock: "

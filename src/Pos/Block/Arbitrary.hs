@@ -61,11 +61,14 @@ properBlock
     => Gen (T.GenericBlock b)
 properBlock = do
     (prevBlock, consensus, extra) <- arbitrary
-    BodyDependsOnConsensus{..} <- arbitrary
+    BodyDependsOnConsensus {..} <- arbitrary
     body <- genBodyDepsOnConsensus consensus
     let proof = T.mkBodyProof body
         header = T.GenericBlockHeader prevBlock proof consensus extra
-    T.GenericBlock <$> pure header <*> pure body <*> arbitrary
+        construct h b =
+            either (error . mappend "mkGenericBlock: ") identity .
+            T.recreateGenericBlock h b
+    construct <$> pure header <*> pure body <*> arbitrary
 
 ------------------------------------------------------------------------------------------
 -- GenesisBlockchain

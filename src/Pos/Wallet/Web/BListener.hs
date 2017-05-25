@@ -21,7 +21,7 @@ import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Core             (mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Core                   (HeaderHash, headerHash, prevBlockL)
-import           Pos.DB.Class               (MonadDB)
+import           Pos.DB.Class               (MonadDB, MonadDBPure)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux, TxUndo, flattenTxPayload)
 import           Pos.Txp.Toil               (evalToilTEmpty, runDBTxp)
@@ -37,6 +37,7 @@ import           Pos.Wallet.Web.Tracking    (CAccModifier, applyModifierToWSet,
                                              trackingApplyTxs, trackingRollbackTxs)
 
 instance ( MonadDB m
+         , MonadDBPure m
          , MonadMockable m
          , MonadKeys m
          , WithLogger m
@@ -51,7 +52,9 @@ onApplyTracking
     ( SscHelpersClass ssc
     , AccountMode m
     , WithLogger m
-    , MonadDB m)
+    , MonadDB m
+    , MonadDBPure m
+    )
     => OldestFirst NE (Blund ssc) -> m ()
 onApplyTracking blunds = do
     let txs = concatMap (gbTxs . fst) $ getOldestFirst blunds

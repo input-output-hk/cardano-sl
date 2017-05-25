@@ -39,7 +39,7 @@ import           Universum
 import           Pos.Binary.Class       (encodeStrict)
 import qualified Pos.Constants          as Const
 import           Pos.Crypto             (shortHashF)
-import           Pos.DB.Class           (MonadDB)
+import           Pos.DB.Class           (MonadDB, MonadDBPure)
 import           Pos.DB.Error           (DBError (..))
 import           Pos.DB.Functions       (RocksBatchOp (..))
 import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
@@ -48,6 +48,7 @@ import qualified Pos.DB.GState.Balances as GS
 import           Pos.DB.GState.Common   (gsPutBi)
 import           Pos.DB.Iterator        (DBnIterator, DBnMapIterator, IterType,
                                          runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Redirect        (DBPureRedirect, runDBPureRedirect)
 import           Pos.DB.Types           (NodeDBs (_gStateDB))
 import           Pos.Genesis            (genesisBalances)
 import           Pos.Txp.Core           (txOutStake)
@@ -83,18 +84,18 @@ instance RocksBatchOp BalancesOp where
 
 -- TODO: provide actual implementation after corresponding
 -- flag is actually stored in the DB
-isBootstrapEra :: MonadDB m => m Bool
+isBootstrapEra :: Monad m => m Bool
 isBootstrapEra = pure $ not Const.isDevelopment && True
 
 genesisFakeTotalStake :: Coin
 genesisFakeTotalStake = unsafeIntegerToCoin $ sumCoins genesisBalances
 
-getEffectiveTotalStake :: MonadDB m => m Coin
+getEffectiveTotalStake :: MonadDBPure m => m Coin
 getEffectiveTotalStake = ifM isBootstrapEra
     (pure genesisFakeTotalStake)
     GS.getRealTotalStake
 
-getEffectiveStake :: MonadDB m => StakeholderId -> m (Maybe Coin)
+getEffectiveStake :: MonadDBPure m => StakeholderId -> m (Maybe Coin)
 getEffectiveStake id = ifM isBootstrapEra
     (pure $ HM.lookup id genesisBalances)
     (GS.getRealStake id)
@@ -105,7 +106,7 @@ getEffectiveStake id = ifM isBootstrapEra
 
 prepareGStateBalances
     :: forall m.
-       MonadDB m
+       (MonadDB m, MonadDBPure m)
     => Utxo -> m ()
 prepareGStateBalances genesisUtxo = do
     whenNothingM_ getRealStakeSumMaybe putFtsStakes
@@ -127,8 +128,9 @@ putTotalFtsStake = gsPutBi ftsSumKey
 -- | Run iterator over real balances.
 runBalanceIterReal
     :: forall m a . MonadDB m
-    => DBnIterator BalanceIter a -> m a
-runBalanceIterReal iter = runDBnIterator @BalanceIter _gStateDB iter
+    => DBPureRedirect (DBnIterator BalanceIter) a -> m a
+runBalanceIterReal (runDBPureRedirect -> iter) =
+    runDBnIterator @BalanceIter _gStateDB iter
 
 runBalanceIterBootstrap
     :: forall m a . Monad m
@@ -137,9 +139,10 @@ runBalanceIterBootstrap = flip runListHolderT $ HM.toList genesisBalances
 
 -- | Run iterator over effective balances.
 runBalanceIterator
-    :: forall m a . MonadDB m
+    :: forall m a . (MonadDB m, MonadDBPure m)
     => (forall iter . ( MonadIterator (IterType BalanceIter) iter
                       , MonadDB iter
+                      , MonadDBPure iter
                       ) => iter a)
     -> m a
 runBalanceIterator iter = ifM isBootstrapEra
@@ -175,7 +178,7 @@ runBalanceMapIterator iter f = ifM isBootstrapEra
 ----------------------------------------------------------------------------
 
 sanityCheckBalances
-    :: (MonadMask m, MonadDB m, WithLogger m)
+    :: (MonadMask m, MonadDB m, MonadDBPure m, WithLogger m)
     => m ()
 sanityCheckBalances = do
     let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))

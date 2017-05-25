@@ -34,16 +34,13 @@ import           Control.Monad.State     (get, put)
 import           Data.Tagged             (untag)
 import qualified Ether
 import           Formatting              (build, int, sformat, (%))
-import           Serokell.Util           (listJson)
-import           System.Wlog             (NamedPureLogger, WithLogger, launchNamedPureLog,
-                                          logDebug)
 
 import           Pos.Block.Core          (Block)
 import           Pos.Context             (lrcActionOnEpochReason)
 import           Pos.Core                (EpochIndex, HeaderHash, SharedSeed, SlotId,
                                           epochIndexL, headerHash)
-import           Pos.DB                  (MonadDB, SomeBatchOp)
-import           Pos.DB.DB               (getTipBlockHeader)
+import           Pos.DB                  (MonadDB, MonadDBPure, SomeBatchOp)
+import           Pos.DB.DB               (getTipHeader)
 import           Pos.Exception           (assertionFailed)
 import           Pos.Lrc.Context         (LrcContext)
 import qualified Pos.Lrc.DB              as LrcDB
@@ -58,6 +55,9 @@ import           Pos.Ssc.Extra.Types     (SscState (sscGlobal, sscLocal))
 import           Pos.Ssc.Util            (toSscBlock)
 import           Pos.Util                (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono         (NE, NewestFirst, OldestFirst)
+import           Serokell.Util           (listJson)
+import           System.Wlog             (NamedPureLogger, WithLogger, launchNamedPureLog,
+                                          logDebug)
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -147,6 +147,7 @@ sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 sscNormalize
     :: forall ssc m.
        ( MonadDB m
+       , MonadDBPure m
        , MonadSscMem ssc m
        , SscLocalDataClass ssc
        , Ether.MonadReader' LrcContext m
@@ -155,7 +156,7 @@ sscNormalize
        )
     => m ()
 sscNormalize = do
-    tipEpoch <- view epochIndexL <$> getTipBlockHeader @ssc
+    tipEpoch <- view epochIndexL <$> getTipHeader @ssc
     richmenData <- getRichmenFromLrc "sscNormalize" tipEpoch
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
@@ -168,9 +169,14 @@ sscNormalize = do
 -- | Reset local data to empty state.  This function can be used when
 -- we detect that something is really bad. In this case it makes sense
 -- to remove all local data to be sure it's valid.
-sscResetLocal
-    :: forall ssc m.
-       (MonadDB m, MonadSscMem ssc m, SscLocalDataClass ssc, MonadSlots m)
+sscResetLocal ::
+       forall ssc m.
+       ( MonadDBPure m
+       , MonadSscMem ssc m
+       , SscLocalDataClass ssc
+       , MonadSlots m
+       , MonadIO m
+       )
     => m ()
 sscResetLocal = do
     emptyLD <- sscNewLocalData @ssc

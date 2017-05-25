@@ -29,6 +29,8 @@ module Pos.Txp.DB.Utxo
        , sanityCheckUtxo
        ) where
 
+import           Universum
+
 import qualified Data.HashSet         as HS
 import qualified Data.Map             as M
 import qualified Data.Text.Buildable
@@ -37,12 +39,11 @@ import           Formatting           (bprint, build, sformat, (%))
 import           Serokell.Util        (Color (Red), colorize)
 import           Serokell.Util.Text   (listJson, pairF)
 import           System.Wlog          (WithLogger, logError)
-import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Binary.Core      ()
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
-import           Pos.DB.Class         (MonadDB, getGStateDB)
+import           Pos.DB.Class         (MonadDB, MonadDBPure, getGStateDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
                                        rocksGetBytes)
@@ -60,7 +61,7 @@ import           Pos.Util.Iterator    (nextItem)
 -- Getters
 ----------------------------------------------------------------------------
 
-getTxOut :: MonadDB m => TxIn -> m (Maybe TxOutAux)
+getTxOut :: MonadDBPure m => TxIn -> m (Maybe TxOutAux)
 getTxOut = gsGetBi . txInKey
 
 getTxOutFromDB :: (MonadIO m, MonadThrow m) => TxIn -> DB -> m (Maybe TxOutAux)

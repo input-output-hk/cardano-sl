@@ -17,7 +17,7 @@ import           System.Wlog          (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Core             (HeaderHash)
-import           Pos.DB.Class         (MonadDB)
+import           Pos.DB.Class         (MonadDB, MonadDBPure)
 import qualified Pos.DB.GState        as GS
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId)
 import           Pos.Txp.MemState     (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
@@ -30,6 +30,7 @@ import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (
 
 type TxpLocalWorkMode m =
     ( MonadDB m
+    , MonadDBPure m
     , MonadTxpMem () m
     , WithLogger m
     , MonadError ToilVerFailure m
@@ -92,7 +93,7 @@ txProcessTransaction itw@(txId, txAux) = do
 -- | 2. Remove invalid transactions from MemPool
 -- | 3. Set new tip to txp local data
 txNormalize
-    :: (MonadDB m, MonadTxpMem () m) => m ()
+    :: (MonadDB m, MonadDBPure m, MonadTxpMem () m) => m ()
 txNormalize = do
     utxoTip <- GS.getTip
     localTxs <- getLocalTxs

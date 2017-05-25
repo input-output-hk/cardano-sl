@@ -66,7 +66,7 @@ handleGetBlocks = listenerConv $ \__ourVerInfo ->
                     ("handleGetBlocks: started sending blocks to "%build%" one-by-one: "%listJson)
                     nodeId hashes
                 for_ hashes $ \hHash -> do
-                    block <- maybe failMalformed pure =<< DB.getBlock @ssc hHash
+                    block <- maybe failMalformed pure =<< DB.blkGetBlock @ssc hHash
                     send conv (MsgBlock block)
                 logDebug "handleGetBlocks: blocks sending done"
             _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"

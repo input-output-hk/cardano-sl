@@ -15,21 +15,21 @@ module Pos.DB.GState.BlockExtra
        ) where
 
 import qualified Data.Text.Buildable
-import qualified Database.RocksDB      as Rocks
-import           Formatting            (bprint, build, (%))
+import qualified Database.RocksDB     as Rocks
+import           Formatting           (bprint, build, (%))
 import           Universum
 
-import           Pos.Binary.Class      (encodeStrict)
-import           Pos.Block.Core        (Block, BlockHeader, blockHeader)
-import           Pos.Block.Pure        (genesisHash)
-import           Pos.Block.Types       (Blund)
-import           Pos.Core              (HasHeaderHash, HeaderHash, headerHash)
-import           Pos.Crypto            (shortHashF)
-import           Pos.DB.Block          (getBlockWithUndo)
-import           Pos.DB.Class          (MonadDB, getGStateDB)
-import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBi, rocksPutBi)
-import           Pos.Ssc.Class.Helpers (SscHelpersClass)
-import           Pos.Util.Chrono       (OldestFirst (..))
+import           Pos.Binary.Class     (encodeStrict)
+import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
+import           Pos.Block.Types      (Blund)
+import           Pos.Constants        (genesisHash)
+import           Pos.Core             (HasHeaderHash, HeaderHash, headerHash)
+import           Pos.Crypto           (shortHashF)
+import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
+import           Pos.DB.Class         (MonadDB, MonadDBPure, getGStateDB)
+import           Pos.DB.Functions     (RocksBatchOp (..), rocksPutBi)
+import           Pos.DB.GState.Common (gsGetBi)
+import           Pos.Util.Chrono      (OldestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -37,18 +37,16 @@ import           Pos.Util.Chrono       (OldestFirst (..))
 
 -- | Tries to retrieve next block using current one (given a block/header).
 resolveForwardLink
-    :: (HasHeaderHash a, MonadDB m)
+    :: (HasHeaderHash a, MonadDBPure m)
     => a -> m (Maybe HeaderHash)
-resolveForwardLink x =
-    rocksGetBi (forwardLinkKey $ headerHash x) =<< getGStateDB
+resolveForwardLink x = gsGetBi (forwardLinkKey $ headerHash x)
 
 -- | Check if given hash representing block is in main chain.
 isBlockInMainChain
-    :: (HasHeaderHash a, MonadDB m)
+    :: (HasHeaderHash a, MonadDBPure m)
     => a -> m Bool
-isBlockInMainChain h = do
-    db <- getGStateDB
-    maybe False (\() -> True) <$> rocksGetBi (mainChainKey $ headerHash h) db
+isBlockInMainChain h =
+    maybe False (\() -> True) <$> gsGetBi (mainChainKey $ headerHash h)
 
 ----------------------------------------------------------------------------
 -- BlockOp
@@ -87,8 +85,7 @@ instance RocksBatchOp BlockExtraOp where
 
 foldlUpWhileM
     :: forall a b ssc m r .
-    ( SscHelpersClass ssc
-    , MonadDB m
+    ( MonadBlockDB ssc m
     , HasHeaderHash a
     )
     => (Blund ssc -> m b)
@@ -101,7 +98,7 @@ foldlUpWhileM morphM start condition accM init =
     loadUpWhileDo (headerHash start) 0 init
   where
     loadUpWhileDo :: HeaderHash -> Int -> r -> m r
-    loadUpWhileDo curH height !res = getBlockWithUndo curH >>= \case
+    loadUpWhileDo curH height !res = blkGetBlund curH >>= \case
         Nothing -> pure res
         Just x@(block,_) -> do
             curB <- morphM x
@@ -114,7 +111,7 @@ foldlUpWhileM morphM start condition accM init =
 
 -- Loads something from old to new.
 loadUpWhile
-    :: forall a b ssc m . (SscHelpersClass ssc, MonadDB m, HasHeaderHash a)
+    :: forall a b ssc m . (MonadBlockDB ssc m, HasHeaderHash a)
     => (Blund ssc -> b)
     -> a
     -> (b -> Int -> Bool)
@@ -129,7 +126,7 @@ loadUpWhile morph start condition = OldestFirst . reverse <$>
 
 -- | Returns headers loaded up.
 loadHeadersUpWhile
-    :: (SscHelpersClass ssc, MonadDB m, HasHeaderHash a)
+    :: (MonadBlockDB ssc m, HasHeaderHash a)
     => a
     -> (BlockHeader ssc -> Int -> Bool)
     -> m (OldestFirst [] (BlockHeader ssc))
@@ -138,7 +135,7 @@ loadHeadersUpWhile start condition =
 
 -- | Returns blocks loaded up.
 loadBlocksUpWhile
-    :: (SscHelpersClass ssc, MonadDB m, HasHeaderHash a)
+    :: (MonadBlockDB ssc m, HasHeaderHash a)
     => a
     -> (Block ssc -> Int -> Bool)
     -> m (OldestFirst [] (Block ssc))

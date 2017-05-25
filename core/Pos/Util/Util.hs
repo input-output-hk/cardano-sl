@@ -16,6 +16,7 @@ module Pos.Util.Util
        , liftGetterSome
 
        , maybeThrow
+       , eitherToFail
        , getKeys
        , sortWithMDesc
 
@@ -249,6 +250,10 @@ type instance ChannelT (Ether.TaggedTrans tag t m) = ChannelT m
 
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
+
+-- | Fail or return result depending on what is stored in 'Either'.
+eitherToFail :: (MonadFail m, ToString s) => Either s a -> m a
+eitherToFail = either (fail . toString) pure
 
 -- | Create HashSet from HashMap's keys
 getKeys :: HashMap k v -> HashSet k

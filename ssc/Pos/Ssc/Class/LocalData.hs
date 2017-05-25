@@ -13,7 +13,7 @@ import           System.Wlog         (WithLogger)
 import           Universum
 
 import           Pos.Core            (EpochIndex, SlotId)
-import           Pos.DB.Class        (MonadDB)
+import           Pos.DB.Class        (MonadDBPure)
 import           Pos.Lrc.Types       (RichmenStake)
 import           Pos.Slotting.Class  (MonadSlots)
 import           Pos.Ssc.Class.Types (Ssc (..))
@@ -41,4 +41,4 @@ class Ssc ssc => SscLocalDataClass ssc where
     -- | Create new (empty) local data. We are using this function instead of
     -- 'Default' class, because it gives more flexibility. For instance, one
     -- can read something from DB or get current slot.
-    sscNewLocalData :: (MonadSlots m, MonadDB m) => m (SscLocalData ssc)
+    sscNewLocalData :: (MonadSlots m, MonadDBPure m) => m (SscLocalData ssc)

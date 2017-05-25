@@ -174,7 +174,11 @@ library
                         Pos.Block.Core.Union.Misc
                         Pos.Block.Core.Union.Types
                         Pos.Block.Error
+                        Pos.Block.Logic.Creation
+                        Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
+                        Pos.Block.Logic.Util
+                        Pos.Block.Logic.VAR
                         Pos.Block.Network.Announce
                         Pos.Block.Network.Types
                         Pos.Block.Network.Listeners

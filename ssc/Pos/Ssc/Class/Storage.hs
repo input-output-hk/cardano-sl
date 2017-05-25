@@ -16,7 +16,7 @@ import           System.Wlog          (WithLogger)
 import           Universum
 
 import           Pos.Core             (EpochIndex, SharedSeed)
-import           Pos.DB               (MonadDB, SomeBatchOp)
+import           Pos.DB               (MonadDBPure, SomeBatchOp)
 import           Pos.Lrc.Types        (RichmenStake)
 import           Pos.Ssc.Class.Types  (Ssc (..), SscBlock)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
@@ -42,7 +42,7 @@ type SscVerifier ssc a = forall m . SscVerifyMode ssc m => m a
 class Ssc ssc => SscGStateClass ssc where
     -- | Load global state from DB by recreating it from recent blocks.
     sscLoadGlobalState
-        :: (MonadDB m, WithLogger m)
+        :: (MonadDBPure m, WithLogger m)
         => m (SscGlobalState ssc)
     -- | Dump global state to DB.
     sscGlobalStateToBatch :: SscGlobalState ssc -> Tagged ssc [SomeBatchOp]

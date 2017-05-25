@@ -7,6 +7,7 @@
 
 module Pos.Core.Constants
        ( sharedSeedLength
+       , genesisHash
 
        , CoreConstants(..)
        , coreConstants
@@ -26,6 +27,7 @@ import           Serokell.Util          (sec)
 import           Universum
 
 import           Pos.Core.Timestamp     (Timestamp (..))
+import           Pos.Crypto.Hashing     (Hash, unsafeHash)
 import           Pos.Util.Config        (IsConfig (..), configParser, parseFromCslConfig)
 
 ----------------------------------------------------------------------------
@@ -35,6 +37,12 @@ import           Pos.Util.Config        (IsConfig (..), configParser, parseFromC
 -- | Length of shared seed.
 sharedSeedLength :: Integral a => a
 sharedSeedLength = 32
+
+-- | Predefined 'Hash' of the parent of the 0-th genesis block (which
+-- is the only block without a real parent).
+genesisHash :: Hash a
+genesisHash = unsafeHash @Text "patak"
+{-# INLINE genesisHash #-}
 
 ----------------------------------------------------------------------------
 -- Config itself

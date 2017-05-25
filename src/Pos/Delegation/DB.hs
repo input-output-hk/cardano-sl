@@ -28,16 +28,16 @@ import qualified Database.RocksDB     as Rocks
 
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Crypto           (PublicKey, pskDelegatePk, pskIssuerPk)
-import           Pos.DB.Class         (MonadDB, getGStateDB)
+import           Pos.DB.Class         (MonadDB, MonadDBPure)
 import           Pos.DB.Error         (DBError (DBMalformed))
-import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
+import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix)
+import           Pos.DB.GState.Common (gsGetBi)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (NodeDBs (_gStateDB))
 import           Pos.Delegation.Types (DlgMemPool)
 import           Pos.Types            (ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Util.Iterator    (nextItem)
-
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors
@@ -46,23 +46,22 @@ import           Pos.Util.Iterator    (nextItem)
 -- | Retrieves certificate by issuer public key or his
 -- address/stakeholder id, if present.
 getPskByIssuer
-    :: MonadDB m
+    :: MonadDBPure m
     => Either PublicKey StakeholderId -> m (Maybe ProxySKHeavy)
-getPskByIssuer (either addressHash identity -> issuer) =
-    rocksGetBi (pskKey issuer) =<< getGStateDB
+getPskByIssuer (either addressHash identity -> issuer) = gsGetBi (pskKey issuer)
 
 -- | Given an issuer, retrieves all certificate chains starting in
 -- issuer. This function performs a series of consequental db reads so
 -- it must be used under the shared lock.
 getPskChain
-    :: MonadDB m
+    :: MonadDBPure m
     => Either PublicKey StakeholderId -> m DlgMemPool
 getPskChain = getPskChainInternal HS.empty
 
 -- See doc for 'getPskTree'. This function also stops traversal if
 -- encounters anyone in 'toIgnore' set.
 getPskChainInternal
-    :: MonadDB m
+    :: MonadDBPure m
     => HashSet StakeholderId -> Either PublicKey StakeholderId -> m DlgMemPool
 getPskChainInternal toIgnore (either addressHash identity -> issuer) =
     fmap (view _1) $ flip execStateT (HM.empty, [issuer], HS.empty) trav
@@ -85,7 +84,7 @@ getPskChainInternal toIgnore (either addressHash identity -> issuer) =
 -- leaves. Executes 'getPskChain' for every issuer and merges. This
 -- function must be used under outside shared lock.
 getPskForest
-    :: (MonadDB m)
+    :: (MonadDBPure m)
     => Either [PublicKey] [StakeholderId] -> m DlgMemPool
 getPskForest (either (fmap addressHash) identity -> issuers) =
     foldlM foldFoo HM.empty (map Right issuers)
@@ -94,19 +93,31 @@ getPskForest (either (fmap addressHash) identity -> issuers) =
     foldFoo cur = getPskChainInternal (HS.fromList $ map addressHash $ HM.keys cur)
 
 -- | Checks if stakeholder is psk issuer.
-isIssuerByAddressHash :: MonadDB m => StakeholderId -> m Bool
+isIssuerByAddressHash :: MonadDBPure m => StakeholderId -> m Bool
 isIssuerByAddressHash = fmap isJust . getPskByIssuer . Right
 
 -- | Given issuer @i@ returns @d@ such that there exists @x1..xn@ with
 -- @i->x1->...->xn->d@.
-getDlgTransitive :: MonadDB m => PublicKey -> m (Maybe PublicKey)
-getDlgTransitive iPk = rocksGetBi (transDlgKey iPk) =<< getGStateDB
+getDlgTransitive :: MonadDBPure m => PublicKey -> m (Maybe PublicKey)
+getDlgTransitive iPk = gsGetBi (transDlgKey iPk)
 
 -- | Reverse map of transitive delegation. Given a delegate @d@
 -- returns all @i@ such that 'getDlgTransitive' returns @d@ on @i@.
-getDlgTransitiveReverse :: MonadDB m => PublicKey -> m [PublicKey]
-getDlgTransitiveReverse dPk =
-    fmap (fromMaybe []) . rocksGetBi (transRevDlgKey dPk) =<< getGStateDB
+getDlgTransitiveReverse :: MonadDBPure m => PublicKey -> m [PublicKey]
+getDlgTransitiveReverse dPk = fmap (fromMaybe []) $ gsGetBi (transRevDlgKey dPk)
+
+{-
+-- | Retrieves certificate by issuer address (hash of public key) if present.
+getPSKByIssuerAddressHash :: MonadDBPure m => StakeholderId -> m (Maybe ProxySKHeavy)
+getPSKByIssuerAddressHash addrHash = gsGetBi (pskKey addrHash)
+
+-- | Retrieves certificate by issuer public key if present.
+getPSKByIssuer :: MonadDBPure m => PublicKey -> m (Maybe ProxySKHeavy)
+getPSKByIssuer = getPSKByIssuerAddressHash . addressHash
+
+isIssuerByAddressHash :: (MonadDBPure m) => StakeholderId -> m Bool
+isIssuerByAddressHash = fmap isJust . getPSKByIssuerAddressHash
+-}
 
 ----------------------------------------------------------------------------
 -- Batch operations

@@ -70,7 +70,8 @@ import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers
                                                NodeContext (..), StartTime (..))
 import           Pos.Core                     (Timestamp ())
 import           Pos.Crypto                   (createProxySecretKey, encToPublic)
-import           Pos.DB                       (MonadDB, NodeDBs)
+import           Pos.DB                       (MonadDBPure, NodeDBs, runDBPureRedirect)
+import           Pos.DB.Block                 (runBlockDBRedirect)
 import           Pos.DB.DB                    (initNodeDBs, openNodeDBs,
                                                runGStateCoreRedirect)
 import           Pos.DB.GState                (getTip)
@@ -141,12 +142,17 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
         let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
         -- TODO [CSL-775] ideally initialization logic should be in scenario.
-        runCH @ssc allWorkersNum np initNC modernDBs $
-            flip Ether.runReaderT' modernDBs $ initNodeDBs @ssc
-        initTip <- Ether.runReaderT' getTip modernDBs
+        runCH @ssc allWorkersNum np initNC modernDBs .
+            flip Ether.runReaderT' modernDBs .
+            runDBPureRedirect $
+            initNodeDBs @ssc
+        initTip <- Ether.runReaderT' (runDBPureRedirect getTip) modernDBs
         stateM <- liftIO SM.newIO
         stateM_ <- liftIO SM.newIO
-        slottingVar <- Ether.runReaderT' (mkSlottingVar npSystemStart) modernDBs
+        slottingVar <-
+            Ether.runReaderT'
+                (runDBPureRedirect $ mkSlottingVar npSystemStart)
+                modernDBs
         txpVar <- mkTxpLocalData mempty initTip
         ntpSlottingVar <- mkNtpSlottingVar
         dlgVar <- RWV.new def
@@ -166,6 +172,8 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
                       , Tagged @DelegationVar dlgVar
                       , Tagged @PeerStateTag stateM_
                       ) .
+                   runDBPureRedirect .
+                   runBlockDBRedirect .
                    runSlotsDataRedirect .
                    runSlotsRedirect .
                    runBalancesRedirect .
@@ -197,7 +205,8 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
                , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
                ) .
            runSlotsDataRedirect .
-           runSlotsRedirect $
+           runSlotsRedirect .
+           runDBPureRedirect $
            mkSscState @ssc
         runCH allWorkersNum np initNC modernDBs .
            flip Ether.runReadersT
@@ -209,6 +218,8 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
                , Tagged @DelegationVar dlgVar
                , Tagged @PeerStateTag stateM
                ) .
+           runDBPureRedirect .
+           runBlockDBRedirect .
            runSlotsDataRedirect .
            runSlotsRedirect .
            runBalancesRedirect .
@@ -224,7 +235,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
     LoggingParams {..} = bpLoggingParams npBaseParams
 
 -- | Create new 'SlottingVar' using data from DB.
-mkSlottingVar :: MonadDB m => Timestamp -> m SlottingVar
+mkSlottingVar :: (MonadIO m, MonadDBPure m) => Timestamp -> m SlottingVar
 mkSlottingVar sysStart = do
     sd <- GState.getSlottingData
     (sysStart, ) <$> newTVarIO sd

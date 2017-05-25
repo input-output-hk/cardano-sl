@@ -1,12 +1,15 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 
 -- | Interface to Blocks DB.
 
 module Pos.DB.Block
-       ( getBlock
-       , getBlockHeader
-       , getUndo
-       , getBlockWithUndo
+       ( blkGetHeader
+       , blkGetBlock
+       , blkGetUndo
+       , blkGetBlund
 
        , deleteBlock
        , putBlock
@@ -20,60 +23,65 @@ module Pos.DB.Block
        , loadHeadersWhile
        , loadHeadersByDepth
        , loadHeadersByDepthWhile
+
+       -- * MonadBlockDB
+       , MonadBlockDB
+       , BlockDBRedirect
+       , runBlockDBRedirect
        ) where
 
-import           Control.Lens              (_Wrapped)
-import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
-import           Data.ByteArray            (convert)
-import qualified Data.ByteString           as BS (readFile, writeFile)
-import qualified Data.ByteString.Lazy      as BSL
-import           Data.Default              (Default (def))
-import           Formatting                (build, formatToString, sformat, (%))
-import           System.Directory          (removeFile, createDirectoryIfMissing)
-import           System.FilePath           ((</>))
-import           System.IO.Error           (isDoesNotExistError)
 import           Universum
 
-import           Pos.Binary.Block          ()
-import           Pos.Binary.Class          (Bi, decodeFull, encodeStrict)
-import           Pos.Block.Core            (Block, BlockHeader, GenesisBlock)
-import qualified Pos.Block.Core            as BC
-import           Pos.Block.Pure            (genesisHash)
-import           Pos.Block.Types           (Blund, Undo (..))
-import           Pos.Core                  (HasDifficulty (difficultyL),
-                                            HasPrevBlock (prevBlockL), HeaderHash,
-                                            headerHash)
-import           Pos.Crypto                (hashHexF, shortHashF)
-import           Pos.DB.Class              (MonadDB, getBlockIndexDB, getNodeDBs)
-import           Pos.DB.Error              (DBError (DBMalformed))
-import           Pos.DB.Functions          (rocksDelete, rocksGetBi, rocksPutBi)
-import           Pos.DB.Types              (blockDataDir)
-import           Pos.Ssc.Class.Helpers     (SscHelpersClass)
-import           Pos.Util                  (maybeThrow)
-import           Pos.Util.Chrono           (NewestFirst (..))
+import           Control.Lens                 (_Wrapped)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.ByteArray               (convert)
+import qualified Data.ByteString              as BS (readFile, writeFile)
+import qualified Data.ByteString.Lazy         as BSL
+import           Data.Coerce                  (coerce)
+import           Data.Default                 (Default (def))
+import qualified Ether
+import           Formatting                   (build, formatToString, sformat, (%))
+import           System.Directory             (createDirectoryIfMissing, removeFile)
+import           System.FilePath              ((</>))
+import           System.IO.Error              (isDoesNotExistError)
 
--- | Get block with given hash from Block DB.
+import           Pos.Binary.Block             ()
+import           Pos.Binary.Class             (Bi, decodeFull, encodeStrict)
+import           Pos.Block.Core               (Block, BlockHeader, GenesisBlock)
+import qualified Pos.Block.Core               as BC
+import           Pos.Block.Types              (Blund, Undo (..))
+import           Pos.Constants                (genesisHash)
+import           Pos.Core                     (HasDifficulty (difficultyL),
+                                               HasPrevBlock (prevBlockL), HeaderHash,
+                                               headerHash)
+import           Pos.Crypto                   (hashHexF, shortHashF)
+import           Pos.DB.Class                 (DBTag (..), MonadBlockDBGeneric (..),
+                                               MonadDB, MonadDBPure, dbGetBlund,
+                                               getBlockIndexDB, getNodeDBs)
+import           Pos.DB.Error                 (DBError (DBMalformed))
+import           Pos.DB.Functions             (dbGetBi, rocksDelete, rocksPutBi)
+import           Pos.DB.Types                 (blockDataDir)
+import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
+import           Pos.Util                     (maybeThrow)
+import           Pos.Util.Chrono              (NewestFirst (..))
+
+-- Get block with given hash from Block DB.  This function has too
+-- strict constraint, consider using 'blkGetBlock'.
 getBlock
     :: forall ssc m. (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (Block ssc))
 getBlock = blockDataPath >=> getData
 
 -- | Returns header of block that was requested from Block DB.
-getBlockHeader
-    :: (SscHelpersClass ssc, MonadDB m)
+blkGetHeader
+    :: (SscHelpersClass ssc, MonadDBPure m)
     => HeaderHash -> m (Maybe (BlockHeader ssc))
-getBlockHeader = getBi . blockIndexKey
+blkGetHeader = dbGetBi BlockIndexDB . blockIndexKey
 
--- | Get undo data for block with given hash from Block DB.
+-- Get undo data for block with given hash from Block DB. This
+-- function has too strict constraint, consider using 'blkGetUndo'.
 getUndo :: (MonadDB m) => HeaderHash -> m (Maybe Undo)
 getUndo = undoDataPath >=> getData
-
--- | Retrieves block and undo together.
-getBlockWithUndo
-    :: (SscHelpersClass ssc, MonadDB m)
-    => HeaderHash -> m (Maybe (Block ssc, Undo))
-getBlockWithUndo x =
-    runMaybeT $ (,) <$> MaybeT (getBlock x) <*> MaybeT (getUndo x)
 
 -- | Put given block, its metadata and Undo data into Block DB.
 putBlock
@@ -151,27 +159,27 @@ loadDataByDepth getter extraPredicate depth h = do
 -- | Load blunds starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadBlundsWhile
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (MonadBlockDB ssc m)
     => (Block ssc -> Bool) -> HeaderHash -> m (NewestFirst [] (Blund ssc))
 loadBlundsWhile predicate = loadDataWhile getBlundThrow (predicate . fst)
 
 -- | Load blunds which have depth less than given.
 loadBlundsByDepth
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (MonadBlockDB ssc m)
     => Word -> HeaderHash -> m (NewestFirst [] (Blund ssc))
 loadBlundsByDepth = loadDataByDepth getBlundThrow (const True)
 
 -- | Load blocks starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadBlocksWhile
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (MonadBlockDB ssc m)
     => (Block ssc -> Bool) -> HeaderHash -> m (NewestFirst [] (Block ssc))
 loadBlocksWhile = loadDataWhile getBlockThrow
 
 -- | Load headers starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadHeadersWhile
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadDBPure m)
     => (BlockHeader ssc -> Bool)
     -> HeaderHash
     -> m (NewestFirst [] (BlockHeader ssc))
@@ -179,13 +187,13 @@ loadHeadersWhile = loadDataWhile getHeaderThrow
 
 -- | Load headers which have depth less than given.
 loadHeadersByDepth
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadDBPure m)
     => Word -> HeaderHash -> m (NewestFirst [] (BlockHeader ssc))
 loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
 
 -- | Load headers which have depth less than given and match some criterion.
 loadHeadersByDepthWhile
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadDBPure m)
     => (BlockHeader ssc -> Bool)
     -> Word
     -> HeaderHash
@@ -210,13 +218,49 @@ blockIndexKey :: HeaderHash -> ByteString
 blockIndexKey h = "b" <> convert h
 
 ----------------------------------------------------------------------------
--- Helpers
+-- MonadBlockDB related
 ----------------------------------------------------------------------------
 
-getBi
-    :: (MonadDB m, Bi v)
-    => ByteString -> m (Maybe v)
-getBi k = rocksGetBi k =<< getBlockIndexDB
+-- | Specialization of 'MonadBlockDBGeneric' for block processing.
+type MonadBlockDB ssc m
+     = ( MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo m
+       , SscHelpersClass ssc)
+
+data BlockDBRedirectTag
+
+type BlockDBRedirect =
+    Ether.TaggedTrans BlockDBRedirectTag IdentityT
+
+runBlockDBRedirect :: BlockDBRedirect m a -> m a
+runBlockDBRedirect = coerce
+
+instance (MonadDBPure m, MonadDB m, t ~ IdentityT, SscHelpersClass ssc) =>
+         MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (Ether.TaggedTrans BlockDBRedirectTag t m) where
+    dbGetBlock = getBlock
+    dbGetUndo = getUndo
+    dbGetHeader = blkGetHeader
+
+blkGetBlock ::
+       forall ssc m. MonadBlockDB ssc m
+    => HeaderHash
+    -> m $ Maybe (Block ssc)
+blkGetBlock = dbGetBlock @(BlockHeader ssc) @(Block ssc) @Undo
+
+blkGetUndo ::
+       forall ssc m. MonadBlockDB ssc m
+    => HeaderHash
+    -> m $ Maybe Undo
+blkGetUndo = dbGetUndo @(BlockHeader ssc) @(Block ssc) @Undo
+
+blkGetBlund ::
+       forall ssc m. MonadBlockDB ssc m
+    => HeaderHash
+    -> m $ Maybe (Blund ssc)
+blkGetBlund = dbGetBlund @(BlockHeader ssc) @(Block ssc) @Undo
+
+----------------------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------------------
 
 putBi
     :: (MonadDB m, Bi v)
@@ -267,24 +311,25 @@ gitDirDataPath fn = getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> take 2 fn
 ----------------------------------------------------------------------------
 
 getBlundThrow
-    :: (SscHelpersClass ssc, MonadDB m)
-    => HeaderHash -> m (Block ssc, Undo)
+    :: forall ssc m. MonadBlockDB ssc m
+    => HeaderHash -> m (Blund ssc)
 getBlundThrow hash =
-    maybeThrow (DBMalformed $ sformat errFmt hash) =<<
-    (liftA2 (,) <$> getBlock hash <*> getUndo hash)
+    maybeThrow (DBMalformed $ sformat errFmt hash) =<< (blkGetBlund @ssc) hash
   where
-    errFmt = "getBlockThrow: no blund with HeaderHash: " %shortHashF
+    errFmt = "getBlockThrow: no blund with HeaderHash: "%shortHashF
 
 getBlockThrow
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: forall ssc m. MonadBlockDB ssc m
     => HeaderHash -> m (Block ssc)
-getBlockThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlock hash
+getBlockThrow hash =
+    maybeThrow (DBMalformed $ sformat errFmt hash) =<< blkGetBlock hash
   where
     errFmt = "getBlockThrow: no block with HeaderHash: "%shortHashF
 
 getHeaderThrow
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadDBPure m)
     => HeaderHash -> m (BlockHeader ssc)
-getHeaderThrow hash = maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlockHeader hash
+getHeaderThrow hash =
+    maybeThrow (DBMalformed $ sformat errFmt hash) =<< blkGetHeader hash
   where
     errFmt = "getBlockThrow: no block header with hash: "%shortHashF

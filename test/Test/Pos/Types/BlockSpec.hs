@@ -14,6 +14,7 @@ import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
 import qualified Pos.Block.Core        as T
 import qualified Pos.Block.Pure        as T
+import           Pos.Constants         (genesisHash)
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
                                         SignTag (..), createProxySecretKey, proxySign,
                                         sign, toPublic)
@@ -79,7 +80,7 @@ genesisHeaderFormation prevHeader epoch body =
         , T._gbhConsensus = consensus h proof
         , T._gbhExtra = T.GenesisExtraHeaderData $ mkAttributes ()
         }
-    h = maybe T.genesisHash T.headerHash prevHeader
+    h = maybe genesisHash T.headerHash prevHeader
     proof = T.mkBodyProof body
     difficulty = maybe 0 (view T.difficultyL) prevHeader
     consensus _ _ =
@@ -104,7 +105,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
         , T._gbhConsensus = consensus h proof
         , T._gbhExtra = extra
         }
-    h = maybe T.genesisHash T.headerHash prevHeader
+    h = maybe genesisHash T.headerHash prevHeader
     proof = T.mkBodyProof body
 
     (sk, pSk) = either (, Nothing) mkProxySk signer

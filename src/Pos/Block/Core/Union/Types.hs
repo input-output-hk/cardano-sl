@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Union of blockchain types.
 
 module Pos.Block.Core.Union.Types

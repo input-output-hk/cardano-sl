@@ -6,14 +6,16 @@ module Pos.Binary.Block.Core
 
 import           Universum
 
-import           Pos.Binary.Class       (Bi (..), getWord8, label, putWord8)
-import           Pos.Binary.Core        ()
-import           Pos.Binary.Txp         ()
-import           Pos.Binary.Update      ()
-import qualified Pos.Block.Core.Genesis as BC
-import qualified Pos.Block.Core.Main    as BC
-import qualified Pos.Core.Block         as Core
-import           Pos.Ssc.Class.Types    (Ssc (..))
+import           Pos.Binary.Class             (Bi (..), getWord8, label, putWord8)
+import           Pos.Binary.Core              ()
+import           Pos.Binary.Txp               ()
+import           Pos.Binary.Update            ()
+import qualified Pos.Block.Core.Genesis.Chain as BC
+import qualified Pos.Block.Core.Genesis.Types as BC
+import qualified Pos.Block.Core.Main.Chain    as BC
+import qualified Pos.Block.Core.Main.Types    as BC
+import qualified Pos.Core.Block               as Core
+import           Pos.Ssc.Class.Types          (Ssc (..))
 
 ----------------------------------------------------------------------------
 -- MainBlock

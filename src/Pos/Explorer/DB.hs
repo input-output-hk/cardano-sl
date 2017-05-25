@@ -19,7 +19,7 @@ import           Pos.Binary.Class      (encodeStrict)
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core              (unsafeAddCoin)
 import           Pos.Core.Types        (Address, Coin)
-import           Pos.DB.Class          (MonadDB, getGStateDB)
+import           Pos.DB.Class          (MonadDB, MonadDBPure, getGStateDB)
 import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBytes)
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
@@ -31,14 +31,14 @@ import           Pos.Util.Chrono       (NewestFirst (..))
 -- Getters
 ----------------------------------------------------------------------------
 
-getTxExtra :: MonadDB m => TxId -> m (Maybe TxExtra)
+getTxExtra :: MonadDBPure m => TxId -> m (Maybe TxExtra)
 getTxExtra = gsGetBi . txExtraPrefix
 
-getAddrHistory :: MonadDB m => Address -> m AddrHistory
+getAddrHistory :: MonadDBPure m => Address -> m AddrHistory
 getAddrHistory = fmap (NewestFirst . concat . maybeToList) .
                  gsGetBi . addrHistoryPrefix
 
-getAddrBalance :: MonadDB m => Address -> m (Maybe Coin)
+getAddrBalance :: MonadDBPure m => Address -> m (Maybe Coin)
 getAddrBalance = gsGetBi . addrBalancePrefix
 
 ----------------------------------------------------------------------------

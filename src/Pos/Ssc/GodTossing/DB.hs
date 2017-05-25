@@ -14,20 +14,20 @@ import           Universum
 import           Formatting               (bprint, build, (%))
 import           Pos.Binary.Class         (encodeStrict)
 import           Pos.Binary.Ssc           ()
-import           Pos.DB                   (MonadDB, RocksBatchOp (..))
+import           Pos.DB                   (MonadDB, MonadDBPure, RocksBatchOp (..))
 import           Pos.DB.Error             (DBError (DBMalformed))
 import           Pos.DB.GState.Common     (gsGetBi)
 import           Pos.Ssc.GodTossing.Core  (VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types (GtGlobalState (..))
 import           Pos.Util.Util            (maybeThrow)
 
-getGtGlobalState :: MonadDB m => m GtGlobalState
+getGtGlobalState :: MonadDBPure m => m GtGlobalState
 getGtGlobalState =
     maybeThrow (DBMalformed "GodTossing global state DB is not initialized") =<<
     gsGetBi gtKey
 
 -- For CSL-1113
-getGtGlobalStateMaybe :: MonadDB m => m (Maybe GtGlobalState)
+getGtGlobalStateMaybe :: MonadDBPure m => m (Maybe GtGlobalState)
 getGtGlobalStateMaybe = gsGetBi gtKey
 
 gtGlobalStateToBatch :: GtGlobalState -> GtOp

@@ -50,6 +50,7 @@ import qualified Pos.Wallet.Web                     as W
 
 import qualified Description                        as D
 
+
 main :: IO ()
 main = do
     BSL8.writeFile jsonFile $ encode swaggerSpecForWalletApi
@@ -133,6 +134,9 @@ instance ToParamSchema W.CPassPhrase
 instance {-# OVERLAPPING #-} (Typeable a, ToSchema a) => ToSchema (Either W.WalletError a) where
     declareNamedSchema proxy = genericDeclareNamedSchema defaultSchemaOptions proxy
         & mapped . name ?~ show (typeRep (Proxy @(Either W.WalletError a)))
+
+instance HasSwagger v => HasSwagger (W.WalletVerb v) where
+    toSwagger _ = toSwagger (Proxy @v)
 
 -- | Wallet API operations.
 walletOp

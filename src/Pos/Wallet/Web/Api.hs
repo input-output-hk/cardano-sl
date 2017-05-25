@@ -1,6 +1,9 @@
-{-# LANGUAGE DataKinds      #-}
-{-# LANGUAGE KindSignatures #-}
-{-# LANGUAGE TypeOperators  #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 
 -- | Servant API for wallet.
 
@@ -9,6 +12,7 @@ module Pos.Wallet.Web.Api
        , walletApi
 
        , ApiPrefix
+       , WalletVerb
 
        , TestReset
 
@@ -55,9 +59,12 @@ module Pos.Wallet.Web.Api
        ) where
 
 
+import           Control.Monad.Catch        (try)
+import           Control.Monad.Except       (ExceptT (..))
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
-                                             Post, Put, QueryParam, ReqBody)
+                                             Post, Put, QueryParam, ReqBody, Verb)
 import           Servant.Multipart          (MultipartForm)
+import           Servant.Server             (Handler (..), HasServer (..))
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
@@ -68,17 +75,44 @@ import           Pos.Wallet.Web.ClientTypes (Acc, CAccount, CAddress,
                                              CWallet, CWalletAddress, CWalletInit,
                                              CWalletMeta, CWalletRedeem, CWalletSet,
                                              CWalletSet, CWalletSetInit, SyncProgress, WS)
-import           Pos.Wallet.Web.Error       (WalletError)
+import           Pos.Wallet.Web.Error       (WalletError, catchEndpointErrors)
 
 -- | Common prefix for all endpoints.
 type ApiPrefix = "api"
 
--- | All endpoints are defined as a separate types, for description in Swagger-based HTML-documentation.
+-- | Wrapper over 'Verb', which allows to catch exceptions thrown
+-- by endpoints.
+data WalletVerb verb
+
+-- | Shortcut for common api result types.
+type WRes verbType a = WalletVerb $ verbType '[JSON] (Either WalletError a)
+
+-- TODO: shorten variables names?
+instance HasServer (Verb method status content $ Either WalletError a) context =>
+         HasServer (WalletVerb $ Verb method status content $ Either WalletError a) context where
+    type ServerT (WalletVerb $ Verb method status content $ Either WalletError a) m =
+        ServerT (Verb method status content a) m
+
+    route _ ctx del = route verbProxy ctx (handlerCatch <$> del)
+      where
+        verbProxy = Proxy @(Verb method status content $ Either WalletError a)
+        handlerCatch :: Handler a -> Handler (Either WalletError a)
+        handlerCatch =
+            Handler .
+            ExceptT .
+            try .
+            catchEndpointErrors .
+            (either throwM pure =<<) .
+            runExceptT .
+            runHandler'
+
+
+-- All endpoints are defined as a separate types, for description in Swagger-based HTML-documentation.
 
 type TestReset =
        "test"
     :> "reset"
-    :> Post '[JSON] (Either WalletError ())
+    :> WRes Post ()
 
 -------------------------------------------------------------------------
 -- Wallet sets
@@ -88,12 +122,12 @@ type GetWalletSet =
        "wallets"
     :> "sets"
     :> Capture "walletSetId" (CAddress WS)
-    :> Get '[JSON] (Either WalletError CWalletSet)
+    :> WRes Get CWalletSet
 
 type GetWalletSets =
        "wallets"
     :> "sets"
-    :> Get '[JSON] (Either WalletError [CWalletSet])
+    :> WRes Get [CWalletSet]
 
 type NewWalletSet =
        "wallets"
@@ -101,7 +135,7 @@ type NewWalletSet =
     :> "new"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletSetInit
-    :> Post '[JSON] (Either WalletError CWalletSet)
+    :> WRes Post CWalletSet
 
 type RestoreWalletSet =
        "wallets"
@@ -109,7 +143,7 @@ type RestoreWalletSet =
     :> "restore"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletSetInit
-    :> Post '[JSON] (Either WalletError CWalletSet)
+    :> WRes Post CWalletSet
 
 type RenameWalletSet =
        "wallets"
@@ -117,13 +151,13 @@ type RenameWalletSet =
     :> "rename"
     :> Capture "walletSetId" (CAddress WS)
     :> Capture "name" Text
-    :> Post '[JSON] (Either WalletError CWalletSet)
+    :> WRes Post CWalletSet
 
 type DeleteWalletSet =
        "wallets"
     :> "sets"
     :> Capture "walletSetId" (CAddress WS)
-    :> Delete '[JSON] (Either WalletError ())
+    :> WRes Delete ()
 
 type ImportWalletSet =
        "wallets"
@@ -131,7 +165,7 @@ type ImportWalletSet =
     :> "keys"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] Text
-    :> Post '[JSON] (Either WalletError CWalletSet)
+    :> WRes Post CWalletSet
 
 type ChangeWalletSetPassphrase =
        "wallets"
@@ -140,7 +174,7 @@ type ChangeWalletSetPassphrase =
     :> Capture "walletSetId" (CAddress WS)
     :> QueryParam "old" CPassPhrase
     :> QueryParam "new" CPassPhrase
-    :> Post '[JSON] (Either WalletError ())
+    :> WRes Post ()
 
 -------------------------------------------------------------------------
 -- Wallets
@@ -149,29 +183,29 @@ type ChangeWalletSetPassphrase =
 type GetWallet =
        "wallets"
     :> Capture "walletId" CWalletAddress
-    :> Get '[JSON] (Either WalletError CWallet)
+    :> WRes Get CWallet
 
 type GetWallets =
        "wallets"
     :> QueryParam "walletSetId" (CAddress WS)
-    :> Get '[JSON] (Either WalletError [CWallet])
+    :> WRes Get [CWallet]
 
 type UpdateWallet =
        "wallets"
     :> Capture "walletId" CWalletAddress
     :> ReqBody '[JSON] CWalletMeta
-    :> Put '[JSON] (Either WalletError CWallet)
+    :> WRes Put CWallet
 
 type NewWallet =
        "wallets"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
-    :> Post '[JSON] (Either WalletError CWallet)
+    :> WRes Post CWallet
 
 type DeleteWallet =
        "wallets"
     :> Capture "walletId" CWalletAddress
-    :> Delete '[JSON] (Either WalletError ())
+    :> WRes Delete ()
 
 -------------------------------------------------------------------------
 -- Accounts
@@ -181,7 +215,7 @@ type NewAccount =
        "account"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletAddress
-    :> Post '[JSON] (Either WalletError CAccount)
+    :> WRes Post CAccount
 
 -------------------------------------------------------------------------
 -- Addresses
@@ -190,7 +224,7 @@ type NewAccount =
 type IsValidAddress =
        "addresses"
     :> Capture "address" Text
-    :> Get '[JSON] (Either WalletError Bool)
+    :> WRes Get Bool
 
 -------------------------------------------------------------------------
 -- Profile(s)
@@ -198,12 +232,12 @@ type IsValidAddress =
 
 type GetProfile =
        "profile"
-    :> Get '[JSON] (Either WalletError CProfile)
+    :> WRes Get CProfile
 
 type UpdateProfile =
        "profile"
     :> ReqBody '[JSON] CProfile
-    :> Post '[JSON] (Either WalletError CProfile)
+    :> WRes Post CProfile
 
 
 -------------------------------------------------------------------------
@@ -217,7 +251,7 @@ type NewPayment =
     :> Capture "from" CWalletAddress
     :> Capture "to" (CAddress Acc)
     :> Capture "amount" Coin
-    :> Post '[JSON] (Either WalletError CTx)
+    :> WRes Post CTx
 
 type NewPaymentExt =
        "txs"
@@ -228,7 +262,7 @@ type NewPaymentExt =
     :> Capture "amount" Coin
     :> Capture "title" Text
     :> Capture "description" Text
-    :> Post '[JSON] (Either WalletError CTx)
+    :> WRes Post CTx
 
 
 type UpdateTx =
@@ -237,7 +271,7 @@ type UpdateTx =
     :> Capture "address" CWalletAddress
     :> Capture "transaction" CTxId
     :> ReqBody '[JSON] CTxMeta
-    :> Post '[JSON] (Either WalletError ())
+    :> WRes Post ()
 
 type GetHistory =
        "txs"
@@ -245,7 +279,7 @@ type GetHistory =
     :> Capture "walletId" CWalletAddress
     :> QueryParam "skip" Word
     :> QueryParam "limit" Word
-    :> Get '[JSON] (Either WalletError ([CTx], Word))
+    :> WRes Get ([CTx], Word)
 
 type SearchHistory =
        "txs"
@@ -255,7 +289,7 @@ type SearchHistory =
     :> QueryParam "account" (CAddress Acc)
     :> QueryParam "skip" Word
     :> QueryParam "limit" Word
-    :> Get '[JSON] (Either WalletError ([CTx], Word))
+    :> WRes Get ([CTx], Word)
 
 
 -------------------------------------------------------------------------
@@ -264,11 +298,11 @@ type SearchHistory =
 
 type NextUpdate =
        "update"
-    :> Get '[JSON] (Either WalletError CUpdateInfo)
+    :> WRes Get CUpdateInfo
 
 type ApplyUpdate =
        "update"
-    :> Post '[JSON] (Either WalletError ())
+    :> WRes Post ()
 
 
 -------------------------------------------------------------------------
@@ -280,7 +314,7 @@ type RedeemADA =
     :> "ada"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletRedeem
-    :> Post '[JSON] (Either WalletError CTx)
+    :> WRes Post CTx
 
 type RedeemADAPaperVend =
        "papervend"
@@ -288,7 +322,7 @@ type RedeemADAPaperVend =
     :> "ada"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CPaperVendWalletRedeem
-    :> Post '[JSON] (Either WalletError CTx)
+    :> WRes Post CTx
 
 
 -------------------------------------------------------------------------
@@ -299,13 +333,13 @@ type ReportingInitialized =
        "reporting"
     :> "initialized"
     :> ReqBody '[JSON] CInitialized
-    :> Post '[JSON] (Either WalletError ())
+    :> WRes Post ()
 
 type ReportingElectroncrash =
        "reporting"
     :> "electroncrash"
     :> MultipartForm CElectronCrashReport
-    :> Post '[JSON] (Either WalletError ())
+    :> WRes Post ()
 
 
 -------------------------------------------------------------------------
@@ -316,18 +350,18 @@ type GetSlotsDuration =
        "settings"
     :> "slots"
     :> "duration"
-    :> Get '[JSON] (Either WalletError Word)
+    :> WRes Get Word
 
 type GetVersion =
        "settings"
     :> "version"
-    :> Get '[JSON] (Either WalletError SoftwareVersion)
+    :> WRes Get SoftwareVersion
 
 type GetSyncProgress =
        "settings"
     :> "sync"
     :> "progress"
-    :> Get '[JSON] (Either WalletError SyncProgress)
+    :> WRes Get SyncProgress
 
 -- | Servant API which provides access to wallet.
 -- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis

@@ -22,44 +22,46 @@ module Pos.Block.Logic.Internal
 
 import           Universum
 
-import           Control.Lens         (each, _Wrapped)
+import           Control.Lens            (each, _Wrapped)
 import qualified Ether
-import           Paths_cardano_sl     (version)
+import           Paths_cardano_sl        (version)
 
-import           Pos.Block.Core       (Block, GenesisBlock, MainBlock, mbTxPayload,
-                                       mbUpdatePayload)
-import           Pos.Block.Logic.Slog (SlogMode, slogApplyBlocks, slogRollbackBlocks)
-import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
-import           Pos.Core             (IsGenesisHeader, IsMainHeader, epochIndexL, gbBody,
-                                       gbHeader)
-import           Pos.DB               (MonadDB, SomeBatchOp (..))
-import           Pos.DB.Block         (MonadBlockDB)
-import qualified Pos.DB.GState        as GS
-import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
-import           Pos.Lrc.Context      (LrcContext)
-import           Pos.Reporting        (reportingFatal)
-import           Pos.Txp.Core         (TxPayload)
+import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
+                                          mbUpdatePayload)
+import           Pos.Block.Logic.Slog    (SlogMode, slogApplyBlocks, slogRollbackBlocks)
+import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
+import           Pos.Core                (IsGenesisHeader, IsMainHeader, epochIndexL,
+                                          gbBody, gbHeader)
+import           Pos.DB                  (MonadDB, SomeBatchOp (..))
+import           Pos.DB.Block            (MonadBlockDB)
+import qualified Pos.DB.GState           as GS
+import           Pos.Delegation.Logic    (delegationApplyBlocks, delegationRollbackBlocks)
+import           Pos.Lrc.Context         (LrcContext)
+import           Pos.Reporting           (reportingFatal)
+import           Pos.Txp.Core            (TxPayload)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp     (eTxNormalize)
+import           Pos.Explorer.Txp        (eTxNormalize)
 #else
-import           Pos.Txp.Logic        (txNormalize)
+import           Pos.Txp.Logic           (txNormalize)
 #endif
-import           Pos.Block.BListener  (MonadBListener)
-import           Pos.Delegation.Class (MonadDelegation)
-import           Pos.Discovery.Class  (MonadDiscovery)
-import           Pos.Reporting        (MonadReportingMem)
-import           Pos.Ssc.Class        (SscGStateClass, SscHelpersClass, SscLocalDataClass)
-import           Pos.Ssc.Extra        (MonadSscMem, sscApplyBlocks, sscNormalize,
-                                       sscRollbackBlocks)
-import           Pos.Txp.MemState     (MonadTxpMem)
-import           Pos.Txp.Settings     (TxpBlock, TxpBlund, TxpGlobalSettings (..))
-import           Pos.Update.Context   (UpdateContext)
-import           Pos.Update.Core      (UpdateBlock, UpdatePayload)
-import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
-import           Pos.Update.Poll      (PollModifier)
-import           Pos.Util             (Some (..), spanSafe)
-import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.WorkMode.Class   (TxpExtra_TMP)
+import           Pos.Block.BListener     (MonadBListener)
+import           Pos.Delegation.Class    (MonadDelegation)
+import           Pos.Discovery.Class     (MonadDiscovery)
+import           Pos.Reporting           (MonadReportingMem)
+import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
+import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
+import           Pos.Ssc.Class.Storage   (SscGStateClass)
+import           Pos.Ssc.Extra           (MonadSscMem, sscApplyBlocks, sscNormalize,
+                                          sscRollbackBlocks)
+import           Pos.Txp.MemState        (MonadTxpMem)
+import           Pos.Txp.Settings        (TxpBlock, TxpBlund, TxpGlobalSettings (..))
+import           Pos.Update.Context      (UpdateContext)
+import           Pos.Update.Core         (UpdateBlock, UpdatePayload)
+import           Pos.Update.Logic        (usApplyBlocks, usNormalize, usRollbackBlocks)
+import           Pos.Update.Poll         (PollModifier)
+import           Pos.Util                (Some (..), spanSafe)
+import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.WorkMode.Class      (TxpExtra_TMP)
 
 -- | Set of basic constraints used by high-level block processing.
 type BlockMode ssc m

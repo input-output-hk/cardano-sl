@@ -45,7 +45,7 @@ import           Pos.Core                   (BlockVersionData (..), ChainDifficu
 import           Pos.Crypto                 (ProxySecretKey (..), pdCert)
 import           Pos.Data.Attributes        (Attributes (attrRemain))
 import           Pos.Delegation.Types       (getDlgPayload)
-import           Pos.Ssc.Class              (SscHelpersClass)
+import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 
 ----------------------------------------------------------------------------

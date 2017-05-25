@@ -248,6 +248,7 @@ library
                         Pos.Lrc.DB.Lrc
                         Pos.Lrc.DB.Richmen
                         Pos.Lrc.Logic
+                        Pos.Lrc.Mode
                         Pos.Lrc.Worker
 
                         -- SafeCopy serialization (required in wallet)

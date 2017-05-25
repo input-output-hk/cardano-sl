@@ -32,8 +32,8 @@ import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBloc
                                              MainExtraHeaderData (..), mkGenesisBlock,
                                              mkMainBlock)
 import qualified Pos.Block.Core             as BC
-import           Pos.Block.Logic.Internal   (BlockApplyMode, applyBlocksUnsafe,
-                                             toUpdateBlock)
+import           Pos.Block.Logic.Internal   (BlockApplyMode, BlockVerifyMode,
+                                             applyBlocksUnsafe, toUpdateBlock)
 import           Pos.Block.Logic.Util       (withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Types            (Undo (..))
@@ -213,14 +213,12 @@ createMainBlockFinish
 createMainBlockFinish slotId pSk prevHeader = do
     unchecked@(uncheckedBlock, _, _) <- createBlundFromMemPool
     (block, undo, pModifier) <-
-        verifyCreatedBlock uncheckedBlock >>=
-        either fallbackCreateBlock (const $ pure unchecked)
+        verifyCreatedBlock uncheckedBlock (pure unchecked) fallbackCreateBlock
     logDebug "Created main block/undos, applying"
     lift $ block <$ applyBlocksUnsafe (one (Right block, undo)) (Just pModifier)
   where
     createBlundFromMemPool :: ExceptT Text m (MainBlock ssc, Undo, PollModifier)
     createBlundFromMemPool = do
-        -- Get MemPool and almost undo
         (rawPay, undoNoUS) <- getRawPayloadAndUndo slotId
         -- Create block
         sk <- Ether.asks' npSecretKey
@@ -237,8 +235,12 @@ createMainBlockFinish slotId pSk prevHeader = do
         let undo = undoNoUS (usUndo ^. _Wrapped . _neHead)
         evaluateNF_ (undo, block)
         pure (block, undo, pModifier)
-    verifyCreatedBlock :: MainBlock ssc -> ExceptT Text m (Either Text ())
-    verifyCreatedBlock block = lift $ void <$> verifyBlocksPrefix (one (Right block))
+    verifyCreatedBlock ::
+        forall n a. BlockVerifyMode ssc n =>
+        MainBlock ssc -> n a -> (Text -> n a) -> n a
+    verifyCreatedBlock block onSuccess onFailure =
+        verifyBlocksPrefix (one (Right block)) >>=
+        either onFailure (const onSuccess)
     clearMempools = do
         clearTxpMemPool
         sscResetLocal
@@ -252,9 +254,9 @@ createMainBlockFinish slotId pSk prevHeader = do
         logDebug $ "Creating empty block"
         clearMempools
         emptyBlund@(emptyBlock, _, _) <- createBlundFromMemPool
-        verifyCreatedBlock emptyBlock >>=
-            either (assertionFailed . sformat ("We couldn't create even block with empty payload: "%stext))
-            (const $ pure emptyBlund)
+        lift $ verifyCreatedBlock emptyBlock (pure emptyBlund)
+            (assertionFailed . sformat
+             ("We couldn't create even block with empty payload: "%stext))
 
 getRawPayloadAndUndo
     :: forall ssc m.

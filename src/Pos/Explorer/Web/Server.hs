@@ -17,7 +17,7 @@ module Pos.Explorer.Web.Server
        , getLastBlocks
        ) where
 
-import           Control.Lens                   (at, _Wrapped)
+import           Control.Lens                   (at, _Wrapped, _Right)
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
@@ -188,7 +188,7 @@ getBlocksByEpoch epochIndex mSlotIndex = do
 --    by 170 and set the limit to 10 - we end at the block 0)
 --
 -- Why this offset/limit scheme - https://www.petefreitag.com/item/451.cfm
-getLastBlocks :: (ExplorerMode m) => Word -> Word -> m [CBlockEntry]
+getLastBlocks :: (MonadDB m, MonadSlots m) => Word -> Word -> m [CBlockEntry]
 getLastBlocks limit offset = do
     -- Get tip block header hash.
     tipHash     <- GS.getTip
@@ -205,7 +205,7 @@ getLastBlocks limit offset = do
     let blocksStartIndex = max 0 (blocksEndIndex - limitInt)
 
     -- Find the end main block at the end index if it exists, and return it.
-    foundEndBlock <- findMainBlockWithIndex @SscGodTossing tipHash blocksEndIndex >>=
+    foundEndBlock <- findMainBlockWithIndex tipHash blocksEndIndex >>=
         maybeThrow (Internal "Block with specified index cannot be found!")
 
     -- Get the header hash from the found end block.
@@ -231,10 +231,10 @@ getLastBlocks limit offset = do
 
     -- | Find block matching the sent index/difficulty.
     findMainBlockWithIndex
-        :: (SscHelpersClass ssc, ExplorerMode m)
+        :: (MonadDB m)
         => HeaderHash
         -> Integer
-        -> m (Maybe (MainBlock ssc))
+        -> m (Maybe (MainBlock SscGodTossing))
     findMainBlockWithIndex headerHash index
         -- When we reach the genesis block, return @Nothing@. This is
         -- literaly the first block ever, so we reached the begining of the
@@ -245,21 +245,16 @@ getLastBlocks limit offset = do
         | otherwise = do
             -- Get the block with the sent hash, throw exception if/when the block
             -- search fails.
-            block <- DB.getBlock headerHash >>=
+            block <- DB.getBlock @SscGodTossing headerHash >>=
                 maybeThrow (Internal "Block with hash cannot be found!")
             -- If there is a block then iterate backwards with the predicate
             let prevBlock = block ^. prevBlockL
 
             if getBlockIndex block == index
                 -- When the predicate is true, return the block
-                then pure $ genericToMainBlock block
+                then pure $ block ^? _Right
                 -- When the predicate is false, keep searching backwards
                 else findMainBlockWithIndex prevBlock index
-      where
-        -- idiotic, but otherwise inference errors (block ^? _Right)
-        genericToMainBlock (Left  _    ) = Nothing
-        genericToMainBlock (Right block) = Just block
-
 
 -- | Get last transactions from the blockchain
 getLastTxs :: ExplorerMode m => Word -> Word -> m [CTxEntry]

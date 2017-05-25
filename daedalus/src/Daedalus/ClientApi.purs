@@ -173,7 +173,7 @@ renameWalletSet = mkEffFn2 \wSetId name -> fromAff <<< map encodeJson $ B.rename
 -- |   cwsId: '1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8',
 -- |   cwsHasPassphrase: false,
 -- |   cwsAmount: { getCCoin: '0' } }
--- | ```js
+-- | ```
 importWalletSet :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Json)
 importWalletSet = mkEffFn2 \filePath spendingPassword -> fromAff <<< map encodeJson $ B.importWalletSet (mkCPassPhrase spendingPassword) filePath
 

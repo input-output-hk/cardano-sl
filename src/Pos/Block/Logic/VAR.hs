@@ -19,15 +19,15 @@ import qualified Ether
 import           Paths_cardano_sl         (version)
 
 import           Pos.Block.Core           (Block)
-import           Pos.Block.Logic.Internal (applyBlocksUnsafe, rollbackBlocksUnsafe,
-                                           toTxpBlock, toUpdateBlock)
+import           Pos.Block.Logic.Internal (BlockVerifyMode, applyBlocksUnsafe,
+                                           rollbackBlocksUnsafe, toTxpBlock,
+                                           toUpdateBlock)
 import           Pos.Block.Logic.Slog     (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Logic.Util     (tipMismatchMsg)
 import           Pos.Block.Types          (Blund, Undo (..))
-import           Pos.Core                 (HeaderHash, epochIndexL, headerHash,
-                                           headerHashG, prevBlockL, prevBlockL)
+import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
+                                           prevBlockL, prevBlockL)
 import           Pos.DB                   (MonadDBCore)
-import qualified Pos.DB.DB                as DB
 import qualified Pos.DB.GState            as GS
 import           Pos.Delegation.Logic     (delegationVerifyBlocks)
 import           Pos.Lrc.Worker           (lrcSingleShotNoLock)
@@ -54,14 +54,14 @@ import           Pos.WorkMode.Class       (WorkMode)
 -- header, body, extra data, etc.
 verifyBlocksPrefix
     :: forall ssc m.
-       WorkMode ssc m
+       BlockVerifyMode ssc m
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE Undo, PollModifier))
 verifyBlocksPrefix blocks = runExceptT $ do
     -- This check (about tip) is here just in case, we actually check
     -- it before calling this function.
-    tipBlk <- DB.getTipBlock @ssc
-    when (headerHash tipBlk /= blocks ^. _Wrapped . _neHead . prevBlockL) $
+    tip <- GS.getTip
+    when (tip /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError "the first block isn't based on the tip"
     -- Some verifications need to know whether all data must be known.
     -- We determine it here and pass to all interested components.

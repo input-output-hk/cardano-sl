@@ -6,7 +6,13 @@
 -- requires triggering lrc recalculations.
 
 module Pos.Block.Logic.Internal
-       ( applyBlocksUnsafe
+       (
+         -- * Constraints
+         BlockMode
+       , BlockVerifyMode
+       , BlockApplyMode
+
+       , applyBlocksUnsafe
        , rollbackBlocksUnsafe
 
          -- * Garbage
@@ -22,13 +28,15 @@ import           Paths_cardano_sl     (version)
 
 import           Pos.Block.Core       (Block, GenesisBlock, MainBlock, mbTxPayload,
                                        mbUpdatePayload)
-import           Pos.Block.Logic.Slog (slogApplyBlocks, slogRollbackBlocks)
+import           Pos.Block.Logic.Slog (SlogMode, slogApplyBlocks, slogRollbackBlocks)
 import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
 import           Pos.Core             (IsGenesisHeader, IsMainHeader, epochIndexL, gbBody,
                                        gbHeader)
-import           Pos.DB               (SomeBatchOp (..))
+import           Pos.DB               (MonadDB, SomeBatchOp (..))
+import           Pos.DB.Block         (MonadBlockDB)
 import qualified Pos.DB.GState        as GS
 import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
+import           Pos.Lrc.Context      (LrcContext)
 import           Pos.Reporting        (reportingFatal)
 import           Pos.Txp.Core         (TxPayload)
 #ifdef WITH_EXPLORER
@@ -36,15 +44,58 @@ import           Pos.Explorer.Txp     (eTxNormalize)
 #else
 import           Pos.Txp.Logic        (txNormalize)
 #endif
-import           Pos.Ssc.Class        (SscHelpersClass)
-import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
+import           Pos.Block.BListener  (MonadBListener)
+import           Pos.Delegation.Class (MonadDelegation)
+import           Pos.Discovery.Class  (MonadDiscovery)
+import           Pos.Reporting        (MonadReportingMem)
+import           Pos.Ssc.Class        (SscGStateClass, SscHelpersClass, SscLocalDataClass)
+import           Pos.Ssc.Extra        (MonadSscMem, sscApplyBlocks, sscNormalize,
+                                       sscRollbackBlocks)
+import           Pos.Txp.MemState     (MonadTxpMem)
 import           Pos.Txp.Settings     (TxpBlock, TxpBlund, TxpGlobalSettings (..))
+import           Pos.Update.Context   (UpdateContext)
 import           Pos.Update.Core      (UpdateBlock, UpdatePayload)
 import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll      (PollModifier)
 import           Pos.Util             (Some (..), spanSafe)
 import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.WorkMode.Class   (WorkMode)
+import           Pos.WorkMode.Class   (TxpExtra_TMP)
+
+-- | Set of basic constraints used by high-level block processing.
+type BlockMode ssc m
+     = ( SlogMode ssc m
+       -- Needed because SSC state is fully stored in memory.
+       , MonadSscMem ssc m
+       -- Needed to load blocks (at least delegation does it).
+       , MonadBlockDB ssc m
+       -- LRC is really needed.
+       , Ether.MonadReader' LrcContext m
+       -- Probably won't be needed after porting everything to smaller monads.
+       , MonadDB m
+       -- This constraints define block components' global logic.
+       , Ether.MonadReader' TxpGlobalSettings m
+       , SscGStateClass ssc
+       )
+
+-- | Set of constraints necessary for high-level block verification.
+type BlockVerifyMode ssc m = BlockMode ssc m
+
+-- | Set of constraints necessary to apply or rollback blocks at high-level.
+type BlockApplyMode ssc m
+     = ( BlockMode ssc m
+       -- Needed for iteration over DB.
+       , MonadMask m
+       -- Needed to embed custom logic.
+       , MonadBListener m
+       -- Needed for normalization.
+       , MonadTxpMem TxpExtra_TMP m
+       , MonadDelegation m
+       , SscLocalDataClass ssc
+       , Ether.MonadReader' UpdateContext m
+       -- Needed for error reporting.
+       , MonadReportingMem m
+       , MonadDiscovery m
+       )
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break
@@ -52,7 +103,7 @@ import           Pos.WorkMode.Class   (WorkMode)
 --
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
-    :: forall ssc m . WorkMode ssc m
+    :: forall ssc m . BlockApplyMode ssc m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafe blunds0 pModifier =
     reportingFatal version $
@@ -78,7 +129,7 @@ applyBlocksUnsafe blunds0 pModifier =
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds0
 
 applyBlocksUnsafeDo
-    :: forall ssc m . WorkMode ssc m
+    :: forall ssc m . BlockApplyMode ssc m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to do 'slogApplyBlocks' first, because it
@@ -110,8 +161,9 @@ applyBlocksUnsafeDo blunds pModifier = do
 -- head being current tip. It's also assumed that lock on block db is
 -- taken.  application is taken already.
 rollbackBlocksUnsafe
-    :: forall ssc m .(WorkMode ssc m)
-    => NewestFirst NE (Blund ssc) -> m ()
+    :: forall ssc m. (BlockApplyMode ssc m)
+    => NewestFirst NE (Blund ssc)
+    -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     slogRoll <- slogRollbackBlocks toRollback
     dlgRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback

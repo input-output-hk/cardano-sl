@@ -96,10 +96,12 @@ mustDataBeKnown adoptedBV =
 -- VAR
 ----------------------------------------------------------------------------
 
+-- | Set of basic constraints needed by Slog.
 type SlogMode ssc m
      = (MonadSlots m, SscHelpersClass ssc, MonadDBPure m, WithLogger m)
 
 -- Sadly, MonadIO and MonadDB are needed for LRC, but it can be improved.
+-- | Set of constraints needed for Slog verification.
 type SlogVerifyMode ssc m
      = ( SlogMode ssc m
        , MonadError Text m
@@ -145,6 +147,7 @@ slogVerifyBlocks blocks = do
         verifyBlocks curSlot dataMustBeKnown adoptedBVD
         leaders pskCerts blocks
 
+-- | Set of constraints necessary to apply/rollback blocks in Slog.
 type SlogApplyMode ssc m
      = ( SlogMode ssc m
        , MonadDB m

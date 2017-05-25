@@ -36,6 +36,7 @@ import           Pos.Context                          (MonadNodeContext, NodeCon
                                                        npPublicKey)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
+import           Pos.DB.Redirect                      (DBPureRedirect, runDBPureRedirect)
 import qualified Pos.Lrc.DB                           as LrcDB
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
@@ -89,6 +90,7 @@ serveImpl application host port =
 ----------------------------------------------------------------------------
 
 type WebHandler ssc =
+    DBPureRedirect $
     Ether.ReadersT
         ( Tagged DB.NodeDBs DB.NodeDBs
         , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
@@ -109,7 +111,8 @@ convertHandler nc nodeDBs wrap handler =
             flip Ether.runReadersT
               ( Tagged @DB.NodeDBs nodeDBs
               , Tagged @TxpHolderTag wrap
-              ) $
+              ) .
+            runDBPureRedirect $
             handler)
     `Catch.catches`
     excHandlers

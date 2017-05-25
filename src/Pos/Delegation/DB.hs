@@ -17,32 +17,33 @@ module Pos.Delegation.DB
 
 import           Universum
 
-import qualified Data.HashMap.Strict as HM
-import qualified Database.RocksDB    as Rocks
+import qualified Data.HashMap.Strict  as HM
+import qualified Database.RocksDB     as Rocks
 
-import           Pos.Binary.Class    (encodeStrict)
-import           Pos.Crypto          (PublicKey, pskDelegatePk, pskIssuerPk)
-import           Pos.DB.Class        (MonadDB, getUtxoDB)
-import           Pos.DB.Functions    (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi)
-import           Pos.DB.Iterator     (DBIteratorClass (..), DBnIterator, DBnMapIterator,
-                                      IterType, runDBnIterator, runDBnMapIterator)
-import           Pos.DB.Types        (NodeDBs (_gStateDB))
-import           Pos.Types           (ProxySKHeavy, StakeholderId, addressHash)
-import           Pos.Util.Iterator   (nextItem)
+import           Pos.Binary.Class     (encodeStrict)
+import           Pos.Crypto           (PublicKey, pskDelegatePk, pskIssuerPk)
+import           Pos.DB.Class         (MonadDB, MonadDBPure)
+import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix)
+import           Pos.DB.GState.Common (gsGetBi)
+import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
+                                       IterType, runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Types         (NodeDBs (_gStateDB))
+import           Pos.Types            (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Util.Iterator    (nextItem)
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors
 ----------------------------------------------------------------------------
 
 -- | Retrieves certificate by issuer address (hash of public key) if present.
-getPSKByIssuerAddressHash :: MonadDB m => StakeholderId -> m (Maybe ProxySKHeavy)
-getPSKByIssuerAddressHash addrHash = rocksGetBi (pskKey addrHash) =<< getUtxoDB
+getPSKByIssuerAddressHash :: MonadDBPure m => StakeholderId -> m (Maybe ProxySKHeavy)
+getPSKByIssuerAddressHash addrHash = gsGetBi (pskKey addrHash)
 
 -- | Retrieves certificate by issuer public key if present.
-getPSKByIssuer :: MonadDB m => PublicKey -> m (Maybe ProxySKHeavy)
+getPSKByIssuer :: MonadDBPure m => PublicKey -> m (Maybe ProxySKHeavy)
 getPSKByIssuer = getPSKByIssuerAddressHash . addressHash
 
-isIssuerByAddressHash :: MonadDB m => StakeholderId -> m Bool
+isIssuerByAddressHash :: (MonadDBPure m) => StakeholderId -> m Bool
 isIssuerByAddressHash = fmap isJust . getPSKByIssuerAddressHash
 
 ----------------------------------------------------------------------------

@@ -33,6 +33,8 @@ module Pos.Delegation.Logic
        , isProxySKConfirmed
        ) where
 
+import           Universum
+
 import           Control.Exception        (Exception (..))
 import           Control.Lens             (at, makeLenses, uses, (%%=), (%=), (+=), (-=),
                                            (.=), _Wrapped)
@@ -46,7 +48,6 @@ import           Data.Time.Clock          (UTCTime, addUTCTime, getCurrentTime)
 import qualified Ether
 import           Formatting               (bprint, build, sformat, stext, (%))
 import           System.Wlog              (WithLogger)
-import           Universum
 
 import           Pos.Binary.Class         (biSize)
 import           Pos.Binary.Communication ()
@@ -62,7 +63,7 @@ import           Pos.Crypto               (ProxySecretKey (..), PublicKey,
                                            SignTag (SignProxySK), pdDelegatePk,
                                            proxyVerify, shortHashF, toPublic,
                                            verifyProxySecretKey)
-import           Pos.DB                   (DBError (DBMalformed), MonadDB,
+import           Pos.DB                   (DBError (DBMalformed), MonadDB, MonadDBPure,
                                            SomeBatchOp (..))
 import qualified Pos.DB                   as DB
 import qualified Pos.DB.Block             as DB
@@ -116,13 +117,13 @@ invalidateProxyCaches curTime = do
   where
     toDiffTime (t :: Integer) = fromIntegral t
 
-type DelegationWorkMode m = (MonadDelegation m, MonadDB m, WithLogger m)
+type DelegationWorkMode m = (MonadDelegation m, MonadDB m, WithLogger m, MonadDBPure m)
 
 -- Retrieves psk certificated that have been accumulated before given
 -- block. The block itself should be in DB.
 getPSKsFromThisEpoch
     :: forall ssc m.
-       (SscHelpersClass ssc, MonadDB m)
+       DB.MonadBlockDB ssc m
     => HeaderHash -> m [ProxySKHeavy]
 getPSKsFromThisEpoch tip =
     concatMap (either (const []) (view mainBlockDlgPayload)) <$>
@@ -156,10 +157,10 @@ instance B.Buildable DelegationError where
 -- * Loads `_dwThisEpochPosted` from database
 initDelegation
     :: forall ssc m.
-       (SscHelpersClass ssc, MonadDB m, MonadDelegation m)
+       (MonadIO m, DB.MonadBlockDB ssc m, MonadDelegation m)
     => m ()
 initDelegation = do
-    tip <- DB.getTipBlockHeader @ssc
+    tip <- DB.getTipHeader @ssc
     let tipEpoch = tip ^. epochIndexL
     fromGenesisPsks <-
         map pskIssuerPk <$> (getPSKsFromThisEpoch @ssc) (headerHash tip)
@@ -173,7 +174,7 @@ initDelegation = do
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
 getProxyMempool
-    :: (MonadDB m, MonadDelegation m)
+    :: (MonadIO m, MonadDBPure m, MonadDelegation m)
     => m ([ProxySKHeavy], [ProxySKHeavy])
 getProxyMempool = do
     sks <- runDelegationStateAction $
@@ -236,6 +237,7 @@ processProxySKHeavy
     :: forall ssc m.
        ( SscHelpersClass ssc
        , MonadDB m
+       , MonadDBPure m
        , DB.MonadDBCore m
        , MonadDelegation m
        , Ether.MonadReader' LrcContext m
@@ -243,7 +245,7 @@ processProxySKHeavy
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk = do
     curTime <- liftIO getCurrentTime
-    headEpoch <- view epochIndexL <$> DB.getTipBlockHeader @ssc
+    headEpoch <- view epochIndexL <$> DB.getTipHeader @ssc
     richmen <-
         toList <$>
         lrcActionOnEpochReason
@@ -301,8 +303,12 @@ makeLenses ''DelVerState
 --
 -- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
 -- point of view.
-delegationVerifyBlocks
-    :: forall ssc m. (SscHelpersClass ssc, MonadDB m, Ether.MonadReader' LrcContext m)
+delegationVerifyBlocks ::
+       forall ssc m.
+       ( DB.MonadBlockDB ssc m
+       , DB.MonadDB m
+       , Ether.MonadReader' LrcContext m
+       )
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE [ProxySKHeavy]))
 delegationVerifyBlocks blocks = do
@@ -405,16 +411,16 @@ delegationApplyBlocks blocks = do
 -- rollback arbitrary number of blocks.
 delegationRollbackBlocks
     :: forall ssc m.
-       ( SscHelpersClass ssc
-       , MonadDelegation m
-       , MonadDB m
+       ( MonadDelegation m
+       , DB.MonadDB m
+       , DB.MonadBlockDB ssc m
        , Ether.MonadReader' LrcContext m
        )
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
 delegationRollbackBlocks blunds = do
     tipBlockAfterRollback <-
         maybe (throwM malformedLastParent) pure =<<
-        DB.getBlock @ssc (blunds ^. _Wrapped . _neLast . _1 . prevBlockL)
+        DB.blkGetBlock @ssc (blunds ^. _Wrapped . _neLast . _1 . prevBlockL)
     let epochAfterRollback = tipBlockAfterRollback ^. epochIndexL
     richmen <-
         HS.fromList . toList <$>

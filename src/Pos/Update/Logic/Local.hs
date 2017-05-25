@@ -38,7 +38,7 @@ import           Pos.Constants          (memPoolLimitRatio)
 import           Pos.Core               (BlockVersionData (bvdMaxBlockSize), HeaderHash,
                                          SlotId (..), slotIdF)
 import           Pos.Crypto             (PublicKey)
-import           Pos.DB.Class           (MonadDB)
+import           Pos.DB.Class           (MonadDB, MonadDBPure)
 import qualified Pos.DB.GState          as DB
 import           Pos.Lrc.Context        (LrcContext)
 import           Pos.Update.Context     (UpdateContext (..))
@@ -56,7 +56,9 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
 
 -- MonadMask is needed because are using Lock. It can be improved later.
 type USLocalLogicMode m =
-    ( MonadDB m, MonadMask m
+    ( MonadDB m
+    , MonadDBPure m
+    , MonadMask m
     , WithLogger m
     , Ether.MonadReader' UpdateContext m
     , Ether.MonadReader' LrcContext m
@@ -93,7 +95,7 @@ getLocalVotes
 getLocalVotes = mpLocalVotes <$> getMemPool
 
 withCurrentTip
-    :: (Ether.MonadReader' UpdateContext m, MonadDB m)
+    :: (Ether.MonadReader' UpdateContext m, MonadDB m, MonadDBPure m)
     => (MemState -> m MemState) -> m ()
 withCurrentTip action = do
     tipBefore <- DB.getTip
@@ -133,6 +135,7 @@ processSkeleton payload =
 -- Remove most useless data from mem pool to make it smaller.
 refreshMemPool
     :: ( MonadDB m
+       , MonadDBPure m
        , Ether.MonadReader' UpdateContext m
        , Ether.MonadReader' LrcContext m
        , WithLogger m

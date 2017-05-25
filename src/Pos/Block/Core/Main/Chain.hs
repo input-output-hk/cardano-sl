@@ -12,6 +12,7 @@ module Pos.Block.Core.Main.Chain
 
 import           Universum
 
+import           Control.Monad.Except       (MonadError (throwError))
 import           Data.Tagged                (untag)
 
 import           Pos.Binary.Core            ()
@@ -80,8 +81,8 @@ instance ( BiHeader ssc
         , mpProxySKsProof = hash _mbDlgPayload
         , mpUpdateProof = mkUpdateProof _mbUpdatePayload
         }
-    verifyBBlock GenericBlock {..} =
-        first pretty $
+    verifyBBlock UnsafeGenericBlock {..} =
+        either (throwError . pretty) pure $
         sscVerifyPayload @ssc (Right (Some _gbHeader)) (_mbSscPayload _gbBody)
 
 deriving instance Ssc ssc => Show (BodyProof (MainBlockchain ssc))

@@ -19,6 +19,8 @@ import           Pos.Block.BListener         (runBListenerStub)
 import           Pos.Communication           (ActionSpec (..), MkListeners, NodeId,
                                               OutSpecs, WorkerSpec)
 import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect)
+import           Pos.DB                      (runDBPureRedirect)
+import           Pos.DB.Block                (runBlockDBRedirect)
 import           Pos.Discovery               (findPeers, runDiscoveryConstT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               runServer_)
@@ -93,6 +95,8 @@ runRawStaticPeersWallet transport peers WalletParams {..}
             , Tagged @KeyData keyData
             , Tagged @WalletState db
             , Tagged @ReportingContext emptyReportingContext ) .
+            runDBPureRedirect .
+            runBlockDBRedirect .
             runTxHistoryWalletRedirect .
             runBalancesWalletRedirect .
             runGStateCoreWalletRedirect .

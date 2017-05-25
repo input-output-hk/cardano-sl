@@ -3,8 +3,10 @@
 -- | Verify|apply|rollback logic.
 
 module Pos.Block.Logic.VAR
-       ( verifyAndApplyBlocks
-       , verifyBlocksPrefix
+       ( verifyBlocksPrefix
+
+       , BlockLrcMode
+       , verifyAndApplyBlocks
        , rollbackBlocks
        , applyWithRollback
        ) where
@@ -19,20 +21,18 @@ import qualified Ether
 import           Paths_cardano_sl         (version)
 
 import           Pos.Block.Core           (Block)
-import           Pos.Block.Logic.Internal (BlockVerifyMode, applyBlocksUnsafe,
-                                           rollbackBlocksUnsafe, toTxpBlock,
-                                           toUpdateBlock)
+import           Pos.Block.Logic.Internal (BlockApplyMode, BlockVerifyMode,
+                                           applyBlocksUnsafe, rollbackBlocksUnsafe,
+                                           toTxpBlock, toUpdateBlock)
 import           Pos.Block.Logic.Slog     (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Logic.Util     (tipMismatchMsg)
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
                                            prevBlockL, prevBlockL)
-import           Pos.DB                   (MonadDBCore)
 import qualified Pos.DB.GState            as GS
 import           Pos.Delegation.Logic     (delegationVerifyBlocks)
-import           Pos.Lrc.Worker           (lrcSingleShotNoLock)
+import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShotNoLock)
 import           Pos.Reporting            (reportingFatal)
-import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
 import           Pos.Txp.Settings         (TxpGlobalSettings (..))
 import qualified Pos.Update.DB            as UDB
@@ -41,7 +41,6 @@ import           Pos.Update.Poll          (PollModifier)
 import           Pos.Util                 (neZipWith3, spanSafe, _neHead)
 import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..),
                                            toNewestFirst, toOldestFirst)
-import           Pos.WorkMode.Class       (WorkMode)
 
 -- -- CHECK: @verifyBlocksLogic
 -- -- #txVerifyBlocks
@@ -85,6 +84,9 @@ verifyBlocksPrefix blocks = runExceptT $ do
                (getOldestFirst usUndos)
          , pModifier)
 
+-- | Union of constraints required by block processing and LRC.
+type BlockLrcMode ssc m = (BlockApplyMode ssc m, LrcModeFull ssc m)
+
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on
 -- success. Failure behaviour depends on "rollback" flag. If it's on,
@@ -94,7 +96,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
 -- header hash of new tip. It's up to caller to log warning that
 -- partial application happened.
 verifyAndApplyBlocks
-    :: (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
+    :: (BlockLrcMode ssc m)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocks rollback =
     reportingFatal version . verifyAndApplyBlocksInternal True rollback
@@ -103,7 +105,7 @@ verifyAndApplyBlocks rollback =
 -- parameterizes LRC calculation which can be turned on/off with the first
 -- flag.
 verifyAndApplyBlocksInternal
-    :: forall ssc m. (WorkMode ssc m, SscWorkersClass ssc, MonadDBCore m)
+    :: forall ssc m. (BlockLrcMode ssc m)
     => Bool -> Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
     tip <- GS.getTip
@@ -140,7 +142,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         throwError e
     -- Calculates LRC if it's needed (no lock)
     calculateLrc epochIx =
-        when lrc $ lift $ lrcSingleShotNoLock epochIx
+        when lrc $ lrcSingleShotNoLock epochIx
     -- This function tries to apply a new portion of blocks (prefix
     -- and suffix). It also has aggregating parameter blunds which is
     -- collected to rollback blocks if correspondent flag is on. First
@@ -153,7 +155,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         -> ExceptT Text m HeaderHash
     rollingVerifyAndApply blunds (prefix, suffix) = do
         let prefixHead = prefix ^. _Wrapped . _neHead
-        when (isLeft prefixHead) $ calculateLrc (prefixHead ^. epochIndexL)
+        when (isLeft prefixHead) $ lift $ calculateLrc (prefixHead ^. epochIndexL)
         lift (verifyBlocksPrefix prefix) >>= \case
             Left failure
                 | rollback  -> failWithRollback failure blunds
@@ -178,7 +180,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
 -- per-epoch, calculating lrc when needed if flag is set.
 applyBlocks
     :: forall ssc m.
-       (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
+       (BlockLrcMode ssc m)
     => Bool -> Maybe PollModifier -> OldestFirst NE (Blund ssc) -> m ()
 applyBlocks calculateLrc pModifier blunds = do
     when (isLeft prefixHead && calculateLrc) $
@@ -203,7 +205,7 @@ applyBlocks calculateLrc pModifier blunds = do
 
 -- | Rollbacks blocks. Head must be the current tip.
 rollbackBlocks
-    :: (WorkMode ssc m)
+    :: (BlockLrcMode ssc m)
     => NewestFirst NE (Blund ssc) -> m (Maybe Text)
 rollbackBlocks blunds = do
     tip <- GS.getTip
@@ -214,7 +216,7 @@ rollbackBlocks blunds = do
 
 -- | Rollbacks some blocks and then applies some blocks.
 applyWithRollback
-    :: (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
+    :: (BlockLrcMode ssc m)
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)

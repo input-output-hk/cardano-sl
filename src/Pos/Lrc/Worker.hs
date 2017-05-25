@@ -3,7 +3,8 @@
 -- | Workers responsible for Leaders and Richmen computation.
 
 module Pos.Lrc.Worker
-       ( lrcOnNewSlotWorker
+       ( LrcModeFull
+       , lrcOnNewSlotWorker
        , lrcSingleShot
        , lrcSingleShotNoLock
        ) where
@@ -67,6 +68,7 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
             "LRC worker can't do anything, because recent blocks aren't known"
     onLrcError e = throwM e
 
+-- | 'LrcModeFull' contains all constraints necessary to launch LRC.
 type LrcModeFull ssc m = (LrcMode ssc m, SscWorkersClass ssc)
 
 -- | Run leaders and richmen computation for given epoch. If stable

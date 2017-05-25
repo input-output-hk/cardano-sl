@@ -1285,7 +1285,7 @@ self: {
           description = "Cardano SL main implementation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-core = callPackage ({ QuickCheck, aeson, ansi-terminal, autoexporter, base, base58-bytestring, binary, bytestring, cardano-crypto, cborg, cereal, concurrent-extra, containers, contravariant, cpphs, cryptonite, cryptonite-openssl, data-default, deepseq, deriving-compat, digest, directory, ed25519, ether, exceptions, file-embed, filepath, formatting, generic-arbitrary, hashable, lens, log-warper, lrucache, memory, mkDerivation, mmorph, mtl, node-sketch, parsec, plutus-prototype, pvss, quickcheck-instances, random, reflection, resourcet, safecopy, semigroups, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, th-utilities, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector, yaml }:
+      cardano-sl-core = callPackage ({ QuickCheck, aeson, ansi-terminal, autoexporter, base, base58-bytestring, binary, bytestring, cardano-crypto, cborg, cereal, concurrent-extra, containers, contravariant, cpphs, cryptonite, cryptonite-openssl, data-default, deepseq, deriving-compat, digest, directory, ed25519, ether, exceptions, file-embed, filepath, formatting, generic-arbitrary, hashable, lens, log-warper, lrucache, memory, mkDerivation, mmorph, mtl, node-sketch, parsec, plutus-prototype, pvss, quickcheck-instances, random, reflection, resourcet, safecopy, scrypt, semigroups, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, th-utilities, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "cardano-sl-core";
           version = "0.6.2";
@@ -1335,6 +1335,7 @@ self: {
             reflection
             resourcet
             safecopy
+            scrypt
             semigroups
             serokell-util
             stm
@@ -5613,6 +5614,23 @@ self: {
           doCheck = false;
           homepage = "https://github.com/basvandijk/scientific";
           description = "Numbers represented using scientific notation";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      scrypt = callPackage ({ base, base64-bytestring, bytestring, entropy, mkDerivation, stdenv }:
+      mkDerivation {
+          pname = "scrypt";
+          version = "0.5.0";
+          sha256 = "1cnrjdq1ncv224dlk236a7w29na8r019d2acrsxlsaiy74iadh1y";
+          libraryHaskellDepends = [
+            base
+            base64-bytestring
+            bytestring
+            entropy
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://github.com/informatikr/scrypt";
+          description = "Stronger password hashing via sequential memory-hard functions";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       semigroupoids = callPackage ({ Cabal, base, base-orphans, bifunctors, cabal-doctest, comonad, containers, contravariant, distributive, hashable, mkDerivation, semigroups, stdenv, tagged, transformers, transformers-compat, unordered-containers }:

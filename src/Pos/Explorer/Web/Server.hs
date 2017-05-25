@@ -197,7 +197,7 @@ getLastBlocks limit offset = do
     blocksTotal <- toInteger <$> getBlocksTotalNumber
 
     -- Make sure we aren't offseting more than the beginning of the blockchain.
-    when (offsetInt >= blocksTotal) $
+    when (offsetInt > blocksTotal) $
         throwM $ Internal "Offset cannot be greater than total blocks number."
 
     -- Calculate from where to where we should take blocks.

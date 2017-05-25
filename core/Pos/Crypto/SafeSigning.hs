@@ -66,10 +66,6 @@ instance Buildable PassPhrase where
 emptyPassphrase :: PassPhrase
 emptyPassphrase = PassPhrase mempty
 
-{-instance Monoid PassPhrase where
-    mempty = PassPhrase mempty
-    mappend (PassPhrase p1) (PassPhrase p2) = PassPhrase (p1 `mappend` p2)-}
-
 mkEncSecret :: Bi PassPhrase => PassPhrase -> CC.XPrv -> EncryptedSecretKey
 mkEncSecret pp payload = EncryptedSecretKey payload (hash pp)
 

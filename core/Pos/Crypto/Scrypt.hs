@@ -6,8 +6,8 @@ module Pos.Crypto.Scrypt
     , S.Pass (..)
     , S.EncryptedPass (..)
 
-    , S.scryptParams
-    , S.scryptParamsLen
+    , ScryptParamsBuilder (..)
+    , mkScryptParams
 
     , mkSalt
     , genSalt
@@ -19,9 +19,31 @@ module Pos.Crypto.Scrypt
 import           Universum
 
 import qualified Crypto.Scrypt     as S
+import           Data.Default      (Default (..))
 
 import           Pos.Binary.Class  (Bi, encodeStrict)
 import           Pos.Crypto.Random (secureRandomBS)
+
+-- | This corresponds to 'ScryptParams' datatype.
+-- These parameters influence on resulting hash length, memory and time
+-- consumption. See documentation for exact details.
+data ScryptParamsBuilder = ScryptParamsBuilder
+    { spLogN    :: Word
+    , spR       :: Word
+    , spP       :: Word
+    , spHashLen :: Word
+    }
+
+mkScryptParams :: ScryptParamsBuilder -> Maybe S.ScryptParams
+mkScryptParams ScryptParamsBuilder {..} =
+    S.scryptParamsLen
+        (fromIntegral spLogN)
+        (fromIntegral spR)
+        (fromIntegral spP)
+        (fromIntegral spHashLen)
+
+instance Default ScryptParamsBuilder where
+    def = ScryptParamsBuilder { spLogN = 14, spR = 8, spP = 1, spHashLen = 64 }
 
 mkSalt :: Bi salt => salt -> S.Salt
 mkSalt = S.Salt . encodeStrict

@@ -25,8 +25,8 @@ import           Pos.Block.Network        as T
 import qualified Pos.Block.Pure           as T
 import           Pos.Constants            (epochSlots)
 import qualified Pos.Core                 as Core
-import           Pos.Crypto               (ProxySecretKey (pskIssuerPk), PublicKey,
-                                           SecretKey, createProxySecretKey, toPublic)
+import           Pos.Crypto               (ProxySecretKey, PublicKey, SecretKey,
+                                           createProxySecretKey, toPublic)
 import           Pos.Data.Attributes      (Attributes (..), mkAttributes)
 import           Pos.Delegation.Arbitrary (genDlgPayload)
 import           Pos.Ssc.Arbitrary        (SscPayloadDependsOnSlot (..))

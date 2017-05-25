@@ -6,18 +6,19 @@
 module Pos.Block.Pure
        ( headerDifficultyIncrement
 
-       , VerifyBlockParams (..)
+       -- * Header
        , VerifyHeaderParams (..)
-       , verifyBlock
-       , verifyBlocks
        , verifyHeader
        , verifyHeaders
+
+       -- * Block
+       , VerifyBlockParams (..)
+       , verifyBlocks
        ) where
 
 import           Universum
 
 import           Control.Lens               (ix, (%=))
-import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (partition)
 import           Formatting                 (build, int, sformat, (%))
@@ -34,19 +35,22 @@ import           Pos.Block.Core             (BiSsc, Block, BlockHeader,
                                              genBlockLeaders, getBlockHeader,
                                              mainBlockDlgPayload, mainHeaderLeaderKey,
                                              mcdSignature, mebAttributes, mehAttributes)
-import           Pos.Core                   (ChainDifficulty, EpochOrSlot,
-                                             HasDifficulty (..), HasEpochIndex (..),
-                                             HasEpochOrSlot (..), HasHeaderHash (..),
-                                             HeaderHash, ProxySKHeavyMap, SlotId (..),
-                                             SlotLeaders, addressHash, gbhExtra,
-                                             getSlotIndex, headerSlotL, prevBlockL)
-import           Pos.Core.Block             (gbExtra)
+import           Pos.Core                   (BlockVersionData (..), ChainDifficulty,
+                                             EpochOrSlot, HasDifficulty (..),
+                                             HasEpochIndex (..), HasEpochOrSlot (..),
+                                             HasHeaderHash (..), HeaderHash,
+                                             ProxySKHeavyMap, SlotId (..), SlotLeaders,
+                                             addressHash, gbExtra, gbhExtra, getSlotIndex,
+                                             headerSlotL, prevBlockL)
 import           Pos.Crypto                 (ProxySecretKey (..), pdCert)
 import           Pos.Data.Attributes        (Attributes (attrRemain))
 import           Pos.Delegation.Types       (getDlgPayload)
-import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
-import           Pos.Update.Core            (BlockVersionData (..))
+import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
+
+----------------------------------------------------------------------------
+-- Header
+----------------------------------------------------------------------------
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty
@@ -71,8 +75,8 @@ data VerifyHeaderParams ssc = VerifyHeaderParams
       -- ^ Check that header has no unknown attributes.
     } deriving (Show, Eq)
 
-maybeEmpty :: Monoid m => (a -> m) -> Maybe a -> m
-maybeEmpty = maybe mempty
+maybeMempty :: Monoid m => (a -> m) -> Maybe a -> m
+maybeMempty = maybe mempty
 
 -- CHECK: @verifyHeader
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
@@ -85,10 +89,10 @@ verifyHeader VerifyHeaderParams {..} h =
   where
     checks =
         mconcat
-            [ maybeEmpty relatedToPrevHeader vhpPrevHeader
-            , maybeEmpty relatedToCurrentSlot vhpCurrentSlot
-            , maybeEmpty relatedToLeaders vhpLeaders
-            , maybeEmpty heavyCertValid vhpHeavyCerts
+            [ maybeMempty relatedToPrevHeader vhpPrevHeader
+            , maybeMempty relatedToCurrentSlot vhpCurrentSlot
+            , maybeMempty relatedToLeaders vhpLeaders
+            , maybeMempty heavyCertValid vhpHeavyCerts
             , checkSize
             , bool mempty (verifyNoUnknown h) vhpVerifyNoUnknown
             ]
@@ -214,26 +218,23 @@ verifyHeaders (NewestFirst (headers@(_:xh))) = mconcat verified
         , vhpVerifyNoUnknown = False
         }
 
--- | Parameters of Block static verification.
+----------------------------------------------------------------------------
+-- Block
+----------------------------------------------------------------------------
+
+-- | Parameters of Block static verification. This type contains all data
+-- necessary for verification of a single block.
 -- Note: to check that block references previous block and/or is referenced
 -- by next block, use header verification (via vbpVerifyHeader).
 data VerifyBlockParams ssc = VerifyBlockParams
-    { vbpVerifyHeader    :: !(Maybe (VerifyHeaderParams ssc))
+    { vbpVerifyHeader    :: !(VerifyHeaderParams ssc)
       -- ^ Verifies header accordingly to params ('verifyHeader')
-    , vbpMaxSize         :: !(Maybe Byte)
-    -- ^ Maximal block size.
+    , vbpMaxSize         :: !Byte
+    -- ^ Maximal block size. This value limit size of `Block` (which
+    -- is either main or genesis block).
     , vbpVerifyNoUnknown :: !Bool
     -- ^ Check that block has no unknown attributes.
     }
-
--- | By default nothing is checked.
-instance Default (VerifyBlockParams ssc) where
-    def =
-        VerifyBlockParams
-        { vbpVerifyHeader = Nothing
-        , vbpMaxSize =  Nothing
-        , vbpVerifyNoUnknown = False
-        }
 
 -- CHECK: @verifyBlock
 -- | Check predicates defined by VerifyBlockParams.
@@ -243,15 +244,16 @@ verifyBlock
     => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
-        [ maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
-        , maybeEmpty checkSize vbpMaxSize
+        [ verifyHeader vbpVerifyHeader (getBlockHeader blk)
+        , checkSize vbpMaxSize
         , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
         ]
   where
+    blkSize = Bi.biSize blk
     checkSize maxSize = verifyGeneric [
-      (Bi.biSize blk <= maxSize,
+      (blkSize <= maxSize,
        sformat ("block's size exceeds limit ("%memory%" > "%memory%")")
-       (Bi.biSize blk) maxSize)
+       blkSize maxSize)
       ]
     verifyNoUnknown (Left genBlk) =
         let attrs = genBlk ^. gbExtra . gebAttributes
@@ -328,8 +330,8 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . fold
                 }
             vbp =
                 VerifyBlockParams
-                { vbpVerifyHeader = Just vhp
-                , vbpMaxSize = Just (bvdMaxBlockSize bvd)
+                { vbpVerifyHeader = vhp
+                , vbpMaxSize = bvdMaxBlockSize bvd
                 , vbpVerifyNoUnknown = verifyNoUnknown
                 }
         in (newLeaders, newPsks, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)

@@ -14,43 +14,31 @@ import           Universum
 import           Control.Lens             (_Wrapped)
 import           Control.Monad.Except     (ExceptT (ExceptT), MonadError (throwError),
                                            runExceptT, withExceptT)
-import qualified Data.HashMap.Strict      as HM
 import qualified Data.List.NonEmpty       as NE
 import qualified Ether
-import           Formatting               (build, sformat, (%))
 import           Paths_cardano_sl         (version)
-import           Serokell.Util.Verify     (formatAllErrors, verResToMonadError)
 
-import           Pos.Block.Core           (Block, GenesisBlock, MainBlock,
-                                           genBlockLeaders, mainBlockLeaderKey,
-                                           mbTxPayload)
+import           Pos.Block.Core           (Block)
 import           Pos.Block.Logic.Internal (applyBlocksUnsafe, rollbackBlocksUnsafe,
-                                           toUpdateBlock)
+                                           toTxpBlock, toUpdateBlock)
+import           Pos.Block.Logic.Slog     (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Logic.Util     (tipMismatchMsg)
-import qualified Pos.Block.Pure           as Pure
 import           Pos.Block.Types          (Blund, Undo (..))
-import           Pos.Constants            (lastKnownBlockVersion)
-import           Pos.Context              (lrcActionOnEpochReason)
-import           Pos.Core                 (BlockVersion (..), HeaderHash, IsGenesisHeader,
-                                           IsMainHeader, epochIndexL, gbBody, gbHeader,
-                                           headerHash, headerHashG, prevBlockL,
-                                           prevBlockL)
+import           Pos.Core                 (HeaderHash, epochIndexL, headerHash,
+                                           headerHashG, prevBlockL, prevBlockL)
 import           Pos.DB                   (MonadDBCore)
 import qualified Pos.DB.DB                as DB
 import qualified Pos.DB.GState            as GS
 import           Pos.Delegation.Logic     (delegationVerifyBlocks)
-import qualified Pos.Lrc.DB               as LrcDB
 import           Pos.Lrc.Worker           (lrcSingleShotNoLock)
 import           Pos.Reporting            (reportingFatal)
-import           Pos.Slotting.Class       (getCurrentSlot)
-import           Pos.Ssc.Class            (SscHelpersClass, SscWorkersClass)
+import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
-import           Pos.Txp.Core             (TxPayload)
-import           Pos.Txp.Settings         (TxpBlock, TxpGlobalSettings (..))
+import           Pos.Txp.Settings         (TxpGlobalSettings (..))
 import qualified Pos.Update.DB            as UDB
 import           Pos.Update.Logic         (usVerifyBlocks)
 import           Pos.Update.Poll          (PollModifier)
-import           Pos.Util                 (Some (Some), neZipWith3, spanSafe, _neHead)
+import           Pos.Util                 (neZipWith3, spanSafe, _neHead)
 import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..),
                                            toNewestFirst, toOldestFirst)
 import           Pos.WorkMode.Class       (WorkMode)
@@ -61,67 +49,26 @@ import           Pos.WorkMode.Class       (WorkMode)
 -- -- #delegationVerifyBlocks
 -- -- #usVerifyBlocks
 -- | Verify new blocks. If parent of the first block is not our tip,
--- verification fails. This function checks everything from block, including
--- header, transactions, delegation data, SSC data, US data.
+-- verification fails. All blocks must be from the same epoch.  This
+-- function checks literally __everything__ from blocks, including
+-- header, body, extra data, etc.
 verifyBlocksPrefix
     :: forall ssc m.
        WorkMode ssc m
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE Undo, PollModifier))
 verifyBlocksPrefix blocks = runExceptT $ do
-    curSlot <- getCurrentSlot
+    -- This check (about tip) is here just in case, we actually check
+    -- it before calling this function.
     tipBlk <- DB.getTipBlock @ssc
     when (headerHash tipBlk /= blocks ^. _Wrapped . _neHead . prevBlockL) $
         throwError "the first block isn't based on the tip"
-    leaders <-
-        lrcActionOnEpochReason
-        headEpoch
-        (sformat
-         ("Block.Logic#verifyBlocksPrefix: there are no leaders for epoch "%build) headEpoch)
-        LrcDB.getLeaders
-    case blocks ^. _Wrapped . _neHead of
-        (Left block) ->
-            when (block ^. genBlockLeaders /= leaders) $
-                throwError "Genesis block leaders don't match with LRC-computed"
-        _ -> pass
-    (adoptedBV, adoptedBVD) <- UDB.getAdoptedBVFull
-    -- We verify that data in blocks is known if protocol version used
-    -- by this software is greater than or equal to adopted
-    -- version. That's because:
-    -- 1. Authors of this software are aware of adopted version.
-    -- 2. Each issued block must be formed with respect to adopted version.
-    --
-    -- Comparison is quite tricky here. Table below demonstrates it.
-    --
-    --   Our | Adopted | Check?
-    -- ————————————————————————
-    -- 1.2.3 |  1.2.3  | Yes
-    -- 1.2.3 |  1.2.4  | No
-    -- 1.2.3 |  1.2.2  | No
-    -- 1.2.3 |  1.3.2  | No
-    -- 1.2.3 |  1.1.1  | Yes
-    -- 2.2.8 |  1.9.9  | Yes
-    --
-    -- If `(major, minor)` of our version is greater than of adopted
-    -- one, then check is certainly done. If it's equal, then check is
-    -- done only if `alt` component is the same as adopted one. In
-    -- other cases (i. e. when our `(major, minor)` is less than from
-    -- adopted version) check is not done.
-    let toMajMin BlockVersion {..} = (bvMajor, bvMinor)
-    let lastKnownMajMin = toMajMin lastKnownBlockVersion
-    let adoptedMajMin = toMajMin adoptedBV
-    let dataMustBeKnown = lastKnownMajMin > adoptedMajMin
-                       || lastKnownBlockVersion == adoptedBV
-    -- For all issuers of blocks we're processing retrieve their PSK
-    -- if any and create a hashmap of these.
-    pskCerts <-
-        fmap (HM.fromList . catMaybes) $
-        forM (rights $ NE.toList $ blocks ^. _Wrapped) $ \b ->
-        let issuer = b ^. mainBlockLeaderKey
-        in fmap (issuer,) <$> GS.getPSKByIssuer issuer
-    verResToMonadError formatAllErrors $
-        Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
-        leaders pskCerts blocks
+    -- Some verifications need to know whether all data must be known.
+    -- We determine it here and pass to all interested components.
+    adoptedBV <- UDB.getAdoptedBV
+    let dataMustBeKnown = mustDataBeKnown adoptedBV
+    -- And then we run verification of each component.
+    slogVerifyBlocks blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     TxpGlobalSettings {..} <- Ether.ask'
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
@@ -129,6 +76,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     pskUndo <- ExceptT $ delegationVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $
         usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
+    -- Eventually we do a sanity check just in case and return the result.
     when (length txUndo /= length pskUndo) $
         throwError "Internal error of verifyBlocksPrefix: lengths of undos don't match"
     pure ( OldestFirst $ neZipWith3 Undo
@@ -136,20 +84,6 @@ verifyBlocksPrefix blocks = runExceptT $ do
                (getOldestFirst pskUndo)
                (getOldestFirst usUndos)
          , pModifier)
-  where
-    headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
-
--- [CSL-1156] Need something more elegant, at least eliminate copy-paste.
-toTxpBlock
-    :: forall ssc.
-       SscHelpersClass ssc
-    => Block ssc -> TxpBlock
-toTxpBlock = bimap convertGenesis convertMain
-  where
-    convertGenesis :: GenesisBlock ssc -> Some IsGenesisHeader
-    convertGenesis = Some . view gbHeader
-    convertMain :: MainBlock ssc -> (Some IsMainHeader, TxPayload)
-    convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbTxPayload)
 
 -- | Applies blocks if they're valid. Takes one boolean flag
 -- "rollback". Returns header hash of last applied block (new tip) on

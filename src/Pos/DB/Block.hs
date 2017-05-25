@@ -12,7 +12,7 @@ module Pos.DB.Block
        , blkGetBlund
 
        , deleteBlock
-       , putBlock
+       , putBlund
 
        , prepareBlockDB
 
@@ -84,10 +84,10 @@ getUndo :: (MonadDB m) => HeaderHash -> m (Maybe Undo)
 getUndo = undoDataPath >=> getData
 
 -- | Put given block, its metadata and Undo data into Block DB.
-putBlock
+putBlund
     :: (SscHelpersClass ssc, MonadDB m)
-    => Undo -> Block ssc -> m ()
-putBlock undo blk = do
+    => Blund ssc -> m ()
+putBlund (blk, undo) = do
     let h = headerHash blk
     liftIO . createDirectoryIfMissing False =<< dirDataPath h
     flip putData blk =<< blockDataPath h
@@ -208,7 +208,7 @@ prepareBlockDB
     :: forall ssc m.
        (SscHelpersClass ssc, MonadDB m)
     => GenesisBlock ssc -> m ()
-prepareBlockDB = putBlock def . Left
+prepareBlockDB blk = putBlund (Left blk, def)
 
 ----------------------------------------------------------------------------
 -- Keys

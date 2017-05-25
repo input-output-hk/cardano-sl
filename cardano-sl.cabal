@@ -180,6 +180,7 @@ library
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
+                        Pos.Block.Logic.Slog
                         Pos.Block.Logic.Util
                         Pos.Block.Logic.VAR
                         Pos.Block.Network.Announce

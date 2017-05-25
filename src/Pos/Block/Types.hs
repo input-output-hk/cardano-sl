@@ -14,8 +14,7 @@ import           Formatting            (bprint, build, (%))
 import           Serokell.Util.Text    (listJson)
 
 import           Pos.Block.Core        (BiSsc, Block)
-import           Pos.Core              (HasDifficulty (..), HasHeaderHash (..),
-                                        ProxySKHeavy)
+import           Pos.Core              (HasDifficulty (..), HasHeaderHash (..))
 import           Pos.Delegation.Types  (DlgUndo)
 import           Pos.Txp.Core          (TxpUndo)
 import           Pos.Update.Poll.Types (USUndo)

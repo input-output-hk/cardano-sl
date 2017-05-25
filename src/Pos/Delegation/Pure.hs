@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Pure functions on different delegation datatypes.
 
 module Pos.Delegation.Pure
@@ -32,13 +34,18 @@ dlgMemPoolApplyBlock block m = flip execState m $ do
 -- ^ Checks if addition of the psk to the map will lead to
 -- loops. Returns nothing if it's good, first-already-visited public
 -- key otherwise.
-dlgMemPoolDetectLoop :: ProxySKHeavy -> DlgMemPool -> Maybe PublicKey
-dlgMemPoolDetectLoop toAdd pskm =
-    flip evalState (pskm, HS.singleton $ pskIssuerPk toAdd) $ trav (pskDelegatePk toAdd)
+dlgMemPoolDetectLoop
+    :: forall m . (Monad m)
+    => (PublicKey -> m (Maybe ProxySKHeavy)) -- ^ Resolving function
+    -> ProxySKHeavy                          -- ^ PSK to check against
+    -> m (Maybe PublicKey)
+dlgMemPoolDetectLoop resolve toAdd =
+    evalStateT (trav (pskDelegatePk toAdd)) (HS.singleton $ pskIssuerPk toAdd)
   where
-    trav cur = ifM (uses _2 $ HS.member cur) (pure $ Just cur) $ do
-        next <- uses _1 $ HM.lookup cur
-        _2 %= HS.insert cur
+    trav :: PublicKey -> StateT (HashSet PublicKey) m (Maybe PublicKey)
+    trav cur = ifM (uses identity $ HS.member cur) (pure $ Just cur) $ do
+        next <- lift $ resolve cur
+        identity %= HS.insert cur
         maybe (pure Nothing) (trav . pskDelegatePk) next
 
 -- | Given an 'DlgMemPool', issuer, delegate and his psk, checks if

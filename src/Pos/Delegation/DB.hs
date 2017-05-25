@@ -10,6 +10,7 @@ module Pos.Delegation.DB
        , isIssuerByAddressHash
        , getDlgTransitive
        , getDlgTransitiveReverse
+       , resolveWithDlgDB
 
        , DelegationOp (..)
 
@@ -105,6 +106,13 @@ getDlgTransitive iPk = gsGetBi (transDlgKey iPk)
 -- returns all @i@ such that 'getDlgTransitive' returns @d@ on @i@.
 getDlgTransitiveReverse :: MonadDBPure m => PublicKey -> m [PublicKey]
 getDlgTransitiveReverse dPk = fmap (fromMaybe []) $ gsGetBi (transRevDlgKey dPk)
+
+-- | Returns PSK with supplied issuer, querying both provided mempool
+-- (first priority) and the database.
+resolveWithDlgDB :: MonadDBPure m => DlgMemPool -> PublicKey -> m (Maybe ProxySKHeavy)
+resolveWithDlgDB mp iPk = case HM.lookup iPk mp of
+    Nothing -> getPskByIssuer $ Left iPk
+    Just s  -> pure $ Just s
 
 ----------------------------------------------------------------------------
 -- Batch operations

@@ -261,7 +261,8 @@ processProxySKHeavy psk = do
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
         alreadyPosted <- uses dwThisEpochPosted $ HS.member issuer
         epochMatches <- (headEpoch ==) <$> use dwEpochId
-        producesLoop <- uses dwProxySKPool $ dlgMemPoolDetectLoop psk
+        producesLoop <- use dwProxySKPool >>= \pool ->
+            lift $ dlgMemPoolDetectLoop (GS.resolveWithDlgDB pool) psk
         dwMessageCache %= LRU.insert msg curTime
         let maxMemPoolSize = memPoolLimitRatio * maxBlockSize
             -- Here it would be good to add size of data we want to insert

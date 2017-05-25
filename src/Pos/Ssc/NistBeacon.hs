@@ -17,7 +17,7 @@ import           Universum
 import           Pos.Binary.Class        (encode)
 import           Pos.Binary.Relay        ()
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
-import           Pos.Ssc.Class.Listeners (SscListenersClass (..), sscStubListeners)
+import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscGStateClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
@@ -58,8 +58,7 @@ instance SscWorkersClass SscNistBeacon where
     sscLrcConsumers = Tagged []
 
 instance SscListenersClass SscNistBeacon where
-    sscListeners = return $ Tagged ([], mempty)
-    sscStubListeners = Tagged ([], mempty)
+    sscRelays = Tagged []
 
 instance SscLocalDataClass SscNistBeacon where
     sscGetLocalPayloadQ _ = pure ()

@@ -1,11 +1,11 @@
 module Testnet
        ( generateKeyfile
-       , generateHdwKeyfile
        , generateFakeAvvm
        , genTestnetStakes
        , rearrangeKeyfile
        ) where
 
+import           Control.Lens         ((?~))
 import qualified Serokell.Util.Base64 as B64
 import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors,
                                        verifyGeneric)
@@ -16,16 +16,18 @@ import           Universum
 import           Pos.Binary           (asBinary)
 import qualified Pos.Constants        as Const
 import           Pos.Crypto           (EncryptedSecretKey, PublicKey, RedeemPublicKey,
-                                       SecretKey, keyGen, noPassEncrypt,
-                                       redeemDeterministicKeyGen, secureRandomBS,
-                                       toPublic, toVssPublicKey, vssKeyGen)
+                                       SecretKey, emptyPassphrase, keyGen, noPassEncrypt,
+                                       redeemDeterministicKeyGen, safeKeyGen,
+                                       secureRandomBS, toPublic, toVssPublicKey,
+                                       vssKeyGen)
 import           Pos.Genesis          (StakeDistribution (..), accountGenesisIndex,
                                        walletGenesisIndex)
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
-import           Pos.Types            (coinPortionToDouble, unsafeIntegerToCoin)
+import           Pos.Types            (Address, coinPortionToDouble, unsafeIntegerToCoin)
 import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
-                                       usPrimKey, usVss, writeUserSecretRelease)
-import           Pos.Wallet.Web       (WalletUserSecret (..), writeWalletUserSecret)
+                                       usPrimKey, usVss, usWalletSet,
+                                       writeUserSecretRelease)
+import           Pos.Wallet           (WalletUserSecret (..), deriveLvl2KeyPair)
 
 import           KeygenOptions        (TestStakeOptions (..))
 
@@ -38,34 +40,43 @@ rearrangeKeyfile fp = do
 
 generateKeyfile
     :: (MonadIO m, MonadFail m, WithLogger m)
-    => Bool -> Maybe SecretKey -> FilePath -> m (PublicKey, VssCertificate)
+    => Bool
+    -> Maybe (SecretKey, EncryptedSecretKey)  -- plain key & hd wallet root key
+    -> FilePath
+    -> m (PublicKey, VssCertificate, Address)  -- ^ plain key, certificate & hd wallet account address
 generateKeyfile isPrim mbSk fp = do
     initializeUserSecret fp
-    sk <- case mbSk of
+    (sk, hdwSk) <- case mbSk of
         Just x  -> return x
-        Nothing -> snd <$> keyGen
+        Nothing -> (,) <$> (snd <$> keyGen) <*> (snd <$> safeKeyGen emptyPassphrase)
     vss <- vssKeyGen
     us <- takeUserSecret fp
+
     writeUserSecretRelease $
         us & (if isPrim
               then usPrimKey .~ Just sk
-              else usKeys %~ (noPassEncrypt sk :))
+              else (usKeys %~ (noPassEncrypt sk :))
+                 . (usWalletSet ?~ mkGenesisWalletUserSecret hdwSk))
            & usVss .~ Just vss
+
     expiry <- liftIO $
         fromIntegral <$>
         randomRIO @Int (Const.vssMinTTL - 1, Const.vssMaxTTL - 1)
     let vssPk = asBinary $ toVssPublicKey vss
         vssCert = mkVssCertificate sk vssPk expiry
-    return (toPublic sk, vssCert)
+        hdwAccountPk =
+            fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
+            deriveLvl2KeyPair emptyPassphrase hdwSk
+                walletGenesisIndex accountGenesisIndex
+    return (toPublic sk, vssCert, hdwAccountPk)
 
-generateHdwKeyfile
-    :: (MonadIO m, MonadFail m, WithLogger m)
-    => EncryptedSecretKey -> FilePath -> m ()
-generateHdwKeyfile wusRootKey fp = do
+mkGenesisWalletUserSecret
+    :: EncryptedSecretKey -> WalletUserSecret
+mkGenesisWalletUserSecret wusRootKey = do
     let wusWSetName = "Genesis wallet set"
         wusWallets  = [(walletGenesisIndex, "Genesis wallet")]
         wusAccounts = [(walletGenesisIndex, accountGenesisIndex)]
-    writeWalletUserSecret fp WalletUserSecret{..}
+    WalletUserSecret{..}
 
 generateFakeAvvm :: MonadIO m => FilePath -> m RedeemPublicKey
 generateFakeAvvm fp = do
@@ -81,7 +92,7 @@ genTestnetStakes TestStakeOptions{..} =
     checkConsistency $ RichPoorStakes {..}
   where
     richs = fromIntegral tsoRichmen
-    poors = fromIntegral tsoPoors
+    poors = fromIntegral tsoPoors * 2  -- for plain and hd wallet keys
     testStake = fromIntegral tsoTotalStake
 
     -- Calculate actual stakes

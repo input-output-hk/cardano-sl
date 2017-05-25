@@ -35,13 +35,13 @@ import           System.Wlog             (WithLogger, logDebug, logNotice)
 import           Universum
 
 import           Pos.Binary.Update       ()
-import           Pos.Constants           (epochSlots)
 import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, HeaderHash,
                                           IsMainHeader (..), ScriptVersion, SlotId,
                                           Timestamp (..), addressHash, coinToInteger,
                                           difficultyL, headerHashG, sumCoins,
                                           unsafeAddCoin, unsafeIntegerToCoin,
                                           unsafeSubCoin)
+import           Pos.Core.Constants      (epochSlots)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
 import           Pos.Slotting            (EpochSlottingData (..), SlottingData (..))
 import           Pos.Update.Core         (BlockVersionData (..), UpId,

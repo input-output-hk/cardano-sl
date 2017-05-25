@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -18,12 +19,20 @@ module Pos.Util.Util
        , getKeys
        , sortWithMDesc
 
+       -- * Lenses
+       , _neHead
+       , _neTail
+       , _neLast
+
        -- * Ether
        , ether
        , Ether.TaggedTrans
 
        -- * Lifting monads
        , PowerLift(..)
+
+       -- * Asserts
+       , inAssertMode
 
        -- * Instances
        -- ** Lift Byte
@@ -50,6 +59,9 @@ module Pos.Util.Util
        -- *** HasLoggerName Ether.StateT
        ) where
 
+import           Universum
+import           Unsafe                         (unsafeInit, unsafeLast)
+
 import           Control.Lens                   (ALens', Getter, Getting, cloneLens, to)
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Morph            (MFunctor (..))
@@ -59,12 +71,15 @@ import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (MonadResource (..))
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
+import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
 import           Data.Time.Units                (Attosecond, Day, Femtosecond, Fortnight,
                                                  Hour, Microsecond, Millisecond, Minute,
                                                  Nanosecond, Picosecond, Second, Week,
                                                  toMicroseconds)
+import           Data.Typeable                  (typeRep)
 import qualified Ether
+import qualified Formatting                     as F
 import qualified Language.Haskell.TH.Syntax     as TH
 import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
                                                  MFunctor' (..), Mockable (..), Promise,
@@ -74,7 +89,6 @@ import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
                                                  LoggerNameBox (..))
-import           Universum
 
 ----------------------------------------------------------------------------
 -- Some
@@ -261,3 +275,41 @@ instance {-# OVERLAPPING #-} PowerLift m m where
 
 instance (MonadTrans t, PowerLift m n, Monad n) => PowerLift m (t n) where
   powerLift = lift . powerLift @m @n
+
+instance (Typeable s, Buildable a) => Buildable (Tagged s a) where
+    build tt@(Tagged v) = F.bprint ("Tagged " F.% F.shown F.% " " F.% F.build) ts v
+      where
+        ts = typeRep proxy
+        proxy = (const Proxy :: Tagged s a -> Proxy s) tt
+
+-- | This function performs checks at compile-time for different actions.
+-- May slowdown implementation. To disable such checks (especially in benchmarks)
+-- one should compile with: @stack build --flag cardano-sl-core:-asserts@
+inAssertMode :: Applicative m => m a -> m ()
+#ifdef ASSERTS_ON
+inAssertMode x = x *> pure ()
+#else
+inAssertMode _ = pure ()
+#endif
+{-# INLINE inAssertMode #-}
+
+----------------------------------------------------------------------------
+-- Lenses
+----------------------------------------------------------------------------
+
+-- | Lens for the head of 'NonEmpty'.
+--
+-- We can't use '_head' because it doesn't work for 'NonEmpty':
+-- <https://github.com/ekmett/lens/issues/636#issuecomment-213981096>.
+-- Even if we could though, it wouldn't be a lens, only a traversal.
+_neHead :: Lens' (NonEmpty a) a
+_neHead f (x :| xs) = (:| xs) <$> f x
+
+-- | Lens for the tail of 'NonEmpty'.
+_neTail :: Lens' (NonEmpty a) [a]
+_neTail f (x :| xs) = (x :|) <$> f xs
+
+-- | Lens for the last element of 'NonEmpty'.
+_neLast :: Lens' (NonEmpty a) a
+_neLast f (x :| []) = (:| []) <$> f x
+_neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)

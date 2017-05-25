@@ -1,4 +1,3 @@
-
 -- | DHT types.
 
 module Pos.DHT.Model.Types
@@ -34,10 +33,9 @@ import qualified Text.Parsec.Char            as P
 import qualified Text.Parsec.String          as P
 import           Universum
 
+import           Pos.Communication.Protocol  (NodeId)
 import           Pos.Crypto.Random           (runSecureRandom)
-import           Pos.Communication.Protocol  (NodeId (..), PeerId (..))
-import           Pos.Util.TimeWarp           (NetworkAddress, addrParser,
-                                              addressToNodeId)
+import           Pos.Util.TimeWarp           (NetworkAddress, addrParser, addressToNodeId)
 
 -- | Data type for DHT exceptions.
 data DHTException = NodeDown | AllPeersUnavailable
@@ -116,8 +114,7 @@ dhtNodeParser = DHTNode <$> addrParser <*> (P.char '/' *> dhtKeyParser)
 --
 --   TBD would storing the opaque NodeId (a ByteString) as a value in the DHT,
 --   keyed on the Kademlia ID of its host, work well?
-dhtNodeToNodeId :: DHTNode -> NodeId
+dhtNodeToNodeId :: DHTNode -> (DHTKey, NodeId)
 dhtNodeToNodeId dhtNode =
     let twNodeId = addressToNodeId . dhtAddr $ dhtNode
-        peerId = PeerId . getMeaningPart . dhtNodeId $ dhtNode
-    in  NodeId (peerId, twNodeId)
+    in  (dhtNodeId dhtNode, twNodeId)

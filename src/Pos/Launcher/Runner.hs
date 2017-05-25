@@ -46,9 +46,11 @@ import           Node                         (Node, NodeAction (..),
                                                node, simpleNodeEndPoint)
 import           Node.Util.Monitor            (setupMonitor, stopMonitor)
 import qualified STMContainers.Map            as SM
+import qualified System.Metrics               as Metrics
 import           System.Random                (newStdGen)
+import qualified System.Remote.Monitoring     as Monitoring
 import           System.Wlog                  (LoggerConfig (..), WithLogger,
-                                               getLoggerName, logError, logInfo,
+                                               getLoggerName, logDebug, logError, logInfo,
                                                productionB, releaseAllHandlers,
                                                setupLogging, usingLoggerName)
 import           Universum                    hiding (bracket, finally)
@@ -59,9 +61,9 @@ import           Pos.CLI                      (readLoggerConfig)
 import           Pos.Client.Txp.Balances      (runBalancesRedirect)
 import           Pos.Client.Txp.History       (runTxHistoryRedirect)
 import           Pos.Communication            (ActionSpec (..), BiP (..), InSpecs (..),
-                                               ListenersWithOut, NodeId, OutSpecs (..),
-                                               PeerId (..), VerInfo (..), allListeners,
-                                               hoistListenerSpec, unpackLSpecs)
+                                               MkListeners (..), NodeId, OutSpecs (..),
+                                               VerInfo (..), allListeners,
+                                               hoistMkListeners)
 import           Pos.Communication.PeerState  (PeerStateTag, runPeerStateRedirect)
 import qualified Pos.Constants                as Const
 import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers (..),
@@ -126,15 +128,14 @@ import           Pos.WorkMode                 (ProductionMode, RawRealMode, RawR
 runRawRealMode
     :: forall ssc a.
        SscConstraint ssc
-    => PeerId
-    -> Transport (RawRealMode ssc)
+    => Transport (RawRealMode ssc)
     -> NodeParams
     -> SscParams ssc
-    -> RawRealMode ssc (ListenersWithOut (RawRealMode ssc))
+    -> MkListeners (RawRealMode ssc)
     -> OutSpecs
     -> ActionSpec (RawRealMode ssc) a
     -> Production a
-runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
+runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
     usingLoggerName lpRunnerTag $ do
         initNC <- untag @ssc sscCreateNodeContext sscnp
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
@@ -176,9 +177,15 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
                    runBListenerStub $
                    act
 
+        ekgStore <- liftIO $ Metrics.newStore
+        -- To start monitoring, add the time-warp metrics and the GC
+        -- metrics then spin up the server.
         let startMonitoring node' = case lpEkgPort of
                 Nothing   -> return Nothing
-                Just port -> Just <$> setupMonitor port runIO node'
+                Just port -> Just <$> do
+                     ekgStore' <- setupMonitor runIO node' ekgStore
+                     liftIO $ Metrics.registerGcMetrics ekgStore'
+                     liftIO $ Monitoring.forkServerWith ekgStore' "127.0.0.1" port
 
         let stopMonitoring it = whenJust it stopMonitor
 
@@ -211,7 +218,7 @@ runRawRealMode peerId transport np@NodeParams {..} sscnp listeners outSpecs (Act
            runUpdatesRedirect .
            runBlockchainInfoRedirect .
            runBListenerStub .
-           runServer peerId transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
+           runServer transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
                \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
@@ -224,49 +231,50 @@ mkSlottingVar sysStart = do
 
 -- | ServiceMode runner.
 runServiceMode
-    :: PeerId
-    -> Transport ServiceMode
+    :: Transport ServiceMode
     -> BaseParams
-    -> ListenersWithOut ServiceMode
+    -> MkListeners ServiceMode
     -> OutSpecs
     -> ActionSpec ServiceMode a
     -> Production a
-runServiceMode peerId transport bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
+runServiceMode transport bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
     stateM <- liftIO SM.newIO
     usingLoggerName (lpRunnerTag bpLoggingParams) .
         flip (Ether.runReaderT @PeerStateTag) stateM .
         runPeerStateRedirect .
-        runServer_ peerId transport listeners outSpecs . ActionSpec $ \vI sa ->
+        runServer_ transport listeners outSpecs . ActionSpec $ \vI sa ->
         nodeStartMsg bp >> action vI sa
 
 runServer
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
-    => PeerId
-    -> Transport m
-    -> m (ListenersWithOut m)
+    => Transport m
+    -> MkListeners m
     -> OutSpecs
     -> (Node m -> m t)
     -> (t -> m ())
     -> ActionSpec m b
     -> m b
-runServer peerId transport packedLS_M (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
-    packedLS  <- packedLS_M
-    let (listeners', InSpecs ins, OutSpecs outs) = unpackLSpecs packedLS
-        ourVerInfo =
-            VerInfo Const.protocolMagic Const.lastKnownBlockVersion ins $ outs <> wouts
-        listeners = listeners' ourVerInfo
+runServer transport mkL (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     stdGen <- liftIO newStdGen
-    logInfo $ sformat ("Our verInfo "%build) ourVerInfo
-    node (simpleNodeEndPoint transport) stdGen BiP (peerId, ourVerInfo) defaultNodeEnvironment $ \__node ->
-        NodeAction listeners $ \sendActions -> do
+    logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
+    node (simpleNodeEndPoint transport) (const $ pure Nothing) stdGen BiP ourVerInfo defaultNodeEnvironment $ \__node ->
+        NodeAction mkListeners' $ \sendActions -> do
             t <- withNode __node
             action ourVerInfo sendActions `finally` afterNode t
+  where
+    InSpecs ins = inSpecs mkL
+    OutSpecs outs = outSpecs mkL
+    ourVerInfo =
+        VerInfo Const.protocolMagic Const.lastKnownBlockVersion ins $ outs <> wouts
+    mkListeners' theirVerInfo = do
+        logDebug $ sformat ("Incoming connection: theirVerInfo="%build) theirVerInfo
+        mkListeners mkL ourVerInfo theirVerInfo
 
 runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
-    => PeerId -> Transport m -> ListenersWithOut m -> OutSpecs -> ActionSpec m b -> m b
-runServer_ peerId transport packedLS outSpecs =
-    runServer peerId transport (pure packedLS) outSpecs acquire release
+    => Transport m -> MkListeners m -> OutSpecs -> ActionSpec m b -> m b
+runServer_ transport mkl outSpecs =
+    runServer transport mkl outSpecs acquire release
   where
     acquire = const pass
     release = const pass
@@ -276,15 +284,13 @@ runRawBasedMode
        (SscConstraint ssc, WorkMode ssc m)
     => (forall b. m b -> RawRealMode ssc b)
     -> (forall b. RawRealMode ssc b -> m b)
-    -> PeerId
     -> Transport m
     -> NodeParams
     -> SscParams ssc
     -> (ActionSpec m a, OutSpecs)
     -> Production a
-runRawBasedMode unwrap wrap peerId transport np@NodeParams{..} sscnp (ActionSpec action, outSpecs) =
+runRawBasedMode unwrap wrap transport np@NodeParams{..} sscnp (ActionSpec action, outSpecs) =
     runRawRealMode
-        peerId
         (hoistTransport unwrap transport)
         np
         sscnp
@@ -293,10 +299,7 @@ runRawBasedMode unwrap wrap peerId transport np@NodeParams{..} sscnp (ActionSpec
     ActionSpec
         $ \vI sendActions -> unwrap . action vI $ hoistSendActions wrap unwrap sendActions
   where
-    listeners =
-        unwrap $
-        first (hoistListenerSpec unwrap wrap <$>) <$>
-        allListeners
+    listeners = hoistMkListeners unwrap wrap allListeners
 
 -- | Launch some mode, providing way to convert it to 'RawRealMode' and back.
 runRawKBasedMode
@@ -304,37 +307,34 @@ runRawKBasedMode
        (SscConstraint ssc, WorkMode ssc m)
     => (forall b. m b -> RawRealModeK ssc b)
     -> (forall b. RawRealModeK ssc b -> m b)
-    -> PeerId
     -> Transport m
     -> KademliaDHTInstance
     -> NodeParams
     -> SscParams ssc
     -> (ActionSpec m a, OutSpecs)
     -> Production a
-runRawKBasedMode unwrap wrap peerId transport kinst =
-    runRawBasedMode (runDiscoveryKademliaT kinst . unwrap) (wrap . lift) peerId transport
+runRawKBasedMode unwrap wrap transport kinst =
+    runRawBasedMode (runDiscoveryKademliaT kinst . unwrap) (wrap . lift) transport
 
 runRawSBasedMode
     :: forall ssc m a.
        (SscConstraint ssc, WorkMode ssc m)
     => (forall b. m b -> RawRealModeS ssc b)
     -> (forall b. RawRealModeS ssc b -> m b)
-    -> PeerId
     -> Transport m
     -> Set NodeId
     -> NodeParams
     -> SscParams ssc
     -> (ActionSpec m a, OutSpecs)
     -> Production a
-runRawSBasedMode unwrap wrap peerId transport peers =
-    runRawBasedMode (runDiscoveryConstT peers . unwrap) (wrap . lift) peerId transport
+runRawSBasedMode unwrap wrap transport peers =
+    runRawBasedMode (runDiscoveryConstT peers . unwrap) (wrap . lift) transport
 
 -- | ProductionMode runner.
 runProductionMode
     :: forall ssc a.
        (SscConstraint ssc)
-    => PeerId
-    -> Transport (ProductionMode ssc)
+    => Transport (ProductionMode ssc)
     -> KademliaDHTInstance
     -> NodeParams
     -> SscParams ssc
@@ -348,22 +348,20 @@ runProductionMode = runRawKBasedMode getNoStatsT lift
 runStatsMode
     :: forall ssc a.
        (SscConstraint ssc)
-    => PeerId
-    -> Transport (StatsMode ssc)
+    => Transport (StatsMode ssc)
     -> KademliaDHTInstance
     -> NodeParams
     -> SscParams ssc
     -> (ActionSpec (StatsMode ssc) a, OutSpecs)
     -> Production a
-runStatsMode peerId transport kinst np sscnp action = do
+runStatsMode transport kinst np sscnp action = do
     statMap <- liftIO SM.newIO
-    runRawKBasedMode (runStatsT' statMap) lift peerId transport kinst np sscnp action
+    runRawKBasedMode (runStatsT' statMap) lift transport kinst np sscnp action
 
 runStaticMode
     :: forall ssc a.
        (SscConstraint ssc)
-    => PeerId
-    -> Transport (StaticMode ssc)
+    => Transport (StaticMode ssc)
     -> Set NodeId
     -> NodeParams
     -> SscParams ssc

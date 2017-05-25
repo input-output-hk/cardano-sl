@@ -12,10 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-flag asserts
-  default:     True
-  manual:      True
-
 Flag with-web
   default:     True
   manual:      True
@@ -127,6 +123,9 @@ library
                         Pos.Util.JsonLog
                         Pos.Util.UserSecret
 
+                        -- Wallets
+                        Pos.Wallet.Web.Secret
+
                         -- Worker, work mode
                         Pos.Worker
                         Pos.WorkMode
@@ -202,7 +201,6 @@ library
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
                         Pos.Delegation.Lrc
-                        Pos.Delegation.Methods
                         Pos.Delegation.Pure
                         Pos.Delegation.Types
                         Pos.Delegation.Worker
@@ -222,6 +220,7 @@ library
                         Pos.Communication.Server
                         Pos.Communication.Specs
                         Pos.Communication.Limits
+                        Pos.Communication.Update
 
                         -- DB
                         Pos.DB.GState.BlockExtra
@@ -246,17 +245,12 @@ library
                         Pos.SafeCopy
 
                         -- SSC
-                        Pos.Ssc.Class.Types
-                        Pos.Ssc.Class.Helpers
-                        Pos.Ssc.Class.Storage
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
-                        Pos.Ssc.Class.LocalData
 
-                        Pos.Ssc.Extra.Class
-                        Pos.Ssc.Extra.Holder
                         Pos.Ssc.Extra.Logic
-                        Pos.Ssc.Extra.Types
+
+                        Pos.Ssc.Util
 
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.Core
@@ -347,21 +341,8 @@ library
                         Pos.Update.Lrc
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
-                        Pos.Update.Network.Types
                         Pos.Update.Poll
-                        Pos.Update.Poll.Class
                         Pos.Update.Poll.DBPoll
-                        Pos.Update.Poll.Failure
-                        Pos.Update.Poll.Logic
-                        Pos.Update.Poll.Logic.Apply
-                        Pos.Update.Poll.Logic.Base
-                        Pos.Update.Poll.Logic.Normalize
-                        Pos.Update.Poll.Logic.Rollback
-                        Pos.Update.Poll.Logic.Softfork
-                        Pos.Update.Poll.Logic.Version
-                        Pos.Update.Poll.Pure
-                        Pos.Update.Poll.RollTrans
-                        Pos.Update.Poll.Trans
                         Pos.Update.Worker
 
   -- Explorer (TODO: move into cardano-explorer)
@@ -396,7 +377,6 @@ library
                         Pos.Wallet.State.Storage
                         Pos.Wallet.State.Storage.Block
                         Pos.Wallet.State.Storage.Tx
-                        Pos.Wallet.Update
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
@@ -408,6 +388,9 @@ library
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Full
+                        Pos.Wallet.Web.Server.Full.Common
+                        Pos.Wallet.Web.Server.Full.K
+                        Pos.Wallet.Web.Server.Full.S
                         Pos.Wallet.Web.Server.Lite
                         Pos.Wallet.Web.Server.Sockets
                         Pos.Wallet.Web.State
@@ -438,6 +421,7 @@ library
                       , cardano-sl-db
                       , cardano-sl-infra
                       , cardano-sl-lrc
+                      , cardano-sl-ssc
                       , cardano-sl-update
                       , cereal
                       , conduit >= 1.2.8
@@ -452,6 +436,8 @@ library
                       , directory
                       , dlist
                       , ed25519
+                      , ekg
+                      , ekg-core
                       , ether >= 0.5
                       , exceptions
                       , file-embed >= 0.0.10
@@ -560,8 +546,6 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(asserts)
-    cpp-options: -DASSERTS_ON
   if flag(with-web)
     cpp-options: -DWITH_WEB
   if flag(with-wallet)
@@ -1295,6 +1279,7 @@ test-suite cardano-test
                      , regex-tdfa-text
                      , safecopy
                      , serokell-util >= 0.1.3.4
+                     , tagged
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers

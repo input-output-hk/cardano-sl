@@ -15,13 +15,16 @@ module Pos.Delegation.DB
 
        , runDlgTransIterator
        , runDlgTransMapIterator
+
+       , getDelegators
        ) where
+
+import           Universum
 
 import           Control.Lens         (uses, (%=))
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.HashSet         as HS
 import qualified Database.RocksDB     as Rocks
-import           Universum
 
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Crypto           (PublicKey, pskDelegatePk, pskIssuerPk)
@@ -33,6 +36,7 @@ import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMap
 import           Pos.DB.Types         (NodeDBs (_gStateDB))
 import           Pos.Delegation.Types (DlgMemPool)
 import           Pos.Types            (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Util.Iterator    (nextItem)
 
 
 ----------------------------------------------------------------------------
@@ -172,3 +176,18 @@ iterTransPrefix = "d/t/"
 -- Reverse index of iterTransitive
 transRevDlgKey :: PublicKey -> ByteString
 transRevDlgKey pk = "d/tb/" <> encodeStrict pk
+
+----------------------------------------------------------------------------
+-- Helper functions
+----------------------------------------------------------------------------
+
+-- | For each stakeholder, say who has delegated to that stakeholder.
+--
+-- NB. It's not called @getIssuers@ because we already have issuers (i.e.
+-- block issuers)
+getDelegators :: MonadDB m => m (HashMap StakeholderId [StakeholderId])
+getDelegators = runDlgTransMapIterator (step mempty) identity
+  where
+    step hm = nextItem >>= maybe (pure hm) (\(addressHash -> iss, addressHash -> del) -> do
+        let curList = HM.lookupDefault [] del hm
+        step (HM.insert del (iss:curList) hm))

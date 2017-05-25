@@ -29,7 +29,7 @@ import qualified Data.ByteString           as BS (readFile, writeFile)
 import qualified Data.ByteString.Lazy      as BSL
 import           Data.Default              (Default (def))
 import           Formatting                (build, formatToString, sformat, (%))
-import           System.Directory          (removeFile)
+import           System.Directory          (removeFile, createDirectoryIfMissing)
 import           System.FilePath           ((</>))
 import           System.IO.Error           (isDoesNotExistError)
 import           Universum
@@ -54,7 +54,7 @@ import           Pos.Util.Chrono           (NewestFirst (..))
 
 -- | Get block with given hash from Block DB.
 getBlock
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: forall ssc m. (SscHelpersClass ssc, MonadDB m)
     => HeaderHash -> m (Maybe (Block ssc))
 getBlock = blockDataPath >=> getData
 
@@ -81,6 +81,7 @@ putBlock
     => Undo -> Block ssc -> m ()
 putBlock undo blk = do
     let h = headerHash blk
+    liftIO . createDirectoryIfMissing False =<< dirDataPath h
     flip putData blk =<< blockDataPath h
     flip putData undo =<< undoDataPath h
     putBi (blockIndexKey h) (BC.getBlockHeader blk)
@@ -247,13 +248,19 @@ deleteData fp = (liftIO $ removeFile fp) `catch` handle
         | isDoesNotExistError e = pure ()
         | otherwise = throwM e
 
+dirDataPath :: MonadDB m => HeaderHash -> m FilePath
+dirDataPath (formatToString hashHexF -> fn) = gitDirDataPath fn
+
 blockDataPath :: MonadDB m => HeaderHash -> m FilePath
 blockDataPath (formatToString (hashHexF%".block") -> fn) =
-    getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> fn
+    gitDirDataPath fn <&> (</> drop 2 fn)
 
 undoDataPath :: MonadDB m => HeaderHash -> m FilePath
 undoDataPath (formatToString (hashHexF%".undo") -> fn) =
-    getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> fn
+    gitDirDataPath fn <&> (</> drop 2 fn)
+
+gitDirDataPath :: MonadDB m => [Char] -> m FilePath
+gitDirDataPath fn = getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> take 2 fn
 
 ----------------------------------------------------------------------------
 -- Private functions

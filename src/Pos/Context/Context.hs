@@ -48,7 +48,7 @@ import           Ether.Internal                (HList (..), HasLens (..), Tags, 
 import           System.Wlog                   (LoggerConfig)
 
 import           Pos.Block.Core                (BlockHeader)
-import           Pos.Communication.Relay       (RelayInvQueue)
+import           Pos.Communication.Relay       (RelayPropagationQueue)
 import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
 import           Pos.Core                      (Address, HeaderHash, SlotLeaders,
@@ -133,7 +133,7 @@ data NodeContext ssc = NodeContext
     , ncProgressHeader      :: !(ProgressHeader ssc)
     -- ^ Header of the last block that was downloaded in retrieving
     -- queue. Is needed to show smooth prorgess on the frontend.
-    , ncInvPropagationQueue :: !RelayInvQueue
+    , ncInvPropagationQueue :: !RelayPropagationQueue
     -- ^ Queue is used in Relay framework,
     -- it stores inv messages for earlier received data.
     , ncLoggerConfig        :: !LoggerConfig

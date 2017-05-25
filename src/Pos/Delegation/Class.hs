@@ -31,8 +31,8 @@ import           Universum
 
 import           Pos.Constants              (dlgCacheParam)
 import           Pos.Crypto                 (PublicKey)
-import           Pos.Delegation.Types       (DlgMemPool, SendProxySK)
-import           Pos.Types                  (EpochIndex, ProxySKLight)
+import           Pos.Delegation.Types       (DlgMemPool)
+import           Pos.Types                  (EpochIndex, ProxySKEither, ProxySKLight)
 import           Pos.Util.Concurrent.RWVar  (RWVar)
 
 ---------------------------------------------------------------------------
@@ -44,7 +44,7 @@ import           Pos.Util.Concurrent.RWVar  (RWVar)
 -- with LRU.lookup.
 -- | In-memory storage needed for delegation logic.
 data DelegationWrap = DelegationWrap
-    { _dwMessageCache      :: LRU.LRU SendProxySK UTCTime
+    { _dwMessageCache      :: LRU.LRU ProxySKEither UTCTime
       -- ^ Message cache to prevent infinite propagation of useless
       -- certs.
     , _dwConfirmationCache :: LRU.LRU ProxySKLight UTCTime

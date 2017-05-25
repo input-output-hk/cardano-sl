@@ -14,10 +14,8 @@ module Daedalus.Types
        , mkCWalletAddress
        , mkCTxMeta
        , mkCTxId
-       , mkCCurrency
        , mkCProfile
        , _ctxIdValue
-       , showCCurrency
        , mkBackupPhrase
        , mkCWalletRedeem
        , mkCPaperVendWalletRedeem
@@ -27,6 +25,7 @@ module Daedalus.Types
        , getProfileLocale
        , walletAddressToUrl
        , mkCWalletSetInit
+       , mkCWalletSetAssurance
        ) where
 
 import Prelude
@@ -67,6 +66,7 @@ backupMnemonicLen = 12
 paperVendMnemonicLen :: Int
 paperVendMnemonicLen = 9
 
+-- NOTE: if you will be bumping bip39 to >=2.2.0 be aware of https://issues.serokell.io/issue/VD-95 . In this case you will have to modify how we validate paperVendMnemonics.
 mkBackupPhrase :: Int -> String -> Either Error BackupPhrase
 mkBackupPhrase len mnemonic = mkBackupPhraseIgnoreChecksum len mnemonic >>= const do
     if not $ isValidMnemonic mnemonicCleaned
@@ -81,17 +81,11 @@ cleanMnemonic = joinWith " " <<< filter (not <<< null) <<< split space <<< trim
 mkBackupPhraseIgnoreChecksum :: Int -> String -> Either Error BackupPhrase
 mkBackupPhraseIgnoreChecksum len mnemonic =
     if not $ hasExactlyNwords len mnemonicCleaned
-        then Left $ error "Invalid mnemonic: mnemonic should have at least 12 words"
+        then Left $ error $ "Invalid mnemonic: mnemonic should have exactly " <> show len <> " words"
         else Right $ BackupPhrase { bpToList: split space mnemonicCleaned }
   where
     hasExactlyNwords len' = (==) len' <<< length <<< split space
     mnemonicCleaned = cleanMnemonic mnemonic
-
-showCCurrency :: CT.CCurrency -> String
-showCCurrency = dropModuleName <<< gShow
-  where
-    -- TODO: this is again stupid. We should derive Show for this type instead of doing this
-    dropModuleName = unsafePartial last <<< split dot
 
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses
@@ -118,32 +112,22 @@ mkCAddress :: forall a. String -> CAddress a
 mkCAddress = CAddress <<< CHash
 
 _ccoin :: CCoin -> String
-_ccoin (CCoin c) = c.getCoin
+_ccoin (CCoin c) = c.getCCoin
 
 mkCCoin :: String -> CCoin
-mkCCoin amount = CCoin { getCoin: amount }
+mkCCoin amount = CCoin { getCCoin: amount }
 
 -- NOTE: use genericRead maybe https://github.com/paluh/purescript-generic-read-example
-mkCWalletType :: String -> CT.CWalletType
-mkCWalletType = either (const CT.CWTPersonal) id <<< decodeJson <<< fromString
+mkCWSetAssurance :: String -> CT.CWalletSetAssurance
+mkCWSetAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
+
+mkCWalletMeta :: String -> CT.CWalletMeta
+mkCWalletMeta wName =
+    CT.CWalletMeta { cwName: wName
+                   }
 
 mkCWalletAddress :: String -> CT.CWalletAddress
 mkCWalletAddress = CWalletAddress
-
-mkCCurrency :: String -> CT.CCurrency
-mkCCurrency = either (const CT.ADA) id <<< decodeJson <<< fromString
-
-mkCWAssurance :: String -> CT.CWalletAssurance
-mkCWAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
-
-mkCWalletMeta :: String -> String -> String -> String -> Int -> CT.CWalletMeta
-mkCWalletMeta wType wCurrency wName wAssurance wUnit =
-    CT.CWalletMeta { cwType: mkCWalletType wType
-                   , cwCurrency: mkCCurrency wCurrency
-                   , cwName: wName
-                   , cwAssurance: mkCWAssurance wAssurance
-                   , cwUnit: wUnit
-                   }
 
 mkCInitialized :: Int -> Int -> CT.CInitialized
 mkCInitialized total preInit =
@@ -151,16 +135,24 @@ mkCInitialized total preInit =
                     , cPreInit: fromInt preInit
                     }
 
-mkCWalletInit :: String -> String -> String -> CAddress WS -> CT.CWalletInit
-mkCWalletInit wType wCurrency wName wSetId =
+mkCWalletInit :: String -> CAddress WS -> CT.CWalletInit
+mkCWalletInit wName wSetId =
     CT.CWalletInit { cwInitWSetId: wSetId
-                   , cwInitMeta: mkCWalletMeta wType wCurrency wName "CWANormal" 0 -- FIXME: don't use string!
+                   , cwInitMeta: mkCWalletMeta wName
                    }
 
-mkCWalletSetInit :: String -> String -> Either Error CT.CWalletSetInit
-mkCWalletSetInit wSetName mnemonic = do
+mkCWalletSetAssurance :: String -> CT.CWalletSetAssurance
+mkCWalletSetAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
+
+mkCWalletSetInit :: String -> String -> Int -> String -> Either Error CT.CWalletSetInit
+mkCWalletSetInit wSetName wsAssurance wsUnit mnemonic = do
     bp <- mkBackupPhrase backupMnemonicLen mnemonic
-    pure $ CT.CWalletSetInit { cwsInitMeta: CWalletSetMeta {cwsName: wSetName }
+    pure $ CT.CWalletSetInit { cwsInitMeta:
+                                CWalletSetMeta
+                                    { cwsName: wSetName
+                                    , cwsAssurance: mkCWalletSetAssurance wsAssurance
+                                    , cwsUnit: wsUnit
+                                    }
                              , cwsBackupPhrase: bp
                              }
 
@@ -171,6 +163,7 @@ mkCWalletRedeem seed wAddress = do
                      , crSeed: seed
                      }
 
+-- NOTE: if you will be bumping bip39 to >=2.2.0 be aware of https://issues.serokell.io/issue/VD-95 . In this case you will have to modify how we validate paperVendMnemonics.
 mkCPaperVendWalletRedeem :: String -> String -> CWalletAddress -> Either Error CT.CPaperVendWalletRedeem
 mkCPaperVendWalletRedeem seed mnemonic wAddress = do
     bp <- mkBackupPhrase paperVendMnemonicLen mnemonic
@@ -185,10 +178,9 @@ _ctxIdValue (CT.CTxId tx) = _hash tx
 mkCTxId :: String -> CT.CTxId
 mkCTxId = CT.CTxId <<< CHash
 
-mkCTxMeta :: String -> String -> String -> Number -> CT.CTxMeta
-mkCTxMeta currency title description date =
-    CT.CTxMeta { ctmCurrency: mkCCurrency currency
-               , ctmTitle: title
+mkCTxMeta :: String -> String -> Number -> CT.CTxMeta
+mkCTxMeta title description date =
+    CT.CTxMeta { ctmTitle: title
                , ctmDescription: description
                , ctmDate: mkTime date
                }

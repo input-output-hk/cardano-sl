@@ -2,57 +2,47 @@
 
 module Pos.Communication.Server
        ( allListeners
-       , allStubListeners
        , serverLoggerName
+       , sscRelays
+       , txRelays
+       , delegationRelays
+       , usRelays
        ) where
 
 import           Universum
 
-import           Data.Tagged                 (Tagged, proxy, unproxy, untag)
-import           System.Wlog                 (LoggerName, WithLogger)
+import           Data.Tagged                 (untag)
+import           System.Wlog                 (LoggerName)
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Network.Listeners (blockListeners, blockStubListeners)
-import           Pos.Communication.Protocol  (ListenerSpec (..), OutSpecs)
+import           Pos.Block.Network.Listeners (blockListeners)
+import           Pos.Communication.Protocol  (MkListeners (..))
+import           Pos.Communication.Relay     (relayListeners)
 import           Pos.Communication.Util      (wrapListener)
-import           Pos.Delegation.Listeners    (delegationListeners,
-                                              delegationStubListeners)
-import           Pos.Ssc.Class               (SscHelpersClass (..),
-                                              SscListenersClass (..), SscWorkersClass)
-import           Pos.Txp                     (txListeners, txStubListeners)
-import           Pos.Update                  (usListeners, usStubListeners)
-import           Pos.Util                    (mconcatPair)
+import           Pos.Delegation.Listeners    (delegationRelays)
+import           Pos.Ssc.Class               (SscListenersClass (..), SscWorkersClass)
+import           Pos.Txp                     (txRelays)
+import           Pos.Update                  (usRelays)
 import           Pos.WorkMode.Class          (WorkMode)
 
 -- | All listeners running on one node.
 allListeners
     :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc m)
-    => m ([ListenerSpec m], OutSpecs)
-allListeners = mconcatPair <$> sequence
-        [ modifier "block"       <$> blockListeners
-        , modifier "ssc" . untag <$> sscListeners
-        , modifier "tx"          <$> txListeners
-        , modifier "delegation"  <$> pure delegationListeners
-        , modifier "update"      <$> usListeners
+    => MkListeners m
+allListeners = mconcat
+        [ modifier "block"       $ blockListeners
+        , modifier "ssc"         $ relayListeners (untag sscRelays)
+        , modifier "tx"          $ relayListeners txRelays
+        , modifier "delegation"  $ relayListeners delegationRelays
+        , modifier "update"      $ relayListeners usRelays
         ]
   where
-    modifier lname = over _1 (map pModifier)
+    modifier lname mkL = mkL { mkListeners = mkListeners' }
       where
-        pModifier (ListenerSpec h spec) =
-            ListenerSpec (\vI -> wrapListener (serverLoggerName <> lname) $ h vI) spec
-
--- | All listeners running on one node.
-allStubListeners
-    :: (SscListenersClass ssc, WithLogger m, SscHelpersClass ssc)
-    => Tagged ssc ([ListenerSpec m], OutSpecs)
-allStubListeners = unproxy $ \sscProxy ->
-    mconcatPair
-        [ proxy blockStubListeners sscProxy
-        , proxy sscStubListeners sscProxy
-        , txStubListeners
-        , delegationStubListeners
-        , usStubListeners
-        ]
+        mkListeners' v p = do
+            ls <- mkListeners mkL v p
+            let f = wrapListener (serverLoggerName <> lname)
+            pure $ map f ls
 
 -- | Logger name for server.
 serverLoggerName :: LoggerName

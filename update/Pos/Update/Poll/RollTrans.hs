@@ -23,7 +23,7 @@ import           Pos.Update.Poll.Types (PrevValue, USUndo (..), cpsSoftwareVersi
                                         maybeToPrev, psProposal, unChangedBVL,
                                         unChangedConfPropsL, unChangedPropsL,
                                         unChangedSVL, unLastAdoptedBVL, unPrevProposersL)
-import           Pos.Util              (ether)
+import           Pos.Util.Util         (ether)
 
 type RollT m = Ether.LazyStateT' USUndo m
 

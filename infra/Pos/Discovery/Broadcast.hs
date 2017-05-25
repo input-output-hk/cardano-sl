@@ -1,8 +1,7 @@
 -- | This module implements the capabilities of broadcasting info to
 -- neighbors.
 module Pos.Discovery.Broadcast
-       ( sendToNeighbors
-       , converseToNeighbors
+       ( converseToNeighbors
        ) where
 
 
@@ -11,31 +10,9 @@ import           Mockable                   (MonadMockable, forConcurrently, han
 import           System.Wlog                (WithLogger, logDebug, logWarning)
 import           Universum                  hiding (catchAll)
 
-import           Pos.Binary.Class           (Bi)
-import           Pos.Communication.Protocol (ConversationActions, Message, NodeId (..),
-                                             SendActions (..))
+import           Pos.Communication.Protocol (Conversation, NodeId, SendActions (..))
 import           Pos.Discovery.Class        (MonadDiscovery, getPeers)
 import           Pos.Infra.Constants        (neighborsSendThreshold)
-
--- | Send default message to neighbours in parallel.
--- It's a broadcasting to the neighbours without sessions
--- (i.e. we don't have to wait for reply from the listeners).
-sendToNeighbors
-    :: ( MonadMockable m
-       , WithLogger m
-       , MonadDiscovery m
-       , Message body
-       , Bi body
-       )
-    => SendActions m -> body -> m ()
-sendToNeighbors sendActions msg = do
-    nodes <- check =<< getPeers
-    void $
-        forConcurrently nodes $ \node ->
-            handleAll (logSendErr node) $ sendTo sendActions node msg
-  where
-    logSendErr node e =
-        logWarning $ sformat ("Error sending to " %shown % ": " %shown) node e
 
 check :: (WithLogger m) => Set NodeId -> m [NodeId]
 check nodes = do
@@ -49,13 +26,9 @@ converseToNeighbors
     :: ( MonadMockable m
        , MonadDiscovery m
        , WithLogger m
-       , Bi rcv
-       , Bi snd
-       , Message snd
-       , Message rcv
        )
     => SendActions m
-    -> (NodeId -> ConversationActions snd rcv m -> m ())
+    -> (NodeId -> NonEmpty (Conversation m ()))
     -> m ()
 converseToNeighbors sendActions convHandler = do
     nodes <- check =<< getPeers

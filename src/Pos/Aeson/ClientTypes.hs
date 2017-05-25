@@ -8,21 +8,19 @@ import           Data.Aeson.TH              (defaultOptions, deriveJSON, deriveT
 import           Pos.Core.Types             (BlockVersion (..), SoftwareVersion (..))
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (Acc, CAccount, CAccountAddress, CAddress,
-                                             CCoin, CCurrency, CHash, CInitialized,
-                                             CInitialized, CPaperVendWalletRedeem,
-                                             CProfile, CProfile, CTExMeta, CTx, CTxId,
-                                             CTxMeta, CUpdateInfo, CWallet,
-                                             CWalletAddress, CWalletAssurance,
-                                             CWalletInit, CWalletMeta, CWalletRedeem,
-                                             CWalletSet, CWalletSetInit, CWalletSetMeta,
-                                             CWalletType, NotifyEvent, SyncProgress, WS)
+                                             CCoin, CHash, CInitialized, CInitialized,
+                                             CPaperVendWalletRedeem, CProfile, CProfile,
+                                             CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
+                                             CWallet, CWalletAddress, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, CWalletSet,
+                                             CWalletSetAssurance, CWalletSetInit,
+                                             CWalletSetMeta, NotifyEvent, SyncProgress,
+                                             WS)
 import           Pos.Wallet.Web.Error       (WalletError)
 
-deriveJSON defaultOptions ''CCurrency
 deriveJSON defaultOptions ''CWalletAddress
 deriveJSON defaultOptions ''CAccountAddress
-deriveJSON defaultOptions ''CWalletType
-deriveJSON defaultOptions ''CWalletAssurance
+deriveJSON defaultOptions ''CWalletSetAssurance
 deriveJSON defaultOptions ''CWalletMeta
 deriveJSON defaultOptions ''CWalletInit
 deriveJSON defaultOptions ''CWalletRedeem

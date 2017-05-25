@@ -89,7 +89,7 @@ test_script:
       --flag cardano-sl:for-installer
       --flag cardano-sl:with-web
       --flag cardano-sl:with-wallet
-      --flag cardano-sl:-asserts
+      --flag cardano-sl-core:-asserts
       --flag cardano-sl-core:-dev-mode
       --extra-include-dirs="C:\OpenSSL-Win64\include"
       --extra-lib-dirs="C:\OpenSSL-Win64"
@@ -101,7 +101,7 @@ test_script:
   #     --flag cardano-sl:for-installer
   #     --flag cardano-sl:with-web
   #     --flag cardano-sl:with-wallet
-  #     --flag cardano-sl:-asserts
+  #     --flag cardano-sl-core:-asserts
   #     --flag cardano-sl-core:-dev-mode
   #     --extra-include-dirs="C:\OpenSSL-Win64\include"
   #     --extra-lib-dirs="C:\OpenSSL-Win64"

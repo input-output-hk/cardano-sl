@@ -12,7 +12,7 @@ module Pos.Update.Poll.Logic.Version
 import           Control.Monad.Except       (MonadError, throwError)
 import           Universum
 
-import           Pos.Types                  (SoftwareVersion (..))
+import           Pos.Core                   (SoftwareVersion (..))
 import           Pos.Update.Core            (BlockVersionData (..), UpId,
                                              UpdateProposal (..), upMaxBlockSize,
                                              upScriptVersion, upSlotDuration)

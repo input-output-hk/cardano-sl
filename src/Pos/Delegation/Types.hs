@@ -24,7 +24,7 @@ import           Pos.Crypto (PublicKey)
 -- all at once.
 type DlgPayload = [ProxySKHeavy]
 
--- | PSKs we've overwritten/deleted
+-- | PSKs we've overwritten/deleted.
 type DlgUndo = [ProxySKHeavy]
 
 -- | Map from issuer public keys to related heavy certs.

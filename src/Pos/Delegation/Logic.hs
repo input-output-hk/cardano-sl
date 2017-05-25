@@ -76,7 +76,7 @@ import           Pos.Delegation.Class       (DelegationWrap (..), DlgMemPool,
                                              dwConfirmationCache, dwEpochId,
                                              dwMessageCache, dwPoolSize, dwProxySKPool,
                                              dwThisEpochPosted)
-import           Pos.Delegation.Pure        (dlgMemPoolDetectCycle)
+import           Pos.Delegation.Pure        (dlgMemPoolDetectCycle, isRevokePsk)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
 import           Pos.Lrc.Context            (LrcContext)
@@ -413,9 +413,7 @@ delegationApplyBlocks blocks = do
     applyBlock (Right block) = do
         let proxySKs = view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
-            (toDelete,toReplace) =
-                partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
-                proxySKs
+            (toDelete,toReplace) = partition isRevokePsk proxySKs
             batchOps = map (GS.DelPsk . pskIssuerPk) toDelete ++ map GS.AddPsk toReplace
         runDelegationStateAction $ do
             dwEpochId .= block ^. epochIndexL
@@ -466,11 +464,9 @@ delegationRollbackBlocks blunds = do
     rollbackBlund (Left _, _) = SomeBatchOp ([]::[GS.DelegationOp])
     rollbackBlund (Right block, undo) =
         let proxySKs = view mainBlockDlgPayload block
-            toReplace =
-                map pskIssuerPk $
-                filter (\ProxySecretKey{..} -> pskIssuerPk /= pskDelegatePk)
-                proxySKs
-            toDeleteBatch = map GS.DelPsk toReplace
+            -- We delete everything block adds and return previous
+            -- non-zero values (from undo).
+            toDeleteBatch = map GS.DelPsk $ map pskIssuerPk proxySKs
             toAddBatch = map GS.AddPsk $ undoPsk undo
         in SomeBatchOp $ toDeleteBatch ++ toAddBatch
 

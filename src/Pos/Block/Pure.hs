@@ -64,6 +64,7 @@ data VerifyHeaderParams ssc = VerifyHeaderParams
     { vhpPrevHeader      :: !(Maybe (BlockHeader ssc))
       -- ^ Nothing means that block is unknown, not genesis.
     , vhpCurrentSlot     :: !(Maybe SlotId)
+      -- ^ Current slot is used to check whether header is not from future.
     , vhpLeaders         :: !(Maybe SlotLeaders)
       -- ^ Set of leaders for the epoch related block is from
     , vhpHeavyCerts      :: !(Maybe ProxySKHeavyMap)
@@ -71,21 +72,10 @@ data VerifyHeaderParams ssc = VerifyHeaderParams
       -- contain public keys of block issuers passed to checking
       -- function.
     , vhpMaxSize         :: !(Maybe Byte)
+      -- ^ Maximal allowed header size. It's applied to 'BlockHeader'.
     , vhpVerifyNoUnknown :: !Bool
       -- ^ Check that header has no unknown attributes.
     } deriving (Show, Eq)
-
--- | By default nothing is checked.
-instance Default (VerifyHeaderParams ssc) where
-    def =
-        VerifyHeaderParams
-        { vhpPrevHeader = Nothing
-        , vhpCurrentSlot = Nothing
-        , vhpLeaders = Nothing
-        , vhpHeavyCerts = Nothing
-        , vhpMaxSize = Nothing
-        , vhpVerifyNoUnknown = False
-        }
 
 maybeEmpty :: Monoid m => (a -> m) -> Maybe a -> m
 maybeEmpty = maybe mempty
@@ -214,10 +204,21 @@ verifyHeaders
 verifyHeaders (NewestFirst []) = mempty
 verifyHeaders (NewestFirst (headers@(_:xh))) = mconcat verified
   where
-    verified = zipWith (\cur prev -> verifyHeader (toVHP prev) cur)
-                       headers (map Just xh ++ [Nothing])
-    toVHP p = def { vhpPrevHeader = p }
-
+    verified =
+        zipWith
+            (\cur prev -> verifyHeader (toVHP prev) cur)
+            headers
+            (map Just xh ++ [Nothing])
+    -- [CSL-1052] Consider doing more checks here.
+    toVHP p =
+        VerifyHeaderParams
+        { vhpPrevHeader = p
+        , vhpCurrentSlot = Nothing
+        , vhpLeaders = Nothing
+        , vhpHeavyCerts = Nothing
+        , vhpMaxSize = Nothing
+        , vhpVerifyNoUnknown = False
+        }
 
 -- | Parameters of Block static verification.
 -- Note: to check that block references previous block and/or is referenced

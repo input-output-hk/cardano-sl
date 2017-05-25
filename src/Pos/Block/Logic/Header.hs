@@ -18,7 +18,6 @@ import           Universum
 import           Control.Lens              (_Wrapped)
 import           Control.Monad.Except      (MonadError (throwError))
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
-import           Data.Default              (Default (def))
 import           Data.List.NonEmpty        ((<|))
 import qualified Data.Text                 as T
 import           Formatting                (build, int, sformat, (%))
@@ -99,8 +98,22 @@ classifyNewHeader (Right header) = do
         -- If header's parent is our tip, we verify it against tip's header.
         | tip == header ^. prevBlockL ->
             let vhp =
-                    def
+                    VerifyHeaderParams
                     { vhpPrevHeader = Just tipHeader
+                    -- We don't verify whether header is from future,
+                    -- because we already did it above. The principal
+                    -- difference is that currently header from future
+                    -- leads to 'CHUseless', but if we checked it
+                    -- inside 'verifyHeader' it would be 'CHUseless'.
+                    -- It's questionable though, maybe we will change
+                    -- this decision.
+                    , vhpCurrentSlot = Nothing
+                    -- [CSL-1152] TODO:
+                    -- we don't do these checks, but perhaps we can.
+                    , vhpLeaders = Nothing
+                    , vhpHeavyCerts = Nothing
+                    , vhpMaxSize = Nothing
+                    , vhpVerifyNoUnknown = False
                     }
                 verRes = verifyHeader vhp (Right header)
             in case verRes of

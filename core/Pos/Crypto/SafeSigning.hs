@@ -10,6 +10,8 @@ module Pos.Crypto.SafeSigning
        , checkPassMatches
        , changeEncPassphrase
        , encToPublic
+       , mkEncSecret
+       , mkEncSecretWithSalt
        , safeSign
        , safeToPublic
        , safeKeyGen
@@ -36,7 +38,7 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi, Raw)
 import qualified Pos.Binary.Class      as Bi
-import           Pos.Crypto.Hashing    (Hash, hash)
+import qualified Pos.Crypto.Scrypt     as S
 import           Pos.Crypto.Signing    (ProxyCert (..), ProxySecretKey (..),
                                         PublicKey (..), SecretKey (..), Signature (..),
                                         sign, toPublic)
@@ -44,7 +46,7 @@ import           Pos.Crypto.SignTag    (SignTag (SignProxySK), signTag)
 
 data EncryptedSecretKey = EncryptedSecretKey
     { eskPayload :: !CC.XPrv
-    , eskHash    :: !(Hash PassPhrase)
+    , eskHash    :: !S.EncryptedPass
     }
 
 instance Show EncryptedSecretKey where
@@ -72,33 +74,61 @@ emptyPassphrase = PassPhrase mempty
 instance Default PassPhrase where
     def = emptyPassphrase
 
-{-instance Monoid PassPhrase where
-    mempty = PassPhrase mempty
-    mappend (PassPhrase p1) (PassPhrase p2) = PassPhrase (p1 `mappend` p2)-}
+-- | Parameters used to evaluate hash of passphrase.
+-- They influence on resulting hash length, memory and time consumption.
+passScryptParam :: S.ScryptParams
+passScryptParam =
+    fromMaybe (error "Bad passphrase scrypt parameters") $
+    S.scryptParamsLen 14 8 1 hashLen  -- params recomended in documentation to scrypt
+  where
+    hashLen = 32  -- maximal passphrase length
 
-mkEncSecret :: Bi PassPhrase => PassPhrase -> CC.XPrv -> EncryptedSecretKey
-mkEncSecret pp payload = EncryptedSecretKey payload (hash pp)
+-- | Wrap raw secret key, attaching hash to it.
+-- Hash is evaluated using given salt.
+mkEncSecretWithSalt
+    :: Bi PassPhrase
+    => S.Salt -> PassPhrase -> CC.XPrv -> EncryptedSecretKey
+mkEncSecretWithSalt salt pp payload =
+    EncryptedSecretKey payload $ S.encryptPassWithSalt passScryptParam salt pp
+
+-- | Wrap raw secret key, attachind hash to it.
+-- Hash is evaluated using generated salt.
+mkEncSecret
+    :: (Bi PassPhrase, MonadRandom m)
+    => PassPhrase -> CC.XPrv -> m EncryptedSecretKey
+mkEncSecret pp payload =
+    EncryptedSecretKey payload <$> S.encryptPass passScryptParam pp
 
 -- | Generate a public key using an encrypted secret key and passphrase
 encToPublic :: EncryptedSecretKey -> PublicKey
 encToPublic (EncryptedSecretKey sk _) = PublicKey (CC.toXPub sk)
 
 -- | Re-wrap unencrypted secret key as an encrypted one
-noPassEncrypt :: Bi PassPhrase => SecretKey -> EncryptedSecretKey
-noPassEncrypt (SecretKey k) = mkEncSecret emptyPassphrase k
-
-checkPassMatches :: (Bi PassPhrase, Alternative f) => PassPhrase -> EncryptedSecretKey -> f ()
-checkPassMatches pp (EncryptedSecretKey _ pph) = guard (hash pp == pph)
-
-changeEncPassphrase
+noPassEncrypt
     :: Bi PassPhrase
+    => SecretKey -> EncryptedSecretKey
+noPassEncrypt (SecretKey k) =
+    mkEncSecretWithSalt (S.mkSalt ("" :: Text)) emptyPassphrase k
+
+checkPassMatches
+    :: (Bi PassPhrase, Alternative f)
+    => PassPhrase -> EncryptedSecretKey -> f ()
+checkPassMatches pp (EncryptedSecretKey _ pph) =
+    guard (S.verifyPass passScryptParam pp pph)
+
+-- | Regerates secret key with new passphrase.
+-- This operation remains corresponding public key unchanged.
+-- However, derived (child) keys change.
+changeEncPassphrase
+    :: (Bi PassPhrase, MonadRandom m)
     => PassPhrase
     -> PassPhrase
     -> EncryptedSecretKey
-    -> Maybe EncryptedSecretKey
-changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _) = do
-    checkPassMatches oldPass esk
-    return $ mkEncSecret newPass $ CC.xPrvChangePass oldPass newPass sk
+    -> m (Maybe EncryptedSecretKey)
+changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _)
+    | isJust $ checkPassMatches oldPass esk =
+        Just <$> mkEncSecret newPass (CC.xPrvChangePass oldPass newPass sk)
+    | otherwise = return Nothing
 
 signRaw' :: Maybe SignTag
          -> PassPhrase
@@ -139,7 +169,7 @@ safeDeterministicKeyGen
     -> PassPhrase
     -> (PublicKey, EncryptedSecretKey)
 safeDeterministicKeyGen seed pp =
-    bimap PublicKey (mkEncSecret pp) (safeCreateKeypairFromSeed seed pp)
+    bimap PublicKey (mkEncSecretWithSalt (S.mkSalt seed) pp) (safeCreateKeypairFromSeed seed pp)
 
 -- | SafeSigner datatype to encapsulate sensitive data
 data SafeSigner = SafeSigner EncryptedSecretKey PassPhrase

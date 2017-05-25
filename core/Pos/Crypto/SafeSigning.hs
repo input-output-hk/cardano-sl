@@ -75,13 +75,12 @@ instance Default PassPhrase where
     def = emptyPassphrase
 
 -- | Parameters used to evaluate hash of passphrase.
--- They influence on resulting hash length, memory and time consumption.
 passScryptParam :: S.ScryptParams
 passScryptParam =
     fromMaybe (error "Bad passphrase scrypt parameters") $
-    S.scryptParamsLen 14 8 1 hashLen  -- params recomended in documentation to scrypt
-  where
-    hashLen = 32  -- maximal passphrase length
+    S.mkScryptParams def
+        { S.spHashLen = 32  -- maximal passphrase length
+        }
 
 -- | Wrap raw secret key, attaching hash to it.
 -- Hash is evaluated using given salt.

@@ -43,6 +43,7 @@ import           Control.Monad.Except       (runExceptT, throwError)
 import qualified Data.Cache.LRU             as LRU
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
+import           Data.List                  ((\\))
 import           Data.List                  (partition)
 import qualified Data.Text.Buildable        as B
 import           Data.Time.Clock            (UTCTime, addUTCTime, getCurrentTime)
@@ -90,43 +91,6 @@ import qualified Pos.Util.Concurrent.RWVar  as RWV
 import           Pos.Util.LRU               (filterLRU)
 
 ----------------------------------------------------------------------------
--- Different helpers to simplify logic
-----------------------------------------------------------------------------
-
--- | Convenient monad to work in 'DelegationWrap' state context.
-type DelegationStateAction m = StateT DelegationWrap m
-
--- | Effectively takes a lock on ProxyCaches mvar in NodeContext and
--- allows you to run some computation producing updated ProxyCaches
--- and return value. Will put MVar back on exception.
-runDelegationStateAction
-    :: (MonadIO m, MonadMask m, MonadDelegation m)
-    => DelegationStateAction m a -> m a
-runDelegationStateAction action = do
-    var <- askDelegationState
-    RWV.modify var $ \startState -> swap <$> runStateT action startState
-
--- | Invalidates proxy caches using built-in constants.
-invalidateProxyCaches :: (Monad m) => UTCTime -> DelegationStateAction m ()
-invalidateProxyCaches curTime = do
-    dwMessageCache %=
-        filterLRU (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
-    dwConfirmationCache %=
-        filterLRU (\t -> addUTCTime (toDiffTime lightDlgConfirmationTimeout) t > curTime)
-  where
-    toDiffTime (t :: Integer) = fromIntegral t
-
--- Retrieves psk certificated that have been accumulated before given
--- block. The block itself should be in DB.
-getPSKsFromThisEpoch
-    :: forall ssc m.
-       DB.MonadBlockDB ssc m
-    => HeaderHash -> m [ProxySKHeavy]
-getPSKsFromThisEpoch tip =
-    concatMap (either (const []) (view mainBlockDlgPayload)) <$>
-        (DB.loadBlocksWhile @ssc) isRight tip
-
-----------------------------------------------------------------------------
 -- Exceptions
 ----------------------------------------------------------------------------
 
@@ -164,6 +128,55 @@ initDelegation = do
     runDelegationStateAction $ do
         dwEpochId .= tipEpoch
         dwThisEpochPosted .= HS.fromList fromGenesisPsks
+
+----------------------------------------------------------------------------
+-- Different helpers to simplify logic
+----------------------------------------------------------------------------
+
+-- | Convenient monad to work in 'DelegationWrap' state context.
+type DelegationStateAction m = StateT DelegationWrap m
+
+-- | Effectively takes a lock on ProxyCaches mvar in NodeContext and
+-- allows you to run some computation producing updated ProxyCaches
+-- and return value. Will put MVar back on exception.
+runDelegationStateAction
+    :: (MonadIO m, MonadMask m, MonadDelegation m)
+    => DelegationStateAction m a -> m a
+runDelegationStateAction action = do
+    var <- askDelegationState
+    RWV.modify var $ \startState -> swap <$> runStateT action startState
+
+-- | Invalidates proxy caches using built-in constants.
+invalidateProxyCaches :: (Monad m) => UTCTime -> DelegationStateAction m ()
+invalidateProxyCaches curTime = do
+    dwMessageCache %=
+        filterLRU (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
+    dwConfirmationCache %=
+        filterLRU (\t -> addUTCTime (toDiffTime lightDlgConfirmationTimeout) t > curTime)
+  where
+    toDiffTime (t :: Integer) = fromIntegral t
+
+-- Retrieves psk certificated that have been accumulated before given
+-- block. The block itself should be in DB.
+getPSKsFromThisEpoch
+    :: forall ssc m.
+       DB.MonadBlockDB ssc m
+    => HeaderHash -> m [ProxySKHeavy]
+getPSKsFromThisEpoch tip =
+    concatMap (either (const []) (view mainBlockDlgPayload)) <$>
+        (DB.loadBlocksWhile @ssc) isRight tip
+
+-- Returns PSK with supplied issuer, querying both provided mempool
+-- (first priority) and the database.
+resolveWithDlgDB :: MonadDBPure m => DlgMemPool -> PublicKey -> m (Maybe ProxySKHeavy)
+resolveWithDlgDB mp iPk = case HM.lookup iPk mp of
+    Nothing -> GS.getPskByIssuer $ Left iPk
+    Just s  -> pure $ Just s
+
+-- This takes a set of dlg edge actions to apply and returns
+-- compensations to dlgTrans and dlgTransRev parts of delegation db.
+calculateTransCorrections :: MonadDBPure m => [GS.DlgEdgeAction] -> m SomeBatchOp
+calculateTransCorrections _mp = pure mempty
 
 ----------------------------------------------------------------------------
 -- Heavyweight PSK
@@ -263,7 +276,7 @@ processProxySKHeavy psk = do
         alreadyPosted <- uses dwThisEpochPosted $ HS.member issuer
         epochMatches <- (headEpoch ==) <$> use dwEpochId
         producesCycle <- use dwProxySKPool >>= \pool ->
-            lift $ dlgMemPoolDetectCycle (GS.resolveWithDlgDB pool) psk
+            lift $ dlgMemPoolDetectCycle (resolveWithDlgDB pool) psk
         dwMessageCache %= LRU.insert msg curTime
         let maxMemPoolSize = memPoolLimitRatio * maxBlockSize
             -- Here it would be good to add size of data we want to insert
@@ -282,6 +295,7 @@ processProxySKHeavy psk = do
                      | otherwise -> PHAdded
         when (res == PHAdded) $ putToDlgMemPool issuer psk
         pure res
+
 
 -- State needed for 'delegationVerifyBlocks'.
 data DelVerState = DelVerState
@@ -413,8 +427,9 @@ delegationApplyBlocks blocks = do
     applyBlock (Right block) = do
         let proxySKs = view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
-            (toDelete,toReplace) = partition isRevokePsk proxySKs
-            batchOps = map (GS.DelPsk . pskIssuerPk) toDelete ++ map GS.AddPsk toReplace
+            edgeActions = map GS.pskToDlgEdgeAction proxySKs
+        transCorrections <- calculateTransCorrections edgeActions
+        let batchOps = SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
         runDelegationStateAction $ do
             dwEpochId .= block ^. epochIndexL
             for_ issuers $ \i -> do
@@ -455,20 +470,21 @@ delegationRollbackBlocks blunds = do
                  pskOmega psk == epochAfterRollback)
         dwThisEpochPosted .= fromGenesisIssuers
         dwEpochId .= tipBlockAfterRollback ^. epochIndexL
-    pure $ getNewestFirst (map rollbackBlund blunds)
+    getNewestFirst <$> mapM rollbackBlund blunds
   where
     malformedLastParent = DBMalformed $
         "delegationRollbackBlocks: parent of last rollbacked block is not in blocks db"
     tipAfterRollbackHash = blunds ^. _Wrapped . _neLast . _1 . prevBlockL
-    rollbackBlund :: Blund ssc -> SomeBatchOp
-    rollbackBlund (Left _, _) = SomeBatchOp ([]::[GS.DelegationOp])
-    rollbackBlund (Right block, undo) =
+    rollbackBlund :: Blund ssc -> m SomeBatchOp
+    rollbackBlund (Left _, _) = pure $ SomeBatchOp ([]::[GS.DelegationOp])
+    rollbackBlund (Right block, undo) = do
         let proxySKs = view mainBlockDlgPayload block
-            -- We delete everything block adds and return previous
-            -- non-zero values (from undo).
-            toDeleteBatch = map GS.DelPsk $ map pskIssuerPk proxySKs
-            toAddBatch = map GS.AddPsk $ undoPsk undo
-        in SomeBatchOp $ toDeleteBatch ++ toAddBatch
+            issuers = map pskIssuerPk proxySKs
+            toUndo = undoPsk undo
+            backDeleted = issuers \\ map pskIssuerPk toUndo
+            edgeActions = map GS.DlgEdgeDel backDeleted <> map GS.DlgEdgeAdd toUndo
+        transCorrections <- calculateTransCorrections edgeActions
+        pure $ SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
 
 
 ----------------------------------------------------------------------------

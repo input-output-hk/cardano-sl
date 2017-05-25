@@ -10,8 +10,9 @@ module Pos.Delegation.DB
        , isIssuerByAddressHash
        , getDlgTransitive
        , getDlgTransitiveReverse
-       , resolveWithDlgDB
 
+       , DlgEdgeAction (..)
+       , pskToDlgEdgeAction
        , DelegationOp (..)
 
        , runDlgTransIterator
@@ -28,7 +29,7 @@ import qualified Data.HashSet         as HS
 import qualified Database.RocksDB     as Rocks
 
 import           Pos.Binary.Class     (encodeStrict)
-import           Pos.Crypto           (PublicKey, pskDelegatePk, pskIssuerPk)
+import           Pos.Crypto           (PublicKey, pskIssuerPk)
 import           Pos.DB.Class         (MonadDB, MonadDBPure)
 import           Pos.DB.Error         (DBError (DBMalformed))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix)
@@ -36,6 +37,7 @@ import           Pos.DB.GState.Common (gsGetBi)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types         (NodeDBs (_gStateDB))
+import           Pos.Delegation.Pure  (isRevokePsk)
 import           Pos.Delegation.Types (DlgMemPool)
 import           Pos.Types            (ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Util.Iterator    (nextItem)
@@ -107,36 +109,41 @@ getDlgTransitive iPk = gsGetBi (transDlgKey iPk)
 getDlgTransitiveReverse :: MonadDBPure m => PublicKey -> m [PublicKey]
 getDlgTransitiveReverse dPk = fmap (fromMaybe []) $ gsGetBi (transRevDlgKey dPk)
 
--- | Returns PSK with supplied issuer, querying both provided mempool
--- (first priority) and the database.
-resolveWithDlgDB :: MonadDBPure m => DlgMemPool -> PublicKey -> m (Maybe ProxySKHeavy)
-resolveWithDlgDB mp iPk = case HM.lookup iPk mp of
-    Nothing -> getPskByIssuer $ Left iPk
-    Just s  -> pure $ Just s
-
 ----------------------------------------------------------------------------
 -- Batch operations
 ----------------------------------------------------------------------------
 
+-- | Action on delegation database, used commonly. Generalizes
+-- applications and rollbacks.
+data DlgEdgeAction
+    = DlgEdgeAdd !ProxySKHeavy
+    | DlgEdgeDel !PublicKey
+    deriving (Show, Eq, Generic)
+
+-- | Converts mempool to set of database actions.
+pskToDlgEdgeAction :: ProxySKHeavy -> DlgEdgeAction
+pskToDlgEdgeAction psk
+    | isRevokePsk psk = DlgEdgeDel (pskIssuerPk psk)
+    | otherwise = DlgEdgeAdd psk
+
 data DelegationOp
-    = AddPsk !ProxySKHeavy
-    -- ^ Adds Psk. Overwrites if present.
-    | DelPsk !PublicKey
-    -- ^ Removes PSK by issuer PK.
-    | AddTransitiveDlg PublicKey PublicKey
+    = PskFromEdgeAction !DlgEdgeAction
+    -- ^ Adds or removes Psk. Overwrites on addition if present.
+    | AddTransitiveDlg !PublicKey !PublicKey
     -- ^ Transitive delegation relation adding.
-    | DelTransitiveDlg PublicKey
+    | DelTransitiveDlg !PublicKey
     -- ^ Remove i -> d link for i.
-    | SetTransitiveDlgRev PublicKey [PublicKey]
+    | SetTransitiveDlgRev !PublicKey !([PublicKey])
     -- ^ Set value to map d -> [i], reverse index of transitive dlg
 
 instance RocksBatchOp DelegationOp where
-    toBatchOp (AddPsk psk)
-        | pskIssuerPk psk == pskDelegatePk psk = [] -- panic maybe
+    toBatchOp (PskFromEdgeAction (DlgEdgeAdd psk))
+        | isRevokePsk psk =
+          error $ "RocksBatchOp instance: malformed revoke psk in DlgEdgeAdd: " <> pretty psk
         | otherwise =
-            [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk)
-                       (encodeStrict psk)]
-    toBatchOp (DelPsk issuerPk) = [Rocks.Del $ pskKey $ addressHash issuerPk]
+          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (encodeStrict psk)]
+    toBatchOp (PskFromEdgeAction (DlgEdgeDel issuerPk)) =
+        [Rocks.Del $ pskKey $ addressHash issuerPk]
     toBatchOp (AddTransitiveDlg iPk dPk) = [Rocks.Put (transDlgKey iPk) (encodeStrict dPk)]
     toBatchOp (DelTransitiveDlg iPk) = [Rocks.Del $ transDlgKey iPk]
     toBatchOp (SetTransitiveDlgRev dPk []) = [Rocks.Del $ transRevDlgKey dPk]

@@ -32,9 +32,7 @@ import           Universum
 import           Pos.Communication              (SendActions)
 import           Pos.Crypto                     (WithHash (..), hash, withHash)
 import qualified Pos.DB.Block                   as DB
-import qualified Pos.DB.DB                      as DB
 import qualified Pos.DB.GState                  as GS
-import qualified Pos.DB.GState.Balances         as GS
 
 import           Pos.DB.Class                   (MonadDB)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
@@ -57,14 +55,15 @@ import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer                   (TxExtra (..), getTxExtra)
-import qualified Pos.Explorer                   as EX (getAddrHistory, getTxExtra)
+import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHistory,
+                                                       getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
-                                                 CHash, CTxBrief (..), CTxEntry (..),
-                                                 CTxId (..), CTxSummary (..),
-                                                 TxInternal (..),
+                                                 CAddressType (..), CBlockEntry (..),
+                                                 CBlockSummary (..), CHash, CTxBrief (..),
+                                                 CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..), TxInternal (..),
                                                  convertTxOutputs, fromCAddress,
                                                  fromCHash, fromCTxId, mkCCoin,
                                                  tiToTxEntry, toBlockEntry,
@@ -178,12 +177,12 @@ getBlocksByEpoch epochIndex mSlotIndex = do
                 fromMaybe True ((siSlot (mb ^. blockSlot) ==) <$> mSlotIndex)
 
 -- | Get last blocks from the blockchain.
--- 
+--
 -- What we see when offset < blocksTotal is:
--- 
+--
 --  * we start at blocksTotal - offset (we have 180 blocks and we offset them
 --    by 170 - we start at the block 10)
--- 
+--
 --  * we end at blocksTotal - offset - limit (we have 180 blocks and we offset them
 --    by 170 and set the limit to 10 - we end at the block 0)
 --
@@ -287,24 +286,35 @@ getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
         pure $ makeTxBrief tx extra
 
 getAddressSummary :: ExplorerMode m => CAddress -> m CAddressSummary
-getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
-    PubKeyAddress sid _ -> do
-        balance <- mkCCoin . fromMaybe (mkCoin 0) <$> GS.getRealStake sid
-        -- TODO: add number of coins when it's implemented
-        -- TODO: retrieve transactions from something like an index
-        txIds <- getNewestFirst <$> EX.getAddrHistory addr
-        transactions <- forM txIds $ \id -> do
-            extra <- getTxExtraOrFail id
-            tx <- getTxMain id extra
-            pure $ makeTxBrief tx extra
-        pure CAddressSummary {
-            caAddress=cAddr,
-            caTxNum=fromIntegral $ length transactions,
-            caBalance=balance,
-            caTxList=transactions
-        }
-    _ -> throwM $
-         Internal "Non-P2PKH addresses are not supported in Explorer yet"
+getAddressSummary cAddr = do
+    addr <- cAddrToAddr cAddr
+
+    when (isAddressUnknown addr) $
+        throwM $ Internal "Unknown address type"
+
+    balance <- mkCCoin . fromMaybe (mkCoin 0) <$> EX.getAddrBalance addr
+    txIds <- getNewestFirst <$> EX.getAddrHistory addr
+    transactions <- forM txIds $ \id -> do
+        extra <- getTxExtraOrFail id
+        tx <- getTxMain id extra
+        pure $ makeTxBrief tx extra
+    pure CAddressSummary {
+        caAddress = cAddr,
+        caType = getAddressType addr,
+        caTxNum = fromIntegral $ length transactions,
+        caBalance = balance,
+        caTxList = transactions
+    }
+  where
+    isAddressUnknown = \case
+        UnknownAddressType _ _ -> True
+        _ -> False
+    getAddressType :: Address -> CAddressType
+    getAddressType = \case
+        PubKeyAddress _ _ -> CPubKeyAddress
+        ScriptAddress _ -> CScriptAddress
+        RedeemAddress _ -> CRedeemAddress
+        UnknownAddressType _ _ -> CUnknownAddress
 
 -- | Get transaction summary from transaction id. Looks at both the database
 -- and the memory (mempool) for the transaction. What we have at the mempool

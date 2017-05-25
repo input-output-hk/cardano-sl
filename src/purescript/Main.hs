@@ -26,6 +26,7 @@ main = do
       , mkSumType (Proxy @CT.CAddressSummary)
       , mkSumType (Proxy @CT.CBlockEntry)
       , mkSumType (Proxy @CT.CBlockSummary)
+      , mkSumType (Proxy @CT.CAddressType)
       , mkSumType (Proxy @CT.CHash)
       , mkSumType (Proxy @CT.CNetworkAddress)
       , mkSumType (Proxy @CT.CTxBrief)

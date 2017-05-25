@@ -66,6 +66,7 @@ instance ToSchema      C.CTxEntry
 instance ToSchema      C.CTxBrief
 instance ToSchema      C.CBlockSummary
 instance ToSchema      C.CBlockEntry
+instance ToSchema      C.CAddressType
 instance ToSchema      C.CAddressSummary
 instance ToSchema      C.CCoin
 instance ToSchema      C.CNetworkAddress

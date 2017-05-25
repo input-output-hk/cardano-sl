@@ -9,7 +9,7 @@ import Data.Lens (set)
 import Data.Maybe (Maybe(..))
 import Data.Time.NominalDiffTime (NominalDiffTime, mkTime)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkCoin)
-import Pos.Explorer.Web.ClientTypes (CAddressSummary(..), CBlockEntry(..), CHash, CTxEntry(..), CTxId)
+import Pos.Explorer.Web.ClientTypes (CAddressSummary(..), CAddressType(..), CBlockEntry(..), CHash, CTxEntry(..), CTxId)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CTxEntry, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued, cteId, cteTimeIssued)
 
 -- | Creates a `CTxEntry` with "empty" data
@@ -33,6 +33,7 @@ setTimeOfTx time tx =
 mkEmptyCAddressSummary :: CAddressSummary
 mkEmptyCAddressSummary = CAddressSummary
     { caAddress: mkCAddress "--"
+    , caType: CUnknownAddress
     , caTxNum: 0
     , caBalance: mkCoin 0
     , caTxList: []

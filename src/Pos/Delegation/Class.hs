@@ -48,7 +48,7 @@ data DelegationWrap = DelegationWrap
       -- ^ Message cache to prevent infinite propagation of useless
       -- certs.
     , _dwConfirmationCache :: LRU.LRU ProxySKLight UTCTime
-      -- ^ Confirmation cache for lightweight PSKs.
+      -- ^ Confirmation cache for lightweight PSKs. Not used in endpoints tho.
     , _dwProxySKPool       :: DlgMemPool
       -- ^ Memory pool of hardweight proxy secret keys. Keys of this
       -- map are issuer public keys.

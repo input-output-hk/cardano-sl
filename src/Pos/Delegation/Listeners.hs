@@ -105,15 +105,3 @@ confirmPskRelay = Data $ DataParams $ \(pSk, proof) -> do
     pure $ case verdict of
         CPValid -> True
         _       -> False
-
---handleCheckProxySKConfirmed
---    :: forall ssc m.
---       (WorkMode ssc m)
---    => (ListenerSpec m, OutSpecs)
---handleCheckProxySKConfirmed = listenerOneMsg outSpecs $
---    \_ nodeId sendActions (CheckProxySKConfirmed pSk :: CheckProxySKConfirmed) -> do
---        logDebug $ sformat ("Got request to check if psk: "%build%" was delivered.") pSk
---        res <- runDelegationStateAction $ isProxySKConfirmed pSk
---        sendTo sendActions nodeId $ CheckProxySKConfirmedRes res
---  where
---    outSpecs = toOutSpecs [oneMsgH (Proxy :: Proxy CheckProxySKConfirmedRes)]

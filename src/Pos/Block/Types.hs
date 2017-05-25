@@ -16,13 +16,14 @@ import           Serokell.Util.Text    (listJson)
 import           Pos.Block.Core        (BiSsc, Block)
 import           Pos.Core              (HasDifficulty (..), HasHeaderHash (..),
                                         ProxySKHeavy)
+import           Pos.Delegation.Types  (DlgUndo)
 import           Pos.Txp.Core          (TxpUndo)
 import           Pos.Update.Poll.Types (USUndo)
 
 -- | Structure for undo block during rollback
 data Undo = Undo
     { undoTx  :: !TxpUndo
-    , undoPsk :: ![ProxySKHeavy] -- ^ PSKs we've overwritten/deleted
+    , undoPsk :: !DlgUndo
     , undoUS  :: !USUndo
     } deriving (Generic)
 

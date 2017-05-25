@@ -106,19 +106,6 @@ getDlgTransitive iPk = gsGetBi (transDlgKey iPk)
 getDlgTransitiveReverse :: MonadDBPure m => PublicKey -> m [PublicKey]
 getDlgTransitiveReverse dPk = fmap (fromMaybe []) $ gsGetBi (transRevDlgKey dPk)
 
-{-
--- | Retrieves certificate by issuer address (hash of public key) if present.
-getPSKByIssuerAddressHash :: MonadDBPure m => StakeholderId -> m (Maybe ProxySKHeavy)
-getPSKByIssuerAddressHash addrHash = gsGetBi (pskKey addrHash)
-
--- | Retrieves certificate by issuer public key if present.
-getPSKByIssuer :: MonadDBPure m => PublicKey -> m (Maybe ProxySKHeavy)
-getPSKByIssuer = getPSKByIssuerAddressHash . addressHash
-
-isIssuerByAddressHash :: (MonadDBPure m) => StakeholderId -> m Bool
-isIssuerByAddressHash = fmap isJust . getPSKByIssuerAddressHash
--}
-
 ----------------------------------------------------------------------------
 -- Batch operations
 ----------------------------------------------------------------------------

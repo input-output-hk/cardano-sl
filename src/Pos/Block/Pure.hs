@@ -310,6 +310,12 @@ verifyBlocks
 verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . foldl' step start
   where
     start :: VerifyBlocksIter ssc
+    -- Note that here we never know previous header before this
+    -- function is launched.  Which means that we will not do any
+    -- checks related to previous header. And it is fine, because we
+    -- must do these checks in advance, when we are processing
+    -- headers. However, it's a little obscure invariant, so keep it
+    -- in mind.
     start = (initLeaders, initPsks, Nothing, mempty)
     step :: VerifyBlocksIter ssc -> Block ssc -> VerifyBlocksIter ssc
     step (leaders, psks, prevHeader, res) blk =

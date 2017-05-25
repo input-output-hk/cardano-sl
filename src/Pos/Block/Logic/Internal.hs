@@ -63,6 +63,14 @@ applyBlocksUnsafe
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafe blunds0 pModifier =
     reportingFatal version $
+    -- It's essential to apply genesis block separately, before
+    -- applying other blocks.
+    -- That's because applying genesis block may change protocol version
+    -- which may potentially change protocol rules.
+    -- We would like to avoid dependencies between components, so we have
+    -- chosen this approach. Related issue is CSL-660.
+    -- Also note that genesis block can be only in the head, because all
+    -- blocks are from the same epoch.
     case blunds ^. _Wrapped of
         (b@(Left _,_):|[])     -> app' (b:|[])
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
@@ -70,6 +78,9 @@ applyBlocksUnsafe blunds0 pModifier =
   where
     app x = applyBlocksUnsafeDo x pModifier
     app' = app . OldestFirst
+    -- [CSL-1167] Here we check that invariant holds, but we silently
+    -- ignore some blocks if it doesn't.
+    -- We should report a fatal error instead.
     (OldestFirst -> blunds, _) =
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds0
 

@@ -25,7 +25,8 @@ import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (groupBy)
 import           Formatting                 (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           Serokell.Util.Verify       (VerificationRes (..), verifyGeneric)
+import           Serokell.Util              (VerificationRes (..), listJson,
+                                             verifyGeneric)
 
 import           Pos.Binary.Block.Core      ()
 import qualified Pos.Binary.Class           as Bi
@@ -50,7 +51,8 @@ import           Pos.Core.Block             (Blockchain (..), GenericBlock (..),
                                              GenericBlockHeader (..), gbBody, gbBodyProof,
                                              gbExtra, gbHeader)
 import           Pos.Crypto                 (ProxySecretKey (..), ProxySignature (..),
-                                             SignTag (..), checkSig, pdCert, proxyVerify)
+                                             SignTag (..), checkSig, pdCert, proxyVerify,
+                                             verifyProxySecretKey)
 import           Pos.Data.Attributes        (Attributes (attrRemain))
 import           Pos.Delegation.Pure        (dlgMemPoolApplyBlock, dlgReachesIssuance)
 import           Pos.Delegation.Types       (DlgMemPool)
@@ -385,12 +387,16 @@ verifyBlock VerifyBlockParams {..} blk =
             let bEpoch = mainBlk ^. epochIndexL
                 notMatchingEpochs = filter ((/= bEpoch) . pskOmega) proxySKs
                 proxySKs = mainBlk ^. mainBlockDlgPayload
+                wrongPSKs = filter (not . verifyProxySecretKey) proxySKs
                 duplicates = proxySKsDups proxySKs in
                 verifyGeneric
             [ ( null duplicates
-              , "Some of block's PSKs have the same issuer, which is prohibited"),
-              ( null notMatchingEpochs
+              , "Some of block's PSKs have the same issuer, which is prohibited")
+            , ( null notMatchingEpochs
               , "Block contains psk(s) that have non-matching epoch index")
+            , ( not $ null wrongPSKs
+              , sformat ("At least some PSKs in the block are corrupted/broken: "%listJson) $
+                        take 5 wrongPSKs)
             ]
         | otherwise = mempty
     checkSize maxSize = verifyGeneric [

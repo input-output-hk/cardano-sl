@@ -268,7 +268,7 @@ verifyBlock VerifyBlockParams {..} blk =
 
 -- Type alias for common type used inside 'verifyBlocks'
 type VerifyBlocksIter ssc =
-    (Maybe SlotLeaders, Maybe ProxySKHeavyMap, Maybe (BlockHeader ssc), VerificationRes)
+    (SlotLeaders, ProxySKHeavyMap, Maybe (BlockHeader ssc), VerificationRes)
 
 -- Applies block certificates to 'ProxySKHeavyMap'. Used in
 -- 'verifyBlocks'. It's not the best place for it here, but i can't
@@ -301,8 +301,8 @@ verifyBlocks
     => Maybe SlotId
     -> Bool
     -> BlockVersionData
-    -> Maybe SlotLeaders
-    -> Maybe ProxySKHeavyMap
+    -> SlotLeaders
+    -> ProxySKHeavyMap
     -> OldestFirst f (Block ssc)
     -> VerificationRes
 verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . foldl' step start
@@ -312,17 +312,17 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . fold
     step :: VerifyBlocksIter ssc -> Block ssc -> VerifyBlocksIter ssc
     step (leaders, psks, prevHeader, res) blk =
         let newLeaders = case blk of
-                Left genesisBlock -> Just $ genesisBlock ^. genBlockLeaders
+                Left genesisBlock -> genesisBlock ^. genBlockLeaders
                 Right _           -> leaders
             newPsks = case blk of
-                Left _  ->         psks
-                Right b ->         pskHeavyMapApplyBlock b <$> psks
+                Left _  -> psks
+                Right b -> pskHeavyMapApplyBlock b psks
             vhp =
                 VerifyHeaderParams
                 { vhpPrevHeader = prevHeader
-                , vhpLeaders = newLeaders
+                , vhpLeaders = Just newLeaders
                 , vhpCurrentSlot = curSlotId
-                , vhpHeavyCerts = psks
+                , vhpHeavyCerts = Just psks
                 , vhpMaxSize = Just (bvdMaxHeaderSize bvd)
                 , vhpVerifyNoUnknown = verifyNoUnknown
                 }

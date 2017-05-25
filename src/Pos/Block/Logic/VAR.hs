@@ -121,7 +121,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
         in fmap (issuer,) <$> GS.getPSKByIssuer issuer
     verResToMonadError formatAllErrors $
         Pure.verifyBlocks curSlot dataMustBeKnown adoptedBVD
-        (Just leaders) (Just pskCerts) blocks
+        leaders pskCerts blocks
     _ <- withExceptT pretty $ sscVerifyBlocks blocks
     TxpGlobalSettings {..} <- Ether.ask'
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $

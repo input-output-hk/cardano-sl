@@ -22,7 +22,11 @@ before_install:
 - echo $TRAVIS_OS_NAME
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
 - mkdir -p ~/.local/bin s3
-- export PATH=$HOME/.local/bin:$PATH
+- if [ ${TRAVIS_OS_NAME} = 'osx' ]; then brew update; fi
+- if [ ${TRAVIS_OS_NAME} = 'osx' ]; then brew install binutils coreutils; fi
+- export PATH="$(brew --prefix coreutils)/libexec/gnubin:/usr/local/opt/coreutils:/usr/local/bin:/usr/bin:$HOME/.local/bin:$PATH"
+- echo $PATH
+- compgen -c
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
 # TODO: https://github.com/NixOS/nixpkgs/issues/21200
 - travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar

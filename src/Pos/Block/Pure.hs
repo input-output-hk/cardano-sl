@@ -63,7 +63,6 @@ blockDifficultyIncrement = headerDifficultyIncrement . getBlockHeader
 data VerifyHeaderParams ssc = VerifyHeaderParams
     { vhpPrevHeader      :: !(Maybe (BlockHeader ssc))
       -- ^ Nothing means that block is unknown, not genesis.
-    , vhpNextHeader      :: !(Maybe (BlockHeader ssc))
     , vhpCurrentSlot     :: !(Maybe SlotId)
     , vhpLeaders         :: !(Maybe SlotLeaders)
       -- ^ Set of leaders for the epoch related block is from
@@ -81,7 +80,6 @@ instance Default (VerifyHeaderParams ssc) where
     def =
         VerifyHeaderParams
         { vhpPrevHeader = Nothing
-        , vhpNextHeader = Nothing
         , vhpCurrentSlot = Nothing
         , vhpLeaders = Nothing
         , vhpHeavyCerts = Nothing
@@ -104,7 +102,6 @@ verifyHeader VerifyHeaderParams {..} h =
     checks =
         mconcat
             [ maybeEmpty relatedToPrevHeader vhpPrevHeader
-            , maybeEmpty relatedToNextHeader vhpNextHeader
             , maybeEmpty relatedToCurrentSlot vhpCurrentSlot
             , maybeEmpty relatedToLeaders vhpLeaders
             , maybeEmpty heavyCertValid vhpHeavyCerts
@@ -164,22 +161,6 @@ verifyHeader VerifyHeaderParams {..} h =
         , case h of
               Left  _ -> (True, "") -- check that epochId prevHeader < epochId h performed above
               Right _ -> sameEpoch (prevHeader ^. epochIndexL) (h ^. epochIndexL)
-        ]
-
-    -- CHECK: Performs checks related to the next header:
-    --
-    --  * Difficulty is correct.
-    --  * Hash is correct.
-    --  * Epoch/slot are consistent.
-    relatedToNextHeader nextHeader =
-        [ checkDifficulty
-              (nextHeader ^. difficultyL - headerDifficultyIncrement nextHeader)
-              (h ^. difficultyL)
-        , checkHash (headerHash h) (nextHeader ^. prevBlockL)
-        , checkSlot (getEpochOrSlot h) (getEpochOrSlot nextHeader)
-        , case nextHeader of
-              Left  _ -> (True, "") -- check that epochId h  < epochId nextHeader performed above
-              Right _ -> sameEpoch (h ^. epochIndexL) (nextHeader ^. epochIndexL)
         ]
 
     -- CHECK: Verifies that the slot does not lie in the future.
@@ -344,7 +325,6 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . fold
             vhp =
                 VerifyHeaderParams
                 { vhpPrevHeader = prevHeader
-                , vhpNextHeader = Nothing
                 , vhpLeaders = newLeaders
                 , vhpCurrentSlot = curSlotId
                 , vhpHeavyCerts = psks

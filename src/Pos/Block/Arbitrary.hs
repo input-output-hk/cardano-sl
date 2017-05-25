@@ -407,12 +407,11 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
         -- 'skip' is the random number of headers that should be skipped in the header
         -- chain. This ensures different parts of it are chosen each time.
         skip <- choose (0, num - 1)
-        let atMost3HeadersAndLeaders = take 3 $ drop skip headers
-            (prev, header, next) =
-                case atMost3HeadersAndLeaders of
-                    [h] -> (Nothing, h, Nothing)
-                    [h1, h2] -> (Just h1, h2, Nothing)
-                    (h1 : h2 : h3 : _) -> (Just h1, h2, Just h3)
+        let atMost2HeadersAndLeaders = take 2 $ drop skip headers
+            (prev, header) =
+                case atMost2HeadersAndLeaders of
+                    [h] -> (Nothing, h)
+                    [h1, h2] -> (Just h1, h2)
                     _ -> error "[BlockSpec] the headerchain doesn't have enough headers"
             -- This binding captures the chosen header's epoch. It is used to drop all
             -- all leaders of headers from previous epochs.
@@ -452,7 +451,6 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                     header
             params = T.VerifyHeaderParams
                 { T.vhpPrevHeader = prev
-                , T.vhpNextHeader = next
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
                 , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
                 -- Not used in verifyHeaders, because we can't update

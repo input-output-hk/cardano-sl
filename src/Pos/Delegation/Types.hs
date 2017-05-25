@@ -19,7 +19,9 @@ import           Pos.Crypto (PublicKey)
 -- Heavyweight delegation payload
 ----------------------------------------------------------------------------
 
--- | Delegation payload of the main block.
+-- | Delegation payload of the main block. The order of proxy sks
+-- doesn't matter though, as it's checked for loops after application
+-- all at once.
 type DlgPayload = [ProxySKHeavy]
 
 -- | PSKs we've overwritten/deleted

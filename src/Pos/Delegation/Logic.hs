@@ -48,6 +48,7 @@ import qualified Data.Text.Buildable        as B
 import           Data.Time.Clock            (UTCTime, addUTCTime, getCurrentTime)
 import qualified Ether
 import           Formatting                 (bprint, build, sformat, stext, (%))
+import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger)
 
 import           Pos.Binary.Class           (biSize)
@@ -75,7 +76,7 @@ import           Pos.Delegation.Class       (DelegationWrap (..), DlgMemPool,
                                              dwConfirmationCache, dwEpochId,
                                              dwMessageCache, dwPoolSize, dwProxySKPool,
                                              dwThisEpochPosted)
-import           Pos.Delegation.Pure        (dlgMemPoolDetectLoop)
+import           Pos.Delegation.Pure        (dlgMemPoolDetectCycle)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
 import           Pos.Lrc.Context            (LrcContext)
@@ -261,8 +262,8 @@ processProxySKHeavy psk = do
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
         alreadyPosted <- uses dwThisEpochPosted $ HS.member issuer
         epochMatches <- (headEpoch ==) <$> use dwEpochId
-        producesLoop <- use dwProxySKPool >>= \pool ->
-            lift $ dlgMemPoolDetectLoop (GS.resolveWithDlgDB pool) psk
+        producesCycle <- use dwProxySKPool >>= \pool ->
+            lift $ dlgMemPoolDetectCycle (GS.resolveWithDlgDB pool) psk
         dwMessageCache %= LRU.insert msg curTime
         let maxMemPoolSize = memPoolLimitRatio * maxBlockSize
             -- Here it would be good to add size of data we want to insert
@@ -273,8 +274,8 @@ processProxySKHeavy psk = do
                      | not omegaCorrect -> PHInvalid "PSK epoch is different from current"
                      | alreadyPosted -> PHInvalid "issuer has already posted PSK this epoch"
                      | not enoughStake -> PHInvalid "issuer doesn't have enough stake"
-                     | isJust producesLoop ->
-                           PHInvalid $ "adding psk causes loop at: " <> pretty producesLoop
+                     | isJust producesCycle ->
+                           PHInvalid $ "adding psk causes cycle at: " <> pretty producesCycle
                      | cached -> PHCached
                      | exists -> PHExists
                      | exhausted -> PHExhausted
@@ -282,14 +283,12 @@ processProxySKHeavy psk = do
         when (res == PHAdded) $ putToDlgMemPool issuer psk
         pure res
 
--- state needed for 'delegationVerifyBlocks'
+-- State needed for 'delegationVerifyBlocks'.
 data DelVerState = DelVerState
-    { _dvCurEpoch      :: HashSet PublicKey
+    { _dvCurEpoch   :: HashSet PublicKey
       -- ^ Set of issuers that have already posted certificates this epoch
-    , _dvPSKMapAdded   :: DlgMemPool
-      -- ^ Psks added to database.
-    , _dvPSKSetRemoved :: HashSet PublicKey
-      -- ^ Psks removed from database.
+    , _dvPskChanged :: DlgMemPool
+      -- ^ Psks added/removed from the database. Removed psk is revoked one.
     }
 
 makeLenses ''DelVerState
@@ -301,6 +300,7 @@ makeLenses ''DelVerState
 -- * Issuer can post only one cert per epoch
 -- * For every new certificate issuer had enough stake at the
 --   end of prev. epoch
+-- * Delegation payload plus database state doesn't produce cycles.
 --
 -- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
 -- point of view.
@@ -313,58 +313,76 @@ delegationVerifyBlocks ::
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE [ProxySKHeavy]))
 delegationVerifyBlocks blocks = do
-    -- TODO CSL-502 create snapshot
     tip <- GS.getTip
     fromGenesisPsks <- getPSKsFromThisEpoch @ssc tip
     let _dvCurEpoch = HS.fromList $ map pskIssuerPk fromGenesisPsks
-        initState = DelVerState _dvCurEpoch HM.empty HS.empty
+    when (HS.size _dvCurEpoch /= length fromGenesisPsks) $
+        throwM $ DBMalformed "Multiple stakeholders have issued & published psks this epoch"
+    let initState = DelVerState _dvCurEpoch HM.empty
     richmen <-
         HS.fromList . toList <$>
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
         LrcDB.getRichmenDlg
-    when (HS.size _dvCurEpoch /= length fromGenesisPsks) $
-        throwM $ DBMalformed "Multiple stakeholders have issued & published psks this epoch"
     evalStateT (runExceptT $ mapM (verifyBlock richmen) blocks) initState
   where
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
+    -- Resolves publicKey into psk with a 'dvPskChanged'.
     withMapResolve issuer = do
-        isAddedM <- HM.lookup issuer <$> use dvPSKMapAdded
-        isRemoved <- HS.member issuer <$> use dvPSKSetRemoved
-        if isRemoved
-        then pure Nothing
-        else maybe (GS.getPskByIssuer $ Left issuer) (pure . Just) isAddedM
-    withMapAdd psk = do
-        let issuer = pskIssuerPk psk
-        dvPSKMapAdded %= HM.insert issuer psk
-        dvPSKSetRemoved %= HS.delete issuer
-    withMapRemove issuer = do
-        inAdded <- HM.member issuer <$> use dvPSKMapAdded
-        if inAdded
-        then dvPSKMapAdded %= HM.delete issuer
-        else dvPSKSetRemoved %= HS.insert issuer
+        isAddedM <- HM.lookup issuer <$> use dvPskChanged
+        maybe (GS.getPskByIssuer $ Left issuer) (pure . Just) isAddedM
+    withMapModify psk = dvPskChanged %= HM.insert (pskIssuerPk psk) psk
     verifyBlock _ (Left _) = [] <$ (dvCurEpoch .= HS.empty)
     verifyBlock richmen (Right blk) = do
         let proxySKs = view mainBlockDlgPayload blk
             issuers = map pskIssuerPk proxySKs
+
+        -- We believe issuers list doesn't contain duplicates, checked
+        -- in 'verifyBlocks'
+
+        -- Check 1: Issuers have enough money
         when (any (not . (`HS.member` richmen) . addressHash) issuers) $
             throwError $ sformat ("Block "%build%" contains psk issuers that "%
                                   "don't have enough stake")
                                  (headerHash blk)
+
+        -- Check 2: no issuer has posted psk this epoch before.
         curEpoch <- use dvCurEpoch
         when (any (`HS.member` curEpoch) issuers) $
             throwError $ sformat ("Block "%build%" contains issuers that "%
                                   "have already published psk this epoch")
                                  (headerHash blk)
-        -- we believe issuers list doesn't contain duplicates,
-        -- checked in Types.Block#verifyBlocks
-        dvCurEpoch %= HS.union (HS.fromList issuers)
-        let toUpdate =
-                filter (\ProxySecretKey{..} -> pskIssuerPk /= pskDelegatePk) proxySKs
+
+        -- Check 3: applying psks won't create a cycle.
+        --
+        -- Lemma 1: Removing edges from acyclic graph doesn't create cycles.
+        --
+        -- Lemma 2: Let G = (E₁,V₁) be acyclic graph and F = (E₂,V₂) another one,
+        -- where E₁ ∩ E₂ ≠ ∅ in general case. Then if G ∪ F has a loop C, then
+        -- ∃ a ∈ C such that a ∈ E₂.
+        --
+        -- Hence in order to check whether S=G∪F has cycle, it's sufficient to
+        -- validate that dfs won't re-visit any vertex, starting it on
+        -- every s ∈ E₂.
+        --
+        -- In order to do it we should resolve with db, 'dvPskChanged' and
+        -- 'proxySKs' together. So it's alright to first apply 'proxySKs'
+        -- to 'dvPskChanged' and then perform the check.
+
+        -- Collect rollback info, apply new psks
         toRollback <- catMaybes <$> mapM withMapResolve issuers
-        mapM_ withMapRemove issuers
-        mapM_ withMapAdd toUpdate
+        mapM_ withMapModify proxySKs
+
+        -- Perform check 3.
+        cyclePoints <- catMaybes <$> mapM (dlgMemPoolDetectCycle withMapResolve) proxySKs
+        unless (null cyclePoints) $
+            throwError $
+            sformat ("Block "%build%" leads to psk cycles, at least in these certs: "%listJson)
+                    (headerHash blk)
+                    (take 5 $ cyclePoints) -- should be enough
+
+        dvCurEpoch %= HS.union (HS.fromList issuers)
         pure toRollback
 
 -- | Applies a sequence of definitely valid blocks to memory state and

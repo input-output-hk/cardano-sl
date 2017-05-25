@@ -1,10 +1,12 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Pure functions on different delegation datatypes.
 
 module Pos.Delegation.Pure
-       ( dlgMemPoolApplyBlock
-       , dlgMemPoolDetectLoop
+       ( isRevokePsk
+       , dlgMemPoolApplyBlock
+       , dlgMemPoolDetectCycle
        , dlgReachesIssuance
        ) where
 
@@ -22,31 +24,35 @@ import           Pos.Crypto           (ProxyCert, ProxySecretKey (..), PublicKey
 import           Pos.Delegation.Types (DlgMemPool)
 
 
--- ^ Applies block certificates to 'ProxySKHeavyMap'.
+-- | Checks if given PSK revokes delegation (issuer = delegate).
+isRevokePsk :: ProxySKHeavy -> Bool
+isRevokePsk ProxySecretKey{..} = pskIssuerPk == pskDelegatePk
+
+-- | Applies block certificates to 'ProxySKHeavyMap'.
 dlgMemPoolApplyBlock :: MainBlock ssc -> DlgMemPool -> DlgMemPool
 dlgMemPoolApplyBlock block m = flip execState m $ do
     let (toDelete,toReplace) =
-            partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
-                      (view mainBlockDlgPayload block)
+            partition isRevokePsk (view mainBlockDlgPayload block)
     for_ toDelete $ \psk -> identity %= HM.delete (pskIssuerPk psk)
     for_ toReplace $ \psk -> identity %= HM.insert (pskIssuerPk psk) psk
 
--- ^ Checks if addition of the psk to the map will lead to
--- loops. Returns nothing if it's good, first-already-visited public
--- key otherwise.
-dlgMemPoolDetectLoop
+-- | Checks if addition of the PSK to the map will lead to cycles. The
+-- initial map may or may not contain this PSK. Returns nothing if
+-- it's good, first-already-visited public key otherwise.
+dlgMemPoolDetectCycle
     :: forall m . (Monad m)
     => (PublicKey -> m (Maybe ProxySKHeavy)) -- ^ Resolving function
     -> ProxySKHeavy                          -- ^ PSK to check against
     -> m (Maybe PublicKey)
-dlgMemPoolDetectLoop resolve toAdd =
+dlgMemPoolDetectCycle resolve toAdd =
     evalStateT (trav (pskDelegatePk toAdd)) (HS.singleton $ pskIssuerPk toAdd)
   where
     trav :: PublicKey -> StateT (HashSet PublicKey) m (Maybe PublicKey)
     trav cur = ifM (uses identity $ HS.member cur) (pure $ Just cur) $ do
         next <- lift $ resolve cur
         identity %= HS.insert cur
-        maybe (pure Nothing) (trav . pskDelegatePk) next
+        let stop = pure Nothing
+        maybe stop (\psk -> bool stop (trav $ pskDelegatePk psk) $ isRevokePsk psk) next
 
 -- | Given an 'DlgMemPool', issuer, delegate and his psk, checks if
 -- delegate is allowed to issue the block. This does not check that

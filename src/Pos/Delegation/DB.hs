@@ -72,7 +72,7 @@ getPskChainInternal toIgnore (either addressHash identity -> issuer) =
         (x:_) | HS.member x toIgnore -> (_2 %= drop 1) >> trav
         (x:_)                        -> do
             whenM (uses _3 $ HS.member x) $
-                throwM $ DBMalformed "getPskTree: found a PSK loop"
+                throwM $ DBMalformed "getPskTree: found a PSK cycle"
             _2 %= drop 1
             pskM <- lift $ getPskByIssuer $ Right x
             whenJust pskM $ \psk -> do

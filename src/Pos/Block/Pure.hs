@@ -4,8 +4,7 @@
 -- | Pure functions related to blocks and headers.
 
 module Pos.Block.Pure
-       ( blockDifficultyIncrement
-       , headerDifficultyIncrement
+       ( headerDifficultyIncrement
 
        , VerifyBlockParams (..)
        , VerifyHeaderParams (..)
@@ -33,9 +32,8 @@ import           Pos.Block.Core             (BiSsc, Block, BlockHeader,
                                              BlockSignature (..), MainBlock, gbhConsensus,
                                              gebAttributes, gehAttributes,
                                              genBlockLeaders, getBlockHeader,
-                                             getBlockHeader, mainBlockDlgPayload,
-                                             mainHeaderLeaderKey, mcdSignature,
-                                             mebAttributes, mehAttributes)
+                                             mainBlockDlgPayload, mainHeaderLeaderKey,
+                                             mcdSignature, mebAttributes, mehAttributes)
 import           Pos.Core                   (ChainDifficulty, EpochOrSlot,
                                              HasDifficulty (..), HasEpochIndex (..),
                                              HasEpochOrSlot (..), HasHeaderHash (..),
@@ -54,10 +52,6 @@ import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty
 headerDifficultyIncrement (Left _)  = 0
 headerDifficultyIncrement (Right _) = 1
-
--- | Difficulty of the Block, which is determined from header.
-blockDifficultyIncrement :: Block ssc -> ChainDifficulty
-blockDifficultyIncrement = headerDifficultyIncrement . getBlockHeader
 
 -- | Extra data which may be used by verifyHeader function to do more checks.
 data VerifyHeaderParams ssc = VerifyHeaderParams

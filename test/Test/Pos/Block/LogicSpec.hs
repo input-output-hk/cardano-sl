@@ -17,7 +17,7 @@ import           Test.QuickCheck            (Gen, Property, Testable, arbitrary,
 import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Arbitrary        ()
 import           Pos.Block.Core             (BlockHeader, MainBlock)
-import           Pos.Block.Logic            (createMainBlockPure)
+import           Pos.Block.Logic            (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication          ()
 import           Pos.Constants              (blkSecurityParam, genesisMaxBlockSize)
 import           Pos.Core                   (SlotId (..), unsafeMkLocalSlotIndex)
@@ -131,7 +131,9 @@ spec = describe "Block.Logic" $ do
         -> UpdatePayload
         -> SecretKey
         -> Either Text (MainBlock SscGodTossing)
-    producePureBlock = createMainBlockPure
+    producePureBlock limit prev txs psk slot dlgPay sscPay usPay sk =
+        createMainBlockPure limit prev psk slot sk $
+        RawPayload txs sscPay dlgPay usPay
 
 validGtPayloadGen :: Gen (GtPayload, SlotId)
 validGtPayloadGen = do

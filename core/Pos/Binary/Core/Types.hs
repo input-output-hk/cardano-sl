@@ -37,7 +37,7 @@ instance Bi T.CoinPortion where
 instance Bi T.LocalSlotIndex where
     get =
         label "LocalSlotIndex" $
-        (eitherToFail . T.mkLocalSlotIndex) . getUnsignedVarInt =<< get
+        eitherToFail . T.mkLocalSlotIndex . getUnsignedVarInt =<< get
     put (T.getSlotIndex -> c) = put (UnsignedVarInt c)
 
 instance Bi T.SlotId where

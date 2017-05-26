@@ -40,7 +40,7 @@ data TxTimestamps = TxTimestamps
 createTxTimestamps :: IO TxTimestamps
 createTxTimestamps = TxTimestamps
                      <$> newIORef M.empty
-                     <*> newIORef (SlotId 0 0)
+                     <*> newIORef (SlotId 0 minBound)
 
 registerSentTx :: TxTimestamps -> TxId -> Int -> Word64 -> IO ()
 registerSentTx TxTimestamps{..} id roundNum ts =

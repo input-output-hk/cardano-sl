@@ -26,6 +26,9 @@ import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', Wo
                                               onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (npPublicKey)
+import           Pos.Core                    (ProxySKEither, SlotId (..),
+                                              Timestamp (Timestamp), gbHeader,
+                                              getSlotIndex, slotIdF)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.Class                (MonadDBCore)
@@ -35,8 +38,6 @@ import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscWorkersClass)
-import           Pos.Types                   (ProxySKEither, SlotId (..),
-                                              Timestamp (Timestamp), gbHeader, slotIdF)
 import           Pos.Util                    (logWarningSWaitLinear, mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
@@ -93,12 +94,12 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
         Just leaders ->
             maybe onNoLeader
                   (onKnownLeader leaders)
-                  (leaders ^? ix (fromIntegral siSlot))
+                  (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
   where
     onNoLeader =
         logWarning "Couldn't find a leader for current slot among known ones"
-    logLeadersF = if siSlot == 0 then logInfo else logDebug
-    logLeadersFS = if siSlot == 0 then logInfoS else logDebugS
+    logLeadersF = if siSlot == minBound then logInfo else logDebug
+    logLeadersFS = if siSlot == minBound then logInfoS else logDebugS
     onKnownLeader leaders leader = do
         ourPk <- Ether.asks' npPublicKey
         let ourPkHash = addressHash ourPk

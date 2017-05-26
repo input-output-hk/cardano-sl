@@ -18,7 +18,6 @@ module Pos.Util
        , (<//>)
        , eitherToVerRes
        , readerToState
-       , eitherPanic
        , diffDoubleMap
 
        -- * NonEmpty
@@ -82,10 +81,6 @@ readerToState
     :: MonadState s m
     => Reader s a -> m a
 readerToState = gets . runReader
-
--- | A helper for simple error handling in executables
-eitherPanic :: Show a => Text -> Either a b -> b
-eitherPanic msgPrefix = either (error . (msgPrefix <>) . show) identity
 
 -- | Remove elements which are in 'b' from 'a'
 diffDoubleMap

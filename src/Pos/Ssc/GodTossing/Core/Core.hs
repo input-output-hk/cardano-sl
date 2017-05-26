@@ -54,7 +54,8 @@ import           Pos.Binary.Crypto              ()
 import           Pos.Binary.Ssc.GodTossing.Core ()
 import           Pos.Constants                  (blkSecurityParam, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Address               (addressHash)
-import           Pos.Core.Types                 (EpochIndex (..), LocalSlotIndex,
+import           Pos.Core.Types                 (EpochIndex (..),
+                                                 LocalSlotIndex (getSlotIndex),
                                                  SharedSeed (..), SlotId (..),
                                                  StakeholderId)
 import           Pos.Crypto                     (EncShare, Secret, SecretKey,
@@ -104,13 +105,15 @@ mkSignedCommitment
 mkSignedCommitment sk i c = (toPublic sk, c, sign SignCommitment sk (i, c))
 
 isCommitmentIdx :: LocalSlotIndex -> Bool
-isCommitmentIdx = inRange (0, 2 * blkSecurityParam - 1)
+isCommitmentIdx = inRange (0, 2 * blkSecurityParam - 1) . getSlotIndex
 
 isOpeningIdx :: LocalSlotIndex -> Bool
-isOpeningIdx = inRange (4 * blkSecurityParam, 6 * blkSecurityParam - 1)
+isOpeningIdx =
+    inRange (4 * blkSecurityParam, 6 * blkSecurityParam - 1) . getSlotIndex
 
 isSharesIdx :: LocalSlotIndex -> Bool
-isSharesIdx = inRange (8 * blkSecurityParam, 10 * blkSecurityParam - 1)
+isSharesIdx =
+    inRange (8 * blkSecurityParam, 10 * blkSecurityParam - 1) . getSlotIndex
 
 isCommitmentId :: SlotId -> Bool
 isCommitmentId = isCommitmentIdx . siSlot

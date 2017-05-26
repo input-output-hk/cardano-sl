@@ -15,7 +15,7 @@ module Pos.Delegation.Logic
        , initDelegation
 
        -- * Heavyweight psks handling
-       , getProxyMempool
+       , getDlgMempool
        , clearDlgMemPool
        , PskHeavyVerdict (..)
        , processProxySKHeavy
@@ -74,6 +74,7 @@ import           Pos.Delegation.Class     (DelegationWrap (..), DlgMemPool,
                                            MonadDelegation, askDelegationState,
                                            dwConfirmationCache, dwEpochId, dwMessageCache,
                                            dwPoolSize, dwProxySKPool, dwThisEpochPosted)
+import           Pos.Delegation.Types     (DlgPayload (getDlgPayload), mkDlgPayload)
 import           Pos.Exception            (cardanoExceptionFromException,
                                            cardanoExceptionToException)
 import           Pos.Lrc.Context          (LrcContext)
@@ -84,6 +85,7 @@ import           Pos.Util                 (withReadLifted, withWriteLifted, _neH
                                            _neLast)
 import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.LRU             (filterLRU)
+import           Pos.Util.Util            (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- Different helpers to simplify logic
@@ -126,7 +128,7 @@ getPSKsFromThisEpoch
        DB.MonadBlockDB ssc m
     => HeaderHash -> m [ProxySKHeavy]
 getPSKsFromThisEpoch tip =
-    concatMap (either (const []) (view mainBlockDlgPayload)) <$>
+    concatMap (either (const []) (getDlgPayload . view mainBlockDlgPayload)) <$>
         (DB.loadBlocksWhile @ssc) isRight tip
 
 ----------------------------------------------------------------------------
@@ -173,15 +175,16 @@ initDelegation = do
 ----------------------------------------------------------------------------
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
-getProxyMempool
+getDlgMempool
     :: (MonadIO m, MonadDBPure m, MonadDelegation m)
-    => m ([ProxySKHeavy], [ProxySKHeavy])
-getProxyMempool = do
+    => m (DlgPayload, [ProxySKHeavy])
+getDlgMempool = do
     sks <- runDelegationStateAction $
         uses dwProxySKPool HM.elems
     let issuers = map pskIssuerPk sks
+    let payload = leftToPanic "getDlgMempool: " $ mkDlgPayload sks
     toRollback <- catMaybes <$> mapM GS.getPSKByIssuer issuers
-    pure (sks, toRollback)
+    pure (payload, toRollback)
 
 clearDlgMemPool
     :: (MonadDB m, MonadDelegation m)
@@ -347,7 +350,7 @@ delegationVerifyBlocks blocks = do
         dvCurEpoch .= HS.empty
         pure []
     verifyBlock richmen (Right blk) = do
-        let proxySKs = view mainBlockDlgPayload blk
+        let proxySKs = getDlgPayload $ view mainBlockDlgPayload blk
             issuers = map pskIssuerPk proxySKs
         when (any (not . (`HS.member` richmen) . addressHash) issuers) $
             throwError $ sformat ("Block "%build%" contains psk issuers that "%
@@ -393,7 +396,7 @@ delegationApplyBlocks blocks = do
             dwEpochId .= (block ^. epochIndexL)
         pure (SomeBatchOp ([]::[GS.DelegationOp]))
     applyBlock (Right block) = do
-        let proxySKs = view mainBlockDlgPayload block
+        let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
             (toDelete,toReplace) =
                 partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
@@ -446,7 +449,7 @@ delegationRollbackBlocks blunds = do
     rollbackBlund :: Blund ssc -> SomeBatchOp
     rollbackBlund (Left _, _) = SomeBatchOp ([]::[GS.DelegationOp])
     rollbackBlund (Right block, undo) =
-        let proxySKs = view mainBlockDlgPayload block
+        let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             toReplace =
                 map pskIssuerPk $
                 filter (\ProxySecretKey{..} -> pskIssuerPk /= pskDelegatePk)

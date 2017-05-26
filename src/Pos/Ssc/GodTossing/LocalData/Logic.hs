@@ -74,7 +74,7 @@ instance SscLocalDataClass SscGodTossing where
         GtLocalData mempty . siEpoch . fromMaybe slot0 <$> getCurrentSlot <*>
         pure 1
       where
-        slot0 = SlotId 0 0
+        slot0 = SlotId 0 minBound
 
 getLocalPayload :: SlotId -> LocalQuery SscGodTossing GtPayload
 getLocalPayload SlotId {..} = do

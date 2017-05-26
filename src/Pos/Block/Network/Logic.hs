@@ -64,7 +64,7 @@ import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
 import           Pos.Reporting.Methods      (reportMisbehaviourMasked)
-import           Pos.Ssc.Class              (Ssc, SscWorkersClass)
+import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode.Class         (WorkMode)
@@ -219,7 +219,7 @@ data MatchReqHeadersRes
     deriving (Show)
 
 matchRequestedHeaders
-    :: (Ssc ssc)
+    :: (SscHelpersClass ssc)
     => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
 matchRequestedHeaders headers MsgGetHeaders {..} inRecovery =
     let newTip = headers ^. _Wrapped . _neHead
@@ -232,7 +232,7 @@ matchRequestedHeaders headers MsgGetHeaders {..} inRecovery =
             | inRecovery = True
             | isNothing mghTo = True
             | otherwise = Just (headerHash newTip) == mghTo
-        verRes = verifyHeaders True (headers & _Wrapped %~ toList)
+        verRes = verifyHeaders (headers & _Wrapped %~ toList)
     in if | not startMatches -> MRUnexpected "start (from) doesn't match"
           | not mghToMatches -> MRUnexpected "finish (to) doesn't match"
           | VerFailure errs <- verRes ->

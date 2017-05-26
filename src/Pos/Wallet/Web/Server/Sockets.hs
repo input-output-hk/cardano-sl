@@ -10,16 +10,19 @@ module Pos.Wallet.Web.Server.Sockets
        , MonadWalletWebSockets
        , getWalletWebSockets
        , ConnectionsVar
-       , initWSConnection
-       , closeWSConnection
+       , initWSConnections
+       , closeWSConnections
        , upgradeApplicationWS
-       , notify
+       , notifyAll
        , runWalletWS
        ) where
 
 import           Universum
 
+import           Control.Concurrent.STM.TVar    (swapTVar)
 import           Data.Aeson                     (encode)
+import           Data.Default                   (Default (def))
+import qualified Data.IntMap.Strict             as IM
 import qualified Ether
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
@@ -27,47 +30,55 @@ import qualified Network.WebSockets             as WS
 
 import           Pos.Aeson.ClientTypes          ()
 import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
+import           Pos.Wallet.Web.Error           (WalletError (..))
 
--- NODE: for now we are assuming only one client will be used. If there will be need for multiple clients we should extend and hold multiple connections here.
--- We might add multiple clients when we add user profiles but I am not sure if we are planning on supporting more at all.
-type ConnectionsVar = TVar (Maybe WS.Connection)
 
-initWSConnection :: MonadIO m => m ConnectionsVar
-initWSConnection = newTVarIO Nothing
+type WSConnection = WS.Connection
+type ConnectionsVar = TVar ConnectionMap
 
-closeWSConnection :: MonadIO m => ConnectionsVar -> m ()
-closeWSConnection var = liftIO $ do
-    conn <- readTVarIO var
-    atomically $ writeTVar var Nothing
-    maybe mempty (flip WS.sendClose ConnectionClosed) conn
+initWSConnections :: MonadIO m => m ConnectionsVar
+initWSConnections = newTVarIO def
 
-switchConnection :: ConnectionsVar -> WS.ServerApp
-switchConnection var pending = do
+closeWSConnection :: (MonadIO m, MonadThrow m) => ConnectionKey -> ConnectionsVar -> m ()
+closeWSConnection key var = liftIO $ do
+    maybeConn <- atomically $ deregisterConnection key var
+    case maybeConn of
+        Nothing   -> throwM $ InternalError "Attempted to close an unknown connection"
+        Just conn -> WS.sendClose conn ConnectionClosed
+
+closeWSConnections :: (MonadIO m, MonadThrow m) => ConnectionsVar -> m ()
+closeWSConnections var = liftIO $ do
+    conns <- atomically $ swapTVar var def
+    forM_ (listConnections conns) $ flip WS.sendClose ConnectionClosed
+
+appendWSConnection :: ConnectionsVar -> WS.ServerApp
+appendWSConnection var pending = do
     conn <- WS.acceptRequest pending
-    closeWSConnection var
-    atomically . writeTVar var $ Just conn
-    sendWS var ConnectionOpened
+    key <- atomically $ registerConnection conn var
+    sendWS conn ConnectionOpened
     WS.forkPingThread conn 30
-    forever (ignoreData conn) `finally` releaseResources
+    -- TODO: how to create a server that will handle all previous connections AND this one?
+    forever (ignoreData conn) `finally` releaseResources key
   where
-    ignoreData :: WS.Connection -> IO Text
+    ignoreData :: WSConnection -> IO Text
     ignoreData = WS.receiveData
-    releaseResources = closeWSConnection var -- TODO: log
+    releaseResources :: (MonadIO m, MonadThrow m) => ConnectionKey -> m ()
+    releaseResources key = closeWSConnection key var -- TODO: log
 
--- If there is a new pending ws connection, the old connection will be replaced with new one.
--- FIXME: this is not safe because someone can kick out previous ws connection. Authentication can solve this issue. Solution: reject pending connection if ws handshake doesn't have valid auth session token
+-- FIXME: we have no authentication and accept all incoming connections.
+-- Solution: reject pending connection if WS handshake doesn't have valid auth session token.
 upgradeApplicationWS :: ConnectionsVar -> Application -> Application
-upgradeApplicationWS wsConn = websocketsOr WS.defaultConnectionOptions $ switchConnection wsConn
+upgradeApplicationWS wsConn = websocketsOr WS.defaultConnectionOptions $ appendWSConnection wsConn
 
 -- sendClose :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
 -- sendClose = send WS.sendClose
 
 -- Sends notification msg to connected client. If there is no connection, notification msg will be ignored.
-sendWS :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
+sendWS :: MonadIO m => WSConnection -> NotifyEvent -> m ()
 sendWS = send WS.sendTextData
 
-send :: MonadIO m => (WS.Connection -> NotifyEvent -> IO ()) -> ConnectionsVar -> NotifyEvent -> m ()
-send f connVar msg = liftIO $ maybe mempty (flip f msg) =<< readTVarIO connVar
+send :: MonadIO m => (WSConnection -> NotifyEvent -> IO ()) -> WSConnection -> NotifyEvent -> m ()
+send f conn msg = liftIO $ f conn msg
 
 instance WS.WebSocketsData NotifyEvent where
     fromLazyByteString _ = error "Attempt to deserialize NotifyEvent is illegal"
@@ -91,5 +102,54 @@ type WebWalletSockets m = (MonadWalletWebSockets m, MonadIO m)
 runWalletWS :: ConnectionsVar -> WalletWebSockets m a -> m a
 runWalletWS = flip Ether.runReaderT
 
-notify :: WebWalletSockets m => NotifyEvent -> m ()
-notify msg = getWalletWebSockets >>= flip sendWS msg
+notifyAll :: WebWalletSockets m => NotifyEvent -> m ()
+notifyAll msg = do
+  var <- getWalletWebSockets
+  conns <- readTVarIO var
+  forM_ (listConnections conns) $ flip sendWS msg
+
+------------
+-- Helpers
+------------
+
+data IntMapWithUnusedKey v = IntMapWithUnusedKey
+    { unusedKey :: Int
+    , mapping   :: IntMap v
+    }
+
+instance Default (IntMapWithUnusedKey v) where
+  def = IntMapWithUnusedKey 0 IM.empty
+
+type ConnectionKey = IM.Key
+type ConnectionMap = IntMapWithUnusedKey WSConnection
+
+registerConnection :: WSConnection -> ConnectionsVar -> STM ConnectionKey
+registerConnection conn var = do
+    conns <- readTVar var
+    let (key, newConns) = registerConnectionPure conn conns
+    writeTVar var newConns
+    pure key
+
+deregisterConnection :: ConnectionKey -> ConnectionsVar -> STM (Maybe WSConnection)
+deregisterConnection key var = do
+    conns <- readTVar var
+    case deregisterConnectionPure key conns of
+        Nothing -> pure Nothing
+        Just (conn, newConns) -> do
+            writeTVar var newConns
+            pure (Just conn)
+
+registerConnectionPure :: WSConnection -> ConnectionMap -> (ConnectionKey, ConnectionMap)
+registerConnectionPure conn conns =
+  let newKey = unusedKey conns + 1 in
+  (newKey, IntMapWithUnusedKey newKey (IM.insert newKey conn $ mapping conns))
+
+deregisterConnectionPure :: ConnectionKey -> ConnectionMap -> Maybe (WSConnection, ConnectionMap)
+deregisterConnectionPure key conns =
+  case IM.lookup key (mapping conns) of
+    Nothing -> Nothing
+    Just conn -> Just (conn,
+      IntMapWithUnusedKey (unusedKey conns) (IM.delete key $ mapping conns))
+
+listConnections :: ConnectionMap -> [WSConnection]
+listConnections = IM.elems . mapping

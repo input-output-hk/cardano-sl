@@ -38,8 +38,16 @@
 
         .explorer-search {
           &__container {
-            lost-column: 10/12;
-            lost-offset: 1/12;
+            lost-column: 7/12;
+            lost-offset: 2.5/12;
+
+            transition: width 0.3s ease,
+                        margin 0.3s ease;
+
+            &.focused {
+              lost-column: 10/12;
+              lost-offset: 1/12;
+            }
           }
         }
       }

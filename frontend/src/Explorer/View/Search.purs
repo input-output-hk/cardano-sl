@@ -14,6 +14,7 @@ import Explorer.Lenses.State (gViewSearchInputFocused, globalViewState, lang, gV
 import Explorer.State (maxSlotInEpoch)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
+import Explorer.View.Common (emptyView)
 import Pux.Html (Html, div, text, ul, li, label, input) as P
 import Pux.Html.Attributes (checked, className, htmlFor, id_, maxLength, name, type_, placeholder, value) as P
 import Pux.Html.Events (onChange, onClick, onFocus, onBlur, onKey) as P
@@ -93,7 +94,9 @@ searchInputView state =
                 ]
                 []
             ]
-        , searchItemViews state
+        , if dbViewSearchInputFocused
+          then searchItemViews lang' selectedSearch
+          else emptyView
         , P.div
             [ P.className $ "explorer-search__btn" <> searchIconClazz <> focusedClazz
             , P.onClick <<< const $ if selectedSearch == SearchTime
@@ -124,16 +127,12 @@ mkSearchItems lang =
       }
     ]
 
-searchItemViews :: State -> P.Html Action
-searchItemViews state =
-    let lang' = state ^. lang
-        selectedSearch = state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch)
-    in
+searchItemViews :: Language -> Search -> P.Html Action
+searchItemViews lang selectedSearch =
     P.ul
-        [ P.className "explorer-search-nav__container"]
+        [ P.className $ "explorer-search-nav__container" ]
         <<< map (\item -> searchItemView item selectedSearch)
-            $ mkSearchItems lang'
-
+            $ mkSearchItems lang
 
 searchItemView :: SearchItem -> Search -> P.Html Action
 searchItemView item selectedSearch =

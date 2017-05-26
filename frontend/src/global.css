@@ -298,6 +298,10 @@ select::-ms-expand {
   }
 }
 
+.visible {
+  visibility: visible !important;
+}
+
 .invisible {
   visibility: hidden !important;
 }

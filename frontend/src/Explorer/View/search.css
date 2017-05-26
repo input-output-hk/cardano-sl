@@ -90,6 +90,12 @@
 
         &__container {
           box: horizontal center;
+
+          @extend .animated;
+          @extend .fadeIn;
+
+          animation-duration: .5s;
+          animation-delay: .3s;
         }
 
         &__item {

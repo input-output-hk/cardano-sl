@@ -216,6 +216,9 @@ library
 
                         -- Launcher
                         Pos.Launcher.Launcher
+                        Pos.Launcher.Launcher.Production
+                        Pos.Launcher.Launcher.Static
+                        Pos.Launcher.Launcher.Stats
                         Pos.Launcher.Options
                         Pos.Launcher.Param
                         Pos.Launcher.Runner

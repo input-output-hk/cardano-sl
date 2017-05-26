@@ -48,7 +48,7 @@ import           Servant.API                      ((:<|>) ((:<|>)),
                                                    FromHttpApiData (parseUrlPiece))
 import           Servant.Multipart                (fdFilePath)
 import           Servant.Server                   (Handler, Server, ServerT, err403,
-                                                   err500, runHandler, serve)
+                                                   runHandler, serve)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
 import           System.Wlog                      (logDebug, logError, logInfo)
 
@@ -118,8 +118,7 @@ import           Pos.Wallet.Web.ClientTypes       (Acc, CAccount (..),
                                                    mkCCoin, mkCTx, mkCTxId, toCUpdateInfo,
                                                    toCWalletAddress, txContainsTitle,
                                                    txIdToCTxId, walletAddrByAccount)
-import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError,
-                                                   _RequestError)
+import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.Secret            (WalletUserSecret (..))
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
                                                    WalletWebSockets, closeWSConnections,
@@ -298,121 +297,79 @@ servantHandlers
     => SendActions m
     -> ServerT WalletApi m
 servantHandlers sendActions =
-     catchWalletError testResetAll
+     testResetAll
     :<|>
 
-     apiGetWSet
+     getWSet
     :<|>
-     apiGetWSets
+     getWSets
     :<|>
-     apiNewWSet
+     newWSet
     :<|>
-     apiRestoreWSet
+     newWSet
     :<|>
-     apiRenameWSet
+     renameWSet
     :<|>
-     apiDeleteWSet
+     deleteWSet
     :<|>
-     apiImportWSet
+     importWSet
     :<|>
-     apiChangeWSetPassphrase
-    :<|>
-
-     apiGetWallet
-    :<|>
-     apiGetWallets
-    :<|>
-     apiUpdateWallet
-    :<|>
-     apiNewWallet
-    :<|>
-     apiDeleteWallet
+     changeWSetPassphrase sendActions
     :<|>
 
-     apiNewAccount
+     getWallet
+    :<|>
+     getWallets
+    :<|>
+     updateWallet
+    :<|>
+     newWallet RandomSeed
+    :<|>
+     deleteWallet
     :<|>
 
-     apiIsValidAddress
+     newAccount RandomSeed
     :<|>
 
-     apiGetUserProfile
-    :<|>
-     apiUpdateUserProfile
+     isValidAddress
     :<|>
 
-     apiTxsPayments
+     getUserProfile
     :<|>
-     apiTxsPaymentsExt
-    :<|>
-     apiUpdateTransaction
-    :<|>
-     apiGetHistory
-    :<|>
-     apiSearchHistory
+     updateUserProfile
     :<|>
 
-     apiNextUpdate
+     send sendActions
     :<|>
-     apiApplyUpdate
+     sendExtended sendActions
     :<|>
-
-     apiRedeemAda
+     updateTransaction
     :<|>
-     apiRedeemAdaPaperVend
+     getHistory
     :<|>
-
-     apiReportingInitialized
-    :<|>
-     apiReportingElectroncrash
+     searchHistory
     :<|>
 
-     apiSettingsSlotDuration
+     nextUpdate
     :<|>
-     apiSettingsSoftwareVersion
+     applyUpdate
     :<|>
-     apiSettingsSyncProgress
-  where
-    -- TODO: can we with Traversable map catchWalletError over :<|>
-    -- TODO: add logging on error
-    apiGetWSet                  = catchWalletError ... getWSet
-    apiGetWSets                 = catchWalletError ... getWSets
-    apiNewWSet                  = catchWalletError ... newWSet
-    apiRestoreWSet              = catchWalletError ... newWSet
-    apiRenameWSet               = catchWalletError ... renameWSet
-    apiDeleteWSet               = catchWalletError ... deleteWSet
-    apiImportWSet               = catchWalletError ... importWSet
-    apiChangeWSetPassphrase     = catchWalletError ... changeWSetPassphrase sendActions
-    apiGetWallet                = catchWalletError ... getWallet
-    apiGetWallets               = catchWalletError ... getWallets
-    apiUpdateWallet             = catchWalletError ... updateWallet
-    apiNewWallet                = catchWalletError ... newWallet RandomSeed
-    apiDeleteWallet             = catchWalletError ... deleteWallet
-    apiNewAccount               = catchWalletError ... newAccount RandomSeed
-    apiIsValidAddress           = catchWalletError ... isValidAddress
-    apiGetUserProfile           = catchWalletError ... getUserProfile
-    apiUpdateUserProfile        = catchWalletError ... updateUserProfile
-    apiTxsPayments              = catchWalletError ... send sendActions
-    apiTxsPaymentsExt           = catchWalletError ... sendExtended sendActions
-    apiUpdateTransaction        = catchWalletError ... updateTransaction
-    apiGetHistory               = catchWalletError ... getHistory
-    apiSearchHistory            = catchWalletError ... searchHistory
-    apiNextUpdate               = catchWalletError ... nextUpdate
-    apiApplyUpdate              = catchWalletError ... applyUpdate
-    apiRedeemAda                = catchWalletError ... redeemAda sendActions
-    apiRedeemAdaPaperVend       = catchWalletError ... redeemAdaPaperVend sendActions
-    apiReportingInitialized     = catchWalletError ... reportingInitialized
-    apiReportingElectroncrash   = catchWalletError ... reportingElectroncrash
-    apiSettingsSlotDuration     = catchWalletError ... (fromIntegral <$> blockchainSlotDuration)
-    apiSettingsSoftwareVersion  = catchWalletError ... pure curSoftwareVersion
-    apiSettingsSyncProgress     = catchWalletError ... syncProgress
 
-    catchWalletError action     = catchOtherError $ tryWalletError action
-    tryWalletError
-        | isDevelopment = try
-        | otherwise     = E.tryJust $ \e -> (e ^? _RequestError) $> e
-    catchOtherError = E.handleAll $ \e -> do
-        logError $ sformat ("Uncaught error in wallet method: "%shown) e
-        throwM err500
+     redeemAda sendActions
+    :<|>
+     redeemAdaPaperVend sendActions
+    :<|>
+
+     reportingInitialized
+    :<|>
+     reportingElectroncrash
+    :<|>
+
+     (blockchainSlotDuration <&> fromIntegral)
+    :<|>
+     pure curSoftwareVersion
+    :<|>
+     syncProgress
 
 -- getAddresses :: WalletWebMode m => m [CAddress]
 -- getAddresses = map addressToCAddress <$> myAddresses

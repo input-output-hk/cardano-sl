@@ -31,13 +31,14 @@ import           Pos.Core                     (EpochIndex, EpochOrSlot (..),
                                                mkGenericHeader, recreateGenericBlock)
 import           Pos.Crypto                   (hashHexF)
 import           Pos.Data.Attributes          (mkAttributes)
+import           Pos.Util.Util                (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- Buildable
 ----------------------------------------------------------------------------
 
 instance BiSsc ssc => Buildable (GenesisBlockHeader ssc) where
-    build gbh@GenericBlockHeader {..} =
+    build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("GenesisBlockHeader:\n"%
              "    hash: "%hashHexF%"\n"%
@@ -123,7 +124,13 @@ mkGenesisHeader
     -> Body (GenesisBlockchain ssc)
     -> GenesisBlockHeader ssc
 mkGenesisHeader prevHeader epoch body =
-    mkGenericHeader prevHeader body consensus (GenesisExtraHeaderData $ mkAttributes ())
+    -- here we know that genesis header construction can not fail
+    leftToPanic "mkGenesisHeader: " $
+    mkGenericHeader
+        prevHeader
+        body
+        consensus
+        (GenesisExtraHeaderData $ mkAttributes ())
   where
     difficulty = maybe 0 (view difficultyL) prevHeader
     consensus _ _ =
@@ -137,9 +144,8 @@ mkGenesisBlock
     -> SlotLeaders
     -> GenesisBlock ssc
 mkGenesisBlock prevHeader epoch leaders =
-    either disaster identity $ recreateGenericBlock header body extra
+    leftToPanic "mkGenesisBlock: " $ recreateGenericBlock header body extra
   where
     header = mkGenesisHeader prevHeader epoch body
     body = GenesisBody leaders
     extra = GenesisExtraBodyData $ mkAttributes ()
-    disaster = error . mappend "mkGenesisBlock: "

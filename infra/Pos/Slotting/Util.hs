@@ -30,8 +30,8 @@ import           System.Wlog            (WithLogger, logDebug, logError, logInfo
                                          logNotice, modifyLoggerName)
 import           Universum
 
-import           Pos.Core.Slotting      (flattenSlotId)
-import           Pos.Core.Types         (FlatSlotId, SlotId (..), Timestamp (..), slotIdF)
+import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..),
+                                         flattenSlotId, getSlotIndex, slotIdF)
 import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
 import           Pos.Reporting.MemState (MonadReportingMem)
@@ -56,7 +56,7 @@ getSlotStart SlotId{..} = do
        | siEpoch == sdPenultEpoch + 1 -> pure . Just $ slotTimestamp siSlot sdLast
        | otherwise -> pure Nothing
   where
-    slotTimestamp locSlot EpochSlottingData{..} =
+    slotTimestamp (getSlotIndex -> locSlot) EpochSlottingData{..} =
         esdStart + Timestamp (fromIntegral locSlot * convertUnit esdSlotDuration)
 
 -- | Get timestamp when given slot starts empatically, which means

@@ -2,16 +2,13 @@ module Pos.Binary.Core.Types () where
 
 import           Universum
 
-import           Data.Ix                 (inRange)
-import           Formatting              (formatToString, int, (%))
-
 import           Pos.Binary.Class        (Bi (..), UnsignedVarInt (..), label, putWord8)
 import qualified Pos.Binary.Core.Coin    as BinCoin
 import           Pos.Binary.Core.Script  ()
 import           Pos.Binary.Core.Version ()
-import           Pos.Core.Constants      (epochSlots)
 import qualified Pos.Core.Types          as T
 import qualified Pos.Data.Attributes     as A
+import           Pos.Util.Util           (eitherToFail)
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
@@ -38,17 +35,16 @@ instance Bi T.CoinPortion where
     get = label "CoinPortion" $ get >>= T.mkCoinPortion
 
 instance Bi T.LocalSlotIndex where
-    get = label "LocalSlotIndex" $ T.LocalSlotIndex . getUnsignedVarInt <$> get
-    put (T.LocalSlotIndex c) = put (UnsignedVarInt c)
+    get =
+        label "LocalSlotIndex" $
+        eitherToFail . T.mkLocalSlotIndex . getUnsignedVarInt =<< get
+    put (T.getSlotIndex -> c) = put (UnsignedVarInt c)
 
 instance Bi T.SlotId where
     put (T.SlotId e s) = put e >> put s
     get = label "SlotId" $ do
         siEpoch <- get
         siSlot <- get
-        let errMsg =
-                formatToString ("get@SlotId: invalid slotId ("%int%")") siSlot
-        unless (inRange (0, epochSlots - 1) siSlot) $ fail errMsg
         return $ T.SlotId {..}
 
 instance Bi T.EpochOrSlot where

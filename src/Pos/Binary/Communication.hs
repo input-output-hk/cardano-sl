@@ -20,8 +20,6 @@ import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
-import           Pos.Ssc.Class.Types              (Ssc (..))
-
 
 ----------------------------------------------------------------------------
 -- MessageName
@@ -43,7 +41,7 @@ instance Bi MsgGetBlocks where
     put (MsgGetBlocks f t) = put f >> put t
     get = label "MsgGetBlocks" $ MsgGetBlocks <$> get <*> get
 
-instance Ssc ssc => Bi (MsgHeaders ssc) where
+instance SscHelpersClass ssc => Bi (MsgHeaders ssc) where
     put (MsgHeaders b) = put b
     get = label "MsgHeaders" $ MsgHeaders <$> get
 

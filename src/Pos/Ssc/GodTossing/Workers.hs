@@ -38,6 +38,7 @@ import           Pos.Constants                    (mpcSendInterval, slotSecurity
                                                    vssMaxTTL)
 import           Pos.Context                      (SscContextTag, lrcActionOnEpochReason,
                                                    npPublicKey, npSecretKey)
+import           Pos.Core                         (mkLocalSlotIndex)
 import           Pos.Crypto                       (SecretKey, VssKeyPair, VssPublicKey,
                                                    randomNumber, runSecureRandom)
 import           Pos.Crypto.SecretSharing         (toVssPublicKey)
@@ -72,11 +73,11 @@ import           Pos.Ssc.GodTossing.Types         (gsCommitments, gtcParticipate
 import           Pos.Ssc.GodTossing.Types.Message (GtTag (..), MCCommitment (..),
                                                    MCOpening (..), MCShares (..),
                                                    MCVssCertificate (..))
-import           Pos.Types                        (EpochIndex, LocalSlotIndex,
-                                                   SlotId (..), StakeholderId,
+import           Pos.Types                        (EpochIndex, SlotId (..), StakeholderId,
                                                    StakeholderId, Timestamp (..),
                                                    addressHash)
 import           Pos.Util                         (getKeys, inAssertMode)
+import           Pos.Util.Util                    (leftToPanic)
 import           Pos.WorkMode.Class               (WorkMode)
 
 instance SscWorkersClass SscGodTossing where
@@ -276,7 +277,7 @@ sendOurData ::
     -> StakeholderId
     -> contents
     -> EpochIndex
-    -> LocalSlotIndex
+    -> Word16
     -> m ()
 sendOurData sendActions msgTag ourId dt epoch slMultiplier = do
     -- Note: it's not necessary to create a new thread here, because
@@ -353,11 +354,14 @@ randomTimeInInterval interval =
 
 waitUntilSend
     :: WorkMode SscGodTossing m
-    => GtTag -> EpochIndex -> LocalSlotIndex -> m ()
+    => GtTag -> EpochIndex -> Word16 -> m ()
 waitUntilSend msgTag epoch slMultiplier = do
+    let slot =
+            leftToPanic "waitUntilSend: " $
+            mkLocalSlotIndex $ slMultiplier * slotSecurityParam
     Timestamp beginning <-
         getSlotStartEmpatically $
-        SlotId {siEpoch = epoch, siSlot = slMultiplier * slotSecurityParam}
+        SlotId {siEpoch = epoch, siSlot = slot}
     curTime <- currentTime
     let minToSend = curTime
     let maxToSend = beginning + mpcSendInterval

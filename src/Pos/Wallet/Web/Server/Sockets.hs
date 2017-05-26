@@ -57,7 +57,6 @@ appendWSConnection var pending = do
     key <- atomically $ registerConnection conn var
     sendWS conn ConnectionOpened
     WS.forkPingThread conn 30
-    -- TODO: how to create a server that will handle all previous connections AND this one?
     forever (ignoreData conn) `finally` releaseResources key
   where
     ignoreData :: WSConnection -> IO Text

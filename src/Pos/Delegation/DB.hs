@@ -138,6 +138,8 @@ data DlgEdgeAction
     | DlgEdgeDel !PublicKey
     deriving (Show, Eq, Generic)
 
+instance Hashable DlgEdgeAction
+
 -- | Converts mempool to set of database actions.
 pskToDlgEdgeAction :: ProxySKHeavy -> DlgEdgeAction
 pskToDlgEdgeAction psk
@@ -158,6 +160,7 @@ data DelegationOp
     | DelTransitiveDlg !PublicKey
     -- ^ Remove i -> d link for i.
     | SetTransitiveDlgRev !PublicKey !([PublicKey])
+    -- TODO STORE SET INSTEAD OF LIST!
     -- ^ Set value to map d -> [i], reverse index of transitive dlg
 
 instance RocksBatchOp DelegationOp where

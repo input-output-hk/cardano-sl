@@ -182,10 +182,16 @@ data These a b = This a | That b | These a b
 type TransChangeset = HashMap PublicKey (These PublicKey PublicKey)
 type ReverseTrans = HashMap PublicKey (HashSet PublicKey, HashSet PublicKey)
 
--- This takes a set of dlg edge actions to apply and returns
--- compensations to dlgTrans and dlgTransRev parts of delegation
--- db. Should be executed under shared DB lock.
-calculateTransCorrections :: forall m . MonadDBPure m => [GS.DlgEdgeAction] -> m SomeBatchOp
+
+-- WHENEVER YOU CHANGE THE FUNCTION, CHECK DOCUMENTATION CONSISTENCY! THANK YOU!
+--
+-- Takes a set of dlg edge actions to apply and returns compensations
+-- to dlgTrans and dlgTransRev parts of delegation db. Should be
+-- executed under shared Gstate DB lock.
+calculateTransCorrections
+    :: forall m.
+       MonadDBPure m
+    => HashSet GS.DlgEdgeAction -> m SomeBatchOp
 calculateTransCorrections eActions = do
     -- Get the changeset and convert it to transitive ops.
     changeset <- transChangeset
@@ -215,9 +221,12 @@ calculateTransCorrections eActions = do
     {-
     Get the transitive changeset.
 
-    Imagine the following transformation (all arrows are oriented to
-    the right). First graph is one we store in DB. We apply the
-    list of edgeActions {del DE, add CF} to it.
+    To scare the reader, we suggest the example. Imagine the following
+    transformation (all arrows are oriented to the right). First graph
+    G is one we store in DB. We apply the list of edgeActions {del DE,
+    add CF} ~ F to it. Note that order of applying edgeActions
+    matters, so we can't go incrementally building graph G' = G ∪ F
+    from G.
 
     A   F--G      A   F--G
      \             \ /
@@ -225,81 +234,110 @@ calculateTransCorrections eActions = do
      /             /
     B             B
 
-    Hence the strategy here is:
+    Let dlg_H(a) denote the transitive delegation relation, returning
+    Nothing or Just dPk. Then we want to:
+    1. Find affected users af = {e ∈ E_G ∪ E_F | dlg_G(e) ≠ dlg_G'(e)}
+    2. Calculate new delegate set dlgnew = {(a,dlg_G'(a)), a ∈ af}
+    3. Zip dlgnew with old delegates (queried from DB).
 
-    * Deletion:
 
-    1. For every vertex i | ij ∈ edgeActions find all other p that
-    will change the transitive delegate d to ∅ broken by deletion
-    of the edge ij.
+    Step 1. Lemma. Let's call x-points XP the set issuers of
+    edgeActions set from F. Then af is equal to union of all subtrees
+    with root x ∈ XP called U, calculated in graph G'.
 
-    2. If forming changeset already contains p → These d₁ d₂ then
-    leave it as it is, otherwise set p → This d. All other options are
-    impossible.
+    Proof.
+    1. a ∈ af ⇒ a ∈ U. Delegate of a changed.
+       * (Nothing → Just d) conversion, then we've added some av edge,
+         v = d ∨ dlg(v) = d, then a ∈ U.
+       * (Just d → Nothing) conversion, we removed direct edge av,
+         v = d ∨ dlg(v) = d, same.
+       * (Just d₁ → Just d₂), some edge e on path a →→ d₁ was switched
+         to another branch or deleted.
+    2. a ∈ U ⇒ a ∈ af
+       Just come up the tree to the first x ∈ XP.
+       * x = a, then we've just either changed or got new/removed
+         old delegate.
+       * x ≠ a, same.
 
-    * Addition:
+    So on step 1 it's sufficient to find U. See the code to understand
+    how it's done using existent dlgTransRev mapping.
 
-    1. For every vertex i | ij ∈ edgeActions find all other p that
-    will change the transitive delegate Maybe d₁ to d₂ changed by
-    modifying some edge ik to ij.
 
-    2. If forming changeset contains p → These d₁', override with p →
-    These d₁ d₂ or That d₂. If 'These' case, fail if d₁' doesn't match
-    with d₁ we've just computed.
+    Step 2. Let's use dynamic programming to compute dlgnew. Kind
+    of. For every a ∈ af we'll come to the top of the tree until we
+    see any marked value or reach the end.
 
-    Remark: we'll combine steps (1) by calculating general 'affected'
-    userset.
+    1. We've stuck to the end vertex d, which is delegate. Mark dlg(d)
+    = Nothing,
+
+    2. We're on u, next vertex is v, we know dlg(v). Set dlg(u) =
+    dlg(v) and apply it to all the traversal chain before. If dlg(v) =
+    Nothing, set dlg(u) = v instead.
+
+
+    Step 3 is trivial.
     -}
     transChangeset :: m TransChangeset
-    transChangeset = execStateT (forM_ eActions processEAction) HM.empty
+    transChangeset = do
+        let keysMap = HS.fromMap . HM.map (const ())
+        let xPoints :: [PublicKey]
+            xPoints = map GS.dlgEdgeActionIssuer $ HS.toList eActions
 
-    processEAction :: GS.DlgEdgeAction -> StateT TransChangeset m ()
-    processEAction eAction = do
-        let iPk = GS.dlgEdgeActionIssuer eAction
-        -- Get affected users set (ones we'll change dlg trans
-        -- for). iPk is included.
-        (affected :: [(PublicKey,Maybe PublicKey)]) <-
-            GS.getDlgTransitive iPk >>= \case
-                Nothing -> pure [(iPk,Nothing)]
-                Just dPk -> do
-                    -- All i | i -> dPk in the DB. We should sort only
-                    -- those who are behind iPk in the delegation chain.
-                    revIssuers <- GS.getDlgTransitiveReverse dPk
-                    -- For these we'll find everyone who's forward and
-                    -- take a diff.
-                    chain <- HM.keys <$> GS.getPskChain (Left iPk)
-                    pure $ map (,Just dPk) $ iPk : (revIssuers \\ chain)
-        case eAction of
-            GS.DlgEdgeDel _ -> do
-                let delMap :: PublicKey -> Maybe PublicKey -> StateT TransChangeset m ()
-                    delMap aPk Nothing =
-                        -- We didn't have delegate but somehow we got into
-                        when (aPk /= iPk) $ throwM $ DBMalformed $
-                        sformat ("transChangeset@delMap@Nothing -- impossible: aPk: "%build%
-                                 ", iPk: "%build)
-                                aPk iPk
-                        -- in case it's iPk we just don't do anything.
-                    delMap aPk (Just dPrev) = do
-                        let alt Nothing = Just $ This dPrev
-                            alt (Just (That dPk')) =
-                                error $ "delMap That: shouldn't happen: " <> pretty dPk'
-                            alt s = s
-                            -- FIXME CSL-1125 what do we do in other cases?
-                        identity . at aPk %= alt
-                mapM_ (uncurry delMap) affected
-            GS.DlgEdgeAdd (pskDelegatePk -> dPkNew) -> do
-                let addMap :: PublicKey -> Maybe PublicKey -> StateT TransChangeset m ()
-                    addMap aPk Nothing = do
-                        let altN Nothing = Just $ That dPkNew
-                            altN (Just (This dPkOld)) =
-                                error $ "addMap@altN: got Just This: " <> show dPkOld
-                            altN s = s
-                            -- FIXME CSL-1125 what do we do in other cases?
-                        identity . at aPk %= altN
-                    addMap _aPk (Just _dPkDB) =
-                        undefined -- I don't know how to decide :\
-                mapM_ (uncurry addMap) affected
+        -- Step 1.
+        affected <- mconcat <$> mapM calculateLocalAf xPoints
+        let af = keysMap affected
 
+        -- Step 2.
+        dlgNew <- execStateT (forM_ af calculateDlgNew) HM.empty
+        -- Let's check that sizes of af and dlgNew match (they should).
+        -- We'll need it to merge in (3).
+        let dlgKeys = keysMap dlgNew
+        when (dlgKeys /= af) $ throwM $ DBMalformed $
+            sformat ("transChangeset: dlgNew keys "%listJson%" /= af "%listJson)
+                    (HS.toList dlgKeys) (HS.toList af)
+
+        -- Step 3.
+        -- Some unsafe functions (чтобы жизнь медом не казалась)
+        let lookupUnsafe k =
+                fromMaybe (error $ "transChangeset shouldn't happen but happened: " <> pretty k) .
+                HM.lookup k
+            toTheseUnsafe :: PublicKey
+                          -> (Maybe PublicKey, Maybe PublicKey)
+                          -> These PublicKey PublicKey
+            toTheseUnsafe a = \case
+                (Nothing,Nothing) ->
+                    error $ "Tried to convert (N,N) to These with affected user: " <> pretty a
+                (Just x, Nothing) -> This x
+                (Nothing, Just x) -> That x
+                (Just x, Just y)  -> These x y
+        let dlgFin = flip HM.mapWithKey affected $ \a dOld ->
+                         toTheseUnsafe a (dOld, lookupUnsafe a dlgNew)
+
+        pure $ dlgFin
+
+    -- Returns map from affected subtree af in original/G to the
+    -- common delegate of this subtree. Keys = af. All elems are
+    -- similar and equal to dlg(iPk).
+    calculateLocalAf :: PublicKey -> m (HashMap PublicKey (Maybe PublicKey))
+    calculateLocalAf iPk = GS.getDlgTransitive iPk >>= \case
+        Nothing -> pure $ HM.singleton iPk Nothing
+        Just dPk -> do
+            -- All i | i → d in the G. We should leave only those who
+            -- are lower than iPk in the delegation chain.
+            revIssuers <- GS.getDlgTransitiveReverse dPk
+            -- For these we'll find everyone who's upper (closer to
+            -- root/delegate) and take a diff.
+            chain <- HM.keys <$> GS.getPskChain (Left iPk)
+            let ret = iPk : (revIssuers \\ chain)
+            let retHm = HM.fromList $ map (,Just dPk) ret
+            -- Just a sanity check. If you're optimizing, delete it.
+            unless (HM.size retHm /= length ret) $ throwM $ DBMalformed $
+                sformat ("calculateLocalAf for iPk "%build%" has duplicates: "%listJson)
+                        iPk ret
+            pure retHm
+
+    calculateDlgNew :: PublicKey -> StateT (HashMap PublicKey (Maybe PublicKey)) m ()
+    calculateDlgNew = undefined
 
     -- Given changeset, returns map d → (ad,dl), where ad is set of
     -- new issuers that delegate to d, while dl is set of issuers that
@@ -571,7 +609,7 @@ delegationApplyBlocks blocks = do
         let proxySKs = view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
             edgeActions = map GS.pskToDlgEdgeAction proxySKs
-        transCorrections <- calculateTransCorrections edgeActions
+        transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
         let batchOps = SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
         runDelegationStateAction $ do
             dwEpochId .= block ^. epochIndexL
@@ -626,7 +664,7 @@ delegationRollbackBlocks blunds = do
             toUndo = undoPsk undo
             backDeleted = issuers \\ map pskIssuerPk toUndo
             edgeActions = map GS.DlgEdgeDel backDeleted <> map GS.DlgEdgeAdd toUndo
-        transCorrections <- calculateTransCorrections edgeActions
+        transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
         pure $ SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
 
 

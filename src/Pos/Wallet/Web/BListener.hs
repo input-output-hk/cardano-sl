@@ -62,11 +62,11 @@ onApplyTracking blunds = do
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
   where
     syncWalletSet :: HeaderHash -> [TxAux] -> CId WS -> m ()
-    syncWalletSet newTip txs wsAddr = do
-        encSK <- getSKByAddr wsAddr
+    syncWalletSet newTip txs wAddr = do
+        encSK <- getSKByAddr wAddr
         mapModifier <- runDBTxp $ evalToilTEmpty $ trackingApplyTxs encSK txs
-        applyModifierToWSet wsAddr newTip mapModifier
-        logMsg "applied" (getOldestFirst blunds) wsAddr mapModifier
+        applyModifierToWSet wAddr newTip mapModifier
+        logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
 -- Perform this action under block lock.
@@ -83,11 +83,11 @@ onRollbackTracking blunds = do
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
   where
     syncWalletSet :: HeaderHash -> [(TxAux, TxUndo)] -> CId WS -> m ()
-    syncWalletSet newTip txs wsAddr = do
-        encSK <- getSKByAddr wsAddr
+    syncWalletSet newTip txs wAddr = do
+        encSK <- getSKByAddr wAddr
         let mapModifier = trackingRollbackTxs encSK txs
-        applyModifierToWSet wsAddr newTip mapModifier
-        logMsg "rolled back" (getNewestFirst blunds) wsAddr mapModifier
+        applyModifierToWSet wAddr newTip mapModifier
+        logMsg "rolled back" (getNewestFirst blunds) wAddr mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
     blundTxUn (b, u) = zip (gbTxs b) (undoTx u)
 
@@ -98,9 +98,9 @@ logMsg
     -> CId WS
     -> CAccModifier
     -> m ()
-logMsg action (NE.length -> bNums) wsAddr mm =
+logMsg action (NE.length -> bNums) wAddr mm =
     logDebug $
         sformat ("Wallet Tracking: "%build%" "%build%" block(s) to walletset "%build
                 %", added accounts: "%listJson
                 %", deleted accounts: "%listJson)
-        action bNums wsAddr (map fst $ MM.insertions mm) (MM.deletions mm)
+        action bNums wAddr (map fst $ MM.insertions mm) (MM.deletions mm)

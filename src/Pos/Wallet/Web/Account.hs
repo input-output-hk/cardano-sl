@@ -26,9 +26,9 @@ import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
-import           Pos.Wallet.Web.ClientTypes (CWAddressMeta (..), CId, WS,
-                                             AccountId (..), addressToCId,
-                                             encToCId, walletAddrMetaToAccount)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), WS,
+                                             addressToCId, encToCId,
+                                             walletAddrMetaToAccount)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AccountLookupMode (..), WebWalletModeDB,
                                              doesWAddressExist, getAccountMeta)
@@ -59,9 +59,9 @@ getSKByAccAddr
     => PassPhrase
     -> CWAddressMeta
     -> m EncryptedSecretKey
-getSKByAccAddr passphrase accAddr@CWAddressMeta {..} = do
+getSKByAccAddr passphrase addrMeta@CWAddressMeta {..} = do
     (addr, accKey) <-
-        deriveAccountSK passphrase (walletAddrMetaToAccount accAddr) cwamAccountIndex
+        deriveAccountSK passphrase (walletAddrMetaToAccount addrMeta) cwamAccountIndex
     let accCAddr = addressToCId addr
     if accCAddr /= cwamId
              -- if you see this error, maybe you generated public key address with
@@ -169,9 +169,9 @@ deriveAccountAddress
     -> AccountId
     -> Word32
     -> m CWAddressMeta
-deriveAccountAddress passphrase wAddr@AccountId{..} cwamAccountIndex = do
-    (accAddr, _) <- deriveAccountSK passphrase wAddr cwamAccountIndex
+deriveAccountAddress passphrase accId@AccountId{..} cwamAccountIndex = do
+    (addr, _) <- deriveAccountSK passphrase accId cwamAccountIndex
     let cwamWSId   = aiWSId
         caaWalletIndex = aiIndex
-        cwamId     = addressToCId accAddr
+        cwamId     = addressToCId addr
     return CWAddressMeta{..}

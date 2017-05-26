@@ -60,12 +60,11 @@ import           Pos.Constants              (genesisHash)
 import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes (Addr, CWAddressMeta, CWAddressMeta (..),
-                                             CId, CCoin, CHash, CProfile, CTxId,
-                                             CTxMeta, CUpdateInfo, CAccountMeta,
-                                             CWalletAssurance, CWalletMeta,
-                                             PassPhraseLU, WS, AccountId,
-                                             walletAddrMetaToAccount)
+import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoin, CHash,
+                                             CId, CProfile, CTxId, CTxMeta, CUpdateInfo,
+                                             CWAddressMeta, CWAddressMeta (..),
+                                             CWalletAssurance, CWalletMeta, PassPhraseLU,
+                                             WS, walletAddrMetaToAccount)
 
 type TransactionHistory = HashMap CTxId CTxMeta
 
@@ -191,15 +190,15 @@ createWallet :: CId WS -> CWalletMeta -> PassPhraseLU -> Update ()
 createWallet cAddr wSMeta passLU = wsWSetInfos . at cAddr ?= WalletSetInfo wSMeta passLU genesisHash
 
 addWAddress :: CWAddressMeta -> Update ()
-addWAddress accAddr@CWAddressMeta{..} = do
-    wsWalletInfos . ix (walletAddrMetaToAccount accAddr) . wiAccounts . at accAddr ?= ()
+addWAddress addr@CWAddressMeta{..} = do
+    wsWalletInfos . ix (walletAddrMetaToAccount addr) . wiAccounts . at addr ?= ()
 
 -- see also 'removeWAddress'
 addRemovedAccount :: CWAddressMeta -> Update ()
-addRemovedAccount accAddr@CWAddressMeta{..} = do
-    let wAddr = walletAddrMetaToAccount accAddr
-    wsWalletInfos . ix wAddr . wiAccounts . at accAddr .= Nothing
-    wsWalletInfos . ix wAddr . wiRemovedAccounts . at accAddr ?= ()
+addRemovedAccount addr@CWAddressMeta{..} = do
+    let acc = walletAddrMetaToAccount addr
+    wsWalletInfos . ix acc . wiAccounts . at addr .= Nothing
+    wsWalletInfos . ix acc . wiRemovedAccounts . at addr ?= ()
 
 setAccountMeta :: AccountId -> CAccountMeta -> Update ()
 setAccountMeta cAddr wMeta = wsWalletInfos . ix cAddr . wiMeta .= wMeta

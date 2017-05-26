@@ -17,8 +17,8 @@ module Pos.Genesis
        , genesisAddresses
        , genesisSeed
        , genesisBalances
-       , walletGenesisIndex
        , accountGenesisIndex
+       , wAddressGenesisIndex
        -- ** Genesis data used in development mode
        , genesisDevKeyPairs
        , genesisDevPublicKeys
@@ -93,12 +93,13 @@ genesisDevHdwSecretKeys =
     map generateHdwGenesisSecretKey [0 .. Const.genesisN - 1]
 
 -- | First index in derivation path for HD account, which is put to genesis utxo
-walletGenesisIndex :: Word32
-walletGenesisIndex = firstNonHardened
-
--- | Second index in derivation path for HD account, which is put to genesis utxo
 accountGenesisIndex :: Word32
 accountGenesisIndex = firstNonHardened
+
+-- | Second index in derivation path for HD account, which is put to genesis
+-- utxo
+wAddressGenesisIndex :: Word32
+wAddressGenesisIndex = firstNonHardened
 
 -- | List of addresses in genesis. See 'genesisPublicKeys'.
 genesisAddresses :: [Address]
@@ -124,8 +125,8 @@ genesisDevHdwAccountSecretKeys =
         deriveLvl2KeyPair
             emptyPassphrase
             key
-            walletGenesisIndex
             accountGenesisIndex
+            wAddressGenesisIndex
 
 instance Default StakeDistribution where
     def = FlatStakes Const.genesisN

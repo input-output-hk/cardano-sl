@@ -1,7 +1,24 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
--- | Part of GState DB which stores data necessary for heavyweight delegation.
+-- | Part of GState DB which stores data necessary for heavyweight
+-- delegation.
+--
+-- It stores three mappings:
+--
+-- 1. Psk mapping: Issuer → PSK, where pskIssuer of PSK is Issuer (must
+-- be consistent). We don't store revokation psks, instead we just
+-- delete previous Issuer → PSK. DB must not contain revokation psks.
+--
+-- 2. Dlg transitive mapping: Issuer → Delegate. This one is
+-- transitive relation "i delegated to d through some chain of
+-- certificates". DB must not contain cycles in psk mapping. As
+-- mappings of kind I → I are forbidden (no revokation psks), Delegate
+-- is always different from Issuer.
+--
+-- 3. Dlg reverse transitive mapping: Delegate →
+-- Issuers@[Issuer]. Corresponds to Issuer → Delegate ∈ Dlg transitive
+-- mapping. Notice: here also Delegate ∉ Issuers (see (2)).
 
 module Pos.Delegation.DB
        ( getPskByIssuer
@@ -13,6 +30,7 @@ module Pos.Delegation.DB
 
        , DlgEdgeAction (..)
        , pskToDlgEdgeAction
+       , dlgEdgeActionIssuer
        , DelegationOp (..)
 
        , runDlgTransIterator
@@ -125,6 +143,12 @@ pskToDlgEdgeAction :: ProxySKHeavy -> DlgEdgeAction
 pskToDlgEdgeAction psk
     | isRevokePsk psk = DlgEdgeDel (pskIssuerPk psk)
     | otherwise = DlgEdgeAdd psk
+
+-- | Gets issuer of edge action (u from the edge uv).
+dlgEdgeActionIssuer :: DlgEdgeAction -> PublicKey
+dlgEdgeActionIssuer = \case
+    (DlgEdgeDel iPk) -> iPk
+    (DlgEdgeAdd psk) -> pskIssuerPk psk
 
 data DelegationOp
     = PskFromEdgeAction !DlgEdgeAction

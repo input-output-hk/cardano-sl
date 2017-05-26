@@ -37,14 +37,13 @@ module Pos.Delegation.Logic
 import           Universum
 
 import           Control.Exception          (Exception (..))
-import           Control.Lens               (at, makeLenses, uses, (%=), (+=), (-=), (.=),
-                                             _Wrapped)
+import           Control.Lens               (at, lens, makeLenses, uses, (%=), (+=), (-=),
+                                             (.=), _Wrapped)
 import           Control.Monad.Except       (runExceptT, throwError)
 import qualified Data.Cache.LRU             as LRU
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
-import           Data.List                  ((\\))
-import           Data.List                  (partition)
+import           Data.List                  (intersect, (\\))
 import qualified Data.Text.Buildable        as B
 import           Data.Time.Clock            (UTCTime, addUTCTime, getCurrentTime)
 import qualified Ether
@@ -77,7 +76,7 @@ import           Pos.Delegation.Class       (DelegationWrap (..), DlgMemPool,
                                              dwConfirmationCache, dwEpochId,
                                              dwMessageCache, dwPoolSize, dwProxySKPool,
                                              dwThisEpochPosted)
-import           Pos.Delegation.Pure        (dlgMemPoolDetectCycle, isRevokePsk)
+import           Pos.Delegation.Pure        (dlgMemPoolDetectCycle)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
 import           Pos.Lrc.Context            (LrcContext)
@@ -173,10 +172,154 @@ resolveWithDlgDB mp iPk = case HM.lookup iPk mp of
     Nothing -> GS.getPskByIssuer $ Left iPk
     Just s  -> pure $ Just s
 
+-- Copied from 'these' library.
+data These a b = This a | That b | These a b
+    deriving (Eq, Show, Generic)
+
+-- u → (Maybe d₁, Maybe d₂): u changed delegate from d₁ (or didn't
+-- have one) to d₂ (or revoked delegation). These a b ≃ (Maybe a,
+-- Maybe b) w/o (Nothing,Nothing).
+type TransChangeset = HashMap PublicKey (These PublicKey PublicKey)
+type ReverseTrans = HashMap PublicKey (HashSet PublicKey, HashSet PublicKey)
+
 -- This takes a set of dlg edge actions to apply and returns
--- compensations to dlgTrans and dlgTransRev parts of delegation db.
-calculateTransCorrections :: MonadDBPure m => [GS.DlgEdgeAction] -> m SomeBatchOp
-calculateTransCorrections _mp = pure mempty
+-- compensations to dlgTrans and dlgTransRev parts of delegation
+-- db. Should be executed under shared DB lock.
+calculateTransCorrections :: forall m . MonadDBPure m => [GS.DlgEdgeAction] -> m SomeBatchOp
+calculateTransCorrections eActions = do
+    -- Get the changeset and convert it to transitive ops.
+    changeset <- transChangeset
+    let toTransOp iPk (This _)      = GS.DelTransitiveDlg iPk
+        toTransOp iPk (That dPk)    = GS.AddTransitiveDlg iPk dPk
+        toTransOp iPk (These _ dPk) = GS.AddTransitiveDlg iPk dPk
+    let transOps = map (uncurry toTransOp) (HM.toList changeset)
+
+    -- Bulid reverse transitive set and convert it to reverseTransOps
+    let reverseTrans = buildReverseTrans changeset
+    reverseOps <- forM (HM.toList reverseTrans) $ \(k, (ad0, dl0)) -> do
+        let ad = HS.toList ad0 -- view patterns are for the weak ones
+            dl = HS.toList dl0
+        prev <- GS.getDlgTransitiveReverse k
+        unless (null $ ad `intersect` dl) $ throwM $ DBMalformed $
+            sformat ("Couldn't build reverseOps: ad `intersect` dl is nonzero. "%
+                     "ad: "%listJson%", dl: "%listJson)
+                    ad dl
+        unless (all (`elem` prev) dl) $ throwM $ DBMalformed $
+            sformat ("Couldn't build reverseOps: revtrans has "%listJson%", while "%
+                     "trans says we should delete "%listJson)
+                    prev dl
+        pure $ GS.SetTransitiveDlgRev k $ (prev \\ dl) ++ ad
+
+    pure $ SomeBatchOp $ transOps <> reverseOps
+  where
+    {-
+    Get the transitive changeset.
+
+    Imagine the following transformation (all arrows are oriented to
+    the right). First graph is one we store in DB. We apply the
+    list of edgeActions {del DE, add CF} to it.
+
+    A   F--G      A   F--G
+     \             \ /
+      C--D--E  ⇒    C  D  E
+     /             /
+    B             B
+
+    Hence the strategy here is:
+
+    * Deletion:
+
+    1. For every vertex i | ij ∈ edgeActions find all other p that
+    will change the transitive delegate d to ∅ broken by deletion
+    of the edge ij.
+
+    2. If forming changeset already contains p → These d₁ d₂ then
+    leave it as it is, otherwise set p → This d. All other options are
+    impossible.
+
+    * Addition:
+
+    1. For every vertex i | ij ∈ edgeActions find all other p that
+    will change the transitive delegate Maybe d₁ to d₂ changed by
+    modifying some edge ik to ij.
+
+    2. If forming changeset contains p → These d₁', override with p →
+    These d₁ d₂ or That d₂. If 'These' case, fail if d₁' doesn't match
+    with d₁ we've just computed.
+
+    Remark: we'll combine steps (1) by calculating general 'affected'
+    userset.
+    -}
+    transChangeset :: m TransChangeset
+    transChangeset = execStateT (forM_ eActions processEAction) HM.empty
+
+    processEAction :: GS.DlgEdgeAction -> StateT TransChangeset m ()
+    processEAction eAction = do
+        let iPk = GS.dlgEdgeActionIssuer eAction
+        -- Get affected users set (ones we'll change dlg trans
+        -- for). iPk is included.
+        (affected :: [(PublicKey,Maybe PublicKey)]) <-
+            GS.getDlgTransitive iPk >>= \case
+                Nothing -> pure [(iPk,Nothing)]
+                Just dPk -> do
+                    -- All i | i -> dPk in the DB. We should sort only
+                    -- those who are behind iPk in the delegation chain.
+                    revIssuers <- GS.getDlgTransitiveReverse dPk
+                    -- For these we'll find everyone who's forward and
+                    -- take a diff.
+                    chain <- HM.keys <$> GS.getPskChain (Left iPk)
+                    pure $ map (,Just dPk) $ iPk : (revIssuers \\ chain)
+        case eAction of
+            GS.DlgEdgeDel _ -> do
+                let delMap :: PublicKey -> Maybe PublicKey -> StateT TransChangeset m ()
+                    delMap aPk Nothing =
+                        -- We didn't have delegate but somehow we got into
+                        when (aPk /= iPk) $ throwM $ DBMalformed $
+                        sformat ("transChangeset@delMap@Nothing -- impossible: aPk: "%build%
+                                 ", iPk: "%build)
+                                aPk iPk
+                        -- in case it's iPk we just don't do anything.
+                    delMap aPk (Just dPrev) = do
+                        let alt Nothing = Just $ This dPrev
+                            alt (Just (That dPk')) =
+                                error $ "delMap That: shouldn't happen: " <> pretty dPk'
+                            alt s = s
+                            -- FIXME CSL-1125 what do we do in other cases?
+                        identity . at aPk %= alt
+                mapM_ (uncurry delMap) affected
+            GS.DlgEdgeAdd (pskDelegatePk -> dPkNew) -> do
+                let addMap :: PublicKey -> Maybe PublicKey -> StateT TransChangeset m ()
+                    addMap aPk Nothing = do
+                        let altN Nothing = Just $ That dPkNew
+                            altN (Just (This dPkOld)) =
+                                error $ "addMap@altN: got Just This: " <> show dPkOld
+                            altN s = s
+                            -- FIXME CSL-1125 what do we do in other cases?
+                        identity . at aPk %= altN
+                    addMap _aPk (Just _dPkDB) =
+                        undefined -- I don't know how to decide :\
+                mapM_ (uncurry addMap) affected
+
+
+    -- Given changeset, returns map d → (ad,dl), where ad is set of
+    -- new issuers that delegate to d, while dl is set of issuers that
+    -- switched from d to someone else (or to nobody).
+    buildReverseTrans :: TransChangeset -> ReverseTrans
+    buildReverseTrans changeset =
+        let -- me(mepty). This lens is broken. But it's used in the
+            -- way it should be alright.
+            _me :: (Monoid a) => Lens' (Maybe a) a
+            _me = lens (fromMaybe mempty) (\_ b -> Just b)
+            ins = HS.insert
+            foldFoo :: ReverseTrans
+                    -> PublicKey
+                    -> (These PublicKey PublicKey)
+                    -> ReverseTrans
+            foldFoo rev iPk (This dPk)        = rev & at dPk . _me . _2 %~ (ins iPk)
+            foldFoo rev iPk (That dPk)        = rev & at dPk . _me . _1 %~ (ins iPk)
+            foldFoo rev iPk (These dPk1 dPk2) = rev & at dPk1 . _me . _1 %~ (ins iPk)
+                                                    & at dPk2 . _me . _2 %~ (ins iPk)
+        in HM.foldlWithKey' foldFoo HM.empty changeset
 
 ----------------------------------------------------------------------------
 -- Heavyweight PSK

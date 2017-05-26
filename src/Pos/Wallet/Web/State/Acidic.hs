@@ -13,38 +13,38 @@ module Pos.Wallet.Web.State.Acidic
        , update
 
        , GetProfile (..)
-       , GetAccountIds (..)
+       , GetWAddressIds (..)
+       , GetAccountMetas (..)
+       , GetAccountMeta (..)
        , GetWalletMetas (..)
        , GetWalletMeta (..)
-       , GetWSetMetas (..)
-       , GetWSetMeta (..)
-       , GetWSetPassLU (..)
-       , GetWSetSyncTip (..)
-       , GetWSetAddresses (..)
-       , GetWalletAccounts (..)
-       , DoesAccountExist (..)
+       , GetWalletPassLU (..)
+       , GetWalletSyncTip (..)
+       , GetWalletAddresses (..)
+       , GetAccountWAddresses (..)
+       , DoesWAddressExist (..)
        , GetTxMeta (..)
        , GetUpdates (..)
        , GetNextUpdate (..)
        , TestReset (..)
        , GetHistoryCache (..)
-       , CreateWallet (..)
-       , AddAccount (..)
+       , CreateAccount (..)
+       , AddWAddress (..)
        , AddRemovedAccount (..)
-       , CreateWSet (..)
+       , CreateWallet (..)
        , SetProfile (..)
+       , SetAccountMeta (..)
        , SetWalletMeta (..)
-       , SetWSetMeta (..)
-       , SetWSetPassLU (..)
-       , SetWSetSyncTip (..)
-       , SetWalletTransactionMeta (..)
-       , SetWalletHistory (..)
-       , GetWalletHistory (..)
+       , SetWalletPassLU (..)
+       , SetWalletSyncTip (..)
+       , SetAccountTransactionMeta (..)
+       , SetAccountHistory (..)
+       , GetAccountHistory (..)
        , AddOnlyNewTxMeta (..)
-       , RemoveWSet (..)
        , RemoveWallet (..)
        , RemoveAccount (..)
-       , TotallyRemoveAccount (..)
+       , RemoveWAddress (..)
+       , TotallyRemoveWAddress (..)
        , AddUpdate (..)
        , RemoveNextUpdate (..)
        , UpdateHistoryCache (..)
@@ -90,37 +90,37 @@ makeAcidic ''WalletStorage
     [
       'WS.testReset
     , 'WS.getProfile
-    , 'WS.getAccountIds
+    , 'WS.getWAddressIds
+    , 'WS.getAccountMetas
+    , 'WS.getAccountMeta
     , 'WS.getWalletMetas
     , 'WS.getWalletMeta
-    , 'WS.getWSetMetas
-    , 'WS.getWSetMeta
-    , 'WS.getWSetPassLU
-    , 'WS.getWSetSyncTip
-    , 'WS.getWSetAddresses
-    , 'WS.getWalletAccounts
-    , 'WS.doesAccountExist
+    , 'WS.getWalletPassLU
+    , 'WS.getWalletSyncTip
+    , 'WS.getWalletAddresses
+    , 'WS.getAccountWAddresses
+    , 'WS.doesWAddressExist
     , 'WS.getTxMeta
     , 'WS.getUpdates
     , 'WS.getNextUpdate
     , 'WS.getHistoryCache
+    , 'WS.createAccount
     , 'WS.createWallet
-    , 'WS.createWSet
-    , 'WS.addAccount
+    , 'WS.addWAddress
     , 'WS.addRemovedAccount
     , 'WS.setProfile
+    , 'WS.setAccountMeta
     , 'WS.setWalletMeta
-    , 'WS.setWSetMeta
-    , 'WS.setWSetPassLU
-    , 'WS.setWSetSyncTip
-    , 'WS.setWalletTransactionMeta
-    , 'WS.setWalletHistory
-    , 'WS.getWalletHistory
+    , 'WS.setWalletPassLU
+    , 'WS.setWalletSyncTip
+    , 'WS.setAccountTransactionMeta
+    , 'WS.setAccountHistory
+    , 'WS.getAccountHistory
     , 'WS.addOnlyNewTxMeta
-    , 'WS.removeWSet
     , 'WS.removeWallet
     , 'WS.removeAccount
-    , 'WS.totallyRemoveAccount
+    , 'WS.removeWAddress
+    , 'WS.totallyRemoveWAddress
     , 'WS.addUpdate
     , 'WS.removeNextUpdate
     , 'WS.updateHistoryCache

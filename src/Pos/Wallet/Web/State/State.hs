@@ -13,40 +13,40 @@ module Pos.Wallet.Web.State.State
        -- * Getters
        , AccountLookupMode (..)
        , getProfile
-       , getAccountIds
+       , getWAddressIds
+       , getAccountMetas
+       , getAccountMeta
+       , getAccountWAddresses
        , getWalletMetas
        , getWalletMeta
-       , getWalletAccounts
-       , getWSetMetas
-       , getWSetMeta
-       , getWSetPassLU
-       , getWSetSyncTip
-       , getWSetAddresses
-       , doesAccountExist
+       , getWalletPassLU
+       , getWalletSyncTip
+       , getWalletAddresses
+       , doesWAddressExist
        , getTxMeta
-       , getWalletHistory
+       , getAccountHistory
        , getUpdates
        , getNextUpdate
        , getHistoryCache
 
        -- * Setters
        , testReset
+       , createAccount
        , createWallet
-       , createWSet
        , addRemovedAccount
-       , addAccount
+       , addWAddress
        , setProfile
+       , setAccountMeta
        , setWalletMeta
-       , setWSetMeta
-       , setWSetPassLU
-       , setWSetSyncTip
-       , setWalletTransactionMeta
-       , setWalletHistory
+       , setWalletPassLU
+       , setWalletSyncTip
+       , setAccountTransactionMeta
+       , setAccountHistory
        , addOnlyNewTxMeta
-       , removeWSet
        , removeWallet
        , removeAccount
-       , totallyRemoveAccount
+       , removeWAddress
+       , totallyRemoveWAddress
        , addUpdate
        , removeNextUpdate
        , updateHistoryCache
@@ -91,39 +91,39 @@ updateDisk
     => event -> m (EventResult event)
 updateDisk e = getWalletWebState >>= flip A.update e
 
-getAccountIds :: WebWalletModeDB m => m [AccountId]
-getAccountIds = queryDisk A.GetAccountIds
+getWAddressIds :: WebWalletModeDB m => m [AccountId]
+getWAddressIds = queryDisk A.GetWAddressIds
 
-getWalletMetas :: WebWalletModeDB m => m [CAccountMeta]
-getWalletMetas = queryDisk A.GetWalletMetas
+getAccountMetas :: WebWalletModeDB m => m [CAccountMeta]
+getAccountMetas = queryDisk A.GetAccountMetas
 
-getWalletMeta :: WebWalletModeDB m => AccountId -> m (Maybe CAccountMeta)
+getAccountMeta :: WebWalletModeDB m => AccountId -> m (Maybe CAccountMeta)
+getAccountMeta = queryDisk . A.GetAccountMeta
+
+getWalletAddresses :: WebWalletModeDB m => m [CId WS]
+getWalletAddresses = queryDisk A.GetWalletAddresses
+
+getWalletMeta :: WebWalletModeDB m => CId WS -> m (Maybe CWalletMeta)
 getWalletMeta = queryDisk . A.GetWalletMeta
 
-getWSetAddresses :: WebWalletModeDB m => m [CId WS]
-getWSetAddresses = queryDisk A.GetWSetAddresses
+getWalletMetas :: WebWalletModeDB m => m ([CWalletMeta])
+getWalletMetas = queryDisk A.GetWalletMetas
 
-getWSetMeta :: WebWalletModeDB m => CId WS -> m (Maybe CWalletMeta)
-getWSetMeta = queryDisk . A.GetWSetMeta
+getWalletPassLU :: WebWalletModeDB m => CId WS -> m (Maybe PassPhraseLU)
+getWalletPassLU = queryDisk . A.GetWalletPassLU
 
-getWSetMetas :: WebWalletModeDB m => m ([CWalletMeta])
-getWSetMetas = queryDisk A.GetWSetMetas
+getWalletSyncTip :: WebWalletModeDB m => CId WS -> m (Maybe HeaderHash)
+getWalletSyncTip = queryDisk . A.GetWalletSyncTip
 
-getWSetPassLU :: WebWalletModeDB m => CId WS -> m (Maybe PassPhraseLU)
-getWSetPassLU = queryDisk . A.GetWSetPassLU
-
-getWSetSyncTip :: WebWalletModeDB m => CId WS -> m (Maybe HeaderHash)
-getWSetSyncTip = queryDisk . A.GetWSetSyncTip
-
-getWalletAccounts
+getAccountWAddresses
     :: WebWalletModeDB m
     => AccountLookupMode -> AccountId -> m (Maybe [CWAddressMeta])
-getWalletAccounts mode = queryDisk . A.GetWalletAccounts mode
+getAccountWAddresses mode = queryDisk . A.GetAccountWAddresses mode
 
-doesAccountExist
+doesWAddressExist
     :: WebWalletModeDB m
     => AccountLookupMode -> CWAddressMeta -> m Bool
-doesAccountExist mode = queryDisk . A.DoesAccountExist mode
+doesWAddressExist mode = queryDisk . A.DoesWAddressExist mode
 
 getProfile :: WebWalletModeDB m => m CProfile
 getProfile = queryDisk A.GetProfile
@@ -131,8 +131,8 @@ getProfile = queryDisk A.GetProfile
 getTxMeta :: WebWalletModeDB m => AccountId -> CTxId -> m (Maybe CTxMeta)
 getTxMeta addr = queryDisk . A.GetTxMeta addr
 
-getWalletHistory :: WebWalletModeDB m => AccountId -> m (Maybe [CTxMeta])
-getWalletHistory = queryDisk . A.GetWalletHistory
+getAccountHistory :: WebWalletModeDB m => AccountId -> m (Maybe [CTxMeta])
+getAccountHistory = queryDisk . A.GetAccountHistory
 
 getUpdates :: WebWalletModeDB m => m [CUpdateInfo]
 getUpdates = queryDisk A.GetUpdates
@@ -143,53 +143,53 @@ getNextUpdate = queryDisk A.GetNextUpdate
 getHistoryCache :: WebWalletModeDB m => AccountId -> m (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
 getHistoryCache = queryDisk . A.GetHistoryCache
 
-createWallet :: WebWalletModeDB m => AccountId -> CAccountMeta -> m ()
-createWallet addr = updateDisk . A.CreateWallet addr
+createAccount :: WebWalletModeDB m => AccountId -> CAccountMeta -> m ()
+createAccount addr = updateDisk . A.CreateAccount addr
 
-createWSet :: WebWalletModeDB m => CId WS -> CWalletMeta -> PassPhraseLU -> m ()
-createWSet addr passLU = updateDisk . A.CreateWSet addr passLU
+createWallet :: WebWalletModeDB m => CId WS -> CWalletMeta -> PassPhraseLU -> m ()
+createWallet addr passLU = updateDisk . A.CreateWallet addr passLU
 
-addAccount :: WebWalletModeDB m => CWAddressMeta -> m ()
-addAccount addr = updateDisk $ A.AddAccount addr
+addWAddress :: WebWalletModeDB m => CWAddressMeta -> m ()
+addWAddress addr = updateDisk $ A.AddWAddress addr
 
 addRemovedAccount :: WebWalletModeDB m => CWAddressMeta -> m ()
 addRemovedAccount addr = updateDisk $ A.AddRemovedAccount addr
 
-setWalletMeta :: WebWalletModeDB m => AccountId -> CAccountMeta -> m ()
+setAccountMeta :: WebWalletModeDB m => AccountId -> CAccountMeta -> m ()
+setAccountMeta addr = updateDisk . A.SetAccountMeta addr
+
+setWalletMeta :: WebWalletModeDB m => CId WS -> CWalletMeta -> m ()
 setWalletMeta addr = updateDisk . A.SetWalletMeta addr
 
-setWSetMeta :: WebWalletModeDB m => CId WS -> CWalletMeta -> m ()
-setWSetMeta addr = updateDisk . A.SetWSetMeta addr
+setWalletPassLU :: WebWalletModeDB m => CId WS -> PassPhraseLU -> m ()
+setWalletPassLU addr = updateDisk . A.SetWalletPassLU addr
 
-setWSetPassLU :: WebWalletModeDB m => CId WS -> PassPhraseLU -> m ()
-setWSetPassLU addr = updateDisk . A.SetWSetPassLU addr
-
-setWSetSyncTip :: WebWalletModeDB m => CId WS -> HeaderHash -> m ()
-setWSetSyncTip addr = updateDisk . A.SetWSetSyncTip addr
+setWalletSyncTip :: WebWalletModeDB m => CId WS -> HeaderHash -> m ()
+setWalletSyncTip addr = updateDisk . A.SetWalletSyncTip addr
 
 setProfile :: WebWalletModeDB m => CProfile -> m ()
 setProfile = updateDisk . A.SetProfile
 
-setWalletTransactionMeta :: WebWalletModeDB m => AccountId -> CTxId -> CTxMeta -> m ()
-setWalletTransactionMeta addr ctxId = updateDisk . A.SetWalletTransactionMeta addr ctxId
+setAccountTransactionMeta :: WebWalletModeDB m => AccountId -> CTxId -> CTxMeta -> m ()
+setAccountTransactionMeta addr ctxId = updateDisk . A.SetAccountTransactionMeta addr ctxId
 
-setWalletHistory :: WebWalletModeDB m => AccountId -> [(CTxId, CTxMeta)] -> m ()
-setWalletHistory addr = updateDisk . A.SetWalletHistory addr
+setAccountHistory :: WebWalletModeDB m => AccountId -> [(CTxId, CTxMeta)] -> m ()
+setAccountHistory addr = updateDisk . A.SetAccountHistory addr
 
 addOnlyNewTxMeta :: WebWalletModeDB m => AccountId -> CTxId -> CTxMeta -> m ()
 addOnlyNewTxMeta addr ctxId = updateDisk . A.AddOnlyNewTxMeta addr ctxId
 
-removeWSet :: WebWalletModeDB m => CId WS -> m ()
-removeWSet = updateDisk . A.RemoveWSet
-
-removeWallet :: WebWalletModeDB m => AccountId -> m ()
+removeWallet :: WebWalletModeDB m => CId WS -> m ()
 removeWallet = updateDisk . A.RemoveWallet
 
-removeAccount :: WebWalletModeDB m => CWAddressMeta -> m ()
+removeAccount :: WebWalletModeDB m => AccountId -> m ()
 removeAccount = updateDisk . A.RemoveAccount
 
-totallyRemoveAccount :: WebWalletModeDB m => CWAddressMeta -> m ()
-totallyRemoveAccount = updateDisk . A.TotallyRemoveAccount
+removeWAddress :: WebWalletModeDB m => CWAddressMeta -> m ()
+removeWAddress = updateDisk . A.RemoveWAddress
+
+totallyRemoveWAddress :: WebWalletModeDB m => CWAddressMeta -> m ()
+totallyRemoveWAddress = updateDisk . A.TotallyRemoveWAddress
 
 addUpdate :: WebWalletModeDB m => CUpdateInfo -> m ()
 addUpdate = updateDisk . A.AddUpdate

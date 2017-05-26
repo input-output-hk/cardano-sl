@@ -59,7 +59,7 @@ onApplyTracking
 onApplyTracking blunds = do
     let txs = concatMap (gbTxs . fst) $ getOldestFirst blunds
     let newTip = headerHash $ NE.last $ getOldestFirst blunds
-    mapM_ (syncWalletSet newTip txs) =<< WS.getWSetAddresses
+    mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
   where
     syncWalletSet :: HeaderHash -> [TxAux] -> CId WS -> m ()
     syncWalletSet newTip txs wsAddr = do
@@ -80,7 +80,7 @@ onRollbackTracking
 onRollbackTracking blunds = do
     let txs = concatMap (reverse . blundTxUn) $ getNewestFirst blunds
     let newTip = (NE.last $ getNewestFirst blunds) ^. prevBlockL
-    mapM_ (syncWalletSet newTip txs) =<< WS.getWSetAddresses
+    mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
   where
     syncWalletSet :: HeaderHash -> [(TxAux, TxUndo)] -> CId WS -> m ()
     syncWalletSet newTip txs wsAddr = do

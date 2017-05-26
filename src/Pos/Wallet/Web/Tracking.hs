@@ -125,17 +125,17 @@ selectAccountsFromUtxoLock encSKs = withBlkSemaphore_ $ \tip -> do
     let (hdPass, wsAddr) = unzip $ map getEncInfo encSKs
     logDebug $ sformat ("Select accounts from Utxo: tip "%build%" for "%listJson) tip wsAddr
     addresses <- discoverHDAddresses hdPass
-    let allAddreses = concatMap createAccounts $ zip wsAddr addresses
-    mapM_ WS.addAccount allAddreses
+    let allAddreses = concatMap createWAddresss $ zip wsAddr addresses
+    mapM_ WS.addWAddress allAddreses
     tip <$  logDebug (sformat ("After selection from Utxo addresses was added: "%listJson) allAddreses)
   where
-    createAccounts :: (CId WS, [(Address, [Word32])]) -> [CWAddressMeta]
-    createAccounts (wsAddr, addresses) = do
+    createWAddresss :: (CId WS, [(Address, [Word32])]) -> [CWAddressMeta]
+    createWAddresss (wsAddr, addresses) = do
         let (ads, paths) = unzip addresses
-        mapMaybe createAccount $ zip3 (repeat wsAddr) ads paths
+        mapMaybe createWAddress $ zip3 (repeat wsAddr) ads paths
 
-    createAccount :: (CId WS, Address, [Word32]) -> Maybe CWAddressMeta
-    createAccount (wsAddr, addr, derPath) = do
+    createWAddress :: (CId WS, Address, [Word32]) -> Maybe CWAddressMeta
+    createWAddress (wsAddr, addr, derPath) = do
         guard $ length derPath == 2
         pure $ CWAddressMeta wsAddr (derPath !! 0) (derPath !! 1) (addressToCId addr)
 
@@ -163,7 +163,7 @@ syncWSetsWithGState
 syncWSetsWithGState encSK = do
     tipHeader <- DB.getTipHeader @ssc
     let wsAddr = encToCId encSK
-    whenJustM (WS.getWSetSyncTip wsAddr) $ \wsTip ->
+    whenJustM (WS.getWalletSyncTip wsAddr) $ \wsTip ->
         if | wsTip == genesisHash && headerHash tipHeader == genesisHash ->
                logDebug $ sformat ("Walletset "%build%" at genesis state, synced") wsAddr
            | wsTip == genesisHash ->
@@ -273,9 +273,9 @@ applyModifierToWSet
     -> m ()
 applyModifierToWSet wsAddr newTip mapModifier = do
     -- TODO maybe do it as one acid-state transaction.
-    mapM_ WS.removeAccount (MM.deletions mapModifier)
-    mapM_ (WS.addAccount . fst) (MM.insertions mapModifier)
-    WS.setWSetSyncTip wsAddr newTip
+    mapM_ WS.removeWAddress (MM.deletions mapModifier)
+    mapM_ (WS.addWAddress . fst) (MM.insertions mapModifier)
+    WS.setWalletSyncTip wsAddr newTip
 
 getEncInfo :: EncryptedSecretKey -> (HDPassphrase, CId WS)
 getEncInfo encSK = do

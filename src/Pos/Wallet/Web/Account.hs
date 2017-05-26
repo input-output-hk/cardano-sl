@@ -31,7 +31,7 @@ import           Pos.Wallet.Web.ClientTypes (CWAddressMeta (..), CId, WS,
                                              encToCId, walletAddrMetaToAccount)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AccountLookupMode (..), WebWalletModeDB,
-                                             doesAccountExist, getWalletMeta)
+                                             doesWAddressExist, getAccountMeta)
 import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 
 type AccountMode m = (MonadKeys m, WebWalletModeDB m, MonadThrow m)
@@ -127,7 +127,7 @@ genUniqueAccountId genSeed wsCAddr =
   where
     notFit idx addr = andM
         [ pure $ isNonHardened idx
-        , isJust <$> getWalletMeta addr
+        , isJust <$> getAccountMeta addr
         ]
 
 genUniqueAccountAddress
@@ -143,7 +143,7 @@ genUniqueAccountAddress genSeed passphrase wCAddr@AccountId{..} =
         deriveAccountAddress passphrase wCAddr cwamAccountIndex
     notFit idx addr = andM
         [ pure $ isNonHardened idx
-        , doesAccountExist Ever addr
+        , doesWAddressExist Ever addr
         ]
 
 deriveAccountSK

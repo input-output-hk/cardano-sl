@@ -47,7 +47,7 @@ testReset = fromAff B.testReset
 -- Returns json representation of requested wallet set
 -- Example in nodejs:
 -- | ```js
--- | > api.getWalletSet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW').then(console.log).catch(console.log)
+-- | > api.getWallet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
 -- |   wWSetMeta: { cwName: 'test' },
@@ -55,15 +55,15 @@ testReset = fromAff B.testReset
 -- |   cwHasPassphrase: true,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW' }
 -- | ```
-getWalletSet :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
-getWalletSet = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWalletSet <<< mkCId
+getWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
+getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallet <<< mkCId
 
 -- | Gets all wallet sets
 -- Arguments:
 -- Returns json representation of all wallet sets
 -- Example in nodejs:
 -- | ```js
--- | > api.getWalletSets().then(console.log).catch(console.log)
+-- | > api.getWallets().then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > [ { cwAccountsNumber: 0,
 -- |     wWSetMeta: { csUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
@@ -81,15 +81,15 @@ getWalletSet = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWalletSet <<< mkCI
 -- |     cwHasPassphrase: false,
 -- |     cwAmount: { getCCoin: '50000' } } ]
 -- | ```
-getWalletSets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
-getWalletSets = fromAff $ map encodeJson B.getWalletSets
+getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
+getWallets = fromAff $ map encodeJson B.getWallets
 
 -- | Creates a new wallet set.
 -- Arguments: wallet set name, mnemonics, spending password (set to empty string if you don't want to set password)
 -- Returns json representation of created wallet set
 -- Example in nodejs:
 -- | ```js
--- | > api.newWalletSet('test', 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
+-- | > api.newWallet('test', 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
 -- |   wWSetMeta: { cwName: 'test' },
@@ -97,29 +97,29 @@ getWalletSets = fromAff $ map encodeJson B.getWalletSets
 -- |   cwHasPassphrase: true,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW' }
 -- | ```
-newWalletSet :: forall eff . EffFn5 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String Int String String
+newWallet :: forall eff . EffFn5 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String Int String String
   (Promise Json)
-newWalletSet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword -> fromAff <<< map encodeJson <<<
-    either throwError (B.newWalletSet $ mkCPassPhrase spendingPassword) $ mkCWalletInit wSetName wsAssurance wsUnit mnemonic
+newWallet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword -> fromAff <<< map encodeJson <<<
+    either throwError (B.newWallet $ mkCPassPhrase spendingPassword) $ mkCWalletInit wSetName wsAssurance wsUnit mnemonic
 
--- TODO: note that restoreWalletSet and newWalletSet are the same. They will be unified in future
+-- TODO: note that restoreWallet and newWallet are the same. They will be unified in future
 
 -- | Restores a new wallet set.
 -- Arguments: wallet set name, mnemonics, spending password (set to empty string if you don't want to set password
 -- Returns json representation of restored wallet set
 -- Example in nodejs:
 -- | ```js
--- | >  api.restoreWalletSet('test', 'CWANormal', 0, 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
+-- | >  api.restoreWallet('test', 'CWANormal', 0, 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > Error: ServerError: Pos.Wallet.Web.Error.RequestError "Wallet set with that mnemonics already exists"
 -- | 
 -- | 
--- | >  api.deleteWalletSet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW').then(console.log).catch(console.log)
+-- | >  api.deleteWallet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > {}
 -- | 
 -- | 
--- | >  api.restoreWalletSet('test', 'CWANormal', 0, 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
+-- | >  api.restoreWallet('test', 'CWANormal', 0, 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
 -- |   wWSetMeta: { csUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
@@ -128,8 +128,8 @@ newWalletSet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword -
 -- |   cwHasPassphrase: true,
 -- |   cwAmount: { getCCoin: '0' } }
 -- | ```
-restoreWalletSet :: forall eff. EffFn5 (ajax :: AJAX | eff) String String Int String String (Promise Json)
-restoreWalletSet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword -> fromAff <<< map encodeJson <<< either throwError (B.restoreWalletSet $ mkCPassPhrase spendingPassword) $ mkCWalletInit wSetName wsAssurance wsUnit mnemonic
+restoreWallet :: forall eff. EffFn5 (ajax :: AJAX | eff) String String Int String String (Promise Json)
+restoreWallet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword -> fromAff <<< map encodeJson <<< either throwError (B.restoreWallet $ mkCPassPhrase spendingPassword) $ mkCWalletInit wSetName wsAssurance wsUnit mnemonic
 
 -- | Rename a wallet set.
 -- Arguments: wallet set id/hash, name
@@ -162,7 +162,7 @@ renameWalletSet = mkEffFn2 \wSetId name -> fromAff <<< map encodeJson $ B.rename
 -- Returns json representation of imported wallet set
 -- Example in nodejs:
 -- | ```js
--- | > api.importWalletSet('/home/akegalj/projects/serokell/cardano-sl/keys/2.key.hd', '').then(console.log).catch(console.log)
+-- | > api.importWallet('/home/akegalj/projects/serokell/cardano-sl/keys/2.key.hd', '').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
 -- |   wWSetMeta:
@@ -174,32 +174,32 @@ renameWalletSet = mkEffFn2 \wSetId name -> fromAff <<< map encodeJson $ B.rename
 -- |   cwHasPassphrase: false,
 -- |   cwAmount: { getCCoin: '0' } }
 -- | ```
-importWalletSet :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Json)
-importWalletSet = mkEffFn2 \filePath spendingPassword -> fromAff <<< map encodeJson $ B.importWalletSet (mkCPassPhrase spendingPassword) filePath
+importWallet :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Json)
+importWallet = mkEffFn2 \filePath spendingPassword -> fromAff <<< map encodeJson $ B.importWallet (mkCPassPhrase spendingPassword) filePath
 
 -- | Rename a wallet set.
 -- Arguments: wallet set id/hash, old spending password (set to empty string if there is no password), new spending password (set to empty string if you want to remove password)
 -- Returns json representation of renamed wallet set
 -- Example in nodejs:
 -- | ```js
--- | > api.changeWalletSetPass('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW', 'pass', 'pass2').then(console.log).catch(console.log)
+-- | > api.changeWalletPass('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW', 'pass', 'pass2').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > {}
 -- | ```
-changeWalletSetPass :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String (Promise Unit)
-changeWalletSetPass = mkEffFn3 \wSetId oldPass newPass -> fromAff $ B.changeWalletSetPass (mkCId wSetId) (mkCPassPhrase oldPass) (mkCPassPhrase newPass)
+changeWalletPass :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String (Promise Unit)
+changeWalletPass = mkEffFn3 \wSetId oldPass newPass -> fromAff $ B.changeWalletPass (mkCId wSetId) (mkCPassPhrase oldPass) (mkCPassPhrase newPass)
 
 -- | Deletes a wallet set.
 -- Arguments: wallet set identifier
 -- Returns:
 -- Example in nodejs:
 -- | ```js
--- | > api.deleteWalletSet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW').then(console.log).catch(console.log)
+-- | > api.deleteWallet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > {}
 -- | ```
-deleteWalletSet :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Unit)
-deleteWalletSet = mkEffFn1 $ fromAff <<< B.deleteWalletSet <<< mkCId
+deleteWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Unit)
+deleteWallet = mkEffFn1 $ fromAff <<< B.deleteWallet <<< mkCId
 
 --------------------------------------------------------------------------------
 -- Wallets ---------------------------------------------------------------------
@@ -209,7 +209,7 @@ deleteWalletSet = mkEffFn1 $ fromAff <<< B.deleteWalletSet <<< mkCId
 -- Returns json representation of a wallet
 -- Example in nodejs:
 -- | ```js
--- | > api.getWallet('1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8@2147483648').then(console.log).catch(console.log)
+-- | > api.getAccount('1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8@2147483648').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { caMeta: { caName: 'Genesis wallet' },
 -- |   caId: '1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8@2147483648',
@@ -218,15 +218,15 @@ deleteWalletSet = mkEffFn1 $ fromAff <<< B.deleteWalletSet <<< mkCId
 -- |    [ { cadId: '19FLnEFfkaLsZqBqYHjPmCypZNHNZ7SBfMsntKgspqA96F18s6eeDy5GYjHmwXSECG6jRqWh9qqEAicpEXrNhpb8PuRNVL',
 -- |        cadAmount: [Object] } ] }
 -- | ```
-getWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
-getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallet <<< mkCAccountId
+getAccount :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
+getAccount = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getAccount <<< mkCAccountId
 
 -- | Get all wallets.
 -- Arguments:
 -- Returns json representation of all wallet sets
 -- Example in nodejs:
 -- | ```js
--- | > api.getWallets().then(console.log).catch(console.log)
+-- | > api.getAccounts().then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > [ { caMeta: { caName: 'Genesis wallet' },
 -- |     caId: '1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8@2147483648',
@@ -237,30 +237,30 @@ getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallet <<< mkCAccount
 -- |     caAmount: { getCCoin: '50000' },
 -- |     caAccount: [ [Object] ] } ]
 -- | ```
-getWallets :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
-getWallets = fromAff $ map encodeJson $ B.getWallets Nothing
+getAccounts :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
+getAccounts = fromAff $ map encodeJson $ B.getAccounts Nothing
 
 -- | Get wallets from specific wallet set.
 -- Arguments: address/hash/id of a wallet set
 -- Returns json representation of wallets within given wallet set id
 -- Example in nodejs:
 -- | ```js
--- | > api.getSetWallets('1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f').then(console.log).catch(console.log)
+-- | > api.getWalletAccounts('1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > [ { caMeta: { caName: 'Initial wallet' },
 -- |     caId: '1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648',
 -- |     caAmount: { getCCoin: '50000' },
 -- |     caAccount: [ [Object] ] } ]
 -- | ```
-getSetWallets :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
-getSetWallets = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallets <<< Just <<< mkCId
+getWalletAccounts :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
+getWalletAccounts = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getAccounts <<< Just <<< mkCId
 
 -- | Get meta information from given wallet
 -- Arguments: wallet object/identifier, type, currency, name, assurance, unit
 -- Returns json representation of wallets within given wallet id
 -- Example in nodejs:
 -- | ```js
--- | > api.updateWallet('1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648','CWTPersonal','ADA','Initial wallet','CWANormal',0).then(console.log)
+-- | > api.updateAccount('1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648','CWTPersonal','ADA','Initial wallet','CWANormal',0).then(console.log)
 -- | Promise { <pending> }
 -- | > { caMeta: { caName: 'CWTPersonal' },
 -- |   caId: '1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648',
@@ -269,16 +269,16 @@ getSetWallets = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallets <<< Just 
 -- |    [ { cadId: '19Fv6JWbdLXRXqew721u2GEarEwc8rcfpAqsriRFPameyCkQLHsNDKQRpwsM7W1M587CiswPuY27cj7RUvNXcZWgTbPByq',
 -- |        cadAmount: [Object] } ] }
 -- | ```
-updateWallet :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Json)
-updateWallet = mkEffFn2 \wId wName -> fromAff <<< map encodeJson <<<
-    B.updateWallet (mkCAccountId wId) $ mkCAccountMeta wName
+updateAccount :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Json)
+updateAccount = mkEffFn2 \wId wName -> fromAff <<< map encodeJson <<<
+    B.updateAccount (mkCAccountId wId) $ mkCAccountMeta wName
 
 -- | Creates a new wallet.
 -- Arguments: address/hash/id of a wallet set, type, currency, name, mnemonics, spending password (if empty string is given, wallet will be created with no spending password)
 -- Returns json representation of newly created wallet
 -- Example in nodejs:
 -- | ```js
--- | > api.newWallet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW', 'trips', 'pass').then(console.log).catch(console.log)
+-- | > api.newAccount('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW', 'trips', 'pass').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { caMeta: { caName: 'trips' },
 -- |   caId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW@3190108780',
@@ -287,22 +287,22 @@ updateWallet = mkEffFn2 \wId wName -> fromAff <<< map encodeJson <<<
 -- |    [ { cadId: '19M3DbeepAzN6xzSSErL8pk1JQA8oFkgE9L6LZfKXMiNpoPDjfDpJjWa3Jis1oCZVGMo1pM8tio2wifuhDPWzwCWS6sZfX',
 -- |        cadAmount: [Object] } ] }
 -- | ```
-newWallet :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String
+newAccount :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String
   (Promise Json)
-newWallet = mkEffFn3 \wSetId wName spendingPassword -> fromAff <<< map encodeJson <<<
-    B.newWallet (mkCPassPhrase spendingPassword) $ mkCAccountInit wName (mkCId wSetId)
+newAccount = mkEffFn3 \wSetId wName spendingPassword -> fromAff <<< map encodeJson <<<
+    B.newAccount (mkCPassPhrase spendingPassword) $ mkCAccountInit wName (mkCId wSetId)
 
 -- | Deletes a wallet.
 -- Arguments: wallet object/identifier
 -- Returns:
 -- Example in nodejs:
 -- | ```js
--- | >  api.deleteWallet('1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8@2147483648').then(console.log).catch(console.log)
+-- | >  api.deleteAccount('1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8@2147483648').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > {}
 -- | ```
-deleteWallet :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Unit)
-deleteWallet = mkEffFn1 $ fromAff <<< B.deleteWallet <<< mkCAccountId
+deleteAccount :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Unit)
+deleteAccount = mkEffFn1 $ fromAff <<< B.deleteAccount <<< mkCAccountId
 
 --------------------------------------------------------------------------------
 -- Accounts ------------------------------------------------------------------
@@ -312,15 +312,15 @@ deleteWallet = mkEffFn1 $ fromAff <<< B.deleteWallet <<< mkCAccountId
 -- Returns json representation of newly created account
 -- Example in nodejs:
 -- | ```js
--- | > api.newAccount('1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648', '').then(console.log).catch(console.log)
+-- | > api.newWAddress('1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648', '').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cadId: '19N52o4RrzEo6AxRzawAkbuMtnqPjrgat1USDMaRQG3uK46b7bNrpxMSLgd1sxvPUPFbGnmj9Kmj2Fb8H5W5Ez7g6voZMy',
 -- |   cadAmount: { getCCoin: '0' } }
 -- | ```
-newAccount :: forall eff . EffFn2 (ajax :: AJAX | eff) String String
+newWAddress :: forall eff . EffFn2 (ajax :: AJAX | eff) String String
   (Promise Json)
-newAccount = mkEffFn2 \wId spendingPassword -> fromAff <<< map encodeJson <<<
-    B.newAccount (mkCPassPhrase spendingPassword) $ mkCAccountId wId
+newWAddress = mkEffFn2 \wId spendingPassword -> fromAff <<< map encodeJson <<<
+    B.newWAddress (mkCPassPhrase spendingPassword) $ mkCAccountId wId
 
 --------------------------------------------------------------------------------
 -- Addresses ------------------------------------------------------------------

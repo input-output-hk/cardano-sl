@@ -6,7 +6,7 @@ module Pos.Wallet.Web.Account
        , getSKByAddr
        , getSKByAccAddr
        , genSaveRootAddress
-       , genUniqueWalletAddress
+       , genUniqueAccountId
        , genUniqueAccountAddress
        , deriveAccountSK
        , deriveAccountAddress
@@ -26,9 +26,9 @@ import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
-import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress, WS,
-                                             WalletAddress (..), addressToCAddress,
-                                             encToCAddress, walletAddrByAccount)
+import           Pos.Wallet.Web.ClientTypes (CWAddressMeta (..), CId, WS,
+                                             AccountId (..), addressToCId,
+                                             encToCId, walletAddrMetaToAccount)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AccountLookupMode (..), WebWalletModeDB,
                                              doesAccountExist, getWalletMeta)
@@ -36,20 +36,20 @@ import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 
 type AccountMode m = (MonadKeys m, WebWalletModeDB m, MonadThrow m)
 
-myRootAddresses :: MonadKeys m => m [CAddress WS]
-myRootAddresses = encToCAddress <<$>> getSecretKeys
+myRootAddresses :: MonadKeys m => m [CId WS]
+myRootAddresses = encToCId <<$>> getSecretKeys
 
-getAddrIdx :: AccountMode m => CAddress WS -> m Int
+getAddrIdx :: AccountMode m => CId WS -> m Int
 getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
   where notFound =
           RequestError $ sformat ("No wallet set with address "%build%" found") addr
 
 getSKByAddr
     :: AccountMode m
-    => CAddress WS
+    => CId WS
     -> m EncryptedSecretKey
 getSKByAddr addr = do
-    msk <- find (\k -> encToCAddress k == addr) <$> getSecretKeys
+    msk <- find (\k -> encToCId k == addr) <$> getSecretKeys
     maybeThrow notFound msk
   where notFound =
           RequestError $ sformat ("No wallet set with address "%build%" found") addr
@@ -57,13 +57,13 @@ getSKByAddr addr = do
 getSKByAccAddr
     :: AccountMode m
     => PassPhrase
-    -> CAccountAddress
+    -> CWAddressMeta
     -> m EncryptedSecretKey
-getSKByAccAddr passphrase accAddr@CAccountAddress {..} = do
+getSKByAccAddr passphrase accAddr@CWAddressMeta {..} = do
     (addr, accKey) <-
-        deriveAccountSK passphrase (walletAddrByAccount accAddr) caaAccountIndex
-    let accCAddr = addressToCAddress addr
-    if accCAddr /= caaId
+        deriveAccountSK passphrase (walletAddrMetaToAccount accAddr) cwamAccountIndex
+    let accCAddr = addressToCId addr
+    if accCAddr /= cwamId
              -- if you see this error, maybe you generated public key address with
              -- no hd wallet attribute (if so, address would be ~half shorter than
              -- others)
@@ -74,8 +74,8 @@ genSaveRootAddress
     :: AccountMode m
     => PassPhrase
     -> BackupPhrase
-    -> m (CAddress WS)
-genSaveRootAddress passphrase ph = encToCAddress <$> genSaveSK
+    -> m (CId WS)
+genSaveRootAddress passphrase ph = encToCId <$> genSaveSK
   where
     genSaveSK = do
         sk <- either keyFromPhraseFailed (pure . fst)
@@ -114,15 +114,15 @@ generateUnique desc (DeterminedSeed seed) generator notFit = do
         desc
     return value
 
-genUniqueWalletAddress
+genUniqueAccountId
     :: AccountMode m
     => AddrGenSeed
-    -> CAddress WS
-    -> m WalletAddress
-genUniqueWalletAddress genSeed wsCAddr =
+    -> CId WS
+    -> m AccountId
+genUniqueAccountId genSeed wsCAddr =
     generateUnique "wallet generation"
                    genSeed
-                   (return . WalletAddress wsCAddr)
+                   (return . AccountId wsCAddr)
                    notFit
   where
     notFit idx addr = andM
@@ -134,13 +134,13 @@ genUniqueAccountAddress
     :: AccountMode m
     => AddrGenSeed
     -> PassPhrase
-    -> WalletAddress
-    -> m CAccountAddress
-genUniqueAccountAddress genSeed passphrase wCAddr@WalletAddress{..} =
+    -> AccountId
+    -> m CWAddressMeta
+genUniqueAccountAddress genSeed passphrase wCAddr@AccountId{..} =
     generateUnique "account generation" genSeed mkAccount notFit
   where
-    mkAccount caaAccountIndex =
-        deriveAccountAddress passphrase wCAddr caaAccountIndex
+    mkAccount cwamAccountIndex =
+        deriveAccountAddress passphrase wCAddr cwamAccountIndex
     notFit idx addr = andM
         [ pure $ isNonHardened idx
         , doesAccountExist Ever addr
@@ -149,16 +149,16 @@ genUniqueAccountAddress genSeed passphrase wCAddr@WalletAddress{..} =
 deriveAccountSK
     :: AccountMode m
     => PassPhrase
-    -> WalletAddress
+    -> AccountId
     -> Word32
     -> m (Address, EncryptedSecretKey)
-deriveAccountSK passphrase WalletAddress{..} accIndex = do
+deriveAccountSK passphrase AccountId{..} accIndex = do
     -- this function is used in conditions when several secret keys with same
     -- public key are stored, thus checking for passphrase here as well
-    let niceSK k = encToCAddress k == waWSId
+    let niceSK k = encToCId k == aiWSId
     key <- maybeThrow noKey . find niceSK =<< getSecretKeys
     maybeThrow badPass $
-        deriveLvl2KeyPair passphrase key waIndex accIndex
+        deriveLvl2KeyPair passphrase key aiIndex accIndex
   where
     noKey   = RequestError "No secret key with such address found"
     badPass = RequestError "Passphrase doesn't match"
@@ -166,12 +166,12 @@ deriveAccountSK passphrase WalletAddress{..} accIndex = do
 deriveAccountAddress
     :: AccountMode m
     => PassPhrase
-    -> WalletAddress
+    -> AccountId
     -> Word32
-    -> m CAccountAddress
-deriveAccountAddress passphrase wAddr@WalletAddress{..} caaAccountIndex = do
-    (accAddr, _) <- deriveAccountSK passphrase wAddr caaAccountIndex
-    let caaWSId   = waWSId
-        caaWalletIndex = waIndex
-        caaId     = addressToCAddress accAddr
-    return CAccountAddress{..}
+    -> m CWAddressMeta
+deriveAccountAddress passphrase wAddr@AccountId{..} cwamAccountIndex = do
+    (accAddr, _) <- deriveAccountSK passphrase wAddr cwamAccountIndex
+    let cwamWSId   = aiWSId
+        caaWalletIndex = aiIndex
+        cwamId     = addressToCId accAddr
+    return CWAddressMeta{..}

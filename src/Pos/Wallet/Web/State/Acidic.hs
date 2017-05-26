@@ -13,7 +13,7 @@ module Pos.Wallet.Web.State.Acidic
        , update
 
        , GetProfile (..)
-       , GetWalletAddresses (..)
+       , GetAccountIds (..)
        , GetWalletMetas (..)
        , GetWalletMeta (..)
        , GetWSetMetas (..)
@@ -90,7 +90,7 @@ makeAcidic ''WalletStorage
     [
       'WS.testReset
     , 'WS.getProfile
-    , 'WS.getWalletAddresses
+    , 'WS.getAccountIds
     , 'WS.getWalletMetas
     , 'WS.getWalletMeta
     , 'WS.getWSetMetas

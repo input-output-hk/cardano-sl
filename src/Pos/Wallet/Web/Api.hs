@@ -68,13 +68,13 @@ import           Servant.Server             (Handler (..), HasServer (..))
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (Acc, CAccount, CAddress,
+import           Pos.Wallet.Web.ClientTypes (Addr, CAddress, CId,
                                              CElectronCrashReport, CInitialized,
                                              CPaperVendWalletRedeem, CPassPhrase,
                                              CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CWallet, CWalletAddress, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, CWalletSet,
-                                             CWalletSet, CWalletSetInit, SyncProgress, WS)
+                                             CAccount, CAccountId, CAccountInit,
+                                             CAccountMeta, CWalletRedeem, CWallet,
+                                             CWallet, CWalletInit, SyncProgress, WS)
 import           Pos.Wallet.Web.Error       (WalletError, catchEndpointErrors)
 
 -- | Common prefix for all endpoints.
@@ -121,42 +121,42 @@ type TestReset =
 type GetWalletSet =
        "wallets"
     :> "sets"
-    :> Capture "walletSetId" (CAddress WS)
-    :> WRes Get CWalletSet
+    :> Capture "walletSetId" (CId WS)
+    :> WRes Get CWallet
 
 type GetWalletSets =
        "wallets"
     :> "sets"
-    :> WRes Get [CWalletSet]
+    :> WRes Get [CWallet]
 
 type NewWalletSet =
        "wallets"
     :> "sets"
     :> "new"
     :> QueryParam "passphrase" CPassPhrase
-    :> ReqBody '[JSON] CWalletSetInit
-    :> WRes Post CWalletSet
+    :> ReqBody '[JSON] CWalletInit
+    :> WRes Post CWallet
 
 type RestoreWalletSet =
        "wallets"
     :> "sets"
     :> "restore"
     :> QueryParam "passphrase" CPassPhrase
-    :> ReqBody '[JSON] CWalletSetInit
-    :> WRes Post CWalletSet
+    :> ReqBody '[JSON] CWalletInit
+    :> WRes Post CWallet
 
 type RenameWalletSet =
        "wallets"
     :> "sets"
     :> "rename"
-    :> Capture "walletSetId" (CAddress WS)
+    :> Capture "walletSetId" (CId WS)
     :> Capture "name" Text
-    :> WRes Post CWalletSet
+    :> WRes Post CWallet
 
 type DeleteWalletSet =
        "wallets"
     :> "sets"
-    :> Capture "walletSetId" (CAddress WS)
+    :> Capture "walletSetId" (CId WS)
     :> WRes Delete ()
 
 type ImportWalletSet =
@@ -165,13 +165,13 @@ type ImportWalletSet =
     :> "keys"
     :> QueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] Text
-    :> WRes Post CWalletSet
+    :> WRes Post CWallet
 
 type ChangeWalletSetPassphrase =
        "wallets"
     :> "sets"
     :> "password"
-    :> Capture "walletSetId" (CAddress WS)
+    :> Capture "walletSetId" (CId WS)
     :> QueryParam "old" CPassPhrase
     :> QueryParam "new" CPassPhrase
     :> WRes Post ()
@@ -182,29 +182,29 @@ type ChangeWalletSetPassphrase =
 
 type GetWallet =
        "wallets"
-    :> Capture "walletId" CWalletAddress
-    :> WRes Get CWallet
+    :> Capture "walletId" CAccountId
+    :> WRes Get CAccount
 
 type GetWallets =
        "wallets"
-    :> QueryParam "walletSetId" (CAddress WS)
-    :> WRes Get [CWallet]
+    :> QueryParam "walletSetId" (CId WS)
+    :> WRes Get [CAccount]
 
 type UpdateWallet =
        "wallets"
-    :> Capture "walletId" CWalletAddress
-    :> ReqBody '[JSON] CWalletMeta
-    :> WRes Put CWallet
+    :> Capture "walletId" CAccountId
+    :> ReqBody '[JSON] CAccountMeta
+    :> WRes Put CAccount
 
 type NewWallet =
        "wallets"
     :> QueryParam "passphrase" CPassPhrase
-    :> ReqBody '[JSON] CWalletInit
-    :> WRes Post CWallet
+    :> ReqBody '[JSON] CAccountInit
+    :> WRes Post CAccount
 
 type DeleteWallet =
        "wallets"
-    :> Capture "walletId" CWalletAddress
+    :> Capture "walletId" CAccountId
     :> WRes Delete ()
 
 -------------------------------------------------------------------------
@@ -214,8 +214,8 @@ type DeleteWallet =
 type NewAccount =
        "account"
     :> QueryParam "passphrase" CPassPhrase
-    :> ReqBody '[JSON] CWalletAddress
-    :> WRes Post CAccount
+    :> ReqBody '[JSON] CAccountId
+    :> WRes Post CAddress
 
 -------------------------------------------------------------------------
 -- Addresses
@@ -248,8 +248,8 @@ type NewPayment =
        "txs"
     :> "payments"
     :> QueryParam "passphrase" CPassPhrase
-    :> Capture "from" CWalletAddress
-    :> Capture "to" (CAddress Acc)
+    :> Capture "from" CAccountId
+    :> Capture "to" (CId Addr)
     :> Capture "amount" Coin
     :> WRes Post CTx
 
@@ -257,8 +257,8 @@ type NewPaymentExt =
        "txs"
     :> "payments"
     :> QueryParam "passphrase" CPassPhrase
-    :> Capture "from" CWalletAddress
-    :> Capture "to" (CAddress Acc)
+    :> Capture "from" CAccountId
+    :> Capture "to" (CId Addr)
     :> Capture "amount" Coin
     :> Capture "title" Text
     :> Capture "description" Text
@@ -268,7 +268,7 @@ type NewPaymentExt =
 type UpdateTx =
        "txs"
     :> "payments"
-    :> Capture "address" CWalletAddress
+    :> Capture "address" CAccountId
     :> Capture "transaction" CTxId
     :> ReqBody '[JSON] CTxMeta
     :> WRes Post ()
@@ -276,7 +276,7 @@ type UpdateTx =
 type GetHistory =
        "txs"
     :> "histories"
-    :> Capture "walletId" CWalletAddress
+    :> Capture "walletId" CAccountId
     :> QueryParam "skip" Word
     :> QueryParam "limit" Word
     :> WRes Get ([CTx], Word)
@@ -284,9 +284,9 @@ type GetHistory =
 type SearchHistory =
        "txs"
     :> "histories"
-    :> Capture "walletId" CWalletAddress
+    :> Capture "walletId" CAccountId
     :> Capture "search" Text
-    :> QueryParam "account" (CAddress Acc)
+    :> QueryParam "account" (CId Addr)
     :> QueryParam "skip" Word
     :> QueryParam "limit" Word
     :> WRes Get ([CTx], Word)

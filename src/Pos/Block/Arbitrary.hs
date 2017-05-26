@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
 
 module Pos.Block.Arbitrary
        ( HeaderAndParams (..)
@@ -8,36 +9,37 @@ module Pos.Block.Arbitrary
 
 import           Universum
 
-import           Control.Lens         (to)
-import           Data.Ix              (range)
-import qualified Data.List.NonEmpty   as NE
-import           Data.Text.Buildable  (Buildable)
-import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (bprint, build, (%))
-import           Prelude              (Show (..))
-import           System.Random        (mkStdGen, randomR)
-import           Test.QuickCheck      (Arbitrary (..), Gen, choose, listOf, listOf, oneof,
-                                       oneof, vectorOf)
+import           Control.Lens             (to)
+import           Data.Ix                  (range)
+import qualified Data.List.NonEmpty       as NE
+import qualified Data.Text.Buildable      as Buildable
+import           Formatting               (bprint, build, (%))
+import           Prelude                  (Show (..))
+import           System.Random            (mkStdGen, randomR)
+import           Test.QuickCheck          (Arbitrary (..), Gen, choose, listOf, listOf,
+                                           oneof, oneof, vectorOf)
 
-import           Pos.Binary.Class     (Bi, Raw, biSize)
-import qualified Pos.Block.Core       as T
-import           Pos.Block.Network    as T
-import qualified Pos.Block.Pure       as T
-import           Pos.Constants        (epochSlots)
-import qualified Pos.Core             as Core
-import           Pos.Crypto           (ProxySecretKey, PublicKey, SecretKey,
-                                       createProxySecretKey, toPublic)
-import           Pos.Data.Attributes  (Attributes (..), mkAttributes)
-import           Pos.Ssc.Arbitrary    (SscPayloadDependsOnSlot (..))
-import           Pos.Ssc.Class        (Ssc (..), SscHelpersClass)
-import           Pos.Txp.Core         (TxAux (..), TxDistribution (..), TxPayload, mkTx,
-                                       mkTxPayload)
-import qualified Pos.Types            as T
-import           Pos.Update.Arbitrary ()
-import           Pos.Util.Arbitrary   (makeSmall)
+import           Pos.Binary.Class         (Bi, Raw, biSize)
+import qualified Pos.Block.Core           as T
+import           Pos.Block.Network        as T
+import qualified Pos.Block.Pure           as T
+import           Pos.Constants            (epochSlots)
+import qualified Pos.Core                 as Core
+import           Pos.Crypto               (ProxySecretKey, PublicKey, SecretKey,
+                                           createProxySecretKey, toPublic)
+import           Pos.Data.Attributes      (Attributes (..), mkAttributes)
+import           Pos.Delegation.Arbitrary (genDlgPayload)
+import           Pos.Ssc.Arbitrary        (SscPayloadDependsOnSlot (..))
+import           Pos.Ssc.Class            (Ssc (..), SscHelpersClass)
+import           Pos.Txp.Core             (TxAux (..), TxDistribution (..), TxPayload,
+                                           mkTx, mkTxPayload)
+import qualified Pos.Types                as T
+import           Pos.Update.Arbitrary     ()
+import           Pos.Util.Arbitrary       (makeSmall)
+import           Pos.Util.Util            (leftToPanic)
 
-newtype BodyDependsOnConsensus b = BodyDependsOnConsensus
-    { genBodyDepsOnConsensus :: T.ConsensusData b -> Gen (T.Body b)
+newtype BodyDependsOnSlot b = BodyDependsOnSlot
+    { genBodyDepsOnSlot :: Core.SlotId -> Gen (T.Body b)
     }
 
 ------------------------------------------------------------------------------------------
@@ -51,25 +53,6 @@ instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
                       , T.BlockPSignatureHeavy <$> arbitrary
                       ]
 
-properBlock
-    :: ( Arbitrary (T.BHeaderHash b)
-       , Arbitrary (BodyDependsOnConsensus b)
-       , Arbitrary (T.ConsensusData b)
-       , Arbitrary (T.ExtraBodyData b)
-       , Arbitrary (T.ExtraHeaderData b)
-       , T.Blockchain b)
-    => Gen (T.GenericBlock b)
-properBlock = do
-    (prevBlock, consensus, extra) <- arbitrary
-    BodyDependsOnConsensus {..} <- arbitrary
-    body <- genBodyDepsOnConsensus consensus
-    let proof = T.mkBodyProof body
-        header = T.GenericBlockHeader prevBlock proof consensus extra
-        construct h b =
-            either (error . mappend "mkGenericBlock: ") identity .
-            T.recreateGenericBlock h b
-    construct <$> pure header <*> pure body <*> arbitrary
-
 ------------------------------------------------------------------------------------------
 -- GenesisBlockchain
 ------------------------------------------------------------------------------------------
@@ -81,7 +64,7 @@ instance Arbitrary T.GenesisExtraBodyData where
     arbitrary = T.GenesisExtraBodyData <$> arbitrary
 
 instance Arbitrary (T.GenesisBlockHeader ssc) where
-    arbitrary = T.GenericBlockHeader
+    arbitrary = T.UnsafeGenericBlockHeader
         <$> arbitrary
         <*> arbitrary
         <*> arbitrary
@@ -95,26 +78,35 @@ instance Arbitrary (T.ConsensusData (T.GenesisBlockchain ssc)) where
         <$> arbitrary
         <*> arbitrary
 
-instance Arbitrary (BodyDependsOnConsensus (T.GenesisBlockchain ssc)) where
-    arbitrary = pure $ BodyDependsOnConsensus $ \_ -> arbitrary
+instance Arbitrary (BodyDependsOnSlot (T.GenesisBlockchain ssc)) where
+    arbitrary = pure $ BodyDependsOnSlot $ \_ -> arbitrary
 
 instance Arbitrary (T.Body (T.GenesisBlockchain ssc)) where
     arbitrary = T.GenesisBody <$> arbitrary
 
-instance Arbitrary (T.GenericBlock (T.GenesisBlockchain ssc)) where
-    arbitrary = properBlock
+instance ( Arbitrary $ SscProof ssc
+         , Arbitrary $ SscPayload ssc
+         , SscHelpersClass ssc
+         ) =>
+         Arbitrary (T.GenericBlock (T.GenesisBlockchain ssc)) where
+    arbitrary = T.mkGenesisBlock <$> arbitrary <*> arbitrary <*> arbitrary
 
 ------------------------------------------------------------------------------------------
 -- MainBlockchain
 ------------------------------------------------------------------------------------------
 
-instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
-    Arbitrary (T.MainBlockHeader ssc) where
-    arbitrary = T.GenericBlockHeader
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
-        <*> arbitrary
+instance ( Arbitrary (SscPayload ssc)
+         , Arbitrary (SscProof ssc)
+         , Bi Raw
+         , SscHelpersClass ssc
+         ) =>
+         Arbitrary (T.MainBlockHeader ssc) where
+    arbitrary =
+        T.mkMainHeader <$> arbitrary <*> arbitrary <*> arbitrary <*>
+        -- TODO: do not hardcode Nothing
+        pure Nothing <*>
+        arbitrary <*>
+        arbitrary
 
 instance Arbitrary h => Arbitrary (Attributes h) where
     arbitrary = Attributes
@@ -194,14 +186,14 @@ instance Arbitrary SmallTxPayload where
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
-         Arbitrary (BodyDependsOnConsensus (T.MainBlockchain ssc)) where
-    arbitrary = pure $ BodyDependsOnConsensus $ \T.MainConsensusData{..} -> makeSmall $ do
+         Arbitrary (BodyDependsOnSlot (T.MainBlockchain ssc)) where
+    arbitrary = pure $ BodyDependsOnSlot $ \slotId -> makeSmall $ do
         txPayload   <- arbitrary
         generator   <- genPayloadDependsOnSlot @ssc <$> arbitrary
-        mpcData     <- generator _mcdSlot
-        mpcProxySKs <- arbitrary
+        mpcData     <- generator slotId
+        dlgPayload  <- genDlgPayload $ Core.siEpoch slotId
         mpcUpload   <- arbitrary
-        return $ T.MainBody txPayload mpcData mpcProxySKs mpcUpload
+        return $ T.MainBody txPayload mpcData dlgPayload mpcUpload
 
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
     arbitrary = makeSmall $ do
@@ -211,9 +203,24 @@ instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc))
         mpcUpload   <- arbitrary
         return $ T.MainBody txPayload mpcData mpcProxySKs mpcUpload
 
-instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
-    Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where
-    arbitrary = properBlock
+instance ( Arbitrary $ SscPayload ssc
+         , Arbitrary $ SscProof ssc
+         , Arbitrary $ SscPayloadDependsOnSlot ssc
+         , SscHelpersClass ssc
+         ) =>
+         Arbitrary (T.GenericBlock (T.MainBlockchain ssc)) where
+    arbitrary = do
+        slot <- arbitrary
+        BodyDependsOnSlot {..} <- arbitrary
+        body <- genBodyDepsOnSlot slot
+        header <-
+            T.mkMainHeader <$> arbitrary <*> pure slot <*> arbitrary <*>
+            pure Nothing <*>
+            pure body <*>
+            arbitrary
+        leftToPanic "arbitrary @MainBlock: " .
+            T.recreateGenericBlock header body <$>
+            arbitrary
 
 ------------------------------------------------------------------------------------------
 -- Block network types
@@ -229,11 +236,16 @@ instance Arbitrary T.MsgGetBlocks where
         <$> arbitrary
         <*> arbitrary
 
-instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) => Arbitrary (T.MsgHeaders ssc) where
+instance (Arbitrary (SscPayload ssc), Arbitrary (SscProof ssc), Bi Raw, SscHelpersClass ssc) =>
+         Arbitrary (T.MsgHeaders ssc) where
     arbitrary = T.MsgHeaders <$> arbitrary
 
-instance (Arbitrary (SscProof ssc), Arbitrary (SscPayloadDependsOnSlot ssc), SscHelpersClass ssc) =>
-    Arbitrary (T.MsgBlock ssc) where
+instance ( Arbitrary $ SscPayload ssc
+         , Arbitrary (SscProof ssc)
+         , Arbitrary (SscPayloadDependsOnSlot ssc)
+         , SscHelpersClass ssc
+         ) =>
+         Arbitrary (T.MsgBlock ssc) where
     arbitrary = T.MsgBlock <$> arbitrary
 
 instance T.BiSsc ssc => Buildable (T.BlockHeader ssc, PublicKey) where
@@ -285,15 +297,14 @@ recursiveHeaderGen
 recursiveHeaderGen (eitherOfLeader : leaders)
                    (T.SlotId{..} : rest)
                    blockchain@(prevHeader : _)
-    | siSlot > epochSlots = pure []
+    | Core.getSlotIndex siSlot > epochSlots = pure []
     | otherwise = do
         curHeader <- genHeader
         recursiveHeaderGen leaders rest (curHeader : blockchain)
   where
-    epochCounter = fromIntegral siEpoch
-    slotCounter = fromIntegral siSlot
+    epochCounter = siEpoch
     genHeader
-      | siSlot == epochSlots = do
+      | Core.getSlotIndex siSlot == epochSlots = do
           body <- arbitrary
           return $ Left $ T.mkGenesisHeader (Just prevHeader) (epochCounter + 1) body
       | otherwise = genMainHeader
@@ -305,7 +316,7 @@ recursiveHeaderGen (eitherOfLeader : leaders)
         -- These two values may not be used at all. If the slot in question
         -- will have a simple signature, laziness will prevent them from
         -- being calculated. Otherwise, they'll be the proxy secret key's ω.
-        let slotId = T.SlotId epochCounter slotCounter
+        let slotId = T.SlotId epochCounter siSlot
             (leader, proxySK) = case eitherOfLeader of
                 Left sk -> (sk, Nothing)
                 Right (issuerSK, delegateSK, isSigEpoch) ->
@@ -344,15 +355,17 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
          Arbitrary (BlockHeaderList ssc) where
     arbitrary = BHL <$> do
         fullEpochs <- choose (startingEpoch, maxEpochs)
-        incompleteEpochSize <- T.LocalSlotIndex <$> choose (1, epochSlots - 1)
+        incompleteEpochSize <- choose (1, epochSlots - 1)
         leadersList <-
-            vectorOf ((epochSlots * fullEpochs) + fromIntegral incompleteEpochSize)
+            vectorOf ((epochSlots * fullEpochs) + incompleteEpochSize)
                 arbitrary
         firstGenesisBody <- arbitrary
         let firstHeader = Left $ T.mkGenesisHeader Nothing startingEpoch firstGenesisBody
             actualLeaders = map (toPublic . either identity (view _1)) leadersList
             slotIdsRange =
-                map (\(a,b) -> T.SlotId a (fromIntegral b)) $
+                map (\(a,b) -> T.SlotId a
+                      (leftToPanic "arbitrary @BlockHeaderList: " $
+                       T.mkLocalSlotIndex $ fromIntegral b)) $
                 range ((startingEpoch, 0), (fromIntegral fullEpochs, epochSlots)) ++
                 zip (repeat $ fromIntegral (fullEpochs + 1)) [0 .. incompleteEpochSize - 1]
         (, actualLeaders) <$>
@@ -378,7 +391,6 @@ newtype HeaderAndParams ssc = HAndP
 instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
     Arbitrary (HeaderAndParams ssc) where
     arbitrary = do
-        consensus <- arbitrary :: Gen Bool
         -- This integer is used as a seed to randomly choose a slot down below
         seed <- arbitrary :: Gen Int
         (headers, leaders) <- first reverse . getHeaderList <$> arbitrary
@@ -386,12 +398,11 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
         -- 'skip' is the random number of headers that should be skipped in the header
         -- chain. This ensures different parts of it are chosen each time.
         skip <- choose (0, num - 1)
-        let atMost3HeadersAndLeaders = take 3 $ drop skip headers
-            (prev, header, next) =
-                case atMost3HeadersAndLeaders of
-                    [h] -> (Nothing, h, Nothing)
-                    [h1, h2] -> (Just h1, h2, Nothing)
-                    (h1 : h2 : h3 : _) -> (Just h1, h2, Just h3)
+        let atMost2HeadersAndLeaders = take 2 $ drop skip headers
+            (prev, header) =
+                case atMost2HeadersAndLeaders of
+                    [h] -> (Nothing, h)
+                    [h1, h2] -> (Just h1, h2)
                     _ -> error "[BlockSpec] the headerchain doesn't have enough headers"
             -- This binding captures the chosen header's epoch. It is used to drop all
             -- all leaders of headers from previous epochs.
@@ -413,10 +424,14 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                     -- equal slot index than the header.
                     Right h -> -- Nothing {-
                         let (T.SlotId e s) = view Core.headerSlotL h
+                            rndEpoch :: Core.EpochIndex
                             rndEpoch = betweenXAndY e maxBound
-                            rndSlotIdx = if rndEpoch > e
+                            rndSlotIdx :: Core.LocalSlotIndex
+                            rndSlotIdx = leftToPanic "arbitrary @HeaderAndParams: " $
+                                         Core.mkLocalSlotIndex $
+                              if rndEpoch > e
                                 then betweenZeroAndN (epochSlots - 1)
-                                else betweenXAndY s (epochSlots - 1)
+                                else betweenXAndY (Core.getSlotIndex s) (epochSlots - 1)
                             rndSlot = T.SlotId rndEpoch rndSlotIdx
                         in Just rndSlot
             hasUnknownAttributes =
@@ -426,9 +441,7 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                     (view $ Core.gbhExtra . T.mehAttributes . to attrRemain)
                     header
             params = T.VerifyHeaderParams
-                { T.vhpVerifyConsensus = consensus
-                , T.vhpPrevHeader = prev
-                , T.vhpNextHeader = next
+                { T.vhpPrevHeader = prev
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
                 , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
                 -- Not used in verifyHeaders, because we can't update

@@ -15,6 +15,8 @@ module Pos.Slotting.Ntp
        , runSlotsRedirect
        ) where
 
+import           Universum
+
 import qualified Control.Concurrent.STM       as STM
 import           Control.Lens                 (makeLenses)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
@@ -31,16 +33,18 @@ import           NTP.Client                   (NtpClientSettings (..), ntpSingle
 import           NTP.Example                  ()
 import           Serokell.Util                (sec)
 import           System.Wlog                  (WithLogger, logDebug, logInfo, logWarning)
-import           Universum
 
 import qualified Pos.Core.Constants           as C
 import           Pos.Core.Slotting            (flattenEpochIndex, unflattenSlotId)
-import           Pos.Core.Types               (EpochIndex, SlotId (..), Timestamp (..))
+import           Pos.Core.Types               (EpochIndex, SlotId (..), Timestamp (..),
+                                               mkLocalSlotIndex)
+import           Pos.Util.Util                (leftToPanic)
 
 import           Pos.Slotting.Class           (MonadSlots (..))
 import qualified Pos.Slotting.Constants       as C
 import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
 import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData (..))
+
 ----------------------------------------------------------------------------
 -- State
 ----------------------------------------------------------------------------
@@ -220,7 +224,7 @@ approxSlotUsingOutdated :: SlottingConstraint m => EpochIndex -> Timestamp -> m 
 approxSlotUsingOutdated penult t = do
     SlottingData {..} <- getSlottingData
     pure $
-        if | t < esdStart sdLast -> SlotId (penult + 1) 0
+        if | t < esdStart sdLast -> SlotId (penult + 1) minBound
            | otherwise           -> outdatedEpoch t (penult + 1) sdLast
   where
     outdatedEpoch (Timestamp curTime) epoch EpochSlottingData {..} =
@@ -246,10 +250,13 @@ computeSlotUsingEpoch
     -> Maybe SlotId
 computeSlotUsingEpoch (Timestamp curTime) epoch EpochSlottingData {..}
     | curTime < start = Nothing
-    | curTime < start + duration * C.epochSlots =
-        Just $ SlotId epoch $ fromIntegral $ (curTime - start) `div` duration
+    | curTime < start + duration * C.epochSlots = Just $ SlotId epoch localSlot
     | otherwise = Nothing
   where
+    localSlotNumeric = fromIntegral $ (curTime - start) `div` duration
+    localSlot =
+        leftToPanic "computeSlotUsingEpoch: " $
+        mkLocalSlotIndex localSlotNumeric
     duration = convertUnit esdSlotDuration
     start = getTimestamp esdStart
 
@@ -353,4 +360,3 @@ simpleGetCurrentSlotInaccurate = do
 
 simpleCurrentTimeSlotting :: SlottingConstraint m => m Timestamp
 simpleCurrentTimeSlotting = Timestamp <$> currentTime
-

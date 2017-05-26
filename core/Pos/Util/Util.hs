@@ -19,6 +19,7 @@ module Pos.Util.Util
        , eitherToFail
        , getKeys
        , sortWithMDesc
+       , leftToPanic
 
        -- * Lenses
        , _neHead
@@ -279,6 +280,12 @@ sortWithMDesc :: (Monad m, Ord b) => (a -> m b) -> [a] -> m [a]
 sortWithMDesc f = fmap (map fst . sortWith (Down . snd)) . mapM f'
   where
     f' x = (x, ) <$> f x
+
+-- | Partial function which calls 'error' with meaningful message if
+-- given 'Left' and returns some value if given 'Right'.
+-- Intended usage is when you're sure that value must be right.
+leftToPanic :: Buildable a => Text -> Either a b -> b
+leftToPanic msgPrefix = either (error . mappend msgPrefix . pretty) identity
 
 -- | Make a Reader or State computation work in an Ether transformer. Useful
 -- to make lenses work with Ether.

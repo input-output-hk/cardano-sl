@@ -6,64 +6,97 @@
 -- requires triggering lrc recalculations.
 
 module Pos.Block.Logic.Internal
-       ( applyBlocksUnsafe
+       (
+         -- * Constraints
+         BlockMode
+       , BlockVerifyMode
+       , BlockApplyMode
+
+       , applyBlocksUnsafe
        , rollbackBlocksUnsafe
+
+         -- * Garbage
        , toUpdateBlock
+       , toTxpBlock
        ) where
 
 import           Universum
 
-import           Control.Arrow        ((&&&))
-import           Control.Lens         (each, _Wrapped)
-import qualified Data.List.NonEmpty   as NE
+import           Control.Lens            (each, _Wrapped)
 import qualified Ether
-import           Formatting           (build, sformat, (%))
-import           Paths_cardano_sl     (version)
-import           Serokell.Util        (Color (Red), colorize)
-import           System.Wlog          (logWarning)
+import           Paths_cardano_sl        (version)
 
-import           Pos.Block.BListener  (MonadBListener (..))
-import           Pos.Block.Core       (Block, GenesisBlock, MainBlock, mbTxPayload,
-                                       mbUpdatePayload)
-import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
-import           Pos.Core             (IsGenesisHeader, IsMainHeader, epochIndexL, gbBody,
-                                       gbHeader, headerHash, headerHashG, prevBlockL)
-import           Pos.DB               (SomeBatchOp (..))
-import qualified Pos.DB.Block         as DB
-import qualified Pos.DB.DB            as DB
-import qualified Pos.DB.GState        as GS
-import           Pos.Delegation.Logic (delegationApplyBlocks, delegationRollbackBlocks)
-import           Pos.Exception        (assertionFailed)
-import           Pos.Reporting        (reportingFatal)
-import           Pos.Slotting         (putSlottingData)
-import           Pos.Txp.Core         (TxPayload)
+import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
+                                          mbUpdatePayload)
+import           Pos.Block.Logic.Slog    (SlogMode, slogApplyBlocks, slogRollbackBlocks)
+import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
+import           Pos.Core                (IsGenesisHeader, IsMainHeader, epochIndexL,
+                                          gbBody, gbHeader)
+import           Pos.DB                  (MonadDB, SomeBatchOp (..))
+import           Pos.DB.Block            (MonadBlockDB)
+import qualified Pos.DB.GState           as GS
+import           Pos.Delegation.Logic    (delegationApplyBlocks, delegationRollbackBlocks)
+import           Pos.Lrc.Context         (LrcContext)
+import           Pos.Txp.Core            (TxPayload)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp     (eTxNormalize)
+import           Pos.Explorer.Txp        (eTxNormalize)
 #else
-import           Pos.Txp.Logic        (txNormalize)
+import           Pos.Txp.Logic           (txNormalize)
 #endif
-import           Pos.Ssc.Class        (Ssc)
-import           Pos.Ssc.Extra        (sscApplyBlocks, sscNormalize, sscRollbackBlocks)
-import           Pos.Txp.Settings     (TxpBlund, TxpGlobalSettings (..))
-import           Pos.Update.Core      (UpdateBlock, UpdatePayload)
-import qualified Pos.Update.DB        as UDB
-import           Pos.Update.Logic     (usApplyBlocks, usNormalize, usRollbackBlocks)
-import           Pos.Update.Poll      (PollModifier)
-import           Pos.Util             (Some (..), inAssertMode, spanSafe, _neLast)
-import           Pos.Util.Chrono      (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.WorkMode.Class   (WorkMode)
+import           Pos.Block.BListener     (MonadBListener)
+import           Pos.Delegation.Class    (MonadDelegation)
+import           Pos.Discovery.Class     (MonadDiscovery)
+import           Pos.Reporting           (MonadReportingMem, reportingFatal)
+import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
+import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
+import           Pos.Ssc.Class.Storage   (SscGStateClass)
+import           Pos.Ssc.Extra           (MonadSscMem, sscApplyBlocks, sscNormalize,
+                                          sscRollbackBlocks)
+import           Pos.Txp.MemState        (MonadTxpMem)
+import           Pos.Txp.Settings        (TxpBlock, TxpBlund, TxpGlobalSettings (..))
+import           Pos.Update.Context      (UpdateContext)
+import           Pos.Update.Core         (UpdateBlock, UpdatePayload)
+import           Pos.Update.Logic        (usApplyBlocks, usNormalize, usRollbackBlocks)
+import           Pos.Update.Poll         (PollModifier)
+import           Pos.Util                (Some (..), spanSafe)
+import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.WorkMode.Class      (TxpExtra_TMP)
 
--- [CSL-1156] Totally need something more elegant
-toUpdateBlock
-    :: forall ssc.
-       Ssc ssc
-    => Block ssc -> UpdateBlock
-toUpdateBlock = bimap convertGenesis convertMain
-  where
-    convertGenesis :: GenesisBlock ssc -> Some IsGenesisHeader
-    convertGenesis = Some . view gbHeader
-    convertMain :: MainBlock ssc -> (Some IsMainHeader, UpdatePayload)
-    convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbUpdatePayload)
+-- | Set of basic constraints used by high-level block processing.
+type BlockMode ssc m
+     = ( SlogMode ssc m
+       -- Needed because SSC state is fully stored in memory.
+       , MonadSscMem ssc m
+       -- Needed to load blocks (at least delegation does it).
+       , MonadBlockDB ssc m
+       -- LRC is really needed.
+       , Ether.MonadReader' LrcContext m
+       -- Probably won't be needed after porting everything to smaller monads.
+       , MonadDB m
+       -- This constraints define block components' global logic.
+       , Ether.MonadReader' TxpGlobalSettings m
+       , SscGStateClass ssc
+       )
+
+-- | Set of constraints necessary for high-level block verification.
+type BlockVerifyMode ssc m = BlockMode ssc m
+
+-- | Set of constraints necessary to apply or rollback blocks at high-level.
+type BlockApplyMode ssc m
+     = ( BlockMode ssc m
+       -- Needed for iteration over DB.
+       , MonadMask m
+       -- Needed to embed custom logic.
+       , MonadBListener m
+       -- Needed for normalization.
+       , MonadTxpMem TxpExtra_TMP m
+       , MonadDelegation m
+       , SscLocalDataClass ssc
+       , Ether.MonadReader' UpdateContext m
+       -- Needed for error reporting.
+       , MonadReportingMem m
+       , MonadDiscovery m
+       )
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
 -- use it only if you understand what you're doing. That means you can break
@@ -71,10 +104,18 @@ toUpdateBlock = bimap convertGenesis convertMain
 --
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
-    :: forall ssc m . WorkMode ssc m
+    :: forall ssc m . BlockApplyMode ssc m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafe blunds0 pModifier =
     reportingFatal version $
+    -- It's essential to apply genesis block separately, before
+    -- applying other blocks.
+    -- That's because applying genesis block may change protocol version
+    -- which may potentially change protocol rules.
+    -- We would like to avoid dependencies between components, so we have
+    -- chosen this approach. Related issue is CSL-660.
+    -- Also note that genesis block can be only in the head, because all
+    -- blocks are from the same epoch.
     case blunds ^. _Wrapped of
         (b@(Left _,_):|[])     -> app' (b:|[])
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
@@ -82,36 +123,30 @@ applyBlocksUnsafe blunds0 pModifier =
   where
     app x = applyBlocksUnsafeDo x pModifier
     app' = app . OldestFirst
+    -- [CSL-1167] Here we check that invariant holds, but we silently
+    -- ignore some blocks if it doesn't.
+    -- We should report a fatal error instead.
     (OldestFirst -> blunds, _) =
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds0
 
 applyBlocksUnsafeDo
-    :: forall ssc m . WorkMode ssc m
+    :: forall ssc m . BlockApplyMode ssc m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafeDo blunds pModifier = do
-    -- Note: it's important to put blocks first
-    mapM_ putToDB blunds
-    -- If the program is interrupted at this point (after putting on block),
-    -- we will rollback all wallet sets at the next launch.
-    onApplyBlocks blunds `catch` logWarn
+    -- Note: it's important to do 'slogApplyBlocks' first, because it
+    -- puts blocks in DB.
+    slogBatch <- slogApplyBlocks blunds
     TxpGlobalSettings {..} <- Ether.ask'
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$> sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
-    let putTip = SomeBatchOp $
-                 GS.PutTip $
-                 headerHash $
-                 NE.last $
-                 getOldestFirst blunds
     GS.writeBatchGState
-        [ putTip
-        , delegateBatch
+        [ delegateBatch
         , usBatch
         , txpBatch
-        , forwardLinksBatch
-        , inMainBatch
         , sscBatch
+        , slogBatch
         ]
     sscNormalize
 #ifdef WITH_EXPLORER
@@ -120,74 +155,64 @@ applyBlocksUnsafeDo blunds pModifier = do
     txNormalize
 #endif
     usNormalize
-    DB.sanityCheckDB
-    putSlottingData =<< UDB.getSlottingData
   where
-    -- hehe it's not unsafe yet TODO
     blocks = fmap fst blunds
-    forwardLinks = map (view prevBlockL &&& view headerHashG) $ toList blocks
-    forwardLinksBatch = SomeBatchOp $ map (uncurry GS.AddForwardLink) forwardLinks
-    inMainBatch = SomeBatchOp . getOldestFirst $
-        fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
-    putToDB (blk, undo) = DB.putBlock undo blk
-    logWarn :: SomeException -> m ()
-    logWarn = logWarning . sformat ("onApplyBlocks raised exception: "%build)
 
 -- | Rollback sequence of blocks, head-newest order exepected with
 -- head being current tip. It's also assumed that lock on block db is
 -- taken.  application is taken already.
 rollbackBlocksUnsafe
-    :: forall ssc m .(WorkMode ssc m)
-    => NewestFirst NE (Blund ssc) -> m ()
+    :: forall ssc m. (BlockApplyMode ssc m)
+    => NewestFirst NE (Blund ssc)
+    -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal version $ do
-    -- If program is interrupted after call @onRollbackBlocks@,
-    -- we will load all wallet set not rolled yet at the next launch.
-    onRollbackBlocks toRollback `catch` logWarn
-    delRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
+    slogRoll <- slogRollbackBlocks toRollback
+    dlgRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- Ether.ask'
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
     sscBatch <- SomeBatchOp <$> sscRollbackBlocks (fmap fst toRollback)
-    let putTip = SomeBatchOp $
-                 GS.PutTip $
-                 headerHash $
-                 (NE.last $ getNewestFirst toRollback) ^. prevBlockL
     GS.writeBatchGState
-        [ putTip
-        , delRoll
+        [ dlgRoll
         , usRoll
         , txRoll
-        , forwardLinksBatch
-        , inMainBatch
         , sscBatch
+        , slogRoll
         ]
-    DB.sanityCheckDB
-    inAssertMode $
-        when (isGenesis0 (toRollback ^. _Wrapped . _neLast . _1)) $
-        assertionFailed $
-        colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
-  where
-    inMainBatch =
-        SomeBatchOp . getNewestFirst $
-        fmap (GS.SetInMainChain False . view headerHashG . fst) toRollback
-    forwardLinksBatch =
-        SomeBatchOp . getNewestFirst $
-        fmap (GS.RemoveForwardLink . view prevBlockL . fst) toRollback
-    isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
-    isGenesis0 (Right _)         = False
-    logWarn :: SomeException -> m ()
-    logWarn = logWarning . sformat ("onRollbackBlocks raised exception: "%build)
 
--- [CSL-1156] Need something more elegant, at least eliminate copy-paste.
-toTxpBlund
+----------------------------------------------------------------------------
+-- Garbage
+----------------------------------------------------------------------------
+
+-- [CSL-1156] Need something more elegant.
+toTxpBlock
     :: forall ssc.
-       Ssc ssc
-    => Blund ssc -> TxpBlund
-toTxpBlund = bimap (bimap convertGenesis convertMain) undoTx
+       SscHelpersClass ssc
+    => Block ssc -> TxpBlock
+toTxpBlock = bimap convertGenesis convertMain
   where
     convertGenesis :: GenesisBlock ssc -> Some IsGenesisHeader
     convertGenesis = Some . view gbHeader
     convertMain :: MainBlock ssc -> (Some IsMainHeader, TxPayload)
     convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbTxPayload)
+
+-- [CSL-1156] Yes, definitely need something more elegant.
+toTxpBlund
+    :: forall ssc.
+       SscHelpersClass ssc
+    => Blund ssc -> TxpBlund
+toTxpBlund = bimap toTxpBlock undoTx
+
+-- [CSL-1156] Sure, totally need something more elegant
+toUpdateBlock
+    :: forall ssc.
+       SscHelpersClass ssc
+    => Block ssc -> UpdateBlock
+toUpdateBlock = bimap convertGenesis convertMain
+  where
+    convertGenesis :: GenesisBlock ssc -> Some IsGenesisHeader
+    convertGenesis = Some . view gbHeader
+    convertMain :: MainBlock ssc -> (Some IsMainHeader, UpdatePayload)
+    convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbUpdatePayload)

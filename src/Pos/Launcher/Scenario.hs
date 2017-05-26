@@ -11,35 +11,35 @@ module Pos.Launcher.Scenario
        , runNode'
        ) where
 
-import           Data.Default        (def)
-import           Development.GitRev  (gitBranch, gitHash)
+import           Data.Default       (def)
+import           Development.GitRev (gitBranch, gitHash)
 import qualified Ether
-import           Formatting          (build, sformat, shown, (%))
-import           Mockable            (fork)
-import           Paths_cardano_sl    (version)
-import           System.Exit         (ExitCode (..))
-import           System.Wlog         (getLoggerName, logError, logInfo)
+import           Formatting         (build, sformat, shown, (%))
+import           Mockable           (fork)
+import           Paths_cardano_sl   (version)
+import           System.Exit        (ExitCode (..))
+import           System.Wlog        (getLoggerName, logError, logInfo)
 import           Universum
 
-import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
-                                      wrapActionSpec)
-import           Pos.Context         (BlkSemaphore (..), npPubKeyAddress, npPublicKey)
-import           Pos.DB.Class        (MonadDBCore)
-import qualified Pos.DB.GState       as GS
-import           Pos.Delegation      (initDelegation)
-import           Pos.Lrc.Context     (LrcSyncData (..), lcLrcSync)
-import qualified Pos.Lrc.DB          as LrcDB
-import           Pos.Reporting       (reportMisbehaviourMasked)
-import           Pos.Shutdown        (waitForWorkers)
-import           Pos.Slotting        (getCurrentSlot, waitSystemStart)
-import           Pos.Ssc.Class       (SscConstraint)
-import           Pos.Types           (SlotId (..), addressHash)
-import           Pos.Update          (MemState (..), mvState)
-import           Pos.Update.Context  (UpdateContext (ucMemState))
-import           Pos.Util            (inAssertMode)
-import           Pos.Util.LogSafe    (logInfoS)
-import           Pos.Worker          (allWorkers, allWorkersCount)
-import           Pos.WorkMode.Class  (WorkMode)
+import           Pos.Communication  (ActionSpec (..), OutSpecs, WorkerSpec,
+                                     wrapActionSpec)
+import           Pos.Context        (BlkSemaphore (..), npPubKeyAddress, npPublicKey)
+import           Pos.DB.Class       (MonadDBCore)
+import qualified Pos.DB.GState      as GS
+import           Pos.Delegation     (initDelegation)
+import           Pos.Lrc.Context    (LrcSyncData (..), lcLrcSync)
+import qualified Pos.Lrc.DB         as LrcDB
+import           Pos.Reporting      (reportMisbehaviourMasked)
+import           Pos.Shutdown       (waitForWorkers)
+import           Pos.Slotting       (getCurrentSlot, waitSystemStart)
+import           Pos.Ssc.Class      (SscConstraint)
+import           Pos.Types          (SlotId (..), addressHash)
+import           Pos.Update         (MemState (..), mvState)
+import           Pos.Update.Context (UpdateContext (ucMemState))
+import           Pos.Util           (inAssertMode)
+import           Pos.Util.LogSafe   (logInfoS)
+import           Pos.Worker         (allWorkers, allWorkersCount)
+import           Pos.WorkMode.Class (WorkMode)
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
@@ -109,5 +109,5 @@ initUSMemState :: WorkMode ssc m => m ()
 initUSMemState = do
     tip <- GS.getTip
     tvar <- mvState <$> Ether.asks' ucMemState
-    slot <- fromMaybe (SlotId 0 0) <$> getCurrentSlot
+    slot <- fromMaybe (SlotId 0 minBound) <$> getCurrentSlot
     atomically $ writeTVar tvar (MemState slot tip def def)

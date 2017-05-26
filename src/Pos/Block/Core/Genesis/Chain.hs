@@ -16,8 +16,9 @@ import           Pos.Block.Core.Genesis.Types (GenesisBlock, GenesisBlockchain,
                                                GenesisExtraBodyData,
                                                GenesisExtraHeaderData)
 import           Pos.Block.Core.Union.Types   (Block, BlockHeader)
-import           Pos.Core                     (Blockchain (..), ChainDifficulty,
-                                               EpochIndex (..), SlotLeaders)
+import           Pos.Core                     (Blockchain (..), BlockchainHelpers (..),
+                                               ChainDifficulty, EpochIndex (..),
+                                               SlotLeaders)
 import           Pos.Crypto                   (Hash, hash)
 import           Pos.Ssc.Class.Types          (Ssc (..))
 
@@ -46,6 +47,9 @@ instance Blockchain (GenesisBlockchain ssc) where
     type BBlock (GenesisBlockchain ssc) = Block ssc
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
+
+instance BlockchainHelpers (GenesisBlockchain ssc) where
+    verifyBBlockHeader _ = pure ()
     verifyBBlock _ = pure ()
 
 instance (Ssc ssc) => NFData (BodyProof (GenesisBlockchain ssc))

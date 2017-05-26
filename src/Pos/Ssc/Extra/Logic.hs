@@ -192,10 +192,10 @@ sscResetLocal = do
 -- 'MonadDB' is needed only to get richmen.
 -- We can try to eliminate these constraints later.
 type SscGlobalApplyMode ssc m =
-    (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m,
+    (MonadSscMem ssc m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
      MonadDB m, Ether.MonadReader' LrcContext m)
 type SscGlobalVerifyMode ssc m =
-    (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m,
+    (MonadSscMem ssc m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
      MonadDB m, Ether.MonadReader' LrcContext m,
      MonadError (SscVerifyError ssc) m)
 

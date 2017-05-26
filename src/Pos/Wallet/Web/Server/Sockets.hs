@@ -49,7 +49,7 @@ closeWSConnection key var = liftIO $ do
 closeWSConnections :: (MonadIO m, MonadThrow m) => ConnectionsVar -> m ()
 closeWSConnections var = liftIO $ do
     conns <- atomically $ swapTVar var def
-    forM_ (listConnections conns) $ flip WS.sendClose ConnectionClosed
+    for_ (listConnections conns) $ flip WS.sendClose ConnectionClosed
 
 appendWSConnection :: ConnectionsVar -> WS.ServerApp
 appendWSConnection var pending = do
@@ -66,9 +66,9 @@ appendWSConnection var pending = do
     releaseResources key = closeWSConnection key var -- TODO: log
 
 -- FIXME: we have no authentication and accept all incoming connections.
--- Solution: reject pending connection if WS handshake doesn't have valid auth session token.
+-- Possible solution: reject pending connection if WS handshake doesn't have valid auth session token.
 upgradeApplicationWS :: ConnectionsVar -> Application -> Application
-upgradeApplicationWS wsConn = websocketsOr WS.defaultConnectionOptions $ appendWSConnection wsConn
+upgradeApplicationWS var = websocketsOr WS.defaultConnectionOptions (appendWSConnection var)
 
 -- sendClose :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
 -- sendClose = send WS.sendClose
@@ -106,11 +106,11 @@ notifyAll :: WebWalletSockets m => NotifyEvent -> m ()
 notifyAll msg = do
   var <- getWalletWebSockets
   conns <- readTVarIO var
-  forM_ (listConnections conns) $ flip sendWS msg
+  for_ (listConnections conns) $ flip sendWS msg
 
-------------
--- Helpers
-------------
+------------------------------------
+-- Implementation of ConnectionMap
+------------------------------------
 
 data IntMapWithUnusedKey v = IntMapWithUnusedKey
     { unusedKey :: Int

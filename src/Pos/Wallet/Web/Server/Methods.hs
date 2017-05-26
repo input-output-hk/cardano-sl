@@ -123,7 +123,6 @@ import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWal
 import           Pos.Wallet.Web.Secret            (WalletUserSecret (..))
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
                                                    WalletWebSockets, closeWSConnections,
-                                                   getWalletWebSockets,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (AccountLookupMode (..), WalletWebDB,

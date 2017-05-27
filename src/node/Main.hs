@@ -86,6 +86,7 @@ action peerHolder args@Args {..} transport = do
     currentParams <- getNodeParams args systemStart
     putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
     putText $ "If stats is on: " <> show enableStats
+    putText $ "If wallet enabled: " <> show enableWallet
     putText $ "Static peers is on: " <> show staticPeers
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss

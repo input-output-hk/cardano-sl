@@ -26,7 +26,7 @@ instance Eq (RWVar a) where
 
 -- | Creates a new 'RWVar' from given value.
 new :: MonadIO m => a -> m (RWVar a)
-new = liftIO . new
+new = liftA2 RWVar RWL.new . newIORef
 
 -- | Executes 'MonadIO' action taking a shared lock inside.
 with :: (MonadIO m, MonadMask m) => RWVar a -> (a -> m b) -> m b

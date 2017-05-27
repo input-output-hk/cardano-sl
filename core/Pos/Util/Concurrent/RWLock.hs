@@ -11,10 +11,11 @@ import           Universum
 
 import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
                                                    releaseRead, releaseWrite)
+import qualified Control.Concurrent.ReadWriteLock as RWL
 
 -- | Create a new 'RWLock' in a free state.
 new :: MonadIO m => m RWLock
-new = liftIO new
+new = liftIO RWL.new
 
 -- | Allows to perform action under shared lock on 'RWLock'.
 withRead :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a

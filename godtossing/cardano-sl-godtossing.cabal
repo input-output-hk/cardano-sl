@@ -17,6 +17,8 @@ library
     Pos.Ssc.GodTossing.Core.Types
     Pos.Ssc.GodTossing.Core.Core
 
+    Pos.Ssc.GodTossing.VssCertData
+
     Pos.Ssc.GodTossing.Constants
 
     Pos.Binary.Ssc.GodTossing.Core
@@ -25,6 +27,7 @@ library
                      , base
                      , cardano-sl-core
                      , cardano-sl-ssc
+                     , containers
                      , formatting
                      , serokell-util
                      , tagged

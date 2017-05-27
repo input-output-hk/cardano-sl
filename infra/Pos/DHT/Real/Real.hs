@@ -17,7 +17,7 @@ import           Mockable                  (Async, Catch, Mockable, MonadMockabl
                                             Promise, Throw, catch, catchAll, throw,
                                             waitAnyUnexceptional, withAsync)
 import qualified Network.Kademlia          as K
-import           Serokell.Util             (ms, sec)
+import           Serokell.Util             (listJson, ms, sec)
 import           System.Directory          (doesFileExist)
 import           System.Wlog               (HasLoggerName (modifyLoggerName), WithLogger,
                                             logDebug, logError, logInfo, logWarning,
@@ -121,7 +121,7 @@ rejoinNetwork
 rejoinNetwork inst = withKademliaLogger $ do
     let init = kdiInitialPeers inst
     peers <- kademliaGetKnownPeers inst
-    logDebug $ sformat ("rejoinNetwork: peers " % build) peers
+    logDebug $ sformat ("rejoinNetwork: peers "%build) peers
     when (length peers < neighborsSendThreshold) $ do
       logWarning $ sformat ("Not enough peers: "%int%", threshold is "%int)
                            (length peers) (neighborsSendThreshold :: Int)
@@ -145,45 +145,42 @@ kademliaGetKnownPeers
        )
     => KademliaDHTInstance
     -> m [DHTNode]
-kademliaGetKnownPeers inst = do
-    let myId = kdiKey inst
-    let explicitInitial = kdiExplicitInitial inst
-    let initPeers = bool [] (kdiInitialPeers inst) explicitInitial
-    buckets <- liftIO (K.viewBuckets $ kdiHandle inst)
-    filter ((/= myId) . dhtNodeId) <$> extendPeers myId initPeers buckets
-  where
-    extendPeers
-        :: MonadIO m1
-        => DHTKey
-        -> [DHTNode]
-        -> [[(K.Node DHTKey, Int64)]]
-        -> m1 [DHTNode]
-    extendPeers myId initial buckets =
-        map snd .
-        HM.toList .
-        HM.delete myId .
-        flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial .
-        HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) <$>
-        (updateCache $ concatMap getPeersFromBucket buckets)
+kademliaGetKnownPeers inst = undefined
+  --   let myId = kdiKey inst
+  --   let initPeers = bool [] (kdiInitialPeers inst) (kdiExplicitInitial inst)
+  --   buckets <- liftIO (K.viewBuckets $ kdiHandle inst)
+  --   filter ((/= myId) . dhtNodeId) <$> extendPeers myId initPeers buckets
+  -- where
+  --   extendPeers
+  --       :: MonadIO m1
+  --       => DHTKey
+  --       -> [DHTNode]
+  --       -> [[(K.Node DHTKey, Int64)]]
+  --       -> m1 [DHTNode]
+  --   extendPeers myId initial buckets =
+  --       map snd .
+  --       HM.toList .
+  --       HM.delete myId .
+  --       flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial .
+  --       HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) <$>
+  --       (updateCache $ concatMap getPeersFromBucket buckets)
 
-    getPeersFromBucket
-        :: [(K.Node DHTKey, Int64)]
-        -> [K.Node DHTKey]
-    getPeersFromBucket bucket
-        | null bucket = []
-        | otherwise =
-            let peers = filter ((< enhancedMessageTimeout) . snd) bucket in
-            map fst $
-            takeSafe enhancedMessageBroadcast $
-            bool peers (sortWith snd bucket) (null peers)
-    takeSafe :: Int -> [a] -> [a]
-    takeSafe p a
-        | length a <= p = a
-        | otherwise = take p a
+  --   getPeersFromBucket :: [(K.Node DHTKey, Int64)] -> [K.Node DHTKey]
+  --   getPeersFromBucket bucket
+  --       | null bucket = []
+  --       | otherwise =
+  --           let peers = filter ((< enhancedMessageTimeout) . snd) bucket in
+  --           map fst $
+  --           takeSafe enhancedMessageBroadcast $
+  --           bool peers (sortWith snd bucket) (null peers)
+  --   takeSafe :: Int -> [a] -> [a]
+  --   takeSafe p a
+  --       | length a <= p = a
+  --       | otherwise = take p a
 
-    updateCache :: MonadIO m1 => [K.Node DHTKey] -> m1 [K.Node DHTKey]
-    updateCache peers =
-        peers <$ (atomically $ writeTVar (kdiKnownPeersCache inst) peers)
+  --   updateCache :: MonadIO m1 => [K.Node DHTKey] -> m1 [K.Node DHTKey]
+  --   updateCache peers =
+  --       peers <$ (atomically $ writeTVar (kdiKnownPeersCache inst) peers)
 
 toDHTNode :: K.Node DHTKey -> DHTNode
 toDHTNode n = DHTNode (fromKPeer . K.peer $ n) $ K.nodeId n
@@ -205,12 +202,12 @@ kademliaJoinNetwork
        , Bi DHTData
        )
     => KademliaDHTInstance
-    -> [DHTNode]
+    -> [NetworkAddress]
     -> m ()
 kademliaJoinNetwork _ [] = throw AllPeersUnavailable
 kademliaJoinNetwork inst nodes =
     waitAnyUnexceptional (map (kademliaJoinNetwork' inst) nodes) >>= handleRes
-    where
+  where
     handleRes (Just _) = pure ()
     handleRes _        = throw AllPeersUnavailable
 
@@ -221,19 +218,18 @@ kademliaJoinNetwork'
        , Bi DHTKey
        , Bi DHTData
        )
-    => KademliaDHTInstance -> DHTNode -> m ()
-kademliaJoinNetwork' inst node = do
-    let node' = K.Node (toKPeer $ dhtAddr node) (dhtNodeId node)
-    res <- liftIO $ K.joinNetwork (kdiHandle inst) node'
+    => KademliaDHTInstance -> NetworkAddress -> m ()
+kademliaJoinNetwork' inst peer = do
+    res <- liftIO $ K.joinNetwork (kdiHandle inst) (toKPeer peer)
     case res of
         K.JoinSuccess -> pure ()
         K.NodeDown -> throw NodeDown
         K.NodeBanned ->
             logInfo $
-            sformat ("joinNetwork: node " % build % " is banned") node
+            sformat ("joinNetwork: peer " % build % " is banned") peer
         K.IDClash ->
             logInfo $
-            sformat ("joinNetwork: node " % build % " already contains us") node
+            sformat ("joinNetwork: peer " % build % " already contains us") peer
 
 kademliaJoinNetworkNoThrow
     :: ( MonadIO m
@@ -246,10 +242,10 @@ kademliaJoinNetworkNoThrow
        , Bi DHTData
        )
     => KademliaDHTInstance
-    -> [DHTNode]
+    -> [NetworkAddress]
     -> m ()
 kademliaJoinNetworkNoThrow inst peers = kademliaJoinNetwork inst peers `catch` handleJoinE
     where
     handleJoinE AllPeersUnavailable =
-        logWarning $ sformat ("Not connected to any of peers " % build) peers
+        logWarning $ sformat ("Not connected to any of peers "%listJson) peers
     handleJoinE e = throw e

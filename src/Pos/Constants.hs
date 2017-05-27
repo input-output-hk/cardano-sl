@@ -57,9 +57,9 @@ import           System.Environment          (lookupEnv)
 import qualified Text.Parsec                 as P
 
 import           Pos.CompileConfig           (CompileConfig (..), compileConfig)
-import           Pos.DHT.Model.Types         (DHTNode, dhtNodeParser)
 import           Pos.Update.Core             (SystemTag, mkSystemTag)
 import           Pos.Util                    ()
+import           Pos.Util.TimeWarp           (NetworkAddress, addrParser)
 
 -- Reexports
 import           Pos.Communication.Constants
@@ -111,13 +111,13 @@ propagationQueueSize =
     fromIntegral $ ccPropagationQueueSize $ compileConfig
 
 -- | See 'Pos.CompileConfig.ccDefaultPeers'.
-defaultPeers :: [DHTNode]
+defaultPeers :: [NetworkAddress]
 defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
   where
-    parsePeer :: String -> DHTNode
+    parsePeer :: String -> NetworkAddress
     parsePeer =
         either (error . show) identity .
-        P.parse dhtNodeParser "Compile time config"
+        P.parse addrParser "Compile time config"
 
 -- | Max VSS certificate TTL (Ssc.GodTossing part)
 vssMaxTTL :: Integral i => i

@@ -15,7 +15,8 @@ import           Data.ByteString.Lazy   (fromStrict, toStrict)
 import qualified Network.Kademlia       as K
 
 import           Pos.Binary.Class       (Bi (..), decodeOrFail, encodeStrict)
-import           Pos.DHT.Model.Types    (DHTData, DHTKey, DHTNode (..))
+import           Pos.DHT.Model.Types    (DHTData, DHTKey)
+import           Pos.Util.TimeWarp      (NetworkAddress)
 
 fromBSBinary :: Bi b => BS.ByteString -> Either String (b, BS.ByteString)
 fromBSBinary bs =
@@ -37,7 +38,7 @@ type DHTHandle = K.KademliaInstance DHTKey DHTData
 data KademliaDHTInstance = KademliaDHTInstance
     { kdiHandle          :: !DHTHandle
     , kdiKey             :: !DHTKey
-    , kdiInitialPeers    :: ![DHTNode]
+    , kdiInitialPeers    :: ![NetworkAddress]
     , kdiExplicitInitial :: !Bool
     , kdiKnownPeersCache :: !(TVar [K.Node DHTKey])
     , kdiDumpPath        :: !FilePath
@@ -48,8 +49,7 @@ data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
     { kdcHost            :: !BS.ByteString
     , kdcPort            :: !Word16
     , kdcKey             :: !(Maybe DHTKey)
-    , kdcInitialPeers    :: ![DHTNode]
+    , kdcInitialPeers    :: ![NetworkAddress]
     , kdcExplicitInitial :: !Bool
     , kdcDumpPath        :: !FilePath
-    }
-    deriving (Show)
+    } deriving (Show)

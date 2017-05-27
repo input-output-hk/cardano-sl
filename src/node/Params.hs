@@ -16,11 +16,11 @@ import qualified Pos.CLI             as CLI
 import           Pos.Constants       (isDevelopment)
 import           Pos.Core.Types      (Timestamp (..))
 import           Pos.Crypto          (VssKeyPair)
-import           Pos.DHT.Model       (DHTNode)
-import           Pos.DHT.Real        (KademliaParams (..), readDhtPeersFile)
+import           Pos.DHT.Real        (KademliaParams (..))
 import           Pos.Genesis         (genesisStakeDistribution, genesisUtxo)
 import           Pos.Ssc.GodTossing  (GtParams (..))
 import           Pos.Update.Params   (UpdateParams (..))
+import           Pos.Util.TimeWarp   (NetworkAddress, readAddrFile)
 import           Pos.Util.UserSecret (peekUserSecret)
 
 import           NodeOptions         (Args (..))
@@ -38,9 +38,9 @@ loggingParams tag Args{..} =
     , lpEkgPort = monitorPort
     }
 
-getPeersFromArgs :: Args -> IO [DHTNode]
+getPeersFromArgs :: Args -> IO [NetworkAddress]
 getPeersFromArgs Args {..} = do
-    filePeers <- maybe (return []) readDhtPeersFile dhtPeersFile
+    filePeers <- maybe (return []) readAddrFile dhtPeersFile
     pure $ dhtPeersList ++ filePeers
 
 -- | Load up the KademliaParams. It's in IO because we may have to read a
@@ -48,7 +48,7 @@ getPeersFromArgs Args {..} = do
 getKademliaParams :: Args -> IO KademliaParams
 getKademliaParams args@Args{..} = do
     allPeers <- getPeersFromArgs args
-    return $ KademliaParams
+    pure $ KademliaParams
                  { kpNetworkAddress  = dhtNetworkAddress
                  , kpPeers           = allPeers
                  , kpKey             = dhtKey
@@ -82,7 +82,7 @@ getNodeParams args@Args {..} systemStart = do
         userSecretWithGenesisKey args =<<
         updateUserSecretVSS args =<<
         peekUserSecret (getKeyfilePath args)
-    return NodeParams
+    pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB
         , npSecretKey = primarySK

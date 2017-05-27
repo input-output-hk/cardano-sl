@@ -23,7 +23,7 @@ module Pos.Block.Logic.Slog
 
 import           Universum
 
-import           Control.Lens          (each, _Right, _Wrapped)
+import           Control.Lens          (_Wrapped)
 import           Control.Monad.Except  (MonadError (throwError))
 import qualified Data.List.NonEmpty    as NE
 import qualified Ether
@@ -34,7 +34,7 @@ import           System.Wlog           (WithLogger, logWarning)
 
 import           Pos.Binary.Core       ()
 import           Pos.Block.BListener   (MonadBListener (..))
-import           Pos.Block.Core        (Block, genBlockLeaders, mainBlockLeaderKey)
+import           Pos.Block.Core        (Block, genBlockLeaders)
 import           Pos.Block.Pure        (verifyBlocks)
 import           Pos.Block.Types       (Blund)
 import           Pos.Constants         (lastKnownBlockVersion)
@@ -139,14 +139,8 @@ slogVerifyBlocks blocks = do
             when (block ^. genBlockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
-    -- For all issuers of blocks we're processing retrieve their PSK
-    -- trees if any and create a hashmap of these.
-    pskCerts <- do
-        let issuers = blocks ^.. _Wrapped . each . _Right . mainBlockLeaderKey
-        GS.getPskForest $ Left issuers
     verResToMonadError formatAllErrors $
-        verifyBlocks curSlot dataMustBeKnown adoptedBVD
-        leaders pskCerts blocks
+        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocks
 
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
 type SlogApplyMode ssc m =

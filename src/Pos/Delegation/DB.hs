@@ -7,13 +7,13 @@
 -- It stores three mappings:
 --
 -- 1. Psk mapping: Issuer → PSK, where pskIssuer of PSK is Issuer (must
--- be consistent). We don't store revokation psks, instead we just
--- delete previous Issuer → PSK. DB must not contain revokation psks.
+-- be consistent). We don't store revocation psks, instead we just
+-- delete previous Issuer → PSK. DB must not contain revocation psks.
 --
 -- 2. Dlg transitive mapping: Issuer → Delegate. This one is
 -- transitive relation "i delegated to d through some chain of
 -- certificates". DB must not contain cycles in psk mapping. As
--- mappings of kind I → I are forbidden (no revokation psks), Delegate
+-- mappings of kind I → I are forbidden (no revocation psks), Delegate
 -- is always different from Issuer.
 --
 -- 3. Dlg reverse transitive mapping: Delegate →
@@ -31,6 +31,8 @@ module Pos.Delegation.DB
        , DlgEdgeAction (..)
        , pskToDlgEdgeAction
        , dlgEdgeActionIssuer
+       , withEActionsResolve
+
        , DelegationOp (..)
 
        , runDlgTransIterator
@@ -41,24 +43,25 @@ module Pos.Delegation.DB
 
 import           Universum
 
-import           Control.Lens         (uses, (%=))
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.HashSet         as HS
-import qualified Database.RocksDB     as Rocks
+import           Control.Lens           (uses, (%=))
+import qualified Data.HashMap.Strict    as HM
+import qualified Data.HashSet           as HS
+import qualified Database.RocksDB       as Rocks
 
-import           Pos.Binary.Class     (encodeStrict)
-import           Pos.Crypto           (PublicKey, pskIssuerPk)
-import           Pos.DB.Class         (MonadDB, MonadDBPure)
-import           Pos.DB.Error         (DBError (DBMalformed))
-import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix)
-import           Pos.DB.GState.Common (gsGetBi)
-import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
-                                       IterType, runDBnIterator, runDBnMapIterator)
-import           Pos.DB.Types         (NodeDBs (_gStateDB))
-import           Pos.Delegation.Pure  (isRevokePsk)
-import           Pos.Delegation.Types (DlgMemPool)
-import           Pos.Types            (ProxySKHeavy, StakeholderId, addressHash)
-import           Pos.Util.Iterator    (nextItem)
+import           Pos.Binary.Class       (encodeStrict)
+import           Pos.Crypto             (PublicKey, pskIssuerPk)
+import           Pos.DB.Class           (MonadDB, MonadDBPure)
+import           Pos.DB.Error           (DBError (DBMalformed))
+import           Pos.DB.Functions       (RocksBatchOp (..), encodeWithKeyPrefix)
+import           Pos.DB.GState.Common   (gsGetBi)
+import           Pos.DB.Iterator        (DBIteratorClass (..), DBnIterator,
+                                         DBnMapIterator, IterType, runDBnIterator,
+                                         runDBnMapIterator)
+import           Pos.DB.Types           (NodeDBs (_gStateDB))
+import           Pos.Delegation.Helpers (isRevokePsk)
+import           Pos.Delegation.Types   (DlgMemPool)
+import           Pos.Types              (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Util.Iterator      (nextItem)
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors
@@ -128,7 +131,7 @@ getDlgTransitiveReverse :: MonadDBPure m => PublicKey -> m (HashSet PublicKey)
 getDlgTransitiveReverse dPk = fmap (fromMaybe mempty) $ gsGetBi (transRevDlgKey dPk)
 
 ----------------------------------------------------------------------------
--- Batch operations
+-- DlgEdgeAction and friends
 ----------------------------------------------------------------------------
 
 -- | Action on delegation database, used commonly. Generalizes
@@ -151,6 +154,22 @@ dlgEdgeActionIssuer :: DlgEdgeAction -> PublicKey
 dlgEdgeActionIssuer = \case
     (DlgEdgeDel iPk) -> iPk
     (DlgEdgeAdd psk) -> pskIssuerPk psk
+
+-- | Resolves issuer to heavy PSK using mapping (1) with given set of
+-- changes eActions. This set of changes is a map @i -> eAction@,
+-- where @i = dlgEdgeActionIssuer eAction@.
+withEActionsResolve
+    :: (MonadDBPure m)
+    => HashMap PublicKey DlgEdgeAction -> PublicKey -> m (Maybe ProxySKHeavy)
+withEActionsResolve eActions iPk =
+    case HM.lookup iPk eActions of
+        Nothing                -> getPskByIssuer $ Left iPk
+        Just (DlgEdgeDel _)    -> pure Nothing
+        Just (DlgEdgeAdd psk ) -> pure (Just psk)
+
+----------------------------------------------------------------------------
+-- Batch operations
+----------------------------------------------------------------------------
 
 data DelegationOp
     = PskFromEdgeAction !DlgEdgeAction

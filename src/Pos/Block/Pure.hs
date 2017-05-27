@@ -20,7 +20,6 @@ module Pos.Block.Pure
 import           Universum
 
 import           Control.Lens               (ix)
-import qualified Data.HashMap.Strict        as HM
 import           Formatting                 (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util              (VerificationRes (..), verifyGeneric)
@@ -29,11 +28,9 @@ import           Pos.Binary.Block.Core      ()
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Binary.Core            ()
 import           Pos.Binary.Update          ()
-import           Pos.Block.Core             (BiSsc, Block, BlockHeader,
-                                             BlockSignature (..), gbhConsensus,
-                                             gebAttributes, gehAttributes,
-                                             genBlockLeaders, getBlockHeader,
-                                             mainHeaderLeaderKey, mcdSignature,
+import           Pos.Block.Core             (BiSsc, Block, BlockHeader, gebAttributes,
+                                             gehAttributes, genBlockLeaders,
+                                             getBlockHeader, mainHeaderLeaderKey,
                                              mebAttributes, mehAttributes)
 import           Pos.Core                   (BlockVersionData (..), ChainDifficulty,
                                              EpochOrSlot, HasDifficulty (..),
@@ -41,10 +38,7 @@ import           Pos.Core                   (BlockVersionData (..), ChainDifficu
                                              HasHeaderHash (..), HeaderHash, SlotId (..),
                                              SlotLeaders, addressHash, gbExtra, gbhExtra,
                                              getSlotIndex, headerSlotL, prevBlockL)
-import           Pos.Crypto                 (pdCert, pdDelegatePk)
 import           Pos.Data.Attributes        (Attributes (attrRemain))
-import           Pos.Delegation.Pure        (dlgMemPoolApplyBlock, dlgReachesIssuance)
-import           Pos.Delegation.Types       (DlgMemPool)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
@@ -66,10 +60,6 @@ data VerifyHeaderParams ssc = VerifyHeaderParams
       -- ^ Current slot is used to check whether header is not from future.
     , vhpLeaders         :: !(Maybe SlotLeaders)
       -- ^ Set of leaders for the epoch related block is from
-    , vhpHeavyCerts      :: !(Maybe DlgMemPool)
-      -- ^ Subset of heavy certs delegation map, where keys only
-      -- contain public keys of block issuers passed to checking
-      -- function.
     , vhpMaxSize         :: !(Maybe Byte)
       -- ^ Maximal allowed header size. It's applied to 'BlockHeader'.
     , vhpVerifyNoUnknown :: !Bool
@@ -93,7 +83,6 @@ verifyHeader VerifyHeaderParams {..} h =
             [ maybeMempty relatedToPrevHeader vhpPrevHeader
             , maybeMempty relatedToCurrentSlot vhpCurrentSlot
             , maybeMempty relatedToLeaders vhpLeaders
-            , maybeMempty heavyCertValid vhpHeavyCerts
             , checkSize
             , bool mempty (verifyNoUnknown h) vhpVerifyNoUnknown
             ]
@@ -181,31 +170,6 @@ verifyHeader VerifyHeaderParams {..} h =
              , sformat ("main header has unknown attributes: "%build) attrs)
            ]
 
-    heavyCertValid validCerts = flip (either mempty) h $ \h' ->
-        case h' ^. gbhConsensus ^. mcdSignature of
-            (BlockPSignatureHeavy pSig) ->
-                -- Block consensus public key is issuer's one, so we can
-                -- use it to index heavy psks map.
-                let delegate = pdDelegatePk pSig
-                    issuer = h' ^. mainHeaderLeaderKey
-                    delegatePsk = HM.lookup delegate validCerts
-                    validCertsResolver pk = Identity $ HM.lookup pk validCerts
-                in [ ( delegatePsk == Nothing
-                     , sformat ("delegate has issued the psk himself ("%build%") "%
-                                "so he can't issue the block, signature: "%build)
-                               delegatePsk pSig)
-                   -- TODO FIXME 228 THIS CHECK IS INVALID
-                   -- IT'S NOT ENOUGH TO CHECK W/ PSKS DB SUBSET ONLY
-                   -- WE MUST DO THIS CHECK WITH DATABASE CONTEXT
-                   , ( runIdentity $
-                       dlgReachesIssuance validCertsResolver issuer delegate (pdCert pSig)
-                     , sformat ("proxy signature's "%build%" related proxy cert "%
-                                "can't be found/doesn't match the one in current "%
-                                "allowed heavy psks set")
-                               pSig)
-                   ]
-            _                           -> mempty
-
 -- | Verifies a set of block headers. Only basic consensus check and
 -- linking checks are performed!
 verifyHeaders
@@ -225,7 +189,6 @@ verifyHeaders (NewestFirst (headers@(_:xh))) = mconcat verified
         { vhpPrevHeader = p
         , vhpCurrentSlot = Nothing
         , vhpLeaders = Nothing
-        , vhpHeavyCerts = Nothing
         , vhpMaxSize = Nothing
         , vhpVerifyNoUnknown = False
         }
@@ -242,7 +205,7 @@ data VerifyBlockParams ssc = VerifyBlockParams
     { vbpVerifyHeader    :: !(VerifyHeaderParams ssc)
       -- ^ Verifies header accordingly to params ('verifyHeader')
     , vbpMaxSize         :: !Byte
-    -- ^ Maximal block size. This value limit size of `Block` (which
+    -- ^ Maximal block size. This value limit size of 'Block' (which
     -- is either main or genesis block).
     , vbpVerifyNoUnknown :: !Bool
     -- ^ Check that block has no unknown attributes.
@@ -281,8 +244,7 @@ verifyBlock VerifyBlockParams {..} blk =
                ]
 
 -- Type alias for the fold accumulator used inside 'verifyBlocks'
-type VerifyBlocksIter ssc =
-    (SlotLeaders, DlgMemPool, Maybe (BlockHeader ssc), VerificationRes)
+type VerifyBlocksIter ssc = (SlotLeaders, Maybe (BlockHeader ssc), VerificationRes)
 
 -- CHECK: @verifyBlocks
 -- Verifies a sequence of blocks.
@@ -303,10 +265,9 @@ verifyBlocks
     -> Bool
     -> BlockVersionData
     -> SlotLeaders
-    -> DlgMemPool
     -> OldestFirst f (Block ssc)
     -> VerificationRes
-verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . foldl' step start
+verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where
     start :: VerifyBlocksIter ssc
     -- Note that here we never know previous header before this
@@ -315,21 +276,17 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . fold
     -- must do these checks in advance, when we are processing
     -- headers. However, it's a little obscure invariant, so keep it
     -- in mind.
-    start = (initLeaders, initPsks, Nothing, mempty)
+    start = (initLeaders, Nothing, mempty)
     step :: VerifyBlocksIter ssc -> Block ssc -> VerifyBlocksIter ssc
-    step (leaders, psks, prevHeader, res) blk =
+    step (leaders, prevHeader, res) blk =
         let newLeaders = case blk of
                 Left genesisBlock -> genesisBlock ^. genBlockLeaders
                 Right _           -> leaders
-            newPsks = case blk of
-                Left _  -> psks
-                Right b -> dlgMemPoolApplyBlock b psks
             vhp =
                 VerifyHeaderParams
                 { vhpPrevHeader = prevHeader
                 , vhpLeaders = Just newLeaders
                 , vhpCurrentSlot = curSlotId
-                , vhpHeavyCerts = Just psks
                 , vhpMaxSize = Just (bvdMaxHeaderSize bvd)
                 , vhpVerifyNoUnknown = verifyNoUnknown
                 }
@@ -339,4 +296,4 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . fold
                 , vbpMaxSize = bvdMaxBlockSize bvd
                 , vbpVerifyNoUnknown = verifyNoUnknown
                 }
-        in (newLeaders, newPsks, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)
+        in (newLeaders, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)

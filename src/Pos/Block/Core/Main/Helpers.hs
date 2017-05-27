@@ -47,14 +47,7 @@ verifyMainBlockHeader ::
        (Ssc ssc, MonadError Text m, Bi $ BodyProof $ MainBlockchain ssc)
     => MainBlockHeader ssc
     -> m ()
-verifyMainBlockHeader UnsafeGenericBlockHeader { _gbhConsensus = MainConsensusData { _mcdLeaderKey = leaderPk
-                                                                                   , _mcdSlot = slotId
-                                                                                   , _mcdDifficulty = difficulty
-                                                                                   , ..
-                                                                                   }
-                                               , _gbhExtra = extra
-                                               , ..
-                                               } =
+verifyMainBlockHeader mbh =
     unless (verifyBlockSignature _mcdSignature) $
     throwError "can't verify signature"
   where
@@ -72,3 +65,13 @@ verifyMainBlockHeader UnsafeGenericBlockHeader { _gbhConsensus = MainConsensusDa
         proxyVerify SignMainBlockHeavy leaderPk proxySig (const True) signature
     signature = MainToSign _gbhPrevBlock _gbhBodyProof slotId difficulty extra
     epochId = siEpoch slotId
+    UnsafeGenericBlockHeader {
+        _gbhConsensus = MainConsensusData
+            { _mcdLeaderKey = leaderPk
+            , _mcdSlot = slotId
+            , _mcdDifficulty = difficulty
+            , ..
+            }
+      , _gbhExtra = extra
+      , ..
+      } = mbh

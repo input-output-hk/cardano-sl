@@ -444,9 +444,6 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                 { T.vhpPrevHeader = prev
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
                 , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
-                -- Not used in verifyHeaders, because we can't update
-                -- this hashmap w/o block body.
-                , T.vhpHeavyCerts = Nothing
                 , T.vhpMaxSize = Just (biSize header)
                 , T.vhpVerifyNoUnknown = not hasUnknownAttributes
                 }

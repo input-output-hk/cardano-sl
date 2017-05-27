@@ -23,20 +23,20 @@ module Pos.Context.Functions
        , recoveryCommGuard
        ) where
 
-import qualified Control.Concurrent.STM     as STM
-import           Data.Time                  (diffUTCTime, getCurrentTime)
-import           Data.Time.Units            (Microsecond, fromMicroseconds)
+import qualified Control.Concurrent.STM           as STM
+import           Data.Time                        (diffUTCTime, getCurrentTime)
+import           Data.Time.Units                  (Microsecond, fromMicroseconds)
 import qualified Ether
 import           Universum
 
-import           Pos.Communication.Protocol (ActionSpec (..), OutSpecs, WorkerSpec)
-import           Pos.Context.Context        (BlkSemaphore (..), GenesisLeaders (..),
-                                             GenesisUtxo (..), MonadRecoveryHeader,
-                                             RecoveryHeaderTag, StartTime (..))
-import           Pos.Lrc.Context            (lrcActionOnEpoch, lrcActionOnEpochReason,
-                                             waitLrc)
-import           Pos.Txp.Toil.Types         (Utxo)
-import           Pos.Types                  (HeaderHash, SlotLeaders)
+import           Pos.Communication.Types.Protocol (ActionSpec (..), OutSpecs, WorkerSpec)
+import           Pos.Context.Context              (BlkSemaphore (..), GenesisLeaders (..),
+                                                   GenesisUtxo (..), MonadRecoveryHeader,
+                                                   RecoveryHeaderTag, StartTime (..))
+import           Pos.Lrc.Context                  (lrcActionOnEpoch,
+                                                   lrcActionOnEpochReason, waitLrc)
+import           Pos.Txp.Toil.Types               (Utxo)
+import           Pos.Types                        (HeaderHash, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -86,8 +86,8 @@ recoveryInProgress = do
     var <- Ether.ask @RecoveryHeaderTag
     isJust <$> atomically (STM.tryReadTMVar var)
 
-
-
+-- | This function is helper for workers.
+-- It doesn't run a worker if the node is in recovery mode.
 recoveryCommGuard
     :: (MonadIO m, MonadRecoveryHeader ssc m)
     => (WorkerSpec m, OutSpecs) -> (WorkerSpec m, OutSpecs)

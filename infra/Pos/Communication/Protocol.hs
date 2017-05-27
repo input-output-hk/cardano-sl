@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -30,8 +31,8 @@ import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Text.Buildable              as B
 import           Formatting                       (bprint, build, sformat, (%))
-import           Mockable                         (Delay, Fork, Mockable, SharedAtomic,
-                                                   Throw, throw)
+import           Mockable                         (Delay, Fork, Mockable, Mockables,
+                                                   SharedAtomic, Throw, throw)
 import qualified Node                             as N
 import           Node.Message                     (Message (..), MessageName (..),
                                                    messageName')
@@ -190,18 +191,10 @@ worker' outSpecs h =
 
 
 type OnNewSlotComm m =
-    ( MonadIO m
-    , MonadSlots m
-    , MonadMask m
-    , WithLogger m
-    , Mockable Fork m
-    , Mockable Delay m
+    ( LocalOnNewSlotComm m
     , Mockable Throw m
     , WithPeerState m
     , Mockable SharedAtomic m
-    , MonadReportingMem m
-    , MonadShutdownMem m
-    , MonadDiscovery m
     )
 
 type LocalOnNewSlotComm m =
@@ -209,8 +202,7 @@ type LocalOnNewSlotComm m =
     , MonadSlots m
     , MonadMask m
     , WithLogger m
-    , Mockable Fork m
-    , Mockable Delay m
+    , Mockables m [Fork, Delay]
     , MonadReportingMem m
     , MonadShutdownMem m
     , MonadDiscovery m

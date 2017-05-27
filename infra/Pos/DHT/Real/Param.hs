@@ -2,7 +2,7 @@ module Pos.DHT.Real.Param
        ( KademliaParams(..)
        ) where
 
-import           Pos.DHT.Model.Types (DHTKey, DHTNode)
+import           Pos.DHT.Model.Types (DHTKey)
 import           Pos.Util.TimeWarp   (NetworkAddress)
 import           Universum
 

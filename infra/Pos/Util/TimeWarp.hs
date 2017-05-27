@@ -22,7 +22,6 @@ import qualified Network.Transport.TCP.Internal as TCP
 import           Node                           (NodeId (..))
 import qualified Serokell.Util.Parse            as P
 import           Text.Parsec                    as P
-import qualified Text.Parsec.Char               as P
 import qualified Text.Parsec.String             as P
 import           Universum
 

@@ -53,7 +53,7 @@ nodeIdToAddress (NodeId ep) = do
 
 -- | Parsed for network address in format @host:port@.
 addrParser :: P.Parser NetworkAddress
-addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port)
+addrParser = (,) <$> (encodeUtf8 <$> P.host) <*> (P.char ':' *> P.port) <* P.eof
 
 readAddrFile :: FilePath -> IO [NetworkAddress]
 readAddrFile path = do

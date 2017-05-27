@@ -76,7 +76,7 @@ function dht_key {
 
 function peer_config {
   local j=$1
-  echo -n " --kademlia-peer 127.0.0.1:"`get_port $j`'/'`dht_key $j`
+  echo -n " --kademlia-peer 127.0.0.1:"`get_port $j`
 }
 
 function dht_config {

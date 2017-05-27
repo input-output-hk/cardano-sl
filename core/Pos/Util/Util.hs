@@ -16,8 +16,10 @@ module Pos.Util.Util
        , liftGetterSome
 
        , maybeThrow
+       , eitherToFail
        , getKeys
        , sortWithMDesc
+       , leftToPanic
 
        -- * Lenses
        , _neHead
@@ -84,12 +86,15 @@ import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (MonadResource (..))
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
+import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
 import           Data.Time.Units                (Attosecond, Day, Femtosecond, Fortnight,
                                                  Hour, Microsecond, Millisecond, Minute,
                                                  Nanosecond, Picosecond, Second, Week,
                                                  toMicroseconds)
+import           Data.Typeable                  (typeRep)
 import qualified Ether
+import qualified Formatting                     as F
 import qualified Language.Haskell.TH.Syntax     as TH
 import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
                                                  MFunctor' (..), Mockable (..), Promise,
@@ -260,6 +265,10 @@ type instance ChannelT (Ether.TaggedTrans tag t m) = ChannelT m
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
 
+-- | Fail or return result depending on what is stored in 'Either'.
+eitherToFail :: (MonadFail m, ToString s) => Either s a -> m a
+eitherToFail = either (fail . toString) pure
+
 -- | Create HashSet from HashMap's keys
 getKeys :: HashMap k v -> HashSet k
 getKeys = fromMap . void
@@ -271,6 +280,12 @@ sortWithMDesc :: (Monad m, Ord b) => (a -> m b) -> [a] -> m [a]
 sortWithMDesc f = fmap (map fst . sortWith (Down . snd)) . mapM f'
   where
     f' x = (x, ) <$> f x
+
+-- | Partial function which calls 'error' with meaningful message if
+-- given 'Left' and returns some value if given 'Right'.
+-- Intended usage is when you're sure that value must be right.
+leftToPanic :: Buildable a => Text -> Either a b -> b
+leftToPanic msgPrefix = either (error . mappend msgPrefix . pretty) identity
 
 -- | Make a Reader or State computation work in an Ether transformer. Useful
 -- to make lenses work with Ether.
@@ -285,6 +300,12 @@ instance {-# OVERLAPPING #-} PowerLift m m where
 
 instance (MonadTrans t, PowerLift m n, Monad n) => PowerLift m (t n) where
   powerLift = lift . powerLift @m @n
+
+instance (Typeable s, Buildable a) => Buildable (Tagged s a) where
+    build tt@(Tagged v) = F.bprint ("Tagged " F.% F.shown F.% " " F.% F.build) ts v
+      where
+        ts = typeRep proxy
+        proxy = (const Proxy :: Tagged s a -> Proxy s) tt
 
 -- | This function performs checks at compile-time for different actions.
 -- May slowdown implementation. To disable such checks (especially in benchmarks)

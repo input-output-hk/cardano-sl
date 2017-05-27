@@ -27,7 +27,7 @@ module Pos.Ssc.Extra.Logic
 import           Universum
 
 import           Control.Concurrent.STM   (readTVar, writeTVar)
-import           Control.Lens             (choosing, _Wrapped)
+import           Control.Lens             (_Wrapped)
 import           Control.Monad.Except     (MonadError, runExceptT)
 import           Control.Monad.Morph      (generalize, hoist)
 import           Control.Monad.State      (get, put)
@@ -38,10 +38,11 @@ import           Serokell.Util            (listJson)
 import           System.Wlog              (NamedPureLogger, WithLogger,
                                            launchNamedPureLog, logDebug)
 
-import           Pos.Core                 (EpochIndex, HeaderHash, SharedSeed, SlotId,
-                                           epochIndexL, headerHash)
-import           Pos.DB.Class             (MonadDB)
+import           Pos.Core                 (EpochIndex, HeaderHash, IsHeader, SharedSeed,
+                                           SlotId, epochIndexL, headerHash)
+import           Pos.DB.Class             (MonadBlockDBGeneric, MonadDB, MonadDBPure)
 import           Pos.DB.Functions         (SomeBatchOp)
+import           Pos.DB.GState.Common     (getTipHeader)
 import           Pos.Exception            (assertionFailed)
 import           Pos.Lrc.Context          (LrcContext, lrcActionOnEpochReason)
 import           Pos.Lrc.Types            (RichmenStake)
@@ -54,7 +55,7 @@ import           Pos.Ssc.Extra.Class      (MonadSscMem, askSscMem)
 import           Pos.Ssc.Extra.Types      (SscState (sscGlobal, sscLocal))
 import           Pos.Ssc.RichmenComponent (getRichmenSsc)
 import           Pos.Util.Chrono          (NE, NewestFirst, OldestFirst)
-import           Pos.Util.Util            (inAssertMode, _neHead, _neLast)
+import           Pos.Util.Util            (Some, inAssertMode, _neHead, _neLast)
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -142,15 +143,17 @@ sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 sscNormalize
     :: forall ssc m.
        ( MonadDB m
+       , MonadDBPure m
+       , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
        , MonadSscMem ssc m
        , SscLocalDataClass ssc
        , Ether.MonadReader' LrcContext m
        , SscHelpersClass ssc
        , WithLogger m
        )
-    => EpochIndex          -- ^ Tip block's epoch
-    -> m ()
-sscNormalize tipEpoch = do
+    => m ()
+sscNormalize = do
+    tipEpoch <- view epochIndexL <$> getTipHeader @(SscBlock ssc)
     richmenData <- getRichmenFromLrc "sscNormalize" tipEpoch
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
@@ -163,9 +166,14 @@ sscNormalize tipEpoch = do
 -- | Reset local data to empty state.  This function can be used when
 -- we detect that something is really bad. In this case it makes sense
 -- to remove all local data to be sure it's valid.
-sscResetLocal
-    :: forall ssc m.
-       (MonadDB m, MonadSscMem ssc m, SscLocalDataClass ssc, MonadSlots m)
+sscResetLocal ::
+       forall ssc m.
+       ( MonadDBPure m
+       , MonadSscMem ssc m
+       , SscLocalDataClass ssc
+       , MonadSlots m
+       , MonadIO m
+       )
     => m ()
 sscResetLocal = do
     emptyLD <- sscNewLocalData @ssc
@@ -181,10 +189,10 @@ sscResetLocal = do
 -- 'MonadDB' is needed only to get richmen.
 -- We can try to eliminate these constraints later.
 type SscGlobalApplyMode ssc m =
-    (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m,
+    (MonadSscMem ssc m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
      MonadDB m, Ether.MonadReader' LrcContext m)
 type SscGlobalVerifyMode ssc m =
-    (MonadSscMem ssc m, SscGStateClass ssc, WithLogger m,
+    (MonadSscMem ssc m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
      MonadDB m, Ether.MonadReader' LrcContext m,
      MonadError (SscVerifyError ssc) m)
 
@@ -211,7 +219,7 @@ sscApplyBlocks
     -> m [SomeBatchOp]
 sscApplyBlocks blocks (Just newState) = do
     inAssertMode $ do
-        let hashes = map (either headerHash (headerHash . fst)) blocks
+        let hashes = map headerHash blocks
         expectedState <- sscVerifyValidBlocks blocks
         if | newState == expectedState -> pass
            | otherwise -> onUnexpectedVerify hashes
@@ -238,7 +246,7 @@ sscVerifyValidBlocks blocks =
         Left e -> onVerifyFailedInApply @ssc hashes e
         Right newState -> return newState
   where
-    hashes = map (either headerHash (headerHash . fst)) blocks
+    hashes = map headerHash blocks
 
 onVerifyFailedInApply
     :: forall ssc m a.
@@ -280,10 +288,8 @@ sscVerifyBlocks
        SscGlobalVerifyMode ssc m
     => OldestFirst NE (SscBlock ssc) -> m (SscGlobalState ssc)
 sscVerifyBlocks blocks = do
-    let epoch = blocks ^. _Wrapped . _neHead .
-                          choosing epochIndexL (_1 . epochIndexL)
-    let lastEpoch = blocks ^. _Wrapped . _neLast .
-                              choosing epochIndexL (_1 . epochIndexL)
+    let epoch = blocks ^. _Wrapped . _neHead . epochIndexL
+    let lastEpoch = blocks ^. _Wrapped . _neLast . epochIndexL
     let differentEpochsMsg =
             sformat
                 ("sscVerifyBlocks: different epochs ("%int%", "%int%")")

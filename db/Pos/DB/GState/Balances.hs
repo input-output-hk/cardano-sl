@@ -19,7 +19,7 @@ import           Pos.Binary.Core      ()
 import           Pos.Core.Types       (Coin, StakeholderId)
 import           Pos.Util.Util        (maybeThrow)
 
-import           Pos.DB.Class         (MonadDB)
+import           Pos.DB.Class         (MonadDBPure)
 import           Pos.DB.Error         (DBError (DBMalformed))
 import           Pos.DB.Functions     (encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (gsGetBi)
@@ -59,7 +59,7 @@ ftsSumKey = "b/ftssum"
 -- because spending is done using Utxo. For example, one can send
 -- coins to script address and not include it into transaction
 -- distribution.
-getRealTotalStake :: MonadDB m => m Coin
+getRealTotalStake :: MonadDBPure m => m Coin
 getRealTotalStake =
     maybeThrow (DBMalformed "no total FTS stake in GState DB") =<< getRealStakeSumMaybe
 
@@ -67,12 +67,12 @@ getRealTotalStake =
 -- used for FTS and similar procedures). Word `real` is essential
 -- here. See documentation of 'getRealTotalStake' for some
 -- explanation.
-getRealStake :: MonadDB m => StakeholderId -> m (Maybe Coin)
+getRealStake :: MonadDBPure m => StakeholderId -> m (Maybe Coin)
 getRealStake = gsGetBi . ftsStakeKey
 
 ----------------------------------------------------------------------------
 -- Details
 ----------------------------------------------------------------------------
 
-getRealStakeSumMaybe :: MonadDB m => m (Maybe Coin)
+getRealStakeSumMaybe :: MonadDBPure m => m (Maybe Coin)
 getRealStakeSumMaybe = gsGetBi ftsSumKey

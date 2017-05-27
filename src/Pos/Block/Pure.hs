@@ -4,269 +4,65 @@
 -- | Pure functions related to blocks and headers.
 
 module Pos.Block.Pure
-       ( blockDifficultyIncrement
-       , headerDifficultyIncrement
-       , mkGenericBlock
-       , mkGenericHeader
-       , mkMainBlock
-       , recreateMainBlock
-       , mkMainHeader
-       , mkGenesisHeader
-       , mkGenesisBlock
+       ( headerDifficultyIncrement
 
-       , genesisHash
-
-       , VerifyBlockParams (..)
+       -- * Header
        , VerifyHeaderParams (..)
-       , verifyBlock
-       , verifyBlocks
-       , verifyGenericBlock
        , verifyHeader
        , verifyHeaders
+
+       -- * Block
+       , VerifyBlockParams (..)
+       , verifyBlocks
        ) where
 
-import           Control.Lens                 (ix, (%=))
-import           Control.Monad.Except         (MonadError (throwError))
-import           Data.Default                 (Default (def))
-import qualified Data.HashMap.Strict          as HM
-import           Data.List                    (groupBy, partition)
-import           Formatting                   (build, int, sformat, (%))
-import           Serokell.Data.Memory.Units   (Byte, memory)
-import           Serokell.Util.Verify         (VerificationRes (..), verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Block.Core        ()
-import qualified Pos.Binary.Class             as Bi
-import           Pos.Binary.Core              ()
-import           Pos.Binary.Update            ()
-import           Pos.Block.Core               (BiSsc, Block, BlockHeader,
-                                               BlockSignature (..), Body (..),
-                                               ConsensusData (..), GenesisBlock,
-                                               GenesisBlockHeader, GenesisBlockchain,
-                                               GenesisExtraBodyData (..),
-                                               GenesisExtraHeaderData (..), MainBlock,
-                                               MainBlockHeader, MainBlockchain,
-                                               MainExtraBodyData (..),
-                                               MainExtraHeaderData, MainToSign (..),
-                                               gbhConsensus, gebAttributes, gehAttributes,
-                                               genBlockLeaders, getBlockHeader,
-                                               getBlockHeader, mainBlockDlgPayload,
-                                               mainBlockSscPayload, mainHeaderLeaderKey,
-                                               mcdDifficulty, mcdLeaderKey, mcdSignature,
-                                               mcdSlot, mebAttributes, mehAttributes)
-import           Pos.Block.Core.Genesis.Chain (Body (..), ConsensusData (..))
-import           Pos.Block.Core.Main.Chain    (ConsensusData (..))
-import           Pos.Constants                (epochSlots)
-import           Pos.Core                     (ChainDifficulty, EpochIndex, EpochOrSlot,
-                                               HasDifficulty (..), HasEpochIndex (..),
-                                               HasEpochOrSlot (..), HasHeaderHash (..),
-                                               HeaderHash, ProxySKEither, ProxySKHeavyMap,
-                                               SlotId (..), SlotLeaders, addressHash,
-                                               gbhExtra, headerSlotL, prevBlockL)
-import           Pos.Core.Block               (Blockchain (..), GenericBlock (..),
-                                               GenericBlockHeader (..), gbBody,
-                                               gbBodyProof, gbExtra, gbHeader)
-import           Pos.Crypto                   (Hash, ProxySecretKey (..), SecretKey,
-                                               SignTag (..), checkSig, pdCert, proxySign,
-                                               proxyVerify, sign, toPublic, unsafeHash)
-import           Pos.Data.Attributes          (Attributes (attrRemain), mkAttributes)
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass (..))
-import           Pos.Update.Core              (BlockVersionData (..))
-import           Pos.Util.Chrono              (NewestFirst (..), OldestFirst)
-import           Pos.Util.Util                (Some (Some))
+import           Control.Lens               (ix, (%=))
+import qualified Data.HashMap.Strict        as HM
+import           Data.List                  (partition)
+import           Formatting                 (build, int, sformat, (%))
+import           Serokell.Data.Memory.Units (Byte, memory)
+import           Serokell.Util.Verify       (VerificationRes (..), verifyGeneric)
 
+import           Pos.Binary.Block.Core      ()
+import qualified Pos.Binary.Class           as Bi
+import           Pos.Binary.Core            ()
+import           Pos.Binary.Update          ()
+import           Pos.Block.Core             (BiSsc, Block, BlockHeader,
+                                             BlockSignature (..), MainBlock, gbhConsensus,
+                                             gebAttributes, gehAttributes,
+                                             genBlockLeaders, getBlockHeader,
+                                             mainBlockDlgPayload, mainHeaderLeaderKey,
+                                             mcdSignature, mebAttributes, mehAttributes)
+import           Pos.Core                   (BlockVersionData (..), ChainDifficulty,
+                                             EpochOrSlot, HasDifficulty (..),
+                                             HasEpochIndex (..), HasEpochOrSlot (..),
+                                             HasHeaderHash (..), HeaderHash,
+                                             ProxySKHeavyMap, SlotId (..), SlotLeaders,
+                                             addressHash, gbExtra, gbhExtra, getSlotIndex,
+                                             headerSlotL, prevBlockL)
+import           Pos.Crypto                 (ProxySecretKey (..), pdCert)
+import           Pos.Data.Attributes        (Attributes (attrRemain))
+import           Pos.Delegation.Types       (getDlgPayload)
+import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
+import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
+
+----------------------------------------------------------------------------
+-- Header
+----------------------------------------------------------------------------
 
 -- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty
 headerDifficultyIncrement (Left _)  = 0
 headerDifficultyIncrement (Right _) = 1
 
--- | Difficulty of the Block, which is determined from header.
-blockDifficultyIncrement :: Block ssc -> ChainDifficulty
-blockDifficultyIncrement = headerDifficultyIncrement . getBlockHeader
-
--- | Predefined 'Hash' of 'GenesisBlock'.
-genesisHash :: Hash a
-genesisHash = unsafeHash ("patak" :: Text)
-{-# INLINE genesisHash #-}
-
--- | Smart constructor for 'GenericBlockHeader'.
-mkGenericHeader
-    :: forall b.
-       ( HasHeaderHash (BBlockHeader b)
-       , Blockchain b
-       , BHeaderHash b ~ HeaderHash
-       )
-    => Maybe (BBlockHeader b)
-    -> Body b
-    -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
-    -> ExtraHeaderData b
-    -> GenericBlockHeader b
-mkGenericHeader prevHeader body consensus extra =
-    GenericBlockHeader
-    { _gbhPrevBlock = h
-    , _gbhBodyProof = proof
-    , _gbhConsensus = consensus h proof
-    , _gbhExtra = extra
-    }
-  where
-    h :: HeaderHash
-    h = maybe genesisHash headerHash prevHeader
-    proof = mkBodyProof body
-
--- | Smart constructor for 'GenericBlock'. Uses 'mkGenericBlockHeader'.
-mkGenericBlock
-    :: forall b.
-       ( HasHeaderHash (BBlockHeader b)
-       , Blockchain b
-       , BHeaderHash b ~ HeaderHash
-       )
-    => Maybe (BBlockHeader b)
-    -> Body b
-    -> (BHeaderHash b -> BodyProof b -> ConsensusData b)
-    -> ExtraHeaderData b
-    -> ExtraBodyData b
-    -> GenericBlock b
-mkGenericBlock prevHeader _gbBody consensus extraH _gbExtra = GenericBlock{..}
-  where
-    _gbHeader = mkGenericHeader prevHeader _gbBody consensus extraH
-
--- | Smart constructor for 'MainBlockHeader'.
-mkMainHeader
-    :: (BiSsc ssc, SscHelpersClass ssc)
-    => Maybe (BlockHeader ssc)
-    -> SlotId
-    -> SecretKey
-    -> Maybe ProxySKEither
-    -> Body (MainBlockchain ssc)
-    -> MainExtraHeaderData
-    -> MainBlockHeader ssc
-mkMainHeader prevHeader slotId sk pSk body extra =
-        mkGenericHeader prevHeader body consensus extra
-  where
-    difficulty = maybe 0 (succ . view difficultyL) prevHeader
-    makeSignature toSign (Left psk) = BlockPSignatureLight $
-        proxySign SignMainBlockLight sk psk toSign
-    makeSignature toSign (Right psk) = BlockPSignatureHeavy $
-        proxySign SignMainBlockHeavy sk psk toSign
-    signature prevHash proof =
-        let toSign = MainToSign prevHash proof slotId difficulty extra
-        in maybe (BlockSignature $ sign SignMainBlock sk toSign)
-                 (makeSignature toSign)
-             pSk
-    consensus prevHash proof =
-        MainConsensusData
-        { _mcdSlot = slotId
-        , _mcdLeaderKey = maybe (toPublic sk) (either pskIssuerPk pskIssuerPk) pSk
-        , _mcdDifficulty = difficulty
-        , _mcdSignature = signature prevHash proof
-        }
-
--- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'.
-mkMainBlock
-    :: (BiSsc ssc, SscHelpersClass ssc, MonadError Text m)
-    => Maybe (BlockHeader ssc)
-    -> SlotId
-    -> SecretKey
-    -> Maybe ProxySKEither
-    -> Body (MainBlockchain ssc)
-    -> MainExtraHeaderData
-    -> MainExtraBodyData
-    -> m (MainBlock ssc)
-mkMainBlock prevHeader slotId sk proxyInfo body extraH extraB =
-    recreateMainBlock
-        (mkMainHeader prevHeader slotId sk proxyInfo body extraH)
-        body
-        extraB
-
-recreateMainBlock
-    :: (BiSsc ssc, SscHelpersClass ssc, MonadError Text m)
-    => MainBlockHeader ssc
-    -> Body (MainBlockchain ssc)
-    -> MainExtraBodyData
-    -> m (MainBlock ssc)
-recreateMainBlock _gbHeader _gbBody _gbExtra = do
-    let gb = GenericBlock{..}
-    whenLeft (verifyBBlock gb) throwError
-    pure gb
-
--- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
-mkGenesisHeader
-    :: BiSsc ssc
-    => Maybe (BlockHeader ssc)
-    -> EpochIndex
-    -> Body (GenesisBlockchain ssc)
-    -> GenesisBlockHeader ssc
-mkGenesisHeader prevHeader epoch body =
-    mkGenericHeader prevHeader body consensus (GenesisExtraHeaderData $ mkAttributes ())
-  where
-    difficulty = maybe 0 (view difficultyL) prevHeader
-    consensus _ _ =
-        GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
-
--- | Smart constructor for 'GenesisBlock'. Uses 'mkGenesisHeader'.
-mkGenesisBlock
-    :: BiSsc ssc
-    => Maybe (BlockHeader ssc)
-    -> EpochIndex
-    -> SlotLeaders
-    -> GenesisBlock ssc
-mkGenesisBlock prevHeader epoch leaders =
-    GenericBlock
-    { _gbHeader = mkGenesisHeader prevHeader epoch body
-    , _gbBody = body
-    , _gbExtra = GenesisExtraBodyData $ mkAttributes ()
-    }
-  where
-    body = GenesisBody leaders
-
--- CHECK: @verifyConsensusLocal
--- Verifies block signature (also proxy) and that slot id is in the correct range.
-verifyConsensusLocal
-    :: BiSsc ssc
-    => BlockHeader ssc -> VerificationRes
-verifyConsensusLocal (Left _)       = mempty
-verifyConsensusLocal (Right header) =
-    verifyGeneric
-        [ ( verifyBlockSignature $ consensus ^. mcdSignature
-          , "can't verify signature")
-        , (siSlot slotId < epochSlots, "slot index is not less than epochSlots")
-        ]
-  where
-    verifyBlockSignature (BlockSignature sig) =
-        checkSig SignMainBlock pk signature sig
-    verifyBlockSignature (BlockPSignatureLight proxySig) =
-        proxyVerify SignMainBlockLight
-            pk
-            proxySig
-            (\(epochLow, epochHigh) ->
-               epochLow <= epochId && epochId <= epochHigh)
-            signature
-    verifyBlockSignature (BlockPSignatureHeavy proxySig) =
-        proxyVerify SignMainBlockHeavy
-            pk
-            proxySig
-            (const True)
-            signature
-    GenericBlockHeader { _gbhConsensus = consensus
-                       , _gbhExtra = extra
-                       , ..} = header
-    signature = MainToSign _gbhPrevBlock _gbhBodyProof slotId d extra
-    pk = consensus ^. mcdLeaderKey
-    slotId = consensus ^. mcdSlot
-    epochId = siEpoch slotId
-    d = consensus ^. mcdDifficulty
-
 -- | Extra data which may be used by verifyHeader function to do more checks.
 data VerifyHeaderParams ssc = VerifyHeaderParams
-    { vhpVerifyConsensus :: !Bool
-      -- ^ Flag to check signatures and slot index bounds. Doesn't
-      -- check that heavyweight cert is allowed to do that, use
-      -- 'vhpHeavyCerts' instead.
-    , vhpPrevHeader      :: !(Maybe (BlockHeader ssc))
+    { vhpPrevHeader      :: !(Maybe (BlockHeader ssc))
       -- ^ Nothing means that block is unknown, not genesis.
-    , vhpNextHeader      :: !(Maybe (BlockHeader ssc))
     , vhpCurrentSlot     :: !(Maybe SlotId)
+      -- ^ Current slot is used to check whether header is not from future.
     , vhpLeaders         :: !(Maybe SlotLeaders)
       -- ^ Set of leaders for the epoch related block is from
     , vhpHeavyCerts      :: !(Maybe ProxySKHeavyMap)
@@ -274,46 +70,29 @@ data VerifyHeaderParams ssc = VerifyHeaderParams
       -- contain public keys of block issuers passed to checking
       -- function.
     , vhpMaxSize         :: !(Maybe Byte)
+      -- ^ Maximal allowed header size. It's applied to 'BlockHeader'.
     , vhpVerifyNoUnknown :: !Bool
       -- ^ Check that header has no unknown attributes.
     } deriving (Show, Eq)
 
--- | By default nothing is checked.
-instance Default (VerifyHeaderParams ssc) where
-    def =
-        VerifyHeaderParams
-        { vhpVerifyConsensus = False
-        , vhpPrevHeader = Nothing
-        , vhpNextHeader = Nothing
-        , vhpCurrentSlot = Nothing
-        , vhpLeaders = Nothing
-        , vhpHeavyCerts = Nothing
-        , vhpMaxSize = Nothing
-        , vhpVerifyNoUnknown = False
-        }
-
-maybeEmpty :: Monoid m => (a -> m) -> Maybe a -> m
-maybeEmpty = maybe mempty
+maybeMempty :: Monoid m => (a -> m) -> Maybe a -> m
+maybeMempty = maybe mempty
 
 -- CHECK: @verifyHeader
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
 -- 'BlockHeader'.
--- #verifyConsensusLocal
---
 verifyHeader
     :: forall ssc . BiSsc ssc
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
-    verifyConsensus <> verifyGeneric checks
+    verifyGeneric checks
   where
-    verifyConsensus = bool mempty (verifyConsensusLocal h) vhpVerifyConsensus
     checks =
         mconcat
-            [ maybeEmpty relatedToPrevHeader vhpPrevHeader
-            , maybeEmpty relatedToNextHeader vhpNextHeader
-            , maybeEmpty relatedToCurrentSlot vhpCurrentSlot
-            , maybeEmpty relatedToLeaders vhpLeaders
-            , maybeEmpty heavyCertValid vhpHeavyCerts
+            [ maybeMempty relatedToPrevHeader vhpPrevHeader
+            , maybeMempty relatedToCurrentSlot vhpCurrentSlot
+            , maybeMempty relatedToLeaders vhpLeaders
+            , maybeMempty heavyCertValid vhpHeavyCerts
             , checkSize
             , bool mempty (verifyNoUnknown h) vhpVerifyNoUnknown
             ]
@@ -372,22 +151,6 @@ verifyHeader VerifyHeaderParams {..} h =
               Right _ -> sameEpoch (prevHeader ^. epochIndexL) (h ^. epochIndexL)
         ]
 
-    -- CHECK: Performs checks related to the next header:
-    --
-    --  * Difficulty is correct.
-    --  * Hash is correct.
-    --  * Epoch/slot are consistent.
-    relatedToNextHeader nextHeader =
-        [ checkDifficulty
-              (nextHeader ^. difficultyL - headerDifficultyIncrement nextHeader)
-              (h ^. difficultyL)
-        , checkHash (headerHash h) (nextHeader ^. prevBlockL)
-        , checkSlot (getEpochOrSlot h) (getEpochOrSlot nextHeader)
-        , case nextHeader of
-              Left  _ -> (True, "") -- check that epochId h  < epochId nextHeader performed above
-              Right _ -> sameEpoch (h ^. epochIndexL) (nextHeader ^. epochIndexL)
-        ]
-
     -- CHECK: Verifies that the slot does not lie in the future.
     relatedToCurrentSlot curSlotId =
         [ ( either (const True) ((<= curSlotId) . view headerSlotL) h
@@ -401,7 +164,8 @@ verifyHeader VerifyHeaderParams {..} h =
             Right mainHeader ->
                 [ ( (Just (addressHash $ mainHeader ^. mainHeaderLeaderKey) ==
                      leaders ^?
-                     ix (fromIntegral $ siSlot $ mainHeader ^. headerSlotL))
+                     ix (fromIntegral $ getSlotIndex $
+                         siSlot $ mainHeader ^. headerSlotL))
                   , "block's leader is different from expected one")
                 ]
 
@@ -434,112 +198,62 @@ verifyHeader VerifyHeaderParams {..} h =
 -- linking checks are performed!
 verifyHeaders
     :: BiSsc ssc
-    => Bool -> NewestFirst [] (BlockHeader ssc) -> VerificationRes
-verifyHeaders _ (NewestFirst []) = mempty
-verifyHeaders checkConsensus (NewestFirst (headers@(_:xh))) = mconcat verified
+    => NewestFirst [] (BlockHeader ssc) -> VerificationRes
+verifyHeaders (NewestFirst []) = mempty
+verifyHeaders (NewestFirst (headers@(_:xh))) = mconcat verified
   where
-    verified = zipWith (\cur prev -> verifyHeader (toVHP prev) cur)
-                       headers (map Just xh ++ [Nothing])
-    toVHP p = def { vhpVerifyConsensus = checkConsensus
-                  , vhpPrevHeader = p }
+    verified =
+        zipWith
+            (\cur prev -> verifyHeader (toVHP prev) cur)
+            headers
+            (map Just xh ++ [Nothing])
+    -- [CSL-1052] Consider doing more checks here.
+    toVHP p =
+        VerifyHeaderParams
+        { vhpPrevHeader = p
+        , vhpCurrentSlot = Nothing
+        , vhpLeaders = Nothing
+        , vhpHeavyCerts = Nothing
+        , vhpMaxSize = Nothing
+        , vhpVerifyNoUnknown = False
+        }
 
+----------------------------------------------------------------------------
+-- Block
+----------------------------------------------------------------------------
 
--- CHECK: @verifyGenericBlock
--- | Perform cheap checks of GenericBlock, which can be done using
--- only block itself. Checks which can be done using only header are
--- ignored here. It is assumed that they will be done separately.
-verifyGenericBlock :: forall b . Blockchain b => GenericBlock b -> VerificationRes
-verifyGenericBlock blk =
-    verifyGeneric
-        [ ( checkBodyProof (blk ^. gbBody) (blk ^. gbBodyProof)
-          , "body proof doesn't prove body")
-        ]
-
--- | Parameters of Block static verification.
+-- | Parameters of Block static verification. This type contains all data
+-- necessary for verification of a single block.
 -- Note: to check that block references previous block and/or is referenced
 -- by next block, use header verification (via vbpVerifyHeader).
 data VerifyBlockParams ssc = VerifyBlockParams
-    { vbpVerifyHeader    :: !(Maybe (VerifyHeaderParams ssc))
+    { vbpVerifyHeader    :: !(VerifyHeaderParams ssc)
       -- ^ Verifies header accordingly to params ('verifyHeader')
-    , vbpVerifyGeneric   :: !Bool
-      -- ^ Checks 'verifyGenesisBlock' property.
-    , vbpVerifySsc       :: !Bool
-      -- ^ Verifies ssc payload with 'sscVerifyPayload'.
-    , vbpVerifyProxySKs  :: !Bool
-      -- ^ Check that's number of sks is limited (1000 for now).
-    , vbpMaxSize         :: !(Maybe Byte)
-    -- ^ Maximal block size.
+    , vbpMaxSize         :: !Byte
+    -- ^ Maximal block size. This value limit size of `Block` (which
+    -- is either main or genesis block).
     , vbpVerifyNoUnknown :: !Bool
     -- ^ Check that block has no unknown attributes.
     }
 
--- TODO: get rid of this module
--- | By default nothing is checked.
-instance Default (VerifyBlockParams ssc) where
-    def =
-        VerifyBlockParams
-        { vbpVerifyHeader = Nothing
-        , vbpVerifyGeneric = False
-        , vbpVerifySsc = False
-        , vbpVerifyProxySKs = False
-        , vbpMaxSize =  Nothing
-        , vbpVerifyNoUnknown = False
-        }
-
 -- CHECK: @verifyBlock
 -- | Check predicates defined by VerifyBlockParams.
 -- #verifyHeader
--- #verifyGenericBlock
 verifyBlock
     :: forall ssc. (SscHelpersClass ssc, BiSsc ssc)
     => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
-        [ verifyG
-        , maybeEmpty (flip verifyHeader (getBlockHeader blk)) vbpVerifyHeader
-        , verifySsc
-        , verifyProxySKs
-        , maybeEmpty checkSize vbpMaxSize
+        [ verifyHeader vbpVerifyHeader (getBlockHeader blk)
+        , checkSize vbpMaxSize
         , bool mempty (verifyNoUnknown blk) vbpVerifyNoUnknown
         ]
   where
-    toVerRes (Right _) = VerSuccess
-    toVerRes (Left e)  = VerFailure [sformat build e]
-
-    verifyG
-        | vbpVerifyGeneric = either verifyGenericBlock verifyGenericBlock blk
-        | otherwise = mempty
-    verifySsc
-        | vbpVerifySsc =
-            case blk of
-                Left _ -> mempty
-                Right mainBlk -> toVerRes $
-                    sscVerifyPayload @ssc
-                    (Right $ Some (mainBlk ^. gbHeader))
-                    (mainBlk ^. mainBlockSscPayload)
-        | otherwise = mempty
-    proxySKsDups psks =
-        filter (\x -> length x > 1) $
-        groupBy ((==) `on` pskIssuerPk) $
-        sortOn pskIssuerPk psks
-    verifyProxySKs
-        | vbpVerifyProxySKs =
-          (flip (either $ const mempty) blk) $ \mainBlk ->
-            let bEpoch = mainBlk ^. epochIndexL
-                notMatchingEpochs = filter ((/= bEpoch) . pskOmega) proxySKs
-                proxySKs = mainBlk ^. mainBlockDlgPayload
-                duplicates = proxySKsDups proxySKs in
-                verifyGeneric
-            [ ( null duplicates
-              , "Some of block's PSKs have the same issuer, which is prohibited"),
-              ( null notMatchingEpochs
-              , "Block contains psk(s) that have non-matching epoch index")
-            ]
-        | otherwise = mempty
+    blkSize = Bi.biSize blk
     checkSize maxSize = verifyGeneric [
-      (Bi.biSize blk <= maxSize,
+      (blkSize <= maxSize,
        sformat ("block's size exceeds limit ("%memory%" > "%memory%")")
-       (Bi.biSize blk) maxSize)
+       blkSize maxSize)
       ]
     verifyNoUnknown (Left genBlk) =
         let attrs = genBlk ^. gbExtra . gebAttributes
@@ -556,7 +270,7 @@ verifyBlock VerifyBlockParams {..} blk =
 
 -- Type alias for common type used inside 'verifyBlocks'
 type VerifyBlocksIter ssc =
-    (Maybe SlotLeaders, Maybe ProxySKHeavyMap, Maybe (BlockHeader ssc), VerificationRes)
+    (SlotLeaders, ProxySKHeavyMap, Maybe (BlockHeader ssc), VerificationRes)
 
 -- Applies block certificates to 'ProxySKHeavyMap'. Used in
 -- 'verifyBlocks'. It's not the best place for it here, but i can't
@@ -565,7 +279,7 @@ pskHeavyMapApplyBlock :: MainBlock ssc -> ProxySKHeavyMap -> ProxySKHeavyMap
 pskHeavyMapApplyBlock block m = flip execState m $ do
     let (toDelete,toReplace) =
             partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
-                      (view mainBlockDlgPayload block)
+                      (getDlgPayload $ view mainBlockDlgPayload block)
     for_ toDelete $ \psk -> identity %= HM.delete (pskIssuerPk psk)
     for_ toReplace $ \psk -> identity %= HM.insert (pskIssuerPk psk) psk
 
@@ -589,40 +303,41 @@ verifyBlocks
     => Maybe SlotId
     -> Bool
     -> BlockVersionData
-    -> Maybe SlotLeaders
-    -> Maybe ProxySKHeavyMap
+    -> SlotLeaders
+    -> ProxySKHeavyMap
     -> OldestFirst f (Block ssc)
     -> VerificationRes
 verifyBlocks curSlotId verifyNoUnknown bvd initLeaders initPsks = view _4 . foldl' step start
   where
     start :: VerifyBlocksIter ssc
+    -- Note that here we never know previous header before this
+    -- function is launched.  Which means that we will not do any
+    -- checks related to previous header. And it is fine, because we
+    -- must do these checks in advance, when we are processing
+    -- headers. However, it's a little obscure invariant, so keep it
+    -- in mind.
     start = (initLeaders, initPsks, Nothing, mempty)
     step :: VerifyBlocksIter ssc -> Block ssc -> VerifyBlocksIter ssc
     step (leaders, psks, prevHeader, res) blk =
         let newLeaders = case blk of
-                Left genesisBlock -> Just $ genesisBlock ^. genBlockLeaders
+                Left genesisBlock -> genesisBlock ^. genBlockLeaders
                 Right _           -> leaders
             newPsks = case blk of
-                Left _  ->         psks
-                Right b ->         pskHeavyMapApplyBlock b <$> psks
+                Left _  -> psks
+                Right b -> pskHeavyMapApplyBlock b psks
             vhp =
                 VerifyHeaderParams
-                { vhpVerifyConsensus = True
-                , vhpPrevHeader = prevHeader
-                , vhpNextHeader = Nothing
-                , vhpLeaders = newLeaders
+                { vhpPrevHeader = prevHeader
+                , vhpLeaders = Just newLeaders
                 , vhpCurrentSlot = curSlotId
-                , vhpHeavyCerts = psks
+                , vhpHeavyCerts = Just psks
                 , vhpMaxSize = Just (bvdMaxHeaderSize bvd)
                 , vhpVerifyNoUnknown = verifyNoUnknown
                 }
             vbp =
                 VerifyBlockParams
-                { vbpVerifyHeader = Just vhp
-                , vbpVerifyGeneric = True
-                , vbpVerifySsc = True
-                , vbpVerifyProxySKs = True
-                , vbpMaxSize = Just (bvdMaxBlockSize bvd)
+                { vbpVerifyHeader = vhp
+                , vbpMaxSize = bvdMaxBlockSize bvd
                 , vbpVerifyNoUnknown = verifyNoUnknown
                 }
         in (newLeaders, newPsks, Just $ getBlockHeader blk, res <> verifyBlock vbp blk)

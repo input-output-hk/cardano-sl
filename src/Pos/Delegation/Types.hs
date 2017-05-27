@@ -3,48 +3,30 @@
 -- | Delegation-related network and local types.
 
 module Pos.Delegation.Types
-       ( SendProxySK (..)
-       , ConfirmProxySK (..)
+       (
        -- if you uncomment these, also uncomment tests
        -- in Test.Pos.Communication.Identity.BinarySpec
        --, CheckProxySKConfirmed (..)
        --, CheckProxySKConfirmedRes (..)
-       , DlgPayload
+
+         DlgPayload (..)
+       , mkDlgPayload
+       , ProxySKLightConfirmation
        ) where
 
-import           Data.DeriveTH       (derive, makeArbitrary)
-import           Test.QuickCheck     (Arbitrary (..), choose)
 import           Universum
 
-import           Pos.Core            (ProxySKHeavy, ProxySKLight, ProxySigLight)
-import           Pos.Types.Arbitrary ()
+import           Control.Monad.Except (MonadError (throwError))
+import           Data.Default         (Default (def))
+import           Data.List            (groupBy)
+import qualified Data.Text.Buildable
+import           Formatting           (bprint, int, (%))
+import           Serokell.Util        (listJson)
 
-----------------------------------------------------------------------------
--- Generic PSKs propagation
-----------------------------------------------------------------------------
+import           Pos.Core             (ProxySKHeavy, ProxySKLight, ProxySigLight)
+import           Pos.Crypto           (ProxySecretKey (..))
 
--- | Message with delegated proxy secret key. Is used to propagate
--- both epoch-oriented psks (lightweight) and simple (heavyweight).
-data SendProxySK
-    = SendProxySKLight !ProxySKLight
-    | SendProxySKHeavy !ProxySKHeavy
-    deriving (Show, Eq, Ord, Generic)
-
-instance Hashable SendProxySK
-
-----------------------------------------------------------------------------
--- Lightweight PSKs confirmation mechanism
-----------------------------------------------------------------------------
-
--- | Confirmation of proxy signature delivery. Delegate should take
--- the proxy signing key he has and sign this key with itself. If the
--- signature is correct, then it was done by delegate (guaranteed by
--- PSK scheme). Checking @w@ can be done with @(const True)@
--- predicate, because certificate may be sent in epoch id that's
--- before lower cert's @EpochIndex@.
-data ConfirmProxySK =
-    ConfirmProxySK !ProxySKLight !(ProxySigLight ProxySKLight)
-    deriving (Show, Eq, Ord, Generic)
+type ProxySKLightConfirmation = (ProxySKLight, ProxySigLight ProxySKLight)
 
 ---- | Request to check if a node has any info about PSK delivery.
 --data CheckProxySKConfirmed =
@@ -60,13 +42,37 @@ data ConfirmProxySK =
 -- Heavyweight delegation payload
 ----------------------------------------------------------------------------
 
-type DlgPayload = [ProxySKHeavy]
+-- | 'DlgPayload' is put into 'MainBlock' and consists of a list of
+-- heavyweight proxy signing keys. There must be no duplicates
+-- (comparing by issuer) in this list.
+newtype DlgPayload = UnsafeDlgPayload
+    { getDlgPayload :: [ProxySKHeavy]
+    } deriving (Show, Eq, NFData)
+
+instance Default DlgPayload where
+    def = UnsafeDlgPayload []
+
+instance Buildable DlgPayload where
+    build (UnsafeDlgPayload psks) =
+        bprint
+            ("proxy signing keys ("%int%" items): "%listJson%"\n")
+            (length psks) psks
+
+-- | Constructor of 'DlgPaylod' which ensures absence of duplicates.
+mkDlgPayload :: MonadError Text m => [ProxySKHeavy] -> m DlgPayload
+mkDlgPayload proxySKs = do
+    unless (null duplicates) $
+        throwError "Some of block's PSKs have the same issuer, which is prohibited"
+    return $ UnsafeDlgPayload proxySKs
+  where
+    proxySKsDups psks =
+        filter (\x -> length x > 1) $
+        groupBy ((==) `on` pskIssuerPk) $ sortOn pskIssuerPk psks
+    duplicates = proxySKsDups proxySKs
 
 ----------------------------------------------------------------------------
 -- Arbitrary instances
 ----------------------------------------------------------------------------
 
-derive makeArbitrary ''SendProxySK
-derive makeArbitrary ''ConfirmProxySK
 --derive makeArbitrary ''CheckProxySKConfirmed
 --derive makeArbitrary ''CheckProxySKConfirmedRes

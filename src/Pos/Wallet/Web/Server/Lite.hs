@@ -27,7 +27,8 @@ import           Pos.Communication             (NodeId)
 import           Pos.Communication.PeerState   (PeerStateTag, runPeerStateRedirect)
 import           Pos.Communication.Protocol    (SendActions, hoistSendActions)
 import           Pos.Context                   (BlkSemaphore, NodeContext, NodeContextTag)
-import           Pos.DB                        (NodeDBs)
+import           Pos.DB                        (NodeDBs, runDBPureRedirect)
+import           Pos.DB.Block                  (runBlockDBRedirect)
 import           Pos.Discovery                 (getPeers, runDiscoveryConstT)
 import           Pos.Reporting.MemState        (ReportingContext, emptyReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
@@ -105,6 +106,8 @@ convertHandler mws kd ws wsConn peers handler = do
                 , Tagged @KeyData kd
                 , Tagged @MainWalletState mws
                 , Tagged @ReportingContext emptyReportingContext )
+           . runDBPureRedirect
+           . runBlockDBRedirect
            . runTxHistoryWalletRedirect
            . runBalancesWalletRedirect
            . runGStateCoreWalletRedirect

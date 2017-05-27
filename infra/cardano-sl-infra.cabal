@@ -56,6 +56,7 @@ library
                         Pos.Communication.BiP
                         Pos.Communication.Limits.Types
                         Pos.Communication.Limits.Instances
+                        Pos.Communication.Listener
                         Pos.Communication.MessagePart
                         Pos.Communication.PeerState
                         Pos.Communication.Protocol

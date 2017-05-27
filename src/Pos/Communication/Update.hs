@@ -1,10 +1,8 @@
 -- | Functions for operating with messages of update system
 
-module Pos.Wallet.Update
+module Pos.Communication.Update
        ( submitVote
        , submitUpdateProposal
-       , sendVoteOuts
-       , sendProposalOuts
        ) where
 
 import           Universum
@@ -14,7 +12,6 @@ import           Mockable                   (forConcurrently)
 import           Pos.Binary                 ()
 import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
 import           Pos.Communication.Protocol (NodeId, SendActions)
-import           Pos.Communication.Specs    (sendProposalOuts, sendVoteOuts)
 import           Pos.Crypto                 (SafeSigner, SignTag (SignUSVote), hash,
                                              safeSign, safeToPublic)
 import           Pos.DB.Class               (MonadGStateCore)

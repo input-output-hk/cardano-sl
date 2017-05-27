@@ -20,7 +20,7 @@ import qualified STMContainers.Map                 as SM
 import           System.Wlog                       (logInfo)
 import           Universum
 
-import           Pos.Communication                 (ActionSpec (..), OutSpecs, PeerId)
+import           Pos.Communication                 (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol        (SendActions)
 import           Pos.Constants                     (isDevelopment)
 import           Pos.Crypto                        (noPassEncrypt)
@@ -50,7 +50,6 @@ runWProductionMode
     :: SscConstraint WalletSscType
     => WalletState
     -> ConnectionsVar
-    -> PeerId
     -> Transport WalletProductionMode
     -> KademliaDHTInstance
     -> NodeParams
@@ -69,19 +68,17 @@ runWStatsMode
     :: SscConstraint WalletSscType
     => WalletState
     -> ConnectionsVar
-    -> PeerId
     -> Transport WalletStatsMode
     -> KademliaDHTInstance
     -> NodeParams
     -> SscParams WalletSscType
     -> (ActionSpec WalletStatsMode a, OutSpecs)
     -> Production a
-runWStatsMode db conn peer transport kinst param sscp runAction = do
+runWStatsMode db conn transport kinst param sscp runAction = do
     statMap <- liftIO SM.newIO
     runRawKBasedMode
         (unwrapWSMode statMap)
         (lift . lift . lift)
-        peer
         transport
         kinst
         param

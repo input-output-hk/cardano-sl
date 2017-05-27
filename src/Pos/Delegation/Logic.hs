@@ -15,7 +15,7 @@ module Pos.Delegation.Logic
        , initDelegation
 
        -- * Heavyweight psks handling
-       , getProxyMempool
+       , getDlgMempool
        , clearDlgMemPool
        , PskHeavyVerdict (..)
        , processProxySKHeavy
@@ -33,6 +33,8 @@ module Pos.Delegation.Logic
        , isProxySKConfirmed
        ) where
 
+import           Universum
+
 import           Control.Exception        (Exception (..))
 import           Control.Lens             (at, makeLenses, uses, (%%=), (%=), (+=), (-=),
                                            (.=), _Wrapped)
@@ -46,7 +48,6 @@ import           Data.Time.Clock          (UTCTime, addUTCTime, getCurrentTime)
 import qualified Ether
 import           Formatting               (bprint, build, sformat, stext, (%))
 import           System.Wlog              (WithLogger)
-import           Universum
 
 import           Pos.Binary.Class         (biSize)
 import           Pos.Binary.Communication ()
@@ -62,7 +63,7 @@ import           Pos.Crypto               (ProxySecretKey (..), PublicKey,
                                            SignTag (SignProxySK), pdDelegatePk,
                                            proxyVerify, shortHashF, toPublic,
                                            verifyProxySecretKey)
-import           Pos.DB                   (DBError (DBMalformed), MonadDB,
+import           Pos.DB                   (DBError (DBMalformed), MonadDB, MonadDBPure,
                                            SomeBatchOp (..))
 import qualified Pos.DB                   as DB
 import qualified Pos.DB.Block             as DB
@@ -73,17 +74,17 @@ import           Pos.Delegation.Class     (DelegationWrap (..), DlgMemPool,
                                            MonadDelegation, askDelegationState,
                                            dwConfirmationCache, dwEpochId, dwMessageCache,
                                            dwPoolSize, dwProxySKPool, dwThisEpochPosted)
-import           Pos.Delegation.Types     (SendProxySK (..))
+import           Pos.Delegation.Types     (DlgPayload (getDlgPayload), mkDlgPayload)
 import           Pos.Exception            (cardanoExceptionFromException,
                                            cardanoExceptionToException)
 import           Pos.Lrc.Context          (LrcContext)
 import qualified Pos.Lrc.DB               as LrcDB
-import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Types                (ProxySKHeavy, ProxySKLight, ProxySigLight)
 import           Pos.Util                 (withReadLifted, withWriteLifted, _neHead,
                                            _neLast)
 import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.LRU             (filterLRU)
+import           Pos.Util.Util            (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- Different helpers to simplify logic
@@ -117,16 +118,16 @@ invalidateProxyCaches curTime = do
   where
     toDiffTime (t :: Integer) = fromIntegral t
 
-type DelegationWorkMode m = (MonadDelegation m, MonadDB m, WithLogger m)
+type DelegationWorkMode m = (MonadDelegation m, MonadDB m, WithLogger m, MonadDBPure m)
 
 -- Retrieves psk certificated that have been accumulated before given
 -- block. The block itself should be in DB.
 getPSKsFromThisEpoch
     :: forall ssc m.
-       (SscHelpersClass ssc, MonadDB m)
+       DB.MonadBlockDB ssc m
     => HeaderHash -> m [ProxySKHeavy]
 getPSKsFromThisEpoch tip =
-    concatMap (either (const []) (view mainBlockDlgPayload)) <$>
+    concatMap (either (const []) (getDlgPayload . view mainBlockDlgPayload)) <$>
         (DB.loadBlocksWhile @ssc) isRight tip
 
 ----------------------------------------------------------------------------
@@ -157,10 +158,10 @@ instance B.Buildable DelegationError where
 -- * Loads `_dwThisEpochPosted` from database
 initDelegation
     :: forall ssc m.
-       (SscHelpersClass ssc, MonadDB m, MonadDelegation m)
+       (MonadIO m, DB.MonadBlockDB ssc m, MonadDelegation m)
     => m ()
 initDelegation = do
-    tip <- DB.getTipBlockHeader @ssc
+    tip <- DB.getTipHeader @(Block ssc)
     let tipEpoch = tip ^. epochIndexL
     fromGenesisPsks <-
         map pskIssuerPk <$> (getPSKsFromThisEpoch @ssc) (headerHash tip)
@@ -173,15 +174,16 @@ initDelegation = do
 ----------------------------------------------------------------------------
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
-getProxyMempool
-    :: (MonadDB m, MonadDelegation m)
-    => m ([ProxySKHeavy], [ProxySKHeavy])
-getProxyMempool = do
+getDlgMempool
+    :: (MonadIO m, MonadDBPure m, MonadDelegation m)
+    => m (DlgPayload, [ProxySKHeavy])
+getDlgMempool = do
     sks <- runDelegationStateAction $
         uses dwProxySKPool HM.elems
     let issuers = map pskIssuerPk sks
+    let payload = leftToPanic "getDlgMempool: " $ mkDlgPayload sks
     toRollback <- catMaybes <$> mapM GS.getPSKByIssuer issuers
-    pure (sks, toRollback)
+    pure (payload, toRollback)
 
 clearDlgMemPool
     :: (MonadDB m, MonadDelegation m)
@@ -235,8 +237,9 @@ data PskHeavyVerdict
 -- validity and cachemsg state.
 processProxySKHeavy
     :: forall ssc m.
-       ( SscHelpersClass ssc
-       , MonadDB m
+       ( MonadDB m
+       , MonadDBPure m
+       , DB.MonadBlockDB ssc m
        , DB.MonadDBCore m
        , MonadDelegation m
        , Ether.MonadReader' LrcContext m
@@ -244,7 +247,7 @@ processProxySKHeavy
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk = do
     curTime <- liftIO getCurrentTime
-    headEpoch <- view epochIndexL <$> DB.getTipBlockHeader @ssc
+    headEpoch <- view epochIndexL <$> DB.getTipHeader @(Block ssc)
     richmen <-
         toList <$>
         lrcActionOnEpochReason
@@ -252,7 +255,7 @@ processProxySKHeavy psk = do
         "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
         LrcDB.getRichmenDlg
     maxBlockSize <- bvdMaxBlockSize <$> DB.gsAdoptedBVData
-    let msg = SendProxySKHeavy psk
+    let msg = Right psk
         consistent = verifyProxySecretKey psk
         issuer = pskIssuerPk psk
         enoughStake = addressHash issuer `elem` richmen
@@ -302,8 +305,12 @@ makeLenses ''DelVerState
 --
 -- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
 -- point of view.
-delegationVerifyBlocks
-    :: forall ssc m. (SscHelpersClass ssc, MonadDB m, Ether.MonadReader' LrcContext m)
+delegationVerifyBlocks ::
+       forall ssc m.
+       ( DB.MonadBlockDB ssc m
+       , DB.MonadDB m
+       , Ether.MonadReader' LrcContext m
+       )
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE [ProxySKHeavy]))
 delegationVerifyBlocks blocks = do
@@ -342,7 +349,7 @@ delegationVerifyBlocks blocks = do
         dvCurEpoch .= HS.empty
         pure []
     verifyBlock richmen (Right blk) = do
-        let proxySKs = view mainBlockDlgPayload blk
+        let proxySKs = getDlgPayload $ view mainBlockDlgPayload blk
             issuers = map pskIssuerPk proxySKs
         when (any (not . (`HS.member` richmen) . addressHash) issuers) $
             throwError $ sformat ("Block "%build%" contains psk issuers that "%
@@ -388,7 +395,7 @@ delegationApplyBlocks blocks = do
             dwEpochId .= (block ^. epochIndexL)
         pure (SomeBatchOp ([]::[GS.DelegationOp]))
     applyBlock (Right block) = do
-        let proxySKs = view mainBlockDlgPayload block
+        let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
             (toDelete,toReplace) =
                 partition (\ProxySecretKey{..} -> pskIssuerPk == pskDelegatePk)
@@ -406,16 +413,16 @@ delegationApplyBlocks blocks = do
 -- rollback arbitrary number of blocks.
 delegationRollbackBlocks
     :: forall ssc m.
-       ( SscHelpersClass ssc
-       , MonadDelegation m
-       , MonadDB m
+       ( MonadDelegation m
+       , DB.MonadDB m
+       , DB.MonadBlockDB ssc m
        , Ether.MonadReader' LrcContext m
        )
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
 delegationRollbackBlocks blunds = do
     tipBlockAfterRollback <-
         maybe (throwM malformedLastParent) pure =<<
-        DB.getBlock @ssc (blunds ^. _Wrapped . _neLast . _1 . prevBlockL)
+        DB.blkGetBlock @ssc (blunds ^. _Wrapped . _neLast . _1 . prevBlockL)
     let epochAfterRollback = tipBlockAfterRollback ^. epochIndexL
     richmen <-
         HS.fromList . toList <$>
@@ -441,7 +448,7 @@ delegationRollbackBlocks blunds = do
     rollbackBlund :: Blund ssc -> SomeBatchOp
     rollbackBlund (Left _, _) = SomeBatchOp ([]::[GS.DelegationOp])
     rollbackBlund (Right block, undo) =
-        let proxySKs = view mainBlockDlgPayload block
+        let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             toReplace =
                 map pskIssuerPk $
                 filter (\ProxySecretKey{..} -> pskIssuerPk /= pskDelegatePk)
@@ -482,7 +489,7 @@ processProxySKLight psk = do
     res <- runDelegationStateAction $ do
         let related = toPublic sk == pskDelegatePk psk
             exists = psk `elem` psks
-            msg = SendProxySKLight psk
+            msg = Left psk
             valid = verifyProxySecretKey psk
             selfSigned = pskDelegatePk psk == pskIssuerPk psk
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache

@@ -21,10 +21,10 @@ stack --nix --no-terminal install happy \
   $EXTRA_STACK --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4
 
 stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl \
-  $EXTRA_STACK --fast --jobs=2 \
-  --ghc-options="-j -DCONFIG=wallet +RTS -A256m -n2m -RTS" \
+  $EXTRA_STACK --fast --jobs=4 \
+  --ghc-options="-j -DCONFIG=wallet +RTS -A128m -n2m -RTS" \
   --flag cardano-sl-core:-asserts \
-  --flag cardano-sl-core:-dev-mode | ts
+  --flag cardano-sl-core:-dev-mode
 
 if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" && "$TRAVIS_PULL_REQUEST" == "false" ]]; then
   ./update_wallet_web_api_docs.sh

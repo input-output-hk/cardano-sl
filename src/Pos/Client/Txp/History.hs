@@ -46,7 +46,7 @@ import           Pos.Context.Context          (GenesisUtxo (..))
 import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
                                                difficultyL, prevBlockL)
 import           Pos.Crypto                   (WithHash (..), withHash)
-import           Pos.DB                       (MonadDB)
+import           Pos.DB                       (MonadDB, MonadDBPure)
 import qualified Pos.DB.Block                 as DB
 import           Pos.DB.Error                 (DBError (..))
 import qualified Pos.DB.GState                as GS
@@ -186,6 +186,7 @@ runTxHistoryRedirect = coerce
 
 instance
     ( MonadDB m
+    , MonadDBPure m
     , MonadThrow m
     , WithLogger m
     , MonadSlots m
@@ -207,7 +208,7 @@ instance
             if h == bot
             then return Nothing
             else do
-                header <- DB.getBlockHeader @ssc h >>=
+                header <- DB.runBlockDBRedirect $ DB.blkGetHeader @ssc h >>=
                     maybeThrow (DBMalformed "Best blockchain is non-continuous")
                 let prev = header ^. prevBlockL
                 return $ Just (h, prev)
@@ -217,7 +218,7 @@ instance
             nonCachedHashes = take blkSecurityParam hashList
 
         let blockFetcher h txs = do
-                blk <- lift . lift $ DB.getBlock @ssc h >>=
+                blk <- lift . lift . DB.runBlockDBRedirect $ DB.blkGetBlock @ssc h >>=
                        maybeThrow (DBMalformed "A block mysteriously disappeared!")
                 deriveAddrHistoryPartial txs addrs [blk]
             localFetcher blkTxs = do

@@ -4,38 +4,50 @@
 -- | Miscellaneous instances, etc. Related to the main blockchain of course.
 
 module Pos.Block.Core.Main.Misc
-       (
+       ( mkMainBlock
+       , mkMainHeader
        ) where
 
 import           Universum
 
-import qualified Data.Text.Buildable        as Buildable
-import           Formatting                 (bprint, build, int, stext, (%))
-import           Serokell.Util              (Color (Magenta), colorize, listJson)
+import           Control.Monad.Except        (MonadError)
+import qualified Data.Text.Buildable         as Buildable
+import           Formatting                  (bprint, build, int, stext, (%))
+import           Serokell.Util               (Color (Magenta), colorize, listJson)
 
-import           Pos.Block.Core.Main.Chain  (Body (..), ConsensusData (..))
-import           Pos.Block.Core.Main.Lens   (mainBlockBlockVersion, mainBlockDifficulty,
-                                             mainBlockSlot, mainBlockSlot,
-                                             mainBlockSoftwareVersion,
-                                             mainHeaderBlockVersion, mainHeaderDifficulty,
-                                             mainHeaderLeaderKey, mainHeaderSlot,
-                                             mainHeaderSoftwareVersion, mbTxs,
-                                             mcdDifficulty, mehBlockVersion,
-                                             mehSoftwareVersion)
-import           Pos.Block.Core.Main.Types  (MainBlock, MainBlockHeader, MainBlockchain,
-                                             MainExtraHeaderData)
-import           Pos.Block.Core.Union.Types (BiHeader, BiSsc, blockHeaderHash)
-import           Pos.Core                   (EpochOrSlot (..), GenericBlock (..),
-                                             GenericBlockHeader (..),
-                                             HasBlockVersion (..), HasDifficulty (..),
-                                             HasEpochIndex (..), HasEpochOrSlot (..),
-                                             HasHeaderHash (..), HasSoftwareVersion (..),
-                                             HeaderHash, IsHeader, IsMainHeader (..),
-                                             slotIdF)
-import           Pos.Crypto                 (hashHexF)
+import           Pos.Binary.Block.Core       ()
+import           Pos.Block.Core.Main.Chain   (Body (..), ConsensusData (..))
+import           Pos.Block.Core.Main.Helpers ()
+import           Pos.Block.Core.Main.Lens    (mainBlockBlockVersion, mainBlockDifficulty,
+                                              mainBlockSlot, mainBlockSlot,
+                                              mainBlockSoftwareVersion,
+                                              mainHeaderBlockVersion,
+                                              mainHeaderDifficulty, mainHeaderLeaderKey,
+                                              mainHeaderSlot, mainHeaderSoftwareVersion,
+                                              mbTxs, mcdDifficulty, mehBlockVersion,
+                                              mehSoftwareVersion)
+import           Pos.Block.Core.Main.Types   (BlockSignature (..), MainBlock,
+                                              MainBlockHeader, MainBlockchain,
+                                              MainExtraBodyData (..), MainExtraHeaderData,
+                                              MainToSign (..))
+import           Pos.Block.Core.Union.Types  (BiHeader, BiSsc, BlockHeader,
+                                              blockHeaderHash)
+import           Pos.Core                    (EpochOrSlot (..), GenericBlock (..),
+                                              GenericBlockHeader (..),
+                                              HasBlockVersion (..), HasDifficulty (..),
+                                              HasEpochIndex (..), HasEpochOrSlot (..),
+                                              HasHeaderHash (..), HasSoftwareVersion (..),
+                                              HeaderHash, IsHeader, IsMainHeader (..),
+                                              ProxySKEither, SlotId, mkGenericHeader,
+                                              recreateGenericBlock, slotIdF)
+import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
+                                              SignTag (..), hashHexF, proxySign, sign,
+                                              toPublic)
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
+import           Pos.Util.Util               (leftToPanic)
 
 instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
-    build gbh@GenericBlockHeader {..} =
+    build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
              "    hash: "%hashHexF%"\n"%
@@ -57,13 +69,13 @@ instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
         MainConsensusData {..} = _gbhConsensus
 
 instance BiSsc ssc => Buildable (MainBlock ssc) where
-    build GenericBlock {..} =
+    build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
              "  "%build%
              "  transactions ("%int%" items): "%listJson%"\n"%
-             "  proxy signing keys ("%int%" items): "%listJson%"\n"%
-             build%"\n"%
+             "  "%build%"\n"%
+             "  "%build%"\n"%
              "  update payload: "%build%"\n"%
              "  "%build
             )
@@ -71,7 +83,6 @@ instance BiSsc ssc => Buildable (MainBlock ssc) where
             _gbHeader
             (length txs)
             txs
-            (length _mbDlgPayload)
             _mbDlgPayload
             _mbSscPayload
             _mbUpdatePayload
@@ -132,3 +143,69 @@ instance BiHeader ssc => IsHeader (MainBlockHeader ssc)
 instance BiHeader ssc => IsMainHeader (MainBlockHeader ssc) where
     headerSlotL = mainHeaderSlot
     headerLeaderKeyL = mainHeaderLeaderKey
+
+----------------------------------------------------------------------------
+-- Smart constructors
+----------------------------------------------------------------------------
+
+type SanityConstraint ssc
+     = ( BiSsc ssc
+       , SscHelpersClass ssc
+       , HasDifficulty $ BlockHeader ssc
+       , HasHeaderHash $ BlockHeader ssc
+       )
+
+-- | Smart constructor for 'MainBlockHeader'.
+mkMainHeader
+    :: (SanityConstraint ssc)
+    => Maybe (BlockHeader ssc)
+    -> SlotId
+    -> SecretKey
+    -> Maybe ProxySKEither
+    -> Body (MainBlockchain ssc)
+    -> MainExtraHeaderData
+    -> MainBlockHeader ssc
+mkMainHeader prevHeader slotId sk pSk body extra =
+    -- here we know that header creation can't fail, because the only invariant
+    -- which we check in 'verifyBBlockHeader' is signature correctness, which
+    -- is enforced in this function
+    leftToPanic "mkMainHeader: " $
+    mkGenericHeader prevHeader body consensus extra
+  where
+    difficulty = maybe 0 (succ . view difficultyL) prevHeader
+    makeSignature toSign (Left psk) =
+        BlockPSignatureLight $ proxySign SignMainBlockLight sk psk toSign
+    makeSignature toSign (Right psk) =
+        BlockPSignatureHeavy $ proxySign SignMainBlockHeavy sk psk toSign
+    signature prevHash proof =
+        let toSign = MainToSign prevHash proof slotId difficulty extra
+        in maybe
+               (BlockSignature $ sign SignMainBlock sk toSign)
+               (makeSignature toSign)
+               pSk
+    consensus prevHash proof =
+        MainConsensusData
+        { _mcdSlot = slotId
+        , _mcdLeaderKey =
+              maybe (toPublic sk) (either pskIssuerPk pskIssuerPk) pSk
+        , _mcdDifficulty = difficulty
+        , _mcdSignature = signature prevHash proof
+        }
+
+-- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'. It
+-- verifies consistency of given data and may fail.
+mkMainBlock
+    :: (SanityConstraint ssc, MonadError Text m)
+    => Maybe (BlockHeader ssc)
+    -> SlotId
+    -> SecretKey
+    -> Maybe ProxySKEither
+    -> Body (MainBlockchain ssc)
+    -> MainExtraHeaderData
+    -> MainExtraBodyData
+    -> m (MainBlock ssc)
+mkMainBlock prevHeader slotId sk proxyInfo body extraH extraB =
+    recreateGenericBlock
+        (mkMainHeader prevHeader slotId sk proxyInfo body extraH)
+        body
+        extraB

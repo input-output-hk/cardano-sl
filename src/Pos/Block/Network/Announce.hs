@@ -9,6 +9,7 @@ module Pos.Block.Network.Announce
 
 import           Universum
 
+import           Control.Monad.Except       (runExceptT)
 import           Data.Reflection            (Reifies)
 import qualified Ether
 import           Formatting                 (build, sformat, (%))
@@ -23,7 +24,7 @@ import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..)
 import           Pos.Communication.Limits   (Limit, LimitedLength, recvLimited,
                                              reifyMsgLimit)
 import           Pos.Communication.Message  ()
-import           Pos.Communication.Protocol (ConversationActions (..), NodeId (..),
+import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
 import           Pos.Context                (NodeParams, npAttackTypes,
@@ -49,18 +50,14 @@ announceBlock
 announceBlock sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     nodeParams <- Ether.ask @NodeParams
-    let throwOnIgnored (NodeId (_, nId)) =
+    let throwOnIgnored nId =
             whenJust (nodeIdToAddress nId) $ \addr ->
                 when (shouldIgnoreAddress nodeParams addr) $
                 throw AttackNoBlocksTriggered
         sendActions' =
             if AttackNoBlocks `elem` npAttackTypes nodeParams
                 then sendActions
-                     { sendTo =
-                           \nId msg -> do
-                               throwOnIgnored nId
-                               sendTo sendActions nId msg
-                     , withConnectionTo =
+                     { withConnectionTo =
                            \nId handler -> do
                                throwOnIgnored nId
                                withConnectionTo sendActions nId handler
@@ -69,14 +66,14 @@ announceBlock sendActions header = do
     reifyMsgLimit (Proxy @MsgGetHeaders) $ \limitProxy -> do
         converseToNeighbors sendActions' $ announceBlockDo limitProxy
   where
-    announceBlockDo limitProxy nodeId conv = do
+    announceBlockDo limitProxy nodeId = pure $ Conversation $ \cA -> do
         logDebug $
             sformat
                 ("Announcing block "%shortHashF%" to "%build)
                 (headerHash header)
                 nodeId
-        send conv $ MsgHeaders (one (Right header))
-        handleHeadersCommunication conv limitProxy
+        send cA $ MsgHeaders (one (Right header))
+        handleHeadersCommunication cA limitProxy
 
 handleHeadersCommunication
     :: forall ssc m s.
@@ -92,18 +89,19 @@ handleHeadersCommunication conv _ = do
                 ([], Nothing) -> Right . one <$> getLastMainHeader
                 ([], Just h)  ->
                     maybeToRight "getBlockHeader returned Nothing" . fmap one <$>
-                    DB.getBlockHeader @ssc h
-                (c1:cxs, _)   -> getHeadersFromManyTo (c1:|cxs) mghTo
+                    DB.blkGetHeader @ssc h
+                (c1:cxs, _)   -> runExceptT
+                    (getHeadersFromManyTo (c1:|cxs) mghTo)
             either onNoHeaders handleSuccess headers
   where
     -- retrieves header of the newest main block if there's any,
     -- genesis otherwise.
     getLastMainHeader :: m (BlockHeader ssc)
     getLastMainHeader = do
-        (tip :: Block ssc) <- DB.getTipBlock @ssc
+        (tip :: Block ssc) <- DB.getTipBlock @(Block ssc)
         let tipHeader = tip ^. blockHeader
         case tip of
-            Left _  -> fromMaybe tipHeader <$> DB.getBlockHeader (tip ^. prevBlockL)
+            Left _  -> fromMaybe tipHeader <$> DB.blkGetHeader (tip ^. prevBlockL)
             Right _ -> pure tipHeader
     handleSuccess h = do
         onSuccess

@@ -10,10 +10,11 @@ module Pos.DB.DB
        , initNodeDBs
        , getTip
        , getTipBlock
-       , getTipBlockHeader
+       , getTipHeader
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
        , sanityCheckDB
+
        , GStateCoreRedirect
        , runGStateCoreRedirect
        ) where
@@ -31,20 +32,19 @@ import           System.Directory                 (createDirectoryIfMissing,
 import           System.FilePath                  ((</>))
 import           System.Wlog                      (WithLogger)
 
-import           Pos.Block.Core                   (Block, BlockHeader, getBlockHeader)
-import           Pos.Block.Pure                   (mkGenesisBlock)
+import           Pos.Block.Core                   (Block, mkGenesisBlock)
 import           Pos.Block.Types                  (Blund)
 import           Pos.Context.Context              (GenesisLeaders, GenesisUtxo,
                                                    NodeParams)
 import           Pos.Context.Functions            (genesisLeadersM)
 import           Pos.Core                         (headerHash)
-import           Pos.DB.Block                     (getBlock, loadBlundsByDepth,
+import           Pos.DB.Block                     (MonadBlockDB, loadBlundsByDepth,
                                                    loadBlundsWhile, prepareBlockDB)
-import           Pos.DB.Class                     (MonadDB, MonadGStateCore (..))
-import           Pos.DB.Error                     (DBError (DBMalformed))
+import           Pos.DB.Class                     (MonadDB, MonadDBPure (..),
+                                                   MonadGStateCore (..))
 import           Pos.DB.Functions                 (openDB)
 import           Pos.DB.GState.BlockExtra         (prepareGStateBlockExtra)
-import           Pos.DB.GState.Common             (getTip)
+import           Pos.DB.GState.Common             (getTip, getTipBlock, getTipHeader)
 import           Pos.DB.GState.GState             (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.DB.Misc                      (prepareMiscDB)
 import           Pos.DB.Types                     (NodeDBs (..))
@@ -91,7 +91,9 @@ initNodeDBs
        , Ether.MonadReader' GenesisUtxo m
        , Ether.MonadReader' GenesisLeaders m
        , Ether.MonadReader' NodeParams m
-       , MonadDB m )
+       , MonadDB m
+       , MonadDBPure m
+       )
     => m ()
 initNodeDBs = do
     leaders0 <- genesisLeadersM
@@ -106,37 +108,22 @@ initNodeDBs = do
     prepareExplorerDB
 #endif
 
--- | Get block corresponding to tip.
-getTipBlock
-    :: (SscHelpersClass ssc, MonadDB m)
-    => m (Block ssc)
-getTipBlock = maybe onFailure pure =<< getBlock =<< getTip
-  where
-    onFailure = throwM $ DBMalformed "there is no block corresponding to tip"
-
--- | Get BlockHeader corresponding to tip.
--- TODO don't load tip block, fix it.
-getTipBlockHeader
-    :: (SscHelpersClass ssc, MonadDB m)
-    => m (BlockHeader ssc)
-getTipBlockHeader = getBlockHeader <$> getTipBlock
-
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (MonadBlockDB ssc m, MonadDBPure m)
     => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (MonadBlockDB ssc m, MonadDBPure m)
     => Word -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB
-    :: (MonadMask m, MonadDB m, WithLogger m)
+    :: (MonadMask m, MonadDB m, WithLogger m, MonadDBPure m)
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
 
@@ -162,7 +149,7 @@ runGStateCoreRedirect :: GStateCoreRedirect m a -> m a
 runGStateCoreRedirect = coerce
 
 instance
-    (MonadDB m, t ~ IdentityT) =>
+    (MonadDBPure m, t ~ IdentityT) =>
         MonadGStateCore (Ether.TaggedTrans GStateCoreRedirectTag t m)
   where
     gsAdoptedBVData = getAdoptedBVData

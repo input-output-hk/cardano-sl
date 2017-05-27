@@ -140,7 +140,7 @@ data ProposalState
 
 propStateToEither :: ProposalState -> Either UndecidedProposalState DecidedProposalState
 propStateToEither (PSUndecided ups) = Left ups
-propStateToEither (PSDecided dps) = Right dps
+propStateToEither (PSDecided dps)   = Right dps
 
 psProposal :: ProposalState -> UpdateProposal
 psProposal (PSUndecided ups) = upsProposal ups

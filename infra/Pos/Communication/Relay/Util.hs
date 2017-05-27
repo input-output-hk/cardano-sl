@@ -12,10 +12,10 @@ import           Pos.Communication.Types.Relay (DataMsg, InvMsg, InvOrData)
 
 expectInv
     :: Mockable Throw m
-    => (InvMsg key tag -> m a) -> InvOrData tag key contents -> m a
+    => (InvMsg key -> m a) -> InvOrData key contents -> m a
 expectInv call = either call (\_ -> throw UnexpectedData)
 
 expectData
     :: Mockable Throw m
-    => (DataMsg contents -> m a) -> InvOrData tag key contents -> m a
+    => (DataMsg contents -> m a) -> InvOrData key contents -> m a
 expectData call = either (\_ -> throw UnexpectedInv) call

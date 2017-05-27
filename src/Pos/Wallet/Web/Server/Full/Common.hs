@@ -31,7 +31,8 @@ import           Pos.Communication.PeerState   (PeerStateSnapshot, PeerStateTag,
                                                 peerStateFromSnapshot,
                                                 runPeerStateRedirect)
 import           Pos.Context                   (NodeContext, NodeContextTag)
-import           Pos.DB                        (NodeDBs, getNodeDBs)
+import           Pos.DB                        (NodeDBs, getNodeDBs, runDBPureRedirect)
+import           Pos.DB.Block                  (runBlockDBRedirect)
 import           Pos.DB.DB                     (runGStateCoreRedirect)
 import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
 import           Pos.DHT.Real                  (KademliaDHTInstance)
@@ -53,11 +54,9 @@ import           Pos.Wallet.Web.State          (WalletState, getWalletWebState,
                                                 runWalletWebDB)
 import           Pos.WorkMode                  (RawRealModeK, RawRealModeS, TxpExtra_TMP)
 
-
 type WebHandler = WalletWebHandler (RawRealModeK WalletSscType)
 
 type WebHandlerS = WalletWebHandler (RawRealModeS WalletSscType)
-
 
 -- TODO: eliminate copy-paste
 
@@ -127,6 +126,8 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                    , Tagged @(TVar DelegationWrap) delWrap
                    , Tagged @PeerStateTag peerStateCtx
                    ))
+           . runDBPureRedirect
+           . runBlockDBRedirect
            . runSlotsDataRedirect
            . runSlotsRedirect
            . runBalancesRedirect

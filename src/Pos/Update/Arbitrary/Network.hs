@@ -6,7 +6,6 @@ module Pos.Update.Arbitrary.Network
        (
        ) where
 
-import           Data.DeriveTH             (derive, makeArbitrary)
 import           Test.QuickCheck           (Arbitrary (..), listOf)
 import           Universum
 
@@ -16,10 +15,6 @@ import           Pos.Crypto                (SignTag (SignUSVote), hash, sign, to
 import           Pos.Types.Arbitrary       ()
 import           Pos.Update.Arbitrary.Core ()
 import           Pos.Update.Core.Types     (UpdateProposal (..), UpdateVote (..))
-import           Pos.Update.Network.Types  (ProposalMsgTag (..), VoteMsgTag (..))
-
-derive makeArbitrary ''ProposalMsgTag
-derive makeArbitrary ''VoteMsgTag
 
 instance Arbitrary (DataMsg UpdateVote) where
     arbitrary = DataMsg <$> arbitrary

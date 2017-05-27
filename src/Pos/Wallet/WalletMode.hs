@@ -44,7 +44,7 @@ import           Pos.Reporting.MemState       (ReportingContext)
 import           System.Wlog                  (LoggerNameBox, WithLogger)
 
 import           Pos.Block.BListener          (BListenerStub)
-import           Pos.Block.Core               (BlockHeader)
+import           Pos.Block.Core               (Block, BlockHeader)
 import           Pos.Client.Txp.Balances      (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History       (MonadTxHistory (..), deriveAddrHistory)
 import           Pos.Communication            (TxMode)
@@ -54,19 +54,17 @@ import           Pos.Constants                (blkSecurityParam)
 import qualified Pos.Context                  as PC
 import           Pos.Core                     (ChainDifficulty, difficultyL,
                                                flattenEpochOrSlot, flattenSlotId)
-import           Pos.DB                       (MonadDB)
-import qualified Pos.DB.Block                 as DB
-import           Pos.DB.Error                 (DBError (..))
-import qualified Pos.DB.GState                as GS
+import           Pos.DB                       (DBPureRedirect, MonadDB)
+import           Pos.DB.Block                 (BlockDBRedirect, MonadBlockDB)
+import           Pos.DB.DB                    (getTipHeader)
 import           Pos.Discovery                (DiscoveryConstT, DiscoveryKademliaT,
                                                MonadDiscovery)
 import           Pos.Shutdown                 (MonadShutdownMem, triggerShutdown)
 import           Pos.Slotting                 (MonadSlots (..), getLastKnownSlotDuration)
-import           Pos.Ssc.Class                (Ssc, SscHelpersClass)
+import           Pos.Ssc.Class                (Ssc)
 import           Pos.Txp                      (filterUtxoByAddrs, runUtxoStateT)
 import           Pos.Update                   (ConfirmedProposalState (..))
 import           Pos.Update.Context           (UpdateContext (ucUpdateSemaphore))
-import           Pos.Util                     (maybeThrow)
 import           Pos.Wallet.KeyStorage        (KeyData, MonadKeys)
 import qualified Pos.Wallet.State             as WS
 import           Pos.Wallet.State.Acidic      (WalletState)
@@ -137,11 +135,6 @@ instance {-# OVERLAPPABLE #-}
     (MonadBlockchainInfo m, MonadTrans t, Monad (t m)) =>
         MonadBlockchainInfo (t m)
 
--- | Helpers for avoiding copy-paste
-topHeader :: (SscHelpersClass ssc, MonadDB m) => m (BlockHeader ssc)
-topHeader = maybeThrow (DBMalformed "No block with tip hash!") =<<
-            DB.getBlockHeader =<< GS.getTip
-
 downloadHeader
     :: (Ssc ssc, MonadIO m, PC.MonadProgressHeader ssc m)
     => m (Maybe (BlockHeader ssc))
@@ -183,7 +176,7 @@ getLastKnownHeader =
 
 -- | Instance for full-node's ContextHolder
 instance
-    ( SscHelpersClass ssc
+    ( MonadBlockDB ssc m
     , t ~ IdentityT
     , PC.MonadLastKnownHeader ssc m
     , PC.MonadProgressHeader ssc m
@@ -195,12 +188,12 @@ instance
   where
     networkChainDifficulty = getLastKnownHeader >>= \case
         Just lh -> do
-            thDiff <- view difficultyL <$> topHeader @ssc
+            thDiff <- view difficultyL <$> getTipHeader @(Block ssc)
             let lhDiff = lh ^. difficultyL
             return . Just $ max thDiff lhDiff
         Nothing -> runMaybeT $ do
             cSlot <- flattenSlotId <$> MaybeT getCurrentSlot
-            th <- lift (topHeader @ssc)
+            th <- lift (getTipHeader @(Block ssc))
             let hSlot = flattenEpochOrSlot th
             when (hSlot <= cSlot - blkSecurityParam) $
                 fail "Local tip is outdated"
@@ -208,7 +201,7 @@ instance
 
     localChainDifficulty = downloadHeader >>= \case
         Just dh -> return $ dh ^. difficultyL
-        Nothing -> view difficultyL <$> topHeader @ssc
+        Nothing -> view difficultyL <$> getTipHeader @(Block ssc)
 
     connectedPeers = fromIntegral . length <$> do
         PC.ConnectedPeers cp <- Ether.ask'
@@ -294,6 +287,8 @@ type RawWalletMode =
     GStateCoreWalletRedirect (
     BalancesWalletRedirect (
     TxHistoryWalletRedirect (
+    BlockDBRedirect (
+    DBPureRedirect (
     Ether.ReadersT
         ( Tagged PeerStateTag (PeerStateCtx Production)
         , Tagged KeyData KeyData
@@ -302,7 +297,7 @@ type RawWalletMode =
         ) (
     LoggerNameBox (
     Production
-    )))))))))
+    )))))))))))
 
 type WalletRealMode = DiscoveryKademliaT RawWalletMode
 

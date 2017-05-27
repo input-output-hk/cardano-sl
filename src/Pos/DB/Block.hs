@@ -53,7 +53,7 @@ import           Pos.Block.Types              (Blund, Undo (..))
 import           Pos.Constants                (genesisHash)
 import           Pos.Core                     (HasDifficulty (difficultyL),
                                                HasPrevBlock (prevBlockL), HeaderHash,
-                                               headerHash)
+                                               IsHeader, headerHash)
 import           Pos.Crypto                   (hashHexF, shortHashF)
 import           Pos.DB.Class                 (DBTag (..), MonadBlockDBGeneric (..),
                                                MonadDB, MonadDBPure, dbGetBlund,
@@ -62,7 +62,9 @@ import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (dbGetBi, rocksDelete, rocksPutBi)
 import           Pos.DB.Types                 (blockDataDir)
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
-import           Pos.Util                     (maybeThrow)
+import           Pos.Ssc.Class.Types          (SscBlock)
+import           Pos.Ssc.Util                 (toSscBlock)
+import           Pos.Util                     (Some (..), maybeThrow)
 import           Pos.Util.Chrono              (NewestFirst (..))
 
 -- Get block with given hash from Block DB.  This function has too
@@ -224,6 +226,7 @@ blockIndexKey h = "b" <> convert h
 -- | Specialization of 'MonadBlockDBGeneric' for block processing.
 type MonadBlockDB ssc m
      = ( MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo m
+       , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
        , SscHelpersClass ssc)
 
 data BlockDBRedirectTag
@@ -234,11 +237,23 @@ type BlockDBRedirect =
 runBlockDBRedirect :: BlockDBRedirect m a -> m a
 runBlockDBRedirect = coerce
 
+-- instance MonadBlockDBGeneric (Block ssc)
+
 instance (MonadDBPure m, MonadDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (Ether.TaggedTrans BlockDBRedirectTag t m) where
-    dbGetBlock = getBlock
-    dbGetUndo = getUndo
+    dbGetBlock  = getBlock
+    dbGetUndo   = getUndo
     dbGetHeader = blkGetHeader
+
+-- instance MonadBlockDBGeneric (SscBlock ssc)
+
+instance (MonadDBPure m, MonadDB m, t ~ IdentityT, SscHelpersClass ssc) =>
+         MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (Ether.TaggedTrans BlockDBRedirectTag t m) where
+    dbGetBlock  = fmap (toSscBlock <$>) . getBlock
+    dbGetUndo   = fmap (const () <$>)   . getUndo
+    dbGetHeader = fmap (Some <$>)       . blkGetHeader @ssc
+
+-- helpers
 
 blkGetBlock ::
        forall ssc m. MonadBlockDB ssc m

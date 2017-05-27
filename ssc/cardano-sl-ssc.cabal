@@ -18,17 +18,25 @@ library
     Pos.Ssc.Class.Helpers
     Pos.Ssc.Class.Storage
 
+    Pos.Ssc.Extra
     Pos.Ssc.Extra.Types
     Pos.Ssc.Extra.Holder
     Pos.Ssc.Extra.Class
+    Pos.Ssc.Extra.Logic
+
+    Pos.Ssc.RichmenComponent
 
   build-depends:       base
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cardano-sl-update
                      , ether
+                     , formatting
+                     , lens
                      , log-warper
+                     , mmorph
                      , mtl
                      , serokell-util
                      , stm

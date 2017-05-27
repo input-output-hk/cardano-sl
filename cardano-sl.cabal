@@ -92,7 +92,6 @@ library
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
-                        Pos.Ssc.Extra
 
                         Pos.Statistics
 
@@ -257,8 +256,6 @@ library
                         -- SSC
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
-
-                        Pos.Ssc.Extra.Logic
 
                         Pos.Ssc.Util
 

@@ -11,7 +11,7 @@ module Pos.Ssc.GodTossing.GState
        , getStableCerts
        ) where
 
-import           Control.Lens                   (choosing, (.=), _Wrapped)
+import           Control.Lens                   ((.=), _Wrapped)
 import           Control.Monad.Except           (MonadError (throwError), runExceptT)
 import           Data.Default                   (def)
 import qualified Data.HashMap.Strict            as HM
@@ -26,7 +26,7 @@ import           Pos.Core                       (EpochIndex (..), SlotId (..),
 import           Pos.DB                         (MonadDBPure, SomeBatchOp (..))
 import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
-import           Pos.Ssc.Class.Types            (SscBlock)
+import           Pos.Ssc.Class.Types            (SscBlock, getSscBlock)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificatesMap)
 import qualified Pos.Ssc.GodTossing.DB          as DB
@@ -103,9 +103,9 @@ type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m) => m a
 rollbackBlocks :: NewestFirst NE (SscBlock SscGodTossing) -> GSUpdate ()
 rollbackBlocks blocks = tossToUpdate mempty $ rollbackGT oldestEOS payloads
   where
-    oldestEOS = blocks ^. _Wrapped . _neLast .
-                          choosing epochOrSlotG (_1 . epochOrSlotG)
-    payloads = over _Wrapped (map snd . rights . toList) blocks
+    oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
+    payloads = over _Wrapped (map snd . rights . map getSscBlock . toList)
+                   blocks
 
 verifyAndApply
     :: RichmenStake
@@ -113,8 +113,7 @@ verifyAndApply
     -> SscVerifier SscGodTossing ()
 verifyAndApply richmenStake blocks = verifyAndApplyMultiRichmen False richmenData blocks
   where
-    epoch = blocks ^. _Wrapped . _neHead .
-                      choosing epochIndexL (_1 . epochIndexL)
+    epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     richmenData = HM.fromList [(epoch, richmenStake)]
 
 verifyAndApplyMultiRichmen
@@ -123,7 +122,7 @@ verifyAndApplyMultiRichmen
     -> OldestFirst NE (SscBlock SscGodTossing)
     -> SscVerifier SscGodTossing ()
 verifyAndApplyMultiRichmen onlyCerts richmenData =
-    tossToVerifier richmenData . mapM_ verifyAndApplyDo
+    tossToVerifier richmenData . mapM_ (verifyAndApplyDo . getSscBlock)
   where
     verifyAndApplyDo (Left header) = applyGenesisBlock $ header ^. epochIndexL
     verifyAndApplyDo (Right (header, payload)) =

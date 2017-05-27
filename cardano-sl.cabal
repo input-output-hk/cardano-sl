@@ -118,7 +118,6 @@ library
                         Pos.Util
                         Pos.Util.Undefined
                         Pos.Util.Arbitrary
-                        Pos.Util.Limits
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
                         Pos.Util.UserSecret
@@ -153,7 +152,6 @@ library
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Ssc
-                        Pos.Binary.Ssc.GodTossing.Core
                         Pos.Binary.Ssc.GodTossing.Toss
                         Pos.Binary.Ssc.GodTossing.Types
                         Pos.Binary.Txp
@@ -260,9 +258,6 @@ library
                         Pos.Ssc.Util
 
                         Pos.Ssc.GodTossing.Arbitrary
-                        Pos.Ssc.GodTossing.Core
-                        Pos.Ssc.GodTossing.Core.Core
-                        Pos.Ssc.GodTossing.Core.Types
                         Pos.Ssc.GodTossing.DB
                         Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
@@ -426,6 +421,7 @@ library
                       , cardano-report-server >= 0.1.1
                       , cardano-sl-core
                       , cardano-sl-db
+                      , cardano-sl-godtossing
                       , cardano-sl-infra
                       , cardano-sl-lrc
                       , cardano-sl-ssc

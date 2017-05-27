@@ -30,7 +30,7 @@ new = liftA2 RWVar RWL.new . newIORef
 
 -- | Executes 'MonadIO' action taking a shared lock inside.
 with :: (MonadIO m, MonadMask m) => RWVar a -> (a -> m b) -> m b
-with (RWVar l r) action = RWL.withRead l $ liftIO (readIORef r) >>= action
+with (RWVar l r) action = RWL.withRead l $ readIORef r >>= action
 
 -- | Executes 'MonadIO' action taking an exclusive lock inside.
 modify :: (MonadIO m, MonadMask m) => RWVar a -> (a -> m (a, b)) -> m b
@@ -38,6 +38,6 @@ modify (RWVar l r) = RWL.withWrite l . modifyIORefM r
 
 modifyIORefM :: (MonadIO m) => IORef a -> (a -> m (a, b)) -> m b
 modifyIORefM r f = do
-    (y, z) <- f =<< liftIO (readIORef r)
-    liftIO $ writeIORef r y
+    (y, z) <- f =<< readIORef r
+    writeIORef r y
     pure z

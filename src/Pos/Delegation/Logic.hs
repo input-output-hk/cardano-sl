@@ -291,7 +291,7 @@ calculateTransCorrections eActions = do
         let af = keysMap affected
 
         -- Step 2.
-        dlgNew <- execStateT (forM_ af calculateDlgNew) HM.empty
+        dlgNew <- execStateT (for_ af calculateDlgNew) HM.empty
         -- Let's check that sizes of af and dlgNew match (they should).
         -- We'll need it to merge in (3).
         let dlgKeys = keysMap dlgNew

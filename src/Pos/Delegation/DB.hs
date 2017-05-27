@@ -23,7 +23,6 @@
 module Pos.Delegation.DB
        ( getPskByIssuer
        , getPskChain
-       , getPskForest
        , isIssuerByAddressHash
        , getDlgTransitive
        , getDlgTransitiveReverse
@@ -49,9 +48,9 @@ import qualified Data.HashSet           as HS
 import qualified Database.RocksDB       as Rocks
 
 import           Pos.Binary.Class       (encodeStrict)
-import           Pos.Crypto             (PublicKey, pskIssuerPk)
+import           Pos.Crypto             (PublicKey, pskDelegatePk, pskIssuerPk)
+import           Pos.DB                 (DBError (DBMalformed))
 import           Pos.DB.Class           (MonadDB, MonadDBPure)
-import           Pos.DB.Error           (DBError (DBMalformed))
 import           Pos.DB.Functions       (RocksBatchOp (..), encodeWithKeyPrefix)
 import           Pos.DB.GState.Common   (gsGetBi)
 import           Pos.DB.Iterator        (DBIteratorClass (..), DBnIterator,
@@ -83,38 +82,26 @@ getPskChain
 getPskChain = getPskChainInternal HS.empty
 
 -- See doc for 'getPskTree'. This function also stops traversal if
--- encounters anyone in 'toIgnore' set.
+-- encounters anyone in 'toIgnore' set. This may be used to call it
+-- several times to collect a whole tree/forest, for example.
 getPskChainInternal
     :: MonadDBPure m
     => HashSet StakeholderId -> Either PublicKey StakeholderId -> m DlgMemPool
 getPskChainInternal toIgnore (either addressHash identity -> issuer) =
-    fmap (view _1) $ flip execStateT (HM.empty, [issuer], HS.empty) trav
+    -- State is tuple of returning mempool and "used flags" set.
+    view _1 <$> execStateT (trav issuer) (HM.empty, HS.empty)
   where
-    trav = use _2 >>= \case
-        []                           -> pass
-        (x:_) | HS.member x toIgnore -> (_2 %= drop 1) >> trav
-        (x:_)                        -> do
-            whenM (uses _3 $ HS.member x) $
-                throwM $ DBMalformed "getPskTree: found a PSK cycle"
-            _2 %= drop 1
-            pskM <- lift $ getPskByIssuer $ Right x
-            whenJust pskM $ \psk -> do
-                let is = pskIssuerPk psk
-                _1 %= HM.insert is psk
-                _3 %= HS.insert (addressHash is)
-            trav
-
--- | Retrieves certificate forest, where given issuers are trees'
--- leaves. Executes 'getPskChain' for every issuer and merges. This
--- function must be used under outside shared lock.
-getPskForest
-    :: (MonadDBPure m)
-    => Either [PublicKey] [StakeholderId] -> m DlgMemPool
-getPskForest (either (fmap addressHash) identity -> issuers) =
-    foldlM foldFoo HM.empty (map Right issuers)
-  where
-    -- Don't revisit branches we retrieved earlier.
-    foldFoo cur = getPskChainInternal (HS.fromList $ map addressHash $ HM.keys cur)
+    trav x | HS.member x toIgnore = pass
+    trav x = do
+        whenM (uses _2 $ HS.member x) $
+            throwM $ DBMalformed "getPskChainInternal: found a PSK cycle"
+        _2 %= HS.insert x
+        pskM <- lift $ getPskByIssuer $ Right x
+        whenJust pskM $ \psk -> do
+            when (isRevokePsk psk) $ throwM $ DBMalformed $
+                "getPskChainInternal: found redeem psk: " <> pretty psk
+            _1 %= HM.insert (pskIssuerPk psk) psk
+            trav (addressHash $ pskDelegatePk psk)
 
 -- | Checks if stakeholder is psk issuer.
 isIssuerByAddressHash :: MonadDBPure m => StakeholderId -> m Bool
@@ -128,7 +115,7 @@ getDlgTransitive iPk = gsGetBi (transDlgKey iPk)
 -- | Reverse map of transitive delegation. Given a delegate @d@
 -- returns all @i@ such that 'getDlgTransitive' returns @d@ on @i@.
 getDlgTransitiveReverse :: MonadDBPure m => PublicKey -> m (HashSet PublicKey)
-getDlgTransitiveReverse dPk = fmap (fromMaybe mempty) $ gsGetBi (transRevDlgKey dPk)
+getDlgTransitiveReverse dPk = fromMaybe mempty <$> gsGetBi (transRevDlgKey dPk)
 
 ----------------------------------------------------------------------------
 -- DlgEdgeAction and friends

@@ -152,8 +152,6 @@ library
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Ssc
-                        Pos.Binary.Ssc.GodTossing.Toss
-                        Pos.Binary.Ssc.GodTossing.Types
                         Pos.Binary.Txp
                         Pos.Binary.Txp.Core
                         Pos.Binary.Txp.Network
@@ -259,7 +257,6 @@ library
 
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.DB
-                        Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.GState
@@ -268,7 +265,6 @@ library
                         Pos.Ssc.GodTossing.LocalData.Logic
                         Pos.Ssc.GodTossing.LocalData.Types
                         Pos.Ssc.GodTossing.Richmen
-                        Pos.Ssc.GodTossing.SecretStorage
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Toss

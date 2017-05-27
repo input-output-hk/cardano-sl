@@ -28,14 +28,18 @@ library
     Pos.Ssc.GodTossing.Toss.Types
 
     Pos.Ssc.GodTossing.VssCertData
-
+    Pos.Ssc.GodTossing.Error
+    Pos.Ssc.GodTossing.SecretStorage
     Pos.Ssc.GodTossing.Constants
 
     Pos.Binary.Ssc.GodTossing.Core
+    Pos.Binary.Ssc.GodTossing.Types
+    Pos.Binary.Ssc.GodTossing.Toss
 
   build-depends:       aeson
                      , base
                      , cardano-sl-core
+                     , cardano-sl-db
                      , cardano-sl-lrc
                      , cardano-sl-ssc
                      , cardano-sl-update

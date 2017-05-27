@@ -182,7 +182,6 @@ data These a b = This a | That b | These a b
 type TransChangeset = HashMap PublicKey (These PublicKey PublicKey)
 type ReverseTrans = HashMap PublicKey (HashSet PublicKey, HashSet PublicKey)
 
-
 -- WHENEVER YOU CHANGE THE FUNCTION, CHECK DOCUMENTATION CONSISTENCY! THANK YOU!
 --
 -- Takes a set of dlg edge actions to apply and returns compensations
@@ -205,7 +204,7 @@ calculateTransCorrections eActions = do
     reverseOps <- forM (HM.toList reverseTrans) $ \(k, (ad0, dl0)) -> do
         let ad = HS.toList ad0 -- view patterns are for the weak ones
             dl = HS.toList dl0
-        prev <- GS.getDlgTransitiveReverse k
+        prev <- HS.toList <$> GS.getDlgTransitiveReverse k
         unless (null $ ad `intersect` dl) $ throwM $ DBMalformed $
             sformat ("Couldn't build reverseOps: ad `intersect` dl is nonzero. "%
                      "ad: "%listJson%", dl: "%listJson)
@@ -214,7 +213,7 @@ calculateTransCorrections eActions = do
             sformat ("Couldn't build reverseOps: revtrans has "%listJson%", while "%
                      "trans says we should delete "%listJson)
                     prev dl
-        pure $ GS.SetTransitiveDlgRev k $ (prev \\ dl) ++ ad
+        pure $ GS.SetTransitiveDlgRev k $ HS.fromList $ (prev \\ dl) ++ ad
 
     pure $ SomeBatchOp $ transOps <> reverseOps
   where
@@ -324,7 +323,7 @@ calculateTransCorrections eActions = do
         Just dPk -> do
             -- All i | i → d in the G. We should leave only those who
             -- are lower than iPk in the delegation chain.
-            revIssuers <- GS.getDlgTransitiveReverse dPk
+            revIssuers <- HS.toList <$> GS.getDlgTransitiveReverse dPk
             -- For these we'll find everyone who's upper (closer to
             -- root/delegate) and take a diff.
             chain <- HM.keys <$> GS.getPskChain (Left iPk)

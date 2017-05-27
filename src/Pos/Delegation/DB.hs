@@ -17,7 +17,7 @@
 -- is always different from Issuer.
 --
 -- 3. Dlg reverse transitive mapping: Delegate →
--- Issuers@[Issuer]. Corresponds to Issuer → Delegate ∈ Dlg transitive
+-- Issuers@{Issuer_i}. Corresponds to Issuer → Delegate ∈ Dlg transitive
 -- mapping. Notice: here also Delegate ∉ Issuers (see (2)).
 
 module Pos.Delegation.DB
@@ -124,8 +124,8 @@ getDlgTransitive iPk = gsGetBi (transDlgKey iPk)
 
 -- | Reverse map of transitive delegation. Given a delegate @d@
 -- returns all @i@ such that 'getDlgTransitive' returns @d@ on @i@.
-getDlgTransitiveReverse :: MonadDBPure m => PublicKey -> m [PublicKey]
-getDlgTransitiveReverse dPk = fmap (fromMaybe []) $ gsGetBi (transRevDlgKey dPk)
+getDlgTransitiveReverse :: MonadDBPure m => PublicKey -> m (HashSet PublicKey)
+getDlgTransitiveReverse dPk = fmap (fromMaybe mempty) $ gsGetBi (transRevDlgKey dPk)
 
 ----------------------------------------------------------------------------
 -- Batch operations
@@ -159,8 +159,7 @@ data DelegationOp
     -- ^ Transitive delegation relation adding.
     | DelTransitiveDlg !PublicKey
     -- ^ Remove i -> d link for i.
-    | SetTransitiveDlgRev !PublicKey !([PublicKey])
-    -- TODO STORE SET INSTEAD OF LIST!
+    | SetTransitiveDlgRev !PublicKey !(HashSet PublicKey)
     -- ^ Set value to map d -> [i], reverse index of transitive dlg
 
 instance RocksBatchOp DelegationOp where
@@ -173,9 +172,9 @@ instance RocksBatchOp DelegationOp where
         [Rocks.Del $ pskKey $ addressHash issuerPk]
     toBatchOp (AddTransitiveDlg iPk dPk) = [Rocks.Put (transDlgKey iPk) (encodeStrict dPk)]
     toBatchOp (DelTransitiveDlg iPk) = [Rocks.Del $ transDlgKey iPk]
-    toBatchOp (SetTransitiveDlgRev dPk []) = [Rocks.Del $ transRevDlgKey dPk]
-    toBatchOp (SetTransitiveDlgRev dPk iPks) =
-        [Rocks.Put (transRevDlgKey dPk) (encodeStrict iPks)]
+    toBatchOp (SetTransitiveDlgRev dPk iPks)
+        | HS.null iPks = [Rocks.Del $ transRevDlgKey dPk]
+        | otherwise    = [Rocks.Put (transRevDlgKey dPk) (encodeStrict iPks)]
 
 ----------------------------------------------------------------------------
 -- Iteration

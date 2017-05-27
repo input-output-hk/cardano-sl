@@ -17,6 +17,10 @@ library
     Pos.Ssc.GodTossing.Core.Types
     Pos.Ssc.GodTossing.Core.Core
 
+    Pos.Ssc.GodTossing.Types
+    Pos.Ssc.GodTossing.Types.Types
+    Pos.Ssc.GodTossing.Types.Message
+
     Pos.Ssc.GodTossing.Toss.Base
     Pos.Ssc.GodTossing.Toss.Class
     Pos.Ssc.GodTossing.Toss.Failure
@@ -36,6 +40,7 @@ library
                      , cardano-sl-ssc
                      , cardano-sl-update
                      , containers
+                     , data-default
                      , ether
                      , formatting
                      , lens

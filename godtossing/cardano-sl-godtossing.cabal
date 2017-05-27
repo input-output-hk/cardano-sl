@@ -17,6 +17,12 @@ library
     Pos.Ssc.GodTossing.Core.Types
     Pos.Ssc.GodTossing.Core.Core
 
+    Pos.Ssc.GodTossing.Toss.Base
+    Pos.Ssc.GodTossing.Toss.Class
+    Pos.Ssc.GodTossing.Toss.Failure
+    Pos.Ssc.GodTossing.Toss.Trans
+    Pos.Ssc.GodTossing.Toss.Types
+
     Pos.Ssc.GodTossing.VssCertData
 
     Pos.Ssc.GodTossing.Constants
@@ -26,9 +32,17 @@ library
   build-depends:       aeson
                      , base
                      , cardano-sl-core
+                     , cardano-sl-lrc
                      , cardano-sl-ssc
+                     , cardano-sl-update
                      , containers
+                     , ether
                      , formatting
+                     , lens
+                     , log-warper
+                     , mono-traversable
+                     , mtl
+                     , node-sketch
                      , serokell-util
                      , tagged
                      , text

@@ -11,7 +11,6 @@ module Pos.DHT.Real.Real
 import           Data.Binary               (decode)
 import qualified Data.ByteString.Char8     as B8 (unpack)
 import qualified Data.ByteString.Lazy      as BS
-import qualified Data.HashMap.Strict       as HM
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
                                             Promise, Throw, catch, catchAll, throw,
@@ -121,7 +120,7 @@ rejoinNetwork
 rejoinNetwork inst = withKademliaLogger $ do
     let init = kdiInitialPeers inst
     peers <- kademliaGetKnownPeers inst
-    logDebug $ sformat ("rejoinNetwork: peers "%build) peers
+    logDebug $ sformat ("rejoinNetwork: peers "%listJson) peers
     when (length peers < neighborsSendThreshold) $ do
         logWarning $ sformat ("Not enough peers: "%int%", threshold is "%int)
                              (length peers) (neighborsSendThreshold :: Int)
@@ -133,6 +132,7 @@ withKademliaLogger
     -> m a
 withKademliaLogger action = modifyLoggerName (<> "kademlia") action
 
+-- You can get DHTNode using @toDHTNode@ and Kademlia function @peersToNodeIds@.
 kademliaGetKnownPeers
     :: ( MonadIO m
        , Mockable Async m
@@ -144,30 +144,22 @@ kademliaGetKnownPeers
        , Bi DHTKey
        )
     => KademliaDHTInstance
-    -> m [DHTNode]
+    -> m [NetworkAddress]
 kademliaGetKnownPeers inst = do
-    let myId = kdiKey inst
     let kInst = kdiHandle inst
-    let initNetAddrs = map toKPeer (kdiInitialPeers inst)
-    initPeers <- map toDHTNode <$>
-                     bool (pure [])
-                     (catMaybes <$> liftIO (K.peersToNodeIds kInst initNetAddrs))
-                     (kdiExplicitInitial inst)
+    let initNetAddrs = bool [] (kdiInitialPeers inst) (kdiExplicitInitial inst)
     buckets <- liftIO (K.viewBuckets $ kInst)
-    filter ((/= myId) . dhtNodeId) <$> extendPeers myId initPeers buckets
+    extendPeers (kdiKey inst) initNetAddrs buckets
   where
     extendPeers
         :: MonadIO m1
         => DHTKey
-        -> [DHTNode]
+        -> [NetworkAddress]
         -> [[(K.Node DHTKey, Int64)]]
-        -> m1 [DHTNode]
-    extendPeers myId initial buckets =
-        map snd .
-        HM.toList .
-        HM.delete myId .
-        flip (foldr $ \n -> HM.insert (dhtNodeId n) n) initial .
-        HM.fromList . map (\(toDHTNode -> n) -> (dhtNodeId n, n)) <$>
+        -> m1 [NetworkAddress]
+    extendPeers myKey initial buckets =
+        ordNub . (++ initial) . map dhtAddr . -- Concat with initial peers and apply ordNub.
+        filter ((/= myKey) . dhtNodeId) . map toDHTNode <$> -- Remove our ID
         (updateCache $ concatMap getPeersFromBucket buckets)
 
     getPeersFromBucket :: [(K.Node DHTKey, Int64)] -> [K.Node DHTKey]
@@ -178,6 +170,7 @@ kademliaGetKnownPeers inst = do
             map fst $
             takeSafe enhancedMessageBroadcast $
             bool peers (sortWith snd bucket) (null peers)
+
     takeSafe :: Int -> [a] -> [a]
     takeSafe p a
         | length a <= p = a

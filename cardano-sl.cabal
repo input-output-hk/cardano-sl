@@ -108,6 +108,7 @@ library
 
                         Pos.Types
                         Pos.Types.Arbitrary
+                        Pos.Types.Arbitrary.Core
                         Pos.Types.Arbitrary.Unsafe
 
                         -- Update system
@@ -148,6 +149,7 @@ library
                         Pos.Binary.Block.Block
                         Pos.Binary.Block.Core
                         Pos.Binary.Communication
+                        Pos.Binary.Delegation
                         Pos.Binary.Genesis
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
@@ -167,6 +169,7 @@ library
                         Pos.Block.Core.Genesis.Types
                         Pos.Block.Core.Main
                         Pos.Block.Core.Main.Chain
+                        Pos.Block.Core.Main.Helpers
                         Pos.Block.Core.Main.Lens
                         Pos.Block.Core.Main.Misc
                         Pos.Block.Core.Main.Types
@@ -177,6 +180,7 @@ library
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
+                        Pos.Block.Logic.Slog
                         Pos.Block.Logic.Util
                         Pos.Block.Logic.VAR
                         Pos.Block.Network.Announce
@@ -200,8 +204,10 @@ library
                         Pos.Crypto.HDDiscovery
 
                         -- Heavy delegation
+                        Pos.Delegation.Arbitrary
                         Pos.Delegation.Class
                         Pos.Delegation.DB
+                        Pos.Delegation.Helpers
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
                         Pos.Delegation.Lrc
@@ -243,6 +249,7 @@ library
                         Pos.Lrc.DB.Lrc
                         Pos.Lrc.DB.Richmen
                         Pos.Lrc.Logic
+                        Pos.Lrc.Mode
                         Pos.Lrc.Worker
 
                         -- SafeCopy serialization (required in wallet)
@@ -989,6 +996,7 @@ executable cardano-swagger
                      , cardano-sl
                      , lens
                      , swagger2
+                     , servant
                      , servant-server
                      , servant-multipart
                      , servant-swagger

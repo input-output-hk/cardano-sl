@@ -15,7 +15,7 @@ module Pos.Delegation.Logic
        , initDelegation
 
        -- * Heavyweight psks handling
-       , getProxyMempool
+       , getDlgMempool
        , clearDlgMemPool
        , PskHeavyVerdict (..)
        , processProxySKHeavy
@@ -77,17 +77,108 @@ import           Pos.Delegation.Class       (DelegationWrap (..), DlgMemPool,
                                              dwMessageCache, dwPoolSize, dwProxySKPool,
                                              dwThisEpochPosted)
 import           Pos.Delegation.Pure        (dlgMemPoolDetectCycle)
+import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), mkDlgPayload)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
 import           Pos.Lrc.Context            (LrcContext)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Types                  (ProxySKHeavy, ProxySKLight, ProxySigLight)
-import           Pos.Util                   (_neHead, _neLast)
+import           Pos.Util                   (leftToPanic, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Concurrent.RWLock as RWL
 import qualified Pos.Util.Concurrent.RWVar  as RWV
 import           Pos.Util.LRU               (filterLRU)
+--import           Pos.Util.Util              (leftToPanic)
+
+
+{-
+import           Formatting               (bprint, build, sformat, stext, (%))
+import           System.Wlog              (WithLogger)
+
+import           Pos.Binary.Class         (biSize)
+import           Pos.Binary.Communication ()
+import           Pos.Block.Core           (Block, mainBlockDlgPayload)
+import           Pos.Block.Types          (Blund, Undo (undoPsk))
+import           Pos.Constants            (lightDlgConfirmationTimeout, memPoolLimitRatio,
+                                           messageCacheTimeout)
+import           Pos.Context              (NodeParams (..), lrcActionOnEpochReason)
+import           Pos.Core                 (HeaderHash, ProxySKHeavyMap, addressHash,
+                                           bvdMaxBlockSize, epochIndexL, headerHash,
+                                           prevBlockL)
+import           Pos.Crypto               (ProxySecretKey (..), PublicKey,
+                                           SignTag (SignProxySK), pdDelegatePk,
+                                           proxyVerify, shortHashF, toPublic,
+                                           verifyProxySecretKey)
+import           Pos.DB                   (DBError (DBMalformed), MonadDB, MonadDBPure,
+                                           SomeBatchOp (..))
+import qualified Pos.DB                   as DB
+import qualified Pos.DB.Block             as DB
+import qualified Pos.DB.DB                as DB
+import qualified Pos.DB.GState            as GS
+import qualified Pos.DB.Misc              as Misc
+import           Pos.Delegation.Class     (DelegationWrap (..), DlgMemPool,
+                                           MonadDelegation, askDelegationState,
+                                           dwConfirmationCache, dwEpochId, dwMessageCache,
+                                           dwPoolSize, dwProxySKPool, dwThisEpochPosted)
+import           Pos.Delegation.Types     (DlgPayload (getDlgPayload), mkDlgPayload)
+import           Pos.Exception            (cardanoExceptionFromException,
+                                           cardanoExceptionToException)
+import           Pos.Lrc.Context          (LrcContext)
+import qualified Pos.Lrc.DB               as LrcDB
+import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
+import           Pos.Types                (ProxySKHeavy, ProxySKLight, ProxySigLight)
+import           Pos.Util                 (withReadLifted, withWriteLifted, _neHead,
+                                           _neLast)
+import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.LRU             (filterLRU)
+import           Pos.Util.Util            (leftToPanic)
+-}
+{-
+----------------------------------------------------------------------------
+-- Different helpers to simplify logic
+----------------------------------------------------------------------------
+
+-- | Convenient monad to work in 'DelegationWrap' context while being
+-- in STM.
+type DelegationStateAction = StateT DelegationWrap STM
+
+-- | Effectively takes a lock on ProxyCaches mvar in NodeContext and
+-- allows you to run some computation producing updated ProxyCaches
+-- and return value. Will put MVar back on exception.
+runDelegationStateAction
+    :: (MonadIO m, MonadDelegation m)
+    => DelegationStateAction a -> m a
+runDelegationStateAction action = do
+    var <- askDelegationState
+    atomically $ do
+        startState <- readTVar var
+        (res, newState) <- runStateT action startState
+        writeTVar var newState
+        pure res
+
+-- | Invalidates proxy caches using built-in constants.
+invalidateProxyCaches :: UTCTime -> DelegationStateAction ()
+invalidateProxyCaches curTime = do
+    dwMessageCache %=
+        filterLRU (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
+    dwConfirmationCache %=
+        filterLRU (\t -> addUTCTime (toDiffTime lightDlgConfirmationTimeout) t > curTime)
+  where
+    toDiffTime (t :: Integer) = fromIntegral t
+
+type DelegationWorkMode m = (MonadDelegation m, MonadDB m, WithLogger m, MonadDBPure m)
+
+-- Retrieves psk certificated that have been accumulated before given
+-- block. The block itself should be in DB.
+getPSKsFromThisEpoch
+    :: forall ssc m.
+       DB.MonadBlockDB ssc m
+    => HeaderHash -> m [ProxySKHeavy]
+getPSKsFromThisEpoch tip =
+    concatMap (either (const []) (getDlgPayload . view mainBlockDlgPayload)) <$>
+        (DB.loadBlocksWhile @ssc) isRight tip
+-}
 
 ----------------------------------------------------------------------------
 -- Exceptions
@@ -162,7 +253,7 @@ getPSKsFromThisEpoch
        DB.MonadBlockDB ssc m
     => HeaderHash -> m [ProxySKHeavy]
 getPSKsFromThisEpoch tip =
-    concatMap (either (const []) (view mainBlockDlgPayload)) <$>
+    concatMap (either (const []) (getDlgPayload . view mainBlockDlgPayload)) <$>
         (DB.loadBlocksWhile @ssc) isRight tip
 
 -- Returns PSK with supplied issuer, querying both provided mempool
@@ -390,15 +481,16 @@ calculateTransCorrections eActions = do
 ----------------------------------------------------------------------------
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
-getProxyMempool
+getDlgMempool
     :: (MonadIO m, MonadDBPure m, MonadDelegation m, MonadMask m)
-    => m ([ProxySKHeavy], [ProxySKHeavy])
-getProxyMempool = do
+    => m (DlgPayload, [ProxySKHeavy])
+getDlgMempool = do
     sks <- runDelegationStateAction $
         uses dwProxySKPool HM.elems
     let issuers = map pskIssuerPk sks
+    let payload = leftToPanic "getDlgMempool: " $ mkDlgPayload sks
     toRollback <- catMaybes <$> mapM (GS.getPskByIssuer . Left) issuers
-    pure (sks, toRollback)
+    pure (payload, toRollback)
 
 clearDlgMemPool
     :: (MonadDB m, MonadDelegation m, MonadMask m)
@@ -556,7 +648,7 @@ delegationVerifyBlocks blocks = do
     withMapModify psk = dvPskChanged %= HM.insert (pskIssuerPk psk) psk
     verifyBlock _ (Left _) = [] <$ (dvCurEpoch .= HS.empty)
     verifyBlock richmen (Right blk) = do
-        let proxySKs = view mainBlockDlgPayload blk
+        let proxySKs = getDlgPayload $ view mainBlockDlgPayload blk
             issuers = map pskIssuerPk proxySKs
 
         -- We believe issuers list doesn't contain duplicates, checked
@@ -632,7 +724,7 @@ delegationApplyBlocks blocks = do
             dwEpochId .= (block ^. epochIndexL)
         pure (SomeBatchOp ([]::[GS.DelegationOp]))
     applyBlock (Right block) = do
-        let proxySKs = view mainBlockDlgPayload block
+        let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
             edgeActions = map GS.pskToDlgEdgeAction proxySKs
         transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
@@ -685,7 +777,7 @@ delegationRollbackBlocks blunds = do
     rollbackBlund :: Blund ssc -> m SomeBatchOp
     rollbackBlund (Left _, _) = pure $ SomeBatchOp ([]::[GS.DelegationOp])
     rollbackBlund (Right block, undo) = do
-        let proxySKs = view mainBlockDlgPayload block
+        let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
             toUndo = undoPsk undo
             backDeleted = issuers \\ map pskIssuerPk toUndo

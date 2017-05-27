@@ -1,11 +1,15 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
 
 -- | Block creation logic.
 
 module Pos.Block.Logic.Creation
        ( createGenesisBlock
        , createMainBlock
+
+       -- * Internals
+       , RawPayload (..)
        , createMainBlockPure
        ) where
 
@@ -19,32 +23,36 @@ import qualified Data.HashMap.Strict        as HM
 import qualified Ether
 import           Formatting                 (build, ords, sformat, stext, (%))
 import           Paths_cardano_sl           (version)
-import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog                (logDebug, logError, logInfo)
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBlock,
-                                             MainExtraBodyData (..),
+                                             MainBlockchain, MainExtraBodyData (..),
                                              MainExtraHeaderData (..), mkGenesisBlock,
                                              mkMainBlock)
 import qualified Pos.Block.Core             as BC
-import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, toUpdateBlock)
+import           Pos.Block.Logic.Internal   (BlockApplyMode, BlockVerifyMode,
+                                             applyBlocksUnsafe, toUpdateBlock)
 import           Pos.Block.Logic.Util       (withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Types            (Undo (..))
-import           Pos.Constants              (curSoftwareVersion, epochSlots,
-                                             lastKnownBlockVersion, slotSecurityParam)
-import           Pos.Context                (lrcActionOnEpochReason, npSecretKey)
-import           Pos.Core                   (EpochIndex, EpochOrSlot (..), HeaderHash,
-                                             ProxySKEither, ProxySKHeavy, SlotId (..),
-                                             SlotLeaders, epochOrSlot, flattenSlotId,
-                                             getEpochOrSlot, headerHash)
+import           Pos.Constants              (curSoftwareVersion, lastKnownBlockVersion,
+                                             slotSecurityParam)
+import           Pos.Context                (BlkSemaphore, NodeParams,
+                                             lrcActionOnEpochReason, npSecretKey)
+import           Pos.Core                   (Blockchain (..), EpochIndex,
+                                             EpochOrSlot (..), HeaderHash, ProxySKEither,
+                                             SlotId (..), SlotLeaders, crucialSlot,
+                                             epochOrSlot, flattenSlotId, getEpochOrSlot,
+                                             getSlotIndex, headerHash, mkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
-import           Pos.Delegation.Logic       (clearDlgMemPool, getProxyMempool)
+import           Pos.Delegation.Logic       (clearDlgMemPool, getDlgMempool)
+import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Lrc.Error              (LrcError (..))
@@ -57,9 +65,15 @@ import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload, usVerifyBlocks)
-import           Pos.Update.Poll            (PollModifier)
+import           Pos.Update.Poll            (PollModifier, USUndo)
 import           Pos.Util                   (maybeThrow, _neHead)
-import           Pos.WorkMode.Class         (WorkMode)
+import           Pos.Util.Util              (leftToPanic)
+
+type CreationMode ssc m
+     = ( BlockApplyMode ssc m
+       , Ether.MonadReader' BlkSemaphore m
+       , Ether.MonadReader' NodeParams m
+       )
 
 ----------------------------------------------------------------------------
 -- GenesisBlock creation
@@ -77,7 +91,7 @@ import           Pos.WorkMode.Class         (WorkMode)
 -- [CSL-481] We can consider doing it though.
 createGenesisBlock
     :: forall ssc m.
-       WorkMode ssc m
+       CreationMode ssc m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlock epoch = reportingFatal version $ do
     leadersOrErr <-
@@ -95,12 +109,12 @@ shouldCreateGenesisBlock 0 _ = False
 shouldCreateGenesisBlock epoch headEpochOrSlot =
     epochOrSlot (const False) doCheck headEpochOrSlot
   where
-    doCheck SlotId {..} =
-        siEpoch == epoch - 1 && siSlot >= epochSlots - slotSecurityParam
+    doCheck SlotId {siSlot = slot, ..} =
+        siEpoch == epoch - 1 && slot > siSlot (crucialSlot epoch)
 
 createGenesisBlockDo
     :: forall ssc m.
-       WorkMode ssc m
+       BlockApplyMode ssc m
     => EpochIndex
     -> SlotLeaders
     -> HeaderHash
@@ -141,7 +155,7 @@ createGenesisBlockDo epoch leaders tip = do
 -- given SlotId
 createMainBlock
     :: forall ssc m.
-       (WorkMode ssc m)
+       (CreationMode ssc m)
     => SlotId
     -> Maybe ProxySKEither
     -> m (Either Text (MainBlock ssc))
@@ -171,8 +185,19 @@ canCreateBlock sId tipHeader
   where
     headSlot = getEpochOrSlot tipHeader
     addSafe si =
-        si {siSlot = min (epochSlots - 1) (siSlot si + slotSecurityParam)}
-    maxSlotId = addSafe $ epochOrSlot (`SlotId` 0) identity headSlot
+        si
+        { siSlot =
+              either (const maxBound) identity $
+              mkLocalSlotIndex (getSlotIndex (siSlot si) + slotSecurityParam)
+        }
+    maxSlotId = addSafe $ epochOrSlot (`SlotId` minBound) identity headSlot
+
+data RawPayload ssc = RawPayload
+    { rpTxp    :: ![TxAux]
+    , rpSsc    :: !(SscPayload ssc)
+    , rpDlg    :: !DlgPayload
+    , rpUpdate :: !UpdatePayload
+    }
 
 -- Create main block and apply it, if block passed checks,
 -- otherwise clear mem pools and try again.
@@ -180,7 +205,7 @@ canCreateBlock sId tipHeader
 -- Here we assume that blkSemaphore has been taken.
 createMainBlockFinish
     :: forall ssc m.
-       (WorkMode ssc m)
+       (CreationMode ssc m)
     => SlotId
     -> Maybe ProxySKEither
     -> BlockHeader ssc
@@ -188,48 +213,34 @@ createMainBlockFinish
 createMainBlockFinish slotId pSk prevHeader = do
     unchecked@(uncheckedBlock, _, _) <- createBlundFromMemPool
     (block, undo, pModifier) <-
-        verifyCreatedBlock uncheckedBlock >>=
-        either fallbackCreateBlock (const $ pure unchecked)
+        verifyCreatedBlock uncheckedBlock (pure unchecked) fallbackCreateBlock
     logDebug "Created main block/undos, applying"
     lift $ block <$ applyBlocksUnsafe (one (Right block, undo)) (Just pModifier)
   where
     createBlundFromMemPool :: ExceptT Text m (MainBlock ssc, Undo, PollModifier)
     createBlundFromMemPool = do
-        -- Get MemPool
-        (localTxs, txUndo) <- getLocalTxsNUndo
-        sscData <- sscGetLocalPayload @ssc slotId
-        usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
-        (localPSKs, pskUndo) <- lift getProxyMempool
+        (rawPay, undoNoUS) <- getRawPayloadAndUndo slotId
         -- Create block
-        let convertTx (txId, txAux) = WithHash (taTx txAux) txId
-        sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
         sk <- Ether.asks' npSecretKey
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
         -- than limit. So i guess it's fine in general.
         sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
-        block <- createMainBlockPure
-            sizeLimit prevHeader (map snd sortedTxs) pSk
-            slotId localPSKs sscData usPayload sk
-        lift $ logInfo $ "Created main block of size: " <> show (biSize block)
-        -- Create undo
-        (pModifier, verUndo) <-
+        block <- createMainBlockPure sizeLimit prevHeader pSk slotId sk rawPay
+        logInfo $ "Created main block of size: " <> sformat memory (biSize block)
+        -- Create Undo
+        (pModifier, usUndo) <-
             runExceptT (usVerifyBlocks False (one (toUpdateBlock (Right block)))) >>=
             either (const $ throwError "Couldn't get pModifier while creating MainBlock") pure
-        undo <- Undo <$> (reverse <$> foldM (prependToUndo txUndo) [] sortedTxs)
-                     <*> pure pskUndo
-                     <*> pure (verUndo ^. _Wrapped . _neHead)
-        () <- (undo `deepseq` block) `deepseq` pure ()
+        let undo = undoNoUS (usUndo ^. _Wrapped . _neHead)
+        evaluateNF_ (undo, block)
         pure (block, undo, pModifier)
-    onBrokenTopo = throwError "Topology of local transactions is broken!"
-    onAbsentUndo = throwError "Undo for tx from local transactions not found"
-    onNoUS = "can't obtain US payload to create block"
-    prependToUndo txUndo undos tx =
-        case (:undos) <$> HM.lookup (fst tx) txUndo of
-            Just res -> pure res
-            Nothing  -> onAbsentUndo
-    verifyCreatedBlock :: MainBlock ssc -> ExceptT Text m (Either Text ())
-    verifyCreatedBlock block = lift $ void <$> verifyBlocksPrefix (one (Right block))
+    verifyCreatedBlock ::
+        forall n a. BlockVerifyMode ssc n =>
+        MainBlock ssc -> n a -> (Text -> n a) -> n a
+    verifyCreatedBlock block onSuccess onFailure =
+        verifyBlocksPrefix (one (Right block)) >>=
+        either onFailure (const onSuccess)
     clearMempools = do
         clearTxpMemPool
         sscResetLocal
@@ -243,33 +254,74 @@ createMainBlockFinish slotId pSk prevHeader = do
         logDebug $ "Creating empty block"
         clearMempools
         emptyBlund@(emptyBlock, _, _) <- createBlundFromMemPool
-        verifyCreatedBlock emptyBlock >>=
-            either (assertionFailed .
-                    sformat ("We couldn't create even block with empty payload: "%stext))
-            (const $ pure emptyBlund)
+        lift $ verifyCreatedBlock emptyBlock (pure emptyBlund)
+            (assertionFailed . sformat
+             ("We couldn't create even block with empty payload: "%stext))
+
+getRawPayloadAndUndo
+    :: forall ssc m.
+       (CreationMode ssc m)
+    => SlotId
+    -> ExceptT Text m (RawPayload ssc, (USUndo -> Undo))
+getRawPayloadAndUndo slotId = do
+    (localTxs, txUndo) <- getLocalTxsNUndo
+    sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
+    sscData <- sscGetLocalPayload @ssc slotId
+    usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
+    (dlgPayload, pskUndo) <- lift $ getDlgMempool
+    txpUndo <- reverse <$> foldM (prependToUndo txUndo) [] sortedTxs
+    let undo usUndo = Undo txpUndo pskUndo usUndo
+    let rawPayload =
+            RawPayload
+            { rpTxp = map snd sortedTxs
+            , rpSsc = sscData
+            , rpDlg = dlgPayload
+            , rpUpdate = usPayload
+            }
+    return (rawPayload, undo)
+  where
+    prependToUndo txUndo undos tx =
+        case (:undos) <$> HM.lookup (fst tx) txUndo of
+            Just res -> pure res
+            Nothing  -> onAbsentUndo
+    convertTx (txId, txAux) = WithHash (taTx txAux) txId
+    onBrokenTopo = throwError "Topology of local transactions is broken!"
+    onAbsentUndo = throwError "Undo for tx from local transactions not found"
+    onNoUS = "can't obtain US payload to create block"
 
 createMainBlockPure
     :: forall m ssc .
        (MonadError Text m, SscHelpersClass ssc)
     => Byte                   -- ^ Block size limit (real max.value)
     -> BlockHeader ssc
-    -> [TxAux]
     -> Maybe ProxySKEither
     -> SlotId
-    -> [ProxySKHeavy]
-    -> SscPayload ssc
-    -> UpdatePayload
     -> SecretKey
+    -> RawPayload ssc
     -> m (MainBlock ssc)
-createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
-    flip evalStateT limit $ do
-        -- default ssc to put in case we won't fit a normal one
-        let defSsc = (sscDefaultPayload @ssc (siSlot sId) :: SscPayload ssc)
-
+createMainBlockPure limit prevHeader pSk sId sk rawPayload = do
+    bodyLimit <- execStateT computeBodyLimit limit
+    body <- createMainBody bodyLimit sId rawPayload
+    mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
+  where
+    extraB :: MainExtraBodyData
+    extraB = MainExtraBodyData (mkAttributes ())
+    extraH :: MainExtraHeaderData
+    extraH =
+        MainExtraHeaderData
+            lastKnownBlockVersion
+            curSoftwareVersion
+            (mkAttributes ())
+    -- default ssc to put in case we won't fit a normal one
+    defSsc :: SscPayload ssc
+    defSsc = sscDefaultPayload @ssc (siSlot sId)
+    computeBodyLimit :: StateT Byte m ()
+    computeBodyLimit = do
         -- account for block header and serialization overhead, etc;
         let musthaveBody = BC.MainBody
-                (fromMaybe (error "createMainBlockPure: impossible") $ mkTxPayload mempty)
-                defSsc [] def
+                (leftToPanic @Text "createMainBlockPure: impossible " $
+                 mkTxPayload mempty)
+                defSsc def def
         musthaveBlock <-
             mkMainBlock (Just prevHeader) sId sk pSk musthaveBody extraH extraB
         let mhbSize = biSize musthaveBlock
@@ -277,6 +329,22 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
             "Musthave block size is more than limit: " <> show mhbSize
         identity -= biSize musthaveBlock
 
+-- Main purpose of this function is to create main block's body taking
+-- limit into account. Usually this function doesn't fail, but we
+-- perform some sanity checks just in case.
+--
+-- Given limit applies only to body, not to other data from block.
+createMainBody
+    :: forall m ssc .
+       (MonadError Text m, SscHelpersClass ssc)
+    => Byte  -- ^ Body limit
+    -> SlotId
+    -> RawPayload ssc
+    -> m $ Body $ MainBlockchain ssc
+createMainBody bodyLimit sId payload =
+    flip evalStateT bodyLimit $ do
+        let defSsc :: SscPayload ssc
+            defSsc = sscDefaultPayload @ssc (siSlot sId)
         -- include ssc data limited with max half of block space if it's possible
         sscPayload <- ifM (uses identity (<= biSize defSsc)) (pure defSsc) $ do
             halfLeft <- uses identity (`div` 2)
@@ -290,6 +358,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
 
         -- include delegation certificates and US payload
         let prioritizeUS = even (flattenSlotId sId)
+        let psks = getDlgPayload dlgPay
         (psks', usPayload') <-
             if prioritizeUS then do
                 usPayload' <- includeUSPayload
@@ -299,18 +368,24 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
                 psks' <- takeSome psks
                 usPayload' <- includeUSPayload
                 return (psks', usPayload')
+        let dlgPay' = leftToPanic "createMainBlockPure: " $ mkDlgPayload psks'
         -- include transactions
         txs' <- takeSome txs
         -- return the resulting block
         txPayload <- either throwError pure $ mkTxPayload txs'
-        let body = BC.MainBody txPayload sscPayload psks' usPayload'
-        mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
+        let body = BC.MainBody txPayload sscPayload dlgPay' usPayload'
+        return body
   where
+    RawPayload { rpTxp = txs
+               , rpSsc = sscData
+               , rpDlg = dlgPay
+               , rpUpdate = usPayload
+               } = payload
     -- take from a list until the limit is exhausted or the list ends
     takeSome lst = do
         let go lim [] = (lim, [])
             go lim (x:xs) =
-                let len = fromIntegral $ biSize x
+                let len = biSize x
                 in if len > lim
                      then (lim, [])
                      else over _2 (x:) $ go (lim - len) xs
@@ -321,14 +396,7 @@ createMainBlockPure limit prevHeader txs pSk sId psks sscData usPayload sk =
     -- because we have already counted empty payload but whatever)
     includeUSPayload = do
         lim <- use identity
-        let len = fromIntegral $ biSize usPayload
+        let len = biSize usPayload
         if len <= lim
             then (identity -= len) >> return usPayload
             else return def
-    -- other stuff
-    extraB = MainExtraBodyData (mkAttributes ())
-    extraH =
-        MainExtraHeaderData
-            lastKnownBlockVersion
-            curSoftwareVersion
-            (mkAttributes ())

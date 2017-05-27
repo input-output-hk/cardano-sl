@@ -21,7 +21,7 @@ import           Data.List            (partition)
 import           Pos.Block.Core       (MainBlock, mainBlockDlgPayload)
 import           Pos.Core             (EpochIndex, ProxySKHeavy)
 import           Pos.Crypto           (ProxyCert, ProxySecretKey (..), PublicKey)
-import           Pos.Delegation.Types (DlgMemPool)
+import           Pos.Delegation.Types (DlgMemPool, getDlgPayload)
 
 
 -- | Checks if given PSK revokes delegation (issuer = delegate).
@@ -32,7 +32,7 @@ isRevokePsk ProxySecretKey{..} = pskIssuerPk == pskDelegatePk
 dlgMemPoolApplyBlock :: MainBlock ssc -> DlgMemPool -> DlgMemPool
 dlgMemPoolApplyBlock block m = flip execState m $ do
     let (toDelete,toReplace) =
-            partition isRevokePsk (view mainBlockDlgPayload block)
+            partition isRevokePsk (getDlgPayload $ block ^. mainBlockDlgPayload)
     for_ toDelete $ \psk -> identity %= HM.delete (pskIssuerPk psk)
     for_ toReplace $ \psk -> identity %= HM.insert (pskIssuerPk psk) psk
 

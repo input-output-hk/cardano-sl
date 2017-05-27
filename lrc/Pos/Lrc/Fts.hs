@@ -44,7 +44,7 @@ coinIndexOffset c = over _CoinIndex (+ unsafeGetCoin c)
 -- | Assign a local slot index to each value in a list, starting with
 -- @LocalSlotIndex 0@.
 assignToSlots :: [a] -> [(LocalSlotIndex, a)]
-assignToSlots = zip [0..]
+assignToSlots = zip [minBound..]
 
 -- | Sort values by their local slot indices, then strip the indices.
 arrangeBySlots :: [(LocalSlotIndex, a)] -> [a]

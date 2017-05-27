@@ -38,7 +38,7 @@ import           Universum
 
 import           Control.Exception          (Exception (..))
 import           Control.Lens               (at, lens, makeLenses, uses, (%=), (+=), (-=),
-                                             (.=), _Wrapped)
+                                             (.=), (?=), _Wrapped)
 import           Control.Monad.Except       (runExceptT, throwError)
 import qualified Data.Cache.LRU             as LRU
 import qualified Data.HashMap.Strict        as HM
@@ -263,9 +263,9 @@ calculateTransCorrections eActions = do
     how it's done using existent dlgTransRev mapping.
 
 
-    Step 2. Let's use dynamic programming to compute dlgnew. Kind
-    of. For every a ∈ af we'll come to the top of the tree until we
-    see any marked value or reach the end.
+    Step 2. Let's use memoized tree traversal to compute dlgnew. For
+    every a ∈ af we'll come to the top of the tree until we see any
+    marked value or reach the end.
 
     1. We've stuck to the end vertex d, which is delegate. Mark dlg(d)
     = Nothing,
@@ -336,8 +336,35 @@ calculateTransCorrections eActions = do
                         iPk ret
             pure retHm
 
+    eActionsHM :: HashMap PublicKey GS.DlgEdgeAction
+    eActionsHM =
+        HM.fromList $ map (\x -> (GS.dlgEdgeActionIssuer x, x)) $ HS.toList eActions
+
     calculateDlgNew :: PublicKey -> StateT (HashMap PublicKey (Maybe PublicKey)) m ()
-    calculateDlgNew = undefined
+    calculateDlgNew iPk =
+        let -- Gets delegate from G': either from 'eActionsHM' or database.
+            resolve :: (MonadDBPure n) => PublicKey -> n (Maybe PublicKey)
+            resolve v = case HM.lookup v eActionsHM of
+                Nothing -> fmap pskDelegatePk <$> GS.getPskByIssuer (Left v)
+                Just (GS.DlgEdgeDel _) -> pure Nothing
+                Just (GS.DlgEdgeAdd psk) -> pure $ Just $ pskDelegatePk psk
+
+            -- Sets real new trans delegate in state, returns it to
+            -- child. Makes different if we're delegate d -- we set
+            -- Nothing, but return d.
+            retCached v cont = uses identity (HM.lookup iPk) >>= \case
+                Nothing       -> cont
+                Just (Just d) -> pure d
+                Just Nothing  -> pure v
+            loop v = retCached v $ resolve v >>= \case
+                -- There's no delegate = we are the delegate/end of the chain.
+                Nothing -> (identity . at v ?= Nothing) $> v
+                -- Let's see what's up in the tree
+                Just dPk -> do
+                    dNew <- loop dPk
+                    identity . at v ?= Just dNew
+                    pure dNew
+        in void $ loop iPk
 
     -- Given changeset, returns map d → (ad,dl), where ad is set of
     -- new issuers that delegate to d, while dl is set of issuers that

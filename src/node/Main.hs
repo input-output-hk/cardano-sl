@@ -6,8 +6,8 @@
 {-# LANGUAGE TypeOperators       #-}
 
 module Main
-  ( main
-  ) where
+       ( main
+       ) where
 
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.Maybe                 (fromJust)

@@ -723,6 +723,7 @@ executable cardano-wallet
                      , optparse-applicative
                      , parsec
                      , serokell-util >= 0.1.3.4
+                     , string-qq
                      , text
                      , time
                      , time-units

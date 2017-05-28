@@ -1,11 +1,12 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE NamedFieldPuns      #-}
+{-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Main
-  ( main
-  ) where
+       ( main
+       ) where
 
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.Reader       (MonadReader (..), ReaderT, ask, runReaderT)
@@ -17,6 +18,7 @@ import qualified Data.HashMap.Strict        as HM
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Set                   as S (fromList, toList)
+import           Data.String.QQ             (s)
 import qualified Data.Text                  as T
 import           Data.Time.Units            (convertUnit)
 import           Formatting                 (build, int, sformat, stext, (%))
@@ -80,6 +82,33 @@ data CmdCtx =
     { skeys :: [SecretKey]
     , na    :: [NodeId]
     }
+
+
+helpMsg :: Text
+helpMsg = [s|
+Avaliable commands:
+   balance <address>              -- check balance on given address (may be any address)
+   send <N> [<address> <coins>]+  -- create and send transaction with given outputs
+                                     from own address #N
+   send-to-all-genesis <coins> <delay>
+                                  -- create and send transactions from all genesis addresses,
+                                     delay in ms to themselves with the given amount of coins
+   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base16) and
+                                     decision, from own address #N
+   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?
+                                  -- propose an update with given versions and other data
+                                     with one positive vote for it, from own address #N
+   listaddr                       -- list own addresses
+   delegate-light <N> <M> <eStart> <eEnd>?
+                                  -- delegate secret key #N to pk <M> light version (M is encoded in base58),
+                                     where eStart is cert start epoch, eEnd -- expire epoch
+   delegate-heavy <N> <M> <e>     -- delegate secret key #N to pk <M> heavyweight (M is encoded in base58),
+                                     e is current epoch.
+   add-key-pool <N>               -- add key from intial pool
+   add-key <file>                 -- add key from file
+   help                           -- show this message
+   quit                           -- shutdown node wallet
+|]
 
 runCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()
 runCmd _ (Balance addr) = lift (getBalance addr) >>=
@@ -174,28 +203,7 @@ runCmd sendActions ProposeUpdate{..} = do
                     let id = hash updateProposal
                     putText $
                       sformat ("Update proposal submitted, upId: "%hashHexF) id
-runCmd _ Help = do
-    putText $
-        unlines
-            [ "Avaliable commands:"
-            , "   balance <address>              -- check balance on given address (may be any address)"
-            , "   send <N> [<address> <coins>]+  -- create and send transaction with given outputs"
-            , "                                     from own address #N"
-            , "   send-to-all-genesis <coins> <delay>  -- create and send transactions from all genesis addresses, delay in ms"
-            , "                                     to themselves with the given amount of coins"
-            , "   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base16) and"
-            , "                                     decision, from own address #N"
-            , "   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?"
-            , "                                  -- propose an update with given versions and other data"
-            , "                                     with one positive vote for it, from own address #N"
-            , "   listaddr                       -- list own addresses"
-            , "   delegate-light <N> <M>         -- delegate secret key #N to pk <M> light version (M is encoded in base58)"
-            , "   delegate-heavy <N> <M>         -- delegate secret key #N to pk <M> heavyweight (M is encoded in base58)"
-            , "   add-key-pool <N>               -- add key from intial pool"
-            , "   add-key <file>                 -- add key from file"
-            , "   help                           -- show this message"
-            , "   quit                           -- shutdown node wallet"
-            ]
+runCmd _ Help = putText helpMsg
 runCmd _ ListAddresses = do
    addrs <- map encToPublic <$> getSecretKeys
    putText "Available addresses:"

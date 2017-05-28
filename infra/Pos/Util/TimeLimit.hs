@@ -23,8 +23,8 @@ import           Universum         hiding (bracket, finally)
 
 import           Data.Time.Units   (Microsecond, Second, convertUnit)
 import           Formatting        (sformat, shown, stext, (%))
-import           Mockable          (Async, Async, Bracket, Delay, Mockable, async, cancel,
-                                    delay, finally, waitAny, withAsync)
+import           Mockable          (Async, Async, Bracket, Delay, Mockable,
+                                    delay, race, withAsync)
 import           System.Wlog       (WithLogger, logWarning)
 
 import           Pos.Crypto.Random (randomNumber)
@@ -112,9 +112,10 @@ execWithTimeLimit
        )
     => Microsecond -> m a -> m (Maybe a)
 execWithTimeLimit timeout action = do
-    promises <- mapM async [ Just <$> action, delay timeout $> Nothing ]
-    (_, val) <- waitAny promises `finally` mapM_ cancel promises
-    return val
+    res <- race (delay timeout) action
+    return $ case res of
+        Left () -> Nothing
+        Right a -> Just a
 
 -- | Wait random number of 'Microsecond'`s between min and max.
 waitRandomInterval

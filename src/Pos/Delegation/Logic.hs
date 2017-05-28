@@ -48,8 +48,8 @@ import qualified Data.Text.Buildable        as B
 import           Data.Time.Clock            (UTCTime, addUTCTime, getCurrentTime)
 import qualified Ether
 import           Formatting                 (bprint, build, sformat, stext, (%))
-import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logNotice)
+import           Serokell.Util              (listJson, mapJson)
+import           System.Wlog                (WithLogger, logDebug)
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Binary.Communication   ()
@@ -79,7 +79,7 @@ import           Pos.Delegation.Class       (DelegationWrap (..), DlgMemPool,
                                              dwConfirmationCache, dwEpochId,
                                              dwMessageCache, dwPoolSize, dwProxySKPool,
                                              dwThisEpochPosted)
-import           Pos.Delegation.Helpers     (dlgMemPoolDetectCycle, dlgReachesIssuance)
+import           Pos.Delegation.Helpers     (detectCycleOnAddition, dlgReachesIssuance)
 import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), mkDlgPayload)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
@@ -169,16 +169,14 @@ getPSKsFromThisEpoch tip =
     concatMap (either (const []) (getDlgPayload . view mainBlockDlgPayload)) <$>
         (DB.loadBlocksWhile @ssc) isRight tip
 
--- Returns PSK with supplied issuer, querying both provided mempool
--- (first priority) and the database.
-resolveWithDlgDB :: MonadDBPure m => DlgMemPool -> PublicKey -> m (Maybe ProxySKHeavy)
-resolveWithDlgDB mp iPk = case HM.lookup iPk mp of
-    Nothing -> GS.getPskByIssuer $ Left iPk
-    Just s  -> pure $ Just s
-
 -- Copied from 'these' library.
 data These a b = This a | That b | These a b
     deriving (Eq, Show, Generic)
+
+instance (B.Buildable a, B.Buildable b) => B.Buildable (These a b) where
+    build (This a)    = bprint ("This {"%build%"}") a
+    build (That a)    = bprint ("That {"%build%"}") a
+    build (These a b) = bprint ("These {"%build%", "%build%"}") a b
 
 -- u → (Maybe d₁, Maybe d₂): u changed delegate from d₁ (or didn't
 -- have one) to d₂ (or revoked delegation). These a b ≃ (Maybe a,
@@ -203,12 +201,12 @@ calculateTransCorrections eActions = do
         toTransOp iPk (These _ dPk) = GS.AddTransitiveDlg iPk dPk
     let transOps = map (uncurry toTransOp) (HM.toList changeset)
 
-    logNotice $ "Trans changeset: " <> show changeset
+    -- Once we figure out this piece of code works like a charm we
+    -- can delete this logging.
+    logDebug $ sformat ("Trans changeset: "%mapJson) $ HM.toList changeset
 
     -- Bulid reverse transitive set and convert it to reverseTransOps
     let reverseTrans = buildReverseTrans changeset
-
-    logNotice $ "Reverse transitive: " <> show reverseTrans
 
     reverseOps <- forM (HM.toList reverseTrans) $ \(k, (ad0, dl0)) -> do
         let ad = HS.toList ad0 -- view patterns are for the weak ones
@@ -223,8 +221,6 @@ calculateTransCorrections eActions = do
                      "trans says we should delete "%listJson)
                     prev dl
         pure $ GS.SetTransitiveDlgRev k $ HS.fromList $ (prev \\ dl) ++ ad
-
-    logNotice $ "Revtransops: " <> show reverseOps
 
     pure $ SomeBatchOp $ transOps <> reverseOps
   where
@@ -330,22 +326,29 @@ calculateTransCorrections eActions = do
     -- common delegate of this subtree. Keys = af. All elems are
     -- similar and equal to dlg(iPk).
     calculateLocalAf :: PublicKey -> m (HashMap PublicKey (Maybe PublicKey))
-    calculateLocalAf iPk = GS.getDlgTransitive (Left iPk) >>= \case
-        Nothing -> pure $ HM.singleton iPk Nothing
-        Just dPk -> do
-            -- All i | i → d in the G. We should leave only those who
-            -- are lower than iPk in the delegation chain.
-            revIssuers <- HS.toList <$> GS.getDlgTransitiveReverse dPk
-            -- For these we'll find everyone who's upper (closer to
-            -- root/delegate) and take a diff.
-            chain <- HM.keys <$> GS.getPskChain (Left iPk)
-            let ret = iPk : (revIssuers \\ chain)
-            let retHm = HM.fromList $ map (,Just dPk) ret
-            -- Just a sanity check. If you're optimizing, delete it.
-            unless (HM.size retHm /= length ret) $ throwM $ DBMalformed $
-                sformat ("calculateLocalAf for iPk "%build%" has duplicates: "%listJson)
-                        iPk ret
-            pure retHm
+    calculateLocalAf iPk = (HS.toList <$> GS.getDlgTransitiveReverse iPk) >>= \case
+        -- We are intermediate/start of the chain, not the delegate.
+        [] -> GS.getDlgTransitive (Left iPk) >>= \case
+            Nothing -> pure $ HM.singleton iPk Nothing
+            Just dPk -> do
+                -- All i | i →→ d in the G. We should leave only those who
+                -- are equal or lower than iPk in the delegation chain.
+                revIssuers <- HS.toList <$> GS.getDlgTransitiveReverse dPk
+                -- For these we'll find everyone who's upper (closer to
+                -- root/delegate) and take a diff. If iPk = dPk, then it will
+                -- return [].
+                chain <- HM.keys <$> GS.getPskChain (Left iPk)
+                let ret = iPk : (revIssuers \\ chain)
+                let retHm = HM.fromList $ map (,Just dPk) ret
+                -- Just a sanity check. If you're optimizing, delete it.
+                when (HM.size retHm /= length ret) $ throwM $ DBMalformed $
+                    sformat ("calculateLocalAf for iPk "%build%" and his dPk "%build%
+                             " has duplicates: "%listJson)
+                            iPk dPk ret
+                pure retHm
+        -- We are delegate.
+        xs -> pure $ HM.fromList $ (iPk,Nothing):(map (,Just iPk) xs)
+
 
     eActionsHM :: HashMap PublicKey GS.DlgEdgeAction
     eActionsHM =
@@ -390,8 +393,8 @@ calculateTransCorrections eActions = do
                     -> ReverseTrans
             foldFoo rev iPk (This dPk)        = rev & at dPk . _me . _2 %~ (ins iPk)
             foldFoo rev iPk (That dPk)        = rev & at dPk . _me . _1 %~ (ins iPk)
-            foldFoo rev iPk (These dPk1 dPk2) = rev & at dPk1 . _me . _1 %~ (ins iPk)
-                                                    & at dPk2 . _me . _2 %~ (ins iPk)
+            foldFoo rev iPk (These dPk1 dPk2) = rev & at dPk1 . _me . _2 %~ (ins iPk)
+                                                    & at dPk2 . _me . _1 %~ (ins iPk)
         in HM.foldlWithKey' foldFoo HM.empty changeset
 
 ----------------------------------------------------------------------------
@@ -493,7 +496,8 @@ processProxySKHeavy psk = do
         alreadyPosted <- uses dwThisEpochPosted $ HS.member issuer
         epochMatches <- (headEpoch ==) <$> use dwEpochId
         producesCycle <- use dwProxySKPool >>= \pool ->
-            lift $ dlgMemPoolDetectCycle (resolveWithDlgDB pool) psk
+            let eActions = map GS.pskToDlgEdgeAction pool
+            in lift $ detectCycleOnAddition (GS.withEActionsResolve eActions) psk
         dwMessageCache %= LRU.insert msg curTime
         let maxMemPoolSize = memPoolLimitRatio * maxBlockSize
             -- Here it would be good to add size of data we want to insert
@@ -639,7 +643,7 @@ delegationVerifyBlocks blocks = do
         mapM_ withMapModify proxySKs
 
         -- Perform check 5.
-        cyclePoints <- catMaybes <$> mapM (dlgMemPoolDetectCycle withMapResolve) proxySKs
+        cyclePoints <- catMaybes <$> mapM (detectCycleOnAddition withMapResolve) proxySKs
         unless (null cyclePoints) $
             throwError $
             sformat ("Block "%build%" leads to psk cycles, at least in these certs: "%listJson)

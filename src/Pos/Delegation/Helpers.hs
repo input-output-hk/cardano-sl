@@ -7,7 +7,7 @@ module Pos.Delegation.Helpers
        ( dlgVerifyPayload
        , isRevokePsk
        , dlgMemPoolApplyBlock
-       , dlgMemPoolDetectCycle
+       , detectCycleOnAddition
        , dlgReachesIssuance
        ) where
 
@@ -50,20 +50,28 @@ dlgMemPoolApplyBlock block m = flip execState m $ do
 -- | Checks if addition of the PSK to the map will lead to cycles. The
 -- initial map may or may not contain this PSK. Returns nothing if
 -- it's good, first-already-visited public key otherwise.
-dlgMemPoolDetectCycle
+detectCycleOnAddition
     :: forall m . (Monad m)
-    => (PublicKey -> m (Maybe ProxySKHeavy)) -- ^ Resolving function
+    => (PublicKey -> m (Maybe ProxySKHeavy)) -- ^ Resolving function, should not
+                                             -- return revocation psks.
     -> ProxySKHeavy                          -- ^ PSK to check against
     -> m (Maybe PublicKey)
-dlgMemPoolDetectCycle resolve toAdd =
-    evalStateT (trav (pskDelegatePk toAdd)) (HS.singleton $ pskIssuerPk toAdd)
+detectCycleOnAddition resolve toAdd
+    -- deleting (revoking) can't add a cycle
+    | isRevokePsk toAdd = pure Nothing
+    | otherwise = evalStateT (trav (pskDelegatePk toAdd))
+                             (HS.singleton $ pskIssuerPk toAdd)
   where
     trav :: PublicKey -> StateT (HashSet PublicKey) m (Maybe PublicKey)
     trav cur = ifM (uses identity $ HS.member cur) (pure $ Just cur) $ do
         next <- lift $ resolve cur
         identity %= HS.insert cur
         let stop = pure Nothing
-        maybe stop (\psk -> bool stop (trav $ pskDelegatePk psk) $ isRevokePsk psk) next
+        let panicRevoke p = error $ "dlgMemPoolDetectCycle: found revoke psk: " <> pretty p
+        maybe stop (\psk -> bool (trav $ pskDelegatePk psk)
+                                 (panicRevoke psk)
+                                 (isRevokePsk psk))
+                   next
 
 -- | Given a psk resolver, issuer, delegate and cert he uses (to sign,
 -- or taken from psk), checks if there's a psk chain "issuer →

@@ -247,12 +247,13 @@ verifyProxySecretKey ProxySecretKey{..} =
 
 -- | Delegate signature made with certificate-based permission. @a@
 -- stays for message type used in proxy (ω in the implementation
--- notes), @b@ for type of message signed.
+-- notes), @b@ for type of message signed. We add whole psk as a field
+-- because otherwise we can't verify sig in heavyweight psk transitive
+-- delegation: i -> x -> d, we have psk from x to d, slot leader is
+-- i.
 data ProxySignature w a = ProxySignature
-    { pdOmega      :: w
-    , pdDelegatePk :: PublicKey
-    , pdCert       :: ProxyCert w
-    , pdSig        :: CC.XSignature
+    { pdPsk :: ProxySecretKey w
+    , pdSig :: CC.XSignature
     } deriving (Eq, Ord, Show, Generic)
 
 instance NFData w => NFData (ProxySignature w a)
@@ -260,14 +261,10 @@ instance Hashable w => Hashable (ProxySignature w a)
 
 instance {-# OVERLAPPABLE #-}
          (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature w a) where
-    build ProxySignature{..} =
-        bprint ("Proxy signature { w = "%build%", delegatePk = "%build%" }")
-               pdOmega pdDelegatePk
+    build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") pdPsk
 
 instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature (w,w) a) where
-    build ProxySignature{..} =
-        bprint ("Proxy signature { w = "%pairF%", delegatePk = "%build%" }")
-               pdOmega pdDelegatePk
+    build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") pdPsk
 
 -- | Make a proxy delegate signature with help of certificate. If the
 -- delegate secret key passed doesn't pair with delegate public key in
@@ -276,14 +273,12 @@ instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature (w,w) a) w
 proxySign
     :: (Bi a)
     => SignTag -> SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
-proxySign t sk@(SecretKey delegateSk) ProxySecretKey{..} m
+proxySign t sk@(SecretKey delegateSk) psk@ProxySecretKey{..} m
     | toPublic sk /= pskDelegatePk =
         error "proxySign called with irrelevant certificate"
     | otherwise =
         ProxySignature
-        { pdOmega = pskOmega
-        , pdDelegatePk = pskDelegatePk
-        , pdCert = pskCert
+        { pdPsk = psk
         , pdSig = sigma
         }
   where
@@ -300,13 +295,15 @@ proxySign t sk@(SecretKey delegateSk) ProxySecretKey{..} m
 -- space predicate and message itself.
 proxyVerify
     :: (Bi w, Bi a)
-    => SignTag -> PublicKey -> ProxySignature w a -> (w -> Bool) -> a -> Bool
-proxyVerify t iPk@(PublicKey issuerPk) ProxySignature{..} omegaPred m =
-    and [predCorrect, certValid, sigValid]
+    => SignTag -> ProxySignature w a -> (w -> Bool) -> a -> Bool
+proxyVerify t ProxySignature{..} omegaPred m =
+    and [predCorrect, pskValid, sigValid]
   where
-    PublicKey pdDelegatePkRaw = pdDelegatePk
-    predCorrect = omegaPred pdOmega
-    certValid = verifyProxyCert iPk pdDelegatePk pdOmega pdCert
+    ProxySecretKey{..} = pdPsk
+    PublicKey issuerPk = pskIssuerPk
+    PublicKey pdDelegatePkRaw = pskDelegatePk
+    predCorrect = omegaPred pskOmega
+    pskValid = verifyProxySecretKey pdPsk
     sigValid =
         CC.verify
             pdDelegatePkRaw

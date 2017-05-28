@@ -84,7 +84,7 @@ pskHeavyRelay = Data $ DataParams $ handlePsk
   where
     handlePsk :: forall ssc m. WorkMode ssc m => ProxySKHeavy -> m Bool
     handlePsk pSk = do
-        logDebug $ sformat ("GLightLightot request to handle heavyweight psk: "%build) pSk
+        logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
         verdict <- processProxySKHeavy @ssc pSk
         logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
         case verdict of

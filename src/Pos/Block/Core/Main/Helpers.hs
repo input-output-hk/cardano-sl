@@ -56,13 +56,12 @@ verifyMainBlockHeader mbh =
     verifyBlockSignature (BlockPSignatureLight proxySig) =
         proxyVerify
             SignMainBlockLight
-            leaderPk
             proxySig
             (\(epochLow, epochHigh) ->
                  epochLow <= epochId && epochId <= epochHigh)
             signature
     verifyBlockSignature (BlockPSignatureHeavy proxySig) =
-        proxyVerify SignMainBlockHeavy leaderPk proxySig (const True) signature
+        proxyVerify SignMainBlockHeavy proxySig (const True) signature
     signature = MainToSign _gbhPrevBlock _gbhBodyProof slotId difficulty extra
     epochId = siEpoch slotId
     UnsafeGenericBlockHeader {

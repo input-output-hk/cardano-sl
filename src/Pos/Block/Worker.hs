@@ -32,7 +32,7 @@ import           Pos.Core                    (ProxySKEither, SlotId (..),
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.Class                (MonadDBCore)
-import           Pos.DB.GState               (getPskByIssuer)
+import           Pos.DB.GState               (getDlgTransPsk, getPskByIssuer)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Slotting                (currentTimeSlotting,
@@ -103,7 +103,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     onKnownLeader leaders leader = do
         ourPk <- Ether.asks' npPublicKey
         let ourPkHash = addressHash ourPk
-        proxyCerts <- getProxySecretKeys
+        proxyCerts <- getProxySecretKeys -- eeh. Todo rename it with "light" suffix
         let validCerts =
                 filter (\pSk -> let (w0,w1) = pskOmega pSk
                                 in siEpoch >= w0 && siEpoch <= w1) proxyCerts
@@ -115,18 +115,20 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
                       map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
         logLeadersF $ sformat ("Current slot leader: "%build) leader
         logDebugS $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
-        heavyPskM <- getPskByIssuer (Right leader)
-        logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
-        let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
-        let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM
+        heavyPskIssuerM <- getPskByIssuer (Right leader)
+        let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskIssuerM
+        heavyPskEndM <- getDlgTransPsk (Right leader)
+        logDebug $ "End delegation psk for this slot: " <> maybe "none" pretty heavyPskEndM
+        let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskEndM
         if | heavyWeAreIssuer ->
-                 logDebugS $ sformat
+                 logInfoS $ sformat
                  ("Not creating the block because it's delegated by psk: "%build)
-                 heavyPskM
+                 heavyPskEndM
            | leader == ourPkHash ->
                  onNewSlotWhenLeader slotId Nothing sendActions
            | heavyWeAreDelegate ->
-                 onNewSlotWhenLeader slotId (Right <$> heavyPskM) sendActions
+                 let pske = (,) <$> heavyPskEndM <*> (pskIssuerPk <$> heavyPskIssuerM)
+                 in onNewSlotWhenLeader slotId (Right <$> pske) sendActions
            | isJust validCert ->
                  onNewSlotWhenLeader slotId  (Left <$> validCert) sendActions
            | otherwise -> pass
@@ -136,16 +138,16 @@ onNewSlotWhenLeader
     => SlotId
     -> Maybe ProxySKEither
     -> Worker' m
-onNewSlotWhenLeader slotId pSk sendActions = do
+onNewSlotWhenLeader slotId pske sendActions = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
         logLeader = "because i'm a leader"
         logCert (Left psk) =
             sformat ("using ligtweight proxy signature key "%build%", will do it soon") psk
-        logCert (Right psk) =
+        logCert (Right (psk,_)) =
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
-    logInfoS $ logReason <> maybe logLeader logCert pSk
+    logInfoS $ logReason <> maybe logLeader logCert pske
     nextSlotStart <- getSlotStartEmpatically (succ slotId)
     currentTime <- currentTimeSlotting
     let timeToCreate =
@@ -158,7 +160,7 @@ onNewSlotWhenLeader slotId pSk sendActions = do
   where
     onNewSlotWhenLeaderDo = do
         logInfoS "It's time to create a block for current slot"
-        createdBlock <- createMainBlock slotId pSk
+        createdBlock <- createMainBlock slotId pske
         either whenNotCreated whenCreated createdBlock
         logInfoS "onNewSlotWhenLeader: done"
     whenCreated createdBlk = do

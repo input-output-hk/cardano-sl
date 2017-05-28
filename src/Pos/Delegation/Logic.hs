@@ -49,7 +49,7 @@ import           Data.Time.Clock            (UTCTime, addUTCTime, getCurrentTime
 import qualified Ether
 import           Formatting                 (bprint, build, sformat, stext, (%))
 import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger)
+import           System.Wlog                (WithLogger, logNotice)
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Binary.Communication   ()
@@ -64,9 +64,9 @@ import           Pos.Core                   (HeaderHash, addressHash, bvdMaxBloc
                                              epochIndexL, gbHeader, gbhConsensus,
                                              headerHash, prevBlockL)
 import           Pos.Crypto                 (ProxySecretKey (..), ProxySignature (..),
-                                             PublicKey, SignTag (SignProxySK),
-                                             pdDelegatePk, proxyVerify, shortHashF,
-                                             toPublic, verifyProxySecretKey)
+                                             PublicKey, SignTag (SignProxySK), pdPsk,
+                                             proxyVerify, shortHashF, toPublic,
+                                             verifyProxySecretKey)
 import           Pos.DB                     (DBError (DBMalformed), MonadDB, MonadDBPure,
                                              SomeBatchOp (..))
 import qualified Pos.DB                     as DB
@@ -193,7 +193,7 @@ type ReverseTrans = HashMap PublicKey (HashSet PublicKey, HashSet PublicKey)
 -- executed under shared Gstate DB lock.
 calculateTransCorrections
     :: forall m.
-       MonadDBPure m
+       (MonadDBPure m, WithLogger m)
     => HashSet GS.DlgEdgeAction -> m SomeBatchOp
 calculateTransCorrections eActions = do
     -- Get the changeset and convert it to transitive ops.
@@ -203,8 +203,13 @@ calculateTransCorrections eActions = do
         toTransOp iPk (These _ dPk) = GS.AddTransitiveDlg iPk dPk
     let transOps = map (uncurry toTransOp) (HM.toList changeset)
 
+    logNotice $ "Trans changeset: " <> show changeset
+
     -- Bulid reverse transitive set and convert it to reverseTransOps
     let reverseTrans = buildReverseTrans changeset
+
+    logNotice $ "Reverse transitive: " <> show reverseTrans
+
     reverseOps <- forM (HM.toList reverseTrans) $ \(k, (ad0, dl0)) -> do
         let ad = HS.toList ad0 -- view patterns are for the weak ones
             dl = HS.toList dl0
@@ -218,6 +223,8 @@ calculateTransCorrections eActions = do
                      "trans says we should delete "%listJson)
                     prev dl
         pure $ GS.SetTransitiveDlgRev k $ HS.fromList $ (prev \\ dl) ++ ad
+
+    logNotice $ "Revtransops: " <> show reverseOps
 
     pure $ SomeBatchOp $ transOps <> reverseOps
   where
@@ -239,7 +246,7 @@ calculateTransCorrections eActions = do
 
     Let dlg_H(a) denote the transitive delegation relation, returning
     Nothing or Just dPk. Then we want to:
-    1. Find affected users af = {e ∈ E_G ∪ E_F | dlg_G(e) ≠ dlg_G'(e)}
+    1. Find affected users af = {uv ∈ E(G) ∪ E(F) | dlg_G(u) ≠ dlg_G'(u)}
     2. Calculate new delegate set dlgnew = {(a,dlg_G'(a)), a ∈ af}
     3. Zip dlgnew with old delegates (queried from DB).
 
@@ -294,10 +301,11 @@ calculateTransCorrections eActions = do
         dlgNew <- execStateT (for_ af calculateDlgNew) HM.empty
         -- Let's check that sizes of af and dlgNew match (they should).
         -- We'll need it to merge in (3).
-        let dlgKeys = keysMap dlgNew
-        when (dlgKeys /= af) $ throwM $ DBMalformed $
-            sformat ("transChangeset: dlgNew keys "%listJson%" /= af "%listJson)
-                    (HS.toList dlgKeys) (HS.toList af)
+        let notResolved = let dlgKeys = keysMap dlgNew
+                          in filter (\k -> not $ HS.member k dlgKeys) $ HS.toList af
+        unless (null notResolved) $ throwM $ DBMalformed $
+            sformat ("transChangeset: dlgNew keys doesn't resolve some from af: "%listJson)
+                    notResolved
 
         -- Step 3.
         -- Some unsafe functions (чтобы жизнь медом не казалась)
@@ -322,7 +330,7 @@ calculateTransCorrections eActions = do
     -- common delegate of this subtree. Keys = af. All elems are
     -- similar and equal to dlg(iPk).
     calculateLocalAf :: PublicKey -> m (HashMap PublicKey (Maybe PublicKey))
-    calculateLocalAf iPk = GS.getDlgTransitive iPk >>= \case
+    calculateLocalAf iPk = GS.getDlgTransitive (Left iPk) >>= \case
         Nothing -> pure $ HM.singleton iPk Nothing
         Just dPk -> do
             -- All i | i → d in the G. We should leave only those who
@@ -568,18 +576,23 @@ delegationVerifyBlocks blocks = do
         -- Check 1: Issuer didn't delegate the right to issue to elseone.
         let h = blk ^. gbHeader
         let issuer = h ^. mainHeaderLeaderKey
+        let sig = h ^. gbhConsensus ^. mcdSignature
         issuerPsk <- withMapResolve issuer
-        whenJust issuerPsk $ \psk -> throwError $
-            sformat ("issuer "%build%" has delegated issuance right, "%
-                     "so he can't issue the block, psk: "%build)
-                    issuer psk
+        whenJust issuerPsk $ \psk -> case sig of
+            (BlockSignature _) ->
+                throwError $
+                sformat ("issuer "%build%" has delegated issuance right, "%
+                         "so he can't issue the block, psk: "%build%", sig: "%build)
+                    issuer psk sig
+            _ -> pass
 
         -- Check 2: Issuer has right to issue block using heavyweight
         -- PSK iff he's delegate of slot leader.
         case h ^. gbhConsensus ^. mcdSignature of
             (BlockPSignatureHeavy pSig) -> do
-                let delegate = pdDelegatePk pSig
-                canIssue <- dlgReachesIssuance withMapResolve issuer delegate (pdCert pSig)
+                let delegate = pskDelegatePk $ pdPsk pSig
+                canIssue <-
+                    dlgReachesIssuance withMapResolve issuer delegate (pdPsk pSig)
                 unless canIssue $ throwError $
                     sformat ("proxy signature's "%build%" related proxy cert "%
                              "can't be found/doesn't match the one in current "%
@@ -683,6 +696,7 @@ delegationRollbackBlocks
        , DB.MonadDB m
        , DB.MonadBlockDB ssc m
        , MonadMask m
+       , WithLogger m
        , Ether.MonadReader' LrcContext m
        )
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
@@ -792,11 +806,7 @@ processConfirmProxySk
 processConfirmProxySk psk proof = do
     curTime <- liftIO getCurrentTime
     runDelegationStateAction $ do
-        let valid = proxyVerify SignProxySK
-                      (pdDelegatePk proof)
-                      proof
-                      (const True)
-                      psk
+        let valid = proxyVerify SignProxySK proof (const True) psk
         cached <- isJust . snd . LRU.lookup psk <$> use dwConfirmationCache
         when valid $ dwConfirmationCache %= LRU.insert psk curTime
         pure $ if | cached    -> CPCached

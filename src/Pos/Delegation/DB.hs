@@ -25,6 +25,7 @@ module Pos.Delegation.DB
        , getPskChain
        , isIssuerByAddressHash
        , getDlgTransitive
+       , getDlgTransPsk
        , getDlgTransitiveReverse
 
        , DlgEdgeAction (..)
@@ -46,6 +47,8 @@ import           Control.Lens           (uses, (%=))
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
 import qualified Database.RocksDB       as Rocks
+import           Formatting             (sformat, (%))
+import           Serokell.Util          (listJson)
 
 import           Pos.Binary.Class       (encodeStrict)
 import           Pos.Crypto             (PublicKey, pskDelegatePk, pskIssuerPk)
@@ -66,12 +69,16 @@ import           Pos.Util.Iterator      (nextItem)
 -- Getters/direct accessors
 ----------------------------------------------------------------------------
 
+-- Commonly used function.
+toStakeholderId :: Either PublicKey StakeholderId -> StakeholderId
+toStakeholderId = either addressHash identity
+
 -- | Retrieves certificate by issuer public key or his
 -- address/stakeholder id, if present.
 getPskByIssuer
     :: MonadDBPure m
     => Either PublicKey StakeholderId -> m (Maybe ProxySKHeavy)
-getPskByIssuer (either addressHash identity -> issuer) = gsGetBi (pskKey issuer)
+getPskByIssuer (toStakeholderId -> issuer) = gsGetBi (pskKey issuer)
 
 -- | Given an issuer, retrieves all certificate chains starting in
 -- issuer. This function performs a series of consequental db reads so
@@ -87,7 +94,7 @@ getPskChain = getPskChainInternal HS.empty
 getPskChainInternal
     :: MonadDBPure m
     => HashSet StakeholderId -> Either PublicKey StakeholderId -> m DlgMemPool
-getPskChainInternal toIgnore (either addressHash identity -> issuer) =
+getPskChainInternal toIgnore (toStakeholderId -> issuer) =
     -- State is tuple of returning mempool and "used flags" set.
     view _1 <$> execStateT (trav issuer) (HM.empty, HS.empty)
   where
@@ -109,8 +116,22 @@ isIssuerByAddressHash = fmap isJust . getPskByIssuer . Right
 
 -- | Given issuer @i@ returns @d@ such that there exists @x1..xn@ with
 -- @i->x1->...->xn->d@.
-getDlgTransitive :: MonadDBPure m => PublicKey -> m (Maybe PublicKey)
-getDlgTransitive iPk = gsGetBi (transDlgKey iPk)
+getDlgTransitive :: MonadDBPure m => Either PublicKey StakeholderId -> m (Maybe PublicKey)
+getDlgTransitive (toStakeholderId -> issuer) = gsGetBi (transDlgKey issuer)
+
+-- | Retrieves last PSK in chain of delegation started by public key.
+getDlgTransPsk :: MonadDBPure m => Either PublicKey StakeholderId -> m (Maybe ProxySKHeavy)
+getDlgTransPsk issuer = getDlgTransitive issuer >>= \case
+    Nothing -> pure Nothing
+    Just dPk -> do
+        psks <- filter (\psk -> pskDelegatePk psk == dPk) . HM.elems <$>
+                getPskChain issuer
+        when (length psks > 1) $ throwM $ DBMalformed $
+            sformat ("getDlgTransPk: found several psks with a same dlg: "%listJson)
+                    psks
+        let throwEmpty = throwM $ DBMalformed $
+                "getDlgTransPk: couldn't find psk with dlgPk: " <> pretty dPk
+        maybe throwEmpty (pure . Just) $ head psks
 
 -- | Reverse map of transitive delegation. Given a delegate @d@
 -- returns all @i@ such that 'getDlgTransitive' returns @d@ on @i@.
@@ -167,6 +188,7 @@ data DelegationOp
     -- ^ Remove i -> d link for i.
     | SetTransitiveDlgRev !PublicKey !(HashSet PublicKey)
     -- ^ Set value to map d -> [i], reverse index of transitive dlg
+    deriving (Show)
 
 instance RocksBatchOp DelegationOp where
     toBatchOp (PskFromEdgeAction (DlgEdgeAdd psk))
@@ -176,8 +198,10 @@ instance RocksBatchOp DelegationOp where
           [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (encodeStrict psk)]
     toBatchOp (PskFromEdgeAction (DlgEdgeDel issuerPk)) =
         [Rocks.Del $ pskKey $ addressHash issuerPk]
-    toBatchOp (AddTransitiveDlg iPk dPk) = [Rocks.Put (transDlgKey iPk) (encodeStrict dPk)]
-    toBatchOp (DelTransitiveDlg iPk) = [Rocks.Del $ transDlgKey iPk]
+    toBatchOp (AddTransitiveDlg iPk dPk) =
+        [Rocks.Put (transDlgKey $ addressHash iPk) (encodeStrict dPk)]
+    toBatchOp (DelTransitiveDlg iPk) =
+        [Rocks.Del $ transDlgKey $ addressHash iPk]
     toBatchOp (SetTransitiveDlgRev dPk iPks)
         | HS.null iPks = [Rocks.Del $ transRevDlgKey dPk]
         | otherwise    = [Rocks.Put (transRevDlgKey dPk) (encodeStrict iPks)]
@@ -190,7 +214,7 @@ instance RocksBatchOp DelegationOp where
 data DlgTransIter
 
 instance DBIteratorClass DlgTransIter where
-    type IterKey DlgTransIter = PublicKey
+    type IterKey DlgTransIter = StakeholderId
     type IterValue DlgTransIter = PublicKey
     iterKeyPrefix _ = iterTransPrefix
 
@@ -212,7 +236,7 @@ runDlgTransMapIterator = runDBnMapIterator @DlgTransIter _gStateDB
 pskKey :: StakeholderId -> ByteString
 pskKey s = "d/p/" <> encodeStrict s
 
-transDlgKey :: PublicKey -> ByteString
+transDlgKey :: StakeholderId -> ByteString
 transDlgKey = encodeWithKeyPrefix @DlgTransIter
 
 iterTransPrefix :: ByteString
@@ -233,6 +257,6 @@ transRevDlgKey pk = "d/tb/" <> encodeStrict pk
 getDelegators :: MonadDB m => m (HashMap StakeholderId [StakeholderId])
 getDelegators = runDlgTransMapIterator (step mempty) identity
   where
-    step hm = nextItem >>= maybe (pure hm) (\(addressHash -> iss, addressHash -> del) -> do
+    step hm = nextItem >>= maybe (pure hm) (\(iss, addressHash -> del) -> do
         let curList = HM.lookupDefault [] del hm
         step (HM.insert del (iss:curList) hm))

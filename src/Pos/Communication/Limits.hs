@@ -116,7 +116,6 @@ instance MessageLimitedPure w => MessageLimitedPure (ProxySecretKey w) where
 
 instance MessageLimitedPure w => MessageLimitedPure (ProxySignature w a) where
     msgLenLimit = ProxySignature <$> msgLenLimit <+> msgLenLimit
-                                 <+> msgLenLimit <+> msgLenLimit
 
 instance MessageLimitedPure w => MessageLimited (ProxySecretKey w)
 instance MessageLimitedPure w => MessageLimited (ProxySignature w a)

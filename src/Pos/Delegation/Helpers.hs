@@ -22,7 +22,7 @@ import           Data.List                 (partition)
 import           Pos.Block.Core.Main.Lens  (mainBlockDlgPayload)
 import           Pos.Block.Core.Main.Types (MainBlock)
 import           Pos.Core                  (EpochIndex, ProxySKHeavy)
-import           Pos.Crypto                (ProxyCert, ProxySecretKey (..), PublicKey)
+import           Pos.Crypto                (ProxySecretKey (..), PublicKey)
 import           Pos.Delegation.Types      (DlgMemPool, DlgPayload (getDlgPayload))
 
 -- | Verify delegation payload without using GState. This function can
@@ -65,19 +65,21 @@ dlgMemPoolDetectCycle resolve toAdd =
         let stop = pure Nothing
         maybe stop (\psk -> bool stop (trav $ pskDelegatePk psk) $ isRevokePsk psk) next
 
--- | Given an 'DlgMemPool', issuer, delegate and his psk, checks if
--- delegate is allowed to issue the block. This does not check that
--- delegate didn't issue a psk to somebody else.
+-- | Given a psk resolver, issuer, delegate and cert he uses (to sign,
+-- or taken from psk), checks if there's a psk chain "issuer →
+-- delegate" and the last cert matches the provided one (can be
+-- retrieved using 'pdPsk'). This *does not* check that delegate
+-- didn't issue a psk to somebody else.
 dlgReachesIssuance
     :: (Monad m)
     => (PublicKey -> m (Maybe ProxySKHeavy)) -- ^ Resolving function (HM.lookup in pure case).
                                              -- Should never return revocation certs.
     -> PublicKey                             -- ^ Issuer
     -> PublicKey                             -- ^ Delegate
-    -> ProxyCert EpochIndex                  -- ^ Proxy cert of i->d psk/psig
+    -> ProxySKHeavy                          -- ^ i->d psk
     -> m Bool
 dlgReachesIssuance _ i d _ | i == d = pure True
-dlgReachesIssuance resolve i d cert = reach i
+dlgReachesIssuance resolve i d psk = reach i
   where
     -- Delegate 'd' has right to issue block instead of issuer 'i' if
     -- there's a delegation chain:
@@ -88,6 +90,6 @@ dlgReachesIssuance resolve i d cert = reach i
     -- psk xₖ → d has the same certificate as 'cert'.
     reach curUser = resolve curUser >>= \case
         Nothing -> pure False
-        Just ProxySecretKey{..}
-            | pskDelegatePk == d -> pure $ pskCert == cert
+        Just psk'@ProxySecretKey{..}
+            | pskDelegatePk == d -> pure $ psk' == psk
             | otherwise          -> reach pskDelegatePk

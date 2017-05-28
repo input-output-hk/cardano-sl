@@ -325,7 +325,7 @@ recursiveHeaderGen (eitherOfLeader : leaders)
                         curried :: Bi w => w -> ProxySecretKey w
                         curried = createProxySecretKey issuerSK delegatePK
                         proxy = if isSigEpoch
-                                then Right $ curried epochCounter
+                                then Right (curried epochCounter, toPublic issuerSK)
                                 else Left $ curried w
                     in (delegateSK, Just proxy)
         pure $ Right $

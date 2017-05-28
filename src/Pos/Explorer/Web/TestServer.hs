@@ -43,6 +43,8 @@ explorerHandlers :: Server ExplorerApi
 explorerHandlers =
       apiBlocksLast
     :<|>
+      apiBlocksPagesLast
+    :<|>
       apiBlocksSummary
     :<|>
       apiBlocksTxs
@@ -58,6 +60,7 @@ explorerHandlers =
       apiEpochSlotSearch
   where
     apiBlocksLast        = testBlocksLast
+    apiBlocksPagesLast   = testBlocksPagesLast
     apiBlocksSummary     = testBlocksSummary
     apiBlocksTxs         = testBlocksTxs
     apiBlocksTotalNumber = testBlocksTotalNumber
@@ -89,6 +92,21 @@ testBlocksLast
     -> Maybe Word
     -> Handler (Either ExplorerError [CBlockEntry])
 testBlocksLast _ _  = pure . pure $ [CBlockEntry
+    { cbeEpoch      = 37294
+    , cbeSlot       = 10
+    , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
+    , cbeTimeIssued = Nothing
+    , cbeTxNum      = 0
+    , cbeTotalSent  = mkCCoin $ mkCoin 0
+    , cbeSize       = 390
+    , cbeBlockLead  = Nothing
+    }]
+
+testBlocksPagesLast 
+    :: Maybe Word 
+    -> Maybe Word 
+    -> Handler (Either ExplorerError [CBlockEntry])
+testBlocksPagesLast _ _  = pure . pure $ [CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"

@@ -38,6 +38,16 @@ type BlocksLast = API
     :> QueryParam "offset" Word
     :> Get '[JSON] (Either ExplorerError [CBlockEntry])
 
+-- TODO: type TotalPageNumber = Integer
+
+-- TODO: In the future we can add pageSize.
+type BlocksPagesLast = API
+    :> "blocks"
+    :> "pages"
+    :> QueryParam "page" Word
+    :> QueryParam "pageSize" Word
+    :> Get '[JSON] (Either ExplorerError [CBlockEntry])
+
 type BlocksSummary = API
     :> "blocks"
     :> "summary"
@@ -86,6 +96,7 @@ type EpochSlotSearch = API
 -- | Servant API which provides access to explorer
 type ExplorerApi =
          BlocksLast
+    :<|> BlocksPagesLast
     :<|> BlocksSummary
     :<|> BlocksTxs  
     :<|> BlocksTotalNumber  

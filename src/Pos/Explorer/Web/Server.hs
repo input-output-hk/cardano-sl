@@ -92,6 +92,8 @@ explorerHandlers :: ExplorerMode m => SendActions m -> ServerT ExplorerApi m
 explorerHandlers _sendActions =
       apiBlocksLast
     :<|>
+      apiBlocksPagesLast
+    :<|>
       apiBlocksSummary
     :<|>
       apiBlocksTxs
@@ -107,6 +109,7 @@ explorerHandlers _sendActions =
       apiEpochSlotSearch
   where
     apiBlocksLast        = getLastBlocksDefault
+    apiBlocksPagesLast   = getLastBlocksPageDefault
     apiBlocksSummary     = catchExplorerError . getBlockSummary
     apiBlocksTxs         = getBlockTxsDefault
     apiBlocksTotalNumber = catchExplorerError $ getBlocksTotalNumber
@@ -117,6 +120,9 @@ explorerHandlers _sendActions =
 
     catchExplorerError   = try
 
+    getLastBlocksPageDefault  page size  =
+      catchExplorerError $ getLastBlocksPage (defaultPage page) (defaultPageSize size)
+    
     getLastBlocksDefault      limit skip =
       catchExplorerError $ getLastBlocks (defaultLimit limit) (defaultSkip skip)
 
@@ -129,8 +135,10 @@ explorerHandlers _sendActions =
     tryEpochSlotSearch   epoch maybeSlot =
       catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    defaultLimit limit   = (fromIntegral $ fromMaybe 10 limit)
-    defaultSkip  skip    = (fromIntegral $ fromMaybe 0 skip)
+    defaultPage  page    = (fromIntegral $ fromMaybe 1   page)
+    defaultPageSize size = (fromIntegral $ fromMaybe 10  size)
+    defaultLimit limit   = (fromIntegral $ fromMaybe 10  limit)
+    defaultSkip  skip    = (fromIntegral $ fromMaybe 0   skip)
 
 -- | Get the total number of blocks/slots currently available.
 -- Total number of main blocks   = difficulty of the topmost (tip) header.
@@ -175,6 +183,39 @@ getBlocksByEpoch epochIndex mSlotIndex = do
       where
         findBlocksByEpochPred mb = (siEpoch $ mb ^. blockSlot) == epochIndex &&
                 fromMaybe True ((siSlot (mb ^. blockSlot) ==) <$> mSlotIndex)
+
+-- | Get last blocks with a page parameter. This enables easier paging on the
+-- client side and should enable a simple and thin client logic.
+getLastBlocksPage 
+    :: (MonadDB m, MonadSlots m) 
+    => Word 
+    -> Word 
+    -> m [CBlockEntry]
+getLastBlocksPage pageNumber pageSize = do
+
+    -- Get total blocks in the blockchain.
+    blocksTotal <- toInteger <$> getBlocksTotalNumber
+
+    -- Get total pages from the blocks.
+    let totalPages = blocksTotal `div` pageSizeInt
+
+    -- Make sure the parameters are valid.
+    when ((pageNumberInt - 1) > totalPages) $
+        throwM $ Internal "Number of pages exceeds total pages number."
+
+    when (pageSize > 1000) $
+        throwM $ Internal "The upper bound for pageSize is 1000."
+
+    -- Calculate the start position
+    let startPosition = calculateOffset
+
+    -- Fetch last blocks
+    getLastBlocks pageSize startPosition
+  where
+    calculateOffset = (pageNumber - 1) * pageSize
+    pageSizeInt     = toInteger pageSize
+    pageNumberInt   = toInteger pageNumber
+
 
 -- | Get last blocks from the blockchain.
 --

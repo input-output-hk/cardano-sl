@@ -72,7 +72,7 @@ dev: &dev
 
   # Misc
   protocolMagic: 0
-  enhancedMessageTimeout: 10
+  enhancedMessageTimeout: 360 # 6 mins
   enhancedMessageBroadcast: 2
   messageCacheTimeout: 30
   blockRetrievalQueueSize: 100

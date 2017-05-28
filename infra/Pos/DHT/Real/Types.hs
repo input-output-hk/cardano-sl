@@ -40,7 +40,7 @@ data KademliaDHTInstance = KademliaDHTInstance
     , kdiKey             :: !DHTKey
     , kdiInitialPeers    :: ![NetworkAddress]
     , kdiExplicitInitial :: !Bool
-    , kdiKnownPeersCache :: !(TVar [K.Node DHTKey])
+    , kdiKnownPeersCache :: !(TVar [NetworkAddress])
     , kdiDumpPath        :: !FilePath
     }
 

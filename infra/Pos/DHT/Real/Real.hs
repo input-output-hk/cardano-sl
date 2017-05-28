@@ -11,6 +11,7 @@ module Pos.DHT.Real.Real
 import           Data.Binary               (decode)
 import qualified Data.ByteString.Char8     as B8 (unpack)
 import qualified Data.ByteString.Lazy      as BS
+import           Data.List                 (intersect, (\\))
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
                                             Promise, Throw, catch, catchAll, throw,
@@ -157,26 +158,32 @@ kademliaGetKnownPeers inst = do
         -> [NetworkAddress]
         -> [[(K.Node DHTKey, Int64)]]
         -> m1 [NetworkAddress]
-    extendPeers myKey initial buckets =
-        ordNub . (++ initial) . map dhtAddr . -- Concat with initial peers and apply ordNub.
-        filter ((/= myKey) . dhtNodeId) . map toDHTNode <$> -- Remove our ID
-        (updateCache $ concatMap getPeersFromBucket buckets)
+    extendPeers myKey initial buckets = do
+        cache <- atomically $ readTVar $ kdiKnownPeersCache inst
+        fromBuckets <- updateCache $ concatMap (getPeersFromBucket cache myKey) buckets
+         -- Concat with initial peers and select unique.
+        pure $ ordNub $ fromBuckets ++ initial
 
-    getPeersFromBucket :: [(K.Node DHTKey, Int64)] -> [K.Node DHTKey]
-    getPeersFromBucket bucket
+    getPeersFromBucket :: [NetworkAddress] -> DHTKey -> [(K.Node DHTKey, Int64)] -> [NetworkAddress]
+    getPeersFromBucket cache myKey bucket
         | null bucket = []
-        | otherwise =
-            let peers = filter ((< enhancedMessageTimeout) . snd) bucket in
-            map fst $
-            takeSafe enhancedMessageBroadcast $
-            bool peers (sortWith snd bucket) (null peers)
+        | otherwise = do
+            let toNetAddr = dhtAddr . toDHTNode . fst
+            let notMe x = K.nodeId (fst x) /= myKey
+            let latestNodes = filter (\x-> snd x < enhancedMessageTimeout && notMe x) bucket
+            if null latestNodes then
+                map toNetAddr $ filter notMe $ sortWith snd bucket
+            else do
+                let latestPeers = map toNetAddr latestNodes
+                let fromCache = takeSafe enhancedMessageBroadcast (intersect cache latestPeers)
+                fromCache ++ takeSafe (enhancedMessageBroadcast - length fromCache) (latestPeers \\ cache)
 
     takeSafe :: Int -> [a] -> [a]
     takeSafe p a
         | length a <= p = a
         | otherwise = take p a
 
-    updateCache :: MonadIO m1 => [K.Node DHTKey] -> m1 [K.Node DHTKey]
+    updateCache :: MonadIO m1 => [NetworkAddress] -> m1 [NetworkAddress]
     updateCache peers =
         peers <$ (atomically $ writeTVar (kdiKnownPeersCache inst) peers)
 

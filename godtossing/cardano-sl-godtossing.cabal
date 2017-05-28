@@ -1,0 +1,91 @@
+name:                cardano-sl-godtossing
+version:             0.4.4
+synopsis:            Cardano SL - GodTossing implementation of SSC
+description:         Cardano SL - GodTossing implementation of SSC
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+    Pos.Ssc.GodTossing.Core
+    Pos.Ssc.GodTossing.Core.Types
+    Pos.Ssc.GodTossing.Core.Core
+
+    Pos.Ssc.GodTossing.Types
+    Pos.Ssc.GodTossing.Types.Types
+    Pos.Ssc.GodTossing.Types.Message
+
+    Pos.Ssc.GodTossing.Toss.Base
+    Pos.Ssc.GodTossing.Toss.Class
+    Pos.Ssc.GodTossing.Toss.Failure
+    Pos.Ssc.GodTossing.Toss.Trans
+    Pos.Ssc.GodTossing.Toss.Types
+
+    Pos.Ssc.GodTossing.VssCertData
+    Pos.Ssc.GodTossing.Error
+    Pos.Ssc.GodTossing.SecretStorage
+    Pos.Ssc.GodTossing.Constants
+
+    Pos.Binary.Ssc.GodTossing.Core
+    Pos.Binary.Ssc.GodTossing.Types
+    Pos.Binary.Ssc.GodTossing.Toss
+
+  build-depends:       aeson
+                     , base
+                     , cardano-sl-core
+                     , cardano-sl-db
+                     , cardano-sl-lrc
+                     , cardano-sl-ssc
+                     , cardano-sl-update
+                     , containers
+                     , data-default
+                     , ether
+                     , formatting
+                     , lens
+                     , log-warper
+                     , mono-traversable
+                     , mtl
+                     , node-sketch
+                     , serokell-util
+                     , tagged
+                     , text
+                     , text-format
+                     , time-units
+                     , universum
+                     , unordered-containers
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

@@ -92,7 +92,6 @@ library
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
-                        Pos.Ssc.Extra
 
                         Pos.Statistics
 
@@ -119,7 +118,6 @@ library
                         Pos.Util
                         Pos.Util.Undefined
                         Pos.Util.Arbitrary
-                        Pos.Util.Limits
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
                         Pos.Util.UserSecret
@@ -154,9 +152,6 @@ library
                         Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Ssc
-                        Pos.Binary.Ssc.GodTossing.Core
-                        Pos.Binary.Ssc.GodTossing.Toss
-                        Pos.Binary.Ssc.GodTossing.Types
                         Pos.Binary.Txp
                         Pos.Binary.Txp.Core
                         Pos.Binary.Txp.Network
@@ -258,16 +253,10 @@ library
                         Pos.Ssc.Class.Workers
                         Pos.Ssc.Class.Listeners
 
-                        Pos.Ssc.Extra.Logic
-
                         Pos.Ssc.Util
 
                         Pos.Ssc.GodTossing.Arbitrary
-                        Pos.Ssc.GodTossing.Core
-                        Pos.Ssc.GodTossing.Core.Core
-                        Pos.Ssc.GodTossing.Core.Types
                         Pos.Ssc.GodTossing.DB
-                        Pos.Ssc.GodTossing.Error
                         Pos.Ssc.GodTossing.Functions
                         Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.GState
@@ -276,22 +265,12 @@ library
                         Pos.Ssc.GodTossing.LocalData.Logic
                         Pos.Ssc.GodTossing.LocalData.Types
                         Pos.Ssc.GodTossing.Richmen
-                        Pos.Ssc.GodTossing.SecretStorage
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Toss
-                        Pos.Ssc.GodTossing.Toss.Base
-                        Pos.Ssc.GodTossing.Toss.Class
-                        Pos.Ssc.GodTossing.Toss.Failure
                         Pos.Ssc.GodTossing.Toss.Logic
                         Pos.Ssc.GodTossing.Toss.Pure
-                        Pos.Ssc.GodTossing.Toss.Trans
-                        Pos.Ssc.GodTossing.Toss.Types
                         Pos.Ssc.GodTossing.Type
-                        Pos.Ssc.GodTossing.Types
-                        Pos.Ssc.GodTossing.Types.Message
-                        Pos.Ssc.GodTossing.Types.Types
-                        Pos.Ssc.GodTossing.VssCertData
                         Pos.Ssc.GodTossing.Workers
 
                         -- Statistics
@@ -429,6 +408,7 @@ library
                       , cardano-report-server >= 0.1.1
                       , cardano-sl-core
                       , cardano-sl-db
+                      , cardano-sl-godtossing
                       , cardano-sl-infra
                       , cardano-sl-lrc
                       , cardano-sl-ssc

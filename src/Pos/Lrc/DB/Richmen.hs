@@ -30,20 +30,21 @@ import           Universum
 
 import qualified Ether
 
-import           Pos.Binary.Core        ()
-import           Pos.Constants          (genesisHeavyDelThd, genesisMpcThd,
-                                         genesisUpdateVoteThd)
-import           Pos.Context.Functions  (GenesisUtxo (..), genesisUtxoM)
-import           Pos.DB.Class           (MonadDB)
-import           Pos.Genesis            (genesisDelegation)
-import           Pos.Lrc.Class          (RichmenComponent (..), SomeRichmenComponent (..),
-                                         someRichmenComponent)
-import           Pos.Lrc.DB.RichmenBase (getRichmen, getRichmenP, putRichmen, putRichmenP)
-import           Pos.Lrc.Logic          (RichmenType (..), findRichmenPure)
-import           Pos.Lrc.Types          (FullRichmenData, Richmen, RichmenStake,
-                                         toRichmen)
-import           Pos.Txp.Core           (TxOutDistribution, txOutStake)
-import           Pos.Types              (EpochIndex, applyCoinPortion)
+import           Pos.Binary.Core          ()
+import           Pos.Constants            (genesisHeavyDelThd, genesisUpdateVoteThd)
+import           Pos.Context.Functions    (GenesisUtxo (..), genesisUtxoM)
+import           Pos.DB.Class             (MonadDB)
+import           Pos.Genesis              (genesisDelegation)
+import           Pos.Lrc.Class            (RichmenComponent (..),
+                                           SomeRichmenComponent (..),
+                                           someRichmenComponent)
+import           Pos.Lrc.DB.RichmenBase   (getRichmen, getRichmenP, putRichmen,
+                                           putRichmenP)
+import           Pos.Lrc.Logic            (RichmenType (..), findRichmenPure)
+import           Pos.Lrc.Types            (FullRichmenData, Richmen, toRichmen)
+import           Pos.Ssc.RichmenComponent (RCSsc, getRichmenSsc, putRichmenSsc)
+import           Pos.Txp.Core             (TxOutDistribution, txOutStake)
+import           Pos.Types                (EpochIndex, applyCoinPortion)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -81,27 +82,6 @@ components :: [SomeRichmenComponent]
 components = [ someRichmenComponent @RCSsc
              , someRichmenComponent @RCUs
              , someRichmenComponent @RCDlg]
-
-----------------------------------------------------------------------------
--- SSC instance
-----------------------------------------------------------------------------
-
-data RCSsc
-
-instance RichmenComponent RCSsc where
-    type RichmenData RCSsc = RichmenStake
-    rcToData = snd
-    rcTag Proxy = "ssc"
-    rcInitialThreshold Proxy = genesisMpcThd
-    rcConsiderDelegated Proxy = True
-
-getRichmenSsc :: MonadDB m => EpochIndex -> m (Maybe RichmenStake)
-getRichmenSsc epoch = getRichmen @RCSsc epoch
-
-putRichmenSsc
-    :: (MonadDB m)
-    => EpochIndex -> FullRichmenData -> m ()
-putRichmenSsc = putRichmen @RCSsc
 
 ----------------------------------------------------------------------------
 -- Update System instance

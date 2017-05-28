@@ -25,7 +25,7 @@ import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 
-import           Pos.Block.Core             (BlockHeader, getBlockHeader,
+import           Pos.Block.Core             (Block, BlockHeader, getBlockHeader,
                                              mainBlockTxPayload)
 import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Types            (Blund, undoTx)
@@ -161,11 +161,11 @@ syncWSetsWithGState
     => EncryptedSecretKey
     -> m ()
 syncWSetsWithGState encSK = do
-    tipHeader <- DB.getTipHeader @ssc
+    tipHeader <- DB.getTipHeader @(Block ssc)
     let wAddr = encToCId encSK
     whenJustM (WS.getWalletSyncTip wAddr) $ \wTip ->
         if | wTip == genesisHash && headerHash tipHeader == genesisHash ->
-               logDebug $ sformat ("Walletset "%build%" at genesis state, synced") wAddr
+               logDebug $ sformat ("Wallet "%build%" at genesis state, synced") wAddr
            | wTip == genesisHash ->
                whenJustM (resolveForwardLink wTip) $ \nx-> sync wAddr nx tipHeader
            | otherwise -> sync wAddr wTip tipHeader
@@ -174,14 +174,14 @@ syncWSetsWithGState encSK = do
     sync wAddr wTip tipHeader = DB.blkGetHeader wTip >>= \case
         Nothing ->
             logWarning $
-                sformat ("Couldn't get block header of walletset "%build
+                sformat ("Couldn't get block header of wallet "%build
                          %" by last synced hh: "%build) wAddr wTip
         Just wHeader -> do
             mapModifier <- compareHeaders wAddr wHeader tipHeader
             applyModifierToWSet wAddr (headerHash tipHeader) mapModifier
-            logDebug $ sformat ("Walletset "%build
-                               %" has been synced with tip "%shortHashF%", added accounts: "%listJson
-                               %", deleted accounts: "%listJson)
+            logDebug $ sformat ("Wallet "%build
+                               %" has been synced with tip "%shortHashF%", added addresses: "%listJson
+                               %", deleted addresses: "%listJson)
                        wAddr wTip
                        (map fst $ MM.insertions mapModifier)
                        (MM.deletions mapModifier)
@@ -189,7 +189,7 @@ syncWSetsWithGState encSK = do
     compareHeaders :: CId WS -> BlockHeader ssc -> BlockHeader ssc -> m CAccModifier
     compareHeaders wAddr wHeader tipHeader = do
         logDebug $
-            sformat ("Walletset "%build%" header: "%build%", current tip header: "%build)
+            sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                     wAddr wHeader tipHeader
         if | diff tipHeader > diff wHeader -> runDBTxp $ evalToilTEmpty $ do
             -- If walletset syncTip before the current tip,
@@ -207,7 +207,7 @@ syncWSetsWithGState encSK = do
                 blunds <- getNewestFirst <$>
                             DB.loadBlundsWhile (\b -> getBlockHeader b /= tipHeader) (headerHash wHeader)
                 pure $ foldl' (\r b -> r <> rollbackBlock b) mempty blunds
-           | otherwise -> mempty <$ logInfo (sformat ("Walletset "%build%" is already synced") wAddr)
+           | otherwise -> mempty <$ logInfo (sformat ("Wallet "%build%" is already synced") wAddr)
     constTrue = \_ _ -> True
     mappendR r mm = pure (r <> mm)
     diff = (^. difficultyL)

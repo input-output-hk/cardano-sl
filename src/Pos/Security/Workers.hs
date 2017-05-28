@@ -113,7 +113,7 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
         ourPk <- Ether.asks' npPublicKey
         let onSlotDefault slotId = do
-                header <- getTipHeader @ssc
+                header <- getTipHeader @(Block ssc)
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
         whenJustM getCurrentSlot onSlotDefault
   where

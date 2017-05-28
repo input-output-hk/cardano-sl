@@ -32,9 +32,9 @@ library
     Pos.Ssc.GodTossing.SecretStorage
     Pos.Ssc.GodTossing.Constants
 
-    Pos.Binary.Ssc.GodTossing.Core
-    Pos.Binary.Ssc.GodTossing.Types
-    Pos.Binary.Ssc.GodTossing.Toss
+    Pos.Binary.GodTossing.Core
+    Pos.Binary.GodTossing.Types
+    Pos.Binary.GodTossing.Toss
 
   build-depends:       aeson
                      , base

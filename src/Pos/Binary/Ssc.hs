@@ -4,7 +4,7 @@
 
 module Pos.Binary.Ssc () where
 
-import           Pos.Binary.Ssc.GodTossing.Core  ()
-import           Pos.Binary.Ssc.GodTossing.Toss  ()
-import           Pos.Binary.Ssc.GodTossing.Types ()
+import           Pos.Binary.GodTossing.Core  ()
+import           Pos.Binary.GodTossing.Toss  ()
+import           Pos.Binary.GodTossing.Types ()
 

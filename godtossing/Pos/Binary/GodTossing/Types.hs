@@ -1,6 +1,6 @@
 -- | Serialization of GodTossing types.
 
-module Pos.Binary.Ssc.GodTossing.Types () where
+module Pos.Binary.GodTossing.Types () where
 
 import           Universum
 

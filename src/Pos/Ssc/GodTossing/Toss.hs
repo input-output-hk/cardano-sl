@@ -4,7 +4,7 @@
 
 -- {-# OPTIONS_GHC -F -pgmF autoexporter #-}
 
--- import           Pos.Binary.Ssc.GodTossing.Toss ()
+-- import           Pos.Binary.GodTossing.Toss ()
 
 module Pos.Ssc.GodTossing.Toss (module X) where
 
@@ -16,4 +16,4 @@ import           Pos.Ssc.GodTossing.Toss.Pure    as X
 import           Pos.Ssc.GodTossing.Toss.Trans   as X
 import           Pos.Ssc.GodTossing.Toss.Types   as X
 
-import           Pos.Binary.Ssc.GodTossing.Toss  ()
+import           Pos.Binary.GodTossing.Toss      ()

@@ -20,6 +20,7 @@ import           Mockable                   (Production, currentTime)
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
 import           Node                       (hoistSendActions)
+import           Pos.Util.TimeWarp          (addressToNodeId)
 import           Serokell.Util              (sec)
 import           System.Wlog                (logError, logInfo)
 import           Universum
@@ -33,7 +34,6 @@ import           Pos.Communication          (ActionSpec (..), NodeId, OutSpecs,
 import           Pos.Constants              (isDevelopment)
 import           Pos.Context                (MonadNodeContext)
 import           Pos.Core.Types             (Timestamp (..))
-import           Pos.DHT.Model              (dhtNodeToNodeId)
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
                                              foreverRejoinNetwork)
 import           Pos.DHT.Workers            (dhtWorkers)
@@ -308,7 +308,7 @@ main = do
     args <- getNodeOptions
     let baseParams = getBaseParams "node" args
     if staticPeers args then do
-        allPeers <- S.fromList . map (snd . dhtNodeToNodeId) <$> getPeersFromArgs args
+        allPeers <- S.fromList . map addressToNodeId <$> getPeersFromArgs args
         bracketResources baseParams TCP.Unaddressable $ \transport -> do
             let transport' = hoistTransport
                     (powerLift :: forall ssc t . Production t -> RawRealMode ssc t)

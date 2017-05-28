@@ -9,8 +9,8 @@ import           Formatting              (bprint, build, ords, stext, (%))
 import           Serokell.Util           (listJson)
 import           Universum
 
+import           Pos.Core                (EpochIndex, SlotId, StakeholderId)
 import           Pos.Ssc.GodTossing.Core (VssCertificate)
-import           Pos.Types               (EpochIndex, SlotId, StakeholderId)
 
 instance Buildable (StakeholderId, VssCertificate) where
     build (a, b) = bprint ("(id: "%build%" , cert: "%build%")") a b

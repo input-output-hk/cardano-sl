@@ -22,13 +22,14 @@ import           Data.List.NonEmpty  ((<|))
 import qualified Ether
 import           Formatting          (sformat, stext, (%))
 
-import           Pos.Block.Core      (BlockHeader)
+import           Pos.Block.Core      (Block, BlockHeader)
 import           Pos.Constants       (slotSecurityParam)
 import           Pos.Context         (BlkSemaphore, putBlkSemaphore, takeBlkSemaphore)
 import           Pos.Core            (HeaderHash, diffEpochOrSlot, getEpochOrSlot,
                                       headerHash, prevBlockL)
 import           Pos.Crypto          (shortHashF)
 import           Pos.DB              (MonadDBPure)
+import           Pos.DB.Block        (MonadBlockDB)
 import qualified Pos.DB.DB           as DB
 import qualified Pos.DB.GState       as GS
 import           Pos.Slotting.Class  (MonadSlots, getCurrentSlot)
@@ -100,12 +101,12 @@ withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
 --
 needRecovery ::
        forall ssc m.
-       (MonadSlots m, MonadDBPure m, SscHelpersClass ssc)
+       (MonadSlots m, MonadBlockDB ssc m)
     => m Bool
 needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
   where
     isTooOld currentSlot = do
-        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader @ssc
+        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader @(Block ssc)
         let distance = getEpochOrSlot currentSlot `diffEpochOrSlot`
                        lastKnownBlockSlot
         pure (distance > slotSecurityParam)

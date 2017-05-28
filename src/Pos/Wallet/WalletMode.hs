@@ -44,7 +44,7 @@ import           Pos.Reporting.MemState       (ReportingContext)
 import           System.Wlog                  (LoggerNameBox, WithLogger)
 
 import           Pos.Block.BListener          (BListenerStub)
-import           Pos.Block.Core               (BlockHeader)
+import           Pos.Block.Core               (Block, BlockHeader)
 import           Pos.Client.Txp.Balances      (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History       (MonadTxHistory (..), deriveAddrHistory)
 import           Pos.Communication            (TxMode)
@@ -54,14 +54,14 @@ import           Pos.Constants                (blkSecurityParam)
 import qualified Pos.Context                  as PC
 import           Pos.Core                     (ChainDifficulty, difficultyL,
                                                flattenEpochOrSlot, flattenSlotId)
-import           Pos.DB                       (DBPureRedirect, MonadDB, MonadDBPure)
-import           Pos.DB.Block                 (BlockDBRedirect)
+import           Pos.DB                       (DBPureRedirect, MonadDB)
+import           Pos.DB.Block                 (BlockDBRedirect, MonadBlockDB)
 import           Pos.DB.DB                    (getTipHeader)
 import           Pos.Discovery                (DiscoveryConstT, DiscoveryKademliaT,
                                                MonadDiscovery)
 import           Pos.Shutdown                 (MonadShutdownMem, triggerShutdown)
 import           Pos.Slotting                 (MonadSlots (..), getLastKnownSlotDuration)
-import           Pos.Ssc.Class                (Ssc, SscHelpersClass)
+import           Pos.Ssc.Class                (Ssc)
 import           Pos.Txp                      (filterUtxoByAddrs, runUtxoStateT)
 import           Pos.Update                   (ConfirmedProposalState (..))
 import           Pos.Update.Context           (UpdateContext (ucUpdateSemaphore))
@@ -176,25 +176,24 @@ getLastKnownHeader =
 
 -- | Instance for full-node's ContextHolder
 instance
-    ( SscHelpersClass ssc
+    ( MonadBlockDB ssc m
     , t ~ IdentityT
     , PC.MonadLastKnownHeader ssc m
     , PC.MonadProgressHeader ssc m
     , Ether.MonadReader' PC.ConnectedPeers m
     , MonadIO m
     , MonadDB m
-    , MonadDBPure m
     , MonadSlots m
     ) => MonadBlockchainInfo (Ether.TaggedTrans BlockchainInfoRedirectTag t m)
   where
     networkChainDifficulty = getLastKnownHeader >>= \case
         Just lh -> do
-            thDiff <- view difficultyL <$> getTipHeader @ssc
+            thDiff <- view difficultyL <$> getTipHeader @(Block ssc)
             let lhDiff = lh ^. difficultyL
             return . Just $ max thDiff lhDiff
         Nothing -> runMaybeT $ do
             cSlot <- flattenSlotId <$> MaybeT getCurrentSlot
-            th <- lift (getTipHeader @ssc)
+            th <- lift (getTipHeader @(Block ssc))
             let hSlot = flattenEpochOrSlot th
             when (hSlot <= cSlot - blkSecurityParam) $
                 fail "Local tip is outdated"
@@ -202,7 +201,7 @@ instance
 
     localChainDifficulty = downloadHeader >>= \case
         Just dh -> return $ dh ^. difficultyL
-        Nothing -> view difficultyL <$> getTipHeader @ssc
+        Nothing -> view difficultyL <$> getTipHeader @(Block ssc)
 
     connectedPeers = fromIntegral . length <$> do
         PC.ConnectedPeers cp <- Ether.ask'

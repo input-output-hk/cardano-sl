@@ -29,12 +29,12 @@ import           Formatting                     (sformat, (%))
 import           Serokell.Util                  (listJson)
 import           Universum
 
+import           Pos.Core                       (EpochIndex)
 import           Pos.Crypto                     (VssKeyPair)
 import           Pos.Ssc.GodTossing.Core        (CommitmentsMap (getCommitmentsMap),
                                                  Opening, OpeningsMap, SharesMap,
                                                  SignedCommitment)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Types                      (EpochIndex)
 
 ----------------------------------------------------------------------------
 -- SscGlobalState

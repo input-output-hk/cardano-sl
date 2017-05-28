@@ -24,10 +24,10 @@ import qualified Data.Set                as S
 import           Formatting              (build, sformat, (%))
 import           Universum               hiding (empty, filter)
 
+import           Pos.Core                (EpochIndex (..), EpochOrSlot (..), SlotId (..),
+                                          StakeholderId)
 import           Pos.Ssc.GodTossing.Core (VssCertificate (..), VssCertificatesMap,
                                           getCertId)
-import           Pos.Types               (EpochIndex (..), EpochOrSlot (..), SlotId (..),
-                                          StakeholderId)
 
 -- | Wrapper around 'VssCertificate' with TTL.
 -- Every 'VssCertificate' has own TTL.

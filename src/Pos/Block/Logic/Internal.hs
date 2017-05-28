@@ -52,6 +52,7 @@ import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage   (SscGStateClass)
 import           Pos.Ssc.Extra           (MonadSscMem, sscApplyBlocks, sscNormalize,
                                           sscRollbackBlocks)
+import           Pos.Ssc.Util            (toSscBlock)
 import           Pos.Txp.MemState        (MonadTxpMem)
 import           Pos.Txp.Settings        (TxpBlock, TxpBlund, TxpGlobalSettings (..))
 import           Pos.Update.Context      (UpdateContext)
@@ -140,7 +141,9 @@ applyBlocksUnsafeDo blunds pModifier = do
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
-    sscBatch <- SomeBatchOp <$> sscApplyBlocks blocks Nothing -- TODO: pass not only 'Nothing'
+    sscBatch <- SomeBatchOp <$>
+        -- TODO: pass not only 'Nothing'
+        sscApplyBlocks (map toSscBlock blocks) Nothing
     GS.writeBatchGState
         [ delegateBatch
         , usBatch
@@ -173,7 +176,8 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
                               & each._1 %~ toUpdateBlock)
     TxpGlobalSettings {..} <- Ether.ask'
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
-    sscBatch <- SomeBatchOp <$> sscRollbackBlocks (fmap fst toRollback)
+    sscBatch <- SomeBatchOp <$> sscRollbackBlocks
+        (map (toSscBlock . fst) toRollback)
     GS.writeBatchGState
         [ dlgRoll
         , usRoll

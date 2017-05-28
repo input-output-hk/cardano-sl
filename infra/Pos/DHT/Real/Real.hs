@@ -175,7 +175,7 @@ kademliaGetKnownPeers inst = do
                 map toNetAddr $ filter notMe $ sortWith snd bucket
             else do
                 let latestPeers = map toNetAddr latestNodes
-                let fromCache = takeSafe enhancedMessageBroadcast (intersect cache latestPeers)
+                let fromCache = takeSafe enhancedMessageBroadcast (cache `intersect` latestPeers)
                 fromCache ++ takeSafe (enhancedMessageBroadcast - length fromCache) (latestPeers \\ cache)
 
     takeSafe :: Int -> [a] -> [a]

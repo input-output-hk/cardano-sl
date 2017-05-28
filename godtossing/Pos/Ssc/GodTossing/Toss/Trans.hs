@@ -22,7 +22,7 @@ import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossRead (
 import           Pos.Ssc.GodTossing.Toss.Types  (TossModifier (..), tmCertificates,
                                                  tmCommitments, tmOpenings, tmShares)
 import           Pos.Ssc.GodTossing.VssCertData (VssCertData (certs))
-import           Pos.Util                       (ether)
+import           Pos.Util.Util                  (ether)
 
 ----------------------------------------------------------------------------
 -- Tranformer

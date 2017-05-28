@@ -12,6 +12,7 @@ packages:
 - db
 - lrc
 - ssc
+- godtossing
 
 - location:
     git: https://github.com/serokell/time-units.git
@@ -98,10 +99,11 @@ apply-ghc-options: everything
 
 # If you find it too restrictive, you can use `util-scripts/build.sh' script
 ghc-options:
-  cardano-sl-core:   -Werror
-  cardano-sl-db:     -Werror
-  cardano-sl-ssc:    -Werror
-  cardano-sl-infra:  -Werror
-  cardano-sl-lrc:    -Werror
-  cardano-sl-update: -Werror
-  cardano-sl:        -Werror
+  cardano-sl-core:       -Werror
+  cardano-sl-db:         -Werror
+  cardano-sl-ssc:        -Werror
+  cardano-sl-infra:      -Werror
+  cardano-sl-lrc:        -Werror
+  cardano-sl-update:     -Werror
+  cardano-sl-godtossing: -Werror
+  cardano-sl:            -Werror

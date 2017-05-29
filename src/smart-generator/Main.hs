@@ -43,7 +43,7 @@ import           Pos.Util.JsonLog           ()
 import           Pos.Util.UserSecret        (simpleUserSecret)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Worker                 (allWorkers)
-import           Pos.WorkMode               (StaticMode)
+import           Pos.WorkMode               (RunModeHolder (..), StaticMode)
 
 import           GenOptions                 (GenOptions (..), optsInfo)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
@@ -263,7 +263,7 @@ main = do
     bracketResources baseParams TCP.Unaddressable $ \transport -> do
         let transport' :: forall ssc . Transport (StaticMode ssc)
             transport' = hoistTransport
-                (powerLift :: forall t . Production t -> StaticMode ssc t)
+                (RunModeHolder . powerLift)
                 transport
 
         let systemStart = CLI.sysStart goCommonArgs

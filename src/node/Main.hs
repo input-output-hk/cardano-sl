@@ -55,7 +55,9 @@ import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Wallet                 (WalletSscType)
 import           Pos.WorkMode               (ProductionMode, RawRealMode, RawRealModeK,
-                                             StaticMode, StatsMode)
+                                             RunModeHolder (..), StaticMode, StatsMode,
+                                             getProductionMode, getStaticMode,
+                                             getStatsMode)
 #ifdef WITH_WEB
 import           Pos.Web                    (serveWebGT)
 import           Pos.WorkMode               (WorkMode)
@@ -132,7 +134,7 @@ action peerHolder args@Args {..} transport = do
                 let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
                     runner =
                         runNodeStatic @ssc
-                            transportR
+                            (hoistTransport RunModeHolder transportR)
                             peers
                             utwStatic
                             currentParams
@@ -141,7 +143,7 @@ action peerHolder args@Args {..} transport = do
                 let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
                     runner =
                         runNodeStats @ssc
-                            transportR
+                            (hoistTransport RunModeHolder transportR)
                             kad
                             (mconcat [wDhtWorkers kad, utwStats])
                             currentParams
@@ -150,7 +152,7 @@ action peerHolder args@Args {..} transport = do
                 let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
                     runner =
                         runNodeProduction @ssc
-                            transportR
+                            (hoistTransport RunModeHolder transportR)
                             kad
                             (mconcat [wDhtWorkers kad, utwProd])
                             currentParams
@@ -196,22 +198,28 @@ utwProd = first (map liftPlugin) updateTriggerWorker
   where
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
         ki <- askDHTInstance
-        lift . lift . p vI $ hoistSendActions (runDiscoveryKademliaT ki . getNoStatsT) (lift . lift) sa
+        RunModeHolder . lift . lift . p vI $
+            hoistSendActions (runDiscoveryKademliaT ki . getNoStatsT . getProductionMode)
+                             (RunModeHolder . lift . lift) sa
 
 utwStats :: SscConstraint ssc => ([WorkerSpec (StatsMode ssc)], OutSpecs)
 utwStats = first (map liftPlugin) updateTriggerWorker
   where
-    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> RunModeHolder $ do
         s <- getStatsMap
         ki <- askDHTInstance
-        lift . lift . p vI $ hoistSendActions (runDiscoveryKademliaT ki . runStatsT' s) (lift . lift) sa
+        lift . lift . p vI $
+            hoistSendActions (runDiscoveryKademliaT ki . runStatsT' s . getStatsMode)
+                             (RunModeHolder . lift . lift) sa
 
 utwStatic :: SscConstraint ssc => ([WorkerSpec (StaticMode ssc)], OutSpecs)
 utwStatic = first (map liftPlugin) updateTriggerWorker
   where
-    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> RunModeHolder $ do
         peers <- getPeers
-        lift . lift . p vI $ hoistSendActions (runDiscoveryConstT peers . getNoStatsT) (lift . lift) sa
+        lift . lift . p vI $
+            hoistSendActions (runDiscoveryConstT peers . getNoStatsT . getStaticMode)
+                             (RunModeHolder . lift . lift) sa
 
 updateTriggerWorker
     :: SscConstraint ssc

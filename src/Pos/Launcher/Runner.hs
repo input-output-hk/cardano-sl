@@ -114,8 +114,10 @@ import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
 import           Pos.Worker                   (allWorkersCount)
 import           Pos.WorkMode                 (ProductionMode, RawRealMode, RawRealModeK,
-                                               RawRealModeS, ServiceMode, StaticMode,
-                                               StatsMode, WorkMode)
+                                               RawRealModeS, RunModeHolder (..),
+                                               ServiceMode, StaticMode, StatsMode,
+                                               WorkMode, getProductionMode, getStaticMode,
+                                               getStatsMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -351,7 +353,7 @@ runProductionMode
     -> SscParams ssc
     -> (ActionSpec (ProductionMode ssc) a, OutSpecs)
     -> Production a
-runProductionMode = runRawKBasedMode getNoStatsT lift
+runProductionMode = runRawKBasedMode (getNoStatsT . getProductionMode) (RunModeHolder . lift)
 
 -- | StatsMode runner.
 -- [CSL-169]: spawn here additional listener, which would accept stat queries
@@ -367,7 +369,7 @@ runStatsMode
     -> Production a
 runStatsMode transport kinst np sscnp action = do
     statMap <- liftIO SM.newIO
-    runRawKBasedMode (runStatsT' statMap) lift transport kinst np sscnp action
+    runRawKBasedMode (runStatsT' statMap . getStatsMode) (RunModeHolder . lift) transport kinst np sscnp action
 
 runStaticMode
     :: forall ssc a.
@@ -378,7 +380,7 @@ runStaticMode
     -> SscParams ssc
     -> (ActionSpec (StaticMode ssc) a, OutSpecs)
     -> Production a
-runStaticMode = runRawSBasedMode getNoStatsT lift
+runStaticMode = runRawSBasedMode (getNoStatsT . getStaticMode) (RunModeHolder . lift)
 
 ----------------------------------------------------------------------------
 -- Lower level runners

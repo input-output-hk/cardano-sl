@@ -21,6 +21,10 @@ library
     Pos.Ssc.GodTossing.Types.Types
     Pos.Ssc.GodTossing.Types.Message
 
+    Pos.Ssc.GodTossing.Genesis
+    Pos.Ssc.GodTossing.Genesis.Types
+    Pos.Ssc.GodTossing.Genesis.Parser
+
     Pos.Ssc.GodTossing.Toss.Base
     Pos.Ssc.GodTossing.Toss.Class
     Pos.Ssc.GodTossing.Toss.Failure
@@ -38,6 +42,7 @@ library
 
   build-depends:       aeson
                      , base
+                     , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-lrc
@@ -46,6 +51,7 @@ library
                      , containers
                      , data-default
                      , ether
+                     , file-embed
                      , formatting
                      , lens
                      , log-warper

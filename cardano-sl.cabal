@@ -258,7 +258,6 @@ library
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.DB
                         Pos.Ssc.GodTossing.Functions
-                        Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.GState
                         Pos.Ssc.GodTossing.Listeners
                         Pos.Ssc.GodTossing.LocalData

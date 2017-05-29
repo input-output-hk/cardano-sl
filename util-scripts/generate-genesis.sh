@@ -24,7 +24,7 @@ fi
 F=100 # fake avvm keys
 
 function abc {
-  cmd="stack exec cardano-keygen -- --genesis-file genesis.bin -f secrets/secret-{}.key -m $M -n $N --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file $utxo_file --randcerts --blacklisted $blacklist --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries $F"
+  cmd="stack exec cardano-keygen -- -f secrets/secret-{}.key -m $M -n $N --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file $utxo_file --randcerts --blacklisted $blacklist --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries $F"
   echo "Running command: $cmd"
   $cmd
   rm secrets/*.lock

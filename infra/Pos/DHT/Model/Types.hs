@@ -71,17 +71,19 @@ instance Show DHTKey where
     show = toString . pretty
 
 -- | DHT node.
-data DHTNode = DHTNode { dhtAddr   :: NetworkAddress
-                       , dhtNodeId :: DHTKey
-                       }
-  deriving (Eq, Ord, Show)
+data DHTNode
+    = DHTNode
+    { dhtAddr   :: NetworkAddress
+    , dhtNodeId :: DHTKey
+    } deriving (Eq, Ord, Show)
+
+instance Buildable NetworkAddress where
+    build (peerHost, peerPort)
+      = bprint (F.stext%":"%F.build) (decodeUtf8 peerHost) peerPort
 
 instance Buildable DHTNode where
-    build (DHTNode (peerHost, peerPort) key)
-      = bprint (F.build % " at " % F.stext % ":" % F.build)
-               key
-               (decodeUtf8 peerHost)
-               peerPort
+    build (DHTNode na key)
+      = bprint (F.build % " at "%F.build) key na
 
 instance Buildable [DHTNode] where
     build = listBuilderJSON

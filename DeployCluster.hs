@@ -13,7 +13,8 @@ import           Data.Maybe                  (isNothing)
 import           Data.Monoid                 ((<>))
 import           Options.Applicative.Simple  (Parser, auto, empty, flag', help, long,
                                               metavar, option, optional, showDefault,
-                                              simpleOptions, strOption, value, (<|>))
+                                              simpleOptions, strOption, switch, value,
+                                              (<|>))
 import           System.Exit                 (die)
 import           System.FilePath.Posix       ((</>))
 
@@ -38,28 +39,30 @@ deploymentScript Options{..} = do
     showInitialInfoAboutCluster
     when (itIsProductionCluster && isNothing genesisDir) $
         buildCardanoSLInProdMode
-    makeSureClusterNameIsUnique
-    cloneBaseForNewCluster
-    createMainConfigYAML
+    when (not noCreate) $ do
+        makeSureClusterNameIsUnique
+        cloneBaseForNewCluster
+        createMainConfigYAML
     if itIsProductionCluster
         then do
             when (isNothing genesisDir) $
                 generateNewKeys >> commitAndPushNewGenesisFiles
             uploadGeneratedKeysToCluster
-            preparingGenerateScript
         else do
             echo ""
             echo ">>> It's dev-cluster, we shouldn't generate new keys and copy them to nodes."
-            preparingGenerateScript
-    generateDeployment
-    cluster Create
-    cluster Build
+    when (not noBuild) $ do
+        preparingGenerateScript
+        generateDeployment
+    when (not noCreate) $
+        cluster Create
+    when (not noBuild) $
+        cluster Build
     prepareNodesForDeployment
     cluster Deploy
-    when itIsProductionCluster copyGeneratedKeysToNodes
+    cluster Stop
     removeNodesDatabases
     setSystemStartTime
-    cluster Stop
     cluster Deploy
     cluster Start
     showFinalInfo
@@ -69,7 +72,6 @@ deploymentScript Options{..} = do
     prodConfigName       = "production.yaml"
     devConfigName        = "config.yaml"
     generateScript       = "generate.sh"
-    cardanoNix           = "deployments/cardano-nodes-env-production.nix"
     genesisKeysDirPrefix = "genesis-qanet-"
     genesisBin           = "genesis.bin"
     genesisInfo          = "genesis.info"
@@ -79,7 +81,6 @@ deploymentScript Options{..} = do
     clusterName          = map toLower issueId
     clusterRoot          = deployerUserHome </> clusterName
     newConfigYAML        = if itIsProductionCluster then prodConfigName else devConfigName
-    pathToCardanoNix     = clusterRoot </> cardanoNix
     pathToNixConfig      = clusterRoot </> nixConfig
     pathToNewConfigYAML  = clusterRoot </> newConfigYAML
     pathToPkgs           = clusterRoot </> "pkgs"
@@ -136,7 +137,13 @@ deploymentScript Options{..} = do
             intersperse "\n" [ "deploymentName: " <> clusterName
                              , "nixPath: nixpkgs=https://github.com/NixOS/nixpkgs/archive/" <> nixPkgs <> ".tar.gz"
                              , "deploymentFiles:"
-                             , "  - " <> cardanoNix
+                             , "  - deployments/cardano-nodes.nix"
+                             , "  - deployments/cardano-nodes-target-aws.nix"
+                             -- , "  - deployments/cardano-explorer.nix"
+                             -- , "  - deployments/cardano-explorer-target-aws.nix"
+                             -- , "  - deployments/report-server.nix"
+                             -- , "  - deployments/report-server-target-aws.nix"
+                             , "  - deployments/keypairs.nix"
                              , "nixopsExecutable: nixops"
                              ]
 
@@ -163,9 +170,9 @@ deploymentScript Options{..} = do
         echo ">>> Upload generated keys to new cluster (after deployment these keys will be copied to nodes)..."
         currentDate <- getCurrentDate
         let _genesisDir = maybe (genesisKeysDirPrefix <> currentDate) id genesisDir
-        runCommandOnDeployer $ "cd " <> clusterRoot <> " && mkdir " <> _genesisDir
+        runCommandOnDeployer $ "cd " <> clusterRoot <> " && rm -Rf keys"
         scp "-r" (_genesisDir </> "nodes")
-                 (deployerServer <> ":" <> clusterRoot </> _genesisDir)
+                 (deployerServer <> ":" <> clusterRoot </> "keys")
 
     preparingGenerateScript = do
         echo ""
@@ -186,20 +193,6 @@ deploymentScript Options{..} = do
         echo ">>> Run generate.sh..."
         runCommandOnDeployer $ "cd " <> pathToPkgs <> " && ./" <> generateScript
 
-    copyGeneratedKeysToNodes = do
-        echo ""
-        echo ">>> Copy generated keys from a cluster to all nodes..."
-        currentDate <- getCurrentDate
-        let _genesisDir = maybe (genesisKeysDirPrefix <> currentDate) id genesisDir
-        runCommandOnDeployer $ concat $
-            intersperse "&&" [ "cd " <> clusterRoot </> _genesisDir
-                             ,    "for i in {0.." <> show numberOfNodes <> "};"
-                               <> "do nixops scp -d " <> clusterName <> " --to node$i key$((i+1)) " <> nodeFilesRoot <> "key$((i+1)).sk;"
-                               <> "done"
-                             , "nixops ssh-for-each -d " <> clusterName
-                               <> " 'chown " <> nodeUser <> ":" <> nodeUser <> " " <> nodeFilesRoot <> "key*.sk'"
-                             ]
-
     prepareNodesForDeployment = do
         echo ""
         echo ">>> Now you have to prepare cluster's nodes for deployment. This step cannot be automated because of"
@@ -209,15 +202,15 @@ deploymentScript Options{..} = do
 
     removeNodesDatabases = do
         echo ""
-        echo ">>> Remove databases on all nodes..."
+        echo ">>> Remove databases, kademlia dumps on all nodes..."
         runCommandOnDeployer $
-            "nixops ssh-for-each -d " <> clusterName <> " 'rm -R " <> nodeFilesRoot <> "node-db'"
+            "nixops ssh-for-each -d " <> clusterName <> " 'cd " <> nodeFilesRoot <> " && rm -Rf node-db kademlia.dump'"
 
     setSystemStartTime = do
         echo ""
         echo ">>> Set system start time..."
         runCommandOnDeployer $
-            "START=$(( $(date +%s)+120 )) && sed -i \"s/systemStart[ ]*=[ ]*[0-9]*;/systemStart = $START;/g\" " <> pathToNixConfig
+            "START=$(( $(date +%s)+50 )) && sed -i \"s/systemStart[ ]*=[ ]*[0-9]*;/systemStart = $START;/g\" " <> pathToNixConfig
 
     cluster action = do
         echo ""
@@ -262,6 +255,8 @@ data Options = Options
     , nixPkgs               :: String
     , clusterBranch         :: String
     , genesisDir            :: Maybe String
+    , noCreate              :: Bool
+    , noBuild               :: Bool
     }
 
 optionsParser :: Parser Options
@@ -296,3 +291,9 @@ optionsParser = Options
          long       "genesis-dir"
       <> metavar    "DIR"
       <> help       "Path to already generated genesis dir" ))
+    <*> switch (
+         long       "no-create"
+      <> help       "Don't create cluster, assume it's up" )
+    <*> switch (
+         long       "no-build"
+      <> help       "Don't build cluster, assume it's built" )

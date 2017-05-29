@@ -26,28 +26,25 @@ import           Control.Monad.Catch              (MonadMask)
 import           Control.Monad.Trans.Identity     (IdentityT (..))
 import           Data.Coerce                      (coerce)
 import qualified Ether
-import           Formatting                       (sformat, stext, (%))
 import           System.Directory                 (createDirectoryIfMissing,
                                                    doesDirectoryExist,
                                                    removeDirectoryRecursive)
 import           System.FilePath                  ((</>))
 import           System.Wlog                      (WithLogger)
 
-import           Pos.Block.Core                   (Block, BlockHeader, mkGenesisBlock)
+import           Pos.Block.Core                   (Block, mkGenesisBlock)
 import           Pos.Block.Types                  (Blund)
 import           Pos.Context.Context              (GenesisLeaders, GenesisUtxo,
                                                    NodeParams)
 import           Pos.Context.Functions            (genesisLeadersM)
-import           Pos.Core                         (HeaderHash, headerHash)
-import           Pos.DB.Block                     (MonadBlockDB, blkGetBlock,
-                                                   blkGetHeader, loadBlundsByDepth,
+import           Pos.Core                         (headerHash)
+import           Pos.DB.Block                     (MonadBlockDB, loadBlundsByDepth,
                                                    loadBlundsWhile, prepareBlockDB)
 import           Pos.DB.Class                     (MonadDB, MonadDBPure (..),
                                                    MonadGStateCore (..))
-import           Pos.DB.Error                     (DBError (DBMalformed))
 import           Pos.DB.Functions                 (openDB)
 import           Pos.DB.GState.BlockExtra         (prepareGStateBlockExtra)
-import           Pos.DB.GState.Common             (getTip)
+import           Pos.DB.GState.Common             (getTip, getTipBlock, getTipHeader)
 import           Pos.DB.GState.GState             (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.DB.Misc                      (prepareMiscDB)
 import           Pos.DB.Types                     (NodeDBs (..))
@@ -110,27 +107,6 @@ initNodeDBs = do
 #ifdef WITH_EXPLORER
     prepareExplorerDB
 #endif
-
--- | Get 'Block' corresponding to tip.
-getTipBlock
-    :: forall ssc m. (MonadBlockDB ssc m)
-    => m (Block ssc)
-getTipBlock = getTipSomething @ssc "block" blkGetBlock
-
--- | Get 'BlockHeader' corresponding to tip.
-getTipHeader
-    :: forall ssc m. (SscHelpersClass ssc, MonadDBPure m)
-    => m (BlockHeader ssc)
-getTipHeader = getTipSomething @ssc "header" blkGetHeader
-
-getTipSomething
-    :: (SscHelpersClass ssc, MonadDBPure m)
-    => Text -> (HeaderHash -> m (Maybe smth)) -> m smth
-getTipSomething smthDescription smthGetter =
-    maybe onFailure pure =<< smthGetter =<< getTip
-  where
-    fmt = "there is no "%stext%" corresponding to tip"
-    onFailure = throwM $ DBMalformed $ sformat fmt smthDescription
 
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.

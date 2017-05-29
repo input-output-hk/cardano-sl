@@ -31,10 +31,10 @@ function abc {
   mkdir nodes
   i=1
   while [[ $i -le $M ]]; do
-    mv -v secrets/secret-$i.key.primary nodes/key$i
+    mv -v secrets/secret-$i.key.primary nodes/key$i.sk
     i=$((i+1))
   done
-  cp -v redeemingHolderKey* nodes/key0
+  cp -v redeemingHolderKey* nodes/key0.sk
 }
 
 abc 2>&1 | tee genesis.info

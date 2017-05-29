@@ -13,12 +13,10 @@ module Pos.Constants
        , module Pos.Communication.Constants
        , module Pos.Slotting.Constants
        , module Pos.Update.Constants
+       , module Pos.Ssc.GodTossing.Constants
 
        -- * Constants mentioned in paper
        , networkDiameter
-
-       -- * SSC constants
-       , mpcSendInterval
 
        -- * Genesis constants
        , genesisN
@@ -28,8 +26,6 @@ module Pos.Constants
        , blockRetrievalQueueSize
        , propagationQueueSize
        , defaultPeers
-       , vssMaxTTL
-       , vssMinTTL
        , recoveryHeadersMessage
        , messageCacheTimeout
 
@@ -48,24 +44,25 @@ module Pos.Constants
        , memPoolLimitRatio
        ) where
 
-import           Universum                   hiding (lift)
+import           Universum                    hiding (lift)
 
-import           Data.Time.Units             (Microsecond)
-import           Language.Haskell.TH.Syntax  (lift, runIO)
-import           Serokell.Util               (ms, sec)
-import           System.Environment          (lookupEnv)
-import qualified Text.Parsec                 as P
+import           Data.Time.Units              (Microsecond)
+import           Language.Haskell.TH.Syntax   (lift, runIO)
+import           Serokell.Util                (ms, sec)
+import           System.Environment           (lookupEnv)
+import qualified Text.Parsec                  as P
 
-import           Pos.CompileConfig           (CompileConfig (..), compileConfig)
-import           Pos.DHT.Model.Types         (DHTNode, dhtNodeParser)
-import           Pos.Update.Core             (SystemTag, mkSystemTag)
-import           Pos.Util                    ()
+import           Pos.CompileConfig            (CompileConfig (..), compileConfig)
+import           Pos.Update.Core              (SystemTag, mkSystemTag)
+import           Pos.Util                     ()
+import           Pos.Util.TimeWarp            (NetworkAddress, addrParser)
 
 -- Reexports
 import           Pos.Communication.Constants
 import           Pos.Core.Constants
 import           Pos.DHT.Constants
 import           Pos.Slotting.Constants
+import           Pos.Ssc.GodTossing.Constants
 import           Pos.Update.Constants
 
 ----------------------------------------------------------------------------
@@ -76,16 +73,6 @@ import           Pos.Update.Constants
 -- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
 networkDiameter :: Microsecond
 networkDiameter = sec . ccNetworkDiameter $ compileConfig
-
-----------------------------------------------------------------------------
--- SSC
-----------------------------------------------------------------------------
-
--- | Length of interval during which node should send her MPC
--- message. Relevant only for one SSC implementation.
--- Also see 'Pos.CompileConfig.ccMpcSendInterval'.
-mpcSendInterval :: Microsecond
-mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -111,21 +98,13 @@ propagationQueueSize =
     fromIntegral $ ccPropagationQueueSize $ compileConfig
 
 -- | See 'Pos.CompileConfig.ccDefaultPeers'.
-defaultPeers :: [DHTNode]
+defaultPeers :: [NetworkAddress]
 defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
   where
-    parsePeer :: String -> DHTNode
+    parsePeer :: String -> NetworkAddress
     parsePeer =
         either (error . show) identity .
-        P.parse dhtNodeParser "Compile time config"
-
--- | Max VSS certificate TTL (Ssc.GodTossing part)
-vssMaxTTL :: Integral i => i
-vssMaxTTL = fromIntegral . ccVssMaxTTL $ compileConfig
-
--- | Min VSS certificate TTL (Ssc.GodTossing part)
-vssMinTTL :: Integral i => i
-vssMinTTL = fromIntegral . ccVssMinTTL $ compileConfig
+        P.parse addrParser "Compile time config"
 
 -- | Maximum amount of headers node can put into headers message while
 -- in "after offline" or "recovery" mode. Should be more than

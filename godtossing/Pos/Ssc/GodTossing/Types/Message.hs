@@ -20,10 +20,10 @@ import qualified Data.Text.Buildable           as Buildable
 import           Formatting                    (bprint, build, (%))
 import           Universum
 
+import           Pos.Core                      (StakeholderId, addressHash)
 import           Pos.Ssc.GodTossing.Core       (InnerSharesMap, Opening, SignedCommitment,
                                                 VssCertificate, getCertId)
 import           Pos.Ssc.GodTossing.Toss.Types (GtTag (..))
-import           Pos.Types                     (StakeholderId, addressHash)
 
 class HasGtTag a where
     toGtTag :: a -> GtTag

@@ -27,7 +27,7 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog                (logDebug, logError, logInfo)
 
 import           Pos.Binary.Class           (biSize)
-import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBlock,
+import           Pos.Block.Core             (Block, BlockHeader, GenesisBlock, MainBlock,
                                              MainBlockchain, MainExtraBodyData (..),
                                              MainExtraHeaderData (..), mkGenesisBlock,
                                              mkMainBlock)
@@ -165,7 +165,7 @@ createMainBlock sId pSk =
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
-        tipHeader <- DB.getTipHeader
+        tipHeader <- DB.getTipHeader @(Block ssc)
         logInfo $ sformat msgFmt tipHeader
         canWrtUs <- usCanCreateBlock
         case (canCreateBlock sId tipHeader, canWrtUs) of

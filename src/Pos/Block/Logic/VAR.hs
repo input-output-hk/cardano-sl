@@ -34,6 +34,7 @@ import           Pos.Delegation.Logic     (delegationVerifyBlocks)
 import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShotNoLock)
 import           Pos.Reporting            (reportingFatal)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
+import           Pos.Ssc.Util             (toSscBlock)
 import           Pos.Txp.Settings         (TxpGlobalSettings (..))
 import qualified Pos.Update.DB            as UDB
 import           Pos.Update.Logic         (usVerifyBlocks)
@@ -68,7 +69,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     let dataMustBeKnown = mustDataBeKnown adoptedBV
     -- And then we run verification of each component.
     slogVerifyBlocks blocks
-    _ <- withExceptT pretty $ sscVerifyBlocks blocks
+    _ <- withExceptT pretty $ sscVerifyBlocks (map toSscBlock blocks)
     TxpGlobalSettings {..} <- Ether.ask'
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
         map toTxpBlock blocks

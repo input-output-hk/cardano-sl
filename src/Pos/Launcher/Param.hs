@@ -25,7 +25,7 @@ data LoggingParams = LoggingParams
 
 -- | Contains basic & networking parameters for running node.
 data BaseParams = BaseParams
-    { bpLoggingParams :: !LoggingParams  -- ^ Logger parameters
+    { bpLoggingParams   :: !LoggingParams  -- ^ Logger parameters
     } deriving (Show)
 
 -- | Contains algorithm specific & storage parameters for Node.

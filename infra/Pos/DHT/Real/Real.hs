@@ -31,8 +31,8 @@ import           Pos.DHT.Constants         (enhancedMessageBroadcast,
                                             neighborsSendThreshold)
 import           Pos.DHT.Model.Types       (DHTData, DHTException (..), DHTKey,
                                             DHTNode (..), randomDHTKey)
-import           Pos.DHT.Real.Types        (KademliaDHTInstance (..),
-                                            KademliaDHTInstanceConfig (..))
+import           Pos.DHT.Real.Param        (KademliaParams (..))
+import           Pos.DHT.Real.Types        (KademliaDHTInstance (..))
 import           Pos.Util.TimeLimit        (runWithRandomIntervals')
 import           Pos.Util.TimeWarp         (NetworkAddress)
 
@@ -61,7 +61,7 @@ stopDHTInstance
     => KademliaDHTInstance -> m ()
 stopDHTInstance KademliaDHTInstance {..} = liftIO $ K.close kdiHandle
 
--- | Start 'KademliaDHTInstance' with 'KademliaDHTInstanceConfig'.
+-- | Start 'KademliaDHTInstance' with 'KademliaParams'.
 startDHTInstance
     :: ( MonadIO m
        , Mockable Catch m
@@ -70,28 +70,28 @@ startDHTInstance
        , Bi DHTData
        , Bi DHTKey
        )
-    => KademliaDHTInstanceConfig -> m KademliaDHTInstance
-startDHTInstance kconf@KademliaDHTInstanceConfig {..} = do
-    let host :: String
-        host = B8.unpack kdcHost
+    => KademliaParams -> m KademliaDHTInstance
+startDHTInstance kconf@KademliaParams {..} = do
+    let bindAddr = first B8.unpack kpNetworkAddress
+        extAddr  = first B8.unpack kpExternalAddress
     logInfo "Generating dht key.."
-    kdiKey <- maybe randomDHTKey pure kdcKey
+    kdiKey <- maybe randomDHTKey pure kpKey
     logInfo $ sformat ("Generated dht key "%build) kdiKey
-    shouldRestore <- liftIO $ doesFileExist kdcDumpPath
+    shouldRestore <- liftIO $ doesFileExist kpDump
     kdiHandle <-
         if shouldRestore
         then do logInfo "Restoring DHT Instance from snapshot"
                 catchErrors $
-                    createKademliaFromSnapshot host kdcPort kademliaConfig =<<
-                    decode <$> BS.readFile kdcDumpPath
+                    createKademliaFromSnapshot bindAddr extAddr kademliaConfig =<<
+                    decode <$> BS.readFile kpDump
         else do logInfo "Creating new DHT instance"
-                catchErrors $ createKademlia host kdcPort kdiKey kademliaConfig
+                catchErrors $ createKademlia bindAddr extAddr kdiKey kademliaConfig
 
     logInfo "Created DHT instance"
-    let kdiInitialPeers = kdcInitialPeers
-    let kdiExplicitInitial = kdcExplicitInitial
+    let kdiInitialPeers = kpPeers
+    let kdiExplicitInitial = kpExplicitInitial
     kdiKnownPeersCache <- atomically $ newTVar []
-    let kdiDumpPath = kdcDumpPath
+    let kdiDumpPath = kpDump
     pure $ KademliaDHTInstance {..}
   where
     catchErrorsHandler e = do
@@ -100,10 +100,10 @@ startDHTInstance kconf@KademliaDHTInstanceConfig {..} = do
     catchErrors x = liftIO x `catchAll` catchErrorsHandler
 
     log' logF =  usingLoggerName ("kademlia" <> "messager") . logF . toText
-    createKademlia host port key cfg =
-        K.createL host (fromIntegral port) key cfg (log' logDebug) (log' logError)
-    createKademliaFromSnapshot host port cfg snapshot =
-        K.createLFromSnapshot host (fromIntegral port)
+    createKademlia bA eA key cfg =
+        K.createL bA eA key cfg (log' logDebug) (log' logError)
+    createKademliaFromSnapshot bA eA cfg snapshot =
+        K.createLFromSnapshot bA eA
             cfg snapshot (log' logDebug) (log' logError)
 
 rejoinNetwork

@@ -24,7 +24,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: f7b29ff0994dfd46a3731460946c8d2666179ac2
+    commit: 92043c7e80e93aeb08212e8ce42c783edd9b2f80
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
@@ -45,7 +45,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: edeeb8410b4fece47a4d42293b617c5ce67717f9
+    commit: 3fa7ccea4031a7424e77b63fd1f29e4d69b70b98
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:

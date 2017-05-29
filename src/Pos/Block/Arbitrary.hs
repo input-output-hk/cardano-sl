@@ -118,6 +118,7 @@ instance Arbitrary T.MainExtraHeaderData where
         <$> arbitrary
         <*> arbitrary
         <*> arbitrary
+        <*> arbitrary
 
 instance Arbitrary T.MainExtraBodyData where
     arbitrary = T.MainExtraBodyData <$> arbitrary

@@ -24,7 +24,7 @@ import           Pos.Core.Block      (Blockchain (..), GenericBlock (..),
 import           Pos.Core.Types      (BlockVersion, ChainDifficulty, HeaderHash,
                                       ProxySigHeavy, ProxySigLight, SlotId (..),
                                       SoftwareVersion)
-import           Pos.Crypto          (Signature)
+import           Pos.Crypto          (Signature, Hash)
 import           Pos.Data.Attributes (Attributes (attrRemain))
 
 -- | Represents blockchain consisting of main blocks, i. e. blocks
@@ -76,6 +76,7 @@ data MainExtraHeaderData = MainExtraHeaderData
       _mehSoftwareVersion :: !SoftwareVersion
     , -- | Header attributes
       _mehAttributes      :: !BlockHeaderAttributes
+    , _mehEBDataProof     :: !(Hash MainExtraBodyData)
     } deriving (Eq, Show, Generic)
 
 instance NFData MainExtraHeaderData

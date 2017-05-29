@@ -46,7 +46,8 @@ import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              SlotId (..), SlotLeaders, crucialSlot,
                                              epochOrSlot, flattenSlotId, getEpochOrSlot,
                                              getSlotIndex, headerHash, mkLocalSlotIndex)
-import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
+import           Pos.Crypto                 (SecretKey, WithHash (WithHash), Hash)
+import           Pos.Crypto.Hashing         (hash)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
@@ -312,6 +313,7 @@ createMainBlockPure limit prevHeader pSk sId sk rawPayload = do
             lastKnownBlockVersion
             curSoftwareVersion
             (mkAttributes ())
+            (hash extraB)
     -- default ssc to put in case we won't fit a normal one
     defSsc :: SscPayload ssc
     defSsc = sscDefaultPayload @ssc (siSlot sId)

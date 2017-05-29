@@ -34,7 +34,6 @@ import           Serokell.Util              (enumerate)
 import           Universum
 
 import qualified Pos.Constants              as Const
-import           Pos.Core.Genesis           as Gen
 import           Pos.Core.Types             (StakeholderId)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              encToPublic, firstNonHardened, unsafeHash)

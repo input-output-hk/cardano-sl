@@ -81,6 +81,19 @@
 
         .explorer-search__container {
           box-item: center;
+
+          lost-column: 8/12;
+          lost-offset: 2/12;
+
+          transition: width 0.3s ease,
+                      margin 0.3s ease;
+
+          &.focused {
+            /* We do need a little offset here
+            to have a smooth transition */
+            lost-column: 11.8/12;
+            lost-offset: 0.1/12;
+          }
         }
       }
     }

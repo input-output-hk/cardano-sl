@@ -1,6 +1,7 @@
 module Explorer.Types.Actions where
 
 import Control.Monad.Eff.Exception (Error)
+import DOM.Event.Event (Event)
 import DOM.HTML.Types (HTMLElement, HTMLInputElement)
 import Data.DateTime (DateTime)
 import Data.Either (Either)
@@ -11,7 +12,7 @@ import Explorer.Routes (Route)
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, Search, SocketSubscriptionItem)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
-import Pux.Html.Events (Target)
+import Pux.Html.Events (Target, MouseEvent)
 import Signal.Channel (Channel)
 
 data Action
@@ -22,6 +23,8 @@ data Action
     | ScrollTop
     | SelectInputText HTMLInputElement
     | BlurElement HTMLElement
+    | FocusElement HTMLElement
+    | DocumentClicked Event
     -- QR code
     | GenerateQrCode CAddress
     -- socket endpoints

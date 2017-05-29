@@ -4,19 +4,29 @@ module Explorer.View.Search
     ) where
 
 import Prelude
+import Control.Applicative (map)
+import Control.Monad.Eff (runPure)
+import Control.Monad.Eff.Console (logShow)
+import Control.Monad.Eff.Unsafe (unsafePerformEff)
+import DOM.HTML.Types (htmlElementToNode)
+import DOM.Node.Node (contains)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
+import Data.Newtype (unwrap)
 import Data.String (length)
 import Data.Tuple (Tuple(..))
+import Debug.Trace (traceAnyM)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cAddress, cEpoch, cSlot, cTransaction, common, hero, hrSearch, hrTime) as I18nL
 import Explorer.Lenses.State (gViewSearchInputFocused, globalViewState, lang, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, viewStates)
-import Explorer.State (maxSlotInEpoch)
+import Explorer.State (maxSlotInEpoch, searchContainerId)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
+import Explorer.Util.DOM (targetToHTMLElement)
 import Explorer.View.Common (emptyView)
 import Pux.Html (Html, div, text, ul, li, label, input) as P
 import Pux.Html.Attributes (checked, className, htmlFor, id_, maxLength, name, type_, placeholder, value) as P
+import Pux.Html.Events (MouseEvent)
 import Pux.Html.Events (onChange, onClick, onFocus, onBlur, onKey) as P
 
 inputEpochName :: String
@@ -37,7 +47,9 @@ searchInputView state =
         searchTimeQuery = state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
     in
     P.div
-        [ P.className $ "explorer-search__container" <> focusedClazz ]
+        [ P.className $ "explorer-search__container" <> focusedClazz
+        , P.id_ $ unwrap searchContainerId
+        ]
         [ P.input
             [ P.className $ "explorer-search__input explorer-search__input--address-tx"
                           <> addrHiddenClazz
@@ -45,15 +57,14 @@ searchInputView state =
             , P.placeholder $ if dbViewSearchInputFocused
                               then ""
                               else translate (I18nL.hero <<< I18nL.hrSearch) lang'
-            , P.onFocus <<< const $ GlobalFocusSearchInput true
-            , P.onBlur <<< const $ GlobalFocusSearchInput false
             , P.onChange $ GlobalUpdateSearchValue <<< _.value <<< _.target
             , P.onKey "enter" $ const GlobalSearch
             , P.value $ state ^. (viewStates <<< globalViewState <<< gViewSearchQuery)
             ]
             []
         , P.div
-            [ P.className $ "explorer-search__wrapper" <> epochHiddenClazz ]
+            [ P.className $ "explorer-search__wrapper" <> epochHiddenClazz
+            ]
             [ P.label
                 [ P.className $ "explorer-search__label"
                 , P.htmlFor inputEpochName
@@ -64,8 +75,6 @@ searchInputView state =
                               <> focusedClazz
                 , P.type_ "text"
                 , P.name inputEpochName
-                , P.onFocus <<< const $ GlobalFocusSearchInput true
-                , P.onBlur <<< const $ GlobalFocusSearchInput false
                 , P.onChange $ GlobalUpdateSearchEpochValue <<< _.value <<< _.target
                 , P.onKey "enter" $ const GlobalSearchTime
                 , P.value $ case searchTimeQuery of
@@ -84,8 +93,6 @@ searchInputView state =
                 , P.type_ "text"
                 , P.name inputSlotName
                 , P.maxLength <<< show <<< length $ show maxSlotInEpoch
-                , P.onFocus <<< const $ GlobalFocusSearchInput true
-                , P.onBlur <<< const $ GlobalFocusSearchInput false
                 , P.onChange $ GlobalUpdateSearchSlotValue <<< _.value <<< _.target
                 , P.onKey "enter" $ const GlobalSearchTime
                 , P.value $ case searchTimeQuery of
@@ -105,7 +112,6 @@ searchInputView state =
             ]
             []
         ]
-
 
 type SearchItem =
   { value :: Search

@@ -5,12 +5,16 @@ import Control.Comonad (extract)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (CONSOLE)
+import Control.Monad.Eff.Console (CONSOLE, log)
 import Control.Monad.Eff.Now (nowDateTime, NOW)
 import Control.SocketIO.Client (Socket, SocketIO, emit, emit')
 import DOM (DOM)
-import DOM.HTML.HTMLElement (blur)
+import DOM.Event.Event (target)
+import DOM.HTML.HTMLElement (blur, focus)
 import DOM.HTML.HTMLInputElement (select)
+import DOM.HTML.Types (htmlElementToNode)
+import DOM.Node.Node (contains)
+import DOM.Node.Types (ElementId(..), elementToNode)
 import Data.Array (filter, head, length, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
@@ -19,6 +23,7 @@ import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
+import Debug.Trace (traceAnyM)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTotalBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
@@ -26,11 +31,11 @@ import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
 import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, syncAction, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination, mkSocketSubscriptionItem)
+import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination, mkSocketSubscriptionItem, searchContainerId)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), SocketSubscriptionItem(..), State)
 import Explorer.Util.Config (SyncAction(..), syncBySocket)
-import Explorer.Util.DOM (scrollTop, targetToHTMLElement, targetToHTMLInputElement)
+import Explorer.Util.DOM (findElementById, scrollTop, targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Data (sortBlocksByEpochSlot', sortTxsByTime', unionBlocks, unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
@@ -322,22 +327,47 @@ update ScrollTop state =
             SyncByPolling -> [ pure NoOp ]
             SyncBySocket -> [ liftEff scrollTop >>= \_ -> pure NoOp ]
     }
+
 update (SelectInputText input) state =
     { state
     , effects:
         [ liftEff $ select input >>= \_ -> pure NoOp
         ]
     }
+
 update (BlurElement elem) state =
     { state
     , effects:
         [ liftEff $ blur elem >>= \_ -> pure NoOp
         ]
     }
+
+update (FocusElement elem) state =
+    { state
+    , effects:
+        [ liftEff $ focus elem >>= \_ -> pure NoOp
+        ]
+    }
+
 update (GenerateQrCode address) state =
     { state
     , effects:
         [ liftEff $ generateQrCode (address ^. _CAddress) addressQRImageId *> pure NoOp
+        ]
+    }
+
+update (DocumentClicked event) state =
+    { state
+    , effects:
+        [ liftEff $ do
+              -- Check if children of search container has been clicked or not
+              el <- findElementById searchContainerId
+              case el of
+                  Just el' -> do
+                      childrenClicked <- contains (elementToNode el') (target event)
+                      pure $ GlobalFocusSearchInput childrenClicked
+                  Nothing ->
+                      pure NoOp
         ]
     }
 
@@ -346,7 +376,11 @@ update (GlobalToggleMobileMenu toggled) state = noEffects $
     set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) toggled state
 
 update (GlobalFocusSearchInput value) state = noEffects $
-    set (viewStates <<< globalViewState <<< gViewSearchInputFocused) value state
+    set (viewStates <<< globalViewState <<< gViewSearchInputFocused) value $
+    -- select address search if we are in an inactive search state
+    over (viewStates <<< globalViewState <<< gViewSelectedSearch)
+        (\selectedSearch -> if value == false then SearchAddress else selectedSearch)
+    state
 
 update GlobalSearch state =
     let query = state ^. (viewStates <<< globalViewState <<< gViewSearchQuery) in
@@ -393,7 +427,9 @@ update GlobalSearchTime state =
     }
 
 update (GlobalUpdateSelectedSearch search) state =
-    noEffects $ set (viewStates <<< globalViewState <<< gViewSelectedSearch) search state
+    noEffects $
+        set (viewStates <<< globalViewState <<< gViewSelectedSearch) search
+        state
 
 update (GlobalUpdateSearchValue search) state =
     noEffects $ set (viewStates <<< globalViewState <<< gViewSearchQuery) search state

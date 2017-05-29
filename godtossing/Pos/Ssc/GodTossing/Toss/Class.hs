@@ -12,12 +12,12 @@ import           Control.Monad.Trans            (MonadTrans)
 import           System.Wlog                    (WithLogger)
 import           Universum
 
+import           Pos.Core                       (EpochIndex, EpochOrSlot, StakeholderId)
 import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.GodTossing.Core        (CommitmentsMap, InnerSharesMap, Opening,
                                                  OpeningsMap, SharesMap, SignedCommitment,
                                                  VssCertificate, VssCertificatesMap)
 import           Pos.Ssc.GodTossing.VssCertData (VssCertData)
-import           Pos.Types                      (EpochIndex, EpochOrSlot, StakeholderId)
 
 ----------------------------------------------------------------------------
 -- Read-only

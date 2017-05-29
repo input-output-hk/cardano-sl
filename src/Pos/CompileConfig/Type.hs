@@ -28,16 +28,10 @@ data CompileConfig = CompileConfig
       -- ^ Estimated time for broadcasting messages
     , ccDefaultPeers                  :: ![String]
       -- ^ List of default peers
-    , ccMpcSendInterval               :: !Word
-      -- ^ Length of interval for sending MPC message
     , ccMdNoBlocksSlotThreshold       :: !Int
       -- ^ Threshold of slots for malicious activity detection
     , ccMdNoCommitmentsEpochThreshold :: !Int
       -- ^ Threshold of epochs for malicious activity detection
-    , ccVssMaxTTL                     :: !Word64
-      -- ^ VSS certificates max timeout to live (number of epochs)
-    , ccVssMinTTL                     :: !Word64
-      -- ^ VSS certificates min timeout to live (number of epochs)
     , ccLightDlgConfirmationTimeout   :: !Int
       -- ^ Timeout for holding light psks confirmations
     , ccDlgCacheParam                 :: !Int

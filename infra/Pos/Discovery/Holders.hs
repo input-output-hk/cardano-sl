@@ -20,11 +20,12 @@ import           Mockable                         (Async, Catch, Mockables, Prom
 import           System.Wlog                      (WithLogger)
 
 import           Pos.Communication.Types.Protocol (NodeId)
-import           Pos.DHT.Model                    (dhtNodeToNodeId, randomDHTKey)
+import           Pos.DHT.Model                    (randomDHTKey)
 import           Pos.DHT.Real                     (KademliaDHTInstance,
                                                    kademliaGetKnownPeers, kdiHandle,
                                                    lookupNode)
 import           Pos.Discovery.Class              (MonadDiscovery (..))
+import           Pos.Util.TimeWarp                (addressToNodeId)
 
 ----------------------------------------------------------------------------
 -- Common
@@ -71,7 +72,7 @@ type DiscoveryKademliaEnv m =
 instance (DiscoveryKademliaEnv m) => MonadDiscovery (DiscoveryKademliaT m) where
     getPeers = do
         kademliaInstance <- askDHTInstance
-        S.fromList . fmap (snd . dhtNodeToNodeId) <$>
+        S.fromList . fmap addressToNodeId <$>
             kademliaGetKnownPeers kademliaInstance
     findPeers = do
         kademliaInstance <- askDHTInstance

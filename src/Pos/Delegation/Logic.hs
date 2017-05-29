@@ -85,13 +85,13 @@ import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
 import           Pos.Lrc.Context            (LrcContext)
 import qualified Pos.Lrc.DB                 as LrcDB
-import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Types                  (ProxySKHeavy, ProxySKLight, ProxySigLight)
 import           Pos.Util                   (leftToPanic, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Concurrent.RWLock as RWL
 import qualified Pos.Util.Concurrent.RWVar  as RWV
 import           Pos.Util.LRU               (filterLRU)
+
 
 ----------------------------------------------------------------------------
 -- Exceptions
@@ -124,7 +124,7 @@ initDelegation
        (MonadIO m, DB.MonadBlockDB ssc m, MonadDelegation m, MonadMask m)
     => m ()
 initDelegation = do
-    tip <- DB.getTipHeader @ssc
+    tip <- DB.getTipHeader @(Block ssc)
     let tipEpoch = tip ^. epochIndexL
     fromGenesisPsks <-
         map pskIssuerPk <$> (getPSKsFromThisEpoch @ssc) (headerHash tip)
@@ -465,10 +465,10 @@ data PskHeavyVerdict
 -- validity and cachemsg state.
 processProxySKHeavy
     :: forall ssc m.
-       ( SscHelpersClass ssc
-       , MonadDB m
+       ( MonadDB m
        , MonadMask m
        , MonadDBPure m
+       , DB.MonadBlockDB ssc m
        , DB.MonadDBCore m
        , MonadDelegation m
        , Ether.MonadReader' LrcContext m
@@ -476,7 +476,7 @@ processProxySKHeavy
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk = do
     curTime <- liftIO getCurrentTime
-    headEpoch <- view epochIndexL <$> DB.getTipHeader @ssc
+    headEpoch <- view epochIndexL <$> DB.getTipHeader @(Block ssc)
     richmen <-
         toList <$>
         lrcActionOnEpochReason

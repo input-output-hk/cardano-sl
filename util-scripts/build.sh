@@ -33,7 +33,7 @@ set -o pipefail
 # * Pass --ram or do `touch .ram`. if you have lots of RAM and want to
 #   make builds faster
 
-projects="core db lrc infra ssc update"
+projects="core db lrc infra update ssc godtossing"
 
 args=''
 
@@ -86,8 +86,11 @@ do
   elif [[ $var == "-O2" ]]; then
     no_fast=true
   # project name = build only the project
+  # (for “godtossing” we allow “gt” as an alias)
   elif [[ $var == "sl" ]]; then
     spec_prj="sl"
+  elif [[ $var == "gt" ]]; then
+    spec_prj="godtossing"
   elif [[ " $projects " =~ " $var " ]]; then
     spec_prj=$var
   # otherwise pass the arg to stack

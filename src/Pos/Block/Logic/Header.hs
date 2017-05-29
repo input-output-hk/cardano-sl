@@ -25,7 +25,7 @@ import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..), isVerSuccess)
 import           System.Wlog               (WithLogger, logDebug)
 
-import           Pos.Block.Core            (BlockHeader)
+import           Pos.Block.Core            (Block, BlockHeader)
 import           Pos.Block.Logic.Util      (lcaWithMainChain, needRecovery)
 import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeader,
                                             verifyHeaders)
@@ -70,13 +70,13 @@ mkCHRinvalid = CHInvalid . T.intercalate "; "
 -- | Classify new header announced by some node. Result is represented
 -- as ClassifyHeaderRes type.
 classifyNewHeader
-    :: (MonadSlots m, SscHelpersClass ssc, MonadDBPure m)
+    :: forall m ssc. (MonadSlots m, DB.MonadBlockDB ssc m)
     => BlockHeader ssc -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
 classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
 classifyNewHeader (Right header) = do
     curSlot <- getCurrentSlot
-    tipHeader <- DB.getTipHeader
+    tipHeader <- DB.getTipHeader @(Block ssc)
     let tipEoS = getEpochOrSlot tipHeader
     let newHeaderEoS = getEpochOrSlot header
     let newHeaderSlot = header ^. headerSlotL
@@ -147,8 +147,7 @@ data ClassifyHeadersRes ssc
 --    from the current slot. See CSL-177.
 classifyHeaders ::
        forall ssc m.
-       ( MonadDBPure m
-       , SscHelpersClass ssc
+       ( DB.MonadBlockDB ssc m
        , MonadSlots m
        , MonadCatch m
        , WithLogger m
@@ -156,7 +155,7 @@ classifyHeaders ::
     => NewestFirst NE (BlockHeader ssc)
     -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers = do
-    tipHeader <- DB.getTipHeader @ssc
+    tipHeader <- DB.getTipHeader @(Block ssc)
     let tip = headerHash tipHeader
     haveOldestParent <- isJust <$> DB.blkGetHeader @ssc oldestParentHash
     let headersValid = isVerSuccess $

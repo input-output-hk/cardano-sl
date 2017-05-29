@@ -52,8 +52,8 @@ import           Pos.Binary.Class               (AsBinary, Bi, asBinary, biSize,
                                                  fromBinaryM)
 import           Pos.Binary.Crypto              ()
 import           Pos.Binary.Ssc.GodTossing.Core ()
-import           Pos.Constants                  (blkSecurityParam, vssMaxTTL, vssMinTTL)
 import           Pos.Core.Address               (addressHash)
+import           Pos.Core.Constants             (blkSecurityParam)
 import           Pos.Core.Types                 (EpochIndex (..),
                                                  LocalSlotIndex (getSlotIndex),
                                                  SharedSeed (..), SlotId (..),
@@ -66,6 +66,7 @@ import           Pos.Crypto                     (EncShare, Secret, SecretKey,
                                                  secretToDhSecret, shortHashF, sign,
                                                  toPublic, verifyEncShare,
                                                  verifySecretProof)
+import           Pos.Ssc.GodTossing.Constants   (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core.Types  (Commitment (..),
                                                  CommitmentsMap (getCommitmentsMap),
                                                  GtPayload (..), GtProof (..),

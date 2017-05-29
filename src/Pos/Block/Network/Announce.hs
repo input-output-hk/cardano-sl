@@ -98,7 +98,7 @@ handleHeadersCommunication conv _ = do
     -- genesis otherwise.
     getLastMainHeader :: m (BlockHeader ssc)
     getLastMainHeader = do
-        (tip :: Block ssc) <- DB.getTipBlock @ssc
+        (tip :: Block ssc) <- DB.getTipBlock @(Block ssc)
         let tipHeader = tip ^. blockHeader
         case tip of
             Left _  -> fromMaybe tipHeader <$> DB.blkGetHeader (tip ^. prevBlockL)

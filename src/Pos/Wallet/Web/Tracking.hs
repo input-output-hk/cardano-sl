@@ -25,7 +25,7 @@ import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 
-import           Pos.Block.Core             (BlockHeader, getBlockHeader,
+import           Pos.Block.Core             (Block, BlockHeader, getBlockHeader,
                                              mainBlockTxPayload)
 import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Types            (Blund, undoTx)
@@ -161,7 +161,7 @@ syncWSetsWithGState
     => EncryptedSecretKey
     -> m ()
 syncWSetsWithGState encSK = do
-    tipHeader <- DB.getTipHeader @ssc
+    tipHeader <- DB.getTipHeader @(Block ssc)
     let wsAddr = encToCAddress encSK
     whenJustM (WS.getWSetSyncTip wsAddr) $ \wsTip ->
         if | wsTip == genesisHash && headerHash tipHeader == genesisHash ->

@@ -77,6 +77,7 @@ library
                        Pos.Util.Config
                        Pos.Util.HVect
                        Pos.Util.Iterator
+                       Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Mnemonics
                        Pos.Util.Modifier

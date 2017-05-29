@@ -264,9 +264,6 @@ library
                         Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
-                        Pos.Ssc.GodTossing.Toss
-                        Pos.Ssc.GodTossing.Toss.Logic
-                        Pos.Ssc.GodTossing.Toss.Pure
                         Pos.Ssc.GodTossing.Workers
 
                         -- Statistics

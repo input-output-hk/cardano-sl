@@ -25,6 +25,9 @@ library
     Pos.Ssc.GodTossing.Genesis.Types
     Pos.Ssc.GodTossing.Genesis.Parser
 
+    Pos.Ssc.GodTossing.Toss
+    Pos.Ssc.GodTossing.Toss.Logic
+    Pos.Ssc.GodTossing.Toss.Pure
     Pos.Ssc.GodTossing.Toss.Base
     Pos.Ssc.GodTossing.Toss.Class
     Pos.Ssc.GodTossing.Toss.Failure

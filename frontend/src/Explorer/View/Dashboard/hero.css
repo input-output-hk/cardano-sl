@@ -41,10 +41,16 @@
             lost-column: 7/12;
             lost-offset: 2.5/12;
 
-            transition: width 0.3s ease,
-                        margin 0.3s ease;
+            @extend .animated;
+            @extend .fadeIn;
+
+            animation-duration: .3s;
+            /* We do need a little delay
+            to hide previous state */
+            animation-delay: .1s;
 
             &.focused {
+              transition: all 0.3s ease;
               lost-column: 10/12;
               lost-offset: 1/12;
             }

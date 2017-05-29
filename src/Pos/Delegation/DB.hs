@@ -50,7 +50,8 @@ import qualified Database.RocksDB       as Rocks
 import           Formatting             (build, sformat, (%))
 
 import           Pos.Binary.Class       (encodeStrict)
-import           Pos.Crypto             (PublicKey, pskDelegatePk, pskIssuerPk)
+import           Pos.Crypto             (PublicKey, pskDelegatePk, pskIssuerPk,
+                                         verifyProxySecretKey)
 import           Pos.DB                 (DBError (DBMalformed))
 import           Pos.DB.Class           (MonadDB, MonadDBPure)
 import           Pos.DB.Functions       (RocksBatchOp (..), encodeWithKeyPrefix)
@@ -198,7 +199,10 @@ data DelegationOp
 instance RocksBatchOp DelegationOp where
     toBatchOp (PskFromEdgeAction (DlgEdgeAdd psk))
         | isRevokePsk psk =
-          error $ "RocksBatchOp instance: malformed revoke psk in DlgEdgeAdd: " <> pretty psk
+          error $ "RocksBatchOp DelegationOp: malformed " <>
+                  "revoke psk in DlgEdgeAdd: " <> pretty psk
+        | not (verifyProxySecretKey psk) =
+          error $ "Tried to insert invalid psk: " <> pretty psk
         | otherwise =
           [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (encodeStrict psk)]
     toBatchOp (PskFromEdgeAction (DlgEdgeDel issuerPk)) =

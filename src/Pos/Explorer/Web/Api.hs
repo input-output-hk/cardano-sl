@@ -7,9 +7,9 @@ module Pos.Explorer.Web.Api
        ( ExplorerApi
        , explorerApi
        , BlocksLast
+       , BlocksTotal  
        , BlocksSummary
        , BlocksTxs  
-       , BlocksTotalNumber  
        , TxsLast
        , TxsSummary
        , AddressSummary
@@ -38,15 +38,24 @@ type BlocksLast = API
     :> QueryParam "offset" Word
     :> Get '[JSON] (Either ExplorerError [CBlockEntry])
 
--- TODO: type TotalPageNumber = Integer
+type BlocksTotal = API
+    :> "blocks"
+    :> "total"
+    :> Get '[JSON] (Either ExplorerError Integer)
 
--- TODO: In the future we can add pageSize.
-type BlocksPagesLast = API
+type BlocksPages = API
     :> "blocks"
     :> "pages"
     :> QueryParam "page" Word
     :> QueryParam "pageSize" Word
-    :> Get '[JSON] (Either ExplorerError [CBlockEntry])
+    :> Get '[JSON] (Either ExplorerError (Integer, [CBlockEntry]))
+
+type BlocksPagesTotal = API
+    :> "blocks"
+    :> "pages"
+    :> "total"
+    :> QueryParam "pageSize" Word
+    :> Get '[JSON] (Either ExplorerError Integer)
 
 type BlocksSummary = API
     :> "blocks"
@@ -61,11 +70,6 @@ type BlocksTxs = API
     :> QueryParam "limit" Word
     :> QueryParam "offset" Word
     :> Get '[JSON] (Either ExplorerError [CTxBrief])
-
-type BlocksTotalNumber = API
-    :> "blocks"
-    :> "total"
-    :> Get '[JSON] (Either ExplorerError Int)
 
 type TxsLast = API
     :> "txs"
@@ -96,10 +100,11 @@ type EpochSlotSearch = API
 -- | Servant API which provides access to explorer
 type ExplorerApi =
          BlocksLast
-    :<|> BlocksPagesLast
+    :<|> BlocksTotal
+    :<|> BlocksPages
+    :<|> BlocksPagesTotal
     :<|> BlocksSummary
     :<|> BlocksTxs  
-    :<|> BlocksTotalNumber  
     :<|> TxsLast
     :<|> TxsSummary
     :<|> AddressSummary

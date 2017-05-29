@@ -47,8 +47,7 @@ import           Control.Lens           (uses, (%=))
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
 import qualified Database.RocksDB       as Rocks
-import           Formatting             (sformat, (%))
-import           Serokell.Util          (listJson)
+import           Formatting             (build, sformat, (%))
 
 import           Pos.Binary.Class       (encodeStrict)
 import           Pos.Crypto             (PublicKey, pskDelegatePk, pskIssuerPk)
@@ -119,19 +118,25 @@ isIssuerByAddressHash = fmap isJust . getPskByIssuer . Right
 getDlgTransitive :: MonadDBPure m => Either PublicKey StakeholderId -> m (Maybe PublicKey)
 getDlgTransitive (toStakeholderId -> issuer) = gsGetBi (transDlgKey issuer)
 
--- | Retrieves last PSK in chain of delegation started by public key.
-getDlgTransPsk :: MonadDBPure m => Either PublicKey StakeholderId -> m (Maybe ProxySKHeavy)
+-- | Retrieves last PSK in chain of delegation started by public key
+-- and resolves the passed issuer to a public key. Doesn't check that
+-- user himself didn't delegate.
+getDlgTransPsk
+    :: MonadDBPure m
+    => Either PublicKey StakeholderId -> m (Maybe (PublicKey, ProxySKHeavy))
 getDlgTransPsk issuer = getDlgTransitive issuer >>= \case
     Nothing -> pure Nothing
     Just dPk -> do
-        psks <- filter (\psk -> pskDelegatePk psk == dPk) . HM.elems <$>
-                getPskChain issuer
-        when (length psks > 1) $ throwM $ DBMalformed $
-            sformat ("getDlgTransPk: found several psks with a same dlg: "%listJson)
-                    psks
+        chain <- HM.elems <$> getPskChain issuer
+        let finalPsk = find (\psk -> pskDelegatePk psk == dPk) chain
+        let issuer' = toStakeholderId issuer
+        let iPk = pskIssuerPk <$>
+                  find (\psk -> addressHash (pskIssuerPk psk) == issuer') chain
         let throwEmpty = throwM $ DBMalformed $
-                "getDlgTransPk: couldn't find psk with dlgPk: " <> pretty dPk
-        maybe throwEmpty (pure . Just) $ head psks
+                sformat ("getDlgTransPk: couldn't find psk with dlgPk "%build%
+                         " and issuer "%build)
+                        dPk issuer'
+        maybe throwEmpty (pure . Just) $ (,) <$> iPk <*> finalPsk
 
 -- | Reverse map of transitive delegation. Given a delegate @d@
 -- returns all @i@ such that 'getDlgTransitive' returns @d@ on @i@.

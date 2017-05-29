@@ -590,18 +590,26 @@ delegationVerifyBlocks blocks = do
                     issuer psk sig
             _ -> pass
 
-        -- Check 2: Issuer has right to issue block using heavyweight
-        -- PSK iff he's delegate of slot leader.
+        -- Check 2: Check that if proxy sig is used, delegate indeed
+        -- has right to issue the block. Signatures themselves are
+        -- checked in the constructor, here we only verify they are
+        -- related to slot leader.
         case h ^. gbhConsensus ^. mcdSignature of
             (BlockPSignatureHeavy pSig) -> do
                 let delegate = pskDelegatePk $ pdPsk pSig
                 canIssue <-
                     dlgReachesIssuance withMapResolve issuer delegate (pdPsk pSig)
                 unless canIssue $ throwError $
-                    sformat ("proxy signature's "%build%" related proxy cert "%
-                             "can't be found/doesn't match the one in current "%
-                             "allowed heavy psks set")
+                    sformat ("heavy proxy signature's "%build%" "%
+                             "related proxy cert can't be found/doesn't "%
+                             "match the one in current allowed heavy psks set")
                             pSig
+            (BlockPSignatureLight pSig) -> do
+                let pskIPk = pskIssuerPk $ pdPsk pSig
+                unless (pskIPk == issuer) $ throwError $
+                    sformat ("light proxy signature's "%build%" issuer "%
+                             build%" doesn't match block slot leader "%build)
+                            pSig pskIPk issuer
             _ -> pass
 
         ------------- [Payload] -------------

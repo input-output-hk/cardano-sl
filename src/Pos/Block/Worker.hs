@@ -103,34 +103,47 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     onKnownLeader leaders leader = do
         ourPk <- Ether.asks' npPublicKey
         let ourPkHash = addressHash ourPk
+
         proxyCerts <- getProxySecretKeys -- eeh. Todo rename it with "light" suffix
         let validCerts =
                 filter (\pSk -> let (w0,w1) = pskOmega pSk
                                 in siEpoch >= w0 && siEpoch <= w1) proxyCerts
-            validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
+            -- cert we can use to _issue_ instead of real slot leader
+            validLightCert = find (\psk -> addressHash (pskIssuerPk psk) == leader &&
+                                           -- should be enforced by db but anyway
+                                           pskDelegatePk psk == ourPk)
                              validCerts
+            ourLightPsk = find (\psk -> pskIssuerPk psk == ourPk) validCerts
+            lightWeDelegated = isJust ourLightPsk
+        logDebugS $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
+
         logNoticeS "This is a test debug message which shouldn't be sent to the logging server."
         logLeadersFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logLeadersF $ sformat ("Slot leaders: "%listJson) $
                       map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
         logLeadersF $ sformat ("Current slot leader: "%build) leader
-        logDebugS $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
-        heavyPskIssuerM <- getPskByIssuer (Right leader)
-        let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskIssuerM
-        heavyPskEndM <- getDlgTransPsk (Right leader)
-        logDebug $ "End delegation psk for this slot: " <> maybe "none" pretty heavyPskEndM
-        let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskEndM
+
+        ourHeavyPsk <- getPskByIssuer (Left ourPk)
+        let heavyWeAreIssuer = isJust ourHeavyPsk
+        dlgTransM <- getDlgTransPsk (Right leader)
+        let finalHeavyPsk = snd <$> dlgTransM
+        logDebug $ "End delegation psk for this slot: " <> maybe "none" pretty finalHeavyPsk
+        let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) finalHeavyPsk
         if | heavyWeAreIssuer ->
                  logInfoS $ sformat
-                 ("Not creating the block because it's delegated by psk: "%build)
-                 heavyPskEndM
+                 ("Not creating the block because it's delegated by heavy psk: "%build)
+                 ourHeavyPsk
+           | lightWeDelegated ->
+                 logInfoS $ sformat
+                 ("Not creating the block because it's delegated by light psk: "%build)
+                 ourLightPsk
            | leader == ourPkHash ->
                  onNewSlotWhenLeader slotId Nothing sendActions
            | heavyWeAreDelegate ->
-                 let pske = (,) <$> heavyPskEndM <*> (pskIssuerPk <$> heavyPskIssuerM)
-                 in onNewSlotWhenLeader slotId (Right <$> pske) sendActions
-           | isJust validCert ->
-                 onNewSlotWhenLeader slotId  (Left <$> validCert) sendActions
+                 let pske = Right . swap <$> dlgTransM
+                 in onNewSlotWhenLeader slotId pske sendActions
+           | isJust validLightCert ->
+                 onNewSlotWhenLeader slotId  (Left <$> validLightCert) sendActions
            | otherwise -> pass
 
 onNewSlotWhenLeader

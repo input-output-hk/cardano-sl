@@ -37,6 +37,7 @@ library
                        Pos.Core.Class
                        Pos.Core.Coin
                        Pos.Core.Constants
+                       Pos.Core.Genesis
                        Pos.Core.Script
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting

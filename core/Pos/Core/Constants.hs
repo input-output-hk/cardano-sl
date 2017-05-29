@@ -6,18 +6,24 @@
 -- config. Also some constants aren't configurable.
 
 module Pos.Core.Constants
-       ( sharedSeedLength
+       (
+       -- * Non-configurable constants
+         sharedSeedLength
        , genesisHash
 
+       -- * The config structure
        , CoreConstants(..)
        , coreConstants
 
+       -- * Constants
        , epochSlots
        , blkSecurityParam
        , slotSecurityParam
        , isDevelopment
        , protocolMagic
        , staticSysStart
+       -- * Genesis constants
+       , genesisN
        ) where
 
 import           Data.Aeson             (FromJSON (..), genericParseJSON)
@@ -63,6 +69,8 @@ data CoreConstants = CoreConstants
     , -- | Start time of network (in @Production@ running mode). If set to
       -- zero, then running time is 2 minutes after build.
       ccProductionNetworkStartTime :: !Int
+    , -- | Number of pre-generated keys
+      ccGenesisN                   :: !Int
     }
     deriving (Show, Generic)
 
@@ -111,3 +119,11 @@ staticSysStart
 -- wider).
 protocolMagic :: Int32
 protocolMagic = fromIntegral . ccProtocolMagic $ coreConstants
+
+----------------------------------------------------------------------------
+-- Genesis
+----------------------------------------------------------------------------
+
+-- | Number of pre-generated keys
+genesisN :: Integral i => i
+genesisN = fromIntegral . ccGenesisN $ coreConstants

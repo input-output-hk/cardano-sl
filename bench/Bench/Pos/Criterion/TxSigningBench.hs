@@ -10,6 +10,7 @@ import           Test.QuickCheck    (generate)
 import           Universum
 
 import           Pos.Crypto         (SecretKey, SignTag (SignTxIn), hash, sign)
+import           Pos.Ssc.GodTossing ()
 import           Pos.Txp            (TxDistribution (..), TxId, TxIn (..), TxOut, TxSig,
                                      TxSigData (..))
 import           Pos.Util           (arbitraryUnsafe)

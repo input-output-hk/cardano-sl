@@ -106,7 +106,7 @@ genGenesis avvm genCerts holder = GenesisData
         :: (Coin, TxOutDistribution)
         -> (Coin, TxOutDistribution)
         -> (Coin, TxOutDistribution)
-    sumOutcomes = uncurry bimap . bimap unsafeAddCoin sumDistrs
+    sumOutcomes (c1, t1) (c2, t2) = (unsafeAddCoin c1 c2, sumDistrs t1 t2)
 
     balances :: HashMap Address (Coin, TxOutDistribution)
     balances = HM.fromListWith sumOutcomes $ do

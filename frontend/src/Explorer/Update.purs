@@ -23,7 +23,6 @@ import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
-import Debug.Trace (traceAnyM)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTotalBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
@@ -359,15 +358,21 @@ update (GenerateQrCode address) state =
 update (DocumentClicked event) state =
     { state
     , effects:
-        [ liftEff $ do
-              -- Check if children of search container has been clicked or not
-              el <- findElementById searchContainerId
-              case el of
-                  Just el' -> do
-                      childrenClicked <- contains (elementToNode el') (target event)
-                      pure $ GlobalFocusSearchInput childrenClicked
-                  Nothing ->
-                      pure NoOp
+        [ liftEff $
+            -- ignore effect while opening mobile menue
+            if (not (state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)))
+            then
+                do
+                  -- Check if children of search container has been clicked or not
+                  el <- findElementById searchContainerId
+                  case el of
+                      Just el' -> do
+                          childrenClicked <- contains (elementToNode el') (target event)
+                          pure $ GlobalFocusSearchInput childrenClicked
+                      Nothing ->
+                          pure NoOp
+            else
+                pure NoOp
         ]
     }
 
@@ -377,9 +382,13 @@ update (GlobalToggleMobileMenu toggled) state = noEffects $
 
 update (GlobalFocusSearchInput value) state = noEffects $
     set (viewStates <<< globalViewState <<< gViewSearchInputFocused) value $
-    -- select address search if we are in an inactive search state
     over (viewStates <<< globalViewState <<< gViewSelectedSearch)
-        (\selectedSearch -> if value == false then SearchAddress else selectedSearch)
+        (\selectedSearch ->
+              -- return to `SearchAddress` in inactive mode, but not in mobile menu
+              if value == false &&
+                    (not $ state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend))
+              then SearchAddress
+              else selectedSearch)
     state
 
 update GlobalSearch state =

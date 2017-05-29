@@ -18,7 +18,7 @@ import Data.Tuple (Tuple(..))
 import Debug.Trace (traceAnyM)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cAddress, cEpoch, cSlot, cTransaction, common, hero, hrSearch, hrTime) as I18nL
-import Explorer.Lenses.State (gViewSearchInputFocused, globalViewState, lang, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, viewStates)
+import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, globalViewState, lang, viewStates)
 import Explorer.State (maxSlotInEpoch, searchContainerId)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
@@ -26,7 +26,6 @@ import Explorer.Util.DOM (targetToHTMLElement)
 import Explorer.View.Common (emptyView)
 import Pux.Html (Html, div, text, ul, li, label, input) as P
 import Pux.Html.Attributes (checked, className, htmlFor, id_, maxLength, name, type_, placeholder, value) as P
-import Pux.Html.Events (MouseEvent)
 import Pux.Html.Events (onChange, onClick, onFocus, onBlur, onKey) as P
 
 inputEpochName :: String
@@ -39,6 +38,7 @@ searchInputView :: State -> P.Html Action
 searchInputView state =
     let lang' = state ^. lang
         dbViewSearchInputFocused = state ^. (viewStates <<< globalViewState <<< gViewSearchInputFocused)
+        mobileMenuOpened = state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)
         searchIconClazz = if dbViewSearchInputFocused then " bg-icon-search-hover" else " bg-icon-search"
         selectedSearch = state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch)
         addrHiddenClazz = if selectedSearch == SearchTime  then " hide " else ""
@@ -57,6 +57,14 @@ searchInputView state =
             , P.placeholder $ if dbViewSearchInputFocused
                               then ""
                               else translate (I18nL.hero <<< I18nL.hrSearch) lang'
+            , P.onFocus <<< const $
+                  if mobileMenuOpened
+                  then GlobalFocusSearchInput true
+                  else NoOp
+            , P.onBlur <<< const $
+                  if mobileMenuOpened
+                  then GlobalFocusSearchInput false
+                  else NoOp
             , P.onChange $ GlobalUpdateSearchValue <<< _.value <<< _.target
             , P.onKey "enter" $ const GlobalSearch
             , P.value $ state ^. (viewStates <<< globalViewState <<< gViewSearchQuery)
@@ -75,6 +83,14 @@ searchInputView state =
                               <> focusedClazz
                 , P.type_ "text"
                 , P.name inputEpochName
+                , P.onFocus <<< const $
+                      if mobileMenuOpened
+                      then GlobalFocusSearchInput true
+                      else NoOp
+                , P.onBlur <<< const $
+                      if mobileMenuOpened
+                      then GlobalFocusSearchInput false
+                      else NoOp
                 , P.onChange $ GlobalUpdateSearchEpochValue <<< _.value <<< _.target
                 , P.onKey "enter" $ const GlobalSearchTime
                 , P.value $ case searchTimeQuery of
@@ -93,6 +109,14 @@ searchInputView state =
                 , P.type_ "text"
                 , P.name inputSlotName
                 , P.maxLength <<< show <<< length $ show maxSlotInEpoch
+                , P.onFocus <<< const $
+                      if mobileMenuOpened
+                      then GlobalFocusSearchInput true
+                      else NoOp
+                , P.onBlur <<< const $
+                      if mobileMenuOpened
+                      then GlobalFocusSearchInput false
+                      else NoOp
                 , P.onChange $ GlobalUpdateSearchSlotValue <<< _.value <<< _.target
                 , P.onKey "enter" $ const GlobalSearchTime
                 , P.value $ case searchTimeQuery of

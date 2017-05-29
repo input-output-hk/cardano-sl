@@ -6,14 +6,12 @@ import Control.Monad.Eff.Now (NOW)
 import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
 import DOM.Event.EventTarget (addEventListener, eventListener)
-import DOM.Event.Types (EventType(..))
 import DOM.HTML (window)
 import DOM.HTML.Event.EventTypes (click)
-import DOM.HTML.Types (htmlDocumentToEventTarget, windowToEventTarget)
+import DOM.HTML.Types (htmlDocumentToEventTarget)
 import DOM.HTML.Window (document)
 import Data.Lens ((^.), set)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Debug.Trace (traceAnyM)
 import Explorer.Api.Socket (blocksUpdatedEventHandler, callYouEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
 import Explorer.I18n.Lang (Language(..), detectLocale)
 import Explorer.Lenses.State (connection, lang, socket, syncAction)
@@ -30,7 +28,6 @@ import Prelude (bind, const, pure, ($), (*), (<$>), (<<<), (<>), (=<<), (>>=), (
 import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
 import Pux.Devtool (Action, start) as Pux.Devtool
 import Pux.Router (sampleUrl)
-import Pux.Html.Events (onClick) as P
 import Signal (Signal, (~>))
 import Signal.Channel (channel, send, subscribe)
 import Signal.Time (every, second)

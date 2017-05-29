@@ -19,7 +19,6 @@ import Explorer.View.Playground (playgroundView)
 import Explorer.View.Transaction (transactionView)
 import Pux.Html (Html, div, main) as P
 import Pux.Html.Attributes (className) as P
-import Pux.Html.Events (onClick) as P
 
 view :: State -> P.Html Action
 view state =
@@ -30,7 +29,6 @@ view state =
     in
     P.div
       [ P.className $ "explorer-container" <> mobileMenuClazz <> " " <> routeClazz
-      -- , P.onClick DocumentClicked
       ]
       [ P.div
           [ P.className "explorer-bg__container" ]

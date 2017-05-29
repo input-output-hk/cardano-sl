@@ -10,8 +10,8 @@ module Pos.Ssc.GodTossing.LocalData.Types
 import           Control.Lens                  (makeLenses)
 import           Serokell.Data.Memory.Units    (Byte)
 
+import           Pos.Core                      (EpochIndex)
 import           Pos.Ssc.GodTossing.Toss.Types (TossModifier)
-import           Pos.Types                     (EpochIndex)
 
 data GtLocalData = GtLocalData
     { -- | 'TossModifier' which also serves as mempool of GT data,

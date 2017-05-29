@@ -31,11 +31,16 @@ library
     Pos.Ssc.GodTossing.Toss.Trans
     Pos.Ssc.GodTossing.Toss.Types
 
+    Pos.Ssc.GodTossing.LocalData.Types
+
     Pos.Ssc.GodTossing.VssCertData
     Pos.Ssc.GodTossing.Error
     Pos.Ssc.GodTossing.SecretStorage
     Pos.Ssc.GodTossing.Constants
+    Pos.Ssc.GodTossing.Functions
+    Pos.Ssc.GodTossing.Type
 
+    Pos.Binary.GodTossing
     Pos.Binary.GodTossing.Core
     Pos.Binary.GodTossing.Types
     Pos.Binary.GodTossing.Toss

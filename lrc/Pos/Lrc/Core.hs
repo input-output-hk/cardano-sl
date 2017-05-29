@@ -19,7 +19,7 @@ import           Pos.Util.Util       (getKeys)
 
 
 -- | Function helper for delegated richmen. Iterates @Delegate ->
--- [Issuer]@ map and computes the following two set:
+-- [Issuer]@ map and computes the following two sets:
 --
 -- 1. Old richmen set: those who delegated their own stake and thus
 -- lost richmen status.

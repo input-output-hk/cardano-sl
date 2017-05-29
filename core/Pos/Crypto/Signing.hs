@@ -245,12 +245,13 @@ verifyProxySecretKey :: (Bi w) => ProxySecretKey w -> Bool
 verifyProxySecretKey ProxySecretKey{..} =
     verifyProxyCert pskIssuerPk pskDelegatePk pskOmega pskCert
 
--- | Delegate signature made with certificate-based permission. @a@
+-- | Delegate signature made with certificate-based permission. @w@
 -- stays for message type used in proxy (ω in the implementation
--- notes), @b@ for type of message signed. We add whole psk as a field
--- because otherwise we can't verify sig in heavyweight psk transitive
--- delegation: i -> x -> d, we have psk from x to d, slot leader is
--- i.
+-- notes), @a@ for type of message signed.
+--
+-- We add whole psk as a field because otherwise we can't verify sig
+-- in heavyweight psk transitive delegation: i -> x -> d, we have psk
+-- from x to d, slot leader is i.
 data ProxySignature w a = ProxySignature
     { pdPsk :: ProxySecretKey w
     , pdSig :: CC.XSignature

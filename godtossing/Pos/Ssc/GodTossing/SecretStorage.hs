@@ -6,12 +6,12 @@ module Pos.Ssc.GodTossing.SecretStorage
 
 import           Universum
 
-import           Pos.Binary.Ssc.GodTossing.Types ()
-import           Pos.Core                        (EpochIndex)
-import           Pos.DB                          (MonadDB)
-import           Pos.DB.Misc.Common              (miscGetBi, miscPutBi)
-import           Pos.Ssc.GodTossing.Core         (Opening, SignedCommitment)
-import           Pos.Ssc.GodTossing.Types        (GtSecretStorage (..))
+import           Pos.Binary.GodTossing.Types ()
+import           Pos.Core                    (EpochIndex)
+import           Pos.DB                      (MonadDB)
+import           Pos.DB.Misc.Common          (miscGetBi, miscPutBi)
+import           Pos.Ssc.GodTossing.Core     (Opening, SignedCommitment)
+import           Pos.Ssc.GodTossing.Types    (GtSecretStorage (..))
 
 -- | Get our commitment for given epoch if it's known.
 getOurCommitment

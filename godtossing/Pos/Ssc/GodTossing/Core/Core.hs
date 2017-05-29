@@ -38,43 +38,43 @@ module Pos.Ssc.GodTossing.Core.Core
 
 import           Universum
 
-import qualified Data.HashMap.Strict            as HM
-import qualified Data.HashSet                   as HS
-import           Data.Ix                        (inRange)
-import qualified Data.List.NonEmpty             as NE
+import qualified Data.HashMap.Strict           as HM
+import qualified Data.HashSet                  as HS
+import           Data.Ix                       (inRange)
+import qualified Data.List.NonEmpty            as NE
 import qualified Data.Text.Buildable
-import           Data.Text.Lazy.Builder         (Builder)
-import           Formatting                     (Format, bprint, int, (%))
-import           Serokell.Data.Memory.Units     (Byte)
-import           Serokell.Util                  (VerificationRes, listJson, verifyGeneric)
+import           Data.Text.Lazy.Builder        (Builder)
+import           Formatting                    (Format, bprint, int, (%))
+import           Serokell.Data.Memory.Units    (Byte)
+import           Serokell.Util                 (VerificationRes, listJson, verifyGeneric)
 
-import           Pos.Binary.Class               (AsBinary, Bi, asBinary, biSize,
-                                                 fromBinaryM)
-import           Pos.Binary.Crypto              ()
-import           Pos.Binary.Ssc.GodTossing.Core ()
-import           Pos.Core.Address               (addressHash)
-import           Pos.Core.Constants             (blkSecurityParam)
-import           Pos.Core.Types                 (EpochIndex (..),
-                                                 LocalSlotIndex (getSlotIndex),
-                                                 SharedSeed (..), SlotId (..),
-                                                 StakeholderId)
-import           Pos.Crypto                     (EncShare, Secret, SecretKey,
-                                                 SecureRandom (..),
-                                                 SignTag (SignCommitment), Threshold,
-                                                 VssPublicKey, checkSig, encShareId,
-                                                 genSharedSecret, getDhSecret, hash,
-                                                 secretToDhSecret, shortHashF, sign,
-                                                 toPublic, verifyEncShare,
-                                                 verifySecretProof)
-import           Pos.Ssc.GodTossing.Constants   (vssMaxTTL, vssMinTTL)
-import           Pos.Ssc.GodTossing.Core.Types  (Commitment (..),
-                                                 CommitmentsMap (getCommitmentsMap),
-                                                 GtPayload (..), GtProof (..),
-                                                 Opening (..), SignedCommitment,
-                                                 VssCertificate (vcExpiryEpoch),
-                                                 VssCertificatesMap,
-                                                 mkCommitmentsMapUnsafe)
-import           Pos.Util.Limits                (stripHashMap)
+import           Pos.Binary.Class              (AsBinary, Bi, asBinary, biSize,
+                                                fromBinaryM)
+import           Pos.Binary.Crypto             ()
+import           Pos.Binary.GodTossing.Core    ()
+import           Pos.Core.Address              (addressHash)
+import           Pos.Core.Constants            (blkSecurityParam)
+import           Pos.Core.Types                (EpochIndex (..),
+                                                LocalSlotIndex (getSlotIndex),
+                                                SharedSeed (..), SlotId (..),
+                                                StakeholderId)
+import           Pos.Crypto                    (EncShare, Secret, SecretKey,
+                                                SecureRandom (..),
+                                                SignTag (SignCommitment), Threshold,
+                                                VssPublicKey, checkSig, encShareId,
+                                                genSharedSecret, getDhSecret, hash,
+                                                secretToDhSecret, shortHashF, sign,
+                                                toPublic, verifyEncShare,
+                                                verifySecretProof)
+import           Pos.Ssc.GodTossing.Constants  (vssMaxTTL, vssMinTTL)
+import           Pos.Ssc.GodTossing.Core.Types (Commitment (..),
+                                                CommitmentsMap (getCommitmentsMap),
+                                                GtPayload (..), GtProof (..),
+                                                Opening (..), SignedCommitment,
+                                                VssCertificate (vcExpiryEpoch),
+                                                VssCertificatesMap,
+                                                mkCommitmentsMapUnsafe)
+import           Pos.Util.Limits               (stripHashMap)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed

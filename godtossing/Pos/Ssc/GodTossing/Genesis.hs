@@ -1,26 +1,30 @@
 -- | Genesis values related to GodTossing SSC.
 
 module Pos.Ssc.GodTossing.Genesis
-       ( genesisCertificates
+       ( GenesisGtData(..)
+       , compileGenGtData
+
+       , genesisCertificates
        , genesisDevVssKeyPairs
        ) where
 
-import qualified Data.HashMap.Strict           as HM
-import           Data.List                     (zipWith3)
-import qualified Data.Text                     as T
-import           Formatting                    (int, sformat, (%))
+import qualified Data.HashMap.Strict               as HM
+import           Data.List                         (zipWith3)
+import qualified Data.Text                         as T
+import           Formatting                        (int, sformat, (%))
 import           Universum
 
-import           Pos.Binary.Class              (asBinary)
-import           Pos.Constants                 (genesisN, isDevelopment, vssMaxTTL,
-                                                vssMinTTL)
-import           Pos.Core.Address              (addressHash)
-import           Pos.Crypto                    (VssKeyPair, VssPublicKey,
-                                                deterministicVssKeyGen, toVssPublicKey)
-import           Pos.Genesis                   (compileGenData, gdVssCertificates,
-                                                genesisDevKeyPairs)
-import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap, mkVssCertificate)
-import           Pos.Types                     (EpochIndex (..))
+import           Pos.Binary.Class                  (asBinary)
+import           Pos.Core                          (EpochIndex (..), genesisDevKeyPairs)
+import           Pos.Core.Address                  (addressHash)
+import           Pos.Core.Constants                (genesisN, isDevelopment)
+import           Pos.Crypto                        (VssKeyPair, VssPublicKey,
+                                                    deterministicVssKeyGen,
+                                                    toVssPublicKey)
+import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
+import           Pos.Ssc.GodTossing.Core.Types     (VssCertificatesMap, mkVssCertificate)
+import           Pos.Ssc.GodTossing.Genesis.Parser (compileGenGtData)
+import           Pos.Ssc.GodTossing.Genesis.Types  (GenesisGtData (..))
 
 -- | List of 'VssKeyPair's in genesis.
 genesisDevVssKeyPairs :: [VssKeyPair]
@@ -43,7 +47,7 @@ genesisCertificates
     | isDevelopment = case certEntries of
           c0:c1:_:cs -> HM.fromList $ c0 : c1 : cs
           _          -> error "genesisCertificates: can't happen"
-    | otherwise     = gdVssCertificates compileGenData
+    | otherwise     = ggdVssCertificates compileGenGtData
   where
     ttlExp :: Int -> EpochIndex
     ttlExp 1 = EpochIndex vssMinTTL - 1

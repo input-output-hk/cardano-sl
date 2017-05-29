@@ -12,7 +12,7 @@ import           Pos.Types                    (mkCoin)
 
 
 instance Arbitrary T.GenesisData where
-    arbitrary = T.GenesisData <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = T.GenesisData <$> arbitrary <*> arbitrary <*> arbitrary
 
 instance Arbitrary T.StakeDistribution where
     arbitrary = oneof

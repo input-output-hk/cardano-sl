@@ -284,8 +284,8 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
 
     stopMonitoring Nothing = return ()
     stopMonitoring (Just (mEkg, mStatsd)) = do
-        maybe (pure ()) (killThread . Monitoring.statsdThreadId) mStatsd
-        maybe (pure ()) stopMonitor mEkg
+        whenJust mStatsd (killThread . Monitoring.statsdThreadId)
+        whenJust mEkg stopMonitor
 
 -- | Create new 'SlottingVar' using data from DB.
 mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar

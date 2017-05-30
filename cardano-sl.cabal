@@ -102,7 +102,6 @@ library
 
                         -- Txp
                         Pos.Txp
-                        Pos.Txp.Core
                         Pos.Txp.Settings
 
                         Pos.Types
@@ -149,11 +148,9 @@ library
                         Pos.Binary.Communication
                         Pos.Binary.Delegation
                         Pos.Binary.Genesis
-                        Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
-                        Pos.Binary.Txp.Core
                         Pos.Binary.Txp.Network
 
                         -- Block processing
@@ -267,9 +264,6 @@ library
 
                         -- Txp
                         Pos.Txp.Arbitrary
-                        Pos.Txp.Core.Core
-                        Pos.Txp.Core.Tx
-                        Pos.Txp.Core.Types
                         Pos.Txp.DB
                         Pos.Txp.DB.Balances
                         Pos.Txp.DB.Utxo
@@ -398,6 +392,7 @@ library
                       , cardano-sl-infra
                       , cardano-sl-lrc
                       , cardano-sl-ssc
+                      , cardano-sl-txp
                       , cardano-sl-update
                       , cereal
                       , concurrent-extra

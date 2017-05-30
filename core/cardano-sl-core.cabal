@@ -63,6 +63,7 @@ library
 
                        Pos.Binary.Class
                        Pos.Binary.Crypto
+                       Pos.Binary.Merkle
                        Pos.Binary.Core
                        Pos.Binary.Core.Address
                        Pos.Binary.Core.Block

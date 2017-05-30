@@ -779,7 +779,8 @@ processProxySKLight psk = do
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
     psks <- RWL.withRead miscLock Misc.getProxySecretKeys
     res <- runDelegationStateAction $ do
-        let related = toPublic sk == pskDelegatePk psk
+        let pk = toPublic sk
+            related = pk == pskDelegatePk psk || pk == pskIssuerPk psk
             exists = psk `elem` psks
             msg = Left psk
             valid = verifyProxySecretKey psk

@@ -50,7 +50,7 @@ pskLightRelay
     :: WorkMode ssc m
     => Relay m
 pskLightRelay = Data $ DataParams $ \pSk -> do
-    -- do it in worker once in ~sometimes instead of on every request
+    logDebug $ sformat ("Got request to handle lightweight psk: "%build) pSk
     verdict <- processProxySKLight pSk
     logResult pSk verdict
     case verdict of

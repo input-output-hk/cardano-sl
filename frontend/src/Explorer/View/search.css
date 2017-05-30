@@ -8,7 +8,7 @@
         box: horizontal;
 
         &.focused {
-          border: 1px solid var(--color0);
+          border: 1px solid color(var(--color0) a(0.5));
         }
       }
       @media (--sm) {
@@ -25,6 +25,7 @@
 
       &__label {
           color: color(var(--color3) a(0.5));
+          font-family: var(--fontFamily0-Light);
           box-item: center;
           padding-left: 15px;
       }
@@ -32,13 +33,14 @@
       &__input {
         border: none;
         font-size: 13px;
-        font-family: var(--fontFamily0-Light);
+        font-family: var(--fontFamily0-Regular);
         padding: 0 5px;
         color: var(--color0);
 
         background-color: transparent;
 
         &::placeholder {
+            font-family: var(--fontFamily0-Light);
             color: color(var(--color0) a(0.3));
         }
 
@@ -79,11 +81,16 @@
         box-item: right;
         button: standard-button;
         height: 30px;
-        width: 30px;
+        width: 40px;
 
         background-repeat: no-repeat;
         background-position: center center;
         background-size: 15px 15px;
+        opacity: 0.5;
+
+        &.focused {
+          opacity: 1;
+        }
       }
 
       &-nav {
@@ -111,6 +118,7 @@
             &:active,
             &.selected {
               color: color(var(--color0));
+              font-family: var(--fontFamily0-Regular);
             }
           }
 

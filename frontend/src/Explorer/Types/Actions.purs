@@ -1,6 +1,7 @@
 module Explorer.Types.Actions where
 
 import Control.Monad.Eff.Exception (Error)
+import DOM.Event.Event (Event)
 import DOM.HTML.Types (HTMLElement, HTMLInputElement)
 import Data.DateTime (DateTime)
 import Data.Either (Either)
@@ -22,6 +23,8 @@ data Action
     | ScrollTop
     | SelectInputText HTMLInputElement
     | BlurElement HTMLElement
+    | FocusElement HTMLElement
+    | DocumentClicked Event
     -- QR code
     | GenerateQrCode CAddress
     -- socket endpoints

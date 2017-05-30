@@ -2,7 +2,7 @@ module Explorer.View.Header (headerView) where
 
 import Prelude
 import Data.Lens ((^.))
-import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewTitle, globalViewState, viewStates)
+import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewSelectedSearch, gViewTitle, globalViewState, lang, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -14,7 +14,8 @@ import Pux.Html.Events (onClick) as P
 
 headerView :: State -> P.Html Action
 headerView state =
-    let lang = state.lang
+    let lang' = state ^. lang
+        selectedSearch = state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch)
         mobileMenuOpenend = state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)
     in
     P.header
@@ -38,7 +39,7 @@ headerView state =
                 , P.div
                     [ P.className "middle-content__title" ]
                     [ if mobileMenuOpenend
-                      then searchItemViews state
+                      then searchItemViews lang' selectedSearch
                       else P.text $ state ^. (viewStates <<< globalViewState <<< gViewTitle)
                     ]
                 , P.div

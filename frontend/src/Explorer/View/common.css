@@ -341,7 +341,7 @@
 .lang__select {
   height: var(--height-footer-bottom);
   font-family: var(--fontFamily0-Light);
-  font-size: 10px;
+  font-size: 12px;
   border: none;
   width: auto;
   appearance: none;
@@ -351,7 +351,7 @@
   background-size: 8px 8px;
   padding-right: 10px;
   box-item: center;
-  color: color(var(--color0) a(0.5));
+  color: var(--color0);
 
   &:hover{
     cursor: pointer;

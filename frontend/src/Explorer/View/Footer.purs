@@ -63,7 +63,7 @@ footerView state =
                   [ langView state ]
               ]
           , P.div
-              [ P.className "explorer-footer__container" ]
+              [ P.className "explorer-footer__container explorer-footer__meta" ]
               [ P.span
                   [ P.className "version" ]
                   [ P.text $ "v. " <> (show version) ]

@@ -32,6 +32,9 @@
   --height-header-top-mobile: 64px;
   --min-height-header-bg-image: 450px;
   --max-width-desktop: 1200px;
+
+  /* images */
+  --bg-header-url: url('../static/images/header_300517.jpg');
 }
 
 
@@ -197,23 +200,12 @@ select::-ms-expand {
 @svg-load icon-search url('../static/images/icon-search.svg') {
   g:nth-child(1) {
     fill:var(--color0);
-    opacity: 0.5;
+    opacity: 1.1; /* 1.0 could not be used - bug of postcss-inline-svg?  */
   }
 };
 
 .bg-icon-search {
   background-image: svg-inline(icon-search);
-}
-
-@svg-load icon-search-hover url('../static/images/icon-search.svg') {
-  g:nth-child(1) {
-    fill:var(--color0);
-    opacity: 1.1; /* 1.0 is not taken over - bug of postcss-inline-svg?  */
-  }
-};
-
-.bg-icon-search-hover {
-  background-image: svg-inline(icon-search-hover);
 }
 
 @svg-load icon-hamburger url('../static/images/icon-menu.svg');
@@ -296,6 +288,10 @@ select::-ms-expand {
   .headline {
     padding: 0 24px 24px 24px;
   }
+}
+
+.visible {
+  visibility: visible !important;
 }
 
 .invisible {

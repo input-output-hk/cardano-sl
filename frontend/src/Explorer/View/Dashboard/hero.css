@@ -38,8 +38,22 @@
 
         .explorer-search {
           &__container {
-            lost-column: 10/12;
-            lost-offset: 1/12;
+            lost-column: 7/12;
+            lost-offset: 2.5/12;
+
+            @extend .animated;
+            @extend .fadeIn;
+
+            animation-duration: .3s;
+            /* We do need a little delay
+            to hide previous state */
+            animation-delay: .1s;
+
+            &.focused {
+              transition: all 0.3s ease;
+              lost-column: 10/12;
+              lost-offset: 1/12;
+            }
           }
         }
       }
@@ -58,7 +72,6 @@
       line-height: 1.4;
       font-family: var(--fontFamily0-Light);
       color: color(var(--color3) a(0.5));
-      opacity: 0.5;
       margin:10px 0;
       padding-bottom: 15px;
     }

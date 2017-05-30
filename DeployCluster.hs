@@ -202,15 +202,15 @@ deploymentScript Options{..} = do
 
     removeNodesDatabases = do
         echo ""
-        echo ">>> Remove databases on all nodes..."
+        echo ">>> Remove databases, kademlia dumps on all nodes..."
         runCommandOnDeployer $
-            "nixops ssh-for-each -d " <> clusterName <> " 'rm -Rf " <> nodeFilesRoot <> "node-db'"
+            "nixops ssh-for-each -d " <> clusterName <> " 'cd " <> nodeFilesRoot <> " && rm -Rf node-db kademlia.dump'"
 
     setSystemStartTime = do
         echo ""
         echo ">>> Set system start time..."
         runCommandOnDeployer $
-            "START=$(( $(date +%s)+120 )) && sed -i \"s/systemStart[ ]*=[ ]*[0-9]*;/systemStart = $START;/g\" " <> pathToNixConfig
+            "START=$(( $(date +%s)+50 )) && sed -i \"s/systemStart[ ]*=[ ]*[0-9]*;/systemStart = $START;/g\" " <> pathToNixConfig
 
     cluster action = do
         echo ""

@@ -7,14 +7,13 @@ module Pos.DHT.Real.CLI
        , readDhtPeersFile
        ) where
 
-import           Universum
+import           Formatting                 (build, formatToString, shown, (%))
 import qualified Options.Applicative.Simple as Opt
-import           Serokell.Util.OptParse     (fromParsec)
-import           Formatting                 (shown, build, (%), formatToString)
-import           Text.Parsec                (eof, parse)
-import           Pos.DHT.Model.Types        (DHTNode, DHTKey,
-                                             dhtNodeParser, dhtKeyParser)
+import           Pos.DHT.Model.Types        (DHTKey, DHTNode, dhtKeyParser, dhtNodeParser)
 import           Pos.Util.TimeWarp          (NetworkAddress, addrParser)
+import           Serokell.Util.OptParse     (fromParsec)
+import           Text.Parsec                (eof, parse)
+import           Universum
 
 dhtExplicitInitialOption :: Opt.Parser Bool
 dhtExplicitInitialOption =
@@ -23,12 +22,16 @@ dhtExplicitInitialOption =
          Opt.help "Explicitely contact to initial peers as to neighbors (even if they\
                   \ appeared offline once)")
 
-dhtNetworkAddressOption :: Opt.Parser NetworkAddress
-dhtNetworkAddressOption =
+dhtNetworkAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
+dhtNetworkAddressOption na =
     Opt.option (fromParsec addrParser) $
-        Opt.long "kademlia-address" <>
-        Opt.metavar "IP:PORT" <>
-        Opt.help "The address to which Kademlia should bind"
+            Opt.long "kademlia-address"
+         <> Opt.metavar "IP:PORT"
+         <> Opt.help helpMsg
+         <> Opt.showDefault
+         <> maybe mempty Opt.value na
+  where
+    helpMsg = "Ip and port to which kademlia should bind."
 
 dhtKeyOption :: Opt.Parser DHTKey
 dhtKeyOption =

@@ -106,13 +106,13 @@ argsParser = do
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet")
     externalAddress <-
-        CLI.externalNetworkAddressOption Nothing
+        CLI.externalNetworkAddressOption (Just ("0.0.0.0", 0))
     bindAddress <-
         CLI.listenNetworkAddressOption (Just ("0.0.0.0", 0))
     supporterNode <- switch $
         long "supporter" <>
         help "Launch DHT supporter instead of full node"
-    dhtNetworkAddress <- dhtNetworkAddressOption
+    dhtNetworkAddress <- dhtNetworkAddressOption (Just ("0.0.0.0", 0))
     dhtKey <- optional dhtKeyOption
     dhtPeersList <- many addrNodeOption
     dhtPeersFile <- optional dhtPeersFileOption

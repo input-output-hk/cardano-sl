@@ -54,6 +54,7 @@ getKademliaParams args@Args{..} = do
                  , kpKey             = dhtKey
                  , kpExplicitInitial = dhtExplicitInitial
                  , kpDump            = kademliaDumpPath
+                 , kpExternalAddress = externalAddress
                  }
 
 getBaseParams :: LoggerName -> Args -> BaseParams

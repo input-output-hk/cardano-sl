@@ -77,10 +77,8 @@ import           Pos.DB.DB                    (initNodeDBs, openNodeDBs,
 import           Pos.DB.GState                (getTip)
 import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (DelegationWrap)
-import           Pos.DHT.Real                 (KademliaDHTInstance,
-                                               KademliaDHTInstanceConfig (..),
-                                               KademliaParams (..), startDHTInstance,
-                                               stopDHTInstance)
+import           Pos.DHT.Real                 (KademliaDHTInstance, KademliaParams (..),
+                                               startDHTInstance, stopDHTInstance)
 import           Pos.Discovery.Holders        (runDiscoveryConstT, runDiscoveryKademliaT)
 import           Pos.Genesis                  (genesisLeaders, genesisSeed)
 import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
@@ -481,19 +479,14 @@ bracketDHTInstance
     -> KademliaParams
     -> (KademliaDHTInstance -> Production a)
     -> Production a
-bracketDHTInstance BaseParams {..} KademliaParams {..} action = bracket acquire release action
+bracketDHTInstance BaseParams {..} kp action = bracket acquire release action
   where
     --withLog = usingLoggerName $ lpRunnerTag bpLoggingParams
     acquire = usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig)
     release = usingLoggerName (lpRunnerTag bpLoggingParams) . stopDHTInstance
     instConfig =
-        KademliaDHTInstanceConfig
-        { kdcKey = kpKey
-        , kdcHost = fst kpNetworkAddress
-        , kdcPort = snd kpNetworkAddress
-        , kdcInitialPeers = ordNub $ kpPeers ++ Const.defaultPeers
-        , kdcExplicitInitial = kpExplicitInitial
-        , kdcDumpPath = kpDump
+        kp
+        { kpPeers = ordNub $ kpPeers kp ++ Const.defaultPeers
         }
 
 createTransportTCP

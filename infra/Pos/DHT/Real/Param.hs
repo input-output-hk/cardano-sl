@@ -13,4 +13,5 @@ data KademliaParams = KademliaParams
     , kpKey             :: !(Maybe DHTKey)
     , kpExplicitInitial :: !Bool
     , kpDump            :: !FilePath         -- ^ Path to kademlia dump file
+    , kpExternalAddress :: !NetworkAddress   -- ^ External address of node
     } deriving (Show)

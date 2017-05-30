@@ -15,16 +15,16 @@
   }
 
   &__top {
-    border-bottom: 1px solid color(var(--color3) a(0.5));
+    border-bottom: 1px solid color(var(--color3) a(0.1));
 
     .nav__container {
       @extend .outer-container;
-      padding: 24px 18px;
+      padding: 24px 18px 0 18px;
     }
 
     @media (--md) {
       .nav__container {
-        padding: 48px 72px;
+        padding: 48px 72px 24px 72px;
       }
     }
 
@@ -54,7 +54,7 @@
       &__item {
         font-family: var(--fontFamily0-Light);
         font-size: 11px;
-        line-height: 30px;
+        line-height: 20px;
         display: block;
 
         button: standard-button;
@@ -128,7 +128,7 @@
 
       @media (--md) {
         .support {
-          font-size: 12px;
+          font-size: 9px;
         }
       }
 
@@ -165,6 +165,10 @@
     .lang__select {
       padding-right: 10px;
     }
+  }
+
+  &__meta {
+    text-align: center;
 
     .version {
       font-family: var(--fontFamily0-Light);
@@ -184,7 +188,7 @@
 
   @media (--md) {
     &__bottom {
-      padding: 24px 72px;
+      padding: 10px 72px 5px 72px;
     }
   }
 

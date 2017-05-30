@@ -6,8 +6,6 @@ matrix:
     - env: HLINT=true
     - os: osx
       osx_image: xcode8.3
-  allow_failures:
-    - os: osx
   # due to too long builds
   # https://github.com/NixOS/nixpkgs/issues/21200
   fast_finish: true
@@ -28,14 +26,11 @@ before_install:
 - travis_retry curl -L https://www.stackage.org/stack/$TRAVIS_OS_NAME-x86_64 | tar
   xz --strip-components=1 -C ~/.local/bin
 - sudo service --status-all || true
-- sudo free -m -t
-- sudo /etc/init.d/memcached stop
-- sudo /etc/init.d/mysql stop
-- sudo /etc/init.d/postgresql stop
-- sudo free -m -t
+- sudo /etc/init.d/memcached stop || true
+- sudo /etc/init.d/mysql stop || true
+- sudo /etc/init.d/postgresql stop || true
 
 after_failure:
-- sudo free -m -t
 - sudo dmesg
 
 script:

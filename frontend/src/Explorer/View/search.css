@@ -3,7 +3,6 @@
 
       &__container {
         border: 1px solid color(var(--color0) a(0.3));
-        opacity: 0.3;
         border-radius: 2px;
         padding: 5px 5px 5px 0px;
         box: horizontal;

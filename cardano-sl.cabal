@@ -257,20 +257,13 @@ library
 
                         Pos.Ssc.GodTossing.Arbitrary
                         Pos.Ssc.GodTossing.DB
-                        Pos.Ssc.GodTossing.Functions
-                        Pos.Ssc.GodTossing.Genesis
                         Pos.Ssc.GodTossing.GState
                         Pos.Ssc.GodTossing.Listeners
                         Pos.Ssc.GodTossing.LocalData
                         Pos.Ssc.GodTossing.LocalData.Logic
-                        Pos.Ssc.GodTossing.LocalData.Types
                         Pos.Ssc.GodTossing.Richmen
                         Pos.Ssc.GodTossing.Seed
                         Pos.Ssc.GodTossing.Shares
-                        Pos.Ssc.GodTossing.Toss
-                        Pos.Ssc.GodTossing.Toss.Logic
-                        Pos.Ssc.GodTossing.Toss.Pure
-                        Pos.Ssc.GodTossing.Type
                         Pos.Ssc.GodTossing.Workers
 
                         -- Statistics

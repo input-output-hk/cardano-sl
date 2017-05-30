@@ -2,7 +2,6 @@
 
 module Pos.DHT.Real.Types
        ( KademliaDHTInstance (..)
-       , KademliaDHTInstanceConfig (..)
        , DHTHandle
        ) where
 
@@ -43,13 +42,3 @@ data KademliaDHTInstance = KademliaDHTInstance
     , kdiKnownPeersCache :: !(TVar [NetworkAddress])
     , kdiDumpPath        :: !FilePath
     }
-
--- | Instance of part of config.
-data KademliaDHTInstanceConfig = KademliaDHTInstanceConfig
-    { kdcHost            :: !BS.ByteString
-    , kdcPort            :: !Word16
-    , kdcKey             :: !(Maybe DHTKey)
-    , kdcInitialPeers    :: ![NetworkAddress]
-    , kdcExplicitInitial :: !Bool
-    , kdcDumpPath        :: !FilePath
-    } deriving (Show)

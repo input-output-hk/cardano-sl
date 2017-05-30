@@ -2,13 +2,12 @@
 
 module Pos.Binary.Genesis () where
 
-import           Data.Binary.Get                (Get, getWord8, label)
-import           Data.Binary.Put                (Put, putWord8)
+import           Data.Binary.Get   (Get, getWord8, label)
+import           Data.Binary.Put   (Put, putWord8)
 import           Universum
 
-import           Pos.Binary.Class               (Bi (..), UnsignedVarInt (..))
-import           Pos.Binary.Ssc.GodTossing.Core ()
-import           Pos.Genesis.Types              (GenesisData (..), StakeDistribution (..))
+import           Pos.Binary.Class  (Bi (..), UnsignedVarInt (..))
+import           Pos.Genesis.Types (GenesisData (..), StakeDistribution (..))
 
 getUVI :: Get Word
 getUVI = getUnsignedVarInt <$> get
@@ -34,9 +33,8 @@ instance Bi StakeDistribution where
     put (CombinedStakes st1 st2)   = putWord8 5 >> put st1 >> put st2
 
 instance Bi GenesisData where
-    get = label "GenesisData" $ GenesisData <$> get <*> get <*> get <*> get
+    get = label "GenesisData" $ GenesisData <$> get <*> get <*> get
     put GenesisData {..} = put gdAddresses >>
                            put gdDistribution >>
-                           put gdVssCertificates >>
                            put gdBootstrapBalances
 

@@ -14,7 +14,7 @@ import           Options.Applicative (Parser, ParserInfo, auto, fullDesc, help, 
 import           Universum
 
 data KeygenOptions = KeygenOptions
-    { koGenesisFile    :: FilePath
+    { koGenesisDir     :: FilePath
     , koRearrangeMask  :: Maybe FilePath
     , koDumpDevGenKeys :: Maybe FilePath
     , koTestStake      :: Maybe TestStakeOptions
@@ -45,11 +45,11 @@ data FakeAvvmOptions = FakeAvvmOptions
 
 optsParser :: Parser KeygenOptions
 optsParser = do
-    koGenesisFile <- strOption $
-        long    "genesis-file" <>
-        metavar "FILE" <>
-        value   "genesis.bin" <>
-        help    "File to dump binary shared genesis data"
+    koGenesisDir <- strOption $
+        long    "genesis-dir" <>
+        metavar "DIR" <>
+        value   "." <>
+        help    "Directory to dump genesis data into"
     koRearrangeMask <- optional $ strOption $
         long    "rearrange-mask" <>
         metavar "PATTERN" <>

@@ -21,7 +21,7 @@ import           Serokell.Util.Verify            (isVerSuccess)
 import           Universum
 
 import           Pos.Binary.Crypto               ()
-import           Pos.Binary.Ssc.GodTossing.Core  ()
+import           Pos.Binary.GodTossing.Core      ()
 import           Pos.Core                        (EpochIndex (..), IsMainHeader,
                                                   SlotId (..), StakeholderId, headerSlotL)
 import           Pos.Core.Slotting               (crucialSlot)

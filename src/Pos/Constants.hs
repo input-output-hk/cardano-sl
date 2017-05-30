@@ -9,6 +9,7 @@
 module Pos.Constants
        (
          module Pos.Core.Constants
+       , module Pos.Core.Genesis
        , module Pos.DHT.Constants
        , module Pos.Communication.Constants
        , module Pos.Slotting.Constants
@@ -17,9 +18,6 @@ module Pos.Constants
 
        -- * Constants mentioned in paper
        , networkDiameter
-
-       -- * Genesis constants
-       , genesisN
 
        -- * Other constants
        , networkConnectionTimeout
@@ -60,6 +58,7 @@ import           Pos.Util.TimeWarp            (NetworkAddress, addrParser)
 -- Reexports
 import           Pos.Communication.Constants
 import           Pos.Core.Constants
+import           Pos.Core.Genesis
 import           Pos.DHT.Constants
 import           Pos.Slotting.Constants
 import           Pos.Ssc.GodTossing.Constants
@@ -73,14 +72,6 @@ import           Pos.Update.Constants
 -- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
 networkDiameter :: Microsecond
 networkDiameter = sec . ccNetworkDiameter $ compileConfig
-
-----------------------------------------------------------------------------
--- Genesis
-----------------------------------------------------------------------------
-
--- | See 'Pos.CompileConfig.ccGenesisN'.
-genesisN :: Integral i => i
-genesisN = fromIntegral . ccGenesisN $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Other constants

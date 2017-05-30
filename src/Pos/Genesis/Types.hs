@@ -6,11 +6,9 @@ module Pos.Genesis.Types
 
 import           Universum
 
-import           Pos.Core                      (Address, Coin, StakeholderId,
-                                                coinToInteger, mkCoin, sumCoins,
-                                                unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap)
-import           Pos.Txp.Core.Types            (TxOutDistribution)
+import           Pos.Core           (Address, Coin, StakeholderId, coinToInteger, mkCoin,
+                                     sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Txp.Core.Types (TxOutDistribution)
 
 -- | Stake distribution in genesis block.
 -- FlatStakes is a flat distribution, i. e. each node has the same amount of coins.
@@ -54,12 +52,11 @@ getTotalStake (CombinedStakes st1 st2) =
 data GenesisData = GenesisData
     { gdAddresses         :: [Address]
     , gdDistribution      :: StakeDistribution
-    , gdVssCertificates   :: VssCertificatesMap
     , gdBootstrapBalances :: !(HashMap StakeholderId Coin)
     }
     deriving (Show, Eq)
 
 instance Monoid GenesisData where
-    mempty = GenesisData mempty mempty mempty mempty
-    (GenesisData addrsA distA vssA bbsA) `mappend` (GenesisData addrsB distB vssB bbsB) =
-        GenesisData (addrsA <> addrsB) (distA <> distB) (vssA <> vssB) (bbsA <> bbsB)
+    mempty = GenesisData mempty mempty mempty
+    (GenesisData addrsA distA bbsA) `mappend` (GenesisData addrsB distB bbsB) =
+        GenesisData (addrsA <> addrsB) (distA <> distB) (bbsA <> bbsB)

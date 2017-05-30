@@ -16,9 +16,6 @@ module Pos.WorkMode
        , StatsMode
        , StaticMode
        , RunModeHolder (..)
-       , getProductionMode
-       , getStatsMode
-       , getStaticMode
        , RawRealMode
        , ServiceMode
        ) where
@@ -182,22 +179,13 @@ instance
 type ProductionModeRaw ssc = NoStatsT (RawRealModeK ssc)
 type ProductionMode ssc = RunModeHolder (ProductionModeRaw ssc)
 
-getProductionMode :: ProductionMode ssc a -> ProductionModeRaw ssc a
-getProductionMode = getRunModeHolder
-
 -- | StatsMode is used for remote benchmarking.
 type StatsModeRaw ssc = StatsT $ RawRealModeK ssc
 type StatsMode ssc = RunModeHolder (StatsModeRaw ssc)
 
-getStatsMode :: StatsMode ssc a -> StatsModeRaw ssc a
-getStatsMode = getRunModeHolder
-
 -- | Fixed peer discovery without stats.
 type StaticModeRaw ssc = NoStatsT (RawRealModeS ssc)
 type StaticMode ssc = RunModeHolder (StaticModeRaw ssc)
-
-getStaticMode :: StaticMode ssc a -> StaticModeRaw ssc a
-getStaticMode = getRunModeHolder
 
 -- | ServiceMode is the mode in which support nodes work.
 type ServiceMode =

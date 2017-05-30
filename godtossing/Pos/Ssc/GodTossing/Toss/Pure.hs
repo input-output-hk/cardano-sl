@@ -18,6 +18,7 @@ import           System.Wlog                    (CanLog, HasLoggerName (..), Log
                                                  launchNamedPureLog, runNamedPureLog)
 import           Universum
 
+import           Pos.Core                       (EpochIndex, crucialSlot)
 import           Pos.Lrc.Types                  (RichmenSet, RichmenStake)
 import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
                                                  insertSignedCommitment)
@@ -26,7 +27,6 @@ import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossRead (
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState, gsCommitments, gsOpenings,
                                                  gsShares, gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Types                      (EpochIndex, crucialSlot)
 
 type MultiRichmenStake = HashMap EpochIndex RichmenStake
 type MultiRichmenSet = HashMap EpochIndex RichmenSet

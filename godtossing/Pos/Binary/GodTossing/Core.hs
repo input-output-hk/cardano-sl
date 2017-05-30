@@ -1,6 +1,6 @@
 -- | Serialization of core types from GodTossing SSC.
 
-module Pos.Binary.Ssc.GodTossing.Core
+module Pos.Binary.GodTossing.Core
        (
        ) where
 

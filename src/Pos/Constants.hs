@@ -9,6 +9,7 @@
 module Pos.Constants
        (
          module Pos.Core.Constants
+       , module Pos.Core.Genesis
        , module Pos.DHT.Constants
        , module Pos.Communication.Constants
        , module Pos.Slotting.Constants
@@ -17,9 +18,6 @@ module Pos.Constants
 
        -- * Constants mentioned in paper
        , networkDiameter
-
-       -- * Genesis constants
-       , genesisN
 
        -- * Other constants
        , networkConnectionTimeout
@@ -53,13 +51,14 @@ import           System.Environment           (lookupEnv)
 import qualified Text.Parsec                  as P
 
 import           Pos.CompileConfig            (CompileConfig (..), compileConfig)
-import           Pos.DHT.Model.Types          (DHTNode, dhtNodeParser)
 import           Pos.Update.Core              (SystemTag, mkSystemTag)
 import           Pos.Util                     ()
+import           Pos.Util.TimeWarp            (NetworkAddress, addrParser)
 
 -- Reexports
 import           Pos.Communication.Constants
 import           Pos.Core.Constants
+import           Pos.Core.Genesis
 import           Pos.DHT.Constants
 import           Pos.Slotting.Constants
 import           Pos.Ssc.GodTossing.Constants
@@ -73,14 +72,6 @@ import           Pos.Update.Constants
 -- other nodes. Also see 'Pos.CompileConfig.ccNetworkDiameter'.
 networkDiameter :: Microsecond
 networkDiameter = sec . ccNetworkDiameter $ compileConfig
-
-----------------------------------------------------------------------------
--- Genesis
-----------------------------------------------------------------------------
-
--- | See 'Pos.CompileConfig.ccGenesisN'.
-genesisN :: Integral i => i
-genesisN = fromIntegral . ccGenesisN $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Other constants
@@ -98,13 +89,13 @@ propagationQueueSize =
     fromIntegral $ ccPropagationQueueSize $ compileConfig
 
 -- | See 'Pos.CompileConfig.ccDefaultPeers'.
-defaultPeers :: [DHTNode]
+defaultPeers :: [NetworkAddress]
 defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
   where
-    parsePeer :: String -> DHTNode
+    parsePeer :: String -> NetworkAddress
     parsePeer =
         either (error . show) identity .
-        P.parse dhtNodeParser "Compile time config"
+        P.parse addrParser "Compile time config"
 
 -- | Maximum amount of headers node can put into headers message while
 -- in "after offline" or "recovery" mode. Should be more than

@@ -16,13 +16,13 @@ import qualified Data.HashMap.Strict             as HM
 import           System.Wlog                     (logError)
 import           Universum
 
-import           Pos.Constants                   (slotSecurityParam)
 import           Pos.Core                        (EpochIndex, EpochOrSlot (..),
                                                   IsMainHeader,
                                                   LocalSlotIndex (getSlotIndex),
                                                   SlotId (siSlot), StakeholderId,
                                                   epochIndexL, epochOrSlot,
                                                   getEpochOrSlot, headerSlotL, mkCoin)
+import           Pos.Core.Constants              (slotSecurityParam)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload (..),
                                                   InnerSharesMap, Opening,
                                                   SignedCommitment, VssCertificate,
@@ -35,9 +35,8 @@ import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..),
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type         ()
-import           Pos.Util                        (inAssertMode, sortWithMDesc)
 import           Pos.Util.Chrono                 (NewestFirst (..))
-import           Pos.Util.Util                   (Some)
+import           Pos.Util.Util                   (Some, inAssertMode, sortWithMDesc)
 
 -- | Verify 'GtPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise

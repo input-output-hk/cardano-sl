@@ -19,13 +19,12 @@ import           Universum                  hiding (show)
 import           Paths_cardano_sl           (version)
 import qualified Pos.CLI                    as CLI
 import           Pos.Constants              (isDevelopment)
-import           Pos.DHT.Model              (DHTKey, DHTNode)
+import           Pos.DHT.Model              (DHTKey)
 import           Pos.DHT.Real.CLI           (dhtExplicitInitialOption, dhtKeyOption,
-                                             dhtNetworkAddressOption, dhtNodeOption,
-                                             dhtPeersFileOption)
+                                             dhtNetworkAddressOption, dhtPeersFileOption)
 import           Pos.Security.CLI           (AttackTarget, AttackType)
 import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
-import           Pos.Util.TimeWarp          (NetworkAddress)
+import           Pos.Util.TimeWarp          (NetworkAddress, addrParser)
 
 data Args = Args
     { dbPath                    :: !FilePath
@@ -44,7 +43,7 @@ data Args = Args
     , dhtNetworkAddress         :: !NetworkAddress
     , dhtKey                    :: !(Maybe DHTKey)
       -- ^ The Kademlia key to use. Randomly generated if Nothing is given.
-    , dhtPeersList              :: ![DHTNode]
+    , dhtPeersList              :: ![NetworkAddress]
       -- ^ A list of initial Kademlia peers to useA.
     , dhtPeersFile              :: !(Maybe FilePath)
       -- ^ A file containing a list of Kademlia peers to use.
@@ -107,15 +106,15 @@ argsParser = do
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet")
     externalAddress <-
-        CLI.externalNetworkAddressOption Nothing
+        CLI.externalNetworkAddressOption (Just ("0.0.0.0", 0))
     bindAddress <-
         CLI.listenNetworkAddressOption (Just ("0.0.0.0", 0))
     supporterNode <- switch $
         long "supporter" <>
         help "Launch DHT supporter instead of full node"
-    dhtNetworkAddress <- dhtNetworkAddressOption
+    dhtNetworkAddress <- dhtNetworkAddressOption (Just ("0.0.0.0", 0))
     dhtKey <- optional dhtKeyOption
-    dhtPeersList <- many dhtNodeOption
+    dhtPeersList <- many addrNodeOption
     dhtPeersFile <- optional dhtPeersFileOption
     dhtExplicitInitial <- dhtExplicitInitialOption
     enableStats <- switch $
@@ -196,3 +195,10 @@ getNodeOptions = do
             argsParser
             empty
     return res
+
+addrNodeOption :: Parser NetworkAddress
+addrNodeOption =
+    option (fromParsec addrParser) $
+        long "kademlia-peer" <>
+        metavar "HOST:PORT" <>
+        help "Identifier of a node in a Kademlia network"

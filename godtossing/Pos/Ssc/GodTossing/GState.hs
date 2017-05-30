@@ -20,7 +20,7 @@ import           Formatting                     (build, sformat, (%))
 import           System.Wlog                    (WithLogger, logDebug, logInfo)
 import           Universum
 
-import           Pos.Binary.Ssc                 ()
+import           Pos.Binary.GodTossing          ()
 import           Pos.Core                       (EpochIndex (..), SlotId (..),
                                                  epochIndexL, epochOrSlotG)
 import           Pos.DB                         (MonadDBPure, SomeBatchOp (..))
@@ -41,8 +41,8 @@ import           Pos.Ssc.GodTossing.Type        (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), gsCommitments,
                                                  gsOpenings, gsShares, gsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Util                       (_neHead, _neLast)
 import           Pos.Util.Chrono                (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Util                  (_neHead, _neLast)
 
 ----------------------------------------------------------------------------
 -- Utilities

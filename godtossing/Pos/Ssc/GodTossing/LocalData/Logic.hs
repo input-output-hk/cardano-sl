@@ -29,13 +29,12 @@ import           Serokell.Util                      (magnify')
 import           System.Wlog                        (WithLogger, logWarning)
 
 import           Pos.Binary.Class                   (biSize)
-import           Pos.Binary.Ssc                     ()
-import           Pos.Constants                      (memPoolLimitRatio)
+import           Pos.Binary.GodTossing              ()
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
                                                      SlotId (..), StakeholderId)
+import           Pos.Core.Constants                 (memPoolLimitRatio)
 import           Pos.DB                             (MonadDB,
                                                      MonadGStateCore (gsAdoptedBVData))
-import qualified Pos.Lrc.DB                         as LrcDB
 import           Pos.Lrc.Types                      (RichmenStake)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
@@ -62,6 +61,7 @@ import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT
                                                      verifyAndApplyGtPayload)
 import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
+import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
 
 ----------------------------------------------------------------------------
 -- Methods from type class
@@ -209,7 +209,7 @@ sscProcessData tag payload =
         ld <- sscRunLocalQuery ask
         maxBlockSize <- bvdMaxBlockSize <$> gsAdoptedBVData
         let epoch = ld ^. ldEpoch
-        LrcDB.getRichmenSsc epoch >>= \case
+        getRichmenSsc epoch >>= \case
             Nothing -> throwError $ TossUnknownRichmen epoch
             Just richmen -> do
                 gs <- sscRunGlobalQuery ask

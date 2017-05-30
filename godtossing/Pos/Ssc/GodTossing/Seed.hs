@@ -11,6 +11,8 @@ import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
 
 import           Pos.Binary.Class             (fromBinary, fromBinaryM)
+import           Pos.Core                     (SharedSeed, StakeholderId, addressHash,
+                                               mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Crypto                   (Secret, Share, unsafeRecoverSecret,
                                                verifySecretProof)
 import           Pos.Lrc.Types                (RichmenStake)
@@ -20,9 +22,7 @@ import           Pos.Ssc.GodTossing.Core      (Commitment (..),
                                                secretToSharedSeed, verifyOpening)
 import           Pos.Ssc.GodTossing.Error     (SeedError (..))
 import           Pos.Ssc.GodTossing.Functions (vssThreshold)
-import           Pos.Types                    (SharedSeed, StakeholderId, addressHash,
-                                               mkCoin, sumCoins, unsafeIntegerToCoin)
-import           Pos.Util                     (getKeys)
+import           Pos.Util.Util                (getKeys)
 
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all

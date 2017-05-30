@@ -94,8 +94,8 @@ dlgReachesIssuance resolve i d psk = reach i
     --
     -- i → x₁ → x₂ → … xₖ → d
     --
-    -- where every arrow is psk present in the 'pskm', and the last
-    -- psk xₖ → d has the same certificate as 'cert'.
+    -- where every arrow is resolved psk, and the last one xₖ → d
+    -- equals to the passed one.
     reach curUser = resolve curUser >>= \case
         Nothing -> pure False
         Just psk'@ProxySecretKey{..}

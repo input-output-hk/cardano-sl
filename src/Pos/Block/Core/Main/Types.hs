@@ -76,7 +76,8 @@ data MainExtraHeaderData = MainExtraHeaderData
       _mehSoftwareVersion :: !SoftwareVersion
     , -- | Header attributes
       _mehAttributes      :: !BlockHeaderAttributes
-    , _mehEBDataProof     :: !(Hash MainExtraBodyData)
+    , -- | Body Hash
+      _mehEBDataProof     :: !(Hash MainExtraBodyData)
     } deriving (Eq, Show, Generic)
 
 instance NFData MainExtraHeaderData

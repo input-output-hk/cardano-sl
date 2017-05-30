@@ -46,8 +46,7 @@ import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              SlotId (..), SlotLeaders, crucialSlot,
                                              epochOrSlot, flattenSlotId, getEpochOrSlot,
                                              getSlotIndex, headerHash, mkLocalSlotIndex)
-import           Pos.Crypto                 (SecretKey, WithHash (WithHash), Hash)
-import           Pos.Crypto.Hashing         (hash)
+import           Pos.Crypto                 (SecretKey, WithHash (WithHash), hash)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB

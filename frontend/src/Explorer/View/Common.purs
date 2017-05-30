@@ -26,6 +26,7 @@ import Prelude
 import Data.Int (ceil, fromString, toNumber)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
 import Explorer.I18n.Lenses (common, cDateFormat) as I18nL
@@ -33,7 +34,7 @@ import Explorer.Lenses.State (lang)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (initialState)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Types.State (CCurrency(..), PageNumber(..), State)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
@@ -204,11 +205,11 @@ txBodyAmountView (Tuple _ (CCoin coin)) =
 
 type PaginationViewProps =
     { label :: String
-    , currentPage :: Int
-    , minPage :: Int
-    , maxPage :: Int
+    , currentPage :: PageNumber
+    , minPage :: PageNumber
+    , maxPage :: PageNumber
     , editable :: Boolean
-    , changePageAction :: (Int -> Action)
+    , changePageAction :: (PageNumber -> Action)
     , editableAction :: (P.Target -> Boolean -> Action)
     , invalidPageAction :: (P.Target -> Action)
     , disabled :: Boolean
@@ -238,14 +239,14 @@ paginationView props =
                   , P.input
                       ([ P.className "page-number"
                       , P.disabled $ props.maxPage == props.minPage
-                      , P.min $ show props.minPage
-                      , P.max $ show props.maxPage
+                      , P.min <<< show $ unwrap props.minPage
+                      , P.max <<< show $ unwrap props.maxPage
                       , P.onFocus \event -> props.editableAction (_.target event) true
                       , P.onBlur \event -> props.editableAction (_.target event) false
                       ]
                       <>  if props.editable
                           then [ P.onKey "enter" onEnterHandler ]
-                          else [ P.value <<< show $ props.currentPage ]
+                          else [ P.value <<< show $ unwrap props.currentPage ]
                       )
                       []
                   , P.p
@@ -255,7 +256,7 @@ paginationView props =
                       [ P.className "page-number"
                       , P.disabled true
                       , P.type_ "search"
-                      , P.value $ show props.maxPage
+                      , P.value <<< show $ unwrap props.maxPage
                       ]
                       []
                   , P.div
@@ -282,14 +283,14 @@ paginationView props =
             nextClickHandler :: P.MouseEvent -> Action
             nextClickHandler event =
                 if props.currentPage < props.maxPage then
-                props.changePageAction $ props.currentPage + 1
+                props.changePageAction <<< PageNumber $ (unwrap props.currentPage) + 1
                 else
                 NoOp
 
             prevClickHandler :: P.MouseEvent -> Action
             prevClickHandler _ =
                 if props.currentPage > props.minPage && not props.disabled then
-                props.changePageAction $ props.currentPage - 1
+                props.changePageAction <<< PageNumber $ (unwrap props.currentPage) - 1
                 else
                 NoOp
 
@@ -303,7 +304,7 @@ paginationView props =
                     else props.invalidPageAction target
                     where
                         target = _.target event
-                        page = fromMaybe props.currentPage $ fromString $ _.value target
+                        page = PageNumber <<< fromMaybe (unwrap props.currentPage) <<< fromString $ _.value target
 
 
 

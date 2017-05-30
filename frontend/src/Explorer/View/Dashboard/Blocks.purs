@@ -6,13 +6,13 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (cExpand, cOf, cLoading, dashboard, dbLastBlocks, common, dbExploreBlocks, cNoData) as I18nL
-import Explorer.Lenses.State (dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, lang, latestBlocks, totalBlocks)
+import Explorer.Lenses.State (_PageNumber, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, lang, latestBlocks)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (State, CBlockEntries)
+import Explorer.Types.State (CBlockEntries, PageNumber(..), State)
 import Explorer.View.Blocks (blockRow, blocksHeaderView, maxBlockRows, minBlockRows)
 import Explorer.View.CSS (blocksBody, blocksBodyWrapper, blocksBodyCover, blocksBodyCoverLabel, blocksFooter, blocksWaiting, dashboardContainer, dashboardWrapper) as CSS
-import Explorer.View.Common (getMaxPaginationNumber, paginationView)
+import Explorer.View.Common (paginationView)
 import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
@@ -88,15 +88,14 @@ blocksFooterView :: State -> P.Html Action
 blocksFooterView state =
     if expanded then
         paginationView { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                        , currentPage: currentBlockPage
-                        , minPage: minPagination
-                        , maxPage: getMaxPaginationNumber totalBlocks' maxBlockRows
+                        , currentPage: state ^. (dashboardViewState <<< dbViewBlockPagination)
+                        , minPage: PageNumber minPagination
+                        , maxPage: state ^. (dashboardViewState <<< dbViewMaxBlockPagination)
                         , changePageAction: DashboardPaginateBlocks
                         , editable: state ^. (dashboardViewState <<< dbViewBlockPaginationEditable)
                         , editableAction: DashboardEditBlocksPageNumber
                         , invalidPageAction: DashboardInvalidBlocksPageNumber
-                        , disabled: state ^. (dashboardViewState <<< dbViewLoadingTotalBlocks) ||
-                                    state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)
+                        , disabled: state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)
                         }
     else
         P.div
@@ -106,11 +105,8 @@ blocksFooterView state =
     where
         lang' = state ^. lang
         blocks = withDefault [] $ state ^. latestBlocks
-        -- Note: A value of `0` will not be displayed, because paginator is hidden in such a case
-        totalBlocks' = withDefault 0 $ state ^. totalBlocks
         expanded = state ^. (dashboardViewState <<< dbViewBlocksExpanded)
         expandable = length blocks > minBlockRows
-        currentBlockPage = state ^. (dashboardViewState <<< dbViewBlockPagination)
         clickHandler _ =
             if expandable
             then DashboardExpandBlocks true

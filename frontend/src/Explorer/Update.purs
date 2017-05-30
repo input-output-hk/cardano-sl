@@ -11,7 +11,7 @@ import Control.SocketIO.Client (Socket, SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (filter, head, length, snoc, take, (:))
+import Data.Array (filter, head, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -19,19 +19,19 @@ import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
-import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTotalBlocks, fetchTxSummary, searchEpoch)
+import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewLoadingTotalBlocks, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, syncAction, totalBlocks, viewStates)
+import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, syncAction, totalBlocks, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination, mkSocketSubscriptionItem)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (Search(..), SocketSubscriptionItem(..), State)
+import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State)
 import Explorer.Util.Config (SyncAction(..), syncBySocket)
 import Explorer.Util.DOM (scrollTop, targetToHTMLElement, targetToHTMLInputElement)
-import Explorer.Util.Data (sortBlocksByEpochSlot', sortTxsByTime', unionBlocks, unionTxs)
+import Explorer.Util.Data (sortTxsByTime', unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
 import Explorer.View.Blocks (maxBlockRows)
@@ -79,18 +79,10 @@ update SocketPing state =
           pure NoOp
     ]}
 
-update (SocketBlocksUpdated (Right blocks)) state =
+update (SocketBlocksUpdated (Right (Tuple totalPages blocks))) state =
     noEffects $
-    set latestBlocks (Success newBlocks') $
-    set totalBlocks (Success newTotalBlocks) state
-    where
-        prevBlocks = withDefault [] $ state ^. latestBlocks
-        newBlocks = sortBlocksByEpochSlot' $ unionBlocks blocks prevBlocks
-        -- make sure that we don't have more blocks than before in current page (async problem)
-        -- TODO: (jk) This re-calculation can be removed with `CSE-120`
-        newBlocks' = take maxBlockRows newBlocks
-        previousTotalBlocks = withDefault 0 $ state ^. totalBlocks
-        newTotalBlocks = (length newBlocks) - (length prevBlocks) + previousTotalBlocks
+    set latestBlocks (Success blocks) $
+    set (dashboardViewState <<< dbViewMaxBlockPagination) (PageNumber totalPages) state
 
 update (SocketBlocksUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $
@@ -201,11 +193,11 @@ update (DashboardExpandBlocks expanded) state = noEffects $
 update (DashboardExpandTransactions expanded) state = noEffects $
     set (dashboardViewState <<< dbViewTxsExpanded) expanded state
 
-update (DashboardPaginateBlocks newPage) state =
+update (DashboardPaginateBlocks pageNumber) state =
     { state:
-          set (dashboardViewState <<< dbViewNextBlockPagination) newPage state
+          set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber state
     , effects:
-          [ pure RequestTotalBlocksToPaginateBlocks
+          [ pure $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
             -- ^ get number of total blocks first before we do a request to get data of blocks
           ]
           <> (  if (syncBySocket $ state ^. syncAction)
@@ -214,8 +206,6 @@ update (DashboardPaginateBlocks newPage) state =
                 else [])
     }
     where
-        currentPage = state ^. (dashboardViewState <<< dbViewBlockPagination)
-        offset = (currentPage - minPagination) * maxBlockRows
         -- _Note:_ We do know that we have just one subscription of `SubBlockOff` at time,
         -- so we can try to grab it
         subItems = state ^. (socket <<< subscriptions)
@@ -416,37 +406,7 @@ update NoOp state = noEffects state
 
 -- http endpoints
 
-update RequestTotalBlocksToPaginateBlocks state =
-    { state:
-          set loading true $
-          set (dashboardViewState <<< dbViewLoadingTotalBlocks) true
-          state
-    , effects:
-          [ attempt fetchTotalBlocks >>= pure <<< ReceiveTotalBlocksToPaginateBlocks
-          ]
-    }
-
-update (ReceiveTotalBlocksToPaginateBlocks (Right total)) state =
-    { state:
-          set totalBlocks (Success total) $
-          set (dashboardViewState <<< dbViewLoadingTotalBlocks) false
-          state
-    , effects:
-          [ pure $ RequestPaginatedBlocks (RequestLimit maxBlockRows) (RequestOffset offset) ]
-    }
-    where
-        newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination)
-        offset = (newPage - minPagination) * maxBlockRows
-
-update (ReceiveTotalBlocksToPaginateBlocks (Left error)) state =
-    noEffects $
-    set loading false $
-    set totalBlocks (Failure error) $
-    set (dashboardViewState <<< dbViewLoadingTotalBlocks) false $
-    set (dashboardViewState <<< dbViewLoadingBlockPagination) true
-    state
-
-update (RequestPaginatedBlocks limit offset) state =
+update (RequestPaginatedBlocks pageNumber pageSize) state =
     { state:
           set loading true $
           -- Important note: Don't use `set latestBlocks Loading` here,
@@ -454,22 +414,23 @@ update (RequestPaginatedBlocks limit offset) state =
           -- set latestBlocks Loading
           set (dashboardViewState <<< dbViewLoadingBlockPagination) true
           state
-    , effects: [ attempt (fetchLatestBlocks limit offset) >>= pure <<< ReceivePaginatedBlocks ]
+    , effects: [ attempt (fetchPageBlocks pageNumber pageSize) >>= pure <<< ReceivePaginatedBlocks ]
     }
 
-update (ReceivePaginatedBlocks (Right blocks)) state =
+update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
     { state:
           set loading false $
-          set (dashboardViewState <<< dbViewBlockPagination) newPage $
+          set (dashboardViewState <<< dbViewMaxBlockPagination) (PageNumber totalPages) $
+          set (dashboardViewState <<< dbViewBlockPagination) (PageNumber newPage) $
           set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
-          set latestBlocks (Success $ sortBlocksByEpochSlot' blocks) state
+          set latestBlocks (Success blocks) state
     , effects:
         if (syncBySocket $ state ^. syncAction)
         then [ pure $ SocketAddSubscription subItem ]
         else []
     }
     where
-        newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination)
+        newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination <<< _PageNumber)
         offset = (newPage - minPagination) * maxBlockRows
         subItem = mkSocketSubscriptionItem (SocketSubscription SubBlockOff) (SocketOffsetData $ SocketOffset offset)
 
@@ -651,7 +612,7 @@ routeEffects (Tx tx) state =
 routeEffects (Address cAddress) state =
     { state:
         set currentCAddress cAddress $
-        set (viewStates <<< addressDetail <<< addressTxPagination) minPagination $
+        set (viewStates <<< addressDetail <<< addressTxPagination) (PageNumber minPagination) $
         set (viewStates <<< globalViewState <<< gViewTitle)
             (translate (I18nL.common <<< I18nL.cAddress) $ state ^. lang)
             state
@@ -665,7 +626,7 @@ routeEffects (Address cAddress) state =
 routeEffects (Epoch epochIndex) state =
     { state:
         set (viewStates <<< blocksViewState <<< blsViewPagination)
-            minPagination $
+            (PageNumber minPagination) $
         set (viewStates <<< globalViewState <<< gViewTitle)
             (translate (I18nL.common <<< I18nL.cEpoch) $ state ^. lang)
             state

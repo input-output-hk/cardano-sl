@@ -9,7 +9,7 @@ import Explorer.Api.Types (SocketSubscription, SocketSubscriptionData)
 import Explorer.I18n.Lang (Language(..), translate)
 import Explorer.I18n.Lenses (common, cTitle) as I18nL
 import Explorer.Routes (Route(..))
-import Explorer.Types.State (DashboardAPICode(..), Search(..), SearchEpochSlotQuery, State, SocketSubscriptionItem(..))
+import Explorer.Types.State (DashboardAPICode(..), PageNumber(..), Search(..), SearchEpochSlotQuery, SocketSubscriptionItem(..), State)
 import Explorer.Util.Config (SyncAction(..))
 import Explorer.Util.Factory (mkCAddress)
 import Network.RemoteData (RemoteData(..))
@@ -24,8 +24,8 @@ initialState =
         , connection: Nothing
         , subscriptions: []
         }
-    , syncAction: SyncBySocket
-    -- , syncAction: SyncByPolling
+    -- , syncAction: SyncBySocket
+    , syncAction: SyncByPolling
     , viewStates:
         { globalViewState:
             { gViewMobileMenuOpenend: false
@@ -37,29 +37,28 @@ initialState =
             }
         ,  dashboard:
             { dbViewBlocksExpanded: false
-            , dbViewBlockPagination: minPagination
-            , dbViewNextBlockPagination: minPagination
+            , dbViewBlockPagination: PageNumber minPagination
+            , dbViewNextBlockPagination: PageNumber minPagination
+            , dbViewMaxBlockPagination: PageNumber minPagination
             , dbViewLoadingBlockPagination: false
-            , dbViewLoadingTotalBlocks: false
             , dbViewBlockPaginationEditable: false
             , dbViewTxsExpanded: false
             , dbViewSelectedApiCode: Curl
             }
         , addressDetail:
-            { addressTxPagination: minPagination
+            { addressTxPagination: PageNumber minPagination
             , addressTxPaginationEditable: false
             }
         , blockDetail:
-            { blockTxPagination: minPagination
+            { blockTxPagination: PageNumber minPagination
             , blockTxPaginationEditable: false
             }
         , blocksViewState:
-            { blsViewPagination: minPagination
+            { blsViewPagination: PageNumber minPagination
             , blsViewPaginationEditable: false
             }
         }
     , latestBlocks: NotAsked
-    , totalBlocks: NotAsked
     , currentBlockSummary: NotAsked
     , currentBlockTxs: NotAsked
     , latestTransactions: NotAsked

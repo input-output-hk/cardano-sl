@@ -33,10 +33,11 @@ import           Pos.Wallet.Web.Server.Methods     (WalletWebHandler, walletAppl
                                                     walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Server.Sockets     (ConnectionsVar, runWalletWS)
 import           Pos.Wallet.Web.State              (WalletState, runWalletWebDB)
-import           Pos.WorkMode                      (RawRealModeS)
+import           Pos.WorkMode                      (RawRealModeS, RunModeHolder (..))
 
 
-type WalletStaticMode = NoStatsT $ WalletWebHandler (RawRealModeS WalletSscType)
+type WalletStaticModeRaw = NoStatsT $ WalletWebHandler (RawRealModeS WalletSscType)
+type WalletStaticMode = RunModeHolder WalletStaticModeRaw
 
 -- | WalletProductionMode runner.
 runWStaticMode
@@ -50,7 +51,8 @@ runWStaticMode
     -> (ActionSpec WalletStaticMode a, OutSpecs)
     -> Production a
 runWStaticMode db conn =
-    runRawSBasedMode (runWalletWebDB db . runWalletWS conn . getNoStatsT) (lift . lift . lift)
+    runRawSBasedMode (runWalletWebDB db . runWalletWS conn . getNoStatsT . getRunModeHolder)
+                     (RunModeHolder . lift . lift . lift)
 
 walletServeWebFullS
     :: SscConstraint WalletSscType

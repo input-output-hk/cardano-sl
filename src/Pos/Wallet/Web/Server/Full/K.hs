@@ -38,12 +38,14 @@ import           Pos.Wallet.Web.Server.Methods     (WalletWebHandler, walletAppl
                                                     walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Server.Sockets     (ConnectionsVar, runWalletWS)
 import           Pos.Wallet.Web.State              (WalletState, runWalletWebDB)
-import           Pos.WorkMode                      (RawRealModeK)
+import           Pos.WorkMode                      (RawRealModeK, RunModeHolder (..))
 
 
-type WalletProductionMode = NoStatsT $ WalletWebHandler (RawRealModeK WalletSscType)
+type WalletProductionModeRaw = NoStatsT $ WalletWebHandler (RawRealModeK WalletSscType)
+type WalletProductionMode = RunModeHolder WalletProductionModeRaw
 
-type WalletStatsMode = StatsT $ WalletWebHandler (RawRealModeK WalletSscType)
+type WalletStatsModeRaw = StatsT $ WalletWebHandler (RawRealModeK WalletSscType)
+type WalletStatsMode = RunModeHolder WalletStatsModeRaw
 
 -- | WalletProductionMode runner.
 runWProductionMode
@@ -59,9 +61,9 @@ runWProductionMode
 runWProductionMode db conn =
     runRawKBasedMode
         unwrapWPMode
-        (lift . lift . lift)
+        (RunModeHolder . lift . lift . lift)
   where
-    unwrapWPMode = runWalletWebDB db . runWalletWS conn . getNoStatsT
+    unwrapWPMode = runWalletWebDB db . runWalletWS conn . getNoStatsT . getRunModeHolder
 
 -- | WalletProductionMode runner.
 runWStatsMode
@@ -78,14 +80,14 @@ runWStatsMode db conn transport kinst param sscp runAction = do
     statMap <- liftIO SM.newIO
     runRawKBasedMode
         (unwrapWSMode statMap)
-        (lift . lift . lift)
+        (RunModeHolder . lift . lift . lift)
         transport
         kinst
         param
         sscp
         runAction
   where
-    unwrapWSMode statMap = runWalletWebDB db . runWalletWS conn . runStatsT' statMap
+    unwrapWSMode statMap = runWalletWebDB db . runWalletWS conn . runStatsT' statMap . getRunModeHolder
 
 walletServeWebFull
     :: SscConstraint WalletSscType

@@ -55,7 +55,8 @@ import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Wallet                 (WalletSscType)
 import           Pos.WorkMode               (ProductionMode, RawRealMode, RawRealModeK,
-                                             StaticMode, StatsMode)
+                                             RawRealModeS, RunModeHolder (..), StaticMode,
+                                             StatsMode)
 #ifdef WITH_WEB
 import           Pos.Web                    (serveWebGT)
 import           Pos.WorkMode               (WorkMode)
@@ -107,17 +108,17 @@ action peerHolder args@Args {..} transport = do
                 case (peerHolder, enableStats, CLI.sscAlgo commonArgs) of
                     (Right peers, _, GodTossingAlgo) ->
                         runWStaticMode db conn
-                            transportW peers
+                            (hoistTransport RunModeHolder transportW) peers
                             currentParams gtParams
                             (runNode @SscGodTossing $ (convPlugins currentPluginsGT) <> walletStatic args)
                     (Left kad, True, GodTossingAlgo) ->
                         runWStatsMode db conn
-                            transportW kad
+                            (hoistTransport RunModeHolder transportW) kad
                             currentParams gtParams
                             (runNode @SscGodTossing (allPlugins kad <> walletStats args))
                     (Left kad, False, GodTossingAlgo) ->
                         runWProductionMode db conn
-                            transportW kad
+                            (hoistTransport RunModeHolder transportW) kad
                             currentParams gtParams
                             (runNode @SscGodTossing (allPlugins kad <> walletProd args))
                     (_, _, NistBeaconAlgo) ->
@@ -132,7 +133,7 @@ action peerHolder args@Args {..} transport = do
                 let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
                     runner =
                         runNodeStatic @ssc
-                            transportR
+                            (hoistTransport RunModeHolder transportR)
                             peers
                             utwStatic
                             currentParams
@@ -141,7 +142,7 @@ action peerHolder args@Args {..} transport = do
                 let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
                     runner =
                         runNodeStats @ssc
-                            transportR
+                            (hoistTransport RunModeHolder transportR)
                             kad
                             (mconcat [wDhtWorkers kad, utwStats])
                             currentParams
@@ -150,7 +151,7 @@ action peerHolder args@Args {..} transport = do
                 let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
                     runner =
                         runNodeProduction @ssc
-                            transportR
+                            (hoistTransport RunModeHolder transportR)
                             kad
                             (mconcat [wDhtWorkers kad, utwProd])
                             currentParams
@@ -196,22 +197,28 @@ utwProd = first (map liftPlugin) updateTriggerWorker
   where
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
         ki <- askDHTInstance
-        lift . lift . p vI $ hoistSendActions (runDiscoveryKademliaT ki . getNoStatsT) (lift . lift) sa
+        RunModeHolder . lift . lift . p vI $
+            hoistSendActions (runDiscoveryKademliaT ki . getNoStatsT . getRunModeHolder)
+                             (RunModeHolder . lift . lift) sa
 
 utwStats :: SscConstraint ssc => ([WorkerSpec (StatsMode ssc)], OutSpecs)
 utwStats = first (map liftPlugin) updateTriggerWorker
   where
-    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> RunModeHolder $ do
         s <- getStatsMap
         ki <- askDHTInstance
-        lift . lift . p vI $ hoistSendActions (runDiscoveryKademliaT ki . runStatsT' s) (lift . lift) sa
+        lift . lift . p vI $
+            hoistSendActions (runDiscoveryKademliaT ki . runStatsT' s . getRunModeHolder)
+                             (RunModeHolder . lift . lift) sa
 
 utwStatic :: SscConstraint ssc => ([WorkerSpec (StaticMode ssc)], OutSpecs)
 utwStatic = first (map liftPlugin) updateTriggerWorker
   where
-    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> RunModeHolder $ do
         peers <- getPeers
-        lift . lift . p vI $ hoistSendActions (runDiscoveryConstT peers . getNoStatsT) (lift . lift) sa
+        lift . lift . p vI $
+            hoistSendActions (runDiscoveryConstT peers . getNoStatsT . getRunModeHolder)
+                             (RunModeHolder . lift . lift) sa
 
 updateTriggerWorker
     :: SscConstraint ssc
@@ -232,7 +239,9 @@ walletProd
 walletProd args = first (map liftPlugin) (walletServe args)
   where
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa ->
-        lift . p vI $ hoistSendActions getNoStatsT lift sa
+        RunModeHolder . lift . p vI $
+            hoistSendActions (getNoStatsT . getRunModeHolder)
+                             (RunModeHolder . lift) sa
 
 walletStats
     :: SscConstraint WalletSscType
@@ -240,19 +249,23 @@ walletStats
     -> ([WorkerSpec WalletStatsMode], OutSpecs)
 walletStats args = first (map liftPlugin) (walletServe args)
   where
-    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> RunModeHolder $ do
         sm <- getStatsMap
-        lift . p vI $ hoistSendActions (runStatsT' sm) lift sa
+        lift . p vI $ hoistSendActions (runStatsT' sm . getRunModeHolder)
+                                       (RunModeHolder . lift) sa
 
 walletStatic
     :: SscConstraint WalletSscType
     => Args
     -> ([WorkerSpec WalletStaticMode], OutSpecs)
-walletStatic Args{..} = first (map liftPlugin) walletServeStatic
+walletStatic Args{..} = first (one . liftPlugin) walletServeStatic
   where
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa ->
-        lift . p vI $ hoistSendActions getNoStatsT lift sa
-    walletServeStatic = first pure $ worker walletServerOuts $ \sendActions ->
+        RunModeHolder . lift . p vI $
+            hoistSendActions (getNoStatsT . getRunModeHolder)
+                             (RunModeHolder . lift) sa
+    walletServeStatic :: (WorkerSpec (WalletWebHandler (RawRealModeS WalletSscType)), OutSpecs)
+    walletServeStatic = worker walletServerOuts $ \sendActions ->
         walletServeWebFullS
             sendActions
             walletDebug

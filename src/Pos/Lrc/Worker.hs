@@ -61,9 +61,13 @@ lrcOnNewSlotWorker = recoveryCommGuard $ localOnNewSlotWorker True $ \SlotId {..
     when (getSlotIndex siSlot < slotSecurityParam) $
         lrcSingleShot siEpoch `catch` onLrcError
   where
+    -- Here we log it as a warning and report an error, even though it
+    -- can happen there we don't know recent blocks. That's because if
+    -- we don't know them, we should be in recovery mode and this
+    -- worker should be turned off.
     onLrcError e@UnknownBlocksForLrc = do
         reportError e
-        logInfo
+        logWarning
             "LRC worker can't do anything, because recent blocks aren't known"
     onLrcError e = reportError e >> throwM e
     reportError e =

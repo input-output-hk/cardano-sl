@@ -1,4 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE IncoherentInstances #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Signing done with public/private keys.
 module Pos.Crypto.Signing
@@ -48,7 +49,8 @@ import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
 import qualified Data.Text.Buildable    as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, bprint, build, fitLeft, later, (%), (%.))
+import           Formatting             (Format, bprint, build, fitLeft, later, sformat,
+                                         shown, (%), (%.))
 import           Prelude                (show)
 import qualified Serokell.Util.Base16   as B16
 import qualified Serokell.Util.Base64   as Base64 (decode, formatBase64)
@@ -272,11 +274,13 @@ instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature (w,w) a) w
 -- certificate inside, we panic. Please check this condition outside
 -- of this function.
 proxySign
-    :: (Bi a)
+    :: (Bi a, Bi PublicKey)
     => SignTag -> SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
 proxySign t sk@(SecretKey delegateSk) psk@ProxySecretKey{..} m
     | toPublic sk /= pskDelegatePk =
-        error "proxySign called with irrelevant certificate"
+        error $ sformat ("proxySign called with irrelevant certificate "%
+                         "(psk delegatePk: "%build%", real delegate pk: "%build%")")
+                        pskDelegatePk (toPublic sk)
     | otherwise =
         ProxySignature
         { pdPsk = psk

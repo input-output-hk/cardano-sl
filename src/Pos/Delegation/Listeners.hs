@@ -23,7 +23,8 @@ import           Pos.Communication.Relay       (DataParams (..), PropagationMsg 
 import           Pos.Communication.Relay.Types ()
 import           Pos.Context                   (BlkSemaphore (..), NodeParams,
                                                 npSecretKey)
-import           Pos.Crypto                    (SignTag (SignProxySK), proxySign)
+import           Pos.Crypto                    (SignTag (SignProxySK), proxySign,
+                                                pskDelegatePk, toPublic)
 import           Pos.Delegation.Logic          (ConfirmPskLightVerdict (..),
                                                 PskHeavyVerdict (..),
                                                 PskLightVerdict (..),
@@ -54,18 +55,18 @@ pskLightRelay = Data $ DataParams $ \pSk -> do
     verdict <- processProxySKLight pSk
     logResult pSk verdict
     case verdict of
-        PLUnrelated -> return True
+        PLUnrelated -> pure True
         PLAdded -> do
-           logDebug $
-               sformat ("Generating delivery proof and propagating it to neighbors: "%build) pSk
            sk <- npSecretKey <$> Ether.ask @NodeParams
-           let proof = proxySign SignProxySK sk pSk pSk -- but still proving is
-                                                        -- nothing but fear
-           addToRelayQueue (DataOnlyPM (pSk, proof))
-
-           -- Broadcasted further for case we have multiple nodes up with same secret key
-           return True
-        _ -> return False
+           if pskDelegatePk pSk == toPublic sk then do
+               -- if we're final delegate, don't propagate psk, propagate proof instead
+               logDebug $
+                   sformat ("Generating delivery proof and propagating it to neighbors: "%build) pSk
+               let proof = proxySign SignProxySK sk pSk pSk
+               addToRelayQueue (DataOnlyPM (pSk, proof))
+               pure False
+           else pure True
+        _ -> pure False
   where
     logResult pSk PLAdded =
         logInfo $ sformat ("Got valid related proxy secret key: "%build) pSk

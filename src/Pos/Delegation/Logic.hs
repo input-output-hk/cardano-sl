@@ -79,7 +79,8 @@ import           Pos.Delegation.Class       (DelegationWrap (..), DlgMemPool,
                                              dwConfirmationCache, dwEpochId,
                                              dwMessageCache, dwPoolSize, dwProxySKPool,
                                              dwThisEpochPosted)
-import           Pos.Delegation.Helpers     (detectCycleOnAddition, dlgReachesIssuance)
+import           Pos.Delegation.Helpers     (detectCycleOnAddition, dlgReachesIssuance,
+                                             isRevokePsk)
 import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), mkDlgPayload)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
@@ -784,7 +785,7 @@ processProxySKLight psk = do
             exists = psk `elem` psks
             msg = Left psk
             valid = verifyProxySecretKey psk
-            selfSigned = pskDelegatePk psk == pskIssuerPk psk
+            selfSigned = isRevokePsk psk
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
         dwMessageCache %= LRU.insert msg curTime
         pure $ if | not valid -> PLInvalid

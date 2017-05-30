@@ -36,7 +36,7 @@ dlgVerifyPayload epoch (getDlgPayload -> proxySKs) =
     notMatchingEpochs = filter ((/= epoch) . pskOmega) proxySKs
 
 -- | Checks if given PSK revokes delegation (issuer = delegate).
-isRevokePsk :: ProxySKHeavy -> Bool
+isRevokePsk :: ProxySecretKey w -> Bool
 isRevokePsk ProxySecretKey{..} = pskIssuerPk == pskDelegatePk
 
 -- | Applies block certificates to 'ProxySKHeavyMap'.

@@ -12,7 +12,7 @@ import qualified Control.Concurrent.STM as STM
 import           Data.Default           (Default (def))
 import           Universum
 
-import           Pos.Types              (HeaderHash)
+import           Pos.Core               (HeaderHash)
 
 import           Pos.Txp.MemState.Class (TxpHolderTag)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..))

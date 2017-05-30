@@ -98,7 +98,6 @@ library
 
                         -- Txp
                         Pos.Txp
-                        Pos.Txp.Settings
 
                         Pos.Types
                         Pos.Types.Arbitrary
@@ -262,18 +261,12 @@ library
                         Pos.Txp.Arbitrary
                         Pos.Txp.DB
                         Pos.Txp.DB.Balances
-                        Pos.Txp.Error
                         Pos.Txp.Logic
                         Pos.Txp.Logic.Global
                         Pos.Txp.Logic.Local
-                        Pos.Txp.MemState
-                        Pos.Txp.MemState.Class
-                        Pos.Txp.MemState.Holder
-                        Pos.Txp.MemState.Types
                         Pos.Txp.Network
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
-                        Pos.Txp.Settings.Global
                         Pos.Txp.Worker
 
                         -- Workers

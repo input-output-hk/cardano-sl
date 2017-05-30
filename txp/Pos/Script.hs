@@ -31,7 +31,7 @@ import           Universum                  hiding (lift)
 import           Pos.Binary.Class           (Bi)
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Binary.Crypto          ()
-import           Pos.Binary.Txp             ()
+import           Pos.Binary.Txp.Core        ()
 import           Pos.Core.Script            ()
 import           Pos.Core.Types             (Script (..), ScriptVersion, Script_v0)
 import           Pos.Crypto                 (SignTag (SignTxIn), signTag)

@@ -71,10 +71,6 @@ library
                         Pos.Lrc
                         Pos.Lrc.FtsPure
 
-                        -- Scripting
-                        Pos.Script
-                        Pos.Script.Examples
-
                         -- Slotting
                         Pos.Slotting.Arbitrary
 
@@ -266,7 +262,6 @@ library
                         Pos.Txp.Arbitrary
                         Pos.Txp.DB
                         Pos.Txp.DB.Balances
-                        Pos.Txp.DB.Utxo
                         Pos.Txp.Error
                         Pos.Txp.Logic
                         Pos.Txp.Logic.Global
@@ -279,20 +274,6 @@ library
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
                         Pos.Txp.Settings.Global
-                        Pos.Txp.Toil
-                        Pos.Txp.Toil.Balances
-                        Pos.Txp.Toil.Balances.Functions
-                        Pos.Txp.Toil.Balances.Pure
-                        Pos.Txp.Toil.Class
-                        Pos.Txp.Toil.DBTxp
-                        Pos.Txp.Toil.Failure
-                        Pos.Txp.Toil.Logic
-                        Pos.Txp.Toil.Trans
-                        Pos.Txp.Toil.Types
-                        Pos.Txp.Toil.Utxo
-                        Pos.Txp.Toil.Utxo.Functions
-                        Pos.Txp.Toil.Utxo.Pure
-                        Pos.Txp.Toil.Utxo.Util
                         Pos.Txp.Worker
 
                         -- Workers
@@ -810,9 +791,9 @@ executable cardano-smart-generator
                      , data-default
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl
-                     , cardano-sl-core
                      , containers
                      , filepath
                      , formatting
@@ -1048,6 +1029,7 @@ executable cardano-keygen
                      , base
                      , aeson
                      , cardano-sl-core
+                     , cardano-sl-txp
                      , cardano-sl
                      , ed25519
                      , formatting
@@ -1229,6 +1211,7 @@ test-suite cardano-test
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl
                      , cereal

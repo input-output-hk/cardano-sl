@@ -22,7 +22,7 @@ import           Control.Monad.Except  (MonadError (..))
 import           System.Wlog           (WithLogger)
 
 import           Pos.Binary.Class      (biSize)
-import           Pos.Constants         (memPoolLimitRatio)
+import           Pos.Core.Constants    (memPoolLimitRatio)
 import           Pos.Crypto            (WithHash (..), hash)
 import           Pos.Txp.Core          (TxAux (..), TxId, TxUndo, TxpUndo, topsortTxs)
 import           Pos.Txp.Toil.Balances (applyTxsToBalances, rollbackTxsBalances)

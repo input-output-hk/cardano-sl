@@ -17,7 +17,7 @@ import           Serokell.Util             (VerificationRes, allDistinct,
                                             formatFirstError, verResToMonadError,
                                             verifyGeneric)
 
-import           Pos.Binary.Txp            ()
+import           Pos.Binary.Txp.Core       ()
 import           Pos.Core                  (Address (..), StakeholderId, coinF,
                                             coinToInteger, mkCoin, sumCoins)
 import           Pos.Core.Address          (addressDetailedF, checkPubKeyAddress,

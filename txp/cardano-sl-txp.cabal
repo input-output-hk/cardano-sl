@@ -18,19 +18,51 @@ library
     Pos.Txp.Core.Tx
     Pos.Txp.Core.Types
 
+    Pos.Txp.DB.Utxo
+
+    Pos.Txp.Toil
+    Pos.Txp.Toil.Balances
+    Pos.Txp.Toil.Balances.Functions
+    Pos.Txp.Toil.Balances.Pure
+    Pos.Txp.Toil.Class
+    Pos.Txp.Toil.DBTxp
+    Pos.Txp.Toil.Failure
+    Pos.Txp.Toil.Logic
+    Pos.Txp.Toil.Trans
+    Pos.Txp.Toil.Types
+    Pos.Txp.Toil.Utxo
+    Pos.Txp.Toil.Utxo.Functions
+    Pos.Txp.Toil.Utxo.Pure
+    Pos.Txp.Toil.Utxo.Util
+
+    Pos.Script
+    Pos.Script.Examples
+
     Pos.Binary.Txp.Core
 
   build-depends:       base
+                     , bytestring
                      , cardano-sl-core
+                     , cardano-sl-db
+                     , cardano-sl-update
+                     , containers
+                     , data-default
                      , derive
+                     , ether
                      , formatting
                      , hashable
                      , lens
                      , log-warper
                      , mtl
+                     , neat-interpolation
+                     , plutus-prototype
+                     , rocksdb
                      , serokell-util
                      , tagged
+                     , template-haskell
+                     , text
                      , text-format
+                     , transformers
                      , universum
                      , unordered-containers
                      , vector

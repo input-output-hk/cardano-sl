@@ -44,6 +44,11 @@ library
     Pos.Ssc.GodTossing.Constants
     Pos.Ssc.GodTossing.Functions
     Pos.Ssc.GodTossing.Type
+    Pos.Ssc.GodTossing.DB
+    Pos.Ssc.GodTossing.GState
+    Pos.Ssc.GodTossing.Richmen
+    Pos.Ssc.GodTossing.Seed
+    Pos.Ssc.GodTossing.Shares
 
     Pos.Binary.GodTossing
     Pos.Binary.GodTossing.Core
@@ -60,6 +65,7 @@ library
                      , cardano-sl-ssc
                      , cardano-sl-update
                      , containers
+                     , cryptonite
                      , data-default
                      , ether
                      , file-embed
@@ -69,6 +75,7 @@ library
                      , mono-traversable
                      , mtl
                      , node-sketch
+                     , rocksdb
                      , serokell-util
                      , tagged
                      , text

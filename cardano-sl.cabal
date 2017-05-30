@@ -256,12 +256,7 @@ library
                         Pos.Ssc.Util
 
                         Pos.Ssc.GodTossing.Arbitrary
-                        Pos.Ssc.GodTossing.DB
-                        Pos.Ssc.GodTossing.GState
                         Pos.Ssc.GodTossing.Listeners
-                        Pos.Ssc.GodTossing.Richmen
-                        Pos.Ssc.GodTossing.Seed
-                        Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Workers
 
                         -- Statistics

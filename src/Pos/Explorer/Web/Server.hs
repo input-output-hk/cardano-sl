@@ -17,6 +17,7 @@ module Pos.Explorer.Web.Server
        , getLastBlocks
        ) where
 
+
 import           Control.Lens                   (at, _Wrapped, _Right)
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
@@ -205,7 +206,7 @@ getLastBlocks limit offset = do
     pure mainBlocks >>= traverse toBlockEntry
   where
     offsetInt           = toInteger offset
-    limitInt            = toInteger limit
+    limitInt            = toInteger limit - 1 -- remove included block
     getBlockIndex block = toInteger $ getChainDifficulty $ block ^. difficultyL
 
     -- | Find block matching the sent index/difficulty.
@@ -245,21 +246,24 @@ getBlocksTotal
 getBlocksTotal = do
     -- Get the tip block.
     tipBlock <- DB.getTipBlock @SscGodTossing
-    -- -1 is for the genesis block which isn't visible and contains no
-    -- valuable information
-    pure $ max 0 (maxBlocks tipBlock - 1)
+
+    pure $ maxBlocks tipBlock
   where
     maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
 
 
 -- | Get last blocks with a page parameter. This enables easier paging on the
 -- client side and should enable a simple and thin client logic.
+-- Currently the pages are in chronological order.
 getBlocksPage 
     :: (MonadDB m, MonadSlots m) 
     => Word 
     -> Word 
     -> m (Integer, [CBlockEntry])
 getBlocksPage pageNumber pageSize = do
+
+    -- Get total blocks in the blockchain.
+    blocksTotal <- toInteger <$> getBlocksTotal
 
     -- Get total pages from the blocks.
     totalPages <- getBlocksPagesTotal pageSize
@@ -271,17 +275,26 @@ getBlocksPage pageNumber pageSize = do
     when (pageSize > 1000) $
         throwM $ Internal "The upper bound for pageSize is 1000."
 
-    -- Calculate the start position
-    let startPosition = calculateOffset
+    -- Calculate the start position. We use Integer so we don't underflow Word
+    -- and go on the end.
+    let startPosition     = blocksTotal - (fromIntegral calculateOffset)
+    let safeStartPosition = max 0 startPosition
+
+    -- Let's calculate the maximum number of rows seens if on last page.
+    let calculateLimit    = if pageNumberInt == totalPages
+                            then blocksTotal `mod` pageSizeInt
+                            else pageSizeInt
 
     -- Fetch last blocks
-    pageBlocks <- getLastBlocks pageSize startPosition
+    pageBlocks <- 
+        getLastBlocks (fromIntegral calculateLimit) (fromIntegral safeStartPosition)
 
     -- Return total pages and the blocks. We start from page 1.
     pure (totalPages, pageBlocks)
   where
-    calculateOffset = (pageNumber - 1) * pageSize
+    calculateOffset = pageNumber * pageSize
     pageNumberInt   = toInteger pageNumber
+    pageSizeInt     = toInteger pageSize
 
 
 -- | Get total pages from blocks. Calculated from 

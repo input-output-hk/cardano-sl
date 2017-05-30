@@ -32,6 +32,9 @@
   --height-header-top-mobile: 64px;
   --min-height-header-bg-image: 450px;
   --max-width-desktop: 1200px;
+
+  /* images */
+  --bg-header-url: url('../static/images/header_300517.jpg');
 }
 
 

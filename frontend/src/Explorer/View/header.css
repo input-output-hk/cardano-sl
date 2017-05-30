@@ -82,8 +82,8 @@
         .explorer-search__container {
           box-item: center;
 
-          lost-column: 10/12;
-          lost-offset: 1/12;
+          lost-column: 9/12;
+          lost-offset: 1.5/12;
 
           @extend .animated;
           @extend .fadeIn;

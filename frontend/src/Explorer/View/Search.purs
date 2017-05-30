@@ -4,25 +4,17 @@ module Explorer.View.Search
     ) where
 
 import Prelude
-import Control.Applicative (map)
-import Control.Monad.Eff (runPure)
-import Control.Monad.Eff.Console (logShow)
-import Control.Monad.Eff.Unsafe (unsafePerformEff)
-import DOM.HTML.Types (htmlElementToNode)
-import DOM.Node.Node (contains)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.String (length)
 import Data.Tuple (Tuple(..))
-import Debug.Trace (traceAnyM)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cAddress, cEpoch, cSlot, cTransaction, common, hero, hrSearch, hrTime) as I18nL
 import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, globalViewState, lang, viewStates)
 import Explorer.State (maxSlotInEpoch, searchContainerId)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
-import Explorer.Util.DOM (targetToHTMLElement)
 import Explorer.View.Common (emptyView)
 import Pux.Html (Html, div, text, ul, li, label, input) as P
 import Pux.Html.Attributes (checked, className, htmlFor, id_, maxLength, name, type_, placeholder, value) as P
@@ -39,7 +31,6 @@ searchInputView state =
     let lang' = state ^. lang
         dbViewSearchInputFocused = state ^. (viewStates <<< globalViewState <<< gViewSearchInputFocused)
         mobileMenuOpened = state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)
-        searchIconClazz = if dbViewSearchInputFocused then " bg-icon-search-hover" else " bg-icon-search"
         selectedSearch = state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch)
         addrHiddenClazz = if selectedSearch == SearchTime  then " hide " else ""
         epochHiddenClazz = if selectedSearch /= SearchTime  then " hide " else ""
@@ -129,7 +120,7 @@ searchInputView state =
           then searchItemViews lang' selectedSearch
           else emptyView
         , P.div
-            [ P.className $ "explorer-search__btn" <> searchIconClazz <> focusedClazz
+            [ P.className $ "explorer-search__btn bg-icon-search" <> focusedClazz
             , P.onClick <<< const $ if selectedSearch == SearchTime
                                     then GlobalSearchTime
                                     else GlobalSearch

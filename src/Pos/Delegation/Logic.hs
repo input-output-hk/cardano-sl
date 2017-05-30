@@ -87,7 +87,7 @@ import           Pos.Exception              (cardanoExceptionFromException,
 import           Pos.Lrc.Context            (LrcContext)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Types                  (ProxySKHeavy, ProxySKLight, ProxySigLight)
-import           Pos.Util                   (leftToPanic, _neHead, _neLast)
+import           Pos.Util                   (getKeys, leftToPanic, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Concurrent.RWLock as RWL
 import qualified Pos.Util.Concurrent.RWVar  as RWV
@@ -286,19 +286,18 @@ calculateTransCorrections eActions = do
     -}
     transChangeset :: m TransChangeset
     transChangeset = do
-        let keysMap = HS.fromMap . HM.map (const ())
         let xPoints :: [PublicKey]
             xPoints = map GS.dlgEdgeActionIssuer $ HS.toList eActions
 
         -- Step 1.
         affected <- mconcat <$> mapM calculateLocalAf xPoints
-        let af = keysMap affected
+        let af = getKeys affected
 
         -- Step 2.
         dlgNew <- execStateT (for_ af calculateDlgNew) HM.empty
         -- Let's check that sizes of af and dlgNew match (they should).
         -- We'll need it to merge in (3).
-        let notResolved = let dlgKeys = keysMap dlgNew
+        let notResolved = let dlgKeys = getKeys dlgNew
                           in filter (\k -> not $ HS.member k dlgKeys) $ HS.toList af
         unless (null notResolved) $ throwM $ DBMalformed $
             sformat ("transChangeset: dlgNew keys doesn't resolve some from af: "%listJson)

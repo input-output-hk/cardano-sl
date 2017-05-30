@@ -22,6 +22,7 @@ module Pos.Core.Constants
        , isDevelopment
        , protocolMagic
        , staticSysStart
+       , memPoolLimitRatio
        -- * Genesis constants
        , genesisN
        ) where
@@ -71,6 +72,9 @@ data CoreConstants = CoreConstants
       ccProductionNetworkStartTime :: !Int
     , -- | Number of pre-generated keys
       ccGenesisN                   :: !Int
+      -- | Size of mem pool will be limited by this value muliplied by block
+      -- size limit.
+    , ccMemPoolLimitRatio          :: !Word
     }
     deriving (Show, Generic)
 
@@ -127,3 +131,12 @@ protocolMagic = fromIntegral . ccProtocolMagic $ coreConstants
 -- | Number of pre-generated keys
 genesisN :: Integral i => i
 genesisN = fromIntegral . ccGenesisN $ coreConstants
+
+----------------------------------------------------------------------------
+-- Hardware/system
+----------------------------------------------------------------------------
+
+-- | Size of mem pool will be limited by this value muliplied by block
+-- size limit.
+memPoolLimitRatio :: Integral i => i
+memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ coreConstants

@@ -34,6 +34,7 @@ import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, psk
 import           Pos.DB.Class                (MonadDBCore)
 import           Pos.DB.GState               (getDlgTransPsk, getPskByIssuer)
 import           Pos.DB.Misc                 (getProxySecretKeys)
+import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
@@ -112,7 +113,11 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
         proxyCerts <- getProxySecretKeys -- TODO rename it with "light" suffix
         let validCerts =
                 filter (\pSk -> let (w0,w1) = pskOmega pSk
-                                in siEpoch >= w0 && siEpoch <= w1) proxyCerts
+                                in and [ siEpoch >= w0
+                                       , siEpoch <= w1
+                                       , not $ isRevokePsk pSk
+                                       ])
+                       proxyCerts
             -- cert we can use to _issue_ instead of real slot leader
             validLightCert = find (\psk -> addressHash (pskIssuerPk psk) == leader &&
                                            pskDelegatePk psk == ourPk)

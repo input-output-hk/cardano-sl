@@ -78,7 +78,8 @@ import           Node                        (ConversationActions (..), Listener
                                               ListenerAction (..), Message (..),
                                               NodeAction (..), NodeId, SendActions (..),
                                               Worker, node, nodeId, defaultNodeEnvironment,
-                                              simpleNodeEndPoint, noReceiveDelay)
+                                              simpleNodeEndPoint, Conversation (..),
+                                              noReceiveDelay)
 import           Node.Message                (BinaryP (..))
 
 -- | Run a computation, but kill it if it takes more than a given number of
@@ -209,13 +210,10 @@ awaitSTM time predicate = do
 
 -- | Way to send pack of messages
 data TalkStyle
-    = SingleMessageStyle
-    -- ^ corresponds to `sendTo` and `ListenerActionOneMsg` usage
-    | ConversationStyle
+    = ConversationStyle
     -- ^ corresponds to `withConnectionTo` and `ListenerActionConversation` usage
 
 instance Show TalkStyle where
-    show SingleMessageStyle = "single-message style"
     show ConversationStyle  = "conversation style"
 
 sendAll
@@ -232,17 +230,14 @@ sendAll
     -> NodeId
     -> [msg]
     -> m ()
-sendAll SingleMessageStyle sendActions peerId msgs =
-    --void $ forConcurrently msgs $ sendTo sendActions peerId
-    timeout "sendAll" 30000000 $ forM_ msgs $ sendTo sendActions peerId
-
 sendAll ConversationStyle sendActions peerId msgs =
     timeout "sendAll" 30000000 $
-        void . withConnectionTo sendActions @_ @Bool peerId $ \peerData cactions -> forM_ msgs $
-        \msg -> do
-            send cactions msg
-            _ <- recv cactions
-            pure ()
+        void . withConnectionTo sendActions peerId $ \peerData ->
+            Conversation $ \cactions -> forM_ msgs $
+                \msg -> do
+                    send cactions msg
+                    (_ :: Maybe Bool) <- recv cactions
+                    pure ()
 
 receiveAll
     :: ( Binary msg, Message msg, MonadIO m
@@ -255,8 +250,6 @@ receiveAll
     => TalkStyle
     -> (msg -> m ())
     -> ListenerAction BinaryP () m
-receiveAll SingleMessageStyle handler =
-    ListenerActionOneMsg $ \_ _ _ -> timeout "receiveAll" 30000000 . handler
 -- For conversation style, we send a response for every message received.
 -- The sender awaits a response for each message. This ensures that the
 -- sender doesn't finish before the conversation SYN/ACK completes.
@@ -310,7 +303,7 @@ deliveryTest transport_ testState workers listeners = runProduction $ do
     serverFinished <- newSharedExclusive
 
     let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) prng1 BinaryP () defaultNodeEnvironment $ \serverNode -> do
-            NodeAction listeners $ \_ -> do
+            NodeAction (const listeners) $ \_ -> do
                 -- Give our address to the client.
                 putSharedExclusive serverAddressVar (nodeId serverNode)
                 -- Don't stop until the client has finished.
@@ -321,7 +314,7 @@ deliveryTest transport_ testState workers listeners = runProduction $ do
                 putSharedExclusive serverFinished ()
 
     let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) prng2 BinaryP () defaultNodeEnvironment $ \clientNode ->
-            NodeAction [] $ \sendActions -> do
+            NodeAction (const []) $ \sendActions -> do
                 serverAddress <- takeSharedExclusive serverAddressVar
                 void . forConcurrently workers $ \worker ->
                     worker serverAddress sendActions

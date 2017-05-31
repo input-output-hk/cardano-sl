@@ -84,17 +84,16 @@ spec = describe "Node" $ do
                                 return ()
 
                 let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) serverGen BinaryP ("server" :: String, 42 :: Int) defaultNodeEnvironment $ \_node ->
-                        NodeAction [listener] $ \sendActions -> do
+                        NodeAction (const [listener]) $ \sendActions -> do
                             putSharedExclusive serverAddressVar (nodeId _node)
                             takeSharedExclusive clientFinished
                             putSharedExclusive serverFinished ()
 
                 let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) clientGen BinaryP ("client" :: String, 24 :: Int) defaultNodeEnvironment $ \_node ->
-                        NodeAction [listener] $ \sendActions -> do
+                        NodeAction (const [listener]) $ \sendActions -> do
                             serverAddress <- readSharedExclusive serverAddressVar
-                            forM_ [1..attempts] $ \i -> withConnectionTo sendActions serverAddress $ \peerData cactions -> do
-                                pd <- timeout "client waiting for peer data" 30000000 peerData
-                                True <- return $ pd == ("server", 42)
+                            forM_ [1..attempts] $ \i -> withConnectionTo sendActions serverAddress $ \peerData -> Conversation $ \cactions -> do
+                                True <- return $ peerData == ("server", 42)
                                 _ <- timeout "client sending" 30000000 (send cactions (Parcel i (Payload 32)))
                                 response <- timeout "client waiting for response" 30000000 (recv cactions)
                                 case response of
@@ -130,10 +129,9 @@ spec = describe "Node" $ do
                                 return ()
 
                 node (simpleNodeEndPoint transport) (const noReceiveDelay) gen BinaryP ("some string" :: String, 42 :: Int) defaultNodeEnvironment $ \_node ->
-                    NodeAction [listener] $ \sendActions -> do
-                        forM_ [1..attempts] $ \i -> withConnectionTo sendActions (nodeId _node) $ \peerData cactions -> do
-                            pd <- timeout "client waiting for peer data" 30000000 peerData
-                            True <- return $ pd == ("some string", 42)
+                    NodeAction (const [listener]) $ \sendActions -> do
+                        forM_ [1..attempts] $ \i -> withConnectionTo sendActions (nodeId _node) $ \peerData -> Conversation $ \cactions -> do
+                            True <- return $ peerData == ("some string", 42)
                             _ <- send cactions (Parcel i (Payload 32))
                             response <- recv cactions
                             case response of
@@ -165,9 +163,9 @@ spec = describe "Node" $ do
                             --liftIO . putStrLn $ "Thread killed successfully!"
                             return ()
                     node (simpleNodeEndPoint transport) (const noReceiveDelay) gen BinaryP () env $ \_node ->
-                        NodeAction [] $ \sendActions -> do
+                        NodeAction (const []) $ \sendActions -> do
                             timeout "client waiting for ACK" 5000000 $
-                                flip catch handleThreadKilled $ withConnectionTo sendActions peerAddr $ \peerData cactions -> do
+                                flip catch handleThreadKilled $ withConnectionTo sendActions peerAddr $ \peerData -> Conversation $ \cactions -> do
                                     _ :: Maybe Parcel <- recv cactions
                                     send cactions (Parcel 0 (Payload 32))
                                     return ()
@@ -178,7 +176,7 @@ spec = describe "Node" $ do
 
             -- one sender, one receiver
             describe "delivery" $ do
-                for_ [SingleMessageStyle, ConversationStyle] $ \talkStyle ->
+                for_ [ConversationStyle] $ \talkStyle ->
                     describe (show talkStyle) $ do
                         prop "plain" $
                             plainDeliveryTest transport_ talkStyle

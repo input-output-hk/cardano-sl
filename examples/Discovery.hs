@@ -61,15 +61,15 @@ worker anId generator discovery = pingWorker generator
             peerSet <- knownPeers discovery
             liftIO . putStrLn $ show anId ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) $
-                \_peerData (cactions :: ConversationActions Void Pong Production) -> do
+                \_peerData -> Conversation $ \(cactions :: ConversationActions Void Pong Production) -> do
                     received <- recv cactions
                     case received of
                         Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show addr
                         Nothing -> error "Unexpected end of input"
             loop gen'
 
-listeners :: NodeId -> [Listener Packing BS.ByteString Production]
-listeners anId = [pongListener]
+listeners :: NodeId -> BS.ByteString -> [Listener Packing BS.ByteString Production]
+listeners anId = const [pongListener]
     where
     pongListener :: ListenerAction Packing BS.ByteString Production
     pongListener = ListenerActionConversation $ \peerData peerId (cactions :: ConversationActions Pong Void Production) -> do

@@ -1,5 +1,4 @@
-{-# LANGUAGE IncoherentInstances #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Signing done with public/private keys.
 module Pos.Crypto.Signing
@@ -50,7 +49,7 @@ import           Data.Hashable          (Hashable)
 import qualified Data.Text.Buildable    as B
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting             (Format, bprint, build, fitLeft, later, sformat,
-                                         shown, (%), (%.))
+                                         (%), (%.))
 import           Prelude                (show)
 import qualified Serokell.Util.Base16   as B16
 import qualified Serokell.Util.Base64   as Base64 (decode, formatBase64)

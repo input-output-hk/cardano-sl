@@ -69,32 +69,28 @@ import           Pos.Util.Iterator      (nextItem)
 -- Getters/direct accessors
 ----------------------------------------------------------------------------
 
--- Commonly used function.
-toStakeholderId :: Either PublicKey StakeholderId -> StakeholderId
-toStakeholderId = either addressHash identity
-
 -- | Retrieves certificate by issuer public key or his
 -- address/stakeholder id, if present.
 getPskByIssuer
     :: MonadDBPure m
     => Either PublicKey StakeholderId -> m (Maybe ProxySKHeavy)
-getPskByIssuer (toStakeholderId -> issuer) = gsGetBi (pskKey issuer)
+getPskByIssuer (either addressHash identity -> issuer) = gsGetBi (pskKey issuer)
 
 -- | Given an issuer, retrieves all certificate chains starting in
 -- issuer. This function performs a series of consequental db reads so
 -- it must be used under the shared lock.
 getPskChain
     :: MonadDBPure m
-    => Either PublicKey StakeholderId -> m DlgMemPool
+    => StakeholderId -> m DlgMemPool
 getPskChain = getPskChainInternal HS.empty
 
--- See doc for 'getPskTree'. This function also stops traversal if
+-- See doc for 'getPskChain'. This function also stops traversal if
 -- encounters anyone in 'toIgnore' set. This may be used to call it
 -- several times to collect a whole tree/forest, for example.
 getPskChainInternal
     :: MonadDBPure m
-    => HashSet StakeholderId -> Either PublicKey StakeholderId -> m DlgMemPool
-getPskChainInternal toIgnore (toStakeholderId -> issuer) =
+    => HashSet StakeholderId -> StakeholderId -> m DlgMemPool
+getPskChainInternal toIgnore issuer =
     -- State is tuple of returning mempool and "used flags" set.
     view _1 <$> execStateT (trav issuer) (HM.empty, HS.empty)
   where
@@ -116,27 +112,26 @@ isIssuerByAddressHash = fmap isJust . getPskByIssuer . Right
 
 -- | Given issuer @i@ returns @d@ such that there exists @x1..xn@ with
 -- @i->x1->...->xn->d@.
-getDlgTransitive :: MonadDBPure m => Either PublicKey StakeholderId -> m (Maybe PublicKey)
-getDlgTransitive (toStakeholderId -> issuer) = gsGetBi (transDlgKey issuer)
+getDlgTransitive :: MonadDBPure m => StakeholderId -> m (Maybe PublicKey)
+getDlgTransitive issuer = gsGetBi (transDlgKey issuer)
 
 -- | Retrieves last PSK in chain of delegation started by public key
 -- and resolves the passed issuer to a public key. Doesn't check that
 -- user himself didn't delegate.
 getDlgTransPsk
     :: MonadDBPure m
-    => Either PublicKey StakeholderId -> m (Maybe (PublicKey, ProxySKHeavy))
+    => StakeholderId -> m (Maybe (PublicKey, ProxySKHeavy))
 getDlgTransPsk issuer = getDlgTransitive issuer >>= \case
     Nothing -> pure Nothing
     Just dPk -> do
         chain <- HM.elems <$> getPskChain issuer
         let finalPsk = find (\psk -> pskDelegatePk psk == dPk) chain
-        let issuer' = toStakeholderId issuer
         let iPk = pskIssuerPk <$>
-                  find (\psk -> addressHash (pskIssuerPk psk) == issuer') chain
+                  find (\psk -> addressHash (pskIssuerPk psk) == issuer) chain
         let throwEmpty = throwM $ DBMalformed $
                 sformat ("getDlgTransPk: couldn't find psk with dlgPk "%build%
                          " and issuer "%build)
-                        dPk issuer'
+                        dPk issuer
         maybe throwEmpty (pure . Just) $ (,) <$> iPk <*> finalPsk
 
 -- | Reverse map of transitive delegation. Given a delegate @d@
@@ -157,7 +152,7 @@ data DlgEdgeAction
 
 instance Hashable DlgEdgeAction
 
--- | Converts mempool to set of database actions.
+-- | Converts heavy psk to the psk mapping action.
 pskToDlgEdgeAction :: ProxySKHeavy -> DlgEdgeAction
 pskToDlgEdgeAction psk
     | isRevokePsk psk = DlgEdgeDel (pskIssuerPk psk)

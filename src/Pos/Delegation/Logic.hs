@@ -43,7 +43,7 @@ import           Control.Monad.Except       (runExceptT, throwError)
 import qualified Data.Cache.LRU             as LRU
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
-import           Data.List                  (intersect, (\\))
+import           Data.List                  ((\\))
 import qualified Data.Text.Buildable        as B
 import           Data.Time.Clock            (UTCTime, addUTCTime, getCurrentTime)
 import qualified Ether
@@ -81,7 +81,8 @@ import           Pos.Delegation.Class       (DelegationWrap (..), DlgMemPool,
                                              dwThisEpochPosted)
 import           Pos.Delegation.Helpers     (detectCycleOnAddition, dlgReachesIssuance,
                                              isRevokePsk)
-import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), mkDlgPayload)
+import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), DlgUndo,
+                                             mkDlgPayload)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
 import           Pos.Lrc.Context            (LrcContext)
@@ -209,19 +210,17 @@ calculateTransCorrections eActions = do
     -- Bulid reverse transitive set and convert it to reverseTransOps
     let reverseTrans = buildReverseTrans changeset
 
-    reverseOps <- forM (HM.toList reverseTrans) $ \(k, (ad0, dl0)) -> do
-        let ad = HS.toList ad0 -- view patterns are for the weak ones
-            dl = HS.toList dl0
-        prev <- HS.toList <$> GS.getDlgTransitiveReverse k
-        unless (null $ ad `intersect` dl) $ throwM $ DBMalformed $
+    reverseOps <- forM (HM.toList reverseTrans) $ \(k, (ad, dl)) -> do
+        prev <- GS.getDlgTransitiveReverse k
+        unless (HS.null $ ad `HS.intersection` dl) $ throwM $ DBMalformed $
             sformat ("Couldn't build reverseOps: ad `intersect` dl is nonzero. "%
                      "ad: "%listJson%", dl: "%listJson)
                     ad dl
-        unless (all (`elem` prev) dl) $ throwM $ DBMalformed $
+        unless (all (`HS.member` prev) dl) $ throwM $ DBMalformed $
             sformat ("Couldn't build reverseOps: revtrans has "%listJson%", while "%
                      "trans says we should delete "%listJson)
                     prev dl
-        pure $ GS.SetTransitiveDlgRev k $ HS.fromList $ (prev \\ dl) ++ ad
+        pure $ GS.SetTransitiveDlgRev k $ (prev `HS.difference` dl) `HS.union` ad
 
     pure $ SomeBatchOp $ transOps <> reverseOps
   where
@@ -328,23 +327,18 @@ calculateTransCorrections eActions = do
     calculateLocalAf :: PublicKey -> m (HashMap PublicKey (Maybe PublicKey))
     calculateLocalAf iPk = (HS.toList <$> GS.getDlgTransitiveReverse iPk) >>= \case
         -- We are intermediate/start of the chain, not the delegate.
-        [] -> GS.getDlgTransitive (Left iPk) >>= \case
+        [] -> GS.getDlgTransitive (addressHash iPk) >>= \case
             Nothing -> pure $ HM.singleton iPk Nothing
             Just dPk -> do
                 -- All i | i →→ d in the G. We should leave only those who
                 -- are equal or lower than iPk in the delegation chain.
-                revIssuers <- HS.toList <$> GS.getDlgTransitiveReverse dPk
+                revIssuers <- GS.getDlgTransitiveReverse dPk
                 -- For these we'll find everyone who's upper (closer to
                 -- root/delegate) and take a diff. If iPk = dPk, then it will
                 -- return [].
-                chain <- HM.keys <$> GS.getPskChain (Left iPk)
-                let ret = iPk : (revIssuers \\ chain)
-                let retHm = HM.fromList $ map (,Just dPk) ret
-                -- Just a sanity check. If you're optimizing, delete it.
-                when (HM.size retHm /= length ret) $ throwM $ DBMalformed $
-                    sformat ("calculateLocalAf for iPk "%build%" and his dPk "%build%
-                             " has duplicates: "%listJson)
-                            iPk dPk ret
+                chain <- getKeys <$> GS.getPskChain (addressHash iPk)
+                let ret = HS.insert iPk (revIssuers `HS.difference` chain)
+                let retHm = HM.map (const $ Just dPk) $ HS.toMap ret
                 pure retHm
         -- We are delegate.
         xs -> pure $ HM.fromList $ (iPk,Nothing):(map (,Just iPk) xs)
@@ -404,7 +398,7 @@ calculateTransCorrections eActions = do
 -- | Retrieves current mempool of heavyweight psks plus undo part.
 getDlgMempool
     :: (MonadIO m, MonadDBPure m, MonadDelegation m, MonadMask m)
-    => m (DlgPayload, [ProxySKHeavy])
+    => m (DlgPayload, DlgUndo)
 getDlgMempool = do
     sks <- runDelegationStateAction $
         uses dwProxySKPool HM.elems

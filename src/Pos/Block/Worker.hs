@@ -123,7 +123,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
 
         ourHeavyPsk <- getPskByIssuer (Left ourPk)
         let heavyWeAreIssuer = isJust ourHeavyPsk
-        dlgTransM <- getDlgTransPsk (Right leader)
+        dlgTransM <- getDlgTransPsk leader
         let finalHeavyPsk = snd <$> dlgTransM
         logDebug $ "End delegation psk for this slot: " <> maybe "none" pretty finalHeavyPsk
         let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) finalHeavyPsk

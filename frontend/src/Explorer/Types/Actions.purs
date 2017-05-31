@@ -26,7 +26,7 @@ data Action
     | GenerateQrCode CAddress
     -- socket endpoints
     | SocketConnected Boolean
-    | SocketBlocksUpdated (Either Error (Tuple Int CBlockEntries))
+    | SocketBlocksPageUpdated (Either Error (Tuple Int CBlockEntries))
     | SocketTxsUpdated (Either Error CTxEntries)
     | SocketAddSubscription SocketSubscriptionItem
     | SocketRemoveSubscription SocketSubscriptionItem

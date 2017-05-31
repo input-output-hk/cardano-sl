@@ -7,7 +7,7 @@ import Control.SocketIO.Client (SocketIO, connect, on)
 import DOM (DOM)
 import Data.Lens ((^.), set)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Explorer.Api.Socket (blocksUpdatedEventHandler, callYouEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
+import Explorer.Api.Socket (blocksPageUpdatedEventHandler, callYouEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
 import Explorer.I18n.Lang (Language(..), detectLocale)
 import Explorer.Lenses.State (connection, lang, socket, syncAction)
 import Explorer.Routes (match)
@@ -42,7 +42,7 @@ socketConfig appConfig = do
     on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
     on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
     on socket' (Ex.toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel
-    on socket' (Ex.toEvent BlocksOffUpdated) $ Ex.blocksUpdatedEventHandler actionChannel
+    on socket' (Ex.toEvent BlocksLastPageUpdated) $ Ex.blocksPageUpdatedEventHandler actionChannel
     -- Note:
     -- `CallYou` is the answer of `CallMe`.
     -- Handling both events are needed a to be connected with socket.io manually

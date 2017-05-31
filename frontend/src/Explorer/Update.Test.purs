@@ -37,7 +37,7 @@ testUpdate =
                     result = state ^. lang
                 in result `shouldEqual` German
 
-        describe "uses action SocketBlocksUpdated" do
+        describe "uses action SocketBlocksPageUpdated" do
             -- Mock blocks with epoch, slots and hashes
             let totalPages = 70
                 blockA = setEpochSlotOfBlock 0 1 $ setHashOfBlock (mkCHash "A") mkCBlockEntry
@@ -56,7 +56,7 @@ testUpdate =
                     , blockC
                     , blockD
                     ]
-                effModel = update (SocketBlocksUpdated (Right (Tuple totalPages newBlocks))) initialState'
+                effModel = update (SocketBlocksPageUpdated (Right (Tuple totalPages newBlocks))) initialState'
                 state = _.state effModel
             it "to update latestBlocks w/o duplicates"
                 let result = withDefault [] $ state ^. latestBlocks

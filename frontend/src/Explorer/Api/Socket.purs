@@ -71,12 +71,11 @@ closeHandler :: forall eff. ActionChannel -> Foreign
 closeHandler channel _ =
     send channel $ SocketConnected false
 
-blocksUpdatedEventHandler :: forall eff. ActionChannel -> Json
+blocksPageUpdatedEventHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
-blocksUpdatedEventHandler channel json =
+blocksPageUpdatedEventHandler channel json =
     let result = decodeResult' json in
-    send channel $ SocketBlocksUpdated result
-
+    send channel $ SocketBlocksPageUpdated result
 
 txsUpdatedHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit

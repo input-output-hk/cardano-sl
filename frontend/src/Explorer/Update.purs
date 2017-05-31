@@ -79,12 +79,12 @@ update SocketPing state =
           pure NoOp
     ]}
 
-update (SocketBlocksUpdated (Right (Tuple totalPages blocks))) state =
+update (SocketBlocksPageUpdated (Right (Tuple totalPages blocks))) state =
     noEffects $
     set latestBlocks (Success blocks) $
     set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages) state
 
-update (SocketBlocksUpdated (Left error)) state = noEffects $
+update (SocketBlocksPageUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $
     -- Important note:
     -- Don't set `latestBlocks` to (Failure error) here
@@ -198,18 +198,8 @@ update (DashboardPaginateBlocks pageNumber) state =
           set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber state
     , effects:
           [ pure $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
-            -- ^ get number of total blocks first before we do a request to get data of blocks
           ]
-          <> (  if (syncBySocket $ state ^. syncAction)
-                -- Unsubscribe previous subscription if available
-                then fromMaybe [] $ snoc [] <<< pure <<< SocketRemoveSubscription <$> mSubItem
-                else [])
     }
-    where
-        -- _Note:_ We do know that we have just one subscription of `SubBlockOff` at time,
-        -- so we can try to grab it
-        subItems = state ^. (socket <<< subscriptions)
-        mSubItem = head $ filter ((==) (SocketSubscription SubBlockOff) <<< _.socketSub <<< unwrap) subItems
 
 update (DashboardEditBlocksPageNumber target editable) state =
     { state:
@@ -456,8 +446,7 @@ update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
     }
     where
         newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination <<< _PageNumber)
-        offset = (newPage - minPagination) * maxBlockRows
-        subItem = mkSocketSubscriptionItem (SocketSubscription SubBlockOff) (SocketOffsetData $ SocketOffset offset)
+        subItem = mkSocketSubscriptionItem (SocketSubscription SubBlockLastPage) SocketNoData
 
 update (ReceivePaginatedBlocks (Left error)) state =
     noEffects $

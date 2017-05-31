@@ -491,7 +491,7 @@ processProxySKHeavy psk = do
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
         alreadyPosted <- uses dwThisEpochPosted $ HS.member iPk
         epochMatches <- (headEpoch ==) <$> use dwEpochId
-        hasPskInDB <- fmap isJust $ GS.getPskByIssuer (Left $ pskIssuerPk psk)
+        hasPskInDB <- isJust <$> GS.getPskByIssuer (Left $ pskIssuerPk psk)
         let rerevoke = isRevokePsk psk && hasPskInDB
         producesCycle <- use dwProxySKPool >>= \pool ->
             let eActions = map GS.pskToDlgEdgeAction pool
@@ -596,9 +596,14 @@ delegationVerifyBlocks blocks = do
         -- related to slot leader.
         case h ^. gbhConsensus ^. mcdSignature of
             (BlockPSignatureHeavy pSig) -> do
-                let delegate = pskDelegatePk $ pdPsk pSig
+                let psk = pdPsk pSig
+                let delegate = pskDelegatePk psk
                 canIssue <-
                     dlgReachesIssuance withMapResolve issuer delegate (pdPsk pSig)
+                when (delegate == pskIssuerPk psk) $ throwError $
+                    sformat ("using revoke heavy proxy signatures to sign block "%
+                             "is forbidden: "%build)
+                            psk
                 unless canIssue $ throwError $
                     sformat ("heavy proxy signature's "%build%" "%
                              "related proxy cert can't be found/doesn't "%

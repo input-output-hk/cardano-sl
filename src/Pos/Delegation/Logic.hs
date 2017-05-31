@@ -605,11 +605,16 @@ delegationVerifyBlocks blocks = do
                              "match the one in current allowed heavy psks set")
                             pSig
             (BlockPSignatureLight pSig) -> do
-                let pskIPk = pskIssuerPk $ pdPsk pSig
+                let psk = pdPsk pSig
+                let pskIPk = pskIssuerPk psk
                 unless (pskIPk == issuer) $ throwError $
                     sformat ("light proxy signature's "%build%" issuer "%
                              build%" doesn't match block slot leader "%build)
                             pSig pskIPk issuer
+                unless (pskIPk == pskDelegatePk psk) $ throwError $
+                    sformat ("using revoke light proxy signatures to sign block "%
+                             "is forbidden: "%build)
+                            psk
             _ -> pass
 
         ------------- [Payload] -------------

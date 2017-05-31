@@ -30,7 +30,7 @@ module Daedalus.Types
 
 import Prelude
 
-import Pos.Wallet.Web.ClientTypes (CId (..), CHash (..), CPassPhrase (..), CCoin (..), WS (..), CAccountId (..), CWalletMeta (..))
+import Pos.Wallet.Web.ClientTypes (CId (..), CHash (..), CPassPhrase (..), CCoin (..), Wal (..), CAccountId (..), CWalletMeta (..))
 
 import Pos.Wallet.Web.ClientTypes as CT
 import Pos.Core.Types as C
@@ -135,7 +135,7 @@ mkCInitialized total preInit =
                     , cPreInit: fromInt preInit
                     }
 
-mkCAccountInit :: String -> CId WS -> CT.CAccountInit
+mkCAccountInit :: String -> CId Wal -> CT.CAccountInit
 mkCAccountInit wName wSetId =
     CT.CAccountInit { cwInitWId: wSetId
                    , caInitMeta: mkCAccountMeta wName

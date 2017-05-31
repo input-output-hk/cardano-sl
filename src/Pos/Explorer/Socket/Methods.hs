@@ -99,6 +99,7 @@ instance EventName ClientEvent where
 data ServerEvent
     = AddrUpdated
     | BlocksUpdated
+    | BlocksLastPageUpdated
     | BlocksOffUpdated
     | TxsUpdated
     -- TODO: test events, remove one day
@@ -341,7 +342,7 @@ notifyBlocksLastPageSubscribers
 notifyBlocksLastPageSubscribers = do
     recipients <- view csBlocksSubscribers
     blocks     <- getBlocksLastPage
-    broadcast BlocksUpdated blocks recipients
+    broadcast BlocksLastPageUpdated blocks recipients
 
 notifyBlocksSubscribers
     :: (NotificationMode m, SscHelpersClass ssc)

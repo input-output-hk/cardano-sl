@@ -86,35 +86,35 @@ instance ToSchema      W.CTx
 instance ToSchema      W.CTxMeta
 instance ToSchema      W.CHash
 instance ToParamSchema W.CHash
-instance ToSchema      (W.CAddress W.WS)
-instance ToSchema      (W.CAddress W.Acc)
-instance ToParamSchema (W.CAddress W.WS)
-instance ToParamSchema (W.CAddress W.Acc)
+instance ToSchema      (W.CId W.WS)
+instance ToSchema      (W.CId W.Addr)
+instance ToParamSchema (W.CId W.WS)
+instance ToParamSchema (W.CId W.Addr)
 instance ToSchema      W.CProfile
 instance ToSchema      W.WalletError
 
 -- TODO: currently not used
-instance ToSchema      W.CAccountAddress
-instance ToParamSchema W.CAccountAddress where
+instance ToSchema      W.CWAddressMeta
+instance ToParamSchema W.CWAddressMeta where
     toParamSchema _ = mempty
         & type_ .~ SwaggerString
         & format ?~ "walletSetAddress@walletIndex@accountIndex@address"
 
-instance ToSchema      W.CWalletAddress
-instance ToParamSchema W.CWalletAddress where
+instance ToSchema      W.CAccountId
+instance ToParamSchema W.CAccountId where
     toParamSchema _ = mempty
         & type_ .~ SwaggerString
         & format ?~ "walletSetAddress@walletKeyIndex"
 
-instance ToSchema      W.CWalletSetAssurance
+instance ToSchema      W.CWalletAssurance
+instance ToSchema      W.CAccountMeta
 instance ToSchema      W.CWalletMeta
-instance ToSchema      W.CWalletSetMeta
+instance ToSchema      W.CAccountInit
 instance ToSchema      W.CWalletInit
-instance ToSchema      W.CWalletSetInit
 instance ToSchema      W.CWalletRedeem
-instance ToSchema      W.CWalletSet
 instance ToSchema      W.CWallet
 instance ToSchema      W.CAccount
+instance ToSchema      W.CAddress
 instance ToSchema      W.CPaperVendWalletRedeem
 instance ToSchema      W.CCoin
 instance ToSchema      W.CInitialized

@@ -8,10 +8,10 @@ module Daedalus.Types
        , _ccoin
        , _passPhrase
        , mkCCoin
-       , mkCAddress
-       , mkCWalletMeta
-       , mkCWalletInit
-       , mkCWalletAddress
+       , mkCId
+       , mkCAccountMeta
+       , mkCAccountInit
+       , mkCAccountId
        , mkCTxMeta
        , mkCTxId
        , mkCProfile
@@ -24,13 +24,13 @@ module Daedalus.Types
        , emptyCPassPhrase
        , getProfileLocale
        , walletAddressToUrl
-       , mkCWalletSetInit
-       , mkCWalletSetAssurance
+       , mkCWalletInit
+       , mkCWalletAssurance
        ) where
 
 import Prelude
 
-import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..), CPassPhrase (..), CCoin (..), WS (..), CWalletAddress (..), CWalletSetMeta (..))
+import Pos.Wallet.Web.ClientTypes (CId (..), CHash (..), CPassPhrase (..), CCoin (..), WS (..), CAccountId (..), CWalletMeta (..))
 
 import Pos.Wallet.Web.ClientTypes as CT
 import Pos.Core.Types as C
@@ -89,14 +89,14 @@ mkBackupPhraseIgnoreChecksum len mnemonic =
 
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses
-walletAddressToUrl :: CWalletAddress -> String
-walletAddressToUrl (CWalletAddress r) = r
+walletAddressToUrl :: CAccountId -> String
+walletAddressToUrl (CAccountId r) = r
 
 _hash :: CHash -> String
 _hash (CHash h) = h
 
-_address :: forall a. CAddress a -> String
-_address (CAddress a) = _hash a
+_address :: forall a. CId a -> String
+_address (CId a) = _hash a
 
 _passPhrase :: CPassPhrase -> String
 _passPhrase (CPassPhrase p) = p
@@ -108,8 +108,8 @@ mkCPassPhrase :: String -> Maybe CPassPhrase
 mkCPassPhrase "" = Nothing
 mkCPassPhrase pass = Just <<< CPassPhrase <<< bytesToB16 $ blake2b pass
 
-mkCAddress :: forall a. String -> CAddress a
-mkCAddress = CAddress <<< CHash
+mkCId :: forall a. String -> CId a
+mkCId = CId <<< CHash
 
 _ccoin :: CCoin -> String
 _ccoin (CCoin c) = c.getCCoin
@@ -118,16 +118,16 @@ mkCCoin :: String -> CCoin
 mkCCoin amount = CCoin { getCCoin: amount }
 
 -- NOTE: use genericRead maybe https://github.com/paluh/purescript-generic-read-example
-mkCWSetAssurance :: String -> CT.CWalletSetAssurance
+mkCWSetAssurance :: String -> CT.CWalletAssurance
 mkCWSetAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
 
-mkCWalletMeta :: String -> CT.CWalletMeta
-mkCWalletMeta wName =
-    CT.CWalletMeta { cwName: wName
+mkCAccountMeta :: String -> CT.CAccountMeta
+mkCAccountMeta wName =
+    CT.CAccountMeta { caName: wName
                    }
 
-mkCWalletAddress :: String -> CT.CWalletAddress
-mkCWalletAddress = CWalletAddress
+mkCAccountId :: String -> CT.CAccountId
+mkCAccountId = CAccountId
 
 mkCInitialized :: Int -> Int -> CT.CInitialized
 mkCInitialized total preInit =
@@ -135,36 +135,36 @@ mkCInitialized total preInit =
                     , cPreInit: fromInt preInit
                     }
 
-mkCWalletInit :: String -> CAddress WS -> CT.CWalletInit
-mkCWalletInit wName wSetId =
-    CT.CWalletInit { cwInitWSetId: wSetId
-                   , cwInitMeta: mkCWalletMeta wName
+mkCAccountInit :: String -> CId WS -> CT.CAccountInit
+mkCAccountInit wName wSetId =
+    CT.CAccountInit { cwInitWId: wSetId
+                   , caInitMeta: mkCAccountMeta wName
                    }
 
-mkCWalletSetAssurance :: String -> CT.CWalletSetAssurance
-mkCWalletSetAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
+mkCWalletAssurance :: String -> CT.CWalletAssurance
+mkCWalletAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
 
-mkCWalletSetInit :: String -> String -> Int -> String -> Either Error CT.CWalletSetInit
-mkCWalletSetInit wSetName wsAssurance wsUnit mnemonic = do
+mkCWalletInit :: String -> String -> Int -> String -> Either Error CT.CWalletInit
+mkCWalletInit wSetName wsAssurance wsUnit mnemonic = do
     bp <- mkBackupPhrase backupMnemonicLen mnemonic
-    pure $ CT.CWalletSetInit { cwsInitMeta:
-                                CWalletSetMeta
-                                    { cwsName: wSetName
-                                    , cwsAssurance: mkCWalletSetAssurance wsAssurance
-                                    , cwsUnit: wsUnit
+    pure $ CT.CWalletInit { cwInitMeta:
+                                CWalletMeta
+                                    { cwName: wSetName
+                                    , cwAssurance: mkCWalletAssurance wsAssurance
+                                    , csUnit: wsUnit
                                     }
-                             , cwsBackupPhrase: bp
+                             , cwBackupPhrase: bp
                              }
 
 
-mkCWalletRedeem :: String -> CWalletAddress -> CT.CWalletRedeem
+mkCWalletRedeem :: String -> CAccountId -> CT.CWalletRedeem
 mkCWalletRedeem seed wAddress = do
     CT.CWalletRedeem { crWalletId: wAddress
                      , crSeed: seed
                      }
 
 -- NOTE: if you will be bumping bip39 to >=2.2.0 be aware of https://issues.serokell.io/issue/VD-95 . In this case you will have to modify how we validate paperVendMnemonics.
-mkCPaperVendWalletRedeem :: String -> String -> CWalletAddress -> Either Error CT.CPaperVendWalletRedeem
+mkCPaperVendWalletRedeem :: String -> String -> CAccountId -> Either Error CT.CPaperVendWalletRedeem
 mkCPaperVendWalletRedeem seed mnemonic wAddress = do
     bp <- mkBackupPhrase paperVendMnemonicLen mnemonic
     pure $ CT.CPaperVendWalletRedeem { pvWalletId: wAddress

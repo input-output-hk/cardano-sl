@@ -52,6 +52,9 @@ post = request $ defaultRequest { method = Left POST }
 fetchTotalBlocks :: forall eff. Aff (ajax::AJAX | eff) Int
 fetchTotalBlocks = get "blocks/total"
 
+fetchBlocksTotalPages :: forall eff. Aff (ajax::AJAX | eff) Int
+fetchBlocksTotalPages = get "blocks/pages/total"
+
 fetchLatestBlocks :: forall eff. RequestLimit -> RequestOffset -> Aff (ajax::AJAX | eff) CBlockEntries
 fetchLatestBlocks (RequestLimit limit) (RequestOffset offset) = get $ "blocks/last/?limit=" <> show limit <> "&offset=" <> show offset
 

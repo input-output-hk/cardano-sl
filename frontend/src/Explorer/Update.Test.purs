@@ -8,11 +8,12 @@ import Data.Either (Either(..))
 import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
+import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime (mkTime)
 import Data.Tuple (Tuple(..))
 import Explorer.Api.Types (SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Lenses.State (_PageNumber, connected, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions)
+import Explorer.Lenses.State (connected, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions)
 import Explorer.State (initialState, mkSocketSubscriptionItem)
 import Explorer.Test.MockFactory (mkCBlockEntry, mkEmptyCTxEntry, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx)
 import Explorer.Types.Actions (Action(..))
@@ -20,7 +21,7 @@ import Explorer.Types.State (PageNumber(..), PageSize(..))
 import Explorer.Update (update)
 import Explorer.Util.Factory (mkCHash, mkCTxId)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
-import Network.RemoteData (RemoteData(..), isNotAsked, withDefault)
+import Network.RemoteData (RemoteData(..), isLoading, isNotAsked, withDefault)
 import Pos.Explorer.Socket.Methods (Subscription(..))
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -66,8 +67,14 @@ testUpdate =
                         ]
                 in (gShow result) `shouldEqual` (gShow expected)
             it "to count total pages"
-                let result = state ^. (dashboardViewState <<< dbViewMaxBlockPagination <<< _PageNumber )
+                let result = unwrap <<< withDefault (PageNumber 0) $ state ^. (dashboardViewState <<< dbViewMaxBlockPagination )
                 in result `shouldEqual` totalPages
+
+        describe "handles RequestPaginatedBlocks action" do
+            let effModel = update DashboardRequestBlocksTotalPages initialState
+                state = _.state effModel
+            it "to set loading state of dbViewMaxBlockPaginations" do
+                (isLoading $ state ^. (dashboardViewState <<< dbViewMaxBlockPagination)) `shouldEqual` true
 
         describe "handles RequestPaginatedBlocks action" do
             let effModel = update (RequestPaginatedBlocks (PageNumber 1) (PageSize 1)) initialState
@@ -76,6 +83,17 @@ testUpdate =
                 (state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)) `shouldEqual` true
             it "to not update state of latestBlocks" do
                 (isNotAsked $ state ^. latestBlocks) `shouldEqual` true
+
+        describe "handles DashboardReceiveBlocksTotalPages action" do
+            let totalPages = 70
+                effModel = update (DashboardReceiveBlocksTotalPages $ Right totalPages) initialState
+                state = _.state effModel
+            it "to update dbViewMaxBlockPagination to number of total pages"
+                let result = unwrap <<< withDefault (PageNumber 0) $ state ^. (dashboardViewState <<< dbViewMaxBlockPagination )
+                in result `shouldEqual` totalPages
+            it "to update dbViewBlockPagination to number of total pages"
+                let result = unwrap $ state ^. (dashboardViewState <<< dbViewBlockPagination )
+                in result `shouldEqual` totalPages
 
         describe "uses action ReceivePaginatedBlocks" do
             -- Mock blocks with epoch, slots and hashes
@@ -107,7 +125,7 @@ testUpdate =
                 let result = withDefault [] $ state ^. latestBlocks
                 in (gShow result) `shouldEqual` (gShow paginatedBlocks)
             it "to update number of total pages"
-                let result = state ^. (dashboardViewState <<< dbViewMaxBlockPagination <<< _PageNumber)
+                let result = unwrap <<< withDefault (PageNumber 0) $ state ^. (dashboardViewState <<< dbViewMaxBlockPagination )
                 in result `shouldEqual` totalPages
             it "to set loading to false" do
                 (state ^. loading) `shouldEqual` false

@@ -6,7 +6,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (cExpand, cOf, cLoading, dashboard, dbLastBlocks, common, dbExploreBlocks, cNoData) as I18nL
-import Explorer.Lenses.State (_PageNumber, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, lang, latestBlocks)
+import Explorer.Lenses.State (dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, lang, latestBlocks)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CBlockEntries, PageNumber(..), State)
@@ -16,7 +16,7 @@ import Explorer.View.Common (paginationView)
 import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
-import Network.RemoteData (RemoteData(..), withDefault)
+import Network.RemoteData (RemoteData(..), isLoading, isNotAsked, withDefault)
 import Pux.Html (Html, div, p, text) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick) as P
@@ -43,6 +43,7 @@ dashBoardBlocksView state =
             }
         lang' = state ^. lang
         hasBlocks = not null $ withDefault [] $ state ^. latestBlocks
+        remoteDataMaxPages = state ^. (dashboardViewState <<< dbViewMaxBlockPagination)
         blocksView =
             P.div
                 []
@@ -54,7 +55,9 @@ dashBoardBlocksView state =
                         $ map (blockRow state) (currentBlocks state)
                     , P.div
                         [ P.className $ CSS.blocksBodyCover
-                        <>  if state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)
+                        <>  if  isNotAsked remoteDataMaxPages ||
+                                isLoading remoteDataMaxPages ||
+                                state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)
                             then " show"
                             else ""
                         ]
@@ -88,14 +91,15 @@ blocksFooterView :: State -> P.Html Action
 blocksFooterView state =
     if expanded then
         paginationView { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                        , currentPage: state ^. (dashboardViewState <<< dbViewBlockPagination)
+                        , currentPage: currentPageNumber
                         , minPage: PageNumber minPagination
-                        , maxPage: state ^. (dashboardViewState <<< dbViewMaxBlockPagination)
+                        , maxPage: withDefault (PageNumber minPagination) remoteDataMaxPages
                         , changePageAction: DashboardPaginateBlocks
                         , editable: state ^. (dashboardViewState <<< dbViewBlockPaginationEditable)
                         , editableAction: DashboardEditBlocksPageNumber
                         , invalidPageAction: DashboardInvalidBlocksPageNumber
-                        , disabled: state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)
+                        , disabled: isNotAsked remoteDataMaxPages || isLoading remoteDataMaxPages ||
+                                    state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)
                         }
     else
         P.div
@@ -104,9 +108,12 @@ blocksFooterView state =
             [ P.text $ translate (I18nL.common <<< I18nL.cExpand) lang']
     where
         lang' = state ^. lang
+        remoteDataMaxPages = state ^. (dashboardViewState <<< dbViewMaxBlockPagination)
         blocks = withDefault [] $ state ^. latestBlocks
         expanded = state ^. (dashboardViewState <<< dbViewBlocksExpanded)
-        expandable = length blocks > minBlockRows
+        currentPageNumber = state ^. (dashboardViewState <<< dbViewBlockPagination)
+        expandable =  (length blocks > minBlockRows) || 
+                      (currentPageNumber > PageNumber minPagination)
         clickHandler _ =
             if expandable
             then DashboardExpandBlocks true

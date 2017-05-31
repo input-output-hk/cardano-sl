@@ -39,7 +39,7 @@ initialState =
             { dbViewBlocksExpanded: false
             , dbViewBlockPagination: PageNumber minPagination
             , dbViewNextBlockPagination: PageNumber minPagination
-            , dbViewMaxBlockPagination: PageNumber minPagination
+            , dbViewMaxBlockPagination: NotAsked
             , dbViewLoadingBlockPagination: false
             , dbViewBlockPaginationEditable: false
             , dbViewTxsExpanded: false

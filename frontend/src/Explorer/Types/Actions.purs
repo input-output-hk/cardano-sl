@@ -5,11 +5,10 @@ import DOM.HTML.Types (HTMLElement, HTMLInputElement)
 import Data.DateTime (DateTime)
 import Data.Either (Either)
 import Data.Maybe (Maybe)
-import Data.Tuple (Tuple(..))
-import Explorer.Api.Types (RequestLimit, RequestOffset)
+import Data.Tuple (Tuple)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber(..), PageSize(..), Search, SocketSubscriptionItem)
+import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Pux.Html.Events (Target)
@@ -63,6 +62,8 @@ data Action
     | GlobalUpdateSearchSlotValue String
     | GlobalFocusSearchInput Boolean
     -- dashboard view
+    | DashboardRequestBlocksTotalPages
+    | DashboardReceiveBlocksTotalPages (Either Error Int)
     | DashboardExpandBlocks Boolean                 -- expand list of blocks
     | DashboardPaginateBlocks PageNumber            -- pagination of blocks
     | DashboardEditBlocksPageNumber Target Boolean  -- toggle editable state of page numbers

@@ -97,7 +97,7 @@ type DashboardViewState =
     { dbViewBlocksExpanded :: Boolean
     , dbViewBlockPagination :: PageNumber
     , dbViewNextBlockPagination :: PageNumber
-    , dbViewMaxBlockPagination :: PageNumber
+    , dbViewMaxBlockPagination :: RemoteData Error PageNumber
     , dbViewLoadingBlockPagination :: Boolean
     , dbViewBlockPaginationEditable :: Boolean
     , dbViewTxsExpanded :: Boolean

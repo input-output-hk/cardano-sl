@@ -19,7 +19,7 @@ import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
-import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
+import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (translate)
@@ -38,7 +38,7 @@ import Explorer.View.Blocks (maxBlockRows)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Explorer.View.Dashboard.Transactions (maxTransactionRows)
 import Network.HTTP.Affjax (AJAX)
-import Network.RemoteData (RemoteData(..), withDefault)
+import Network.RemoteData (RemoteData(..), isNotAsked, isSuccess, withDefault)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects, onlyEffects)
@@ -82,7 +82,7 @@ update SocketPing state =
 update (SocketBlocksUpdated (Right (Tuple totalPages blocks))) state =
     noEffects $
     set latestBlocks (Success blocks) $
-    set (dashboardViewState <<< dbViewMaxBlockPagination) (PageNumber totalPages) state
+    set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages) state
 
 update (SocketBlocksUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $
@@ -406,6 +406,31 @@ update NoOp state = noEffects state
 
 -- http endpoints
 
+update DashboardRequestBlocksTotalPages state =
+    { state:
+          set loading true $
+          set (dashboardViewState <<< dbViewMaxBlockPagination) Loading
+          state
+    , effects: [ attempt fetchBlocksTotalPages >>= pure <<< DashboardReceiveBlocksTotalPages ]
+    }
+
+update (DashboardReceiveBlocksTotalPages (Right totalPages)) state =
+    { state:
+          set loading false $
+          set (dashboardViewState <<< dbViewMaxBlockPagination)
+              (Success $ PageNumber totalPages) $
+          set (dashboardViewState <<< dbViewBlockPagination)
+              (PageNumber totalPages) state
+    , effects:
+        [ pure $ DashboardPaginateBlocks (PageNumber totalPages) ]
+    }
+
+update (DashboardReceiveBlocksTotalPages (Left error)) state =
+    noEffects $
+    set loading false $
+    set (dashboardViewState <<< dbViewMaxBlockPagination) (Failure error) $
+    over errors (\errors' -> (show error) : errors') state
+
 update (RequestPaginatedBlocks pageNumber pageSize) state =
     { state:
           set loading true $
@@ -420,7 +445,7 @@ update (RequestPaginatedBlocks pageNumber pageSize) state =
 update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
     { state:
           set loading false $
-          set (dashboardViewState <<< dbViewMaxBlockPagination) (PageNumber totalPages) $
+          set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages) $
           set (dashboardViewState <<< dbViewBlockPagination) (PageNumber newPage) $
           set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
           set latestBlocks (Success blocks) state
@@ -575,7 +600,7 @@ update UpdateClock state = onlyEffects state $
     ]
 update (SetClock date) state = noEffects $ state { now = date }
 
---- Reload pages
+-- Reload pages
 -- TODO (jk) Remove it if socket-io is back
 update Reload state = update (UpdateView state.route) state
 
@@ -592,10 +617,19 @@ routeEffects Dashboard state =
             state
     , effects:
         [ pure ScrollTop
-        , pure $ DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
+        , if isSuccess maxBlockPage
+          then pure $ DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
+          else
+              -- Note: Request `total pages `only once.
+              -- Check is needed due reloading by http pooling
+              if isNotAsked maxBlockPage
+              then pure DashboardRequestBlocksTotalPages
+              else pure NoOp
         , pure RequestLastTxs
         ]
     }
+    where
+        maxBlockPage = state ^. (dashboardViewState <<< dbViewMaxBlockPagination)
 
 routeEffects (Tx tx) state =
     { state:

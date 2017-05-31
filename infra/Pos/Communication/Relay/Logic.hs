@@ -1,8 +1,8 @@
--- | Framework for Inv\/Req\/Data message handling
-
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
+
+-- | Framework for Inv\/Req\/Data message handling
 
 module Pos.Communication.Relay.Logic
        ( Relay (..)

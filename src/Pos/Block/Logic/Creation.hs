@@ -159,7 +159,7 @@ createMainBlock
     => SlotId
     -> Maybe ProxySKEither
     -> m (Either Text (MainBlock ssc))
-createMainBlock sId pSk =
+createMainBlock sId pske =
     reportingFatal version $ withBlkSemaphore createMainBlockDo
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
@@ -171,7 +171,7 @@ createMainBlock sId pSk =
             (_, False) ->
                 return (Left "this software can't create block", tip)
             (Nothing, True)  -> convertRes tip <$>
-                runExceptT (createMainBlockFinish sId pSk tipHeader)
+                runExceptT (createMainBlockFinish sId pske tipHeader)
             (Just err, True) -> return (Left err, tip)
     convertRes oldTip (Left e) = (Left e, oldTip)
     convertRes _ (Right blk)   = (Right blk, headerHash blk)
@@ -210,7 +210,7 @@ createMainBlockFinish
     -> Maybe ProxySKEither
     -> BlockHeader ssc
     -> ExceptT Text m (MainBlock ssc)
-createMainBlockFinish slotId pSk prevHeader = do
+createMainBlockFinish slotId pske prevHeader = do
     unchecked@(uncheckedBlock, _, _) <- createBlundFromMemPool
     (block, undo, pModifier) <-
         verifyCreatedBlock uncheckedBlock (pure unchecked) fallbackCreateBlock
@@ -226,7 +226,7 @@ createMainBlockFinish slotId pSk prevHeader = do
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
         -- than limit. So i guess it's fine in general.
         sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
-        block <- createMainBlockPure sizeLimit prevHeader pSk slotId sk rawPay
+        block <- createMainBlockPure sizeLimit prevHeader pske slotId sk rawPay
         logInfo $ "Created main block of size: " <> sformat memory (biSize block)
         -- Create Undo
         (pModifier, usUndo) <-
@@ -245,7 +245,7 @@ createMainBlockFinish slotId pSk prevHeader = do
         clearTxpMemPool
         sscResetLocal
         clearUSMemPool
-        clearDlgMemPool
+        lift $ clearDlgMemPool
     fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
     fallbackCreateBlock er = do
         logError $ sformat ("We've created bad main block: "%stext) er
@@ -268,7 +268,7 @@ getRawPayloadAndUndo slotId = do
     sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
     sscData <- sscGetLocalPayload @ssc slotId
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
-    (dlgPayload, pskUndo) <- getDlgMempool
+    (dlgPayload, pskUndo) <- lift $ getDlgMempool
     txpUndo <- reverse <$> foldM (prependToUndo txUndo) [] sortedTxs
     let undo usUndo = Undo txpUndo pskUndo usUndo
     let rawPayload =
@@ -299,10 +299,10 @@ createMainBlockPure
     -> SecretKey
     -> RawPayload ssc
     -> m (MainBlock ssc)
-createMainBlockPure limit prevHeader pSk sId sk rawPayload = do
+createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     bodyLimit <- execStateT computeBodyLimit limit
     body <- createMainBody bodyLimit sId rawPayload
-    mkMainBlock (Just prevHeader) sId sk pSk body extraH extraB
+    mkMainBlock (Just prevHeader) sId sk pske body extraH extraB
   where
     extraB :: MainExtraBodyData
     extraB = MainExtraBodyData (mkAttributes ())
@@ -323,7 +323,7 @@ createMainBlockPure limit prevHeader pSk sId sk rawPayload = do
                  mkTxPayload mempty)
                 defSsc def def
         musthaveBlock <-
-            mkMainBlock (Just prevHeader) sId sk pSk musthaveBody extraH extraB
+            mkMainBlock (Just prevHeader) sId sk pske musthaveBody extraH extraB
         let mhbSize = biSize musthaveBlock
         when (mhbSize > limit) $ throwError $
             "Musthave block size is more than limit: " <> show mhbSize

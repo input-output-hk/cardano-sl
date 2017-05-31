@@ -28,7 +28,7 @@ class Monad m => MonadBListener m where
     onApplyBlocks
         :: forall ssc . SscHelpersClass ssc
         => OldestFirst NE (Blund ssc) -> m ()
-    -- Callback will be called before changing of UtxoDB.
+    -- Callback will be called before changing of GStateDB.
     -- Callback action will be performed under block lock.
     onRollbackBlocks
         :: forall ssc . SscHelpersClass ssc

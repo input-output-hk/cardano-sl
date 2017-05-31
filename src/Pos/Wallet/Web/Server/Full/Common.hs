@@ -34,7 +34,7 @@ import           Pos.Context                   (NodeContext, NodeContextTag)
 import           Pos.DB                        (NodeDBs, getNodeDBs, runDBPureRedirect)
 import           Pos.DB.Block                  (runBlockDBRedirect)
 import           Pos.DB.DB                     (runGStateCoreRedirect)
-import           Pos.Delegation.Class          (DelegationWrap, askDelegationState)
+import           Pos.Delegation.Class          (DelegationVar, askDelegationState)
 import           Pos.DHT.Real                  (KademliaDHTInstance)
 import           Pos.Discovery                 (askDHTInstance, getPeers,
                                                 runDiscoveryConstT, runDiscoveryKademliaT)
@@ -98,7 +98,7 @@ convertHandler
     -> GenericTxpLocalData TxpExtra_TMP
     -> SscState WalletSscType
     -> WalletState
-    -> (TVar DelegationWrap)
+    -> DelegationVar
     -> PeerStateSnapshot
     -> ConnectionsVar
     -> SlottingVar
@@ -123,7 +123,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                    , Tagged @(Bool, NtpSlottingVar) ntpSlotVar
                    , Tagged @SscMemTag ssc
                    , Tagged @TxpHolderTag tlw
-                   , Tagged @(TVar DelegationWrap) delWrap
+                   , Tagged @DelegationVar delWrap
                    , Tagged @PeerStateTag peerStateCtx
                    ))
            . runDBPureRedirect

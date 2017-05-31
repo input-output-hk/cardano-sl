@@ -39,8 +39,7 @@ import           Pos.Util.Chrono      (OldestFirst (..))
 resolveForwardLink
     :: (HasHeaderHash a, MonadDBPure m)
     => a -> m (Maybe HeaderHash)
-resolveForwardLink x =
-    gsGetBi (forwardLinkKey $ headerHash x)
+resolveForwardLink x = gsGetBi (forwardLinkKey $ headerHash x)
 
 -- | Check if given hash representing block is in main chain.
 isBlockInMainChain

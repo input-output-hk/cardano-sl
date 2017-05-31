@@ -15,6 +15,7 @@ module Pos.Explorer.Web.Server
        , topsortTxsOrFail
        , getMempoolTxs
        , getLastBlocks
+       , getBlocksLastPage
        ) where
 
 
@@ -314,6 +315,20 @@ getBlocksPagesTotal pageSize = do
     pure (totalPages + 1)
   where
     pageSizeInt     = toInteger pageSize
+
+-- | Get the last page from the blockchain. We use the default 10
+-- for the page size since this is called from __explorer only__.
+getBlocksLastPage
+    :: (MonadDB m, MonadSlots m) 
+    => m (Integer, [CBlockEntry])
+getBlocksLastPage = do
+    -- The default page size for the __explorer__.
+    let pageSize = 10
+
+    -- Get total pages from the blocks.
+    totalPages <- getBlocksPagesTotal pageSize
+
+    getBlocksPage (fromIntegral totalPages) pageSize
 
 
 -- | Get last transactions from the blockchain

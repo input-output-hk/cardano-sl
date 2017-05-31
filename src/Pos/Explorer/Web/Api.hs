@@ -8,6 +8,8 @@ module Pos.Explorer.Web.Api
        , explorerApi
        , BlocksLast
        , BlocksTotal  
+       , BlocksPages
+       , BlocksPagesTotal
        , BlocksSummary
        , BlocksTxs  
        , TxsLast

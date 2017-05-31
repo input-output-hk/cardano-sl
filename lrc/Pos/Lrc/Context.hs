@@ -1,3 +1,4 @@
+-- TODO Add description!
 module Pos.Lrc.Context
        ( LrcSyncData(..)
        , LrcContext(..)
@@ -11,13 +12,13 @@ import           Universum
 
 import qualified Ether
 
-import           Pos.Core      (EpochIndex)
-import           Pos.Lrc.Error (LrcError (..))
-import           Pos.Util.Util (maybeThrow, readTVarConditional)
+import           Pos.Core            (EpochIndex)
+import           Pos.Lrc.Error       (LrcError (..))
+import           Pos.Util.Concurrent (readTVarConditional)
+import           Pos.Util.Util       (maybeThrow)
 
 data LrcContext = LrcContext
-    {
-    -- | Primitive for synchronization with LRC.
+    { -- | Primitive for synchronization with LRC.
       lcLrcSync :: !(TVar LrcSyncData)
     }
 

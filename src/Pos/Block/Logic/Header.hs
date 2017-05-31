@@ -111,7 +111,6 @@ classifyNewHeader (Right header) = do
                     -- [CSL-1152] TODO:
                     -- we don't do these checks, but perhaps we can.
                     , vhpLeaders = Nothing
-                    , vhpHeavyCerts = Nothing
                     , vhpMaxSize = Nothing
                     , vhpVerifyNoUnknown = False
                     }

@@ -256,14 +256,7 @@ library
                         Pos.Ssc.Util
 
                         Pos.Ssc.GodTossing.Arbitrary
-                        Pos.Ssc.GodTossing.DB
-                        Pos.Ssc.GodTossing.GState
                         Pos.Ssc.GodTossing.Listeners
-                        Pos.Ssc.GodTossing.LocalData
-                        Pos.Ssc.GodTossing.LocalData.Logic
-                        Pos.Ssc.GodTossing.Richmen
-                        Pos.Ssc.GodTossing.Seed
-                        Pos.Ssc.GodTossing.Shares
                         Pos.Ssc.GodTossing.Workers
 
                         -- Statistics
@@ -407,7 +400,6 @@ library
                       , cardano-sl-ssc
                       , cardano-sl-update
                       , cereal
-                      , concurrent-extra
                       , conduit >= 1.2.8
                       , containers
                       , cryptonite >= 0.23 && <= 0.23
@@ -697,6 +689,7 @@ executable cardano-wallet
                      , optparse-applicative
                      , parsec
                      , serokell-util >= 0.1.3.4
+                     , string-qq
                      , text
                      , time
                      , time-units

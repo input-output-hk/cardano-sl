@@ -32,7 +32,7 @@ import           Pos.Core                    (ProxySKEither, SlotId (..),
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.Class                (MonadDBCore)
-import           Pos.DB.GState               (getPSKByIssuerAddressHash)
+import           Pos.DB.GState               (getDlgTransPsk, getPskByIssuer)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Slotting                (currentTimeSlotting,
@@ -103,32 +103,46 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     onKnownLeader leaders leader = do
         ourPk <- Ether.asks' npPublicKey
         let ourPkHash = addressHash ourPk
-        proxyCerts <- getProxySecretKeys
-        let validCerts =
-                filter (\pSk -> let (w0,w1) = pskOmega pSk
-                                in siEpoch >= w0 && siEpoch <= w1) proxyCerts
-            validCert = find (\pSk -> addressHash (pskIssuerPk pSk) == leader)
-                             validCerts
         logNoticeS "This is a test debug message which shouldn't be sent to the logging server."
         logLeadersFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logLeadersF $ sformat ("Slot leaders: "%listJson) $
                       map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
         logLeadersF $ sformat ("Current slot leader: "%build) leader
+
+        proxyCerts <- getProxySecretKeys -- TODO rename it with "light" suffix
+        let validCerts =
+                filter (\pSk -> let (w0,w1) = pskOmega pSk
+                                in siEpoch >= w0 && siEpoch <= w1) proxyCerts
+            -- cert we can use to _issue_ instead of real slot leader
+            validLightCert = find (\psk -> addressHash (pskIssuerPk psk) == leader &&
+                                           pskDelegatePk psk == ourPk)
+                             validCerts
+            ourLightPsk = find (\psk -> pskIssuerPk psk == ourPk) validCerts
+            lightWeDelegated = isJust ourLightPsk
         logDebugS $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
-        heavyPskM <- getPSKByIssuerAddressHash leader
-        logDebug $ "Does someone have cert for this slot: " <> show (isJust heavyPskM)
-        let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) heavyPskM
-        let heavyWeAreIssuer = maybe False ((== ourPk) . pskIssuerPk) heavyPskM
+
+        ourHeavyPsk <- getPskByIssuer (Left ourPk)
+        let heavyWeAreIssuer = isJust ourHeavyPsk
+        dlgTransM <- getDlgTransPsk leader
+        let finalHeavyPsk = snd <$> dlgTransM
+        logDebug $ "End delegation psk for this slot: " <> maybe "none" pretty finalHeavyPsk
+        let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) finalHeavyPsk
+
         if | heavyWeAreIssuer ->
-                 logDebugS $ sformat
-                 ("Not creating the block because it's delegated by psk: "%build)
-                 heavyPskM
+                 logInfoS $ sformat
+                 ("Not creating the block because it's delegated by heavy psk: "%build)
+                 ourHeavyPsk
+           | lightWeDelegated ->
+                 logInfoS $ sformat
+                 ("Not creating the block because it's delegated by light psk: "%build)
+                 ourLightPsk
            | leader == ourPkHash ->
                  onNewSlotWhenLeader slotId Nothing sendActions
            | heavyWeAreDelegate ->
-                 onNewSlotWhenLeader slotId (Right <$> heavyPskM) sendActions
-           | isJust validCert ->
-                 onNewSlotWhenLeader slotId  (Left <$> validCert) sendActions
+                 let pske = Right . swap <$> dlgTransM
+                 in onNewSlotWhenLeader slotId pske sendActions
+           | isJust validLightCert ->
+                 onNewSlotWhenLeader slotId  (Left <$> validLightCert) sendActions
            | otherwise -> pass
 
 onNewSlotWhenLeader
@@ -136,16 +150,16 @@ onNewSlotWhenLeader
     => SlotId
     -> Maybe ProxySKEither
     -> Worker' m
-onNewSlotWhenLeader slotId pSk sendActions = do
+onNewSlotWhenLeader slotId pske sendActions = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
         logLeader = "because i'm a leader"
         logCert (Left psk) =
             sformat ("using ligtweight proxy signature key "%build%", will do it soon") psk
-        logCert (Right psk) =
+        logCert (Right (psk,_)) =
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
-    logInfoS $ logReason <> maybe logLeader logCert pSk
+    logInfoS $ logReason <> maybe logLeader logCert pske
     nextSlotStart <- getSlotStartEmpatically (succ slotId)
     currentTime <- currentTimeSlotting
     let timeToCreate =
@@ -158,7 +172,7 @@ onNewSlotWhenLeader slotId pSk sendActions = do
   where
     onNewSlotWhenLeaderDo = do
         logInfoS "It's time to create a block for current slot"
-        createdBlock <- createMainBlock slotId pSk
+        createdBlock <- createMainBlock slotId pske
         either whenNotCreated whenCreated createdBlock
         logInfoS "onNewSlotWhenLeader: done"
     whenCreated createdBlk = do

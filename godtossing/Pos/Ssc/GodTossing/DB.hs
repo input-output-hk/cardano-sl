@@ -9,11 +9,11 @@ module Pos.Ssc.GodTossing.DB
 
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB         as Rocks
+import           Formatting               (bprint, build, (%))
 import           Universum
 
-import           Formatting               (bprint, build, (%))
 import           Pos.Binary.Class         (encodeStrict)
-import           Pos.Binary.Ssc           ()
+import           Pos.Binary.GodTossing    ()
 import           Pos.DB                   (MonadDB, MonadDBPure, RocksBatchOp (..))
 import           Pos.DB.Error             (DBError (DBMalformed))
 import           Pos.DB.GState.Common     (gsGetBi)

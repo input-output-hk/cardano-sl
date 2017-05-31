@@ -133,11 +133,11 @@ depending on cardano-sl:
   * 'prevBlockL'
   * 'headerHashG'
 -}
-class (HasDifficulty header
-      ,HasEpochIndex header
-      ,HasEpochOrSlot header
-      ,HasPrevBlock header
-      ,HasHeaderHash header) =>
+class ( HasDifficulty header
+      , HasEpochIndex header
+      , HasEpochOrSlot header
+      , HasPrevBlock header
+      , HasHeaderHash header) =>
       IsHeader header
 
 SOME_LENS_CLASS(HasDifficulty,  difficultyL,    IsHeader)

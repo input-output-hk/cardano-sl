@@ -47,14 +47,14 @@ instance ( BiHeader ssc
         } deriving (Generic)
     data ConsensusData (MainBlockchain ssc) = MainConsensusData
         { -- | Id of the slot for which this block was generated.
-        _mcdSlot       :: !SlotId
+          _mcdSlot       :: !SlotId
         , -- | Public key of the slot leader. It's essential to have it here,
           -- because FTS gives us only hash of public key (aka 'StakeholderId').
-        _mcdLeaderKey  :: !PublicKey
+          _mcdLeaderKey  :: !PublicKey
         , -- | Difficulty of chain ending in this block.
-        _mcdDifficulty :: !ChainDifficulty
+          _mcdDifficulty :: !ChainDifficulty
         , -- | Signature given by slot leader.
-        _mcdSignature  :: !(BlockSignature ssc)
+          _mcdSignature  :: !(BlockSignature ssc)
         } deriving (Generic, Show, Eq)
     type BBlockHeader (MainBlockchain ssc) = BlockHeader ssc
     type ExtraHeaderData (MainBlockchain ssc) = MainExtraHeaderData

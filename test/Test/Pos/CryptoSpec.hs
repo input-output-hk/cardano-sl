@@ -313,9 +313,8 @@ proxySignVerify
     -> a
     -> Bool
 proxySignVerify issuerSk delegateSk w m =
-    Crypto.proxyVerify Crypto.SignForTestingOnly issuerPk signature (== w) m
+    Crypto.proxyVerify Crypto.SignForTestingOnly signature (== w) m
   where
-    issuerPk = Crypto.toPublic issuerSk
     proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
     signature = Crypto.proxySign Crypto.SignForTestingOnly delegateSk proxySk m
 
@@ -324,19 +323,19 @@ proxySignVerifyDifferentKey
     => Crypto.SecretKey -> Crypto.SecretKey -> Crypto.PublicKey -> w -> a -> Property
 proxySignVerifyDifferentKey issuerSk delegateSk pk2 w m =
     (Crypto.toPublic issuerSk /= pk2) ==>
-    not (Crypto.proxyVerify Crypto.SignForTestingOnly pk2 signature (== w) m)
+    not (Crypto.proxyVerify Crypto.SignForTestingOnly sigBroken (== w) m)
   where
     proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
     signature = Crypto.proxySign Crypto.SignForTestingOnly delegateSk proxySk m
+    sigBroken = signature { Crypto.pdPsk = proxySk { Crypto.pskIssuerPk = pk2 } }
 
 proxySignVerifyDifferentData
     :: (Bi a, Eq a, Bi w, Eq w)
     => Crypto.SecretKey -> Crypto.SecretKey -> w -> a -> a -> Property
 proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
     (m /= m2) ==>
-    not (Crypto.proxyVerify Crypto.SignForTestingOnly issuerPk signature (== w) m2)
+    not (Crypto.proxyVerify Crypto.SignForTestingOnly signature (== w) m2)
   where
-    issuerPk = Crypto.toPublic issuerSk
     proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
     signature = Crypto.proxySign Crypto.SignForTestingOnly delegateSk proxySk m
 
@@ -361,7 +360,8 @@ redeemThenCheckDifferentData sk a b =
 
 packUnpackHDAddress :: Crypto.HDPassphrase -> [Word32] -> Bool
 packUnpackHDAddress passphrase path =
-    maybe False (== path) (Crypto.unpackHDAddressAttr passphrase (Crypto.packHDAddressAttr passphrase path))
+    maybe False (== path) $
+    Crypto.unpackHDAddressAttr passphrase (Crypto.packHDAddressAttr passphrase path)
 
 newtype Nonce = Nonce ByteString
     deriving (Show, Eq)
@@ -572,4 +572,3 @@ passphraseChangeLeavesAddressUnmodified oldPass newPass = ioProperty $ do
     let newKey = fromMaybe (error "Passphrase didn't match") $
                  Crypto.changeEncPassphrase oldPass newPass oldKey
     return $ Crypto.encToPublic oldKey === Crypto.encToPublic newKey
-

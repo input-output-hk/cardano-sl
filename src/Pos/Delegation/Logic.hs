@@ -43,7 +43,7 @@ import           Control.Monad.Except       (runExceptT, throwError)
 import qualified Data.Cache.LRU             as LRU
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
-import           Data.List                  ((\\))
+import           Data.List                  (partition, (\\))
 import qualified Data.Text.Buildable        as B
 import           Data.Time.Clock            (UTCTime, addUTCTime, getCurrentTime)
 import qualified Ether
@@ -480,15 +480,19 @@ processProxySKHeavy psk = do
     maxBlockSize <- bvdMaxBlockSize <$> DB.gsAdoptedBVData
     let msg = Right psk
         consistent = verifyProxySecretKey psk
-        issuer = pskIssuerPk psk
-        enoughStake = addressHash issuer `elem` richmen
+        iPk = pskIssuerPk psk
+        -- We don't check stake for revoking certs. You can revoke
+        -- even if you don't have money anymore.
+        enoughStake = isRevokePsk psk || addressHash iPk `elem` richmen
         omegaCorrect = headEpoch == pskOmega psk
     runDelegationStateAction $ do
         memPoolSize <- use dwPoolSize
-        exists <- uses dwProxySKPool (\m -> HM.lookup issuer m == Just psk)
+        exists <- uses dwProxySKPool (\m -> HM.lookup iPk m == Just psk)
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
-        alreadyPosted <- uses dwThisEpochPosted $ HS.member issuer
+        alreadyPosted <- uses dwThisEpochPosted $ HS.member iPk
         epochMatches <- (headEpoch ==) <$> use dwEpochId
+        hasPskInDB <- fmap isJust $ GS.getPskByIssuer (Left $ pskIssuerPk psk)
+        let rerevoke = isRevokePsk psk && hasPskInDB
         producesCycle <- use dwProxySKPool >>= \pool ->
             let eActions = map GS.pskToDlgEdgeAction pool
             in lift $ detectCycleOnAddition (GS.withEActionsResolve eActions) psk
@@ -501,14 +505,16 @@ processProxySKHeavy psk = do
                      | not epochMatches -> PHIncoherent
                      | not omegaCorrect -> PHInvalid "PSK epoch is different from current"
                      | alreadyPosted -> PHInvalid "issuer has already posted PSK this epoch"
-                     | not enoughStake -> PHInvalid "issuer doesn't have enough stake"
+                     | rerevoke ->
+                         PHInvalid "can't accept revoke cert, user doesn't have any psk in db"
                      | isJust producesCycle ->
-                           PHInvalid $ "adding psk causes cycle at: " <> pretty producesCycle
+                         PHInvalid $ "adding psk causes cycle at: " <> pretty producesCycle
+                     | not enoughStake -> PHInvalid "issuer doesn't have enough stake"
                      | cached -> PHCached
                      | exists -> PHExists
                      | exhausted -> PHExhausted
                      | otherwise -> PHAdded
-        when (res == PHAdded) $ putToDlgMemPool issuer psk
+        when (res == PHAdded) $ putToDlgMemPool iPk psk
         pure res
 
 
@@ -609,22 +615,35 @@ delegationVerifyBlocks blocks = do
         ------------- [Payload] -------------
 
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload blk
-            issuers = map pskIssuerPk proxySKs
+            toIssuers = map pskIssuerPk
+            allIssuers = toIssuers proxySKs
+            (revokeIssuers, changeIssuers) =
+                bimap toIssuers toIssuers $ partition isRevokePsk proxySKs
 
-        -- Check 3: Issuers have enough money
-        when (any (not . (`HS.member` richmen) . addressHash) issuers) $
+        -- Check 3: Issuers have enough money (though it's free to revoke).
+        when (any (not . (`HS.member` richmen) . addressHash) changeIssuers) $
             throwError $ sformat ("Block "%build%" contains psk issuers that "%
                                   "don't have enough stake")
                                  (headerHash blk)
 
-        -- Check 4: no issuer has posted psk this epoch before.
+        -- Check 4: No issuer has posted psk this epoch before.
         curEpoch <- use dvCurEpoch
-        when (any (`HS.member` curEpoch) issuers) $
+        when (any (`HS.member` curEpoch) allIssuers) $
             throwError $ sformat ("Block "%build%" contains issuers that "%
                                   "have already published psk this epoch")
                                  (headerHash blk)
 
-        -- Check 5: applying psks won't create a cycle.
+        -- Check 5: Every revoking psk indeed revokes previous
+        -- non-revoking psk.
+        revokePrevCerts <- mapM (\x -> (x,) <$> withMapResolve x) revokeIssuers
+        let dontHavePrevPsk = filter (isNothing . snd) revokePrevCerts
+        unless (null dontHavePrevPsk) $
+            throwError $
+            sformat ("Block "%build%" contains revoke certs that "%
+                     "don't revoke anything: "%listJson)
+                     (headerHash blk) (map fst dontHavePrevPsk)
+
+        -- Check 6: applying psks won't create a cycle.
         --
         -- Lemma 1: Removing edges from acyclic graph doesn't create cycles.
         --
@@ -641,10 +660,11 @@ delegationVerifyBlocks blocks = do
         -- to 'dvPskChanged' and then perform the check.
 
         -- Collect rollback info, apply new psks
-        toRollback <- catMaybes <$> mapM withMapResolve issuers
+        changePrevCerts <- mapM withMapResolve changeIssuers
+        let toRollback = catMaybes $ map snd revokePrevCerts <> changePrevCerts
         mapM_ withMapModify proxySKs
 
-        -- Perform check 5.
+        -- Perform the check
         cyclePoints <- catMaybes <$> mapM (detectCycleOnAddition withMapResolve) proxySKs
         unless (null cyclePoints) $
             throwError $
@@ -652,7 +672,7 @@ delegationVerifyBlocks blocks = do
                     (headerHash blk)
                     (take 5 $ cyclePoints) -- should be enough
 
-        dvCurEpoch %= HS.union (HS.fromList issuers)
+        dvCurEpoch %= HS.union (HS.fromList allIssuers)
         pure toRollback
 
 -- | Applies a sequence of definitely valid blocks to memory state and

@@ -492,7 +492,7 @@ processProxySKHeavy psk = do
         alreadyPosted <- uses dwThisEpochPosted $ HS.member iPk
         epochMatches <- (headEpoch ==) <$> use dwEpochId
         hasPskInDB <- isJust <$> GS.getPskByIssuer (Left $ pskIssuerPk psk)
-        let rerevoke = isRevokePsk psk && hasPskInDB
+        let rerevoke = isRevokePsk psk && not hasPskInDB
         producesCycle <- use dwProxySKPool >>= \pool ->
             let eActions = map GS.pskToDlgEdgeAction pool
             in lift $ detectCycleOnAddition (GS.withEActionsResolve eActions) psk

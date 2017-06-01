@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE PolyKinds           #-}
+{-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
@@ -64,18 +64,19 @@ import           Control.Monad.Except       (ExceptT (..))
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody, Verb)
 import           Servant.Multipart          (MultipartForm)
-import           Servant.Server             (Handler (..), HasServer (..))
+import           Servant.Server             (Handler (..), HasServer (..), ServantErr,
+                                             Server)
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (Addr, CAddress, CId,
-                                             CElectronCrashReport, CInitialized,
-                                             CPaperVendWalletRedeem, CPassPhrase,
-                                             CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CAccount, CAccountId, CAccountInit,
-                                             CAccountMeta, CWalletRedeem, CWallet,
-                                             CWallet, CWalletInit, SyncProgress, WS)
-import           Pos.Wallet.Web.Error       (WalletError, catchEndpointErrors)
+import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
+                                             CAccountMeta, CAddress, CElectronCrashReport,
+                                             CId, CInitialized, CPaperVendWalletRedeem,
+                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
+                                             CUpdateInfo, CWallet, CWallet, CWalletInit,
+                                             CWalletRedeem, SyncProgress, WS)
+import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
+                                             catchEndpointErrors)
 
 -- | Common prefix for all endpoints.
 type ApiPrefix = "api"
@@ -87,24 +88,59 @@ data WalletVerb verb
 -- | Shortcut for common api result types.
 type WRes verbType a = WalletVerb $ verbType '[JSON] (Either WalletError a)
 
+mapHandler :: (IO (Either ServantErr a) -> IO (Either ServantErr b))
+           -> Handler a
+           -> Handler b
+mapHandler f = Handler . ExceptT . f . runExceptT . runHandler'
+
 -- TODO: shorten variables names?
-instance HasServer (Verb method status content $ Either WalletError a) context =>
-         HasServer (WalletVerb $ Verb method status content $ Either WalletError a) context where
+instance HasServer (Verb method status content $ Either WalletError a) ctx =>
+         HasServer (WalletVerb $ Verb (method :: k1) (status :: Nat) (content :: [*]) $ Either WalletError a) ctx where
     type ServerT (WalletVerb $ Verb method status content $ Either WalletError a) m =
-        ServerT (Verb method status content a) m
+         ServerT (Verb method status content a) m
 
     route _ ctx del = route verbProxy ctx (handlerCatch <$> del)
       where
         verbProxy = Proxy @(Verb method status content $ Either WalletError a)
         handlerCatch :: Handler a -> Handler (Either WalletError a)
         handlerCatch =
-            Handler .
-            ExceptT .
-            try .
-            catchEndpointErrors .
-            (either throwM pure =<<) .
-            runExceptT .
-            runHandler'
+            mapHandler $ try . catchEndpointErrors . (either throwM pure =<<)
+
+data CDecodeApi argType
+
+class ApiMapResult api where
+    mapApiResult
+        :: Proxy api
+        -> (forall a. IO (Either ServantErr a) -> IO (Either ServantErr a))
+        -> Server api
+        -> Server api
+
+instance ApiMapResult (Verb (m :: k1) (s :: Nat) (c :: [*]) a) where
+    mapApiResult _ = mapHandler
+
+instance ApiMapResult a => ApiMapResult (WalletVerb a) where
+    mapApiResult _ mapper server = mapApiResult (Proxy @(WalletVerb a)) mapper server
+
+instance ApiMapResult res => ApiMapResult (Capture s a :> res) where
+    mapApiResult _ mapper server arg = mapApiResult (Proxy @res) mapper (server arg)
+
+instance (HasServer (Capture s a :> res) ctx, FromCType a, ApiMapResult res) =>
+          HasServer (CDecodeApi (Capture s a) :> res) ctx where
+    type ServerT (CDecodeApi (Capture s a) :> res) m =
+         ServerT (Capture s (OriginType a) :> res) m
+
+    route _ ctx del =
+        route argProxy ctx $
+           del <&> \f a -> case decodeCType a of
+               Left e -> mapApiResult (Proxy @res) (throwM (DecodeError e) >>) (f pseudoArg)
+               Right r -> f r
+      where
+        argProxy = Proxy @(Capture s a :> res)
+        pseudoArg = error "On decode error argument was somehow accessed"
+
+class FromCType c where
+    type OriginType c :: *
+    decodeCType :: c -> Either Text (OriginType c)
 
 
 -- All endpoints are defined as a separate types, for description in Swagger-based HTML-documentation.

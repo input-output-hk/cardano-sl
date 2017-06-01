@@ -15,12 +15,12 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (.
                                         CommitmentSignature,
                                         CommitmentsMap (..), CommitmentOpening (..),
                                         GtGlobalState (..), MultiRichmenStake, Opening,
-                                        OpeningsMap, SharesMap, SignedCommitment,
-                                        TossVerFailure (..), VssCertData (certs),
+                                        OpeningsMap, PureToss, SharesMap,
+                                        SignedCommitment, TossVerFailure (..),
+                                        VssCertData (certs),
                                         VssCertificate (vcSigningKey), VssCertificatesMap,
-                                        checkCertificatesPayload,
-                                        checkCommitmentsPayload,
-                                        checkOpeningsPayload, gsCommitments, gsOpenings,
+                                        checkCertificatesPayload, checkOpeningsPayload,
+                                        gsCommitments, gsOpenings,
                                         gsVssCertificates, mkCommitmentsMapUnsafe,
                                         runPureToss, verifyCommitment,
                                         verifyCommitmentSignature, verifyOpening)
@@ -103,6 +103,9 @@ notVerifiesBadOpening :: BadCommAndOpening -> Bool
 notVerifiesBadOpening (getBadCAndO -> badCommsAndOp) =
     not . uncurry verifyOpening $ badCommsAndOp
 
+tossRunner :: MultiRichmenStake -> GtGlobalState -> ExceptT e PureToss a -> Either e a
+tossRunner mrs gtgs = view _1 . runPureToss mrs gtgs . runExceptT
+
 {-checksGoodCommsPayload
     :: EpochIndex
     -> MultiRichmenStake
@@ -110,10 +113,7 @@ notVerifiesBadOpening (getBadCAndO -> badCommsAndOp) =
     -> CommitmentsMap
     -> Bool
 checksGoodCommsPayload epoch mrs gtgs =
-    isRight .
-    view _1 .
-    runPureToss mrs gtgs .
-    runExceptT . checkCommitmentsPayload epoch-}
+    isRight . tossRunner mrs gtgs . checkCommitmentsPayload epoch-}
 
 newtype GoodOpeningPayload = GoodOpens
     { getGoodOpens :: (GtGlobalState, OpeningsMap)
@@ -142,10 +142,7 @@ instance Arbitrary GoodOpeningPayload where
 
 checksGoodOpeningsPayload :: MultiRichmenStake -> GoodOpeningPayload -> Bool
 checksGoodOpeningsPayload mrs (getGoodOpens -> (gtgs, openPayload)) =
-    isRight .
-    view _1 .
-    runPureToss mrs gtgs .
-    runExceptT $ checkOpeningsPayload openPayload
+    isRight . tossRunner mrs gtgs $ checkOpeningsPayload openPayload
 
 checksBadOpeningsPayload
     :: StakeholderId
@@ -160,19 +157,17 @@ checksBadOpeningsPayload
     sig@(_, comm, _)
     mrs
     (getGoodOpens -> (gtgs@GtGlobalState {..}, openPayload)) =
-    let tossRunner gState = view _1 . runPureToss mrs gState . runExceptT
-
-        newOpenPayload = HM.insert sid op openPayload
+    let newOpenPayload = HM.insert sid op openPayload
 
         openingAlreadySent =
-            tossRunner (gtgs & gsOpenings %~ HM.insert sid op) $
+            tossRunner mrs (gtgs & gsOpenings %~ HM.insert sid op) $
             checkOpeningsPayload newOpenPayload
         res1 = case openingAlreadySent of
             Left (OpeningAlreadySent _) -> True
             _ -> False
 
         openingWithoutComm =
-            tossRunner gtgs $ checkOpeningsPayload newOpenPayload
+            tossRunner mrs gtgs $ checkOpeningsPayload newOpenPayload
         res2 = case openingWithoutComm of
             Left (OpeningWithoutCommitment _) -> True
             _ -> False
@@ -180,7 +175,7 @@ checksBadOpeningsPayload
         alterCommitsMap = mkCommitmentsMapUnsafe . HM.insert sid sig . getCommitmentsMap
         payloadWithBadOpening = HM.insert sid op openPayload
         openingNotMatchComm =
-            tossRunner (gtgs & gsCommitments %~ alterCommitsMap) $
+            tossRunner mrs (gtgs & gsCommitments %~ alterCommitsMap) $
             checkOpeningsPayload payloadWithBadOpening
         res3 = case openingNotMatchComm of
             Left (OpeningNotMatchCommitment _) -> True
@@ -193,13 +188,13 @@ checksBadOpeningsPayload
 -- work in progress.
 {-newtype GoodSharesPayload = GoodSharesPayload
     { getGoodShares :: (EpochIndex, GtGlobalState, SharesMap, MultiRichmenStake)
-    } deriving (Show, Eq)-}
+    } deriving (Show, Eq)
+
+instance Arbitrary GoodSharesPayload where
+    arbitrary = do-}
 
 newtype GoodCertsPayload = GoodCertsPayload
-    { getGoodCerts :: (EpochIndex,
-                       GtGlobalState,
-                       VssCertificatesMap,
-                       MultiRichmenStake)
+    { getGoodCerts :: (EpochIndex, GtGlobalState, VssCertificatesMap, MultiRichmenStake)
     } deriving (Show, Eq)
 
 instance Arbitrary GoodCertsPayload where
@@ -264,18 +259,13 @@ instance Arbitrary GoodCertsPayload where
 
 checksGoodCertsPayload :: GoodCertsPayload -> Bool
 checksGoodCertsPayload (getGoodCerts -> (epoch, gtgs, certsMap, mrs)) =
-    isRight .
-    view _1 .
-    runPureToss mrs gtgs .
-    runExceptT $ checkCertificatesPayload epoch certsMap
+    isRight . tossRunner mrs gtgs $ checkCertificatesPayload epoch certsMap
 
 checksBadCertsPayload :: GoodCertsPayload -> StakeholderId -> VssCertificate -> Property
 checksBadCertsPayload (getGoodCerts -> (epoch, gtgs, certsMap, mrs)) sid cert =
     let mrsWithMissingEpoch = HM.delete epoch mrs
         noRichmen =
-            view _1 .
-            runPureToss mrsWithMissingEpoch gtgs .
-            runExceptT $ checkCertificatesPayload epoch certsMap
+            tossRunner mrsWithMissingEpoch  gtgs $ checkCertificatesPayload epoch certsMap
         res1 = case noRichmen of
             Left (NoRichmen _) -> True
             _ -> False
@@ -285,19 +275,14 @@ checksBadCertsPayload (getGoodCerts -> (epoch, gtgs, certsMap, mrs)) sid cert =
         newGtgs = gtgs & gsVssCertificates %~ (\vcd -> let crt = insCert $ certs vcd
                                                        in vcd { certs = crt })
         certAlreadySent =
-            view _1 .
-            runPureToss mrs newGtgs .
-            runExceptT $ checkCertificatesPayload epoch newCertsMap
+            tossRunner mrs newGtgs  $ checkCertificatesPayload epoch newCertsMap
         res2 = case certAlreadySent of
             Left (CertificateAlreadySent _) -> True
             _ -> False
 
         sid' = addressHash . vcSigningKey $ cert
         newerCertsMap = HM.insert sid' cert certsMap
-        certNoRichmen =
-            view _1 .
-            runPureToss mrs gtgs .
-            runExceptT $ checkCertificatesPayload epoch newerCertsMap
+        certNoRichmen = tossRunner mrs gtgs $ checkCertificatesPayload epoch newerCertsMap
         res3 = case certNoRichmen of
             Left (CertificateNotRichmen _) -> True
             _ -> False

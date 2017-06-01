@@ -103,9 +103,6 @@ notVerifiesBadOpening :: BadCommAndOpening -> Bool
 notVerifiesBadOpening (getBadCAndO -> badCommsAndOp) =
     not . uncurry verifyOpening $ badCommsAndOp
 
-tossRunner :: MultiRichmenStake -> GtGlobalState -> ExceptT e PureToss a -> Either e a
-tossRunner mrs gtgs = view _1 . runPureToss mrs gtgs . runExceptT
-
 {-checksGoodCommsPayload
     :: EpochIndex
     -> MultiRichmenStake
@@ -134,9 +131,9 @@ instance Arbitrary GoodOpeningPayload where
                 mkCommitmentsMapUnsafe .
                 HM.fromList $ fmap (over _2 $ view _1)  stakeHsAndCOs
         openingPldList <- sublistOf stakeHsAndCOs
-        _gsOpenings <- HM.fromList <$> (listOf $
-            (,) <$> arbitrary `suchThat` (not . flip elem (map fst openingPldList))
-                <*> (arbitrary :: Gen Opening))
+        _gsOpenings <- customHashMapGen
+            (arbitrary `suchThat` (not . flip elem (map fst openingPldList)))
+            (arbitrary :: Gen Opening)
         let opensPayload = HM.fromList $ fmap (over _2 $ view _2)  openingPldList
         return (GtGlobalState {..}, opensPayload)
 
@@ -242,16 +239,16 @@ instance Arbitrary GoodCertsPayload where
                 gen :: StakeholderId -> Gen (StakeholderId, VssCertificate)
                 gen sid = (,) <$> pure sid <*> vssGen
             participantsMap <- HM.fromList <$> mapM gen participants
-            fillerMap <- HM.fromList <$> (listOf $ (,) <$> arbitrary <*> vssGen)
+            fillerMap <- customHashMapGen arbitrary vssGen
             return $ HM.union participantsMap fillerMap
 
         -- The 'VssCertificatesMap' field of this 'VssCertData' value satisfies:
         --   * None of its 'StakeholderId' keys is a richman
         --    (i.e. is a  member of 'richmen')
         _gsVssCertificates <- do
-            certs <- HM.fromList <$>
-                 (listOf $ (,) <$> (arbitrary `suchThat` (not . flip HM.member richmen))
-                               <*> arbitrary)
+            certs <- customHashMapGen
+                (arbitrary `suchThat` (not . flip HM.member richmen))
+                arbitrary
             vssData <- arbitrary
             return $ vssData {certs = certs}
 
@@ -288,3 +285,10 @@ checksBadCertsPayload (getGoodCerts -> (epoch, gtgs, certsMap, mrs)) sid cert =
             _ -> False
 
     in not (HM.member sid' $ mrs HM.! epoch) ==> res1 && res2 && res3
+
+-- | Utility functions for this module
+tossRunner :: MultiRichmenStake -> GtGlobalState -> ExceptT e PureToss a -> Either e a
+tossRunner mrs gtgs = view _1 . runPureToss mrs gtgs . runExceptT
+
+customHashMapGen :: (Hashable k, Eq k) => Gen k -> Gen v -> Gen (HM.HashMap k v)
+customHashMapGen keyGen valGen = HM.fromList <$> (listOf $ (,) <$> keyGen <*> valGen)

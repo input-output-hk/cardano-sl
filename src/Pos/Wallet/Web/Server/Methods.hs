@@ -108,7 +108,7 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccoun
                                                    CWalletInit (..), CWalletMeta (..),
                                                    CWalletRedeem (..), MCPassPhrase,
                                                    NotifyEvent (..), SyncProgress (..),
-                                                   WS, addressToCId, cIdToAddress,
+                                                   Wal, addressToCId, cIdToAddress,
                                                    cPassPhraseToPassPhrase, coinFromCCoin,
                                                    encToCId, fromCAccountId, mkCCoin,
                                                    mkCTx, mkCTxId, toCAccountId,
@@ -421,7 +421,7 @@ getAccount accCAddr = do
     noWallet =
         RequestError $ sformat ("No account with address "%build%" found") accCAddr
 
-getWallet :: WalletWebMode m => CId WS -> m CWallet
+getWallet :: WalletWebMode m => CId Wal -> m CWallet
 getWallet cAddr = do
     meta       <- getWalletMeta cAddr >>= maybeThrow noWSet
     wallets    <- getAccounts (Just cAddr)
@@ -451,10 +451,10 @@ decodeCAccountIdOrFail = either wrongWallet pure . fromCAccountId
   where wrongWallet err = throwM . RequestError $
             sformat ("Error while decoding CAccountId: "%stext) err
 
-getWalletAccountIds :: WalletWebMode m => CId WS -> m [CAccountId]
+getWalletAccountIds :: WalletWebMode m => CId Wal -> m [CAccountId]
 getWalletAccountIds wSet = map toCAccountId . filter ((== wSet) . aiWSId) <$> getWAddressIds
 
-getAccounts :: WalletWebMode m => Maybe (CId WS) -> m [CAccount]
+getAccounts :: WalletWebMode m => Maybe (CId Wal) -> m [CAccount]
 getAccounts mCAddr = do
     whenJust mCAddr $ \cAddr -> getWalletMeta cAddr `whenNothingM_` noWSet cAddr
     mapM getAccount =<< maybe (map toCAccountId <$> getWAddressIds) getWalletAccountIds mCAddr
@@ -503,7 +503,7 @@ sendExtended sa cpassphrase srcAccount dstAccount coin title desc =
         desc
 
 data MoneySource
-    = WalletMoneySource (CId WS)
+    = WalletMoneySource (CId Wal)
     | AccountMoneySource CAccountId
     | AddressMoneySource CWAddressMeta
     deriving (Show, Eq)
@@ -732,7 +732,7 @@ newAccount addGenSeed cPassphrase CAccountInit {..} = do
 
 createWalletSafe
     :: WalletWebMode m
-    => CId WS -> CWalletMeta -> m CWallet
+    => CId Wal -> CWalletMeta -> m CWallet
 createWalletSafe cid wsMeta = do
     wSetExists <- isJust <$> getWalletMeta cid
     when wSetExists $
@@ -759,7 +759,7 @@ updateTransaction cAccId txId txMeta = do
     wAddr <- decodeCAccountIdOrFail cAccId
     setAccountTransactionMeta wAddr txId txMeta
 
-deleteWallet :: WalletWebMode m => CId WS -> m ()
+deleteWallet :: WalletWebMode m => CId Wal -> m ()
 deleteWallet wid = do
     wallets <- getAccounts (Just wid)
     mapM_ (deleteAccount . caId) wallets
@@ -773,7 +773,7 @@ deleteAccount = decodeCAccountIdOrFail >=> removeAccount
 -- deleteWAddress :: WalletWebMode m => CWAddressMeta -> m ()
 -- deleteWAddress = removeWAddress
 
-renameWSet :: WalletWebMode m => CId WS -> Text -> m CWallet
+renameWSet :: WalletWebMode m => CId Wal -> Text -> m CWallet
 renameWSet cid newName = do
     meta <- getWalletMeta cid >>= maybeThrow (RequestError "No such wallet set")
     setWalletMeta cid meta{ cwName = newName }
@@ -818,7 +818,7 @@ cloneWalletSetWithPass
     :: WalletWebMode m
     => EncryptedSecretKey
     -> MCPassPhrase
-    -> CId WS
+    -> CId Wal
     -> m (AccountsSnapshot, AccountsSnapshot)
 cloneWalletSetWithPass newSK newPass wid = do
     wAddrs <- getWalletAccountIds wid
@@ -855,7 +855,7 @@ moveMoneyToClone
     :: WalletWebMode m
     => SendActions m
     -> MCPassPhrase
-    -> CId WS
+    -> CId Wal
     -> [CWAddressMeta]
     -> [CWAddressMeta]
     -> m ()
@@ -871,7 +871,7 @@ moveMoneyToClone sa oldPass wid oldAddrMeta newAddrMeta = do
 
 changeWalletPassphrase
     :: WalletWebMode m
-    => SendActions m -> CId WS -> MCPassPhrase -> MCPassPhrase -> m ()
+    => SendActions m -> CId Wal -> MCPassPhrase -> MCPassPhrase -> m ()
 changeWalletPassphrase sa wid oldCPass newCPass = do
     oldPass <- decodeCPassPhraseOrFail oldCPass
     newPass <- decodeCPassPhraseOrFail newCPass

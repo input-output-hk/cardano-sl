@@ -35,7 +35,7 @@ main =
       , mkSumType (Proxy @CT.CWalletMeta)
       , mkSumType (Proxy @CT.CAddress)
       , mkSumType (Proxy @CT.CWAddressMeta)
-      , mkSumType (Proxy @CT.WS)
+      , mkSumType (Proxy @CT.Wal)
       , mkSumType (Proxy @CT.Addr)
       , mkSumType (Proxy @(CT.CId A))
       , mkSumType (Proxy @CT.CHash)

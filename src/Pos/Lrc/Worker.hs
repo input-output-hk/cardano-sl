@@ -27,6 +27,7 @@ import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUn
 import           Pos.Block.Logic.Util       (withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
+import           Pos.Context                (recoveryCommGuard)
 import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
                                              EpochOrSlot (..), HeaderHash, HeaderHash,
                                              SharedSeed, SlotId (..), StakeholderId,
@@ -56,17 +57,21 @@ import           Pos.WorkMode.Class         (WorkMode)
 lrcOnNewSlotWorker
     :: (WorkMode ssc m, SscWorkersClass ssc, MonadGStateCore m)
     => (WorkerSpec m, OutSpecs)
-lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
+lrcOnNewSlotWorker = recoveryCommGuard $ localOnNewSlotWorker True $ \SlotId {..} ->
     when (getSlotIndex siSlot < slotSecurityParam) $
-    (lrcSingleShot siEpoch `catch` reportError) `catch` onLrcError
+        lrcSingleShot siEpoch `catch` onLrcError
   where
-    reportError (SomeException e) = do
-        reportMisbehaviourMasked version $ "Lrc worker failed with error: " <> show e
-        throwM e
-    onLrcError UnknownBlocksForLrc =
-        logInfo
+    -- Here we log it as a warning and report an error, even though it
+    -- can happen there we don't know recent blocks. That's because if
+    -- we don't know them, we should be in recovery mode and this
+    -- worker should be turned off.
+    onLrcError e@UnknownBlocksForLrc = do
+        reportError e
+        logWarning
             "LRC worker can't do anything, because recent blocks aren't known"
-    onLrcError e = throwM e
+    onLrcError e = reportError e >> throwM e
+    reportError e =
+        reportMisbehaviourMasked version $ "Lrc worker failed with error: " <> show e
 
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.
 type LrcModeFull ssc m = (LrcMode ssc m, SscWorkersClass ssc)

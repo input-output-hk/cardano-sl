@@ -68,13 +68,12 @@ import           Servant.Server             (Handler (..), HasServer (..))
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Wallet.Web.ClientTypes (Addr, CAddress, CId,
-                                             CElectronCrashReport, CInitialized,
-                                             CPaperVendWalletRedeem, CPassPhrase,
-                                             CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CAccount, CAccountId, CAccountInit,
-                                             CAccountMeta, CWalletRedeem, CWallet,
-                                             CWallet, CWalletInit, SyncProgress, WS)
+import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
+                                             CAccountMeta, CAddress, CElectronCrashReport,
+                                             CId, CInitialized, CPaperVendWalletRedeem,
+                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
+                                             CUpdateInfo, CWallet, CWallet, CWalletInit,
+                                             CWalletRedeem, SyncProgress, Wal)
 import           Pos.Wallet.Web.Error       (WalletError, catchEndpointErrors)
 
 -- | Common prefix for all endpoints.
@@ -121,7 +120,7 @@ type TestReset =
 type GetWalletSet =
        "wallets"
     :> "sets"
-    :> Capture "walletSetId" (CId WS)
+    :> Capture "walletSetId" (CId Wal)
     :> WRes Get CWallet
 
 type GetWalletSets =
@@ -149,14 +148,14 @@ type RenameWalletSet =
        "wallets"
     :> "sets"
     :> "rename"
-    :> Capture "walletSetId" (CId WS)
+    :> Capture "walletSetId" (CId Wal)
     :> Capture "name" Text
     :> WRes Post CWallet
 
 type DeleteWalletSet =
        "wallets"
     :> "sets"
-    :> Capture "walletSetId" (CId WS)
+    :> Capture "walletSetId" (CId Wal)
     :> WRes Delete ()
 
 type ImportWalletSet =
@@ -171,7 +170,7 @@ type ChangeWalletSetPassphrase =
        "wallets"
     :> "sets"
     :> "password"
-    :> Capture "walletSetId" (CId WS)
+    :> Capture "walletSetId" (CId Wal)
     :> QueryParam "old" CPassPhrase
     :> QueryParam "new" CPassPhrase
     :> WRes Post ()
@@ -187,7 +186,7 @@ type GetWallet =
 
 type GetWallets =
        "wallets"
-    :> QueryParam "walletSetId" (CId WS)
+    :> QueryParam "walletSetId" (CId Wal)
     :> WRes Get [CAccount]
 
 type UpdateWallet =

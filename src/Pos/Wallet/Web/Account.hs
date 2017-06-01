@@ -26,7 +26,7 @@ import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), WS,
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
                                              addressToCId, encToCId,
                                              walletAddrMetaToAccount)
 import           Pos.Wallet.Web.Error       (WalletError (..))
@@ -36,17 +36,17 @@ import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 
 type AccountMode m = (MonadKeys m, WebWalletModeDB m, MonadThrow m)
 
-myRootAddresses :: MonadKeys m => m [CId WS]
+myRootAddresses :: MonadKeys m => m [CId Wal]
 myRootAddresses = encToCId <<$>> getSecretKeys
 
-getAddrIdx :: AccountMode m => CId WS -> m Int
+getAddrIdx :: AccountMode m => CId Wal -> m Int
 getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
   where notFound =
           RequestError $ sformat ("No wallet set with address "%build%" found") addr
 
 getSKByAddr
     :: AccountMode m
-    => CId WS
+    => CId Wal
     -> m EncryptedSecretKey
 getSKByAddr addr = do
     msk <- find (\k -> encToCId k == addr) <$> getSecretKeys
@@ -74,7 +74,7 @@ genSaveRootAddress
     :: AccountMode m
     => PassPhrase
     -> BackupPhrase
-    -> m (CId WS)
+    -> m (CId Wal)
 genSaveRootAddress passphrase ph = encToCId <$> genSaveSK
   where
     genSaveSK = do
@@ -117,7 +117,7 @@ generateUnique desc (DeterminedSeed seed) generator notFit = do
 genUniqueAccountId
     :: AccountMode m
     => AddrGenSeed
-    -> CId WS
+    -> CId Wal
     -> m AccountId
 genUniqueAccountId genSeed wsCAddr =
     generateUnique "wallet generation"

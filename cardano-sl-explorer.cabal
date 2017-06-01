@@ -1,5 +1,5 @@
 name:                cardano-sl-explorer
-version:             1.0.0
+version:             0.1.0
 synopsis:            Cardano explorer
 description:         Please see README.md
 license:             MIT
@@ -25,9 +25,9 @@ flag dev-mode
 library
   exposed-modules:      Pos.Explorer.Socket
                         Pos.Explorer.Web
+                        Pos.Explorer.Web.Api
                         Pos.Explorer.Web.ClientTypes
                         Pos.Explorer.Web.Error
-                        Pos.Explorer.Web.Doc
                         Pos.Explorer.Web.TestServer
   other-modules:        Pos.Explorer.Aeson.ClientTypes
 
@@ -38,7 +38,6 @@ library
 
                         Pos.Explorer.Web.Server
                         Pos.Explorer.Web.Transform
-                        Pos.Explorer.Web.Api
   build-depends:        base
                       , aeson
                       , binary
@@ -195,39 +194,32 @@ executable cardano-explorer-hs2purs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-executable cardano-explorer-docs
+executable cardano-explorer-swagger
   hs-source-dirs:      src/documentation
   main-is:             Main.hs
-  other-modules:
-  build-depends:       base
-                     , cardano-sl
+  other-modules:       Description
+  build-depends:       aeson
+                     , base
+                     , bytestring
                      , cardano-sl-explorer
-                     , purescript-bridge
-                     , universum
-                     , optparse-simple
+                     , lens
+                     , swagger2
+                     , servant-server
+                     , servant-multipart
+                     , servant-swagger
+                     , servant-swagger-ui
+                     , text
+                     , universum >= 0.1.11
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        StandaloneDeriving
-                        FlexibleContexts
-                        FlexibleInstances
-                        MultiParamTypeClasses
-                        FunctionalDependencies
-                        DefaultSignatures
-                        NoImplicitPrelude
+
+  default-extensions:   NoImplicitPrelude
+                        BangPatterns
                         OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-                        TupleSections
-                        ViewPatterns
-                        LambdaCase
-                        MultiWayIf
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

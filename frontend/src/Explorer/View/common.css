@@ -29,13 +29,19 @@
 
   margin-top: 24px;
   padding: 18px 24px;
-  margin: 0 24px;
+  margin: 0 18px;
 
   border-radius: 2px;
   button: outline-button;
   button-color: var(--color5) var(--color4) var(--color4);
   button-border: 1px var(--color5) transparent transparent;
   button-background: transparent var(--color5) var(--color5);
+}
+
+@media (--md) {
+  .btn-back {
+      margin: 0 24px;
+  }
 }
 
 
@@ -49,10 +55,13 @@
   font-family: var(--fontFamily0-Regular);
   font-size: 10px;
 
-  .hash {
+  .hash-container {
     overflow: hidden;
     text-overflow: ellipsis;
     lost-column: 1/1;
+  }
+
+  .hash {
     color: var(--color8);
     line-height: var(--transaction-header-height);
     button: standard-button;
@@ -60,7 +69,7 @@
   }
 
   @media (--md) {
-    .hash {
+    .hash-container {
       lost-column: 7/12;
     }
   }
@@ -94,13 +103,13 @@
   .amount {
     box-item: center;
 
-    padding: 5px 10px 5px 20px;
+    padding: 5px 20px 5px 10px;
     color: var(--color0);
     border-radius: 4px;
 
     background-color: var(--color10);
     background-repeat: no-repeat;
-    background-position: 7px center;
+    background-position: right 7px center;
     background-size: 8px 7px;
   }
 }
@@ -122,6 +131,7 @@
   .from-hash-container {
     box-item: center;
     overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   @media (--md) {
@@ -131,9 +141,6 @@
   }
 
   .from-hash {
-    overflow: hidden;
-    display: block;
-    text-overflow: ellipsis;
     button: standard-button;
     button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
     padding: 18px 0 12px 0;
@@ -155,12 +162,14 @@
     }
   }
 
-  .to-hash {
+  .to-hash-wrapper {
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .to-hash {
     button: standard-button;
     button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
-    display: block;
     padding-bottom: 12px;
   }
 
@@ -196,9 +205,9 @@
   }
 
   .plain-amount {
-    padding-left: 10px;
+    padding-right: 10px;
     background-repeat: no-repeat;
-    background-position: left center;
+    background-position: right center;
     background-size: 8px 7px;
   }
 
@@ -227,6 +236,20 @@
     text-align: center;
 }
 
+.pagination-wrapper {
+  position: relative;
+}
+
+.pagination-cover {
+    @extend .hide;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: color(var(--color3) a(0.5));
+}
+
 .pagination {
 
   padding: 8px 6px;
@@ -234,7 +257,7 @@
   border: solid 1px var(--color11);
   display: inline-block;
 
-  &__wrapper {
+  &__container {
     box: horizontal center;
   }
 
@@ -272,7 +295,7 @@
 
     margin: 0 6px;
     padding: 4px 6px;
-    width: 35px;
+    width: 45px;
     background-color: transparent;
     border: none;
     border-bottom: solid 1px var(--color11);
@@ -289,12 +312,18 @@
 .tx-empty {
 
   &__container {
-    padding: 10px 24px;
+    padding: 10px 18px;
 
     font-size: 10px;
     font-family: var(--fontFamily0-Regular);
     color: var(--color13);
 
+  }
+
+  @media (--md) {
+    &__container {
+        padding: 10px 24px;
+    }
   }
 }
 
@@ -312,8 +341,7 @@
 .lang__select {
   height: var(--height-footer-bottom);
   font-family: var(--fontFamily0-Light);
-  font-size: 10px;
-  color: color(var(--color0) a(0.5));
+  font-size: 12px;
   border: none;
   width: auto;
   appearance: none;
@@ -323,8 +351,17 @@
   background-size: 8px 8px;
   padding-right: 10px;
   box-item: center;
+  color: var(--color0);
 
   &:hover{
     cursor: pointer;
+  }
+
+  option {
+      color: var(--color8);
+      background-color: var(--color0); /* needed for Firefox */
+      &.selected {
+        color: color(var(--color0) a(0.5));
+      }
   }
 }

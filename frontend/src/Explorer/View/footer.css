@@ -15,16 +15,16 @@
   }
 
   &__top {
-    border-bottom: 1px solid color(var(--color3) a(0.5));
+    border-bottom: 1px solid color(var(--color3) a(0.1));
 
     .nav__container {
       @extend .outer-container;
-      padding: 24px 18px;
+      padding: 24px 18px 0 18px;
     }
 
     @media (--md) {
       .nav__container {
-        padding: 48px 72px;
+        padding: 48px 72px 24px 72px;
       }
     }
 
@@ -54,7 +54,7 @@
       &__item {
         font-family: var(--fontFamily0-Light);
         font-size: 11px;
-        line-height: 30px;
+        line-height: 20px;
         display: block;
 
         button: standard-button;
@@ -73,9 +73,11 @@
 
       .logo__container {
         box: horizontal;
+        height: 100%;
       }
 
       .logo__cardano-name {
+        display: block;
         width: 90.2px;
         height: 26px;
         box-item: center;
@@ -93,6 +95,7 @@
         height: 26px;
         margin-left: 24px;
         box-item: center;
+        display: block;
       }
 
       @media (--md) {
@@ -120,11 +123,12 @@
         box-sizing: border-box;
         text-transform: uppercase;
         box-item: center;
+        display: block;
       }
 
       @media (--md) {
         .support {
-          font-size: 12px;
+          font-size: 9px;
         }
       }
 
@@ -159,15 +163,32 @@
     }
 
     .lang__select {
-      font-size: 10px;
       padding-right: 10px;
     }
   }
 
+  &__meta {
+    text-align: center;
+
+    .version {
+      font-family: var(--fontFamily0-Light);
+      font-size: 9px;
+      color: color(var(--color3) a(0.3))
+    }
+
+    .commit {
+        font-family: var(--fontFamily0-Light);
+        font-size: 9px;
+        padding-left: 5px;
+
+        button: standard-button;
+        button-color: color(var(--color3) a(0.3)) color(var(--color3) a(0.3)) color(var(--color3) a(0.3));
+    }
+  }
 
   @media (--md) {
     &__bottom {
-      padding: 24px 72px;
+      padding: 10px 72px 5px 72px;
     }
   }
 

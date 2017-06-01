@@ -14,7 +14,7 @@ mkdir -p $DIR_TYPES_LENSES
 purescript-derive-lenses \
   < $DIR_TYPES/State.purs \
   --moduleName Explorer.Lenses.State \
-  --moduleImports "import Pos.Explorer.Socket.Methods (Subscription)" \
+  --moduleImports "import Explorer.Api.Types (SocketSubscription, SocketSubscriptionData)" \
   > $DIR_TYPES_LENSES/State.purs
 
 # - - - - - - - - - - -
@@ -58,6 +58,5 @@ purescript-derive-lenses \
     --moduleImports "import Data.Time.NominalDiffTime (NominalDiffTime(..))" \
     --moduleImports "import Data.Maybe (Maybe)" \
     --moduleImports "import Data.Tuple (Tuple)" \
-    --moduleImports "import Pos.Core.Types (Coin)" \
-    --moduleImports "import Pos.Explorer.Web.ClientTypes (CAddress, CTxId)" \
+    --moduleImports "import Pos.Explorer.Web.ClientTypes (CCoin, CAddress, CTxId)" \
     > $DIR_VIEW_LENSES/View.purs

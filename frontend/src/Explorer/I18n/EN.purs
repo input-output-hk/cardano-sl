@@ -27,8 +27,8 @@ translation =
         , cSlots: "Slots"
         , cAge: "Since"
         , cTotalSent: "Total Sent"
-        , cRelayedBy: "Slot leader"
-        , cSizeKB: "Size (kB)"
+        , cBlockLead: "Slot leader"
+        , cSize: "Size (bytes)"
         , cExpand: "Expand"
         , cCollapse: "Collapse"
         , cNoData: "No data"
@@ -54,7 +54,7 @@ translation =
         , navTools: "Tools"
         }
     , hero:
-        { hrSubtitle: "most effective way to reasearch crypto currencies network"
+        { hrSubtitle: "Search addresses, transactions, epochs & slots on the Cardano network"
         , hrSearch: "Search for addresses, transactions, slots and epochs"
         , hrTime: "Time"
         }
@@ -86,7 +86,7 @@ translation =
         , dbGetApiKey: "Get API key"
         , dbMoreExamples: "See more examples"
         , dbAboutBlockchain: "About Blockchain"
-        , dbAboutBlockchainDescription: "Blockchain API makes it easy yo build cryptocurrensies applications and features. We are focused on providing a platform that enables developers to create fast, scalable, secure services.<br/><br/>This API is free and unlimited while we are in beta. We are just getting started, and will be rolling out more endpoints and features in the coming weeks. We want to build the API you need, so please send us requests, suggestions, or just say hello."
+        , dbAboutBlockchainDescription: "Blockchain API makes it easy yo build cryptocurrencies applications and features. We are focused on providing a platform that enables developers to create fast, scalable, secure services.<br/><br/>This API is free and unlimited while we are in beta. We are just getting started, and will be rolling out more endpoints and features in the coming weeks. We want to build the API you need, so please send us requests, suggestions, or just say hello."
         }
     , address:
         { addScan: "Scan this QR Code to copy address to clipboard"
@@ -99,6 +99,7 @@ translation =
         , txIncluded: "Included In Slots"
         , txRelayed: "Relayed by IP"
         , txEmpty: "No transactions"
+        , txFees: "Transaction fee"
         , txNotFound: "Transaction does not exist."
         }
     , block:
@@ -107,10 +108,11 @@ translation =
         , blPrevBlock: "Previous slot"
         , blNextBlock: "Next slot"
         , blRoot: "Merkle root"
-        , blNotFound: "Epoch / slot do not exist."
+        , blEpochSlotNotFound: "Epoch / slot do not exist."
+        , blSlotNotFound: "Slot does not exist."
         }
     , footer:
-        { fooRessources: "Ressources"
+        { fooResources: "Resources"
         , fooFollow: "Follow us"
         , fooLinks: "Links"
         , fooIohkSupportP: "IOHK supported project"

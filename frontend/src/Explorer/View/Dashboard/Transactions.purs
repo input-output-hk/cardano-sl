@@ -1,10 +1,12 @@
-module Explorer.View.Dashboard.Transactions (transactionsView) where
+module Explorer.View.Dashboard.Transactions
+    ( transactionsView
+    , maxTransactionRows
+    ) where
 
 import Prelude
-import Data.Array (length, null, slice)
+import Data.Array (length, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Time.NominalDiffTime.Lenses (_NominalDiffTime)
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (dbExploreTransactions, cCollapse, cNoData, cExpand, common, dashboard, cTransactionFeed, cDateFormat) as I18nL
 import Explorer.Lenses.State (lang, latestTransactions)
@@ -16,10 +18,10 @@ import Explorer.View.Common (currencyCSSClass, noData)
 import Explorer.View.Dashboard.Lenses (dashboardTransactionsExpanded)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
-import Pos.Core.Lenses.Types (_Coin, getCoin)
+import Network.RemoteData (RemoteData(..), isSuccess)
 import Pos.Explorer.Web.ClientTypes (CTxEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
-import Pux.Html (Html, div, text) as P
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
+import Pux.Html (Html, div, text, span) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick, MouseEvent) as P
 import Pux.Router (link) as P
@@ -66,10 +68,12 @@ transactionsView state =
                                     , action: NoOp
                                     }
           }
-      transactions = state ^. latestTransactions
-      noTransactions = null transactions
-      visibleTxClazz = if noTransactions then " hide" else ""
-      visibleWaitingClazz = if not noTransactions then " hide" else ""
+      transactions = case state ^. latestTransactions of
+                        Success txs -> txs
+                        _ -> []
+      successTxs = isSuccess $ state ^. latestTransactions
+      visibleTxClazz = if successTxs then "" else " hide"
+      visibleWaitingClazz = if successTxs then " hide" else ""
       visibleBtnExpandClazz = if expandable then "" else " disabled"
 
       clickHandler :: P.MouseEvent -> Action
@@ -90,16 +94,19 @@ transactionRow state (CTxEntry entry) =
     in
     P.div
         [ P.className "transactions__row" ]
-        [ P.link (toUrl <<< Tx $ entry ^. cteId)
-              [ P.className "transactions__column hash" ]
-              [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
-        , transactionColumn dateValue "date"
-        , transactionColumn (show $ entry ^. (cteAmount <<< _Coin <<< getCoin))
-              <<< currencyCSSClass $ Just ADA
+        [ P.div
+              [ P.className "transactions__column--hash-container" ]
+              [ P.link (toUrl <<< Tx $ entry ^. cteId)
+                [ P.className "hash"]
+                [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
+              ]
+        , P.div
+              [ P.className $ "transactions__column--date" ]
+              [ P.text dateValue ]
+        , P.div
+              [ P.className $ "transactions__column--currency" ]
+              [ P.span
+                  [ P.className <<< currencyCSSClass $ Just ADA ]
+                  [ P.text $ entry ^. (cteAmount <<< _CCoin <<< getCoin) ]
+              ]
         ]
-
-transactionColumn :: String -> String -> P.Html Action
-transactionColumn value clazzName =
-    P.div
-        [ P.className $ "transactions__column " <> clazzName ]
-        [ P.text value ]

@@ -1,13 +1,8 @@
 module Explorer.Util.Factory where
 
 import Prelude
-import Data.Foldable (sum)
-import Data.Lens ((^.))
-import Data.Time.NominalDiffTime (mkTime)
-import Data.Tuple (Tuple(..))
-import Pos.Core.Lenses.Types (_Coin, getCoin)
-import Pos.Core.Types (Coin(..), EpochIndex(..), LocalSlotIndex(..))
-import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary(..), CHash(..), CTxEntry(..), CTxId(..))
+import Pos.Core.Types (EpochIndex(..), LocalSlotIndex(..))
+import Pos.Explorer.Web.ClientTypes (CAddress(..), CCoin(..), CHash(..), CTxId(..))
 
 
 mkCHash :: String -> CHash
@@ -17,9 +12,9 @@ mkCTxId :: String -> CTxId
 mkCTxId =
     CTxId <<< mkCHash
 
-mkCoin :: Int -> Coin
+mkCoin :: Int -> CCoin
 mkCoin coin =
-  Coin {getCoin: coin}
+  CCoin {getCoin: show coin}
 
 mkCAddress :: String -> CAddress
 mkCAddress = CAddress
@@ -29,32 +24,3 @@ mkEpochIndex index = EpochIndex {getEpochIndex: index}
 
 mkLocalSlotIndex :: Int -> LocalSlotIndex
 mkLocalSlotIndex index = LocalSlotIndex {getSlotIndex: index}
-
--- | Helper to summarize coins by a list of Tx inputs or outputs
-sumCoinOfInputsOutputs :: Array (Tuple CAddress Coin) -> Coin
-sumCoinOfInputsOutputs addressList =
-    mkCoin <<< sum $ addressCoins <$> addressList
-      where
-        -- | Get total number of coins from an address
-        addressCoins :: (Tuple CAddress Coin) -> Int
-        addressCoins (Tuple _ coin) = coin ^. (_Coin <<< getCoin)
-
--- All the following helper function `mkEmpty**` are for debugging only
--- We do need these to mock live data
--- It can be removed if all endpoints are ready
-
-
-mkEmptyCTxEntry :: CTxEntry
-mkEmptyCTxEntry = CTxEntry
-    { cteId: mkCTxId "--"
-    , cteTimeIssued: mkTime 0.0
-    , cteAmount: mkCoin 0
-    }
-
-mkEmptyCAddressSummary :: CAddressSummary
-mkEmptyCAddressSummary = CAddressSummary
-    { caAddress: mkCAddress "--"
-    , caTxNum: 0
-    , caBalance: mkCoin 0
-    , caTxList: []
-    }

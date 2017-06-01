@@ -22,4 +22,11 @@ node-db/*
 *.key
 *.lock
 *.dump
+*.log
 wallet-db/*
+socket-io.log.*
+
+# Intellij Idea & intellij-haskell
+.idea
+.ideaHaskellLib
+*.iml

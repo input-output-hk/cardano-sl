@@ -26,6 +26,7 @@ main = do
       , mkSumType (Proxy @CT.CAddressSummary)
       , mkSumType (Proxy @CT.CBlockEntry)
       , mkSumType (Proxy @CT.CBlockSummary)
+      , mkSumType (Proxy @CT.CAddressType)
       , mkSumType (Proxy @CT.CHash)
       , mkSumType (Proxy @CT.CNetworkAddress)
       , mkSumType (Proxy @CT.CTxBrief)
@@ -33,7 +34,7 @@ main = do
       , mkSumType (Proxy @CT.CTxId)
       , mkSumType (Proxy @CT.CTxSummary)
       , mkSumType (Proxy @CE.ExplorerError)
-      , mkSumType (Proxy @CT.Coin)
+      , mkSumType (Proxy @CT.CCoin)
       , mkSumType (Proxy @PS.ClientEvent)
       , mkSumType (Proxy @PS.ServerEvent)
       , mkSumType (Proxy @PS.Subscription)
@@ -42,8 +43,12 @@ main = do
       ]
   where
       customBridge =
-          defaultBridge <|> posixTimeBridge <|> wordBridge <|>
-          word8Bridge <|> word16Bridge <|> word32Bridge <|>
+          defaultBridge     <|> 
+          posixTimeBridge   <|> 
+          wordBridge        <|>
+          word8Bridge       <|> 
+          word16Bridge      <|> 
+          word32Bridge      <|>
           word64Bridge
 
 posixTimeBridge :: BridgePart

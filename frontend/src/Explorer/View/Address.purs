@@ -3,21 +3,19 @@ module Explorer.View.Address where
 import Prelude
 import Data.Array (length, (!!))
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, currentAddressSummary, lang, viewStates)
+import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance, tx, txEmpty) as I18nL
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, currentAddressSummary, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (addressQRImageId)
+import Explorer.State (addressQRImageId, minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State)
-import Explorer.Util.DOM (targetToHTMLInputElement)
 import Explorer.View.Common (currencyCSSClass, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..))
-import Pos.Core.Lenses.Types (_Coin, getCoin)
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxList, caTxNum)
-import Pux.Html (Html, div, text, h3, p) as P
+import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, _CAddress, caAddress, caBalance, caTxList, caTxNum, getCoin)
+import Pux.Html (Html, div, text, span, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML, id_) as P
 import Pux.Router (link) as P
 
@@ -57,7 +55,7 @@ addressView state =
                                           [ P.text $ translate (I18nL.common <<< I18nL.cTransactions) lang' ]
                                     , case currentTxBrief of
                                         Nothing ->
-                                            txEmptyContentView lang'
+                                            txEmptyContentView $ translate (I18nL.tx <<< I18nL.txEmpty) lang'
                                         Just txBrief ->
                                             P.div []
                                             [ txHeaderView lang' $ mkTxHeaderViewProps txBrief
@@ -65,9 +63,13 @@ addressView state =
                                             , txPaginationView
                                                   { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                                   , currentPage: txPagination
+                                                  , minPage: minPagination
                                                   , maxPage: length txList
                                                   , changePageAction: AddressPaginateTxs
-                                                  , onFocusAction: SelectInputText <<< targetToHTMLInputElement
+                                                  , editable: state ^. (viewStates <<< addressDetail <<< addressTxPaginationEditable)
+                                                  , editableAction: AddressEditTxsPageNumber
+                                                  , invalidPageAction: AddressInvalidTxsPageNumber
+                                                  , disabled: false
                                                   }
                                             ]
                                     ]
@@ -116,7 +118,7 @@ addressQr _ lang =
 type SummaryRowItem =
     { label :: String
     , value :: String
-    , currency :: Maybe CCurrency
+    , mCurrency :: Maybe CCurrency
     }
 
 type SummaryItems = Array SummaryRowItem
@@ -125,15 +127,15 @@ addressDetailRowItems :: CAddressSummary -> Language -> SummaryItems
 addressDetailRowItems (CAddressSummary address) lang =
     [ { label: translate (I18nL.common <<< I18nL.cAddress) lang
       , value: address ^. (caAddress <<< _CAddress)
-      , currency: Nothing
+      , mCurrency: Nothing
     }
     , { label: translate (I18nL.common <<< I18nL.cTransactions) lang
       , value: show $ address ^. caTxNum
-      , currency: Nothing
+      , mCurrency: Nothing
     }
     , { label: translate (I18nL.address <<< I18nL.addFinalBalance) lang
-      , value: show $ address ^. (caBalance <<< _Coin <<< getCoin)
-      , currency: Just ADA
+      , value: address ^. (caBalance <<< _CCoin <<< getCoin)
+      , mCurrency: Just ADA
       }
     ]
 
@@ -145,7 +147,14 @@ addressDetailRow item =
             [ P.className "address-detail__column label" ]
             [ P.text item.label ]
         , P.div
-              [ P.className $ "address-detail__column amount" <> currencyCSSClass item.currency ]
+              [ P.className $ "address-detail__column amount" ]
+              if isJust item.mCurrency
+              then
+              [ P.span
+                [ P.className $ currencyCSSClass item.mCurrency ]
+                [ P.text item.value ]
+              ]
+              else
               [ P.text item.value ]
         ]
 

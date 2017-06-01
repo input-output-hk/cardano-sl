@@ -39,8 +39,8 @@ type Common =
     , cSlots :: String
     , cAge :: String
     , cTotalSent :: String
-    , cRelayedBy :: String
-    , cSizeKB :: String
+    , cBlockLead :: String
+    , cSize :: String
     , cExpand :: String
     , cCollapse :: String
     , cNoData :: String
@@ -126,6 +126,7 @@ type Transaction =
     , txIncluded :: String
     , txRelayed :: String
     , txEmpty :: String
+    , txFees :: String
     , txNotFound :: String
     }
 
@@ -137,13 +138,14 @@ type Block =
     , blPrevBlock :: String
     , blNextBlock :: String
     , blRoot :: String
-    , blNotFound :: String
+    , blEpochSlotNotFound :: String
+    , blSlotNotFound :: String
     }
 
 -- translations of footer
 
 type Footer =
-    { fooRessources :: String
+    { fooResources :: String
     , fooFollow :: String
     , fooLinks :: String
     , fooIohkSupportP :: String

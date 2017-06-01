@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
+
 -- API server logic
 
 module Pos.Explorer.Web.Server
@@ -9,11 +10,14 @@ module Pos.Explorer.Web.Server
        , explorerServeImpl
        , explorerApp
        , explorerHandlers
+
+       -- function useful for socket-io server
        , topsortTxsOrFail
        , getMempoolTxs
+       , getLastBlocks
        ) where
 
-import           Control.Lens                   (at)
+import           Control.Lens                   (at, _Wrapped, _Right)
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
@@ -29,8 +33,8 @@ import           Pos.Communication              (SendActions)
 import           Pos.Crypto                     (WithHash (..), hash, withHash)
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.GState                  as GS
-import qualified Pos.DB.GState.Balances         as GS
 
+import           Pos.DB.Class                   (MonadDB)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class                  (SscHelpersClass)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
@@ -41,33 +45,32 @@ import           Pos.Types                      (Address (..), Block, EpochIndex
                                                  HeaderHash, LocalSlotIndex (..),
                                                  MainBlock, Timestamp, blockSlot,
                                                  blockTxs, difficultyL, gbHeader,
-                                                 gbhConsensus, genesisHash, mcdSlot,
-                                                 mkCoin, prevBlockL, siEpoch, siSlot,
-                                                 sumCoins, unsafeIntegerToCoin,
-                                                 unsafeSubCoin)
+                                                 gbhConsensus, genesisHash, headerHashG,
+                                                 getChainDifficulty, mcdSlot, mkCoin,
+                                                 prevBlockL, siEpoch, siSlot, sumCoins,
+                                                 unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer                   (TxExtra (..), getTxExtra)
-import qualified Pos.Explorer                   as EX (getAddrHistory, getTxExtra)
+import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHistory,
+                                                       getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
-                                                 CHash, CTxBrief (..), CTxEntry (..),
-                                                 CTxId (..), CTxSummary (..),
-                                                 TxInternal (..), convertTxOutputs,
-                                                 fromCAddress, fromCHash, fromCTxId,
+                                                 CAddressType (..), CBlockEntry (..),
+                                                 CBlockSummary (..), CHash, CTxBrief (..),
+                                                 CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..), TxInternal (..),
+                                                 convertTxOutputs, fromCAddress,
+                                                 fromCHash, fromCTxId, mkCCoin,
                                                  tiToTxEntry, toBlockEntry,
-                                                 toBlockSummary, toPosixTime, toTxBrief)
+                                                 toBlockSummary, toPosixTime,
+                                                 toTxBrief, getEpochIndex,
+                                                 getSlotIndex)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-
-
-
-
-
 
 ----------------------------------------------------------------
 -- Top level functionality
@@ -93,6 +96,8 @@ explorerHandlers _sendActions =
     :<|>
       apiBlocksTxs
     :<|>
+      apiBlocksTotalNumber
+    :<|>
       apiTxsLast
     :<|>
       apiTxsSummary
@@ -101,15 +106,16 @@ explorerHandlers _sendActions =
     :<|>
       apiEpochSlotSearch
   where
-    apiBlocksLast       = getLastBlocksDefault
-    apiBlocksSummary    = catchExplorerError . getBlockSummary
-    apiBlocksTxs        = getBlockTxsDefault
-    apiTxsLast          = getLastTxsDefault
-    apiTxsSummary       = catchExplorerError . getTxSummary
-    apiAddressSummary   = catchExplorerError . getAddressSummary
-    apiEpochSlotSearch  = tryEpochSlotSearch
+    apiBlocksLast        = getLastBlocksDefault
+    apiBlocksSummary     = catchExplorerError . getBlockSummary
+    apiBlocksTxs         = getBlockTxsDefault
+    apiBlocksTotalNumber = catchExplorerError $ getBlocksTotalNumber
+    apiTxsLast           = getLastTxsDefault
+    apiTxsSummary        = catchExplorerError . getTxSummary
+    apiAddressSummary    = catchExplorerError . getAddressSummary
+    apiEpochSlotSearch   = tryEpochSlotSearch
 
-    catchExplorerError = try
+    catchExplorerError   = try
 
     getLastBlocksDefault      limit skip =
       catchExplorerError $ getLastBlocks (defaultLimit limit) (defaultSkip skip)
@@ -123,8 +129,23 @@ explorerHandlers _sendActions =
     tryEpochSlotSearch   epoch maybeSlot =
       catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    defaultLimit limit = (fromIntegral $ fromMaybe 100 limit)
-    defaultSkip  skip  = (fromIntegral $ fromMaybe 0 skip)
+    defaultLimit limit   = (fromIntegral $ fromMaybe 10 limit)
+    defaultSkip  skip    = (fromIntegral $ fromMaybe 0 skip)
+
+-- | Get the total number of blocks/slots currently available.
+-- Total number of main blocks   = difficulty of the topmost (tip) header.
+-- Total number of anchor blocks = current epoch + 1
+getBlocksTotalNumber
+    :: (MonadDB m)
+    => m Int
+getBlocksTotalNumber = do
+    -- Get the tip block.
+    tipBlock <- DB.getTipBlock @SscGodTossing
+    -- -1 is for the genesis block which isn't visible and contains no
+    -- valuable information
+    pure $ max 0 (maxBlocks tipBlock - 1)
+  where
+    maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch
@@ -154,24 +175,87 @@ getBlocksByEpoch epochIndex mSlotIndex = do
       where
         findBlocksByEpochPred mb = (siEpoch $ mb ^. blockSlot) == epochIndex &&
                 fromMaybe True ((siSlot (mb ^. blockSlot) ==) <$> mSlotIndex)
+
+-- | Get last blocks from the blockchain.
 --
-getLastBlocks :: ExplorerMode m => Word -> Word -> m [CBlockEntry]
-getLastBlocks lim off = do
-    tip <- GS.getTip
-    let getNextBlk h _ = fmap (view prevBlockL) $
-            DB.getBlockHeader @SscGodTossing h >>=
-            maybeThrow (Internal "Block database is malformed!")
-    start <- foldlM getNextBlk tip [0..off]
+-- What we see when offset < blocksTotal is:
+--
+--  * we start at blocksTotal - offset (we have 180 blocks and we offset them
+--    by 170 - we start at the block 10)
+--
+--  * we end at blocksTotal - offset - limit (we have 180 blocks and we offset them
+--    by 170 and set the limit to 10 - we end at the block 0)
+--
+-- Why this offset/limit scheme - https://www.petefreitag.com/item/451.cfm
+getLastBlocks :: (MonadDB m, MonadSlots m) => Word -> Word -> m [CBlockEntry]
+getLastBlocks limit offset = do
+    -- Get tip block header hash.
+    tipHash     <- GS.getTip
 
-    let unfolder n h = do
-            when (n == 0) $
-                fail "limit!"
-            MaybeT (DB.getBlock @SscGodTossing h) >>= \mBlock -> case mBlock of
-                Left gb -> unfolder n (gb ^. prevBlockL)
-                Right mb -> (,) <$> lift (toBlockEntry mb) <*>
-                            pure (n - 1, mb ^. prevBlockL)
-    flip unfoldrM (lim, start) $ \(n, h) -> runMaybeT $ unfolder n h
+    -- Get total blocks in the blockchain. What if race condition?
+    blocksTotal <- toInteger <$> getBlocksTotalNumber
 
+    -- Make sure we aren't offseting more than the beginning of the blockchain.
+    when (offsetInt > blocksTotal) $
+        throwM $ Internal "Offset cannot be greater than total blocks number."
+
+    -- Calculate from where to where we should take blocks.
+    let blocksEndIndex   = blocksTotal - offsetInt
+    let blocksStartIndex = max 0 (blocksEndIndex - limitInt)
+
+    -- Find the end main block at the end index if it exists, and return it.
+    foundEndBlock <- findMainBlockWithIndex tipHash blocksEndIndex >>=
+        maybeThrow (Internal "Block with specified index cannot be found!")
+
+    -- Get the header hash from the found end block.
+    let foundEndHeaderHash  = foundEndBlock ^. headerHashG
+
+    -- Take blocks until you reach the start index.
+    let takeBlocks block    = getBlockIndex block >= blocksStartIndex
+
+    -- Now we can reuse an existing function to fetch blocks.
+    foundBlocks   <- DB.loadBlocksWhile @SscGodTossing takeBlocks foundEndHeaderHash
+
+    -- Unwrap the blocks from @NewestFirst@ wrapper.
+    let blocks     = foundBlocks ^. _Wrapped
+    -- We want just the Main blocks, not the Genesis blocks, so we fetch them.
+    let mainBlocks = rights blocks
+
+    -- Transfrom all @MainBlock@ to @CBlockEntry@.
+    pure mainBlocks >>= traverse toBlockEntry
+  where
+    offsetInt           = toInteger offset
+    limitInt            = toInteger limit
+    getBlockIndex block = toInteger $ getChainDifficulty $ block ^. difficultyL
+
+    -- | Find block matching the sent index/difficulty.
+    findMainBlockWithIndex
+        :: (MonadDB m)
+        => HeaderHash
+        -> Integer
+        -> m (Maybe (MainBlock SscGodTossing))
+    findMainBlockWithIndex headerHash index
+        -- When we reach the genesis block, return @Nothing@. This is
+        -- literaly the first block ever, so we reached the begining of the
+        -- whole blockchain and there is nothing more to search.
+        | headerHash == genesisHash = pure $ Nothing
+        -- Otherwise iterate back from the top block (called tip) and
+        -- search for the block satisfying the predicate.
+        | otherwise = do
+            -- Get the block with the sent hash, throw exception if/when the block
+            -- search fails.
+            block <- DB.getBlock @SscGodTossing headerHash >>=
+                maybeThrow (Internal "Block with hash cannot be found!")
+            -- If there is a block then iterate backwards with the predicate
+            let prevBlock = block ^. prevBlockL
+
+            if getBlockIndex block == index
+                -- When the predicate is true, return the @Main@ block
+                then pure $ block ^? _Right
+                -- When the predicate is false, keep searching backwards
+                else findMainBlockWithIndex prevBlock index
+
+-- | Get last transactions from the blockchain
 getLastTxs :: ExplorerMode m => Word -> Word -> m [CTxEntry]
 getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
     mempoolTxs <- getMempoolTxs
@@ -202,64 +286,115 @@ getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
         pure $ makeTxBrief tx extra
 
 getAddressSummary :: ExplorerMode m => CAddress -> m CAddressSummary
-getAddressSummary cAddr = cAddrToAddr cAddr >>= \addr -> case addr of
-    PubKeyAddress sid _ -> do
-        balance <- fromMaybe (mkCoin 0) <$> GS.getRealStake sid
-        -- TODO: add number of coins when it's implemented
-        -- TODO: retrieve transactions from something like an index
-        txIds <- getNewestFirst <$> EX.getAddrHistory addr
-        transactions <- forM txIds $ \id -> do
-            extra <- getTxExtraOrFail id
-            tx <- getTxMain id extra
-            pure $ makeTxBrief tx extra
-        return $ CAddressSummary cAddr 0 balance transactions
-    _ -> throwM $
-         Internal "Non-P2PKH addresses are not supported in Explorer yet"
+getAddressSummary cAddr = do
+    addr <- cAddrToAddr cAddr
 
+    when (isAddressUnknown addr) $
+        throwM $ Internal "Unknown address type"
+
+    balance <- mkCCoin . fromMaybe (mkCoin 0) <$> EX.getAddrBalance addr
+    txIds <- getNewestFirst <$> EX.getAddrHistory addr
+    transactions <- forM txIds $ \id -> do
+        extra <- getTxExtraOrFail id
+        tx <- getTxMain id extra
+        pure $ makeTxBrief tx extra
+    pure CAddressSummary {
+        caAddress = cAddr,
+        caType = getAddressType addr,
+        caTxNum = fromIntegral $ length transactions,
+        caBalance = balance,
+        caTxList = transactions
+    }
+  where
+    isAddressUnknown = \case
+        UnknownAddressType _ _ -> True
+        _ -> False
+    getAddressType :: Address -> CAddressType
+    getAddressType = \case
+        PubKeyAddress _ _ -> CPubKeyAddress
+        ScriptAddress _ -> CScriptAddress
+        RedeemAddress _ -> CRedeemAddress
+        UnknownAddressType _ _ -> CUnknownAddress
+
+-- | Get transaction summary from transaction id. Looks at both the database
+-- and the memory (mempool) for the transaction. What we have at the mempool
+-- are transactions that have to be written in the blockchain.
 getTxSummary :: ExplorerMode m => CTxId -> m CTxSummary
 getTxSummary cTxId = do
     -- There are two places whence we can fetch a transaction: MemPool and DB.
     -- However, TxExtra should be added in the DB when a transaction is added
     -- to MemPool. So we start with TxExtra and then figure out whence to fetch
     -- the rest.
-    txId <- cTxIdToTxId cTxId
-    txExtra <- getTxExtraOrFail txId
+    txId                    <- cTxIdToTxId cTxId
+    -- Get from database, txExtra
+    txExtra                 <- getTxExtraOrFail txId
 
-    let blockchainPlace = teBlockchainPlace txExtra
-        inputOutputs = map toaOut $ NE.toList $ teInputOutputs txExtra
-        receivedTime = teReceivedTime txExtra
+    -- Return transaction extra (txExtra) fields
+    let blockchainPlace     = teBlockchainPlace txExtra
+        inputOutputs        = map toaOut $ NE.toList $ teInputOutputs txExtra
+        receivedTime        = teReceivedTime txExtra
 
-    (ctsBlockTimeIssued, ctsBlockHeight, ctsOutputs) <-
-        case blockchainPlace of
-            Nothing -> do
-                -- Fetching transaction from MemPool.
-                tx <- fetchTxFromMempoolOrFail txId
-                let txOutputs = convertTxOutputs . NE.toList . _txOutputs $
-                        view _1 tx
-                pure (Nothing, Nothing, txOutputs)
-            Just (headerHash, txIndexInBlock) -> do
-                -- Fetching transaction from DB.
-                mb <- getMainBlock headerHash
-                blkSlotStart <- getBlkSlotStart mb
-                let blockHeight = fromIntegral $ mb ^. difficultyL
-                tx <- maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
-                      atMay (toList $ mb ^. blockTxs) (fromIntegral txIndexInBlock)
-                let txOutputs = convertTxOutputs . NE.toList $ _txOutputs tx
-                    ts = toPosixTime <$> blkSlotStart
-                pure (ts, Just blockHeight, txOutputs)
+    -- fetch block fields (DB or mempool)
+    blockFields <- fetchBlockFields txId blockchainPlace
 
-    let ctsId = cTxId
-        ctsTxTimeIssued = toPosixTime receivedTime
-        ctsRelayedBy = Nothing
-        ctsTotalInput = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
-        ctsInputs = convertTxOutputs inputOutputs
-        ctsTotalOutput = unsafeIntegerToCoin $ sumCoins $ map snd ctsOutputs
+    let ctsBlockTimeIssued  = blockFields ^. _1
+        ctsBlockHeight      = blockFields ^. _2
+        ctsBlockEpoch       = blockFields ^. _3
+        ctsBlockSlot        = blockFields ^. _4
+        outputs             = blockFields ^. _5
 
-    when (ctsTotalOutput > ctsTotalInput) $
+        ctsId               = cTxId
+        ctsOutputs          = map (second mkCCoin) outputs
+        ctsTxTimeIssued     = toPosixTime receivedTime
+        ctsRelayedBy        = Nothing
+        ctsTotalInput       = mkCCoin totalInput
+        totalInput          = unsafeIntegerToCoin $ sumCoins $ map txOutValue inputOutputs
+        ctsInputs           = map (second mkCCoin) $ convertTxOutputs inputOutputs
+        ctsTotalOutput      = mkCCoin totalOutput
+        totalOutput         = unsafeIntegerToCoin $ sumCoins $ map snd outputs
+
+    -- Verify that strange things don't happen with transactions
+    when (totalOutput > totalInput) $
         throwM $ Internal "Detected tx with output greater than input"
 
-    let ctsFees = unsafeSubCoin ctsTotalInput ctsTotalOutput
+    let ctsFees = mkCCoin $ unsafeSubCoin totalInput totalOutput
     pure $ CTxSummary {..}
+      where
+
+        -- General fetch that fetches either from DB or mempool
+        fetchBlockFields txId Nothing =
+            fetchBlockFieldsFromMempool txId
+
+        fetchBlockFields _    (Just (headerHash, txIndexInBlock)) =
+            fetchBlockFieldsFromDb headerHash txIndexInBlock
+
+        -- Fetching transaction from MemPool.
+        fetchBlockFieldsFromMempool txId = do
+            tx              <- fetchTxFromMempoolOrFail txId
+
+            let txOutputs   = convertTxOutputs . NE.toList . _txOutputs $
+                    view _1 tx
+            pure (Nothing, Nothing, Nothing, Nothing, txOutputs)
+
+        -- Fetching transaction from DB.
+        fetchBlockFieldsFromDb headerHash txIndexInBlock =  do
+
+            mb                <- getMainBlock headerHash
+            blkSlotStart      <- getBlkSlotStart mb
+
+            let blockHeight   = fromIntegral $ mb ^. difficultyL
+
+            -- Get block epoch and slot index
+            let blkHeaderSlot = mb ^. blockSlot
+            let epochIndex    = getEpochIndex $ siEpoch blkHeaderSlot
+            let slotIndex     = getSlotIndex  $ siSlot  blkHeaderSlot
+
+            tx <- maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
+                  atMay (toList $ mb ^. blockTxs) (fromIntegral txIndexInBlock)
+
+            let txOutputs     = convertTxOutputs . NE.toList $ _txOutputs tx
+                ts            = toPosixTime <$> blkSlotStart
+            pure (ts, Just blockHeight, Just epochIndex, Just slotIndex, txOutputs)
 
 --------------------------------------------------------------------------------
 -- Helpers
@@ -313,10 +448,11 @@ filterAllBlocks headerHash predicate acc
 unwrapOrThrow :: ExplorerMode m => Either Text a -> m a
 unwrapOrThrow = either (throwM . Internal) pure
 
+-- | Get transaction from memory (STM) or throw exception.
 fetchTxFromMempoolOrFail :: ExplorerMode m => TxId -> m TxAux
 fetchTxFromMempoolOrFail txId =
-    maybeThrow (Internal "Transaction not found in the mempool") =<<
-    view (mpLocalTxs . at txId) <$> getMemPool
+    view (mpLocalTxs . at txId) <$> getMemPool >>=
+    maybeThrow (Internal "Transaction not found in the mempool")
 
 getMempoolTxs :: ExplorerMode m => m [TxInternal]
 getMempoolTxs = do
@@ -367,29 +503,32 @@ topsortTxsOrFail f =
     maybeThrow (Internal "Dependency loop in txs set") .
     topsortTxs f
 
+-- | Convert server address to client address,
+-- with the possible exception (effect).
 cAddrToAddr :: MonadThrow m => CAddress -> m Address
-cAddrToAddr cAddr =
-    fromCAddress cAddr &
-    either (const $ throwM $ Internal "Invalid address!") pure
+cAddrToAddr cAddr = either exception pure (fromCAddress cAddr)
+  where
+    exception = const $ throwM $ Internal "Invalid address!"
 
+-- | Convert server transaction to client transaction,
+-- with the possible exception (effect).
 cTxIdToTxId :: MonadThrow m => CTxId -> m TxId
-cTxIdToTxId cTxId =
-    fromCTxId cTxId &
-    either (const $ throwM $ Internal "Invalid transaction id!") pure
+cTxIdToTxId cTxId = either exception pure (fromCTxId cTxId)
+  where
+    exception = const $ throwM $ Internal "Invalid transaction id!"
 
 getMainBlock :: ExplorerMode m => HeaderHash -> m (MainBlock SscGodTossing)
 getMainBlock h =
     DB.getBlock h >>=
     maybeThrow (Internal "No block found") >>=
     either (const $ throwM $ Internal "Block is genesis block") pure
-{-}
-getTxExtra :: ExplorerMode m => TxId -> m (Maybe TxExtra)
-getTxExtra id =
-    MM.lookupM EX.getTxExtra id =<< getTxExtra
--}
-getTxExtraOrFail :: ExplorerMode m => TxId -> m TxExtra
-getTxExtraOrFail id =
-    maybeThrow (Internal "Transaction not found") =<< getTxExtra id
+
+-- | Get transaction extra from the database, and if you don't find it
+-- throw an exception.
+getTxExtraOrFail :: MonadDB m => TxId -> m TxExtra
+getTxExtraOrFail txId = getTxExtra txId >>= maybeThrow exception
+  where
+    exception = Internal "Transaction not found"
 
 getTxMain :: ExplorerMode m => TxId -> TxExtra -> m Tx
 getTxMain id TxExtra {..} = case teBlockchainPlace of

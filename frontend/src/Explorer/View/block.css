@@ -67,9 +67,9 @@
 
   .row__summary {
     .ada {
-      padding-left: 10px;
+      padding-right: 10px;
       background-repeat: no-repeat;
-      background-position: left center;
+      background-position: right center;
       background-size: 8px 7px;
     }
   }
@@ -82,7 +82,7 @@
   }
 
   .column {
-    lost-column: 3/12;
+    lost-column: 2.5/12;
     padding: 10px 0;
     font-family: var(--fontFamily0-Regular);
     color: var(--color8);
@@ -91,12 +91,30 @@
     overflow: hidden;
 
     &:last-child {
-      lost-column: 9/12;
+      lost-column: 9.5/12;
     }
 
     &__hash,
     &__hash--link {
       text-overflow: ellipsis;
+    }
+  }
+
+  .summary-empty {
+
+    &__container {
+      padding: 10px 18px;
+
+      font-size: 10px;
+      font-family: var(--fontFamily0-Regular);
+      color: var(--color13);
+
+    }
+
+    @media (--md) {
+      &__container {
+          padding: 10px 24px;
+      }
     }
   }
 

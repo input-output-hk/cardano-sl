@@ -5,7 +5,7 @@
   left: 0;
   right: 0;
   background-color: var(--color2);
-  background-image: url('../static/images/car-sky.jpg');
+  background-image: var(--bg-header-url);
   background-repeat: no-repeat;
   background-size: 100% var(--min-height-header-bg-image);
 
@@ -50,6 +50,7 @@
   }
 
   .logo__img {
+    display: block;
     width: 39px;
     height: 36px;
   }
@@ -80,6 +81,25 @@
 
         .explorer-search__container {
           box-item: center;
+
+          lost-column: 9/12;
+          lost-offset: 1.5/12;
+
+          @extend .animated;
+          @extend .fadeIn;
+
+          animation-duration: .3s;
+          /* We do need a little delay
+          to hide previous state */
+          animation-delay: .3s;
+
+          &.focused {
+            transition: all 0.3s ease;
+            /* We do need a little offset here
+            to have a smooth transition */
+            lost-column: 11.8/12;
+            lost-offset: 0.1/12;
+          }
         }
       }
     }
@@ -173,13 +193,6 @@
 
     &__wrapper--vtop {
       border-bottom: none;
-    }
-
-    .middle-content {
-
-      &__search {
-        @extend .show;
-      }
     }
 
     &__wrapper--vtop {

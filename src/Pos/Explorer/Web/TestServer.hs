@@ -5,20 +5,17 @@
 
 module Pos.Explorer.Web.TestServer (runMockServer) where
 
-import           Data.Time                      (defaultTimeLocale,
-                                                 parseTimeOrError)
-import           Data.Time.Clock.POSIX          (POSIXTime,
-                                                 utcTimeToPOSIXSeconds)
+import           Data.Time                      (defaultTimeLocale, parseTimeOrError)
+import           Data.Time.Clock.POSIX          (POSIXTime, utcTimeToPOSIXSeconds)
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.Warp       (run)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
-                                                 CAddressSummary (..),
-                                                 CBlockEntry (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
+                                                 CAddressType (..), CBlockEntry (..),
                                                  CBlockSummary (..), CHash (..),
-                                                 CTxBrief (..), CTxEntry (..),
-                                                 CTxId (..), CTxSummary (..))
+                                                 CTxBrief (..), CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..), mkCCoin)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Types                      (EpochIndex, mkCoin)
 import           Pos.Web                        ()
@@ -50,6 +47,8 @@ explorerHandlers =
     :<|>
       apiBlocksTxs
     :<|>
+      apiBlocksTotalNumber
+    :<|>
       apiTxsLast
     :<|>
       apiTxsSummary
@@ -58,13 +57,14 @@ explorerHandlers =
     :<|>
       apiEpochSlotSearch
   where
-    apiBlocksLast       = testBlocksLast
-    apiBlocksSummary    = testBlocksSummary
-    apiBlocksTxs        = testBlocksTxs
-    apiTxsLast          = testTxsLast
-    apiTxsSummary       = testTxsSummary
-    apiAddressSummary   = testAddressSummary
-    apiEpochSlotSearch  = testEpochSlotSearch
+    apiBlocksLast        = testBlocksLast
+    apiBlocksSummary     = testBlocksSummary
+    apiBlocksTxs         = testBlocksTxs
+    apiBlocksTotalNumber = testBlocksTotalNumber
+    apiTxsLast           = testTxsLast
+    apiTxsSummary        = testTxsSummary
+    apiAddressSummary    = testAddressSummary
+    apiEpochSlotSearch   = testEpochSlotSearch
 
 --------------------------------------------------------------------------------
 -- sample data --
@@ -75,8 +75,9 @@ posixTime = utcTimeToPOSIXSeconds (parseTimeOrError True defaultTimeLocale "%F" 
 sampleAddressSummary :: CAddressSummary
 sampleAddressSummary = CAddressSummary
     { caAddress = CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv"
+    , caType    = CPubKeyAddress
     , caTxNum   = 0
-    , caBalance = mkCoin 0
+    , caBalance = mkCCoin $ mkCoin 0
     , caTxList  = []
     }
 ----------------------------------------------------------------
@@ -93,9 +94,9 @@ testBlocksLast _ _  = pure . pure $ [CBlockEntry
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
     , cbeTimeIssued = Nothing
     , cbeTxNum      = 0
-    , cbeTotalSent  = mkCoin 0
+    , cbeTotalSent  = mkCCoin $ mkCoin 0
     , cbeSize       = 390
-    , cbeRelayedBy  = Nothing
+    , cbeBlockLead  = Nothing
     }]
 
 testBlocksSummary
@@ -108,9 +109,9 @@ testBlocksSummary _ = pure . pure $ CBlockSummary
                         , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
                         , cbeTimeIssued = Nothing
                         , cbeTxNum      = 0
-                        , cbeTotalSent  = mkCoin 0
+                        , cbeTotalSent  = mkCCoin $ mkCoin 0
                         , cbeSize       = 390
-                        , cbeRelayedBy  = Nothing
+                        , cbeBlockLead  = Nothing
                         }
     , cbsPrevHash   = CHash "d36710c918da4c4a3e0ff42e1049d81cc7bcbacc789c8583ea1c9afd8da3c24e"
     , cbsNextHash   = Just (CHash "d3bb988e57356b706f7b8f1fe29591ab0d1bdfac4aa08836475783973e4cf7c1")
@@ -125,9 +126,15 @@ testBlocksTxs
 testBlocksTxs _ _ _ = pure . pure $ [CTxBrief
     { ctbId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
     , ctbTimeIssued = posixTime
-    , ctbInputs     = [(CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCoin 33333)]
-    , ctbOutputs    = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCoin 33333)]
+    , ctbInputs     = [(CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCCoin $ mkCoin 33333)]
+    , ctbOutputs    = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCCoin $ mkCoin 33333)]
+    , ctbInputSum   = mkCCoin $ mkCoin 33333
+    , ctbOutputSum  = mkCCoin $ mkCoin 33333
     }]
+
+testBlocksTotalNumber
+    :: Handler (Either ExplorerError Int)
+testBlocksTotalNumber = pure $ pure 333
 
 testTxsLast
     :: Maybe Word
@@ -136,7 +143,7 @@ testTxsLast
 testTxsLast _ _     = pure . pure $ [CTxEntry
     { cteId         = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
     , cteTimeIssued = posixTime
-    , cteAmount     = mkCoin 33333
+    , cteAmount     = mkCCoin $ mkCoin 33333
     }]
 
 testTxsSummary
@@ -147,12 +154,14 @@ testTxsSummary _       = pure . pure $ CTxSummary
     , ctsTxTimeIssued    = posixTime
     , ctsBlockTimeIssued = Nothing
     , ctsBlockHeight     = Just 11
+    , ctsBlockEpoch      = Just 4
+    , ctsBlockSlot       = Just 17
     , ctsRelayedBy       = Nothing
-    , ctsTotalInput      = mkCoin 33333
-    , ctsTotalOutput     = mkCoin 33333
-    , ctsFees            = mkCoin 0
-    , ctsInputs          = [(CAddress "1fi9sA3pRt8bKVibdun57iyWG9VsWZscgQigSik6RHoF5Mv", mkCoin 33333)]
-    , ctsOutputs         = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCoin 33333)]
+    , ctsTotalInput      = mkCCoin $ mkCoin 33333
+    , ctsTotalOutput     = mkCCoin $ mkCoin 33333
+    , ctsFees            = mkCCoin $ mkCoin 0
+    , ctsInputs          = [(CAddress "", mkCCoin $ mkCoin 33333)]
+    , ctsOutputs         = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCCoin $ mkCoin 33333)]
     }
 
 testAddressSummary
@@ -170,7 +179,7 @@ testEpochSlotSearch _ _ = pure . pure $ [CBlockEntry
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
     , cbeTimeIssued = Nothing
     , cbeTxNum      = 0
-    , cbeTotalSent  = mkCoin 0
+    , cbeTotalSent  = mkCCoin $ mkCoin 0
     , cbeSize       = 390
-    , cbeRelayedBy  = Nothing
+    , cbeBlockLead  = Nothing
     }]

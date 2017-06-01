@@ -82,15 +82,18 @@ instance ( ReportDecodeError res
 -- | Wrapper over API argument which says to decode argument with @decodeCType@.
 data CDecodeApi argType
 
+type family ApiArg (apiType :: * -> *) a :: *
+type instance ApiArg (Capture s) a = a
+type instance ApiArg (QueryParam s) a = Maybe a
+
 instance ( HasServer (apiType a :> res) ctx
-         , FromCType a
-         , Server (apiType a :> res) ~ (a -> Server res)
-         , Server (apiType (OriginType a) :> res) ~ (OriginType a -> Server res)
+         , FromCType (ApiArg apiType a)
+         , Server (apiType a :> res) ~ (ApiArg apiType a -> Server res)
          , ReportDecodeError res
          ) =>
          HasServer (CDecodeApi (apiType a) :> res) ctx where
     type ServerT (CDecodeApi (apiType a) :> res) m =
-         ServerT (apiType (OriginType a) :> res) m
+         OriginType (ApiArg apiType a) -> ServerT res m
     route _ ctx del =
         route serverProxy ctx $
         del <&> \f a ->

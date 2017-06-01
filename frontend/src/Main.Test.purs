@@ -1,6 +1,7 @@
 module Main.Test where
 
 import Prelude
+import BigNumber.Test (testBigNumber)
 import Control.Monad.Eff (Eff)
 import Data.Time.Test (testNominalDiffTime)
 import Explorer.Api.Socket.Test (testApiSocket)
@@ -18,6 +19,7 @@ import Test.Spec.Runner (RunnerEffects, run)
 main :: Eff (RunnerEffects ()) Unit
 main = run [consoleReporter] do
     testApiSocket
+    testBigNumber
     testCommonViews
     testConfigUtil
     testCSS

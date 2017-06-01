@@ -27,7 +27,6 @@ import Data.Options ((:=))
 import Node.Encoding (Encoding (UTF8))
 import Node.Stream (onDataString, writeString, end)
 import Node.HTTP (HTTP)
-import Debug.Trace (traceAnyM, traceAny)
 
 -- HELPERS
 
@@ -67,20 +66,16 @@ decodeResult = either (Left <<< mkJSONError) (lmap mkServerError) <<< decodeJson
 makeRequest :: forall eff a. (Generic a) => (Request -> Eff (http :: HTTP, err :: EXCEPTION | eff) Unit) -> TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
 makeRequest withReq tls urlPath = do
     -- FIXME: exceptin shouldn't happen here?
-    traceAnyM "before request"
     res <- makeAff $ const $ withReq <=< request (tls <> path := backendApi urlPath)
-    traceAnyM "after request"
     when (isHttpError res) $
         throwError <<< error <<< show $ HTTPStatusError res
-    traceAnyM "before body parsing"
     rawData <- makeAff $ const $ onDataString (responseAsStream res) UTF8
-    traceAnyM "after body parsing"
     either throwError pure $ decodeResult rawData
   where
     isHttpError res = statusCode res >= 400
 
 plainRequest :: forall eff a r. (Generic a) => TLSOptions -> URLPath -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
-plainRequest = makeRequest $ void <<< pure
+plainRequest = makeRequest $ flip end (pure unit) <<< requestAsStream
 
 bodyRequest :: forall eff a b. (Generic a, Generic b) => TLSOptions -> URLPath -> b -> Aff (http :: HTTP, err :: EXCEPTION | eff) a
 bodyRequest tls urlPath body = makeRequest flushBody (tls <> headers := reqHeaders) urlPath

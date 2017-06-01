@@ -13,8 +13,8 @@ module Pos.Genesis
        , genesisUtxo
        , genesisDelegation
        , genesisSeed
-       , walletGenesisIndex
        , accountGenesisIndex
+       , wAddressGenesisIndex
 
        -- * Ssc
        , genesisLeaders
@@ -48,12 +48,13 @@ import           Pos.Ssc.GodTossing.Genesis
 ----------------------------------------------------------------------------
 
 -- | First index in derivation path for HD account, which is put to genesis utxo
-walletGenesisIndex :: Word32
-walletGenesisIndex = firstNonHardened
-
--- | Second index in derivation path for HD account, which is put to genesis utxo
 accountGenesisIndex :: Word32
 accountGenesisIndex = firstNonHardened
+
+-- | Second index in derivation path for HD account, which is put to genesis
+-- utxo
+wAddressGenesisIndex :: Word32
+wAddressGenesisIndex = firstNonHardened
 
 genesisDevHdwAccountSecretKeys :: [EncryptedSecretKey]
 genesisDevHdwAccountSecretKeys =
@@ -63,8 +64,8 @@ genesisDevHdwAccountSecretKeys =
         deriveLvl2KeyPair
             emptyPassphrase
             key
-            walletGenesisIndex
             accountGenesisIndex
+            wAddressGenesisIndex
 
 -- 10000 coins in total. For thresholds testing.
 -- 0.5,0.25,0.125,0.0625,0.0312,0.0156,0.0078,0.0039,0.0019,0.0008,0.0006,0.0004,0.0002,0.0001

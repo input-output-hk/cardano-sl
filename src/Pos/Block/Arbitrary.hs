@@ -325,7 +325,7 @@ recursiveHeaderGen (eitherOfLeader : leaders)
                         curried :: Bi w => w -> ProxySecretKey w
                         curried = createProxySecretKey issuerSK delegatePK
                         proxy = if isSigEpoch
-                                then Right $ curried epochCounter
+                                then Right (curried epochCounter, toPublic issuerSK)
                                 else Left $ curried w
                     in (delegateSK, Just proxy)
         pure $ Right $
@@ -444,9 +444,6 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                 { T.vhpPrevHeader = prev
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
                 , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
-                -- Not used in verifyHeaders, because we can't update
-                -- this hashmap w/o block body.
-                , T.vhpHeavyCerts = Nothing
                 , T.vhpMaxSize = Just (biSize header)
                 , T.vhpVerifyNoUnknown = not hasUnknownAttributes
                 }

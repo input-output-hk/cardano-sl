@@ -39,7 +39,6 @@ module Pos.Core.Types
        , ProxySigHeavy
        , ProxySKHeavy
        , ProxySKEither
-       , ProxySKHeavyMap
 
        , SharedSeed (..)
        , SlotLeaders
@@ -248,11 +247,11 @@ type ProxySigHeavy a = ProxySignature EpochIndex a
 -- | Heavy delegation psk.
 type ProxySKHeavy = ProxySecretKey EpochIndex
 
--- | Some proxy secret key.
-type ProxySKEither = Either ProxySKLight ProxySKHeavy
-
--- | Map from issuers to heavy certs.
-type ProxySKHeavyMap = HashMap PublicKey ProxySKHeavy
+-- | Lightweight PSK or heavyweight PSK with real leader public key
+-- (because heavyweight psks have redelegation feature, so pskIssuerPk
+-- hPsk /= leader in general case). This is used to create a block
+-- header mainly.
+type ProxySKEither = Either ProxySKLight (ProxySKHeavy, PublicKey)
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw

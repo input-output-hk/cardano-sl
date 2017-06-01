@@ -11,6 +11,8 @@ module Pos.Util
        -- * Stuff for testing and benchmarking
        , module Pos.Util.Arbitrary
        , module Pos.Util.TimeLimit
+       -- * Concurrency helpers
+       , module Pos.Util.Concurrent
 
        -- * Various
        , mappendPair
@@ -54,6 +56,7 @@ import           Text.Parsec                   (ParsecT)
 import           Serokell.AcidState            ()
 
 import           Pos.Util.Arbitrary
+import           Pos.Util.Concurrent
 import           Pos.Util.TimeLimit
 import           Pos.Util.Undefined            ()
 import           Pos.Util.Util

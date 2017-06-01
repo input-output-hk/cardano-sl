@@ -6,8 +6,8 @@
 {-# LANGUAGE TypeOperators       #-}
 
 module Main
-  ( main
-  ) where
+       ( main
+       ) where
 
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.Maybe                 (fromJust)
@@ -32,7 +32,7 @@ import qualified Pos.CLI                    as CLI
 import           Pos.Communication          (ActionSpec (..), NodeId, OutSpecs,
                                              WorkerSpec, worker, wrapActionSpec)
 import           Pos.Constants              (isDevelopment)
-import           Pos.Context                (MonadNodeContext)
+import           Pos.Context                (MonadNodeContext, recoveryCommGuard)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
                                              foreverRejoinNetwork)
@@ -86,12 +86,14 @@ action peerHolder args@Args {..} transport = do
     currentParams <- getNodeParams args systemStart
     putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
     putText $ "If stats is on: " <> show enableStats
+    putText $ "If wallet enabled: " <> show enableWallet
     putText $ "Static peers is on: " <> show staticPeers
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let gtParams = gtSscParams args vssSK
     let wDhtWorkers :: WorkMode ssc m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
-        wDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") . dhtWorkers
+        wDhtWorkers = (\(ws, outs) -> (map (fst . recoveryCommGuard . (, outs)) ws, outs)) . -- TODO simplify
+                      first (map $ wrapActionSpec $ "worker" <> "dht") . dhtWorkers
 
 #ifdef WITH_WEB
     when enableWallet $ do

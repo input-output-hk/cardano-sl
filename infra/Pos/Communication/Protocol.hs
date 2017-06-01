@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -30,8 +31,8 @@ import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Text.Buildable              as B
 import           Formatting                       (bprint, build, sformat, (%))
-import           Mockable                         (Delay, Fork, Mockable, SharedAtomic,
-                                                   Throw, throw)
+import           Mockable                         (Delay, Fork, Mockable, Mockables,
+                                                   SharedAtomic, Throw, throw)
 import qualified Node                             as N
 import           Node.Message                     (Message (..), MessageName (..),
                                                    messageName')
@@ -190,15 +191,18 @@ worker' outSpecs h =
 
 
 type OnNewSlotComm m =
+    ( LocalOnNewSlotComm m
+    , Mockable Throw m
+    , WithPeerState m
+    , Mockable SharedAtomic m
+    )
+
+type LocalOnNewSlotComm m =
     ( MonadIO m
     , MonadSlots m
     , MonadMask m
     , WithLogger m
-    , Mockable Fork m
-    , Mockable Delay m
-    , Mockable Throw m
-    , WithPeerState m
-    , Mockable SharedAtomic m
+    , Mockables m [Fork, Delay]
     , MonadReportingMem m
     , MonadShutdownMem m
     , MonadDiscovery m
@@ -223,16 +227,8 @@ onNewSlotWithLoggingWorker
 onNewSlotWithLoggingWorker b outs = onNewSlot' True b . workerHelper outs
 
 localOnNewSlotWorker
-    :: ( MonadIO m
-       , MonadSlots m
-       , MonadMask m
-       , WithLogger m
-       , Mockable Fork m
-       , Mockable Delay m
-       , MonadReportingMem m
-       , MonadShutdownMem m
-       , MonadDiscovery m
-       ) => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
+    :: LocalOnNewSlotComm m
+    => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
 localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlot b h, mempty)
 
 localWorker :: m () -> (WorkerSpec m, OutSpecs)

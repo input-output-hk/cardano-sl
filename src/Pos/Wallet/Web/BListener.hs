@@ -30,7 +30,7 @@ import qualified Pos.Util.Modifier          as MM
 
 import           Pos.Wallet.KeyStorage      (MonadKeys)
 import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
-import           Pos.Wallet.Web.ClientTypes (CAddress, WS)
+import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.State       (WalletWebDB)
 import qualified Pos.Wallet.Web.State       as WS
 import           Pos.Wallet.Web.Tracking    (CAccModifier, applyModifierToWSet,
@@ -59,14 +59,14 @@ onApplyTracking
 onApplyTracking blunds = do
     let txs = concatMap (gbTxs . fst) $ getOldestFirst blunds
     let newTip = headerHash $ NE.last $ getOldestFirst blunds
-    mapM_ (syncWalletSet newTip txs) =<< WS.getWSetAddresses
+    mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
   where
-    syncWalletSet :: HeaderHash -> [TxAux] -> CAddress WS -> m ()
-    syncWalletSet newTip txs wsAddr = do
-        encSK <- getSKByAddr wsAddr
+    syncWalletSet :: HeaderHash -> [TxAux] -> CId Wal -> m ()
+    syncWalletSet newTip txs wAddr = do
+        encSK <- getSKByAddr wAddr
         mapModifier <- runDBTxp $ evalToilTEmpty $ trackingApplyTxs encSK txs
-        applyModifierToWSet wsAddr newTip mapModifier
-        logMsg "applied" (getOldestFirst blunds) wsAddr mapModifier
+        applyModifierToWSet wAddr newTip mapModifier
+        logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
 -- Perform this action under block lock.
@@ -80,14 +80,14 @@ onRollbackTracking
 onRollbackTracking blunds = do
     let txs = concatMap (reverse . blundTxUn) $ getNewestFirst blunds
     let newTip = (NE.last $ getNewestFirst blunds) ^. prevBlockL
-    mapM_ (syncWalletSet newTip txs) =<< WS.getWSetAddresses
+    mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
   where
-    syncWalletSet :: HeaderHash -> [(TxAux, TxUndo)] -> CAddress WS -> m ()
-    syncWalletSet newTip txs wsAddr = do
-        encSK <- getSKByAddr wsAddr
+    syncWalletSet :: HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
+    syncWalletSet newTip txs wAddr = do
+        encSK <- getSKByAddr wAddr
         let mapModifier = trackingRollbackTxs encSK txs
-        applyModifierToWSet wsAddr newTip mapModifier
-        logMsg "rolled back" (getNewestFirst blunds) wsAddr mapModifier
+        applyModifierToWSet wAddr newTip mapModifier
+        logMsg "rolled back" (getNewestFirst blunds) wAddr mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
     blundTxUn (b, u) = zip (gbTxs b) (undoTx u)
 
@@ -95,12 +95,12 @@ logMsg
     :: WithLogger m
     => Text
     -> NonEmpty (Blund ssc)
-    -> CAddress WS
+    -> CId Wal
     -> CAccModifier
     -> m ()
-logMsg action (NE.length -> bNums) wsAddr mm =
+logMsg action (NE.length -> bNums) wAddr mm =
     logDebug $
         sformat ("Wallet Tracking: "%build%" "%build%" block(s) to walletset "%build
                 %", added accounts: "%listJson
                 %", deleted accounts: "%listJson)
-        action bNums wsAddr (map fst $ MM.insertions mm) (MM.deletions mm)
+        action bNums wAddr (map fst $ MM.insertions mm) (MM.deletions mm)

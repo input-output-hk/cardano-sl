@@ -120,6 +120,7 @@ library
                         Pos.Util.Arbitrary
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
+                        Pos.Util.Servant
                         Pos.Util.UserSecret
 
                         -- Wallets

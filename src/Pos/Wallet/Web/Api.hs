@@ -60,15 +60,15 @@ module Pos.Wallet.Web.Api
 
 
 import           Control.Monad.Catch        (try)
-import           Control.Monad.Except       (ExceptT (..))
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReqBody, Verb)
 import           Servant.Multipart          (MultipartForm)
-import           Servant.Server             (Handler (..), HasServer (..), ServantErr,
-                                             Server)
+import           Servant.Server             (Handler (..))
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
+import           Pos.Util.Servant           (ModifiesApiRes (..), ReportDecodeError (..),
+                                             VerbMod)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
                                              CAccountMeta, CAddress, CElectronCrashReport,
                                              CId, CInitialized, CPaperVendWalletRedeem,
@@ -81,81 +81,22 @@ import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
 -- | Common prefix for all endpoints.
 type ApiPrefix = "api"
 
+-- | API result modification mode used here.
+data WalletVerbTag
+
 -- | Wrapper over 'Verb', which allows to catch exceptions thrown
 -- by endpoints.
-data WalletVerb verb
+type WalletVerb verb = VerbMod WalletVerbTag verb
+
+instance ModifiesApiRes WalletVerbTag where
+    type ApiModifiedRes WalletVerbTag a = Either WalletError a
+    modifyApiResult _ = try . catchEndpointErrors . (either throwM pure =<<)
+
+instance ReportDecodeError (WalletVerb (Verb mt st ct $ Either WalletError a)) where
+    reportDecodeError _ err = Handler $ return (Left $ DecodeError err)
 
 -- | Shortcut for common api result types.
 type WRes verbType a = WalletVerb (verbType '[JSON] a)
-
-mapHandler :: (IO (Either ServantErr a) -> IO (Either ServantErr b))
-           -> Handler a
-           -> Handler b
-mapHandler f = Handler . ExceptT . f . runExceptT . runHandler'
-
--- TODO: shorten variables names?
-instance HasServer (Verb mt st ct $ Either WalletError a) ctx =>
-         HasServer (WalletVerb $ Verb (mt :: k1) (st :: Nat) (ct :: [*]) a) ctx where
-    type ServerT (WalletVerb $ Verb mt st ct a) m =
-         ServerT (Verb mt st ct a) m
-
-    route _ ctx del = route verbProxy ctx (handlerCatch <$> del)
-      where
-        verbProxy = Proxy @(Verb mt st ct $ Either WalletError a)
-        handlerCatch :: Handler a -> Handler (Either WalletError a)
-        handlerCatch =
-            mapHandler $ try . catchEndpointErrors . (either throwM pure =<<)
-
-data CDecodeApi argType
-
-class ApiMapResult api where
-    mapApiResult
-        :: Proxy api
-        -> (forall a. IO (Either ServantErr a) -> IO (Either ServantErr a))
-        -> Server api
-        -> Server api
-
-instance ApiMapResult (Verb (m :: k1) (s :: Nat) (c :: [*]) a) where
-    mapApiResult _ = mapHandler
-
-instance ApiMapResult a =>
-         ApiMapResult (WalletVerb a) where
-    mapApiResult _ mapper server =
-        mapApiResult (Proxy @(WalletVerb a)) mapper server
- 
-instance ApiMapResult res =>
-         ApiMapResult (Capture s a :> res) where
-    mapApiResult _ mapper server arg =
-        mapApiResult (Proxy @res) mapper (server arg)
-
-instance ( HasServer (apiType a :> res) ctx
-         , FromCType a
-         , Server (apiType a :> res) ~ (a -> Server res)
-         , Server (apiType (OriginType a) :> res) ~ (OriginType a -> Server res)
-         , ApiMapResult res
-         ) =>
-         HasServer (CDecodeApi (apiType a) :> res) ctx where
-    type ServerT (CDecodeApi (apiType a) :> res) m =
-         ServerT (apiType (OriginType a) :> res) m
-    route _ ctx del =
-        route serverProxy ctx $
-        del <&> \f a ->
-            case decodeCType a of
-                Left e ->
-                    mapApiResult
-                        (Proxy @res)
-                        (throwM (DecodeError e) >>)
-                        (f pseudoArg)
-                Right r -> f r
-      where
-        serverProxy = Proxy @(apiType a :> res)
-        pseudoArg =
-            error
-            "Decoding from CType failed, but argument was somehow accessed"
-
-class FromCType c where
-    type OriginType c :: *
-    decodeCType :: c -> Either Text (OriginType c)
 
 
 -- All endpoints are defined as a separate types, for description in Swagger-based HTML-documentation.

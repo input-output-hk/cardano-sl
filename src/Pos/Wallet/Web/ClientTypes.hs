@@ -233,7 +233,7 @@ data CWAddressMeta = CWAddressMeta
     { -- | Address of wallet set this account belongs to
       cwamWSId         :: CId WS
     , -- | First index in derivation path of this account key
-      caaWalletIndex  :: Word32
+      cwamWalletIndex  :: Word32
     , -- | Second index in derivation path of this account key
       cwamAccountIndex :: Word32
     , -- | Actual adress of this account
@@ -243,12 +243,12 @@ data CWAddressMeta = CWAddressMeta
 instance Buildable CWAddressMeta where
     build CWAddressMeta{..} =
         bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
-        cwamWSId caaWalletIndex cwamAccountIndex cwamId
+        cwamWSId cwamWalletIndex cwamAccountIndex cwamId
 
 walletAddrMetaToAccount :: CWAddressMeta -> AccountId
 walletAddrMetaToAccount CWAddressMeta{..} = AccountId
     { aiWSId  = cwamWSId
-    , aiIndex = caaWalletIndex
+    , aiIndex = cwamWalletIndex
     }
 
 instance Hashable CWAddressMeta
@@ -276,6 +276,7 @@ data CWalletAssurance
 data CAddress = CAddress
     { cadId     :: !(CId Addr)
     , cadAmount :: !CCoin
+    , cadIsUsed :: !Bool
     } deriving (Show, Generic)
 
 -- Includes data which are not provided by Cardano
@@ -289,16 +290,16 @@ instance Default CAccountMeta where
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
 data CAccount = CAccount
-    { caId       :: !CAccountId
-    , caMeta     :: !CAccountMeta
+    { caId      :: !CAccountId
+    , caMeta    :: !CAccountMeta
     , caAccount :: ![CAddress]
-    , caAmount   :: !CCoin
+    , caAmount  :: !CCoin
     } deriving (Show, Generic, Typeable)
 
 -- | Query data for wallet creation
 data CAccountInit = CAccountInit
-    { caInitMeta   :: !CAccountMeta
-    , cwInitWId :: !(CId WS)
+    { caInitMeta :: !CAccountMeta
+    , cwInitWId  :: !(CId WS)
     } deriving (Show, Generic)
 
 -- | Query data for redeem
@@ -319,12 +320,12 @@ instance Default CWalletMeta where
 
 -- | Client Wallet Set (CW)
 data CWallet = CWallet
-    { cwId            :: !(CId WS)
-    , wWSetMeta      :: !CWalletMeta
+    { cwId             :: !(CId WS)
+    , wWSetMeta        :: !CWalletMeta
     , cwAccountsNumber :: !Int
-    , cwAmount        :: !CCoin
-    , cwHasPassphrase :: !Bool
-    , cwPassphraseLU  :: !PassPhraseLU  -- last update time
+    , cwAmount         :: !CCoin
+    , cwHasPassphrase  :: !Bool
+    , cwPassphraseLU   :: !PassPhraseLU  -- last update time
     } deriving (Eq, Show, Generic)
 
 -- TODO: Newtype?
@@ -344,7 +345,7 @@ instance WithDerivationPath AccountId where
     getDerivationPath AccountId{..} = [aiIndex]
 
 instance WithDerivationPath CWAddressMeta where
-    getDerivationPath CWAddressMeta{..} = [caaWalletIndex, cwamAccountIndex]
+    getDerivationPath CWAddressMeta{..} = [cwamWalletIndex, cwamAccountIndex]
 
 -- | Query data for redeem
 data CPaperVendWalletRedeem = CPaperVendWalletRedeem

@@ -172,6 +172,6 @@ deriveAccountAddress
 deriveAccountAddress passphrase accId@AccountId{..} cwamAccountIndex = do
     (addr, _) <- deriveAccountSK passphrase accId cwamAccountIndex
     let cwamWSId   = aiWSId
-        caaWalletIndex = aiIndex
+        cwamWalletIndex = aiIndex
         cwamId     = addressToCId addr
     return CWAddressMeta{..}

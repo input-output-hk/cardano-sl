@@ -49,8 +49,6 @@ module Pos.Wallet.Web.ClientTypes
       , txContainsTitle
       , toCUpdateInfo
       , walletAddrMetaToAccount
-      , fromCAccountId
-      , toCAccountId
       ) where
 
 import           Universum
@@ -211,18 +209,19 @@ instance Buildable AccountId where
 newtype CAccountId = CAccountId Text
     deriving (Eq, Show, Generic, Buildable)
 
-toCAccountId :: AccountId -> CAccountId
-toCAccountId = CAccountId . sformat F.build
-
-fromCAccountId :: CAccountId -> Either Text AccountId
-fromCAccountId (CAccountId url) =
-    case splitOn "@" url of
-        [part1, part2] -> do
-            aiWSId  <- addressToCId <$> decodeTextAddress part1
-            aiIndex <- maybe (Left "Invalid wallet index") Right $
+instance FromCType CAccountId where
+    type FromOriginType CAccountId = AccountId
+    decodeCType (CAccountId url) =
+        case splitOn "@" url of
+            [part1, part2] -> do
+                aiWSId  <- addressToCId <$> decodeTextAddress part1
+                aiIndex <- maybe (Left "Invalid wallet index") Right $
                             readMaybe $ toString part2
-            return AccountId{..}
-        _ -> Left "Expected 2 parts separated by '@'"
+                return AccountId{..}
+            _ -> Left "Expected 2 parts separated by '@'"
+
+instance ToCType CAccountId where
+    encodeCType = CAccountId . sformat F.build
 
 -- | Account identifier
 data CWAddressMeta = CWAddressMeta

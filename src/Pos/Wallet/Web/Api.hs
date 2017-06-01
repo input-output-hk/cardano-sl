@@ -69,7 +69,7 @@ import           Universum
 import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Util.Servant           (ModifiesApiRes (..), ReportDecodeError (..),
                                              VerbMod)
-import           Pos.Util.Servant           (CQueryParam)
+import           Pos.Util.Servant           (CCapture, CQueryParam, CReqBody)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
                                              CAccountMeta, CAddress, CElectronCrashReport,
                                              CId, CInitialized, CPaperVendWalletRedeem,
@@ -175,7 +175,7 @@ type ChangeWalletSetPassphrase =
 
 type GetWallet =
        "wallets"
-    :> Capture "walletId" CAccountId
+    :> CCapture "walletId" CAccountId
     :> WRes Get CAccount
 
 type GetWallets =
@@ -185,7 +185,7 @@ type GetWallets =
 
 type UpdateWallet =
        "wallets"
-    :> Capture "walletId" CAccountId
+    :> CCapture "walletId" CAccountId
     :> ReqBody '[JSON] CAccountMeta
     :> WRes Put CAccount
 
@@ -197,7 +197,7 @@ type NewWallet =
 
 type DeleteWallet =
        "wallets"
-    :> Capture "walletId" CAccountId
+    :> CCapture "walletId" CAccountId
     :> WRes Delete ()
 
 -------------------------------------------------------------------------
@@ -207,7 +207,7 @@ type DeleteWallet =
 type NewAccount =
        "account"
     :> CQueryParam "passphrase" CPassPhrase
-    :> ReqBody '[JSON] CAccountId
+    :> CReqBody '[JSON] CAccountId
     :> WRes Post CAddress
 
 -------------------------------------------------------------------------
@@ -241,7 +241,7 @@ type NewPayment =
        "txs"
     :> "payments"
     :> CQueryParam "passphrase" CPassPhrase
-    :> Capture "from" CAccountId
+    :> CCapture "from" CAccountId
     :> Capture "to" (CId Addr)
     :> Capture "amount" Coin
     :> WRes Post CTx
@@ -250,7 +250,7 @@ type NewPaymentExt =
        "txs"
     :> "payments"
     :> CQueryParam "passphrase" CPassPhrase
-    :> Capture "from" CAccountId
+    :> CCapture "from" CAccountId
     :> Capture "to" (CId Addr)
     :> Capture "amount" Coin
     :> Capture "title" Text
@@ -261,7 +261,7 @@ type NewPaymentExt =
 type UpdateTx =
        "txs"
     :> "payments"
-    :> Capture "address" CAccountId
+    :> CCapture "address" CAccountId
     :> Capture "transaction" CTxId
     :> ReqBody '[JSON] CTxMeta
     :> WRes Post ()
@@ -269,7 +269,7 @@ type UpdateTx =
 type GetHistory =
        "txs"
     :> "histories"
-    :> Capture "walletId" CAccountId
+    :> CCapture "walletId" CAccountId
     :> QueryParam "skip" Word
     :> QueryParam "limit" Word
     :> WRes Get ([CTx], Word)
@@ -277,7 +277,7 @@ type GetHistory =
 type SearchHistory =
        "txs"
     :> "histories"
-    :> Capture "walletId" CAccountId
+    :> CCapture "walletId" CAccountId
     :> Capture "search" Text
     :> QueryParam "account" (CId Addr)
     :> QueryParam "skip" Word

@@ -79,6 +79,7 @@ import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOut
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
+import           Pos.Util.Servant                 (decodeCType, encodeCType)
 import           Pos.Util.UserSecret              (readUserSecret, usWalletSet)
 import           Pos.Wallet.KeyStorage            (MonadKeys, addSecretKey,
                                                    deleteSecretKey, getSecretKeys)
@@ -109,8 +110,7 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccoun
                                                    CWalletRedeem (..), NotifyEvent (..),
                                                    SyncProgress (..), Wal, addressToCId,
                                                    cIdToAddress, coinFromCCoin, encToCId,
-                                                   fromCAccountId, mkCCoin, mkCTx,
-                                                   mkCTxId, toCAccountId, toCUpdateInfo,
+                                                   mkCCoin, mkCTx, mkCTxId, toCUpdateInfo,
                                                    txContainsTitle, txIdToCTxId,
                                                    walletAddrMetaToAccount)
 import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError)
@@ -393,19 +393,18 @@ getWAddress cAddr = do
 
 getAccountAddrsOrThrow
     :: (WebWalletModeDB m, MonadThrow m)
-    => AccountLookupMode -> CAccountId -> m [CWAddressMeta]
-getAccountAddrsOrThrow mode wCAddr =
-    decodeCAccountIdOrFail wCAddr >>= getAccountWAddresses mode >>= maybeThrow noWallet
+    => AccountLookupMode -> AccountId -> m [CWAddressMeta]
+getAccountAddrsOrThrow mode accId =
+    getAccountWAddresses mode accId >>= maybeThrow noWallet
   where
     noWallet =
         RequestError $
-        sformat ("No account with address " %build % " found") wCAddr
+        sformat ("No account with address " %build % " found") accId
 
-getAccount :: WalletWebMode m => CAccountId -> m CAccount
-getAccount accCAddr = do
-    acc <- decodeCAccountIdOrFail accCAddr
-    encSK <- getSKByAddr (aiWSId acc)
-    addrs <- getAccountAddrsOrThrow Existing accCAddr
+getAccount :: WalletWebMode m => AccountId -> m CAccount
+getAccount accId = do
+    encSK <- getSKByAddr (aiWSId accId)
+    addrs <- getAccountAddrsOrThrow Existing accId
     modifier <- txMempoolToModifier encSK
     let insertions = map fst (MM.insertions modifier)
     let modAccs = S.fromList $ insertions ++ MM.deletions modifier
@@ -414,12 +413,12 @@ getAccount accCAddr = do
     mergedAccs <- mapM getWAddress mergedAccAddrs
     balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
                mapM getWAddressBalance mergedAccAddrs
-    meta <- getAccountMeta acc >>= maybeThrow noWallet
-    pure $ CAccount accCAddr meta mergedAccs balance
+    meta <- getAccountMeta accId >>= maybeThrow noWallet
+    pure $ CAccount (encodeCType accId) meta mergedAccs balance
 
   where
     noWallet =
-        RequestError $ sformat ("No account with address "%build%" found") accCAddr
+        RequestError $ sformat ("No account with address "%build%" found") accId
 
 getWallet :: WalletWebMode m => CId Wal -> m CWallet
 getWallet cAddr = do
@@ -438,26 +437,25 @@ getWallet cAddr = do
 -- TODO: probably poor naming
 decodeCIdOrFail :: MonadThrow m => CId w -> m Address
 decodeCIdOrFail = either wrongAddress pure . cIdToAddress
-  where wrongAddress err = throwM . RequestError $
+  where wrongAddress err = throwM . DecodeError $
             sformat ("Error while decoding CId: "%stext) err
 
+decodeCAccountIdOrFail :: MonadThrow m => CAccountId -> m AccountId
+decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
+  where wrongAddress err = throwM . DecodeError $
+            sformat ("Error while decoding CAccountId: "%stext) err
 
 decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
 decodeCCoinOrFail c =
-    coinFromCCoin c `whenNothing` throwM (RequestError "Wrong coin format")
+    coinFromCCoin c `whenNothing` throwM (DecodeError "Wrong coin format")
 
-decodeCAccountIdOrFail :: MonadThrow m => CAccountId -> m AccountId
-decodeCAccountIdOrFail = either wrongWallet pure . fromCAccountId
-  where wrongWallet err = throwM . RequestError $
-            sformat ("Error while decoding CAccountId: "%stext) err
-
-getWalletAccountIds :: WalletWebMode m => CId Wal -> m [CAccountId]
-getWalletAccountIds wSet = map toCAccountId . filter ((== wSet) . aiWSId) <$> getWAddressIds
+getWalletAccountIds :: WalletWebMode m => CId Wal -> m [AccountId]
+getWalletAccountIds wSet = filter ((== wSet) . aiWSId) <$> getWAddressIds
 
 getAccounts :: WalletWebMode m => Maybe (CId Wal) -> m [CAccount]
 getAccounts mCAddr = do
     whenJust mCAddr $ \cAddr -> getWalletMeta cAddr `whenNothingM_` noWSet cAddr
-    mapM getAccount =<< maybe (map toCAccountId <$> getWAddressIds) getWalletAccountIds mCAddr
+    mapM getAccount =<< maybe getWAddressIds getWalletAccountIds mCAddr
   where
     noWSet cAddr = throwM . RequestError $
         sformat ("No account with address "%build%" found") cAddr
@@ -469,18 +467,18 @@ send
     :: WalletWebMode m
     => SendActions m
     -> PassPhrase
-    -> CAccountId
+    -> AccountId
     -> CId Addr
     -> Coin
     -> m CTx
-send sendActions passphrase srcCAddr dstCAddr c =
-    sendExtended sendActions passphrase srcCAddr dstCAddr c mempty mempty
+send sendActions passphrase srcAddr dstCAddr c =
+    sendExtended sendActions passphrase srcAddr dstCAddr c mempty mempty
 
 sendExtended
     :: WalletWebMode m
     => SendActions m
     -> PassPhrase
-    -> CAccountId
+    -> AccountId
     -> CId Addr
     -> Coin
     -> Text
@@ -497,7 +495,7 @@ sendExtended sa passphrase srcAccount dstAccount coin title desc =
 
 data MoneySource
     = WalletMoneySource (CId Wal)
-    | AccountMoneySource CAccountId
+    | AccountMoneySource AccountId
     | AddressMoneySource CWAddressMeta
     deriving (Show, Eq)
 
@@ -509,9 +507,9 @@ getMoneySourceAddresses (WalletMoneySource wid) =
     getWalletAccountIds wid >>=
     concatMapM (getMoneySourceAddresses . AccountMoneySource)
 
-getMoneySourceAccount :: WalletWebMode m => MoneySource -> m CAccountId
+getMoneySourceAccount :: WalletWebMode m => MoneySource -> m AccountId
 getMoneySourceAccount (AddressMoneySource accAddr) =
-    return $ toCAccountId $ walletAddrMetaToAccount accAddr
+    return $ walletAddrMetaToAccount accAddr
 getMoneySourceAccount (AccountMoneySource wAddr) = return wAddr
 getMoneySourceAccount (WalletMoneySource wid) = do
     wAddr <- (head <$> getWalletAccountIds wid) >>= maybeThrow noWallets
@@ -629,13 +627,12 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
 
 getHistory
     :: WalletWebMode m
-    => CAccountId -> Maybe Word -> Maybe Word -> m ([CTx], Word)
-getHistory cAccAddr skip limit = do
-    wAddr <- decodeCAccountIdOrFail cAccAddr
-    cAccAddrs <- getAccountAddrsOrThrow Ever cAccAddr
-    addrs <- forM cAccAddrs (decodeCIdOrFail . cwamId)
+    => AccountId -> Maybe Word -> Maybe Word -> m ([CTx], Word)
+getHistory accId skip limit = do
+    accAddrs <- getAccountAddrsOrThrow Ever accId
+    addrs <- forM accAddrs (decodeCIdOrFail . cwamId)
     cHistory <-
-        do  (minit, cachedTxs) <- transCache <$> getHistoryCache wAddr
+        do  (minit, cachedTxs) <- transCache <$> getHistoryCache accId
 
             -- TODO: Fix type param! Global type param.
             TxHistoryAnswer {..} <- untag @WalletSscType getTxHistory addrs minit
@@ -646,12 +643,12 @@ getHistory cAccAddr skip limit = do
                 cached = drop (lenHistory - taCachedNum) taHistory
             unless (null cached) $
                 updateHistoryCache
-                    wAddr
+                    accId
                     taLastCachedHash
                     taCachedUtxo
                     (cached <> cachedTxs)
 
-            forM fullHistory $ addHistoryTx cAccAddr mempty mempty
+            forM fullHistory $ addHistoryTx accId mempty mempty
     pure (paginate cHistory, fromIntegral $ length cHistory)
   where
     paginate = take defaultLimit . drop defaultSkip
@@ -663,14 +660,14 @@ getHistory cAccAddr skip limit = do
 -- FIXME: is Word enough for length here?
 searchHistory
     :: WalletWebMode m
-    => CAccountId
+    => AccountId
     -> Text
     -> Maybe (CId Addr)
     -> Maybe Word
     -> Maybe Word
     -> m ([CTx], Word)
-searchHistory cAccId search mAddrId skip limit = do
-    first (filter fits) <$> getHistory cAccId skip limit
+searchHistory accId search mAddrId skip limit = do
+    first (filter fits) <$> getHistory accId skip limit
   where
     fits ctx = txContainsTitle search ctx
             && maybe True (accRelates ctx) mAddrId
@@ -678,20 +675,19 @@ searchHistory cAccId search mAddrId skip limit = do
 
 addHistoryTx
     :: WalletWebMode m
-    => CAccountId
+    => AccountId
     -> Text
     -> Text
     -> TxHistoryEntry
     -> m CTx
-addHistoryTx cAccId title desc wtx@THEntry{..} = do
-    wAddr <- decodeCAccountIdOrFail cAccId
+addHistoryTx accId title desc wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
     meta <- CTxMeta title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId _thTxId
-    addOnlyNewTxMeta wAddr cId meta
-    meta' <- fromMaybe meta <$> getTxMeta wAddr cId
+    addOnlyNewTxMeta accId cId meta
+    meta' <- fromMaybe meta <$> getTxMeta accId cId
     return $ mkCTx diff wtx meta'
 
 
@@ -699,14 +695,13 @@ newWAddress
     :: WalletWebMode m
     => AddrGenSeed
     -> PassPhrase
-    -> CAccountId
+    -> AccountId
     -> m CAddress
-newWAddress addGenSeed passphrase cAccId = do
+newWAddress addGenSeed passphrase accId = do
     -- check wallet exists
-    wAddr <- decodeCAccountIdOrFail cAccId
-    _ <- getAccount cAccId
+    _ <- getAccount accId
 
-    cAccAddr <- genUniqueAccountAddress addGenSeed passphrase wAddr
+    cAccAddr <- genUniqueAccountAddress addGenSeed passphrase accId
     addWAddress cAccAddr
     getWAddress cAccAddr
 
@@ -717,9 +712,8 @@ newAccount addGenSeed passphrase CAccountInit {..} = do
 
     cAddr <- genUniqueAccountId addGenSeed cwInitWId
     createAccount cAddr caInitMeta
-    let cAccId = toCAccountId cAddr
-    () <$ newWAddress addGenSeed passphrase cAccId
-    getAccount cAccId
+    () <$ newWAddress addGenSeed passphrase cAddr
+    getAccount cAddr
 
 createWalletSafe
     :: WalletWebMode m
@@ -738,26 +732,24 @@ newWallet passphrase CWalletInit {..} = do
     cAddr <- genSaveRootAddress passphrase cwBackupPhrase
     createWalletSafe cAddr cwInitMeta
 
-updateAccount :: WalletWebMode m => CAccountId -> CAccountMeta -> m CAccount
-updateAccount cAccId wMeta = do
-    wAddr <- decodeCAccountIdOrFail cAccId
-    setAccountMeta wAddr wMeta
-    getAccount cAccId
+updateAccount :: WalletWebMode m => AccountId -> CAccountMeta -> m CAccount
+updateAccount accId wMeta = do
+    setAccountMeta accId wMeta
+    getAccount accId
 
-updateTransaction :: WalletWebMode m => CAccountId -> CTxId -> CTxMeta -> m ()
-updateTransaction cAccId txId txMeta = do
-    wAddr <- decodeCAccountIdOrFail cAccId
-    setAccountTransactionMeta wAddr txId txMeta
+updateTransaction :: WalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
+updateTransaction accId txId txMeta = do
+    setAccountTransactionMeta accId txId txMeta
 
 deleteWallet :: WalletWebMode m => CId Wal -> m ()
 deleteWallet wid = do
-    wallets <- getAccounts (Just wid)
-    mapM_ (deleteAccount . caId) wallets
+    accounts <- getAccounts (Just wid)
+    mapM_ (\acc -> deleteAccount =<< decodeCAccountIdOrFail (caId acc)) accounts
     removeWallet wid
     deleteSecretKey . fromIntegral =<< getAddrIdx wid
 
-deleteAccount :: WalletWebMode m => CAccountId -> m ()
-deleteAccount = decodeCAccountIdOrFail >=> removeAccount
+deleteAccount :: WalletWebMode m => AccountId -> m ()
+deleteAccount = removeAccount
 
 -- TODO: to add when necessary
 -- deleteWAddress :: WalletWebMode m => CWAddressMeta -> m ()
@@ -810,15 +802,14 @@ cloneWalletSetWithPass
     -> CId Wal
     -> m (AccountsSnapshot, AccountsSnapshot)
 cloneWalletSetWithPass newSK newPass wid = do
-    wAddrs <- getWalletAccountIds wid
-    fmap mconcat . forM wAddrs $ \cAccId -> do
-        wAddr@AccountId {..} <- decodeCAccountIdOrFail cAccId
-        wMeta <- getAccountMeta wAddr >>= maybeThrow noWMeta
-        setAccountMeta wAddr wMeta
+    accIds <- getWalletAccountIds wid
+    fmap mconcat . forM accIds $ \accId@AccountId{..} -> do
+        wMeta <- getAccountMeta accId >>= maybeThrow noWMeta
+        setAccountMeta accId wMeta
         (oldDeleted, newDeleted) <-
-            unzip <$> cloneAccounts cAccId Deleted addRemovedAccount
+            unzip <$> cloneAccounts accId Deleted addRemovedAccount
         (oldExisting, newExisting) <-
-            unzip <$> cloneAccounts cAccId Existing addWAddress
+            unzip <$> cloneAccounts accId Existing addWAddress
         let oldAddrMeta =
                 AccountsSnapshot
                 {asExisting = oldExisting, asDeleted = oldDeleted}
@@ -945,12 +936,12 @@ redeemAdaInternal
 redeemAdaInternal sendActions passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
-    walletId <- decodeCAccountIdOrFail cAccId
+    accId <- decodeCAccountIdOrFail cAccId
     -- new redemption wallet
-    _ <- getAccount cAccId
+    _ <- getAccount accId
 
     let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
-    dstCAddr <- genUniqueAccountAddress RandomSeed passphrase walletId
+    dstCAddr <- genUniqueAccountAddress RandomSeed passphrase accId
     dstAddr <- decodeCIdOrFail $ cwamId dstCAddr
     na <- getPeers
     etx <- submitRedemptionTx sendActions redeemSK (toList na) dstAddr
@@ -960,7 +951,7 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
         Right (TxAux {..}, redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             let txInputs = [TxOut redeemAddress redeemBalance]
-            addHistoryTx cAccId "ADA redemption" ""
+            addHistoryTx accId "ADA redemption" ""
                 (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr])
 
 reportingInitialized :: WalletWebMode m => CInitialized -> m ()
@@ -1021,8 +1012,8 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         createAccount cAddr accMeta
 
     for_ _wusAddrs $ \(walletIndex, accountIndex) -> do
-        let cAccId = toCAccountId $ AccountId wid walletIndex
-        newWAddress (DeterminedSeed accountIndex) passphrase cAccId
+        let accId = AccountId wid walletIndex
+        newWAddress (DeterminedSeed accountIndex) passphrase accId
 
     selectAccountsFromUtxoLock @WalletSscType [key]
 

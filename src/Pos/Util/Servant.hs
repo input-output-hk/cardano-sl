@@ -19,6 +19,7 @@ module Pos.Util.Servant
 
     , CQueryParam
     , CCapture
+    , CReqBody
     ) where
 
 import           Control.Monad.Except (ExceptT (..))
@@ -135,3 +136,4 @@ instance ( HasServer (apiType a :> res) ctx
 
 type CQueryParam s a = CDecodeArg (QueryParam s) a
 type CCapture s a    = CDecodeArg (Capture s) a
+type CReqBody c a    = CDecodeArg (ReqBody c) a

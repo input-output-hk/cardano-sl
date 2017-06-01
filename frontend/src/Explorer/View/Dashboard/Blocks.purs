@@ -18,13 +18,14 @@ import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Network.RemoteData (RemoteData(..), withDefault)
 import Pux.Html (Html, div, p, text) as P
-import Pux.Html.Attributes (className) as P
+import Pux.Html.Attributes (className, id_) as P
 import Pux.Html.Events (onClick) as P
 
 dashBoardBlocksView :: State -> P.Html Action
 dashBoardBlocksView state =
     P.div
-        [ P.className CSS.dashboardWrapper ]
+        [ P.className CSS.dashboardWrapper
+        , P.id_ "jk" ]
         [ P.div
             [ P.className CSS.dashboardContainer ]
             [ headerView state headerOptions

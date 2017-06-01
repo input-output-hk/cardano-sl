@@ -76,6 +76,7 @@ data Action
     | DashboardInvalidBlocksPageNumber Target       -- invalid page number
     | DashboardExpandTransactions Boolean           -- expand dashboard transactions
     | DashboardShowAPICode DashboardAPICode         -- toggle dashboard api
+    | DashboardToggleHeader                         -- toggle header ui
     -- address detail view
     | AddressPaginateTxs Int                    -- current pagination of transactions
     | AddressEditTxsPageNumber Target Boolean   -- toggle editable state of page numbers

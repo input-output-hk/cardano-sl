@@ -29,9 +29,9 @@ import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
 import Pux.Devtool (Action, start) as Pux.Devtool
 import Pux.Router (sampleUrl)
 import Signal (Signal, (~>))
-import Waypoints (WAYPOINT)
 import Signal.Channel (channel, send, subscribe)
 import Signal.Time (every, second)
+import Waypoints (WAYPOINT)
 
 type AppEffects = (dom :: DOM, ajax :: AJAX, socket :: SocketIO, now :: NOW, waypoint :: WAYPOINT, console :: CONSOLE)
 

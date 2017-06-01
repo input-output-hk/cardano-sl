@@ -5,7 +5,7 @@ import Control.Comonad (extract)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (CONSOLE, log)
+import Control.Monad.Eff.Console (CONSOLE, log, logShow)
 import Control.Monad.Eff.Now (nowDateTime, NOW)
 import Control.SocketIO.Client (Socket, SocketIO, emit, emit')
 import DOM (DOM)
@@ -22,6 +22,7 @@ import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
+import Debug.Trace (trace, traceAny, traceAnyM)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchLatestBlocks, fetchLatestTxs, fetchTotalBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
@@ -46,7 +47,8 @@ import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
-import Waypoints (WAYPOINT, WaypointSelector(..), waypoint)
+import Waypoints (WAYPOINT, WaypointDirection(..), WaypointSelector(..), waypoint)
+-- import Waypoints (WAYPOINT, WaypointSelector(..), waypoint)
 
 -- waypointHandler :: forall eff. Eff (waypoint :: WAYPOINT, console :: CONSOLE | eff) Unit
 -- waypointHandler = do
@@ -362,13 +364,28 @@ update (GenerateQrCode address) state =
         ]
     }
 
+update DashboardToggleHeader state =
+    noEffects $ state
+
 update (AddWaypoint selector) state =
     { state
     , effects:
-        [ liftEff (waypoint selector (pure $ log "waypoint callback") ) >>= \wp -> pure (StoreWaypoint wp)
+        [ liftEff waypoint' >>= \wp -> pure (StoreWaypoint wp)
         ]
     }
-update (StoreWaypoint wp) state = noEffects $
+    where
+        callback = \(WaypointDirection direction) -> do
+                          -- TODO(jk)
+                          -- Compare directions to send an action from here
+                          -- Which this action set a flag in the state,
+                          -- so that we know if hero UI is hidden or not.
+                          -- With this state change we can change the CSS as well
+                          -- to animate the header
+                          log $ "waypoint callback wpDirection: " <> direction
+                          pure unit
+        waypoint' = waypoint selector callback
+
+update (StoreWaypoint wp) state = trace "waypoint store" \_ -> traceAny wp \_ -> noEffects $
     over (viewStates <<< globalViewState <<< gWaypoints) ((:) wp) state
 
 update (DocumentClicked event) state =
@@ -692,7 +709,7 @@ routeEffects Dashboard state =
             state
     , effects:
         [ pure ScrollTop
-        , pure <<< AddWaypoint $ WaypointSelector "to-be-defined"
+        , pure <<< AddWaypoint $ WaypointSelector "jk"
         , pure $ DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
         , pure RequestLastTxs
         ]

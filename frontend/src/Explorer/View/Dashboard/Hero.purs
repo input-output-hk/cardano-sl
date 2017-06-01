@@ -12,7 +12,7 @@ import Explorer.Types.State (State)
 import Explorer.View.Common (logoView)
 import Explorer.View.Search (searchInputView)
 import Pux.Html (Html, div, text, h1, h2) as P
-import Pux.Html.Attributes (className) as P
+import Pux.Html.Attributes (className, id_) as P
 
 heroView :: State -> P.Html Action
 heroView state =
@@ -20,7 +20,9 @@ heroView state =
         lang' = state ^. lang
     in
     P.div
-        [ P.className "explorer-dashboard__hero" ]
+        [ P.className "explorer-dashboard__hero"
+        , P.id_ "explorer-dashboard__hero-id"
+        ]
         [ P.div
             [ P.className "hero-container" ]
             [ logoView

@@ -37,13 +37,16 @@ library
                        Pos.Core.Class
                        Pos.Core.Coin
                        Pos.Core.Constants
-                       Pos.Core.Genesis
                        Pos.Core.Script
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
                        Pos.Core.Types
                        Pos.Core.Version
+
+                       Pos.Core.Genesis
+                       Pos.Core.Genesis.Parser
+                       Pos.Core.Genesis.Types
 
                        Pos.Crypto
                        Pos.Crypto.Encryption
@@ -71,6 +74,7 @@ library
                        Pos.Binary.Core.Script
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Version
+                       Pos.Binary.Core.Genesis
 
                        Pos.Util.Chrono
                        Pos.Util.Config
@@ -92,6 +96,7 @@ library
                     , base58-bytestring
                     , concurrent-extra
                     , ether >= 0.5
+                    , file-embed
                     , log-warper >= 1.0.3
                     , mmorph
                     , resourcet

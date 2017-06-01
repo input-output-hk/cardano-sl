@@ -142,7 +142,6 @@ library
                         Pos.Binary.Block.Core
                         Pos.Binary.Communication
                         Pos.Binary.Delegation
-                        Pos.Binary.Genesis
                         Pos.Binary.Relay
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
@@ -223,10 +222,6 @@ library
                         Pos.DB.GState.GState
                         Pos.DB.Misc
 
-                        -- Genesis
-                        Pos.Genesis.Types
-                        Pos.Genesis.Parser
-
                         -- LRC
                         Pos.Lrc.Arbitrary
                         Pos.Lrc.Consumers
@@ -259,11 +254,6 @@ library
 
                         -- Txp
                         Pos.Txp.Arbitrary
-                        Pos.Txp.DB
-                        Pos.Txp.DB.Balances
-                        Pos.Txp.Logic
-                        Pos.Txp.Logic.Global
-                        Pos.Txp.Logic.Local
                         Pos.Txp.Network
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types

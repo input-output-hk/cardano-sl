@@ -1,13 +1,15 @@
 -- | Binary instances for Genesis data (such as `StakeDistribution`)
 
-module Pos.Binary.Genesis () where
+module Pos.Binary.Core.Genesis () where
 
-import           Data.Binary.Get   (Get, getWord8, label)
-import           Data.Binary.Put   (Put, putWord8)
 import           Universum
 
-import           Pos.Binary.Class  (Bi (..), UnsignedVarInt (..))
-import           Pos.Genesis.Types (GenesisData (..), StakeDistribution (..))
+import           Pos.Binary.Class        (Bi (..), Get, Put, UnsignedVarInt (..),
+                                          getWord8, label, putWord8)
+import           Pos.Binary.Core.Address ()
+import           Pos.Binary.Core.Types   ()
+import           Pos.Core.Address        ()
+import           Pos.Core.Genesis.Types  (GenesisCoreData (..), StakeDistribution (..))
 
 getUVI :: Get Word
 getUVI = getUnsignedVarInt <$> get
@@ -23,7 +25,7 @@ instance Bi StakeDistribution where
         3 -> pure ExponentialStakes
         4 -> ExplicitStakes <$> get
         5 -> CombinedStakes <$> get <*> get
-        _ -> fail "Pos.Binary.Genesis: StakeDistribution: invalid tag"
+        _ -> fail "Pos.Binary.Core.Genesis: StakeDistribution: invalid tag"
     put (FlatStakes n total)       = putWord8 0 >> putUVI n >> put total
     put (BitcoinStakes n total)    = putWord8 1 >> putUVI n >> put total
     put (RichPoorStakes m rs n ps) = putWord8 2 >> putUVI m >> put rs >>
@@ -32,9 +34,10 @@ instance Bi StakeDistribution where
     put (ExplicitStakes balances)  = putWord8 4 >> put balances
     put (CombinedStakes st1 st2)   = putWord8 5 >> put st1 >> put st2
 
-instance Bi GenesisData where
-    get = label "GenesisData" $ GenesisData <$> get <*> get <*> get
-    put GenesisData {..} = put gdAddresses >>
-                           put gdDistribution >>
-                           put gdBootstrapBalances
+instance Bi GenesisCoreData where
+    get = label "GenesisCoreData" $ GenesisCoreData <$> get <*> get <*> get
+    put GenesisCoreData {..} = do
+        put gcdAddresses
+        put gcdDistribution
+        put gcdBootstrapBalances
 

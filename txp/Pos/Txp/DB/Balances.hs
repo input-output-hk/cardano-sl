@@ -37,7 +37,10 @@ import           System.Wlog            (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class       (encodeStrict)
-import qualified Pos.Constants          as Const
+import           Pos.Core               (Coin, StakeholderId, coinF, mkCoin, sumCoins,
+                                         unsafeAddCoin, unsafeIntegerToCoin)
+import qualified Pos.Core.Constants     as Const
+import           Pos.Core.Genesis       (genesisBalances)
 import           Pos.Crypto             (shortHashF)
 import           Pos.DB.Class           (MonadDB, MonadDBPure)
 import           Pos.DB.Error           (DBError (..))
@@ -50,12 +53,9 @@ import           Pos.DB.Iterator        (DBnIterator, DBnMapIterator, IterType,
                                          runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Redirect        (DBPureRedirect, runDBPureRedirect)
 import           Pos.DB.Types           (NodeDBs (_gStateDB))
-import           Pos.Genesis            (genesisBalances)
 import           Pos.Txp.Core           (txOutStake)
 import           Pos.Txp.Toil.Types     (Utxo)
 import           Pos.Txp.Toil.Utxo      (utxoToStakes)
-import           Pos.Types              (Coin, StakeholderId, coinF, mkCoin, sumCoins,
-                                         unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Util.Iterator      (ListHolderT, MonadIterator (..), runListHolderT)
 
 ----------------------------------------------------------------------------

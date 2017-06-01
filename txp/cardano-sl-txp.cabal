@@ -18,6 +18,8 @@ library
     Pos.Txp.Core.Tx
     Pos.Txp.Core.Types
 
+    Pos.Txp.DB
+    Pos.Txp.DB.Balances
     Pos.Txp.DB.Utxo
 
     Pos.Txp.Toil
@@ -34,6 +36,10 @@ library
     Pos.Txp.Toil.Utxo.Functions
     Pos.Txp.Toil.Utxo.Pure
     Pos.Txp.Toil.Utxo.Util
+
+    Pos.Txp.Logic
+    Pos.Txp.Logic.Global
+    Pos.Txp.Logic.Local
 
     Pos.Txp.MemState
     Pos.Txp.MemState.Class

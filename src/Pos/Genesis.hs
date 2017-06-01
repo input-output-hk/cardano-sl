@@ -10,16 +10,9 @@ module Pos.Genesis
        , module Pos.Ssc.GodTossing.Genesis
 
        -- * Static state
-       , StakeDistribution (..)
-       , GenesisData (..)
-       , getTotalStake
-       , compileGenData
-       , genesisStakeDistribution
        , genesisUtxo
        , genesisDelegation
-       , genesisAddresses
        , genesisSeed
-       , genesisBalances
        , walletGenesisIndex
        , accountGenesisIndex
 
@@ -27,7 +20,6 @@ module Pos.Genesis
        , genesisLeaders
        ) where
 
-import           Data.Default               (Default (..))
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
 import           Serokell.Util              (enumerate)
@@ -37,18 +29,14 @@ import qualified Pos.Constants              as Const
 import           Pos.Core.Types             (StakeholderId)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              encToPublic, firstNonHardened, unsafeHash)
-import           Pos.Genesis.Parser         (compileGenData)
-import           Pos.Genesis.Types          (GenesisData (..), StakeDistribution (..),
-                                             getTotalStake)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), TxOutAux (..),
                                              TxOutDistribution)
 import           Pos.Txp.Toil.Types         (Utxo)
-import           Pos.Types                  (Address (..), Coin, SlotLeaders,
-                                             applyCoinPortion, coinToInteger, divCoin,
-                                             makePubKeyAddress, mkCoin, unsafeAddCoin,
-                                             unsafeMulCoin)
+import           Pos.Types                  (Coin, SlotLeaders, applyCoinPortion,
+                                             coinToInteger, divCoin, makePubKeyAddress,
+                                             mkCoin, unsafeAddCoin, unsafeMulCoin)
 import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 
 -- reexports
@@ -67,22 +55,6 @@ walletGenesisIndex = firstNonHardened
 accountGenesisIndex :: Word32
 accountGenesisIndex = firstNonHardened
 
--- | List of addresses in genesis. See 'genesisPublicKeys'.
-genesisAddresses :: [Address]
-genesisAddresses
-    | Const.isDevelopment = map makePubKeyAddress genesisDevPublicKeys
-    | otherwise           = gdAddresses compileGenData
-
-genesisStakeDistribution :: StakeDistribution
-genesisStakeDistribution
-    | Const.isDevelopment = def
-    | otherwise           = gdDistribution compileGenData
-
-genesisBalances :: HashMap StakeholderId Coin
-genesisBalances
-    | Const.isDevelopment = mempty
-    | otherwise           = gdBootstrapBalances compileGenData
-
 genesisDevHdwAccountSecretKeys :: [EncryptedSecretKey]
 genesisDevHdwAccountSecretKeys =
     genesisDevHdwSecretKeys <&> \key ->
@@ -93,10 +65,6 @@ genesisDevHdwAccountSecretKeys =
             key
             walletGenesisIndex
             accountGenesisIndex
-
-instance Default StakeDistribution where
-    def = FlatStakes Const.genesisN
-              (mkCoin 10000 `unsafeMulCoin` (Const.genesisN :: Int))
 
 -- 10000 coins in total. For thresholds testing.
 -- 0.5,0.25,0.125,0.0625,0.0312,0.0156,0.0078,0.0039,0.0019,0.0008,0.0006,0.0004,0.0002,0.0001

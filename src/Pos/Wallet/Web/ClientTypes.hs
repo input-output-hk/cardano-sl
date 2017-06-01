@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- This module is to be moved later anywhere else, just to have a
 -- starting point
@@ -9,7 +10,6 @@ module Pos.Wallet.Web.ClientTypes
       , CId (..)
       , CHash (..)
       , CPassPhrase (..)
-      , MCPassPhrase
       , CProfile (..)
       , CPwHash
       , CTx (..)
@@ -43,8 +43,6 @@ module Pos.Wallet.Web.ClientTypes
       , addressToCId
       , cIdToAddress
       , encToCId
-      , passPhraseToCPassPhrase
-      , cPassPhraseToPassPhrase
       , mkCTx
       , mkCTxId
       , txIdToCTxId
@@ -77,8 +75,8 @@ import           Pos.Binary.Class       (decodeFull, encodeStrict)
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
 import           Pos.Core.Coin          (mkCoin)
 import           Pos.Core.Types         (ScriptVersion)
-import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, encToPublic,
-                                         hashHexF)
+import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, emptyPassphrase,
+                                         encToPublic, hashHexF)
 import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut, txOutAddress, txOutValue)
 import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
                                          Coin, SoftwareVersion, decodeTextAddress,
@@ -88,6 +86,7 @@ import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes
                                          UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll        (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase  (BackupPhrase)
+import           Pos.Util.Servant       (FromCType (..), ToCType (..))
 
 
 data SyncProgress = SyncProgress
@@ -178,21 +177,18 @@ mkCTx diff THEntry {..} meta = CTx {..}
 newtype CPassPhrase = CPassPhrase Text
     deriving (Eq, Generic)
 
--- | This is most common use case for 'CPassPhrase', as there is a default
--- value for it
-type MCPassPhrase = Maybe CPassPhrase
-
 instance Show CPassPhrase where
     show _ = "<pass phrase>"
 
-passPhraseToCPassPhrase :: PassPhrase -> CPassPhrase
-passPhraseToCPassPhrase passphrase =
-    CPassPhrase . Base16.encode $ encodeStrict passphrase
+instance FromCType (Maybe CPassPhrase) where
+    type FromOriginType (Maybe CPassPhrase) = PassPhrase
+    decodeCType Nothing = return emptyPassphrase
+    decodeCType (Just (CPassPhrase text)) =
+        first toText . decodeFull . LBS.fromStrict =<< Base16.decode text
 
-cPassPhraseToPassPhrase
-    :: CPassPhrase -> Either Text PassPhrase
-cPassPhraseToPassPhrase (CPassPhrase text) =
-    first toText . decodeFull . LBS.fromStrict =<< Base16.decode text
+instance ToCType CPassPhrase where
+    type ToOriginType CPassPhrase = PassPhrase
+    encodeCType = CPassPhrase . Base16.encode . encodeStrict
 
 ----------------------------------------------------------------------------
 -- Wallet

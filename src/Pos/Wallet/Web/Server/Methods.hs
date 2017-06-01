@@ -106,14 +106,13 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccoun
                                                    CTxMeta (..), CUpdateInfo (..),
                                                    CWAddressMeta (..), CWallet (..),
                                                    CWalletInit (..), CWalletMeta (..),
-                                                   CWalletRedeem (..), MCPassPhrase,
-                                                   NotifyEvent (..), SyncProgress (..),
-                                                   Wal, addressToCId, cIdToAddress,
-                                                   cPassPhraseToPassPhrase, coinFromCCoin,
-                                                   encToCId, fromCAccountId, mkCCoin,
-                                                   mkCTx, mkCTxId, toCAccountId,
-                                                   toCUpdateInfo, txContainsTitle,
-                                                   txIdToCTxId, walletAddrMetaToAccount)
+                                                   CWalletRedeem (..), NotifyEvent (..),
+                                                   SyncProgress (..), Wal, addressToCId,
+                                                   cIdToAddress, coinFromCCoin, encToCId,
+                                                   fromCAccountId, mkCCoin, mkCTx,
+                                                   mkCTxId, toCAccountId, toCUpdateInfo,
+                                                   txContainsTitle, txIdToCTxId,
+                                                   walletAddrMetaToAccount)
 import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
                                                    mkGenesisWalletUserSecret, wusAccounts,
@@ -466,38 +465,31 @@ getAccounts mCAddr = do
 getWallets :: WalletWebMode m => m [CWallet]
 getWallets = getWalletAddresses >>= mapM getWallet
 
-decodeCPassPhraseOrFail
-    :: WalletWebMode m => MCPassPhrase -> m PassPhrase
-decodeCPassPhraseOrFail (Just cpass) =
-    either (\_ -> throwM $ RequestError "Decoding of passphrase failed") return $
-    cPassPhraseToPassPhrase cpass
-decodeCPassPhraseOrFail Nothing = return emptyPassphrase
-
 send
-    :: (WalletWebMode m)
+    :: WalletWebMode m
     => SendActions m
-    -> Maybe CPassPhrase
+    -> PassPhrase
     -> CAccountId
     -> CId Addr
     -> Coin
     -> m CTx
-send sendActions cpass srcCAddr dstCAddr c =
-    sendExtended sendActions cpass srcCAddr dstCAddr c mempty mempty
+send sendActions passphrase srcCAddr dstCAddr c =
+    sendExtended sendActions passphrase srcCAddr dstCAddr c mempty mempty
 
 sendExtended
     :: WalletWebMode m
     => SendActions m
-    -> Maybe CPassPhrase
+    -> PassPhrase
     -> CAccountId
     -> CId Addr
     -> Coin
     -> Text
     -> Text
     -> m CTx
-sendExtended sa cpassphrase srcAccount dstAccount coin title desc =
+sendExtended sa passphrase srcAccount dstAccount coin title desc =
     sendMoney
         sa
-        cpassphrase
+        passphrase
         (AccountMoneySource srcAccount)
         (one (dstAccount, coin))
         title
@@ -530,14 +522,13 @@ getMoneySourceAccount (WalletMoneySource wid) = do
 sendMoney
     :: WalletWebMode m
     => SendActions m
-    -> Maybe CPassPhrase
+    -> PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> Text
     -> Text
     -> m CTx
-sendMoney sendActions cpassphrase moneySource dstDistr title desc = do
-    passphrase <- decodeCPassPhraseOrFail cpassphrase
+sendMoney sendActions passphrase moneySource dstDistr title desc = do
     allAddrs <- getMoneySourceAddresses moneySource
     let dstAccAddrsSet = S.fromList $ map fst $ toList dstDistr
         notDstAccounts = filter (\a -> not $ cwamId a `S.member` dstAccAddrsSet) allAddrs
@@ -552,7 +543,7 @@ sendMoney sendActions cpassphrase moneySource dstDistr title desc = do
     srcTxOuts <- forM (toList spendings) $ \(cAddr, c) -> do
         addr <- decodeCIdOrFail $ cwamId cAddr
         return (TxOut addr c)
-    sendDo passphrase (fst <$> spendings) txOutsWithRem srcTxOuts
+    sendDo (fst <$> spendings) txOutsWithRem srcTxOuts
   where
     selectSrcAccounts
         :: WalletWebMode m
@@ -581,26 +572,26 @@ sendMoney sendActions cpassphrase moneySource dstDistr title desc = do
         | remaining == mkCoin 0 = return Nothing
         | otherwise = do
             relatedWallet <- getMoneySourceAccount moneySource
-            account       <- newWAddress RandomSeed cpassphrase relatedWallet
+            account       <- newWAddress RandomSeed passphrase relatedWallet
             remAddr       <- decodeCIdOrFail (cadId account)
             let remTx = TxOutAux (TxOut remAddr remaining) []
             return $ Just remTx
 
-    withSafeSigners (sk :| sks) passphrase action =
+    withSafeSigners (sk :| sks) action =
         withSafeSigner sk (return passphrase) $ \mss -> do
             ss <- maybeThrow (RequestError "Passphrase doesn't match") mss
             case nonEmpty sks of
                 Nothing -> action (ss :| [])
                 Just sks' -> do
                     let action' = action . (ss :|) . toList
-                    withSafeSigners sks' passphrase action'
+                    withSafeSigners sks' action'
 
-    sendDo passphrase srcAddrMetas txs srcTxOuts = do
+    sendDo srcAddrMetas txs srcTxOuts = do
         na <- getPeers
         sks <- forM srcAddrMetas $ getSKByAccAddr passphrase
         srcAddrs <- forM srcAddrMetas $ decodeCIdOrFail . cwamId
         let dstAddrs = txOutAddress . toaOut <$> toList txs
-        withSafeSigners sks passphrase $ \ss -> do
+        withSafeSigners sks $ \ss -> do
             let hdwSigner = NE.zip ss srcAddrs
             etx <- submitMTx sendActions hdwSigner (toList na) txs
             case etx of
@@ -707,28 +698,27 @@ addHistoryTx cAccId title desc wtx@THEntry{..} = do
 newWAddress
     :: WalletWebMode m
     => AddrGenSeed
-    -> MCPassPhrase
+    -> PassPhrase
     -> CAccountId
     -> m CAddress
-newWAddress addGenSeed cPassphrase cAccId = do
+newWAddress addGenSeed passphrase cAccId = do
     -- check wallet exists
     wAddr <- decodeCAccountIdOrFail cAccId
     _ <- getAccount cAccId
 
-    passphrase <- decodeCPassPhraseOrFail cPassphrase
     cAccAddr <- genUniqueAccountAddress addGenSeed passphrase wAddr
     addWAddress cAccAddr
     getWAddress cAccAddr
 
-newAccount :: WalletWebMode m => AddrGenSeed -> MCPassPhrase -> CAccountInit -> m CAccount
-newAccount addGenSeed cPassphrase CAccountInit {..} = do
+newAccount :: WalletWebMode m => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
+newAccount addGenSeed passphrase CAccountInit {..} = do
     -- check wallet set exists
     _ <- getWallet cwInitWId
 
     cAddr <- genUniqueAccountId addGenSeed cwInitWId
     createAccount cAddr caInitMeta
     let cAccId = toCAccountId cAddr
-    () <$ newWAddress addGenSeed cPassphrase cAccId
+    () <$ newWAddress addGenSeed passphrase cAccId
     getAccount cAccId
 
 createWalletSafe
@@ -742,9 +732,8 @@ createWalletSafe cid wsMeta = do
     createWallet cid wsMeta curTime
     getWallet cid
 
-newWallet :: WalletWebMode m => Maybe CPassPhrase -> CWalletInit -> m CWallet
-newWallet cPassphrase CWalletInit {..} = do
-    passphrase <- decodeCPassPhraseOrFail cPassphrase
+newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
+newWallet passphrase CWalletInit {..} = do
     let CWalletMeta {..} = cwInitMeta
     cAddr <- genSaveRootAddress passphrase cwBackupPhrase
     createWalletSafe cAddr cwInitMeta
@@ -783,9 +772,8 @@ renameWSet cid newName = do
 -- | Creates account address with same derivation path for new wallet set.
 rederiveAccountAddress
     :: WalletWebMode m
-    => EncryptedSecretKey -> MCPassPhrase -> CWAddressMeta -> m CWAddressMeta
-rederiveAccountAddress newSK newCPass CWAddressMeta{..} = do
-    newPass <- decodeCPassPhraseOrFail newCPass
+    => EncryptedSecretKey -> PassPhrase -> CWAddressMeta -> m CWAddressMeta
+rederiveAccountAddress newSK newPass CWAddressMeta{..} = do
     (accAddr, _) <- maybeThrow badPass $
         deriveLvl2KeyPair newPass newSK caaWalletIndex cwamAccountIndex
     return CWAddressMeta
@@ -818,7 +806,7 @@ instance Buildable AccountsSnapshot where
 cloneWalletSetWithPass
     :: WalletWebMode m
     => EncryptedSecretKey
-    -> MCPassPhrase
+    -> PassPhrase
     -> CId Wal
     -> m (AccountsSnapshot, AccountsSnapshot)
 cloneWalletSetWithPass newSK newPass wid = do
@@ -855,7 +843,7 @@ cloneWalletSetWithPass newSK newPass wid = do
 moveMoneyToClone
     :: WalletWebMode m
     => SendActions m
-    -> MCPassPhrase
+    -> PassPhrase
     -> CId Wal
     -> [CWAddressMeta]
     -> [CWAddressMeta]
@@ -872,20 +860,18 @@ moveMoneyToClone sa oldPass wid oldAddrMeta newAddrMeta = do
 
 changeWalletPassphrase
     :: WalletWebMode m
-    => SendActions m -> CId Wal -> MCPassPhrase -> MCPassPhrase -> m ()
-changeWalletPassphrase sa wid oldCPass newCPass = do
-    oldPass <- decodeCPassPhraseOrFail oldCPass
-    newPass <- decodeCPassPhraseOrFail newCPass
+    => SendActions m -> CId Wal -> PassPhrase -> PassPhrase -> m ()
+changeWalletPassphrase sa wid oldPass newPass = do
     oldSK   <- getSKByAddr wid
     newSK   <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
 
     -- TODO [CSM-236]: test on oldWSAddr == newWSAddr
     addSecretKey newSK
     oldAddrMeta <- (`E.onException` deleteSK newPass) $ do
-        (oldAddrMeta, newAddrMeta) <- cloneWalletSetWithPass newSK newCPass wid
+        (oldAddrMeta, newAddrMeta) <- cloneWalletSetWithPass newSK newPass wid
             `E.onException` do
                 logError "Failed to clone wallet"
-        moveMoneyToClone sa oldCPass wid (asExisting oldAddrMeta) (asExisting newAddrMeta)
+        moveMoneyToClone sa oldPass wid (asExisting oldAddrMeta) (asExisting newAddrMeta)
             `E.onException` do
                 logError "Money transmition to new wallet failed"
                 mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ newAddrMeta
@@ -914,12 +900,12 @@ nextUpdate = getNextUpdate >>=
 applyUpdate :: WalletWebMode m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 
-redeemAda :: WalletWebMode m => SendActions m -> Maybe CPassPhrase -> CWalletRedeem -> m CTx
-redeemAda sendActions cpassphrase CWalletRedeem {..} = do
+redeemAda :: WalletWebMode m => SendActions m -> PassPhrase -> CWalletRedeem -> m CTx
+redeemAda sendActions passphrase CWalletRedeem {..} = do
     seedBs <- maybe invalidBase64 pure
         -- NOTE: this is just safety measure
         $ rightToMaybe (B64.decode crSeed) <|> rightToMaybe (B64.decodeUrl crSeed)
-    redeemAdaInternal sendActions cpassphrase crWalletId seedBs
+    redeemAdaInternal sendActions passphrase crWalletId seedBs
   where
     invalidBase64 =
         throwM . RequestError $ "Seed is invalid base64(url) string: " <> crSeed
@@ -930,17 +916,17 @@ redeemAda sendActions cpassphrase CWalletRedeem {..} = do
 redeemAdaPaperVend
     :: WalletWebMode m
     => SendActions m
-    -> MCPassPhrase
+    -> PassPhrase
     -> CPaperVendWalletRedeem
     -> m CTx
-redeemAdaPaperVend sendActions cpassphrase CPaperVendWalletRedeem {..} = do
+redeemAdaPaperVend sendActions passphrase CPaperVendWalletRedeem {..} = do
     seedEncBs <- maybe invalidBase58 pure
         $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
     aesKey <- either invalidMnemonic pure
         $ deriveAesKeyBS <$> toSeed pvBackupPhrase
     seedDecBs <- either decryptionFailed pure
         $ aesDecrypt seedEncBs aesKey
-    redeemAdaInternal sendActions cpassphrase pvWalletId seedDecBs
+    redeemAdaInternal sendActions passphrase pvWalletId seedDecBs
   where
     invalidBase58 =
         throwM . RequestError $ "Seed is invalid base58 string: " <> pvSeed
@@ -952,12 +938,11 @@ redeemAdaPaperVend sendActions cpassphrase CPaperVendWalletRedeem {..} = do
 redeemAdaInternal
     :: WalletWebMode m
     => SendActions m
-    -> MCPassPhrase
+    -> PassPhrase
     -> CAccountId
     -> ByteString
     -> m CTx
-redeemAdaInternal sendActions cpassphrase cAccId seedBs = do
-    passphrase <- decodeCPassPhraseOrFail cpassphrase
+redeemAdaInternal sendActions passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     walletId <- decodeCAccountIdOrFail cAccId
@@ -1005,23 +990,23 @@ reportingElectroncrash celcrash = do
 
 importWallet
     :: WalletWebMode m
-    => MCPassPhrase
+    => PassPhrase
     -> Text
     -> m CWallet
-importWallet cpassphrase (toString -> fp) = do
+importWallet passphrase (toString -> fp) = do
     secret <- rewrapToWalletError $ readUserSecret fp
     wSecret <- maybeThrow noWalletSecret (secret ^. usWalletSet)
-    importWalletSecret cpassphrase wSecret
+    importWalletSecret passphrase wSecret
   where
     noWalletSecret =
         RequestError "This key doesn't contain HD wallet info"
 
 importWalletSecret
     :: WalletWebMode m
-    => MCPassPhrase
+    => PassPhrase
     -> WalletUserSecret
     -> m CWallet
-importWalletSecret cpassphrase WalletUserSecret{..} = do
+importWalletSecret passphrase WalletUserSecret{..} = do
     let key    = _wusRootKey
         addr   = makePubKeyAddress $ encToPublic key
         wid    = addressToCId addr
@@ -1037,7 +1022,7 @@ importWalletSecret cpassphrase WalletUserSecret{..} = do
 
     for_ _wusAddrs $ \(walletIndex, accountIndex) -> do
         let cAccId = toCAccountId $ AccountId wid walletIndex
-        newWAddress (DeterminedSeed accountIndex) cpassphrase cAccId
+        newWAddress (DeterminedSeed accountIndex) passphrase cAccId
 
     selectAccountsFromUtxoLock @WalletSscType [key]
 
@@ -1048,7 +1033,7 @@ addInitialRichAccount :: WalletWebMode m => Int -> m ()
 addInitialRichAccount keyId =
     when isDevelopment . E.handleAll wSetExistsHandler $ do
         key <- maybeThrow noKey (genesisDevHdwSecretKeys ^? ix keyId)
-        void $ importWalletSecret Nothing $
+        void $ importWalletSecret emptyPassphrase $
             mkGenesisWalletUserSecret key
                 & wusWalletName .~ "Precreated wallet full of money"
                 & wusAccounts . traversed . _2 .~ "Initial account"

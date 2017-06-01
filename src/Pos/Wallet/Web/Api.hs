@@ -69,11 +69,12 @@ import           Universum
 import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Util.Servant           (ModifiesApiRes (..), ReportDecodeError (..),
                                              VerbMod)
+import           Pos.Util.Servant           (CQueryParam)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
                                              CAccountMeta, CAddress, CElectronCrashReport,
                                              CId, CInitialized, CPaperVendWalletRedeem,
                                              CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
-                                             CUpdateInfo, CWallet, CWallet, CWalletInit,
+                                             CUpdateInfo, CWallet, CWalletInit,
                                              CWalletRedeem, SyncProgress, Wal)
 import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
                                              catchEndpointErrors)
@@ -92,8 +93,8 @@ instance ModifiesApiRes WalletVerbTag where
     type ApiModifiedRes WalletVerbTag a = Either WalletError a
     modifyApiResult _ = try . catchEndpointErrors . (either throwM pure =<<)
 
-instance ReportDecodeError (WalletVerb (Verb mt st ct $ Either WalletError a)) where
-    reportDecodeError _ err = Handler $ return (Left $ DecodeError err)
+instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
+    reportDecodeError _ err = Handler . ExceptT . throwM $ DecodeError err
 
 -- | Shortcut for common api result types.
 type WRes verbType a = WalletVerb (verbType '[JSON] a)
@@ -125,7 +126,7 @@ type NewWalletSet =
        "wallets"
     :> "sets"
     :> "new"
-    :> QueryParam "passphrase" CPassPhrase
+    :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
     :> WRes Post CWallet
 
@@ -133,7 +134,7 @@ type RestoreWalletSet =
        "wallets"
     :> "sets"
     :> "restore"
-    :> QueryParam "passphrase" CPassPhrase
+    :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
     :> WRes Post CWallet
 
@@ -155,7 +156,7 @@ type ImportWalletSet =
        "wallets"
     :> "sets"
     :> "keys"
-    :> QueryParam "passphrase" CPassPhrase
+    :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] Text
     :> WRes Post CWallet
 
@@ -164,8 +165,8 @@ type ChangeWalletSetPassphrase =
     :> "sets"
     :> "password"
     :> Capture "walletSetId" (CId Wal)
-    :> QueryParam "old" CPassPhrase
-    :> QueryParam "new" CPassPhrase
+    :> CQueryParam "old" CPassPhrase
+    :> CQueryParam "new" CPassPhrase
     :> WRes Post ()
 
 -------------------------------------------------------------------------
@@ -190,7 +191,7 @@ type UpdateWallet =
 
 type NewWallet =
        "wallets"
-    :> QueryParam "passphrase" CPassPhrase
+    :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CAccountInit
     :> WRes Post CAccount
 
@@ -205,7 +206,7 @@ type DeleteWallet =
 
 type NewAccount =
        "account"
-    :> QueryParam "passphrase" CPassPhrase
+    :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CAccountId
     :> WRes Post CAddress
 
@@ -239,7 +240,7 @@ type UpdateProfile =
 type NewPayment =
        "txs"
     :> "payments"
-    :> QueryParam "passphrase" CPassPhrase
+    :> CQueryParam "passphrase" CPassPhrase
     :> Capture "from" CAccountId
     :> Capture "to" (CId Addr)
     :> Capture "amount" Coin
@@ -248,7 +249,7 @@ type NewPayment =
 type NewPaymentExt =
        "txs"
     :> "payments"
-    :> QueryParam "passphrase" CPassPhrase
+    :> CQueryParam "passphrase" CPassPhrase
     :> Capture "from" CAccountId
     :> Capture "to" (CId Addr)
     :> Capture "amount" Coin
@@ -304,7 +305,7 @@ type ApplyUpdate =
 type RedeemADA =
        "redemptions"
     :> "ada"
-    :> QueryParam "passphrase" CPassPhrase
+    :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletRedeem
     :> WRes Post CTx
 
@@ -312,7 +313,7 @@ type RedeemADAPaperVend =
        "papervend"
     :> "redemptions"
     :> "ada"
-    :> QueryParam "passphrase" CPassPhrase
+    :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CPaperVendWalletRedeem
     :> WRes Post CTx
 

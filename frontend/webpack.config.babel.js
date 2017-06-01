@@ -75,7 +75,11 @@ module.exports = {
     path.join(__dirname, 'src/index.js')
   ],
   resolve: {
-    extensions: [ '.js', '.purs']
+    extensions: [ '.js', '.purs'],
+    // https://webpack.js.org/configuration/resolve/#resolve-alias
+    alias: {
+      'noframework.waypoints': path.join(__dirname, 'node_modules/waypoints/lib/noframework.waypoints.js')
+    }
   },
   module: {
     rules: [

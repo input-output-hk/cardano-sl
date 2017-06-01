@@ -86,7 +86,7 @@ type ApiPrefix = "api"
 data WalletVerb verb
 
 -- | Shortcut for common api result types.
-type WRes verbType a = WalletVerb $ verbType '[JSON] (Either WalletError a)
+type WRes verbType a = WalletVerb (verbType '[JSON] a)
 
 mapHandler :: (IO (Either ServantErr a) -> IO (Either ServantErr b))
            -> Handler a
@@ -94,14 +94,14 @@ mapHandler :: (IO (Either ServantErr a) -> IO (Either ServantErr b))
 mapHandler f = Handler . ExceptT . f . runExceptT . runHandler'
 
 -- TODO: shorten variables names?
-instance HasServer (Verb method status content $ Either WalletError a) ctx =>
-         HasServer (WalletVerb $ Verb (method :: k1) (status :: Nat) (content :: [*]) $ Either WalletError a) ctx where
-    type ServerT (WalletVerb $ Verb method status content $ Either WalletError a) m =
-         ServerT (Verb method status content a) m
+instance HasServer (Verb mt st ct $ Either WalletError a) ctx =>
+         HasServer (WalletVerb $ Verb (mt :: k1) (st :: Nat) (ct :: [*]) a) ctx where
+    type ServerT (WalletVerb $ Verb mt st ct a) m =
+         ServerT (Verb mt st ct a) m
 
     route _ ctx del = route verbProxy ctx (handlerCatch <$> del)
       where
-        verbProxy = Proxy @(Verb method status content $ Either WalletError a)
+        verbProxy = Proxy @(Verb mt st ct $ Either WalletError a)
         handlerCatch :: Handler a -> Handler (Either WalletError a)
         handlerCatch =
             mapHandler $ try . catchEndpointErrors . (either throwM pure =<<)
@@ -118,25 +118,40 @@ class ApiMapResult api where
 instance ApiMapResult (Verb (m :: k1) (s :: Nat) (c :: [*]) a) where
     mapApiResult _ = mapHandler
 
-instance ApiMapResult a => ApiMapResult (WalletVerb a) where
-    mapApiResult _ mapper server = mapApiResult (Proxy @(WalletVerb a)) mapper server
+instance ApiMapResult a =>
+         ApiMapResult (WalletVerb a) where
+    mapApiResult _ mapper server =
+        mapApiResult (Proxy @(WalletVerb a)) mapper server
+ 
+instance ApiMapResult res =>
+         ApiMapResult (Capture s a :> res) where
+    mapApiResult _ mapper server arg =
+        mapApiResult (Proxy @res) mapper (server arg)
 
-instance ApiMapResult res => ApiMapResult (Capture s a :> res) where
-    mapApiResult _ mapper server arg = mapApiResult (Proxy @res) mapper (server arg)
-
-instance (HasServer (Capture s a :> res) ctx, FromCType a, ApiMapResult res) =>
-          HasServer (CDecodeApi (Capture s a) :> res) ctx where
-    type ServerT (CDecodeApi (Capture s a) :> res) m =
-         ServerT (Capture s (OriginType a) :> res) m
-
+instance ( HasServer (apiType a :> res) ctx
+         , FromCType a
+         , Server (apiType a :> res) ~ (a -> Server res)
+         , Server (apiType (OriginType a) :> res) ~ (OriginType a -> Server res)
+         , ApiMapResult res
+         ) =>
+         HasServer (CDecodeApi (apiType a) :> res) ctx where
+    type ServerT (CDecodeApi (apiType a) :> res) m =
+         ServerT (apiType (OriginType a) :> res) m
     route _ ctx del =
-        route argProxy ctx $
-           del <&> \f a -> case decodeCType a of
-               Left e -> mapApiResult (Proxy @res) (throwM (DecodeError e) >>) (f pseudoArg)
-               Right r -> f r
+        route serverProxy ctx $
+        del <&> \f a ->
+            case decodeCType a of
+                Left e ->
+                    mapApiResult
+                        (Proxy @res)
+                        (throwM (DecodeError e) >>)
+                        (f pseudoArg)
+                Right r -> f r
       where
-        argProxy = Proxy @(Capture s a :> res)
-        pseudoArg = error "On decode error argument was somehow accessed"
+        serverProxy = Proxy @(apiType a :> res)
+        pseudoArg =
+            error
+            "Decoding from CType failed, but argument was somehow accessed"
 
 class FromCType c where
     type OriginType c :: *

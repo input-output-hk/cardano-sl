@@ -20,7 +20,7 @@ import WebSocket (WEBSOCKET)
 import Control.Monad.Error.Class (throwError)
 import Data.Either (either)
 import Daedalus.Crypto as Crypto
-import Daedalus.TLS (TLSOptions, FS, initTLS)
+import Daedalus.TLS (TLSOptions, FS, initTLS, getWSSOptions)
 import Node.HTTP (HTTP)
 
 -- TLS
@@ -146,12 +146,12 @@ isValidAddress :: forall eff. EffFn3 (http :: HTTP, err :: EXCEPTION | eff) TLSO
 isValidAddress = mkEffFn3 \tls currency -> fromAff <<< B.isValidAddress tls (mkCCurrency currency)
 
 -- FIXME: notify is not behind TLS yet - we will probably have to modify purescript-websocket-simple
-notify :: forall eff. EffFn2 (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) (NotifyCb eff) (ErrorCb eff) Unit
-notify = mkEffFn2 \messageCb errorCb -> do
+notify :: forall eff. EffFn3 (ref :: REF, ws :: WEBSOCKET, err :: EXCEPTION | eff) TLSOptions (NotifyCb eff) (ErrorCb eff) Unit
+notify = mkEffFn3 \tls messageCb errorCb -> do
     -- TODO (akegalj) grab global (mutable) state of  here
     -- instead of creating newRef
     conn <- newRef WSNotConnected
-    openConn $ mkWSState conn messageCb errorCb
+    openConn $ mkWSState conn messageCb errorCb $ getWSSOptions tls
 
 blockchainSlotDuration :: forall eff. EffFn1 (http :: HTTP, err :: EXCEPTION | eff) TLSOptions (Promise Int)
 blockchainSlotDuration = mkEffFn1 $ fromAff <<< B.blockchainSlotDuration

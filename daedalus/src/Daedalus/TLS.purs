@@ -2,6 +2,8 @@ module Daedalus.TLS
        ( FS
        , TLSOptions
        , initTLS
+       , getWSSOptions
+       , WSSOptions
        ) where
 
 -- TLS
@@ -11,10 +13,15 @@ import Control.Monad.Eff.Exception (EXCEPTION)
 import Node.FS.Sync (readFile)
 import Node.FS as FS
 import Node.HTTP.Client (protocol, hostname, port, RequestOptions)
-import Data.Options (opt, (:=), Option, Options)
+import Data.Options (opt, (:=), Option, Options (..))
+import Data.Array (filter)
+import Data.Tuple (fst)
 import Node.Buffer (Buffer)
 
+
+-- TODO: rename to HTTPSOptions
 type TLSOptions = Options RequestOptions
+type WSSOptions = Options RequestOptions
 type FS = FS.FS
 
 -- | Certificate Authority
@@ -33,3 +40,6 @@ initTLS caFilePath = do
            protocol := "https:"
         <> hostname := "localhost"
         <> port     := 8090
+
+getWSSOptions :: TLSOptions -> WSSOptions
+getWSSOptions (Options opts) = Options $ filter ((==) "ca" <<< fst) opts

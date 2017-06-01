@@ -9,6 +9,7 @@ import           Universum
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (curSoftwareVersion)
+import           Pos.Context                (recoveryCommGuard)
 import           Pos.Types                  (SoftwareVersion (..))
 import           Pos.Update.DB              (getConfirmedProposals)
 import           Pos.Update.Download        (downloadUpdate)
@@ -19,7 +20,7 @@ import           Pos.WorkMode.Class         (WorkMode)
 usWorkers :: WorkMode ssc m => ([WorkerSpec m], OutSpecs)
 usWorkers =
     first pure $
-    localOnNewSlotWorker True $ \s ->
+    recoveryCommGuard $ localOnNewSlotWorker True $ \s ->
         processNewSlot s >> void (fork checkForUpdate)
 
 checkForUpdate :: WorkMode ssc m => m ()

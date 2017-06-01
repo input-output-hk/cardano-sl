@@ -5,7 +5,7 @@ import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (error, Error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CId, _address, _ccoin, CAccount, CTx, CAccountMeta, CTxId, CTxMeta, _ctxIdValue, WalletError, CProfile, CAccountInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, WS, CWallet, CWalletInit, walletAddressToUrl, CAccountId, CAddress, Addr)
+import Daedalus.Types (CId, _address, _ccoin, CAccount, CTx, CAccountMeta, CTxId, CTxMeta, _ctxIdValue, WalletError, CProfile, CAccountInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, Wal, CWallet, CWalletInit, walletAddressToUrl, CAccountId, CAddress, Addr)
 import Data.Array (last, catMaybes)
 import Data.Monoid (mempty)
 import Data.Bifunctor (lmap)
@@ -107,7 +107,7 @@ testReset :: forall eff. Aff (ajax :: AJAX | eff) Unit
 testReset = postR $ noQueryParam ["test", "reset"]
 --------------------------------------------------------------------------------
 -- Wallet Sets ---------------------------------------------------------------------
-getWallet :: forall eff. CId WS -> Aff (ajax :: AJAX | eff) CWallet
+getWallet :: forall eff. CId Wal -> Aff (ajax :: AJAX | eff) CWallet
 getWallet addr = getR $ noQueryParam ["wallets", "sets", _address addr]
 
 getWallets :: forall eff. Aff (ajax :: AJAX | eff) (Array CWallet)
@@ -119,16 +119,16 @@ newWallet pass = postRBody $ queryParams ["wallets", "sets", "new"] [qParam "pas
 restoreWallet :: forall eff. Maybe CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
 restoreWallet pass = postRBody $ queryParams ["wallets", "sets", "restore"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-renameWalletSet :: forall eff. CId WS -> String -> Aff (ajax :: AJAX | eff) CWallet
+renameWalletSet :: forall eff. CId Wal -> String -> Aff (ajax :: AJAX | eff) CWallet
 renameWalletSet wSetId name = postR $ noQueryParam ["wallets", "sets", "rename", _address wSetId, name]
 
 importWallet :: forall eff. Maybe CPassPhrase -> FilePath -> Aff (ajax :: AJAX | eff) CWallet
 importWallet pass = postRBody $ queryParams ["wallets", "sets", "keys"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-changeWalletPass :: forall eff. CId WS -> Maybe CPassPhrase -> Maybe CPassPhrase -> Aff (ajax :: AJAX | eff) Unit
+changeWalletPass :: forall eff. CId Wal -> Maybe CPassPhrase -> Maybe CPassPhrase -> Aff (ajax :: AJAX | eff) Unit
 changeWalletPass wSetId old new = postR $ queryParams ["wallets", "sets", "password", _address wSetId] [qParam "old" $ _passPhrase <$> old, qParam "new" $ _passPhrase <$> new]
 
-deleteWallet :: forall eff. CId WS -> Aff (ajax :: AJAX | eff) Unit
+deleteWallet :: forall eff. CId Wal -> Aff (ajax :: AJAX | eff) Unit
 deleteWallet wSetId = deleteR $ noQueryParam ["wallets", "sets", _address wSetId]
 --------------------------------------------------------------------------------
 -- Wallets ---------------------------------------------------------------------
@@ -136,7 +136,7 @@ deleteWallet wSetId = deleteR $ noQueryParam ["wallets", "sets", _address wSetId
 getAccount :: forall eff. CAccountId -> Aff (ajax :: AJAX | eff) CAccount
 getAccount wId = getR $ noQueryParam ["wallets", walletAddressToUrl wId]
 
-getAccounts :: forall eff. Maybe (CId WS) -> Aff (ajax :: AJAX | eff) (Array CAccount)
+getAccounts :: forall eff. Maybe (CId Wal) -> Aff (ajax :: AJAX | eff) (Array CAccount)
 getAccounts addr = getR $ queryParams ["wallets"] [qParam "walletSetId" $ _address <$> addr]
 
 updateAccount :: forall eff. CAccountId -> CAccountMeta -> Aff (ajax :: AJAX | eff) CAccount

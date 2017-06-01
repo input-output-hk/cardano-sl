@@ -16,6 +16,7 @@ import           Data.Tagged          (untag)
 import           Pos.Block.Worker     (blkWorkers)
 import           Pos.Communication    (OutSpecs, WorkerSpec, localWorker, relayWorkers,
                                        wrapActionSpec)
+import           Pos.Context          (recoveryCommGuard)
 import           Pos.DB               (MonadDBCore)
 import           Pos.Delegation       (delegationRelays, dlgWorkers)
 import           Pos.Lrc.Worker       (lrcOnNewSlotWorker)
@@ -48,7 +49,7 @@ allWorkers = mconcatPair
 
       wrap' "ssc"        $ untag sscWorkers
     , wrap' "security"   $ untag securityWorkers
-    , wrap' "lrc"        $ first pure lrcOnNewSlotWorker
+    , wrap' "lrc"        $ first one lrcOnNewSlotWorker
     , wrap' "us"         $ usWorkers
 
       -- Have custom loggers
@@ -64,7 +65,8 @@ allWorkers = mconcatPair
     ]
   where
     properSlottingWorkers =
-        map (fst . localWorker) (logNewSlotWorker : slottingWorkers)
+       fst (recoveryCommGuard (localWorker logNewSlotWorker)) :
+       map (fst . localWorker) slottingWorkers
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
 
 -- FIXME this shouldn't be needed.

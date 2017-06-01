@@ -86,9 +86,9 @@ instance ToSchema      W.CTx
 instance ToSchema      W.CTxMeta
 instance ToSchema      W.CHash
 instance ToParamSchema W.CHash
-instance ToSchema      (W.CId W.WS)
+instance ToSchema      (W.CId W.Wal)
 instance ToSchema      (W.CId W.Addr)
-instance ToParamSchema (W.CId W.WS)
+instance ToParamSchema (W.CId W.Wal)
 instance ToParamSchema (W.CId W.Addr)
 instance ToSchema      W.CProfile
 instance ToSchema      W.WalletError

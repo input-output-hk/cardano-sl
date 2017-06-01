@@ -30,7 +30,7 @@ import qualified Pos.Util.Modifier          as MM
 
 import           Pos.Wallet.KeyStorage      (MonadKeys)
 import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
-import           Pos.Wallet.Web.ClientTypes (CId, WS)
+import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.State       (WalletWebDB)
 import qualified Pos.Wallet.Web.State       as WS
 import           Pos.Wallet.Web.Tracking    (CAccModifier, applyModifierToWSet,
@@ -61,7 +61,7 @@ onApplyTracking blunds = do
     let newTip = headerHash $ NE.last $ getOldestFirst blunds
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
   where
-    syncWalletSet :: HeaderHash -> [TxAux] -> CId WS -> m ()
+    syncWalletSet :: HeaderHash -> [TxAux] -> CId Wal -> m ()
     syncWalletSet newTip txs wAddr = do
         encSK <- getSKByAddr wAddr
         mapModifier <- runDBTxp $ evalToilTEmpty $ trackingApplyTxs encSK txs
@@ -82,7 +82,7 @@ onRollbackTracking blunds = do
     let newTip = (NE.last $ getNewestFirst blunds) ^. prevBlockL
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
   where
-    syncWalletSet :: HeaderHash -> [(TxAux, TxUndo)] -> CId WS -> m ()
+    syncWalletSet :: HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
     syncWalletSet newTip txs wAddr = do
         encSK <- getSKByAddr wAddr
         let mapModifier = trackingRollbackTxs encSK txs
@@ -95,7 +95,7 @@ logMsg
     :: WithLogger m
     => Text
     -> NonEmpty (Blund ssc)
-    -> CId WS
+    -> CId Wal
     -> CAccModifier
     -> m ()
 logMsg action (NE.length -> bNums) wAddr mm =

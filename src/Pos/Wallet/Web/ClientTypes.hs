@@ -38,7 +38,7 @@ module Pos.Wallet.Web.ClientTypes
       , CElectronCrashReport (..)
       , NotifyEvent (..)
       , WithDerivationPath (..)
-      , WS (..)
+      , Wal (..)
       , Addr (..)
       , addressToCId
       , cIdToAddress
@@ -124,7 +124,7 @@ newtype CId w = CId CHash
     deriving (Show, Eq, Ord, Generic, Hashable, Buildable)
 
 -- | Marks address as belonging to wallet set.
-data WS = WS
+data Wal = Wal
     deriving (Show, Generic)
 
 -- | Marks address as belonging to account.
@@ -201,7 +201,7 @@ cPassPhraseToPassPhrase (CPassPhrase text) =
 -- | Wallet identifier
 data AccountId = AccountId
     { -- | Address of wallet set this wallet belongs to
-      aiWSId  :: CId WS
+      aiWSId  :: CId Wal
     , -- | Derivation index of this wallet key
       aiIndex :: Word32
     } deriving (Eq, Show, Generic, Typeable)
@@ -231,9 +231,9 @@ fromCAccountId (CAccountId url) =
 -- | Account identifier
 data CWAddressMeta = CWAddressMeta
     { -- | Address of wallet set this account belongs to
-      cwamWSId         :: CId WS
+      cwamWSId         :: CId Wal
     , -- | First index in derivation path of this account key
-      caaWalletIndex  :: Word32
+      caaWalletIndex   :: Word32
     , -- | Second index in derivation path of this account key
       cwamAccountIndex :: Word32
     , -- | Actual adress of this account
@@ -289,16 +289,16 @@ instance Default CAccountMeta where
 -- | Client Wallet (CW)
 -- (Flow type: walletType)
 data CAccount = CAccount
-    { caId       :: !CAccountId
-    , caMeta     :: !CAccountMeta
-    , caAccount :: ![CAddress]
-    , caAmount   :: !CCoin
+    { caId        :: !CAccountId
+    , caMeta      :: !CAccountMeta
+    , caAddresses :: ![CAddress]
+    , caAmount    :: !CCoin
     } deriving (Show, Generic, Typeable)
 
 -- | Query data for wallet creation
 data CAccountInit = CAccountInit
-    { caInitMeta   :: !CAccountMeta
-    , cwInitWId :: !(CId WS)
+    { caInitMeta :: !CAccountMeta
+    , cwInitWId  :: !(CId Wal)
     } deriving (Show, Generic)
 
 -- | Query data for redeem
@@ -319,12 +319,12 @@ instance Default CWalletMeta where
 
 -- | Client Wallet Set (CW)
 data CWallet = CWallet
-    { cwId            :: !(CId WS)
-    , wWSetMeta      :: !CWalletMeta
+    { cwId             :: !(CId Wal)
+    , cwMeta           :: !CWalletMeta
     , cwAccountsNumber :: !Int
-    , cwAmount        :: !CCoin
-    , cwHasPassphrase :: !Bool
-    , cwPassphraseLU  :: !PassPhraseLU  -- last update time
+    , cwAmount         :: !CCoin
+    , cwHasPassphrase  :: !Bool
+    , cwPassphraseLU   :: !PassPhraseLU  -- last update time
     } deriving (Eq, Show, Generic)
 
 -- TODO: Newtype?
@@ -337,7 +337,7 @@ data CWalletInit = CWalletInit
 class WithDerivationPath a where
     getDerivationPath :: a -> [Word32]
 
-instance WithDerivationPath (CId WS) where
+instance WithDerivationPath (CId Wal) where
     getDerivationPath _ = []
 
 instance WithDerivationPath AccountId where

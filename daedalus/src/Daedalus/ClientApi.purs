@@ -50,7 +50,7 @@ testReset = fromAff B.testReset
 -- | > api.getWallet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
--- |   wWSetMeta: { cwName: 'test' },
+-- |   cwMeta: { cwName: 'test' },
 -- |   cwPassphraseLU: 1494583348.3572557,
 -- |   cwHasPassphrase: true,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW' }
@@ -66,13 +66,13 @@ getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallet <<< mkCId
 -- | > api.getWallets().then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > [ { cwAccountsNumber: 0,
--- |     wWSetMeta: { csUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
+-- |     cwMeta: { csUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
 -- |     cwPassphraseLU: 1495542169.630769,
 -- |     cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
 -- |     cwHasPassphrase: true,
 -- |     cwAmount: { getCCoin: '0' } },
 -- |   { cwAccountsNumber: 1,
--- |     wWSetMeta:
+-- |     cwMeta:
 -- |      { csUnit: 0,
 -- |        cwName: 'Precreated wallet set full of money',
 -- |        cwAssurance: 'CWANormal' },
@@ -92,7 +92,7 @@ getWallets = fromAff $ map encodeJson B.getWallets
 -- | > api.newWallet('test', 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
--- |   wWSetMeta: { cwName: 'test' },
+-- |   cwMeta: { cwName: 'test' },
 -- |   cwPassphraseLU: 1494583348.3572557,
 -- |   cwHasPassphrase: true,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW' }
@@ -112,17 +112,17 @@ newWallet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword -> f
 -- | >  api.restoreWallet('test', 'CWANormal', 0, 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > Error: ServerError: Pos.Wallet.Web.Error.RequestError "Wallet set with that mnemonics already exists"
--- | 
--- | 
+-- |
+-- |
 -- | >  api.deleteWallet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > {}
--- | 
--- | 
+-- |
+-- |
 -- | >  api.restoreWallet('test', 'CWANormal', 0, 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
--- |   wWSetMeta: { csUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
+-- |   cwMeta: { csUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
 -- |   cwPassphraseLU: 1495542169.630769,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
 -- |   cwHasPassphrase: true,
@@ -139,16 +139,16 @@ restoreWallet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword 
 -- | >  api.renameWalletSet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW', 'testing').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
--- |   wWSetMeta: { csUnit: 0, cwName: 'testing', cwAssurance: 'CWANormal' },
+-- |   cwMeta: { csUnit: 0, cwName: 'testing', cwAssurance: 'CWANormal' },
 -- |   cwPassphraseLU: 1495542169.630769,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
 -- |   cwHasPassphrase: true,
 -- |   cwAmount: { getCCoin: '0' } }
--- | 
+-- |
 -- | >  api.renameWalletSet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW', 'test').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
--- |   wWSetMeta: { csUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
+-- |   cwMeta: { csUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
 -- |   cwPassphraseLU: 1495542169.630769,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
 -- |   cwHasPassphrase: true,
@@ -165,7 +165,7 @@ renameWalletSet = mkEffFn2 \wSetId name -> fromAff <<< map encodeJson $ B.rename
 -- | > api.importWallet('/home/akegalj/projects/serokell/cardano-sl/keys/2.key.hd', '').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
--- |   wWSetMeta:
+-- |   cwMeta:
 -- |    { csUnit: 0,
 -- |      cwName: 'Genesis wallet set',
 -- |      cwAssurance: 'CWANormal' },
@@ -214,7 +214,7 @@ deleteWallet = mkEffFn1 $ fromAff <<< B.deleteWallet <<< mkCId
 -- | > { caMeta: { caName: 'Genesis wallet' },
 -- |   caId: '1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8@2147483648',
 -- |   caAmount: { getCCoin: '50000' },
--- |   caAccount:
+-- |   cwAddresses:
 -- |    [ { cadId: '19FLnEFfkaLsZqBqYHjPmCypZNHNZ7SBfMsntKgspqA96F18s6eeDy5GYjHmwXSECG6jRqWh9qqEAicpEXrNhpb8PuRNVL',
 -- |        cadAmount: [Object] } ] }
 -- | ```
@@ -231,11 +231,11 @@ getAccount = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getAccount <<< mkCAccou
 -- | > [ { caMeta: { caName: 'Genesis wallet' },
 -- |     caId: '1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8@2147483648',
 -- |     caAmount: { getCCoin: '50000' },
--- |     caAccount: [ [Object] ] },
+-- |     cwAddresses: [ [Object] ] },
 -- |   { caMeta: { caName: 'Initial wallet' },
 -- |     caId: '1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648',
 -- |     caAmount: { getCCoin: '50000' },
--- |     caAccount: [ [Object] ] } ]
+-- |     cwAddresses: [ [Object] ] } ]
 -- | ```
 getAccounts :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 getAccounts = fromAff $ map encodeJson $ B.getAccounts Nothing
@@ -250,7 +250,7 @@ getAccounts = fromAff $ map encodeJson $ B.getAccounts Nothing
 -- | > [ { caMeta: { caName: 'Initial wallet' },
 -- |     caId: '1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648',
 -- |     caAmount: { getCCoin: '50000' },
--- |     caAccount: [ [Object] ] } ]
+-- |     cwAddresses: [ [Object] ] } ]
 -- | ```
 getWalletAccounts :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
 getWalletAccounts = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getAccounts <<< Just <<< mkCId
@@ -265,7 +265,7 @@ getWalletAccounts = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getAccounts <<< 
 -- | > { caMeta: { caName: 'CWTPersonal' },
 -- |   caId: '1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648',
 -- |   caAmount: { getCCoin: '50000' },
--- |   caAccount:
+-- |   cwAddresses:
 -- |    [ { cadId: '19Fv6JWbdLXRXqew721u2GEarEwc8rcfpAqsriRFPameyCkQLHsNDKQRpwsM7W1M587CiswPuY27cj7RUvNXcZWgTbPByq',
 -- |        cadAmount: [Object] } ] }
 -- | ```
@@ -283,7 +283,7 @@ updateAccount = mkEffFn2 \wId wName -> fromAff <<< map encodeJson <<<
 -- | > { caMeta: { caName: 'trips' },
 -- |   caId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW@3190108780',
 -- |   caAmount: { getCCoin: '0' },
--- |   caAccount:
+-- |   cwAddresses:
 -- |    [ { cadId: '19M3DbeepAzN6xzSSErL8pk1JQA8oFkgE9L6LZfKXMiNpoPDjfDpJjWa3Jis1oCZVGMo1pM8tio2wifuhDPWzwCWS6sZfX',
 -- |        cadAmount: [Object] } ] }
 -- | ```

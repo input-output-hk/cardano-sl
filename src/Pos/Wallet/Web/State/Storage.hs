@@ -64,7 +64,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoi
                                              CId, CProfile, CTxId, CTxMeta, CUpdateInfo,
                                              CWAddressMeta, CWAddressMeta (..),
                                              CWalletAssurance, CWalletMeta, PassPhraseLU,
-                                             WS, walletAddrMetaToAccount)
+                                             Wal, walletAddrMetaToAccount)
 
 type TransactionHistory = HashMap CTxId CTxMeta
 
@@ -88,7 +88,7 @@ data WalletInfo = WalletInfo
 makeLenses ''WalletInfo
 
 data WalletStorage = WalletStorage
-    { _wsWSetInfos    :: !(HashMap (CId WS) WalletSetInfo)
+    { _wsWSetInfos    :: !(HashMap (CId Wal) WalletSetInfo)
     , _wsWalletInfos  :: !(HashMap AccountId WalletInfo)
     , _wsProfile      :: !CProfile
     , _wsReadyUpdates :: [CUpdateInfo]
@@ -139,17 +139,17 @@ getAccountMeta cAddr = preview (wsWalletInfos . ix cAddr . wiMeta)
 getWalletMetas :: Query [CWalletMeta]
 getWalletMetas = toList . fmap _wsiMeta <$> view wsWSetInfos
 
-getWalletMeta :: CId WS -> Query (Maybe CWalletMeta)
+getWalletMeta :: CId Wal -> Query (Maybe CWalletMeta)
 getWalletMeta cAddr = preview (wsWSetInfos . ix cAddr . wsiMeta)
 
-getWalletPassLU :: CId WS -> Query (Maybe PassPhraseLU)
+getWalletPassLU :: CId Wal -> Query (Maybe PassPhraseLU)
 getWalletPassLU cAddr = preview (wsWSetInfos . ix cAddr . wsiPassphraseLU)
 
-getWalletSyncTip :: CId WS -> Query (Maybe HeaderHash)
+getWalletSyncTip :: CId Wal -> Query (Maybe HeaderHash)
 getWalletSyncTip cAddr = preview (wsWSetInfos . ix cAddr . wsiSyncTip)
 
 
-getWalletAddresses :: Query [CId WS]
+getWalletAddresses :: Query [CId Wal]
 getWalletAddresses = HM.keys <$> view wsWSetInfos
 
 getAccountWAddresses :: AccountLookupMode
@@ -186,7 +186,7 @@ getHistoryCache cAddr = view $ wsHistoryCache . at cAddr
 createAccount :: AccountId -> CAccountMeta -> Update ()
 createAccount cAddr wMeta = wsWalletInfos . at cAddr ?= WalletInfo wMeta mempty mempty mempty
 
-createWallet :: CId WS -> CWalletMeta -> PassPhraseLU -> Update ()
+createWallet :: CId Wal -> CWalletMeta -> PassPhraseLU -> Update ()
 createWallet cAddr wSMeta passLU = wsWSetInfos . at cAddr ?= WalletSetInfo wSMeta passLU genesisHash
 
 addWAddress :: CWAddressMeta -> Update ()
@@ -203,13 +203,13 @@ addRemovedAccount addr@CWAddressMeta{..} = do
 setAccountMeta :: AccountId -> CAccountMeta -> Update ()
 setAccountMeta cAddr wMeta = wsWalletInfos . ix cAddr . wiMeta .= wMeta
 
-setWalletMeta :: CId WS -> CWalletMeta -> Update ()
+setWalletMeta :: CId Wal -> CWalletMeta -> Update ()
 setWalletMeta cAddr wSMeta = wsWSetInfos . ix cAddr . wsiMeta .= wSMeta
 
-setWalletPassLU :: CId WS -> PassPhraseLU -> Update ()
+setWalletPassLU :: CId Wal -> PassPhraseLU -> Update ()
 setWalletPassLU cAddr passLU = wsWSetInfos . ix cAddr . wsiPassphraseLU .= passLU
 
-setWalletSyncTip :: CId WS -> HeaderHash -> Update ()
+setWalletSyncTip :: CId Wal -> HeaderHash -> Update ()
 setWalletSyncTip cAddr hh = wsWSetInfos . ix cAddr . wsiSyncTip .= hh
 
 addAccountHistoryTx :: AccountId -> CTxId -> CTxMeta -> Update ()
@@ -229,7 +229,7 @@ setAccountTransactionMeta :: AccountId -> CTxId -> CTxMeta -> Update ()
 setAccountTransactionMeta cAddr ctxId ctxMeta =
     wsWalletInfos . ix cAddr . wiTxHistory . at ctxId %= ($> ctxMeta)
 
-removeWallet :: CId WS -> Update ()
+removeWallet :: CId Wal -> Update ()
 removeWallet cAddr = wsWSetInfos . at cAddr .= Nothing
 
 removeAccount :: AccountId -> Update ()
@@ -264,7 +264,7 @@ deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash
 deriveSafeCopySimple 0 'base ''CId
-deriveSafeCopySimple 0 'base ''WS
+deriveSafeCopySimple 0 'base ''Wal
 deriveSafeCopySimple 0 'base ''Addr
 deriveSafeCopySimple 0 'base ''BackupPhrase
 deriveSafeCopySimple 0 'base ''AccountId

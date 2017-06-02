@@ -183,7 +183,6 @@ genesisUtxo sd =
     -- not much money to avoid making wallets slot leaders
     hwdDistr = (mkCoin 100, [])
     -- should be enough for testing.
-    -- greater number would increase effective number of slot leaders as well :/
     genesisDevHdwKeyNum = 2
     hdwAddresses =
         take genesisDevHdwKeyNum $

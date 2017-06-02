@@ -53,9 +53,12 @@ import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent
                                                    notifyBlocksLastPageSubscribers,
                                                    notifyTxsSubscribers, startSession,
                                                    subscribeAddr, subscribeBlocks,
+                                                   subscribeBlocksLastPage,
                                                    subscribeBlocksOff, subscribeTxs,
                                                    unsubscribeAddr, unsubscribeBlocks,
-                                                   unsubscribeBlocksOff, unsubscribeTxs)
+                                                   unsubscribeBlocksOff, 
+                                                   unsubscribeBlocksLastPage, 
+                                                   unsubscribeTxs)
 import           Pos.Explorer.Socket.Util         (emit, emitJSON, forkAccompanion, on,
                                                    on_, runPeriodicallyUnless)
 import           Pos.Explorer.Web.ClientTypes     (CTxId, cteId)
@@ -85,12 +88,12 @@ notifierHandler connVar loggerName = do
     _ <- asHandler' startSession
     on  (Subscribe SubAddr)            $ asHandler  subscribeAddr
     on_ (Subscribe SubBlock)           $ asHandler_ subscribeBlocks
-    on_ (Subscribe SubBlockLastPage)   $ asHandler_ subscribeBlocks
+    on_ (Subscribe SubBlockLastPage)   $ asHandler_ subscribeBlocksLastPage
     on  (Subscribe SubBlockOff)        $ asHandler  subscribeBlocksOff
     on_ (Subscribe SubTx)              $ asHandler_ subscribeTxs
     on_ (Unsubscribe SubAddr)          $ asHandler_ unsubscribeAddr
     on_ (Unsubscribe SubBlock)         $ asHandler_ unsubscribeBlocks
-    on_ (Unsubscribe SubBlockLastPage) $ asHandler_ unsubscribeBlocks
+    on_ (Unsubscribe SubBlockLastPage) $ asHandler_ unsubscribeBlocksLastPage
     on_ (Unsubscribe SubBlockOff)      $ asHandler_ unsubscribeBlocksOff
     on_ (Unsubscribe SubTx)            $ asHandler_ unsubscribeTxs
 

@@ -65,6 +65,7 @@ import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Socket.Holder     (ClientContext, ConnectionsState,
                                                  ccAddress, ccBlockOff, ccConnection,
                                                  csAddressSubscribers,
+                                                 csBlocksPageSubscribers,
                                                  csBlocksOffSubscribers,
                                                  csBlocksSubscribers, csClients,
                                                  csTxsSubscribers, mkClientContext)
@@ -220,7 +221,7 @@ blockPageSubParam sessId =
     SubscriptionParam
         { spSessId       = sessId
         , spDesc         = const "blockchain last page"
-        , spSubscription = \_ -> csBlocksSubscribers . at sessId
+        , spSubscription = \_ -> csBlocksPageSubscribers . at sessId
         , spCliData      = noCliDataKept
         }
 
@@ -340,7 +341,7 @@ notifyBlocksLastPageSubscribers
     :: (NotificationMode m)
     => m ()
 notifyBlocksLastPageSubscribers = do
-    recipients <- view csBlocksSubscribers
+    recipients <- view csBlocksPageSubscribers
     blocks     <- getBlocksLastPage
     broadcast BlocksLastPageUpdated blocks recipients
 

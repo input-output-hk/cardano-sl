@@ -18,6 +18,7 @@ module Pos.Explorer.Socket.Holder
 
        , csAddressSubscribers
        , csBlocksSubscribers
+       , csBlocksPageSubscribers
        , csBlocksOffSubscribers
        , csTxsSubscribers
        , csClients
@@ -56,15 +57,17 @@ makeClassy ''ClientContext
 
 data ConnectionsState = ConnectionsState
     { -- | Active sessions
-      _csClients              :: !(M.Map SocketId ClientContext)
+      _csClients               :: !(M.Map SocketId ClientContext)
       -- | Sessions subscribed to given address.
-    , _csAddressSubscribers   :: !(M.Map Address (S.Set SocketId))
+    , _csAddressSubscribers    :: !(M.Map Address (S.Set SocketId))
       -- | Sessions subscribed to notifications about new blocks.
-    , _csBlocksSubscribers    :: !(S.Set SocketId)
+    , _csBlocksSubscribers     :: !(S.Set SocketId)
       -- | Sessions subscribed to notifications about new blocks with offset.
-    , _csBlocksOffSubscribers :: !(M.Map Word (S.Set SocketId))
+    , _csBlocksPageSubscribers :: !(S.Set SocketId)
+      -- | Sessions subscribed to notifications about last page.
+    , _csBlocksOffSubscribers  :: !(M.Map Word (S.Set SocketId))
       -- | Sessions subscribed to notifications about new transactions.
-    , _csTxsSubscribers       :: !(S.Set SocketId)
+    , _csTxsSubscribers        :: !(S.Set SocketId)
     }
 
 makeClassy ''ConnectionsState
@@ -77,6 +80,7 @@ mkConnectionsState =
     { _csClients = mempty
     , _csAddressSubscribers = mempty
     , _csBlocksSubscribers = mempty
+    , _csBlocksPageSubscribers = mempty
     , _csBlocksOffSubscribers = mempty
     , _csTxsSubscribers = mempty
     }

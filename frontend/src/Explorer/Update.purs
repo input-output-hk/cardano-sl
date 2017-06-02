@@ -11,12 +11,12 @@ import Control.SocketIO.Client (Socket, SocketIO, emit, emit')
 import DOM (DOM)
 import DOM.HTML.HTMLElement (blur)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (filter, head, snoc, take, (:))
+import Data.Array (filter, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
@@ -81,8 +81,14 @@ update SocketPing state =
 
 update (SocketBlocksPageUpdated (Right (Tuple totalPages blocks))) state =
     noEffects $
-    set latestBlocks (Success blocks) $
+    set latestBlocks latestBlocksCheck $
     set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages) state
+  where
+    latestBlocksCheck = if pageIsLastPage
+                        then (Success blocks)
+                        else (state ^. latestBlocks)
+    pageIsLastPage = (state ^. (dashboardViewState <<< dbViewBlockPagination))
+                  == PageNumber totalPages
 
 update (SocketBlocksPageUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $

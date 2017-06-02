@@ -185,6 +185,10 @@ getLastBlocks limit offset = do
     let blocksEndIndex   = blocksTotal - offsetInt
     let blocksStartIndex = max 0 (blocksEndIndex - limitInt)
 
+    -- Verify limit/offset calculation.
+    when (blocksStartIndex > blocksEndIndex) $
+        throwM $ Internal "Starting index cannot be larger than the beginning index."    
+
     -- Find the end main block at the end index if it exists, and return it.
     foundEndBlock <- findMainBlockWithIndex tipHash blocksEndIndex >>=
         maybeThrow (Internal "Block with specified index cannot be found!")
@@ -207,7 +211,7 @@ getLastBlocks limit offset = do
     pure mainBlocks >>= traverse toBlockEntry
   where
     offsetInt           = toInteger offset
-    limitInt            = toInteger limit - 1 -- remove included block
+    limitInt            = toInteger limit - 1 -- Remove included block
     getBlockIndex block = toInteger $ getChainDifficulty $ block ^. difficultyL
 
     -- | Find block matching the sent index/difficulty.
@@ -228,10 +232,12 @@ getLastBlocks limit offset = do
             -- search fails.
             block <- DB.getBlock @SscGodTossing headerHash >>=
                 maybeThrow (Internal "Block with hash cannot be found!")
+
             -- If there is a block then iterate backwards with the predicate
             let prevBlock = block ^. prevBlockL
 
-            if getBlockIndex block == index
+            -- If the index is correct and it's a @Main@ block
+            if (getBlockIndex block == index) && (isRight block)
                 -- When the predicate is true, return the @Main@ block
                 then pure $ block ^? _Right
                 -- When the predicate is false, keep searching backwards
@@ -270,7 +276,7 @@ getBlocksPage pageNumber pageSize = do
     totalPages <- getBlocksPagesTotal pageSize
 
     -- Make sure the parameters are valid.
-    when ((pageNumberInt - 1) > totalPages) $
+    when (pageNumberInt > totalPages) $
         throwM $ Internal "Number of pages exceeds total pages number."
 
     when (pageSize > 1000) $
@@ -282,7 +288,8 @@ getBlocksPage pageNumber pageSize = do
     let safeStartPosition = max 0 startPosition
 
     -- Let's calculate the maximum number of rows seens if on last page.
-    let calculateLimit    = if pageNumberInt == totalPages
+    let calculateLimit    = if (pageNumberInt == totalPages) && 
+                               (blocksTotal `mod` pageSizeInt /= 0)
                             then blocksTotal `mod` pageSizeInt
                             else pageSizeInt
 
@@ -308,13 +315,17 @@ getBlocksPagesTotal pageSize = do
     -- Get total blocks in the blockchain.
     blocksTotal <- toInteger <$> getBlocksTotal
 
-    -- Get total pages from the blocks.
-    let totalPages = blocksTotal `div` pageSizeInt
+    -- Get total pages from the blocks. And we want the page 
+    -- with the example, the page size 10,
+    -- to start with 10 + 1 == 11, not with 10 since with
+    -- 10 we'll have an empty page.
+    let totalPages = (blocksTotal - 1) `div` pageSizeInt
 
     -- We start from page 1.
     pure (totalPages + 1)
   where
     pageSizeInt     = toInteger pageSize
+
 
 -- | Get the last page from the blockchain. We use the default 10
 -- for the page size since this is called from __explorer only__.

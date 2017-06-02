@@ -453,7 +453,7 @@ library
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -531,7 +531,7 @@ executable cardano-node
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -594,7 +594,7 @@ executable cardano-analyzer
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -668,7 +668,7 @@ executable cardano-wallet
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -728,7 +728,7 @@ executable cardano-wallet-hs2purs
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -814,7 +814,7 @@ executable cardano-smart-generator
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -887,7 +887,7 @@ executable cardano-dht-keygen
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -946,7 +946,7 @@ executable cardano-swagger
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -978,7 +978,7 @@ executable cardano-checks
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -1010,7 +1010,7 @@ executable cardano-genupdate
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -1057,7 +1057,7 @@ executable cardano-keygen
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -1112,7 +1112,7 @@ executable cardano-launcher
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -1150,7 +1150,7 @@ executable cardano-addr-convert
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -1298,7 +1298,7 @@ test-suite cardano-test
                        -with-rtsopts=-N
 
   -- linker speed up for linux
-  if os(linux)
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -1356,8 +1356,8 @@ benchmark cardano-bench-criterion
                        -fno-warn-orphans
                        -O2
 
-  -- linker speed up for linux
-  if os(linux)
+  -- linker speed up for linux and macos
+  if os(linux) || os(darwin)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 

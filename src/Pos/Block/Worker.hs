@@ -153,7 +153,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
 onNewSlotWhenLeader
     :: WorkMode ssc m
     => SlotId
-    -> Maybe ProxySKBlockInfo
+    -> ProxySKBlockInfo
     -> Worker' m
 onNewSlotWhenLeader slotId pske sendActions = do
     let logReason =

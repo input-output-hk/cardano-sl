@@ -2,8 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 
--- | Transactions processing, in-mem state and mempool-related
--- functions.
+-- | Heavy/lightweight PSK processing, in-mem state and
+-- mempool-related functions.
 
 module Pos.Delegation.Logic.Mempool
        (

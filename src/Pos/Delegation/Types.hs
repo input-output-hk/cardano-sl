@@ -74,4 +74,4 @@ type ProxySKLightConfirmation = (ProxySKLight, ProxySigLight ProxySKLight)
 -- (because heavyweight psks have redelegation feature, so pskIssuerPk
 -- hPsk /= leader in general case). This is used to create a block
 -- header only.
-type ProxySKBlockInfo = Either ProxySKLight (ProxySKHeavy, PublicKey)
+type ProxySKBlockInfo = Maybe (Either ProxySKLight (ProxySKHeavy, PublicKey))

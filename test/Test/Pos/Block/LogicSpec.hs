@@ -123,7 +123,7 @@ spec = describe "Block.Logic" $ do
         :: Byte
         -> BlockHeader SscGodTossing
         -> [TxAux]
-        -> Maybe ProxySKBlockInfo
+        -> ProxySKBlockInfo
         -> SlotId
         -> DlgPayload
         -> SscPayload SscGodTossing

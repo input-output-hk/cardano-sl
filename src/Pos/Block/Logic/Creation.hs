@@ -158,7 +158,7 @@ createMainBlock
     :: forall ssc m.
        (CreationMode ssc m)
     => SlotId
-    -> Maybe ProxySKBlockInfo
+    -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlock sId pske =
     reportingFatal version $ withBlkSemaphore createMainBlockDo
@@ -208,7 +208,7 @@ createMainBlockFinish
     :: forall ssc m.
        (CreationMode ssc m)
     => SlotId
-    -> Maybe ProxySKBlockInfo
+    -> ProxySKBlockInfo
     -> BlockHeader ssc
     -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish slotId pske prevHeader = do
@@ -295,7 +295,7 @@ createMainBlockPure
        (MonadError Text m, SscHelpersClass ssc)
     => Byte                   -- ^ Block size limit (real max.value)
     -> BlockHeader ssc
-    -> Maybe ProxySKBlockInfo
+    -> ProxySKBlockInfo
     -> SlotId
     -> SecretKey
     -> RawPayload ssc

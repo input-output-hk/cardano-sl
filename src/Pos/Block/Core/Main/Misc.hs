@@ -164,7 +164,7 @@ mkMainHeader
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe ProxySKBlockInfo
+    -> ProxySKBlockInfo
     -> Body (MainBlockchain ssc)
     -> MainExtraHeaderData
     -> MainBlockHeader ssc
@@ -202,7 +202,7 @@ mkMainBlock
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe ProxySKBlockInfo
+    -> ProxySKBlockInfo
     -> Body (MainBlockchain ssc)
     -> MainExtraHeaderData
     -> MainExtraBodyData

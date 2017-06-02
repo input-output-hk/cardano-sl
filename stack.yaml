@@ -13,6 +13,7 @@ packages:
 - lrc
 - ssc
 - godtossing
+- txp
 
 - location:
     git: https://github.com/serokell/time-units.git
@@ -106,4 +107,5 @@ ghc-options:
   cardano-sl-lrc:        -Werror
   cardano-sl-update:     -Werror
   cardano-sl-godtossing: -Werror
+  cardano-sl-txp:        -Werror
   cardano-sl:            -Werror

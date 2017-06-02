@@ -10,17 +10,9 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | This program builds Swagger specification for wallet web API and converts it to JSON.
--- We run this program during CI build.
--- Produced JSON will be used to create online
--- version of wallet web API description at cardanodocs.com website
--- (please see 'update_wallet_web_api_docs.sh' for technical details).
-
 module Main
   ( main
   ) where
-
-import           Universum
 
 import           Control.Lens                       (mapped, (?~))
 import           Data.Aeson                         (encode)
@@ -35,11 +27,16 @@ import           Data.Swagger                       (NamedSchema (..), Operation
                                                      required, title, type_, version)
 import           Data.Typeable                      (Typeable, typeRep)
 import           Data.Version                       (showVersion)
+import           Options.Applicative.Simple         (execParser, footer, fullDesc, header,
+                                                     help, helper, infoOption, long,
+                                                     progDesc)
+import qualified Options.Applicative.Simple         as S
 import           Servant                            ((:>))
 import           Servant.Multipart                  (FileData (..), MultipartForm)
 import           Servant.Swagger                    (HasSwagger (toSwagger),
                                                      subOperations)
 import           Servant.Swagger.Internal.TypeLevel (IsSubAPI)
+import           Universum
 
 import qualified Paths_cardano_sl                   as CSL
 import           Pos.Types                          (ApplicationName, BlockVersion,
@@ -50,9 +47,24 @@ import qualified Pos.Wallet.Web                     as W
 
 import qualified Description                        as D
 
+showProgramInfoIfRequired :: FilePath -> IO ()
+showProgramInfoIfRequired generatedJSON = void $ execParser programInfo
+  where
+    programInfo = S.info (helper <*> versionOption) $
+        fullDesc <> progDesc "Generate Swagger specification for Wallet web API."
+                 <> header   "Cardano SL Wallet web API docs generator."
+                 <> footer   ("This program runs during 'cardano-sl' building on Travis CI. " <>
+                              "Generated file '" <> generatedJSON <> "' will be used to produce HTML documentation. " <>
+                              "This documentation will be published at cardanodocs.com using 'update_wallet_web_api_docs.sh'.")
+
+    versionOption = infoOption
+        ("cardano-swagger-" <> showVersion CSL.version)
+        (long "version" <> help "Show version.")
+
 
 main :: IO ()
 main = do
+    showProgramInfoIfRequired jsonFile
     BSL8.writeFile jsonFile $ encode swaggerSpecForWalletApi
     putStrLn $ "Done. See " <> jsonFile <> "."
   where
@@ -86,35 +98,35 @@ instance ToSchema      W.CTx
 instance ToSchema      W.CTxMeta
 instance ToSchema      W.CHash
 instance ToParamSchema W.CHash
-instance ToSchema      (W.CAddress W.WS)
-instance ToSchema      (W.CAddress W.Acc)
-instance ToParamSchema (W.CAddress W.WS)
-instance ToParamSchema (W.CAddress W.Acc)
+instance ToSchema      (W.CId W.Wal)
+instance ToSchema      (W.CId W.Addr)
+instance ToParamSchema (W.CId W.Wal)
+instance ToParamSchema (W.CId W.Addr)
 instance ToSchema      W.CProfile
 instance ToSchema      W.WalletError
 
 -- TODO: currently not used
-instance ToSchema      W.CAccountAddress
-instance ToParamSchema W.CAccountAddress where
+instance ToSchema      W.CWAddressMeta
+instance ToParamSchema W.CWAddressMeta where
     toParamSchema _ = mempty
         & type_ .~ SwaggerString
         & format ?~ "walletSetAddress@walletIndex@accountIndex@address"
 
-instance ToSchema      W.CWalletAddress
-instance ToParamSchema W.CWalletAddress where
+instance ToSchema      W.CAccountId
+instance ToParamSchema W.CAccountId where
     toParamSchema _ = mempty
         & type_ .~ SwaggerString
         & format ?~ "walletSetAddress@walletKeyIndex"
 
-instance ToSchema      W.CWalletSetAssurance
+instance ToSchema      W.CWalletAssurance
+instance ToSchema      W.CAccountMeta
 instance ToSchema      W.CWalletMeta
-instance ToSchema      W.CWalletSetMeta
+instance ToSchema      W.CAccountInit
 instance ToSchema      W.CWalletInit
-instance ToSchema      W.CWalletSetInit
 instance ToSchema      W.CWalletRedeem
-instance ToSchema      W.CWalletSet
 instance ToSchema      W.CWallet
 instance ToSchema      W.CAccount
+instance ToSchema      W.CAddress
 instance ToSchema      W.CPaperVendWalletRedeem
 instance ToSchema      W.CCoin
 instance ToSchema      W.CInitialized

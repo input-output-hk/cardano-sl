@@ -37,9 +37,6 @@ module Pos.Constants
 
        -- * Update system constants
        , appSystemTag
-
-       -- * Hardware/system constants
-       , memPoolLimitRatio
        ) where
 
 import           Universum                    hiding (lift)
@@ -152,12 +149,3 @@ appSystemTag = $(do
             | otherwise ->
                   fail "Failed to init appSystemTag: \
                        \couldn't find env var \"CSL_SYSTEM_TAG\"")
-
-----------------------------------------------------------------------------
--- Hardware/system
-----------------------------------------------------------------------------
-
--- | Size of mem pool will be limited by this value muliplied by block
--- size limit.
-memPoolLimitRatio :: Integral i => i
-memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ compileConfig

@@ -32,7 +32,7 @@ import qualified Pos.CLI                    as CLI
 import           Pos.Communication          (ActionSpec (..), NodeId, OutSpecs,
                                              WorkerSpec, worker, wrapActionSpec)
 import           Pos.Constants              (isDevelopment)
-import           Pos.Context                (MonadNodeContext)
+import           Pos.Context                (MonadNodeContext, recoveryCommGuard)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
                                              foreverRejoinNetwork)
@@ -92,7 +92,8 @@ action peerHolder args@Args {..} transport = do
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let gtParams = gtSscParams args vssSK
     let wDhtWorkers :: WorkMode ssc m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
-        wDhtWorkers = first (map $ wrapActionSpec $ "worker" <> "dht") . dhtWorkers
+        wDhtWorkers = (\(ws, outs) -> (map (fst . recoveryCommGuard . (, outs)) ws, outs)) . -- TODO simplify
+                      first (map $ wrapActionSpec $ "worker" <> "dht") . dhtWorkers
 
 #ifdef WITH_WEB
     when enableWallet $ do
@@ -305,8 +306,8 @@ getNodeSystemStart cliOrConfigSystemStart
 
 main :: IO ()
 main = do
-    printFlags
     args <- getNodeOptions
+    printFlags
     let baseParams = getBaseParams "node" args
     if staticPeers args then do
         allPeers <- S.fromList . map addressToNodeId <$> getPeersFromArgs args

@@ -64,7 +64,7 @@ import           Pos.Core                   (HeaderHash, addressHash, bvdMaxBloc
                                              epochIndexL, gbHeader, gbhConsensus,
                                              headerHash, prevBlockL)
 import           Pos.Crypto                 (ProxySecretKey (..), ProxySignature (..),
-                                             PublicKey, SignTag (SignProxySK), pdPsk,
+                                             PublicKey, SignTag (SignProxySK), psigPsk,
                                              proxyVerify, shortHashF, toPublic,
                                              verifyProxySecretKey)
 import           Pos.DB                     (DBError (DBMalformed), MonadDB, MonadDBPure,
@@ -596,10 +596,10 @@ delegationVerifyBlocks blocks = do
         -- related to slot leader.
         case h ^. gbhConsensus ^. mcdSignature of
             (BlockPSignatureHeavy pSig) -> do
-                let psk = pdPsk pSig
+                let psk = psigPsk pSig
                 let delegate = pskDelegatePk psk
                 canIssue <-
-                    dlgReachesIssuance withMapResolve issuer delegate (pdPsk pSig)
+                    dlgReachesIssuance withMapResolve issuer delegate (psigPsk pSig)
                 when (delegate == pskIssuerPk psk) $ throwError $
                     sformat ("using revoke heavy proxy signatures to sign block "%
                              "is forbidden: "%build)
@@ -610,7 +610,7 @@ delegationVerifyBlocks blocks = do
                              "match the one in current allowed heavy psks set")
                             pSig
             (BlockPSignatureLight pSig) -> do
-                let psk = pdPsk pSig
+                let psk = psigPsk pSig
                 let pskIPk = pskIssuerPk psk
                 unless (pskIPk == issuer) $ throwError $
                     sformat ("light proxy signature's "%build%" issuer "%

@@ -31,6 +31,7 @@ data WalletOptions = WalletOptions
     , woPeers       :: ![NodeId]
     , woTLSCertPath :: !FilePath          -- ^ TLS Certificate path
     , woTLSKeyPath  :: !FilePath          -- ^ TLS Key file
+    , woTLSCAPath   :: !FilePath          -- ^ TLS ca file
     }
 
 data WalletAction = Repl
@@ -98,13 +99,19 @@ optionsParser = do
     woTLSCertPath <- strOption $
         long    "tlscert" <>
         metavar "FILEPATH" <>
-        value   "certificate.pem" <>
+        value   "server.crt" <>
         help    "Path to file with TLS certificate"
     woTLSKeyPath <- strOption $
         long    "tlskey" <>
         metavar "FILEPATH" <>
-        value   "key.pem" <>
+        value   "server.key" <>
         help    "Path to file with TLS key"
+    woTLSCAPath <- strOption $
+        long    "tlskey" <>
+        metavar "FILEPATH" <>
+        value   "ca.cert" <>
+        help    "Path to file with TLS certificate authority"
+
 
     woPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer (host:port/peer_id)"
 

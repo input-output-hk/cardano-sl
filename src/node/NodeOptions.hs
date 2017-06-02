@@ -59,6 +59,7 @@ data Args = Args
     , webPort                   :: !Word16
     , walletTLSCertPath         :: !FilePath
     , walletTLSKeyPath          :: !FilePath
+    , walletTLSCAPath           :: !FilePath
 #ifdef WITH_WALLET
     , enableWallet              :: !Bool
     , walletPort                :: !Word16
@@ -156,6 +157,11 @@ argsParser = do
         metavar "FILEPATH" <>
         value   "server.key" <>
         help    "Path to file with TLS key"
+    walletTLSCAPath <- strOption $
+        long    "tlsca" <>
+        metavar "FILEPATH" <>
+        value   "ca.crt" <>
+        help    "Path to file with TLS certificate authority"
 #ifdef WITH_WALLET
     enableWallet <- switch $
         long "wallet" <>

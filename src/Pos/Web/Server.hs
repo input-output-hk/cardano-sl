@@ -23,7 +23,7 @@ import qualified Ether
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
 import           Network.Wai.Handler.Warp             (defaultSettings, setHost, setPort)
-import           Network.Wai.Handler.WarpTLS          (runTLS, tlsSettings)
+import           Network.Wai.Handler.WarpTLS          (runTLS, tlsSettingsChain)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server                       (Handler, ServantErr (errBody),
@@ -60,7 +60,7 @@ type MyWorkMode ssc m =
     , MonadNodeContext ssc m -- for ConvertHandler
     )
 
-serveWebBase :: MyWorkMode ssc m => Word16 -> FilePath -> FilePath -> m ()
+serveWebBase :: MyWorkMode ssc m => Word16 -> FilePath -> FilePath -> FilePath -> m ()
 serveWebBase = serveImpl applicationBase "127.0.0.1"
 
 applicationBase :: MyWorkMode ssc m => m Application
@@ -68,7 +68,7 @@ applicationBase = do
     server <- servantServerBase
     return $ serve baseNodeApi server
 
-serveWebGT :: MyWorkMode SscGodTossing m => Word16 -> FilePath -> FilePath -> m ()
+serveWebGT :: MyWorkMode SscGodTossing m => Word16 -> FilePath -> FilePath -> FilePath -> m ()
 serveWebGT = serveImpl applicationGT "127.0.0.1"
 
 applicationGT :: MyWorkMode SscGodTossing m => m Application
@@ -77,13 +77,13 @@ applicationGT = do
     return $ serve gtNodeApi server
 
 -- [CSL-217]: do not hardcode logStdoutDev.
-serveImpl :: MonadIO m => m Application -> String -> Word16 -> FilePath -> FilePath -> m ()
-serveImpl application host port walletTLSCert walletTLSKey =
+serveImpl :: MonadIO m => m Application -> String -> Word16 -> FilePath -> FilePath -> FilePath -> m ()
+serveImpl application host port walletTLSCert walletTLSKey walletTLSca =
     liftIO . runTLS tlsConfig mySettings . logStdoutDev =<< application
   where
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) defaultSettings
-    tlsConfig = tlsSettings walletTLSCert walletTLSKey
+    tlsConfig = tlsSettingsChain walletTLSCert [walletTLSca] walletTLSKey
 
 ----------------------------------------------------------------------------
 -- Servant infrastructure

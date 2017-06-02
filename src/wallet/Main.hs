@@ -330,10 +330,10 @@ main = do
                     case CLI.sscAlgo woCommonArgs of
                         GodTossingAlgo -> walletServeWebLite (Proxy @SscGodTossing)
                                               sendActions webDaedalusDbPath False webPort
-                                              woTLSCertPath woTLSKeyPath
+                                              woTLSCertPath woTLSKeyPath woTLSCAPath
                         NistBeaconAlgo -> walletServeWebLite (Proxy @SscNistBeacon)
                                               sendActions webDaedalusDbPath False webPort
-                                              woTLSCertPath woTLSKeyPath
+                                              woTLSCertPath woTLSKeyPath woTLSCAPath
 #endif
 
         case CLI.sscAlgo woCommonArgs of

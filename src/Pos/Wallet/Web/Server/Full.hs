@@ -70,6 +70,7 @@ walletServeWebFull
     -> Word16    -- ^ Port to listen
     -> FilePath  -- ^ TLS Certificate path
     -> FilePath  -- ^ TLS Key file
+    -> FilePath  -- ^ TLS ca file
     -> RawRealModeK ssc ()
 walletServeWebFull sendActions debug = walletServeImpl action
   where

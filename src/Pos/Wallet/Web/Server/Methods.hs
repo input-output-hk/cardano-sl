@@ -130,8 +130,9 @@ walletServeImpl
     -> Word16                             -- ^ Port to listen
     -> FilePath                           -- ^ TLS Certificate path
     -> FilePath                           -- ^ TLS Key file
+    -> FilePath                           -- ^ TLS ca file
     -> m ()
-walletServeImpl app daedalusDbPath dbRebuild port tlsCert tlsKey =
+walletServeImpl app daedalusDbPath dbRebuild port tlsCert tlsKey tlsCA =
     bracket pre post $ \(db, conn) ->
         serveImpl
             (runWalletWebDB db $ runWalletWS conn app)
@@ -139,6 +140,7 @@ walletServeImpl app daedalusDbPath dbRebuild port tlsCert tlsKey =
             port
             tlsCert
             tlsKey
+            tlsCA
   where
     pre = (,) <$> openDB <*> initWS
     post (db, conn) = closeDB db >> closeWS conn

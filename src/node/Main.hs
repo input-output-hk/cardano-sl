@@ -298,7 +298,7 @@ plugins ::
     , MonadNodeContext ssc m
     ) => Args -> [m ()]
 plugins Args {..}
-    | enableWeb = [serveWebBase webPort walletTLSCertPath walletTLSKeyPath]
+    | enableWeb = [serveWebBase webPort walletTLSCertPath walletTLSKeyPath walletTLSCAPath]
     | otherwise = []
 #endif
 
@@ -308,7 +308,7 @@ pluginsGT ::
     , MonadNodeContext SscGodTossing m
     ) => Args -> [m ()]
 pluginsGT Args {..}
-    | enableWeb = [serveWebGT webPort walletTLSCertPath walletTLSKeyPath]
+    | enableWeb = [serveWebGT webPort walletTLSCertPath walletTLSKeyPath walletTLSCAPath]
     | otherwise = []
 #endif
 
@@ -334,6 +334,7 @@ walletServe Args {..} =
                 walletDbPath
                 walletRebuildDb walletPort
                 walletTLSCertPath walletTLSKeyPath
+                walletTLSCAPath
     else updateTriggerWorker
 #else
 walletServe _ = updateTriggerWorker

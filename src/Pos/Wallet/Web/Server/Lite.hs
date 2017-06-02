@@ -58,6 +58,7 @@ walletServeWebLite
     -> Word16                             -- ^ Port to listen
     -> FilePath                           -- ^ TLS Certificate path
     -> FilePath                           -- ^ TLS Key file
+    -> FilePath                           -- ^ TLS ca file
     -> WalletStaticPeersMode ()
 walletServeWebLite _ sendActions = walletServeImpl action
   where

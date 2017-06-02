@@ -440,6 +440,8 @@ decodeCIdOrFail = either wrongAddress pure . cIdToAddress
   where wrongAddress err = throwM . DecodeError $
             sformat ("Error while decoding CId: "%stext) err
 
+-- TODO: these two could be removed if we decide to encode endpoint result
+-- to CType automatically
 decodeCAccountIdOrFail :: MonadThrow m => CAccountId -> m AccountId
 decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
   where wrongAddress err = throwM . DecodeError $
@@ -448,6 +450,7 @@ decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
 decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
 decodeCCoinOrFail c =
     coinFromCCoin c `whenNothing` throwM (DecodeError "Wrong coin format")
+
 
 getWalletAccountIds :: WalletWebMode m => CId Wal -> m [AccountId]
 getWalletAccountIds wSet = filter ((== wSet) . aiWSId) <$> getWAddressIds

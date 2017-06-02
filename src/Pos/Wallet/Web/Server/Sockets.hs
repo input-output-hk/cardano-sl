@@ -20,33 +20,41 @@ module Pos.Wallet.Web.Server.Sockets
 import           Universum
 
 import           Control.Concurrent.STM.TVar    (swapTVar)
+import           Control.Monad.State.Strict     (MonadState (get, put))
 import           Data.Aeson                     (encode)
 import           Data.Default                   (Default (def))
 import qualified Data.IntMap.Strict             as IM
 import qualified Ether
+import           Formatting                     (build, sformat, (%))
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets             as WS
+import           Serokell.Util.Concurrent       (modifyTVarS)
+import           System.Wlog                    (logError, logNotice, usingLoggerName)
 
 import           Pos.Aeson.ClientTypes          ()
 import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
-import           Pos.Wallet.Web.Error           (WalletError (..))
 
 
 type WSConnection = WS.Connection
-type ConnectionsVar = TVar ConnectionMap
+type ConnectionsVar = TVar ConnectionSet
 
 initWSConnections :: MonadIO m => m ConnectionsVar
 initWSConnections = newTVarIO def
 
-closeWSConnection :: (MonadIO m, MonadThrow m) => ConnectionKey -> ConnectionsVar -> m ()
-closeWSConnection key var = liftIO $ do
-    maybeConn <- atomically $ deregisterConnection key var
+closeWSConnection :: (MonadIO m) => ConnectionTag -> ConnectionsVar -> m ()
+closeWSConnection tag var = liftIO $ do
+    maybeConn <- atomically $ deregisterConnection tag var
+    -- TODO: figure out how to run `usingLoggerName` only once
     case maybeConn of
-        Nothing   -> throwM $ InternalError "Attempted to close an unknown connection"
-        Just conn -> WS.sendClose conn ConnectionClosed
+        Nothing   -> usingLoggerName "closeWSConnection" $
+            logError $ sformat ("Attempted to close an unknown connection with tag "%build) tag
+        Just conn -> do
+            WS.sendClose conn ConnectionClosed
+            usingLoggerName "closeWSConnection" $
+                logNotice $ sformat ("Closed WS connection with tag "%build) tag
 
-closeWSConnections :: (MonadIO m, MonadThrow m) => ConnectionsVar -> m ()
+closeWSConnections :: MonadIO m => ConnectionsVar -> m ()
 closeWSConnections var = liftIO $ do
     conns <- atomically $ swapTVar var def
     for_ (listConnections conns) $ flip WS.sendClose ConnectionClosed
@@ -54,15 +62,15 @@ closeWSConnections var = liftIO $ do
 appendWSConnection :: ConnectionsVar -> WS.ServerApp
 appendWSConnection var pending = do
     conn <- WS.acceptRequest pending
-    key <- atomically $ registerConnection conn var
+    tag <- atomically $ registerConnection conn var
     sendWS conn ConnectionOpened
     WS.forkPingThread conn 30
-    forever (ignoreData conn) `finally` releaseResources key
+    forever (ignoreData conn) `finally` releaseResources tag
   where
     ignoreData :: WSConnection -> IO Text
     ignoreData = WS.receiveData
-    releaseResources :: (MonadIO m, MonadThrow m) => ConnectionKey -> m ()
-    releaseResources key = closeWSConnection key var -- TODO: log
+    releaseResources :: MonadIO m => ConnectionTag -> m ()
+    releaseResources tag = closeWSConnection tag var
 
 -- FIXME: we have no authentication and accept all incoming connections.
 -- Possible solution: reject pending connection if WS handshake doesn't have valid auth session token.
@@ -108,47 +116,45 @@ notifyAll msg = do
   for_ (listConnections conns) $ flip sendWS msg
 
 ------------------------------------
--- Implementation of ConnectionMap
+-- Implementation of ConnectionSet
 ------------------------------------
 
-data IntMapWithUnusedKey v = IntMapWithUnusedKey
-    { unusedKey :: Int
-    , mapping   :: IntMap v
+data TaggedSet v = TaggedSet
+    { tsUnusedTag :: IM.Key
+    , tsData      :: IntMap v
     }
 
-instance Default (IntMapWithUnusedKey v) where
-  def = IntMapWithUnusedKey 0 IM.empty
+instance Default (TaggedSet v) where
+  def = TaggedSet 0 IM.empty
 
-type ConnectionKey = IM.Key
-type ConnectionMap = IntMapWithUnusedKey WSConnection
+type ConnectionTag = IM.Key
+type ConnectionSet = TaggedSet WSConnection
 
-registerConnection :: WSConnection -> ConnectionsVar -> STM ConnectionKey
-registerConnection conn var = do
-    conns <- readTVar var
-    let (key, newConns) = registerConnectionPure conn conns
-    writeTVar var newConns
-    pure key
+registerConnection :: WSConnection -> ConnectionsVar -> STM ConnectionTag
+registerConnection conn var = modifyTVarS var $ do
+    conns <- get
+    let (tag, newConns) = registerConnectionPure conn conns
+    put newConns
+    pure tag
 
-deregisterConnection :: ConnectionKey -> ConnectionsVar -> STM (Maybe WSConnection)
-deregisterConnection key var = do
-    conns <- readTVar var
-    case deregisterConnectionPure key conns of
+deregisterConnection :: ConnectionTag -> ConnectionsVar -> STM (Maybe WSConnection)
+deregisterConnection tag var = modifyTVarS var $ do
+    conns <- get
+    case deregisterConnectionPure tag conns of
         Nothing -> pure Nothing
         Just (conn, newConns) -> do
-            writeTVar var newConns
+            put newConns
             pure (Just conn)
 
-registerConnectionPure :: WSConnection -> ConnectionMap -> (ConnectionKey, ConnectionMap)
+registerConnectionPure :: WSConnection -> ConnectionSet -> (ConnectionTag, ConnectionSet)
 registerConnectionPure conn conns =
-  let newKey = unusedKey conns + 1 in
-  (newKey, IntMapWithUnusedKey newKey (IM.insert newKey conn $ mapping conns))
+  let newKey = tsUnusedTag conns + 1 in
+  (newKey, TaggedSet newKey (IM.insert newKey conn $ tsData conns))
 
-deregisterConnectionPure :: ConnectionKey -> ConnectionMap -> Maybe (WSConnection, ConnectionMap)
-deregisterConnectionPure key conns =
-  case IM.lookup key (mapping conns) of
-    Nothing -> Nothing
-    Just conn -> Just (conn,
-      IntMapWithUnusedKey (unusedKey conns) (IM.delete key $ mapping conns))
+deregisterConnectionPure :: ConnectionTag -> ConnectionSet -> Maybe (WSConnection, ConnectionSet)
+deregisterConnectionPure tag conns = do  -- Maybe monad
+  conn <- IM.lookup tag (tsData conns)
+  pure (conn, TaggedSet (tsUnusedTag conns) (IM.delete tag $ tsData conns))
 
-listConnections :: ConnectionMap -> [WSConnection]
-listConnections = IM.elems . mapping
+listConnections :: ConnectionSet -> [WSConnection]
+listConnections = IM.elems . tsData

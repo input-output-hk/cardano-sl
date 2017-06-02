@@ -4,6 +4,7 @@ sudo: true
 matrix:
   include:
     - env: HLINT=true
+    - env: HLINT=false
     - os: osx
       osx_image: xcode8.3
   # due to too long builds

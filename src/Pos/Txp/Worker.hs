@@ -7,13 +7,13 @@ module Pos.Txp.Worker
 
 import           Universum
 
-import           Data.Tagged         (Tagged (..))
 import           Pos.Communication   (OutSpecs, WorkerSpec)
 import           Pos.Ssc.Class       (SscWorkersClass)
 import           Pos.Util            (mconcatPair)
 import           Pos.WorkMode.Class  (WorkMode)
 
 #ifdef WITH_WALLET
+import           Data.Tagged         (Tagged (..))
 import           Data.Time.Units     (Second, convertUnit)
 import           Formatting          (build, int, sformat, shown, (%))
 import           Mockable            (delay)

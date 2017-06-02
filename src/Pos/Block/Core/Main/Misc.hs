@@ -38,11 +38,12 @@ import           Pos.Core                    (EpochOrSlot (..), GenericBlock (..
                                               HasEpochIndex (..), HasEpochOrSlot (..),
                                               HasHeaderHash (..), HasSoftwareVersion (..),
                                               HeaderHash, IsHeader, IsMainHeader (..),
-                                              ProxySKEither, SlotId, mkGenericHeader,
+                                              SlotId, mkGenericHeader,
                                               recreateGenericBlock, slotIdF)
 import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
                                               SignTag (..), hashHexF, proxySign, sign,
                                               toPublic)
+import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Util.Util               (leftToPanic)
 
@@ -163,7 +164,7 @@ mkMainHeader
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe ProxySKEither
+    -> Maybe ProxySKBlockInfo
     -> Body (MainBlockchain ssc)
     -> MainExtraHeaderData
     -> MainBlockHeader ssc
@@ -201,7 +202,7 @@ mkMainBlock
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe ProxySKEither
+    -> Maybe ProxySKBlockInfo
     -> Body (MainBlockchain ssc)
     -> MainExtraHeaderData
     -> MainExtraBodyData

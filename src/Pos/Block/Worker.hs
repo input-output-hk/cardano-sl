@@ -26,15 +26,15 @@ import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', Wo
                                               onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
 import           Pos.Context                 (npPublicKey)
-import           Pos.Core                    (ProxySKEither, SlotId (..),
-                                              Timestamp (Timestamp), gbHeader,
-                                              getSlotIndex, slotIdF)
+import           Pos.Core                    (SlotId (..), Timestamp (Timestamp),
+                                              gbHeader, getSlotIndex, slotIdF)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.Class                (MonadDBCore)
 import           Pos.DB.GState               (getDlgTransPsk, getPskByIssuer)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Delegation.Helpers      (isRevokePsk)
+import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
@@ -153,7 +153,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
 onNewSlotWhenLeader
     :: WorkMode ssc m
     => SlotId
-    -> Maybe ProxySKEither
+    -> Maybe ProxySKBlockInfo
     -> Worker' m
 onNewSlotWhenLeader slotId pske sendActions = do
     let logReason =

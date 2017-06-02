@@ -8,6 +8,7 @@ module Pos.Delegation.Types
        , ProxySKLightConfirmation
        , DlgUndo
        , DlgMemPool
+       , ProxySKBlockInfo
        ) where
 
 import           Universum
@@ -68,3 +69,9 @@ type DlgMemPool = HashMap PublicKey ProxySKHeavy
 
 -- | Confirmation of light cert type.
 type ProxySKLightConfirmation = (ProxySKLight, ProxySigLight ProxySKLight)
+
+-- | Lightweight PSK or heavyweight PSK with real leader public key
+-- (because heavyweight psks have redelegation feature, so pskIssuerPk
+-- hPsk /= leader in general case). This is used to create a block
+-- header only.
+type ProxySKBlockInfo = Either ProxySKLight (ProxySKHeavy, PublicKey)

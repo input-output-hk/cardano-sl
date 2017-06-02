@@ -6,14 +6,16 @@ module Explorer.View.Search
 import Prelude
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
+import Data.Newtype (unwrap)
 import Data.String (length)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cAddress, cEpoch, cSlot, cTransaction, common, hero, hrSearch, hrTime) as I18nL
-import Explorer.Lenses.State (gViewSearchInputFocused, globalViewState, lang, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, viewStates)
-import Explorer.State (maxSlotInEpoch)
+import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, globalViewState, lang, viewStates)
+import Explorer.State (maxSlotInEpoch, searchContainerId)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
+import Explorer.View.Common (emptyView)
 import Pux.Html (Html, div, text, ul, li, label, input) as P
 import Pux.Html.Attributes (checked, className, htmlFor, id_, maxLength, name, type_, placeholder, value) as P
 import Pux.Html.Events (onChange, onClick, onFocus, onBlur, onKey) as P
@@ -28,7 +30,7 @@ searchInputView :: State -> P.Html Action
 searchInputView state =
     let lang' = state ^. lang
         dbViewSearchInputFocused = state ^. (viewStates <<< globalViewState <<< gViewSearchInputFocused)
-        searchIconClazz = if dbViewSearchInputFocused then " bg-icon-search-hover" else " bg-icon-search"
+        mobileMenuOpened = state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)
         selectedSearch = state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch)
         addrHiddenClazz = if selectedSearch == SearchTime  then " hide " else ""
         epochHiddenClazz = if selectedSearch /= SearchTime  then " hide " else ""
@@ -36,7 +38,9 @@ searchInputView state =
         searchTimeQuery = state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
     in
     P.div
-        [ P.className $ "explorer-search__container" <> focusedClazz ]
+        [ P.className $ "explorer-search__container" <> focusedClazz
+        , P.id_ $ unwrap searchContainerId
+        ]
         [ P.input
             [ P.className $ "explorer-search__input explorer-search__input--address-tx"
                           <> addrHiddenClazz
@@ -44,15 +48,22 @@ searchInputView state =
             , P.placeholder $ if dbViewSearchInputFocused
                               then ""
                               else translate (I18nL.hero <<< I18nL.hrSearch) lang'
-            , P.onFocus <<< const $ GlobalFocusSearchInput true
-            , P.onBlur <<< const $ GlobalFocusSearchInput false
+            , P.onFocus <<< const $
+                  if mobileMenuOpened
+                  then GlobalFocusSearchInput true
+                  else NoOp
+            , P.onBlur <<< const $
+                  if mobileMenuOpened
+                  then GlobalFocusSearchInput false
+                  else NoOp
             , P.onChange $ GlobalUpdateSearchValue <<< _.value <<< _.target
             , P.onKey "enter" $ const GlobalSearch
             , P.value $ state ^. (viewStates <<< globalViewState <<< gViewSearchQuery)
             ]
             []
         , P.div
-            [ P.className $ "explorer-search__wrapper" <> epochHiddenClazz ]
+            [ P.className $ "explorer-search__wrapper" <> epochHiddenClazz
+            ]
             [ P.label
                 [ P.className $ "explorer-search__label"
                 , P.htmlFor inputEpochName
@@ -63,8 +74,14 @@ searchInputView state =
                               <> focusedClazz
                 , P.type_ "text"
                 , P.name inputEpochName
-                , P.onFocus <<< const $ GlobalFocusSearchInput true
-                , P.onBlur <<< const $ GlobalFocusSearchInput false
+                , P.onFocus <<< const $
+                      if mobileMenuOpened
+                      then GlobalFocusSearchInput true
+                      else NoOp
+                , P.onBlur <<< const $
+                      if mobileMenuOpened
+                      then GlobalFocusSearchInput false
+                      else NoOp
                 , P.onChange $ GlobalUpdateSearchEpochValue <<< _.value <<< _.target
                 , P.onKey "enter" $ const GlobalSearchTime
                 , P.value $ case searchTimeQuery of
@@ -83,8 +100,14 @@ searchInputView state =
                 , P.type_ "text"
                 , P.name inputSlotName
                 , P.maxLength <<< show <<< length $ show maxSlotInEpoch
-                , P.onFocus <<< const $ GlobalFocusSearchInput true
-                , P.onBlur <<< const $ GlobalFocusSearchInput false
+                , P.onFocus <<< const $
+                      if mobileMenuOpened
+                      then GlobalFocusSearchInput true
+                      else NoOp
+                , P.onBlur <<< const $
+                      if mobileMenuOpened
+                      then GlobalFocusSearchInput false
+                      else NoOp
                 , P.onChange $ GlobalUpdateSearchSlotValue <<< _.value <<< _.target
                 , P.onKey "enter" $ const GlobalSearchTime
                 , P.value $ case searchTimeQuery of
@@ -93,16 +116,17 @@ searchInputView state =
                 ]
                 []
             ]
-        , searchItemViews state
+        , if dbViewSearchInputFocused
+          then searchItemViews lang' selectedSearch
+          else emptyView
         , P.div
-            [ P.className $ "explorer-search__btn" <> searchIconClazz <> focusedClazz
+            [ P.className $ "explorer-search__btn bg-icon-search" <> focusedClazz
             , P.onClick <<< const $ if selectedSearch == SearchTime
                                     then GlobalSearchTime
                                     else GlobalSearch
             ]
             []
         ]
-
 
 type SearchItem =
   { value :: Search
@@ -124,16 +148,12 @@ mkSearchItems lang =
       }
     ]
 
-searchItemViews :: State -> P.Html Action
-searchItemViews state =
-    let lang' = state ^. lang
-        selectedSearch = state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch)
-    in
+searchItemViews :: Language -> Search -> P.Html Action
+searchItemViews lang selectedSearch =
     P.ul
-        [ P.className "explorer-search-nav__container"]
+        [ P.className $ "explorer-search-nav__container" ]
         <<< map (\item -> searchItemView item selectedSearch)
-            $ mkSearchItems lang'
-
+            $ mkSearchItems lang
 
 searchItemView :: SearchItem -> Search -> P.Html Action
 searchItemView item selectedSearch =

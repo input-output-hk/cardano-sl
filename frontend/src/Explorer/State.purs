@@ -1,6 +1,7 @@
 module Explorer.State where
 
 import Prelude
+import DOM.Node.Types (ElementId(..))
 import Data.DateTime.Instant (instant, toDateTime)
 import Data.Maybe (Maybe(..), fromJust)
 import Data.Time.Duration (Milliseconds(..))
@@ -87,6 +88,9 @@ minPagination = 1 -- Note: We do start with 1 (not 0)
 
 addressQRImageId :: String
 addressQRImageId = "qr_image_id"
+
+searchContainerId :: ElementId
+searchContainerId = ElementId "explorer-search__container-id"
 
 mkSocketSubscriptionItem :: SocketSubscription -> SocketSubscriptionData -> SocketSubscriptionItem
 mkSocketSubscriptionItem socketSub socketSubData = SocketSubscriptionItem

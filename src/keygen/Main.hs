@@ -10,7 +10,6 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.Text            as T
 import           Formatting           (sformat, shown, (%))
-import           Options.Applicative  (execParser)
 import           Serokell.Util.Text   (listJson)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      (takeDirectory, (</>))
@@ -32,7 +31,7 @@ import           Avvm                 (aeCoin, applyBlacklisted, genGenesis, get
                                        utxo)
 import           KeygenOptions        (AvvmStakeOptions (..), FakeAvvmOptions (..),
                                        KeygenOptions (..), TestStakeOptions (..),
-                                       optsInfo)
+                                       getKeygenOptions)
 import           Testnet              (genTestnetStakes, generateFakeAvvm,
                                        generateKeyfile, rearrangeKeyfile)
 
@@ -118,7 +117,7 @@ getAvvmGenesis AvvmStakeOptions {..} = do
 
 main :: IO ()
 main = do
-    ko@(KeygenOptions{..}) <- execParser optsInfo
+    ko@(KeygenOptions{..}) <- getKeygenOptions
     usingLoggerName "keygen" $
         if | Just msk <- koRearrangeMask  -> rearrange msk
            | Just pat <- koDumpDevGenKeys -> dumpKeys pat

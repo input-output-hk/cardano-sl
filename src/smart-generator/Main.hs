@@ -14,7 +14,6 @@ import           Data.Time.Units            (Microsecond, convertUnit)
 import           Formatting                 (float, int, sformat, (%))
 import           Mockable                   (Production, delay, forConcurrently, fork)
 import           Network.Transport.Abstract (Transport, hoistTransport)
-import           Options.Applicative        (execParser)
 import           Serokell.Util              (ms, sec)
 import           System.FilePath            ((</>))
 import           System.Random.Shuffle      (shuffleM)
@@ -45,7 +44,7 @@ import           Pos.Util.Util              (powerLift)
 import           Pos.Worker                 (allWorkers)
 import           Pos.WorkMode               (StaticMode)
 
-import           GenOptions                 (GenOptions (..), optsInfo)
+import           GenOptions                 (GenOptions (..), getGenOptions)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
 import           TxAnalysis                 (checkWorker, createTxTimestamps,
                                              registerSentTx)
@@ -235,7 +234,7 @@ runSmartGen transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
 
 main :: IO ()
 main = do
-    opts@GenOptions {..} <- execParser optsInfo
+    opts@GenOptions {..} <- getGenOptions
 
     -- Check correctness of --m-of-n param
     case goMOfNParams of

@@ -200,7 +200,11 @@ instance ( MonadDB m
     getTxHistory :: forall ssc. SscHelpersClass ssc
                  => Tagged ssc (Address -> Maybe (HeaderHash, Utxo) -> TxpHolder TxpExtra_TMP m TxHistoryAnswer)
     getTxHistory = Tagged $ \addr mInit -> do
+        -- @pva701: Get the tip and corresponding to tip txs mempool.
+        -- Actully, these actions aren't atomic,
+        -- so we can get mempool which doesn't correspond to tip.
         tip <- GS.getTip
+        ltxs <- getLocalTxs
 
         let getGenUtxo = filterUtxoByAddr addr . PC.ncGenesisUtxo <$> PC.getNodeContext
         (bot, genUtxo) <- maybe ((,) <$> GS.getBot <*> getGenUtxo) pure mInit
@@ -225,7 +229,6 @@ instance ( MonadDB m
                 deriveAddrHistoryPartial txs addr [blk]
             localFetcher blkTxs = do
                 let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
-                ltxs <- lift . lift $ getLocalTxs
                 txs <- getRelatedTxs addr $ map mp ltxs
                 return $ txs ++ blkTxs
 

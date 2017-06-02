@@ -67,9 +67,9 @@ import           Servant.Server             (Handler (..))
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Util.Servant           (ModifiesApiRes (..), ReportDecodeError (..),
+import           Pos.Util.Servant           (CCapture, CQueryParam, CReqBody,
+                                             ModifiesApiRes (..), ReportDecodeError (..),
                                              VerbMod)
-import           Pos.Util.Servant           (CCapture, CQueryParam, CReqBody)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
                                              CAccountMeta, CAddress, CElectronCrashReport,
                                              CId, CInitialized, CPaperVendWalletRedeem,

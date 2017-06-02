@@ -58,12 +58,11 @@ testUpdate =
                     ]
                 effModel = update (SocketBlocksPageUpdated (Right (Tuple totalPages newBlocks))) initialState'
                 state = _.state effModel
-            it "to update latestBlocks w/o duplicates"
+            it "not to update latestBlocks since they are not on the last page"
                 let result = withDefault [] $ state ^. latestBlocks
                     expected =
-                        [ blockB
-                        , blockC
-                        , blockD
+                        [ blockA
+                        , blockB
                         ]
                 in (gShow result) `shouldEqual` (gShow expected)
             it "to count total pages"

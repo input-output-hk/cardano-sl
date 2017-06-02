@@ -24,6 +24,7 @@ node-db/*
 *.dump
 *.log
 wallet-db/*
+logs/*
 
 # Intellij Idea & intellij-haskell
 .idea

@@ -16,13 +16,13 @@ import           Formatting          (sformat, (%))
 import           Serokell.Util.Text  (listJson)
 import           System.Wlog         (WithLogger, logDebug)
 
+import           Pos.Core            (mkCoin)
 import           Pos.Core.Coin       (coinToInteger, sumCoins, unsafeAddCoin,
                                       unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Txp.Core        (Tx (..), TxAux (..), TxOutAux (..),
                                       TxOutDistribution, TxUndo, getTxDistribution,
                                       txOutStake)
 import           Pos.Txp.Toil.Class  (MonadBalances (..), MonadBalancesRead (..))
-import           Pos.Types           (mkCoin)
 
 type BalancesMode m = (MonadBalances m, WithLogger m)
 

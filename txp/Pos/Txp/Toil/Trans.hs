@@ -23,8 +23,8 @@ import           Pos.Txp.Toil.Types  (GenericToilModifier (..), MemPool, ToilMod
                                       UndoMap, UtxoModifier, bvStakes, bvTotal,
                                       mpLocalTxs, mpSize, tmBalances, tmMemPool, tmUndos,
                                       tmUtxo)
-import           Pos.Util            (ether)
 import qualified Pos.Util.Modifier   as MM
+import           Pos.Util.Util       (ether)
 
 ----------------------------------------------------------------------------
 -- Tranformer

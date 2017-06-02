@@ -42,6 +42,8 @@ import           System.Wlog          (WithLogger, logError)
 
 import           Pos.Binary.Class     (encodeStrict)
 import           Pos.Binary.Core      ()
+import           Pos.Core             (Address, Coin, coinF, mkCoin, sumCoins,
+                                       unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
 import           Pos.DB.Class         (MonadDB, MonadDBPure, getGStateDB)
 import           Pos.DB.Error         (DBError (..))
@@ -53,8 +55,6 @@ import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMap
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
 import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types   (Utxo)
-import           Pos.Types            (Address, Coin, coinF, mkCoin, sumCoins,
-                                       unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Util.Iterator    (nextItem)
 
 ----------------------------------------------------------------------------

@@ -24,7 +24,7 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Core                   (Coin, StakeholderId)
 import           Pos.Txp.Core.Types         (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import           Pos.Txp.Toil.Types         (ToilEnv, Utxo)
-import           Pos.Util                   (ether)
+import           Pos.Util.Util              (ether)
 
 ----------------------------------------------------------------------------
 -- MonadUtxo

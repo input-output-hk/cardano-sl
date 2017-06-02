@@ -14,8 +14,8 @@ import qualified Ether
 import           Universum
 
 import           Pos.DB.Class                 (MonadDBPure)
-import qualified Pos.DB.GState                as GS
 import           Pos.DB.GState.Balances       (getRealStake, getRealTotalStake)
+import           Pos.Txp.DB.Utxo              (getTxOut)
 import           Pos.Update.Core              (BlockVersionData (..))
 import           Pos.Update.DB                (getAdoptedBVData)
 
@@ -31,7 +31,7 @@ runDBTxp :: DBTxp m a -> m a
 runDBTxp = coerce
 
 instance (Monad m, MonadDBPure m) => MonadUtxoRead (DBTxp m) where
-    utxoGet = GS.getTxOut
+    utxoGet = getTxOut
 
 instance (Monad m, MonadDBPure m) => MonadBalancesRead (DBTxp m) where
     getTotalStake = getRealTotalStake

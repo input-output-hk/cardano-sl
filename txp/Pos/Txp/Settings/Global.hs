@@ -19,11 +19,10 @@ import           System.Wlog          (WithLogger)
 import           Pos.Core             (IsGenesisHeader, IsMainHeader)
 import           Pos.DB               (MonadDB, MonadDBPure, SomeBatchOp)
 import           Pos.Slotting         (MonadSlots)
-import           Pos.Util             (Some)
-import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
-
 import           Pos.Txp.Core         (TxPayload, TxpUndo)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
+import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
+import           Pos.Util.Util        (Some)
 
 type TxpGlobalVerifyMode m = ( WithLogger m
                              , MonadDB m

@@ -20,13 +20,9 @@ import           Formatting              (build, sformat, (%))
 import           Universum
 
 import           Pos.DB                  (MonadDB, SomeBatchOp (..))
-import qualified Pos.DB.GState           as GS
 import           Pos.Exception           (assertionFailed)
-import           Pos.Util                (inAssertMode)
-import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
-import qualified Pos.Util.Modifier       as MM
-
 import           Pos.Txp.Core            (TxAux, TxUndo, TxpUndo, flattenTxPayload)
+import qualified Pos.Txp.DB              as DB
 import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode,
                                           TxpGlobalRollbackMode, TxpGlobalSettings (..),
                                           TxpGlobalVerifyMode)
@@ -34,6 +30,9 @@ import           Pos.Txp.Toil            (BalancesView (..), BalancesView (..), 
                                           GenericToilModifier (..), GlobalToilMode,
                                           ToilModifier, ToilT, applyToil, rollbackToil,
                                           runDBTxp, runToilTGlobal, verifyToil)
+import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
+import qualified Pos.Util.Modifier       as MM
+import           Pos.Util.Util           (inAssertMode)
 
 -- | Settings used for global transactions data processing used by a
 -- simple full node.
@@ -109,13 +108,13 @@ genericToilModifierToBatch convertExtra ToilModifier { _tmUtxo = um
     SomeBatchOp (extraOp : [SomeBatchOp utxoOps, SomeBatchOp balancesOps])
   where
     utxoOps =
-        map GS.DelTxIn (MM.deletions um) ++
-        map (uncurry GS.AddTxOut) (MM.insertions um)
-    balancesOpsAlmost = map (uncurry GS.PutFtsStake) stakes
+        map DB.DelTxIn (MM.deletions um) ++
+        map (uncurry DB.AddTxOut) (MM.insertions um)
+    balancesOpsAlmost = map (uncurry DB.PutFtsStake) stakes
     balancesOps =
         case total of
             Nothing -> balancesOpsAlmost
-            Just x  -> GS.PutFtsSum x : balancesOpsAlmost
+            Just x  -> DB.PutFtsSum x : balancesOpsAlmost
     extraOp = convertExtra extra
 
 -- | Convert simple 'ToilModifier' to batch of database operations.

@@ -71,10 +71,6 @@ library
                         Pos.Lrc
                         Pos.Lrc.FtsPure
 
-                        -- Scripting
-                        Pos.Script
-                        Pos.Script.Examples
-
                         -- Slotting
                         Pos.Slotting.Arbitrary
 
@@ -102,8 +98,6 @@ library
 
                         -- Txp
                         Pos.Txp
-                        Pos.Txp.Core
-                        Pos.Txp.Settings
 
                         Pos.Types
                         Pos.Types.Arbitrary
@@ -148,12 +142,9 @@ library
                         Pos.Binary.Block.Core
                         Pos.Binary.Communication
                         Pos.Binary.Delegation
-                        Pos.Binary.Genesis
-                        Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
-                        Pos.Binary.Txp.Core
                         Pos.Binary.Txp.Network
 
                         -- Block processing
@@ -231,10 +222,6 @@ library
                         Pos.DB.GState.GState
                         Pos.DB.Misc
 
-                        -- Genesis
-                        Pos.Genesis.Types
-                        Pos.Genesis.Parser
-
                         -- LRC
                         Pos.Lrc.Arbitrary
                         Pos.Lrc.Consumers
@@ -267,38 +254,9 @@ library
 
                         -- Txp
                         Pos.Txp.Arbitrary
-                        Pos.Txp.Core.Core
-                        Pos.Txp.Core.Tx
-                        Pos.Txp.Core.Types
-                        Pos.Txp.DB
-                        Pos.Txp.DB.Balances
-                        Pos.Txp.DB.Utxo
-                        Pos.Txp.Error
-                        Pos.Txp.Logic
-                        Pos.Txp.Logic.Global
-                        Pos.Txp.Logic.Local
-                        Pos.Txp.MemState
-                        Pos.Txp.MemState.Class
-                        Pos.Txp.MemState.Holder
-                        Pos.Txp.MemState.Types
                         Pos.Txp.Network
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
-                        Pos.Txp.Settings.Global
-                        Pos.Txp.Toil
-                        Pos.Txp.Toil.Balances
-                        Pos.Txp.Toil.Balances.Functions
-                        Pos.Txp.Toil.Balances.Pure
-                        Pos.Txp.Toil.Class
-                        Pos.Txp.Toil.DBTxp
-                        Pos.Txp.Toil.Failure
-                        Pos.Txp.Toil.Logic
-                        Pos.Txp.Toil.Trans
-                        Pos.Txp.Toil.Types
-                        Pos.Txp.Toil.Utxo
-                        Pos.Txp.Toil.Utxo.Functions
-                        Pos.Txp.Toil.Utxo.Pure
-                        Pos.Txp.Toil.Utxo.Util
                         Pos.Txp.Worker
 
                         -- Workers
@@ -398,6 +356,7 @@ library
                       , cardano-sl-infra
                       , cardano-sl-lrc
                       , cardano-sl-ssc
+                      , cardano-sl-txp
                       , cardano-sl-update
                       , cereal
                       , conduit >= 1.2.8
@@ -815,9 +774,9 @@ executable cardano-smart-generator
                      , data-default
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl
-                     , cardano-sl-core
                      , containers
                      , filepath
                      , formatting
@@ -1053,6 +1012,7 @@ executable cardano-keygen
                      , base
                      , aeson
                      , cardano-sl-core
+                     , cardano-sl-txp
                      , cardano-sl
                      , ed25519
                      , formatting
@@ -1234,6 +1194,7 @@ test-suite cardano-test
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl
                      , cereal

@@ -14,6 +14,8 @@
 
 module Pos.Binary.Class
        ( Bi (..)
+       , Get
+       , Put
        , encode
        , encodeStrict
        , decode

@@ -18,7 +18,7 @@ import           Universum
 
 import           Pos.Core             (HeaderHash)
 import           Pos.DB.Class         (MonadDB, MonadDBPure)
-import qualified Pos.DB.GState        as GS
+import qualified Pos.DB.GState.Common as GS
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId)
 import           Pos.Txp.MemState     (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                        getUtxoModifier, modifyTxpLocalData,

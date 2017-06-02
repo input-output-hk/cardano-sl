@@ -1,14 +1,17 @@
-module Pos.Genesis.Types
+module Pos.Core.Genesis.Types
        ( StakeDistribution (..)
-       , GenesisData (..)
+       , GenesisCoreData (..)
        , getTotalStake
        ) where
 
 import           Universum
 
-import           Pos.Core           (Address, Coin, StakeholderId, coinToInteger, mkCoin,
-                                     sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Txp.Core.Types (TxOutDistribution)
+import           Data.Default       (Default (..))
+
+import           Pos.Core.Coin      (coinToInteger, sumCoins, unsafeAddCoin,
+                                     unsafeIntegerToCoin, unsafeMulCoin)
+import           Pos.Core.Constants (genesisN)
+import           Pos.Core.Types     (Address, Coin, StakeholderId, mkCoin)
 
 -- | Stake distribution in genesis block.
 -- FlatStakes is a flat distribution, i. e. each node has the same amount of coins.
@@ -24,14 +27,22 @@ data StakeDistribution
         , sdPoor      :: !Word
         , sdPoorStake :: !Coin
         }
-    | ExponentialStakes -- First three nodes get 0.875% of stake.
-    | ExplicitStakes !(HashMap Address (Coin, TxOutDistribution))
+    -- First three nodes get 0.875% of stake.
+    | ExponentialStakes
+    -- ExplicitStakes is basically just 'Utxo'. Except that we can't use
+    -- TxOutDistribution here (it's defined in txp/) and instead we use
+    -- @[(StakeholderId, Coin)]@.
+    | ExplicitStakes !(HashMap Address (Coin, [(StakeholderId, Coin)]))
     | CombinedStakes StakeDistribution StakeDistribution
     deriving (Show, Eq)
 
 instance Monoid StakeDistribution where
     mempty = FlatStakes 0 (mkCoin 0)
     mappend = CombinedStakes
+
+instance Default StakeDistribution where
+    def = FlatStakes genesisN
+              (mkCoin 10000 `unsafeMulCoin` (genesisN :: Int))
 
 getTotalStake :: StakeDistribution -> Coin
 getTotalStake (FlatStakes _ st) = st
@@ -49,14 +60,14 @@ getTotalStake (CombinedStakes st1 st2) =
     getTotalStake st1 `unsafeAddCoin` getTotalStake st2
 
 -- | Hardcoded genesis data
-data GenesisData = GenesisData
-    { gdAddresses         :: [Address]
-    , gdDistribution      :: StakeDistribution
-    , gdBootstrapBalances :: !(HashMap StakeholderId Coin)
+data GenesisCoreData = GenesisCoreData
+    { gcdAddresses         :: [Address]
+    , gcdDistribution      :: StakeDistribution
+    , gcdBootstrapBalances :: !(HashMap StakeholderId Coin)
     }
     deriving (Show, Eq)
 
-instance Monoid GenesisData where
-    mempty = GenesisData mempty mempty mempty
-    (GenesisData addrsA distA bbsA) `mappend` (GenesisData addrsB distB bbsB) =
-        GenesisData (addrsA <> addrsB) (distA <> distB) (bbsA <> bbsB)
+instance Monoid GenesisCoreData where
+    mempty = GenesisCoreData mempty mempty mempty
+    (GenesisCoreData addrsA distA bbsA) `mappend` (GenesisCoreData addrsB distB bbsB) =
+        GenesisCoreData (addrsA <> addrsB) (distA <> distB) (bbsA <> bbsB)

@@ -60,6 +60,7 @@ library
                         Pos.Communication.MessagePart
                         Pos.Communication.PeerState
                         Pos.Communication.Protocol
+                        Pos.Communication.Specs
                         Pos.Communication.Relay
                         Pos.Communication.Relay.Class
                         Pos.Communication.Relay.Logic

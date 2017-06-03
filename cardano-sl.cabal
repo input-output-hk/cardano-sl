@@ -213,7 +213,6 @@ library
                         Pos.Communication.Methods
                         Pos.Communication.Tx
                         Pos.Communication.Server
-                        Pos.Communication.Specs
                         Pos.Communication.Limits
                         Pos.Communication.Update
 

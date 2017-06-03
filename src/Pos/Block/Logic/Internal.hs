@@ -35,7 +35,7 @@ import           Pos.Core                (IsGenesisHeader, IsMainHeader, epochIn
 import           Pos.DB                  (MonadDB, SomeBatchOp (..))
 import           Pos.DB.Block            (MonadBlockDB)
 import qualified Pos.DB.GState           as GS
-import           Pos.Delegation.Logic    (delegationApplyBlocks, delegationRollbackBlocks)
+import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgRollbackBlocks)
 import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Txp.Core            (TxPayload)
 #ifdef WITH_EXPLORER
@@ -139,7 +139,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     slogBatch <- slogApplyBlocks blunds
     TxpGlobalSettings {..} <- Ether.ask'
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
-    delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
+    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
@@ -170,7 +170,7 @@ rollbackBlocksUnsafe
     -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     slogRoll <- slogRollbackBlocks toRollback
-    dlgRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
+    dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)

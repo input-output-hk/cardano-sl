@@ -313,8 +313,8 @@ getNodeSystemStart cliOrConfigSystemStart
 
 main :: IO ()
 main = do
-    printFlags
     args <- getNodeOptions
+    printFlags
     let baseParams = getBaseParams "node" args
     if staticPeers args then do
         allPeers <- S.fromList . map addressToNodeId <$> getPeersFromArgs args

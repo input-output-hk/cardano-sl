@@ -42,17 +42,18 @@ import           Pos.Constants              (curSoftwareVersion, lastKnownBlockV
 import           Pos.Context                (BlkSemaphore, MonadPrimaryKey, NodeParams,
                                              getOurSecretKey, lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
-                                             EpochOrSlot (..), HeaderHash, ProxySKEither,
-                                             SlotId (..), SlotLeaders, crucialSlot,
-                                             epochOrSlot, flattenSlotId, getEpochOrSlot,
-                                             getSlotIndex, headerHash, mkLocalSlotIndex)
+                                             EpochOrSlot (..), HeaderHash, SlotId (..),
+                                             SlotLeaders, crucialSlot, epochOrSlot,
+                                             flattenSlotId, getEpochOrSlot, getSlotIndex,
+                                             headerHash, mkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import           Pos.Delegation.Logic       (clearDlgMemPool, getDlgMempool)
-import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), mkDlgPayload)
+import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), ProxySKBlockInfo,
+                                             mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Lrc.Error              (LrcError (..))
@@ -158,7 +159,7 @@ createMainBlock
     :: forall ssc m.
        (CreationMode ssc m)
     => SlotId
-    -> Maybe ProxySKEither
+    -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlock sId pske =
     reportingFatal version $ withBlkSemaphore createMainBlockDo
@@ -208,7 +209,7 @@ createMainBlockFinish
     :: forall ssc m.
        (CreationMode ssc m)
     => SlotId
-    -> Maybe ProxySKEither
+    -> ProxySKBlockInfo
     -> BlockHeader ssc
     -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish slotId pske prevHeader = do
@@ -295,7 +296,7 @@ createMainBlockPure
        (MonadError Text m, SscHelpersClass ssc)
     => Byte                   -- ^ Block size limit (real max.value)
     -> BlockHeader ssc
-    -> Maybe ProxySKEither
+    -> ProxySKBlockInfo
     -> SlotId
     -> SecretKey
     -> RawPayload ssc

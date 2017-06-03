@@ -8,8 +8,12 @@ module Pos.DB.Functions
        ( openDB
 
        -- * Key/Value helpers
+       -- ** General
        , encodeWithKeyPrefix
        , dbGetBi
+       , dbPutBi
+
+       -- ** RocksDB
        , rocksDelete
        , rocksGetBi
        , rocksGetBytes
@@ -37,7 +41,7 @@ import           Serokell.Util.Text    (listJson)
 import           Universum
 
 import           Pos.Binary.Class      (Bi, decodeFull, encodeStrict)
-import           Pos.DB.Class          (DBTag, MonadDBRead (..))
+import           Pos.DB.Class          (DBTag, MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Error          (DBError (DBMalformed))
 import           Pos.DB.Iterator.Class (DBIteratorClass (..))
 import           Pos.DB.Types          (DB (..))
@@ -63,11 +67,15 @@ rocksGetBytes key DB {..} = Rocks.get rocksDB rocksReadOpts key
 -- | Read serialized value associated with given key from pure DB.
 dbGetBi
     :: forall v m.
-       (Bi v, MonadDBRead m, MonadThrow m)
+       (Bi v, MonadDBRead m)
     => DBTag -> ByteString -> m (Maybe v)
 dbGetBi tag key = do
     bytes <- dbGet tag key
     traverse (rocksDecode . (ToDecodeValue key)) bytes
+
+-- | Write serializable value to DB for given key.
+dbPutBi :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> m ()
+dbPutBi tag k v = dbPut tag k (encodeStrict v)
 
 -- | Read serialized value from RocksDB using given key.
 rocksGetBi

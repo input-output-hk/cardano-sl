@@ -60,10 +60,10 @@ closeWSConnections var = liftIO $ do
 appendWSConnection :: ConnectionsVar -> WS.ServerApp
 appendWSConnection var pending = do
     conn <- WS.acceptRequest pending
-    tag <- atomically $ registerConnection conn var
-    sendWS conn ConnectionOpened
-    WS.forkPingThread conn 30
-    forever (ignoreData conn) `finally` releaseResources tag
+    bracket (atomically $ registerConnection conn var) releaseResources $ \_ -> do
+        sendWS conn ConnectionOpened
+        WS.forkPingThread conn 30
+        forever (ignoreData conn)
   where
     ignoreData :: WSConnection -> IO Text
     ignoreData = WS.receiveData

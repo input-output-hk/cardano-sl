@@ -19,8 +19,8 @@ import           Pos.Binary.Class      (encodeStrict)
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core              (unsafeAddCoin)
 import           Pos.Core.Types        (Address, Coin)
-import           Pos.DB                (MonadDBRead, MonadRealDB, RocksBatchOp (..),
-                                        getGStateDB, rocksGetBytes)
+import           Pos.DB                (DBTag (GStateDB), MonadDB, MonadDBRead (dbGet),
+                                        MonadRealDB, RocksBatchOp (..))
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
 import           Pos.Txp.Core          (TxId, TxOutAux (..), _TxOut)
@@ -45,7 +45,7 @@ getAddrBalance = gsGetBi . addrBalancePrefix
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareExplorerDB :: (Ether.MonadReader' GenesisUtxo m, MonadRealDB m) => m ()
+prepareExplorerDB :: (Ether.MonadReader' GenesisUtxo m, MonadRealDB m, MonadDB m) => m ()
 prepareExplorerDB =
     unlessM areBalancesInitialized $ do
         genesisUtxo <- genesisUtxoM
@@ -55,10 +55,10 @@ prepareExplorerDB =
 balancesInitFlag :: ByteString
 balancesInitFlag = "e/init/"
 
-areBalancesInitialized :: MonadRealDB m => m Bool
-areBalancesInitialized = isJust <$> (getGStateDB >>= rocksGetBytes balancesInitFlag)
+areBalancesInitialized :: MonadDBRead m => m Bool
+areBalancesInitialized = isJust <$> dbGet GStateDB balancesInitFlag
 
-putInitFlag :: MonadRealDB m => m ()
+putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
 
 putGenesisBalances :: MonadRealDB m => Utxo -> m ()

@@ -45,9 +45,9 @@ import           Pos.Binary.Core      ()
 import           Pos.Core             (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
-import           Pos.DB               (DBError (..), RocksBatchOp (..),
-                                       encodeWithKeyPrefix, rocksGetBi, rocksGetBytes)
-import           Pos.DB.Class         (MonadDBRead, MonadRealDB, getGStateDB)
+import           Pos.DB               (DBError (..), DBTag (GStateDB), RocksBatchOp (..),
+                                       encodeWithKeyPrefix, rocksGetBi)
+import           Pos.DB.Class         (MonadDB, MonadDBRead (dbGet), MonadRealDB)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)
@@ -90,7 +90,7 @@ instance RocksBatchOp UtxoOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUtxo :: MonadRealDB m => Utxo -> m ()
+prepareGStateUtxo :: (MonadDB m, MonadRealDB m) => Utxo -> m ()
 prepareGStateUtxo genesisUtxo =
     unlessM isUtxoInitialized putGenesisUtxo
   where
@@ -218,5 +218,5 @@ initializationFlagKey = "ut/gutxo/"
 -- Details
 ----------------------------------------------------------------------------
 
-isUtxoInitialized :: MonadRealDB m => m Bool
-isUtxoInitialized = isJust <$> (getGStateDB >>= rocksGetBytes initializationFlagKey)
+isUtxoInitialized :: MonadDBRead m => m Bool
+isUtxoInitialized = isJust <$> dbGet GStateDB initializationFlagKey

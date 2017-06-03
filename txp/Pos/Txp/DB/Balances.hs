@@ -43,7 +43,7 @@ import qualified Pos.Core.Constants     as Const
 import           Pos.Core.Genesis       (genesisBalances)
 import           Pos.Crypto             (shortHashF)
 import           Pos.DB                 (DBError (..), RocksBatchOp (..))
-import           Pos.DB.Class           (MonadDBRead, MonadRealDB)
+import           Pos.DB.Class           (MonadDB, MonadDBRead, MonadRealDB)
 import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
                                          getRealStakeSumMaybe)
 import qualified Pos.DB.GState.Balances as GS
@@ -105,19 +105,19 @@ getEffectiveStake id = ifM isBootstrapEra
 
 prepareGStateBalances
     :: forall m.
-       (MonadRealDB m, MonadDBRead m)
+       (MonadRealDB m, MonadDB m)
     => Utxo -> m ()
 prepareGStateBalances genesisUtxo = do
     whenNothingM_ getRealStakeSumMaybe putFtsStakes
     whenNothingM_ getRealStakeSumMaybe putGenesisTotalStake
   where
     totalCoins = sumCoins $ map snd $ concatMap txOutStake $ toList genesisUtxo
-    -- Will 'panic' if the result doesn't fit into 'Coin' (which should never
+    -- Will 'error' if the result doesn't fit into 'Coin' (which should never
     -- happen)
     putGenesisTotalStake = putTotalFtsStake (unsafeIntegerToCoin totalCoins)
     putFtsStakes = mapM_ (uncurry putFtsStake) . HM.toList $ utxoToStakes genesisUtxo
 
-putTotalFtsStake :: MonadRealDB m => Coin -> m ()
+putTotalFtsStake :: MonadDB m => Coin -> m ()
 putTotalFtsStake = gsPutBi ftsSumKey
 
 ----------------------------------------------------------------------------
@@ -196,5 +196,5 @@ sanityCheckBalances = do
 -- Details
 ----------------------------------------------------------------------------
 
-putFtsStake :: MonadRealDB m => StakeholderId -> Coin -> m ()
+putFtsStake :: MonadDB m => StakeholderId -> Coin -> m ()
 putFtsStake = gsPutBi . ftsStakeKey

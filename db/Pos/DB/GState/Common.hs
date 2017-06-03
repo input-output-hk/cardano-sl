@@ -37,9 +37,10 @@ import           Pos.Crypto          (shortHashF)
 import           Pos.DB.BatchOp      (RocksBatchOp (..), rocksWriteBatch)
 import           Pos.DB.Class        (DBTag (GStateDB),
                                       MonadBlockDBGeneric (dbGetBlock, dbGetHeader),
-                                      MonadDBRead, MonadRealDB, getGStateDB)
+                                      MonadDB (dbDelete), MonadDBRead, MonadRealDB,
+                                      getGStateDB)
 import           Pos.DB.Error        (DBError (DBMalformed))
-import           Pos.DB.Functions    (dbGetBi, rocksDelete, rocksPutBi)
+import           Pos.DB.Functions    (dbGetBi, dbPutBi)
 import           Pos.Util.Util       (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -52,12 +53,12 @@ gsGetBi
 gsGetBi k = dbGetBi GStateDB k
 
 gsPutBi
-    :: (MonadRealDB m, Bi v)
+    :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
-gsPutBi k v = rocksPutBi k v =<< getGStateDB
+gsPutBi = dbPutBi GStateDB
 
-gsDelete :: (MonadRealDB m) => ByteString -> m ()
-gsDelete k = rocksDelete k =<< getGStateDB
+gsDelete :: (MonadDB m) => ByteString -> m ()
+gsDelete = dbDelete GStateDB
 
 writeBatchGState :: (RocksBatchOp a, MonadRealDB m) => [a] -> m ()
 writeBatchGState batch = rocksWriteBatch batch =<< getGStateDB
@@ -115,7 +116,7 @@ instance RocksBatchOp CommonOp where
 ----------------------------------------------------------------------------
 
 -- | Put missing initial common data into GState DB.
-prepareGStateCommon :: (MonadRealDB m, MonadDBRead m) => HeaderHash -> m ()
+prepareGStateCommon :: (MonadDB m) => HeaderHash -> m ()
 prepareGStateCommon initialTip = do
     whenNothingM_ getTipMaybe putGenesisTip
     whenNothingM_ getBotMaybe putGenesisBot
@@ -143,8 +144,8 @@ getTipMaybe = gsGetBi tipKey
 getBotMaybe :: MonadDBRead m => m (Maybe HeaderHash)
 getBotMaybe = gsGetBi botKey
 
-putTip :: MonadRealDB m => HeaderHash -> m ()
+putTip :: MonadDB m => HeaderHash -> m ()
 putTip = gsPutBi tipKey
 
-putBot :: MonadRealDB m => HeaderHash -> m ()
+putBot :: MonadDB m => HeaderHash -> m ()
 putBot = gsPutBi botKey

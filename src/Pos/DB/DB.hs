@@ -38,8 +38,8 @@ import           Pos.Context.Functions        (genesisLeadersM)
 import           Pos.Core                     (headerHash)
 import           Pos.DB.Block                 (MonadBlockDB, loadBlundsByDepth,
                                                loadBlundsWhile, prepareBlockDB)
-import           Pos.DB.Class                 (MonadRealDB, MonadDBRead (..),
-                                               MonadGState (..))
+import           Pos.DB.Class                 (MonadDB, MonadDBRead (..),
+                                               MonadGState (..), MonadRealDB)
 import           Pos.DB.Functions             (openDB)
 import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common         (getTip, getTipBlock, getTipHeader)
@@ -91,7 +91,7 @@ initNodeDBs
        , Ether.MonadReader' GenesisLeaders m
        , Ether.MonadReader' NodeParams m
        , MonadRealDB m
-       , MonadDBRead m
+       , MonadDB m
        )
     => m ()
 initNodeDBs = do

@@ -17,8 +17,8 @@ import           System.Wlog                (WithLogger)
 
 import           Pos.Context.Context        (GenesisUtxo (..), NodeParams (..))
 import           Pos.Context.Functions      (genesisUtxoM)
-import           Pos.DB.Class               (MonadRealDB, MonadDBRead, getNodeDBs,
-                                             usingReadOptions)
+import           Pos.DB.Class               (MonadDB, MonadDBRead, MonadRealDB,
+                                             getNodeDBs, usingReadOptions)
 import           Pos.DB.GState.Balances     (getRealTotalStake)
 import           Pos.DB.GState.Common       (prepareGStateCommon)
 import           Pos.DB.Types               (DB (..), NodeDBs (..), Snapshot (..),
@@ -36,7 +36,8 @@ prepareGStateDB
        ( Ether.MonadReader' NodeParams m
        , Ether.MonadReader' GenesisUtxo m
        , MonadRealDB m
-       , MonadDBRead m)
+       , MonadDB m
+       )
     => HeaderHash -> m ()
 prepareGStateDB initialTip = do
     prepareGStateCommon initialTip

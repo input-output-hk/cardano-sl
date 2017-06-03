@@ -26,6 +26,9 @@ library
 
     Pos.Ssc.RichmenComponent
 
+    Pos.Security.Params
+    Pos.Security.Util
+
   build-depends:       base
                      , cardano-sl-core
                      , cardano-sl-db

@@ -45,6 +45,7 @@ import           Data.Kind                     (Type)
 import           Data.Time.Clock               (UTCTime)
 import qualified Ether
 import           Ether.Internal                (HList (..), HasLens (..), Tags, TagsK)
+import           Pos.Security.Params           (SecurityParams)
 import           System.Wlog                   (LoggerConfig)
 
 import           Pos.Block.Core                (BlockHeader)
@@ -186,12 +187,14 @@ makeLensesFor
 
 makeLensesFor
     [ ("npUpdateParams", "npUpdateParamsL")
+    , ("npSecurityParams", "npSecurityParamsL")
     , ("npReportServers", "npReportServersL")
     , ("npPropagation", "npPropagationL")
     , ("npCustomUtxo", "npCustomUtxoL") ]
     ''NodeParams
 
 type instance TagsK (NodeContext ssc) =
+  Type ':
   Type ':
   Type ':
   Type ':
@@ -228,6 +231,7 @@ type instance Tags (NodeContext ssc) =
   LrcContext             :::
   NodeParams             :::
   UpdateParams           :::
+  SecurityParams         :::
   ReportingContext       :::
   RelayContext           :::
   ShutdownContext        :::
@@ -262,6 +266,9 @@ instance HasLens NodeParams (NodeContext ssc) NodeParams where
 
 instance HasLens UpdateParams (NodeContext ssc) UpdateParams where
     lensOf = ncNodeParamsL . npUpdateParamsL
+
+instance HasLens SecurityParams (NodeContext ssc) SecurityParams where
+    lensOf = ncNodeParamsL . npSecurityParamsL
 
 instance HasLens ReportingContext (NodeContext ssc) ReportingContext where
     lensOf = lens getter (flip setter)

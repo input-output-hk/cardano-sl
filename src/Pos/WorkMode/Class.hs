@@ -35,6 +35,7 @@ import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
 import           Pos.Reporting               (MonadReportingMem)
+import           Pos.Security.Params         (SecurityParams)
 import           Pos.Shutdown                (MonadShutdownMem)
 import           Pos.Slotting.Class          (MonadSlots)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
@@ -80,6 +81,7 @@ type WorkMode ssc m
       , Ether.MonadReader' UpdateContext m
       , Ether.MonadReader' NodeParams m
       , Ether.MonadReader' UpdateParams m
+      , Ether.MonadReader' SecurityParams m
       , Ether.MonadReader' TxpGlobalSettings m
       , MonadSscContext ssc m
       , MonadStats m

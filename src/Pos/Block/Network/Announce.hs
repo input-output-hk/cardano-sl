@@ -27,15 +27,14 @@ import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
-import           Pos.Context                (NodeParams, npAttackTypes,
-                                             recoveryInProgress)
+import           Pos.Context                (recoveryInProgress)
 import           Pos.Core                   (headerHash, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Security               (AttackType (..), NodeAttackedError (..),
-                                             shouldIgnoreAddress)
+                                             SecurityParams (..), shouldIgnoreAddress)
 import           Pos.Util.TimeWarp          (nodeIdToAddress)
 import           Pos.WorkMode.Class         (WorkMode)
 
@@ -49,13 +48,13 @@ announceBlock
     => SendActions m -> MainBlockHeader ssc -> m ()
 announceBlock sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    nodeParams <- Ether.ask @NodeParams
+    SecurityParams{..} <- Ether.ask'
     let throwOnIgnored nId =
             whenJust (nodeIdToAddress nId) $ \addr ->
-                when (shouldIgnoreAddress nodeParams addr) $
-                throw AttackNoBlocksTriggered
+                whenM (shouldIgnoreAddress addr) $
+                    throw AttackNoBlocksTriggered
         sendActions' =
-            if AttackNoBlocks `elem` npAttackTypes nodeParams
+            if AttackNoBlocks `elem` spAttackTypes
                 then sendActions
                      { withConnectionTo =
                            \nId handler -> do

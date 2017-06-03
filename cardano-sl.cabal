@@ -76,10 +76,9 @@ library
 
                         -- Something
                         Pos.Launcher
+
                         Pos.Security
                         Pos.Security.Class
-                        Pos.Security.CLI
-                        Pos.Security.Util
                         Pos.Security.Workers
 
                         -- SSC

@@ -57,7 +57,8 @@ import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
                                                 rcReportServers)
 import           Pos.Shutdown.Types            (ShutdownContext (..))
-import           Pos.Ssc.Class.Types           (Ssc (SscNodeContext))
+import           Pos.Ssc.Class.Types           (MonadSscContext, Ssc (SscNodeContext),
+                                                SscContextTag)
 import           Pos.Txp.Settings              (TxpGlobalSettings)
 import           Pos.Txp.Toil.Types            (Utxo)
 import           Pos.Update.Context            (UpdateContext)
@@ -89,10 +90,6 @@ type MonadBlockRetrievalQueue ssc =
 data RecoveryHeaderTag
 type RecoveryHeader ssc = STM.TMVar (NodeId, BlockHeader ssc)
 type MonadRecoveryHeader ssc = Ether.MonadReader RecoveryHeaderTag (RecoveryHeader ssc)
-
-data SscContextTag
-type MonadSscContext ssc = Ether.MonadReader SscContextTag (SscNodeContext ssc)
-
 
 newtype GenesisUtxo = GenesisUtxo { unGenesisUtxo :: Utxo }
 newtype GenesisLeaders = GenesisLeaders { unGenesisLeaders :: SlotLeaders }

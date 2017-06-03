@@ -23,7 +23,8 @@ import           Universum
 
 import           Pos.Communication  (ActionSpec (..), OutSpecs, WorkerSpec,
                                      wrapActionSpec)
-import           Pos.Context        (BlkSemaphore (..), npPubKeyAddress, npPublicKey)
+import           Pos.Context        (BlkSemaphore (..), getOurPubKeyAddress,
+                                     getOurPublicKey)
 import           Pos.DB.Class       (MonadDBCore)
 import qualified Pos.DB.GState      as GS
 import           Pos.Delegation     (initDelegation)
@@ -52,8 +53,8 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
 
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     inAssertMode $ logInfo "Assert mode on"
-    pk <- Ether.asks' npPublicKey
-    addr <- Ether.asks' npPubKeyAddress
+    pk <- getOurPublicKey
+    addr <- getOurPubKeyAddress
     let pkHash = addressHash pk
 
     logInfoS $ sformat ("My public key is: "%build%

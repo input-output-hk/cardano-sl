@@ -25,7 +25,7 @@ import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
                                               onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
-import           Pos.Context                 (npPublicKey, recoveryCommGuard)
+import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core                    (ProxySKEither, SlotId (..),
                                               Timestamp (Timestamp), gbHeader,
                                               getSlotIndex, slotIdF)
@@ -102,7 +102,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     logLeadersF = if siSlot == minBound then logInfo else logDebug
     logLeadersFS = if siSlot == minBound then logInfoS else logDebugS
     onKnownLeader leaders leader = do
-        ourPk <- Ether.asks' npPublicKey
+        ourPk <- getOurPublicKey
         let ourPkHash = addressHash ourPk
         logNoticeS "This is a test debug message which shouldn't be sent to the logging server."
         logLeadersFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash

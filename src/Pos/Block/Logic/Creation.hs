@@ -39,8 +39,8 @@ import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Types            (Undo (..))
 import           Pos.Constants              (curSoftwareVersion, lastKnownBlockVersion,
                                              slotSecurityParam)
-import           Pos.Context                (BlkSemaphore, NodeParams,
-                                             lrcActionOnEpochReason, npSecretKey)
+import           Pos.Context                (BlkSemaphore, MonadPrimaryKey, NodeParams,
+                                             getOurSecretKey, lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              EpochOrSlot (..), HeaderHash, ProxySKEither,
                                              SlotId (..), SlotLeaders, crucialSlot,
@@ -71,6 +71,7 @@ import           Pos.Util.Util              (leftToPanic)
 
 type CreationMode ssc m
      = ( BlockApplyMode ssc m
+       , MonadPrimaryKey m
        , Ether.MonadReader' BlkSemaphore m
        , Ether.MonadReader' NodeParams m
        )
@@ -221,7 +222,7 @@ createMainBlockFinish slotId pske prevHeader = do
     createBlundFromMemPool = do
         (rawPay, undoNoUS) <- getRawPayloadAndUndo slotId
         -- Create block
-        sk <- Ether.asks' npSecretKey
+        sk <- getOurSecretKey
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
         -- than limit. So i guess it's fine in general.

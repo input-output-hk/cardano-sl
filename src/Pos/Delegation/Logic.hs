@@ -59,13 +59,14 @@ import           Pos.Block.Core             (Block, BlockSignature (..),
 import           Pos.Block.Types            (Blund, Undo (undoPsk))
 import           Pos.Constants              (lightDlgConfirmationTimeout,
                                              memPoolLimitRatio, messageCacheTimeout)
-import           Pos.Context                (NodeParams (..), lrcActionOnEpochReason)
-import           Pos.Core                   (HeaderHash, addressHash, bvdMaxBlockSize,
-                                             epochIndexL, gbHeader, gbhConsensus,
-                                             headerHash, prevBlockL)
+import           Pos.Context                (lrcActionOnEpochReason)
+import           Pos.Core                   (HeaderHash, MonadPrimaryKey, addressHash,
+                                             bvdMaxBlockSize, epochIndexL, gbHeader,
+                                             gbhConsensus, getOurPublicKey, headerHash,
+                                             prevBlockL)
 import           Pos.Crypto                 (ProxySecretKey (..), ProxySignature (..),
                                              PublicKey, SignTag (SignProxySK), pdPsk,
-                                             proxyVerify, shortHashF, toPublic,
+                                             proxyVerify, shortHashF,
                                              verifyProxySecretKey)
 import           Pos.DB                     (DBError (DBMalformed), MonadDB, MonadDBPure,
                                              SomeBatchOp (..))
@@ -795,16 +796,15 @@ data PskLightVerdict
 -- | Processes proxy secret key (understands do we need it,
 -- adds/caches on decision, returns this decision).
 processProxySKLight
-    :: (MonadDelegation m, Ether.MonadReader' NodeParams m, MonadDB m, MonadMask m)
+    :: (MonadDelegation m, MonadPrimaryKey m, MonadDB m, MonadMask m)
     => ProxySKLight -> m PskLightVerdict
 processProxySKLight psk = do
-    sk <- Ether.asks' npSecretKey
+    pk <- getOurPublicKey
     curTime <- liftIO getCurrentTime
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
     psks <- RWL.withRead miscLock Misc.getProxySecretKeys
     res <- runDelegationStateAction $ do
-        let pk = toPublic sk
-            related = pk == pskDelegatePk psk || pk == pskIssuerPk psk
+        let related = pk == pskDelegatePk psk || pk == pskIssuerPk psk
             exists = psk `elem` psks
             msg = Left psk
             valid = verifyProxySecretKey psk

@@ -402,7 +402,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ucUpdateSemaphore <- newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
-    epochDef <- Ether.runReaderT' LrcDB.getEpochDefault db
+    epochDef <- Ether.runReaderT' (runDBPureRedirect LrcDB.getEpochDefault) db
     lcLrcSync <- newTVarIO (LrcSyncData True epochDef)
 
     let eternity = (minBound, maxBound)

@@ -33,8 +33,9 @@ import           Pos.Binary.GodTossing              ()
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
                                                      SlotId (..), StakeholderId)
 import           Pos.Core.Constants                 (memPoolLimitRatio)
-import           Pos.DB                             (MonadRealDB,
-                                                     MonadGState (gsAdoptedBVData))
+import           Pos.DB                             (MonadDBRead,
+                                                     MonadGState (gsAdoptedBVData),
+                                                     MonadRealDB)
 import           Pos.Lrc.Types                      (RichmenStake)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
@@ -156,7 +157,8 @@ sscIsDataUseful tag id =
 
 type GtDataProcessingMode m =
     ( WithLogger m
-    , MonadRealDB m          -- to get richmen
+    , MonadIO m      -- STM at least
+    , MonadDBRead m  -- to get richmen
     , MonadGState m  -- to get block size limit
     , MonadSlots m
     , MonadSscMem SscGodTossing m

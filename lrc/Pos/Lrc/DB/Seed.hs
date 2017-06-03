@@ -14,21 +14,21 @@ import           Universum
 
 import           Pos.Binary.Class  (encodeStrict)
 import           Pos.Core.Types    (EpochIndex (..), SharedSeed)
-import           Pos.DB.Class      (MonadRealDB)
+import           Pos.DB.Class      (MonadDBRead, MonadRealDB)
 import           Pos.Lrc.DB.Common (getBi, putBi)
 import           Pos.Lrc.Genesis   (genesisSeed)
 
-getSeed :: MonadRealDB m => EpochIndex -> m (Maybe SharedSeed)
+getSeed :: MonadDBRead m => EpochIndex -> m (Maybe SharedSeed)
 getSeed epoch = getBi (seedKey epoch)
 
 putSeed :: MonadRealDB m => EpochIndex -> SharedSeed -> m ()
 putSeed epoch = putBi (seedKey epoch)
 
-prepareLrcSeed :: MonadRealDB m => m ()
+prepareLrcSeed :: (MonadRealDB m, MonadDBRead m) => m ()
 prepareLrcSeed =
     unlessM isInitialized $ putSeed (EpochIndex 0) genesisSeed
 
-isInitialized :: MonadRealDB m => m Bool
+isInitialized :: (MonadRealDB m, MonadDBRead m) => m Bool
 isInitialized = isJust <$> getSeed (EpochIndex 0)
 
 ----------------------------------------------------------------------------

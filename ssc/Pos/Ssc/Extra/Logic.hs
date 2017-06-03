@@ -40,7 +40,7 @@ import           System.Wlog              (NamedPureLogger, WithLogger,
 
 import           Pos.Core                 (EpochIndex, HeaderHash, IsHeader, SharedSeed,
                                            SlotId, epochIndexL, headerHash)
-import           Pos.DB.Class             (MonadBlockDBGeneric, MonadRealDB, MonadDBRead)
+import           Pos.DB.Class             (MonadBlockDBGeneric, MonadDBRead, MonadRealDB)
 import           Pos.DB.Functions         (SomeBatchOp)
 import           Pos.DB.GState.Common     (getTipHeader)
 import           Pos.Exception            (assertionFailed)
@@ -111,7 +111,7 @@ sscRunGlobalQuery action = do
 sscCalculateSeed
     :: forall ssc m.
        ( MonadSscMem ssc m
-       , MonadRealDB m
+       , MonadDBRead m
        , SscGStateClass ssc
        , Ether.MonadReader' LrcContext m
        , MonadIO m
@@ -190,10 +190,10 @@ sscResetLocal = do
 -- We can try to eliminate these constraints later.
 type SscGlobalApplyMode ssc m =
     (MonadSscMem ssc m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
-     MonadRealDB m, Ether.MonadReader' LrcContext m)
+     MonadDBRead m, MonadRealDB m, Ether.MonadReader' LrcContext m)
 type SscGlobalVerifyMode ssc m =
     (MonadSscMem ssc m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
-     MonadRealDB m, Ether.MonadReader' LrcContext m,
+     MonadDBRead m, Ether.MonadReader' LrcContext m, MonadIO m,
      MonadError (SscVerifyError ssc) m)
 
 sscRunGlobalUpdate
@@ -307,7 +307,7 @@ sscVerifyBlocks blocks = do
 ----------------------------------------------------------------------------
 
 getRichmenFromLrc
-    :: (MonadRealDB m, Ether.MonadReader' LrcContext m)
+    :: (MonadIO m, MonadDBRead m, Ether.MonadReader' LrcContext m)
     => Text -> EpochIndex -> m RichmenStake
 getRichmenFromLrc fname epoch =
     lrcActionOnEpochReason

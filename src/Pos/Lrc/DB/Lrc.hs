@@ -9,7 +9,7 @@ import           Universum
 import qualified Ether
 
 import           Pos.Context.Context (GenesisLeaders, GenesisUtxo)
-import           Pos.DB.Class        (MonadRealDB)
+import           Pos.DB.Class        (MonadDBRead, MonadRealDB)
 import           Pos.DB.Error        (DBError (..))
 import           Pos.Lrc.DB.Common   (prepareLrcCommon)
 import           Pos.Lrc.DB.Issuers  (prepareLrcIssuers)
@@ -22,7 +22,9 @@ import           Pos.Util            (maybeThrow)
 prepareLrcDB
     :: ( Ether.MonadReader' GenesisLeaders m
        , Ether.MonadReader' GenesisUtxo m
-       , MonadRealDB m )
+       , MonadRealDB m
+       , MonadDBRead m
+       )
     => m ()
 prepareLrcDB = do
     prepareLrcLeaders

@@ -25,9 +25,9 @@ import           Universum
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core  ()
 import           Pos.Core.Types   (EpochIndex)
-import           Pos.DB.Class     (MonadRealDB, getLrcDB)
+import           Pos.DB.Class     (DBTag (LrcDB), MonadDBRead, MonadRealDB, getLrcDB)
 import           Pos.DB.Error     (DBError (DBMalformed))
-import           Pos.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi)
+import           Pos.DB.Functions (dbGetBi, rocksDelete, rocksPutBi)
 import           Pos.Util.Util    (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -35,9 +35,9 @@ import           Pos.Util.Util    (maybeThrow)
 ----------------------------------------------------------------------------
 
 getBi
-    :: (MonadRealDB m, Bi v)
+    :: (MonadDBRead m, Bi v)
     => ByteString -> m (Maybe v)
-getBi k = rocksGetBi k =<< getLrcDB
+getBi = dbGetBi LrcDB
 
 putBi
     :: (MonadRealDB m, Bi v)
@@ -52,12 +52,12 @@ delete k = rocksDelete k =<< getLrcDB
 ----------------------------------------------------------------------------
 
 -- | Get epoch up to which LRC is definitely known.
-getEpoch :: MonadRealDB m => m EpochIndex
+getEpoch :: MonadDBRead m => m EpochIndex
 getEpoch = maybeThrow (DBMalformed "no epoch in LRC DB") =<< getEpochMaybe
 
 -- It's a workaround and I would like to get rid of it in future (@gromak).
 -- | Get epoch up to which LRC is definitely known or 0.
-getEpochDefault :: MonadRealDB m => m EpochIndex
+getEpochDefault :: MonadDBRead m => m EpochIndex
 getEpochDefault = fromMaybe 0 <$> getEpochMaybe
 
 ----------------------------------------------------------------------------
@@ -74,7 +74,7 @@ putEpoch = putBi epochKey
 ----------------------------------------------------------------------------
 
 -- | Put missing initial common data into LRC DB.
-prepareLrcCommon :: MonadRealDB m => m ()
+prepareLrcCommon :: (MonadRealDB m, MonadDBRead m) => m ()
 prepareLrcCommon =
     whenNothingM_ getEpochMaybe $
         putEpoch 0
@@ -90,5 +90,5 @@ epochKey = "c/epoch"
 -- Details
 ----------------------------------------------------------------------------
 
-getEpochMaybe :: MonadRealDB m => m (Maybe EpochIndex)
+getEpochMaybe :: MonadDBRead m => m (Maybe EpochIndex)
 getEpochMaybe = getBi epochKey

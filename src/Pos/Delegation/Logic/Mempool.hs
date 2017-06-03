@@ -46,9 +46,10 @@ import           Pos.Core                    (addressHash, bvdMaxBlockSize, epoc
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               SignTag (SignProxySK), proxyVerify,
                                               toPublic, verifyProxySecretKey)
-import           Pos.DB                      (MonadDB, MonadDBRead, MonadRealDB)
+import           Pos.DB                      (MonadDB, MonadDBRead, MonadGState,
+                                              MonadRealDB)
 import qualified Pos.DB                      as DB
-import qualified Pos.DB.Block                as DB
+import           Pos.DB.Block                (MonadBlockDB)
 import qualified Pos.DB.DB                   as DB
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Misc                 as Misc
@@ -144,8 +145,8 @@ processProxySKHeavy
        ( MonadRealDB m
        , MonadMask m
        , MonadDBRead m
-       , DB.MonadBlockDB ssc m
-       , DB.MonadRealDBCore m
+       , MonadBlockDB ssc m
+       , MonadGState m
        , MonadDelegation m
        , Ether.MonadReader' LrcContext m
        )

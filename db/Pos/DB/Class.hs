@@ -48,7 +48,6 @@ module Pos.DB.Class
        , gsMaxHeaderSize
        , gsMaxTxSize
        , gsMaxProposalSize
-       , MonadRealDBCore
 
          -- * Block DB
        , MonadBlockDBGeneric (..)
@@ -143,9 +142,7 @@ instance {-# OVERLAPPABLE #-}
 -- may be needed at lower levels.
 --
 -- This class doesn't have a 'MonadRealDB' constraint, because
--- alternative DBs my be used to provide this data. There is also
--- 'MonadRealDBCore' constraint which unites 'MonadRealDB' and
--- 'MonadGState'.
+-- alternative DBs my be used to provide this data.
 class Monad m => MonadGState m where
     gsAdoptedBVData :: m BlockVersionData
 
@@ -167,8 +164,6 @@ gsMaxTxSize = bvdMaxTxSize <$> gsAdoptedBVData
 
 gsMaxProposalSize :: MonadGState m => m Byte
 gsMaxProposalSize = bvdMaxProposalSize <$> gsAdoptedBVData
-
-type MonadRealDBCore m = (MonadRealDB m, MonadGState m)
 
 ----------------------------------------------------------------------------
 -- Block DB abstraction

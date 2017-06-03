@@ -86,6 +86,7 @@ import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (.
 import           Pos.Lrc.Context              (LrcContext (..), LrcSyncData (..))
 import qualified Pos.Lrc.DB                   as LrcDB
 import           Pos.Lrc.Fts                  (followTheSatoshiM)
+import           Pos.Security                 (SecurityWorkersClass)
 import           Pos.Slotting                 (NtpSlottingVar, SlottingVar,
                                                mkNtpSlottingVar)
 import           Pos.Slotting.MemState.Holder (runSlotsDataRedirect)
@@ -126,7 +127,7 @@ import           Pos.WorkMode                 (ProductionMode, RawRealMode, RawR
 -- | RawRealMode runner.
 runRawRealMode
     :: forall ssc a.
-       SscConstraint ssc
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (RawRealMode ssc)
     -> NodeParams
     -> SscParams ssc
@@ -290,7 +291,7 @@ runServer_ transport mkl outSpecs =
 
 runRawBasedMode
     :: forall ssc m a.
-       (SscConstraint ssc, WorkMode ssc m)
+       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => (forall b. m b -> RawRealMode ssc b)
     -> (forall b. RawRealMode ssc b -> m b)
     -> Transport m
@@ -313,7 +314,7 @@ runRawBasedMode unwrap wrap transport np@NodeParams{..} sscnp (ActionSpec action
 -- | Launch some mode, providing way to convert it to 'RawRealMode' and back.
 runRawKBasedMode
     :: forall ssc m a.
-       (SscConstraint ssc, WorkMode ssc m)
+       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => (forall b. m b -> RawRealModeK ssc b)
     -> (forall b. RawRealModeK ssc b -> m b)
     -> Transport m
@@ -327,7 +328,7 @@ runRawKBasedMode unwrap wrap transport kinst =
 
 runRawSBasedMode
     :: forall ssc m a.
-       (SscConstraint ssc, WorkMode ssc m)
+       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => (forall b. m b -> RawRealModeS ssc b)
     -> (forall b. RawRealModeS ssc b -> m b)
     -> Transport m
@@ -342,7 +343,7 @@ runRawSBasedMode unwrap wrap transport peers =
 -- | ProductionMode runner.
 runProductionMode
     :: forall ssc a.
-       (SscConstraint ssc)
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (ProductionMode ssc)
     -> KademliaDHTInstance
     -> NodeParams
@@ -356,7 +357,7 @@ runProductionMode = runRawKBasedMode getNoStatsT lift
 -- can be done as part of refactoring (or someone who will refactor will create new issue).
 runStatsMode
     :: forall ssc a.
-       (SscConstraint ssc)
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (StatsMode ssc)
     -> KademliaDHTInstance
     -> NodeParams
@@ -369,7 +370,7 @@ runStatsMode transport kinst np sscnp action = do
 
 runStaticMode
     :: forall ssc a.
-       (SscConstraint ssc)
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (StaticMode ssc)
     -> Set NodeId
     -> NodeParams
@@ -385,6 +386,7 @@ runStaticMode = runRawSBasedMode getNoStatsT lift
 runCH
     :: forall ssc m a.
        ( SscConstraint ssc
+       , SecurityWorkersClass ssc
        , MonadIO m
        , MonadCatch m
        , Mockable CurrentTime m)

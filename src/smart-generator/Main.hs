@@ -95,7 +95,7 @@ getPeersShare share = do
 
 runSmartGen
     :: forall ssc.
-       SscConstraint ssc
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (StaticMode ssc)
     -> (Set NodeId)
     -> NodeParams

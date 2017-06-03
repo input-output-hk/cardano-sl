@@ -17,7 +17,7 @@ import           Control.Monad.Except (MonadError)
 import           System.Wlog          (WithLogger)
 
 import           Pos.Core             (IsGenesisHeader, IsMainHeader)
-import           Pos.DB               (MonadDB, MonadDBPure, SomeBatchOp)
+import           Pos.DB               (MonadRealDB, MonadDBPure, SomeBatchOp)
 import           Pos.Slotting         (MonadSlots)
 import           Pos.Txp.Core         (TxPayload, TxpUndo)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
@@ -25,19 +25,19 @@ import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Util        (Some)
 
 type TxpGlobalVerifyMode m = ( WithLogger m
-                             , MonadDB m
+                             , MonadRealDB m
                              , MonadDBPure m
                              , MonadError ToilVerFailure m
                              )
 
 type TxpGlobalApplyMode m = ( WithLogger m
-                            , MonadDB m
+                            , MonadRealDB m
                             , MonadDBPure m
                             , MonadSlots m  -- TODO: I don't like it (@gromak)
                             )
 
 type TxpGlobalRollbackMode m = ( WithLogger m
-                               , MonadDB m
+                               , MonadRealDB m
                                , MonadDBPure m
                                )
 

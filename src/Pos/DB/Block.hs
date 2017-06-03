@@ -56,7 +56,7 @@ import           Pos.Core                     (HasDifficulty (difficultyL),
                                                IsHeader, headerHash)
 import           Pos.Crypto                   (hashHexF, shortHashF)
 import           Pos.DB.Class                 (DBTag (..), MonadBlockDBGeneric (..),
-                                               MonadDB, MonadDBPure, dbGetBlund,
+                                               MonadRealDB, MonadDBPure, dbGetBlund,
                                                getBlockIndexDB, getNodeDBs)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (dbGetBi, rocksDelete, rocksPutBi)
@@ -70,7 +70,7 @@ import           Pos.Util.Chrono              (NewestFirst (..))
 -- Get block with given hash from Block DB.  This function has too
 -- strict constraint, consider using 'blkGetBlock'.
 getBlock
-    :: forall ssc m. (SscHelpersClass ssc, MonadDB m)
+    :: forall ssc m. (SscHelpersClass ssc, MonadRealDB m)
     => HeaderHash -> m (Maybe (Block ssc))
 getBlock = blockDataPath >=> getData
 
@@ -82,12 +82,12 @@ blkGetHeader = dbGetBi BlockIndexDB . blockIndexKey
 
 -- Get undo data for block with given hash from Block DB. This
 -- function has too strict constraint, consider using 'blkGetUndo'.
-getUndo :: (MonadDB m) => HeaderHash -> m (Maybe Undo)
+getUndo :: (MonadRealDB m) => HeaderHash -> m (Maybe Undo)
 getUndo = undoDataPath >=> getData
 
 -- | Put given block, its metadata and Undo data into Block DB.
 putBlund
-    :: (SscHelpersClass ssc, MonadDB m)
+    :: (SscHelpersClass ssc, MonadRealDB m)
     => Blund ssc -> m ()
 putBlund (blk, undo) = do
     let h = headerHash blk
@@ -96,7 +96,7 @@ putBlund (blk, undo) = do
     flip putData undo =<< undoDataPath h
     putBi (blockIndexKey h) (BC.getBlockHeader blk)
 
-deleteBlock :: (MonadDB m) => HeaderHash -> m ()
+deleteBlock :: (MonadRealDB m) => HeaderHash -> m ()
 deleteBlock hh = do
     delete (blockIndexKey hh)
     deleteData =<< blockDataPath hh
@@ -208,7 +208,7 @@ loadHeadersByDepthWhile = loadDataByDepth getHeaderThrow
 
 prepareBlockDB
     :: forall ssc m.
-       (SscHelpersClass ssc, MonadDB m)
+       (SscHelpersClass ssc, MonadRealDB m)
     => GenesisBlock ssc -> m ()
 prepareBlockDB blk = putBlund (Left blk, def)
 
@@ -239,7 +239,7 @@ runBlockDBRedirect = coerce
 
 -- instance MonadBlockDBGeneric (Block ssc)
 
-instance (MonadDBPure m, MonadDB m, t ~ IdentityT, SscHelpersClass ssc) =>
+instance (MonadDBPure m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (Ether.TaggedTrans BlockDBRedirectTag t m) where
     dbGetBlock  = getBlock
     dbGetUndo   = getUndo
@@ -247,7 +247,7 @@ instance (MonadDBPure m, MonadDB m, t ~ IdentityT, SscHelpersClass ssc) =>
 
 -- instance MonadBlockDBGeneric (SscBlock ssc)
 
-instance (MonadDBPure m, MonadDB m, t ~ IdentityT, SscHelpersClass ssc) =>
+instance (MonadDBPure m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (Ether.TaggedTrans BlockDBRedirectTag t m) where
     dbGetBlock  = fmap (toSscBlock <$>) . getBlock
     dbGetUndo   = fmap (const () <$>)   . getUndo
@@ -278,11 +278,11 @@ blkGetBlund = dbGetBlund @(BlockHeader ssc) @(Block ssc) @Undo
 ----------------------------------------------------------------------------
 
 putBi
-    :: (MonadDB m, Bi v)
+    :: (MonadRealDB m, Bi v)
     => ByteString -> v -> m ()
 putBi k v = rocksPutBi k v =<< getBlockIndexDB
 
-delete :: (MonadDB m) => ByteString -> m ()
+delete :: (MonadRealDB m) => ByteString -> m ()
 delete k = rocksDelete k =<< getBlockIndexDB
 
 getData ::  (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
@@ -307,18 +307,18 @@ deleteData fp = (liftIO $ removeFile fp) `catch` handle
         | isDoesNotExistError e = pure ()
         | otherwise = throwM e
 
-dirDataPath :: MonadDB m => HeaderHash -> m FilePath
+dirDataPath :: MonadRealDB m => HeaderHash -> m FilePath
 dirDataPath (formatToString hashHexF -> fn) = gitDirDataPath fn
 
-blockDataPath :: MonadDB m => HeaderHash -> m FilePath
+blockDataPath :: MonadRealDB m => HeaderHash -> m FilePath
 blockDataPath (formatToString (hashHexF%".block") -> fn) =
     gitDirDataPath fn <&> (</> drop 2 fn)
 
-undoDataPath :: MonadDB m => HeaderHash -> m FilePath
+undoDataPath :: MonadRealDB m => HeaderHash -> m FilePath
 undoDataPath (formatToString (hashHexF%".undo") -> fn) =
     gitDirDataPath fn <&> (</> drop 2 fn)
 
-gitDirDataPath :: MonadDB m => [Char] -> m FilePath
+gitDirDataPath :: MonadRealDB m => [Char] -> m FilePath
 gitDirDataPath fn = getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> take 2 fn
 
 ----------------------------------------------------------------------------

@@ -43,7 +43,7 @@ import           Pos.Core              (BlockVersion (..), epochIndexL, headerHa
                                         headerHashG, prevBlockL)
 import           Pos.DB                (SomeBatchOp (..))
 import           Pos.DB.Block          (putBlund)
-import           Pos.DB.Class          (MonadDB, MonadDBPure)
+import           Pos.DB.Class          (MonadRealDB, MonadDBPure)
 import           Pos.DB.DB             (sanityCheckDB)
 import qualified Pos.DB.GState         as GS
 import           Pos.Exception         (assertionFailed)
@@ -103,13 +103,13 @@ type SlogMode ssc m =
     , WithLogger m
     )
 
--- Sadly, MonadIO and MonadDB are needed for LRC, but it can be improved.
+-- Sadly, MonadIO and MonadRealDB are needed for LRC, but it can be improved.
 -- | Set of constraints needed for Slog verification.
 type SlogVerifyMode ssc m =
     ( SlogMode ssc m
     , MonadError Text m
     , MonadIO m
-    , MonadDB m
+    , MonadRealDB m
     , Ether.MonadReader' LrcContext m
     )
 
@@ -145,7 +145,7 @@ slogVerifyBlocks blocks = do
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
 type SlogApplyMode ssc m =
     ( SlogMode ssc m
-    , MonadDB m
+    , MonadRealDB m
     , MonadBListener m
     , MonadMask m
     )

@@ -9,5 +9,5 @@ import           Pos.Lrc.Consumer         (LrcConsumer (..),
 import           Pos.Ssc.RichmenComponent (RCSsc)
 
 -- | Consumer will be called on every Richmen computation.
-gtLrcConsumer :: DB.MonadDBCore m => LrcConsumer m
+gtLrcConsumer :: DB.MonadRealDBCore m => LrcConsumer m
 gtLrcConsumer = lrcConsumerFromComponentSimple @RCSsc bvdMpcThd

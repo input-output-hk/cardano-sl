@@ -21,7 +21,7 @@ import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Core             (mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Core                   (HeaderHash, headerHash, prevBlockL)
-import           Pos.DB.Class               (MonadDB, MonadDBPure)
+import           Pos.DB.Class               (MonadRealDB, MonadDBPure)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux, TxUndo, flattenTxPayload)
 import           Pos.Txp.Toil               (evalToilTEmpty, runDBTxp)
@@ -36,7 +36,7 @@ import qualified Pos.Wallet.Web.State       as WS
 import           Pos.Wallet.Web.Tracking    (CAccModifier, applyModifierToWSet,
                                              trackingApplyTxs, trackingRollbackTxs)
 
-instance ( MonadDB m
+instance ( MonadRealDB m
          , MonadDBPure m
          , MonadMockable m
          , MonadKeys m
@@ -52,7 +52,7 @@ onApplyTracking
     ( SscHelpersClass ssc
     , AccountMode m
     , WithLogger m
-    , MonadDB m
+    , MonadRealDB m
     , MonadDBPure m
     )
     => OldestFirst NE (Blund ssc) -> m ()

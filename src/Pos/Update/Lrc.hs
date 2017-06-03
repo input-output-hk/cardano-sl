@@ -10,5 +10,5 @@ import           Pos.Lrc.Consumer (LrcConsumer (..), lrcConsumerFromComponentSim
 import           Pos.Lrc.DB       (RCUs)
 
 -- | Consumer will be called on every Richmen computation.
-usLrcConsumer :: DB.MonadDBCore m => LrcConsumer m
+usLrcConsumer :: DB.MonadRealDBCore m => LrcConsumer m
 usLrcConsumer = lrcConsumerFromComponentSimple @RCUs bvdUpdateVoteThd

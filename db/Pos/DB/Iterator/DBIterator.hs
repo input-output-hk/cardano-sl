@@ -24,7 +24,7 @@ import           Formatting             (sformat, shown, string, (%))
 import           Universum
 
 import           Pos.Binary.Class       (Bi)
-import           Pos.DB.Class           (MonadDB, getNodeDBs)
+import           Pos.DB.Class           (MonadRealDB, getNodeDBs)
 import           Pos.DB.Error           (DBError (DBMalformed))
 import           Pos.DB.Functions       (rocksDecodeMaybe, rocksDecodeMaybeWP)
 import           Pos.DB.Iterator.Class  (DBIteratorClass (..), IterType)
@@ -163,7 +163,7 @@ type DBnIterator i      = Ether.ReaderT' NodeDBs (DBIterator i IO)
 type DBnMapIterator i v = Ether.ReaderT' NodeDBs (DBMapIterator i v IO)
 
 runDBnIterator
-    :: forall i m a . (MonadDB m, DBIteratorClass i)
+    :: forall i m a . (MonadRealDB m, DBIteratorClass i)
     => (NodeDBs -> DB) -> DBnIterator i a -> m a
 runDBnIterator getter dbi = do
     dbs <- getNodeDBs
@@ -172,7 +172,7 @@ runDBnIterator getter dbi = do
 
 runDBnMapIterator
     :: forall i v m a.
-       (MonadDB m, DBIteratorClass i)
+       (MonadRealDB m, DBIteratorClass i)
     => (NodeDBs -> DB) -> DBnMapIterator i v a -> (IterType i -> v) -> m a
 runDBnMapIterator getter dbi f = do
     dbs <- getNodeDBs

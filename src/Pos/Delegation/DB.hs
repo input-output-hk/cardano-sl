@@ -53,7 +53,7 @@ import           Pos.Binary.Class       (encodeStrict)
 import           Pos.Crypto             (PublicKey, pskDelegatePk, pskIssuerPk,
                                          verifyProxySecretKey)
 import           Pos.DB                 (DBError (DBMalformed))
-import           Pos.DB.Class           (MonadDB, MonadDBPure)
+import           Pos.DB.Class           (MonadRealDB, MonadDBPure)
 import           Pos.DB.Functions       (RocksBatchOp (..), encodeWithKeyPrefix)
 import           Pos.DB.GState.Common   (gsGetBi)
 import           Pos.DB.Iterator        (DBIteratorClass (..), DBnIterator,
@@ -223,12 +223,12 @@ instance DBIteratorClass DlgTransIter where
     iterKeyPrefix _ = iterTransPrefix
 
 runDlgTransIterator
-    :: forall m a . MonadDB m
+    :: forall m a . MonadRealDB m
     => DBnIterator DlgTransIter a -> m a
 runDlgTransIterator = runDBnIterator @DlgTransIter _gStateDB
 
 runDlgTransMapIterator
-    :: forall v m a . MonadDB m
+    :: forall v m a . MonadRealDB m
     => DBnMapIterator DlgTransIter v a -> (IterType DlgTransIter -> v) -> m a
 runDlgTransMapIterator = runDBnMapIterator @DlgTransIter _gStateDB
 
@@ -258,7 +258,7 @@ transRevDlgKey pk = "d/tb/" <> encodeStrict pk
 --
 -- NB. It's not called @getIssuers@ because we already have issuers (i.e.
 -- block issuers)
-getDelegators :: MonadDB m => m (HashMap StakeholderId [StakeholderId])
+getDelegators :: MonadRealDB m => m (HashMap StakeholderId [StakeholderId])
 getDelegators = runDlgTransMapIterator (step mempty) identity
   where
     step hm = nextItem >>= maybe (pure hm) (\(iss, addressHash -> del) -> do

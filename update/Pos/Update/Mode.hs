@@ -11,7 +11,7 @@ import           System.Wlog                 (WithLogger)
 
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
-import           Pos.DB.Class                (MonadDBCore, MonadDBPure)
+import           Pos.DB.Class                (MonadRealDBCore, MonadDBPure)
 import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
@@ -22,7 +22,7 @@ type UpdateMode m
       , MonadIO m
       , WithPeerState m
       , MonadMask m
-      , MonadDBCore m
+      , MonadRealDBCore m
       , MonadDBPure m
       , MonadRelayMem m
       , Ether.MonadReader' UpdateContext m

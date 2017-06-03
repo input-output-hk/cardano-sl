@@ -46,7 +46,7 @@ import           Pos.Core                    (addressHash, bvdMaxBlockSize, epoc
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               SignTag (SignProxySK), proxyVerify,
                                               toPublic, verifyProxySecretKey)
-import           Pos.DB                      (MonadDB, MonadDBPure)
+import           Pos.DB                      (MonadRealDB, MonadDBPure)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.Block                as DB
 import qualified Pos.DB.DB                   as DB
@@ -86,7 +86,7 @@ getDlgMempool = do
 
 -- | Clears delegation mempool.
 clearDlgMemPool
-    :: (MonadDB m, MonadDelegation m, MonadMask m)
+    :: (MonadRealDB m, MonadDelegation m, MonadMask m)
     => m ()
 clearDlgMemPool = runDelegationStateAction clearDlgMemPoolAction
 
@@ -141,11 +141,11 @@ data PskHeavyVerdict
 -- validity and cachemsg state.
 processProxySKHeavy
     :: forall ssc m.
-       ( MonadDB m
+       ( MonadRealDB m
        , MonadMask m
        , MonadDBPure m
        , DB.MonadBlockDB ssc m
-       , DB.MonadDBCore m
+       , DB.MonadRealDBCore m
        , MonadDelegation m
        , Ether.MonadReader' LrcContext m
        )
@@ -220,7 +220,7 @@ data PskLightVerdict
 -- | Processes proxy secret key (understands do we need it,
 -- adds/caches on decision, returns this decision).
 processProxySKLight
-    :: (MonadDelegation m, Ether.MonadReader' NodeParams m, MonadDB m, MonadMask m)
+    :: (MonadDelegation m, Ether.MonadReader' NodeParams m, MonadRealDB m, MonadMask m)
     => ProxySKLight -> m PskLightVerdict
 processProxySKLight psk = do
     sk <- Ether.asks' npSecretKey

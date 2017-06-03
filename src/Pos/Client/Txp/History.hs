@@ -46,7 +46,7 @@ import           Pos.Context.Context          (GenesisUtxo (..))
 import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
                                                difficultyL, prevBlockL)
 import           Pos.Crypto                   (WithHash (..), withHash)
-import           Pos.DB                       (MonadDB, MonadDBPure)
+import           Pos.DB                       (MonadRealDB, MonadDBPure)
 import qualified Pos.DB.Block                 as DB
 import           Pos.DB.Error                 (DBError (..))
 import qualified Pos.DB.GState                as GS
@@ -185,7 +185,7 @@ runTxHistoryRedirect :: TxHistoryRedirect m a -> m a
 runTxHistoryRedirect = coerce
 
 instance
-    ( MonadDB m
+    ( MonadRealDB m
     , MonadDBPure m
     , MonadThrow m
     , WithLogger m

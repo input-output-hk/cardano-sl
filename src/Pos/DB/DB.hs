@@ -38,7 +38,7 @@ import           Pos.Context.Functions        (genesisLeadersM)
 import           Pos.Core                     (headerHash)
 import           Pos.DB.Block                 (MonadBlockDB, loadBlundsByDepth,
                                                loadBlundsWhile, prepareBlockDB)
-import           Pos.DB.Class                 (MonadDB, MonadDBPure (..),
+import           Pos.DB.Class                 (MonadRealDB, MonadDBPure (..),
                                                MonadGStateCore (..))
 import           Pos.DB.Functions             (openDB)
 import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
@@ -90,7 +90,7 @@ initNodeDBs
        , Ether.MonadReader' GenesisUtxo m
        , Ether.MonadReader' GenesisLeaders m
        , Ether.MonadReader' NodeParams m
-       , MonadDB m
+       , MonadRealDB m
        , MonadDBPure m
        )
     => m ()
@@ -122,7 +122,7 @@ loadBlundsFromTipByDepth
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB
-    :: (MonadMask m, MonadDB m, WithLogger m, MonadDBPure m)
+    :: (MonadMask m, MonadRealDB m, WithLogger m, MonadDBPure m)
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
 

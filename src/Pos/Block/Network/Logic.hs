@@ -58,7 +58,7 @@ import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHe
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
                                              gbHeader, headerHashG, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
-import           Pos.DB.Class               (MonadDBCore)
+import           Pos.DB.Class               (MonadRealDBCore)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Exception              (cardanoExceptionFromException,
@@ -381,7 +381,7 @@ mkBlocksRequest lcaChild wantedBlock =
 
 handleBlocks
     :: forall ssc m.
-       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+       (MonadRealDBCore m, SscWorkersClass ssc, WorkMode ssc m)
     => NodeId
     -> OldestFirst NE (Block ssc)
     -> SendActions m
@@ -402,7 +402,7 @@ handleBlocks nodeId blocks sendActions = do
 
 handleBlocksWithLca
     :: forall ssc m.
-       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+       (MonadRealDBCore m, SscWorkersClass ssc, WorkMode ssc m)
     => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
@@ -420,7 +420,7 @@ handleBlocksWithLca nodeId sendActions blocks lcaHash = do
 
 applyWithoutRollback
     :: forall ssc m.
-       (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
+       (MonadRealDBCore m, WorkMode ssc m, SscWorkersClass ssc)
     => SendActions m
     -> OldestFirst NE (Block ssc)
     -> m ()
@@ -457,7 +457,7 @@ applyWithoutRollback sendActions blocks = do
 
 applyWithRollback
     :: forall ssc m.
-       (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
+       (MonadRealDBCore m, WorkMode ssc m, SscWorkersClass ssc)
     => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)

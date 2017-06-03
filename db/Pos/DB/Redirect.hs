@@ -14,7 +14,7 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Ether
 
-import           Pos.DB.Class                 (MonadDB, MonadDBPure (..), dbTagToLens,
+import           Pos.DB.Class                 (MonadRealDB, MonadDBPure (..), dbTagToLens,
                                                getNodeDBs)
 import           Pos.DB.Functions             (rocksGetBytes)
 
@@ -27,7 +27,7 @@ runDBPureRedirect :: DBPureRedirect m a -> m a
 runDBPureRedirect = coerce
 
 instance
-    (MonadDB m, t ~ IdentityT) =>
+    (MonadRealDB m, t ~ IdentityT) =>
         MonadDBPure (Ether.TaggedTrans DBPureRedirectTag t m)
   where
     dbGet tag key = do

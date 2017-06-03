@@ -17,7 +17,7 @@ import           System.Wlog                (WithLogger)
 
 import           Pos.Context.Context        (GenesisUtxo (..), NodeParams (..))
 import           Pos.Context.Functions      (genesisUtxoM)
-import           Pos.DB.Class               (MonadDB, MonadDBPure, getNodeDBs,
+import           Pos.DB.Class               (MonadRealDB, MonadDBPure, getNodeDBs,
                                              usingReadOptions)
 import           Pos.DB.GState.Balances     (getRealTotalStake)
 import           Pos.DB.GState.Common       (prepareGStateCommon)
@@ -35,7 +35,7 @@ prepareGStateDB
     :: forall m.
        ( Ether.MonadReader' NodeParams m
        , Ether.MonadReader' GenesisUtxo m
-       , MonadDB m
+       , MonadRealDB m
        , MonadDBPure m)
     => HeaderHash -> m ()
 prepareGStateDB initialTip = do
@@ -50,13 +50,13 @@ prepareGStateDB initialTip = do
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB
     :: forall m.
-       (MonadDB m, MonadDBPure m, MonadMask m, WithLogger m)
+       (MonadRealDB m, MonadDBPure m, MonadMask m, WithLogger m)
     => m ()
 sanityCheckGStateDB = do
     sanityCheckBalances
     sanityCheckUtxo =<< getRealTotalStake
 
-usingGStateSnapshot :: (MonadDB m, MonadMask m) => m a -> m a
+usingGStateSnapshot :: (MonadRealDB m, MonadMask m) => m a -> m a
 usingGStateSnapshot action = do
     db <- _gStateDB <$> getNodeDBs
     let readOpts = rocksReadOpts db

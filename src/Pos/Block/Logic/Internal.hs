@@ -32,7 +32,7 @@ import           Pos.Block.Logic.Slog    (SlogMode, slogApplyBlocks, slogRollbac
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                (IsGenesisHeader, IsMainHeader, epochIndexL,
                                           gbBody, gbHeader)
-import           Pos.DB                  (MonadDB, SomeBatchOp (..))
+import           Pos.DB                  (MonadRealDB, SomeBatchOp (..))
 import           Pos.DB.Block            (MonadBlockDB)
 import qualified Pos.DB.GState           as GS
 import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgRollbackBlocks)
@@ -73,7 +73,7 @@ type BlockMode ssc m
        -- LRC is really needed.
        , Ether.MonadReader' LrcContext m
        -- Probably won't be needed after porting everything to smaller monads.
-       , MonadDB m
+       , MonadRealDB m
        -- This constraints define block components' global logic.
        , Ether.MonadReader' TxpGlobalSettings m
        , SscGStateClass ssc

@@ -33,7 +33,7 @@ import           Pos.Binary.GodTossing              ()
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
                                                      SlotId (..), StakeholderId)
 import           Pos.Core.Constants                 (memPoolLimitRatio)
-import           Pos.DB                             (MonadDB,
+import           Pos.DB                             (MonadRealDB,
                                                      MonadGStateCore (gsAdoptedBVData))
 import           Pos.Lrc.Types                      (RichmenStake)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
@@ -122,7 +122,7 @@ normalize epoch richmen gs = do
 -- to current local data.
 sscIsDataUseful
     :: ( WithLogger m
-       , MonadDB m
+       , MonadRealDB m
        , MonadSlots m
        , MonadSscMem SscGodTossing m
        )
@@ -139,7 +139,7 @@ sscIsDataUseful tag id =
     sscIsDataUsefulDo VssCertificateMsg = not <$> hasCertificateToss id
     evalTossInMem
         :: ( WithLogger m
-           , MonadDB m
+           , MonadRealDB m
            , MonadSscMem SscGodTossing m
            )
         => TossT PureToss a -> m a
@@ -156,7 +156,7 @@ sscIsDataUseful tag id =
 
 type GtDataProcessingMode m =
     ( WithLogger m
-    , MonadDB m          -- to get richmen
+    , MonadRealDB m          -- to get richmen
     , MonadGStateCore m  -- to get block size limit
     , MonadSlots m
     , MonadSscMem SscGodTossing m

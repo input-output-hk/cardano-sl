@@ -6,7 +6,7 @@
 
 -- | A set of type classes which provide access to database.
 --
--- 'MonadDB' is the most featured class (actually just a set of
+-- 'MonadRealDB' is the most featured class (actually just a set of
 -- constraints) which wraps 'NodeDBs' which contains RocksDB
 -- databases. This class can be used to manipulate RocksDB
 -- directly. It may be useful when you need an access to advanced
@@ -26,7 +26,7 @@
 -- 'MonadGStateCore' (which is at pretty low level).
 --
 -- 'MonadBlockDBGeneric' contains functions which provide access to Block DB.
--- For this DB we don't want to use 'MonadDB' for several reasons:
+-- For this DB we don't want to use 'MonadRealDB' for several reasons:
 -- • we store blocks and undos in files, not in key-value storage;
 -- • there are only three getters, so it's not a big problem to make all of
 -- them part of type class;
@@ -47,14 +47,14 @@ module Pos.DB.Class
        , gsMaxHeaderSize
        , gsMaxTxSize
        , gsMaxProposalSize
-       , MonadDBCore
+       , MonadRealDBCore
 
          -- * Block DB
        , MonadBlockDBGeneric (..)
        , dbGetBlund
 
          -- * RocksDB
-       , MonadDB
+       , MonadRealDB
        , getNodeDBs
        , usingReadOptions
        , usingWriteOptions
@@ -116,9 +116,9 @@ instance {-# OVERLAPPABLE #-}
 -- The idea is that actual getters may be defined at high levels, but
 -- may be needed at lower levels.
 --
--- This class doesn't have a 'MonadDB' constraint, because alternative
--- DBs my be used to provide this data. There is also 'MonadDBCore' constraint
--- which unites 'MonadDB' and 'GStateCore'.
+-- This class doesn't have a 'MonadRealDB' constraint, because alternative
+-- DBs my be used to provide this data. There is also 'MonadRealDBCore' constraint
+-- which unites 'MonadRealDB' and 'GStateCore'.
 class Monad m => MonadGStateCore m where
     gsAdoptedBVData :: m BlockVersionData
 
@@ -141,7 +141,7 @@ gsMaxTxSize = bvdMaxTxSize <$> gsAdoptedBVData
 gsMaxProposalSize :: MonadGStateCore m => m Byte
 gsMaxProposalSize = bvdMaxProposalSize <$> gsAdoptedBVData
 
-type MonadDBCore m = (MonadDB m, MonadGStateCore m)
+type MonadRealDBCore m = (MonadRealDB m, MonadGStateCore m)
 
 ----------------------------------------------------------------------------
 -- Block DB abstraction
@@ -181,14 +181,19 @@ dbGetBlund x =
 -- RocksDB
 ----------------------------------------------------------------------------
 
-type MonadDB m
+-- | This is the set of constraints necessary to operate on «real» DBs
+-- (which are wrapped into 'NodeDBs').  Apart from providing access to
+-- 'NodeDBs' it also has 'MonadIO' constraint, because it's impossible
+-- to use real DB without IO. Finally, it has 'MonadCatch' constraints
+-- (partially for historical reasons, partially for good ones).
+type MonadRealDB m
      = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadCatch m)
 
-getNodeDBs :: MonadDB m => m NodeDBs
+getNodeDBs :: MonadRealDB m => m NodeDBs
 getNodeDBs = Ether.ask'
 
 usingReadOptions
-    :: MonadDB m
+    :: MonadRealDB m
     => Rocks.ReadOptions
     -> ASetter' NodeDBs DB
     -> m a
@@ -197,7 +202,7 @@ usingReadOptions opts l =
     Ether.local' (over l (\db -> db {rocksReadOpts = opts}))
 
 usingWriteOptions
-    :: MonadDB m
+    :: MonadRealDB m
     => Rocks.WriteOptions
     -> ASetter' NodeDBs DB
     -> m a
@@ -205,14 +210,14 @@ usingWriteOptions
 usingWriteOptions opts l =
     Ether.local' (over l (\db -> db {rocksWriteOpts = opts}))
 
-getBlockIndexDB :: MonadDB m => m DB
+getBlockIndexDB :: MonadRealDB m => m DB
 getBlockIndexDB = view blockIndexDB <$> getNodeDBs
 
-getGStateDB :: MonadDB m => m DB
+getGStateDB :: MonadRealDB m => m DB
 getGStateDB = view gStateDB <$> getNodeDBs
 
-getLrcDB :: MonadDB m => m DB
+getLrcDB :: MonadRealDB m => m DB
 getLrcDB = view lrcDB <$> getNodeDBs
 
-getMiscDB :: MonadDB m => m DB
+getMiscDB :: MonadRealDB m => m DB
 getMiscDB = view miscDB <$> getNodeDBs

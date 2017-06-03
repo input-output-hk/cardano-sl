@@ -54,7 +54,7 @@ import           Pos.Core                   (ApplicationName, BlockVersion,
                                              Timestamp (..))
 import           Pos.Core.Constants         (epochSlots)
 import           Pos.Crypto                 (hash)
-import           Pos.DB.Class               (MonadDB, MonadDBPure, getGStateDB)
+import           Pos.DB.Class               (MonadRealDB, MonadDBPure, getGStateDB)
 import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
                                              rocksWriteBatch)
@@ -110,7 +110,7 @@ getProposalState :: MonadDBPure m => UpId -> m (Maybe ProposalState)
 getProposalState = gsGetBi . proposalKey
 
 -- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
-getProposalsByApp :: MonadDB m => ApplicationName -> m [ProposalState]
+getProposalsByApp :: MonadRealDB m => ApplicationName -> m [ProposalState]
 getProposalsByApp appName = runProposalMapIterator (step []) snd
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
@@ -183,7 +183,7 @@ instance RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUS :: (MonadDB m, MonadDBPure m) => Timestamp -> m ()
+prepareGStateUS :: (MonadRealDB m, MonadDBPure m) => Timestamp -> m ()
 prepareGStateUS systemStart =
     unlessM isInitialized $ do
         let genesisSlottingData = SlottingData
@@ -209,7 +209,7 @@ prepareGStateUS systemStart =
             SetAdopted genesisBlockVersion genesisBlockVersionData :
             map ConfirmVersion genesisSoftwareVersions
 
-isInitialized :: (MonadDB m, MonadDBPure m) => m Bool
+isInitialized :: (MonadRealDB m, MonadDBPure m) => m Bool
 isInitialized = isJust <$> getAdoptedBVFullMaybe
 
 ----------------------------------------------------------------------------
@@ -224,12 +224,12 @@ instance DBIteratorClass PropIter where
     iterKeyPrefix _ = iterationPrefix
 
 runProposalIterator
-    :: forall m a . MonadDB m
+    :: forall m a . MonadRealDB m
     => DBnIterator PropIter a -> m a
 runProposalIterator = runDBnIterator @PropIter _gStateDB
 
 runProposalMapIterator
-    :: forall v m a . MonadDB m
+    :: forall v m a . MonadRealDB m
     => DBnMapIterator PropIter v a -> (IterType PropIter -> v) -> m a
 runProposalMapIterator = runDBnMapIterator @PropIter _gStateDB
 
@@ -237,7 +237,7 @@ runProposalMapIterator = runDBnMapIterator @PropIter _gStateDB
 -- 'SlotId's, but I don't think it may be crucial.
 -- | Get all proposals which were issued no later than given slot.
 getOldProposals
-    :: MonadDB m
+    :: MonadRealDB m
     => SlotId -> m [UndecidedProposalState]
 getOldProposals slotId = runProposalMapIterator (step []) snd
   where
@@ -252,7 +252,7 @@ getOldProposals slotId = runProposalMapIterator (step []) snd
 -- | Get all decided proposals which were accepted deeper than given
 -- difficulty.
 getDeepProposals
-    :: MonadDB m
+    :: MonadRealDB m
     => ChainDifficulty -> m [DecidedProposalState]
 getDeepProposals cd = runProposalMapIterator (step []) snd
   where
@@ -276,7 +276,7 @@ instance DBIteratorClass ConfPropIter where
 -- passed). For instance, current software version can be passed to
 -- this function to get all proposals with bigger version.
 getConfirmedProposals
-    :: MonadDB m
+    :: MonadRealDB m
     => Maybe NumSoftwareVersion -> m [ConfirmedProposalState]
 getConfirmedProposals reqNsv = runDBnIterator @ConfPropIter _gStateDB (step [])
   where
@@ -298,13 +298,13 @@ instance DBIteratorClass BVIter where
     iterKeyPrefix _ = bvStateIterationPrefix
 
 -- | Get all proposed 'BlockVersion's.
-getProposedBVs :: MonadDB m => m [BlockVersion]
+getProposedBVs :: MonadRealDB m => m [BlockVersion]
 getProposedBVs = runDBnMapIterator @BVIter _gStateDB (step []) fst
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
     onItem res = step . (: res)
 
-getProposedBVStates :: MonadDB m => m [BlockVersionState]
+getProposedBVStates :: MonadRealDB m => m [BlockVersionState]
 getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
@@ -312,7 +312,7 @@ getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
 
 -- | Get all competing 'BlockVersion's and their states.
 getCompetingBVStates
-    :: MonadDB m
+    :: MonadRealDB m
     => m [(BlockVersion, BlockVersionState)]
 getCompetingBVStates = runDBnIterator @BVIter _gStateDB (step [])
   where

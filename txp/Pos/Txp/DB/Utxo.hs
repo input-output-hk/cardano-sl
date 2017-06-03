@@ -45,7 +45,7 @@ import           Pos.Binary.Core      ()
 import           Pos.Core             (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
-import           Pos.DB.Class         (MonadDB, MonadDBPure, getGStateDB)
+import           Pos.DB.Class         (MonadRealDB, MonadDBPure, getGStateDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
                                        rocksGetBytes)
@@ -91,7 +91,7 @@ instance RocksBatchOp UtxoOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUtxo :: MonadDB m => Utxo -> m ()
+prepareGStateUtxo :: MonadRealDB m => Utxo -> m ()
 prepareGStateUtxo genesisUtxo =
     unlessM isUtxoInitialized putGenesisUtxo
   where
@@ -115,7 +115,7 @@ instance DBIteratorClass UtxoIter where
 
 runUtxoIterator
     :: forall i m a .
-       ( MonadDB m
+       ( MonadRealDB m
        , DBIteratorClass i
        , IterKey i ~ TxIn
        , IterValue i ~ TxOutAux
@@ -126,7 +126,7 @@ runUtxoIterator = runDBnIterator @i _gStateDB
 
 runUtxoMapIterator
     :: forall i v m a .
-       ( MonadDB m
+       ( MonadRealDB m
        , DBIteratorClass i
        , IterKey i ~ TxIn
        , IterValue i ~ TxOutAux
@@ -138,7 +138,7 @@ runUtxoMapIterator = runDBnMapIterator @i _gStateDB
 
 filterUtxo
     :: forall i m .
-       ( MonadDB m
+       ( MonadRealDB m
        , DBIteratorClass i
        , IterKey i ~ TxIn
        , IterValue i ~ TxOutAux
@@ -154,7 +154,7 @@ filterUtxo p = runUtxoIterator @i (step mempty)
 -- | Get small sub-utxo containing only outputs of given address
 getFilteredUtxo'
     :: forall i m .
-       ( MonadDB m
+       ( MonadRealDB m
        , DBIteratorClass i
        , IterKey i ~ TxIn
        , IterValue i ~ TxOutAux
@@ -163,12 +163,12 @@ getFilteredUtxo'
 getFilteredUtxo' addrs = filterUtxo @i $ \(_, out) -> out `addrBelongsToSet` addrsSet
   where addrsSet = HS.fromList $ map AddressIA addrs
 
-getFilteredUtxo :: MonadDB m => [Address] -> m Utxo
+getFilteredUtxo :: MonadRealDB m => [Address] -> m Utxo
 getFilteredUtxo = getFilteredUtxo' @UtxoIter
 
 -- | Get full utxo. Use with care – the utxo can be very big (hundreds of
 -- megabytes).
-getAllPotentiallyHugeUtxo :: MonadDB m => m Utxo
+getAllPotentiallyHugeUtxo :: MonadRealDB m => m Utxo
 getAllPotentiallyHugeUtxo = runUtxoIterator @UtxoIter (step mempty)
   where
     -- this can probably be written better
@@ -181,7 +181,7 @@ getAllPotentiallyHugeUtxo = runUtxoIterator @UtxoIter (step mempty)
 ----------------------------------------------------------------------------
 
 sanityCheckUtxo
-    :: (MonadDB m, WithLogger m)
+    :: (MonadRealDB m, WithLogger m)
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
     calculatedTotalStake <-
@@ -219,5 +219,5 @@ initializationFlagKey = "ut/gutxo/"
 -- Details
 ----------------------------------------------------------------------------
 
-isUtxoInitialized :: MonadDB m => m Bool
+isUtxoInitialized :: MonadRealDB m => m Bool
 isUtxoInitialized = isJust <$> (getGStateDB >>= rocksGetBytes initializationFlagKey)

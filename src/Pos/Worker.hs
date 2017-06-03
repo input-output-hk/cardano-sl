@@ -17,7 +17,7 @@ import           Pos.Block.Worker     (blkWorkers)
 import           Pos.Communication    (OutSpecs, WorkerSpec, localWorker, relayWorkers,
                                        wrapActionSpec)
 import           Pos.Context          (recoveryCommGuard)
-import           Pos.DB               (MonadDBCore)
+import           Pos.DB               (MonadRealDBCore)
 import           Pos.Delegation       (delegationRelays, dlgWorkers)
 import           Pos.Lrc.Worker       (lrcOnNewSlotWorker)
 import           Pos.Security.Workers (SecurityWorkersClass, securityWorkers)
@@ -37,7 +37,7 @@ allWorkers
        , SscWorkersClass ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc m
-       , MonadDBCore m
+       , MonadRealDBCore m
        )
     => ([WorkerSpec m], OutSpecs)
 allWorkers = mconcatPair
@@ -73,7 +73,7 @@ allWorkers = mconcatPair
 allWorkersCount
     :: forall ssc m.
        ( SscListenersClass ssc
-       , MonadDBCore m
+       , MonadRealDBCore m
        , SscWorkersClass ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc m

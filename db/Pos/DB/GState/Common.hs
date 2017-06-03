@@ -36,7 +36,7 @@ import           Pos.Core.Types      (HeaderHash)
 import           Pos.Crypto          (shortHashF)
 import           Pos.DB.Class        (DBTag (GStateDB),
                                       MonadBlockDBGeneric (dbGetBlock, dbGetHeader),
-                                      MonadDB, MonadDBPure, getGStateDB)
+                                      MonadRealDB, MonadDBPure, getGStateDB)
 import           Pos.DB.Error        (DBError (DBMalformed))
 import           Pos.DB.Functions    (RocksBatchOp (..), dbGetBi, rocksDelete, rocksPutBi,
                                       rocksWriteBatch)
@@ -52,14 +52,14 @@ gsGetBi
 gsGetBi k = dbGetBi GStateDB k
 
 gsPutBi
-    :: (MonadDB m, Bi v)
+    :: (MonadRealDB m, Bi v)
     => ByteString -> v -> m ()
 gsPutBi k v = rocksPutBi k v =<< getGStateDB
 
-gsDelete :: (MonadDB m) => ByteString -> m ()
+gsDelete :: (MonadRealDB m) => ByteString -> m ()
 gsDelete k = rocksDelete k =<< getGStateDB
 
-writeBatchGState :: (RocksBatchOp a, MonadDB m) => [a] -> m ()
+writeBatchGState :: (RocksBatchOp a, MonadRealDB m) => [a] -> m ()
 writeBatchGState batch = rocksWriteBatch batch =<< getGStateDB
 
 ----------------------------------------------------------------------------
@@ -115,7 +115,7 @@ instance RocksBatchOp CommonOp where
 ----------------------------------------------------------------------------
 
 -- | Put missing initial common data into GState DB.
-prepareGStateCommon :: (MonadDB m, MonadDBPure m) => HeaderHash -> m ()
+prepareGStateCommon :: (MonadRealDB m, MonadDBPure m) => HeaderHash -> m ()
 prepareGStateCommon initialTip = do
     whenNothingM_ getTipMaybe putGenesisTip
     whenNothingM_ getBotMaybe putGenesisBot
@@ -143,8 +143,8 @@ getTipMaybe = gsGetBi tipKey
 getBotMaybe :: MonadDBPure m => m (Maybe HeaderHash)
 getBotMaybe = gsGetBi botKey
 
-putTip :: MonadDB m => HeaderHash -> m ()
+putTip :: MonadRealDB m => HeaderHash -> m ()
 putTip = gsPutBi tipKey
 
-putBot :: MonadDB m => HeaderHash -> m ()
+putBot :: MonadRealDB m => HeaderHash -> m ()
 putBot = gsPutBi botKey

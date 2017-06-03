@@ -1,3 +1,7 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Pos.Lrc.Consumers
        (
          allLrcConsumers
@@ -14,6 +18,8 @@ import           Pos.Ssc.Class.Workers (SscWorkersClass (sscLrcConsumers))
 import           Pos.Update.Lrc        (usLrcConsumer)
 
 allLrcConsumers
-    :: (LrcMode ssc m, SscWorkersClass ssc)
+    :: forall ssc m.
+       (LrcMode ssc m, SscWorkersClass ssc)
     => [LrcConsumer m]
-allLrcConsumers = [delegationLrcConsumer, usLrcConsumer] ++ untag sscLrcConsumers
+allLrcConsumers = [delegationLrcConsumer, usLrcConsumer] ++
+                  untag (sscLrcConsumers @ssc)

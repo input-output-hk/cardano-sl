@@ -19,7 +19,7 @@ import           Universum
 
 import           Pos.Binary.Ssc     ()
 import           Pos.Crypto         (Hash, PublicKey, SecretKey, pskIssuerPk, pskOmega)
-import           Pos.DB.Class       (MonadRealDB)
+import           Pos.DB.Class       (MonadDB)
 import           Pos.DB.Misc.Common (miscGetBi, miscPutBi)
 import           Pos.Types          (EpochIndex, ProxySKLight)
 
@@ -28,7 +28,7 @@ import           Pos.Types          (EpochIndex, ProxySKLight)
 ----------------------------------------------------------------------------
 
 prepareMiscDB
-    :: MonadRealDB m
+    :: MonadDB m
     => m ()
 prepareMiscDB = pass
 
@@ -38,7 +38,7 @@ prepareMiscDB = pass
 
 -- | Gets proxy secret keys stored by node. We store only "related"
 -- psks: those who have pskIssuer or pskDelegate matching our pk.
-getProxySecretKeys :: MonadRealDB m => m [ProxySKLight]
+getProxySecretKeys :: MonadDB m => m [ProxySKLight]
 getProxySecretKeys = do
     curCerts <- miscGetBi @([ProxySKLight]) proxySKKey
     maybe onNothing pure curCerts
@@ -49,14 +49,14 @@ getProxySecretKeys = do
 
 -- | Adds proxy secret key if not present. Nothing if present. Call
 -- this under write lock only (see 'miscLock').
-addProxySecretKey :: MonadRealDB m => ProxySKLight -> m ()
+addProxySecretKey :: MonadDB m => ProxySKLight -> m ()
 addProxySecretKey psk = do
     keys <- getProxySecretKeys
     miscPutBi proxySKKey $ ordNub $ psk:keys
 
 -- | Removes proxy secret key if present by issuer pk. Call it under
 -- write lock only (see 'miscLock').
-removeProxySecretKey :: MonadRealDB m => PublicKey -> m ()
+removeProxySecretKey :: MonadDB m => PublicKey -> m ()
 removeProxySecretKey pk = do
     keys <- getProxySecretKeys
     miscPutBi proxySKKey $ filter ((/= pk) . pskIssuerPk) keys
@@ -65,7 +65,7 @@ removeProxySecretKey pk = do
 -- | Given epochindex, throws away all outdated PSKs. Remark: it
 -- doesn't remove keys that can be used in future. Call it under write
 -- lock only (see 'miscLock').
-dropOldProxySecretKeys :: MonadRealDB m => EpochIndex -> m ()
+dropOldProxySecretKeys :: MonadDB m => EpochIndex -> m ()
 dropOldProxySecretKeys eId = do
     keys <- filter (\p -> eId <= snd (pskOmega p)) <$>
             getProxySecretKeys
@@ -81,7 +81,7 @@ dropOldProxySecretKeys eId = do
 
 -- | Puts or overwrites secret key of the node. Returns if it was
 -- overwritten.
-putSecretKeyHash :: MonadRealDB m => Hash SecretKey -> m Bool
+putSecretKeyHash :: MonadDB m => Hash SecretKey -> m Bool
 putSecretKeyHash h = do
     curSkHash <- miscGetBi @(Hash SecretKey) skHashKey
     miscPutBi skHashKey h
@@ -90,7 +90,7 @@ putSecretKeyHash h = do
 -- | Checks if given secret key hash matches the hash in the
 -- database. Puts it into the database and return True if nothing was
 -- stored there.
-checkSecretKeyHash :: MonadRealDB m => Hash SecretKey -> m Bool
+checkSecretKeyHash :: MonadDB m => Hash SecretKey -> m Bool
 checkSecretKeyHash h = do
     curSkHash <- miscGetBi @(Hash SecretKey) skHashKey
     maybe (miscPutBi skHashKey h >> pure True) (pure . (== h)) curSkHash

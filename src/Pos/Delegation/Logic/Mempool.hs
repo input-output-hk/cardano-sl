@@ -46,7 +46,7 @@ import           Pos.Core                    (addressHash, bvdMaxBlockSize, epoc
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               SignTag (SignProxySK), proxyVerify,
                                               toPublic, verifyProxySecretKey)
-import           Pos.DB                      (MonadRealDB, MonadDBRead)
+import           Pos.DB                      (MonadDB, MonadDBRead, MonadRealDB)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.Block                as DB
 import qualified Pos.DB.DB                   as DB
@@ -219,9 +219,15 @@ data PskLightVerdict
 -- later.
 -- | Processes proxy secret key (understands do we need it,
 -- adds/caches on decision, returns this decision).
-processProxySKLight
-    :: (MonadDelegation m, Ether.MonadReader' NodeParams m, MonadRealDB m, MonadMask m)
-    => ProxySKLight -> m PskLightVerdict
+processProxySKLight ::
+       ( MonadDelegation m
+       , Ether.MonadReader' NodeParams m
+       , MonadDB m
+       , MonadMask m
+       , MonadRealDB m
+       )
+    => ProxySKLight
+    -> m PskLightVerdict
 processProxySKLight psk = do
     sk <- Ether.asks' npSecretKey
     curTime <- liftIO getCurrentTime

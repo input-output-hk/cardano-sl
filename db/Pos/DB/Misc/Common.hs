@@ -10,15 +10,15 @@ module Pos.DB.Misc.Common
 import           Universum
 
 import           Pos.Binary.Class (Bi)
-import           Pos.DB.Class     (MonadRealDB, getMiscDB)
-import           Pos.DB.Functions (rocksGetBi, rocksPutBi)
+import           Pos.DB.Class     (DBTag (..), MonadDB, MonadDBRead)
+import           Pos.DB.Functions (dbGetBi, dbPutBi)
 
 miscGetBi
-    :: forall v m . (MonadRealDB m, Bi v)
+    :: forall v m . (MonadDBRead m, Bi v)
     => ByteString -> m (Maybe v)
-miscGetBi k = rocksGetBi k =<< getMiscDB
+miscGetBi = dbGetBi MiscDB
 
 miscPutBi
-    :: forall v m . (MonadRealDB m, Bi v)
+    :: forall v m . (MonadDB m, Bi v)
     => ByteString -> v -> m ()
-miscPutBi k v = rocksPutBi k v =<< getMiscDB
+miscPutBi = dbPutBi MiscDB

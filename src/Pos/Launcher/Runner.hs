@@ -408,7 +408,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
-    Ether.runReaderT' (for_ ownPSKs addProxySecretKey) db
+    Ether.runReaderT' (runDBPureRedirect $ for_ ownPSKs addProxySecretKey) db
 
     ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $

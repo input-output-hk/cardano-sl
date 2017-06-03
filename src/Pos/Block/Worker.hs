@@ -30,7 +30,6 @@ import           Pos.Core                    (SlotId (..), Timestamp (Timestamp)
                                               gbHeader, getSlotIndex, slotIdF)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
-import           Pos.DB.Class                (MonadRealDBCore)
 import           Pos.DB.GState               (getDlgTransPsk, getPskByIssuer)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Delegation.Helpers      (isRevokePsk)
@@ -53,7 +52,7 @@ import           Pos.Slotting                (getLastKnownSlotDuration)
 
 -- | All workers specific to block processing.
 blkWorkers
-    :: (MonadRealDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m)
     => ([WorkerSpec m], OutSpecs)
 blkWorkers =
     merge $ [ blkOnNewSlot

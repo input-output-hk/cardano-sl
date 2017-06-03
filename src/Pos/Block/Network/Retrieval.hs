@@ -40,7 +40,6 @@ import           Pos.Context                (BlockRetrievalQueueTag, ProgressHea
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
                                              prevBlockL)
 import           Pos.Crypto                 (shortHashF)
-import           Pos.DB.Class               (MonadRealDBCore)
 import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (SscWorkersClass)
@@ -50,7 +49,7 @@ import           Pos.WorkMode.Class         (WorkMode)
 
 retrievalWorker
     :: forall ssc m.
-       (MonadRealDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => (WorkerSpec m, OutSpecs)
 retrievalWorker = worker outs retrievalWorkerImpl
   where
@@ -74,7 +73,7 @@ retrievalWorker = worker outs retrievalWorkerImpl
 --
 retrievalWorkerImpl
     :: forall ssc m.
-       (MonadRealDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m -> m ()
 retrievalWorkerImpl sendActions =
     handleAll mainLoopE $ do
@@ -199,7 +198,7 @@ dropRecoveryHeaderAndRepeat sendActions nodeId = do
 -- | Request blocks corresponding to a chain of headers, if we need those
 -- blocks
 workerHandle
-    :: (MonadRealDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m
     -> (NodeId, NewestFirst NE (BlockHeader ssc))
     -> m ()
@@ -238,7 +237,7 @@ workerHandle sendActions (nodeId, headers) = do
 
 handleCHsValid
     :: forall ssc m.
-       (MonadRealDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m
     -> NodeId
     -> BlockHeader ssc

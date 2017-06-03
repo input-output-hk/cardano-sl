@@ -24,7 +24,6 @@ import           Universum
 import           Pos.Communication  (ActionSpec (..), OutSpecs, WorkerSpec,
                                      wrapActionSpec)
 import           Pos.Context        (BlkSemaphore (..), npPubKeyAddress, npPublicKey)
-import           Pos.DB.Class       (MonadRealDBCore)
 import qualified Pos.DB.GState      as GS
 import           Pos.Delegation     (initDelegation)
 import           Pos.Lrc.Context    (LrcSyncData (..), lcLrcSync)
@@ -45,7 +44,7 @@ import           Pos.WorkMode.Class (WorkMode)
 -- Initialization, running of workers, running of plugins.
 runNode'
     :: forall ssc m.
-       (SscConstraint ssc, WorkMode ssc m, MonadRealDBCore m)
+       (SscConstraint ssc, WorkMode ssc m)
     => [WorkerSpec m]
     -> WorkerSpec m
 runNode' plugins' = ActionSpec $ \vI sendActions -> do
@@ -83,7 +82,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode
-    :: (SscConstraint ssc, WorkMode ssc m, MonadRealDBCore m)
+    :: (SscConstraint ssc, WorkMode ssc m)
     => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runNode (plugins', plOuts) = (,plOuts <> wOuts) $ runNode' $ workers' ++ plugins''

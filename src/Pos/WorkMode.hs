@@ -59,8 +59,8 @@ import           Pos.Wallet.WalletMode          (BlockchainInfoRedirect, MonadBa
                                                  MonadBlockchainInfo, MonadTxHistory,
                                                  MonadUpdates, UpdatesRedirect)
 import           Pos.WorkMode.Class             (MinWorkMode, TxpExtra_TMP, WorkMode)
-import           System.Wlog                    (LoggerNameBox (..))
-import           System.Wlog                    (CanLog, HasLoggerName)
+import           System.Wlog                    (CanLog, HasLoggerName,
+                                                 LoggerNameBox (..))
 
 ----------------------------------------------------------------------------
 -- Concrete types

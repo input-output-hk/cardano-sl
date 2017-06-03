@@ -79,6 +79,7 @@ library
                         Pos.Binary.Infra.DHTModel
                         Pos.Binary.Infra.Slotting
                         Pos.Binary.Infra.Communication
+                        Pos.Binary.Infra.Relay
 
                         -- Pos.Util
                         Pos.Util.LogSafe

@@ -54,6 +54,7 @@ library
     Pos.Binary.GodTossing.Core
     Pos.Binary.GodTossing.Types
     Pos.Binary.GodTossing.Toss
+    Pos.Binary.GodTossing.Relay
 
   build-depends:       aeson
                      , base

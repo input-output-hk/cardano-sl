@@ -12,12 +12,15 @@
 -- directly. It may be useful when you need an access to advanced
 -- features of RocksDB.
 --
--- Apart from that we have three more classes here.
+-- Apart from that we have few more classes here.
 --
 -- 'MonadDBRead' contains only 'dbGet' method.  The advantage of it is
 -- that you don't need to do any 'IO' to use it which makes it
--- suitable for pure testing.
--- TODO: add put to this monad (actually putBatch is more important).
+-- suitable for pure testing. TODO: add iteration abilitiy.
+--
+-- 'MonadDB' is a superclass of 'MonadDB' and allows to modify
+-- DB. Again, its purpose is to make it possible to use DB w/o IO
+-- context.
 --
 -- 'MonadGState' contains functions to retrieve some data from
 -- GState DB without knowledge of where this data is located (where in

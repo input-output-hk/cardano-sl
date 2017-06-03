@@ -7,14 +7,15 @@ module Pos.Ssc.GodTossing.DB
        , prepareGtDB
        ) where
 
+import           Universum
+
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB         as Rocks
 import           Formatting               (bprint, build, (%))
-import           Universum
 
 import           Pos.Binary.Class         (encodeStrict)
 import           Pos.Binary.GodTossing    ()
-import           Pos.DB                   (MonadRealDB, MonadDBRead, RocksBatchOp (..))
+import           Pos.DB                   (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error             (DBError (DBMalformed))
 import           Pos.DB.GState.Common     (gsGetBi)
 import           Pos.Ssc.GodTossing.Core  (VssCertificatesMap)
@@ -33,7 +34,7 @@ getGtGlobalStateMaybe = gsGetBi gtKey
 gtGlobalStateToBatch :: GtGlobalState -> GtOp
 gtGlobalStateToBatch = PutGlobalState
 
-prepareGtDB :: MonadRealDB m => VssCertificatesMap -> m ()
+prepareGtDB :: MonadDB m => VssCertificatesMap -> m ()
 prepareGtDB _ = pass
 -- Commented due to CSL-1113, maybe uncomment when we will use store serialization.
   --   whenNothingM_ (gsGetBi @_ @GtGlobalState gtKey) $

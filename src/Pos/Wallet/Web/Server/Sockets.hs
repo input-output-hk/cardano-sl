@@ -42,17 +42,15 @@ type ConnectionsVar = TVar ConnectionSet
 initWSConnections :: MonadIO m => m ConnectionsVar
 initWSConnections = newTVarIO def
 
-closeWSConnection :: (MonadIO m) => ConnectionTag -> ConnectionsVar -> m ()
-closeWSConnection tag var = liftIO $ do
+closeWSConnection :: MonadIO m => ConnectionTag -> ConnectionsVar -> m ()
+closeWSConnection tag var = liftIO $ usingLoggerName "closeWSConnection" $ do
     maybeConn <- atomically $ deregisterConnection tag var
-    -- TODO: figure out how to run `usingLoggerName` only once
     case maybeConn of
-        Nothing   -> usingLoggerName "closeWSConnection" $
+        Nothing   ->
             logError $ sformat ("Attempted to close an unknown connection with tag "%build) tag
         Just conn -> do
-            WS.sendClose conn ConnectionClosed
-            usingLoggerName "closeWSConnection" $
-                logNotice $ sformat ("Closed WS connection with tag "%build) tag
+            liftIO $ WS.sendClose conn ConnectionClosed
+            logNotice $ sformat ("Closed WS connection with tag "%build) tag
 
 closeWSConnections :: MonadIO m => ConnectionsVar -> m ()
 closeWSConnections var = liftIO $ do

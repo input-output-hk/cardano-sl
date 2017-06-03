@@ -143,3 +143,4 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
            $ act
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
+{-# NOINLINE convertHandler #-}

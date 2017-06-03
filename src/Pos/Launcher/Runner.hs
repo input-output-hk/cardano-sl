@@ -2,6 +2,8 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+{-# OPTIONS -fno-cross-module-specialise #-}
+
 -- | Runners in various modes.
 
 module Pos.Launcher.Runner
@@ -113,7 +115,7 @@ import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
 import           Pos.Worker                   (allWorkersCount)
 import           Pos.WorkMode                 (ProductionMode, RawRealMode (..),
-                                               RawRealModeK, RawRealModeS, ServiceMode,
+                                               RawRealModeK, RawRealModeS, ServiceMode(..),
                                                StaticMode, StatsMode, WorkMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -232,6 +234,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
                \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
+{-# NOINLINE runRawRealMode #-}
 
 -- | Create new 'SlottingVar' using data from DB.
 mkSlottingVar :: (MonadIO m, MonadDBPure m) => Timestamp -> m SlottingVar
@@ -252,8 +255,10 @@ runServiceMode transport bp@BaseParams {..} listeners outSpecs (ActionSpec actio
     usingLoggerName (lpRunnerTag bpLoggingParams) .
         flip (Ether.runReaderT @PeerStateTag) stateM .
         runPeerStateRedirect .
+        (\(ServiceMode m) -> m) .
         runServer_ transport listeners outSpecs . ActionSpec $ \vI sa ->
         nodeStartMsg bp >> action vI sa
+{-# NOINLINE runServiceMode #-}
 
 runServer
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)

@@ -99,6 +99,8 @@ dbTagToLens MiscDB       = miscDB
 -- | Pure read-only interface to the database.
 -- TODO: add iteration, maybe something else.
 class MonadThrow m => MonadDBRead m where
+    -- | This function takes tag and key and reads value associated
+    -- with given key from DB corresponding to given tag.
     dbGet :: DBTag -> ByteString -> m (Maybe ByteString)
 
     default dbGet :: (MonadTrans t, MonadDBRead n, t n ~ m) =>
@@ -112,11 +114,21 @@ instance {-# OVERLAPPABLE #-}
 -- | Pure interface to the database. Combines read-only interface and
 -- ability to put raw bytes.
 class MonadDBRead m => MonadDB m where
+    -- | This function takes tag, key and value and puts given value
+    -- associated with given key into DB corresponding to given tag.
     dbPut :: DBTag -> ByteString -> ByteString -> m ()
+
+    -- | This function takes tag and key and deletes value associated
+    -- with given key from DB corresponding to given tag.
+    dbDelete :: DBTag -> ByteString -> m ()
 
     default dbPut :: (MonadTrans t, MonadDB n, t n ~ m) =>
         DBTag -> ByteString -> ByteString -> m ()
     dbPut = lift ... dbPut
+
+    default dbDelete :: (MonadTrans t, MonadDB n, t n ~ m) =>
+        DBTag -> ByteString -> m ()
+    dbDelete = lift ... dbDelete
 
 instance {-# OVERLAPPABLE #-}
     (MonadDB m, MonadTrans t, MonadThrow (t m)) =>

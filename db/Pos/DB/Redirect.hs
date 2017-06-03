@@ -16,7 +16,7 @@ import qualified Ether
 
 import           Pos.DB.Class                 (MonadDB (..), MonadDBRead (..),
                                                MonadRealDB, dbTagToLens, getNodeDBs)
-import           Pos.DB.Functions             (rocksGetBytes, rocksPutBytes)
+import           Pos.DB.Functions             (rocksDelete, rocksGetBytes, rocksPutBytes)
 
 data DBPureRedirectTag
 
@@ -41,3 +41,6 @@ instance
     dbPut tag key val = do
         db <- view (dbTagToLens tag) <$> getNodeDBs
         rocksPutBytes key val db
+    dbDelete tag key = do
+        db <- view (dbTagToLens tag) <$> getNodeDBs
+        rocksDelete key db

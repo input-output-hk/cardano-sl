@@ -45,10 +45,9 @@ import           Pos.Binary.Core      ()
 import           Pos.Core             (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
-import           Pos.DB.Class         (MonadRealDB, MonadDBRead, getGStateDB)
-import           Pos.DB.Error         (DBError (..))
-import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
-                                       rocksGetBytes)
+import           Pos.DB               (DBError (..), RocksBatchOp (..),
+                                       encodeWithKeyPrefix, rocksGetBi, rocksGetBytes)
+import           Pos.DB.Class         (MonadDBRead, MonadRealDB, getGStateDB)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
                                        IterType, runDBnIterator, runDBnMapIterator)

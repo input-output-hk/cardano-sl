@@ -1,6 +1,5 @@
-{-# LANGUAGE AllowAmbiguousTypes       #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Basically wrappers over RocksDB library.
 
@@ -23,22 +22,15 @@ module Pos.DB.Functions
        , rocksDecodeMaybe
        , rocksDecodeMaybeWP
        , rocksDecodeKeyValMaybe
-
-       -- * Batch
-       , RocksBatchOp (..)
-       , SomeBatchOp (..)
-       , SomePrettyBatchOp (..)
-       , rocksWriteBatch
        ) where
+
+import           Universum
 
 import qualified Data.ByteString       as BS (drop, isPrefixOf)
 import qualified Data.ByteString.Lazy  as BSL
 import           Data.Default          (def)
-import qualified Data.Text.Buildable
 import qualified Database.RocksDB      as Rocks
-import           Formatting            (bprint, sformat, shown, string, (%))
-import           Serokell.Util.Text    (listJson)
-import           Universum
+import           Formatting            (sformat, shown, string, (%))
 
 import           Pos.Binary.Class      (Bi, decodeFull, encodeStrict)
 import           Pos.DB.Class          (DBTag, MonadDB (..), MonadDBRead (..))
@@ -151,63 +143,3 @@ rocksPutBi k v = rocksPutBytes k (encodeStrict v)
 
 rocksDelete :: (MonadIO m) => ByteString -> DB -> m ()
 rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
-
-----------------------------------------------------------------------------
--- Batch
-----------------------------------------------------------------------------
-
-class RocksBatchOp a where
-    toBatchOp :: a -> [Rocks.BatchOp]
-
-instance RocksBatchOp Rocks.BatchOp where
-    toBatchOp = one
-
-data EmptyBatchOp
-
-instance RocksBatchOp EmptyBatchOp where
-    toBatchOp _ = []
-
-instance Buildable EmptyBatchOp where
-    build _ = ""
-
-data SomeBatchOp =
-    forall a. RocksBatchOp a =>
-              SomeBatchOp a
-
-instance Monoid SomeBatchOp where
-    mempty = SomeBatchOp ([]::[EmptyBatchOp])
-    mappend a b = SomeBatchOp [a, b]
-
-instance RocksBatchOp SomeBatchOp where
-    toBatchOp (SomeBatchOp a) = toBatchOp a
-
-data SomePrettyBatchOp =
-    forall a. (RocksBatchOp a, Buildable a) =>
-              SomePrettyBatchOp a
-
-instance Monoid SomePrettyBatchOp where
-    mempty = SomePrettyBatchOp ([]::[SomePrettyBatchOp])
-    mappend a b = SomePrettyBatchOp [a, b]
-
-instance RocksBatchOp SomePrettyBatchOp where
-    toBatchOp (SomePrettyBatchOp a) = toBatchOp a
-
-instance Buildable SomePrettyBatchOp where
-    build (SomePrettyBatchOp x) = Data.Text.Buildable.build x
-
--- instance (Foldable t, RocksBatchOp a) => RocksBatchOp (t a) where
---     toBatchOp = concatMap toBatchOp -- overlapping instances, wtf ?????
-
-instance RocksBatchOp a => RocksBatchOp [a] where
-    toBatchOp = concatMap toBatchOp
-
-instance RocksBatchOp a => RocksBatchOp (NonEmpty a) where
-    toBatchOp = concatMap toBatchOp
-
-instance Buildable [SomePrettyBatchOp] where
-    build = bprint listJson
-
--- | Write Batch encapsulation
-rocksWriteBatch :: (RocksBatchOp a, MonadIO m) => [a] -> DB -> m ()
-rocksWriteBatch batch DB {..} =
-    Rocks.write rocksDB rocksWriteOpts (concatMap toBatchOp batch)

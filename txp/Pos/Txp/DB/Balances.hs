@@ -42,9 +42,8 @@ import           Pos.Core               (Coin, StakeholderId, coinF, mkCoin, sum
 import qualified Pos.Core.Constants     as Const
 import           Pos.Core.Genesis       (genesisBalances)
 import           Pos.Crypto             (shortHashF)
-import           Pos.DB.Class           (MonadRealDB, MonadDBRead)
-import           Pos.DB.Error           (DBError (..))
-import           Pos.DB.Functions       (RocksBatchOp (..))
+import           Pos.DB                 (DBError (..), RocksBatchOp (..))
+import           Pos.DB.Class           (MonadDBRead, MonadRealDB)
 import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
                                          getRealStakeSumMaybe)
 import qualified Pos.DB.GState.Balances as GS

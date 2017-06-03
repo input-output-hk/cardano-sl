@@ -25,9 +25,9 @@ import           Pos.Block.Types      (Blund)
 import           Pos.Constants        (genesisHash)
 import           Pos.Core             (HasHeaderHash, HeaderHash, headerHash)
 import           Pos.Crypto           (shortHashF)
+import           Pos.DB               (MonadDBRead, MonadRealDB, RocksBatchOp (..),
+                                       getGStateDB, rocksPutBi)
 import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
-import           Pos.DB.Class         (MonadRealDB, MonadDBRead, getGStateDB)
-import           Pos.DB.Functions     (RocksBatchOp (..), rocksPutBi)
 import           Pos.DB.GState.Common (gsGetBi)
 import           Pos.Util.Chrono      (OldestFirst (..))
 

@@ -54,10 +54,10 @@ import           Pos.Core                   (ApplicationName, BlockVersion,
                                              Timestamp (..))
 import           Pos.Core.Constants         (epochSlots)
 import           Pos.Crypto                 (hash)
-import           Pos.DB.Class               (MonadRealDB, MonadDBRead, getGStateDB)
-import           Pos.DB.Error               (DBError (DBMalformed))
-import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
+import           Pos.DB                     (MonadDBRead, MonadRealDB, RocksBatchOp (..),
+                                             encodeWithKeyPrefix, getGStateDB,
                                              rocksWriteBatch)
+import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.DB.GState.Common       (gsGetBi)
 import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
                                              DBnMapIterator, IterType, runDBnIterator,

@@ -34,12 +34,12 @@ import           Pos.Binary.Class    (Bi, encodeStrict)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (HeaderHash)
 import           Pos.Crypto          (shortHashF)
+import           Pos.DB.BatchOp      (RocksBatchOp (..), rocksWriteBatch)
 import           Pos.DB.Class        (DBTag (GStateDB),
                                       MonadBlockDBGeneric (dbGetBlock, dbGetHeader),
-                                      MonadRealDB, MonadDBRead, getGStateDB)
+                                      MonadDBRead, MonadRealDB, getGStateDB)
 import           Pos.DB.Error        (DBError (DBMalformed))
-import           Pos.DB.Functions    (RocksBatchOp (..), dbGetBi, rocksDelete, rocksPutBi,
-                                      rocksWriteBatch)
+import           Pos.DB.Functions    (dbGetBi, rocksDelete, rocksPutBi)
 import           Pos.Util.Util       (maybeThrow)
 
 ----------------------------------------------------------------------------

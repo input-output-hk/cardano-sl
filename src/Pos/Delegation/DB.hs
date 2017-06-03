@@ -52,9 +52,9 @@ import           Formatting             (build, sformat, (%))
 import           Pos.Binary.Class       (encodeStrict)
 import           Pos.Crypto             (PublicKey, pskDelegatePk, pskIssuerPk,
                                          verifyProxySecretKey)
-import           Pos.DB                 (DBError (DBMalformed))
-import           Pos.DB.Class           (MonadRealDB, MonadDBRead)
-import           Pos.DB.Functions       (RocksBatchOp (..), encodeWithKeyPrefix)
+import           Pos.DB                 (DBError (DBMalformed), RocksBatchOp (..),
+                                         encodeWithKeyPrefix)
+import           Pos.DB.Class           (MonadDBRead, MonadRealDB)
 import           Pos.DB.GState.Common   (gsGetBi)
 import           Pos.DB.Iterator        (DBIteratorClass (..), DBnIterator,
                                          DBnMapIterator, IterType, runDBnIterator,

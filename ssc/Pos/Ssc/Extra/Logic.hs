@@ -40,8 +40,8 @@ import           System.Wlog              (NamedPureLogger, WithLogger,
 
 import           Pos.Core                 (EpochIndex, HeaderHash, IsHeader, SharedSeed,
                                            SlotId, epochIndexL, headerHash)
-import           Pos.DB.Class             (MonadBlockDBGeneric, MonadDBRead, MonadRealDB)
-import           Pos.DB.Functions         (SomeBatchOp)
+import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead, MonadRealDB,
+                                           SomeBatchOp)
 import           Pos.DB.GState.Common     (getTipHeader)
 import           Pos.Exception            (assertionFailed)
 import           Pos.Lrc.Context          (LrcContext, lrcActionOnEpochReason)

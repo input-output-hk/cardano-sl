@@ -56,7 +56,7 @@ import           Pos.Core                     (HasDifficulty (difficultyL),
                                                IsHeader, headerHash)
 import           Pos.Crypto                   (hashHexF, shortHashF)
 import           Pos.DB.Class                 (DBTag (..), MonadBlockDBGeneric (..),
-                                               MonadRealDB, MonadDBPure, dbGetBlund,
+                                               MonadRealDB, MonadDBRead, dbGetBlund,
                                                getBlockIndexDB, getNodeDBs)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (dbGetBi, rocksDelete, rocksPutBi)
@@ -76,7 +76,7 @@ getBlock = blockDataPath >=> getData
 
 -- | Returns header of block that was requested from Block DB.
 blkGetHeader
-    :: (SscHelpersClass ssc, MonadDBPure m)
+    :: (SscHelpersClass ssc, MonadDBRead m)
     => HeaderHash -> m (Maybe (BlockHeader ssc))
 blkGetHeader = dbGetBi BlockIndexDB . blockIndexKey
 
@@ -181,7 +181,7 @@ loadBlocksWhile = loadDataWhile getBlockThrow
 -- | Load headers starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadHeadersWhile
-    :: (SscHelpersClass ssc, MonadDBPure m)
+    :: (SscHelpersClass ssc, MonadDBRead m)
     => (BlockHeader ssc -> Bool)
     -> HeaderHash
     -> m (NewestFirst [] (BlockHeader ssc))
@@ -189,13 +189,13 @@ loadHeadersWhile = loadDataWhile getHeaderThrow
 
 -- | Load headers which have depth less than given.
 loadHeadersByDepth
-    :: (SscHelpersClass ssc, MonadDBPure m)
+    :: (SscHelpersClass ssc, MonadDBRead m)
     => Word -> HeaderHash -> m (NewestFirst [] (BlockHeader ssc))
 loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
 
 -- | Load headers which have depth less than given and match some criterion.
 loadHeadersByDepthWhile
-    :: (SscHelpersClass ssc, MonadDBPure m)
+    :: (SscHelpersClass ssc, MonadDBRead m)
     => (BlockHeader ssc -> Bool)
     -> Word
     -> HeaderHash
@@ -239,7 +239,7 @@ runBlockDBRedirect = coerce
 
 -- instance MonadBlockDBGeneric (Block ssc)
 
-instance (MonadDBPure m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
+instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (Ether.TaggedTrans BlockDBRedirectTag t m) where
     dbGetBlock  = getBlock
     dbGetUndo   = getUndo
@@ -247,7 +247,7 @@ instance (MonadDBPure m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
 
 -- instance MonadBlockDBGeneric (SscBlock ssc)
 
-instance (MonadDBPure m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
+instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (Ether.TaggedTrans BlockDBRedirectTag t m) where
     dbGetBlock  = fmap (toSscBlock <$>) . getBlock
     dbGetUndo   = fmap (const () <$>)   . getUndo
@@ -342,7 +342,7 @@ getBlockThrow hash =
     errFmt = "getBlockThrow: no block with HeaderHash: "%shortHashF
 
 getHeaderThrow
-    :: (SscHelpersClass ssc, MonadDBPure m)
+    :: (SscHelpersClass ssc, MonadDBRead m)
     => HeaderHash -> m (BlockHeader ssc)
 getHeaderThrow hash =
     maybeThrow (DBMalformed $ sformat errFmt hash) =<< blkGetHeader hash

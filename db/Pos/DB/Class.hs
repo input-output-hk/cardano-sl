@@ -14,7 +14,7 @@
 --
 -- Apart from that we have three more classes here.
 --
--- 'MonadDBPure' contains only 'dbGet' method.  The advantage of it is
+-- 'MonadDBRead' contains only 'dbGet' method.  The advantage of it is
 -- that you don't need to do any 'IO' to use it which makes it
 -- suitable for pure testing.
 -- TODO: add put to this monad (actually putBatch is more important).
@@ -39,7 +39,7 @@ module Pos.DB.Class
          -- * Pure
          DBTag (..)
        , dbTagToLens
-       , MonadDBPure (..)
+       , MonadDBRead (..)
 
          -- * GState Core
        , MonadGStateCore (..)
@@ -97,16 +97,16 @@ dbTagToLens MiscDB       = miscDB
 
 -- | Pure interface to the database.
 -- TODO: add some ways to put something.
-class MonadThrow m => MonadDBPure m where
+class MonadThrow m => MonadDBRead m where
     dbGet :: DBTag -> ByteString -> m (Maybe ByteString)
 
-    default dbGet :: (MonadTrans t, MonadDBPure n, t n ~ m) =>
+    default dbGet :: (MonadTrans t, MonadDBRead n, t n ~ m) =>
         DBTag -> ByteString -> m (Maybe ByteString)
     dbGet tag = lift . dbGet tag
 
 instance {-# OVERLAPPABLE #-}
-    (MonadDBPure m, MonadTrans t, MonadThrow (t m)) =>
-        MonadDBPure (t m)
+    (MonadDBRead m, MonadTrans t, MonadThrow (t m)) =>
+        MonadDBRead (t m)
 
 ----------------------------------------------------------------------------
 -- GState abstraction
@@ -151,7 +151,7 @@ type MonadRealDBCore m = (MonadRealDB m, MonadGStateCore m)
 -- way that it's allows to specify different types of
 -- block|header|undo. Read rationale behind this type in the
 -- documentation of this module.
-class MonadDBPure m =>
+class MonadDBRead m =>
       MonadBlockDBGeneric header blk undo m | blk -> header, blk -> undo where
     dbGetHeader :: HeaderHash -> m (Maybe header)
     dbGetBlock :: HeaderHash -> m (Maybe blk)
@@ -159,7 +159,7 @@ class MonadDBPure m =>
 
 instance {-# OVERLAPPABLE #-}
     (MonadBlockDBGeneric header blk undo m, MonadTrans t, LiftLocal t,
-     MonadDBPure (t m)) =>
+     MonadDBRead (t m)) =>
         MonadBlockDBGeneric header blk undo (t m)
   where
     dbGetHeader = lift . dbGetHeader @header @blk @undo

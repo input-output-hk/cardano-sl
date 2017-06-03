@@ -43,7 +43,7 @@ import           Pos.Core              (BlockVersion (..), epochIndexL, headerHa
                                         headerHashG, prevBlockL)
 import           Pos.DB                (SomeBatchOp (..))
 import           Pos.DB.Block          (putBlund)
-import           Pos.DB.Class          (MonadRealDB, MonadDBPure)
+import           Pos.DB.Class          (MonadRealDB, MonadDBRead)
 import           Pos.DB.DB             (sanityCheckDB)
 import qualified Pos.DB.GState         as GS
 import           Pos.Exception         (assertionFailed)
@@ -99,7 +99,7 @@ mustDataBeKnown adoptedBV =
 type SlogMode ssc m =
     ( MonadSlots m
     , SscHelpersClass ssc
-    , MonadDBPure m
+    , MonadDBRead m
     , WithLogger m
     )
 

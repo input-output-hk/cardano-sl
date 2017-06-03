@@ -70,7 +70,7 @@ import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers
                                                NodeContext (..), StartTime (..))
 import           Pos.Core                     (Timestamp ())
 import           Pos.Crypto                   (createProxySecretKey, encToPublic)
-import           Pos.DB                       (MonadDBPure, NodeDBs, runDBPureRedirect)
+import           Pos.DB                       (MonadDBRead, NodeDBs, runDBPureRedirect)
 import           Pos.DB.Block                 (runBlockDBRedirect)
 import           Pos.DB.DB                    (initNodeDBs, openNodeDBs,
                                                runGStateCoreRedirect)
@@ -233,7 +233,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
     LoggingParams {..} = bpLoggingParams npBaseParams
 
 -- | Create new 'SlottingVar' using data from DB.
-mkSlottingVar :: (MonadIO m, MonadDBPure m) => Timestamp -> m SlottingVar
+mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
 mkSlottingVar sysStart = do
     sd <- GState.getSlottingData
     (sysStart, ) <$> newTVarIO sd

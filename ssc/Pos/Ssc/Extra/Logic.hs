@@ -40,7 +40,7 @@ import           System.Wlog              (NamedPureLogger, WithLogger,
 
 import           Pos.Core                 (EpochIndex, HeaderHash, IsHeader, SharedSeed,
                                            SlotId, epochIndexL, headerHash)
-import           Pos.DB.Class             (MonadBlockDBGeneric, MonadRealDB, MonadDBPure)
+import           Pos.DB.Class             (MonadBlockDBGeneric, MonadRealDB, MonadDBRead)
 import           Pos.DB.Functions         (SomeBatchOp)
 import           Pos.DB.GState.Common     (getTipHeader)
 import           Pos.Exception            (assertionFailed)
@@ -143,7 +143,7 @@ sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 sscNormalize
     :: forall ssc m.
        ( MonadRealDB m
-       , MonadDBPure m
+       , MonadDBRead m
        , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
        , MonadSscMem ssc m
        , SscLocalDataClass ssc
@@ -168,7 +168,7 @@ sscNormalize = do
 -- to remove all local data to be sure it's valid.
 sscResetLocal ::
        forall ssc m.
-       ( MonadDBPure m
+       ( MonadDBRead m
        , MonadSscMem ssc m
        , SscLocalDataClass ssc
        , MonadSlots m

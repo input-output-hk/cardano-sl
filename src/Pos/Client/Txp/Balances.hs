@@ -22,7 +22,7 @@ import           System.Wlog                  (WithLogger, logWarning)
 
 import           Pos.Core                     (AddressIgnoringAttributes (AddressIA))
 import           Pos.Crypto                   (WithHash (..), shortHashF)
-import           Pos.DB                       (MonadRealDB, MonadDBPure)
+import           Pos.DB                       (MonadRealDB, MonadDBRead)
 import qualified Pos.DB.GState                as GS
 import qualified Pos.DB.GState.Balances       as GS
 import           Pos.Txp                      (GenericToilModifier (..), MonadTxpMem,
@@ -66,7 +66,7 @@ runBalancesRedirect :: BalancesRedirect m a -> m a
 runBalancesRedirect = coerce
 
 instance
-    (MonadRealDB m, MonadDBPure m, MonadMask m, WithLogger m, MonadTxpMem ext m, t ~ IdentityT) =>
+    (MonadRealDB m, MonadDBRead m, MonadMask m, WithLogger m, MonadTxpMem ext m, t ~ IdentityT) =>
         MonadBalances (Ether.TaggedTrans BalancesRedirectTag t m)
   where
     getOwnUtxos addr = do

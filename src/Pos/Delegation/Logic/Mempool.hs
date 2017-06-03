@@ -46,7 +46,7 @@ import           Pos.Core                    (addressHash, bvdMaxBlockSize, epoc
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               SignTag (SignProxySK), proxyVerify,
                                               toPublic, verifyProxySecretKey)
-import           Pos.DB                      (MonadRealDB, MonadDBPure)
+import           Pos.DB                      (MonadRealDB, MonadDBRead)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.Block                as DB
 import qualified Pos.DB.DB                   as DB
@@ -74,7 +74,7 @@ import qualified Pos.Util.Concurrent.RWVar   as RWV
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
 getDlgMempool
-    :: (MonadIO m, MonadDBPure m, MonadDelegation m, MonadMask m)
+    :: (MonadIO m, MonadDBRead m, MonadDelegation m, MonadMask m)
     => m (DlgPayload, DlgUndo)
 getDlgMempool = do
     sks <- runDelegationStateAction $
@@ -143,7 +143,7 @@ processProxySKHeavy
     :: forall ssc m.
        ( MonadRealDB m
        , MonadMask m
-       , MonadDBPure m
+       , MonadDBRead m
        , DB.MonadBlockDB ssc m
        , DB.MonadRealDBCore m
        , MonadDelegation m

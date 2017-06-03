@@ -13,7 +13,7 @@ import           Data.Coerce                  (coerce)
 import qualified Ether
 import           Universum
 
-import           Pos.DB.Class                 (MonadDBPure)
+import           Pos.DB.Class                 (MonadDBRead)
 import           Pos.DB.GState.Balances       (getRealStake, getRealTotalStake)
 import           Pos.Txp.DB.Utxo              (getTxOut)
 import           Pos.Update.Core              (BlockVersionData (..))
@@ -30,14 +30,14 @@ type DBTxp = Ether.TaggedTrans DBTxpTag IdentityT
 runDBTxp :: DBTxp m a -> m a
 runDBTxp = coerce
 
-instance (Monad m, MonadDBPure m) => MonadUtxoRead (DBTxp m) where
+instance (Monad m, MonadDBRead m) => MonadUtxoRead (DBTxp m) where
     utxoGet = getTxOut
 
-instance (Monad m, MonadDBPure m) => MonadBalancesRead (DBTxp m) where
+instance (Monad m, MonadDBRead m) => MonadBalancesRead (DBTxp m) where
     getTotalStake = getRealTotalStake
     getStake = getRealStake
 
-instance (Monad m, MonadDBPure m) =>
+instance (Monad m, MonadDBRead m) =>
          MonadToilEnv (DBTxp m) where
     getToilEnv = constructEnv <$> getAdoptedBVData
       where

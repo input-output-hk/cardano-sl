@@ -54,7 +54,7 @@ import           Pos.Core                   (ApplicationName, BlockVersion,
                                              Timestamp (..))
 import           Pos.Core.Constants         (epochSlots)
 import           Pos.Crypto                 (hash)
-import           Pos.DB.Class               (MonadRealDB, MonadDBPure, getGStateDB)
+import           Pos.DB.Class               (MonadRealDB, MonadDBRead, getGStateDB)
 import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
                                              rocksWriteBatch)
@@ -83,30 +83,30 @@ import           Pos.Util.Util              (maybeThrow)
 ----------------------------------------------------------------------------
 
 -- | Get last adopted block version.
-getAdoptedBV :: MonadDBPure m => m BlockVersion
+getAdoptedBV :: MonadDBRead m => m BlockVersion
 getAdoptedBV = fst <$> getAdoptedBVFull
 
 -- | Get state of last adopted BlockVersion.
-getAdoptedBVData :: MonadDBPure m => m BlockVersionData
+getAdoptedBVData :: MonadDBRead m => m BlockVersionData
 getAdoptedBVData = snd <$> getAdoptedBVFull
 
 -- | Get last adopted BlockVersion and data associated with it.
-getAdoptedBVFull :: MonadDBPure m => m (BlockVersion, BlockVersionData)
+getAdoptedBVFull :: MonadDBRead m => m (BlockVersion, BlockVersionData)
 getAdoptedBVFull = maybeThrow (DBMalformed msg) =<< getAdoptedBVFullMaybe
   where
     msg =
         "Update System part of GState DB is not initialized (last adopted BV is missing)"
 
 -- | Get maximum block size (in bytes).
-getMaxBlockSize :: MonadDBPure m => m Byte
+getMaxBlockSize :: MonadDBRead m => m Byte
 getMaxBlockSize = bvdMaxBlockSize <$> getAdoptedBVData
 
 -- | Get 'BlockVersionState' associated with given BlockVersion.
-getBVState :: MonadDBPure m => BlockVersion -> m (Maybe BlockVersionState)
+getBVState :: MonadDBRead m => BlockVersion -> m (Maybe BlockVersionState)
 getBVState = gsGetBi . bvStateKey
 
 -- | Get state of UpdateProposal for given UpId
-getProposalState :: MonadDBPure m => UpId -> m (Maybe ProposalState)
+getProposalState :: MonadDBRead m => UpId -> m (Maybe ProposalState)
 getProposalState = gsGetBi . proposalKey
 
 -- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
@@ -119,18 +119,18 @@ getProposalsByApp appName = runProposalMapIterator (step []) snd
         | otherwise = step res
 
 -- | Get last confirmed SoftwareVersion of given application.
-getConfirmedSV :: MonadDBPure m => ApplicationName -> m (Maybe NumSoftwareVersion)
+getConfirmedSV :: MonadDBRead m => ApplicationName -> m (Maybe NumSoftwareVersion)
 getConfirmedSV = gsGetBi . confirmedVersionKey
 
 -- | Get most recent 'SlottingData'.
-getSlottingData :: MonadDBPure m => m SlottingData
+getSlottingData :: MonadDBRead m => m SlottingData
 getSlottingData = maybeThrow (DBMalformed msg) =<< gsGetBi slottingDataKey
   where
     msg =
         "Update System part of GState DB is not initialized (slotting data is missing)"
 
 -- | Get proposers for current epoch.
-getEpochProposers :: MonadDBPure m => m (HashSet StakeholderId)
+getEpochProposers :: MonadDBRead m => m (HashSet StakeholderId)
 getEpochProposers = maybeThrow (DBMalformed msg) =<< gsGetBi epochProposersKey
   where
     msg =
@@ -183,7 +183,7 @@ instance RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUS :: (MonadRealDB m, MonadDBPure m) => Timestamp -> m ()
+prepareGStateUS :: (MonadRealDB m, MonadDBRead m) => Timestamp -> m ()
 prepareGStateUS systemStart =
     unlessM isInitialized $ do
         let genesisSlottingData = SlottingData
@@ -209,7 +209,7 @@ prepareGStateUS systemStart =
             SetAdopted genesisBlockVersion genesisBlockVersionData :
             map ConfirmVersion genesisSoftwareVersions
 
-isInitialized :: (MonadRealDB m, MonadDBPure m) => m Bool
+isInitialized :: (MonadRealDB m, MonadDBRead m) => m Bool
 isInitialized = isJust <$> getAdoptedBVFullMaybe
 
 ----------------------------------------------------------------------------
@@ -363,6 +363,6 @@ epochProposersKey = "us/epoch-proposers/"
 ----------------------------------------------------------------------------
 
 getAdoptedBVFullMaybe
-    :: MonadDBPure m
+    :: MonadDBRead m
     => m (Maybe (BlockVersion, BlockVersionData))
 getAdoptedBVFullMaybe = gsGetBi adoptedBVKey

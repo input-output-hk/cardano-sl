@@ -28,7 +28,7 @@ import           Pos.Context         (BlkSemaphore, putBlkSemaphore, takeBlkSema
 import           Pos.Core            (HeaderHash, diffEpochOrSlot, getEpochOrSlot,
                                       headerHash, prevBlockL)
 import           Pos.Crypto          (shortHashF)
-import           Pos.DB              (MonadDBPure)
+import           Pos.DB              (MonadDBRead)
 import           Pos.DB.Block        (MonadBlockDB)
 import qualified Pos.DB.DB           as DB
 import qualified Pos.DB.GState       as GS
@@ -53,7 +53,7 @@ tipMismatchMsg action storedTip attemptedTip =
 -- header's parent hash. Iterates from newest to oldest until meets
 -- first header that's in main chain. O(n).
 lcaWithMainChain
-    :: (MonadDBPure m, SscHelpersClass ssc)
+    :: (MonadDBRead m, SscHelpersClass ssc)
     => OldestFirst NE (BlockHeader ssc) -> m (Maybe HeaderHash)
 lcaWithMainChain headers =
     lcaProceed Nothing $

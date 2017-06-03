@@ -38,7 +38,7 @@ import           Pos.Context.Functions        (genesisLeadersM)
 import           Pos.Core                     (headerHash)
 import           Pos.DB.Block                 (MonadBlockDB, loadBlundsByDepth,
                                                loadBlundsWhile, prepareBlockDB)
-import           Pos.DB.Class                 (MonadRealDB, MonadDBPure (..),
+import           Pos.DB.Class                 (MonadRealDB, MonadDBRead (..),
                                                MonadGStateCore (..))
 import           Pos.DB.Functions             (openDB)
 import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
@@ -91,7 +91,7 @@ initNodeDBs
        , Ether.MonadReader' GenesisLeaders m
        , Ether.MonadReader' NodeParams m
        , MonadRealDB m
-       , MonadDBPure m
+       , MonadDBRead m
        )
     => m ()
 initNodeDBs = do
@@ -110,19 +110,19 @@ initNodeDBs = do
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (MonadBlockDB ssc m, MonadDBPure m)
+    :: (MonadBlockDB ssc m, MonadDBRead m)
     => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (MonadBlockDB ssc m, MonadDBPure m)
+    :: (MonadBlockDB ssc m, MonadDBRead m)
     => Word -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB
-    :: (MonadMask m, MonadRealDB m, WithLogger m, MonadDBPure m)
+    :: (MonadMask m, MonadRealDB m, WithLogger m, MonadDBRead m)
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
 
@@ -148,7 +148,7 @@ runGStateCoreRedirect :: GStateCoreRedirect m a -> m a
 runGStateCoreRedirect = coerce
 
 instance
-    (MonadDBPure m, t ~ IdentityT) =>
+    (MonadDBRead m, t ~ IdentityT) =>
         MonadGStateCore (Ether.TaggedTrans GStateCoreRedirectTag t m)
   where
     gsAdoptedBVData = getAdoptedBVData

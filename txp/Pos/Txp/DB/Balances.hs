@@ -42,7 +42,7 @@ import           Pos.Core               (Coin, StakeholderId, coinF, mkCoin, sum
 import qualified Pos.Core.Constants     as Const
 import           Pos.Core.Genesis       (genesisBalances)
 import           Pos.Crypto             (shortHashF)
-import           Pos.DB.Class           (MonadRealDB, MonadDBPure)
+import           Pos.DB.Class           (MonadRealDB, MonadDBRead)
 import           Pos.DB.Error           (DBError (..))
 import           Pos.DB.Functions       (RocksBatchOp (..))
 import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
@@ -90,12 +90,12 @@ isBootstrapEra = pure $ not Const.isDevelopment && True
 genesisFakeTotalStake :: Coin
 genesisFakeTotalStake = unsafeIntegerToCoin $ sumCoins genesisBalances
 
-getEffectiveTotalStake :: MonadDBPure m => m Coin
+getEffectiveTotalStake :: MonadDBRead m => m Coin
 getEffectiveTotalStake = ifM isBootstrapEra
     (pure genesisFakeTotalStake)
     GS.getRealTotalStake
 
-getEffectiveStake :: MonadDBPure m => StakeholderId -> m (Maybe Coin)
+getEffectiveStake :: MonadDBRead m => StakeholderId -> m (Maybe Coin)
 getEffectiveStake id = ifM isBootstrapEra
     (pure $ HM.lookup id genesisBalances)
     (GS.getRealStake id)
@@ -106,7 +106,7 @@ getEffectiveStake id = ifM isBootstrapEra
 
 prepareGStateBalances
     :: forall m.
-       (MonadRealDB m, MonadDBPure m)
+       (MonadRealDB m, MonadDBRead m)
     => Utxo -> m ()
 prepareGStateBalances genesisUtxo = do
     whenNothingM_ getRealStakeSumMaybe putFtsStakes
@@ -139,10 +139,10 @@ runBalanceIterBootstrap = flip runListHolderT $ HM.toList genesisBalances
 
 -- | Run iterator over effective balances.
 runBalanceIterator
-    :: forall m a . (MonadRealDB m, MonadDBPure m)
+    :: forall m a . (MonadRealDB m, MonadDBRead m)
     => (forall iter . ( MonadIterator (IterType BalanceIter) iter
                       , MonadRealDB iter
-                      , MonadDBPure iter
+                      , MonadDBRead iter
                       ) => iter a)
     -> m a
 runBalanceIterator iter = ifM isBootstrapEra
@@ -178,7 +178,7 @@ runBalanceMapIterator iter f = ifM isBootstrapEra
 ----------------------------------------------------------------------------
 
 sanityCheckBalances
-    :: (MonadMask m, MonadRealDB m, MonadDBPure m, WithLogger m)
+    :: (MonadMask m, MonadRealDB m, MonadDBRead m, WithLogger m)
     => m ()
 sanityCheckBalances = do
     let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))

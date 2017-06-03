@@ -37,7 +37,7 @@ import           Serokell.Util.Text    (listJson)
 import           Universum
 
 import           Pos.Binary.Class      (Bi, decodeFull, encodeStrict)
-import           Pos.DB.Class          (DBTag, MonadDBPure (..))
+import           Pos.DB.Class          (DBTag, MonadDBRead (..))
 import           Pos.DB.Error          (DBError (DBMalformed))
 import           Pos.DB.Iterator.Class (DBIteratorClass (..))
 import           Pos.DB.Types          (DB (..))
@@ -63,7 +63,7 @@ rocksGetBytes key DB {..} = Rocks.get rocksDB rocksReadOpts key
 -- | Read serialized value associated with given key from pure DB.
 dbGetBi
     :: forall v m.
-       (Bi v, MonadDBPure m, MonadThrow m)
+       (Bi v, MonadDBRead m, MonadThrow m)
     => DBTag -> ByteString -> m (Maybe v)
 dbGetBi tag key = do
     bytes <- dbGet tag key

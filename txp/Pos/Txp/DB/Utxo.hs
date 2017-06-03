@@ -45,7 +45,7 @@ import           Pos.Binary.Core      ()
 import           Pos.Core             (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
-import           Pos.DB.Class         (MonadRealDB, MonadDBPure, getGStateDB)
+import           Pos.DB.Class         (MonadRealDB, MonadDBRead, getGStateDB)
 import           Pos.DB.Error         (DBError (..))
 import           Pos.DB.Functions     (RocksBatchOp (..), encodeWithKeyPrefix, rocksGetBi,
                                        rocksGetBytes)
@@ -61,7 +61,7 @@ import           Pos.Util.Iterator    (nextItem)
 -- Getters
 ----------------------------------------------------------------------------
 
-getTxOut :: MonadDBPure m => TxIn -> m (Maybe TxOutAux)
+getTxOut :: MonadDBRead m => TxIn -> m (Maybe TxOutAux)
 getTxOut = gsGetBi . txInKey
 
 getTxOutFromDB :: (MonadIO m, MonadThrow m) => TxIn -> DB -> m (Maybe TxOutAux)

@@ -34,7 +34,7 @@ import           Pos.Core                     (addressHash, epochIndexL, gbHeade
 import           Pos.Crypto                   (ProxySecretKey (..), ProxySignature (..),
                                                PublicKey, psigPsk, shortHashF)
 import           Pos.DB                       (DBError (DBMalformed), MonadRealDB,
-                                               MonadDBPure, SomeBatchOp (..))
+                                               MonadDBRead, SomeBatchOp (..))
 import qualified Pos.DB                       as DB
 import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.GState                as GS
@@ -75,7 +75,7 @@ type ReverseTrans = HashMap PublicKey (HashSet PublicKey, HashSet PublicKey)
 -- executed under shared Gstate DB lock.
 calculateTransCorrections
     :: forall m.
-       (MonadDBPure m, WithLogger m)
+       (MonadDBRead m, WithLogger m)
     => HashSet GS.DlgEdgeAction -> m SomeBatchOp
 calculateTransCorrections eActions = do
     -- Get the changeset and convert it to transitive ops.
@@ -233,7 +233,7 @@ calculateTransCorrections eActions = do
     calculateDlgNew :: PublicKey -> StateT (HashMap PublicKey (Maybe PublicKey)) m ()
     calculateDlgNew iPk =
         let -- Gets delegate from G': either from 'eActionsHM' or database.
-            resolve :: (MonadDBPure n) => PublicKey -> n (Maybe PublicKey)
+            resolve :: (MonadDBRead n) => PublicKey -> n (Maybe PublicKey)
             resolve v = fmap pskDelegatePk <$> GS.withEActionsResolve eActionsHM v
 
             -- Sets real new trans delegate in state, returns it to
@@ -446,7 +446,7 @@ dlgVerifyBlocks blocks = do
 -- cross over epoch. So genesis block is either absent or the head.
 dlgApplyBlocks
     :: forall ssc m.
-       (MonadDelegation m, MonadRealDB m, MonadDBPure m, WithLogger m, MonadMask m)
+       (MonadDelegation m, MonadRealDB m, MonadDBRead m, WithLogger m, MonadMask m)
     => OldestFirst NE (Block ssc) -> m (NonEmpty SomeBatchOp)
 dlgApplyBlocks blocks = do
     tip <- GS.getTip

@@ -49,6 +49,9 @@ library
     Pos.Ssc.GodTossing.Richmen
     Pos.Ssc.GodTossing.Seed
     Pos.Ssc.GodTossing.Shares
+    Pos.Ssc.GodTossing.Listeners
+    Pos.Ssc.GodTossing.Workers
+    Pos.Ssc.GodTossing.Network.Constraint
 
     Pos.Binary.GodTossing
     Pos.Binary.GodTossing.Core
@@ -78,10 +81,12 @@ library
                      , node-sketch
                      , rocksdb
                      , serokell-util
+                     , stm
                      , tagged
                      , text
                      , text-format
                      , time-units
+                     , transformers
                      , universum
                      , unordered-containers
 

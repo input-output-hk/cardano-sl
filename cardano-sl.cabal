@@ -83,7 +83,6 @@ library
 
                         -- SSC
                         Pos.Ssc.Arbitrary
-                        Pos.Ssc.Class
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
@@ -234,14 +233,9 @@ library
                         Pos.SafeCopy
 
                         -- SSC
-                        Pos.Ssc.Class.Workers
-                        Pos.Ssc.Class.Listeners
-
                         Pos.Ssc.Util
 
                         Pos.Ssc.GodTossing.Arbitrary
-                        Pos.Ssc.GodTossing.Listeners
-                        Pos.Ssc.GodTossing.Workers
 
                         -- Statistics
                         Pos.Statistics.Helpers
@@ -500,6 +494,7 @@ executable cardano-node
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-update
+                     , cardano-sl-ssc
                      , cardano-sl
                      , containers
                      , data-default
@@ -775,6 +770,7 @@ executable cardano-smart-generator
                      , cardano-sl-infra
                      , cardano-sl-txp
                      , cardano-sl-update
+                     , cardano-sl-ssc
                      , cardano-sl
                      , containers
                      , filepath
@@ -1195,6 +1191,7 @@ test-suite cardano-test
                      , cardano-sl-infra
                      , cardano-sl-txp
                      , cardano-sl-update
+                     , cardano-sl-ssc
                      , cardano-sl
                      , cereal
                      , containers

@@ -60,7 +60,13 @@ restoreWallet          = "Create a new wallet."
 renameWallet           = "Change name of given wallet."
 deleteWallet           = "Delete given wallet with all contained wallets."
 importWallet           = "Import user's secret key from the path to generate wallet."
-changeWalletPassphrase = "Change passphrase of given wallet."
+changeWalletPassphrase =
+    "Change passphrase of given wallet.\n\
+    \NOTE: this will change IDs of all accounts belonging to given wallet, and \
+    \will send all money from old accounts to newly created ones. \
+    \In case of transaction rollback, wallet will become to store new empty \
+    \accounts, while money will remain at the old accounts, thus make sure to \
+    \create a backup before performing this action."
 
 getAccount             = "Get information about a account by account's ID \
                          \(address + index of account in wallet)."

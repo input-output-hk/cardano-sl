@@ -52,7 +52,8 @@ import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSock
                                                 runWalletWS)
 import           Pos.Wallet.Web.State          (WalletState, getWalletWebState,
                                                 runWalletWebDB)
-import           Pos.WorkMode                  (RawRealModeK, RawRealModeS, TxpExtra_TMP)
+import           Pos.WorkMode                  (RawRealMode (..), RawRealModeK,
+                                                RawRealModeS, TxpExtra_TMP)
 
 type WebHandler = WalletWebHandler (RawRealModeK WalletSscType)
 
@@ -112,7 +113,9 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
     sRunner (peers, wh) = rawRunner . runDiscoveryConstT peers . walletRunner $ wh
     kRunner (ki, wh) = rawRunner . runDiscoveryKademliaT ki . walletRunner $ wh
     walletRunner = runWalletWebDB ws . runWalletWS conn
-    rawRunner = runProduction
+
+    rawRunner :: forall t . RawRealMode WalletSscType t -> IO t
+    rawRunner (RawRealMode act) = runProduction
            . usingLoggerName "wallet-api"
            . flip Ether.runReadersT nc
            . (\m -> do
@@ -137,5 +140,6 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
            . runUpdatesRedirect
            . runBlockchainInfoRedirect
            . runBListenerStub
+           $ act
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError

@@ -1,5 +1,7 @@
-{-# LANGUAGE CPP           #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 
 module Pos.WorkMode
        ( WorkMode
@@ -11,7 +13,7 @@ module Pos.WorkMode
        , RawRealModeK
        , RawRealModeS
        , ProductionMode
-       , RawRealMode
+       , RawRealMode(..)
        , ServiceMode
        , StatsMode
        , StaticMode
@@ -20,37 +22,52 @@ module Pos.WorkMode
 
 import           Universum
 
-import           Data.Tagged                  (Tagged)
+import           Control.Monad.Fix
+import qualified Control.Monad.Trans.Lift.Local as Lift
+import           Data.Coerce
+import           Data.Tagged                    (Tagged)
 import qualified Ether
-import           Mockable.Production          (Production)
-import           System.Wlog                  (LoggerNameBox (..))
 
-import           Pos.Block.BListener          (BListenerStub)
-import           Pos.Client.Txp.Balances      (BalancesRedirect)
-import           Pos.Client.Txp.History       (TxHistoryRedirect)
-import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
-                                               PeerStateTag)
-import           Pos.Context                  (NodeContext)
-import           Pos.DB                       (DBPureRedirect, NodeDBs)
-import           Pos.DB.Block                 (BlockDBRedirect)
-import           Pos.DB.DB                    (GStateCoreRedirect)
-import           Pos.Delegation.Class         (DelegationVar)
-import           Pos.Discovery.Holders        (DiscoveryConstT, DiscoveryKademliaT)
-import           Pos.Slotting.MemState        (SlottingVar)
-import           Pos.Slotting.MemState.Holder (SlotsDataRedirect)
-import           Pos.Slotting.Ntp             (NtpSlottingVar, SlotsRedirect)
-import           Pos.Ssc.Extra                (SscMemTag, SscState)
-import           Pos.Statistics.MonadStats    (NoStatsT, StatsT)
-import           Pos.Txp.MemState             (GenericTxpLocalData, TxpHolderTag)
-import           Pos.Wallet.WalletMode        (BlockchainInfoRedirect, UpdatesRedirect)
-import           Pos.WorkMode.Class           (MinWorkMode, TxpExtra_TMP, WorkMode)
+import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
+                                                 MFunctor' (..), Mockable (..), Promise,
+                                                 SharedAtomicT, SharedExclusiveT,
+                                                 ThreadId)
+import           Mockable.Production            (Production)
+import           Pos.Block.BListener            (BListenerStub, MonadBListener)
+import           Pos.Client.Txp.Balances        (BalancesRedirect)
+import           Pos.Client.Txp.History         (TxHistoryRedirect)
+import           Pos.Communication.PeerState    (PeerStateCtx, PeerStateRedirect,
+                                                 PeerStateTag, WithPeerState)
+import           Pos.Context                    (NodeContext)
+import           Pos.DB                         (DBPureRedirect, MonadGStateCore, NodeDBs)
+import           Pos.DB.Block                   (BlockDBRedirect)
+import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDBPure)
+import           Pos.DB.DB                      (GStateCoreRedirect)
+import           Pos.Delegation.Class           (DelegationVar)
+import           Pos.Discovery.Holders          (DiscoveryConstT, DiscoveryKademliaT)
+import           Pos.Slotting.Class             (MonadSlots)
+import           Pos.Slotting.MemState          (MonadSlotsData, SlottingVar)
+import           Pos.Slotting.MemState.Holder   (SlotsDataRedirect)
+import           Pos.Slotting.Ntp               (NtpSlottingVar, SlotsRedirect)
+import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
+import           Pos.Ssc.Extra                  (SscMemTag, SscState)
+import           Pos.Statistics.MonadStats      (NoStatsT, StatsT)
+import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
+import           Pos.Types                      (HeaderHash)
+import           Pos.Util.Util                  (PowerLift (..))
+import           Pos.Wallet.WalletMode          (BlockchainInfoRedirect, MonadBalances,
+                                                 MonadBlockchainInfo, MonadTxHistory,
+                                                 MonadUpdates, UpdatesRedirect)
+import           Pos.WorkMode.Class             (MinWorkMode, TxpExtra_TMP, WorkMode)
+import           System.Wlog                    (LoggerNameBox (..))
+import           System.Wlog                    (CanLog, HasLoggerName)
 
 ----------------------------------------------------------------------------
 -- Concrete types
 ----------------------------------------------------------------------------
 
 -- | RawRealMode is a basis for `WorkMode`s used to really run system.
-type RawRealMode ssc =
+type RawRealMode' ssc =
     BListenerStub (
     BlockchainInfoRedirect (
     UpdatesRedirect (
@@ -74,6 +91,80 @@ type RawRealMode ssc =
     Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox Production
     )))))))))))))
+
+newtype RawRealMode ssc a = RawRealMode (RawRealMode' ssc a)
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadIO
+    , MonadThrow
+    , MonadCatch
+    , MonadMask
+    , MonadFix
+    )
+type instance ThreadId (RawRealMode ssc) = ThreadId Production
+type instance Promise (RawRealMode ssc) = Promise Production
+type instance SharedAtomicT (RawRealMode ssc) = SharedAtomicT Production
+type instance SharedExclusiveT (RawRealMode ssc) = SharedExclusiveT Production
+type instance Gauge (RawRealMode ssc) = Gauge Production
+type instance ChannelT (RawRealMode ssc) = ChannelT Production
+type instance Distribution (RawRealMode ssc) = Distribution Production
+type instance Counter (RawRealMode ssc) = Counter Production
+
+deriving instance CanLog (RawRealMode ssc)
+deriving instance HasLoggerName (RawRealMode ssc)
+deriving instance MonadSlotsData (RawRealMode ssc)
+deriving instance MonadSlots (RawRealMode ssc)
+deriving instance MonadGStateCore (RawRealMode ssc)
+deriving instance MonadDBPure (RawRealMode ssc)
+deriving instance MonadBListener (RawRealMode ssc)
+deriving instance MonadUpdates (RawRealMode ssc)
+deriving instance SscHelpersClass ssc => MonadBlockchainInfo (RawRealMode ssc)
+deriving instance MonadBalances (RawRealMode ssc)
+deriving instance MonadTxHistory (RawRealMode ssc)
+deriving instance WithPeerState (RawRealMode ssc)
+
+instance PowerLift m (RawRealMode' ssc) => PowerLift m (RawRealMode ssc) where
+  powerLift = RawRealMode . powerLift
+
+instance
+    MonadBlockDBGeneric header blk undo (RawRealMode' ssc) =>
+    MonadBlockDBGeneric header blk undo (RawRealMode ssc) where
+    dbGetHeader = (coerce :: (HeaderHash -> RawRealMode' ssc (Maybe header)) ->
+                             (HeaderHash -> RawRealMode ssc (Maybe header)))
+                  (dbGetHeader @header @blk @undo)
+    dbGetBlock = (coerce :: (HeaderHash -> RawRealMode' ssc (Maybe blk)) ->
+                            (HeaderHash -> RawRealMode ssc (Maybe blk)))
+                 (dbGetBlock @header @blk @undo)
+    dbGetUndo = (coerce :: (HeaderHash -> RawRealMode' ssc (Maybe undo)) ->
+                           (HeaderHash -> RawRealMode ssc (Maybe undo)))
+                 (dbGetUndo @header @blk @undo)
+
+instance
+    ( Mockable d (RawRealMode' ssc)
+    , MFunctor' d (RawRealMode ssc) (RawRealMode' ssc)
+    )
+    => Mockable d (RawRealMode ssc) where
+    liftMockable dmt = RawRealMode $ liftMockable $ hoist' (\(RawRealMode m) -> m) dmt
+
+instance
+    Ether.MonadReader tag r (RawRealMode' ssc) =>
+    Ether.MonadReader tag r (RawRealMode ssc)
+  where
+    ask =
+        (coerce :: RawRealMode' ssc r -> RawRealMode ssc r)
+        (Ether.ask @tag)
+    local =
+        (coerce :: forall a .
+            Lift.Local r (RawRealMode' ssc) a ->
+            Lift.Local r (RawRealMode ssc) a)
+        (Ether.local @tag)
+    reader =
+        (coerce :: forall a .
+            ((r -> a) -> RawRealMode' ssc a) ->
+            ((r -> a) -> RawRealMode ssc a))
+        (Ether.reader @tag)
 
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)

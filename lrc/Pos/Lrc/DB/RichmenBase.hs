@@ -23,7 +23,7 @@ import           Universum
 import           Pos.Binary.Class  (encodeStrict)
 import           Pos.Binary.Core   ()
 import           Pos.Core.Types    (EpochIndex)
-import           Pos.DB.Class      (MonadDBRead, MonadRealDB)
+import           Pos.DB.Class      (MonadDB, MonadDBRead)
 import           Pos.Lrc.Class     (RichmenComponent (..))
 import           Pos.Lrc.DB.Common (getBi, putBi)
 import           Pos.Lrc.Types     (FullRichmenData)
@@ -50,13 +50,13 @@ getRichmenP Proxy = getRichmen @c
 
 putRichmen
     :: forall c m.
-       (RichmenComponent c, MonadRealDB m)
+       (RichmenComponent c, MonadDB m)
     => EpochIndex -> FullRichmenData -> m ()
 putRichmen e = putBi (richmenKey @c e) . (rcToData @c)
 
 putRichmenP
     :: forall c m.
-       (RichmenComponent c, MonadRealDB m)
+       (RichmenComponent c, MonadDB m)
     => Proxy c -> EpochIndex -> FullRichmenData -> m ()
 putRichmenP _ = putRichmen @c
 

@@ -33,7 +33,7 @@ import qualified Ether
 import           Pos.Binary.Core          ()
 import           Pos.Constants            (genesisHeavyDelThd, genesisUpdateVoteThd)
 import           Pos.Context.Functions    (GenesisUtxo (..), genesisUtxoM)
-import           Pos.DB.Class             (MonadDBRead, MonadRealDB)
+import           Pos.DB.Class             (MonadDB, MonadDBRead)
 import           Pos.Genesis              (genesisDelegation)
 import           Pos.Lrc.Class            (RichmenComponent (..),
                                            SomeRichmenComponent (..),
@@ -51,7 +51,7 @@ import           Pos.Types                (EpochIndex, applyCoinPortion)
 ----------------------------------------------------------------------------
 
 prepareLrcRichmen
-    :: (Ether.MonadReader' GenesisUtxo m, MonadRealDB m, MonadDBRead m)
+    :: (Ether.MonadReader' GenesisUtxo m, MonadDB m)
     => m ()
 prepareLrcRichmen = do
     genesisDistribution <- concatMap txOutStake . toList <$> genesisUtxoM
@@ -100,7 +100,7 @@ getRichmenUS :: MonadDBRead m => EpochIndex -> m (Maybe FullRichmenData)
 getRichmenUS epoch = getRichmen @RCUs epoch
 
 putRichmenUS
-    :: (MonadRealDB m)
+    :: MonadDB m
     => EpochIndex -> FullRichmenData -> m ()
 putRichmenUS = putRichmen @RCUs
 
@@ -120,5 +120,5 @@ instance RichmenComponent RCDlg where
 getRichmenDlg :: MonadDBRead m => EpochIndex -> m (Maybe Richmen)
 getRichmenDlg epoch = getRichmen @RCDlg epoch
 
-putRichmenDlg :: MonadRealDB m => EpochIndex -> FullRichmenData -> m ()
+putRichmenDlg :: MonadDB m => EpochIndex -> FullRichmenData -> m ()
 putRichmenDlg = putRichmen @RCDlg

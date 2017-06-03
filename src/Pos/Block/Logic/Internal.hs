@@ -32,7 +32,7 @@ import           Pos.Block.Logic.Slog    (SlogMode, slogApplyBlocks, slogRollbac
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                (IsGenesisHeader, IsMainHeader, epochIndexL,
                                           gbBody, gbHeader)
-import           Pos.DB                  (MonadRealDB, SomeBatchOp (..))
+import           Pos.DB                  (MonadDB, MonadRealDB, SomeBatchOp (..))
 import           Pos.DB.Block            (MonadBlockDB)
 import qualified Pos.DB.GState           as GS
 import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgRollbackBlocks)
@@ -85,6 +85,8 @@ type BlockVerifyMode ssc m = BlockMode ssc m
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
 type BlockApplyMode ssc m
      = ( BlockMode ssc m
+       -- It's obviously needed to write something to DB, for instance.
+       , MonadDB m
        -- Needed for iteration over DB.
        , MonadMask m
        -- Needed to embed custom logic.

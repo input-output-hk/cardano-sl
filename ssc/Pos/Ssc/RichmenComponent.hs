@@ -9,7 +9,7 @@ module Pos.Ssc.RichmenComponent
 import           Universum
 
 import           Pos.Core               (EpochIndex)
-import           Pos.DB.Class           (MonadDBRead, MonadRealDB)
+import           Pos.DB.Class           (MonadDB, MonadDBRead)
 import           Pos.Lrc.Class          (RichmenComponent (..))
 import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
 import           Pos.Lrc.Types          (FullRichmenData, RichmenStake)
@@ -28,6 +28,6 @@ getRichmenSsc :: (MonadDBRead m) => EpochIndex -> m (Maybe RichmenStake)
 getRichmenSsc = getRichmen @RCSsc
 
 putRichmenSsc
-    :: (MonadRealDB m)
+    :: (MonadDB m)
     => EpochIndex -> FullRichmenData -> m ()
 putRichmenSsc = putRichmen @RCSsc

@@ -22,7 +22,7 @@ import           Pos.Binary.Class      (encodeStrict)
 import           Pos.Binary.Core       ()
 import           Pos.Context.Context   (GenesisLeaders)
 import           Pos.Context.Functions (genesisLeadersM)
-import           Pos.DB.Class          (MonadDBRead, MonadRealDB)
+import           Pos.DB.Class          (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common     (getBi, putBi)
 import           Pos.Types             (EpochIndex, SlotLeaders)
 
@@ -37,7 +37,7 @@ getLeaders = getBi . leadersKey
 -- Operations
 ----------------------------------------------------------------------------
 
-putLeaders :: MonadRealDB m => EpochIndex -> SlotLeaders -> m ()
+putLeaders :: MonadDB m => EpochIndex -> SlotLeaders -> m ()
 putLeaders epoch = putBi (leadersKey epoch)
 
 ----------------------------------------------------------------------------
@@ -45,7 +45,7 @@ putLeaders epoch = putBi (leadersKey epoch)
 ----------------------------------------------------------------------------
 
 prepareLrcLeaders ::
-       (Ether.MonadReader' GenesisLeaders m, MonadRealDB m, MonadDBRead m)
+       (Ether.MonadReader' GenesisLeaders m, MonadDB m, MonadDBRead m)
     => m ()
 prepareLrcLeaders =
     whenNothingM_ (getLeaders 0) $

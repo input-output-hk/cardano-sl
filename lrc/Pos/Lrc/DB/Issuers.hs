@@ -16,7 +16,7 @@ import           Universum
 
 import           Pos.Binary.Class  (encodeStrict)
 import           Pos.Core.Types    (Coin, EpochIndex (..), StakeholderId)
-import           Pos.DB.Class      (MonadDBRead, MonadRealDB)
+import           Pos.DB.Class      (MonadDB, MonadDBRead)
 import           Pos.DB.Error      (DBError (DBMalformed))
 import           Pos.Lrc.DB.Common (getBi, putBi)
 import           Pos.Util.Util     (maybeThrow)
@@ -32,14 +32,14 @@ getIssuersStakes epoch =
     maybeThrow (DBMalformed "Issuers part of LRC DB is not initialized") =<<
     getBi (issuersKey epoch)
 
-putIssuersStakes :: MonadRealDB m => EpochIndex -> IssuersStakes -> m ()
+putIssuersStakes :: MonadDB m => EpochIndex -> IssuersStakes -> m ()
 putIssuersStakes epoch = putBi (issuersKey epoch)
 
-prepareLrcIssuers :: (MonadRealDB m, MonadDBRead m) => Coin -> m ()
+prepareLrcIssuers :: MonadDB m => Coin -> m ()
 prepareLrcIssuers _ =
     unlessM isInitialized $ putIssuersStakes (EpochIndex 0) mempty
 
-isInitialized :: (MonadRealDB m, MonadDBRead m) => m Bool
+isInitialized :: MonadDB m => m Bool
 isInitialized = (isJust @(Maybe IssuersStakes)) <$> getBi (issuersKey $ EpochIndex 0)
 
 ----------------------------------------------------------------------------

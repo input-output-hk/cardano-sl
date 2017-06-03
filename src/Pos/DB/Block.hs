@@ -56,7 +56,7 @@ import           Pos.Core                     (HasDifficulty (difficultyL),
                                                IsHeader, headerHash)
 import           Pos.Crypto                   (hashHexF, shortHashF)
 import           Pos.DB.Class                 (DBTag (..), MonadBlockDBGeneric (..),
-                                               MonadRealDB, MonadDBRead, dbGetBlund,
+                                               MonadDBRead, MonadRealDB, dbGetBlund,
                                                getBlockIndexDB, getNodeDBs)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (dbGetBi, rocksDelete, rocksPutBi)

@@ -25,9 +25,9 @@ import           Universum
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core  ()
 import           Pos.Core.Types   (EpochIndex)
-import           Pos.DB.Class     (DBTag (LrcDB), MonadDBRead, MonadRealDB, getLrcDB)
+import           Pos.DB.Class     (DBTag (LrcDB), MonadDB (dbDelete), MonadDBRead)
 import           Pos.DB.Error     (DBError (DBMalformed))
-import           Pos.DB.Functions (dbGetBi, rocksDelete, rocksPutBi)
+import           Pos.DB.Functions (dbGetBi, dbPutBi)
 import           Pos.Util.Util    (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -40,12 +40,12 @@ getBi
 getBi = dbGetBi LrcDB
 
 putBi
-    :: (MonadRealDB m, Bi v)
+    :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
-putBi k v = rocksPutBi k v =<< getLrcDB
+putBi = dbPutBi LrcDB
 
-delete :: (MonadRealDB m) => ByteString -> m ()
-delete k = rocksDelete k =<< getLrcDB
+delete :: (MonadDB m) => ByteString -> m ()
+delete = dbDelete LrcDB
 
 ----------------------------------------------------------------------------
 -- Common getters
@@ -66,7 +66,7 @@ getEpochDefault = fromMaybe 0 <$> getEpochMaybe
 
 -- | Put epoch up to which all LRC data is computed. Caller must ensure
 -- that all LRC data for this epoch has been put already.
-putEpoch :: MonadRealDB m => EpochIndex -> m ()
+putEpoch :: MonadDB m => EpochIndex -> m ()
 putEpoch = putBi epochKey
 
 ----------------------------------------------------------------------------
@@ -74,7 +74,7 @@ putEpoch = putBi epochKey
 ----------------------------------------------------------------------------
 
 -- | Put missing initial common data into LRC DB.
-prepareLrcCommon :: (MonadRealDB m, MonadDBRead m) => m ()
+prepareLrcCommon :: (MonadDB m, MonadDBRead m) => m ()
 prepareLrcCommon =
     whenNothingM_ getEpochMaybe $
         putEpoch 0

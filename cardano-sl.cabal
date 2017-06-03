@@ -275,6 +275,8 @@ library
                         Pos.Update.Poll.DBPoll
                         Pos.Update.Worker
 
+                        Pos.Recovery.Instance
+
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer
                         Pos.Explorer.Core

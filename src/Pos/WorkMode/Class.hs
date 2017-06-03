@@ -35,6 +35,7 @@ import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
 import           Pos.Core                    (MonadPrimaryKey)
+import           Pos.Recovery.Info           (MonadRecoveryInfo)
 import           Pos.Reporting               (MonadReportingMem)
 import           Pos.Security.Params         (SecurityParams)
 import           Pos.Shutdown                (MonadShutdownMem)
@@ -73,6 +74,7 @@ type WorkMode ssc m
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
       , MonadBlockRetrievalQueue ssc m
+      , MonadRecoveryInfo m
       , MonadRecoveryHeader ssc m
       , MonadProgressHeader ssc m
       , MonadLastKnownHeader ssc m

@@ -68,7 +68,10 @@ library
                         Pos.Communication.Relay.Util
                         Pos.Communication.Util
 
-                        -- Pos.Communication
+                        -- Recovery
+                        Pos.Recovery.Info
+
+                        -- Pos.Shutdown
                         Pos.Shutdown
                         Pos.Shutdown.Class
                         Pos.Shutdown.Logic

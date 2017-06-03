@@ -12,7 +12,6 @@ module Pos.Block.Worker
 import           Universum
 
 import           Control.Lens                (ix)
-import qualified Ether
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
 import           Serokell.Util               (listJson, pairF)

@@ -14,6 +14,7 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Ether
 
+import           Pos.DB.BatchOp               (rocksWriteBatch)
 import           Pos.DB.Class                 (MonadDB (..), MonadDBRead (..),
                                                MonadRealDB, dbTagToLens, getNodeDBs)
 import           Pos.DB.Functions             (rocksDelete, rocksGetBytes, rocksPutBytes)
@@ -41,6 +42,9 @@ instance
     dbPut tag key val = do
         db <- view (dbTagToLens tag) <$> getNodeDBs
         rocksPutBytes key val db
+    dbWriteBatch tag batch = do
+        db <- view (dbTagToLens tag) <$> getNodeDBs
+        rocksWriteBatch batch db
     dbDelete tag key = do
         db <- view (dbTagToLens tag) <$> getNodeDBs
         rocksDelete key db

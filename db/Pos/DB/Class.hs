@@ -117,6 +117,21 @@ class MonadDBRead m => MonadDB m where
     -- associated with given key into DB corresponding to given tag.
     dbPut :: DBTag -> ByteString -> ByteString -> m ()
 
+    -- | Write batch of operations into DB corresponding to given
+    -- tag. This write is atomic.
+    --
+    -- There are multiple candidates for a type representing batch
+    -- operation, for instance:
+    -- • Rocks.BatchOp is a good candidate because it's exactly what we want
+    -- for pure implementation and it can be used as is for RocksDB.
+    -- • We could define our own type for this class, but it would be an
+    -- overkill.
+    -- • 'SomeBatchOp' could also be used, but it seems to be overcomplication
+    -- for such simple interface.
+    --
+    -- So a list of 'Rocks.BatchOp' was chosen.
+    dbWriteBatch :: DBTag -> [Rocks.BatchOp] -> m ()
+
     -- | This function takes tag and key and deletes value associated
     -- with given key from DB corresponding to given tag.
     dbDelete :: DBTag -> ByteString -> m ()
@@ -124,6 +139,10 @@ class MonadDBRead m => MonadDB m where
     default dbPut :: (MonadTrans t, MonadDB n, t n ~ m) =>
         DBTag -> ByteString -> ByteString -> m ()
     dbPut = lift ... dbPut
+
+    default dbWriteBatch :: (MonadTrans t, MonadDB n, t n ~ m) =>
+        DBTag -> [Rocks.BatchOp] -> m ()
+    dbWriteBatch = lift ... dbWriteBatch
 
     default dbDelete :: (MonadTrans t, MonadDB n, t n ~ m) =>
         DBTag -> ByteString -> m ()

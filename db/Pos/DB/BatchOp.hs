@@ -6,6 +6,7 @@ module Pos.DB.BatchOp
        ( RocksBatchOp (..)
        , SomeBatchOp (..)
        , SomePrettyBatchOp (..)
+       , dbWriteBatch'
        , rocksWriteBatch
        ) where
 
@@ -16,6 +17,7 @@ import qualified Database.RocksDB    as Rocks
 import           Formatting          (bprint)
 import           Serokell.Util.Text  (listJson)
 
+import           Pos.DB.Class        (DBTag, MonadDB (dbWriteBatch))
 import           Pos.DB.Types        (DB (..))
 
 class RocksBatchOp a where
@@ -69,7 +71,13 @@ instance RocksBatchOp a => RocksBatchOp (NonEmpty a) where
 instance Buildable [SomePrettyBatchOp] where
     build = bprint listJson
 
--- | Write Batch encapsulation
+-- | Write a batch of some operations using 'MonadDB' interface.
+-- The only difference from 'dbWriteBatch' is that this function
+-- works with whatever types which are instances of 'RocksBatchOp'.
+dbWriteBatch' :: (RocksBatchOp a, MonadDB m) => DBTag -> [a] -> m ()
+dbWriteBatch' tag batch = dbWriteBatch tag (concatMap toBatchOp batch)
+
+-- | Write a batch of some operations to RocksDB.
 rocksWriteBatch :: (RocksBatchOp a, MonadIO m) => [a] -> DB -> m ()
 rocksWriteBatch batch DB {..} =
     Rocks.write rocksDB rocksWriteOpts (concatMap toBatchOp batch)

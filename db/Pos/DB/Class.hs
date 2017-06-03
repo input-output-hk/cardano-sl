@@ -40,8 +40,9 @@ module Pos.DB.Class
          DBTag (..)
        , dbTagToLens
        , MonadDBRead (..)
+       , MonadDB (..)
 
-         -- * GState Core
+         -- * GState
        , MonadGState (..)
        , gsMaxBlockSize
        , gsMaxHeaderSize
@@ -95,8 +96,8 @@ dbTagToLens GStateDB     = gStateDB
 dbTagToLens LrcDB        = lrcDB
 dbTagToLens MiscDB       = miscDB
 
--- | Pure interface to the database.
--- TODO: add some ways to put something.
+-- | Pure read-only interface to the database.
+-- TODO: add iteration, maybe something else.
 class MonadThrow m => MonadDBRead m where
     dbGet :: DBTag -> ByteString -> m (Maybe ByteString)
 
@@ -107,6 +108,19 @@ class MonadThrow m => MonadDBRead m where
 instance {-# OVERLAPPABLE #-}
     (MonadDBRead m, MonadTrans t, MonadThrow (t m)) =>
         MonadDBRead (t m)
+
+-- | Pure interface to the database. Combines read-only interface and
+-- ability to put raw bytes.
+class MonadDBRead m => MonadDB m where
+    dbPut :: DBTag -> ByteString -> ByteString -> m ()
+
+    default dbPut :: (MonadTrans t, MonadDB n, t n ~ m) =>
+        DBTag -> ByteString -> ByteString -> m ()
+    dbPut = lift ... dbPut
+
+instance {-# OVERLAPPABLE #-}
+    (MonadDB m, MonadTrans t, MonadThrow (t m)) =>
+        MonadDB (t m)
 
 ----------------------------------------------------------------------------
 -- GState abstraction

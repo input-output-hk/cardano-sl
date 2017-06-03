@@ -39,7 +39,7 @@ import           Pos.Core                     (headerHash)
 import           Pos.DB.Block                 (MonadBlockDB, loadBlundsByDepth,
                                                loadBlundsWhile, prepareBlockDB)
 import           Pos.DB.Class                 (MonadRealDB, MonadDBRead (..),
-                                               MonadGStateCore (..))
+                                               MonadGState (..))
 import           Pos.DB.Functions             (openDB)
 import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common         (getTip, getTipBlock, getTipHeader)
@@ -136,7 +136,7 @@ ensureDirectoryExists
 ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 
 ----------------------------------------------------------------------------
--- MonadGStateCore instance
+-- MonadGState instance
 ----------------------------------------------------------------------------
 
 data GStateCoreRedirectTag
@@ -149,6 +149,6 @@ runGStateCoreRedirect = coerce
 
 instance
     (MonadDBRead m, t ~ IdentityT) =>
-        MonadGStateCore (Ether.TaggedTrans GStateCoreRedirectTag t m)
+        MonadGState (Ether.TaggedTrans GStateCoreRedirectTag t m)
   where
     gsAdoptedBVData = getAdoptedBVData

@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Keeps instance of `MonadGStateCore`.
+-- | Keeps instance of `MonadGState`.
 
 module Pos.Wallet.State.Core
        ( GStateCoreWalletRedirect
@@ -14,7 +14,7 @@ import           Data.Coerce                  (coerce)
 import qualified Ether
 
 import qualified Pos.Constants                as Const
-import           Pos.DB.Class                 (MonadGStateCore (..))
+import           Pos.DB.Class                 (MonadGState (..))
 import           Pos.Wallet.State.Acidic      (WalletState)
 
 data GStateCoreWalletRedirectTag
@@ -27,5 +27,5 @@ runGStateCoreWalletRedirect = coerce
 
 -- Currently 'WalletState' doesn't maintain block version data.
 instance (Monad m, t ~ IdentityT, Ether.MonadReader' WalletState m) =>
-         MonadGStateCore (Ether.TaggedTrans GStateCoreWalletRedirectTag t m) where
+         MonadGState (Ether.TaggedTrans GStateCoreWalletRedirectTag t m) where
     gsAdoptedBVData = pure Const.genesisBlockVersionData

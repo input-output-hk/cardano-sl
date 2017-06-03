@@ -25,7 +25,7 @@ import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.Communication.Specs    (sendTxOuts)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
-import           Pos.DB.Class               (MonadGStateCore)
+import           Pos.DB.Class               (MonadGState)
 import           Pos.Txp.Core               (TxAux (..), TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (Address, Coin, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
@@ -37,7 +37,7 @@ type TxMode m
       , MonadTxHistory m
       , MonadMockable m
       , MonadMask m
-      , MonadGStateCore m
+      , MonadGState m
       )
 
 submitAndSave
@@ -101,7 +101,7 @@ submitRedemptionTx sendActions rsk na output = do
 
 -- | Send the ready-to-use transaction
 submitTxRaw
-    :: (MinWorkMode m, MonadGStateCore m)
+    :: (MinWorkMode m, MonadGState m)
     => SendActions m -> [NodeId] -> TxAux -> m ()
 submitTxRaw sa na txAux@TxAux {..} = do
     let txId = hash taTx

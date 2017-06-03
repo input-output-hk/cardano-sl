@@ -19,11 +19,11 @@
 -- suitable for pure testing.
 -- TODO: add put to this monad (actually putBatch is more important).
 --
--- 'MonadGStateCore' contains functions to retrieve some data from
+-- 'MonadGState' contains functions to retrieve some data from
 -- GState DB without knowledge of where this data is located (where in
 -- code and where in DB, i. e. by which key). For example, if X wants
 -- to get data maintained by Y and doesn't know about Y, it can use
--- 'MonadGStateCore' (which is at pretty low level).
+-- 'MonadGState' (which is at pretty low level).
 --
 -- 'MonadBlockDBGeneric' contains functions which provide access to Block DB.
 -- For this DB we don't want to use 'MonadRealDB' for several reasons:
@@ -42,7 +42,7 @@ module Pos.DB.Class
        , MonadDBRead (..)
 
          -- * GState Core
-       , MonadGStateCore (..)
+       , MonadGState (..)
        , gsMaxBlockSize
        , gsMaxHeaderSize
        , gsMaxTxSize
@@ -116,32 +116,33 @@ instance {-# OVERLAPPABLE #-}
 -- The idea is that actual getters may be defined at high levels, but
 -- may be needed at lower levels.
 --
--- This class doesn't have a 'MonadRealDB' constraint, because alternative
--- DBs my be used to provide this data. There is also 'MonadRealDBCore' constraint
--- which unites 'MonadRealDB' and 'GStateCore'.
-class Monad m => MonadGStateCore m where
+-- This class doesn't have a 'MonadRealDB' constraint, because
+-- alternative DBs my be used to provide this data. There is also
+-- 'MonadRealDBCore' constraint which unites 'MonadRealDB' and
+-- 'MonadGState'.
+class Monad m => MonadGState m where
     gsAdoptedBVData :: m BlockVersionData
 
 instance {-# OVERLAPPABLE #-}
-    (MonadGStateCore m, MonadTrans t, LiftLocal t,
+    (MonadGState m, MonadTrans t, LiftLocal t,
      Monad (t m)) =>
-        MonadGStateCore (t m)
+        MonadGState (t m)
   where
     gsAdoptedBVData = lift gsAdoptedBVData
 
-gsMaxBlockSize :: MonadGStateCore m => m Byte
+gsMaxBlockSize :: MonadGState m => m Byte
 gsMaxBlockSize = bvdMaxBlockSize <$> gsAdoptedBVData
 
-gsMaxHeaderSize :: MonadGStateCore m => m Byte
+gsMaxHeaderSize :: MonadGState m => m Byte
 gsMaxHeaderSize = bvdMaxHeaderSize <$> gsAdoptedBVData
 
-gsMaxTxSize :: MonadGStateCore m => m Byte
+gsMaxTxSize :: MonadGState m => m Byte
 gsMaxTxSize = bvdMaxTxSize <$> gsAdoptedBVData
 
-gsMaxProposalSize :: MonadGStateCore m => m Byte
+gsMaxProposalSize :: MonadGState m => m Byte
 gsMaxProposalSize = bvdMaxProposalSize <$> gsAdoptedBVData
 
-type MonadRealDBCore m = (MonadRealDB m, MonadGStateCore m)
+type MonadRealDBCore m = (MonadRealDB m, MonadGState m)
 
 ----------------------------------------------------------------------------
 -- Block DB abstraction

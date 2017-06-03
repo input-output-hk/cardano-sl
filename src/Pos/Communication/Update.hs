@@ -14,13 +14,13 @@ import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
 import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.Crypto                 (SafeSigner, SignTag (SignUSVote), hash,
                                              safeSign, safeToPublic)
-import           Pos.DB.Class               (MonadGStateCore)
+import           Pos.DB.Class               (MonadGState)
 import           Pos.Update                 (UpdateProposal, UpdateVote (..))
 import           Pos.WorkMode.Class         (MinWorkMode)
 
 -- | Send UpdateVote to given addresses
 submitVote
-    :: (MinWorkMode m, MonadGStateCore m)
+    :: (MinWorkMode m, MonadGState m)
     => SendActions m
     -> [NodeId]
     -> UpdateVote
@@ -31,7 +31,7 @@ submitVote sendActions na voteUpd = do
 
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
-    :: (MinWorkMode m, MonadGStateCore m)
+    :: (MinWorkMode m, MonadGState m)
     => SendActions m
     -> SafeSigner
     -> [NodeId]

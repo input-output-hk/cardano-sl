@@ -34,7 +34,7 @@ import           Pos.Core                           (BlockVersionData (..), Epoc
                                                      SlotId (..), StakeholderId)
 import           Pos.Core.Constants                 (memPoolLimitRatio)
 import           Pos.DB                             (MonadRealDB,
-                                                     MonadGStateCore (gsAdoptedBVData))
+                                                     MonadGState (gsAdoptedBVData))
 import           Pos.Lrc.Types                      (RichmenStake)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
@@ -157,7 +157,7 @@ sscIsDataUseful tag id =
 type GtDataProcessingMode m =
     ( WithLogger m
     , MonadRealDB m          -- to get richmen
-    , MonadGStateCore m  -- to get block size limit
+    , MonadGState m  -- to get block size limit
     , MonadSlots m
     , MonadSscMem SscGodTossing m
     , MonadError TossVerFailure m

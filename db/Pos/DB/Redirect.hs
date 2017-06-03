@@ -14,9 +14,9 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Ether
 
-import           Pos.DB.Class                 (MonadRealDB, MonadDBRead (..), dbTagToLens,
-                                               getNodeDBs)
-import           Pos.DB.Functions             (rocksGetBytes)
+import           Pos.DB.Class                 (MonadDB (..), MonadDBRead (..),
+                                               MonadRealDB, dbTagToLens, getNodeDBs)
+import           Pos.DB.Functions             (rocksGetBytes, rocksPutBytes)
 
 data DBPureRedirectTag
 
@@ -33,3 +33,11 @@ instance
     dbGet tag key = do
         db <- view (dbTagToLens tag) <$> getNodeDBs
         rocksGetBytes key db
+
+instance
+    (MonadRealDB m, t ~ IdentityT) =>
+        MonadDB (Ether.TaggedTrans DBPureRedirectTag t m)
+  where
+    dbPut tag key val = do
+        db <- view (dbTagToLens tag) <$> getNodeDBs
+        rocksPutBytes key val db

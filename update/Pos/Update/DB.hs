@@ -54,11 +54,10 @@ import           Pos.Core                   (ApplicationName, BlockVersion,
                                              Timestamp (..))
 import           Pos.Core.Constants         (epochSlots)
 import           Pos.Crypto                 (hash)
-import           Pos.DB                     (MonadDBRead, MonadRealDB, RocksBatchOp (..),
-                                             encodeWithKeyPrefix, getGStateDB,
-                                             rocksWriteBatch)
+import           Pos.DB                     (MonadDB, MonadDBRead, MonadRealDB,
+                                             RocksBatchOp (..), encodeWithKeyPrefix)
 import           Pos.DB.Error               (DBError (DBMalformed))
-import           Pos.DB.GState.Common       (gsGetBi)
+import           Pos.DB.GState.Common       (gsGetBi, writeBatchGState)
 import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
                                              DBnMapIterator, IterType, runDBnIterator,
                                              runDBnMapIterator)
@@ -183,7 +182,7 @@ instance RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUS :: (MonadRealDB m, MonadDBRead m) => Timestamp -> m ()
+prepareGStateUS :: (MonadDB m) => Timestamp -> m ()
 prepareGStateUS systemStart =
     unlessM isInitialized $ do
         let genesisSlottingData = SlottingData
@@ -202,14 +201,13 @@ prepareGStateUS systemStart =
                 { esdSlotDuration = genesisSlotDuration
                 , esdStart        = epoch1Start
                 }
-        db <- getGStateDB
-        flip rocksWriteBatch db $
+        writeBatchGState $
             PutSlottingData genesisSlottingData :
             PutEpochProposers mempty :
             SetAdopted genesisBlockVersion genesisBlockVersionData :
             map ConfirmVersion genesisSoftwareVersions
 
-isInitialized :: (MonadRealDB m, MonadDBRead m) => m Bool
+isInitialized :: (MonadDBRead m) => m Bool
 isInitialized = isJust <$> getAdoptedBVFullMaybe
 
 ----------------------------------------------------------------------------

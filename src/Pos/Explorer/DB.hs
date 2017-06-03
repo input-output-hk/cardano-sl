@@ -20,7 +20,7 @@ import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core              (unsafeAddCoin)
 import           Pos.Core.Types        (Address, Coin)
 import           Pos.DB                (DBTag (GStateDB), MonadDB, MonadDBRead (dbGet),
-                                        MonadRealDB, RocksBatchOp (..))
+                                        RocksBatchOp (..))
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
 import           Pos.Txp.Core          (TxId, TxOutAux (..), _TxOut)
@@ -45,7 +45,7 @@ getAddrBalance = gsGetBi . addrBalancePrefix
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareExplorerDB :: (Ether.MonadReader' GenesisUtxo m, MonadRealDB m, MonadDB m) => m ()
+prepareExplorerDB :: (Ether.MonadReader' GenesisUtxo m, MonadDB m) => m ()
 prepareExplorerDB =
     unlessM areBalancesInitialized $ do
         genesisUtxo <- genesisUtxoM
@@ -61,12 +61,12 @@ areBalancesInitialized = isJust <$> dbGet GStateDB balancesInitFlag
 putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
 
-putGenesisBalances :: MonadRealDB m => Utxo -> m ()
-putGenesisBalances genesisUtxo = do
-    let txOuts = map (view _TxOut . toaOut) . M.elems $ genesisUtxo
+putGenesisBalances :: MonadDB m => Utxo -> m ()
+putGenesisBalances genesisUtxo =
     writeBatchGState $
-        map (uncurry PutAddrBalance) $ combineWith unsafeAddCoin txOuts
+    map (uncurry PutAddrBalance) $ combineWith unsafeAddCoin txOuts
   where
+    txOuts = map (view _TxOut . toaOut) . M.elems $ genesisUtxo
     combineWith :: (Eq a, Hashable a) => (b -> b -> b) -> [(a, b)] -> [(a, b)]
     combineWith func = HM.toList . HM.fromListWith func
 

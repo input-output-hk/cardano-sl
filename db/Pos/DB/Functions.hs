@@ -21,7 +21,6 @@ module Pos.DB.Functions
        , rocksDecodeWP
        , rocksDecodeMaybe
        , rocksDecodeMaybeWP
-       , rocksDecodeKeyValMaybe
        ) where
 
 import           Universum
@@ -107,12 +106,6 @@ rocksDecodeWP key
         key
     | otherwise = onParseError key "unexpected prefix"
 
--- rocksDecodeKeyValWP :: forall i m . (MonadThrow m, DBIteratorClass i,
---                         Bi (IterKey i), Bi (IterValue i))
---                     => (ByteString, ByteString) -> m (IterKey i, IterValue i)
--- rocksDecodeKeyValWP (k, v) =
---     (,) <$> rocksDecodeWP @i k <*> rocksDecode (ToDecodeValue k v)
-
 -- Parse maybe
 rocksDecodeMaybeWP
     :: forall i . (DBIteratorClass i, Bi (IterKey i))
@@ -127,11 +120,6 @@ rocksDecodeMaybeWP s
 
 rocksDecodeMaybe :: (Bi v) => ByteString -> Maybe v
 rocksDecodeMaybe = rightToMaybe . decodeFull . BSL.fromStrict
-
-rocksDecodeKeyValMaybe
-    :: (Bi k, Bi v)
-    => (ByteString, ByteString) -> Maybe (k, v)
-rocksDecodeKeyValMaybe (k, v) = (,) <$> rocksDecodeMaybe k <*> rocksDecodeMaybe v
 
 -- | Write ByteString to RocksDB for given key.
 rocksPutBytes :: (MonadIO m) => ByteString -> ByteString -> DB -> m ()

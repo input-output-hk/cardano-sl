@@ -8,8 +8,7 @@ import           Universum
 
 import           Control.Monad.Catch         (MonadMask)
 import qualified Ether
-import           Mockable                    (Mockable, ThreadId)
-import qualified Mockable                    as M
+import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Communication.PeerState (WithPeerState)
@@ -30,21 +29,8 @@ type SscMode ssc m
     = ( WithLogger m
       , MonadIO m
       , MonadMask m
+      , MonadMockable m
       , MonadSlots m
-      , Mockable M.CurrentTime m      -- TODO: if I use Mockables, GHC fails
-      , Mockable M.Delay m
-      , Mockable M.SharedAtomic m
-      , Mockable M.SharedExclusive m
-      , Mockable M.Fork m
-      , Mockable M.Concurrently m
-      , Mockable M.Async m
-      , Mockable M.Bracket m
-      , Mockable M.Channel m
-      , Mockable M.Throw m
-      , Mockable M.Catch m
-      , Mockable M.Metrics m
-      , Ord (ThreadId m)              -- TODO: Why are these needed?
-      , Show (ThreadId m)
       , MonadDBCore m
       , MonadDBPure m
       , MonadSscMem ssc m

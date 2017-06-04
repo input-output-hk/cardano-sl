@@ -15,7 +15,7 @@ import           Control.Monad.Except                  (runExceptT)
 import           Control.Monad.Trans.Maybe             (runMaybeT)
 import qualified Data.HashMap.Strict                   as HM
 import qualified Data.List.NonEmpty                    as NE
-import           Data.Tagged                           (Tagged (..))
+import           Data.Tagged                           (Tagged)
 import           Data.Time.Units                       (Microsecond, Millisecond,
                                                         convertUnit)
 import qualified Ether
@@ -91,8 +91,8 @@ import           Pos.Util.Util                         (getKeys, inAssertMode,
                                                         leftToPanic)
 
 instance GtMessageConstraints => SscWorkersClass SscGodTossing where
-    sscWorkers = Tagged $ first pure onNewSlotSsc
-    sscLrcConsumers = Tagged [gtLrcConsumer]
+    sscWorkers = first pure onNewSlotSsc
+    sscLrcConsumers = [gtLrcConsumer]
 
 -- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert

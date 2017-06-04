@@ -1,10 +1,10 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
 -- | General purpose workers for @SSC@ storage.
 
 module Pos.Ssc.Class.Workers
        ( SscWorkersClass(..)
        ) where
-
-import           Data.Tagged                (Tagged)
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
 import           Pos.Lrc.Consumer           (LrcConsumer)
@@ -16,11 +16,9 @@ import           Pos.Ssc.Mode               (SscMode)
 class Ssc ssc => SscWorkersClass ssc where
 
     -- | All workers specific to SSC.
-    sscWorkers
-        :: SscMode ssc m
-        => Tagged ssc ([WorkerSpec m], OutSpecs)
+    sscWorkers :: SscMode ssc m
+               => ([WorkerSpec m], OutSpecs)
 
     -- | LRC consumers. Note that this uses 'LrcMode', not 'SscMode'.
-    sscLrcConsumers
-        :: LrcMode ssc m
-        => Tagged ssc [LrcConsumer m]
+    sscLrcConsumers :: LrcMode ssc m
+                    => [LrcConsumer m]

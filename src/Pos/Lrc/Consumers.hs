@@ -9,8 +9,6 @@ module Pos.Lrc.Consumers
 
 import           Universum
 
-import           Data.Tagged           (untag)
-
 import           Pos.Delegation.Lrc    (delegationLrcConsumer)
 import           Pos.Lrc.Consumer      (LrcConsumer)
 import           Pos.Lrc.Mode          (LrcMode)
@@ -22,4 +20,4 @@ allLrcConsumers
        (LrcMode ssc m, SscWorkersClass ssc)
     => [LrcConsumer m]
 allLrcConsumers = [delegationLrcConsumer, usLrcConsumer] ++
-                  untag (sscLrcConsumers @ssc)
+                  sscLrcConsumers @ssc

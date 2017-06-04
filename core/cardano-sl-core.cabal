@@ -99,7 +99,7 @@ library
                     , base
                     , base58-bytestring
                     , concurrent-extra
-                    , ether >= 0.5
+                    , ether >= 0.5.1
                     , file-embed
                     , log-warper >= 1.0.3
                     , mmorph

@@ -51,6 +51,7 @@ runWStaticMode
     -> Production a
 runWStaticMode db conn =
     runRawSBasedMode (runWalletWebDB db . runWalletWS conn . getNoStatsT) (lift . lift . lift)
+{-# NOINLINE runWStaticMode #-}
 
 walletServeWebFullS
     :: SscConstraint WalletSscType

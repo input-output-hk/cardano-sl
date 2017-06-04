@@ -40,8 +40,7 @@ import           System.Wlog              (NamedPureLogger, WithLogger,
 
 import           Pos.Core                 (EpochIndex, HeaderHash, IsHeader, SharedSeed,
                                            SlotId, epochIndexL, headerHash)
-import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead, MonadRealDB,
-                                           SomeBatchOp)
+import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead, SomeBatchOp)
 import           Pos.DB.GState.Common     (getTipHeader)
 import           Pos.Exception            (assertionFailed)
 import           Pos.Lrc.Context          (LrcContext, lrcActionOnEpochReason)
@@ -142,14 +141,14 @@ sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 -- releasing lock on block application.
 sscNormalize
     :: forall ssc m.
-       ( MonadRealDB m
-       , MonadDBRead m
+       ( MonadDBRead m
        , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
        , MonadSscMem ssc m
        , SscLocalDataClass ssc
        , Ether.MonadReader' LrcContext m
        , SscHelpersClass ssc
        , WithLogger m
+       , MonadIO m
        )
     => m ()
 sscNormalize = do
@@ -184,13 +183,10 @@ sscResetLocal = do
 -- GState
 ----------------------------------------------------------------------------
 
--- 'MonadIO' (part of 'MonadRealDB')  is needed only for 'TVar'.
--- 'MonadThrow' (part of 'MonadRealDB') is needed only in 'ApplyMode'.
--- 'MonadRealDB' is needed only to get richmen.
--- We can try to eliminate these constraints later.
+-- 'MonadIO' is needed only for 'TVar' (I hope).
 type SscGlobalApplyMode ssc m =
     (MonadSscMem ssc m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
-     MonadDBRead m, MonadRealDB m, Ether.MonadReader' LrcContext m)
+     MonadDBRead m, MonadIO m, Ether.MonadReader' LrcContext m)
 type SscGlobalVerifyMode ssc m =
     (MonadSscMem ssc m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
      MonadDBRead m, Ether.MonadReader' LrcContext m, MonadIO m,

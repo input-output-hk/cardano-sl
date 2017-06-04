@@ -115,8 +115,9 @@ import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
 import           Pos.Worker                   (allWorkersCount)
 import           Pos.WorkMode                 (ProductionMode, RawRealMode (..),
-                                               RawRealModeK, RawRealModeS, ServiceMode(..),
-                                               StaticMode, StatsMode, WorkMode)
+                                               RawRealModeK, RawRealModeS,
+                                               ServiceMode (..), StaticMode, StatsMode,
+                                               WorkMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}

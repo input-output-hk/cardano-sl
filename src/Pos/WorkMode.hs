@@ -3,8 +3,6 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
-{-# OPTIONS -fno-cross-module-specialise #-}
-
 module Pos.WorkMode
        ( WorkMode
        , MinWorkMode

@@ -28,11 +28,10 @@ module Pos.DB.Functions
        ) where
 
 import qualified Data.ByteString       as BS (drop, isPrefixOf)
-import qualified Data.ByteString.Lazy  as BSL
 import           Data.Default          (def)
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB      as Rocks
-import           Formatting            (bprint, sformat, shown, string, (%))
+import           Formatting            (bprint, sformat, shown, stext, (%))
 import           Serokell.Util.Text    (listJson)
 import           Universum
 
@@ -85,14 +84,14 @@ data ToDecode
 
 rocksDecode :: (Bi v, MonadThrow m) => ToDecode -> m v
 rocksDecode (ToDecodeKey key) =
-    either (onParseError key) pure . decodeFull . BSL.fromStrict $ key
+    either (onParseError key) pure . decodeFull $ key
 rocksDecode (ToDecodeValue key val) =
-    either (onParseError key) pure . decodeFull . BSL.fromStrict $ val
+    either (onParseError key) pure . decodeFull $ val
 
-onParseError :: (MonadThrow m) => ByteString -> String -> m a
+onParseError :: (MonadThrow m) => ByteString -> Text -> m a
 onParseError rawKey errMsg = throwM $ DBMalformed $ sformat fmt rawKey errMsg
   where
-    fmt = "rocksGetBi: stored value is malformed, key = "%shown%", err: "%string
+    fmt = "rocksGetBi: stored value is malformed, key = "%shown%", err: "%stext
 
 -- with prefix
 rocksDecodeWP
@@ -102,7 +101,6 @@ rocksDecodeWP key
     | BS.isPrefixOf (iterKeyPrefix @i Proxy) key =
         either (onParseError key) pure .
         decodeFull .
-        BSL.fromStrict .
         BS.drop (length $ iterKeyPrefix @i Proxy) $
         key
     | otherwise = onParseError key "unexpected prefix"
@@ -121,12 +119,11 @@ rocksDecodeMaybeWP s
     | BS.isPrefixOf (iterKeyPrefix @i Proxy) s =
           rightToMaybe .
           decodeFull .
-          BSL.fromStrict .
           BS.drop (length $ iterKeyPrefix @i Proxy) $ s
     | otherwise = Nothing
 
 rocksDecodeMaybe :: (Bi v) => ByteString -> Maybe v
-rocksDecodeMaybe = rightToMaybe . decodeFull . BSL.fromStrict
+rocksDecodeMaybe = rightToMaybe . decodeFull
 
 rocksDecodeKeyValMaybe
     :: (Bi k, Bi v)

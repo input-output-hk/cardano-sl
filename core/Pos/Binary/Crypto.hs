@@ -8,34 +8,37 @@ module Pos.Binary.Crypto () where
 
 import           Universum
 
-import qualified Cardano.Crypto.Wallet    as CC
-import qualified Crypto.ECC.Edwards25519  as Ed25519
-import           Crypto.Hash              (digestFromByteString, hashDigestSize)
-import qualified Crypto.PVSS              as Pvss
-import qualified Crypto.Sign.Ed25519      as EdStandard
-import qualified Data.ByteString          as BS
-import qualified Data.Binary              as Binary
-import           Data.Binary.Get          (getByteString, label)
-import           Data.Binary.Put          (putByteString)
-import qualified Data.ByteArray           as ByteArray
-import qualified Data.ByteString          as BS
-import           Data.SafeCopy            (SafeCopy (..))
+import qualified Cardano.Crypto.Wallet      as CC
+import qualified Crypto.ECC.Edwards25519    as Ed25519
+import           Crypto.Hash                (digestFromByteString, hashDigestSize)
+import qualified Crypto.PVSS                as Pvss
+import qualified Crypto.Sign.Ed25519        as EdStandard
+import qualified Data.Binary                as Binary
+import qualified Data.ByteArray             as ByteArray
+import qualified Data.ByteString            as BS
+import qualified Data.ByteString            as BS
 import           Data.Functor.Contravariant (contramap)
-import           Formatting               (int, sformat, stext, (%))
+import           Data.SafeCopy              (SafeCopy (..))
+import qualified Data.Store                 as Store
+import           Formatting                 (int, sformat, stext, (%))
 
-import           Pos.Binary.Class         (AsBinary (..), Bi (..), getCopyBi, putCopyBi, Size(..), StaticSize(..))
-import           Pos.Crypto.Hashing       (AbstractHash (..), Hash, HashAlgorithm,
-                                           WithHash (..), withHash, hashDigestSize', reifyHashDigestSize)
-import           Pos.Crypto.HD            (HDAddressPayload (..))
-import           Pos.Crypto.RedeemSigning (RedeemPublicKey (..), RedeemSecretKey (..),
-                                           RedeemSignature (..))
-import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..), PassPhrase)
-import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
-                                           SecretSharingExtra (..), Share (..),
-                                           VssKeyPair (..), VssPublicKey (..))
-import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
-                                           ProxySignature (..), PublicKey (..),
-                                           SecretKey (..), Signature (..), Signed (..))
+import           Pos.Binary.Class           (AsBinary (..), Bi (..), Size (..),
+                                             StaticSize (..), getByteString, getCopyBi,
+                                             label, putByteString, putCopyBi)
+import qualified Pos.Binary.Class           as Bi
+import           Pos.Crypto.Hashing         (AbstractHash (..), Hash, HashAlgorithm,
+                                             WithHash (..), hashDigestSize',
+                                             reifyHashDigestSize, withHash)
+import           Pos.Crypto.HD              (HDAddressPayload (..))
+import           Pos.Crypto.RedeemSigning   (RedeemPublicKey (..), RedeemSecretKey (..),
+                                             RedeemSignature (..))
+import           Pos.Crypto.SafeSigning     (EncryptedSecretKey (..), PassPhrase)
+import           Pos.Crypto.SecretSharing   (EncShare (..), Secret (..), SecretProof (..),
+                                             SecretSharingExtra (..), Share (..),
+                                             VssKeyPair (..), VssPublicKey (..))
+import           Pos.Crypto.Signing         (ProxyCert (..), ProxySecretKey (..),
+                                             ProxySignature (..), PublicKey (..),
+                                             SecretKey (..), Signature (..), Signed (..))
 
 instance Bi a => Bi (WithHash a) where
     size = contramap whData size
@@ -64,15 +67,23 @@ instance HashAlgorithm algo => Bi (AbstractHash algo a) where
                 Nothing -> error "AbstractHash.peek: impossible"
                 Just x  -> pure (AbstractHash x))
 
-{-
 ----------------------------------------------------------------------------
 -- SecretSharing
 ----------------------------------------------------------------------------
 
+-- #define BiPvss(T, PT) \
+--   instance Bi T where {\
+--     size = Store.size ;\
+--     put = Store.poke ;\
+--     get = label "T" Store.peek }; \
+--   deriving instance Bi PT ;\
+
+-- CSL-1122 implement
 #define BiPvss(T, PT) \
   instance Bi T where {\
-    put = Binary.put ;\
-    get = label "T" Binary.get }; \
+    size = undefined ;\
+    put = undefined ;\
+    get = label "T" undefined }; \
   deriving instance Bi PT ;\
 
 BiPvss (Pvss.PublicKey, VssPublicKey)
@@ -82,10 +93,12 @@ BiPvss (Pvss.DecryptedShare, Share)
 BiPvss (Pvss.EncryptedShare, EncShare)
 BiPvss (Pvss.Proof, SecretProof)
 
-instance Binary.Binary SecretSharingExtra
+-- CSL-1122 uncomment
+--instance Store.Store SecretSharingExtra
 instance Bi SecretSharingExtra where
-    put = Binary.put
-    get = Binary.get
+--    put = Store.poke
+--    get = Store.peek
+--    size = Store.size
 
 deriving instance Bi (AsBinary SecretSharingExtra)
 
@@ -95,6 +108,7 @@ deriving instance Bi (AsBinary SecretSharingExtra)
 
 #define BiMacro(B, Bytes) \
   instance Bi (AsBinary B) where {\
+    size = ConstSize Bytes ;\
     put (AsBinary bs) = putByteString bs ;\
     get = label "B (Bytes bytes)" $ AsBinary <$> getByteString Bytes}; \
 
@@ -124,6 +138,7 @@ putAssertLength typeName expectedLength bs =
                 typeName expectedLength (BS.length bs)
 
 instance Bi Ed25519.PointCompressed where
+    size = ConstSize publicKeyLength
     put (Ed25519.unPointCompressed -> k) = do
         putAssertLength "PointCompressed" publicKeyLength k
         putByteString k
@@ -131,6 +146,7 @@ instance Bi Ed25519.PointCompressed where
         Ed25519.pointCompressed <$> getByteString publicKeyLength
 
 instance Bi Ed25519.Scalar where
+    size = ConstSize secretKeyLength
     put (Ed25519.unScalar -> k) = do
         putAssertLength "Scalar" secretKeyLength k
         putByteString k
@@ -138,6 +154,7 @@ instance Bi Ed25519.Scalar where
         Ed25519.scalar <$> getByteString secretKeyLength
 
 instance Bi Ed25519.Signature where
+    size = ConstSize signatureLength
     put (Ed25519.Signature s) = do
         putAssertLength "Signature" signatureLength s
         putByteString s
@@ -145,6 +162,7 @@ instance Bi Ed25519.Signature where
         Ed25519.Signature <$> getByteString signatureLength
 
 instance Bi CC.ChainCode where
+    size = ConstSize chainCodeLength
     put (CC.ChainCode c) = do
         putAssertLength "ChainCode" chainCodeLength c
         putByteString c
@@ -152,6 +170,7 @@ instance Bi CC.ChainCode where
         CC.ChainCode <$> getByteString chainCodeLength
 
 instance Bi CC.XPub where
+    size = ConstSize (publicKeyLength + chainCodeLength)
     put (CC.unXPub -> kc) = do
         putAssertLength "XPub" (publicKeyLength + chainCodeLength) kc
         putByteString kc
@@ -160,6 +179,7 @@ instance Bi CC.XPub where
         either fail pure . CC.xpub
 
 instance Bi CC.XPrv where
+    size = ConstSize encryptedKeyLength
     put (CC.unXPrv -> kc) = do
         putAssertLength "XPrv" encryptedKeyLength kc
         putByteString kc
@@ -168,6 +188,7 @@ instance Bi CC.XPrv where
         either fail pure . CC.xprv
 
 instance Bi CC.XSignature where
+    size = ConstSize signatureLength
     put (CC.unXSignature -> bs) = do
         putAssertLength "XSignature" signatureLength bs
         putByteString bs
@@ -182,6 +203,7 @@ deriving instance Bi SecretKey
 instance Bi EncryptedSecretKey where
     put (EncryptedSecretKey sk pph) = put sk >> put pph
     get = label "EncryptedSecretKey" $ liftM2 EncryptedSecretKey get get
+    size = Bi.combineSize eskPayload eskHash
 
 instance Bi a => Bi (Signed a) where
     put (Signed v s) = put (v,s)
@@ -211,23 +233,21 @@ instance Bi PassPhrase where
         putByteString bs
     get = label "PassPhrase" $
           ByteArray.pack . BS.unpack <$>
-              (getByteString passphraseLength <|> getByteString 0)
+              undefined -- CSL-1122 uncomment
+              -- (getByteString passphraseLength <|> getByteString 0)
 
 -------------------------------------------------------------------------------
 -- Hierarchical derivation
 -------------------------------------------------------------------------------
 
-instance Binary.Binary HDAddressPayload where
-  get = Binary.get
-  {-# INLINE get #-}
-  put = Binary.put
-  {-# INLINE put #-}
-
+-- CSL-1122 uncomment
 instance Bi HDAddressPayload where
-  get = Binary.get
-  {-# INLINE get #-}
-  put = Binary.put
-  {-# INLINE put #-}
+--    put = Store.poke
+--    {-# INLINE put #-}
+--    get = Store.peek
+--    {-# INLINE get #-}
+--    size = Store.size
+--    {-# INLINE size #-}
 
 -------------------------------------------------------------------------------
 -- Standard Ed25519 instances for ADA redeem keys
@@ -262,5 +282,3 @@ instance Bi EdStandard.Signature where
 deriving instance Bi RedeemPublicKey
 deriving instance Bi RedeemSecretKey
 deriving instance Bi (RedeemSignature a)
-
--}

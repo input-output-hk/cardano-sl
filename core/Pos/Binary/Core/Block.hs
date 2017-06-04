@@ -6,9 +6,6 @@ module Pos.Binary.Core.Block
 
 import           Universum
 
-import           Data.Binary.Get    (getInt32be)
-import           Data.Binary.Put    (putInt32be)
-
 import           Pos.Binary.Class   (Bi (..), label)
 import qualified Pos.Core.Block     as T
 import           Pos.Core.Constants (protocolMagic)
@@ -29,14 +26,14 @@ instance ( Bi (T.BHeaderHash b)
          ) =>
          Bi (T.GenericBlockHeader b) where
     put T.UnsafeGenericBlockHeader{..} = do
-        putInt32be protocolMagic
+        put protocolMagic
         put _gbhPrevBlock
         put _gbhBodyProof
         put _gbhConsensus
         put _gbhExtra
     get =
         label "GenericBlockHeader" $ do
-        blockMagic <- getInt32be
+        blockMagic <- get
         when (blockMagic /= protocolMagic) $
             fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
         prevBlock <- get

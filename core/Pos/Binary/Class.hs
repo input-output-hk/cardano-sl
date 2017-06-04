@@ -72,6 +72,9 @@ module Pos.Binary.Class
        , getAsciiString1b
        , putAsciiString1b
        , biSize
+
+       , convertSize
+       , combineSize
        ) where
 
 import           Universum
@@ -586,7 +589,7 @@ instance Bi a => Bi (Tagged s a) where
 
 instance (Bi a, Bi b) => Bi (a, b) where
     {-# INLINE size #-}
-    size = Store.combineSizeWith fst snd size size
+    size = combineSize fst snd
     {-# INLINE put #-}
     put (a, b) = put a *> put b
     {-# INLINE get #-}
@@ -594,7 +597,7 @@ instance (Bi a, Bi b) => Bi (a, b) where
 
 instance (Bi a, Bi b, Bi c) => Bi (a, b, c) where
     {-# INLINE size #-}
-    size = Store.combineSizeWith (view _1) (\(_, b, c) -> (b, c)) size size
+    size = combineSize (view _1) (\(_, b, c) -> (b, c))
     {-# INLINE put #-}
     put (a, b, c) = put a *> put b *> put c
     {-# INLINE get #-}
@@ -602,8 +605,8 @@ instance (Bi a, Bi b, Bi c) => Bi (a, b, c) where
 
 instance (Bi a, Bi b, Bi c, Bi d) => Bi (a, b, c, d) where
     {-# INLINE size #-}
-    size = Store.combineSizeWith (\(_, _, c, d) -> (c, d))
-                    (\(a, b, _, _) -> (a, b)) size size
+    size = combineSize (\(_, _, c, d) -> (c, d))
+                    (\(a, b, _, _) -> (a, b))
     {-# INLINE put #-}
     put (a, b, c, d) = put a *> put b *> put c *> put d
     {-# INLINE get #-}
@@ -691,6 +694,9 @@ getMany n = go [] n
                  x `seq` go (x:xs) (i-1)
 {-# INLINE getMany #-}
 -}
+
+combineSize :: (Bi b, Bi c) => (a -> b) -> (a -> c) -> Size a
+combineSize f g = Store.combineSizeWith f g size size
 
 convertSize :: (a -> b) -> Size b -> Size a
 convertSize _  (ConstSize s) = ConstSize s
@@ -941,8 +947,8 @@ putAsciiString1b str =  putWord8 (fromIntegral $ length str)
 biSize :: Bi a => a -> Byte
 biSize = fromIntegral . getSize
 
-getByteString :: Integer -> Peek ByteString
-getByteString i = reifyNat i $ \(_ :: Proxy n) -> unStaticSize <$> (Store.peek :: Peek (StaticSize n ByteString))
+getByteString :: Int -> Peek ByteString
+getByteString i = reifyNat (fromIntegral i) $ \(_ :: Proxy n) -> unStaticSize <$> (Store.peek :: Peek (StaticSize n ByteString))
 
 putByteString :: ByteString -> Poke ()
 putByteString bs = reifyNat (fromIntegral $ BS.length bs) $ \(_ :: Proxy n) ->

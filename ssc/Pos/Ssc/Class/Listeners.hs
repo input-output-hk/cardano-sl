@@ -8,11 +8,11 @@ import           Data.Tagged             (Tagged)
 
 import           Pos.Communication.Relay (Relay)
 import           Pos.Ssc.Class.Types     (Ssc (..))
-import           Pos.WorkMode.Class      (WorkMode)
+import           Pos.Ssc.Mode            (SscMode)
 
 
 -- | Class for defining listeners in DHT @SSC@ implementation.
 class Ssc ssc => SscListenersClass ssc where
     sscRelays
-        :: WorkMode ssc m
+        :: SscMode ssc m
         => Tagged ssc [Relay m]

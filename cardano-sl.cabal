@@ -76,15 +76,13 @@ library
 
                         -- Something
                         Pos.Launcher
+
                         Pos.Security
                         Pos.Security.Class
-                        Pos.Security.CLI
-                        Pos.Security.Util
                         Pos.Security.Workers
 
                         -- SSC
                         Pos.Ssc.Arbitrary
-                        Pos.Ssc.Class
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
@@ -216,7 +214,6 @@ library
                         Pos.Communication.Methods
                         Pos.Communication.Tx
                         Pos.Communication.Server
-                        Pos.Communication.Specs
                         Pos.Communication.Limits
                         Pos.Communication.Update
 
@@ -233,21 +230,15 @@ library
                         Pos.Lrc.DB.Lrc
                         Pos.Lrc.DB.Richmen
                         Pos.Lrc.Logic
-                        Pos.Lrc.Mode
                         Pos.Lrc.Worker
 
                         -- SafeCopy serialization (required in wallet)
                         Pos.SafeCopy
 
                         -- SSC
-                        Pos.Ssc.Class.Workers
-                        Pos.Ssc.Class.Listeners
-
                         Pos.Ssc.Util
 
                         Pos.Ssc.GodTossing.Arbitrary
-                        Pos.Ssc.GodTossing.Listeners
-                        Pos.Ssc.GodTossing.Workers
 
                         -- Statistics
                         Pos.Statistics.Helpers
@@ -280,6 +271,8 @@ library
                         Pos.Update.Poll
                         Pos.Update.Poll.DBPoll
                         Pos.Update.Worker
+
+                        Pos.Recovery.Instance
 
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer
@@ -505,6 +498,7 @@ executable cardano-node
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-update
+                     , cardano-sl-ssc
                      , cardano-sl
                      , containers
                      , data-default
@@ -786,6 +780,7 @@ executable cardano-smart-generator
                      , cardano-sl-infra
                      , cardano-sl-txp
                      , cardano-sl-update
+                     , cardano-sl-ssc
                      , cardano-sl
                      , containers
                      , filepath
@@ -1265,6 +1260,7 @@ test-suite cardano-test
                      , cardano-sl-infra
                      , cardano-sl-txp
                      , cardano-sl-update
+                     , cardano-sl-ssc
                      , cardano-sl
                      , cereal
                      , containers

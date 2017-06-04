@@ -18,6 +18,7 @@ import           Pos.Core.Types      (Timestamp (..))
 import           Pos.Crypto          (VssKeyPair)
 import           Pos.DHT.Real        (KademliaParams (..))
 import           Pos.Genesis         (genesisStakeDistribution, genesisUtxo)
+import           Pos.Security        (SecurityParams (..))
 import           Pos.Ssc.GodTossing  (GtParams (..))
 import           Pos.Update.Params   (UpdateParams (..))
 import           Pos.Util.TimeWarp   (NetworkAddress, readAddrFile)
@@ -98,14 +99,16 @@ getNodeParams args@Args {..} systemStart = do
                                    (CLI.expDistr commonArgs)
                   else genesisStakeDistribution
         , npJLFile = jlPath
-        , npAttackTypes = maliciousEmulationAttacks
-        , npAttackTargets = maliciousEmulationTargets
         , npPropagation = not (CLI.disablePropagation commonArgs)
         , npReportServers = CLI.reportServers commonArgs
         , npUpdateParams = UpdateParams
-            { upUpdatePath = updateLatestPath
+            { upUpdatePath    = updateLatestPath
             , upUpdateWithPkg = updateWithPackage
             , upUpdateServers = CLI.updateServers commonArgs
+            }
+        , npSecurityParams = SecurityParams
+            { spAttackTypes   = maliciousEmulationAttacks
+            , spAttackTargets = maliciousEmulationTargets
             }
         , npUseNTP = not noNTP
         }

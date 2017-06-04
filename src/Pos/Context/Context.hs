@@ -13,8 +13,6 @@ module Pos.Context.Context
        , MonadSscContext
        , NodeContext (..)
        , NodeParams(..)
-       , npPublicKey
-       , npPubKeyAddress
        , BaseParams(..)
        , TxpGlobalSettings
        , GenesisUtxo(..)
@@ -45,21 +43,22 @@ import           Data.Kind                     (Type)
 import           Data.Time.Clock               (UTCTime)
 import qualified Ether
 import           Ether.Internal                (HList (..), HasLens (..), Tags, TagsK)
+import           Pos.Security.Params           (SecurityParams)
 import           System.Wlog                   (LoggerConfig)
 
 import           Pos.Block.Core                (BlockHeader)
 import           Pos.Communication.Relay       (RelayPropagationQueue)
 import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
-import           Pos.Core                      (Address, HeaderHash, SlotLeaders,
-                                                makePubKeyAddress)
-import           Pos.Crypto                    (PublicKey, toPublic)
+import           Pos.Core                      (HeaderHash, PrimaryKeyTag, SlotLeaders)
+import           Pos.Crypto                    (SecretKey)
 import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
                                                 rcReportServers)
 import           Pos.Shutdown.Types            (ShutdownContext (..))
-import           Pos.Ssc.Class.Types           (Ssc (SscNodeContext))
+import           Pos.Ssc.Class.Types           (MonadSscContext, Ssc (SscNodeContext),
+                                                SscContextTag)
 import           Pos.Txp.Settings              (TxpGlobalSettings)
 import           Pos.Txp.Toil.Types            (Utxo)
 import           Pos.Update.Context            (UpdateContext)
@@ -91,10 +90,6 @@ type MonadBlockRetrievalQueue ssc =
 data RecoveryHeaderTag
 type RecoveryHeader ssc = STM.TMVar (NodeId, BlockHeader ssc)
 type MonadRecoveryHeader ssc = Ether.MonadReader RecoveryHeaderTag (RecoveryHeader ssc)
-
-data SscContextTag
-type MonadSscContext ssc = Ether.MonadReader SscContextTag (SscNodeContext ssc)
-
 
 newtype GenesisUtxo = GenesisUtxo { unGenesisUtxo :: Utxo }
 newtype GenesisLeaders = GenesisLeaders { unGenesisLeaders :: SlotLeaders }
@@ -186,12 +181,16 @@ makeLensesFor
 
 makeLensesFor
     [ ("npUpdateParams", "npUpdateParamsL")
+    , ("npSecurityParams", "npSecurityParamsL")
+    , ("npSecretKey", "npSecretKeyL")
     , ("npReportServers", "npReportServersL")
     , ("npPropagation", "npPropagationL")
     , ("npCustomUtxo", "npCustomUtxoL") ]
     ''NodeParams
 
 type instance TagsK (NodeContext ssc) =
+  Type ':
+  Type ':
   Type ':
   Type ':
   Type ':
@@ -228,6 +227,8 @@ type instance Tags (NodeContext ssc) =
   LrcContext             :::
   NodeParams             :::
   UpdateParams           :::
+  SecurityParams         :::
+  PrimaryKeyTag          :::
   ReportingContext       :::
   RelayContext           :::
   ShutdownContext        :::
@@ -262,6 +263,12 @@ instance HasLens NodeParams (NodeContext ssc) NodeParams where
 
 instance HasLens UpdateParams (NodeContext ssc) UpdateParams where
     lensOf = ncNodeParamsL . npUpdateParamsL
+
+instance HasLens SecurityParams (NodeContext ssc) SecurityParams where
+    lensOf = ncNodeParamsL . npSecurityParamsL
+
+instance HasLens PrimaryKeyTag (NodeContext ssc) SecretKey where
+    lensOf = ncNodeParamsL . npSecretKeyL
 
 instance HasLens ReportingContext (NodeContext ssc) ReportingContext where
     lensOf = lens getter (flip setter)
@@ -331,15 +338,3 @@ instance HasLens StartTime (NodeContext ssc) StartTime where
 
 instance HasLens TxpGlobalSettings (NodeContext ssc) TxpGlobalSettings where
     lensOf = ncTxpGlobalSettingsL
-
-----------------------------------------------------------------------------
--- Helper functions
-----------------------------------------------------------------------------
-
--- | Generate 'PublicKey' from 'SecretKey' of 'NodeParams'.
-npPublicKey :: NodeParams -> PublicKey
-npPublicKey = toPublic . npSecretKey
-
--- | Generate 'Address' from 'SecretKey' of 'NodeContext'
-npPubKeyAddress :: NodeParams -> Address
-npPubKeyAddress = makePubKeyAddress . npPublicKey

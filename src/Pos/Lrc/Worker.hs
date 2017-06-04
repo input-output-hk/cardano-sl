@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Workers responsible for Leaders and Richmen computation.
@@ -23,11 +24,12 @@ import           Serokell.Util.Exceptions   ()
 import           System.Wlog                (logInfo, logWarning)
 
 import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic.Internal   (applyBlocksUnsafe, rollbackBlocksUnsafe)
+import           Pos.Block.Logic.Internal   (BlockApplyMode, applyBlocksUnsafe,
+                                             rollbackBlocksUnsafe)
 import           Pos.Block.Logic.Util       (withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
-import           Pos.Context                (recoveryCommGuard)
+import           Pos.Context                (BlkSemaphore, recoveryCommGuard)
 import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
                                              EpochOrSlot (..), HeaderHash, HeaderHash,
                                              SharedSeed, SlotId (..), StakeholderId,
@@ -45,8 +47,9 @@ import           Pos.Lrc.Fts                (followTheSatoshiM)
 import           Pos.Lrc.Logic              (findAllRichmenMaybe)
 import           Pos.Lrc.Mode               (LrcMode)
 import           Pos.Reporting              (reportMisbehaviourMasked)
-import           Pos.Ssc.Class              (SscWorkersClass)
-import           Pos.Ssc.Extra              (sscCalculateSeed)
+import           Pos.Slotting               (MonadSlots)
+import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
+import           Pos.Ssc.Extra              (MonadSscMem, sscCalculateSeed)
 import           Pos.Update.DB              (getCompetingBVStates)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
 import           Pos.Util                   (logWarningWaitLinear, maybeThrow)
@@ -54,11 +57,12 @@ import           Pos.Util.Chrono            (NewestFirst (..), toOldestFirst)
 import           Pos.WorkMode.Class         (WorkMode)
 
 lrcOnNewSlotWorker
-    :: (WorkMode ssc m, SscWorkersClass ssc)
+    :: forall ssc m.
+       (WorkMode ssc m, SscWorkersClass ssc)
     => (WorkerSpec m, OutSpecs)
 lrcOnNewSlotWorker = recoveryCommGuard $ localOnNewSlotWorker True $ \SlotId {..} ->
     when (getSlotIndex siSlot < slotSecurityParam) $
-        lrcSingleShot siEpoch `catch` onLrcError
+        lrcSingleShot @ssc siEpoch `catch` onLrcError
   where
     -- Here we log it as a warning and report an error, even though it
     -- can happen there we don't know recent blocks. That's because if
@@ -73,23 +77,33 @@ lrcOnNewSlotWorker = recoveryCommGuard $ localOnNewSlotWorker True $ \SlotId {..
         reportMisbehaviourMasked version $ "Lrc worker failed with error: " <> show e
 
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.
-type LrcModeFull ssc m = (LrcMode ssc m, SscWorkersClass ssc)
+type LrcModeFull ssc m =
+    ( LrcMode ssc m
+    , SscWorkersClass ssc
+    , SscHelpersClass ssc
+    , MonadSscMem ssc m
+    , MonadSlots m
+    , BlockApplyMode ssc m
+    , Ether.MonadReader' BlkSemaphore m
+    )
 
 -- | Run leaders and richmen computation for given epoch. If stable
 -- block for this epoch is not known, LrcError will be thrown.
 lrcSingleShot
-    :: (LrcModeFull ssc m)
+    :: forall ssc m. (LrcModeFull ssc m)
     => EpochIndex -> m ()
-lrcSingleShot epoch = lrcSingleShotImpl True epoch allLrcConsumers
+lrcSingleShot epoch =
+    lrcSingleShotImpl @ssc True epoch (allLrcConsumers @ssc)
 
 -- | Same, but doesn't take lock on the semaphore.
 lrcSingleShotNoLock
-    :: (LrcModeFull ssc m)
+    :: forall ssc m. (LrcModeFull ssc m)
     => EpochIndex -> m ()
-lrcSingleShotNoLock epoch = lrcSingleShotImpl False epoch allLrcConsumers
+lrcSingleShotNoLock epoch =
+    lrcSingleShotImpl @ssc False epoch (allLrcConsumers @ssc)
 
 lrcSingleShotImpl
-    :: (LrcMode ssc m)
+    :: forall ssc m. (LrcModeFull ssc m)
     => Bool -> EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl withSemaphore epoch consumers = do
     lock <- Ether.asks' lcLrcSync
@@ -110,9 +124,9 @@ lrcSingleShotImpl withSemaphore epoch consumers = do
         when need $ do
             logInfo "LRC is starting"
             if withSemaphore
-                then withBlkSemaphore_ $ lrcDo epoch filteredConsumers
+                then withBlkSemaphore_ $ lrcDo @ssc epoch filteredConsumers
             -- we don't change/use it in lcdDo in fact
-                else void . lrcDo epoch filteredConsumers =<< GS.getTip
+                else void . lrcDo @ssc epoch filteredConsumers =<< GS.getTip
             logInfo "LRC has finished"
         putEpoch epoch
         logInfo "LRC has updated LRC DB"
@@ -137,7 +151,7 @@ tryAcquireExclusiveLock epoch lock action =
 
 lrcDo
     :: forall ssc m.
-       LrcMode ssc m
+       LrcModeFull ssc m
     => EpochIndex -> [LrcConsumer m] -> HeaderHash -> m HeaderHash
 lrcDo epoch consumers tip = tip <$ do
     blundsUpToGenesis <- DB.loadBlundsFromTipWhile @ssc upToGenesis
@@ -152,7 +166,7 @@ lrcDo epoch consumers tip = tip <$ do
                 issuersComputationDo epoch
                 richmenComputationDo epoch consumers
                 DB.sanityCheckDB
-                seed <- sscCalculateSeed epoch >>= \case
+                seed <- sscCalculateSeed @ssc epoch >>= \case
                     Right s -> do
                         logInfo $ sformat
                             ("Calculated seed for epoch "%build%

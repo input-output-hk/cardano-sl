@@ -45,7 +45,7 @@ allWorkers = mconcatPair
       -- TODO cannot have this DHT worker here. It assumes Kademlia.
       --wrap' "dht"        $ dhtWorkers
 
-      wrap' "ssc"        $ untag sscWorkers
+      wrap' "ssc"        $ sscWorkers
     , wrap' "security"   $ untag securityWorkers
     , wrap' "lrc"        $ first one lrcOnNewSlotWorker
     , wrap' "us"         $ usWorkers

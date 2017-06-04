@@ -7,11 +7,9 @@ matrix:
     - env: HLINT=false
     - os: osx
       osx_image: xcode8.3
-  # due to too long builds
-  # https://github.com/NixOS/nixpkgs/issues/21200
-  fast_finish: true
 env:
-- NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz
+  global:
+    - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz
 cache:
   directories:
   - "$HOME/.stack"

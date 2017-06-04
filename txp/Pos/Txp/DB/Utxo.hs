@@ -90,7 +90,7 @@ instance RocksBatchOp UtxoOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUtxo :: (MonadDB m, MonadRealDB m) => Utxo -> m ()
+prepareGStateUtxo :: (MonadDB m) => Utxo -> m ()
 prepareGStateUtxo genesisUtxo =
     unlessM isUtxoInitialized putGenesisUtxo
   where

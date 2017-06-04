@@ -16,7 +16,7 @@ import           Formatting            (build, sformat, (%))
 import           System.Wlog           (WithLogger, logDebug)
 
 import           Pos.Core              (HeaderHash, Timestamp)
-import           Pos.DB.Class          (MonadRealDB, MonadDBRead)
+import           Pos.DB.Class          (MonadDBRead)
 import qualified Pos.DB.GState         as GS
 import qualified Pos.Explorer.DB       as ExDB
 import           Pos.Slotting          (MonadSlots (currentTimeSlotting))
@@ -37,12 +37,13 @@ import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
                                         eeLocalTxsExtra)
 
 type ETxpLocalWorkMode m =
-    ( MonadRealDB m
+    ( MonadIO m
     , MonadDBRead m
     , MonadTxpMem ExplorerExtra m
     , WithLogger m
     , MonadError ToilVerFailure m
     , MonadSlots m
+    , MonadDBRead m
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
@@ -142,7 +143,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
 --   2. Remove invalid transactions from MemPool
 --   3. Set new tip to txp local data
 eTxNormalize
-    :: (MonadRealDB m, MonadDBRead m, MonadTxpMem ExplorerExtra m) => m ()
+    :: (MonadIO m, MonadDBRead m, MonadTxpMem ExplorerExtra m) => m ()
 eTxNormalize = do
     utxoTip <- GS.getTip
     localTxs <- getLocalTxsMap

@@ -23,6 +23,7 @@ module Pos.Util.Servant
     ) where
 
 import           Control.Monad.Except (ExceptT (..))
+import           Formatting           (formatToString, sformat, shown, stext, string, (%))
 import           Servant.API          ((:>), Capture, QueryParam, ReqBody, Verb)
 import           Servant.Server       (Handler (..), HasServer (..), ServantErr, Server)
 import           Universum
@@ -36,6 +37,32 @@ mapHandler :: (IO (Either ServantErr a) -> IO (Either ServantErr b))
            -> Handler a
            -> Handler b
 mapHandler f = Handler . ExceptT . f . runExceptT . runHandler'
+
+-------------------------------------------------------------------------
+-- General useful families
+-------------------------------------------------------------------------
+
+-- | Proves info about argument specifier of servant API.
+class ApiHasArg apiType where
+    -- | For arguments-specifiers of API, get argument type.
+    type ApiArg (apiType :: * -> *) a :: *
+    type ApiArg apiType a = a
+
+    -- | Name of argument.
+    -- E.g. name of argument specified by @Capture "nyan"@ is /nyan/.
+    apiArgName :: Proxy apiType -> String
+    default apiArgName
+        :: forall n someApiType. (KnownSymbol n, someApiType n ~ apiType)
+        => Proxy (someApiType n) -> String
+    apiArgName _ = formatToString (shown%" field") $ symbolVal (Proxy @n)
+
+instance KnownSymbol s => ApiHasArg (Capture s) where
+
+instance KnownSymbol s => ApiHasArg (QueryParam s) where
+    type ApiArg (QueryParam s) a = Maybe a
+
+instance ApiHasArg (ReqBody ct) where
+    apiArgName _ = "request body"
 
 -------------------------------------------------------------------------
 -- Mapping API result
@@ -83,21 +110,15 @@ class FromCType c where
 
 class ToCType c where
    -- | Same as 'FromOriginType'. For some types they actually differ,
-   -- e.g. 'CPassPhrase'.
+   -- e.g. 'PassPhrase' is decoded from @Maybe CPassPhrase@ but encoded
+   -- into just @PassPhrase@.
    type family ToOriginType c :: *
    type instance ToOriginType c = FromOriginType c
 
    -- | Way to encode to @CType@.
    encodeCType :: ToOriginType c -> c
 
-
--- | For arguments-specifiers of API, get argument type.
-type family ApiArg (apiType :: * -> *) a :: *
-type instance ApiArg (Capture s) a = a
-type instance ApiArg (QueryParam s) a = Maybe a
-type instance ApiArg (ReqBody ct) a = a
-
-
+-- | Allows to throw error from any part of innards of servant API.
 class ReportDecodeError api where
     -- | Propagate error to servant handler.
     reportDecodeError :: Proxy api -> Text -> Server api
@@ -109,26 +130,32 @@ instance ( ReportDecodeError res
     reportDecodeError _ err = \_ -> reportDecodeError (Proxy @res) err
 
 
--- | Wrapper over API argument which says to decode specified argument with
--- 'decodeCType'.
+-- | Wrapper over API argument specifier which says to decode specified argument
+-- with 'decodeCType'.
 data CDecodeArg (argType :: * -> *) a
 
-type instance ApiArg (CDecodeArg apiType) a = FromOriginType (ApiArg apiType a)
+instance ApiHasArg apiType => ApiHasArg (CDecodeArg apiType) where
+    type ApiArg (CDecodeArg apiType) a = FromOriginType (ApiArg apiType a)
+    apiArgName _ = apiArgName (Proxy @apiType)
 
 instance ( HasServer (apiType a :> res) ctx
-         , FromCType (ApiArg apiType a)
+         , ApiHasArg apiType
          , Server (apiType a :> res) ~ (ApiArg apiType a -> Server res)
+         , FromCType (ApiArg apiType a)
          , ReportDecodeError res
          ) =>
          HasServer (CDecodeArg apiType a :> res) ctx where
     type ServerT (CDecodeArg apiType a :> res) m =
          FromOriginType (ApiArg apiType a) -> ServerT res m
     route _ ctx del =
-        route serverProxy ctx $
-        del <&> \f a ->
-            decodeCType a & either (reportDecodeError (Proxy @res)) f
+        route (Proxy @(apiType a :> res)) ctx $
+        del <&> \f a -> decodeCType a & either reportError f
       where
-        serverProxy = Proxy @(apiType a :> res)
+        reportError err =
+            reportDecodeError (Proxy @res) $
+            sformat ("(in "%string%") "%stext)
+                (apiArgName $ Proxy @apiType)
+                err
 
 -------------------------------------------------------------------------
 -- API construction Helpers

@@ -87,7 +87,7 @@ getDlgMempool = do
 
 -- | Clears delegation mempool.
 clearDlgMemPool
-    :: (MonadRealDB m, MonadDelegation m, MonadMask m)
+    :: (MonadIO m, MonadDelegation m, MonadMask m)
     => m ()
 clearDlgMemPool = runDelegationStateAction clearDlgMemPoolAction
 
@@ -142,7 +142,7 @@ data PskHeavyVerdict
 -- validity and cachemsg state.
 processProxySKHeavy
     :: forall ssc m.
-       ( MonadRealDB m
+       ( MonadIO m
        , MonadMask m
        , MonadDBRead m
        , MonadBlockDB ssc m

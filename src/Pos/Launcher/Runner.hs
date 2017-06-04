@@ -72,7 +72,7 @@ import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers
                                                NodeContext (..), StartTime (..))
 import           Pos.Core                     (Timestamp ())
 import           Pos.Crypto                   (createProxySecretKey, encToPublic)
-import           Pos.DB                       (MonadDBPure, NodeDBs, runDBPureRedirect)
+import           Pos.DB                       (MonadDBRead, NodeDBs, runDBPureRedirect)
 import           Pos.DB.Block                 (runBlockDBRedirect)
 import           Pos.DB.DB                    (initNodeDBs, openNodeDBs,
                                                runGStateCoreRedirect)
@@ -88,6 +88,7 @@ import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (.
 import           Pos.Lrc.Context              (LrcContext (..), LrcSyncData (..))
 import qualified Pos.Lrc.DB                   as LrcDB
 import           Pos.Lrc.Fts                  (followTheSatoshiM)
+import           Pos.Security                 (SecurityWorkersClass)
 import           Pos.Slotting                 (NtpSlottingVar, SlottingVar,
                                                mkNtpSlottingVar)
 import           Pos.Slotting.MemState.Holder (runSlotsDataRedirect)
@@ -129,7 +130,7 @@ import           Pos.WorkMode                 (ProductionMode, RawRealMode (..),
 -- | RawRealMode runner.
 runRawRealMode
     :: forall ssc a.
-       SscConstraint ssc
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (RawRealMode ssc)
     -> NodeParams
     -> SscParams ssc
@@ -145,7 +146,8 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
         -- TODO [CSL-775] ideally initialization logic should be in scenario.
         runCH @ssc allWorkersNum np initNC modernDBs .
             flip Ether.runReaderT' modernDBs .
-            runDBPureRedirect $
+            runDBPureRedirect .
+            runBlockDBRedirect $
             initNodeDBs @ssc
         initTip <- Ether.runReaderT' (runDBPureRedirect getTip) modernDBs
         stateM <- liftIO SM.newIO
@@ -238,7 +240,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
 {-# NOINLINE runRawRealMode #-}
 
 -- | Create new 'SlottingVar' using data from DB.
-mkSlottingVar :: (MonadIO m, MonadDBPure m) => Timestamp -> m SlottingVar
+mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
 mkSlottingVar sysStart = do
     sd <- GState.getSlottingData
     (sysStart, ) <$> newTVarIO sd
@@ -297,7 +299,7 @@ runServer_ transport mkl outSpecs =
 
 runRawBasedMode
     :: forall ssc m a.
-       (SscConstraint ssc, WorkMode ssc m)
+       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => (forall b. m b -> RawRealMode ssc b)
     -> (forall b. RawRealMode ssc b -> m b)
     -> Transport m
@@ -320,7 +322,7 @@ runRawBasedMode unwrap wrap transport np@NodeParams{..} sscnp (ActionSpec action
 -- | Launch some mode, providing way to convert it to 'RawRealMode' and back.
 runRawKBasedMode
     :: forall ssc m a.
-       (SscConstraint ssc, WorkMode ssc m)
+       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => (forall b. m b -> RawRealModeK ssc b)
     -> (forall b. RawRealModeK ssc b -> m b)
     -> Transport m
@@ -334,7 +336,7 @@ runRawKBasedMode unwrap wrap transport kinst =
 
 runRawSBasedMode
     :: forall ssc m a.
-       (SscConstraint ssc, WorkMode ssc m)
+       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
     => (forall b. m b -> RawRealModeS ssc b)
     -> (forall b. RawRealModeS ssc b -> m b)
     -> Transport m
@@ -349,7 +351,7 @@ runRawSBasedMode unwrap wrap transport peers =
 -- | ProductionMode runner.
 runProductionMode
     :: forall ssc a.
-       (SscConstraint ssc)
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (ProductionMode ssc)
     -> KademliaDHTInstance
     -> NodeParams
@@ -363,7 +365,7 @@ runProductionMode = runRawKBasedMode getNoStatsT lift
 -- can be done as part of refactoring (or someone who will refactor will create new issue).
 runStatsMode
     :: forall ssc a.
-       (SscConstraint ssc)
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (StatsMode ssc)
     -> KademliaDHTInstance
     -> NodeParams
@@ -376,7 +378,7 @@ runStatsMode transport kinst np sscnp action = do
 
 runStaticMode
     :: forall ssc a.
-       (SscConstraint ssc)
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (StaticMode ssc)
     -> Set NodeId
     -> NodeParams
@@ -392,6 +394,7 @@ runStaticMode = runRawSBasedMode getNoStatsT lift
 runCH
     :: forall ssc m a.
        ( SscConstraint ssc
+       , SecurityWorkersClass ssc
        , MonadIO m
        , MonadCatch m
        , Mockable CurrentTime m)
@@ -409,13 +412,13 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ucUpdateSemaphore <- newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
-    epochDef <- Ether.runReaderT' LrcDB.getEpochDefault db
+    epochDef <- Ether.runReaderT' (runDBPureRedirect LrcDB.getEpochDefault) db
     lcLrcSync <- newTVarIO (LrcSyncData True epochDef)
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
-    Ether.runReaderT' (for_ ownPSKs addProxySecretKey) db
+    Ether.runReaderT' (runDBPureRedirect $ for_ ownPSKs addProxySecretKey) db
 
     ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $

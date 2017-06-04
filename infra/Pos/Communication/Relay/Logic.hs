@@ -63,7 +63,7 @@ import           Pos.Communication.Relay.Types      (PropagationMsg (..),
 import           Pos.Communication.Relay.Util       (expectData, expectInv)
 import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), InvOrData,
                                                      MempoolMsg (..), ReqMsg (..))
-import           Pos.DB.Class                       (MonadGStateCore)
+import           Pos.DB.Class                       (MonadGState)
 import           Pos.Discovery.Broadcast            (converseToNeighbors)
 import           Pos.Discovery.Class                (MonadDiscovery)
 import           Pos.Reporting                      (MonadReportingMem, reportingFatal)
@@ -88,7 +88,7 @@ handleReqL
        , Message (ReqMsg key)
        , Buildable key
        , MinRelayWorkMode m
-       , MonadGStateCore m
+       , MonadGState m
        )
     => (key -> m (Maybe contents))
     -> (ListenerSpec m, OutSpecs)
@@ -116,7 +116,7 @@ handleReqL handleReq = listenerConv $ \__ourVerInfo ->
 handleMempoolL
     :: forall m.
        ( MinRelayWorkMode m
-       , MonadGStateCore m
+       , MonadGState m
        )
     => MempoolParams m
     -> [(ListenerSpec m, OutSpecs)]
@@ -147,7 +147,7 @@ handleDataOnlyL
        , Message (DataMsg contents)
        , Buildable contents
        , RelayWorkMode m
-       , MonadGStateCore m
+       , MonadGState m
        , MessageLimited (DataMsg contents)
        )
     => (contents -> m Bool)
@@ -227,7 +227,7 @@ relayListenersOne
      ( Mockable Throw m
      , WithLogger m
      , RelayWorkMode m
-     , MonadGStateCore m
+     , MonadGState m
      , Message Void
      )
   => Relay m -> MkListeners m
@@ -243,7 +243,7 @@ relayListeners
      ( Mockable Throw m
      , WithLogger m
      , RelayWorkMode m
-     , MonadGStateCore m
+     , MonadGState m
      , Message Void
      )
   => [Relay m] -> MkListeners m
@@ -252,7 +252,7 @@ relayListeners = mconcat . map relayListenersOne
 invDataListener
   :: forall m key contents.
      ( RelayWorkMode m
-     , MonadGStateCore m
+     , MonadGState m
      , Message (ReqMsg key)
      , Message (InvOrData key contents)
      , Bi (ReqMsg key)
@@ -392,7 +392,7 @@ invReqDataFlowNeighborsTK
        , Buildable key
        , Typeable contents
        , MinRelayWorkMode m
-       , MonadGStateCore m
+       , MonadGState m
        , MonadDiscovery m
        , Bi (InvOrData (Tagged contents key) contents)
        , Bi (ReqMsg (Tagged contents key))
@@ -411,7 +411,7 @@ invReqDataFlowTK
        , Buildable key
        , Typeable contents
        , MinRelayWorkMode m
-       , MonadGStateCore m
+       , MonadGState m
        , Bi (InvOrData (Tagged contents key) contents)
        , Bi (ReqMsg (Tagged contents key))
        )
@@ -428,7 +428,7 @@ invReqDataFlowNeighbors
        , Message (ReqMsg key)
        , Buildable key
        , MinRelayWorkMode m
-       , MonadGStateCore m
+       , MonadGState m
        , MonadDiscovery m
        , Bi (InvOrData key contents)
        , Bi (ReqMsg key)
@@ -449,7 +449,7 @@ invReqDataFlow
        , Bi (ReqMsg key)
        , Buildable key
        , MinRelayWorkMode m
-       , MonadGStateCore m
+       , MonadGState m
        )
     => Text -> SendActions m -> NodeId -> key -> contents -> m ()
 invReqDataFlow what sendActions addr key dt = handleAll handleE $
@@ -468,7 +468,7 @@ invReqDataFlowDo
        , Bi (ReqMsg key)
        , Buildable key
        , MinRelayWorkMode m
-       , MonadGStateCore m
+       , MonadGState m
        )
     => Text
     -> key

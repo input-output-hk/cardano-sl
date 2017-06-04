@@ -48,7 +48,7 @@ import           Pos.Constants                        (isDevelopment, staticSysS
 import           Pos.Core                             (Address (..), AddressHash,
                                                        Timestamp (..), decodeTextAddress)
 import           Pos.Crypto                           (PublicKey)
-import           Pos.Security.CLI                     (AttackTarget (..), AttackType (..))
+import           Pos.Security.Params                  (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util                             ()
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,

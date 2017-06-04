@@ -40,8 +40,7 @@ import           System.Wlog              (NamedPureLogger, WithLogger,
 
 import           Pos.Core                 (EpochIndex, HeaderHash, IsHeader, SharedSeed,
                                            SlotId, epochIndexL, headerHash)
-import           Pos.DB.Class             (MonadBlockDBGeneric, MonadDB, MonadDBPure)
-import           Pos.DB.Functions         (SomeBatchOp)
+import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead, SomeBatchOp)
 import           Pos.DB.GState.Common     (getTipHeader)
 import           Pos.Exception            (assertionFailed)
 import           Pos.Lrc.Context          (LrcContext, lrcActionOnEpochReason)
@@ -111,7 +110,7 @@ sscRunGlobalQuery action = do
 sscCalculateSeed
     :: forall ssc m.
        ( MonadSscMem ssc m
-       , MonadDB m
+       , MonadDBRead m
        , SscGStateClass ssc
        , Ether.MonadReader' LrcContext m
        , MonadIO m
@@ -142,14 +141,14 @@ sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 -- releasing lock on block application.
 sscNormalize
     :: forall ssc m.
-       ( MonadDB m
-       , MonadDBPure m
+       ( MonadDBRead m
        , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
        , MonadSscMem ssc m
        , SscLocalDataClass ssc
        , Ether.MonadReader' LrcContext m
        , SscHelpersClass ssc
        , WithLogger m
+       , MonadIO m
        )
     => m ()
 sscNormalize = do
@@ -168,7 +167,7 @@ sscNormalize = do
 -- to remove all local data to be sure it's valid.
 sscResetLocal ::
        forall ssc m.
-       ( MonadDBPure m
+       ( MonadDBRead m
        , MonadSscMem ssc m
        , SscLocalDataClass ssc
        , MonadSlots m
@@ -184,16 +183,13 @@ sscResetLocal = do
 -- GState
 ----------------------------------------------------------------------------
 
--- 'MonadIO' (part of 'MonadDB')  is needed only for 'TVar'.
--- 'MonadThrow' (part of 'MonadDB') is needed only in 'ApplyMode'.
--- 'MonadDB' is needed only to get richmen.
--- We can try to eliminate these constraints later.
+-- 'MonadIO' is needed only for 'TVar' (I hope).
 type SscGlobalApplyMode ssc m =
     (MonadSscMem ssc m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
-     MonadDB m, Ether.MonadReader' LrcContext m)
+     MonadDBRead m, MonadIO m, Ether.MonadReader' LrcContext m)
 type SscGlobalVerifyMode ssc m =
     (MonadSscMem ssc m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
-     MonadDB m, Ether.MonadReader' LrcContext m,
+     MonadDBRead m, Ether.MonadReader' LrcContext m, MonadIO m,
      MonadError (SscVerifyError ssc) m)
 
 sscRunGlobalUpdate
@@ -307,7 +303,7 @@ sscVerifyBlocks blocks = do
 ----------------------------------------------------------------------------
 
 getRichmenFromLrc
-    :: (MonadDB m, Ether.MonadReader' LrcContext m)
+    :: (MonadIO m, MonadDBRead m, Ether.MonadReader' LrcContext m)
     => Text -> EpochIndex -> m RichmenStake
 getRichmenFromLrc fname epoch =
     lrcActionOnEpochReason

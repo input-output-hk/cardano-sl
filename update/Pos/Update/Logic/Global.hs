@@ -17,14 +17,15 @@ import qualified Ether
 import           Serokell.Util        (Color (Red), colorize)
 import           System.Wlog          (WithLogger, logError, modifyLoggerName)
 
-import           Pos.Constants        (lastKnownBlockVersion)
 import           Pos.Core             (ApplicationName, BlockVersion, NumSoftwareVersion,
                                        SoftwareVersion (..), StakeholderId, addressHash,
                                        blockVersionL, epochIndexL, headerHashG,
                                        headerLeaderKeyL, headerSlotL)
-import qualified Pos.DB               as DB
+import qualified Pos.DB.BatchOp       as DB
+import qualified Pos.DB.Class         as DB
 import           Pos.Lrc.Context      (LrcContext)
 import           Pos.Slotting         (SlottingData)
+import           Pos.Update.Constants (lastKnownBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId, UpdateBlock)
 import           Pos.Update.DB        (UpdateOp (..))
 import           Pos.Update.Error     (USError (USInternalError))
@@ -34,18 +35,18 @@ import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState
                                        execRollT, processGenesisBlock,
                                        recordBlockIssuance, rollbackUS, runDBPoll,
                                        runPollT, verifyAndApplyUSPayload)
-import           Pos.Util             (inAssertMode)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 import qualified Pos.Util.Modifier    as MM
+import           Pos.Util.Util        (inAssertMode)
 
 type USGlobalApplyMode m = ( WithLogger m
-                           , DB.MonadDB m
-                           , DB.MonadDBPure m
+                           , DB.MonadRealDB m
+                           , DB.MonadDBRead m
                            , Ether.MonadReader' LrcContext m
                            )
 type USGlobalVerifyMode m = ( WithLogger m
-                            , DB.MonadDB m
-                            , DB.MonadDBPure m
+                            , DB.MonadRealDB m
+                            , DB.MonadDBRead m
                             , Ether.MonadReader' LrcContext m
                             , MonadError PollVerFailure m
                             )
@@ -138,8 +139,8 @@ verifyBlock verifyAllIsKnown (Right (header, payload)) =
 -- global state.
 usCanCreateBlock ::
        ( WithLogger m
-       , DB.MonadDB m
-       , DB.MonadDBPure m
+       , DB.MonadRealDB m
+       , DB.MonadDBRead m
        , Ether.MonadReader' LrcContext m
        )
     => m Bool

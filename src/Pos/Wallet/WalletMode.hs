@@ -62,7 +62,7 @@ import qualified Pos.Context                    as PC
 import           Pos.Core                       (ChainDifficulty, HeaderHash, difficultyL,
                                                  flattenEpochOrSlot, flattenSlotId)
 import           Pos.DB                         (DBPureRedirect, MonadBlockDBGeneric (..),
-                                                 MonadDB, MonadDBPure, MonadGStateCore,
+                                                 MonadDBRead, MonadGState, MonadRealDB,
                                                  NodeDBs)
 import           Pos.DB.Block                   (BlockDBRedirect, MonadBlockDB)
 import           Pos.DB.DB                      (getTipHeader)
@@ -193,7 +193,7 @@ instance
     , PC.MonadProgressHeader ssc m
     , Ether.MonadReader' PC.ConnectedPeers m
     , MonadIO m
-    , MonadDB m
+    , MonadRealDB m
     , MonadSlots m
     ) => MonadBlockchainInfo (Ether.TaggedTrans BlockchainInfoRedirectTag t m)
   where
@@ -334,8 +334,8 @@ deriving instance CanLog (RawWalletMode)
 deriving instance HasLoggerName (RawWalletMode)
 --deriving instance MonadSlotsData (RawWalletMode)
 --deriving instance MonadSlots (RawWalletMode)
-deriving instance MonadGStateCore (RawWalletMode)
-deriving instance Ether.MonadReader' NodeDBs Production => MonadDBPure (RawWalletMode)
+deriving instance MonadGState (RawWalletMode)
+deriving instance Ether.MonadReader' NodeDBs Production => MonadDBRead (RawWalletMode)
 deriving instance MonadBListener (RawWalletMode)
 deriving instance MonadUpdates (RawWalletMode)
 deriving instance MonadBlockchainInfo (RawWalletMode)

@@ -20,6 +20,7 @@ import           Pos.Launcher.Param         (NodeParams (..))
 import           Pos.Launcher.Runner        (runProductionMode, runStaticMode,
                                              runStatsMode)
 import           Pos.Launcher.Scenario      (runNode)
+import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Ssc.Class.Types        (SscParams)
 import           Pos.WorkMode               (ProductionMode, StaticMode, StatsMode)
@@ -31,7 +32,7 @@ import           Pos.WorkMode               (ProductionMode, StaticMode, StatsMo
 -- | Run full node in real mode.
 runNodeProduction
     :: forall ssc.
-       SscConstraint ssc
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (ProductionMode ssc)
     -> KademliaDHTInstance
     -> ([WorkerSpec (ProductionMode ssc)], OutSpecs)
@@ -44,7 +45,7 @@ runNodeProduction transport kinst plugins np sscnp =
 -- | Run full node in benchmarking node
 runNodeStats
     :: forall ssc.
-       SscConstraint ssc
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (StatsMode ssc)
     -> KademliaDHTInstance
     -> ([WorkerSpec (StatsMode ssc)], OutSpecs)
@@ -57,7 +58,7 @@ runNodeStats transport kinst plugins np sscnp =
 -- | Run full node in static mode
 runNodeStatic
     :: forall ssc.
-       SscConstraint ssc
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (StaticMode ssc)
     -> Set NodeId
     -> ([WorkerSpec (StaticMode ssc)], OutSpecs)

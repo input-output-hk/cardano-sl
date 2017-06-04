@@ -19,7 +19,7 @@ import qualified Data.HashMap.Strict     as HM
 import           Formatting              (build, sformat, (%))
 import           Universum
 
-import           Pos.DB                  (MonadDB, SomeBatchOp (..))
+import           Pos.DB                  (MonadDBRead, SomeBatchOp (..))
 import           Pos.Exception           (assertionFailed)
 import           Pos.Txp.Core            (TxAux, TxUndo, TxpUndo, flattenTxPayload)
 import qualified Pos.Txp.DB              as DB
@@ -123,7 +123,7 @@ toilModifierToBatch = genericToilModifierToBatch (const mempty)
 
 -- | Run action which requires toil interfaces.
 runToilAction
-    :: (MonadDB m, Default e)
+    :: (MonadDBRead m, Default e)
     => ToilT e (DBTxp m) a -> m (a, GenericToilModifier e)
 runToilAction action = runDBTxp . runToilTGlobal $ action
 

@@ -42,9 +42,8 @@ import           Pos.Core               (Coin, StakeholderId, coinF, mkCoin, sum
 import qualified Pos.Core.Constants     as Const
 import           Pos.Core.Genesis       (genesisBalances)
 import           Pos.Crypto             (shortHashF)
-import           Pos.DB.Class           (MonadDB, MonadDBPure)
-import           Pos.DB.Error           (DBError (..))
-import           Pos.DB.Functions       (RocksBatchOp (..))
+import           Pos.DB                 (DBError (..), RocksBatchOp (..))
+import           Pos.DB.Class           (MonadDB, MonadDBRead, MonadRealDB)
 import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
                                          getRealStakeSumMaybe)
 import qualified Pos.DB.GState.Balances as GS
@@ -90,12 +89,12 @@ isBootstrapEra = pure $ not Const.isDevelopment && True
 genesisFakeTotalStake :: Coin
 genesisFakeTotalStake = unsafeIntegerToCoin $ sumCoins genesisBalances
 
-getEffectiveTotalStake :: MonadDBPure m => m Coin
+getEffectiveTotalStake :: MonadDBRead m => m Coin
 getEffectiveTotalStake = ifM isBootstrapEra
     (pure genesisFakeTotalStake)
     GS.getRealTotalStake
 
-getEffectiveStake :: MonadDBPure m => StakeholderId -> m (Maybe Coin)
+getEffectiveStake :: MonadDBRead m => StakeholderId -> m (Maybe Coin)
 getEffectiveStake id = ifM isBootstrapEra
     (pure $ HM.lookup id genesisBalances)
     (GS.getRealStake id)
@@ -106,14 +105,14 @@ getEffectiveStake id = ifM isBootstrapEra
 
 prepareGStateBalances
     :: forall m.
-       (MonadDB m, MonadDBPure m)
+       MonadDB m
     => Utxo -> m ()
 prepareGStateBalances genesisUtxo = do
     whenNothingM_ getRealStakeSumMaybe putFtsStakes
     whenNothingM_ getRealStakeSumMaybe putGenesisTotalStake
   where
     totalCoins = sumCoins $ map snd $ concatMap txOutStake $ toList genesisUtxo
-    -- Will 'panic' if the result doesn't fit into 'Coin' (which should never
+    -- Will 'error' if the result doesn't fit into 'Coin' (which should never
     -- happen)
     putGenesisTotalStake = putTotalFtsStake (unsafeIntegerToCoin totalCoins)
     putFtsStakes = mapM_ (uncurry putFtsStake) . HM.toList $ utxoToStakes genesisUtxo
@@ -127,7 +126,7 @@ putTotalFtsStake = gsPutBi ftsSumKey
 
 -- | Run iterator over real balances.
 runBalanceIterReal
-    :: forall m a . MonadDB m
+    :: forall m a . MonadRealDB m
     => DBPureRedirect (DBnIterator BalanceIter) a -> m a
 runBalanceIterReal (runDBPureRedirect -> iter) =
     runDBnIterator @BalanceIter _gStateDB iter
@@ -139,10 +138,10 @@ runBalanceIterBootstrap = flip runListHolderT $ HM.toList genesisBalances
 
 -- | Run iterator over effective balances.
 runBalanceIterator
-    :: forall m a . (MonadDB m, MonadDBPure m)
+    :: forall m a . (MonadRealDB m, MonadDBRead m)
     => (forall iter . ( MonadIterator (IterType BalanceIter) iter
-                      , MonadDB iter
-                      , MonadDBPure iter
+                      , MonadRealDB iter
+                      , MonadDBRead iter
                       ) => iter a)
     -> m a
 runBalanceIterator iter = ifM isBootstrapEra
@@ -151,7 +150,7 @@ runBalanceIterator iter = ifM isBootstrapEra
 
 -- | Run map iterator over real balances.
 runBalanceMapIterReal
-    :: forall v m a . MonadDB m
+    :: forall v m a . MonadRealDB m
     => DBnMapIterator BalanceIter v a -> (IterType BalanceIter -> v) -> m a
 runBalanceMapIterReal iter f = runDBnMapIterator @BalanceIter _gStateDB iter f
 
@@ -163,9 +162,9 @@ runBalanceMapIterBootstrap iter f = runListHolderT iter $
 
 -- | Run map iterator over effective balances.
 runBalanceMapIterator
-    :: forall v m a . MonadDB m
+    :: forall v m a . MonadRealDB m
     => (forall iter . ( MonadIterator v iter
-                      , MonadDB iter
+                      , MonadRealDB iter
                       ) => iter a)
     -> (IterType BalanceIter -> v)
     -> m a
@@ -178,7 +177,7 @@ runBalanceMapIterator iter f = ifM isBootstrapEra
 ----------------------------------------------------------------------------
 
 sanityCheckBalances
-    :: (MonadMask m, MonadDB m, MonadDBPure m, WithLogger m)
+    :: (MonadMask m, MonadRealDB m, MonadDBRead m, WithLogger m)
     => m ()
 sanityCheckBalances = do
     let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))

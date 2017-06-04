@@ -23,7 +23,7 @@ import           Universum
 import           Pos.Binary.GodTossing          ()
 import           Pos.Core                       (EpochIndex (..), SlotId (..),
                                                  epochIndexL, epochOrSlotG)
-import           Pos.DB                         (MonadDBPure, SomeBatchOp (..))
+import           Pos.DB                         (MonadDBRead, SomeBatchOp (..))
 import           Pos.Lrc.Types                  (RichmenStake)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Class.Types            (SscBlock, getSscBlock)
@@ -85,7 +85,7 @@ instance SscGStateClass SscGodTossing where
         <*> view gsShares
         <*> pure richmen
 
-loadGlobalState :: (MonadDBPure m, WithLogger m) => m GtGlobalState
+loadGlobalState :: (MonadDBRead m, WithLogger m) => m GtGlobalState
 loadGlobalState = do
     logDebug "Loading SSC global state"
     DB.getGtGlobalStateMaybe >>= \case

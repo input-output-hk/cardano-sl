@@ -26,13 +26,15 @@ import           Control.Lens            (each, _Wrapped)
 import qualified Ether
 import           Paths_cardano_sl        (version)
 
+import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
                                           mbUpdatePayload)
-import           Pos.Block.Logic.Slog    (SlogMode, slogApplyBlocks, slogRollbackBlocks)
+import           Pos.Block.Logic.Slog    (SlogApplyMode, SlogMode, slogApplyBlocks,
+                                          slogRollbackBlocks)
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                (IsGenesisHeader, IsMainHeader, epochIndexL,
                                           gbBody, gbHeader)
-import           Pos.DB                  (MonadDB, SomeBatchOp (..))
+import           Pos.DB                  (MonadDB, MonadRealDB, SomeBatchOp (..))
 import           Pos.DB.Block            (MonadBlockDB)
 import qualified Pos.DB.GState           as GS
 import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgRollbackBlocks)
@@ -43,7 +45,6 @@ import           Pos.Explorer.Txp        (eTxNormalize)
 #else
 import           Pos.Txp.Logic           (txNormalize)
 #endif
-import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Delegation.Class    (MonadDelegation)
 import           Pos.Discovery.Class     (MonadDiscovery)
 import           Pos.Reporting           (MonadReportingMem, reportingFatal)
@@ -73,7 +74,7 @@ type BlockMode ssc m
        -- LRC is really needed.
        , Ether.MonadReader' LrcContext m
        -- Probably won't be needed after porting everything to smaller monads.
-       , MonadDB m
+       , MonadRealDB m
        -- This constraints define block components' global logic.
        , Ether.MonadReader' TxpGlobalSettings m
        , SscGStateClass ssc
@@ -85,6 +86,9 @@ type BlockVerifyMode ssc m = BlockMode ssc m
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
 type BlockApplyMode ssc m
      = ( BlockMode ssc m
+       , SlogApplyMode ssc m
+       -- It's obviously needed to write something to DB, for instance.
+       , MonadDB m
        -- Needed for iteration over DB.
        , MonadMask m
        -- Needed to embed custom logic.

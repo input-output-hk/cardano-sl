@@ -12,7 +12,6 @@ module Pos.Block.Worker
 import           Universum
 
 import           Control.Lens                (ix)
-import qualified Ether
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
 import           Serokell.Util               (listJson, pairF)
@@ -25,12 +24,11 @@ import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
                                               onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
-import           Pos.Context                 (npPublicKey, recoveryCommGuard)
+import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core                    (SlotId (..), Timestamp (Timestamp),
                                               gbHeader, getSlotIndex, slotIdF)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
-import           Pos.DB.Class                (MonadDBCore)
 import           Pos.DB.GState               (getDlgTransPsk, getPskByIssuer)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Delegation.Helpers      (isRevokePsk)
@@ -53,7 +51,7 @@ import           Pos.Slotting                (getLastKnownSlotDuration)
 
 -- | All workers specific to block processing.
 blkWorkers
-    :: (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m)
     => ([WorkerSpec m], OutSpecs)
 blkWorkers =
     merge $ [ blkOnNewSlot
@@ -102,7 +100,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     logLeadersF = if siSlot == minBound then logInfo else logDebug
     logLeadersFS = if siSlot == minBound then logInfoS else logDebugS
     onKnownLeader leaders leader = do
-        ourPk <- Ether.asks' npPublicKey
+        ourPk <- getOurPublicKey
         let ourPkHash = addressHash ourPk
         logNoticeS "This is a test debug message which shouldn't be sent to the logging server."
         logLeadersFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash

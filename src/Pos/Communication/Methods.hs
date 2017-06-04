@@ -17,7 +17,7 @@ import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (NodeId, SendActions)
 import           Pos.Communication.Relay    (invReqDataFlowTK)
 import           Pos.Crypto                 (hash, hashHexF)
-import           Pos.DB.Class               (MonadGStateCore)
+import           Pos.DB.Class               (MonadGState)
 import           Pos.Txp.Core.Types         (TxAux (..))
 import           Pos.Txp.Network.Types      (TxMsgContents (..))
 import           Pos.Update                 (UpId, UpdateProposal, UpdateVote, mkVoteId)
@@ -26,7 +26,7 @@ import           Pos.WorkMode.Class         (MinWorkMode)
 
 -- | Send Tx to given address.
 sendTx
-    :: (MinWorkMode m, MonadGStateCore m)
+    :: (MinWorkMode m, MonadGState m)
     => SendActions m -> NodeId -> TxAux -> m ()
 sendTx sendActions addr txAux =
     invReqDataFlowTK
@@ -38,14 +38,14 @@ sendTx sendActions addr txAux =
 
 -- Send UpdateVote to given address.
 sendVote
-    :: (MinWorkMode m, MonadGStateCore m)
+    :: (MinWorkMode m, MonadGState m)
     => SendActions m -> NodeId -> UpdateVote -> m ()
 sendVote sendActions addr vote =
     invReqDataFlowTK "UpdateVote" sendActions addr (mkVoteId vote) vote
 
 -- Send UpdateProposal to given address.
 sendUpdateProposal
-    :: (MinWorkMode m, MonadGStateCore m)
+    :: (MinWorkMode m, MonadGState m)
     => SendActions m
     -> NodeId
     -> UpId

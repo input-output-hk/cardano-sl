@@ -34,16 +34,17 @@ import           Formatting             (sformat, (%))
 import           System.Wlog            (WithLogger, logWarning)
 
 import           Pos.Binary.Class       (biSize)
-import           Pos.Constants          (memPoolLimitRatio)
 import           Pos.Core               (BlockVersionData (bvdMaxBlockSize), HeaderHash,
                                          SlotId (..), slotIdF)
+import           Pos.Core.Constants     (memPoolLimitRatio)
 import           Pos.Crypto             (PublicKey)
-import           Pos.DB.Class           (MonadDB, MonadDBPure)
-import qualified Pos.DB.GState          as DB
+import           Pos.DB.Class           (MonadDBRead, MonadRealDB)
+import qualified Pos.DB.GState.Common   as DB
 import           Pos.Lrc.Context        (LrcContext)
 import           Pos.Update.Context     (UpdateContext (..))
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), canCombineVotes)
+import qualified Pos.Update.DB          as DB
 import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..),
                                          MemVar (mvState), UpdateProposals, addToMemPool,
                                          withUSLock)
@@ -56,8 +57,8 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
 
 -- MonadMask is needed because are using Lock. It can be improved later.
 type USLocalLogicMode m =
-    ( MonadDB m
-    , MonadDBPure m
+    ( MonadRealDB m
+    , MonadDBRead m
     , MonadMask m
     , WithLogger m
     , Ether.MonadReader' UpdateContext m
@@ -95,7 +96,7 @@ getLocalVotes
 getLocalVotes = mpLocalVotes <$> getMemPool
 
 withCurrentTip
-    :: (Ether.MonadReader' UpdateContext m, MonadDB m, MonadDBPure m)
+    :: (Ether.MonadReader' UpdateContext m, MonadRealDB m, MonadDBRead m)
     => (MemState -> m MemState) -> m ()
 withCurrentTip action = do
     tipBefore <- DB.getTip
@@ -134,8 +135,8 @@ processSkeleton payload =
 
 -- Remove most useless data from mem pool to make it smaller.
 refreshMemPool
-    :: ( MonadDB m
-       , MonadDBPure m
+    :: ( MonadRealDB m
+       , MonadDBRead m
        , Ether.MonadReader' UpdateContext m
        , Ether.MonadReader' LrcContext m
        , WithLogger m

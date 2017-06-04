@@ -34,6 +34,7 @@ import           Pos.Genesis                (genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), bracketResources, initLrc,
                                              runNode', runStaticMode, stakesDistr)
+import           Pos.Security               (SecurityParams (..), SecurityWorkersClass)
 import           Pos.Ssc.Class              (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing         (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
@@ -95,7 +96,7 @@ getPeersShare share = do
 
 runSmartGen
     :: forall ssc.
-       SscConstraint ssc
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (StaticMode ssc)
     -> (Set NodeId)
     -> NodeParams
@@ -284,14 +285,16 @@ main = do
                                         (CLI.richPoorDistr goCommonArgs)
                                         (CLI.expDistr goCommonArgs)
                 , npJLFile        = goJLFile
-                , npAttackTypes   = []
-                , npAttackTargets = []
                 , npPropagation   = not (CLI.disablePropagation goCommonArgs)
                 , npReportServers = []
                 , npUpdateParams = UpdateParams
                     { upUpdatePath    = "update.exe"
                     , upUpdateWithPkg = True
                     , upUpdateServers = []
+                    }
+                , npSecurityParams = SecurityParams
+                    { spAttackTypes   = []
+                    , spAttackTargets = []
                     }
                 , npUseNTP = True
                 }

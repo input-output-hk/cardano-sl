@@ -265,7 +265,6 @@ library
                         Pos.Update.Logic
                         Pos.Update.Logic.Global
                         Pos.Update.Logic.Local
-                        Pos.Update.Lrc
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
                         Pos.Update.Worker

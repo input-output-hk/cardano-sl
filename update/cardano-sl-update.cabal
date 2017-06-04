@@ -19,6 +19,7 @@ library
                        Pos.Update.DB
                        Pos.Update.Constants
                        Pos.Update.RichmenComponent
+                       Pos.Update.Lrc
 
                        Pos.Binary.Update
 

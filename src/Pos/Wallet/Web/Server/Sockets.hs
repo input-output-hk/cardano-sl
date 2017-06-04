@@ -129,11 +129,8 @@ type ConnectionTag = IM.Key
 type ConnectionSet = TaggedSet WSConnection
 
 registerConnection :: WSConnection -> ConnectionsVar -> STM ConnectionTag
-registerConnection conn var = modifyTVarS var $ do
-    conns <- get
-    let (tag, newConns) = registerConnectionPure conn conns
-    put newConns
-    pure tag
+registerConnection conn var =
+    modifyTVarS var $ state $ registerConnectionPure conn
 
 deregisterConnection :: ConnectionTag -> ConnectionsVar -> STM (Maybe WSConnection)
 deregisterConnection tag var = modifyTVarS var $ do

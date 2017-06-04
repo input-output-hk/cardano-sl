@@ -54,7 +54,7 @@ import           Pos.Constants                (blkSecurityParam)
 import qualified Pos.Context                  as PC
 import           Pos.Core                     (ChainDifficulty, difficultyL,
                                                flattenEpochOrSlot, flattenSlotId)
-import           Pos.DB                       (DBPureRedirect, MonadDB)
+import           Pos.DB                       (DBPureRedirect, MonadRealDB)
 import           Pos.DB.Block                 (BlockDBRedirect, MonadBlockDB)
 import           Pos.DB.DB                    (getTipHeader)
 import           Pos.Discovery                (DiscoveryConstT, DiscoveryKademliaT,
@@ -182,7 +182,7 @@ instance
     , PC.MonadProgressHeader ssc m
     , Ether.MonadReader' PC.ConnectedPeers m
     , MonadIO m
-    , MonadDB m
+    , MonadRealDB m
     , MonadSlots m
     ) => MonadBlockchainInfo (Ether.TaggedTrans BlockchainInfoRedirectTag t m)
   where

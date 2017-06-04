@@ -23,7 +23,7 @@ import           Pos.Communication.Protocol     (ConversationActions, HandlerSpe
                                                  ListenerSpec (..), Message, NodeId,
                                                  OutSpecs, VerInfo, checkingInSpecs,
                                                  messageName)
-import           Pos.DB.Class                   (MonadGStateCore)
+import           Pos.DB.Class                   (MonadGState)
 
 
 data SizedCAHandler snd rcv m =
@@ -39,7 +39,7 @@ listenerConv
        , Bi rcv
        , Message snd
        , Message rcv
-       , MonadGStateCore m
+       , MonadGState m
        , MessageLimited rcv
        , WithLogger m
        )

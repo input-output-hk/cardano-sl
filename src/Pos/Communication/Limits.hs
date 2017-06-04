@@ -128,7 +128,7 @@ instance MessageLimited ProxySKLightConfirmation
 -- | Upper bound on number of `PVSS.Commitment`s in single
 -- `Commitment`.  Actually it's a maximum number of participants in
 -- GodTossing. So it also limits number of shares, for instance.
-commitmentsNumLimit :: DB.MonadGStateCore m => m Int
+commitmentsNumLimit :: DB.MonadGState m => m Int
 commitmentsNumLimit =
     -- succ is just in case
     succ . ceiling . recip . coinPortionToDouble . bvdMpcThd <$>
@@ -219,7 +219,7 @@ instance MessageLimited TxMsgContents where
 ----------------------------------------------------------------------------
 
 -- | Upper bound on number of votes carried with single `UpdateProposal`.
-updateVoteNumLimit :: DB.MonadGStateCore m => m Int
+updateVoteNumLimit :: DB.MonadGState m => m Int
 updateVoteNumLimit =
     -- succ is just in case
     succ . ceiling . recip . coinPortionToDouble . bvdUpdateVoteThd <$>

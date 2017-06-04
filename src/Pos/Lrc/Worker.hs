@@ -35,7 +35,6 @@ import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
                                              SharedSeed, SlotId (..), StakeholderId,
                                              crucialSlot, epochIndexL, getEpochOrSlot,
                                              getEpochOrSlot, getSlotIndex)
-import           Pos.DB.Class               (MonadGStateCore)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
@@ -59,7 +58,7 @@ import           Pos.WorkMode.Class         (WorkMode)
 
 lrcOnNewSlotWorker
     :: forall ssc m.
-       (WorkMode ssc m, SscWorkersClass ssc, MonadGStateCore m)
+       (WorkMode ssc m, SscWorkersClass ssc)
     => (WorkerSpec m, OutSpecs)
 lrcOnNewSlotWorker = recoveryCommGuard $ localOnNewSlotWorker True $ \SlotId {..} ->
     when (getSlotIndex siSlot < slotSecurityParam) $

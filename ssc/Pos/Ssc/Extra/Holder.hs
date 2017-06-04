@@ -16,7 +16,7 @@ import qualified Control.Concurrent.STM  as STM
 import qualified Ether
 import           System.Wlog             (WithLogger)
 
-import           Pos.DB                  (MonadDBPure)
+import           Pos.DB                  (MonadDBRead)
 import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Slotting.Class      (MonadSlots)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (sscNewLocalData))
@@ -30,7 +30,7 @@ mkSscState
        , Ether.MonadReader' LrcContext m
        , SscGStateClass ssc
        , SscLocalDataClass ssc
-       , MonadDBPure m
+       , MonadDBRead m
        , MonadIO m
        , MonadSlots m
        )

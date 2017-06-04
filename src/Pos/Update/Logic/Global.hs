@@ -39,13 +39,13 @@ import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 import qualified Pos.Util.Modifier    as MM
 
 type USGlobalApplyMode m = ( WithLogger m
-                           , DB.MonadDB m
-                           , DB.MonadDBPure m
+                           , DB.MonadRealDB m
+                           , DB.MonadDBRead m
                            , Ether.MonadReader' LrcContext m
                            )
 type USGlobalVerifyMode m = ( WithLogger m
-                            , DB.MonadDB m
-                            , DB.MonadDBPure m
+                            , DB.MonadRealDB m
+                            , DB.MonadDBRead m
                             , Ether.MonadReader' LrcContext m
                             , MonadError PollVerFailure m
                             )
@@ -138,8 +138,8 @@ verifyBlock verifyAllIsKnown (Right (header, payload)) =
 -- global state.
 usCanCreateBlock ::
        ( WithLogger m
-       , DB.MonadDB m
-       , DB.MonadDBPure m
+       , DB.MonadRealDB m
+       , DB.MonadDBRead m
        , Ether.MonadReader' LrcContext m
        )
     => m Bool

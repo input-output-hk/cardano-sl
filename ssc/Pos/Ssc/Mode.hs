@@ -13,7 +13,7 @@ import           System.Wlog                 (WithLogger)
 
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Core                    (MonadPrimaryKey)
-import           Pos.DB.Class                (MonadDBCore, MonadDBPure)
+import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.Discovery               (MonadDiscovery)
 import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
@@ -31,8 +31,8 @@ type SscMode ssc m
       , MonadMask m
       , MonadMockable m
       , MonadSlots m
-      , MonadDBCore m
-      , MonadDBPure m
+      , MonadGState m
+      , MonadDB m
       , MonadSscMem ssc m
       , MonadPrimaryKey m
       , MonadRecoveryInfo m

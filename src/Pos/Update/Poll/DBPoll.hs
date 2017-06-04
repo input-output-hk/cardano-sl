@@ -15,7 +15,7 @@ import           Pos.Context                  (lrcActionOnEpochReason)
 import           System.Wlog                  (WithLogger)
 import           Universum
 
-import           Pos.DB.Class                 (MonadDB, MonadDBPure)
+import           Pos.DB.Class                 (MonadRealDB, MonadDBRead)
 import           Pos.Lrc.Context              (LrcContext)
 import           Pos.Lrc.DB                   (getIssuersStakes, getRichmenUS)
 import           Pos.Lrc.Types                (FullRichmenData)
@@ -34,7 +34,7 @@ type DBPoll = Ether.TaggedTrans DBPollTag IdentityT
 runDBPoll :: DBPoll m a -> m a
 runDBPoll = coerce
 
-instance (MonadDBPure m, MonadDB m, WithLogger m, Ether.MonadReader' LrcContext m) =>
+instance (MonadDBRead m, MonadRealDB m, WithLogger m, Ether.MonadReader' LrcContext m) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
     getProposedBVs = GS.getProposedBVs

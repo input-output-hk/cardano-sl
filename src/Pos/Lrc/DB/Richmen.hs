@@ -33,7 +33,7 @@ import qualified Ether
 import           Pos.Binary.Core          ()
 import           Pos.Constants            (genesisHeavyDelThd, genesisUpdateVoteThd)
 import           Pos.Context.Functions    (GenesisUtxo (..), genesisUtxoM)
-import           Pos.DB.Class             (MonadDB)
+import           Pos.DB.Class             (MonadDB, MonadDBRead)
 import           Pos.Genesis              (genesisDelegation)
 import           Pos.Lrc.Class            (RichmenComponent (..),
                                            SomeRichmenComponent (..),
@@ -96,11 +96,11 @@ instance RichmenComponent RCUs where
     rcInitialThreshold Proxy = genesisUpdateVoteThd
     rcConsiderDelegated Proxy = True
 
-getRichmenUS :: MonadDB m => EpochIndex -> m (Maybe FullRichmenData)
+getRichmenUS :: MonadDBRead m => EpochIndex -> m (Maybe FullRichmenData)
 getRichmenUS epoch = getRichmen @RCUs epoch
 
 putRichmenUS
-    :: (MonadDB m)
+    :: MonadDB m
     => EpochIndex -> FullRichmenData -> m ()
 putRichmenUS = putRichmen @RCUs
 
@@ -117,7 +117,7 @@ instance RichmenComponent RCDlg where
     rcInitialThreshold Proxy = genesisHeavyDelThd
     rcConsiderDelegated Proxy = False
 
-getRichmenDlg :: MonadDB m => EpochIndex -> m (Maybe Richmen)
+getRichmenDlg :: MonadDBRead m => EpochIndex -> m (Maybe Richmen)
 getRichmenDlg epoch = getRichmen @RCDlg epoch
 
 putRichmenDlg :: MonadDB m => EpochIndex -> FullRichmenData -> m ()

@@ -70,7 +70,7 @@ import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers
                                                NodeContext (..), StartTime (..))
 import           Pos.Core                     (Timestamp ())
 import           Pos.Crypto                   (createProxySecretKey, encToPublic)
-import           Pos.DB                       (MonadDBPure, NodeDBs, runDBPureRedirect)
+import           Pos.DB                       (MonadDBRead, NodeDBs, runDBPureRedirect)
 import           Pos.DB.Block                 (runBlockDBRedirect)
 import           Pos.DB.DB                    (initNodeDBs, openNodeDBs,
                                                runGStateCoreRedirect)
@@ -143,7 +143,8 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
         -- TODO [CSL-775] ideally initialization logic should be in scenario.
         runCH @ssc allWorkersNum np initNC modernDBs .
             flip Ether.runReaderT' modernDBs .
-            runDBPureRedirect $
+            runDBPureRedirect .
+            runBlockDBRedirect $
             initNodeDBs @ssc
         initTip <- Ether.runReaderT' (runDBPureRedirect getTip) modernDBs
         stateM <- liftIO SM.newIO
@@ -234,7 +235,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
     LoggingParams {..} = bpLoggingParams npBaseParams
 
 -- | Create new 'SlottingVar' using data from DB.
-mkSlottingVar :: (MonadIO m, MonadDBPure m) => Timestamp -> m SlottingVar
+mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
 mkSlottingVar sysStart = do
     sd <- GState.getSlottingData
     (sysStart, ) <$> newTVarIO sd
@@ -404,13 +405,13 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ucUpdateSemaphore <- newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
-    epochDef <- Ether.runReaderT' LrcDB.getEpochDefault db
+    epochDef <- Ether.runReaderT' (runDBPureRedirect LrcDB.getEpochDefault) db
     lcLrcSync <- newTVarIO (LrcSyncData True epochDef)
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
-    Ether.runReaderT' (for_ ownPSKs addProxySecretKey) db
+    Ether.runReaderT' (runDBPureRedirect $ for_ ownPSKs addProxySecretKey) db
 
     ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $

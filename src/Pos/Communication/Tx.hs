@@ -21,12 +21,15 @@ import           Pos.Client.Txp.History     (MonadTxHistory (..))
 import           Pos.Client.Txp.Util        (TxError, createMTx, createRedemptionTx,
                                              createTx)
 import           Pos.Communication.Methods  (sendTx)
-import           Pos.Communication.Protocol (NodeId, SendActions)
-import           Pos.Communication.Specs    (sendTxOuts)
+import           Pos.Communication.Protocol (NodeId, OutSpecs, SendActions)
+import           Pos.Communication.Specs    (createOutSpecs)
+import           Pos.Communication.Types    (InvOrDataTK)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
 import           Pos.DB.Class               (MonadGStateCore)
-import           Pos.Txp.Core               (TxAux (..), TxOut (..), TxOutAux (..), txaF)
+import           Pos.Txp.Core               (TxAux (..), TxId, TxOut (..), TxOutAux (..),
+                                             txaF)
+import           Pos.Txp.Network.Types      (TxMsgContents (..))
 import           Pos.Types                  (Address, Coin, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.WorkMode.Class         (MinWorkMode)
@@ -108,3 +111,6 @@ submitTxRaw sa na txAux@TxAux {..} = do
     logInfo $ sformat ("Submitting transaction: "%txaF) txAux
     logInfo $ sformat ("Transaction id: "%build) txId
     void $ mapConcurrently (flip (sendTx sa) txAux) na
+
+sendTxOuts :: OutSpecs
+sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))

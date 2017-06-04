@@ -21,10 +21,10 @@ import           Pos.Communication.Message     ()
 import           Pos.Communication.Relay       (DataParams (..), PropagationMsg (..),
                                                 Relay (..), addToRelayQueue)
 import           Pos.Communication.Relay.Types ()
-import           Pos.Context                   (BlkSemaphore (..), NodeParams,
-                                                npSecretKey)
+import           Pos.Context                   (BlkSemaphore (..))
+import           Pos.Core                      (getOurKeys)
 import           Pos.Crypto                    (SignTag (SignProxySK), proxySign,
-                                                pskDelegatePk, toPublic)
+                                                pskDelegatePk)
 import           Pos.Delegation.Logic          (ConfirmPskLightVerdict (..),
                                                 PskHeavyVerdict (..),
                                                 PskLightVerdict (..),
@@ -57,8 +57,8 @@ pskLightRelay = Data $ DataParams $ \pSk -> do
     case verdict of
         PLUnrelated -> pure True
         PLAdded -> do
-           sk <- npSecretKey <$> Ether.ask @NodeParams
-           if pskDelegatePk pSk == toPublic sk then do
+           (sk, pk) <- getOurKeys
+           if pskDelegatePk pSk == pk then do
                -- if we're final delegate, don't propagate psk, propagate proof instead
                logDebug $
                    sformat ("Generating delivery proof and propagating it to neighbors: "%build) pSk

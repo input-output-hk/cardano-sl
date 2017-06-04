@@ -26,8 +26,9 @@ import qualified Pos.CLI                      as CLI
 import           Pos.Constants                (isDevelopment)
 import           Pos.DHT.Model                (DHTKey)
 import           Pos.DHT.Real.CLI             (dhtExplicitInitialOption, dhtKeyOption,
-                                               dhtNetworkAddressOption, dhtPeersFileOption)
-import           Pos.Security.CLI             (AttackTarget, AttackType)
+                                               dhtNetworkAddressOption,
+                                               dhtPeersFileOption)
+import           Pos.Security                 (AttackTarget, AttackType)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp            (NetworkAddress, addrParser)
 

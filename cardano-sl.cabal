@@ -120,7 +120,6 @@ library
                         Pos.Util.Arbitrary
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
-                        Pos.Util.Servant
                         Pos.Util.UserSecret
 
                         -- Wallets
@@ -139,6 +138,8 @@ library
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
+  if flag(with-web) || flag(with-explorer)
+    exposed-modules:    Pos.Util.Servant
   other-modules:        Paths_cardano_sl
 
                         Pos.Aeson.CompileConfig

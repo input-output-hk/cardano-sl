@@ -262,9 +262,6 @@ library
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
                         Pos.Update.Download
-                        Pos.Update.Logic
-                        Pos.Update.Logic.Global
-                        Pos.Update.Logic.Local
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
                         Pos.Update.Worker

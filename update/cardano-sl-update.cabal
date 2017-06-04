@@ -23,6 +23,11 @@ library
 
                        Pos.Binary.Update
 
+                       -- Logic
+                       Pos.Update.Logic
+                       Pos.Update.Logic.Global
+                       Pos.Update.Logic.Local
+
                        -- Poll
                        Pos.Update.Poll
                        Pos.Update.Poll.Class

@@ -31,11 +31,9 @@ module Pos.Binary.Class
        -- * Primitives for serialization
        , getWord8
        , putWord8
-       {-
        , getByteString
        , putByteString
        , label
--}
 
        -- * The 'StaticSize' wrapper
        , StaticSize(..)
@@ -43,7 +41,6 @@ module Pos.Binary.Class
        -- * The 'Raw' wrapper
        , Raw
 
-{-
        -- * Different sizes for ints
        , UnsignedVarInt(..)
        , SignedVarInt(..)
@@ -52,8 +49,7 @@ module Pos.Binary.Class
 
        -- * Primitives for limiting serialization
        , limitGet
-       , isolate64
--}
+       , isolate64Full
        -- * Bi to SafeCopy
        , getCopyBi
        , putCopyBi
@@ -72,9 +68,9 @@ module Pos.Binary.Class
 
        -- * Other binary utils
        , getRemainingByteString
+       -}
        , getAsciiString1b
        , putAsciiString1b
-       -}
        , biSize
        ) where
 
@@ -91,42 +87,47 @@ import           Data.Binary.Get.Internal    (Decoder (..), runCont)
 import           Data.Binary.Put             (PutM, putByteString, putCharUtf8,
                                               putLazyByteString, putWord8, runPut,
                                               runPutM)
-import           Data.Bits                   (Bits (..))
+import           Data.Hashable               (Hashable (..))
+import           Unsafe.Coerce               (unsafeCoerce)
+-}
+
+import           Control.Lens                (_Left)
+import           Data.Bits                   (Bits (..), FiniteBits, countLeadingZeros,
+                                              finiteBitSize)
 import qualified Data.ByteString             as BS
 import           Data.Char                   (isAscii)
-import           Data.Hashable               (Hashable (..))
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
+import           Data.Reflection             (reifyNat)
+import           Data.SafeCopy               (Contained, SafeCopy (..), contain, safeGet,
+                                              safePut)
+import qualified Data.Serialize              as Cereal (Get, Put)
 import qualified Data.Set                    as S
+import           Data.Store                  (Size (..))
+import           Data.Store.Core             (Peek (..), PeekResult (..), Poke)
+import qualified Data.Store.Core             as Store
+import           Data.Store.Internal         (PeekException (..), StaticSize (..))
+import qualified Data.Store.Internal         as Store
+import           Data.Tagged                 (Tagged (..))
+import qualified Data.Text                   as T
 import qualified Data.Text.Encoding          as T
 import           Data.Time.Units             (Microsecond, Millisecond)
 import qualified Data.Vector                 as V
 import qualified Data.Vector.Generic         as G
 import qualified Data.Vector.Generic.Mutable as GM
 import           Data.Word                   (Word32)
+import           Foreign.Ptr                 (minusPtr, plusPtr)
 import           Formatting                  (formatToString, int, (%))
 import           GHC.TypeLits                (ErrorMessage (..), TypeError)
 import           Serokell.Data.Memory.Units  (Byte, fromBytes, toBytes)
+import           Serokell.Data.Memory.Units  (Byte)
 import           System.IO.Unsafe            (unsafePerformIO)
-import           Unsafe.Coerce               (unsafeCoerce)
--}
-
-import           Control.Lens               (_Left)
-import           Data.SafeCopy              (Contained, SafeCopy (..), contain, safeGet,
-                                             safePut)
-import qualified Data.Serialize             as Cereal (Get, Put)
-import           Data.Store                 (Peek, Poke, Size (..))
-import qualified Data.Store.Core            as Store
-import           Data.Store.Internal        (StaticSize (..))
-import qualified Data.Store.Internal        as Store
-import qualified Data.Text                  as T
-import           Serokell.Data.Memory.Units (Byte)
 
 ----------------------------------------------------------------------------
 -- Bi typeclass
 ----------------------------------------------------------------------------
 
--- | Simplified definition of serializable object,
+-- | Simplified definition of serializable object
 -- Data.Binary.Class-alike.
 --
 -- Write @instance Bi SomeType where@ without any method definitions if you
@@ -152,31 +153,8 @@ getSize = Store.getSizeWith size
 decodeFull :: Bi a => ByteString -> Either Text a
 decodeFull = over _Left Store.peekExMessage . Store.decodeWith get
 
-{-
-
--- | Decode a value from a lazy ByteString, reconstructing the
--- original structure.
-decode :: Bi a => LByteString -> a
-decode = runGet get
-
-decodeOrFail
-    :: Bi a
-    => LByteString
-    -> Either (LByteString, ByteOffset, String)
-              (LByteString, ByteOffset, a)
-decodeOrFail = runGetOrFail get
-
--- | Like 'decode', but ensures that the whole input has been consumed.
-decodeFull :: Bi a => LByteString -> Either String a
-decodeFull bs = case (runGetOrFail get) bs of
-    Left (_, _, err) -> Left ("decodeFull: " ++ err)
-    Right (unconsumed, _, a)
-        | BSL.null unconsumed -> Right a
-        | otherwise -> Left "decodeFull: unconsumed input"
-
--}
-
-
+label :: Text -> Peek a -> Peek a
+label = undefined -- CSL-1122 implement
 
 ----------------------------------------------------------------------------
 -- Raw
@@ -189,14 +167,12 @@ decodeFull bs = case (runGetOrFail get) bs of
 newtype Raw = Raw ByteString
     deriving (Bi, Eq, Ord, Show, Typeable, NFData)
 
-{-
-
 ----------------------------------------------------------------------------
 -- Variable-sized numbers
 ----------------------------------------------------------------------------
 
 -- Copied from Edward Kmett's 'bytes' library (licensed under BSD3)
-putUnsignedVarInt :: (Integral a, Bits a) => a -> Put
+putUnsignedVarInt :: (Integral a, Bits a) => a -> Poke ()
 putUnsignedVarInt n
     | n < 0x80 = putWord8 $ fromIntegral n
     | otherwise = do
@@ -204,11 +180,17 @@ putUnsignedVarInt n
           putUnsignedVarInt $ shiftR n 7
 {-# INLINE putUnsignedVarInt #-}
 
-getUnsignedVarInt' :: (Integral a, Bits a) => Get a
+getUnsignedVarIntSize :: (Integral a, Bits a, FiniteBits a) => a -> Int
+getUnsignedVarIntSize n = (logBase2 n `div` 7) + 1
+  where
+    logBase2 x = finiteBitSize x - 1 - countLeadingZeros x
+{-# INLINE getUnsignedVarIntSize #-}
+
+getUnsignedVarInt' :: (Integral a, Bits a, FiniteBits a) => Peek a
 getUnsignedVarInt' = do
     (bytes, i) <- getWord8 >>= go
-    let iBytes = runPut $ putUnsignedVarInt i
-    if BSL.pack bytes /= iBytes
+    let iBytes = Store.unsafeEncodeWith (putUnsignedVarInt i) (getUnsignedVarIntSize i)
+    if BS.pack bytes /= iBytes
        then fail $ "Ambigious varInt bytes: " ++ show bytes
        else return i
   where
@@ -218,25 +200,36 @@ getUnsignedVarInt' = do
          | otherwise = return ([n], fromIntegral n)
 {-# INLINE getUnsignedVarInt' #-}
 
-putSignedVarInt :: (ZZEncode a b, Integral b, Bits b) => a -> Put
+putSignedVarInt :: (ZZEncode a b, Integral b, Bits b) => a -> Poke ()
 putSignedVarInt x = putUnsignedVarInt (zzEncode x)
 {-# INLINE putSignedVarInt #-}
 
-getSignedVarInt' :: (ZZEncode a b, Integral b, Bits b) => Get a
+getSignedVarInt' :: (ZZEncode a b, Integral b, Bits b, FiniteBits b) => Peek a
 getSignedVarInt' = zzDecode <$> getUnsignedVarInt'
 {-# INLINE getSignedVarInt' #-}
 
-putTinyVarInt :: Word16 -> Put
+getSignedVarIntSize :: (ZZEncode a b, Integral b, Bits b, FiniteBits b) => a -> Int
+getSignedVarIntSize = getUnsignedVarIntSize . zzEncode
+{-# INLINE getSignedVarIntSize #-}
+
+getTinyVarIntSize :: Word16 -> Int
+getTinyVarIntSize n
+    | n <= 0b1111111 = 1
+    | n <= 0b11111111111111 = 2
+    | otherwise =
+          error "putTinyVarIntSize: the number is bigger than 2^14-1"
+
+putTinyVarInt :: Word16 -> Poke ()
 putTinyVarInt n
     | n <= 0b1111111 =
           putWord8 (fromIntegral n)
     | n <= 0b11111111111111 =
-          putWord8 (setBit (fromIntegral n) 7) <>
+          putWord8 (setBit (fromIntegral n) 7) *>
           putWord8 (fromIntegral (shiftR n 7))
     | otherwise =
           error "putTinyVarInt: the number is bigger than 2^14-1"
 
-getTinyVarInt' :: Get Word16
+getTinyVarInt' :: Peek Word16
 getTinyVarInt' = do
     a <- getWord8
     if testBit a 7
@@ -335,6 +328,7 @@ instance TypeError
   where
     get = error "get@Int"
     put = error "put@Int"
+    size = error "size@Int"
 
 instance TypeError
     ('Text "Do not encode 'Word' directly. Instead, use one of newtype wrappers:" ':$$:
@@ -344,17 +338,20 @@ instance TypeError
   where
     get = error "get@Word"
     put = error "put@Word"
+    size = error "size@Word"
 
 -- Int
 
 instance Bi (UnsignedVarInt Int) where
-    put (UnsignedVarInt a) = put (UnsignedVarInt (fromIntegral a :: Int64))
+    put (UnsignedVarInt a) = putUnsignedVarInt (fromIntegral a :: Word)
     {-# INLINE put #-}
-    -- We don't need 'limitGet' here because it's already present in the 'Bi'
-    -- instance of @UnsignedVarInt Int64@
     get = label "UnsignedVarInt Int" $
-        fmap (fromIntegral :: Int64 -> Int) <$> get
+        UnsignedVarInt . (fromIntegral :: Word -> Int) <$>
+        limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
+    size = VarSize $ \(UnsignedVarInt a) ->
+              getUnsignedVarIntSize (fromIntegral a :: Word)
+    {-# INLINE size #-}
 
 instance Bi (SignedVarInt Int) where
     put (SignedVarInt a) = putSignedVarInt a
@@ -362,13 +359,19 @@ instance Bi (SignedVarInt Int) where
     get = label "SignedVarInt Int" $
         SignedVarInt <$> limitGet 15 getSignedVarInt'
     {-# INLINE get #-}
+    size = VarSize $ getSignedVarIntSize . getSignedVarInt
+    {-# INLINE size #-}
 
+
+-- Is this instance valid at all? Is it int32 or int64 after all?
 instance Bi (FixedSizeInt Int) where
-    put (FixedSizeInt a) = Binary.put a
+    put (FixedSizeInt a) = Store.poke a -- CSL-1122 fix endianess
     {-# INLINE put #-}
     get = label "FixedSizeInt Int" $
-        FixedSizeInt <$> Binary.get
+        FixedSizeInt <$> Store.peek -- CSL-1122 fix endianess
     {-# INLINE get #-}
+    size = convertSize getFixedSizeInt Store.size
+    {-# INLINE size #-}
 
 -- Int64
 
@@ -379,6 +382,9 @@ instance Bi (UnsignedVarInt Int64) where
         UnsignedVarInt . (fromIntegral :: Word64 -> Int64) <$>
         limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
+    size = VarSize $ \(UnsignedVarInt a) ->
+              getUnsignedVarIntSize (fromIntegral a :: Word64)
+    {-# INLINE size #-}
 
 instance Bi (SignedVarInt Int64) where
     put (SignedVarInt a) = putSignedVarInt a
@@ -386,13 +392,17 @@ instance Bi (SignedVarInt Int64) where
     get = label "SignedVarInt Int64" $
         SignedVarInt <$> limitGet 15 getSignedVarInt'
     {-# INLINE get #-}
+    size = VarSize $ getSignedVarIntSize . getSignedVarInt
+    {-# INLINE size #-}
 
 instance Bi (FixedSizeInt Int64) where
-    put (FixedSizeInt a) = Binary.put a
+    put (FixedSizeInt a) = Store.poke a -- CSL-1122 fix endianess
     {-# INLINE put #-}
     get = label "FixedSizeInt Int64" $
-        FixedSizeInt <$> Binary.get
+        FixedSizeInt <$> Store.peek -- CSL-1122 fix endianess
     {-# INLINE get #-}
+    size = convertSize getFixedSizeInt Store.size
+    {-# INLINE size #-}
 
 -- Word
 
@@ -402,13 +412,18 @@ instance Bi (UnsignedVarInt Word) where
     get = label "UnsignedVarInt Word" $
         UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
+    size = VarSize $ getUnsignedVarIntSize . getUnsignedVarInt
+    {-# INLINE size #-}
 
+-- Is this instance valid at all? Is it word32 or word64 after all?
 instance Bi (FixedSizeInt Word) where
-    put (FixedSizeInt a) = Binary.put a
+    put (FixedSizeInt a) = Store.poke a -- CSL-1122 fix endianess
     {-# INLINE put #-}
     get = label "FixedSizeInt Word" $
-        FixedSizeInt <$> Binary.get
+        FixedSizeInt <$> Store.peek -- CSL-1122 fix endianess
     {-# INLINE get #-}
+    size = convertSize getFixedSizeInt Store.size
+    {-# INLINE size #-}
 
 -- Word16
 
@@ -418,6 +433,8 @@ instance Bi (UnsignedVarInt Word16) where
     get = label "UnsignedVarInt Word16" $
         UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
+    size = VarSize $ getUnsignedVarIntSize . getUnsignedVarInt
+    {-# INLINE size #-}
 
 -- Word32
 
@@ -427,6 +444,8 @@ instance Bi (UnsignedVarInt Word32) where
     get = label "UnsignedVarInt Word32" $
         UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
+    size = VarSize $ getUnsignedVarIntSize . getUnsignedVarInt
+    {-# INLINE size #-}
 
 -- Word64
 
@@ -436,6 +455,8 @@ instance Bi (UnsignedVarInt Word64) where
     get = label "UnsignedVarInt Word64" $
         UnsignedVarInt <$> limitGet 15 getUnsignedVarInt'
     {-# INLINE get #-}
+    size = VarSize $ getUnsignedVarIntSize . getUnsignedVarInt
+    {-# INLINE size #-}
 
 -- TinyVarInt
 
@@ -447,6 +468,8 @@ instance Bi TinyVarInt where
     get = label "TinyVarInt" $
         TinyVarInt <$> getTinyVarInt'
     {-# INLINE get #-}
+    size = VarSize $ getTinyVarIntSize . getTinyVarInt
+    {-# INLINE size #-}
 
 ----------------------------------------------------------------------------
 -- Popular basic instances
@@ -456,54 +479,26 @@ instance Bi TinyVarInt where
 -- I just copied most of it from here:
 -- https://hackage.haskell.org/package/binary-0.8.4.1/docs/src/Data.Binary.Class.html#line-564
 
-{-
-Copyright (c) Lennart Kolmodin
-
-All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions
-are met:
-
-1. Redistributions of source code must retain the above copyright
-   notice, this list of conditions and the following disclaimer.
-
-2. Redistributions in binary form must reproduce the above copyright
-   notice, this list of conditions and the following disclaimer in the
-   documentation and/or other materials provided with the distribution.
-
-3. Neither the name of the author nor the names of his contributors
-   may be used to endorse or promote products derived from this software
-   without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE CONTRIBUTORS ``AS IS'' AND ANY EXPRESS
-OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED.  IN NO EVENT SHALL THE AUTHORS OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
-OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
-STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-POSSIBILITY OF SUCH DAMAGE.
--}
 
 ----------------------------------------------------------------------------
 -- Primitive types
 ----------------------------------------------------------------------------
 
 instance Bi () where
-    put ()  = mempty
-    get     = return ()
+    put ()  = pure ()
+    get     = pure ()
+    size = ConstSize 0
 
 instance Bi Bool where
-    put     = putWord8 . fromIntegral . fromEnum
-    get     = getWord8 >>= toBool
+    put False = putWord8 0
+    put True  = putWord8 1
+    get       = getWord8 >>= toBool
       where
         toBool 0 = return False
         toBool 1 = return True
         toBool c = fail ("Could not map value " ++ show c ++ " to Bool")
+    size = ConstSize 1
+{-
 
 instance Bi Char where
     {-# INLINE put #-}
@@ -540,34 +535,32 @@ instance Bi Char where
 -- Numeric data
 ----------------------------------------------------------------------------
 
--- These instances just copy 'Store'
-
-instance Bi Integer where -- FIXME: fixed endianness
+instance Bi Integer where -- FIXME: CSL-1122 fixed endianness
     size = Store.size
     put = Store.poke
     get = Store.peek
 
-instance Bi Int where -- FIXME: remove this instance in favor of the wrappers
+instance Bi Word8 where -- FIXME: CSL-1122 fixed endianness
     size = Store.size
     put = Store.poke
     get = Store.peek
 
-instance Bi Int16 where -- FIXME: fixed endianness
+instance Bi Word16 where -- FIXME: CSL-1122 fixed endianness
     size = Store.size
     put = Store.poke
     get = Store.peek
 
-instance Bi Int32 where -- FIXME: fixed endianness
+instance Bi Word32 where -- FIXME: CSL-1122 fixed endianness
     size = Store.size
     put = Store.poke
     get = Store.peek
 
-instance Bi Int64 where -- FIXME: fixed endianness
+instance Bi Word64 where -- FIXME: CSL-1122 fixed endianness
     size = Store.size
     put = Store.poke
     get = Store.peek
 
-instance Bi Word8 where -- FIXME: fixed endianness
+instance Bi Int32 where -- FIXME: CSL-1122 fixed endianness
     size = Store.size
     put = Store.poke
     get = Store.peek
@@ -578,22 +571,6 @@ getWord8 = get @Word8
 putWord8 :: Word8 -> Poke ()
 putWord8 = put @Word8
 
-instance Bi Word16 where -- FIXME: fixed endianness
-    size = Store.size
-    put = Store.poke
-    get = Store.peek
-
-instance Bi Word32 where -- FIXME: fixed endianness
-    size = Store.size
-    put = Store.poke
-    get = Store.peek
-
-instance Bi Word64 where            -- 8 bytes, big endian
-    size = Store.size
-    put = Store.poke
-    get = Store.peek
-
-{-
 ----------------------------------------------------------------------------
 -- Tagged
 ----------------------------------------------------------------------------
@@ -601,30 +578,36 @@ instance Bi Word64 where            -- 8 bytes, big endian
 instance Bi a => Bi (Tagged s a) where
     put (Tagged a) = put a
     get = Tagged <$> get
+    size = convertSize unTagged size
 
 ----------------------------------------------------------------------------
 -- Containers
 ----------------------------------------------------------------------------
 
 instance (Bi a, Bi b) => Bi (a, b) where
+    {-# INLINE size #-}
+    size = Store.combineSizeWith fst snd size size
     {-# INLINE put #-}
-    put (a, b) = put a <> put b
+    put (a, b) = put a *> put b
     {-# INLINE get #-}
     get = liftM2 (,) get get
 
 instance (Bi a, Bi b, Bi c) => Bi (a, b, c) where
+    {-# INLINE size #-}
+    size = Store.combineSizeWith (view _1) (\(_, b, c) -> (b, c)) size size
     {-# INLINE put #-}
-    put (a, b, c) = put a <> put b <> put c
+    put (a, b, c) = put a *> put b *> put c
     {-# INLINE get #-}
     get = liftM3 (,,) get get get
 
 instance (Bi a, Bi b, Bi c, Bi d) => Bi (a, b, c, d) where
+    {-# INLINE size #-}
+    size = Store.combineSizeWith (\(_, _, c, d) -> (c, d))
+                    (\(a, b, _, _) -> (a, b)) size size
     {-# INLINE put #-}
-    put (a, b, c, d) = put a <> put b <> put c <> put d
+    put (a, b, c, d) = put a *> put b *> put c *> put d
     {-# INLINE get #-}
     get = liftM4 (,,,) get get get get
-
--}
 
 instance Bi ByteString where
     size = Store.size
@@ -662,16 +645,38 @@ mkPoke f = Store.Poke (\ptr offset -> (,()) <$> f ptr offset)
 instance Bi a => Bi [a] where
     size =
         VarSize $ \t -> case size :: Size a of
-            ConstSize n -> (n * length t) + constSize @Int
-            VarSize f   -> foldl' (\acc x -> acc + f x) (constSize @Int) t
+            ConstSize n -> (n * length t) + constSize @(UnsignedVarInt Int)
+            VarSize f   -> foldl' (\acc x -> acc + f x) (constSize @(UnsignedVarInt Int)) t
     put t = do
-        put (length t)
+        put (UnsignedVarInt $ length t)
         mkPoke (\ptr offset ->
             foldlM (\offset' a -> execPoke (put a) ptr offset') offset t)
     get = do
-      len <- get
+      UnsignedVarInt len <- get
       replicateM len get
 
+instance (Bi a, Bi b) => Bi (Either a b) where
+    size = case size @a of
+             VarSize _ -> sizeImpl
+             ConstSize s1 ->
+                case size @b of
+                  VarSize _ -> sizeImpl
+                  ConstSize s2 ->
+                    if s1 == s2
+                       then ConstSize $ s1 + s2 + 1
+                       else sizeImpl
+      where
+        sizeImpl = VarSize $ \case
+                      Left a -> getSize a + 1
+                      Right b -> getSize b + 1
+    put (Left  a) = putWord8 0 *> put a
+    put (Right b) = putWord8 1 *> put b
+    get = do
+        w <- getWord8
+        case w of
+            0 -> Left  <$> get
+            1 -> Right <$> get
+            _ -> fail "unexpected Either tag"
 
 
 {-
@@ -685,24 +690,23 @@ getMany n = go [] n
                  -- (>>=)
                  x `seq` go (x:xs) (i-1)
 {-# INLINE getMany #-}
+-}
 
-instance (Bi a, Bi b) => Bi (Either a b) where
-    put (Left  a) = putWord8 0 <> put a
-    put (Right b) = putWord8 1 <> put b
-    get = do
-        w <- getWord8
-        case w of
-            0 -> Left  <$> get
-            1 -> Right <$> get
-            _ -> fail "unexpected Either tag"
+convertSize :: (a -> b) -> Size b -> Size a
+convertSize _  (ConstSize s) = ConstSize s
+convertSize conv (VarSize f) = VarSize $ f . conv
 
 instance Bi a => Bi (NonEmpty a) where
     get = maybe (fail "Empty list") pure . nonEmpty =<< get
     put = put . toList
+    size = convertSize toList size
 
 instance (Bi a) => Bi (Maybe a) where
+    size = VarSize $ \case
+              Just x -> 1 + getSize x
+              _ -> 1
     put Nothing  = putWord8 0
-    put (Just x) = putWord8 1 <> put x
+    put (Just x) = putWord8 1 *> put x
     get = do
         w <- getWord8
         case w of
@@ -712,14 +716,17 @@ instance (Bi a) => Bi (Maybe a) where
 instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
     get = fmap HM.fromList get
     put = put . HM.toList
+    size = convertSize HM.toList size
 
 instance (Hashable k, Eq k, Bi k) => Bi (HashSet k) where
     get = fmap HS.fromList get
     put = put . HS.toList
+    size = convertSize HS.toList size
 
 instance (Ord k, Bi k) => Bi (Set k) where
     get = S.fromList <$> get
     put = put . S.toList
+    size = convertSize S.toList size
 
 -- Copy-pasted w/ modifications, license:
 -- https://github.com/bos/vector-binary-instances/blob/master/LICENSE
@@ -738,10 +745,14 @@ instance Bi a => Bi (V.Vector a) where
     put v = do
         put (UnsignedVarInt (G.length v))
         G.mapM_ put v
+    size = VarSize $ \v ->
+        (getSize (UnsignedVarInt (G.length v))) +
+        G.foldl' (\a b -> a + getSize b) 0 v
 
 instance Bi Void where
     put = absurd
-    get = mzero
+    get = fail "instance Bi Void: you shouldn't try to deserialize Void"
+    size = error "instance Bi Void: you shouldn't try to serialize Void"
 
 ----------------------------------------------------------------------------
 -- Other types
@@ -750,129 +761,61 @@ instance Bi Void where
 instance Bi Millisecond where
     put = put . toInteger
     get = fromInteger <$> get
+    size = convertSize toInteger size
 
 instance Bi Microsecond where
     put = put . toInteger
     get = fromInteger <$> get
+    size = convertSize toInteger size
 
 instance Bi Byte where
     put = put . toBytes
     get = fromBytes <$> get
-
-----------------------------------------------------------------------------
--- Primitives for limiting serialization
-----------------------------------------------------------------------------
+    size = convertSize toBytes size
 
 -- | Like 'isolate', but allows consuming less bytes than expected (just not
 -- more).
-limitGet :: Int64  -- ^ The upper limit on byte consumption
-         -> Get a  -- ^ The decoder to isolate
-         -> Get a
--- A modified version of 'isolate' from Data.Binary.Get
-limitGet n0 act
-  | n0 < 0 = fail "limitGet: negative size"
-  | otherwise = go n0 (runCont act BS.empty Done)
-  where
-  go _ (Done left x) = pushFront left >> return x
-  go 0 (Partial resume) = go 0 (resume Nothing)
-  go n (Partial resume) = do
-    inp <- unsafeCoerce (OurC (\inp k -> do
-#if (WORD_SIZE_IN_BITS == 64)
-      let takeLimited str =
-            let (inp', out) = BS.splitAt (fromIntegral n) str
-            in k out (Just inp')
+-- Differences from `Store.isolate`:
+--  * safely handles `Int64` length argument
+--  * advances pointer only by bytes read
+{-# INLINE limitGet #-}
+limitGet :: Int64 -> Peek a -> Peek a
+limitGet len m = Peek $ \ps ptr -> do
+    let end = Store.peekStateEndPtr ps
+        remaining = end `minusPtr` ptr
+        len' = fromIntegral $ min (fromIntegral remaining) len
+        ptr2 = ptr `plusPtr` len'
+    PeekResult ptr' x <- Store.runPeek m ps ptr
+    when (ptr' > ptr2) $
+        throwM $ PeekException (ptr' `minusPtr` ptr2) "Overshot end of isolated bytes"
+    return $ PeekResult ptr' x
+
+-- | Isolate the input to n bytes, skipping n bytes forward. Fails if @m@
+-- advances the offset beyond the isolated region.
+-- Differences from `Store.isolate`:
+--  * safely handles `Int64` length argument
+--  * requires isolated input to be fully consumed
+{-# INLINE isolate64Full #-}
+isolate64Full :: Int64 -> Peek a -> Peek a
+isolate64Full len m = Peek $ \ps ptr -> do
+    let end = Store.peekStateEndPtr ps
+        remaining = end `minusPtr` ptr
+    when (len > fromIntegral remaining) $
+      -- Do not perform the check on the new pointer, since it could have overflowed
+#if (WORD_SIZE_IN_BITS >= 64)
+      Store.tooManyBytes (fromIntegral len) remaining "isolate64"
 #else
-      let takeLimited str =
-            let (inp', out) = if n > fromIntegral (maxBound :: Int)
-                                then (str, BS.empty)
-                                else BS.splitAt (fromIntegral n) str
-            in k out (Just inp')
+      (if len <= (maxBound :: Int)
+         then Store.tooManyBytes (fromIntegral len) remaining "isolate64"
+         else throwM $ PeekException 0 "")
 #endif
-      case not (BS.null inp) of
-        True  -> takeLimited inp
-        False -> prompt inp (k BS.empty Nothing) takeLimited))
-    case inp of
-      Nothing  -> go n (resume Nothing)
-      Just str -> go (n - fromIntegral (length str)) (resume (Just str))
-  go _ (Fail bs err) = pushFront bs >> fail err
-  go n (BytesRead r resume) =
-    go n (resume $! n0 - n - r)
-
--- | Like 'isolate', but works with Int64 only.
-isolate64 :: Int64
-          -> Get a
-          -> Get a
-isolate64 n0 act
-  | n0 < 0 = fail "isolate64: negative size"
-  | otherwise = go n0 (runCont act BS.empty Done)
-  where
-  go !n (Done left x)
-    | n == 0 && BS.null left = return x
-    | otherwise = do
-        pushFront left
-        let consumed = n0 - n - fromIntegral (BS.length left)
-        fail $ "isolate: the decoder consumed " ++ show consumed ++ " bytes" ++
-                 " which is less than the expected " ++ show n0 ++ " bytes"
-  go 0 (Partial resume) = go 0 (resume Nothing)
-  go n (Partial resume) = do
-    inp <- unsafeCoerce (OurC (\inp k -> do
-#if (WORD_SIZE_IN_BITS == 64)
-      let takeLimited str =
-            let (inp', out) = BS.splitAt (fromIntegral n) str
-            in k out (Just inp')
-#else
-      let takeLimited str =
-            let (inp', out) = if n > fromIntegral (maxBound :: Int)
-                                then (str, BS.empty)
-                                else BS.splitAt (fromIntegral n) str
-            in k out (Just inp')
-#endif
-      case not (BS.null inp) of
-        True  -> takeLimited inp
-        False -> prompt inp (k BS.empty Nothing) takeLimited))
-    case inp of
-      Nothing  -> go n (resume Nothing)
-      Just str -> go (n - fromIntegral (BS.length str)) (resume (Just str))
-  go _ (Fail bs err) = pushFront bs >> fail err
-  go n (BytesRead r resume) =
-    go n (resume $! n0 - n - r)
-
-----------------------------------------------------------------------------
--- Guts of 'binary'
-----------------------------------------------------------------------------
-
--- Using 'unsafeCoerce' here because 'C' isn't exported. Aargh. For now it'll
--- do and then I'll submit some pull requests to 'binary' and hopefully all
--- of this won't be needed. –@neongreen
-pushFront :: ByteString -> Get ()
-pushFront bs = unsafeCoerce (OurC (\ inp ks -> ks (BS.append bs inp) ()))
-{-# INLINE pushFront #-}
-
--- This ***has*** to correspond to the implementation of 'Get' in 'binary'
--- because we're using it for 'unsafeCoerce'.
-newtype OurGet a = OurC (forall r. ByteString ->
-                                   OurSuccess a r ->
-                                   Decoder      r )
-
--- Ditto.
-type OurSuccess a r = ByteString -> a -> Decoder r
-
--- More functions from 'binary'.
-prompt :: ByteString -> Decoder a -> (ByteString -> Decoder a) -> Decoder a
-prompt inp kf ks = prompt' kf (\inp' -> ks (inp `BS.append` inp'))
-
--- And more.
-prompt' :: Decoder a -> (ByteString -> Decoder a) -> Decoder a
-prompt' kf ks =
-  let loop =
-        Partial $ \sm ->
-          case sm of
-            Just s | BS.null s -> loop
-                   | otherwise -> ks s
-            Nothing -> kf
-  in loop
-
--}
+    PeekResult ptr' x <- Store.runPeek m ps ptr
+    let ptr2 = ptr `plusPtr` fromIntegral len
+    when (ptr' < ptr2) $
+        throwM $ PeekException (ptr2 `minusPtr` ptr') "Not all isolated bytes read"
+    when (ptr' > ptr2) $
+        throwM $ PeekException (ptr' `minusPtr` ptr2) "Overshot end of isolated bytes"
+    return $ PeekResult ptr2 x
 
 ----------------------------------------------------------------------------
 -- SafeCopy
@@ -919,8 +862,8 @@ fromBinaryM = either (fail . T.unpack) return . fromBinary
 
 -- | Serialize something together with its length in bytes. The length comes
 -- first.
-putWithLength :: PutM a -> PutM a
-putWithLength act = do
+putWithLength :: Size a -> Poke a -> Poke a
+putWithLength sz poke = Poke $ \ps off ->
     let (res, serialized) = runPutM act
     let len :: Int64 = BSL.length serialized
     put (UnsignedVarInt len)
@@ -976,8 +919,9 @@ getSmallWithLength act = do
 
 getRemainingByteString :: Get ByteString
 getRemainingByteString = BSL.toStrict <$> getRemainingLazyByteString
+-}
 
-getAsciiString1b :: String -> Word8 -> Get String
+getAsciiString1b :: String -> Word8 -> Peek String
 getAsciiString1b typeName limit = getWord8 >>= \sz -> do
             if sz > limit
                then fail $ typeName ++ " shouldn't be more than "
@@ -989,11 +933,17 @@ getAsciiString1b typeName limit = getWord8 >>= \sz -> do
            then return c
            else fail $ "Not an ascii symbol in " ++ typeName ++ " " ++ show c
 
-putAsciiString1b :: String -> Put
+putAsciiString1b :: String -> Poke ()
 putAsciiString1b str =  putWord8 (fromIntegral $ length str)
                      >> putByteString (BS.pack $ map (fromIntegral . ord) str)
--}
 
 -- | Compute size of something serializable in bytes.
 biSize :: Bi a => a -> Byte
 biSize = fromIntegral . getSize
+
+getByteString :: Integer -> Peek ByteString
+getByteString i = reifyNat i $ \(_ :: Proxy n) -> unStaticSize <$> (Store.peek :: Peek (StaticSize n ByteString))
+
+putByteString :: ByteString -> Poke ()
+putByteString bs = reifyNat (fromIntegral $ BS.length bs) $ \(_ :: Proxy n) ->
+                      Store.poke (Store.toStaticSizeEx bs :: StaticSize n ByteString)

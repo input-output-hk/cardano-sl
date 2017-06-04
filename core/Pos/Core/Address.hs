@@ -24,7 +24,7 @@ module Pos.Core.Address
        , unsafeAddressHash
        ) where
 
-import           Crypto.Hash            (Blake2b_224, Digest, SHA3_256, hashlazy)
+import           Crypto.Hash            (Blake2b_224, Digest, SHA3_256)
 import qualified Crypto.Hash            as CryptoHash
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
@@ -83,10 +83,8 @@ instance Bi Address => Hashable AddressIgnoringAttributes where
 decodeAddress :: Bi Address => ByteString -> Either String Address
 decodeAddress bs = do
     let base58Err = "Invalid base58 representation of address"
-        takeErr = toString . view _3
-        takeRes = view _3
     dbs <- maybeToRight base58Err $ decodeBase58 addrAlphabet bs
-    bimap takeErr takeRes $ Bi.decodeOrFail $ BSL.fromStrict dbs
+    bimap toString identity $ Bi.decodeFull dbs
 
 decodeTextAddress :: Bi Address => Text -> Either Text Address
 decodeTextAddress = first toText . decodeAddress . encodeUtf8
@@ -189,7 +187,7 @@ unsafeAddressHash :: Bi a => a -> AddressHash b
 unsafeAddressHash = AbstractHash . secondHash . firstHash
   where
     firstHash :: Bi a => a -> Digest SHA3_256
-    firstHash = hashlazy . Bi.encode
+    firstHash = CryptoHash.hash . Bi.encode
     secondHash :: Digest SHA3_256 -> Digest Blake2b_224
     secondHash = CryptoHash.hash
 

@@ -10,7 +10,7 @@ module Pos.Communication.Limits.Instances
        ) where
 
 import           Control.Lens                   (each, ix)
-import           Data.Binary.Get                (lookAhead)
+import qualified Data.Binary                    as Bin
 import           Universum
 
 import           Pos.Binary.Class               (getWord8)
@@ -22,31 +22,19 @@ import           Pos.Communication.Limits.Types (Limit (..), Limiter (..),
 import           Pos.Communication.Types.Relay  (DataMsg (..), InvMsg, InvOrData,
                                                  MempoolMsg (..), ReqMsg)
 
+newtype EitherLimiter a b = EitherLimiter (a, b)
+
 ----------------------------------------------------------------------------
 -- Instances for Limiter
 ----------------------------------------------------------------------------
 
--- | Bounds `InvOrData`.
-instance Limiter l => Limiter (Limit t, l) where
-    limitGet (invLimit, dataLimits) parser = do
-        lookAhead getWord8 >>= \case
-            0   -> limitGet invLimit parser
-            1   -> limitGet dataLimits parser
-            tag -> fail ("get@InvOrData: invalid tag: " ++ show tag)
+instance (Limiter l, Limiter t) => Limiter (EitherLimiter l t) where
+    sizeGet (leftLim, rightLim) = Bin.getWord8 >>= \case
+        0 -> sizeGet leftLim
+        1 -> sizeGet rightLim
+        t -> fail $ "Failed to read tag " ++ show t
 
     addLimit a (l1, l2) = (a `addLimit` l1, a `addLimit` l2)
-
--- | Bounds `DataMsg` in `InvData`.
--- Limit depends on value of first byte, which should be in range @0..3@.
-instance Limiter (Limit t, Limit t, Limit t, Limit t) where
-    limitGet limits parser = do
-        -- skip first byte which belongs to `InvOrData`
-        tag <- fromIntegral <$> lookAhead (getWord8 *> getWord8)
-        case (limits ^.. each) ^? ix tag of
-            Nothing    -> fail ("get@DataMsg: invalid tag: " ++ show tag)
-            Just limit -> limitGet limit parser
-
-    addLimit a = each %~ addLimit a
 
 ----------------------------------------------------------------------------
 -- Instances for MessageLimited
@@ -59,9 +47,7 @@ instance MessageLimited (MempoolMsg tag)
 instance MessageLimited (DataMsg contents)
       => MessageLimited (InvOrData key contents) where
     type LimitType (InvOrData key contents) =
-        ( LimitType (InvMsg key)
-        , LimitType (DataMsg contents)
-        )
+        EitherLimiter (InvMsg key) (DataMsg contents)
     getMsgLenLimit _ = do
         invLim  <- getMsgLenLimit $ Proxy @(InvMsg key)
         dataLim <- getMsgLenLimit $ Proxy @(DataMsg contents)

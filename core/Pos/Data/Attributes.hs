@@ -85,30 +85,30 @@ getAttributes :: (Word8 -> h -> Maybe (Peek h))
               -> Maybe Word32
               -> h
               -> Peek (Attributes h)
-getAttributes keyGetMapper maxLen initData =
-    maybeLimit $ do
-        let readWhileKnown dat = ifM G.isEmpty (return dat) $ do
-                key <- G.lookAhead getWord8
-                case keyGetMapper key dat of
-                    Nothing -> return dat
-                    Just gh -> getWord8 >> gh >>= readWhileKnown
-        attrData <- readWhileKnown initData
-        attrRemain <- getRemainingByteString
-        return $ Attributes {..}
-  where
-    maybeLimit act = case maxLen of
-        Nothing -> getWithLength act
-        Just l  -> getWithLengthLimited (fromIntegral l) act
+getAttributes keyGetMapper maxLen initData = undefined -- CSL-1122 uncomment
+--    maybeLimit $ do
+--        let readWhileKnown dat = ifM G.isEmpty (return dat) $ do
+--                key <- G.lookAhead getWord8
+--                case keyGetMapper key dat of
+--                    Nothing -> return dat
+--                    Just gh -> getWord8 >> gh >>= readWhileKnown
+--        attrData <- readWhileKnown initData
+--        attrRemain <- getRemainingByteString
+--        return $ Attributes {..}
+--  where
+--    maybeLimit act = case maxLen of
+--        Nothing -> getWithLength act
+--        Just l  -> getWithLengthLimited (fromIntegral l) act
 
 -- | Generate 'Put' given the way to serialize inner attribute value
 -- into set of keys and values.
 putAttributes :: (h -> [(Word8, Poke ())]) -> Attributes h -> Poke ()
-putAttributes putMapper Attributes {..} =
-    putWithLength $ do
-        mapM_ putAttr kvs
-        putByteString attrRemain
-  where
-    putAttr (k, v) = putWord8 k *> v
-    kvs = sortOn fst $ putMapper attrData
+putAttributes putMapper Attributes {..} = undefined -- CSL-1122 uncomment
+--    putWithLength $ do
+--        mapM_ putAttr kvs
+--        putByteString attrRemain
+--  where
+--    putAttr (k, v) = putWord8 k *> v
+--    kvs = sortOn fst $ putMapper attrData
 
 derive makeNFData ''Attributes

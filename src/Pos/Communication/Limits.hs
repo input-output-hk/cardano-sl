@@ -180,12 +180,10 @@ instance MessageLimited MCOpening
 instance MessageLimited MCVssCertificate
 
 instance MessageLimited MCCommitment where
-    type LimitType MCCommitment = Limit MCCommitment
     getMsgLenLimit _ = fmap MCCommitment
           <$> getMsgLenLimit (Proxy @SignedCommitment)
 
 instance MessageLimited MCShares where
-    type LimitType MCShares = Limit MCShares
     getMsgLenLimit _ = (MCShares <$> msgLenLimit <+>)
           <$> getMsgLenLimit (Proxy @InnerSharesMap)
 

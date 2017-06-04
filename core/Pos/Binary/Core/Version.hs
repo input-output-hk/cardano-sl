@@ -2,10 +2,9 @@
 
 module Pos.Binary.Core.Version () where
 
-import           Data.Binary.Get  (label)
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), getAsciiString1b, putAsciiString1b)
+import           Pos.Binary.Class (Bi (..), getAsciiString1b, label, putAsciiString1b)
 import qualified Pos.Core.Types   as V
 
 instance Bi V.ApplicationName where

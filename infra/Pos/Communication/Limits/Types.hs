@@ -24,18 +24,22 @@ module Pos.Communication.Limits.Types
 
 import           Universum
 
-import           Data.Binary                (Get)
+import qualified Data.Binary                as Bin
 import           Data.Reflection            (Reifies (..), reify)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class           (Bi (..))
-import qualified Pos.Binary.Class           as Bi
+import           Pos.Binary.Class           (Bi)
 import           Pos.Communication.Protocol (ConversationActions (..), Message)
 import qualified Pos.DB.Class               as DB
 
 -- | Specifies limit for given type @t@.
-newtype Limit t = Limit Byte
+newtype Limit t = Limit Byte32
     deriving (Eq, Ord, Show, Num, Enum, Real, Integral)
+
+data SizeOrLimit t = SizeL Byte | LimitL (Limit t)
+    deriving (Eq, Show)
+
+-- TODO: instances for Num
 
 infixl 4 <+>
 (<+>) :: Limit (a -> b) -> Limit a -> Limit b
@@ -47,11 +51,23 @@ instance Functor Limit where
 -- | Specifies type of limit on incoming message size.
 -- Useful when the type has several limits and choice depends on constructor.
 class Limiter l where
-    limitGet :: l -> Get a -> Get a
+    sizeGet :: l -> Bin.Get Byte32
     addLimit :: Byte -> l -> l
 
+instance Limiter (SizeOrLimit t) where
+    sizeGet (SizeL l)  = pure l
+    sizeGet (LimitL l) = limitGet l
+
+    addLimit a (SizeL l)  = SizeL $ a + l
+    addLimit a (LimitL l) = addLimit a l
+
 instance Limiter (Limit t) where
-    limitGet (Limit l) = Bi.limitGet $ fromIntegral l
+    sizeGet (Limit l) = do
+        sz <- fromIntegral <$> Bin.get
+        if sz > l
+            then fail $ "Limit exceed: " ++ show sz
+                          ++ " is more than " ++ show l
+            else return sz
     addLimit a = (Limit a +)
 
 -- | Specifies limit on message length.
@@ -83,7 +99,7 @@ class Limiter (LimitType a) =>
 -- 2) Add test case, run - it would fail and report actual size.
 -- 3) Insert that value into instance.
 class MessageLimitedPure a where
-    msgLenLimit :: Limit a
+    msgLenLimit :: SizeOrLimit a
 
 instance MessageLimitedPure a => MessageLimitedPure (Maybe a) where
     msgLenLimit = Just <$> msgLenLimit + 1

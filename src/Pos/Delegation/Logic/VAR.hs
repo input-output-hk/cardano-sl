@@ -33,8 +33,8 @@ import           Pos.Core                     (addressHash, epochIndexL, gbHeade
                                                gbhConsensus, headerHash, prevBlockL)
 import           Pos.Crypto                   (ProxySecretKey (..), ProxySignature (..),
                                                PublicKey, psigPsk, shortHashF)
-import           Pos.DB                       (DBError (DBMalformed), MonadRealDB,
-                                               MonadDBRead, SomeBatchOp (..))
+import           Pos.DB                       (DBError (DBMalformed), MonadDBRead,
+                                               SomeBatchOp (..))
 import qualified Pos.DB                       as DB
 import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.GState                as GS
@@ -299,7 +299,8 @@ makeLenses ''DlgVerState
 dlgVerifyBlocks ::
        forall ssc m.
        ( DB.MonadBlockDB ssc m
-       , DB.MonadRealDB m
+       , DB.MonadDBRead m
+       , MonadIO m
        , Ether.MonadReader' LrcContext m
        )
     => OldestFirst NE (Block ssc)
@@ -446,7 +447,7 @@ dlgVerifyBlocks blocks = do
 -- cross over epoch. So genesis block is either absent or the head.
 dlgApplyBlocks
     :: forall ssc m.
-       (MonadDelegation m, MonadRealDB m, MonadDBRead m, WithLogger m, MonadMask m)
+       (MonadDelegation m, MonadIO m, MonadDBRead m, WithLogger m, MonadMask m)
     => OldestFirst NE (Block ssc) -> m (NonEmpty SomeBatchOp)
 dlgApplyBlocks blocks = do
     tip <- GS.getTip
@@ -485,8 +486,9 @@ dlgApplyBlocks blocks = do
 dlgRollbackBlocks
     :: forall ssc m.
        ( MonadDelegation m
-       , DB.MonadRealDB m
        , DB.MonadBlockDB ssc m
+       , DB.MonadDBRead m
+       , MonadIO m
        , MonadMask m
        , WithLogger m
        , Ether.MonadReader' LrcContext m

@@ -268,8 +268,6 @@ library
                         Pos.Update.Lrc
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
-                        Pos.Update.Poll
-                        Pos.Update.Poll.DBPoll
                         Pos.Update.Worker
 
                         Pos.Recovery.Instance

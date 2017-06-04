@@ -18,10 +18,18 @@ library
                        Pos.Update.Mode
                        Pos.Update.DB
                        Pos.Update.Constants
+                       Pos.Update.RichmenComponent
+                       Pos.Update.Lrc
 
                        Pos.Binary.Update
 
+                       -- Logic
+                       Pos.Update.Logic
+                       Pos.Update.Logic.Global
+                       Pos.Update.Logic.Local
+
                        -- Poll
+                       Pos.Update.Poll
                        Pos.Update.Poll.Class
                        Pos.Update.Poll.Types
                        Pos.Update.Poll.Modifier
@@ -30,6 +38,7 @@ library
                        Pos.Update.Poll.RollTrans
                        Pos.Update.Poll.Failure
                        Pos.Update.Poll.Pure
+                       Pos.Update.Poll.DBPoll
                        -- Poll.Logic
                        Pos.Update.Poll.Logic
                        Pos.Update.Poll.Logic.Apply

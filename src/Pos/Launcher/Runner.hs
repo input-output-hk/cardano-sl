@@ -142,7 +142,8 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
         -- TODO [CSL-775] ideally initialization logic should be in scenario.
         runCH @ssc allWorkersNum np initNC modernDBs .
             flip Ether.runReaderT' modernDBs .
-            runDBPureRedirect $
+            runDBPureRedirect .
+            runBlockDBRedirect $
             initNodeDBs @ssc
         initTip <- Ether.runReaderT' (runDBPureRedirect getTip) modernDBs
         stateM <- liftIO SM.newIO

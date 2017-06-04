@@ -28,7 +28,8 @@
 -- to get data maintained by Y and doesn't know about Y, it can use
 -- 'MonadGState' (which is at pretty low level).
 --
--- 'MonadBlockDBGeneric' contains functions which provide access to Block DB.
+-- 'MonadBlockDBGeneric' contains functions which provide read-only
+-- access to the Block DB.
 -- For this DB we don't want to use 'MonadRealDB' for several reasons:
 -- • we store blocks and undos in files, not in key-value storage;
 -- • there are only three getters, so it's not a big problem to make all of
@@ -191,8 +192,8 @@ gsMaxProposalSize = bvdMaxProposalSize <$> gsAdoptedBVData
 -- Block DB abstraction
 ----------------------------------------------------------------------------
 
--- | Monad which provides access to the Block DB. It's generic in a
--- way that it allows to specify different types of
+-- | Monad which provides read-only access to the Block DB. It's
+-- generic in a way that it allows to specify different types of
 -- block|header|undo. Read rationale behind this type in the
 -- documentation of this module.
 class MonadDBRead m =>

@@ -26,9 +26,11 @@ import           Control.Lens            (each, _Wrapped)
 import qualified Ether
 import           Paths_cardano_sl        (version)
 
+import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
                                           mbUpdatePayload)
-import           Pos.Block.Logic.Slog    (SlogMode, slogApplyBlocks, slogRollbackBlocks)
+import           Pos.Block.Logic.Slog    (SlogApplyMode, SlogMode, slogApplyBlocks,
+                                          slogRollbackBlocks)
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                (IsGenesisHeader, IsMainHeader, epochIndexL,
                                           gbBody, gbHeader)
@@ -43,7 +45,6 @@ import           Pos.Explorer.Txp        (eTxNormalize)
 #else
 import           Pos.Txp.Logic           (txNormalize)
 #endif
-import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Delegation.Class    (MonadDelegation)
 import           Pos.Discovery.Class     (MonadDiscovery)
 import           Pos.Reporting           (MonadReportingMem, reportingFatal)
@@ -85,6 +86,7 @@ type BlockVerifyMode ssc m = BlockMode ssc m
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
 type BlockApplyMode ssc m
      = ( BlockMode ssc m
+       , SlogApplyMode ssc m
        -- It's obviously needed to write something to DB, for instance.
        , MonadDB m
        -- Needed for iteration over DB.

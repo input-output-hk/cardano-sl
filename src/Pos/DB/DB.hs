@@ -36,8 +36,9 @@ import           Pos.Block.Types              (Blund)
 import           Pos.Context.Context          (GenesisLeaders, GenesisUtxo, NodeParams)
 import           Pos.Context.Functions        (genesisLeadersM)
 import           Pos.Core                     (headerHash)
-import           Pos.DB.Block                 (MonadBlockDB, loadBlundsByDepth,
-                                               loadBlundsWhile, prepareBlockDB)
+import           Pos.DB.Block                 (MonadBlockDB, MonadBlockDBWrite,
+                                               loadBlundsByDepth, loadBlundsWhile,
+                                               prepareBlockDB)
 import           Pos.DB.Class                 (MonadDB, MonadDBRead (..),
                                                MonadGState (..), MonadRealDB)
 import           Pos.DB.Functions             (openDB)
@@ -47,7 +48,6 @@ import           Pos.DB.GState.GState         (prepareGStateDB, sanityCheckGStat
 import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.Lrc.DB                   (prepareLrcDB)
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
 import           Pos.Update.DB                (getAdoptedBVData)
 import           Pos.Util                     (inAssertMode)
 import           Pos.Util.Chrono              (NewestFirst)
@@ -86,11 +86,10 @@ openNodeDBs recreate fp = do
 -- | Initialize DBs if necessary.
 initNodeDBs
     :: forall ssc m.
-       ( SscHelpersClass ssc
-       , Ether.MonadReader' GenesisUtxo m
+       ( Ether.MonadReader' GenesisUtxo m
        , Ether.MonadReader' GenesisLeaders m
        , Ether.MonadReader' NodeParams m
-       , MonadRealDB m
+       , MonadBlockDBWrite ssc m
        , MonadDB m
        )
     => m ()

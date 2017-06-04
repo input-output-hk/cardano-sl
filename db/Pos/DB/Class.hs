@@ -192,7 +192,7 @@ gsMaxProposalSize = bvdMaxProposalSize <$> gsAdoptedBVData
 ----------------------------------------------------------------------------
 
 -- | Monad which provides access to the Block DB. It's generic in a
--- way that it's allows to specify different types of
+-- way that it allows to specify different types of
 -- block|header|undo. Read rationale behind this type in the
 -- documentation of this module.
 class MonadDBRead m =>

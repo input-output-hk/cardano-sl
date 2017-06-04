@@ -105,7 +105,7 @@ getEffectiveStake id = ifM isBootstrapEra
 
 prepareGStateBalances
     :: forall m.
-       (MonadRealDB m, MonadDB m)
+       MonadDB m
     => Utxo -> m ()
 prepareGStateBalances genesisUtxo = do
     whenNothingM_ getRealStakeSumMaybe putFtsStakes

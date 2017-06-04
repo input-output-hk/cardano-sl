@@ -35,7 +35,6 @@ prepareGStateDB
     :: forall m.
        ( Ether.MonadReader' NodeParams m
        , Ether.MonadReader' GenesisUtxo m
-       , MonadRealDB m
        , MonadDB m
        )
     => HeaderHash -> m ()

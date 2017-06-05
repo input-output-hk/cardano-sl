@@ -4,6 +4,8 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+{-# OPTIONS -fno-cross-module-specialise #-}
+
 module Main
        ( main
        ) where
@@ -24,7 +26,6 @@ import           Data.Time.Units            (convertUnit)
 import           Formatting                 (build, int, sformat, stext, (%))
 import           Mockable                   (Production, delay)
 import           Network.Transport.Abstract (Transport, hoistTransport)
-import           Options.Applicative        (execParser)
 import           System.IO                  (hFlush, stdout)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
 #if !(defined(mingw32_HOST_OS))
@@ -73,7 +74,7 @@ import           Pos.Wallet.Web             (walletServeWebLite, walletServerOut
 import           Command                    (Command (..), parseCommand)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
 import           WalletOptions              (WalletAction (..), WalletOptions (..),
-                                             optsInfo)
+                                             getWalletOptions)
 
 type CmdRunner = ReaderT CmdCtx
 
@@ -305,7 +306,7 @@ runWalletCmd wo str sa = do
 
 main :: IO ()
 main = do
-    opts@WalletOptions {..} <- execParser optsInfo
+    opts@WalletOptions {..} <- getWalletOptions
     --filePeers <- maybe (return []) CLI.readPeersFile
     --                   (CLI.dhtPeersFile woCommonArgs)
     let allPeers = woPeers -- ++ filePeers

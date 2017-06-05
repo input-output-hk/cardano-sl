@@ -36,7 +36,7 @@ import           Pos.Core                  (EpochOrSlot (..), HeaderHash, SlotId
                                             headerHash, headerHashG, headerSlotL,
                                             prevBlockL, prevBlockL)
 import           Pos.Crypto                (hash)
-import           Pos.DB                    (MonadDBPure)
+import           Pos.DB                    (MonadDBRead)
 import qualified Pos.DB.Block              as DB
 import qualified Pos.DB.DB                 as DB
 import qualified Pos.DB.GState             as GS
@@ -265,7 +265,7 @@ getHeadersFromManyTo checkpoints startM = do
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
     :: forall ssc m.
-       (MonadDBPure m, SscHelpersClass ssc)
+       (MonadDBRead m, SscHelpersClass ssc)
     => Maybe HeaderHash -> m (OldestFirst [] HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
@@ -301,7 +301,7 @@ getHeadersOlderExp upto = do
 -- range @[from..to]@ will be found.
 getHeadersFromToIncl
     :: forall ssc m .
-       (MonadDBPure m, SscHelpersClass ssc)
+       (MonadDBRead m, SscHelpersClass ssc)
     => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
 getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist

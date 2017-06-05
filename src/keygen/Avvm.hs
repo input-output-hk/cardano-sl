@@ -24,7 +24,7 @@ import           Universum
 import qualified Pos.Binary.Class     as Bi
 import           Pos.Crypto           (RedeemPublicKey (..), keyGen, redeemPkBuild,
                                        toPublic)
-import           Pos.Genesis          (GenesisData (..), GenesisGtData (..),
+import           Pos.Genesis          (GenesisCoreData (..), GenesisGtData (..),
                                        StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (vcSigningKey)
 import           Pos.Txp.Core         (TxOutDistribution)
@@ -87,12 +87,12 @@ genGenesis
     :: AvvmData
     -> Bool           -- ^ Whether to generate random certificates
     -> StakeholderId  -- ^ A stakeholder to which to delegate the distribution
-    -> (GenesisData, GenesisGtData)
+    -> (GenesisCoreData, GenesisGtData)
 genGenesis avvm genCerts holder =
-    ( GenesisData
-        { gdAddresses = HM.keys balances
-        , gdDistribution = ExplicitStakes balances
-        , gdBootstrapBalances = mempty
+    ( GenesisCoreData
+        { gcdAddresses = HM.keys balances
+        , gcdDistribution = ExplicitStakes balances
+        , gcdBootstrapBalances = mempty
         }
     , GenesisGtData
         { ggdVssCertificates = if genCerts then randCerts else mempty

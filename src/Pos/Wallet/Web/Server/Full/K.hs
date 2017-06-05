@@ -62,6 +62,7 @@ runWProductionMode db conn =
         (lift . lift . lift)
   where
     unwrapWPMode = runWalletWebDB db . runWalletWS conn . getNoStatsT
+{-# NOINLINE runWProductionMode #-}
 
 -- | WalletProductionMode runner.
 runWStatsMode
@@ -86,6 +87,7 @@ runWStatsMode db conn transport kinst param sscp runAction = do
         runAction
   where
     unwrapWSMode statMap = runWalletWebDB db . runWalletWS conn . runStatsT' statMap
+{-# NOINLINE runWStatsMode #-}
 
 walletServeWebFull
     :: SscConstraint WalletSscType

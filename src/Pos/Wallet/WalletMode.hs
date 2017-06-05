@@ -10,6 +10,7 @@ module Pos.Wallet.WalletMode
        , MonadTxHistory (..)
        , MonadBlockchainInfo (..)
        , MonadUpdates (..)
+       , RawWalletMode(..)
        , WalletMode
        , WalletRealMode
        , WalletStaticPeersMode
@@ -31,44 +32,54 @@ module Pos.Wallet.WalletMode
 
 import           Universum
 
-import           Control.Concurrent.STM       (tryReadTMVar)
-import           Control.Monad.Trans          (MonadTrans)
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Control.Monad.Trans.Maybe    (MaybeT (..))
-import           Data.Coerce                  (coerce)
-import           Data.Tagged                  (Tagged (..))
-import           Data.Time.Units              (Millisecond)
+import           Control.Concurrent.STM         (tryReadTMVar)
+import           Control.Monad.Fix
+import           Control.Monad.Trans            (MonadTrans)
+import           Control.Monad.Trans.Identity   (IdentityT (..))
+import qualified Control.Monad.Trans.Lift.Local as Lift
+import           Control.Monad.Trans.Maybe      (MaybeT (..))
+import           Data.Coerce                    (coerce)
+import           Data.Tagged                    (Tagged (..))
+import           Data.Time.Units                (Millisecond)
 import qualified Ether
-import           Mockable                     (Production)
-import           Pos.Reporting.MemState       (ReportingContext)
-import           System.Wlog                  (LoggerNameBox, WithLogger)
+import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
+                                                 MFunctor' (..), Mockable (..),
+                                                 Production, Promise, SharedAtomicT,
+                                                 SharedExclusiveT, ThreadId)
+import           Pos.Reporting.MemState         (ReportingContext)
+import           System.Wlog                    (CanLog, HasLoggerName, LoggerNameBox,
+                                                 WithLogger)
 
-import           Pos.Block.BListener          (BListenerStub)
-import           Pos.Block.Core               (Block, BlockHeader)
-import           Pos.Client.Txp.Balances      (MonadBalances (..), getBalanceFromUtxo)
-import           Pos.Client.Txp.History       (MonadTxHistory (..), deriveAddrHistory)
-import           Pos.Communication            (TxMode)
-import           Pos.Communication.PeerState  (PeerStateCtx, PeerStateRedirect,
-                                               PeerStateTag, WithPeerState)
-import           Pos.Constants                (blkSecurityParam)
-import qualified Pos.Context                  as PC
-import           Pos.Core                     (ChainDifficulty, difficultyL,
-                                               flattenEpochOrSlot, flattenSlotId)
-import           Pos.DB                       (DBPureRedirect, MonadDB)
-import           Pos.DB.Block                 (BlockDBRedirect, MonadBlockDB)
-import           Pos.DB.DB                    (getTipHeader)
-import           Pos.Discovery                (DiscoveryConstT, DiscoveryKademliaT,
-                                               MonadDiscovery)
-import           Pos.Shutdown                 (MonadShutdownMem, triggerShutdown)
-import           Pos.Slotting                 (MonadSlots (..), getLastKnownSlotDuration)
-import           Pos.Ssc.Class                (Ssc)
-import           Pos.Txp                      (filterUtxoByAddrs, runUtxoStateT)
-import           Pos.Update                   (ConfirmedProposalState (..))
-import           Pos.Update.Context           (UpdateContext (ucUpdateSemaphore))
-import           Pos.Wallet.KeyStorage        (KeyData, MonadKeys)
-import qualified Pos.Wallet.State             as WS
-import           Pos.Wallet.State.Acidic      (WalletState)
-import           Pos.Wallet.State.Core        (GStateCoreWalletRedirect)
+import           Pos.Block.BListener            (BListenerStub, MonadBListener)
+import           Pos.Block.Core                 (Block, BlockHeader)
+import           Pos.Client.Txp.Balances        (MonadBalances (..), getBalanceFromUtxo)
+import           Pos.Client.Txp.History         (MonadTxHistory (..), deriveAddrHistory)
+import           Pos.Communication              (TxMode)
+import           Pos.Communication.PeerState    (PeerStateCtx, PeerStateRedirect,
+                                                 PeerStateTag, WithPeerState)
+import           Pos.Constants                  (blkSecurityParam)
+import qualified Pos.Context                    as PC
+import           Pos.Core                       (ChainDifficulty, HeaderHash, difficultyL,
+                                                 flattenEpochOrSlot, flattenSlotId)
+import           Pos.DB                         (DBPureRedirect, MonadBlockDBGeneric (..),
+                                                 MonadDBRead, MonadGState, MonadRealDB,
+                                                 NodeDBs)
+import           Pos.DB.Block                   (BlockDBRedirect, MonadBlockDB)
+import           Pos.DB.DB                      (getTipHeader)
+import           Pos.Discovery                  (DiscoveryConstT, DiscoveryKademliaT,
+                                                 MonadDiscovery)
+import           Pos.Shutdown                   (MonadShutdownMem, triggerShutdown)
+import           Pos.Slotting                   (MonadSlots (..),
+                                                 getLastKnownSlotDuration)
+import           Pos.Ssc.Class                  (Ssc)
+import           Pos.Txp                        (filterUtxoByAddrs, runUtxoStateT)
+import           Pos.Update                     (ConfirmedProposalState (..))
+import           Pos.Update.Context             (UpdateContext (ucUpdateSemaphore))
+import           Pos.Util.Util                  (PowerLift (..))
+import           Pos.Wallet.KeyStorage          (KeyData, MonadKeys)
+import qualified Pos.Wallet.State               as WS
+import           Pos.Wallet.State.Acidic        (WalletState)
+import           Pos.Wallet.State.Core          (GStateCoreWalletRedirect)
 
 data BalancesWalletRedirectTag
 
@@ -182,7 +193,7 @@ instance
     , PC.MonadProgressHeader ssc m
     , Ether.MonadReader' PC.ConnectedPeers m
     , MonadIO m
-    , MonadDB m
+    , MonadRealDB m
     , MonadSlots m
     ) => MonadBlockchainInfo (Ether.TaggedTrans BlockchainInfoRedirectTag t m)
   where
@@ -279,7 +290,7 @@ type WalletMode m
 -- Implementations of 'WalletMode'
 ---------------------------------------------------------------
 
-type RawWalletMode =
+type RawWalletMode' =
     BListenerStub (
     BlockchainInfoNotImplemented (
     UpdatesNotImplemented (
@@ -298,6 +309,81 @@ type RawWalletMode =
     LoggerNameBox (
     Production
     )))))))))))
+
+newtype RawWalletMode a = RawWalletMode (RawWalletMode' a)
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadIO
+    , MonadThrow
+    , MonadCatch
+    , MonadMask
+    , MonadFix
+    )
+type instance ThreadId (RawWalletMode) = ThreadId Production
+type instance Promise (RawWalletMode) = Promise Production
+type instance SharedAtomicT (RawWalletMode) = SharedAtomicT Production
+type instance SharedExclusiveT (RawWalletMode) = SharedExclusiveT Production
+type instance Gauge (RawWalletMode) = Gauge Production
+type instance ChannelT (RawWalletMode) = ChannelT Production
+type instance Distribution (RawWalletMode) = Distribution Production
+type instance Counter (RawWalletMode) = Counter Production
+
+deriving instance CanLog (RawWalletMode)
+deriving instance HasLoggerName (RawWalletMode)
+--deriving instance MonadSlotsData (RawWalletMode)
+--deriving instance MonadSlots (RawWalletMode)
+deriving instance MonadGState (RawWalletMode)
+deriving instance Ether.MonadReader' NodeDBs Production => MonadDBRead (RawWalletMode)
+deriving instance MonadBListener (RawWalletMode)
+deriving instance MonadUpdates (RawWalletMode)
+deriving instance MonadBlockchainInfo (RawWalletMode)
+deriving instance MonadBalances (RawWalletMode)
+deriving instance MonadTxHistory (RawWalletMode)
+deriving instance WithPeerState (RawWalletMode)
+
+instance PowerLift m (RawWalletMode') => PowerLift m (RawWalletMode) where
+  powerLift = RawWalletMode . powerLift
+
+instance
+    ( Ether.MonadReader' NodeDBs Production
+    , MonadBlockDBGeneric header blk undo (RawWalletMode') ) =>
+    MonadBlockDBGeneric header blk undo (RawWalletMode) where
+    dbGetHeader = (coerce :: (HeaderHash -> RawWalletMode' (Maybe header)) ->
+                             (HeaderHash -> RawWalletMode (Maybe header)))
+                  (dbGetHeader @header @blk @undo)
+    dbGetBlock = (coerce :: (HeaderHash -> RawWalletMode' (Maybe blk)) ->
+                            (HeaderHash -> RawWalletMode (Maybe blk)))
+                 (dbGetBlock @header @blk @undo)
+    dbGetUndo = (coerce :: (HeaderHash -> RawWalletMode' (Maybe undo)) ->
+                           (HeaderHash -> RawWalletMode (Maybe undo)))
+                 (dbGetUndo @header @blk @undo)
+
+instance
+    ( Mockable d (RawWalletMode')
+    , MFunctor' d (RawWalletMode) (RawWalletMode')
+    )
+    => Mockable d (RawWalletMode) where
+    liftMockable dmt = RawWalletMode $ liftMockable $ hoist' (\(RawWalletMode m) -> m) dmt
+
+instance
+    Ether.MonadReader tag r (RawWalletMode') =>
+    Ether.MonadReader tag r (RawWalletMode)
+  where
+    ask =
+        (coerce :: RawWalletMode' r -> RawWalletMode r)
+        (Ether.ask @tag)
+    local =
+        (coerce :: forall a .
+            Lift.Local r (RawWalletMode') a ->
+            Lift.Local r (RawWalletMode) a)
+        (Ether.local @tag)
+    reader =
+        (coerce :: forall a .
+            ((r -> a) -> RawWalletMode' a) ->
+            ((r -> a) -> RawWalletMode a))
+        (Ether.reader @tag)
 
 type WalletRealMode = DiscoveryKademliaT RawWalletMode
 

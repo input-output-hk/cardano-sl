@@ -10,7 +10,6 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict  as HM
 import qualified Data.Text            as T
 import           Formatting           (sformat, shown, (%))
-import           Options.Applicative  (execParser)
 import           Serokell.Util.Text   (listJson)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      (takeDirectory, (</>))
@@ -21,7 +20,7 @@ import           Universum
 import           Pos.Binary           (decodeFull, encode)
 import           Pos.Core             (coinToInteger, mkCoin, unsafeAddCoin,
                                        unsafeIntegerToCoin)
-import           Pos.Genesis          (GenesisData (..), GenesisGtData (..),
+import           Pos.Genesis          (GenesisCoreData (..), GenesisGtData (..),
                                        StakeDistribution (..), genesisDevHdwSecretKeys,
                                        genesisDevHdwSecretKeys, genesisDevSecretKeys,
                                        getTotalStake)
@@ -32,7 +31,7 @@ import           Avvm                 (aeCoin, applyBlacklisted, genGenesis, get
                                        utxo)
 import           KeygenOptions        (AvvmStakeOptions (..), FakeAvvmOptions (..),
                                        KeygenOptions (..), TestStakeOptions (..),
-                                       optsInfo)
+                                       getKeygenOptions)
 import           Testnet              (genTestnetStakes, generateFakeAvvm,
                                        generateKeyfile, rearrangeKeyfile)
 
@@ -44,7 +43,7 @@ applyPattern fp a = replace "{}" (show a) fp
 
 getTestnetGenesis
     :: (MonadIO m, MonadFail m, WithLogger m)
-    => TestStakeOptions -> m (GenesisData, GenesisGtData)
+    => TestStakeOptions -> m (GenesisCoreData, GenesisGtData)
 getTestnetGenesis tso@TestStakeOptions{..} = do
     let keysDir = takeDirectory tsoPattern
     liftIO $ createDirectoryIfMissing True keysDir
@@ -66,10 +65,10 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
             _ -> error "cardano-keygen: impossible type of generated testnet stake"
         genesisAddrs = map (makePubKeyAddress . fst) genesisList
                     <> map (view _3) poorsList
-        genData = GenesisData
-            { gdAddresses = genesisAddrs
-            , gdDistribution = distr
-            , gdBootstrapBalances = HM.fromList $
+        genData = GenesisCoreData
+            { gcdAddresses = genesisAddrs
+            , gcdDistribution = distr
+            , gcdBootstrapBalances = HM.fromList $
                 map ((, richmanStake) . addressHash . fst) $
                 take (fromIntegral tsoRichmen) genesisList
             }
@@ -85,7 +84,7 @@ getTestnetGenesis tso@TestStakeOptions{..} = do
 
 getFakeAvvmGenesis
     :: (MonadIO m, WithLogger m)
-    => FakeAvvmOptions -> m (GenesisData, GenesisGtData)
+    => FakeAvvmOptions -> m (GenesisCoreData, GenesisGtData)
 getFakeAvvmGenesis FakeAvvmOptions{..} = do
     liftIO $ createDirectoryIfMissing True $ takeDirectory faoSeedPattern
 
@@ -94,17 +93,17 @@ getFakeAvvmGenesis FakeAvvmOptions{..} = do
 
     putText $ show faoCount <> " fake avvm seeds are generated"
 
-    let gdAddresses = map makeRedeemAddress fakeAvvmPubkeys
-        gdDistribution = ExplicitStakes $ HM.fromList $
-            map (, (mkCoin $ fromIntegral faoOneStake, [])) gdAddresses
-        gdBootstrapBalances = mempty
+    let gcdAddresses = map makeRedeemAddress fakeAvvmPubkeys
+        gcdDistribution = ExplicitStakes $ HM.fromList $
+            map (, (mkCoin $ fromIntegral faoOneStake, [])) gcdAddresses
+        gcdBootstrapBalances = mempty
         ggdVssCertificates = mempty
 
-    return (GenesisData{..}, GenesisGtData{..})
+    return (GenesisCoreData{..}, GenesisGtData{..})
 
 getAvvmGenesis
     :: (MonadIO m, WithLogger m)
-    => AvvmStakeOptions -> m (GenesisData, GenesisGtData)
+    => AvvmStakeOptions -> m (GenesisCoreData, GenesisGtData)
 getAvvmGenesis AvvmStakeOptions {..} = do
     jsonfile <- liftIO $ BSL.readFile asoJsonPath
     holder <- getHolderId asoHolderKeyfile
@@ -118,7 +117,7 @@ getAvvmGenesis AvvmStakeOptions {..} = do
 
 main :: IO ()
 main = do
-    ko@(KeygenOptions{..}) <- execParser optsInfo
+    ko@(KeygenOptions{..}) <- getKeygenOptions
     usingLoggerName "keygen" $
         if | Just msk <- koRearrangeMask  -> rearrange msk
            | Just pat <- koDumpDevGenKeys -> dumpKeys pat
@@ -135,17 +134,17 @@ dumpKeys pat = do
         \(i :: Int, k, wk) ->
         generateKeyfile False (Just (k, wk)) $ applyPattern pat i
 
-reassignBalances :: GenesisData -> GenesisData
-reassignBalances GenesisData{..} = GenesisData
-    { gdBootstrapBalances = newBalances
+reassignBalances :: GenesisCoreData -> GenesisCoreData
+reassignBalances GenesisCoreData{..} = GenesisCoreData
+    { gcdBootstrapBalances = newBalances
     , ..
     }
   where
-    newBalances = HM.fromList $ HM.toList gdBootstrapBalances
+    newBalances = HM.fromList $ HM.toList gcdBootstrapBalances
                   & each . _2 .~ newBalance
                   & _head . _2 .~ newBalance `unsafeAddCoin` remainder
-    totalBalance = coinToInteger $ getTotalStake gdDistribution
-    nBalances = fromIntegral $ length gdBootstrapBalances
+    totalBalance = coinToInteger $ getTotalStake gcdDistribution
+    nBalances = fromIntegral $ length gcdBootstrapBalances
     newBalance = unsafeIntegerToCoin $ totalBalance `div` nBalances
     remainder = unsafeIntegerToCoin $ totalBalance `mod` nBalances
 
@@ -159,8 +158,8 @@ genGenesisFiles KeygenOptions{..} = do
     whenJust mTestnetGenesis $ \(tg, _) ->
         putText $ sformat ("testnet genesis created successfully. "
                           %"First 30 addresses: "%listJson%" distr: "%shown)
-                      (map (sformat addressDetailedF) . take 10 $ gdAddresses tg)
-                      (gdDistribution tg)
+                      (map (sformat addressDetailedF) . take 10 $ gcdAddresses tg)
+                      (gcdDistribution tg)
 
     let mGenData = mappend <$> mTestnetGenesis <*> mAvvmGenesis
                    <|> mTestnetGenesis
@@ -168,24 +167,24 @@ genGenesisFiles KeygenOptions{..} = do
         genData' = fromMaybe (error "At least one of options \
                                     \(AVVM stake or testnet stake) \
                                     \should be provided") mGenData
-        (reassignBalances -> genGeneralData, genGtData) =
+        (reassignBalances -> genCoreData, genGtData) =
             genData' <> fromMaybe mempty mFakeAvvmGenesis
 
-    -- write genesis-general.bin
-    do let bin = encode genGeneralData
-           name = "genesis-general.bin"
+    -- write genesis-core.bin
+    do let bin = encode genCoreData
+           name = "core" </> "genesis-core.bin"
            path = koGenesisDir </> name
        liftIO $ createDirectoryIfMissing True (takeDirectory path)
        case decodeFull bin of
-           Right (_ :: GenesisData) -> do
+           Right (_ :: GenesisCoreData) -> do
                liftIO $ BSL.writeFile path bin
                putText (toText name <> " generated successfully")
            Left err ->
-               putText ("Generated GenesisData can't be read: " <> toText err)
+               putText ("Generated GenesisCoreData can't be read: " <> toText err)
 
-    -- write godtossing/genesis-gt.bin
+    -- write godtossing/genesis-godtossing.bin
     do let bin = encode genGtData
-           name = "godtossing" </> "genesis-gt.bin"
+           name = "godtossing" </> "genesis-godtossing.bin"
            path = koGenesisDir </> name
        liftIO $ createDirectoryIfMissing True (takeDirectory path)
        case decodeFull bin of

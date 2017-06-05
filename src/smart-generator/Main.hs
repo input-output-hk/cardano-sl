@@ -2,6 +2,8 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+{-# OPTIONS -fno-cross-module-specialise #-}
+
 module Main
   ( main
   ) where
@@ -14,7 +16,6 @@ import           Data.Time.Units            (Microsecond, convertUnit)
 import           Formatting                 (float, int, sformat, (%))
 import           Mockable                   (Production, delay, forConcurrently, fork)
 import           Network.Transport.Abstract (Transport, hoistTransport)
-import           Options.Applicative        (execParser)
 import           Serokell.Util              (ms, sec)
 import           System.FilePath            ((</>))
 import           System.Random.Shuffle      (shuffleM)
@@ -33,6 +34,7 @@ import           Pos.Genesis                (genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), bracketResources, initLrc,
                                              runNode', runStaticMode, stakesDistr)
+import           Pos.Security               (SecurityParams (..), SecurityWorkersClass)
 import           Pos.Ssc.Class              (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing         (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
@@ -45,7 +47,7 @@ import           Pos.Util.Util              (powerLift)
 import           Pos.Worker                 (allWorkers)
 import           Pos.WorkMode               (StaticMode)
 
-import           GenOptions                 (GenOptions (..), optsInfo)
+import           GenOptions                 (GenOptions (..), getGenOptions)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
 import           TxAnalysis                 (checkWorker, createTxTimestamps,
                                              registerSentTx)
@@ -94,7 +96,7 @@ getPeersShare share = do
 
 runSmartGen
     :: forall ssc.
-       SscConstraint ssc
+       (SscConstraint ssc, SecurityWorkersClass ssc)
     => Transport (StaticMode ssc)
     -> (Set NodeId)
     -> NodeParams
@@ -235,7 +237,7 @@ runSmartGen transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
 
 main :: IO ()
 main = do
-    opts@GenOptions {..} <- execParser optsInfo
+    opts@GenOptions {..} <- getGenOptions
 
     -- Check correctness of --m-of-n param
     case goMOfNParams of
@@ -283,14 +285,16 @@ main = do
                                         (CLI.richPoorDistr goCommonArgs)
                                         (CLI.expDistr goCommonArgs)
                 , npJLFile        = goJLFile
-                , npAttackTypes   = []
-                , npAttackTargets = []
                 , npPropagation   = not (CLI.disablePropagation goCommonArgs)
                 , npReportServers = []
                 , npUpdateParams = UpdateParams
                     { upUpdatePath    = "update.exe"
                     , upUpdateWithPkg = True
                     , upUpdateServers = []
+                    }
+                , npSecurityParams = SecurityParams
+                    { spAttackTypes   = []
+                    , spAttackTargets = []
                     }
                 , npUseNTP = True
                 }

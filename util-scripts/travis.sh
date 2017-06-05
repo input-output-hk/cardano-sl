@@ -28,6 +28,7 @@ stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl \
 
 if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" && "$TRAVIS_PULL_REQUEST" == "false" ]]; then
   ./update_wallet_web_api_docs.sh
+  ./update_cli_docs.sh
 #  ./update_haddock.sh
 fi
 

@@ -21,12 +21,15 @@ import           Pos.Client.Txp.History     (MonadTxHistory (..))
 import           Pos.Client.Txp.Util        (TxError, createMTx, createRedemptionTx,
                                              createTx)
 import           Pos.Communication.Methods  (sendTx)
-import           Pos.Communication.Protocol (NodeId, SendActions)
-import           Pos.Communication.Specs    (sendTxOuts)
+import           Pos.Communication.Protocol (NodeId, OutSpecs, SendActions)
+import           Pos.Communication.Specs    (createOutSpecs)
+import           Pos.Communication.Types    (InvOrDataTK)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
                                              redeemToPublic, safeToPublic)
-import           Pos.DB.Class               (MonadGStateCore)
-import           Pos.Txp.Core               (TxAux (..), TxOut (..), TxOutAux (..), txaF)
+import           Pos.DB.Class               (MonadGState)
+import           Pos.Txp.Core               (TxAux (..), TxId, TxOut (..), TxOutAux (..),
+                                             txaF)
+import           Pos.Txp.Network.Types      (TxMsgContents (..))
 import           Pos.Types                  (Address, Coin, makePubKeyAddress,
                                              makeRedeemAddress, mkCoin, unsafeAddCoin)
 import           Pos.WorkMode.Class         (MinWorkMode)
@@ -37,7 +40,7 @@ type TxMode m
       , MonadTxHistory m
       , MonadMockable m
       , MonadMask m
-      , MonadGStateCore m
+      , MonadGState m
       )
 
 submitAndSave
@@ -101,10 +104,13 @@ submitRedemptionTx sendActions rsk na output = do
 
 -- | Send the ready-to-use transaction
 submitTxRaw
-    :: (MinWorkMode m, MonadGStateCore m)
+    :: (MinWorkMode m, MonadGState m)
     => SendActions m -> [NodeId] -> TxAux -> m ()
 submitTxRaw sa na txAux@TxAux {..} = do
     let txId = hash taTx
     logInfo $ sformat ("Submitting transaction: "%txaF) txAux
     logInfo $ sformat ("Transaction id: "%build) txId
     void $ mapConcurrently (flip (sendTx sa) txAux) na
+
+sendTxOuts :: OutSpecs
+sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))

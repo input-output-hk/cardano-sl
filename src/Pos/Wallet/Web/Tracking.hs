@@ -41,7 +41,7 @@ import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
 import           Pos.Crypto.HDDiscovery     (discoverHDAddresses)
 import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
-import           Pos.DB.Class               (MonadDB)
+import           Pos.DB.Class               (MonadRealDB)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..),
@@ -65,7 +65,7 @@ type CAccModifier = MM.MapModifier CWAddressMeta ()
 type BlockLockMode ssc m =
     ( WithLogger m
     , Ether.MonadReader' BlkSemaphore m
-    , MonadDB m
+    , MonadRealDB m
     , DB.MonadBlockDB ssc m
     , MonadMask m
     )
@@ -155,7 +155,7 @@ syncWSetsWithGStateLock encSKs = withBlkSemaphore_ $ \tip ->
 syncWSetsWithGState
     :: forall ssc m .
     ( WebWalletModeDB m
-    , MonadDB m
+    , MonadRealDB m
     , DB.MonadBlockDB ssc m
     , WithLogger m)
     => EncryptedSecretKey

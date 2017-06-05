@@ -71,24 +71,18 @@ library
                         Pos.Lrc
                         Pos.Lrc.FtsPure
 
-                        -- Scripting
-                        Pos.Script
-                        Pos.Script.Examples
-
                         -- Slotting
                         Pos.Slotting.Arbitrary
 
                         -- Something
                         Pos.Launcher
+
                         Pos.Security
                         Pos.Security.Class
-                        Pos.Security.CLI
-                        Pos.Security.Util
                         Pos.Security.Workers
 
                         -- SSC
                         Pos.Ssc.Arbitrary
-                        Pos.Ssc.Class
                         Pos.Ssc.GodTossing
                         Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
@@ -102,8 +96,6 @@ library
 
                         -- Txp
                         Pos.Txp
-                        Pos.Txp.Core
-                        Pos.Txp.Settings
 
                         Pos.Types
                         Pos.Types.Arbitrary
@@ -148,12 +140,9 @@ library
                         Pos.Binary.Block.Core
                         Pos.Binary.Communication
                         Pos.Binary.Delegation
-                        Pos.Binary.Genesis
-                        Pos.Binary.Merkle
                         Pos.Binary.Relay
                         Pos.Binary.Ssc
                         Pos.Binary.Txp
-                        Pos.Binary.Txp.Core
                         Pos.Binary.Txp.Network
 
                         -- Block processing
@@ -205,6 +194,9 @@ library
                         Pos.Delegation.Helpers
                         Pos.Delegation.Listeners
                         Pos.Delegation.Logic
+                        Pos.Delegation.Logic.Common
+                        Pos.Delegation.Logic.Mempool
+                        Pos.Delegation.Logic.VAR
                         Pos.Delegation.Lrc
                         Pos.Delegation.Types
                         Pos.Delegation.Worker
@@ -222,7 +214,6 @@ library
                         Pos.Communication.Methods
                         Pos.Communication.Tx
                         Pos.Communication.Server
-                        Pos.Communication.Specs
                         Pos.Communication.Limits
                         Pos.Communication.Update
 
@@ -230,10 +221,6 @@ library
                         Pos.DB.GState.BlockExtra
                         Pos.DB.GState.GState
                         Pos.DB.Misc
-
-                        -- Genesis
-                        Pos.Genesis.Types
-                        Pos.Genesis.Parser
 
                         -- LRC
                         Pos.Lrc.Arbitrary
@@ -243,21 +230,15 @@ library
                         Pos.Lrc.DB.Lrc
                         Pos.Lrc.DB.Richmen
                         Pos.Lrc.Logic
-                        Pos.Lrc.Mode
                         Pos.Lrc.Worker
 
                         -- SafeCopy serialization (required in wallet)
                         Pos.SafeCopy
 
                         -- SSC
-                        Pos.Ssc.Class.Workers
-                        Pos.Ssc.Class.Listeners
-
                         Pos.Ssc.Util
 
                         Pos.Ssc.GodTossing.Arbitrary
-                        Pos.Ssc.GodTossing.Listeners
-                        Pos.Ssc.GodTossing.Workers
 
                         -- Statistics
                         Pos.Statistics.Helpers
@@ -267,38 +248,9 @@ library
 
                         -- Txp
                         Pos.Txp.Arbitrary
-                        Pos.Txp.Core.Core
-                        Pos.Txp.Core.Tx
-                        Pos.Txp.Core.Types
-                        Pos.Txp.DB
-                        Pos.Txp.DB.Balances
-                        Pos.Txp.DB.Utxo
-                        Pos.Txp.Error
-                        Pos.Txp.Logic
-                        Pos.Txp.Logic.Global
-                        Pos.Txp.Logic.Local
-                        Pos.Txp.MemState
-                        Pos.Txp.MemState.Class
-                        Pos.Txp.MemState.Holder
-                        Pos.Txp.MemState.Types
                         Pos.Txp.Network
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
-                        Pos.Txp.Settings.Global
-                        Pos.Txp.Toil
-                        Pos.Txp.Toil.Balances
-                        Pos.Txp.Toil.Balances.Functions
-                        Pos.Txp.Toil.Balances.Pure
-                        Pos.Txp.Toil.Class
-                        Pos.Txp.Toil.DBTxp
-                        Pos.Txp.Toil.Failure
-                        Pos.Txp.Toil.Logic
-                        Pos.Txp.Toil.Trans
-                        Pos.Txp.Toil.Types
-                        Pos.Txp.Toil.Utxo
-                        Pos.Txp.Toil.Utxo.Functions
-                        Pos.Txp.Toil.Utxo.Pure
-                        Pos.Txp.Toil.Utxo.Util
                         Pos.Txp.Worker
 
                         -- Workers
@@ -310,15 +262,11 @@ library
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
                         Pos.Update.Download
-                        Pos.Update.Logic
-                        Pos.Update.Logic.Global
-                        Pos.Update.Logic.Local
-                        Pos.Update.Lrc
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
-                        Pos.Update.Poll
-                        Pos.Update.Poll.DBPoll
                         Pos.Update.Worker
+
+                        Pos.Recovery.Instance
 
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer
@@ -398,6 +346,7 @@ library
                       , cardano-sl-infra
                       , cardano-sl-lrc
                       , cardano-sl-ssc
+                      , cardano-sl-txp
                       , cardano-sl-update
                       , cereal
                       , conduit >= 1.2.8
@@ -536,12 +485,14 @@ executable cardano-node
                      , Params
                      , Secrets
   build-depends:       base
+                     , ansi-wl-pprint
                      , binary
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-update
+                     , cardano-sl-ssc
                      , cardano-sl
                      , containers
                      , data-default
@@ -559,6 +510,7 @@ executable cardano-node
                      , parsec
                      , serokell-util >= 0.1.3.4
                      , stm-containers
+                     , string-qq
                      , time
                      , time-units
                      , universum >= 0.1.11
@@ -610,6 +562,7 @@ executable cardano-analyzer
   if !flag(for-installer)
    build-depends:      base
                      , aeson
+                     , ansi-wl-pprint
                      , attoparsec
                      , bytestring
                      , cardano-sl-core
@@ -618,6 +571,7 @@ executable cardano-analyzer
                      , log-warper
                      , optparse-simple
                      , serokell-util >= 0.1.3.4
+                     , string-qq
                      , text
                      , time
                      , time-units
@@ -670,6 +624,7 @@ executable cardano-wallet
   if !flag(for-installer)
    build-depends:      QuickCheck
                      , base
+                     , ansi-wl-pprint
                      , base58-bytestring
                      , binary
                      , bytestring
@@ -753,6 +708,7 @@ executable cardano-wallet-hs2purs
   build-depends:       base
                      , cardano-sl-core
                      , cardano-sl
+                     , optparse-simple
                      , purescript-bridge
                      , universum >= 0.1.11
   default-language:    Haskell2010
@@ -810,14 +766,16 @@ executable cardano-smart-generator
    build-depends:      QuickCheck
                      , base
                      , aeson
+                     , ansi-wl-pprint
                      , array
                      , bytestring
                      , data-default
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-txp
                      , cardano-sl-update
+                     , cardano-sl-ssc
                      , cardano-sl
-                     , cardano-sl-core
                      , containers
                      , filepath
                      , formatting
@@ -832,6 +790,7 @@ executable cardano-smart-generator
                      , random-shuffle
                      , serokell-util >= 0.1.3.4
                      , stm
+                     , string-qq
                      , text
                      , time
                      , time-units
@@ -901,7 +860,7 @@ executable cardano-dht-keygen
                      , lens
                      , lifted-async
                      , log-warper
-                     , optparse-applicative
+                     , optparse-simple
                      , parsec
                      , random
                      , random-shuffle
@@ -944,6 +903,7 @@ executable cardano-dht-keygen
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        ApplicativeDo
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -961,6 +921,7 @@ executable cardano-swagger
                      , bytestring
                      , cardano-sl
                      , lens
+                     , optparse-simple
                      , swagger2
                      , servant
                      , servant-server
@@ -995,8 +956,12 @@ executable cardano-checks
   main-is:             Main.hs
   if !flag(for-installer)
    build-depends:      base
+                     , ansi-wl-pprint
                      , containers
                      , foldl
+                     , optparse-simple
+                     , optparse-text
+                     , string-qq
                      , text
                      , turtle
   default-language:    Haskell2010
@@ -1019,9 +984,13 @@ executable cardano-genupdate
   hs-source-dirs:      src/genupdate
   main-is:             Main.hs
   build-depends:       base
+                     , ansi-wl-pprint
                      , bytestring
                      , cryptonite
                      , foldl
+                     , optparse-simple
+                     , optparse-text
+                     , string-qq
                      , system-filepath
                      , tar
                      , text
@@ -1040,6 +1009,8 @@ executable cardano-genupdate
   default-extensions:  OverloadedStrings
                        NoImplicitPrelude
                        BangPatterns
+                       ApplicativeDo
+                       RecordWildCards
 
 executable cardano-keygen
   hs-source-dirs:      src/keygen
@@ -1052,7 +1023,9 @@ executable cardano-keygen
                      , Glob
                      , base
                      , aeson
+                     , ansi-wl-pprint
                      , cardano-sl-core
+                     , cardano-sl-txp
                      , cardano-sl
                      , ed25519
                      , formatting
@@ -1061,6 +1034,7 @@ executable cardano-keygen
                      , text
                      , lens
                      , optparse-applicative >= 0.12
+                     , string-qq
                      , unordered-containers
                      , bytestring >= 0.10
                      , random >= 1.1
@@ -1106,9 +1080,10 @@ executable cardano-keygen
 executable cardano-launcher
   hs-source-dirs:      src/launcher
   main-is:             Main.hs
-  build-depends:       async
+  build-depends:       ansi-wl-pprint
+                     , async
                      , base
-                     , optparse-applicative
+                     , optparse-simple
                      , cardano-report-server >= 0.1.1
                      , log-warper
                      , cardano-sl
@@ -1116,6 +1091,7 @@ executable cardano-launcher
                      , directory
                      , filepath
                      , process
+                     , string-qq
                      , system-filepath
                      , text
                      , turtle
@@ -1144,13 +1120,17 @@ executable cardano-addr-convert
   hs-source-dirs:      src/addr-convert
   main-is:             Main.hs
   build-depends:       base
+                     , ansi-wl-pprint
                      , bytestring
                      , cardano-sl
                      , cardano-sl-core
                      , directory
                      , filepath
+                     , optparse-applicative
+                     , optparse-text
                      , process
                      , serokell-util
+                     , string-qq
                      , system-filepath
                      , text
                      , turtle
@@ -1185,6 +1165,44 @@ executable cardano-addr-convert
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
+                        ApplicativeDo
+
+executable cardano-cli-docs
+  hs-source-dirs:      src/cli-docs
+  main-is:             Main.hs
+  if !flag(for-installer)
+   build-depends:      base
+                     , bytestring
+                     , directory
+                     , filepath
+                     , optparse-applicative
+                     , process
+                     , string-qq
+                     , text
+                     , universum >= 0.1.11
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -with-rtsopts=-N
+                       -O2
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   NoImplicitPrelude
+                        BangPatterns
+                        RecordWildCards
+                        OverloadedStrings
+                        ApplicativeDo
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+  if flag(for-installer)
+    buildable: False
 
 test-suite cardano-test
   main-is:             Test.hs
@@ -1235,7 +1253,9 @@ test-suite cardano-test
                      , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cardano-sl-txp
                      , cardano-sl-update
+                     , cardano-sl-ssc
                      , cardano-sl
                      , cereal
                      , containers

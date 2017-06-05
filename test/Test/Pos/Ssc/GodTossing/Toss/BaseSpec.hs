@@ -273,6 +273,8 @@ instance Arbitrary GoodSharesPayload where
 
         return (epoch, GtGlobalState {..}, sharesMap, mrs)
 
+-- NOTE: this test does not care for 'DecrSharesNotMatchCommitment' failure. This would
+--make the already non-trivial arbitrary instance for 'GoodSharesPayload' unmanageable.
 checksGoodSharesPayload :: GoodSharesPayload -> Bool
 checksGoodSharesPayload (getGoodShares -> (epoch, gtgs, sharesMap, mrs)) =
     let res = case tossRunner mrs gtgs $ checkSharesPayload epoch sharesMap of

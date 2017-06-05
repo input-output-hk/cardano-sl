@@ -98,6 +98,7 @@ library
                       , containers
                       , data-default
                       , directory
+                      , either
                       , ether >= 0.5
                       , exceptions
                       , filepath
@@ -117,6 +118,8 @@ library
                       , serokell-util >= 0.1.3.4
                       , stm
                       , stm-containers
+                      , store
+                      , store-core
                       , tagged
                       , text
                       , temporary

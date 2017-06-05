@@ -4,8 +4,13 @@ set -e
 
 export EXTRA_STACK="--no-haddock-deps"
 
+if [[ ("$TRAVIS_OS_NAME" == "linux") && ("$TRAVIS_BRANCH" == "master") ]];
+  then with_haddock=true
+  else with_haddock=false
+fi
+
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-    if [[ "$TRAVIS_BRANCH" == "master" ]]; then
+    if [[ "$with_haddock" == "true" ]]; then
       export EXTRA_STACK="--haddock";
     :
     fi
@@ -19,6 +24,18 @@ fi
 
 stack --nix --no-terminal install happy \
   $EXTRA_STACK --fast --ghc-options="-j +RTS -A128m -n2m -RTS" --jobs=4
+
+# We need to pass CONFIG=wallet to compile cardano-sl-core, but Stack doesn't
+# support passing arguments to Haddock yet (this will be fixed in the next
+# release after 1.4.0). For now, a workaround is to manually replace CONFIG
+# with "wallet" in *.hs files.
+#
+# When new Stack is released, delete this and add an argument to Stack:
+#    --haddock-arguments="--optghc=-DCONFIG=wallet"
+if [[ "$with_haddock" == "true" ]]; then
+  find core/ -name '*.hs' -exec sed -i 's/defined(CONFIG)/1/g' {} +
+  find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"wallet"/g' {} +
+fi
 
 stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl \
   $EXTRA_STACK --fast --jobs=2 \

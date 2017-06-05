@@ -6,11 +6,11 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), isJust)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cBlock, blSlotNotFound, common, cBack2Dashboard, cOf, cLoading, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cSlot, cTransactions, tx, txNotFound, txEmpty) as I18nL
-import Explorer.Lenses.State (blockDetail, blockTxPagination, blockTxPaginationEditable, currentBlockSummary, currentBlockTxs, lang, viewStates)
+import Explorer.Lenses.State (_PageNumber, blockDetail, blockTxPagination, blockTxPaginationEditable, currentBlockSummary, currentBlockTxs, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CCurrency(..), State, CTxBriefs)
+import Explorer.Types.State (CCurrency(..), CTxBriefs, PageNumber(..), State)
 import Explorer.View.Common (currencyCSSClass, emptyView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..), isFailure)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
@@ -211,7 +211,7 @@ blockTxsView txs state =
     if null txs then
         txEmptyContentView $ translate (I18nL.tx <<< I18nL.txEmpty) (state ^. lang)
     else
-        let txPagination = state ^. (viewStates <<< blockDetail <<< blockTxPagination)
+        let txPagination = state ^. (viewStates <<< blockDetail <<< blockTxPagination <<< _PageNumber)
             currentTxBrief = txs !! (txPagination - 1)
             lang' = state ^. lang
         in
@@ -224,9 +224,9 @@ blockTxsView txs state =
                                 Nothing -> mkTxBodyViewProps mkEmptyViewProps
                                 Just txBrief -> mkTxBodyViewProps txBrief
             , txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                , currentPage: txPagination
-                                , minPage: minPagination
-                                , maxPage: length txs
+                                , currentPage: PageNumber txPagination
+                                , minPage: PageNumber minPagination
+                                , maxPage: PageNumber $ length txs
                                 , changePageAction: BlockPaginateTxs
                                 , editable: state ^. (viewStates <<< blockDetail <<< blockTxPaginationEditable)
                                 , editableAction: BlockEditTxsPageNumber

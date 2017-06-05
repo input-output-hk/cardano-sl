@@ -2,7 +2,6 @@ module Explorer.Api.Socket where
 
 import Prelude
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Exception (Error)
 import Control.SocketIO.Client (Event, Host)
 import Data.Argonaut.Core (Json)
@@ -12,7 +11,7 @@ import Data.Foreign (Foreign)
 import Data.Generic (class Generic, gShow)
 import Data.Maybe (fromMaybe)
 import Data.String (Pattern(..), Replacement(..), replaceAll, split, trim)
-import Debug.Trace (traceAnyM, traceShowM)
+import Debug.Trace (traceAnyM)
 import Explorer.Api.Helper (decodeResult')
 import Explorer.Types.Actions (Action(..), ActionChannel)
 import Explorer.Util.Config (Protocol(..))
@@ -72,12 +71,11 @@ closeHandler :: forall eff. ActionChannel -> Foreign
 closeHandler channel _ =
     send channel $ SocketConnected false
 
-blocksUpdatedEventHandler :: forall eff. ActionChannel -> Json
+blocksPageUpdatedEventHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
-blocksUpdatedEventHandler channel json =
+blocksPageUpdatedEventHandler channel json =
     let result = decodeResult' json in
-    send channel $ SocketBlocksUpdated result
-
+    send channel $ SocketBlocksPageUpdated result
 
 txsUpdatedHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit

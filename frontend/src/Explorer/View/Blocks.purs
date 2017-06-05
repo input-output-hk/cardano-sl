@@ -16,11 +16,11 @@ import Data.String (take)
 import Data.Time.Duration (Milliseconds)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (block, blEpochSlotNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
-import Explorer.Lenses.State (blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
+import Explorer.Lenses.State (_PageNumber, blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CBlockEntries, CCurrency(..), State)
+import Explorer.Types.State (CBlockEntries, CCurrency(..), PageNumber(..), State)
 import Explorer.Util.Factory (mkEpochIndex)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
@@ -62,8 +62,8 @@ blocksView state =
                           let paginationViewProps =
                                   { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                   , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
-                                  , minPage: minPagination
-                                  , maxPage: getMaxPaginationNumber (length blocks) maxBlockRows
+                                  , minPage: PageNumber minPagination
+                                  , maxPage: PageNumber $ getMaxPaginationNumber (length blocks) maxBlockRows
                                   , changePageAction: BlocksPaginateBlocks
                                   , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
                                   , editableAction: BlocksEditBlocksPageNumber
@@ -111,7 +111,7 @@ currentBlocks state =
     slice minBlockIndex (minBlockIndex + maxBlockRows) blocks
     where
         blocks = withDefault [] $ state ^. currentBlocksResult
-        currentBlockPage = state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+        currentBlockPage = state ^. (viewStates <<< blocksViewState <<< blsViewPagination <<< _PageNumber)
         minBlockIndex = (currentBlockPage - 1) * maxBlockRows
 
 blockRow :: State -> CBlockEntry -> P.Html Action

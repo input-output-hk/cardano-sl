@@ -50,11 +50,15 @@ import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent
                                                    notifyAddrSubscribers,
                                                    notifyBlocksOffSubscribers,
                                                    notifyBlocksSubscribers,
+                                                   notifyBlocksLastPageSubscribers,
                                                    notifyTxsSubscribers, startSession,
                                                    subscribeAddr, subscribeBlocks,
+                                                   subscribeBlocksLastPage,
                                                    subscribeBlocksOff, subscribeTxs,
                                                    unsubscribeAddr, unsubscribeBlocks,
-                                                   unsubscribeBlocksOff, unsubscribeTxs)
+                                                   unsubscribeBlocksOff, 
+                                                   unsubscribeBlocksLastPage, 
+                                                   unsubscribeTxs)
 import           Pos.Explorer.Socket.Util         (emit, emitJSON, forkAccompanion, on,
                                                    on_, runPeriodicallyUnless)
 import           Pos.Explorer.Web.ClientTypes     (CTxId, cteId)
@@ -82,19 +86,21 @@ notifierHandler
     => ConnectionsVar -> LoggerName -> m ()
 notifierHandler connVar loggerName = do
     _ <- asHandler' startSession
-    on  (Subscribe SubAddr)       $ asHandler  subscribeAddr
-    on_ (Subscribe SubBlock)      $ asHandler_ subscribeBlocks
-    on  (Subscribe SubBlockOff)   $ asHandler  subscribeBlocksOff
-    on_ (Subscribe SubTx)         $ asHandler_ subscribeTxs
-    on_ (Unsubscribe SubAddr)     $ asHandler_ unsubscribeAddr
-    on_ (Unsubscribe SubBlock)    $ asHandler_ unsubscribeBlocks
-    on_ (Unsubscribe SubBlockOff) $ asHandler_ unsubscribeBlocksOff
-    on_ (Unsubscribe SubTx)       $ asHandler_ unsubscribeTxs
+    on  (Subscribe SubAddr)            $ asHandler  subscribeAddr
+    on_ (Subscribe SubBlock)           $ asHandler_ subscribeBlocks
+    on_ (Subscribe SubBlockLastPage)   $ asHandler_ subscribeBlocksLastPage
+    on  (Subscribe SubBlockOff)        $ asHandler  subscribeBlocksOff
+    on_ (Subscribe SubTx)              $ asHandler_ subscribeTxs
+    on_ (Unsubscribe SubAddr)          $ asHandler_ unsubscribeAddr
+    on_ (Unsubscribe SubBlock)         $ asHandler_ unsubscribeBlocks
+    on_ (Unsubscribe SubBlockLastPage) $ asHandler_ unsubscribeBlocksLastPage
+    on_ (Unsubscribe SubBlockOff)      $ asHandler_ unsubscribeBlocksOff
+    on_ (Unsubscribe SubTx)            $ asHandler_ unsubscribeTxs
 
-    on_ CallMe                    $ emitJSON CallYou empty
-    on CallMeString               $ \(s :: Value) -> emit CallYouString s
-    on CallMeTxId                 $ \(txid :: CTxId) -> emit CallYouTxId txid
-    appendDisconnectHandler . void $ asHandler_ finishSession
+    on_ CallMe                         $ emitJSON CallYou empty
+    on CallMeString                    $ \(s :: Value) -> emit CallYouString s
+    on CallMeTxId                      $ \(txid :: CTxId) -> emit CallYouTxId txid
+    appendDisconnectHandler . void     $ asHandler_ finishSession
  where
     -- handlers provide context for logging and `ConnectionsVar` changes
     asHandler
@@ -130,7 +136,8 @@ periodicPollChanges
        (ExplorerMode m, SscHelpersClass ssc)
     => ConnectionsVar -> m Bool -> m ()
 periodicPollChanges connVar closed =
-    runPeriodicallyUnless (500 :: Millisecond) closed (Nothing, mempty) $ do
+    -- Runs every 5 seconds.
+    runPeriodicallyUnless (5000 :: Millisecond) closed (Nothing, mempty) $ do
         curBlock   <- DB.getTip
         mempoolTxs <- lift $ S.fromList <$> getMempoolTxs
 
@@ -153,6 +160,7 @@ periodicPollChanges connVar closed =
             -- notify about blocks and blocks with offset
             unless (null newBlocks) $ do
                 notifyBlocksSubscribers newBlocks
+                notifyBlocksLastPageSubscribers
                 notifyBlocksOffSubscribers (length newBlocks)
                 logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
                     (length newBlocks)

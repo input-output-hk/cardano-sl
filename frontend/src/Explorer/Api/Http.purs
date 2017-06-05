@@ -10,9 +10,10 @@ import Data.Generic (class Generic)
 import Data.HTTP.Method (Method(..))
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
+import Data.Tuple (Tuple)
 import Explorer.Api.Helper (decodeResult)
 import Explorer.Api.Types (Endpoint, EndpointError(..), RequestLimit(..), RequestOffset(..))
-import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries)
+import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, PageNumber(..), PageSize(..))
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
@@ -51,8 +52,15 @@ post = request $ defaultRequest { method = Left POST }
 fetchTotalBlocks :: forall eff. Aff (ajax::AJAX | eff) Int
 fetchTotalBlocks = get "blocks/total"
 
+fetchBlocksTotalPages :: forall eff. Aff (ajax::AJAX | eff) Int
+fetchBlocksTotalPages = get "blocks/pages/total"
+
 fetchLatestBlocks :: forall eff. RequestLimit -> RequestOffset -> Aff (ajax::AJAX | eff) CBlockEntries
 fetchLatestBlocks (RequestLimit limit) (RequestOffset offset) = get $ "blocks/last/?limit=" <> show limit <> "&offset=" <> show offset
+
+fetchPageBlocks :: forall eff. PageNumber -> PageSize -> Aff (ajax::AJAX | eff) (Tuple Int CBlockEntries)
+fetchPageBlocks (PageNumber pNumber) (PageSize pSize) =
+    get $ "blocks/pages/?page=" <> show pNumber <> "&pageSize=" <> show pSize
 
 fetchBlockSummary :: forall eff. CHash -> Aff (ajax::AJAX | eff) CBlockSummary
 fetchBlockSummary (CHash hash) = get $ "blocks/summary/" <> hash

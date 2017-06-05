@@ -130,23 +130,42 @@ newtype GoodOpeningPayload = GoodOpens
 
 instance Arbitrary GoodOpeningPayload where
     arbitrary = GoodOpens <$> do
+
+      -- These fields won't be used, so they can be entirely arbitrary
         _gsShares <- arbitrary :: Gen SharesMap
         _gsVssCertificates <- arbitrary :: Gen VssCertData
+
+        -- Because 'Opening's and 'Commitment's in the openings payload map and
+        -- '_gsCommitments' resp. will need to be matched succesfully by
+        -- 'checkOpeningsPayload', they must be generated in tandem, along with their
+        -- respective keys in both maps and the dummy 'CommitmentSignature' to be used in
+        -- the commitments map.
         commsAndOpens <- arbitrary
             :: Gen [(StakeholderId, (PublicKey, CommitmentOpening, CommitmentSignature))]
         let fun (s, (pk, p, cs)) = (s, ((pk, coCommitment p, cs), coOpening p))
-            stakeHsAndCOs
+
+            -- The stakeholders in this assoc list are paired with a tuple, the first
+            -- component of which will be their value in '_gsCommitments' and the second
+            -- the value in '_gsOpenings'.
+            stakeHoldersAndCOs
                 :: [(StakeholderId,
                     ((PublicKey, Commitment, CommitmentSignature), Opening))]
-            stakeHsAndCOs = map fun commsAndOpens
+            stakeHoldersAndCOs = map fun commsAndOpens
             _gsCommitments =
                 mkCommitmentsMapUnsafe .
-                HM.fromList $ fmap (over _2 $ view _1)  stakeHsAndCOs
-        openingPldList <- sublistOf stakeHsAndCOs
+                -- over _2 (view _1) (a,(b,c)) = (a,b)
+                HM.fromList $ fmap (over _2 $ view _1) stakeHoldersAndCOs
+        openingPldList <- sublistOf stakeHoldersAndCOs
+
+        -- For the test data to be correct, none of the stakeholders with an opening in
+        -- openings payload can have an opening in the global state i.e. be a key in
+        -- '_gsOpenings'.
         _gsOpenings <- customHashMapGen
             (arbitrary `suchThat` (not . flip elem (map fst openingPldList)))
             (arbitrary :: Gen Opening)
-        let opensPayload = HM.fromList $ fmap (over _2 $ view _2)  openingPldList
+        -- over _2 (view _2) (a,(b,c)) = (a,c)
+        let opensPayload = HM.fromList $ fmap (over _2 $ view _2) openingPldList
+
         return (GtGlobalState {..}, opensPayload)
 
 checksGoodOpeningsPayload :: MultiRichmenStake -> GoodOpeningPayload -> Bool
@@ -201,22 +220,32 @@ newtype GoodSharesPayload = GoodSharesPayload
 
 instance Arbitrary GoodSharesPayload where
     arbitrary = GoodSharesPayload <$> do
+      -- These openings won't be needed for anything, so they can be entirely arbitrary.
         _gsOpenings <- arbitrary
 
+        -- The richmen for the epoch used in the tests is generated separately to make
+        -- sure it exists.
         (epoch, richmen, m) <-
             arbitrary :: Gen (EpochIndex, RichmenStake, MultiRichmenStake)
         let richmenIds = HM.keys richmen
             mrs = HM.insert epoch richmen m
+        -- This is the list of richmen which will be used to make keys for the stable
+        -- 'VssCertificates' that will be in the 'certs' field of '_gsVssCertificates'.
         richmenWithCerts <- sublistOf richmenIds
+        -- These richmen will be used to make keys for the shares that will be in the
+        -- 'SharesMap' which will be used as the second argument of 'checkSharesPayload'
+        -- in tests.
         richmenWithShares <- sublistOf richmenWithCerts
         let n = length richmenWithShares
 
-        -- We consider a simple case when 'checkSharesPayload' is called with the same
-        -- epoch as is the 'lastKnowneEoS' in 'gsVssCertificate'.
-        -- This is because rolling back slots is and should be tested elsewhere.
         stableCerts <- HM.fromList <$>
             mapM (\r -> (,) <$> pure r <*> (arbitrary :: Gen VssCertificate))
                  richmenWithCerts
+
+        -- Only the simplest case is considered w.r.t. the 'lastKnownEoS' field:
+        -- 'checkSharesPayload' is called with the same epoch as the 'lastKnownEoS' in
+        -- 'gsVssCertificate'.
+        -- This is because rolling back slots is and should be tested elsewhere.
         _gsVssCertificates <- VssCertData
             <$> (pure . EpochOrSlot . Right . crucialSlot $ epoch)
             <*> pure stableCerts
@@ -227,14 +256,17 @@ instance Arbitrary GoodSharesPayload where
 
         innerMaps <- (vector n) :: Gen [InnerSharesMap]
         let sharesMap = HM.fromList $ zip richmenWithShares innerMaps
+            -- Every key from every inner shares map must have a commitment in the global
+            -- state i.e. be a key in '_gsCommitments'.
             necessaryKeys = concatMap HM.keys innerMaps
+
         _gsCommitments <- mkCommitmentsMapUnsafe <$> do
             necessaryMap <- HM.fromList <$>
                 mapM (\k -> (,) <$> pure k <*> arbitrary) necessaryKeys
-            fillerMap <-
-                customHashMapGen (arbitrary `suchThat` (not . flip elem necessaryKeys))
-                arbitrary
+            fillerMap <- arbitrary :: Gen (HashMap StakeholderId SignedCommitment)
             return $ HM.union necessaryMap fillerMap
+        -- The keys in the shares map with which 'checkSharesPayload' is ran must not
+        -- exist in '_gsShares' for the global data to be correct.
         _gsShares <-
             customHashMapGen (arbitrary `suchThat` (not . flip elem richmenWithShares))
                              arbitrary

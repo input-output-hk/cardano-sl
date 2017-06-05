@@ -435,8 +435,9 @@ invReqDataFlowNeighbors
        )
     => Text -> SendActions m -> key -> contents -> m ()
 invReqDataFlowNeighbors what sendActions key dt = handleAll handleE $
-    reifyMsgLimit (Proxy @(ReqMsg key)) $ \lim -> do
-        converseToNeighbors sendActions (pure . Conversation . invReqDataFlowDo what key dt lim)
+    undefined -- CSL-1122 uncomment w/o limits
+    -- reifyMsgLimit (Proxy @(ReqMsg key)) $ \lim -> do
+    --     converseToNeighbors sendActions (pure . Conversation . invReqDataFlowDo what key dt lim)
   where
     handleE e = logWarning $
         sformat ("Error sending "%stext%", key = "%build%" to neighbors: "%shown) what key e
@@ -453,9 +454,10 @@ invReqDataFlow
        )
     => Text -> SendActions m -> NodeId -> key -> contents -> m ()
 invReqDataFlow what sendActions addr key dt = handleAll handleE $
-    reifyMsgLimit (Proxy @(ReqMsg key)) $ \lim ->
-        withConnectionTo sendActions addr $
-        const $ pure $ Conversation $ invReqDataFlowDo what key dt lim addr
+    undefined -- CSL-1122 uncomment w/o limits
+    -- reifyMsgLimit (Proxy @(ReqMsg key)) $ \lim ->
+    --    withConnectionTo sendActions addr $
+    --    const $ pure $ Conversation $ invReqDataFlowDo what key dt lim addr
   where
     handleE e = logWarning $
         sformat ("Error sending "%stext%", key = "%build%" to "%shown%": "%shown)

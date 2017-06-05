@@ -40,7 +40,7 @@ listenerConv
        , Message snd
        , Message rcv
        , MonadGStateCore m
-       , MessageLimited rcv
+       --, MessageLimited rcv
        , WithLogger m
        )
     => (VerInfo -> SizedCAHandler snd rcv m)
@@ -48,17 +48,18 @@ listenerConv
 listenerConv h = (lspec, mempty)
   where
     spec = (rcvMsgName, ConvHandler sndMsgName)
-    lspec =
-      flip ListenerSpec spec $ \ourVerInfo ->
-      reifyMsgLimit rcvProxy $ \(_ :: Proxy s) ->
-          let convProxy = (const Proxy :: (a -> SizedCAHandler snd rcv m)
-                           -> Proxy (ConversationActions snd (SmartLimit s rcv) m)) h
-          in case h ourVerInfo of
-              SizedCAHandler handle ->
-                  pure $ N.ListenerActionConversation $ \peerVerInfo' nNodeId conv -> do
-                      let _ = conv `asProxyTypeOf` convProxy
-                      checkingInSpecs ourVerInfo peerVerInfo' spec nNodeId $
-                          handle @s nNodeId conv
+    -- CSL-1122 reimplement (with no limit handling)
+    lspec = undefined
+      --flip ListenerSpec spec $ \ourVerInfo ->
+      --reifyMsgLimit rcvProxy $ \(_ :: Proxy s) ->
+      --    let convProxy = (const Proxy :: (a -> SizedCAHandler snd rcv m)
+      --                     -> Proxy (ConversationActions snd (SmartLimit s rcv) m)) h
+      --    in case h ourVerInfo of
+      --        SizedCAHandler handle ->
+      --            pure $ N.ListenerActionConversation $ \peerVerInfo' nNodeId conv -> do
+      --                let _ = conv `asProxyTypeOf` convProxy
+      --                checkingInSpecs ourVerInfo peerVerInfo' spec nNodeId $
+      --                    handle @s nNodeId conv
 
     sndProxy = (const Proxy :: (a -> SizedCAHandler snd rcv m) -> Proxy snd) h
     rcvProxy = (const Proxy :: (a -> SizedCAHandler snd rcv m) -> Proxy rcv) h

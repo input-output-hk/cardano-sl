@@ -10,7 +10,7 @@ module Pos.Communication.Limits.Instances
        ) where
 
 import           Control.Lens                   (each, ix)
-import qualified Data.Binary                    as Bin
+import           Data.Binary.Get                (lookAhead)
 import           Universum
 
 import           Pos.Binary.Class               (getWord8)
@@ -28,13 +28,17 @@ newtype EitherLimiter a b = EitherLimiter (a, b)
 -- Instances for Limiter
 ----------------------------------------------------------------------------
 
-instance (Limiter l, Limiter t) => Limiter (EitherLimiter l t) where
-    sizeGet (leftLim, rightLim) = Bin.getWord8 >>= \case
-        0 -> sizeGet leftLim
-        1 -> sizeGet rightLim
-        t -> fail $ "Failed to read tag " ++ show t
+__getWord8 = undefined --CSL-1122 remove
 
-    addLimit a (l1, l2) = (a `addLimit` l1, a `addLimit` l2)
+-- | Bounds `InvOrData`.
+instance (Limiter l, Limiter t) => Limiter (EitherLimiter l t) where
+    limitGet (EitherLimiter (invLimit, dataLimits)) parser = do
+        lookAhead __getWord8 >>= \case
+            0   -> limitGet invLimit parser
+            1   -> limitGet dataLimits parser
+            tag -> fail ("EitherLimiter: invalid tag: " ++ show tag)
+
+    addLimit a (EitherLimiter (l1, l2)) = EitherLimiter (a `addLimit` l1, a `addLimit` l2)
 
 ----------------------------------------------------------------------------
 -- Instances for MessageLimited
@@ -47,12 +51,12 @@ instance MessageLimited (MempoolMsg tag)
 instance MessageLimited (DataMsg contents)
       => MessageLimited (InvOrData key contents) where
     type LimitType (InvOrData key contents) =
-        EitherLimiter (InvMsg key) (DataMsg contents)
+        EitherLimiter (LimitType (InvMsg key)) (LimitType (DataMsg contents))
     getMsgLenLimit _ = do
         invLim  <- getMsgLenLimit $ Proxy @(InvMsg key)
         dataLim <- getMsgLenLimit $ Proxy @(DataMsg contents)
         -- 1 byte is added because of `Either`
-        return (1 `addLimit` invLim, 1 `addLimit` dataLim)
+        return $ EitherLimiter (1 `addLimit` invLim, 1 `addLimit` dataLim)
 
 ----------------------------------------------------------------------------
 -- Instances for MessageLimitedPure

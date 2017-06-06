@@ -22,12 +22,13 @@ import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CBlockEntries, CCurrency(..), PageNumber(..), State)
 import Explorer.Util.Factory (mkEpochIndex)
+import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cbeBlkHash, cbeEpoch, cbeSlot, cbeBlockLead, cbeSize, cbeTotalSent, cbeTxNum)
+import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeBlockLead, cbeSize, cbeTotalSent, cbeTxNum)
 import Pux.Html (Html, div, text, span, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
 import Pux.Router (link) as P
@@ -138,7 +139,7 @@ blockRow state (CBlockEntry entry) =
                       , clazz: CSS.blocksColumnTxs
                       , mCurrency: Nothing
                       }
-        , blockColumn { label: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
+        , blockColumn { label: formatADA (entry ^. cbeTotalSent) $ state ^. lang
                       , mRoute: Nothing
                       , clazz: CSS.blocksColumnTotalSent
                       , mCurrency: Just ADA

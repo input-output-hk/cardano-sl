@@ -36,11 +36,12 @@ import Explorer.State (initialState)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), PageNumber(..), State)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin)
+import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
-import Pos.Explorer.Web.ClientTypes (CCoin(..), CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, getCoin, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
+import Pos.Explorer.Web.ClientTypes (CCoin, CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 import Pux.Html (Html, text, div, p, span, input, option, select) as P
 import Pux.Html.Attributes (className, href, value, disabled, type_, min, max, defaultValue) as P
 import Pux.Html.Events (onBlur, onChange, onFocus, onKey, KeyboardEvent, MouseEvent, Target, onClick) as P
@@ -83,7 +84,7 @@ instance emtpyTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory EmptyViewProp
     mkTxHeaderViewProps _ = TxHeaderViewProps
         { txhHash: mkCTxId noData
         , txhTimeIssued: Nothing
-        , txhAmount: mkCoin 0
+        , txhAmount: mkCoin "0"
         }
 
 txHeaderView :: Language -> TxHeaderViewProps -> P.Html Action
@@ -104,7 +105,7 @@ txHeaderView lang (TxHeaderViewProps props) =
                                   in fromMaybe noData $ prettyDate format time
                               Nothing -> noData
               ]
-          , txAmountView $ props ^. txhAmount
+          , txAmountView (props ^. txhAmount) lang
           ]
 
 emptyTxHeaderView :: P.Html Action
@@ -113,13 +114,13 @@ emptyTxHeaderView =
         [ P.className "transaction-header"]
         [ ]
 
-txAmountView :: CCoin -> P.Html Action
-txAmountView (CCoin coin) =
+txAmountView :: CCoin -> Language -> P.Html Action
+txAmountView coin lang =
     P.div
         [ P.className "amount-container" ]
         [ P.div
             [ P.className "amount bg-ada" ]
-            [ P.text $ coin ^. getCoin]
+            [ P.text $ formatADA coin lang ]
         ]
 -- -----------------
 -- tx body
@@ -150,11 +151,11 @@ instance emptyTxBodyViewPropsFactory :: TxBodyViewPropsFactory EmptyViewProps wh
     mkTxBodyViewProps _ = TxBodyViewProps
         { txbInputs: []
         , txbOutputs: []
-        , txbAmount: mkCoin 0
+        , txbAmount: mkCoin "0"
         }
 
-txBodyView :: TxBodyViewProps -> P.Html Action
-txBodyView (TxBodyViewProps props) =
+txBodyView :: Language -> TxBodyViewProps -> P.Html Action
+txBodyView lang (TxBodyViewProps props) =
     P.div
         [ P.className "transaction-body" ]
         [ P.div
@@ -168,8 +169,8 @@ txBodyView (TxBodyViewProps props) =
             ]
         , P.div
               [ P.className "amounts-container" ]
-              <<< map txBodyAmountView $ props ^. txbOutputs
-        , txAmountView $ props ^. txbAmount
+              <<< map (txBodyAmountView lang) $ props ^. txbOutputs
+        , txAmountView (props ^. txbAmount) lang
         ]
 
 emptyTxBodyView :: P.Html Action
@@ -190,13 +191,13 @@ txToView (Tuple (CAddress cAddress) _) =
           [ P.className "to-hash"]
           [ P.text cAddress ]
 
-txBodyAmountView :: Tuple CAddress CCoin -> P.Html Action
-txBodyAmountView (Tuple _ (CCoin coin)) =
+txBodyAmountView :: Language -> Tuple CAddress CCoin -> P.Html Action
+txBodyAmountView lang (Tuple _ coin) =
     P.div
         [ P.className "amount-wrapper" ]
         [ P.span
             [ P.className "plain-amount bg-ada-dark" ]
-            [ P.text $ coin ^. getCoin ]
+            [ P.text $ formatADA coin lang ]
         ]
 
 -- -----------------

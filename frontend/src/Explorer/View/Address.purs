@@ -11,10 +11,11 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), PageNumber(..), State)
+import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, _CAddress, caAddress, caBalance, caTxList, caTxNum, getCoin)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxList, caTxNum)
 import Pux.Html (Html, div, text, span, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML, id_) as P
 import Pux.Router (link) as P
@@ -59,7 +60,7 @@ addressView state =
                                         Just txBrief ->
                                             P.div []
                                             [ txHeaderView lang' $ mkTxHeaderViewProps txBrief
-                                            , txBodyView $ mkTxBodyViewProps txBrief
+                                            , txBodyView lang' $ mkTxBodyViewProps txBrief
                                             , txPaginationView
                                                   { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                                   , currentPage: PageNumber txPagination
@@ -134,7 +135,7 @@ addressDetailRowItems (CAddressSummary address) lang =
       , mCurrency: Nothing
     }
     , { label: translate (I18nL.address <<< I18nL.addFinalBalance) lang
-      , value: address ^. (caBalance <<< _CCoin <<< getCoin)
+      , value: formatADA (address ^. caBalance) lang
       , mCurrency: Just ADA
       }
     ]

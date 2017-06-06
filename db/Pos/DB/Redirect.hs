@@ -1,4 +1,7 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE InstanceSigs        #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Redirects enable instances of some type classes.
 -- Here it is related to type classes from 'Pos.DB.Class'.
@@ -18,22 +21,21 @@ import           Pos.DB.BatchOp               (rocksWriteBatch)
 import           Pos.DB.Class                 (MonadDB (..), MonadDBRead (..),
                                                MonadRealDB, dbTagToLens, getNodeDBs)
 import           Pos.DB.Functions             (rocksDelete, rocksGetBytes, rocksPutBytes)
+import           Pos.DB.Iterator              (iteratorSource)
 
 data DBPureRedirectTag
 
-type DBPureRedirect =
-    Ether.TaggedTrans DBPureRedirectTag IdentityT
+type DBPureRedirect = Ether.TaggedTrans DBPureRedirectTag IdentityT
 
 runDBPureRedirect :: DBPureRedirect m a -> m a
 runDBPureRedirect = coerce
 
-instance
-    (MonadRealDB m, t ~ IdentityT) =>
-        MonadDBRead (Ether.TaggedTrans DBPureRedirectTag t m)
-  where
+instance (MonadRealDB m, t ~ IdentityT) =>
+         MonadDBRead (Ether.TaggedTrans DBPureRedirectTag t m) where
     dbGet tag key = do
         db <- view (dbTagToLens tag) <$> getNodeDBs
         rocksGetBytes key db
+    dbIterSource tag p = iteratorSource tag p
 
 instance
     (MonadRealDB m, t ~ IdentityT) =>

@@ -30,6 +30,7 @@ library
                      , bytestring
                      , cardano-sl-core
                      , concurrent-extra
+                     , conduit
                      , data-default
                      , ether >= 0.5
                      , formatting

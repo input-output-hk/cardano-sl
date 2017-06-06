@@ -70,7 +70,7 @@ import           Control.Monad.Morph            (MFunctor (..))
 import           Control.Monad.Trans.Class      (MonadTrans)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource   (MonadResource (..))
+import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT)
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
 import           Data.Tagged                    (Tagged (Tagged))
@@ -197,6 +197,9 @@ instance
     modifyLoggerName = liftLocal getLoggerName modifyLoggerName
 
 deriving instance LiftLocal LoggerNameBox
+
+instance LiftLocal ResourceT where
+    liftLocal _ l f = hoist (l f)
 
 instance {-# OVERLAPPABLE #-}
     (MonadResource m, MonadTrans t, Applicative (t m),

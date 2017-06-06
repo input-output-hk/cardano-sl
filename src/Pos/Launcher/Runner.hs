@@ -28,6 +28,7 @@ module Pos.Launcher.Runner
 
 import           Control.Concurrent.STM       (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                 (each, to, _tail)
+import           Control.Monad.Base           (MonadBase)
 import           Control.Monad.Fix            (MonadFix)
 import           Data.Default                 (def)
 import           Data.Tagged                  (Tagged (..), untag)
@@ -389,6 +390,7 @@ runCH
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
        , MonadIO m
+       , MonadBase IO m
        , MonadCatch m
        , Mockable CurrentTime m)
     => Int

@@ -16,6 +16,7 @@ module Pos.DB.Iterator.Class
 
 import           Universum
 
+import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.State            (StateT (..))
 import           Control.Monad.Trans            (MonadTrans)
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
@@ -61,16 +62,16 @@ instance {-# OVERLAPPABLE #-}
 
 -- | Encapsulation of list iterator.
 newtype ListHolderT s m a = ListHolderT (StateT [s] m a)
-    deriving (Functor,Applicative,Monad,MonadThrow,MonadIO,MonadCatch,MonadTrans,LiftLocal)
+    deriving (Functor,Applicative,Monad,MonadThrow,MonadIO,MonadCatch,MonadTrans,LiftLocal,MonadBase b)
 
 type ListHolder s a = ListHolderT s Identity a
 
 instance Monad m => MonadIterator a (ListHolderT a m) where
-    nextItem = ListHolderT $ StateT $ \s-> pure $
+    nextItem = ListHolderT $ StateT $ \s -> pure $
         case s of
             []     -> (Nothing, [])
             (x:xs) -> (Just x, xs)
-    curItem = ListHolderT $ StateT $ \s-> pure $
+    curItem = ListHolderT $ StateT $ \s -> pure $
         case s of
             []      -> (Nothing, [])
             l@(x:_) -> (Just x, l)

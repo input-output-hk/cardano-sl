@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -7,6 +8,7 @@ module Pos.DB.Iterator.DBIterator
        , DBMapIterator
        , DBKeyIterator
        , DBValueIterator
+       , iteratorSource
 
        , DBnIterator
        , DBnMapIterator
@@ -16,21 +18,24 @@ module Pos.DB.Iterator.DBIterator
        , runMapIterator
        ) where
 
-import qualified Control.Exception.Base as CE (bracket)
-import qualified Data.ByteString        as BS (isPrefixOf)
-import qualified Database.RocksDB       as Rocks
+import qualified Control.Exception.Base       as CE (bracket)
+import           Control.Monad.Trans.Resource (MonadResource)
+import qualified Data.ByteString              as BS (isPrefixOf)
+import           Data.Conduit                 (ConduitM, Source, bracketP, yield)
+import qualified Database.RocksDB             as Rocks
 import qualified Ether
-import           Formatting             (sformat, shown, string, (%))
+import           Formatting                   (sformat, shown, string, (%))
 import           Universum
 
-import           Pos.Binary.Class       (Bi)
-import           Pos.DB.Class           (MonadRealDB, getNodeDBs)
-import           Pos.DB.Error           (DBError (DBMalformed))
-import           Pos.DB.Functions       (rocksDecodeMaybe, rocksDecodeMaybeWP)
-import           Pos.DB.Iterator.Class  (DBIteratorClass (..), IterType,
-                                         MonadIterator (..))
-import           Pos.DB.Types           (DB (..), NodeDBs (..))
-import           Pos.Util.Util          (ether)
+import           Pos.Binary.Class             (Bi)
+import           Pos.DB.Class                 (DBTag, MonadRealDB, dbTagToLens,
+                                               getNodeDBs)
+import           Pos.DB.Error                 (DBError (DBMalformed))
+import           Pos.DB.Functions             (rocksDecodeMaybe, rocksDecodeMaybeWP)
+import           Pos.DB.Iterator.Class        (DBIteratorClass (..), IterType,
+                                               MonadIterator (..))
+import           Pos.DB.Types                 (DB (..), NodeDBs (..))
+import           Pos.Util.Util                (ether, maybeThrow)
 
 ----------------------------------------------------------------------------
 -- DBIterator
@@ -74,6 +79,52 @@ instance ( Bi k, Bi v
                    \key = "%shown%", err: "%string)
                   (iterKeyPrefix @i) key err
 
+iteratorSource ::
+       forall m i.
+       ( MonadResource m
+       , MonadRealDB m
+       , DBIteratorClass i
+       , Bi (IterKey i)
+       , Bi (IterValue i)
+       )
+    => DBTag
+    -> Proxy i
+    -> Source m (IterType i)
+iteratorSource tag _ = do
+    DB {..} <- view (dbTagToLens tag) <$> lift getNodeDBs
+    bracketP (Rocks.createIter rocksDB rocksReadOpts) Rocks.releaseIter $ \it -> do
+        lift $ Rocks.iterSeek it (iterKeyPrefix @i)
+        produce it
+  where
+    produce :: Rocks.Iterator -> Source m (IterType i)
+    produce it = do
+        entryStr <- processRes =<< Rocks.iterEntry it
+        case entryStr of
+            Nothing -> pass
+            Just e -> do
+                yield e
+                Rocks.iterNext it
+                produce it
+    processRes ::
+           (Bi (IterKey i), Bi (IterValue i))
+        => Maybe (ByteString, ByteString)
+        -> ConduitM () (IterType i) m (Maybe (IterType i))
+    processRes Nothing = pure Nothing
+    processRes (Just (key, val))
+        | BS.isPrefixOf (iterKeyPrefix @i) key = do
+            k <- maybeThrow (DBMalformed $ fmt key "key invalid")
+                            (rocksDecodeMaybeWP @i key)
+            v <- maybeThrow (DBMalformed $ fmt key "value invalid")
+                            (rocksDecodeMaybe val)
+            pure $ Just (k, v)
+        | otherwise = pure Nothing
+    fmt key err =
+        sformat
+            ("Iterator entry with keyPrefix = "%shown%" is malformed: \
+             \key = "%shown%", err: " %string)
+            (iterKeyPrefix @i) key err
+
+
 -- | Run DBIterator by `DB`.
 runIterator
     :: forall i a m.
@@ -83,7 +134,6 @@ runIterator dbIter DB {..} =
     bracket (Rocks.createIter rocksDB rocksReadOpts) Rocks.releaseIter run
   where
     run it = do
-        Rocks.iterSeek it (iterKeyPrefix @i)
         Ether.runReaderT dbIter it
 
 ----------------------------------------------------------------------------

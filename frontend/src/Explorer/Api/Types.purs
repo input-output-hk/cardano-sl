@@ -37,11 +37,11 @@ instance eqSocketSubscription :: Eq SocketSubscription where
 newtype SocketOffset = SocketOffset Int
 derive instance gSocketOffset :: Generic SocketOffset
 
--- | Types of socket data emitted to back end
+-- | Types of socket data, which can be emitted to back end
 -- | It can be extended if we will have any other data
 data SocketSubscriptionData
-    = SocketNoData
-    | SocketOffsetData SocketOffset
+    = SocketNoData                    -- no data sending to backend
+    | SocketOffsetData SocketOffset   -- sending value of `SocketOffset`
 
 derive instance gSocketSubscriptionData :: Generic SocketSubscriptionData
 instance eqSocketSubscriptionData :: Eq SocketSubscriptionData where

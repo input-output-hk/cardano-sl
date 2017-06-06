@@ -6,11 +6,11 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), isJust)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance, tx, txEmpty) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, currentAddressSummary, lang, viewStates)
+import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, currentAddressSummary, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Types.State (CCurrency(..), PageNumber(..), State)
 import Explorer.View.Common (currencyCSSClass, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..))
@@ -45,7 +45,7 @@ addressView state =
                             Failure _ -> emptyAddressTxView
                             Success (CAddressSummary addressSummary) ->
                                 let txList = addressSummary ^. caTxList
-                                    txPagination = state ^. (viewStates <<< addressDetail <<< addressTxPagination)
+                                    txPagination = state ^. (viewStates <<< addressDetail <<< addressTxPagination <<< _PageNumber)
                                     currentTxBrief = txList !! (txPagination - 1)
                                 in
                                 P.div
@@ -62,9 +62,9 @@ addressView state =
                                             , txBodyView $ mkTxBodyViewProps txBrief
                                             , txPaginationView
                                                   { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                                  , currentPage: txPagination
-                                                  , minPage: minPagination
-                                                  , maxPage: length txList
+                                                  , currentPage: PageNumber txPagination
+                                                  , minPage: PageNumber minPagination
+                                                  , maxPage: PageNumber $ length txList
                                                   , changePageAction: AddressPaginateTxs
                                                   , editable: state ^. (viewStates <<< addressDetail <<< addressTxPaginationEditable)
                                                   , editableAction: AddressEditTxsPageNumber

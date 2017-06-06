@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Remove logs
+rm -rf logs/*
+
 # Optional path for `cardano-sl`
 cardano_path=${1:-../cardano-sl}
 

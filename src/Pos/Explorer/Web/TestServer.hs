@@ -43,11 +43,15 @@ explorerHandlers :: Server ExplorerApi
 explorerHandlers =
       apiBlocksLast
     :<|>
+      apiBlocksTotal
+    :<|>
+      apiBlocksPages
+    :<|>
+      apiBlocksPagesTotal
+    :<|>
       apiBlocksSummary
     :<|>
       apiBlocksTxs
-    :<|>
-      apiBlocksTotalNumber
     :<|>
       apiTxsLast
     :<|>
@@ -58,9 +62,11 @@ explorerHandlers =
       apiEpochSlotSearch
   where
     apiBlocksLast        = testBlocksLast
+    apiBlocksTotal       = testBlocksTotal
+    apiBlocksPages       = testBlocksPages
+    apiBlocksPagesTotal  = testBlocksPagesTotal
     apiBlocksSummary     = testBlocksSummary
     apiBlocksTxs         = testBlocksTxs
-    apiBlocksTotalNumber = testBlocksTotalNumber
     apiTxsLast           = testTxsLast
     apiTxsSummary        = testTxsSummary
     apiAddressSummary    = testAddressSummary
@@ -99,6 +105,26 @@ testBlocksLast _ _  = pure . pure $ [CBlockEntry
     , cbeBlockLead  = Nothing
     }]
 
+testBlocksPagesTotal
+    :: Maybe Word
+    -> Handler (Either ExplorerError Integer)
+testBlocksPagesTotal _ = pure $ pure 10
+
+testBlocksPages
+    :: Maybe Word 
+    -> Maybe Word 
+    -> Handler (Either ExplorerError (Integer, [CBlockEntry]))
+testBlocksPages _ _  = pure . pure $ (1, [CBlockEntry
+    { cbeEpoch      = 37294
+    , cbeSlot       = 10
+    , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
+    , cbeTimeIssued = Nothing
+    , cbeTxNum      = 0
+    , cbeTotalSent  = mkCCoin $ mkCoin 0
+    , cbeSize       = 390
+    , cbeBlockLead  = Nothing
+    }])
+
 testBlocksSummary
     :: CHash
     -> Handler (Either ExplorerError CBlockSummary)
@@ -132,9 +158,9 @@ testBlocksTxs _ _ _ = pure . pure $ [CTxBrief
     , ctbOutputSum  = mkCCoin $ mkCoin 33333
     }]
 
-testBlocksTotalNumber
-    :: Handler (Either ExplorerError Int)
-testBlocksTotalNumber = pure $ pure 333
+testBlocksTotal
+    :: Handler (Either ExplorerError Integer)
+testBlocksTotal = pure $ pure 333
 
 testTxsLast
     :: Maybe Word

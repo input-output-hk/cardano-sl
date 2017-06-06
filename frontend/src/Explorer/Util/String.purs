@@ -8,6 +8,7 @@ import BigNumber (BIGNUMBER)
 import BigNumber (BigNumberFormat(..), defaultFormat, dividedByInt, toFormat, fromString) as BN
 import Control.Alt ((<|>))
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Data.Array (many)
 import Data.Either (Either)
 import Data.Int (fromString)
@@ -63,13 +64,13 @@ parseEpochOrEpochSlot = try parseSearchEpochSlotQuery <|> parseSearchEpochQuery
 parseSearchEpoch :: String -> Either ParseError SearchEpochSlotQuery
 parseSearchEpoch input = runParser input parseEpochOrEpochSlot
 
-formatADA :: forall eff. CCoin -> Language -> Eff (bigNumber :: BIGNUMBER | eff) String
+formatADA :: forall eff. CCoin -> Language -> String
 formatADA coin lang =
-    case BN.fromString $ coin ^. (_CCoin <<< getCoin) of
-                Nothing -> pure ""
-                Just bigNumber -> do
-                    let bigNumberADA = BN.dividedByInt bigNumber lovelacesADA
-                    BN.toFormat bigNumberADA newFormat decimalPlacesADA
+    unsafePerformEff $ case BN.fromString $ coin ^. (_CCoin <<< getCoin) of
+                          Nothing -> pure ""
+                          Just bigNumber -> do
+                              let bigNumberADA = BN.dividedByInt bigNumber lovelacesADA
+                              BN.toFormat bigNumberADA newFormat decimalPlacesADA
     where
         decimalPlacesADA = 6
         lovelacesADA = 1000000

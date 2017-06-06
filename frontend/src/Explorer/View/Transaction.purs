@@ -9,11 +9,12 @@ import Explorer.Lenses.State (currentTxSummary, lang)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkTxBodyViewProps, mkTxHeaderViewProps, noData, txBodyView, txHeaderView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, ctsBlockHeight, ctsFees, ctsTotalOutput, ctsTxTimeIssued)
+import Pos.Explorer.Web.Lenses.ClientTypes (ctsBlockHeight, ctsFees, ctsTotalOutput, ctsTxTimeIssued)
 import Pux.Html (Html, div, text, h3, p, span, table, tr, td) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
 import Pux.Router (link) as P
@@ -83,11 +84,11 @@ summaryItems (CTxSummary txSummary) lang =
       , mCurrency: Nothing
       }
     , { label: translate (I18nL.common <<< I18nL.cTotalOutput) lang
-      , value: txSummary ^. (ctsTotalOutput <<< _CCoin <<< getCoin)
+      , value: formatADA (txSummary ^. ctsTotalOutput) lang
       , mCurrency: Just ADA
       }
     , { label: translate (I18nL.tx <<< I18nL.txFees) lang
-      , value: txSummary ^. (ctsFees <<< _CCoin <<< getCoin)
+      , value: formatADA (txSummary ^. ctsFees) lang
       , mCurrency: Just ADA
       }
     ]

@@ -22,6 +22,7 @@ import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CBlockEntries, CCurrency(..), PageNumber(..), State)
 import Explorer.Util.Factory (mkEpochIndex)
+import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, noData, paginationView)
@@ -138,7 +139,7 @@ blockRow state (CBlockEntry entry) =
                       , clazz: CSS.blocksColumnTxs
                       , mCurrency: Nothing
                       }
-        , blockColumn { label: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
+        , blockColumn { label: formatADA (entry ^. cbeTotalSent) $ state ^. lang
                       , mRoute: Nothing
                       , clazz: CSS.blocksColumnTotalSent
                       , mCurrency: Just ADA

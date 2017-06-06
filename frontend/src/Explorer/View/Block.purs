@@ -11,10 +11,11 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), CTxBriefs, PageNumber(..), State)
+import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, emptyView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..), isFailure)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, _CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
 import Pux.Html (Html, div, text, h3, span) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Router (link) as P
@@ -88,7 +89,7 @@ mkSummaryItems lang (CBlockEntry entry) =
       , mCurrency: Nothing
       }
     , { label: translate (I18nL.common <<< I18nL.cTotalOutput) lang
-      , amount: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
+      , amount: formatADA (entry ^. cbeTotalSent) lang
       , mCurrency: Just ADA
       }
     , { label: translate (I18nL.block <<< I18nL.blEstVolume) lang

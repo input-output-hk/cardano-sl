@@ -54,20 +54,20 @@ testStringUtil =
                 result `shouldEqual` expected
         describe "formatADA" do
             it "formats big number of lovelaces using EN format" do
-                result <- liftEff $ formatADA (mkCoin "123456789123456789") English
+                let result = formatADA (mkCoin "123456789123456789") English
                 result `shouldEqual` "123,456,789,123.456789"
             it "formats zero lovelaces using EN format" do
-                result <- liftEff $ formatADA (mkCoin "0") English
+                let result = formatADA (mkCoin "0") English
                 result `shouldEqual` "0.000000"
             it "formats big number of lovelaces using DE format" do
-                result <- liftEff $ formatADA (mkCoin "123456789123456789") German
+                let result = formatADA (mkCoin "123456789123456789") German
                 result `shouldEqual` "123.456.789.123,456789"
             it "formats zero lovelaces using DE format" do
-                result <- liftEff $ formatADA (mkCoin "0") German
+                let result = formatADA (mkCoin "0") German
                 result `shouldEqual` "0,000000"
             it "formats big number of lovelaces using JP format" do
-                result <- liftEff $ formatADA (mkCoin "123456789123456789") Japanese
+                let result = formatADA (mkCoin "123456789123456789") Japanese
                 result `shouldEqual` "123,456,789,123.456789"
             it "formats zero lovelaces using JP format" do
-                result <- liftEff $ formatADA (mkCoin "0") Japanese
+                let result = formatADA (mkCoin "0") Japanese
                 result `shouldEqual` "0.000000"

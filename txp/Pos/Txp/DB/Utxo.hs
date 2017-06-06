@@ -18,9 +18,9 @@ module Pos.Txp.DB.Utxo
 
        -- * Iteration
        , UtxoIter
-       , runUtxoIterator
-       , runUtxoMapIterator
-       , getFilteredUtxo
+--       , runUtxoIterator
+--       , runUtxoMapIterator
+--       , getFilteredUtxo
 
        -- * Get utxo
        , getAllPotentiallyHugeUtxo
@@ -49,9 +49,10 @@ import           Pos.DB               (DBError (..), DBTag (GStateDB), RocksBatc
                                        encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.Class         (MonadDB, MonadDBRead (dbGet), MonadRealDB)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
-import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
-                                       IterType, nextItem, runDBnIterator,
-                                       runDBnMapIterator)
+import           Pos.DB.Iterator      (DBIteratorClass (..), IterType)
+--import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
+--                                       IterType, nextItem, runDBnIterator,
+--                                       runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
 import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types   (Utxo)
@@ -112,68 +113,69 @@ instance DBIteratorClass UtxoIter where
     type IterValue UtxoIter = TxOutAux
     iterKeyPrefix = iterationUtxoPrefix
 
-runUtxoIterator
-    :: forall i m a .
-       ( MonadRealDB m
-       , DBIteratorClass i
-       , IterKey i ~ TxIn
-       , IterValue i ~ TxOutAux
-       )
-    => DBnIterator i a
-    -> m a
-runUtxoIterator = runDBnIterator @i _gStateDB
+-- runUtxoIterator
+--     :: forall i m a .
+--        ( MonadRealDB m
+--        , DBIteratorClass i
+--        , IterKey i ~ TxIn
+--        , IterValue i ~ TxOutAux
+--        )
+--     => DBnIterator i a
+--     -> m a
+-- runUtxoIterator = runDBnIterator @i _gStateDB
+--
+-- runUtxoMapIterator
+--     :: forall i v m a .
+--        ( MonadRealDB m
+--        , DBIteratorClass i
+--        , IterKey i ~ TxIn
+--        , IterValue i ~ TxOutAux
+--        )
+--     => DBnMapIterator i v a
+--     -> (IterType i -> v)
+--     -> m a
+-- runUtxoMapIterator = runDBnMapIterator @i _gStateDB
 
-runUtxoMapIterator
-    :: forall i v m a .
-       ( MonadRealDB m
-       , DBIteratorClass i
-       , IterKey i ~ TxIn
-       , IterValue i ~ TxOutAux
-       )
-    => DBnMapIterator i v a
-    -> (IterType i -> v)
-    -> m a
-runUtxoMapIterator = runDBnMapIterator @i _gStateDB
+--filterUtxo
+--    :: forall i m .
+--       ( MonadRealDB m
+--       , DBIteratorClass i
+--       , IterKey i ~ TxIn
+--       , IterValue i ~ TxOutAux
+--       )
+--    => (IterType i -> Bool)
+--    -> m Utxo
+--filterUtxo p = runUtxoIterator @i (step mempty)
+--  where
+--    step res = nextItem >>= maybe (pure res) (\e@(k, v) ->
+--      if | p e       -> step (M.insert k v res)
+--         | otherwise -> step res)
 
-filterUtxo
-    :: forall i m .
-       ( MonadRealDB m
-       , DBIteratorClass i
-       , IterKey i ~ TxIn
-       , IterValue i ~ TxOutAux
-       )
-    => (IterType i -> Bool)
-    -> m Utxo
-filterUtxo p = runUtxoIterator @i (step mempty)
-  where
-    step res = nextItem >>= maybe (pure res) (\e@(k, v) ->
-      if | p e       -> step (M.insert k v res)
-         | otherwise -> step res)
+-- -- | Get small sub-utxo containing only outputs of given address
+-- getFilteredUtxo'
+--     :: forall i m .
+--        ( MonadRealDB m
+--        , DBIteratorClass i
+--        , IterKey i ~ TxIn
+--        , IterValue i ~ TxOutAux
+--        )
+--     => [Address] -> m Utxo
+-- getFilteredUtxo' addrs = filterUtxo @i $ \(_, out) -> out `addrBelongsToSet` addrsSet
+--   where addrsSet = HS.fromList $ map AddressIA addrs
 
--- | Get small sub-utxo containing only outputs of given address
-getFilteredUtxo'
-    :: forall i m .
-       ( MonadRealDB m
-       , DBIteratorClass i
-       , IterKey i ~ TxIn
-       , IterValue i ~ TxOutAux
-       )
-    => [Address] -> m Utxo
-getFilteredUtxo' addrs = filterUtxo @i $ \(_, out) -> out `addrBelongsToSet` addrsSet
-  where addrsSet = HS.fromList $ map AddressIA addrs
-
-getFilteredUtxo :: MonadRealDB m => [Address] -> m Utxo
-getFilteredUtxo = getFilteredUtxo' @UtxoIter
+-- getFilteredUtxo :: MonadRealDB m => [Address] -> m Utxo
+-- getFilteredUtxo = getFilteredUtxo' @UtxoIter
 
 -- | Get full utxo. Use with care – the utxo can be very big (hundreds of
 -- megabytes).
 getAllPotentiallyHugeUtxo :: MonadRealDB m => m Utxo
-getAllPotentiallyHugeUtxo = runUtxoIterator @UtxoIter (step mempty)
-  where
-    -- this can probably be written better
-    step res = nextItem >>= \case
-        Nothing     -> pure res
-        Just (k, v) -> step (M.insert k v res)
+getAllPotentiallyHugeUtxo = undefined
+--    runUtxoIterator @UtxoIter (step mempty)
+--  where
+--    -- this can probably be written better
+--    step res = nextItem >>= \case
+--        Nothing     -> pure res
+--        Just (k, v) -> step (M.insert k v res)
 
 ----------------------------------------------------------------------------
 -- Sanity checks
@@ -182,24 +184,24 @@ getAllPotentiallyHugeUtxo = runUtxoIterator @UtxoIter (step mempty)
 sanityCheckUtxo
     :: (MonadRealDB m, WithLogger m)
     => Coin -> m ()
-sanityCheckUtxo expectedTotalStake = do
-    calculatedTotalStake <-
-        runUtxoMapIterator @UtxoIter (step (mkCoin 0)) (map snd . txOutStake . snd)
-    let fmt =
-            ("Sum of stakes in Utxo differs from expected total stake (the former is "
-             %coinF%", while the latter is "%coinF%")")
-    let msg = sformat fmt calculatedTotalStake expectedTotalStake
-    unless (calculatedTotalStake == expectedTotalStake) $ do
-        logError $ colorize Red msg
-        throwM $ DBMalformed msg
-  where
-    step sm =
-        nextItem >>= \case
-            Nothing -> pure sm
-            Just stakes ->
-                step
-                    (sm `unsafeAddCoin`
-                     unsafeIntegerToCoin (sumCoins @[Coin] stakes))
+sanityCheckUtxo expectedTotalStake = undefined
+--    calculatedTotalStake <-
+--        runUtxoMapIterator @UtxoIter (step (mkCoin 0)) (map snd . txOutStake . snd)
+--    let fmt =
+--            ("Sum of stakes in Utxo differs from expected total stake (the former is "
+--             %coinF%", while the latter is "%coinF%")")
+--    let msg = sformat fmt calculatedTotalStake expectedTotalStake
+--    unless (calculatedTotalStake == expectedTotalStake) $ do
+--        logError $ colorize Red msg
+--        throwM $ DBMalformed msg
+--  where
+--    step sm =
+--        nextItem >>= \case
+--            Nothing -> pure sm
+--            Just stakes ->
+--                step
+--                    (sm `unsafeAddCoin`
+--                     unsafeIntegerToCoin (sumCoins @[Coin] stakes))
 
 ----------------------------------------------------------------------------
 -- Keys

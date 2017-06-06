@@ -25,6 +25,7 @@ import qualified Ether
 import           Mockable.Production          (Production)
 import           System.Wlog                  (LoggerNameBox (..))
 
+import           Control.Monad.Trans.Resource (ResourceT)
 import           Pos.Block.BListener          (BListenerStub)
 import           Pos.Client.Txp.Balances      (BalancesRedirect)
 import           Pos.Client.Txp.History       (TxHistoryRedirect)
@@ -72,8 +73,9 @@ type RawRealMode ssc =
         , Tagged PeerStateTag (PeerStateCtx Production)
         ) (
     Ether.ReadersT (NodeContext ssc) (
-    LoggerNameBox Production
-    )))))))))))))
+    LoggerNameBox (
+    ResourceT Production
+    ))))))))))))))
 
 -- | RawRealMode + kademlia. Used in wallet too.
 type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)

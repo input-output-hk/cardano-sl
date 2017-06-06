@@ -30,6 +30,7 @@ import           Control.Concurrent.STM       (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                 (each, to, _tail)
 import           Control.Monad.Base           (MonadBase)
 import           Control.Monad.Fix            (MonadFix)
+import           Control.Monad.Trans.Resource (MonadResource, runResourceT)
 import           Data.Default                 (def)
 import           Data.Tagged                  (Tagged (..), untag)
 import qualified Data.Time                    as Time
@@ -97,8 +98,9 @@ import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, Ss
 import           Pos.Ssc.Extra                (SscMemTag, bottomSscState, mkSscState)
 import           Pos.Statistics               (getNoStatsT, runStatsT')
 import           Pos.Txp                      (mkTxpLocalData)
-import           Pos.Txp.DB                   (genesisFakeTotalStake,
-                                               runBalanceIterBootstrap)
+--import           Pos.Txp.DB                   (genesisFakeTotalStake,
+--                                               runBalanceIterBootstrap)
+import           Pos.Txp.DB                   (genesisFakeTotalStake)
 import           Pos.Txp.MemState             (TxpHolderTag)
 import           Pos.Wallet.WalletMode        (runBlockchainInfoRedirect,
                                                runUpdatesRedirect)
@@ -137,7 +139,7 @@ runRawRealMode
     -> ActionSpec (RawRealMode ssc) a
     -> Production a
 runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
-    usingLoggerName lpRunnerTag $ do
+    runResourceT $ usingLoggerName lpRunnerTag $ do
         initNC <- untag @ssc sscCreateNodeContext sscnp
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
         let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
@@ -162,6 +164,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
         let runIO :: forall t . RawRealMode ssc t -> IO t
             runIO act =
                runProduction .
+                   runResourceT .
                    usingLoggerName lpRunnerTag .
                    runCH @ssc allWorkersNum np initNC modernDBs .
                    flip Ether.runReadersT
@@ -390,8 +393,8 @@ runCH
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
        , MonadIO m
-       , MonadBase IO m
        , MonadCatch m
+       , MonadResource m
        , Mockable CurrentTime m)
     => Int
     -> NodeParams
@@ -428,8 +431,9 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncLastKnownHeader <- newTVarIO Nothing
     ncGenesisLeaders <- if Const.isDevelopment
                         then pure $ genesisLeaders npCustomUtxo
-                        else runBalanceIterBootstrap $
-                             followTheSatoshiM genesisSeed genesisFakeTotalStake
+                        else undefined
+                            -- runBalanceIterBootstrap $
+                            -- followTheSatoshiM genesisSeed genesisFakeTotalStake
     ucMemState <- newMemVar
     ucDownloadingUpdates <- newTVarIO mempty
     -- TODO synchronize the NodeContext peers var with whatever system

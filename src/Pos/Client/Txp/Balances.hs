@@ -22,7 +22,7 @@ import           System.Wlog                  (WithLogger, logWarning)
 
 import           Pos.Core                     (AddressIgnoringAttributes (AddressIA))
 import           Pos.Crypto                   (WithHash (..), shortHashF)
-import           Pos.DB                       (MonadRealDB, MonadDBRead)
+import           Pos.DB                       (MonadDBRead, MonadRealDB)
 import qualified Pos.DB.GState                as GS
 import qualified Pos.DB.GState.Balances       as GS
 import           Pos.Txp                      (GenericToilModifier (..), MonadTxpMem,
@@ -70,7 +70,7 @@ instance
         MonadBalances (Ether.TaggedTrans BalancesRedirectTag t m)
   where
     getOwnUtxos addr = do
-        utxo <- GS.getFilteredUtxo addr
+        utxo <- undefined -- GS.getFilteredUtxo addr
         updates <- getUtxoModifier
         let addrsSet = HS.fromList $ AddressIA <$> addr
             toDel    = MM.deletions updates

@@ -8,6 +8,7 @@ module Pos.Lrc.Fts
        ) where
 
 import           Control.Lens       (makeLenses, makePrisms, uses)
+import           Data.Conduit       (Conduit, ConduitM, await, yield)
 import           Data.List.NonEmpty (fromList)
 import           Universum
 
@@ -16,7 +17,7 @@ import           Pos.Core.Constants (epochSlots)
 import           Pos.Core.Types     (Coin, LocalSlotIndex (..), SharedSeed (..),
                                      SlotLeaders, StakeholderId, mkCoin)
 import           Pos.Crypto         (deterministic, randomNumber)
-import           Pos.DB.Iterator    (MonadIterator (..))
+-- import           Pos.DB.Iterator    (MonadIterator (..))
 
 -- | Whereas 'Coin' stores an amount of coins, 'CoinIndex' is an identifier
 -- for a particular coin.
@@ -69,12 +70,13 @@ ftsStateUpdate (adr, val) =
     set fsCurrentStakeholder adr .
     over fsCurrentCoinRangeUpperBound (coinIndexOffset val)
 
--- | Retrieve the next stakeholder.
-nextStakeholder
-    :: MonadIterator (StakeholderId, Coin) m
-    => m (StakeholderId, Coin)
-nextStakeholder =
-    fromMaybe (error "followTheSatoshiM: indices out of range") <$> nextItem
+-- -- | Retrieve the next stakeholder.
+-- nextStakeholder
+--     :: Monad m
+--     => Conduit (StakeholderId, Coin) m (StakeholderId, Coin)
+-- nextStakeholder = do
+--     elem <- fromMaybe (error "followTheSatoshiM: indices out of range") <$> await
+--     yield elem
 
 {- |
 
@@ -203,10 +205,12 @@ previous upper bound (and thus it's more or equal to the current lower bound).
 
 -}
 followTheSatoshiM
-    :: forall m . MonadIterator (StakeholderId, Coin) m
+    :: forall m . Monad m
     => SharedSeed
     -> Coin
-    -> m SlotLeaders
+    -> ConduitM (StakeholderId, Coin) Void m SlotLeaders
+followTheSatoshiM = undefined
+{-
 followTheSatoshiM _ totalCoins
     | totalCoins == mkCoin 0 = error "followTheSatoshiM: nobody has any stake"
 followTheSatoshiM (SharedSeed seed) totalCoins = do
@@ -241,3 +245,4 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
                 s <- nextStakeholder
                 modify (ftsStateUpdate s)
                 findLeader coinIndex
+-}

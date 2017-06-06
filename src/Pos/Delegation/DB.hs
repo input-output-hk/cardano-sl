@@ -35,8 +35,8 @@ module Pos.Delegation.DB
 
        , DelegationOp (..)
 
-       , runDlgTransIterator
-       , runDlgTransMapIterator
+--       , runDlgTransIterator
+--       , runDlgTransMapIterator
 
        , getDelegators
        ) where
@@ -56,9 +56,7 @@ import           Pos.DB                 (DBError (DBMalformed), RocksBatchOp (..
                                          encodeWithKeyPrefix)
 import           Pos.DB.Class           (MonadDBRead, MonadRealDB)
 import           Pos.DB.GState.Common   (gsGetBi)
-import           Pos.DB.Iterator        (DBIteratorClass (..), DBnIterator,
-                                         DBnMapIterator, IterType, nextItem,
-                                         runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Iterator        (DBIteratorClass (..), IterType)
 import           Pos.DB.Types           (NodeDBs (_gStateDB))
 import           Pos.Delegation.Helpers (isRevokePsk)
 import           Pos.Delegation.Types   (DlgMemPool)
@@ -221,15 +219,15 @@ instance DBIteratorClass DlgTransIter where
     type IterValue DlgTransIter = PublicKey
     iterKeyPrefix = iterTransPrefix
 
-runDlgTransIterator
-    :: forall m a . MonadRealDB m
-    => DBnIterator DlgTransIter a -> m a
-runDlgTransIterator = runDBnIterator @DlgTransIter _gStateDB
-
-runDlgTransMapIterator
-    :: forall v m a . MonadRealDB m
-    => DBnMapIterator DlgTransIter v a -> (IterType DlgTransIter -> v) -> m a
-runDlgTransMapIterator = runDBnMapIterator @DlgTransIter _gStateDB
+-- runDlgTransIterator
+--     :: forall m a . MonadRealDB m
+--     => DBnIterator DlgTransIter a -> m a
+-- runDlgTransIterator = runDBnIterator @DlgTransIter _gStateDB
+--
+-- runDlgTransMapIterator
+--     :: forall v m a . MonadRealDB m
+--     => DBnMapIterator DlgTransIter v a -> (IterType DlgTransIter -> v) -> m a
+-- runDlgTransMapIterator = runDBnMapIterator @DlgTransIter _gStateDB
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -258,8 +256,9 @@ transRevDlgKey pk = "d/tb/" <> encodeStrict pk
 -- NB. It's not called @getIssuers@ because we already have issuers (i.e.
 -- block issuers)
 getDelegators :: MonadRealDB m => m (HashMap StakeholderId [StakeholderId])
-getDelegators = runDlgTransMapIterator (step mempty) identity
-  where
-    step hm = nextItem >>= maybe (pure hm) (\(iss, addressHash -> del) -> do
-        let curList = HM.lookupDefault [] del hm
-        step (HM.insert del (iss:curList) hm))
+getDelegators = undefined
+--    runDlgTransMapIterator (step mempty) identity
+--  where
+--    step hm = nextItem >>= maybe (pure hm) (\(iss, addressHash -> del) -> do
+--        let curList = HM.lookupDefault [] del hm
+--        step (HM.insert del (iss:curList) hm))

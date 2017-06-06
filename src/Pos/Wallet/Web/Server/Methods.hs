@@ -388,9 +388,9 @@ getWAddressBalance addr =
     getBalance <=< decodeCIdOrFail $ cwamId addr
 
 getWAddress :: WalletWebMode m => CWAddressMeta -> m CAddress
-getWAddress cAddr = do
-    balance <- mkCCoin <$> getWAddressBalance cAddr
-    return $ CAddress (cwamId cAddr) balance
+getWAddress cAddr@CWAddressMeta{..} = do
+    balance <- getWAddressBalance cAddr
+    return $ CAddress cwamId (mkCCoin balance) (balance > minBound)
 
 getAccountAddrsOrThrow
     :: (WebWalletModeDB m, MonadThrow m)
@@ -417,7 +417,6 @@ getAccount accCAddr = do
                mapM getWAddressBalance mergedAccAddrs
     meta <- getAccountMeta acc >>= maybeThrow noWallet
     pure $ CAccount accCAddr meta mergedAccs balance
-
   where
     noWallet =
         RequestError $ sformat ("No account with address "%build%" found") accCAddr
@@ -787,7 +786,7 @@ rederiveAccountAddress
 rederiveAccountAddress newSK newCPass CWAddressMeta{..} = do
     newPass <- decodeCPassPhraseOrFail newCPass
     (accAddr, _) <- maybeThrow badPass $
-        deriveLvl2KeyPair newPass newSK caaWalletIndex cwamAccountIndex
+        deriveLvl2KeyPair newPass newSK cwamWalletIndex cwamAccountIndex
     return CWAddressMeta
         { cwamWSId      = encToCId newSK
         , cwamId        = addressToCId accAddr

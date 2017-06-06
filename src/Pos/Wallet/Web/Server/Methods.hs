@@ -70,7 +70,7 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
-import           Pos.DB.Class                     (MonadGStateCore)
+import           Pos.DB.Class                     (MonadGState)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (MonadReportingMem, rcReportServers)
@@ -157,7 +157,7 @@ type WalletWebMode m
       , MonadKeys m -- FIXME: Why isn't it implied by the
                     -- WalletMode constraint above?
       , WebWalletModeDB m
-      , MonadGStateCore m
+      , MonadGState m
       , MonadWalletWebSockets m
       , MonadReportingMem m
       , MonadWalletTracking m
@@ -387,9 +387,9 @@ getWAddressBalance addr =
     getBalance <=< decodeCIdOrFail $ cwamId addr
 
 getWAddress :: WalletWebMode m => CWAddressMeta -> m CAddress
-getWAddress cAddr = do
-    balance <- mkCCoin <$> getWAddressBalance cAddr
-    return $ CAddress (cwamId cAddr) balance
+getWAddress cAddr@CWAddressMeta{..} = do
+    balance <- getWAddressBalance cAddr
+    return $ CAddress cwamId (mkCCoin balance) (balance > minBound)
 
 getAccountAddrsOrThrow
     :: (WebWalletModeDB m, MonadThrow m)
@@ -415,7 +415,6 @@ getAccount accId = do
                mapM getWAddressBalance mergedAccAddrs
     meta <- getAccountMeta accId >>= maybeThrow noWallet
     pure $ CAccount (encodeCType accId) meta mergedAccs balance
-
   where
     noWallet =
         RequestError $ sformat ("No account with address "%build%" found") accId
@@ -770,7 +769,7 @@ rederiveAccountAddress
     => EncryptedSecretKey -> PassPhrase -> CWAddressMeta -> m CWAddressMeta
 rederiveAccountAddress newSK newPass CWAddressMeta{..} = do
     (accAddr, _) <- maybeThrow badPass $
-        deriveLvl2KeyPair newPass newSK caaWalletIndex cwamAccountIndex
+        deriveLvl2KeyPair newPass newSK cwamWalletIndex cwamAccountIndex
     return CWAddressMeta
         { cwamWSId      = encToCId newSK
         , cwamId        = addressToCId accAddr

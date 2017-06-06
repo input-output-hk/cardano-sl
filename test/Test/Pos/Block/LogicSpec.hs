@@ -22,14 +22,13 @@ import qualified Pos.Communication          ()
 import           Pos.Constants              (blkSecurityParam, genesisMaxBlockSize)
 import           Pos.Core                   (SlotId (..), unsafeMkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey)
-import           Pos.Delegation             (DlgPayload, genDlgPayload)
+import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo, genDlgPayload)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              commitmentMapEpochGen, mkVssCertificatesMap,
                                              vssCertificateEpochGen)
 import           Pos.Txp.Core               (TxAux)
-import           Pos.Types                  (ProxySKEither, SmallGoodTx (..),
-                                             goodTxToTxAux)
+import           Pos.Types                  (SmallGoodTx (..), goodTxToTxAux)
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util.Arbitrary         (makeSmall)
 
@@ -124,7 +123,7 @@ spec = describe "Block.Logic" $ do
         :: Byte
         -> BlockHeader SscGodTossing
         -> [TxAux]
-        -> Maybe ProxySKEither
+        -> ProxySKBlockInfo
         -> SlotId
         -> DlgPayload
         -> SscPayload SscGodTossing

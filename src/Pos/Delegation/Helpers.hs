@@ -76,7 +76,7 @@ detectCycleOnAddition resolve toAdd
 -- | Given a psk resolver, issuer, delegate and cert he uses (to sign,
 -- or taken from psk), checks if there's a psk chain "issuer →
 -- delegate" and the last cert matches the provided one (can be
--- retrieved using 'pdPsk'). This *does not* check that delegate
+-- retrieved using 'psigPsk'). This *does not* check that delegate
 -- didn't issue a psk to somebody else.
 dlgReachesIssuance
     :: (Monad m)

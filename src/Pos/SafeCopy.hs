@@ -290,8 +290,8 @@ instance SafeCopy (ProxyCert w) where
 
 instance (SafeCopy w) => SafeCopy (ProxySignature w a) where
     putCopy ProxySignature{..} = contain $ do
-        safePut pdPsk
-        safePut pdSig
+        safePut psigPsk
+        safePut psigSig
     getCopy = contain $ ProxySignature <$> safeGet <*> safeGet
 
 instance Bi (MerkleRoot a) => SafeCopy (MerkleRoot a) where

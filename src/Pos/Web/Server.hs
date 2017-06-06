@@ -33,7 +33,7 @@ import           Servant.Utils.Enter                  ((:~>) (NT), enter)
 import           Pos.Aeson.Types                      ()
 import           Pos.Context                          (MonadNodeContext, NodeContext,
                                                        NodeContextTag, SscContextTag,
-                                                       npPublicKey)
+                                                       getOurPublicKey)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
 import           Pos.DB.Redirect                      (DBPureRedirect, runDBPureRedirect)
@@ -144,7 +144,7 @@ baseServantHandlers =
     :<|>
     getUtxo
     :<|>
-    (Ether.asks' npPublicKey)
+    getOurPublicKey
     :<|>
     GS.getTip
     :<|>

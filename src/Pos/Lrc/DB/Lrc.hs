@@ -22,13 +22,14 @@ import           Pos.Util            (maybeThrow)
 prepareLrcDB
     :: ( Ether.MonadReader' GenesisLeaders m
        , Ether.MonadReader' GenesisUtxo m
-       , MonadDB m )
+       , MonadDB m
+       )
     => m ()
 prepareLrcDB = do
     prepareLrcLeaders
     prepareLrcRichmen
     let cantReadErr =
-            DBMalformed "Can't read richmen US after richem initialization"
+            DBMalformed "Can't read richmen US after richmen initialization"
     totalStake <- fst <$> (maybeThrow cantReadErr =<< getRichmenUS 0)
     prepareLrcIssuers totalStake
     prepareLrcSeed

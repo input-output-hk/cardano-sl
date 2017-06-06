@@ -228,7 +228,7 @@ data CWAddressMeta = CWAddressMeta
     { -- | Address of wallet set this account belongs to
       cwamWSId         :: CId Wal
     , -- | First index in derivation path of this account key
-      caaWalletIndex   :: Word32
+      cwamWalletIndex  :: Word32
     , -- | Second index in derivation path of this account key
       cwamAccountIndex :: Word32
     , -- | Actual adress of this account
@@ -238,12 +238,12 @@ data CWAddressMeta = CWAddressMeta
 instance Buildable CWAddressMeta where
     build CWAddressMeta{..} =
         bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
-        cwamWSId caaWalletIndex cwamAccountIndex cwamId
+        cwamWSId cwamWalletIndex cwamAccountIndex cwamId
 
 walletAddrMetaToAccount :: CWAddressMeta -> AccountId
 walletAddrMetaToAccount CWAddressMeta{..} = AccountId
     { aiWSId  = cwamWSId
-    , aiIndex = caaWalletIndex
+    , aiIndex = cwamWalletIndex
     }
 
 instance Hashable CWAddressMeta
@@ -271,6 +271,7 @@ data CWalletAssurance
 data CAddress = CAddress
     { cadId     :: !(CId Addr)
     , cadAmount :: !CCoin
+    , cadIsUsed :: !Bool
     } deriving (Show, Generic)
 
 -- Includes data which are not provided by Cardano
@@ -339,7 +340,7 @@ instance WithDerivationPath AccountId where
     getDerivationPath AccountId{..} = [aiIndex]
 
 instance WithDerivationPath CWAddressMeta where
-    getDerivationPath CWAddressMeta{..} = [caaWalletIndex, cwamAccountIndex]
+    getDerivationPath CWAddressMeta{..} = [cwamWalletIndex, cwamAccountIndex]
 
 -- | Query data for redeem
 data CPaperVendWalletRedeem = CPaperVendWalletRedeem

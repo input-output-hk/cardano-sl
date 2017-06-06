@@ -68,7 +68,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoi
 
 type TransactionHistory = HashMap CTxId CTxMeta
 
-type CAddresss = HashSet CWAddressMeta
+type CAddresses = HashSet CWAddressMeta
 
 data WalletSetInfo = WalletSetInfo
     { _wsiMeta         :: CWalletMeta
@@ -80,8 +80,8 @@ makeLenses ''WalletSetInfo
 
 data WalletInfo = WalletInfo
     { _wiMeta            :: CAccountMeta
-    , _wiAccounts        :: CAddresss
-    , _wiRemovedAccounts :: CAddresss
+    , _wiAccounts        :: CAddresses
+    , _wiRemovedAccounts :: CAddresses
     , _wiTxHistory       :: TransactionHistory
     }
 
@@ -161,7 +161,7 @@ getAccountWAddresses mode wAddr = do
 
 doesWAddressExist :: AccountLookupMode -> CWAddressMeta -> Query Bool
 doesWAddressExist mode accAddr@(walletAddrMetaToAccount -> wAddr) = do
-    let exists :: Lens' WalletInfo CAddresss -> Query Any
+    let exists :: Lens' WalletInfo CAddresses -> Query Any
         exists which =
             Any . isJust <$>
             preview (wsWalletInfos . ix wAddr . which . ix accAddr)

@@ -52,9 +52,9 @@ import           Formatting             (build, sformat, (%))
 import           Pos.Binary.Class       (encodeStrict)
 import           Pos.Crypto             (PublicKey, pskDelegatePk, pskIssuerPk,
                                          verifyProxySecretKey)
-import           Pos.DB                 (DBError (DBMalformed))
-import           Pos.DB.Class           (MonadDB, MonadDBPure)
-import           Pos.DB.Functions       (RocksBatchOp (..), encodeWithKeyPrefix)
+import           Pos.DB                 (DBError (DBMalformed), RocksBatchOp (..),
+                                         encodeWithKeyPrefix)
+import           Pos.DB.Class           (MonadDBRead, MonadRealDB)
 import           Pos.DB.GState.Common   (gsGetBi)
 import           Pos.DB.Iterator        (DBIteratorClass (..), DBnIterator,
                                          DBnMapIterator, IterType, runDBnIterator,
@@ -72,7 +72,7 @@ import           Pos.Util.Iterator      (nextItem)
 -- | Retrieves certificate by issuer public key or his
 -- address/stakeholder id, if present.
 getPskByIssuer
-    :: MonadDBPure m
+    :: MonadDBRead m
     => Either PublicKey StakeholderId -> m (Maybe ProxySKHeavy)
 getPskByIssuer (either addressHash identity -> issuer) = gsGetBi (pskKey issuer)
 
@@ -80,7 +80,7 @@ getPskByIssuer (either addressHash identity -> issuer) = gsGetBi (pskKey issuer)
 -- issuer. This function performs a series of consequental db reads so
 -- it must be used under the shared lock.
 getPskChain
-    :: MonadDBPure m
+    :: MonadDBRead m
     => StakeholderId -> m DlgMemPool
 getPskChain = getPskChainInternal HS.empty
 
@@ -88,7 +88,7 @@ getPskChain = getPskChainInternal HS.empty
 -- encounters anyone in 'toIgnore' set. This may be used to call it
 -- several times to collect a whole tree/forest, for example.
 getPskChainInternal
-    :: MonadDBPure m
+    :: MonadDBRead m
     => HashSet StakeholderId -> StakeholderId -> m DlgMemPool
 getPskChainInternal toIgnore issuer =
     -- State is tuple of returning mempool and "used flags" set.
@@ -107,19 +107,19 @@ getPskChainInternal toIgnore issuer =
             trav (addressHash $ pskDelegatePk psk)
 
 -- | Checks if stakeholder is psk issuer.
-isIssuerByAddressHash :: MonadDBPure m => StakeholderId -> m Bool
+isIssuerByAddressHash :: MonadDBRead m => StakeholderId -> m Bool
 isIssuerByAddressHash = fmap isJust . getPskByIssuer . Right
 
 -- | Given issuer @i@ returns @d@ such that there exists @x1..xn@ with
 -- @i->x1->...->xn->d@.
-getDlgTransitive :: MonadDBPure m => StakeholderId -> m (Maybe PublicKey)
+getDlgTransitive :: MonadDBRead m => StakeholderId -> m (Maybe PublicKey)
 getDlgTransitive issuer = gsGetBi (transDlgKey issuer)
 
 -- | Retrieves last PSK in chain of delegation started by public key
 -- and resolves the passed issuer to a public key. Doesn't check that
 -- user himself didn't delegate.
 getDlgTransPsk
-    :: MonadDBPure m
+    :: MonadDBRead m
     => StakeholderId -> m (Maybe (PublicKey, ProxySKHeavy))
 getDlgTransPsk issuer = getDlgTransitive issuer >>= \case
     Nothing -> pure Nothing
@@ -136,7 +136,7 @@ getDlgTransPsk issuer = getDlgTransitive issuer >>= \case
 
 -- | Reverse map of transitive delegation. Given a delegate @d@
 -- returns all @i@ such that 'getDlgTransitive' returns @d@ on @i@.
-getDlgTransitiveReverse :: MonadDBPure m => PublicKey -> m (HashSet PublicKey)
+getDlgTransitiveReverse :: MonadDBRead m => PublicKey -> m (HashSet PublicKey)
 getDlgTransitiveReverse dPk = fromMaybe mempty <$> gsGetBi (transRevDlgKey dPk)
 
 ----------------------------------------------------------------------------
@@ -168,7 +168,7 @@ dlgEdgeActionIssuer = \case
 -- changes eActions. This set of changes is a map @i -> eAction@,
 -- where @i = dlgEdgeActionIssuer eAction@.
 withEActionsResolve
-    :: (MonadDBPure m)
+    :: (MonadDBRead m)
     => HashMap PublicKey DlgEdgeAction -> PublicKey -> m (Maybe ProxySKHeavy)
 withEActionsResolve eActions iPk =
     case HM.lookup iPk eActions of
@@ -223,12 +223,12 @@ instance DBIteratorClass DlgTransIter where
     iterKeyPrefix _ = iterTransPrefix
 
 runDlgTransIterator
-    :: forall m a . MonadDB m
+    :: forall m a . MonadRealDB m
     => DBnIterator DlgTransIter a -> m a
 runDlgTransIterator = runDBnIterator @DlgTransIter _gStateDB
 
 runDlgTransMapIterator
-    :: forall v m a . MonadDB m
+    :: forall v m a . MonadRealDB m
     => DBnMapIterator DlgTransIter v a -> (IterType DlgTransIter -> v) -> m a
 runDlgTransMapIterator = runDBnMapIterator @DlgTransIter _gStateDB
 
@@ -258,7 +258,7 @@ transRevDlgKey pk = "d/tb/" <> encodeStrict pk
 --
 -- NB. It's not called @getIssuers@ because we already have issuers (i.e.
 -- block issuers)
-getDelegators :: MonadDB m => m (HashMap StakeholderId [StakeholderId])
+getDelegators :: MonadRealDB m => m (HashMap StakeholderId [StakeholderId])
 getDelegators = runDlgTransMapIterator (step mempty) identity
   where
     step hm = nextItem >>= maybe (pure hm) (\(iss, addressHash -> del) -> do

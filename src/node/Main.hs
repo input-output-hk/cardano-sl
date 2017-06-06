@@ -5,6 +5,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
+{-# OPTIONS -fno-cross-module-specialise #-}
+
 module Main
        ( main
        ) where
@@ -43,6 +45,7 @@ import           Pos.Launcher               (NodeParams (..), bracketResources,
                                              bracketResourcesKademlia, runNode,
                                              runNodeProduction, runNodeStatic,
                                              runNodeStats)
+import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Shutdown               (triggerShutdown)
 import           Pos.Ssc.Class              (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
@@ -131,7 +134,9 @@ action peerHolder args@Args {..} transport = do
 
         case (peerHolder, enableStats) of
             (Right peers, _) -> do
-                let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
+                let runner :: forall ssc .
+                        (SscConstraint ssc, SecurityWorkersClass ssc)
+                        => SscParams ssc -> Production ()
                     runner =
                         runNodeStatic @ssc
                             transportR
@@ -140,7 +145,9 @@ action peerHolder args@Args {..} transport = do
                             currentParams
                 either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
             (Left kad, True) -> do
-                let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
+                let runner :: forall ssc .
+                        (SscConstraint ssc, SecurityWorkersClass ssc)
+                        => SscParams ssc -> Production ()
                     runner =
                         runNodeStats @ssc
                             transportR
@@ -149,7 +156,9 @@ action peerHolder args@Args {..} transport = do
                             currentParams
                 either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
             (Left kad, False) -> do
-                let runner :: forall ssc . SscConstraint ssc => SscParams ssc -> Production ()
+                let runner :: forall ssc .
+                        (SscConstraint ssc, SecurityWorkersClass ssc)
+                        => SscParams ssc -> Production ()
                     runner =
                         runNodeProduction @ssc
                             transportR
@@ -306,8 +315,8 @@ getNodeSystemStart cliOrConfigSystemStart
 
 main :: IO ()
 main = do
-    printFlags
     args <- getNodeOptions
+    printFlags
     let baseParams = getBaseParams "node" args
     if staticPeers args then do
         allPeers <- S.fromList . map addressToNodeId <$> getPeersFromArgs args

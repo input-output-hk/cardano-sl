@@ -13,6 +13,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Pos.DB
+                       Pos.DB.BatchOp
                        Pos.DB.Class
                        Pos.DB.Error
                        Pos.DB.Functions

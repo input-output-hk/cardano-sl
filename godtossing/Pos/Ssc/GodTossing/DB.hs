@@ -7,27 +7,28 @@ module Pos.Ssc.GodTossing.DB
        , prepareGtDB
        ) where
 
+import           Universum
+
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB         as Rocks
 import           Formatting               (bprint, build, (%))
-import           Universum
 
 import           Pos.Binary.Class         (encodeStrict)
 import           Pos.Binary.GodTossing    ()
-import           Pos.DB                   (MonadDB, MonadDBPure, RocksBatchOp (..))
+import           Pos.DB                   (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error             (DBError (DBMalformed))
 import           Pos.DB.GState.Common     (gsGetBi)
 import           Pos.Ssc.GodTossing.Core  (VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Types (GtGlobalState (..))
 import           Pos.Util.Util            (maybeThrow)
 
-getGtGlobalState :: MonadDBPure m => m GtGlobalState
+getGtGlobalState :: MonadDBRead m => m GtGlobalState
 getGtGlobalState =
     maybeThrow (DBMalformed "GodTossing global state DB is not initialized") =<<
     gsGetBi gtKey
 
 -- For CSL-1113
-getGtGlobalStateMaybe :: MonadDBPure m => m (Maybe GtGlobalState)
+getGtGlobalStateMaybe :: MonadDBRead m => m (Maybe GtGlobalState)
 getGtGlobalStateMaybe = gsGetBi gtKey
 
 gtGlobalStateToBatch :: GtGlobalState -> GtOp

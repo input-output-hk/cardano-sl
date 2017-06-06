@@ -33,9 +33,11 @@ after_failure:
 - sudo dmesg
 
 script:
+# DEVOPS-107: wait 20min for output due to haddock generation
 - if [[ "$HLINT" == "true" ]]; then
     nix-shell -p haskellPackages.hlint moreutils --run "util-scripts/lint.sh --nix | ts";
   else
+    travis_wait 20 sleep 4600&
     nix-shell -p moreutils expect --run "unbuffer ./util-scripts/travis.sh | ts";
   fi
 

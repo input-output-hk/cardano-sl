@@ -50,11 +50,11 @@ import           Pos.DB               (DBError (..), DBTag (GStateDB), RocksBatc
 import           Pos.DB.Class         (MonadDB, MonadDBRead (dbGet), MonadRealDB)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
-                                       IterType, runDBnIterator, runDBnMapIterator)
+                                       IterType, nextItem, runDBnIterator,
+                                       runDBnMapIterator)
 import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
 import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types   (Utxo)
-import           Pos.Util.Iterator    (nextItem)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -110,7 +110,7 @@ data UtxoIter
 instance DBIteratorClass UtxoIter where
     type IterKey UtxoIter = TxIn
     type IterValue UtxoIter = TxOutAux
-    iterKeyPrefix _ = iterationUtxoPrefix
+    iterKeyPrefix = iterationUtxoPrefix
 
 runUtxoIterator
     :: forall i m a .

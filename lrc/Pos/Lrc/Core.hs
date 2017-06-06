@@ -13,8 +13,8 @@ import           Universum
 
 import           Pos.Core.Coin       (mkCoin, unsafeAddCoin)
 import           Pos.Core.Types      (Coin, StakeholderId)
+import           Pos.DB.Iterator     (MonadIterator (..))
 import           Pos.Lrc.Types       (RichmenSet, RichmenStake)
-import           Pos.Util.Iterator   (MonadIterator (..))
 import           Pos.Util.Util       (getKeys)
 
 

@@ -59,8 +59,8 @@ import           Pos.DB                     (MonadDB, MonadDBRead, MonadRealDB,
 import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.DB.GState.Common       (gsGetBi, writeBatchGState)
 import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
-                                             DBnMapIterator, IterType, runDBnIterator,
-                                             runDBnMapIterator)
+                                             DBnMapIterator, IterType, MonadIterator (..),
+                                             runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types               (NodeDBs (..))
 import           Pos.Slotting.Types         (EpochSlottingData (..), SlottingData (..))
 import           Pos.Update.Constants       (genesisBlockVersion, genesisBlockVersionData,
@@ -74,7 +74,6 @@ import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              ProposalState (..),
                                              UndecidedProposalState (upsSlot),
                                              cpsSoftwareVersion, psProposal)
-import           Pos.Util.Iterator          (MonadIterator (..))
 import           Pos.Util.Util              (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -219,7 +218,7 @@ data PropIter
 instance DBIteratorClass PropIter where
     type IterKey PropIter = UpId
     type IterValue PropIter = ProposalState
-    iterKeyPrefix _ = iterationPrefix
+    iterKeyPrefix = iterationPrefix
 
 runProposalIterator
     :: forall m a . MonadRealDB m
@@ -267,7 +266,7 @@ data ConfPropIter
 instance DBIteratorClass ConfPropIter where
     type IterKey ConfPropIter = SoftwareVersion
     type IterValue ConfPropIter = ConfirmedProposalState
-    iterKeyPrefix _ = confirmedIterationPrefix
+    iterKeyPrefix = confirmedIterationPrefix
 
 -- | Get confirmed proposals which update our application and have
 -- version bigger than argument (or all proposals if 'Nothing' is
@@ -293,7 +292,7 @@ data BVIter
 instance DBIteratorClass BVIter where
     type IterKey BVIter = BlockVersion
     type IterValue BVIter = BlockVersionState
-    iterKeyPrefix _ = bvStateIterationPrefix
+    iterKeyPrefix = bvStateIterationPrefix
 
 -- | Get all proposed 'BlockVersion's.
 getProposedBVs :: MonadRealDB m => m [BlockVersion]

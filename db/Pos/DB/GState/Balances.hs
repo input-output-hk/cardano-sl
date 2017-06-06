@@ -30,7 +30,7 @@ data BalanceIter
 instance DBIteratorClass BalanceIter where
     type IterKey BalanceIter = StakeholderId
     type IterValue BalanceIter = Coin
-    iterKeyPrefix _ = iterationPrefix
+    iterKeyPrefix = iterationPrefix
 
 ----------------------------------------------------------------------------
 -- Keys

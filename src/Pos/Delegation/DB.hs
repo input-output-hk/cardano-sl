@@ -57,13 +57,12 @@ import           Pos.DB                 (DBError (DBMalformed), RocksBatchOp (..
 import           Pos.DB.Class           (MonadDBRead, MonadRealDB)
 import           Pos.DB.GState.Common   (gsGetBi)
 import           Pos.DB.Iterator        (DBIteratorClass (..), DBnIterator,
-                                         DBnMapIterator, IterType, runDBnIterator,
-                                         runDBnMapIterator)
+                                         DBnMapIterator, IterType, nextItem,
+                                         runDBnIterator, runDBnMapIterator)
 import           Pos.DB.Types           (NodeDBs (_gStateDB))
 import           Pos.Delegation.Helpers (isRevokePsk)
 import           Pos.Delegation.Types   (DlgMemPool)
 import           Pos.Types              (ProxySKHeavy, StakeholderId, addressHash)
-import           Pos.Util.Iterator      (nextItem)
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors
@@ -220,7 +219,7 @@ data DlgTransIter
 instance DBIteratorClass DlgTransIter where
     type IterKey DlgTransIter = StakeholderId
     type IterValue DlgTransIter = PublicKey
-    iterKeyPrefix _ = iterTransPrefix
+    iterKeyPrefix = iterTransPrefix
 
 runDlgTransIterator
     :: forall m a . MonadRealDB m

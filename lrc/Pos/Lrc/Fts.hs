@@ -15,9 +15,8 @@ import           Pos.Core.Coin      (coinToInteger, unsafeGetCoin)
 import           Pos.Core.Constants (epochSlots)
 import           Pos.Core.Types     (Coin, LocalSlotIndex (..), SharedSeed (..),
                                      SlotLeaders, StakeholderId, mkCoin)
-
 import           Pos.Crypto         (deterministic, randomNumber)
-import           Pos.Util.Iterator  (MonadIterator (..))
+import           Pos.DB.Iterator    (MonadIterator (..))
 
 -- | Whereas 'Coin' stores an amount of coins, 'CoinIndex' is an identifier
 -- for a particular coin.

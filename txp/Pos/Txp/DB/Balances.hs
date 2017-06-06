@@ -49,13 +49,13 @@ import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
 import qualified Pos.DB.GState.Balances as GS
 import           Pos.DB.GState.Common   (gsPutBi)
 import           Pos.DB.Iterator        (DBnIterator, DBnMapIterator, IterType,
-                                         runDBnIterator, runDBnMapIterator)
+                                         ListHolderT, MonadIterator (..), runDBnIterator,
+                                         runDBnMapIterator, runListHolderT)
 import           Pos.DB.Redirect        (DBPureRedirect, runDBPureRedirect)
 import           Pos.DB.Types           (NodeDBs (_gStateDB))
 import           Pos.Txp.Core           (txOutStake)
 import           Pos.Txp.Toil.Types     (Utxo)
 import           Pos.Txp.Toil.Utxo      (utxoToStakes)
-import           Pos.Util.Iterator      (ListHolderT, MonadIterator (..), runListHolderT)
 
 ----------------------------------------------------------------------------
 -- Operations

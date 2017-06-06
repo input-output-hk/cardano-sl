@@ -14,13 +14,13 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
 import           Universum
 
-import           Pos.DB.Class        (MonadRealDB, MonadDBRead)
+import           Pos.DB.Class        (MonadDBRead, MonadRealDB)
 import           Pos.DB.GState       (getDelegators, getEffectiveStake,
                                       isIssuerByAddressHash)
+import           Pos.DB.Iterator     (MonadIterator, runListHolder, runListHolderT)
 import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
 import           Pos.Lrc.Types       (FullRichmenData, RichmenStake)
 import           Pos.Types           (Coin, StakeholderId, sumCoins, unsafeIntegerToCoin)
-import           Pos.Util.Iterator   (MonadIterator, runListHolder, runListHolderT)
 
 -- | Find delegated richmen using precomputed usual richmen.
 -- Do it using one pass by delegation DB.

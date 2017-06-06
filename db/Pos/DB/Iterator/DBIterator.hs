@@ -27,9 +27,9 @@ import           Pos.Binary.Class       (Bi)
 import           Pos.DB.Class           (MonadRealDB, getNodeDBs)
 import           Pos.DB.Error           (DBError (DBMalformed))
 import           Pos.DB.Functions       (rocksDecodeMaybe, rocksDecodeMaybeWP)
-import           Pos.DB.Iterator.Class  (DBIteratorClass (..), IterType)
+import           Pos.DB.Iterator.Class  (DBIteratorClass (..), IterType,
+                                         MonadIterator (..))
 import           Pos.DB.Types           (DB (..), NodeDBs (..))
-import           Pos.Util.Iterator      (MonadIterator (..))
 import           Pos.Util.Util          (ether)
 
 ----------------------------------------------------------------------------
@@ -56,7 +56,7 @@ instance ( Bi k, Bi v
         entryStr <- Rocks.iterEntry it
         if | Nothing <- entryStr -> pure Nothing -- end of Database is reached
            | Just (key, val) <- entryStr,
-             BS.isPrefixOf (iterKeyPrefix @i Proxy) key ->
+             BS.isPrefixOf (iterKeyPrefix @i) key ->
                Just <$> ((,) <$>
                   maybe
                       (throwM $ DBMalformed $ fmt key "key invalid")
@@ -72,7 +72,7 @@ instance ( Bi k, Bi v
         fmt key err =
           sformat ("Iterator entry with keyPrefix = "%shown%" is malformed: \
                    \key = "%shown%", err: "%string)
-                  (iterKeyPrefix @i Proxy) key err
+                  (iterKeyPrefix @i) key err
 
 -- | Run DBIterator by `DB`.
 runIterator
@@ -83,7 +83,7 @@ runIterator dbIter DB {..} =
     bracket (Rocks.createIter rocksDB rocksReadOpts) Rocks.releaseIter run
   where
     run it = do
-        Rocks.iterSeek it (iterKeyPrefix @i Proxy)
+        Rocks.iterSeek it (iterKeyPrefix @i)
         Ether.runReaderT dbIter it
 
 ----------------------------------------------------------------------------
@@ -123,8 +123,8 @@ type DBValueIterator i v = DBMapIterator i (IterValue i) v
 instance
     ( MonadIterator (IterKey i, IterValue i) (DBIterator i m)
     , p ~ (IterType i -> v, Rocks.Iterator)
-    , Monad m ) =>
-        MonadIterator v (Ether.ReaderT (DBMapIteratorTag i v) p m)
+    , Monad m
+    ) => MonadIterator v (Ether.ReaderT (DBMapIteratorTag i v) p m)
   where
     nextItem = dbMapIterator (\f -> fmap f <$> nextItem)
     curItem = dbMapIterator (\f -> fmap f <$> curItem)
@@ -149,7 +149,7 @@ runIteratorIO dbIter DB {..} = liftIO $
     CE.bracket (Rocks.createIter rocksDB rocksReadOpts) Rocks.releaseIter run
   where
     run it = do
-        Rocks.iterSeek it (iterKeyPrefix @i Proxy)
+        Rocks.iterSeek it (iterKeyPrefix @i)
         Ether.runReaderT dbIter it
 
 -- | Run DBMapIterator by `DB` in IO.

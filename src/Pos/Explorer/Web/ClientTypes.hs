@@ -47,7 +47,7 @@ import           Servant.API            (FromHttpApiData (..))
 import           Universum
 import qualified Pos.Binary             as Bi
 import           Pos.Crypto             (Hash, hash)
-import           Pos.DB                 (MonadDB (..))
+import           Pos.DB                 (MonadDB, MonadDBPure)
 import qualified Pos.DB.GState          as GS
 import           Pos.Lrc                (getLeaders)
 import           Pos.Explorer           (TxExtra (..))
@@ -55,13 +55,13 @@ import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..),
-                                         _txOutputs)
+                                         _txOutputs, txpTxs)
+import           Pos.Block.Core         (MainBlock, mcdSlot, mainBlockSlot, mainBlockTxPayload)
 import           Pos.Types              (Address, Coin, EpochIndex, LocalSlotIndex,
-                                         MainBlock, SlotId (..), Timestamp, StakeholderId, AddressHash,
-                                         addressF,
-                                         blockSlot, blockTxs, coinToInteger,
+                                         SlotId (..), Timestamp, StakeholderId, AddressHash,
+                                         addressF, coinToInteger,
                                          decodeTextAddress, gbHeader, gbhConsensus,
-                                         getEpochIndex, getSlotIndex, headerHash, mcdSlot,
+                                         getEpochIndex, getSlotIndex, headerHash, 
                                          mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
                                          unsafeGetCoin, unsafeIntegerToCoin)
 
@@ -148,7 +148,7 @@ toBlockEntry blk = do
     blkSlotStart      <- getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
 
     -- Get the header slot, from which we can fetch epoch and slot index.
-    let blkHeaderSlot = blk ^. blockSlot
+    let blkHeaderSlot = blk ^. mainBlockSlot
         epochIndex    = siEpoch blkHeaderSlot
         slotIndex     = siSlot  blkHeaderSlot
 
@@ -160,7 +160,7 @@ toBlockEntry blk = do
         cbeSlot       = getSlotIndex  slotIndex
         cbeBlkHash    = toCHash $ headerHash blk
         cbeTimeIssued = toPosixTime <$> blkSlotStart
-        txs           = blk ^. blockTxs
+        txs           = toList $ blk ^. mainBlockTxPayload . txpTxs
         cbeTxNum      = fromIntegral $ length txs
         addCoins c    = unsafeAddCoin c . totalTxMoney
         cbeTotalSent  = mkCCoin $ foldl' addCoins (mkCoin 0) txs
@@ -187,7 +187,9 @@ getLeaderFromEpochSlot epochIndex slotIndex = do
     -- If we have leaders for the given epoch, find the leader that is leading
     -- the slot we are interested in. If we find it, return it, otherwise
     -- return @Nothing@.
-    pure $ leadersMaybe >>= \leaders -> leaders ^? ix (fromIntegral slotIndex)
+    pure $ leadersMaybe >>= \leaders -> leaders ^? ix intSlotIndex
+  where
+    intSlotIndex = fromIntegral $ getSlotIndex slotIndex
 
 -- | List of tx entries is returned from "get latest N transactions" endpoint
 data CTxEntry = CTxEntry
@@ -215,14 +217,18 @@ data CBlockSummary = CBlockSummary
     } deriving (Show, Generic)
 
 toBlockSummary
-    :: (SscHelpersClass ssc, MonadSlots m, MonadDB m)
+    :: (SscHelpersClass ssc, MonadSlots m, MonadDB m, MonadDBPure m)
     => MainBlock ssc
     -> m CBlockSummary
 toBlockSummary blk = do
     cbsEntry <- toBlockEntry blk
     cbsNextHash <- fmap toCHash <$> GS.resolveForwardLink blk
-    let cbsPrevHash = toCHash $ blk ^. prevBlockL
-        cbsMerkleRoot = toCHash . getMerkleRoot . mtRoot $ blk ^. blockTxs
+
+    let blockTxs      = blk ^. mainBlockTxPayload . txpTxs
+    
+    let cbsPrevHash   = toCHash $ blk ^. prevBlockL
+    let cbsMerkleRoot = toCHash . getMerkleRoot . mtRoot $ blockTxs
+    
     return CBlockSummary {..}
 
 data CAddressType =

@@ -61,7 +61,6 @@ library
                       , node-sketch
                       , serokell-util
                       , servant
-                      , servant-docs
                       , servant-server
                       , socket-io
                       , snap-core

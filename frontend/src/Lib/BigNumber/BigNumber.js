@@ -9,10 +9,27 @@ exports.bigNumberImpl = function (just, nothing, value) {
     }
 }
 
-exports.dividedBy = function (bigNumber, by) {
+exports.dividedByImpl = function (bigNumber, by) {
     return bigNumber.dividedBy(by);
 }
 
-exports.toString = function (bigNumber) {
-    return bigNumber.toString();
+exports.toStringImpl = function (bigNumber, base) {
+    return bigNumber.toString(base);
+}
+
+const format = function (format) {
+    BigNumber.config({
+        FORMAT: format
+    });
+}
+
+exports.format = format;
+
+exports.toFormatImpl = function (bigNumber, decimalPlaces) {
+    return bigNumber.toFormat(decimalPlaces);
+}
+
+exports.toFormatImpl_ = function (bigNumber, formatObj, decimalPlaces) {
+    format(formatObj);
+    return bigNumber.toFormat(decimalPlaces);
 }

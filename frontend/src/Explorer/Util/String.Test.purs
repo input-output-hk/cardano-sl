@@ -1,9 +1,7 @@
 module Explorer.Util.String.Test where
 
 import Prelude
-import BigNumber (BIGNUMBER)
 import Control.Monad.Aff (Aff)
-import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.State (StateT)
 import Data.Either (Either(..))
 import Data.Identity (Identity)

@@ -1,7 +1,7 @@
 module BigNumber.Test where
 
 import Prelude
-import BigNumber (BIGNUMBER, BigNumberFormat(..), defaultFormat, dividedByInt, format, fromString, toFormat, toString, toString')
+import BigNumber (BIGNUMBER, BigNumberFormat(..), defaultFormat, dividedByInt, fromString, toFormat, toString, toString')
 import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.State (StateT)

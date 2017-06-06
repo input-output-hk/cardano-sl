@@ -40,8 +40,8 @@ import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
-import Pos.Explorer.Web.ClientTypes (CCoin(..), CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, getCoin, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
+import Pos.Explorer.Web.ClientTypes (CCoin, CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 import Pux.Html (Html, text, div, p, span, input, option, select) as P
 import Pux.Html.Attributes (className, href, value, disabled, type_, min, max, defaultValue) as P
 import Pux.Html.Events (onBlur, onChange, onFocus, onKey, KeyboardEvent, MouseEvent, Target, onClick) as P

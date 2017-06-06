@@ -1,6 +1,5 @@
 module Main where
 
-import BigNumber (BIGNUMBER)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Now (NOW)
@@ -38,7 +37,6 @@ type AppEffects =
     , ajax :: AJAX
     , socket :: SocketIO
     , now :: NOW
-    , bigNumber :: BIGNUMBER
     , console :: CONSOLE
     )
 

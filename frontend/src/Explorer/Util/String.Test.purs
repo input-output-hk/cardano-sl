@@ -15,7 +15,7 @@ import Explorer.Util.String (formatADA, substitute, parseSearchEpoch)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
-testStringUtil :: forall r. StateT (Array (Group (Aff (bigNumber :: BIGNUMBER | r) Unit))) Identity Unit
+testStringUtil :: forall r. StateT (Array (Group (Aff r Unit))) Identity Unit
 testStringUtil =
     describe "Explorer.Util.String" do
         describe "substitute" do

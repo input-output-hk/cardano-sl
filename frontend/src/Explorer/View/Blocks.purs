@@ -28,7 +28,7 @@ import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColu
 import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cbeBlkHash, cbeEpoch, cbeSlot, cbeBlockLead, cbeSize, cbeTotalSent, cbeTxNum)
+import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeBlockLead, cbeSize, cbeTotalSent, cbeTxNum)
 import Pux.Html (Html, div, text, span, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
 import Pux.Router (link) as P

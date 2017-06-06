@@ -60,7 +60,7 @@ addressView state =
                                         Just txBrief ->
                                             P.div []
                                             [ txHeaderView lang' $ mkTxHeaderViewProps txBrief
-                                            , txBodyView $ mkTxBodyViewProps txBrief
+                                            , txBodyView lang' $ mkTxBodyViewProps txBrief
                                             , txPaginationView
                                                   { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                                   , currentPage: PageNumber txPagination

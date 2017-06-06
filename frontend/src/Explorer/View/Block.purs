@@ -3,7 +3,7 @@ module Explorer.View.Block (blockView) where
 import Prelude
 import Data.Array (length, null, (!!))
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..), isJust)
+import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cBlock, blSlotNotFound, common, cBack2Dashboard, cOf, cLoading, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cSlot, cTransactions, tx, txNotFound, txEmpty) as I18nL
 import Explorer.Lenses.State (_PageNumber, blockDetail, blockTxPagination, blockTxPaginationEditable, currentBlockSummary, currentBlockTxs, lang, viewStates)
@@ -11,6 +11,7 @@ import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), CTxBriefs, PageNumber(..), State)
+import Explorer.Util.Factory (mkCoin)
 import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, emptyView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..), isFailure)
@@ -93,11 +94,13 @@ mkSummaryItems lang (CBlockEntry entry) =
       , mCurrency: Just ADA
       }
     , { label: translate (I18nL.block <<< I18nL.blEstVolume) lang
-      , amount: "0"
+      -- TODO: We do need real data here
+      , amount: formatADA (mkCoin "0") lang
       , mCurrency: Just ADA
       }
     , { label: translate (I18nL.block <<< I18nL.blFees) lang
-      , amount: "0"
+      -- TODO: We do need real data here
+      , amount: formatADA (mkCoin "0") lang
       , mCurrency: Just ADA
       }
     , { label: translate (I18nL.common <<< I18nL.cSlot) lang
@@ -214,6 +217,7 @@ blockTxsView txs state =
     else
         let txPagination = state ^. (viewStates <<< blockDetail <<< blockTxPagination <<< _PageNumber)
             currentTxBrief = txs !! (txPagination - 1)
+            txBodyViewProps = fromMaybe (mkTxBodyViewProps mkEmptyViewProps) $ mkTxBodyViewProps <$> currentTxBrief
             lang' = state ^. lang
         in
         P.div
@@ -221,9 +225,7 @@ blockTxsView txs state =
             [ txHeaderView lang' $ case currentTxBrief of
                                         Nothing -> mkTxHeaderViewProps mkEmptyViewProps
                                         Just txBrief -> mkTxHeaderViewProps txBrief
-            , txBodyView $ case currentTxBrief of
-                                Nothing -> mkTxBodyViewProps mkEmptyViewProps
-                                Just txBrief -> mkTxBodyViewProps txBrief
+            , txBodyView lang' txBodyViewProps
             , txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                 , currentPage: PageNumber txPagination
                                 , minPage: PageNumber minPagination

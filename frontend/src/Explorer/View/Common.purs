@@ -36,6 +36,7 @@ import Explorer.State (initialState)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), PageNumber(..), State)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin)
+import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
@@ -104,7 +105,7 @@ txHeaderView lang (TxHeaderViewProps props) =
                                   in fromMaybe noData $ prettyDate format time
                               Nothing -> noData
               ]
-          , txAmountView $ props ^. txhAmount
+          , txAmountView (props ^. txhAmount) lang
           ]
 
 emptyTxHeaderView :: P.Html Action
@@ -113,13 +114,13 @@ emptyTxHeaderView =
         [ P.className "transaction-header"]
         [ ]
 
-txAmountView :: CCoin -> P.Html Action
-txAmountView (CCoin coin) =
+txAmountView :: CCoin -> Language -> P.Html Action
+txAmountView coin lang =
     P.div
         [ P.className "amount-container" ]
         [ P.div
             [ P.className "amount bg-ada" ]
-            [ P.text $ coin ^. getCoin]
+            [ P.text $ formatADA coin lang ]
         ]
 -- -----------------
 -- tx body
@@ -153,8 +154,8 @@ instance emptyTxBodyViewPropsFactory :: TxBodyViewPropsFactory EmptyViewProps wh
         , txbAmount: mkCoin "0"
         }
 
-txBodyView :: TxBodyViewProps -> P.Html Action
-txBodyView (TxBodyViewProps props) =
+txBodyView :: Language -> TxBodyViewProps -> P.Html Action
+txBodyView lang (TxBodyViewProps props) =
     P.div
         [ P.className "transaction-body" ]
         [ P.div
@@ -168,8 +169,8 @@ txBodyView (TxBodyViewProps props) =
             ]
         , P.div
               [ P.className "amounts-container" ]
-              <<< map txBodyAmountView $ props ^. txbOutputs
-        , txAmountView $ props ^. txbAmount
+              <<< map (txBodyAmountView lang) $ props ^. txbOutputs
+        , txAmountView (props ^. txbAmount) lang
         ]
 
 emptyTxBodyView :: P.Html Action
@@ -190,13 +191,13 @@ txToView (Tuple (CAddress cAddress) _) =
           [ P.className "to-hash"]
           [ P.text cAddress ]
 
-txBodyAmountView :: Tuple CAddress CCoin -> P.Html Action
-txBodyAmountView (Tuple _ (CCoin coin)) =
+txBodyAmountView :: Language -> Tuple CAddress CCoin -> P.Html Action
+txBodyAmountView lang (Tuple _ coin) =
     P.div
         [ P.className "amount-wrapper" ]
         [ P.span
             [ P.className "plain-amount bg-ada-dark" ]
-            [ P.text $ coin ^. getCoin ]
+            [ P.text $ formatADA coin lang ]
         ]
 
 -- -----------------

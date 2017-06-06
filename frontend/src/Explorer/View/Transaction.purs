@@ -39,7 +39,7 @@ transactionView state =
                             P.div
                                 []
                                 [ txHeaderView lang' $ mkTxHeaderViewProps txSum
-                                , txBodyView $ mkTxBodyViewProps txSum
+                                , txBodyView lang' $ mkTxBodyViewProps txSum
                                 ]
                 ]
             ]

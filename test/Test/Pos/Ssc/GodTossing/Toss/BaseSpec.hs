@@ -4,11 +4,14 @@ module Test.Pos.Ssc.GodTossing.Toss.BaseSpec
        ( spec
        ) where
 
+import           Control.Lens          (ix)
 import qualified Data.HashMap.Strict   as HM
+import           System.Random         (mkStdGen, randomR)
 
 import           Pos.Binary            (AsBinary)
 import           Pos.Crypto            (PublicKey, SecretKey, Share,
                                         SignTag (SignCommitment), sign, toPublic)
+import           Pos.Lrc               (GenesisMpcThd, ValidRichmenStake (..))
 import           Pos.Lrc.Types         (RichmenStake)
 import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (..),
                                         BadSignedCommitment (..), Commitment,
@@ -20,12 +23,12 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (.
                                         SignedCommitment, TossVerFailure (..),
                                         VssCertData (..),
                                         VssCertificate (vcSigningKey), VssCertificatesMap,
-                                        checkCertificatesPayload, checkOpeningsPayload,
-                                        checkSharesPayload, gsCommitments, gsOpenings,
-                                        gsShares, gsVssCertificates,
-                                        mkCommitmentsMapUnsafe, runPureToss,
-                                        verifyCommitment, verifyCommitmentSignature,
-                                        verifyOpening)
+                                        checkCertificatesPayload, checkCommitmentsPayload,
+                                        checkOpeningsPayload, checkSharesPayload,
+                                        gsCommitments, gsOpenings, gsShares,
+                                        gsVssCertificates, mkCommitmentsMapUnsafe,
+                                        runPureToss, verifyCommitment,
+                                        verifyCommitmentSignature, verifyOpening)
 import           Pos.Types             (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
                                         addressHash, crucialSlot, mkCoin)
 
@@ -47,8 +50,9 @@ spec = describe "Ssc.GodTossing.Base" $ do
     describe "verifyOpening" $ do
         prop description_verifiesOkOpening verifiesOkOpening
         prop description_notVerifiesBadOpening notVerifiesBadOpening
---    describe "checkCommitmentsPayload" $ do
---        prop description_checksGoodCommsPayload checksGoodCommsPayload
+    describe "checkCommitmentsPayload" $ do
+        prop description_checksGoodCommsPayload checksGoodCommsPayload
+        prop description_checksBadCommsPayload checksBadCommsPayload
     describe "checkOpeningsPayload" $ do
         prop description_checksGoodOpensPayload checksGoodOpeningsPayload
         prop description_checksBadOpeningsPayload checksBadOpeningsPayload
@@ -72,8 +76,11 @@ spec = describe "Ssc.GodTossing.Base" $ do
 \ does indeed belong to it"
     description_notVerifiesBadOpening =
         "unsuccessfully verifies a mismatching commitment and opening"
---    description_checksGoodCommsPayload =
---        "successfully checks payload of commitments with a proper epoch index"
+    description_checksGoodCommsPayload =
+        "successfully checks payload of commitments with a proper epoch index"
+    description_checksBadCommsPayload =
+        "unsuccessfully checks payload of commitments with the right exception for each\
+        \ failure case"
     description_checksGoodOpensPayload =
         "successfully checks payload of openings when the global state is correct"
     description_checksBadOpeningsPayload =
@@ -115,14 +122,111 @@ notVerifiesBadOpening :: BadCommAndOpening -> Bool
 notVerifiesBadOpening (getBadCAndO -> badCommsAndOp) =
     not . uncurry verifyOpening $ badCommsAndOp
 
-{-checksGoodCommsPayload
-    :: EpochIndex
-    -> MultiRichmenStake
-    -> GtGlobalState
-    -> CommitmentsMap
-    -> Bool
-checksGoodCommsPayload epoch mrs gtgs =
-    isRight . tossRunner mrs gtgs . checkCommitmentsPayload epoch-}
+newtype GoodCommsPayload = GoodComms
+    { getGoodComms :: (EpochIndex, GtGlobalState, CommitmentsMap, MultiRichmenStake)
+    } deriving (Show, Eq)
+
+instance Arbitrary GoodCommsPayload where
+    arbitrary = GoodComms <$> do
+        -- These fields won't be needed for anything, so they can be entirely arbitrary.
+        _gsOpenings <- arbitrary
+        _gsShares <- arbitrary
+
+        -- The epoch used in the tests is generated separately to make sure it exists.
+        (epoch, m) <- arbitrary :: Gen (EpochIndex, MultiRichmenStake)
+        richmen <- getValid <$> (arbitrary :: Gen (ValidRichmenStake GenesisMpcThd))
+        let richmenIds = HM.keys richmen
+            mrs = HM.insert epoch richmen m
+
+        -- This is the list of richmen which will be used to make keys for commitments
+        -- in the argument 'CommitmentsMap'.
+        richmenWithCerts <- sublistOf richmenIds
+        richmenWithComms <- sublistOf richmenWithCerts
+
+        stableCerts <- HM.fromList <$>
+            mapM (\r -> (,) <$> pure r <*> (arbitrary :: Gen VssCertificate))
+                 richmenWithCerts
+
+        -- Only the simplest case is considered w.r.t. the 'lastKnownEoS' field:
+        -- 'checkCommitmentsPayload' is called with the same epoch as the 'lastKnownEoS'
+        -- in 'gsVssCertificate'.
+        -- This is because rolling back slots is and should be tested elsewhere.
+        _gsVssCertificates <- VssCertData
+            <$> (pure . EpochOrSlot . Right . crucialSlot $ epoch)
+            <*> pure stableCerts
+            <*> arbitrary
+            <*> arbitrary
+            <*> arbitrary
+            <*> arbitrary
+
+        commsMap <- mkCommitmentsMapUnsafe . HM.fromList <$>
+                mapM (\k -> (,) <$> pure k <*> arbitrary) richmenWithComms
+        _gsCommitments <- mkCommitmentsMapUnsafe <$> customHashMapGen
+            (arbitrary `suchThat` (not . flip elem richmenWithComms))
+            arbitrary
+
+        return (epoch, GtGlobalState {..}, commsMap, mrs)
+
+-- TODO: Account for 'CommSharesOnWrongParticipants' failure
+checksGoodCommsPayload :: GoodCommsPayload -> Bool
+checksGoodCommsPayload (getGoodComms -> (epoch, gtgs, commsMap, mrs)) =
+    case tossRunner mrs gtgs $ checkCommitmentsPayload epoch commsMap of
+        Left (CommSharesOnWrongParticipants _) -> True
+        Right _ -> True
+        _ -> False
+
+-- TODO: Account for 'CommSharesOnWrongParticipants' failure
+checksBadCommsPayload
+    :: GoodCommsPayload
+    -> StakeholderId
+    -> SignedCommitment
+    -> Int
+    -> Property
+checksBadCommsPayload
+    (getGoodComms -> (epoch, gtgs@GtGlobalState {..}, commsMap, mrs))
+    sid
+    comm
+    seed =
+    let mrsWithMissingEpoch = HM.delete epoch mrs
+        noRichmen =
+            tossRunner mrsWithMissingEpoch gtgs $ checkCommitmentsPayload epoch commsMap
+        res1 = case noRichmen of
+            Left (NoRichmen e) -> e == epoch
+            _ -> False
+
+        wrapCMap f = mkCommitmentsMapUnsafe . f . getCommitmentsMap
+        commMember k = HM.member k . getCommitmentsMap
+
+        newCommsMap = wrapCMap (HM.insert sid comm) commsMap
+        commitingNoParticipants =
+            tossRunner mrs gtgs $ checkCommitmentsPayload epoch newCommsMap
+        res2 = case commitingNoParticipants of
+            Left (CommitingNoParticipants (s :| [])) -> s == sid
+            _ -> False
+
+        -- Inserting a random stakeholder would perturb the valid richmen stake we already
+        -- have, so an existing one must be picked to avoid failing to calculate the
+        -- shares distribution.
+        someRichman =
+            case res of
+                Just s -> s
+                _ -> error "Test.Pos.Ssc.GodTossing.Toss.BaseSpec.checkBadCommsPayload:\
+                           \ empty commitments payload"
+          where holders = HM.keys . getCommitmentsMap $ commsMap
+                randomIndex = fst $ randomR (0, length holders - 1) $ mkStdGen seed
+                res = holders ^? ix randomIndex
+
+        gtgs' = gtgs & gsCommitments %~ wrapCMap (HM.insert someRichman comm)
+        commitmentAlreadySent =
+            tossRunner mrs gtgs' $ checkCommitmentsPayload epoch commsMap
+        res3 = case commitmentAlreadySent of
+            Left (CommitmentAlreadySent (s :| [])) -> s == someRichman
+            _ -> False
+
+    in not (commMember sid _gsCommitments) &&
+       not (commMember sid commsMap) &&
+       not (null _gsCommitments) &&
+       not (null commsMap) ==> res1  && res2 && res3
 
 newtype GoodOpeningPayload = GoodOpens
     { getGoodOpens :: (GtGlobalState, OpeningsMap)
@@ -242,10 +346,9 @@ instance Arbitrary GoodSharesPayload where
             mapM (\r -> (,) <$> pure r <*> (arbitrary :: Gen VssCertificate))
                  richmenWithCerts
 
-        -- Only the simplest case is considered w.r.t. the 'lastKnownEoS' field:
-        -- 'checkSharesPayload' is called with the same epoch as the 'lastKnownEoS' in
-        -- 'gsVssCertificate'.
-        -- This is because rolling back slots is and should be tested elsewhere.
+        -- Like with 'GoodCommsPayload', only the simplest case is considered w.r.t. the
+        -- 'lastKnownEoS' field: 'checkSharesPayload' is called with the same epoch as the
+        -- 'lastKnownEoS' in 'gsVssCertificate'.
         _gsVssCertificates <- VssCertData
             <$> (pure . EpochOrSlot . Right . crucialSlot $ epoch)
             <*> pure stableCerts
@@ -277,11 +380,10 @@ instance Arbitrary GoodSharesPayload where
 --make the already non-trivial arbitrary instance for 'GoodSharesPayload' unmanageable.
 checksGoodSharesPayload :: GoodSharesPayload -> Bool
 checksGoodSharesPayload (getGoodShares -> (epoch, gtgs, sharesMap, mrs)) =
-    let res = case tossRunner mrs gtgs $ checkSharesPayload epoch sharesMap of
-            Left (DecrSharesNotMatchCommitment _) -> True
-            Right _ -> True
-            _ -> False
-    in res
+    case tossRunner mrs gtgs $ checkSharesPayload epoch sharesMap of
+        Left (DecrSharesNotMatchCommitment _) -> True
+        Right _ -> True
+        _ -> False
 
 -- | Checks that when the data 'checkSharesPayload' is passed is incorrect w.r.t.
 -- 'checkSharesPayload', said function fails.
@@ -318,14 +420,14 @@ checksBadSharesPayload
         newSharesMap = HM.insert sid mempty sharesMap
         sharesNotRichmen = tossRunner mrs gtgs $ checkSharesPayload epoch newSharesMap
         res2 = case sharesNotRichmen of
-            Left (SharesNotRichmen _) -> True
+            Left (SharesNotRichmen nes) -> sid `elem` nes
             _ -> False
 
         newerSharesMap = fmap (HM.insert sid ne) sharesMap
         internalShareWithoutComm =
             tossRunner mrs gtgs $ checkSharesPayload epoch newerSharesMap
         res3 = case internalShareWithoutComm of
-            Left (InternalShareWithoutCommitment _) -> True
+            Left (InternalShareWithoutCommitment nes) -> sid `elem` nes
             _ -> False
 
         newestSharesMap = HM.insert sid mempty sharesMap
@@ -336,10 +438,11 @@ checksBadSharesPayload
         sharesAlreadySent =
             tossRunner mrs' gtgs' $ checkSharesPayload epoch newestSharesMap
         res4 = case sharesAlreadySent of
-            Left (SharesAlreadySent _) -> True
+            Left (SharesAlreadySent nes) -> sid `elem` nes
             _ -> False
 
-    in (not . null $ sharesMap) ==> res1 && res2 && res3 && res4
+    in not (HM.member sid _gsShares) && not (null sharesMap) ==>
+        res1 && res2 && res3 && res4
 
 newtype GoodCertsPayload = GoodCertsPayload
     { getGoodCerts :: (EpochIndex, GtGlobalState, VssCertificatesMap, MultiRichmenStake)
@@ -425,14 +528,14 @@ checksBadCertsPayload (getGoodCerts -> (epoch, gtgs, certsMap, mrs)) sid cert =
         certAlreadySent =
             tossRunner mrs newGtgs  $ checkCertificatesPayload epoch newCertsMap
         res2 = case certAlreadySent of
-            Left (CertificateAlreadySent _) -> True
+            Left (CertificateAlreadySent nes) -> sid `elem` nes
             _ -> False
 
         sid' = addressHash . vcSigningKey $ cert
         newerCertsMap = HM.insert sid' cert certsMap
         certNoRichmen = tossRunner mrs gtgs $ checkCertificatesPayload epoch newerCertsMap
         res3 = case certNoRichmen of
-            Left (CertificateNotRichmen _) -> True
+            Left (CertificateNotRichmen nes) -> sid' `elem` nes
             _ -> False
 
     in not (HM.member sid' $ mrs HM.! epoch) ==> res1 && res2 && res3

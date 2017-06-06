@@ -97,9 +97,3 @@ mkSocketSubscriptionItem socketSub socketSubData = SocketSubscriptionItem
     { socketSub
     , socketSubData
     }
-
-lovelacesADA :: Int
-lovelacesADA = 1000000
-
-decimalPlacesADA :: Int
-decimalPlacesADA = 6

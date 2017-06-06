@@ -7,7 +7,6 @@ module BigNumber
     , fromString
     , format
     , toFormat
-    , toFormat'
     , toString
     , toString'
     )
@@ -15,6 +14,7 @@ module BigNumber
 
 import Prelude
 import Control.Monad.Eff (Eff)
+import Data.Function.Eff (EffFn1, EffFn3, runEffFn1, runEffFn3)
 import Data.Function.Uncurried (Fn2, Fn3, runFn2, runFn3)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
@@ -74,14 +74,14 @@ defaultFormat = BigNumberFormat
     , fractionGroupSize: 0
     }
 
-foreign import format :: forall eff. BigNumberFormat -> Eff (bigNumber :: BIGNUMBER | eff) Unit
+foreign import formatImpl :: forall eff. EffFn1 (bigNumber :: BIGNUMBER | eff) BigNumberFormat Unit
 
--- | `toFormat` function by a given value of decimal place
-foreign import toFormatImpl :: Fn2 BigNumber Int String
-toFormat :: BigNumber -> Int -> String
-toFormat = runFn2 toFormatImpl
+format :: forall eff. BigNumberFormat -> Eff (bigNumber :: BIGNUMBER | eff) Unit
+format = runEffFn1 formatImpl
 
--- | Extended `toFormat` function to use `BigNumberFormat`, too
-foreign import toFormatImpl_ :: forall eff. Fn3 BigNumber BigNumberFormat Int (Eff (bigNumber :: BIGNUMBER | eff) String)
-toFormat' :: forall eff. BigNumber -> BigNumberFormat -> Int -> Eff (bigNumber :: BIGNUMBER | eff) String
-toFormat' = runFn3 toFormatImpl_
+-- | `toFormat` function using `BigNumberFormat` and
+-- | a given value of decimal place
+foreign import toFormatImpl :: forall eff. EffFn3 (bigNumber :: BIGNUMBER | eff) BigNumber BigNumberFormat Int String
+
+toFormat :: forall eff. BigNumber -> BigNumberFormat -> Int -> Eff (bigNumber :: BIGNUMBER | eff) String
+toFormat = runEffFn3 toFormatImpl

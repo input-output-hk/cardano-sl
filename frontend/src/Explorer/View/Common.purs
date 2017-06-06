@@ -83,7 +83,7 @@ instance emtpyTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory EmptyViewProp
     mkTxHeaderViewProps _ = TxHeaderViewProps
         { txhHash: mkCTxId noData
         , txhTimeIssued: Nothing
-        , txhAmount: mkCoin 0
+        , txhAmount: mkCoin "0"
         }
 
 txHeaderView :: Language -> TxHeaderViewProps -> P.Html Action
@@ -150,7 +150,7 @@ instance emptyTxBodyViewPropsFactory :: TxBodyViewPropsFactory EmptyViewProps wh
     mkTxBodyViewProps _ = TxBodyViewProps
         { txbInputs: []
         , txbOutputs: []
-        , txbAmount: mkCoin 0
+        , txbAmount: mkCoin "0"
         }
 
 txBodyView :: TxBodyViewProps -> P.Html Action

@@ -23,13 +23,11 @@ const format = function (format) {
     });
 }
 
-exports.format = format;
+exports.formatImpl = format;
 
-exports.toFormatImpl = function (bigNumber, decimalPlaces) {
-    return bigNumber.toFormat(decimalPlaces);
-}
-
-exports.toFormatImpl_ = function (bigNumber, formatObj, decimalPlaces) {
+exports.toFormatImpl = function (bigNumber, formatObj, decimalPlaces) {
+    // Note: Set format before adding decimal places.
+    // This is needed to change formats while switching locales
     format(formatObj);
     return bigNumber.toFormat(decimalPlaces);
 }

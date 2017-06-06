@@ -12,9 +12,9 @@ mkCTxId :: String -> CTxId
 mkCTxId =
     CTxId <<< mkCHash
 
-mkCoin :: Int -> CCoin
+mkCoin :: String -> CCoin
 mkCoin coin =
-  CCoin {getCoin: show coin}
+  CCoin {getCoin: coin}
 
 mkCAddress :: String -> CAddress
 mkCAddress = CAddress

@@ -825,8 +825,8 @@ cloneWalletSetWithPass newSK newPass wid = do
         return (oldAddrMeta, newAddrMeta)
   where
     noWMeta = InternalError "Can't get wallet meta (inconsistent db)"
-    cloneAccounts oldWAddr lookupMode addToDB = do
-        accAddrs <-  lookupMode oldWAddr
+    cloneAccounts oldAccId lookupMode addToDB = do
+        accAddrs <- getAccountAddrsOrThrow lookupMode oldAccId
         forM accAddrs $ \accAddr@CWAddressMeta {..} -> do
             newAcc <- rederiveAccountAddress newSK newPass accAddr
             _ <- addToDB newAcc

@@ -3,6 +3,7 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveFunctor       #-}
+{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
@@ -75,6 +76,7 @@ module Pos.Binary.Class
 
        , convertSize
        , combineSize
+       , sizeAddField
        ) where
 
 import           Universum
@@ -113,17 +115,14 @@ import           Data.Store.Internal         (PeekException (..), StaticSize (..
 import qualified Data.Store.Internal         as Store
 import           Data.Tagged                 (Tagged (..))
 import qualified Data.Text                   as T
-import qualified Data.Text.Encoding          as T
 import           Data.Time.Units             (Microsecond, Millisecond)
 import qualified Data.Vector                 as V
 import qualified Data.Vector.Generic         as G
 import qualified Data.Vector.Generic.Mutable as GM
 import           Data.Word                   (Word32)
 import           Foreign.Ptr                 (minusPtr, plusPtr)
-import           Formatting                  (formatToString, int, (%))
 import           GHC.TypeLits                (ErrorMessage (..), TypeError)
 import           Serokell.Data.Memory.Units  (Byte, fromBytes, toBytes)
-import           Serokell.Data.Memory.Units  (Byte)
 import           System.IO.Unsafe            (unsafePerformIO)
 
 ----------------------------------------------------------------------------
@@ -589,7 +588,7 @@ instance Bi a => Bi (Tagged s a) where
 
 instance (Bi a, Bi b) => Bi (a, b) where
     {-# INLINE size #-}
-    size = combineSize fst snd
+    size = combineSize (fst, snd)
     {-# INLINE put #-}
     put (a, b) = put a *> put b
     {-# INLINE get #-}
@@ -597,7 +596,7 @@ instance (Bi a, Bi b) => Bi (a, b) where
 
 instance (Bi a, Bi b, Bi c) => Bi (a, b, c) where
     {-# INLINE size #-}
-    size = combineSize (view _1) (\(_, b, c) -> (b, c))
+    size = combineSize (view _1, view _2, view _3)
     {-# INLINE put #-}
     put (a, b, c) = put a *> put b *> put c
     {-# INLINE get #-}
@@ -605,8 +604,7 @@ instance (Bi a, Bi b, Bi c) => Bi (a, b, c) where
 
 instance (Bi a, Bi b, Bi c, Bi d) => Bi (a, b, c, d) where
     {-# INLINE size #-}
-    size = combineSize (\(_, _, c, d) -> (c, d))
-                    (\(a, b, _, _) -> (a, b))
+    size = combineSize (view _1, view _2, view _3, view _4)
     {-# INLINE put #-}
     put (a, b, c, d) = put a *> put b *> put c *> put d
     {-# INLINE get #-}
@@ -695,8 +693,101 @@ getMany n = go [] n
 {-# INLINE getMany #-}
 -}
 
-combineSize :: (Bi b, Bi c) => (a -> b) -> (a -> c) -> Size a
-combineSize f g = Store.combineSizeWith f g size size
+-- Instances for tuples with up to 5 elements are provided. There's a TH
+-- generator in the neongreen/THBUG branch, but it doesn't work because,
+-- well, there's a bug in TH.
+--
+-- [CSL-1122] TODO: benchmark 'sizeAddField' and 'combineSize' and either
+-- document the difference or remove 'combineSize' if there's no difference
+class CombineSize a b | a -> b where
+    -- | If you have a record with fields @A {a, b, c}@ and you want to write
+    -- a 'Bi' instance for it, you can write @size = combineSize (a, b, c)@.
+    --
+    -- If you have more than five fields, please write the following (which
+    -- is probably a bit slower):
+    --
+    -- @ConstSize 0 `sizeAddField` a `sizeAddField` b `sizeAddField` ...@.
+    combineSize :: a -> Size b
+
+-- this could be written as “CombineSize (xt -> p1, xt -> p2) xt”, but the
+-- way we do it here leads to better type inference because this instance
+-- guarantees that it's the *only* possible instance for a tuple of length 2
+instance (Bi a, xa ~ (x -> a),
+          Bi b, xb ~ (x -> b))
+         => CombineSize (xa, xb) x where
+    combineSize (a, b) = Store.combineSizeWith a b size size
+    {-# INLINE combineSize #-}
+
+instance (Bi p1, x1 ~ (xt -> p1),
+          Bi p2, x2 ~ (xt -> p2),
+          Bi p3, x3 ~ (xt -> p3))
+        => CombineSize (x1, x2, x3) xt where
+   combineSize (f1, f2, f3) =
+       case (size :: Size p1,
+             size :: Size p2,
+             size :: Size p3) of
+           (ConstSize s1,
+            ConstSize s2,
+            ConstSize s3) -> ConstSize (s1 + s2 + s3)
+           _ -> VarSize $ \xv -> getSize (f1 xv) +
+                                 getSize (f2 xv) +
+                                 getSize (f3 xv)
+   {-# INLINE combineSize #-}
+
+instance (Bi p1, x1 ~ (xt -> p1),
+          Bi p2, x2 ~ (xt -> p2),
+          Bi p3, x3 ~ (xt -> p3),
+          Bi p4, x4 ~ (xt -> p4))
+        => CombineSize (x1, x2, x3, x4) xt where
+   combineSize (f1, f2, f3, f4) =
+       case (size :: Size p1,
+             size :: Size p2,
+             size :: Size p3,
+             size :: Size p4) of
+           (ConstSize s1,
+            ConstSize s2,
+            ConstSize s3,
+            ConstSize s4) -> ConstSize (s1 + s2 + s3 + s4)
+           _ -> VarSize $ \xv -> getSize (f1 xv) +
+                                 getSize (f2 xv) +
+                                 getSize (f3 xv) +
+                                 getSize (f4 xv)
+   {-# INLINE combineSize #-}
+
+instance (Bi p1, x1 ~ (xt -> p1),
+          Bi p2, x2 ~ (xt -> p2),
+          Bi p3, x3 ~ (xt -> p3),
+          Bi p4, x4 ~ (xt -> p4),
+          Bi p5, x5 ~ (xt -> p5))
+        => CombineSize (x1, x2, x3, x4, x5) xt where
+   combineSize (f1, f2, f3, f4, f5) =
+       case (size :: Size p1,
+             size :: Size p2,
+             size :: Size p3,
+             size :: Size p4,
+             size :: Size p5) of
+           (ConstSize s1,
+            ConstSize s2,
+            ConstSize s3,
+            ConstSize s4,
+            ConstSize s5) -> ConstSize (s1 + s2 + s3 + s4 + s5)
+           _ -> VarSize $ \xv -> getSize (f1 xv) +
+                                 getSize (f2 xv) +
+                                 getSize (f3 xv) +
+                                 getSize (f4 xv) +
+                                 getSize (f5 xv)
+   {-# INLINE combineSize #-}
+
+sizeAddField :: forall a x. Bi a => Size x -> (x -> a) -> Size x
+sizeAddField sizeX toA =
+    case (sizeX, size @a) of
+        (VarSize f, VarSize g)     -> VarSize (\x -> f x + g (toA x))
+        (VarSize f, ConstSize m)   -> VarSize (\x -> f x + m)
+        (ConstSize n, VarSize g)   -> VarSize (\x -> n + g (toA x))
+        (ConstSize n, ConstSize m) -> ConstSize (n + m)
+{-# INLINE sizeAddField #-}
+
+infixl 9 `sizeAddField`
 
 convertSize :: (a -> b) -> Size b -> Size a
 convertSize _  (ConstSize s) = ConstSize s

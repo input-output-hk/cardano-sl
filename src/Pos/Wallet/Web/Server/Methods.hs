@@ -119,10 +119,9 @@ import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
                                                    mkGenesisWalletUserSecret, wusAccounts,
                                                    wusWalletName)
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
-                                                   WalletWebSockets, closeWSConnection,
-                                                   getWalletWebSockets,
-                                                   getWalletWebSockets, initWSConnection,
-                                                   notify, upgradeApplicationWS)
+                                                   WalletWebSockets, closeWSConnections,
+                                                   getWalletWebSockets, initWSConnections,
+                                                   notifyAll, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (AccountLookupMode (..), WalletWebDB,
                                                    WebWalletModeDB, addOnlyNewTxMeta,
                                                    addRemovedAccount, addUpdate,
@@ -214,9 +213,9 @@ bracketWalletWS
        )
     => (ConnectionsVar -> m a)
     -> m a
-bracketWalletWS = bracket initWS closeWSConnection
+bracketWalletWS = bracket initWS closeWSConnections
   where
-    initWS = putText "walletServeImpl initWsConnection" >> initWSConnection
+    initWS = putText "walletServeImpl initWsConnection" >> initWSConnections
 
 ----------------------------------------------------------------------------
 -- Notifier
@@ -253,26 +252,26 @@ launchNotifier nat =
             \networkDifficulty -> do
                 oldNetworkDifficulty <- use spNetworkCD
                 when (Just networkDifficulty /= oldNetworkDifficulty) $ do
-                    lift $ notify $ NetworkDifficultyChanged networkDifficulty
+                    lift $ notifyAll $ NetworkDifficultyChanged networkDifficulty
                     spNetworkCD .= Just networkDifficulty
 
         localDifficulty <- localChainDifficulty
         oldLocalDifficulty <- use spLocalCD
         when (localDifficulty /= oldLocalDifficulty) $ do
-            lift $ notify $ LocalDifficultyChanged localDifficulty
+            lift $ notifyAll $ LocalDifficultyChanged localDifficulty
             spLocalCD .= localDifficulty
 
         peers <- connectedPeers
         oldPeers <- use spPeers
         when (peers /= oldPeers) $ do
-            lift $ notify $ ConnectedPeersChanged peers
+            lift $ notifyAll $ ConnectedPeersChanged peers
             spPeers .= peers
 
     updateNotifier = do
         cps <- waitForUpdate
         addUpdate $ toCUpdateInfo cps
         logDebug "Added update to wallet storage"
-        notify UpdateAvailable
+        notifyAll UpdateAvailable
 
     -- historyNotifier :: WalletWebMode m => m ()
     -- historyNotifier = do
@@ -282,7 +281,7 @@ launchNotifier nat =
     --         oldHistoryLength <- length . fromMaybe mempty <$> getAccountHistory cAddress
     --         newHistoryLength <- length <$> getHistory cAddress
     --         when (oldHistoryLength /= newHistoryLength) .
-    --             notify $ NewWalletTransaction cAddress
+    --             notifyAll $ NewWalletTransaction cAddress
 
 walletServerOuts :: OutSpecs
 walletServerOuts = sendTxOuts

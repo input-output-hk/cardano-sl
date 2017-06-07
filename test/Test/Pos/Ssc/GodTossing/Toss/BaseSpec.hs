@@ -51,15 +51,29 @@ spec = describe "Ssc.GodTossing.Base" $ do
         prop description_verifiesOkOpening verifiesOkOpening
         prop description_notVerifiesBadOpening notVerifiesBadOpening
     describe "checkCommitmentsPayload" $ do
+        prop description_emptyPayload
+            (\gc ->
+               -- The 'checkCommitmentsPayload' function will never pass without a valid
+               -- multirichmen hashmap, meaning we can't use entirely arbitrary data.
+               -- As such, one from a 'GoodCommsPayload' is fetched instead since the
+               -- 'Arbitrary' instance ensures validity.
+               let (e, validMrs) = (view _1 $ getGoodComms gc, view _4 $ getGoodComms gc)
+               in emptyPayload (checkCommitmentsPayload e) validMrs
+            )
         prop description_checksGoodCommsPayload checksGoodCommsPayload
         prop description_checksBadCommsPayload checksBadCommsPayload
     describe "checkOpeningsPayload" $ do
+        prop description_emptyPayload (emptyPayload checkOpeningsPayload)
         prop description_checksGoodOpensPayload checksGoodOpeningsPayload
         prop description_checksBadOpeningsPayload checksBadOpeningsPayload
     describe "checkSharesPayload" $ do
+        prop description_emptyPayload
+            (\e mrs hm -> emptyPayload (checkSharesPayload e) $ HM.insert e hm mrs)
         prop description_checksGoodSharesPayload checksGoodSharesPayload
         prop description_checksBadSharesPayload checksBadSharesPayload
     describe "checkCertificatesPayload" $ do
+        prop description_emptyPayload
+            (\e mrs hm -> emptyPayload (checkCertificatesPayload e) $ HM.insert e hm mrs)
         prop description_checksGoodCertsPayload checksGoodCertsPayload
         prop description_checksBadCertsPayload checksBadCertsPayload
   where
@@ -76,6 +90,8 @@ spec = describe "Ssc.GodTossing.Base" $ do
 \ does indeed belong to it"
     description_notVerifiesBadOpening =
         "unsuccessfully verifies a mismatching commitment and opening"
+    description_emptyPayload =
+        "an empty payload always leads to successful verification"
     description_checksGoodCommsPayload =
         "successfully checks payload of commitments with a proper epoch index"
     description_checksBadCommsPayload =
@@ -121,6 +137,15 @@ verifiesOkOpening CommitmentOpening{..} =
 notVerifiesBadOpening :: BadCommAndOpening -> Bool
 notVerifiesBadOpening (getBadCAndO -> badCommsAndOp) =
     not . uncurry verifyOpening $ badCommsAndOp
+
+emptyPayload
+    :: Monoid container
+    => (container -> ExceptT e PureToss a)
+    -> MultiRichmenStake
+    -> GtGlobalState
+    -> Bool
+emptyPayload pureToss mrs gtgs =
+    isRight $ tossRunner mrs gtgs $ pureToss mempty
 
 newtype GoodCommsPayload = GoodComms
     { getGoodComms :: (EpochIndex, GtGlobalState, CommitmentsMap, MultiRichmenStake)
@@ -414,7 +439,7 @@ checksBadSharesPayload
         noRichmen =
             tossRunner mrsWithMissingEpoch gtgs $ checkSharesPayload epoch sharesMap
         res1 = case noRichmen of
-            Left (NoRichmen _) -> True
+            Left (NoRichmen e) -> e == epoch
             _ -> False
 
         newSharesMap = HM.insert sid mempty sharesMap
@@ -518,7 +543,7 @@ checksBadCertsPayload (getGoodCerts -> (epoch, gtgs, certsMap, mrs)) sid cert =
         noRichmen =
             tossRunner mrsWithMissingEpoch gtgs $ checkCertificatesPayload epoch certsMap
         res1 = case noRichmen of
-            Left (NoRichmen _) -> True
+            Left (NoRichmen e) -> e == epoch
             _ -> False
 
         insCert = HM.insert sid cert

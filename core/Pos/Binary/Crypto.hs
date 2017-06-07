@@ -99,8 +99,6 @@ BiPvss (Pvss.DecryptedShare, Share, 101)     -- 4+33+64
 BiPvss (Pvss.EncryptedShare, EncShare, 101)
 BiPvss (Pvss.Proof, SecretProof, 64)
 
--- [CSL-1122] TODO: write some kind of 'binaryToStoreGet' to reduce
--- boilerplate
 instance Store.Store Pvss.ExtraGen where
     size = ConstSize 33
     poke = putByteString . BSL.toStrict . Binary.encode
@@ -236,19 +234,23 @@ instance (Bi w) => Bi (ProxySignature w a) where
     get = label "ProxySignature" $ liftM2 ProxySignature get get
 
 instance Bi PassPhrase where
+    size = ConstSize passphraseLength
     put pp = do
-        -- currently passphrase may be 32-byte long, or empty
-        -- (for unencrypted keys)
-        let bs = BS.pack $ ByteArray.unpack pp
+        -- currently passphrase may be 32-byte long, or empty (for
+        -- unencrypted keys). The empty passphrase is serialized as 32
+        -- zeroes.
+        let bs = ByteArray.convert pp
             bl = BS.length bs
-        unless (bl `elem` [0, 32]) $ error $
-            sformat ("put@PassPhrase: expected length 0 or 32, not "%int)
-                bl
-        putByteString bs
-    get = label "PassPhrase" $
-          ByteArray.pack . BS.unpack <$>
-              undefined -- CSL-1122 uncomment
-              -- (getByteString passphraseLength <|> getByteString 0)
+        if | bl == 0 -> putByteString (BS.replicate passphraseLength 0)
+           | bl == passphraseLength -> putByteString bs
+           | otherwise -> error $ sformat
+                 ("put@PassPhrase: expected length 0 or "%int%", not "%int)
+                 passphraseLength bl
+    get = let norm x | x == BS.replicate passphraseLength 0 = mempty
+                     | otherwise                            = x
+          in  label "PassPhrase" $
+              ByteArray.convert . norm <$>
+              getByteString passphraseLength
 
 -------------------------------------------------------------------------------
 -- Hierarchical derivation

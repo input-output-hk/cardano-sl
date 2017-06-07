@@ -213,11 +213,12 @@ deriving instance Bi PublicKey
 deriving instance Bi SecretKey
 
 instance Bi EncryptedSecretKey where
+    size = Bi.combineSize eskPayload eskHash
     put (EncryptedSecretKey sk pph) = put sk >> put pph
     get = label "EncryptedSecretKey" $ liftM2 EncryptedSecretKey get get
-    size = Bi.combineSize eskPayload eskHash
 
 instance Bi a => Bi (Signed a) where
+    size = Bi.combineSize signedValue signedSig
     put (Signed v s) = put (v,s)
     get = label "Signed" $ Signed <$> get <*> get
 

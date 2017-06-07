@@ -225,10 +225,12 @@ instance Bi a => Bi (Signed a) where
 deriving instance Bi (ProxyCert w)
 
 instance (Bi w) => Bi (ProxySecretKey w) where
+    size = Bi.combineSize (pskOmega, pskIssuerPk, pskDelegatePk, pskCert)
     put (ProxySecretKey w iPk dPk cert) = put w >> put iPk >> put dPk >> put cert
     get = label "ProxySecretKey" $ liftM4 ProxySecretKey get get get get
 
 instance (Bi w) => Bi (ProxySignature w a) where
+    size = Bi.combineSize (pdPsk, pdSig)
     put ProxySignature{..} = do
         put pdPsk
         put pdSig
@@ -276,6 +278,7 @@ standardPublicKeyLength = 32
 standardSignatureLength = 64
 
 instance Bi EdStandard.PublicKey where
+    size = ConstSize standardPublicKeyLength
     put (EdStandard.PublicKey k) = do
         putAssertLength "PublicKey" standardPublicKeyLength k
         putByteString k
@@ -283,6 +286,7 @@ instance Bi EdStandard.PublicKey where
         EdStandard.PublicKey <$> getByteString standardPublicKeyLength
 
 instance Bi EdStandard.SecretKey where
+    size = ConstSize standardSecretKeyLength
     put (EdStandard.SecretKey k) = do
         putAssertLength "SecretKey" standardSecretKeyLength k
         putByteString k
@@ -290,6 +294,7 @@ instance Bi EdStandard.SecretKey where
         EdStandard.SecretKey <$> getByteString standardSecretKeyLength
 
 instance Bi EdStandard.Signature where
+    size = ConstSize standardSignatureLength
     put (EdStandard.Signature s) = do
         putAssertLength "Signature" standardSignatureLength s
         putByteString s

@@ -57,6 +57,8 @@ type Common =
     , cMinutes :: String
     , cSeconds :: String
     , cDateFormat :: String
+    , cDecimalSeparator :: String
+    , cGroupSeparator :: String
     }
 
 -- translations of main navigation

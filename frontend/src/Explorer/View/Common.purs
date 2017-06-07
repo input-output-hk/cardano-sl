@@ -26,6 +26,7 @@ import Prelude
 import Data.Int (ceil, fromString, toNumber)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
 import Explorer.I18n.Lenses (common, cDateFormat) as I18nL
@@ -33,13 +34,14 @@ import Explorer.Lenses.State (lang)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (initialState)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Types.State (CCurrency(..), PageNumber(..), State)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin)
+import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
-import Pos.Explorer.Web.ClientTypes (CCoin(..), CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, getCoin, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
+import Pos.Explorer.Web.ClientTypes (CCoin, CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 import Pux.Html (Html, text, div, p, span, input, option, select) as P
 import Pux.Html.Attributes (className, href, value, disabled, type_, min, max, defaultValue) as P
 import Pux.Html.Events (onBlur, onChange, onFocus, onKey, KeyboardEvent, MouseEvent, Target, onClick) as P
@@ -82,7 +84,7 @@ instance emtpyTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory EmptyViewProp
     mkTxHeaderViewProps _ = TxHeaderViewProps
         { txhHash: mkCTxId noData
         , txhTimeIssued: Nothing
-        , txhAmount: mkCoin 0
+        , txhAmount: mkCoin "0"
         }
 
 txHeaderView :: Language -> TxHeaderViewProps -> P.Html Action
@@ -103,7 +105,7 @@ txHeaderView lang (TxHeaderViewProps props) =
                                   in fromMaybe noData $ prettyDate format time
                               Nothing -> noData
               ]
-          , txAmountView $ props ^. txhAmount
+          , txAmountView (props ^. txhAmount) lang
           ]
 
 emptyTxHeaderView :: P.Html Action
@@ -112,13 +114,13 @@ emptyTxHeaderView =
         [ P.className "transaction-header"]
         [ ]
 
-txAmountView :: CCoin -> P.Html Action
-txAmountView (CCoin coin) =
+txAmountView :: CCoin -> Language -> P.Html Action
+txAmountView coin lang =
     P.div
         [ P.className "amount-container" ]
         [ P.div
             [ P.className "amount bg-ada" ]
-            [ P.text $ coin ^. getCoin]
+            [ P.text $ formatADA coin lang ]
         ]
 -- -----------------
 -- tx body
@@ -149,11 +151,11 @@ instance emptyTxBodyViewPropsFactory :: TxBodyViewPropsFactory EmptyViewProps wh
     mkTxBodyViewProps _ = TxBodyViewProps
         { txbInputs: []
         , txbOutputs: []
-        , txbAmount: mkCoin 0
+        , txbAmount: mkCoin "0"
         }
 
-txBodyView :: TxBodyViewProps -> P.Html Action
-txBodyView (TxBodyViewProps props) =
+txBodyView :: Language -> TxBodyViewProps -> P.Html Action
+txBodyView lang (TxBodyViewProps props) =
     P.div
         [ P.className "transaction-body" ]
         [ P.div
@@ -167,8 +169,8 @@ txBodyView (TxBodyViewProps props) =
             ]
         , P.div
               [ P.className "amounts-container" ]
-              <<< map txBodyAmountView $ props ^. txbOutputs
-        , txAmountView $ props ^. txbAmount
+              <<< map (txBodyAmountView lang) $ props ^. txbOutputs
+        , txAmountView (props ^. txbAmount) lang
         ]
 
 emptyTxBodyView :: P.Html Action
@@ -189,13 +191,13 @@ txToView (Tuple (CAddress cAddress) _) =
           [ P.className "to-hash"]
           [ P.text cAddress ]
 
-txBodyAmountView :: Tuple CAddress CCoin -> P.Html Action
-txBodyAmountView (Tuple _ (CCoin coin)) =
+txBodyAmountView :: Language -> Tuple CAddress CCoin -> P.Html Action
+txBodyAmountView lang (Tuple _ coin) =
     P.div
         [ P.className "amount-wrapper" ]
         [ P.span
             [ P.className "plain-amount bg-ada-dark" ]
-            [ P.text $ coin ^. getCoin ]
+            [ P.text $ formatADA coin lang ]
         ]
 
 -- -----------------
@@ -204,11 +206,11 @@ txBodyAmountView (Tuple _ (CCoin coin)) =
 
 type PaginationViewProps =
     { label :: String
-    , currentPage :: Int
-    , minPage :: Int
-    , maxPage :: Int
+    , currentPage :: PageNumber
+    , minPage :: PageNumber
+    , maxPage :: PageNumber
     , editable :: Boolean
-    , changePageAction :: (Int -> Action)
+    , changePageAction :: (PageNumber -> Action)
     , editableAction :: (P.Target -> Boolean -> Action)
     , invalidPageAction :: (P.Target -> Action)
     , disabled :: Boolean
@@ -238,14 +240,14 @@ paginationView props =
                   , P.input
                       ([ P.className "page-number"
                       , P.disabled $ props.maxPage == props.minPage
-                      , P.min $ show props.minPage
-                      , P.max $ show props.maxPage
+                      , P.min <<< show $ unwrap props.minPage
+                      , P.max <<< show $ unwrap props.maxPage
                       , P.onFocus \event -> props.editableAction (_.target event) true
                       , P.onBlur \event -> props.editableAction (_.target event) false
                       ]
                       <>  if props.editable
                           then [ P.onKey "enter" onEnterHandler ]
-                          else [ P.value <<< show $ props.currentPage ]
+                          else [ P.value <<< show $ unwrap props.currentPage ]
                       )
                       []
                   , P.p
@@ -255,7 +257,7 @@ paginationView props =
                       [ P.className "page-number"
                       , P.disabled true
                       , P.type_ "search"
-                      , P.value $ show props.maxPage
+                      , P.value <<< show $ unwrap props.maxPage
                       ]
                       []
                   , P.div
@@ -282,14 +284,14 @@ paginationView props =
             nextClickHandler :: P.MouseEvent -> Action
             nextClickHandler event =
                 if props.currentPage < props.maxPage then
-                props.changePageAction $ props.currentPage + 1
+                props.changePageAction <<< PageNumber $ (unwrap props.currentPage) + 1
                 else
                 NoOp
 
             prevClickHandler :: P.MouseEvent -> Action
             prevClickHandler _ =
                 if props.currentPage > props.minPage && not props.disabled then
-                props.changePageAction $ props.currentPage - 1
+                props.changePageAction <<< PageNumber $ (unwrap props.currentPage) - 1
                 else
                 NoOp
 
@@ -303,7 +305,7 @@ paginationView props =
                     else props.invalidPageAction target
                     where
                         target = _.target event
-                        page = fromMaybe props.currentPage $ fromString $ _.value target
+                        page = PageNumber <<< fromMaybe (unwrap props.currentPage) <<< fromString $ _.value target
 
 
 

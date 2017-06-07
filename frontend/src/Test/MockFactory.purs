@@ -17,7 +17,7 @@ mkEmptyCTxEntry :: CTxEntry
 mkEmptyCTxEntry = CTxEntry
     { cteId: mkCTxId "--"
     , cteTimeIssued: mkTime 0.0
-    , cteAmount: mkCoin 0
+    , cteAmount: mkCoin "0"
     }
 
 -- | Update hash of a transcation
@@ -35,7 +35,7 @@ mkEmptyCAddressSummary = CAddressSummary
     { caAddress: mkCAddress "--"
     , caType: CUnknownAddress
     , caTxNum: 0
-    , caBalance: mkCoin 0
+    , caBalance: mkCoin "0"
     , caTxList: []
     }
 
@@ -46,7 +46,7 @@ mkCBlockEntry = CBlockEntry
     , cbeBlkHash: mkCHash "0"
     , cbeTimeIssued: Nothing
     , cbeTxNum: 0
-    , cbeTotalSent: mkCoin 0
+    , cbeTotalSent: mkCoin "0"
     , cbeSize: 0
     , cbeBlockLead: Nothing
     }

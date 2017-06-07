@@ -6,10 +6,10 @@ import DOM.HTML.Types (HTMLElement, HTMLInputElement)
 import Data.DateTime (DateTime)
 import Data.Either (Either)
 import Data.Maybe (Maybe)
-import Explorer.Api.Types (RequestLimit, RequestOffset)
+import Data.Tuple (Tuple)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, Search, SocketSubscriptionItem)
+import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Pux.Html.Events (Target)
@@ -32,7 +32,7 @@ data Action
     | GenerateQrCode CAddress
     -- socket endpoints
     | SocketConnected Boolean
-    | SocketBlocksUpdated (Either Error CBlockEntries)
+    | SocketBlocksPageUpdated (Either Error (Tuple Int CBlockEntries))
     | SocketTxsUpdated (Either Error CTxEntries)
     | SocketAddSubscription SocketSubscriptionItem
     | SocketRemoveSubscription SocketSubscriptionItem
@@ -44,10 +44,8 @@ data Action
     | SocketCallMeString String
     | SocketCallMeCTxId CTxId
     -- http endpoints
-    | RequestTotalBlocksToPaginateBlocks
-    | ReceiveTotalBlocksToPaginateBlocks (Either Error Int)
-    | RequestPaginatedBlocks RequestLimit RequestOffset
-    | ReceivePaginatedBlocks (Either Error CBlockEntries)
+    | RequestPaginatedBlocks PageNumber PageSize
+    | ReceivePaginatedBlocks (Either Error (Tuple Int CBlockEntries))
     | RequestBlockSummary CHash
     | ReceiveBlockSummary (Either Error CBlockSummary)
     | RequestBlockTxs CHash
@@ -70,23 +68,25 @@ data Action
     | GlobalUpdateSearchSlotValue String
     | GlobalFocusSearchInput Boolean
     -- dashboard view
+    | DashboardRequestBlocksTotalPages
+    | DashboardReceiveBlocksTotalPages (Either Error Int)
     | DashboardExpandBlocks Boolean                 -- expand list of blocks
-    | DashboardPaginateBlocks Int                   -- pagination of blocks
+    | DashboardPaginateBlocks PageNumber            -- pagination of blocks
     | DashboardEditBlocksPageNumber Target Boolean  -- toggle editable state of page numbers
     | DashboardInvalidBlocksPageNumber Target       -- invalid page number
     | DashboardExpandTransactions Boolean           -- expand dashboard transactions
     | DashboardShowAPICode DashboardAPICode         -- toggle dashboard api
     | DashboardToggleHeader                         -- toggle header ui
     -- address detail view
-    | AddressPaginateTxs Int                    -- current pagination of transactions
+    | AddressPaginateTxs PageNumber             -- current pagination of transactions
     | AddressEditTxsPageNumber Target Boolean   -- toggle editable state of page numbers
     | AddressInvalidTxsPageNumber Target        -- invalid page number
     -- block detail view
-    | BlockPaginateTxs Int                      -- current pagination of transactions
+    | BlockPaginateTxs PageNumber               -- current pagination of transactions
     | BlockEditTxsPageNumber Target Boolean     -- toggle editable state of page numbers
     | BlockInvalidTxsPageNumber Target          -- invalid page number
     -- blocks view
-    | BlocksPaginateBlocks Int                      -- current pagination of blocks
+    | BlocksPaginateBlocks PageNumber               -- current pagination of blocks
     | BlocksEditBlocksPageNumber Target Boolean     -- toggle editable state of page numbers
     | BlocksInvalidBlocksPageNumber Target          -- invalid page number
     -- clock

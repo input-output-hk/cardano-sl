@@ -12,7 +12,7 @@ import DOM.HTML.Types (htmlDocumentToEventTarget)
 import DOM.HTML.Window (document)
 import Data.Lens ((^.), set)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Explorer.Api.Socket (blocksUpdatedEventHandler, callYouEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
+import Explorer.Api.Socket (blocksPageUpdatedEventHandler, callYouEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
 import Explorer.I18n.Lang (Language(..), detectLocale)
 import Explorer.Lenses.State (connection, lang, socket, syncAction)
 import Explorer.Routes (match)
@@ -33,7 +33,14 @@ import Signal.Channel (channel, send, subscribe)
 import Signal.Time (every, second)
 import Waypoints (WAYPOINT)
 
-type AppEffects = (dom :: DOM, ajax :: AJAX, socket :: SocketIO, now :: NOW, waypoint :: WAYPOINT, console :: CONSOLE)
+type AppEffects =
+    ( dom :: DOM
+    , ajax :: AJAX
+    , socket :: SocketIO
+    , now :: NOW
+    , waypoint :: WAYPOINT
+    , console :: CONSOLE
+    )
 
 type AppConfig = (Config Ex.State Ex.Action AppEffects)
 
@@ -47,7 +54,7 @@ socketConfig appConfig actionChannel = do
     on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
     on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
     on socket' (Ex.toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel
-    on socket' (Ex.toEvent BlocksOffUpdated) $ Ex.blocksUpdatedEventHandler actionChannel
+    on socket' (Ex.toEvent BlocksLastPageUpdated) $ Ex.blocksPageUpdatedEventHandler actionChannel
     -- Note:
     -- `CallYou` is the answer of `CallMe`.
     -- Handling both events are needed a to be connected with socket.io manually

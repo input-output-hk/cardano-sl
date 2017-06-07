@@ -16,18 +16,19 @@ import Data.String (take)
 import Data.Time.Duration (Milliseconds)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (block, blEpochSlotNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
-import Explorer.Lenses.State (blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
+import Explorer.Lenses.State (_PageNumber, blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CBlockEntries, CCurrency(..), State)
+import Explorer.Types.State (CBlockEntries, CCurrency(..), PageNumber(..), State)
 import Explorer.Util.Factory (mkEpochIndex)
+import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, noData, paginationView)
 import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cbeBlkHash, cbeEpoch, cbeSlot, cbeBlockLead, cbeSize, cbeTotalSent, cbeTxNum)
+import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeBlockLead, cbeSize, cbeTotalSent, cbeTxNum)
 import Pux.Html (Html, div, text, span, h3, p) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
 import Pux.Router (link) as P
@@ -62,8 +63,8 @@ blocksView state =
                           let paginationViewProps =
                                   { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                   , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
-                                  , minPage: minPagination
-                                  , maxPage: getMaxPaginationNumber (length blocks) maxBlockRows
+                                  , minPage: PageNumber minPagination
+                                  , maxPage: PageNumber $ getMaxPaginationNumber (length blocks) maxBlockRows
                                   , changePageAction: BlocksPaginateBlocks
                                   , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
                                   , editableAction: BlocksEditBlocksPageNumber
@@ -111,7 +112,7 @@ currentBlocks state =
     slice minBlockIndex (minBlockIndex + maxBlockRows) blocks
     where
         blocks = withDefault [] $ state ^. currentBlocksResult
-        currentBlockPage = state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+        currentBlockPage = state ^. (viewStates <<< blocksViewState <<< blsViewPagination <<< _PageNumber)
         minBlockIndex = (currentBlockPage - 1) * maxBlockRows
 
 blockRow :: State -> CBlockEntry -> P.Html Action
@@ -138,7 +139,7 @@ blockRow state (CBlockEntry entry) =
                       , clazz: CSS.blocksColumnTxs
                       , mCurrency: Nothing
                       }
-        , blockColumn { label: entry ^. (cbeTotalSent <<< _CCoin <<< getCoin)
+        , blockColumn { label: formatADA (entry ^. cbeTotalSent) $ state ^. lang
                       , mRoute: Nothing
                       , clazz: CSS.blocksColumnTotalSent
                       , mCurrency: Just ADA

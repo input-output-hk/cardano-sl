@@ -31,6 +31,7 @@
   "dependencies": {
     "animate.css": "^3.5.2",
     "babel-polyfill": "^6.23.0",
+    "bignumber.js": "^4.0.2",
     "custom-event-polyfill": "https://github.com/serokell/custom-event-polyfill/",
     "react": "^15.4.2",
     "react-dom": "^15.4.2",

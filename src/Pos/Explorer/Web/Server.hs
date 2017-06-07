@@ -15,7 +15,9 @@ module Pos.Explorer.Web.Server
        , topsortTxsOrFail
        , getMempoolTxs
        , getLastBlocks
+       , getBlocksLastPage
        ) where
+
 
 import           Control.Lens                   (at, _Wrapped, _Right)
 import           Control.Monad.Catch            (try)
@@ -92,11 +94,15 @@ explorerHandlers :: ExplorerMode m => SendActions m -> ServerT ExplorerApi m
 explorerHandlers _sendActions =
       apiBlocksLast
     :<|>
+      apiBlocksTotal
+    :<|>
+      apiBlocksPages
+    :<|>
+      apiBlocksPagesTotal
+    :<|>
       apiBlocksSummary
     :<|>
       apiBlocksTxs
-    :<|>
-      apiBlocksTotalNumber
     :<|>
       apiTxsLast
     :<|>
@@ -107,18 +113,26 @@ explorerHandlers _sendActions =
       apiEpochSlotSearch
   where
     apiBlocksLast        = getLastBlocksDefault
+    apiBlocksTotal       = catchExplorerError getBlocksTotal
+    apiBlocksPages       = getBlocksPagesDefault
+    apiBlocksPagesTotal  = getBlocksPagesTotalDefault
     apiBlocksSummary     = catchExplorerError . getBlockSummary
     apiBlocksTxs         = getBlockTxsDefault
-    apiBlocksTotalNumber = catchExplorerError $ getBlocksTotalNumber
     apiTxsLast           = getLastTxsDefault
     apiTxsSummary        = catchExplorerError . getTxSummary
     apiAddressSummary    = catchExplorerError . getAddressSummary
     apiEpochSlotSearch   = tryEpochSlotSearch
 
     catchExplorerError   = try
-
+    
     getLastBlocksDefault      limit skip =
-      catchExplorerError $ getLastBlocks (defaultLimit limit) (defaultSkip skip)
+      catchExplorerError $ getLastBlocks (defaultLimit limit) (defaultSkip skip)    
+
+    getBlocksPagesDefault     page size  =
+      catchExplorerError $ getBlocksPage (defaultPage page) (defaultPageSize size)
+
+    getBlocksPagesTotalDefault     size  =
+      catchExplorerError $ getBlocksPagesTotal (defaultPageSize size)
 
     getBlockTxsDefault hash'  limit skip =
       catchExplorerError $ getBlockTxs hash' (defaultLimit limit) (defaultSkip skip)
@@ -129,52 +143,14 @@ explorerHandlers _sendActions =
     tryEpochSlotSearch   epoch maybeSlot =
       catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    defaultLimit limit   = (fromIntegral $ fromMaybe 10 limit)
-    defaultSkip  skip    = (fromIntegral $ fromMaybe 0 skip)
+    defaultPage  page    = (fromIntegral $ fromMaybe 1   page)
+    defaultPageSize size = (fromIntegral $ fromMaybe 10  size)
+    defaultLimit limit   = (fromIntegral $ fromMaybe 10  limit)
+    defaultSkip  skip    = (fromIntegral $ fromMaybe 0   skip)
 
--- | Get the total number of blocks/slots currently available.
--- Total number of main blocks   = difficulty of the topmost (tip) header.
--- Total number of anchor blocks = current epoch + 1
-getBlocksTotalNumber
-    :: (MonadDB m)
-    => m Int
-getBlocksTotalNumber = do
-    -- Get the tip block.
-    tipBlock <- DB.getTipBlock @SscGodTossing
-    -- -1 is for the genesis block which isn't visible and contains no
-    -- valuable information
-    pure $ max 0 (maxBlocks tipBlock - 1)
-  where
-    maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
-
--- | Search the blocks by epoch and slot. Slot is optional.
-epochSlotSearch
-    :: (ExplorerMode m)
-    => EpochIndex
-    -> Maybe Word16
-    -> m [CBlockEntry]
-epochSlotSearch epochIndex slotIndex = do
-    blocks <- findBlocksByEpoch >>= traverse toBlockEntry
-    if null blocks
-        then throwM $ Internal "No epoch/slots found."
-        else pure blocks
-  where
-    findBlocksByEpoch = getBlocksByEpoch @SscGodTossing epochIndex localSlotIndex
-    localSlotIndex    = fmap LocalSlotIndex slotIndex
-
--- | Get all blocks by epoch and slot. The slot is optional, if it exists,
--- it just adds another predicate to match it.
-getBlocksByEpoch
-    :: (SscHelpersClass ssc, ExplorerMode m)
-    => EpochIndex
-    -> Maybe LocalSlotIndex
-    -> m [MainBlock ssc]
-getBlocksByEpoch epochIndex mSlotIndex = do
-    tipHash <- GS.getTip
-    filterMainBlocks tipHash findBlocksByEpochPred
-      where
-        findBlocksByEpochPred mb = (siEpoch $ mb ^. blockSlot) == epochIndex &&
-                fromMaybe True ((siSlot (mb ^. blockSlot) ==) <$> mSlotIndex)
+----------------------------------------------------------------
+-- API Functions
+----------------------------------------------------------------
 
 -- | Get last blocks from the blockchain.
 --
@@ -187,13 +163,19 @@ getBlocksByEpoch epochIndex mSlotIndex = do
 --    by 170 and set the limit to 10 - we end at the block 0)
 --
 -- Why this offset/limit scheme - https://www.petefreitag.com/item/451.cfm
-getLastBlocks :: (MonadDB m, MonadSlots m) => Word -> Word -> m [CBlockEntry]
+getLastBlocks 
+    :: (MonadDB m, MonadSlots m) 
+    => Word 
+    -> Word 
+    -> m [CBlockEntry]
 getLastBlocks limit offset = do
     -- Get tip block header hash.
     tipHash     <- GS.getTip
 
-    -- Get total blocks in the blockchain. What if race condition?
-    blocksTotal <- toInteger <$> getBlocksTotalNumber
+    -- Get total blocks in the blockchain. We presume that the chance that the
+    -- a new block is going to be generated from here until we search for them
+    -- is very low.
+    blocksTotal <- toInteger <$> getBlocksTotal
 
     -- Make sure we aren't offseting more than the beginning of the blockchain.
     when (offsetInt > blocksTotal) $
@@ -202,6 +184,10 @@ getLastBlocks limit offset = do
     -- Calculate from where to where we should take blocks.
     let blocksEndIndex   = blocksTotal - offsetInt
     let blocksStartIndex = max 0 (blocksEndIndex - limitInt)
+
+    -- Verify limit/offset calculation.
+    when (blocksStartIndex > blocksEndIndex) $
+        throwM $ Internal "Starting index cannot be larger than the beginning index."    
 
     -- Find the end main block at the end index if it exists, and return it.
     foundEndBlock <- findMainBlockWithIndex tipHash blocksEndIndex >>=
@@ -225,7 +211,7 @@ getLastBlocks limit offset = do
     pure mainBlocks >>= traverse toBlockEntry
   where
     offsetInt           = toInteger offset
-    limitInt            = toInteger limit
+    limitInt            = toInteger limit - 1 -- Remove included block
     getBlockIndex block = toInteger $ getChainDifficulty $ block ^. difficultyL
 
     -- | Find block matching the sent index/difficulty.
@@ -246,14 +232,115 @@ getLastBlocks limit offset = do
             -- search fails.
             block <- DB.getBlock @SscGodTossing headerHash >>=
                 maybeThrow (Internal "Block with hash cannot be found!")
+
             -- If there is a block then iterate backwards with the predicate
             let prevBlock = block ^. prevBlockL
 
-            if getBlockIndex block == index
+            -- If the index is correct and it's a @Main@ block
+            if (getBlockIndex block == index) && (isRight block)
                 -- When the predicate is true, return the @Main@ block
                 then pure $ block ^? _Right
                 -- When the predicate is false, keep searching backwards
                 else findMainBlockWithIndex prevBlock index
+
+
+-- | Get the total number of blocks/slots currently available.
+-- Total number of main blocks   = difficulty of the topmost (tip) header.
+-- Total number of anchor blocks = current epoch + 1
+getBlocksTotal
+    :: (MonadDB m)
+    => m Integer
+getBlocksTotal = do
+    -- Get the tip block.
+    tipBlock <- DB.getTipBlock @SscGodTossing
+
+    pure $ maxBlocks tipBlock
+  where
+    maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
+
+
+-- | Get last blocks with a page parameter. This enables easier paging on the
+-- client side and should enable a simple and thin client logic.
+-- Currently the pages are in chronological order.
+getBlocksPage 
+    :: (MonadDB m, MonadSlots m) 
+    => Word 
+    -> Word 
+    -> m (Integer, [CBlockEntry])
+getBlocksPage pageNumber pageSize = do
+
+    -- Get total blocks in the blockchain.
+    blocksTotal <- toInteger <$> getBlocksTotal
+
+    -- Get total pages from the blocks.
+    totalPages <- getBlocksPagesTotal pageSize
+
+    -- Make sure the parameters are valid.
+    when (pageNumberInt > totalPages) $
+        throwM $ Internal "Number of pages exceeds total pages number."
+
+    when (pageSize > 1000) $
+        throwM $ Internal "The upper bound for pageSize is 1000."
+
+    -- Calculate the start position. We use Integer so we don't underflow Word
+    -- and go on the end.
+    let startPosition     = blocksTotal - (fromIntegral calculateOffset)
+    let safeStartPosition = max 0 startPosition
+
+    -- Let's calculate the maximum number of rows seens if on last page.
+    let calculateLimit    = if (pageNumberInt == totalPages) && 
+                               (blocksTotal `mod` pageSizeInt /= 0)
+                            then blocksTotal `mod` pageSizeInt
+                            else pageSizeInt
+
+    -- Fetch last blocks
+    pageBlocks <- 
+        getLastBlocks (fromIntegral calculateLimit) (fromIntegral safeStartPosition)
+
+    -- Return total pages and the blocks. We start from page 1.
+    pure (totalPages, pageBlocks)
+  where
+    calculateOffset = pageNumber * pageSize
+    pageNumberInt   = toInteger pageNumber
+    pageSizeInt     = toInteger pageSize
+
+
+-- | Get total pages from blocks. Calculated from 
+-- pageSize we pass to it.
+getBlocksPagesTotal
+    :: (MonadDB m)
+    => Word
+    -> m Integer
+getBlocksPagesTotal pageSize = do
+    -- Get total blocks in the blockchain.
+    blocksTotal <- toInteger <$> getBlocksTotal
+
+    -- Get total pages from the blocks. And we want the page 
+    -- with the example, the page size 10,
+    -- to start with 10 + 1 == 11, not with 10 since with
+    -- 10 we'll have an empty page.
+    let totalPages = (blocksTotal - 1) `div` pageSizeInt
+
+    -- We start from page 1.
+    pure (totalPages + 1)
+  where
+    pageSizeInt     = toInteger pageSize
+
+
+-- | Get the last page from the blockchain. We use the default 10
+-- for the page size since this is called from __explorer only__.
+getBlocksLastPage
+    :: (MonadDB m, MonadSlots m) 
+    => m (Integer, [CBlockEntry])
+getBlocksLastPage = do
+    -- The default page size for the __explorer__.
+    let pageSize = 10
+
+    -- Get total pages from the blocks.
+    totalPages <- getBlocksPagesTotal pageSize
+
+    getBlocksPage (fromIntegral totalPages) pageSize
+
 
 -- | Get last transactions from the blockchain
 getLastTxs :: ExplorerMode m => Word -> Word -> m [CTxEntry]
@@ -268,12 +355,16 @@ getLastTxs (fromIntegral -> lim) (fromIntegral -> off) = do
 
     pure $ tiToTxEntry <$> localTxsWithTs <> blockTxsWithTs
 
+
+-- | Get block summary
 getBlockSummary :: ExplorerMode m => CHash -> m CBlockSummary
 getBlockSummary cHash = do
     h <- unwrapOrThrow $ fromCHash cHash
     mainBlock <- getMainBlock h
     toBlockSummary mainBlock
 
+
+-- | Get transactions from a block.
 getBlockTxs :: ExplorerMode m => CHash -> Word -> Word -> m [CTxBrief]
 getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
     h <- unwrapOrThrow $ fromCHash cHash
@@ -285,6 +376,10 @@ getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
                                       \have extra info in DB")
         pure $ makeTxBrief tx extra
 
+
+-- | Get address summary. Can return several addresses.
+-- @PubKeyAddress@, @ScriptAddress@, @RedeemAddress@ and finally
+-- @UnknownAddressType@.
 getAddressSummary :: ExplorerMode m => CAddress -> m CAddressSummary
 getAddressSummary cAddr = do
     addr <- cAddrToAddr cAddr
@@ -315,6 +410,7 @@ getAddressSummary cAddr = do
         ScriptAddress _ -> CScriptAddress
         RedeemAddress _ -> CRedeemAddress
         UnknownAddressType _ _ -> CUnknownAddress
+
 
 -- | Get transaction summary from transaction id. Looks at both the database
 -- and the memory (mempool) for the transaction. What we have at the mempool
@@ -395,6 +491,37 @@ getTxSummary cTxId = do
             let txOutputs     = convertTxOutputs . NE.toList $ _txOutputs tx
                 ts            = toPosixTime <$> blkSlotStart
             pure (ts, Just blockHeight, Just epochIndex, Just slotIndex, txOutputs)
+
+
+-- | Search the blocks by epoch and slot. Slot is optional.
+epochSlotSearch
+    :: (ExplorerMode m)
+    => EpochIndex
+    -> Maybe Word16
+    -> m [CBlockEntry]
+epochSlotSearch epochIndex slotIndex = do
+    blocks <- findBlocksByEpoch >>= traverse toBlockEntry
+    if null blocks
+        then throwM $ Internal "No epoch/slots found."
+        else pure blocks
+  where
+    findBlocksByEpoch = getBlocksByEpoch @SscGodTossing epochIndex localSlotIndex
+    localSlotIndex    = fmap LocalSlotIndex slotIndex
+
+    -- | Get all blocks by epoch and slot. The slot is optional, if it exists,
+    -- it just adds another predicate to match it.
+    getBlocksByEpoch
+        :: (SscHelpersClass ssc, ExplorerMode m)
+        => EpochIndex
+        -> Maybe LocalSlotIndex
+        -> m [MainBlock ssc]
+    getBlocksByEpoch epochIndex' mSlotIndex = do
+        tipHash <- GS.getTip
+        filterMainBlocks tipHash findBlocksByEpochPred
+          where
+            findBlocksByEpochPred mb = (siEpoch $ mb ^. blockSlot) == epochIndex' &&
+                    fromMaybe True ((siSlot (mb ^. blockSlot) ==) <$> mSlotIndex)
+
 
 --------------------------------------------------------------------------------
 -- Helpers

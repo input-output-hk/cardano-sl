@@ -3,11 +3,13 @@ module Explorer.Util.String.Test where
 import Prelude
 import Control.Monad.Aff (Aff)
 import Control.Monad.State (StateT)
+import Data.Either (Either(..))
 import Data.Identity (Identity)
-import Data.Tuple (Tuple (..))
-import Data.Either (Either (..))
-import Data.Maybe (Maybe (..))
-import Explorer.Util.String (substitute, parseSearchEpoch)
+import Data.Maybe (Maybe(..))
+import Data.Tuple (Tuple(..))
+import Explorer.I18n.Lang (Language(..))
+import Explorer.Util.Factory (mkCoin)
+import Explorer.Util.String (formatADA, substitute, parseSearchEpoch)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -48,3 +50,22 @@ testStringUtil =
                 let result = Right $ Tuple (Just 583) Nothing
                     expected = parseSearchEpoch "583,aa"
                 result `shouldEqual` expected
+        describe "formatADA" do
+            it "formats big number of lovelaces using EN format" do
+                let result = formatADA (mkCoin "123456789123456789") English
+                result `shouldEqual` "123,456,789,123.456789"
+            it "formats zero lovelaces using EN format" do
+                let result = formatADA (mkCoin "0") English
+                result `shouldEqual` "0.000000"
+            it "formats big number of lovelaces using DE format" do
+                let result = formatADA (mkCoin "123456789123456789") German
+                result `shouldEqual` "123.456.789.123,456789"
+            it "formats zero lovelaces using DE format" do
+                let result = formatADA (mkCoin "0") German
+                result `shouldEqual` "0,000000"
+            it "formats big number of lovelaces using JP format" do
+                let result = formatADA (mkCoin "123456789123456789") Japanese
+                result `shouldEqual` "123,456,789,123.456789"
+            it "formats zero lovelaces using JP format" do
+                let result = formatADA (mkCoin "0") Japanese
+                result `shouldEqual` "0.000000"

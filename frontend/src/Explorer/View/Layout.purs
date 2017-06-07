@@ -4,7 +4,7 @@ import Prelude
 import Data.Lens ((^.))
 import Explorer.Lenses.State (gViewMobileMenuOpenend, globalViewState, route, viewStates)
 import Explorer.Routes (Route(..))
-import Explorer.Types.Actions (Action(..))
+import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
 import Explorer.View.Address (addressView)
 import Explorer.View.Block (blockView)

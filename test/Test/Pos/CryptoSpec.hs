@@ -327,7 +327,7 @@ proxySignVerifyDifferentKey issuerSk delegateSk pk2 w m =
   where
     proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
     signature = Crypto.proxySign Crypto.SignForTestingOnly delegateSk proxySk m
-    sigBroken = signature { Crypto.pdPsk = proxySk { Crypto.pskIssuerPk = pk2 } }
+    sigBroken = signature { Crypto.psigPsk = proxySk { Crypto.pskIssuerPk = pk2 } }
 
 proxySignVerifyDifferentData
     :: (Bi a, Eq a, Bi w, Eq w)

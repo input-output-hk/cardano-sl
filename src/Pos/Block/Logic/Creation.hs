@@ -39,20 +39,21 @@ import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Types            (Undo (..))
 import           Pos.Constants              (curSoftwareVersion, lastKnownBlockVersion,
                                              slotSecurityParam)
-import           Pos.Context                (BlkSemaphore, NodeParams,
-                                             lrcActionOnEpochReason, npSecretKey)
+import           Pos.Context                (BlkSemaphore, MonadPrimaryKey, NodeParams,
+                                             getOurSecretKey, lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
-                                             EpochOrSlot (..), HeaderHash, ProxySKEither,
-                                             SlotId (..), SlotLeaders, crucialSlot,
-                                             epochOrSlot, flattenSlotId, getEpochOrSlot,
-                                             getSlotIndex, headerHash, mkLocalSlotIndex)
+                                             EpochOrSlot (..), HeaderHash, SlotId (..),
+                                             SlotLeaders, crucialSlot, epochOrSlot,
+                                             flattenSlotId, getEpochOrSlot, getSlotIndex,
+                                             headerHash, mkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
 import           Pos.Delegation.Logic       (clearDlgMemPool, getDlgMempool)
-import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), mkDlgPayload)
+import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), ProxySKBlockInfo,
+                                             mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Lrc.Error              (LrcError (..))
@@ -71,6 +72,7 @@ import           Pos.Util.Util              (leftToPanic)
 
 type CreationMode ssc m
      = ( BlockApplyMode ssc m
+       , MonadPrimaryKey m
        , Ether.MonadReader' BlkSemaphore m
        , Ether.MonadReader' NodeParams m
        )
@@ -157,7 +159,7 @@ createMainBlock
     :: forall ssc m.
        (CreationMode ssc m)
     => SlotId
-    -> Maybe ProxySKEither
+    -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlock sId pske =
     reportingFatal version $ withBlkSemaphore createMainBlockDo
@@ -207,7 +209,7 @@ createMainBlockFinish
     :: forall ssc m.
        (CreationMode ssc m)
     => SlotId
-    -> Maybe ProxySKEither
+    -> ProxySKBlockInfo
     -> BlockHeader ssc
     -> ExceptT Text m (MainBlock ssc)
 createMainBlockFinish slotId pske prevHeader = do
@@ -221,7 +223,7 @@ createMainBlockFinish slotId pske prevHeader = do
     createBlundFromMemPool = do
         (rawPay, undoNoUS) <- getRawPayloadAndUndo slotId
         -- Create block
-        sk <- Ether.asks' npSecretKey
+        sk <- getOurSecretKey
         -- 100 bytes is substracted to account for different unexpected
         -- overhead.  You can see that in bitcoin blocks are 1-2kB less
         -- than limit. So i guess it's fine in general.
@@ -294,7 +296,7 @@ createMainBlockPure
        (MonadError Text m, SscHelpersClass ssc)
     => Byte                   -- ^ Block size limit (real max.value)
     -> BlockHeader ssc
-    -> Maybe ProxySKEither
+    -> ProxySKBlockInfo
     -> SlotId
     -> SecretKey
     -> RawPayload ssc

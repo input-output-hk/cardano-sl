@@ -60,6 +60,7 @@ library
                         Pos.Communication.MessagePart
                         Pos.Communication.PeerState
                         Pos.Communication.Protocol
+                        Pos.Communication.Specs
                         Pos.Communication.Relay
                         Pos.Communication.Relay.Class
                         Pos.Communication.Relay.Logic
@@ -67,7 +68,10 @@ library
                         Pos.Communication.Relay.Util
                         Pos.Communication.Util
 
-                        -- Pos.Communication
+                        -- Recovery
+                        Pos.Recovery.Info
+
+                        -- Pos.Shutdown
                         Pos.Shutdown
                         Pos.Shutdown.Class
                         Pos.Shutdown.Logic
@@ -78,6 +82,7 @@ library
                         Pos.Binary.Infra.DHTModel
                         Pos.Binary.Infra.Slotting
                         Pos.Binary.Infra.Communication
+                        Pos.Binary.Infra.Relay
 
                         -- Pos.Util
                         Pos.Util.LogSafe

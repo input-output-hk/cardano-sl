@@ -4,7 +4,6 @@ module Main
   ( main
   ) where
 
-import           Control.Applicative        (empty)
 import           Data.Aeson                 (decode, fromJSON, json')
 import qualified Data.Aeson                 as A
 import           Data.Attoparsec.ByteString (eitherResult, many', parseWith)
@@ -15,11 +14,10 @@ import           Data.Time.Clock            (UTCTime)
 import           Data.Time.Clock.POSIX      (posixSecondsToUTCTime)
 import           Data.Time.Units            (Millisecond)
 import           Formatting                 (fixed, int, sformat, shown, string, (%))
-import           Options.Applicative.Simple (simpleOptions)
 import           Universum
 import           Unsafe                     (unsafeFromJust)
 
-import           AnalyzerOptions            (Args (..), argsParser)
+import           AnalyzerOptions            (Args (..), getAnalyzerOptions)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
                                              JLTimedEvent (..), fromJLSlotId)
@@ -29,13 +27,7 @@ type BlockId = Text
 
 main :: IO ()
 main = do
-    (Args {..}, ()) <-
-        simpleOptions
-            "cardano-analyzer"
-            "PoS prototype log analyzer"
-            "Use it!"
-            argsParser
-            empty
+    Args {..} <- getAnalyzerOptions
     logs <- parseFiles files
 
     case txFile of

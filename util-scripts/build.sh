@@ -33,7 +33,7 @@ set -o pipefail
 # * Pass --ram or do `touch .ram`. if you have lots of RAM and want to
 #   make builds faster
 
-projects="core db lrc infra update ssc godtossing"
+projects="core db lrc infra update ssc godtossing txp"
 
 args=''
 

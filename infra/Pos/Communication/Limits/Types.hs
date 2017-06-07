@@ -62,11 +62,11 @@ class Limiter (LimitType a) =>
     type LimitType a :: *
     type LimitType a = Limit a
 
-    getMsgLenLimit :: DB.MonadGStateCore m => Proxy a -> m (LimitType a)
+    getMsgLenLimit :: DB.MonadGState m => Proxy a -> m (LimitType a)
 
     default getMsgLenLimit :: ( LimitType a ~ Limit a
                               , MessageLimitedPure a
-                              , DB.MonadGStateCore m
+                              , DB.MonadGState m
                               ) => Proxy a -> m (LimitType a)
     getMsgLenLimit _ = pure msgLenLimit
 
@@ -133,7 +133,7 @@ type SmartLimit s a = LimitedLengthExt s (LimitType a) a
 -- | Used to provide type @s@, which carries limit on length
 -- of message @a@ (via Data.Reflection).
 reifyMsgLimit
-    :: forall a m b. (DB.MonadGStateCore m, MessageLimited a)
+    :: forall a m b. (DB.MonadGState m, MessageLimited a)
     => Proxy a
     -> (forall s. Reifies s (LimitType a) => Proxy s -> m b)
     -> m b

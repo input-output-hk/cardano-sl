@@ -30,7 +30,7 @@ import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
                                            prevBlockL, prevBlockL)
 import qualified Pos.DB.GState            as GS
-import           Pos.Delegation.Logic     (delegationVerifyBlocks)
+import           Pos.Delegation.Logic     (dlgVerifyBlocks)
 import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShotNoLock)
 import           Pos.Reporting            (reportingFatal)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
@@ -46,7 +46,7 @@ import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..
 -- -- CHECK: @verifyBlocksLogic
 -- -- #txVerifyBlocks
 -- -- #sscVerifyBlocks
--- -- #delegationVerifyBlocks
+-- -- #dlgVerifyBlocks
 -- -- #usVerifyBlocks
 -- | Verify new blocks. If parent of the first block is not our tip,
 -- verification fails. All blocks must be from the same epoch.  This
@@ -73,7 +73,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     TxpGlobalSettings {..} <- Ether.ask'
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
         map toTxpBlock blocks
-    pskUndo <- ExceptT $ delegationVerifyBlocks blocks
+    pskUndo <- ExceptT $ dlgVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT pretty $
         usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
     -- Eventually we do a sanity check just in case and return the result.

@@ -70,7 +70,7 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
-import           Pos.DB.Class                     (MonadGStateCore)
+import           Pos.DB.Class                     (MonadGState)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (MonadReportingMem, rcReportServers)
@@ -118,10 +118,9 @@ import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
                                                    mkGenesisWalletUserSecret, wusAccounts,
                                                    wusWalletName)
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
-                                                   WalletWebSockets, closeWSConnection,
-                                                   getWalletWebSockets,
-                                                   getWalletWebSockets, initWSConnection,
-                                                   notify, upgradeApplicationWS)
+                                                   WalletWebSockets, closeWSConnections,
+                                                   getWalletWebSockets, initWSConnections,
+                                                   notifyAll, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (AccountLookupMode (..), WalletWebDB,
                                                    WebWalletModeDB, addOnlyNewTxMeta,
                                                    addRemovedAccount, addUpdate,
@@ -157,7 +156,7 @@ type WalletWebMode m
       , MonadKeys m -- FIXME: Why isn't it implied by the
                     -- WalletMode constraint above?
       , WebWalletModeDB m
-      , MonadGStateCore m
+      , MonadGState m
       , MonadWalletWebSockets m
       , MonadReportingMem m
       , MonadWalletTracking m
@@ -213,9 +212,9 @@ bracketWalletWS
        )
     => (ConnectionsVar -> m a)
     -> m a
-bracketWalletWS = bracket initWS closeWSConnection
+bracketWalletWS = bracket initWS closeWSConnections
   where
-    initWS = putText "walletServeImpl initWsConnection" >> initWSConnection
+    initWS = putText "walletServeImpl initWsConnection" >> initWSConnections
 
 ----------------------------------------------------------------------------
 -- Notifier
@@ -252,26 +251,26 @@ launchNotifier nat =
             \networkDifficulty -> do
                 oldNetworkDifficulty <- use spNetworkCD
                 when (Just networkDifficulty /= oldNetworkDifficulty) $ do
-                    lift $ notify $ NetworkDifficultyChanged networkDifficulty
+                    lift $ notifyAll $ NetworkDifficultyChanged networkDifficulty
                     spNetworkCD .= Just networkDifficulty
 
         localDifficulty <- localChainDifficulty
         oldLocalDifficulty <- use spLocalCD
         when (localDifficulty /= oldLocalDifficulty) $ do
-            lift $ notify $ LocalDifficultyChanged localDifficulty
+            lift $ notifyAll $ LocalDifficultyChanged localDifficulty
             spLocalCD .= localDifficulty
 
         peers <- connectedPeers
         oldPeers <- use spPeers
         when (peers /= oldPeers) $ do
-            lift $ notify $ ConnectedPeersChanged peers
+            lift $ notifyAll $ ConnectedPeersChanged peers
             spPeers .= peers
 
     updateNotifier = do
         cps <- waitForUpdate
         addUpdate $ toCUpdateInfo cps
         logDebug "Added update to wallet storage"
-        notify UpdateAvailable
+        notifyAll UpdateAvailable
 
     -- historyNotifier :: WalletWebMode m => m ()
     -- historyNotifier = do
@@ -281,7 +280,7 @@ launchNotifier nat =
     --         oldHistoryLength <- length . fromMaybe mempty <$> getAccountHistory cAddress
     --         newHistoryLength <- length <$> getHistory cAddress
     --         when (oldHistoryLength /= newHistoryLength) .
-    --             notify $ NewWalletTransaction cAddress
+    --             notifyAll $ NewWalletTransaction cAddress
 
 walletServerOuts :: OutSpecs
 walletServerOuts = sendTxOuts
@@ -387,9 +386,9 @@ getWAddressBalance addr =
     getBalance <=< decodeCIdOrFail $ cwamId addr
 
 getWAddress :: WalletWebMode m => CWAddressMeta -> m CAddress
-getWAddress cAddr = do
-    balance <- mkCCoin <$> getWAddressBalance cAddr
-    return $ CAddress (cwamId cAddr) balance
+getWAddress cAddr@CWAddressMeta{..} = do
+    balance <- getWAddressBalance cAddr
+    return $ CAddress cwamId (mkCCoin balance) (balance > minBound)
 
 getAccountAddrsOrThrow
     :: (WebWalletModeDB m, MonadThrow m)
@@ -415,7 +414,6 @@ getAccount accId = do
                mapM getWAddressBalance mergedAccAddrs
     meta <- getAccountMeta accId >>= maybeThrow noWallet
     pure $ CAccount (encodeCType accId) meta mergedAccs balance
-
   where
     noWallet =
         RequestError $ sformat ("No account with address "%build%" found") accId
@@ -440,6 +438,8 @@ decodeCIdOrFail = either wrongAddress pure . cIdToAddress
   where wrongAddress err = throwM . DecodeError $
             sformat ("Error while decoding CId: "%stext) err
 
+-- TODO: these two could be removed if we decide to encode endpoint result
+-- to CType automatically
 decodeCAccountIdOrFail :: MonadThrow m => CAccountId -> m AccountId
 decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
   where wrongAddress err = throwM . DecodeError $
@@ -448,6 +448,7 @@ decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
 decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
 decodeCCoinOrFail c =
     coinFromCCoin c `whenNothing` throwM (DecodeError "Wrong coin format")
+
 
 getWalletAccountIds :: WalletWebMode m => CId Wal -> m [AccountId]
 getWalletAccountIds wSet = filter ((== wSet) . aiWSId) <$> getWAddressIds
@@ -767,7 +768,7 @@ rederiveAccountAddress
     => EncryptedSecretKey -> PassPhrase -> CWAddressMeta -> m CWAddressMeta
 rederiveAccountAddress newSK newPass CWAddressMeta{..} = do
     (accAddr, _) <- maybeThrow badPass $
-        deriveLvl2KeyPair newPass newSK caaWalletIndex cwamAccountIndex
+        deriveLvl2KeyPair newPass newSK cwamWalletIndex cwamAccountIndex
     return CWAddressMeta
         { cwamWSId      = encToCId newSK
         , cwamId        = addressToCId accAddr

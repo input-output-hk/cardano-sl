@@ -1,7 +1,16 @@
 module Pos.Core.Genesis
        (
+       -- * /genesis-core.bin/
+         StakeDistribution(..)
+       , GenesisCoreData(..)
+       , compileGenCoreData
+       -- ** Derived data
+       , genesisAddresses
+       , genesisStakeDistribution
+       , genesisBalances
+
        -- * Constants
-         genesisDevKeyPairs
+       , genesisDevKeyPairs
        , genesisDevPublicKeys
        , genesisDevSecretKeys
        , genesisDevHdwSecretKeys
@@ -9,18 +18,25 @@ module Pos.Core.Genesis
        -- * Utils
        , generateGenesisKeyPair
        , generateHdwGenesisSecretKey
+       , getTotalStake
        ) where
 
 import           Universum
 
-import qualified Data.Text              as T
-import           Formatting             (int, sformat, (%))
+import           Data.Default            (def)
+import qualified Data.Text               as T
+import           Formatting              (int, sformat, (%))
 
-import           Pos.Binary.Crypto      ()
-import           Pos.Core.Constants     (genesisN)
-import           Pos.Crypto.SafeSigning (EncryptedSecretKey, emptyPassphrase,
-                                         safeDeterministicKeyGen)
-import           Pos.Crypto.Signing     (PublicKey, SecretKey, deterministicKeyGen)
+import           Pos.Binary.Crypto       ()
+import           Pos.Core.Address        (makePubKeyAddress)
+import           Pos.Core.Constants      (genesisN, isDevelopment)
+import           Pos.Core.Genesis.Parser (compileGenCoreData)
+import           Pos.Core.Genesis.Types  (GenesisCoreData (..), StakeDistribution (..),
+                                          getTotalStake)
+import           Pos.Core.Types          (Address, Coin, StakeholderId)
+import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
+                                          safeDeterministicKeyGen)
+import           Pos.Crypto.Signing      (PublicKey, SecretKey, deterministicKeyGen)
 
 ----------------------------------------------------------------------------
 -- Constants
@@ -61,3 +77,23 @@ generateHdwGenesisSecretKey =
     flip safeDeterministicKeyGen emptyPassphrase .
     encodeUtf8 .
     T.take 32 . sformat ("My 32-byte hdw seed #" %int % "                  ")
+
+----------------------------------------------------------------------------
+-- GenesisCore-derived data
+----------------------------------------------------------------------------
+
+-- | List of addresses in genesis. See 'genesisPublicKeys'.
+genesisAddresses :: [Address]
+genesisAddresses
+    | isDevelopment = map makePubKeyAddress genesisDevPublicKeys
+    | otherwise     = gcdAddresses compileGenCoreData
+
+genesisStakeDistribution :: StakeDistribution
+genesisStakeDistribution
+    | isDevelopment = def
+    | otherwise     = gcdDistribution compileGenCoreData
+
+genesisBalances :: HashMap StakeholderId Coin
+genesisBalances
+    | isDevelopment = mempty
+    | otherwise     = gcdBootstrapBalances compileGenCoreData

@@ -10,15 +10,11 @@ module Pos.WorkMode
        , TxpExtra_TMP
 
        -- * Actual modes
-       , RawRealModeK
-       , RawRealModeS
        , ProductionMode
        , RawRealMode(..)
        , ServiceMode(..)
-       , StatsMode
        , StaticMode
        ) where
-
 
 import           Universum
 
@@ -41,7 +37,8 @@ import           Pos.Communication.PeerState    (PeerStateCtx, PeerStateRedirect
 import           Pos.Context                    (NodeContext)
 import           Pos.DB                         (DBPureRedirect, MonadGState, NodeDBs)
 import           Pos.DB.Block                   (BlockDBRedirect, MonadBlockDBWrite)
-import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDBRead, MonadDB)
+import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDB,
+                                                 MonadDBRead)
 import           Pos.DB.DB                      (GStateCoreRedirect)
 import           Pos.Delegation.Class           (DelegationVar)
 import           Pos.Discovery.Holders          (DiscoveryConstT, DiscoveryKademliaT)
@@ -51,7 +48,6 @@ import           Pos.Slotting.MemState.Holder   (SlotsDataRedirect)
 import           Pos.Slotting.Ntp               (NtpSlottingVar, SlotsRedirect)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState)
-import           Pos.Statistics.MonadStats      (NoStatsT, StatsT)
 import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Types                      (HeaderHash)
 import           Pos.Util.Util                  (PowerLift (..))
@@ -168,21 +164,13 @@ instance
             ((r -> a) -> RawRealMode ssc a))
         (Ether.reader @tag)
 
--- | RawRealMode + kademlia. Used in wallet too.
-type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)
-
--- | RawRealMode + static peers.
-type RawRealModeS ssc = DiscoveryConstT (RawRealMode ssc)
-
 -- | ProductionMode is an instance of WorkMode which is used
--- (unsurprisingly) in production.
-type ProductionMode ssc = NoStatsT $ RawRealModeK ssc
+-- (unsurprisingly) in production. It uses kademlia for DHT.
+type ProductionMode ssc = DiscoveryKademliaT (RawRealMode ssc)
 
--- | StatsMode is used for remote benchmarking.
-type StatsMode ssc = StatsT $ RawRealModeK ssc
-
--- | Fixed peer discovery without stats.
-type StaticMode ssc = NoStatsT $ RawRealModeS ssc
+-- | Fixed peer discovery without stats. Everything else is same as
+-- ProductionMode.
+type StaticMode ssc = DiscoveryConstT (RawRealMode ssc)
 
 -- | ServiceMode is the mode in which support nodes work.
 type ServiceMode' =

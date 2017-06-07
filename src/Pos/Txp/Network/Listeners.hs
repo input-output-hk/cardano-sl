@@ -21,7 +21,6 @@ import           Pos.Communication.Message ()
 import           Pos.Communication.Relay   (InvReqDataParams (..), MempoolParams (..),
                                             Relay (..))
 import           Pos.Crypto                (hash)
-import           Pos.Statistics            (StatProcessTx (..), statlogCountEvent)
 import           Pos.Txp.Core.Types        (TxAux (..), TxId)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local    (eTxProcessTransaction)
@@ -75,7 +74,6 @@ handleTxDo txAux = do
 #endif
     case res of
         Right _ -> do
-            statlogCountEvent StatProcessTx 1
             logInfo $
                 sformat ("Transaction has been added to storage: "%build) txId
             pure True

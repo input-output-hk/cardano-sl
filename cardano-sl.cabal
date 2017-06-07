@@ -87,8 +87,6 @@ library
                         Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
 
-                        Pos.Statistics
-
                         -- Client
                         Pos.Client.Txp.Balances
                         Pos.Client.Txp.History
@@ -242,21 +240,12 @@ library
 
                         Pos.Ssc.GodTossing.Arbitrary
 
-                        -- Statistics
-                        Pos.Statistics.Helpers
-                        Pos.Statistics.MonadStats
-                        Pos.Statistics.StatEntry
-                        Pos.Statistics.Tx
-
                         -- Txp
                         Pos.Txp.Arbitrary
                         Pos.Txp.Network
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
                         Pos.Txp.Worker
-
-                        -- Workers
-                        Pos.Worker.Stats
 
                         -- Update System
                         Pos.Update.Arbitrary.Core
@@ -1083,7 +1072,7 @@ executable cardano-launcher
   hs-source-dirs:      src/launcher
   main-is:             Main.hs
   build-depends:       ansi-wl-pprint
-                     , async 
+                     , async
                      , base
                      , optparse-simple
                      , cardano-report-server >= 0.1.1

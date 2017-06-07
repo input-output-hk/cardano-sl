@@ -54,7 +54,6 @@ data Args = Args
     , dhtPeersFile              :: !(Maybe FilePath)
       -- ^ A file containing a list of Kademlia peers to use.
     , dhtExplicitInitial        :: !Bool
-    , enableStats               :: !Bool
     , jlPath                    :: !(Maybe FilePath)
     , maliciousEmulationAttacks :: ![AttackType]
     , maliciousEmulationTargets :: ![AttackTarget]
@@ -124,9 +123,6 @@ argsParser = do
     dhtPeersList <- many addrNodeOption
     dhtPeersFile <- optional dhtPeersFileOption
     dhtExplicitInitial <- dhtExplicitInitialOption
-    enableStats <- switch $
-        long "stats" <>
-        help "Run node in benchmarking node (with statistics logging enabled)."
     jlPath <-
         CLI.optionalJSONPath
     maliciousEmulationAttacks <-

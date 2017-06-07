@@ -57,9 +57,6 @@ allWorkers = mconcatPair
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
     , wrap' "relay"      $ relayWorkers $ mconcat
         [delegationRelays, untag sscRelays, txRelays, usRelays]
-
-    -- I don't know, guys, I don't know :(
-    -- , const ([], mempty) statsWorkers
     ]
   where
     properSlottingWorkers =

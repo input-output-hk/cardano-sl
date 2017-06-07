@@ -108,6 +108,7 @@ class FromCType c where
    -- | Way to decode from @CType@.
    decodeCType :: c -> Either Text (FromOriginType c)
 
+-- This is not used for now
 class ToCType c where
    -- | Same as 'FromOriginType'. For some types they actually differ,
    -- e.g. 'PassPhrase' is decoded from @Maybe CPassPhrase@ but encoded

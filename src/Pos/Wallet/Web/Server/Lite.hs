@@ -32,6 +32,7 @@ import           Pos.DB.Block                  (runBlockDBRedirect)
 import           Pos.Discovery                 (getPeers, runDiscoveryConstT)
 import           Pos.Reporting.MemState        (ReportingContext, emptyReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
+import           Pos.Util.TimeWarp             (runWithoutJsonLogT)
 import           Pos.Wallet.KeyStorage         (KeyData)
 import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.State              (getWalletState)
@@ -100,6 +101,7 @@ convertHandler
 convertHandler mws kd ws wsConn peers handler = do
     stateM <- liftIO SM.newIO
     liftIO ( runProduction
+           . runWithoutJsonLogT
            . usingLoggerName "wallet-lite-api"
            . flip Ether.runReadersT
                 ( Tagged @PeerStateTag stateM

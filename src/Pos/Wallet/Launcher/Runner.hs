@@ -25,6 +25,7 @@ import           Pos.Discovery               (findPeers, runDiscoveryConstT)
 import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
                                               runServer_)
 import           Pos.Reporting.MemState      (ReportingContext, emptyReportingContext)
+import           Pos.Util.TimeWarp           (runWithoutJsonLogT)
 import           Pos.Util.Util               ()
 import           Pos.Wallet.KeyStorage       (KeyData, keyDataFromFile)
 import           Pos.Wallet.Launcher.Param   (WalletParams (..))
@@ -88,27 +89,28 @@ runRawStaticPeersWallet
     -> Production a
 runRawStaticPeersWallet transport peers WalletParams {..}
                         listeners (ActionSpec action, outs) =
-    usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
-        stateM <- liftIO SM.newIO
-        keyData <- keyDataFromFile wpKeyFilePath
-        flip Ether.runReadersT
-            ( Tagged @PeerStateTag stateM
-            , Tagged @KeyData keyData
-            , Tagged @WalletState db
-            , Tagged @ReportingContext emptyReportingContext ) .
-            runDBPureRedirect .
-            runBlockDBRedirect .
-            runTxHistoryWalletRedirect .
-            runBalancesWalletRedirect .
-            runGStateCoreWalletRedirect .
-            runPeerStateRedirect .
-            runUpdatesNotImplemented .
-            runBlockchainInfoNotImplemented .
-            runBListenerStub .
-            (\(RawWalletMode m) -> m) .
-            runDiscoveryConstT peers .
-            runServer_ transport listeners outs . ActionSpec $ \vI sa ->
-            logInfo "Started wallet, joining network" >> action vI sa
+    runWithoutJsonLogT $
+        usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
+            stateM <- liftIO SM.newIO
+            keyData <- keyDataFromFile wpKeyFilePath
+            flip Ether.runReadersT
+                ( Tagged @PeerStateTag stateM
+                , Tagged @KeyData keyData
+                , Tagged @WalletState db
+                , Tagged @ReportingContext emptyReportingContext ) .
+                runDBPureRedirect .
+                runBlockDBRedirect .
+                runTxHistoryWalletRedirect .
+                runBalancesWalletRedirect .
+                runGStateCoreWalletRedirect .
+                runPeerStateRedirect .
+                runUpdatesNotImplemented .
+                runBlockchainInfoNotImplemented .
+                runBListenerStub .
+                (\(RawWalletMode m) -> m) .
+                runDiscoveryConstT peers .
+                runServer_ transport listeners outs . ActionSpec $ \vI sa ->
+                logInfo "Started wallet, joining network" >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams wpBaseParams
     openDB =

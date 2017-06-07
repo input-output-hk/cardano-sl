@@ -1,5 +1,4 @@
-{-# LANGUAGE TypeFamilies #-}
-
+{-# LANGUAGE TypeFamilies #-} 
 -- | Monadic layer for collecting stats
 
 module Pos.Statistics.MonadStats
@@ -19,12 +18,12 @@ import qualified Data.Binary                  as Binary
 import           Data.Coerce                  (coerce)
 import qualified Ether
 import           Focus                        (Decision (Remove), alterM)
+import           Pos.Util.TimeWarp            (CanJsonLog (..))
 import           Serokell.Util                (show')
 import qualified STMContainers.Map            as SM
 import           Universum
 
 import           Pos.Statistics.StatEntry     (StatLabel (..))
-import           Pos.Util.JsonLog             (MonadJL, jlLog)
 import           Pos.Util.Util                (ether)
 
 
@@ -76,7 +75,7 @@ runStatsT' = flip Ether.runReaderT
 getStatsMap :: Monad m => StatsT m StatsMap
 getStatsMap = Ether.ask'
 
-instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
+instance (MonadIO m, CanJsonLog m) => MonadStats (StatsT m) where
     statLog label entry = do
         statsMap <- ether ask
         atomically $ SM.focus update (show' label) statsMap
@@ -89,6 +88,6 @@ instance (MonadIO m, MonadJL m) => MonadStats (StatsT m) where
         statsMap <- ether ask
         mval <- atomically $ SM.focus reset (show' label) statsMap
         let val = fromMaybe mempty $ Binary.decode <$> mval
-        lift $ jlLog $ toJLEvent label val
+        lift $ jsonLog $ toJLEvent label val
       where
         reset old = return (old, Remove)

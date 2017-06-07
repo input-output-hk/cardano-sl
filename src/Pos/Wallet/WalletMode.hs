@@ -75,6 +75,7 @@ import           Pos.Ssc.Class                  (Ssc)
 import           Pos.Txp                        (filterUtxoByAddrs, runUtxoStateT)
 import           Pos.Update                     (ConfirmedProposalState (..))
 import           Pos.Update.Context             (UpdateContext (ucUpdateSemaphore))
+import           Pos.Util.TimeWarp              (CanJsonLog, JsonLogT)
 import           Pos.Util.Util                  (PowerLift (..))
 import           Pos.Wallet.KeyStorage          (KeyData, MonadKeys)
 import qualified Pos.Wallet.State               as WS
@@ -307,8 +308,9 @@ type RawWalletMode' =
         , Tagged ReportingContext ReportingContext
         ) (
     LoggerNameBox (
+    JsonLogT (
     Production
-    )))))))))))
+    ))))))))))))
 
 newtype RawWalletMode a = RawWalletMode (RawWalletMode' a)
   deriving
@@ -342,6 +344,7 @@ deriving instance MonadBlockchainInfo (RawWalletMode)
 deriving instance MonadBalances (RawWalletMode)
 deriving instance MonadTxHistory (RawWalletMode)
 deriving instance WithPeerState (RawWalletMode)
+deriving instance CanJsonLog (RawWalletMode)
 
 instance PowerLift m (RawWalletMode') => PowerLift m (RawWalletMode) where
   powerLift = RawWalletMode . powerLift

@@ -44,6 +44,7 @@ import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
 import           Pos.Ssc.Extra                 (SscMemTag, SscState)
 import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
                                                 askTxpMem)
+import           Pos.Util.TimeWarp             (runWithoutJsonLogT)
 import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.WalletMode         (runBlockchainInfoRedirect,
                                                 runUpdatesRedirect)
@@ -116,6 +117,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
 
     rawRunner :: forall t . RawRealMode WalletSscType t -> IO t
     rawRunner (RawRealMode act) = runProduction
+           . runWithoutJsonLogT
            . usingLoggerName "wallet-api"
            . flip Ether.runReadersT nc
            . (\m -> do

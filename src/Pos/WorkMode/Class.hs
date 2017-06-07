@@ -12,9 +12,8 @@ module Pos.WorkMode.Class
     , TxpExtra_TMP
     ) where
 
-import           Universum
-
 import           Control.Monad.Catch         (MonadMask)
+import           Control.Monad.IO.Class      (MonadIO)
 import qualified Ether
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
@@ -48,7 +47,7 @@ import           Pos.Statistics.MonadStats   (MonadStats)
 import           Pos.Txp.MemState            (MonadTxpMem)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
-import           Pos.Util.JsonLog            (MonadJL)
+import           Pos.Util.TimeWarp           (CanJsonLog)
 
 -- Something extremely unpleasant.
 -- TODO: get rid of it after CSL-777 is done.
@@ -91,7 +90,6 @@ type WorkMode ssc m
       , Ether.MonadReader' TxpGlobalSettings m
       , MonadSscContext ssc m
       , MonadStats m
-      , MonadJL m
       , WithPeerState m
       , MonadShutdownMem m
       , MonadBListener m
@@ -101,6 +99,7 @@ type WorkMode ssc m
 -- | More relaxed version of 'WorkMode'.
 type MinWorkMode m
     = ( WithLogger m
+      , CanJsonLog m
       , MonadMockable m
       , MonadIO m
       , WithPeerState m

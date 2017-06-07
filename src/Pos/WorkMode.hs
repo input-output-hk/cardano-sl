@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE PolyKinds           #-}
 
 module Pos.WorkMode
        ( WorkMode
@@ -23,11 +24,11 @@ module Pos.WorkMode
 import           Universum
 
 import           Control.Monad.Fix
+import           Control.Monad.Trans.Identity   (IdentityT (..))
 import qualified Control.Monad.Trans.Lift.Local as Lift
 import           Data.Coerce
 import           Data.Tagged                    (Tagged)
 import qualified Ether
-
 import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
                                                  MFunctor' (..), Mockable (..), Promise,
                                                  SharedAtomicT, SharedExclusiveT,
@@ -55,6 +56,7 @@ import           Pos.Statistics.MonadStats      (NoStatsT, StatsT)
 import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Types                      (HeaderHash)
 import           Pos.Util.Util                  (PowerLift (..))
+import           Pos.Util.TimeWarp              (JsonLogT, CanJsonLog (..))
 import           Pos.Wallet.WalletMode          (BlockchainInfoRedirect, MonadBalances,
                                                  MonadBlockchainInfo, MonadTxHistory,
                                                  MonadUpdates, UpdatesRedirect)
@@ -89,8 +91,10 @@ type RawRealMode' ssc =
         , Tagged PeerStateTag (PeerStateCtx Production)
         ) (
     Ether.ReadersT (NodeContext ssc) (
-    LoggerNameBox Production
-    )))))))))))))
+    LoggerNameBox (
+    JsonLogT
+    Production
+    ))))))))))))))
 
 newtype RawRealMode ssc a = RawRealMode (RawRealMode' ssc a)
   deriving
@@ -126,6 +130,7 @@ deriving instance SscHelpersClass ssc => MonadBlockchainInfo (RawRealMode ssc)
 deriving instance MonadBalances (RawRealMode ssc)
 deriving instance MonadTxHistory (RawRealMode ssc)
 deriving instance WithPeerState (RawRealMode ssc)
+deriving instance CanJsonLog (RawRealMode ssc)
 
 instance PowerLift m (RawRealMode' ssc) => PowerLift m (RawRealMode ssc) where
   powerLift = RawRealMode . powerLift
@@ -188,8 +193,9 @@ type StaticMode ssc = NoStatsT $ RawRealModeS ssc
 type ServiceMode' =
     PeerStateRedirect (
     Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
-    LoggerNameBox Production
-    ))
+    LoggerNameBox (
+    JsonLogT Production
+    )))
 
 newtype ServiceMode a = ServiceMode (ServiceMode' a)
   deriving
@@ -214,6 +220,7 @@ type instance Counter (ServiceMode) = Counter Production
 deriving instance CanLog (ServiceMode)
 deriving instance HasLoggerName (ServiceMode)
 deriving instance WithPeerState (ServiceMode)
+deriving instance CanJsonLog (ServiceMode)
 
 instance PowerLift m ServiceMode' => PowerLift m (ServiceMode) where
   powerLift = ServiceMode . powerLift

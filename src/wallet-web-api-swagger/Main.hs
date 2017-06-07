@@ -43,6 +43,7 @@ import           Pos.Types                          (ApplicationName, BlockVersi
                                                      ChainDifficulty, Coin,
                                                      SoftwareVersion)
 import           Pos.Util.BackupPhrase              (BackupPhrase)
+import           Pos.Util.Servant                   (CDecodeArg, VerbMod)
 import qualified Pos.Wallet.Web                     as W
 
 import qualified Description                        as D
@@ -147,8 +148,11 @@ instance {-# OVERLAPPING #-} (Typeable a, ToSchema a) => ToSchema (Either W.Wall
     declareNamedSchema proxy = genericDeclareNamedSchema defaultSchemaOptions proxy
         & mapped . name ?~ show (typeRep (Proxy @(Either W.WalletError a)))
 
-instance HasSwagger v => HasSwagger (W.WalletVerb v) where
+instance HasSwagger v => HasSwagger (VerbMod mod v) where
     toSwagger _ = toSwagger (Proxy @v)
+
+instance HasSwagger (apiType a :> res) => HasSwagger (CDecodeArg apiType a :> res) where
+    toSwagger _ = toSwagger (Proxy @(apiType a :> res))
 
 -- | Wallet API operations.
 walletOp

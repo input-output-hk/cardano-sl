@@ -28,6 +28,8 @@ data WalletError
     = RequestError !Text
     -- | Internal info, which ideally should never happen
     | InternalError !Text
+    -- | Failed to decode from @CType@ to original type
+    | DecodeError !Text
     deriving (Show, Generic)
 
 makePrisms ''WalletError
@@ -37,6 +39,7 @@ instance Exception WalletError
 instance Buildable WalletError where
     build (RequestError  msg) = bprint ("Request error ("%stext%")") msg
     build (InternalError msg) = bprint ("Internal error ("%stext%")") msg
+    build (DecodeError   msg) = bprint ("Decoding error ("%stext%")") msg
 
 rewrapToWalletError :: MonadCatch m => m a -> m a
 rewrapToWalletError = flip catches

@@ -47,13 +47,14 @@ import           Servant.API            (FromHttpApiData (..))
 import           Universum
 import qualified Pos.Binary             as Bi
 import           Pos.Crypto             (Hash, hash)
-import           Pos.DB                 (MonadDB, MonadDBPure)
+import           Pos.Ssc.GodTossing     (SscGodTossing)
+import           Pos.DB.Block           (MonadBlockDB)
+import           Pos.DB.Class           (MonadDB, MonadDBPure)
 import qualified Pos.DB.GState          as GS
 import           Pos.Lrc                (getLeaders)
 import           Pos.Explorer           (TxExtra (..))
 import           Pos.Merkle             (getMerkleRoot, mtRoot)
 import           Pos.Slotting           (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..),
                                          _txOutputs, txpTxs)
 import           Pos.Block.Core         (MainBlock, mcdSlot, mainBlockSlot, mainBlockTxPayload)
@@ -140,8 +141,8 @@ toPosixTime :: Timestamp -> POSIXTime
 toPosixTime = (/ 1e6) . fromIntegral
 
 toBlockEntry
-    :: (SscHelpersClass ssc, MonadDB m, MonadSlots m, MonadThrow m)
-    => MainBlock ssc
+    :: (MonadBlockDB SscGodTossing m, MonadDBPure m, MonadDB m, MonadSlots m, MonadThrow m)
+    => MainBlock SscGodTossing
     -> m CBlockEntry
 toBlockEntry blk = do
 
@@ -177,7 +178,7 @@ toBlockEntry blk = do
 -- Returning @Maybe@ is the simplest implementation for now, since it's hard
 -- to forsee what is and what will the state of leaders be at any given moment.
 getLeaderFromEpochSlot
-    :: (MonadDB m)
+    :: (MonadBlockDB SscGodTossing m, MonadDBPure m, MonadDB m)
     => EpochIndex
     -> LocalSlotIndex
     -> m (Maybe StakeholderId)
@@ -217,8 +218,8 @@ data CBlockSummary = CBlockSummary
     } deriving (Show, Generic)
 
 toBlockSummary
-    :: (SscHelpersClass ssc, MonadSlots m, MonadDB m, MonadDBPure m)
-    => MainBlock ssc
+    :: (MonadBlockDB SscGodTossing m, MonadDBPure m, MonadDB m, MonadSlots m, MonadThrow m)
+    => MainBlock SscGodTossing
     -> m CBlockSummary
 toBlockSummary blk = do
     cbsEntry <- toBlockEntry blk

@@ -43,18 +43,20 @@ import qualified Data.Set                       as S
 import           Formatting                     (sformat, shown, stext, (%))
 import           Network.EngineIO               (SocketId)
 import           Network.SocketIO               (Socket, socketId)
+import           Pos.Block.Core                 (Block, mainBlockTxPayload)
 import qualified Pos.Block.Logic                as DB
 import           Pos.Crypto                     (withHash)
 import           Pos.Crypto                     (hash)
-import           Pos.DB                         (MonadDB)
 import qualified Pos.DB.Block                   as DB
+import           Pos.DB.Class                   (MonadDBPure)
 import qualified Pos.DB.GState                  as DB
 import           Pos.Explorer                   (TxExtra (..))
 import qualified Pos.Explorer                   as DB
-import           Pos.Ssc.Class                  (SscHelpersClass)
-import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
-                                                 txOutAddress)
-import           Pos.Types                      (Address, Block, HeaderHash, blockTxs)
+import           Pos.Ssc.GodTossing             (SscGodTossing)
+import           Pos.Txp                        (Tx (..), TxOut (..),
+                                                 TxOutAux (..), txOutAddress,
+                                                 txpTxs)
+import           Pos.Types                      (Address, HeaderHash)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (getOldestFirst)
 import           System.Wlog                    (WithLogger, logDebug, logError,
@@ -62,19 +64,24 @@ import           System.Wlog                    (WithLogger, logDebug, logError,
 import           Universum
 
 import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Socket.Holder     (ClientContext, ConnectionsState,
-                                                 ccAddress, ccBlockOff, ccConnection,
+import           Pos.Explorer.Socket.Holder     (ClientContext,
+                                                 ConnectionsState, ccAddress,
+                                                 ccBlockOff, ccConnection,
                                                  csAddressSubscribers,
-                                                 csBlocksPageSubscribers,
                                                  csBlocksOffSubscribers,
+                                                 csBlocksPageSubscribers,
                                                  csBlocksSubscribers, csClients,
-                                                 csTxsSubscribers, mkClientContext)
+                                                 csTxsSubscribers,
+                                                 mkClientContext)
 import           Pos.Explorer.Socket.Util       (EventName (..), emitTo)
-import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxEntry (..), TxInternal (..),
-                                                 fromCAddress, tiToTxEntry, toBlockEntry)
+import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxEntry (..),
+                                                 TxInternal (..), fromCAddress,
+                                                 tiToTxEntry, toBlockEntry)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Explorer.Web.Server        (ExplorerMode, getLastBlocks,
-                                                 getBlocksLastPage, topsortTxsOrFail)
+import           Pos.Explorer.Web.Server        (ExplorerMode,
+                                                 getBlocksLastPage,
+                                                 getLastBlocks,
+                                                 topsortTxsOrFail)
 
 -- * Event names
 
@@ -346,8 +353,8 @@ notifyBlocksLastPageSubscribers = do
     broadcast BlocksLastPageUpdated blocks recipients
 
 notifyBlocksSubscribers
-    :: (NotificationMode m, SscHelpersClass ssc)
-    => [Block ssc] -> m ()
+    :: (NotificationMode m)
+    => [Block SscGodTossing] -> m ()
 notifyBlocksSubscribers blocks = do
     recipients <- view csBlocksSubscribers
     cblocks    <- catMaybes <$> forM blocks toClientType
@@ -375,16 +382,15 @@ notifyTxsSubscribers cTxEntries =
 
 -- | Gets blocks from recent inclusive to old one exclusive.
 getBlocksFromTo
-    :: forall ssc m.
-       (MonadDB m, SscHelpersClass ssc)
-    => HeaderHash -> HeaderHash -> m (Maybe [Block ssc])
+    :: (ExplorerMode m)
+    => HeaderHash -> HeaderHash -> m (Maybe [Block SscGodTossing])
 getBlocksFromTo recentBlock oldBlock = do
-    mheaders <- DB.getHeadersFromToIncl @ssc oldBlock recentBlock
+    mheaders <- DB.getHeadersFromToIncl @SscGodTossing oldBlock recentBlock
     forM (getOldestFirst <$> mheaders) $ \(_ :| headers) ->
-        fmap catMaybes $ forM headers DB.getBlock
+        fmap catMaybes $ forM headers (DB.blkGetBlock @SscGodTossing)
 
 addrsTouchedByTx
-    :: (MonadDB m, WithLogger m)
+    :: (MonadDBPure m, WithLogger m)
     => Tx -> m (S.Set Address)
 addrsTouchedByTx tx = do
     -- for each transaction, get its OutTx
@@ -398,11 +404,11 @@ addrsTouchedByTx tx = do
     return . S.fromList $ txOutAddress <$> relatedTxs
 
 getBlockTxs
-    :: (MonadDB m, WithLogger m)
+    :: (ExplorerMode m)
     => Block ssc -> m [TxInternal]
 getBlockTxs (Left  _  ) = return []
 getBlockTxs (Right blk) = do
-    txs <- topsortTxsOrFail withHash $ toList $ blk ^. blockTxs
+    txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
     forM txs $ \tx -> do
         TxExtra {..} <- DB.getTxExtra (hash tx) >>=
             maybeThrow (Internal "In-block transaction doesn't \
@@ -410,7 +416,7 @@ getBlockTxs (Right blk) = do
         pure $ TxInternal teReceivedTime tx
 
 getTxInfo
-    :: (MonadDB m, WithLogger m)
+    :: (ExplorerMode m)
     => TxInternal -> m (CTxEntry, S.Set Address)
 getTxInfo tx = do
     let cTxEntry = tiToTxEntry tx

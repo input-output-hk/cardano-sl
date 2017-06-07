@@ -28,7 +28,7 @@ module Pos.Explorer.Socket.Holder
        ) where
 
 import qualified Control.Concurrent.STM      as STM
-import           Control.Concurrent.STM.TVar (TVar, readTVarIO)
+--import           Control.Concurrent.STM.TVar (TVar)
 import           Control.Lens                (makeClassy)
 import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
 import           Control.Monad.Reader        (MonadReader)

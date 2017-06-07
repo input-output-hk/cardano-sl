@@ -61,6 +61,7 @@ import           Control.Arrow          ((&&&))
 import qualified Data.ByteString.Lazy   as LBS
 import           Data.Default           (Default, def)
 import           Data.Hashable          (Hashable (..))
+import qualified Data.Set               as S
 import           Data.Text              (Text, isInfixOf, splitOn, toLower)
 import           Data.Text.Buildable    (build)
 import           Data.Time.Clock.POSIX  (POSIXTime)
@@ -164,8 +165,9 @@ mkCTx
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
+    -> [CId Addr]         -- ^ Addresses of wallet
     -> CTx
-mkCTx diff THEntry {..} meta = CTx {..}
+mkCTx diff THEntry {..} meta wAddrs = CTx {..}
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
@@ -174,6 +176,7 @@ mkCTx diff THEntry {..} meta = CTx {..}
     ctMeta = meta
     ctInputAddrs = map addressToCId _thInputAddrs
     ctOutputAddrs = map addressToCId _thOutputAddrs
+    ctIsOutgoing = not . null $ S.fromList wAddrs `S.intersection` S.fromList ctInputAddrs
 
 newtype CPassPhrase = CPassPhrase Text
     deriving (Eq, Generic)
@@ -272,7 +275,7 @@ data CWalletAssurance
     | CWANormal
     deriving (Show, Eq, Generic)
 
--- | Single account in a wallet
+-- | Single address in a account
 data CAddress = CAddress
     { cadId     :: !(CId Addr)
     , cadAmount :: !CCoin
@@ -287,8 +290,8 @@ data CAccountMeta = CAccountMeta
 instance Default CAccountMeta where
     def = CAccountMeta "Personal Wallet"
 
--- | Client Wallet (CW)
--- (Flow type: walletType)
+-- | Client Account (CA)
+-- (Flow type: accountType)
 data CAccount = CAccount
     { caId        :: !CAccountId
     , caMeta      :: !CAccountMeta
@@ -296,7 +299,7 @@ data CAccount = CAccount
     , caAmount    :: !CCoin
     } deriving (Show, Generic, Typeable)
 
--- | Query data for wallet creation
+-- | Query data for account creation
 data CAccountInit = CAccountInit
     { caInitMeta :: !CAccountMeta
     , cwInitWId  :: !(CId Wal)
@@ -318,7 +321,7 @@ data CWalletMeta = CWalletMeta
 instance Default CWalletMeta where
     def = CWalletMeta "Personal Wallet Set" CWANormal 0
 
--- | Client Wallet Set (CW)
+-- | Client Wallet (CW)
 data CWallet = CWallet
     { cwId             :: !(CId Wal)
     , cwMeta           :: !CWalletMeta
@@ -328,8 +331,7 @@ data CWallet = CWallet
     , cwPassphraseLU   :: !PassPhraseLU  -- last update time
     } deriving (Eq, Show, Generic)
 
--- TODO: Newtype?
--- | Query data for wallet set creation
+-- | Query data for wallet creation
 data CWalletInit = CWalletInit
     { cwInitMeta     :: !CWalletMeta
     , cwBackupPhrase :: !BackupPhrase
@@ -396,6 +398,7 @@ data CTx = CTx
     , ctMeta          :: CTxMeta
     , ctInputAddrs    :: [CId Addr]
     , ctOutputAddrs   :: [CId Addr]
+    , ctIsOutgoing    :: Bool        -- ^ true for A -> A transactions
     } deriving (Show, Generic, Typeable)
 
 txContainsTitle :: Text -> CTx -> Bool

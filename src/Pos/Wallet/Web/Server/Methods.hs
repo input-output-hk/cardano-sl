@@ -700,7 +700,8 @@ addHistoryTx cAccId title desc wtx@THEntry{..} = do
     let cId = txIdToCTxId _thTxId
     addOnlyNewTxMeta wAddr cId meta
     meta' <- fromMaybe meta <$> getTxMeta wAddr cId
-    return $ mkCTx diff wtx meta'
+    accAddrs <- map cwamId <$> getAccountAddrsOrThrow Ever cAccId
+    return $ mkCTx diff wtx meta' accAddrs
 
 
 newWAddress

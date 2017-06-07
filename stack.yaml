@@ -93,6 +93,7 @@ extra-deps:
 - servant-multipart-0.10
 - ether-0.5.0.0
 - transformers-lift-0.2.0.1
+- store-0.4.3.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

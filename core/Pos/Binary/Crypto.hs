@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ViewPatterns        #-}
 
 -- | Serializable instances for Pos.Crypto.*
@@ -16,10 +17,11 @@ import qualified Crypto.Sign.Ed25519        as EdStandard
 import qualified Data.Binary                as Binary
 import qualified Data.ByteArray             as ByteArray
 import qualified Data.ByteString            as BS
-import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Lazy       as BSL
 import           Data.Functor.Contravariant (contramap)
 import           Data.SafeCopy              (SafeCopy (..))
 import qualified Data.Store                 as Store
+import qualified Data.Store.TH              as Store
 import           Formatting                 (int, sformat, stext, (%))
 
 import           Pos.Binary.Class           (AsBinary (..), Bi (..), Size (..),
@@ -71,34 +73,46 @@ instance HashAlgorithm algo => Bi (AbstractHash algo a) where
 -- SecretSharing
 ----------------------------------------------------------------------------
 
--- #define BiPvss(T, PT) \
---   instance Bi T where {\
---     size = Store.size ;\
---     put = Store.poke ;\
---     get = label "T" Store.peek }; \
---   deriving instance Bi PT ;\
+-- [CSL-1122] TODO: move elsewhere?
+constantSizedBinaryToStoreGet :: Binary.Binary a => Int -> Store.Peek a
+constantSizedBinaryToStoreGet bytes = do
+    x <- getByteString bytes
+    case Binary.decodeOrFail (BSL.fromStrict x) of
+        Left (_, _, err) -> fail err
+        Right (bs, _, res)
+            | BSL.null bs -> pure res
+            | otherwise   -> fail "unconsumed input"
 
--- CSL-1122 implement
-#define BiPvss(T, PT) \
+-- [CSL-1122] TODO: more efficient 'put' and 'get' are possible if 'Store'
+-- instances are added into pvss-haskell
+#define BiPvss(T, PT, BYTES) \
   instance Bi T where {\
-    size = undefined ;\
-    put = undefined ;\
-    get = label "T" undefined }; \
+    size = ConstSize BYTES ;\
+    put = putByteString . BSL.toStrict . Binary.encode ;\
+    get = label "T" $ constantSizedBinaryToStoreGet BYTES };\
   deriving instance Bi PT ;\
 
-BiPvss (Pvss.PublicKey, VssPublicKey)
-BiPvss (Pvss.KeyPair, VssKeyPair)
-BiPvss (Pvss.Secret, Secret)
-BiPvss (Pvss.DecryptedShare, Share)
-BiPvss (Pvss.EncryptedShare, EncShare)
-BiPvss (Pvss.Proof, SecretProof)
+BiPvss (Pvss.PublicKey, VssPublicKey, 33)
+BiPvss (Pvss.KeyPair, VssKeyPair, 66)        -- 33+33
+BiPvss (Pvss.Secret, Secret, 33)
+BiPvss (Pvss.DecryptedShare, Share, 101)     -- 4+33+64
+BiPvss (Pvss.EncryptedShare, EncShare, 101)
+BiPvss (Pvss.Proof, SecretProof, 64)
 
--- CSL-1122 uncomment
---instance Store.Store SecretSharingExtra
+-- [CSL-1122] TODO: write some kind of 'binaryToStoreGet' to reduce
+-- boilerplate
+instance Store.Store Pvss.ExtraGen where
+    size = ConstSize 33
+    poke = putByteString . BSL.toStrict . Binary.encode
+    peek = label "Pvss.ExtraGen" $ constantSizedBinaryToStoreGet 33
+instance Store.Store Pvss.Commitment where
+    size = ConstSize 33
+    poke = putByteString . BSL.toStrict . Binary.encode
+    peek = label "Pvss.Commitment" $ constantSizedBinaryToStoreGet 33
+
+Store.makeStore ''SecretSharingExtra
 instance Bi SecretSharingExtra where
---    put = Store.poke
---    get = Store.peek
---    size = Store.size
+    put = Store.poke; get = Store.peek; size = Store.size
 
 deriving instance Bi (AsBinary SecretSharingExtra)
 
@@ -106,11 +120,11 @@ deriving instance Bi (AsBinary SecretSharingExtra)
 -- SecretSharing AsBinary
 ----------------------------------------------------------------------------
 
-#define BiMacro(B, Bytes) \
+#define BiMacro(B, BYTES) \
   instance Bi (AsBinary B) where {\
-    size = ConstSize Bytes ;\
+    size = ConstSize BYTES ;\
     put (AsBinary bs) = putByteString bs ;\
-    get = label "B (Bytes bytes)" $ AsBinary <$> getByteString Bytes}; \
+    get = label "B (BYTES bytes)" $ AsBinary <$> getByteString BYTES}; \
 
 BiMacro(VssPublicKey, 33)
 BiMacro(Secret, 33)

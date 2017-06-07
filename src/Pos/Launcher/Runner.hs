@@ -142,7 +142,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
     runResourceT $ usingLoggerName lpRunnerTag $ do
         initNC <- untag @ssc sscCreateNodeContext sscnp
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
-        let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
+        let allWorkersNum = 3 :: Int -- allWorkesCount @ssc @(ProductionMode ssc) :: Int
         -- TODO [CSL-775] ideally initialization logic should be in scenario.
         runCH @ssc allWorkersNum np initNC modernDBs .
             flip Ether.runReaderT' modernDBs .

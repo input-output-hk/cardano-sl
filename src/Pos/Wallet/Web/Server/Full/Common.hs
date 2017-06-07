@@ -12,6 +12,7 @@ module Pos.Wallet.Web.Server.Full.Common
 
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
+import           Control.Monad.Trans.Resource  (runResourceT)
 import           Data.Tagged                   (Tagged (..))
 import qualified Ether
 import           Mockable                      (runProduction)
@@ -113,6 +114,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
     kRunner (ki, wh) = rawRunner . runDiscoveryKademliaT ki . walletRunner $ wh
     walletRunner = runWalletWebDB ws . runWalletWS conn
     rawRunner = runProduction
+           . runResourceT
            . usingLoggerName "wallet-api"
            . flip Ether.runReadersT nc
            . (\m -> do

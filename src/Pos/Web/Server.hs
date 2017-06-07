@@ -18,6 +18,7 @@ import           Universum
 
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
+import           Control.Monad.Trans.Resource         (ResourceT, runResourceT)
 import           Data.Tagged                          (Tagged (..))
 import qualified Ether
 import           Mockable                             (Production (runProduction))
@@ -95,8 +96,9 @@ type WebHandler ssc =
         ( Tagged DB.NodeDBs DB.NodeDBs
         , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
         ) (
-    Ether.ReadersT (NodeContext ssc) Production
-    )
+    Ether.ReadersT (NodeContext ssc) (
+    ResourceT Production
+    ))
 
 convertHandler
     :: forall ssc a.
@@ -107,6 +109,7 @@ convertHandler
     -> Handler a
 convertHandler nc nodeDBs wrap handler =
     liftIO (runProduction .
+            runResourceT .
             flip Ether.runReadersT nc .
             flip Ether.runReadersT
               ( Tagged @DB.NodeDBs nodeDBs

@@ -35,6 +35,7 @@ import           Control.Concurrent.STM       (tryReadTMVar)
 import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Maybe    (MaybeT (..))
+import           Control.Monad.Trans.Resource (MonadResource, ResourceT)
 import           Data.Coerce                  (coerce)
 import           Data.Tagged                  (Tagged (..))
 import           Data.Time.Units              (Millisecond)
@@ -273,6 +274,7 @@ type WalletMode m
       , MonadUpdates m
       , WithPeerState m
       , MonadDiscovery m
+      , MonadResource m
       )
 
 ---------------------------------------------------------------
@@ -296,8 +298,9 @@ type RawWalletMode =
         , Tagged ReportingContext ReportingContext
         ) (
     LoggerNameBox (
+    ResourceT (
     Production
-    )))))))))))
+    ))))))))))))
 
 type WalletRealMode = DiscoveryKademliaT RawWalletMode
 

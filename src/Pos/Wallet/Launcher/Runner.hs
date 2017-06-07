@@ -5,37 +5,38 @@ module Pos.Wallet.Launcher.Runner
        , runWallet
        ) where
 
-import           Universum                   hiding (bracket)
+import           Universum                    hiding (bracket)
 
-import           Data.Tagged                 (Tagged (..))
+import           Control.Monad.Trans.Resource (runResourceT)
+import           Data.Tagged                  (Tagged (..))
 import qualified Ether
-import           Formatting                  (sformat, shown, (%))
-import           Mockable                    (Production, bracket, fork, sleepForever)
-import           Network.Transport.Abstract  (Transport)
-import qualified STMContainers.Map           as SM
-import           System.Wlog                 (logDebug, logInfo, usingLoggerName)
+import           Formatting                   (sformat, shown, (%))
+import           Mockable                     (Production, bracket, fork, sleepForever)
+import           Network.Transport.Abstract   (Transport)
+import qualified STMContainers.Map            as SM
+import           System.Wlog                  (logDebug, logInfo, usingLoggerName)
 
-import           Pos.Block.BListener         (runBListenerStub)
-import           Pos.Communication           (ActionSpec (..), MkListeners, NodeId,
-                                              OutSpecs, WorkerSpec)
-import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect)
-import           Pos.DB                      (runDBPureRedirect)
-import           Pos.DB.Block                (runBlockDBRedirect)
-import           Pos.Discovery               (findPeers, runDiscoveryConstT)
-import           Pos.Launcher                (BaseParams (..), LoggingParams (..),
-                                              runServer_)
-import           Pos.Reporting.MemState      (ReportingContext, emptyReportingContext)
-import           Pos.Util.Util               ()
-import           Pos.Wallet.KeyStorage       (KeyData, keyDataFromFile)
-import           Pos.Wallet.Launcher.Param   (WalletParams (..))
-import           Pos.Wallet.State            (closeState, openMemState, openState)
-import           Pos.Wallet.State.Acidic     (WalletState)
-import           Pos.Wallet.State.Core       (runGStateCoreWalletRedirect)
-import           Pos.Wallet.WalletMode       (WalletMode, WalletStaticPeersMode,
-                                              runBalancesWalletRedirect,
-                                              runBlockchainInfoNotImplemented,
-                                              runTxHistoryWalletRedirect,
-                                              runUpdatesNotImplemented)
+import           Pos.Block.BListener          (runBListenerStub)
+import           Pos.Communication            (ActionSpec (..), MkListeners, NodeId,
+                                               OutSpecs, WorkerSpec)
+import           Pos.Communication.PeerState  (PeerStateTag, runPeerStateRedirect)
+import           Pos.DB                       (runDBPureRedirect)
+import           Pos.DB.Block                 (runBlockDBRedirect)
+import           Pos.Discovery                (findPeers, runDiscoveryConstT)
+import           Pos.Launcher                 (BaseParams (..), LoggingParams (..),
+                                               runServer_)
+import           Pos.Reporting.MemState       (ReportingContext, emptyReportingContext)
+import           Pos.Util.Util                ()
+import           Pos.Wallet.KeyStorage        (KeyData, keyDataFromFile)
+import           Pos.Wallet.Launcher.Param    (WalletParams (..))
+import           Pos.Wallet.State             (closeState, openMemState, openState)
+import           Pos.Wallet.State.Acidic      (WalletState)
+import           Pos.Wallet.State.Core        (runGStateCoreWalletRedirect)
+import           Pos.Wallet.WalletMode        (WalletMode, WalletStaticPeersMode,
+                                               runBalancesWalletRedirect,
+                                               runBlockchainInfoNotImplemented,
+                                               runTxHistoryWalletRedirect,
+                                               runUpdatesNotImplemented)
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
 -- meaningful ones
@@ -87,7 +88,9 @@ runRawStaticPeersWallet
     -> Production a
 runRawStaticPeersWallet transport peers WalletParams {..}
                         listeners (ActionSpec action, outs) =
-    usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
+    runResourceT .
+    usingLoggerName lpRunnerTag .
+    bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
         keyData <- keyDataFromFile wpKeyFilePath
         flip Ether.runReadersT

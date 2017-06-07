@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Server.Lite
 
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
+import           Control.Monad.Trans.Resource  (runResourceT)
 import           Data.Tagged                   (Tagged (..))
 import           Ether                         (ask, local)
 import qualified Ether
@@ -100,6 +101,7 @@ convertHandler
 convertHandler mws kd ws wsConn peers handler = do
     stateM <- liftIO SM.newIO
     liftIO ( runProduction
+           . runResourceT
            . usingLoggerName "wallet-lite-api"
            . flip Ether.runReadersT
                 ( Tagged @PeerStateTag stateM

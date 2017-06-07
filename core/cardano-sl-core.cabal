@@ -134,6 +134,7 @@ library
                      , lens
                      , lrucache
                      , memory
+                     , monad-control
                      , mtl
                      , node-sketch
                      , parsec

@@ -2,7 +2,7 @@ module Pos.Binary.Core.Types () where
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..), Size (ConstSize), UnsignedVarInt (..),
+import           Pos.Binary.Class        (Bi (..), Size (..), UnsignedVarInt (..),
                                           combineSize, label, putWord8, sizeAddField,
                                           sizeOf)
 import qualified Pos.Binary.Core.Coin    as BinCoin
@@ -31,6 +31,7 @@ instance Bi (A.Attributes ()) where
     put = A.putAttributes (\() -> [])
 
 instance Bi T.Coin where
+    size = VarSize BinCoin.size
     put = mapM_ putWord8 . BinCoin.encode
     get = label "Coin" $ BinCoin.decode
 

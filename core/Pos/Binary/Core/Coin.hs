@@ -1,6 +1,7 @@
 module Pos.Binary.Core.Coin
        ( encode
        , decode
+       , size
        ) where
 
 import           Universum
@@ -71,6 +72,20 @@ encode :: Coin -> [Word8]
 encode (unsafeGetCoin -> w) = encodeVarint mega ++ encodeVarint (reversedBase10 micros)
   where
     (mega, micros) = w `divMod` 1000000
+
+size :: Coin -> Int
+size (unsafeGetCoin -> w) = sizeVarint mega + sizeVarint (reversedBase10 micros)
+  where
+    (mega, micros) = w `divMod` 1000000
+
+sizeVarint :: Word64 -> Int
+sizeVarint w
+    | w <= 0x7F         = 1
+    | w <= 0x3FFF       = 2
+    | w <= 0x1FFFFF     = 3
+    | w <= 0x0FFFFFFF   = 4
+    | w <= 0x0FFFFFFFFF = 5
+    | otherwise         = error $ "invalid encoding for integral part: " <> show w
 
 encodeVarint :: Word64 -> [Word8]
 encodeVarint w

@@ -77,6 +77,7 @@ module Pos.Binary.Class
 
        , convertSize
        , combineSize
+       , sizeOf
        , sizeAddField
        ) where
 
@@ -581,7 +582,7 @@ putWord8 = put @Word8
 instance Bi a => Bi (Tagged s a) where
     put (Tagged a) = put a
     get = Tagged <$> get
-    size = convertSize unTagged size
+    size = sizeOf unTagged
 
 ----------------------------------------------------------------------------
 -- Containers
@@ -794,10 +795,13 @@ convertSize :: (a -> b) -> Size b -> Size a
 convertSize _  (ConstSize s) = ConstSize s
 convertSize conv (VarSize f) = VarSize $ f . conv
 
+sizeOf :: Bi a => (x -> a) -> Size x
+sizeOf conv = convertSize conv size
+
 instance Bi a => Bi (NonEmpty a) where
     get = maybe (fail "Empty list") pure . nonEmpty =<< get
     put = put . toList
-    size = convertSize toList size
+    size = sizeOf toList
 
 instance (Bi a) => Bi (Maybe a) where
     size = VarSize $ \case
@@ -814,17 +818,17 @@ instance (Bi a) => Bi (Maybe a) where
 instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
     get = fmap HM.fromList get
     put = put . HM.toList
-    size = convertSize HM.toList size
+    size = sizeOf HM.toList
 
 instance (Hashable k, Eq k, Bi k) => Bi (HashSet k) where
     get = fmap HS.fromList get
     put = put . HS.toList
-    size = convertSize HS.toList size
+    size = sizeOf HS.toList
 
 instance (Ord k, Bi k) => Bi (Set k) where
     get = S.fromList <$> get
     put = put . S.toList
-    size = convertSize S.toList size
+    size = sizeOf S.toList
 
 -- Copy-pasted w/ modifications, license:
 -- https://github.com/bos/vector-binary-instances/blob/master/LICENSE
@@ -859,17 +863,17 @@ instance Bi Void where
 instance Bi Millisecond where
     put = put . toInteger
     get = fromInteger <$> get
-    size = convertSize toInteger size
+    size = sizeOf toInteger
 
 instance Bi Microsecond where
     put = put . toInteger
     get = fromInteger <$> get
-    size = convertSize toInteger size
+    size = sizeOf toInteger
 
 instance Bi Byte where
     put = put . toBytes
     get = fromBytes <$> get
-    size = convertSize toBytes size
+    size = sizeOf toBytes
 
 -- | Like 'isolate', but allows consuming less bytes than expected (just not
 -- more).

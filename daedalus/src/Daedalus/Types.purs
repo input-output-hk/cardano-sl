@@ -34,7 +34,7 @@ import Pos.Wallet.Web.ClientTypes (CId (..), CHash (..), CPassPhrase (..), CCoin
 
 import Pos.Wallet.Web.ClientTypes as CT
 import Pos.Core.Types as C
-import Pos.Wallet.Web.Error as E
+import Pos.Wallet.Web.Error.Types as E
 import Pos.Util.BackupPhrase (BackupPhrase (..))
 import Pos.Util.BackupPhrase as BP
 

@@ -15,6 +15,8 @@ module Pos.Wallet.Web.Server.Methods
 
        , bracketWalletWebDB
        , bracketWalletWS
+
+       , addInitialRichAccount
        ) where
 
 import           Universum
@@ -199,9 +201,8 @@ walletServer
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
-    nat >>= launchNotifier
-    addInitialRichAccount 0
     syncWSetsWithGStateLock @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
+    nat >>= launchNotifier
     (`enter` servantHandlers sendActions) <$> nat
 
 bracketWalletWebDB

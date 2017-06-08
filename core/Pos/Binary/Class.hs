@@ -659,19 +659,13 @@ instance Bi a => Bi [a] where
       replicateM len get
 
 instance (Bi a, Bi b) => Bi (Either a b) where
-    size = case size @a of
-             VarSize _ -> sizeImpl
-             ConstSize s1 ->
-                case size @b of
-                  VarSize _ -> sizeImpl
-                  ConstSize s2 ->
-                    if s1 == s2
-                       then ConstSize $ s1 + s2 + 1
-                       else sizeImpl
-      where
-        sizeImpl = VarSize $ \case
-                      Left a -> getSize a + 1
-                      Right b -> getSize b + 1
+    size = case (size @a, size @b) of
+        (ConstSize s1, ConstSize s2) | s1 == s2 ->
+            ConstSize (s1 + 1)
+        _other ->
+            VarSize $ \case
+                Left  a -> getSize a + 1
+                Right b -> getSize b + 1
     put (Left  a) = putWord8 0 *> put a
     put (Right b) = putWord8 1 *> put b
     get = do

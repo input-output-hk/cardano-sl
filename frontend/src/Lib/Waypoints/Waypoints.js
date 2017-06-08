@@ -1,4 +1,4 @@
-import('noframework.waypoints');
+require('noframework.waypoints');
 
 exports.waypointImpl = function (elementId, callback) {
   return function() {

@@ -1,6 +1,7 @@
 module Explorer.Update where
 
 import Prelude
+import CSS (selector)
 import Control.Comonad (extract)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff (Eff)
@@ -12,14 +13,14 @@ import DOM (DOM)
 import DOM.Event.Event (target)
 import DOM.HTML.HTMLElement (blur, focus)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (filter, snoc, take, (:))
 import DOM.Node.Node (contains)
-import DOM.Node.Types (elementToNode)
+import DOM.Node.Types (ElementId(..), elementToNode)
+import Data.Array (filter, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Debug.Trace (trace, traceAny, traceAnyM)
@@ -34,7 +35,7 @@ import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery,
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State)
 import Explorer.Util.Config (SyncAction(..), syncBySocket)
-import Explorer.Util.DOM (findElementById, scrollTop, targetToHTMLElement, targetToHTMLInputElement)
+import Explorer.Util.DOM (addClass, addClassToElement, classList, findElementById, removeClass, removeClassFromElement, scrollTop, targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Data (sortTxsByTime', unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
@@ -47,7 +48,9 @@ import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
-import Waypoints (WAYPOINT, WaypointDirection(..), WaypointSelector(..), waypoint)
+import Signal.Channel (channel, send)
+import Unsafe.Coerce (unsafeCoerce)
+import Waypoints (ExplorerWaypoints(..), WAYPOINT, WaypointDirection(..), WaypointSelector(..), waypoint)
 -- import Waypoints (WAYPOINT, WaypointSelector(..), waypoint)
 
 -- waypointHandler :: forall eff. Eff (waypoint :: WAYPOINT, console :: CONSOLE | eff) Unit
@@ -350,8 +353,15 @@ update (GenerateQrCode address) state =
         ]
     }
 
-update DashboardToggleHeader state =
-    noEffects $ state
+update (DashboardToggleHeader value) state =
+    trace "waypoint DashboardToggleHeader" \_
+        -> traceAny value \_ ->
+            noEffects $ state
+
+update (WaypointHandler value) state =
+    trace "waypoint WaypointHandler" \_
+        -> traceAny value \_ ->
+            noEffects $ state
 
 update (AddWaypoint selector) state =
     { state
@@ -360,15 +370,16 @@ update (AddWaypoint selector) state =
         ]
     }
     where
-        callback = \(WaypointDirection direction) -> do
-                          -- TODO(jk)
-                          -- Compare directions to send an action from here.
-                          -- Whith this action set a flag in the state,
-                          -- so that we know if hero UI is hidden or not.
-                          -- By changing the state we can change the CSS as well
-                          -- to animate the header
-                          log $ "waypoint callback wpDirection: " <> direction
-                          pure unit
+        callback = \(WaypointDirection direction) ->
+            -- TODO (jk)
+            -- 1. compare direction by using Sum types
+            -- 2. Add / remove "real" CSS class
+            if direction == "up"
+                then addClassToElement elemId "hello"
+                else removeClassFromElement elemId "hello"
+            where
+                elemId = ElementId $ unwrap selector
+
         waypoint' = waypoint selector callback
 
 update (StoreWaypoint wp) state = trace "waypoint store" \_ -> traceAny wp \_ -> noEffects $

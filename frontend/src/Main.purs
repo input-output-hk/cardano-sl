@@ -1,10 +1,7 @@
 module Main where
 
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Now (NOW)
-import Control.SocketIO.Client (SocketIO, connect, on)
-import DOM (DOM)
+import Control.SocketIO.Client (connect, on)
 import DOM.Event.EventTarget (addEventListener, eventListener)
 import DOM.HTML (window)
 import DOM.HTML.Event.EventTypes (click)
@@ -16,13 +13,12 @@ import Explorer.Api.Socket (blocksPageUpdatedEventHandler, callYouEventHandler, 
 import Explorer.I18n.Lang (Language(..), detectLocale)
 import Explorer.Lenses.State (connection, lang, socket, syncAction)
 import Explorer.Routes (match)
-import Explorer.Types.Actions (Action(..))
 import Explorer.Types.Actions (Action(..), ActionChannel) as Ex
+import Explorer.Types.App (AppEffects)
 import Explorer.Types.State (State) as Ex
 import Explorer.Update (update) as Ex
 import Explorer.Util.Config (SyncAction(..), hostname, isProduction, secureProtocol)
 import Explorer.View.Layout (view)
-import Network.HTTP.Affjax (AJAX)
 import Pos.Explorer.Socket.Methods (ServerEvent(..))
 import Prelude (bind, const, pure, ($), (*), (<$>), (<<<), (<>), (>>=), (>>>))
 import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
@@ -31,16 +27,6 @@ import Pux.Router (sampleUrl)
 import Signal (Signal, (~>))
 import Signal.Channel (channel, send, subscribe)
 import Signal.Time (every, second)
-import Waypoints (WAYPOINT)
-
-type AppEffects =
-    ( dom :: DOM
-    , ajax :: AJAX
-    , socket :: SocketIO
-    , now :: NOW
-    , waypoint :: WAYPOINT
-    , console :: CONSOLE
-    )
 
 type AppConfig = (Config Ex.State Ex.Action AppEffects)
 
@@ -88,12 +74,14 @@ commonConfig state actionChannel = do
     let actionSignal = subscribe actionChannel :: Signal Ex.Action
     -- register global (document) click listener
     -- globalClickListener :: forall eff. Event -> Eff (channel :: CHANNEL | eff) Unit
-    let globalClickListener event = send actionChannel $ DocumentClicked event
+    let globalClickListener event = send actionChannel $ Ex.DocumentClicked event
 
     window >>=
         document >>=
             htmlDocumentToEventTarget >>>
                 addEventListener click (eventListener globalClickListener) false
+
+    let sendActionFunc a = send actionChannel $ Ex.WaypointHandler a
 
     pure
         { initialState: set lang locale state
@@ -113,7 +101,7 @@ appSelector = "#explorer"
 
 main :: Ex.State -> Eff (CoreEffects AppEffects) (App Ex.State Ex.Action)
 main state = do
-    actionChannel <- channel NoOp
+    actionChannel <- channel Ex.NoOp
     appConfig <- commonConfig state actionChannel
     config <- case state ^. syncAction of
                   SyncByPolling -> pollingConfig appConfig
@@ -124,7 +112,7 @@ main state = do
 
 debug :: Ex.State -> Eff (CoreEffects AppEffects) (App Ex.State (Pux.Devtool.Action Ex.Action))
 debug state = do
-    actionChannel <- channel NoOp
+    actionChannel <- channel Ex.NoOp
     appConfig <- commonConfig state actionChannel
     config <- case state ^. syncAction of
                     SyncByPolling -> pollingConfig appConfig

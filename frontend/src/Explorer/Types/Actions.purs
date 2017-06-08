@@ -14,7 +14,7 @@ import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Pux.Html.Events (Target)
 import Signal.Channel (Channel)
-import Waypoints (Waypoint, WaypointSelector)
+import Waypoints (ExplorerWaypoints, Waypoint, WaypointSelector)
 
 data Action
     = SetLanguage Language
@@ -24,6 +24,7 @@ data Action
     | ScrollTop
     | SelectInputText HTMLInputElement
     | AddWaypoint WaypointSelector
+    | WaypointHandler ExplorerWaypoints
     | StoreWaypoint Waypoint
     | BlurElement HTMLElement
     | FocusElement HTMLElement
@@ -76,7 +77,7 @@ data Action
     | DashboardInvalidBlocksPageNumber Target       -- invalid page number
     | DashboardExpandTransactions Boolean           -- expand dashboard transactions
     | DashboardShowAPICode DashboardAPICode         -- toggle dashboard api
-    | DashboardToggleHeader                         -- toggle header ui
+    | DashboardToggleHeader Boolean                 -- toggle header ui
     -- address detail view
     | AddressPaginateTxs PageNumber             -- current pagination of transactions
     | AddressEditTxsPageNumber Target Boolean   -- toggle editable state of page numbers

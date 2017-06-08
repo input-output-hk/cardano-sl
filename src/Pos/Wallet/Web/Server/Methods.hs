@@ -394,8 +394,7 @@ getHistory cAddr skip limit = do
         lenHistory = length taHistory
         cached = drop (lenHistory - taCachedNum) taHistory
 
-    unless (null cached) $
-        updateHistoryCache cAddr taLastCachedHash taCachedUtxo (cached <> cachedTxs)
+    updateHistoryCache cAddr taLastCachedHash taCachedUtxo (cached <> cachedTxs)
 
     cHistory <- mapM (addHistoryTx cAddr ADA mempty mempty) fullHistory
     pure (paginate cHistory, fromIntegral $ length cHistory)

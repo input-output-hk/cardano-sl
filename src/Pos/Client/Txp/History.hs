@@ -231,7 +231,6 @@ instance ( MonadDB m
                 let mp (txid, (tx, txw, txd)) = (WithHash tx txid, txw, txd)
                 txs <- getRelatedTxs addr $ map mp ltxs
                 return $ txs ++ blkTxs
-
         mres <- runMaybeT $ do
             (cachedTxs, cachedUtxo) <- runUtxoStateT
                 (foldrM blockFetcher [] cachedHashes) genUtxo

@@ -52,7 +52,7 @@ library
                       , engine-io-snap
                       , exceptions
                       , either
-                      , ether
+                      , ether >= 0.5.1
                       , formatting
                       , lens
                       , log-warper

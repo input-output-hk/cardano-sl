@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Pos.Explorer.Web.Transform
@@ -36,12 +37,11 @@ import           Pos.Slotting                (NtpSlottingVar, SlottingVar,
 import           Pos.Slotting.Ntp            (runSlotsRedirect)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, askSscMem)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
-import           Pos.Statistics              (getNoStatsT)
 import           Pos.Txp                     (GenericTxpLocalData, TxpHolderTag,
                                               askTxpMem)
 import           Pos.Wallet                  (runBlockchainInfoRedirect,
                                               runUpdatesRedirect)
-import           Pos.WorkMode                (ProductionMode)
+import           Pos.WorkMode                (ProductionMode, RawRealMode (..))
 
 import           Pos.Explorer                (ExplorerExtra)
 import           Pos.Explorer.Socket.App     (NotifierSettings, notifierApp)
@@ -91,9 +91,10 @@ convertHandler
     -> ExplorerProd a
     -> Handler a
 convertHandler kinst nc modernDBs tlw ssc delWrap psCtx slotVar ntpSlotVar handler =
-    liftIO (rawRunner . runDiscoveryKademliaT kinst . getNoStatsT $ handler) `Catch.catches` excHandlers
+    liftIO (rawRunner . runDiscoveryKademliaT kinst $ handler) `Catch.catches` excHandlers
   where
-    rawRunner = runProduction
+    rawRunner :: forall t . RawRealMode SscGodTossing t -> IO t
+    rawRunner (RawRealMode act) = runProduction
            . usingLoggerName "explorer-api"
            . flip Ether.runReadersT nc
            . (\m -> do
@@ -118,5 +119,6 @@ convertHandler kinst nc modernDBs tlw ssc delWrap psCtx slotVar ntpSlotVar handl
            . runUpdatesRedirect
            . runBlockchainInfoRedirect
            . runBListenerStub
+           $ act
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError

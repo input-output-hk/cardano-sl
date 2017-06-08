@@ -42,7 +42,7 @@ import           Pos.Block.Core                 (Block, MainBlock,
                                                  mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.Constants                  (genesisHash)
-import           Pos.DB.Class                   (MonadDBPure)
+import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (Tx (..), TxAux, TxId,
@@ -232,7 +232,7 @@ getLastBlocks limit offset = do
 
     -- | Find block matching the sent index/difficulty.
     findMainBlockWithIndex
-        :: (DB.MonadBlockDB SscGodTossing m, MonadDBPure m)
+        :: (DB.MonadBlockDB SscGodTossing m, MonadDBRead m)
         => HeaderHash
         -> Integer
         -> m (Maybe (MainBlock SscGodTossing))
@@ -691,7 +691,7 @@ getMainBlock h =
 
 -- | Get transaction extra from the database, and if you don't find it
 -- throw an exception.
-getTxExtraOrFail :: MonadDBPure m => TxId -> m TxExtra
+getTxExtraOrFail :: MonadDBRead m => TxId -> m TxExtra
 getTxExtraOrFail txId = getTxExtra txId >>= maybeThrow exception
   where
     exception = Internal "Transaction not found"

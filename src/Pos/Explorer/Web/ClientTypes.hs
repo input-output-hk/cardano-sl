@@ -49,7 +49,7 @@ import qualified Pos.Binary             as Bi
 import           Pos.Crypto             (Hash, hash)
 import           Pos.Ssc.GodTossing     (SscGodTossing)
 import           Pos.DB.Block           (MonadBlockDB)
-import           Pos.DB.Class           (MonadDB, MonadDBPure)
+import           Pos.DB.Class           (MonadDBRead, MonadRealDB)
 import qualified Pos.DB.GState          as GS
 import           Pos.Lrc                (getLeaders)
 import           Pos.Explorer           (TxExtra (..))
@@ -141,7 +141,7 @@ toPosixTime :: Timestamp -> POSIXTime
 toPosixTime = (/ 1e6) . fromIntegral
 
 toBlockEntry
-    :: (MonadBlockDB SscGodTossing m, MonadDBPure m, MonadDB m, MonadSlots m, MonadThrow m)
+    :: (MonadBlockDB SscGodTossing m, MonadDBRead m, MonadRealDB m, MonadSlots m, MonadThrow m)
     => MainBlock SscGodTossing
     -> m CBlockEntry
 toBlockEntry blk = do
@@ -178,7 +178,7 @@ toBlockEntry blk = do
 -- Returning @Maybe@ is the simplest implementation for now, since it's hard
 -- to forsee what is and what will the state of leaders be at any given moment.
 getLeaderFromEpochSlot
-    :: (MonadBlockDB SscGodTossing m, MonadDBPure m, MonadDB m)
+    :: (MonadBlockDB SscGodTossing m, MonadDBRead m, MonadRealDB m)
     => EpochIndex
     -> LocalSlotIndex
     -> m (Maybe StakeholderId)
@@ -218,7 +218,7 @@ data CBlockSummary = CBlockSummary
     } deriving (Show, Generic)
 
 toBlockSummary
-    :: (MonadBlockDB SscGodTossing m, MonadDBPure m, MonadDB m, MonadSlots m, MonadThrow m)
+    :: (MonadBlockDB SscGodTossing m, MonadDBRead m, MonadRealDB m, MonadSlots m, MonadThrow m)
     => MainBlock SscGodTossing
     -> m CBlockSummary
 toBlockSummary blk = do

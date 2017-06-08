@@ -48,7 +48,7 @@ import qualified Pos.Block.Logic                as DB
 import           Pos.Crypto                     (withHash)
 import           Pos.Crypto                     (hash)
 import qualified Pos.DB.Block                   as DB
-import           Pos.DB.Class                   (MonadDBPure)
+import           Pos.DB.Class                   (MonadDBRead)
 import qualified Pos.DB.GState                  as DB
 import           Pos.Explorer                   (TxExtra (..))
 import qualified Pos.Explorer                   as DB
@@ -390,7 +390,7 @@ getBlocksFromTo recentBlock oldBlock = do
         fmap catMaybes $ forM headers (DB.blkGetBlock @SscGodTossing)
 
 addrsTouchedByTx
-    :: (MonadDBPure m, WithLogger m)
+    :: (MonadDBRead m, WithLogger m)
     => Tx -> m (S.Set Address)
 addrsTouchedByTx tx = do
     -- for each transaction, get its OutTx

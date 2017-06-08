@@ -6,7 +6,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: 214e7ac54fbb57007e18fdab4d274340371f2d19
+    commit: 1e5aab05fdd7d1971be6f367b13e509dd587c318
   extra-dep: true
   subdirs:
       - '.'
@@ -118,7 +118,7 @@ extra-deps:
 - servant-server-0.10             # so it triggers another dependencies to be v10
 - servant-swagger-1.1.2.1
 - servant-multipart-0.10
-- ether-0.5.0.0
+- ether-0.5.1.0
 - foundation-0.0.9
 - memory-0.14.5
 - transformers-lift-0.2.0.1
@@ -134,3 +134,5 @@ apply-ghc-options: everything
 flags:
   cardano-sl:
     with-explorer: True
+  ether:
+    disable-tup-instances: True

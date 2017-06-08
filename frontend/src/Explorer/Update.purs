@@ -388,7 +388,6 @@ update (DocumentClicked event) state =
             if (not (state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)))
             then
                 do
-                -- Let's go:
                 -- Check if any children of one of our three search containers has been clicked or not
                   heroSearchContainerClicked <- findElementById heroSearchContainerId >>= elementClicked
                   mobileMenuSearchContainerClicked <- findElementById mobileMenuSearchContainerId >>= elementClicked

@@ -52,7 +52,7 @@ findElementById id' = do
 -- | see https://developer.mozilla.org/en-US/docs/Web/API/Element/classList
 foreign import data DOMClassList :: *
 
--- | Grabs `classList` from `Element`
+-- | Returns a `classList` from `Element`
 foreign import classList :: forall eff. Element -> Eff (dom :: DOM | eff) DOMClassList
 
 
@@ -67,6 +67,7 @@ foreign import removeClassImpl :: forall eff. EffFn2 (dom :: DOM | eff) DOMClass
 removeClass :: forall eff. DOMClassList -> String -> Eff (dom :: DOM | eff) Unit
 removeClass = runEffFn2 removeClassImpl
 
+-- | Helper function to add a single `CSS` class to a `classList` of an HTML element
 addClassToElement :: forall eff. ElementId -> String -> Eff (dom :: DOM | eff) Unit
 addClassToElement elemId clazz = do
     el <- findElementById elemId
@@ -77,6 +78,7 @@ addClassToElement elemId clazz = do
         Nothing ->
             pure unit
 
+-- | Helper function to remove a single `CSS` class from a `classList` of an HTML element
 removeClassFromElement :: forall eff. ElementId -> String -> Eff (dom :: DOM | eff) Unit
 removeClassFromElement elemId clazz = do
     el <- findElementById elemId

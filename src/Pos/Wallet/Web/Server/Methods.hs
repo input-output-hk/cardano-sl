@@ -734,7 +734,12 @@ newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase CWalletInit {..} = do
     let CWalletMeta {..} = cwInitMeta
     cAddr <- genSaveRootAddress passphrase cwBackupPhrase
-    createWalletSafe cAddr cwInitMeta
+    wallet@CWallet{..} <- createWalletSafe cAddr cwInitMeta
+
+    let accMeta = CAccountMeta { caName = "Initial account" }
+    let accInit = CAccountInit { cwInitWId = cwId, caInitMeta = accMeta }
+    _ <- newAccount RandomSeed passphrase accInit
+    return wallet
 
 updateAccount :: WalletWebMode m => AccountId -> CAccountMeta -> m CAccount
 updateAccount accId wMeta = do

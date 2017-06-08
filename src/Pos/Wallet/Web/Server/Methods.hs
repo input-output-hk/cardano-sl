@@ -133,6 +133,7 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, E
                                                    getAccountMeta, getAccountWAddresses,
                                                    getHistoryCache, getNextUpdate,
                                                    getProfile, getTxMeta, getWAddressIds,
+                                                   isChangeAddress, addChangeAddress,
                                                    getWalletAddresses, getWalletMeta,
                                                    getWalletPassLU, openState,
                                                    removeAccount, removeNextUpdate,
@@ -402,7 +403,7 @@ getWAddress cAddr@CWAddressMeta {..} = do
             (Just cwamId)
             Nothing
     let isUsed = not (null ctxs) || balance > minBound
-    return $ CAddress cwamId (mkCCoin balance) isUsed
+    CAddress cwamId (mkCCoin balance) isUsed <$> isChangeAddress cAddr
 
 getAccountAddrsOrThrow
     :: (WebWalletModeDB m, MonadThrow m)
@@ -589,7 +590,7 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
         | remaining == mkCoin 0 = return Nothing
         | otherwise = do
             relatedWallet <- getMoneySourceAccount moneySource
-            account       <- newAddress RandomSeed passphrase relatedWallet
+            account       <- newChangeAddress RandomSeed passphrase relatedWallet
             remAddr       <- decodeCIdOrFail (cadId account)
             let remTx = TxOutAux (TxOut remAddr remaining) []
             return $ Just remTx
@@ -748,18 +749,29 @@ addHistoryTx cWalId title desc wtx@THEntry{..} = do
     walAddrs <- getWalletAddrs cWalId
     return $ mkCTxs diff wtx meta' walAddrs
 
-newAddress
+newAddress, newChangeAddress
     :: WalletWebMode m
     => AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CAddress
-newAddress addGenSeed passphrase accId = do
+newAddress = newAddress' addWAddress
+newChangeAddress = newAddress' addChangeAddress
+
+-- Internal function
+newAddress'
+    :: WalletWebMode m
+    => (CWAddressMeta -> m ())
+    -> AddrGenSeed
+    -> PassPhrase
+    -> AccountId
+    -> m CAddress
+newAddress' addAddressFunc addGenSeed passphrase accId = do
     -- check wallet exists
     _ <- getAccount accId
 
     cAccAddr <- genUniqueAccountAddress addGenSeed passphrase accId
-    addWAddress cAccAddr
+    _ <- addAddressFunc cAccAddr
     getWAddress cAccAddr
 
 newAccount :: WalletWebMode m => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount

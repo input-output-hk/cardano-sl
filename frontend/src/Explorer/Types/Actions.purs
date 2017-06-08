@@ -25,6 +25,7 @@ data Action
     | ScrollTop
     | SelectInputText HTMLInputElement
     | AddWaypoint ElementId
+    | ClearWaypoints
     | StoreWaypoint Waypoint
     | BlurElement HTMLElement
     | FocusElement HTMLElement

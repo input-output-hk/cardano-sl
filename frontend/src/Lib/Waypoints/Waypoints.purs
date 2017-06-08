@@ -4,6 +4,7 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import DOM.Node.Types (ElementId)
 import Data.Function.Eff (EffFn3, runEffFn3)
+import Data.Function.Uncurried (Fn1)
 import Data.Generic (class Generic, gShow)
 import Data.Newtype (class Newtype)
 
@@ -40,3 +41,5 @@ waypoint elemId handler = runEffFn3 waypointImpl elemId handler defaultWaypointO
 -- | Initializes a `Waypoint` with an offset
 waypoint' :: forall eff. ElementId -> (WaypointHandler eff) -> WaypointOffset -> Eff (waypoint :: WAYPOINT | eff) Waypoint
 waypoint' = runEffFn3 waypointImpl
+
+foreign import destroy :: forall eff. Fn1 Waypoint (Eff (waypoint :: WAYPOINT | eff) Unit)

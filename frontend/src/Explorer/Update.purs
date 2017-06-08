@@ -48,7 +48,7 @@ import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
-import Waypoints (WAYPOINT, waypoint', up) as WP
+import Waypoints (WAYPOINT, destroy, waypoint', up) as WP
 
 update :: forall eff. Action -> State ->
     EffModel State Action
@@ -363,8 +363,20 @@ update (AddWaypoint elementId) state =
 
         waypoint = WP.waypoint' elementId callback 71 -- 71 == height of header
 
-update (StoreWaypoint wp) state = trace "waypoint store" \_ -> traceAny wp \_ -> noEffects $
+update (StoreWaypoint wp) state = noEffects $
     over (viewStates <<< globalViewState <<< gWaypoints) ((:) wp) state
+
+update ClearWaypoints state =
+    { state: set (viewStates <<< globalViewState <<< gWaypoints) [] state
+    , effects:
+          [ do
+                -- Dispose every waypoint in list `waypoints`
+                traverse_ (liftEff <<< WP.destroy) waypoints
+                pure NoOp
+          ]
+    }
+    where
+      waypoints = state ^. (viewStates <<< globalViewState <<< gWaypoints)
 
 update (DocumentClicked event) state =
     { state
@@ -692,6 +704,7 @@ routeEffects Dashboard state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure <<< AddWaypoint $ ElementId CSS.dashBoardBlocksViewId
         , if isSuccess maxBlockPage
           then pure $ DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
@@ -714,6 +727,7 @@ routeEffects (Tx tx) state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure SocketClearSubscriptions
         , pure $ RequestTxSummary tx
         ]
@@ -728,6 +742,7 @@ routeEffects (Address cAddress) state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure SocketClearSubscriptions
         , pure $ RequestAddressSummary cAddress
         ]
@@ -742,6 +757,7 @@ routeEffects (Epoch epochIndex) state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure $ RequestSearchBlocks epochIndex Nothing
         ]
     }
@@ -757,6 +773,7 @@ routeEffects (EpochSlot epochIndex slotIndex) state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure $ RequestSearchBlocks epochIndex (Just slotIndex)
         ]
     }
@@ -767,7 +784,10 @@ routeEffects Calculator state =
         set (viewStates <<< globalViewState <<< gViewTitle)
             (translate (I18nL.common <<< I18nL.cCalculator) $ state ^. lang)
             state
-    , effects: [ pure ScrollTop ]
+    , effects:
+        [ pure ScrollTop
+        , pure ClearWaypoints
+        ]
     }
 
 routeEffects (Block hash) state =
@@ -777,6 +797,7 @@ routeEffects (Block hash) state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure SocketClearSubscriptions
         , pure $ RequestBlockSummary hash
         , pure $ RequestBlockTxs hash
@@ -787,6 +808,7 @@ routeEffects Playground state =
     { state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure SocketClearSubscriptions
         ]
     }
@@ -798,6 +820,7 @@ routeEffects NotFound state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure SocketClearSubscriptions
         ]
     }

@@ -113,18 +113,15 @@ type TestReset =
 
 type GetWallet =
        "wallets"
-    :> "sets"
-    :> Capture "walletSetId" (CId Wal)
+    :> Capture "walletId" (CId Wal)
     :> WRes Get CWallet
 
 type GetWallets =
        "wallets"
-    :> "sets"
     :> WRes Get [CWallet]
 
 type NewWallet =
        "wallets"
-    :> "sets"
     :> "new"
     :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
@@ -132,7 +129,6 @@ type NewWallet =
 
 type RestoreWallet =
        "wallets"
-    :> "sets"
     :> "restore"
     :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
@@ -140,7 +136,6 @@ type RestoreWallet =
 
 type RenameWallet =
        "wallets"
-    :> "sets"
     :> "rename"
     :> Capture "walletId" (CId Wal)
     :> Capture "name" Text
@@ -148,13 +143,11 @@ type RenameWallet =
 
 type DeleteWallet =
        "wallets"
-    :> "sets"
-    :> Capture "walletSetId" (CId Wal)
+    :> Capture "walletId" (CId Wal)
     :> WRes Delete ()
 
 type ImportWallet =
        "wallets"
-    :> "sets"
     :> "keys"
     :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] Text
@@ -162,7 +155,6 @@ type ImportWallet =
 
 type ChangeWalletPassphrase =
        "wallets"
-    :> "sets"
     :> "password"
     :> Capture "walletId" (CId Wal)
     :> CQueryParam "old" CPassPhrase
@@ -174,30 +166,30 @@ type ChangeWalletPassphrase =
 -------------------------------------------------------------------------
 
 type GetAccount =
-       "wallets"
-    :> CCapture "walletId" CAccountId
+       "accounts"
+    :> CCapture "accountId" CAccountId
     :> WRes Get CAccount
 
 type GetAccounts =
-       "wallets"
-    :> QueryParam "walletId" (CId Wal)
+       "accounts"
+    :> QueryParam "accountId" (CId Wal)
     :> WRes Get [CAccount]
 
 type UpdateAccount =
-       "wallets"
-    :> CCapture "walletId" CAccountId
+       "accounts"
+    :> CCapture "accountId" CAccountId
     :> ReqBody '[JSON] CAccountMeta
     :> WRes Put CAccount
 
 type NewAccount =
-       "wallets"
+       "accounts"
     :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CAccountInit
     :> WRes Post CAccount
 
 type DeleteAccount =
-       "wallets"
-    :> CCapture "walletId" CAccountId
+       "accounts"
+    :> CCapture "accountId" CAccountId
     :> WRes Delete ()
 
 -------------------------------------------------------------------------
@@ -205,7 +197,7 @@ type DeleteAccount =
 -------------------------------------------------------------------------
 
 type NewWAddress =
-       "account"
+       "addresses"
     :> CQueryParam "passphrase" CPassPhrase
     :> CReqBody '[JSON] CAccountId
     :> WRes Post CAddress
@@ -358,7 +350,7 @@ type WalletApi = ApiPrefix :> (
      TestReset
     :<|>
      -------------------------------------------------------------------------
-     -- Wallet sets
+     -- Wallets
      -------------------------------------------------------------------------
      GetWallet
     :<|>
@@ -377,7 +369,7 @@ type WalletApi = ApiPrefix :> (
      ChangeWalletPassphrase
     :<|>
      -------------------------------------------------------------------------
-     -- Wallets
+     -- Accounts
      -------------------------------------------------------------------------
      GetAccount
     :<|>
@@ -390,7 +382,7 @@ type WalletApi = ApiPrefix :> (
      DeleteAccount
     :<|>
      -------------------------------------------------------------------------
-     -- Accounts
+     -- Walllet addresses
      -------------------------------------------------------------------------
      NewWAddress
     :<|>

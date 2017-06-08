@@ -606,7 +606,7 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
                         dstAddrs
                     -- TODO: this should be removed in production
                     let txHash    = hash tx
-                    -- TODO [CSM-251]: if money source is wallet set, then this is not fully correct
+                    -- TODO [CSM-251]: if money source is wallet, then this is not fully correct
                     srcAccount <- getMoneySourceAccount moneySource
                     mapM_ removeWAddress srcAddrMetas
                     addHistoryTx srcAccount title desc $
@@ -708,7 +708,7 @@ newWAddress addGenSeed passphrase accId = do
 
 newAccount :: WalletWebMode m => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
 newAccount addGenSeed passphrase CAccountInit {..} = do
-    -- check wallet set exists
+    -- check wallet exists
     _ <- getWallet cwInitWId
 
     cAddr <- genUniqueAccountId addGenSeed cwInitWId
@@ -758,11 +758,11 @@ deleteAccount = removeAccount
 
 renameWSet :: WalletWebMode m => CId Wal -> Text -> m CWallet
 renameWSet cid newName = do
-    meta <- getWalletMeta cid >>= maybeThrow (RequestError "No such wallet set")
+    meta <- getWalletMeta cid >>= maybeThrow (RequestError "No such wallet")
     setWalletMeta cid meta{ cwName = newName }
     getWallet cid
 
--- | Creates account address with same derivation path for new wallet set.
+-- | Creates account address with same derivation path for new wallet.
 rederiveAccountAddress
     :: WalletWebMode m
     => EncryptedSecretKey -> PassPhrase -> CWAddressMeta -> m CWAddressMeta
@@ -794,7 +794,7 @@ instance Buildable AccountsSnapshot where
             asExisting
             asDeleted
 
--- | Clones existing accounts of wallet set with new passphrase and returns
+-- | Clones existing accounts of wallet with new passphrase and returns
 -- list of old accounts
 cloneWalletSetWithPass
     :: WalletWebMode m
@@ -848,7 +848,7 @@ moveMoneyToClone sa oldPass wid oldAddrMeta newAddrMeta = do
     whenNotNull dist $ \dist' ->
         unless (all ((== mkCoin 0) . snd) dist) $
         void $
-        sendMoney sa oldPass ms dist' "Wallet set cloning transaction" ""
+        sendMoney sa oldPass ms dist' "Wallet cloning transaction" ""
 
 changeWalletPassphrase
     :: WalletWebMode m
@@ -1020,7 +1020,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 
     return importedWSet
 
--- | Creates walletset with given genesis hd-wallet key.
+-- | Creates wallet with given genesis hd-wallet key.
 addInitialRichAccount :: WalletWebMode m => Int -> m ()
 addInitialRichAccount keyId =
     when isDevelopment . E.handleAll wSetExistsHandler $ do
@@ -1032,7 +1032,7 @@ addInitialRichAccount keyId =
   where
     noKey = InternalError $ sformat ("No genesis key #" %build) keyId
     wSetExistsHandler =
-        logDebug . sformat ("Initial wallet set already exists (" %build % ")")
+        logDebug . sformat ("Initial wallet already exists (" %build % ")")
 
 syncProgress :: WalletWebMode m => m SyncProgress
 syncProgress = do

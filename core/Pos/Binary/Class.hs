@@ -59,7 +59,6 @@ module Pos.Binary.Class
        , AsBinaryClass (..)
        , fromBinaryM
 
-{-
        -- * Serialization with length
        , putWithLength
        , getWithLength
@@ -67,6 +66,7 @@ module Pos.Binary.Class
        , putSmallWithLength
        , getSmallWithLength
 
+       {-
        -- * Other binary utils
        , getRemainingByteString
        -}
@@ -123,6 +123,7 @@ import qualified Data.Vector.Generic         as G
 import qualified Data.Vector.Generic.Mutable as GM
 import           Data.Word                   (Word32)
 import           Foreign.Ptr                 (minusPtr, plusPtr)
+import           Formatting                  (formatToString, int, (%))
 import           GHC.TypeLits                (ErrorMessage (..), TypeError)
 import           Serokell.Data.Memory.Units  (Byte, fromBytes, toBytes)
 import           System.IO.Unsafe            (unsafePerformIO)
@@ -645,6 +646,7 @@ mkPoke
     -> Poke ()
 mkPoke f = Store.Poke (\ptr offset -> (,()) <$> f ptr offset)
 
+-- [CSL-1122] TODO: fix this instance
 instance Bi a => Bi [a] where
     size =
         VarSize $ \t -> case size :: Size a of
@@ -951,37 +953,33 @@ class AsBinaryClass a where
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
 fromBinaryM = either (fail . T.unpack) return . fromBinary
 
-{-
 ----------------------------------------------------------------------------
 -- Serialization with length
 ----------------------------------------------------------------------------
 
 -- | Serialize something together with its length in bytes. The length comes
--- first.
-putWithLength :: Size a -> Poke a -> Poke a
-putWithLength sz poke = Poke $ \ps off ->
-    let (res, serialized) = runPutM act
-    let len :: Int64 = BSL.length serialized
-    put (UnsignedVarInt len)
-    putLazyByteString serialized
-    return res
+-- first. If you want to serialize several things at once, use a tuple.
+putWithLength :: Bi a => a -> Poke ()
+putWithLength a = do
+    put (UnsignedVarInt (getSize a))
+    put a
 
 -- | Read length in bytes and then parse something (which has to have exactly
 -- that length).
-getWithLength :: Get a -> Get a
-getWithLength act = do
+getWithLength :: Bi a => Peek a
+getWithLength = do
     -- We limit the int to 20 bytes because an UnsignedVarInt Int64 takes at
     -- most 10 bytes. (20 and not 10 because it doesn't hurt to be cautious.)
     UnsignedVarInt (len :: Int64) <- limitGet 20 get
-    isolate64 len act
+    isolate64Full len get
 
--- | Read length in bytes, check that it's not bigger than the limit, and
--- then parse something (which has to have exactly parsed length).
-getWithLengthLimited :: Int64 -> Get a -> Get a
-getWithLengthLimited lim act = do
+-- | Read length in bytes, check that it's not bigger than a specified limit,
+-- and then parse something (which has to have exactly the parsed length).
+getWithLengthLimited :: Bi a => Int64 -> Peek a
+getWithLengthLimited lim = do
     UnsignedVarInt (len :: Int64) <- limitGet 20 get
     if len <= lim
-        then isolate64 len act
+        then isolate64Full len get
         else fail $ formatToString
                       ("getWithLengthLimited: data ("%int%" bytes) is "%
                        "bigger than the limit ("%int%" bytes)")
@@ -992,28 +990,26 @@ getWithLengthLimited lim act = do
 --
 -- Uses 'TinyVarInt' for storing length, thus guaranteeing that it won't take
 -- more than 2 bytes and won't be ambiguous.
-putSmallWithLength :: PutM a -> PutM a
-putSmallWithLength act = do
-    let (res, serialized) = runPutM act
-    let len :: Int64 = BSL.length serialized
+putSmallWithLength :: Bi a => a -> Poke ()
+putSmallWithLength a = do
+    let len = getSize a
     if len >= 2^(14::Int)
         then error ("putSmallWithLength: length is " <> show len <>
                     ", but maximum allowed is 16383 (2^14-1)")
-        else do put (TinyVarInt (fromIntegral len))
-                putLazyByteString serialized
-                return res
+        else put (TinyVarInt (fromIntegral len)) >> put a
 
 -- | Like 'getWithLength' but for 'putSmallWithLength'.
-getSmallWithLength :: Get a -> Get a
-getSmallWithLength act = do
+getSmallWithLength :: Bi a => Peek a
+getSmallWithLength = do
     TinyVarInt len <- get
-    isolate64 (fromIntegral len) act
+    isolate64Full (fromIntegral len) get
 
+{-
 ----------------------------------------------------------------------------
 -- Other binary utils
 ----------------------------------------------------------------------------
 
-getRemainingByteString :: Get ByteString
+getRemainingByteString :: Peek ByteString
 getRemainingByteString = BSL.toStrict <$> getRemainingLazyByteString
 -}
 

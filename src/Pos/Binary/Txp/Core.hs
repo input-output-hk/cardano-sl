@@ -40,22 +40,22 @@ instance Bi T.Tx where
 instance Bi T.TxInWitness where
     put (T.PkWitness key sig) = do
         putWord8 0
-        putWithLength (put key >> put sig)
+        putWithLength (key, sig)
     put (T.ScriptWitness val red) = do
         putWord8 1
-        putWithLength (put val >> put red)
+        putWithLength (val, red)
     put (T.RedeemWitness key sig) = do
         putWord8 2
-        putWithLength (put key >> put sig)
+        putWithLength (key, sig)
     put (T.UnknownWitnessType t bs) = do
         putWord8 t
         putWithLength (putByteString bs)
     get = label "TxInWitness" $ do
         tag <- getWord8
         case tag of
-            0 -> getWithLength (T.PkWitness <$> get <*> get)
-            1 -> getWithLength (T.ScriptWitness <$> get <*> get)
-            2 -> getWithLength (T.RedeemWitness <$> get <*> get)
+            0 -> uncurry T.PkWitness <$> getWithLength
+            1 -> uncurry T.ScriptWitness <$> getWithLength
+            2 -> uncurry T.RedeemWitness <$> getWithLength
             t -> getWithLength (T.UnknownWitnessType t <$>
                                 getRemainingByteString)
 

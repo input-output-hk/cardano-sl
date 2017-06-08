@@ -67,7 +67,7 @@ instance Bi HandlerSpec where
         case decodeFull $ BSL.fromStrict m of
             Right (UnsignedVarInt a)
                 | a < 64 -> putWord8 (0x40 .|. (fromIntegral (a :: Word) .&. 0x3f))
-            _ -> putWord8 1 >> putSmallWithLength (put m)
+            _ -> putWord8 1 >> putSmallWithLength m
     put (UnknownHandler t b) =
         putWord8 t >> putSmallWithLength (putByteString b)
     get = label "HandlerSpec" $ getWord8 >>= \case

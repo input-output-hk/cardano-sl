@@ -709,9 +709,9 @@ newWAddress addGenSeed passphrase accId = do
 newAccount :: WalletWebMode m => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
 newAccount addGenSeed passphrase CAccountInit {..} = do
     -- check wallet exists
-    _ <- getWallet cwInitWId
+    _ <- getWallet caInitWId
 
-    cAddr <- genUniqueAccountId addGenSeed cwInitWId
+    cAddr <- genUniqueAccountId addGenSeed caInitWId
     createAccount cAddr caInitMeta
     () <$ newWAddress addGenSeed passphrase cAddr
     getAccount cAddr

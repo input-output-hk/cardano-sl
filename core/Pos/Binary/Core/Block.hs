@@ -6,7 +6,8 @@ module Pos.Binary.Core.Block
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), label)
+import           Pos.Binary.Class   (Bi (..), Size (ConstSize), combineSize, getSize,
+                                     label, sizeAddField)
 import qualified Pos.Core.Block     as T
 import           Pos.Core.Constants (protocolMagic)
 import qualified Pos.Core.Types     as T
@@ -15,6 +16,7 @@ import           Pos.Util.Util      (eitherToFail)
 -- | This instance required only for Arbitrary instance of HeaderHash
 -- due to @instance Bi a => Hash a@.
 instance Bi T.BlockHeaderStub where
+    size  = error "somebody tried to binary size BlockHeaderStub"
     put _ = error "somebody tried to binary put BlockHeaderStub"
     get   = error "somebody tried to binary get BlockHeaderStub"
 
@@ -25,6 +27,11 @@ instance ( Bi (T.BHeaderHash b)
          , T.BlockchainHelpers b
          ) =>
          Bi (T.GenericBlockHeader b) where
+    size = ConstSize (getSize protocolMagic)
+             `sizeAddField` T._gbhPrevBlock
+             `sizeAddField` T._gbhBodyProof
+             `sizeAddField` T._gbhConsensus
+             `sizeAddField` T._gbhExtra
     put T.UnsafeGenericBlockHeader{..} = do
         put protocolMagic
         put _gbhPrevBlock
@@ -51,6 +58,7 @@ instance ( Bi (T.BHeaderHash b)
          , T.BlockchainHelpers b
          ) =>
          Bi (T.GenericBlock b) where
+    size = combineSize (T._gbHeader, T._gbBody, T._gbExtra)
     put T.UnsafeGenericBlock {..} = do
         put _gbHeader
         put _gbBody

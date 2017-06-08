@@ -18,6 +18,7 @@ module Pos.Binary.Class
        ( Bi (..)
        , encode
        , decodeFull
+       , getSize
        {-
        , encode
        , decode

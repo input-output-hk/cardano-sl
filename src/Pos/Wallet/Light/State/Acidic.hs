@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeFamilies    #-}
 {-# OPTIONS_GHC -Wno-redundant-constraints #-}
 
-module Pos.Wallet.State.Acidic
+module Pos.Wallet.Light.State.Acidic
        (
          WalletState
        , closeState
@@ -22,17 +22,17 @@ module Pos.Wallet.State.Acidic
 
 import           Universum
 
-import           Data.Acid                (EventResult, EventState, QueryEvent,
-                                           UpdateEvent, makeAcidic)
-import           Serokell.AcidState       (ExtendedState, closeExtendedState,
-                                           openLocalExtendedState,
-                                           openMemoryExtendedState, queryExtended,
-                                           tidyExtendedState, updateExtended)
+import           Data.Acid                      (EventResult, EventState, QueryEvent,
+                                                 UpdateEvent, makeAcidic)
+import           Serokell.AcidState             (ExtendedState, closeExtendedState,
+                                                 openLocalExtendedState,
+                                                 openMemoryExtendedState, queryExtended,
+                                                 tidyExtendedState, updateExtended)
 
-import           Pos.Txp                  (Utxo)
+import           Pos.Txp                        (Utxo)
 
-import           Pos.Wallet.State.Storage (Storage)
-import           Pos.Wallet.State.Storage as WS
+import           Pos.Wallet.Light.State.Storage (Storage)
+import           Pos.Wallet.Light.State.Storage as WS
 
 type WalletState = ExtendedState Storage
 

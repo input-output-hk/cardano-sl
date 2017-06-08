@@ -126,6 +126,7 @@ library
     exposed-modules:    Pos.Web
   if flag(with-wallet)
     exposed-modules:    Pos.Wallet
+                        Pos.Wallet.Light
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
   if flag(with-web) || flag(with-explorer)
@@ -261,13 +262,13 @@ library
 
                         -- Wallet (intentionally separated, not alphabetically)
                         Pos.Wallet.KeyStorage
-                        Pos.Wallet.State
-                        Pos.Wallet.State.Acidic
-                        Pos.Wallet.State.Core
-                        Pos.Wallet.State.State
-                        Pos.Wallet.State.Storage
-                        Pos.Wallet.State.Storage.Block
-                        Pos.Wallet.State.Storage.Tx
+                        Pos.Wallet.Light.State
+                        Pos.Wallet.Light.State.Acidic
+                        Pos.Wallet.Light.State.Core
+                        Pos.Wallet.Light.State.State
+                        Pos.Wallet.Light.State.Storage
+                        Pos.Wallet.Light.State.Storage.Block
+                        Pos.Wallet.Light.State.Storage.Tx
                         Pos.Wallet.WalletMode
                         Pos.Wallet.Web.Error.Types
                         Pos.Wallet.Web.Util
@@ -292,12 +293,16 @@ library
                         Pos.Web.Server
                         Pos.Web.Types
   if flag(with-wallet)
-    other-modules:      Pos.Wallet.Launcher
-                        Pos.Wallet.Launcher.Runner
-                        Pos.Wallet.Launcher.Param
+    other-modules:      Pos.Wallet.Light.Launcher
+                        Pos.Wallet.Light.Launcher.Runner
+                        Pos.Wallet.Light.Launcher.Param
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
+                        Pos.Wallet.Light.Mode
+                        Pos.Wallet.Light.Redirect
+                        Pos.Wallet.Light.Web
+                        Pos.Wallet.Light.Web.Server
                         Pos.Wallet.Web.Account
                         Pos.Wallet.Web.Api
                         Pos.Wallet.Web.BListener
@@ -309,7 +314,6 @@ library
                         Pos.Wallet.Web.Server.Full
                         Pos.Wallet.Web.Server.Full.Common
                         Pos.Wallet.Web.Server.Full.R
-                        Pos.Wallet.Web.Server.Lite
                         Pos.Wallet.Web.Server.Sockets
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic

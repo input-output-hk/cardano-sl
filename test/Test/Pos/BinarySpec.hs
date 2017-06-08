@@ -7,8 +7,10 @@ module Test.Pos.BinarySpec
 import           Data.Bits                  (testBit)
 import qualified Data.ByteString.Lazy       as BS
 import           Data.ByteString.Lazy.Char8 (singleton)
+import           Serokell.Data.Memory.Units (Byte)
 
-import           Test.Hspec                 (Spec, anyErrorCall, describe, it, shouldBe)
+import           Test.Hspec                 (Expectation, Spec, anyErrorCall, describe,
+                                             it, shouldBe)
 import           Test.Hspec.QuickCheck      (prop)
 import           Test.QuickCheck            (Arbitrary (..), Gen, choose, generate,
                                              suchThat)
@@ -37,31 +39,24 @@ spec = describe "Bi" $ do
             binaryTest @(B.FixedSizeInt Int64)
         describe "TinyVarInt" $ do
             describe "1 byte" $ do
-                it "serializing 0 takes 1 byte" $ B.biSize (B.TinyVarInt 0) `shouldBe` 1
+                it "serializing 0 takes 1 byte" $ serializeFail 0 1
                 prop "0" $ binaryEncodeDecode (B.TinyVarInt 0)
-                it "serializing 1 takes 1 byte" $ B.biSize (B.TinyVarInt 1) `shouldBe` 1
+                it "serializing 1 takes 1 byte" $ serializeFail 1 1
                 prop "1" $ binaryEncodeDecode (B.TinyVarInt 1)
-                it "serializing 0x75 takes 1 byte" $
-                    B.biSize (B.TinyVarInt 0x75) `shouldBe` 1
+                it "serializing 0x75 takes 1 byte" $ serializeFail 0x75 1
                 prop "0x75" $ binaryEncodeDecode (B.TinyVarInt 0x75)
-                it "serializing 0x79 takes 1 byte" $
-                    B.biSize (B.TinyVarInt 0x79) `shouldBe` 1
+                it "serializing 0x79 takes 1 byte" $ serializeFail 0x79 1
                 prop "0x79" $ binaryEncodeDecode (B.TinyVarInt 0x79)
             describe "2 bytes" $ do
-                it "serializing 0x80 takes 2 bytes" $
-                    B.biSize (B.TinyVarInt 0x80) `shouldBe` 2
+                it "serializing 0x80 takes 2 bytes" $ serializeFail 0x80 2
                 prop "0x80" $ binaryEncodeDecode (B.TinyVarInt 0x80)
-                it "serializing 0x81 takes 2 bytes" $
-                    B.biSize (B.TinyVarInt 0x81) `shouldBe` 2
+                it "serializing 0x81 takes 2 bytes" $ serializeFail 0x81 2
                 prop "0x81" $ binaryEncodeDecode (B.TinyVarInt 0x81)
-                it "serializing 0x82 takes 2 bytes" $
-                    B.biSize (B.TinyVarInt 0x82) `shouldBe` 2
+                it "serializing 0x82 takes 2 bytes" $ serializeFail 0x82 2
                 prop "0x82" $ binaryEncodeDecode (B.TinyVarInt 0x82)
-                it "serializing 0x100 takes 2 bytes" $
-                    B.biSize (B.TinyVarInt 0x100) `shouldBe` 2
+                it "serializing 0x100 takes 2 bytes" $ serializeFail 0x100 2
                 prop "0x100" $ binaryEncodeDecode (B.TinyVarInt 0x100)
-                it "serializing 0x1000 takes 2 bytes" $
-                    B.biSize (B.TinyVarInt 0x1000) `shouldBe` 2
+                it "serializing 0x1000 takes 2 bytes" $ serializeFail 0x1000 2
                 prop "0x1000" $ binaryEncodeDecode (B.TinyVarInt 0x1000)
                 let maxnum = 2^(14::Int)-1
                 it "serializing (2^14)-1 takes 2 bytes" $
@@ -87,3 +82,7 @@ spec = describe "Bi" $ do
                     let zero = '\NUL'
                         bs = (BS.singleton word8) `BS.append` (singleton zero)
                     shouldThrowException (B.decode @B.TinyVarInt) anyErrorCall bs
+
+serializeFail :: Word16 -> Byte -> Expectation
+serializeFail num expectedSize =
+    B.biSize (B.TinyVarInt num) `shouldBe` expectedSize

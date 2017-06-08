@@ -53,9 +53,6 @@ import           Pos.Util.TimeWarp          (addressToNodeId)
 import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
 import           Pos.WorkMode               (RealMode, WorkMode)
-#ifdef WITH_WALLET
-import           Pos.Wallet                 (WalletSscType)
-#endif
 #ifdef WITH_WEB
 import           Pos.Web                    (serveWebGT)
 #ifdef WITH_WALLET
@@ -100,24 +97,20 @@ action peerHolder args@Args {..} transport = do
             currentPluginsGT = pluginsGT args
         bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
             bracketWalletWS $ \conn -> do
-                let allPlugins :: (MonadNodeContext SscGodTossing m, WorkMode SscGodTossing m)
-                               => KademliaDHTInstance
-                               -> ([WorkerSpec m], OutSpecs)
-                    allPlugins ki = mconcat [wDhtWorkers ki, convPlugins currentPluginsGT]
-
-                case (peerHolder, CLI.sscAlgo commonArgs) of
-                    (Right peers, GodTossingAlgo) ->
-                        runWRealMode db conn
-                            (DCStatic peers) transportW
-                            currentParams gtParams
-                            (runNode @SscGodTossing $ (convPlugins currentPluginsGT) <> walletProd args)
-                    (Left kad, GodTossingAlgo) ->
-                        runWRealMode db conn
-                            (DCKademlia kad) transportW
-                            currentParams gtParams
-                            (runNode @SscGodTossing (allPlugins kad <> walletProd args))
-                    (_, NistBeaconAlgo) ->
-                        logError "Wallet does not support NIST beacon!"
+                let discoveryCtx = either DCKademlia DCStatic peerHolder
+                let almostAllPlugins :: (MonadNodeContext SscGodTossing m, WorkMode SscGodTossing m)
+                                     => ([WorkerSpec m], OutSpecs)
+                    almostAllPlugins = either
+                        (\ki -> mconcat [wDhtWorkers ki, convPlugins currentPluginsGT])
+                        (const $ convPlugins currentPluginsGT)
+                        peerHolder
+                let allPlugins :: ([WorkerSpec WalletRealWebMode], OutSpecs)
+                    allPlugins = almostAllPlugins <> walletProd args
+                case CLI.sscAlgo commonArgs of
+                    NistBeaconAlgo -> logError "Wallet does not support NIST beacon!"
+                    GodTossingAlgo ->
+                        runWRealMode db conn discoveryCtx transportW currentParams gtParams
+                            (runNode @SscGodTossing $ allPlugins)
 #endif
 #ifdef WITH_WALLET
     let userWantsWallet = enableWallet
@@ -127,30 +120,20 @@ action peerHolder args@Args {..} transport = do
     unless userWantsWallet $ do
         let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
             sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
-
-        case peerHolder of
-            Right peers -> do
-                let runner :: forall ssc .
-                        (SscConstraint ssc, SecurityWorkersClass ssc)
-                        => SscParams ssc -> Production ()
-                    runner =
-                        runNodeReal @ssc
-                            (DCStatic peers)
-                            transport
-                            updateTriggerWorker
-                            currentParams
-                either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
-            Left kad -> do
-                let runner :: forall ssc .
-                        (SscConstraint ssc, SecurityWorkersClass ssc)
-                        => SscParams ssc -> Production ()
-                    runner =
-                        runNodeReal @ssc
-                            (DCKademlia kad)
-                            transport
-                            (mconcat [wDhtWorkers kad, updateTriggerWorker])
-                            currentParams
-                either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
+        let discoveryCtx = either DCKademlia DCStatic peerHolder
+        let plugins :: forall ssc .
+                (SscConstraint ssc, SecurityWorkersClass ssc)
+                => ([WorkerSpec (RealMode ssc)], OutSpecs)
+            plugins = either
+                (\kad -> mconcat [wDhtWorkers kad, updateTriggerWorker])
+                (const updateTriggerWorker)
+                peerHolder
+        let runner :: forall ssc .
+                (SscConstraint ssc, SecurityWorkersClass ssc)
+                => SscParams ssc -> Production ()
+            runner = runNodeReal @ssc discoveryCtx transport
+                        (plugins @ssc) currentParams
+        either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
   where
 #ifdef WITH_WEB
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
@@ -190,10 +173,7 @@ updateTriggerWorker = first pure $ worker mempty $ \_ -> do
 
 #ifdef WITH_WALLET
 
-walletProd
-    :: SscConstraint WalletSscType
-    => Args
-    -> ([WorkerSpec WalletRealWebMode], OutSpecs)
+walletProd :: Args -> ([WorkerSpec WalletRealWebMode], OutSpecs)
 walletProd Args {..} = first pure $ worker walletServerOuts $ \sendActions ->
     walletServeWebFull
         sendActions

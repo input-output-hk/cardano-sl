@@ -56,6 +56,7 @@
     "html-webpack-plugin": "^2.28.0",
     "jsdom": "^10.1.0",
     "lost": "^8.0.0",
+    "module-alias": "^2.0.0",
     "postcss-button": "^0.1.16",
     "postcss-color-function": "^3.0.0",
     "postcss-css-reset": "^1.0.2",
@@ -87,5 +88,8 @@
       "stage-2",
       "react"
     ]
+  },
+  "_moduleAliases": {
+    "@noframework.waypoints": "node_modules/waypoints/lib/noframework.waypoints.js"
   }
 }

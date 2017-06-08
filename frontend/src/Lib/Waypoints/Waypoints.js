@@ -1,4 +1,4 @@
-require('noframework.waypoints');
+require('@noframework.waypoints');
 
 exports.waypointImpl = function (elementId, callback, offset) {
   return new Waypoint({

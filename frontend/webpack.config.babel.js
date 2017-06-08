@@ -78,7 +78,8 @@ module.exports = {
     extensions: [ '.js', '.purs'],
     // https://webpack.js.org/configuration/resolve/#resolve-alias
     alias: {
-      'noframework.waypoints': path.join(__dirname, 'node_modules/waypoints/lib/noframework.waypoints.js')
+      // Note: Prefix '@' is needed to run all tests w/ waypoints but w/o webpack
+      '@noframework.waypoints': path.join(__dirname, 'node_modules/waypoints/lib/noframework.waypoints.js')
     }
   },
   module: {

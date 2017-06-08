@@ -48,7 +48,7 @@ import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
-import Waypoints (WAYPOINT, WaypointDirection(..), waypoint') as WP
+import Waypoints (WAYPOINT, waypoint', up) as WP
 
 update :: forall eff. Action -> State ->
     EffModel State Action
@@ -351,11 +351,9 @@ update (AddWaypoint elementId) state =
         ]
     }
     where
-        callback = \(WP.WaypointDirection direction) ->
-            -- TODO (jk)
-            -- compare direction by using Sum types
+        callback = \(direction) ->
             let elId = ElementId CSS.headerId in
-            if direction == "up"
+            if direction == WP.up
                 then do
                     addClassToElement elId CSS.moveOut
                     removeClassFromElement elId CSS.moveIn
@@ -363,7 +361,7 @@ update (AddWaypoint elementId) state =
                     addClassToElement elId CSS.moveIn
                     removeClassFromElement elId CSS.moveOut
 
-        waypoint = WP.waypoint' elementId callback 71
+        waypoint = WP.waypoint' elementId callback 71 -- 71 == height of header
 
 update (StoreWaypoint wp) state = trace "waypoint store" \_ -> traceAny wp \_ -> noEffects $
     over (viewStates <<< globalViewState <<< gWaypoints) ((:) wp) state

@@ -135,8 +135,8 @@ import           Pos.Wallet.Web.State             (AccountLookupMode (..), Walle
                                                    getWAddressIds, getWalletAddresses,
                                                    getWalletMeta, getWalletPassLU,
                                                    openState, removeAccount,
-                                                   removeNextUpdate, removeWAddress,
-                                                   removeWallet, setAccountMeta,
+                                                   removeNextUpdate, removeWallet,
+                                                   setAccountMeta,
                                                    setAccountTransactionMeta, setProfile,
                                                    setWalletMeta, setWalletPassLU,
                                                    testReset, totallyRemoveWAddress,
@@ -393,7 +393,11 @@ getWAddressBalance addr =
 getWAddress :: WalletWebMode m => CWAddressMeta -> m CAddress
 getWAddress cAddr@CWAddressMeta{..} = do
     balance <- getWAddressBalance cAddr
-    return $ CAddress cwamId (mkCCoin balance) (balance > minBound)
+    -- TODO [CSM-288]: this is super bad, extract required logic from 'searchHistory'.
+    -- TODO [CSM-288]: this is very inefficient as well.
+    (ctxs, _) <- searchHistory Nothing (Just $ walletAddrMetaToAccount cAddr) (Just cwamId) Nothing Nothing (Just 999999)
+    let isUsed = not (null ctxs) || balance > minBound
+    return $ CAddress cwamId (mkCCoin balance) isUsed
 
 getAccountAddrsOrThrow
     :: (WebWalletModeDB m, MonadThrow m)
@@ -411,9 +415,7 @@ getAccount accId = do
     addrs <- getAccountAddrsOrThrow Existing accId
     modifier <- txMempoolToModifier encSK
     let insertions = map fst (MM.insertions modifier)
-    let modAccs = S.fromList $ insertions ++ MM.deletions modifier
-    let filteredAccs = filter (`S.notMember` modAccs) addrs
-    let mergedAccAddrs = filteredAccs ++ insertions
+    let mergedAccAddrs = ordNub $ addrs ++ insertions
     mergedAccs <- mapM getWAddress mergedAccAddrs
     balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
                mapM getWAddressBalance mergedAccAddrs
@@ -619,7 +621,6 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
                     let txHash    = hash tx
                     -- TODO [CSM-251]: if money source is wallet, then this is not fully correct
                     srcAccount <- getMoneySourceAccount moneySource
-                    mapM_ removeWAddress srcAddrMetas
                     ctxs <- addHistoryTx (aiWSId srcAccount) title desc $
                         THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs
                     ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
@@ -674,15 +675,14 @@ getFullWalletHistory cWalId = do
 searchHistory
     :: WalletWebMode m
     => Maybe (CId Wal)
-    -> Maybe CAccountId
+    -> Maybe AccountId
     -> Maybe (CId Addr)
     -> Maybe Text
     -> Maybe Word
     -> Maybe Word
     -> m ([CTx], Word)
-searchHistory mCWalId mCAccountId mAddrId mSearch mSkip mLimit = do
+searchHistory mCWalId mAccountId mAddrId mSearch mSkip mLimit = do
     -- FIXME: searching when only AddrId is provided is not supported yet.
-    mAccountId <- mapM decodeCAccountIdOrFail mCAccountId
     (cWalId, accIds) <- case (mCWalId, mAccountId) of
         (Nothing, Nothing)      -> throwM errorSpecifySomething
         (Just _, Just _)        -> throwM errorDontSpecifyBoth

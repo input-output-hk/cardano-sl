@@ -104,13 +104,14 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccoun
                                                    CPaperVendWalletRedeem (..),
                                                    CPassPhrase (..), CProfile,
                                                    CProfile (..), CTx (..), CTxId,
-                                                   CTxMeta (..), CUpdateInfo (..),
-                                                   CWAddressMeta (..), CWallet (..),
-                                                   CWalletInit (..), CWalletMeta (..),
-                                                   CWalletRedeem (..), NotifyEvent (..),
-                                                   SyncProgress (..), Wal, addressToCId,
-                                                   cIdToAddress, coinFromCCoin, encToCId,
-                                                   mkCCoin, mkCTx, mkCTxId, toCUpdateInfo,
+                                                   CTxMeta (..), CTxs (..),
+                                                   CUpdateInfo (..), CWAddressMeta (..),
+                                                   CWallet (..), CWalletInit (..),
+                                                   CWalletMeta (..), CWalletRedeem (..),
+                                                   NotifyEvent (..), SyncProgress (..),
+                                                   Wal, addressToCId, cIdToAddress,
+                                                   coinFromCCoin, encToCId, mkCCoin,
+                                                   mkCTxId, mkCTxs, toCUpdateInfo,
                                                    txContainsTitle, txIdToCTxId,
                                                    walletAddrMetaToAccount)
 import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError)
@@ -609,8 +610,11 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
                     -- TODO [CSM-251]: if money source is wallet set, then this is not fully correct
                     srcAccount <- getMoneySourceAccount moneySource
                     mapM_ removeWAddress srcAddrMetas
-                    addHistoryTx srcAccount title desc $
+                    ctxs <- addHistoryTx srcAccount title desc $
                         THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs
+                    ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
+
+    noOutgoingTx = InternalError "Can't report outgoing transaction"
 
     listF separator formatter =
         F.later $ fold . intersperse separator . fmap (F.bprint formatter)
@@ -649,7 +653,8 @@ getHistory accId skip limit = do
                     taCachedUtxo
                     (cached <> cachedTxs)
 
-            forM fullHistory $ addHistoryTx accId mempty mempty
+            ctxs <- forM fullHistory $ addHistoryTx accId mempty mempty
+            return $ concatMap toList ctxs
     pure (paginate cHistory, fromIntegral $ length cHistory)
   where
     paginate = take defaultLimit . drop defaultSkip
@@ -680,7 +685,7 @@ addHistoryTx
     -> Text
     -> Text
     -> TxHistoryEntry
-    -> m CTx
+    -> m CTxs
 addHistoryTx accId title desc wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
@@ -690,7 +695,7 @@ addHistoryTx accId title desc wtx@THEntry{..} = do
     addOnlyNewTxMeta accId cId meta
     meta' <- fromMaybe meta <$> getTxMeta accId cId
     accAddrs <- map cwamId <$> getAccountAddrsOrThrow Ever accId
-    return $ mkCTx diff wtx meta' accAddrs
+    return $ mkCTxs diff wtx meta' accAddrs
 
 newWAddress
     :: WalletWebMode m
@@ -952,8 +957,11 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
         Right (TxAux {..}, redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             let txInputs = [TxOut redeemAddress redeemBalance]
-            addHistoryTx accId "ADA redemption" ""
+            ctxs <- addHistoryTx accId "ADA redemption" ""
                 (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr])
+            ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
+  where
+   noOutgoingTx = InternalError "Can't report outgoing transaction"
 
 reportingInitialized :: WalletWebMode m => CInitialized -> m ()
 reportingInitialized cinit = do

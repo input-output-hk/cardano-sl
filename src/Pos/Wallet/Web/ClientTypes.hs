@@ -13,6 +13,7 @@ module Pos.Wallet.Web.ClientTypes
       , CProfile (..)
       , CPwHash
       , CTx (..)
+      , CTxs (..)
       , CTxId
       , CTxMeta (..)
       , CTExMeta (..)
@@ -43,7 +44,7 @@ module Pos.Wallet.Web.ClientTypes
       , addressToCId
       , cIdToAddress
       , encToCId
-      , mkCTx
+      , mkCTxs
       , mkCTxId
       , txIdToCTxId
       , txContainsTitle
@@ -158,13 +159,13 @@ txIdToCTxId = mkCTxId . sformat hashHexF
 convertTxOutputs :: [TxOut] -> [(CId w, CCoin)]
 convertTxOutputs = map (addressToCId . txOutAddress &&& mkCCoin . txOutValue)
 
-mkCTx
+mkCTxs
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
     -> [CId Addr]         -- ^ Addresses of wallet
-    -> CTx
-mkCTx diff THEntry {..} meta wAddrs = CTx {..}
+    -> CTxs
+mkCTxs diff THEntry {..} meta wAddrs = CTxs {..}
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
@@ -173,7 +174,12 @@ mkCTx diff THEntry {..} meta wAddrs = CTx {..}
     ctMeta = meta
     ctInputAddrs = map addressToCId _thInputAddrs
     ctOutputAddrs = map addressToCId _thOutputAddrs
-    ctIsOutgoing = not . null $ S.fromList wAddrs `S.intersection` S.fromList ctInputAddrs
+    wAddrsSet = S.fromList wAddrs
+    mkCTx isOutgoing ctAddrs = do
+        guard . not . null $ wAddrsSet `S.intersection` S.fromList ctAddrs
+        return CTx { ctIsOutgoing = isOutgoing, .. }
+    ctsOutgoing = mkCTx True ctInputAddrs
+    ctsIncoming = mkCTx False ctOutputAddrs
 
 newtype CPassPhrase = CPassPhrase Text
     deriving (Eq, Generic)
@@ -393,11 +399,26 @@ data CTx = CTx
     , ctMeta          :: CTxMeta
     , ctInputAddrs    :: [CId Addr]
     , ctOutputAddrs   :: [CId Addr]
-    , ctIsOutgoing    :: Bool        -- ^ true for A -> A transactions
+    , ctIsOutgoing    :: Bool
     } deriving (Show, Generic, Typeable)
 
 txContainsTitle :: Text -> CTx -> Bool
 txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . ctMeta
+
+-- TODO [CSM-288] Rename?
+-- | In case of A -> A tranaction, we have to return two similar 'CTx's:
+-- one with 'ctIsOutgoing' set to /true/, one with the flag set to /false/.
+-- This type gathers these two together.
+data CTxs = CTxs
+    { ctsOutgoing :: Maybe CTx
+    , ctsIncoming :: Maybe CTx
+    } deriving (Show)
+
+type instance Element CTxs = CTx
+
+instance Container CTxs where
+    null = null . toList
+    toList = toList . ctsOutgoing <> toList . ctsIncoming
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta

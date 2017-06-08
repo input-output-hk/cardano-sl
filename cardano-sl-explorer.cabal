@@ -47,10 +47,12 @@ library
                       , cardano-sl-core
                       , cardano-sl-infra
                       , cardano-sl-db
+                      , cardano-sl-ssc
                       , engine-io
                       , engine-io-snap
                       , exceptions
                       , either
+                      , ether
                       , formatting
                       , lens
                       , log-warper
@@ -68,6 +70,7 @@ library
                       , snap-server
                       , engine-io-wai
                       , stm
+                      , tagged
                       , text-format
                       , text
                       , time

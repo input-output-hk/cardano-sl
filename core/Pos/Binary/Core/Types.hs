@@ -2,7 +2,9 @@ module Pos.Binary.Core.Types () where
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..), UnsignedVarInt (..), label, putWord8)
+import           Pos.Binary.Class        (Bi (..), Size (ConstSize), UnsignedVarInt (..),
+                                          combineSize, label, putWord8, sizeAddField,
+                                          sizeOf)
 import qualified Pos.Binary.Core.Coin    as BinCoin
 import           Pos.Binary.Core.Script  ()
 import           Pos.Binary.Core.Version ()
@@ -16,10 +18,12 @@ import           Pos.Util.Util           (eitherToFail)
 instance Bi T.Timestamp where
     get = label "Timestamp" $ fromInteger <$> get
     put = put . toInteger
+    size = sizeOf toInteger
 
 instance Bi T.EpochIndex where
     get = label "EpochIndex" $ T.EpochIndex . getUnsignedVarInt <$> get
     put (T.EpochIndex c) = put (UnsignedVarInt c)
+    size = sizeOf (UnsignedVarInt . T.getEpochIndex)
 
 instance Bi (A.Attributes ()) where
     get = label "Attributes" $
@@ -33,23 +37,27 @@ instance Bi T.Coin where
 instance Bi T.CoinPortion where
     put = put . T.getCoinPortion
     get = label "CoinPortion" $ get >>= T.mkCoinPortion
+    size = sizeOf T.getCoinPortion
 
 instance Bi T.LocalSlotIndex where
     get =
         label "LocalSlotIndex" $
         eitherToFail . T.mkLocalSlotIndex . getUnsignedVarInt =<< get
     put (T.getSlotIndex -> c) = put (UnsignedVarInt c)
+    size = sizeOf (UnsignedVarInt . T.getSlotIndex)
 
 instance Bi T.SlotId where
-    put (T.SlotId e s) = put e >> put s
     get = label "SlotId" $ do
         siEpoch <- get
         siSlot <- get
         return $ T.SlotId {..}
+    put (T.SlotId e s) = put e >> put s
+    size = combineSize (T.siEpoch, T.siSlot)
 
 instance Bi T.EpochOrSlot where
     put (T.EpochOrSlot x) = put x
     get = T.EpochOrSlot <$> get
+    size = sizeOf T.unEpochOrSlot
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
@@ -57,10 +65,13 @@ instance Bi T.EpochOrSlot where
 instance Bi T.SharedSeed where
     put (T.SharedSeed bs) = put bs
     get = label "SharedSeed" $ T.SharedSeed <$> get
+    size = sizeOf T.getSharedSeed
 
 instance Bi T.ChainDifficulty where
-    get = label "ChainDifficulty" $ T.ChainDifficulty . getUnsignedVarInt <$> get
+    get = label "ChainDifficulty" $
+          T.ChainDifficulty . getUnsignedVarInt <$> get
     put (T.ChainDifficulty c) = put (UnsignedVarInt c)
+    size = sizeOf (UnsignedVarInt . T.getChainDifficulty)
 
 instance Bi T.BlockVersionData where
     get = label "BlockVersionData" $ do
@@ -90,3 +101,16 @@ instance Bi T.BlockVersionData where
         put bvdUpdateProposalThd
         put bvdUpdateImplicit
         put bvdUpdateSoftforkThd
+    size = ConstSize 0
+             `sizeAddField` T.bvdScriptVersion
+             `sizeAddField` T.bvdSlotDuration
+             `sizeAddField` T.bvdMaxBlockSize
+             `sizeAddField` T.bvdMaxHeaderSize
+             `sizeAddField` T.bvdMaxTxSize
+             `sizeAddField` T.bvdMaxProposalSize
+             `sizeAddField` T.bvdMpcThd
+             `sizeAddField` T.bvdHeavyDelThd
+             `sizeAddField` T.bvdUpdateVoteThd
+             `sizeAddField` T.bvdUpdateProposalThd
+             `sizeAddField` T.bvdUpdateImplicit
+             `sizeAddField` T.bvdUpdateSoftforkThd

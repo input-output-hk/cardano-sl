@@ -66,7 +66,7 @@ import           Pos.Wallet                 (WalletMode, WalletParams (..),
                                              WalletStaticPeersMode, addSecretKey,
                                              getBalance, getSecretKeys,
                                              runWalletStaticPeers)
-import           Pos.WorkMode               (StaticMode)
+import           Pos.WorkMode               (RealMode)
 #ifdef WITH_WEB
 import           Pos.Wallet.Web             (walletServeWebLite, walletServerOuts)
 #endif
@@ -245,9 +245,9 @@ runCmd _ Quit = pure ()
 -- This solution is hacky, but will work for now
 runCmdOuts :: OutSpecs
 runCmdOuts = relayPropagateOut $ mconcat
-                [ usRelays @(StaticMode SscGodTossing)
-                , delegationRelays @SscGodTossing @(StaticMode SscGodTossing)
-                , txRelays @SscGodTossing @(StaticMode SscGodTossing)
+                [ usRelays @(RealMode SscGodTossing)
+                , delegationRelays @SscGodTossing @(RealMode SscGodTossing)
+                , txRelays @SscGodTossing @(RealMode SscGodTossing)
                 ]
 
 evalCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()

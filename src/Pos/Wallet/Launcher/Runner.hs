@@ -1,7 +1,5 @@
 module Pos.Wallet.Launcher.Runner
-       ( runRawStaticPeersWallet
-       , runWalletStaticPeersMode
-       , runWalletStaticPeers
+       ( runWalletStaticPeers
        , runWallet
        ) where
 

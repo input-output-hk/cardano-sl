@@ -1,6 +1,5 @@
 module Explorer.Util.DOM
-    ( DOMClassList
-    , addClass
+    ( addClass
     , addClassToElement
     , classList
     , findElementById
@@ -18,7 +17,7 @@ import DOM.HTML (window)
 import DOM.HTML.Types (HTMLElement, HTMLInputElement, htmlDocumentToNonElementParentNode)
 import DOM.HTML.Window (document)
 import DOM.Node.NonElementParentNode (getElementById)
-import DOM.Node.Types (Element, ElementId)
+import DOM.Node.Types (DOMTokenList, Element, ElementId)
 import Data.Function.Eff (EffFn2, runEffFn2)
 import Data.Maybe (Maybe(..))
 import Data.Nullable (toMaybe)
@@ -47,24 +46,19 @@ findElementById id' = do
                   getElementById id' <<< htmlDocumentToNonElementParentNode
     pure $ toMaybe el
 
-
--- | Data of `classList`
--- | see https://developer.mozilla.org/en-US/docs/Web/API/Element/classList
-foreign import data DOMClassList :: *
-
 -- | Returns a `classList` from `Element`
-foreign import classList :: forall eff. Element -> Eff (dom :: DOM | eff) DOMClassList
+foreign import classList :: forall eff. Element -> Eff (dom :: DOM | eff) DOMTokenList
 
 
-foreign import addClassImpl :: forall eff. EffFn2 (dom :: DOM | eff) DOMClassList String Unit
+foreign import addClassImpl :: forall eff. EffFn2 (dom :: DOM | eff) DOMTokenList String Unit
 -- | Adds a single `CSS` class to a `classList`
-addClass :: forall eff. DOMClassList -> String -> Eff (dom :: DOM | eff) Unit
+addClass :: forall eff. DOMTokenList -> String -> Eff (dom :: DOM | eff) Unit
 addClass = runEffFn2 addClassImpl
 
 
-foreign import removeClassImpl :: forall eff. EffFn2 (dom :: DOM | eff) DOMClassList String Unit
+foreign import removeClassImpl :: forall eff. EffFn2 (dom :: DOM | eff) DOMTokenList String Unit
 -- | Removes a single `CSS` class from a `classList`
-removeClass :: forall eff. DOMClassList -> String -> Eff (dom :: DOM | eff) Unit
+removeClass :: forall eff. DOMTokenList -> String -> Eff (dom :: DOM | eff) Unit
 removeClass = runEffFn2 removeClassImpl
 
 -- | Helper function to add a single `CSS` class to a `classList` of an HTML element

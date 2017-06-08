@@ -19,7 +19,7 @@
         @extend .outer-container;
         lost-utility: clearfix;
 
-        padding: 18px 48px 48px 48px;
+        padding: 18px 48px var(--height-header-top) 48px;
 
         .logo__container {
           width: 100%;

@@ -3,6 +3,7 @@ module Explorer.Types.Actions where
 import Control.Monad.Eff.Exception (Error)
 import DOM.Event.Event (Event)
 import DOM.HTML.Types (HTMLElement, HTMLInputElement)
+import DOM.Node.Types (ElementId)
 import Data.DateTime (DateTime)
 import Data.Either (Either)
 import Data.Maybe (Maybe)
@@ -14,7 +15,7 @@ import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Pux.Html.Events (Target)
 import Signal.Channel (Channel)
-import Waypoints (ExplorerWaypoints, Waypoint, WaypointSelector)
+import Waypoints (Waypoint)
 
 data Action
     = SetLanguage Language
@@ -23,8 +24,7 @@ data Action
     -- DOM
     | ScrollTop
     | SelectInputText HTMLInputElement
-    | AddWaypoint WaypointSelector
-    | WaypointHandler ExplorerWaypoints
+    | AddWaypoint ElementId
     | StoreWaypoint Waypoint
     | BlurElement HTMLElement
     | FocusElement HTMLElement
@@ -77,7 +77,6 @@ data Action
     | DashboardInvalidBlocksPageNumber Target       -- invalid page number
     | DashboardExpandTransactions Boolean           -- expand dashboard transactions
     | DashboardShowAPICode DashboardAPICode         -- toggle dashboard api
-    | DashboardToggleHeader Boolean                 -- toggle header ui
     -- address detail view
     | AddressPaginateTxs PageNumber             -- current pagination of transactions
     | AddressEditTxsPageNumber Target Boolean   -- toggle editable state of page numbers

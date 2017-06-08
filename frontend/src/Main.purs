@@ -81,8 +81,6 @@ commonConfig state actionChannel = do
             htmlDocumentToEventTarget >>>
                 addEventListener click (eventListener globalClickListener) false
 
-    let sendActionFunc a = send actionChannel $ Ex.WaypointHandler a
-
     pure
         { initialState: set lang locale state
         , update: Ex.update :: Update Ex.State Ex.Action AppEffects

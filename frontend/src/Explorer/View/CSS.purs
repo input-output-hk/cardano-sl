@@ -17,6 +17,11 @@ module Explorer.View.CSS
   , blocksFailed
   , dashboardWrapper
   , dashboardContainer
+  , dashBoardBlocksViewId
+  , header
+  , headerId
+  , moveIn
+  , moveOut
   , route
   )
   where
@@ -36,18 +41,38 @@ modifier :: String
 modifier = "--"
 
 -----------------------------------------------------------
+-- misc
+-----------------------------------------------------------
+
+-- | Suffix to create an id
+identifier :: String
+identifier = "-id"
+
+-----------------------------------------------------------
+-- General
+-----------------------------------------------------------
+
+moveIn :: String
+moveIn = "moveIn"
+
+moveOut :: String
+moveOut = "moveOut"
+
+-----------------------------------------------------------
 -- Dashboard
 -----------------------------------------------------------
 
-dashbaord :: String
-dashbaord = "explorer-dashboard"
+dashboard :: String
+dashboard = "explorer-dashboard"
 
 dashboardWrapper :: String
-dashboardWrapper = dashbaord <> element <> "wrapper"
+dashboardWrapper = dashboard <> element <> "wrapper"
 
 dashboardContainer :: String
-dashboardContainer = dashbaord <> element <> "container"
+dashboardContainer = dashboard <> element <> "container"
 
+dashBoardBlocksViewId :: String
+dashBoardBlocksViewId = dashboard <> element <> "blocks-view" <> identifier
 
 -- | blocks header
 
@@ -112,6 +137,16 @@ blocksWaiting = "blocks-waiting"
 blocksFailed :: String
 blocksFailed = "blocks-failed"
 
+
+-----------------------------------------------------------
+-- Header
+-----------------------------------------------------------
+
+header :: String
+header = "explorer-header"
+
+headerId :: String
+headerId = header <> identifier
 
 -----------------------------------------------------------
 -- Routes

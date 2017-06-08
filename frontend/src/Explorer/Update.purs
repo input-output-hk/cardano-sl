@@ -1,12 +1,11 @@
 module Explorer.Update where
 
 import Prelude
-import CSS (selector)
 import Control.Comonad (extract)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (CONSOLE, log, logShow)
+import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Now (nowDateTime, NOW)
 import Control.SocketIO.Client (Socket, SocketIO, emit, emit')
 import DOM (DOM)
@@ -20,10 +19,10 @@ import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
-import Debug.Trace (trace, traceAny, traceAnyM)
+import Debug.Trace (trace, traceAny)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
@@ -31,15 +30,16 @@ import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
 import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination, mkSocketSubscriptionItem, searchContainerId)
+import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State)
 import Explorer.Util.Config (SyncAction(..), syncBySocket)
-import Explorer.Util.DOM (addClass, addClassToElement, classList, findElementById, removeClass, removeClassFromElement, scrollTop, targetToHTMLElement, targetToHTMLInputElement)
+import Explorer.Util.DOM (addClassToElement, findElementById, removeClassFromElement, scrollTop, targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Data (sortTxsByTime', unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
 import Explorer.View.Blocks (maxBlockRows)
+import Explorer.View.CSS (dashBoardBlocksViewId, headerId, moveIn, moveOut) as CSS
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Explorer.View.Dashboard.Transactions (maxTransactionRows)
 import Network.HTTP.Affjax (AJAX)
@@ -48,23 +48,14 @@ import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
-import Signal.Channel (channel, send)
-import Unsafe.Coerce (unsafeCoerce)
-import Waypoints (ExplorerWaypoints(..), WAYPOINT, WaypointDirection(..), WaypointSelector(..), waypoint)
--- import Waypoints (WAYPOINT, WaypointSelector(..), waypoint)
-
--- waypointHandler :: forall eff. Eff (waypoint :: WAYPOINT, console :: CONSOLE | eff) Unit
--- waypointHandler = do
---   log "handler"
---   void
-
+import Waypoints (WAYPOINT, WaypointDirection(..), waypoint') as WP
 
 update :: forall eff. Action -> State ->
     EffModel State Action
     ( dom :: DOM
     , ajax :: AJAX
     , socket :: SocketIO
-    , waypoint :: WAYPOINT
+    , waypoint :: WP.WAYPOINT
     , now :: NOW
     , console :: CONSOLE
     | eff
@@ -353,34 +344,26 @@ update (GenerateQrCode address) state =
         ]
     }
 
-update (DashboardToggleHeader value) state =
-    trace "waypoint DashboardToggleHeader" \_
-        -> traceAny value \_ ->
-            noEffects $ state
-
-update (WaypointHandler value) state =
-    trace "waypoint WaypointHandler" \_
-        -> traceAny value \_ ->
-            noEffects $ state
-
-update (AddWaypoint selector) state =
+update (AddWaypoint elementId) state =
     { state
     , effects:
-        [ liftEff waypoint' >>= \wp -> pure (StoreWaypoint wp)
+        [ liftEff waypoint >>= \wp -> pure (StoreWaypoint wp)
         ]
     }
     where
-        callback = \(WaypointDirection direction) ->
+        callback = \(WP.WaypointDirection direction) ->
             -- TODO (jk)
-            -- 1. compare direction by using Sum types
-            -- 2. Add / remove "real" CSS class
+            -- compare direction by using Sum types
+            let elId = ElementId CSS.headerId in
             if direction == "up"
-                then addClassToElement elemId "hello"
-                else removeClassFromElement elemId "hello"
-            where
-                elemId = ElementId $ unwrap selector
+                then do
+                    addClassToElement elId CSS.moveOut
+                    removeClassFromElement elId CSS.moveIn
+                else do
+                    addClassToElement elId CSS.moveIn
+                    removeClassFromElement elId CSS.moveOut
 
-        waypoint' = waypoint selector callback
+        waypoint = WP.waypoint' elementId callback 71
 
 update (StoreWaypoint wp) state = trace "waypoint store" \_ -> traceAny wp \_ -> noEffects $
     over (viewStates <<< globalViewState <<< gWaypoints) ((:) wp) state
@@ -389,22 +372,31 @@ update (DocumentClicked event) state =
     { state
     , effects:
         [ liftEff $
-            -- ignore effect while opening mobile menue
+            -- First check here is to see if a search container has been clicked or not.
+            -- We do ignore this check if the mobile menue is openend,
+            -- because we don't need to do any effects there
             if (not (state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)))
             then
                 do
-                  -- Check if children of search container has been clicked or not
-                  el <- findElementById searchContainerId
-                  case el of
-                      Just el' -> do
-                          childrenClicked <- contains (elementToNode el') (target event)
-                          pure $ GlobalFocusSearchInput childrenClicked
-                      Nothing ->
-                          pure NoOp
+                -- Let's go:
+                -- Check if any children of one of our three search containers has been clicked or not
+                  heroSearchContainerClicked <- findElementById heroSearchContainerId >>= elementClicked
+                  mobileMenuSearchContainerClicked <- findElementById mobileMenuSearchContainerId >>= elementClicked
+                  headerSearchContainerClicked <- findElementById headerSearchContainerId >>= elementClicked
+                  -- If any of these children are clicked we know, that the search UI has been set to active (focused)
+                  let clicked = heroSearchContainerClicked || mobileMenuSearchContainerClicked || headerSearchContainerClicked
+                  pure $ GlobalFocusSearchInput clicked
             else
                 pure NoOp
         ]
     }
+    where
+        elementClicked mEl =
+            case mEl of
+                Just el ->
+                    contains (elementToNode el) (target event)
+                Nothing ->
+                    pure false
 
 -- global state
 update (GlobalToggleMobileMenu toggled) state = noEffects $
@@ -418,7 +410,8 @@ update (GlobalFocusSearchInput value) state = noEffects $
               if value == false &&
                     (not $ state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend))
               then SearchAddress
-              else selectedSearch)
+              else selectedSearch
+        )
     state
 
 update GlobalSearch state =
@@ -701,7 +694,7 @@ routeEffects Dashboard state =
             state
     , effects:
         [ pure ScrollTop
-        , pure <<< AddWaypoint $ WaypointSelector "jk"
+        , pure <<< AddWaypoint $ ElementId CSS.dashBoardBlocksViewId
         , if isSuccess maxBlockPage
           then pure $ DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
           else

@@ -7,6 +7,7 @@ import Data.Lens ((^.))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, hero, cTitle, hrSubtitle) as I18nL
 import Explorer.Lenses.State (lang)
+import Explorer.State (heroSearchContainerId)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
 import Explorer.View.Common (logoView)
@@ -32,6 +33,6 @@ heroView state =
             , P.h2
                 [ P.className "hero-subheadline"]
                 [ P.text $ translate (I18nL.hero <<< I18nL.hrSubtitle) lang' ]
-            , searchInputView state
+            , searchInputView heroSearchContainerId state
             ]
         ]

@@ -72,6 +72,7 @@ module Pos.Binary.Class
        -}
        , getAsciiString1b
        , putAsciiString1b
+       , sizeAsciiString1b
        , biSize
 
        , convertSize
@@ -1033,6 +1034,9 @@ getAsciiString1b typeName limit = getWord8 >>= \sz -> do
 putAsciiString1b :: String -> Poke ()
 putAsciiString1b str =  putWord8 (fromIntegral $ length str)
                      >> putByteString (BS.pack $ map (fromIntegral . ord) str)
+
+sizeAsciiString1b :: Size String
+sizeAsciiString1b = VarSize $ \s -> 1 + length s
 
 -- | Compute size of something serializable in bytes.
 biSize :: Bi a => a -> Byte

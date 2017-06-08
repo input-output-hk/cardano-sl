@@ -2,23 +2,21 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Module for `RawRealModeK`-related part of full-node implementation of
--- Daedalus API
+-- | Module for `ProductionMode`-related part of full-node implementation of
+-- Daedalus API. FYI: K stays for Kademlia.
 
 module Pos.Wallet.Web.Server.Full.K
        ( walletServeWebFull
-       , runWStatsMode
        , runWProductionMode
-       , WalletStatsMode
        , WalletProductionMode
        ) where
+
+import           Universum
 
 import           Mockable                          (Production)
 import           Network.Transport.Abstract        (Transport)
 import           Network.Wai                       (Application)
-import qualified STMContainers.Map                 as SM
 import           System.Wlog                       (logInfo)
-import           Universum
 
 import           Pos.Communication                 (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol        (SendActions)
@@ -27,10 +25,8 @@ import           Pos.Crypto                        (noPassEncrypt)
 import           Pos.DHT.Real                      (KademliaDHTInstance)
 import           Pos.Genesis                       (genesisDevSecretKeys)
 import           Pos.Launcher.Param                (NodeParams (..))
-import           Pos.Launcher.Runner               (runRawKBasedMode)
+import           Pos.Launcher.Runner               (runProductionBasedMode)
 import           Pos.Ssc.Class                     (SscConstraint, SscParams)
-import           Pos.Statistics                    (NoStatsT, StatsT, getNoStatsT,
-                                                    runStatsT')
 import           Pos.Wallet.KeyStorage             (addSecretKey)
 import           Pos.Wallet.SscType                (WalletSscType)
 import           Pos.Wallet.Web.Server.Full.Common (nat)
@@ -38,66 +34,38 @@ import           Pos.Wallet.Web.Server.Methods     (WalletWebHandler, walletAppl
                                                     walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Server.Sockets     (ConnectionsVar, runWalletWS)
 import           Pos.Wallet.Web.State              (WalletState, runWalletWebDB)
-import           Pos.WorkMode                      (RawRealModeK)
+import           Pos.WorkMode                      (ProductionMode)
 
-
-type WalletProductionMode = NoStatsT $ WalletWebHandler (RawRealModeK WalletSscType)
-
-type WalletStatsMode = StatsT $ WalletWebHandler (RawRealModeK WalletSscType)
+type WalletProductionMode = WalletWebHandler (ProductionMode WalletSscType)
 
 -- | WalletProductionMode runner.
 runWProductionMode
     :: SscConstraint WalletSscType
     => WalletState
     -> ConnectionsVar
-    -> Transport WalletProductionMode
     -> KademliaDHTInstance
+    -> Transport WalletProductionMode
     -> NodeParams
     -> SscParams WalletSscType
     -> (ActionSpec WalletProductionMode a, OutSpecs)
     -> Production a
 runWProductionMode db conn =
-    runRawKBasedMode
+    runProductionBasedMode
         unwrapWPMode
-        (lift . lift . lift)
+        (lift . lift)
   where
-    unwrapWPMode = runWalletWebDB db . runWalletWS conn . getNoStatsT
+    unwrapWPMode = runWalletWebDB db . runWalletWS conn
 {-# NOINLINE runWProductionMode #-}
-
--- | WalletProductionMode runner.
-runWStatsMode
-    :: SscConstraint WalletSscType
-    => WalletState
-    -> ConnectionsVar
-    -> Transport WalletStatsMode
-    -> KademliaDHTInstance
-    -> NodeParams
-    -> SscParams WalletSscType
-    -> (ActionSpec WalletStatsMode a, OutSpecs)
-    -> Production a
-runWStatsMode db conn transport kinst param sscp runAction = do
-    statMap <- liftIO SM.newIO
-    runRawKBasedMode
-        (unwrapWSMode statMap)
-        (lift . lift . lift)
-        transport
-        kinst
-        param
-        sscp
-        runAction
-  where
-    unwrapWSMode statMap = runWalletWebDB db . runWalletWS conn . runStatsT' statMap
-{-# NOINLINE runWStatsMode #-}
 
 walletServeWebFull
     :: SscConstraint WalletSscType
-    => SendActions (WalletWebHandler (RawRealModeK WalletSscType))
+    => SendActions WalletProductionMode
     -> Bool      -- whether to include genesis keys
     -> Word16
-    -> WalletWebHandler (RawRealModeK WalletSscType) ()
+    -> WalletProductionMode ()
 walletServeWebFull sendActions debug = walletServeImpl action
   where
-    action :: WalletWebHandler (RawRealModeK WalletSscType) Application
+    action :: WalletProductionMode Application
     action = do
         logInfo "DAEDALUS has STARTED!"
         when (isDevelopment && debug) $

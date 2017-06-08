@@ -11,7 +11,8 @@ fi
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
     if [[ "$with_haddock" == "true" ]]; then
-      export EXTRA_STACK="--haddock";
+      # DEVOPS-107
+      #export EXTRA_STACK="--haddock";
     :
     fi
 
@@ -43,11 +44,11 @@ stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl \
   --flag cardano-sl-core:-asserts \
   --flag cardano-sl-core:-dev-mode
 
-if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" && "$TRAVIS_PULL_REQUEST" == "false" ]]; then
-  ./update_wallet_web_api_docs.sh
-  ./update_cli_docs.sh
-  ./update_haddock.sh
-fi
+#if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" && "$TRAVIS_PULL_REQUEST" == "false" ]]; then
+  #./update_wallet_web_api_docs.sh
+  #./update_cli_docs.sh
+  #./update_haddock.sh
+#fi
 
 stack exec --nix -- cardano-wallet-hs2purs
 

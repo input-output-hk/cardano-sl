@@ -21,15 +21,13 @@ module Pos.Txp.DB.Balances
          -- * Iteration
        , BalanceIter
        , balanceSource
---       , runBalanceIterator
---       , runBalanceMapIterator
---       , runBalanceIterBootstrap
 
          -- * Sanity checks
        , sanityCheckBalances
        ) where
 
-import           Data.Conduit           (Source)
+import           Data.Conduit           (Source, mapOutput, runConduit, (.|))
+import qualified Data.Conduit.List      as CL
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB       as Rocks
@@ -46,17 +44,12 @@ import           Pos.Core.Genesis       (genesisBalances)
 import           Pos.Crypto             (shortHashF)
 import           Pos.DB                 (DBError (..), RocksBatchOp (..))
 import           Pos.DB.Class           (MonadDB, MonadDBRead, MonadRealDB)
+import           Pos.DB.Class           (DBTag (GStateDB), dbIterSource)
 import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
                                          getRealStakeSumMaybe)
 import qualified Pos.DB.GState.Balances as GS
 import           Pos.DB.GState.Common   (gsPutBi)
 import           Pos.DB.Iterator        (IterType)
---import           Pos.DB.Iterator        (DBnIterator, DBnMapIterator, IterType,
---                                         ListHolderT, MonadIterator (..), runDBnIterator,
---                                         runDBnMapIterator, runListHolderT)
-import           Pos.DB.Iterator        (IterType)
-import           Pos.DB.Redirect        (DBPureRedirect, runDBPureRedirect)
-import           Pos.DB.Types           (NodeDBs (_gStateDB))
 import           Pos.Txp.Core           (txOutStake)
 import           Pos.Txp.Toil.Types     (Utxo)
 import           Pos.Txp.Toil.Utxo      (utxoToStakes)
@@ -67,8 +60,7 @@ import           Pos.Txp.Toil.Utxo      (utxoToStakes)
 
 data BalancesOp
     = PutFtsSum !Coin
-    | PutFtsStake !StakeholderId
-                  !Coin
+    | PutFtsStake !StakeholderId !Coin
 
 instance Buildable BalancesOp where
     build (PutFtsSum c) = bprint ("PutFtsSum ("%coinF%")") c
@@ -87,7 +79,7 @@ instance RocksBatchOp BalancesOp where
 
 -- TODO: provide actual implementation after corresponding
 -- flag is actually stored in the DB
-isBootstrapEra :: Monad m => m Bool
+isBootstrapEra :: MonadDBRead m => m Bool
 isBootstrapEra = pure $ not Const.isDevelopment && True
 
 genesisFakeTotalStake :: Coin
@@ -128,49 +120,14 @@ putTotalFtsStake = gsPutBi ftsSumKey
 -- Balance
 ----------------------------------------------------------------------------
 
----- | Run iterator over real balances.
---runBalanceIterReal
---    :: forall m a . MonadRealDB m
---    => DBPureRedirect (DBnIterator BalanceIter) a -> m a
---runBalanceIterReal (runDBPureRedirect -> iter) =
---    runDBnIterator @BalanceIter _gStateDB iter
---
---runBalanceIterBootstrap
---    :: forall m a . Monad m
---    => ListHolderT (IterType BalanceIter) m a -> m a
---runBalanceIterBootstrap = flip runListHolderT $ HM.toList genesisBalances
-
 -- | Run iterator over effective balances.
 balanceSource
-    :: forall m . (MonadRealDB m, MonadDBRead m)
+    :: forall m . (MonadDBRead m)
     => Source m (IterType BalanceIter)
-balanceSource = ifM isBootstrapEra undefined undefined
---    (runBalanceIterBootstrap iter)
---    (runBalanceIterReal iter)
-
----- | Run map iterator over real balances.
---runBalanceMapIterReal
---    :: forall v m a . MonadRealDB m
---    => DBnMapIterator BalanceIter v a -> (IterType BalanceIter -> v) -> m a
---runBalanceMapIterReal iter f = runDBnMapIterator @BalanceIter _gStateDB iter f
---
---runBalanceMapIterBootstrap
---    :: forall v m a . Monad m
---    => ListHolderT v m a -> (IterType BalanceIter -> v) -> m a
---runBalanceMapIterBootstrap iter f = runListHolderT iter $
---    f <$> HM.toList genesisBalances
---
----- | Run map iterator over effective balances.
---runBalanceMapIterator
---    :: forall v m a . MonadRealDB m
---    => (forall iter . ( MonadIterator v iter
---                      , MonadRealDB iter
---                      ) => iter a)
---    -> (IterType BalanceIter -> v)
---    -> m a
---runBalanceMapIterator iter f = ifM isBootstrapEra
---    (runBalanceMapIterBootstrap iter f)
---    (runBalanceMapIterReal iter f)
+balanceSource =
+    ifM isBootstrapEra
+        (dbIterSource GStateDB (Proxy @BalanceIter))
+        (CL.sourceList $ HM.toList genesisBalances)
 
 ----------------------------------------------------------------------------
 -- Sanity checks
@@ -179,18 +136,21 @@ balanceSource = ifM isBootstrapEra undefined undefined
 sanityCheckBalances
     :: (MonadMask m, MonadRealDB m, MonadDBRead m, WithLogger m)
     => m ()
-sanityCheckBalances = undefined
---    let step sm = nextItem >>= maybe (pure sm) (\c -> step (unsafeAddCoin sm c))
---    calculatedTotalStake <- runBalanceMapIterReal (step (mkCoin 0)) snd
---    totalStake <- GS.getRealTotalStake
---    let fmt =
---            ("Wrong real total stake: \
---             \sum of real stakes: "%coinF%
---             ", but getRealTotalStake returned: "%coinF)
---    let msg = sformat fmt calculatedTotalStake totalStake
---    unless (calculatedTotalStake == totalStake) $ do
---        logError $ colorize Red msg
---        throwM $ DBMalformed msg
+sanityCheckBalances = do
+    calculatedTotalStake <-
+        runConduit $
+        mapOutput snd (dbIterSource GStateDB (Proxy @BalanceIter)) .|
+        CL.fold unsafeAddCoin (mkCoin 0)
+
+    totalStake <- GS.getRealTotalStake
+    let fmt =
+            ("Wrong real total stake: \
+             \sum of real stakes: "%coinF%
+             ", but getRealTotalStake returned: "%coinF)
+    let msg = sformat fmt calculatedTotalStake totalStake
+    unless (calculatedTotalStake == totalStake) $ do
+        logError $ colorize Red msg
+        throwM $ DBMalformed msg
 
 ----------------------------------------------------------------------------
 -- Details

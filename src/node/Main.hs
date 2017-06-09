@@ -134,8 +134,8 @@ action peerHolder args@Args {..} transport = do
             runner = runNodeReal @ssc discoveryCtx transport
                         (plugins @ssc) currentParams
         either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
-  where
 #ifdef WITH_WEB
+  where
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 
     transportW ::
@@ -147,9 +147,7 @@ action peerHolder args@Args {..} transport = do
         )
         => Transport (t1 $ t0 (RealMode ssc))
     transportW = hoistTransport (lift . lift) transport
-#endif
 
-#ifdef WITH_WEB
 pluginsGT ::
     ( WorkMode SscGodTossing m
     , MonadNodeContext SscGodTossing m

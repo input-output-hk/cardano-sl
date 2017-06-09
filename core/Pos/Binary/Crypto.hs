@@ -11,7 +11,7 @@ import           Universum
 
 import qualified Cardano.Crypto.Wallet      as CC
 import qualified Crypto.ECC.Edwards25519    as Ed25519
-import           Crypto.Hash                (digestFromByteString, hashDigestSize)
+import           Crypto.Hash                (digestFromByteString)
 import qualified Crypto.PVSS                as Pvss
 import qualified Crypto.Sign.Ed25519        as EdStandard
 import qualified Data.Binary                as Binary
@@ -26,9 +26,9 @@ import           Formatting                 (int, sformat, stext, (%))
 
 import           Pos.Binary.Class           (AsBinary (..), Bi (..), Size (..),
                                              StaticSize (..), getByteString, getCopyBi,
-                                             label, putByteString, putCopyBi)
+                                             label, putByteString, putCopyBi, sizeOf)
 import qualified Pos.Binary.Class           as Bi
-import           Pos.Crypto.Hashing         (AbstractHash (..), Hash, HashAlgorithm,
+import           Pos.Crypto.Hashing         (AbstractHash (..), HashAlgorithm,
                                              WithHash (..), hashDigestSize',
                                              reifyHashDigestSize, withHash)
 import           Pos.Crypto.HD              (HDAddressPayload (..))
@@ -261,12 +261,9 @@ instance Bi PassPhrase where
 
 -- CSL-1122 uncomment
 instance Bi HDAddressPayload where
---    put = Store.poke
---    {-# INLINE put #-}
---    get = Store.peek
---    {-# INLINE get #-}
---    size = Store.size
---    {-# INLINE size #-}
+    size = sizeOf getHDAddressPayload
+    put (HDAddressPayload payload) = put payload
+    get = label "HDAddressPayload" $ HDAddressPayload <$> get
 
 -------------------------------------------------------------------------------
 -- Standard Ed25519 instances for ADA redeem keys

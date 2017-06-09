@@ -7,16 +7,16 @@ import           Data.Binary.Get     (Get, getWord32be)
 import           Data.Binary.Put     (Put, putWord32be, runPut)
 import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
-import           Pos.Binary.Class    (Bi (..))
--- import           Pos.Binary.Class    (Bi (..), getRemainingByteString, getSmallWithLength,
---                                       getWord8, label, putByteString, putSmallWithLength,
---                                       putWord8)
+import           Pos.Binary.Class    (Bi (..), Peek, Poke, UnsignedVarInt (..), encode,
+                                      label, put, putByteString, putSmallWithLength,
+                                      putWord8)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
 import           Pos.Data.Attributes (getAttributes, putAttributes)
 
 -- -- | Encode everything in an address except for CRC32
--- putAddressIncomplete :: Address -> Put
+putAddressIncomplete :: Address -> Poke ()
+putAddressIncomplete = undefined
 -- putAddressIncomplete = \case
 --     PubKeyAddress keyHash attrs -> do
 --         putWord8 0
@@ -27,18 +27,17 @@ import           Pos.Data.Attributes (getAttributes, putAttributes)
 --                 AddrPkAttrs (Just path) -> [(0, put path)]
 --     ScriptAddress scrHash -> do
 --         putWord8 1
---         putSmallWithLength $
---             put scrHash
+--         putSmallWithLength scrHash
 --     RedeemAddress keyHash -> do
 --         putWord8 2
---         putSmallWithLength $ put keyHash
+--         putSmallWithLength keyHash
 --     UnknownAddressType t bs -> do
 --         putWord8 t
---         putSmallWithLength $
---             putByteString bs
+--         putSmallWithLength $ putByteString bs
 --
 -- -- | Decode everything except for CRC32
--- getAddressIncomplete :: Get Address
+getAddressIncomplete :: Peek Address
+getAddressIncomplete = undefined
 -- getAddressIncomplete = do
 --     tag <- getWord8
 --     getSmallWithLength $ case tag of
@@ -53,16 +52,15 @@ import           Pos.Data.Attributes (getAttributes, putAttributes)
 --         t -> UnknownAddressType t <$> getRemainingByteString
 
 instance CRC32 Address where
-    crc32Update seed = undefined -- CSL-1122: uncomment -- crc32Update seed . runPut . putAddressIncomplete
+    crc32Update seed = crc32Update seed . encode
 
 instance Bi Address where
-    get = undefined -- CSL-1122 uncomment
-      --label "Address" $ do
-      --  addr <- getAddressIncomplete
-      --  checksum <- getWord32be
-      --  if checksum /= crc32 addr
-      --      then fail "Address has invalid checksum!"
-      --      else return addr
-    put addr = undefined -- CSL-1122 uncomment
-        -- putAddressIncomplete addr
-        -- putWord32be (crc32 addr)
+    get = label "Address" $ do
+       addr <- getAddressIncomplete
+       UnsignedVarInt checksum <- get
+       if checksum /= crc32 addr
+           then fail "Address has invalid checksum!"
+           else return addr
+    put addr = do
+        putAddressIncomplete addr
+        put . UnsignedVarInt . crc32 $ addr

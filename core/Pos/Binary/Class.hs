@@ -104,6 +104,7 @@ import           Data.Bits                   (Bits (..), FiniteBits, countLeadin
                                               finiteBitSize)
 import qualified Data.ByteString             as BS
 import           Data.Char                   (isAscii)
+import           Data.Functor.Contravariant  (contramap)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Data.Reflection             (reifyNat)
@@ -160,7 +161,11 @@ decodeFull :: Bi a => ByteString -> Either Text a
 decodeFull = over _Left Store.peekExMessage . Store.decodeWith get
 
 label :: Text -> Peek a -> Peek a
-label = undefined -- CSL-1122 implement
+label msg p = Peek $ \pstate ptr ->
+    runPeek p pstate ptr `catch` onPeekEx
+  where
+    onPeekEx (PeekException offset msgEx) =
+        throwM (PeekException offset (msgEx <> "\n" <> msg))
 
 ----------------------------------------------------------------------------
 -- Raw
@@ -789,8 +794,7 @@ sizeAddField sizeX toA =
 infixl 9 `sizeAddField`
 
 convertSize :: (a -> b) -> Size b -> Size a
-convertSize _  (ConstSize s) = ConstSize s
-convertSize conv (VarSize f) = VarSize $ f . conv
+convertSize = contramap
 
 sizeOf :: Bi a => (x -> a) -> Size x
 sizeOf conv = convertSize conv size
@@ -1038,7 +1042,10 @@ biSize :: Bi a => a -> Byte
 biSize = fromIntegral . getSize
 
 getByteString :: Int -> Peek ByteString
-getByteString i = reifyNat (fromIntegral i) $ \(_ :: Proxy n) -> unStaticSize <$> (Store.peek :: Peek (StaticSize n ByteString))
+getByteString i =
+    reifyNat (fromIntegral i) $
+        \(_ :: Proxy n) -> unStaticSize <$>
+        (Store.peek :: Peek (StaticSize n ByteString))
 
 putByteString :: ByteString -> Poke ()
 putByteString bs = reifyNat (fromIntegral $ BS.length bs) $ \(_ :: Proxy n) ->

@@ -47,8 +47,10 @@ data HDPassphrase = HDPassphrase !ByteString
 -- * cryptographic tag
 --
 -- For more information see 'packHDAddressAttr' and 'encryptChaChaPoly'.
-data HDAddressPayload = HDAddressPayload !ByteString
-    deriving (Eq, Ord, Show, Generic)
+data HDAddressPayload
+    = HDAddressPayload
+    { getHDAddressPayload :: !ByteString
+    } deriving (Eq, Ord, Show, Generic)
 
 instance NFData HDAddressPayload
 

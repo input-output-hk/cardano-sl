@@ -137,9 +137,9 @@ mkCInitialized total preInit =
 
 mkCAccountInit :: String -> CId Wal -> CT.CAccountInit
 mkCAccountInit wName wSetId =
-    CT.CAccountInit { cwInitWId: wSetId
-                   , caInitMeta: mkCAccountMeta wName
-                   }
+    CT.CAccountInit { caInitWId: wSetId
+                    , caInitMeta: mkCAccountMeta wName
+                    }
 
 mkCWalletAssurance :: String -> CT.CWalletAssurance
 mkCWalletAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
@@ -151,7 +151,7 @@ mkCWalletInit wSetName wsAssurance wsUnit mnemonic = do
                                 CWalletMeta
                                     { cwName: wSetName
                                     , cwAssurance: mkCWalletAssurance wsAssurance
-                                    , csUnit: wsUnit
+                                    , cwUnit: wsUnit
                                     }
                              , cwBackupPhrase: bp
                              }

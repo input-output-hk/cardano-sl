@@ -14,9 +14,9 @@
 --
 -- Apart from that we have few more classes here.
 --
--- 'MonadDBRead' contains only 'dbGet' method.  The advantage of it is
--- that you don't need to do any 'IO' to use it which makes it
--- suitable for pure testing. TODO: add iteration abilitiy.
+-- 'MonadDBRead' contains reading and iterating capabilities.  The
+-- advantage of it is that you don't need to do any 'IO' to use it
+-- which makes it suitable for pure testing.
 --
 -- 'MonadDB' is a superclass of 'MonadDB' and allows to modify
 -- DB. Again, its purpose is to make it possible to use DB w/o IO
@@ -43,6 +43,8 @@ module Pos.DB.Class
          -- * Pure
          DBTag (..)
        , dbTagToLens
+       , DBIteratorClass (..)
+       , IterType
        , MonadDBRead (..)
        , MonadDB (..)
 
@@ -82,7 +84,6 @@ import           Serokell.Data.Memory.Units     (Byte)
 
 import           Pos.Binary.Class               (Bi)
 import           Pos.Core                       (BlockVersionData (..), HeaderHash)
-import           Pos.DB.Iterator.Class          (DBIteratorClass (..), IterType)
 import           Pos.DB.Types                   (DB (..), NodeDBs, blockIndexDB, gStateDB,
                                                  lrcDB, miscDB)
 
@@ -103,6 +104,15 @@ dbTagToLens BlockIndexDB = blockIndexDB
 dbTagToLens GStateDB     = gStateDB
 dbTagToLens LrcDB        = lrcDB
 dbTagToLens MiscDB       = miscDB
+
+-- | Key-value type family encapsulating the iterator (something we
+-- can iterate on) functionality.
+class DBIteratorClass i where
+    type IterKey   i :: *
+    type IterValue i :: *
+    iterKeyPrefix :: ByteString
+
+type IterType i = (IterKey i, IterValue i)
 
 -- | Pure read-only interface to the database.
 -- TODO: add iteration, maybe something else.

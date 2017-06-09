@@ -19,9 +19,6 @@ library
                        Pos.DB.Functions
                        Pos.DB.GState.Common
                        Pos.DB.GState.Balances
-                       Pos.DB.Iterator
-                       Pos.DB.Iterator.Class
-                       Pos.DB.Iterator.DBIterator
                        Pos.DB.Misc.Common
                        Pos.DB.Redirect
                        Pos.DB.Types

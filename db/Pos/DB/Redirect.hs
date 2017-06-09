@@ -14,14 +14,26 @@ module Pos.DB.Redirect
 import           Universum
 
 import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Control.Monad.Trans.Resource (MonadResource)
+import qualified Data.ByteString              as BS (isPrefixOf)
 import           Data.Coerce                  (coerce)
+import           Data.Conduit                 (ConduitM, Source, bracketP, yield)
+import qualified Database.RocksDB             as Rocks
 import qualified Ether
+import           Formatting                   (sformat, shown, string, (%))
 
+import           Pos.Binary.Class             (Bi)
 import           Pos.DB.BatchOp               (rocksWriteBatch)
-import           Pos.DB.Class                 (MonadDB (..), MonadDBRead (..),
+import           Pos.DB.Class                 (DBIteratorClass (..), DBTag, IterType,
+                                               MonadDB (..), MonadDBRead (..),
                                                MonadRealDB, dbTagToLens, getNodeDBs)
+import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (rocksDelete, rocksGetBytes, rocksPutBytes)
-import           Pos.DB.Iterator              (iteratorSource)
+import           Pos.DB.Functions             (rocksDecodeMaybe, rocksDecodeMaybeWP)
+import           Pos.DB.Types                 (DB (..))
+import           Pos.Util.Util                (maybeThrow)
+
+
 
 data DBPureRedirectTag
 
@@ -50,3 +62,49 @@ instance
     dbDelete tag key = do
         db <- view (dbTagToLens tag) <$> getNodeDBs
         rocksDelete key db
+
+-- | Conduit source built from rocks iterator.
+iteratorSource ::
+       forall m i.
+       ( MonadResource m
+       , MonadRealDB m
+       , DBIteratorClass i
+       , Bi (IterKey i)
+       , Bi (IterValue i)
+       )
+    => DBTag
+    -> Proxy i
+    -> Source m (IterType i)
+iteratorSource tag _ = do
+    DB {..} <- view (dbTagToLens tag) <$> lift getNodeDBs
+    bracketP (Rocks.createIter rocksDB rocksReadOpts) Rocks.releaseIter $ \it -> do
+        lift $ Rocks.iterSeek it (iterKeyPrefix @i)
+        produce it
+  where
+    produce :: Rocks.Iterator -> Source m (IterType i)
+    produce it = do
+        entryStr <- processRes =<< Rocks.iterEntry it
+        case entryStr of
+            Nothing -> pass
+            Just e -> do
+                yield e
+                Rocks.iterNext it
+                produce it
+    processRes ::
+           (Bi (IterKey i), Bi (IterValue i))
+        => Maybe (ByteString, ByteString)
+        -> ConduitM () (IterType i) m (Maybe (IterType i))
+    processRes Nothing = pure Nothing
+    processRes (Just (key, val))
+        | BS.isPrefixOf (iterKeyPrefix @i) key = do
+            k <- maybeThrow (DBMalformed $ fmt key "key invalid")
+                            (rocksDecodeMaybeWP @i key)
+            v <- maybeThrow (DBMalformed $ fmt key "value invalid")
+                            (rocksDecodeMaybe val)
+            pure $ Just (k, v)
+        | otherwise = pure Nothing
+    fmt key err =
+        sformat
+            ("Iterator entry with keyPrefix = "%shown%" is malformed: \
+             \key = "%shown%", err: " %string)
+            (iterKeyPrefix @i) key err

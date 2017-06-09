@@ -25,17 +25,17 @@ module Pos.DB.Functions
 
 import           Universum
 
-import qualified Data.ByteString       as BS (drop, isPrefixOf)
-import qualified Data.ByteString.Lazy  as BSL
-import           Data.Default          (def)
-import qualified Database.RocksDB      as Rocks
-import           Formatting            (sformat, shown, string, (%))
+import qualified Data.ByteString      as BS (drop, isPrefixOf)
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Default         (def)
+import qualified Database.RocksDB     as Rocks
+import           Formatting           (sformat, shown, string, (%))
 
-import           Pos.Binary.Class      (Bi, decodeFull, encodeStrict)
-import           Pos.DB.Class          (DBTag, MonadDB (..), MonadDBRead (..))
-import           Pos.DB.Error          (DBError (DBMalformed))
-import           Pos.DB.Iterator.Class (DBIteratorClass (..))
-import           Pos.DB.Types          (DB (..))
+import           Pos.Binary.Class     (Bi, decodeFull, encodeStrict)
+import           Pos.DB.Class         (DBIteratorClass (..), DBTag, MonadDB (..),
+                                       MonadDBRead (..))
+import           Pos.DB.Error         (DBError (DBMalformed))
+import           Pos.DB.Types         (DB (..))
 
 openDB :: MonadIO m => FilePath -> m DB
 openDB fp = DB def def def

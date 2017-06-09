@@ -42,14 +42,13 @@ import           Pos.Core               (Coin, StakeholderId, coinF, mkCoin, sum
 import qualified Pos.Core.Constants     as Const
 import           Pos.Core.Genesis       (genesisBalances)
 import           Pos.Crypto             (shortHashF)
-import           Pos.DB                 (DBError (..), RocksBatchOp (..))
-import           Pos.DB.Class           (MonadDB, MonadDBRead, MonadRealDB)
-import           Pos.DB.Class           (DBTag (GStateDB), dbIterSource)
+import           Pos.DB                 (DBError (..), DBTag (GStateDB), IterType,
+                                         MonadDB, MonadDBRead, MonadRealDB,
+                                         RocksBatchOp (..), dbIterSource)
 import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
-                                         getRealStakeSumMaybe)
-import qualified Pos.DB.GState.Balances as GS
+                                         getRealStake, getRealStakeSumMaybe,
+                                         getRealTotalStake)
 import           Pos.DB.GState.Common   (gsPutBi)
-import           Pos.DB.Iterator        (IterType)
 import           Pos.Txp.Core           (txOutStake)
 import           Pos.Txp.Toil.Types     (Utxo)
 import           Pos.Txp.Toil.Utxo      (utxoToStakes)
@@ -88,12 +87,12 @@ genesisFakeTotalStake = unsafeIntegerToCoin $ sumCoins genesisBalances
 getEffectiveTotalStake :: MonadDBRead m => m Coin
 getEffectiveTotalStake = ifM isBootstrapEra
     (pure genesisFakeTotalStake)
-    GS.getRealTotalStake
+    getRealTotalStake
 
 getEffectiveStake :: MonadDBRead m => StakeholderId -> m (Maybe Coin)
 getEffectiveStake id = ifM isBootstrapEra
     (pure $ HM.lookup id genesisBalances)
-    (GS.getRealStake id)
+    (getRealStake id)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -142,7 +141,7 @@ sanityCheckBalances = do
         mapOutput snd (dbIterSource GStateDB (Proxy @BalanceIter)) .|
         CL.fold unsafeAddCoin (mkCoin 0)
 
-    totalStake <- GS.getRealTotalStake
+    totalStake <- getRealTotalStake
     let fmt =
             ("Wrong real total stake: \
              \sum of real stakes: "%coinF%

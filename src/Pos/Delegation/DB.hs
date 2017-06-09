@@ -54,11 +54,10 @@ import           Formatting             (build, sformat, (%))
 import           Pos.Binary.Class       (encodeStrict)
 import           Pos.Crypto             (PublicKey, pskDelegatePk, pskIssuerPk,
                                          verifyProxySecretKey)
-import           Pos.DB                 (DBError (DBMalformed), DBTag (GStateDB),
-                                         MonadDBRead, RocksBatchOp (..), dbIterSource,
-                                         encodeWithKeyPrefix)
+import           Pos.DB                 (DBError (DBMalformed), DBIteratorClass (..),
+                                         DBTag (GStateDB), MonadDBRead, RocksBatchOp (..),
+                                         dbIterSource, encodeWithKeyPrefix)
 import           Pos.DB.GState.Common   (gsGetBi)
-import           Pos.DB.Iterator        (DBIteratorClass (..))
 import           Pos.Delegation.Helpers (isRevokePsk)
 import           Pos.Delegation.Types   (DlgMemPool)
 import           Pos.Types              (ProxySKHeavy, StakeholderId, addressHash)

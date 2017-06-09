@@ -12,7 +12,6 @@ import           Pos.Core.Types      (Address (..), addrPkDerivationPath)
 import           Pos.Crypto.HD       (HDAddressPayload, HDPassphrase, unpackHDAddressAttr)
 import           Pos.Data.Attributes (attrData)
 import           Pos.DB.Class        (MonadRealDB)
---import           Pos.DB.Iterator     (MonadIterator (..))
 import           Pos.Txp.Core        (toaOut, txOutAddress)
 --import           Pos.Txp.DB          (UtxoIter, runUtxoMapIterator)
 

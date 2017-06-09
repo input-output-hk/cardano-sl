@@ -139,7 +139,7 @@ import           Pos.Wallet.Web.State             (AccountLookupMode (..), Walle
                                                    setWalletMeta, testReset,
                                                    totallyRemoveWAddress,
                                                    updateHistoryCache)
-import           Pos.Wallet.Web.State.Storage     (ObjectWithHistory (..), WalletStorage)
+import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, MonadWalletTracking,
                                                    selectAccountsFromUtxoLock,
                                                    syncWSetsWithGStateLock,
@@ -609,7 +609,7 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
                     -- TODO [CSM-251]: if money source is wallet set, then this is not fully correct
                     srcAccount <- getMoneySourceAccount moneySource
                     mapM_ removeWAddress srcAddrMetas
-                    addHistoryTx (OWHAccount srcAccount) title desc $
+                    addHistoryTx (aiWSId srcAccount) title desc $
                         THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs
 
     listF separator formatter =
@@ -626,15 +626,13 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
                (toList entries)
                remains
 
-getFullHistory :: WalletWebMode m => ObjectWithHistory -> m ([CTx], Word)
-getFullHistory owh = do
-    accIds <- case owh of
-        OWHWallet cWalId -> getWalletAccountIds cWalId
-        OWHAccount accId -> pure [accId]
+getFullWalletHistory :: WalletWebMode m => CId Wal -> m ([CTx], Word)
+getFullWalletHistory cWalId = do
+    accIds <- getWalletAccountIds cWalId
     accAddrs <- concatMapM (getAccountAddrsOrThrow Ever) accIds
     addrs <- mapM (decodeCIdOrFail . cwamId) accAddrs
     cHistory <- do
-        (mInit, cachedTxs) <- transCache <$> getHistoryCache owh
+        (mInit, cachedTxs) <- transCache <$> getHistoryCache cWalId
 
         -- TODO: Fix type param! Global type param.
         TxHistoryAnswer {..} <- untag @WalletSscType getTxHistory addrs mInit
@@ -645,12 +643,12 @@ getFullHistory owh = do
             cached = drop (lenHistory - taCachedNum) taHistory
         unless (null cached) $
             updateHistoryCache
-                owh
+                cWalId
                 taLastCachedHash
                 taCachedUtxo
                 (cached <> cachedTxs)
 
-        forM fullHistory $ addHistoryTx owh mempty mempty
+        forM fullHistory $ addHistoryTx cWalId mempty mempty
     pure (cHistory, fromIntegral $ length cHistory)
   where
     transCache
@@ -660,7 +658,6 @@ getFullHistory owh = do
     transCache (Just (hh, utxo, txs)) = (Just (hh, utxo), txs)
 
 -- FIXME: is Word enough for length here?
-{-# ANN searchHistory ("HLint: ignore Functor law" :: Text) #-}
 searchHistory
     :: WalletWebMode m
     => Maybe (CId Wal)
@@ -673,12 +670,13 @@ searchHistory
 searchHistory mCWalId mCAccountId mAddrId mSearch mSkip mLimit = do
     -- FIXME: searching when only AddrId is provided is not supported yet.
     mAccountId <- mapM decodeCAccountIdOrFail mCAccountId
-    owh <- case (mCWalId, mAccountId) of
+    cWalId <- case (mCWalId, mAccountId) of
         (Nothing, Nothing)        -> throwM errorSpecifySomething
         (Just _, Just _)          -> throwM errorDontSpecifyBoth
-        (Just cWalId, Nothing)    -> pure $ OWHWallet cWalId
-        (Nothing, Just accountId) -> pure $ OWHAccount accountId
-    first (applySkipLimit . filter fits) <$> getFullHistory owh
+        (Just cWalId', Nothing)   -> pure $ cWalId'
+        (Nothing, Just accountId) -> pure $ aiWSId accountId
+    -- TODO: if accountId was specified, filter just for that account
+    first (applySkipLimit . filter fits) <$> getFullWalletHistory cWalId
   where
     fits ctx = maybe True (containsInTitle ctx) mSearch
             && maybe True (accRelates ctx) mAddrId
@@ -696,19 +694,19 @@ searchHistory mCWalId mCAccountId mAddrId mSearch mSkip mLimit = do
 
 addHistoryTx
     :: WalletWebMode m
-    => ObjectWithHistory
+    => CId Wal
     -> Text
     -> Text
     -> TxHistoryEntry
     -> m CTx
-addHistoryTx owh title desc wtx@THEntry{..} = do
+addHistoryTx cWalId title desc wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
     meta <- CTxMeta title desc <$> liftIO getPOSIXTime
     let cId = txIdToCTxId _thTxId
-    addOnlyNewTxMeta owh cId meta
-    meta' <- fromMaybe meta <$> getTxMeta owh cId
+    addOnlyNewTxMeta cWalId cId meta
+    meta' <- fromMaybe meta <$> getTxMeta cWalId cId
     return $ mkCTx diff wtx meta'
 
 
@@ -972,7 +970,7 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
         Right (TxAux {..}, redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             let txInputs = [TxOut redeemAddress redeemBalance]
-            addHistoryTx (OWHAccount accId) "ADA redemption" ""
+            addHistoryTx (aiWSId accId) "ADA redemption" ""
                 (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr])
 
 reportingInitialized :: WalletWebMode m => CInitialized -> m ()

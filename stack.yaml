@@ -1,4 +1,5 @@
-flags: {}
+#resolver: lts-8.5
+resolver: lts-8.13
 
 extra-package-dbs: []
 
@@ -6,7 +7,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: 1e5aab05fdd7d1971be6f367b13e509dd587c318
+    commit: 2d55b83015fbe61e441e079da835c5d958ae9b58
   extra-dep: true
   subdirs:
       - '.'
@@ -90,12 +91,24 @@ nix:
 extra-deps:
 - universum-0.4.3
 - time-units-1.0.0
-- UtilityTM-0.0.4
 - serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
 - log-warper-1.1.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
+- purescript-bridge-0.8.0.1
+- cryptonite-0.23
+- cryptonite-openssl-0.6
+- directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
+- servant-0.10                    # servant-multipart supports version servant-10 only
+- servant-server-0.10             # so it triggers another dependencies to be v10
+- servant-swagger-1.1.2.1
+- servant-multipart-0.10
+- ether-0.5.1.0
+- transformers-lift-0.2.0.1
+
+# The other dependencies that we need to revise
+- UtilityTM-0.0.4
 - derive-2.6.2                    # not yet in lts-8
 - wreq-0.5.0.0                    # not yet in lts-8
 - turtle-1.3.1                    # earlier versions don't have 'stat'
@@ -110,23 +123,10 @@ extra-deps:
 - map-syntax-0.2.0.2
 - snap-1.0.0.1
 - snap-cors-1.2.11
-- purescript-bridge-0.10.1.0
-- cryptonite-0.23
-- cryptonite-openssl-0.6
-- directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
-- servant-0.10                    # servant-multipart supports version servant-10 only
-- servant-server-0.10             # so it triggers another dependencies to be v10
-- servant-swagger-1.1.2.1
-- servant-multipart-0.10
-- ether-0.5.1.0
 - foundation-0.0.9
 - memory-0.14.5
-- transformers-lift-0.2.0.1
 - writer-cps-transformers-0.1.1.3
 - writer-cps-mtl-0.1.1.4
-
-
-resolver: lts-8.5
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

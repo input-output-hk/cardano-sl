@@ -17,10 +17,11 @@ module NTP.Client
 import           Control.Concurrent.STM      (atomically, modifyTVar')
 import           Control.Concurrent.STM.TVar (TVar, newTVarIO, readTVar, readTVarIO,
                                               writeTVar)
+import           Control.Exception.Lifted    (bracketOnError)
 import           Control.Lens                ((%=), (.=), _Just)
 import           Control.Monad               (forM_, forever, unless, void, when)
-import           Control.Monad.Catch         (Exception)
-import           Control.Monad.Catch         (bracketOnError)
+import           Control.Monad.Catch         (Exception, MonadCatch, catchAll, handleAll,
+                                              throwM)
 import           Control.Monad.State         (gets)
 import           Control.Monad.Trans         (MonadIO (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
@@ -28,8 +29,7 @@ import           Data.Binary                 (decodeOrFail, encode)
 import qualified Data.ByteString.Lazy        as LBS
 import           Data.Default                (Default (..))
 import           Data.List                   (sortOn)
-import           Data.Maybe                  (catMaybes)
-import           Data.Maybe                  (isNothing)
+import           Data.Maybe                  (catMaybes, isNothing)
 import           Data.Monoid                 ((<>))
 import           Data.Text                   (Text)
 import           Data.Time.Units             (Microsecond, Second, toMicroseconds)
@@ -42,11 +42,10 @@ import           Prelude                     hiding (log)
 import           Serokell.Util.Concurrent    (modifyTVarS, threadDelay)
 import           System.Wlog                 (LoggerName, Severity (..), WithLogger,
                                               logMessage, modifyLoggerName)
-import           Universum                   (MonadMask, whenJust)
+import           Universum                   (whenJust)
 
 import           Mockable.Class              (Mockable)
 import           Mockable.Concurrent         (Delay, Fork, delay, fork)
-import           Mockable.Exception          (Catch, Throw, catchAll, handleAll, throw)
 import           NTP.Packet                  (NtpPacket (..), evalClockOffset,
                                               mkCliNtpPacket, ntpPacketSize)
 import           NTP.Util                    (createAndBindSock, resolveNtpHost,
@@ -115,11 +114,9 @@ instance Exception NoHostResolved
 type NtpMonad m =
     ( MonadIO m
     , MonadBaseControl IO m
+    , MonadCatch m
     , WithLogger m
     , Mockable Fork m
-    , Mockable Throw m
-    , Mockable Catch m
-    , MonadMask m
     )
 
 log' :: NtpMonad m => NtpClientSettings m -> Severity -> Text -> m ()
@@ -298,7 +295,7 @@ startNtpClient settings =
         addrs <- catMaybes <$> mapM (resolveHost cli $ socketsToBoolDescr sock)
                                     (ntpServers settings)
         if null addrs then
-            throw NoHostResolved
+            throwM NoHostResolved
         else do
             void . fork . withSocketsDoLifted $ startReceive cli
             void . fork . withSocketsDoLifted $ startSend addrs cli

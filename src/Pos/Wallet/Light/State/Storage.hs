@@ -1,7 +1,7 @@
 {-# LANGUAGE Rank2Types      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Pos.Wallet.State.Storage
+module Pos.Wallet.Light.State.Storage
        ( Storage (..)
        , Block'
 
@@ -19,21 +19,21 @@ module Pos.Wallet.State.Storage
        , blkSetHead
        ) where
 
-import           Control.Lens                   (makeClassy)
-import           Data.Default                   (def)
-import           Data.SafeCopy                  (base, deriveSafeCopySimple)
+import           Control.Lens                         (makeClassy)
+import           Data.Default                         (def)
+import           Data.SafeCopy                        (base, deriveSafeCopySimple)
 import           Universum
 
-import           Pos.Crypto                     (ProxyCert)
-import           Pos.Txp                        (Utxo)
-import           Pos.Types                      (Address, EpochIndex)
+import           Pos.Crypto                           (ProxyCert)
+import           Pos.Txp                              (Utxo)
+import           Pos.Types                            (Address, EpochIndex)
 
-import           Pos.Wallet.State.Storage.Block (Block', BlockStorage,
-                                                 HasBlockStorage (..), blkSetHead,
-                                                 getBestChain, getBlock)
-import           Pos.Wallet.State.Storage.Tx    (HasTxStorage (..), TxStorage,
-                                                 getOldestUtxo, getTxHistory, getUtxo,
-                                                 mkTxStorage)
+import           Pos.Wallet.Light.State.Storage.Block (Block', BlockStorage,
+                                                       HasBlockStorage (..), blkSetHead,
+                                                       getBestChain, getBlock)
+import           Pos.Wallet.Light.State.Storage.Tx    (HasTxStorage (..), TxStorage,
+                                                       getOldestUtxo, getTxHistory,
+                                                       getUtxo, mkTxStorage)
 
 data Storage = Storage
     { -- Block-related part of wallet storage

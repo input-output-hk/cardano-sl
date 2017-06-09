@@ -6,7 +6,6 @@
 
 module Pos.Wallet.Web.Server.Full.Common
        ( nat
-       , natS
        , convertHandler
        ) where
 
@@ -24,7 +23,6 @@ import           System.Wlog                   (usingLoggerName)
 import           Pos.Block.BListener           (runBListenerStub)
 import           Pos.Client.Txp.Balances       (runBalancesRedirect)
 import           Pos.Client.Txp.History        (runTxHistoryRedirect)
-import           Pos.Communication             (NodeId)
 import           Pos.Communication.PeerState   (PeerStateSnapshot, PeerStateTag,
                                                 WithPeerState (..), getAllStates,
                                                 peerStateFromSnapshot,
@@ -34,9 +32,7 @@ import           Pos.DB                        (NodeDBs, getNodeDBs, runDBPureRe
 import           Pos.DB.Block                  (runBlockDBRedirect)
 import           Pos.DB.DB                     (runGStateCoreRedirect)
 import           Pos.Delegation.Class          (DelegationVar, askDelegationState)
-import           Pos.DHT.Real                  (KademliaDHTInstance)
-import           Pos.Discovery                 (askDHTInstance, getPeers,
-                                                runDiscoveryConstT, runDiscoveryKademliaT)
+import           Pos.Discovery                 (runDiscoveryRedirect)
 import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
                                                 askFullNtpSlotting, askSlotting,
                                                 runSlotsDataRedirect)
@@ -53,33 +49,12 @@ import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSock
                                                 runWalletWS)
 import           Pos.Wallet.Web.State          (WalletState, getWalletWebState,
                                                 runWalletWebDB)
-import           Pos.WorkMode                  (ProductionMode, RawRealMode (..),
-                                                StaticMode, TxpExtra_TMP)
+import           Pos.WorkMode                  (RealMode (..), TxpExtra_TMP)
 
-type WebHandler = WalletWebHandler (ProductionMode WalletSscType)
-
-type WebHandlerS = WalletWebHandler (StaticMode WalletSscType)
-
--- TODO: eliminate copy-paste
+type WebHandler = WalletWebHandler (RealMode WalletSscType)
 
 nat :: WebHandler (WebHandler :~> Handler)
 nat = do
-    ws1         <- getWalletWebState
-    tlw1        <- askTxpMem
-    ssc1        <- askSscMem
-    delWrap1    <- askDelegationState
-    psCtx1      <- getAllStates
-    nc1         <- Ether.ask @NodeContextTag
-    modernDB1   <- getNodeDBs
-    conn1       <- getWalletWebSockets
-    slotVar1    <- askSlotting
-    ntpSlotVar1 <- askFullNtpSlotting
-    kinst1      <- askDHTInstance
-    pure $ NT (\h -> convertHandler nc1 modernDB1 tlw1 ssc1 ws1 delWrap1
-                              psCtx1 conn1 slotVar1 ntpSlotVar1 (Left (kinst1, h)))
-
-natS :: WebHandlerS (WebHandlerS :~> Handler)
-natS = do
     ws         <- getWalletWebState
     tlw        <- askTxpMem
     ssc        <- askSscMem
@@ -90,9 +65,8 @@ natS = do
     conn       <- getWalletWebSockets
     slotVar    <- askSlotting
     ntpSlotVar <- askFullNtpSlotting
-    peers      <- getPeers
-    pure $ NT (\h -> convertHandler nc modernDB tlw ssc ws delWrap
-                              psCtx conn slotVar ntpSlotVar (Right (peers, h)))
+    pure $ NT (convertHandler nc modernDB tlw ssc ws delWrap
+                              psCtx conn slotVar ntpSlotVar)
 
 convertHandler
     :: NodeContext WalletSscType              -- (.. insert monad `m` here ..)
@@ -105,18 +79,16 @@ convertHandler
     -> ConnectionsVar
     -> SlottingVar
     -> (Bool, NtpSlottingVar)
-    -> Either (KademliaDHTInstance, WebHandler a) (Set NodeId, WebHandlerS a)
+    -> WebHandler a
     -> Handler a
 convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                conn slotVar ntpSlotVar handler =
-    liftIO (either kRunner sRunner handler) `Catch.catches` excHandlers
+    liftIO (realRunner . walletRunner $ handler) `Catch.catches` excHandlers
   where
-    sRunner (peers, wh) = rawRunner . runDiscoveryConstT peers . walletRunner $ wh
-    kRunner (ki, wh) = rawRunner . runDiscoveryKademliaT ki . walletRunner $ wh
     walletRunner = runWalletWebDB ws . runWalletWS conn
 
-    rawRunner :: forall t . RawRealMode WalletSscType t -> IO t
-    rawRunner (RawRealMode act) = runProduction
+    realRunner :: forall t . RealMode WalletSscType t -> IO t
+    realRunner (RealMode act) = runProduction
            . usingLoggerName "wallet-api"
            . flip Ether.runReadersT nc
            . (\m -> do
@@ -134,6 +106,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
            . runBlockDBRedirect
            . runSlotsDataRedirect
            . runSlotsRedirect
+           . runDiscoveryRedirect
            . runBalancesRedirect
            . runTxHistoryRedirect
            . runPeerStateRedirect

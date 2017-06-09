@@ -11,7 +11,7 @@ module Main
        ) where
 
 import           Control.Monad.Error.Class  (throwError)
-import           Control.Monad.Reader       (MonadReader (..), ReaderT, ask, runReaderT)
+import           Control.Monad.Reader       (MonadReader (..), ReaderT, runReaderT)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import qualified Data.ByteString            as BS
@@ -62,13 +62,13 @@ import           Pos.Update                 (BlockVersionData (..), UpdateData (
                                              UpdateVote (..), mkUpdateProposalWSign)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Util.Util              (powerLift)
-import           Pos.Wallet                 (WalletMode, WalletParams (..),
-                                             WalletStaticPeersMode, addSecretKey,
-                                             getBalance, getSecretKeys,
+import           Pos.Wallet                 (WalletMode, addSecretKey, getBalance,
+                                             getSecretKeys)
+import           Pos.Wallet.Light           (LightWalletMode, WalletParams (..),
                                              runWalletStaticPeers)
-import           Pos.WorkMode               (StaticMode)
+import           Pos.WorkMode               (RealMode)
 #ifdef WITH_WEB
-import           Pos.Wallet.Web             (walletServeWebLite, walletServerOuts)
+import           Pos.Wallet.Light           (walletServeWebLite, walletServerOuts)
 #endif
 
 import           Command                    (Command (..), parseCommand)
@@ -245,9 +245,9 @@ runCmd _ Quit = pure ()
 -- This solution is hacky, but will work for now
 runCmdOuts :: OutSpecs
 runCmdOuts = relayPropagateOut $ mconcat
-                [ usRelays @(StaticMode SscGodTossing)
-                , delegationRelays @SscGodTossing @(StaticMode SscGodTossing)
-                , txRelays @SscGodTossing @(StaticMode SscGodTossing)
+                [ usRelays @(RealMode SscGodTossing)
+                , delegationRelays @SscGodTossing @(RealMode SscGodTossing)
+                , txRelays @SscGodTossing @(RealMode SscGodTossing)
                 ]
 
 evalCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()
@@ -321,9 +321,9 @@ main = do
 
     bracketResources baseParams TCP.Unaddressable $ \transport -> do
 
-        let transport' :: Transport WalletStaticPeersMode
+        let transport' :: Transport LightWalletMode
             transport' = hoistTransport
-                (powerLift :: forall t . Production t -> WalletStaticPeersMode t)
+                (powerLift :: forall t . Production t -> LightWalletMode t)
                 transport
 
         let sysStart = CLI.sysStart woCommonArgs
@@ -346,7 +346,7 @@ main = do
                           else genesisStakeDistribution
                 }
 
-            plugins :: ([ WorkerSpec WalletStaticPeersMode ], OutSpecs)
+            plugins :: ([ WorkerSpec LightWalletMode ], OutSpecs)
             plugins = first pure $ case woAction of
                 Repl    -> worker runCmdOuts $ runWalletRepl opts
                 Cmd cmd -> worker runCmdOuts $ runWalletCmd opts cmd

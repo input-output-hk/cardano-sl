@@ -29,11 +29,12 @@ import           Pos.Communication          (ActionSpec (..), NodeId, SendAction
 import           Pos.Constants              (genesisN, genesisSlotDuration,
                                              neighborsSendThreshold, slotSecurityParam)
 import           Pos.Crypto                 (hash)
-import           Pos.Discovery              (MonadDiscovery, findPeers, getPeers)
+import           Pos.Discovery              (DiscoveryContextSum (..), MonadDiscovery,
+                                             findPeers, getPeers)
 import           Pos.Genesis                (genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), bracketResources, initLrc,
-                                             runNode', runStaticMode, stakesDistr)
+                                             runNode', runRealMode, stakesDistr)
 import           Pos.Security               (SecurityParams (..), SecurityWorkersClass)
 import           Pos.Ssc.Class              (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing         (GtParams (..), SscGodTossing)
@@ -45,7 +46,7 @@ import           Pos.Util.JsonLog           ()
 import           Pos.Util.UserSecret        (simpleUserSecret)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Worker                 (allWorkers)
-import           Pos.WorkMode               (StaticMode)
+import           Pos.WorkMode               (RealMode)
 
 import           GenOptions                 (GenOptions (..), getGenOptions)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
@@ -59,11 +60,11 @@ import           Util
 
 -- | Resend initTx with 'slotDuration' period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
-           => SendActions (StaticMode ssc)
+           => SendActions (RealMode ssc)
            -> Double
            -> BambooPool
            -> TxAux
-           -> StaticMode ssc ()
+           -> RealMode ssc ()
 seedInitTx sendActions recipShare bp initTx = do
     na <- getPeersShare recipShare
     logInfo "Issuing seed transaction"
@@ -97,14 +98,14 @@ getPeersShare share = do
 runSmartGen
     :: forall ssc.
        (SscConstraint ssc, SecurityWorkersClass ssc)
-    => Transport (StaticMode ssc)
+    => Transport (RealMode ssc)
     -> (Set NodeId)
     -> NodeParams
     -> SscParams ssc
     -> GenOptions
     -> Production ()
 runSmartGen transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
-  runStaticMode peers transport np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
+  runRealMode (DCStatic peers) transport np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
@@ -263,9 +264,9 @@ main = do
             }
 
     bracketResources baseParams TCP.Unaddressable $ \transport -> do
-        let transport' :: forall ssc . Transport (StaticMode ssc)
+        let transport' :: forall ssc . Transport (RealMode ssc)
             transport' = hoistTransport
-                (powerLift :: forall t . Production t -> StaticMode ssc t)
+                (powerLift :: forall t . Production t -> RealMode ssc t)
                 transport
 
         let systemStart = CLI.sysStart goCommonArgs

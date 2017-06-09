@@ -81,8 +81,8 @@ import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
 import           Pos.Util.Servant                 (decodeCType, encodeCType)
 import           Pos.Util.UserSecret              (readUserSecret, usWalletSet)
-import           Pos.Wallet.KeyStorage            (MonadKeys, addSecretKey,
-                                                   deleteSecretKey, getSecretKeys)
+import           Pos.Wallet.KeyStorage            (addSecretKey, deleteSecretKey,
+                                                   getSecretKeys)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
                                                    blockchainSlotDuration, connectedPeers,
@@ -154,8 +154,6 @@ type WalletWebHandler m = WalletWebSockets (WalletWebDB m)
 
 type WalletWebMode m
     = ( WalletMode m
-      , MonadKeys m -- FIXME: Why isn't it implied by the
-                    -- WalletMode constraint above?
       , WebWalletModeDB m
       , MonadGState m
       , MonadWalletWebSockets m

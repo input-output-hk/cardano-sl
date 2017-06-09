@@ -8,6 +8,7 @@ module Pos.Wallet.Web.State.Storage
        , AccountLookupMode (..)
        , Query
        , Update
+       , ObjectWithHistory (..)
        , getProfile
        , setProfile
        , getWAddressIds
@@ -82,17 +83,24 @@ data WalletInfo = WalletInfo
     { _wiMeta            :: CAccountMeta
     , _wiAccounts        :: CAddresses
     , _wiRemovedAccounts :: CAddresses
-    , _wiTxHistory       :: TransactionHistory
     }
 
 makeLenses ''WalletInfo
+
+data ObjectWithHistory
+    = OWHWallet (CId Wal)
+    | OWHAccount AccountId
+    deriving (Eq, Show, Generic, Typeable)
+
+instance Hashable ObjectWithHistory
 
 data WalletStorage = WalletStorage
     { _wsWSetInfos    :: !(HashMap (CId Wal) WalletSetInfo)
     , _wsWalletInfos  :: !(HashMap AccountId WalletInfo)
     , _wsProfile      :: !CProfile
     , _wsReadyUpdates :: [CUpdateInfo]
-    , _wsHistoryCache :: !(HashMap AccountId (HeaderHash, Utxo, [TxHistoryEntry]))
+    , _wsTxHistory    :: !(HashMap ObjectWithHistory TransactionHistory)
+    , _wsHistoryCache :: !(HashMap ObjectWithHistory (HeaderHash, Utxo, [TxHistoryEntry]))
     }
 
 makeClassy ''WalletStorage
@@ -104,6 +112,7 @@ instance Default WalletStorage where
         , _wsWalletInfos  = mempty
         , _wsProfile      = def
         , _wsReadyUpdates = mempty
+        , _wsTxHistory = mempty
         , _wsHistoryCache = mempty
         }
 
@@ -168,11 +177,11 @@ doesWAddressExist mode accAddr@(walletAddrMetaToAccount -> wAddr) = do
     getAny <$>
         withAccLookupMode mode (exists wiAccounts) (exists wiRemovedAccounts)
 
-getTxMeta :: AccountId -> CTxId -> Query (Maybe CTxMeta)
-getTxMeta cAddr ctxId = preview $ wsWalletInfos . ix cAddr . wiTxHistory . ix ctxId
+getTxMeta :: ObjectWithHistory -> CTxId -> Query (Maybe CTxMeta)
+getTxMeta owh ctxId = preview $ wsTxHistory . ix owh . ix ctxId
 
 getAccountHistory :: AccountId -> Query (Maybe [CTxMeta])
-getAccountHistory cAddr = toList <<$>> preview (wsWalletInfos . ix cAddr . wiTxHistory)
+getAccountHistory accId = toList <<$>> preview (wsTxHistory . ix (OWHAccount accId))
 
 getUpdates :: Query [CUpdateInfo]
 getUpdates = view wsReadyUpdates
@@ -180,11 +189,11 @@ getUpdates = view wsReadyUpdates
 getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
-getHistoryCache :: AccountId -> Query (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
-getHistoryCache cAddr = view $ wsHistoryCache . at cAddr
+getHistoryCache :: ObjectWithHistory -> Query (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
+getHistoryCache owh = view $ wsHistoryCache . at owh
 
 createAccount :: AccountId -> CAccountMeta -> Update ()
-createAccount cAddr wMeta = wsWalletInfos . at cAddr ?= WalletInfo wMeta mempty mempty mempty
+createAccount accId wMeta = wsWalletInfos . at accId ?= WalletInfo wMeta mempty mempty
 
 createWallet :: CId Wal -> CWalletMeta -> PassPhraseLU -> Update ()
 createWallet cAddr wSMeta passLU = wsWSetInfos . at cAddr ?= WalletSetInfo wSMeta passLU genesisHash
@@ -213,21 +222,21 @@ setWalletSyncTip :: CId Wal -> HeaderHash -> Update ()
 setWalletSyncTip cAddr hh = wsWSetInfos . ix cAddr . wsiSyncTip .= hh
 
 addAccountHistoryTx :: AccountId -> CTxId -> CTxMeta -> Update ()
-addAccountHistoryTx cAddr ctxId ctxMeta =
-    wsWalletInfos . ix cAddr . wiTxHistory . at ctxId ?= ctxMeta
+addAccountHistoryTx accId ctxId ctxMeta =
+    wsTxHistory . ix (OWHAccount accId) . at ctxId ?= ctxMeta
 
 setAccountHistory :: AccountId -> [(CTxId, CTxMeta)] -> Update ()
 setAccountHistory cAddr ctxs = mapM_ (uncurry $ addAccountHistoryTx cAddr) ctxs
 
 -- FIXME: this will be removed later (temporary solution)
-addOnlyNewTxMeta :: AccountId -> CTxId -> CTxMeta -> Update ()
-addOnlyNewTxMeta cAddr ctxId ctxMeta =
-    wsWalletInfos . ix cAddr . wiTxHistory . at ctxId %= Just . fromMaybe ctxMeta
+addOnlyNewTxMeta :: ObjectWithHistory -> CTxId -> CTxMeta -> Update ()
+addOnlyNewTxMeta owh ctxId ctxMeta =
+    wsTxHistory . ix owh . at ctxId %= Just . fromMaybe ctxMeta
 
 -- NOTE: sets transaction meta only for transactions ids that are already seen
 setAccountTransactionMeta :: AccountId -> CTxId -> CTxMeta -> Update ()
-setAccountTransactionMeta cAddr ctxId ctxMeta =
-    wsWalletInfos . ix cAddr . wiTxHistory . at ctxId %= ($> ctxMeta)
+setAccountTransactionMeta accId ctxId ctxMeta =
+    wsTxHistory . ix (OWHAccount accId) . at ctxId %= ($> ctxMeta)
 
 removeWallet :: CId Wal -> Update ()
 removeWallet cAddr = wsWSetInfos . at cAddr .= Nothing
@@ -256,9 +265,9 @@ removeNextUpdate = wsReadyUpdates %= drop 1
 testReset :: Update ()
 testReset = put def
 
-updateHistoryCache :: AccountId -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
-updateHistoryCache cAddr cHash utxo cTxs =
-    wsHistoryCache . at cAddr ?= (cHash, utxo, cTxs)
+updateHistoryCache :: ObjectWithHistory -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
+updateHistoryCache owh cHash utxo cTxs =
+    wsHistoryCache . at owh ?= (cHash, utxo, cTxs)
 
 deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile
@@ -268,6 +277,7 @@ deriveSafeCopySimple 0 'base ''Wal
 deriveSafeCopySimple 0 'base ''Addr
 deriveSafeCopySimple 0 'base ''BackupPhrase
 deriveSafeCopySimple 0 'base ''AccountId
+deriveSafeCopySimple 0 'base ''ObjectWithHistory
 deriveSafeCopySimple 0 'base ''CWAddressMeta
 deriveSafeCopySimple 0 'base ''CWalletAssurance
 deriveSafeCopySimple 0 'base ''CAccountMeta

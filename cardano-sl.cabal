@@ -262,14 +262,6 @@ library
 
                         -- Wallet (intentionally separated, not alphabetically)
                         Pos.Wallet.KeyStorage
-                        Pos.Wallet.Light.State
-                        Pos.Wallet.Light.State.Acidic
-                        Pos.Wallet.Light.State.Core
-                        Pos.Wallet.Light.State.State
-                        Pos.Wallet.Light.State.Storage
-                        Pos.Wallet.Light.State.Storage.Block
-                        Pos.Wallet.Light.State.Storage.Tx
-                        Pos.Wallet.WalletMode
                         Pos.Wallet.Web.Error.Types
                         Pos.Wallet.Web.Util
 
@@ -293,10 +285,21 @@ library
                         Pos.Web.Server
                         Pos.Web.Types
   if flag(with-wallet)
-    other-modules:      Pos.Wallet.Light.Launcher
+    exposed-modules:
+                        Pos.Wallet.Redirect
+    other-modules:
+                        Pos.Wallet.Light.Launcher
                         Pos.Wallet.Light.Launcher.Runner
                         Pos.Wallet.Light.Launcher.Param
+                        Pos.Wallet.Light.State
+                        Pos.Wallet.Light.State.Acidic
+                        Pos.Wallet.Light.State.Core
+                        Pos.Wallet.Light.State.State
+                        Pos.Wallet.Light.State.Storage
+                        Pos.Wallet.Light.State.Storage.Block
+                        Pos.Wallet.Light.State.Storage.Tx
                         Pos.Wallet.SscType
+                        Pos.Wallet.WalletMode
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
                         Pos.Wallet.Light.Mode

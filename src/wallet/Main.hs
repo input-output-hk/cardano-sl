@@ -352,8 +352,7 @@ main = do
                 Cmd cmd -> worker runCmdOuts $ runWalletCmd opts cmd
 #ifdef WITH_WEB
                 Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
-                    walletServeWebLite (Proxy @SscGodTossing)
-                                       sendActions webDaedalusDbPath False webPort
+                    walletServeWebLite sendActions webDaedalusDbPath False webPort
 #endif
 
         case CLI.sscAlgo woCommonArgs of

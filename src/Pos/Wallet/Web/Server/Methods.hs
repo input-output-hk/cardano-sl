@@ -135,8 +135,8 @@ import           Pos.Wallet.Web.State             (AccountLookupMode (..), Walle
                                                    removeNextUpdate, removeWAddress,
                                                    removeWallet, setAccountMeta,
                                                    setAccountTransactionMeta, setProfile,
-                                                   setWalletMeta, testReset,
-                                                   totallyRemoveWAddress,
+                                                   setWalletMeta, setWalletPassLU,
+                                                   testReset, totallyRemoveWAddress,
                                                    updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, MonadWalletTracking,
@@ -874,6 +874,7 @@ changeWalletPassphrase sa wid oldPass newPass = do
                 mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ newAddrMeta
         return oldAddrMeta
     mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ oldAddrMeta
+    setWalletPassLU wid =<< liftIO getPOSIXTime
     deleteSK oldPass
   where
     badPass = RequestError "Invalid old passphrase given"

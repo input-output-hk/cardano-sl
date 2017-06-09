@@ -43,8 +43,8 @@ import qualified Pos.Core.Constants     as Const
 import           Pos.Core.Genesis       (genesisBalances)
 import           Pos.Crypto             (shortHashF)
 import           Pos.DB                 (DBError (..), DBTag (GStateDB), IterType,
-                                         MonadDB, MonadDBRead, MonadRealDB,
-                                         RocksBatchOp (..), dbIterSource)
+                                         MonadDB, MonadDBRead, RocksBatchOp (..),
+                                         dbIterSource)
 import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
                                          getRealStake, getRealStakeSumMaybe,
                                          getRealTotalStake)
@@ -133,7 +133,7 @@ balanceSource =
 ----------------------------------------------------------------------------
 
 sanityCheckBalances
-    :: (MonadMask m, MonadRealDB m, MonadDBRead m, WithLogger m)
+    :: (MonadDBRead m, WithLogger m)
     => m ()
 sanityCheckBalances = do
     calculatedTotalStake <-

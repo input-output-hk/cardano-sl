@@ -629,8 +629,8 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
 getFullWalletHistory :: WalletWebMode m => CId Wal -> m ([CTx], Word)
 getFullWalletHistory cWalId = do
     accIds <- getWalletAccountIds cWalId
-    accAddrs <- concatMapM (getAccountAddrsOrThrow Ever) accIds
-    addrs <- mapM (decodeCIdOrFail . cwamId) accAddrs
+    addrs <- mapM (decodeCIdOrFail . cwamId)
+        =<< concatMapM (getAccountAddrsOrThrow Ever) accIds
     cHistory <- do
         (mInit, cachedTxs) <- transCache <$> getHistoryCache cWalId
 
@@ -670,27 +670,37 @@ searchHistory
 searchHistory mCWalId mCAccountId mAddrId mSearch mSkip mLimit = do
     -- FIXME: searching when only AddrId is provided is not supported yet.
     mAccountId <- mapM decodeCAccountIdOrFail mCAccountId
-    cWalId <- case (mCWalId, mAccountId) of
-        (Nothing, Nothing)        -> throwM errorSpecifySomething
-        (Just _, Just _)          -> throwM errorDontSpecifyBoth
-        (Just cWalId', Nothing)   -> pure $ cWalId'
-        (Nothing, Just accountId) -> pure $ aiWSId accountId
-    -- TODO: if accountId was specified, filter just for that account
-    first (applySkipLimit . filter fits) <$> getFullWalletHistory cWalId
+    (cWalId, accIds) <- case (mCWalId, mAccountId) of
+        (Nothing, Nothing)      -> throwM errorSpecifySomething
+        (Just _, Just _)        -> throwM errorDontSpecifyBoth
+        (Just cWalId', Nothing) -> do
+            accIds' <- getWalletAccountIds cWalId'
+            pure (cWalId', accIds')
+        (Nothing, Just accId)   -> pure (aiWSId accId, [accId])
+    accAddrs <- map cwamId <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
+    addrs <- case mAddrId of
+        Nothing -> pure accAddrs
+        Just addr ->
+            if addr `elem` accAddrs then pure [addr] else throwM errorBadAddress
+    first (applySkipLimit . filter (fits addrs)) <$> getFullWalletHistory cWalId
   where
-    fits ctx = maybe True (containsInTitle ctx) mSearch
-            && maybe True (accRelates ctx) mAddrId
+    fits :: [CId Addr] -> CTx -> Bool
+    fits addrs ctx =
+        maybe True (containsInTitle ctx) mSearch
+            && any (relatesToAddr ctx) addrs
     containsInTitle = flip txContainsTitle
-    accRelates CTx {..} = (`elem` (ctInputAddrs ++ ctOutputAddrs))
-    errorSpecifySomething = RequestError $
-        "Please specify either walletId or accountId"
-    errorDontSpecifyBoth = RequestError $
-        "Please do not specify both walletId and accountId at the same time"
+    relatesToAddr CTx {..} = (`elem` (ctInputAddrs ++ ctOutputAddrs))
     applySkipLimit = take limit . drop skip
     limit = (fromIntegral $ fromMaybe defaultLimit mLimit)
     skip = (fromIntegral $ fromMaybe defaultSkip mSkip)
     defaultLimit = 100
     defaultSkip = 0
+    errorSpecifySomething = RequestError $
+        "Please specify either walletId or accountId"
+    errorDontSpecifyBoth = RequestError $
+        "Please do not specify both walletId and accountId at the same time"
+    errorBadAddress = RequestError $
+        "Specified wallet/account does not contain specified address"
 
 addHistoryTx
     :: WalletWebMode m

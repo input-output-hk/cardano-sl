@@ -294,7 +294,7 @@ data CAccount = CAccount
 -- | Query data for wallet creation
 data CAccountInit = CAccountInit
     { caInitMeta :: !CAccountMeta
-    , cwInitWId  :: !(CId Wal)
+    , caInitWId  :: !(CId Wal)
     } deriving (Show, Generic)
 
 -- | Query data for redeem
@@ -307,7 +307,7 @@ data CWalletRedeem = CWalletRedeem
 data CWalletMeta = CWalletMeta
     { cwName      :: !Text
     , cwAssurance :: !CWalletAssurance
-    , csUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
+    , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
     } deriving (Show, Eq, Generic)
 
 instance Default CWalletMeta where

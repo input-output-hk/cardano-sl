@@ -8,7 +8,7 @@ module Pos.Lrc.Fts
        ) where
 
 import           Control.Lens       (makeLenses, makePrisms, uses)
-import           Data.Conduit       (Conduit, ConduitM, await, yield)
+import           Data.Conduit       (Sink, await)
 import           Data.List.NonEmpty (fromList)
 import           Universum
 
@@ -69,14 +69,6 @@ ftsStateUpdate :: (StakeholderId, Coin) -> FtsState -> FtsState
 ftsStateUpdate (adr, val) =
     set fsCurrentStakeholder adr .
     over fsCurrentCoinRangeUpperBound (coinIndexOffset val)
-
--- -- | Retrieve the next stakeholder.
--- nextStakeholder
---     :: Monad m
---     => Conduit (StakeholderId, Coin) m (StakeholderId, Coin)
--- nextStakeholder = do
---     elem <- fromMaybe (error "followTheSatoshiM: indices out of range") <$> await
---     yield elem
 
 {- |
 
@@ -208,9 +200,7 @@ followTheSatoshiM
     :: forall m . Monad m
     => SharedSeed
     -> Coin
-    -> ConduitM (StakeholderId, Coin) Void m SlotLeaders
-followTheSatoshiM = undefined
-{-
+    -> Sink (StakeholderId, Coin) m SlotLeaders
 followTheSatoshiM _ totalCoins
     | totalCoins == mkCoin 0 = error "followTheSatoshiM: nobody has any stake"
 followTheSatoshiM (SharedSeed seed) totalCoins = do
@@ -225,7 +215,8 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
 
     findLeaders = (traverse . _2) findLeader
 
-    findLeader :: CoinIndex -> StateT FtsState m StakeholderId
+    findLeader :: CoinIndex ->
+                  StateT FtsState (Sink (StakeholderId, Coin) m) StakeholderId
     findLeader coinIndex = do
         inRange <- uses fsCurrentCoinRangeUpperBound (coinIndex <=)
         if inRange
@@ -242,7 +233,9 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
                 -- are sorted, it is safe to assume that upcoming coins won't
                 -- belong to this stakeholder either. We move on to the next
                 -- stakeholder and retry the current coin.
-                s <- nextStakeholder
+                s <- lift nextStakeholder
                 modify (ftsStateUpdate s)
                 findLeader coinIndex
--}
+
+    nextStakeholder =
+        fromMaybe (error "followTheSatoshiM: indices out of range") <$> await

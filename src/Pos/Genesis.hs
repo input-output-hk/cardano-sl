@@ -157,8 +157,8 @@ genesisUtxo sd =
         take genesisDevHdwKeyNum $
         makePubKeyAddress . encToPublic <$> genesisDevHdwAccountSecretKeys
 
-
-genesisDelegation :: HashMap StakeholderId [StakeholderId]
+-- | Genesis reverse transitive delegation set (d -> [i]).
+genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)
 genesisDelegation = mempty
 
 ----------------------------------------------------------------------------

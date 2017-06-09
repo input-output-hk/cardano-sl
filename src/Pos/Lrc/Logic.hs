@@ -19,7 +19,6 @@ import           Universum
 import           Pos.DB.Class        (MonadDBRead, MonadRealDB)
 import           Pos.DB.GState       (getDelegators, getEffectiveStake,
                                       isIssuerByAddressHash)
---import           Pos.DB.Iterator     (MonadIterator, runListHolder, runListHolderT)
 import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
 import           Pos.Lrc.Types       (FullRichmenData, RichmenStake)
 import           Pos.Types           (Coin, StakeholderId, sumCoins, unsafeIntegerToCoin)

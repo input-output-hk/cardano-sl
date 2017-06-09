@@ -21,7 +21,8 @@ import           AnalyzerOptions            (Args (..), getAnalyzerOptions)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
                                              fromJLSlotId)
-import           Pos.Util.TimeWarp          (JLTimed (..))
+import           Pos.Util.TimeWarp          (JLTimed (..), fromEvent)
+import           Pos.Util                   (mapEither)
 
 type TxId = Text
 type BlockId = Text
@@ -66,9 +67,7 @@ getTxAcceptTimeAvgs :: Word64 -> HM.HashMap FilePath [JLTimed JLEvent] -> HM.Has
 getTxAcceptTimeAvgs confirmations fileEvsMap = result
   where
     n = HM.size fileEvsMap
-    allEvs = map event $ mconcat $ HM.elems fileEvsMap
-    event :: JLTimed a -> a
-    event (JLTimed _ x) = x
+    allEvs = map jltContent $ mconcat $ HM.elems fileEvsMap
     blocks :: HM.HashMap BlockId JLBlock
     blocks = foldl' addBlock mempty allEvs
     adopted :: HM.HashMap BlockId (HM.HashMap FilePath Integer)
@@ -117,7 +116,7 @@ parseFile f = do
     res <- parseWith (pure mempty) (many' $ json' >>= fromJSON') bytes
     case eitherResult res of
       Left s    -> fail $ "Failed reading file " ++ f ++ ":" ++ s
-      Right evs -> return evs
+      Right evs -> return $ mapEither fromEvent evs
   where
     fromJSON' val = case fromJSON val of
                       A.Error e   -> fail e
@@ -128,7 +127,7 @@ tpsCsvFilename file = take (length file - 5) file ++ "-tps.csv"
 
 getTpsLog :: [JLTimed JLEvent] -> [(UTCTime, Double)]
 getTpsLog = map toTimedCount . filter isTpsEvent
-  where isTpsEvent (JLTimed _ ev) = case ev of
+  where isTpsEvent e = case jltContent e of
             JLTpsStat _ -> True
             _           -> False
         toTimedCount (JLTimed time (JLTpsStat count)) =

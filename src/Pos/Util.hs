@@ -22,6 +22,7 @@ module Pos.Util
        , readerToState
        , diffDoubleMap
        , withMaybeFile
+       , mapEither
 
        -- * NonEmpty
        , neZipWith3
@@ -45,6 +46,7 @@ import           Control.Lens                  (lensRules)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
 import qualified Control.Monad                 as Monad (fail)
 import           Control.Monad.Trans.Resource  (ResourceT)
+import           Data.Either                   (rights)
 import           Data.Hashable                 (Hashable)
 import qualified Data.HashMap.Strict           as HM
 import           Data.List                     (span, zipWith3)
@@ -113,6 +115,9 @@ withMaybeFile :: (MonadIO m, MonadMask m) => Maybe FilePath -> IOMode -> (Maybe 
 withMaybeFile Nothing     _    f = f Nothing
 withMaybeFile (Just file) mode f = 
     bracket (openFile file mode) (liftIO . hClose) (f . Just)
+
+mapEither :: (a -> Either b c) -> [a] -> [c]
+mapEither f = rights . map f
 
 ----------------------------------------------------------------------------
 -- NonEmpty

@@ -7,10 +7,11 @@ module Pos.Lrc.FtsPure
        , followTheSatoshiM
        ) where
 
+import           Data.Conduit        (runConduitPure, (.|))
+import qualified Data.Conduit.List   as CL
 import qualified Data.HashMap.Strict as HM
 import           Universum
 
---import           Pos.DB.Iterator     (runListHolder)
 import           Pos.Lrc.Fts         (followTheSatoshiM)
 import           Pos.Txp.Toil.Types  (Utxo)
 import           Pos.Txp.Toil.Utxo   (utxoToStakes)
@@ -41,11 +42,9 @@ followTheSatoshi seed utxo
           error "followTheSatoshi: utxo is empty"
     | totalCoins > coinToInteger (maxBound @Coin) =
           error "followTheSatoshi: totalCoins exceeds Word64"
-    | otherwise = undefined
---          runListHolder
---              (followTheSatoshiM seed
---                   (mkCoin (fromInteger totalCoins)))
---              stakes
+    | otherwise =
+      runConduitPure $ CL.sourceList stakes .| followTheSatoshiM seed totalCoinsCoin
   where
     stakes = HM.toList $ utxoToStakes utxo
     totalCoins = sumCoins $ map snd stakes
+    totalCoinsCoin = mkCoin (fromInteger totalCoins)

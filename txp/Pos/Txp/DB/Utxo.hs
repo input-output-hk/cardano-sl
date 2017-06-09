@@ -6,7 +6,7 @@
 
 module Pos.Txp.DB.Utxo
        (
-         -- * Getters
+       -- * Getters
          getTxOutFromDB
        , getTxOut
 

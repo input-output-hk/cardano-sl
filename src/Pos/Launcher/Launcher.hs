@@ -5,7 +5,6 @@
 module Pos.Launcher.Launcher
        ( -- * Node launchers.
          runNodeProduction
-       , runNodeStats
        , runNodeStatic
        ) where
 
@@ -17,13 +16,12 @@ import           Pos.Communication          (NodeId)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
 import           Pos.DHT.Real               (KademliaDHTInstance)
 import           Pos.Launcher.Param         (NodeParams (..))
-import           Pos.Launcher.Runner        (runProductionMode, runStaticMode,
-                                             runStatsMode)
+import           Pos.Launcher.Runner        (runProductionMode, runStaticMode)
 import           Pos.Launcher.Scenario      (runNode)
 import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Ssc.Class.Types        (SscParams)
-import           Pos.WorkMode               (ProductionMode, StaticMode, StatsMode)
+import           Pos.WorkMode               (ProductionMode, StaticMode)
 
 -----------------------------------------------------------------------------
 -- Main launchers
@@ -33,37 +31,24 @@ import           Pos.WorkMode               (ProductionMode, StaticMode, StatsMo
 runNodeProduction
     :: forall ssc.
        (SscConstraint ssc, SecurityWorkersClass ssc)
-    => Transport (ProductionMode ssc)
-    -> KademliaDHTInstance
+    => KademliaDHTInstance
+    -> Transport (ProductionMode ssc)
     -> ([WorkerSpec (ProductionMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()
-runNodeProduction transport kinst plugins np sscnp =
-    runProductionMode transport kinst np sscnp (runNode @ssc plugins)
-
--- | Run full node in benchmarking node
-runNodeStats
-    :: forall ssc.
-       (SscConstraint ssc, SecurityWorkersClass ssc)
-    => Transport (StatsMode ssc)
-    -> KademliaDHTInstance
-    -> ([WorkerSpec (StatsMode ssc)], OutSpecs)
-    -> NodeParams
-    -> SscParams ssc
-    -> Production ()
-runNodeStats transport kinst plugins np sscnp =
-    runStatsMode transport kinst np sscnp (runNode @ssc plugins)
+runNodeProduction kinst transport plugins np sscnp =
+    runProductionMode kinst transport np sscnp (runNode @ssc plugins)
 
 -- | Run full node in static mode
 runNodeStatic
     :: forall ssc.
        (SscConstraint ssc, SecurityWorkersClass ssc)
-    => Transport (StaticMode ssc)
-    -> Set NodeId
+    => Set NodeId
+    -> Transport (StaticMode ssc)
     -> ([WorkerSpec (StaticMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()
-runNodeStatic transport peers plugins np sscnp =
-    runStaticMode transport peers np sscnp (runNode @ssc plugins)
+runNodeStatic peers transport plugins np sscnp =
+    runStaticMode peers transport np sscnp (runNode @ssc plugins)

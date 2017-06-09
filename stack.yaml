@@ -48,7 +48,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 3fa7ccea4031a7424e77b63fd1f29e4d69b70b98
+    commit: 3dfe64f43b6908dc7e7ea43df8e06ce4bcdd6dba
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -79,7 +79,7 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.4.2
+- universum-0.4.3
 - time-units-1.0.0
 - serokell-util-0.1.5.0
 - pvss-0.1

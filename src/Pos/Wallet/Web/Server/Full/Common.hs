@@ -10,17 +10,16 @@ module Pos.Wallet.Web.Server.Full.Common
        , convertHandler
        ) where
 
+import           Universum
+
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import           Data.Tagged                   (Tagged (..))
 import qualified Ether
 import           Mockable                      (runProduction)
-import           Pos.Slotting.Ntp              (runSlotsRedirect)
-import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (usingLoggerName)
-import           Universum
 
 import           Pos.Block.BListener           (runBListenerStub)
 import           Pos.Client.Txp.Balances       (runBalancesRedirect)
@@ -41,7 +40,9 @@ import           Pos.Discovery                 (askDHTInstance, getPeers,
 import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
                                                 askFullNtpSlotting, askSlotting,
                                                 runSlotsDataRedirect)
+import           Pos.Slotting.Ntp              (runSlotsRedirect)
 import           Pos.Ssc.Extra                 (SscMemTag, SscState)
+import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
                                                 askTxpMem)
 import           Pos.Util.TimeWarp             (runWithoutJsonLogT)
@@ -53,12 +54,12 @@ import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSock
                                                 runWalletWS)
 import           Pos.Wallet.Web.State          (WalletState, getWalletWebState,
                                                 runWalletWebDB)
-import           Pos.WorkMode                  (RawRealMode (..), RawRealModeK,
-                                                RawRealModeS, TxpExtra_TMP)
+import           Pos.WorkMode                  (ProductionMode, RawRealMode (..),
+                                                StaticMode, TxpExtra_TMP)
 
-type WebHandler = WalletWebHandler (RawRealModeK WalletSscType)
+type WebHandler = WalletWebHandler (ProductionMode WalletSscType)
 
-type WebHandlerS = WalletWebHandler (RawRealModeS WalletSscType)
+type WebHandlerS = WalletWebHandler (StaticMode WalletSscType)
 
 -- TODO: eliminate copy-paste
 

@@ -104,7 +104,7 @@ runSmartGen
     -> GenOptions
     -> Production ()
 runSmartGen transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
-  runStaticMode transport peers np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
+  runStaticMode peers transport np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts

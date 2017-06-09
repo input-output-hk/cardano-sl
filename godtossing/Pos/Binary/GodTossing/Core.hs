@@ -7,16 +7,18 @@ module Pos.Binary.GodTossing.Core
 import qualified Data.HashMap.Strict           as HM
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..), getWord8, label, putWord8)
+import           Pos.Binary.Class              (Bi (..), Size (..), combineSize, getSize,
+                                                getWord8, label, putWord8, sizeOf)
 import           Pos.Binary.Crypto             ()
 import           Pos.Core.Address              (addressHash)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..),
-                                                CommitmentsMap, GtPayload (..),
+                                                CommitmentsMap (..), GtPayload (..),
                                                 GtProof (..), Opening (..),
                                                 VssCertificate (..), mkCommitmentsMap,
                                                 recreateVssCertificate)
 
 instance Bi Commitment where
+    size = combineSize (commShares, commExtra, commProof)
     put Commitment {..} = do
         put commShares
         put commExtra
@@ -29,10 +31,12 @@ instance Bi Commitment where
         return Commitment {..}
 
 instance Bi CommitmentsMap where
+    size = sizeOf getCommitmentsMap
     put = put . toList
     get = label "CommitmentsMap" $ mkCommitmentsMap <$> get
 
 instance Bi VssCertificate where
+    size = combineSize (vcVssKey, vcExpiryEpoch, vcSignature, vcSigningKey)
     put vc = do
         put $ vcVssKey vc
         put $ vcExpiryEpoch vc
@@ -42,10 +46,16 @@ instance Bi VssCertificate where
         join $ liftM4 recreateVssCertificate get get get get
 
 instance Bi Opening where
+    size = sizeOf getOpening
     put (Opening secret) = put secret
     get = label "Opening" $ Opening <$> get
 
 instance Bi GtPayload where
+    size = VarSize $ \case
+        CommitmentsPayload a b -> 1 + getSize a + getSize (toList b)
+        OpeningsPayload a b -> 1 + getSize a + getSize (toList b)
+        SharesPayload a b -> 1 + getSize a + getSize (toList b)
+        CertificatesPayload a -> 1 + getSize (toList a)
     put x =
         case x of
             CommitmentsPayload commMap vssMap ->
@@ -67,6 +77,11 @@ instance Bi GtPayload where
             toCertPair vc = (addressHash $ vcSigningKey vc, vc)
 
 instance Bi GtProof where
+    size = VarSize $ \case
+        CommitmentsProof a b -> 1 + getSize a + getSize b
+        OpeningsProof a b -> 1 + getSize a + getSize b
+        SharesProof a b -> 1 + getSize a + getSize b
+        CertificatesProof a -> 1 + getSize a
     put x = case x of
         CommitmentsProof a b -> putWord8 0 >> put a >> put b
         OpeningsProof a b    -> putWord8 1 >> put a >> put b

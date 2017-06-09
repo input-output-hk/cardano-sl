@@ -46,7 +46,6 @@ import           Universum
 
 import           Control.Lens           (uses, (%=))
 import           Data.Conduit           (Source, mapOutput)
-import qualified Data.Conduit.List      as CL
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
 import qualified Database.RocksDB       as Rocks

@@ -310,6 +310,8 @@ servantHandlers sendActions =
     :<|>
      newWallet
     :<|>
+     updateWallet
+    :<|>
      newWallet
     :<|>
      renameWSet
@@ -778,6 +780,11 @@ newWallet passphrase CWalletInit {..} = do
     let accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
     _ <- newAccount RandomSeed passphrase accInit
     return wallet
+
+updateWallet :: WalletWebMode m => CId Wal -> CWalletMeta -> m CWallet
+updateWallet wId wMeta = do
+    setWalletMeta wId wMeta
+    getWallet wId
 
 updateAccount :: WalletWebMode m => AccountId -> CAccountMeta -> m CAccount
 updateAccount accId wMeta = do

@@ -1,4 +1,5 @@
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Transformer that carries peer discovery capabilities.
 
@@ -9,10 +10,18 @@ module Pos.Discovery.Holders
        , DiscoveryKademliaT
        , askDHTInstance
        , runDiscoveryKademliaT
+
+       , DiscoveryContextSum (..)
+       , MonadDiscoverySum
+       , DiscoveryRedirect
+       , askDiscoveryContextSum
+       , runDiscoveryRedirect
        ) where
 
 import           Universum
 
+import           Control.Monad.Trans.Identity     (IdentityT (..))
+import           Data.Coerce                      (coerce)
 import qualified Data.Set                         as S (fromList)
 import qualified Ether
 import           Mockable                         (Async, Catch, Mockables, Promise,
@@ -84,3 +93,39 @@ runDiscoveryKademliaT
     :: (DiscoveryKademliaEnv m)
     => KademliaDHTInstance -> DiscoveryKademliaT m a -> m a
 runDiscoveryKademliaT = flip (Ether.runReaderT @DiscoveryTag)
+
+----------------------------------------------------------------------------
+-- Sum
+----------------------------------------------------------------------------
+
+-- | Context of Discovery implementation. It's basically a sum of all
+-- possible contexts.
+data DiscoveryContextSum
+    = DCStatic !(Set NodeId)
+    | DCKademlia !KademliaDHTInstance
+
+-- | Monad which combines all 'MonadDiscovery' implementations (and
+-- uses only one of them).
+type MonadDiscoverySum = Ether.MonadReader' DiscoveryContextSum
+
+data DiscoveryRedirectTag
+
+type DiscoveryRedirect =
+    Ether.TaggedTrans DiscoveryRedirectTag IdentityT
+
+runDiscoveryRedirect :: DiscoveryRedirect m a -> m a
+runDiscoveryRedirect = coerce
+
+askDiscoveryContextSum :: MonadDiscoverySum m => m DiscoveryContextSum
+askDiscoveryContextSum = Ether.ask'
+
+instance (MonadDiscoverySum m, DiscoveryKademliaEnv m, t ~ IdentityT) =>
+         MonadDiscovery (Ether.TaggedTrans DiscoveryRedirectTag t m) where
+    getPeers =
+        Ether.ask' >>= \case
+            DCStatic nodes -> runDiscoveryConstT nodes getPeers
+            DCKademlia inst -> runDiscoveryKademliaT inst getPeers
+    findPeers =
+        Ether.ask' >>= \case
+            DCStatic nodes -> runDiscoveryConstT nodes findPeers
+            DCKademlia inst -> runDiscoveryKademliaT inst findPeers

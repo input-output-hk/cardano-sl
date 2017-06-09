@@ -3,7 +3,7 @@
 
 -- | Block maintenance in wallet state
 
-module Pos.Wallet.State.Storage.Block
+module Pos.Wallet.Light.State.Storage.Block
        ( BlockStorage (..)
        , HasBlockStorage (blockStorage)
 

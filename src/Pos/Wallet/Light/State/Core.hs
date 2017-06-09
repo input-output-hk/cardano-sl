@@ -2,20 +2,20 @@
 
 -- | Keeps instance of `MonadGState`.
 
-module Pos.Wallet.State.Core
+module Pos.Wallet.Light.State.Core
        ( GStateCoreWalletRedirect
        , runGStateCoreWalletRedirect
        ) where
 
 import           Universum
 
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
+import           Control.Monad.Trans.Identity  (IdentityT (..))
+import           Data.Coerce                   (coerce)
 import qualified Ether
 
-import qualified Pos.Constants                as Const
-import           Pos.DB.Class                 (MonadGState (..))
-import           Pos.Wallet.State.Acidic      (WalletState)
+import qualified Pos.Constants                 as Const
+import           Pos.DB.Class                  (MonadGState (..))
+import           Pos.Wallet.Light.State.Acidic (WalletState)
 
 data GStateCoreWalletRedirectTag
 

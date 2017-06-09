@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
-module Pos.Wallet.State.State
+module Pos.Wallet.Light.State.State
        ( WalletState
        , getWalletState
        , MonadWalletDB
@@ -20,16 +20,16 @@ module Pos.Wallet.State.State
 
 import           Universum
 
-import           Data.Acid                (EventResult, EventState, QueryEvent)
+import           Data.Acid                      (EventResult, EventState, QueryEvent)
 import qualified Ether
 
-import           Pos.Txp                  (Tx, Utxo)
-import           Pos.Types                (HeaderHash)
+import           Pos.Txp                        (Tx, Utxo)
+import           Pos.Types                      (HeaderHash)
 
-import           Pos.Wallet.State.Acidic  (WalletState, closeState, openMemState,
-                                           openState)
-import           Pos.Wallet.State.Acidic  as A
-import           Pos.Wallet.State.Storage (Block', Storage)
+import           Pos.Wallet.Light.State.Acidic  (WalletState, closeState, openMemState,
+                                                 openState)
+import           Pos.Wallet.Light.State.Acidic  as A
+import           Pos.Wallet.Light.State.Storage (Block', Storage)
 
 -- | MonadWalletDB stands for monad which is able to get web wallet state
 type MonadWalletDB = Ether.MonadReader' WalletState

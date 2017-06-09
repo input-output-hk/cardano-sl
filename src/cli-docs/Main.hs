@@ -1,21 +1,21 @@
 {-# LANGUAGE QuasiQuotes #-}
 
-module Main where
+module Main ( module Main ) where
 
 import           Universum
 
-import           Data.String.QQ        (s)
-import           Data.Version          (showVersion)
-import           Options.Applicative   (Parser, execParser, footer, fullDesc,
-                                        help, header, helper, info, infoOption, long,
-                                        metavar, progDesc, strOption)
 import           Control.Monad         (forM)
+import           Data.List             (intersperse)
+import           Data.String.QQ        (s)
+import           Data.Text             (Text)
+import           Data.Version          (showVersion)
+import           Options.Applicative   (Parser, execParser, footer, fullDesc, header,
+                                        help, helper, info, infoOption, long, metavar,
+                                        progDesc, strOption)
 import           System.Directory      (doesDirectoryExist, listDirectory)
 import           System.Environment    (getProgName)
-import           System.FilePath.Posix ((</>), (<.>))
+import           System.FilePath.Posix ((<.>), (</>))
 import           System.Process        (readProcess)
-import           Data.Text             (Text)
-import           Data.List             (intersperse)
 
 import           Paths_cardano_sl      (version)
 
@@ -66,7 +66,7 @@ main = do
     getExecutables binDir = filter cardanoExeOnly <$> listDirectory binDir
       where
         cardanoExeOnly exe = "cardano-" `isPrefixOf` exe
-    
+
     -- | We run executable to get its help info.
     getHelpInfo binDir exe = do
         helpOutput <- readProcess fullPath args stdIn
@@ -75,7 +75,7 @@ main = do
         fullPath = binDir </> exe
         args     = ["--help"]
         stdIn    = ""
-    
+
 generateDocsChapter :: [(FilePath, Help)] -> Markdown
 generateDocsChapter helpInfo = mconcat . intersperse doubleNL $
     topSection : map generateSection helpInfo

@@ -52,6 +52,7 @@ import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
 import           Pos.Core                      (HeaderHash, PrimaryKeyTag, SlotLeaders)
 import           Pos.Crypto                    (SecretKey)
+import           Pos.Discovery                 (DiscoveryContextSum)
 import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
@@ -105,6 +106,8 @@ data NodeContext ssc = NodeContext
     -- ^ Context needed for the update system
     , ncLrcContext          :: !LrcContext
     -- ^ Context needed for LRC
+    , ncDiscoveryContext    :: !DiscoveryContextSum
+    -- ^ Context needed for Discovery.
     , ncBlkSemaphore        :: !BlkSemaphore
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
@@ -157,6 +160,7 @@ data NodeContext ssc = NodeContext
 makeLensesFor
     [ ("ncUpdateContext", "ncUpdateContextL")
     , ("ncLrcContext", "ncLrcContextL")
+    , ("ncDiscoveryContext", "ncDiscoveryContextL")
     , ("ncSscContext", "ncSscContextL")
     , ("ncNodeParams", "ncNodeParamsL")
     , ("ncInvPropagationQueue", "ncInvPropagationQueueL")
@@ -208,6 +212,7 @@ type instance TagsK (NodeContext ssc) =
   Type ':
   Type ':
   Type ':
+  Type ':
   '[]
 
 return []
@@ -221,6 +226,7 @@ type instance Tags (NodeContext ssc) =
   SscContextTag          :::
   UpdateContext          :::
   LrcContext             :::
+  DiscoveryContextSum    :::
   NodeParams             :::
   UpdateParams           :::
   SecurityParams         :::
@@ -252,6 +258,9 @@ instance HasLens UpdateContext (NodeContext ssc) UpdateContext where
 
 instance HasLens LrcContext (NodeContext ssc) LrcContext where
     lensOf = ncLrcContextL
+
+instance HasLens DiscoveryContextSum (NodeContext ssc) DiscoveryContextSum where
+    lensOf = ncDiscoveryContextL
 
 instance HasLens NodeParams (NodeContext ssc) NodeParams where
     lensOf = ncNodeParamsL

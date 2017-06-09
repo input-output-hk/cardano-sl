@@ -52,11 +52,15 @@ bla/
 testnetStakes/
 *.key.lock
 node_modules/*
-.no-nix
 db-abc/
 kademlia-abc.dump
-b
 lint
+keys
+
+# Our custom build script (util-scripts/build.sh)
+b
+.no-nix
+.ram
 
 # IPython notebooks
 .ipynb_checkpoints
@@ -68,6 +72,5 @@ lint
 
 # Intellij Idea & intellij-haskell
 .idea
-keys
 .ideaHaskellLib
 *.iml

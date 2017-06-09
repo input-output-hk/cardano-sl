@@ -1,121 +1,92 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 
 module Main where
 
-import           Data.Maybe          (fromJust)
-import           Formatting          (sformat, shown, (%))
-import           Mockable            (Production, currentTime)
-import           System.Wlog         (CanLog, HasLoggerName, LoggerName, logInfo)
 import           Universum
 
-import           Pos.Binary          ()
-import qualified Pos.CLI             as CLI
-import           Pos.Core.Types      (Timestamp (..))
-import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
+import           Control.Monad.Trans        (MonadTrans (..))
+import qualified Data.ByteString.Char8      as BS8 (unpack)
+import           Data.Maybe                 (fromJust)
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
+import           Data.Time.Units            (toMicroseconds)
+import qualified Ether
+import           Formatting                 (sformat, shown, (%))
+import           Mockable                   (Production, currentTime)
+import           Network.Transport.Abstract (Transport, hoistTransport)
+import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
+import           Node                       (hoistSendActions)
+import           Serokell.Util              (sec)
+import           System.Wlog                (logInfo)
+
+import           Pos.Binary                 ()
+import qualified Pos.CLI                    as CLI
+import           Pos.Communication          (ActionSpec (..), OutSpecs, WorkerSpec,
+                                             worker, wrapActionSpec)
+import           Pos.Context                (recoveryCommGuard)
+import           Pos.Core.Types             (Timestamp (..))
+import           Pos.DHT.Workers            (dhtWorkers)
+import           Pos.Discovery              (askDHTInstance, runDiscoveryKademliaT)
 #ifndef DEV_MODE
-import           Pos.Genesis         (genesisStakeDistribution)
+import           Pos.Genesis                (genesisStakeDistribution)
 #endif
-import           Pos.Genesis         (genesisUtxo)
-import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
-                                      NodeParams (..), RealModeResources,
-                                      bracketResources, runNodeProduction, stakesDistr)
-import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
-import           Pos.Types           (Timestamp (Timestamp))
-import           Pos.Update          (UpdateParams (..))
-import           Pos.Util            (inAssertMode, mconcatPair)
-import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usPrimKey, usVss,
-                                      writeUserSecret)
+import           Pos.DHT.Real               (KademliaDHTInstance (..),
+                                             foreverRejoinNetwork)
+import           Pos.Launcher               (NodeParams (..), bracketResourcesKademlia,
+                                             runNodeProduction)
+import           Pos.Shutdown               (triggerShutdown)
+import           Pos.Ssc.Class              (SscConstraint)
+import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Types                  (Timestamp (Timestamp))
+import           Pos.Update.Context         (ucUpdateSemaphore)
+import           Pos.Util                   (inAssertMode, mconcatPair)
+import           Pos.Util.UserSecret        (usVss)
+import           Pos.Util.Util              (powerLift)
+import           Pos.WorkMode               (ProductionMode, RawRealMode, WorkMode)
 
-import           Pos.Explorer.Socket (NotifierSettings (..))
-import           Pos.Explorer.Web    (explorerPlugin, notifierPlugin)
+import           Pos.Explorer.Socket        (NotifierSettings (..))
+import           Pos.Explorer.Web           (explorerPlugin, notifierPlugin)
 
-import           ExplorerOptions     (Args (..), getExplorerOptions)
-
+import           ExplorerOptions            (Args (..), getExplorerOptions)
+import           Params                     (getBaseParams, getKademliaParams,
+                                             getNodeParams, gtSscParams)
 
 action
-    :: Either KademliaDHTInstance (Set NodeId)
+    :: KademliaDHTInstance
     -> Args
     -> (forall ssc . Transport (RawRealMode ssc))
     -> Production ()
-action peerHolder args@Args {..} transport = do
+action kad args@Args {..} transport = do
     systemStart <- getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
     currentParams <- getNodeParams args systemStart
-    putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
-#ifdef WITH_WALLET
-    putText $ "Is wallet enabled: " <> show enableWallet
-#else
-    putText "Wallet is disabled, because software is built w/o it"
-#endif
-    putText $ "Static peers is on: " <> show staticPeers
 
-    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = gtSscParams args vssSK
-    let wDhtWorkers :: WorkMode ssc m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
+    putText "Running using GodTossing"
+    let wDhtWorkers :: WorkMode SscGodTossing m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
         wDhtWorkers = (\(ws, outs) -> (map (fst . recoveryCommGuard . (, outs)) ws, outs)) . -- TODO simplify
                       first (map $ wrapActionSpec $ "worker" <> "dht") . dhtWorkers
 
-#ifdef WITH_WEB
-    when enableWallet $ do
-        let currentPluginsGT :: (MonadNodeContext SscGodTossing m, WorkMode SscGodTossing m) => [m ()]
-            currentPluginsGT = pluginsGT args
-        bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
-            bracketWalletWS $ \conn -> do
-                let allPlugins :: (MonadNodeContext SscGodTossing m, WorkMode SscGodTossing m)
-                               => KademliaDHTInstance
-                               -> ([WorkerSpec m], OutSpecs)
-                    allPlugins ki = mconcat [wDhtWorkers ki, convPlugins currentPluginsGT]
+    let plugins = mconcatPair
+            [ explorerPlugin webPort
+            , notifierPlugin NotifierSettings{ nsPort = notifierPort }
+            , wDhtWorkers kad
+            , utwProd
+            ]
 
-                case (peerHolder, CLI.sscAlgo commonArgs) of
-                    (Right peers, GodTossingAlgo) ->
-                        runWStaticMode db conn
-                            peers transportW
-                            currentParams gtParams
-                            (runNode @SscGodTossing $ (convPlugins currentPluginsGT) <> walletStatic args)
-                    (Left kad, GodTossingAlgo) ->
-                        runWProductionMode db conn
-                            kad transportW
-                            currentParams gtParams
-                            (runNode @SscGodTossing (allPlugins kad <> walletProd args))
-                    (_, NistBeaconAlgo) ->
-                        logError "Wallet does not support NIST beacon!"
-#endif
-#ifdef WITH_WALLET
-    let userWantsWallet = enableWallet
-#else
-    let userWantsWallet = False
-#endif
-    unless userWantsWallet $ do
-        let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
-            sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
+    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+    let gtParams = gtSscParams args vssSK
 
-        case peerHolder of
-            Right peers -> do
-                let runner :: forall ssc .
-                        (SscConstraint ssc, SecurityWorkersClass ssc)
-                        => SscParams ssc -> Production ()
-                    runner =
-                        runNodeStatic @ssc
-                            peers
-                            transportR
-                            utwStatic
-                            currentParams
-                either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
-            Left kad -> do
-                let runner :: forall ssc .
-                        (SscConstraint ssc, SecurityWorkersClass ssc)
-                        => SscParams ssc -> Production ()
-                    runner =
-                        runNodeProduction @ssc
-                            kad
-                            transportR
-                            (mconcat [wDhtWorkers kad, utwProd])
-                            currentParams
-                either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
+    runNodeProduction @SscGodTossing
+        kad
+        transportR
+        plugins
+        currentParams
+        gtParams
   where
     transportR ::
         forall ssc t0 .
@@ -125,44 +96,12 @@ action peerHolder args@Args {..} transport = do
         => Transport (t0 (RawRealMode ssc))
     transportR = hoistTransport lift transport
 
-#ifdef WITH_WEB
-    convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
-
-    transportW ::
-        forall ssc t0 t1 t2 .
-        ( Each '[MonadTrans] [t0, t1, t2]
-        , Each '[Monad] [ t0 (RawRealMode ssc)
-                        , t1 (t0 (RawRealMode ssc))
-                        , t2 (t1 (t0 (RawRealMode ssc)))
-                        ]
-        )
-        => Transport (t2 $ t1 $ t0 (RawRealMode ssc))
-    transportW = hoistTransport (lift . lift . lift) transport
-#endif
-
-#ifdef WITH_WEB
-pluginsGT ::
-    ( WorkMode SscGodTossing m
-    , MonadNodeContext SscGodTossing m
-    ) => Args -> [m ()]
-pluginsGT Args {..}
-    | enableWeb = [serveWebGT webPort]
-    | otherwise = []
-#endif
-
 utwProd :: SscConstraint ssc => ([WorkerSpec (ProductionMode ssc)], OutSpecs)
 utwProd = first (map liftPlugin) updateTriggerWorker
   where
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
         ki <- askDHTInstance
         lift . p vI $ hoistSendActions (runDiscoveryKademliaT ki) lift sa
-
-utwStatic :: SscConstraint ssc => ([WorkerSpec (StaticMode ssc)], OutSpecs)
-utwStatic = first (map liftPlugin) updateTriggerWorker
-  where
-    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
-        peers <- getPeers
-        lift . p vI $ hoistSendActions (runDiscoveryConstT peers) lift sa
 
 updateTriggerWorker
     :: SscConstraint ssc
@@ -171,34 +110,6 @@ updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
     void $ takeMVar =<< Ether.asks' ucUpdateSemaphore
     triggerShutdown
-
-----------------------------------------------------------------------------
--- Wallet stuff
-----------------------------------------------------------------------------
-
-#ifdef WITH_WALLET
-
-walletProd
-    :: SscConstraint WalletSscType
-    => Args
-    -> ([WorkerSpec WalletProductionMode], OutSpecs)
-walletProd Args {..} = first pure $ worker walletServerOuts $ \sendActions ->
-    walletServeWebFull
-        sendActions
-        walletDebug
-        walletPort
-
-walletStatic
-    :: SscConstraint WalletSscType
-    => Args
-    -> ([WorkerSpec WalletStaticMode], OutSpecs)
-walletStatic Args{..} =  first pure $ worker walletServerOuts $ \sendActions ->
-    walletServeWebFullS
-        sendActions
-        walletDebug
-        walletPort
-
-#endif
 
 getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
 getNodeSystemStart cliOrConfigSystemStart
@@ -220,31 +131,6 @@ getNodeSystemStart cliOrConfigSystemStart
     timestampToSeconds :: Timestamp -> Integer
     timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
 
-main :: IO ()
-main = do
-    args <- getNodeOptions
-    printFlags
-    let baseParams = getBaseParams "node" args
-    if staticPeers args then do
-        allPeers <- S.fromList . map addressToNodeId <$> getPeersFromArgs args
-        bracketResources baseParams TCP.Unaddressable $ \transport -> do
-            let transport' = hoistTransport
-                    (powerLift :: forall ssc t . Production t -> RawRealMode ssc t)
-                    transport
-            action (Right allPeers) args transport'
-    else do
-        let (bindHost, bindPort) = bindAddress args
-        let (externalHost, externalPort) = externalAddress args
-        let tcpAddr = TCP.Addressable $
-                TCP.TCPAddrInfo (BS8.unpack bindHost) (show $ bindPort)
-                                (const (BS8.unpack externalHost, show $ externalPort))
-        kademliaParams <- liftIO $ getKademliaParams args
-        bracketResourcesKademlia baseParams tcpAddr kademliaParams $ \kademliaInstance transport ->
-            let transport' = hoistTransport
-                    (powerLift :: forall ssc t . Production t -> RawRealMode ssc t)
-                    transport
-            in  foreverRejoinNetwork kademliaInstance (action (Left kademliaInstance) args transport')
-
 printFlags :: IO ()
 printFlags = do
 #ifdef DEV_MODE
@@ -256,6 +142,17 @@ printFlags = do
 
 main :: IO ()
 main = do
-    printFlags
     args <- getExplorerOptions
-    bracketResources (baseParams "node" args) (action args)
+    printFlags
+    let baseParams = getBaseParams "node" args
+    let (bindHost, bindPort) = bindAddress args
+    let (externalHost, externalPort) = externalAddress args
+    let tcpAddr = TCP.Addressable $
+            TCP.TCPAddrInfo (BS8.unpack bindHost) (show $ bindPort)
+                            (const (BS8.unpack externalHost, show $ externalPort))
+    kademliaParams <- liftIO $ getKademliaParams args
+    bracketResourcesKademlia baseParams tcpAddr kademliaParams $ \kademliaInstance transport ->
+        let transport' = hoistTransport
+                (powerLift :: forall ssc t . Production t -> RawRealMode ssc t)
+                transport
+        in  foreverRejoinNetwork kademliaInstance (action kademliaInstance args transport')

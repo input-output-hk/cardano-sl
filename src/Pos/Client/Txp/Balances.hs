@@ -70,7 +70,7 @@ instance
         MonadBalances (Ether.TaggedTrans BalancesRedirectTag t m)
   where
     getOwnUtxos addr = do
-        utxo <- undefined -- GS.getFilteredUtxo addr
+        utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoModifier
         let addrsSet = HS.fromList $ AddressIA <$> addr
             toDel    = MM.deletions updates

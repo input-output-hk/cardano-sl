@@ -28,9 +28,9 @@ module Pos.Launcher.Runner
 
 import           Control.Concurrent.STM       (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                 (each, to, _tail)
-import           Control.Monad.Base           (MonadBase)
 import           Control.Monad.Fix            (MonadFix)
 import           Control.Monad.Trans.Resource (MonadResource, runResourceT)
+import           Data.Conduit                 (runConduit, (.|))
 import           Data.Default                 (def)
 import           Data.Tagged                  (Tagged (..), untag)
 import qualified Data.Time                    as Time
@@ -98,9 +98,7 @@ import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, Ss
 import           Pos.Ssc.Extra                (SscMemTag, bottomSscState, mkSscState)
 import           Pos.Statistics               (getNoStatsT, runStatsT')
 import           Pos.Txp                      (mkTxpLocalData)
---import           Pos.Txp.DB                   (genesisFakeTotalStake,
---                                               runBalanceIterBootstrap)
-import           Pos.Txp.DB                   (genesisFakeTotalStake)
+import           Pos.Txp.DB                   (balanceSource, genesisFakeTotalStake)
 import           Pos.Txp.MemState             (TxpHolderTag)
 import           Pos.Wallet.WalletMode        (runBlockchainInfoRedirect,
                                                runUpdatesRedirect)
@@ -142,7 +140,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
     runResourceT $ usingLoggerName lpRunnerTag $ do
         initNC <- untag @ssc sscCreateNodeContext sscnp
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
-        let allWorkersNum = 3 :: Int -- allWorkesCount @ssc @(ProductionMode ssc) :: Int
+        let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc)
         -- TODO [CSL-775] ideally initialization logic should be in scenario.
         runCH @ssc allWorkersNum np initNC modernDBs .
             flip Ether.runReaderT' modernDBs .
@@ -429,11 +427,12 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
     ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
-    ncGenesisLeaders <- if Const.isDevelopment
-                        then pure $ genesisLeaders npCustomUtxo
-                        else undefined
-                            -- runBalanceIterBootstrap $
-                            -- followTheSatoshiM genesisSeed genesisFakeTotalStake
+    ncGenesisLeaders <-
+        if Const.isDevelopment
+        then pure $ genesisLeaders npCustomUtxo
+        else flip Ether.runReaderT' db $ runDBPureRedirect $
+             runConduit $
+             balanceSource .| followTheSatoshiM genesisSeed genesisFakeTotalStake
     ucMemState <- newMemVar
     ucDownloadingUpdates <- newTVarIO mempty
     -- TODO synchronize the NodeContext peers var with whatever system

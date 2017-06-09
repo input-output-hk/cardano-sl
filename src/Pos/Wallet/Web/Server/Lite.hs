@@ -38,7 +38,7 @@ import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.State              (getWalletState)
 import qualified Pos.Wallet.State              as WS
 import           Pos.Wallet.State.Core         (runGStateCoreWalletRedirect)
-import           Pos.Wallet.WalletMode         (WalletStaticPeersMode,
+import           Pos.Wallet.WalletMode         (RawWalletMode (..), WalletStaticPeersMode,
                                                 runBalancesWalletRedirect,
                                                 runBlockchainInfoNotImplemented,
                                                 runTxHistoryWalletRedirect,
@@ -117,6 +117,7 @@ convertHandler mws kd ws wsConn peers handler = do
            . runUpdatesNotImplemented
            . runBlockchainInfoNotImplemented
            . runBListenerStub
+           . (\(RawWalletMode m) -> m)
            . runDiscoveryConstT peers
            . runWalletWebDB ws
            . runWalletWS wsConn
@@ -125,6 +126,7 @@ convertHandler mws kd ws wsConn peers handler = do
   where
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
+{-# NOINLINE convertHandler #-}
 
 -- Stub implementations for lite wallet.
 instance Ether.MonadReader NodeDBs NodeDBs Production where

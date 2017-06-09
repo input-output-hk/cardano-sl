@@ -10,18 +10,17 @@ module Pos.Wallet.Web.Server.Full.Common
        , convertHandler
        ) where
 
+import           Universum
+
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import           Control.Monad.Trans.Resource  (runResourceT)
 import           Data.Tagged                   (Tagged (..))
 import qualified Ether
 import           Mockable                      (runProduction)
-import           Pos.Slotting.Ntp              (runSlotsRedirect)
-import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (usingLoggerName)
-import           Universum
 
 import           Pos.Block.BListener           (runBListenerStub)
 import           Pos.Client.Txp.Balances       (runBalancesRedirect)
@@ -42,7 +41,9 @@ import           Pos.Discovery                 (askDHTInstance, getPeers,
 import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
                                                 askFullNtpSlotting, askSlotting,
                                                 runSlotsDataRedirect)
+import           Pos.Slotting.Ntp              (runSlotsRedirect)
 import           Pos.Ssc.Extra                 (SscMemTag, SscState)
+import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
                                                 askTxpMem)
 import           Pos.Wallet.SscType            (WalletSscType)
@@ -53,11 +54,12 @@ import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSock
                                                 runWalletWS)
 import           Pos.Wallet.Web.State          (WalletState, getWalletWebState,
                                                 runWalletWebDB)
-import           Pos.WorkMode                  (RawRealModeK, RawRealModeS, TxpExtra_TMP)
+import           Pos.WorkMode                  (ProductionMode, RawRealMode (..),
+                                                StaticMode, TxpExtra_TMP)
 
-type WebHandler = WalletWebHandler (RawRealModeK WalletSscType)
+type WebHandler = WalletWebHandler (ProductionMode WalletSscType)
 
-type WebHandlerS = WalletWebHandler (RawRealModeS WalletSscType)
+type WebHandlerS = WalletWebHandler (StaticMode WalletSscType)
 
 -- TODO: eliminate copy-paste
 
@@ -113,7 +115,9 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
     sRunner (peers, wh) = rawRunner . runDiscoveryConstT peers . walletRunner $ wh
     kRunner (ki, wh) = rawRunner . runDiscoveryKademliaT ki . walletRunner $ wh
     walletRunner = runWalletWebDB ws . runWalletWS conn
-    rawRunner = runProduction
+
+    rawRunner :: forall t . RawRealMode WalletSscType t -> IO t
+    rawRunner (RawRealMode act) = runProduction
            . runResourceT
            . usingLoggerName "wallet-api"
            . flip Ether.runReadersT nc
@@ -139,5 +143,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
            . runUpdatesRedirect
            . runBlockchainInfoRedirect
            . runBListenerStub
+           $ act
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
+{-# NOINLINE convertHandler #-}

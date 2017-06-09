@@ -87,8 +87,6 @@ library
                         Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
 
-                        Pos.Statistics
-
                         -- Client
                         Pos.Client.Txp.Balances
                         Pos.Client.Txp.History
@@ -130,6 +128,8 @@ library
     exposed-modules:    Pos.Wallet
   if flag(with-wallet) && flag(with-web)
     exposed-modules:    Pos.Wallet.Web
+  if flag(with-web) || flag(with-explorer)
+    exposed-modules:    Pos.Util.Servant
   other-modules:        Paths_cardano_sl
 
                         Pos.Aeson.CompileConfig
@@ -232,6 +232,8 @@ library
                         Pos.Lrc.Logic
                         Pos.Lrc.Worker
 
+                        Pos.Recovery.Instance
+
                         -- SafeCopy serialization (required in wallet)
                         Pos.SafeCopy
 
@@ -240,12 +242,6 @@ library
 
                         Pos.Ssc.GodTossing.Arbitrary
 
-                        -- Statistics
-                        Pos.Statistics.Helpers
-                        Pos.Statistics.MonadStats
-                        Pos.Statistics.StatEntry
-                        Pos.Statistics.Tx
-
                         -- Txp
                         Pos.Txp.Arbitrary
                         Pos.Txp.Network
@@ -253,26 +249,28 @@ library
                         Pos.Txp.Network.Types
                         Pos.Txp.Worker
 
-                        -- Workers
-                        Pos.Worker.Stats
-
                         -- Update System
                         Pos.Update.Arbitrary.Core
                         Pos.Update.Arbitrary.MemState
                         Pos.Update.Arbitrary.Network
                         Pos.Update.Arbitrary.Poll
                         Pos.Update.Download
-                        Pos.Update.Logic
-                        Pos.Update.Logic.Global
-                        Pos.Update.Logic.Local
-                        Pos.Update.Lrc
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
-                        Pos.Update.Poll
-                        Pos.Update.Poll.DBPoll
                         Pos.Update.Worker
 
-                        Pos.Recovery.Instance
+                        -- Wallet (intentionally separated, not alphabetically)
+                        Pos.Wallet.KeyStorage
+                        Pos.Wallet.State
+                        Pos.Wallet.State.Acidic
+                        Pos.Wallet.State.Core
+                        Pos.Wallet.State.State
+                        Pos.Wallet.State.Storage
+                        Pos.Wallet.State.Storage.Block
+                        Pos.Wallet.State.Storage.Tx
+                        Pos.Wallet.WalletMode
+                        Pos.Wallet.Web.Error.Types
+                        Pos.Wallet.Web.Util
 
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer
@@ -294,18 +292,9 @@ library
                         Pos.Web.Server
                         Pos.Web.Types
   if flag(with-wallet)
-    other-modules:      Pos.Wallet.WalletMode
-                        Pos.Wallet.Launcher
+    other-modules:      Pos.Wallet.Launcher
                         Pos.Wallet.Launcher.Runner
                         Pos.Wallet.Launcher.Param
-                        Pos.Wallet.KeyStorage
-                        Pos.Wallet.State
-                        Pos.Wallet.State.Acidic
-                        Pos.Wallet.State.Core
-                        Pos.Wallet.State.State
-                        Pos.Wallet.State.Storage
-                        Pos.Wallet.State.Storage.Block
-                        Pos.Wallet.State.Storage.Tx
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
@@ -314,6 +303,7 @@ library
                         Pos.Wallet.Web.BListener
                         Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Error
+                        Pos.Wallet.Web.Error.Util
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Full
@@ -329,7 +319,6 @@ library
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
                         Pos.Wallet.Web.Tracking
-                        Pos.Wallet.Web.Util
 
   build-depends:        IfElse
                       , QuickCheck
@@ -957,6 +946,9 @@ executable cardano-swagger
   if flag(for-installer)
     buildable: False
 
+  if !flag(with-wallet) || !flag(with-web)
+    buildable: False
+
 executable cardano-checks
   hs-source-dirs:      src/checks
   main-is:             Main.hs
@@ -1083,11 +1075,14 @@ executable cardano-keygen
   if flag(for-installer)
     buildable: False
 
+  if !flag(with-wallet)
+    buildable: False
+
 executable cardano-launcher
   hs-source-dirs:      src/launcher
   main-is:             Main.hs
   build-depends:       ansi-wl-pprint
-                     , async 
+                     , async
                      , base
                      , optparse-simple
                      , cardano-report-server >= 0.1.1

@@ -7,21 +7,22 @@ module Pos.Update.Poll.DBPoll
        , runDBPoll
        ) where
 
+import           Universum
+
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Data.HashMap.Strict          as HM
 import qualified Ether
-import           Pos.Context                  (lrcActionOnEpochReason)
 import           System.Wlog                  (WithLogger)
-import           Universum
 
-import           Pos.DB.Class                 (MonadRealDB, MonadDBRead)
-import           Pos.Lrc.Context              (LrcContext)
-import           Pos.Lrc.DB                   (getIssuersStakes, getRichmenUS)
+import           Pos.Core                     (Coin)
+import           Pos.DB.Class                 (MonadDBRead, MonadRealDB)
+import           Pos.Lrc.Context              (LrcContext, lrcActionOnEpochReason)
+import           Pos.Lrc.DB.Issuers           (getIssuersStakes)
 import           Pos.Lrc.Types                (FullRichmenData)
-import           Pos.Types                    (Coin)
 import qualified Pos.Update.DB                as GS
 import           Pos.Update.Poll.Class        (MonadPollRead (..))
+import           Pos.Update.RichmenComponent  (getRichmenUS)
 
 ----------------------------------------------------------------------------
 -- Transformer

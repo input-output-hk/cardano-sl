@@ -82,6 +82,7 @@ import           Data.Time.Units                (Attosecond, Day, Femtosecond, F
                                                  toMicroseconds)
 import           Data.Typeable                  (typeRep)
 import qualified Ether
+import           Ether.Internal                 (makeTupleInstancesHasLens)
 import qualified Formatting                     as F
 import qualified Language.Haskell.TH.Syntax     as TH
 import           Mockable                       (ChannelT, Counter, Distribution, Gauge, liftMockableWrappedM,
@@ -215,9 +216,15 @@ type instance ChannelT (ResourceT m) = ChannelT m
 -- TODO Move it to log-warper
 instance CanLog m => CanLog (ResourceT m)
 
+instance Ether.MonadReader tag r m => Ether.MonadReader tag r (ResourceT m) where
+    ask = lift $ Ether.ask @tag
+    local = liftLocal (Ether.ask @tag) (Ether.local @tag)
+
 ----------------------------------------------------------------------------
 -- Instances required by 'ether'
 ----------------------------------------------------------------------------
+
+makeTupleInstancesHasLens [2..7]
 
 instance
     (Monad m, MonadTrans t, Monad (t m), CanLog m) =>

@@ -32,7 +32,8 @@ import           Pos.Wallet.Launcher.Param    (WalletParams (..))
 import           Pos.Wallet.State             (closeState, openMemState, openState)
 import           Pos.Wallet.State.Acidic      (WalletState)
 import           Pos.Wallet.State.Core        (runGStateCoreWalletRedirect)
-import           Pos.Wallet.WalletMode        (WalletMode, WalletStaticPeersMode,
+import           Pos.Wallet.WalletMode        (RawWalletMode (..), WalletMode,
+                                               WalletStaticPeersMode,
                                                runBalancesWalletRedirect,
                                                runBlockchainInfoNotImplemented,
                                                runTxHistoryWalletRedirect,
@@ -107,6 +108,7 @@ runRawStaticPeersWallet transport peers WalletParams {..}
             runUpdatesNotImplemented .
             runBlockchainInfoNotImplemented .
             runBListenerStub .
+            (\(RawWalletMode m) -> m) .
             runDiscoveryConstT peers .
             runServer_ transport listeners outs . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa
@@ -118,3 +120,4 @@ runRawStaticPeersWallet transport peers WalletParams {..}
             (openState wpRebuildDb wpGenesisUtxo)
             wpDbPath
     closeDB = closeState
+{-# NOINLINE runRawStaticPeersWallet #-}

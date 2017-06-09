@@ -1,6 +1,8 @@
 resolver: lts-8.13
 
-flags: {}
+flags:
+  ether:
+    disable-tup-instances: true
 
 extra-package-dbs: []
 
@@ -77,7 +79,7 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.4.2
+- universum-0.4.3
 - time-units-1.0.0
 - serokell-util-0.1.5.0
 - pvss-0.1
@@ -92,7 +94,7 @@ extra-deps:
 - servant-server-0.10             # so it triggers another dependencies to be v10
 - servant-swagger-1.1.2.1
 - servant-multipart-0.10
-- ether-0.5.0.0
+- ether-0.5.1.0
 - transformers-lift-0.2.0.1
 
 # This is for CI to pass --fast to all dependencies

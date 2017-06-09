@@ -5,11 +5,16 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
+{-# OPTIONS -fno-cross-module-specialise #-}
+
 module Main
        ( main
        ) where
 
+import           Universum
+
 import           Control.Monad.Trans        (MonadTrans)
+import qualified Data.ByteString.Char8      as BS8 (unpack)
 import           Data.Maybe                 (fromJust)
 import qualified Data.Set                   as S (fromList)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
@@ -20,12 +25,8 @@ import           Mockable                   (Production, currentTime)
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
 import           Node                       (hoistSendActions)
-import           Pos.Util.TimeWarp          (addressToNodeId)
 import           Serokell.Util              (sec)
 import           System.Wlog                (logError, logInfo)
-import           Universum
-
-import qualified Data.ByteString.Char8      as BS8 (unpack)
 
 import           Pos.Binary                 ()
 import qualified Pos.CLI                    as CLI
@@ -41,32 +42,31 @@ import           Pos.Discovery              (askDHTInstance, getPeers, runDiscov
                                              runDiscoveryKademliaT)
 import           Pos.Launcher               (NodeParams (..), bracketResources,
                                              bracketResourcesKademlia, runNode,
-                                             runNodeProduction, runNodeStatic,
-                                             runNodeStats)
+                                             runNodeProduction, runNodeStatic)
 import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Shutdown               (triggerShutdown)
 import           Pos.Ssc.Class              (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
-import           Pos.Statistics             (getNoStatsT, getStatsMap, runStatsT')
 import           Pos.Update.Context         (ucUpdateSemaphore)
 import           Pos.Util                   (inAssertMode)
+import           Pos.Util.TimeWarp          (addressToNodeId)
 import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
+import           Pos.WorkMode               (ProductionMode, RawRealMode, StaticMode,
+                                             WorkMode)
+#ifdef WITH_WALLET
 import           Pos.Wallet                 (WalletSscType)
-import           Pos.WorkMode               (ProductionMode, RawRealMode, RawRealModeK,
-                                             StaticMode, StatsMode)
+#endif
 #ifdef WITH_WEB
 import           Pos.Web                    (serveWebGT)
-import           Pos.WorkMode               (WorkMode)
 #ifdef WITH_WALLET
 import           Pos.Wallet.Web             (WalletProductionMode, WalletStaticMode,
-                                             WalletStatsMode, WalletWebHandler,
                                              bracketWalletWS, bracketWalletWebDB,
                                              runWProductionMode, runWStaticMode,
-                                             runWStatsMode, walletServeWebFull,
-                                             walletServeWebFullS, walletServerOuts)
+                                             walletServeWebFull, walletServeWebFullS,
+                                             walletServerOuts)
 #endif
 #endif
 
@@ -86,8 +86,11 @@ action peerHolder args@Args {..} transport = do
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
     currentParams <- getNodeParams args systemStart
     putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
-    putText $ "If stats is on: " <> show enableStats
-    putText $ "If wallet enabled: " <> show enableWallet
+#ifdef WITH_WALLET
+    putText $ "Is wallet enabled: " <> show enableWallet
+#else
+    putText "Wallet is disabled, because software is built w/o it"
+#endif
     putText $ "Static peers is on: " <> show staticPeers
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
@@ -107,88 +110,75 @@ action peerHolder args@Args {..} transport = do
                                -> ([WorkerSpec m], OutSpecs)
                     allPlugins ki = mconcat [wDhtWorkers ki, convPlugins currentPluginsGT]
 
-                case (peerHolder, enableStats, CLI.sscAlgo commonArgs) of
-                    (Right peers, _, GodTossingAlgo) ->
+                case (peerHolder, CLI.sscAlgo commonArgs) of
+                    (Right peers, GodTossingAlgo) ->
                         runWStaticMode db conn
-                            transportW peers
+                            peers transportW
                             currentParams gtParams
                             (runNode @SscGodTossing $ (convPlugins currentPluginsGT) <> walletStatic args)
-                    (Left kad, True, GodTossingAlgo) ->
-                        runWStatsMode db conn
-                            transportW kad
-                            currentParams gtParams
-                            (runNode @SscGodTossing (allPlugins kad <> walletStats args))
-                    (Left kad, False, GodTossingAlgo) ->
+                    (Left kad, GodTossingAlgo) ->
                         runWProductionMode db conn
-                            transportW kad
+                            kad transportW
                             currentParams gtParams
                             (runNode @SscGodTossing (allPlugins kad <> walletProd args))
-                    (_, _, NistBeaconAlgo) ->
+                    (_, NistBeaconAlgo) ->
                         logError "Wallet does not support NIST beacon!"
 #endif
-    if not enableWallet then do
+#ifdef WITH_WALLET
+    let userWantsWallet = enableWallet
+#else
+    let userWantsWallet = False
+#endif
+    unless userWantsWallet $ do
         let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
             sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
 
-        case (peerHolder, enableStats) of
-            (Right peers, _) -> do
+        case peerHolder of
+            Right peers -> do
                 let runner :: forall ssc .
                         (SscConstraint ssc, SecurityWorkersClass ssc)
                         => SscParams ssc -> Production ()
                     runner =
                         runNodeStatic @ssc
-                            transportR
                             peers
+                            transportR
                             utwStatic
                             currentParams
                 either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
-            (Left kad, True) -> do
-                let runner :: forall ssc .
-                        (SscConstraint ssc, SecurityWorkersClass ssc)
-                        => SscParams ssc -> Production ()
-                    runner =
-                        runNodeStats @ssc
-                            transportR
-                            kad
-                            (mconcat [wDhtWorkers kad, utwStats])
-                            currentParams
-                either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
-            (Left kad, False) -> do
+            Left kad -> do
                 let runner :: forall ssc .
                         (SscConstraint ssc, SecurityWorkersClass ssc)
                         => SscParams ssc -> Production ()
                     runner =
                         runNodeProduction @ssc
-                            transportR
                             kad
+                            transportR
                             (mconcat [wDhtWorkers kad, utwProd])
                             currentParams
                 either (runner @SscNistBeacon) (runner @SscGodTossing) sscParams
-    else
-        logError $ "You try to run wallet, but code wasn't compiled with wallet flag"
   where
+    transportR ::
+        forall ssc t0 .
+        ( MonadTrans t0
+        , Monad (t0 (RawRealMode ssc))
+        )
+        => Transport (t0 (RawRealMode ssc))
+    transportR = hoistTransport lift transport
+
+#ifdef WITH_WEB
     convPlugins = (,mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
 
-    transportR ::
-        forall ssc t0 t1 .
-        ( Each '[MonadTrans] [t0, t1]
-        , Each '[Monad] [ t1 (RawRealMode ssc)
-                        , t0 (t1 (RawRealMode ssc))
+    transportW ::
+        forall ssc t0 t1 t2 .
+        ( Each '[MonadTrans] [t0, t1, t2]
+        , Each '[Monad] [ t0 (RawRealMode ssc)
+                        , t1 (t0 (RawRealMode ssc))
+                        , t2 (t1 (t0 (RawRealMode ssc)))
                         ]
         )
-        => Transport (t0 $ t1 (RawRealMode ssc))
-    transportR = hoistTransport (lift . lift) transport
-
-    transportW ::
-        forall ssc t0 t1 t2 t3 .
-        ( Each '[MonadTrans] [t0, t1, t2, t3]
-        , Each '[Monad] [ t3 (RawRealMode ssc)
-                        , t2 (t3 (RawRealMode ssc))
-                        , t1 (t2 (t3 (RawRealMode ssc)))
-                        , t0 (t1 (t2 (t3 (RawRealMode ssc))))]
-        )
-        => Transport (t0 $ t1 $ t2 $ t3 (RawRealMode ssc))
-    transportW = hoistTransport (lift . lift . lift . lift) transport
+        => Transport (t2 $ t1 $ t0 (RawRealMode ssc))
+    transportW = hoistTransport (lift . lift . lift) transport
+#endif
 
 #ifdef WITH_WEB
 pluginsGT ::
@@ -205,22 +195,14 @@ utwProd = first (map liftPlugin) updateTriggerWorker
   where
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
         ki <- askDHTInstance
-        lift . lift . p vI $ hoistSendActions (runDiscoveryKademliaT ki . getNoStatsT) (lift . lift) sa
-
-utwStats :: SscConstraint ssc => ([WorkerSpec (StatsMode ssc)], OutSpecs)
-utwStats = first (map liftPlugin) updateTriggerWorker
-  where
-    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
-        s <- getStatsMap
-        ki <- askDHTInstance
-        lift . lift . p vI $ hoistSendActions (runDiscoveryKademliaT ki . runStatsT' s) (lift . lift) sa
+        lift . p vI $ hoistSendActions (runDiscoveryKademliaT ki) lift sa
 
 utwStatic :: SscConstraint ssc => ([WorkerSpec (StaticMode ssc)], OutSpecs)
 utwStatic = first (map liftPlugin) updateTriggerWorker
   where
     liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
         peers <- getPeers
-        lift . lift . p vI $ hoistSendActions (runDiscoveryConstT peers . getNoStatsT) (lift . lift) sa
+        lift . p vI $ hoistSendActions (runDiscoveryConstT peers) lift sa
 
 updateTriggerWorker
     :: SscConstraint ssc
@@ -234,48 +216,29 @@ updateTriggerWorker = first pure $ worker mempty $ \_ -> do
 -- Wallet stuff
 ----------------------------------------------------------------------------
 
+#ifdef WITH_WALLET
+
 walletProd
     :: SscConstraint WalletSscType
     => Args
     -> ([WorkerSpec WalletProductionMode], OutSpecs)
-walletProd args = first (map liftPlugin) (walletServe args)
-  where
-    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa ->
-        lift . p vI $ hoistSendActions getNoStatsT lift sa
-
-walletStats
-    :: SscConstraint WalletSscType
-    => Args
-    -> ([WorkerSpec WalletStatsMode], OutSpecs)
-walletStats args = first (map liftPlugin) (walletServe args)
-  where
-    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
-        sm <- getStatsMap
-        lift . p vI $ hoistSendActions (runStatsT' sm) lift sa
+walletProd Args {..} = first pure $ worker walletServerOuts $ \sendActions ->
+    walletServeWebFull
+        sendActions
+        walletDebug
+        walletPort
 
 walletStatic
     :: SscConstraint WalletSscType
     => Args
     -> ([WorkerSpec WalletStaticMode], OutSpecs)
-walletStatic Args{..} = first (map liftPlugin) walletServeStatic
-  where
-    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa ->
-        lift . p vI $ hoistSendActions getNoStatsT lift sa
-    walletServeStatic = first pure $ worker walletServerOuts $ \sendActions ->
-        walletServeWebFullS
-            sendActions
-            walletDebug
-            walletPort
-
-walletServe
-    :: SscConstraint WalletSscType
-    => Args
-    -> ([WorkerSpec (WalletWebHandler (RawRealModeK WalletSscType))], OutSpecs)
-walletServe Args {..} = first pure $ worker walletServerOuts $ \sendActions ->
-    walletServeWebFull
+walletStatic Args{..} =  first pure $ worker walletServerOuts $ \sendActions ->
+    walletServeWebFullS
         sendActions
         walletDebug
         walletPort
+
+#endif
 
 printFlags :: IO ()
 printFlags = do

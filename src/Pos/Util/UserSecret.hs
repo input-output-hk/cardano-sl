@@ -26,38 +26,38 @@ module Pos.Util.UserSecret
        , ensureModeIs600
        ) where
 
-import           Control.Exception     (onException)
-import           Control.Lens          (makeLenses, to)
-import           Data.Binary.Get       (label)
-import qualified Data.ByteString.Lazy  as BSL
-import           Data.Default          (Default (..))
-import           Formatting            (build, formatToString, (%))
+import           Control.Exception          (onException)
+import           Control.Lens               (makeLenses, to)
+import           Data.Binary.Get            (label)
+import qualified Data.ByteString.Lazy       as BSL
+import           Data.Default               (Default (..))
+import           Formatting                 (build, formatToString, (%))
 import qualified Prelude
-import           Serokell.Util.Text    (listJson)
-import           System.FileLock       (FileLock, SharedExclusive (..), lockFile,
-                                        unlockFile, withFileLock)
-import qualified Turtle                as T
+import           Serokell.Util.Text         (listJson)
+import           System.FileLock            (FileLock, SharedExclusive (..), lockFile,
+                                             unlockFile, withFileLock)
+import qualified Turtle                     as T
 import           Universum
 
-import           Pos.Binary.Class      (Bi (..), decodeFull, encode)
-import           Pos.Binary.Crypto     ()
-import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
+import           Pos.Binary.Class           (Bi (..), decodeFull, encode)
+import           Pos.Binary.Crypto          ()
+import           Pos.Crypto                 (EncryptedSecretKey, SecretKey, VssKeyPair)
 
-import           Pos.Types             (Address)
-import           System.Directory      (renameFile)
-import           System.FilePath       (takeDirectory, takeFileName)
-import           System.IO             (hClose)
-import           System.IO.Temp        (openBinaryTempFile)
-import           System.Wlog           (WithLogger)
+import           Pos.Types                  (Address)
+import           System.Directory           (renameFile)
+import           System.FilePath            (takeDirectory, takeFileName)
+import           System.IO                  (hClose)
+import           System.IO.Temp             (openBinaryTempFile)
+import           System.Wlog                (WithLogger)
 
-import           Pos.Wallet.Web.Error  (WalletError (..))
-import           Pos.Wallet.Web.Secret (WalletUserSecret)
+import           Pos.Wallet.Web.Error.Types (WalletError (..))
+import           Pos.Wallet.Web.Secret      (WalletUserSecret)
 
 #ifdef POSIX
-import           Formatting            (oct, sformat)
-import qualified System.Posix.Files    as PSX
-import qualified System.Posix.Types    as PSX (FileMode)
-import           System.Wlog           (logWarning)
+import           Formatting                 (oct, sformat)
+import qualified System.Posix.Files         as PSX
+import qualified System.Posix.Types         as PSX (FileMode)
+import           System.Wlog                (logWarning)
 #endif
 
 -- Because of the Formatting import

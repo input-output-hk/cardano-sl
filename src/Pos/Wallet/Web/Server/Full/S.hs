@@ -2,8 +2,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Module for `RawRealModeS`-related part of full-node implementation of
--- Daedalus API
+-- | Module for `StaticMode`-related part of full-node implementation of
+-- Daedalus API. FYI: S stays for Static.
 
 module Pos.Wallet.Web.Server.Full.S
        ( walletServeWebFullS
@@ -23,9 +23,8 @@ import           Pos.Constants                     (isDevelopment)
 import           Pos.Crypto                        (noPassEncrypt)
 import           Pos.Genesis                       (genesisDevSecretKeys)
 import           Pos.Launcher.Param                (NodeParams (..))
-import           Pos.Launcher.Runner               (runRawSBasedMode)
+import           Pos.Launcher.Runner               (runStaticBasedMode)
 import           Pos.Ssc.Class                     (SscConstraint, SscParams)
-import           Pos.Statistics                    (NoStatsT, getNoStatsT)
 import           Pos.Wallet.KeyStorage             (addSecretKey)
 import           Pos.Wallet.SscType                (WalletSscType)
 import           Pos.Wallet.Web.Server.Full.Common (natS)
@@ -33,34 +32,34 @@ import           Pos.Wallet.Web.Server.Methods     (WalletWebHandler, walletAppl
                                                     walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Server.Sockets     (ConnectionsVar, runWalletWS)
 import           Pos.Wallet.Web.State              (WalletState, runWalletWebDB)
-import           Pos.WorkMode                      (RawRealModeS)
+import           Pos.WorkMode                      (StaticMode)
 
-
-type WalletStaticMode = NoStatsT $ WalletWebHandler (RawRealModeS WalletSscType)
+type WalletStaticMode = WalletWebHandler (StaticMode WalletSscType)
 
 -- | WalletProductionMode runner.
 runWStaticMode
     :: SscConstraint WalletSscType
     => WalletState
     -> ConnectionsVar
-    -> Transport WalletStaticMode
     -> Set NodeId
+    -> Transport WalletStaticMode
     -> NodeParams
     -> SscParams WalletSscType
     -> (ActionSpec WalletStaticMode a, OutSpecs)
     -> Production a
 runWStaticMode db conn =
-    runRawSBasedMode (runWalletWebDB db . runWalletWS conn . getNoStatsT) (lift . lift . lift)
+    runStaticBasedMode (runWalletWebDB db . runWalletWS conn) (lift . lift)
+{-# NOINLINE runWStaticMode #-}
 
 walletServeWebFullS
     :: SscConstraint WalletSscType
-    => SendActions (WalletWebHandler (RawRealModeS WalletSscType))
+    => SendActions WalletStaticMode
     -> Bool      -- whether to include genesis keys
     -> Word16
-    -> WalletWebHandler (RawRealModeS WalletSscType) ()
+    -> WalletStaticMode ()
 walletServeWebFullS sendActions debug = walletServeImpl action
   where
-    action :: WalletWebHandler (RawRealModeS WalletSscType) Application
+    action :: WalletStaticMode Application
     action = do
         logInfo "DAEDALUS has STARTED!"
         when (isDevelopment && debug) $

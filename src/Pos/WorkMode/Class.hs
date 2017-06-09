@@ -44,7 +44,6 @@ import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Statistics.MonadStats   (MonadStats)
 import           Pos.Txp.MemState            (MonadTxpMem)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
@@ -90,7 +89,6 @@ type WorkMode ssc m
       , Ether.MonadReader' SecurityParams m
       , Ether.MonadReader' TxpGlobalSettings m
       , MonadSscContext ssc m
-      , MonadStats m
       , MonadJL m
       , WithPeerState m
       , MonadShutdownMem m

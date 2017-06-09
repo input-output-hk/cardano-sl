@@ -34,16 +34,17 @@ import           Formatting             (sformat, (%))
 import           System.Wlog            (WithLogger, logWarning)
 
 import           Pos.Binary.Class       (biSize)
-import           Pos.Constants          (memPoolLimitRatio)
 import           Pos.Core               (BlockVersionData (bvdMaxBlockSize), HeaderHash,
                                          SlotId (..), slotIdF)
+import           Pos.Core.Constants     (memPoolLimitRatio)
 import           Pos.Crypto             (PublicKey)
-import           Pos.DB.Class           (MonadRealDB, MonadDBRead)
-import qualified Pos.DB.GState          as DB
+import           Pos.DB.Class           (MonadDBRead, MonadRealDB)
+import qualified Pos.DB.GState.Common   as DB
 import           Pos.Lrc.Context        (LrcContext)
 import           Pos.Update.Context     (UpdateContext (..))
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), canCombineVotes)
+import qualified Pos.Update.DB          as DB
 import           Pos.Update.MemState    (LocalVotes, MemPool (..), MemState (..),
                                          MemVar (mvState), UpdateProposals, addToMemPool,
                                          withUSLock)

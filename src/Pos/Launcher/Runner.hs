@@ -1,18 +1,20 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
+{-# OPTIONS -fno-cross-module-specialise #-}
 
 -- | Runners in various modes.
 
 module Pos.Launcher.Runner
        ( -- * High level runners
          runRawRealMode
-       , runRawKBasedMode
-       , runRawSBasedMode
+       , runProductionBasedMode
        , runProductionMode
-       , runStatsMode
-       , runServiceMode
        , runStaticMode
+       , runStaticBasedMode
+       , runServiceMode
 
        -- * Exported for custom usage in CLI utils
        , setupLoggers
@@ -96,7 +98,6 @@ import           Pos.Slotting.Ntp             (runSlotsRedirect)
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext)
 import           Pos.Ssc.Extra                (SscMemTag, bottomSscState, mkSscState)
-import           Pos.Statistics               (getNoStatsT, runStatsT')
 import           Pos.Txp                      (mkTxpLocalData)
 import           Pos.Txp.DB                   (balanceSource, genesisFakeTotalStake)
 import           Pos.Txp.MemState             (TxpHolderTag)
@@ -114,9 +115,8 @@ import           Pos.Util.Concurrent.RWVar    as RWV
 import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
 import           Pos.Worker                   (allWorkersCount)
-import           Pos.WorkMode                 (ProductionMode, RawRealMode, RawRealModeK,
-                                               RawRealModeS, ServiceMode, StaticMode,
-                                               StatsMode, WorkMode)
+import           Pos.WorkMode                 (ProductionMode, RawRealMode (..),
+                                               ServiceMode (..), StaticMode, WorkMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -160,7 +160,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
 
         -- TODO [CSL-775] need an effect-free way of running this into IO.
         let runIO :: forall t . RawRealMode ssc t -> IO t
-            runIO act =
+            runIO (RawRealMode act) =
                runProduction .
                    runResourceT .
                    usingLoggerName lpRunnerTag .
@@ -231,10 +231,12 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
            runUpdatesRedirect .
            runBlockchainInfoRedirect .
            runBListenerStub .
+           (\(RawRealMode m) -> m) .
            runServer transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
                \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
+{-# NOINLINE runRawRealMode #-}
 
 -- | Create new 'SlottingVar' using data from DB.
 mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
@@ -255,8 +257,10 @@ runServiceMode transport bp@BaseParams {..} listeners outSpecs (ActionSpec actio
     usingLoggerName (lpRunnerTag bpLoggingParams) .
         flip (Ether.runReaderT @PeerStateTag) stateM .
         runPeerStateRedirect .
+        (\(ServiceMode m) -> m) .
         runServer_ transport listeners outSpecs . ActionSpec $ \vI sa ->
         nodeStartMsg bp >> action vI sa
+{-# NOINLINE runServiceMode #-}
 
 runServer
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
@@ -314,73 +318,59 @@ runRawBasedMode unwrap wrap transport np@NodeParams{..} sscnp (ActionSpec action
   where
     listeners = hoistMkListeners unwrap wrap allListeners
 
--- | Launch some mode, providing way to convert it to 'RawRealMode' and back.
-runRawKBasedMode
+-- | Run activity in something convertible to 'ProductionMode' and back.
+runProductionBasedMode
     :: forall ssc m a.
        (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
-    => (forall b. m b -> RawRealModeK ssc b)
-    -> (forall b. RawRealModeK ssc b -> m b)
-    -> Transport m
+    => (forall b. m b -> ProductionMode ssc b)
+    -> (forall b. ProductionMode ssc b -> m b)
     -> KademliaDHTInstance
-    -> NodeParams
-    -> SscParams ssc
-    -> (ActionSpec m a, OutSpecs)
-    -> Production a
-runRawKBasedMode unwrap wrap transport kinst =
-    runRawBasedMode (runDiscoveryKademliaT kinst . unwrap) (wrap . lift) transport
-
-runRawSBasedMode
-    :: forall ssc m a.
-       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
-    => (forall b. m b -> RawRealModeS ssc b)
-    -> (forall b. RawRealModeS ssc b -> m b)
     -> Transport m
-    -> Set NodeId
     -> NodeParams
     -> SscParams ssc
     -> (ActionSpec m a, OutSpecs)
     -> Production a
-runRawSBasedMode unwrap wrap transport peers =
-    runRawBasedMode (runDiscoveryConstT peers . unwrap) (wrap . lift) transport
+runProductionBasedMode unwrap wrap kinst =
+    runRawBasedMode (runDiscoveryKademliaT kinst . unwrap) (wrap . lift)
 
--- | ProductionMode runner.
+-- | Run activity in 'ProductionMode'.
 runProductionMode
     :: forall ssc a.
        (SscConstraint ssc, SecurityWorkersClass ssc)
-    => Transport (ProductionMode ssc)
-    -> KademliaDHTInstance
+    => KademliaDHTInstance
+    -> Transport (ProductionMode ssc)
     -> NodeParams
     -> SscParams ssc
     -> (ActionSpec (ProductionMode ssc) a, OutSpecs)
     -> Production a
-runProductionMode = runRawKBasedMode getNoStatsT lift
+runProductionMode = runProductionBasedMode identity identity
 
--- | StatsMode runner.
--- [CSL-169]: spawn here additional listener, which would accept stat queries
--- can be done as part of refactoring (or someone who will refactor will create new issue).
-runStatsMode
-    :: forall ssc a.
-       (SscConstraint ssc, SecurityWorkersClass ssc)
-    => Transport (StatsMode ssc)
-    -> KademliaDHTInstance
+-- | Run activity in something convertible to 'StaticMode' and back.
+runStaticBasedMode
+    :: forall ssc m a.
+       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
+    => (forall b. m b -> StaticMode ssc b)
+    -> (forall b. StaticMode ssc b -> m b)
+    -> Set NodeId
+    -> Transport m
     -> NodeParams
     -> SscParams ssc
-    -> (ActionSpec (StatsMode ssc) a, OutSpecs)
+    -> (ActionSpec m a, OutSpecs)
     -> Production a
-runStatsMode transport kinst np sscnp action = do
-    statMap <- liftIO SM.newIO
-    runRawKBasedMode (runStatsT' statMap) lift transport kinst np sscnp action
+runStaticBasedMode unwrap wrap peers =
+    runRawBasedMode (runDiscoveryConstT peers . unwrap) (wrap . lift)
 
+-- | Run activity in 'StaticMode'.
 runStaticMode
     :: forall ssc a.
        (SscConstraint ssc, SecurityWorkersClass ssc)
-    => Transport (StaticMode ssc)
-    -> Set NodeId
+    => Set NodeId
+    -> Transport (StaticMode ssc)
     -> NodeParams
     -> SscParams ssc
     -> (ActionSpec (StaticMode ssc) a, OutSpecs)
     -> Production a
-runStaticMode = runRawSBasedMode getNoStatsT lift
+runStaticMode = runStaticBasedMode identity identity
 
 ----------------------------------------------------------------------------
 -- Lower level runners

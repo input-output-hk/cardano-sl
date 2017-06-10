@@ -24,15 +24,15 @@ import           Control.Monad.Trans.Resource   (MonadResource, ResourceT)
 import           Data.Coerce
 import           Data.Tagged                    (Tagged)
 import qualified Ether
-
 import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
                                                  MFunctor' (..), Mockable (..), Promise,
                                                  SharedAtomicT, SharedExclusiveT,
                                                  ThreadId)
 import           Mockable.Production            (Production)
+import           System.Wlog                    (CanLog, HasLoggerName,
+                                                 LoggerNameBox (..))
+
 import           Pos.Block.BListener            (BListenerStub, MonadBListener)
-import           Pos.Client.Txp.Balances        (BalancesRedirect)
-import           Pos.Client.Txp.History         (TxHistoryRedirect)
 import           Pos.Communication.PeerState    (PeerStateCtx, PeerStateRedirect,
                                                  PeerStateTag, WithPeerState)
 import           Pos.Context                    (NodeContext)
@@ -52,12 +52,7 @@ import           Pos.Ssc.Extra                  (SscMemTag, SscState)
 import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Types                      (HeaderHash)
 import           Pos.Util.Util                  (PowerLift (..))
-import           Pos.Wallet.WalletMode          (BlockchainInfoRedirect, MonadBalances,
-                                                 MonadBlockchainInfo, MonadTxHistory,
-                                                 MonadUpdates, UpdatesRedirect)
 import           Pos.WorkMode.Class             (MinWorkMode, TxpExtra_TMP, WorkMode)
-import           System.Wlog                    (CanLog, HasLoggerName,
-                                                 LoggerNameBox (..))
 
 ----------------------------------------------------------------------------
 -- Concrete types
@@ -66,12 +61,8 @@ import           System.Wlog                    (CanLog, HasLoggerName,
 -- | RealMode is a basis for `WorkMode`s used to really run system.
 type RealMode' ssc =
     BListenerStub (
-    BlockchainInfoRedirect (
-    UpdatesRedirect (
     GStateCoreRedirect (
     PeerStateRedirect (
-    TxHistoryRedirect (
-    BalancesRedirect (
     DiscoveryRedirect (
     SlotsRedirect (
     SlotsDataRedirect (
@@ -89,7 +80,7 @@ type RealMode' ssc =
     Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox (
     ResourceT Production
-    )))))))))))))))
+    )))))))))))
 
 newtype RealMode ssc a = RealMode (RealMode' ssc a)
   deriving
@@ -126,10 +117,10 @@ instance MonadDBRead (RealMode ssc) where
     dbIterSource t p = hoist RealMode $ dbIterSource t p
 deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
 deriving instance MonadBListener (RealMode ssc)
-deriving instance MonadUpdates (RealMode ssc)
-deriving instance SscHelpersClass ssc => MonadBlockchainInfo (RealMode ssc)
-deriving instance MonadBalances (RealMode ssc)
-deriving instance MonadTxHistory (RealMode ssc)
+-- deriving instance MonadUpdates (RealMode ssc)
+-- deriving instance SscHelpersClass ssc => MonadBlockchainInfo (RealMode ssc)
+-- deriving instance MonadBalances (RealMode ssc)
+-- deriving instance MonadTxHistory (RealMode ssc)
 deriving instance WithPeerState (RealMode ssc)
 
 instance PowerLift m (RealMode' ssc) => PowerLift m (RealMode ssc) where

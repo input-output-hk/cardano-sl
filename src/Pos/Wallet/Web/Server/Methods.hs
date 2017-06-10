@@ -83,6 +83,7 @@ import           Pos.Util.Servant                 (decodeCType, encodeCType)
 import           Pos.Util.UserSecret              (readUserSecret, usWalletSet)
 import           Pos.Wallet.KeyStorage            (MonadKeys, addSecretKey,
                                                    deleteSecretKey, getSecretKeys)
+import           Pos.Wallet.Redirect              (WalletRedirects)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
                                                    blockchainSlotDuration, connectedPeers,
@@ -150,7 +151,12 @@ import           Pos.Web.Server                   (serveImpl)
 -- Top level functionality
 ----------------------------------------------------------------------------
 
-type WalletWebHandler m = WalletWebSockets (WalletWebDB m)
+type WalletWebHandler m =
+    WalletRedirects (
+    WalletWebSockets (
+    WalletWebDB (
+    m
+    )))
 
 type WalletWebMode m
     = ( WalletMode m

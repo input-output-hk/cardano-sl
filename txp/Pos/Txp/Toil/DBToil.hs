@@ -1,11 +1,11 @@
-{-# LANGUAGE CPP          #-}
 {-# LANGUAGE TypeFamilies #-}
 
--- | Instances of MoandUtxoRead and MonadBalancesRead which use DB.
+-- | Instances of 'MonadUtxoRead', 'MonadBalancesRead' and
+-- 'MonadToilEnv' which use DB.
 
-module Pos.Txp.Toil.DBTxp
-       ( DBTxp
-       , runDBTxp
+module Pos.Txp.Toil.DBToil
+       ( DBToil
+       , runDBToil
        ) where
 
 import           Control.Monad.Trans.Identity (IdentityT (..))
@@ -13,33 +13,31 @@ import           Data.Coerce                  (coerce)
 import qualified Ether
 import           Universum
 
-import           Pos.DB.Class                 (MonadDBRead)
+import           Pos.Core                     (BlockVersionData (..))
+import           Pos.DB.Class                 (MonadDBRead, MonadGState (gsAdoptedBVData))
 import           Pos.DB.GState.Balances       (getRealStake, getRealTotalStake)
 import           Pos.Txp.DB.Utxo              (getTxOut)
-import           Pos.Update.Core              (BlockVersionData (..))
-import           Pos.Update.DB                (getAdoptedBVData)
-
 import           Pos.Txp.Toil.Class           (MonadBalancesRead (..), MonadToilEnv (..),
                                                MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types           (ToilEnv (..))
 
-data DBTxpTag
+data DBToilTag
 
-type DBTxp = Ether.TaggedTrans DBTxpTag IdentityT
+type DBToil = Ether.TaggedTrans DBToilTag IdentityT
 
-runDBTxp :: DBTxp m a -> m a
-runDBTxp = coerce
+runDBToil :: DBToil m a -> m a
+runDBToil = coerce
 
-instance (Monad m, MonadDBRead m) => MonadUtxoRead (DBTxp m) where
+instance (MonadDBRead m) => MonadUtxoRead (DBToil m) where
     utxoGet = getTxOut
 
-instance (Monad m, MonadDBRead m) => MonadBalancesRead (DBTxp m) where
+instance (MonadDBRead m) => MonadBalancesRead (DBToil m) where
     getTotalStake = getRealTotalStake
     getStake = getRealStake
 
-instance (Monad m, MonadDBRead m) =>
-         MonadToilEnv (DBTxp m) where
-    getToilEnv = constructEnv <$> getAdoptedBVData
+instance (MonadGState m) =>
+         MonadToilEnv (DBToil m) where
+    getToilEnv = constructEnv <$> gsAdoptedBVData
       where
         constructEnv BlockVersionData {..} =
             ToilEnv

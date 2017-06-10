@@ -26,10 +26,10 @@ import qualified Pos.Txp.DB              as DB
 import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode,
                                           TxpGlobalRollbackMode, TxpGlobalSettings (..),
                                           TxpGlobalVerifyMode)
-import           Pos.Txp.Toil            (BalancesView (..), BalancesView (..), DBTxp,
+import           Pos.Txp.Toil            (BalancesView (..), BalancesView (..), DBToil,
                                           GenericToilModifier (..), GlobalToilMode,
                                           ToilModifier, ToilT, applyToil, rollbackToil,
-                                          runDBTxp, runToilTGlobal, verifyToil)
+                                          runDBToil, runToilTGlobal, verifyToil)
 import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier       as MM
 import           Pos.Util.Util           (inAssertMode)
@@ -73,7 +73,7 @@ applyBlocksSettings =
 
 applyBlocksWith
     :: (TxpGlobalApplyMode m, Default extra)
-    => ApplyBlocksSettings extra (ToilT extra (DBTxp m))
+    => ApplyBlocksSettings extra (ToilT extra (DBToil m))
     -> OldestFirst NE TxpBlund
     -> m SomeBatchOp
 applyBlocksWith ApplyBlocksSettings {..} blunds = do
@@ -124,8 +124,8 @@ toilModifierToBatch = genericToilModifierToBatch (const mempty)
 -- | Run action which requires toil interfaces.
 runToilAction
     :: (MonadDBRead m, Default e)
-    => ToilT e (DBTxp m) a -> m (a, GenericToilModifier e)
-runToilAction action = runDBTxp . runToilTGlobal $ action
+    => ToilT e (DBToil m) a -> m (a, GenericToilModifier e)
+runToilAction action = runDBToil . runToilTGlobal $ action
 
 -- Zip block's TxAuxes and corresponding TxUndos.
 blundToAuxNUndo :: TxpBlund -> [(TxAux, TxUndo)]

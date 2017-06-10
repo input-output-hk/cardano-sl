@@ -21,10 +21,10 @@ import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Core             (mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Core                   (HeaderHash, headerHash, prevBlockL)
-import           Pos.DB.Class               (MonadRealDB, MonadDBRead)
+import           Pos.DB.Class               (MonadDBRead, MonadRealDB)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux, TxUndo, flattenTxPayload)
-import           Pos.Txp.Toil               (evalToilTEmpty, runDBTxp)
+import           Pos.Txp.Toil               (evalToilTEmpty, runDBToil)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier          as MM
 
@@ -64,7 +64,7 @@ onApplyTracking blunds = do
     syncWalletSet :: HeaderHash -> [TxAux] -> CId Wal -> m ()
     syncWalletSet newTip txs wAddr = do
         encSK <- getSKByAddr wAddr
-        mapModifier <- runDBTxp $ evalToilTEmpty $ trackingApplyTxs encSK txs
+        mapModifier <- runDBToil $ evalToilTEmpty $ trackingApplyTxs encSK txs
         applyModifierToWSet wAddr newTip mapModifier
         logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)

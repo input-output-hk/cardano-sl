@@ -27,8 +27,8 @@ import           Pos.DB.Class                 (DBIteratorClass (..), DBTag, Iter
                                                MonadDB (..), MonadDBRead (..),
                                                MonadRealDB, dbTagToLens, getNodeDBs)
 import           Pos.DB.Error                 (DBError (DBMalformed))
-import           Pos.DB.Functions             (rocksDelete, rocksGetBytes, rocksPutBytes)
-import           Pos.DB.Functions             (rocksDecodeMaybe, rocksDecodeMaybeWP)
+import           Pos.DB.Functions             (rocksDecodeMaybe, rocksDecodeMaybeWP,
+                                               rocksDelete, rocksGetBytes, rocksPutBytes)
 import           Pos.DB.Types                 (DB (..))
 import           Pos.Util.Util                (maybeThrow)
 

@@ -8,10 +8,10 @@ module Pos.DHT.Real.Real
        , stopDHTInstance
        ) where
 
-import           Data.Binary               (decode)
 import qualified Data.ByteString.Char8     as B8 (unpack)
 import qualified Data.ByteString.Lazy      as BS
 import           Data.List                 (intersect, (\\))
+import           Data.Store                (Store, decodeEx)
 import           Formatting                (build, int, sformat, shown, (%))
 import           Mockable                  (Async, Catch, Mockable, MonadMockable,
                                             Promise, Throw, catch, catchAll, throw,
@@ -67,6 +67,7 @@ startDHTInstance
        , Mockable Catch m
        , Mockable Throw m
        , WithLogger m
+       , Store (K.KademliaSnapshot DHTKey) -- CSL-1122: remove this, required for @decodeEx@
        , Bi DHTData
        , Bi DHTKey
        )
@@ -83,7 +84,7 @@ startDHTInstance kconf@KademliaParams {..} = do
         then do logInfo "Restoring DHT Instance from snapshot"
                 catchErrors $
                     createKademliaFromSnapshot bindAddr extAddr kademliaConfig =<<
-                    decode <$> BS.readFile kpDump
+                    (decodeEx . BS.toStrict) <$> BS.readFile kpDump
         else do logInfo "Creating new DHT instance"
                 catchErrors $ createKademlia bindAddr extAddr kdiKey kademliaConfig
 

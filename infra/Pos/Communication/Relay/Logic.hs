@@ -40,7 +40,6 @@ import           System.Wlog                        (WithLogger, logDebug, logEr
 import           Universum
 
 import           Pos.Binary.Class                   (Bi (..))
-import           Pos.Binary.Infra.Communication     ()
 import           Pos.Communication.Limits.Instances ()
 import           Pos.Communication.Limits.Types     (LimitedLength, MessageLimited,
                                                      recvLimited, reifyMsgLimit,

@@ -77,7 +77,6 @@ library
                         Pos.Binary.Infra
                         Pos.Binary.Infra.DHTModel
                         Pos.Binary.Infra.Slotting
-                        Pos.Binary.Infra.Communication
 
                         -- Pos.Util
                         Pos.Util.LogSafe

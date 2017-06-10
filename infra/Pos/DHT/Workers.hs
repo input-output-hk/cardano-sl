@@ -5,19 +5,21 @@ module Pos.DHT.Workers
        , dhtWorkers
        ) where
 
-import           Data.Binary                (encode)
+import           Universum
+
 import qualified Data.ByteString.Lazy       as BS
+import           Data.Store                 (Store, encode)
 import           Formatting                 (sformat, (%))
 import           Mockable                   (Delay, Fork, Mockable)
-import           Network.Kademlia           (takeSnapshot)
+import           Network.Kademlia           (KademliaSnapshot, takeSnapshot)
 import           System.Wlog                (WithLogger, logNotice)
-import           Universum
 
 import           Pos.Binary.Infra.DHTModel  ()
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Core.Slotting          (flattenSlotId)
 import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
+import           Pos.DHT.Model.Types        (DHTKey)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
 import           Pos.Discovery.Class        (MonadDiscovery)
 import           Pos.Reporting              (MonadReportingMem)
@@ -37,12 +39,16 @@ type DhtWorkMode m =
     )
 
 dhtWorkers
-    :: DhtWorkMode m
+    :: ( DhtWorkMode m
+       , Store (KademliaSnapshot DHTKey) -- CSL-1122: remove this, required for @decodeEx@
+       )
     => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
 dhtWorkers kademliaInst = first pure (dumpKademliaStateWorker kademliaInst)
 
 dumpKademliaStateWorker
-    :: DhtWorkMode m
+    :: ( DhtWorkMode m
+       , Store (KademliaSnapshot DHTKey) -- CSL-1122: remove this, required for @decodeEx@
+       )
     => KademliaDHTInstance
     -> (WorkerSpec m, OutSpecs)
 dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
@@ -51,4 +57,4 @@ dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
         let inst = kdiHandle kademliaInst
         snapshot <- liftIO $ takeSnapshot inst
-        liftIO . BS.writeFile dumpFile $ encode snapshot
+        liftIO . BS.writeFile dumpFile $ BS.fromStrict $ encode snapshot

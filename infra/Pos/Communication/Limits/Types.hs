@@ -54,6 +54,15 @@ instance Limiter (Limit t) where -- CSL-1122 uncomment
     limitGet (Limit l) = undefined $ fromIntegral l
     addLimit a = (Limit a +)
 
+-- CSL-1122: do we need this instance or not?
+--
+-- instance forall s l a. (Bi a, Reifies s l, Limiter l) =>
+--          Bi (LimitedLengthExt s l a) where
+--     put (LimitedLength a) = put a
+--     get = do
+--         let maxSize = reflect (Proxy @s)
+--         limitGet maxSize $ LimitedLength <$> get
+
 -- | Specifies limit on message length.
 -- Deserialization would fail if incoming data size exceeded this limit.
 -- At serialisation stage message size is __not__ checked.

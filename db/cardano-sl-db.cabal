@@ -20,6 +20,7 @@ library
                        Pos.DB.GState.Common
                        Pos.DB.GState.Balances
                        Pos.DB.Misc.Common
+                       Pos.DB.Pure
                        Pos.DB.Redirect
                        Pos.DB.Types
 
@@ -28,6 +29,7 @@ library
                      , cardano-sl-core
                      , concurrent-extra
                      , conduit
+                     , containers
                      , data-default
                      , ether >= 0.5
                      , formatting

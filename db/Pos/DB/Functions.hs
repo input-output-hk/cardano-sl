@@ -4,7 +4,7 @@
 -- | Basically wrappers over RocksDB library.
 
 module Pos.DB.Functions
-       ( openDB
+       ( openRocksDB
 
        -- * Key/Value helpers
        -- ** General
@@ -37,8 +37,8 @@ import           Pos.DB.Class         (DBIteratorClass (..), DBTag, MonadDB (..)
 import           Pos.DB.Error         (DBError (DBMalformed))
 import           Pos.DB.Types         (DB (..))
 
-openDB :: MonadIO m => FilePath -> m DB
-openDB fp = DB def def def
+openRocksDB :: MonadIO m => FilePath -> m DB
+openRocksDB fp = DB def def def
                    <$> Rocks.open fp def
                         { Rocks.createIfMissing = True
                         , Rocks.compression     = Rocks.NoCompression

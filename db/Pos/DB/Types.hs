@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
--- | Types related to DB.
+-- | Types related to Rocks DB.
 
 module Pos.DB.Types
        (
@@ -19,10 +19,13 @@ module Pos.DB.Types
        , usingSnapshot
        ) where
 
+
+import           Universum
+
 import           Control.Lens               (makeLenses)
 import qualified Database.RocksDB           as Rocks
+
 import           Pos.Util.Concurrent.RWLock (RWLock)
-import           Universum
 
 ----------------------------------------------------------------------------
 -- General

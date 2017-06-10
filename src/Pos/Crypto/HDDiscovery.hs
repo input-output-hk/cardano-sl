@@ -27,11 +27,11 @@ discoverHDAddress walletPassphrase =
 
 discoverHDAddresses :: MonadDBRead m => [HDPassphrase] -> m [[(Address, [Word32])]]
 discoverHDAddresses walletPassphrases =
-    runConduit $ mapOutput mapFoo utxoSource .| CL.fold step initWallets
+    runConduit $ mapOutput outAddr utxoSource .| CL.fold step initWallets
   where
     initWallets = replicate (length walletPassphrases) []
     utxoSource = dbIterSource GStateDB (Proxy @UtxoIter)
-    mapFoo = txOutAddress . toaOut . snd
+    outAddr = txOutAddress . toaOut . snd
 
     hdPayload :: Address -> Maybe HDAddressPayload
     hdPayload (PubKeyAddress _ p) =

@@ -27,10 +27,12 @@ import           Pos.Util.Util       (getKeys)
 -- 2. Delegates who became richmen.
 findDelegationStakes
     :: forall m . Monad m
-    => (StakeholderId -> m Bool)         -- ^ Check if user is issuer?
-    -> (StakeholderId -> m (Maybe Coin)) -- ^ Gets effective stake.
-    -> Coin
-    -> Sink (StakeholderId, HashSet StakeholderId) m (RichmenSet, RichmenStake) -- old richmen, new richmen
+    => (StakeholderId -> m Bool)                   -- ^ Check if user is issuer?
+    -> (StakeholderId -> m (Maybe Coin))           -- ^ Gets effective stake.
+    -> Coin                                        -- ^ Coin threshold
+    -> Sink (StakeholderId, HashSet StakeholderId) -- ^ Old richmen, new richmen
+            m
+            (RichmenSet, RichmenStake)
 findDelegationStakes isIssuer stakeResolver t = do
     (old, new) <- step (mempty, mempty)
     pure (getKeys ((HS.toMap old) `HM.difference` new), new)

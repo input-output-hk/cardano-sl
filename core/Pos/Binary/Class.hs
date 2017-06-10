@@ -33,9 +33,14 @@ module Pos.Binary.Class
        -- * Primitives for serialization
        , getWord8
        , putWord8
-       , getByteString
-       , putByteString
+       , putWord8WithSize
+       , getBytes
+       , putBytes
        , label
+
+       -- * Poke with size of the poke.
+       , PokeWithSize (..)
+       , pokeWithSize
 
        -- * The 'StaticSize' wrapper
        , StaticSize(..)
@@ -50,6 +55,8 @@ module Pos.Binary.Class
        , FixedSizeInt(..)
 
        -- * Primitives for limiting serialization
+       , isEmptyPeek
+       , lookAhead
        , limitGet
        , isolate64Full
        -- * Bi to SafeCopy
@@ -87,7 +94,7 @@ import           Universum
 {-
 import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
-import           Data.Binary.Get             (ByteOffset, getByteString,
+import           Data.Binary.Get             (ByteOffset, getBytes,
                                               getLazyByteString,
                                               getRemainingLazyByteString, getWord8, label,
                                               runGet, runGetOrFail)
@@ -103,6 +110,7 @@ import           Control.Lens                (_Left)
 import           Data.Bits                   (Bits (..), FiniteBits, countLeadingZeros,
                                               finiteBitSize)
 import qualified Data.ByteString             as BS
+import qualified Data.ByteString.Internal    as BS
 import           Data.Char                   (isAscii)
 import           Data.Functor.Contravariant  (contramap)
 import qualified Data.HashMap.Strict         as HM
@@ -166,6 +174,28 @@ label msg p = Peek $ \pstate ptr ->
   where
     onPeekEx (PeekException offset msgEx) =
         throwM (PeekException offset (msgEx <> "\n" <> msg))
+
+----------------------------------------------------------------------------
+-- Poke with Size
+----------------------------------------------------------------------------
+
+-- | A wrapper around Poke, needed for putWithLength-like functions.
+data PokeWithSize a
+    = PokeWithSize {
+      pwsToPoke :: !(Poke a)
+    , pwsToSize :: !Word32
+    } deriving (Functor)
+
+instance Applicative PokeWithSize where
+    pure x = PokeWithSize (pure x) 0
+    {-# INLINE pure #-}
+    PokeWithSize f fsz <*> PokeWithSize v vsz = PokeWithSize (f <*> v) (fsz + vsz)
+    {-# INLINE (<*>) #-}
+    PokeWithSize f fsz *> PokeWithSize v vsz = PokeWithSize (f *> v) (fsz + vsz)
+    {-# INLINE (*>) #-}
+
+pokeWithSize :: Bi a => a -> PokeWithSize ()
+pokeWithSize x = PokeWithSize (put x) (fromIntegral $ getSize x)
 
 ----------------------------------------------------------------------------
 -- Raw
@@ -582,6 +612,9 @@ getWord8 = get @Word8
 putWord8 :: Word8 -> Poke ()
 putWord8 = put @Word8
 
+putWord8WithSize :: Word8 -> PokeWithSize ()
+putWord8WithSize = pokeWithSize @Word8
+
 ----------------------------------------------------------------------------
 -- Tagged
 ----------------------------------------------------------------------------
@@ -619,10 +652,20 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a, b, c, d) where
     {-# INLINE get #-}
     get = liftM4 (,,,) get get get get
 
+-- Copy-pasted from
+-- https://github.com/fpco/store/blob/master/src/Data/Store/Internal.hs#L378-L389
 instance Bi ByteString where
-    size = Store.size
-    put = Store.poke
-    get = Store.peek
+    size = VarSize $ \x ->
+        let l = BS.length x in
+        getSize (UnsignedVarInt l) + l
+    put x = do
+        let (sourceFp, sourceOffset, sourceLength) = BS.toForeignPtr x
+        put $ UnsignedVarInt sourceLength
+        Store.pokeFromForeignPtr sourceFp sourceOffset sourceLength
+    get = do
+        UnsignedVarInt len <- get
+        fp <- Store.peekToPlainForeignPtr "Data.ByteString.ByteString" len
+        return (BS.PS fp 0 len)
 
 instance Bi LByteString where
     size = Store.size
@@ -876,6 +919,18 @@ instance Bi Byte where
     get = fromBytes <$> get
     size = sizeOf toBytes
 
+-- | Test Peek on empty.
+isEmptyPeek :: Peek Bool
+isEmptyPeek = Peek $ \end ptr ->
+    pure (PeekResult ptr (ptr >= Store.peekStateEndPtr end))
+
+-- | Try to read @a@
+lookAhead :: Peek a -> Peek a
+lookAhead m = Peek $ \end ptr -> Store.runPeek m end ptr `catch` onEx
+  where
+    onEx (PeekException ptr exMsg) =
+        throwM $ PeekException ptr (exMsg <> "\nlookAhead failed")
+
 -- | Like 'isolate', but allows consuming less bytes than expected (just not
 -- more).
 -- Differences from `Store.isolate`:
@@ -964,27 +1019,25 @@ fromBinaryM = either (fail . T.unpack) return . fromBinary
 
 -- | Serialize something together with its length in bytes. The length comes
 -- first. If you want to serialize several things at once, use a tuple.
-putWithLength :: Bi a => a -> Poke ()
-putWithLength a = do
-    put (UnsignedVarInt (getSize a))
-    put a
+putWithLength :: PokeWithSize a -> Poke a
+putWithLength a = put (UnsignedVarInt $ pwsToSize a) *> pwsToPoke a
 
 -- | Read length in bytes and then parse something (which has to have exactly
 -- that length).
-getWithLength :: Bi a => Peek a
-getWithLength = do
+getWithLength :: Peek a -> Peek a
+getWithLength getter = do
     -- We limit the int to 20 bytes because an UnsignedVarInt Int64 takes at
     -- most 10 bytes. (20 and not 10 because it doesn't hurt to be cautious.)
     UnsignedVarInt (len :: Int64) <- limitGet 20 get
-    isolate64Full len get
+    isolate64Full len getter
 
 -- | Read length in bytes, check that it's not bigger than a specified limit,
 -- and then parse something (which has to have exactly the parsed length).
-getWithLengthLimited :: Bi a => Int64 -> Peek a
-getWithLengthLimited lim = do
+getWithLengthLimited :: Int64 -> Peek a -> Peek a
+getWithLengthLimited lim getter = do
     UnsignedVarInt (len :: Int64) <- limitGet 20 get
     if len <= lim
-        then isolate64Full len get
+        then isolate64Full len getter
         else fail $ formatToString
                       ("getWithLengthLimited: data ("%int%" bytes) is "%
                        "bigger than the limit ("%int%" bytes)")
@@ -995,19 +1048,18 @@ getWithLengthLimited lim = do
 --
 -- Uses 'TinyVarInt' for storing length, thus guaranteeing that it won't take
 -- more than 2 bytes and won't be ambiguous.
-putSmallWithLength :: Bi a => a -> Poke ()
-putSmallWithLength a = do
-    let len = getSize a
+putSmallWithLength :: PokeWithSize a -> Poke a
+putSmallWithLength (PokeWithSize pk len) = do
     if len >= 2^(14::Int)
         then error ("putSmallWithLength: length is " <> show len <>
                     ", but maximum allowed is 16383 (2^14-1)")
-        else put (TinyVarInt (fromIntegral len)) >> put a
+        else put (TinyVarInt (fromIntegral len)) *> pk
 
 -- | Like 'getWithLength' but for 'putSmallWithLength'.
-getSmallWithLength :: Bi a => Peek a
-getSmallWithLength = do
+getSmallWithLength :: Peek a -> Peek a
+getSmallWithLength getter = do
     TinyVarInt len <- get
-    isolate64Full (fromIntegral len) get
+    isolate64Full (fromIntegral len) getter
 
 {-
 ----------------------------------------------------------------------------
@@ -1023,7 +1075,7 @@ getAsciiString1b typeName limit = getWord8 >>= \sz -> do
             if sz > limit
                then fail $ typeName ++ " shouldn't be more than "
                                     ++ show limit ++ " bytes long"
-               else traverse checkAscii =<< BS.unpack <$> getByteString (fromIntegral sz)
+               else traverse checkAscii =<< BS.unpack <$> getBytes (fromIntegral sz)
   where
     checkAscii (chr . fromIntegral -> c) =
         if isAscii c
@@ -1032,7 +1084,7 @@ getAsciiString1b typeName limit = getWord8 >>= \sz -> do
 
 putAsciiString1b :: String -> Poke ()
 putAsciiString1b str =  putWord8 (fromIntegral $ length str)
-                     >> putByteString (BS.pack $ map (fromIntegral . ord) str)
+                     >> putBytes (BS.pack $ map (fromIntegral . ord) str)
 
 sizeAsciiString1b :: Size String
 sizeAsciiString1b = VarSize $ \s -> 1 + length s
@@ -1041,12 +1093,22 @@ sizeAsciiString1b = VarSize $ \s -> 1 + length s
 biSize :: Bi a => a -> Byte
 biSize = fromIntegral . getSize
 
-getByteString :: Int -> Peek ByteString
-getByteString i =
+-- | Get bytestring with constant length.
+getBytes :: Int -> Peek ByteString
+getBytes i =
     reifyNat (fromIntegral i) $
         \(_ :: Proxy n) -> unStaticSize <$>
         (Store.peek :: Peek (StaticSize n ByteString))
 
-putByteString :: ByteString -> Poke ()
-putByteString bs = reifyNat (fromIntegral $ BS.length bs) $ \(_ :: Proxy n) ->
-                      Store.poke (Store.toStaticSizeEx bs :: StaticSize n ByteString)
+-- | Put bytestring with constant length.
+putBytes :: ByteString -> Poke ()
+putBytes bs =
+    reifyNat (fromIntegral $ BS.length bs) $ \(_ :: Proxy n) ->
+        Store.poke (Store.toStaticSizeEx bs :: StaticSize n ByteString)
+
+-- putByteStringWithSize :: ByteString -> PokeWithSize ()
+-- putByteStringWithSize bs =
+--     reifyNat (fromIntegral $ BS.length bs) $ \(_ :: Proxy n) ->
+--         PokeWithSize
+--             (Store.poke (Store.toStaticSizeEx bs :: StaticSize n ByteString))
+--             (fromIntegral $ BS.length bs)

@@ -3,58 +3,67 @@ module Pos.Binary.Core.Address () where
 
 import           Universum
 
-import           Data.Binary.Get     (Get, getWord32be)
-import           Data.Binary.Put     (Put, putWord32be, runPut)
 import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
-import           Pos.Binary.Class    (Bi (..), Peek, Poke, UnsignedVarInt (..), encode,
-                                      label, put, putByteString, putSmallWithLength,
-                                      putWord8)
+import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (..),
+                                      UnsignedVarInt (..), encode, getSize,
+                                      getSmallWithLength, getWord8, label, pokeWithSize,
+                                      put, putSmallWithLength, putWord8)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
-import           Pos.Data.Attributes (getAttributes, putAttributes)
+import           Pos.Data.Attributes (getAttributes, putAttributesWithSize,
+                                      sizeAttributes)
 
--- -- | Encode everything in an address except for CRC32
+addrToList :: AddrPkAttrs -> [(Word8, PokeWithSize ())]
+addrToList = \case
+    AddrPkAttrs Nothing -> []
+    AddrPkAttrs (Just path) -> [(0, pokeWithSize path)]
+
+-- | Encode everything in an address except for CRC32
 putAddressIncomplete :: Address -> Poke ()
-putAddressIncomplete = undefined
--- putAddressIncomplete = \case
---     PubKeyAddress keyHash attrs -> do
---         putWord8 0
---         putSmallWithLength $ do
---             put keyHash
---             flip putAttributes attrs $ \case
---                 AddrPkAttrs Nothing -> []
---                 AddrPkAttrs (Just path) -> [(0, put path)]
---     ScriptAddress scrHash -> do
---         putWord8 1
---         putSmallWithLength scrHash
---     RedeemAddress keyHash -> do
---         putWord8 2
---         putSmallWithLength keyHash
---     UnknownAddressType t bs -> do
---         putWord8 t
---         putSmallWithLength $ putByteString bs
---
--- -- | Decode everything except for CRC32
+putAddressIncomplete = \case
+    PubKeyAddress keyHash attrs -> do
+        putWord8 0
+        putSmallWithLength $
+            pokeWithSize keyHash *>
+            flip putAttributesWithSize attrs addrToList
+    ScriptAddress scrHash -> do
+        putWord8 1
+        putSmall scrHash
+    RedeemAddress keyHash -> do
+        putWord8 2
+        putSmall keyHash
+    UnknownAddressType t bs -> do
+        putWord8 t
+        putSmall bs
+  where
+    putSmall :: Bi a => a -> Poke ()
+    putSmall = putSmallWithLength . pokeWithSize
+
+-- | Decode everything except for CRC32
 getAddressIncomplete :: Peek Address
-getAddressIncomplete = undefined
--- getAddressIncomplete = do
---     tag <- getWord8
---     getSmallWithLength $ case tag of
---         0 -> let mapper 0 x = Just $
---                      get <&> \a -> x {addrPkDerivationPath = Just a}
---                  mapper _ _ = Nothing
---              in PubKeyAddress
---                     <$> get
---                     <*> getAttributes mapper Nothing def
---         1 -> ScriptAddress <$> get
---         2 -> RedeemAddress <$> get
---         t -> UnknownAddressType t <$> getRemainingByteString
+getAddressIncomplete = do
+    tag <- getWord8
+    getSmallWithLength $ case tag of
+        0 -> let mapper 0 x = Just $
+                     get <&> \a -> x {addrPkDerivationPath = Just a}
+                 mapper _ _ = Nothing
+             in PubKeyAddress
+                    <$> get
+                    <*> getAttributes mapper Nothing def
+        1 -> ScriptAddress <$> get
+        2 -> RedeemAddress <$> get
+        t -> UnknownAddressType t <$> get
 
 instance CRC32 Address where
     crc32Update seed = crc32Update seed . encode
 
 instance Bi Address where
+    size = VarSize $ \x -> 1 + case x of
+        PubKeyAddress keyHash attrs -> getSize keyHash + sizeAttributes addrToList attrs
+        ScriptAddress scrHash       -> getSize scrHash
+        RedeemAddress keyHash       -> getSize keyHash
+        UnknownAddressType _ bs     -> getSize bs
     get = label "Address" $ do
        addr <- getAddressIncomplete
        UnsignedVarInt checksum <- get

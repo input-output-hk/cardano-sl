@@ -25,8 +25,8 @@ import qualified Data.Store.TH              as Store
 import           Formatting                 (int, sformat, stext, (%))
 
 import           Pos.Binary.Class           (AsBinary (..), Bi (..), Size (..),
-                                             StaticSize (..), getByteString, getCopyBi,
-                                             label, putByteString, putCopyBi, sizeOf)
+                                             StaticSize (..), getBytes, getCopyBi, label,
+                                             putBytes, putCopyBi, sizeOf)
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Crypto.Hashing         (AbstractHash (..), HashAlgorithm,
                                              WithHash (..), hashDigestSize',
@@ -76,7 +76,7 @@ instance HashAlgorithm algo => Bi (AbstractHash algo a) where
 -- [CSL-1122] TODO: move elsewhere?
 constantSizedBinaryToStoreGet :: Binary.Binary a => Int -> Store.Peek a
 constantSizedBinaryToStoreGet bytes = do
-    x <- getByteString bytes
+    x <- getBytes bytes
     case Binary.decodeOrFail (BSL.fromStrict x) of
         Left (_, _, err) -> fail err
         Right (bs, _, res)
@@ -88,7 +88,7 @@ constantSizedBinaryToStoreGet bytes = do
 #define BiPvss(T, PT, BYTES) \
   instance Bi T where {\
     size = ConstSize BYTES ;\
-    put = putByteString . BSL.toStrict . Binary.encode ;\
+    put = putBytes . BSL.toStrict . Binary.encode ;\
     get = label "T" $ constantSizedBinaryToStoreGet BYTES };\
   deriving instance Bi PT ;\
 
@@ -101,11 +101,11 @@ BiPvss (Pvss.Proof, SecretProof, 64)
 
 instance Store.Store Pvss.ExtraGen where
     size = ConstSize 33
-    poke = putByteString . BSL.toStrict . Binary.encode
+    poke = putBytes . BSL.toStrict . Binary.encode
     peek = label "Pvss.ExtraGen" $ constantSizedBinaryToStoreGet 33
 instance Store.Store Pvss.Commitment where
     size = ConstSize 33
-    poke = putByteString . BSL.toStrict . Binary.encode
+    poke = putBytes . BSL.toStrict . Binary.encode
     peek = label "Pvss.Commitment" $ constantSizedBinaryToStoreGet 33
 
 Store.makeStore ''SecretSharingExtra
@@ -121,8 +121,8 @@ deriving instance Bi (AsBinary SecretSharingExtra)
 #define BiMacro(B, BYTES) \
   instance Bi (AsBinary B) where {\
     size = ConstSize BYTES ;\
-    put (AsBinary bs) = putByteString bs ;\
-    get = label "B (BYTES bytes)" $ AsBinary <$> getByteString BYTES}; \
+    put (AsBinary bs) = putBytes bs ;\
+    get = label "B (BYTES bytes)" $ AsBinary <$> getBytes BYTES}; \
 
 BiMacro(VssPublicKey, 33)
 BiMacro(Secret, 33)
@@ -153,59 +153,59 @@ instance Bi Ed25519.PointCompressed where
     size = ConstSize publicKeyLength
     put (Ed25519.unPointCompressed -> k) = do
         putAssertLength "PointCompressed" publicKeyLength k
-        putByteString k
+        putBytes k
     get = label "Ed25519.PointCompressed" $
-        Ed25519.pointCompressed <$> getByteString publicKeyLength
+        Ed25519.pointCompressed <$> getBytes publicKeyLength
 
 instance Bi Ed25519.Scalar where
     size = ConstSize secretKeyLength
     put (Ed25519.unScalar -> k) = do
         putAssertLength "Scalar" secretKeyLength k
-        putByteString k
+        putBytes k
     get = label "Ed25519.Scalar" $
-        Ed25519.scalar <$> getByteString secretKeyLength
+        Ed25519.scalar <$> getBytes secretKeyLength
 
 instance Bi Ed25519.Signature where
     size = ConstSize signatureLength
     put (Ed25519.Signature s) = do
         putAssertLength "Signature" signatureLength s
-        putByteString s
+        putBytes s
     get = label "Ed25519.Signature" $
-        Ed25519.Signature <$> getByteString signatureLength
+        Ed25519.Signature <$> getBytes signatureLength
 
 instance Bi CC.ChainCode where
     size = ConstSize chainCodeLength
     put (CC.ChainCode c) = do
         putAssertLength "ChainCode" chainCodeLength c
-        putByteString c
+        putBytes c
     get = label "CC.ChainCode" $
-        CC.ChainCode <$> getByteString chainCodeLength
+        CC.ChainCode <$> getBytes chainCodeLength
 
 instance Bi CC.XPub where
     size = ConstSize (publicKeyLength + chainCodeLength)
     put (CC.unXPub -> kc) = do
         putAssertLength "XPub" (publicKeyLength + chainCodeLength) kc
-        putByteString kc
+        putBytes kc
     get = label "CC.XPub" $
-        getByteString (publicKeyLength + chainCodeLength) >>=
+        getBytes (publicKeyLength + chainCodeLength) >>=
         either fail pure . CC.xpub
 
 instance Bi CC.XPrv where
     size = ConstSize encryptedKeyLength
     put (CC.unXPrv -> kc) = do
         putAssertLength "XPrv" encryptedKeyLength kc
-        putByteString kc
+        putBytes kc
     get = label "CC.XPrv" $
-        getByteString encryptedKeyLength >>=
+        getBytes encryptedKeyLength >>=
         either fail pure . CC.xprv
 
 instance Bi CC.XSignature where
     size = ConstSize signatureLength
     put (CC.unXSignature -> bs) = do
         putAssertLength "XSignature" signatureLength bs
-        putByteString bs
+        putBytes bs
     get = label "CC.XSignature" $
-        getByteString signatureLength >>=
+        getBytes signatureLength >>=
         either fail pure . CC.xsignature
 
 deriving instance Bi (Signature a)
@@ -244,8 +244,8 @@ instance Bi PassPhrase where
         -- zeroes.
         let bs = ByteArray.convert pp
             bl = BS.length bs
-        if | bl == 0 -> putByteString (BS.replicate passphraseLength 0)
-           | bl == passphraseLength -> putByteString bs
+        if | bl == 0 -> putBytes (BS.replicate passphraseLength 0)
+           | bl == passphraseLength -> putBytes bs
            | otherwise -> error $ sformat
                  ("put@PassPhrase: expected length 0 or "%int%", not "%int)
                  passphraseLength bl
@@ -253,7 +253,7 @@ instance Bi PassPhrase where
                      | otherwise                            = x
           in  label "PassPhrase" $
               ByteArray.convert . norm <$>
-              getByteString passphraseLength
+              getBytes passphraseLength
 
 -------------------------------------------------------------------------------
 -- Hierarchical derivation
@@ -278,25 +278,25 @@ instance Bi EdStandard.PublicKey where
     size = ConstSize standardPublicKeyLength
     put (EdStandard.PublicKey k) = do
         putAssertLength "PublicKey" standardPublicKeyLength k
-        putByteString k
+        putBytes k
     get = label "EdStandard.PublicKey" $
-        EdStandard.PublicKey <$> getByteString standardPublicKeyLength
+        EdStandard.PublicKey <$> getBytes standardPublicKeyLength
 
 instance Bi EdStandard.SecretKey where
     size = ConstSize standardSecretKeyLength
     put (EdStandard.SecretKey k) = do
         putAssertLength "SecretKey" standardSecretKeyLength k
-        putByteString k
+        putBytes k
     get = label "EdStandard.SecretKey" $
-        EdStandard.SecretKey <$> getByteString standardSecretKeyLength
+        EdStandard.SecretKey <$> getBytes standardSecretKeyLength
 
 instance Bi EdStandard.Signature where
     size = ConstSize standardSignatureLength
     put (EdStandard.Signature s) = do
         putAssertLength "Signature" standardSignatureLength s
-        putByteString s
+        putBytes s
     get = label "EdStandard.Signature" $
-        EdStandard.Signature <$> getByteString standardSignatureLength
+        EdStandard.Signature <$> getBytes standardSignatureLength
 
 deriving instance Bi RedeemPublicKey
 deriving instance Bi RedeemSecretKey

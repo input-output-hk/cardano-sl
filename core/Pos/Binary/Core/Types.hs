@@ -26,6 +26,7 @@ instance Bi T.EpochIndex where
     size = sizeOf (UnsignedVarInt . T.getEpochIndex)
 
 instance Bi (A.Attributes ()) where
+    size = VarSize $ A.sizeAttributes (\() -> [])
     get = label "Attributes" $
         A.getAttributes (\_ () -> Nothing) (Just (128 * 1024 * 1024)) ()
     put = A.putAttributes (\() -> [])

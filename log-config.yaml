@@ -2,13 +2,13 @@ rotation:
     logLimit: 2097152 # 2MB
     keepFiles: 20
 severity: Debug
-file: logs/explorer-node.log
+file: explorer-node.log
 node:
     plugin:
         notifier:
             severity: Debug
-            file: logs/explorer.log
+            file: explorer.log
             socket-io:
                 severity: Debug
-                file: logs/socket-io.log
+                file: socket-io.log
 

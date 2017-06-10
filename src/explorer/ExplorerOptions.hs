@@ -99,7 +99,7 @@ argsParser = do
         help    "Path to Kademlia dump file. If file doesn't exist, it will be created." <>
         showDefault
 
-    webPort <- CLI.webPortOption 8080 "Port for web API."
+    webPort <- CLI.webPortOption 8100 "Port for web API."
 
     commonArgs <- CLI.commonArgsParser
 

@@ -11,7 +11,7 @@ https://github.com/serokell/time-warp-nt.git
 https://github.com/thoughtpolice/hs-ed25519.git
 https://github.com/serokell/network-transport.git
 https://github.com/serokell/network-transport-tcp.git
-https://github.com/input-output-hk/cardano-crypto
+https://github.com/input-output-hk/cardano-crypto.git
 https://github.com/input-output-hk/cardano-sl-explorer.git
 https://github.com/input-output-hk/cardano-report-server.git
 https://github.com/input-output-hk/plutus-prototype.git

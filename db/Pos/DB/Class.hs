@@ -115,7 +115,6 @@ class DBIteratorClass i where
 type IterType i = (IterKey i, IterValue i)
 
 -- | Pure read-only interface to the database.
--- TODO: add iteration, maybe something else.
 class MonadThrow m => MonadDBRead m where
     -- | This function takes tag and key and reads value associated
     -- with given key from DB corresponding to given tag.

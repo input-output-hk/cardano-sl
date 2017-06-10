@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -67,11 +68,12 @@ import           Unsafe                         (unsafeInit, unsafeLast)
 import           Control.Lens                   (ALens', Getter, Getting, cloneLens, to)
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Morph            (MFunctor (..))
-import Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Class      (MonadTrans)
+import           Control.Monad.Trans.Control    (MonadBaseControl)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT, runResourceT)
+import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
+                                                 runResourceT)
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
 import           Data.Tagged                    (Tagged (Tagged))
@@ -85,13 +87,13 @@ import qualified Ether
 import           Ether.Internal                 (makeTupleInstancesHasLens)
 import qualified Formatting                     as F
 import qualified Language.Haskell.TH.Syntax     as TH
-import           Mockable                       (ChannelT, Counter, Distribution, Gauge, liftMockableWrappedM,
+import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
                                                  MFunctor' (..), Mockable (..), Promise,
                                                  SharedAtomicT, SharedExclusiveT,
-                                                 ThreadId)
+                                                 ThreadId, liftMockableWrappedM)
 import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
-import           Serokell.Util.Lens (WrappedM(..))
+import           Serokell.Util.Lens             (WrappedM (..))
 import           System.Wlog                    (CanLog, HasLoggerName (..),
                                                  LoggerNameBox (..))
 
@@ -216,6 +218,7 @@ type instance ChannelT (ResourceT m) = ChannelT m
 -- TODO Move it to log-warper
 instance CanLog m => CanLog (ResourceT m)
 
+-- TODO Move it to ether
 instance Ether.MonadReader tag r m => Ether.MonadReader tag r (ResourceT m) where
     ask = lift $ Ether.ask @tag
     local = liftLocal (Ether.ask @tag) (Ether.local @tag)

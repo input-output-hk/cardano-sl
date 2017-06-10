@@ -45,6 +45,8 @@ translation =
         , cMinutes: "Minutes"
         , cSeconds: "Seconds"
         , cDateFormat: "MM/DD/YYYY HH:mm:ss"
+        , cDecimalSeparator: "."
+        , cGroupSeparator: ","
         }
     , navigation:
         { navHome: "Home"

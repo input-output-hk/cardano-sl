@@ -1,13 +1,25 @@
-module Explorer.Util.String (substitute, parseSearchEpoch) where
+module Explorer.Util.String
+    ( substitute
+    , parseSearchEpoch
+    , formatADA
+    ) where
 
+import BigNumber (BigNumberFormat(..), defaultFormat, dividedByInt, toFormat, fromString) as BN
 import Control.Alt ((<|>))
+import Control.Monad.Eff.Unsafe (unsafePerformEff)
 import Data.Array (many)
 import Data.Either (Either)
 import Data.Int (fromString)
+import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
+import Data.Newtype (unwrap)
 import Data.String (fromCharArray)
 import Data.Tuple (Tuple(..))
+import Explorer.I18n.Lang (Language, translate)
+import Explorer.I18n.Lenses (common, cDecimalSeparator, cGroupSeparator) as I18nL
 import Explorer.Types.State (SearchEpochSlotQuery)
+import Pos.Explorer.Web.ClientTypes (CCoin, _CCoin)
+import Pos.Explorer.Web.Lenses.ClientTypes (getCoin)
 import Text.Parsing.Parser (Parser, ParseError, runParser)
 import Text.Parsing.Parser.Combinators (try)
 import Text.Parsing.Parser.String (char)
@@ -49,3 +61,18 @@ parseEpochOrEpochSlot = try parseSearchEpochSlotQuery <|> parseSearchEpochQuery
 -- | Run the actual parser
 parseSearchEpoch :: String -> Either ParseError SearchEpochSlotQuery
 parseSearchEpoch input = runParser input parseEpochOrEpochSlot
+
+formatADA :: CCoin -> Language -> String
+formatADA coin lang =
+    case BN.fromString $ coin ^. (_CCoin <<< getCoin) of
+        Nothing -> ""
+        Just bigNumber -> do
+            let bigNumberADA = BN.dividedByInt bigNumber lovelacesADA
+            unsafePerformEff $ BN.toFormat bigNumberADA newFormat decimalPlacesADA
+    where
+        decimalPlacesADA = 6
+        lovelacesADA = 1000000
+        newFormat = BN.BigNumberFormat $ (unwrap BN.defaultFormat)
+                        { decimalSeparator = translate (I18nL.common <<< I18nL.cDecimalSeparator) lang
+                        , groupSeparator = translate (I18nL.common <<< I18nL.cGroupSeparator) lang
+                        }

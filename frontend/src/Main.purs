@@ -32,7 +32,13 @@ import Signal (Signal, (~>))
 import Signal.Channel (channel, send, subscribe)
 import Signal.Time (every, second)
 
-type AppEffects = (dom :: DOM, ajax :: AJAX, socket :: SocketIO, now :: NOW, console :: CONSOLE)
+type AppEffects =
+    (dom :: DOM
+    , ajax :: AJAX
+    , socket :: SocketIO
+    , now :: NOW
+    , console :: CONSOLE
+    )
 
 type AppConfig = (Config Ex.State Ex.Action AppEffects)
 

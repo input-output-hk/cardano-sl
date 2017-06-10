@@ -13,6 +13,7 @@ import Explorer.Lenses.State (lang, latestTransactions)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), State, CTxEntries)
+import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Common (currencyCSSClass, noData)
 import Explorer.View.Dashboard.Lenses (dashboardTransactionsExpanded)
@@ -20,7 +21,7 @@ import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Network.RemoteData (RemoteData(..), isSuccess)
 import Pos.Explorer.Web.ClientTypes (CTxEntry(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CCoin, getCoin, cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
+import Pos.Explorer.Web.Lenses.ClientTypes (cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
 import Pux.Html (Html, div, text, span) as P
 import Pux.Html.Attributes (className) as P
 import Pux.Html.Events (onClick, MouseEvent) as P
@@ -89,7 +90,8 @@ transactionsView state =
 
 transactionRow :: State -> CTxEntry -> P.Html Action
 transactionRow state (CTxEntry entry) =
-    let format = translate (I18nL.common <<< I18nL.cDateFormat) $ state ^. lang
+    let lang' = state ^. lang
+        format = translate (I18nL.common <<< I18nL.cDateFormat) lang'
         dateValue = fromMaybe noData <<< prettyDate format $ entry ^. cteTimeIssued
     in
     P.div
@@ -107,6 +109,6 @@ transactionRow state (CTxEntry entry) =
               [ P.className $ "transactions__column--currency" ]
               [ P.span
                   [ P.className <<< currencyCSSClass $ Just ADA ]
-                  [ P.text $ entry ^. (cteAmount <<< _CCoin <<< getCoin) ]
+                  [ P.text $ formatADA (entry ^. cteAmount) lang' ]
               ]
         ]

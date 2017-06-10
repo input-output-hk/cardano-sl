@@ -18,12 +18,15 @@ nix:
   enable: true
 ```
 
-## Short version of installation
+Also, we need to have `cardano-sl` project (cloned) locally. If you use the same folder to place the two - `cardano-sl` and `cardano-sl-explorer`, things will be easier. The `cardano-sl` branch is defined in `cardano-sl-explorer` `stack.yaml`.
 
+
+## Short version of installation
 
 #### Build in `development` mode
 
 ```bash
+cd ./frontend
 ./scripts/build.sh server:dev
 ```
 
@@ -31,6 +34,7 @@ nix:
 #### Build in `production` mode
 
 ```bash
+cd ./frontend
 ./scripts/build.sh
 ```
 
@@ -80,13 +84,13 @@ stack build
 stack install purescript-derive-lenses
 ```
 
-You need to have `/Users/{your-user-name}/.local/bin/` on your path.
+You need to have `~/.local/bin/` on your path.
 Check if `purescript-derive-lenses` has been properly installed:
 
 ```bash
 which purescript-derive-lenses
 # should output something like this
-/Users/{your-user-name}/.local/bin/purescript-derive-lenses
+~/.local/bin/purescript-derive-lenses
 ```
 
 
@@ -136,14 +140,6 @@ Open http://localhost:3100/
 
 ```bash
 yarn build:prod
-```
-
-## Mocking socket data
-
-```bash
-cd ./frontend/debug/socket
-yarn install
-yarn start
 ```
 
 ## How to provide live data locally?

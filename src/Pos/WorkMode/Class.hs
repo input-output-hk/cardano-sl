@@ -7,10 +7,10 @@
 -}
 
 module Pos.WorkMode.Class
-    ( WorkMode
-    , MinWorkMode
-    , TxpExtra_TMP
-    ) where
+       ( WorkMode
+       , MinWorkMode
+       , TxpExtra_TMP
+       ) where
 
 import           Universum
 

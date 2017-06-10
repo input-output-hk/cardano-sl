@@ -11,7 +11,6 @@ module Pos.Update.DB
        , getAdoptedBVFull
        , getBVState
        , getProposalState
-       , getProposalsByApp
        , getConfirmedSV
        , getMaxBlockSize
        , getSlottingData
@@ -23,10 +22,9 @@ module Pos.Update.DB
          -- * Initialization
        , prepareGStateUS
 
-        -- * Iteration
+        -- * Iteration and related getters
        , PropIter
-       , runProposalMapIterator
-       , runProposalIterator
+       , getProposalsByApp
        , getOldProposals
        , getDeepProposals
 
@@ -41,6 +39,8 @@ module Pos.Update.DB
 
 import           Universum
 
+import           Data.Conduit               (Source, mapOutput, sourceToList, (.|))
+import qualified Data.Conduit.List          as CL
 import           Data.Time.Units            (convertUnit)
 import qualified Database.RocksDB           as Rocks
 import           Serokell.Data.Memory.Units (Byte)
@@ -54,14 +54,12 @@ import           Pos.Core                   (ApplicationName, BlockVersion,
                                              Timestamp (..))
 import           Pos.Core.Constants         (epochSlots)
 import           Pos.Crypto                 (hash)
-import           Pos.DB                     (MonadDB, MonadDBRead, MonadRealDB,
-                                             RocksBatchOp (..), encodeWithKeyPrefix)
+import           Pos.DB                     (DBIteratorClass (..), DBTag (GStateDB),
+                                             IterType, MonadDB, MonadDBRead,
+                                             RocksBatchOp (..), dbIterSource,
+                                             encodeWithKeyPrefix)
 import           Pos.DB.Error               (DBError (DBMalformed))
 import           Pos.DB.GState.Common       (gsGetBi, writeBatchGState)
-import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
-                                             DBnMapIterator, IterType, runDBnIterator,
-                                             runDBnMapIterator)
-import           Pos.DB.Types               (NodeDBs (..))
 import           Pos.Slotting.Types         (EpochSlottingData (..), SlottingData (..))
 import           Pos.Update.Constants       (genesisBlockVersion, genesisBlockVersionData,
                                              genesisSlotDuration, genesisSoftwareVersions,
@@ -74,7 +72,6 @@ import           Pos.Update.Poll.Types      (BlockVersionState (..),
                                              ProposalState (..),
                                              UndecidedProposalState (upsSlot),
                                              cpsSoftwareVersion, psProposal)
-import           Pos.Util.Iterator          (MonadIterator (..))
 import           Pos.Util.Util              (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -107,15 +104,6 @@ getBVState = gsGetBi . bvStateKey
 -- | Get state of UpdateProposal for given UpId
 getProposalState :: MonadDBRead m => UpId -> m (Maybe ProposalState)
 getProposalState = gsGetBi . proposalKey
-
--- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
-getProposalsByApp :: MonadRealDB m => ApplicationName -> m [ProposalState]
-getProposalsByApp appName = runProposalMapIterator (step []) snd
-  where
-    step res = nextItem >>= maybe (pure res) (onItem res)
-    onItem res e
-        | appName == (svAppName $ upSoftwareVersion $ psProposal e) = step (e:res)
-        | otherwise = step res
 
 -- | Get last confirmed SoftwareVersion of given application.
 getConfirmedSV :: MonadDBRead m => ApplicationName -> m (Maybe NumSoftwareVersion)
@@ -219,47 +207,42 @@ data PropIter
 instance DBIteratorClass PropIter where
     type IterKey PropIter = UpId
     type IterValue PropIter = ProposalState
-    iterKeyPrefix _ = iterationPrefix
+    iterKeyPrefix = iterationPrefix
 
-runProposalIterator
-    :: forall m a . MonadRealDB m
-    => DBnIterator PropIter a -> m a
-runProposalIterator = runDBnIterator @PropIter _gStateDB
-
-runProposalMapIterator
-    :: forall v m a . MonadRealDB m
-    => DBnMapIterator PropIter v a -> (IterType PropIter -> v) -> m a
-runProposalMapIterator = runDBnMapIterator @PropIter _gStateDB
+proposalSource :: (MonadDBRead m) => Source m (IterType PropIter)
+proposalSource = dbIterSource GStateDB (Proxy @PropIter)
 
 -- TODO: it can be optimized by storing some index sorted by
 -- 'SlotId's, but I don't think it may be crucial.
 -- | Get all proposals which were issued no later than given slot.
 getOldProposals
-    :: MonadRealDB m
+    :: MonadDBRead m
     => SlotId -> m [UndecidedProposalState]
-getOldProposals slotId = runProposalMapIterator (step []) snd
+getOldProposals slotId =
+    sourceToList $ mapOutput snd proposalSource .| CL.mapMaybe isOld
   where
-    step res = nextItem >>= maybe (pure res) (onItem res)
-    onItem res e
-        | PSUndecided u <- e
-        , upsSlot u <= slotId = step (u:res)
-        | otherwise = step res
-
--- TODO: eliminate copy-paste here!
+    isOld (PSUndecided u) | upsSlot u <= slotId = Just u
+    isOld _               = Nothing
 
 -- | Get all decided proposals which were accepted deeper than given
 -- difficulty.
 getDeepProposals
-    :: MonadRealDB m
+    :: MonadDBRead m
     => ChainDifficulty -> m [DecidedProposalState]
-getDeepProposals cd = runProposalMapIterator (step []) snd
+getDeepProposals cd =
+    sourceToList $ mapOutput snd proposalSource .| CL.mapMaybe isDeep
   where
-    step res = nextItem >>= maybe (pure res) (onItem res)
-    onItem res e
-        | PSDecided u <- e
-        , Just proposalDifficulty <- dpsDifficulty u
-        , proposalDifficulty <= cd = step (u : res)
-        | otherwise = step res
+    isDeep e | PSDecided u <- e
+             , Just proposalDifficulty <- dpsDifficulty u
+             , proposalDifficulty <= cd = Just u
+    isDeep _                 = Nothing
+
+-- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
+getProposalsByApp :: MonadDBRead m => ApplicationName -> m [ProposalState]
+getProposalsByApp appName =
+    sourceToList $ mapOutput snd proposalSource .| CL.filter matchesName
+  where
+    matchesName e = appName == (svAppName $ upSoftwareVersion $ psProposal e)
 
 -- Iterator by confirmed proposals
 data ConfPropIter
@@ -267,25 +250,25 @@ data ConfPropIter
 instance DBIteratorClass ConfPropIter where
     type IterKey ConfPropIter = SoftwareVersion
     type IterValue ConfPropIter = ConfirmedProposalState
-    iterKeyPrefix _ = confirmedIterationPrefix
+    iterKeyPrefix = confirmedIterationPrefix
 
 -- | Get confirmed proposals which update our application and have
 -- version bigger than argument (or all proposals if 'Nothing' is
 -- passed). For instance, current software version can be passed to
 -- this function to get all proposals with bigger version.
 getConfirmedProposals
-    :: MonadRealDB m
+    :: MonadDBRead m
     => Maybe NumSoftwareVersion -> m [ConfirmedProposalState]
-getConfirmedProposals reqNsv = runDBnIterator @ConfPropIter _gStateDB (step [])
+getConfirmedProposals reqNsv =
+    sourceToList $
+        dbIterSource GStateDB (Proxy @ConfPropIter) .|
+        CL.mapMaybe onItem
   where
-    step res = nextItem >>= maybe (pure res) (onItem res)
-    onItem res (SoftwareVersion {..}, cps) =
-        step $
+    onItem (SoftwareVersion {..}, cps) =
         case reqNsv of
-            Nothing -> cps : res
-            Just v
-                | svAppName == ourAppName && svNumber > v -> cps : res
-                | otherwise -> res
+            Nothing -> Just cps
+            Just v | svAppName == ourAppName && svNumber > v -> Just cps
+                   | otherwise -> Nothing
 
 -- Iterator by block versions
 data BVIter
@@ -293,31 +276,24 @@ data BVIter
 instance DBIteratorClass BVIter where
     type IterKey BVIter = BlockVersion
     type IterValue BVIter = BlockVersionState
-    iterKeyPrefix _ = bvStateIterationPrefix
+    iterKeyPrefix = bvStateIterationPrefix
+
+bvSource :: (MonadDBRead m) => Source m (IterType BVIter)
+bvSource = dbIterSource GStateDB (Proxy @BVIter)
 
 -- | Get all proposed 'BlockVersion's.
-getProposedBVs :: MonadRealDB m => m [BlockVersion]
-getProposedBVs = runDBnMapIterator @BVIter _gStateDB (step []) fst
-  where
-    step res = nextItem >>= maybe (pure res) (onItem res)
-    onItem res = step . (: res)
+getProposedBVs :: MonadDBRead m => m [BlockVersion]
+getProposedBVs = sourceToList $ mapOutput fst bvSource
 
-getProposedBVStates :: MonadRealDB m => m [BlockVersionState]
-getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
-  where
-    step res = nextItem >>= maybe (pure res) (onItem res)
-    onItem res = step . (: res)
+getProposedBVStates :: MonadDBRead m => m [BlockVersionState]
+getProposedBVStates = sourceToList $ mapOutput snd bvSource
 
 -- | Get all competing 'BlockVersion's and their states.
 getCompetingBVStates
-    :: MonadRealDB m
+    :: MonadDBRead m
     => m [(BlockVersion, BlockVersionState)]
-getCompetingBVStates = runDBnIterator @BVIter _gStateDB (step [])
-  where
-    step res = nextItem >>= maybe (pure res) (onItem res)
-    onItem res (bv, bvs@BlockVersionState {..})
-        | bvsIsConfirmed = step ((bv, bvs) : res)
-        | otherwise = step res
+getCompetingBVStates =
+    sourceToList $ bvSource .| CL.filter (bvsIsConfirmed . snd)
 
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)

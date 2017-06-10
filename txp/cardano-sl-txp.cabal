@@ -62,6 +62,7 @@ library
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-update
+                     , conduit
                      , containers
                      , data-default
                      , derive

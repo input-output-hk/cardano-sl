@@ -81,8 +81,8 @@ import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
 import           Pos.Util.Servant                 (decodeCType, encodeCType)
 import           Pos.Util.UserSecret              (readUserSecret, usWalletSet)
-import           Pos.Wallet.KeyStorage            (addSecretKey, deleteSecretKey,
-                                                   getSecretKeys)
+import           Pos.Wallet.KeyStorage            (MonadKeys, addSecretKey,
+                                                   deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.Redirect              (WalletRedirects)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
@@ -160,6 +160,9 @@ type WalletWebHandler m =
 
 type WalletWebMode m
     = ( WalletMode m
+      , MonadKeys m -- THIS IS IMPLIED BY WalletMode BUT DOESN'T WORK
+                    -- FUNCTIONS DON'T SEE THIS CONSTRAINT
+                    -- PROBABLY GHC BUG
       , WebWalletModeDB m
       , MonadGState m
       , MonadWalletWebSockets m
@@ -189,7 +192,7 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
-    :: (MonadIO m, WalletWebMode (WalletWebHandler m))
+    :: forall m . (MonadIO m, WalletWebMode (WalletWebHandler m))
     => SendActions (WalletWebHandler m)
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)

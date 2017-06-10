@@ -13,6 +13,7 @@ import           Universum
 
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
+import           Control.Monad.Trans.Resource  (runResourceT)
 import           Data.Tagged                   (Tagged (..))
 import qualified Ether
 import           Mockable                      (runProduction)
@@ -88,6 +89,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
 
     realRunner :: forall t . RealMode WalletSscType t -> IO t
     realRunner (RealMode act) = runProduction
+           . runResourceT
            . usingLoggerName "wallet-api"
            . flip Ether.runReadersT nc
            . (\m -> do

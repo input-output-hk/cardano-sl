@@ -67,6 +67,7 @@ walletServeWebLite __sendActions __dbPath __dbRebuild __port =
 -- convertHandler mws kd ws wsConn peers handler = do
 --     stateM <- liftIO SM.newIO
 --     liftIO ( runProduction
+--            . runResourceT
 --            . usingLoggerName "wallet-lite-api"
 --            . flip Ether.runReadersT
 --                 ( Tagged @PeerStateTag stateM

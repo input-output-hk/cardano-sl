@@ -12,17 +12,18 @@ module Pos.Wallet.WalletMode
 
 import           Universum
 
-import           Control.Monad.Trans         (MonadTrans)
-import           Data.Time.Units             (Millisecond)
+import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Resource (MonadResource)
+import           Data.Time.Units              (Millisecond)
 
-import           Pos.Client.Txp.Balances     (MonadBalances (..))
-import           Pos.Client.Txp.History      (MonadTxHistory (..))
-import           Pos.Communication           (TxMode)
-import           Pos.Communication.PeerState (WithPeerState)
-import           Pos.Core                    (ChainDifficulty)
-import           Pos.Discovery               (MonadDiscovery)
-import           Pos.Update                  (ConfirmedProposalState (..))
-import           Pos.Wallet.KeyStorage       (MonadKeys)
+import           Pos.Client.Txp.Balances      (MonadBalances (..))
+import           Pos.Client.Txp.History       (MonadTxHistory (..))
+import           Pos.Communication            (TxMode)
+import           Pos.Communication.PeerState  (WithPeerState)
+import           Pos.Core                     (ChainDifficulty)
+import           Pos.Discovery                (MonadDiscovery)
+import           Pos.Update                   (ConfirmedProposalState (..))
+import           Pos.Wallet.KeyStorage        (MonadKeys)
 
 class Monad m => MonadBlockchainInfo m where
     networkChainDifficulty :: m (Maybe ChainDifficulty)
@@ -78,4 +79,5 @@ type WalletMode m
       , MonadUpdates m
       , WithPeerState m
       , MonadDiscovery m
+      , MonadResource m
       )

@@ -113,6 +113,12 @@ library
   if flag(dev-mode)
     cpp-options: -DDEV_MODE
 
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+
 executable cardano-explorer
   hs-source-dirs:      src/explorer
   main-is:             Main.hs
@@ -168,6 +174,11 @@ executable cardano-explorer
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
   if flag(dev-mode)
     cpp-options: -DDEV_MODE
 
@@ -210,6 +221,11 @@ executable cardano-explorer-hs2purs
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
 executable cardano-explorer-swagger
   hs-source-dirs:      src/documentation
   main-is:             Main.hs
@@ -239,6 +255,11 @@ executable cardano-explorer-swagger
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
 
 executable cardano-explorer-mock
   hs-source-dirs:      src/mock
@@ -277,4 +298,8 @@ executable cardano-explorer-mock
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
 

@@ -1232,7 +1232,7 @@ test-suite cardano-test
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
                        Test.Pos.Ssc.GodTossing.SeedSpec
-                       Test.Pos.Ssc.GodTossing.Types.BaseSpec
+                       Test.Pos.Ssc.GodTossing.Toss.BaseSpec
                        Test.Pos.Ssc.GodTossing.VssCertDataSpec
                        Test.Pos.Txp.CoreSpec
                        Test.Pos.Txp.Identity.BinarySpec
@@ -1259,6 +1259,7 @@ test-suite cardano-test
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-lrc
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-ssc

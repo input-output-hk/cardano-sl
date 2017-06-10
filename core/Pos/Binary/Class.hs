@@ -121,7 +121,7 @@ import           Data.SafeCopy               (Contained, SafeCopy (..), contain,
 import qualified Data.Serialize              as Cereal (Get, Put)
 import qualified Data.Set                    as S
 import           Data.Store                  (Size (..))
-import           Data.Store.Core             (Peek (..), PeekResult (..), Poke)
+import           Data.Store.Core             (Peek (..), PeekResult (..), Poke (..))
 import qualified Data.Store.Core             as Store
 import           Data.Store.Internal         (PeekException (..), StaticSize (..))
 import qualified Data.Store.Internal         as Store
@@ -174,6 +174,13 @@ label msg p = Peek $ \pstate ptr ->
   where
     onPeekEx (PeekException offset msgEx) =
         throwM (PeekException offset (msgEx <> "\n" <> msg))
+
+instance Monoid a => Monoid (Poke a) where
+    mempty = pure mempty
+    m1 `mappend` m2 = Poke $ \ps off -> do
+        (off1, _) <- runPoke m1 ps off
+        (off2, res) <- runPoke m2 ps off1
+        pure (off2, res)
 
 ----------------------------------------------------------------------------
 -- Poke with Size

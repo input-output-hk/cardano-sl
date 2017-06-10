@@ -104,13 +104,14 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccoun
                                                    CPaperVendWalletRedeem (..),
                                                    CPassPhrase (..), CProfile,
                                                    CProfile (..), CTx (..), CTxId,
-                                                   CTxMeta (..), CUpdateInfo (..),
-                                                   CWAddressMeta (..), CWallet (..),
-                                                   CWalletInit (..), CWalletMeta (..),
-                                                   CWalletRedeem (..), NotifyEvent (..),
-                                                   SyncProgress (..), Wal, addressToCId,
-                                                   cIdToAddress, coinFromCCoin, encToCId,
-                                                   mkCCoin, mkCTx, mkCTxId, toCUpdateInfo,
+                                                   CTxMeta (..), CTxs (..),
+                                                   CUpdateInfo (..), CWAddressMeta (..),
+                                                   CWallet (..), CWalletInit (..),
+                                                   CWalletMeta (..), CWalletRedeem (..),
+                                                   NotifyEvent (..), SyncProgress (..),
+                                                   Wal, addressToCId, cIdToAddress,
+                                                   coinFromCCoin, encToCId, mkCCoin,
+                                                   mkCTxId, mkCTxs, toCUpdateInfo,
                                                    txContainsTitle, txIdToCTxId,
                                                    walletAddrMetaToAccount)
 import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError)
@@ -134,8 +135,8 @@ import           Pos.Wallet.Web.State             (AccountLookupMode (..), Walle
                                                    removeNextUpdate, removeWAddress,
                                                    removeWallet, setAccountMeta,
                                                    setAccountTransactionMeta, setProfile,
-                                                   setWalletMeta, testReset,
-                                                   totallyRemoveWAddress,
+                                                   setWalletMeta, setWalletPassLU,
+                                                   testReset, totallyRemoveWAddress,
                                                    updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, MonadWalletTracking,
@@ -153,8 +154,9 @@ type WalletWebHandler m = WalletWebSockets (WalletWebDB m)
 
 type WalletWebMode m
     = ( WalletMode m
-      , MonadKeys m -- FIXME: Why isn't it implied by the
-                    -- WalletMode constraint above?
+      , MonadKeys m -- THIS IS IMPLIED BY WalletMode BUT DOESN'T WORK
+                    -- FUNCTIONS DON'T SEE THIS CONSTRAINT
+                    -- PROBABLY GHC BUG
       , WebWalletModeDB m
       , MonadGState m
       , MonadWalletWebSockets m
@@ -184,7 +186,7 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
-    :: (MonadIO m, WalletWebMode (WalletWebHandler m))
+    :: forall m . (MonadIO m, WalletWebMode (WalletWebHandler m))
     => SendActions (WalletWebHandler m)
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
@@ -609,8 +611,11 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
                     -- TODO [CSM-251]: if money source is wallet, then this is not fully correct
                     srcAccount <- getMoneySourceAccount moneySource
                     mapM_ removeWAddress srcAddrMetas
-                    addHistoryTx srcAccount title desc $
+                    ctxs <- addHistoryTx srcAccount title desc $
                         THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs
+                    ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
+
+    noOutgoingTx = InternalError "Can't report outgoing transaction"
 
     listF separator formatter =
         F.later $ fold . intersperse separator . fmap (F.bprint formatter)
@@ -649,7 +654,8 @@ getHistory accId skip limit = do
                     taCachedUtxo
                     (cached <> cachedTxs)
 
-            forM fullHistory $ addHistoryTx accId mempty mempty
+            ctxs <- forM fullHistory $ addHistoryTx accId mempty mempty
+            return $ concatMap toList ctxs
     pure (paginate cHistory, fromIntegral $ length cHistory)
   where
     paginate = take defaultLimit . drop defaultSkip
@@ -680,7 +686,7 @@ addHistoryTx
     -> Text
     -> Text
     -> TxHistoryEntry
-    -> m CTx
+    -> m CTxs
 addHistoryTx accId title desc wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
@@ -689,8 +695,8 @@ addHistoryTx accId title desc wtx@THEntry{..} = do
     let cId = txIdToCTxId _thTxId
     addOnlyNewTxMeta accId cId meta
     meta' <- fromMaybe meta <$> getTxMeta accId cId
-    return $ mkCTx diff wtx meta'
-
+    accAddrs <- map cwamId <$> getAccountAddrsOrThrow Ever accId
+    return $ mkCTxs diff wtx meta' accAddrs
 
 newWAddress
     :: WalletWebMode m
@@ -825,8 +831,8 @@ cloneWalletSetWithPass newSK newPass wid = do
         return (oldAddrMeta, newAddrMeta)
   where
     noWMeta = InternalError "Can't get wallet meta (inconsistent db)"
-    cloneAccounts oldWAddr lookupMode addToDB = do
-        accAddrs <- getAccountAddrsOrThrow lookupMode oldWAddr
+    cloneAccounts oldAccId lookupMode addToDB = do
+        accAddrs <- getAccountAddrsOrThrow lookupMode oldAccId
         forM accAddrs $ \accAddr@CWAddressMeta {..} -> do
             newAcc <- rederiveAccountAddress newSK newPass accAddr
             _ <- addToDB newAcc
@@ -869,6 +875,7 @@ changeWalletPassphrase sa wid oldPass newPass = do
                 mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ newAddrMeta
         return oldAddrMeta
     mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ oldAddrMeta
+    setWalletPassLU wid =<< liftIO getPOSIXTime
     deleteSK oldPass
   where
     badPass = RequestError "Invalid old passphrase given"
@@ -952,8 +959,11 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
         Right (TxAux {..}, redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             let txInputs = [TxOut redeemAddress redeemBalance]
-            addHistoryTx accId "ADA redemption" ""
+            ctxs <- addHistoryTx accId "ADA redemption" ""
                 (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr])
+            ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
+  where
+   noOutgoingTx = InternalError "Can't report outgoing transaction"
 
 reportingInitialized :: WalletWebMode m => CInitialized -> m ()
 reportingInitialized cinit = do

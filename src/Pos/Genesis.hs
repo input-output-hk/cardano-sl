@@ -26,9 +26,9 @@ import           Serokell.Util              (enumerate)
 import           Universum
 
 import qualified Pos.Constants              as Const
-import           Pos.Core.Types             (StakeholderId)
+import           Pos.Core.Types             (Address, StakeholderId)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
-                                             encToPublic, firstNonHardened, unsafeHash)
+                                             firstNonHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), TxOutAux (..),
@@ -56,16 +56,22 @@ accountGenesisIndex = firstNonHardened
 wAddressGenesisIndex :: Word32
 wAddressGenesisIndex = firstNonHardened
 
-genesisDevHdwAccountSecretKeys :: [EncryptedSecretKey]
-genesisDevHdwAccountSecretKeys =
+-- | Addresses and secret keys of genesis HD wallets' /addresses/.
+-- It's important to return 'Address' here, not 'PublicKey', since valid HD
+-- wallet address keeps 'HDAddressPayload' attribute which value depends on
+-- secret key.
+genesisDevHdwAccountKeyDatas :: [(Address, EncryptedSecretKey)]
+genesisDevHdwAccountKeyDatas =
     genesisDevHdwSecretKeys <&> \key ->
-        snd $
         fromMaybe (error "Passphrase doesn't match in Genesis") $
         deriveLvl2KeyPair
             emptyPassphrase
             key
             accountGenesisIndex
             wAddressGenesisIndex
+
+genesisDevHdwAccountAddresses :: [Address]
+genesisDevHdwAccountAddresses = map fst genesisDevHdwAccountKeyDatas
 
 -- 10000 coins in total. For thresholds testing.
 -- 0.5,0.25,0.125,0.0625,0.0312,0.0156,0.0078,0.0039,0.0019,0.0008,0.0006,0.0004,0.0002,0.0001
@@ -152,9 +158,7 @@ genesisUtxo sd =
     hwdDistr = (mkCoin 100, [])
     -- should be enough for testing.
     genesisDevHdwKeyNum = 2
-    hdwAddresses =
-        take genesisDevHdwKeyNum $
-        makePubKeyAddress . encToPublic <$> genesisDevHdwAccountSecretKeys
+    hdwAddresses = take genesisDevHdwKeyNum genesisDevHdwAccountAddresses
 
 -- | Genesis reverse transitive delegation set (d -> [i]).
 genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)

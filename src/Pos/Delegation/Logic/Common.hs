@@ -68,6 +68,8 @@ instance B.Buildable DelegationError where
 -- | Convenient monad to work in 'DelegationWrap' state context.
 type DelegationStateAction m = StateT DelegationWrap m
 
+-- Misha knows better probably.
+{-# ANN runDelegationStateAction ("HLint: ignore Use fmap" :: Text) #-}
 -- | Effectively takes a lock on ProxyCaches mvar in NodeContext and
 -- allows you to run some computation producing updated ProxyCaches
 -- and return value. Will put MVar back on exception.

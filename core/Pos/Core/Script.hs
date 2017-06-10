@@ -1,17 +1,17 @@
-{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Pos.Core.Script () where
 
-import           Data.Binary        (Binary)
-import qualified Data.Binary        as Binary
+import           Universum
+
 import           Data.Eq.Deriving   (deriveEq1)
 import           Data.Hashable      (Hashable, hashWithSalt)
 import           Data.SafeCopy      (SafeCopy (..))
+import           Data.Store         (Store, encode)
 import qualified PlutusCore.Program as PLCore
 import qualified PlutusCore.Term    as PLCore
 import qualified PlutusTypes.ConSig as PLTypes
 import qualified PlutusTypes.Type   as PLTypes
-import           Universum          hiding (lift)
 import qualified Utils.ABT          as ABT
 import qualified Utils.Names        as Names
 import qualified Utils.Vars         as Vars
@@ -42,22 +42,22 @@ deriving instance Show (f PLCore.PatternF) => Show (PLCore.PatternF (f PLCore.Pa
 
 deriving instance Show r => Show (PLCore.ClauseF r)
 
-instance Binary Vars.FreeVar
-instance Binary Vars.MetaVar
-instance Binary Vars.BoundVar
-instance Binary PLTypes.TyConSig
-instance Binary PLTypes.ConSig
-instance Binary PLTypes.PolymorphicType
-instance Binary a => Binary (Names.Sourced a)
-instance Binary ABT.Variable
-instance Binary (f (ABT.Scope f)) => Binary (ABT.ABT f)
-instance Binary (f (ABT.Scope f)) => Binary (ABT.Scope f)
-instance Binary r => Binary (PLCore.ClauseF r)
-instance Binary a => Binary (PLCore.TermF a)
-instance Binary a => Binary (PLCore.PatternF a)
-instance Binary a => Binary (PLTypes.TypeF a)
-instance Binary PLCore.PrimData
-instance Binary PLCore.Program
+instance Store Vars.FreeVar
+instance Store Vars.MetaVar
+instance Store Vars.BoundVar
+instance Store PLTypes.TyConSig
+instance Store PLTypes.ConSig
+instance Store PLTypes.PolymorphicType
+instance Store a => Store (Names.Sourced a)
+instance Store ABT.Variable
+instance Store (f (ABT.Scope f)) => Store (ABT.ABT f)
+instance Store (f (ABT.Scope f)) => Store (ABT.Scope f)
+instance Store r => Store (PLCore.ClauseF r)
+instance Store a => Store (PLCore.TermF a)
+instance Store a => Store (PLCore.PatternF a)
+instance Store a => Store (PLTypes.TypeF a)
+instance Store PLCore.PrimData
+instance Store PLCore.Program
 
 instance NFData Vars.FreeVar
 instance NFData Vars.MetaVar
@@ -85,7 +85,7 @@ instance Bi PLCore.Program => SafeCopy PLCore.Program where
     putCopy = putCopyBi
 
 instance Hashable PLCore.Term where
-    hashWithSalt s = hashWithSalt s . Binary.encode
+    hashWithSalt s = hashWithSalt s . encode
 
 instance Hashable PLCore.Program where
-    hashWithSalt s = hashWithSalt s . Binary.encode
+    hashWithSalt s = hashWithSalt s . encode

@@ -1,31 +1,37 @@
 module Pos.Binary.Core.Script () where
 
-import qualified Data.Binary        as Binary
-import qualified PlutusCore.Program as PLCore
-import qualified PlutusCore.Term    as PLCore
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..), label)
+import qualified Data.Store         as Store
+import qualified PlutusCore.Program as PLCore
+import qualified PlutusCore.Term    as PLCore
+
+import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..), combineSize, label)
 import           Pos.Core.Script    ()
 import           Pos.Core.Types     (Script (..))
 
 instance Bi PLCore.Term where
-  get = undefined -- CSL-1122 uncomment -- Binary.get
+  size = Store.size
+  {-# INLINE size #-}
+  get = Store.peek
   {-# INLINE get #-}
-  put = undefined -- CSL-1122 uncomment -- Binary.put
+  put = Store.poke
   {-# INLINE put #-}
 
 instance Bi PLCore.Program where
-  get = undefined -- CSL-1122 uncomment -- Binary.get
+  size = Store.size
+  {-# INLINE size #-}
+  get = Store.peek
   {-# INLINE get #-}
-  put = undefined -- CSL-1122 uncomment -- Binary.put
+  put = Store.poke
   {-# INLINE put #-}
 
 instance Bi Script where
+    size = combineSize (UnsignedVarInt . scrVersion, scrScript)
     get = label "Script" $ do
         UnsignedVarInt scrVersion <- get
-        scrScript <- get
-        return Script{..}
-    put Script{..} = do
+        scrScript                 <- get
+        pure Script{..}
+    put Script{..} =
         put (UnsignedVarInt scrVersion)
-        put scrScript
+     *> put scrScript

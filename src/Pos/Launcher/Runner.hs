@@ -57,8 +57,6 @@ import           Universum                    hiding (bracket, finally)
 import           Pos.Binary                   ()
 import           Pos.Block.BListener          (runBListenerStub)
 import           Pos.CLI                      (readLoggerConfig)
-import           Pos.Client.Txp.Balances      (runBalancesRedirect)
-import           Pos.Client.Txp.History       (runTxHistoryRedirect)
 import           Pos.Communication            (ActionSpec (..), BiP (..), InSpecs (..),
                                                MkListeners (..), OutSpecs (..),
                                                VerInfo (..), allListeners,
@@ -97,8 +95,6 @@ import           Pos.Txp                      (mkTxpLocalData)
 import           Pos.Txp.DB                   (genesisFakeTotalStake,
                                                runBalanceIterBootstrap)
 import           Pos.Txp.MemState             (TxpHolderTag)
-import           Pos.Wallet.WalletMode        (runBlockchainInfoRedirect,
-                                               runUpdatesRedirect)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                 (explorerTxpGlobalSettings)
 #else
@@ -212,12 +208,8 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
                    runSlotsDataRedirect .
                    runSlotsRedirect .
                    runDiscoveryRedirect .
-                   runBalancesRedirect .
-                   runTxHistoryRedirect .
                    runPeerStateRedirect .
                    runGStateCoreRedirect .
-                   runUpdatesRedirect .
-                   runBlockchainInfoRedirect .
                    runBListenerStub $
                    act
 
@@ -259,12 +251,8 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
            runSlotsDataRedirect .
            runSlotsRedirect .
            runDiscoveryRedirect .
-           runBalancesRedirect .
-           runTxHistoryRedirect .
            runPeerStateRedirect .
            runGStateCoreRedirect .
-           runUpdatesRedirect .
-           runBlockchainInfoRedirect .
            runBListenerStub .
            (\(RealMode m) -> m) .
            runServer transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $

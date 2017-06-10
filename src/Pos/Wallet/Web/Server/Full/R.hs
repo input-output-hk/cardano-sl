@@ -28,6 +28,8 @@ import           Pos.Launcher.Param                (NodeParams (..))
 import           Pos.Launcher.Runner               (runRealBasedMode)
 import           Pos.Ssc.Class                     (SscConstraint, SscParams)
 import           Pos.Wallet.KeyStorage             (addSecretKey)
+import           Pos.Wallet.Redirect               (liftWalletRedirects,
+                                                    runWalletRedirects)
 import           Pos.Wallet.SscType                (WalletSscType)
 import           Pos.Wallet.Web.Server.Full.Common (nat)
 import           Pos.Wallet.Web.Server.Methods     (WalletWebHandler, walletApplication,
@@ -52,9 +54,11 @@ runWRealMode
 runWRealMode db conn =
     runRealBasedMode
         unwrapWPMode
-        (lift . lift)
+        -- doesn't work
+        -- (powerLift @(RealMode WalletSscType) @WalletRealWebMode)
+        (liftWalletRedirects . lift . lift)
   where
-    unwrapWPMode = runWalletWebDB db . runWalletWS conn
+    unwrapWPMode = runWalletWebDB db . runWalletWS conn . runWalletRedirects
 {-# NOINLINE runWRealMode #-}
 
 walletServeWebFull

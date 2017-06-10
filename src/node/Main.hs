@@ -54,6 +54,7 @@ import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
 import           Pos.WorkMode               (RealMode, WorkMode)
 #ifdef WITH_WEB
+import           Pos.Wallet.Redirect        (WalletRedirects, liftWalletRedirects)
 import           Pos.Web                    (serveWebGT)
 #ifdef WITH_WALLET
 import           Pos.Wallet.Web             (WalletRealWebMode, bracketWalletWS,
@@ -145,9 +146,11 @@ action peerHolder args@Args {..} transport = do
                         , t1 (t0 (RealMode ssc))
                         ]
         )
-        => Transport (t1 $ t0 (RealMode ssc))
-    transportW = hoistTransport (lift . lift) transport
+        => Transport (WalletRedirects (t1 $ t0 $ RealMode ssc))
+    transportW = hoistTransport (liftWalletRedirects . lift . lift) transport
+#endif
 
+#ifdef WITH_WEB
 pluginsGT ::
     ( WorkMode SscGodTossing m
     , MonadNodeContext SscGodTossing m

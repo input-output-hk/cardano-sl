@@ -29,7 +29,7 @@ import           Formatting              (int, sformat, (%))
 
 import           Pos.Binary.Crypto       ()
 import           Pos.Core.Address        (makePubKeyAddress)
-import           Pos.Core.Constants      (genesisN, isDevelopment)
+import           Pos.Core.Constants      (genesisKeysN, isDevelopment)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (GenesisCoreData (..), StakeDistribution (..),
                                           getTotalStake)
@@ -44,7 +44,7 @@ import           Pos.Crypto.Signing      (PublicKey, SecretKey, deterministicKey
 
 -- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
 genesisDevKeyPairs :: [(PublicKey, SecretKey)]
-genesisDevKeyPairs = map generateGenesisKeyPair [0 .. genesisN - 1]
+genesisDevKeyPairs = map generateGenesisKeyPair [0 .. genesisKeysN - 1]
 
 -- | List of 'PublicKey's in genesis.
 genesisDevPublicKeys :: [PublicKey]
@@ -57,7 +57,7 @@ genesisDevSecretKeys = map snd genesisDevKeyPairs
 -- | List of 'SecretKey's in genesis for HD wallets.
 genesisDevHdwSecretKeys :: [EncryptedSecretKey]
 genesisDevHdwSecretKeys =
-    map generateHdwGenesisSecretKey [0 .. genesisN - 1]
+    map generateHdwGenesisSecretKey [0 .. genesisKeysN - 1]
 
 ----------------------------------------------------------------------------
 -- Utils

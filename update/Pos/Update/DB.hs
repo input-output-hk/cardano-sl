@@ -52,7 +52,8 @@ import           Pos.Core                   (ApplicationName, BlockVersion,
                                              ChainDifficulty, NumSoftwareVersion, SlotId,
                                              SoftwareVersion (..), StakeholderId,
                                              Timestamp (..))
-import           Pos.Core.Constants         (epochSlots)
+import           Pos.Core.Constants         (epochSlots, genesisBlockVersionData,
+                                             genesisSlotDuration)
 import           Pos.Crypto                 (hash)
 import           Pos.DB                     (MonadDB, MonadDBRead, MonadRealDB,
                                              RocksBatchOp (..), encodeWithKeyPrefix)
@@ -63,8 +64,7 @@ import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
                                              runDBnMapIterator)
 import           Pos.DB.Types               (NodeDBs (..))
 import           Pos.Slotting.Types         (EpochSlottingData (..), SlottingData (..))
-import           Pos.Update.Constants       (genesisBlockVersion, genesisBlockVersionData,
-                                             genesisSlotDuration, genesisSoftwareVersions,
+import           Pos.Update.Constants       (genesisBlockVersion, genesisSoftwareVersions,
                                              ourAppName)
 import           Pos.Update.Core            (BlockVersionData (..), UpId,
                                              UpdateProposal (..))

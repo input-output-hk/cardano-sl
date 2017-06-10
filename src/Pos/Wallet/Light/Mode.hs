@@ -30,7 +30,7 @@ import           Pos.Client.Txp.History         (MonadTxHistory (..))
 import           Pos.Communication.PeerState    (PeerStateCtx, PeerStateRedirect,
                                                  PeerStateTag, WithPeerState)
 import           Pos.Core                       (HeaderHash)
-import           Pos.DB                         (DBPureRedirect, MonadBlockDBGeneric (..),
+import           Pos.DB                         (DBRealRedirect, MonadBlockDBGeneric (..),
                                                  MonadDBRead (..), MonadGState, NodeDBs)
 import           Pos.DB.Block                   (BlockDBRedirect)
 import           Pos.Discovery                  (DiscoveryConstT, MonadDiscovery)
@@ -55,7 +55,7 @@ type LightWalletMode' =
     BalancesWalletRedirect (
     TxHistoryWalletRedirect (
     BlockDBRedirect (
-    DBPureRedirect (
+    DBRealRedirect (
     Ether.ReadersT
         ( Tagged PeerStateTag (PeerStateCtx Production)
         , Tagged KeyData KeyData

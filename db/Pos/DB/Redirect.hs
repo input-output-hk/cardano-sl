@@ -6,8 +6,8 @@
 -- Here it is related to type classes from 'Pos.DB.Class'.
 
 module Pos.DB.Redirect
-       ( DBPureRedirect
-       , runDBPureRedirect
+       ( DBRealRedirect
+       , runDBRealRedirect
        ) where
 
 import           Universum
@@ -34,24 +34,22 @@ import           Pos.Util.Util                (maybeThrow)
 
 
 
-data DBPureRedirectTag
+data DBRealRedirectTag
 
-type DBPureRedirect = Ether.TaggedTrans DBPureRedirectTag IdentityT
+type DBRealRedirect = Ether.TaggedTrans DBRealRedirectTag IdentityT
 
-runDBPureRedirect :: DBPureRedirect m a -> m a
-runDBPureRedirect = coerce
+runDBRealRedirect :: DBRealRedirect m a -> m a
+runDBRealRedirect = coerce
 
 instance (MonadRealDB m, t ~ IdentityT) =>
-         MonadDBRead (Ether.TaggedTrans DBPureRedirectTag t m) where
+         MonadDBRead (Ether.TaggedTrans DBRealRedirectTag t m) where
     dbGet tag key = do
         db <- view (dbTagToLens tag) <$> getNodeDBs
         rocksGetBytes key db
     dbIterSource tag p = iteratorSource tag p
 
-instance
-    (MonadRealDB m, t ~ IdentityT) =>
-        MonadDB (Ether.TaggedTrans DBPureRedirectTag t m)
-  where
+instance (MonadRealDB m, t ~ IdentityT) =>
+         MonadDB (Ether.TaggedTrans DBRealRedirectTag t m) where
     dbPut tag key val = do
         db <- view (dbTagToLens tag) <$> getNodeDBs
         rocksPutBytes key val db

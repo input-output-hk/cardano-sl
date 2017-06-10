@@ -74,7 +74,7 @@ walletServeWebLite __sendActions __dbPath __dbRebuild __port =
 --                 , Tagged @KeyData kd
 --                 , Tagged @MainWalletState mws
 --                 , Tagged @ReportingContext emptyReportingContext )
---            . runDBPureRedirect
+--            . runDBRealRedirect
 --            . runBlockDBRedirect
 --            . runTxHistoryWalletRedirect
 --            . runBalancesWalletRedirect

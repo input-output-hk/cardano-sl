@@ -27,7 +27,7 @@ import           Pos.Communication.PeerState   (PeerStateSnapshot, PeerStateTag,
                                                 peerStateFromSnapshot,
                                                 runPeerStateRedirect)
 import           Pos.Context                   (NodeContext, NodeContextTag)
-import           Pos.DB                        (NodeDBs, getNodeDBs, runDBPureRedirect)
+import           Pos.DB                        (NodeDBs, getNodeDBs, runDBRealRedirect)
 import           Pos.DB.Block                  (runBlockDBRedirect)
 import           Pos.DB.DB                     (runGStateCoreRedirect)
 import           Pos.Delegation.Class          (DelegationVar, askDelegationState)
@@ -103,7 +103,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                    , Tagged @DelegationVar delWrap
                    , Tagged @PeerStateTag peerStateCtx
                    ))
-           . runDBPureRedirect
+           . runDBRealRedirect
            . runBlockDBRedirect
            . runSlotsDataRedirect
            . runSlotsRedirect

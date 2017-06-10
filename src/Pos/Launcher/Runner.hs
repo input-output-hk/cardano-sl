@@ -69,7 +69,7 @@ import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers
                                                NodeContext (..), StartTime (..))
 import           Pos.Core                     (Timestamp ())
 import           Pos.Crypto                   (createProxySecretKey, encToPublic)
-import           Pos.DB                       (MonadDBRead, NodeDBs, runDBPureRedirect)
+import           Pos.DB                       (MonadDBRead, NodeDBs, runDBRealRedirect)
 import           Pos.DB.Block                 (runBlockDBRedirect)
 import           Pos.DB.DB                    (initNodeDBs, openNodeDBs,
                                                runGStateCoreRedirect)
@@ -176,15 +176,15 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
         -- TODO [CSL-775] ideally initialization logic should be in scenario.
         runCHHere .
             flip Ether.runReaderT' modernDBs .
-            runDBPureRedirect .
+            runDBRealRedirect .
             runBlockDBRedirect $
             initNodeDBs @ssc
-        initTip <- Ether.runReaderT' (runDBPureRedirect getTip) modernDBs
+        initTip <- Ether.runReaderT' (runDBRealRedirect getTip) modernDBs
         stateM <- liftIO SM.newIO
         stateM_ <- liftIO SM.newIO
         slottingVar <-
             Ether.runReaderT'
-                (runDBPureRedirect $ mkSlottingVar npSystemStart)
+                (runDBRealRedirect $ mkSlottingVar npSystemStart)
                 modernDBs
         txpVar <- mkTxpLocalData mempty initTip
         ntpSlottingVar <- mkNtpSlottingVar
@@ -206,7 +206,7 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
                       , Tagged @DelegationVar dlgVar
                       , Tagged @PeerStateTag stateM_
                       ) .
-                   runDBPureRedirect .
+                   runDBRealRedirect .
                    runBlockDBRedirect .
                    runSlotsDataRedirect .
                    runSlotsRedirect .
@@ -237,7 +237,7 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
                ) .
            runSlotsDataRedirect .
            runSlotsRedirect .
-           runDBPureRedirect $
+           runDBRealRedirect $
            mkSscState @ssc
         runCHHere .
            flip Ether.runReadersT
@@ -249,7 +249,7 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
                , Tagged @DelegationVar dlgVar
                , Tagged @PeerStateTag stateM
                ) .
-           runDBPureRedirect .
+           runDBRealRedirect .
            runBlockDBRedirect .
            runSlotsDataRedirect .
            runSlotsRedirect .
@@ -349,13 +349,13 @@ runCH allWorkersNum discoveryCtx params@NodeParams {..} sscNodeContext db act = 
     ucUpdateSemaphore <- newEmptyMVar
 
     -- TODO [CSL-775] lrc initialization logic is duplicated.
-    epochDef <- Ether.runReaderT' (runDBPureRedirect LrcDB.getEpochDefault) db
+    epochDef <- Ether.runReaderT' (runDBRealRedirect LrcDB.getEpochDefault) db
     lcLrcSync <- newTVarIO (LrcSyncData True epochDef)
 
     let eternity = (minBound, maxBound)
         makeOwnPSK = flip (createProxySecretKey npSecretKey) eternity . encToPublic
         ownPSKs = npUserSecret ^.. usKeys._tail.each.to makeOwnPSK
-    Ether.runReaderT' (runDBPureRedirect $ for_ ownPSKs addProxySecretKey) db
+    Ether.runReaderT' (runDBRealRedirect $ for_ ownPSKs addProxySecretKey) db
 
     ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $
@@ -371,7 +371,7 @@ runCH allWorkersNum discoveryCtx params@NodeParams {..} sscNodeContext db act = 
     ncGenesisLeaders <-
         if Const.isDevelopment
         then pure $ genesisLeaders npCustomUtxo
-        else flip Ether.runReaderT' db $ runDBPureRedirect $
+        else flip Ether.runReaderT' db $ runDBRealRedirect $
              runConduit $
              balanceSource .| followTheSatoshiM genesisSeed genesisFakeTotalStake
     ucMemState <- newMemVar

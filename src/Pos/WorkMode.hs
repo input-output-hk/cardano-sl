@@ -36,7 +36,7 @@ import           Pos.Block.BListener            (BListenerStub, MonadBListener)
 import           Pos.Communication.PeerState    (PeerStateCtx, PeerStateRedirect,
                                                  PeerStateTag, WithPeerState)
 import           Pos.Context                    (NodeContext)
-import           Pos.DB                         (DBPureRedirect, MonadGState, NodeDBs)
+import           Pos.DB                         (DBRealRedirect, MonadGState, NodeDBs)
 import           Pos.DB.Block                   (BlockDBRedirect, MonadBlockDBWrite)
 import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDB,
                                                  MonadDBRead (..))
@@ -67,7 +67,7 @@ type RealMode' ssc =
     SlotsRedirect (
     SlotsDataRedirect (
     BlockDBRedirect (
-    DBPureRedirect (
+    DBRealRedirect (
     Ether.ReadersT
         ( Tagged NodeDBs NodeDBs
         , Tagged SlottingVar SlottingVar

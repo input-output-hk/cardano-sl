@@ -21,8 +21,10 @@ library
                        Pos.DB.GState.Balances
                        Pos.DB.Misc.Common
                        Pos.DB.Pure
-                       Pos.DB.Redirect
-                       Pos.DB.Types
+                       Pos.DB.Rocks
+                       Pos.DB.Rocks.Redirect
+                       Pos.DB.Rocks.Functions
+                       Pos.DB.Rocks.Types
 
   build-depends:       base
                      , bytestring

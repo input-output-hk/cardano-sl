@@ -1,59 +1,35 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Basically wrappers over RocksDB library.
+-- | Different key/value serialization helpers abstracted over
+-- 'MonadDB'.
 
 module Pos.DB.Functions
-       ( openRocksDB
-
-       -- * Key/Value helpers
-       -- ** General
-       , encodeWithKeyPrefix
-       , dbGetBi
+       (
+       -- * Encoded putting/getting
+         dbGetBi
        , dbPutBi
 
-       -- ** RocksDB
-       , rocksDelete
-       , rocksGetBi
-       , rocksGetBytes
-       , rocksPutBi
-       , rocksPutBytes
-       , rocksDecodeWP
-       , rocksDecodeMaybe
-       , rocksDecodeMaybeWP
+       -- * Decoding/encoding primitives and iteration related
+       , dbDecode
+       , dbDecodeWP
+       , dbDecodeMaybe
+       , dbDecodeMaybeWP
+       , encodeWithKeyPrefix
+       , processIterEntry
        ) where
 
 import           Universum
 
 import qualified Data.ByteString      as BS (drop, isPrefixOf)
 import qualified Data.ByteString.Lazy as BSL
-import           Data.Default         (def)
-import qualified Database.RocksDB     as Rocks
 import           Formatting           (sformat, shown, string, (%))
 
 import           Pos.Binary.Class     (Bi, decodeFull, encodeStrict)
-import           Pos.DB.Class         (DBIteratorClass (..), DBTag, MonadDB (..),
-                                       MonadDBRead (..))
+import           Pos.DB.Class         (DBIteratorClass (..), DBTag, IterType,
+                                       MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Error         (DBError (DBMalformed))
-import           Pos.DB.Types         (DB (..))
-
-openRocksDB :: MonadIO m => FilePath -> m DB
-openRocksDB fp = DB def def def
-                   <$> Rocks.open fp def
-                        { Rocks.createIfMissing = True
-                        , Rocks.compression     = Rocks.NoCompression
-                        }
-
-encodeWithKeyPrefix
-    :: forall i . (DBIteratorClass i, Bi (IterKey i))
-    => IterKey i -> ByteString
-encodeWithKeyPrefix = (iterKeyPrefix @i <>) . encodeStrict
-
--- | Read ByteString from RocksDb using given key.
-rocksGetBytes :: (MonadIO m) => ByteString -> DB -> m (Maybe ByteString)
-rocksGetBytes key DB {..} = Rocks.get rocksDB rocksReadOpts key
-
--- TODO: get rid of duplicated code
+import           Pos.Util.Util        (maybeThrow)
 
 -- | Read serialized value associated with given key from pure DB.
 dbGetBi
@@ -62,42 +38,34 @@ dbGetBi
     => DBTag -> ByteString -> m (Maybe v)
 dbGetBi tag key = do
     bytes <- dbGet tag key
-    traverse (rocksDecode . (ToDecodeValue key)) bytes
+    traverse (dbDecode . (ToDecodeValue key)) bytes
 
 -- | Write serializable value to DB for given key.
 dbPutBi :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> m ()
 dbPutBi tag k v = dbPut tag k (encodeStrict v)
 
--- | Read serialized value from RocksDB using given key.
-rocksGetBi
-    :: forall v m.
-       (Bi v, MonadIO m, MonadThrow m)
-    => ByteString -> DB -> m (Maybe v)
-rocksGetBi key db = do
-    bytes <- rocksGetBytes key db
-    traverse (rocksDecode . (ToDecodeValue key)) bytes
 
 data ToDecode
     = ToDecodeKey !ByteString
     | ToDecodeValue !ByteString
                     !ByteString
 
-rocksDecode :: (Bi v, MonadThrow m) => ToDecode -> m v
-rocksDecode (ToDecodeKey key) =
-    either (onParseError key) pure . decodeFull . BSL.fromStrict $ key
-rocksDecode (ToDecodeValue key val) =
-    either (onParseError key) pure . decodeFull . BSL.fromStrict $ val
-
 onParseError :: (MonadThrow m) => ByteString -> String -> m a
 onParseError rawKey errMsg = throwM $ DBMalformed $ sformat fmt rawKey errMsg
   where
-    fmt = "rocksGetBi: stored value is malformed, key = "%shown%", err: "%string
+    fmt = "dbGetBi: stored value is malformed, key = "%shown%", err: "%string
+
+dbDecode :: (Bi v, MonadThrow m) => ToDecode -> m v
+dbDecode (ToDecodeKey key) =
+    either (onParseError key) pure . decodeFull . BSL.fromStrict $ key
+dbDecode (ToDecodeValue key val) =
+    either (onParseError key) pure . decodeFull . BSL.fromStrict $ val
 
 -- with prefix
-rocksDecodeWP
+dbDecodeWP
     :: forall i m . (MonadThrow m, DBIteratorClass i, Bi (IterKey i))
     => ByteString -> m (IterKey i)
-rocksDecodeWP key
+dbDecodeWP key
     | BS.isPrefixOf (iterKeyPrefix @i) key =
         either (onParseError key) pure .
         decodeFull .
@@ -106,11 +74,14 @@ rocksDecodeWP key
         key
     | otherwise = onParseError key "unexpected prefix"
 
+dbDecodeMaybe :: (Bi v) => ByteString -> Maybe v
+dbDecodeMaybe = rightToMaybe . decodeFull . BSL.fromStrict
+
 -- Parse maybe
-rocksDecodeMaybeWP
+dbDecodeMaybeWP
     :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => ByteString -> Maybe (IterKey i)
-rocksDecodeMaybeWP s
+dbDecodeMaybeWP s
     | BS.isPrefixOf (iterKeyPrefix @i) s =
           rightToMaybe .
           decodeFull .
@@ -118,16 +89,31 @@ rocksDecodeMaybeWP s
           BS.drop (length $ iterKeyPrefix @i) $ s
     | otherwise = Nothing
 
-rocksDecodeMaybe :: (Bi v) => ByteString -> Maybe v
-rocksDecodeMaybe = rightToMaybe . decodeFull . BSL.fromStrict
+-- | Encode iterator key using iterator prefix defined in
+-- 'DBIteratorClass'.
+encodeWithKeyPrefix
+    :: forall i . (DBIteratorClass i, Bi (IterKey i))
+    => IterKey i -> ByteString
+encodeWithKeyPrefix = (iterKeyPrefix @i <>) . encodeStrict
 
--- | Write ByteString to RocksDB for given key.
-rocksPutBytes :: (MonadIO m) => ByteString -> ByteString -> DB -> m ()
-rocksPutBytes k v DB {..} = Rocks.put rocksDB rocksWriteOpts k v
-
--- | Write serializable value to RocksDb for given key.
-rocksPutBi :: (Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
-rocksPutBi k v = rocksPutBytes k (encodeStrict v)
-
-rocksDelete :: (MonadIO m) => ByteString -> DB -> m ()
-rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
+-- | Given a @(k,v)@ as pair of strings, try to decode both.
+processIterEntry ::
+       forall i m.
+       (Bi (IterKey i), Bi (IterValue i), MonadThrow m, DBIteratorClass i)
+    => (ByteString, ByteString)
+    -> m (Maybe (IterType i))
+processIterEntry (key,val)
+    | BS.isPrefixOf prefix key = do
+        k <- maybeThrow (DBMalformed $ fmt key "key invalid")
+                        (dbDecodeMaybeWP @i key)
+        v <- maybeThrow (DBMalformed $ fmt key "value invalid")
+                        (dbDecodeMaybe val)
+        pure $ Just (k, v)
+    | otherwise = pure Nothing
+  where
+    prefix = iterKeyPrefix @i
+    fmt k err =
+      sformat
+          ("Iterator entry with keyPrefix = "%shown%" is malformed: \
+           \key = "%shown%", err: " %string)
+           prefix k err

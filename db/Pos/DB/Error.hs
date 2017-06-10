@@ -15,6 +15,7 @@ data DBError =
     deriving (Show)
 
 instance Exception DBError
+-- TODO Make it cardanoException
 
 instance Buildable DBError where
     build (DBMalformed msg) = bprint ("malformed DB ("%stext%")") msg

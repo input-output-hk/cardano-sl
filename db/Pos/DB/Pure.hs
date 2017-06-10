@@ -8,8 +8,8 @@
 -- better though it's immutable.
 
 module Pos.DB.Pure
-    ( DBPureT
-    ) where
+       ( DBPureT
+       ) where
 
 import           Universum
 
@@ -19,7 +19,8 @@ import qualified Data.Conduit.List as CL
 import qualified Data.Map          as M
 import qualified Ether
 
-import           Pos.DB.Class      (DBTag (..), MonadDB, MonadDBRead (..), iterKeyPrefix)
+import           Pos.DB.Class      (DBTag (..), MonadDBRead (..), iterKeyPrefix)
+import           Pos.DB.Functions  (processIterEntry)
 import           Pos.Util.Util     (ether)
 
 type DBPureMap = Map ByteString ByteString
@@ -48,4 +49,5 @@ instance (MonadThrow m) => MonadDBRead (DBPureT m) where
         let filterPrefix = M.filterWithKey $ \k _ -> iterKeyPrefix @i `BS.isPrefixOf` k
         (filtered :: [(ByteString, ByteString)]) <-
             lift $ ether $ uses l $ M.toList . filterPrefix
-        CL.sourceList $ map undefined filtered
+        deserialized <- catMaybes <$> mapM (processIterEntry @i) filtered
+        CL.sourceList deserialized

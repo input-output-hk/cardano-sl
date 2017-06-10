@@ -6,15 +6,7 @@
 
 -- | A set of type classes which provide access to database.
 --
--- 'MonadRealDB' is the most featured class (actually just a set of
--- constraints) which wraps 'NodeDBs' which contains RocksDB
--- databases. This class can be used to manipulate RocksDB
--- directly. It may be useful when you need an access to advanced
--- features of RocksDB.
---
--- Apart from that we have few more classes here.
---
--- 'MonadDBRead' contains reading and iterating capabilities.  The
+-- 'MonadDBRead' contains reading and iterating capabilities. The
 -- advantage of it is that you don't need to do any 'IO' to use it
 -- which makes it suitable for pure testing.
 --
@@ -27,6 +19,9 @@
 -- code and where in DB, i. e. by which key). For example, if X wants
 -- to get data maintained by Y and doesn't know about Y, it can use
 -- 'MonadGState' (which is at pretty low level).
+--
+-- Described two classes have RocksDB implementation "DB.Rocks" and
+-- pure one for testing "DB.Pure".
 --
 -- 'MonadBlockDBGeneric' contains functions which provide read-only
 -- access to the Block DB.
@@ -42,7 +37,6 @@ module Pos.DB.Class
        (
          -- * Pure
          DBTag (..)
-       , dbTagToLens
        , DBIteratorClass (..)
        , IterType
        , MonadDBRead (..)
@@ -59,33 +53,19 @@ module Pos.DB.Class
        , MonadBlockDBGeneric (..)
        , dbGetBlund
 
-         -- * RocksDB
-       , MonadRealDB
-       , getNodeDBs
-       , usingReadOptions
-       , usingWriteOptions
-       , getBlockIndexDB
-       , getGStateDB
-       , getLrcDB
-       , getMiscDB
        ) where
 
 import           Universum
 
-import           Control.Lens                   (ASetter')
 import           Control.Monad.Morph            (hoist)
 import           Control.Monad.Trans            (MonadTrans (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource   (MonadResource)
 import           Data.Conduit                   (Source)
 import qualified Database.RocksDB               as Rocks
-import qualified Ether
 import           Serokell.Data.Memory.Units     (Byte)
 
 import           Pos.Binary.Class               (Bi)
 import           Pos.Core                       (BlockVersionData (..), HeaderHash)
-import           Pos.DB.Types                   (DB (..), NodeDBs, blockIndexDB, gStateDB,
-                                                 lrcDB, miscDB)
 
 ----------------------------------------------------------------------------
 -- Pure
@@ -98,12 +78,6 @@ data DBTag
     | LrcDB
     | MiscDB
     deriving (Eq)
-
-dbTagToLens :: DBTag -> Lens' NodeDBs DB
-dbTagToLens BlockIndexDB = blockIndexDB
-dbTagToLens GStateDB     = gStateDB
-dbTagToLens LrcDB        = lrcDB
-dbTagToLens MiscDB       = miscDB
 
 -- | Key-value type family encapsulating the iterator (something we
 -- can iterate on) functionality.
@@ -254,48 +228,3 @@ dbGetBlund x =
     runMaybeT $
     (,) <$> MaybeT (dbGetBlock @header @blk @undo x) <*>
     MaybeT (dbGetUndo @header @blk @undo x)
-
-----------------------------------------------------------------------------
--- RocksDB
-----------------------------------------------------------------------------
-
--- | This is the set of constraints necessary to operate on «real» DBs
--- (which are wrapped into 'NodeDBs').  Apart from providing access to
--- 'NodeDBs' it also has 'MonadIO' constraint, because it's impossible
--- to use real DB without IO. Finally, it has 'MonadCatch' constraints
--- (partially for historical reasons, partially for good ones).
-type MonadRealDB m
-     = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadResource m, MonadCatch m)
-
-getNodeDBs :: MonadRealDB m => m NodeDBs
-getNodeDBs = Ether.ask'
-
-usingReadOptions
-    :: MonadRealDB m
-    => Rocks.ReadOptions
-    -> ASetter' NodeDBs DB
-    -> m a
-    -> m a
-usingReadOptions opts l =
-    Ether.local' (over l (\db -> db {rocksReadOpts = opts}))
-
-usingWriteOptions
-    :: MonadRealDB m
-    => Rocks.WriteOptions
-    -> ASetter' NodeDBs DB
-    -> m a
-    -> m a
-usingWriteOptions opts l =
-    Ether.local' (over l (\db -> db {rocksWriteOpts = opts}))
-
-getBlockIndexDB :: MonadRealDB m => m DB
-getBlockIndexDB = view blockIndexDB <$> getNodeDBs
-
-getGStateDB :: MonadRealDB m => m DB
-getGStateDB = view gStateDB <$> getNodeDBs
-
-getLrcDB :: MonadRealDB m => m DB
-getLrcDB = view lrcDB <$> getNodeDBs
-
-getMiscDB :: MonadRealDB m => m DB
-getMiscDB = view miscDB <$> getNodeDBs

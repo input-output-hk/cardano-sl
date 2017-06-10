@@ -58,11 +58,12 @@ import           Pos.Core                       (HasDifficulty (difficultyL),
                                                  IsHeader, headerHash)
 import           Pos.Crypto                     (hashHexF, shortHashF)
 import           Pos.DB.Class                   (DBTag (..), MonadBlockDBGeneric (..),
-                                                 MonadDBRead, MonadRealDB, dbGetBlund,
-                                                 getBlockIndexDB, getNodeDBs)
+                                                 MonadDBRead, dbGetBlund)
 import           Pos.DB.Error                   (DBError (DBMalformed))
-import           Pos.DB.Functions               (dbGetBi, rocksDelete, rocksPutBi)
-import           Pos.DB.Types                   (blockDataDir)
+import           Pos.DB.Functions               (dbGetBi)
+import           Pos.DB.Rocks                   (MonadRealDB, blockDataDir,
+                                                 getBlockIndexDB, getNodeDBs, rocksDelete,
+                                                 rocksDelete, rocksPutBi)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Class.Types            (SscBlock)
 import           Pos.Ssc.Util                   (toSscBlock)

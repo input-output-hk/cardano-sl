@@ -41,12 +41,11 @@ import           Pos.DB.Block                 (MonadBlockDB, MonadBlockDBWrite,
                                                prepareBlockDB)
 import           Pos.DB.Class                 (MonadDB, MonadDBRead (..),
                                                MonadGState (..))
-import           Pos.DB.Functions             (openDB)
 import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common         (getTip, getTipBlock, getTipHeader)
 import           Pos.DB.GState.GState         (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.DB.Misc                  (prepareMiscDB)
-import           Pos.DB.Types                 (NodeDBs (..))
+import           Pos.DB.Rocks                 (NodeDBs (..), openRocksDB)
 import           Pos.Lrc.DB                   (prepareLrcDB)
 import           Pos.Update.DB                (getAdoptedBVData)
 import           Pos.Util                     (inAssertMode)
@@ -76,10 +75,10 @@ openNodeDBs recreate fp = do
                                 , gStatePath
                                 , lrcPath
                                 , miscPath]
-    _blockIndexDB <- openDB blocksIndexPath
-    _gStateDB <- openDB gStatePath
-    _lrcDB <- openDB lrcPath
-    _miscDB <- openDB miscPath
+    _blockIndexDB <- openRocksDB blocksIndexPath
+    _gStateDB <- openRocksDB gStatePath
+    _lrcDB <- openRocksDB lrcPath
+    _miscDB <- openRocksDB miscPath
     _miscLock <- RWL.new
     pure NodeDBs {..}
 

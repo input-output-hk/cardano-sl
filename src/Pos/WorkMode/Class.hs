@@ -27,7 +27,8 @@ import           Pos.Context                 (BlkSemaphore, MonadBlockRetrievalQ
                                               MonadRecoveryHeader, MonadSscContext,
                                               NodeParams, StartTime, TxpGlobalSettings)
 import           Pos.DB.Block                (MonadBlockDBWrite)
-import           Pos.DB.Class                (MonadDB, MonadGState, MonadRealDB)
+import           Pos.DB.Class                (MonadDB, MonadGState)
+import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Discovery.Class         (MonadDiscovery)
 import           Pos.Lrc.Context             (LrcContext)

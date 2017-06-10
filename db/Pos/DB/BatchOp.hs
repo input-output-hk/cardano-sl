@@ -18,7 +18,7 @@ import           Formatting          (bprint)
 import           Serokell.Util.Text  (listJson)
 
 import           Pos.DB.Class        (DBTag, MonadDB (dbWriteBatch))
-import           Pos.DB.Types        (DB (..))
+import           Pos.DB.Rocks.Types  (DB (..))
 
 class RocksBatchOp a where
     toBatchOp :: a -> [Rocks.BatchOp]

@@ -37,7 +37,7 @@ import           Pos.Context                          (MonadNodeContext, NodeCon
                                                        getOurPublicKey)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
-import           Pos.DB.Redirect                      (DBRealRedirect, runDBRealRedirect)
+import           Pos.DB.Rocks                         (DBRealRedirect, runDBRealRedirect)
 import qualified Pos.Lrc.DB                           as LrcDB
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)

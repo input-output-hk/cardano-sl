@@ -2,68 +2,72 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
 
--- | Module for `RawRealModeS`-related part of full-node implementation of
--- Daedalus API
+-- | Module for `RealMode`-related part of full-node implementation of
+-- Daedalus API. FYI: R stays for Real.
 
-module Pos.Wallet.Web.Server.Full.S
-       ( walletServeWebFullS
-       , runWStaticMode
-       , WalletStaticMode
+module Pos.Wallet.Web.Server.Full.R
+       ( walletServeWebFull
+       , runWRealMode
+       , WalletRealWebMode
        ) where
+
+import           Universum
 
 import           Mockable                          (Production)
 import           Network.Transport.Abstract        (Transport)
 import           Network.Wai                       (Application)
 import           System.Wlog                       (logInfo)
-import           Universum
 
-import           Pos.Communication                 (ActionSpec (..), NodeId, OutSpecs)
+import           Pos.Communication                 (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol        (SendActions)
 import           Pos.Constants                     (isDevelopment)
 import           Pos.Crypto                        (noPassEncrypt)
+import           Pos.Discovery                     (DiscoveryContextSum)
 import           Pos.Genesis                       (genesisDevSecretKeys)
 import           Pos.Launcher.Param                (NodeParams (..))
-import           Pos.Launcher.Runner               (runRawSBasedMode)
+import           Pos.Launcher.Runner               (runRealBasedMode)
 import           Pos.Ssc.Class                     (SscConstraint, SscParams)
-import           Pos.Statistics                    (NoStatsT, getNoStatsT)
 import           Pos.Wallet.KeyStorage             (addSecretKey)
 import           Pos.Wallet.SscType                (WalletSscType)
-import           Pos.Wallet.Web.Server.Full.Common (natS)
+import           Pos.Wallet.Web.Server.Full.Common (nat)
 import           Pos.Wallet.Web.Server.Methods     (WalletWebHandler, walletApplication,
                                                     walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Server.Sockets     (ConnectionsVar, runWalletWS)
 import           Pos.Wallet.Web.State              (WalletState, runWalletWebDB)
-import           Pos.WorkMode                      (RawRealModeS)
+import           Pos.WorkMode                      (RealMode)
 
+type WalletRealWebMode = WalletWebHandler (RealMode WalletSscType)
 
-type WalletStaticMode = NoStatsT $ WalletWebHandler (RawRealModeS WalletSscType)
-
--- | WalletProductionMode runner.
-runWStaticMode
+-- | WalletRealWebMode runner.
+runWRealMode
     :: SscConstraint WalletSscType
     => WalletState
     -> ConnectionsVar
-    -> Transport WalletStaticMode
-    -> Set NodeId
+    -> DiscoveryContextSum
+    -> Transport WalletRealWebMode
     -> NodeParams
     -> SscParams WalletSscType
-    -> (ActionSpec WalletStaticMode a, OutSpecs)
+    -> (ActionSpec WalletRealWebMode a, OutSpecs)
     -> Production a
-runWStaticMode db conn =
-    runRawSBasedMode (runWalletWebDB db . runWalletWS conn . getNoStatsT) (lift . lift . lift)
-{-# NOINLINE runWStaticMode #-}
+runWRealMode db conn =
+    runRealBasedMode
+        unwrapWPMode
+        (lift . lift)
+  where
+    unwrapWPMode = runWalletWebDB db . runWalletWS conn
+{-# NOINLINE runWRealMode #-}
 
-walletServeWebFullS
+walletServeWebFull
     :: SscConstraint WalletSscType
-    => SendActions (WalletWebHandler (RawRealModeS WalletSscType))
+    => SendActions WalletRealWebMode
     -> Bool      -- whether to include genesis keys
     -> Word16
-    -> WalletWebHandler (RawRealModeS WalletSscType) ()
-walletServeWebFullS sendActions debug = walletServeImpl action
+    -> WalletRealWebMode ()
+walletServeWebFull sendActions debug = walletServeImpl action
   where
-    action :: WalletWebHandler (RawRealModeS WalletSscType) Application
+    action :: WalletRealWebMode Application
     action = do
         logInfo "DAEDALUS has STARTED!"
         when (isDevelopment && debug) $
             mapM_ (addSecretKey . noPassEncrypt) genesisDevSecretKeys
-        walletApplication $ walletServer sendActions natS
+        walletApplication $ walletServer sendActions nat

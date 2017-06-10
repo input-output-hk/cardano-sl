@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -8,13 +9,9 @@
 
 module Pos.Launcher.Runner
        ( -- * High level runners
-         runRawRealMode
-       , runRawKBasedMode
-       , runRawSBasedMode
-       , runProductionMode
-       , runStatsMode
+         runRealMode
+       , runRealBasedMode
        , runServiceMode
-       , runStaticMode
 
        -- * Exported for custom usage in CLI utils
        , setupLoggers
@@ -63,7 +60,7 @@ import           Pos.CLI                      (readLoggerConfig)
 import           Pos.Client.Txp.Balances      (runBalancesRedirect)
 import           Pos.Client.Txp.History       (runTxHistoryRedirect)
 import           Pos.Communication            (ActionSpec (..), BiP (..), InSpecs (..),
-                                               MkListeners (..), NodeId, OutSpecs (..),
+                                               MkListeners (..), OutSpecs (..),
                                                VerInfo (..), allListeners,
                                                hoistMkListeners)
 import           Pos.Communication.PeerState  (PeerStateTag, runPeerStateRedirect)
@@ -81,7 +78,7 @@ import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (DelegationVar)
 import           Pos.DHT.Real                 (KademliaDHTInstance, KademliaParams (..),
                                                startDHTInstance, stopDHTInstance)
-import           Pos.Discovery.Holders        (runDiscoveryConstT, runDiscoveryKademliaT)
+import           Pos.Discovery                (DiscoveryContextSum, runDiscoveryRedirect)
 import           Pos.Genesis                  (genesisLeaders, genesisSeed)
 import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
                                                NodeParams (..))
@@ -96,7 +93,6 @@ import           Pos.Slotting.Ntp             (runSlotsRedirect)
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext)
 import           Pos.Ssc.Extra                (SscMemTag, bottomSscState, mkSscState)
-import           Pos.Statistics               (getNoStatsT, runStatsT')
 import           Pos.Txp                      (mkTxpLocalData)
 import           Pos.Txp.DB                   (genesisFakeTotalStake,
                                                runBalanceIterBootstrap)
@@ -115,10 +111,7 @@ import           Pos.Util.Concurrent.RWVar    as RWV
 import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
 import           Pos.Worker                   (allWorkersCount)
-import           Pos.WorkMode                 (ProductionMode, RawRealMode (..),
-                                               RawRealModeK, RawRealModeS,
-                                               ServiceMode (..), StaticMode, StatsMode,
-                                               WorkMode)
+import           Pos.WorkMode                 (RealMode (..), ServiceMode (..), WorkMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -127,24 +120,63 @@ import           Pos.WorkMode                 (ProductionMode, RawRealMode (..),
 -- High level runners
 ----------------------------------------------------------------------------
 
--- | RawRealMode runner.
-runRawRealMode
+-- | Run activity in 'RealMode'.
+runRealMode
     :: forall ssc a.
        (SscConstraint ssc, SecurityWorkersClass ssc)
-    => Transport (RawRealMode ssc)
+    => DiscoveryContextSum
+    -> Transport (RealMode ssc)
     -> NodeParams
     -> SscParams ssc
-    -> MkListeners (RawRealMode ssc)
-    -> OutSpecs
-    -> ActionSpec (RawRealMode ssc) a
+    -> (ActionSpec (RealMode ssc) a, OutSpecs)
     -> Production a
-runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
+runRealMode = runRealBasedMode identity identity
+
+-- | Run activity in something convertible to 'RealMode' and back.
+runRealBasedMode
+    :: forall ssc m a.
+       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
+    => (forall b. m b -> RealMode ssc b)
+    -> (forall b. RealMode ssc b -> m b)
+    -> DiscoveryContextSum
+    -> Transport m
+    -> NodeParams
+    -> SscParams ssc
+    -> (ActionSpec m a, OutSpecs)
+    -> Production a
+runRealBasedMode unwrap wrap discoveryCtx transport np@NodeParams{..} sscnp (ActionSpec action, outSpecs) =
+    runRealModeDo
+        discoveryCtx
+        (hoistTransport unwrap transport)
+        np
+        sscnp
+        listeners
+        outSpecs $
+    ActionSpec
+        $ \vI sendActions -> unwrap . action vI $ hoistSendActions wrap unwrap sendActions
+  where
+    listeners = hoistMkListeners unwrap wrap allListeners
+
+-- | RealMode runner.
+runRealModeDo
+    :: forall ssc a.
+       (SscConstraint ssc, SecurityWorkersClass ssc)
+    => DiscoveryContextSum
+    -> Transport (RealMode ssc)
+    -> NodeParams
+    -> SscParams ssc
+    -> MkListeners (RealMode ssc)
+    -> OutSpecs
+    -> ActionSpec (RealMode ssc) a
+    -> Production a
+runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
     usingLoggerName lpRunnerTag $ do
         initNC <- untag @ssc sscCreateNodeContext sscnp
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
-        let allWorkersNum = allWorkersCount @ssc @(ProductionMode ssc) :: Int
+        let allWorkersNum = allWorkersCount @ssc @(RealMode ssc) :: Int
+        let runCHHere = runCH @ssc allWorkersNum discoveryCtx np initNC modernDBs
         -- TODO [CSL-775] ideally initialization logic should be in scenario.
-        runCH @ssc allWorkersNum np initNC modernDBs .
+        runCHHere .
             flip Ether.runReaderT' modernDBs .
             runDBPureRedirect .
             runBlockDBRedirect $
@@ -161,11 +193,11 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
         dlgVar <- RWV.new def
 
         -- TODO [CSL-775] need an effect-free way of running this into IO.
-        let runIO :: forall t . RawRealMode ssc t -> IO t
-            runIO (RawRealMode act) =
+        let runIO :: forall t . RealMode ssc t -> IO t
+            runIO (RealMode act) =
                runProduction .
                    usingLoggerName lpRunnerTag .
-                   runCH @ssc allWorkersNum np initNC modernDBs .
+                   runCHHere .
                    flip Ether.runReadersT
                       ( Tagged @NodeDBs modernDBs
                       , Tagged @SlottingVar slottingVar
@@ -179,6 +211,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
                    runBlockDBRedirect .
                    runSlotsDataRedirect .
                    runSlotsRedirect .
+                   runDiscoveryRedirect .
                    runBalancesRedirect .
                    runTxHistoryRedirect .
                    runPeerStateRedirect .
@@ -201,7 +234,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
         let stopMonitoring it = whenJust it stopMonitor
 
         sscState <-
-           runCH @ssc allWorkersNum np initNC modernDBs .
+           runCHHere .
            flip Ether.runReadersT
                ( Tagged @NodeDBs modernDBs
                , Tagged @SlottingVar slottingVar
@@ -211,7 +244,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
            runSlotsRedirect .
            runDBPureRedirect $
            mkSscState @ssc
-        runCH allWorkersNum np initNC modernDBs .
+        runCHHere .
            flip Ether.runReadersT
                ( Tagged @NodeDBs modernDBs
                , Tagged @SlottingVar slottingVar
@@ -225,6 +258,7 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
            runBlockDBRedirect .
            runSlotsDataRedirect .
            runSlotsRedirect .
+           runDiscoveryRedirect .
            runBalancesRedirect .
            runTxHistoryRedirect .
            runPeerStateRedirect .
@@ -232,12 +266,12 @@ runRawRealMode transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec
            runUpdatesRedirect .
            runBlockchainInfoRedirect .
            runBListenerStub .
-           (\(RawRealMode m) -> m) .
+           (\(RealMode m) -> m) .
            runServer transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
                \vI sa -> nodeStartMsg npBaseParams >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
-{-# NOINLINE runRawRealMode #-}
+{-# NOINLINE runRealMode #-}
 
 -- | Create new 'SlottingVar' using data from DB.
 mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
@@ -297,96 +331,6 @@ runServer_ transport mkl outSpecs =
     acquire = const pass
     release = const pass
 
-runRawBasedMode
-    :: forall ssc m a.
-       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
-    => (forall b. m b -> RawRealMode ssc b)
-    -> (forall b. RawRealMode ssc b -> m b)
-    -> Transport m
-    -> NodeParams
-    -> SscParams ssc
-    -> (ActionSpec m a, OutSpecs)
-    -> Production a
-runRawBasedMode unwrap wrap transport np@NodeParams{..} sscnp (ActionSpec action, outSpecs) =
-    runRawRealMode
-        (hoistTransport unwrap transport)
-        np
-        sscnp
-        listeners
-        outSpecs $
-    ActionSpec
-        $ \vI sendActions -> unwrap . action vI $ hoistSendActions wrap unwrap sendActions
-  where
-    listeners = hoistMkListeners unwrap wrap allListeners
-
--- | Launch some mode, providing way to convert it to 'RawRealMode' and back.
-runRawKBasedMode
-    :: forall ssc m a.
-       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
-    => (forall b. m b -> RawRealModeK ssc b)
-    -> (forall b. RawRealModeK ssc b -> m b)
-    -> Transport m
-    -> KademliaDHTInstance
-    -> NodeParams
-    -> SscParams ssc
-    -> (ActionSpec m a, OutSpecs)
-    -> Production a
-runRawKBasedMode unwrap wrap transport kinst =
-    runRawBasedMode (runDiscoveryKademliaT kinst . unwrap) (wrap . lift) transport
-
-runRawSBasedMode
-    :: forall ssc m a.
-       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
-    => (forall b. m b -> RawRealModeS ssc b)
-    -> (forall b. RawRealModeS ssc b -> m b)
-    -> Transport m
-    -> Set NodeId
-    -> NodeParams
-    -> SscParams ssc
-    -> (ActionSpec m a, OutSpecs)
-    -> Production a
-runRawSBasedMode unwrap wrap transport peers =
-    runRawBasedMode (runDiscoveryConstT peers . unwrap) (wrap . lift) transport
-
--- | ProductionMode runner.
-runProductionMode
-    :: forall ssc a.
-       (SscConstraint ssc, SecurityWorkersClass ssc)
-    => Transport (ProductionMode ssc)
-    -> KademliaDHTInstance
-    -> NodeParams
-    -> SscParams ssc
-    -> (ActionSpec (ProductionMode ssc) a, OutSpecs)
-    -> Production a
-runProductionMode = runRawKBasedMode getNoStatsT lift
-
--- | StatsMode runner.
--- [CSL-169]: spawn here additional listener, which would accept stat queries
--- can be done as part of refactoring (or someone who will refactor will create new issue).
-runStatsMode
-    :: forall ssc a.
-       (SscConstraint ssc, SecurityWorkersClass ssc)
-    => Transport (StatsMode ssc)
-    -> KademliaDHTInstance
-    -> NodeParams
-    -> SscParams ssc
-    -> (ActionSpec (StatsMode ssc) a, OutSpecs)
-    -> Production a
-runStatsMode transport kinst np sscnp action = do
-    statMap <- liftIO SM.newIO
-    runRawKBasedMode (runStatsT' statMap) lift transport kinst np sscnp action
-
-runStaticMode
-    :: forall ssc a.
-       (SscConstraint ssc, SecurityWorkersClass ssc)
-    => Transport (StaticMode ssc)
-    -> Set NodeId
-    -> NodeParams
-    -> SscParams ssc
-    -> (ActionSpec (StaticMode ssc) a, OutSpecs)
-    -> Production a
-runStaticMode = runRawSBasedMode getNoStatsT lift
-
 ----------------------------------------------------------------------------
 -- Lower level runners
 ----------------------------------------------------------------------------
@@ -399,12 +343,13 @@ runCH
        , MonadCatch m
        , Mockable CurrentTime m)
     => Int
+    -> DiscoveryContextSum
     -> NodeParams
     -> SscNodeContext ssc
     -> NodeDBs
     -> Ether.ReadersT (NodeContext ssc) m a
     -> m a
-runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
+runCH allWorkersNum discoveryCtx params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncJLFile <- JLFile <$>
         liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
@@ -445,6 +390,7 @@ runCH allWorkersNum params@NodeParams {..} sscNodeContext db act = do
             { ncConnectedPeers = ConnectedPeers peersVar
             , ncSscContext = sscNodeContext
             , ncLrcContext = LrcContext {..}
+            , ncDiscoveryContext = discoveryCtx
             , ncUpdateContext = UpdateContext {..}
             , ncNodeParams = params
             , ncSendLock = Nothing

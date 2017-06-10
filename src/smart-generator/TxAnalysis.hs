@@ -26,7 +26,7 @@ import           Pos.DB.DB             (loadBlundsFromTipByDepth)
 import           Pos.Slotting          (getCurrentSlotBlocking, getSlotStartEmpatically)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Txp               (TxId, txpTxs)
-import           Pos.WorkMode          (StaticMode)
+import           Pos.WorkMode          (RealMode)
 
 import           Util                  (verifyCsvFile, verifyCsvFormat)
 
@@ -60,7 +60,7 @@ appendVerified ts roundNum df logsPrefix = do
 checkTxsInLastBlock
     :: forall ssc.
        SscConstraint ssc
-    => TxTimestamps -> FilePath -> StaticMode ssc ()
+    => TxTimestamps -> FilePath -> RealMode ssc ()
 checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
     mBlock <- preview (_Wrapped . _last . _1) <$>
               loadBlundsFromTipByDepth @ssc blkSecurityParam
@@ -96,7 +96,7 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
                     liftIO $ appendVerified (fromIntegral slStart) roundNum df logsPrefix
 
 checkWorker :: forall ssc . SscConstraint ssc
-            => TxTimestamps -> FilePath -> StaticMode ssc ()
+            => TxTimestamps -> FilePath -> RealMode ssc ()
 checkWorker txts logsPrefix = loop `catchAll` onError
   where
     loop = do

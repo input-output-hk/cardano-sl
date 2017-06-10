@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Pos.Wallet.State.Storage.Tx
+module Pos.Wallet.Light.State.Storage.Tx
        ( TxStorage
        , HasTxStorage (txStorage)
 

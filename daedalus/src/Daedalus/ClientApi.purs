@@ -66,14 +66,14 @@ getWallet = mkEffFn1 $ fromAff <<< map encodeJson <<< B.getWallet <<< mkCId
 -- | > api.getWallets().then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > [ { cwAccountsNumber: 0,
--- |     cwMeta: { csUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
+-- |     cwMeta: { cwUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
 -- |     cwPassphraseLU: 1495542169.630769,
 -- |     cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
 -- |     cwHasPassphrase: true,
 -- |     cwAmount: { getCCoin: '0' } },
 -- |   { cwAccountsNumber: 1,
 -- |     cwMeta:
--- |      { csUnit: 0,
+-- |      { cwUnit: 0,
 -- |        cwName: 'Precreated wallet set full of money',
 -- |        cwAssurance: 'CWANormal' },
 -- |     cwPassphraseLU: 1495541138.013531,
@@ -122,7 +122,7 @@ newWallet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword -> f
 -- | >  api.restoreWallet('test', 'CWANormal', 0, 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
--- |   cwMeta: { csUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
+-- |   cwMeta: { cwUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
 -- |   cwPassphraseLU: 1495542169.630769,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
 -- |   cwHasPassphrase: true,
@@ -139,7 +139,7 @@ restoreWallet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword 
 -- | >  api.renameWalletSet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW', 'testing').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
--- |   cwMeta: { csUnit: 0, cwName: 'testing', cwAssurance: 'CWANormal' },
+-- |   cwMeta: { cwUnit: 0, cwName: 'testing', cwAssurance: 'CWANormal' },
 -- |   cwPassphraseLU: 1495542169.630769,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
 -- |   cwHasPassphrase: true,
@@ -148,7 +148,7 @@ restoreWallet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword 
 -- | >  api.renameWalletSet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW', 'test').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
--- |   cwMeta: { csUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
+-- |   cwMeta: { cwUnit: 0, cwName: 'test', cwAssurance: 'CWANormal' },
 -- |   cwPassphraseLU: 1495542169.630769,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW',
 -- |   cwHasPassphrase: true,
@@ -166,7 +166,7 @@ renameWalletSet = mkEffFn2 \wSetId name -> fromAff <<< map encodeJson $ B.rename
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
 -- |   cwMeta:
--- |    { csUnit: 0,
+-- |    { cwUnit: 0,
 -- |      cwName: 'Genesis wallet set',
 -- |      cwAssurance: 'CWANormal' },
 -- |   cwPassphraseLU: 1495545014.377285,

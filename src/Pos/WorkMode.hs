@@ -10,15 +10,9 @@ module Pos.WorkMode
        , TxpExtra_TMP
 
        -- * Actual modes
-       , RawRealModeK
-       , RawRealModeS
-       , ProductionMode
-       , RawRealMode(..)
+       , RealMode(..)
        , ServiceMode(..)
-       , StatsMode
-       , StaticMode
        ) where
-
 
 import           Universum
 
@@ -41,17 +35,17 @@ import           Pos.Communication.PeerState    (PeerStateCtx, PeerStateRedirect
 import           Pos.Context                    (NodeContext)
 import           Pos.DB                         (DBPureRedirect, MonadGState, NodeDBs)
 import           Pos.DB.Block                   (BlockDBRedirect, MonadBlockDBWrite)
-import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDBRead, MonadDB)
+import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDB,
+                                                 MonadDBRead)
 import           Pos.DB.DB                      (GStateCoreRedirect)
 import           Pos.Delegation.Class           (DelegationVar)
-import           Pos.Discovery.Holders          (DiscoveryConstT, DiscoveryKademliaT)
+import           Pos.Discovery                  (DiscoveryRedirect, MonadDiscovery)
 import           Pos.Slotting.Class             (MonadSlots)
 import           Pos.Slotting.MemState          (MonadSlotsData, SlottingVar)
 import           Pos.Slotting.MemState.Holder   (SlotsDataRedirect)
 import           Pos.Slotting.Ntp               (NtpSlottingVar, SlotsRedirect)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState)
-import           Pos.Statistics.MonadStats      (NoStatsT, StatsT)
 import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Types                      (HeaderHash)
 import           Pos.Util.Util                  (PowerLift (..))
@@ -66,8 +60,8 @@ import           System.Wlog                    (CanLog, HasLoggerName,
 -- Concrete types
 ----------------------------------------------------------------------------
 
--- | RawRealMode is a basis for `WorkMode`s used to really run system.
-type RawRealMode' ssc =
+-- | RealMode is a basis for `WorkMode`s used to really run system.
+type RealMode' ssc =
     BListenerStub (
     BlockchainInfoRedirect (
     UpdatesRedirect (
@@ -75,6 +69,7 @@ type RawRealMode' ssc =
     PeerStateRedirect (
     TxHistoryRedirect (
     BalancesRedirect (
+    DiscoveryRedirect (
     SlotsRedirect (
     SlotsDataRedirect (
     BlockDBRedirect (
@@ -90,9 +85,9 @@ type RawRealMode' ssc =
         ) (
     Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox Production
-    )))))))))))))
+    ))))))))))))))
 
-newtype RawRealMode ssc a = RawRealMode (RawRealMode' ssc a)
+newtype RealMode ssc a = RealMode (RealMode' ssc a)
   deriving
     ( Functor
     , Applicative
@@ -103,86 +98,71 @@ newtype RawRealMode ssc a = RawRealMode (RawRealMode' ssc a)
     , MonadMask
     , MonadFix
     )
-type instance ThreadId (RawRealMode ssc) = ThreadId Production
-type instance Promise (RawRealMode ssc) = Promise Production
-type instance SharedAtomicT (RawRealMode ssc) = SharedAtomicT Production
-type instance SharedExclusiveT (RawRealMode ssc) = SharedExclusiveT Production
-type instance Gauge (RawRealMode ssc) = Gauge Production
-type instance ChannelT (RawRealMode ssc) = ChannelT Production
-type instance Distribution (RawRealMode ssc) = Distribution Production
-type instance Counter (RawRealMode ssc) = Counter Production
+type instance ThreadId (RealMode ssc) = ThreadId Production
+type instance Promise (RealMode ssc) = Promise Production
+type instance SharedAtomicT (RealMode ssc) = SharedAtomicT Production
+type instance SharedExclusiveT (RealMode ssc) = SharedExclusiveT Production
+type instance Gauge (RealMode ssc) = Gauge Production
+type instance ChannelT (RealMode ssc) = ChannelT Production
+type instance Distribution (RealMode ssc) = Distribution Production
+type instance Counter (RealMode ssc) = Counter Production
 
-deriving instance CanLog (RawRealMode ssc)
-deriving instance HasLoggerName (RawRealMode ssc)
-deriving instance MonadSlotsData (RawRealMode ssc)
-deriving instance MonadSlots (RawRealMode ssc)
-deriving instance MonadGState (RawRealMode ssc)
-deriving instance MonadDBRead (RawRealMode ssc)
-deriving instance MonadDB (RawRealMode ssc)
-deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RawRealMode ssc)
-deriving instance MonadBListener (RawRealMode ssc)
-deriving instance MonadUpdates (RawRealMode ssc)
-deriving instance SscHelpersClass ssc => MonadBlockchainInfo (RawRealMode ssc)
-deriving instance MonadBalances (RawRealMode ssc)
-deriving instance MonadTxHistory (RawRealMode ssc)
-deriving instance WithPeerState (RawRealMode ssc)
+deriving instance CanLog (RealMode ssc)
+deriving instance HasLoggerName (RealMode ssc)
+deriving instance MonadSlotsData (RealMode ssc)
+deriving instance MonadSlots (RealMode ssc)
+deriving instance MonadDiscovery (RealMode ssc)
+deriving instance MonadGState (RealMode ssc)
+deriving instance MonadDBRead (RealMode ssc)
+deriving instance MonadDB (RealMode ssc)
+deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
+deriving instance MonadBListener (RealMode ssc)
+deriving instance MonadUpdates (RealMode ssc)
+deriving instance SscHelpersClass ssc => MonadBlockchainInfo (RealMode ssc)
+deriving instance MonadBalances (RealMode ssc)
+deriving instance MonadTxHistory (RealMode ssc)
+deriving instance WithPeerState (RealMode ssc)
 
-instance PowerLift m (RawRealMode' ssc) => PowerLift m (RawRealMode ssc) where
-  powerLift = RawRealMode . powerLift
+instance PowerLift m (RealMode' ssc) => PowerLift m (RealMode ssc) where
+  powerLift = RealMode . powerLift
 
 instance
-    MonadBlockDBGeneric header blk undo (RawRealMode' ssc) =>
-    MonadBlockDBGeneric header blk undo (RawRealMode ssc) where
-    dbGetHeader = (coerce :: (HeaderHash -> RawRealMode' ssc (Maybe header)) ->
-                             (HeaderHash -> RawRealMode ssc (Maybe header)))
+    MonadBlockDBGeneric header blk undo (RealMode' ssc) =>
+    MonadBlockDBGeneric header blk undo (RealMode ssc) where
+    dbGetHeader = (coerce :: (HeaderHash -> RealMode' ssc (Maybe header)) ->
+                             (HeaderHash -> RealMode ssc (Maybe header)))
                   (dbGetHeader @header @blk @undo)
-    dbGetBlock = (coerce :: (HeaderHash -> RawRealMode' ssc (Maybe blk)) ->
-                            (HeaderHash -> RawRealMode ssc (Maybe blk)))
+    dbGetBlock = (coerce :: (HeaderHash -> RealMode' ssc (Maybe blk)) ->
+                            (HeaderHash -> RealMode ssc (Maybe blk)))
                  (dbGetBlock @header @blk @undo)
-    dbGetUndo = (coerce :: (HeaderHash -> RawRealMode' ssc (Maybe undo)) ->
-                           (HeaderHash -> RawRealMode ssc (Maybe undo)))
+    dbGetUndo = (coerce :: (HeaderHash -> RealMode' ssc (Maybe undo)) ->
+                           (HeaderHash -> RealMode ssc (Maybe undo)))
                  (dbGetUndo @header @blk @undo)
 
 instance
-    ( Mockable d (RawRealMode' ssc)
-    , MFunctor' d (RawRealMode ssc) (RawRealMode' ssc)
+    ( Mockable d (RealMode' ssc)
+    , MFunctor' d (RealMode ssc) (RealMode' ssc)
     )
-    => Mockable d (RawRealMode ssc) where
-    liftMockable dmt = RawRealMode $ liftMockable $ hoist' (\(RawRealMode m) -> m) dmt
+    => Mockable d (RealMode ssc) where
+    liftMockable dmt = RealMode $ liftMockable $ hoist' (\(RealMode m) -> m) dmt
 
 instance
-    Ether.MonadReader tag r (RawRealMode' ssc) =>
-    Ether.MonadReader tag r (RawRealMode ssc)
+    Ether.MonadReader tag r (RealMode' ssc) =>
+    Ether.MonadReader tag r (RealMode ssc)
   where
     ask =
-        (coerce :: RawRealMode' ssc r -> RawRealMode ssc r)
+        (coerce :: RealMode' ssc r -> RealMode ssc r)
         (Ether.ask @tag)
     local =
         (coerce :: forall a .
-            Lift.Local r (RawRealMode' ssc) a ->
-            Lift.Local r (RawRealMode ssc) a)
+            Lift.Local r (RealMode' ssc) a ->
+            Lift.Local r (RealMode ssc) a)
         (Ether.local @tag)
     reader =
         (coerce :: forall a .
-            ((r -> a) -> RawRealMode' ssc a) ->
-            ((r -> a) -> RawRealMode ssc a))
+            ((r -> a) -> RealMode' ssc a) ->
+            ((r -> a) -> RealMode ssc a))
         (Ether.reader @tag)
-
--- | RawRealMode + kademlia. Used in wallet too.
-type RawRealModeK ssc = DiscoveryKademliaT (RawRealMode ssc)
-
--- | RawRealMode + static peers.
-type RawRealModeS ssc = DiscoveryConstT (RawRealMode ssc)
-
--- | ProductionMode is an instance of WorkMode which is used
--- (unsurprisingly) in production.
-type ProductionMode ssc = NoStatsT $ RawRealModeK ssc
-
--- | StatsMode is used for remote benchmarking.
-type StatsMode ssc = StatsT $ RawRealModeK ssc
-
--- | Fixed peer discovery without stats.
-type StaticMode ssc = NoStatsT $ RawRealModeS ssc
 
 -- | ServiceMode is the mode in which support nodes work.
 type ServiceMode' =

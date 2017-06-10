@@ -1,4 +1,4 @@
-module Pos.Wallet.Launcher.Param
+module Pos.Wallet.Light.Launcher.Param
        ( WalletParams (..)
        ) where
 

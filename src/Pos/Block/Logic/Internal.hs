@@ -24,7 +24,9 @@ import           Universum
 
 import           Control.Lens            (each, _Wrapped)
 import qualified Ether
+import           Formatting              (sformat, (%))
 import           Paths_cardano_sl        (version)
+import           Serokell.Util.Text      (listJson)
 
 import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
@@ -33,7 +35,7 @@ import           Pos.Block.Logic.Slog    (SlogApplyMode, SlogMode, slogApplyBloc
                                           slogRollbackBlocks)
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                (IsGenesisHeader, IsMainHeader, epochIndexL,
-                                          gbBody, gbHeader)
+                                          gbBody, gbHeader, headerHash)
 import           Pos.DB                  (MonadDB, MonadRealDB, SomeBatchOp (..))
 import           Pos.DB.Block            (MonadBlockDB)
 import qualified Pos.DB.GState           as GS
@@ -47,6 +49,7 @@ import           Pos.Txp.Logic           (txNormalize)
 #endif
 import           Pos.Delegation.Class    (MonadDelegation)
 import           Pos.Discovery.Class     (MonadDiscovery)
+import           Pos.Exception           (assertionFailed)
 import           Pos.Reporting           (MonadReportingMem, reportingFatal)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
@@ -111,8 +114,13 @@ type BlockApplyMode ssc m
 applyBlocksUnsafe
     :: forall ssc m . BlockApplyMode ssc m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksUnsafe blunds0 pModifier =
-    reportingFatal version $
+applyBlocksUnsafe blunds pModifier = reportingFatal version $ do
+    -- Check that all blunds have the same epoch.
+    unless (null nextEpoch) $ assertionFailed $
+        sformat ("applyBlocksUnsafe: tried to apply more than we should"%
+                 "thisEpoch"%listJson%"\nnextEpoch:"%listJson)
+                (map (headerHash . fst) thisEpoch)
+                (map (headerHash . fst) nextEpoch)
     -- It's essential to apply genesis block separately, before
     -- applying other blocks.
     -- That's because applying genesis block may change protocol version
@@ -128,11 +136,8 @@ applyBlocksUnsafe blunds0 pModifier =
   where
     app x = applyBlocksUnsafeDo x pModifier
     app' = app . OldestFirst
-    -- [CSL-1167] Here we check that invariant holds, but we silently
-    -- ignore some blocks if it doesn't.
-    -- We should report a fatal error instead.
-    (OldestFirst -> blunds, _) =
-        spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds0
+    (thisEpoch, nextEpoch) =
+        spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksUnsafeDo
     :: forall ssc m . BlockApplyMode ssc m

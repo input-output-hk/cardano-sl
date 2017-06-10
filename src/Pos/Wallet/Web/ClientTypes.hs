@@ -13,6 +13,7 @@ module Pos.Wallet.Web.ClientTypes
       , CProfile (..)
       , CPwHash
       , CTx (..)
+      , CTxs (..)
       , CTxId
       , CTxMeta (..)
       , CTExMeta (..)
@@ -43,7 +44,7 @@ module Pos.Wallet.Web.ClientTypes
       , addressToCId
       , cIdToAddress
       , encToCId
-      , mkCTx
+      , mkCTxs
       , mkCTxId
       , txIdToCTxId
       , txContainsTitle
@@ -57,6 +58,7 @@ import           Control.Arrow          ((&&&))
 import qualified Data.ByteString.Lazy   as LBS
 import           Data.Default           (Default, def)
 import           Data.Hashable          (Hashable (..))
+import qualified Data.Set               as S
 import           Data.Text              (Text, isInfixOf, splitOn, toLower)
 import           Data.Text.Buildable    (build)
 import           Data.Time.Clock.POSIX  (POSIXTime)
@@ -157,12 +159,13 @@ txIdToCTxId = mkCTxId . sformat hashHexF
 convertTxOutputs :: [TxOut] -> [(CId w, CCoin)]
 convertTxOutputs = map (addressToCId . txOutAddress &&& mkCCoin . txOutValue)
 
-mkCTx
+mkCTxs
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
-    -> CTx
-mkCTx diff THEntry {..} meta = CTx {..}
+    -> [CId Addr]         -- ^ Addresses of wallet
+    -> CTxs
+mkCTxs diff THEntry {..} meta wAddrs = CTxs {..}
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
@@ -171,6 +174,12 @@ mkCTx diff THEntry {..} meta = CTx {..}
     ctMeta = meta
     ctInputAddrs = map addressToCId _thInputAddrs
     ctOutputAddrs = map addressToCId _thOutputAddrs
+    wAddrsSet = S.fromList wAddrs
+    mkCTx isOutgoing ctAddrs = do
+        guard . not . null $ wAddrsSet `S.intersection` S.fromList ctAddrs
+        return CTx { ctIsOutgoing = isOutgoing, .. }
+    ctsOutgoing = mkCTx True ctInputAddrs
+    ctsIncoming = mkCTx False ctOutputAddrs
 
 newtype CPassPhrase = CPassPhrase Text
     deriving (Eq, Generic)
@@ -267,7 +276,7 @@ data CWalletAssurance
     | CWANormal
     deriving (Show, Eq, Generic)
 
--- | Single account in a wallet
+-- | Single address in a account
 data CAddress = CAddress
     { cadId     :: !(CId Addr)
     , cadAmount :: !CCoin
@@ -282,8 +291,8 @@ data CAccountMeta = CAccountMeta
 instance Default CAccountMeta where
     def = CAccountMeta "Personal Wallet"
 
--- | Client Wallet (CW)
--- (Flow type: walletType)
+-- | Client Account (CA)
+-- (Flow type: accountType)
 data CAccount = CAccount
     { caId        :: !CAccountId
     , caMeta      :: !CAccountMeta
@@ -291,10 +300,10 @@ data CAccount = CAccount
     , caAmount    :: !CCoin
     } deriving (Show, Generic, Typeable)
 
--- | Query data for wallet creation
+-- | Query data for account creation
 data CAccountInit = CAccountInit
     { caInitMeta :: !CAccountMeta
-    , cwInitWId  :: !(CId Wal)
+    , caInitWId  :: !(CId Wal)
     } deriving (Show, Generic)
 
 -- | Query data for redeem
@@ -307,13 +316,13 @@ data CWalletRedeem = CWalletRedeem
 data CWalletMeta = CWalletMeta
     { cwName      :: !Text
     , cwAssurance :: !CWalletAssurance
-    , csUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
+    , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
     } deriving (Show, Eq, Generic)
 
 instance Default CWalletMeta where
     def = CWalletMeta "Personal Wallet Set" CWANormal 0
 
--- | Client Wallet Set (CW)
+-- | Client Wallet (CW)
 data CWallet = CWallet
     { cwId             :: !(CId Wal)
     , cwMeta           :: !CWalletMeta
@@ -323,8 +332,7 @@ data CWallet = CWallet
     , cwPassphraseLU   :: !PassPhraseLU  -- last update time
     } deriving (Eq, Show, Generic)
 
--- TODO: Newtype?
--- | Query data for wallet set creation
+-- | Query data for wallet creation
 data CWalletInit = CWalletInit
     { cwInitMeta     :: !CWalletMeta
     , cwBackupPhrase :: !BackupPhrase
@@ -391,10 +399,26 @@ data CTx = CTx
     , ctMeta          :: CTxMeta
     , ctInputAddrs    :: [CId Addr]
     , ctOutputAddrs   :: [CId Addr]
+    , ctIsOutgoing    :: Bool
     } deriving (Show, Generic, Typeable)
 
 txContainsTitle :: Text -> CTx -> Bool
 txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . ctMeta
+
+-- TODO [CSM-288] Rename?
+-- | In case of A -> A tranaction, we have to return two similar 'CTx's:
+-- one with 'ctIsOutgoing' set to /true/, one with the flag set to /false/.
+-- This type gathers these two together.
+data CTxs = CTxs
+    { ctsOutgoing :: Maybe CTx
+    , ctsIncoming :: Maybe CTx
+    } deriving (Show)
+
+type instance Element CTxs = CTx
+
+instance Container CTxs where
+    null = null . toList
+    toList = toList . ctsOutgoing <> toList . ctsIncoming
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta

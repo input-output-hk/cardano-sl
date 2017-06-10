@@ -4,7 +4,7 @@
 
 -- | Module for lite-wallet implementation of Daedalus API
 
-module Pos.Wallet.Web.Server.Lite
+module Pos.Wallet.Light.Web.Server
        ( walletServeWebLite
        , walletServerOuts
        ) where
@@ -33,15 +33,15 @@ import           Pos.Discovery                 (getPeers, runDiscoveryConstT)
 import           Pos.Reporting.MemState        (ReportingContext, emptyReportingContext)
 import           Pos.Ssc.Class                 (SscHelpersClass)
 import           Pos.Wallet.KeyStorage         (KeyData)
-import           Pos.Wallet.SscType            (WalletSscType)
-import           Pos.Wallet.State              (getWalletState)
-import qualified Pos.Wallet.State              as WS
-import           Pos.Wallet.State.Core         (runGStateCoreWalletRedirect)
-import           Pos.Wallet.WalletMode         (RawWalletMode (..), WalletStaticPeersMode,
-                                                runBalancesWalletRedirect,
+import           Pos.Wallet.Light.Mode         (LightWalletMode (..))
+import           Pos.Wallet.Light.Redirect     (runBalancesWalletRedirect,
                                                 runBlockchainInfoNotImplemented,
                                                 runTxHistoryWalletRedirect,
                                                 runUpdatesNotImplemented)
+import           Pos.Wallet.Light.State        (getWalletState)
+import qualified Pos.Wallet.Light.State        as WS
+import           Pos.Wallet.Light.State.Core   (runGStateCoreWalletRedirect)
+import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler, bracketWalletWS,
                                                 bracketWalletWebDB, walletApplication,
                                                 walletServeImpl, walletServer,
@@ -52,7 +52,7 @@ import           Pos.Wallet.Web.State          (WalletState, WalletWebDB,
                                                 getWalletWebState, runWalletWebDB)
 import           Pos.Wallet.Web.Tracking       (MonadWalletTracking (..))
 
-type WebHandler = WalletWebSockets (WalletWebDB WalletStaticPeersMode)
+type WebHandler = WalletWebSockets (WalletWebDB LightWalletMode)
 
 type MainWalletState = WS.WalletState
 
@@ -65,18 +65,18 @@ instance Monad m => MonadWalletTracking (WalletWebSockets m) where
 walletServeWebLite
     :: SscHelpersClass WalletSscType
     => Proxy WalletSscType
-    -> SendActions WalletStaticPeersMode
+    -> SendActions LightWalletMode
     -> FilePath
     -> Bool
     -> Word16
-    -> WalletStaticPeersMode ()
+    -> LightWalletMode ()
 walletServeWebLite _ sendActions dbPath dbRebuild port =
     bracketWalletWebDB dbPath dbRebuild $ \db ->
         bracketWalletWS $ \conn -> do
             let runner = runWalletWebDB db . runWalletWS conn
-            let hoistedSA :: SendActions (WalletWebHandler WalletStaticPeersMode)
+            let hoistedSA :: SendActions (WalletWebHandler LightWalletMode)
                 hoistedSA = hoistSendActions (lift . lift) runner sendActions
-            let action :: WalletWebHandler WalletStaticPeersMode Application
+            let action :: WalletWebHandler LightWalletMode Application
                 action = walletApplication $ walletServer hoistedSA nat
             runner $ walletServeImpl action port
 
@@ -115,8 +115,8 @@ convertHandler mws kd ws wsConn peers handler = do
            . runUpdatesNotImplemented
            . runBlockchainInfoNotImplemented
            . runBListenerStub
-           . (\(RawWalletMode m) -> m)
            . runDiscoveryConstT peers
+           . (\(LightWalletMode m) -> m)
            . runWalletWebDB ws
            . runWalletWS wsConn
            $ handler

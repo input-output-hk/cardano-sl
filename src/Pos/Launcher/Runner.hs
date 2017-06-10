@@ -28,6 +28,8 @@ module Pos.Launcher.Runner
 import           Control.Concurrent.STM       (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                 (each, to, _tail)
 import           Control.Monad.Fix            (MonadFix)
+import           Control.Monad.Trans.Resource (MonadResource, runResourceT)
+import           Data.Conduit                 (runConduit, (.|))
 import           Data.Default                 (def)
 import           Data.Tagged                  (Tagged (..), untag)
 import qualified Data.Time                    as Time
@@ -92,8 +94,7 @@ import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, Ss
                                                sscCreateNodeContext)
 import           Pos.Ssc.Extra                (SscMemTag, bottomSscState, mkSscState)
 import           Pos.Txp                      (mkTxpLocalData)
-import           Pos.Txp.DB                   (genesisFakeTotalStake,
-                                               runBalanceIterBootstrap)
+import           Pos.Txp.DB                   (balanceSource, genesisFakeTotalStake)
 import           Pos.Txp.MemState             (TxpHolderTag)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                 (explorerTxpGlobalSettings)
@@ -165,8 +166,9 @@ runRealModeDo
     -> OutSpecs
     -> ActionSpec (RealMode ssc) a
     -> Production a
-runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
-    usingLoggerName lpRunnerTag $ do
+runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
+              listeners outSpecs (ActionSpec action) =
+    runResourceT $ usingLoggerName lpRunnerTag $ do
         initNC <- untag @ssc sscCreateNodeContext sscnp
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
         let allWorkersNum = allWorkersCount @ssc @(RealMode ssc) :: Int
@@ -192,6 +194,7 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
         let runIO :: forall t . RealMode ssc t -> IO t
             runIO (RealMode act) =
                runProduction .
+                   runResourceT .
                    usingLoggerName lpRunnerTag .
                    runCHHere .
                    flip Ether.runReadersT
@@ -329,6 +332,7 @@ runCH
        , SecurityWorkersClass ssc
        , MonadIO m
        , MonadCatch m
+       , MonadResource m
        , Mockable CurrentTime m)
     => Int
     -> DiscoveryContextSum
@@ -364,10 +368,12 @@ runCH allWorkersNum discoveryCtx params@NodeParams {..} sscNodeContext db act = 
     ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
-    ncGenesisLeaders <- if Const.isDevelopment
-                        then pure $ genesisLeaders npCustomUtxo
-                        else runBalanceIterBootstrap $
-                             followTheSatoshiM genesisSeed genesisFakeTotalStake
+    ncGenesisLeaders <-
+        if Const.isDevelopment
+        then pure $ genesisLeaders npCustomUtxo
+        else flip Ether.runReaderT' db $ runDBPureRedirect $
+             runConduit $
+             balanceSource .| followTheSatoshiM genesisSeed genesisFakeTotalStake
     ucMemState <- newMemVar
     ucDownloadingUpdates <- newTVarIO mempty
     -- TODO synchronize the NodeContext peers var with whatever system

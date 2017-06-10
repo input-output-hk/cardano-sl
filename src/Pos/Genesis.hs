@@ -160,8 +160,8 @@ genesisUtxo sd =
     genesisDevHdwKeyNum = 2
     hdwAddresses = take genesisDevHdwKeyNum genesisDevHdwAccountAddresses
 
-
-genesisDelegation :: HashMap StakeholderId [StakeholderId]
+-- | Genesis reverse transitive delegation set (d -> [i]).
+genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)
 genesisDelegation = mempty
 
 ----------------------------------------------------------------------------

@@ -7,6 +7,8 @@ module Pos.Lrc.FtsPure
        , followTheSatoshiM
        ) where
 
+import           Data.Conduit        (runConduitPure, (.|))
+import qualified Data.Conduit.List   as CL
 import qualified Data.HashMap.Strict as HM
 import           Universum
 
@@ -15,7 +17,6 @@ import           Pos.Txp.Toil.Types  (Utxo)
 import           Pos.Txp.Toil.Utxo   (utxoToStakes)
 import           Pos.Types           (Coin, SharedSeed (..), StakeholderId, coinToInteger,
                                       mkCoin, sumCoins)
-import           Pos.Util.Iterator   (runListHolder)
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').
@@ -42,10 +43,8 @@ followTheSatoshi seed utxo
     | totalCoins > coinToInteger (maxBound @Coin) =
           error "followTheSatoshi: totalCoins exceeds Word64"
     | otherwise =
-          runListHolder
-              (followTheSatoshiM seed
-                   (mkCoin (fromInteger totalCoins)))
-              stakes
+      runConduitPure $ CL.sourceList stakes .| followTheSatoshiM seed totalCoinsCoin
   where
     stakes = HM.toList $ utxoToStakes utxo
     totalCoins = sumCoins $ map snd stakes
+    totalCoinsCoin = mkCoin (fromInteger totalCoins)

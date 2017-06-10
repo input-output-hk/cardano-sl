@@ -16,8 +16,11 @@ module Pos.WorkMode
 
 import           Universum
 
+import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Fix
+import           Control.Monad.Morph            (hoist)
 import qualified Control.Monad.Trans.Lift.Local as Lift
+import           Control.Monad.Trans.Resource   (MonadResource, ResourceT)
 import           Data.Coerce
 import           Data.Tagged                    (Tagged)
 import qualified Ether
@@ -36,7 +39,7 @@ import           Pos.Context                    (NodeContext)
 import           Pos.DB                         (DBPureRedirect, MonadGState, NodeDBs)
 import           Pos.DB.Block                   (BlockDBRedirect, MonadBlockDBWrite)
 import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDB,
-                                                 MonadDBRead)
+                                                 MonadDBRead (..))
 import           Pos.DB.DB                      (GStateCoreRedirect)
 import           Pos.Delegation.Class           (DelegationVar)
 import           Pos.Discovery                  (DiscoveryRedirect, MonadDiscovery)
@@ -75,8 +78,9 @@ type RealMode' ssc =
         , Tagged PeerStateTag (PeerStateCtx Production)
         ) (
     Ether.ReadersT (NodeContext ssc) (
-    LoggerNameBox Production
-    ))))))))))
+    LoggerNameBox (
+    ResourceT Production
+    )))))))))))
 
 newtype RealMode ssc a = RealMode (RealMode' ssc a)
   deriving
@@ -84,11 +88,13 @@ newtype RealMode ssc a = RealMode (RealMode' ssc a)
     , Applicative
     , Monad
     , MonadIO
+    , MonadBase IO
     , MonadThrow
     , MonadCatch
     , MonadMask
     , MonadFix
     )
+
 type instance ThreadId (RealMode ssc) = ThreadId Production
 type instance Promise (RealMode ssc) = Promise Production
 type instance SharedAtomicT (RealMode ssc) = SharedAtomicT Production
@@ -104,8 +110,11 @@ deriving instance MonadSlotsData (RealMode ssc)
 deriving instance MonadSlots (RealMode ssc)
 deriving instance MonadDiscovery (RealMode ssc)
 deriving instance MonadGState (RealMode ssc)
-deriving instance MonadDBRead (RealMode ssc)
 deriving instance MonadDB (RealMode ssc)
+deriving instance MonadResource (RealMode ssc)
+instance MonadDBRead (RealMode ssc) where
+    dbGet a b = RealMode $ dbGet a b
+    dbIterSource t p = hoist RealMode $ dbIterSource t p
 deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
 deriving instance MonadBListener (RealMode ssc)
 -- deriving instance MonadUpdates (RealMode ssc)

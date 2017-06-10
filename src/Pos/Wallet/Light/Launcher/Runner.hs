@@ -5,6 +5,7 @@ module Pos.Wallet.Light.Launcher.Runner
 
 import           Universum                       hiding (bracket)
 
+import           Control.Monad.Trans.Resource    (runResourceT)
 import           Data.Tagged                     (Tagged (..))
 import qualified Ether
 import           Formatting                      (sformat, shown, (%))
@@ -86,7 +87,9 @@ runRawStaticPeersWallet
     -> Production a
 runRawStaticPeersWallet transport peers WalletParams {..}
                         listeners (ActionSpec action, outs) =
-    usingLoggerName lpRunnerTag . bracket openDB closeDB $ \db -> do
+    runResourceT .
+    usingLoggerName lpRunnerTag .
+    bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
         keyData <- keyDataFromFile wpKeyFilePath
         flip Ether.runReadersT

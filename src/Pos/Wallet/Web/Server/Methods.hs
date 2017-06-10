@@ -656,7 +656,7 @@ getFullWalletHistory cWalId = do
 
         ctxs <- forM fullHistory $ addHistoryTx cWalId mempty mempty
         pure $ concatMap toList ctxs
-    pure ( cHistory, fromIntegral $ length cHistory)
+    pure (cHistory, fromIntegral $ length cHistory)
   where
     transCache
         :: Maybe (HeaderHash, Utxo, [TxHistoryEntry])

@@ -73,13 +73,13 @@ do
   # --ram = use more RAM
   elif [[ $var == "--ram" ]]; then
     ram=true
-  # --prod = compile in production mode
+  # --prod = build in production mode
   elif [[ $var == "--prod" ]]; then
     prod=true
   # --no-wallet = don't build in wallet mode
   elif [[ $var == "--no-wallet" ]]; then
     wallet=false
-  # disabling --fast
+  # --explorer = build with Explorer support
   elif [[ $var == "--explorer" ]]; then
     explorer=true
   # disabling --fast

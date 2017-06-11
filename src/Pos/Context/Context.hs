@@ -58,6 +58,7 @@ import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
                                                 rcReportServers)
 import           Pos.Shutdown.Types            (ShutdownContext (..))
+import           Pos.Slotting                  (SlottingContextSum)
 import           Pos.Ssc.Class.Types           (MonadSscContext, Ssc (SscNodeContext),
                                                 SscContextTag)
 import           Pos.Txp.Settings              (TxpGlobalSettings)
@@ -111,6 +112,8 @@ data NodeContext ssc = NodeContext
     -- ^ Context needed for LRC
     , ncDiscoveryContext    :: !DiscoveryContextSum
     -- ^ Context needed for Discovery.
+    , ncSlottingContext     :: !SlottingContextSum
+    -- ^ Context needed for Slotting.
     , ncBlkSemaphore        :: !BlkSemaphore
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
@@ -164,6 +167,7 @@ makeLensesFor
     [ ("ncUpdateContext", "ncUpdateContextL")
     , ("ncLrcContext", "ncLrcContextL")
     , ("ncDiscoveryContext", "ncDiscoveryContextL")
+    , ("ncSlottingContext", "ncSlottingContextL")
     , ("ncSscContext", "ncSscContextL")
     , ("ncNodeParams", "ncNodeParamsL")
     , ("ncInvPropagationQueue", "ncInvPropagationQueueL")
@@ -217,6 +221,7 @@ type instance TagsK (NodeContext ssc) =
   Type ':
   Type ':
   Type ':
+  Type ':
   '[]
 
 return []
@@ -231,6 +236,7 @@ type instance Tags (NodeContext ssc) =
   UpdateContext          :::
   LrcContext             :::
   DiscoveryContextSum    :::
+  SlottingContextSum     :::
   NodeParams             :::
   UpdateParams           :::
   SecurityParams         :::
@@ -266,6 +272,9 @@ instance HasLens LrcContext (NodeContext ssc) LrcContext where
 
 instance HasLens DiscoveryContextSum (NodeContext ssc) DiscoveryContextSum where
     lensOf = ncDiscoveryContextL
+
+instance HasLens SlottingContextSum (NodeContext ssc) SlottingContextSum where
+    lensOf = ncSlottingContextL
 
 instance HasLens NodeParams (NodeContext ssc) NodeParams where
     lensOf = ncNodeParamsL

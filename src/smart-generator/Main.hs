@@ -36,6 +36,7 @@ import           Pos.Launcher               (BaseParams (..), LoggingParams (..)
                                              NodeParams (..), bracketResources, initLrc,
                                              runNode', runRealMode, stakesDistr)
 import           Pos.Security               (SecurityParams (..), SecurityWorkersClass)
+import           Pos.Slotting               (SlottingContextSum (SCSimple))
 import           Pos.Ssc.Class              (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing         (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon         (SscNistBeacon)
@@ -105,7 +106,7 @@ runSmartGen
     -> GenOptions
     -> Production ()
 runSmartGen transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
-  runRealMode (DCStatic peers) transport np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
+  runRealMode (DCStatic peers) slottingCtx transport np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
     initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
@@ -230,7 +231,8 @@ runSmartGen transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
 
       return (newTPS, newStep)
   where
-    (workers', wOuts) = allWorkers
+    slottingCtx = SCSimple
+    (workers', wOuts) = allWorkers slottingCtx
 
 -----------------------------------------------------------------------------
 -- Main

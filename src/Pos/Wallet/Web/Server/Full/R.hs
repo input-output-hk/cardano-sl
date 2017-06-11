@@ -26,6 +26,7 @@ import           Pos.Discovery                     (DiscoveryContextSum)
 import           Pos.Genesis                       (genesisDevSecretKeys)
 import           Pos.Launcher.Param                (NodeParams (..))
 import           Pos.Launcher.Runner               (runRealBasedMode)
+import           Pos.Slotting                      (SlottingContextSum)
 import           Pos.Ssc.Class                     (SscConstraint, SscParams)
 import           Pos.Wallet.KeyStorage             (addSecretKey)
 import           Pos.Wallet.Redirect               (liftWalletRedirects,
@@ -46,6 +47,7 @@ runWRealMode
     => WalletState
     -> ConnectionsVar
     -> DiscoveryContextSum
+    -> SlottingContextSum
     -> Transport WalletRealWebMode
     -> NodeParams
     -> SscParams WalletSscType

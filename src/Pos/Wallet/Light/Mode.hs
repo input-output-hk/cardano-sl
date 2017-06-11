@@ -68,7 +68,8 @@ type LightWalletMode' =
     Production
     )))))))))))))
 
-newtype LightWalletMode a = LightWalletMode (LightWalletMode' a)
+newtype LightWalletMode a =
+    LightWalletMode { unLightWalletMode :: LightWalletMode' a }
   deriving
     ( Functor
     , Applicative
@@ -81,7 +82,10 @@ newtype LightWalletMode a = LightWalletMode (LightWalletMode' a)
     , MonadFix
     )
 
-instance MonadBaseControl IO (LightWalletMode)
+instance MonadBaseControl IO (LightWalletMode) where
+    type StM LightWalletMode a = StM LightWalletMode' a
+    liftBaseWith f = LightWalletMode $ liftBaseWith $ \q -> f (q . unLightWalletMode)
+    restoreM s = LightWalletMode $ restoreM s
 
 type instance ThreadId (LightWalletMode) = ThreadId Production
 type instance Promise (LightWalletMode) = Promise Production

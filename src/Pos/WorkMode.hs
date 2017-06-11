@@ -19,6 +19,7 @@ import           Universum
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Fix
 import           Control.Monad.Morph            (hoist)
+import           Control.Monad.Trans.Control    (MonadBaseControl (..))
 import qualified Control.Monad.Trans.Lift.Local as Lift
 import           Control.Monad.Trans.Resource   (MonadResource, ResourceT)
 import           Data.Coerce
@@ -95,6 +96,9 @@ newtype RealMode ssc a = RealMode (RealMode' ssc a)
     , MonadFix
     )
 
+-- TODO FIXME
+instance MonadBaseControl IO (RealMode ssc)
+
 type instance ThreadId (RealMode ssc) = ThreadId Production
 type instance Promise (RealMode ssc) = Promise Production
 type instance SharedAtomicT (RealMode ssc) = SharedAtomicT Production
@@ -114,7 +118,7 @@ deriving instance MonadDB (RealMode ssc)
 deriving instance MonadResource (RealMode ssc)
 instance MonadDBRead (RealMode ssc) where
     dbGet a b = RealMode $ dbGet a b
-    dbIterSource t p = hoist RealMode $ dbIterSource t p
+    dbIterSource t p = hoist (hoist RealMode) $ dbIterSource t p
 deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
 deriving instance MonadBListener (RealMode ssc)
 -- deriving instance MonadUpdates (RealMode ssc)

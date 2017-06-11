@@ -12,49 +12,48 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:
-    Pos.Txp.Core
-    Pos.Txp.Core.Core
-    Pos.Txp.Core.Tx
-    Pos.Txp.Core.Types
+  exposed-modules:     Pos.Txp.Core
+                       Pos.Txp.Core.Core
+                       Pos.Txp.Core.Tx
+                       Pos.Txp.Core.Types
 
-    Pos.Txp.DB
-    Pos.Txp.DB.Balances
-    Pos.Txp.DB.Utxo
+                       Pos.Txp.DB
+                       Pos.Txp.DB.Balances
+                       Pos.Txp.DB.Utxo
 
-    Pos.Txp.Toil
-    Pos.Txp.Toil.Balances
-    Pos.Txp.Toil.Balances.Functions
-    Pos.Txp.Toil.Balances.Pure
-    Pos.Txp.Toil.Class
-    Pos.Txp.Toil.DBTxp
-    Pos.Txp.Toil.Failure
-    Pos.Txp.Toil.Logic
-    Pos.Txp.Toil.Trans
-    Pos.Txp.Toil.Types
-    Pos.Txp.Toil.Utxo
-    Pos.Txp.Toil.Utxo.Functions
-    Pos.Txp.Toil.Utxo.Pure
-    Pos.Txp.Toil.Utxo.Util
+                       Pos.Txp.Toil
+                       Pos.Txp.Toil.Balances
+                       Pos.Txp.Toil.Balances.Functions
+                       Pos.Txp.Toil.Balances.Pure
+                       Pos.Txp.Toil.Class
+                       Pos.Txp.Toil.DBTxp
+                       Pos.Txp.Toil.Failure
+                       Pos.Txp.Toil.Logic
+                       Pos.Txp.Toil.Trans
+                       Pos.Txp.Toil.Types
+                       Pos.Txp.Toil.Utxo
+                       Pos.Txp.Toil.Utxo.Functions
+                       Pos.Txp.Toil.Utxo.Pure
+                       Pos.Txp.Toil.Utxo.Util
 
-    Pos.Txp.Logic
-    Pos.Txp.Logic.Global
-    Pos.Txp.Logic.Local
+                       Pos.Txp.Logic
+                       Pos.Txp.Logic.Global
+                       Pos.Txp.Logic.Local
 
-    Pos.Txp.MemState
-    Pos.Txp.MemState.Class
-    Pos.Txp.MemState.Holder
-    Pos.Txp.MemState.Types
+                       Pos.Txp.MemState
+                       Pos.Txp.MemState.Class
+                       Pos.Txp.MemState.Holder
+                       Pos.Txp.MemState.Types
 
-    Pos.Txp.Settings
-    Pos.Txp.Settings.Global
+                       Pos.Txp.Settings
+                       Pos.Txp.Settings.Global
 
-    Pos.Txp.Error
+                       Pos.Txp.Error
 
-    Pos.Script
-    Pos.Script.Examples
+                       Pos.Script
+                       Pos.Script.Examples
 
-    Pos.Binary.Txp.Core
+                       Pos.Binary.Txp.Core
 
   build-depends:       base
                      , bytestring
@@ -74,6 +73,7 @@ library
                      , mtl
                      , neat-interpolation
                      , plutus-prototype
+                     , resourcet
                      , rocksdb
                      , serokell-util
                      , stm

@@ -27,6 +27,7 @@ import qualified Ether
 import           Formatting              (sformat, (%))
 import           Paths_cardano_sl        (version)
 import           Serokell.Util.Text      (listJson)
+import           System.Wlog             (WithLogger, logDebug)
 
 import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
@@ -81,6 +82,7 @@ type BlockMode ssc m
        , SscGStateClass ssc
        -- And 'MonadIO' is needed as usual.
        , MonadIO m
+       , WithLogger m -- TMP
        )
 
 -- | Set of constraints necessary for high-level block verification.
@@ -145,14 +147,20 @@ applyBlocksUnsafeDo
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
+    logDebug "Slog apply"
     slogBatch <- slogApplyBlocks blunds
     TxpGlobalSettings {..} <- Ether.ask'
+    logDebug "Slog US"
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
+    logDebug "Slog DLG"
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks blocks
+    logDebug "Slog TXP"
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
+    logDebug "Slog SSC"
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
         sscApplyBlocks (map toSscBlock blocks) Nothing
+    logDebug "Writing batch state"
     GS.writeBatchGState
         [ delegateBatch
         , usBatch
@@ -160,6 +168,7 @@ applyBlocksUnsafeDo blunds pModifier = do
         , sscBatch
         , slogBatch
         ]
+    logDebug "Normalizing"
     sscNormalize
 #ifdef WITH_EXPLORER
     eTxNormalize
@@ -167,6 +176,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     txNormalize
 #endif
     usNormalize
+    logDebug "Normalizing done"
   where
     blocks = fmap fst blunds
 

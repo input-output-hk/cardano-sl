@@ -30,7 +30,7 @@ import qualified Ether
 import           Formatting            (build, sformat, (%))
 import           Serokell.Util         (Color (Red), colorize)
 import           Serokell.Util.Verify  (formatAllErrors, verResToMonadError)
-import           System.Wlog           (WithLogger, logWarning)
+import           System.Wlog           (WithLogger, logDebug, logWarning)
 
 import           Pos.Binary.Core       ()
 import           Pos.Block.BListener   (MonadBListener (..))
@@ -147,6 +147,7 @@ type SlogApplyMode ssc m =
     , MonadBListener m
     , MonadMask m
     , MonadIO m
+    , WithLogger m
     )
 
 -- | This function does everything that should be done when blocks are
@@ -164,7 +165,9 @@ slogApplyBlocks blunds = do
     let putTip =
             SomeBatchOp $
             GS.PutTip $ headerHash $ NE.last $ getOldestFirst blunds
+    logDebug "Sanity check db PRE"
     sanityCheckDB
+    logDebug "Sanity check db POST"
     putSlottingData =<< GS.getSlottingData
     return $ SomeBatchOp [putTip, forwardLinksBatch, inMainBatch]
   where

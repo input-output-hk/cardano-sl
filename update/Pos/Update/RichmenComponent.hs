@@ -8,12 +8,11 @@ module Pos.Update.RichmenComponent
 
 import           Universum
 
-import           Pos.Core               (EpochIndex)
+import           Pos.Core               (EpochIndex, genesisUpdateVoteThd)
 import           Pos.DB.Class           (MonadDB, MonadDBRead)
 import           Pos.Lrc.Class          (RichmenComponent (..))
 import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
 import           Pos.Lrc.Types          (FullRichmenData)
-import           Pos.Update.Constants   (genesisUpdateVoteThd)
 
 data RCUs
 

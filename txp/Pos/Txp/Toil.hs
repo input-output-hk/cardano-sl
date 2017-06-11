@@ -2,7 +2,7 @@
 
 module Pos.Txp.Toil
        ( module           Pos.Txp.Toil.Class
-       , module           Pos.Txp.Toil.DBTxp
+       , module           Pos.Txp.Toil.DBToil
        , module           Pos.Txp.Toil.Failure
        , module           Pos.Txp.Toil.Logic
        , module           Pos.Txp.Toil.Trans
@@ -11,7 +11,7 @@ module Pos.Txp.Toil
        ) where
 
 import           Pos.Txp.Toil.Class
-import           Pos.Txp.Toil.DBTxp
+import           Pos.Txp.Toil.DBToil
 import           Pos.Txp.Toil.Failure
 import           Pos.Txp.Toil.Logic
 import           Pos.Txp.Toil.Trans

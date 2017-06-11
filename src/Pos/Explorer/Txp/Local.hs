@@ -16,7 +16,7 @@ import           Formatting            (build, sformat, (%))
 import           System.Wlog           (WithLogger, logDebug)
 
 import           Pos.Core              (HeaderHash, Timestamp)
-import           Pos.DB.Class          (MonadDBRead)
+import           Pos.DB.Class          (MonadDBRead, MonadGState)
 import qualified Pos.DB.GState         as GS
 import qualified Pos.Explorer.DB       as ExDB
 import           Pos.Slotting          (MonadSlots (currentTimeSlotting))
@@ -26,7 +26,7 @@ import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
                                         modifyTxpLocalData, setTxpLocalData)
 import           Pos.Txp.Toil          (GenericToilModifier (..), MonadToilEnv,
                                         MonadUtxoRead (..), ToilEnv, ToilVerFailure (..),
-                                        Utxo, getToilEnv, runDBTxp, runToilTLocalExtra,
+                                        Utxo, getToilEnv, runDBToil, runToilTLocalExtra,
                                         runUtxoReaderT, utxoGet)
 import           Pos.Util.Chrono       (NewestFirst (..))
 import qualified Pos.Util.Modifier     as MM
@@ -39,6 +39,7 @@ import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
 type ETxpLocalWorkMode m =
     ( MonadIO m
     , MonadDBRead m
+    , MonadGState m
     , MonadTxpMem ExplorerExtra m
     , WithLogger m
     , MonadError ToilVerFailure m
@@ -76,8 +77,8 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     -- possible that invalid transaction will appear in
     -- mempool. However, in this case it will be removed by
     -- normalization before releasing lock on block application.
-    (resolvedOuts, _) <- runDBTxp $ runUM localUM $ mapM utxoGet _txInputs
-    toilEnv <- runDBTxp getToilEnv
+    (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
+    toilEnv <- runDBToil getToilEnv
     -- Resolved are unspent transaction outputs corresponding to input
     -- of given transaction.
     let resolved = M.fromList $
@@ -143,7 +144,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
 --   2. Remove invalid transactions from MemPool
 --   3. Set new tip to txp local data
 eTxNormalize
-    :: (MonadIO m, MonadDBRead m, MonadTxpMem ExplorerExtra m) => m ()
+    :: (MonadIO m, MonadDBRead m, MonadGState m, MonadTxpMem ExplorerExtra m) => m ()
 eTxNormalize = do
     utxoTip <- GS.getTip
     localTxs <- getLocalTxsMap
@@ -151,7 +152,7 @@ eTxNormalize = do
     let extras = MM.insertionsMap $ extra ^. eeLocalTxsExtra
     let toNormalize = HM.toList $ HM.intersectionWith (,) localTxs extras
     ToilModifier {..} <-
-        runDBTxp $
+        runDBToil $
         snd <$>
         runToilTLocalExtra mempty def mempty def (eNormalizeToil toNormalize)
     setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

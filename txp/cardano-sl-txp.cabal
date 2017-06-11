@@ -27,7 +27,7 @@ library
     Pos.Txp.Toil.Balances.Functions
     Pos.Txp.Toil.Balances.Pure
     Pos.Txp.Toil.Class
-    Pos.Txp.Toil.DBTxp
+    Pos.Txp.Toil.DBToil
     Pos.Txp.Toil.Failure
     Pos.Txp.Toil.Logic
     Pos.Txp.Toil.Trans
@@ -61,7 +61,6 @@ library
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
-                     , cardano-sl-update
                      , conduit
                      , containers
                      , data-default

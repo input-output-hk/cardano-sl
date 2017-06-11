@@ -17,7 +17,7 @@ import           Universum
 import           Pos.Binary.Class                  (asBinary)
 import           Pos.Core                          (EpochIndex (..), genesisDevKeyPairs)
 import           Pos.Core.Address                  (addressHash)
-import           Pos.Core.Constants                (genesisN, isDevelopment)
+import           Pos.Core.Constants                (genesisKeysN, isDevelopment)
 import           Pos.Crypto                        (VssKeyPair, VssPublicKey,
                                                     deterministicVssKeyGen,
                                                     toVssPublicKey)
@@ -28,7 +28,7 @@ import           Pos.Ssc.GodTossing.Genesis.Types  (GenesisGtData (..))
 
 -- | List of 'VssKeyPair's in genesis.
 genesisDevVssKeyPairs :: [VssKeyPair]
-genesisDevVssKeyPairs = map gen [0 .. genesisN - 1]
+genesisDevVssKeyPairs = map gen [0 .. genesisKeysN - 1]
   where
     gen :: Int -> VssKeyPair
     gen =

@@ -29,7 +29,6 @@ import           Control.Concurrent.STM       (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                 (each, to, _tail)
 import           Control.Monad.Fix            (MonadFix)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
-import           Control.Monad.Trans.Resource (MonadResource, runResourceT)
 import           Data.Conduit                 (runConduitRes, (.|))
 import           Data.Default                 (def)
 import           Data.Tagged                  (Tagged (..), untag)
@@ -169,7 +168,7 @@ runRealModeDo
     -> Production a
 runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
               listeners outSpecs (ActionSpec action) =
-    runResourceT $ usingLoggerName lpRunnerTag $ do
+    usingLoggerName lpRunnerTag $ do
         initNC <- untag @ssc sscCreateNodeContext sscnp
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
         let allWorkersNum = allWorkersCount @ssc @(RealMode ssc) :: Int
@@ -195,7 +194,6 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
         let runIO :: forall t . RealMode ssc t -> IO t
             runIO (RealMode act) =
                runProduction .
-                   runResourceT .
                    usingLoggerName lpRunnerTag .
                    runCHHere .
                    flip Ether.runReadersT
@@ -334,7 +332,6 @@ runCH
        , MonadIO m
        , MonadBaseControl IO m
        , MonadCatch m
-       , MonadResource m
        , Mockable CurrentTime m)
     => Int
     -> DiscoveryContextSum

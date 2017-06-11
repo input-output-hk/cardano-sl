@@ -188,7 +188,7 @@ swaggerSpecForWalletApi = toSwagger W.walletApi
     & wop @W.NewAccount             . description ?~ D.newAccount
     & wop @W.DeleteAccount          . description ?~ D.deleteAccount
 
-    & wop @W.NewWAddress            . description ?~ D.newWAddress
+    & wop @W.NewAddress             . description ?~ D.newAddress
 
     & wop @W.IsValidAddress         . description ?~ D.isValidAddress
 

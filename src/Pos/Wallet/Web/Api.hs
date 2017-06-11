@@ -31,7 +31,7 @@ module Pos.Wallet.Web.Api
        , DeleteAccount
        , NewAccount
 
-       , NewWAddress
+       , NewAddress
 
        , IsValidAddress
 
@@ -195,7 +195,7 @@ type DeleteAccount =
 -- Wallet addresses
 -------------------------------------------------------------------------
 
-type NewWAddress =
+type NewAddress =
        "addresses"
     :> CQueryParam "passphrase" CPassPhrase
     :> CReqBody '[JSON] CAccountId
@@ -376,7 +376,7 @@ type WalletApi = ApiPrefix :> (
      -------------------------------------------------------------------------
      -- Walllet addresses
      -------------------------------------------------------------------------
-     NewWAddress
+     NewAddress
     :<|>
      -------------------------------------------------------------------------
      -- Addresses

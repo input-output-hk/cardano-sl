@@ -7,8 +7,8 @@ module Pos.Binary.GodTossing.Core
 import qualified Data.HashMap.Strict           as HM
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..), Size (..), combineSize, getSize,
-                                                getWord8, label, putWord8, sizeOf)
+import           Pos.Binary.Class              (Bi (..), Size (..), getSize, getWord8,
+                                                label, putField, putWord8)
 import           Pos.Binary.Crypto             ()
 import           Pos.Core.Address              (addressHash)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..),
@@ -18,11 +18,9 @@ import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..)
                                                 recreateVssCertificate)
 
 instance Bi Commitment where
-    size = combineSize (commShares, commExtra, commProof)
-    put Commitment {..} = do
-        put commShares
-        put commExtra
-        put commProof
+    sizeNPut = putField commShares
+            <> putField commExtra
+            <> putField commProof
     get = label "Commitment" $ do
         commShares <- get
         when (null commShares) $ fail "get@Commitment: no shares"
@@ -31,23 +29,19 @@ instance Bi Commitment where
         return Commitment {..}
 
 instance Bi CommitmentsMap where
-    size = sizeOf getCommitmentsMap
-    put = put . toList
+    sizeNPut = putField (toList . getCommitmentsMap)
     get = label "CommitmentsMap" $ mkCommitmentsMap <$> get
 
 instance Bi VssCertificate where
-    size = combineSize (vcVssKey, vcExpiryEpoch, vcSignature, vcSigningKey)
-    put vc = do
-        put $ vcVssKey vc
-        put $ vcExpiryEpoch vc
-        put $ vcSignature vc
-        put $ vcSigningKey vc
+    sizeNPut = putField vcVssKey
+            <> putField vcExpiryEpoch
+            <> putField vcSignature
+            <> putField vcSignature
     get = label "VssCertificate" $
         join $ liftM4 recreateVssCertificate get get get get
 
 instance Bi Opening where
-    size = sizeOf getOpening
-    put (Opening secret) = put secret
+    sizeNPut = putField getOpening
     get = label "Opening" $ Opening <$> get
 
 instance Bi GtPayload where

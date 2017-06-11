@@ -3,8 +3,8 @@ module Pos.Binary.Core.Types () where
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..), Size (..), UnsignedVarInt (..),
-                                          combineSize, label, putWord8, sizeAddField,
-                                          sizeOf)
+                                          appendField, combineSize, label, putField,
+                                          putWord8, sizeAddField, sizeOf)
 import qualified Pos.Binary.Core.Coin    as BinCoin
 import           Pos.Binary.Core.Script  ()
 import           Pos.Binary.Core.Version ()
@@ -16,14 +16,12 @@ import           Pos.Util.Util           (eitherToFail)
 -- verbosity and clarity
 
 instance Bi T.Timestamp where
+    sizeNPut = putField toInteger
     get = label "Timestamp" $ fromInteger <$> get
-    put = put . toInteger
-    size = sizeOf toInteger
 
 instance Bi T.EpochIndex where
+    sizeNPut = putField (UnsignedVarInt . T.getEpochIndex)
     get = label "EpochIndex" $ T.EpochIndex . getUnsignedVarInt <$> get
-    put (T.EpochIndex c) = put (UnsignedVarInt c)
-    size = sizeOf (UnsignedVarInt . T.getEpochIndex)
 
 instance Bi (A.Attributes ()) where
     size = VarSize $ A.sizeAttributes (\() -> [])
@@ -37,45 +35,49 @@ instance Bi T.Coin where
     get = label "Coin" $ BinCoin.decode
 
 instance Bi T.CoinPortion where
-    put = put . T.getCoinPortion
+    sizeNPut = putField T.getCoinPortion
     get = label "CoinPortion" $ get >>= T.mkCoinPortion
-    size = sizeOf T.getCoinPortion
 
 instance Bi T.LocalSlotIndex where
+    sizeNPut = putField (UnsignedVarInt . T.getSlotIndex)
     get =
         label "LocalSlotIndex" $
         eitherToFail . T.mkLocalSlotIndex . getUnsignedVarInt =<< get
-    put (T.getSlotIndex -> c) = put (UnsignedVarInt c)
-    size = sizeOf (UnsignedVarInt . T.getSlotIndex)
 
 instance Bi T.SlotId where
-    get = label "SlotId" $ do
-        siEpoch <- get
-        siSlot <- get
-        return $ T.SlotId {..}
-    put (T.SlotId e s) = put e >> put s
-    size = combineSize (T.siEpoch, T.siSlot)
+    sizeNPut = putField T.siEpoch
+            <> putField T.siSlot
+    get = label "SlotId" $ T.SlotId <$> get <*> get
 
 instance Bi T.EpochOrSlot where
-    put (T.EpochOrSlot x) = put x
+    sizeNPut = putField T.unEpochOrSlot
     get = T.EpochOrSlot <$> get
-    size = sizeOf T.unEpochOrSlot
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
 
 instance Bi T.SharedSeed where
-    put (T.SharedSeed bs) = put bs
+    sizeNPut = putField T.getSharedSeed
     get = label "SharedSeed" $ T.SharedSeed <$> get
-    size = sizeOf T.getSharedSeed
 
 instance Bi T.ChainDifficulty where
+    sizeNPut = putField (UnsignedVarInt . T.getChainDifficulty)
     get = label "ChainDifficulty" $
           T.ChainDifficulty . getUnsignedVarInt <$> get
-    put (T.ChainDifficulty c) = put (UnsignedVarInt c)
-    size = sizeOf (UnsignedVarInt . T.getChainDifficulty)
 
 instance Bi T.BlockVersionData where
+    sizeNPut = putField T.bvdScriptVersion
+             `appendField` T.bvdSlotDuration
+             `appendField` T.bvdMaxBlockSize
+             `appendField` T.bvdMaxHeaderSize
+             `appendField` T.bvdMaxTxSize
+             `appendField` T.bvdMaxProposalSize
+             `appendField` T.bvdMpcThd
+             `appendField` T.bvdHeavyDelThd
+             `appendField` T.bvdUpdateVoteThd
+             `appendField` T.bvdUpdateProposalThd
+             `appendField` T.bvdUpdateImplicit
+             `appendField` T.bvdUpdateSoftforkThd
     get = label "BlockVersionData" $ do
         bvdScriptVersion     <- get
         bvdSlotDuration      <- get
@@ -90,29 +92,3 @@ instance Bi T.BlockVersionData where
         bvdUpdateImplicit    <- get
         bvdUpdateSoftforkThd <- get
         return $ T.BlockVersionData {..}
-    put T.BlockVersionData {..} = do
-        put bvdScriptVersion
-        put bvdSlotDuration
-        put bvdMaxBlockSize
-        put bvdMaxHeaderSize
-        put bvdMaxTxSize
-        put bvdMaxProposalSize
-        put bvdMpcThd
-        put bvdHeavyDelThd
-        put bvdUpdateVoteThd
-        put bvdUpdateProposalThd
-        put bvdUpdateImplicit
-        put bvdUpdateSoftforkThd
-    size = ConstSize 0
-             `sizeAddField` T.bvdScriptVersion
-             `sizeAddField` T.bvdSlotDuration
-             `sizeAddField` T.bvdMaxBlockSize
-             `sizeAddField` T.bvdMaxHeaderSize
-             `sizeAddField` T.bvdMaxTxSize
-             `sizeAddField` T.bvdMaxProposalSize
-             `sizeAddField` T.bvdMpcThd
-             `sizeAddField` T.bvdHeavyDelThd
-             `sizeAddField` T.bvdUpdateVoteThd
-             `sizeAddField` T.bvdUpdateProposalThd
-             `sizeAddField` T.bvdUpdateImplicit
-             `sizeAddField` T.bvdUpdateSoftforkThd

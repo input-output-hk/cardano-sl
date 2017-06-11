@@ -5,7 +5,7 @@ module Pos.Binary.Core.Version () where
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), combineSize, convertSize, getAsciiString1b,
-                                   label, putAsciiString1b, sizeAsciiString1b)
+                                   label, putAsciiString1b, putField, sizeAsciiString1b)
 import qualified Pos.Core.Types   as V
 
 instance Bi V.ApplicationName where
@@ -15,11 +15,11 @@ instance Bi V.ApplicationName where
             =<< getAsciiString1b "SystemTag" V.applicationNameMaxLength
 
 instance Bi V.SoftwareVersion where
-    size = combineSize (V.svAppName, V.svNumber)
-    put V.SoftwareVersion {..} = put svAppName *> put svNumber
+    sizeNPut = putField V.svAppName <> putField V.svNumber
     get = label "SoftwareVersion" $ V.SoftwareVersion <$> get <*> get
 
 instance Bi V.BlockVersion where
-    size = combineSize (V.bvMajor, V.bvMinor, V.bvAlt)
-    put V.BlockVersion {..} = put bvMajor *> put bvMinor *> put bvAlt
+    sizeNPut = putField V.bvMajor
+            <> putField V.bvMinor
+            <> putField V.bvAlt
     get = label "BlockVersion" $ V.BlockVersion <$> get <*> get <*> get

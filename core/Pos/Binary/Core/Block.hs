@@ -6,8 +6,9 @@ module Pos.Binary.Core.Block
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), Size (ConstSize), combineSize, getSize,
-                                     label, sizeAddField)
+import           Pos.Binary.Class   (Bi (..), Size (ConstSize), appendConst, appendField,
+                                     combineSize, getSize, label, putConst, putField,
+                                     sizeAddField)
 import qualified Pos.Core.Block     as T
 import           Pos.Core.Constants (protocolMagic)
 import qualified Pos.Core.Types     as T
@@ -27,17 +28,11 @@ instance ( Bi (T.BHeaderHash b)
          , T.BlockchainHelpers b
          ) =>
          Bi (T.GenericBlockHeader b) where
-    size = ConstSize (getSize protocolMagic)
-             `sizeAddField` T._gbhPrevBlock
-             `sizeAddField` T._gbhBodyProof
-             `sizeAddField` T._gbhConsensus
-             `sizeAddField` T._gbhExtra
-    put T.UnsafeGenericBlockHeader{..} = do
-        put protocolMagic
-        put _gbhPrevBlock
-        put _gbhBodyProof
-        put _gbhConsensus
-        put _gbhExtra
+    sizeNPut = putConst protocolMagic
+               `appendField` T._gbhPrevBlock
+               `appendField` T._gbhBodyProof
+               `appendField` T._gbhConsensus
+               `appendField` T._gbhExtra
     get =
         label "GenericBlockHeader" $ do
         blockMagic <- get
@@ -58,11 +53,9 @@ instance ( Bi (T.BHeaderHash b)
          , T.BlockchainHelpers b
          ) =>
          Bi (T.GenericBlock b) where
-    size = combineSize (T._gbHeader, T._gbBody, T._gbExtra)
-    put T.UnsafeGenericBlock {..} = do
-        put _gbHeader
-        put _gbBody
-        put _gbExtra
+    sizeNPut = putField T._gbHeader
+               `appendField` T._gbBody
+               `appendField` T._gbExtra
     get =
         label "GenericBlock" $ do
             header <- get

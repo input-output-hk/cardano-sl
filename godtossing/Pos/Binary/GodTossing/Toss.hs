@@ -6,8 +6,8 @@ module Pos.Binary.GodTossing.Toss
 
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..), Size (..), combineSize, getWord8,
-                                                label, putWord8)
+import           Pos.Binary.Class              (Bi (..), Size (..), getWord8, label,
+                                                putField, putWord8)
 import           Pos.Ssc.GodTossing.Toss.Types (GtTag (..), TossModifier (..))
 
 instance Bi GtTag where
@@ -26,12 +26,10 @@ instance Bi GtTag where
             tag -> fail ("get@MsgTag: invalid tag: " ++ show tag)
 
 instance Bi TossModifier where
-    size = combineSize (_tmCommitments, _tmOpenings, _tmShares, _tmCertificates)
-    put TossModifier {..} = do
-        put _tmCommitments
-        put _tmOpenings
-        put _tmShares
-        put _tmCertificates
+    sizeNPut = putField _tmCommitments
+            <> putField _tmOpenings
+            <> putField _tmShares
+            <> putField _tmCertificates
     get = label "TossModifier" $ do
         _tmCommitments <- get
         _tmOpenings <- get

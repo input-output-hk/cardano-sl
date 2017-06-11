@@ -43,9 +43,17 @@ import           Serokell.Data.Memory.Units (Byte)
 -- Write @instance Bi SomeType where@ without any method definitions if you
 -- want to use the 'Binary' instance for your type.
 class Bi t where
+    sizeNPut :: (Size t, t -> Poke ())
+    sizeNPut = (size, put)
+
     size :: Size t
+    size = fst sizeNPut
+
     put :: t -> Poke ()
+    put = snd sizeNPut
+
     get :: Peek t
+
 
 --instance Serializable t => B.Binary t where
 --    get = get

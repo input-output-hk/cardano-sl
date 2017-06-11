@@ -8,8 +8,12 @@
 
 module Pos.Binary.Class.Store
        (
+         putConst
+       , putField
+       , appendConst
+       , appendField
        -- * Store re-exports
-         Size(..)
+       , Size(..)
        , Peek
        , Poke
 
@@ -25,11 +29,8 @@ module Pos.Binary.Class.Store
        , lookAhead
        , mkPoke
        , execPoke
+
        , constSize
-       {-
-       -- * Other binary utils
-       , getRemainingByteString
-       -}
        , convertSize
        , combineSize
        , sizeOf
@@ -55,6 +56,26 @@ instance Monoid a => Monoid (Poke a) where
         (off1, _) <- runPoke m1 ps off
         (off2, res) <- runPoke m2 ps off1
         pure (off2, res)
+
+instance Monoid (Size a) where
+    mempty = ConstSize 0
+    m1 `mappend` m2 = case (m1, m2) of
+        (VarSize f, VarSize g)     -> VarSize (\x -> f x + g x)
+        (VarSize f, ConstSize m)   -> VarSize (\x -> f x + m)
+        (ConstSize n, VarSize g)   -> VarSize (\x -> n + g x)
+        (ConstSize n, ConstSize m) -> ConstSize (n + m)
+
+putConst :: Bi x => x -> (Size a, a -> Poke ())
+putConst x = (ConstSize (getSize x), \_ -> put x)
+
+putField :: Bi x => (a -> x) -> (Size a, a -> Poke ())
+putField f = (VarSize $ \a -> getSize (f a), put . f)
+
+appendConst :: Bi x => (Size a, a -> Poke ()) -> x -> (Size a, a -> Poke ())
+appendConst a x = a <> putConst x
+
+appendField :: Bi x => (Size a, a -> Poke ()) -> (a -> x) -> (Size a, a -> Poke ())
+appendField a f = a <> putField f
 
 constSize :: forall a . Bi a => Int
 constSize =  case size :: Size a of

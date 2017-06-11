@@ -5,10 +5,10 @@ module Pos.Binary.Update
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..), Size (..), combineSize, convertSize,
-                                          getAsciiString1b, getSize, getWord8, label,
-                                          putAsciiString1b, putWord8, sizeAddField,
-                                          sizeAsciiString1b, sizeOf)
+import           Pos.Binary.Class        (Bi (..), Size (..), appendField, combineSize,
+                                          convertSize, getAsciiString1b, getSize,
+                                          getWord8, label, putAsciiString1b, putField,
+                                          putWord8, sizeAsciiString1b)
 import           Pos.Binary.Core         ()
 import           Pos.Binary.Core.Version ()
 import           Pos.Crypto              (SignTag (SignUSVote), checkSig)
@@ -23,7 +23,10 @@ instance Bi U.SystemTag where
     put (toString . U.getSystemTag -> tag) = putAsciiString1b tag
 
 instance Bi U.UpdateVote where
-    size = combineSize (U.uvKey, U.uvProposalId, U.uvDecision, U.uvSignature)
+    sizeNPut = putField U.uvKey
+               `appendField` U.uvProposalId
+               `appendField` U.uvDecision
+               `appendField` U.uvSignature
     get = label "UpdateVote" $ do
         uvKey <- get
         uvProposalId <- get
@@ -36,30 +39,22 @@ instance Bi U.UpdateVote where
         unless sigValid $
             fail "Pos.Binary.Update: UpdateVote: invalid signature"
         return U.UpdateVote {..}
-    put U.UpdateVote {..} =
-           put uvKey
-        *> put uvProposalId
-        *> put uvDecision
-        *> put uvSignature
 
 instance Bi U.UpdateData where
-    size = combineSize (U.udAppDiffHash, U.udPkgHash, U.udUpdaterHash, U.udMetadataHash)
+    sizeNPut = putField U.udAppDiffHash
+               `appendField` U.udPkgHash
+               `appendField` U.udUpdaterHash
+               `appendField` U.udMetadataHash
     get = label "UpdateData" $ U.UpdateData <$> get <*> get <*> get <*> get
-    put U.UpdateData {..} =
-           put udAppDiffHash
-        *> put udPkgHash
-        *> put udUpdaterHash
-        *> put udMetadataHash
 
 instance Bi U.UpdateProposal where
-    size = ConstSize 0
-        `sizeAddField` U.upBlockVersion
-        `sizeAddField` U.upBlockVersionData
-        `sizeAddField` U.upSoftwareVersion
-        `sizeAddField` U.upData
-        `sizeAddField` U.upAttributes
-        `sizeAddField` U.upFrom
-        `sizeAddField` U.upSignature
+    sizeNPut = putField U.upBlockVersion
+        `appendField` U.upBlockVersionData
+        `appendField` U.upSoftwareVersion
+        `appendField` U.upData
+        `appendField` U.upAttributes
+        `appendField` U.upFrom
+        `appendField` U.upSignature
     get = label "UpdateProposal" $ do
         d <- get
         r <- get
@@ -69,17 +64,13 @@ instance Bi U.UpdateProposal where
         t' <- get
         i <- get
         U.mkUpdateProposal d r a t u t' i
-    put U.UnsafeUpdateProposal {..} =
-           put upBlockVersion
-        *> put upBlockVersionData
-        *> put upSoftwareVersion
-        *> put upData
-        *> put upAttributes
-        *> put upFrom
-        *> put upSignature
 
 instance Bi U.UpdateProposalToSign where
-    size = combineSize (U.upsBV, U.upsBVD, U.upsSV, U.upsData, U.upsAttr)
+    sizeNPut = putField U.upsBV
+        `appendField` U.upsBVD
+        `appendField` U.upsSV
+        `appendField` U.upsData
+        `appendField` U.upsAttr
     get = label "UpdateProposalToSign" $
           U.UpdateProposalToSign
             <$> get
@@ -87,18 +78,10 @@ instance Bi U.UpdateProposalToSign where
             <*> get
             <*> get
             <*> get
-    put U.UpdateProposalToSign {..} =
-           put upsBV
-        *> put upsBVD
-        *> put upsSV
-        *> put upsData
-        *> put upsAttr
 
 instance Bi U.UpdatePayload where
-    size = combineSize (U.upProposal, U.upVotes)
+    sizeNPut = putField U.upProposal <> putField U.upVotes
     get = label "UpdatePayload" $ liftA2 U.UpdatePayload get get
-    put U.UpdatePayload{..} =
-        put upProposal *> put upVotes
 
 instance Bi U.VoteState where
     size = ConstSize 1
@@ -128,13 +111,13 @@ instance Bi a => Bi (U.PrevValue a) where
         x -> fail $ "get@PrevValue: invalid tag: " <> show x
 
 instance Bi U.USUndo where
-    size = ConstSize 0
-        `sizeAddField` U.unChangedBV
-        `sizeAddField` U.unLastAdoptedBV
-        `sizeAddField` U.unChangedProps
-        `sizeAddField` U.unChangedSV
-        `sizeAddField` U.unChangedConfProps
-        `sizeAddField` U.unPrevProposers
+    sizeNPut =
+        putField U.unChangedBV
+        `appendField` U.unLastAdoptedBV
+        `appendField` U.unChangedProps
+        `appendField` U.unChangedSV
+        `appendField` U.unChangedConfProps
+        `appendField` U.unPrevProposers
     get = label "USUndo" $ do
         unChangedBV <- get
         unLastAdoptedBV <- get
@@ -143,42 +126,25 @@ instance Bi U.USUndo where
         unChangedConfProps <- get
         unPrevProposers <- get
         return $ U.USUndo {..}
-    put U.USUndo{..} = do
-        put unChangedBV
-        put unLastAdoptedBV
-        put unChangedProps
-        put unChangedSV
-        put unChangedConfProps
-        put unPrevProposers
 
 instance Bi U.UpsExtra where
-    size = sizeOf U.ueProposedBlk
-    put U.UpsExtra {..} = put ueProposedBlk
+    sizeNPut = putField U.ueProposedBlk
     get = label "UpsExtra" $ U.UpsExtra <$> get
 
 instance Bi U.DpsExtra where
-    size = combineSize (U.deDecidedBlk, U.deImplicit)
-    put U.DpsExtra {..} = put deDecidedBlk *> put deImplicit
+    sizeNPut = putField U.deDecidedBlk <> putField U.deImplicit
     get = label "DpsExtra" $ do
         deDecidedBlk <- get
         deImplicit <- get
         return $ U.DpsExtra {..}
 
 instance Bi U.UndecidedProposalState where
-    size = ConstSize 0
-        `sizeAddField` U.upsVotes
-        `sizeAddField` U.upsProposal
-        `sizeAddField` U.upsSlot
-        `sizeAddField` U.upsPositiveStake
-        `sizeAddField` U.upsNegativeStake
-        `sizeAddField` U.upsExtra
-    put U.UndecidedProposalState {..} = do
-        put upsVotes
-        put upsProposal
-        put upsSlot
-        put upsPositiveStake
-        put upsNegativeStake
-        put upsExtra
+    sizeNPut = putField U.upsVotes
+        `appendField` U.upsProposal
+        `appendField` U.upsSlot
+        `appendField` U.upsPositiveStake
+        `appendField` U.upsNegativeStake
+        `appendField` U.upsExtra
     get = label "UndecidedProposalState" $ do
         upsVotes <- get
         upsProposal <- get
@@ -190,11 +156,10 @@ instance Bi U.UndecidedProposalState where
 
 instance Bi U.DecidedProposalState where
     size = combineSize (U.dpsDecision, U.dpsUndecided, U.dpsDifficulty, U.dpsExtra)
-    put U.DecidedProposalState {..} = do
-        put dpsDecision
-        put dpsUndecided
-        put dpsDifficulty
-        put dpsExtra
+    sizeNPut = putField U.dpsDecision
+        `appendField` U.dpsUndecided
+        `appendField` U.dpsDifficulty
+        `appendField` U.dpsExtra
     get = label "DecidedProposalState" $ do
         dpsDecision <- get
         dpsUndecided <- get
@@ -215,26 +180,15 @@ instance Bi U.ProposalState where
 
 --instance Binary U.ConfirmedProposalState
 instance Bi U.ConfirmedProposalState where
-    size = ConstSize 0
-        `sizeAddField` U.cpsUpdateProposal
-        `sizeAddField` U.cpsImplicit
-        `sizeAddField` U.cpsProposed
-        `sizeAddField` U.cpsDecided
-        `sizeAddField` U.cpsConfirmed
-        `sizeAddField` U.cpsAdopted
-        `sizeAddField` U.cpsVotes
-        `sizeAddField` U.cpsPositiveStake
-        `sizeAddField` U.cpsNegativeStake
-    put U.ConfirmedProposalState {..} = do
-        put cpsUpdateProposal
-        put cpsImplicit
-        put cpsProposed
-        put cpsDecided
-        put cpsConfirmed
-        put cpsAdopted
-        put cpsVotes
-        put cpsPositiveStake
-        put cpsNegativeStake
+    sizeNPut = putField U.cpsUpdateProposal
+        `appendField` U.cpsImplicit
+        `appendField` U.cpsProposed
+        `appendField` U.cpsDecided
+        `appendField` U.cpsConfirmed
+        `appendField` U.cpsAdopted
+        `appendField` U.cpsVotes
+        `appendField` U.cpsPositiveStake
+        `appendField` U.cpsNegativeStake
     get = label "ConfirmedProposalState" $ do
         cpsUpdateProposal <- get
         cpsImplicit <- get
@@ -248,20 +202,12 @@ instance Bi U.ConfirmedProposalState where
         return $ U.ConfirmedProposalState {..}
 
 instance Bi U.BlockVersionState where
-    size = ConstSize 0
-       `sizeAddField` U.bvsData
-       `sizeAddField` U.bvsIsConfirmed
-       `sizeAddField` U.bvsIssuersStable
-       `sizeAddField` U.bvsIssuersUnstable
-       `sizeAddField` U.bvsLastBlockStable
-       `sizeAddField` U.bvsLastBlockUnstable
-    put (U.BlockVersionState {..}) = do
-        put bvsData
-        put bvsIsConfirmed
-        put bvsIssuersStable
-        put bvsIssuersUnstable
-        put bvsLastBlockStable
-        put bvsLastBlockUnstable
+    sizeNPut = putField U.bvsData
+       `appendField` U.bvsIsConfirmed
+       `appendField` U.bvsIssuersStable
+       `appendField` U.bvsIssuersUnstable
+       `appendField` U.bvsLastBlockStable
+       `appendField` U.bvsLastBlockUnstable
     get = label "BlockVersionState" $ do
         bvsData <- get
         bvsIsConfirmed <- get

@@ -198,7 +198,6 @@ swaggerSpecForWalletApi = toSwagger W.walletApi
     & wop @W.NewPayment             . description ?~ D.newPayment
     & wop @W.NewPaymentExt          . description ?~ D.newPaymentExt
     & wop @W.UpdateTx               . description ?~ D.updateTx
-    & wop @W.GetHistory             . description ?~ D.getHistory
     & wop @W.SearchHistory          . description ?~ D.searchHistory
 
     & wop @W.NextUpdate             . description ?~ D.nextUpdate

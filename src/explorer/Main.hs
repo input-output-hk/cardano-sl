@@ -1,152 +1,135 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 
 module Main where
 
-import           Data.Maybe          (fromJust)
-import           Formatting          (sformat, shown, (%))
-import           Mockable            (Production, currentTime)
-import           System.Wlog         (CanLog, HasLoggerName, LoggerName, logInfo)
 import           Universum
 
-import           Pos.Binary          ()
-import qualified Pos.CLI             as CLI
-import           Pos.Core.Types      (Timestamp (..))
-import           Pos.Crypto          (SecretKey, VssKeyPair, keyGen, vssKeyGen)
+import           Control.Monad.Trans        (MonadTrans (..))
+import qualified Data.ByteString.Char8      as BS8 (unpack)
+import           Data.Maybe                 (fromJust)
+import           Data.Time.Clock.POSIX      (getPOSIXTime)
+import           Data.Time.Units            (toMicroseconds)
+import qualified Ether
+import           Formatting                 (sformat, shown, (%))
+import           Mockable                   (Production, currentTime)
+import           Network.Transport.Abstract (Transport, hoistTransport)
+import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
+import           Node                       (hoistSendActions)
+import           Serokell.Util              (sec)
+import           System.Wlog                (logInfo)
+
+import           Pos.Binary                 ()
+import qualified Pos.CLI                    as CLI
+import           Pos.Communication          (ActionSpec (..), OutSpecs, WorkerSpec,
+                                             worker, wrapActionSpec)
+import           Pos.Context                (recoveryCommGuard)
+import           Pos.Core.Types             (Timestamp (..))
+import           Pos.DHT.Workers            (dhtWorkers)
+import           Pos.Discovery              (askDHTInstance, runDiscoveryKademliaT)
 #ifndef DEV_MODE
-import           Pos.Genesis         (genesisStakeDistribution)
+import           Pos.Genesis                (genesisStakeDistribution)
 #endif
-import           Pos.Genesis         (genesisUtxo)
-import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
-                                      NodeParams (..), RealModeResources,
-                                      bracketResources, runNodeProduction, stakesDistr)
-import           Pos.Ssc.GodTossing  (GtParams (..), SscGodTossing)
-import           Pos.Types           (Timestamp (Timestamp))
-import           Pos.Update          (UpdateParams (..))
-import           Pos.Util            (inAssertMode, mconcatPair)
-import           Pos.Util.UserSecret (UserSecret, peekUserSecret, usPrimKey, usVss,
-                                      writeUserSecret)
+import           Pos.DHT.Real               (KademliaDHTInstance (..),
+                                             foreverRejoinNetwork)
+import           Pos.Launcher               (NodeParams (..), bracketResourcesKademlia,
+                                             runNodeProduction)
+import           Pos.Shutdown               (triggerShutdown)
+import           Pos.Ssc.Class              (SscConstraint)
+import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Types                  (Timestamp (Timestamp))
+import           Pos.Update.Context         (ucUpdateSemaphore)
+import           Pos.Util                   (inAssertMode, mconcatPair)
+import           Pos.Util.UserSecret        (usVss)
+import           Pos.Util.Util              (powerLift)
+import           Pos.WorkMode               (ProductionMode, RawRealMode, WorkMode)
 
-import           Pos.Explorer.Socket (NotifierSettings (..))
-import           Pos.Explorer.Web    (explorerPlugin, notifierPlugin)
+import           Pos.Explorer.Socket        (NotifierSettings (..))
+import           Pos.Explorer.Web           (explorerPlugin, notifierPlugin)
 
-import           ExplorerOptions     (Args (..), getExplorerOptions)
+import           ExplorerOptions            (Args (..), getExplorerOptions)
+import           Params                     (getBaseParams, getKademliaParams,
+                                             getNodeParams, gtSscParams)
 
-loggingParams :: LoggerName -> Args -> LoggingParams
-loggingParams tag Args{..} =
-    LoggingParams
-    { lpHandlerPrefix = CLI.logPrefix commonArgs
-    , lpConfigPath    = CLI.logConfig commonArgs
-    , lpRunnerTag     = tag
-    , lpEkgPort       = monitorPort
-    }
-
-baseParams :: LoggerName -> Args -> BaseParams
-baseParams loggingTag args@Args {..} =
-    BaseParams
-    { bpLoggingParams = loggingParams loggingTag args
-    , bpBindAddress = ipPort
-    , bpPublicHost = publicHost
-    , bpDHTPeers = CLI.dhtPeers commonArgs
-    , bpDHTKey = dhtKey
-    , bpDHTExplicitInitial = CLI.dhtExplicitInitial commonArgs
-    , bpKademliaDump = kademliaDumpPath
-    }
-
-action :: Args -> RealModeResources -> Production ()
-action args@Args {..} res = do
-    let systemStart = CLI.sysStart commonArgs
+action
+    :: KademliaDHTInstance
+    -> Args
+    -> (forall ssc . Transport (RawRealMode ssc))
+    -> Production ()
+action kad args@Args {..} transport = do
+    systemStart <- getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-
     currentParams <- getNodeParams args systemStart
 
-    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-        gtParams = gtSscParams args vssSK
-
     putText "Running using GodTossing"
+    let wDhtWorkers :: WorkMode SscGodTossing m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
+        wDhtWorkers = (\(ws, outs) -> (map (fst . recoveryCommGuard . (, outs)) ws, outs)) . -- TODO simplify
+                      first (map $ wrapActionSpec $ "worker" <> "dht") . dhtWorkers
+
     let plugins = mconcatPair
             [ explorerPlugin webPort
             , notifierPlugin NotifierSettings{ nsPort = notifierPort }
+            , wDhtWorkers kad
+            , utwProd
             ]
-    runNodeProduction @SscGodTossing res plugins currentParams gtParams
 
-userSecretWithGenesisKey
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m (SecretKey, UserSecret)
-userSecretWithGenesisKey _ = fetchPrimaryKey
+    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+    let gtParams = gtSscParams args vssSK
 
-getKeyfilePath :: Args -> FilePath
-getKeyfilePath = keyfilePath
+    runNodeProduction @SscGodTossing
+        kad
+        transportR
+        plugins
+        currentParams
+        gtParams
+  where
+    transportR ::
+        forall ssc t0 .
+        ( MonadTrans t0
+        , Monad (t0 (RawRealMode ssc))
+        )
+        => Transport (t0 (RawRealMode ssc))
+    transportR = hoistTransport lift transport
 
-updateUserSecretVSS
-    :: (MonadIO m, MonadFail m) => Args -> UserSecret -> m UserSecret
-updateUserSecretVSS _ = fillUserSecretVSS
+utwProd :: SscConstraint ssc => ([WorkerSpec (ProductionMode ssc)], OutSpecs)
+utwProd = first (map liftPlugin) updateTriggerWorker
+  where
+    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
+        ki <- askDHTInstance
+        lift . p vI $ hoistSendActions (runDiscoveryKademliaT ki) lift sa
 
-fetchPrimaryKey :: (MonadIO m, MonadFail m) => UserSecret -> m (SecretKey, UserSecret)
-fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of
-    Just sk -> return (sk, userSecret)
-    Nothing -> do
-        putText "Found no signing keys in keyfile, generating random one..."
-        sk <- snd <$> keyGen
-        let us = userSecret & usPrimKey .~ Just sk
-        writeUserSecret us
-        return (sk, us)
+updateTriggerWorker
+    :: SscConstraint ssc
+    => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
+updateTriggerWorker = first pure $ worker mempty $ \_ -> do
+    logInfo "Update trigger worker is locked"
+    void $ takeMVar =<< Ether.asks' ucUpdateSemaphore
+    triggerShutdown
 
-fillUserSecretVSS :: (MonadIO m, MonadFail m) => UserSecret -> m UserSecret
-fillUserSecretVSS userSecret = case userSecret ^. usVss of
-    Just _  -> return userSecret
-    Nothing -> do
-        putText "Found no VSS keypair in keyfile, generating random one..."
-        vss <- vssKeyGen
-        let us = userSecret & usVss .~ Just vss
-        writeUserSecret us
-        return us
-
-getNodeParams :: (MonadIO m, MonadFail m, MonadThrow m, CanLog m, HasLoggerName m) => Args -> Timestamp -> m NodeParams
-getNodeParams args@Args {..} systemStart = do
-    (primarySK, userSecret) <-
-        userSecretWithGenesisKey args =<<
-        updateUserSecretVSS args =<<
-        peekUserSecret (getKeyfilePath args)
-
-    return NodeParams
-        { npDbPathM = dbPath
-        , npRebuildDb = rebuildDB
-        , npSecretKey = primarySK
-        , npUserSecret = userSecret
-        , npSystemStart = systemStart
-        , npBaseParams = baseParams "node" args
-        , npCustomUtxo =
-                genesisUtxo $
-#ifdef DEV_MODE
-                stakesDistr (CLI.flatDistr commonArgs)
-                            (CLI.bitcoinDistr commonArgs)
-                            (CLI.richPoorDistr commonArgs)
-                            (CLI.expDistr commonArgs)
-#else
-                genesisStakeDistribution
-#endif
-        , npTimeLord = timeLord
-        , npJLFile = jlPath
-        , npAttackTypes = []
-        , npAttackTargets = []
-        , npPropagation = not (CLI.disablePropagation commonArgs)
-        , npUpdateParams = UpdateParams
-            { upUpdatePath = "explorer-update"
-            , upUpdateWithPkg = True
-            , upUpdateServers = CLI.updateServers commonArgs
-            }
-        , npReportServers = CLI.reportServers commonArgs
-        }
-
-gtSscParams :: Args -> VssKeyPair -> GtParams
-gtSscParams Args {..} vssSK =
-    GtParams
-    { gtpSscEnabled = True
-    , gtpVssKeyPair = vssSK
-    }
+getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
+getNodeSystemStart cliOrConfigSystemStart
+  | cliOrConfigSystemStart >= 1400000000 =
+    -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
+    -- It was chosen arbitrarily as some date far enough in the past.
+    -- See CSL-983 for more information.
+    pure cliOrConfigSystemStart
+  | otherwise = do
+    let frameLength = timestampToSeconds cliOrConfigSystemStart
+    currentPOSIXTime <- liftIO $ round <$> getPOSIXTime
+    -- The whole timeline is split into frames, with the first frame starting
+    -- at UNIX epoch start. We're looking for a time `t` which would be in the
+    -- middle of the same frame as the current UNIX time.
+    let currentFrame = currentPOSIXTime `div` frameLength
+        t = currentFrame * frameLength + (frameLength `div` 2)
+    pure $ Timestamp $ sec $ fromIntegral t
+  where
+    timestampToSeconds :: Timestamp -> Integer
+    timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
 
 printFlags :: IO ()
 printFlags = do
@@ -159,6 +142,17 @@ printFlags = do
 
 main :: IO ()
 main = do
-    printFlags
     args <- getExplorerOptions
-    bracketResources (baseParams "node" args) (action args)
+    printFlags
+    let baseParams = getBaseParams "node" args
+    let (bindHost, bindPort) = bindAddress args
+    let (externalHost, externalPort) = externalAddress args
+    let tcpAddr = TCP.Addressable $
+            TCP.TCPAddrInfo (BS8.unpack bindHost) (show $ bindPort)
+                            (const (BS8.unpack externalHost, show $ externalPort))
+    kademliaParams <- liftIO $ getKademliaParams args
+    bracketResourcesKademlia baseParams tcpAddr kademliaParams $ \kademliaInstance transport ->
+        let transport' = hoistTransport
+                (powerLift :: forall ssc t . Production t -> RawRealMode ssc t)
+                transport
+        in  foreverRejoinNetwork kademliaInstance (action kademliaInstance args transport')

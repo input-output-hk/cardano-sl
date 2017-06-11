@@ -22,8 +22,8 @@ import qualified GHC.Exts                         as Exts
 import           Network.EngineIO                 (SocketId)
 import           Network.EngineIO.Snap            (snapAPI)
 import           Network.SocketIO                 (RoutingTable, Socket,
-                                                   appendDisconnectHandler, initialize,
-                                                   socketId)
+                                                   appendDisconnectHandler,
+                                                   initialize, socketId)
 import           Pos.Core                         (addressF)
 import qualified Pos.DB.GState                    as DB
 import           Pos.Ssc.Class                    (SscHelpersClass)
@@ -32,37 +32,48 @@ import           Snap.Core                        (MonadSnap, route)
 import qualified Snap.CORS                        as CORS
 import           Snap.Http.Server                 (httpServe)
 import qualified Snap.Internal.Http.Server.Config as Config
-import           System.Wlog                      (CanLog, LoggerName, NamedPureLogger,
+import           System.Wlog                      (CanLog, LoggerName,
+                                                   NamedPureLogger,
                                                    Severity (..), WithLogger,
-                                                   getLoggerName, logDebug, logInfo,
-                                                   logMessage, logWarning,
-                                                   modifyLoggerName, usingLoggerName)
+                                                   getLoggerName, logDebug,
+                                                   logInfo, logMessage,
+                                                   logWarning, modifyLoggerName,
+                                                   usingLoggerName)
 import           Universum                        hiding (on)
 
 import           Pos.Explorer.Aeson.ClientTypes   ()
-import           Pos.Explorer.Socket.Holder       (ConnectionsState, ConnectionsVar,
-                                                   askingConnState, mkConnectionsState,
+import           Pos.Explorer.Socket.Holder       (ConnectionsState,
+                                                   ConnectionsVar,
+                                                   askingConnState,
+                                                   mkConnectionsState,
                                                    withConnState)
-import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent (..),
-                                                   Subscription (..), finishSession,
-                                                   getBlockTxs, getBlocksFromTo,
-                                                   getTxInfo, groupTxsInfo,
+import           Pos.Explorer.Socket.Methods      (ClientEvent (..),
+                                                   ServerEvent (..),
+                                                   Subscription (..),
+                                                   finishSession, getBlockTxs,
+                                                   getBlocksFromTo, getTxInfo,
+                                                   groupTxsInfo,
                                                    notifyAddrSubscribers,
+                                                   notifyBlocksLastPageSubscribers,
                                                    notifyBlocksOffSubscribers,
                                                    notifyBlocksSubscribers,
-                                                   notifyBlocksLastPageSubscribers,
-                                                   notifyTxsSubscribers, startSession,
-                                                   subscribeAddr, subscribeBlocks,
+                                                   notifyTxsSubscribers,
+                                                   startSession, subscribeAddr,
+                                                   subscribeBlocks,
                                                    subscribeBlocksLastPage,
-                                                   subscribeBlocksOff, subscribeTxs,
-                                                   unsubscribeAddr, unsubscribeBlocks,
-                                                   unsubscribeBlocksOff, 
-                                                   unsubscribeBlocksLastPage, 
+                                                   subscribeBlocksOff,
+                                                   subscribeTxs,
+                                                   unsubscribeAddr,
+                                                   unsubscribeBlocks,
+                                                   unsubscribeBlocksLastPage,
+                                                   unsubscribeBlocksOff,
                                                    unsubscribeTxs)
-import           Pos.Explorer.Socket.Util         (emit, emitJSON, forkAccompanion, on,
-                                                   on_, runPeriodicallyUnless)
+import           Pos.Explorer.Socket.Util         (emit, emitJSON,
+                                                   forkAccompanion, on, on_,
+                                                   runPeriodicallyUnless)
 import           Pos.Explorer.Web.ClientTypes     (CTxId, cteId)
 import           Pos.Explorer.Web.Server          (ExplorerMode, getMempoolTxs)
+
 
 data NotifierSettings = NotifierSettings
     { nsPort :: Word16
@@ -149,7 +160,7 @@ periodicPollChanges connVar closed =
                 if mWasBlock == Just curBlock
                     then return Nothing
                     else forM mWasBlock $ \wasBlock -> do
-                        mBlocks <- getBlocksFromTo @ssc curBlock wasBlock
+                        mBlocks <- getBlocksFromTo curBlock wasBlock
                         case mBlocks of
                             Nothing     -> do
                                 logWarning "Failed to fetch blocks from db"

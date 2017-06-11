@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes    #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Pos.Explorer.Web.Transform
@@ -6,36 +7,41 @@ module Pos.Explorer.Web.Transform
        , notifierPlugin
        ) where
 
-import           Control.Concurrent.STM      (TVar)
 import qualified Control.Monad.Catch         as Catch (Handler (..), catches)
 import           Control.Monad.Except        (MonadError (throwError))
+import           Data.Tagged                 (Tagged (..))
+import qualified Ether
 import           Mockable                    (runProduction)
 import           Servant.Server              (Handler)
 import           Servant.Utils.Enter         ((:~>) (..), enter)
 import           System.Wlog                 (usingLoggerName)
 import           Universum
 
+import           Pos.Block.BListener         (runBListenerStub)
+import           Pos.Client.Txp.Balances     (runBalancesRedirect)
+import           Pos.Client.Txp.History      (runTxHistoryRedirect)
 import           Pos.Communication           (OutSpecs, PeerStateSnapshot, SendActions,
                                               WithPeerState (..), WorkerSpec,
-                                              getAllStates, peerStateFromSnapshot,
-                                              runPeerStateHolder, worker)
-import           Pos.Context                 (NodeContext, getNodeContext,
-                                              runContextHolder)
-import           Pos.DB                      (NodeDBs, getNodeDBs, runDBHolder)
-import           Pos.Delegation              (DelegationWrap, askDelegationState,
-                                              runDelegationTFromTVar)
-import           Pos.DHT.Real.Real           (runKademliaDHT)
-import           Pos.DHT.Real.Types          (KademliaDHTInstance (..),
-                                              getKademliaDHTInstance)
-import           Pos.Slotting                (NtpSlotting (..), NtpSlottingVar,
-                                              SlottingHolder (..), SlottingVar,
-                                              runNtpSlotting, runSlottingHolder)
-import           Pos.Ssc.Extra               (SscHolder (..), SscState, runSscHolder)
+                                              getAllStates, peerStateFromSnapshot, worker)
+import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect)
+import           Pos.Context                 (NodeContext, NodeContextTag)
+import           Pos.DB                      (NodeDBs, getNodeDBs, runDBPureRedirect)
+import           Pos.DB.Block                (runBlockDBRedirect)
+import           Pos.DB.DB                   (runGStateCoreRedirect)
+import           Pos.Delegation              (DelegationVar, askDelegationState)
+import           Pos.DHT.Real                (KademliaDHTInstance)
+import           Pos.Discovery               (askDHTInstance, runDiscoveryKademliaT)
+import           Pos.Slotting                (NtpSlottingVar, SlottingVar,
+                                              askFullNtpSlotting, askSlotting,
+                                              runSlotsDataRedirect)
+import           Pos.Slotting.Ntp            (runSlotsRedirect)
+import           Pos.Ssc.Extra               (SscMemTag, SscState, askSscMem)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
-import           Pos.Statistics              (getNoStatsT)
-import           Pos.Txp                     (GenericTxpLocalData, askTxpMem,
-                                              runTxpHolder)
-import           Pos.WorkMode                (ProductionMode)
+import           Pos.Txp                     (GenericTxpLocalData, TxpHolderTag,
+                                              askTxpMem)
+import           Pos.Wallet                  (runBlockchainInfoRedirect,
+                                              runUpdatesRedirect)
+import           Pos.WorkMode                (ProductionMode, RawRealMode (..))
 
 import           Pos.Explorer                (ExplorerExtra)
 import           Pos.Explorer.Socket.App     (NotifierSettings, notifierApp)
@@ -61,15 +67,15 @@ explorerServeWebReal sendActions = explorerServeImpl . explorerApp $
 
 nat :: ExplorerProd (ExplorerProd :~> Handler)
 nat = do
-    kinst      <- lift getKademliaDHTInstance
+    kinst      <- askDHTInstance
     tlw        <- askTxpMem
-    ssc        <- lift . lift . lift . lift . lift $ SscHolder ask
+    ssc        <- askSscMem
     delWrap    <- askDelegationState
     psCtx      <- getAllStates
-    nc         <- getNodeContext
+    nc         <- Ether.ask @NodeContextTag
     modernDB   <- getNodeDBs
-    slotVar    <- lift . lift . lift . lift . lift . lift . lift $ SlottingHolder ask
-    ntpSlotVar <- lift . lift . lift . lift . lift . lift $ NtpSlotting ask
+    slotVar    <- askSlotting
+    ntpSlotVar <- askFullNtpSlotting
     pure $ NT (convertHandler kinst nc modernDB tlw ssc delWrap psCtx slotVar ntpSlotVar)
 
 convertHandler
@@ -78,27 +84,41 @@ convertHandler
     -> NodeDBs
     -> GenericTxpLocalData ExplorerExtra
     -> SscState SscGodTossing
-    -> TVar DelegationWrap
+    -> DelegationVar
     -> PeerStateSnapshot
     -> SlottingVar
-    -> NtpSlottingVar
+    -> (Bool, NtpSlottingVar)
     -> ExplorerProd a
     -> Handler a
 convertHandler kinst nc modernDBs tlw ssc delWrap psCtx slotVar ntpSlotVar handler =
-    liftIO ( runProduction
-           . usingLoggerName "explorer-api"
-           . runDBHolder modernDBs
-           . runContextHolder nc
-           . runSlottingHolder slotVar
-           . runNtpSlotting ntpSlotVar
-           . runSscHolder ssc
-           . runTxpHolder tlw
-           . runDelegationTFromTVar delWrap
-           . runKademliaDHT kinst
-           . (\m -> flip runPeerStateHolder m =<< peerStateFromSnapshot psCtx)
-           . getNoStatsT
-           $ handler
-           ) `Catch.catches` excHandlers
+    liftIO (rawRunner . runDiscoveryKademliaT kinst $ handler) `Catch.catches` excHandlers
   where
+    rawRunner :: forall t . RawRealMode SscGodTossing t -> IO t
+    rawRunner (RawRealMode act) = runProduction
+           . usingLoggerName "explorer-api"
+           . flip Ether.runReadersT nc
+           . (\m -> do
+               peerStateCtx <- peerStateFromSnapshot psCtx
+               Ether.runReadersT m
+                   ( Tagged @NodeDBs modernDBs
+                   , Tagged @SlottingVar slotVar
+                   , Tagged @(Bool, NtpSlottingVar) ntpSlotVar
+                   , Tagged @SscMemTag ssc
+                   , Tagged @TxpHolderTag tlw
+                   , Tagged @DelegationVar delWrap
+                   , Tagged @PeerStateTag peerStateCtx
+                   ))
+           . runDBPureRedirect
+           . runBlockDBRedirect
+           . runSlotsDataRedirect
+           . runSlotsRedirect
+           . runBalancesRedirect
+           . runTxHistoryRedirect
+           . runPeerStateRedirect
+           . runGStateCoreRedirect
+           . runUpdatesRedirect
+           . runBlockchainInfoRedirect
+           . runBListenerStub
+           $ act
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError

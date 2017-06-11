@@ -438,7 +438,8 @@ library
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  -- for explorer linking see https://ghc.haskell.org/trac/ghc/ticket/13810
+  if os(linux) && !flag(with-explorer)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 

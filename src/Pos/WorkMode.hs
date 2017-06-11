@@ -19,8 +19,8 @@ import           Universum
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Fix
 import           Control.Monad.Morph            (hoist)
+import           Control.Monad.Trans.Control    (MonadBaseControl (..))
 import qualified Control.Monad.Trans.Lift.Local as Lift
-import           Control.Monad.Trans.Resource   (MonadResource, ResourceT)
 import           Data.Coerce
 import           Data.Tagged                    (Tagged)
 import qualified Ether
@@ -79,10 +79,10 @@ type RealMode' ssc =
         ) (
     Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox (
-    ResourceT Production
+    Production
     )))))))))))
 
-newtype RealMode ssc a = RealMode (RealMode' ssc a)
+newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
   deriving
     ( Functor
     , Applicative
@@ -94,6 +94,11 @@ newtype RealMode ssc a = RealMode (RealMode' ssc a)
     , MonadMask
     , MonadFix
     )
+
+instance MonadBaseControl IO (RealMode ssc) where
+    type StM (RealMode ssc) a = StM (RealMode' ssc) a
+    liftBaseWith f = RealMode $ liftBaseWith $ \q -> f (q . unRealMode)
+    restoreM s = RealMode $ restoreM s
 
 type instance ThreadId (RealMode ssc) = ThreadId Production
 type instance Promise (RealMode ssc) = Promise Production
@@ -111,10 +116,9 @@ deriving instance MonadSlots (RealMode ssc)
 deriving instance MonadDiscovery (RealMode ssc)
 deriving instance MonadGState (RealMode ssc)
 deriving instance MonadDB (RealMode ssc)
-deriving instance MonadResource (RealMode ssc)
 instance MonadDBRead (RealMode ssc) where
     dbGet a b = RealMode $ dbGet a b
-    dbIterSource t p = hoist RealMode $ dbIterSource t p
+    dbIterSource t p = hoist (hoist RealMode) $ dbIterSource t p
 deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
 deriving instance MonadBListener (RealMode ssc)
 -- deriving instance MonadUpdates (RealMode ssc)

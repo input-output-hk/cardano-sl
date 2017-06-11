@@ -27,6 +27,7 @@ import qualified Ether
 import           Formatting              (sformat, (%))
 import           Paths_cardano_sl        (version)
 import           Serokell.Util.Text      (listJson)
+import           System.Wlog             (WithLogger)
 
 import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
@@ -81,6 +82,7 @@ type BlockMode ssc m
        , SscGStateClass ssc
        -- And 'MonadIO' is needed as usual.
        , MonadIO m
+       , WithLogger m -- TMP
        )
 
 -- | Set of constraints necessary for high-level block verification.

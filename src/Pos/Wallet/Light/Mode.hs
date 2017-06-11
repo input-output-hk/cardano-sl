@@ -12,9 +12,9 @@ import           Universum
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Fix              (MonadFix)
 import           Control.Monad.Morph            (hoist)
+import           Control.Monad.Trans.Control    (MonadBaseControl (..))
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import qualified Control.Monad.Trans.Lift.Local as Lift
-import           Control.Monad.Trans.Resource   (MonadResource, ResourceT)
 import           Data.Coerce                    (coerce)
 import           Data.Tagged                    (Tagged (..))
 import qualified Ether
@@ -63,11 +63,11 @@ type LightWalletMode' =
         , Tagged ReportingContext ReportingContext
         ) (
     LoggerNameBox (
-    ResourceT (
     Production
-    )))))))))))))
+    ))))))))))))
 
-newtype LightWalletMode a = LightWalletMode (LightWalletMode' a)
+newtype LightWalletMode a =
+    LightWalletMode { unLightWalletMode :: LightWalletMode' a }
   deriving
     ( Functor
     , Applicative
@@ -79,6 +79,12 @@ newtype LightWalletMode a = LightWalletMode (LightWalletMode' a)
     , MonadMask
     , MonadFix
     )
+
+instance MonadBaseControl IO (LightWalletMode) where
+    type StM LightWalletMode a = StM LightWalletMode' a
+    liftBaseWith f = LightWalletMode $ liftBaseWith $ \q -> f (q . unLightWalletMode)
+    restoreM s = LightWalletMode $ restoreM s
+
 type instance ThreadId (LightWalletMode) = ThreadId Production
 type instance Promise (LightWalletMode) = Promise Production
 type instance SharedAtomicT (LightWalletMode) = SharedAtomicT Production
@@ -94,10 +100,9 @@ deriving instance HasLoggerName (LightWalletMode)
 --deriving instance MonadSlots (LightWalletMode)
 deriving instance MonadDiscovery (LightWalletMode)
 deriving instance MonadGState (LightWalletMode)
-deriving instance MonadResource (LightWalletMode)
 instance Ether.MonadReader' NodeDBs Production => MonadDBRead (LightWalletMode) where
     dbGet a b = LightWalletMode $ dbGet a b
-    dbIterSource t p = hoist LightWalletMode $ dbIterSource t p
+    dbIterSource t p = hoist (hoist LightWalletMode) $ dbIterSource t p
 deriving instance MonadBListener (LightWalletMode)
 deriving instance MonadUpdates (LightWalletMode)
 deriving instance MonadBlockchainInfo (LightWalletMode)

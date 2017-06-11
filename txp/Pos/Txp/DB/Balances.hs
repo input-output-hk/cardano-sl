@@ -26,32 +26,34 @@ module Pos.Txp.DB.Balances
        , sanityCheckBalances
        ) where
 
-import           Data.Conduit           (Source, mapOutput, runConduit, (.|))
-import qualified Data.Conduit.List      as CL
-import qualified Data.HashMap.Strict    as HM
+import           Control.Monad.Trans.Resource (ResourceT)
+import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
+import qualified Data.Conduit.List            as CL
+import qualified Data.HashMap.Strict          as HM
 import qualified Data.Text.Buildable
-import qualified Database.RocksDB       as Rocks
-import           Formatting             (bprint, bprint, sformat, (%))
-import           Serokell.Util          (Color (Red), colorize)
-import           System.Wlog            (WithLogger, logError)
+import qualified Database.RocksDB             as Rocks
+import           Formatting                   (bprint, bprint, sformat, (%))
+import           Serokell.Util                (Color (Red), colorize)
+import           System.Wlog                  (WithLogger, logError)
 import           Universum
 
-import           Pos.Binary.Class       (encodeStrict)
-import           Pos.Core               (Coin, StakeholderId, coinF, mkCoin, sumCoins,
-                                         unsafeAddCoin, unsafeIntegerToCoin)
-import qualified Pos.Core.Constants     as Const
-import           Pos.Core.Genesis       (genesisBalances)
-import           Pos.Crypto             (shortHashF)
-import           Pos.DB                 (DBError (..), DBTag (GStateDB), IterType,
-                                         MonadDB, MonadDBRead, RocksBatchOp (..),
-                                         dbIterSource)
-import           Pos.DB.GState.Balances (BalanceIter, ftsStakeKey, ftsSumKey,
-                                         getRealStake, getRealStakeSumMaybe,
-                                         getRealTotalStake)
-import           Pos.DB.GState.Common   (gsPutBi)
-import           Pos.Txp.Core           (txOutStake)
-import           Pos.Txp.Toil.Types     (Utxo)
-import           Pos.Txp.Toil.Utxo      (utxoToStakes)
+import           Pos.Binary.Class             (encodeStrict)
+import           Pos.Core                     (Coin, StakeholderId, coinF, mkCoin,
+                                               sumCoins, unsafeAddCoin,
+                                               unsafeIntegerToCoin)
+import qualified Pos.Core.Constants           as Const
+import           Pos.Core.Genesis             (genesisBalances)
+import           Pos.Crypto                   (shortHashF)
+import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
+                                               MonadDB, MonadDBRead, RocksBatchOp (..),
+                                               dbIterSource)
+import           Pos.DB.GState.Balances       (BalanceIter, ftsStakeKey, ftsSumKey,
+                                               getRealStake, getRealStakeSumMaybe,
+                                               getRealTotalStake)
+import           Pos.DB.GState.Common         (gsPutBi)
+import           Pos.Txp.Core                 (txOutStake)
+import           Pos.Txp.Toil.Types           (Utxo)
+import           Pos.Txp.Toil.Utxo            (utxoToStakes)
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -122,9 +124,9 @@ putTotalFtsStake = gsPutBi ftsSumKey
 -- | Run iterator over effective balances.
 balanceSource
     :: forall m . (MonadDBRead m)
-    => Source m (IterType BalanceIter)
+    => Source (ResourceT m) (IterType BalanceIter)
 balanceSource =
-    ifM isBootstrapEra
+    ifM (lift isBootstrapEra)
         (dbIterSource GStateDB (Proxy @BalanceIter))
         (CL.sourceList $ HM.toList genesisBalances)
 
@@ -137,7 +139,7 @@ sanityCheckBalances
     => m ()
 sanityCheckBalances = do
     calculatedTotalStake <-
-        runConduit $
+        runConduitRes $
         mapOutput snd (dbIterSource GStateDB (Proxy @BalanceIter)) .|
         CL.fold unsafeAddCoin (mkCoin 0)
 

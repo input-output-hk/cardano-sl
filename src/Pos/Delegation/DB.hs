@@ -44,23 +44,25 @@ module Pos.Delegation.DB
 
 import           Universum
 
-import           Control.Lens           (uses, (%=))
-import           Data.Conduit           (Source, mapOutput)
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.HashSet           as HS
-import qualified Database.RocksDB       as Rocks
-import           Formatting             (build, sformat, (%))
+import           Control.Lens                 (uses, (%=))
+import           Control.Monad.Trans.Resource (ResourceT)
+import           Data.Conduit                 (Source, mapOutput)
+import qualified Data.HashMap.Strict          as HM
+import qualified Data.HashSet                 as HS
+import qualified Database.RocksDB             as Rocks
+import           Formatting                   (build, sformat, (%))
 
-import           Pos.Binary.Class       (encodeStrict)
-import           Pos.Crypto             (PublicKey, pskDelegatePk, pskIssuerPk,
-                                         verifyProxySecretKey)
-import           Pos.DB                 (DBError (DBMalformed), DBIteratorClass (..),
-                                         DBTag (GStateDB), MonadDBRead, RocksBatchOp (..),
-                                         dbIterSource, encodeWithKeyPrefix)
-import           Pos.DB.GState.Common   (gsGetBi)
-import           Pos.Delegation.Helpers (isRevokePsk)
-import           Pos.Delegation.Types   (DlgMemPool)
-import           Pos.Types              (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Binary.Class             (encodeStrict)
+import           Pos.Crypto                   (PublicKey, pskDelegatePk, pskIssuerPk,
+                                               verifyProxySecretKey)
+import           Pos.DB                       (DBError (DBMalformed),
+                                               DBIteratorClass (..), DBTag (GStateDB),
+                                               MonadDBRead, RocksBatchOp (..),
+                                               dbIterSource, encodeWithKeyPrefix)
+import           Pos.DB.GState.Common         (gsGetBi)
+import           Pos.Delegation.Helpers       (isRevokePsk)
+import           Pos.Delegation.Types         (DlgMemPool)
+import           Pos.Types                    (ProxySKHeavy, StakeholderId, addressHash)
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors
@@ -224,7 +226,7 @@ instance DBIteratorClass DlgTransRevIter where
 --
 -- NB. It's not called @getIssuers@ because we already have issuers (i.e.
 -- block issuers)
-getDelegators :: MonadDBRead m => Source m (StakeholderId, HashSet StakeholderId)
+getDelegators :: MonadDBRead m => Source (ResourceT m) (StakeholderId, HashSet StakeholderId)
 getDelegators = mapOutput conv $ dbIterSource GStateDB (Proxy @DlgTransRevIter)
   where
     conv (addressHash -> del, issuers) = (del, HS.map addressHash issuers)

@@ -79,6 +79,7 @@ library
                      , node-sketch
                      , parsec
                      , rocksdb
+                     , resourcet
                      , safecopy
                      , serokell-util
                      , stm

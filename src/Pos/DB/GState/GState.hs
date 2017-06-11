@@ -13,7 +13,7 @@ import           Universum
 import           Control.Monad.Catch        (MonadMask)
 import qualified Database.RocksDB           as Rocks
 import qualified Ether
-import           System.Wlog                (WithLogger)
+import           System.Wlog                (WithLogger, logDebug)
 
 import           Pos.Context.Context        (GenesisUtxo (..), NodeParams (..))
 import           Pos.Context.Functions      (genesisUtxoM)
@@ -53,8 +53,12 @@ sanityCheckGStateDB
        (MonadDBRead m, MonadMask m, WithLogger m)
     => m ()
 sanityCheckGStateDB = do
+    logDebug "sanityCheckBalances..."
     sanityCheckBalances
-    sanityCheckUtxo =<< getRealTotalStake
+    logDebug "getRealTotalStake..."
+    totalStake <- getRealTotalStake
+    logDebug "sanityCheckUtxo..."
+    sanityCheckUtxo totalStake
 
 usingGStateSnapshot :: (MonadRealDB m, MonadMask m) => m a -> m a
 usingGStateSnapshot action = do

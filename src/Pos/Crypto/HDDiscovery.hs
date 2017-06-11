@@ -8,7 +8,7 @@ module Pos.Crypto.HDDiscovery
 
 import           Universum
 
-import           Data.Conduit        (mapOutput, runConduit, (.|))
+import           Data.Conduit        (mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List   as CL
 
 import           Pos.Core.Types      (Address (..), addrPkDerivationPath)
@@ -27,7 +27,9 @@ discoverHDAddress walletPassphrase =
 
 discoverHDAddresses :: MonadDBRead m => [HDPassphrase] -> m [[(Address, [Word32])]]
 discoverHDAddresses walletPassphrases =
-    runConduit $ mapOutput outAddr utxoSource .| CL.fold step initWallets
+    runConduitRes $
+        mapOutput outAddr utxoSource .|
+        CL.fold step initWallets
   where
     initWallets = replicate (length walletPassphrases) []
     utxoSource = dbIterSource GStateDB (Proxy @UtxoIter)

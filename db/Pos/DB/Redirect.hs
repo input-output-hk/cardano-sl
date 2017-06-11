@@ -16,7 +16,7 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString              as BS (isPrefixOf)
 import           Data.Coerce                  (coerce)
-import           Data.Conduit                 (ConduitM, Source, bracketP, yield)
+import           Data.Conduit                 (ConduitM, Source, yield)
 import qualified Database.RocksDB             as Rocks
 import qualified Ether
 import           Formatting                   (sformat, shown, string, (%))
@@ -75,11 +75,11 @@ iteratorSource ::
     -> Proxy i
     -> Source m (IterType i)
 iteratorSource tag _ = do
-    DB {..} <- view (dbTagToLens tag) <$> lift getNodeDBs
-    bracketP (Rocks.createIter rocksDB rocksReadOpts) Rocks.releaseIter $ \it -> do
-        lift $ Rocks.iterSeek it (iterKeyPrefix @i)
-        produce it
-  where
+    DB{..} <- view (dbTagToLens tag) <$> lift getNodeDBs
+    iter <- Rocks.iterOpen rocksDB rocksReadOpts
+    Rocks.iterSeek iter (iterKeyPrefix @i)
+    produce iter
+ where
     produce :: Rocks.Iterator -> Source m (IterType i)
     produce it = do
         entryStr <- processRes =<< Rocks.iterEntry it

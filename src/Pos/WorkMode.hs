@@ -83,7 +83,7 @@ type RealMode' ssc =
     ResourceT Production
     )))))))))))
 
-newtype RealMode ssc a = RealMode (RealMode' ssc a)
+newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
   deriving
     ( Functor
     , Applicative
@@ -96,8 +96,10 @@ newtype RealMode ssc a = RealMode (RealMode' ssc a)
     , MonadFix
     )
 
--- TODO FIXME
-instance MonadBaseControl IO (RealMode ssc)
+instance MonadBaseControl IO (RealMode ssc) where
+    type StM (RealMode ssc) a = StM (RealMode' ssc) a
+    liftBaseWith f = RealMode $ liftBaseWith $ \q -> f (q . unRealMode)
+    restoreM s = RealMode $ restoreM s
 
 type instance ThreadId (RealMode ssc) = ThreadId Production
 type instance Promise (RealMode ssc) = Promise Production

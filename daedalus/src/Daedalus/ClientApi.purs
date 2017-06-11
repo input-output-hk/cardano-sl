@@ -475,8 +475,11 @@ updateTransaction = mkEffFn5 \wId ctxId ctmTitle ctmDescription ctmDate -> fromA
 -- | ```
 getHistory :: forall eff. EffFn3 (ajax :: AJAX | eff) String Int Int (Promise Json)
 getHistory = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $
-    B.getHistory
-    (mkCAccountId wId)
+    B.searchHistory
+    Nothing
+    (Just $ mkCAccountId wId)
+    Nothing
+    Nothing
     (Just skip)
     (Just limit)
 
@@ -498,9 +501,10 @@ getHistory = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $
 searchHistory :: forall eff. EffFn4 (ajax :: AJAX | eff) String String Int Int (Promise Json)
 searchHistory = mkEffFn4 \wId search skip limit -> fromAff <<< map encodeJson $
     B.searchHistory
-    (mkCAccountId wId)
     Nothing
-    search
+    (Just $ mkCAccountId wId)
+    Nothing
+    (Just search)
     (Just skip)
     (Just limit)
 
@@ -528,9 +532,10 @@ searchHistory = mkEffFn4 \wId search skip limit -> fromAff <<< map encodeJson $
 searchAccountHistory :: forall eff. EffFn5 (ajax :: AJAX | eff) String String String Int Int (Promise Json)
 searchAccountHistory = mkEffFn5 \wId account search skip limit -> fromAff <<< map encodeJson $
     B.searchHistory
-    (mkCAccountId wId)
+    Nothing
+    (Just $ mkCAccountId wId)
     (Just $ mkCId account)
-    search
+    (Just search)
     (Just skip)
     (Just limit)
 

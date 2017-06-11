@@ -28,8 +28,7 @@ module Pos.Util.UserSecret
 
 import           Control.Exception     (onException)
 import           Control.Lens          (makeLenses, to)
-import           Data.Binary.Get       (label)
-import qualified Data.ByteString.Lazy  as BSL
+import qualified Data.ByteString       as BS
 import           Data.Default          (Default (..))
 import           Formatting            (build, formatToString, (%))
 import qualified Prelude
@@ -39,7 +38,7 @@ import           System.FileLock       (FileLock, SharedExclusive (..), lockFile
 import qualified Turtle                as T
 import           Universum
 
-import           Pos.Binary.Class      (Bi (..), decodeFull, encode)
+import           Pos.Binary.Class      (Bi (..), decodeFull, encode, label, putField)
 import           Pos.Binary.Crypto     ()
 import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
 
@@ -110,11 +109,11 @@ instance Default UserSecret where
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
-    put UserSecret{..} = do
-        put _usVss
-        put _usPrimKey
-        put _usKeys
-        put _usWalletSet
+    sizeNPut =
+        putField _usVss <>
+        putField _usPrimKey <>
+        putField _usKeys <>
+        putField _usWalletSet
     get = label "UserSecret" $ do
         vss <- get
         pkey <- get
@@ -182,7 +181,7 @@ readUserSecret path = do
     ensureModeIs600 path
 #endif
     takeReadLock path $ do
-        content <- either (throwM . RequestError . toText) pure . decodeFull =<< BSL.readFile path
+        content <- either (throwM . RequestError) pure . decodeFull =<< BS.readFile path
         pure $ content & usPath .~ path
 
 -- | Reads user secret from the given file.
@@ -191,7 +190,7 @@ peekUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
 peekUserSecret path = do
     initializeUserSecret path
     takeReadLock path $ do
-        econtent <- decodeFull <$> BSL.readFile path
+        econtent <- decodeFull <$> BS.readFile path
         pure $ either (const def) identity econtent & usPath .~ path
 
 -- | Read user secret putting an exclusive lock on it. To unlock, use
@@ -201,7 +200,7 @@ takeUserSecret path = do
     initializeUserSecret path
     liftIO $ do
         l <- lockFile (lockFilePath path) Exclusive
-        econtent <- decodeFull <$> BSL.readFile path
+        econtent <- decodeFull <$> BS.readFile path
         pure $ either (const def) identity econtent
             & usPath .~ path
             & usLock .~ Just l
@@ -235,7 +234,7 @@ writeRaw u = do
         openBinaryTempFile (takeDirectory path) (takeFileName path)
 
     -- onException rethrows the exception after calling the handler.
-    BSL.hPut tempHandle (encode u) `onException` do
+    BS.hPut tempHandle (encode u) `onException` do
         hClose tempHandle
 
     hClose tempHandle

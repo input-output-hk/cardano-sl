@@ -11,12 +11,13 @@ module Pos.Util.BackupPhrase
        , safeKeysFromPhrase
        ) where
 
-import           Data.Text.Buildable (Buildable (..))
-import qualified Prelude
 import           Universum
 
+import           Data.Text.Buildable (Buildable (..))
+import qualified Prelude
+
 import           Crypto.Hash         (Blake2b_256)
-import           Pos.Binary          (Bi, encode, label)
+import           Pos.Binary          (Bi (..), encode, label, putField)
 import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhrase,
                                       SecretKey, VssKeyPair, deterministicKeyGen,
                                       deterministicVssKeyGen, safeDeterministicKeyGen,
@@ -30,7 +31,7 @@ newtype BackupPhrase = BackupPhrase
     } deriving (Eq, Generic)
 
 instance Bi BackupPhrase where
-    put BackupPhrase{..} = put bpToList
+    sizeNPut = putField bpToList
     get = label "BackupPhrase" $ BackupPhrase <$> get
 
 -- | Number of words in backup phrase

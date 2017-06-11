@@ -17,7 +17,7 @@ import qualified Data.Text.Buildable
 import           Formatting          (Format, bprint, build, later, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi (..), label)
+import           Pos.Binary.Class    (Bi (..), label, putField)
 import           Pos.Crypto          (EncryptedSecretKey, encToPublic)
 import           Pos.Genesis         (accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Types           (addressF, makePubKeyAddress)
@@ -45,11 +45,11 @@ instance Buildable WalletUserSecret where
         pairsF = later $ mconcat . map (uncurry $ bprint ("("%build%", "%build%")"))
 
 instance Bi WalletUserSecret where
-    put WalletUserSecret{..} = do
-        put _wusRootKey
-        put _wusWalletName
-        put _wusAccounts
-        put _wusAddrs
+    sizeNPut =
+        putField _wusRootKey <>
+        putField _wusWalletName <>
+        putField _wusAccounts <>
+        putField _wusAddrs
     get = label "WalletUserSecret" $ do
         _wusRootKey <- get
         _wusWalletName <- get

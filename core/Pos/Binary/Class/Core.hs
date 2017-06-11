@@ -7,30 +7,27 @@
 module Pos.Binary.Class.Core
        ( Bi (..)
        , encode
+       , encodeLazy
        , decodeFull
+       , decodeOrFail
        , getSize
        , biSize
        , label
        -- * Primitives for limiting serialization
        , limitGet
        , isolate64Full
-
-       {-
-       , encode
-       , decode
-       , decodeOrFail
-       , decodeFull
-       -}
        ) where
 
 import           Universum
 
 import           Control.Lens               (_Left)
+import qualified Data.ByteString.Lazy       as BSL
 import           Data.Store                 (PeekException (..), Size)
 import           Data.Store.Core            (Peek (..), PeekResult (..), Poke (..))
 import qualified Data.Store.Core            as Store
 import qualified Data.Store.Internal        as Store
 import           Foreign.Ptr                (minusPtr, plusPtr)
+import           Formatting                 (build, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
 
 ----------------------------------------------------------------------------
@@ -43,6 +40,7 @@ import           Serokell.Data.Memory.Units (Byte)
 -- Write @instance Bi SomeType where@ without any method definitions if you
 -- want to use the 'Binary' instance for your type.
 class Bi t where
+    {-# MINIMAL get, put, size | get, sizeNPut  #-}
     sizeNPut :: (Size t, t -> Poke ())
     sizeNPut = (size, put)
 
@@ -64,6 +62,11 @@ encode :: Bi a => a -> ByteString
 encode x = Store.unsafeEncodeWith (put x) (getSize x)
 {-# INLINE encode #-}
 
+-- | Encode a value to a strict bytestring
+encodeLazy :: Bi a => a -> BSL.ByteString
+encodeLazy x = BSL.fromStrict (Store.unsafeEncodeWith (put x) (getSize x))
+{-# INLINE encodeLazy #-}
+
 getSize :: Bi a => a -> Int
 getSize = Store.getSizeWith size
 {-# INLINE getSize #-}
@@ -75,6 +78,11 @@ biSize = fromIntegral . getSize
 
 decodeFull :: Bi a => ByteString -> Either Text a
 decodeFull = over _Left Store.peekExMessage . Store.decodeWith get
+
+decodeOrFail :: Bi a => ByteString -> a
+decodeOrFail =
+    (either (error . sformat ("Couldn't decode, reason: "%build)) identity) .
+    decodeFull
 
 ----------------------------------------------------------------------------
 -- Basic functions for other modules

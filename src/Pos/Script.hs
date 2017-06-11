@@ -21,6 +21,7 @@ import           Control.Exception          (ArithException (..), ArrayException
                                              PatternMatchFail (..), SomeException (..),
                                              catches, displayException, throwIO)
 import qualified Data.ByteString.Lazy       as BSL
+import qualified Data.Text                  as T
 import qualified Interface.Integration      as PL
 import qualified Interface.Prelude          as PL
 import           Language.Haskell.TH.Syntax (Lift (..), runIO)
@@ -56,7 +57,7 @@ parseValidator :: Bi Script_v0 => Text -> Either String Script
 parseValidator t = do
     scr <- PL.runElabInContexts [stdlib] $ PL.loadValidator (toString t)
     return Script {
-        scrScript = Bi.encode scr,
+        scrScript = Bi.encodeLazy scr,
         scrVersion = 0 }
 
 -- | Parse a script intended to serve as a redeemer (or “proof”) in a
@@ -68,13 +69,13 @@ parseRedeemer :: Bi Script_v0 => Maybe Script -> Text -> Either String Script
 parseRedeemer mbV t = do
     mbValScr <- case (\x -> (scrVersion x, x)) <$> mbV of
         Nothing       -> return Nothing
-        Just (0, val) -> Just <$> Bi.decodeFull (scrScript val)
+        Just (0, val) -> Just <$> first T.unpack (Bi.decodeFull $ BSL.toStrict $ scrScript val)
         Just (v, _)   -> Left ("unknown script version of validator: " ++
                                show v)
     scr <- PL.runElabInContexts (stdlib : maybeToList mbValScr) $
                PL.loadRedeemer (toString t)
     return Script {
-        scrScript = Bi.encode scr,
+        scrScript = Bi.encodeLazy scr,
         scrVersion = 0 }
 
 {-
@@ -117,14 +118,13 @@ txScriptCheck sigData validator redeemer = case spoon result of
         -- TODO: when we support more than one version, complain if versions
         -- don't match
         valScr <- case scrVersion validator of
-            0 -> Bi.decodeFull (scrScript validator)
+            0 -> first T.unpack $ Bi.decodeFull $ BSL.toStrict $ scrScript validator
             v -> Left ("unknown script version of validator: " ++ show v)
         redScr <- case scrVersion redeemer of
-            0 -> Bi.decodeFull (scrScript redeemer)
+            0 -> first T.unpack $ Bi.decodeFull $ BSL.toStrict (scrScript redeemer)
             v -> Left ("unknown script version of redeemer: " ++ show v)
         (script, env) <- PL.buildValidationScript stdlib valScr redScr
-        let taggedSigData = BSL.fromStrict (signTag SignTxIn) <>
-                            Bi.encode sigData
+        let taggedSigData = BSL.fromStrict $ (signTag SignTxIn) <> Bi.encode sigData
         PL.checkValidationResult taggedSigData (script, env)
 
 stdlib :: PLCore.Program

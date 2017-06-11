@@ -2,9 +2,11 @@
 
 module Pos.Crypto.Arbitrary.Unsafe () where
 
+import           Universum
+
+import qualified Data.ByteString.Lazy      as BSL
 import           Test.QuickCheck           (Arbitrary (..), choose)
 import           Test.QuickCheck.Instances ()
-import           Universum
 
 import           Pos.Binary.Class          (Bi)
 import qualified Pos.Binary.Class          as Bi
@@ -18,13 +20,13 @@ import           Pos.Crypto.SignTag        (SignTag)
 import           Pos.Util.Arbitrary        (ArbitraryUnsafe (..), arbitrarySizedSL)
 
 instance Bi PublicKey => ArbitraryUnsafe PublicKey where
-    arbitraryUnsafe = Bi.decode <$> arbitrarySizedSL 32
+    arbitraryUnsafe = Bi.decodeOrFail . BSL.toStrict <$> arbitrarySizedSL 32
 
 instance Bi SecretKey => ArbitraryUnsafe SecretKey where
-    arbitraryUnsafe = Bi.decode <$> arbitrarySizedSL 64
+    arbitraryUnsafe =  Bi.decodeOrFail . BSL.toStrict <$> arbitrarySizedSL 64
 
 instance Bi (Signature a) => ArbitraryUnsafe (Signature a) where
-    arbitraryUnsafe = Bi.decode <$> arbitrarySizedSL 64
+    arbitraryUnsafe =  Bi.decodeOrFail . BSL.toStrict <$> arbitrarySizedSL 64
 
 -- Generating invalid `Signed` objects doesn't make sense even in
 -- benchmarks

@@ -15,9 +15,11 @@ module Pos.Binary.Class.Primitive
 
        -- * Serialization with length
        , putWithLength
+       , putWithLengthS
        , getWithLength
        , getWithLengthLimited
        , putSmallWithLength
+       , putSmallWithLengthS
        , getSmallWithLength
 
        , getBytes
@@ -127,6 +129,9 @@ fromBinaryM = either (fail . T.unpack) return . fromBinary
 putWithLength :: PokeWithSize a -> Poke a
 putWithLength a = put (UnsignedVarInt $ pwsToSize a) *> pwsToPoke a
 
+putWithLengthS :: PokeWithSize a -> PokeWithSize a
+putWithLengthS a = pokeWithSize (UnsignedVarInt $ pwsToSize a) *> a
+
 -- | Read length in bytes and then parse something (which has to have exactly
 -- that length).
 getWithLength :: Peek a -> Peek a
@@ -154,11 +159,14 @@ getWithLengthLimited lim getter = do
 -- Uses 'TinyVarInt' for storing length, thus guaranteeing that it won't take
 -- more than 2 bytes and won't be ambiguous.
 putSmallWithLength :: PokeWithSize a -> Poke a
-putSmallWithLength (PokeWithSize pk len) = do
+putSmallWithLength = pwsToPoke . putSmallWithLengthS
+
+putSmallWithLengthS :: PokeWithSize a -> PokeWithSize a
+putSmallWithLengthS a@(PokeWithSize len _) = do
     if len >= 2^(14::Int)
         then error ("putSmallWithLength: length is " <> show len <>
                     ", but maximum allowed is 16383 (2^14-1)")
-        else put (TinyVarInt (fromIntegral len)) *> pk
+        else pokeWithSize (TinyVarInt (fromIntegral len)) *> a
 
 -- | Like 'getWithLength' but for 'putSmallWithLength'.
 getSmallWithLength :: Peek a -> Peek a
@@ -206,10 +214,3 @@ putBytes :: ByteString -> Poke ()
 putBytes bs =
     reifyNat (fromIntegral $ BS.length bs) $ \(_ :: Proxy n) ->
         Store.poke (Store.toStaticSizeEx bs :: StaticSize n ByteString)
-
--- putByteStringWithSize :: ByteString -> PokeWithSize ()
--- putByteStringWithSize bs =
---     reifyNat (fromIntegral $ BS.length bs) $ \(_ :: Proxy n) ->
---         PokeWithSize
---             (Store.poke (Store.toStaticSizeEx bs :: StaticSize n ByteString))
---             (fromIntegral $ BS.length bs)

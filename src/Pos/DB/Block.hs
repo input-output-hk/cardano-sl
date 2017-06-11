@@ -36,7 +36,6 @@ import           Control.Lens                 (_Wrapped)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.ByteArray               (convert)
 import qualified Data.ByteString              as BS (readFile, writeFile)
-import qualified Data.ByteString.Lazy         as BSL
 import           Data.Coerce                  (coerce)
 import           Data.Default                 (Default (def))
 import qualified Ether
@@ -290,8 +289,7 @@ getData ::  (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
 getData fp = flip catch handle $ liftIO $
     either (\er -> throwM $ DBMalformed $
              sformat ("Couldn't deserialize "%build%", reason: "%build) fp er) pure .
-    decodeFull .
-    BSL.fromStrict <$>
+    decodeFull <$>
     BS.readFile fp
   where
     handle e

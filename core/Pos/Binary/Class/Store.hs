@@ -12,6 +12,7 @@ module Pos.Binary.Class.Store
        , putField
        , appendConst
        , appendField
+       , convertToSizeNPut
        -- * Store re-exports
        , Size(..)
        , Peek
@@ -45,7 +46,6 @@ import           Data.Store.Core            (Peek (..), PeekResult (..), Poke (.
 import qualified Data.Store.Core            as Store
 import           Data.Store.Internal        (PeekException (..), StaticSize (..))
 import qualified Data.Store.Internal        as Store
-import           Data.Word                  (Word32)
 
 import           Pos.Binary.Class.Core      (Bi (..), getSize)
 
@@ -77,10 +77,13 @@ appendConst a x = a <> putConst x
 appendField :: Bi x => (Size a, a -> Poke ()) -> (a -> x) -> (Size a, a -> Poke ())
 appendField a f = a <> putField f
 
+convertToSizeNPut :: (a -> PokeWithSize ()) -> (Size a, a -> Poke ())
+convertToSizeNPut f = (VarSize $ pwsToSize . f, pwsToPoke . f)
+
 constSize :: forall a . Bi a => Int
 constSize =  case size :: Size a of
-  VarSize   _ -> error "constSize: VarSize"
-  ConstSize a -> a
+    VarSize   _ -> error "constSize: VarSize"
+    ConstSize a -> a
 
 execPoke :: Poke a -> Store.PokeState -> Store.Offset -> IO Store.Offset
 execPoke p ptr offset = fst <$> Store.runPoke p ptr offset
@@ -97,21 +100,25 @@ mkPoke f = Store.Poke (\ptr offset -> (,()) <$> f ptr offset)
 -- | A wrapper around Poke, needed for putWithLength-like functions.
 data PokeWithSize a
     = PokeWithSize {
-      pwsToPoke :: !(Poke a)
-    , pwsToSize :: !Word32
+      pwsToSize :: !Int
+    , pwsToPoke :: !(Poke a)
     } deriving (Functor)
 
+instance Monoid a => Monoid (PokeWithSize a) where
+    mempty = PokeWithSize 0 (pure mempty)
+    m1 `mappend` m2 =
+        PokeWithSize  (pwsToSize m1 + pwsToSize m2) (pwsToPoke m1 <> pwsToPoke m2)
+
 instance Applicative PokeWithSize where
-    pure x = PokeWithSize (pure x) 0
+    pure x = PokeWithSize 0 (pure x)
     {-# INLINE pure #-}
-    PokeWithSize f fsz <*> PokeWithSize v vsz = PokeWithSize (f <*> v) (fsz + vsz)
+    PokeWithSize fsz f <*> PokeWithSize vsz v = PokeWithSize (fsz + vsz) (f <*> v)
     {-# INLINE (<*>) #-}
-    PokeWithSize f fsz *> PokeWithSize v vsz = PokeWithSize (f *> v) (fsz + vsz)
+    PokeWithSize fsz f *> PokeWithSize vsz v = PokeWithSize  (fsz + vsz) (f *> v)
     {-# INLINE (*>) #-}
 
 pokeWithSize :: Bi a => a -> PokeWithSize ()
-pokeWithSize x = PokeWithSize (put x) (fromIntegral $ getSize x)
-
+pokeWithSize x = PokeWithSize (getSize x) (put x)
 
 -- Instances for tuples with up to 5 elements are provided. There's a TH
 -- generator in the neongreen/THBUG branch, but it doesn't work because,

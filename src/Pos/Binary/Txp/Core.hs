@@ -6,9 +6,10 @@ module Pos.Binary.Txp.Core
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), UnsignedVarInt (..), getRemainingByteString,
-                                     getWithLength, getWord8, label, putByteString,
-                                     putWithLength, putWord8)
+import           Pos.Binary.Class   (Bi (..), PokeWithSize, UnsignedVarInt (..),
+                                     convertToSizeNPut, getWithLength, getWord8, label,
+                                     pokeWithSize, putField, putWithLengthS,
+                                     putWord8WithSize)
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Txp.Core.Types as T
@@ -18,52 +19,56 @@ import qualified Pos.Txp.Core.Types as T
 ----------------------------------------------------------------------------
 
 instance Bi T.TxIn where
-    put (T.TxIn hash index) = put hash >> put (UnsignedVarInt index)
+    sizeNPut = putField T.txInHash <> putField (UnsignedVarInt . T.txInIndex)
     get = label "TxIn" $ T.TxIn <$> get <*> (getUnsignedVarInt <$> get)
 
 instance Bi T.TxOut where
-    put (T.TxOut addr coin) = put addr >> put coin
+    sizeNPut = putField T.txOutAddress <> putField T.txOutValue
     get = label "TxOut" $ T.TxOut <$> get <*> get
 
 instance Bi T.TxOutAux where
-    put (T.TxOutAux out distr) = put out >> put distr
+    sizeNPut = putField T.toaOut <> putField T.toaDistr
     get = label "TxOutAux" $ T.TxOutAux <$> get <*> get
 
 instance Bi T.Tx where
-    put (T.UnsafeTx ins outs attrs) = put ins >> put outs >> put attrs
+    sizeNPut = putField T._txInputs
+            <> putField T._txOutputs
+            <> putField T._txAttributes
     get = label "Tx" $ do
         ins <- get
         outs <- get
         attrs <- get
         T.mkTx ins outs attrs
 
+-- TODO CSL-1122
 instance Bi T.TxInWitness where
-    put (T.PkWitness key sig) = do
-        putWord8 0
-        putWithLength (key, sig)
-    put (T.ScriptWitness val red) = do
-        putWord8 1
-        putWithLength (val, red)
-    put (T.RedeemWitness key sig) = do
-        putWord8 2
-        putWithLength (key, sig)
-    put (T.UnknownWitnessType t bs) = do
-        putWord8 t
-        putWithLength (putByteString bs)
+    sizeNPut = convertToSizeNPut f
+      where
+        withLen :: Bi a => a -> PokeWithSize ()
+        withLen = putWithLengthS . pokeWithSize
+
+        f :: T.TxInWitness -> PokeWithSize ()
+        f (T.PkWitness key sig) =
+            putWord8WithSize 0 <> withLen (key, sig)
+        f (T.ScriptWitness val red) =
+            putWord8WithSize 1 <> withLen (val, red)
+        f (T.RedeemWitness key sig) =
+            putWord8WithSize 2 <> withLen (key, sig)
+        f (T.UnknownWitnessType t bs) =
+            pokeWithSize @Word8 t <> pokeWithSize bs
     get = label "TxInWitness" $ do
         tag <- getWord8
         case tag of
-            0 -> uncurry T.PkWitness <$> getWithLength
-            1 -> uncurry T.ScriptWitness <$> getWithLength
-            2 -> uncurry T.RedeemWitness <$> getWithLength
-            t -> getWithLength (T.UnknownWitnessType t <$>
-                                getRemainingByteString)
+            0 -> uncurry T.PkWitness <$> getWithLength get
+            1 -> uncurry T.ScriptWitness <$> getWithLength get
+            2 -> uncurry T.RedeemWitness <$> getWithLength get
+            t -> getWithLength (T.UnknownWitnessType t <$> get)
 
 instance Bi T.TxDistribution where
-    put (T.TxDistribution ds) =
-        put $
-        if all null ds
-            then Left (UnsignedVarInt (length ds))
+    sizeNPut = putField f
+      where
+        f (T.TxDistribution ds) =
+            if all null ds then Left (UnsignedVarInt (length ds))
             else Right ds
     get = label "TxDistribution" $ T.TxDistribution <$> parseDistribution
       where
@@ -75,10 +80,10 @@ instance Bi T.TxDistribution where
                 Right ds -> pure ds
 
 instance Bi T.TxSigData where
-    put T.TxSigData{..} = do
-        put txSigInput
-        put txSigOutsHash
-        put txSigDistrHash
+    sizeNPut =
+        putField T.txSigInput
+     <> putField T.txSigOutsHash
+     <> putField T.txSigDistrHash
     get = label "TxSigData" $ do
         txSigInput     <- get
         txSigOutsHash  <- get
@@ -86,16 +91,18 @@ instance Bi T.TxSigData where
         return T.TxSigData{..}
 
 instance Bi T.TxAux where
-    put (T.TxAux tx witness distr) =
-        put tx >> put witness >> put distr
+    sizeNPut =
+        putField T.taTx
+     <> putField T.taWitness
+     <> putField T.taDistribution
     get = label "DataMsg TxMsgContents" $ T.TxAux <$> get <*> get <*> get
 
 instance Bi T.TxProof where
-    put (T.TxProof {..}) = do
-        put (UnsignedVarInt txpNumber)
-        put txpRoot
-        put txpWitnessesHash
-        put txpDistributionsHash
+    sizeNPut =
+        putField (UnsignedVarInt . T.txpNumber)
+     <> putField T.txpRoot
+     <> putField T.txpWitnessesHash
+     <> putField T.txpDistributionsHash
     get = label "TxProof" $ do
       txpNumber <- getUnsignedVarInt <$> get
       txpRoot <- get
@@ -104,6 +111,7 @@ instance Bi T.TxProof where
       return T.TxProof {..}
 
 instance Bi T.TxPayload where
-    put (T.UnsafeTxPayload {..}) =
-        put $ zip3 (toList _txpTxs) _txpWitnesses _txpDistributions
+    sizeNPut =
+        putField (\T.UnsafeTxPayload {..} ->
+                 zip3 (toList _txpTxs) _txpWitnesses _txpDistributions)
     get = T.mkTxPayload =<< get

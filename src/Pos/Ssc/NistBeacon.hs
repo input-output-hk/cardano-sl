@@ -10,6 +10,7 @@ module Pos.Ssc.NistBeacon
 import           Crypto.Hash             (SHA256)
 import qualified Crypto.Hash             as Hash
 import qualified Data.ByteArray          as ByteArray (convert)
+import qualified Data.ByteString.Lazy    as BSL
 import           Data.Tagged             (Tagged (..))
 import           Data.Text.Buildable     (Buildable (build))
 import           Universum
@@ -72,5 +73,5 @@ instance SscGStateClass SscNistBeacon where
     sscVerifyAndApplyBlocks _ _ = pass
     sscCalculateSeedQ i _ = do
         let h :: ByteString
-            h = ByteArray.convert $ Hash.hashlazy @SHA256 (encode i)
+            h = ByteArray.convert $ Hash.hashlazy @SHA256 $ BSL.fromStrict (encode i)
         return $ Right (SharedSeed h)

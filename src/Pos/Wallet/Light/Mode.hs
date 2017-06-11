@@ -12,6 +12,7 @@ import           Universum
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Fix              (MonadFix)
 import           Control.Monad.Morph            (hoist)
+import           Control.Monad.Trans.Control    (MonadBaseControl (..))
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import qualified Control.Monad.Trans.Lift.Local as Lift
 import           Control.Monad.Trans.Resource   (MonadResource, ResourceT)
@@ -79,6 +80,9 @@ newtype LightWalletMode a = LightWalletMode (LightWalletMode' a)
     , MonadMask
     , MonadFix
     )
+
+instance MonadBaseControl IO (LightWalletMode)
+
 type instance ThreadId (LightWalletMode) = ThreadId Production
 type instance Promise (LightWalletMode) = Promise Production
 type instance SharedAtomicT (LightWalletMode) = SharedAtomicT Production
@@ -97,7 +101,7 @@ deriving instance MonadGState (LightWalletMode)
 deriving instance MonadResource (LightWalletMode)
 instance Ether.MonadReader' NodeDBs Production => MonadDBRead (LightWalletMode) where
     dbGet a b = LightWalletMode $ dbGet a b
-    dbIterSource t p = hoist LightWalletMode $ dbIterSource t p
+    dbIterSource t p = hoist (hoist LightWalletMode) $ dbIterSource t p
 deriving instance MonadBListener (LightWalletMode)
 deriving instance MonadUpdates (LightWalletMode)
 deriving instance MonadBlockchainInfo (LightWalletMode)

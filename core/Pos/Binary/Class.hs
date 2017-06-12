@@ -71,8 +71,8 @@ import           Data.Binary                 (Get, Put)
 import qualified Data.Binary                 as Binary
 import           Data.Binary.Get             (ByteOffset, getByteString,
                                               getLazyByteString,
-                                              getRemainingLazyByteString, getWord8, label,
-                                              runGet, runGetOrFail)
+                                              getRemainingLazyByteString, getWord8,
+                                              isEmpty, label, runGet, runGetOrFail)
 import           Data.Binary.Get.Internal    (Decoder (..), runCont)
 import           Data.Binary.Put             (PutM, putByteString, putCharUtf8,
                                               putLazyByteString, putWord8, runPut,
@@ -218,7 +218,9 @@ getTinyVarInt' = do
     if testBit a 7
         then do
             b <- getWord8
-            if | testBit b 7 -> fail "getTinyVarInt': more than 2 bytes"
+            emptyBuf <- isEmpty
+            if | not emptyBuf -> fail "getTinyVarInt': bytestring length more than 2"
+               | testBit b 7 -> fail "getTinyVarInt': more than 2 bytes"
                | b == 0      -> fail "getTinyVarInt': second byte is 0"
                | otherwise   -> pure $ shiftL (fromIntegral b) 7 .|.
                                        clearBit (fromIntegral a) 7

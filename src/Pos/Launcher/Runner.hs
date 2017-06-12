@@ -12,7 +12,6 @@ module Pos.Launcher.Runner
 
        -- * Exported for custom usage in CLI utils
        , runServer
-       , runServer_
        ) where
 
 import           Universum                    hiding (bracket, finally)
@@ -175,12 +174,3 @@ runServer transport mkL (OutSpecs wouts) withNode afterNode (ActionSpec action) 
     mkListeners' theirVerInfo = do
         logDebug $ sformat ("Incoming connection: theirVerInfo="%build) theirVerInfo
         mkListeners mkL ourVerInfo theirVerInfo
-
-runServer_
-    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
-    => Transport m -> MkListeners m -> OutSpecs -> ActionSpec m b -> m b
-runServer_ transport mkl outSpecs =
-    runServer transport mkl outSpecs acquire release
-  where
-    acquire = const pass
-    release = const pass

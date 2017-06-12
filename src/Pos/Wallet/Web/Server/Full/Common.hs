@@ -32,10 +32,8 @@ import           Pos.DB.Block                  (runBlockDBRedirect)
 import           Pos.DB.DB                     (runGStateCoreRedirect)
 import           Pos.Delegation.Class          (DelegationVar, askDelegationState)
 import           Pos.Discovery                 (runDiscoveryRedirect)
-import           Pos.Slotting                  (NtpSlottingVar, SlottingVar,
-                                                askFullNtpSlotting, askSlotting,
-                                                runSlotsDataRedirect)
-import           Pos.Slotting.Ntp              (runSlotsRedirect)
+import           Pos.Slotting                  (SlottingVar, askSlotting,
+                                                runSlotsDataRedirect, runSlotsRedirect)
 import           Pos.Ssc.Extra                 (SscMemTag, SscState)
 import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
@@ -62,9 +60,8 @@ nat = do
     modernDB   <- getNodeDBs
     conn       <- getWalletWebSockets
     slotVar    <- askSlotting
-    ntpSlotVar <- askFullNtpSlotting
     pure $ NT (convertHandler nc modernDB tlw ssc ws delWrap
-                              psCtx conn slotVar ntpSlotVar)
+                              psCtx conn slotVar)
 
 convertHandler
     :: NodeContext WalletSscType              -- (.. insert monad `m` here ..)
@@ -76,11 +73,10 @@ convertHandler
     -> PeerStateSnapshot
     -> ConnectionsVar
     -> SlottingVar
-    -> (Bool, NtpSlottingVar)
     -> WebHandler a
     -> Handler a
 convertHandler nc modernDBs tlw ssc ws delWrap psCtx
-               conn slotVar ntpSlotVar handler =
+               conn slotVar handler =
     liftIO (realRunner . walletRunner $ handler) `Catch.catches` excHandlers
   where
     walletRunner = runWalletWebDB ws
@@ -97,7 +93,6 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                Ether.runReadersT m
                    ( Tagged @NodeDBs modernDBs
                    , Tagged @SlottingVar slotVar
-                   , Tagged @(Bool, NtpSlottingVar) ntpSlotVar
                    , Tagged @SscMemTag ssc
                    , Tagged @TxpHolderTag tlw
                    , Tagged @DelegationVar delWrap

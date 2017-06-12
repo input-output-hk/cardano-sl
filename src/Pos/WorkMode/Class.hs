@@ -15,6 +15,7 @@ module Pos.WorkMode.Class
 import           Universum
 
 import           Control.Monad.Catch         (MonadMask)
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Ether
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
@@ -60,6 +61,7 @@ type TxpExtra_TMP = ()
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ssc m
     = ( MinWorkMode m
+      , MonadBaseControl IO m
       , MonadMask m
       , MonadSlots m
       , MonadDB m

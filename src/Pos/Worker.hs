@@ -20,8 +20,8 @@ import           Pos.Context          (recoveryCommGuard)
 import           Pos.Delegation       (delegationRelays, dlgWorkers)
 import           Pos.Lrc.Worker       (lrcOnNewSlotWorker)
 import           Pos.Security.Workers (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting.Class   (MonadSlots (slottingWorkers))
-import           Pos.Slotting.Util    (logNewSlotWorker)
+import           Pos.Slotting         (SlottingContextSum, logNewSlotWorker,
+                                       slottingWorkers)
 import           Pos.Ssc.Class        (SscListenersClass (sscRelays),
                                        SscWorkersClass (sscWorkers))
 import           Pos.Txp              (txRelays)
@@ -37,8 +37,8 @@ allWorkers
        , SecurityWorkersClass ssc
        , WorkMode ssc m
        )
-    => ([WorkerSpec m], OutSpecs)
-allWorkers = mconcatPair
+    => SlottingContextSum -> ([WorkerSpec m], OutSpecs)
+allWorkers slottingCtx = mconcatPair
     [
       -- Only workers of "onNewSlot" type
 
@@ -61,7 +61,7 @@ allWorkers = mconcatPair
   where
     properSlottingWorkers =
        fst (recoveryCommGuard (localWorker logNewSlotWorker)) :
-       map (fst . localWorker) slottingWorkers
+       map (fst . localWorker) (slottingWorkers slottingCtx)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
 
 -- FIXME this shouldn't be needed.
@@ -72,5 +72,5 @@ allWorkersCount
        , SecurityWorkersClass ssc
        , WorkMode ssc m
        )
-    => Int
-allWorkersCount = length $ fst (allWorkers @ssc @m)
+    => SlottingContextSum -> Int
+allWorkersCount = length . fst . (allWorkers @ssc @m)

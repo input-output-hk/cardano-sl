@@ -273,7 +273,6 @@ applyModifierToWSet
     -> m ()
 applyModifierToWSet wAddr newTip mapModifier = do
     -- TODO maybe do it as one acid-state transaction.
-    mapM_ WS.removeWAddress (MM.deletions mapModifier)
     mapM_ (WS.addWAddress . fst) (MM.insertions mapModifier)
     WS.setWalletSyncTip wAddr newTip
 

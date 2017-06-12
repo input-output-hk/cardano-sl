@@ -260,7 +260,7 @@ type SearchHistory =
        "txs"
     :> "histories"
     :> QueryParam "walletId" (CId Wal)
-    :> QueryParam "accountId" CAccountId
+    :> CQueryParam "accountId" CAccountId
     :> QueryParam "address" (CId Addr)
     :> QueryParam "search" Text
     :> QueryParam "skip" Word

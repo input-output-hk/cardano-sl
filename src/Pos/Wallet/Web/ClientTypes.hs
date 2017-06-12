@@ -232,6 +232,12 @@ instance FromCType CAccountId where
 instance ToCType CAccountId where
     encodeCType = CAccountId . sformat F.build
 
+instance FromCType CAccountId => FromCType (Maybe CAccountId) where
+    type FromOriginType (Maybe CAccountId) = Maybe (FromOriginType CAccountId)
+    decodeCType = mapM decodeCType
+
+-- TODO: extract first three fields as @Coordinates@ and use only it where
+-- required (maybe nowhere)
 -- | Account identifier
 data CWAddressMeta = CWAddressMeta
     { -- | Address of wallet set this account belongs to

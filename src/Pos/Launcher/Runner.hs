@@ -11,7 +11,6 @@ module Pos.Launcher.Runner
        ( -- * High level runners
          runRealMode
        , runRealBasedMode
-       , runServiceMode
 
        -- * Exported for custom usage in CLI utils
        , setupLoggers
@@ -107,7 +106,7 @@ import           Pos.Util.Concurrent.RWVar    as RWV
 import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
 import           Pos.Worker                   (allWorkersCount)
-import           Pos.WorkMode                 (RealMode (..), ServiceMode (..), WorkMode)
+import           Pos.WorkMode                 (RealMode (..), WorkMode)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -269,24 +268,6 @@ mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
 mkSlottingVar sysStart = do
     sd <- GState.getSlottingData
     (sysStart, ) <$> newTVarIO sd
-
--- | ServiceMode runner.
-runServiceMode
-    :: Transport ServiceMode
-    -> BaseParams
-    -> MkListeners ServiceMode
-    -> OutSpecs
-    -> ActionSpec ServiceMode a
-    -> Production a
-runServiceMode transport bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
-    stateM <- liftIO SM.newIO
-    usingLoggerName (lpRunnerTag bpLoggingParams) .
-        flip (Ether.runReaderT @PeerStateTag) stateM .
-        runPeerStateRedirect .
-        (\(ServiceMode m) -> m) .
-        runServer_ transport listeners outSpecs . ActionSpec $ \vI sa ->
-        nodeStartMsg bp >> action vI sa
-{-# NOINLINE runServiceMode #-}
 
 runServer
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)

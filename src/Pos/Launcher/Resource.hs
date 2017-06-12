@@ -24,7 +24,6 @@ module Pos.Launcher.Resource
 import           Universum                    hiding (bracket, finally)
 
 import           Control.Concurrent.STM       (newEmptyTMVarIO, newTBQueueIO)
-import           Control.Lens                 (each, to, _tail)
 import           Control.Monad.Base           (MonadBase)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Resource (runResourceT)
@@ -53,13 +52,10 @@ import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers
                                                GenesisLeaders (..), GenesisUtxo (..),
                                                NodeContext (..), StartTime (..))
 import           Pos.Core                     (Timestamp ())
-import           Pos.Crypto                   (createProxySecretKey, encToPublic)
-import           Pos.DB                       (MonadDB, MonadDBRead, NodeDBs,
-                                               runDBPureRedirect)
+import           Pos.DB                       (MonadDBRead, NodeDBs, runDBPureRedirect)
 import           Pos.DB.Block                 (runBlockDBRedirect)
 import           Pos.DB.DB                    (closeNodeDBs, initNodeDBs, openNodeDBs)
 import           Pos.DB.GState                (getTip)
-import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (DelegationVar)
 import           Pos.DHT.Real                 (KademliaDHTInstance, KademliaParams (..),
                                                startDHTInstance, stopDHTInstance)
@@ -87,7 +83,6 @@ import qualified Pos.Update.DB                as GState
 import           Pos.Update.MemState          (newMemVar)
 import           Pos.Util.Concurrent.RWVar    as RWV
 import           Pos.Util.JsonLog             (JLFile (..))
-import           Pos.Util.UserSecret          (usKeys)
 import           Pos.Worker                   (allWorkersCount)
 import           Pos.WorkMode                 (TxpExtra_TMP)
 
@@ -253,7 +248,7 @@ allocateNodeContext ::
        , MonadMask m
        , MonadBase IO m
        , MonadBaseControl IO m
-       , MonadDB m -- write access is needed to put PSKs
+       , MonadDBRead m
        )
     => NodeParams
     -> SscParams ssc
@@ -267,11 +262,6 @@ allocateNodeContext np@NodeParams {..} sscnp = do
     ucUpdateSemaphore <- newEmptyMVar
     epochDef <- LrcDB.getEpochDefault
     lcLrcSync <- newTVarIO (LrcSyncData True epochDef)
-    let eternity = (minBound, maxBound)
-        makeOwnPSK =
-            flip (createProxySecretKey npSecretKey) eternity . encToPublic
-        ownPSKs = npUserSecret ^.. usKeys . _tail . each . to makeOwnPSK
-    for_ ownPSKs addProxySecretKey
     ncDiscoveryContext <-
         case npDiscovery npNetwork of
             Left peers -> pure (DCStatic peers)

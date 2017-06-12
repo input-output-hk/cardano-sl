@@ -72,6 +72,9 @@ while [[ $i -lt $panesCnt ]]; do
   if [[ $WALLET_TEST != "" ]]; then
       if (( $i == $n - 1 )); then
           wallet_args=' --wallet' # --wallet-rebuild-db'
+          if [[ $WALLET_DEBUG != "" ]]; then
+              wallet_args="$wallet_args --wallet-debug"
+          fi
       fi
   fi
 

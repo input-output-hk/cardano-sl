@@ -16,6 +16,7 @@ module Pos.Communication.Protocol
        , worker
        , worker'
        , localWorker
+       , localSpecs
        , toAction
        , unpackLSpecs
        , hoistMkListeners
@@ -232,7 +233,10 @@ localOnNewSlotWorker
 localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlot b h, mempty)
 
 localWorker :: m () -> (WorkerSpec m, OutSpecs)
-localWorker h = (ActionSpec $ \__vI __sA -> h, mempty)
+localWorker = localSpecs
+
+localSpecs :: m a -> (ActionSpec m a, OutSpecs)
+localSpecs h = (ActionSpec $ \__vI __sA -> h, mempty)
 
 checkingInSpecs
     :: WithLogger m

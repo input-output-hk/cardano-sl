@@ -125,18 +125,18 @@ import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWe
                                                    WalletWebSockets, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
-import           Pos.Wallet.Web.State             (AccountLookupMode (..), WalletWebDB,
-                                                   WebWalletModeDB, addOnlyNewTxMeta,
-                                                   addRemovedAccount, addUpdate,
-                                                   addWAddress, closeState, createAccount,
-                                                   createWallet, getAccountMeta,
-                                                   getAccountWAddresses, getHistoryCache,
-                                                   getNextUpdate, getProfile, getTxMeta,
-                                                   getWAddressIds, getWalletAddresses,
-                                                   getWalletMeta, getWalletPassLU,
-                                                   openState, removeAccount,
-                                                   removeNextUpdate, removeWallet,
-                                                   setAccountMeta,
+import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, Ever, Existing),
+                                                   WalletWebDB, WebWalletModeDB,
+                                                   addOnlyNewTxMeta, addRemovedAccount,
+                                                   addUpdate, addWAddress, closeState,
+                                                   createAccount, createWallet,
+                                                   getAccountMeta, getAccountWAddresses,
+                                                   getHistoryCache, getNextUpdate,
+                                                   getProfile, getTxMeta, getWAddressIds,
+                                                   getWalletAddresses, getWalletMeta,
+                                                   getWalletPassLU, openState,
+                                                   removeAccount, removeNextUpdate,
+                                                   removeWallet, setAccountMeta,
                                                    setAccountTransactionMeta, setProfile,
                                                    setWalletMeta, setWalletPassLU,
                                                    testReset, totallyRemoveWAddress,
@@ -404,7 +404,7 @@ getWAddress cAddr@CWAddressMeta {..} = do
 
 getAccountAddrsOrThrow
     :: (WebWalletModeDB m, MonadThrow m)
-    => AccountLookupMode -> AccountId -> m [CWAddressMeta]
+    => AddressLookupMode -> AccountId -> m [CWAddressMeta]
 getAccountAddrsOrThrow mode accId =
     getAccountWAddresses mode accId >>= maybeThrow noWallet
   where

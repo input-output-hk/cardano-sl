@@ -30,7 +30,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta 
                                              addressToCId, encToCId,
                                              walletAddrMetaToAccount)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (AccountLookupMode (..), WebWalletModeDB,
+import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
                                              doesWAddressExist, getAccountMeta)
 import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 

@@ -21,3 +21,4 @@ spec = describe "Types" $ do
         binaryTest @T.Address
         binaryTest @T.SharedSeed
         binaryTest @T.ChainDifficulty
+        binaryTest @T.Timestamp

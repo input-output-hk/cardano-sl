@@ -1222,6 +1222,7 @@ test-suite cardano-test
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
                        Test.Pos.Communication.Identity.BinarySpec
+                       Test.Pos.Core.AddressSpec
                        Test.Pos.CryptoSpec
                        Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.FollowTheSatoshiSpec
@@ -1237,12 +1238,12 @@ test-suite cardano-test
                        Test.Pos.Txp.CoreSpec
                        Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Txp.Toil.UtxoSpec
-                       Test.Pos.Types.AddressSpec
                        Test.Pos.Types.BlockSpec
                        Test.Pos.Types.CoinSpec
                        Test.Pos.Types.Identity.BinarySpec
                        Test.Pos.Types.Identity.SafeCopySpec
-                       Test.Pos.Types.Identity.TimestampSpec
+                       Test.Pos.Types.Identity.ShowReadSpec
+                       Test.Pos.Types.SeedSpec
                        Test.Pos.Types.SlottingSpec
                        Test.Pos.Update.Identity.BinarySpec
                        Test.Pos.Update.Identity.SafeCopySpec

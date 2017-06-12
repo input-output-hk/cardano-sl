@@ -45,7 +45,7 @@ import           Pos.Delegation.Class           (DelegationVar)
 import           Pos.Discovery                  (DiscoveryRedirect, MonadDiscovery)
 import           Pos.Slotting.Class             (MonadSlots)
 import           Pos.Slotting.Impl              (SlotsRedirect)
-import           Pos.Slotting.MemState          (MonadSlotsData, SlottingVar)
+import           Pos.Slotting.MemState          (MonadSlotsData)
 import           Pos.Slotting.MemState.Holder   (SlotsDataRedirect)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState)
@@ -70,7 +70,6 @@ type RealMode' ssc =
     DBPureRedirect (
     Ether.ReadersT
         ( Tagged NodeDBs NodeDBs
-        , Tagged SlottingVar SlottingVar
         , Tagged SscMemTag (SscState ssc)
         , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
         , Tagged DelegationVar DelegationVar

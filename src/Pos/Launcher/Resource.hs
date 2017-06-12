@@ -95,14 +95,13 @@ import           Pos.WorkMode                 (TxpExtra_TMP)
 
 -- | This data type contains all resources used by node.
 data NodeResources ssc m = NodeResources
-    { nrContext     :: !(NodeContext ssc)
-    , nrSlottingVar :: !SlottingVar
-    , nrDBs         :: !NodeDBs
-    , nrSscState    :: !(SscState ssc)
-    , nrTxpState    :: !(GenericTxpLocalData TxpExtra_TMP)
-    , nrDlgState    :: !DelegationVar
-    , nrPeerState   :: !(PeerStateCtx Production)
-    , nrTransport   :: !(Transport m)
+    { nrContext   :: !(NodeContext ssc)
+    , nrDBs       :: !NodeDBs
+    , nrSscState  :: !(SscState ssc)
+    , nrTxpState  :: !(GenericTxpLocalData TxpExtra_TMP)
+    , nrDlgState  :: !DelegationVar
+    , nrPeerState :: !(PeerStateCtx Production)
+    , nrTransport :: !(Transport m)
     }
 
 hoistNodeResources ::
@@ -152,7 +151,6 @@ allocateNodeResources np@NodeParams {..} sscnp = do
     ctx@NodeContext {..} <- runDBAction $ allocateNodeContext np sscnp
     initTip <- runDBAction getTip
     setupLoggers $ bpLoggingParams npBaseParams
-    slottingVar <- runDBAction $ mkSlottingVar npSystemStart
     dlgVar <- RWV.new def
     txpVar <- mkTxpLocalData mempty initTip
     peerState <- liftIO SM.newIO
@@ -160,7 +158,7 @@ allocateNodeResources np@NodeParams {..} sscnp = do
         runDBAction .
         flip
             Ether.runReadersT
-            ( Tagged @SlottingVar slottingVar
+            ( Tagged @SlottingVar ncSlottingVar
             , Tagged @SlottingContextSum ncSlottingContext
             , Tagged @LrcContext ncLrcContext) .
         runSlotsDataRedirect . runSlotsRedirect $
@@ -170,7 +168,6 @@ allocateNodeResources np@NodeParams {..} sscnp = do
         NodeResources
         { nrContext = ctx
         , nrDBs = db
-        , nrSlottingVar = slottingVar
         , nrSscState = sscState
         , nrTxpState = txpVar
         , nrDlgState = dlgVar
@@ -207,13 +204,6 @@ bracketNodeResources ::
     -> m a
 bracketNodeResources np sp =
     bracket (allocateNodeResources np sp) releaseNodeResources
-
--- Create new 'SlottingVar' using data from DB. Probably it would be
--- good to have it in 'infra', but it's complicated.
-mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
-mkSlottingVar sysStart = do
-    sd <- GState.getSlottingData
-    (sysStart, ) <$> newTVarIO sd
 
 ----------------------------------------------------------------------------
 -- Logging
@@ -267,8 +257,17 @@ allocateNodeContext np@NodeParams {..} sscnp = do
             Left peers -> pure (DCStatic peers)
             Right kadParams ->
                 DCKademlia <$> createKademliaInstance npBaseParams kadParams
-    ncSlottingContext <- case npUseNTP of True  -> SCNtp <$> mkNtpSlottingVar
-                                          False -> pure SCSimple
+    ncSlottingVar <- mkSlottingVar npSystemStart
+    ncSlottingContext <-
+        case npUseNTP of
+            True  -> SCNtp <$> mkNtpSlottingVar
+            False -> pure SCSimple
+    let runSlottingAction =
+            flip
+                Ether.runReadersT
+                ( Tagged @SlottingVar ncSlottingVar
+                , Tagged @SlottingContextSum ncSlottingContext) .
+            runSlotsDataRedirect . runSlotsRedirect
     ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $ newTBQueueIO Const.blockRetrievalQueueSize
     ncInvPropagationQueue <- liftIO $ newTBQueueIO Const.propagationQueueSize
@@ -277,7 +276,7 @@ allocateNodeContext np@NodeParams {..} sscnp = do
     ncShutdownFlag <- newTVarIO False
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
-    ucMemState <- newMemVar
+    ucMemState <- runSlottingAction newMemVar
     ucDownloadingUpdates <- newTVarIO mempty
     ncSscContext <- untag @ssc sscCreateNodeContext sscnp
     -- TODO synchronize the NodeContext peers var with whatever system
@@ -309,6 +308,13 @@ releaseNodeContext NodeContext {..} =
     case ncDiscoveryContext of
         DCKademlia kademlia -> stopDHTInstance kademlia
         DCStatic _          -> pass
+
+-- Create new 'SlottingVar' using data from DB. Probably it would be
+-- good to have it in 'infra', but it's complicated.
+mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
+mkSlottingVar sysStart = do
+    sd <- GState.getSlottingData
+    (sysStart, ) <$> newTVarIO sd
 
 ----------------------------------------------------------------------------
 -- Kademlia

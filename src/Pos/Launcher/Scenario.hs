@@ -15,7 +15,6 @@ module Pos.Launcher.Scenario
 import           Universum
 
 import           Control.Lens        (each, to, _tail)
-import           Data.Default        (def)
 import           Development.GitRev  (gitBranch, gitHash)
 import qualified Ether
 import           Formatting          (build, sformat, shown, (%))
@@ -40,11 +39,9 @@ import qualified Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourMasked)
 import           Pos.Security        (SecurityWorkersClass)
 import           Pos.Shutdown        (waitForWorkers)
-import           Pos.Slotting        (getCurrentSlot, waitSystemStart)
+import           Pos.Slotting        (waitSystemStart)
 import           Pos.Ssc.Class       (SscConstraint)
-import           Pos.Types           (SlotId (..), addressHash)
-import           Pos.Update          (MemState (..), mvState)
-import           Pos.Update.Context  (UpdateContext (ucMemState))
+import           Pos.Types           (addressHash)
 import           Pos.Util            (inAssertMode)
 import           Pos.Util.LogSafe    (logInfoS)
 import           Pos.Util.UserSecret (usKeys)
@@ -77,7 +74,6 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     putProxySecreyKeys
     initDelegation @ssc
     initLrc
-    initUSMemState
     initSemaphore
     waitSystemStart
     let unpackPlugin (ActionSpec action) =
@@ -149,10 +145,3 @@ initLrc = do
     lrcSync <- Ether.asks' lcLrcSync
     epoch <- LrcDB.getEpoch
     atomically $ writeTVar lrcSync (LrcSyncData True epoch)
-
-initUSMemState :: WorkMode ssc m => m ()
-initUSMemState = do
-    tip <- GS.getTip
-    tvar <- mvState <$> Ether.asks' ucMemState
-    slot <- fromMaybe (SlotId 0 minBound) <$> getCurrentSlot
-    atomically $ writeTVar tvar (MemState slot tip def def)

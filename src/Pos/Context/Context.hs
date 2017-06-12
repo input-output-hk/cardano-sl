@@ -58,7 +58,7 @@ import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
                                                 rcReportServers)
 import           Pos.Shutdown.Types            (ShutdownContext (..))
-import           Pos.Slotting                  (SlottingContextSum)
+import           Pos.Slotting                  (SlottingContextSum, SlottingVar)
 import           Pos.Ssc.Class.Types           (MonadSscContext, Ssc (SscNodeContext),
                                                 SscContextTag)
 import           Pos.Txp.Settings              (TxpGlobalSettings)
@@ -112,6 +112,8 @@ data NodeContext ssc = NodeContext
     -- ^ Context needed for LRC
     , ncDiscoveryContext    :: !DiscoveryContextSum
     -- ^ Context needed for Discovery.
+    , ncSlottingVar         :: !SlottingVar
+    -- ^ Data necessary for 'MonadSlotsData'.
     , ncSlottingContext     :: !SlottingContextSum
     -- ^ Context needed for Slotting.
     , ncBlkSemaphore        :: !BlkSemaphore
@@ -168,6 +170,7 @@ makeLensesFor
     , ("ncLrcContext", "ncLrcContextL")
     , ("ncDiscoveryContext", "ncDiscoveryContextL")
     , ("ncSlottingContext", "ncSlottingContextL")
+    , ("ncSlottingVar", "ncSlottingVarL")
     , ("ncSscContext", "ncSscContextL")
     , ("ncNodeParams", "ncNodeParamsL")
     , ("ncInvPropagationQueue", "ncInvPropagationQueueL")
@@ -222,6 +225,7 @@ type instance TagsK (NodeContext ssc) =
   Type ':
   Type ':
   Type ':
+  Type ':
   '[]
 
 return []
@@ -236,6 +240,7 @@ type instance Tags (NodeContext ssc) =
   UpdateContext          :::
   LrcContext             :::
   DiscoveryContextSum    :::
+  SlottingVar            :::
   SlottingContextSum     :::
   NodeParams             :::
   UpdateParams           :::
@@ -272,6 +277,9 @@ instance HasLens LrcContext (NodeContext ssc) LrcContext where
 
 instance HasLens DiscoveryContextSum (NodeContext ssc) DiscoveryContextSum where
     lensOf = ncDiscoveryContextL
+
+instance HasLens SlottingVar (NodeContext ssc) SlottingVar where
+    lensOf = ncSlottingVarL
 
 instance HasLens SlottingContextSum (NodeContext ssc) SlottingContextSum where
     lensOf = ncSlottingContextL

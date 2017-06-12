@@ -53,8 +53,7 @@ import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (.
                                                NodeParams (..))
 import           Pos.Launcher.Resource        (NodeResources (..), hoistNodeResources)
 import           Pos.Security                 (SecurityWorkersClass)
-import           Pos.Slotting                 (SlottingVar, runSlotsDataRedirect,
-                                               runSlotsRedirect)
+import           Pos.Slotting                 (runSlotsDataRedirect, runSlotsRedirect)
 import           Pos.Ssc.Class                (SscConstraint)
 import           Pos.Ssc.Extra                (SscMemTag)
 import           Pos.Txp.MemState             (TxpHolderTag)
@@ -133,7 +132,6 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
             flip Ether.runReadersT nrContext .
             flip Ether.runReadersT
                 ( Tagged @NodeDBs nrDBs
-                , Tagged @SlottingVar nrSlottingVar
                 , Tagged @SscMemTag nrSscState
                 , Tagged @TxpHolderTag nrTxpState
                 , Tagged @DelegationVar nrDlgState

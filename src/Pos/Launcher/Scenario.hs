@@ -7,7 +7,6 @@
 module Pos.Launcher.Scenario
        ( runNode
        , initSemaphore
-       , initLrc
        , runNode'
        , nodeStartMsg
        ) where
@@ -34,8 +33,6 @@ import           Pos.DB              (MonadDB)
 import qualified Pos.DB.GState       as GS
 import           Pos.DB.Misc         (addProxySecretKey)
 import           Pos.Delegation      (initDelegation)
-import           Pos.Lrc.Context     (LrcSyncData (..), lcLrcSync)
-import qualified Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourMasked)
 import           Pos.Security        (SecurityWorkersClass)
 import           Pos.Shutdown        (waitForWorkers)
@@ -73,7 +70,6 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
                         ", pk hash: "%build) pk addr pkHash
     putProxySecreyKeys
     initDelegation @ssc
-    initLrc
     initSemaphore
     waitSystemStart
     let unpackPlugin (ActionSpec action) =
@@ -139,9 +135,3 @@ initSemaphore = do
         logError "ncBlkSemaphore is not empty at the very beginning"
     tip <- GS.getTip
     putMVar semaphore tip
-
-initLrc :: WorkMode ssc m => m ()
-initLrc = do
-    lrcSync <- Ether.asks' lcLrcSync
-    epoch <- LrcDB.getEpoch
-    atomically $ writeTVar lrcSync (LrcSyncData True epoch)

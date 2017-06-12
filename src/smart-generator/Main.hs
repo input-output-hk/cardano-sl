@@ -35,8 +35,8 @@ import           Pos.Genesis           (genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NetworkParams (..), NodeParams (..),
                                         NodeResources (nrContext), bracketNodeResources,
-                                        hoistNodeResources, initLrc, runNode',
-                                        runRealMode, stakesDistr)
+                                        hoistNodeResources, runNode', runRealMode,
+                                        stakesDistr)
 import           Pos.Security          (SecurityParams (..), SecurityWorkersClass)
 import           Pos.Ssc.Class         (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
@@ -102,7 +102,6 @@ runSmartGen
     -> Production ()
 runSmartGen nr opts@GenOptions{..} =
   runRealMode nr $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
-    initLrc
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
 

@@ -63,8 +63,7 @@ import           Pos.Discovery                (DiscoveryContextSum (..))
 import           Pos.Genesis                  (genesisLeaders)
 import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
                                                NetworkParams (..), NodeParams (..))
-import           Pos.Lrc.Context              (LrcContext (..), LrcSyncData (..))
-import qualified Pos.Lrc.DB                   as LrcDB
+import           Pos.Lrc.Context              (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting                 (SlottingContextSum (..), SlottingVar,
                                                mkNtpSlottingVar, runSlotsDataRedirect,
                                                runSlotsRedirect)
@@ -250,8 +249,7 @@ allocateNodeContext np@NodeParams {..} sscnp = do
         JLFile <$> liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
-    epochDef <- LrcDB.getEpochDefault
-    lcLrcSync <- newTVarIO (LrcSyncData True epochDef)
+    lcLrcSync <- mkLrcSyncData >>= newTVarIO
     ncDiscoveryContext <-
         case npDiscovery npNetwork of
             Left peers -> pure (DCStatic peers)

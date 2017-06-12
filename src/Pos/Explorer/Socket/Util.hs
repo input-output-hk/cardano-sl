@@ -11,8 +11,8 @@ module Pos.Explorer.Socket.Util
     , forkAccompanion
     ) where
 
-import qualified Control.Concurrent.STM      as STM
-import           Control.Concurrent.STM.TVar (readTVarIO, writeTVar)
+--import qualified Control.Concurrent.STM      as STM
+--import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO, writeTVar)
 import           Control.Monad.Catch         (MonadCatch)
 import           Control.Monad.Reader        (MonadReader)
 import           Control.Monad.State         (MonadState)
@@ -29,7 +29,7 @@ import           Snap.Core                   (Snap)
 import           System.Wlog                 (CanLog (..), WithLogger, logWarning)
 import           Universum                   hiding (on)
 
--- * Provides type-safity for event names in some socket-io functions.
+-- * Provides type-safety for event names in some socket-io functions.
 
 class EventName a where
     toName :: a -> Text
@@ -96,7 +96,7 @@ forkAccompanion
     :: (MonadIO m, MonadMask m, Mockable Fork m)
     => (m Bool -> m ()) -> m a -> m a
 forkAccompanion accompanion main = do
-    stopped <- liftIO $ STM.newTVarIO False
+    stopped <- liftIO $ newTVarIO False
     let whetherStopped = liftIO $ readTVarIO stopped
     bracket_ (fork $ accompanion whetherStopped)
              (atomically $ writeTVar stopped True)

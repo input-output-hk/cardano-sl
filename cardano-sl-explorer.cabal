@@ -47,10 +47,12 @@ library
                       , cardano-sl-core
                       , cardano-sl-infra
                       , cardano-sl-db
+                      , cardano-sl-ssc
                       , engine-io
                       , engine-io-snap
                       , exceptions
                       , either
+                      , ether >= 0.5.1
                       , formatting
                       , lens
                       , log-warper
@@ -61,7 +63,6 @@ library
                       , node-sketch
                       , serokell-util
                       , servant
-                      , servant-docs
                       , servant-server
                       , socket-io
                       , snap-core
@@ -69,6 +70,7 @@ library
                       , snap-server
                       , engine-io-wai
                       , stm
+                      , tagged
                       , text-format
                       , text
                       , time
@@ -84,6 +86,7 @@ library
   ghc-options:         -Wall
                        -fno-warn-orphans
                        -O2
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -114,24 +117,36 @@ executable cardano-explorer
   hs-source-dirs:      src/explorer
   main-is:             Main.hs
   other-modules:       ExplorerOptions
+                     , Params
+                     , Secrets
   build-depends:       base
+                     , bytestring
+                     , ether
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl-explorer
-                     , optparse-simple
+                     , cardano-sl-ssc
+                     , cardano-sl-update
+                     , containers
                      , formatting
+                     , lens
+                     , log-warper
+                     , mtl
+                     , network-transport-tcp
+                     , node-sketch
+                     , optparse-simple
                      , universum
                      , serokell-util
-                     , log-warper
-                     , node-sketch
-                     , lens
+                     , time
+                     , time-units
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -173,6 +188,7 @@ executable cardano-explorer-hs2purs
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -239,6 +255,7 @@ executable cardano-explorer-mock
                        -fno-warn-orphans
                        -with-rtsopts=-N
                        -O2
+
   default-extensions:   DeriveDataTypeable
                         DeriveGeneric
                         GeneralizedNewtypeDeriving
@@ -260,42 +277,4 @@ executable cardano-explorer-mock
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-test-suite cardano-test
-  main-is:             Test.hs
-  other-modules:       Spec
-                       Test.Pos.Explorer.Web.ServerSpec
-  type:                exitcode-stdio-1.0
-  build-depends:       base
-                     , cardano-sl
-                     , cardano-sl-explorer
-                     , universum
-                     , hspec
-                     , QuickCheck
-  hs-source-dirs:      test
-  default-language:    Haskell2010
-  ghc-options:         -threaded
-                       -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -with-rtsopts=-N
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        StandaloneDeriving
-                        FlexibleContexts
-                        FlexibleInstances
-                        MultiParamTypeClasses
-                        FunctionalDependencies
-                        DefaultSignatures
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-                        TupleSections
-                        ViewPatterns
-                        LambdaCase
-                        MultiWayIf
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp
 

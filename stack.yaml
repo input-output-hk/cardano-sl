@@ -1,4 +1,5 @@
-flags: {}
+#resolver: lts-8.5
+resolver: lts-8.13
 
 extra-package-dbs: []
 
@@ -6,7 +7,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: bd9fd84e8697da2552ac592f2dea5b173e681d52
+    commit: 6bee8bbf88d14632a7994ac80209987a2ead2403
   extra-dep: true
   subdirs:
       - '.'
@@ -15,6 +16,9 @@ packages:
       - infra
       - db
       - lrc
+      - ssc
+      - godtossing
+      - txp
 - location:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
@@ -25,7 +29,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: 21df94f41008f82ee023e8e0324c7e4a82c4fef2
+    commit: 92043c7e80e93aeb08212e8ce42c783edd9b2f80
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
@@ -38,7 +42,7 @@ packages:
 - location:
     git: https://github.com/thoughtpolice/hs-ed25519
     # We're waiting on next release
-    commit: 57adb970e198a9b377769ab46e776ec29f19cff6
+    commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
@@ -46,15 +50,15 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: b48bd9b099e47d8c39aa6ddce261aa76f8488d75
+    commit: 3fa7ccea4031a7424e77b63fd1f29e4d69b70b98
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
-    git: https://github.com/avieth/network-transport-tcp
-    commit: ca42a954a15792f5ea8dc203e56fac8175b99c33
+    git: https://github.com/serokell/network-transport-tcp
+    commit: a6c04c35f3a1d786bc5e57fd04cf3e2a043179f3
   extra-dep: true
 - location:
-    git: https://github.com/avieth/network-transport
+    git: https://github.com/serokell/network-transport
     commit: f2321a103f53f51d36c99383132e3ffa3ef1c401
   extra-dep: true
 - location:
@@ -67,7 +71,7 @@ packages:
     - engine-io-wai
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 838b064d8a59286142aa2fe14434fe7601896ddb
+    commit: 96adbd5aa9a906859deddf170f8762a9ed85c0c9
   extra-dep: true
 # We're using forked version of 'swagger2' package because of bug in haddock package.
 # Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
@@ -85,14 +89,26 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.3
+- universum-0.4.3
 - time-units-1.0.0
-- UtilityTM-0.0.4
 - serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.1.1
+- log-warper-1.1.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
+- purescript-bridge-0.8.0.1
+- cryptonite-0.23
+- cryptonite-openssl-0.6
+- directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
+- servant-0.10                    # servant-multipart supports version servant-10 only
+- servant-server-0.10             # so it triggers another dependencies to be v10
+- servant-swagger-1.1.2.1
+- servant-multipart-0.10
+- ether-0.5.1.0
+- transformers-lift-0.2.0.1
+
+# The other dependencies that we need to revise
+- UtilityTM-0.0.4
 - derive-2.6.2                    # not yet in lts-8
 - wreq-0.5.0.0                    # not yet in lts-8
 - turtle-1.3.1                    # earlier versions don't have 'stat'
@@ -107,16 +123,10 @@ extra-deps:
 - map-syntax-0.2.0.2
 - snap-1.0.0.1
 - snap-cors-1.2.11
-- purescript-bridge-0.10.1.0
-- cryptonite-0.22
-- directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
-- servant-0.10                    # servant-multipart supports version servant-10 only
-- servant-server-0.10             # so it triggers another dependencies to be v10
-- servant-swagger-1.1.2.1
-- servant-docs-0.10
-- servant-multipart-0.10
-
-resolver: lts-8.5
+- foundation-0.0.9
+- memory-0.14.5
+- writer-cps-transformers-0.1.1.3
+- writer-cps-mtl-0.1.1.4
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
@@ -124,3 +134,5 @@ apply-ghc-options: everything
 flags:
   cardano-sl:
     with-explorer: True
+  ether:
+    disable-tup-instances: True

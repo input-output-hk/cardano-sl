@@ -9,6 +9,7 @@ module Pos.CLI
        , defaultLoggerConfig
        , readLoggerConfig
        , sscAlgoParser
+       , getNodeSystemStart
 
        -- | CLI options and flags
        , CommonArgs (..)
@@ -30,6 +31,8 @@ module Pos.CLI
 import           Universum
 
 import           Control.Lens                         (zoom, (?=))
+import           Data.Time.Clock.POSIX                (getPOSIXTime)
+import           Data.Time.Units                      (toMicroseconds)
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import qualified Options.Applicative.Simple           as Opt
 import           Serokell.Util                        (sec)
@@ -54,6 +57,10 @@ import           Pos.Util                             ()
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
+
+----------------------------------------------------------------------------
+-- Utilities
+----------------------------------------------------------------------------
 
 -- | Decides which secret-sharing algorithm to use.
 sscAlgoParser :: P.Parser SscAlgo
@@ -93,6 +100,28 @@ defaultLoggerConfig = fromScratch $ zoom lcTree $ zoomLogger "node" $ do
 -- 'defaultLoggerConfig'.
 readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
 readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
+
+-- | This function carries out special logic to convert given
+-- timestamp to the system start time.
+getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
+getNodeSystemStart cliOrConfigSystemStart
+  | cliOrConfigSystemStart >= 1400000000 =
+    -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
+    -- It was chosen arbitrarily as some date far enough in the past.
+    -- See CSL-983 for more information.
+    pure cliOrConfigSystemStart
+  | otherwise = do
+    let frameLength = timestampToSeconds cliOrConfigSystemStart
+    currentPOSIXTime <- liftIO $ round <$> getPOSIXTime
+    -- The whole timeline is split into frames, with the first frame starting
+    -- at UNIX epoch start. We're looking for a time `t` which would be in the
+    -- middle of the same frame as the current UNIX time.
+    let currentFrame = currentPOSIXTime `div` frameLength
+        t = currentFrame * frameLength + (frameLength `div` 2)
+    pure $ Timestamp $ sec $ fromIntegral t
+  where
+    timestampToSeconds :: Timestamp -> Integer
+    timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
 
 ----------------------------------------------------------------------------
 -- ClI Options

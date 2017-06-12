@@ -13,47 +13,44 @@ module Main
 
 import           Universum
 
-import           Data.Maybe            (fromJust)
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Data.Time.Units       (toMicroseconds)
+import           Data.Maybe          (fromJust)
 import qualified Ether
-import           Formatting            (sformat, shown, (%))
-import           Mockable              (Production, currentTime, runProduction)
-import           Serokell.Util         (sec)
-import           System.Wlog           (logError, logInfo)
+import           Formatting          (sformat, shown, (%))
+import           Mockable            (Production, currentTime, runProduction)
+import           System.Wlog         (logError, logInfo)
 
-import           Pos.Binary            ()
-import qualified Pos.CLI               as CLI
-import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec, worker)
-import           Pos.Constants         (isDevelopment)
-import           Pos.Context           (MonadNodeContext)
-import           Pos.Core.Types        (Timestamp (..))
-import           Pos.Launcher          (NodeParams (..), NodeResources (..),
-                                        bracketNodeResources, hoistNodeResources, runNode,
-                                        runNodeReal)
-import           Pos.Security          (SecurityWorkersClass)
-import           Pos.Shutdown          (triggerShutdown)
-import           Pos.Ssc.Class         (SscConstraint, SscParams)
-import           Pos.Ssc.GodTossing    (SscGodTossing)
-import           Pos.Ssc.NistBeacon    (SscNistBeacon)
-import           Pos.Ssc.SscAlgo       (SscAlgo (..))
-import           Pos.Update.Context    (ucUpdateSemaphore)
-import           Pos.Util              (inAssertMode)
-import           Pos.Util.UserSecret   (usVss)
-import           Pos.Util.Util         (powerLift)
-import           Pos.WorkMode          (RealMode, WorkMode)
+import           Pos.Binary          ()
+import qualified Pos.CLI             as CLI
+import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
+import           Pos.Constants       (isDevelopment)
+import           Pos.Context         (MonadNodeContext)
+import           Pos.Core.Types      (Timestamp (..))
+import           Pos.Launcher        (NodeParams (..), NodeResources (..),
+                                      bracketNodeResources, hoistNodeResources, runNode,
+                                      runNodeReal)
+import           Pos.Security        (SecurityWorkersClass)
+import           Pos.Shutdown        (triggerShutdown)
+import           Pos.Ssc.Class       (SscConstraint, SscParams)
+import           Pos.Ssc.GodTossing  (SscGodTossing)
+import           Pos.Ssc.NistBeacon  (SscNistBeacon)
+import           Pos.Ssc.SscAlgo     (SscAlgo (..))
+import           Pos.Update.Context  (ucUpdateSemaphore)
+import           Pos.Util            (inAssertMode)
+import           Pos.Util.UserSecret (usVss)
+import           Pos.Util.Util       (powerLift)
+import           Pos.WorkMode        (RealMode, WorkMode)
 #ifdef WITH_WEB
-import           Pos.Wallet.Redirect   (liftWalletRedirects)
-import           Pos.Web               (serveWebGT)
+import           Pos.Wallet.Redirect (liftWalletRedirects)
+import           Pos.Web             (serveWebGT)
 #ifdef WITH_WALLET
-import           Pos.Wallet.Web        (WalletRealWebMode, bracketWalletWS,
-                                        bracketWalletWebDB, runWRealMode,
-                                        walletServeWebFull, walletServerOuts)
+import           Pos.Wallet.Web      (WalletRealWebMode, bracketWalletWS,
+                                      bracketWalletWebDB, runWRealMode,
+                                      walletServeWebFull, walletServerOuts)
 #endif
 #endif
 
-import           NodeOptions           (Args (..), getNodeOptions)
-import           Params                (getNodeParams, gtSscParams)
+import           NodeOptions         (Args (..), getNodeOptions)
+import           Params              (getNodeParams, gtSscParams)
 
 ----------------------------------------------------------------------------
 -- Without wallet
@@ -121,7 +118,7 @@ pluginsGT Args {..}
 #endif
 
 ----------------------------------------------------------------------------
--- Utilities (TODO: probably move into lib)
+-- Utilities
 ----------------------------------------------------------------------------
 
 printFlags :: IO ()
@@ -137,26 +134,6 @@ printFlags = do
 #endif
     inAssertMode $ putText "Asserts are ON"
 
-getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
-getNodeSystemStart cliOrConfigSystemStart
-  | cliOrConfigSystemStart >= 1400000000 =
-    -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
-    -- It was chosen arbitrarily as some date far enough in the past.
-    -- See CSL-983 for more information.
-    pure cliOrConfigSystemStart
-  | otherwise = do
-    let frameLength = timestampToSeconds cliOrConfigSystemStart
-    currentPOSIXTime <- liftIO $ round <$> getPOSIXTime
-    -- The whole timeline is split into frames, with the first frame starting
-    -- at UNIX epoch start. We're looking for a time `t` which would be in the
-    -- middle of the same frame as the current UNIX time.
-    let currentFrame = currentPOSIXTime `div` frameLength
-        t = currentFrame * frameLength + (frameLength `div` 2)
-    pure $ Timestamp $ sec $ fromIntegral t
-  where
-    timestampToSeconds :: Timestamp -> Integer
-    timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
-
 ----------------------------------------------------------------------------
 -- Main action
 ----------------------------------------------------------------------------
@@ -169,7 +146,7 @@ main = do
 
 action :: Args -> Production ()
 action args@Args {..} = do
-    systemStart <- getNodeSystemStart $ CLI.sysStart commonArgs
+    systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is " % shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)

@@ -1,6 +1,8 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- | Useful basic instances.
+
 module Pos.Binary.Class.Instances
        (
        ) where

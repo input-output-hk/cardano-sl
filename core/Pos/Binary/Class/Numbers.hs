@@ -6,6 +6,9 @@
 
 #include "MachDeps.h"
 
+-- | Primitives and convenient wrappers for serialisation/deserialisation of numbers.
+
+
 module Pos.Binary.Class.Numbers
        (
         -- * Different sizes for ints

@@ -27,7 +27,7 @@ import           Data.Store.Core            (Peek (..), PeekResult (..), Poke (.
 import qualified Data.Store.Core            as Store
 import qualified Data.Store.Internal        as Store
 import           Foreign.Ptr                (minusPtr, plusPtr)
-import           Formatting                 (build, sformat, (%))
+import           Formatting                 (build, sformat, shown, (%))
 import           Serokell.Data.Memory.Units (Byte)
 
 ----------------------------------------------------------------------------
@@ -37,8 +37,11 @@ import           Serokell.Data.Memory.Units (Byte)
 -- | Simplified definition of serializable object
 -- Data.Binary.Class-alike.
 --
--- Write @instance Bi SomeType where@ without any method definitions if you
--- want to use the 'Binary' instance for your type.
+-- You can implement @put@ and @size@ or only @sizeNPut@.
+-- @sizeNPut@ is needed for convenient way to implement @put@ and @size@
+-- together without boilerplate code. It also makes instance less error-prone.
+-- Please implement @sizeNPut@ instead of @size@ and @put@ if it's possible.
+-- There are some useful helpers at Pos.Binary.Class.Store (like @putField@, @putConst@, etc)
 class Bi t where
     {-# MINIMAL get, put, size | get, sizeNPut  #-}
     sizeNPut :: (Size t, t -> Poke ())
@@ -62,7 +65,7 @@ encode :: Bi a => a -> ByteString
 encode x = Store.unsafeEncodeWith (put x) (getSize x)
 {-# INLINE encode #-}
 
--- | Encode a value to a strict bytestring
+-- | Encode a value to a lazy bytestring
 encodeLazy :: Bi a => a -> BSL.ByteString
 encodeLazy x = BSL.fromStrict (Store.unsafeEncodeWith (put x) (getSize x))
 {-# INLINE encodeLazy #-}
@@ -76,25 +79,28 @@ biSize :: Bi a => a -> Byte
 biSize = fromIntegral . getSize
 {-# INLINE biSize #-}
 
+-- | Try to encode a strict ByteString,
+-- return text of a thrown exception, if it failed.
 decodeFull :: Bi a => ByteString -> Either Text a
 decodeFull = over _Left Store.peekExMessage . Store.decodeWith get
 
+-- | Try to encode a strict ByteString, call @error@ if it failed.
 decodeOrFail :: Bi a => ByteString -> a
-decodeOrFail =
-    (either (error . sformat ("Couldn't decode, reason: "%build)) identity) .
-    decodeFull
+decodeOrFail a =
+    (either (error . sformat ("Couldn't decode: "%shown%", reason: "%build) a) identity) $
+    decodeFull a
 
 ----------------------------------------------------------------------------
 -- Basic functions for other modules
 ----------------------------------------------------------------------------
 
+-- | Append to exception message passed text, if decoding failed.
 label :: Text -> Peek a -> Peek a
 label msg p = Peek $ \pstate ptr ->
     runPeek p pstate ptr `catch` onPeekEx
   where
     onPeekEx (PeekException offset msgEx) =
         throwM (PeekException offset (msgEx <> "\n" <> msg))
-
 
 -- | Like 'isolate', but allows consuming less bytes than expected (just not
 -- more).

@@ -1,5 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
+-- | Useful functions for serialization/deserialization.
+
 module Pos.Binary.Class.Primitive
        (
        -- * Primitives for serialization
@@ -22,6 +24,7 @@ module Pos.Binary.Class.Primitive
        , putSmallWithLengthS
        , getSmallWithLength
 
+       -- * Serialization strings and sequence of bytes
        , getBytes
        , putBytes
 
@@ -129,6 +132,7 @@ fromBinaryM = either (fail . T.unpack) return . fromBinary
 putWithLength :: PokeWithSize a -> Poke a
 putWithLength a = put (UnsignedVarInt $ pwsToSize a) *> pwsToPoke a
 
+-- | Like @putWithLength@ but returns PokeWithSize.
 putWithLengthS :: PokeWithSize a -> PokeWithSize a
 putWithLengthS a = pokeWithSize (UnsignedVarInt $ pwsToSize a) *> a
 
@@ -161,6 +165,7 @@ getWithLengthLimited lim getter = do
 putSmallWithLength :: PokeWithSize a -> Poke a
 putSmallWithLength = pwsToPoke . putSmallWithLengthS
 
+-- | Like @putSmallWithLength@ but returns PokeWithSize.
 putSmallWithLengthS :: PokeWithSize a -> PokeWithSize a
 putSmallWithLengthS a@(PokeWithSize len _) = do
     if len >= 2^(14::Int)
@@ -174,14 +179,9 @@ getSmallWithLength getter = do
     TinyVarInt len <- get
     isolate64Full (fromIntegral len) getter
 
-{-
 ----------------------------------------------------------------------------
 -- Other binary utils
 ----------------------------------------------------------------------------
-
-getRemainingByteString :: Peek ByteString
-getRemainingByteString = BSL.toStrict <$> getRemainingLazyByteString
--}
 
 getAsciiString1b :: String -> Word8 -> Peek String
 getAsciiString1b typeName limit = getWord8 >>= \sz -> do
@@ -209,7 +209,7 @@ getBytes i =
         \(_ :: Proxy n) -> unStaticSize <$>
         (Store.peek :: Peek (StaticSize n ByteString))
 
--- | Put bytestring with constant length.
+-- | Put bytestring with constant length (without length)
 putBytes :: ByteString -> Poke ()
 putBytes bs =
     reifyNat (fromIntegral $ BS.length bs) $ \(_ :: Proxy n) ->

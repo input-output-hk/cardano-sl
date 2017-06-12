@@ -49,6 +49,9 @@ import qualified Data.Store.Internal        as Store
 
 import           Pos.Binary.Class.Core      (Bi (..), getSize)
 
+----------------------------------------------------------------------------
+-- Helpers to implement @sizeNPut@
+----------------------------------------------------------------------------
 
 instance Monoid a => Monoid (Poke a) where
     mempty = pure mempty
@@ -65,60 +68,55 @@ instance Monoid (Size a) where
         (ConstSize n, VarSize g)   -> VarSize (\x -> n + g x)
         (ConstSize n, ConstSize m) -> ConstSize (n + m)
 
+-- | Helper for @sizeNPut@. Put const size object.
 putConst :: Bi x => x -> (Size a, a -> Poke ())
 putConst x = (ConstSize (getSize x), \_ -> put x)
 
+-- | Helper for @sizeNPut@. Put field of datatype.
+-- You can concat several @putField@ and @putConst@ together, for example:
+-- data GenericBlockHeader b = UnsafeGenericBlockHeader
+--     { _gbhPrevBlock :: !(BHeaderHash b)
+--       _gbhBodyProof :: !(BodyProof b)
+--       _gbhConsensus :: !(ConsensusData b)
+--       _gbhExtra     :: !(ExtraHeaderData b)
+--     } deriving (Generic)
+-- sizeNPut = putConst protocolMagic <>
+--            putField _gbhPrevBlock <>
+--            putField _gbhBodyProof <>
+--            putField _gbhConsensus <>
+--            putField _gbhExtra
 putField :: Bi x => (a -> x) -> (Size a, a -> Poke ())
 putField f = (VarSize $ \a -> getSize (f a), put . f)
 
+-- | Yet another helper for const size object.
 appendConst :: Bi x => (Size a, a -> Poke ()) -> x -> (Size a, a -> Poke ())
 appendConst a x = a <> putConst x
 
+-- | Yet another helper for field of datatype.
 appendField :: Bi x => (Size a, a -> Poke ()) -> (a -> x) -> (Size a, a -> Poke ())
 appendField a f = a <> putField f
 
-convertToSizeNPut :: (a -> PokeWithSize ()) -> (Size a, a -> Poke ())
-convertToSizeNPut f = (VarSize $ pwsToSize . f, pwsToPoke . f)
+----------------------------------------------------------------------------
+-- Helpers to implement @size@
+----------------------------------------------------------------------------
 
 constSize :: forall a . Bi a => Int
 constSize =  case size :: Size a of
     VarSize   _ -> error "constSize: VarSize"
     ConstSize a -> a
 
-execPoke :: Poke a -> Store.PokeState -> Store.Offset -> IO Store.Offset
-execPoke p ptr offset = fst <$> Store.runPoke p ptr offset
+-- | Helper for implementation of @Bi.size@.
+-- You can get @Size a@ from @Size b@ if there is
+-- way to convert a to b.
+convertSize :: (a -> b) -> Size b -> Size a
+convertSize = contramap
+{-# INLINE convertSize #-}
 
-mkPoke
-    :: (Store.PokeState -> Store.Offset -> IO Store.Offset)
-    -> Poke ()
-mkPoke f = Store.Poke (\ptr offset -> (,()) <$> f ptr offset)
-
-----------------------------------------------------------------------------
--- Poke with Size
-----------------------------------------------------------------------------
-
--- | A wrapper around Poke, needed for putWithLength-like functions.
-data PokeWithSize a
-    = PokeWithSize {
-      pwsToSize :: !Int
-    , pwsToPoke :: !(Poke a)
-    } deriving (Functor)
-
-instance Monoid a => Monoid (PokeWithSize a) where
-    mempty = PokeWithSize 0 (pure mempty)
-    m1 `mappend` m2 =
-        PokeWithSize  (pwsToSize m1 + pwsToSize m2) (pwsToPoke m1 <> pwsToPoke m2)
-
-instance Applicative PokeWithSize where
-    pure x = PokeWithSize 0 (pure x)
-    {-# INLINE pure #-}
-    PokeWithSize fsz f <*> PokeWithSize vsz v = PokeWithSize (fsz + vsz) (f <*> v)
-    {-# INLINE (<*>) #-}
-    PokeWithSize fsz f *> PokeWithSize vsz v = PokeWithSize  (fsz + vsz) (f *> v)
-    {-# INLINE (*>) #-}
-
-pokeWithSize :: Bi a => a -> PokeWithSize ()
-pokeWithSize x = PokeWithSize (getSize x) (put x)
+-- | Helper for implementation of @Bi.size@.
+-- Useful when data contains only one field, then size of data is @sizeOf field@
+sizeOf :: Bi a => (x -> a) -> Size x
+sizeOf conv = convertSize conv size
+{-# INLINE sizeOf #-}
 
 -- Instances for tuples with up to 5 elements are provided. There's a TH
 -- generator in the neongreen/THBUG branch, but it doesn't work because,
@@ -216,20 +214,60 @@ sizeAddField sizeX toA =
 
 infixl 9 `sizeAddField`
 
-convertSize :: (a -> b) -> Size b -> Size a
-convertSize = contramap
+----------------------------------------------------------------------------
+-- Poke with Size
+----------------------------------------------------------------------------
 
-sizeOf :: Bi a => (x -> a) -> Size x
-sizeOf conv = convertSize conv size
+-- | A wrapper around Poke wich stores also length of Poke,
+-- useful for functions like @putWithLength@.
+data PokeWithSize a
+    = PokeWithSize {
+      pwsToSize :: !Int
+    , pwsToPoke :: !(Poke a)
+    } deriving (Functor)
+
+-- | Create @PokeWithSize@ from Bi a.
+pokeWithSize :: Bi a => a -> PokeWithSize ()
+pokeWithSize x = PokeWithSize (getSize x) (put x)
+
+-- | Conversion between two equivalent formats.
+-- Might be useful for @sizeNPut@ of datatype with several constructors.
+convertToSizeNPut :: (a -> PokeWithSize ()) -> (Size a, a -> Poke ())
+convertToSizeNPut f = (VarSize $ pwsToSize . f, pwsToPoke . f)
+
+instance Monoid a => Monoid (PokeWithSize a) where
+    mempty = PokeWithSize 0 (pure mempty)
+    m1 `mappend` m2 =
+        PokeWithSize  (pwsToSize m1 + pwsToSize m2) (pwsToPoke m1 <> pwsToPoke m2)
+
+instance Applicative PokeWithSize where
+    pure x = PokeWithSize 0 (pure x)
+    {-# INLINE pure #-}
+    PokeWithSize fsz f <*> PokeWithSize vsz v = PokeWithSize (fsz + vsz) (f <*> v)
+    {-# INLINE (<*>) #-}
+    PokeWithSize fsz f *> PokeWithSize vsz v = PokeWithSize  (fsz + vsz) (f *> v)
+    {-# INLINE (*>) #-}
+
+----------------------------------------------------------------------------
+-- Useful functions for Poke and Peek.
+----------------------------------------------------------------------------
 
 -- | Test Peek on empty.
 isEmptyPeek :: Peek Bool
 isEmptyPeek = Peek $ \end ptr ->
     pure (PeekResult ptr (ptr >= Store.peekStateEndPtr end))
 
--- | Try to read @a@
+-- | Try to read @a@ but don't move pointer on the buffer, fail if can't.
 lookAhead :: Peek a -> Peek a
 lookAhead m = Peek $ \end ptr -> Store.runPeek m end ptr `catch` onEx
   where
     onEx (PeekException ptr exMsg) =
         throwM $ PeekException ptr (exMsg <> "\nlookAhead failed")
+
+execPoke :: Poke a -> Store.PokeState -> Store.Offset -> IO Store.Offset
+execPoke p ptr offset = fst <$> Store.runPoke p ptr offset
+
+mkPoke
+    :: (Store.PokeState -> Store.Offset -> IO Store.Offset)
+    -> Poke ()
+mkPoke f = Store.Poke (\ptr offset -> (,()) <$> f ptr offset)

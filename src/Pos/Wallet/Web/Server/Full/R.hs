@@ -20,20 +20,18 @@ import           System.Wlog                       (logInfo)
 
 import           Pos.Communication                 (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol        (SendActions)
-import           Pos.Constants                     (isDevelopment)
-import           Pos.Crypto                        (noPassEncrypt)
 import           Pos.Discovery                     (DiscoveryContextSum)
-import           Pos.Genesis                       (genesisDevSecretKeys)
 import           Pos.Launcher.Param                (NodeParams (..))
 import           Pos.Launcher.Runner               (runRealBasedMode)
 import           Pos.Ssc.Class                     (SscConstraint, SscParams)
-import           Pos.Wallet.KeyStorage             (addSecretKey)
 import           Pos.Wallet.Redirect               (liftWalletRedirects,
                                                     runWalletRedirects)
 import           Pos.Wallet.SscType                (WalletSscType)
 import           Pos.Wallet.Web.Server.Full.Common (nat)
-import           Pos.Wallet.Web.Server.Methods     (WalletWebHandler, walletApplication,
-                                                    walletServeImpl, walletServer)
+import           Pos.Wallet.Web.Server.Methods     (WalletWebHandler,
+                                                    addInitialRichAccount,
+                                                    walletApplication, walletServeImpl,
+                                                    walletServer)
 import           Pos.Wallet.Web.Server.Sockets     (ConnectionsVar, runWalletWS)
 import           Pos.Wallet.Web.State              (WalletState, runWalletWebDB)
 import           Pos.WorkMode                      (RealMode)
@@ -72,6 +70,5 @@ walletServeWebFull sendActions debug = walletServeImpl action
     action :: WalletRealWebMode Application
     action = do
         logInfo "DAEDALUS has STARTED!"
-        when (isDevelopment && debug) $
-            mapM_ (addSecretKey . noPassEncrypt) genesisDevSecretKeys
+        when debug $ addInitialRichAccount 0
         walletApplication $ walletServer sendActions nat

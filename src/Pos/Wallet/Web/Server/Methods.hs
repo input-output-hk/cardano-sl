@@ -772,7 +772,12 @@ newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase CWalletInit {..} = do
     let CWalletMeta {..} = cwInitMeta
     cAddr <- genSaveRootAddress passphrase cwBackupPhrase
-    createWalletSafe cAddr cwInitMeta
+    wallet@CWallet{..} <- createWalletSafe cAddr cwInitMeta
+
+    let accMeta = CAccountMeta { caName = "Initial account" }
+    let accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
+    _ <- newAccount RandomSeed passphrase accInit
+    return wallet
 
 updateAccount :: WalletWebMode m => AccountId -> CAccountMeta -> m CAccount
 updateAccount accId wMeta = do
@@ -898,7 +903,6 @@ changeWalletPassphrase sa wid oldPass newPass = do
     oldSK   <- getSKByAddr wid
     newSK   <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
 
-    -- TODO [CSM-236]: test on oldWSAddr == newWSAddr
     addSecretKey newSK
     oldAddrMeta <- (`E.onException` deleteSK newPass) $ do
         (oldAddrMeta, newAddrMeta) <- cloneWalletSetWithPass newSK newPass wid
@@ -1049,7 +1053,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         wid    = addressToCId addr
         wMeta  = def { cwName = _wusWalletName }
     addSecretKey key
-    importedWSet <- createWalletSafe wid wMeta
+    importedWallet <- createWalletSafe wid wMeta
 
     for_ _wusAccounts $ \(walletIndex, walletName) -> do
         let accMeta = def{ caName = walletName }
@@ -1063,7 +1067,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 
     selectAccountsFromUtxoLock @WalletSscType [key]
 
-    return importedWSet
+    return importedWallet
 
 -- | Creates wallet with given genesis hd-wallet key.
 addInitialRichAccount :: WalletWebMode m => Int -> m ()
@@ -1077,7 +1081,7 @@ addInitialRichAccount keyId =
   where
     noKey = InternalError $ sformat ("No genesis key #" %build) keyId
     wSetExistsHandler =
-        logDebug . sformat ("Initial wallet already exists (" %build % ")")
+        logDebug . sformat ("Creation of initial wallet was skipped (" %build % ")")
 
 syncProgress :: WalletWebMode m => m SyncProgress
 syncProgress = do

@@ -352,7 +352,7 @@ servantHandlers sendActions =
     :<|>
      updateTransaction
     :<|>
-     searchHistory
+     searchHistoryLimited
     :<|>
 
      nextUpdate
@@ -394,11 +394,14 @@ getWAddressBalance addr =
     getBalance <=< decodeCIdOrFail $ cwamId addr
 
 getWAddress :: WalletWebMode m => CWAddressMeta -> m CAddress
-getWAddress cAddr@CWAddressMeta{..} = do
+getWAddress cAddr@CWAddressMeta {..} = do
     balance <- getWAddressBalance cAddr
-    -- TODO [CSM-288]: this is super bad, extract required logic from 'searchHistory'.
-    -- TODO [CSM-288]: this is very inefficient as well.
-    (ctxs, _) <- searchHistory Nothing (Just $ walletAddrMetaToAccount cAddr) (Just cwamId) Nothing Nothing (Just 999999)
+    (ctxs, _) <-
+        searchHistory
+            Nothing
+            (Just $ walletAddrMetaToAccount cAddr)  -- just to specify addrId is not enough
+            (Just cwamId)
+            Nothing
     let isUsed = not (null ctxs) || balance > minBound
     return $ CAddress cwamId (mkCCoin balance) isUsed
 
@@ -674,17 +677,14 @@ getFullWalletHistory cWalId = do
     transCache Nothing                = (Nothing, [])
     transCache (Just (hh, utxo, txs)) = (Just (hh, utxo), txs)
 
--- FIXME: is Word enough for length here?
 searchHistory
     :: WalletWebMode m
     => Maybe (CId Wal)
     -> Maybe AccountId
     -> Maybe (CId Addr)
     -> Maybe Text
-    -> Maybe Word
-    -> Maybe Word
     -> m ([CTx], Word)
-searchHistory mCWalId mAccountId mAddrId mSearch mSkip mLimit = do
+searchHistory mCWalId mAccountId mAddrId mSearch = do
     -- FIXME: searching when only AddrId is provided is not supported yet.
     (cWalId, accIds) <- case (mCWalId, mAccountId) of
         (Nothing, Nothing)      -> throwM errorSpecifySomething
@@ -698,7 +698,7 @@ searchHistory mCWalId mAccountId mAddrId mSearch mSkip mLimit = do
         Nothing -> pure accAddrs
         Just addr ->
             if addr `elem` accAddrs then pure [addr] else throwM errorBadAddress
-    first (applySkipLimit . filter (fits addrs)) <$> getFullWalletHistory cWalId
+    first (filter (fits addrs)) <$> getFullWalletHistory cWalId
   where
     fits :: [CId Addr] -> CTx -> Bool
     fits addrs ctx =
@@ -706,17 +706,30 @@ searchHistory mCWalId mAccountId mAddrId mSearch mSkip mLimit = do
             && any (relatesToAddr ctx) addrs
     containsInTitle = flip txContainsTitle
     relatesToAddr CTx {..} = (`elem` (ctInputAddrs ++ ctOutputAddrs))
-    applySkipLimit = take limit . drop skip
-    limit = (fromIntegral $ fromMaybe defaultLimit mLimit)
-    skip = (fromIntegral $ fromMaybe defaultSkip mSkip)
-    defaultLimit = 100
-    defaultSkip = 0
     errorSpecifySomething = RequestError $
         "Please specify either walletId or accountId"
     errorDontSpecifyBoth = RequestError $
         "Please do not specify both walletId and accountId at the same time"
     errorBadAddress = RequestError $
         "Specified wallet/account does not contain specified address"
+
+searchHistoryLimited
+    :: WalletWebMode m
+    => Maybe (CId Wal)
+    -> Maybe AccountId
+    -> Maybe (CId Addr)
+    -> Maybe Text
+    -> Maybe Word
+    -> Maybe Word
+    -> m ([CTx], Word)
+searchHistoryLimited mCWalId mAccId mAddrId mSearch mSkip mLimit =
+    first applySkipLimit <$> searchHistory mCWalId mAccId mAddrId mSearch
+  where
+    applySkipLimit = take limit . drop skip
+    limit = (fromIntegral $ fromMaybe defaultLimit mLimit)
+    skip = (fromIntegral $ fromMaybe defaultSkip mSkip)
+    defaultLimit = 100
+    defaultSkip = 0
 
 addHistoryTx
     :: WalletWebMode m

@@ -71,7 +71,7 @@ import           Control.Monad.Trans.Class      (MonadTrans)
 import           Control.Monad.Trans.Control    (MonadBaseControl)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
+import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT, transResourceT,
                                                  runResourceT)
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
@@ -216,6 +216,9 @@ type instance ChannelT (ResourceT m) = ChannelT m
 
 -- TODO Move it to log-warper
 instance CanLog m => CanLog (ResourceT m)
+instance (Monad m, HasLoggerName m) => HasLoggerName (ResourceT m) where
+    getLoggerName = lift getLoggerName
+    modifyLoggerName = transResourceT . modifyLoggerName
 
 -- TODO Move it to ether
 instance Ether.MonadReader tag r m => Ether.MonadReader tag r (ResourceT m) where

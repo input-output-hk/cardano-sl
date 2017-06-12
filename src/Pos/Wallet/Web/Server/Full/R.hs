@@ -14,17 +14,13 @@ module Pos.Wallet.Web.Server.Full.R
 import           Universum
 
 import           Mockable                          (Production)
-import           Network.Transport.Abstract        (Transport)
 import           Network.Wai                       (Application)
 import           System.Wlog                       (logInfo)
 
 import           Pos.Communication                 (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol        (SendActions)
-import           Pos.Discovery                     (DiscoveryContextSum)
-import           Pos.Launcher.Param                (NodeParams (..))
+import           Pos.Launcher.Resource             (NodeResources)
 import           Pos.Launcher.Runner               (runRealBasedMode)
-import           Pos.Slotting                      (SlottingContextSum)
-import           Pos.Ssc.Class                     (SscConstraint, SscParams)
 import           Pos.Wallet.Redirect               (liftWalletRedirects,
                                                     runWalletRedirects)
 import           Pos.Wallet.SscType                (WalletSscType)
@@ -41,14 +37,9 @@ type WalletRealWebMode = WalletWebHandler (RealMode WalletSscType)
 
 -- | WalletRealWebMode runner.
 runWRealMode
-    :: SscConstraint WalletSscType
-    => WalletState
+    :: WalletState
     -> ConnectionsVar
-    -> DiscoveryContextSum
-    -> SlottingContextSum
-    -> Transport WalletRealWebMode
-    -> NodeParams
-    -> SscParams WalletSscType
+    -> NodeResources WalletSscType WalletRealWebMode
     -> (ActionSpec WalletRealWebMode a, OutSpecs)
     -> Production a
 runWRealMode db conn =
@@ -62,8 +53,7 @@ runWRealMode db conn =
 {-# NOINLINE runWRealMode #-}
 
 walletServeWebFull
-    :: SscConstraint WalletSscType
-    => SendActions WalletRealWebMode
+    :: SendActions WalletRealWebMode
     -> Bool      -- whether to include genesis keys
     -> Word16
     -> WalletRealWebMode ()

@@ -16,19 +16,19 @@ import           Data.Tagged          (untag)
 import           Pos.Block.Worker     (blkWorkers)
 import           Pos.Communication    (OutSpecs, WorkerSpec, localWorker, relayWorkers,
                                        wrapActionSpec)
-import           Pos.Context          (recoveryCommGuard)
+import           Pos.Context          (NodeContext (..), recoveryCommGuard)
 import           Pos.Delegation       (delegationRelays, dlgWorkers)
+import           Pos.Discovery        (discoveryWorkers)
 import           Pos.Lrc.Worker       (lrcOnNewSlotWorker)
 import           Pos.Security.Workers (SecurityWorkersClass, securityWorkers)
-import           Pos.Slotting         (SlottingContextSum, logNewSlotWorker,
-                                       slottingWorkers)
-import           Pos.Ssc.Class        (SscListenersClass (sscRelays),
+import           Pos.Slotting         (logNewSlotWorker, slottingWorkers)
+import           Pos.Ssc.Class        (SscConstraint, SscListenersClass (sscRelays),
                                        SscWorkersClass (sscWorkers))
 import           Pos.Txp              (txRelays)
 import           Pos.Txp.Worker       (txpWorkers)
 import           Pos.Update           (usRelays, usWorkers)
 import           Pos.Util             (mconcatPair)
-import           Pos.WorkMode.Class   (WorkMode)
+import           Pos.WorkMode         (RealMode, WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
@@ -37,15 +37,15 @@ allWorkers
        , SecurityWorkersClass ssc
        , WorkMode ssc m
        )
-    => SlottingContextSum -> ([WorkerSpec m], OutSpecs)
-allWorkers slottingCtx = mconcatPair
+    => NodeContext ssc  -> ([WorkerSpec m], OutSpecs)
+allWorkers NodeContext {..} = mconcatPair
     [
       -- Only workers of "onNewSlot" type
+      -- I have no idea what this ↑ comment means (@gromak).
 
-      -- TODO cannot have this DHT worker here. It assumes Kademlia.
-      --wrap' "dht"        $ dhtWorkers
+      wrap' "dht"        $ discoveryWorkers ncDiscoveryContext
 
-      wrap' "ssc"        $ sscWorkers
+    , wrap' "ssc"        $ sscWorkers
     , wrap' "security"   $ untag securityWorkers
     , wrap' "lrc"        $ first one lrcOnNewSlotWorker
     , wrap' "us"         $ usWorkers
@@ -61,16 +61,16 @@ allWorkers slottingCtx = mconcatPair
   where
     properSlottingWorkers =
        fst (recoveryCommGuard (localWorker logNewSlotWorker)) :
-       map (fst . localWorker) (slottingWorkers slottingCtx)
+       map (fst . localWorker) (slottingWorkers ncSlottingContext)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
 
 -- FIXME this shouldn't be needed.
+-- FIXME 'RealMode' is hardcoded, maybe it's bad, this mechanism seems
+-- to be fundamentally broken.
 allWorkersCount
-    :: forall ssc m.
-       ( SscListenersClass ssc
-       , SscWorkersClass ssc
+    :: forall ssc.
+       ( SscConstraint ssc
        , SecurityWorkersClass ssc
-       , WorkMode ssc m
        )
-    => SlottingContextSum -> Int
-allWorkersCount = length . fst . (allWorkers @ssc @m)
+    => NodeContext ssc -> Int
+allWorkersCount = length . fst . (allWorkers @ssc @(RealMode ssc))

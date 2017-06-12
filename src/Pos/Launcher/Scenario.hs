@@ -26,8 +26,8 @@ import           System.Wlog        (WithLogger, getLoggerName, logError, logInf
 import           Pos.Communication  (ActionSpec (..), OutSpecs, WorkerSpec,
                                      wrapActionSpec)
 import qualified Pos.Constants      as Const
-import           Pos.Context        (BlkSemaphore (..), getOurPubKeyAddress,
-                                     getOurPublicKey)
+import           Pos.Context        (BlkSemaphore (..), MonadNodeContext, NodeContext,
+                                     NodeContextTag, getOurPubKeyAddress, getOurPublicKey)
 import qualified Pos.DB.GState      as GS
 import           Pos.Delegation     (initDelegation)
 import           Pos.Lrc.Context    (LrcSyncData (..), lcLrcSync)
@@ -35,9 +35,7 @@ import qualified Pos.Lrc.DB         as LrcDB
 import           Pos.Reporting      (reportMisbehaviourMasked)
 import           Pos.Security       (SecurityWorkersClass)
 import           Pos.Shutdown       (waitForWorkers)
-import           Pos.Slotting       (MonadSlottingSum, SlottingContextSum,
-                                     askSlottingContextSum, getCurrentSlot,
-                                     waitSystemStart)
+import           Pos.Slotting       (getCurrentSlot, waitSystemStart)
 import           Pos.Ssc.Class      (SscConstraint)
 import           Pos.Types          (SlotId (..), addressHash)
 import           Pos.Update         (MemState (..), mvState)
@@ -54,7 +52,7 @@ runNode'
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc m
-       , MonadSlottingSum m
+       , MonadNodeContext ssc m
        )
     => [WorkerSpec m]
     -> WorkerSpec m
@@ -79,10 +77,10 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
             action vI sendActions `catch` reportHandler
     mapM_ (fork . unpackPlugin) plugins'
 
-    slottingCtx <- askSlottingContextSum
+    nc <- Ether.ask @NodeContextTag
 
     -- Instead of sleeping forever, we wait until graceful shutdown
-    waitForWorkers (allWorkersCount @ssc @m slottingCtx)
+    waitForWorkers (allWorkersCount @ssc nc)
     exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?
@@ -99,15 +97,15 @@ runNode ::
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc m
-       , MonadSlottingSum m
+       , MonadNodeContext ssc m
        )
-    => SlottingContextSum
+    => NodeContext ssc
     -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
-runNode slottingCtx (plugins, plOuts) =
+runNode nc (plugins, plOuts) =
     (, plOuts <> wOuts) $ runNode' $ workers' ++ plugins'
   where
-    (workers', wOuts) = allWorkers slottingCtx
+    (workers', wOuts) = allWorkers nc
     plugins' = map (wrapActionSpec "plugin") plugins
 
 -- | This function prints a very useful message when node is started.

@@ -737,7 +737,7 @@ newWallet passphrase CWalletInit {..} = do
     wallet@CWallet{..} <- createWalletSafe cAddr cwInitMeta
 
     let accMeta = CAccountMeta { caName = "Initial account" }
-    let accInit = CAccountInit { cwInitWId = cwId, caInitMeta = accMeta }
+    let accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
     _ <- newAccount RandomSeed passphrase accInit
     return wallet
 

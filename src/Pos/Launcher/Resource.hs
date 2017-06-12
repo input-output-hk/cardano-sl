@@ -57,7 +57,7 @@ import           Pos.Crypto                   (createProxySecretKey, encToPublic
 import           Pos.DB                       (MonadDB, MonadDBRead, NodeDBs,
                                                runDBPureRedirect)
 import           Pos.DB.Block                 (runBlockDBRedirect)
-import           Pos.DB.DB                    (initNodeDBs, openNodeDBs)
+import           Pos.DB.DB                    (closeNodeDBs, initNodeDBs, openNodeDBs)
 import           Pos.DB.GState                (getTip)
 import           Pos.DB.Misc                  (addProxySecretKey)
 import           Pos.Delegation.Class         (DelegationVar)
@@ -189,7 +189,7 @@ releaseNodeResources ::
     => NodeResources ssc m -> m ()
 releaseNodeResources NodeResources {..} = do
     releaseAllHandlers
-    -- TODO: close DB
+    closeNodeDBs nrDBs
     releaseNodeContext nrContext
     closeTransport nrTransport
 

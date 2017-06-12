@@ -8,7 +8,6 @@ module Main where
 
 import           Universum
 
-import           Control.Monad.Trans        (MonadTrans (..))
 import qualified Data.ByteString.Char8      as BS8 (unpack)
 import           Data.Maybe                 (fromJust)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
@@ -18,25 +17,23 @@ import           Formatting                 (sformat, shown, (%))
 import           Mockable                   (Production, currentTime)
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
-import           Node                       (hoistSendActions)
 import           Serokell.Util              (sec)
 import           System.Wlog                (logInfo)
 
 import           Pos.Binary                 ()
 import qualified Pos.CLI                    as CLI
-import           Pos.Communication          (ActionSpec (..), OutSpecs, WorkerSpec,
-                                             worker, wrapActionSpec)
+import           Pos.Communication          (OutSpecs, WorkerSpec, worker, wrapActionSpec)
 import           Pos.Context                (recoveryCommGuard)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.DHT.Workers            (dhtWorkers)
-import           Pos.Discovery              (askDHTInstance, runDiscoveryKademliaT)
+import           Pos.Discovery              (DiscoveryContextSum (..))
 #ifndef DEV_MODE
 import           Pos.Genesis                (genesisStakeDistribution)
 #endif
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
                                              foreverRejoinNetwork)
 import           Pos.Launcher               (NodeParams (..), bracketResourcesKademlia,
-                                             runNodeProduction)
+                                             runNodeReal)
 import           Pos.Shutdown               (triggerShutdown)
 import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
@@ -45,7 +42,7 @@ import           Pos.Update.Context         (ucUpdateSemaphore)
 import           Pos.Util                   (inAssertMode, mconcatPair)
 import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
-import           Pos.WorkMode               (ProductionMode, RawRealMode, WorkMode)
+import           Pos.WorkMode               (RealMode, WorkMode)
 
 import           Pos.Explorer.Socket        (NotifierSettings (..))
 import           Pos.Explorer.Web           (explorerPlugin, notifierPlugin)
@@ -54,10 +51,12 @@ import           ExplorerOptions            (Args (..), getExplorerOptions)
 import           Params                     (getBaseParams, getKademliaParams,
                                              getNodeParams, gtSscParams)
 
+-- Note: for now Kademlia discovery is hardcoded.
+
 action
     :: KademliaDHTInstance
     -> Args
-    -> (forall ssc . Transport (RawRealMode ssc))
+    -> (forall ssc . Transport (RealMode ssc))
     -> Production ()
 action kad args@Args {..} transport = do
     systemStart <- getNodeSystemStart $ CLI.sysStart commonArgs
@@ -75,37 +74,22 @@ action kad args@Args {..} transport = do
             [ explorerPlugin webPort
             , notifierPlugin NotifierSettings{ nsPort = notifierPort }
             , wDhtWorkers kad
-            , utwProd
+            , updateTriggerWorker
             ]
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let gtParams = gtSscParams args vssSK
 
-    runNodeProduction @SscGodTossing
-        kad
-        transportR
+    runNodeReal @SscGodTossing
+        (DCKademlia kad)
+        transport
         plugins
         currentParams
         gtParams
-  where
-    transportR ::
-        forall ssc t0 .
-        ( MonadTrans t0
-        , Monad (t0 (RawRealMode ssc))
-        )
-        => Transport (t0 (RawRealMode ssc))
-    transportR = hoistTransport lift transport
-
-utwProd :: SscConstraint ssc => ([WorkerSpec (ProductionMode ssc)], OutSpecs)
-utwProd = first (map liftPlugin) updateTriggerWorker
-  where
-    liftPlugin (ActionSpec p) = ActionSpec $ \vI sa -> do
-        ki <- askDHTInstance
-        lift . p vI $ hoistSendActions (runDiscoveryKademliaT ki) lift sa
 
 updateTriggerWorker
     :: SscConstraint ssc
-    => ([WorkerSpec (RawRealMode ssc)], OutSpecs)
+    => ([WorkerSpec (RealMode ssc)], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
     void $ takeMVar =<< Ether.asks' ucUpdateSemaphore
@@ -153,6 +137,6 @@ main = do
     kademliaParams <- liftIO $ getKademliaParams args
     bracketResourcesKademlia baseParams tcpAddr kademliaParams $ \kademliaInstance transport ->
         let transport' = hoistTransport
-                (powerLift :: forall ssc t . Production t -> RawRealMode ssc t)
+                (powerLift :: forall ssc t . Production t -> RealMode ssc t)
                 transport
         in  foreverRejoinNetwork kademliaInstance (action kademliaInstance args transport')

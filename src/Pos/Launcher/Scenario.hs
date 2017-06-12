@@ -9,7 +9,10 @@ module Pos.Launcher.Scenario
        , initSemaphore
        , initLrc
        , runNode'
+       , nodeStartMsg
        ) where
+
+import           Universum
 
 import           Data.Default       (def)
 import           Development.GitRev (gitBranch, gitHash)
@@ -18,11 +21,11 @@ import           Formatting         (build, sformat, shown, (%))
 import           Mockable           (fork)
 import           Paths_cardano_sl   (version)
 import           System.Exit        (ExitCode (..))
-import           System.Wlog        (getLoggerName, logError, logInfo)
-import           Universum
+import           System.Wlog        (WithLogger, getLoggerName, logError, logInfo)
 
 import           Pos.Communication  (ActionSpec (..), OutSpecs, WorkerSpec,
                                      wrapActionSpec)
+import qualified Pos.Constants      as Const
 import           Pos.Context        (BlkSemaphore (..), getOurPubKeyAddress,
                                      getOurPublicKey)
 import qualified Pos.DB.GState      as GS
@@ -58,6 +61,7 @@ runNode'
 runNode' plugins' = ActionSpec $ \vI sendActions -> do
 
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
+    nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey
     addr <- getOurPubKeyAddress
@@ -105,6 +109,17 @@ runNode slottingCtx (plugins, plOuts) =
   where
     (workers', wOuts) = allWorkers slottingCtx
     plugins' = map (wrapActionSpec "plugin") plugins
+
+-- | This function prints a very useful message when node is started.
+nodeStartMsg :: WithLogger m => m ()
+nodeStartMsg = logInfo msg
+  where
+    msg = sformat ("Application: " %build% ", last known block version " %build)
+                   Const.curSoftwareVersion Const.lastKnownBlockVersion
+
+----------------------------------------------------------------------------
+-- Details
+----------------------------------------------------------------------------
 
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do

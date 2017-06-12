@@ -258,7 +258,7 @@ runRealModeDo discoveryCtx slottingCtx transport np@NodeParams {..} sscnp
            runBListenerStub .
            (\(RealMode m) -> m) .
            runServer transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
-               \vI sa -> nodeStartMsg npBaseParams >> action vI sa
+               \vI sa -> action vI sa
   where
     LoggingParams {..} = bpLoggingParams npBaseParams
 {-# NOINLINE runRealMode #-}
@@ -382,13 +382,6 @@ runCH allWorkersNum discoveryCtx slottingCtx params@NodeParams {..} sscNodeConte
 ----------------------------------------------------------------------------
 -- Utilities
 ----------------------------------------------------------------------------
-
-nodeStartMsg :: WithLogger m => BaseParams -> m ()
-nodeStartMsg BaseParams {..} = do
-    logInfo msg1
-  where
-    msg1 = sformat ("Application: " %build% ", last known block version " %build)
-                   Const.curSoftwareVersion Const.lastKnownBlockVersion
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do

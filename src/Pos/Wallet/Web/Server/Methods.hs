@@ -865,7 +865,6 @@ changeWalletPassphrase sa wid oldPass newPass = do
     oldSK   <- getSKByAddr wid
     newSK   <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
 
-    -- TODO [CSM-236]: test on oldWSAddr == newWSAddr
     addSecretKey newSK
     oldAddrMeta <- (`E.onException` deleteSK newPass) $ do
         (oldAddrMeta, newAddrMeta) <- cloneWalletSetWithPass newSK newPass wid

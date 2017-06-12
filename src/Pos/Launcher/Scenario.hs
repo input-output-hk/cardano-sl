@@ -114,6 +114,10 @@ nodeStartMsg = logInfo msg
     msg = sformat ("Application: " %build% ", last known block version " %build)
                    Const.curSoftwareVersion Const.lastKnownBlockVersion
 
+----------------------------------------------------------------------------
+-- Details
+----------------------------------------------------------------------------
+
 putProxySecreyKeys :: (MonadDB m, Ether.MonadReader' NodeParams m) => m ()
 putProxySecreyKeys = do
     userSecret <- npUserSecret <$> Ether.ask'
@@ -123,10 +127,6 @@ putProxySecreyKeys = do
             flip (createProxySecretKey secretKey) eternity . encToPublic
         ownPSKs = userSecret ^.. usKeys . _tail . each . to makeOwnPSK
     for_ ownPSKs addProxySecretKey
-
-----------------------------------------------------------------------------
--- Details
-----------------------------------------------------------------------------
 
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do

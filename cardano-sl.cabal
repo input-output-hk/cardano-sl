@@ -94,11 +94,12 @@ library
 
                         -- Txp
                         Pos.Txp
+                        Pos.Txp.Arbitrary.Unsafe
 
                         Pos.Types
                         Pos.Types.Arbitrary
                         Pos.Types.Arbitrary.Core
-                        Pos.Types.Arbitrary.Unsafe
+                        Pos.Types.Arbitrary.Core.Unsafe
 
                         -- Update system
                         Pos.Update

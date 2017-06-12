@@ -5,10 +5,12 @@ module Pos.Binary.Update
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..), Size (..), appendField, combineSize,
-                                          convertSize, getAsciiString1b, getSize,
-                                          getWord8, label, putAsciiString1b, putField,
-                                          putWord8, sizeAsciiString1b)
+import           Pos.Binary.Class        (Bi (..), PokeWithSize, Size (..), appendField,
+                                          combineSize, convertSize, convertToSizeNPut,
+                                          getAsciiString1b, getSize, getWord8, label,
+                                          pokeWithSize, putAsciiString1b, putConst,
+                                          putField, putWord8, putWord8S,
+                                          sizeAsciiString1b)
 import           Pos.Binary.Core         ()
 import           Pos.Binary.Core.Version ()
 import           Pos.Crypto              (SignTag (SignUSVote), checkSig)
@@ -17,16 +19,16 @@ import qualified Pos.Update.Poll.Types   as U
 
 instance Bi U.SystemTag where
     size = convertSize (toString . U.getSystemTag) sizeAsciiString1b
+    put (toString . U.getSystemTag -> tag) = putAsciiString1b tag
     get =
         label "SystemTag" $
         U.mkSystemTag . toText =<< getAsciiString1b "SystemTag" U.systemTagMaxLength
-    put (toString . U.getSystemTag -> tag) = putAsciiString1b tag
 
 instance Bi U.UpdateVote where
     sizeNPut = putField U.uvKey
-               `appendField` U.uvProposalId
-               `appendField` U.uvDecision
-               `appendField` U.uvSignature
+        `appendField` U.uvProposalId
+        `appendField` U.uvDecision
+        `appendField` U.uvSignature
     get = label "UpdateVote" $ do
         uvKey <- get
         uvProposalId <- get
@@ -42,9 +44,9 @@ instance Bi U.UpdateVote where
 
 instance Bi U.UpdateData where
     sizeNPut = putField U.udAppDiffHash
-               `appendField` U.udPkgHash
-               `appendField` U.udUpdaterHash
-               `appendField` U.udMetadataHash
+        `appendField` U.udPkgHash
+        `appendField` U.udUpdaterHash
+        `appendField` U.udMetadataHash
     get = label "UpdateData" $ U.UpdateData <$> get <*> get <*> get <*> get
 
 instance Bi U.UpdateProposal where
@@ -85,26 +87,25 @@ instance Bi U.UpdatePayload where
 
 instance Bi U.VoteState where
     size = ConstSize 1
+    put = putWord8 . \case
+        U.PositiveVote -> 4
+        U.NegativeVote -> 5
+        U.PositiveRevote -> 6
+        U.NegativeRevote -> 7
     get = label "VoteState" $ getWord8 >>= \case
         4 -> pure U.PositiveVote
         5 -> pure U.NegativeVote
         6 -> pure U.PositiveRevote
         7 -> pure U.NegativeRevote
         x -> fail $ "get@VoteState: invalid tag: " <> show x
-    put = putWord8 . toByte
-      where
-        toByte = \case
-            U.PositiveVote -> 4
-            U.NegativeVote -> 5
-            U.PositiveRevote -> 6
-            U.NegativeRevote -> 7
 
 instance Bi a => Bi (U.PrevValue a) where
-    size = VarSize $ \case
-        U.NoExist     -> 1
-        U.PrevValue v -> 1 + getSize v
-    put (U.PrevValue v) = putWord8 2 >> put v
-    put U.NoExist       = putWord8 3
+    sizeNPut = convertToSizeNPut toBi
+        where
+          toBi :: Bi a => U.PrevValue a -> PokeWithSize ()
+          toBi = \case
+              U.PrevValue v -> putWord8S 2 <> pokeWithSize v
+              U.NoExist     -> putWord8S 3
     get = label "PrevValue" $ getWord8 >>= \case
         2 -> U.PrevValue <$> get
         3 -> pure U.NoExist
@@ -155,7 +156,6 @@ instance Bi U.UndecidedProposalState where
         return $ U.UndecidedProposalState {..}
 
 instance Bi U.DecidedProposalState where
-    size = combineSize (U.dpsDecision, U.dpsUndecided, U.dpsDifficulty, U.dpsExtra)
     sizeNPut = putField U.dpsDecision
         `appendField` U.dpsUndecided
         `appendField` U.dpsDifficulty

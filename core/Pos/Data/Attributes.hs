@@ -114,7 +114,7 @@ putAttributesWithSize putMapper Attributes {..} =
     traverse_ putAttr kvs *>
     pokeWithSize attrRemain
  where
-   putAttr (k, v) = putWord8WithSize k *> v
+   putAttr (k, v) = putWord8S k *> v
    kvs = sortOn fst $ putMapper attrData
 
 derive makeNFData ''Attributes

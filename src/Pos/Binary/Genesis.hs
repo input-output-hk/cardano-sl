@@ -6,7 +6,7 @@ import           Universum
 
 import           Pos.Binary.Class  (Bi (..), Peek, PokeWithSize, UnsignedVarInt (..),
                                     convertToSizeNPut, getWord8, label, pokeWithSize,
-                                    putField, putWord8WithSize)
+                                    putField, putWord8S)
 import           Pos.Genesis.Types (GenesisData (..), StakeDistribution (..))
 
 getUVI :: Peek Word
@@ -27,14 +27,14 @@ instance Bi StakeDistribution where
     sizeNPut = convertToSizeNPut f
       where
         f :: StakeDistribution -> PokeWithSize ()
-        f (FlatStakes n total)       = putWord8WithSize 0 <> putUVI n <> pokeWithSize total
-        f (BitcoinStakes n total)    = putWord8WithSize 1 <> putUVI n <> pokeWithSize total
+        f (FlatStakes n total)       = putWord8S 0 <> putUVI n <> pokeWithSize total
+        f (BitcoinStakes n total)    = putWord8S 1 <> putUVI n <> pokeWithSize total
         f (RichPoorStakes m rs n ps) =
-            putWord8WithSize 2 <> putUVI m <> pokeWithSize rs <>
+            putWord8S 2 <> putUVI m <> pokeWithSize rs <>
             putUVI n <> pokeWithSize ps
-        f ExponentialStakes          = putWord8WithSize 3
-        f (ExplicitStakes balances)  = putWord8WithSize 4 <> pokeWithSize balances
-        f (CombinedStakes st1 st2)   = putWord8WithSize 5 <> pokeWithSize st1 <> pokeWithSize st2
+        f ExponentialStakes          = putWord8S 3
+        f (ExplicitStakes balances)  = putWord8S 4 <> pokeWithSize balances
+        f (CombinedStakes st1 st2)   = putWord8S 5 <> pokeWithSize st1 <> pokeWithSize st2
 
 instance Bi GenesisData where
     get = label "GenesisData" $ GenesisData <$> get <*> get <*> get

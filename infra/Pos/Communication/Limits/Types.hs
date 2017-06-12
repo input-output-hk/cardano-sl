@@ -24,11 +24,10 @@ module Pos.Communication.Limits.Types
 
 import           Universum
 
-import           Data.Binary                (Get)
 import           Data.Reflection            (Reifies (..), reify)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class           (Bi (..))
+import           Pos.Binary.Class           (Bi (..), Peek)
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Communication.Protocol (ConversationActions (..), Message)
 import qualified Pos.DB.Class               as DB
@@ -47,21 +46,21 @@ instance Functor Limit where
 -- | Specifies type of limit on incoming message size.
 -- Useful when the type has several limits and choice depends on constructor.
 class Limiter l where
-    limitGet :: l -> Get a -> Get a
+    limitGet :: l -> Peek a -> Peek a
     addLimit :: Byte -> l -> l
 
 instance Limiter (Limit t) where -- CSL-1122 uncomment
-    limitGet (Limit l) = undefined $ fromIntegral l
+    limitGet (Limit l) = Bi.limitGet $ fromIntegral l
     addLimit a = (Limit a +)
 
 -- CSL-1122: do we need this instance or not?
 --
--- instance forall s l a. (Bi a, Reifies s l, Limiter l) =>
---          Bi (LimitedLengthExt s l a) where
---     put (LimitedLength a) = put a
---     get = do
---         let maxSize = reflect (Proxy @s)
---         limitGet maxSize $ LimitedLength <$> get
+instance forall s l a. (Bi a, Reifies s l, Limiter l) =>
+         Bi (LimitedLengthExt s l a) where
+    put (LimitedLength a) = put a
+    get = do
+        let maxSize = reflect (Proxy @s)
+        limitGet maxSize $ LimitedLength <$> get
 
 -- | Specifies limit on message length.
 -- Deserialization would fail if incoming data size exceeded this limit.

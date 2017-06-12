@@ -40,7 +40,6 @@ import           Crypto.Hash          (Blake2b_256, Digest, HashAlgorithm, hashD
 import qualified Crypto.Hash          as Hash (hash)
 import qualified Data.ByteArray       as ByteArray
 import           Data.Hashable        (Hashable (hashWithSalt), hashPtrWithSalt)
-import qualified Data.Text as T
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (Format, bprint, fitLeft, later, (%.))
 import qualified Serokell.Util.Base16 as B16

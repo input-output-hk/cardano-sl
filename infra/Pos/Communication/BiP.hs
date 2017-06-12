@@ -24,12 +24,17 @@ import           Node.Message                     (Packable (..), UnpackMsg,
 import           System.IO.ByteBuffer             (ByteBuffer)
 import qualified System.IO.ByteBuffer             as BB
 
-import           Pos.Binary.Class                 (Bi (..))
+import           Pos.Binary.Class                 (Bi (..), encode)
 
 data BiP = BiP
 
 instance Bi r => Packable BiP r where
     packMsg _ m = undefined
+                  -- BS.toLazyByteStringWith
+                  --   (BS.untrimmedStrategy 256 4096)
+                  --   LBS.empty
+                  -- -- . LBS.fromStrict
+                  -- . encode $ m
 
 instance Bi r => Unpackable BiP r where
     unpackMsg _ = undefined

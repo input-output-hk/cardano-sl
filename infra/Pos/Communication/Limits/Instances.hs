@@ -9,11 +9,7 @@ module Pos.Communication.Limits.Instances
        (
        ) where
 
-import           Control.Lens                   (each, ix)
-import           Data.Binary.Get                (lookAhead)
 import           Universum
-
-import           Pos.Binary.Class               (getWord8)
 
 import qualified Pos.Communication.Constants    as Const
 import           Pos.Communication.Limits.Types (Limit (..), Limiter (..),
@@ -22,18 +18,17 @@ import           Pos.Communication.Limits.Types (Limit (..), Limiter (..),
 import           Pos.Communication.Types.Relay  (DataMsg (..), InvMsg, InvOrData,
                                                  MempoolMsg (..), ReqMsg)
 
+import qualified Pos.Binary.Class               as Bi
 newtype EitherLimiter a b = EitherLimiter (a, b)
 
 ----------------------------------------------------------------------------
 -- Instances for Limiter
 ----------------------------------------------------------------------------
 
-__getWord8 = undefined --CSL-1122 remove
-
 -- | Bounds `InvOrData`.
 instance (Limiter l, Limiter t) => Limiter (EitherLimiter l t) where
     limitGet (EitherLimiter (invLimit, dataLimits)) parser = do
-        lookAhead __getWord8 >>= \case
+        Bi.lookAhead Bi.getWord8 >>= \case
             0   -> limitGet invLimit parser
             1   -> limitGet dataLimits parser
             tag -> fail ("EitherLimiter: invalid tag: " ++ show tag)

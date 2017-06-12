@@ -3,7 +3,7 @@
 module Pos.Binary.Class.Primitive
        (
        -- * Primitives for serialization
-       putWord8WithSize
+         putWord8S
 
        -- * Bi to SafeCopy
        , getCopyBi
@@ -55,8 +55,8 @@ import           Pos.Binary.Class.Store     (Peek, Poke, PokeWithSize (..), Size
 import           Pos.Binary.Class.Instances ()
 -- TODO ^ Move Raw in Pos.Crypto and remove the import.
 
-putWord8WithSize :: Word8 -> PokeWithSize ()
-putWord8WithSize = pokeWithSize @Word8
+putWord8S :: Word8 -> PokeWithSize ()
+putWord8S = pokeWithSize @Word8
 
 ----------------------------------------------------------------------------
 -- Raw

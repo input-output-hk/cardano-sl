@@ -6,26 +6,19 @@ module Pos.Binary.Infra.Slotting
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), combineSize, label)
+import           Pos.Binary.Class   (Bi (..), combineSize, label, putField)
 import           Pos.Binary.Core    ()
 import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData (..))
 
 instance Bi EpochSlottingData where
-    size = combineSize (esdSlotDuration, esdStart)
-    put EpochSlottingData {..} =
-        put esdSlotDuration
-     *> put esdStart
+    sizeNPut = putField esdSlotDuration <> putField esdStart
     get = label "EpochSlottingData" $ do
         esdSlotDuration <- get
         esdStart        <- get
         pure EpochSlottingData{..}
 
 instance Bi SlottingData where
-    size = combineSize (sdPenult, sdLast, sdPenultEpoch)
-    put SlottingData {..} =
-        put sdPenult
-     *> put sdLast
-     *> put sdPenultEpoch
+    sizeNPut = putField sdPenult <> putField sdLast <> putField sdPenult
     get = label "SlottingData" $ do
         sdPenult      <- get
         sdLast        <- get

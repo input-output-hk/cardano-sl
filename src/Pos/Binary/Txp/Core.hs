@@ -8,8 +8,7 @@ import           Universum
 
 import           Pos.Binary.Class   (Bi (..), PokeWithSize, UnsignedVarInt (..),
                                      convertToSizeNPut, getWithLength, getWord8, label,
-                                     pokeWithSize, putField, putWithLengthS,
-                                     putWord8WithSize)
+                                     pokeWithSize, putField, putWithLengthS, putWord8S)
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Txp.Core.Types as T
@@ -49,11 +48,11 @@ instance Bi T.TxInWitness where
 
         f :: T.TxInWitness -> PokeWithSize ()
         f (T.PkWitness key sig) =
-            putWord8WithSize 0 <> withLen (key, sig)
+            putWord8S 0 <> withLen (key, sig)
         f (T.ScriptWitness val red) =
-            putWord8WithSize 1 <> withLen (val, red)
+            putWord8S 1 <> withLen (val, red)
         f (T.RedeemWitness key sig) =
-            putWord8WithSize 2 <> withLen (key, sig)
+            putWord8S 2 <> withLen (key, sig)
         f (T.UnknownWitnessType t bs) =
             pokeWithSize @Word8 t <> pokeWithSize bs
     get = label "TxInWitness" $ do

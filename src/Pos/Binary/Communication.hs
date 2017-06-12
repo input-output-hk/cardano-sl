@@ -13,7 +13,7 @@ import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
                                                    convertToSizeNPut, decodeFull, encode,
                                                    getSmallWithLength, getWord8, label,
                                                    pokeWithSize, putField,
-                                                   putSmallWithLengthS, putWord8WithSize)
+                                                   putSmallWithLengthS, putWord8S)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
@@ -66,9 +66,9 @@ instance Bi HandlerSpec where
         f (ConvHandler (MessageName m)) =
             case decodeFull m of
                 Right (UnsignedVarInt a)
-                    | a < 64 -> putWord8WithSize (0x40 .|. (fromIntegral (a :: Word) .&. 0x3f))
-                _ -> putWord8WithSize 1 <> putSmallWithLengthS (pokeWithSize m)
-        f (UnknownHandler t b) = putWord8WithSize t <> pokeWithSize b
+                    | a < 64 -> putWord8S (0x40 .|. (fromIntegral (a :: Word) .&. 0x3f))
+                _ -> putWord8S 1 <> putSmallWithLengthS (pokeWithSize m)
+        f (UnknownHandler t b) = putWord8S t <> pokeWithSize b
     get = label "HandlerSpec" $ getWord8 >>= \case
         0                        -> pure $ UnknownHandler 0 mempty
         1                        -> getSmallWithLength (ConvHandler <$> get)

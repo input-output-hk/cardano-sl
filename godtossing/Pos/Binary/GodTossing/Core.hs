@@ -7,8 +7,9 @@ module Pos.Binary.GodTossing.Core
 import qualified Data.HashMap.Strict           as HM
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..), Size (..), getSize, getWord8,
-                                                label, putField, putWord8)
+import           Pos.Binary.Class              (Bi (..), PokeWithSize, Size (..),
+                                                convertToSizeNPut, getSize, getWord8,
+                                                label, pokeWithSize, putField, putWord8S)
 import           Pos.Binary.Crypto             ()
 import           Pos.Core.Address              (addressHash)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..),
@@ -45,20 +46,18 @@ instance Bi Opening where
     get = label "Opening" $ Opening <$> get
 
 instance Bi GtPayload where
-    size = VarSize $ \case
-        CommitmentsPayload a b -> 1 + getSize a + getSize (toList b)
-        OpeningsPayload a b -> 1 + getSize a + getSize (toList b)
-        SharesPayload a b -> 1 + getSize a + getSize (toList b)
-        CertificatesPayload a -> 1 + getSize (toList a)
-    put x =
-        case x of
+    sizeNPut = convertToSizeNPut toBi
+      where
+        toBi :: GtPayload -> PokeWithSize ()
+        toBi = \case
             CommitmentsPayload commMap vssMap ->
-                putWord8 0 >> put commMap >> put (toList vssMap)
+                putWord8S 0 <> pokeWithSize commMap <> pokeWithSize (toList vssMap)
             OpeningsPayload opMap vssMap ->
-                putWord8 1 >> put opMap >> put (toList vssMap)
+                putWord8S 1 <> pokeWithSize opMap <> pokeWithSize (toList vssMap)
             SharesPayload sharesMap vssMap ->
-                putWord8 2 >> put sharesMap >> put (toList vssMap)
-            CertificatesPayload vssMap -> putWord8 3 >> put (toList vssMap)
+                putWord8S 2 <> pokeWithSize sharesMap <> pokeWithSize (toList vssMap)
+            CertificatesPayload vssMap ->
+                putWord8S 3 <> pokeWithSize (toList vssMap)
     get = label "GtPayload" $ do
         getWord8 >>= \case
             0 -> liftM2 CommitmentsPayload get getVssCerts
@@ -71,16 +70,14 @@ instance Bi GtPayload where
             toCertPair vc = (addressHash $ vcSigningKey vc, vc)
 
 instance Bi GtProof where
-    size = VarSize $ \case
-        CommitmentsProof a b -> 1 + getSize a + getSize b
-        OpeningsProof a b -> 1 + getSize a + getSize b
-        SharesProof a b -> 1 + getSize a + getSize b
-        CertificatesProof a -> 1 + getSize a
-    put x = case x of
-        CommitmentsProof a b -> putWord8 0 >> put a >> put b
-        OpeningsProof a b    -> putWord8 1 >> put a >> put b
-        SharesProof a b      -> putWord8 2 >> put a >> put b
-        CertificatesProof a  -> putWord8 3 >> put a
+    sizeNPut = convertToSizeNPut toBi
+      where
+        toBi :: GtProof -> PokeWithSize ()
+        toBi = \case
+            CommitmentsProof a b -> putWord8S 0 <> pokeWithSize a <> pokeWithSize b
+            OpeningsProof a b    -> putWord8S 1 <> pokeWithSize a <> pokeWithSize b
+            SharesProof a b      -> putWord8S 2 <> pokeWithSize a <> pokeWithSize b
+            CertificatesProof a  -> putWord8S 3 <> pokeWithSize a
     get = label "GtProof" $ do
         getWord8 >>= \case
             0 -> liftM2 CommitmentsProof get get

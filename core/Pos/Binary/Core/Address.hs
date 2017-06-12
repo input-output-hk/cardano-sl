@@ -6,45 +6,37 @@ import           Universum
 import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
 import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (..),
-                                      UnsignedVarInt (..), encode, getSize,
-                                      getSmallWithLength, getWord8, label, pokeWithSize,
-                                      put, putField, putSmallWithLength, putWord8)
+                                      UnsignedVarInt (..), convertToSizeNPut, encode,
+                                      getSize, getSmallWithLength, getWord8, label,
+                                      pokeWithSize, put, putField, putSmallWithLength,
+                                      putSmallWithLengthS, putWord8S)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
 import           Pos.Data.Attributes (getAttributes, putAttributesWithSize,
                                       sizeAttributes)
 
-addrToList :: AddrPkAttrs -> [(Word8, PokeWithSize ())]
-addrToList = \case
-    AddrPkAttrs Nothing -> []
-    AddrPkAttrs (Just path) -> [(0, pokeWithSize path)]
-
 -- | Encode everything in an address except for CRC32
-sizeNputAddressIncomplete :: (Size Address, Address -> Poke ())
-sizeNputAddressIncomplete = (sizeAddr, putAddr)
+sizeNPutAddressIncomplete :: (Size Address, Address -> Poke ())
+sizeNPutAddressIncomplete = convertToSizeNPut toBi
   where
-    sizeAddr = VarSize $ \x -> 1 + case x of
-        PubKeyAddress keyHash attrs -> getSize keyHash + sizeAttributes addrToList attrs
-        ScriptAddress scrHash       -> getSize scrHash
-        RedeemAddress keyHash       -> getSize keyHash
-        UnknownAddressType _ bs     -> getSize bs
-    putAddr = \case
-        PubKeyAddress keyHash attrs -> do
-            putWord8 0
-            putSmallWithLength $
-                pokeWithSize keyHash *>
+    toBi :: Address -> PokeWithSize ()
+    toBi = \case
+        PubKeyAddress keyHash attrs ->
+            putWord8S 0 <>
+            putSmallWithLengthS (
+                pokeWithSize keyHash <>
                 flip putAttributesWithSize attrs addrToList
-        ScriptAddress scrHash -> do
-            putWord8 1
-            putSmall scrHash
-        RedeemAddress keyHash -> do
-            putWord8 2
-            putSmall keyHash
-        UnknownAddressType t bs -> do
-            putWord8 t
-            putSmall bs
-    putSmall :: Bi a => a -> Poke ()
-    putSmall = putSmallWithLength . pokeWithSize
+            )
+        ScriptAddress scrHash   -> putWord8S 1 <> putSmallS scrHash
+        RedeemAddress keyHash   -> putWord8S 2 <> putSmallS keyHash
+        UnknownAddressType t bs -> putWord8S t <> putSmallS bs
+    putSmallS :: Bi a => a -> PokeWithSize ()
+    putSmallS = putSmallWithLengthS . pokeWithSize
+
+    addrToList :: AddrPkAttrs -> [(Word8, PokeWithSize ())]
+    addrToList = \case
+        AddrPkAttrs Nothing -> []
+        AddrPkAttrs (Just path) -> [(0, pokeWithSize path)]
 
 -- | Decode everything except for CRC32
 getAddressIncomplete :: Peek Address
@@ -65,7 +57,7 @@ instance CRC32 Address where
     crc32Update seed = crc32Update seed . encode
 
 instance Bi Address where
-    sizeNPut = sizeNputAddressIncomplete
+    sizeNPut = sizeNPutAddressIncomplete
             <> putField (UnsignedVarInt . crc32)
     get = label "Address" $ do
        addr <- getAddressIncomplete

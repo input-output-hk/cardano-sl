@@ -67,6 +67,7 @@ library
                        Pos.Binary.Class.Numbers
                        Pos.Binary.Class.Primitive
                        Pos.Binary.Class.Store
+                       Pos.Binary.Class.TH
                        Pos.Binary.Crypto
                        Pos.Binary.Core
                        Pos.Binary.Core.Address
@@ -146,6 +147,7 @@ library
                      , template-haskell
                      , text
                      , text-format
+                     , th-utilities
                      , time
                      , time-units
                      , universum

@@ -65,6 +65,7 @@ library
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , conduit
                      , concurrent-extra
                      , containers
                      , data-default

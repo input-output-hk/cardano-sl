@@ -10,7 +10,7 @@ import           Data.Default       (Default (..))
 
 import           Pos.Core.Coin      (coinToInteger, sumCoins, unsafeAddCoin,
                                      unsafeIntegerToCoin, unsafeMulCoin)
-import           Pos.Core.Constants (genesisN)
+import           Pos.Core.Constants (genesisKeysN)
 import           Pos.Core.Types     (Address, Coin, StakeholderId, mkCoin)
 
 -- | Stake distribution in genesis block.
@@ -41,8 +41,8 @@ instance Monoid StakeDistribution where
     mappend = CombinedStakes
 
 instance Default StakeDistribution where
-    def = FlatStakes genesisN
-              (mkCoin 10000 `unsafeMulCoin` (genesisN :: Int))
+    def = FlatStakes genesisKeysN
+              (mkCoin 10000 `unsafeMulCoin` (genesisKeysN :: Int))
 
 getTotalStake :: StakeDistribution -> Coin
 getTotalStake (FlatStakes _ st) = st

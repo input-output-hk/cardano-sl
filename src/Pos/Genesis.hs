@@ -153,15 +153,15 @@ genesisUtxo sd =
         )
     tailAddresses = map (makePubKeyAddress . fst .
                          generateGenesisKeyPair)
-                      [Const.genesisN ..]
+                      [Const.genesisKeysN ..]
     -- not much money to avoid making wallets slot leaders
     hwdDistr = (mkCoin 100, [])
     -- should be enough for testing.
     genesisDevHdwKeyNum = 2
     hdwAddresses = take genesisDevHdwKeyNum genesisDevHdwAccountAddresses
 
-
-genesisDelegation :: HashMap StakeholderId [StakeholderId]
+-- | Genesis reverse transitive delegation set (d -> [i]).
+genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)
 genesisDelegation = mempty
 
 ----------------------------------------------------------------------------

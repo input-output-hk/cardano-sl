@@ -28,6 +28,8 @@ module Pos.Launcher.Runner
 import           Control.Concurrent.STM       (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                 (each, to, _tail)
 import           Control.Monad.Fix            (MonadFix)
+import           Control.Monad.Trans.Resource (MonadResource, runResourceT)
+import           Data.Conduit                 (runConduit, (.|))
 import           Data.Default                 (def)
 import           Data.Tagged                  (Tagged (..), untag)
 import qualified Data.Time                    as Time
@@ -57,8 +59,6 @@ import           Universum                    hiding (bracket, finally)
 import           Pos.Binary                   ()
 import           Pos.Block.BListener          (runBListenerStub)
 import           Pos.CLI                      (readLoggerConfig)
-import           Pos.Client.Txp.Balances      (runBalancesRedirect)
-import           Pos.Client.Txp.History       (runTxHistoryRedirect)
 import           Pos.Communication            (ActionSpec (..), BiP (..), InSpecs (..),
                                                MkListeners (..), OutSpecs (..),
                                                VerInfo (..), allListeners,
@@ -94,11 +94,8 @@ import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, Ss
                                                sscCreateNodeContext)
 import           Pos.Ssc.Extra                (SscMemTag, bottomSscState, mkSscState)
 import           Pos.Txp                      (mkTxpLocalData)
-import           Pos.Txp.DB                   (genesisFakeTotalStake,
-                                               runBalanceIterBootstrap)
+import           Pos.Txp.DB                   (balanceSource, genesisFakeTotalStake)
 import           Pos.Txp.MemState             (TxpHolderTag)
-import           Pos.Wallet.WalletMode        (runBlockchainInfoRedirect,
-                                               runUpdatesRedirect)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                 (explorerTxpGlobalSettings)
 #else
@@ -170,10 +167,12 @@ runRealModeDo
     -> OutSpecs
     -> ActionSpec (RealMode ssc) a
     -> Production a
-runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
+runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
+              listeners outSpecs (ActionSpec action) =
+    runResourceT $ 
+    usingLoggerName lpRunnerTag $ 
     withMaybeFile npJLFile WriteMode $ \mJLHandle ->
-    runJsonLogT' mJLHandle $ 
-    usingLoggerName lpRunnerTag $ do
+    runJsonLogT' mJLHandle $ do
         initNC <- untag @ssc sscCreateNodeContext sscnp
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
         let allWorkersNum = allWorkersCount @ssc @(RealMode ssc) :: Int
@@ -199,8 +198,9 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
         let runIO :: forall t . RealMode ssc t -> IO t
             runIO (RealMode act) =
                runProduction .
-                   runJsonLogT' mJLHandle .
+                   runResourceT .
                    usingLoggerName lpRunnerTag .
+                   runJsonLogT' mJLHandle .
                    runCHHere .
                    flip Ether.runReadersT
                       ( Tagged @NodeDBs modernDBs
@@ -216,12 +216,8 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
                    runSlotsDataRedirect .
                    runSlotsRedirect .
                    runDiscoveryRedirect .
-                   runBalancesRedirect .
-                   runTxHistoryRedirect .
                    runPeerStateRedirect .
                    runGStateCoreRedirect .
-                   runUpdatesRedirect .
-                   runBlockchainInfoRedirect .
                    runBListenerStub $
                    act
 
@@ -263,12 +259,8 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
            runSlotsDataRedirect .
            runSlotsRedirect .
            runDiscoveryRedirect .
-           runBalancesRedirect .
-           runTxHistoryRedirect .
            runPeerStateRedirect .
            runGStateCoreRedirect .
-           runUpdatesRedirect .
-           runBlockchainInfoRedirect .
            runBListenerStub .
            (\(RealMode m) -> m) .
            runServer transport listeners outSpecs startMonitoring stopMonitoring . ActionSpec $
@@ -293,8 +285,8 @@ runServiceMode
     -> Production a
 runServiceMode transport bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
     stateM <- liftIO SM.newIO
-    runWithoutJsonLogT .
-        usingLoggerName (lpRunnerTag bpLoggingParams) .
+    usingLoggerName (lpRunnerTag bpLoggingParams) .
+        runWithoutJsonLogT .
             flip (Ether.runReaderT @PeerStateTag) stateM .
             runPeerStateRedirect .
             (\(ServiceMode m) -> m) .
@@ -346,6 +338,7 @@ runCH
        , SecurityWorkersClass ssc
        , MonadIO m
        , MonadCatch m
+       , MonadResource m
        , Mockable CurrentTime m)
     => Int
     -> DiscoveryContextSum
@@ -379,10 +372,12 @@ runCH allWorkersNum discoveryCtx params@NodeParams {..} sscNodeContext db act = 
     ncShutdownNotifyQueue <- liftIO $ newTBQueueIO allWorkersNum
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
-    ncGenesisLeaders <- if Const.isDevelopment
-                        then pure $ genesisLeaders npCustomUtxo
-                        else runBalanceIterBootstrap $
-                             followTheSatoshiM genesisSeed genesisFakeTotalStake
+    ncGenesisLeaders <-
+        if Const.isDevelopment
+        then pure $ genesisLeaders npCustomUtxo
+        else flip Ether.runReaderT' db $ runDBPureRedirect $
+             runConduit $
+             balanceSource .| followTheSatoshiM genesisSeed genesisFakeTotalStake
     ucMemState <- newMemVar
     ucDownloadingUpdates <- newTVarIO mempty
     -- TODO synchronize the NodeContext peers var with whatever system

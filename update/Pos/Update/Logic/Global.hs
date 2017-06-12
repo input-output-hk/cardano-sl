@@ -40,12 +40,12 @@ import qualified Pos.Util.Modifier    as MM
 import           Pos.Util.Util        (inAssertMode)
 
 type USGlobalApplyMode m = ( WithLogger m
-                           , DB.MonadRealDB m
+                           , MonadIO m
                            , DB.MonadDBRead m
                            , Ether.MonadReader' LrcContext m
                            )
 type USGlobalVerifyMode m = ( WithLogger m
-                            , DB.MonadRealDB m
+                            , MonadIO m
                             , DB.MonadDBRead m
                             , Ether.MonadReader' LrcContext m
                             , MonadError PollVerFailure m
@@ -139,7 +139,7 @@ verifyBlock verifyAllIsKnown (Right (header, payload)) =
 -- global state.
 usCanCreateBlock ::
        ( WithLogger m
-       , DB.MonadRealDB m
+       , MonadIO m
        , DB.MonadDBRead m
        , Ether.MonadReader' LrcContext m
        )

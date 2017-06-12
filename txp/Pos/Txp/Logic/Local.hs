@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-
 -- | Logic for local processing of transactions.
 -- Local transaction is transaction which hasn't been added in the blockchain yet.
 
@@ -17,7 +15,7 @@ import           System.Wlog          (WithLogger, logDebug)
 import           Universum
 
 import           Pos.Core             (HeaderHash)
-import           Pos.DB.Class         (MonadDBRead)
+import           Pos.DB.Class         (MonadDBRead, MonadGState)
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId)
 import           Pos.Txp.MemState     (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
@@ -25,12 +23,13 @@ import           Pos.Txp.MemState     (MonadTxpMem, TxpLocalDataPure, getLocalTx
                                        setTxpLocalData)
 import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (..),
                                        ToilEnv, ToilVerFailure (..), Utxo, execToilTLocal,
-                                       getToilEnv, normalizeToil, processTx, runDBTxp,
+                                       getToilEnv, normalizeToil, processTx, runDBToil,
                                        runToilTLocal, runUtxoReaderT, utxoGet)
 
 type TxpLocalWorkMode m =
     ( MonadIO m
     , MonadDBRead m
+    , MonadGState m
     , MonadTxpMem () m
     , WithLogger m
     , MonadError ToilVerFailure m
@@ -50,8 +49,8 @@ txProcessTransaction itw@(txId, txAux) = do
     -- possible that invalid transaction will appear in
     -- mempool. However, in this case it will be removed by
     -- normalization before releasing lock on block application.
-    (resolvedOuts, _) <- runDBTxp $ runUM localUM $ mapM utxoGet _txInputs
-    toilEnv <- runDBTxp getToilEnv
+    (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
+    toilEnv <- runDBToil getToilEnv
     -- Resolved are unspent transaction outputs corresponding to input
     -- of given transaction.
     let resolved = M.fromList $
@@ -93,10 +92,10 @@ txProcessTransaction itw@(txId, txAux) = do
 -- | 2. Remove invalid transactions from MemPool
 -- | 3. Set new tip to txp local data
 txNormalize
-    :: (MonadIO m, MonadDBRead m, MonadTxpMem () m) => m ()
+    :: (MonadIO m, MonadDBRead m, MonadGState m, MonadTxpMem () m) => m ()
 txNormalize = do
     utxoTip <- GS.getTip
     localTxs <- getLocalTxs
     ToilModifier {..} <-
-        runDBTxp $ execToilTLocal mempty def mempty $ normalizeToil localTxs
+        runDBToil $ execToilTLocal mempty def mempty $ normalizeToil localTxs
     setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

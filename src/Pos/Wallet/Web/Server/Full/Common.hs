@@ -13,6 +13,7 @@ import           Universum
 
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
+import           Control.Monad.Trans.Resource  (runResourceT)
 import           Data.Tagged                   (Tagged (..))
 import qualified Ether
 import           Mockable                      (runProduction)
@@ -21,8 +22,6 @@ import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (usingLoggerName)
 
 import           Pos.Block.BListener           (runBListenerStub)
-import           Pos.Client.Txp.Balances       (runBalancesRedirect)
-import           Pos.Client.Txp.History        (runTxHistoryRedirect)
 import           Pos.Communication.PeerState   (PeerStateSnapshot, PeerStateTag,
                                                 WithPeerState (..), getAllStates,
                                                 peerStateFromSnapshot,
@@ -42,9 +41,8 @@ import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
                                                 askTxpMem)
 import           Pos.Util.TimeWarp             (runWithoutJsonLogT)
+import           Pos.Wallet.Redirect           (runWalletRedirects)
 import           Pos.Wallet.SscType            (WalletSscType)
-import           Pos.Wallet.WalletMode         (runBlockchainInfoRedirect,
-                                                runUpdatesRedirect)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler)
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSockets,
                                                 runWalletWS)
@@ -86,12 +84,15 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                conn slotVar ntpSlotVar handler =
     liftIO (realRunner . walletRunner $ handler) `Catch.catches` excHandlers
   where
-    walletRunner = runWalletWebDB ws . runWalletWS conn
+    walletRunner = runWalletWebDB ws
+      . runWalletWS conn
+      . runWalletRedirects
 
     realRunner :: forall t . RealMode WalletSscType t -> IO t
     realRunner (RealMode act) = runProduction
-           . runWithoutJsonLogT
+           . runResourceT
            . usingLoggerName "wallet-api"
+           . runWithoutJsonLogT
            . flip Ether.runReadersT nc
            . (\m -> do
                peerStateCtx <- peerStateFromSnapshot psCtx
@@ -109,14 +110,11 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
            . runSlotsDataRedirect
            . runSlotsRedirect
            . runDiscoveryRedirect
-           . runBalancesRedirect
-           . runTxHistoryRedirect
            . runPeerStateRedirect
            . runGStateCoreRedirect
-           . runUpdatesRedirect
-           . runBlockchainInfoRedirect
            . runBListenerStub
            $ act
+
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
 {-# NOINLINE convertHandler #-}

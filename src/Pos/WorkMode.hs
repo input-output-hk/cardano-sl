@@ -2,7 +2,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE PolyKinds           #-}
 
 module Pos.WorkMode
        ( WorkMode
@@ -17,9 +16,11 @@ module Pos.WorkMode
 
 import           Universum
 
+import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Fix
-import           Control.Monad.Trans.Identity   (IdentityT (..))
+import           Control.Monad.Morph            (hoist)
 import qualified Control.Monad.Trans.Lift.Local as Lift
+import           Control.Monad.Trans.Resource   (MonadResource, ResourceT)
 import           Data.Coerce
 import           Data.Tagged                    (Tagged)
 import qualified Ether
@@ -28,16 +29,17 @@ import           Mockable                       (ChannelT, Counter, Distribution
                                                  SharedAtomicT, SharedExclusiveT,
                                                  ThreadId)
 import           Mockable.Production            (Production)
+import           System.Wlog                    (CanLog, HasLoggerName,
+                                                 LoggerNameBox (..))
+
 import           Pos.Block.BListener            (BListenerStub, MonadBListener)
-import           Pos.Client.Txp.Balances        (BalancesRedirect)
-import           Pos.Client.Txp.History         (TxHistoryRedirect)
 import           Pos.Communication.PeerState    (PeerStateCtx, PeerStateRedirect,
                                                  PeerStateTag, WithPeerState)
 import           Pos.Context                    (NodeContext)
 import           Pos.DB                         (DBPureRedirect, MonadGState, NodeDBs)
 import           Pos.DB.Block                   (BlockDBRedirect, MonadBlockDBWrite)
 import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDB,
-                                                 MonadDBRead)
+                                                 MonadDBRead (..))
 import           Pos.DB.DB                      (GStateCoreRedirect)
 import           Pos.Delegation.Class           (DelegationVar)
 import           Pos.Discovery                  (DiscoveryRedirect, MonadDiscovery)
@@ -49,14 +51,9 @@ import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState)
 import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Types                      (HeaderHash)
+import           Pos.Util.TimeWarp              (CanJsonLog, JsonLogT)
 import           Pos.Util.Util                  (PowerLift (..))
-import           Pos.Util.TimeWarp              (JsonLogT, CanJsonLog (..))
-import           Pos.Wallet.WalletMode          (BlockchainInfoRedirect, MonadBalances,
-                                                 MonadBlockchainInfo, MonadTxHistory,
-                                                 MonadUpdates, UpdatesRedirect)
 import           Pos.WorkMode.Class             (MinWorkMode, TxpExtra_TMP, WorkMode)
-import           System.Wlog                    (CanLog, HasLoggerName,
-                                                 LoggerNameBox (..))
 
 ----------------------------------------------------------------------------
 -- Concrete types
@@ -65,12 +62,8 @@ import           System.Wlog                    (CanLog, HasLoggerName,
 -- | RealMode is a basis for `WorkMode`s used to really run system.
 type RealMode' ssc =
     BListenerStub (
-    BlockchainInfoRedirect (
-    UpdatesRedirect (
     GStateCoreRedirect (
     PeerStateRedirect (
-    TxHistoryRedirect (
-    BalancesRedirect (
     DiscoveryRedirect (
     SlotsRedirect (
     SlotsDataRedirect (
@@ -86,9 +79,10 @@ type RealMode' ssc =
         , Tagged PeerStateTag (PeerStateCtx Production)
         ) (
     Ether.ReadersT (NodeContext ssc) (
+    JsonLogT (
     LoggerNameBox (
-    JsonLogT Production
-    )))))))))))))))
+    ResourceT Production
+    ))))))))))))
 
 newtype RealMode ssc a = RealMode (RealMode' ssc a)
   deriving
@@ -96,6 +90,7 @@ newtype RealMode ssc a = RealMode (RealMode' ssc a)
     , Applicative
     , Monad
     , MonadIO
+    , MonadBase IO
     , MonadThrow
     , MonadCatch
     , MonadMask
@@ -117,14 +112,17 @@ deriving instance MonadSlotsData (RealMode ssc)
 deriving instance MonadSlots (RealMode ssc)
 deriving instance MonadDiscovery (RealMode ssc)
 deriving instance MonadGState (RealMode ssc)
-deriving instance MonadDBRead (RealMode ssc)
 deriving instance MonadDB (RealMode ssc)
+deriving instance MonadResource (RealMode ssc)
+instance MonadDBRead (RealMode ssc) where
+    dbGet a b = RealMode $ dbGet a b
+    dbIterSource t p = hoist RealMode $ dbIterSource t p
 deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
 deriving instance MonadBListener (RealMode ssc)
-deriving instance MonadUpdates (RealMode ssc)
-deriving instance SscHelpersClass ssc => MonadBlockchainInfo (RealMode ssc)
-deriving instance MonadBalances (RealMode ssc)
-deriving instance MonadTxHistory (RealMode ssc)
+-- deriving instance MonadUpdates (RealMode ssc)
+-- deriving instance SscHelpersClass ssc => MonadBlockchainInfo (RealMode ssc)
+-- deriving instance MonadBalances (RealMode ssc)
+-- deriving instance MonadTxHistory (RealMode ssc)
 deriving instance WithPeerState (RealMode ssc)
 deriving instance CanJsonLog (RealMode ssc)
 
@@ -173,8 +171,8 @@ instance
 type ServiceMode' =
     PeerStateRedirect (
     Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
-    LoggerNameBox (
-    JsonLogT Production
+    JsonLogT (
+    LoggerNameBox Production
     )))
 
 newtype ServiceMode a = ServiceMode (ServiceMode' a)

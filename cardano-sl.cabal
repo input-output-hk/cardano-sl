@@ -262,14 +262,6 @@ library
 
                         -- Wallet (intentionally separated, not alphabetically)
                         Pos.Wallet.KeyStorage
-                        Pos.Wallet.Light.State
-                        Pos.Wallet.Light.State.Acidic
-                        Pos.Wallet.Light.State.Core
-                        Pos.Wallet.Light.State.State
-                        Pos.Wallet.Light.State.Storage
-                        Pos.Wallet.Light.State.Storage.Block
-                        Pos.Wallet.Light.State.Storage.Tx
-                        Pos.Wallet.WalletMode
                         Pos.Wallet.Web.Error.Types
                         Pos.Wallet.Web.Util
 
@@ -293,10 +285,21 @@ library
                         Pos.Web.Server
                         Pos.Web.Types
   if flag(with-wallet)
-    other-modules:      Pos.Wallet.Light.Launcher
+    exposed-modules:
+                        Pos.Wallet.Redirect
+    other-modules:
+                        Pos.Wallet.Light.Launcher
                         Pos.Wallet.Light.Launcher.Runner
                         Pos.Wallet.Light.Launcher.Param
+                        Pos.Wallet.Light.State
+                        Pos.Wallet.Light.State.Acidic
+                        Pos.Wallet.Light.State.Core
+                        Pos.Wallet.Light.State.State
+                        Pos.Wallet.Light.State.Storage
+                        Pos.Wallet.Light.State.Storage.Block
+                        Pos.Wallet.Light.State.Storage.Tx
                         Pos.Wallet.SscType
+                        Pos.Wallet.WalletMode
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
                         Pos.Wallet.Light.Mode
@@ -441,7 +444,8 @@ library
                        -O2
 
   -- linker speed up for linux
-  if os(linux)
+  -- for explorer linking see https://ghc.haskell.org/trac/ghc/ticket/13810
+  if os(linux) && !flag(with-explorer)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
 
@@ -1230,7 +1234,7 @@ test-suite cardano-test
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
                        Test.Pos.Ssc.GodTossing.SeedSpec
-                       Test.Pos.Ssc.GodTossing.Types.BaseSpec
+                       Test.Pos.Ssc.GodTossing.Toss.BaseSpec
                        Test.Pos.Ssc.GodTossing.VssCertDataSpec
                        Test.Pos.Txp.CoreSpec
                        Test.Pos.Txp.Identity.BinarySpec
@@ -1257,6 +1261,7 @@ test-suite cardano-test
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-lrc
                      , cardano-sl-txp
                      , cardano-sl-update
                      , cardano-sl-ssc

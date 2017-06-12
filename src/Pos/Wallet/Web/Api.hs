@@ -41,7 +41,6 @@ module Pos.Wallet.Web.Api
        , NewPayment
        , NewPaymentExt
        , UpdateTx
-       , GetHistory
        , SearchHistory
 
        , NextUpdate
@@ -257,20 +256,13 @@ type UpdateTx =
     :> ReqBody '[JSON] CTxMeta
     :> WRes Post ()
 
-type GetHistory =
-       "txs"
-    :> "histories"
-    :> CCapture "walletId" CAccountId
-    :> QueryParam "skip" Word
-    :> QueryParam "limit" Word
-    :> WRes Get ([CTx], Word)
-
 type SearchHistory =
        "txs"
     :> "histories"
-    :> CCapture "walletId" CAccountId
-    :> Capture "search" Text
-    :> QueryParam "account" (CId Addr)
+    :> QueryParam "walletId" (CId Wal)
+    :> QueryParam "accountId" CAccountId
+    :> QueryParam "address" (CId Addr)
+    :> QueryParam "search" Text
     :> QueryParam "skip" Word
     :> QueryParam "limit" Word
     :> WRes Get ([CTx], Word)
@@ -413,8 +405,6 @@ type WalletApi = ApiPrefix :> (
     :<|>
       -- FIXME: Should capture the URL parameters in the payload.
      UpdateTx
-    :<|>
-     GetHistory
     :<|>
      SearchHistory
     :<|>

@@ -14,6 +14,7 @@ import           Universum
 
 import           Control.Monad.Catch        (bracketOnError)
 import           Control.Monad.STM          (retry)
+import           Data.Conduit               (runConduit, (.|))
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
 import qualified Ether
@@ -208,7 +209,7 @@ leadersComputationDo :: LrcMode ssc m => EpochIndex -> SharedSeed -> m ()
 leadersComputationDo epochId seed =
     unlessM (isJust <$> getLeaders epochId) $ do
         totalStake <- GS.getEffectiveTotalStake
-        leaders <- GS.runBalanceIterator $ followTheSatoshiM seed totalStake
+        leaders <- runConduit $ GS.balanceSource .| followTheSatoshiM seed totalStake
         putLeaders epochId leaders
 
 richmenComputationDo
@@ -223,8 +224,8 @@ richmenComputationDo epochIdx consumers = unless (null consumers) $ do
         minThreshold = safeThreshold consumersAndThds (not . lcConsiderDelegated)
         minThresholdD :: Maybe Coin
         minThresholdD = safeThreshold consumersAndThds lcConsiderDelegated
-    (richmen, richmenD) <- GS.runBalanceIterator
-                               (findAllRichmenMaybe minThreshold minThresholdD)
+    (richmen, richmenD) <- runConduit $
+        GS.balanceSource .| findAllRichmenMaybe minThreshold minThresholdD
     let callCallback (cons, thd) =
             if lcConsiderDelegated cons
             then lcComputedCallback cons epochIdx total

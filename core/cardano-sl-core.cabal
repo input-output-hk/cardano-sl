@@ -83,14 +83,16 @@ library
                        Pos.Util.Chrono
                        Pos.Util.Config
                        Pos.Util.HVect
-                       Pos.Util.Iterator
                        Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Mnemonics
                        Pos.Util.Modifier
                        Pos.Util.Util
 
-  other-modules:       Pos.Util.Config.Path
+  other-modules:
+                       Pos.Core.Constants.Raw
+                       Pos.Core.Constants.Typed
+                       Pos.Util.Config.Path
                        Pos.Util.Config.Get
 
   build-depends:      QuickCheck
@@ -135,6 +137,7 @@ library
                      , lens
                      , lrucache
                      , memory
+                     , monad-control
                      , mtl
                      , node-sketch
                      , parsec

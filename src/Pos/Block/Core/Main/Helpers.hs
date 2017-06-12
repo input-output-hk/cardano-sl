@@ -23,8 +23,9 @@ import           Pos.Block.Core.Main.Types  (MainBlockHeader, MainBlockchain,
 import           Pos.Block.Core.Union.Types (BiHeader, BlockSignature (..))
 import           Pos.Core                   (Blockchain (..), BlockchainHelpers (..),
                                              GenericBlock (..), GenericBlockHeader (..),
-                                             IsMainHeader (..), SlotId (..), epochIndexL)
-import           Pos.Crypto                 (SignTag (..), checkSig, proxyVerify)
+                                             IsMainHeader (..), SlotId (..), epochIndexL, gbExtra)
+import           Pos.Block.Core.Main.Lens   (mainBlockEBDataProof)
+import           Pos.Crypto                 (SignTag (..), checkSig, proxyVerify, hash)
 import           Pos.Delegation.Helpers     (dlgVerifyPayload)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
@@ -36,12 +37,13 @@ instance ( BiHeader ssc
          ) =>
          BlockchainHelpers (MainBlockchain ssc) where
     verifyBBlockHeader = verifyMainBlockHeader
-    verifyBBlock UnsafeGenericBlock {..} = do
+    verifyBBlock block@UnsafeGenericBlock {..} = do
         either (throwError . pretty) pure $
             sscVerifyPayload @ssc
                 (Right (Some _gbHeader))
                 (_mbSscPayload _gbBody)
         dlgVerifyPayload (_gbHeader ^. epochIndexL) (_mbDlgPayload _gbBody)
+        unless (hash (block ^. gbExtra) == (block ^. mainBlockEBDataProof)) $ throwError ""
 
 verifyMainBlockHeader ::
        (Ssc ssc, MonadError Text m, Bi $ BodyProof $ MainBlockchain ssc)

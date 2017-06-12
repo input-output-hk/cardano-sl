@@ -76,7 +76,7 @@ data MainExtraHeaderData = MainExtraHeaderData
       _mehSoftwareVersion :: !SoftwareVersion
     , -- | Header attributes
       _mehAttributes      :: !BlockHeaderAttributes
-    , -- | Body Hash
+    , -- | Extra body data Hash
       _mehEBDataProof     :: !(Hash MainExtraBodyData)
     } deriving (Eq, Show, Generic)
 

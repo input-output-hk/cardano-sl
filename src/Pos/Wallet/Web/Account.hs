@@ -155,7 +155,7 @@ deriveAccountSK
 deriveAccountSK passphrase AccountId{..} accIndex = do
     -- this function is used in conditions when several secret keys with same
     -- public key are stored, thus checking for passphrase here as well
-    let niceSK k = encToCId k == aiWSId
+    let niceSK k = encToCId k == aiWId
     key <- maybeThrow noKey . find niceSK =<< getSecretKeys
     maybeThrow badPass $
         deriveLvl2KeyPair passphrase key aiIndex accIndex
@@ -171,7 +171,7 @@ deriveAccountAddress
     -> m CWAddressMeta
 deriveAccountAddress passphrase accId@AccountId{..} cwamAccountIndex = do
     (addr, _) <- deriveAccountSK passphrase accId cwamAccountIndex
-    let cwamWSId   = aiWSId
+    let cwamWId         = aiWId
         cwamWalletIndex = aiIndex
-        cwamId     = addressToCId addr
+        cwamId          = addressToCId addr
     return CWAddressMeta{..}

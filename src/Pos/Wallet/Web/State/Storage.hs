@@ -60,8 +60,8 @@ import           Pos.Constants              (genesisHash)
 import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes (AccountId (aiWSId), Addr, CAccountMeta,
-                                             CCoin, CHash, CId, CProfile, CTxId, CTxMeta,
+import           Pos.Wallet.Web.ClientTypes (AccountId (aiWId), Addr, CAccountMeta, CCoin,
+                                             CHash, CId, CProfile, CTxId, CTxMeta,
                                              CUpdateInfo, CWAddressMeta (..),
                                              CWalletAssurance, CWalletMeta, PassPhraseLU,
                                              Wal, walletAddrMetaToAccount)
@@ -173,7 +173,7 @@ getTxMeta :: CId Wal -> CTxId -> Query (Maybe CTxMeta)
 getTxMeta cid ctxId = preview $ wsTxHistory . ix cid . ix ctxId
 
 getAccountHistory :: AccountId -> Query (Maybe [CTxMeta])
-getAccountHistory accId = toList <<$>> preview (wsTxHistory . ix (aiWSId accId))
+getAccountHistory accId = toList <<$>> preview (wsTxHistory . ix (aiWId accId))
 
 getUpdates :: Query [CUpdateInfo]
 getUpdates = view wsReadyUpdates
@@ -215,7 +215,7 @@ setWalletSyncTip cAddr hh = wsWalletInfos . ix cAddr . wiSyncTip .= hh
 
 addAccountHistoryTx :: AccountId -> CTxId -> CTxMeta -> Update ()
 addAccountHistoryTx accId ctxId ctxMeta =
-    wsTxHistory . ix (aiWSId accId) . at ctxId ?= ctxMeta
+    wsTxHistory . ix (aiWId accId) . at ctxId ?= ctxMeta
 
 setAccountHistory :: AccountId -> [(CTxId, CTxMeta)] -> Update ()
 setAccountHistory cAddr ctxs = mapM_ (uncurry $ addAccountHistoryTx cAddr) ctxs
@@ -228,7 +228,7 @@ addOnlyNewTxMeta cWalId ctxId ctxMeta =
 -- NOTE: sets transaction meta only for transactions ids that are already seen
 setAccountTransactionMeta :: AccountId -> CTxId -> CTxMeta -> Update ()
 setAccountTransactionMeta accId ctxId ctxMeta =
-    wsTxHistory . ix (aiWSId accId) . at ctxId %= ($> ctxMeta)
+    wsTxHistory . ix (aiWId accId) . at ctxId %= ($> ctxMeta)
 
 removeWallet :: CId Wal -> Update ()
 removeWallet cAddr = wsWalletInfos . at cAddr .= Nothing

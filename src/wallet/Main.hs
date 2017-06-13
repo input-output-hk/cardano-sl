@@ -329,13 +329,14 @@ main = do
             , wpGenesisKeys = woDebug
             , wpBaseParams  = baseParams
             , wpGenesisUtxo =
-                genesisUtxo $
-                    if isDevelopment
-                        then stakesDistr (CLI.flatDistr woCommonArgs)
-                                        (CLI.bitcoinDistr woCommonArgs)
-                                        (CLI.richPoorDistr woCommonArgs)
-                                        (CLI.expDistr woCommonArgs)
-                        else genesisStakeDistribution
+                  genesisUtxo $
+                  if isDevelopment
+                      then stakesDistr
+                               (CLI.flatDistr woCommonArgs)
+                               (CLI.bitcoinDistr woCommonArgs)
+                               (CLI.richPoorDistr woCommonArgs)
+                               (CLI.expDistr woCommonArgs)
+                      else genesisStakeDistribution
             }
 
     loggerBracket logParams $ runProduction $

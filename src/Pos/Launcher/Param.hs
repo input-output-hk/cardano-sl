@@ -40,7 +40,8 @@ data NetworkParams = NetworkParams
     -- ^ If this value is 'Left', then given peers will be used in static mode.
     -- Otherwise kademlia with given params will be used.
     , npTcpAddr   :: !TCP.TCPAddr
-    -- ^ Address used in TCP.
+    -- ^ External TCP address of the node.
+    -- It encapsulates bind address and address visible to other nodes.
     }
 
 -- | This data type contains all data necessary to launch node and

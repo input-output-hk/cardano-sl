@@ -38,11 +38,17 @@ if [[ "$with_haddock" == "true" ]]; then
   find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"wallet"/g' {} +
 fi
 
-stack --nix --no-terminal --local-bin-path daedalus/ install cardano-sl \
-  $EXTRA_STACK --fast --jobs=2 \
-  --ghc-options="-j -DCONFIG=wallet +RTS -A128m -n2m -RTS" \
-  --flag cardano-sl-core:-asserts \
-  --flag cardano-sl-core:-dev-mode
+targets="cardano-sl cardano-sl-lwallet"
+
+for trgt in $targets; do
+
+    stack --nix --no-terminal --local-bin-path daedalus/ install "$trgt" \
+      $EXTRA_STACK --fast --jobs=2 \
+      --ghc-options="-j -DCONFIG=wallet +RTS -A128m -n2m -RTS" \
+      --flag cardano-sl-core:-asserts \
+      --flag cardano-sl-core:-dev-mode
+
+done
 
 #if [[ "$TRAVIS_OS_NAME" == "linux" && "$TRAVIS_BRANCH" == "master" && "$TRAVIS_PULL_REQUEST" == "false" ]]; then
   #./update_wallet_web_api_docs.sh

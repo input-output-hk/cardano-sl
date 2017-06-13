@@ -8,24 +8,19 @@
 
 module Pos.Wallet.Light.Web.Server
        ( walletServeWebLite
-       , walletServerOuts
        ) where
 
 import           Universum
 
-import           Pos.Communication.Protocol    (SendActions)
-import           Pos.Ssc.Class                 (SscHelpersClass)
-import           Pos.Wallet.Light.Mode         (LightWalletMode (..))
-import           Pos.Wallet.SscType            (WalletSscType)
-import           Pos.Wallet.Web.Server.Methods (walletServerOuts)
+import           Pos.Communication.Protocol (SendActions)
+import           Pos.Wallet.Light.Mode      (LightWalletMode (..))
 
 -- type WebHandler = WalletWebSockets (WalletWebDB LightWalletMode)
 
 -- type MainWalletState = WS.WalletState
 
 walletServeWebLite
-    :: SscHelpersClass WalletSscType
-    => SendActions LightWalletMode
+    :: SendActions LightWalletMode
     -> FilePath
     -> Bool
     -> Word16

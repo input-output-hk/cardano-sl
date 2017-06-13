@@ -75,6 +75,7 @@ test_script:
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
   # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
+  # We intentionally don't build lwallet here, because this build is for installer.
   - scripts\appveyor-retry call stack install cardano-sl
       -j 2
       --no-terminal

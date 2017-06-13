@@ -10,14 +10,23 @@ set -o pipefail
 
 # USAGE
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#   build.sh                           build
+#   build.sh                           build all packages one-by-one
 #   build.sh -t                        build and run tests
-#   build.sh core|db|...|sl            build only a specific project
+#   build.sh core|db|...|sl            build only a specific project (see below)
 #   build.sh -k                        typecheck but do not build
 #   build.sh -c                        do stack clean
 #
 # Consider symlinking the script as `b` into the cardano-sl folder because 
 # typing `util-scripts/build.sh` is annoying.
+
+# PROJECTS
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Project argument                Package name
+#   :
+#   core, db, etc.                  cardano-sl-{core,db,etc.}
+#   gt                              cardano-sl-godtossing (just an alias)
+#   sl                              cardano-sl
+#   sl+                             cardano-sl and everything dependent on it
 
 # MODES
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -33,6 +42,7 @@ set -o pipefail
 # * Pass --ram or do `touch .ram`. if you have lots of RAM and want to
 #   make builds faster
 
+# We can't have lwallet here, because it depends on 'cardano-sl'.
 projects="core db lrc infra update ssc godtossing txp"
 
 args=''
@@ -89,8 +99,12 @@ do
   # (for “godtossing” we allow “gt” as an alias)
   elif [[ $var == "sl" ]]; then
     spec_prj="sl"
+  elif [[ $var == "sl+" ]]; then
+    spec_prj="sl+"
   elif [[ $var == "gt" ]]; then
     spec_prj="godtossing"
+  elif [[ $var == "lwallet" ]]; then
+    spec_prj="lwallet"
   elif [[ " $projects " =~ " $var " ]]; then
     spec_prj=$var
   # otherwise pass the arg to stack
@@ -158,9 +172,13 @@ if [[ $spec_prj == "" ]]; then
   for prj in $projects; do
     to_build="$to_build cardano-sl-$prj"
   done
-  to_build="$to_build cardano-sl"
+  to_build="$to_build cardano-sl cardano-sl-lwallet"
 elif [[ $spec_prj == "sl" ]]; then
   to_build="cardano-sl"
+elif [[ $spec_prj == "lwallet" ]]; then
+  to_build="cardano-sl-lwallet"
+elif [[ $spec_prj == "sl+" ]]; then
+  to_build="cardano-sl cardano-sl-lwallet"
 else
   to_build="cardano-sl-$spec_prj"
 fi

@@ -1,5 +1,4 @@
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE CPP           #-}
 {-# LANGUAGE QuasiQuotes   #-}
 
 -- | Command line options of cardano-wallet
@@ -15,8 +14,8 @@ import           Data.Version                 (showVersion)
 import           Options.Applicative          (CommandFields, Mod, Parser, auto, command,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
-                                               metavar, option, option, progDesc,
-                                               subparser, switch, value)
+                                               metavar, option, progDesc, subparser,
+                                               switch, value)
 import           Serokell.Util.OptParse       (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Universum
@@ -38,17 +37,13 @@ data WalletOptions = WalletOptions
 
 data WalletAction = Repl
                   | Cmd { cmd :: !Text }
-#ifdef WITH_WEB
                   | Serve { webPort           :: !Word16
                           , webDaedalusDbPath :: !FilePath
                           }
-#endif
 
 actionParser :: Parser WalletAction
 actionParser = subparser $ replParser <> cmdParser
-#ifdef WITH_WEB
                         <> serveParser
-#endif
 
 replParser :: Mod CommandFields WalletAction
 replParser = command "repl" $ info (pure Repl) $
@@ -61,7 +56,6 @@ cmdParser = command "cmd" $ info opts desc
                                <> help "Commands to execute, comma-separated.")
         desc = progDesc "Execute a list of predefined commands."
 
-#ifdef WITH_WEB
 serveParser :: Mod CommandFields WalletAction
 serveParser = command "serve" $ info opts desc
   where opts = Serve <$> CLI.webPortOption 8090    -- to differ from node's default port
@@ -71,7 +65,6 @@ serveParser = command "serve" $ info opts desc
                                    <> value "run/daedalus-db"
                                    <> help "Path to the wallet database.")
         desc = progDesc "Serve HTTP Daedalus API on given port."
-#endif
 
 argsParser :: Parser WalletOptions
 argsParser = do

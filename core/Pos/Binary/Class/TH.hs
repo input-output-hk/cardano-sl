@@ -11,6 +11,7 @@ module Pos.Binary.Class.TH
 import           Universum
 
 import           Data.Default          (def)
+import           Data.List             (zipWith3)
 import           Data.Store            (Size (..))
 import qualified Data.Text             as T
 import           Formatting            (sformat, shown, (%))
@@ -35,7 +36,8 @@ data Field
     -- ^ Field name and field type
     | Unused Name
     -- ^ Name of unused field
--- Some part of implementation copied from
+
+-- Some part of code copied from
 -- https://hackage.haskell.org/package/store-0.4.3.1/docs/src/Data-Store-TH-Internal.html#makeStore
 deriveSimpleBi :: Name -> [Cons] -> Q [Dec]
 deriveSimpleBi headTy constrs = do
@@ -61,23 +63,11 @@ deriveSimpleBi headTy constrs = do
                                   field cName
     fail "not implemented yet"
   where
-    failText = fail . T.unpack
-    isUsed :: Field -> Bool
-    isUsed (Unused _) = False
-    isUsed _          = True
+    -- Meta information about constructors --
 
-    tagType :: Name
-    tagType = ''Word8
-
-    tagSize :: Int
-    tagSize = 1
-
-    appendName :: Name -> Name -> Name
-    appendName a b = mkName $ show a <> show b
-
-    unsafeTail :: [a] -> [a] -- velosiped one more time
-    unsafeTail []     = error "tail: empty list"
-    unsafeTail (_:xs) = xs
+    -- Total numbers of field in the each constructor
+    numOfFields :: [Int]
+    numOfFields = map (\Cons{..} -> length cFields) constrs
 
     -- Constructor and its used fields.
     filteredConstrs :: [Cons]
@@ -90,17 +80,65 @@ deriveSimpleBi headTy constrs = do
     allUsedFields :: [[(Name, Name)]]
     allUsedFields = map (\Cons{..} -> map (\Field{..} -> (fName, fType)) cFields) filteredConstrs
 
+    -- Useful variables for @size@, @put@, @get@ --
+    tagType :: Name
+    tagType = ''Word8
+
+    tagSize :: Int
+    tagSize = 1
+
+    -- Useful variable for case statement in the @size@ and @put@.
+    valName :: Name
+    valName = mkName "val"
+
+    -- Helpers --
+    failText :: MonadFail m => T.Text -> m a
+    failText = fail . T.unpack
+
+    isUsed :: Field -> Bool
+    isUsed (Unused _) = False
+    isUsed _          = True
+
+    appendName :: Name -> Name -> Name
+    appendName a b = mkName $ show a <> show b
+
+    unsafeTail :: [a] -> [a] -- velosiped one more time
+    unsafeTail []     = error "tail: empty list"
+    unsafeTail (_:xs) = xs
+
     prependPrefToFields :: [Name] -> [Name]
     prependPrefToFields prefixes =
         concatMap (\(p, flds) -> map ((p `appendName`) . fst) flds) $
                   zip sizeNames allUsedFields
 
-    -- Size definition.
+    -- Put defenition --
+    biPutExpr :: Q Exp
+    biPutExpr = lamE [varP valName] $
+        caseE (varE valName) $ zipWith3 biPutConstr numOfFields [0..] filteredConstrs
+
+    biPutConstr :: Int -> Int -> Cons -> MatchQ
+    biPutConstr num ix (Cons cName cFields) = do
+        let wilds = replicate num wildP
+        match (conP cName wilds) body []
+      where
+        body = normalB $
+            if length constrs >= 2 then
+                doE (putTag ix : map putField cFields)
+            else
+                doE (map putField cFields)
+
+    putTag :: Int -> Q Stmt
+    putTag ix = noBindS [| poke (ix :: $(conT tagType)) |]
+
+    putField :: Field -> Q Stmt
+    putField Field{..} = noBindS [| Bi.put $(appE (varE fName) (varE valName)) |]
+
+    -- Size definition --
     biSizeExpr :: Q Exp
     biSizeExpr = caseE (tupE (concatMap (map (sizeAtType . snd)) allUsedFields))
                        [matchConstSize, matchVarSize]
 
-    -- Generatecode like "size :: Word8", "size :: Int"
+    -- Generate code like "size :: Word8", "size :: Int"
     sizeAtType :: Name -> ExpQ
     sizeAtType ty = [| size :: Size $(conT ty) |]
 
@@ -155,31 +193,26 @@ deriveSimpleBi headTy constrs = do
     matchVarSize :: MatchQ
     matchVarSize = do
         let flatUsedFields = prependPrefToFields shortNames
-        let consWithShort = zip (zipWith (\sn c -> (sn, length (cFields c)))
-                                         shortNames
-                                         constrs)
-                                filteredConstrs
-        let valName = mkName "val"
         match (tupP (map varP flatUsedFields))
               (normalB
                  [| VarSize $ \val ->
-                        tagSize + $(caseE [| val |] (map (matchVarCons valName) consWithShort)) |])
+                        tagSize + $(caseE [| val |]
+                                          (zipWith3 matchVarCons shortNames numOfFields filteredConstrs)) |])
               []
 
     -- Generate the following code:
-    -- Bar {..} -> getSizeWith c0field1 field1 + getSizeWith c0field2 field2
-    matchVarCons :: Name -> ((Name, Int), Cons) -> MatchQ
-    matchVarCons _ (_, Cons cName [])  = match (conP cName []) (normalB [| 0 |]) []
-    matchVarCons val ((shortName, numOfFields), Cons cName (map fName -> cFields)) = do
-        let caseVar = varE val
+    -- Bar _ _ _ -> getSizeWith c0field1 (field1 val) + getSizeWith c0field2 (field2 val)
+    matchVarCons :: Name -> Int -> Cons -> MatchQ
+    matchVarCons _ _ (Cons cName [])  = match (conP cName []) (normalB [| 0 |]) []
+    matchVarCons shortName numOfFields (Cons cName (map fName -> cFields)) = do
         let wilds = replicate numOfFields wildP
-        match (conP cName wilds) (body caseVar) []
+        match (conP cName wilds) body []
       where
-        body valE = normalB $
+        body = normalB $
             foldl1 (\l r -> [| $(l) + $(r) |]) $
-            map (\fn -> [| getSizeWith $(varE (shortName `appendName` fn)) $(appE (varE fn) valE) |]) cFields
+            map (\fn -> [| getSizeWith $(varE (shortName `appendName` fn)) $(appE (varE fn) (varE valName)) |]) cFields
 
-    -- Get definition.
+    -- Get definition --
     biGetExpr :: Q Exp
     biGetExpr = case constrs of
         []        ->

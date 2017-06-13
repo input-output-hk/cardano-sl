@@ -16,6 +16,7 @@ import           Pos.Launcher.Param         (NodeParams (..))
 import           Pos.Launcher.Runner        (runRealMode)
 import           Pos.Launcher.Scenario      (runNode)
 import           Pos.Security               (SecurityWorkersClass)
+import           Pos.Slotting               (SlottingContextSum)
 import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Ssc.Class.Types        (SscParams)
 import           Pos.WorkMode               (RealMode)
@@ -29,10 +30,17 @@ runNodeReal
     :: forall ssc.
        (SscConstraint ssc, SecurityWorkersClass ssc)
     => DiscoveryContextSum
+    -> SlottingContextSum
     -> Transport (RealMode ssc)
     -> ([WorkerSpec (RealMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()
-runNodeReal discCtx transport plugins np sscnp =
-    runRealMode discCtx transport np sscnp (runNode @ssc plugins)
+runNodeReal discCtx slottingCtx transport plugins np sscnp =
+    runRealMode
+        discCtx
+        slottingCtx
+        transport
+        np
+        sscnp
+        (runNode @ssc slottingCtx plugins)

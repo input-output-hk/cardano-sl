@@ -4,16 +4,16 @@ module Main (main) where
 
 import           Universum
 
+import qualified Data.ByteString              as BS
 import           Data.String.QQ               (s)
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import qualified Data.Text                    as T
 import           Data.Version                 (showVersion)
 import           Options.Applicative          (Parser, execParser, footerDoc, fullDesc,
-                                               help, header, helper, info, infoOption, long,
-                                               metavar, optional, progDesc, short)
+                                               header, help, helper, info, infoOption,
+                                               long, metavar, optional, progDesc, short)
 import           Options.Applicative.Text     (textOption)
-import qualified Data.ByteString              as BS
-import qualified Data.Text                    as T
 import qualified Serokell.Util.Base64         as B64
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
 import           Pos.Crypto                   (RedeemPublicKey (..), redeemPkBuild)
@@ -39,7 +39,7 @@ getAddrConvertOptions = execParser programInfo
         fullDesc <> progDesc  "Produce public key and write it in stdout."
                  <> header    "Tool to convert vending addresses into testnet addresses."
                  <> footerDoc usageExample
-                 
+
     versionOption = infoOption
         ("cardano-addr-convert-" <> showVersion version)
         (long "version" <> help "Show version.")

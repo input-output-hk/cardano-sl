@@ -312,15 +312,15 @@ deleteAccount = mkEffFn1 $ fromAff <<< B.deleteAccount <<< mkCAccountId
 -- Returns json representation of newly created account
 -- Example in nodejs:
 -- | ```js
--- | > api.newWAddress('1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648', '').then(console.log).catch(console.log)
+-- | > api.newAddress('1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648', '').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cadId: '19N52o4RrzEo6AxRzawAkbuMtnqPjrgat1USDMaRQG3uK46b7bNrpxMSLgd1sxvPUPFbGnmj9Kmj2Fb8H5W5Ez7g6voZMy',
 -- |   cadAmount: { getCCoin: '0' } }
 -- | ```
-newWAddress :: forall eff . EffFn2 (ajax :: AJAX | eff) String String
+newAddress :: forall eff . EffFn2 (ajax :: AJAX | eff) String String
   (Promise Json)
-newWAddress = mkEffFn2 \wId spendingPassword -> fromAff <<< map encodeJson <<<
-    B.newWAddress (mkCPassPhrase spendingPassword) $ mkCAccountId wId
+newAddress = mkEffFn2 \wId spendingPassword -> fromAff <<< map encodeJson <<<
+    B.newAddress (mkCPassPhrase spendingPassword) $ mkCAccountId wId
 
 --------------------------------------------------------------------------------
 -- Addresses ------------------------------------------------------------------

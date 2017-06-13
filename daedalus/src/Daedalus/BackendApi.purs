@@ -151,8 +151,8 @@ deleteAccount wId = deleteR $ noQueryParam ["accounts", walletAddressToUrl wId]
 --------------------------------------------------------------------------------
 -- Wallet addresses ------------------------------------------------------------
 
-newWAddress :: forall eff. Maybe CPassPhrase -> CAccountId -> Aff (ajax :: AJAX | eff) CAddress
-newWAddress pass = postRBody $ queryParams ["addresses"] [qParam "passphrase" $ _passPhrase <$> pass]
+newAddress :: forall eff. Maybe CPassPhrase -> CAccountId -> Aff (ajax :: AJAX | eff) CAddress
+newAddress pass = postRBody $ queryParams ["addresses"] [qParam "passphrase" $ _passPhrase <$> pass]
 
 --------------------------------------------------------------------------------
 -- Addresses -------------------------------------------------------------------

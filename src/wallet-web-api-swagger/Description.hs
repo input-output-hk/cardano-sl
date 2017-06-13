@@ -25,7 +25,7 @@ testReset
   , newAccount
   , deleteAccount
 
-  , newWAddress
+  , newAddress
 
   , isValidAddress
 
@@ -76,7 +76,7 @@ newAccount             = "Create a new account in given wallet."
 deleteAccount          = "Delete a account by account's ID (address + index of \
                          \account in wallet)."
 
-newWAddress            = "Create a new address in given account."
+newAddress             = "Create a new address in given account."
 
 isValidAddress         = "Returns True if given address is valid, False otherwise."
 

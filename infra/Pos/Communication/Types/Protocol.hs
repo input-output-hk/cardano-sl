@@ -12,6 +12,7 @@ module Pos.Communication.Types.Protocol
        , ListenerSpec (..)
        , InSpecs (..)
        , OutSpecs (..)
+       , PeerId (..)
        , Listener
        , Worker
        , Action
@@ -30,19 +31,22 @@ module Pos.Communication.Types.Protocol
        , N.NodeId
        ) where
 
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.Text.Buildable   as B
-import           Formatting            (bprint, build, hex, int, sformat, stext, (%))
-import qualified Node                  as N
-import           Node.Message          (Message (..), MessageName (..))
-import           Serokell.Util.Base16  (base16F)
-import           Serokell.Util.Text    (listJson, mapJson)
+import           Data.Aeson             (ToJSON (..), FromJSON (..))
+import qualified Data.HashMap.Strict    as HM
+import qualified Data.Text.Buildable    as B
+import qualified Data.Text.Encoding     as Text (encodeUtf8, decodeUtf8)
+import qualified Data.ByteString.Base64 as B64 (encode, decode)
+import           Formatting             (bprint, build, hex, int, sformat, stext, (%))
+import qualified Node                   as N
+import           Node.Message           (Message (..), MessageName (..))
+import           Serokell.Util.Base16   (base16F)
+import           Serokell.Util.Text     (listJson, mapJson)
 import           Universum
 
-import           Pos.Binary.Class      (Bi)
-import           Pos.Communication.BiP (BiP)
-import           Pos.Core.Types        (BlockVersion)
-import           Pos.Util.TimeWarp     (nodeIdToAddress)
+import           Pos.Binary.Class       (Bi)
+import           Pos.Communication.BiP  (BiP)
+import           Pos.Core.Types         (BlockVersion)
+import           Pos.Util.TimeWarp      (nodeIdToAddress)
 
 type PeerData = VerInfo
 
@@ -76,6 +80,22 @@ data Conversation m t where
         :: ( Bi snd, Message snd, Bi rcv, Message rcv )
         => (N.ConversationActions snd rcv m -> m t)
         -> Conversation m t
+
+newtype PeerId = PeerId ByteString
+  deriving (Eq, Ord, Show, Generic, Hashable)
+
+instance ToJSON PeerId where
+    toJSON (PeerId bs) = toJSON (Text.decodeUtf8 (B64.encode bs))
+
+instance FromJSON PeerId where
+    parseJSON v = do
+        bs <- Text.encodeUtf8 <$> parseJSON v
+        case B64.decode bs of
+            Left err -> fail err
+            Right decoded -> pure $ PeerId decoded
+
+instance Buildable PeerId where
+    build (PeerId bs) = bprint base16F bs
 
 data HandlerSpec
     = ConvHandler { hsReplyType :: MessageName}

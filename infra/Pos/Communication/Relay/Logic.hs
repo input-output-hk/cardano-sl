@@ -1,6 +1,7 @@
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Framework for Inv\/Req\/Data message handling
 
@@ -23,10 +24,12 @@ module Pos.Communication.Relay.Logic
        , invReqDataFlowNeighborsTK
        , addToRelayQueue
        , dataFlow
+       , InvReqDataFlowLog (..)
        ) where
 
 import           Control.Concurrent.STM             (isFullTBQueue, readTBQueue,
                                                      writeTBQueue)
+import           Data.Aeson.TH                      (deriveJSON, defaultOptions)
 import           Data.Proxy                         (asProxyTypeOf)
 import           Data.Tagged                        (Tagged, tagWith)
 import           Data.Typeable                      (typeRep)
@@ -384,6 +387,22 @@ relayWorkersImpl allOutSpecs =
 ----------------------------------------------------------------------------
 -- Helpers for Communication.Methods
 ----------------------------------------------------------------------------
+
+data InvReqDataFlowLog =
+      InvReqAccepted
+        { invReqStart    :: !Integer
+        , invReqReceived :: !Integer
+        , invReqSent     :: !Integer
+        , invReqClosed   :: !Integer
+        }
+    | InvReqRejected
+        { invReqStart    :: !Integer
+        , invReqReceived :: !Integer
+        }
+    | InvReqException !Text
+    deriving Show
+
+$(deriveJSON defaultOptions ''InvReqDataFlowLog)
 
 invReqDataFlowNeighborsTK
     :: forall key contents m.

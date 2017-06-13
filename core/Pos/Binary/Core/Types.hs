@@ -3,8 +3,7 @@ module Pos.Binary.Core.Types () where
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..), Size (..), UnsignedVarInt (..),
-                                          appendField, combineSize, label, putField,
-                                          putWord8, sizeAddField, sizeOf)
+                                          appendField, label, putField, putWord8)
 import qualified Pos.Binary.Core.Coin    as BinCoin
 import           Pos.Binary.Core.Script  ()
 import           Pos.Binary.Core.Version ()

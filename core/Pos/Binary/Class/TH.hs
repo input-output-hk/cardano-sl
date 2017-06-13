@@ -11,7 +11,7 @@ module Pos.Binary.Class.TH
 import           Universum
 
 import           Data.Default          (def)
-import           Data.List             (zipWith3)
+import           Data.List             (notElem, nubBy, zipWith3)
 import           Data.Store            (Size (..))
 import qualified Data.Text             as T
 import           Formatting            (sformat, shown, (%))
@@ -45,23 +45,41 @@ deriveSimpleBi headTy constrs = do
         failText "You passed no one constructors to deriveSimpleBi"
     when (length constrs > 255) $
         failText "You passed too many constructors to deriveSimpleBi"
+    when (length (nubBy (\x y -> cName x == cName y) constrs) /= length constrs) $
+        failText "You passed two constructors with the same name"
     dt <- reifyDataType headTy
-    case (matchAllConstrs constrs (dtCons dt)) of
-        MissedCons missedCons ->
+    case matchAllConstrs constrs (dtCons dt) of
+        MissedCons cons ->
             failText .
                 sformat ("Constructor '"%shown%"' isn't passed to deriveSimpleBi") $
-                missedCons
-        UnknownCons unknownCons ->
+                cons
+        UnknownCons cons ->
             failText .
                 sformat ("Unknown constructor '"%shown%"' is passed to deriveSimpleBi") $
-                unknownCons
+                cons
         MatchedCons matchedConstrs ->
             forM_ (zip constrs matchedConstrs) $ \(Cons{..}, DataCon{..}) -> do
-                whenJust (checkAllFields cFields dcFields) $ \field ->
-                    failText $ sformat ("Unknown field '"%shown%"' of constructor '"
-                                        %shown%"' is passed to deriveSimpleBi")
-                                  field cName
-    fail "not implemented yet"
+                let realFields = mapMaybe (\(n, t) -> (,t) <$> n) dcFields
+                when (length realFields /= length dcFields) $
+                    failText $ sformat ("Some field of "%shown
+                                       %" constructor doesn't have a explicit name") cName
+                case checkAllFields cFields realFields of
+                    MissedField field ->
+                        failText $ sformat ("Field '"%shown%"' of the constructor '"
+                                            %shown%"' isn't passed to deriveSimpleBi")
+                                   field cName
+                    UnknownField field ->
+                        failText $ sformat ("Unknown field '"%shown%"' of the constructor '"
+                                            %shown%"' is passed to deriveSimpleBi")
+                                   field cName
+                    TypeMismatched field realType passedType ->
+                        failText $ sformat ("The type of '"%shown%"' of the constructor '"
+                                            %shown%"' is mismatched: real type '"
+                                            %shown%"', passed type '"%shown%"'")
+                                   field cName realType passedType
+                    MatchedFields -> pass
+    ty <- conT headTy
+    makeBiInstanceTH ty <$> biSizeExpr <*> biPutExpr <*> biGetExpr
   where
     -- Meta information about constructors --
 
@@ -109,7 +127,7 @@ deriveSimpleBi headTy constrs = do
     prependPrefToFields :: [Name] -> [Name]
     prependPrefToFields prefixes =
         concatMap (\(p, flds) -> map ((p `appendName`) . fst) flds) $
-                  zip sizeNames allUsedFields
+                  zip prefixes allUsedFields
 
     -- Put defenition --
     biPutExpr :: Q Exp
@@ -131,7 +149,8 @@ deriveSimpleBi headTy constrs = do
     putTag ix = noBindS [| poke (ix :: $(conT tagType)) |]
 
     putField :: Field -> Q Stmt
-    putField Field{..} = noBindS [| Bi.put $(appE (varE fName) (varE valName)) |]
+    putField Field{..}  = noBindS [| Bi.put $(appE (varE fName) (varE valName)) |]
+    putField (Unused _) = fail "Something went wrong: put Unused field"
 
     -- Size definition --
     biSizeExpr :: Q Exp
@@ -204,8 +223,8 @@ deriveSimpleBi headTy constrs = do
     -- Bar _ _ _ -> getSizeWith c0field1 (field1 val) + getSizeWith c0field2 (field2 val)
     matchVarCons :: Name -> Int -> Cons -> MatchQ
     matchVarCons _ _ (Cons cName [])  = match (conP cName []) (normalB [| 0 |]) []
-    matchVarCons shortName numOfFields (Cons cName (map fName -> cFields)) = do
-        let wilds = replicate numOfFields wildP
+    matchVarCons shortName num (Cons cName (map fName -> cFields)) = do
+        let wilds = replicate num wildP
         match (conP cName wilds) body []
       where
         body = normalB $
@@ -250,8 +269,8 @@ deriveSimpleBi headTy constrs = do
                                 recWildUsedVars ++ recWildUnusedVars
         doE $ map pure bindExprs ++ [pure recordWildCardReturn]
 
-makeBiInstanceTH :: Type -> Exp -> Exp -> Exp -> Dec
-makeBiInstanceTH ty sizeE putE getE =
+makeBiInstanceTH :: Type -> Exp -> Exp -> Exp -> [Dec]
+makeBiInstanceTH ty sizeE putE getE = one $
   plainInstanceD
         [] -- empty context
         (AppT (ConT ''Bi) ty)
@@ -260,15 +279,54 @@ makeBiInstanceTH ty sizeE putE getE =
         , ValD (VarP 'get) (NormalB getE) []
         ]
 
-data ConsFail
+data MatchConstructors
     = MatchedCons [DataCon]
     -- ^ Constructors in matched order
     | MissedCons Name
+    -- ^ Some constructor aren't passed
     | UnknownCons Name
+    -- ^ Passed unknown constructor
 
-matchAllConstrs :: [Cons] -> [DataCon] -> ConsFail
-matchAllConstrs = undefined
+matchAllConstrs :: [Cons] -> [DataCon] -> MatchConstructors
+matchAllConstrs (map cName -> passedNames) realCons@(map dcName -> realNames)
+    | Just nm <- passedNames `inclusion` realNames = UnknownCons nm
+    | Just nm <- realNames `inclusion` passedNames = MissedCons nm
+    | otherwise =
+        let ret = catMaybes $ map (\x -> find ((x==) . dcName) realCons) passedNames in
+        if length ret /= length passedNames then
+            error "Something went wrong. Matched list of constructors has different length"
+        else
+            MatchedCons ret
+  where
+    inclusion :: [Name] -> [Name] -> Maybe Name
+    inclusion c1 c2 = find (`notElem` c2) c1
 
-checkAllFields :: [Field] -> [(Maybe Name, Type)] -> Maybe Name
-checkAllFields = undefined
+data MatchFields
+    = MatchedFields
+    -- ^ All fields are matched
+    | MissedField Name
+    -- ^ Some field aren't passed
+    | UnknownField Name
+    -- ^ Passed field with unknown name
+    | TypeMismatched Name Type Type
+    -- ^ Some field has mismatched type
+
+checkAllFields :: [Field] -> [(Name, Type)] -> MatchFields
+checkAllFields (map (\Field{..} -> (fName, ConT fType)) -> passedFields) realFields
+    | Just nm <- map fst passedFields `inclusion` map fst realFields = UnknownField nm
+    | Just nm <- map fst realFields `inclusion` map fst passedFields = MissedField nm
+    | otherwise =
+        let ret = catMaybes $ map (\x -> find ((fst x ==) . fst) realFields) passedFields in
+        if length ret /= length passedFields then
+            error "Something went wrong. Matched list of fields has different length"
+        else
+            case dropWhile checkTypes (zip realFields passedFields) of
+                []                           -> MatchedFields
+                (((n, real), (_, passed)):_) -> TypeMismatched n real passed
+  where
+    checkTypes :: ((Name, Type), (Name, Type)) -> Bool
+    checkTypes ((_, t1), (_, t2)) = t1 == t2
+
+    inclusion :: [Name] -> [Name] -> Maybe Name
+    inclusion c1 c2 = find (`notElem` c2) c1
 

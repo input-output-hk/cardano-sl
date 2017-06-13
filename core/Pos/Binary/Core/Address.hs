@@ -7,13 +7,11 @@ import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
 import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (..),
                                       UnsignedVarInt (..), convertToSizeNPut, encode,
-                                      getSize, getSmallWithLength, getWord8, label,
-                                      pokeWithSize, put, putField, putSmallWithLength,
-                                      putSmallWithLengthS, putWord8S)
+                                      getSmallWithLength, getWord8, label, pokeWithSize,
+                                      putField, putSmallWithLengthS, putWord8S)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
-import           Pos.Data.Attributes (getAttributes, putAttributesWithSize,
-                                      sizeAttributes)
+import           Pos.Data.Attributes (getAttributes, putAttributesWithSize)
 
 -- | Encode everything in an address except for CRC32
 sizeNPutAddressIncomplete :: (Size Address, Address -> Poke ())

@@ -11,6 +11,7 @@ module Pos.Binary.Class.TH
 import           Universum
 
 import           Data.Default          (def)
+import           Data.Store            (Size (..))
 import qualified Data.Text             as T
 import           Formatting            (sformat, shown, (%))
 import           Language.Haskell.TH
@@ -38,6 +39,10 @@ data Field
 -- https://hackage.haskell.org/package/store-0.4.3.1/docs/src/Data-Store-TH-Internal.html#makeStore
 deriveSimpleBi :: Name -> [Cons] -> Q [Dec]
 deriveSimpleBi headTy constrs = do
+    when (null constrs) $
+        failText "You passed no one constructors to deriveSimpleBi"
+    when (length constrs > 255) $
+        failText "You passed too many constructors to deriveSimpleBi"
     dt <- reifyDataType headTy
     case (matchAllConstrs constrs (dtCons dt)) of
         MissedCons missedCons ->
@@ -64,11 +69,123 @@ deriveSimpleBi headTy constrs = do
     tagType :: Name
     tagType = ''Word8
 
-    -- Expression used for the definition of get.
+    tagSize :: Int
+    tagSize = 1
+
+    appendName :: Name -> Name -> Name
+    appendName a b = mkName $ show a <> show b
+
+    unsafeTail :: [a] -> [a] -- velosiped one more time
+    unsafeTail []     = error "tail: empty list"
+    unsafeTail (_:xs) = xs
+
+    -- Constructor and its used fields.
+    filteredConstrs :: [Cons]
+    filteredConstrs = map (\Cons{..} -> Cons cName (filter isUsed cFields)) constrs
+
+    -- All used fields:
+    -- [Fields of Constr1 [(FieldName, FieldType)],  Fields of Constr2 [(FieldName, FieldType)], ..]
+    -- @filteredConstrs@ and @allUsedFields@ are almost same,
+    -- but @filteredConstrs@ store the name of constructors.
+    allUsedFields :: [[(Name, Name)]]
+    allUsedFields = map (\Cons{..} -> map (\Field{..} -> (fName, fType)) cFields) filteredConstrs
+
+    prependPrefToFields :: [Name] -> [Name]
+    prependPrefToFields prefixes =
+        concatMap (\(p, flds) -> map ((p `appendName`) . fst) flds) $
+                  zip sizeNames allUsedFields
+
+    -- Size definition.
+    biSizeExpr :: Q Exp
+    biSizeExpr = caseE (tupE (concatMap (map (sizeAtType . snd)) allUsedFields))
+                       [matchConstSize, matchVarSize]
+
+    -- Generatecode like "size :: Word8", "size :: Int"
+    sizeAtType :: Name -> ExpQ
+    sizeAtType ty = [| size :: Size $(conT ty) |]
+
+    -- Variables for total size of used fields in the each constructor.
+    sizeNames :: [Name]
+    sizeNames = take (length constrs) $
+                      map (mkName . ("sz" ++) . show) ([0..] :: [Int])
+
+    -- Prefixes of fields (corresponding to each constructor)
+    shortNames :: [Name]
+    shortNames = take (length constrs) $
+                      map (mkName . ("c" ++) . show) ([0..] :: [Int])
+
+    -- Generate the following code:
+    -- (ConstSize sz0f0,
+    -- ConstSize sz1f0, ConstSize sz1f1, ConstSize sz1f2,
+    -- ConstSize sz2f2) | sz0 == sz1 -> ConstSize (1 + sz0)
+    --   where
+    --     sz0 = sz0f0
+    --     sz1 = sz1f0 + sz1f1 + sz1f2
+    --     sz2 = sz2f0
+    matchConstSize :: MatchQ
+    matchConstSize = do
+        let sz0 = VarE (mkName "sz0")
+        let flatUsedFields = prependPrefToFields sizeNames
+        let sumOfFieldsDecls = zipWith constrSumOfFields sizeNames allUsedFields
+        -- Generate sz0 == sz1 | sz0 == sz2 | ..
+        sameSizeExpr <-
+            foldl (\l r -> [| $(l) && $(r) |]) [| True |] $
+            map (\szn -> [| $(return sz0) == $(varE szn) |]) $
+            unsafeTail sizeNames
+        result <- [| ConstSize (tagSize + $(return sz0)) |]
+        match (tupP (map (conP 'ConstSize . one . varP) flatUsedFields))
+              (guardedB [return (NormalG sameSizeExpr, result)])
+              sumOfFieldsDecls
+
+    -- Generate the following code:
+    -- sz0 = sz0f1 + sz0f2 + sz0f3.
+    constrSumOfFields :: Name -> [(Name, Name)] -> DecQ
+    constrSumOfFields szn [] = valD (varP szn) (normalB [| 0 |]) []
+    constrSumOfFields szn (map fst -> names) = valD (varP szn) body []
+      where
+        body = normalB $
+            foldl1 (\l r -> [| $(l) + $(r) |]) $
+            map (varE . (szn `appendName`)) names
+
+    -- Generate the following code:
+    -- (c0f0, c0f1, c1f0) -> VarSize $ \x -> 1 +
+    --    case x of
+    --        Bar {..} -> getSizeWith c0f0 f0 + getSizeWith c0f1 f1
+    --        Baz {..} -> getSizeWith c1f0 f0
+    matchVarSize :: MatchQ
+    matchVarSize = do
+        let flatUsedFields = prependPrefToFields shortNames
+        let consWithShort = zip (zipWith (\sn c -> (sn, length (cFields c)))
+                                         shortNames
+                                         constrs)
+                                filteredConstrs
+        let valName = mkName "val"
+        match (tupP (map varP flatUsedFields))
+              (normalB
+                 [| VarSize $ \val ->
+                        tagSize + $(caseE [| val |] (map (matchVarCons valName) consWithShort)) |])
+              []
+
+    -- Generate the following code:
+    -- Bar {..} -> getSizeWith c0field1 field1 + getSizeWith c0field2 field2
+    matchVarCons :: Name -> ((Name, Int), Cons) -> MatchQ
+    matchVarCons _ (_, Cons cName [])  = match (conP cName []) (normalB [| 0 |]) []
+    matchVarCons val ((shortName, numOfFields), Cons cName (map fName -> cFields)) = do
+        let caseVar = varE val
+        let wilds = replicate numOfFields wildP
+        match (conP cName wilds) (body caseVar) []
+      where
+        body valE = normalB $
+            foldl1 (\l r -> [| $(l) + $(r) |]) $
+            map (\fn -> [| getSizeWith $(varE (shortName `appendName` fn)) $(appE (varE fn) valE) |]) cFields
+
+    -- Get definition.
     biGetExpr :: Q Exp
     biGetExpr = case constrs of
-        []        -> failText $ sformat ("Attempting to peek type without constructors "%shown) headTy
-        (cons:[]) -> biGetConstr cons -- There is one consturctors
+        []        ->
+            failText $ sformat ("Attempting to peek type without constructors "%shown) headTy
+        (cons:[]) ->
+            biGetConstr cons -- There is one consturctors
         _         -> do
             let tagName = mkName "tag"
             let getMatch (ix, con) = match (litP (IntegerL ix)) (normalB (biGetConstr con)) []

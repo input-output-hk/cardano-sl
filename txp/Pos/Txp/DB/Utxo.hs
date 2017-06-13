@@ -6,7 +6,7 @@
 
 module Pos.Txp.DB.Utxo
        (
-       -- * Getters
+         -- * Getters
          getTxOutFromDB
        , getTxOut
 
@@ -18,9 +18,11 @@ module Pos.Txp.DB.Utxo
 
        -- * Iteration
        , UtxoIter
+       , runUtxoIterator
+       , runUtxoMapIterator
+       , getFilteredUtxo
 
        -- * Get utxo
-       , getFilteredUtxo
        , getAllPotentiallyHugeUtxo
 
        -- * Sanity checks
@@ -29,8 +31,6 @@ module Pos.Txp.DB.Utxo
 
 import           Universum
 
-import           Data.Conduit         (Sink, mapOutput, runConduit, (.|))
-import qualified Data.Conduit.List    as CL
 import qualified Data.HashSet         as HS
 import qualified Data.Map             as M
 import qualified Data.Text.Buildable
@@ -45,14 +45,16 @@ import           Pos.Binary.Core      ()
 import           Pos.Core             (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
-import           Pos.DB               (DBError (..), DBIteratorClass (..),
-                                       DBTag (GStateDB), IterType, MonadDB,
-                                       MonadDBRead (dbGet), RocksBatchOp (..),
-                                       dbIterSource, encodeWithKeyPrefix, rocksGetBi)
+import           Pos.DB               (DBError (..), DBTag (GStateDB), RocksBatchOp (..),
+                                       encodeWithKeyPrefix, rocksGetBi)
+import           Pos.DB.Class         (MonadDB, MonadDBRead (dbGet), MonadRealDB)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
-import           Pos.DB.Types         (DB)
+import           Pos.DB.Iterator      (DBIteratorClass (..), DBnIterator, DBnMapIterator,
+                                       IterType, runDBnIterator, runDBnMapIterator)
+import           Pos.DB.Types         (DB, NodeDBs (_gStateDB))
 import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types   (Utxo)
+import           Pos.Util.Iterator    (nextItem)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -108,40 +110,81 @@ data UtxoIter
 instance DBIteratorClass UtxoIter where
     type IterKey UtxoIter = TxIn
     type IterValue UtxoIter = TxOutAux
-    iterKeyPrefix = iterationUtxoPrefix
+    iterKeyPrefix _ = iterationUtxoPrefix
 
-utxoSink :: (MonadDBRead m) => Sink (IterType UtxoIter) m Utxo
-utxoSink = CL.fold (\u (k,v) -> M.insert k v u) mempty
+runUtxoIterator
+    :: forall i m a .
+       ( MonadRealDB m
+       , DBIteratorClass i
+       , IterKey i ~ TxIn
+       , IterValue i ~ TxOutAux
+       )
+    => DBnIterator i a
+    -> m a
+runUtxoIterator = runDBnIterator @i _gStateDB
 
--- | Retrieves only portion of UTXO related to given addresses list.
-getFilteredUtxo :: MonadDBRead m => [Address] -> m Utxo
-getFilteredUtxo addrs =
-    runConduit $
-    dbIterSource GStateDB (Proxy @UtxoIter) .|
-    CL.filter (\(_,out) -> out `addrBelongsToSet` addrsSet) .|
-    utxoSink
+runUtxoMapIterator
+    :: forall i v m a .
+       ( MonadRealDB m
+       , DBIteratorClass i
+       , IterKey i ~ TxIn
+       , IterValue i ~ TxOutAux
+       )
+    => DBnMapIterator i v a
+    -> (IterType i -> v)
+    -> m a
+runUtxoMapIterator = runDBnMapIterator @i _gStateDB
+
+filterUtxo
+    :: forall i m .
+       ( MonadRealDB m
+       , DBIteratorClass i
+       , IterKey i ~ TxIn
+       , IterValue i ~ TxOutAux
+       )
+    => (IterType i -> Bool)
+    -> m Utxo
+filterUtxo p = runUtxoIterator @i (step mempty)
   where
-    addrsSet = HS.fromList $ map AddressIA addrs
+    step res = nextItem >>= maybe (pure res) (\e@(k, v) ->
+      if | p e       -> step (M.insert k v res)
+         | otherwise -> step res)
+
+-- | Get small sub-utxo containing only outputs of given address
+getFilteredUtxo'
+    :: forall i m .
+       ( MonadRealDB m
+       , DBIteratorClass i
+       , IterKey i ~ TxIn
+       , IterValue i ~ TxOutAux
+       )
+    => [Address] -> m Utxo
+getFilteredUtxo' addrs = filterUtxo @i $ \(_, out) -> out `addrBelongsToSet` addrsSet
+  where addrsSet = HS.fromList $ map AddressIA addrs
+
+getFilteredUtxo :: MonadRealDB m => [Address] -> m Utxo
+getFilteredUtxo = getFilteredUtxo' @UtxoIter
 
 -- | Get full utxo. Use with care – the utxo can be very big (hundreds of
 -- megabytes).
-getAllPotentiallyHugeUtxo :: MonadDBRead m => m Utxo
-getAllPotentiallyHugeUtxo =
-    runConduit $ dbIterSource GStateDB (Proxy @UtxoIter) .| utxoSink
+getAllPotentiallyHugeUtxo :: MonadRealDB m => m Utxo
+getAllPotentiallyHugeUtxo = runUtxoIterator @UtxoIter (step mempty)
+  where
+    -- this can probably be written better
+    step res = nextItem >>= \case
+        Nothing     -> pure res
+        Just (k, v) -> step (M.insert k v res)
 
 ----------------------------------------------------------------------------
 -- Sanity checks
 ----------------------------------------------------------------------------
 
 sanityCheckUtxo
-    :: (MonadDBRead m, WithLogger m)
+    :: (MonadRealDB m, WithLogger m)
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
-    let utxoSource =
-            mapOutput
-            (map snd . txOutStake . snd)
-            (dbIterSource GStateDB (Proxy @UtxoIter))
-    calculatedTotalStake <- runConduit $ utxoSource .| CL.fold foldAdd (mkCoin 0)
+    calculatedTotalStake <-
+        runUtxoMapIterator @UtxoIter (step (mkCoin 0)) (map snd . txOutStake . snd)
     let fmt =
             ("Sum of stakes in Utxo differs from expected total stake (the former is "
              %coinF%", while the latter is "%coinF%")")
@@ -150,8 +193,13 @@ sanityCheckUtxo expectedTotalStake = do
         logError $ colorize Red msg
         throwM $ DBMalformed msg
   where
-    foldAdd acc stakes =
-        acc `unsafeAddCoin` unsafeIntegerToCoin (sumCoins @[Coin] stakes)
+    step sm =
+        nextItem >>= \case
+            Nothing -> pure sm
+            Just stakes ->
+                step
+                    (sm `unsafeAddCoin`
+                     unsafeIntegerToCoin (sumCoins @[Coin] stakes))
 
 ----------------------------------------------------------------------------
 -- Keys

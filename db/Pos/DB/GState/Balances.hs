@@ -19,17 +19,18 @@ import           Pos.Binary.Core      ()
 import           Pos.Core.Types       (Coin, StakeholderId)
 import           Pos.Util.Util        (maybeThrow)
 
-import           Pos.DB.Class         (DBIteratorClass (..), MonadDBRead)
+import           Pos.DB.Class         (MonadDBRead)
 import           Pos.DB.Error         (DBError (DBMalformed))
 import           Pos.DB.Functions     (encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (gsGetBi)
+import           Pos.DB.Iterator      (DBIteratorClass (..))
 
 data BalanceIter
 
 instance DBIteratorClass BalanceIter where
     type IterKey BalanceIter = StakeholderId
     type IterValue BalanceIter = Coin
-    iterKeyPrefix = iterationPrefix
+    iterKeyPrefix _ = iterationPrefix
 
 ----------------------------------------------------------------------------
 -- Keys

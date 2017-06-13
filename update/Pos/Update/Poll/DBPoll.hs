@@ -16,7 +16,7 @@ import qualified Ether
 import           System.Wlog                  (WithLogger)
 
 import           Pos.Core                     (Coin)
-import           Pos.DB.Class                 (MonadDBRead)
+import           Pos.DB.Class                 (MonadDBRead, MonadRealDB)
 import           Pos.Lrc.Context              (LrcContext, lrcActionOnEpochReason)
 import           Pos.Lrc.DB.Issuers           (getIssuersStakes)
 import           Pos.Lrc.Types                (FullRichmenData)
@@ -35,7 +35,7 @@ type DBPoll = Ether.TaggedTrans DBPollTag IdentityT
 runDBPoll :: DBPoll m a -> m a
 runDBPoll = coerce
 
-instance (MonadIO m, MonadDBRead m, WithLogger m, Ether.MonadReader' LrcContext m) =>
+instance (MonadDBRead m, MonadRealDB m, WithLogger m, Ether.MonadReader' LrcContext m) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
     getProposedBVs = GS.getProposedBVs

@@ -83,6 +83,7 @@ library
                        Pos.Util.Chrono
                        Pos.Util.Config
                        Pos.Util.HVect
+                       Pos.Util.Iterator
                        Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Mnemonics
@@ -137,7 +138,6 @@ library
                      , lens
                      , lrucache
                      , memory
-                     , monad-control
                      , mtl
                      , node-sketch
                      , parsec

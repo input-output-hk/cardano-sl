@@ -52,10 +52,9 @@ To build from source, please refer to [this](https://cardanodocs.com/for-contrib
 Note that the [`stack` system](https://docs.haskellstack.org/en/stable/README/) is
 required before `cardano-sl` can be built.
 
-For developer convenience, also note that in the `scripts` and `util-scripts` folders
-there are a variety of utility scripts to build various components of the system,
-such as the general `util-scripts/build.sh`, or the `util-scripts/clean.sh` to remove
-byproducts of compilation.
+For developer convenience, also note that in the `scripts` folders there are a variety of
+utility scripts to build various components of the system, such as the general
+`scripts/build/cardano-sl.sh`.
 
 Running the nodes
 -----------------

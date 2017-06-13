@@ -1,9 +1,15 @@
+#!/usr/bin/env bash
+set -e
+set -o pipefail
+
 # Cleans all data according to docs to prepare for wallets running:
 #     https://cardanodocs.com/technical/wallets/
 
 # TODO: support purescript API rebuilding?
 
-rm -rf ./run/*
+echo "Cleaning Cardano SL db..."
+
+rm -rf run/*
 rm -rf wallet-db/
 rm -rf db-abc/
 rm -rf node-*.*key*

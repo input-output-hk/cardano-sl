@@ -135,7 +135,7 @@ Command example:
 
   stack exec -- cardano-launcher                                     \
     --node binaries_v000/cardano-node                                \
-    --node-log-config scripts/update-log-config.yaml                 \
+    --node-log-config scripts/yaml/update-log-config.yaml            \
     -n "--update-server"                                             \
     -n "http://localhost:3001"                                       \
     -n "--update-latest-path"                                        \

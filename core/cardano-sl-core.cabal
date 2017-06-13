@@ -53,6 +53,7 @@ library
                        Pos.Crypto.SafeSigning
                        Pos.Crypto.Signing
                        Pos.Crypto.SignTag
+                       Pos.Crypto.Scrypt
                        Pos.Crypto.SecretSharing
                        Pos.Crypto.RedeemSigning
 
@@ -130,6 +131,7 @@ library
                      , quickcheck-instances
                      , random
                      , safecopy
+                     , scrypt >= 0.5
                      , semigroups
                      , serokell-util
                      , tagged

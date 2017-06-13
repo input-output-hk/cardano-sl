@@ -25,6 +25,7 @@ import           Pos.Launcher                    (BaseParams (..), LoggingParams
                                                   runServer_)
 import           Pos.Reporting.MemState          (ReportingContext, emptyReportingContext)
 import           Pos.Util.Util                   ()
+import           Pos.Util.TimeWarp               (runWithoutJsonLogT)
 import           Pos.Wallet.KeyStorage           (KeyData, keyDataFromFile)
 import           Pos.Wallet.Light.Launcher.Param (WalletParams (..))
 import           Pos.Wallet.Light.Mode           (LightWalletMode (..))
@@ -89,6 +90,7 @@ runRawStaticPeersWallet transport peers WalletParams {..}
                         listeners (ActionSpec action, outs) =
     runResourceT .
     usingLoggerName lpRunnerTag .
+    runWithoutJsonLogT .
     bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
         keyData <- keyDataFromFile wpKeyFilePath

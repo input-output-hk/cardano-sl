@@ -103,9 +103,10 @@ import           Pos.Txp                      (txpGlobalSettings)
 import           Pos.Update.Context           (UpdateContext (..))
 import qualified Pos.Update.DB                as GState
 import           Pos.Update.MemState          (newMemVar)
+import           Pos.Util                     (withMaybeFile)
 import           Pos.Util.Concurrent.RWVar    as RWV
-import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
+import           Pos.Util.TimeWarp            (runJsonLogT', runWithoutJsonLogT)
 import           Pos.Worker                   (allWorkersCount)
 import           Pos.WorkMode                 (RealMode (..), ServiceMode (..), WorkMode)
 
@@ -171,7 +172,10 @@ runRealModeDo
     -> Production a
 runRealModeDo discoveryCtx slottingCtx transport np@NodeParams {..} sscnp
               listeners outSpecs (ActionSpec action) =
-    runResourceT $ usingLoggerName lpRunnerTag $ do
+    runResourceT $ 
+    usingLoggerName lpRunnerTag $ 
+    withMaybeFile npJLFile WriteMode $ \mJLHandle ->
+    runJsonLogT' mJLHandle $ do
         initNC <- untag @ssc sscCreateNodeContext sscnp
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
         let allWorkersNum = allWorkersCount @ssc @(RealMode ssc) slottingCtx
@@ -199,6 +203,7 @@ runRealModeDo discoveryCtx slottingCtx transport np@NodeParams {..} sscnp
                runProduction .
                    runResourceT .
                    usingLoggerName lpRunnerTag .
+                   runJsonLogT' mJLHandle .
                    runCHHere .
                    flip Ether.runReadersT
                       ( Tagged @NodeDBs modernDBs
@@ -281,11 +286,12 @@ runServiceMode
 runServiceMode transport bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
     stateM <- liftIO SM.newIO
     usingLoggerName (lpRunnerTag bpLoggingParams) .
-        flip (Ether.runReaderT @PeerStateTag) stateM .
-        runPeerStateRedirect .
-        (\(ServiceMode m) -> m) .
-        runServer_ transport listeners outSpecs . ActionSpec $ \vI sa ->
-        nodeStartMsg bp >> action vI sa
+        runWithoutJsonLogT .
+            flip (Ether.runReaderT @PeerStateTag) stateM .
+            runPeerStateRedirect .
+            (\(ServiceMode m) -> m) .
+            runServer_ transport listeners outSpecs . ActionSpec $ \vI sa ->
+            nodeStartMsg bp >> action vI sa
 {-# NOINLINE runServiceMode #-}
 
 runServer
@@ -344,8 +350,6 @@ runCH
     -> m a
 runCH allWorkersNum discoveryCtx slottingCtx params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    ncJLFile <- JLFile <$>
-        liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
 

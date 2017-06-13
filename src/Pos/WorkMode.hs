@@ -52,6 +52,7 @@ import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState)
 import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Types                      (HeaderHash)
+import           Pos.Util.TimeWarp              (CanJsonLog, JsonLogT)
 import           Pos.Util.Util                  (PowerLift (..))
 import           Pos.WorkMode.Class             (MinWorkMode, TxpExtra_TMP, WorkMode)
 
@@ -78,9 +79,10 @@ type RealMode' ssc =
         , Tagged PeerStateTag (PeerStateCtx Production)
         ) (
     Ether.ReadersT (NodeContext ssc) (
+    JsonLogT (
     LoggerNameBox (
     ResourceT Production
-    )))))))))))
+    ))))))))))))
 
 newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
   deriving
@@ -127,6 +129,7 @@ deriving instance MonadBListener (RealMode ssc)
 -- deriving instance MonadBalances (RealMode ssc)
 -- deriving instance MonadTxHistory (RealMode ssc)
 deriving instance WithPeerState (RealMode ssc)
+deriving instance CanJsonLog (RealMode ssc)
 
 instance PowerLift m (RealMode' ssc) => PowerLift m (RealMode ssc) where
   powerLift = RealMode . powerLift
@@ -173,8 +176,9 @@ instance
 type ServiceMode' =
     PeerStateRedirect (
     Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
+    JsonLogT (
     LoggerNameBox Production
-    ))
+    )))
 
 newtype ServiceMode a = ServiceMode (ServiceMode' a)
   deriving
@@ -199,6 +203,7 @@ type instance Counter (ServiceMode) = Counter Production
 deriving instance CanLog (ServiceMode)
 deriving instance HasLoggerName (ServiceMode)
 deriving instance WithPeerState (ServiceMode)
+deriving instance CanJsonLog (ServiceMode)
 
 instance PowerLift m ServiceMode' => PowerLift m (ServiceMode) where
     powerLift = ServiceMode . powerLift

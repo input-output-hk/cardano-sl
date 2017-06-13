@@ -568,6 +568,7 @@ executable cardano-analyzer
                      , attoparsec
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-infra
                      , cardano-sl
                      , formatting
                      , log-warper

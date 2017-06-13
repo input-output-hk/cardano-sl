@@ -7,27 +7,16 @@
 module Pos.Util.JsonLog
        ( JLEvent(..)
        , JLBlock (..)
-       , JLTimedEvent (..)
        , jlCreatedBlock
        , jlAdoptedBlock
-       , MonadJL
-       , jlLog
-       , appendJL
        , fromJLSlotId
-       , JLFile(..)
        ) where
 
 import           Universum               hiding (catchAll)
 
-import           Control.Concurrent.MVar (withMVar)
-import           Data.Aeson              (encode)
 import           Data.Aeson.TH           (deriveJSON)
-import qualified Data.ByteString.Lazy    as LBS
-import qualified Ether
-import           Formatting              (sformat, shown, (%))
-import           Mockable                (Catch, Mockable, catchAll)
+import           Formatting              (sformat)
 import           Serokell.Aeson.Options  (defaultOptions)
-import           System.Wlog             (CanLog, HasLoggerName, logWarning)
 
 import           Pos.Binary.Block        ()
 import           Pos.Binary.Core         ()
@@ -38,7 +27,6 @@ import           Pos.Core                (SlotId (..), epochIndexL, gbHeader,
 import           Pos.Crypto              (Hash, hash, hashHexF)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Txp.Core            (txpTxs)
-import           Pos.Util.TimeWarp       (currentTime)
 import           Pos.Util.Util           (leftToPanic)
 
 type BlockId = Text
@@ -66,15 +54,8 @@ data JLEvent = JLCreatedBlock JLBlock
              | JLTpsStat Int
   deriving Show
 
--- | 'JLEvent' with 'Timestamp' -- corresponding time of this event.
-data JLTimedEvent = JLTimedEvent
-    { jlTimestamp :: Integer
-    , jlEvent     :: JLEvent
-    } deriving (Show)
-
 $(deriveJSON defaultOptions ''JLBlock)
 $(deriveJSON defaultOptions ''JLEvent)
-$(deriveJSON defaultOptions ''JLTimedEvent)
 
 -- | Return event of created block.
 jlCreatedBlock :: BiSsc ssc => Block ssc -> JLEvent
@@ -96,27 +77,3 @@ showHash = sformat hashHexF
 -- | Returns event of created 'Block'.
 jlAdoptedBlock :: SscHelpersClass ssc => Block ssc -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHash . headerHash
-
--- | Append event into log by given 'FilePath'.
-appendJL :: (MonadIO m) => FilePath -> JLEvent -> m ()
-appendJL path ev = liftIO $ do
-  time <- currentTime
-  LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
-
-newtype JLFile = JLFile (Maybe (MVar FilePath))
-
--- | Monad for things that can log Json log events.
-type MonadJL m =
-    ( Ether.MonadReader' JLFile m
-    , MonadIO m
-    , Mockable Catch m
-    , HasLoggerName m
-    , CanLog m )
-
-jlLog :: MonadJL m => JLEvent -> m ()
-jlLog ev = do
-    JLFile jlFileM <- Ether.ask'
-    whenJust jlFileM $ \logFileMV ->
-        (liftIO . withMVar logFileMV $ flip appendJL ev)
-        `catchAll` \e ->
-            logWarning $ sformat ("Can't write to json log: "%shown) e

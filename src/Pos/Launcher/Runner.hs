@@ -57,6 +57,7 @@ import           Pos.Slotting                 (runSlotsDataRedirect, runSlotsRed
 import           Pos.Ssc.Class                (SscConstraint)
 import           Pos.Ssc.Extra                (SscMemTag)
 import           Pos.Txp.MemState             (TxpHolderTag)
+import           Pos.Util.TimeWarp            (runJsonLogT')
 import           Pos.WorkMode                 (RealMode (..), WorkMode)
 
 ----------------------------------------------------------------------------
@@ -105,14 +106,14 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
         let startMonitoring node' = case lpEkgPort of
                 Nothing   -> return Nothing
                 Just port -> Just <$> do
-                        ekgStore' <- setupMonitor (runProduction . runToProd)
+                        ekgStore' <- setupMonitor (runProduction . runToProd Nothing)
                             node' ekgStore
                         liftIO $ Metrics.registerGcMetrics ekgStore'
                         liftIO $ Monitoring.forkServerWith ekgStore' "127.0.0.1" port
 
         let stopMonitoring it = whenJust it stopMonitor
 
-        runToProd $
+        runToProd nrJLogHandle $
             runServer nrTransport listeners outSpecs
             startMonitoring stopMonitoring action
   where
@@ -125,10 +126,11 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
         DCStatic _          -> identity
         DCKademlia kademlia -> foreverRejoinNetwork kademlia
 
-    runToProd :: forall t . RealMode ssc t -> Production t
-    runToProd (RealMode act) =
+    runToProd :: forall t . Maybe Handle -> RealMode ssc t -> Production t
+    runToProd jlHandle (RealMode act) =
         runResourceT .
             usingLoggerName lpRunnerTag .
+            runJsonLogT' jlHandle .
             flip Ether.runReadersT nrContext .
             flip Ether.runReadersT
                 ( Tagged @NodeDBs nrDBs

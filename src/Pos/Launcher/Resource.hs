@@ -39,6 +39,7 @@ import           Network.Transport.Abstract   (Transport, closeTransport, hoistT
 import           Network.Transport.Concrete   (concrete)
 import qualified Network.Transport.TCP        as TCP
 import qualified STMContainers.Map            as SM
+import           System.IO                    (Handle, hClose)
 import           System.Wlog                  (CanLog, LoggerConfig (..), WithLogger,
                                                getLoggerName, logError, productionB,
                                                releaseAllHandlers, setupLogging,
@@ -81,7 +82,6 @@ import           Pos.Update.Context           (UpdateContext (..))
 import qualified Pos.Update.DB                as GState
 import           Pos.Update.MemState          (newMemVar)
 import           Pos.Util.Concurrent.RWVar    as RWV
-import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Worker                   (allWorkersCount)
 import           Pos.WorkMode                 (TxpExtra_TMP)
 
@@ -94,13 +94,15 @@ import           Pos.WorkMode                 (TxpExtra_TMP)
 
 -- | This data type contains all resources used by node.
 data NodeResources ssc m = NodeResources
-    { nrContext   :: !(NodeContext ssc)
-    , nrDBs       :: !NodeDBs
-    , nrSscState  :: !(SscState ssc)
-    , nrTxpState  :: !(GenericTxpLocalData TxpExtra_TMP)
-    , nrDlgState  :: !DelegationVar
-    , nrPeerState :: !(PeerStateCtx Production)
-    , nrTransport :: !(Transport m)
+    { nrContext    :: !(NodeContext ssc)
+    , nrDBs        :: !NodeDBs
+    , nrSscState   :: !(SscState ssc)
+    , nrTxpState   :: !(GenericTxpLocalData TxpExtra_TMP)
+    , nrDlgState   :: !DelegationVar
+    , nrPeerState  :: !(PeerStateCtx Production)
+    , nrTransport  :: !(Transport m)
+    , nrJLogHandle :: !(Maybe Handle)
+    -- ^ Handle for JSON logging (optional).
     }
 
 hoistNodeResources ::
@@ -144,9 +146,7 @@ allocateNodeResources np@NodeParams {..} sscnp = do
             , Tagged @GenesisLeaders (GenesisLeaders genLeaders)
             , Tagged @NodeDBs db
             , Tagged @NodeParams np) $
-        runDBPureRedirect .
-        runBlockDBRedirect $
-        initNodeDBs @ssc
+        runDBPureRedirect . runBlockDBRedirect $ initNodeDBs @ssc
     ctx@NodeContext {..} <- runDBAction $ allocateNodeContext np sscnp
     initTip <- runDBAction getTip
     setupLoggers $ bpLoggingParams npBaseParams
@@ -162,7 +162,11 @@ allocateNodeResources np@NodeParams {..} sscnp = do
             , Tagged @LrcContext ncLrcContext) .
         runSlotsDataRedirect . runSlotsRedirect $
         mkSscState @ssc
-    transport <- createTransportTCP $ npTcpAddr npNetwork
+    nrTransport <- createTransportTCP $ npTcpAddr npNetwork
+    nrJLogHandle <-
+        case npJLFile of
+            Nothing -> pure Nothing
+            Just fp -> Just <$> openFile fp WriteMode
     return
         NodeResources
         { nrContext = ctx
@@ -171,7 +175,7 @@ allocateNodeResources np@NodeParams {..} sscnp = do
         , nrTxpState = txpVar
         , nrDlgState = dlgVar
         , nrPeerState = peerState
-        , nrTransport = transport
+        , ..
         }
 
 -- | Release all resources used by node. They must be released eventually.
@@ -180,6 +184,7 @@ releaseNodeResources ::
     => NodeResources ssc m -> m ()
 releaseNodeResources NodeResources {..} = do
     releaseAllHandlers
+    whenJust nrJLogHandle (liftIO . hClose)
     closeNodeDBs nrDBs
     releaseNodeContext nrContext
     closeTransport nrTransport
@@ -245,8 +250,6 @@ allocateNodeContext ::
 allocateNodeContext np@NodeParams {..} sscnp = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     setupLoggers $ bpLoggingParams npBaseParams
-    ncJLFile <-
-        JLFile <$> liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
     lcLrcSync <- mkLrcSyncData >>= newTVarIO

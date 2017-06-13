@@ -66,7 +66,6 @@ import           Pos.Txp.Toil.Types            (Utxo)
 import           Pos.Update.Context            (UpdateContext)
 import           Pos.Update.Params             (UpdateParams)
 import           Pos.Util.Chrono               (NE, NewestFirst)
-import           Pos.Util.JsonLog              (JLFile)
 import           Pos.Util.UserSecret           (UserSecret)
 
 ----------------------------------------------------------------------------
@@ -102,9 +101,7 @@ newtype StartTime = StartTime { unStartTime :: UTCTime }
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
-    { ncJLFile              :: !JLFile
-    -- @georgeee please add documentation when you see this comment
-    , ncSscContext          :: !(SscNodeContext ssc)
+    { ncSscContext          :: !(SscNodeContext ssc)
     -- @georgeee please add documentation when you see this comment
     , ncUpdateContext       :: !UpdateContext
     -- ^ Context needed for the update system
@@ -225,7 +222,6 @@ type instance TagsK (NodeContext ssc) =
   Type ':
   Type ':
   Type ':
-  Type ':
   '[]
 
 return []
@@ -250,7 +246,6 @@ type instance Tags (NodeContext ssc) =
   RelayContext           :::
   ShutdownContext        :::
   TxpGlobalSettings      :::
-  JLFile                 :::
   GenesisUtxo            :::
   GenesisLeaders         :::
   TVar UserSecret        :::
@@ -328,9 +323,6 @@ instance HasLens ShutdownContext (NodeContext ssc) ShutdownContext where
         setter sc =
             set ncShutdownFlagL (_shdnIsTriggered sc) .
             set ncShutdownNotifyQueueL (_shdnNotifyQueue sc)
-
-instance HasLens JLFile (NodeContext ssc) JLFile where
-    lensOf = ncJLFileL
 
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
     lensOf = ncNodeParamsL . npCustomUtxoL . coerced

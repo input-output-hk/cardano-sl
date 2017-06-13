@@ -51,6 +51,7 @@ import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState)
 import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Types                      (HeaderHash)
+import           Pos.Util.TimeWarp              (CanJsonLog, JsonLogT)
 import           Pos.Util.Util                  (PowerLift (..))
 import           Pos.WorkMode.Class             (MinWorkMode, TxpExtra_TMP, WorkMode)
 
@@ -76,9 +77,10 @@ type RealMode' ssc =
         , Tagged PeerStateTag (PeerStateCtx Production)
         ) (
     Ether.ReadersT (NodeContext ssc) (
+    JsonLogT (
     LoggerNameBox (
     ResourceT Production
-    )))))))))))
+    ))))))))))))
 
 newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
   deriving
@@ -121,6 +123,7 @@ instance MonadDBRead (RealMode ssc) where
 deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
 deriving instance MonadBListener (RealMode ssc)
 deriving instance WithPeerState (RealMode ssc)
+deriving instance CanJsonLog (RealMode ssc)
 
 instance PowerLift m (RealMode' ssc) => PowerLift m (RealMode ssc) where
   powerLift = RealMode . powerLift

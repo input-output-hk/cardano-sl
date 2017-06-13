@@ -24,7 +24,6 @@ data Action
     -- DOM
     | ScrollTop
     | SelectInputText HTMLInputElement
-    | AddWaypoint ElementId
     | ClearWaypoints
     | StoreWaypoint Waypoint
     | BlurElement HTMLElement
@@ -78,6 +77,7 @@ data Action
     | DashboardInvalidBlocksPageNumber Target       -- invalid page number
     | DashboardExpandTransactions Boolean           -- expand dashboard transactions
     | DashboardShowAPICode DashboardAPICode         -- toggle dashboard api
+    | DashboardAddWaypoint ElementId
     -- address detail view
     | AddressPaginateTxs PageNumber             -- current pagination of transactions
     | AddressEditTxsPageNumber Target Boolean   -- toggle editable state of page numbers

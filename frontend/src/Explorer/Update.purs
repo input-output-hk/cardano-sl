@@ -343,15 +343,22 @@ update (GenerateQrCode address) state =
         ]
     }
 
-update (AddWaypoint elementId) state =
+update (DashboardAddWaypoint elementId) state =
     { state
     , effects:
         [ liftEff waypoint >>= \wp -> pure (StoreWaypoint wp)
+        , liftEff $ do
+              -- Important Note:
+              -- Make sure that the header is moved out
+              -- AFTER a waypoint has been added !!!
+              addClassToElement elId CSS.moveOut
+              removeClassFromElement elId CSS.moveIn
+              pure NoOp
         ]
     }
     where
+        elId = ElementId CSS.headerId
         callback = \(direction) ->
-            let elId = ElementId CSS.headerId in
             if direction == WP.up
                 then do
                     addClassToElement elId CSS.moveOut
@@ -703,7 +710,7 @@ routeEffects Dashboard state =
     , effects:
         [ pure ScrollTop
         , pure ClearWaypoints
-        , pure <<< AddWaypoint $ ElementId CSS.dashBoardBlocksViewId
+        , pure <<< DashboardAddWaypoint $ ElementId CSS.dashBoardBlocksViewId
         , if isSuccess maxBlockPage
           then pure $ DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
           else

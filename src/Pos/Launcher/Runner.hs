@@ -203,7 +203,7 @@ runRealModeDo discoveryCtx slottingCtx transport np@NodeParams {..} sscnp
                runProduction .
                    runResourceT .
                    usingLoggerName lpRunnerTag .
-                   runJsonLogT' mJLHandle .
+                   runWithoutJsonLogT .
                    runCHHere .
                    flip Ether.runReadersT
                       ( Tagged @NodeDBs modernDBs

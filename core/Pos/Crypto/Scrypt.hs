@@ -18,20 +18,21 @@ module Pos.Crypto.Scrypt
 
 import           Universum
 
-import qualified Crypto.Scrypt     as S
-import           Data.Default      (Default (..))
+import qualified Crypto.Scrypt              as S
+import           Data.Default               (Default (..))
+import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class  (Bi, encodeStrict)
-import           Pos.Crypto.Random (secureRandomBS)
+import           Pos.Binary.Class           (Bi, encodeStrict)
+import           Pos.Crypto.Random          (secureRandomBS)
 
 -- | This corresponds to 'ScryptParams' datatype.
--- These parameters influence on resulting hash length, memory and time
--- consumption. See documentation for exact details.
+-- See <https://hackage.haskell.org/package/scrypt-0.5.0/docs/Crypto-Scrypt.html
+-- hashing parameters description> for more details; briefly explained below.
 data ScryptParamsBuilder = ScryptParamsBuilder
-    { spLogN    :: Word
-    , spR       :: Word
-    , spP       :: Word
-    , spHashLen :: Word
+    { spLogN    :: Word  -- ^ Influences memory & time usage (exponentially)
+    , spR       :: Word  -- ^ Influences memory & time usage
+    , spP       :: Word  -- ^ Influences only time usage
+    , spHashLen :: Byte  -- ^ Length of resulting hash
     }
 
 mkScryptParams :: ScryptParamsBuilder -> Maybe S.ScryptParams
@@ -42,6 +43,7 @@ mkScryptParams ScryptParamsBuilder {..} =
         (fromIntegral spP)
         (fromIntegral spHashLen)
 
+-- | Corresponds to 'S.defaultParams'
 instance Default ScryptParamsBuilder where
     def = ScryptParamsBuilder { spLogN = 14, spR = 8, spP = 1, spHashLen = 64 }
 

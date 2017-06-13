@@ -246,7 +246,6 @@ allocateNodeContext ::
     -> m $ NodeContext ssc
 allocateNodeContext np@NodeParams {..} sscnp = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    setupLoggers $ bpLoggingParams npBaseParams
     ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
     lcLrcSync <- mkLrcSyncData >>= newTVarIO

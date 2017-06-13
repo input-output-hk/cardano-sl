@@ -7,7 +7,6 @@ module Pos.Lrc.Core
        , findRichmenStake
        ) where
 
-import           Data.Conduit        (Sink, await)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
 import           Universum
@@ -15,6 +14,7 @@ import           Universum
 import           Pos.Core.Coin       (mkCoin, unsafeAddCoin)
 import           Pos.Core.Types      (Coin, StakeholderId)
 import           Pos.Lrc.Types       (RichmenSet, RichmenStake)
+import           Pos.Util.Iterator   (MonadIterator (..))
 import           Pos.Util.Util       (getKeys)
 
 
@@ -26,28 +26,25 @@ import           Pos.Util.Util       (getKeys)
 --
 -- 2. Delegates who became richmen.
 findDelegationStakes
-    :: forall m . Monad m
-    => (StakeholderId -> m Bool)                   -- ^ Check if user is issuer?
-    -> (StakeholderId -> m (Maybe Coin))           -- ^ Gets effective stake.
-    -> Coin                                        -- ^ Coin threshold
-    -> Sink (StakeholderId, HashSet StakeholderId) -- ^ Old richmen, new richmen
-            m
-            (RichmenSet, RichmenStake)
+    :: forall m . MonadIterator (StakeholderId, [StakeholderId]) m
+    => (StakeholderId -> m Bool)         -- ^ Check if user is issuer?
+    -> (StakeholderId -> m (Maybe Coin)) -- ^ Gets effective stake.
+    -> Coin
+    -> m (RichmenSet, RichmenStake) -- old richmen, new richmen
 findDelegationStakes isIssuer stakeResolver t = do
     (old, new) <- step (mempty, mempty)
     pure (getKeys ((HS.toMap old) `HM.difference` new), new)
   where
     step :: (RichmenSet, RichmenStake)
-         -> Sink (StakeholderId, HashSet StakeholderId) m (RichmenSet, RichmenStake)
-    step richmen = do
-        v <- await
-        maybe (pure richmen) (onItem richmen >=> step) v
+         -> m (RichmenSet, RichmenStake)
+    step richmen = nextItem @(StakeholderId, [StakeholderId]) >>=
+        maybe (pure richmen) (onItem richmen >=> step)
     onItem (old, new) (delegate, issuers) = do
         sumIssuers <-
             foldM (\cr id -> (unsafeAddCoin cr) <$> safeBalance id)
                   (mkCoin 0)
                   issuers
-        isIss <- lift $ isIssuer delegate
+        isIss <- isIssuer delegate
         curStake <- if isIss then pure sumIssuers
                     else (unsafeAddCoin sumIssuers) <$> safeBalance delegate
         let newRichmen =
@@ -61,20 +58,25 @@ findDelegationStakes isIssuer stakeResolver t = do
                   old
                   issuers
         pure (oldRichmen, newRichmen)
-    safeBalance id = fromMaybe (mkCoin 0) <$> lift (stakeResolver id)
+    safeBalance id = fromMaybe (mkCoin 0) <$> stakeResolver id
 
 -- | Find nodes which have at least 'eligibility threshold' coins.
 findRichmenStake
-    :: forall m . Monad m
+    :: forall m . MonadIterator (StakeholderId, Coin) m
     => Coin  -- ^ Eligibility threshold
-    -> Sink (StakeholderId,Coin) m RichmenStake
+    -> m RichmenStake
 findRichmenStake t = step mempty
   where
-    step hm = await >>= maybe (pure hm) (\stake -> step (tryAdd stake hm))
-    tryAdd :: (StakeholderId, Coin)
-           -> HashMap StakeholderId Coin
-           -> HashMap StakeholderId Coin
+    step :: RichmenStake -> m RichmenStake
+    step hm = nextItem >>=
+        maybe (pure hm) (\stake -> step (tryAdd stake hm))
+    tryAdd
+        :: (StakeholderId, Coin)
+        -> HashMap StakeholderId Coin
+        -> HashMap StakeholderId Coin
     -- Adding coins here should be safe because in utxo we're not supposed to
     -- ever have more coins than the total possible number of coins, and the
     -- total possible number of coins is less than Word64
-    tryAdd (a, c) hm = if c >= t then HM.insert a c hm else hm
+    tryAdd (a, c) hm =
+        if c >= t then HM.insert a c hm
+        else hm

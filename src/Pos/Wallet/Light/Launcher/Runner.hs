@@ -5,7 +5,6 @@ module Pos.Wallet.Light.Launcher.Runner
 
 import           Universum                       hiding (bracket)
 
-import           Control.Monad.Trans.Resource    (runResourceT)
 import           Data.Tagged                     (Tagged (..))
 import qualified Ether
 import           Formatting                      (sformat, shown, (%))
@@ -24,8 +23,8 @@ import           Pos.Discovery                   (findPeers, runDiscoveryConstT)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   runServer_)
 import           Pos.Reporting.MemState          (ReportingContext, emptyReportingContext)
-import           Pos.Util.Util                   ()
 import           Pos.Util.TimeWarp               (runWithoutJsonLogT)
+import           Pos.Util.Util                   ()
 import           Pos.Wallet.KeyStorage           (KeyData, keyDataFromFile)
 import           Pos.Wallet.Light.Launcher.Param (WalletParams (..))
 import           Pos.Wallet.Light.Mode           (LightWalletMode (..))
@@ -88,7 +87,6 @@ runRawStaticPeersWallet
     -> Production a
 runRawStaticPeersWallet transport peers WalletParams {..}
                         listeners (ActionSpec action, outs) =
-    runResourceT .
     usingLoggerName lpRunnerTag .
     runWithoutJsonLogT .
     bracket openDB closeDB $ \db -> do

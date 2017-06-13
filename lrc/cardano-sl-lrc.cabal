@@ -31,7 +31,6 @@ library
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
-                     , conduit
                      , ether
                      , formatting
                      , lens

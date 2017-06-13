@@ -89,7 +89,7 @@ import qualified Language.Haskell.TH.Syntax     as TH
 import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
                                                  MFunctor' (..), Mockable (..), Promise,
                                                  SharedAtomicT, SharedExclusiveT,
-                                                 ThreadId, liftMockableWrappedM)
+                                                 ThreadId)
 import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
 import           Serokell.Util.Lens             (WrappedM (..))
@@ -197,25 +197,11 @@ instance (MonadBaseControl IO m) => WrappedM (ResourceT m) where
     packM = runResourceT
     unpackM = lift
 
--- TODO Move it to time-warp-nt
-instance
-    ( Mockable d m
-    , MFunctor' d (ResourceT m) m
-    , MonadBaseControl IO m
-    ) => Mockable d (ResourceT m) where
-    liftMockable = liftMockableWrappedM
-
-type instance ThreadId (ResourceT m) = ThreadId m
-type instance Promise (ResourceT m) = Promise m
-type instance SharedAtomicT (ResourceT m) = SharedAtomicT m
-type instance Counter (ResourceT m) = Counter m
-type instance Distribution (ResourceT m) = Distribution m
-type instance SharedExclusiveT (ResourceT m) = SharedExclusiveT m
-type instance Gauge (ResourceT m) = Gauge m
-type instance ChannelT (ResourceT m) = ChannelT m
-
 -- TODO Move it to log-warper
 instance CanLog m => CanLog (ResourceT m)
+instance (Monad m, HasLoggerName m) => HasLoggerName (ResourceT m) where
+    getLoggerName = lift getLoggerName
+    modifyLoggerName = liftLocal getLoggerName modifyLoggerName
 
 -- TODO Move it to ether
 instance Ether.MonadReader tag r m => Ether.MonadReader tag r (ResourceT m) where

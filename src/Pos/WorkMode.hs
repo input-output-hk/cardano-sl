@@ -17,8 +17,9 @@ module Pos.WorkMode
 import           Universum
 
 import           Control.Monad.Base             (MonadBase)
-import           Control.Monad.Fix
+import           Control.Monad.Fix              (MonadFix)
 import           Control.Monad.Morph            (hoist)
+import           Control.Monad.Trans.Control    (MonadBaseControl (..))
 import qualified Control.Monad.Trans.Lift.Local as Lift
 import           Control.Monad.Trans.Resource   (MonadResource, ResourceT)
 import           Data.Coerce
@@ -44,9 +45,9 @@ import           Pos.DB.DB                      (GStateCoreRedirect)
 import           Pos.Delegation.Class           (DelegationVar)
 import           Pos.Discovery                  (DiscoveryRedirect, MonadDiscovery)
 import           Pos.Slotting.Class             (MonadSlots)
+import           Pos.Slotting.Impl              (SlotsRedirect)
 import           Pos.Slotting.MemState          (MonadSlotsData, SlottingVar)
 import           Pos.Slotting.MemState.Holder   (SlotsDataRedirect)
-import           Pos.Slotting.Ntp               (NtpSlottingVar, SlotsRedirect)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState)
 import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
@@ -72,7 +73,6 @@ type RealMode' ssc =
     Ether.ReadersT
         ( Tagged NodeDBs NodeDBs
         , Tagged SlottingVar SlottingVar
-        , Tagged (Bool, NtpSlottingVar) (Bool, NtpSlottingVar)
         , Tagged SscMemTag (SscState ssc)
         , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
         , Tagged DelegationVar DelegationVar
@@ -84,7 +84,7 @@ type RealMode' ssc =
     ResourceT Production
     ))))))))))))
 
-newtype RealMode ssc a = RealMode (RealMode' ssc a)
+newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
   deriving
     ( Functor
     , Applicative
@@ -96,6 +96,11 @@ newtype RealMode ssc a = RealMode (RealMode' ssc a)
     , MonadMask
     , MonadFix
     )
+
+instance MonadBaseControl IO (RealMode ssc) where
+    type StM (RealMode ssc) a = StM (RealMode' ssc) a
+    liftBaseWith f = RealMode $ liftBaseWith $ \q -> f (q . unRealMode)
+    restoreM s = RealMode $ restoreM s
 
 type instance ThreadId (RealMode ssc) = ThreadId Production
 type instance Promise (RealMode ssc) = Promise Production
@@ -201,7 +206,7 @@ deriving instance WithPeerState (ServiceMode)
 deriving instance CanJsonLog (ServiceMode)
 
 instance PowerLift m ServiceMode' => PowerLift m (ServiceMode) where
-  powerLift = ServiceMode . powerLift
+    powerLift = ServiceMode . powerLift
 
 instance
     ( Mockable d (ServiceMode')

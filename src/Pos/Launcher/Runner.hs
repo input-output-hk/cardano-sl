@@ -25,6 +25,8 @@ module Pos.Launcher.Runner
        , bracketResourcesKademlia
        ) where
 
+import           Universum                    hiding (bracket, finally)
+
 import           Control.Concurrent.STM       (newEmptyTMVarIO, newTBQueueIO)
 import           Control.Lens                 (each, to, _tail)
 import           Control.Monad.Fix            (MonadFix)
@@ -54,7 +56,6 @@ import           System.Wlog                  (LoggerConfig (..), WithLogger,
                                                getLoggerName, logDebug, logError, logInfo,
                                                productionB, releaseAllHandlers,
                                                setupLogging, usingLoggerName)
-import           Universum                    hiding (bracket, finally)
 
 import           Pos.Binary                   ()
 import           Pos.Block.BListener          (runBListenerStub)
@@ -86,10 +87,8 @@ import           Pos.Lrc.Context              (LrcContext (..), LrcSyncData (..)
 import qualified Pos.Lrc.DB                   as LrcDB
 import           Pos.Lrc.Fts                  (followTheSatoshiM)
 import           Pos.Security                 (SecurityWorkersClass)
-import           Pos.Slotting                 (NtpSlottingVar, SlottingVar,
-                                               mkNtpSlottingVar)
-import           Pos.Slotting.MemState.Holder (runSlotsDataRedirect)
-import           Pos.Slotting.Ntp             (runSlotsRedirect)
+import           Pos.Slotting                 (SlottingContextSum, SlottingVar,
+                                               runSlotsDataRedirect, runSlotsRedirect)
 import           Pos.Ssc.Class                (SscConstraint, SscNodeContext, SscParams,
                                                sscCreateNodeContext)
 import           Pos.Ssc.Extra                (SscMemTag, bottomSscState, mkSscState)
@@ -123,6 +122,7 @@ runRealMode
     :: forall ssc a.
        (SscConstraint ssc, SecurityWorkersClass ssc)
     => DiscoveryContextSum
+    -> SlottingContextSum
     -> Transport (RealMode ssc)
     -> NodeParams
     -> SscParams ssc
@@ -137,14 +137,16 @@ runRealBasedMode
     => (forall b. m b -> RealMode ssc b)
     -> (forall b. RealMode ssc b -> m b)
     -> DiscoveryContextSum
+    -> SlottingContextSum
     -> Transport m
     -> NodeParams
     -> SscParams ssc
     -> (ActionSpec m a, OutSpecs)
     -> Production a
-runRealBasedMode unwrap wrap discoveryCtx transport np@NodeParams{..} sscnp (ActionSpec action, outSpecs) =
+runRealBasedMode unwrap wrap discoveryCtx slottingCtx transport np@NodeParams{..} sscnp (ActionSpec action, outSpecs) =
     runRealModeDo
         discoveryCtx
+        slottingCtx
         (hoistTransport unwrap transport)
         np
         sscnp
@@ -160,6 +162,7 @@ runRealModeDo
     :: forall ssc a.
        (SscConstraint ssc, SecurityWorkersClass ssc)
     => DiscoveryContextSum
+    -> SlottingContextSum
     -> Transport (RealMode ssc)
     -> NodeParams
     -> SscParams ssc
@@ -167,7 +170,7 @@ runRealModeDo
     -> OutSpecs
     -> ActionSpec (RealMode ssc) a
     -> Production a
-runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
+runRealModeDo discoveryCtx slottingCtx transport np@NodeParams {..} sscnp
               listeners outSpecs (ActionSpec action) =
     runResourceT $ 
     usingLoggerName lpRunnerTag $ 
@@ -175,8 +178,9 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
     runJsonLogT' mJLHandle $ do
         initNC <- untag @ssc sscCreateNodeContext sscnp
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
-        let allWorkersNum = allWorkersCount @ssc @(RealMode ssc) :: Int
-        let runCHHere = runCH @ssc allWorkersNum discoveryCtx np initNC modernDBs
+        let allWorkersNum = allWorkersCount @ssc @(RealMode ssc) slottingCtx
+        let runCHHere = runCH @ssc allWorkersNum discoveryCtx slottingCtx
+                              np initNC modernDBs
         -- TODO [CSL-775] ideally initialization logic should be in scenario.
         runCHHere .
             flip Ether.runReaderT' modernDBs .
@@ -191,7 +195,6 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
                 (runDBPureRedirect $ mkSlottingVar npSystemStart)
                 modernDBs
         txpVar <- mkTxpLocalData mempty initTip
-        ntpSlottingVar <- mkNtpSlottingVar
         dlgVar <- RWV.new def
 
         -- TODO [CSL-775] need an effect-free way of running this into IO.
@@ -205,7 +208,6 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
                    flip Ether.runReadersT
                       ( Tagged @NodeDBs modernDBs
                       , Tagged @SlottingVar slottingVar
-                      , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
                       , Tagged @SscMemTag bottomSscState
                       , Tagged @TxpHolderTag txpVar
                       , Tagged @DelegationVar dlgVar
@@ -238,7 +240,6 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
            flip Ether.runReadersT
                ( Tagged @NodeDBs modernDBs
                , Tagged @SlottingVar slottingVar
-               , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
                ) .
            runSlotsDataRedirect .
            runSlotsRedirect .
@@ -248,7 +249,6 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp
            flip Ether.runReadersT
                ( Tagged @NodeDBs modernDBs
                , Tagged @SlottingVar slottingVar
-               , Tagged @(Bool, NtpSlottingVar) (npUseNTP, ntpSlottingVar)
                , Tagged @SscMemTag sscState
                , Tagged @TxpHolderTag txpVar
                , Tagged @DelegationVar dlgVar
@@ -342,12 +342,13 @@ runCH
        , Mockable CurrentTime m)
     => Int
     -> DiscoveryContextSum
+    -> SlottingContextSum
     -> NodeParams
     -> SscNodeContext ssc
     -> NodeDBs
     -> Ether.ReadersT (NodeContext ssc) m a
     -> m a
-runCH allWorkersNum discoveryCtx params@NodeParams {..} sscNodeContext db act = do
+runCH allWorkersNum discoveryCtx slottingCtx params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
@@ -389,6 +390,7 @@ runCH allWorkersNum discoveryCtx params@NodeParams {..} sscNodeContext db act = 
             , ncSscContext = sscNodeContext
             , ncLrcContext = LrcContext {..}
             , ncDiscoveryContext = discoveryCtx
+            , ncSlottingContext = slottingCtx
             , ncUpdateContext = UpdateContext {..}
             , ncNodeParams = params
             , ncSendLock = Nothing

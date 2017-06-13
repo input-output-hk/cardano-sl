@@ -105,6 +105,11 @@ walletProd Args {..} = first pure $ worker walletServerOuts $ \sendActions ->
         walletDebug
         walletPort
 
+#else
+
+actionWithWallet :: panic
+actionWithWallet = error "actionWithWallet"
+
 #endif
 
 #ifdef WITH_WEB

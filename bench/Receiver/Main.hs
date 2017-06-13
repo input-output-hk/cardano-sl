@@ -24,7 +24,7 @@ import           Network.Transport.Concrete (concrete)
 import           Node                       (ListenerAction (..), NodeAction (..), node,
                                              defaultNodeEnvironment, ConversationActions (..),
                                              simpleNodeEndPoint, noReceiveDelay)
-import           Node.Message               (BinaryP (..))
+import           Node.Message.Binary        (BinaryP (..))
 import           ReceiverOptions            (Args (..), argsParser)
 
 main :: IO ()
@@ -53,7 +53,7 @@ main = do
   where
     pingListener noPong =
         ListenerActionConversation $ \_ _ cactions -> do
-            Just (Ping mid payload) <- recv cactions
+            Just (Ping mid payload) <- recv cactions maxBound
             logMeasure PingReceived mid payload
             unless noPong $ do
                 logMeasure PongSent mid payload

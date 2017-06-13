@@ -13,6 +13,7 @@
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE BangPatterns               #-}
 
 module Node (
 
@@ -54,15 +55,15 @@ module Node (
 
     ) where
 
-import           Control.Exception          (SomeException)
-import           Control.Monad              (unless)
+import           Control.Exception          (SomeException, Exception)
+import           Control.Monad              (unless, when)
 import           Control.Monad.Fix          (MonadFix)
-import qualified Data.Binary.Get            as Bin
 import qualified Data.ByteString            as BS
-import qualified Data.ByteString.Lazy       as LBS
 import           Data.Map.Strict            (Map)
 import qualified Data.Map.Strict            as M
 import           Data.Proxy                 (Proxy (..))
+import           Data.Typeable              (Typeable)
+import           Data.Word                  (Word32)
 import           Formatting                 (sformat, shown, (%))
 import qualified Mockable.Channel           as Channel
 import           Mockable.Class
@@ -75,7 +76,9 @@ import           Mockable.SharedExclusive
 import qualified Network.Transport.Abstract as NT
 import           Node.Internal              (ChannelIn, ChannelOut)
 import qualified Node.Internal              as LL
-import           Node.Message
+import           Node.Message.Class         (Serializable (..), MessageName,
+                                             Message (..), messageName')
+import           Node.Message.Decoder       (Decoder (..), continueDecoding)
 import           System.Random              (StdGen)
 import           System.Wlog                (WithLogger, logDebug, logError, logInfo)
 
@@ -88,7 +91,17 @@ data Node m = Node {
 nodeEndPointAddress :: Node m -> NT.EndPointAddress
 nodeEndPointAddress (Node addr _ _) = LL.nodeEndPointAddress addr
 
-data Input t = Input t | NoParse | End
+data Input t = Input t | End
+
+data LimitExceeded = LimitExceeded
+  deriving (Show, Typeable)
+
+instance Exception LimitExceeded
+
+data NoParse = NoParse
+  deriving (Show, Typeable)
+
+instance Exception NoParse
 
 type Worker packing peerData m = SendActions packing peerData m -> m ()
 
@@ -98,7 +111,7 @@ type Listener = ListenerAction
 data ListenerAction packing peerData m where
   -- | A listener that handles an incoming bi-directional conversation.
   ListenerActionConversation
-    :: ( Packable packing snd, Unpackable packing rcv, Message rcv )
+    :: ( Serializable packing snd, Serializable packing rcv, Message rcv )
     => (peerData -> LL.NodeId -> ConversationActions snd rcv m -> m ())
     -> ListenerAction packing peerData m
 
@@ -116,11 +129,11 @@ listenerMessageName (ListenerActionConversation (
         _ :: peerData -> LL.NodeId -> ConversationActions snd rcv m -> m ()
     )) = messageName (Proxy :: Proxy rcv)
 
--- | Use ConversationActions on some Packable, Message send type, with an
---   Unpackable receive type, in some functor m.
+-- | Use ConversationActions on some Serializable, Message send type, with a
+--   Serializable receive type.
 data Conversation packingType m t where
     Conversation
-        :: (Packable packingType snd, Unpackable packingType rcv, Message snd)
+        :: (Serializable packingType snd, Serializable packingType rcv, Message snd)
         => (ConversationActions snd rcv m -> m t)
         -> Conversation packingType m t
 
@@ -134,7 +147,10 @@ data ConversationActions body rcv m = ConversationActions {
 
        -- | Receive a message within the context of this conversation.
        --   'Nothing' means end of input (peer ended conversation).
-     , recv :: m (Maybe rcv)
+       --   The 'Word32' parameter is a limit on how many bytes will be read
+       --   in by this use of 'recv'. If the limit is exceeded, the
+       --   'LimitExceeded' exception is thrown.
+     , recv :: Word32 -> m (Maybe rcv)
      }
 
 hoistConversationActions
@@ -145,7 +161,7 @@ hoistConversationActions nat ConversationActions {..} =
   ConversationActions send' recv'
       where
         send' = nat . send
-        recv' = nat recv
+        recv' = nat . recv
 
 hoistSendActions
     :: forall packing peerData n m .
@@ -183,13 +199,15 @@ nodeSendActions
        , Mockable Delay m
        , WithLogger m, MonadFix m
        , Serializable packing peerData
-       , Packable packing MessageName )
+       , Serializable packing MessageName )
     => LL.Node packing peerData m
     -> packing
     -> SendActions packing peerData m
 nodeSendActions nodeUnit packing =
     SendActions nodeWithConnectionTo
   where
+
+    mtu = LL.nodeMtu (LL.nodeEnvironment nodeUnit)
 
     nodeWithConnectionTo
         :: forall t .
@@ -202,7 +220,7 @@ nodeSendActions nodeUnit packing =
                 let msgName = messageName (Proxy :: Proxy snd)
                     cactions :: ConversationActions snd rcv m
                     cactions = nodeConversationActions nodeUnit nodeId packing inchan outchan
-                LL.writeChannel outchan . LBS.toChunks $ packMsg packing msgName
+                LL.writeMany mtu outchan (packMsg packing msgName)
                 converse cactions
 
 -- | Conversation actions for a given peer and in/out channels.
@@ -210,8 +228,8 @@ nodeConversationActions
     :: forall packing peerData snd rcv m .
        ( Mockable Throw m, Mockable Channel.Channel m, Mockable SharedExclusive m
        , WithLogger m
-       , Packable packing snd
-       , Unpackable packing rcv
+       , Serializable packing snd
+       , Serializable packing rcv
        )
     => LL.Node packing peerData m
     -> LL.NodeId
@@ -219,20 +237,20 @@ nodeConversationActions
     -> ChannelIn m
     -> ChannelOut m
     -> ConversationActions snd rcv m
-nodeConversationActions _ _ packing inchan outchan =
+nodeConversationActions node _ packing inchan outchan =
     ConversationActions nodeSend nodeRecv
     where
 
-    nodeSend = \body -> do
-        LL.writeChannel outchan . LBS.toChunks $ packMsg packing body
+    mtu = LL.nodeMtu (LL.nodeEnvironment node)
 
-    nodeRecv = do
-        next <- recvNext inchan packing
+    nodeSend = \body -> do
+        LL.writeMany mtu outchan (packMsg packing body)
+
+    nodeRecv :: Word32 -> m (Maybe rcv)
+    nodeRecv limit = do
+        next <- recvNext packing (fromIntegral limit :: Int) inchan
         case next of
             End     -> pure Nothing
-            NoParse -> do
-                logDebug "Unexpected end of conversation input"
-                pure Nothing
             Input t -> pure (Just t)
 
 data NodeAction packing peerData m t =
@@ -333,10 +351,9 @@ node mkEndPoint mkReceiveDelay prng packing peerData nodeEnv k = do
         -> m ()
     handlerInOut nodeUnit listenerIndices peerData peerId inchan outchan = do
         let listenerIndex = listenerIndices peerData
-        input <- recvNext inchan packing
+        input <- recvNext packing messageNameSizeLimit inchan
         case input of
             End -> logDebug "handlerInOut : unexpected end of input"
-            NoParse -> logDebug "handlerInOut : failed to parse message name"
             Input msgName -> do
                 let listener = M.lookup msgName listenerIndex
                 case listener of
@@ -344,30 +361,48 @@ node mkEndPoint mkReceiveDelay prng packing peerData nodeEnv k = do
                         let cactions = nodeConversationActions nodeUnit peerId packing inchan outchan
                         in  action peerData peerId cactions
                     Nothing -> error ("handlerInOut : no listener for " ++ show msgName)
+    -- Arbitrary limit on the message size...
+    -- TODO make it configurable I guess.
+    messageNameSizeLimit :: Int
+    messageNameSizeLimit = 256
 
+-- | Try to receive and parse the next message, subject to a limit on the
+--   number of bytes which will be read.
 recvNext
     :: ( Mockable Channel.Channel m
-       , Unpackable packing thing
-       , WithLogger m)
-    => ChannelIn m
-    -> packing
+       , Mockable Throw m
+       , Serializable packing thing
+       )
+    => packing
+    -> Int
+    -> ChannelIn m
     -> m (Input thing)
-recvNext (LL.ChannelIn channel) packing = do
+recvNext packing limit (LL.ChannelIn channel) = do
+    -- Check whether the channel is depleted and End if so. Otherwise, push
+    -- the bytes into the type's decoder and try to parse it before reaching
+    -- the byte limit.
     mbs <- Channel.readChannel channel
     case mbs of
         Nothing -> return End
         Just bs -> do
-            (trailing, outcome) <- go (Bin.pushChunk (unpackMsg packing) bs)
+            -- limit' is the number of bytes that 'go' is allowed to pull.
+            -- It's assumed that reading from the channel will bring in at most
+            -- some limited number of bytes, so 'go' may bring in at most this
+            -- many more than the limit.
+            let limit' = limit - BS.length bs
+            (trailing, outcome) <- go limit' (continueDecoding (unpackMsg packing) [bs])
             unless (BS.null trailing) (Channel.unGetChannel channel (Just trailing))
             return outcome
-    where
-    go decoder = case decoder of
-        Bin.Fail trailing _ err ->
-            logError (sformat ("recvNext: Decoding failed " % shown) err)
-            >> return (trailing, NoParse)
-        Bin.Done trailing _ thing -> return (trailing, Input thing)
-        Bin.Partial next -> do
+  where
+    go remaining decoder = case decoder of
+        -- TODO use the error message in the exception.
+        Fail _ _ _ -> throw NoParse
+        Done trailing _ thing -> return (trailing, Input thing)
+        Partial next -> do
+            when (remaining <= 0) (throw LimitExceeded)
             mbs <- Channel.readChannel channel
             case mbs of
                 Nothing -> return (BS.empty, End)
-                Just bs -> go (next (Just bs))
+                Just bs ->
+                    let !remaining' = remaining - BS.length bs
+                    in  go remaining' (next (Just bs))

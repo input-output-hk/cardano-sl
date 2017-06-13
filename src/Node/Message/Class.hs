@@ -9,24 +9,18 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
-module Node.Message
-    ( Packable (..)
-    , Unpackable (..)
-    , Serializable
-    , Bin.Decoder(..)
+module Node.Message.Class
+    ( Serializable (..)
 
     , Message (..)
     , messageName'
 
     , MessageName (..)
-    , BinaryP (..)
     ) where
 
 import qualified Data.Binary                   as Bin
-import qualified Data.Binary.Get               as Bin
-import qualified Data.Binary.Put               as Bin
+import qualified Data.Store                    as Store
 import qualified Data.ByteString               as BS
-import qualified Data.ByteString.Builder.Extra as BS
 import qualified Data.ByteString.Lazy          as LBS
 import           Data.Data                     (Data, dataTypeName, dataTypeOf)
 import           Data.Hashable                 (Hashable)
@@ -38,6 +32,7 @@ import qualified Data.Text.Buildable           as B
 import qualified Formatting                    as F
 import           GHC.Generics                  (Generic)
 import           Serokell.Util.Base16          (base16F)
+import           Node.Message.Decoder          (Decoder)
 
 -- * Message name
 
@@ -50,6 +45,7 @@ deriving instance IsString MessageName
 deriving instance Hashable MessageName
 deriving instance Monoid MessageName
 instance Bin.Binary MessageName
+instance Store.Store MessageName
 
 instance Buildable MessageName where
     build (MessageName mn) = F.bprint base16F mn
@@ -75,34 +71,11 @@ messageName' = messageName . proxyOf
     proxyOf :: a -> Proxy a
     proxyOf _ = Proxy
 
--- * Serialization strategy
-
 -- | Defines a way to serialize object @r@ with given packing type @p@.
-class Packable packing thing where
+--
+-- TODO should use a proxy on packing rather than a value, no?
+class Serializable packing thing where
     -- | Way of packing data to raw bytes.
-    -- TODO: use Data.ByteString.Builder?
     packMsg :: packing -> thing -> LBS.ByteString
-
--- | Defines a way to deserealize data with given packing type @p@ and extract object @t@.
-class Unpackable packing thing where
-    unpackMsg :: packing -> Bin.Decoder thing
-
-type Serializable packing thing =
-    ( Packable packing thing
-    , Unpackable packing thing
-    )
-
--- * Default instances
-
-data BinaryP = BinaryP
-
-instance Bin.Binary t => Packable BinaryP t where
-    packMsg _ t =
-        BS.toLazyByteStringWith
-            (BS.untrimmedStrategy 256 4096)
-            LBS.empty
-        . Bin.execPut
-        $ Bin.put t
-
-instance Bin.Binary t => Unpackable BinaryP t where
-    unpackMsg _ = Bin.runGetIncremental Bin.get
+    -- | Incrementally unpack.
+    unpackMsg :: packing -> Decoder thing

@@ -28,12 +28,12 @@ import           Mockable                       (Production, delay, fork, realTi
 import qualified Network.Transport.Abstract     as NT
 import           Network.Transport.Concrete     (concrete)
 import           Node                           (NodeAction (..), node, Node(Node),
-                                                 nodeEndPoint, SendActions (..),
+                                                 SendActions (..),
                                                  Conversation (..), ConversationActions (..),
                                                  defaultNodeEnvironment, simpleNodeEndPoint,
                                                  noReceiveDelay)
 import           Node.Internal                  (NodeId (..))
-import           Node.Message                   (BinaryP (..))
+import           Node.Message.Binary            (BinaryP (..))
 
 
 import           Bench.Network.Commons          (MeasureEvent (..), Payload (..),
@@ -101,7 +101,7 @@ main = do
             lift . lift $ withConnectionTo sendActions peerId $
                 \_ -> Conversation $ \cactions -> do
                     send cactions (Ping sMsgId payload)
-                    Just (Pong _ _) <- recv cactions
+                    Just (Pong _ _) <- recv cactions maxBound
                     return ()
 
             PingState{..}    <- get

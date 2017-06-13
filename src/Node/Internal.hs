@@ -41,7 +41,7 @@ module Node.Internal (
     stopNode,
     withOutChannel,
     withInOutChannel,
-    writeChannel,
+    writeMany,
     Timeout(..)
   ) where
 
@@ -49,8 +49,7 @@ import           Control.Exception             hiding (bracket, catch, finally, 
 import           Control.Monad                 (forM_, forM, when)
 import           Control.Monad.Fix             (MonadFix)
 import           Data.Int                      (Int64)
-import           Data.Binary                   as Bin
-import           Data.Binary.Get               as Bin
+import           Data.Binary
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Builder       as BS
 import qualified Data.ByteString.Builder.Extra as BS
@@ -76,11 +75,12 @@ import           Mockable.SharedAtomic
 import           Mockable.SharedExclusive
 import           Mockable.CurrentTime          (CurrentTime, currentTime)
 import qualified Mockable.Metrics              as Metrics
-import qualified Network.Transport             as NT (EventErrorCode (EventConnectionLost, EventEndPointFailed, EventTransportFailed))
+import qualified Network.Transport             as NT (EventErrorCode (..))
 import qualified Network.Transport.Abstract    as NT
 import           System.Random                 (Random, StdGen, random)
 import           System.Wlog                   (WithLogger, logDebug, logError, logWarning)
-import qualified Node.Message                  as Message
+import           Node.Message.Class            (Serializable (..))
+import           Node.Message.Decoder          (Decoder (..), continueDecoding)
 
 -- | A 'NodeId' wraps a network-transport endpoint address
 newtype NodeId = NodeId NT.EndPointAddress
@@ -164,13 +164,18 @@ makeSomeHandler promise = do
     return $ SomeHandler tid promise
 
 data NodeEnvironment (m :: * -> *) = NodeEnvironment {
-      nodeAckTimeout :: Microsecond
+      nodeAckTimeout :: !Microsecond
+      -- | Maximum transmission unit: how many bytes can be sent in a single
+      --   network-transport send. Tune this according to the transport
+      --   which backs the time-warp node.
+    , nodeMtu        :: !Word32
     }
 
 defaultNodeEnvironment :: NodeEnvironment m
 defaultNodeEnvironment = NodeEnvironment {
       -- 30 second timeout waiting for an ACK.
       nodeAckTimeout = 30000000
+    , nodeMtu        = maxBound
     }
 
 -- | Computation in m of a delay (or no delay).
@@ -237,20 +242,36 @@ newtype ChannelOut m = ChannelOut (NT.Connection m)
 closeChannel :: ChannelOut m -> m ()
 closeChannel (ChannelOut conn) = NT.close conn
 
--- | Write some ByteStrings to an out channel. It does not close the
---   transport when finished. If you want that, use withOutChannel or
---   withInOutChannel.
-writeChannel
-    :: ( Monad m, WithLogger m, Mockable Throw m )
-    => ChannelOut m
-    -> [BS.ByteString]
+-- | Do multiple sends on a 'ChannelOut'.
+writeMany
+    :: forall m .
+       ( Monad m, Mockable Throw m, WithLogger m )
+    => Word32 -- ^ Split into chunks of at most this size in bytes. 0 means no split.
+    -> ChannelOut m
+    -> LBS.ByteString
     -> m ()
-writeChannel (ChannelOut conn) chunks = do
-    res <- NT.send conn chunks
-    -- TBD error handling? Throw exception or report it as a Left?
-    case res of
-      Left err -> throw err
-      Right _  -> pure ()
+writeMany mtu (ChannelOut conn) bss = mapM_ sendUnit units
+  where
+    sendUnit :: [BS.ByteString] -> m ()
+    sendUnit unit = NT.send conn unit >>= either throw pure
+    units :: [[BS.ByteString]]
+    units = fmap LBS.toChunks (chop bss)
+    chop :: LBS.ByteString -> [LBS.ByteString]
+    chop lbs
+        | mtu == 0     = [lbs]
+        -- Non-recursive definition for the case when the input is empty, so
+        -- that
+        --   writeMany mtu outChan ""
+        -- still induces a send. Without this case, the list would be empty.
+        | LBS.null lbs = [lbs]
+        | otherwise    =
+              let mtuInt :: Int64
+                  mtuInt = fromIntegral mtu
+                  chopItUp lbs | LBS.null lbs = []
+                               | otherwise =
+                                     let (front, back) = LBS.splitAt mtuInt lbs
+                                     in  front : chopItUp back
+              in  chopItUp lbs
 
 -- | Statistics concerning traffic at this node.
 data Statistics m = Statistics {
@@ -586,14 +607,15 @@ simpleNodeEndPoint transport = NodeEndPoint {
 
 -- | Bring up a 'Node' using a network transport.
 startNode
-    :: ( Mockable SharedAtomic m, Mockable Channel.Channel m
+    :: forall packingType peerData m .
+       ( Mockable SharedAtomic m, Mockable Channel.Channel m
        , Mockable Bracket m, Mockable Throw m, Mockable Catch m
        , Mockable Async m, Mockable Concurrently m
        , Ord (ThreadId m), Show (ThreadId m)
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Mockable SharedExclusive m
        , Mockable Delay m
-       , Message.Serializable packingType peerData
+       , Serializable packingType peerData
        , MonadFix m, WithLogger m )
     => packingType
     -> peerData
@@ -699,7 +721,7 @@ data PeerState peerData =
       --   connection which has given a partial parse of the peer data.
       ExpectingPeerData
           !(NonEmptySet NT.ConnectionId)
-          !(Maybe (NT.ConnectionId, Maybe BS.ByteString -> Bin.Decoder peerData))
+          !(Maybe (NT.ConnectionId, Maybe BS.ByteString -> Decoder peerData))
 
       -- | Peer data has been received and parsed.
     | GotPeerData !peerData !(NonEmptySet NT.ConnectionId)
@@ -762,7 +784,7 @@ nodeDispatcher
        , Mockable Channel.Channel m, Mockable Throw m, Mockable Catch m
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Mockable Delay m
-       , Message.Serializable packingType peerData
+       , Serializable packingType peerData
        , MonadFix m, WithLogger m, Show (ThreadId m) )
     => Node packingType peerData m
     -> (peerData -> NodeId -> ChannelIn m -> ChannelOut m -> m ())
@@ -926,20 +948,21 @@ nodeDispatcher node handlerInOut =
                 -- There's no leader. This connection is now the leader. Begin
                 -- the attempt to decode the peer data.
                 Nothing -> do
-                    let decoder :: Bin.Decoder peerData
-                        decoder = Message.unpackMsg (nodePackingType node)
-                    case Bin.pushChunk decoder (BS.concat chunks) of
-                        Bin.Fail _ _ err -> do
+                    let decoder :: Decoder peerData
+                        decoder = unpackMsg (nodePackingType node)
+                    case continueDecoding decoder chunks of
+                        Fail _ _ err -> do
                             logWarning $ sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err
                             return $ state {
                                     dsConnections = Map.insert connid (peer, PeerDataParseFailure) (dsConnections state)
                                   }
-                        Bin.Done trailing _ peerData -> do
-                            return $ state {
-                                    dsConnections = foldl' (awaitHandshake connid peerData trailing) (dsConnections state) (NESet.toList connids)
-                                  , dsPeers = Map.insert peer (GotPeerData peerData connids) (dsPeers state)
-                                  }
-                        Bin.Partial decoderContinuation -> do
+                        Done trailing _ peerData -> do
+                            let state' = state {
+                                      dsConnections = foldl' (awaitHandshake peerData) (dsConnections state) (NESet.toList connids)
+                                    , dsPeers = Map.insert peer (GotPeerData peerData connids) (dsPeers state)
+                                    }
+                            received state' connid [trailing]
+                        Partial decoderContinuation -> do
                             return $ state {
                                     dsPeers = Map.insert peer (ExpectingPeerData connids (Just (connid, decoderContinuation))) (dsPeers state)
                                   }
@@ -954,19 +977,20 @@ nodeDispatcher node handlerInOut =
 
                     True -> case decoderContinuation (Just (BS.concat chunks)) of
 
-                        Bin.Fail _ _ err -> do
+                        Fail _ _ err -> do
                             logWarning $ sformat ("failed to decode peer data from " % shown % ": got error " % shown) peer err
                             return $ state {
                                     dsConnections = Map.insert connid (peer, PeerDataParseFailure) (dsConnections state)
                                   }
 
-                        Bin.Done trailing _ peerData -> do
-                            return $ state {
-                                    dsConnections = foldl' (awaitHandshake connid peerData trailing) (dsConnections state) (NESet.toList connids)
-                                  , dsPeers = Map.insert peer (GotPeerData peerData connids) (dsPeers state)
-                                  }
+                        Done trailing _ peerData -> do
+                            let state' = state {
+                                      dsConnections = foldl' (awaitHandshake peerData) (dsConnections state) (NESet.toList connids)
+                                    , dsPeers = Map.insert peer (GotPeerData peerData connids) (dsPeers state)
+                                    }
+                            received state' connid [trailing]
 
-                        Bin.Partial decoderContinuation' -> do
+                        Partial decoderContinuation' -> do
                             return $ state {
                                     dsPeers = Map.insert peer (ExpectingPeerData connids (Just (connid, decoderContinuation'))) (dsPeers state)
 
@@ -980,17 +1004,14 @@ nodeDispatcher node handlerInOut =
                 -- parse and the data left-over after the parse, which must
                 -- be remembered in the connection state for that id.
                 awaitHandshake
-                    :: NT.ConnectionId
-                    -> peerData
-                    -> BS.ByteString
+                    :: peerData
                     -> Map NT.ConnectionId (NT.EndPointAddress, ConnectionState peerData m)
                     -> NT.ConnectionId
                     -> Map NT.ConnectionId (NT.EndPointAddress, ConnectionState peerData m)
-                awaitHandshake leader peerData trailing map connid = case leader == connid of
+                awaitHandshake peerData map connid =
 
-                    True -> Map.update (\(peer, _) -> Just (peer, WaitingForHandshake peerData trailing)) connid map
+                    Map.update (\(peer, _) -> Just (peer, WaitingForHandshake peerData BS.empty)) connid map
 
-                    False -> Map.update (\(peer, _) -> Just (peer, WaitingForHandshake peerData BS.empty)) connid map
 
             -- We're waiting for peer data on this connection, but we don't
             -- have an entry for the peer. That's an internal error.
@@ -1046,9 +1067,9 @@ nodeDispatcher node handlerInOut =
                                             respondAndHandle
                           -- Establish the other direction in a separate thread.
                           (_, incrBytes) <- spawnHandler nstate provenance handler
-                          let bss = LBS.toChunks ws'
-                          Channel.writeChannel channel (Just (BS.concat bss))
-                          incrBytes $ sum (fmap BS.length bss)
+                          let bs = LBS.toStrict ws'
+                          Channel.writeChannel channel (Just bs)
+                          incrBytes $ fromIntegral (BS.length bs)
                           return $ state {
                                 dsConnections = Map.insert connid (peer, FeedingApplicationHandler (ChannelIn channel) incrBytes) (dsConnections state)
                               }
@@ -1099,7 +1120,7 @@ nodeDispatcher node handlerInOut =
                                   putSharedExclusive peerDataVar peerData
                                   let bs = LBS.toStrict ws'
                                   Channel.writeChannel channel (Just bs)
-                                  incrBytes $ BS.length bs
+                                  incrBytes $ fromIntegral (BS.length bs)
                                   return $ state {
                                         dsConnections = Map.insert connid (peer, FeedingApplicationHandler (ChannelIn channel) incrBytes) (dsConnections state)
                                       }
@@ -1117,8 +1138,9 @@ nodeDispatcher node handlerInOut =
         -- explcitly close it down when the handler finishes by adding some
         -- mutable cell to FeedingApplicationHandler?
         Just (_peer, FeedingApplicationHandler (ChannelIn channel) incrBytes) -> do
-            Channel.writeChannel channel (Just (BS.concat chunks))
-            incrBytes $ sum (fmap BS.length chunks)
+            let bs = LBS.toStrict (LBS.fromChunks chunks)
+            Channel.writeChannel channel (Just bs)
+            incrBytes $ BS.length bs
             return state
 
     connectionClosed
@@ -1337,19 +1359,22 @@ controlHeaderUnidirectional =
 
 controlHeaderBidirectionalSyn :: Nonce -> BS.ByteString
 controlHeaderBidirectionalSyn (Nonce nonce) =
-    fixedSizeBuilder 9 $
+    fixedSizeBuilder' 9 $
         BS.word8 controlHeaderCodeBidirectionalSyn
      <> BS.word64BE nonce
 
 controlHeaderBidirectionalAck :: Nonce -> BS.ByteString
 controlHeaderBidirectionalAck (Nonce nonce) =
-    fixedSizeBuilder 9 $
+    fixedSizeBuilder' 9 $
         BS.word8 controlHeaderCodeBidirectionalAck
      <> BS.word64BE nonce
 
-fixedSizeBuilder :: Int -> BS.Builder -> BS.ByteString
+fixedSizeBuilder' :: Int -> BS.Builder -> BS.ByteString
+fixedSizeBuilder' n = LBS.toStrict . fixedSizeBuilder n
+
+fixedSizeBuilder :: Int -> BS.Builder -> LBS.ByteString
 fixedSizeBuilder n =
-    LBS.toStrict . BS.toLazyByteStringWith (BS.untrimmedStrategy n n) LBS.empty
+    BS.toLazyByteStringWith (BS.untrimmedStrategy n n) LBS.empty
 
 -- | Create, use, and tear down a conversation channel with a given peer
 --   (NodeId).
@@ -1364,7 +1389,7 @@ withInOutChannel
        , Mockable CurrentTime m, Mockable Metrics.Metrics m
        , Mockable Delay m
        , MonadFix m, WithLogger m
-       , Message.Packable packingType peerData )
+       , Serializable packingType peerData )
     => Node packingType peerData m
     -> NodeId
     -> (peerData -> ChannelIn m -> ChannelOut m -> m a)
@@ -1422,7 +1447,7 @@ withOutChannel
        , Mockable SharedExclusive m
        , Mockable Metrics.Metrics m
        , MonadFix m, WithLogger m
-       , Message.Packable packingType peerData )
+       , Serializable packingType peerData )
     => Node packingType peerData m
     -> NodeId
     -> (ChannelOut m -> m a)
@@ -1571,18 +1596,20 @@ connectToPeer
        , Mockable Bracket m
        , Mockable SharedAtomic m
        , Mockable SharedExclusive m
-       , Message.Packable packingType peerData
+       , Serializable packingType peerData
        , WithLogger m
        )
     => Node packingType peerData m
     -> NodeId
     -> m (NT.Connection m)
-connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} (NodeId peer) = do
+connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData, nodeEnvironment} (NodeId peer) = do
     conn <- establish
     sendPeerDataIfNecessary conn
     return conn
 
     where
+
+    mtu = nodeMtu nodeEnvironment
 
     sendPeerDataIfNecessary conn =
         bracketWithException getPeerDataResponsibility
@@ -1596,13 +1623,8 @@ connectToPeer Node{nodeEndPoint, nodeState, nodePackingType, nodePeerData} (Node
         True -> sendPeerData conn
 
     sendPeerData conn = do
-        let serializedPeerData = Message.packMsg nodePackingType nodePeerData
-        outcome <- NT.send conn (LBS.toChunks serializedPeerData)
-        case outcome of
-            Left err -> do
-                throw err
-            Right () -> do
-                return ()
+        let serializedPeerData = packMsg nodePackingType nodePeerData
+        writeMany mtu (ChannelOut conn) serializedPeerData
 
     getPeerDataResponsibility = do
         responsibility <- modifySharedAtomic nodeState $ \nodeState -> do
@@ -1775,7 +1797,7 @@ connectOutChannel
        , Mockable Bracket m
        , Mockable SharedAtomic m
        , Mockable SharedExclusive m
-       , Message.Packable packingType peerData
+       , Serializable packingType peerData
        , WithLogger m
        )
     => Node packingType peerData m

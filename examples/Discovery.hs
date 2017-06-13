@@ -28,7 +28,7 @@ import           Network.Transport.Abstract           (Transport (..))
 import           Network.Transport.Concrete           (concrete)
 import qualified Network.Transport.TCP                as TCP
 import           Node
-import           Node.Message                         (BinaryP (..))
+import           Node.Message.Binary                  (BinaryP (..))
 import           System.Environment                   (getArgs)
 import           System.Random
 
@@ -62,7 +62,7 @@ worker anId generator discovery = pingWorker generator
             liftIO . putStrLn $ show anId ++ " has peer set: " ++ show peerSet
             forM_ (S.toList peerSet) $ \addr -> withConnectionTo sendActions (NodeId addr) $
                 \_peerData -> Conversation $ \(cactions :: ConversationActions Void Pong Production) -> do
-                    received <- recv cactions
+                    received <- recv cactions maxBound
                     case received of
                         Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show addr
                         Nothing -> error "Unexpected end of input"

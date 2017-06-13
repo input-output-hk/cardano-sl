@@ -27,6 +27,7 @@ extra-deps:
   - time-units-1.0.0
   - log-warper-1.0.2
   - universum-0.3
+  - store-0.4.3.1
 
 flags: {}
 extra-package-dbs: []

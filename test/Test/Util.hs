@@ -51,6 +51,7 @@ import qualified Data.ByteString             as LBS
 import qualified Data.List                   as L
 import qualified Data.Set                    as S
 import           Data.Time.Units             (Microsecond, Millisecond, Second, TimeUnit)
+import           Data.Word                   (Word32)
 import           GHC.Generics                (Generic)
 import           Mockable.Class              (Mockable)
 import           Mockable.Concurrent         (delay, forConcurrently, fork, cancel,
@@ -59,7 +60,7 @@ import           Mockable.Concurrent         (delay, forConcurrently, fork, canc
 import           Mockable.SharedExclusive    (newSharedExclusive, putSharedExclusive,
                                               takeSharedExclusive, SharedExclusive,
                                               readSharedExclusive, tryPutSharedExclusive)
-import           Mockable.Exception          (Catch, Throw, catch, throw)
+import           Mockable.Exception          (Catch, Throw, catch, throw, finally)
 import           Mockable.Production         (Production (..))
 import qualified Network.Transport           as NT (Transport)
 import           Network.Transport.Abstract  (closeTransport, Transport)
@@ -79,8 +80,8 @@ import           Node                        (ConversationActions (..), Listener
                                               NodeAction (..), NodeId, SendActions (..),
                                               Worker, node, nodeId, defaultNodeEnvironment,
                                               simpleNodeEndPoint, Conversation (..),
-                                              noReceiveDelay)
-import           Node.Message                (BinaryP (..))
+                                              noReceiveDelay, NodeEnvironment)
+import           Node.Message.Binary         (BinaryP (..))
 
 -- | Run a computation, but kill it if it takes more than a given number of
 --   Microseconds to complete. If that happens, log using a given string
@@ -135,12 +136,14 @@ instance Arbitrary Parcel where
             <$> (getLarge <$> arbitrary)
             <*> pure (Payload 0)
 
+-- | A parcel with a special Arbitrary instance giving a payload of length
+--   at least 1k, at most 100k.
 newtype HeavyParcel = HeavyParcel
     { getHeavyParcel :: Parcel
     } deriving (Eq, Ord, Show, Binary)
 
 instance Arbitrary HeavyParcel where
-    arbitrary = mkHeavy <$> arbitrary <*> choose (0, 99000)
+    arbitrary = mkHeavy <$> arbitrary <*> choose (1000, 100000)
       where
         mkHeavy parcel size = HeavyParcel parcel { payload = Payload size }
 
@@ -236,7 +239,7 @@ sendAll ConversationStyle sendActions peerId msgs =
             Conversation $ \cactions -> forM_ msgs $
                 \msg -> do
                     send cactions msg
-                    (_ :: Maybe Bool) <- recv cactions
+                    (_ :: Maybe Bool) <- recv cactions maxBound
                     pure ()
 
 receiveAll
@@ -255,7 +258,7 @@ receiveAll
 -- sender doesn't finish before the conversation SYN/ACK completes.
 receiveAll ConversationStyle  handler =
     ListenerActionConversation @_ @_ @_ @Bool $ \_ _ cactions ->
-        let loop = do mmsg <- recv cactions
+        let loop = do mmsg <- recv cactions maxBound
                       case mmsg of
                           Nothing -> pure ()
                           Just msg -> do
@@ -272,12 +275,15 @@ makeTCPTransport
     -> String
     -> String
     -> (forall t . IO (TCP.QDisc t))
+    -> Word32
     -> IO NT.Transport
-makeTCPTransport bind hostAddr port qdisc = do
+makeTCPTransport bind hostAddr port qdisc mtu = do
     let tcpParams = TCP.defaultTCPParameters {
               TCP.tcpReuseServerAddr = True
             , TCP.tcpReuseClientAddr = True
             , TCP.tcpNewQDisc = qdisc
+            , TCP.tcpMaxReceiveLength = mtu
+            , TCP.tcpNoDelay = True
             }
     choice <- TCP.createTransport (TCP.Addressable (TCP.TCPAddrInfo bind port ((,) hostAddr))) tcpParams
     case choice of
@@ -287,11 +293,12 @@ makeTCPTransport bind hostAddr port qdisc = do
 -- * Test template
 
 deliveryTest :: NT.Transport
+             -> NodeEnvironment Production
              -> TVar TestState
              -> [NodeId -> Worker BinaryP () Production]
              -> [Listener BinaryP () Production]
              -> IO Property
-deliveryTest transport_ testState workers listeners = runProduction $ do
+deliveryTest transport_ nodeEnv testState workers listeners = runProduction $ do
 
     let transport = concrete transport_
 
@@ -302,7 +309,7 @@ deliveryTest transport_ testState workers listeners = runProduction $ do
     clientFinished <- newSharedExclusive
     serverFinished <- newSharedExclusive
 
-    let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) prng1 BinaryP () defaultNodeEnvironment $ \serverNode -> do
+    let server = node (simpleNodeEndPoint transport) (const noReceiveDelay) prng1 BinaryP () nodeEnv $ \serverNode -> do
             NodeAction (const listeners) $ \_ -> do
                 -- Give our address to the client.
                 putSharedExclusive serverAddressVar (nodeId serverNode)
@@ -313,13 +320,13 @@ deliveryTest transport_ testState workers listeners = runProduction $ do
                 -- Allow the client to stop.
                 putSharedExclusive serverFinished ()
 
-    let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) prng2 BinaryP () defaultNodeEnvironment $ \clientNode ->
+    let client = node (simpleNodeEndPoint transport) (const noReceiveDelay) prng2 BinaryP () nodeEnv $ \clientNode ->
             NodeAction (const []) $ \sendActions -> do
                 serverAddress <- takeSharedExclusive serverAddressVar
-                void . forConcurrently workers $ \worker ->
-                    worker serverAddress sendActions
+                let act = void . forConcurrently workers $ \worker ->
+                        worker serverAddress sendActions
                 -- Tell the server that we're done.
-                putSharedExclusive clientFinished ()
+                act `finally` putSharedExclusive clientFinished ()
                 -- Wait until the server has finished.
                 takeSharedExclusive serverFinished
 

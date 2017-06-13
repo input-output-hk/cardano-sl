@@ -11,7 +11,6 @@ module Pos.WorkMode
 
        -- * Actual modes
        , RealMode(..)
-       , ServiceMode(..)
        ) where
 
 import           Universum
@@ -44,7 +43,7 @@ import           Pos.Delegation.Class           (DelegationVar)
 import           Pos.Discovery                  (DiscoveryRedirect, MonadDiscovery)
 import           Pos.Slotting.Class             (MonadSlots)
 import           Pos.Slotting.Impl              (SlotsRedirect)
-import           Pos.Slotting.MemState          (MonadSlotsData, SlottingVar)
+import           Pos.Slotting.MemState          (MonadSlotsData)
 import           Pos.Slotting.MemState.Holder   (SlotsDataRedirect)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState)
@@ -70,7 +69,6 @@ type RealMode' ssc =
     DBPureRedirect (
     Ether.ReadersT
         ( Tagged NodeDBs NodeDBs
-        , Tagged SlottingVar SlottingVar
         , Tagged SscMemTag (SscState ssc)
         , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
         , Tagged DelegationVar DelegationVar
@@ -119,10 +117,6 @@ deriving instance MonadDBRead (RealMode ssc)
 deriving instance MonadDB (RealMode ssc)
 deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
 deriving instance MonadBListener (RealMode ssc)
--- deriving instance MonadUpdates (RealMode ssc)
--- deriving instance SscHelpersClass ssc => MonadBlockchainInfo (RealMode ssc)
--- deriving instance MonadBalances (RealMode ssc)
--- deriving instance MonadTxHistory (RealMode ssc)
 deriving instance WithPeerState (RealMode ssc)
 deriving instance CanJsonLog (RealMode ssc)
 
@@ -165,65 +159,4 @@ instance
         (coerce :: forall a .
             ((r -> a) -> RealMode' ssc a) ->
             ((r -> a) -> RealMode ssc a))
-        (Ether.reader @tag)
-
--- | ServiceMode is the mode in which support nodes work.
-type ServiceMode' =
-    PeerStateRedirect (
-    Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
-    JsonLogT (
-    LoggerNameBox Production
-    )))
-
-newtype ServiceMode a = ServiceMode (ServiceMode' a)
-  deriving
-    ( Functor
-    , Applicative
-    , Monad
-    , MonadIO
-    , MonadThrow
-    , MonadCatch
-    , MonadMask
-    , MonadFix
-    )
-type instance ThreadId (ServiceMode) = ThreadId Production
-type instance Promise (ServiceMode) = Promise Production
-type instance SharedAtomicT (ServiceMode) = SharedAtomicT Production
-type instance SharedExclusiveT (ServiceMode) = SharedExclusiveT Production
-type instance Gauge (ServiceMode) = Gauge Production
-type instance ChannelT (ServiceMode) = ChannelT Production
-type instance Distribution (ServiceMode) = Distribution Production
-type instance Counter (ServiceMode) = Counter Production
-
-deriving instance CanLog (ServiceMode)
-deriving instance HasLoggerName (ServiceMode)
-deriving instance WithPeerState (ServiceMode)
-deriving instance CanJsonLog (ServiceMode)
-
-instance PowerLift m ServiceMode' => PowerLift m (ServiceMode) where
-    powerLift = ServiceMode . powerLift
-
-instance
-    ( Mockable d (ServiceMode')
-    , MFunctor' d (ServiceMode) (ServiceMode')
-    )
-    => Mockable d (ServiceMode) where
-    liftMockable dmt = ServiceMode $ liftMockable $ hoist' (\(ServiceMode m) -> m) dmt
-
-instance
-    Ether.MonadReader tag r ServiceMode' =>
-    Ether.MonadReader tag r ServiceMode
-  where
-    ask =
-        (coerce :: ServiceMode' r -> ServiceMode r)
-        (Ether.ask @tag)
-    local =
-        (coerce :: forall a .
-            Lift.Local r (ServiceMode') a ->
-            Lift.Local r (ServiceMode) a)
-        (Ether.local @tag)
-    reader =
-        (coerce :: forall a .
-            ((r -> a) -> ServiceMode' a) ->
-            ((r -> a) -> ServiceMode a))
         (Ether.reader @tag)

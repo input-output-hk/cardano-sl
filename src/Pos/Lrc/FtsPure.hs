@@ -5,16 +5,17 @@
 module Pos.Lrc.FtsPure
        ( followTheSatoshi
        , followTheSatoshiM
+       , followTheSatoshiUtxo
        ) where
 
-import qualified Data.HashMap.Strict as HM
 import           Universum
 
-import           Pos.Lrc.Fts         (followTheSatoshiM)
-import           Pos.Txp.Toil.Types  (Utxo)
-import           Pos.Txp.Toil.Utxo   (utxoToStakes)
-import           Pos.Types           (Coin, SharedSeed (..), StakeholderId, coinToInteger,
+import qualified Data.HashMap.Strict as HM
+
+import           Pos.Core            (Coin, SharedSeed (..), StakeholderId, coinToInteger,
                                       mkCoin, sumCoins)
+import           Pos.Lrc.Fts         (followTheSatoshiM)
+import           Pos.Txp.Toil        (Utxo, utxoToStakes)
 import           Pos.Util.Iterator   (runListHolder)
 
 -- | Choose several random stakeholders (specifically, their amount is
@@ -35,17 +36,20 @@ import           Pos.Util.Iterator   (runListHolder)
 -- to them. Therefore, P2SH addresses can contain 'addrDestination' which
 -- specifies which addresses should count as “owning” funds for the purposes
 -- of follow-the-satoshi.
-followTheSatoshi :: SharedSeed -> Utxo -> NonEmpty StakeholderId
-followTheSatoshi seed utxo
-    | null stakes =
-          error "followTheSatoshi: utxo is empty"
-    | totalCoins > coinToInteger (maxBound @Coin) =
-          error "followTheSatoshi: totalCoins exceeds Word64"
+followTheSatoshi :: SharedSeed -> [(StakeholderId, Coin)] -> NonEmpty StakeholderId
+followTheSatoshi seed stakes
+    | totalCoins > coinToInteger maxBound =
+        error "followTheSatoshi: total stake exceeds limit"
+    | totalCoinsCoin == minBound = error "followTheSatoshi: no stake"
     | otherwise =
           runListHolder
               (followTheSatoshiM seed
-                   (mkCoin (fromInteger totalCoins)))
+                   totalCoinsCoin)
               stakes
   where
-    stakes = HM.toList $ utxoToStakes utxo
     totalCoins = sumCoins $ map snd stakes
+    totalCoinsCoin = mkCoin (fromInteger totalCoins)
+
+followTheSatoshiUtxo :: SharedSeed -> Utxo -> NonEmpty StakeholderId
+followTheSatoshiUtxo seed utxo =
+    followTheSatoshi seed (HM.toList (utxoToStakes utxo))

@@ -16,6 +16,7 @@ module Pos.Discovery.Holders
        , DiscoveryRedirect
        , askDiscoveryContextSum
        , runDiscoveryRedirect
+       , discoveryWorkers
        ) where
 
 import           Universum
@@ -28,12 +29,15 @@ import           Mockable                         (Async, Catch, Mockables, Prom
                                                    Throw)
 import           System.Wlog                      (WithLogger)
 
-import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Communication.Types.Protocol (NodeId, OutSpecs, WorkerSpec)
 import           Pos.DHT.Model                    (randomDHTKey)
 import           Pos.DHT.Real                     (KademliaDHTInstance,
                                                    kademliaGetKnownPeers, kdiHandle,
                                                    lookupNode)
+import           Pos.DHT.Workers                  (DhtWorkMode, dhtWorkers)
 import           Pos.Discovery.Class              (MonadDiscovery (..))
+import           Pos.Recovery.Info                (MonadRecoveryInfo,
+                                                   recoveryCommGuardSimple)
 import           Pos.Util.TimeWarp                (addressToNodeId)
 
 ----------------------------------------------------------------------------
@@ -129,3 +133,14 @@ instance (MonadDiscoverySum m, DiscoveryKademliaEnv m, t ~ IdentityT) =>
         Ether.ask' >>= \case
             DCStatic nodes -> runDiscoveryConstT nodes findPeers
             DCKademlia inst -> runDiscoveryKademliaT inst findPeers
+
+-- | Get all discovery workers using 'DiscoveryContextSum'.
+discoveryWorkers ::
+       (MonadRecoveryInfo m, DhtWorkMode m)
+    => DiscoveryContextSum
+    -> ([WorkerSpec m], OutSpecs)
+discoveryWorkers ctx =
+    first (map recoveryCommGuardSimple) $
+    case ctx of
+        DCStatic _     -> mempty
+        DCKademlia var -> dhtWorkers var

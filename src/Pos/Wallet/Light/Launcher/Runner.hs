@@ -5,13 +5,16 @@ module Pos.Wallet.Light.Launcher.Runner
 
 import           Universum                       hiding (bracket)
 
+import           Control.Monad.Fix               (MonadFix)
 import           Data.Tagged                     (Tagged (..))
 import qualified Ether
 import           Formatting                      (sformat, shown, (%))
-import           Mockable                        (Production, bracket, fork, sleepForever)
+import           Mockable                        (MonadMockable, Production, bracket,
+                                                  fork, sleepForever)
 import           Network.Transport.Abstract      (Transport)
 import qualified STMContainers.Map               as SM
-import           System.Wlog                     (logDebug, logInfo, usingLoggerName)
+import           System.Wlog                     (WithLogger, logDebug, logInfo,
+                                                  usingLoggerName)
 
 import           Pos.Block.BListener             (runBListenerStub)
 import           Pos.Communication               (ActionSpec (..), MkListeners, NodeId,
@@ -21,7 +24,7 @@ import           Pos.DB                          (runDBPureRedirect)
 import           Pos.DB.Block                    (runBlockDBRedirect)
 import           Pos.Discovery                   (findPeers, runDiscoveryConstT)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
-                                                  runServer_)
+                                                  runServer)
 import           Pos.Reporting.MemState          (ReportingContext, emptyReportingContext)
 import           Pos.Util.TimeWarp               (runWithoutJsonLogT)
 import           Pos.Util.Util                   ()
@@ -119,3 +122,12 @@ runRawStaticPeersWallet transport peers WalletParams {..}
             wpDbPath
     closeDB = closeState
 {-# NOINLINE runRawStaticPeersWallet #-}
+
+runServer_
+    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
+    => Transport m -> MkListeners m -> OutSpecs -> ActionSpec m b -> m b
+runServer_ transport mkl outSpecs =
+    runServer transport mkl outSpecs acquire release
+  where
+    acquire = const pass
+    release = const pass

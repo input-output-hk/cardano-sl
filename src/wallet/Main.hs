@@ -24,7 +24,7 @@ import           Data.String.QQ             (s)
 import qualified Data.Text                  as T
 import           Data.Time.Units            (convertUnit)
 import           Formatting                 (build, int, sformat, stext, (%))
-import           Mockable                   (Production, delay)
+import           Mockable                   (Production, delay, runProduction)
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import           System.IO                  (hFlush, stdout)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
@@ -53,7 +53,7 @@ import           Pos.Discovery              (findPeers, getPeers)
 import           Pos.Genesis                (genesisDevSecretKeys,
                                              genesisStakeDistribution, genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             bracketResources, stakesDistr)
+                                             bracketTransport, loggerBracket, stakesDistr)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
@@ -319,32 +319,32 @@ main = do
             }
         baseParams = BaseParams { bpLoggingParams = logParams }
 
-    bracketResources baseParams TCP.Unaddressable $ \transport -> do
+    let sysStart = CLI.sysStart woCommonArgs
+    let params =
+            WalletParams
+            { wpDbPath      = Just woDbPath
+            , wpRebuildDb   = woRebuildDb
+            , wpKeyFilePath = woKeyFilePath
+            , wpSystemStart = sysStart
+            , wpGenesisKeys = woDebug
+            , wpBaseParams  = baseParams
+            , wpGenesisUtxo =
+                  genesisUtxo $
+                  if isDevelopment
+                      then stakesDistr
+                               (CLI.flatDistr woCommonArgs)
+                               (CLI.bitcoinDistr woCommonArgs)
+                               (CLI.richPoorDistr woCommonArgs)
+                               (CLI.expDistr woCommonArgs)
+                      else genesisStakeDistribution
+            }
 
+    loggerBracket logParams $ runProduction $
+      bracketTransport TCP.Unaddressable $ \transport -> do
         let transport' :: Transport LightWalletMode
             transport' = hoistTransport
                 (powerLift :: forall t . Production t -> LightWalletMode t)
                 transport
-
-        let sysStart = CLI.sysStart woCommonArgs
-
-        let params =
-                WalletParams
-                { wpDbPath      = Just woDbPath
-                , wpRebuildDb   = woRebuildDb
-                , wpKeyFilePath = woKeyFilePath
-                , wpSystemStart = sysStart
-                , wpGenesisKeys = woDebug
-                , wpBaseParams  = baseParams
-                , wpGenesisUtxo =
-                    genesisUtxo $
-                      if isDevelopment
-                          then stakesDistr (CLI.flatDistr woCommonArgs)
-                                           (CLI.bitcoinDistr woCommonArgs)
-                                           (CLI.richPoorDistr woCommonArgs)
-                                           (CLI.expDistr woCommonArgs)
-                          else genesisStakeDistribution
-                }
 
             plugins :: ([ WorkerSpec LightWalletMode ], OutSpecs)
             plugins = first pure $ case woAction of

@@ -2,32 +2,33 @@
 
 module Params
        ( loggingParams
-       , getKademliaParams
-       , getBaseParams
        , getNodeParams
        , gtSscParams
-       , getPeersFromArgs
        ) where
 
-import           System.Wlog         (LoggerName, WithLogger)
 import           Universum
 
-import qualified Pos.CLI             as CLI
-import           Pos.Constants       (isDevelopment)
-import           Pos.Core.Types      (Timestamp (..))
-import           Pos.Crypto          (VssKeyPair)
-import           Pos.DHT.Real        (KademliaParams (..))
-import           Pos.Genesis         (genesisStakeDistribution, genesisUtxo)
-import           Pos.Security        (SecurityParams (..))
-import           Pos.Ssc.GodTossing  (GtParams (..))
-import           Pos.Update.Params   (UpdateParams (..))
-import           Pos.Util.TimeWarp   (NetworkAddress, readAddrFile)
-import           Pos.Util.UserSecret (peekUserSecret)
+import qualified Data.ByteString.Char8 as BS8 (unpack)
+import qualified Data.Set              as S (fromList)
+import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
+import           System.Wlog           (LoggerName, WithLogger)
 
-import           NodeOptions         (Args (..))
-import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
-                                      NodeParams (..), stakesDistr)
-import           Secrets             (updateUserSecretVSS, userSecretWithGenesisKey)
+import qualified Pos.CLI               as CLI
+import           Pos.Constants         (isDevelopment)
+import           Pos.Core.Types        (Timestamp (..))
+import           Pos.Crypto            (VssKeyPair)
+import           Pos.DHT.Real          (KademliaParams (..))
+import           Pos.Genesis           (genesisStakeDistribution, genesisUtxo)
+import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
+                                        NetworkParams (..), NodeParams (..), stakesDistr)
+import           Pos.Security          (SecurityParams (..))
+import           Pos.Ssc.GodTossing    (GtParams (..))
+import           Pos.Update.Params     (UpdateParams (..))
+import           Pos.Util.TimeWarp     (NetworkAddress, addressToNodeId, readAddrFile)
+import           Pos.Util.UserSecret   (peekUserSecret)
+
+import           NodeOptions           (Args (..))
+import           Secrets               (updateUserSecretVSS, userSecretWithGenesisKey)
 
 
 loggingParams :: LoggerName -> Args -> LoggingParams
@@ -76,14 +77,17 @@ getKeyfilePath Args {..}
           Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
     | otherwise = keyfilePath
 
-getNodeParams
-    :: (MonadIO m, MonadFail m, MonadThrow m, WithLogger m)
-    => Args -> Timestamp -> m NodeParams
+getNodeParams ::
+       (MonadIO m, MonadFail m, MonadThrow m, WithLogger m)
+    => Args
+    -> Timestamp
+    -> m NodeParams
 getNodeParams args@Args {..} systemStart = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<
         updateUserSecretVSS args =<<
         peekUserSecret (getKeyfilePath args)
+    npNetwork <- liftIO $ getNetworkParams args
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB
@@ -111,4 +115,26 @@ getNodeParams args@Args {..} systemStart = do
             , spAttackTargets = maliciousEmulationTargets
             }
         , npUseNTP = not noNTP
+        , ..
         }
+
+getNetworkParams :: Args -> IO NetworkParams
+getNetworkParams args
+    | staticPeers args = do
+        allPeers <- S.fromList . map addressToNodeId <$> getPeersFromArgs args
+        return
+            NetworkParams
+            {npDiscovery = Left allPeers, npTcpAddr = TCP.Unaddressable}
+    | otherwise = do
+        let (bindHost, bindPort) = bindAddress args
+        let (externalHost, externalPort) = externalAddress args
+        let tcpAddr =
+                TCP.Addressable $
+                TCP.TCPAddrInfo
+                    (BS8.unpack bindHost)
+                    (show $ bindPort)
+                    (const (BS8.unpack externalHost, show $ externalPort))
+        kademliaParams <- getKademliaParams args
+        return
+            NetworkParams
+            {npDiscovery = Right kademliaParams, npTcpAddr = tcpAddr}

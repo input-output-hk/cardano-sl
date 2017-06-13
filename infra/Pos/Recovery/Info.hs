@@ -1,6 +1,7 @@
 module Pos.Recovery.Info
        ( MonadRecoveryInfo(..)
        , recoveryCommGuard
+       , recoveryCommGuardSimple
        ) where
 
 import           Universum
@@ -17,5 +18,12 @@ class Monad m => MonadRecoveryInfo m where
 recoveryCommGuard
     :: MonadRecoveryInfo m
     => (WorkerSpec m, OutSpecs) -> (WorkerSpec m, OutSpecs)
-recoveryCommGuard (ActionSpec worker, outs) =
-    (,outs) . ActionSpec $ \vI sA -> unlessM recoveryInProgress $ worker vI sA
+recoveryCommGuard = first recoveryCommGuardSimple
+
+-- | This function is a helper for @gromak. It is another version of
+-- 'recoveryCommGuard'.
+recoveryCommGuardSimple
+    :: MonadRecoveryInfo m
+    => WorkerSpec m -> WorkerSpec m
+recoveryCommGuardSimple (ActionSpec worker) =
+    ActionSpec $ \vI sA -> unlessM recoveryInProgress $ worker vI sA

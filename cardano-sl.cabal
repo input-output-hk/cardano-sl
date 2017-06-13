@@ -206,6 +206,7 @@ library
                         Pos.Launcher.Launcher
                         Pos.Launcher.Options
                         Pos.Launcher.Param
+                        Pos.Launcher.Resource
                         Pos.Launcher.Runner
                         Pos.Launcher.Scenario
 

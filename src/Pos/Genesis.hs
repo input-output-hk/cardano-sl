@@ -20,20 +20,22 @@ module Pos.Genesis
        , genesisLeaders
        ) where
 
+import           Universum
+
+import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
 import           Serokell.Util              (enumerate)
-import           Universum
 
 import qualified Pos.Constants              as Const
 import           Pos.Core.Types             (Address, StakeholderId)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstNonHardened, unsafeHash)
-import           Pos.Lrc.FtsPure            (followTheSatoshi)
+import           Pos.Lrc.FtsPure            (followTheSatoshi, followTheSatoshiUtxo)
 import           Pos.Lrc.Genesis            (genesisSeed)
-import           Pos.Txp.Core.Types         (TxIn (..), TxOut (..), TxOutAux (..),
+import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..),
                                              TxOutDistribution)
-import           Pos.Txp.Toil.Types         (Utxo)
+import           Pos.Txp.Toil               (Utxo)
 import           Pos.Types                  (Coin, SlotLeaders, applyCoinPortion,
                                              coinToInteger, divCoin, makePubKeyAddress,
                                              mkCoin, unsafeAddCoin, unsafeMulCoin)
@@ -170,4 +172,6 @@ genesisDelegation = mempty
 
 -- | Leaders of genesis. See 'followTheSatoshi'.
 genesisLeaders :: Utxo -> SlotLeaders
-genesisLeaders = followTheSatoshi genesisSeed
+genesisLeaders genUtxo
+    | Const.isDevelopment = followTheSatoshiUtxo genesisSeed genUtxo
+    | otherwise = followTheSatoshi genesisSeed $ HM.toList genesisBalances

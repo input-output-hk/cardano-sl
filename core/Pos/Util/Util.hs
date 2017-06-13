@@ -70,7 +70,8 @@ import           Control.Monad.Morph            (MFunctor (..))
 import           Control.Monad.Trans.Class      (MonadTrans)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource   (MonadResource (..))
+import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT, transResourceT,
+                                                 )
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
 import           Data.Tagged                    (Tagged (Tagged))
@@ -175,7 +176,32 @@ instance Buildable Microsecond where
     build = build . (++ "mcs") . show . toMicroseconds
 
 ----------------------------------------------------------------------------
--- Ether instances
+-- MonadResource/ResourceT
+----------------------------------------------------------------------------
+
+instance LiftLocal ResourceT where
+    liftLocal _ l f = hoist (l f)
+
+instance {-# OVERLAPPABLE #-}
+    (MonadResource m, MonadTrans t, Applicative (t m),
+     MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>
+        MonadResource (t m)
+  where
+    liftResourceT = lift . liftResourceT
+
+-- TODO Move it to log-warper
+instance CanLog m => CanLog (ResourceT m)
+instance (Monad m, HasLoggerName m) => HasLoggerName (ResourceT m) where
+    getLoggerName = lift getLoggerName
+    modifyLoggerName = transResourceT . modifyLoggerName
+
+-- TODO Move it to ether :peka:
+instance Ether.MonadReader tag r m => Ether.MonadReader tag r (ResourceT m) where
+    ask = lift $ Ether.ask @tag
+    local = liftLocal (Ether.ask @tag) (Ether.local @tag)
+
+----------------------------------------------------------------------------
+-- Instances required by 'ether'
 ----------------------------------------------------------------------------
 
 makeTupleInstancesHasLens [2..7]
@@ -200,13 +226,6 @@ instance
     modifyLoggerName = liftLocal getLoggerName modifyLoggerName
 
 deriving instance LiftLocal LoggerNameBox
-
-instance {-# OVERLAPPABLE #-}
-    (MonadResource m, MonadTrans t, Applicative (t m),
-     MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>
-        MonadResource (t m)
-  where
-    liftResourceT = lift . liftResourceT
 
 instance {-# OVERLAPPABLE #-}
     (Monad m, MFunctor t) => MFunctor' t m n

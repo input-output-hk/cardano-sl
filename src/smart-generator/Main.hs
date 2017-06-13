@@ -10,54 +10,52 @@ module Main
 
 import           Universum
 
-import qualified Data.Set                   as S (fromList)
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Data.Time.Units            (Microsecond, convertUnit)
-import           Formatting                 (float, int, sformat, (%))
-import           Mockable                   (Production, delay, forConcurrently, fork)
-import           Network.Transport.Abstract (Transport, hoistTransport)
-import           Serokell.Util              (ms, sec)
-import           System.FilePath            ((</>))
-import           System.Random.Shuffle      (shuffleM)
-import           System.Wlog                (logInfo)
-import           Test.QuickCheck            (arbitrary, generate)
+import qualified Data.Set              as S (fromList)
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units       (Microsecond, convertUnit)
+import           Formatting            (float, int, sformat, (%))
+import           Mockable              (Production, delay, forConcurrently, fork,
+                                        runProduction)
+import qualified Network.Transport.TCP as TCP (TCPAddr (..))
+import           Serokell.Util         (ms, sec)
+import           System.FilePath       ((</>))
+import           System.Random.Shuffle (shuffleM)
+import           System.Wlog           (logInfo)
+import           Test.QuickCheck       (arbitrary, generate)
 
-import qualified Pos.CLI                    as CLI
-import           Pos.Communication          (ActionSpec (..), NodeId, SendActions,
-                                             convertSendActions, sendTxOuts, submitTxRaw,
-                                             wrapSendActions)
-import           Pos.Constants              (genesisKeysN, genesisSlotDuration,
-                                             neighborsSendThreshold, slotSecurityParam)
-import           Pos.Crypto                 (hash)
-import           Pos.Discovery              (DiscoveryContextSum (..), MonadDiscovery,
-                                             findPeers, getPeers)
-import           Pos.Genesis                (genesisUtxo)
-import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             NodeParams (..), bracketResources, initLrc,
-                                             runNode', runRealMode, stakesDistr)
-import           Pos.Security               (SecurityParams (..), SecurityWorkersClass)
-import           Pos.Slotting               (SlottingContextSum (SCSimple))
-import           Pos.Ssc.Class              (SscConstraint, SscParams)
-import           Pos.Ssc.GodTossing         (GtParams (..), SscGodTossing)
-import           Pos.Ssc.NistBeacon         (SscNistBeacon)
-import           Pos.Ssc.SscAlgo            (SscAlgo (..))
-import           Pos.Txp                    (TxAux (..))
-import           Pos.Update.Params          (UpdateParams (..))
-import           Pos.Util.JsonLog           ()
-import           Pos.Util.UserSecret        (simpleUserSecret)
-import           Pos.Util.Util              (powerLift)
-import           Pos.Worker                 (allWorkers)
-import           Pos.WorkMode               (RealMode)
+import qualified Pos.CLI               as CLI
+import           Pos.Communication     (ActionSpec (..), NodeId, SendActions,
+                                        convertSendActions, sendTxOuts, submitTxRaw,
+                                        wrapSendActions)
+import           Pos.Constants         (genesisKeysN, genesisSlotDuration,
+                                        neighborsSendThreshold, slotSecurityParam)
+import           Pos.Crypto            (hash)
+import           Pos.Discovery         (MonadDiscovery, findPeers, getPeers)
+import           Pos.Genesis           (genesisUtxo)
+import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
+                                        NetworkParams (..), NodeParams (..),
+                                        NodeResources (nrContext), bracketNodeResources,
+                                        hoistNodeResources, runNode', runRealMode,
+                                        stakesDistr)
+import           Pos.Security          (SecurityParams (..), SecurityWorkersClass)
+import           Pos.Ssc.Class         (SscConstraint, SscParams)
+import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
+import           Pos.Ssc.NistBeacon    (SscNistBeacon)
+import           Pos.Ssc.SscAlgo       (SscAlgo (..))
+import           Pos.Txp               (TxAux (..))
+import           Pos.Update.Params     (UpdateParams (..))
+import           Pos.Util.JsonLog      ()
+import           Pos.Util.UserSecret   (simpleUserSecret)
+import           Pos.Util.Util         (powerLift)
+import           Pos.Worker            (allWorkers)
+import           Pos.WorkMode          (RealMode)
 
-import           GenOptions                 (GenOptions (..), getGenOptions)
-import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
-import           TxAnalysis                 (checkWorker, createTxTimestamps,
-                                             registerSentTx)
-import           TxGeneration               (BambooPool, createBambooPool, curBambooTx,
-                                             initTransaction, isTxVerified, nextValidTx,
-                                             resetBamboo)
+import           GenOptions            (GenOptions (..), getGenOptions)
+import           TxAnalysis            (checkWorker, createTxTimestamps, registerSentTx)
+import           TxGeneration          (BambooPool, createBambooPool, curBambooTx,
+                                        initTransaction, isTxVerified, nextValidTx,
+                                        resetBamboo)
 import           Util
-
 
 -- | Resend initTx with 'slotDuration' period until it's verified
 seedInitTx :: forall ssc . SscConstraint ssc
@@ -99,15 +97,11 @@ getPeersShare share = do
 runSmartGen
     :: forall ssc.
        (SscConstraint ssc, SecurityWorkersClass ssc)
-    => Transport (RealMode ssc)
-    -> (Set NodeId)
-    -> NodeParams
-    -> SscParams ssc
+    => NodeResources ssc (RealMode ssc)
     -> GenOptions
     -> Production ()
-runSmartGen transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
-  runRealMode (DCStatic peers) slottingCtx transport np sscnp $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
-    initLrc
+runSmartGen nr opts@GenOptions{..} =
+  runRealMode nr $ (,sendTxOuts <> wOuts) . ActionSpec $ \vI sendActions -> do
     let getPosixMs = round . (*1000) <$> liftIO getPOSIXTime
         initTx = initTransaction opts
 
@@ -231,8 +225,7 @@ runSmartGen transport peers np@NodeParams{..} sscnp opts@GenOptions{..} =
 
       return (newTPS, newStep)
   where
-    slottingCtx = SCSimple
-    (workers', wOuts) = allWorkers slottingCtx
+    (workers', wOuts) = allWorkers (nrContext nr)
 
 -----------------------------------------------------------------------------
 -- Main
@@ -264,53 +257,61 @@ main = do
             BaseParams
             { bpLoggingParams = logParams
             }
+        networkParams =
+            NetworkParams
+            { npDiscovery = Left peerSet
+            , npTcpAddr = TCP.Unaddressable
+            }
 
-    bracketResources baseParams TCP.Unaddressable $ \transport -> do
-        let transport' :: forall ssc . Transport (RealMode ssc)
-            transport' = hoistTransport
-                (powerLift :: forall t . Production t -> RealMode ssc t)
-                transport
+    let systemStart = CLI.sysStart goCommonArgs
 
-        let systemStart = CLI.sysStart goCommonArgs
-
-        let params =
-                NodeParams
-                { npDbPathM       = "rocks-smartwallet"
-                , npRebuildDb     = True
-                , npSystemStart   = systemStart
-                , npSecretKey     = sk
-                , npUserSecret    = simpleUserSecret sk "smartgen-secret.sk"
-                , npBaseParams    = baseParams
-                , npCustomUtxo    = genesisUtxo $
-                                        stakesDistr
-                                        (CLI.flatDistr goCommonArgs)
-                                        (CLI.bitcoinDistr goCommonArgs)
-                                        (CLI.richPoorDistr goCommonArgs)
-                                        (CLI.expDistr goCommonArgs)
-                , npJLFile        = goJLFile
-                , npPropagation   = not (CLI.disablePropagation goCommonArgs)
-                , npReportServers = []
-                , npUpdateParams = UpdateParams
-                    { upUpdatePath    = "update.exe"
-                    , upUpdateWithPkg = True
-                    , upUpdateServers = []
-                    }
-                , npSecurityParams = SecurityParams
-                    { spAttackTypes   = []
-                    , spAttackTargets = []
-                    }
-                , npUseNTP = True
+    let params =
+            NodeParams
+            { npDbPathM       = "rocks-smartwallet"
+            , npRebuildDb     = True
+            , npSystemStart   = systemStart
+            , npSecretKey     = sk
+            , npUserSecret    = simpleUserSecret sk "smartgen-secret.sk"
+            , npBaseParams    = baseParams
+            , npCustomUtxo    = genesisUtxo $
+                                    stakesDistr
+                                    (CLI.flatDistr goCommonArgs)
+                                    (CLI.bitcoinDistr goCommonArgs)
+                                    (CLI.richPoorDistr goCommonArgs)
+                                    (CLI.expDistr goCommonArgs)
+            , npJLFile        = goJLFile
+            , npPropagation   = not (CLI.disablePropagation goCommonArgs)
+            , npReportServers = []
+            , npUpdateParams = UpdateParams
+                { upUpdatePath    = "update.exe"
+                , upUpdateWithPkg = True
+                , upUpdateServers = []
                 }
-            gtParams =
-                GtParams
-                { gtpSscEnabled = False
-                , gtpVssKeyPair = vssKeyPair
+            , npSecurityParams = SecurityParams
+                { spAttackTypes   = []
+                , spAttackTargets = []
                 }
+            , npUseNTP = True
+            , npNetwork = networkParams
+            }
+        gtParams =
+            GtParams
+            { gtpSscEnabled = False
+            , gtpVssKeyPair = vssKeyPair
+            }
+    let action :: forall ssc .
+               (SscConstraint ssc, SecurityWorkersClass ssc)
+            => SscParams ssc
+            -> IO ()
+        action sscParams = runProduction $ bracketNodeResources params sscParams $
+          \nr -> do
+            let nr' = hoistNodeResources powerLift nr
+            runSmartGen @ssc nr' opts
 
-        case CLI.sscAlgo goCommonArgs of
-            GodTossingAlgo -> do
-                putText "Using MPC coin tossing"
-                runSmartGen @SscGodTossing transport' peerSet params gtParams opts
-            NistBeaconAlgo -> do
-                putText "Using NIST beacon"
-                runSmartGen @SscNistBeacon transport' peerSet params () opts
+    case CLI.sscAlgo goCommonArgs of
+        GodTossingAlgo -> do
+            putText "Using MPC coin tossing"
+            action @SscGodTossing gtParams
+        NistBeaconAlgo -> do
+            putText "Using NIST beacon"
+            action @SscNistBeacon ()

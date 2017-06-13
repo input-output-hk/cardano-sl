@@ -21,69 +21,68 @@ module Pos.Launcher.Resource
        , bracketTransport
        ) where
 
-import           Universum                    hiding (bracket, finally)
+import           Universum                   hiding (bracket, finally)
 
-import           Control.Concurrent.STM       (newEmptyTMVarIO, newTBQueueIO)
-import           Control.Monad.Base           (MonadBase)
-import           Control.Monad.Trans.Control  (MonadBaseControl)
-import           Control.Monad.Trans.Resource (runResourceT)
-import           Data.Default                 (def)
-import           Data.Tagged                  (Tagged (..), untag)
-import qualified Data.Time                    as Time
+import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO)
+import           Control.Monad.Base          (MonadBase)
+import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Data.Default                (def)
+import           Data.Tagged                 (Tagged (..), untag)
+import qualified Data.Time                   as Time
 import qualified Ether
-import           Formatting                   (sformat, shown, (%))
-import           Mockable                     (Catch, Mockable, MonadMockable,
-                                               Production (..), Throw, bracket, throw)
-import           Network.QDisc.Fair           (fairQDisc)
-import           Network.Transport.Abstract   (Transport, closeTransport, hoistTransport)
-import           Network.Transport.Concrete   (concrete)
-import qualified Network.Transport.TCP        as TCP
-import qualified STMContainers.Map            as SM
-import           System.IO                    (Handle, hClose)
-import           System.Wlog                  (CanLog, LoggerConfig (..), WithLogger,
-                                               getLoggerName, logError, productionB,
-                                               releaseAllHandlers, setupLogging,
-                                               usingLoggerName)
+import           Formatting                  (sformat, shown, (%))
+import           Mockable                    (Catch, Mockable, MonadMockable,
+                                              Production (..), Throw, bracket, throw)
+import           Network.QDisc.Fair          (fairQDisc)
+import           Network.Transport.Abstract  (Transport, closeTransport, hoistTransport)
+import           Network.Transport.Concrete  (concrete)
+import qualified Network.Transport.TCP       as TCP
+import qualified STMContainers.Map           as SM
+import           System.IO                   (Handle, hClose)
+import           System.Wlog                 (CanLog, LoggerConfig (..), WithLogger,
+                                              getLoggerName, logError, productionB,
+                                              releaseAllHandlers, setupLogging,
+                                              usingLoggerName)
 
-import           Pos.Binary                   ()
-import           Pos.CLI                      (readLoggerConfig)
-import           Pos.Communication.PeerState  (PeerStateCtx)
-import qualified Pos.Constants                as Const
-import           Pos.Context                  (BlkSemaphore (..), ConnectedPeers (..),
-                                               GenesisLeaders (..), GenesisUtxo (..),
-                                               NodeContext (..), StartTime (..))
-import           Pos.Core                     (Timestamp ())
-import           Pos.DB                       (MonadDBRead, NodeDBs, runDBPureRedirect)
-import           Pos.DB.Block                 (runBlockDBRedirect)
-import           Pos.DB.DB                    (closeNodeDBs, initNodeDBs, openNodeDBs)
-import           Pos.DB.GState                (getTip)
-import           Pos.Delegation.Class         (DelegationVar)
-import           Pos.DHT.Real                 (KademliaDHTInstance, KademliaParams (..),
-                                               startDHTInstance, stopDHTInstance)
-import           Pos.Discovery                (DiscoveryContextSum (..))
-import           Pos.Genesis                  (genesisLeaders)
-import           Pos.Launcher.Param           (BaseParams (..), LoggingParams (..),
-                                               NetworkParams (..), NodeParams (..))
-import           Pos.Lrc.Context              (LrcContext (..), mkLrcSyncData)
-import           Pos.Slotting                 (SlottingContextSum (..), SlottingVar,
-                                               mkNtpSlottingVar, runSlotsDataRedirect,
-                                               runSlotsRedirect)
-import           Pos.Ssc.Class                (SscConstraint, SscParams,
-                                               sscCreateNodeContext)
-import           Pos.Ssc.Extra                (SscState, mkSscState)
-import           Pos.Txp                      (GenericTxpLocalData, mkTxpLocalData)
+import           Pos.Binary                  ()
+import           Pos.CLI                     (readLoggerConfig)
+import           Pos.Communication.PeerState (PeerStateCtx)
+import qualified Pos.Constants               as Const
+import           Pos.Context                 (BlkSemaphore (..), ConnectedPeers (..),
+                                              GenesisLeaders (..), GenesisUtxo (..),
+                                              NodeContext (..), StartTime (..))
+import           Pos.Core                    (Timestamp ())
+import           Pos.DB                      (MonadDBRead, NodeDBs, runDBPureRedirect)
+import           Pos.DB.Block                (runBlockDBRedirect)
+import           Pos.DB.DB                   (closeNodeDBs, initNodeDBs, openNodeDBs)
+import           Pos.DB.GState               (getTip)
+import           Pos.Delegation.Class        (DelegationVar)
+import           Pos.DHT.Real                (KademliaDHTInstance, KademliaParams (..),
+                                              startDHTInstance, stopDHTInstance)
+import           Pos.Discovery               (DiscoveryContextSum (..))
+import           Pos.Genesis                 (genesisLeaders)
+import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
+                                              NetworkParams (..), NodeParams (..))
+import           Pos.Lrc.Context             (LrcContext (..), mkLrcSyncData)
+import           Pos.Slotting                (SlottingContextSum (..), SlottingVar,
+                                              mkNtpSlottingVar, runSlotsDataRedirect,
+                                              runSlotsRedirect)
+import           Pos.Ssc.Class               (SscConstraint, SscParams,
+                                              sscCreateNodeContext)
+import           Pos.Ssc.Extra               (SscState, mkSscState)
+import           Pos.Txp                     (GenericTxpLocalData, mkTxpLocalData)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer                 (explorerTxpGlobalSettings)
+import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
-import           Pos.Txp                      (txpGlobalSettings)
+import           Pos.Txp                     (txpGlobalSettings)
 #endif
-import           Pos.Security                 (SecurityWorkersClass)
-import           Pos.Update.Context           (UpdateContext (..))
-import qualified Pos.Update.DB                as GState
-import           Pos.Update.MemState          (newMemVar)
-import           Pos.Util.Concurrent.RWVar    as RWV
-import           Pos.Worker                   (allWorkersCount)
-import           Pos.WorkMode                 (TxpExtra_TMP)
+import           Pos.Security                (SecurityWorkersClass)
+import           Pos.Update.Context          (UpdateContext (..))
+import qualified Pos.Update.DB               as GState
+import           Pos.Update.MemState         (newMemVar)
+import           Pos.Util.Concurrent.RWVar   as RWV
+import           Pos.Worker                  (allWorkersCount)
+import           Pos.WorkMode                (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -135,17 +134,15 @@ allocateNodeResources ::
 allocateNodeResources np@NodeParams {..} sscnp = do
     db <- openNodeDBs npRebuildDb npDbPathM
     -- TODO: usage of 'runResourceT' here is strange.
-    let runDBAction =
-            runResourceT . flip Ether.runReaderT' db . runDBPureRedirect
+    let runDBAction = flip Ether.runReaderT' db . runDBPureRedirect
     let genLeaders = genesisLeaders npCustomUtxo
     -- DB initialization is hard.
-    runResourceT .
-        flip
-            Ether.runReadersT
-            ( Tagged @GenesisUtxo (GenesisUtxo npCustomUtxo)
-            , Tagged @GenesisLeaders (GenesisLeaders genLeaders)
-            , Tagged @NodeDBs db
-            , Tagged @NodeParams np) $
+    flip
+        Ether.runReadersT
+        ( Tagged @GenesisUtxo (GenesisUtxo npCustomUtxo)
+        , Tagged @GenesisLeaders (GenesisLeaders genLeaders)
+        , Tagged @NodeDBs db
+        , Tagged @NodeParams np) $
         runDBPureRedirect . runBlockDBRedirect $ initNodeDBs @ssc
     ctx@NodeContext {..} <- runDBAction $ allocateNodeContext np sscnp
     initTip <- runDBAction getTip

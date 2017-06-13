@@ -10,14 +10,13 @@ module Pos.Lrc.FtsPure
 
 import           Universum
 
-import           Data.Conduit        (runConduitPure, (.|))
-import qualified Data.Conduit.List   as CL
 import qualified Data.HashMap.Strict as HM
 
 import           Pos.Core            (Coin, SharedSeed (..), StakeholderId, coinToInteger,
                                       mkCoin, sumCoins)
 import           Pos.Lrc.Fts         (followTheSatoshiM)
 import           Pos.Txp.Toil        (Utxo, utxoToStakes)
+import           Pos.Util.Iterator   (runListHolder)
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').
@@ -43,8 +42,10 @@ followTheSatoshi seed stakes
         error "followTheSatoshi: total stake exceeds limit"
     | totalCoinsCoin == minBound = error "followTheSatoshi: no stake"
     | otherwise =
-        runConduitPure $
-        CL.sourceList stakes .| followTheSatoshiM seed totalCoinsCoin
+          runListHolder
+              (followTheSatoshiM seed
+                   totalCoinsCoin)
+              stakes
   where
     totalCoins = sumCoins $ map snd stakes
     totalCoinsCoin = mkCoin (fromInteger totalCoins)

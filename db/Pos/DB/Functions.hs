@@ -26,17 +26,17 @@ module Pos.DB.Functions
 
 import           Universum
 
-import qualified Data.ByteString      as BS (drop, isPrefixOf)
-import qualified Data.ByteString.Lazy as BSL
-import           Data.Default         (def)
-import qualified Database.RocksDB     as Rocks
-import           Formatting           (sformat, shown, string, (%))
+import qualified Data.ByteString       as BS (drop, isPrefixOf)
+import qualified Data.ByteString.Lazy  as BSL
+import           Data.Default          (def)
+import qualified Database.RocksDB      as Rocks
+import           Formatting            (sformat, shown, string, (%))
 
-import           Pos.Binary.Class     (Bi, decodeFull, encodeStrict)
-import           Pos.DB.Class         (DBIteratorClass (..), DBTag, MonadDB (..),
-                                       MonadDBRead (..))
-import           Pos.DB.Error         (DBError (DBMalformed))
-import           Pos.DB.Types         (DB (..))
+import           Pos.Binary.Class      (Bi, decodeFull, encodeStrict)
+import           Pos.DB.Class          (DBTag, MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Error          (DBError (DBMalformed))
+import           Pos.DB.Iterator.Class (DBIteratorClass (..))
+import           Pos.DB.Types          (DB (..))
 
 openDB :: MonadIO m => FilePath -> m DB
 openDB fp = DB def def def
@@ -51,7 +51,7 @@ closeDB = Rocks.close . rocksDB
 encodeWithKeyPrefix
     :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => IterKey i -> ByteString
-encodeWithKeyPrefix = (iterKeyPrefix @i <>) . encodeStrict
+encodeWithKeyPrefix = (iterKeyPrefix @i Proxy <>) . encodeStrict
 
 -- | Read ByteString from RocksDb using given key.
 rocksGetBytes :: (MonadIO m) => ByteString -> DB -> m (Maybe ByteString)
@@ -102,11 +102,11 @@ rocksDecodeWP
     :: forall i m . (MonadThrow m, DBIteratorClass i, Bi (IterKey i))
     => ByteString -> m (IterKey i)
 rocksDecodeWP key
-    | BS.isPrefixOf (iterKeyPrefix @i) key =
+    | BS.isPrefixOf (iterKeyPrefix @i Proxy) key =
         either (onParseError key) pure .
         decodeFull .
         BSL.fromStrict .
-        BS.drop (length $ iterKeyPrefix @i) $
+        BS.drop (length $ iterKeyPrefix @i Proxy) $
         key
     | otherwise = onParseError key "unexpected prefix"
 
@@ -115,11 +115,11 @@ rocksDecodeMaybeWP
     :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => ByteString -> Maybe (IterKey i)
 rocksDecodeMaybeWP s
-    | BS.isPrefixOf (iterKeyPrefix @i) s =
+    | BS.isPrefixOf (iterKeyPrefix @i Proxy) s =
           rightToMaybe .
           decodeFull .
           BSL.fromStrict .
-          BS.drop (length $ iterKeyPrefix @i) $ s
+          BS.drop (length $ iterKeyPrefix @i Proxy) $ s
     | otherwise = Nothing
 
 rocksDecodeMaybe :: (Bi v) => ByteString -> Maybe v

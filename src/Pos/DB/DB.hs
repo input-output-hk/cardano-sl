@@ -41,7 +41,7 @@ import           Pos.DB.Block                 (MonadBlockDB, MonadBlockDBWrite,
                                                loadBlundsByDepth, loadBlundsWhile,
                                                prepareBlockDB)
 import           Pos.DB.Class                 (MonadDB, MonadDBRead (..),
-                                               MonadGState (..))
+                                               MonadGState (..), MonadRealDB)
 import           Pos.DB.Functions             (closeDB, openDB)
 import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common         (getTip, getTipBlock, getTipHeader)
@@ -128,7 +128,7 @@ loadBlundsFromTipByDepth
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB
-    :: (MonadMask m, WithLogger m, MonadDBRead m)
+    :: (MonadMask m, MonadRealDB m, WithLogger m, MonadDBRead m)
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
 

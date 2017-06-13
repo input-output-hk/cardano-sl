@@ -17,10 +17,8 @@ import           Universum
 
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Fix              (MonadFix)
-import           Control.Monad.Morph            (hoist)
 import           Control.Monad.Trans.Control    (MonadBaseControl (..))
 import qualified Control.Monad.Trans.Lift.Local as Lift
-import           Control.Monad.Trans.Resource   (MonadResource, ResourceT)
 import           Data.Coerce
 import           Data.Tagged                    (Tagged)
 import qualified Ether
@@ -39,7 +37,7 @@ import           Pos.Context                    (NodeContext)
 import           Pos.DB                         (DBPureRedirect, MonadGState, NodeDBs)
 import           Pos.DB.Block                   (BlockDBRedirect, MonadBlockDBWrite)
 import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDB,
-                                                 MonadDBRead (..))
+                                                 MonadDBRead)
 import           Pos.DB.DB                      (GStateCoreRedirect)
 import           Pos.Delegation.Class           (DelegationVar)
 import           Pos.Discovery                  (DiscoveryRedirect, MonadDiscovery)
@@ -79,7 +77,7 @@ type RealMode' ssc =
     Ether.ReadersT (NodeContext ssc) (
     JsonLogT (
     LoggerNameBox (
-    ResourceT Production
+    Production
     ))))))))))))
 
 newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
@@ -115,11 +113,8 @@ deriving instance MonadSlotsData (RealMode ssc)
 deriving instance MonadSlots (RealMode ssc)
 deriving instance MonadDiscovery (RealMode ssc)
 deriving instance MonadGState (RealMode ssc)
+deriving instance MonadDBRead (RealMode ssc)
 deriving instance MonadDB (RealMode ssc)
-deriving instance MonadResource (RealMode ssc)
-instance MonadDBRead (RealMode ssc) where
-    dbGet a b = RealMode $ dbGet a b
-    dbIterSource t p = hoist RealMode $ dbIterSource t p
 deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
 deriving instance MonadBListener (RealMode ssc)
 deriving instance WithPeerState (RealMode ssc)

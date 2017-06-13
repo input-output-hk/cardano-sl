@@ -34,44 +34,66 @@ data Field
     -- ^ Field name and field type
     | Unused Name
     -- ^ Name of unused field
-
+-- Some part of implementation copied from
+-- https://hackage.haskell.org/package/store-0.4.3.1/docs/src/Data-Store-TH-Internal.html#makeStore
 deriveSimpleBi :: Name -> [Cons] -> Q [Dec]
-deriveSimpleBi dataName constrs = do
-    dt <- reifyDataType dataName
+deriveSimpleBi headTy constrs = do
+    dt <- reifyDataType headTy
     case (matchAllConstrs constrs (dtCons dt)) of
         MissedCons missedCons ->
-            fail . T.unpack .
-                    sformat ("Constructor '"%shown%"' isn't passed to deriveSimpleBi") $
-                    missedCons
+            failText .
+                sformat ("Constructor '"%shown%"' isn't passed to deriveSimpleBi") $
+                missedCons
         UnknownCons unknownCons ->
-            fail . T.unpack .
-                    sformat ("Unknown constructor '"%shown%"' is passed to deriveSimpleBi") $
-                    unknownCons
+            failText .
+                sformat ("Unknown constructor '"%shown%"' is passed to deriveSimpleBi") $
+                unknownCons
         MatchedCons matchedConstrs ->
             forM_ (zip constrs matchedConstrs) $ \(Cons{..}, DataCon{..}) -> do
                 whenJust (checkAllFields cFields dcFields) $ \field ->
-                    fail . T.unpack $
-                            sformat ("Unknown field '"%shown%"' of constructor '"
-                                     %shown%"' is passed to deriveSimpleBi")
-                            field cName
+                    failText $ sformat ("Unknown field '"%shown%"' of constructor '"
+                                        %shown%"' is passed to deriveSimpleBi")
+                                  field cName
     fail "not implemented yet"
   where
+    failText = fail . T.unpack
     isUsed :: Field -> Bool
     isUsed (Unused _) = False
     isUsed _          = True
 
-    biGetForConstr :: Cons -> Q Exp
-    biGetForConstr (Cons name []) = appE (varE 'pure) (conE name)
-    biGetForConstr Cons{..} = do
+    tagType :: Name
+    tagType = ''Word8
+
+    -- Expression used for the definition of get.
+    biGetExpr :: Q Exp
+    biGetExpr = case constrs of
+        []        -> failText $ sformat ("Attempting to peek type without constructors "%shown) headTy
+        (cons:[]) -> biGetConstr cons -- There is one consturctors
+        _         -> do
+            let tagName = mkName "tag"
+            let getMatch (ix, con) = match (litP (IntegerL ix)) (normalB (biGetConstr con)) []
+            let mismatchConstr =
+                    match wildP (normalB
+                        [| peekException (sformat ("Found invalid tag while getting "%build) headTy) |]) []
+            doE
+                [ bindS (varP tagName) [| Bi.get |]
+                , noBindS (caseE
+                                (sigE (varE tagName) (conT tagType))
+                                (map getMatch (zip [0..] constrs) ++ [mismatchConstr]))
+                ]
+
+    biGetConstr :: Cons -> Q Exp
+    biGetConstr (Cons name []) = appE (varE 'pure) (conE name)
+    biGetConstr Cons{..} = do
         let usedFields = filter isUsed cFields
         let unusedFields = filter (not . isUsed) cFields
 
         varNames :: [Name] <- mapM (newName . show . fName) usedFields
         varPs :: [Pat] <- mapM varP varNames
-        biGets :: [Exp] <- replicateM (length varPs) (varE 'Bi.get)
+        biGets :: [Exp] <- replicateM (length varPs) [| Bi.get |]
         bindExprs :: [Stmt] <- mapM (uncurry bindS . bimap pure pure) (zip varPs biGets)
         let recWildUsedVars = map (\(f, ex) -> (fName f,) <$> varE ex) $ zip usedFields varNames
-        let recWildUnusedVars = map (\f -> (fName f,) <$> varE 'def) unusedFields
+        let recWildUnusedVars = map (\f -> (fName f,) <$> [| def |]) unusedFields
         recordWildCardReturn <- noBindS $
                                 appE (varE 'pure) $
                                 recConE cName $

@@ -1,7 +1,6 @@
 #!/usr/bin/env nix-shell
 #! nix-shell -j 4 -i bash -p stack git
 #! nix-shell -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/763e21e982370f67c126f92a1113ea949db3b6e0.tar.gz
-export NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/763e21e982370f67c126f92a1113ea949db3b6e0.tar.gz
 
 set -xe
 

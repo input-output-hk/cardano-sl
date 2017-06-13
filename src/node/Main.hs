@@ -127,10 +127,10 @@ printFlags = do
         then putText "[Attention] We are in DEV mode"
         else putText "[Attention] We are in PRODUCTION mode"
 #ifdef WITH_WEB
-    putText "[Attention] Web-mode is on"
+    putText "[Attention] Software is built with web part"
 #endif
 #ifdef WITH_WALLET
-    putText "[Attention] Wallet-mode is on"
+    putText "[Attention] Software is built with wallet part"
 #endif
     inAssertMode $ putText "Asserts are ON"
 

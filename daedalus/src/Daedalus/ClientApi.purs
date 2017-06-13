@@ -6,7 +6,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (getProfileLocale, mkCId, mkCCoin, mkCAccountMeta, mkCTxId, mkCTxMeta, mkCProfile, mkCAccountInit, mkCWalletRedeem, mkBackupPhrase, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCWalletInit, mkCAccountId)
+import Daedalus.Types (getProfileLocale, mkCId, mkCCoin, mkCAccountMeta, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCProfile, mkCAccountInit, mkCWalletRedeem, mkBackupPhrase, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCWalletInit, mkCAccountId)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
@@ -103,22 +103,21 @@ newWallet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword -> f
     either throwError (B.newWallet $ mkCPassPhrase spendingPassword) $ mkCWalletInit wSetName wsAssurance wsUnit mnemonic
 
 -- | Get meta information from given wallet
--- Arguments: wallet object/identifier, type, currency, name, assurance, unit
+-- Arguments: wallet object/identifier, name, assurance, unit
 -- Returns json representation of wallets within given wallet id
 -- Example in nodejs:
 -- | ```js
--- | > api.updateWallet('1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648','CWTPersonal','ADA','Initial wallet','CWANormal',0).then(console.log)
+-- | > api.updateWallet('1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW', 'Initial wallet','CWANormal',0).then(console.log)
 -- | Promise { <pending> }
--- | > { caMeta: { caName: 'CWTPersonal' },
--- |   caId: '1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648',
--- |   caAmount: { getCCoin: '50000' },
--- |   cwAddresses:
--- |    [ { cadId: '19Fv6JWbdLXRXqew721u2GEarEwc8rcfpAqsriRFPameyCkQLHsNDKQRpwsM7W1M587CiswPuY27cj7RUvNXcZWgTbPByq',
--- |        cadAmount: [Object] } ] }
+-- | > { cwAccountsNumber: 0,
+-- |   cwMeta: { cwName: 'Initial wallet', cwAssurance: 'CWANormal', cwUnit: 0 },
+-- |   cwPassphraseLU: 1494583348.3572557,
+-- |   cwHasPassphrase: true,
+-- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW' }
 -- | ```
-updateWallet :: forall eff. EffFn6 (ajax :: AJAX | eff) String String String String String Int (Promise Json)
-updateWallet = mkEffFn6 \wId wType wCurrency wName wAssurance wUnit -> fromAff <<< map encodeJson <<<
-    B.updateWallet (mkCAccountId wId) $ mkCWalletMeta wType wCurrency wName wAssurance wUnit
+updateWallet :: forall eff. EffFn4 (ajax :: AJAX | eff) String String String Int (Promise Json)
+updateWallet = mkEffFn4 \wId wName wAssurance wUnit -> fromAff <<< map encodeJson <<<
+    B.updateWallet (mkCId wId) $ mkCWalletMeta wName wAssurance wUnit
 
 -- TODO: note that restoreWallet and newWallet are the same. They will be unified in future
 

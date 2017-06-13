@@ -18,6 +18,7 @@ module Daedalus.Types
        , _ctxIdValue
        , mkBackupPhrase
        , mkCWalletRedeem
+       , mkCWalletMeta
        , mkCPaperVendWalletRedeem
        , mkCInitialized
        , mkCPassPhrase
@@ -143,6 +144,13 @@ mkCAccountInit wName wSetId =
 
 mkCWalletAssurance :: String -> CT.CWalletAssurance
 mkCWalletAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
+
+mkCWalletMeta :: String -> String -> Int -> CWalletMeta
+mkCWalletMeta wName wAssurance wUnit =
+  CWalletMeta { cwName: wName
+                 , cwAssurance: mkCWalletAssurance wAssurance
+                 , cwUnit: wUnit
+                 }
 
 mkCWalletInit :: String -> String -> Int -> String -> Either Error CT.CWalletInit
 mkCWalletInit wSetName wsAssurance wsUnit mnemonic = do

@@ -66,6 +66,8 @@ import           Pos.Reporting.Methods      (reportMisbehaviourMasked)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.JsonLog           (jlAdoptedBlock)
+import           Pos.Util.TimeWarp          (CanJsonLog (..))
 import           Pos.WorkMode.Class         (WorkMode)
 
 ----------------------------------------------------------------------------
@@ -445,6 +447,7 @@ applyWithoutRollback sendActions blocks = do
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
             relayBlock sendActions toRelay
             logInfo $ blocksAppliedMsg applied
+            forM_ blocks $ jsonLog . jlAdoptedBlock
   where
     newestTip = blocks ^. _Wrapped . _neLast . headerHashG
     applyWithoutRollbackDo
@@ -479,6 +482,7 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
             reportRollback
             logInfo $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo $ blocksAppliedMsg (getOldestFirst toApply)
+            forM_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
             relayBlock sendActions $ toApply ^. _Wrapped . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback

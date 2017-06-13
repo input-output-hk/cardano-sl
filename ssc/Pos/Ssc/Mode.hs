@@ -23,10 +23,12 @@ import           Pos.Shutdown                (MonadShutdownMem)
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Class.Types         (MonadSscContext)
 import           Pos.Ssc.Extra               (MonadSscMem)
+import           Pos.Util.TimeWarp           (CanJsonLog)
 
 -- | Mode used for all SSC listeners, workers, and the like.
 type SscMode ssc m
     = ( WithLogger m
+      , CanJsonLog m
       , MonadIO m
       , MonadMask m
       , MonadMockable m

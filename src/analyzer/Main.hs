@@ -20,7 +20,7 @@ import           Unsafe                     (unsafeFromJust)
 import           AnalyzerOptions            (Args (..), getAnalyzerOptions)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
-                                             fromJLSlotId)
+                                             fromJLSlotIdUnsafe)
 import           Pos.Util.TimeWarp          (JLTimed (..))
 
 type TxId = Text
@@ -93,9 +93,9 @@ getTxAcceptTimeAvgs confirmations fileEvsMap = result
                   |otherwise     = Nothing
       where
         mInitB = initId `HM.lookup` blocks
-        kSl = unflattenSlotId $ flattenSlotId (fromJLSlotId $ jlSlot $ unsafeFromJust mInitB) - confirmations
+        kSl = unflattenSlotId $ flattenSlotId (fromJLSlotIdUnsafe $ jlSlot $ unsafeFromJust mInitB) - confirmations
         impl id = HM.lookup id blocks >>=
-                      \b -> if (fromJLSlotId $ jlSlot b) <= kSl
+                      \b -> if (fromJLSlotIdUnsafe $ jlSlot b) <= kSl
                                then return b
                                else impl (jlPrevBlock b)
 

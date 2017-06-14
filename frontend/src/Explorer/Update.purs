@@ -31,7 +31,7 @@ import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, a
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State)
+import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State, WaypointItem(..))
 import Explorer.Util.Config (SyncAction(..), syncBySocket)
 import Explorer.Util.DOM (addClassToElement, findElementById, removeClassFromElement, scrollTop, targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Data (sortTxsByTime', unionTxs)
@@ -346,14 +346,7 @@ update (GenerateQrCode address) state =
 update (DashboardAddWaypoint elementId) state =
     { state
     , effects:
-        [ liftEff waypoint >>= \wp -> pure (StoreWaypoint wp)
-        , liftEff $ do
-              -- Important Note:
-              -- Make sure that the header is moved out
-              -- AFTER a waypoint has been added !!!
-              addClassToElement elId CSS.moveOut
-              removeClassFromElement elId CSS.moveIn
-              pure NoOp
+        [ liftEff waypoint >>= \wp -> pure <<< StoreWaypoint $ WaypointItem { wpInstance: wp, wpRoute: Dashboard }
         ]
     }
     where
@@ -376,13 +369,30 @@ update ClearWaypoints state =
     { state: set (viewStates <<< globalViewState <<< gWaypoints) [] state
     , effects:
           [ do
-                -- Dispose every waypoint in list `waypoints`
-                traverse_ (liftEff <<< WP.destroy) waypoints
+                traverse_ (liftEff <<< disposeWaypoint) waypointItems
                 pure NoOp
           ]
     }
     where
-      waypoints = state ^. (viewStates <<< globalViewState <<< gWaypoints)
+      waypointItems = state ^. (viewStates <<< globalViewState <<< gWaypoints)
+
+      -- | Disposes any `Waypoint` stored in state
+      -- | Use it to reverse any changes which might be added by a Waypoint before,
+      -- | e.g. adding of new CSS classes or something else
+      disposeWaypoint :: forall e. WaypointItem -> Eff (dom :: DOM, waypoint :: WP.WAYPOINT | e) Unit
+      disposeWaypoint (WaypointItem item) = do
+          _ <- case _.wpRoute item of
+                    Dashboard -> do
+                      -- remove all css classes which might be added
+                      -- by waypoint's callback
+                      let elId = ElementId CSS.headerId
+                      _ <- removeClassFromElement elId CSS.moveOut
+                      _ <- removeClassFromElement elId CSS.moveIn
+                      pure unit
+                    -- Add any other effects for any other route if needed here
+                    _ -> pure unit
+          _ <- WP.destroy $ _.wpInstance item
+          pure unit
 
 update (DocumentClicked event) state =
     { state

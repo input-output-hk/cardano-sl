@@ -92,7 +92,14 @@ type GlobalViewState =
     , gViewSelectedSearch :: Search
     , gViewSearchQuery :: String
     , gViewSearchTimeQuery :: SearchEpochSlotQuery
-    , gWaypoints :: Array Waypoint
+    , gWaypoints :: WaypointItems
+    }
+
+type WaypointItems = Array WaypointItem
+
+newtype WaypointItem = WaypointItem
+    { wpInstance :: Waypoint
+    , wpRoute :: Route
     }
 
 type DashboardViewState =

@@ -10,12 +10,11 @@ import Data.Maybe (Maybe)
 import Data.Tuple (Tuple)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem)
+import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Pux.Html.Events (Target)
 import Signal.Channel (Channel)
-import Waypoints (Waypoint)
 
 data Action
     = SetLanguage Language
@@ -25,7 +24,7 @@ data Action
     | ScrollTop
     | SelectInputText HTMLInputElement
     | ClearWaypoints
-    | StoreWaypoint Waypoint
+    | StoreWaypoint WaypointItem
     | BlurElement HTMLElement
     | FocusElement HTMLElement
     | DocumentClicked Event

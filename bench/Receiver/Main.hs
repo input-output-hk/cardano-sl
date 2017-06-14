@@ -47,7 +47,7 @@ main = do
     let prng = mkStdGen 0
 
     runProduction $ usingLoggerName "receiver" $ do
-        node (simpleNodeEndPoint transport) (const noReceiveDelay) prng BinaryP () defaultNodeEnvironment $ \_ ->
+        node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng BinaryP () defaultNodeEnvironment $ \_ ->
             NodeAction (const [pingListener noPong]) $ \_ -> do
                 threadDelay (fromIntegral duration :: Second)
   where

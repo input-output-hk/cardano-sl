@@ -19,6 +19,11 @@ Library
                         Network.Transport.Concrete.TCP
                         Network.QDisc.Fair
 
+                        Network.Broadcast.Relay.Types
+                        Network.Broadcast.Relay.Class
+                        Network.Broadcast.Relay.Util
+                        Network.Broadcast.Relay.Logic
+
                         Node
 
                         Mockable
@@ -86,6 +91,7 @@ Library
                       , universum
                       , serokell-util
                       , stm
+                      , tagged == 0.8.5
                       , text
                       , text-format
                       , time

@@ -203,6 +203,13 @@ data Node packingType peerData (m :: * -> *) = Node {
        --   The term is evaluated once for each dequeued event, immediately
        --   before dequeueing it.
      , nodeReceiveDelay     :: ReceiveDelay m
+       -- | As 'nodeReceiveDelay' but instead of a delay on every network
+       --   level message, the delay applies only to establishing new
+       --   incomming connections. These connect/talk/close patterns tend
+       --   to correspond to application level messages or conversations
+       --   so this is a way to delay per-high-level message rather than
+       --   lower level events.
+     , nodeConnectDelay :: ReceiveDelay m
      }
 
 nodeId :: Node packingType peerData m -> NodeId
@@ -620,20 +627,24 @@ startNode
     => packingType
     -> peerData
     -> (Node packingType peerData m -> NodeEndPoint m)
-    -> (Node packingType peerData m -> m (Maybe Microsecond))
+    -> (Node packingType peerData m -> ReceiveDelay m)
     -- ^ Use the node (lazily) to determine a delay in microseconds to wait
     --   before dequeueing the next network-transport event (see
-    --   nodeReceiveDelay).
+    --   'nodeReceiveDelay').
+    -> (Node packingType peerData m -> ReceiveDelay m)
+    -- ^ See 'nodeConnectDelay'
     -> StdGen
     -- ^ A source of randomness, for generating nonces.
     -> NodeEnvironment m
     -> (peerData -> NodeId -> ChannelIn m -> ChannelOut m -> m ())
     -- ^ Handle incoming bidirectional connections.
     -> m (Node packingType peerData m)
-startNode packingType peerData mkNodeEndPoint mkReceiveDelay prng nodeEnv handlerInOut = do
+startNode packingType peerData mkNodeEndPoint mkReceiveDelay mkConnectDelay
+          prng nodeEnv handlerInOut = do
     rec { let nodeEndPoint = mkNodeEndPoint node
         ; mEndPoint <- newNodeEndPoint nodeEndPoint
         ; let receiveDelay = mkReceiveDelay node
+              connectDelay = mkConnectDelay node
         ; node <- case mEndPoint of
               Left err -> throw err
               Right endPoint -> do
@@ -648,6 +659,7 @@ startNode packingType peerData mkNodeEndPoint mkReceiveDelay prng nodeEnv handle
                                 , nodePackingType      = packingType
                                 , nodePeerData         = peerData
                                 , nodeReceiveDelay     = receiveDelay
+                                , nodeConnectDelay     = connectDelay
                                 }
                       ; dispatcherThread <- async $
                             nodeDispatcher node handlerInOut
@@ -797,19 +809,20 @@ nodeDispatcher node handlerInOut =
     nstate :: SharedAtomicT m (NodeState peerData m)
     nstate = nodeState node
 
-    receiveDelay :: ReceiveDelay m
-    receiveDelay = nodeReceiveDelay node
+    receiveDelay, connectDelay :: m ()
+    receiveDelay = nodeReceiveDelay node >>= maybe (return ()) delay
+    connectDelay = nodeConnectDelay node >>= maybe (return ()) delay
 
     endpoint = nodeEndPoint node
 
     loop :: DispatcherState peerData m -> m ()
     loop !state = do
-      _ <- receiveDelay >>= maybe (return ()) delay
+      receiveDelay
       event <- NT.receive endpoint
       case event of
 
           NT.ConnectionOpened connid _reliability peer ->
-              connectionOpened state connid peer >>= loop
+              connectDelay >> connectionOpened state connid peer >>= loop
 
           NT.Received connid bytes -> received state connid bytes >>= loop
 

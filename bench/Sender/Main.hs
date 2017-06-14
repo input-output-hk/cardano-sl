@@ -81,7 +81,7 @@ main = do
             let pingWorkers = liftA2 (pingSender prngWork payloadBound startTime msgRate)
                                      tasksIds
                                      (zip [0, msgNum..] nodeIds)
-            node (simpleNodeEndPoint transport) (const noReceiveDelay) prngNode BinaryP () defaultNodeEnvironment $ \node' ->
+            node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prngNode BinaryP () defaultNodeEnvironment $ \node' ->
                 NodeAction (const []) $ \sactions -> do
                     drones <- forM nodeIds (startDrone node')
                     _ <- forM pingWorkers (fork . flip ($) sactions)

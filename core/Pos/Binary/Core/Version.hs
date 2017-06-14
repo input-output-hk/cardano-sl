@@ -1,11 +1,14 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Binary serialization of Version types (software, block)
 
 module Pos.Binary.Core.Version () where
 
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), combineSize, convertSize, getAsciiString1b,
-                                   label, putAsciiString1b, putField, sizeAsciiString1b)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), convertSize,
+                                   deriveSimpleBi, getAsciiString1b, label,
+                                   putAsciiString1b, sizeAsciiString1b)
 import qualified Pos.Core.Types   as V
 
 instance Bi V.ApplicationName where
@@ -14,12 +17,15 @@ instance Bi V.ApplicationName where
     get = label "ApplicationName" $ V.mkApplicationName . toText
             =<< getAsciiString1b "SystemTag" V.applicationNameMaxLength
 
-instance Bi V.SoftwareVersion where
-    sizeNPut = putField V.svAppName <> putField V.svNumber
-    get = label "SoftwareVersion" $ V.SoftwareVersion <$> get <*> get
+deriveSimpleBi ''V.SoftwareVersion [
+    Cons 'V.SoftwareVersion [
+        Field 'V.svAppName ''V.ApplicationName,
+        Field 'V.svNumber  ''V.NumSoftwareVersion
+    ]]
 
-instance Bi V.BlockVersion where
-    sizeNPut = putField V.bvMajor
-            <> putField V.bvMinor
-            <> putField V.bvAlt
-    get = label "BlockVersion" $ V.BlockVersion <$> get <*> get <*> get
+deriveSimpleBi ''V.BlockVersion [
+    Cons 'V.BlockVersion [
+        Field 'V.bvMajor ''Word16,
+        Field 'V.bvMinor ''Word16,
+        Field 'V.bvAlt   ''Word8
+    ]]

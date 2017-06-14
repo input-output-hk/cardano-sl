@@ -14,6 +14,7 @@ import           Unsafe                (unsafeTail)
 import           Data.Default          (def)
 import           Data.List             (notElem, nubBy, partition, zipWith3)
 import           Data.Store            (Size (..))
+import qualified Data.Store.Internal   as Store
 import qualified Data.Text             as T
 import           Formatting            (sformat, shown, (%))
 import           Language.Haskell.TH
@@ -32,11 +33,18 @@ data Cons
 data Field
     = Field {
       fName :: Name
+    -- ^ Field name
     , fType :: Name
+    -- ^ Type of the field
     }
-    -- ^ Field name and field type
-    | Unused Name
+    | Unused {
+      fName :: Name
     -- ^ Name of unused field
+    }
+
+fieldToPair :: Field -> (Name, Maybe Type)
+fieldToPair (Unused nm)   = (nm, Nothing)
+fieldToPair (Field nm tp) = (nm, Just $ ConT tp)
 
 -- Some part of code copied from
 -- https://hackage.haskell.org/package/store-0.4.3.1/docs/src/Data-Store-TH-Internal.html#makeStore
@@ -82,6 +90,8 @@ deriveSimpleBi headTy constrs = do
     ty <- conT headTy
     makeBiInstanceTH ty <$> biSizeExpr <*> biPutExpr <*> biGetExpr
   where
+    shortNameTy :: Text
+    shortNameTy = T.pack . show . shortenName $ headTy
     -- Meta information about constructors --
 
     -- Total numbers of field in the each constructor
@@ -97,7 +107,14 @@ deriveSimpleBi headTy constrs = do
     -- @filteredConstrs@ and @allUsedFields@ are almost same,
     -- but @filteredConstrs@ store the name of constructors.
     allUsedFields :: [[(Name, Name)]]
-    allUsedFields = map (\Cons{..} -> map (\Field{..} -> (fName, fType)) cFields) filteredConstrs
+    allUsedFields = map (\Cons{..} ->
+                         map (\Field{..} ->
+                             (shortenName fName, fType)) cFields) filteredConstrs
+
+    shortenName :: Name -> Name
+    shortenName x =
+        let takeLastSegment = reverse . takeWhile (/= '.') . reverse in
+        mkName . takeLastSegment . show $ x
 
     -- Useful variables for @size@, @put@, @get@ --
     tagType :: TypeQ
@@ -144,7 +161,7 @@ deriveSimpleBi headTy constrs = do
                 doE (map putField cFields)
 
     putTag :: Int -> Q Stmt
-    putTag ix = noBindS [| poke (ix :: $tagType) |]
+    putTag ix = noBindS [| put (ix :: $tagType) |]
 
     putField :: Field -> Q Stmt
     putField Field{..}  = noBindS [| Bi.put $(appE (varE fName) (varE valName)) |]
@@ -165,9 +182,9 @@ deriveSimpleBi headTy constrs = do
                       map (mkName . ("sz" ++) . show) ([0..] :: [Int])
 
     -- Prefixes of fields (corresponding to each constructor)
-    shortNames :: [Name]
-    shortNames = take (length constrs) $
-                      map (mkName . ("c" ++) . show) ([0..] :: [Int])
+    shortCNames :: [Name]
+    shortCNames = take (length constrs) $
+                     map (mkName . ("c" ++) . show) ([0..] :: [Int])
 
     -- Generate the following code:
     -- (ConstSize sz0f0,
@@ -209,12 +226,12 @@ deriveSimpleBi headTy constrs = do
     --        Baz _   -> getSizeWith c1f0 (f0 val)
     matchVarSize :: MatchQ
     matchVarSize = do
-        let flatUsedFields = prependPrefToFields shortNames
+        let flatUsedFields = prependPrefToFields shortCNames
         match (tupP (map varP flatUsedFields))
               (normalB
                  [| VarSize $ \val ->
                         tagSize + $(caseE [| val |]
-                                          (zipWith3 matchVarCons shortNames numOfFields filteredConstrs)) |])
+                                          (zipWith3 matchVarCons shortCNames numOfFields filteredConstrs)) |])
               []
 
     -- CSL-1212: banish 'valName' and instead generate something like
@@ -231,16 +248,18 @@ deriveSimpleBi headTy constrs = do
         -- CSL-1212: add some TH util for doing such folds
         body = normalB $
             foldl1 (\l r -> [| $(l) + $(r) |]) $
-            map (\fn -> [| getSizeWith $(varE (shortName `appendName` fn)) $(appE (varE fn) (varE valName)) |]) cFields
+            map (\fn -> [| Store.getSizeWith $(varE (shortName `appendName` shortenName fn))
+                                             $(appE (varE fn) (varE valName)) |])
+                cFields
 
     -- Get definition --
     biGetExpr :: Q Exp
-    biGetExpr = case constrs of
+    biGetExpr =  appE [| Bi.label shortNameTy |] $ case constrs of
         []        ->
             failText $ sformat ("Attempting to peek type without constructors "%shown) headTy
         (cons:[]) ->
-            biGetConstr cons -- There is one constructor
-        _         -> do
+            (biGetConstr cons) -- There is one constructor
+        _         ->do
             let tagName = mkName "tag"
             let getMatch (ix, con) = match (litP (IntegerL ix)) (normalB (biGetConstr con)) []
             let mismatchConstr =
@@ -258,7 +277,7 @@ deriveSimpleBi headTy constrs = do
     biGetConstr Cons{..} = do
         let (usedFields, unusedFields) = partition isUsed cFields
 
-        varNames :: [Name] <- mapM (newName . show . fName) usedFields
+        varNames :: [Name] <- mapM (newName . show . shortenName . fName) usedFields
         varPs :: [Pat] <- mapM varP varNames
         biGets :: [Exp] <- replicateM (length varPs) [| Bi.get |]
         bindExprs :: [Stmt] <- mapM (uncurry bindS . bimap pure pure) (zip varPs biGets)
@@ -313,7 +332,7 @@ data MatchFields
     -- ^ Some field has mismatched type
 
 checkAllFields :: [Field] -> [(Name, Type)] -> MatchFields
-checkAllFields (map (\Field{..} -> (fName, ConT fType)) -> passedFields) realFields
+checkAllFields (map fieldToPair -> passedFields) realFields
     | Just nm <- map fst passedFields `inclusion` map fst realFields = UnknownField nm
     | Just nm <- map fst realFields `inclusion` map fst passedFields = MissedField nm
     | otherwise =
@@ -322,11 +341,13 @@ checkAllFields (map (\Field{..} -> (fName, ConT fType)) -> passedFields) realFie
             error "Something went wrong. Matched list of fields has different length"
         else
             case dropWhile checkTypes (zip realFields passedFields) of
-                []                           -> MatchedFields
-                (((n, real), (_, passed)):_) -> TypeMismatched n real passed
+                []                                -> MatchedFields
+                (((n, real), (_, Just passed)):_) -> TypeMismatched n real passed
+                (((_, _), (_, Nothing)):_)        -> error "Something went wrong: illegal mismatch type"
   where
-    checkTypes :: ((Name, Type), (Name, Type)) -> Bool
-    checkTypes ((_, t1), (_, t2)) = t1 == t2
+    checkTypes :: ((Name, Type), (Name, Maybe Type)) -> Bool
+    checkTypes (_, (_, Nothing))       = True
+    checkTypes ((_, t1), (_, Just t2)) = t1 == t2
 
     inclusion :: [Name] -> [Name] -> Maybe Name
     inclusion c1 c2 = find (`notElem` c2) c1

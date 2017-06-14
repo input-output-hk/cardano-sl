@@ -264,7 +264,7 @@ deriveSimpleBi headTy constrs = do
             let getMatch (ix, con) = match (litP (IntegerL ix)) (normalB (biGetConstr con)) []
             let mismatchConstr =
                     match wildP (normalB
-                        [| peekException (sformat ("Found invalid tag while getting "%build) headTy) |]) []
+                        [| Store.peekException ("Found invalid tag while getting " <> shortNameTy) |]) []
             doE
                 [ bindS (varP tagName) [| Bi.get |]
                 , noBindS (caseE

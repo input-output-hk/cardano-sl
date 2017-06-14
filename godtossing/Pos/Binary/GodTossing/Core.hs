@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 -- | Serialization of core types from GodTossing SSC.
 
 module Pos.Binary.GodTossing.Core
@@ -7,9 +9,9 @@ module Pos.Binary.GodTossing.Core
 import qualified Data.HashMap.Strict           as HM
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..), PokeWithSize, Size (..),
-                                                convertToSizeNPut, getSize, getWord8,
-                                                label, pokeWithSize, putField, putWord8S)
+import           Pos.Binary.Class              (Bi (..), PokeWithSize, convertToSizeNPut,
+                                                getWord8, label, pokeWithSize, putField,
+                                                putWord8S)
 import           Pos.Binary.Crypto             ()
 import           Pos.Core.Address              (addressHash)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..),

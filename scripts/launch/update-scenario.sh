@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 base=$(dirname "$0")
-. "$base"/common-functions.sh
+. "$base"/../common-functions.sh
 
 build=false
 runNode=false
@@ -184,7 +184,7 @@ if $runNode; then
   echo "Launching launcher"
   sleep 1
   rm -rvf update-node-tmp.log updateDownloaded.tar
-  stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/yaml/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" -n "--wallet" -n "--web-port" -n 8080 -n "--wallet-port" -n 8090 -n "--wallet-rebuild-db" --updater $updater -u "dir" -u "binaries_v000" --node-timeout 5 --update-archive updateDownloaded.tar $wallet_cli 
+  stack exec cardano-launcher -- --node binaries_v000/cardano-node --node-log-config scripts/log-templates/update-log-config.yaml -n "--update-server"  -n "http://localhost:$serverPort" -n "--update-latest-path" -n "updateDownloaded.tar" -n "--listen" -n "127.0.0.1:3004" -n "--peer" -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" -n "--flat-distr" -n "(3,100000)" -n "--rebuild-db" -n "--wallet" -n "--web-port" -n 8080 -n "--wallet-port" -n 8090 -n "--wallet-rebuild-db" --updater $updater -u "dir" -u "binaries_v000" --node-timeout 5 --update-archive updateDownloaded.tar $wallet_cli 
   echo "Launcher started"
 else
   echo "--node is not set => not executing launcher"

@@ -16,6 +16,7 @@ module Pos.Delegation.Logic.Common
        -- * Common helpers
        , initDelegation
        , getPSKsFromThisEpoch
+       , getDlgTransPsk
        ) where
 
 import           Control.Exception         (Exception (..))
@@ -120,3 +121,22 @@ initDelegation = do
     runDelegationStateAction $ do
         dwEpochId .= tipEpoch
         dwThisEpochPosted .= HS.fromList fromGenesisPsks
+
+-- | Retrieves last PSK in chain of delegation started by public key
+-- and resolves the passed issuer to a public key. Doesn't check that
+-- user himself didn't delegate. Uses database only.
+getDlgTransPsk
+    :: MonadDBRead m
+    => StakeholderId -> m (Maybe (PublicKey, ProxySKHeavy))
+getDlgTransPsk issuer = getDlgTransitive issuer >>= \case
+    Nothing -> pure Nothing
+    Just dPk -> do
+        chain <- HM.elems <$> getPskChain issuer
+        let finalPsk = find (\psk -> pskDelegatePk psk == dPk) chain
+        let iPk = pskIssuerPk <$>
+                  find (\psk -> addressHash (pskIssuerPk psk) == issuer) chain
+        let throwEmpty = throwM $ DBMalformed $
+                sformat ("getDlgTransPk: couldn't find psk with dlgPk "%build%
+                         " and issuer "%build)
+                        dPk issuer
+        maybe throwEmpty (pure . Just) $ (,) <$> iPk <*> finalPsk

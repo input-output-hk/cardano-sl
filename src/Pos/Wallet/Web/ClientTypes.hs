@@ -203,8 +203,8 @@ instance ToCType CPassPhrase where
 
 -- | Wallet identifier
 data AccountId = AccountId
-    { -- | Address of wallet set this wallet belongs to
-      aiWSId  :: CId Wal
+    { -- | Address of wallet this wallet belongs to
+      aiWId   :: CId Wal
     , -- | Derivation index of this wallet key
       aiIndex :: Word32
     } deriving (Eq, Show, Generic, Typeable)
@@ -213,7 +213,7 @@ instance Hashable AccountId
 
 instance Buildable AccountId where
     build AccountId{..} =
-        bprint (F.build%"@"%F.build) aiWSId aiIndex
+        bprint (F.build%"@"%F.build) aiWId aiIndex
 
 newtype CAccountId = CAccountId Text
     deriving (Eq, Show, Generic, Buildable)
@@ -223,7 +223,7 @@ instance FromCType CAccountId where
     decodeCType (CAccountId url) =
         case splitOn "@" url of
             [part1, part2] -> do
-                aiWSId  <- addressToCId <$> decodeTextAddress part1
+                aiWId  <- addressToCId <$> decodeTextAddress part1
                 aiIndex <- maybe (Left "Invalid wallet index") Right $
                             readMaybe $ toString part2
                 return AccountId{..}
@@ -240,8 +240,8 @@ instance FromCType CAccountId => FromCType (Maybe CAccountId) where
 -- required (maybe nowhere)
 -- | Account identifier
 data CWAddressMeta = CWAddressMeta
-    { -- | Address of wallet set this account belongs to
-      cwamWSId         :: CId Wal
+    { -- | Address of wallet this account belongs to
+      cwamWId          :: CId Wal
     , -- | First index in derivation path of this account key
       cwamWalletIndex  :: Word32
     , -- | Second index in derivation path of this account key
@@ -253,11 +253,11 @@ data CWAddressMeta = CWAddressMeta
 instance Buildable CWAddressMeta where
     build CWAddressMeta{..} =
         bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
-        cwamWSId cwamWalletIndex cwamAccountIndex cwamId
+        cwamWId cwamWalletIndex cwamAccountIndex cwamId
 
 walletAddrMetaToAccount :: CWAddressMeta -> AccountId
 walletAddrMetaToAccount CWAddressMeta{..} = AccountId
-    { aiWSId  = cwamWSId
+    { aiWId  = cwamWId
     , aiIndex = cwamWalletIndex
     }
 

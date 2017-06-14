@@ -11,7 +11,7 @@ module Pos.Wallet.Web.State.State
        , closeState
 
        -- * Getters
-       , AccountLookupMode (..)
+       , AddressLookupMode (..)
        , getProfile
        , getWAddressIds
        , getAccountMetas
@@ -67,7 +67,7 @@ import           Pos.Wallet.Web.ClientTypes   (AccountId, CAccountMeta, CId, CPr
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
-import           Pos.Wallet.Web.State.Storage (AccountLookupMode (..), WalletStorage)
+import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..), WalletStorage)
 
 data WalletWebDBTag
 
@@ -116,12 +116,12 @@ getWalletSyncTip = queryDisk . A.GetWalletSyncTip
 
 getAccountWAddresses
     :: WebWalletModeDB m
-    => AccountLookupMode -> AccountId -> m (Maybe [CWAddressMeta])
+    => AddressLookupMode -> AccountId -> m (Maybe [CWAddressMeta])
 getAccountWAddresses mode = queryDisk . A.GetAccountWAddresses mode
 
 doesWAddressExist
     :: WebWalletModeDB m
-    => AccountLookupMode -> CWAddressMeta -> m Bool
+    => AddressLookupMode -> CWAddressMeta -> m Bool
 doesWAddressExist mode = queryDisk . A.DoesWAddressExist mode
 
 getProfile :: WebWalletModeDB m => m CProfile

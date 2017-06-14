@@ -20,6 +20,7 @@ cabal.project.local
 
 # vim related
 *~
+*.swp
 
 # log files
 *.log

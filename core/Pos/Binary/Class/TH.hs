@@ -24,6 +24,71 @@ import           TH.Utilities          (plainInstanceD)
 import           Pos.Binary.Class.Core (Bi (..))
 import qualified Pos.Binary.Class.Core as Bi
 
+{-
+Suppose you have the following datatype:
+
+data User
+    = Login {
+      login :: String
+    , age   :: Int
+    }
+    | FullName {
+      firstName  :: String
+    , lastName   :: String
+    , sex        :: Bool
+    }
+
+then the next deriveSimpleBi:
+
+deriveSimpleBi ''User [
+    Cons 'Login [
+        Field 'login ''String,
+        Field 'age   ''Int,
+    ],
+    Cons 'FullName [
+        Field 'firstName ''String,
+        Field 'age       ''Int,
+        Unused 'secondName
+    ]]
+
+will generate:
+
+instance Bi User where
+    size =
+        case (size :: Size String, size :: Size Int, size :: Size String, size :: Size Int) of
+            (ConstSize sz0login, ConstSize sz0age, ConstSize sz1firstName, ConstSize sz1age) | sz0 == sz1 ->
+                ConstSize (1 + sz0)
+              where
+                sz0 = sz0login + sz0age
+                sz1 = sz1firstName + sz1age
+            (c0login, c0age c1firstName, c1age) ->
+                case val of
+                    Login _ _        -> getSizeWith c0login (login val) + getSizeWith c0age (age val)
+                    FullName _ _ _   -> getSizeWith c1firstName (firstName val) + getSizeWith c1age (age val)
+    put = \val -> case val of
+        Login _ _      -> do
+            put @Word8 0
+            put (login val)
+            put (age val)
+        FullName _ _ _ -> do
+            put @Word8 1
+            put (firstName val)
+            put (age val)
+    get = do
+        tag <- get @Word8
+        case tag of
+            0 -> do
+                login <- get
+                age <- get
+                pure $ Login {..}
+            1 -> do
+                firstName <- get
+                age <- get
+                let secondName = def
+                pure $ FullName {..}
+            _ -> Store.peekException ("Found invalid tag while getting User")
+-}
+
 data Cons
     = Cons {
       cName   :: Name
@@ -32,12 +97,16 @@ data Cons
 
 data Field
     = Field {
+    -- ^ The constructor means that you want
+    -- a field to participate in serialisation/deserialization
       fName :: Name
     -- ^ Field name
     , fType :: Name
     -- ^ Type of the field
     }
     | Unused {
+    -- ^ The constructor means that you don't want
+    -- a field to participate in serialisation/deserialization
       fName :: Name
     -- ^ Name of unused field
     }
@@ -48,6 +117,16 @@ fieldToPair (Field nm tp) = (nm, Just $ ConT tp)
 
 -- Some part of code copied from
 -- https://hackage.haskell.org/package/store-0.4.3.1/docs/src/Data-Store-TH-Internal.html#makeStore
+
+-- | Takes the name of datatype and constructors of datatype and generates Bi instances.
+-- You should pass all constructors explicitly. Also, you should pass all fields explicitly,
+-- each of them should be @Field@ or @Unused@,
+-- and the real type of field and the passed (in the Field) type should be same.
+-- All field of datatype should be named explicitly.
+-- The numbers of constructors must be at least one and at most 255.
+-- The order of fields matter: it corresponds to order of put's and get's.
+-- If some of these statements is violated,
+-- you will get compile error with the corresponding message.
 deriveSimpleBi :: Name -> [Cons] -> Q [Dec]
 deriveSimpleBi headTy constrs = do
     when (null constrs) $
@@ -110,7 +189,7 @@ deriveSimpleBi headTy constrs = do
     allUsedFields = map (\Cons{..} ->
                          map (\Field{..} ->
                              (shortenName fName, fType)) cFields) filteredConstrs
-
+    -- Take last segment of full name.
     shortenName :: Name -> Name
     shortenName x =
         let takeLastSegment = reverse . takeWhile (/= '.') . reverse in
@@ -149,6 +228,12 @@ deriveSimpleBi headTy constrs = do
     biPutExpr = lamE [varP valName] $
         caseE (varE valName) $ zipWith3 biPutConstr numOfFields [0..] filteredConstrs
 
+    -- Generate the following code:
+    -- Constr _ _ _ -> do
+    --   putTag 3
+    --   put (field1 val)
+    --   put (field2 val)
+    --   put (field3 val)
     biPutConstr :: Int -> Int -> Cons -> MatchQ
     biPutConstr num ix (Cons cName cFields) = do
         let wilds = replicate num wildP

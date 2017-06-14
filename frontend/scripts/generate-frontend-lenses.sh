@@ -15,6 +15,8 @@ purescript-derive-lenses \
   < $DIR_TYPES/State.purs \
   --moduleName Explorer.Lenses.State \
   --moduleImports "import Explorer.Api.Types (SocketSubscription, SocketSubscriptionData)" \
+  --moduleImports "import Waypoints (Waypoint)" \
+  --moduleImports "import Explorer.Routes (Route)" \
   > $DIR_TYPES_LENSES/State.purs
 
 # - - - - - - - - - - -

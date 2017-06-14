@@ -12,9 +12,9 @@ import DOM (DOM)
 import DOM.Event.Event (target)
 import DOM.HTML.HTMLElement (blur, focus)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (filter, snoc, take, (:))
 import DOM.Node.Node (contains)
-import DOM.Node.Types (elementToNode)
+import DOM.Node.Types (ElementId(..), elementToNode)
+import Data.Array (filter, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Int (fromString)
@@ -27,17 +27,18 @@ import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, syncAction, viewStates)
+import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination, mkSocketSubscriptionItem, searchContainerId)
+import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State)
+import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State, WaypointItem(..))
 import Explorer.Util.Config (SyncAction(..), syncBySocket)
-import Explorer.Util.DOM (findElementById, scrollTop, targetToHTMLElement, targetToHTMLInputElement)
+import Explorer.Util.DOM (addClassToElement, findElementById, removeClassFromElement, scrollTop, targetToHTMLElement, targetToHTMLInputElement)
 import Explorer.Util.Data (sortTxsByTime', unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
 import Explorer.View.Blocks (maxBlockRows)
+import Explorer.View.CSS (dashBoardBlocksViewId, headerId, moveIn, moveOut) as CSS
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Explorer.View.Dashboard.Transactions (maxTransactionRows)
 import Network.HTTP.Affjax (AJAX)
@@ -46,12 +47,14 @@ import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
+import Waypoints (WAYPOINT, destroy, waypoint', up) as WP
 
 update :: forall eff. Action -> State ->
     EffModel State Action
     ( dom :: DOM
     , ajax :: AJAX
     , socket :: SocketIO
+    , waypoint :: WP.WAYPOINT
     , now :: NOW
     , console :: CONSOLE
     | eff
@@ -340,26 +343,85 @@ update (GenerateQrCode address) state =
         ]
     }
 
+update (DashboardAddWaypoint elementId) state =
+    { state
+    , effects:
+        [ liftEff waypoint >>= \wp -> pure <<< StoreWaypoint $ WaypointItem { wpInstance: wp, wpRoute: Dashboard }
+        ]
+    }
+    where
+        elId = ElementId CSS.headerId
+        callback = \(direction) ->
+            if direction == WP.up
+                then do
+                    addClassToElement elId CSS.moveOut
+                    removeClassFromElement elId CSS.moveIn
+                else do
+                    addClassToElement elId CSS.moveIn
+                    removeClassFromElement elId CSS.moveOut
+
+        waypoint = WP.waypoint' elementId callback 71 -- 71 == height of header
+
+update (StoreWaypoint wp) state = noEffects $
+    over (viewStates <<< globalViewState <<< gWaypoints) ((:) wp) state
+
+update ClearWaypoints state =
+    { state: set (viewStates <<< globalViewState <<< gWaypoints) [] state
+    , effects:
+          [ do
+                traverse_ (liftEff <<< disposeWaypoint) waypointItems
+                pure NoOp
+          ]
+    }
+    where
+      waypointItems = state ^. (viewStates <<< globalViewState <<< gWaypoints)
+
+      -- | Disposes any `Waypoint` stored in state
+      -- | Use it to reverse any changes which might be added by a Waypoint before,
+      -- | e.g. adding of new CSS classes or something else
+      disposeWaypoint :: forall e. WaypointItem -> Eff (dom :: DOM, waypoint :: WP.WAYPOINT | e) Unit
+      disposeWaypoint (WaypointItem item) = do
+          _ <- case _.wpRoute item of
+                    Dashboard -> do
+                      -- remove all css classes which might be added
+                      -- by waypoint's callback
+                      let elId = ElementId CSS.headerId
+                      _ <- removeClassFromElement elId CSS.moveOut
+                      _ <- removeClassFromElement elId CSS.moveIn
+                      pure unit
+                    -- Add any other effects for any other route if needed here
+                    _ -> pure unit
+          _ <- WP.destroy $ _.wpInstance item
+          pure unit
+
 update (DocumentClicked event) state =
     { state
     , effects:
         [ liftEff $
-            -- ignore effect while opening mobile menue
+            -- First check here is to see if a search container has been clicked or not.
+            -- We do ignore this check if the mobile menue is openend,
+            -- because we don't need to do any effects there
             if (not (state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)))
             then
                 do
-                  -- Check if children of search container has been clicked or not
-                  el <- findElementById searchContainerId
-                  case el of
-                      Just el' -> do
-                          childrenClicked <- contains (elementToNode el') (target event)
-                          pure $ GlobalFocusSearchInput childrenClicked
-                      Nothing ->
-                          pure NoOp
+                -- Check if any children of one of our three search containers has been clicked or not
+                  heroSearchContainerClicked <- findElementById heroSearchContainerId >>= elementClicked
+                  mobileMenuSearchContainerClicked <- findElementById mobileMenuSearchContainerId >>= elementClicked
+                  headerSearchContainerClicked <- findElementById headerSearchContainerId >>= elementClicked
+                  -- If any of these children are clicked we know, that the search UI has been set to active (focused)
+                  let clicked = heroSearchContainerClicked || mobileMenuSearchContainerClicked || headerSearchContainerClicked
+                  pure $ GlobalFocusSearchInput clicked
             else
                 pure NoOp
         ]
     }
+    where
+        elementClicked mEl =
+            case mEl of
+                Just el ->
+                    contains (elementToNode el) (target event)
+                Nothing ->
+                    pure false
 
 -- global state
 update (GlobalToggleMobileMenu toggled) state = noEffects $
@@ -373,7 +435,8 @@ update (GlobalFocusSearchInput value) state = noEffects $
               if value == false &&
                     (not $ state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend))
               then SearchAddress
-              else selectedSearch)
+              else selectedSearch
+        )
     state
 
 update GlobalSearch state =
@@ -656,6 +719,8 @@ routeEffects Dashboard state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
+        , pure <<< DashboardAddWaypoint $ ElementId CSS.dashBoardBlocksViewId
         , if isSuccess maxBlockPage
           then pure $ DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
           else
@@ -677,6 +742,7 @@ routeEffects (Tx tx) state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure SocketClearSubscriptions
         , pure $ RequestTxSummary tx
         ]
@@ -691,6 +757,7 @@ routeEffects (Address cAddress) state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure SocketClearSubscriptions
         , pure $ RequestAddressSummary cAddress
         ]
@@ -705,6 +772,7 @@ routeEffects (Epoch epochIndex) state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure $ RequestSearchBlocks epochIndex Nothing
         ]
     }
@@ -720,6 +788,7 @@ routeEffects (EpochSlot epochIndex slotIndex) state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure $ RequestSearchBlocks epochIndex (Just slotIndex)
         ]
     }
@@ -730,7 +799,10 @@ routeEffects Calculator state =
         set (viewStates <<< globalViewState <<< gViewTitle)
             (translate (I18nL.common <<< I18nL.cCalculator) $ state ^. lang)
             state
-    , effects: [ pure ScrollTop ]
+    , effects:
+        [ pure ScrollTop
+        , pure ClearWaypoints
+        ]
     }
 
 routeEffects (Block hash) state =
@@ -740,6 +812,7 @@ routeEffects (Block hash) state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure SocketClearSubscriptions
         , pure $ RequestBlockSummary hash
         , pure $ RequestBlockTxs hash
@@ -750,6 +823,7 @@ routeEffects Playground state =
     { state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure SocketClearSubscriptions
         ]
     }
@@ -761,6 +835,7 @@ routeEffects NotFound state =
             state
     , effects:
         [ pure ScrollTop
+        , pure ClearWaypoints
         , pure SocketClearSubscriptions
         ]
     }

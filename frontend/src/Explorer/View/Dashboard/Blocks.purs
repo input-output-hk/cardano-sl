@@ -11,20 +11,22 @@ import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CBlockEntries, PageNumber(..), State)
 import Explorer.View.Blocks (blockRow, blocksHeaderView, maxBlockRows, minBlockRows)
-import Explorer.View.CSS (blocksBody, blocksBodyWrapper, blocksBodyCover, blocksBodyCoverLabel, blocksFooter, blocksWaiting, dashboardContainer, dashboardWrapper) as CSS
+import Explorer.View.CSS (blocksBody, blocksBodyWrapper, blocksBodyCover, blocksBodyCoverLabel, blocksFooter, blocksWaiting, dashboardContainer, dashboardWrapper, dashBoardBlocksViewId) as CSS
 import Explorer.View.Common (paginationView)
 import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Network.RemoteData (RemoteData(..), isLoading, isNotAsked, withDefault)
 import Pux.Html (Html, div, p, text) as P
-import Pux.Html.Attributes (className) as P
+import Pux.Html.Attributes (className, id_) as P
 import Pux.Html.Events (onClick) as P
 
 dashBoardBlocksView :: State -> P.Html Action
 dashBoardBlocksView state =
     P.div
-        [ P.className CSS.dashboardWrapper ]
+        [ P.className CSS.dashboardWrapper
+        , P.id_ CSS.dashBoardBlocksViewId
+        ]
         [ P.div
             [ P.className CSS.dashboardContainer ]
             [ headerView state headerOptions
@@ -112,7 +114,7 @@ blocksFooterView state =
         blocks = withDefault [] $ state ^. latestBlocks
         expanded = state ^. (dashboardViewState <<< dbViewBlocksExpanded)
         currentPageNumber = state ^. (dashboardViewState <<< dbViewBlockPagination)
-        expandable =  (length blocks > minBlockRows) || 
+        expandable =  (length blocks > minBlockRows) ||
                       (currentPageNumber > PageNumber minPagination)
         clickHandler _ =
             if expandable

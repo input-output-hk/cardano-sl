@@ -7,12 +7,13 @@ import Data.Lens ((^.))
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, hero, cTitle, hrSubtitle) as I18nL
 import Explorer.Lenses.State (lang)
+import Explorer.State (heroSearchContainerId)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
 import Explorer.View.Common (logoView)
 import Explorer.View.Search (searchInputView)
 import Pux.Html (Html, div, text, h1, h2) as P
-import Pux.Html.Attributes (className) as P
+import Pux.Html.Attributes (className, id_) as P
 
 heroView :: State -> P.Html Action
 heroView state =
@@ -20,7 +21,9 @@ heroView state =
         lang' = state ^. lang
     in
     P.div
-        [ P.className "explorer-dashboard__hero" ]
+        [ P.className "explorer-dashboard__hero"
+        , P.id_ "explorer-dashboard__hero-id"
+        ]
         [ P.div
             [ P.className "hero-container" ]
             [ logoView
@@ -30,6 +33,6 @@ heroView state =
             , P.h2
                 [ P.className "hero-subheadline"]
                 [ P.text $ translate (I18nL.hero <<< I18nL.hrSubtitle) lang' ]
-            , searchInputView state
+            , searchInputView heroSearchContainerId state
             ]
         ]

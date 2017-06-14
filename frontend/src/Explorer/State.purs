@@ -35,6 +35,7 @@ initialState =
             , gViewSelectedSearch: SearchAddress
             , gViewSearchQuery: emptySearchQuery
             , gViewSearchTimeQuery: emptySearchTimeQuery
+            , gWaypoints: []
             }
         ,  dashboard:
             { dbViewBlocksExpanded: false
@@ -89,8 +90,14 @@ minPagination = 1 -- Note: We do start with 1 (not 0)
 addressQRImageId :: String
 addressQRImageId = "qr_image_id"
 
-searchContainerId :: ElementId
-searchContainerId = ElementId "explorer-search__container-id"
+heroSearchContainerId :: ElementId
+heroSearchContainerId = ElementId "heroSearchContainerId"
+
+headerSearchContainerId :: ElementId
+headerSearchContainerId = ElementId "headerSearchContainerId"
+
+mobileMenuSearchContainerId :: ElementId
+mobileMenuSearchContainerId = ElementId "mobileMenuSearchContainerId"
 
 mkSocketSubscriptionItem :: SocketSubscription -> SocketSubscriptionData -> SocketSubscriptionItem
 mkSocketSubscriptionItem socketSub socketSubData = SocketSubscriptionItem

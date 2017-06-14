@@ -25,6 +25,7 @@ node-db/*
 *.log
 wallet-db/*
 logs/*
+explorer-node.log.*
 
 # Intellij Idea & intellij-haskell
 .idea

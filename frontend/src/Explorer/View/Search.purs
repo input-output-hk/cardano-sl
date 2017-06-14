@@ -4,15 +4,15 @@ module Explorer.View.Search
     ) where
 
 import Prelude
+import DOM.Node.Types (ElementId(..))
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
-import Data.Newtype (unwrap)
 import Data.String (length)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cAddress, cEpoch, cSlot, cTransaction, common, hero, hrSearch, hrTime) as I18nL
 import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, globalViewState, lang, viewStates)
-import Explorer.State (maxSlotInEpoch, searchContainerId)
+import Explorer.State (maxSlotInEpoch)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
 import Explorer.View.Common (emptyView)
@@ -26,8 +26,8 @@ inputEpochName = "inp_epoch"
 inputSlotName :: String
 inputSlotName = "inp_slot"
 
-searchInputView :: State -> P.Html Action
-searchInputView state =
+searchInputView :: ElementId -> State -> P.Html Action
+searchInputView (ElementId viewId) state =
     let lang' = state ^. lang
         dbViewSearchInputFocused = state ^. (viewStates <<< globalViewState <<< gViewSearchInputFocused)
         mobileMenuOpened = state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)
@@ -39,11 +39,11 @@ searchInputView state =
     in
     P.div
         [ P.className $ "explorer-search__container" <> focusedClazz
-        , P.id_ $ unwrap searchContainerId
+        , P.id_ viewId
         ]
         [ P.input
             [ P.className $ "explorer-search__input explorer-search__input--address-tx"
-                          <> addrHiddenClazz
+                          <> addrHiddenClazz <> focusedClazz
             , P.type_ "text"
             , P.placeholder $ if dbViewSearchInputFocused
                               then ""

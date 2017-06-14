@@ -3,13 +3,14 @@ module Explorer.Types.Actions where
 import Control.Monad.Eff.Exception (Error)
 import DOM.Event.Event (Event)
 import DOM.HTML.Types (HTMLElement, HTMLInputElement)
+import DOM.Node.Types (ElementId)
 import Data.DateTime (DateTime)
 import Data.Either (Either)
 import Data.Maybe (Maybe)
 import Data.Tuple (Tuple)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem)
+import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Pux.Html.Events (Target)
@@ -22,6 +23,8 @@ data Action
     -- DOM
     | ScrollTop
     | SelectInputText HTMLInputElement
+    | ClearWaypoints
+    | StoreWaypoint WaypointItem
     | BlurElement HTMLElement
     | FocusElement HTMLElement
     | DocumentClicked Event
@@ -73,6 +76,7 @@ data Action
     | DashboardInvalidBlocksPageNumber Target       -- invalid page number
     | DashboardExpandTransactions Boolean           -- expand dashboard transactions
     | DashboardShowAPICode DashboardAPICode         -- toggle dashboard api
+    | DashboardAddWaypoint ElementId
     -- address detail view
     | AddressPaginateTxs PageNumber             -- current pagination of transactions
     | AddressEditTxsPageNumber Target Boolean   -- toggle editable state of page numbers

@@ -14,6 +14,7 @@ import Explorer.Util.Config (SyncAction)
 import Network.RemoteData (RemoteData)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry, CBlockSummary, CTxBrief, CTxEntry, CTxSummary)
 import Prelude (class Eq, class Ord, class Show)
+import Waypoints (Waypoint)
 
 -- Add all State types here to generate lenses from it
 
@@ -91,6 +92,14 @@ type GlobalViewState =
     , gViewSelectedSearch :: Search
     , gViewSearchQuery :: String
     , gViewSearchTimeQuery :: SearchEpochSlotQuery
+    , gWaypoints :: WaypointItems
+    }
+
+type WaypointItems = Array WaypointItem
+
+newtype WaypointItem = WaypointItem
+    { wpInstance :: Waypoint
+    , wpRoute :: Route
     }
 
 type DashboardViewState =

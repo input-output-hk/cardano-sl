@@ -35,7 +35,11 @@
         font-size: 13px;
         font-family: var(--fontFamily0-Regular);
         padding: 0 5px;
-        color: var(--color0);
+        color: color(var(--color0) a(0.3));
+
+        &.focused {
+          color: var(--color0);
+        }
 
         background-color: transparent;
 

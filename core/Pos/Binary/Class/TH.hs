@@ -43,7 +43,7 @@ data Field
 deriveSimpleBi :: Name -> [Cons] -> Q [Dec]
 deriveSimpleBi headTy constrs = do
     when (null constrs) $
-        failText "You passed no one constructors to deriveSimpleBi"
+        failText "You passed no constructors to deriveSimpleBi"
     when (length constrs > 255) $
         failText "You passed too many constructors to deriveSimpleBi"
     when (length (nubBy (\x y -> cName x == cName y) constrs) /= length constrs) $
@@ -126,7 +126,7 @@ deriveSimpleBi headTy constrs = do
         concatMap (\(p, flds) -> map ((p `appendName`) . fst) flds) $
                   zip prefixes allUsedFields
 
-    -- Put defenition --
+    -- Put definition --
     biPutExpr :: Q Exp
     biPutExpr = lamE [varP valName] $
         caseE (varE valName) $ zipWith3 biPutConstr numOfFields [0..] filteredConstrs
@@ -234,7 +234,7 @@ deriveSimpleBi headTy constrs = do
         []        ->
             failText $ sformat ("Attempting to peek type without constructors "%shown) headTy
         (cons:[]) ->
-            biGetConstr cons -- There is one consturctors
+            biGetConstr cons -- There is one constructor
         _         -> do
             let tagName = mkName "tag"
             let getMatch (ix, con) = match (litP (IntegerL ix)) (normalB (biGetConstr con)) []

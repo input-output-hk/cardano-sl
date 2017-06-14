@@ -12,7 +12,7 @@ import           Universum
 import           Unsafe                (unsafeTail)
 
 import           Data.Default          (def)
-import           Data.List             (notElem, nubBy, zipWith3)
+import           Data.List             (notElem, nubBy, partition, zipWith3)
 import           Data.Store            (Size (..))
 import qualified Data.Text             as T
 import           Formatting            (sformat, shown, (%))
@@ -251,8 +251,7 @@ deriveSimpleBi headTy constrs = do
     biGetConstr :: Cons -> Q Exp
     biGetConstr (Cons name []) = appE (varE 'pure) (conE name)
     biGetConstr Cons{..} = do
-        let usedFields = filter isUsed cFields
-        let unusedFields = filter (not . isUsed) cFields
+        let (usedFields, unusedFields) = partition isUsed cFields
 
         varNames :: [Name] <- mapM (newName . show . fName) usedFields
         varPs :: [Pat] <- mapM varP varNames

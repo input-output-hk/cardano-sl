@@ -26,8 +26,8 @@ module Pos.Util.UserSecret
        , ensureModeIs600
        ) where
 
-import           Control.Exception          (onException)
 import           Control.Lens               (makeLenses, to)
+import           Control.Monad.Catch        (handle, onException)
 import           Data.Binary.Get            (label)
 import qualified Data.ByteString.Lazy       as BSL
 import           Data.Default               (Default (..))
@@ -36,6 +36,7 @@ import qualified Prelude
 import           Serokell.Util.Text         (listJson)
 import           System.FileLock            (FileLock, SharedExclusive (..), lockFile,
                                              unlockFile, withFileLock)
+import           System.IO.Error            (isDoesNotExistError)
 import qualified Turtle                     as T
 import           Universum
 
@@ -50,7 +51,7 @@ import           System.IO                  (hClose)
 import           System.IO.Temp             (openBinaryTempFile)
 import           System.Wlog                (WithLogger)
 
-import           Pos.Wallet.Web.Error.Types (WalletError (..))
+import           Pos.Wallet.Web.Error.Types (WalletError (InternalError, RequestError))
 import           Pos.Wallet.Web.Secret      (WalletUserSecret)
 
 #ifdef POSIX
@@ -176,14 +177,18 @@ initializeUserSecret secretPath = do
 
 -- | Reads user secret from file, assuming that file exists,
 -- and has mode 600, throws exception in other case
-readUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
-readUserSecret path = do
+readUserSecret :: (MonadIO m, MonadCatch m, WithLogger m) => FilePath -> m UserSecret
+readUserSecret path = handleErrors $ do
 #ifdef POSIX
     ensureModeIs600 path
 #endif
     takeReadLock path $ do
-        content <- either (throwM . RequestError . toText) pure . decodeFull =<< BSL.readFile path
+        content <- either (throwM . InternalError . toText) pure . decodeFull =<< BSL.readFile path
         pure $ content & usPath .~ path
+  where
+    handleErrors = handle $ \e ->
+        if | isDoesNotExistError e -> throwM $ RequestError "File does not exist"
+           | otherwise             -> throwM e
 
 -- | Reads user secret from the given file.
 -- If the file does not exist/is empty, returns empty user secret

@@ -102,7 +102,7 @@ getFakeAvvmGenesis FakeAvvmOptions{..} = do
     return (GenesisCoreData{..}, GenesisGtData{..})
 
 getAvvmGenesis
-    :: (MonadIO m, WithLogger m)
+    :: (MonadIO m, MonadCatch m, WithLogger m)
     => AvvmStakeOptions -> m (GenesisCoreData, GenesisGtData)
 getAvvmGenesis AvvmStakeOptions {..} = do
     jsonfile <- liftIO $ BSL.readFile asoJsonPath
@@ -149,7 +149,7 @@ reassignBalances GenesisCoreData{..} = GenesisCoreData
     remainder = unsafeIntegerToCoin $ totalBalance `mod` nBalances
 
 genGenesisFiles
-    :: (MonadIO m, MonadFail m, WithLogger m)
+    :: (MonadIO m, MonadFail m, MonadCatch m, WithLogger m)
     => KeygenOptions -> m ()
 genGenesisFiles KeygenOptions{..} = do
     mAvvmGenesis <- traverse getAvvmGenesis koAvvmStake

@@ -134,7 +134,9 @@ applyBlacklisted (Just blacklistPath) AvvmData{..} = do
         show (length blacklisted) <> " total entries in the blacklist)"
     pure $ AvvmData filtered
 
-getHolderId :: (MonadIO m, WithLogger m) => Maybe FilePath -> m StakeholderId
+getHolderId
+    :: (MonadIO m, MonadCatch m, WithLogger m)
+    => Maybe FilePath -> m StakeholderId
 getHolderId (Just fileName) = do
     mSk <- view usPrimKey <$> readUserSecret fileName
     let sk = fromMaybe (error "No secret key is found in file") mSk

@@ -1,21 +1,22 @@
 module Explorer.View.Block (blockView) where
 
 import Prelude
-import Data.Array (length, null, (!!))
+import Data.Array (length, null, slice, (..))
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..), fromMaybe, isJust)
+import Data.Maybe (Maybe(..), isJust)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cBlock, blSlotNotFound, common, cBack2Dashboard, cOf, cLoading, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cSlot, cTransactions, tx, txNotFound, txEmpty) as I18nL
 import Explorer.Lenses.State (_PageNumber, blockDetail, blockTxPagination, blockTxPaginationEditable, currentBlockSummary, currentBlockTxs, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
+import Explorer.Test.MockFactory (mkTxBriefs)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), CTxBriefs, PageNumber(..), State)
 import Explorer.Util.Factory (mkCoin)
 import Explorer.Util.String (formatADA)
-import Explorer.View.Common (currencyCSSClass, emptyView, mkEmptyViewProps, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
+import Explorer.View.Common (currencyCSSClass, emptyView, getMaxPaginationNumber, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
 import Network.RemoteData (RemoteData(..), isFailure)
-import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..))
+import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..), CTxBrief)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
 import Pux.Html (Html, div, text, h3, span) as P
 import Pux.Html.Attributes (className) as P
@@ -57,7 +58,9 @@ blockView state =
                       NotAsked -> txEmptyContentView ""
                       Loading -> txEmptyContentView $ translate (I18nL.common <<< I18nL.cLoading) lang'
                       Failure _ -> txEmptyContentView $ translate (I18nL.tx <<< I18nL.txNotFound) lang'
-                      Success txs -> blockTxsView txs state
+                      -- Success txs -> blockTxsView txs state
+                      -- TODO (jk): Use real data
+                      Success txs -> blockTxsView (mkTxBriefs (1..12)) state
                 ]
             , if (isFailure blockSummary && isFailure blockTxs)
               -- Show back button if both results ^ are failed
@@ -210,26 +213,28 @@ hashesRow item =
                               [ P.text item.hash ]
         ]
 
+maxTxRows :: Int
+maxTxRows = 5
+
 blockTxsView :: CTxBriefs -> State -> P.Html Action
 blockTxsView txs state =
     if null txs then
         txEmptyContentView $ translate (I18nL.tx <<< I18nL.txEmpty) (state ^. lang)
     else
         let txPagination = state ^. (viewStates <<< blockDetail <<< blockTxPagination <<< _PageNumber)
-            currentTxBrief = txs !! (txPagination - 1)
-            txBodyViewProps = fromMaybe (mkTxBodyViewProps mkEmptyViewProps) $ mkTxBodyViewProps <$> currentTxBrief
             lang' = state ^. lang
+            minTxIndex = (txPagination - minPagination) * maxTxRows
+            currentTxs = slice minTxIndex (minTxIndex + maxTxRows) txs
         in
         P.div
             []
-            [ txHeaderView lang' $ case currentTxBrief of
-                                        Nothing -> mkTxHeaderViewProps mkEmptyViewProps
-                                        Just txBrief -> mkTxHeaderViewProps txBrief
-            , txBodyView lang' txBodyViewProps
+            [ P.div
+                  []
+                  $ map (\tx -> blockTxView tx lang') currentTxs
             , txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                 , currentPage: PageNumber txPagination
                                 , minPage: PageNumber minPagination
-                                , maxPage: PageNumber $ length txs
+                                , maxPage: PageNumber $ getMaxPaginationNumber (length txs) maxTxRows
                                 , changePageAction: BlockPaginateTxs
                                 , editable: state ^. (viewStates <<< blockDetail <<< blockTxPaginationEditable)
                                 , editableAction: BlockEditTxsPageNumber
@@ -237,3 +242,11 @@ blockTxsView txs state =
                                 , disabled: false
                                 }
             ]
+
+blockTxView :: CTxBrief -> Language -> P.Html Action
+blockTxView tx lang =
+    P.div
+        []
+        [ txHeaderView lang $ mkTxHeaderViewProps tx
+        , txBodyView lang $ mkTxBodyViewProps tx
+        ]

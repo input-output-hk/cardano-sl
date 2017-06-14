@@ -67,9 +67,6 @@ import           Pos.Wallet                 (WalletMode, addSecretKey, getBalanc
 import           Pos.Wallet.Light           (LightWalletMode, WalletParams (..),
                                              runWalletStaticPeers)
 import           Pos.WorkMode               (RealMode)
-#ifdef WITH_WEB
-import           Pos.Wallet.Light           (walletServeWebLite, walletServerOuts)
-#endif
 
 import           Command                    (Command (..), parseCommand)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
@@ -350,10 +347,9 @@ main = do
             plugins = first pure $ case woAction of
                 Repl    -> worker runCmdOuts $ runWalletRepl opts
                 Cmd cmd -> worker runCmdOuts $ runWalletCmd opts cmd
-#ifdef WITH_WEB
-                Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
-                    walletServeWebLite sendActions webDaedalusDbPath False webPort
-#endif
+                Serve __webPort __webDaedalusDbPath -> error "light wallet server is disabled"
+                -- Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
+                --     walletServeWebLite sendActions webDaedalusDbPath False webPort
 
         case CLI.sscAlgo woCommonArgs of
             GodTossingAlgo -> do

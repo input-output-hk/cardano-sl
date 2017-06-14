@@ -24,7 +24,7 @@ module Pos.Wallet.Web.State.State
        , getWalletAddresses
        , doesWAddressExist
        , getTxMeta
-       , getAccountHistory
+       , getWalletTxHistory
        , getUpdates
        , getNextUpdate
        , getHistoryCache
@@ -40,8 +40,8 @@ module Pos.Wallet.Web.State.State
        , setWalletMeta
        , setWalletPassLU
        , setWalletSyncTip
-       , setAccountTransactionMeta
-       , setAccountHistory
+       , setWalletTxMeta
+       , setWalletTxHistory
        , addOnlyNewTxMeta
        , removeWallet
        , removeAccount
@@ -130,8 +130,8 @@ getProfile = queryDisk A.GetProfile
 getTxMeta :: WebWalletModeDB m => CId Wal -> CTxId -> m (Maybe CTxMeta)
 getTxMeta cWalId = queryDisk . A.GetTxMeta cWalId
 
-getAccountHistory :: WebWalletModeDB m => AccountId -> m (Maybe [CTxMeta])
-getAccountHistory = queryDisk . A.GetAccountHistory
+getWalletTxHistory :: WebWalletModeDB m => CId Wal -> m (Maybe [CTxMeta])
+getWalletTxHistory = queryDisk . A.GetWalletTxHistory
 
 getUpdates :: WebWalletModeDB m => m [CUpdateInfo]
 getUpdates = queryDisk A.GetUpdates
@@ -169,11 +169,11 @@ setWalletSyncTip cWalId = updateDisk . A.SetWalletSyncTip cWalId
 setProfile :: WebWalletModeDB m => CProfile -> m ()
 setProfile = updateDisk . A.SetProfile
 
-setAccountTransactionMeta :: WebWalletModeDB m => AccountId -> CTxId -> CTxMeta -> m ()
-setAccountTransactionMeta accId cTxId = updateDisk . A.SetAccountTransactionMeta accId cTxId
+setWalletTxMeta :: WebWalletModeDB m => CId Wal -> CTxId -> CTxMeta -> m ()
+setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId
 
-setAccountHistory :: WebWalletModeDB m => AccountId -> [(CTxId, CTxMeta)] -> m ()
-setAccountHistory accId = updateDisk . A.SetAccountHistory accId
+setWalletTxHistory :: WebWalletModeDB m => CId Wal -> [(CTxId, CTxMeta)] -> m ()
+setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
 
 addOnlyNewTxMeta :: WebWalletModeDB m => CId Wal -> CTxId -> CTxMeta -> m ()
 addOnlyNewTxMeta cWalId cTxId = updateDisk . A.AddOnlyNewTxMeta cWalId cTxId

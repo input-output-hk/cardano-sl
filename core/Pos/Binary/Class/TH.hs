@@ -118,6 +118,7 @@ deriveSimpleBi headTy constrs = do
     isUsed (Unused _) = False
     isUsed _          = True
 
+    -- CSL-1212: this should take string as the first parameter, not name
     appendName :: Name -> Name -> Name
     appendName a b = mkName $ show a <> show b
 
@@ -202,10 +203,10 @@ deriveSimpleBi headTy constrs = do
             map (varE . (szn `appendName`)) names
 
     -- Generate the following code:
-    -- (c0f0, c0f1, c1f0) -> VarSize $ \x -> 1 +
-    --    case x of
-    --        Bar {..} -> getSizeWith c0f0 f0 + getSizeWith c0f1 f1
-    --        Baz {..} -> getSizeWith c1f0 f0
+    -- (c0f0, c0f1, c1f0) -> VarSize $ \val -> 1 +
+    --    case val of
+    --        Bar _ _ -> getSizeWith c0f0 (f0 val) + getSizeWith c0f1 (f1 val)
+    --        Baz _   -> getSizeWith c1f0 (f0 val)
     matchVarSize :: MatchQ
     matchVarSize = do
         let flatUsedFields = prependPrefToFields shortNames
@@ -216,14 +217,18 @@ deriveSimpleBi headTy constrs = do
                                           (zipWith3 matchVarCons shortNames numOfFields filteredConstrs)) |])
               []
 
+    -- CSL-1212: banish 'valName' and instead generate something like
+    -- "x@Bar{} -> ..."
+
     -- Generate the following code:
-    -- Bar _ _ _ -> getSizeWith c0field1 (field1 val) + getSizeWith c0field2 (field2 val)
+    -- Bar _ _ -> getSizeWith c0f0 (field1 val) + getSizeWith c0f1 (field2 val)
     matchVarCons :: Name -> Int -> Cons -> MatchQ
     matchVarCons _ _ (Cons cName [])  = match (conP cName []) (normalB [| 0 |]) []
     matchVarCons shortName num (Cons cName (map fName -> cFields)) = do
         let wilds = replicate num wildP
         match (conP cName wilds) body []
       where
+        -- CSL-1212: add some TH util for doing such folds
         body = normalB $
             foldl1 (\l r -> [| $(l) + $(r) |]) $
             map (\fn -> [| getSizeWith $(varE (shortName `appendName` fn)) $(appE (varE fn) (varE valName)) |]) cFields

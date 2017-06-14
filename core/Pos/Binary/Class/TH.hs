@@ -9,6 +9,7 @@ module Pos.Binary.Class.TH
        ) where
 
 import           Universum
+import           Unsafe                (unsafeTail)
 
 import           Data.Default          (def)
 import           Data.List             (notElem, nubBy, zipWith3)
@@ -119,10 +120,6 @@ deriveSimpleBi headTy constrs = do
 
     appendName :: Name -> Name -> Name
     appendName a b = mkName $ show a <> show b
-
-    unsafeTail :: [a] -> [a] -- velosiped one more time
-    unsafeTail []     = error "tail: empty list"
-    unsafeTail (_:xs) = xs
 
     prependPrefToFields :: [Name] -> [Name]
     prependPrefToFields prefixes =

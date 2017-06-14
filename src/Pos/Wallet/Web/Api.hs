@@ -31,7 +31,7 @@ module Pos.Wallet.Web.Api
        , DeleteAccount
        , NewAccount
 
-       , NewWAddress
+       , NewAddress
 
        , IsValidAddress
 
@@ -70,7 +70,7 @@ import           Pos.Util.Servant           (CCapture, CQueryParam, CReqBody,
                                              ModifiesApiRes (..), ReportDecodeError (..),
                                              VerbMod)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
-                                             CAccountMeta, CAddress, CElectronCrashReport,
+                                             CAccountMeta, CWalletMeta, CAddress, CElectronCrashReport,
                                              CId, CInitialized, CPaperVendWalletRedeem,
                                              CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
                                              CUpdateInfo, CWallet, CWalletInit,
@@ -125,6 +125,12 @@ type NewWallet =
     :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
     :> WRes Post CWallet
+
+type UpdateWallet =
+       "wallets"
+    :> Capture "walletId" (CId Wal)
+    :> ReqBody '[JSON] CWalletMeta
+    :> WRes Put CWallet
 
 type RestoreWallet =
        "wallets"
@@ -195,7 +201,7 @@ type DeleteAccount =
 -- Wallet addresses
 -------------------------------------------------------------------------
 
-type NewWAddress =
+type NewAddress =
        "addresses"
     :> CQueryParam "passphrase" CPassPhrase
     :> CReqBody '[JSON] CAccountId
@@ -350,6 +356,8 @@ type WalletApi = ApiPrefix :> (
     :<|>
      NewWallet
     :<|>
+     UpdateWallet
+    :<|>
      RestoreWallet
     :<|>
      RenameWallet
@@ -376,7 +384,7 @@ type WalletApi = ApiPrefix :> (
      -------------------------------------------------------------------------
      -- Walllet addresses
      -------------------------------------------------------------------------
-     NewWAddress
+     NewAddress
     :<|>
      -------------------------------------------------------------------------
      -- Addresses

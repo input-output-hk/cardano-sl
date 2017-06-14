@@ -7,8 +7,7 @@ module Pos.Binary.GodTossing.Types () where
 import           Universum
 
 import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..),
-                                                   appendField, deriveSimpleBi, label,
-                                                   putField)
+                                                   deriveSimpleBi, label, putField)
 import           Pos.Core.Types                   (EpochIndex)
 import           Pos.Ssc.GodTossing.Core          (CommitmentsMap, Opening, OpeningsMap,
                                                    SharesMap, SignedCommitment,
@@ -20,12 +19,12 @@ import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 
 -- rewrite on deriveSimpleBi
 instance Bi VssCertData where
-    sizeNPut = putField lastKnownEoS
-        `appendField` certs
-        `appendField` whenInsMap
-        `appendField` whenInsSet
-        `appendField` whenExpire
-        `appendField` expiredCerts
+    sizeNPut = putField lastKnownEoS <>
+               putField certs <>
+               putField whenInsMap <>
+               putField whenInsSet <>
+               putField whenExpire <>
+               putField expiredCerts
     get = label "VssCertData" $
         VssCertData <$> get <*> get <*> get <*> get <*> get <*> get
 

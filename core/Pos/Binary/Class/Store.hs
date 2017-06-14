@@ -10,8 +10,6 @@ module Pos.Binary.Class.Store
        (
          putConst
        , putField
-       , appendConst
-       , appendField
        , convertToSizeNPut
        -- * Store re-exports
        , Size(..)
@@ -89,14 +87,6 @@ putConst x = (ConstSize (getSize x), \_ -> put x)
 putField :: Bi x => (a -> x) -> (Size a, a -> Poke ())
 putField f = (VarSize $ \a -> getSize (f a), put . f)
 -- [CSL-1122] This should use 'convertSize'
-
--- | Yet another helper for const size object.
-appendConst :: Bi x => (Size a, a -> Poke ()) -> x -> (Size a, a -> Poke ())
-appendConst a x = a <> putConst x
-
--- | Yet another helper for field of datatype.
-appendField :: Bi x => (Size a, a -> Poke ()) -> (a -> x) -> (Size a, a -> Poke ())
-appendField a f = a <> putField f
 
 ----------------------------------------------------------------------------
 -- Helpers to implement @size@

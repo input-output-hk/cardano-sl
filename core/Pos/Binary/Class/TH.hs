@@ -5,7 +5,7 @@
 module Pos.Binary.Class.TH
        ( deriveSimpleBi
        , Cons (..)
-       , Field (..)
+       , Field (Field)
        ) where
 
 import           Universum

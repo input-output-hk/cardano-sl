@@ -8,8 +8,8 @@ module Pos.Binary.Update
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..), PokeWithSize,
-                                          Size (..), appendField, combineSize,
-                                          convertSize, convertToSizeNPut, deriveSimpleBi,
+                                          Size (..), combineSize, convertSize,
+                                          convertToSizeNPut, deriveSimpleBi,
                                           getAsciiString1b, getSize, getWord8, label,
                                           pokeWithSize, putAsciiString1b, putConst,
                                           putField, putWord8, putWord8S,
@@ -32,10 +32,11 @@ instance Bi U.SystemTag where
         U.mkSystemTag . toText =<< getAsciiString1b "SystemTag" U.systemTagMaxLength
 
 instance Bi U.UpdateVote where
-    sizeNPut = putField U.uvKey
-        `appendField` U.uvProposalId
-        `appendField` U.uvDecision
-        `appendField` U.uvSignature
+    sizeNPut =
+        putField U.uvKey <>
+        putField U.uvProposalId <>
+        putField U.uvDecision <>
+        putField U.uvSignature
     get = label "UpdateVote" $ do
         uvKey <- get
         uvProposalId <- get
@@ -51,21 +52,23 @@ instance Bi U.UpdateVote where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.UpdateData where
-    sizeNPut = putField U.udAppDiffHash
-        `appendField` U.udPkgHash
-        `appendField` U.udUpdaterHash
-        `appendField` U.udMetadataHash
+    sizeNPut =
+        putField U.udAppDiffHash <>
+        putField U.udPkgHash <>
+        putField U.udUpdaterHash <>
+        putField U.udMetadataHash
     get = label "UpdateData" $ U.UpdateData <$> get <*> get <*> get <*> get
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.UpdateProposal where
-    sizeNPut = putField U.upBlockVersion
-        `appendField` U.upBlockVersionData
-        `appendField` U.upSoftwareVersion
-        `appendField` U.upData
-        `appendField` U.upAttributes
-        `appendField` U.upFrom
-        `appendField` U.upSignature
+    sizeNPut =
+        putField U.upBlockVersion <>
+        putField U.upBlockVersionData <>
+        putField U.upSoftwareVersion <>
+        putField U.upData <>
+        putField U.upAttributes <>
+        putField U.upFrom <>
+        putField U.upSignature
     get = label "UpdateProposal" $ do
         d <- get
         r <- get
@@ -78,11 +81,12 @@ instance Bi U.UpdateProposal where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.UpdateProposalToSign where
-    sizeNPut = putField U.upsBV
-        `appendField` U.upsBVD
-        `appendField` U.upsSV
-        `appendField` U.upsData
-        `appendField` U.upsAttr
+    sizeNPut =
+        putField U.upsBV <>
+        putField U.upsBVD <>
+        putField U.upsSV <>
+        putField U.upsData <>
+        putField U.upsAttr
     get = label "UpdateProposalToSign" $
           U.UpdateProposalToSign
             <$> get
@@ -117,12 +121,12 @@ instance Bi a => Bi (U.PrevValue a) where
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.USUndo where
     sizeNPut =
-        putField U.unChangedBV
-        `appendField` U.unLastAdoptedBV
-        `appendField` U.unChangedProps
-        `appendField` U.unChangedSV
-        `appendField` U.unChangedConfProps
-        `appendField` U.unPrevProposers
+        putField U.unChangedBV <>
+        putField U.unLastAdoptedBV <>
+        putField U.unChangedProps <>
+        putField U.unChangedSV <>
+        putField U.unChangedConfProps <>
+        putField U.unPrevProposers
     get = label "USUndo" $ do
         unChangedBV <- get
         unLastAdoptedBV <- get
@@ -143,12 +147,13 @@ deriveSimpleBi ''U.DpsExtra [
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.UndecidedProposalState where
-    sizeNPut = putField U.upsVotes
-        `appendField` U.upsProposal
-        `appendField` U.upsSlot
-        `appendField` U.upsPositiveStake
-        `appendField` U.upsNegativeStake
-        `appendField` U.upsExtra
+    sizeNPut =
+        putField U.upsVotes <>
+        putField U.upsProposal <>
+        putField U.upsSlot <>
+        putField U.upsPositiveStake <>
+        putField U.upsNegativeStake <>
+        putField U.upsExtra
     get = label "UndecidedProposalState" $ do
         upsVotes <- get
         upsProposal <- get
@@ -160,10 +165,11 @@ instance Bi U.UndecidedProposalState where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.DecidedProposalState where
-    sizeNPut = putField U.dpsDecision
-        `appendField` U.dpsUndecided
-        `appendField` U.dpsDifficulty
-        `appendField` U.dpsExtra
+    sizeNPut =
+        putField U.dpsDecision <>
+        putField U.dpsUndecided <>
+        putField U.dpsDifficulty <>
+        putField U.dpsExtra
     get = label "DecidedProposalState" $ do
         dpsDecision <- get
         dpsUndecided <- get
@@ -171,6 +177,7 @@ instance Bi U.DecidedProposalState where
         dpsExtra <- get
         return $ U.DecidedProposalState {..}
 
+-- TODO rewrite on deriveSimpleBi
 instance Bi U.ProposalState where
     size = VarSize $ \case
         U.PSUndecided us -> 1 + getSize us
@@ -184,15 +191,15 @@ instance Bi U.ProposalState where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.ConfirmedProposalState where
-    sizeNPut = putField U.cpsUpdateProposal
-        `appendField` U.cpsImplicit
-        `appendField` U.cpsProposed
-        `appendField` U.cpsDecided
-        `appendField` U.cpsConfirmed
-        `appendField` U.cpsAdopted
-        `appendField` U.cpsVotes
-        `appendField` U.cpsPositiveStake
-        `appendField` U.cpsNegativeStake
+    sizeNPut =
+        putField U.cpsUpdateProposal <>
+        putField U.cpsImplicit <>
+        putField U.cpsDecided <>
+        putField U.cpsConfirmed <>
+        putField U.cpsAdopted <>
+        putField U.cpsVotes <>
+        putField U.cpsPositiveStake <>
+        putField U.cpsNegativeStake
     get = label "ConfirmedProposalState" $ do
         cpsUpdateProposal <- get
         cpsImplicit <- get
@@ -207,12 +214,13 @@ instance Bi U.ConfirmedProposalState where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.BlockVersionState where
-    sizeNPut = putField U.bvsData
-       `appendField` U.bvsIsConfirmed
-       `appendField` U.bvsIssuersStable
-       `appendField` U.bvsIssuersUnstable
-       `appendField` U.bvsLastBlockStable
-       `appendField` U.bvsLastBlockUnstable
+    sizeNPut =
+        putField U.bvsData <>
+        putField U.bvsIsConfirmed <>
+        putField U.bvsIssuersStable <>
+        putField U.bvsIssuersUnstable <>
+        putField U.bvsLastBlockStable <>
+        putField U.bvsLastBlockUnstable
     get = label "BlockVersionState" $ do
         bvsData <- get
         bvsIsConfirmed <- get

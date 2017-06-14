@@ -49,44 +49,46 @@ module Pos.Wallet.Web.ClientTypes
       , txIdToCTxId
       , txContainsTitle
       , toCUpdateInfo
-      , walletAddrMetaToAccount
+      , addrMetaToAccount
       ) where
 
 import           Universum
 
-import           Control.Arrow          ((&&&))
-import qualified Data.ByteString.Lazy   as LBS
-import           Data.Default           (Default, def)
-import           Data.Hashable          (Hashable (..))
-import qualified Data.Set               as S
-import           Data.Text              (Text, isInfixOf, splitOn, toLower)
-import           Data.Text.Buildable    (build)
-import           Data.Time.Clock.POSIX  (POSIXTime)
-import           Data.Typeable          (Typeable)
-import           Formatting             (bprint, sformat, (%))
-import qualified Formatting             as F
+import           Control.Arrow             ((&&&))
+import           Control.Monad.Error.Class (throwError)
+import qualified Data.ByteString.Lazy      as LBS
+import           Data.Default              (Default, def)
+import           Data.Hashable             (Hashable (..))
+import qualified Data.Set                  as S
+import           Data.Text                 (Text, isInfixOf, splitOn, toLower)
+import           Data.Text.Buildable       (build)
+import           Data.Time.Clock.POSIX     (POSIXTime)
+import           Data.Typeable             (Typeable)
+import           Formatting                (bprint, sformat, (%))
+import qualified Formatting                as F
 import qualified Prelude
-import qualified Serokell.Util.Base16   as Base16
-import           Servant.Multipart      (FileData, FromMultipart (..), lookupFile,
-                                         lookupInput)
+import qualified Serokell.Util.Base16      as Base16
+import           Servant.Multipart         (FileData, FromMultipart (..), lookupFile,
+                                            lookupInput)
 
-import           Pos.Aeson.Types        ()
-import           Pos.Binary.Class       (decodeFull, encodeStrict)
-import           Pos.Client.Txp.History (TxHistoryEntry (..))
-import           Pos.Core.Coin          (mkCoin)
-import           Pos.Core.Types         (ScriptVersion)
-import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, emptyPassphrase,
-                                         encToPublic, hashHexF)
-import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut, txOutAddress, txOutValue)
-import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
-                                         Coin, SoftwareVersion, decodeTextAddress,
-                                         makePubKeyAddress, sumCoins, unsafeGetCoin,
-                                         unsafeIntegerToCoin)
-import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
-                                         UpdateProposal (..), isPositiveVote)
-import           Pos.Update.Poll        (ConfirmedProposalState (..))
-import           Pos.Util.BackupPhrase  (BackupPhrase)
-import           Pos.Util.Servant       (FromCType (..), ToCType (..))
+import           Pos.Aeson.Types           ()
+import           Pos.Binary.Class          (decodeFull, encodeStrict)
+import           Pos.Client.Txp.History    (TxHistoryEntry (..))
+import           Pos.Core.Coin             (mkCoin)
+import           Pos.Core.Types            (ScriptVersion)
+import           Pos.Crypto                (EncryptedSecretKey, PassPhrase,
+                                            emptyPassphrase, encToPublic, hashHexF)
+import           Pos.Txp.Core.Types        (Tx (..), TxId, TxOut, txOutAddress,
+                                            txOutValue)
+import           Pos.Types                 (Address (..), BlockVersion, ChainDifficulty,
+                                            Coin, SoftwareVersion, decodeTextAddress,
+                                            makePubKeyAddress, sumCoins, unsafeGetCoin,
+                                            unsafeIntegerToCoin)
+import           Pos.Update.Core           (BlockVersionData (..), StakeholderVotes,
+                                            UpdateProposal (..), isPositiveVote)
+import           Pos.Update.Poll           (ConfirmedProposalState (..))
+import           Pos.Util.BackupPhrase     (BackupPhrase)
+import           Pos.Util.Servant          (FromCType (..), ToCType (..))
 
 
 data SyncProgress = SyncProgress
@@ -159,27 +161,50 @@ txIdToCTxId = mkCTxId . sformat hashHexF
 convertTxOutputs :: [TxOut] -> [(CId w, CCoin)]
 convertTxOutputs = map (addressToCId . txOutAddress &&& mkCCoin . txOutValue)
 
+-- | Get all addresses of source account of given transaction.
+getLocalAccountAddrs
+    :: [CWAddressMeta]  -- ^ all addresses in wallet
+    -> [CId Addr]       -- ^ Input addresses of transaction
+    -> Either Text [CId Addr]
+getLocalAccountAddrs walAddrMetas inputAddrs = do
+    someInputAddr <-
+        head inputAddrs `whenNothing`
+        throwError "No input addresses in transaction"
+    someSrcAddrMeta <-
+        find ((== someInputAddr) . cwamId) walAddrMetas `whenNothing`
+        throwError "Address doesn't belong to any wallet"
+    let srcAccount =
+            addrMetaToAccount someSrcAddrMeta
+    return $
+        map cwamId $ filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
+
 mkCTxs
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
-    -> [CId Addr]         -- ^ Addresses of wallet
-    -> CTxs
-mkCTxs diff THEntry {..} meta wAddrs = CTxs {..}
+    -> [CWAddressMeta]    -- ^ Addresses of wallet
+    -> Either Text CTxs
+mkCTxs diff THEntry {..} meta wAddrMetas = do
+    localAddrsSet <- S.fromList <$> getLocalAccountAddrs wAddrMetas ctInputAddrs
+    let isLocalAddr =
+            flip S.member localAddrsSet . addressToCId . txOutAddress
+        ctAmount =
+            mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
+            filter (not . isLocalAddr) outputs
+        mkCTx isOutgoing ctAddrs = do
+            guard . not . null $ wAddrsSet `S.intersection` S.fromList ctAddrs
+            return CTx {ctIsOutgoing = isOutgoing, ..}
+        ctsOutgoing = mkCTx True ctInputAddrs
+        ctsIncoming = mkCTx False ctOutputAddrs
+    return CTxs {..}
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
-    ctAmount = mkCCoin . unsafeIntegerToCoin . sumCoins $ map txOutValue outputs
-    ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
-    ctMeta = meta
     ctInputAddrs = map addressToCId _thInputAddrs
     ctOutputAddrs = map addressToCId _thOutputAddrs
-    wAddrsSet = S.fromList wAddrs
-    mkCTx isOutgoing ctAddrs = do
-        guard . not . null $ wAddrsSet `S.intersection` S.fromList ctAddrs
-        return CTx { ctIsOutgoing = isOutgoing, .. }
-    ctsOutgoing = mkCTx True ctInputAddrs
-    ctsIncoming = mkCTx False ctOutputAddrs
+    ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
+    ctMeta = meta
+    wAddrsSet = S.fromList $ map cwamId wAddrMetas
 
 newtype CPassPhrase = CPassPhrase Text
     deriving (Eq, Generic)
@@ -255,8 +280,8 @@ instance Buildable CWAddressMeta where
         bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
         cwamWId cwamWalletIndex cwamAccountIndex cwamId
 
-walletAddrMetaToAccount :: CWAddressMeta -> AccountId
-walletAddrMetaToAccount CWAddressMeta{..} = AccountId
+addrMetaToAccount :: CWAddressMeta -> AccountId
+addrMetaToAccount CWAddressMeta{..} = AccountId
     { aiWId  = cwamWId
     , aiIndex = cwamWalletIndex
     }

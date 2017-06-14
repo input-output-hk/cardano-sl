@@ -64,7 +64,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (aiWId), Addr, CAccountMe
                                              CHash, CId, CProfile, CTxId, CTxMeta,
                                              CUpdateInfo, CWAddressMeta (..),
                                              CWalletAssurance, CWalletMeta, PassPhraseLU,
-                                             Wal, walletAddrMetaToAccount)
+                                             Wal, addrMetaToAccount)
 
 type TransactionHistory = HashMap CTxId CTxMeta
 
@@ -161,7 +161,7 @@ getAccountWAddresses mode wAddr = do
     withAccLookupMode mode (fetch aiAccounts) (fetch aiRemovedAccounts)
 
 doesWAddressExist :: AddressLookupMode -> CWAddressMeta -> Query Bool
-doesWAddressExist mode accAddr@(walletAddrMetaToAccount -> wAddr) = do
+doesWAddressExist mode accAddr@(addrMetaToAccount -> wAddr) = do
     let exists :: Lens' AccountInfo CAddresses -> Query Any
         exists which =
             Any . isJust <$>
@@ -192,12 +192,12 @@ createWallet cAddr wSMeta passLU = wsWalletInfos . at cAddr ?= WalletInfo wSMeta
 
 addWAddress :: CWAddressMeta -> Update ()
 addWAddress addr@CWAddressMeta{..} = do
-    wsAccountInfos . ix (walletAddrMetaToAccount addr) . aiAccounts . at addr ?= ()
+    wsAccountInfos . ix (addrMetaToAccount addr) . aiAccounts . at addr ?= ()
 
 -- see also 'removeWAddress'
 addRemovedAccount :: CWAddressMeta -> Update ()
 addRemovedAccount addr@CWAddressMeta{..} = do
-    let acc = walletAddrMetaToAccount addr
+    let acc = addrMetaToAccount addr
     wsAccountInfos . ix acc . aiAccounts . at addr .= Nothing
     wsAccountInfos . ix acc . aiRemovedAccounts . at addr ?= ()
 
@@ -238,13 +238,13 @@ removeAccount cAddr = wsAccountInfos . at cAddr .= Nothing
 
 -- see also 'addRemovedAccount'
 removeWAddress :: CWAddressMeta -> Update ()
-removeWAddress accAddr@(walletAddrMetaToAccount -> wAddr) = do
+removeWAddress accAddr@(addrMetaToAccount -> wAddr) = do
     existed <- wsAccountInfos . ix wAddr . aiAccounts . at accAddr <<.= Nothing
     whenJust existed $ \_ ->
         wsAccountInfos . ix wAddr . aiRemovedAccounts . at accAddr ?= ()
 
 totallyRemoveWAddress :: CWAddressMeta -> Update ()
-totallyRemoveWAddress accAddr@(walletAddrMetaToAccount -> wAddr) = do
+totallyRemoveWAddress accAddr@(addrMetaToAccount -> wAddr) = do
     wsAccountInfos . ix wAddr . aiAccounts . at accAddr .= Nothing
     wsAccountInfos . ix wAddr . aiRemovedAccounts . at accAddr .= Nothing
 

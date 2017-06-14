@@ -36,7 +36,7 @@ storeDecoder bs = Partial $ \mbs -> case mbs of
     Just bs' ->
         let (front, back) = BS.splitAt 4 (BS.append bs bs')
         in  if BS.length front == 4
-            then storeDecoderBody (NT.decodeWord32 front) BS.empty (Just back)
+            then storeDecoderBody (NT.decodeWord32 front) [] (Just back)
             -- In this case, back is empty and front has length strictly less
             -- than 4, so we have to wait for more input.
             else storeDecoder front
@@ -44,18 +44,21 @@ storeDecoder bs = Partial $ \mbs -> case mbs of
 storeDecoderBody
     :: ( Store.Store t )
     => Word32
-    -> BS.ByteString
+    -> [BS.ByteString]
     -> Maybe BS.ByteString
     -> Decoder t
 storeDecoderBody !remaining !acc !mbs = case mbs of
-    Nothing -> Fail BS.empty (fromIntegral (BS.length acc)) "Unexpected end of input (body)"
+    Nothing -> Fail BS.empty (fromIntegral (BS.length (accumulate acc))) "Unexpected end of input (body)"
     Just bs ->
         let (front, back) = BS.splitAt (fromIntegral remaining) bs
             taken = fromIntegral (BS.length front)
-            acc' = BS.append acc front
+            acc' = front : acc
             remaining' = remaining - taken
         in  if taken < remaining
             then Partial $ storeDecoderBody remaining' acc'
-            else case Store.decode acc' of
-                Left ex -> Fail back (fromIntegral (BS.length acc')) (Store.peekExMessage ex)
-                Right t -> Done back (fromIntegral (BS.length acc')) t
+            else let body = accumulate acc' in case Store.decode body of
+                Left ex -> Fail back (fromIntegral (BS.length body)) (Store.peekExMessage ex)
+                Right t -> Done back (fromIntegral (BS.length body)) t
+  where
+    accumulate :: [BS.ByteString] -> BS.ByteString
+    accumulate = BS.concat . reverse

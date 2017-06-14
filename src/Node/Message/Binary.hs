@@ -19,16 +19,15 @@ import           Node.Message.Class            (Serializable (..))
 
 data BinaryP = BinaryP
 
-binaryPackMsg :: Bin.Binary t => t -> LBS.ByteString
+binaryPackMsg :: Bin.Put -> LBS.ByteString
 binaryPackMsg =
     BS.toLazyByteStringWith
         (BS.untrimmedStrategy 256 4096)
         LBS.empty
     . Bin.execPut
-    . Bin.put
 
-binaryUnpackMsg :: Bin.Binary t => Decoder t
-binaryUnpackMsg = fromBinaryDecoder (Bin.runGetIncremental Bin.get)
+binaryUnpackMsg :: Bin.Get t -> Decoder t
+binaryUnpackMsg get = fromBinaryDecoder (Bin.runGetIncremental get)
 
 fromBinaryDecoder :: Bin.Decoder t -> Decoder t
 fromBinaryDecoder (Bin.Done bs bo t) = Done bs bo t
@@ -42,5 +41,5 @@ fromBinaryDecoder (Bin.Partial k) = Partial (fromBinaryDecoder . k)
 --
 -- with default binary packing/unpacking functions.
 instance Bin.Binary t => Serializable BinaryP t where
-    packMsg _ = binaryPackMsg
-    unpackMsg _ = binaryUnpackMsg
+    packMsg _ = binaryPackMsg . Bin.put
+    unpackMsg _ = binaryUnpackMsg Bin.get

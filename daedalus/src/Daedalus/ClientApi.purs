@@ -525,6 +525,29 @@ searchHistory = mkEffFn4 \wId search skip limit -> fromAff <<< map encodeJson $
     (Just skip)
     (Just limit)
 
+-- TODO: this is a workaround https://issues.serokell.io/issue/CSM-300
+getHistoryByWallet :: forall eff. EffFn3 (ajax :: AJAX | eff) String Int Int (Promise Json)
+getHistoryByWallet = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $
+    B.searchHistory
+    (Just $ mkCId wId)
+    Nothing
+    Nothing
+    Nothing
+    (Just skip)
+    (Just limit)
+
+-- TODO: this is a workaround https://issues.serokell.io/issue/CSM-300
+searchHistoryByWallet :: forall eff. EffFn4 (ajax :: AJAX | eff) String String Int Int (Promise Json)
+searchHistoryByWallet = mkEffFn4 \wId search skip limit -> fromAff <<< map encodeJson $
+    B.searchHistory
+    (Just $ mkCId wId)
+    Nothing
+    Nothing
+    (Just search)
+    (Just skip)
+    (Just limit)
+
+
 -- | Gets transactions that match some search criteria
 -- Arguments: wallet object/id, narrow the search to account hash/id, search string, skip, limit
 -- Returns a pair of transacts retrieved from the history and total number of transactions in specified wallet/account

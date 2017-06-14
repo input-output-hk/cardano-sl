@@ -26,7 +26,7 @@ import qualified Pos.Block.Pure           as T
 import           Pos.Constants            (epochSlots)
 import qualified Pos.Core                 as Core
 import           Pos.Crypto               (ProxySecretKey, PublicKey, SecretKey,
-                                           createProxySecretKey, toPublic)
+                                           createProxySecretKey, hash, toPublic)
 import           Pos.Data.Attributes      (Attributes (..), mkAttributes)
 import           Pos.Delegation.Arbitrary (genDlgPayload)
 import           Pos.Ssc.Arbitrary        (SscPayloadDependsOnSlot (..))
@@ -214,14 +214,19 @@ instance ( Arbitrary $ SscPayload ssc
         slot <- arbitrary
         BodyDependsOnSlot {..} <- arbitrary
         body <- genBodyDepsOnSlot slot
+        extraBodyData <- arbitrary
+        extraHeaderData <- T.MainExtraHeaderData
+            <$> arbitrary
+            <*> arbitrary
+            <*> arbitrary
+            <*> pure (hash extraBodyData)
         header <-
             T.mkMainHeader <$> arbitrary <*> pure slot <*> arbitrary <*>
             pure Nothing <*>
             pure body <*>
-            arbitrary
-        leftToPanic "arbitrary @MainBlock: " .
-            T.recreateGenericBlock header body <$>
-            arbitrary
+            pure extraHeaderData
+        return $ leftToPanic "arbitrary @MainBlock: " $
+            T.recreateGenericBlock header body extraBodyData
 
 ------------------------------------------------------------------------------------------
 -- Block network types

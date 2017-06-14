@@ -4,7 +4,7 @@ packages:
   - '.'
   - location:
       git: https://github.com/serokell/kademlia.git
-      commit: b4b0a6774368b9bbea96d7a03a1a451b6fc3cfea
+      commit: 92043c7e80e93aeb08212e8ce42c783edd9b2f80
     extra-dep: true
   - location:
       git: https://github.com/serokell/network-transport

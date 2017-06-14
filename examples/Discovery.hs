@@ -81,17 +81,18 @@ makeNode :: Transport Production
          -> Production (ThreadId Production)
 makeNode transport i = do
     let port = 3000 + i
-    let host = "127.0.0.1"
-    let anId = makeId i
-    let initialPeer =
+        host = "127.0.0.1"
+        addr = (host, fromIntegral port)
+        anId = makeId i
+        initialPeer =
             if i == 0
             -- First node uses itself as initial peer, else it'll panic because
             -- its initial peer appears to be down.
-            then K.Node (K.Peer host (fromIntegral port)) anId
-            else K.Node (K.Peer host (fromIntegral (port - 1))) (makeId (i - 1))
-    let kademliaConfig = K.KademliaConfiguration host (fromIntegral port) anId
-    let prng1 = mkStdGen (2 * i)
-    let prng2 = mkStdGen ((2 * i) + 1)
+            then K.Peer host (fromIntegral port)
+            else K.Peer host (fromIntegral (port - 1))
+        kademliaConfig = K.KademliaConfiguration addr addr anId
+        prng1 = mkStdGen (2 * i)
+        prng2 = mkStdGen ((2 * i) + 1)
     liftIO . putStrLn $ "Starting node " ++ show i
     fork $ node (simpleNodeEndPoint transport) (const noReceiveDelay) prng1 BinaryP (B8.pack "my peer data!") defaultNodeEnvironment $ \node' ->
         NodeAction (listeners . nodeId $ node') $ \sactions -> do

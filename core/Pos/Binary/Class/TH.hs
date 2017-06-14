@@ -100,8 +100,8 @@ deriveSimpleBi headTy constrs = do
     allUsedFields = map (\Cons{..} -> map (\Field{..} -> (fName, fType)) cFields) filteredConstrs
 
     -- Useful variables for @size@, @put@, @get@ --
-    tagType :: Name
-    tagType = ''Word8
+    tagType :: TypeQ
+    tagType = [t|Word8|]
 
     tagSize :: Int
     tagSize = 1
@@ -143,7 +143,7 @@ deriveSimpleBi headTy constrs = do
                 doE (map putField cFields)
 
     putTag :: Int -> Q Stmt
-    putTag ix = noBindS [| poke (ix :: $(conT tagType)) |]
+    putTag ix = noBindS [| poke (ix :: $tagType) |]
 
     putField :: Field -> Q Stmt
     putField Field{..}  = noBindS [| Bi.put $(appE (varE fName) (varE valName)) |]
@@ -244,7 +244,7 @@ deriveSimpleBi headTy constrs = do
             doE
                 [ bindS (varP tagName) [| Bi.get |]
                 , noBindS (caseE
-                                (sigE (varE tagName) (conT tagType))
+                                (sigE (varE tagName) tagType)
                                 (map getMatch (zip [0..] constrs) ++ [mismatchConstr]))
                 ]
 

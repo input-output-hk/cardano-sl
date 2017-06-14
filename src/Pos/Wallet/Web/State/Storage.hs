@@ -90,12 +90,12 @@ data AccountInfo = AccountInfo
 makeLenses ''AccountInfo
 
 data WalletStorage = WalletStorage
-    { _wsWalletInfos  :: !(HashMap (CId Wal) WalletInfo)
-    , _wsAccountInfos :: !(HashMap AccountId AccountInfo)
-    , _wsProfile      :: !CProfile
-    , _wsReadyUpdates :: [CUpdateInfo]
-    , _wsTxHistory    :: !(HashMap (CId Wal) TransactionHistory)
-    , _wsHistoryCache :: !(HashMap (CId Wal) (HeaderHash, Utxo, [TxHistoryEntry]))
+    { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
+    , _wsAccountInfos    :: !(HashMap AccountId AccountInfo)
+    , _wsProfile         :: !CProfile
+    , _wsReadyUpdates    :: [CUpdateInfo]
+    , _wsTxHistory       :: !(HashMap (CId Wal) TransactionHistory)
+    , _wsHistoryCache    :: !(HashMap (CId Wal) (HeaderHash, Utxo, [TxHistoryEntry]))
     , _wsChangeAddresses :: CAddresses
     }
 

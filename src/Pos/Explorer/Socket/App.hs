@@ -50,16 +50,16 @@ import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent
                                                    notifyBlocksLastPageSubscribers,
                                                    notifyBlocksOffSubscribers,
                                                    notifyBlocksSubscribers,
-                                                   notifyTxsSubscribers, regroupBySnd,
-                                                   startSession, subscribeAddr,
-                                                   subscribeBlocks,
+                                                   notifyTxsSubscribers, startSession,
+                                                   subscribeAddr, subscribeBlocks,
                                                    subscribeBlocksLastPage,
                                                    subscribeBlocksOff, subscribeTxs,
                                                    unsubscribeAddr, unsubscribeBlocks,
                                                    unsubscribeBlocksLastPage,
                                                    unsubscribeBlocksOff, unsubscribeTxs)
 import           Pos.Explorer.Socket.Util         (emit, emitJSON, forkAccompanion, on,
-                                                   on_, runPeriodicallyUnless)
+                                                   on_, regroupBySnd,
+                                                   runPeriodicallyUnless)
 import           Pos.Explorer.Web.ClientTypes     (CTxId, cteId, tiToTxEntry)
 import           Pos.Explorer.Web.Server          (ExplorerMode, getMempoolTxs)
 
@@ -170,11 +170,11 @@ periodicPollChanges connVar closed =
 
             let allTxs = newBlockchainTxs <> newLocalTxs
             let cTxEntries = map tiToTxEntry allTxs
-            txInfo <- Exts.toList . regroupBySnd <$> mapM getTxInfo allTxs
+            txInfos <- Exts.toList . regroupBySnd <$> mapM getTxInfo allTxs
 
             -- notify abuot transactions
-            forM_ txInfo $ \(addr, cTxBrief) -> do
-                notifyAddrSubscribers addr cTxBrief
+            forM_ txInfos $ \(addr, cTxBriefs) -> do
+                notifyAddrSubscribers addr cTxBriefs
                 logDebug $ sformat ("Notified address "%addressF%" about "
                            %int%" transactions") addr (length cTxEntries)
 

@@ -86,7 +86,6 @@ packages:
 #   extra-dep: true
 
 nix:
-  enable: true
   shell-file: shell.nix
 
 extra-deps:

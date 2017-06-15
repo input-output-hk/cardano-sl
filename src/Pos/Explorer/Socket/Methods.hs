@@ -1,7 +1,6 @@
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Logic of Explorer socket-io Server.
 
@@ -32,7 +31,6 @@ module Pos.Explorer.Socket.Methods
        , addrsTouchedByTx
        , getBlockTxs
        , getTxInfo
-       , regroupBySnd
        ) where
 
 import           Control.Lens                   (at, ix, lens, non, (.=), _Just)
@@ -417,9 +415,3 @@ getTxInfo tx = do
     let ctxBrief = toTxBrief tx
     addrs <- addrsTouchedByTx (tiTx tx)
     return (ctxBrief, addrs)
-
-regroupBySnd :: forall a b. Ord b => [(a, S.Set b)] -> M.Map b [a]
-regroupBySnd info =
-    let entries = fmap swap $ concat $ fmap sequence
-                $ toList <<$>> info :: [(b, a)]
-    in  fmap ($ []) $ M.fromListWith (.) $ fmap (second $ (++) . pure) entries

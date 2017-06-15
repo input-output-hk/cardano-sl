@@ -1070,9 +1070,9 @@ importWallet
 importWallet sa passphrase (toString -> fp) = do
     secret <- rewrapToWalletError $ readUserSecret fp
     wSecret <- maybeThrow noWalletSecret (secret ^. usWalletSet)
-    wallet <- importWalletSecret emptyPassphrase wSecret
-    changeWalletPassphrase sa (cwId wallet) emptyPassphrase passphrase
-    return wallet
+    wId <- cwId <$> importWalletSecret emptyPassphrase wSecret
+    changeWalletPassphrase sa wId emptyPassphrase passphrase
+    getWallet wId
   where
     noWalletSecret =
         RequestError "This key doesn't contain HD wallet info"

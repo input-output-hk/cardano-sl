@@ -112,11 +112,11 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccoun
                                                    CWallet (..), CWalletInit (..),
                                                    CWalletMeta (..), CWalletRedeem (..),
                                                    NotifyEvent (..), SyncProgress (..),
-                                                   Wal, addressToCId, cIdToAddress,
-                                                   coinFromCCoin, encToCId, mkCCoin,
-                                                   mkCTxId, mkCTxs, toCUpdateInfo,
-                                                   txContainsTitle, txIdToCTxId,
-                                                   walletAddrMetaToAccount)
+                                                   Wal, addrMetaToAccount, addressToCId,
+                                                   cIdToAddress, coinFromCCoin, encToCId,
+                                                   mkCCoin, mkCTxId, mkCTxs,
+                                                   toCUpdateInfo, txContainsTitle,
+                                                   txIdToCTxId)
 import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
                                                    mkGenesisWalletUserSecret, wusAccounts,
@@ -399,7 +399,7 @@ getWAddress cAddr@CWAddressMeta {..} = do
     (ctxs, _) <-
         searchHistory
             Nothing
-            (Just $ walletAddrMetaToAccount cAddr)  -- just to specify addrId is not enough
+            (Just $ addrMetaToAccount cAddr)  -- just to specify addrId is not enough
             (Just cwamId)
             Nothing
     let isUsed = not (null ctxs) || balance > minBound
@@ -466,11 +466,17 @@ decodeCCoinOrFail c =
 getWalletAccountIds :: WalletWebMode m => CId Wal -> m [AccountId]
 getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getWAddressIds
 
-getWalletAddrs :: (WalletWebMode m, MonadThrow m) => CId Wal -> m [CId Addr]
-getWalletAddrs cWalId = do
-    addrs <- concatMapM (getAccountAddrsOrThrow Ever)
-        =<< getWalletAccountIds cWalId
-    pure $ map cwamId addrs
+getWalletAddrMetas
+    :: (WalletWebMode m, MonadThrow m)
+    => AddressLookupMode -> CId Wal -> m [CWAddressMeta]
+getWalletAddrMetas lookupMode cWalId =
+    concatMapM (getAccountAddrsOrThrow lookupMode) =<<
+    getWalletAccountIds cWalId
+
+getWalletAddrs
+    :: (WalletWebMode m, MonadThrow m)
+    => AddressLookupMode -> CId Wal -> m [CId Addr]
+getWalletAddrs = (cwamId <<$>>) ... getWalletAddrMetas
 
 getAccounts :: WalletWebMode m => Maybe (CId Wal) -> m [CAccount]
 getAccounts mCAddr = do
@@ -529,7 +535,7 @@ getMoneySourceAddresses (WalletMoneySource wid) =
 
 getMoneySourceAccount :: WalletWebMode m => MoneySource -> m AccountId
 getMoneySourceAccount (AddressMoneySource accAddr) =
-    return $ walletAddrMetaToAccount accAddr
+    return $ addrMetaToAccount accAddr
 getMoneySourceAccount (AccountMoneySource wAddr) = return wAddr
 getMoneySourceAccount (WalletMoneySource wid) = do
     wAddr <- (head <$> getWalletAccountIds wid) >>= maybeThrow noWallets
@@ -649,7 +655,7 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
 
 getFullWalletHistory :: WalletWebMode m => CId Wal -> m ([CTx], Word)
 getFullWalletHistory cWalId = do
-    addrs <- mapM decodeCIdOrFail =<< getWalletAddrs cWalId
+    addrs <- mapM decodeCIdOrFail =<< getWalletAddrs Ever cWalId
     cHistory <- do
         (mInit, cachedTxs) <- transCache <$> getHistoryCache cWalId
 
@@ -746,8 +752,8 @@ addHistoryTx cWalId title desc wtx@THEntry{..} = do
     let cId = txIdToCTxId _thTxId
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
-    walAddrs <- getWalletAddrs cWalId
-    return $ mkCTxs diff wtx meta' walAddrs
+    walAddrMetas <- getWalletAddrMetas Ever cWalId
+    mkCTxs diff wtx meta' walAddrMetas & either (throwM . InternalError) pure
 
 newAddress, newChangeAddress
     :: WalletWebMode m

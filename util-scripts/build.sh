@@ -135,9 +135,9 @@ else
 fi
 
 if [[ $ram == true ]]; then
-  ghc_opts="$ghc_opts -Wwarn +RTS -A2G -n4m -RTS"
+  ghc_opts="$ghc_opts -Werror +RTS -A2G -n4m -RTS"
 else
-  ghc_opts="$ghc_opts -Wwarn +RTS -A256m -n2m -RTS"
+  ghc_opts="$ghc_opts -Werror +RTS -A256m -n2m -RTS"
 fi
 
 xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'

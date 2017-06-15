@@ -601,10 +601,10 @@ getHistory = mkEffFn5 \wIdF acIdF addressIdF skip limit -> do
             (Just limit)
 
 getHistoryByAccount :: forall eff. EffFn3 (ajax :: AJAX | eff) String Int Int (Promise Json)
-getHistoryByAccount = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $
+getHistoryByAccount = mkEffFn3 \acId skip limit -> fromAff <<< map encodeJson $
     B.getHistory
     Nothing
-    (Just $ mkCAccountId wId)
+    (Just $ mkCAccountId acId)
     Nothing
     (Just skip)
     (Just limit)

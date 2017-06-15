@@ -59,7 +59,7 @@ import qualified Data.ByteString.Lazy      as LBS
 import           Data.Default              (Default, def)
 import           Data.Hashable             (Hashable (..))
 import qualified Data.Set                  as S
-import           Data.Text                 (Text, isInfixOf, splitOn, toLower)
+import           Data.Text                 (Text, splitOn)
 import           Data.Text.Buildable       (build)
 import           Data.Time.Clock.POSIX     (POSIXTime)
 import           Data.Typeable             (Typeable)

@@ -11,7 +11,7 @@ import           Universum
 
 import           Control.Monad.Catch        (Handler (..), catches, try, tryJust)
 import           Formatting                 (sformat, shown, (%))
-import           Servant.Server             (ServantErr, err500)
+import           Servant.Server             (ServantErr (..), err500)
 import           System.Wlog                (CanLog, logError, usingLoggerName)
 
 import           Pos.Constants              (isDevelopment)
@@ -38,6 +38,6 @@ catchEndpointErrors action = catchOtherError $ tryWalletError action
         , Handler $ \(SomeException e) -> do
             usingLoggerName logName $
                 logError $ sformat ("Uncaught error in wallet method: "%shown) e
-            throwM err500
+            throwM err500 { errBody = "Internal error occured: " <> show e }
         ]
     logName = "wallet-api" <> "handler"

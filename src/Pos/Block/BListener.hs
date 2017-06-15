@@ -6,6 +6,8 @@
 
 module Pos.Block.BListener
        ( MonadBListener (..)
+       , onApplyBlocksStub
+       , onRollbackBlocksStub
        , BListenerStub
        , runBListenerStub
        ) where
@@ -42,6 +44,15 @@ instance {-# OVERLAPPABLE #-}
     onApplyBlocks = lift . onApplyBlocks
     onRollbackBlocks = lift . onRollbackBlocks
 
+onApplyBlocksStub
+    :: forall ssc m . (SscHelpersClass ssc, Monad m)
+    => OldestFirst NE (Blund ssc) -> m ()
+onApplyBlocksStub _ = pass
+
+onRollbackBlocksStub
+    :: forall ssc m . (SscHelpersClass ssc, Monad m)
+    => NewestFirst NE (Blund ssc) -> m ()
+onRollbackBlocksStub _ = pass
 
 data BListenerStubTag
 
@@ -53,5 +64,5 @@ runBListenerStub = coerce
 -- Blockchain Listener is needed only for Wallet.
 -- Stub implementation for usual node.
 instance (Monad m) => MonadBListener (BListenerStub m) where
-    onApplyBlocks _ = pass
-    onRollbackBlocks _ = pass
+    onApplyBlocks = onApplyBlocksStub
+    onRollbackBlocks = onRollbackBlocksStub

@@ -6,6 +6,10 @@
 module Pos.DB.Redirect
        ( DBPureRedirect
        , runDBPureRedirect
+       , dbGetReal
+       , dbPutReal
+       , dbWriteBatchReal
+       , dbDeleteReal
        ) where
 
 import           Universum
@@ -14,8 +18,9 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Ether
 
+import qualified Database.RocksDB             as Rocks
 import           Pos.DB.BatchOp               (rocksWriteBatch)
-import           Pos.DB.Class                 (MonadDB (..), MonadDBRead (..),
+import           Pos.DB.Class                 (MonadDB (..), MonadDBRead (..), DBTag,
                                                MonadRealDB, dbTagToLens, getNodeDBs)
 import           Pos.DB.Functions             (rocksDelete, rocksGetBytes, rocksPutBytes)
 
@@ -27,24 +32,36 @@ type DBPureRedirect =
 runDBPureRedirect :: DBPureRedirect m a -> m a
 runDBPureRedirect = coerce
 
+dbGetReal :: MonadRealDB m => DBTag -> ByteString -> m (Maybe ByteString)
+dbGetReal tag key = do
+    db <- view (dbTagToLens tag) <$> getNodeDBs
+    rocksGetBytes key db
+
+dbPutReal :: MonadRealDB m => DBTag -> ByteString -> ByteString -> m ()
+dbPutReal tag key val = do
+    db <- view (dbTagToLens tag) <$> getNodeDBs
+    rocksPutBytes key val db
+
+dbWriteBatchReal :: MonadRealDB m => DBTag -> [Rocks.BatchOp] -> m ()
+dbWriteBatchReal tag batch = do
+    db <- view (dbTagToLens tag) <$> getNodeDBs
+    rocksWriteBatch batch db
+
+dbDeleteReal :: MonadRealDB m => DBTag -> ByteString -> m ()
+dbDeleteReal tag key = do
+    db <- view (dbTagToLens tag) <$> getNodeDBs
+    rocksDelete key db
+
 instance
     (MonadRealDB m, t ~ IdentityT) =>
         MonadDBRead (Ether.TaggedTrans DBPureRedirectTag t m)
   where
-    dbGet tag key = do
-        db <- view (dbTagToLens tag) <$> getNodeDBs
-        rocksGetBytes key db
+    dbGet = dbGetReal
 
 instance
     (MonadRealDB m, t ~ IdentityT) =>
         MonadDB (Ether.TaggedTrans DBPureRedirectTag t m)
   where
-    dbPut tag key val = do
-        db <- view (dbTagToLens tag) <$> getNodeDBs
-        rocksPutBytes key val db
-    dbWriteBatch tag batch = do
-        db <- view (dbTagToLens tag) <$> getNodeDBs
-        rocksWriteBatch batch db
-    dbDelete tag key = do
-        db <- view (dbTagToLens tag) <$> getNodeDBs
-        rocksDelete key db
+    dbPut = dbPutReal
+    dbWriteBatch = dbWriteBatchReal
+    dbDelete = dbDeleteReal

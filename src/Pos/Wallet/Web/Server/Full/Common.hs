@@ -20,18 +20,12 @@ import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
 import           System.Wlog                   (usingLoggerName)
 
-import           Pos.Block.BListener           (runBListenerStub)
 import           Pos.Communication.PeerState   (PeerStateSnapshot, PeerStateTag,
                                                 WithPeerState (..), getAllStates,
-                                                peerStateFromSnapshot,
-                                                runPeerStateRedirect)
+                                                peerStateFromSnapshot)
 import           Pos.Context                   (NodeContext, NodeContextTag)
-import           Pos.DB                        (NodeDBs, getNodeDBs, runDBPureRedirect)
-import           Pos.DB.Block                  (runBlockDBRedirect)
-import           Pos.DB.DB                     (runGStateCoreRedirect)
+import           Pos.DB                        (NodeDBs, getNodeDBs)
 import           Pos.Delegation.Class          (DelegationVar, askDelegationState)
-import           Pos.Discovery                 (runDiscoveryRedirect)
-import           Pos.Slotting                  (runSlotsDataRedirect, runSlotsRedirect)
 import           Pos.Ssc.Extra                 (SscMemTag, SscState)
 import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
@@ -94,14 +88,6 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                    , Tagged @DelegationVar delWrap
                    , Tagged @PeerStateTag peerStateCtx
                    ))
-           . runDBPureRedirect
-           . runBlockDBRedirect
-           . runSlotsDataRedirect
-           . runSlotsRedirect
-           . runDiscoveryRedirect
-           . runPeerStateRedirect
-           . runGStateCoreRedirect
-           . runBListenerStub
            $ act
 
     excHandlers = [Catch.Handler catchServant]

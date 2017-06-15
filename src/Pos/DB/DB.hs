@@ -18,6 +18,7 @@ module Pos.DB.DB
 
        , GStateCoreRedirect
        , runGStateCoreRedirect
+       , gsAdoptedBVDataDB
        ) where
 
 import           Universum
@@ -36,7 +37,7 @@ import           Pos.Block.Core               (Block, mkGenesisBlock)
 import           Pos.Block.Types              (Blund)
 import           Pos.Context.Context          (GenesisLeaders, GenesisUtxo, NodeParams)
 import           Pos.Context.Functions        (genesisLeadersM)
-import           Pos.Core                     (headerHash)
+import           Pos.Core                     (headerHash, BlockVersionData)
 import           Pos.DB.Block                 (MonadBlockDB, MonadBlockDBWrite,
                                                loadBlundsByDepth, loadBlundsWhile,
                                                prepareBlockDB)
@@ -153,8 +154,11 @@ type GStateCoreRedirect =
 runGStateCoreRedirect :: GStateCoreRedirect m a -> m a
 runGStateCoreRedirect = coerce
 
+gsAdoptedBVDataDB :: MonadDBRead m => m BlockVersionData
+gsAdoptedBVDataDB = getAdoptedBVData
+
 instance
     (MonadDBRead m, t ~ IdentityT) =>
         MonadGState (Ether.TaggedTrans GStateCoreRedirectTag t m)
   where
-    gsAdoptedBVData = getAdoptedBVData
+    gsAdoptedBVData = gsAdoptedBVDataDB

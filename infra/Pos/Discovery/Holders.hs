@@ -17,6 +17,8 @@ module Pos.Discovery.Holders
        , askDiscoveryContextSum
        , runDiscoveryRedirect
        , discoveryWorkers
+       , getPeersReal
+       , findPeersReal
        ) where
 
 import           Universum
@@ -123,16 +125,25 @@ runDiscoveryRedirect = coerce
 askDiscoveryContextSum :: MonadDiscoverySum m => m DiscoveryContextSum
 askDiscoveryContextSum = Ether.ask'
 
-instance (MonadDiscoverySum m, DiscoveryKademliaEnv m, t ~ IdentityT) =>
+type DiscoveryRealMonad m =
+    (MonadDiscoverySum m, DiscoveryKademliaEnv m)
+
+getPeersReal :: DiscoveryRealMonad m => m (Set NodeId)
+getPeersReal =
+    Ether.ask' >>= \case
+        DCStatic nodes -> runDiscoveryConstT nodes getPeers
+        DCKademlia inst -> runDiscoveryKademliaT inst getPeers
+
+findPeersReal :: DiscoveryRealMonad m => m (Set NodeId)
+findPeersReal =
+    Ether.ask' >>= \case
+        DCStatic nodes -> runDiscoveryConstT nodes findPeers
+        DCKademlia inst -> runDiscoveryKademliaT inst findPeers
+
+instance (DiscoveryRealMonad m, t ~ IdentityT) =>
          MonadDiscovery (Ether.TaggedTrans DiscoveryRedirectTag t m) where
-    getPeers =
-        Ether.ask' >>= \case
-            DCStatic nodes -> runDiscoveryConstT nodes getPeers
-            DCKademlia inst -> runDiscoveryKademliaT inst getPeers
-    findPeers =
-        Ether.ask' >>= \case
-            DCStatic nodes -> runDiscoveryConstT nodes findPeers
-            DCKademlia inst -> runDiscoveryKademliaT inst findPeers
+    getPeers = getPeersReal
+    findPeers = findPeersReal
 
 -- | Get all discovery workers using 'DiscoveryContextSum'.
 discoveryWorkers ::

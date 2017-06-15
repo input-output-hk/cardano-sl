@@ -9,6 +9,10 @@ module Pos.Slotting.Impl.Sum
        , SlotsRedirect
        , runSlotsRedirect
        , askSlottingContextSum
+       , getCurrentSlotReal
+       , getCurrentSlotBlockingReal
+       , getCurrentSlotInaccurateReal
+       , currentTimeSlottingReal
 
        -- * Workers
        , SlottingWorkerModeSum
@@ -21,6 +25,7 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Ether
 
+import           Pos.Core.Types               (SlotId (..), Timestamp)
 import           Pos.Slotting.Class           (MonadSlots (..))
 import           Pos.Slotting.Impl.Ntp        (NtpMode, NtpSlottingVar, NtpWorkerMode,
                                                ntpWorkers, runNtpSlotsRedirect)
@@ -48,18 +53,33 @@ askSlottingContextSum = Ether.ask'
 
 type SlottingModeSum m = (NtpMode m, SimpleSlottingMode m)
 
+type SlotsRealMonad m =
+    (MonadSlottingSum m, SlottingModeSum m)
+
+
+getCurrentSlotReal :: SlotsRealMonad m => m (Maybe SlotId)
+getCurrentSlotReal = helper getCurrentSlot
+
+getCurrentSlotBlockingReal :: SlotsRealMonad m => m SlotId
+getCurrentSlotBlockingReal = helper getCurrentSlotBlocking
+
+getCurrentSlotInaccurateReal :: SlotsRealMonad m => m SlotId
+getCurrentSlotInaccurateReal = helper getCurrentSlotInaccurate
+
+currentTimeSlottingReal :: SlotsRealMonad m => m Timestamp
+currentTimeSlottingReal = helper currentTimeSlotting
+
 instance (MonadSlottingSum m, SlottingModeSum m, t ~ IdentityT) =>
          MonadSlots (Ether.TaggedTrans SlotsRedirectTag t m) where
-    getCurrentSlot = helper getCurrentSlot
-    getCurrentSlotBlocking = helper getCurrentSlotBlocking
-    getCurrentSlotInaccurate = helper getCurrentSlotInaccurate
-    currentTimeSlotting = helper currentTimeSlotting
+    getCurrentSlot = getCurrentSlotReal
+    getCurrentSlotBlocking = getCurrentSlotBlockingReal
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateReal
+    currentTimeSlotting = currentTimeSlottingReal
 
-helper ::
-       (MonadSlottingSum m, SlottingModeSum m, t ~ IdentityT)
-    => (forall n. MonadSlots n =>
-                      n a)
-    -> Ether.TaggedTrans SlotsRedirectTag t m a
+helper
+    :: (MonadSlottingSum m, SlottingModeSum m)
+    => (forall n. MonadSlots n => n a)
+    -> m a
 helper action =
     Ether.ask' >>= \case
         SCSimple -> runSimpleSlotsRedirect action

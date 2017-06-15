@@ -33,26 +33,21 @@ import           System.Wlog                 (WithLogger, logDebug, logInfo,
                                               usingLoggerName)
 
 import           Pos.Binary                  ()
-import           Pos.Block.BListener         (runBListenerStub)
 import           Pos.Communication           (ActionSpec (..), BiP (..), InSpecs (..),
                                               MkListeners (..), OutSpecs (..),
                                               VerInfo (..), allListeners,
                                               hoistMkListeners)
-import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect)
+import           Pos.Communication.PeerState (PeerStateTag)
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (NodeContext (..))
-import           Pos.DB                      (NodeDBs, runDBPureRedirect)
-import           Pos.DB.Block                (runBlockDBRedirect)
-import           Pos.DB.DB                   (runGStateCoreRedirect)
+import           Pos.DB                      (NodeDBs)
 import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.DHT.Real                (foreverRejoinNetwork)
-import           Pos.Discovery               (DiscoveryContextSum (..),
-                                              runDiscoveryRedirect)
+import           Pos.Discovery               (DiscoveryContextSum (..))
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NodeParams (..))
 import           Pos.Launcher.Resource       (NodeResources (..), hoistNodeResources)
 import           Pos.Security                (SecurityWorkersClass)
-import           Pos.Slotting                (runSlotsDataRedirect, runSlotsRedirect)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Ssc.Extra               (SscMemTag)
 import           Pos.Txp.MemState            (TxpHolderTag)
@@ -136,15 +131,7 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
                 , Tagged @TxpHolderTag nrTxpState
                 , Tagged @DelegationVar nrDlgState
                 , Tagged @PeerStateTag nrPeerState
-                ) .
-            runDBPureRedirect .
-            runBlockDBRedirect .
-            runSlotsDataRedirect .
-            runSlotsRedirect .
-            runDiscoveryRedirect .
-            runPeerStateRedirect .
-            runGStateCoreRedirect .
-            runBListenerStub $
+                ) $
             act
 {-# NOINLINE runRealMode #-}
 

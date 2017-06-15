@@ -13,6 +13,9 @@ module Pos.Communication.PeerState
        , module Pos.Communication.Types.State
        , PeerStateRedirect
        , runPeerStateRedirect
+       , getPeerStateReal
+       , clearPeerStateReal
+       , getAllStatesReal
        ) where
 
 import           Control.Monad.Trans.Class        (MonadTrans)
@@ -69,25 +72,44 @@ type PeerStateRedirect =
 runPeerStateRedirect :: PeerStateRedirect m a -> m a
 runPeerStateRedirect = coerce
 
-instance
+type PeerStateRealMonad m =
     ( MonadIO m, Mockable SharedAtomic m
-    , Ether.MonadReader PeerStateTag (PeerStateCtx m) m
-    , t ~ IdentityT
+    , Ether.MonadReader PeerStateTag (PeerStateCtx m) m )
+
+getPeerStateReal
+    :: PeerStateRealMonad m
+    => NodeId -> m (SharedAtomicT m PeerState)
+getPeerStateReal nodeId = Ether.ask @PeerStateTag >>= \m -> do
+    mV <- atomically $ nodeId `STM.lookup` m
+    case mV of
+      Just v -> return v
+      _ -> do
+        st <- newSharedAtomic def
+        atomically $ do
+            mV' <- nodeId `STM.lookup` m
+            case mV' of
+              Just v -> return v
+              _      -> STM.insert st nodeId m $> st
+
+clearPeerStateReal
+    :: PeerStateRealMonad m
+    => NodeId -> m ()
+clearPeerStateReal nodeId = do
+    m <- Ether.ask @PeerStateTag
+    atomically $ nodeId `STM.delete` m
+
+getAllStatesReal
+    :: PeerStateRealMonad m
+    => m PeerStateSnapshot
+getAllStatesReal = do
+    m <- Ether.ask @PeerStateTag
+    stream <- atomically $ LT.toList $ STM.stream m
+    PeerStateSnapshot <$> forM stream (mapM readSharedAtomic)
+
+instance
+    ( PeerStateRealMonad m, t ~ IdentityT
     ) => WithPeerState (Ether.TaggedTrans PeerStateRedirectTag t m)
   where
-    getPeerState nodeId = Ether.ask @PeerStateTag >>= \m -> do
-          mV <- atomically $ nodeId `STM.lookup` m
-          case mV of
-            Just v -> return v
-            _ -> do
-              st <- newSharedAtomic def
-              atomically $ do
-                  mV' <- nodeId `STM.lookup` m
-                  case mV' of
-                    Just v -> return v
-                    _      -> STM.insert st nodeId m $> st
-
-    clearPeerState nodeId = Ether.ask @PeerStateTag >>= \m -> atomically $ nodeId `STM.delete` m
-    getAllStates = Ether.ask @PeerStateTag >>= \m -> do
-        stream <- atomically $ LT.toList $ STM.stream m
-        PeerStateSnapshot <$> forM stream (mapM readSharedAtomic)
+    getPeerState = getPeerStateReal
+    clearPeerState = clearPeerStateReal
+    getAllStates = getAllStatesReal

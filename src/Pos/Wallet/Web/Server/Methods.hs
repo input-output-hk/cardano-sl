@@ -392,15 +392,20 @@ getWAddressBalance addr =
     getBalance <=< decodeCIdOrFail $ cwamId addr
 
 getWAddress :: WalletWebMode m => CWAddressMeta -> m CAddress
-getWAddress cAddr@CWAddressMeta {..} = do
+getWAddress cAddr = do
+    let aId = cwamId cAddr
     balance <- getWAddressBalance cAddr
+    let addrAccount = addrMetaToAccount cAddr
     (ctxs, _) <-
         getHistory
             Nothing
-            (Just $ addrMetaToAccount cAddr)  -- just to specify addrId is not enough
-            (Just cwamId)
+            (Just addrAccount)  -- just to specify addrId is not enough
+            (Just aId)
     let isUsed = not (null ctxs) || balance > minBound
-    CAddress cwamId (mkCCoin balance) isUsed <$> isChangeAddress cAddr
+    -- Suppose we have transaction with inputs A1, A2, A3. Output address B_j is referred to as change address if it belongs to same account as one of A_i
+    acctAddrs <- map cwamId <$> getAccountAddrsOrThrow Ever addrAccount
+    let isChange = elem aId $ filter (`elem` acctAddrs) $ concatMap ctOutputAddrs ctxs
+    return $ CAddress aId (mkCCoin balance) isUsed isChange
 
 getAccountAddrsOrThrow
     :: (WebWalletModeDB m, MonadThrow m)

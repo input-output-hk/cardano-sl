@@ -526,22 +526,27 @@ data MoneySource
     deriving (Show, Eq)
 
 getMoneySourceAddresses :: WalletWebMode m => MoneySource -> m [CWAddressMeta]
-getMoneySourceAddresses (AddressMoneySource accAddr) = return $ one accAddr
-getMoneySourceAddresses (AccountMoneySource wAddr) =
-    getAccountAddrsOrThrow Existing wAddr
+getMoneySourceAddresses (AddressMoneySource addrId) = return $ one addrId
+getMoneySourceAddresses (AccountMoneySource accId) =
+    getAccountAddrsOrThrow Existing accId
 getMoneySourceAddresses (WalletMoneySource wid) =
     getWalletAccountIds wid >>=
     concatMapM (getMoneySourceAddresses . AccountMoneySource)
 
-getMoneySourceAccount :: WalletWebMode m => MoneySource -> m AccountId
-getMoneySourceAccount (AddressMoneySource accAddr) =
-    return $ addrMetaToAccount accAddr
-getMoneySourceAccount (AccountMoneySource wAddr) = return wAddr
-getMoneySourceAccount (WalletMoneySource wid) = do
+getSomeMoneySourceAccount :: WalletWebMode m => MoneySource -> m AccountId
+getSomeMoneySourceAccount (AddressMoneySource addrId) =
+    return $ addrMetaToAccount addrId
+getSomeMoneySourceAccount (AccountMoneySource accId) = return accId
+getSomeMoneySourceAccount (WalletMoneySource wid) = do
     wAddr <- (head <$> getWalletAccountIds wid) >>= maybeThrow noWallets
-    getMoneySourceAccount (AccountMoneySource wAddr)
+    getSomeMoneySourceAccount (AccountMoneySource wAddr)
   where
     noWallets = InternalError "Wallet has no accounts"
+
+getMoneySourceWallet :: MoneySource -> CId Wal
+getMoneySourceWallet (AddressMoneySource addrId) = cwamWId addrId
+getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
+getMoneySourceWallet (WalletMoneySource wid)     = wid
 
 sendMoney
     :: WalletWebMode m
@@ -595,7 +600,7 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
     mkRemainingTx remaining
         | remaining == mkCoin 0 = return Nothing
         | otherwise = do
-            relatedWallet <- getMoneySourceAccount moneySource
+            relatedWallet <- getSomeMoneySourceAccount moneySource
             account       <- newChangeAddress RandomSeed passphrase relatedWallet
             remAddr       <- decodeCIdOrFail (cadId account)
             let remTx = TxOutAux (TxOut remAddr remaining) []
@@ -631,9 +636,8 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
                         dstAddrs
                     -- TODO: this should be removed in production
                     let txHash    = hash tx
-                    -- TODO [CSM-251]: if money source is wallet, then this is not fully correct
-                    srcAccount <- getMoneySourceAccount moneySource
-                    ctxs <- addHistoryTx (aiWId srcAccount) title desc $
+                        srcWallet = getMoneySourceWallet moneySource
+                    ctxs <- addHistoryTx srcWallet title desc $
                         THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs
                     ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
 
@@ -659,7 +663,6 @@ getFullWalletHistory cWalId = do
     cHistory <- do
         (mInit, cachedTxs) <- transCache <$> getHistoryCache cWalId
 
-        -- TODO: Fix type param! Global type param.
         TxHistoryAnswer {..} <- untag @WalletSscType getTxHistory addrs mInit
 
         -- Add allowed portion of result to cache

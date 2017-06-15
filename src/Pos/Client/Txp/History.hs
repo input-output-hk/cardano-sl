@@ -31,6 +31,7 @@ import           Universum
 import           Control.Lens                 (makeLenses, (%=))
 import           Control.Monad.Loops          (unfoldrM)
 import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Maybe    (MaybeT (..))
 import           Data.Coerce                  (coerce)
@@ -193,6 +194,7 @@ instance
     , MonadSlots m
     , Ether.MonadReader' GenesisUtxo m
     , MonadTxpMem TxpExtra_TMP m
+    , MonadBaseControl IO m
     , t ~ IdentityT
     ) => MonadTxHistory (Ether.TaggedTrans TxHistoryRedirectTag t m)
   where

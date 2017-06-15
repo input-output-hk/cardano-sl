@@ -68,8 +68,10 @@ library
                      , formatting
                      , hashable
                      , lens
+                     , lifted-base
                      , log-warper
                      , mtl
+                     , monad-control
                      , neat-interpolation
                      , plutus-prototype
                      , rocksdb

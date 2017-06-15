@@ -38,29 +38,22 @@ import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.DB                      as DB
 import qualified Pos.DB.GState                  as GS
 
-import           Pos.Block.Core                 (Block, MainBlock,
-                                                 mainBlockSlot,
+import           Pos.Block.Core                 (Block, MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.Constants                  (genesisHash)
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxAux, TxId,
-                                                 TxOutAux (..), getLocalTxs,
-                                                 getMemPool, mpLocalTxs, taTx,
-                                                 topsortTxs, txOutValue,
-                                                 _txOutputs)
+import           Pos.Txp                        (Tx (..), TxAux, TxId, TxOutAux (..),
+                                                 getLocalTxs, getMemPool, mpLocalTxs,
+                                                 taTx, topsortTxs, txOutValue, _txOutputs)
 import           Pos.Txp                        (MonadTxpMem, txpTxs)
-import           Pos.Types                      (Address (..), EpochIndex,
-                                                 HeaderHash,
+import           Pos.Types                      (Address (..), EpochIndex, HeaderHash,
                                                  LocalSlotIndex (..), Timestamp,
-                                                 difficultyL, gbHeader,
-                                                 gbhConsensus,
-                                                 getChainDifficulty,
-                                                 headerHashG, mkCoin,
-                                                 mkLocalSlotIndex, prevBlockL,
-                                                 siEpoch, siSlot, sumCoins,
-                                                 unsafeIntegerToCoin,
+                                                 difficultyL, gbHeader, gbhConsensus,
+                                                 getChainDifficulty, headerHashG, mkCoin,
+                                                 mkLocalSlotIndex, prevBlockL, siEpoch,
+                                                 siSlot, sumCoins, unsafeIntegerToCoin,
                                                  unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
@@ -68,23 +61,18 @@ import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer                   (TxExtra (..), getTxExtra)
-import qualified Pos.Explorer                   as EX (getAddrBalance,
-                                                       getAddrHistory,
+import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHistory,
                                                        getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
-                                                 CAddressSummary (..),
-                                                 CAddressType (..),
-                                                 CBlockEntry (..),
-                                                 CBlockSummary (..), CHash,
-                                                 CTxBrief (..), CTxEntry (..),
-                                                 CTxId (..), CTxSummary (..),
-                                                 TxInternal (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
+                                                 CAddressType (..), CBlockEntry (..),
+                                                 CBlockSummary (..), CHash, CTxBrief (..),
+                                                 CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..), TxInternal (..),
                                                  convertTxOutputs, fromCAddress,
-                                                 fromCHash, fromCTxId,
-                                                 getEpochIndex, getSlotIndex,
-                                                 mkCCoin, tiToTxEntry,
+                                                 fromCHash, fromCTxId, getEpochIndex,
+                                                 getSlotIndex, mkCCoin, tiToTxEntry,
                                                  toBlockEntry, toBlockSummary,
                                                  toPosixTime, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
@@ -602,8 +590,7 @@ epochSlotSearch epochIndex slotIndex = do
 
 
 makeTxBrief :: Tx -> TxExtra -> CTxBrief
-makeTxBrief tx extra = toTxBrief txInt extra
-  where txInt = TxInternal (teReceivedTime extra) tx
+makeTxBrief tx extra = toTxBrief (TxInternal extra tx)
 
 unwrapOrThrow :: ExplorerMode m => Either Text a -> m a
 unwrapOrThrow = either (throwM . Internal) pure
@@ -621,7 +608,7 @@ getMempoolTxs = do
 
     fmap catMaybes . forM localTxs $ \(id, txAux) -> do
         mextra <- getTxExtra id
-        forM mextra $ \TxExtra {..} -> pure $ TxInternal teReceivedTime (taTx txAux)
+        forM mextra $ \extra -> pure $ TxInternal extra (taTx txAux)
   where
     tlocalTxs :: (MonadIO m, MonadTxpMem e m) => m [(TxId, TxAux)]
     tlocalTxs = getLocalTxs
@@ -652,9 +639,9 @@ getBlockchainTxs origOff origLim = do
                         let neededTxs = take lim $ drop off $ reverse txs
                             (newOff, newLim) = recalculateOffLim off lim lenTxs
                         blkTxEntries <- lift $ forM neededTxs $ \(WithHash tx id) -> do
-                            TxExtra {..} <- maybeThrow (Internal "No extra info for tx in DB") =<<
+                            extra <- maybeThrow (Internal "No extra info for tx in DB") =<<
                                             EX.getTxExtra id
-                            pure $ TxInternal teReceivedTime tx
+                            pure $ TxInternal extra tx
                         return (blkTxEntries, (newOff, newLim, mb ^. prevBlockL))
 
     tip <- GS.getTip

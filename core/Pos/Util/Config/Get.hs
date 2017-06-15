@@ -16,7 +16,7 @@ import           Pos.Util.Config.Path (cslConfigFilePath)
 
 #if !defined(CONFIG)
 
-# error CPP variable CONFIG isn't defined (should be 'dev', 'prod' or 'wallet'). If you're building with Stack, pass --ghc-options=-DCONFIG=..., or consider using build.sh instead
+# error CPP variable CONFIG isn't defined (should be 'dev', 'prod' or 'wallet'). If you're building with Stack, pass --ghc-options=-DCONFIG=..., or consider using scripts/build/cardano-sl.sh instead
 
 #else
 

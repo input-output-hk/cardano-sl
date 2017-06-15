@@ -10,14 +10,14 @@ set -o pipefail
 
 # USAGE
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#   build.sh                           build all packages one-by-one
-#   build.sh -t                        build and run tests
-#   build.sh core|db|...|sl            build only a specific project (see below)
-#   build.sh -k                        typecheck but do not build
-#   build.sh -c                        do stack clean
+#   scripts/build/cardano-sl.sh                 build
+#   scripts/build/cardano-sl.sh -t              build and run tests
+#   scripts/build/cardano-sl.sh core|db|...|sl  build only a specific project
+#   scripts/build/cardano-sl.sh -k              typecheck but do not build
+#   scripts/build/cardano-sl.sh -c              do stack clean
 #
 # Consider symlinking the script as `b` into the cardano-sl folder because 
-# typing `util-scripts/build.sh` is annoying.
+# typing `scripts/build/cardano-sl.sh` is annoying.
 
 # PROJECTS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

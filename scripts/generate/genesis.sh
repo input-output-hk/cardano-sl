@@ -11,8 +11,8 @@ fi
 mkdir $DIR/$name
 cd $DIR/$name
 
-utxo_file=$DIR/util-scripts/avvm-files/utxo-dump-last-new.json
-blacklist=$DIR/util-scripts/avvm-files/full_blacklist.js
+utxo_file=$DIR/scripts/avvm-files/utxo-dump-last-new.json
+blacklist=$DIR/scripts/avvm-files/full_blacklist.js
 
 if [[ "$M" == "" ]]; then 
   M=5 # rich keys amount

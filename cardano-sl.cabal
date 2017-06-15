@@ -285,6 +285,7 @@ library
     other-modules:      Pos.Aeson.Crypto
                         Pos.Aeson.Types
                         Pos.Web.Api
+                        Pos.Web.Mode
                         Pos.Web.Server
                         Pos.Web.Types
   if flag(with-wallet)

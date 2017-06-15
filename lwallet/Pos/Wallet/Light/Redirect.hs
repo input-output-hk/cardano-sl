@@ -5,10 +5,14 @@
 module Pos.Wallet.Light.Redirect
        ( BalancesWalletRedirect
        , runBalancesWalletRedirect
+       , getOwnUtxosWallet
+       , getBalanceWallet
        , BlockchainInfoNotImplemented
        , runBlockchainInfoNotImplemented
        , TxHistoryWalletRedirect
        , runTxHistoryWalletRedirect
+       , getTxHistoryWallet
+       , saveTxWallet
        , UpdatesNotImplemented
        , runUpdatesNotImplemented
        ) where
@@ -22,8 +26,12 @@ import           Data.Tagged                  (Tagged (..))
 import qualified Ether
 
 import           Pos.Client.Txp.Balances      (MonadBalances (..), getBalanceFromUtxo)
-import           Pos.Client.Txp.History       (MonadTxHistory (..), deriveAddrHistory)
-import           Pos.Txp                      (filterUtxoByAddrs, runUtxoStateT)
+import           Pos.Client.Txp.History       (MonadTxHistory (..), TxHistoryAnswer,
+                                               deriveAddrHistory)
+import           Pos.Core                     (Address, HeaderHash)
+import           Pos.Txp                      (TxAux, TxId, Utxo, filterUtxoByAddrs,
+                                               runUtxoStateT)
+import           Pos.Types                    (Coin)
 import qualified Pos.Wallet.Light.State       as LWS
 import           Pos.Wallet.WalletMode        (MonadBlockchainInfo (..),
                                                MonadUpdates (..))
@@ -40,12 +48,18 @@ type BalancesWalletRedirect =
 runBalancesWalletRedirect :: BalancesWalletRedirect m a -> m a
 runBalancesWalletRedirect = coerce
 
+getOwnUtxosWallet :: (MonadIO m, Ether.MonadReader' LWS.WalletState m) => [Address] -> m Utxo
+getOwnUtxosWallet addrs = filterUtxoByAddrs addrs <$> LWS.getUtxo
+
+getBalanceWallet :: (MonadIO m, MonadBalances m) => Address -> m Coin
+getBalanceWallet = getBalanceFromUtxo
+
 instance
     (MonadIO m, t ~ IdentityT, Ether.MonadReader' LWS.WalletState m) =>
         MonadBalances (Ether.TaggedTrans BalancesWalletRedirectTag t m)
   where
-    getOwnUtxos addrs = filterUtxoByAddrs addrs <$> LWS.getUtxo
-    getBalance = getBalanceFromUtxo
+    getOwnUtxos = getOwnUtxosWallet
+    getBalance = getBalanceWallet
 
 ----------------------------------------------------------------------------
 -- MonadBlockchainInfo
@@ -82,20 +96,28 @@ type TxHistoryWalletRedirect =
 runTxHistoryWalletRedirect :: TxHistoryWalletRedirect m a -> m a
 runTxHistoryWalletRedirect = coerce
 
+getTxHistoryWallet
+    :: (Ether.MonadReader' LWS.WalletState m, MonadIO m)
+    => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
+getTxHistoryWallet = Tagged $ \addrs _ -> do
+    chain <- LWS.getBestChain
+    utxo <- LWS.getOldestUtxo
+    _ <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
+        runMaybeT $ flip runUtxoStateT utxo $
+        deriveAddrHistory addrs chain
+    pure $ error "getTxHistory is not implemented for light wallet"
+
+saveTxWallet :: Monad m => (TxId, TxAux) -> m ()
+saveTxWallet _ = pure ()
+
 instance
     ( MonadIO m
     , t ~ IdentityT
     , Ether.MonadReader' LWS.WalletState m
     ) => MonadTxHistory (Ether.TaggedTrans TxHistoryWalletRedirectTag t m)
   where
-    getTxHistory = Tagged $ \addrs _ -> do
-        chain <- LWS.getBestChain
-        utxo <- LWS.getOldestUtxo
-        _ <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
-            runMaybeT $ flip runUtxoStateT utxo $
-            deriveAddrHistory addrs chain
-        pure $ error "getTxHistory is not implemented for light wallet"
-    saveTx _ = pure ()
+    getTxHistory = getTxHistoryWallet
+    saveTx = saveTxWallet
 
 ----------------------------------------------------------------------------
 -- MonadUpdates

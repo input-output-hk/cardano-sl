@@ -7,6 +7,8 @@ module Pos.Discovery.Holders
        ( DiscoveryTag
        , DiscoveryConstT
        , runDiscoveryConstT
+       , getPeersConst
+       , findPeersConst
        , DiscoveryKademliaT
        , askDHTInstance
        , runDiscoveryKademliaT
@@ -56,9 +58,15 @@ data DiscoveryTag -- loneliness is something we all know
 -- set of peers and doesn't do anything on 'findPeers' call.
 type DiscoveryConstT m = Ether.ReaderT DiscoveryTag (Set NodeId) m
 
+getPeersConst :: Ether.MonadReader DiscoveryTag (Set NodeId) m => m (Set NodeId)
+getPeersConst = Ether.ask @DiscoveryTag
+
+findPeersConst :: Ether.MonadReader DiscoveryTag (Set NodeId) m => m (Set NodeId)
+findPeersConst = getPeersConst
+
 instance (Monad m) => MonadDiscovery (DiscoveryConstT m) where
-    getPeers = Ether.ask @DiscoveryTag
-    findPeers = getPeers
+    getPeers = getPeersConst
+    findPeers = findPeersConst
 
 runDiscoveryConstT :: (Set NodeId) -> DiscoveryConstT m a -> m a
 runDiscoveryConstT = flip (Ether.runReaderT @DiscoveryTag)

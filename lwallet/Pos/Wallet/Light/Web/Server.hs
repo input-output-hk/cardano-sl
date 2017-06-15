@@ -13,7 +13,7 @@ module Pos.Wallet.Light.Web.Server
 import           Universum
 
 import           Pos.Communication.Protocol (SendActions)
-import           Pos.Wallet.Light.Mode      (LightWalletMode (..))
+import           Pos.Wallet.Light.Mode      (LightWalletMode)
 
 -- type WebHandler = WalletWebSockets (WalletWebDB LightWalletMode)
 

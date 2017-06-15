@@ -5,17 +5,18 @@
 module Pos.Wallet.Light.State.Core
        ( GStateCoreWalletRedirect
        , runGStateCoreWalletRedirect
+       , gsAdoptedBVDataWallet
        ) where
 
 import           Universum
 
-import           Control.Monad.Trans.Identity  (IdentityT (..))
-import           Data.Coerce                   (coerce)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
 import qualified Ether
 
-import qualified Pos.Constants                 as Const
-import           Pos.DB.Class                  (MonadGState (..))
-import           Pos.Wallet.Light.State.Acidic (WalletState)
+import qualified Pos.Constants                as Const
+import           Pos.Core                     (BlockVersionData)
+import           Pos.DB.Class                 (MonadGState (..))
 
 data GStateCoreWalletRedirectTag
 
@@ -26,6 +27,9 @@ runGStateCoreWalletRedirect :: GStateCoreWalletRedirect m a -> m a
 runGStateCoreWalletRedirect = coerce
 
 -- Currently 'WalletState' doesn't maintain block version data.
-instance (Monad m, t ~ IdentityT, Ether.MonadReader' WalletState m) =>
+gsAdoptedBVDataWallet :: Monad m => m BlockVersionData
+gsAdoptedBVDataWallet = pure Const.genesisBlockVersionData
+
+instance (Monad m, t ~ IdentityT) =>
          MonadGState (Ether.TaggedTrans GStateCoreWalletRedirectTag t m) where
-    gsAdoptedBVData = pure Const.genesisBlockVersionData
+    gsAdoptedBVData = gsAdoptedBVDataWallet

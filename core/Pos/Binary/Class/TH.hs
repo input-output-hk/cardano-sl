@@ -9,20 +9,20 @@ module Pos.Binary.Class.TH
        ) where
 
 import           Universum
-import           Unsafe                (unsafeTail)
+import           Unsafe                   (unsafeHead)
 
-import           Data.Default          (def)
-import           Data.List             (notElem, nubBy, partition, zipWith3)
-import           Data.Store            (Size (..))
-import qualified Data.Store.Internal   as Store
-import qualified Data.Text             as T
-import           Formatting            (sformat, shown, (%))
+import           Control.Lens             (ifor, imap)
+import           Control.Lens.Internal.TH (newNames)
+import           Data.Default             (def)
+import           Data.List                (notElem, nubBy, partition)
+import qualified Data.Store.Internal      as Store
+import qualified Data.Text                as T
+import           Formatting               (sformat, shown, (%))
 import           Language.Haskell.TH
-import           TH.ReifySimple        (DataCon (..), DataType (..), reifyDataType)
-import           TH.Utilities          (plainInstanceD)
+import           TH.ReifySimple           (DataCon (..), DataType (..), reifyDataType)
+import           TH.Utilities             (plainInstanceD)
 
-import           Pos.Binary.Class.Core (Bi (..))
-import qualified Pos.Binary.Class.Core as Bi
+import qualified Pos.Binary.Class.Core    as Bi
 
 {-
 Suppose you have the following datatype:
@@ -54,24 +54,24 @@ deriveSimpleBi ''User [
 will generate:
 
 instance Bi User where
-    size =
-        case (size :: Size String, size :: Size Int, size :: Size String, size :: Size Int) of
-            (ConstSize sz0login, ConstSize sz0age, ConstSize sz1firstName, ConstSize sz1age) | sz0 == sz1 ->
-                ConstSize (1 + sz0)
-              where
-                sz0 = sz0login + sz0age
-                sz1 = sz1firstName + sz1age
-            (c0login, c0age c1firstName, c1age) ->
-                case val of
-                    Login _ _        -> getSizeWith c0login (login val) + getSizeWith c0age (age val)
-                    FullName _ _ _   -> getSizeWith c1firstName (firstName val) + getSizeWith c1age (age val)
-    put = \val -> case val of
-        Login _ _      -> do
-            put @Word8 0
+    size = case (size :: Size String, size :: Size Int,
+                 size :: Size String, size :: Size Int) of
+        (ConstSize size_1_1, ConstSize size_1_2,
+         ConstSize size_2_1, ConstSize size_2_2) | size_1 == size_2 ->
+            ConstSize (1 + size_1)
+          where
+            size_1 = size_1_1 + size_1_2
+            size_2 = size_2_1 + size_2_2
+        _ -> VarSize $ \x -> case x of
+               val@Login{} -> getSize (login val) + getSize (age val)
+               val@FullName{} -> getSize (firstName val) + getSize (age val)
+    put = \x -> case x of
+        val@Login{} -> do
+            put (0 :: Word8)
             put (login val)
             put (age val)
-        FullName _ _ _ -> do
-            put @Word8 1
+        val@FullName{} -> do
+            put (1 :: Word8)
             put (firstName val)
             put (age val)
     get = do
@@ -170,12 +170,8 @@ deriveSimpleBi headTy constrs = do
     makeBiInstanceTH ty <$> biSizeExpr <*> biPutExpr <*> biGetExpr
   where
     shortNameTy :: Text
-    shortNameTy = T.pack . show . shortenName $ headTy
+    shortNameTy = toText $ nameBase headTy
     -- Meta information about constructors --
-
-    -- Total numbers of field in the each constructor
-    numOfFields :: [Int]
-    numOfFields = map (\Cons{..} -> length cFields) constrs
 
     -- Constructor and its used fields.
     filteredConstrs :: [Cons]
@@ -188,23 +184,14 @@ deriveSimpleBi headTy constrs = do
     allUsedFields :: [[(Name, Name)]]
     allUsedFields = map (\Cons{..} ->
                          map (\Field{..} ->
-                             (shortenName fName, fType)) cFields) filteredConstrs
-    -- Take last segment of full name.
-    shortenName :: Name -> Name
-    shortenName x =
-        let takeLastSegment = reverse . takeWhile (/= '.') . reverse in
-        mkName . takeLastSegment . show $ x
+                             (fName, fType)) cFields) filteredConstrs
 
     -- Useful variables for @size@, @put@, @get@ --
     tagType :: TypeQ
-    tagType = [t|Word8|]
+    tagType = [t| Word8 |]
 
-    tagSize :: Int
-    tagSize = 1
-
-    -- Useful variable for case statement in the @size@ and @put@.
-    valName :: Name
-    valName = mkName "val"
+    mbTagSize :: ExpQ
+    mbTagSize = if length constrs >= 2 then [| 1 |] else [| 0 |]
 
     -- Helpers --
     failText :: MonadFail m => T.Text -> m a
@@ -214,43 +201,37 @@ deriveSimpleBi headTy constrs = do
     isUsed (Unused _) = False
     isUsed _          = True
 
-    -- CSL-1212: this should take string as the first parameter, not name
-    appendName :: Name -> Name -> Name
-    appendName a b = mkName $ show a <> show b
-
-    prependPrefToFields :: [Name] -> [Name]
-    prependPrefToFields prefixes =
-        concatMap (\(p, flds) -> map ((p `appendName`) . fst) flds) $
-                  zip prefixes allUsedFields
-
     -- Put definition --
     biPutExpr :: Q Exp
-    biPutExpr = lamE [varP valName] $
-        caseE (varE valName) $ zipWith3 biPutConstr numOfFields [0..] filteredConstrs
+    biPutExpr = do
+        x <- newName "x"
+        lam1E (varP x) $
+          caseE (varE x) $
+            imap biPutConstr filteredConstrs
 
     -- Generate the following code:
-    -- Constr _ _ _ -> do
-    --   putTag 3
+    -- val@Constr{} -> do
+    --   put (3 :: Word8)
     --   put (field1 val)
     --   put (field2 val)
     --   put (field3 val)
-    biPutConstr :: Int -> Int -> Cons -> MatchQ
-    biPutConstr num ix (Cons cName cFields) = do
-        let wilds = replicate num wildP
-        match (conP cName wilds) body []
+    biPutConstr :: Int -> Cons -> MatchQ
+    biPutConstr ix (Cons cName cFields) = do
+        val <- newName "val"
+        match (asP val (recP cName [])) (body (varE val)) []
       where
-        body = normalB $
+        body val = normalB $
             if length constrs >= 2 then
-                doE (putTag ix : map putField cFields)
+                doE (putTag ix : map (putField val) cFields)
             else
-                doE (map putField cFields)
+                doE (map (putField val) cFields)
 
     putTag :: Int -> Q Stmt
     putTag ix = noBindS [| put (ix :: $tagType) |]
 
-    putField :: Field -> Q Stmt
-    putField Field{..}  = noBindS [| Bi.put $(appE (varE fName) (varE valName)) |]
-    putField (Unused _) = fail "Something went wrong: put Unused field"
+    putField :: ExpQ -> Field -> Q Stmt
+    putField val Field{..} = noBindS [| Bi.put ($(varE fName) $val) |]
+    putField _  (Unused _) = fail "Something went wrong: put Unused field"
 
     -- Size definition --
     biSizeExpr :: Q Exp
@@ -259,83 +240,86 @@ deriveSimpleBi headTy constrs = do
 
     -- Generate code like "size :: Word8", "size :: Int"
     sizeAtType :: Name -> ExpQ
-    sizeAtType ty = [| size :: Size $(conT ty) |]
+    sizeAtType ty = [| Bi.size :: Store.Size $(conT ty) |]
 
-    -- Variables for total size of used fields in the each constructor.
-    sizeNames :: [Name]
-    sizeNames = take (length constrs) $
-                      map (mkName . ("sz" ++) . show) ([0..] :: [Int])
-
-    -- Prefixes of fields (corresponding to each constructor)
-    shortCNames :: [Name]
-    shortCNames = take (length constrs) $
-                     map (mkName . ("c" ++) . show) ([0..] :: [Int])
+    -- Generate a unique name per each field in 'allUsedFields':
+    --   pref_1_1, pref_1_2, ...
+    --   pref_2_1, pref_2_2, ...
+    genFieldIndices :: String -> Q [[Name]]
+    genFieldIndices pref =
+        ifor allUsedFields $ \i fs ->
+            newNames (pref ++ "_" ++ show i ++ "_") (length fs)
 
     -- Generate the following code:
-    -- (ConstSize sz0f0,
-    -- ConstSize sz1f0, ConstSize sz1f1, ConstSize sz1f2,
-    -- ConstSize sz2f2) | sz0 == sz1 -> ConstSize (1 + sz0)
+    -- ( ConstSize size_1_1
+    -- , ConstSize size_2_1, ConstSize size_2_2, ConstSize size_2_3
+    -- , ConstSize size_3_1, ConstSize size_3_2 )
+    --   | size_1 == size_2 && size_2 == size_3 -> ConstSize (tagSize + size_1)
     --   where
-    --     sz0 = sz0f0
-    --     sz1 = sz1f0 + sz1f1 + sz1f2
-    --     sz2 = sz2f0
+    --     size_1 = size_1_1
+    --     size_2 = size_2_1 + size_2_2 + size_2_3
+    --     size_3 = size_3_1 + size_3_2
     matchConstSize :: MatchQ
-    matchConstSize = do
-        let sz0 = VarE (mkName "sz0")
-        let flatUsedFields = prependPrefToFields sizeNames
-        let sumOfFieldsDecls = zipWith constrSumOfFields sizeNames allUsedFields
-        -- Generate sz0 == sz1 | sz0 == sz2 | ..
-        sameSizeExpr <-
-            foldl (\l r -> [| $(l) && $(r) |]) [| True |] $
-            map (\szn -> [| $(return sz0) == $(varE szn) |]) $
-            unsafeTail sizeNames
-        result <- [| ConstSize (tagSize + $(return sz0)) |]
-        match (tupP (map (conP 'ConstSize . one . varP) flatUsedFields))
-              (guardedB [return (NormalG sameSizeExpr, result)])
-              sumOfFieldsDecls
+    matchConstSize
+      | null allUsedFields     =    -- no constructors = size 0
+          match wildP (normalB [| Store.ConstSize 0 |]) []
+      | all null allUsedFields =    -- no fields anywhere = size of the tag
+          match wildP (normalB [| Store.ConstSize $mbTagSize |]) []
+      | otherwise = do
+          -- Names and vars for total sizes:
+          --     size_1, size_2, size_3, ...
+          -- Names and vars for field sizes:
+          --     size_1_1, size_1_2, ...
+          --     size_2_1, size_2_2, ...               ...
+          -- Calculations of total sizes:
+          --     where size_1 = size_1_1
+          --           size_2 = size_2_1 + size_2_2    ...
+          totalNames <- newNames "size_" (length allUsedFields)
+          let totals     = map varE totalNames
+              firstTotal = unsafeHead totals
+          fieldSizeNames <- genFieldIndices "size"
+          let fieldSizes = (map . map) varE fieldSizeNames
+          let mkTotalDecl ts xs = valD (varP ts) (normalB (sumE xs)) []
+              totalsDecls       = zipWith mkTotalDecl totalNames fieldSizes
+          -- The giant tuple pattern with all sizes:
+          --     (ConstSize size_1_1, ConstSize size_1_2, ...)
+          -- The size equality guard:
+          --     | size_1 == size_2 && size_2 == size_3 && ...
+          -- The result:
+          --     -> ConstSize (size_1 + tagSize)
+          let casePattern  = tupP [ [p| Store.ConstSize $(varP fs) |]
+                                  | fs <- concat fieldSizeNames]
+              caseGuard    = andE $ zipConsecutive (infixApp [| (==) |]) totals
+              caseResult   = [| Store.ConstSize ($firstTotal + $mbTagSize) |]
+          -- Put it all together!
+          match casePattern
+                (guardedB [normalGE caseGuard caseResult])
+                totalsDecls
 
     -- Generate the following code:
-    -- sz0 = sz0f1 + sz0f2 + sz0f3.
-    constrSumOfFields :: Name -> [(Name, Name)] -> DecQ
-    constrSumOfFields szn [] = valD (varP szn) (normalB [| 0 |]) []
-    constrSumOfFields szn (map fst -> names) = valD (varP szn) body []
-      where
-        body = normalB $
-            foldl1 (\l r -> [| $(l) + $(r) |]) $
-            map (varE . (szn `appendName`)) names
-
-    -- Generate the following code:
-    -- (c0f0, c0f1, c1f0) -> VarSize $ \val -> 1 +
-    --    case val of
-    --        Bar _ _ -> getSizeWith c0f0 (f0 val) + getSizeWith c0f1 (f1 val)
-    --        Baz _   -> getSizeWith c1f0 (f0 val)
+    -- _ -> VarSize $ \x -> tagSize +
+    --    case x of
+    --        val@Bar{} -> getSize (f1 val) + getSize (f2 val)
+    --        val@Baz{} -> getSize (f1 val)
     matchVarSize :: MatchQ
     matchVarSize = do
-        let flatUsedFields = prependPrefToFields shortCNames
-        match (tupP (map varP flatUsedFields))
+        x <- newName "x"
+        let branches = map matchVarCons filteredConstrs
+        match wildP
               (normalB
-                 [| VarSize $ \val ->
-                        tagSize + $(caseE [| val |]
-                                          (zipWith3 matchVarCons shortCNames numOfFields filteredConstrs)) |])
+                 [| Store.VarSize $ \ $(varP x) ->
+                        $mbTagSize + $(caseE (varE x) branches) |])
               []
 
-    -- CSL-1212: banish 'valName' and instead generate something like
-    -- "x@Bar{} -> ..."
-
     -- Generate the following code:
-    -- Bar _ _ -> getSizeWith c0f0 (field1 val) + getSizeWith c0f1 (field2 val)
-    matchVarCons :: Name -> Int -> Cons -> MatchQ
-    matchVarCons _ _ (Cons cName [])  = match (conP cName []) (normalB [| 0 |]) []
-    matchVarCons shortName num (Cons cName (map fName -> cFields)) = do
-        let wilds = replicate num wildP
-        match (conP cName wilds) body []
+    --     val@Bar{} -> getSize (field1 val) + getSize (field2 val)
+    matchVarCons :: Cons -> MatchQ
+    matchVarCons (Cons cName (map fName -> cFields)) = do
+        val <- newName "val"
+        match (asP val (recP cName [])) (body (varE val)) []
       where
-        -- CSL-1212: add some TH util for doing such folds
-        body = normalB $
-            foldl1 (\l r -> [| $(l) + $(r) |]) $
-            map (\fn -> [| Store.getSizeWith $(varE (shortName `appendName` shortenName fn))
-                                             $(appE (varE fn) (varE valName)) |])
-                cFields
+        body val = normalB $
+            sumE [[| Bi.getSize ($(varE f) $val) |] | f <- cFields]
 
     -- Get definition --
     biGetExpr :: Q Exp
@@ -362,7 +346,7 @@ deriveSimpleBi headTy constrs = do
     biGetConstr Cons{..} = do
         let (usedFields, unusedFields) = partition isUsed cFields
 
-        varNames :: [Name] <- mapM (newName . show . shortenName . fName) usedFields
+        varNames :: [Name] <- mapM (newName . nameBase . fName) usedFields
         varPs :: [Pat] <- mapM varP varNames
         biGets :: [Exp] <- replicateM (length varPs) [| Bi.get |]
         bindExprs :: [Stmt] <- mapM (uncurry bindS . bimap pure pure) (zip varPs biGets)
@@ -378,10 +362,10 @@ makeBiInstanceTH :: Type -> Exp -> Exp -> Exp -> [Dec]
 makeBiInstanceTH ty sizeE putE getE = one $
   plainInstanceD
         [] -- empty context
-        (AppT (ConT ''Bi) ty)
-        [ ValD (VarP 'size) (NormalB sizeE) []
-        , ValD (VarP 'put) (NormalB putE) []
-        , ValD (VarP 'get) (NormalB getE) []
+        (AppT (ConT ''Bi.Bi) ty)
+        [ ValD (VarP 'Bi.size) (NormalB sizeE) []
+        , ValD (VarP 'Bi.put)  (NormalB putE) []
+        , ValD (VarP 'Bi.get)  (NormalB getE) []
         ]
 
 data MatchConstructors
@@ -437,3 +421,27 @@ checkAllFields (map fieldToPair -> passedFields) realFields
     inclusion :: [Name] -> [Name] -> Maybe Name
     inclusion c1 c2 = find (`notElem` c2) c1
 
+
+----------------------------------------------------------------------------
+-- Utilities
+----------------------------------------------------------------------------
+
+foldr1E :: ExpQ -> [ExpQ] -> ExpQ
+foldr1E f = foldr1 (\a b -> infixApp a f b)
+
+foldl1E :: ExpQ -> [ExpQ] -> ExpQ
+foldl1E f = foldl1 (\a b -> infixApp a f b)
+
+-- | Generate an expression which is a 'sum' of a list of expressions
+sumE :: [ExpQ] -> ExpQ
+sumE [] = [| 0 |]
+sumE xs = foldl1E [|(+)|] xs
+
+-- | Generate an expression which is an 'and' of a list of expressions
+andE :: [ExpQ] -> ExpQ
+andE [] = [| True |]
+andE xs = foldr1E [|(&&)|] xs
+
+-- | Zip consecutive elements (a+b, b+c, c+d, ...)
+zipConsecutive :: (a -> a -> b) -> [a] -> [b]
+zipConsecutive f xs = zipWith f xs (drop 1 xs)

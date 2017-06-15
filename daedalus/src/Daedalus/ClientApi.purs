@@ -2,25 +2,28 @@ module Daedalus.ClientApi where
 
 import Prelude
 import Daedalus.BackendApi as B
+import Daedalus.Crypto as Crypto
+import Data.Array as A
+import Data.Base58 as B58
+import Data.String.Base64 as B64
+
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
+import Control.Monad.Error.Class (throwError)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (getProfileLocale, mkCId, mkCCoin, mkCAccountMeta, mkCWalletMeta, mkCTxId, mkCTxMeta, mkCProfile, mkCAccountInit, mkCWalletRedeem, mkBackupPhrase, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCWalletInit, mkCAccountId)
+import Daedalus.Types (getProfileLocale, mkBackupPhrase, mkCAccountId, mkCAccountInit, mkCAccountMeta, mkCCoin, mkCId, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCProfile, mkCTxId, mkCTxMeta, mkCWalletInit, mkCWalletMeta, mkCWalletRedeem)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
-import Data.String.Base64 as B64
-import Data.Base58 as B58
-import Data.Array as A
-import Data.String (length, stripSuffix, Pattern (..))
-import Data.Maybe (isJust, maybe, Maybe (..))
-import Data.Function.Eff (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn5, mkEffFn5, EffFn3, mkEffFn3, EffFn6, mkEffFn6, EffFn7, mkEffFn7)
-import Network.HTTP.Affjax (AJAX)
-import WebSocket (WEBSOCKET)
-import Control.Monad.Error.Class (throwError)
 import Data.Either (either)
-import Daedalus.Crypto as Crypto
+import Data.Foreign (Foreign)
+import Data.Function.Eff (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn5, mkEffFn5, EffFn3, mkEffFn3, EffFn6, mkEffFn6)
+import Data.Maybe (isJust, maybe, Maybe(..))
+import Data.String (length, stripSuffix, Pattern(..))
+import Network.HTTP.Affjax (AJAX)
+
+import WebSocket (WEBSOCKET)
 
 -- WARNING: this documentation is out of date because of aggresive changes made to the api!
 
@@ -89,7 +92,7 @@ getWallets = fromAff $ map encodeJson B.getWallets
 -- Returns json representation of created wallet set
 -- Example in nodejs:
 -- | ```js
--- | > api.newWallet('test', 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
+-- | > api.newWallet('test', 'CWANormal', 0, 'transfer uniform grunt excess six veteran vintage warm confirm vote nephew allow', 'pass').then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cwAccountsNumber: 0,
 -- |   cwMeta: { cwName: 'test' },
@@ -97,10 +100,30 @@ getWallets = fromAff $ map encodeJson B.getWallets
 -- |   cwHasPassphrase: true,
 -- |   cwId: '1fjgSiJKbzJGMsHouX9HDtKai9cmvPzoTfrmYGiFjHpeDhW' }
 -- | ```
-newWallet :: forall eff . EffFn5 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String Int String String
-  (Promise Json)
-newWallet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword -> fromAff <<< map encodeJson <<<
-    either throwError (B.newWallet $ mkCPassPhrase spendingPassword) $ mkCWalletInit wSetName wsAssurance wsUnit mnemonic
+newWallet
+    :: forall eff.
+    EffFn5 (ajax :: AJAX, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff)
+    String
+    String
+    Int
+    String
+    Foreign
+    (Promise Json)
+newWallet = mkEffFn5 cNewWallet
+  where
+    cNewWallet
+        :: String
+        -> String
+        -> Int
+        -> String
+        -> Foreign
+        -> Eff (ajax :: AJAX, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff) (Promise Json)
+    cNewWallet wSetName wsAssurance wsUnit mnemonic spendingPassword = do
+        pass <- mkCPassPhrase spendingPassword
+        let cWalletInit    = mkCWalletInit wSetName wsAssurance wsUnit mnemonic
+        let newCWallet     = B.newWallet pass
+
+        fromAff <<< map encodeJson $ either throwError newCWallet cWalletInit
 
 -- | Get meta information from given wallet
 -- Arguments: wallet object/identifier, name, assurance, unit
@@ -145,8 +168,35 @@ updateWallet = mkEffFn4 \wId wName wAssurance wUnit -> fromAff <<< map encodeJso
 -- |   cwHasPassphrase: true,
 -- |   cwAmount: { getCCoin: '0' } }
 -- | ```
-restoreWallet :: forall eff. EffFn5 (ajax :: AJAX | eff) String String Int String String (Promise Json)
-restoreWallet = mkEffFn5 \wSetName wsAssurance wsUnit mnemonic spendingPassword -> fromAff <<< map encodeJson <<< either throwError (B.restoreWallet $ mkCPassPhrase spendingPassword) $ mkCWalletInit wSetName wsAssurance wsUnit mnemonic
+
+-- either throwError ( $ mkCPassPhrase spendingPassword) $ mkCWalletInit wSetName wsAssurance wsUnit mnemonic
+
+-- instance derivedErrorFromForeignError :: Error (NonEmptyList ForeignError) where
+
+restoreWallet
+    :: forall eff.
+    EffFn5 (ajax :: AJAX, err :: EXCEPTION | eff)
+    String
+    String
+    Int
+    String
+    Foreign
+    (Promise Json)
+restoreWallet = mkEffFn5 cRestoreWallet
+  where
+    cRestoreWallet
+        :: String
+        -> String
+        -> Int
+        -> String
+        -> Foreign
+        -> Eff (ajax :: AJAX, err :: EXCEPTION | eff) (Promise Json)
+    cRestoreWallet wSetName wsAssurance wsUnit mnemonic spendingPassword = do
+        pass <- mkCPassPhrase spendingPassword
+        let cWalletInit    = mkCWalletInit wSetName wsAssurance wsUnit mnemonic
+        let restoredWallet = B.restoreWallet pass
+
+        fromAff <<< map encodeJson $ either throwError restoredWallet cWalletInit
 
 -- | Rename a wallet set.
 -- Arguments: wallet set id/hash, name
@@ -191,8 +241,22 @@ renameWalletSet = mkEffFn2 \wSetId name -> fromAff <<< map encodeJson $ B.rename
 -- |   cwHasPassphrase: false,
 -- |   cwAmount: { getCCoin: '0' } }
 -- | ```
-importWallet :: forall eff. EffFn2 (ajax :: AJAX | eff) String String (Promise Json)
-importWallet = mkEffFn2 \filePath spendingPassword -> fromAff <<< map encodeJson $ B.importWallet (mkCPassPhrase spendingPassword) filePath
+importWallet
+    :: forall eff.
+    EffFn2 (ajax :: AJAX, err :: EXCEPTION | eff)
+    String
+    Foreign
+    (Promise Json)
+importWallet = mkEffFn2 cImportWallet
+  where
+    cImportWallet
+        :: String
+        -> Foreign
+        -> Eff (ajax :: AJAX, err :: EXCEPTION | eff) (Promise Json)
+    cImportWallet filePath spendingPassword = do
+        pass <- mkCPassPhrase spendingPassword
+        let importedWallet = B.importWallet pass filePath
+        fromAff <<< map encodeJson $ importedWallet
 
 -- | Rename a wallet set.
 -- Arguments: wallet set id/hash, old spending password (set to empty string if there is no password), new spending password (set to empty string if you want to remove password)
@@ -203,8 +267,25 @@ importWallet = mkEffFn2 \filePath spendingPassword -> fromAff <<< map encodeJson
 -- | Promise { <pending> }
 -- | > {}
 -- | ```
-changeWalletPass :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String (Promise Unit)
-changeWalletPass = mkEffFn3 \wSetId oldPass newPass -> fromAff $ B.changeWalletPass (mkCId wSetId) (mkCPassPhrase oldPass) (mkCPassPhrase newPass)
+changeWalletPass
+    :: forall eff.
+    EffFn3  (ajax :: AJAX, err :: EXCEPTION | eff)
+    String
+    Foreign
+    Foreign
+    (Promise Unit)
+changeWalletPass = mkEffFn3 cChangeWalletPass
+  where
+    cChangeWalletPass
+        :: String
+        -> Foreign
+        -> Foreign
+        -> Eff (ajax :: AJAX, err :: EXCEPTION | eff) (Promise Unit)
+    cChangeWalletPass wSetId oldPass newPass = do
+        oldPass' <- mkCPassPhrase oldPass
+        newPass' <- mkCPassPhrase newPass
+        let walletSetId = mkCId wSetId
+        fromAff $ B.changeWalletPass walletSetId oldPass' newPass'
 
 -- | Deletes a wallet set.
 -- Arguments: wallet set identifier
@@ -304,10 +385,25 @@ updateAccount = mkEffFn2 \wId wName -> fromAff <<< map encodeJson <<<
 -- |    [ { cadId: '19M3DbeepAzN6xzSSErL8pk1JQA8oFkgE9L6LZfKXMiNpoPDjfDpJjWa3Jis1oCZVGMo1pM8tio2wifuhDPWzwCWS6sZfX',
 -- |        cadAmount: [Object] } ] }
 -- | ```
-newAccount :: forall eff. EffFn3 (ajax :: AJAX | eff) String String String
-  (Promise Json)
-newAccount = mkEffFn3 \wSetId wName spendingPassword -> fromAff <<< map encodeJson <<<
-    B.newAccount (mkCPassPhrase spendingPassword) $ mkCAccountInit wName (mkCId wSetId)
+newAccount
+    :: forall eff.
+    EffFn3 (ajax :: AJAX, err :: EXCEPTION | eff)
+    String
+    String
+    Foreign
+    (Promise Json)
+newAccount = mkEffFn3 cNewAccount
+  where
+    cNewAccount
+        :: String
+        -> String
+        -> Foreign
+        -> Eff (ajax :: AJAX, err :: EXCEPTION | eff) (Promise Json)
+    cNewAccount wSetId wName spendingPassword = do
+        pass <- mkCPassPhrase spendingPassword
+        let accountInit = mkCAccountInit wName (mkCId wSetId)
+        let newCAccount  = B.newAccount pass accountInit
+        fromAff <<< map encodeJson $ newCAccount
 
 -- | Deletes a wallet.
 -- Arguments: wallet object/identifier
@@ -329,15 +425,28 @@ deleteAccount = mkEffFn1 $ fromAff <<< B.deleteAccount <<< mkCAccountId
 -- Returns json representation of newly created account
 -- Example in nodejs:
 -- | ```js
--- | > api.newAddress('1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648', '').then(console.log).catch(console.log)
+-- | > api.newWAddress('1fqJaRGbJnhyVUtrGrPs9SsyZz5fWhoC8sa8CypcKYYH565@2385431040', null).then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > { cadId: '19N52o4RrzEo6AxRzawAkbuMtnqPjrgat1USDMaRQG3uK46b7bNrpxMSLgd1sxvPUPFbGnmj9Kmj2Fb8H5W5Ez7g6voZMy',
 -- |   cadAmount: { getCCoin: '0' } }
 -- | ```
-newAddress :: forall eff . EffFn2 (ajax :: AJAX | eff) String String
-  (Promise Json)
-newAddress = mkEffFn2 \wId spendingPassword -> fromAff <<< map encodeJson <<<
-    B.newAddress (mkCPassPhrase spendingPassword) $ mkCAccountId wId
+newWAddress
+    :: forall eff.
+    EffFn2 (ajax :: AJAX, err :: EXCEPTION | eff)
+    String
+    Foreign
+    (Promise Json)
+newWAddress = mkEffFn2 cNewWAddress
+  where
+    cNewWAddress
+        :: String
+        -> Foreign
+        -> Eff (ajax :: AJAX, err :: EXCEPTION | eff) (Promise Json)
+    cNewWAddress wId spendingPassword = do
+        pass <- mkCPassPhrase spendingPassword
+        let cAccountId  = mkCAccountId wId
+        let newCAddress = B.newAddress pass cAccountId
+        fromAff <<< map encodeJson $ newCAddress
 
 --------------------------------------------------------------------------------
 -- Addresses ------------------------------------------------------------------
@@ -415,13 +524,30 @@ updateLocale = mkEffFn1 \locale -> fromAff <<< map getProfileLocale <<< B.update
 -- |   ctConfirmations: 0,
 -- |   ctAmount: { getCoin: '50000' } }
 -- | ```
-newPayment :: forall eff. EffFn4 (ajax :: AJAX | eff) String String String String (Promise Json)
-newPayment = mkEffFn4 \wFrom addrTo amount spendingPassword -> fromAff <<< map encodeJson $
-    B.newPayment
-    (mkCPassPhrase spendingPassword)
-    (mkCAccountId wFrom)
-    (mkCId addrTo)
-    (mkCCoin amount)
+newPayment
+    :: forall eff.
+    EffFn4 (ajax :: AJAX, err :: EXCEPTION | eff)
+    String
+    String
+    String
+    Foreign
+    (Promise Json)
+newPayment = mkEffFn4 cNewPayment
+  where
+    cNewPayment
+        :: String
+        -> String
+        -> String
+        -> Foreign
+        -> Eff  (ajax :: AJAX, err :: EXCEPTION | eff) (Promise Json)
+    cNewPayment wFrom addrTo amount spendingPassword = do
+        pass <- mkCPassPhrase spendingPassword
+        let accountId   = mkCAccountId wFrom
+        let cId         = mkCId addrTo
+        let cAmount     = mkCCoin amount
+        let newCPayment = B.newPayment pass accountId cId cAmount
+
+        fromAff <<< map encodeJson $ newCPayment
 
 -- | Creates a new payment.
 -- Arguments: wallet object/id, address id/hash, amount to send, currency, title, description, spending password (leave empty string if you don't want to use spending password)
@@ -443,15 +569,34 @@ newPayment = mkEffFn4 \wFrom addrTo amount spendingPassword -> fromAff <<< map e
 -- |   ctConfirmations: 0,
 -- |   ctAmount: { getCoin: '49999' } }
 -- | ```
-newPaymentExtended :: forall eff. EffFn6 (ajax :: AJAX | eff) String String String String String String (Promise Json)
-newPaymentExtended = mkEffFn6 \wFrom addrTo amount title desc spendingPassword -> fromAff <<< map encodeJson $
-    B.newPaymentExtended
-    (mkCPassPhrase spendingPassword)
-    (mkCAccountId wFrom)
-    (mkCId addrTo)
-    (mkCCoin amount)
-    title
-    desc
+newPaymentExtended
+    :: forall eff.
+    EffFn6 (ajax :: AJAX, err :: EXCEPTION | eff)
+    String
+    String
+    String
+    String
+    String
+    Foreign
+    (Promise Json)
+newPaymentExtended = mkEffFn6 cNewPaymentExtended
+  where
+    cNewPaymentExtended
+        :: String
+        -> String
+        -> String
+        -> String
+        -> String
+        -> Foreign
+        -> Eff (ajax :: AJAX, err :: EXCEPTION | eff) (Promise Json)
+    cNewPaymentExtended wFrom addrTo amount title desc spendingPassword = do
+        pass <- mkCPassPhrase spendingPassword
+        let accountId   = mkCAccountId wFrom
+        let cId         = mkCId addrTo
+        let cAmount     = mkCCoin amount
+        let newCPayment = B.newPaymentExtended pass accountId cId cAmount title desc
+
+        fromAff <<< map encodeJson $ newCPayment
 
 -- | Updates transaction meta data.
 -- Arguments: wallet object/id, transaction id/hash, currency, title, description, date
@@ -608,11 +753,27 @@ applyUpdate = fromAff B.applyUpdate
 -- |     at /home/ksaric/projects/haskell/cardano-sl/daedalus/output/Control.Monad.Aff/foreign.js:176:17
 -- |     at /home/ksaric/projects/haskell/cardano-sl/daedalus/output/Control.Monad.Aff/foreign.js:182:25
 -- | ```
-redeemAda :: forall eff. EffFn3 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String (Promise Json)
-redeemAda = mkEffFn3 \seed wId spendingPassword -> fromAff <<< map encodeJson $
-    B.redeemAda
-    (mkCPassPhrase spendingPassword)
-    (mkCWalletRedeem seed $ mkCAccountId wId)
+redeemAda
+    :: forall eff.
+    EffFn3 (ajax :: AJAX, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff)
+    String
+    String
+    Foreign
+    (Promise Json)
+redeemAda = mkEffFn3 cRedeemAda
+  where
+    cRedeemAda
+        :: String
+        -> String
+        -> Foreign
+        -> Eff (ajax :: AJAX, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff) (Promise Json)
+    cRedeemAda seed wId spendingPassword = do
+        pass <- mkCPassPhrase spendingPassword
+        let accountId    = mkCAccountId wId
+        let walletRedeem = mkCWalletRedeem seed accountId
+        let redeemedAda  = B.redeemAda pass walletRedeem
+
+        fromAff <<< map encodeJson $ redeemedAda
 
 -- TODO: this endpoint wasn’t verified yet! Need to be tested with genesis block prepared for redeeming!
 -- Example in nodejs:
@@ -632,8 +793,29 @@ redeemAda = mkEffFn3 \seed wId spendingPassword -> fromAff <<< map encodeJson $
 -- |     at bound (domain.js:280:14)
 -- | ```
 -- NOTE: if you will be bumping bip39 to >=2.2.0 be aware of https://issues.serokell.io/issue/VD-95 . In this case you will have to modify how we validate paperVendMnemonics.
-redeemAdaPaperVend :: forall eff. EffFn4 (ajax :: AJAX, crypto :: Crypto.CRYPTO | eff) String String String String (Promise Json)
-redeemAdaPaperVend = mkEffFn4 \seed mnemonic wId spendingPassword -> fromAff <<< map encodeJson <<< either throwError (B.redeemAdaPaperVend $ mkCPassPhrase spendingPassword) $ mkCPaperVendWalletRedeem seed mnemonic $ mkCAccountId wId
+redeemAdaPaperVend
+    :: forall eff.
+    EffFn4 (ajax :: AJAX, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff)
+    String
+    String
+    String
+    Foreign
+    (Promise Json)
+redeemAdaPaperVend = mkEffFn4 cRedeemAdaPaperVend
+  where
+    cRedeemAdaPaperVend
+        :: String
+        -> String
+        -> String
+        -> Foreign
+        -> Eff (ajax :: AJAX, err :: EXCEPTION, crypto :: Crypto.CRYPTO | eff) (Promise Json)
+    cRedeemAdaPaperVend seed mnemonic wId spendingPassword = do
+        pass <- mkCPassPhrase spendingPassword
+        let accountId    = mkCAccountId wId
+        let walletRedeem = mkCPaperVendWalletRedeem seed mnemonic accountId
+        let redeemedAda  = B.redeemAdaPaperVend pass
+
+        fromAff <<< map encodeJson $ either throwError (B.redeemAdaPaperVend pass) walletRedeem
 
 -- Valid redeem code is base64 encoded 32byte data
 -- NOTE: this method handles both base64 and base64url base on rfc4648: see more https://github.com/menelaos/purescript-b64/blob/59e2e9189358a4c8e3eef8662ca281906844e783/src/Data/String/Base64.purs#L182

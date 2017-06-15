@@ -30,30 +30,27 @@ module Daedalus.Types
        ) where
 
 import Prelude
-
-import Pos.Wallet.Web.ClientTypes (CId (..), CHash (..), CPassPhrase (..), CCoin (..), Wal (..), CAccountId (..), CWalletMeta (..))
-
-import Pos.Wallet.Web.ClientTypes as CT
-import Pos.Core.Types as C
-import Pos.Wallet.Web.Error.Types as E
-import Pos.Util.BackupPhrase (BackupPhrase (..))
-import Pos.Util.BackupPhrase as BP
-
-import Control.Monad.Eff.Exception (error, Error)
-import Data.Either (either, Either (..))
-import Data.Maybe (Maybe (..))
-import Data.Argonaut.Generic.Aeson (decodeJson)
-import Data.Argonaut.Core (fromString)
-import Data.Generic (gShow)
-import Data.Array.Partial (last)
-import Data.Array (length, filter)
-import Partial.Unsafe (unsafePartial)
-import Data.String (split, null, trim, joinWith, Pattern (..))
-
-import Daedalus.Crypto (isValidMnemonic, blake2b, bytesToB16)
-import Data.Types (mkTime)
 import Data.Types as DT
-import Data.Int53 (fromInt, toString)
+import Pos.Core.Types as C
+import Pos.Util.BackupPhrase as BP
+import Pos.Wallet.Web.ClientTypes as CT
+import Pos.Wallet.Web.Error.Types as E
+import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Exception (EXCEPTION, Error, error, throw)
+import Control.Monad.Except (runExcept)
+import Daedalus.Crypto (isValidMnemonic, blake2b, bytesToB16)
+import Data.Argonaut.Core (fromString)
+import Data.Argonaut.Generic.Aeson (decodeJson)
+import Data.Array (length, filter)
+import Data.Either (either, Either(..))
+import Data.Foreign (F, Foreign, isNull, readString)
+import Data.Foreign.Null (readNull, unNull, Null)
+import Data.Int53 (fromInt)
+import Data.Maybe (Maybe(Nothing))
+import Data.String (split, null, trim, joinWith, Pattern(..))
+import Data.Types (mkTime)
+import Pos.Util.BackupPhrase (BackupPhrase(..))
+import Pos.Wallet.Web.ClientTypes (CId(..), CHash(..), CPassPhrase(..), CCoin(..), Wal(..), CAccountId(..), CWalletMeta(..))
 
 space :: Pattern
 space = Pattern " "
@@ -105,9 +102,28 @@ _passPhrase (CPassPhrase p) = p
 emptyCPassPhrase :: CPassPhrase
 emptyCPassPhrase = CPassPhrase ""
 
-mkCPassPhrase :: String -> Maybe CPassPhrase
-mkCPassPhrase "" = Nothing
-mkCPassPhrase pass = Just <<< CPassPhrase <<< bytesToB16 $ blake2b pass
+-- | Create/Make password from foreign javascript code. Return errors if you
+-- find them.
+mkCPassPhrase :: forall eff. Foreign -> Eff (err :: EXCEPTION | eff) (Maybe CPassPhrase)
+mkCPassPhrase pass = do
+  optionalPass <- optionalString pass "password"
+  pure $ CPassPhrase <<< bytesToB16 <<< blake2b <$> optionalPass
+
+-- | We take a @Foreign@ parameter and if it's null, we return it as @Nothing@,
+-- and if it's not null, we try to parse it as a @String@, and return errors
+-- associated with converting.
+optionalString :: forall eff. Foreign -> String -> Eff (err :: EXCEPTION | eff) (Maybe String)
+optionalString string paramName =
+    if (isNull string)
+    then pure Nothing
+    else either (const raiseError) pure runForeignRead
+  where
+    runForeignRead = runExcept $ unNull <$> theReadString
+    -- type F (Maybe String) = ExceptT (NonEmptyList ForeignError) Identity (Maybe String)
+    theReadString :: F (Null String)
+    theReadString = readNull readString string
+
+    raiseError = throw ("Error with converting parameter '" <> paramName <> "' to string.")
 
 mkCId :: forall a. String -> CId a
 mkCId = CId <<< CHash

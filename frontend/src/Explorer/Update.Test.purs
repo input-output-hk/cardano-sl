@@ -16,7 +16,7 @@ import Explorer.Api.Types (SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Lenses.State (connected, currentAddressSummary, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions)
 import Explorer.State (initialState, mkSocketSubscriptionItem)
-import Explorer.Test.MockFactory (mkCBlockEntry, mkCTxBrief, mkEmptyCAddressSummary, mkEmptyCTxEntry, mkTxBriefs, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx, setTxOfAddressSummary)
+import Explorer.Test.MockFactory (mkCBlockEntry, mkCTxBrief, mkEmptyCAddressSummary, mkEmptyCTxEntry, mkCTxBriefs, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx, setTxOfAddressSummary)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (PageNumber(..), PageSize(..))
 import Explorer.Update (update)
@@ -73,11 +73,11 @@ testUpdate =
 
         describe "handles SocketAddressTxsUpdated action" do
             -- mock `currentAddressSummary` first
-            let addrs = setTxOfAddressSummary (mkTxBriefs (9..0)) mkEmptyCAddressSummary
+            let addrs = setTxOfAddressSummary (mkCTxBriefs (9..0)) mkEmptyCAddressSummary
                 initialState' =
                     set currentAddressSummary (Success addrs) initialState
                 latestTx = mkCTxBrief 19
-                txs = latestTx : mkTxBriefs (18..10)
+                txs = latestTx : mkCTxBriefs (18..10)
                 effModel = update (SocketAddressTxsUpdated (Right txs)) initialState'
                 state = _.state effModel
                 updatedAddrs = state ^. (currentAddressSummary <<< _Success <<< _CAddressSummary <<< caTxList)

@@ -6,7 +6,7 @@ module Explorer.Test.MockFactory where
 
 import Prelude
 import Data.Array ((..))
-import Data.Lens (over, set)
+import Data.Lens (set)
 import Data.Maybe (Maybe(..))
 import Data.Time.NominalDiffTime (NominalDiffTime, mkTime)
 import Data.Tuple (Tuple(..))
@@ -76,8 +76,8 @@ setHashOfBlock :: CHash -> CBlockEntry -> CBlockEntry
 setHashOfBlock hash block =
     set (_CBlockEntry <<< cbeBlkHash) hash block
 
-mkTxBriefs :: Array Int -> CTxBriefs
-mkTxBriefs indexes =
+mkCTxBriefs :: Array Int -> CTxBriefs
+mkCTxBriefs indexes =
     map mkCTxBrief indexes
 
 mkCTxBrief :: Int -> CTxBrief

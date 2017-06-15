@@ -9,6 +9,7 @@ module Pos.Txp.Logic.Local
        ) where
 
 import           Control.Monad.Except (MonadError (..))
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default         (Default (def))
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Map             as M (fromList)
@@ -30,6 +31,7 @@ import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (
 
 type TxpLocalWorkMode m =
     ( MonadIO m
+    , MonadBaseControl IO m
     , MonadDBRead m
     , MonadTxpMem () m
     , WithLogger m
@@ -93,7 +95,7 @@ txProcessTransaction itw@(txId, txAux) = do
 -- | 2. Remove invalid transactions from MemPool
 -- | 3. Set new tip to txp local data
 txNormalize
-    :: (MonadIO m, MonadDBRead m, MonadTxpMem () m) => m ()
+    :: (MonadIO m, MonadBaseControl IO m, MonadDBRead m, MonadTxpMem () m) => m ()
 txNormalize = do
     utxoTip <- GS.getTip
     localTxs <- getLocalTxs

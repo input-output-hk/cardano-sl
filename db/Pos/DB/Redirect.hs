@@ -20,7 +20,7 @@ import qualified Ether
 
 import qualified Database.RocksDB             as Rocks
 import           Pos.DB.BatchOp               (rocksWriteBatch)
-import           Pos.DB.Class                 (MonadDB (..), MonadDBRead (..), DBTag,
+import           Pos.DB.Class                 (DBTag, MonadDB (..), MonadDBRead (..),
                                                MonadRealDB, dbTagToLens, getNodeDBs)
 import           Pos.DB.Functions             (rocksDelete, rocksGetBytes, rocksPutBytes)
 

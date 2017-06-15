@@ -10,13 +10,25 @@ module Pos.Util.JsonLog
        , jlCreatedBlock
        , jlAdoptedBlock
        , fromJLSlotId
+       , JsonLogConfig(..)
+       , jsonLogConfigFromHandle
+       , jsonLogReal
        ) where
 
 import           Universum               hiding (catchAll)
 
+import           Control.Concurrent.MVar (MVar, withMVar)
+import           Data.Aeson              (encode)
 import           Data.Aeson.TH           (deriveJSON)
-import           Formatting              (sformat)
+import           Data.Aeson.Types        (ToJSON)
+import           Data.ByteString.Lazy    (hPut)
+import qualified Ether
+import           Formatting              (sformat, shown, (%))
+import           JsonLog.Event           (JLTimedEvent, timedIO, toEvent)
+import           Mockable.Class          (Mockable (..))
+import           Mockable.Exception      (Catch, catchAll)
 import           Serokell.Aeson.Options  (defaultOptions)
+import           System.Wlog.CanLog      (WithLogger, logWarning)
 
 import           Pos.Binary.Block        ()
 import           Pos.Binary.Core         ()
@@ -77,3 +89,30 @@ showHash = sformat hashHexF
 -- | Returns event of created 'Block'.
 jlAdoptedBlock :: SscHelpersClass ssc => Block ssc -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHash . headerHash
+
+data JsonLogConfig
+    = JsonLogDisabled
+    | JsonLogConfig (MVar Handle) (JLTimedEvent -> IO Bool)
+
+jsonLogConfigFromHandle :: MonadIO m => Handle -> m JsonLogConfig
+jsonLogConfigFromHandle h = do
+    v <- newMVar h
+    return $ JsonLogConfig v (\_ -> return True)
+
+jsonLogReal
+    :: (ToJSON a, Ether.MonadReader' JsonLogConfig m, Mockable Catch m,
+        MonadIO m, WithLogger m)
+    => a -> m ()
+jsonLogReal x = do
+    jlc <- Ether.ask'
+    case jlc of
+        JsonLogDisabled -> return ()
+        JsonLogConfig v decide -> do
+            event <- toEvent <$> timedIO x
+            b     <- liftIO (decide event)
+                `catchAll` \e -> do
+                    logWarning $ sformat ("error in deciding whether to json log: "%shown) e
+                    return False
+            when b $ liftIO (withMVar v $ flip hPut $ encode event)
+                `catchAll` \e ->
+                    logWarning $ sformat ("can't write json log: "%shown) e

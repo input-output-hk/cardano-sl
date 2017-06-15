@@ -37,7 +37,7 @@ import           Pos.Block.Core               (Block, mkGenesisBlock)
 import           Pos.Block.Types              (Blund)
 import           Pos.Context.Context          (GenesisLeaders, GenesisUtxo, NodeParams)
 import           Pos.Context.Functions        (genesisLeadersM)
-import           Pos.Core                     (headerHash, BlockVersionData)
+import           Pos.Core                     (BlockVersionData, headerHash)
 import           Pos.DB.Block                 (MonadBlockDB, MonadBlockDBWrite,
                                                loadBlundsByDepth, loadBlundsWhile,
                                                prepareBlockDB)

@@ -51,7 +51,7 @@ import           Pos.Security                (SecurityWorkersClass)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Ssc.Extra               (SscMemTag)
 import           Pos.Txp.MemState            (TxpHolderTag)
-import           Pos.Util.TimeWarp           (runJsonLogT')
+import           Pos.Util.JsonLog            (JsonLogConfig(..), jsonLogConfigFromHandle)
 import           Pos.WorkMode                (RealMode (..), WorkMode)
 
 ----------------------------------------------------------------------------
@@ -100,14 +100,18 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
         let startMonitoring node' = case lpEkgPort of
                 Nothing   -> return Nothing
                 Just port -> Just <$> do
-                        ekgStore' <- setupMonitor (runProduction . runToProd Nothing)
+                        ekgStore' <- setupMonitor (runProduction . runToProd JsonLogDisabled)
                             node' ekgStore
                         liftIO $ Metrics.registerGcMetrics ekgStore'
                         liftIO $ Monitoring.forkServerWith ekgStore' "127.0.0.1" port
 
         let stopMonitoring it = whenJust it stopMonitor
+        jsonLogConfig <- maybe
+            (pure JsonLogDisabled)
+            jsonLogConfigFromHandle
+            nrJLogHandle
 
-        runToProd nrJLogHandle $
+        runToProd jsonLogConfig $
             runServer nrTransport listeners outSpecs
             startMonitoring stopMonitoring action
   where
@@ -120,10 +124,9 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
         DCStatic _          -> identity
         DCKademlia kademlia -> foreverRejoinNetwork kademlia
 
-    runToProd :: forall t . Maybe Handle -> RealMode ssc t -> Production t
-    runToProd jlHandle (RealMode act) =
+    runToProd :: forall t . JsonLogConfig -> RealMode ssc t -> Production t
+    runToProd jlConf (RealMode act) =
         usingLoggerName lpRunnerTag .
-            runJsonLogT' jlHandle .
             flip Ether.runReadersT nrContext .
             flip Ether.runReadersT
                 ( Tagged @NodeDBs nrDBs
@@ -131,6 +134,7 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
                 , Tagged @TxpHolderTag nrTxpState
                 , Tagged @DelegationVar nrDlgState
                 , Tagged @PeerStateTag nrPeerState
+                , Tagged @JsonLogConfig jlConf
                 ) $
             act
 {-# NOINLINE runRealMode #-}

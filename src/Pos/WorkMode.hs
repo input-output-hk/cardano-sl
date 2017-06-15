@@ -30,38 +30,45 @@ import           Mockable.Production            (Production)
 import           System.Wlog                    (CanLog, HasLoggerName,
                                                  LoggerNameBox (..))
 
-import           Pos.Block.BListener            (MonadBListener(..), onApplyBlocksStub, onRollbackBlocksStub)
+import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
+                                                 onRollbackBlocksStub)
 import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Types                (Undo)
-import           Pos.Communication.PeerState    (PeerStateCtx, getPeerStateReal, clearPeerStateReal, getAllStatesReal,
-                                                 PeerStateTag, WithPeerState(..))
+import           Pos.Communication.PeerState    (PeerStateCtx, PeerStateTag,
+                                                 WithPeerState (..), clearPeerStateReal,
+                                                 getAllStatesReal, getPeerStateReal)
 import           Pos.Context                    (NodeContext)
-import           Pos.DB                         (MonadGState(..), NodeDBs)
-import           Pos.DB.Redirect                (dbGetReal, dbPutReal, dbWriteBatchReal, dbDeleteReal)
-import           Pos.DB.Block                   (MonadBlockDBWrite(..),
-                                                 dbGetBlockReal, dbGetUndoReal, dbGetHeaderReal, dbGetBlockReal',
-                                                 dbGetUndoReal', dbGetHeaderReal', dbPutBlundReal)
-import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDB(..),
-                                                 MonadDBRead(..))
 import           Pos.Core                       (IsHeader)
+import           Pos.DB                         (MonadGState (..), NodeDBs)
+import           Pos.DB.Block                   (MonadBlockDBWrite (..), dbGetBlockReal,
+                                                 dbGetBlockReal', dbGetHeaderReal,
+                                                 dbGetHeaderReal', dbGetUndoReal,
+                                                 dbGetUndoReal', dbPutBlundReal)
+import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDB (..),
+                                                 MonadDBRead (..))
 import           Pos.DB.DB                      (gsAdoptedBVDataDB)
+import           Pos.DB.Redirect                (dbDeleteReal, dbGetReal, dbPutReal,
+                                                 dbWriteBatchReal)
 import           Pos.Delegation.Class           (DelegationVar)
-import           Pos.Discovery                  (MonadDiscovery(..), getPeersReal, findPeersReal)
-import           Pos.Slotting.Class             (MonadSlots(..))
-import           Pos.Slotting.Impl.Sum          (getCurrentSlotReal,
-                                                 getCurrentSlotBlockingReal, getCurrentSlotInaccurateReal,
-                                                 currentTimeSlottingReal)
-import           Pos.Slotting.MemState          (MonadSlotsData(..),
-                                                 getSystemStartReal, getSlottingDataReal, waitPenultEpochEqualsReal,
-                                                 putSlottingDataReal)
-import           Pos.Ssc.Class.Types            (SscBlock)
+import           Pos.Discovery                  (MonadDiscovery (..), findPeersReal,
+                                                 getPeersReal)
+import           Pos.Slotting.Class             (MonadSlots (..))
+import           Pos.Slotting.Impl.Sum          (currentTimeSlottingReal,
+                                                 getCurrentSlotBlockingReal,
+                                                 getCurrentSlotInaccurateReal,
+                                                 getCurrentSlotReal)
+import           Pos.Slotting.MemState          (MonadSlotsData (..), getSlottingDataReal,
+                                                 getSystemStartReal, putSlottingDataReal,
+                                                 waitPenultEpochEqualsReal)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
+import           Pos.Ssc.Class.Types            (SscBlock)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState)
 import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
-import           Pos.Util.TimeWarp              (CanJsonLog, JsonLogT)
-import           Pos.Util.Util                  (PowerLift (..))
-import           Pos.WorkMode.Class             (MinWorkMode, TxpExtra_TMP, WorkMode)
 import           Pos.Util                       (Some (..))
+import           Pos.Util.TimeWarp              (CanJsonLog(..))
+import           Pos.Util.Util                  (PowerLift (..))
+import           Pos.Util.JsonLog               (JsonLogConfig, jsonLogReal)
+import           Pos.WorkMode.Class             (MinWorkMode, TxpExtra_TMP, WorkMode)
 
 ----------------------------------------------------------------------------
 -- Concrete types
@@ -75,12 +82,12 @@ type RealMode' ssc =
         , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
         , Tagged DelegationVar DelegationVar
         , Tagged PeerStateTag (PeerStateCtx Production)
+        , Tagged JsonLogConfig JsonLogConfig
         ) (
     Ether.ReadersT (NodeContext ssc) (
-    JsonLogT (
     LoggerNameBox (
     Production
-    ))))
+    )))
 
 newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
   deriving
@@ -111,7 +118,9 @@ type instance Counter (RealMode ssc) = Counter Production
 
 deriving instance CanLog (RealMode ssc)
 deriving instance HasLoggerName (RealMode ssc)
-deriving instance CanJsonLog (RealMode ssc)
+
+instance CanJsonLog (RealMode ssc) where
+    jsonLog = jsonLogReal
 
 instance MonadSlotsData (RealMode ssc) where
     getSystemStart = getSystemStartReal

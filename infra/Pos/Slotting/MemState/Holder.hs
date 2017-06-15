@@ -22,7 +22,7 @@ import           Control.Monad.STM            (retry)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Ether
-import           Pos.Core.Types               (Timestamp, EpochIndex)
+import           Pos.Core.Types               (EpochIndex, Timestamp)
 
 import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
 import           Pos.Slotting.Types           (SlottingData (sdPenultEpoch))

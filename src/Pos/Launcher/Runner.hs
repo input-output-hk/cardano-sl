@@ -1,8 +1,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-{-# OPTIONS -fno-cross-module-specialise #-}
-
 -- | Runners in various modes.
 
 module Pos.Launcher.Runner
@@ -128,7 +126,6 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
             jlConf
             lpRunnerTag
             nrContext
-{-# NOINLINE runRealMode #-}
 
 runServer
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)

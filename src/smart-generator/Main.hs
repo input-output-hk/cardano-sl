@@ -2,8 +2,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-{-# OPTIONS -fno-cross-module-specialise #-}
-
 module Main
   ( main
   ) where

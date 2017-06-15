@@ -4,8 +4,6 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
-{-# OPTIONS -fno-warn-unused-imports #-} -- FIXME
-
 module Pos.WorkMode
        ( WorkMode
        , MinWorkMode
@@ -21,18 +19,11 @@ module Pos.WorkMode
 import           Universum
 
 import           Control.Lens                (makeLensesFor)
-import           Control.Monad.Base          (MonadBase)
-import           Control.Monad.Fix           (MonadFix)
 import qualified Control.Monad.Reader        as Mtl
-import           Control.Monad.Trans.Control (MonadBaseControl (..))
-import           Data.Coerce
 import qualified Ether
 import           Ether.Internal              (HasLens (..))
-import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
-                                              MFunctor' (..), Mockable (..), Promise,
-                                              SharedAtomicT, SharedExclusiveT, ThreadId)
 import           Mockable.Production         (Production)
-import           System.Wlog                 (CanLog, HasLoggerName (..), LoggerName)
+import           System.Wlog                 (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
                                               onRollbackBlocksStub)
@@ -72,7 +63,6 @@ import           Pos.Txp.MemState            (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Util                    (Some (..))
 import           Pos.Util.JsonLog            (JsonLogConfig, jsonLogReal)
 import           Pos.Util.TimeWarp           (CanJsonLog (..))
-import           Pos.Util.Util               (PowerLift (..))
 import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
 
 data RealModeContext ssc = RealModeContext

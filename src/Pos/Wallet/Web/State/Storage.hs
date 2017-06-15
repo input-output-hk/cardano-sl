@@ -24,6 +24,9 @@ module Pos.Wallet.Web.State.Storage
        , getUpdates
        , getNextUpdate
        , getHistoryCache
+       , getChangeAddresses
+       , isChangeAddress
+       , addChangeAddress
        , createAccount
        , createWallet
        , addWAddress
@@ -87,12 +90,13 @@ data AccountInfo = AccountInfo
 makeLenses ''AccountInfo
 
 data WalletStorage = WalletStorage
-    { _wsWalletInfos  :: !(HashMap (CId Wal) WalletInfo)
-    , _wsAccountInfos :: !(HashMap AccountId AccountInfo)
-    , _wsProfile      :: !CProfile
-    , _wsReadyUpdates :: [CUpdateInfo]
-    , _wsTxHistory    :: !(HashMap (CId Wal) TransactionHistory)
-    , _wsHistoryCache :: !(HashMap (CId Wal) (HeaderHash, Utxo, [TxHistoryEntry]))
+    { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
+    , _wsAccountInfos    :: !(HashMap AccountId AccountInfo)
+    , _wsProfile         :: !CProfile
+    , _wsReadyUpdates    :: [CUpdateInfo]
+    , _wsTxHistory       :: !(HashMap (CId Wal) TransactionHistory)
+    , _wsHistoryCache    :: !(HashMap (CId Wal) (HeaderHash, Utxo, [TxHistoryEntry]))
+    , _wsChangeAddresses :: CAddresses
     }
 
 makeClassy ''WalletStorage
@@ -106,6 +110,7 @@ instance Default WalletStorage where
         , _wsReadyUpdates = mempty
         , _wsTxHistory    = mempty
         , _wsHistoryCache = mempty
+        , _wsChangeAddresses = mempty
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
@@ -183,6 +188,16 @@ getNextUpdate = preview (wsReadyUpdates . _head)
 
 getHistoryCache :: CId Wal -> Query (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
 getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
+
+getChangeAddresses :: Query CAddresses
+getChangeAddresses = view wsChangeAddresses
+
+isChangeAddress :: CWAddressMeta -> Query Bool
+isChangeAddress addr = isJust <$> preview (wsChangeAddresses . ix addr)
+
+-- | Like `addWAddress` but also marks the address to be a 'change' address
+addChangeAddress :: CWAddressMeta -> Update ()
+addChangeAddress addr = addWAddress addr >> wsChangeAddresses . at addr ?= ()
 
 createAccount :: AccountId -> CAccountMeta -> Update ()
 createAccount accId wMeta = wsAccountInfos . at accId ?= AccountInfo wMeta mempty mempty

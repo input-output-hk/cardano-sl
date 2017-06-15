@@ -284,9 +284,10 @@ data CWalletAssurance
 
 -- | Single address in a account
 data CAddress = CAddress
-    { cadId     :: !(CId Addr)
-    , cadAmount :: !CCoin
-    , cadIsUsed :: !Bool
+    { cadId       :: !(CId Addr)
+    , cadAmount   :: !CCoin
+    , cadIsUsed   :: !Bool
+    , cadIsChange :: !Bool -- ^ Is this a change address
     } deriving (Show, Generic)
 
 -- Includes data which are not provided by Cardano

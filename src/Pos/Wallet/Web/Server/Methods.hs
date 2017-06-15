@@ -117,8 +117,7 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccoun
                                                    Wal, addrMetaToAccount, addressToCId,
                                                    cIdToAddress, coinFromCCoin, encToCId,
                                                    mkCCoin, mkCTxId, mkCTxs,
-                                                   toCUpdateInfo, txContainsTitle,
-                                                   txIdToCTxId)
+                                                   toCUpdateInfo, txIdToCTxId)
 import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
                                                    mkGenesisWalletUserSecret, wusAccounts,
@@ -347,13 +346,11 @@ servantHandlers sendActions =
      updateUserProfile
     :<|>
 
-     send sendActions
-    :<|>
-     sendExtended sendActions
+     newPayment sendActions
     :<|>
      updateTransaction
     :<|>
-     searchHistoryLimited
+     getHistoryLimited
     :<|>
 
      nextUpdate
@@ -398,11 +395,10 @@ getWAddress :: WalletWebMode m => CWAddressMeta -> m CAddress
 getWAddress cAddr@CWAddressMeta {..} = do
     balance <- getWAddressBalance cAddr
     (ctxs, _) <-
-        searchHistory
+        getHistory
             Nothing
             (Just $ addrMetaToAccount cAddr)  -- just to specify addrId is not enough
             (Just cwamId)
-            Nothing
     let isUsed = not (null ctxs) || balance > minBound
     CAddress cwamId (mkCCoin balance) isUsed <$> isChangeAddress cAddr
 
@@ -490,7 +486,7 @@ getAccounts mCAddr = do
 getWallets :: WalletWebMode m => m [CWallet]
 getWallets = getWalletAddresses >>= mapM getWallet
 
-send
+newPayment
     :: WalletWebMode m
     => SendActions m
     -> PassPhrase
@@ -498,27 +494,12 @@ send
     -> CId Addr
     -> Coin
     -> m CTx
-send sendActions passphrase srcAddr dstCAddr c =
-    sendExtended sendActions passphrase srcAddr dstCAddr c mempty mempty
-
-sendExtended
-    :: WalletWebMode m
-    => SendActions m
-    -> PassPhrase
-    -> AccountId
-    -> CId Addr
-    -> Coin
-    -> Text
-    -> Text
-    -> m CTx
-sendExtended sa passphrase srcAccount dstAccount coin title desc =
+newPayment sa passphrase srcAccount dstAccount coin =
     sendMoney
         sa
         passphrase
         (AccountMoneySource srcAccount)
         (one (dstAccount, coin))
-        title
-        desc
 
 data MoneySource
     = WalletMoneySource (CId Wal)
@@ -555,10 +536,8 @@ sendMoney
     -> PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
-    -> Text
-    -> Text
     -> m CTx
-sendMoney sendActions passphrase moneySource dstDistr title desc = do
+sendMoney sendActions passphrase moneySource dstDistr = do
     allAddrs <- getMoneySourceAddresses moneySource
     let dstAccAddrsSet = S.fromList $ map fst $ toList dstDistr
         notDstAccounts = filter (\a -> not $ cwamId a `S.member` dstAccAddrsSet) allAddrs
@@ -638,7 +617,7 @@ sendMoney sendActions passphrase moneySource dstDistr title desc = do
                     -- TODO: this should be removed in production
                     let txHash    = hash tx
                         srcWallet = getMoneySourceWallet moneySource
-                    ctxs <- addHistoryTx srcWallet title desc $
+                    ctxs <- addHistoryTx srcWallet $
                         THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs
                     ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
 
@@ -677,7 +656,7 @@ getFullWalletHistory cWalId = do
                 taCachedUtxo
                 (cached <> cachedTxs)
 
-        ctxs <- forM fullHistory $ addHistoryTx cWalId mempty mempty
+        ctxs <- forM fullHistory $ addHistoryTx cWalId
         pure $ concatMap toList ctxs
     pure (cHistory, fromIntegral $ length cHistory)
   where
@@ -687,14 +666,14 @@ getFullWalletHistory cWalId = do
     transCache Nothing                = (Nothing, [])
     transCache (Just (hh, utxo, txs)) = (Just (hh, utxo), txs)
 
-searchHistory
+
+getHistory
     :: WalletWebMode m
     => Maybe (CId Wal)
     -> Maybe AccountId
     -> Maybe (CId Addr)
-    -> Maybe Text
     -> m ([CTx], Word)
-searchHistory mCWalId mAccountId mAddrId mSearch = do
+getHistory mCWalId mAccountId mAddrId = do
     -- FIXME: searching when only AddrId is provided is not supported yet.
     (cWalId, accIds) <- case (mCWalId, mAccountId) of
         (Nothing, Nothing)      -> throwM errorSpecifySomething
@@ -711,10 +690,7 @@ searchHistory mCWalId mAccountId mAddrId mSearch = do
     first (filter (fits addrs)) <$> getFullWalletHistory cWalId
   where
     fits :: [CId Addr] -> CTx -> Bool
-    fits addrs ctx =
-        maybe True (containsInTitle ctx) mSearch
-            && any (relatesToAddr ctx) addrs
-    containsInTitle = flip txContainsTitle
+    fits addrs ctx = any (relatesToAddr ctx) addrs
     relatesToAddr CTx {..} = (`elem` (ctInputAddrs ++ ctOutputAddrs))
     errorSpecifySomething = RequestError $
         "Please specify either walletId or accountId"
@@ -723,17 +699,16 @@ searchHistory mCWalId mAccountId mAddrId mSearch = do
     errorBadAddress = RequestError $
         "Specified wallet/account does not contain specified address"
 
-searchHistoryLimited
+getHistoryLimited
     :: WalletWebMode m
     => Maybe (CId Wal)
     -> Maybe AccountId
     -> Maybe (CId Addr)
-    -> Maybe Text
     -> Maybe Word
     -> Maybe Word
     -> m ([CTx], Word)
-searchHistoryLimited mCWalId mAccId mAddrId mSearch mSkip mLimit =
-    first applySkipLimit <$> searchHistory mCWalId mAccId mAddrId mSearch
+getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit =
+    first applySkipLimit <$> getHistory mCWalId mAccId mAddrId
   where
     applySkipLimit = take limit . drop skip
     limit = (fromIntegral $ fromMaybe defaultLimit mLimit)
@@ -744,15 +719,13 @@ searchHistoryLimited mCWalId mAccId mAddrId mSearch mSkip mLimit =
 addHistoryTx
     :: WalletWebMode m
     => CId Wal
-    -> Text
-    -> Text
     -> TxHistoryEntry
     -> m CTxs
-addHistoryTx cWalId title desc wtx@THEntry{..} = do
+addHistoryTx cWalId wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
-    meta <- CTxMeta title desc <$> liftIO getPOSIXTime
+    meta <- CTxMeta <$> liftIO getPOSIXTime
     let cId = txIdToCTxId _thTxId
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
@@ -936,7 +909,7 @@ moveMoneyToClone sa oldPass wid oldAddrMeta newAddrMeta = do
     whenNotNull dist $ \dist' ->
         unless (all ((== mkCoin 0) . snd) dist) $
         void $
-        sendMoney sa oldPass ms dist' "Wallet cloning transaction" ""
+        sendMoney sa oldPass ms dist'
 
 changeWalletPassphrase
     :: WalletWebMode m
@@ -1040,7 +1013,7 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
         Right (TxAux {..}, redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             let txInputs = [TxOut redeemAddress redeemBalance]
-            ctxs <- addHistoryTx (aiWId accId) "ADA redemption" ""
+            ctxs <- addHistoryTx (aiWId accId)
                 (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr])
             ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
   where

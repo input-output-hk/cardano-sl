@@ -174,28 +174,23 @@ updateProfile = postRBody $ noQueryParam ["profile"]
 newPayment :: forall eff. Maybe CPassPhrase -> CAccountId -> CId Addr -> CCoin -> Aff (ajax :: AJAX | eff) CTx
 newPayment pass addrFrom addrTo amount = postR $ queryParams ["txs", "payments", walletAddressToUrl addrFrom, _address addrTo, _ccoin amount] [qParam "passphrase" $ _passPhrase <$> pass]
 
-newPaymentExtended :: forall eff. Maybe CPassPhrase -> CAccountId -> CId Addr -> CCoin -> String -> String -> Aff (ajax :: AJAX | eff) CTx
-newPaymentExtended pass addrFrom addrTo amount title desc = postR $ queryParams ["txs", "payments", walletAddressToUrl  addrFrom, _address addrTo, _ccoin amount, title, desc] [qParam "passphrase" $ _passPhrase <$> pass]
-
 updateTransaction :: forall eff. CAccountId -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
 updateTransaction addr ctxId = postRBody $ noQueryParam ["txs", "payments", walletAddressToUrl addr, _ctxIdValue ctxId]
 
-searchHistory
+getHistory
   :: forall eff.
      Maybe (CId Wal)
   -> Maybe CAccountId
   -> Maybe (CId Addr)
-  -> Maybe String
   -> Maybe Int
   -> Maybe Int
   -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-searchHistory walletId accountId addr search skip limit =
+getHistory walletId accountId addr skip limit =
   getR $ queryParams
   ["txs", "histories"]
   [ qParam "walletId" $ _address <$> walletId
   , qParam "accountId" $ walletAddressToUrl <$> accountId
   , qParam "address" $ _address <$> addr
-  , qParam "search" search
   , qParam "skip" $ show <$> skip
   , qParam "limit" $ show <$> limit
   ]

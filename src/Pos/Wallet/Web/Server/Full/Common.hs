@@ -13,24 +13,20 @@ import           Universum
 
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
-import           Data.Tagged                   (Tagged (..))
 import qualified Ether
 import           Mockable                      (runProduction)
 import           Servant.Server                (Handler)
 import           Servant.Utils.Enter           ((:~>) (..))
-import           System.Wlog                   (usingLoggerName)
 
-import           Pos.Communication.PeerState   (PeerStateSnapshot, PeerStateTag,
-                                                WithPeerState (..), getAllStates,
-                                                peerStateFromSnapshot)
+import           Pos.Communication.PeerState   (PeerStateSnapshot, WithPeerState (..),
+                                                getAllStates, peerStateFromSnapshot)
 import           Pos.Context                   (NodeContext, NodeContextTag)
 import           Pos.DB                        (NodeDBs, getNodeDBs)
 import           Pos.Delegation.Class          (DelegationVar, askDelegationState)
-import           Pos.Ssc.Extra                 (SscMemTag, SscState)
+import           Pos.Ssc.Extra                 (SscState)
 import           Pos.Ssc.Extra.Class           (askSscMem)
-import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
-                                                askTxpMem)
-import           Pos.Util.JsonLog            (JsonLogConfig(..))
+import           Pos.Txp                       (GenericTxpLocalData, askTxpMem)
+import           Pos.Util.JsonLog              (JsonLogConfig (..))
 import           Pos.Wallet.Redirect           (runWalletRedirects)
 import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler)
@@ -38,7 +34,8 @@ import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSock
                                                 runWalletWS)
 import           Pos.Wallet.Web.State          (WalletState, getWalletWebState,
                                                 runWalletWebDB)
-import           Pos.WorkMode                  (RealMode (..), TxpExtra_TMP)
+import           Pos.WorkMode                  (RealMode (..), RealModeContext (..),
+                                                TxpExtra_TMP)
 
 type WebHandler = WalletWebHandler (RealMode WalletSscType)
 
@@ -75,20 +72,18 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
       . runWalletRedirects
 
     realRunner :: forall t . RealMode WalletSscType t -> IO t
-    realRunner (RealMode act) = runProduction
-           . usingLoggerName "wallet-api"
-           . flip Ether.runReadersT nc
-           . (\m -> do
-               peerStateCtx <- peerStateFromSnapshot psCtx
-               Ether.runReadersT m
-                   ( Tagged @NodeDBs modernDBs
-                   , Tagged @SscMemTag ssc
-                   , Tagged @TxpHolderTag tlw
-                   , Tagged @DelegationVar delWrap
-                   , Tagged @PeerStateTag peerStateCtx
-                   , Tagged @JsonLogConfig JsonLogDisabled
-                   ))
-           $ act
+    realRunner (RealMode act) = runProduction $ do
+        peerStateCtx <- peerStateFromSnapshot psCtx
+        Ether.runReaderT act $
+            RealModeContext
+                modernDBs
+                ssc
+                tlw
+                delWrap
+                peerStateCtx
+                JsonLogDisabled
+                "wallet-api"
+                nc
 
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError

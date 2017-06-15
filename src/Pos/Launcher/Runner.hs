@@ -14,45 +14,38 @@ module Pos.Launcher.Runner
        , runServer
        ) where
 
-import           Universum                   hiding (finally)
+import           Universum                  hiding (finally)
 
-import           Control.Monad.Fix           (MonadFix)
-import           Data.Tagged                 (Tagged (..))
+import           Control.Monad.Fix          (MonadFix)
 import qualified Ether
-import           Formatting                  (build, sformat, (%))
-import           Mockable                    (MonadMockable, Production (..), finally)
-import           Network.Transport.Abstract  (Transport)
-import           Node                        (Node, NodeAction (..),
-                                              defaultNodeEnvironment, hoistSendActions,
-                                              node, simpleNodeEndPoint)
-import           Node.Util.Monitor           (setupMonitor, stopMonitor)
-import qualified System.Metrics              as Metrics
-import           System.Random               (newStdGen)
-import qualified System.Remote.Monitoring    as Monitoring
-import           System.Wlog                 (WithLogger, logDebug, logInfo,
-                                              usingLoggerName)
+import           Formatting                 (build, sformat, (%))
+import           Mockable                   (MonadMockable, Production (..), finally)
+import           Network.Transport.Abstract (Transport)
+import           Node                       (Node, NodeAction (..),
+                                             defaultNodeEnvironment, hoistSendActions,
+                                             node, simpleNodeEndPoint)
+import           Node.Util.Monitor          (setupMonitor, stopMonitor)
+import qualified System.Metrics             as Metrics
+import           System.Random              (newStdGen)
+import qualified System.Remote.Monitoring   as Monitoring
+import           System.Wlog                (WithLogger, logDebug, logInfo)
 
-import           Pos.Binary                  ()
-import           Pos.Communication           (ActionSpec (..), BiP (..), InSpecs (..),
-                                              MkListeners (..), OutSpecs (..),
-                                              VerInfo (..), allListeners,
-                                              hoistMkListeners)
-import           Pos.Communication.PeerState (PeerStateTag)
-import qualified Pos.Constants               as Const
-import           Pos.Context                 (NodeContext (..))
-import           Pos.DB                      (NodeDBs)
-import           Pos.Delegation.Class        (DelegationVar)
-import           Pos.DHT.Real                (foreverRejoinNetwork)
-import           Pos.Discovery               (DiscoveryContextSum (..))
-import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
-                                              NodeParams (..))
-import           Pos.Launcher.Resource       (NodeResources (..), hoistNodeResources)
-import           Pos.Security                (SecurityWorkersClass)
-import           Pos.Ssc.Class               (SscConstraint)
-import           Pos.Ssc.Extra               (SscMemTag)
-import           Pos.Txp.MemState            (TxpHolderTag)
-import           Pos.Util.JsonLog            (JsonLogConfig(..), jsonLogConfigFromHandle)
-import           Pos.WorkMode                (RealMode (..), WorkMode)
+import           Pos.Binary                 ()
+import           Pos.Communication          (ActionSpec (..), BiP (..), InSpecs (..),
+                                             MkListeners (..), OutSpecs (..),
+                                             VerInfo (..), allListeners, hoistMkListeners)
+import qualified Pos.Constants              as Const
+import           Pos.Context                (NodeContext (..))
+import           Pos.DHT.Real               (foreverRejoinNetwork)
+import           Pos.Discovery              (DiscoveryContextSum (..))
+import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
+                                             NodeParams (..))
+import           Pos.Launcher.Resource      (NodeResources (..), hoistNodeResources)
+import           Pos.Security               (SecurityWorkersClass)
+import           Pos.Ssc.Class              (SscConstraint)
+import           Pos.Util.JsonLog           (JsonLogConfig (..), jsonLogConfigFromHandle)
+import           Pos.WorkMode               (RealMode (..), RealModeContext (..),
+                                             WorkMode)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -125,18 +118,16 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
         DCKademlia kademlia -> foreverRejoinNetwork kademlia
 
     runToProd :: forall t . JsonLogConfig -> RealMode ssc t -> Production t
-    runToProd jlConf (RealMode act) =
-        usingLoggerName lpRunnerTag .
-            flip Ether.runReadersT nrContext .
-            flip Ether.runReadersT
-                ( Tagged @NodeDBs nrDBs
-                , Tagged @SscMemTag nrSscState
-                , Tagged @TxpHolderTag nrTxpState
-                , Tagged @DelegationVar nrDlgState
-                , Tagged @PeerStateTag nrPeerState
-                , Tagged @JsonLogConfig jlConf
-                ) $
-            act
+    runToProd jlConf (RealMode act) = Ether.runReaderT act $
+        RealModeContext
+            nrDBs
+            nrSscState
+            nrTxpState
+            nrDlgState
+            nrPeerState
+            jlConf
+            lpRunnerTag
+            nrContext
 {-# NOINLINE runRealMode #-}
 
 runServer

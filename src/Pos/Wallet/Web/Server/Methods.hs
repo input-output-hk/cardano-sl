@@ -319,7 +319,7 @@ servantHandlers sendActions =
     :<|>
      deleteWallet
     :<|>
-     importWallet
+     importWallet sendActions
     :<|>
      changeWalletPassphrase sendActions
     :<|>
@@ -1063,13 +1063,16 @@ reportingElectroncrash celcrash = do
 
 importWallet
     :: WalletWebMode m
-    => PassPhrase
+    => SendActions m
+    -> PassPhrase
     -> Text
     -> m CWallet
-importWallet passphrase (toString -> fp) = do
+importWallet sa passphrase (toString -> fp) = do
     secret <- rewrapToWalletError $ readUserSecret fp
     wSecret <- maybeThrow noWalletSecret (secret ^. usWalletSet)
-    importWalletSecret passphrase wSecret
+    wallet <- importWalletSecret emptyPassphrase wSecret
+    changeWalletPassphrase sa (cwId wallet) emptyPassphrase passphrase
+    return wallet
   where
     noWalletSecret =
         RequestError "This key doesn't contain HD wallet info"

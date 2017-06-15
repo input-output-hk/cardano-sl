@@ -549,55 +549,6 @@ newPayment = mkEffFn4 cNewPayment
 
         fromAff <<< map encodeJson $ newCPayment
 
--- | Creates a new payment.
--- Arguments: wallet object/id, address id/hash, amount to send, currency, title, description, spending password (leave empty string if you don't want to use spending password)
--- Returns a created transaction
--- Example in nodejs:
--- | ```js
--- | > api.newPaymentExtended('1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648', '19MxMbcEskurDMdVX1h32Fi94Nojxp1gvwMYbDziZoPjGmJdssagaugyCqUUJVySKBdA1DUHbpYmQd6yTeFQqfrWWKx9gs', 10, 'ADA', 'Programming task', 'Programming the new brilliant cryptocurrency', '').then(console.log).catch(console.log)
--- | Promise { <pending> }
--- | > { ctOutputAddrs:
--- |    [ '19JiAGXcsH4WhLcUTbiPCFdmkdLW9LHG2uMCtPumBnSp4FQVpwiktua2y9PbKQFPi5ftUjyn9p5T61p3QjsCECu3h24xBg',
--- |      '19MxMbcEskurDMdVX1h32Fi94Nojxp1gvwMYbDziZoPjGmJdssagaugyCqUUJVySKBdA1DUHbpYmQd6yTeFQqfrWWKx9gs' ],
--- |   ctMeta:
--- |    { ctmTitle: 'Programming task',
--- |      ctmDescription: 'Programming the new brilliant cryptocurrency',
--- |      ctmDate: 1495462417.3288133,
--- |      ctmCurrency: 'ADA' },
--- |   ctInputAddrs: [ '19FQ6bXnyQaTS2JximL4nQJK9BYAvrBe46532WsWHi8SW7kVwqza61UY3iLzYeKMi9akhsx6f5dhA5UiRgoAFRw8dGDuCV' ],
--- |   ctId: '0295cf235dce9ead02134d1114135c47710fc273593f4324b595e93870979c5f',
--- |   ctConfirmations: 0,
--- |   ctAmount: { getCoin: '49999' } }
--- | ```
-newPaymentExtended
-    :: forall eff.
-    EffFn6 (ajax :: AJAX, err :: EXCEPTION | eff)
-    String
-    String
-    String
-    String
-    String
-    Foreign
-    (Promise Json)
-newPaymentExtended = mkEffFn6 cNewPaymentExtended
-  where
-    cNewPaymentExtended
-        :: String
-        -> String
-        -> String
-        -> String
-        -> String
-        -> Foreign
-        -> Eff (ajax :: AJAX, err :: EXCEPTION | eff) (Promise Json)
-    cNewPaymentExtended wFrom addrTo amount title desc spendingPassword = do
-        pass <- mkCPassPhrase spendingPassword
-        let accountId   = mkCAccountId wFrom
-        let cId         = mkCId addrTo
-        let cAmount     = mkCCoin amount
-        let newCPayment = B.newPaymentExtended pass accountId cId cAmount title desc
-
-        fromAff <<< map encodeJson $ newCPayment
-
 -- | Updates transaction meta data.
 -- Arguments: wallet object/id, transaction id/hash, currency, title, description, date
 -- Returns
@@ -607,12 +558,12 @@ newPaymentExtended = mkEffFn6 cNewPaymentExtended
 -- | Promise { <pending> }
 -- | > {}
 -- | ```
-updateTransaction :: forall eff. EffFn5 (ajax :: AJAX | eff) String String String String Number (Promise Unit)
-updateTransaction = mkEffFn5 \wId ctxId ctmTitle ctmDescription ctmDate -> fromAff $
+updateTransaction :: forall eff. EffFn3 (ajax :: AJAX | eff) String String Number (Promise Unit)
+updateTransaction = mkEffFn3 \wId ctxId ctmDate -> fromAff $
     B.updateTransaction
     (mkCAccountId wId)
     (mkCTxId ctxId)
-    (mkCTxMeta ctmTitle ctmDescription ctmDate)
+    (mkCTxMeta ctmDate)
 
 -- | Get transactions of specified wallet
 -- Arguments: wallet object/id, skip, limit
@@ -635,63 +586,24 @@ updateTransaction = mkEffFn5 \wId ctxId ctmTitle ctmDescription ctmDate -> fromA
 -- |       ctAmount: [Object] } ],
 -- |   2 ]
 -- | ```
-getHistory :: forall eff. EffFn3 (ajax :: AJAX | eff) String Int Int (Promise Json)
-getHistory = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $
-    B.searchHistory
+getHistoryByAccount :: forall eff. EffFn3 (ajax :: AJAX | eff) String Int Int (Promise Json)
+getHistoryByAccount = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $
+    B.getHistory
     Nothing
     (Just $ mkCAccountId wId)
     Nothing
-    Nothing
-    (Just skip)
-    (Just limit)
-
--- | Gets transactions that match some search criteria
--- Arguments: wallet object/id, search string, skip, limit
--- Returns a pair of transacts retrieved from the history and total number of transactions in specified wallet
--- Example in nodejs:
--- | ```js
--- | > api.searchHistory('1gCC3J43QAZo3fZiUTuyfYyT8sydFJHdhPnFFmckXL7mV3f@2147483648', 'task', 0, 10).then(console.log).catch(console.log)
--- | Promise { <pending> }
--- | > [ [ { ctOutputAddrs: [Object],
--- |       ctMeta: [Object],
--- |       ctInputAddrs: [Object],
--- |       ctId: '0295cf235dce9ead02134d1114135c47710fc273593f4324b595e93870979c5f',
--- |       ctConfirmations: 0,
--- |       ctAmount: [Object] } ],
--- |   2 ]
--- | ```
-searchHistory :: forall eff. EffFn4 (ajax :: AJAX | eff) String String Int Int (Promise Json)
-searchHistory = mkEffFn4 \wId search skip limit -> fromAff <<< map encodeJson $
-    B.searchHistory
-    Nothing
-    (Just $ mkCAccountId wId)
-    Nothing
-    (Just search)
     (Just skip)
     (Just limit)
 
 -- TODO: this is a workaround https://issues.serokell.io/issue/CSM-300
 getHistoryByWallet :: forall eff. EffFn3 (ajax :: AJAX | eff) String Int Int (Promise Json)
 getHistoryByWallet = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $
-    B.searchHistory
+    B.getHistory
     (Just $ mkCId wId)
-    Nothing
     Nothing
     Nothing
     (Just skip)
     (Just limit)
-
--- TODO: this is a workaround https://issues.serokell.io/issue/CSM-300
-searchHistoryByWallet :: forall eff. EffFn4 (ajax :: AJAX | eff) String String Int Int (Promise Json)
-searchHistoryByWallet = mkEffFn4 \wId search skip limit -> fromAff <<< map encodeJson $
-    B.searchHistory
-    (Just $ mkCId wId)
-    Nothing
-    Nothing
-    (Just search)
-    (Just skip)
-    (Just limit)
-
 
 -- | Gets transactions that match some search criteria
 -- Arguments: wallet object/id, narrow the search to account hash/id, search string, skip, limit
@@ -714,13 +626,12 @@ searchHistoryByWallet = mkEffFn4 \wId search skip limit -> fromAff <<< map encod
 -- |       ctAmount: [Object] } ],
 -- |   2 ]
 -- | ```
-searchAccountHistory :: forall eff. EffFn5 (ajax :: AJAX | eff) String String String Int Int (Promise Json)
-searchAccountHistory = mkEffFn5 \wId account search skip limit -> fromAff <<< map encodeJson $
-    B.searchHistory
+getAddressHistory :: forall eff. EffFn4 (ajax :: AJAX | eff) String String Int Int (Promise Json)
+getAddressHistory = mkEffFn4 \acId address skip limit -> fromAff <<< map encodeJson $
+    B.getHistory
     Nothing
-    (Just $ mkCAccountId wId)
-    (Just $ mkCId account)
-    (Just search)
+    (Just $ mkCAccountId acId)
+    (Just $ mkCId address)
     (Just skip)
     (Just limit)
 

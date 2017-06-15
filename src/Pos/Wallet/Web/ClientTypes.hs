@@ -47,7 +47,6 @@ module Pos.Wallet.Web.ClientTypes
       , mkCTxs
       , mkCTxId
       , txIdToCTxId
-      , txContainsTitle
       , toCUpdateInfo
       , addrMetaToAccount
       ) where
@@ -415,9 +414,7 @@ instance Default CProfile where
 
 -- | meta data of transactions
 data CTxMeta = CTxMeta
-    { ctmTitle       :: Text
-    , ctmDescription :: Text
-    , ctmDate        :: POSIXTime
+    { ctmDate        :: POSIXTime
     } deriving (Show, Generic)
 
 -- | Client transaction (CTx)
@@ -433,9 +430,6 @@ data CTx = CTx
     , ctOutputAddrs   :: [CId Addr]
     , ctIsOutgoing    :: Bool
     } deriving (Show, Generic, Typeable)
-
-txContainsTitle :: Text -> CTx -> Bool
-txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . ctMeta
 
 -- TODO [CSM-288] Rename?
 -- | In case of A -> A tranaction, we have to return two similar 'CTx's:

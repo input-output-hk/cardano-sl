@@ -13,19 +13,19 @@ module Pos.Delegation.Cede.Logic
 
 import           Universum
 
+import           Control.Lens              (uses, (%=))
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
 
-import           Control.Lens              (uses, (%=))
+import           Pos.Core                  (ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Crypto                (ProxySecretKey (..), PublicKey)
 import           Pos.DB                    (DBError (DBMalformed))
 import           Pos.Delegation.Cede.Class (MonadCedeRead (..))
 import           Pos.Delegation.Helpers    (isRevokePsk)
 import           Pos.Delegation.Types      (DlgMemPool)
-import           Pos.Types                 (ProxySKHeavy, StakeholderId, addressHash)
 
 -- | Given an issuer, retrieves all certificate chains starting in
--- issuer. This function performs a series of consequental db reads so
+-- issuer. This function performs a series of sequential db reads so
 -- it must be used under the shared lock.
 getPskChain
     :: MonadCedeRead m

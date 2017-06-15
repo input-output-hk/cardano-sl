@@ -11,9 +11,9 @@ module Pos.Delegation.Cede.Types
 
 import           Universum
 
+import           Pos.Core               (ProxySKHeavy, StakeholderId)
 import           Pos.Crypto             (PublicKey, pskIssuerPk)
 import           Pos.Delegation.Helpers (isRevokePsk)
-import           Pos.Types              (ProxySKHeavy, StakeholderId)
 
 -- | Action on delegation database, used commonly. Generalizes
 -- applications and rollbacks.

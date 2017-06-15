@@ -12,7 +12,7 @@ module Pos.Delegation.Cede.Holders
 
 import           Universum
 
-import           Control.Lens                 (uses, (%=))
+import           Control.Lens                 (at, (%=))
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Data.HashMap.Strict          as HM
@@ -56,7 +56,7 @@ evalMapCede = flip Ether.evalLazyStateT
 
 instance MonadDBRead m => MonadCedeRead (MapCede m) where
     getPsk iPk =
-        ether $ uses identity (HM.lookup iPk) >>= \case
+        ether $ use (at iPk) >>= \case
             Nothing                -> lift $ DB.getPskByIssuer $ Right iPk
             Just (DlgEdgeDel _)    -> pure Nothing
             Just (DlgEdgeAdd psk ) -> pure (Just psk)

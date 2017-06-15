@@ -21,7 +21,7 @@ import           Pos.Types                 (ProxySKHeavy, StakeholderId, address
 
 -- | This monad includes psk reading capabilities.
 class MonadThrow m => MonadCedeRead m where
-    -- ^ Resolve public key of issuer (hashed) to the psk. This method
+    -- | Resolve public key of issuer (hashed) to the psk. This method
     -- never returns a revoke psk.
     getPsk :: StakeholderId -> m (Maybe ProxySKHeavy)
 
@@ -40,7 +40,7 @@ instance MonadCedeRead m => MonadCedeRead (ExceptT s m)
 
 -- | Monad that can modify PSK contents inside.
 class MonadCedeRead m => MonadCede m where
-    -- ^ Modify the content of PSK holder using the edge delegation
+    -- | Modify the content of PSK holder using the edge delegation
     -- action (change/removal).
     modPsk :: DlgEdgeAction -> m ()
 

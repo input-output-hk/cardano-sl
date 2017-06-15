@@ -1,16 +1,21 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Pos.Binary.Core.Types () where
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..), Size (..), UnsignedVarInt (..),
-                                          appendField, combineSize, label, putField,
-                                          putWord8, sizeAddField, sizeOf)
-import qualified Pos.Binary.Core.Coin    as BinCoin
-import           Pos.Binary.Core.Script  ()
-import           Pos.Binary.Core.Version ()
-import qualified Pos.Core.Types          as T
-import qualified Pos.Data.Attributes     as A
-import           Pos.Util.Util           (eitherToFail)
+import           Data.Time.Units            (Millisecond)
+import           Serokell.Data.Memory.Units (Byte)
+
+import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Size (..),
+                                             UnsignedVarInt (..), deriveSimpleBi, label,
+                                             putField, putWord8)
+import qualified Pos.Binary.Core.Coin       as BinCoin
+import           Pos.Binary.Core.Script     ()
+import           Pos.Binary.Core.Version    ()
+import qualified Pos.Core.Types             as T
+import qualified Pos.Data.Attributes        as A
+import           Pos.Util.Util              (eitherToFail)
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
@@ -44,10 +49,11 @@ instance Bi T.LocalSlotIndex where
         label "LocalSlotIndex" $
         eitherToFail . T.mkLocalSlotIndex . getUnsignedVarInt =<< get
 
-instance Bi T.SlotId where
-    sizeNPut = putField T.siEpoch
-            <> putField T.siSlot
-    get = label "SlotId" $ T.SlotId <$> get <*> get
+deriveSimpleBi ''T.SlotId [
+    Cons 'T.SlotId [
+        Field 'T.siEpoch ''T.EpochIndex,
+        Field 'T.siSlot ''T.LocalSlotIndex
+    ]]
 
 instance Bi T.EpochOrSlot where
     sizeNPut = putField T.unEpochOrSlot
@@ -56,39 +62,28 @@ instance Bi T.EpochOrSlot where
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
 
-instance Bi T.SharedSeed where
-    sizeNPut = putField T.getSharedSeed
-    get = label "SharedSeed" $ T.SharedSeed <$> get
+deriveSimpleBi ''T.SharedSeed [
+    Cons 'T.SharedSeed [
+        Field 'T.getSharedSeed ''ByteString
+    ]]
 
 instance Bi T.ChainDifficulty where
     sizeNPut = putField (UnsignedVarInt . T.getChainDifficulty)
     get = label "ChainDifficulty" $
           T.ChainDifficulty . getUnsignedVarInt <$> get
 
-instance Bi T.BlockVersionData where
-    sizeNPut = putField T.bvdScriptVersion
-             `appendField` T.bvdSlotDuration
-             `appendField` T.bvdMaxBlockSize
-             `appendField` T.bvdMaxHeaderSize
-             `appendField` T.bvdMaxTxSize
-             `appendField` T.bvdMaxProposalSize
-             `appendField` T.bvdMpcThd
-             `appendField` T.bvdHeavyDelThd
-             `appendField` T.bvdUpdateVoteThd
-             `appendField` T.bvdUpdateProposalThd
-             `appendField` T.bvdUpdateImplicit
-             `appendField` T.bvdUpdateSoftforkThd
-    get = label "BlockVersionData" $ do
-        bvdScriptVersion     <- get
-        bvdSlotDuration      <- get
-        bvdMaxBlockSize      <- get
-        bvdMaxHeaderSize     <- get
-        bvdMaxTxSize         <- get
-        bvdMaxProposalSize   <- get
-        bvdMpcThd            <- get
-        bvdHeavyDelThd       <- get
-        bvdUpdateVoteThd     <- get
-        bvdUpdateProposalThd <- get
-        bvdUpdateImplicit    <- get
-        bvdUpdateSoftforkThd <- get
-        return $ T.BlockVersionData {..}
+deriveSimpleBi ''T.BlockVersionData [
+    Cons 'T.BlockVersionData [
+        Field 'T.bvdScriptVersion     ''T.ScriptVersion,
+        Field 'T.bvdSlotDuration      ''Millisecond,
+        Field 'T.bvdMaxBlockSize      ''Byte,
+        Field 'T.bvdMaxHeaderSize     ''Byte,
+        Field 'T.bvdMaxTxSize         ''Byte,
+        Field 'T.bvdMaxProposalSize   ''Byte,
+        Field 'T.bvdMpcThd            ''T.CoinPortion,
+        Field 'T.bvdHeavyDelThd       ''T.CoinPortion,
+        Field 'T.bvdUpdateVoteThd     ''T.CoinPortion,
+        Field 'T.bvdUpdateProposalThd ''T.CoinPortion,
+        Field 'T.bvdUpdateImplicit    ''T.FlatSlotId,
+        Field 'T.bvdUpdateSoftforkThd ''T.CoinPortion
+    ]]

@@ -56,6 +56,8 @@ instance Bi Bool where
         toBool 1 = return True
         toBool c = fail ("Could not map value " ++ show c ++ " to Bool")
     size = ConstSize 1
+
+-- [CSL-1122] restore this instance, I guess
 {-
 
 instance Bi Char where
@@ -157,6 +159,8 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a, b, c, d) where
 
 -- Copy-pasted from
 -- https://github.com/fpco/store/blob/master/src/Data/Store/Internal.hs#L378-L389
+--
+-- CSL-1122: define via putBytes
 instance Bi ByteString where
     size = VarSize $ \x ->
         let l = BS.length x in
@@ -170,21 +174,25 @@ instance Bi ByteString where
         fp <- Store.peekToPlainForeignPtr "Data.ByteString.ByteString" len
         return (BS.PS fp 0 len)
 
+-- CSL-1122: copy the instance here
 instance Bi LByteString where
     size = Store.size
     put = Store.poke
     get = Store.peek
 
+-- CSL-1122: copy the instance here
 instance Bi Text where
     size = Store.size
     put = Store.poke
     get = Store.peek
 
+-- CSL-1122: copy the instance here and define via putBytes
 instance KnownNat n => Bi (StaticSize n ByteString) where
     size = Store.size
     put = Store.poke
     get = Store.peek
 
+-- CSL-1122: if we can get rid of it, get rid of it.
 constSize :: forall a . Bi a => Int
 constSize =  case size :: Size a of
   VarSize   _ -> error "constSize: VarSize"
@@ -198,7 +206,7 @@ mkPoke
     -> Poke ()
 mkPoke f = Store.Poke (\ptr offset -> (,()) <$> f ptr offset)
 
--- [CSL-1122] TODO: fix this instance
+-- [CSL-1122] TODO: fix this instance (@constSize UnsignedVarInt@ can't work)
 instance Bi a => Bi [a] where
     size =
         VarSize $ \t -> case size :: Size a of

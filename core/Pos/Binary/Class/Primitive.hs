@@ -56,7 +56,7 @@ import           Pos.Binary.Class.Store     (Peek, Poke, PokeWithSize (..), Size
                                              StaticSize (..), pokeWithSize)
 
 import           Pos.Binary.Class.Instances ()
--- TODO ^ Move Raw in Pos.Crypto and remove the import.
+-- TODO ^ Move Raw in Pos.Util.Util and remove the import.
 
 putWord8S :: Word8 -> PokeWithSize ()
 putWord8S = pokeWithSize @Word8
@@ -65,10 +65,9 @@ putWord8S = pokeWithSize @Word8
 -- Raw
 ----------------------------------------------------------------------------
 
--- | A wrapper over 'ByteString' for adding type safety to
--- 'Pos.Crypto.Pki.encryptRaw' and friends.
---
--- TODO: maybe it should be in "Pos.Crypto"?
+-- | A wrapper over 'ByteString' for signalling that a bytestring should be
+-- processed as a sequence of bytes, not as a separate “entity”. It's used in
+-- crypto and binary code.
 newtype Raw = Raw ByteString
     deriving (Bi, Eq, Ord, Show, Typeable, NFData)
 
@@ -183,6 +182,7 @@ getSmallWithLength getter = do
 -- Other binary utils
 ----------------------------------------------------------------------------
 
+-- [CSL-1122] create a newtype for this instead?
 getAsciiString1b :: String -> Word8 -> Peek String
 getAsciiString1b typeName limit = getWord8 >>= \sz -> do
             if sz > limit
@@ -202,14 +202,17 @@ putAsciiString1b str =  putWord8 (fromIntegral $ length str)
 sizeAsciiString1b :: Size String
 sizeAsciiString1b = VarSize $ \s -> 1 + length s
 
--- | Get bytestring with constant length.
+-- | Get some bytes from the input.
 getBytes :: Int -> Peek ByteString
 getBytes i =
     reifyNat (fromIntegral i) $
         \(_ :: Proxy n) -> unStaticSize <$>
         (Store.peek :: Peek (StaticSize n ByteString))
 
--- | Put bytestring with constant length (without length)
+-- | Serialize some bytes.
+--
+-- (Unlike 'put' for 'ByteString', it doesn't write the number of bytes into
+-- the stream, only the bytes themselves.)
 putBytes :: ByteString -> Poke ()
 putBytes bs =
     reifyNat (fromIntegral $ BS.length bs) $ \(_ :: Proxy n) ->

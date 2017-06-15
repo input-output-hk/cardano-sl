@@ -10,8 +10,6 @@ module Pos.Binary.Class.Store
        (
          putConst
        , putField
-       , appendConst
-       , appendField
        , convertToSizeNPut
        -- * Store re-exports
        , Size(..)
@@ -53,6 +51,7 @@ import           Pos.Binary.Class.Core      (Bi (..), getSize)
 -- Helpers to implement @sizeNPut@
 ----------------------------------------------------------------------------
 
+-- [CSL-1122] shouldn't this mappend results as well? like Monoid (IO a) does
 instance Monoid a => Monoid (Poke a) where
     mempty = pure mempty
     m1 `mappend` m2 = Poke $ \ps off -> do
@@ -87,19 +86,13 @@ putConst x = (ConstSize (getSize x), \_ -> put x)
 --            putField _gbhExtra
 putField :: Bi x => (a -> x) -> (Size a, a -> Poke ())
 putField f = (VarSize $ \a -> getSize (f a), put . f)
-
--- | Yet another helper for const size object.
-appendConst :: Bi x => (Size a, a -> Poke ()) -> x -> (Size a, a -> Poke ())
-appendConst a x = a <> putConst x
-
--- | Yet another helper for field of datatype.
-appendField :: Bi x => (Size a, a -> Poke ()) -> (a -> x) -> (Size a, a -> Poke ())
-appendField a f = a <> putField f
+-- [CSL-1122] This should use 'convertSize'
 
 ----------------------------------------------------------------------------
 -- Helpers to implement @size@
 ----------------------------------------------------------------------------
 
+-- [CSL-1122] this is already defined in Pos.Binary.Class.Instances
 constSize :: forall a . Bi a => Int
 constSize =  case size :: Size a of
     VarSize   _ -> error "constSize: VarSize"

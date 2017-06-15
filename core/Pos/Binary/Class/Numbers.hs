@@ -33,11 +33,13 @@ import           GHC.TypeLits           (ErrorMessage (..), TypeError)
 import           Pos.Binary.Class.Core  (Bi (..), label, limitGet)
 import           Pos.Binary.Class.Store (convertSize)
 
-instance Bi Word8 where -- FIXME: CSL-1122 fixed endianness
+-- CSL-1122 make sure it's indeed serialized as one byte
+instance Bi Word8 where
     size = Store.size
     put = Store.poke
     get = Store.peek
 
+-- CSL-1122 these should more properly be with 'getBytes' and 'putBytes'
 getWord8 :: Peek Word8
 getWord8 = get @Word8
 
@@ -57,6 +59,7 @@ putUnsignedVarInt n
           putUnsignedVarInt $ shiftR n 7
 {-# INLINE putUnsignedVarInt #-}
 
+-- CSL-1122: there should be tests for this.
 getUnsignedVarIntSize :: (Integral a, Bits a, FiniteBits a) => a -> Int
 getUnsignedVarIntSize n = (logBase2 n `div` 7) + 1
   where
@@ -178,14 +181,9 @@ newtype SignedVarInt a = SignedVarInt {getSignedVarInt :: a}
     deriving (Eq, Ord, Show, Generic, NFData, Functor)
 
 -- | A newtype wrapper for non-negative integers less than @2^14@. Use it if
--- you want to be extra careful. Compared to 'SignedVarInt' and
--- 'UnsignedVarInt', it provides two benefits:
---
--- * It is guaranteed to take either 1 or 2 bytes (the standard decoder for
---   varints can consume an unlimited amount of bytes).
---
--- * It is unambiguous (e.g. @0@ can be encoded in only one way instead of
---   two).
+-- you want to be extra careful. It is guaranteed to take either 1 or 2 bytes
+-- (the standard decoder for varints can consume an unlimited amount of
+-- bytes).
 newtype TinyVarInt = TinyVarInt {getTinyVarInt :: Word16}
     deriving (Eq, Ord, Show, Generic, NFData)
 

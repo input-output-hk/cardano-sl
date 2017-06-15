@@ -5,11 +5,14 @@
 module Explorer.Test.MockFactory where
 
 import Prelude
+import Data.Array ((..))
 import Data.Lens (set)
 import Data.Maybe (Maybe(..))
+import Data.Tuple (Tuple(..))
 import Data.Time.NominalDiffTime (NominalDiffTime, mkTime)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkCoin)
-import Pos.Explorer.Web.ClientTypes (CAddressSummary(..), CAddressType(..), CBlockEntry(..), CHash, CTxEntry(..), CTxId)
+import Explorer.Types.State (CTxBriefs)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary(..), CAddressType(..), CBlockEntry(..), CCoin, CHash, CTxEntry(..), CTxId, CTxBrief(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CTxEntry, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued, cteId, cteTimeIssued)
 
 -- | Creates a `CTxEntry` with "empty" data
@@ -67,3 +70,25 @@ setEpochSlotOfBlock epoch slot block =
 setHashOfBlock :: CHash -> CBlockEntry -> CBlockEntry
 setHashOfBlock hash block =
     set (_CBlockEntry <<< cbeBlkHash) hash block
+
+mkTxBriefs :: Array Int -> CTxBriefs
+mkTxBriefs indexes =
+    map mkCTxBrief indexes
+
+mkCTxBrief :: Int -> CTxBrief
+mkCTxBrief index = CTxBrief
+    { ctbId: mkCTxId $ show index
+    , ctbTimeIssued: mkTime 0.0
+    , ctbInputs: mkCtbInOutputs [index]
+    , ctbOutputs: mkCtbInOutputs ((index + 1)..(index + 2))
+    , ctbInputSum: mkCoin "0"
+    , ctbOutputSum: mkCoin "0"
+    }
+
+mkCtbInOutput :: Int -> Int -> Tuple CAddress CCoin
+mkCtbInOutput addr coin =
+    Tuple (mkCAddress $ "address-" <> show addr) (mkCoin $ show coin)
+
+mkCtbInOutputs :: Array Int -> Array (Tuple CAddress CCoin)
+mkCtbInOutputs indexes =
+    map (\index -> mkCtbInOutput index index) indexes

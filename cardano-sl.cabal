@@ -125,6 +125,9 @@ library
                         Pos.Worker
                         Pos.WorkMode
                         Pos.WorkMode.Class
+
+                        -- Execution mode
+                        Pos.ExecMode
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer

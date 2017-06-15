@@ -4,6 +4,8 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
+{-# OPTIONS -fno-warn-unused-imports #-} -- FIXME
+
 module Pos.WorkMode
        ( WorkMode
        , MinWorkMode
@@ -11,7 +13,8 @@ module Pos.WorkMode
        , TxpExtra_TMP
 
        -- * Actual modes
-       , RealMode(..)
+       , RealMode
+       , unRealMode
        , RealModeContext(..)
        ) where
 
@@ -20,6 +23,7 @@ import           Universum
 import           Control.Lens                (makeLensesFor)
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Fix           (MonadFix)
+import qualified Control.Monad.Reader        as Mtl
 import           Control.Monad.Trans.Control (MonadBaseControl (..))
 import           Data.Coerce
 import qualified Ether
@@ -52,6 +56,7 @@ import           Pos.DB.Redirect             (dbDeleteReal, dbGetReal, dbPutReal
 import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.Discovery               (MonadDiscovery (..), findPeersReal,
                                               getPeersReal)
+import           Pos.ExecMode                (ExecMode (..), ExecModeM)
 import           Pos.Slotting.Class          (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum       (currentTimeSlottingReal,
                                               getCurrentSlotBlockingReal,
@@ -116,44 +121,15 @@ instance HasLens JsonLogConfig (RealModeContext ssc) JsonLogConfig where
 instance HasLens LoggerName (RealModeContext ssc) LoggerName where
     lensOf = rmcLoggerNameL
 
-----------------------------------------------------------------------------
--- Concrete types
-----------------------------------------------------------------------------
+data REAL ssc
 
-data ContextTag
+type RealMode ssc = ExecMode (REAL ssc)
 
--- | RealMode is a basis for `WorkMode`s used to really run system.
-type RealMode' ssc =
-    Ether.ReaderT ContextTag (RealModeContext ssc) Production
+type instance ExecModeM (REAL ssc) =
+    Mtl.ReaderT (RealModeContext ssc) Production
 
-newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
-  deriving
-    ( Functor
-    , Applicative
-    , Monad
-    , MonadIO
-    , MonadBase IO
-    , MonadThrow
-    , MonadCatch
-    , MonadMask
-    , MonadFix
-    )
-
-instance MonadBaseControl IO (RealMode ssc) where
-    type StM (RealMode ssc) a = StM (RealMode' ssc) a
-    liftBaseWith f = RealMode $ liftBaseWith $ \q -> f (q . unRealMode)
-    restoreM s = RealMode $ restoreM s
-
-type instance ThreadId (RealMode ssc) = ThreadId Production
-type instance Promise (RealMode ssc) = Promise Production
-type instance SharedAtomicT (RealMode ssc) = SharedAtomicT Production
-type instance SharedExclusiveT (RealMode ssc) = SharedExclusiveT Production
-type instance Gauge (RealMode ssc) = Gauge Production
-type instance ChannelT (RealMode ssc) = ChannelT Production
-type instance Distribution (RealMode ssc) = Distribution Production
-type instance Counter (RealMode ssc) = Counter Production
-
-deriving instance CanLog (RealMode ssc)
+unRealMode :: ExecMode (REAL ssc) a -> ExecModeM (REAL ssc) a
+unRealMode = unExecMode
 
 instance HasLoggerName (RealMode ssc) where
     getLoggerName = Ether.ask'
@@ -201,9 +177,6 @@ instance WithPeerState (RealMode ssc) where
     clearPeerState = clearPeerStateReal
     getAllStates = getAllStatesReal
 
-instance PowerLift m (RealMode' ssc) => PowerLift m (RealMode ssc) where
-    powerLift = RealMode . powerLift
-
 instance
     SscHelpersClass ssc =>
     MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (RealMode ssc)
@@ -219,18 +192,3 @@ instance
     dbGetBlock  = dbGetBlockReal' @ssc
     dbGetUndo   = dbGetUndoReal' @ssc
     dbGetHeader = dbGetHeaderReal' @ssc
-
-instance
-    ( Mockable d (RealMode' ssc)
-    , MFunctor' d (RealMode ssc) (RealMode' ssc)
-    )
-    => Mockable d (RealMode ssc) where
-    liftMockable dmt = RealMode $ liftMockable $ hoist' (\(RealMode m) -> m) dmt
-
-instance HasLens tag (RealModeContext ssc) r => Ether.MonadReader tag r (RealMode ssc) where
-    ask =
-        (coerce :: RealMode' ssc r -> RealMode ssc r)
-        (Ether.asks @ContextTag (view (lensOf @tag @(RealModeContext ssc) @r)))
-    local f =
-        (coerce :: forall a. (RealMode' ssc a -> RealMode' ssc a) -> (RealMode ssc a -> RealMode ssc a))
-        (Ether.local @ContextTag (over (lensOf @tag @(RealModeContext ssc) @r) f))

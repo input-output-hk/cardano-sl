@@ -13,6 +13,7 @@ import           Universum
 
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
+import qualified Control.Monad.Reader          as Mtl
 import qualified Ether
 import           Mockable                      (runProduction)
 import           Servant.Server                (Handler)
@@ -34,8 +35,9 @@ import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSock
                                                 runWalletWS)
 import           Pos.Wallet.Web.State          (WalletState, getWalletWebState,
                                                 runWalletWebDB)
-import           Pos.WorkMode                  (RealMode (..), RealModeContext (..),
-                                                TxpExtra_TMP)
+import           Pos.WorkMode                  (RealMode, RealModeContext (..),
+                                                TxpExtra_TMP, unRealMode)
+
 
 type WebHandler = WalletWebHandler (RealMode WalletSscType)
 
@@ -72,9 +74,9 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
       . runWalletRedirects
 
     realRunner :: forall t . RealMode WalletSscType t -> IO t
-    realRunner (RealMode act) = runProduction $ do
+    realRunner act = runProduction $ do
         peerStateCtx <- peerStateFromSnapshot psCtx
-        Ether.runReaderT act $
+        Mtl.runReaderT (unRealMode act) $
             RealModeContext
                 modernDBs
                 ssc

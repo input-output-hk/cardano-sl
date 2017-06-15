@@ -12,7 +12,7 @@ import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Ref (newRef, REF)
 import Control.Monad.Error.Class (throwError)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (getProfileLocale, mkBackupPhrase, mkCAccountId, mkCAccountInit, mkCAccountMeta, mkCCoin, mkCId, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCProfile, mkCTxId, mkCTxMeta, mkCWalletInit, mkCWalletMeta, mkCWalletRedeem)
+import Daedalus.Types (getProfileLocale, mkBackupPhrase, mkCAccountId, mkCAccountInit, mkCAccountMeta, mkCCoin, mkCId, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCProfile, mkCTxId, mkCTxMeta, mkCWalletInit, mkCWalletMeta, mkCWalletRedeem, optionalString)
 import Daedalus.WS (WSConnection(WSNotConnected), mkWSState, ErrorCb, NotifyCb, openConn)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
@@ -586,6 +586,20 @@ updateTransaction = mkEffFn3 \wId ctxId ctmDate -> fromAff $
 -- |       ctAmount: [Object] } ],
 -- |   2 ]
 -- | ```
+
+getHistory :: forall eff. EffFn5 (ajax :: AJAX, err :: EXCEPTION | eff) Foreign Foreign Foreign Int Int (Promise Json)
+getHistory = mkEffFn5 \wIdF acIdF addressIdF skip limit -> do
+    wId <- optionalString wIdF "walletId"
+    acId <- optionalString acIdF "accountId"
+    addressId <- optionalString addressIdF "addressId"
+    fromAff <<< map encodeJson $ do
+        B.getHistory
+            (mkCId <$> wId)
+            (mkCAccountId <$> acId)
+            (mkCId <$> addressId)
+            (Just skip)
+            (Just limit)
+
 getHistoryByAccount :: forall eff. EffFn3 (ajax :: AJAX | eff) String Int Int (Promise Json)
 getHistoryByAccount = mkEffFn3 \wId skip limit -> fromAff <<< map encodeJson $
     B.getHistory

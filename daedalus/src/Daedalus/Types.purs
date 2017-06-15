@@ -27,6 +27,7 @@ module Daedalus.Types
        , walletAddressToUrl
        , mkCWalletInit
        , mkCWalletAssurance
+       , optionalString
        ) where
 
 import Prelude

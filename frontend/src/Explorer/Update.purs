@@ -42,9 +42,9 @@ import Explorer.View.CSS (dashBoardBlocksViewId, headerId, moveIn, moveOut) as C
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Explorer.View.Dashboard.Transactions (maxTransactionRows)
 import Network.HTTP.Affjax (AJAX)
-import Network.RemoteData (RemoteData(..), isNotAsked, isSuccess, withDefault)
+import Network.RemoteData (RemoteData(..), _Success, isNotAsked, isSuccess, withDefault)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress, caTxList)
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
 import Waypoints (WAYPOINT, destroy, waypoint', up) as WP
@@ -117,6 +117,15 @@ update (SocketTxsUpdated (Right txs)) state =
 
 update (SocketTxsUpdated (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
+    over errors (\errors' -> (show error) : errors') state
+
+update (SocketAddressTxsUpdated (Right tx)) state =
+    noEffects $
+    -- Add latest tx on top to other txs of an address
+    over (currentAddressSummary <<< _Success <<< _CAddressSummary <<< caTxList)
+        (\txs -> tx : txs) state
+
+update (SocketAddressTxsUpdated (Left error)) state = noEffects $
     over errors (\errors' -> (show error) : errors') state
 
 update SocketCallMe state =
@@ -687,8 +696,18 @@ update (ReceiveAddressSummary (Right address)) state =
         set loading false $
         set currentAddressSummary (Success address) state
     , effects:
-        [ pure $ GenerateQrCode $ address ^. (_CAddressSummary <<< caAddress) ]
+        [ pure $ GenerateQrCode $ address ^. (_CAddressSummary <<< caAddress)
+        ]
+        <>  ( if (syncBySocket $ state ^. syncAction)
+              then [ pure $ SocketAddSubscription subItem ]
+              else []
+            )
     }
+    where
+        subItem = mkSocketSubscriptionItem (SocketSubscription SubAddr) SocketNoData
+
+
+
 update (ReceiveAddressSummary (Left error)) state =
     noEffects $
     set loading false $

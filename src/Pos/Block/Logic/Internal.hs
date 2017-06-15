@@ -23,6 +23,7 @@ module Pos.Block.Logic.Internal
 import           Universum
 
 import           Control.Lens            (each, _Wrapped)
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Ether
 import           Formatting              (sformat, (%))
 import           Paths_cardano_sl        (version)
@@ -107,6 +108,7 @@ type BlockApplyMode ssc m
        -- Needed for error reporting.
        , MonadReportingMem m
        , MonadDiscovery m
+       , MonadBaseControl IO m
        )
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,

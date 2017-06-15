@@ -8,6 +8,7 @@ module Pos.Explorer.Txp.Local
 import           Universum
 
 import           Control.Monad.Except  (MonadError (..))
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default          (def)
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.List.NonEmpty    as NE
@@ -38,6 +39,7 @@ import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
 
 type ETxpLocalWorkMode m =
     ( MonadIO m
+    , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
     , MonadTxpMem ExplorerExtra m
@@ -144,7 +146,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
 --   2. Remove invalid transactions from MemPool
 --   3. Set new tip to txp local data
 eTxNormalize
-    :: (MonadIO m, MonadDBRead m, MonadGState m, MonadTxpMem ExplorerExtra m) => m ()
+    :: (MonadIO m, MonadBaseControl IO m, MonadDBRead m, MonadGState m, MonadTxpMem ExplorerExtra m) => m ()
 eTxNormalize = do
     utxoTip <- GS.getTip
     localTxs <- getLocalTxsMap

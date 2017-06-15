@@ -119,11 +119,11 @@ update (SocketTxsUpdated (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
 
-update (SocketAddressTxsUpdated (Right tx)) state =
+update (SocketAddressTxsUpdated (Right txs)) state =
     noEffects $
     -- Add latest tx on top to other txs of an address
     over (currentAddressSummary <<< _Success <<< _CAddressSummary <<< caTxList)
-        (\txs -> tx : txs) state
+        (\txs' -> txs <> txs') state
 
 update (SocketAddressTxsUpdated (Left error)) state = noEffects $
     over errors (\errors' -> (show error) : errors') state

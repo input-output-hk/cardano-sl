@@ -3,26 +3,28 @@ module Explorer.Update.Test where
 import Prelude
 import Control.Monad.Aff (Aff)
 import Control.Monad.State (StateT)
-import Data.Array (length)
+import Data.Array (index, length, (..), (:))
 import Data.Either (Either(..))
 import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
+import Data.Maybe (fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime (mkTime)
 import Data.Tuple (Tuple(..))
 import Explorer.Api.Types (SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Lenses.State (connected, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions)
+import Explorer.Lenses.State (connected, currentAddressSummary, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions)
 import Explorer.State (initialState, mkSocketSubscriptionItem)
-import Explorer.Test.MockFactory (mkCBlockEntry, mkEmptyCTxEntry, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx)
+import Explorer.Test.MockFactory (mkCBlockEntry, mkCTxBrief, mkEmptyCAddressSummary, mkEmptyCTxEntry, mkTxBriefs, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx, setTxOfAddressSummary)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (PageNumber(..), PageSize(..))
 import Explorer.Update (update)
 import Explorer.Util.Factory (mkCHash, mkCTxId)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
-import Network.RemoteData (RemoteData(..), isLoading, isNotAsked, withDefault)
+import Network.RemoteData (RemoteData(..), _Success, isLoading, isNotAsked, withDefault)
 import Pos.Explorer.Socket.Methods (Subscription(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddressSummary, caTxList)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -68,6 +70,23 @@ testUpdate =
             it "to count total pages"
                 let result = unwrap <<< withDefault (PageNumber 0) $ state ^. (dashboardViewState <<< dbViewMaxBlockPagination )
                 in result `shouldEqual` totalPages
+
+        describe "handles SocketAddressTxsUpdated action" do
+            -- mock `currentAddressSummary` first
+            let addrs = setTxOfAddressSummary (mkTxBriefs (9..0)) mkEmptyCAddressSummary
+                initialState' =
+                    set currentAddressSummary (Success addrs) initialState
+                latestTx = mkCTxBrief 19
+                txs = latestTx : mkTxBriefs (18..10)
+                effModel = update (SocketAddressTxsUpdated (Right txs)) initialState'
+                state = _.state effModel
+                updatedAddrs = state ^. (currentAddressSummary <<< _Success <<< _CAddressSummary <<< caTxList)
+
+            it "to add all new transactions" do
+                length updatedAddrs `shouldEqual` 20
+            it "to add latest transactions on top of txs list"
+                let mAddr = index updatedAddrs 0 in
+                fromMaybe "not-found" (gShow <$> mAddr) `shouldEqual` (gShow latestTx)
 
         describe "handles RequestPaginatedBlocks action" do
             let effModel = update DashboardRequestBlocksTotalPages initialState

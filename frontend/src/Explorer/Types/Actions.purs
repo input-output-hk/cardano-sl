@@ -12,7 +12,7 @@ import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
-import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxBrief(..), CTxId, CTxSummary)
+import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
 import Pux.Html.Events (Target)
 import Signal.Channel (Channel)
 
@@ -34,7 +34,7 @@ data Action
     | SocketConnected Boolean
     | SocketBlocksPageUpdated (Either Error (Tuple Int CBlockEntries))
     | SocketTxsUpdated (Either Error CTxEntries)
-    | SocketAddressTxsUpdated (Either Error CTxBrief)
+    | SocketAddressTxsUpdated (Either Error CTxBriefs)
     | SocketAddSubscription SocketSubscriptionItem
     | SocketRemoveSubscription SocketSubscriptionItem
     | SocketClearSubscriptions

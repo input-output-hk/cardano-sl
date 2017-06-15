@@ -6,14 +6,14 @@ module Explorer.Test.MockFactory where
 
 import Prelude
 import Data.Array ((..))
-import Data.Lens (set)
+import Data.Lens (over, set)
 import Data.Maybe (Maybe(..))
-import Data.Tuple (Tuple(..))
 import Data.Time.NominalDiffTime (NominalDiffTime, mkTime)
-import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkCoin)
+import Data.Tuple (Tuple(..))
 import Explorer.Types.State (CTxBriefs)
+import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkCoin)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary(..), CAddressType(..), CBlockEntry(..), CCoin, CHash, CTxEntry(..), CTxId, CTxBrief(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CTxEntry, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued, cteId, cteTimeIssued)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddressSummary, _CBlockEntry, _CTxEntry, caTxList, cbeBlkHash, cbeEpoch, cbeSlot, cbeTimeIssued, cteId, cteTimeIssued)
 
 -- | Creates a `CTxEntry` with "empty" data
 mkEmptyCTxEntry :: CTxEntry
@@ -41,6 +41,11 @@ mkEmptyCAddressSummary = CAddressSummary
     , caBalance: mkCoin "0"
     , caTxList: []
     }
+
+-- | Update txs of a `CAddressSummary`
+setTxOfAddressSummary :: CTxBriefs -> CAddressSummary -> CAddressSummary
+setTxOfAddressSummary txs addr =
+    set (_CAddressSummary <<< caTxList) txs addr
 
 mkCBlockEntry :: CBlockEntry
 mkCBlockEntry = CBlockEntry

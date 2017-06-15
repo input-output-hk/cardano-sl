@@ -11,8 +11,7 @@ module Pos.Binary.Class.TH
 import           Universum
 import           Unsafe                   (unsafeHead)
 
-import           Control.Lens             (ifor, imap)
-import           Control.Lens.Internal.TH (newNames)
+import           Control.Lens             (imap)
 import           Data.Default             (def)
 import           Data.List                (notElem, nubBy, partition)
 import qualified Data.Store.Internal      as Store
@@ -56,12 +55,13 @@ will generate:
 instance Bi User where
     size = case (size :: Size String, size :: Size Int,
                  size :: Size String, size :: Size Int) of
-        (ConstSize size_1_1, ConstSize size_1_2,
-         ConstSize size_2_1, ConstSize size_2_2) | size_1 == size_2 ->
+        (ConstSize size_Login_login, ConstSize size_Login_age
+         ConstSize size_FullName_firstName, ConstSize size_FullName_age)
+            | size_Login == size_FullName ->
             ConstSize (1 + size_1)
           where
-            size_1 = size_1_1 + size_1_2
-            size_2 = size_2_1 + size_2_2
+            size_Login = size_Login_login + size_Login_age
+            size_FullName = size_FullName_firstName + size_FullName_age
         _ -> VarSize $ \x -> case x of
                val@Login{} -> getSize (login val) + getSize (age val)
                val@FullName{} -> getSize (firstName val) + getSize (age val)
@@ -242,23 +242,36 @@ deriveSimpleBi headTy constrs = do
     sizeAtType :: Name -> ExpQ
     sizeAtType ty = [| Bi.size :: Store.Size $(conT ty) |]
 
-    -- Generate a unique name per each field in 'allUsedFields':
-    --   pref_1_1, pref_1_2, ...
-    --   pref_2_1, pref_2_2, ...
-    genFieldIndices :: String -> Q [[Name]]
-    genFieldIndices pref =
-        ifor allUsedFields $ \i fs ->
-            newNames (pref ++ "_" ++ show i ++ "_") (length fs)
+    -- Generate a unique name per each constructor:
+    genConsUniques :: String -> Q [Name]
+    genConsUniques pref =
+        forM filteredConstrs $ \Cons{..} ->
+            -- TODO: this won't work if the constructor name is an
+            -- operator. We need to mangle those names somehow.
+            newName (pref ++ "_" ++ nameBase cName)
+
+    -- Generate a unique name per each used field:
+    --   pref_Foo_fa, pref_Foo_fb, ...
+    --   pref_Bar_fx, pref_Bar_fy, ...
+    genFieldUniques :: String -> Q [[Name]]
+    genFieldUniques pref =
+        forM filteredConstrs $ \Cons{..} ->
+        forM cFields $ \Field{..} ->
+            -- TODO: this won't work if the constructor name is an
+            -- operator. We need to mangle those names somehow.
+            newName (pref ++ "_" ++ nameBase cName
+                          ++ "_" ++ nameBase fName)
 
     -- Generate the following code:
-    -- ( ConstSize size_1_1
-    -- , ConstSize size_2_1, ConstSize size_2_2, ConstSize size_2_3
-    -- , ConstSize size_3_1, ConstSize size_3_2 )
-    --   | size_1 == size_2 && size_2 == size_3 -> ConstSize (tagSize + size_1)
+    -- ( ConstSize size_Foo_fa
+    -- , ConstSize size_Bar_fx, ConstSize size_Bar_fy, ConstSize size_Bar_fz
+    -- , ConstSize size_Baz_fn, ConstSize size_Baz_fm )
+    --   | size_Foo == size_Bar && size_Bar == size_Baz ->
+    --     ConstSize (tagSize + size_Foo)
     --   where
-    --     size_1 = size_1_1
-    --     size_2 = size_2_1 + size_2_2 + size_2_3
-    --     size_3 = size_3_1 + size_3_2
+    --     size_Foo = size_Foo_fa
+    --     size_Bar = size_Bar_fx + size_Bar_fy + size_Bar_fz
+    --     size_Baz = size_Baz_fn + size_Baz_fm
     matchConstSize :: MatchQ
     matchConstSize
       | null allUsedFields     =    -- no constructors = size 0
@@ -267,26 +280,26 @@ deriveSimpleBi headTy constrs = do
           match wildP (normalB [| Store.ConstSize $mbTagSize |]) []
       | otherwise = do
           -- Names and vars for total sizes:
-          --     size_1, size_2, size_3, ...
+          --     size_Foo, size_Bar, size_Baz, ...
           -- Names and vars for field sizes:
-          --     size_1_1, size_1_2, ...
-          --     size_2_1, size_2_2, ...               ...
+          --     size_Foo_fa, ...
+          --     size_Bar_fx, size_Bar_fy, ...                 ...
           -- Calculations of total sizes:
-          --     where size_1 = size_1_1
-          --           size_2 = size_2_1 + size_2_2    ...
-          totalNames <- newNames "size_" (length allUsedFields)
+          --     where size_Foo = size_Foo_fa
+          --           size_Bar = size_Bar_fx + size_Bar_fy    ...
+          totalNames <- genConsUniques "size"
           let totals     = map varE totalNames
               firstTotal = unsafeHead totals
-          fieldSizeNames <- genFieldIndices "size"
+          fieldSizeNames <- genFieldUniques "size"
           let fieldSizes = (map . map) varE fieldSizeNames
           let mkTotalDecl ts xs = valD (varP ts) (normalB (sumE xs)) []
               totalsDecls       = zipWith mkTotalDecl totalNames fieldSizes
           -- The giant tuple pattern with all sizes:
-          --     (ConstSize size_1_1, ConstSize size_1_2, ...)
+          --     (ConstSize size_Foo_fa, ConstSize size_Bar_fx, ...)
           -- The size equality guard:
-          --     | size_1 == size_2 && size_2 == size_3 && ...
+          --     | size_Foo == size_Bar && size_Bar == size_Baz && ...
           -- The result:
-          --     -> ConstSize (size_1 + tagSize)
+          --     -> ConstSize (size_Foo + tagSize)
           let casePattern  = tupP [ [p| Store.ConstSize $(varP fs) |]
                                   | fs <- concat fieldSizeNames]
               caseGuard    = andE $ zipConsecutive (infixApp [| (==) |]) totals

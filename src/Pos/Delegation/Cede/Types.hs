@@ -13,7 +13,7 @@ import           Universum
 
 import           Pos.Crypto             (PublicKey, pskIssuerPk)
 import           Pos.Delegation.Helpers (isRevokePsk)
-import           Pos.Types              (ProxySKHeavy)
+import           Pos.Types              (ProxySKHeavy, StakeholderId)
 
 -- | Action on delegation database, used commonly. Generalizes
 -- applications and rollbacks.
@@ -37,4 +37,4 @@ dlgEdgeActionIssuer = \case
     (DlgEdgeAdd psk) -> pskIssuerPk psk
 
 -- | A set of modifications for PSK storage.
-type CedeModifier = HashMap PublicKey DlgEdgeAction
+type CedeModifier = HashMap StakeholderId DlgEdgeAction

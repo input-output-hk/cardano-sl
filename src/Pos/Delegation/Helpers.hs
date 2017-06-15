@@ -11,16 +11,15 @@ module Pos.Delegation.Helpers
 
 import           Universum
 
-import           Control.Lens              (uses, (%=))
+import           Control.Lens              ((%=))
 import           Control.Monad.Except      (MonadError (throwError))
 import qualified Data.HashMap.Strict       as HM
-import qualified Data.HashSet              as HS
 import           Data.List                 (partition)
 
 import           Pos.Block.Core.Main.Lens  (mainBlockDlgPayload)
 import           Pos.Block.Core.Main.Types (MainBlock)
-import           Pos.Core                  (EpochIndex, ProxySKHeavy)
-import           Pos.Crypto                (ProxySecretKey (..), PublicKey)
+import           Pos.Core                  (EpochIndex)
+import           Pos.Crypto                (ProxySecretKey (..))
 import           Pos.Delegation.Types      (DlgMemPool, DlgPayload (getDlgPayload))
 
 -- | Verify delegation payload without using GState. This function can

@@ -24,6 +24,8 @@ module Pos.Client.Txp.History
        , deriveAddrHistoryPartial
        , TxHistoryRedirect
        , runTxHistoryRedirect
+       , getTxHistoryWebWallet
+       , saveTxWebWallet
        ) where
 
 import           Universum
@@ -185,6 +187,18 @@ type TxHistoryRedirect =
 runTxHistoryRedirect :: TxHistoryRedirect m a -> m a
 runTxHistoryRedirect = coerce
 
+type TxHistoryMonad m =
+    ( MonadRealDB m
+    , MonadDBRead m
+    , MonadGState m
+    , MonadThrow m
+    , WithLogger m
+    , MonadSlots m
+    , Ether.MonadReader' GenesisUtxo m
+    , MonadTxpMem TxpExtra_TMP m
+    , MonadBaseControl IO m
+    )
+
 instance
     ( MonadRealDB m
     , MonadDBRead m
@@ -198,54 +212,59 @@ instance
     , t ~ IdentityT
     ) => MonadTxHistory (Ether.TaggedTrans TxHistoryRedirectTag t m)
   where
-    getTxHistory :: forall ssc. SscHelpersClass ssc
-                 => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> TxHistoryRedirect m TxHistoryAnswer)
-    getTxHistory = Tagged $ \addrs mInit -> do
-        tip <- GS.getTip
+    getTxHistory = getTxHistoryWebWallet
+    saveTx = saveTxWebWallet
 
-        let getGenUtxo = Ether.asks' unGenesisUtxo
-        (bot, genUtxo) <- maybe ((,) <$> GS.getBot <*> getGenUtxo) pure mInit
+getTxHistoryWebWallet
+    :: forall ssc m. (SscHelpersClass ssc, TxHistoryMonad m)
+    => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
+getTxHistoryWebWallet = Tagged $ \addrs mInit -> do
+    tip <- GS.getTip
 
-        -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
-        hashList <- flip unfoldrM tip $ \h ->
-            if h == bot
-            then return Nothing
-            else do
-                header <- DB.runBlockDBRedirect $ DB.blkGetHeader @ssc h >>=
-                    maybeThrow (DBMalformed "Best blockchain is non-continuous")
-                let prev = header ^. prevBlockL
-                return $ Just (h, prev)
+    let getGenUtxo = Ether.asks' unGenesisUtxo
+    (bot, genUtxo) <- maybe ((,) <$> GS.getBot <*> getGenUtxo) pure mInit
 
-        -- Determine last block which txs should be cached
-        let cachedHashes = drop blkSecurityParam hashList
-            nonCachedHashes = take blkSecurityParam hashList
+    -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
+    hashList <- flip unfoldrM tip $ \h ->
+        if h == bot
+        then return Nothing
+        else do
+            header <- DB.runBlockDBRedirect $ DB.blkGetHeader @ssc h >>=
+                maybeThrow (DBMalformed "Best blockchain is non-continuous")
+            let prev = header ^. prevBlockL
+            return $ Just (h, prev)
 
-        let blockFetcher h txs = do
-                blk <- lift . lift . DB.runBlockDBRedirect $ DB.blkGetBlock @ssc h >>=
-                       maybeThrow (DBMalformed "A block mysteriously disappeared!")
-                deriveAddrHistoryPartial txs addrs [blk]
-            localFetcher blkTxs = do
-                let mp (txid, TxAux {..}) =
-                      (WithHash taTx txid, taWitness, taDistribution)
-                ltxs <- lift . lift $ getLocalTxs
-                txs <- getRelatedTxs addrs $ map mp ltxs
-                return $ txs ++ blkTxs
+    -- Determine last block which txs should be cached
+    let cachedHashes = drop blkSecurityParam hashList
+        nonCachedHashes = take blkSecurityParam hashList
 
-        mres <- runMaybeT $ do
-            (cachedTxs, cachedUtxo) <- runUtxoStateT
-                (foldrM blockFetcher [] cachedHashes) genUtxo
+    let blockFetcher h txs = do
+            blk <- lift . lift . DB.runBlockDBRedirect $ DB.blkGetBlock @ssc h >>=
+                   maybeThrow (DBMalformed "A block mysteriously disappeared!")
+            deriveAddrHistoryPartial txs addrs [blk]
+        localFetcher blkTxs = do
+            let mp (txid, TxAux {..}) =
+                  (WithHash taTx txid, taWitness, taDistribution)
+            ltxs <- lift . lift $ getLocalTxs
+            txs <- getRelatedTxs addrs $ map mp ltxs
+            return $ txs ++ blkTxs
 
-            result <- evalUtxoStateT
-                (foldrM blockFetcher cachedTxs nonCachedHashes >>= localFetcher)
-                cachedUtxo
+    mres <- runMaybeT $ do
+        (cachedTxs, cachedUtxo) <- runUtxoStateT
+            (foldrM blockFetcher [] cachedHashes) genUtxo
 
-            let lastCachedHash = fromMaybe bot $ head cachedHashes
-            return $ TxHistoryAnswer lastCachedHash (length cachedTxs) cachedUtxo result
+        result <- evalUtxoStateT
+            (foldrM blockFetcher cachedTxs nonCachedHashes >>= localFetcher)
+            cachedUtxo
 
-        maybe (error "deriveAddrHistory: Nothing") pure mres
+        let lastCachedHash = fromMaybe bot $ head cachedHashes
+        return $ TxHistoryAnswer lastCachedHash (length cachedTxs) cachedUtxo result
 
+    maybe (error "deriveAddrHistory: Nothing") pure mres
+
+saveTxWebWallet :: TxHistoryMonad m => (TxId, TxAux) -> m ()
 #ifdef WITH_EXPLORER
-    saveTx txw = () <$ runExceptT (eTxProcessTransaction txw)
+saveTxWebWallet txw = () <$ runExceptT (eTxProcessTransaction txw)
 #else
-    saveTx txw = () <$ runExceptT (txProcessTransaction txw)
+saveTxWebWallet txw = () <$ runExceptT (txProcessTransaction txw)
 #endif

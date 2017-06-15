@@ -1,13 +1,16 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 module Pos.ExecMode
     ( ExecMode(..)
     , ExecModeM
+    , _ExecMode
     ) where
 
 import           Universum
 
+import           Control.Lens                (makePrisms)
 import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Fix           (MonadFix)
 import qualified Control.Monad.Reader        as Mtl
@@ -25,6 +28,8 @@ import           Pos.Util.Util               (PowerLift (..))
 type family ExecModeM mode :: * -> *
 
 newtype ExecMode mode a = ExecMode { unExecMode :: ExecModeM mode a }
+
+makePrisms ''ExecMode
 
 deriving instance Functor (ExecModeM mode) => Functor (ExecMode mode)
 deriving instance Applicative (ExecModeM mode) => Applicative (ExecMode mode)

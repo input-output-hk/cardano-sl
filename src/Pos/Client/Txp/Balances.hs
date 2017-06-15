@@ -6,6 +6,8 @@ module Pos.Client.Txp.Balances
        , getBalanceFromUtxo
        , BalancesRedirect
        , runBalancesRedirect
+       , getOwnUtxosWebWallet
+       , getBalanceWebWallet
        ) where
 
 import           Universum
@@ -65,39 +67,47 @@ type BalancesRedirect =
 runBalancesRedirect :: BalancesRedirect m a -> m a
 runBalancesRedirect = coerce
 
+type BalancesMonad ext m =
+    (MonadRealDB m, MonadDBRead m, MonadGState m, MonadMask m, WithLogger m, MonadTxpMem ext m)
+
+getOwnUtxosWebWallet :: BalancesMonad ext m => [Address] -> m Utxo
+getOwnUtxosWebWallet addr = do
+    utxo <- GS.getFilteredUtxo addr
+    updates <- getUtxoModifier
+    let addrsSet = HS.fromList $ AddressIA <$> addr
+        toDel    = MM.deletions updates
+        toAdd    = HM.filter (`addrBelongsToSet` addrsSet) $
+                   MM.insertionsMap updates
+        utxo'    = foldr M.delete utxo toDel
+    return $ HM.foldrWithKey M.insert utxo' toAdd
+
+getBalanceWebWallet :: (BalancesMonad ext m, MonadBalances m) => Address -> m Coin
+getBalanceWebWallet PubKeyAddress{..} = do
+    (txs, undos) <- getLocalTxsNUndo
+    let wHash (i, TxAux tx _ _) = WithHash tx i
+    case topsortTxs wHash txs of
+        Nothing -> do
+            logWarn "couldn't topsort mempool txs"
+            getFromDb
+        Just ordered -> do
+            let txsAndUndos = mapMaybe (\(id, tx) -> (tx,) <$> HM.lookup id undos) ordered
+            (_, ToilModifier{..}) <- runToilAction @_ @() (applyToil txsAndUndos)
+            let stake = HM.lookup addrKeyHash $ _bvStakes _tmBalances
+            maybe getFromDb pure stake
+  where
+    logWarn er = logWarning $
+        sformat ("Couldn't compute balance of "%shortHashF%
+                     " using mempool, reason: "%stext) addrKeyHash er
+    getFromDb = fromMaybe (mkCoin 0) <$> GS.getRealStake addrKeyHash
+getBalanceWebWallet addr = getBalanceFromUtxo addr
+
 instance
     (MonadRealDB m, MonadDBRead m, MonadGState m, MonadMask m,
      WithLogger m, MonadTxpMem ext m, t ~ IdentityT) =>
         MonadBalances (Ether.TaggedTrans BalancesRedirectTag t m)
   where
-    getOwnUtxos addr = do
-        utxo <- GS.getFilteredUtxo addr
-        updates <- getUtxoModifier
-        let addrsSet = HS.fromList $ AddressIA <$> addr
-            toDel    = MM.deletions updates
-            toAdd    = HM.filter (`addrBelongsToSet` addrsSet) $
-                       MM.insertionsMap updates
-            utxo'    = foldr M.delete utxo toDel
-        return $ HM.foldrWithKey M.insert utxo' toAdd
-
-    getBalance PubKeyAddress{..} = do
-        (txs, undos) <- getLocalTxsNUndo
-        let wHash (i, TxAux tx _ _) = WithHash tx i
-        case topsortTxs wHash txs of
-            Nothing -> do
-                logWarn "couldn't topsort mempool txs"
-                getFromDb
-            Just ordered -> do
-                let txsAndUndos = mapMaybe (\(id, tx) -> (tx,) <$> HM.lookup id undos) ordered
-                (_, ToilModifier{..}) <- runToilAction @_ @() (applyToil txsAndUndos)
-                let stake = HM.lookup addrKeyHash $ _bvStakes _tmBalances
-                maybe getFromDb pure stake
-      where
-        logWarn er = logWarning $
-            sformat ("Couldn't compute balance of "%shortHashF%
-                         " using mempool, reason: "%stext) addrKeyHash er
-        getFromDb = fromMaybe (mkCoin 0) <$> GS.getRealStake addrKeyHash
-    getBalance addr = getBalanceFromUtxo addr
+    getOwnUtxos = getOwnUtxosWebWallet
+    getBalance = getBalanceWebWallet
 
 getOwnUtxo :: MonadBalances m => Address -> m Utxo
 getOwnUtxo = getOwnUtxos . one

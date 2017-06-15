@@ -11,6 +11,9 @@ module Pos.Wallet.Web.Tracking
        , BlockLockMode
        , CAccModifier
        , MonadWalletTracking (..)
+       , syncWSetsAtStartWebWallet
+       , syncOnImportWebWallet
+       , txMempoolToModifierWebWallet
        ) where
 
 import           Universum
@@ -85,17 +88,29 @@ instance {-# OVERLAPPABLE #-}
     syncOnImport = lift . syncOnImport
     txMempoolToModifier = lift . txMempoolToModifier
 
+type WalletTrackingMonad ext m =
+     (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m, WS.MonadWalletWebDB m)
+
+syncWSetsAtStartWebWallet :: WalletTrackingMonad ext m => [EncryptedSecretKey] -> m ()
+syncWSetsAtStartWebWallet = syncWSetsWithGStateLock @WalletSscType
+
+syncOnImportWebWallet :: WalletTrackingMonad ext m => EncryptedSecretKey -> m ()
+syncOnImportWebWallet = selectAccountsFromUtxoLock @WalletSscType . pure
+
+txMempoolToModifierWebWallet :: WalletTrackingMonad ext m => EncryptedSecretKey -> m CAccModifier
+txMempoolToModifierWebWallet encSK = do
+    let wHash (i, TxAux {..}) = WithHash taTx i
+    txs <- getLocalTxs
+    case topsortTxs wHash txs of
+        Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
+        Just (map snd -> ordered) ->
+            runDBToil $ evalToilTEmpty $ trackingApplyTxs encSK ordered
+
 instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
          => MonadWalletTracking (WalletWebDB m) where
-    syncWSetsAtStart = syncWSetsWithGStateLock @WalletSscType
-    syncOnImport = selectAccountsFromUtxoLock @WalletSscType . pure
-    txMempoolToModifier encSK = do
-        let wHash (i, TxAux {..}) = WithHash taTx i
-        txs <- getLocalTxs
-        case topsortTxs wHash txs of
-            Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
-            Just (map snd -> ordered) ->
-                runDBToil $ evalToilTEmpty $ trackingApplyTxs encSK ordered
+    syncWSetsAtStart = syncWSetsAtStartWebWallet
+    syncOnImport = syncOnImportWebWallet
+    txMempoolToModifier = txMempoolToModifierWebWallet
 
 ----------------------------------------------------------------------------
 -- Logic

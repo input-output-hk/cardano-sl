@@ -28,20 +28,16 @@ import           Pos.Ssc.Extra                 (SscState)
 import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Pos.Txp                       (GenericTxpLocalData, askTxpMem)
 import           Pos.Util.JsonLog              (JsonLogConfig (..))
-import           Pos.Wallet.Redirect           (runWalletRedirects)
 import           Pos.Wallet.SscType            (WalletSscType)
-import           Pos.Wallet.Web.Server.Methods (WalletWebHandler)
-import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSockets,
-                                                runWalletWS)
-import           Pos.Wallet.Web.State          (WalletState, getWalletWebState,
-                                                runWalletWebDB)
-import           Pos.WorkMode                  (RealMode, RealModeContext (..),
-                                                TxpExtra_TMP, unRealMode)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSockets)
+import           Pos.Wallet.Web.State          (WalletState, getWalletWebState)
+
+import           Pos.Wallet.Web.Mode           (WalletWebMode, WalletWebModeContext (..),
+                                                unWalletWebMode)
+import           Pos.WorkMode                  (RealModeContext (..), TxpExtra_TMP)
 
 
-type WebHandler = WalletWebHandler (RealMode WalletSscType)
-
-nat :: WebHandler (WebHandler :~> Handler)
+nat :: WalletWebMode (WalletWebMode :~> Handler)
 nat = do
     ws         <- getWalletWebState
     tlw        <- askTxpMem
@@ -63,30 +59,29 @@ convertHandler
     -> DelegationVar
     -> PeerStateSnapshot
     -> ConnectionsVar
-    -> WebHandler a
+    -> WalletWebMode a
     -> Handler a
 convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                conn handler =
-    liftIO (realRunner . walletRunner $ handler) `Catch.catches` excHandlers
+    liftIO (walletRunner handler) `Catch.catches` excHandlers
   where
-    walletRunner = runWalletWebDB ws
-      . runWalletWS conn
-      . runWalletRedirects
 
-    realRunner :: forall t . RealMode WalletSscType t -> IO t
-    realRunner act = runProduction $ do
+    walletRunner :: forall a . WalletWebMode a -> IO a
+    walletRunner act = runProduction $ do
         peerStateCtx <- peerStateFromSnapshot psCtx
-        Mtl.runReaderT (unRealMode act) $
-            RealModeContext
-                modernDBs
-                ssc
-                tlw
-                delWrap
-                peerStateCtx
-                JsonLogDisabled
-                "wallet-api"
-                nc
+        Mtl.runReaderT (unWalletWebMode act) $
+            WalletWebModeContext
+                ws
+                conn
+                (RealModeContext
+                    modernDBs
+                    ssc
+                    tlw
+                    delWrap
+                    peerStateCtx
+                    JsonLogDisabled
+                    "wallet-api"
+                    nc)
 
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
-{-# NOINLINE convertHandler #-}

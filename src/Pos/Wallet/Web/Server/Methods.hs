@@ -7,8 +7,7 @@
 -- | Wallet web server.
 
 module Pos.Wallet.Web.Server.Methods
-       ( WalletWebHandler
-       , walletApplication
+       ( walletApplication
        , walletServer
        , walletServeImpl
        , walletServerOuts
@@ -87,7 +86,6 @@ import           Pos.Util.Servant                 (decodeCType, encodeCType)
 import           Pos.Util.UserSecret              (readUserSecret, usWalletSet)
 import           Pos.Wallet.KeyStorage            (addSecretKey, deleteSecretKey,
                                                    getSecretKeys)
-import           Pos.Wallet.Redirect              (WalletRedirects)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
                                                    blockchainSlotDuration, connectedPeers,
@@ -124,10 +122,10 @@ import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
                                                    mkGenesisWalletUserSecret, wusAccounts,
                                                    wusWalletName)
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
-                                                   WalletWebSockets, closeWSConnections,
+                                                   closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
-import           Pos.Wallet.Web.State             (AccountLookupMode (..), WalletWebDB,
+import           Pos.Wallet.Web.State             (AccountLookupMode (..),
                                                    WebWalletModeDB, addOnlyNewTxMeta,
                                                    addRemovedAccount, addUpdate,
                                                    addWAddress, closeState, createAccount,
@@ -155,13 +153,6 @@ import           Pos.Web.Server                   (serveImpl)
 -- Top level functionality
 ----------------------------------------------------------------------------
 
-type WalletWebHandler m =
-    WalletRedirects (
-    WalletWebSockets (
-    WalletWebDB (
-    m
-    )))
-
 type WalletWebMode m
     = ( WalletMode m
       , WebWalletModeDB m
@@ -177,10 +168,10 @@ makeLenses ''SyncProgress
 walletServeImpl
     :: ( MonadIO m
        , MonadMask m
-       , WalletWebMode (WalletWebHandler m))
-    => WalletWebHandler m Application     -- ^ Application getter
+       , WalletWebMode m)
+    => m Application     -- ^ Application getter
     -> Word16                             -- ^ Port to listen
-    -> WalletWebHandler m ()
+    -> m ()
 walletServeImpl app port =
     serveImpl app "127.0.0.1" port
 
@@ -193,10 +184,10 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
-    :: (MonadIO m, WalletWebMode (WalletWebHandler m))
-    => SendActions (WalletWebHandler m)
-    -> WalletWebHandler m (WalletWebHandler m :~> Handler)
-    -> WalletWebHandler m (Server WalletApi)
+    :: (MonadIO m, WalletWebMode m)
+    => SendActions m
+    -> m (m :~> Handler)
+    -> m (Server WalletApi)
 walletServer sendActions nat = do
     syncWSetsWithGStateLock @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
     nat >>= launchNotifier

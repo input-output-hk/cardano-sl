@@ -38,12 +38,10 @@ import           Pos.Util.UserSecret (usVss)
 import           Pos.Util.Util       (powerLift)
 import           Pos.WorkMode        (RealMode, WorkMode)
 #ifdef WITH_WEB
-import           Pos.Wallet.Redirect (liftWalletRedirects)
 import           Pos.Web             (serveWebGT)
 #ifdef WITH_WALLET
-import           Pos.Wallet.Web      (WalletRealWebMode, bracketWalletWS,
-                                      bracketWalletWebDB, runWRealMode,
-                                      walletServeWebFull, walletServerOuts)
+import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
+                                      runWRealMode, walletServeWebFull, walletServerOuts)
 #endif
 #endif
 
@@ -87,16 +85,14 @@ actionWithWallet sscParams nodeParams args@Args {..} =
                 runWRealMode
                     db
                     conn
-                    (hoistNodeResources
-                         (liftWalletRedirects . lift . lift . powerLift)
-                         nr)
+                    (hoistNodeResources powerLift nr)
                     (runNode @SscGodTossing nrContext plugins)
   where
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
-    plugins :: ([WorkerSpec WalletRealWebMode], OutSpecs)
+    plugins :: ([WorkerSpec WalletWebMode], OutSpecs)
     plugins = convPlugins (pluginsGT args) <> walletProd args
 
-walletProd :: Args -> ([WorkerSpec WalletRealWebMode], OutSpecs)
+walletProd :: Args -> ([WorkerSpec WalletWebMode], OutSpecs)
 walletProd Args {..} = first pure $ worker walletServerOuts $ \sendActions ->
     walletServeWebFull
         sendActions

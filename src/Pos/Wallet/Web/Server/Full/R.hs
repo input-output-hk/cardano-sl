@@ -8,58 +8,51 @@
 module Pos.Wallet.Web.Server.Full.R
        ( walletServeWebFull
        , runWRealMode
-       , WalletRealWebMode
        ) where
 
-import           Universum
+import           Universum                         hiding (over)
 
+import           Control.Lens                      (over)
+import qualified Control.Monad.Reader              as Mtl
 import           Mockable                          (Production)
 import           Network.Wai                       (Application)
 import           System.Wlog                       (logInfo)
 
 import           Pos.Communication                 (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol        (SendActions)
+import           Pos.ExecMode                      (_ExecMode)
 import           Pos.Launcher.Resource             (NodeResources)
 import           Pos.Launcher.Runner               (runRealBasedMode)
-import           Pos.Wallet.Redirect               (liftWalletRedirects,
-                                                    runWalletRedirects)
 import           Pos.Wallet.SscType                (WalletSscType)
+import           Pos.Wallet.Web.Mode               (WalletWebMode,
+                                                    WalletWebModeContext (..))
 import           Pos.Wallet.Web.Server.Full.Common (nat)
-import           Pos.Wallet.Web.Server.Methods     (WalletWebHandler,
-                                                    addInitialRichAccount,
+import           Pos.Wallet.Web.Server.Methods     (addInitialRichAccount,
                                                     walletApplication, walletServeImpl,
                                                     walletServer)
-import           Pos.Wallet.Web.Server.Sockets     (ConnectionsVar, runWalletWS)
-import           Pos.Wallet.Web.State              (WalletState, runWalletWebDB)
-import           Pos.WorkMode                      (RealMode)
+import           Pos.Wallet.Web.Server.Sockets     (ConnectionsVar)
+import           Pos.Wallet.Web.State              (WalletState)
 
-type WalletRealWebMode = WalletWebHandler (RealMode WalletSscType)
-
--- | WalletRealWebMode runner.
+-- | WalletWebMode runner.
 runWRealMode
     :: WalletState
     -> ConnectionsVar
-    -> NodeResources WalletSscType WalletRealWebMode
-    -> (ActionSpec WalletRealWebMode a, OutSpecs)
+    -> NodeResources WalletSscType WalletWebMode
+    -> (ActionSpec WalletWebMode a, OutSpecs)
     -> Production a
 runWRealMode db conn =
     runRealBasedMode
-        unwrapWPMode
-        -- doesn't work
-        -- (powerLift @(RealMode WalletSscType) @WalletRealWebMode)
-        (liftWalletRedirects . lift . lift)
-  where
-    unwrapWPMode = runWalletWebDB db . runWalletWS conn . runWalletRedirects
-{-# NOINLINE runWRealMode #-}
+        (over _ExecMode (Mtl.withReaderT (WalletWebModeContext db conn)))
+        (over _ExecMode (Mtl.withReaderT wmcRealModeContext))
 
 walletServeWebFull
-    :: SendActions WalletRealWebMode
+    :: SendActions WalletWebMode
     -> Bool      -- whether to include genesis keys
     -> Word16
-    -> WalletRealWebMode ()
+    -> WalletWebMode ()
 walletServeWebFull sendActions debug = walletServeImpl action
   where
-    action :: WalletRealWebMode Application
+    action :: WalletWebMode Application
     action = do
         logInfo "DAEDALUS has STARTED!"
         when debug $ addInitialRichAccount 0

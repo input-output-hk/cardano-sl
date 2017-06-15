@@ -28,9 +28,6 @@ module Pos.Wallet.Web.State.Acidic
        , GetNextUpdate (..)
        , TestReset (..)
        , GetHistoryCache (..)
-       , GetChangeAddresses (..)
-       , IsChangeAddress (..)
-       , AddChangeAddress (..)
        , CreateAccount (..)
        , AddWAddress (..)
        , AddRemovedAccount (..)
@@ -107,9 +104,6 @@ makeAcidic ''WalletStorage
     , 'WS.getUpdates
     , 'WS.getNextUpdate
     , 'WS.getHistoryCache
-    , 'WS.getChangeAddresses
-    , 'WS.isChangeAddress
-    , 'WS.addChangeAddress
     , 'WS.createAccount
     , 'WS.createWallet
     , 'WS.addWAddress

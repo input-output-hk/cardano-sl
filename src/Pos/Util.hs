@@ -28,9 +28,6 @@ module Pos.Util
        , neZipWith3
        , spanSafe
 
-       -- * Lenses
-       , makeLensesData
-
        -- * Instances
        -- ** MonadFail ParsecT
        -- ** MonadFail Dialog
@@ -40,29 +37,26 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
-import           Universum                     hiding (finally)
+import           Universum                    hiding (finally)
 
-import           Control.Lens                  (lensRules)
-import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
-import qualified Control.Monad                 as Monad (fail)
-import           Control.Monad.Trans.Resource  (ResourceT)
-import           Data.Either                   (rights)
-import           Data.Hashable                 (Hashable)
-import qualified Data.HashMap.Strict           as HM
-import           Data.List                     (span, zipWith3)
-import qualified Data.Text                     as T
-import qualified Language.Haskell.TH           as TH
-import           Serokell.Util                 (VerificationRes (..))
-import           System.IO                     (hClose)
-import           System.Wlog                   (LoggerNameBox (..))
-import           Text.Parsec                   (ParsecT)
+import qualified Control.Monad                as Monad (fail)
+import           Control.Monad.Trans.Resource (ResourceT)
+import           Data.Either                  (rights)
+import           Data.Hashable                (Hashable)
+import qualified Data.HashMap.Strict          as HM
+import           Data.List                    (span, zipWith3)
+import qualified Data.Text                    as T
+import           Serokell.Util                (VerificationRes (..))
+import           System.IO                    (hClose)
+import           System.Wlog                  (LoggerNameBox (..))
+import           Text.Parsec                  (ParsecT)
 -- SafeCopy instance for HashMap
-import           Serokell.AcidState            ()
+import           Serokell.AcidState           ()
 
 import           Pos.Util.Arbitrary
 import           Pos.Util.Concurrent
 import           Pos.Util.TimeLimit
-import           Pos.Util.Undefined            ()
+import           Pos.Util.Undefined           ()
 import           Pos.Util.Util
 
 -- | Specialized version of 'mappend' for restricted to pair type.
@@ -113,7 +107,7 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
 
 withMaybeFile :: (MonadIO m, MonadMask m) => Maybe FilePath -> IOMode -> (Maybe Handle -> m r) -> m r
 withMaybeFile Nothing     _    f = f Nothing
-withMaybeFile (Just file) mode f = 
+withMaybeFile (Just file) mode f =
     bracket (openFile file mode) (liftIO . hClose) (f . Just)
 
 mapEither :: (a -> Either b c) -> [a] -> [c]
@@ -131,36 +125,6 @@ neZipWith3 f (x :| xs) (y :| ys) (z :| zs) = f x y z :| zipWith3 f xs ys zs
 -- depends on the first element.
 spanSafe :: (a -> a -> Bool) -> NonEmpty a -> (NonEmpty a, [a])
 spanSafe p (x:|xs) = let (a,b) = span (p x) xs in (x:|a,b)
-
-----------------------------------------------------------------------------
--- Lens utils
-----------------------------------------------------------------------------
-
--- | Make lenses for a data family instance.
-makeLensesData :: TH.Name -> TH.Name -> TH.DecsQ
-makeLensesData familyName typeParamName = do
-    info <- TH.reify familyName
-    ins <- case info of
-        TH.FamilyI _ ins -> return ins
-        _                -> fail "makeLensesIndexed: expected data family name"
-    typeParamInfo <- TH.reify typeParamName
-    typeParam <- case typeParamInfo of
-        TH.TyConI dec -> decToType dec
-        _             -> fail "makeLensesIndexed: expected a type"
-    let mbInsDec = find ((== Just typeParam) . getTypeParam) ins
-    case mbInsDec of
-        Nothing -> fail ("makeLensesIndexed: an instance for " ++
-                         TH.nameBase typeParamName ++ " not found")
-        Just insDec -> makeFieldOpticsForDec lensRules insDec
-  where
-    getTypeParam (TH.NewtypeInstD _ _ [t] _ _ _) = Just t
-    getTypeParam (TH.DataInstD    _ _ [t] _ _ _) = Just t
-    getTypeParam _                               = Nothing
-
-    decToType (TH.DataD    _ n _ _ _ _) = return (TH.ConT n)
-    decToType (TH.NewtypeD _ n _ _ _ _) = return (TH.ConT n)
-    decToType other                     =
-        fail ("makeLensesIndexed: decToType failed on: " ++ show other)
 
 ----------------------------------------------------------------------------
 -- Deserialized wrapper

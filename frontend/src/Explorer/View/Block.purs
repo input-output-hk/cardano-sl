@@ -1,7 +1,7 @@
 module Explorer.View.Block (blockView) where
 
 import Prelude
-import Data.Array (length, null, slice, (..))
+import Data.Array (length, null, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), isJust)
 import Explorer.I18n.Lang (Language, translate)
@@ -9,7 +9,6 @@ import Explorer.I18n.Lenses (cBlock, blSlotNotFound, common, cBack2Dashboard, cO
 import Explorer.Lenses.State (_PageNumber, blockDetail, blockTxPagination, blockTxPaginationEditable, currentBlockSummary, currentBlockTxs, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
-import Explorer.Test.MockFactory (mkTxBriefs)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), CTxBriefs, PageNumber(..), State)
 import Explorer.Util.Factory (mkCoin)
@@ -58,9 +57,7 @@ blockView state =
                       NotAsked -> txEmptyContentView ""
                       Loading -> txEmptyContentView $ translate (I18nL.common <<< I18nL.cLoading) lang'
                       Failure _ -> txEmptyContentView $ translate (I18nL.tx <<< I18nL.txNotFound) lang'
-                      -- Success txs -> blockTxsView txs state
-                      -- TODO (jk): Use real data
-                      Success txs -> blockTxsView (mkTxBriefs (1..12)) state
+                      Success txs -> blockTxsView txs state
                 ]
             , if (isFailure blockSummary && isFailure blockTxs)
               -- Show back button if both results ^ are failed

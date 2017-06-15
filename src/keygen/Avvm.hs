@@ -135,7 +135,7 @@ applyBlacklisted (Just blacklistPath) AvvmData{..} = do
     pure $ AvvmData filtered
 
 getHolderId
-    :: (MonadIO m, MonadCatch m, WithLogger m)
+    :: (MonadIO m, WithLogger m)
     => Maybe FilePath -> m StakeholderId
 getHolderId (Just fileName) = do
     mSk <- view usPrimKey <$> readUserSecret fileName

@@ -23,42 +23,42 @@ module Pos.Util.UserSecret
        , writeUserSecret
        , writeUserSecretRelease
 
+       , UserSecretDecodingError (..)
        , ensureModeIs600
        ) where
 
-import           Control.Lens               (makeLenses, to)
-import           Control.Monad.Catch        (handle, onException)
-import           Data.Binary.Get            (label)
-import qualified Data.ByteString.Lazy       as BSL
-import           Data.Default               (Default (..))
-import           Formatting                 (build, formatToString, (%))
+import           Control.Lens          (makeLenses, to)
+import           Control.Monad.Catch   (onException)
+import           Data.Binary.Get       (label)
+import qualified Data.ByteString.Lazy  as BSL
+import           Data.Default          (Default (..))
+import qualified Data.Text.Buildable
+import           Formatting            (bprint, build, formatToString, (%))
 import qualified Prelude
-import           Serokell.Util.Text         (listJson)
-import           System.FileLock            (FileLock, SharedExclusive (..), lockFile,
-                                             unlockFile, withFileLock)
-import           System.IO.Error            (isDoesNotExistError)
-import qualified Turtle                     as T
+import           Serokell.Util.Text    (listJson)
+import           System.FileLock       (FileLock, SharedExclusive (..), lockFile,
+                                        unlockFile, withFileLock)
+import qualified Turtle                as T
 import           Universum
 
-import           Pos.Binary.Class           (Bi (..), decodeFull, encode)
-import           Pos.Binary.Crypto          ()
-import           Pos.Crypto                 (EncryptedSecretKey, SecretKey, VssKeyPair)
+import           Pos.Binary.Class      (Bi (..), decodeFull, encode)
+import           Pos.Binary.Crypto     ()
+import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
 
-import           Pos.Types                  (Address)
-import           System.Directory           (renameFile)
-import           System.FilePath            (takeDirectory, takeFileName)
-import           System.IO                  (hClose)
-import           System.IO.Temp             (openBinaryTempFile)
-import           System.Wlog                (WithLogger)
+import           Pos.Types             (Address)
+import           System.Directory      (renameFile)
+import           System.FilePath       (takeDirectory, takeFileName)
+import           System.IO             (hClose)
+import           System.IO.Temp        (openBinaryTempFile)
+import           System.Wlog           (WithLogger)
 
-import           Pos.Wallet.Web.Error.Types (WalletError (InternalError, RequestError))
-import           Pos.Wallet.Web.Secret      (WalletUserSecret)
+import           Pos.Wallet.Web.Secret (WalletUserSecret)
 
 #ifdef POSIX
-import           Formatting                 (oct, sformat)
-import qualified System.Posix.Files         as PSX
-import qualified System.Posix.Types         as PSX (FileMode)
-import           System.Wlog                (logWarning)
+import           Formatting            (oct, sformat)
+import qualified System.Posix.Files    as PSX
+import qualified System.Posix.Types    as PSX (FileMode)
+import           System.Wlog           (logWarning)
 #endif
 
 -- Because of the Formatting import
@@ -87,6 +87,16 @@ instance Bi Address => Show UserSecret where
             _usVss
             _usPath
             _usWalletSet
+
+newtype UserSecretDecodingError = UserSecretDecodingError Text
+    deriving (Show)
+
+instance Exception UserSecretDecodingError
+
+instance Buildable UserSecretDecodingError where
+    build (UserSecretDecodingError msg) =
+        "Failed to decode user secret: " <> bprint build msg
+
 
 -- | Path of lock file for the provided path.
 lockFilePath :: FilePath -> FilePath
@@ -177,18 +187,15 @@ initializeUserSecret secretPath = do
 
 -- | Reads user secret from file, assuming that file exists,
 -- and has mode 600, throws exception in other case
-readUserSecret :: (MonadIO m, MonadCatch m, WithLogger m) => FilePath -> m UserSecret
-readUserSecret path = handleErrors $ do
+readUserSecret :: (MonadIO m, WithLogger m) => FilePath -> m UserSecret
+readUserSecret path = do
 #ifdef POSIX
     ensureModeIs600 path
 #endif
     takeReadLock path $ do
-        content <- either (throwM . InternalError . toText) pure . decodeFull =<< BSL.readFile path
+        content <- either (throwM . UserSecretDecodingError . toText) pure .
+                   decodeFull =<< BSL.readFile path
         pure $ content & usPath .~ path
-  where
-    handleErrors = handle $ \e ->
-        if | isDoesNotExistError e -> throwM $ RequestError "File does not exist"
-           | otherwise             -> throwM e
 
 -- | Reads user secret from the given file.
 -- If the file does not exist/is empty, returns empty user secret

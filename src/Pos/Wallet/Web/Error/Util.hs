@@ -1,4 +1,6 @@
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
 
 -- | Wallet web error utilities.
 
@@ -17,10 +19,16 @@ import           System.Wlog                (CanLog, logError, usingLoggerName)
 import           Pos.Constants              (isDevelopment)
 import           Pos.Wallet.Web.Error.Types (WalletError (..), _RequestError)
 
-rewrapToWalletError :: MonadCatch m => m a -> m a
-rewrapToWalletError = flip catches
+rewrapToWalletError
+    :: forall e m a.
+       (MonadCatch m, Exception e)
+    => (e -> Bool) -> (e -> Text) -> m a -> m a
+rewrapToWalletError whetherCatch toMsg = flip catches
      [ Handler $ throwM @_ @WalletError
-     , Handler $ \(SomeException e) -> throwM . InternalError $ show e
+     , Handler $ \e ->
+           if whetherCatch e
+           then throwM . RequestError $ toMsg e
+           else throwM e
      ]
 
 -- | Catches all errors, and either returns them on client, or

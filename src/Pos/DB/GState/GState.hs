@@ -8,15 +8,17 @@ module Pos.DB.GState.GState
        , usingGStateSnapshot
        ) where
 
-import           Control.Monad.Catch        (MonadMask)
-import qualified Database.RocksDB           as Rocks
-import           System.Wlog                (WithLogger)
 import           Universum
 
-import           Pos.Context.Class          (WithNodeContext, getNodeContext)
-import           Pos.Context.Context        (ncSystemStart)
+import           Control.Monad.Catch        (MonadMask)
+import qualified Database.RocksDB           as Rocks
+import qualified Ether
+import           System.Wlog                (WithLogger)
+
+import           Pos.Context.Context        (GenesisUtxo (..), NodeParams (..))
 import           Pos.Context.Functions      (genesisUtxoM)
-import           Pos.DB.Class               (MonadDB, getNodeDBs, usingReadOptions)
+import           Pos.DB.Class               (MonadDB, MonadDBRead, MonadRealDB,
+                                             getNodeDBs, usingReadOptions)
 import           Pos.DB.GState.Balances     (getRealTotalStake)
 import           Pos.DB.GState.Common       (prepareGStateCommon)
 import           Pos.DB.Types               (DB (..), NodeDBs (..), Snapshot (..),
@@ -30,8 +32,11 @@ import           Pos.Update.DB              (prepareGStateUS)
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB
-    :: forall ssc m.
-       (WithNodeContext ssc m, MonadDB m)
+    :: forall m.
+       ( Ether.MonadReader' NodeParams m
+       , Ether.MonadReader' GenesisUtxo m
+       , MonadDB m
+       )
     => HeaderHash -> m ()
 prepareGStateDB initialTip = do
     prepareGStateCommon initialTip
@@ -39,19 +44,19 @@ prepareGStateDB initialTip = do
     prepareGStateUtxo genesisUtxo
     prepareGtDB genesisCertificates
     prepareGStateBalances genesisUtxo
-    systemStart <- ncSystemStart <$> getNodeContext
+    systemStart <- Ether.asks' npSystemStart
     prepareGStateUS systemStart
 
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB
     :: forall m.
-       (MonadDB m, MonadMask m, WithLogger m)
+       (MonadRealDB m, MonadDBRead m, MonadMask m, WithLogger m)
     => m ()
 sanityCheckGStateDB = do
     sanityCheckBalances
     sanityCheckUtxo =<< getRealTotalStake
 
-usingGStateSnapshot :: (MonadDB m, MonadMask m) => m a -> m a
+usingGStateSnapshot :: (MonadRealDB m, MonadMask m) => m a -> m a
 usingGStateSnapshot action = do
     db <- _gStateDB <$> getNodeDBs
     let readOpts = rocksReadOpts db

@@ -1,10 +1,10 @@
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Arbitrary instances for Lrc types.
 
 module Pos.Lrc.Arbitrary
-       ( InvalidRichmenStake (..)
+       ( GenesisMpcThd
+       , InvalidRichmenStake (..)
        , ValidRichmenStake (..)
        ) where
 
@@ -14,6 +14,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Reflection     (Reifies (..))
 import           Test.QuickCheck     (Arbitrary (..), Gen, choose)
 
+import           Pos.Constants       (genesisMpcThd)
 import           Pos.Core            (Coin, CoinPortion, StakeholderId, mkCoin,
                                       unsafeGetCoin)
 import           Pos.Core.Coin       (coinPortionToDouble)
@@ -70,3 +71,11 @@ genRichmenStake thd = do
                 word <- choose (minStake, coinAccum)
                 fun (coinAccum - word) ((richman, mkCoin word) : participants)
     fun (unsafeGetCoin totalCoins) []
+
+-- | Utilities moved here to be imported from 'Spec' files needing valid richmen
+-- set generation
+
+data GenesisMpcThd
+
+instance Reifies GenesisMpcThd CoinPortion where
+    reflect _ = genesisMpcThd

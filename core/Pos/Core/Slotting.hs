@@ -5,7 +5,9 @@ module Pos.Core.Slotting
        , flattenEpochIndex
        , flattenEpochOrSlot
        , unflattenSlotId
+       , diffEpochOrSlot
        , crucialSlot
+       , unsafeMkLocalSlotIndex
        ) where
 
 import           Universum
@@ -13,11 +15,14 @@ import           Universum
 import           Pos.Core.Class     (HasEpochOrSlot (..), getEpochOrSlot)
 import           Pos.Core.Constants (epochSlots, slotSecurityParam)
 import           Pos.Core.Types     (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
-                                     SlotId (..), epochOrSlot)
+                                     LocalSlotIndex, SlotId (..), epochOrSlot,
+                                     getSlotIndex, mkLocalSlotIndex)
+import           Pos.Util.Util      (leftToPanic)
 
 -- | Flatten 'SlotId' (which is basically pair of integers) into a single number.
 flattenSlotId :: SlotId -> FlatSlotId
-flattenSlotId SlotId {..} = fromIntegral siEpoch * epochSlots + fromIntegral siSlot
+flattenSlotId SlotId {..} =
+    fromIntegral siEpoch * epochSlots + fromIntegral (getSlotIndex siSlot)
 
 -- | Flattens 'EpochIndex' into a single number.
 flattenEpochIndex :: EpochIndex -> FlatSlotId
@@ -31,9 +36,17 @@ flattenEpochOrSlot =
 -- | Construct 'SlotId' from a flattened variant.
 unflattenSlotId :: FlatSlotId -> SlotId
 unflattenSlotId n =
-    let (fromIntegral -> siEpoch, fromIntegral -> siSlot) =
-            n `divMod` epochSlots
+    let (fromIntegral -> siEpoch, fromIntegral -> slot) = n `divMod` epochSlots
+        siSlot = leftToPanic "unflattenSlotId: " $ mkLocalSlotIndex slot
     in SlotId {..}
+
+-- | Distance (in slots) between two slots. The first slot is newer, the
+-- second slot is older. An epoch is considered the same as the 0th slot of
+-- that epoch.
+diffEpochOrSlot :: EpochOrSlot -> EpochOrSlot -> Int64
+diffEpochOrSlot a b =
+    fromInteger $
+    toInteger (flattenEpochOrSlot a) - toInteger (flattenEpochOrSlot b)
 
 instance Enum SlotId where
     toEnum = unflattenSlotId . fromIntegral
@@ -42,33 +55,44 @@ instance Enum SlotId where
 -- | Slot such that at the beginning of epoch blocks with SlotId ≤- this slot
 -- are stable.
 crucialSlot :: EpochIndex -> SlotId
-crucialSlot 0        = SlotId {siEpoch = 0, siSlot = 0}
-crucialSlot epochIdx =
-    SlotId {siEpoch = epochIdx - 1, siSlot = epochSlots - slotSecurityParam - 1}
+crucialSlot 0        = SlotId {siEpoch = 0, siSlot = minBound}
+crucialSlot epochIdx = SlotId {siEpoch = epochIdx - 1, ..}
+  where
+    siSlot =
+        leftToPanic "crucialSlot: " $
+        mkLocalSlotIndex (epochSlots - slotSecurityParam - 1)
 
 instance Enum EpochOrSlot where
     succ (EpochOrSlot (Left e)) =
-        EpochOrSlot (Right SlotId {siEpoch = e, siSlot = 0})
+        EpochOrSlot (Right SlotId {siEpoch = e, siSlot = minBound})
     succ (EpochOrSlot (Right si@SlotId {..}))
-        | siSlot == epochSlots - 1 && siEpoch == maxBound =
+        | siSlot == maxBound && siEpoch == maxBound =
             error "succ@EpochOrSlot: maxBound"
-        | siSlot == epochSlots - 1 = EpochOrSlot (Left (siEpoch + 1))
-        | otherwise = EpochOrSlot $ Right si {siSlot = siSlot + 1}
+        | siSlot == maxBound = EpochOrSlot (Left (siEpoch + 1))
+        | otherwise = EpochOrSlot $ Right si {siSlot = succ siSlot}
     pred (EpochOrSlot (Left e))
         | e == 0 = error "pred@EpochOrSlot: minBound"
         | otherwise =
-            EpochOrSlot
-                (Right SlotId {siEpoch = e - 1, siSlot = epochSlots - 1})
+            EpochOrSlot (Right SlotId {siEpoch = e - 1, siSlot = maxBound})
     pred (EpochOrSlot (Right si@SlotId {..}))
-        | siSlot == 0 = EpochOrSlot (Left siEpoch)
-        | otherwise = EpochOrSlot $ Right si {siSlot = siSlot - 1}
+        | siSlot == minBound = EpochOrSlot (Left siEpoch)
+        | otherwise = EpochOrSlot $ Right si {siSlot = pred siSlot}
     fromEnum (EpochOrSlot (Left e)) = fromIntegral e * epochSlots + 1
     fromEnum (EpochOrSlot (Right SlotId {..})) =
-        fromEnum (EpochOrSlot (Left siEpoch)) + fromIntegral siSlot + 1
+        fromEnum (EpochOrSlot (Left siEpoch)) +
+        fromIntegral (getSlotIndex siSlot) +
+        1
     toEnum x =
         let (fromIntegral -> epoch, fromIntegral -> slot) =
                 x `divMod` (epochSlots + 1)
+            slotIdx =
+                leftToPanic "toEnum @EpochOrSlot" $ mkLocalSlotIndex (slot - 1)
         in if | slot == 0 -> EpochOrSlot (Left epoch)
               | otherwise ->
                   EpochOrSlot
-                      (Right SlotId {siSlot = slot - 1, siEpoch = epoch})
+                      (Right SlotId {siSlot = slotIdx, siEpoch = epoch})
+
+-- | Unsafe constructor of 'LocalSlotIndex'.
+unsafeMkLocalSlotIndex :: Word16 -> LocalSlotIndex
+unsafeMkLocalSlotIndex =
+    leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndex

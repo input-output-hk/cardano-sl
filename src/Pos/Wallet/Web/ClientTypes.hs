@@ -1,5 +1,5 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- This module is to be moved later anywhere else, just to have a
 -- starting point
@@ -7,21 +7,26 @@
 -- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes
       ( SyncProgress (..)
-      , CAddress (..)
-      , CCurrency (..)
+      , CId (..)
       , CHash (..)
-      , CTType (..)
       , CPassPhrase (..)
       , CProfile (..)
       , CPwHash
       , CTx (..)
+      , CTxs (..)
       , CTxId
       , CTxMeta (..)
       , CTExMeta (..)
       , CInitialized (..)
-      , CWallet (..)
-      , CWalletType (..)
+      , AccountId (..)
+      , CAccountId (..)
+      , CWAddressMeta (..)
+      , CAddress (..)
+      , CAccount (..)
       , CWalletAssurance (..)
+      , CAccountMeta (..)
+      , CAccountInit (..)
+      , CWallet (..)
       , CWalletMeta (..)
       , CWalletInit (..)
       , CUpdateInfo (..)
@@ -29,47 +34,61 @@ module Pos.Wallet.Web.ClientTypes
       , CPaperVendWalletRedeem (..)
       , CCoin
       , mkCCoin
+      , coinFromCCoin
+      , PassPhraseLU
       , CElectronCrashReport (..)
       , NotifyEvent (..)
-      , addressToCAddress
-      , cAddressToAddress
-      , passPhraseToCPassPhrase
-      , cPassPhraseToPassPhrase
-      , mkCTx
+      , WithDerivationPath (..)
+      , Wal (..)
+      , Addr (..)
+      , addressToCId
+      , cIdToAddress
+      , encToCId
+      , mkCTxs
       , mkCTxId
       , txIdToCTxId
-      , ctTypeMeta
-      , txContainsTitle
       , toCUpdateInfo
+      , addrMetaToAccount
       ) where
 
 import           Universum
 
-import qualified Data.ByteString.Lazy   as LBS
-import           Data.Default           (Default, def)
-import           Data.Hashable          (Hashable (..))
-import           Data.Text              (Text, isInfixOf, toLower)
-import           Data.Time.Clock.POSIX  (POSIXTime)
-import           Data.Typeable          (Typeable)
-import           Formatting             (build, sformat)
+import           Control.Arrow             ((&&&))
+import           Control.Monad.Error.Class (throwError)
+import qualified Data.ByteString.Lazy      as LBS
+import           Data.Default              (Default, def)
+import           Data.Hashable             (Hashable (..))
+import qualified Data.Set                  as S
+import           Data.Text                 (Text, splitOn)
+import           Data.Text.Buildable       (build)
+import           Data.Time.Clock.POSIX     (POSIXTime)
+import           Data.Typeable             (Typeable)
+import           Formatting                (bprint, sformat, (%))
+import qualified Formatting                as F
 import qualified Prelude
-import qualified Serokell.Util.Base16   as Base16
-import           Servant.Multipart      (FileData, FromMultipart (..), lookupFile,
-                                         lookupInput)
+import qualified Serokell.Util.Base16      as Base16
+import           Servant.Multipart         (FileData, FromMultipart (..), lookupFile,
+                                            lookupInput)
 
-import           Pos.Aeson.Types        ()
-import           Pos.Binary.Class       (decodeFull, encodeStrict)
-import           Pos.Client.Txp.History (TxHistoryEntry (..))
-import           Pos.Core.Types         (ScriptVersion)
-import           Pos.Crypto             (PassPhrase, hashHexF)
-import           Pos.Txp.Core.Types     (Tx (..), TxId, txOutAddress, txOutValue)
-import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
-                                         Coin, SoftwareVersion, decodeTextAddress,
-                                         sumCoins, unsafeGetCoin, unsafeIntegerToCoin)
-import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
-                                         UpdateProposal (..), isPositiveVote)
-import           Pos.Update.Poll        (ConfirmedProposalState (..))
-import           Pos.Util.BackupPhrase  (BackupPhrase)
+import           Pos.Aeson.Types           ()
+import           Pos.Binary.Class          (decodeFull, encodeStrict)
+import           Pos.Client.Txp.History    (TxHistoryEntry (..))
+import           Pos.Core.Coin             (mkCoin)
+import           Pos.Core.Types            (ScriptVersion)
+import           Pos.Crypto                (EncryptedSecretKey, PassPhrase,
+                                            emptyPassphrase, encToPublic, hashHexF)
+import           Pos.Txp.Core.Types        (Tx (..), TxId, TxOut, txOutAddress,
+                                            txOutValue)
+import           Pos.Types                 (Address (..), BlockVersion, ChainDifficulty,
+                                            Coin, SoftwareVersion, decodeTextAddress,
+                                            makePubKeyAddress, sumCoins, unsafeGetCoin,
+                                            unsafeIntegerToCoin)
+import           Pos.Update.Core           (BlockVersionData (..), StakeholderVotes,
+                                            UpdateProposal (..), isPositiveVote)
+import           Pos.Update.Poll           (ConfirmedProposalState (..))
+import           Pos.Util.BackupPhrase     (BackupPhrase)
+import           Pos.Util.Servant          (FromCType (..), ToCType (..))
+
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -83,7 +102,7 @@ instance Default SyncProgress where
 -- Notifications
 data NotifyEvent
     = ConnectionOpened
-    -- _ | NewWalletTransaction CAddress
+    -- _ | NewWalletTransaction CId
     -- _ | NewTransaction
     | NetworkDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
     | LocalDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
@@ -92,37 +111,44 @@ data NotifyEvent
     | ConnectionClosed
     deriving (Show, Generic)
 
--- | Currencies handled by client.
--- Note: Cardano does not deal with other currency than ADA yet.
-data CCurrency
-    = ADA
-    | BTC
-    | ETH
-    deriving (Show, Read, Generic)
-
 -- | Client hash
-newtype CHash = CHash Text deriving (Show, Eq, Generic, Buildable)
+newtype CHash = CHash Text
+    deriving (Show, Eq, Ord, Generic, Buildable)
 
 instance Hashable CHash where
     hashWithSalt s (CHash h) = hashWithSalt s h
 
 -- | Client address
-newtype CAddress = CAddress CHash deriving (Show, Eq, Generic, Hashable, Buildable)
+-- @w@ is phantom type and stands for type of item this address belongs to.
+newtype CId w = CId CHash
+    deriving (Show, Eq, Ord, Generic, Hashable, Buildable)
 
--- TODO: this is not complitely safe. If someone changes
+-- | Marks address as belonging to wallet set.
+data Wal = Wal
+    deriving (Show, Generic)
+
+-- | Marks address as belonging to account.
+data Addr = Addr
+    deriving (Show, Generic)
+
+-- TODO: this is not completely safe. If someone changes
 -- implementation of Buildable Address. It should be probably more
 -- safe to introduce `class PSSimplified` that would have the same
 -- implementation has it is with Buildable Address but then person
 -- will know it will probably change something for purescript.
--- | Transform Address into CAddress
-addressToCAddress :: Address -> CAddress
-addressToCAddress = CAddress . CHash . sformat build
+-- | Transform Address into CId
+addressToCId :: Address -> CId w
+addressToCId = CId . CHash . sformat F.build
 
-cAddressToAddress :: CAddress -> Either Text Address
-cAddressToAddress (CAddress (CHash h)) = decodeTextAddress h
+cIdToAddress :: CId w -> Either Text Address
+cIdToAddress (CId (CHash h)) = decodeTextAddress h
+
+encToCId :: EncryptedSecretKey -> CId w
+encToCId = addressToCId . makePubKeyAddress . encToPublic
 
 -- | Client transaction id
-newtype CTxId = CTxId CHash deriving (Show, Eq, Generic, Hashable)
+newtype CTxId = CTxId CHash
+    deriving (Show, Eq, Generic, Hashable)
 
 mkCTxId :: Text -> CTxId
 mkCTxId = CTxId . CHash
@@ -131,98 +157,233 @@ mkCTxId = CTxId . CHash
 txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat hashHexF
 
-mkCTx
-    :: Address            -- ^ An address for which transaction info is forming
-    -> ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
+convertTxOutputs :: [TxOut] -> [(CId w, CCoin)]
+convertTxOutputs = map (addressToCId . txOutAddress &&& mkCCoin . txOutValue)
+
+-- | Get all addresses of source account of given transaction.
+getLocalAccountAddrs
+    :: [CWAddressMeta]  -- ^ all addresses in wallet
+    -> [CId Addr]       -- ^ Input addresses of transaction
+    -> Either Text [CId Addr]
+getLocalAccountAddrs walAddrMetas inputAddrs = do
+    someInputAddr <-
+        head inputAddrs `whenNothing`
+        throwError "No input addresses in transaction"
+    someSrcAddrMeta <-
+        find ((== someInputAddr) . cwamId) walAddrMetas `whenNothing`
+        throwError "Address doesn't belong to any wallet"
+    let srcAccount =
+            addrMetaToAccount someSrcAddrMeta
+    return $
+        map cwamId $ filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
+
+mkCTxs
+    :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
-    -> CTx
-mkCTx addr diff THEntry {..} meta = CTx {..}
+    -> [CWAddressMeta]    -- ^ Addresses of wallet
+    -> Either Text CTxs
+mkCTxs diff THEntry {..} meta wAddrMetas = do
+    localAddrsSet <- S.fromList <$> getLocalAccountAddrs wAddrMetas ctInputAddrs
+    let isLocalAddr =
+            flip S.member localAddrsSet . addressToCId . txOutAddress
+        ctAmount =
+            mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
+            filter (not . isLocalAddr) outputs
+        mkCTx isOutgoing ctAddrs = do
+            guard . not . null $ wAddrsSet `S.intersection` S.fromList ctAddrs
+            return CTx {ctIsOutgoing = isOutgoing, ..}
+        ctsOutgoing = mkCTx True ctInputAddrs
+        ctsIncoming = mkCTx False ctOutputAddrs
+    return CTxs {..}
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
-    isToItself = all ((== addr) . txOutAddress) outputs
-    ctAmount = mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
-        filter ((|| isToItself) . xor _thIsOutput . (== addr) . txOutAddress) outputs
+    ctInputAddrs = map addressToCId _thInputAddrs
+    ctOutputAddrs = map addressToCId _thOutputAddrs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
-    ctType = if _thIsOutput
-             then CTOut meta
-             else CTIn meta
+    ctMeta = meta
+    wAddrsSet = S.fromList $ map cwamId wAddrMetas
 
-newtype CPassPhrase = CPassPhrase Text deriving (Eq, Generic)
+newtype CPassPhrase = CPassPhrase Text
+    deriving (Eq, Generic)
 
 instance Show CPassPhrase where
     show _ = "<pass phrase>"
 
-passPhraseToCPassPhrase :: PassPhrase -> CPassPhrase
-passPhraseToCPassPhrase passphrase =
-    CPassPhrase . Base16.encode $ encodeStrict passphrase
+instance FromCType (Maybe CPassPhrase) where
+    type FromOriginType (Maybe CPassPhrase) = PassPhrase
+    decodeCType Nothing = return emptyPassphrase
+    decodeCType (Just (CPassPhrase text)) =
+        first toText . decodeFull . LBS.fromStrict =<< Base16.decode text
 
-cPassPhraseToPassPhrase
-    :: CPassPhrase -> Either Text PassPhrase
-cPassPhraseToPassPhrase (CPassPhrase text) =
-    first toText . decodeFull . LBS.fromStrict =<< Base16.decode text
+instance ToCType CPassPhrase where
+    type ToOriginType CPassPhrase = PassPhrase
+    encodeCType = CPassPhrase . Base16.encode . encodeStrict
 
 ----------------------------------------------------------------------------
 -- Wallet
 ----------------------------------------------------------------------------
 
+-- | Wallet identifier
+data AccountId = AccountId
+    { -- | Address of wallet this wallet belongs to
+      aiWId   :: CId Wal
+    , -- | Derivation index of this wallet key
+      aiIndex :: Word32
+    } deriving (Eq, Show, Generic, Typeable)
+
+instance Hashable AccountId
+
+instance Buildable AccountId where
+    build AccountId{..} =
+        bprint (F.build%"@"%F.build) aiWId aiIndex
+
+newtype CAccountId = CAccountId Text
+    deriving (Eq, Show, Generic, Buildable)
+
+instance FromCType CAccountId where
+    type FromOriginType CAccountId = AccountId
+    decodeCType (CAccountId url) =
+        case splitOn "@" url of
+            [part1, part2] -> do
+                aiWId  <- addressToCId <$> decodeTextAddress part1
+                aiIndex <- maybe (Left "Invalid wallet index") Right $
+                            readMaybe $ toString part2
+                return AccountId{..}
+            _ -> Left "Expected 2 parts separated by '@'"
+
+instance ToCType CAccountId where
+    encodeCType = CAccountId . sformat F.build
+
+instance FromCType CAccountId => FromCType (Maybe CAccountId) where
+    type FromOriginType (Maybe CAccountId) = Maybe (FromOriginType CAccountId)
+    decodeCType = mapM decodeCType
+
+-- TODO: extract first three fields as @Coordinates@ and use only it where
+-- required (maybe nowhere)
+-- | Account identifier
+data CWAddressMeta = CWAddressMeta
+    { -- | Address of wallet this account belongs to
+      cwamWId          :: CId Wal
+    , -- | First index in derivation path of this account key
+      cwamWalletIndex  :: Word32
+    , -- | Second index in derivation path of this account key
+      cwamAccountIndex :: Word32
+    , -- | Actual adress of this account
+      cwamId           :: CId Addr
+    } deriving (Eq, Ord, Show, Generic, Typeable)
+
+instance Buildable CWAddressMeta where
+    build CWAddressMeta{..} =
+        bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
+        cwamWId cwamWalletIndex cwamAccountIndex cwamId
+
+addrMetaToAccount :: CWAddressMeta -> AccountId
+addrMetaToAccount CWAddressMeta{..} = AccountId
+    { aiWId  = cwamWId
+    , aiIndex = cwamWalletIndex
+    }
+
+instance Hashable CWAddressMeta
+
 newtype CCoin = CCoin
-    { getCoin :: Text
-    } deriving (Show, Generic)
+    { getCCoin :: Text
+    } deriving (Show, Eq, Generic)
 
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
 
--- | A wallet can be used as personal or shared wallet
-data CWalletType
-    = CWTPersonal
-    | CWTShared
-    deriving (Show, Generic)
+coinFromCCoin :: CCoin -> Maybe Coin
+coinFromCCoin = fmap mkCoin . readMaybe . toString . getCCoin
+
+-- | Passphrase last update time
+type PassPhraseLU = POSIXTime
 
 -- | A level of assurance for the wallet "meta type"
 data CWalletAssurance
     = CWAStrict
     | CWANormal
-    deriving (Show, Generic)
+    deriving (Show, Eq, Generic)
 
--- | Meta data of CWallet
--- Includes data which are not provided by Cardano
-data CWalletMeta = CWalletMeta
-    { cwType      :: !CWalletType
-    , cwCurrency  :: !CCurrency
-    , cwName      :: !Text
-    , cwAssurance :: !CWalletAssurance
-    , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
+-- | Single address in a account
+data CAddress = CAddress
+    { cadId       :: !(CId Addr)
+    , cadAmount   :: !CCoin
+    , cadIsUsed   :: !Bool
+    , cadIsChange :: !Bool -- ^ Is this a change address
     } deriving (Show, Generic)
 
-instance Default CWalletMeta where
-    def = CWalletMeta CWTPersonal ADA "Personal Wallet" CWANormal 0
+-- Includes data which are not provided by Cardano
+data CAccountMeta = CAccountMeta
+    { caName      :: !Text
+    } deriving (Show, Generic)
 
--- | Client Wallet (CW)
--- (Flow type: walletType)
-data CWallet = CWallet
-    { cwAddress :: !CAddress
-    , cwAmount  :: !CCoin
-    , cwMeta    :: !CWalletMeta
+instance Default CAccountMeta where
+    def = CAccountMeta "Personal Wallet"
+
+-- | Client Account (CA)
+-- (Flow type: accountType)
+data CAccount = CAccount
+    { caId        :: !CAccountId
+    , caMeta      :: !CAccountMeta
+    , caAddresses :: ![CAddress]
+    , caAmount    :: !CCoin
     } deriving (Show, Generic, Typeable)
 
--- | Query data for wallet creation
--- (wallet meta + backup phrase)
-data CWalletInit = CWalletInit
-    { cwBackupPhrase :: !BackupPhrase
-    , cwInitMeta     :: !CWalletMeta
+-- | Query data for account creation
+data CAccountInit = CAccountInit
+    { caInitMeta :: !CAccountMeta
+    , caInitWId  :: !(CId Wal)
     } deriving (Show, Generic)
 
 -- | Query data for redeem
 data CWalletRedeem = CWalletRedeem
-    { crWalletId :: !CAddress
+    { crWalletId :: !CAccountId
     , crSeed     :: !Text -- TODO: newtype!
     } deriving (Show, Generic)
 
+-- | Meta data of 'CWallet'
+data CWalletMeta = CWalletMeta
+    { cwName      :: !Text
+    , cwAssurance :: !CWalletAssurance
+    , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
+    } deriving (Show, Eq, Generic)
+
+instance Default CWalletMeta where
+    def = CWalletMeta "Personal Wallet Set" CWANormal 0
+
+-- | Client Wallet (CW)
+data CWallet = CWallet
+    { cwId             :: !(CId Wal)
+    , cwMeta           :: !CWalletMeta
+    , cwAccountsNumber :: !Int
+    , cwAmount         :: !CCoin
+    , cwHasPassphrase  :: !Bool
+    , cwPassphraseLU   :: !PassPhraseLU  -- last update time
+    } deriving (Eq, Show, Generic)
+
+-- | Query data for wallet creation
+data CWalletInit = CWalletInit
+    { cwInitMeta     :: !CWalletMeta
+    , cwBackupPhrase :: !BackupPhrase
+    } deriving (Eq, Show, Generic)
+
+class WithDerivationPath a where
+    getDerivationPath :: a -> [Word32]
+
+instance WithDerivationPath (CId Wal) where
+    getDerivationPath _ = []
+
+instance WithDerivationPath AccountId where
+    getDerivationPath AccountId{..} = [aiIndex]
+
+instance WithDerivationPath CWAddressMeta where
+    getDerivationPath CWAddressMeta{..} = [cwamWalletIndex, cwamAccountIndex]
+
 -- | Query data for redeem
 data CPaperVendWalletRedeem = CPaperVendWalletRedeem
-    { pvWalletId     :: !CAddress
+    { pvWalletId     :: !CAccountId
     , pvSeed         :: !Text -- TODO: newtype!
     , pvBackupPhrase :: !BackupPhrase
     } deriving (Show, Generic)
@@ -237,6 +398,7 @@ type CPwHash = Text -- or Base64 or something else
 -- | Client profile (CP)
 -- all data of client are "meta data" - that is not provided by Cardano
 -- (Flow type: accountType)
+-- TODO: Newtype?
 data CProfile = CProfile
     { cpLocale      :: Text
     } deriving (Show, Generic, Typeable)
@@ -252,23 +414,8 @@ instance Default CProfile where
 
 -- | meta data of transactions
 data CTxMeta = CTxMeta
-    { ctmCurrency    :: CCurrency
-    , ctmTitle       :: Text
-    , ctmDescription :: Text
-    , ctmDate        :: POSIXTime
+    { ctmDate        :: POSIXTime
     } deriving (Show, Generic)
-
--- | type of transactions
--- It can be an input / output / exchange transaction
--- CTInOut CTExMeta -- Ex == exchange
-data CTType
-    = CTIn CTxMeta
-    | CTOut CTxMeta
-    deriving (Show, Generic)
-
-ctTypeMeta :: Lens' CTType CTxMeta
-ctTypeMeta f (CTIn meta)  = CTIn <$> f meta
-ctTypeMeta f (CTOut meta) = CTOut <$> f meta
 
 -- | Client transaction (CTx)
 -- Provides all Data about a transaction needed by client.
@@ -278,24 +425,35 @@ data CTx = CTx
     { ctId            :: CTxId
     , ctAmount        :: CCoin
     , ctConfirmations :: Word
-    , ctType          :: CTType -- it includes all "meta data"
+    , ctMeta          :: CTxMeta
+    , ctInputAddrs    :: [CId Addr]
+    , ctOutputAddrs   :: [CId Addr]
+    , ctIsOutgoing    :: Bool
     } deriving (Show, Generic, Typeable)
 
-ctType' :: Lens' CTx CTType
-ctType' f (CTx id amount cf tp) = CTx id amount cf <$> f tp
+-- TODO [CSM-288] Rename?
+-- | In case of A -> A tranaction, we have to return two similar 'CTx's:
+-- one with 'ctIsOutgoing' set to /true/, one with the flag set to /false/.
+-- This type gathers these two together.
+data CTxs = CTxs
+    { ctsOutgoing :: Maybe CTx
+    , ctsIncoming :: Maybe CTx
+    } deriving (Show)
 
-txContainsTitle :: Text -> CTx -> Bool
-txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . view (ctType' . ctTypeMeta)
+type instance Element CTxs = CTx
+
+instance Container CTxs where
+    null = null . toList
+    toList = toList . ctsOutgoing <> toList . ctsIncoming
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta
-    { cexCurrency    :: CCurrency
-    , cexTitle       :: Text
+    { cexTitle       :: Text
     , cexDescription :: Text
     , cexDate        :: POSIXTime
     , cexRate        :: Text
     , cexLabel       :: Text -- counter part of client's 'exchange' value
-    , cexAddress     :: CAddress
+    , cexId          :: CId Addr
     } deriving (Show, Generic)
 
 -- | Update system data
@@ -339,7 +497,7 @@ toCUpdateInfo ConfirmedProposalState {..} =
     in CUpdateInfo {..}
 
 ----------------------------------------------------------------------------
--- Reporting
+-- Reportin
 ----------------------------------------------------------------------------
 
 -- | Represents a knowledge about how much time did it take for client

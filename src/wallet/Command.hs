@@ -5,25 +5,27 @@ module Command
        , parseCommand
        ) where
 
+import           Data.ByteString.Base58     (bitcoinAlphabet, decodeBase58)
+import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.List.NonEmpty         as NE
 import           Prelude                    (read, show)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Parse        (parseIntegralSafe)
-import           Text.Parsec                (many1, parse, try, (<?>))
-import           Text.Parsec.Char           (alphaNum, anyChar, digit, space, spaces,
-                                             string)
+import           Text.Parsec                (many1, parse, parserFail, try, (<?>))
+import           Text.Parsec.Char           (alphaNum, anyChar, digit, noneOf, space,
+                                             spaces, string)
 import           Text.Parsec.Combinator     (eof, manyTill)
 import           Text.Parsec.Text           (Parser)
 import           Universum                  hiding (show)
 
-import           Pos.Binary                 ()
+import           Pos.Binary                 (decodeOrFail)
 import           Pos.Core.Types             (ScriptVersion)
 import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
-import           Pos.Crypto                 (Hash, decodeHash)
+import           Pos.Crypto                 (Hash, PublicKey, decodeHash)
 import           Pos.Txp                    (TxOut (..))
 import           Pos.Types                  (Address (..), BlockVersion, Coin, EpochIndex,
                                              SoftwareVersion, decodeTextAddress, mkCoin)
-import           Pos.Update                 (UpId)
+import           Pos.Update                 (SystemTag, UpId, mkSystemTag)
 
 data Command
     = Balance Address
@@ -37,12 +39,13 @@ data Command
           , puSlotDurationSec :: Int
           , puMaxBlockSize    :: Byte
           , puSoftwareVersion :: SoftwareVersion
+          , puSystemTag       :: SystemTag
           , puFilePath        :: Maybe FilePath
           }
     | Help
     | ListAddresses
-    | DelegateLight !Int !Int
-    | DelegateHeavy !Int !Int !(Maybe EpochIndex)
+    | DelegateLight !Int !PublicKey !EpochIndex !(Maybe EpochIndex) -- first and last epoch of psk ttl
+    | DelegateHeavy !Int !PublicKey !EpochIndex -- last argument is current epoch
     | AddKeyFromPool !Int
     | AddKeyFromFile !FilePath
     | Quit
@@ -90,9 +93,19 @@ switch = lexeme $ positive $> True <|>
 balance :: Parser Command
 balance = Balance <$> address
 
+base58PkParser :: Parser PublicKey
+base58PkParser = do
+    token <- some $ noneOf " "
+    bs <- maybe (fail "Incorrect base58") pure $
+        decodeBase58 bitcoinAlphabet (encodeUtf8 $ toText token)
+    either takeErr takeRes $ decodeOrFail $ BSL.fromStrict bs
+  where
+    takeErr = fail . toString . view _3
+    takeRes = pure . view _3
+
 delegateL, delegateH :: Parser Command
-delegateL = DelegateLight <$> num <*> num
-delegateH = DelegateHeavy <$> num <*> num <*> optional num
+delegateL = DelegateLight <$> num <*> base58PkParser <*> num <*> optional num
+delegateH = DelegateHeavy <$> num <*> base58PkParser <*> num
 
 addKeyFromPool, addKeyFromFile :: Parser Command
 addKeyFromPool = AddKeyFromPool <$> num
@@ -116,7 +129,13 @@ proposeUpdate =
     lexeme parseIntegralSafe <*>
     lexeme parseIntegralSafe <*>
     lexeme parseSoftwareVersion <*>
+    lexeme parseSystemTag <*>
     optional (lexeme (many1 anyChar))
+
+parseSystemTag :: Parser SystemTag
+parseSystemTag =
+    either parserFail pure . mkSystemTag . toText =<<
+        (many alphaNum)
 
 command :: Parser Command
 command = try (text "balance") *> balance <|>

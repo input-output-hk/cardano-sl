@@ -7,8 +7,6 @@ module Pos.CLI
        , attackTypeParser
        , attackTargetParser
        , defaultLoggerConfig
-       , dhtKeyParser
-       , dhtNodeParser
        , readLoggerConfig
        , sscAlgoParser
 
@@ -22,12 +20,16 @@ module Pos.CLI
        , webPortOption
        , walletPortOption
        , networkAddressOption
+       , externalNetworkAddressOption
+       , listenNetworkAddressOption
 
-       , readPeersFile
+       , sysStartOption
+       , nodeIdOption
        ) where
 
+import           Universum
+
 import           Control.Lens                         (zoom, (?=))
-import           Formatting                           (build, formatToString, shown, (%))
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import qualified Options.Applicative.Simple           as Opt
 import           Serokell.Util                        (sec)
@@ -36,35 +38,22 @@ import           System.Wlog                          (LoggerConfig (..),
                                                        Severity (Info, Warning),
                                                        fromScratch, lcTree, ltSeverity,
                                                        parseLoggerConfig, zoomLogger)
-import           Text.Parsec                          (eof, parse, try)
+import           Text.Parsec                          (try)
 import qualified Text.Parsec.Char                     as P
 import qualified Text.Parsec.String                   as P
-import           Universum
 
 import           Pos.Binary.Core                      ()
+import           Pos.Communication                    (NodeId)
 import           Pos.Constants                        (isDevelopment, staticSysStart)
 import           Pos.Core                             (Address (..), AddressHash,
-                                                       decodeTextAddress)
-import           Pos.Core.Types                       (Timestamp (..))
+                                                       Timestamp (..), decodeTextAddress)
 import           Pos.Crypto                           (PublicKey)
-import           Pos.DHT.Model.Types                  (DHTNode (..), dhtKeyParser,
-                                                       dhtNodeParser)
-import           Pos.Security.CLI                     (AttackTarget (..), AttackType (..))
+import           Pos.Security.Params                  (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util                             ()
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
-                                                       addrParserNoWildcard)
-
--- | Parse 'DHTNode's from a file (nodes should be separated by newlines).
-readPeersFile :: FilePath -> IO [DHTNode]
-readPeersFile path = do
-    xs <- lines <$> readFile path
-    let parseLine x = case parse (dhtNodeParser <* eof) "" (toString x) of
-            Left err -> fail $ formatToString
-                ("error when parsing peer "%shown%
-                 " from peers file "%build%": "%shown) x path err
-            Right a -> return a
-    mapM parseLine xs
+                                                       addrParserNoWildcard,
+                                                       addressToNodeId)
 
 -- | Decides which secret-sharing algorithm to use.
 sscAlgoParser :: P.Parser SscAlgo
@@ -110,10 +99,7 @@ readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 ----------------------------------------------------------------------------
 
 data CommonArgs = CommonArgs
-    { dhtExplicitInitial :: !Bool
-    , dhtPeers           :: ![DHTNode]
-    , dhtPeersFile       :: !(Maybe FilePath)
-    , logConfig          :: !(Maybe FilePath)
+    { logConfig          :: !(Maybe FilePath)
     , logPrefix          :: !(Maybe FilePath)
     , sscAlgo            :: !SscAlgo
     , disablePropagation :: !Bool
@@ -125,15 +111,11 @@ data CommonArgs = CommonArgs
     , richPoorDistr      :: !(Maybe (Int, Int, Integer, Double))
     , expDistr           :: !Bool
     , sysStart           :: !Timestamp
+      -- ^ The system start time.
     } deriving Show
 
-commonArgsParser :: String -> Opt.Parser CommonArgs
-commonArgsParser peerHelpMsg = do
-    dhtExplicitInitial <- explicitInitial
-    --
-    dhtPeers     <- many (peerOption peerHelpMsg)
-    dhtPeersFile <- optionalPeersFile
-    --
+commonArgsParser :: Opt.Parser CommonArgs
+commonArgsParser = do
     logConfig <- optionalLogConfig
     logPrefix <- optionalLogPrefix
     --
@@ -149,13 +131,14 @@ commonArgsParser peerHelpMsg = do
     richPoorDistr <- if isDevelopment then rnpDistrOptional  else pure Nothing
     expDistr      <- if isDevelopment then expDistrOption    else pure False
     --
-    sysStart      <- sysStartParser
+    sysStart <- sysStartParser
     pure CommonArgs{..}
 
 sysStartParser :: Opt.Parser Timestamp
 sysStartParser = Opt.option (Timestamp . sec <$> Opt.auto) $
     Opt.long    "system-start" <>
     Opt.metavar "TIMESTAMP" <>
+    Opt.help    helpMsg <>
     defaultValue
   where
     -- In development mode, this parameter is mandatory.
@@ -163,6 +146,7 @@ sysStartParser = Opt.option (Timestamp . sec <$> Opt.auto) $
     -- from `staticSysStart`, which gets it from the config file.
     defaultValue =
         if isDevelopment then mempty else Opt.value staticSysStart
+    helpMsg = "System start time. Mandatory in development mode. Format - seconds since Unix-epoch."
 
 templateParser :: (HasName f, HasMetavar f) => String -> String -> String -> Opt.Mod f a
 templateParser long metavar help =
@@ -170,42 +154,35 @@ templateParser long metavar help =
     <> Opt.metavar metavar
     <> Opt.help help
 
-explicitInitial :: Opt.Parser Bool
-explicitInitial =
-    Opt.switch
-        (Opt.long "explicit-initial" <>
-         Opt.help "Explicitely contact to initial peers as to neighbors (even if they\
-                  \ appeared offline once)")
+networkAddressOption :: String -> String -> Opt.Parser NetworkAddress
+networkAddressOption longOption helpMsg =
+    Opt.option (fromParsec addrParserNoWildcard) $
+        templateParser longOption "HOST:PORT" helpMsg
 
-peerOption :: String -> Opt.Parser DHTNode
-peerOption peerHelpMsg =
-    Opt.option (fromParsec dhtNodeParser) $
-        templateParser "peer" "HOST:PORT/HOST_ID" peerHelpMsg
-
-optionalPeersFile :: Opt.Parser (Maybe FilePath)
-optionalPeersFile =
-    Opt.optional $ Opt.strOption $
-        templateParser "peers-file" "FILEPATH" "Path to peer list"
+nodeIdOption :: String -> String -> Opt.Parser NodeId
+nodeIdOption longOption helpMsg =
+    Opt.option (fromParsec $ addressToNodeId <$> addrParser) $
+        templateParser longOption "HOST:PORT" helpMsg
 
 optionalLogConfig :: Opt.Parser (Maybe FilePath)
 optionalLogConfig =
     Opt.optional $ Opt.strOption $
-        templateParser "log-config" "FILEPATH" "Path to logger configuration"
+        templateParser "log-config" "FILEPATH" "Path to logger configuration."
 
 optionalLogPrefix :: Opt.Parser (Maybe String)
 optionalLogPrefix =
     optional $ Opt.strOption $
-        templateParser "logs-prefix" "FILEPATH" "Prefix to logger output path"
+        templateParser "logs-prefix" "FILEPATH" "Prefix to logger output path."
 
 optionalJSONPath :: Opt.Parser (Maybe FilePath)
 optionalJSONPath =
     Opt.optional $ Opt.strOption $
-        templateParser "json-log" "FILEPATH" "Path to json log file"
+        templateParser "json-log" "FILEPATH" "Path to JSON log file."
 
 portOption :: Word16 -> Opt.Parser Word16
 portOption portNum =
     Opt.option Opt.auto $
-        templateParser "port" "PORT" "Port to work on"
+        templateParser "port" "PORT" "Port to work on."
         <> Opt.value portNum
         <> Opt.showDefault
 
@@ -214,7 +191,7 @@ sscAlgoOption =
     Opt.option (fromParsec sscAlgoParser) $
         templateParser "ssc-algo"
                        "ALGO"
-                       "Shared Seed Calculation algorithm which nodes will use"
+                       "Shared Seed Calculation algorithm which nodes will use."
         <> Opt.value GodTossingAlgo
         <> Opt.showDefault
 
@@ -224,7 +201,7 @@ disablePropagationOption =
         (Opt.long "disable-propagation" <>
          Opt.help "Disable network propagation (transactions, SSC data, blocks). I.e.\
                   \ all data is to be sent only by entity who creates data and entity is\
-                  \ yosend it to all peers on his own")
+                  \ yosend it to all peers on his own.")
 
 reportServersOption :: Opt.Parser [Text]
 reportServersOption =
@@ -234,14 +211,14 @@ reportServersOption =
         (templateParser
              "report-server"
              "URI"
-             "Reporting server to send crash/error logs on")
+             "Reporting server to send crash/error logs on.")
 
 updateServersOption :: Opt.Parser [Text]
 updateServersOption =
     many $
     toText <$>
     Opt.strOption
-        (templateParser "update-server" "URI" "Server to download updates from")
+        (templateParser "update-server" "URI" "Server to download updates from.")
 
 flatDistrOptional :: Opt.Parser (Maybe (Int, Int))
 flatDistrOptional =
@@ -250,7 +227,7 @@ flatDistrOptional =
             templateParser
                 "flat-distr"
                 "(INT,INT)"
-                "Use flat stake distribution with given parameters (nodes, coins)"
+                "Use flat stake distribution with given parameters (nodes, coins)."
 
 btcDistrOptional :: Opt.Parser (Maybe (Int, Int))
 btcDistrOptional =
@@ -259,8 +236,7 @@ btcDistrOptional =
             templateParser
                 "bitcoin-distr"
                 "(INT,INT)"
-                "Use bitcoin stake distribution with given parameters (nodes,\
-                \ coins)"
+                "Use bitcoin stake distribution with given parameters (nodes,coins)."
 
 rnpDistrOptional :: Opt.Parser (Maybe (Int, Int, Integer, Double))
 rnpDistrOptional =
@@ -271,7 +247,7 @@ rnpDistrOptional =
                 "(INT,INT,INT,FLOAT)"
                 "Use rich'n'poor stake distribution with given parameters\
                 \ (number of richmen, number of poors, total stake, richmen's\
-                \ share of stake)"
+                \ share of stake)."
 
 expDistrOption :: Opt.Parser Bool
 expDistrOption =
@@ -283,7 +259,7 @@ timeLordOption =
     Opt.switch
         (Opt.long "time-lord" <>
          Opt.help "Peer is time lord, i.e. one responsible for system start time decision\
-                  \ & propagation (used only in development)")
+                  \ and propagation (used only in development mode).")
 
 webPortOption :: Word16 -> String -> Opt.Parser Word16
 webPortOption portNum help =
@@ -299,15 +275,37 @@ walletPortOption portNum help =
         <> Opt.value portNum
         <> Opt.showDefault
 
-networkAddressOption :: Opt.Parser NetworkAddress
-networkAddressOption =
+externalNetworkAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
+externalNetworkAddressOption na =
     Opt.option (fromParsec addrParserNoWildcard) $
+            Opt.long "address"
+         <> Opt.metavar "IP:PORT"
+         <> Opt.help helpMsg
+         <> Opt.showDefault
+         <> maybe mempty Opt.value na
+  where
+    helpMsg = "IP and port of external address. "
+        <> "Please make sure these IP and port (on which node is running) are accessible "
+        <> "otherwise proper work of CSL isn't guaranteed. "
+        <> "0.0.0.0 is not accepted as a valid host."
+
+listenNetworkAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
+listenNetworkAddressOption na =
+    Opt.option (fromParsec addrParser) $
             Opt.long "listen"
          <> Opt.metavar "IP:PORT"
          <> Opt.help helpMsg
+         <> Opt.showDefault
+         <> maybe mempty Opt.value na
   where
-    helpMsg = "Ip and port on which to listen. "
-        <> "Please mind that you need to specify actual accessible "
-        <> "ip of host, at which node is run,"
-        <> " otherwise work of CSL is not guaranteed. "
-        <> "0.0.0.0 is not accepted as a valid host."
+    helpMsg = "IP and port on which to bind and listen. Please make sure these IP "
+        <> "and port are accessible, otherwise proper work of CSL isn't guaranteed."
+
+sysStartOption :: Opt.Parser Timestamp
+sysStartOption = Opt.option (Timestamp . sec <$> Opt.auto) $
+    Opt.long    "system-start" <>
+    Opt.metavar "TIMESTAMP" <>
+    Opt.value   staticSysStart <>
+    Opt.help    helpMsg
+  where
+    helpMsg = "System start time. Format - seconds since Unix Epoch."

@@ -1,19 +1,23 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Pos.Lrc.Consumers
        (
          allLrcConsumers
        ) where
 
-import           Data.Tagged           (untag)
 import           Universum
 
-import           Pos.DB.Class          (MonadDBCore)
 import           Pos.Delegation.Lrc    (delegationLrcConsumer)
 import           Pos.Lrc.Consumer      (LrcConsumer)
+import           Pos.Lrc.Mode          (LrcMode)
 import           Pos.Ssc.Class.Workers (SscWorkersClass (sscLrcConsumers))
 import           Pos.Update.Lrc        (usLrcConsumer)
-import           Pos.WorkMode          (WorkMode)
 
 allLrcConsumers
-    :: (SscWorkersClass ssc, WorkMode ssc m, MonadDBCore m)
+    :: forall ssc m.
+       (LrcMode ssc m, SscWorkersClass ssc)
     => [LrcConsumer m]
-allLrcConsumers = [delegationLrcConsumer, usLrcConsumer] ++ untag sscLrcConsumers
+allLrcConsumers = [delegationLrcConsumer, usLrcConsumer] ++
+                  sscLrcConsumers @ssc

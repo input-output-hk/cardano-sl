@@ -16,7 +16,6 @@ import qualified Data.ByteString      as BS
 import qualified Data.HashMap.Strict  as HM
 import           Data.List            ((\\))
 import qualified Data.Text            as T
-import qualified Data.Text.IO         as TIO
 import qualified Serokell.Util.Base64 as B64
 import           System.Random        (randomRIO)
 import           Test.QuickCheck      (arbitrary)
@@ -25,7 +24,8 @@ import           Universum
 import qualified Pos.Binary.Class     as Bi
 import           Pos.Crypto           (RedeemPublicKey (..), keyGen, redeemPkBuild,
                                        toPublic)
-import           Pos.Genesis          (GenesisData (..), StakeDistribution (..))
+import           Pos.Genesis          (GenesisCoreData (..), GenesisGtData (..),
+                                       StakeDistribution (..))
 import           Pos.Ssc.GodTossing   (vcSigningKey)
 import           Pos.Txp.Core         (TxOutDistribution)
 import           Pos.Types            (Address, Coin, StakeholderId, addressHash,
@@ -87,13 +87,17 @@ genGenesis
     :: AvvmData
     -> Bool           -- ^ Whether to generate random certificates
     -> StakeholderId  -- ^ A stakeholder to which to delegate the distribution
-    -> GenesisData
-genGenesis avvm genCerts holder = GenesisData
-    { gdAddresses = HM.keys balances
-    , gdDistribution = ExplicitStakes balances
-    , gdVssCertificates = if genCerts then randCerts else mempty
-    , gdBootstrapBalances = mempty
-    }
+    -> (GenesisCoreData, GenesisGtData)
+genGenesis avvm genCerts holder =
+    ( GenesisCoreData
+        { gcdAddresses = HM.keys balances
+        , gcdDistribution = ExplicitStakes balances
+        , gcdBootstrapBalances = mempty
+        }
+    , GenesisGtData
+        { ggdVssCertificates = if genCerts then randCerts else mempty
+        }
+    )
   where
     distr = pure . (holder, )
     randCerts = HM.fromList [(addressHash (vcSigningKey c), c)
@@ -107,7 +111,7 @@ genGenesis avvm genCerts holder = GenesisData
         :: (Coin, TxOutDistribution)
         -> (Coin, TxOutDistribution)
         -> (Coin, TxOutDistribution)
-    sumOutcomes = uncurry bimap . bimap unsafeAddCoin sumDistrs
+    sumOutcomes (c1, t1) (c2, t2) = (unsafeAddCoin c1 c2, sumDistrs t1 t2)
 
     balances :: HashMap Address (Coin, TxOutDistribution)
     balances = HM.fromListWith sumOutcomes $ do
@@ -121,7 +125,7 @@ genGenesis avvm genCerts holder = GenesisData
 applyBlacklisted :: Maybe FilePath -> AvvmData -> IO AvvmData
 applyBlacklisted Nothing r = r <$ putText "Blacklisting: file not specified, skipping"
 applyBlacklisted (Just blacklistPath) AvvmData{..} = do
-    addrTexts <- T.lines <$> TIO.readFile blacklistPath
+    addrTexts <- lines <$> readFile blacklistPath
     blacklisted <- mapM fromAvvmPk addrTexts
     let filteredBad = filter ((`elem` blacklisted) . aePublicKey) utxo
     let filtered = utxo \\ filteredBad
@@ -140,7 +144,7 @@ getHolderId Nothing = do
     (pk,sk) <- keyGen
     putText $ "USING RANDOM STAKEHOLDER ID, WRITING KEY TO " <> fromString skPath
     putText "NOT FOR PRODUCTION USAGE, ONLY FOR TESTING"
-    putText "IF YOU INTEND TO GENERATE GENESIS.BIN FOR PRODUCTION, \
+    putText "IF YOU INTEND TO GENERATE GENESIS FOR PRODUCTION, \
             \STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. \
             \THIS IS SERIOUS."
     liftIO $ BS.writeFile skPath $ Bi.encodeStrict sk

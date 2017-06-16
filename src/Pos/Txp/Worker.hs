@@ -7,28 +7,30 @@ module Pos.Txp.Worker
 
 import           Universum
 
-import           Pos.Communication (OutSpecs, WorkerSpec)
-import           Pos.Ssc.Class     (SscWorkersClass)
-import           Pos.Util          (mconcatPair)
-import           Pos.WorkMode      (WorkMode)
+import           Pos.Communication   (OutSpecs, WorkerSpec)
+import           Pos.Ssc.Class       (SscWorkersClass)
+import           Pos.Util            (mconcatPair)
+import           Pos.WorkMode.Class  (WorkMode)
 
 #ifdef WITH_WALLET
-import           Data.IORef        (newIORef, readIORef, writeIORef)
-import           Data.Time.Units   (Second, convertUnit)
-import           Formatting        (build, int, sformat, shown, (%))
-import           Mockable          (delay, throw)
-import           Serokell.Util     (listJson)
-import           System.Wlog       (logDebug, logInfo, logWarning)
+import           Data.Tagged         (Tagged (..))
+import           Data.Time.Units     (Second, convertUnit)
+import           Formatting          (build, int, sformat, shown, (%))
+import           Mockable            (delay)
+import           Serokell.Util       (listJson)
+import           System.Wlog         (logDebug, logInfo, logWarning)
 
-import           Pos.Communication (ConversationActions (..), InvMsg (..), InvOrData,
-                                    MempoolMsg (..), RelayError (UnexpectedData),
-                                    RelayProxy (..), ReqMsg (..), SendActions, SmartLimit,
-                                    TxMsgContents, TxMsgTag (..), convH, expectData,
-                                    handleDataL, handleInvL, reifyMsgLimit, toOutSpecs,
-                                    withLimitedLength, worker)
-import           Pos.DHT           (DHTNode, converseToNode, getKnownPeers)
-import           Pos.Slotting      (getLastKnownSlotDuration)
-import           Pos.Txp.Core      (TxId)
+import           Pos.Communication   (Conversation (..), ConversationActions (..),
+                                      DataMsg (..), InvMsg (..), InvOrData,
+                                      InvReqDataParams (..), MempoolMsg (..), NodeId,
+                                      ReqMsg (..), SendActions, SmartLimit, TxMsgContents,
+                                      convH, expectData, handleDataDo, handleInvDo,
+                                      reifyMsgLimit, toOutSpecs, withConnectionTo,
+                                      withLimitedLength, worker)
+import           Pos.Discovery.Class (getPeers)
+import           Pos.Slotting        (getLastKnownSlotDuration)
+import           Pos.Txp.Core        (TxId)
+import           Pos.Txp.Network     (txInvReqDataParams)
 #endif
 
 -- | All workers specific to transaction processing.
@@ -56,12 +58,12 @@ queryTxsWorker
     => (WorkerSpec m, OutSpecs)
 queryTxsWorker = worker queryTxsSpec $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
-    nodesRef <- liftIO . newIORef =<< getKnownPeers
+    nodesRef <- liftIO . newIORef . toList =<< getPeers
     let delayInterval = max (slotDur `div` 4) (convertUnit (5 :: Second))
         action = forever $ do
             -- If we ran out of nodes to query, refresh the list
             whenM (null <$> liftIO (readIORef nodesRef)) $
-                liftIO . writeIORef nodesRef =<< getKnownPeers
+                liftIO . writeIORef nodesRef . toList =<< getPeers
             -- If we managed to get any nodes (or if the list wasn't empty in
             -- the first place), we ask the first node for the tx mempool.
             liftIO (readIORef nodesRef) >>= \case
@@ -77,6 +79,8 @@ queryTxsWorker = worker queryTxsSpec $ \sendActions -> do
             action `catch` handler
     action `catch` handler
 
+type TxIdT = Tagged TxMsgContents TxId
+
 -- | A specification of how 'queryTxsWorker' will do communication:
 --
 --     * It will send a MempoolMsg
@@ -87,45 +91,46 @@ queryTxsSpec :: OutSpecs
 queryTxsSpec =
     toOutSpecs
         [ -- used by 'getTxMempoolInvs'
-          convH (Proxy @(MempoolMsg TxMsgTag))
-                (Proxy @(InvOrData TxMsgTag TxId TxMsgContents))
+          convH (Proxy @(MempoolMsg TxMsgContents))
+                (Proxy @(InvMsg TxIdT))
           -- used by 'requestTxs'
-        , convH (Proxy @(ReqMsg TxId TxMsgTag))
-                (Proxy @(InvOrData TxMsgTag TxId TxMsgContents))
+        , convH (Proxy @(ReqMsg TxIdT))
+                (Proxy @(InvOrData TxIdT TxMsgContents))
         ]
 
 -- | Send a MempoolMsg to a node and receive incoming 'InvMsg's with
 -- transaction IDs.
 getTxMempoolInvs
     :: WorkMode ssc m
-    => SendActions m -> DHTNode -> m [TxId]
+    => SendActions m -> NodeId -> m [TxId]
 getTxMempoolInvs sendActions node = do
     logInfo ("Querying tx mempool from node " <> show node)
-    reifyMsgLimit (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) $
-      \(_ :: Proxy s) -> converseToNode sendActions node $ \_
-        (ConversationActions{..}::(ConversationActions
-                                  (MempoolMsg TxMsgTag)
-                                  (SmartLimit s (InvOrData TxMsgTag TxId TxMsgContents))
+    reifyMsgLimit (Proxy @(InvMsg TxIdT)) $
+      \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_ -> pure $ Conversation $
+        \(conv :: (ConversationActions
+                                  (MempoolMsg TxMsgContents)
+                                  (SmartLimit s (InvMsg TxIdT))
                                   m)
         ) -> do
-            let txProxy = RelayProxy :: RelayProxy TxId TxMsgTag TxMsgContents
-            send $ MempoolMsg TxMsgTag
+            send conv MempoolMsg
             let getInvs = do
-                  inv' <- recv
+                  inv' <- recv conv
                   case withLimitedLength <$> inv' of
                       Nothing -> return []
-                      Just (Right _) -> throw UnexpectedData
-                      Just (Left inv@InvMsg{..}) -> do
-                          useful <- handleInvL txProxy inv
+                      Just (InvMsg{..}) -> do
+                          useful <-
+                            case txInvReqDataParams of
+                              InvReqDataParams {..} ->
+                                  handleInvDo handleInv imKey
                           case useful of
-                              Nothing  -> getInvs
-                              Just key -> (key:) <$> getInvs
+                              Nothing           -> getInvs
+                              Just (Tagged key) -> (key:) <$> getInvs
             getInvs
 
 -- | Request several transactions.
 requestTxs
     :: WorkMode ssc m
-    => SendActions m -> DHTNode -> [TxId] -> m ()
+    => SendActions m -> NodeId -> [TxId] -> m ()
 requestTxs sendActions node txIds = do
     logInfo $ sformat
         ("Requesting "%int%" txs from node "%shown)
@@ -133,22 +138,25 @@ requestTxs sendActions node txIds = do
     logDebug $ sformat
         ("First 5 (or less) transactions: "%listJson)
         (take 5 txIds)
-    reifyMsgLimit (Proxy @(InvOrData TxMsgTag TxId TxMsgContents)) $
-      \(_ :: Proxy s) -> converseToNode sendActions node $ \_
-        (ConversationActions{..}::(ConversationActions
-                                  (ReqMsg TxId TxMsgTag)
-                                  (SmartLimit s (InvOrData TxMsgTag TxId TxMsgContents))
+    reifyMsgLimit (Proxy @(InvOrData TxIdT TxMsgContents)) $
+      \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_ -> pure $ Conversation $
+       \(conv :: (ConversationActions
+                                  (ReqMsg TxIdT)
+                                  (SmartLimit s (InvOrData TxIdT TxMsgContents))
                                   m)
         ) -> do
-            let txProxy = RelayProxy :: RelayProxy TxId TxMsgTag TxMsgContents
             let getTx id = do
                     logDebug $ sformat ("Requesting transaction "%build) id
-                    send $ ReqMsg TxMsgTag id
-                    dt' <- recv
+                    send conv $ ReqMsg id
+                    dt' <- recv conv
                     case withLimitedLength <$> dt' of
                         Nothing -> error "didn't get an answer to Req"
-                        Just x  -> expectData (handleDataL txProxy) x
-            for_ txIds $ \id ->
+                        Just x  -> flip expectData x $
+                          \(DataMsg dmContents) ->
+                            case txInvReqDataParams of
+                              InvReqDataParams {..} ->
+                                  handleDataDo contentsToKey handleData dmContents
+            for_ txIds $ \(Tagged -> id) ->
                 getTx id `catch` handler id
     logInfo $ sformat
         ("Finished requesting txs from node "%shown)

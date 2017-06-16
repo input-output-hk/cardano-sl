@@ -16,11 +16,13 @@ module Pos.Lrc.DB.Leaders
 
 import           Universum
 
+import qualified Ether
+
 import           Pos.Binary.Class      (encodeStrict)
 import           Pos.Binary.Core       ()
-import           Pos.Context.Class     (WithNodeContext)
+import           Pos.Context.Context   (GenesisLeaders)
 import           Pos.Context.Functions (genesisLeadersM)
-import           Pos.DB.Class          (MonadDB)
+import           Pos.DB.Class          (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common     (getBi, putBi)
 import           Pos.Types             (EpochIndex, SlotLeaders)
 
@@ -28,7 +30,7 @@ import           Pos.Types             (EpochIndex, SlotLeaders)
 -- Getters
 ----------------------------------------------------------------------------
 
-getLeaders :: MonadDB m => EpochIndex -> m (Maybe SlotLeaders)
+getLeaders :: MonadDBRead m => EpochIndex -> m (Maybe SlotLeaders)
 getLeaders = getBi . leadersKey
 
 ----------------------------------------------------------------------------
@@ -42,16 +44,12 @@ putLeaders epoch = putBi (leadersKey epoch)
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareLrcLeaders
-    :: forall ssc m.
-       (WithNodeContext ssc m, MonadDB m)
+prepareLrcLeaders ::
+       (Ether.MonadReader' GenesisLeaders m, MonadDB m, MonadDBRead m)
     => m ()
-prepareLrcLeaders = putIfEmpty (getLeaders 0) (putLeaders 0 =<< genesisLeadersM)
-  where
-    putIfEmpty
-        :: forall a.
-           (m (Maybe a)) -> m () -> m ()
-    putIfEmpty getter putter = maybe putter (const pass) =<< getter
+prepareLrcLeaders =
+    whenNothingM_ (getLeaders 0) $
+        putLeaders 0 =<< genesisLeadersM
 
 ----------------------------------------------------------------------------
 -- Keys

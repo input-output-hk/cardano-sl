@@ -13,24 +13,26 @@ module Pos.Update.MemState.Types
 
 import           Universum
 
-import           Control.Concurrent.Lock  (Lock, new)
-import           Data.Default             (Default (def))
+import           Control.Concurrent.Lock    (Lock, new)
+import           Data.Default               (Default (def))
+import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core.Types           (HeaderHash, SlotId (..))
-import           Pos.Crypto               (unsafeHash)
-import           Pos.Update.Core          (LocalVotes, UpdateProposals)
-import           Pos.Update.Poll.Modifier ()
-import           Pos.Update.Poll.Types    (PollModifier)
+import           Pos.Core.Types             (HeaderHash, SlotId (..))
+import           Pos.Crypto                 (unsafeHash)
+import           Pos.Update.Core            (LocalVotes, UpdateProposals)
+import           Pos.Update.Poll.Modifier   ()
+import           Pos.Update.Poll.Types      (PollModifier)
 
 -- | MemPool is data maintained by node to be included into block and
 -- relayed to other nodes.
 data MemPool = MemPool
     { mpProposals  :: !UpdateProposals
     , mpLocalVotes :: !LocalVotes
+    , mpSize       :: !Byte
     } deriving (Show)
 
 instance Default MemPool where
-    def = MemPool mempty mempty
+    def = MemPool mempty mempty 2
 
 -- | MemState contains all in-memory data necesary for Update System.
 data MemState = MemState
@@ -48,7 +50,7 @@ data MemState = MemState
 
 mkMemState :: MemState
 mkMemState = MemState
-    { msSlot = SlotId 0 0
+    { msSlot = SlotId 0 minBound
     , msTip = unsafeHash ("dratuti" :: Text)
     , msPool = def
     , msModifier = def

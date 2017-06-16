@@ -1,11 +1,7 @@
-{-# LANGUAGE CPP                  #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE UndecidableInstances #-}
-
-{-| 'WorkMode' constraint. It is widely used in almost every our code.
-    Simple alias for bunch of useful constraints. This module also
-    contains new monads to extend functional capabilities inside do-block.
--}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 
 module Pos.WorkMode
        ( WorkMode
@@ -14,185 +10,215 @@ module Pos.WorkMode
        , TxpExtra_TMP
 
        -- * Actual modes
-       , ProductionMode
-       , RawRealMode
-       , ServiceMode
-       , StatsMode
+       , RealMode(..)
+       , ServiceMode(..)
        ) where
 
-
-import           Control.Monad.Catch         (MonadMask)
-import           Mockable                    (MonadMockable)
-import           Mockable.Production         (Production)
-import           System.Wlog                 (LoggerNameBox (..), WithLogger)
 import           Universum
 
-import           Pos.Communication.PeerState (PeerStateHolder (..), WithPeerState)
-import           Pos.Communication.Relay     (MonadRelayMem)
-import           Pos.Context                 (ContextHolder, NodeParams, WithNodeContext)
-import           Pos.DB.Class                (MonadDB, MonadDBCore)
-import           Pos.DB.DB                   ()
-import           Pos.DB.Holder               (DBHolder)
-import           Pos.DB.Limits               (MonadDBLimits)
-import           Pos.Delegation.Class        (MonadDelegation)
-import           Pos.Delegation.Holder       (DelegationT (..))
-import           Pos.DHT.MemState            (MonadDhtMem)
-import           Pos.DHT.Model               (MonadDHT)
-import           Pos.DHT.Real                (KademliaDHT (..), WithKademliaDHTInstance)
-import           Pos.Lrc.Context             (LrcContext)
-#ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
-#endif
-import           Pos.Reporting               (MonadReportingMem)
-import           Pos.Shutdown                (MonadShutdownMem)
-import           Pos.Slotting.Class          (MonadSlots)
-import           Pos.Slotting.MemState       (MonadSlotsData, SlottingHolder (..))
-import           Pos.Slotting.Ntp            (NtpSlotting (..))
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
-import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
-import           Pos.Ssc.Class.Storage       (SscGStateClass)
-import           Pos.Ssc.Extra               (MonadSscMem, SscHolder)
-import           Pos.Statistics.MonadStats   (MonadStats, NoStatsT, StatsT)
-import           Pos.Txp.MemState            (MonadTxpMem, TxpHolder)
-import           Pos.Update.Context          (UpdateContext)
-import           Pos.Update.Params           (UpdateParams)
-import           Pos.Util.Context            (HasContext)
-import           Pos.Util.JsonLog            (MonadJL (..))
+import           Control.Monad.Fix
+import           Control.Monad.Base             (MonadBase)
+import           Control.Monad.Trans.Control
+import qualified Control.Monad.Trans.Lift.Local as Lift
+import           Data.Coerce
+import           Data.Tagged                    (Tagged)
+import qualified Ether
+import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
+                                                 MFunctor' (..), Mockable (..), Promise,
+                                                 SharedAtomicT, SharedExclusiveT,
+                                                 ThreadId)
+import           Mockable.Production            (Production)
+import           System.Wlog                    (CanLog, HasLoggerName,
+                                                 LoggerNameBox (..))
 
--- Something extremely unpleasant.
--- TODO: get rid of it after CSL-777 is done.
-#ifdef WITH_EXPLORER
-type TxpExtra_TMP = ExplorerExtra
-#else
-type TxpExtra_TMP = ()
-#endif
-
--- | Bunch of constraints to perform work for real world distributed system.
-type WorkMode ssc m
-    = ( MinWorkMode m
-      , MonadMask m
-      , MonadSlots m
-      , MonadDB m
-      , MonadDBLimits m
-      , MonadTxpMem TxpExtra_TMP m
-      , MonadDhtMem m
-      , MonadRelayMem m
-      , MonadDelegation m
-      , MonadSscMem ssc m
-      , MonadReportingMem m
-      , SscGStateClass ssc
-      , SscLocalDataClass ssc
-      , SscHelpersClass ssc
-      , WithNodeContext ssc m
-      , HasContext LrcContext m
-      , HasContext UpdateContext m
-      , HasContext NodeParams m
-      , HasContext UpdateParams m
-      , MonadStats m
-      , MonadJL m
-      , WithKademliaDHTInstance m
-      , WithPeerState m
-      , MonadShutdownMem m
-      )
-
--- | More relaxed version of 'WorkMode'.
-type MinWorkMode m
-    = ( WithLogger m
-      , MonadMockable m
-      , MonadDHT m
-      , MonadIO m
-      , WithPeerState m
-      )
-
-----------------------------------------------------------------------------
--- HZ
-----------------------------------------------------------------------------
-
-instance MonadJL m => MonadJL (KademliaDHT m) where
-    jlLog = lift . jlLog
+import           Pos.Block.BListener            (BListenerStub, MonadBListener)
+import           Pos.Communication.PeerState    (PeerStateCtx, PeerStateRedirect,
+                                                 PeerStateTag, WithPeerState)
+import           Pos.Context                    (NodeContext)
+import           Pos.DB                         (DBPureRedirect, MonadGState, NodeDBs)
+import           Pos.DB.Block                   (BlockDBRedirect, MonadBlockDBWrite)
+import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDB,
+                                                 MonadDBRead)
+import           Pos.DB.DB                      (GStateCoreRedirect)
+import           Pos.Delegation.Class           (DelegationVar)
+import           Pos.Discovery                  (DiscoveryRedirect, MonadDiscovery)
+import           Pos.Slotting.Class             (MonadSlots)
+import           Pos.Slotting.MemState          (MonadSlotsData, SlottingVar)
+import           Pos.Slotting.MemState.Holder   (SlotsDataRedirect)
+import           Pos.Slotting.Ntp               (NtpSlottingVar, SlotsRedirect)
+import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
+import           Pos.Ssc.Extra                  (SscMemTag, SscState)
+import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
+import           Pos.Types                      (HeaderHash)
+import           Pos.Util.Util                  (PowerLift (..))
+import           Pos.WorkMode.Class             (MinWorkMode, TxpExtra_TMP, WorkMode)
 
 ----------------------------------------------------------------------------
 -- Concrete types
 ----------------------------------------------------------------------------
 
--- Maybe we should move to somewhere else
-deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (KademliaDHT m)
-deriving instance (Monad m, WithNodeContext ssc m) => WithNodeContext ssc (PeerStateHolder m)
-deriving instance WithNodeContext ssc m => WithNodeContext ssc (NtpSlotting m)
-deriving instance WithNodeContext ssc m => WithNodeContext ssc (SlottingHolder m)
-
-deriving instance MonadSlots m => MonadSlots (PeerStateHolder m)
-deriving instance MonadSlots m => MonadSlots (KademliaDHT m)
-deriving instance MonadSlotsData m => MonadSlotsData (PeerStateHolder m)
-deriving instance MonadSlotsData m => MonadSlotsData (KademliaDHT m)
-
-deriving instance MonadDB m => MonadDB (KademliaDHT m)
-deriving instance MonadDBCore m => MonadDBCore (KademliaDHT m)
-deriving instance MonadDBLimits m => MonadDBLimits (KademliaDHT m)
-deriving instance MonadDB m => MonadDB (PeerStateHolder m)
-deriving instance MonadDBCore m => MonadDBCore (PeerStateHolder m)
-deriving instance MonadDBLimits m => MonadDBLimits (PeerStateHolder m)
-deriving instance MonadDB m => MonadDB (NtpSlotting m)
-deriving instance MonadDBCore m => MonadDBCore (NtpSlotting m)
-deriving instance MonadDBLimits m => MonadDBLimits (NtpSlotting m)
-deriving instance MonadDB m => MonadDB (SlottingHolder m)
-deriving instance MonadDBCore m => MonadDBCore (SlottingHolder m)
-deriving instance MonadDBLimits m => MonadDBLimits (SlottingHolder m)
-
-deriving instance MonadDelegation m => MonadDelegation (KademliaDHT m)
-deriving instance MonadDelegation m => MonadDelegation (PeerStateHolder m)
-
-deriving instance MonadReportingMem m => MonadReportingMem (PeerStateHolder m)
-deriving instance MonadReportingMem m => MonadReportingMem (KademliaDHT m)
-deriving instance MonadReportingMem m => MonadReportingMem (NtpSlotting m)
-deriving instance MonadReportingMem m => MonadReportingMem (SlottingHolder m)
-
-deriving instance MonadDhtMem m => MonadDhtMem (PeerStateHolder m)
-deriving instance MonadDhtMem m => MonadDhtMem (KademliaDHT m)
-deriving instance MonadDhtMem m => MonadDhtMem (NtpSlotting m)
-deriving instance MonadDhtMem m => MonadDhtMem (SlottingHolder m)
-
-deriving instance MonadRelayMem m => MonadRelayMem (PeerStateHolder m)
-deriving instance MonadRelayMem m => MonadRelayMem (KademliaDHT m)
-deriving instance MonadRelayMem m => MonadRelayMem (NtpSlotting m)
-deriving instance MonadRelayMem m => MonadRelayMem (SlottingHolder m)
-
-deriving instance MonadSscMem ssc m => MonadSscMem ssc (PeerStateHolder m)
-deriving instance MonadTxpMem x m => MonadTxpMem x (PeerStateHolder m)
-
-deriving instance MonadShutdownMem m => MonadShutdownMem (PeerStateHolder m)
-deriving instance MonadShutdownMem m => MonadShutdownMem (KademliaDHT m)
-deriving instance MonadShutdownMem m => MonadShutdownMem (NtpSlotting m)
-deriving instance MonadShutdownMem m => MonadShutdownMem (SlottingHolder m)
-
-deriving instance MonadJL m => MonadJL (PeerStateHolder m)
-deriving instance MonadJL m => MonadJL (NtpSlotting m)
-deriving instance MonadJL m => MonadJL (SlottingHolder m)
-
-deriving instance MonadDHT m => MonadDHT (PeerStateHolder m)
-deriving instance (Monad m, WithKademliaDHTInstance m)
-                  => WithKademliaDHTInstance (PeerStateHolder m)
-
--- | RawRealMode is a basis for `WorkMode`s used to really run system.
-type RawRealMode ssc =
-    PeerStateHolder (
-    KademliaDHT (
-    DelegationT (
-    TxpHolder TxpExtra_TMP (
-    SscHolder ssc (
-    NtpSlotting (
-    SlottingHolder (
-    ContextHolder ssc (
-    DBHolder (
+-- | RealMode is a basis for `WorkMode`s used to really run system.
+type RealMode' ssc =
+    BListenerStub (
+    GStateCoreRedirect (
+    PeerStateRedirect (
+    DiscoveryRedirect (
+    SlotsRedirect (
+    SlotsDataRedirect (
+    BlockDBRedirect (
+    DBPureRedirect (
+    Ether.ReadersT
+        ( Tagged NodeDBs NodeDBs
+        , Tagged SlottingVar SlottingVar
+        , Tagged (Bool, NtpSlottingVar) (Bool, NtpSlottingVar)
+        , Tagged SscMemTag (SscState ssc)
+        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
+        , Tagged DelegationVar DelegationVar
+        , Tagged PeerStateTag (PeerStateCtx Production)
+        ) (
+    Ether.ReadersT (NodeContext ssc) (
     LoggerNameBox Production
-    )))))))))
+    ))))))))))
 
--- | ProductionMode is an instance of WorkMode which is used
--- (unsurprisingly) in production.
-type ProductionMode ssc = NoStatsT (RawRealMode ssc)
+newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadIO
+    , MonadBase IO
+    , MonadThrow
+    , MonadCatch
+    , MonadMask
+    , MonadFix
+    )
 
--- | StatsMode is used for remote benchmarking.
-type StatsMode ssc = StatsT (RawRealMode ssc)
+type instance ThreadId (RealMode ssc) = ThreadId Production
+type instance Promise (RealMode ssc) = Promise Production
+type instance SharedAtomicT (RealMode ssc) = SharedAtomicT Production
+type instance SharedExclusiveT (RealMode ssc) = SharedExclusiveT Production
+type instance Gauge (RealMode ssc) = Gauge Production
+type instance ChannelT (RealMode ssc) = ChannelT Production
+type instance Distribution (RealMode ssc) = Distribution Production
+type instance Counter (RealMode ssc) = Counter Production
+
+deriving instance CanLog (RealMode ssc)
+deriving instance HasLoggerName (RealMode ssc)
+deriving instance MonadSlotsData (RealMode ssc)
+deriving instance MonadSlots (RealMode ssc)
+deriving instance MonadDiscovery (RealMode ssc)
+deriving instance MonadGState (RealMode ssc)
+deriving instance MonadDBRead (RealMode ssc)
+deriving instance MonadDB (RealMode ssc)
+deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
+deriving instance MonadBListener (RealMode ssc)
+-- deriving instance MonadUpdates (RealMode ssc)
+-- deriving instance SscHelpersClass ssc => MonadBlockchainInfo (RealMode ssc)
+-- deriving instance MonadBalances (RealMode ssc)
+-- deriving instance MonadTxHistory (RealMode ssc)
+deriving instance WithPeerState (RealMode ssc)
+
+instance MonadBaseControl IO (RealMode ssc) where
+    type StM (RealMode ssc) a = StM (RealMode' ssc) a
+    liftBaseWith f = RealMode $ liftBaseWith $ \q -> f (q . unRealMode)
+    restoreM s = RealMode $ restoreM s
+
+instance PowerLift m (RealMode' ssc) => PowerLift m (RealMode ssc) where
+  powerLift = RealMode . powerLift
+
+instance
+    MonadBlockDBGeneric header blk undo (RealMode' ssc) =>
+    MonadBlockDBGeneric header blk undo (RealMode ssc) where
+    dbGetHeader = (coerce :: (HeaderHash -> RealMode' ssc (Maybe header)) ->
+                             (HeaderHash -> RealMode ssc (Maybe header)))
+                  (dbGetHeader @header @blk @undo)
+    dbGetBlock = (coerce :: (HeaderHash -> RealMode' ssc (Maybe blk)) ->
+                            (HeaderHash -> RealMode ssc (Maybe blk)))
+                 (dbGetBlock @header @blk @undo)
+    dbGetUndo = (coerce :: (HeaderHash -> RealMode' ssc (Maybe undo)) ->
+                           (HeaderHash -> RealMode ssc (Maybe undo)))
+                 (dbGetUndo @header @blk @undo)
+
+instance
+    ( Mockable d (RealMode' ssc)
+    , MFunctor' d (RealMode ssc) (RealMode' ssc)
+    )
+    => Mockable d (RealMode ssc) where
+    liftMockable dmt = RealMode $ liftMockable $ hoist' (\(RealMode m) -> m) dmt
+
+instance
+    Ether.MonadReader tag r (RealMode' ssc) =>
+    Ether.MonadReader tag r (RealMode ssc)
+  where
+    ask =
+        (coerce :: RealMode' ssc r -> RealMode ssc r)
+        (Ether.ask @tag)
+    local =
+        (coerce :: forall a .
+            Lift.Local r (RealMode' ssc) a ->
+            Lift.Local r (RealMode ssc) a)
+        (Ether.local @tag)
+    reader =
+        (coerce :: forall a .
+            ((r -> a) -> RealMode' ssc a) ->
+            ((r -> a) -> RealMode ssc a))
+        (Ether.reader @tag)
 
 -- | ServiceMode is the mode in which support nodes work.
-type ServiceMode = PeerStateHolder (KademliaDHT (LoggerNameBox Production))
+type ServiceMode' =
+    PeerStateRedirect (
+    Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
+    LoggerNameBox Production
+    ))
+
+newtype ServiceMode a = ServiceMode (ServiceMode' a)
+  deriving
+    ( Functor
+    , Applicative
+    , Monad
+    , MonadIO
+    , MonadThrow
+    , MonadCatch
+    , MonadMask
+    , MonadFix
+    )
+type instance ThreadId (ServiceMode) = ThreadId Production
+type instance Promise (ServiceMode) = Promise Production
+type instance SharedAtomicT (ServiceMode) = SharedAtomicT Production
+type instance SharedExclusiveT (ServiceMode) = SharedExclusiveT Production
+type instance Gauge (ServiceMode) = Gauge Production
+type instance ChannelT (ServiceMode) = ChannelT Production
+type instance Distribution (ServiceMode) = Distribution Production
+type instance Counter (ServiceMode) = Counter Production
+
+deriving instance CanLog (ServiceMode)
+deriving instance HasLoggerName (ServiceMode)
+deriving instance WithPeerState (ServiceMode)
+
+instance PowerLift m ServiceMode' => PowerLift m (ServiceMode) where
+  powerLift = ServiceMode . powerLift
+
+instance
+    ( Mockable d (ServiceMode')
+    , MFunctor' d (ServiceMode) (ServiceMode')
+    )
+    => Mockable d (ServiceMode) where
+    liftMockable dmt = ServiceMode $ liftMockable $ hoist' (\(ServiceMode m) -> m) dmt
+
+instance
+    Ether.MonadReader tag r ServiceMode' =>
+    Ether.MonadReader tag r ServiceMode
+  where
+    ask =
+        (coerce :: ServiceMode' r -> ServiceMode r)
+        (Ether.ask @tag)
+    local =
+        (coerce :: forall a .
+            Lift.Local r (ServiceMode') a ->
+            Lift.Local r (ServiceMode) a)
+        (Ether.local @tag)
+    reader =
+        (coerce :: forall a .
+            ((r -> a) -> ServiceMode' a) ->
+            ((r -> a) -> ServiceMode a))
+        (Ether.reader @tag)

@@ -1,5 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
-
 -- | Unsafe arbitrary instances for crypto primitives.
 
 module Pos.Crypto.Arbitrary.Unsafe () where

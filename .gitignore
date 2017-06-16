@@ -9,6 +9,7 @@ cabal-dev
 *.prof
 *.aux
 *.hp
+*.tix
 .virtualenv
 .hsenv
 .hpc
@@ -24,8 +25,6 @@ TAGS
 .DS_Store
 *~
 *#
-.hindent.yaml
-.stylish-haskell.yaml
 .dir-locals.el
 node-db*
 pos-db*
@@ -35,8 +34,6 @@ pos-keys
 nohup.out
 logs
 stats-node-*
-.ipynb_checkpoints
-*.ipynb
 testRun
 *.csv
 my-log-template.yaml
@@ -55,9 +52,25 @@ bla/
 testnetStakes/
 *.key.lock
 node_modules/*
-.no-nix
 db-abc/
 kademlia-abc.dump
-b
 lint
+keys
+
+# Our custom build script (util-scripts/build.sh)
+b
+.no-nix
+.ram
+
+# IPython notebooks
+.ipynb_checkpoints
+*.ipynb
+
+# Config files
+.hindent.yaml
+.stylish-haskell.yaml
+
+# Intellij Idea & intellij-haskell
 .idea
+.ideaHaskellLib
+*.iml

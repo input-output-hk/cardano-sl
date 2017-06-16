@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveTraversable   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -12,16 +11,16 @@ module Pos.Util
        -- * Stuff for testing and benchmarking
        , module Pos.Util.Arbitrary
        , module Pos.Util.TimeLimit
+       -- * Concurrency helpers
+       , module Pos.Util.Concurrent
 
        -- * Various
        , mappendPair
        , mconcatPair
        , (<//>)
+       , eitherToVerRes
        , readerToState
-       , eitherPanic
-       , inAssertMode
        , diffDoubleMap
-       , maybeThrow'
 
        -- * NonEmpty
        , neZipWith3
@@ -29,24 +28,6 @@ module Pos.Util
 
        -- * Lenses
        , makeLensesData
-       , _neHead
-       , _neTail
-       , _neLast
-
-       -- * LRU
-       , clearLRU
-
-       , eitherToVerRes
-
-       -- * Concurrency
-       , clearMVar
-       , forcePutMVar
-       , readMVarConditional
-       , readUntilEqualMVar
-       , readTVarConditional
-       , readUntilEqualTVar
-       , withReadLifted
-       , withWriteLifted
 
        -- * Instances
        -- ** MonadFail ParsecT
@@ -57,42 +38,37 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
-import           Universum                        hiding (bracket, finally)
+import           Universum                     hiding (bracket, finally)
 
-import           Control.Arrow                    ((***))
-import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
-                                                   releaseRead, releaseWrite)
-import           Control.Lens                     (lensRules)
-import           Control.Lens.Internal.FieldTH    (makeFieldOpticsForDec)
-import qualified Control.Monad                    as Monad (fail)
-import           Control.Monad.STM                (retry)
-import           Control.Monad.Trans.Resource     (ResourceT)
-import qualified Data.Cache.LRU                   as LRU
-import           Data.Hashable                    (Hashable)
-import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (span, zipWith3)
-import           Data.SafeCopy                    (SafeCopy (..), base, contain,
-                                                   deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Text                        as T
-import qualified Language.Haskell.TH              as TH
-import           Mockable                         (Mockable, Throw, throw)
-import           Serokell.Util                    (VerificationRes (..))
-import           System.Wlog                      (LoggerNameBox (..))
-import           Text.Parsec                      (ParsecT)
-import           Unsafe                           (unsafeInit, unsafeLast)
+import           Control.Lens                  (lensRules)
+import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
+import qualified Control.Monad                 as Monad (fail)
+import           Control.Monad.Trans.Resource  (ResourceT)
+import           Data.Hashable                 (Hashable)
+import qualified Data.HashMap.Strict           as HM
+import           Data.List                     (span, zipWith3)
+import qualified Data.Text                     as T
+import qualified Language.Haskell.TH           as TH
+import           Serokell.Util                 (VerificationRes (..))
+import           System.Wlog                   (LoggerNameBox (..))
+import           Text.Parsec                   (ParsecT)
 -- SafeCopy instance for HashMap
-import           Serokell.AcidState               ()
+import           Serokell.AcidState            ()
 
 import           Pos.Util.Arbitrary
+import           Pos.Util.Concurrent
 import           Pos.Util.TimeLimit
-import           Pos.Util.Undefined               ()
+import           Pos.Util.Undefined            ()
 import           Pos.Util.Util
 
+-- | Specialized version of 'mappend' for restricted to pair type.
 mappendPair :: (Monoid a, Monoid b) => (a, b) -> (a, b) -> (a, b)
-mappendPair = (uncurry (***)) . (mappend *** mappend)
+mappendPair = mappend
 
+-- | Specialized version of 'mconcat' (or 'Data.Foldable.fold')
+-- for restricting type to list of pairs.
 mconcatPair :: (Monoid a, Monoid b) => [(a, b)] -> (a, b)
-mconcatPair = foldr mappendPair (mempty, mempty)
+mconcatPair = mconcat
 
 -- | Concatenates two url part using regular slash '/'.
 -- E.g. @"./dir/" <//> "/file" = "./dir/file"@.
@@ -108,23 +84,6 @@ readerToState
     :: MonadState s m
     => Reader s a -> m a
 readerToState = gets . runReader
-
-deriveSafeCopySimple 0 'base ''VerificationRes
-
--- | A helper for simple error handling in executables
-eitherPanic :: Show a => Text -> Either a b -> b
-eitherPanic msgPrefix = either (error . (msgPrefix <>) . show) identity
-
--- | This function performs checks at compile-time for different actions.
--- May slowdown implementation. To disable such checks (especially in benchmarks)
--- one should compile with: @stack build --flag cardano-sl:-asserts@
-inAssertMode :: Applicative m => m a -> m ()
-#ifdef ASSERTS_ON
-inAssertMode x = x *> pure ()
-#else
-inAssertMode _ = pure ()
-#endif
-{-# INLINE inAssertMode #-}
 
 -- | Remove elements which are in 'b' from 'a'
 diffDoubleMap
@@ -147,9 +106,6 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
                 in if null diff
                        then res
                        else HM.insert extKey diff res
-
-maybeThrow' :: (Mockable Throw m, Exception e) => e -> Maybe a -> m a
-maybeThrow' e = maybe (throw e) pure
 
 ----------------------------------------------------------------------------
 -- NonEmpty
@@ -194,41 +150,6 @@ makeLensesData familyName typeParamName = do
     decToType other                     =
         fail ("makeLensesIndexed: decToType failed on: " ++ show other)
 
--- | Lens for the head of 'NonEmpty'.
---
--- We can't use '_head' because it doesn't work for 'NonEmpty':
--- <https://github.com/ekmett/lens/issues/636#issuecomment-213981096>.
--- Even if we could though, it wouldn't be a lens, only a traversal.
-_neHead :: Lens' (NonEmpty a) a
-_neHead f (x :| xs) = (:| xs) <$> f x
-
--- | Lens for the tail of 'NonEmpty'.
-_neTail :: Lens' (NonEmpty a) [a]
-_neTail f (x :| xs) = (x :|) <$> f xs
-
--- | Lens for the last element of 'NonEmpty'.
-_neLast :: Lens' (NonEmpty a) a
-_neLast f (x :| []) = (:| []) <$> f x
-_neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
-
-----------------------------------------------------------------------------
--- LRU cache
-----------------------------------------------------------------------------
-
--- | Remove all items from LRU, retaining maxSize property.
-clearLRU :: Ord k => LRU.LRU k v -> LRU.LRU k v
-clearLRU = LRU.newLRU . LRU.maxSize
-
--- [SRK-51]: Probably this instance should be in @safecopy@ library
-instance (Ord k, SafeCopy k, SafeCopy v) =>
-         SafeCopy (LRU.LRU k v) where
-    getCopy = contain $ LRU.fromList <$> safeGet <*> safeGet
-    putCopy lru =
-        contain $
-        do safePut $ LRU.maxSize lru
-           safePut $ LRU.toList lru
-    errorTypeName _ = "LRU"
-
 ----------------------------------------------------------------------------
 -- Deserialized wrapper
 ----------------------------------------------------------------------------
@@ -246,56 +167,3 @@ deriving instance MonadFail m => MonadFail (LoggerNameBox m)
 
 instance MonadFail m => MonadFail (ResourceT m) where
     fail = lift . fail
-
-----------------------------------------------------------------------------
--- Concurrency utilites (MVar/TVar/RWLock..)
-----------------------------------------------------------------------------
-
-clearMVar :: MonadIO m => MVar a -> m ()
-clearMVar = liftIO . void . tryTakeMVar
-
-forcePutMVar :: MonadIO m => MVar a -> a -> m ()
-forcePutMVar mvar val = do
-    unlessM (tryPutMVar mvar val) $ do
-        _ <- tryTakeMVar mvar
-        forcePutMVar mvar val
-
--- | Block until value in MVar satisfies given predicate. When value
--- satisfies, it is returned.
-readMVarConditional :: (MonadIO m) => (x -> Bool) -> MVar x -> m x
-readMVarConditional predicate mvar = do
-    rData <- liftIO . readMVar $ mvar -- first we try to read for optimization only
-    if predicate rData then pure rData
-    else do
-        tData <- liftIO . takeMVar $ mvar -- now take data
-        if predicate tData then do -- check again
-            _ <- liftIO $ tryPutMVar mvar tData -- try to put taken value
-            pure tData
-        else
-            readMVarConditional predicate mvar
-
--- | Read until value is equal to stored value comparing by some function.
-readUntilEqualMVar
-    :: (Eq a, MonadIO m)
-    => (x -> a) -> MVar x -> a -> m x
-readUntilEqualMVar f mvar expVal = readMVarConditional ((expVal ==) . f) mvar
-
--- | Block until value in TVar satisfies given predicate. When value
--- satisfies, it is returned.
-readTVarConditional :: (MonadIO m) => (x -> Bool) -> TVar x -> m x
-readTVarConditional predicate tvar = atomically $ do
-    res <- readTVar tvar
-    if predicate res then pure res
-    else retry
-
--- | Read until value is equal to stored value comparing by some function.
-readUntilEqualTVar
-    :: (Eq a, MonadIO m)
-    => (x -> a) -> TVar x -> a -> m x
-readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar
-
-withReadLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
-withReadLifted l = bracket_ (liftIO $ acquireRead l) (liftIO $ releaseRead l)
-
-withWriteLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
-withWriteLifted l = bracket_ (liftIO $ acquireWrite l) (liftIO $ releaseWrite l)

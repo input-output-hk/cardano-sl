@@ -6,11 +6,11 @@ import           Criterion.Main     (Benchmark, bench, defaultConfig, defaultMai
                                      env, whnf)
 import           Criterion.Types    (Config (..))
 import           Data.List.NonEmpty (NonEmpty ((:|)))
-import           Data.Maybe
 import           Test.QuickCheck    (generate)
 import           Universum
 
 import           Pos.Crypto         (SecretKey, SignTag (SignTxIn), hash, sign)
+import           Pos.Ssc.GodTossing ()
 import           Pos.Txp            (TxDistribution (..), TxId, TxIn (..), TxOut, TxSig,
                                      TxSigData (..))
 import           Pos.Util           (arbitraryUnsafe)

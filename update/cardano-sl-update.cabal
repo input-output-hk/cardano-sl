@@ -18,12 +18,35 @@ library
                        Pos.Update.Mode
                        Pos.Update.DB
                        Pos.Update.Constants
+                       Pos.Update.RichmenComponent
+                       Pos.Update.Lrc
 
                        Pos.Binary.Update
 
+                       -- Logic
+                       Pos.Update.Logic
+                       Pos.Update.Logic.Global
+                       Pos.Update.Logic.Local
+
                        -- Poll
+                       Pos.Update.Poll
+                       Pos.Update.Poll.Class
                        Pos.Update.Poll.Types
                        Pos.Update.Poll.Modifier
+                       Pos.Update.Poll.PollState
+                       Pos.Update.Poll.Trans
+                       Pos.Update.Poll.RollTrans
+                       Pos.Update.Poll.Failure
+                       Pos.Update.Poll.Pure
+                       Pos.Update.Poll.DBPoll
+                       -- Poll.Logic
+                       Pos.Update.Poll.Logic
+                       Pos.Update.Poll.Logic.Apply
+                       Pos.Update.Poll.Logic.Base
+                       Pos.Update.Poll.Logic.Version
+                       Pos.Update.Poll.Logic.Normalize
+                       Pos.Update.Poll.Logic.Rollback
+                       Pos.Update.Poll.Logic.Softfork
 
                        -- MemState
                        Pos.Update.MemState
@@ -34,7 +57,8 @@ library
                        Pos.Update.Context
                        Pos.Update.Params
 
-  build-depends:       aeson
+  build-depends:       QuickCheck
+                     , aeson
                      , base
                      , binary
                      , cardano-sl-core
@@ -42,7 +66,9 @@ library
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , concurrent-extra
+                     , containers
                      , data-default
+                     , ether >= 0.5
                      , exceptions
                      , formatting
                      , hashable
@@ -51,7 +77,6 @@ library
                      , mtl
                      , node-sketch
                      , parsec
-                     , QuickCheck
                      , rocksdb
                      , safecopy
                      , serokell-util
@@ -62,6 +87,7 @@ library
                      , text-format
                      , th-lift-instances
                      , time-units
+                     , transformers
                      , universum
                      , unordered-containers
 
@@ -84,6 +110,9 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
 
   ghc-options:         -Wall
                        -fno-warn-orphans

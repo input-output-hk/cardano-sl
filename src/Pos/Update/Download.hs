@@ -1,3 +1,6 @@
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Logic related to downloading update.
 
 module Pos.Update.Download
@@ -5,10 +8,13 @@ module Pos.Update.Download
        , downloadHash
        ) where
 
+import           Control.Concurrent.STM  (modifyTVar')
 import           Control.Monad.Except    (ExceptT (..), throwError)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
+import qualified Data.Set                as S
+import qualified Ether
 import           Formatting              (build, sformat, stext, (%))
 import           Network.HTTP.Client     (Manager, newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
@@ -21,16 +27,16 @@ import           System.Directory        (doesFileExist)
 import           System.Wlog             (logDebug, logInfo, logWarning)
 import           Universum
 
+import           Pos.Binary.Update       ()
 import           Pos.Constants           (appSystemTag, curSoftwareVersion)
 import           Pos.Core.Types          (SoftwareVersion (..))
 import           Pos.Crypto              (Hash, castHash, hash)
-import           Pos.Update.Context      (UpdateContext (ucUpdateSemaphore))
-import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
+import           Pos.Update.Context      (UpdateContext (..))
+import           Pos.Update.Core.Types   (UpId, UpdateData (..), UpdateProposal (..))
 import           Pos.Update.Mode         (UpdateMode)
 import           Pos.Update.Params       (UpdateParams (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
 import           Pos.Util                ((<//>))
-import           Pos.Util.Context        (askContext)
 
 showHash :: Hash a -> FilePath
 showHash = toString . B16.encode . BA.convert
@@ -41,12 +47,30 @@ versionIsNew :: SoftwareVersion -> Bool
 versionIsNew ver = svAppName ver /= svAppName curSoftwareVersion
     || svNumber ver > svNumber curSoftwareVersion
 
--- | Download and save archive update by given `ConfirmedProposalState`
-downloadUpdate :: UpdateMode m => ConfirmedProposalState -> m ()
+-- TODO Now we suppose there is no more than one update at every moment.
+-- | Determine whether to download update and download it if needed.
+downloadUpdate :: forall m . UpdateMode m => ConfirmedProposalState -> m ()
 downloadUpdate cst@ConfirmedProposalState {..} = do
+    unlessM (liftIO . doesFileExist =<< Ether.asks' upUpdatePath) $ do
+        downSetVar <- Ether.asks' ucDownloadingUpdates
+        let upId = hash cpsUpdateProposal
+        whenM (tryPutToSet downSetVar upId) $
+            downloadUpdateDo cst
+            `finally` (atomically $ modifyTVar' downSetVar (S.delete upId))
+  where
+    -- Whether to start downloading?
+    tryPutToSet :: TVar (Set UpId) -> UpId -> m Bool
+    tryPutToSet downSetVar upId = atomically $ do
+        downSet <- readTVar downSetVar
+        if S.member upId downSet then pure False
+        else True <$ writeTVar downSetVar (S.insert upId downSet)
+
+-- | Download and save archive update by given `ConfirmedProposalState`
+downloadUpdateDo :: UpdateMode m => ConfirmedProposalState -> m ()
+downloadUpdateDo cst@ConfirmedProposalState {..} = do
     logDebug "Update downloading triggered"
-    useInstaller <- askContext @UpdateParams upUpdateWithPkg
-    updateServers <- askContext @UpdateParams upUpdateServers
+    useInstaller <- Ether.asks' upUpdateWithPkg
+    updateServers <- Ether.asks' upUpdateServers
 
     let dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = castHash . dataHash <$>
@@ -61,7 +85,7 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
                                   \current software version is newer than \
                                   \update version") updHash
 
-        updPath <- askContext @UpdateParams upUpdatePath
+        updPath <- Ether.asks' upUpdatePath
         whenM (liftIO $ doesFileExist updPath) $
             throwError "There's unapplied update already downloaded"
 
@@ -72,8 +96,8 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
 
         liftIO $ BSL.writeFile updPath file
         logInfo "Update was downloaded"
-        sm <- askContext @UpdateContext ucUpdateSemaphore
-        liftIO $ putMVar sm cst
+        sm <- Ether.asks' ucUpdateSemaphore
+        putMVar sm cst
         logInfo "Update MVar filled, wallet is notified"
 
     whenLeft res logWarning

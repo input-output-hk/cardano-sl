@@ -6,7 +6,7 @@ import {mockWallet, mockSuccessResponse, mockErrorResponse} from '../../mock-fac
 
 export default function () {
 
-  describe('newWallet()', () => {
+  describe('newAccount()', () => {
 
     let xhr;
     let requests;
@@ -22,7 +22,7 @@ export default function () {
     it('returns a new wallet', (done) => {
       const response = mockSuccessResponse(mockWallet());
 
-      Daedalus.ClientApi.newWallet('CWTPersonal', 'ADA', '')()
+      Daedalus.ClientApi.newAccount('CWTPersonal', 'ADA', '')()
         .then( (result) => {
           assert.deepEqual(result, response.Right, 'wallet data object');
           done();
@@ -39,7 +39,7 @@ export default function () {
     it('rejects with a JSONDecodingError if server sends invalid json data', (done) => {
       const response = mockSuccessResponse();
 
-      Daedalus.ClientApi.newWallet('', '', '')()
+      Daedalus.ClientApi.newAccount('', '', '')()
         .then( (result) => done(),
           (error) => {
             assert.include(error.message, 'JSONDecodingError', 'includes JSONDecodingError error message');
@@ -54,7 +54,7 @@ export default function () {
     })
 
     it('rejects with a HTTPStatusError if server response with 400', (done) => {
-      Daedalus.ClientApi.newWallet('')()
+      Daedalus.ClientApi.newAccount('')()
         .then( (result) => done(),
           (error) => {
             assert.include(error.message, 'HTTPStatusError', 'HTTPStatusError error message');
@@ -70,7 +70,7 @@ export default function () {
     it('rejects with a ServerError if server response with Left', (done) => {
       const response = mockErrorResponse();
 
-      Daedalus.ClientApi.newWallet('')()
+      Daedalus.ClientApi.newAccount('')()
         .then( (result) => done(),
           (error) => {
             assert.include(error.message, 'ServerError', 'ServerError error message');

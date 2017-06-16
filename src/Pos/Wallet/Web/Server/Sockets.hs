@@ -1,6 +1,4 @@
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Module for websockets implementation of Daedalus API.
 -- This implements unidirectional sockets from server to client.
@@ -9,89 +7,83 @@
 module Pos.Wallet.Web.Server.Sockets
        ( WalletWebSockets
        , WebWalletSockets
-       , MonadWalletWebSockets (..)
+       , MonadWalletWebSockets
+       , getWalletWebSockets
        , ConnectionsVar
-       , initWSConnection
-       , closeWSConnection
+       , initWSConnections
+       , closeWSConnections
        , upgradeApplicationWS
-       , notify
+       , notifyAll
        , runWalletWS
        ) where
 
-import           Control.Concurrent.STM.TVar    (readTVarIO)
-import           Control.Lens                   (iso)
-import           Control.Monad.Trans            (MonadTrans (..))
+import           Universum
+
+import           Control.Concurrent.STM.TVar    (swapTVar)
+import           Control.Monad.State.Strict     (MonadState (get, put))
 import           Data.Aeson                     (encode)
-import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
-                                                 MFunctor', Mockable (liftMockable),
-                                                 Promise, SharedAtomicT, SharedExclusiveT,
-                                                 ThreadId, liftMockableWrappedM)
+import           Data.Default                   (Default (def))
+import qualified Data.IntMap.Strict             as IM
+import qualified Ether
+import           Formatting                     (build, sformat, (%))
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets             as WS
-import           Serokell.Util.Lens             (WrappedM (..))
-import           System.Wlog                    (CanLog, HasLoggerName)
-import           Universum
+import           Serokell.Util.Concurrent       (modifyTVarS)
+import           System.Wlog                    (logError, logNotice, usingLoggerName)
 
 import           Pos.Aeson.ClientTypes          ()
-import           Pos.Communication.PeerState    (WithPeerState)
-import           Pos.Context                    (WithNodeContext)
-import           Pos.DB                         (MonadDB)
-import           Pos.DB.Limits                  (MonadDBLimits)
-import           Pos.Delegation.Class           (MonadDelegation)
-import           Pos.DHT.Model                  (MonadDHT)
-import           Pos.Reporting.MemState         (MonadReportingMem)
-import           Pos.Slotting                   (MonadSlots, MonadSlotsData)
-import           Pos.Txp                        (MonadTxpMem)
-
-import           Pos.Wallet.Context             (WithWalletContext)
-import           Pos.Wallet.KeyStorage          (MonadKeys)
-import           Pos.Wallet.State               (MonadWalletDB)
-import           Pos.Wallet.WalletMode          (MonadBalances, MonadBlockchainInfo,
-                                                 MonadTxHistory, MonadUpdates)
 import           Pos.Wallet.Web.ClientTypes     (NotifyEvent (ConnectionClosed, ConnectionOpened))
-import           Pos.Wallet.Web.State           (MonadWalletWebDB)
 
--- NODE: for now we are assuming only one client will be used. If there will be need for multiple clients we should extend and hold multiple connections here.
--- We might add multiple clients when we add user profiles but I am not sure if we are planning on supporting more at all.
-type ConnectionsVar = TVar (Maybe WS.Connection)
 
-initWSConnection :: MonadIO m => m ConnectionsVar
-initWSConnection = liftIO $ newTVarIO Nothing
+type WSConnection = WS.Connection
+type ConnectionsVar = TVar ConnectionSet
 
-closeWSConnection :: MonadIO m => ConnectionsVar -> m ()
-closeWSConnection var = do
-    conn <- liftIO $ readTVarIO var
-    atomically $ writeTVar var Nothing
-    liftIO $ maybe mempty (flip WS.sendClose ConnectionClosed) conn
+initWSConnections :: MonadIO m => m ConnectionsVar
+initWSConnections = newTVarIO def
 
-switchConnection :: ConnectionsVar -> WS.ServerApp
-switchConnection var pending = do
+closeWSConnection :: MonadIO m => ConnectionTag -> ConnectionsVar -> m ()
+closeWSConnection tag var = liftIO $ usingLoggerName "closeWSConnection" $ do
+    maybeConn <- atomically $ deregisterConnection tag var
+    case maybeConn of
+        Nothing   ->
+            logError $ sformat ("Attempted to close an unknown connection with tag "%build) tag
+        Just conn -> do
+            liftIO $ WS.sendClose conn ConnectionClosed
+            logNotice $ sformat ("Closed WS connection with tag "%build) tag
+
+closeWSConnections :: MonadIO m => ConnectionsVar -> m ()
+closeWSConnections var = liftIO $ do
+    conns <- atomically $ swapTVar var def
+    for_ (listConnections conns) $ flip WS.sendClose ConnectionClosed
+
+appendWSConnection :: ConnectionsVar -> WS.ServerApp
+appendWSConnection var pending = do
     conn <- WS.acceptRequest pending
-    closeWSConnection var
-    atomically . writeTVar var $ Just conn
-    sendWS var ConnectionOpened
-    WS.forkPingThread conn 30
-    forever (ignoreData conn) `finally` releaseResources
+    bracket (atomically $ registerConnection conn var) releaseResources $ \_ -> do
+        sendWS conn ConnectionOpened
+        WS.forkPingThread conn 30
+        forever (ignoreData conn)
   where
-    ignoreData :: WS.Connection -> IO Text
+    ignoreData :: WSConnection -> IO Text
     ignoreData = WS.receiveData
-    releaseResources = closeWSConnection var -- TODO: log
+    releaseResources :: MonadIO m => ConnectionTag -> m ()
+    releaseResources tag = closeWSConnection tag var
 
--- If there is a new pending ws connection, the old connection will be replaced with new one.
--- FIXME: this is not safe because someone can kick out previous ws connection. Authentication can solve this issue. Solution: reject pending connection if ws handshake doesn't have valid auth session token
+-- FIXME: we have no authentication and accept all incoming connections.
+-- Possible solution: reject pending connection if WS handshake doesn't have valid auth session token.
 upgradeApplicationWS :: ConnectionsVar -> Application -> Application
-upgradeApplicationWS wsConn = websocketsOr WS.defaultConnectionOptions $ switchConnection wsConn
+upgradeApplicationWS var = websocketsOr WS.defaultConnectionOptions (appendWSConnection var)
 
 -- sendClose :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
 -- sendClose = send WS.sendClose
 
 -- Sends notification msg to connected client. If there is no connection, notification msg will be ignored.
-sendWS :: MonadIO m => ConnectionsVar -> NotifyEvent -> m ()
+sendWS :: MonadIO m => WSConnection -> NotifyEvent -> m ()
 sendWS = send WS.sendTextData
 
-send :: MonadIO m => (WS.Connection -> NotifyEvent -> IO ()) -> ConnectionsVar -> NotifyEvent -> m ()
-send f connVar msg = liftIO $ maybe mempty (flip f msg) =<< readTVarIO connVar
+send :: MonadIO m => (WSConnection -> NotifyEvent -> IO ()) -> WSConnection -> NotifyEvent -> m ()
+send f conn msg = liftIO $ f conn msg
 
 instance WS.WebSocketsData NotifyEvent where
     fromLazyByteString _ = error "Attempt to deserialize NotifyEvent is illegal"
@@ -102,50 +94,62 @@ instance WS.WebSocketsData NotifyEvent where
 --------
 
 -- | Holder for web wallet data
-newtype WalletWebSockets m a = WalletWebSockets
-    { getWalletWS :: ReaderT ConnectionsVar m a
-    } deriving (Functor, Applicative, Monad, MonadThrow,
-                MonadCatch, MonadMask, MonadIO, MonadFail, HasLoggerName,
-                MonadWalletDB, MonadDBLimits, WithWalletContext,
-                MonadDHT, MonadSlots, MonadSlotsData,
-                CanLog, MonadKeys, MonadBalances, MonadUpdates,
-                MonadTxHistory, MonadBlockchainInfo, WithNodeContext ssc, WithPeerState,
-                MonadDB, MonadTxpMem x, MonadWalletWebDB, MonadDelegation,
-                MonadReportingMem)
-
-instance Monad m => WrappedM (WalletWebSockets m) where
-    type UnwrappedM (WalletWebSockets m) = ReaderT ConnectionsVar m
-    _WrappedM = iso getWalletWS WalletWebSockets
-
-instance MonadTrans WalletWebSockets where
-    lift = WalletWebSockets . lift
+type WalletWebSockets = Ether.ReaderT' ConnectionsVar
 
 -- | MonadWalletWebSockets stands for monad which is able to get web wallet sockets
-class Monad m => MonadWalletWebSockets m where
-    getWalletWebSockets :: m ConnectionsVar
+type MonadWalletWebSockets = Ether.MonadReader' ConnectionsVar
 
-instance Monad m => MonadWalletWebSockets (WalletWebSockets m) where
-    getWalletWebSockets = WalletWebSockets ask
-
-type instance ThreadId (WalletWebSockets m) = ThreadId m
-type instance Promise (WalletWebSockets m) = Promise m
-type instance SharedAtomicT (WalletWebSockets m) = SharedAtomicT m
-type instance Counter (WalletWebSockets m) = Counter m
-type instance Distribution (WalletWebSockets m) = Distribution m
-type instance SharedExclusiveT (WalletWebSockets m) = SharedExclusiveT m
-type instance Gauge (WalletWebSockets m) = Gauge m
-type instance ChannelT (WalletWebSockets m) = ChannelT m
-
-instance ( Mockable d m
-         , MFunctor' d (WalletWebSockets m) (ReaderT ConnectionsVar m)
-         , MFunctor' d (ReaderT ConnectionsVar m) m
-         ) => Mockable d (WalletWebSockets m) where
-    liftMockable = liftMockableWrappedM
-
-runWalletWS :: ConnectionsVar -> WalletWebSockets m a -> m a
-runWalletWS conn = flip runReaderT conn . getWalletWS
+getWalletWebSockets :: MonadWalletWebSockets m => m ConnectionsVar
+getWalletWebSockets = Ether.ask'
 
 type WebWalletSockets m = (MonadWalletWebSockets m, MonadIO m)
 
-notify :: WebWalletSockets m => NotifyEvent -> m ()
-notify msg = getWalletWebSockets >>= flip sendWS msg
+runWalletWS :: ConnectionsVar -> WalletWebSockets m a -> m a
+runWalletWS = flip Ether.runReaderT
+
+notifyAll :: WebWalletSockets m => NotifyEvent -> m ()
+notifyAll msg = do
+  var <- getWalletWebSockets
+  conns <- readTVarIO var
+  for_ (listConnections conns) $ flip sendWS msg
+
+------------------------------------
+-- Implementation of ConnectionSet
+------------------------------------
+
+data TaggedSet v = TaggedSet
+    { tsUnusedTag :: IM.Key
+    , tsData      :: IntMap v
+    }
+
+instance Default (TaggedSet v) where
+  def = TaggedSet 0 IM.empty
+
+type ConnectionTag = IM.Key
+type ConnectionSet = TaggedSet WSConnection
+
+registerConnection :: WSConnection -> ConnectionsVar -> STM ConnectionTag
+registerConnection conn var =
+    modifyTVarS var $ state $ registerConnectionPure conn
+
+deregisterConnection :: ConnectionTag -> ConnectionsVar -> STM (Maybe WSConnection)
+deregisterConnection tag var = modifyTVarS var $ do
+    conns <- get
+    case deregisterConnectionPure tag conns of
+        Nothing -> pure Nothing
+        Just (conn, newConns) -> do
+            put newConns
+            pure (Just conn)
+
+registerConnectionPure :: WSConnection -> ConnectionSet -> (ConnectionTag, ConnectionSet)
+registerConnectionPure conn conns =
+  let newKey = tsUnusedTag conns + 1 in
+  (newKey, TaggedSet newKey (IM.insert newKey conn $ tsData conns))
+
+deregisterConnectionPure :: ConnectionTag -> ConnectionSet -> Maybe (WSConnection, ConnectionSet)
+deregisterConnectionPure tag conns = do  -- Maybe monad
+  conn <- IM.lookup tag (tsData conns)
+  pure (conn, TaggedSet (tsUnusedTag conns) (IM.delete tag $ tsData conns))
+
+listConnections :: ConnectionSet -> [WSConnection]
+listConnections = IM.elems . tsData

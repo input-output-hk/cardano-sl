@@ -25,9 +25,9 @@ import           Universum
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core  ()
 import           Pos.Core.Types   (EpochIndex)
-import           Pos.DB.Class     (MonadDB, getLrcDB)
+import           Pos.DB.Class     (DBTag (LrcDB), MonadDB (dbDelete), MonadDBRead)
 import           Pos.DB.Error     (DBError (DBMalformed))
-import           Pos.DB.Functions (rocksDelete, rocksGetBi, rocksPutBi)
+import           Pos.DB.Functions (dbGetBi, dbPutBi)
 import           Pos.Util.Util    (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -35,29 +35,29 @@ import           Pos.Util.Util    (maybeThrow)
 ----------------------------------------------------------------------------
 
 getBi
-    :: (MonadDB m, Bi v)
+    :: (MonadDBRead m, Bi v)
     => ByteString -> m (Maybe v)
-getBi k = rocksGetBi k =<< getLrcDB
+getBi = dbGetBi LrcDB
 
 putBi
     :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
-putBi k v = rocksPutBi k v =<< getLrcDB
+putBi = dbPutBi LrcDB
 
 delete :: (MonadDB m) => ByteString -> m ()
-delete k = rocksDelete k =<< getLrcDB
+delete = dbDelete LrcDB
 
 ----------------------------------------------------------------------------
 -- Common getters
 ----------------------------------------------------------------------------
 
 -- | Get epoch up to which LRC is definitely known.
-getEpoch :: MonadDB m => m EpochIndex
+getEpoch :: MonadDBRead m => m EpochIndex
 getEpoch = maybeThrow (DBMalformed "no epoch in LRC DB") =<< getEpochMaybe
 
 -- It's a workaround and I would like to get rid of it in future (@gromak).
 -- | Get epoch up to which LRC is definitely known or 0.
-getEpochDefault :: MonadDB m => m EpochIndex
+getEpochDefault :: MonadDBRead m => m EpochIndex
 getEpochDefault = fromMaybe 0 <$> getEpochMaybe
 
 ----------------------------------------------------------------------------
@@ -74,16 +74,10 @@ putEpoch = putBi epochKey
 ----------------------------------------------------------------------------
 
 -- | Put missing initial common data into LRC DB.
-prepareLrcCommon
-    :: forall m.
-       MonadDB m
-    => m ()
-prepareLrcCommon = putIfEmpty getEpochMaybe (putEpoch 0)
-  where
-    putIfEmpty
-        :: forall a.
-           (m (Maybe a)) -> m () -> m ()
-    putIfEmpty getter putter = maybe putter (const pass) =<< getter
+prepareLrcCommon :: (MonadDB m, MonadDBRead m) => m ()
+prepareLrcCommon =
+    whenNothingM_ getEpochMaybe $
+        putEpoch 0
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -96,5 +90,5 @@ epochKey = "c/epoch"
 -- Details
 ----------------------------------------------------------------------------
 
-getEpochMaybe :: MonadDB m => m (Maybe EpochIndex)
+getEpochMaybe :: MonadDBRead m => m (Maybe EpochIndex)
 getEpochMaybe = getBi epochKey

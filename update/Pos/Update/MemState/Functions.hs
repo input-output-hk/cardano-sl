@@ -5,37 +5,44 @@ module Pos.Update.MemState.Functions
        , addToMemPool
        ) where
 
+import           Universum
+
 import qualified Control.Concurrent.Lock   as Lock
 import           Control.Monad.Catch       (MonadMask, bracket_)
 import qualified Data.HashMap.Strict       as HM
-import           Universum
+import qualified Ether
 
-import           Pos.Binary.Class          (Bi)
+import           Pos.Binary.Class          (biSize)
+import           Pos.Binary.Update         ()
 import           Pos.Crypto                (PublicKey, hash)
 import           Pos.Update.Context        (UpdateContext (ucMemState))
 import           Pos.Update.Core.Types     (LocalVotes, UpdatePayload (..),
-                                            UpdateProposal, UpdateVote (..))
+                                            UpdateVote (..))
 import           Pos.Update.MemState.Types (MemPool (..), MemVar (..))
-import           Pos.Util.Context          (HasContext, askContext)
 
 type UpdateVotes = HashMap PublicKey UpdateVote
 
 withUSLock
-    :: (HasContext UpdateContext m, MonadIO m, MonadMask m)
+    :: (Ether.MonadReader' UpdateContext m, MonadIO m, MonadMask m)
     => m a -> m a
 withUSLock action = do
-    lock <- mvLock <$> askContext ucMemState
+    lock <- mvLock <$> Ether.asks' ucMemState
     bracket_ (liftIO $ Lock.acquire lock) (liftIO $ Lock.release lock) action
 
--- | Add given payload to MemPool.
-addToMemPool :: Bi UpdateProposal => UpdatePayload -> MemPool -> MemPool
+-- | Add given payload to MemPool. Size is updated assuming that all added
+-- data is new (is not in MemPool). This assumption is fine, because
+-- duplicated data should be considered invalid anyway.
+addToMemPool :: UpdatePayload -> MemPool -> MemPool
 addToMemPool UpdatePayload {..} = addProposal . addVotes
   where
     addProposal mp =
         case upProposal of
             Nothing -> mp
-            Just up -> mp {mpProposals = HM.insert (hash up) up (mpProposals mp)}
-    addVotes mp = mp {mpLocalVotes = foldr' forceInsertVote (mpLocalVotes mp) upVotes}
+            Just up -> mp { mpProposals = HM.insert (hash up) up (mpProposals mp)
+                          , mpSize = biSize (hash up) + biSize up + mpSize mp}
+    -- Here size update is not accurate, but it shouldn't matter.
+    addVotes mp = mp { mpLocalVotes = foldr' forceInsertVote (mpLocalVotes mp) upVotes
+                     , mpSize = biSize upVotes + mpSize mp}
 
     forceInsertVote :: UpdateVote -> LocalVotes -> LocalVotes
     forceInsertVote e@UpdateVote{..} = HM.alter (append e) uvProposalId

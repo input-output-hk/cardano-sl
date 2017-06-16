@@ -10,7 +10,6 @@ module Pos.Ssc.NistBeacon
 import           Crypto.Hash             (SHA256)
 import qualified Crypto.Hash             as Hash
 import qualified Data.ByteArray          as ByteArray (convert)
-import           Data.Coerce             (coerce)
 import           Data.Tagged             (Tagged (..))
 import           Data.Text.Buildable     (Buildable (build))
 import           Universum
@@ -18,7 +17,7 @@ import           Universum
 import           Pos.Binary.Class        (encode)
 import           Pos.Binary.Relay        ()
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
-import           Pos.Ssc.Class.Listeners (SscListenersClass (..), sscStubListeners)
+import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscGStateClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
@@ -32,6 +31,7 @@ data SscNistBeacon
 deriving instance Show SscNistBeacon
 deriving instance Eq SscNistBeacon
 
+-- FIXME Why is it here at all?
 instance Buildable () where
     build _ = "()"
 
@@ -46,18 +46,19 @@ instance Ssc SscNistBeacon where
     type SscVerifyError SscNistBeacon = ()
 
     mkSscProof = Tagged $ const ()
-    sscCreateNodeContext = Tagged $ const (return ())
+    sscCreateNodeContext = Tagged $ const (pure ())
 
 instance SscHelpersClass SscNistBeacon where
-    sscVerifyPayload = Tagged $ const $ const $ Right ()
+    sscVerifyPayload = const $ const $ Right ()
+    sscStripPayload _ () = Just ()
+    sscDefaultPayload _ = ()
 
 instance SscWorkersClass SscNistBeacon where
-    sscWorkers = Tagged ([], mempty)
-    sscLrcConsumers = Tagged []
+    sscWorkers = ([], mempty)
+    sscLrcConsumers = []
 
 instance SscListenersClass SscNistBeacon where
-    sscListeners = return $ Tagged ([], mempty)
-    sscStubListeners = Tagged ([], mempty)
+    sscRelays = Tagged []
 
 instance SscLocalDataClass SscNistBeacon where
     sscGetLocalPayloadQ _ = pure ()
@@ -65,10 +66,11 @@ instance SscLocalDataClass SscNistBeacon where
     sscNewLocalData = pure ()
 
 instance SscGStateClass SscNistBeacon where
-    sscLoadGlobalState = pure ()
+    sscLoadGlobalState = pass
     sscGlobalStateToBatch _ = Tagged []
-    sscRollbackU _ = pure ()
+    sscRollbackU _ = pass
     sscVerifyAndApplyBlocks _ _ = pass
-    sscCalculateSeedQ =
-        pure . Right . coerce . ByteArray.convert @_ @ByteString .
-            Hash.hashlazy @SHA256 . encode
+    sscCalculateSeedQ i _ = do
+        let h :: ByteString
+            h = ByteArray.convert $ Hash.hashlazy @SHA256 (encode i)
+        return $ Right (SharedSeed h)

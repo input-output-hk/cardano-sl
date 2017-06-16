@@ -1,84 +1,40 @@
 -- | Communication-specific utility functions.
 
 module Pos.Communication.Util
-       ( stubListenerOneMsg
-       , stubListenerConv
-       , wrapListener
+       ( wrapListener
        , wrapActionSpec
        , wrapSendActions
        ) where
 
 import           Universum
 
-import           Data.Proxy                  (asProxyTypeOf)
 import           Data.Time.Units             (Microsecond)
-import           Formatting                  (build, sformat, shown, (%))
+import           Formatting                  (sformat, shown, (%))
 import           Mockable                    (Async, Bracket, Delay, Mockable)
 import qualified Node                        as N
 import           Serokell.Util.Base16        (base16F)
-import           System.Wlog                 (LoggerName, WithLogger, logDebug,
-                                              logWarning, modifyLoggerName)
+import           System.Wlog                 (LoggerName, WithLogger, logWarning,
+                                              modifyLoggerName)
 
-import           Pos.Binary.Class            (Bi)
 import           Pos.Communication.BiP       (BiP)
 import           Pos.Communication.Constants (networkReceiveTimeout)
-import           Pos.Communication.Protocol  (ActionSpec (..), HandlerSpec (..), Listener,
-                                              ListenerSpec (..), Message (..),
-                                              MessageName (..), OutSpecs, PeerData,
-                                              mapActionSpec, mapListener, mapListener',
-                                              messageName')
+import           Pos.Communication.Protocol  (ActionSpec (..), Listener, Message (..),
+                                              MessageName (..), PeerData, mapActionSpec,
+                                              mapListener, mapListener')
 import           Pos.Util.TimeLimit          (CanLogInParallel, execWithTimeLimit,
                                               logWarningWaitLinear)
-
-stubListenerOneMsg
-    :: (WithLogger m, Message r, Bi r)
-    => Proxy r -> (ListenerSpec m, OutSpecs)
-stubListenerOneMsg p = (ListenerSpec listener (rcvName, OneMsgHandler), mempty)
-  where
-    rcvName = messageName p
-    listener _ = N.ListenerActionOneMsg $
-      \_d __nId __sA m ->
-        let _ = m `asProxyTypeOf` p
-         in modifyLoggerName (<> "stub") $
-              logDebug $ sformat
-                  ("Stub listener (one msg) for "%build%": received message")
-                  rcvName
-
-stubListenerConv
-    :: (WithLogger m, Message snd, Message rcv, Bi rcv, Bi snd)
-    => Proxy (rcv, snd) -> (ListenerSpec m, OutSpecs)
-stubListenerConv p = (ListenerSpec listener (rcvName, ConvHandler sndName), mempty)
-  where
-    modP :: Proxy (rcv, snd) -> Proxy (N.ConversationActions snd rcv m)
-    modP _ = Proxy
-    sndProxy :: Proxy (rcv, snd) -> Proxy snd
-    sndProxy _ = Proxy
-    rcvProxy :: Proxy (rcv, snd) -> Proxy rcv
-    rcvProxy _ = Proxy
-    rcvName = messageName $ rcvProxy p
-    sndName = messageName $ sndProxy p
-    listener _ = N.ListenerActionConversation $
-      \_d __nId convActions ->
-          let _ = convActions `asProxyTypeOf` modP p
-           in modifyLoggerName (<> "stub") $
-                logDebug $ sformat
-                    ("Stub listener ("%build%", Conv "%build%"): received message")
-                    rcvName
-                    sndName
 
 sendActionsWithWaitLog :: ( CanLogInParallel m )
             => N.SendActions BiP PeerData m
             -> N.SendActions BiP PeerData m
 sendActionsWithWaitLog sendActions = sendActions
-    { N.sendTo = \nodeId msg ->
-                  let MessageName mName = messageName' msg
-                   in logWarningWaitLinear 4
-                        (sformat ("Send "%base16F%" to "%shown) mName nodeId) $
-                          N.sendTo sendActions nodeId msg
-    , N.withConnectionTo =
-        \nodeId action ->
+    { N.withConnectionTo =
+        \nodeId mkConv ->
           N.withConnectionTo sendActions nodeId $ \peerData ->
-              action peerData . convWithWaitLog nodeId
+              case mkConv peerData of
+                  N.Conversation l ->
+                      N.Conversation $ \cA ->
+                          l $ convWithWaitLog nodeId cA
     }
 
 convWithWaitLog
@@ -147,14 +103,13 @@ sendActionsWithTimeLimit
     -> N.SendActions BiP PeerData m
     -> N.SendActions BiP PeerData m
 sendActionsWithTimeLimit timeout sendActions = sendActions
-    { N.withConnectionTo = \nodeId action ->
-        N.withConnectionTo sendActions nodeId $ \peerData ->
-            action peerData . convWithTimeLimit timeout nodeId
-    , N.sendTo = \nodeId msg -> do
-                    res <- execWithTimeLimit timeout $ N.sendTo sendActions nodeId msg
-                    whenNothing res . logWarning $
-                        sformat ("Send to "%shown%" (one msg) - timeout expired")
-                            nodeId
+    { N.withConnectionTo =
+        \nodeId mkConv ->
+          N.withConnectionTo sendActions nodeId $ \peerData ->
+              case mkConv peerData of
+                  N.Conversation l ->
+                      N.Conversation $ \cA ->
+                          l $ convWithTimeLimit timeout nodeId cA
     }
 
 wrapListener
@@ -164,7 +119,6 @@ wrapListener
      , Mockable Delay m
      , MonadIO m
      , WithLogger m
---     , WithNodeContext ssc m
      )
   => LoggerName -> Listener m -> Listener m
 wrapListener lname =
@@ -179,12 +133,7 @@ wrapListener lname =
 
 wrapActionSpec
   :: ( CanLogInParallel m
-     , Mockable Async m
      , Mockable Bracket m
-     , Mockable Delay m
-     , MonadIO m
-     , WithLogger m
---     , WithNodeContext ssc m
      )
   => LoggerName -> ActionSpec m a -> ActionSpec m a
 wrapActionSpec lname =
@@ -204,7 +153,6 @@ wrapSendActions
      , Mockable Delay m
      , MonadIO m
      , WithLogger m
---    , WithNodeContext ssc m
      )
   => N.SendActions BiP PeerData m
   -> N.SendActions BiP PeerData m

@@ -14,7 +14,7 @@ import           Data.DeriveTH               (derive, makeArbitrary)
 import           Data.List.NonEmpty          (fromList)
 import           System.IO.Unsafe            (unsafePerformIO)
 import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate,
-                                              vector)
+                                              oneof, vector)
 
 import           Pos.Binary.Class            (AsBinary (..), AsBinaryClass (..), Bi)
 import           Pos.Binary.Crypto           ()
@@ -24,14 +24,14 @@ import           Pos.Crypto.Hashing          (AbstractHash, HashAlgorithm)
 import           Pos.Crypto.HD               (HDPassphrase (..))
 import           Pos.Crypto.RedeemSigning    (RedeemPublicKey, RedeemSecretKey,
                                               RedeemSignature, redeemKeyGen, redeemSign)
-import           Pos.Crypto.SafeSigning      (PassPhrase)
+import           Pos.Crypto.SafeSigning      (PassPhrase, createProxyCert,
+                                              createProxySecretKey)
 import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
                                               SecretSharingExtra, Share, Threshold,
                                               VssKeyPair, VssPublicKey, decryptShare,
                                               genSharedSecret, toVssPublicKey, vssKeyGen)
 import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySignature,
                                               PublicKey, SecretKey, Signature, Signed,
-                                              createProxyCert, createProxySecretKey,
                                               keyGen, mkSigned, proxySign, sign, toPublic)
 import           Pos.Crypto.SignTag          (SignTag (..))
 import           Pos.Util.Arbitrary          (Nonrepeating (..), arbitraryUnsafe,
@@ -215,7 +215,10 @@ instance (HashAlgorithm algo, Bi a) => Arbitrary (AbstractHash algo a) where
 ----------------------------------------------------------------------------
 
 instance Arbitrary PassPhrase where
-    arbitrary = ByteArray.pack <$> vector 32
+    arbitrary = oneof [
+        pure mempty,
+        ByteArray.pack <$> vector 32
+        ]
 
 ----------------------------------------------------------------------------
 -- HD

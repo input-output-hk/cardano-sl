@@ -1,0 +1,84 @@
+name:                cardano-sl-ssc
+version:             0.4.4
+synopsis:            Cardano SL - the SSC class
+description:         Cardano SL - the SSC class
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+    Pos.Ssc.Class
+    Pos.Ssc.Class.Types
+    Pos.Ssc.Class.LocalData
+    Pos.Ssc.Class.Helpers
+    Pos.Ssc.Class.Storage
+    Pos.Ssc.Class.Listeners
+    Pos.Ssc.Class.Workers
+
+    Pos.Ssc.Extra
+    Pos.Ssc.Extra.Types
+    Pos.Ssc.Extra.Holder
+    Pos.Ssc.Extra.Class
+    Pos.Ssc.Extra.Logic
+
+    Pos.Ssc.Mode
+    Pos.Ssc.RichmenComponent
+
+    Pos.Security.Params
+    Pos.Security.Util
+
+  build-depends:       base
+                     , cardano-sl-core
+                     , cardano-sl-db
+                     , cardano-sl-infra
+                     , cardano-sl-lrc
+                     , cardano-sl-update
+                     , ether
+                     , exceptions
+                     , formatting
+                     , lens
+                     , log-warper
+                     , mmorph
+                     , mtl
+                     , node-sketch
+                     , serokell-util
+                     , stm
+                     , tagged
+                     , text-format
+                     , universum
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

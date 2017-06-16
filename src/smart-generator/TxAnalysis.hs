@@ -7,26 +7,26 @@ module TxAnalysis
        , checkWorker
        ) where
 
+import           Universum             hiding (catchAll)
+
 import           Control.Lens          (_Wrapped, _last)
 import qualified Data.HashMap.Strict   as M
-import           Data.IORef            (IORef, modifyIORef', newIORef, readIORef,
-                                        writeIORef)
 import           Data.List             (intersect)
-import           Data.Maybe            (fromJust, maybeToList)
+import           Data.Maybe            (fromJust)
 import           Formatting            (build, sformat, (%))
 import           Mockable              (catchAll, delay)
 import           System.FilePath.Posix ((</>))
 import           System.Wlog           (logWarning)
-import           Universum             hiding (catchAll)
 
+import           Pos.Block.Core        (mainBlockSlot, mainBlockTxPayload)
 import           Pos.Constants         (blkSecurityParam, genesisSlotDuration)
+import           Pos.Core              (SlotId (..))
 import           Pos.Crypto            (hash)
 import           Pos.DB.DB             (loadBlundsFromTipByDepth)
 import           Pos.Slotting          (getCurrentSlotBlocking, getSlotStartEmpatically)
 import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.Txp               (TxId)
-import           Pos.Types             (SlotId (..), blockSlot, blockTxs)
-import           Pos.WorkMode          (ProductionMode)
+import           Pos.Txp               (TxId, txpTxs)
+import           Pos.WorkMode          (RealMode)
 
 import           Util                  (verifyCsvFile, verifyCsvFormat)
 
@@ -40,7 +40,7 @@ data TxTimestamps = TxTimestamps
 createTxTimestamps :: IO TxTimestamps
 createTxTimestamps = TxTimestamps
                      <$> newIORef M.empty
-                     <*> newIORef (SlotId 0 0)
+                     <*> newIORef (SlotId 0 minBound)
 
 registerSentTx :: TxTimestamps -> TxId -> Int -> Word64 -> IO ()
 registerSentTx TxTimestamps{..} id roundNum ts =
@@ -60,7 +60,7 @@ appendVerified ts roundNum df logsPrefix = do
 checkTxsInLastBlock
     :: forall ssc.
        SscConstraint ssc
-    => TxTimestamps -> FilePath -> ProductionMode ssc ()
+    => TxTimestamps -> FilePath -> RealMode ssc ()
 checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
     mBlock <- preview (_Wrapped . _last . _1) <$>
               loadBlundsFromTipByDepth @ssc blkSecurityParam
@@ -68,34 +68,35 @@ checkTxsInLastBlock TxTimestamps {..} logsPrefix = do
         Nothing -> pure ()
         Just (Left _) -> pure ()
         Just (Right block) -> do
-            st <- liftIO $ readIORef sentTimes
-            ls <- liftIO $ readIORef lastSlot
-            let curSlot = block^.blockSlot
+            st <- readIORef sentTimes
+            ls <- readIORef lastSlot
+            let curSlot = block ^. mainBlockSlot
             when (ls < curSlot) $ do
                 let toCheck = M.keys st
-                    txsMerkle = block^.blockTxs
+                    txsMerkle = block ^. mainBlockTxPayload . txpTxs
                     txIds = map hash $ toList txsMerkle
                     verified = toCheck `intersect` txIds
 
                 -- Delete verified txs from hashmap
                 let newSt = foldr M.delete st verified
-                liftIO $ writeIORef sentTimes newSt
+                writeIORef sentTimes newSt
 
-                -- We don't know exact time when checked block has been created/adopted,
-                -- but we do know that it was not at `blkSecurityParam` depth a slot ago,
-                -- so we just take a beginning of current slot
+                -- We don't know exact time when checked block has been
+                -- created/adopted, but we do know that it was not at
+                -- `blkSecurityParam` depth a slot ago, so we just take a
+                -- beginning of current slot
                 slStart <- getSlotStartEmpatically =<< getCurrentSlotBlocking
-                liftIO $ writeIORef lastSlot curSlot
+                writeIORef lastSlot curSlot
 
                 let verifiedSentData = map (fromJust . flip M.lookup st) verified
                     verifiedPairedData = zip verified verifiedSentData
                     splitData = splitRound verifiedPairedData
 
-                forM_ (M.toList splitData) $ \(roundNum, df) ->
+                for_ (M.toList splitData) $ \(roundNum, df) ->
                     liftIO $ appendVerified (fromIntegral slStart) roundNum df logsPrefix
 
 checkWorker :: forall ssc . SscConstraint ssc
-            => TxTimestamps -> FilePath -> ProductionMode ssc ()
+            => TxTimestamps -> FilePath -> RealMode ssc ()
 checkWorker txts logsPrefix = loop `catchAll` onError
   where
     loop = do

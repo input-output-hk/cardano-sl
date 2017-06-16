@@ -11,13 +11,12 @@ module Pos.Util.BackupPhrase
        , safeKeysFromPhrase
        ) where
 
-import qualified Data.Text           as T
 import           Data.Text.Buildable (Buildable (..))
 import qualified Prelude
 import           Universum
 
 import           Crypto.Hash         (Blake2b_256)
-import           Pos.Binary          (Bi, encodeStrict)
+import           Pos.Binary          (Bi (..), encodeStrict, label)
 import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhrase,
                                       SecretKey, VssKeyPair, deterministicKeyGen,
                                       deterministicVssKeyGen, safeDeterministicKeyGen,
@@ -29,6 +28,10 @@ import           Pos.Util.Mnemonics  (fromMnemonic, toMnemonic)
 newtype BackupPhrase = BackupPhrase
     { bpToList :: [Text]
     } deriving (Eq, Generic)
+
+instance Bi BackupPhrase where
+    put BackupPhrase{..} = put bpToList
+    get = label "BackupPhrase" $ BackupPhrase <$> get
 
 -- | Number of words in backup phrase
 backupPhraseWordsNum :: Int
@@ -47,16 +50,16 @@ mkBackupPhrase9 ls
     | otherwise = error "Invalid number of words in backup phrase! Expected 9 words."
 
 instance Show BackupPhrase where
-    show = toString . T.unwords . bpToList
+    show = toString . unwords . bpToList
 
 instance Buildable BackupPhrase where
-    build = build . T.unwords . bpToList
+    build = build . unwords . bpToList
 
 instance Read BackupPhrase where
-    readsPrec _ str = either fail (pure . (, mempty) .BackupPhrase . T.words) $ toMnemonic =<< fromMnemonic (toText str)
+    readsPrec _ str = either fail (pure . (, mempty) .BackupPhrase . words) $ toMnemonic =<< fromMnemonic (toText str)
 
 toSeed :: BackupPhrase -> Either Text ByteString
-toSeed = first toText . fromMnemonic . T.unwords . bpToList
+toSeed = first toText . fromMnemonic . unwords . bpToList
 
 toHashSeed :: BackupPhrase -> Either Text ByteString
 toHashSeed bp = encodeStrict . blake2b <$> toSeed bp

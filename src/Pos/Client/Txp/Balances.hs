@@ -2,77 +2,86 @@
 
 module Pos.Client.Txp.Balances
        ( MonadBalances(..)
+       , getOwnUtxo
        , getBalanceFromUtxo
+       , BalancesRedirect
+       , runBalancesRedirect
        ) where
 
 import           Universum
 
-import           Control.Monad.Trans         (MonadTrans)
-import qualified Data.HashMap.Strict         as HM
-import           Formatting                  (sformat, stext, (%))
-import           System.Wlog                 (WithLogger, logWarning)
+import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
+import qualified Data.HashMap.Strict          as HM
+import qualified Data.HashSet                 as HS
+import qualified Data.Map                     as M
+import qualified Ether
+import           Formatting                   (sformat, stext, (%))
+import           System.Wlog                  (WithLogger, logWarning)
 
-import qualified Data.Map                    as M
-import           Pos.Communication.PeerState (PeerStateHolder)
-import qualified Pos.Context                 as PC
-import           Pos.Crypto                  (WithHash (..), shortHashF)
-import           Pos.DB                      (MonadDB)
-import qualified Pos.DB.GState               as GS
-import qualified Pos.DB.GState.Balances      as GS
-import           Pos.Delegation              (DelegationT (..))
-import           Pos.DHT.Real                (KademliaDHT (..))
-import           Pos.Slotting                (NtpSlotting, SlottingHolder)
-import           Pos.Ssc.Extra               (SscHolder (..))
-import           Pos.Txp                     (GenericToilModifier (..), TxOutAux (..),
-                                              TxpHolder (..), Utxo, addrBelongsTo,
-                                              applyToil, getLocalTxsNUndo,
-                                              getUtxoModifier, runToilAction, topsortTxs,
-                                              txOutValue, _bvStakes)
-import           Pos.Types                   (Address (..), Coin, mkCoin, sumCoins,
-                                              unsafeIntegerToCoin)
-import qualified Pos.Util.Modifier           as MM
+import           Pos.Core                     (AddressIgnoringAttributes (AddressIA))
+import           Pos.Crypto                   (WithHash (..), shortHashF)
+import           Pos.DB                       (MonadRealDB, MonadDBRead)
+import qualified Pos.DB.GState                as GS
+import qualified Pos.DB.GState.Balances       as GS
+import           Pos.Txp                      (GenericToilModifier (..), MonadTxpMem,
+                                               TxAux (..), TxOutAux (..), Utxo,
+                                               addrBelongsToSet, applyToil,
+                                               getLocalTxsNUndo, getUtxoModifier,
+                                               runToilAction, topsortTxs, txOutValue,
+                                               _bvStakes)
+import           Pos.Types                    (Address (..), Coin, mkCoin, sumCoins,
+                                               unsafeIntegerToCoin)
+import qualified Pos.Util.Modifier            as MM
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
-    getOwnUtxo :: Address -> m Utxo
+    getOwnUtxos :: [Address] -> m Utxo
     getBalance :: Address -> m Coin
     -- TODO: add a function to get amount of stake (it's different from
     -- balance because of distributions)
 
-    default getOwnUtxo :: (MonadTrans t, MonadBalances m', t m' ~ m) => Address -> m Utxo
-    getOwnUtxo = lift . getOwnUtxo
+    default getOwnUtxos :: (MonadTrans t, MonadBalances m', t m' ~ m) => [Address] -> m Utxo
+    getOwnUtxos = lift . getOwnUtxos
 
     default getBalance :: (MonadTrans t, MonadBalances m', t m' ~ m) => Address -> m Coin
     getBalance = lift . getBalance
+
+instance {-# OVERLAPPABLE #-}
+    (MonadBalances m, MonadTrans t, Monad (t m)) =>
+        MonadBalances (t m)
 
 getBalanceFromUtxo :: MonadBalances m => Address -> m Coin
 getBalanceFromUtxo addr =
     unsafeIntegerToCoin . sumCoins .
     map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
 
-instance MonadBalances m => MonadBalances (ReaderT r m)
-instance MonadBalances m => MonadBalances (StateT s m)
-instance MonadBalances m => MonadBalances (KademliaDHT m)
-instance MonadBalances m => MonadBalances (PeerStateHolder m)
-instance MonadBalances m => MonadBalances (NtpSlotting m)
-instance MonadBalances m => MonadBalances (SlottingHolder m)
+data BalancesRedirectTag
 
-deriving instance MonadBalances m => MonadBalances (PC.ContextHolder ssc m)
-deriving instance MonadBalances m => MonadBalances (SscHolder ssc m)
-deriving instance MonadBalances m => MonadBalances (DelegationT m)
+type BalancesRedirect =
+    Ether.TaggedTrans BalancesRedirectTag IdentityT
 
-instance (MonadDB m, MonadMask m, WithLogger m) => MonadBalances (TxpHolder __ m) where
-    getOwnUtxo addr = do
+runBalancesRedirect :: BalancesRedirect m a -> m a
+runBalancesRedirect = coerce
+
+instance
+    (MonadRealDB m, MonadDBRead m, MonadMask m, WithLogger m, MonadTxpMem ext m, t ~ IdentityT) =>
+        MonadBalances (Ether.TaggedTrans BalancesRedirectTag t m)
+  where
+    getOwnUtxos addr = do
         utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoModifier
-        let toDel = MM.deletions updates
-            toAdd = HM.filter (`addrBelongsTo` addr) $ MM.insertionsMap updates
-            utxo' = foldr M.delete utxo toDel
+        let addrsSet = HS.fromList $ AddressIA <$> addr
+            toDel    = MM.deletions updates
+            toAdd    = HM.filter (`addrBelongsToSet` addrsSet) $
+                       MM.insertionsMap updates
+            utxo'    = foldr M.delete utxo toDel
         return $ HM.foldrWithKey M.insert utxo' toAdd
 
     getBalance PubKeyAddress{..} = do
         (txs, undos) <- getLocalTxsNUndo
-        let wHash (i, (t, _, _)) = WithHash t i
+        let wHash (i, TxAux tx _ _) = WithHash tx i
         case topsortTxs wHash txs of
             Nothing -> do
                 logWarn "couldn't topsort mempool txs"
@@ -88,3 +97,6 @@ instance (MonadDB m, MonadMask m, WithLogger m) => MonadBalances (TxpHolder __ m
                          " using mempool, reason: "%stext) addrKeyHash er
         getFromDb = fromMaybe (mkCoin 0) <$> GS.getRealStake addrKeyHash
     getBalance addr = getBalanceFromUtxo addr
+
+getOwnUtxo :: MonadBalances m => Address -> m Utxo
+getOwnUtxo = getOwnUtxos . one

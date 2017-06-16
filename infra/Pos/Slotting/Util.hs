@@ -1,4 +1,3 @@
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Slotting utilities.
@@ -31,9 +30,9 @@ import           System.Wlog            (WithLogger, logDebug, logError, logInfo
                                          logNotice, modifyLoggerName)
 import           Universum
 
-import           Pos.Core.Slotting      (flattenSlotId)
-import           Pos.Core.Types         (FlatSlotId, SlotId (..), Timestamp (..), slotIdF)
-import           Pos.DHT.Model.Class    (MonadDHT)
+import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..),
+                                         flattenSlotId, getSlotIndex, slotIdF)
+import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
 import           Pos.Reporting.MemState (MonadReportingMem)
 import           Pos.Reporting.Methods  (reportMisbehaviourMasked, reportingFatal)
@@ -42,10 +41,7 @@ import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
 import           Pos.Slotting.MemState  (MonadSlotsData (..))
 import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData (..))
-
--- TODO eliminate this copy-paste when would refactor Pos.Util
-maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
-maybeThrow e = maybe (throwM e) pure
+import           Pos.Util.Util          (maybeThrow)
 
 -- | Get flat id of current slot based on MonadSlots.
 getCurrentSlotFlat :: MonadSlots m => m (Maybe FlatSlotId)
@@ -60,7 +56,7 @@ getSlotStart SlotId{..} = do
        | siEpoch == sdPenultEpoch + 1 -> pure . Just $ slotTimestamp siSlot sdLast
        | otherwise -> pure Nothing
   where
-    slotTimestamp locSlot EpochSlottingData{..} =
+    slotTimestamp (getSlotIndex -> locSlot) EpochSlottingData{..} =
         esdStart + Timestamp (fromIntegral locSlot * convertUnit esdSlotDuration)
 
 -- | Get timestamp when given slot starts empatically, which means
@@ -80,12 +76,12 @@ type OnNewSlot m =
     ( MonadIO m
     , MonadSlots m
     , MonadMask m
-    , MonadDHT m
     , WithLogger m
     , Mockable Fork m
     , Mockable Delay m
     , MonadReportingMem m
     , MonadShutdownMem m
+    , MonadDiscovery m
     )
 
 -- | Run given action as soon as new slot starts, passing SlotId to
@@ -155,9 +151,7 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdow
     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait
 
-logNewSlotWorker
-    :: OnNewSlot m
-    => m ()
+logNewSlotWorker :: OnNewSlot m => m ()
 logNewSlotWorker =
     onNewSlotWithLogging True $ \slotId -> do
         modifyLoggerName (<> "slotting") $

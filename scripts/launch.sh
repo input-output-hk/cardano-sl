@@ -59,11 +59,6 @@ while [[ $i -lt $panesCnt ]]; do
   echo "Launching node $i in tab $im of window $ir"
   tmux select-pane -t $im
 
-  time_lord=''
-  if [[ $i == 0 ]]; then
-      time_lord='time-lord'
-  fi
-
   if [[ "$mode" == "no_dht" ]]; then
       dht_conf='dht_config '$i' all '$n
   else
@@ -77,18 +72,26 @@ while [[ $i -lt $panesCnt ]]; do
   if [[ $WALLET_TEST != "" ]]; then
       if (( $i == $n - 1 )); then
           wallet_args=' --wallet' # --wallet-rebuild-db'
+          if [[ $WALLET_DEBUG != "" ]]; then
+              wallet_args="$wallet_args --wallet-debug"
+          fi
       fi
   fi
 
   stake_distr=" --flat-distr \"($n, 100000)\" "
   kademlia_dump_path="kademlia$i.dump"
+  static_peers=''
+
+  if [[ $STATIC_PEERS != "" ]]; then
+      static_peers=' --static-peers'
+  fi
 
   if [[ "$CSL_PRODUCTION" != "" ]]; then
       stake_distr=""
   fi
 
   if [[ $i -lt $n ]]; then
-    tmux send-keys "$(node_cmd $i "$time_lord" "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path" "$system_start")" C-m
+    tmux send-keys "$(node_cmd $i "$dht_conf" "$stats" "$stake_distr" "$wallet_args" "$kademlia_dump_path" "$system_start") $static_peers" C-m
   else
     tmux send-keys "NODE_COUNT=$n $base/bench/runSmartGen.sh 0 -R 1 -N 2 -t $TPS -S 3 --init-money 100000 --recipients-share 0" C-m
   fi

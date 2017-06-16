@@ -2,21 +2,22 @@ module Daedalus.BackendApi where
 
 import Prelude
 import Control.Monad.Aff (Aff)
-import Control.Monad.Eff.Exception (error, Error)
+import Control.Monad.Eff.Exception (Error, error)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Constants (backendPrefix)
-import Daedalus.Types (CAddress, _address, _ccoin, CWallet, CTx, CWalletMeta, CTxId, CTxMeta, _ctxIdValue, CCurrency, WalletError, showCCurrency, CProfile, CWalletInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem)
-import Data.Array (last)
+import Daedalus.Types (CId, _address, _ccoin, CAccount, CTx, CAccountMeta, CTxId, CTxMeta, _ctxIdValue, WalletError, CProfile, CAccountInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, Wal, CWallet, CWalletInit, walletAddressToUrl, CAccountId, CAddress, Addr, CWalletMeta)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
-import Data.Bifunctor (bimap)
+import Data.Array (catMaybes)
+import Data.Bifunctor (lmap, bimap)
 import Data.Either (either, Either(Left))
 import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(POST, PUT, DELETE))
 import Data.Maybe (Maybe(Just))
 import Data.MediaType.Common (applicationJSON)
+import Data.Monoid (mempty)
 import Data.String (joinWith)
-import Data.Tuple (Tuple)
+import Data.Tuple (Tuple(..))
 import Network.HTTP.Affjax (AffjaxResponse, affjax, defaultRequest, AJAX, URL, AffjaxRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.RequestHeader (RequestHeader(ContentType))
@@ -24,16 +25,26 @@ import Network.HTTP.StatusCode (StatusCode(..))
 
 -- HELPERS
 
-type URLPath = Array String
+type URLPath = Tuple (Array String) QueryParams
+type QueryParam = Tuple String (Maybe String)
+type QueryParams = Array QueryParam
+type FilePath = String
+
+noQueryParam :: Array String -> URLPath
+noQueryParam = flip Tuple mempty
+
+queryParams :: Array String -> QueryParams -> URLPath
+queryParams = Tuple
+
+qParam :: String -> Maybe String -> QueryParam
+qParam = Tuple
 
 mkUrl :: URLPath -> URL
-mkUrl = joinWith "/"
+mkUrl (Tuple urlPath params) = joinWith "/" urlPath <> "?" <> queryParamToString  params
+  where queryParamToString = joinWith "&" <<< map (\(Tuple l r) -> l <> "=" <> r) <<< catMaybes <<< map (\(Tuple name mParam) -> Tuple <$> pure name <*> mParam)
 
 backendApi :: URLPath -> URL
-backendApi path = mkUrl $ [backendPrefix, "api"] <> path <> ifEmptyEnd
-  where
-    -- Workaround for passing empty passphrases as last capture in URL
-    ifEmptyEnd = if last path == Just "" then [""] else []
+backendApi = mkUrl <<< lmap ((<>) [backendPrefix, "api"])
 
 data ApiError
     = HTTPStatusError (AffjaxResponse Json)
@@ -90,84 +101,127 @@ deleteR = makeRequest $ defaultRequest { method = Left DELETE }
 
 -- REQUESTS
 --------------------------------------------------------------------------------
--- TEST ------------------------------------------------------------------------
+-- Test ------------------------------------------------------------------------
 testReset :: forall eff. Aff (ajax :: AJAX | eff) Unit
-testReset = postR ["test", "reset"]
+testReset = postR $ noQueryParam ["test", "reset"]
 --------------------------------------------------------------------------------
--- WALLETS ---------------------------------------------------------------------
+-- Wallets ---------------------------------------------------------------------
+getWallet :: forall eff. CId Wal -> Aff (ajax :: AJAX | eff) CWallet
+getWallet addr = getR $ noQueryParam ["wallets", _address addr]
+
 getWallets :: forall eff. Aff (ajax :: AJAX | eff) (Array CWallet)
-getWallets = getR ["wallets"]
+getWallets = getR $ noQueryParam ["wallets"]
 
-getWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) CWallet
-getWallet addr = getR ["wallets", _address addr]
+newWallet :: forall eff. Maybe CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
+newWallet pass = postRBody $ queryParams ["wallets", "new"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-updateWallet :: forall eff. CAddress -> CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
-updateWallet addr = putRBody ["wallets", _address addr]
+updateWallet :: forall eff. CId Wal -> CWalletMeta -> Aff (ajax :: AJAX | eff) CWallet
+updateWallet wId = putRBody $ noQueryParam ["wallets", _address wId]
 
-newWallet :: forall eff. CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
-newWallet pass = postRBody ["wallets", _passPhrase pass]
+restoreWallet :: forall eff. Maybe CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
+restoreWallet pass = postRBody $ queryParams ["wallets", "restore"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-deleteWallet :: forall eff. CAddress -> Aff (ajax :: AJAX | eff) Unit
-deleteWallet addr = deleteR ["wallets", _address addr]
+renameWalletSet :: forall eff. CId Wal -> String -> Aff (ajax :: AJAX | eff) CWallet
+renameWalletSet wSetId name = postR $ noQueryParam ["wallets", "rename", _address wSetId, name]
 
-importKey :: forall eff. String -> Aff (ajax :: AJAX | eff) CWallet
-importKey = postRBody ["wallets", "keys"]
+importWallet :: forall eff. Maybe CPassPhrase -> FilePath -> Aff (ajax :: AJAX | eff) CWallet
+importWallet pass = postRBody $ queryParams ["wallets", "keys"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-restoreWallet :: forall eff. CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
-restoreWallet pass = postRBody ["wallets", "restore", _passPhrase pass]
+changeWalletPass :: forall eff. CId Wal -> Maybe CPassPhrase -> Maybe CPassPhrase -> Aff (ajax :: AJAX | eff) Unit
+changeWalletPass wSetId old new = postR $ queryParams ["wallets", "password", _address wSetId] [qParam "old" $ _passPhrase <$> old, qParam "new" $ _passPhrase <$> new]
+
+deleteWallet :: forall eff. CId Wal -> Aff (ajax :: AJAX | eff) Unit
+deleteWallet wSetId = deleteR $ noQueryParam ["wallets", _address wSetId]
 --------------------------------------------------------------------------------
--- ADDRESSSES ------------------------------------------------------------------
-isValidAddress :: forall eff. CCurrency -> String -> Aff (ajax :: AJAX | eff) Boolean
-isValidAddress cCurrency addr = getR ["addresses", addr, "currencies", showCCurrency cCurrency]
+-- Accounts --------------------------------------------------------------------
+
+getAccount :: forall eff. CAccountId -> Aff (ajax :: AJAX | eff) CAccount
+getAccount wId = getR $ noQueryParam ["accounts", walletAddressToUrl wId]
+
+getAccounts :: forall eff. Maybe (CId Wal) -> Aff (ajax :: AJAX | eff) (Array CAccount)
+getAccounts addr = getR $ queryParams ["accounts"] [qParam "accountId" $ _address <$> addr]
+
+updateAccount :: forall eff. CAccountId -> CAccountMeta -> Aff (ajax :: AJAX | eff) CAccount
+updateAccount wId = putRBody $ noQueryParam ["accounts", walletAddressToUrl wId]
+
+newAccount :: forall eff. Maybe CPassPhrase -> CAccountInit -> Aff (ajax :: AJAX | eff) CAccount
+newAccount pass = postRBody $ queryParams ["accounts"] [qParam "passphrase" $ _passPhrase <$> pass]
+
+deleteAccount :: forall eff. CAccountId -> Aff (ajax :: AJAX | eff) Unit
+deleteAccount wId = deleteR $ noQueryParam ["accounts", walletAddressToUrl wId]
+
 --------------------------------------------------------------------------------
--- PROFILES --------------------------------------------------------------------
+-- Wallet addresses ------------------------------------------------------------
+
+newAddress :: forall eff. Maybe CPassPhrase -> CAccountId -> Aff (ajax :: AJAX | eff) CAddress
+newAddress pass = postRBody $ queryParams ["addresses"] [qParam "passphrase" $ _passPhrase <$> pass]
+
+--------------------------------------------------------------------------------
+-- Addresses -------------------------------------------------------------------
+
+isValidAddress :: forall eff. String -> Aff (ajax :: AJAX | eff) Boolean
+isValidAddress addr = getR $ noQueryParam ["addresses", addr]
+
+--------------------------------------------------------------------------------
+-- Profiles --------------------------------------------------------------------
 getProfile :: forall eff. Aff (ajax :: AJAX | eff) CProfile
-getProfile = getR ["profile"]
+getProfile = getR $ noQueryParam ["profile"]
 
 updateProfile :: forall eff. CProfile -> Aff (ajax :: AJAX | eff) CProfile
-updateProfile = postRBody ["profile"]
+updateProfile = postRBody $ noQueryParam ["profile"]
 --------------------------------------------------------------------------------
--- TRANSACTIONS ----------------------------------------------------------------
-send :: forall eff. CPassPhrase -> CAddress -> CAddress -> CCoin -> Aff (ajax :: AJAX | eff) CTx
-send pass addrFrom addrTo amount = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount]
+-- Transactions ----------------------------------------------------------------
+newPayment :: forall eff. Maybe CPassPhrase -> CAccountId -> CId Addr -> CCoin -> Aff (ajax :: AJAX | eff) CTx
+newPayment pass addrFrom addrTo amount = postR $ queryParams ["txs", "payments", walletAddressToUrl addrFrom, _address addrTo, _ccoin amount] [qParam "passphrase" $ _passPhrase <$> pass]
 
-sendExtended :: forall eff. CPassPhrase -> CAddress -> CAddress -> CCoin -> CCurrency -> String -> String -> Aff (ajax :: AJAX | eff) CTx
-sendExtended pass addrFrom addrTo amount curr title desc = postR ["txs", "payments", _passPhrase pass, _address addrFrom, _address addrTo, _ccoin amount, showCCurrency curr, title, desc]
+updateTransaction :: forall eff. CAccountId -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
+updateTransaction addr ctxId = postRBody $ noQueryParam ["txs", "payments", walletAddressToUrl addr, _ctxIdValue ctxId]
 
-updateTransaction :: forall eff. CAddress -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
-updateTransaction addr ctxId = postRBody ["txs", "payments", _address addr, _ctxIdValue ctxId]
+getHistory
+  :: forall eff.
+     Maybe (CId Wal)
+  -> Maybe CAccountId
+  -> Maybe (CId Addr)
+  -> Maybe Int
+  -> Maybe Int
+  -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
+getHistory walletId accountId addr skip limit =
+  getR $ queryParams
+  ["txs", "histories"]
+  [ qParam "walletId" $ _address <$> walletId
+  , qParam "accountId" $ walletAddressToUrl <$> accountId
+  , qParam "address" $ _address <$> addr
+  , qParam "skip" $ show <$> skip
+  , qParam "limit" $ show <$> limit
+  ]
 
-getHistory :: forall eff. CAddress -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-getHistory addr skip limit = getR ["txs", "histories", _address addr <> "?skip=" <> show skip <> "&limit=" <> show limit]
-
-searchHistory :: forall eff. CAddress -> String -> Int -> Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-searchHistory addr search skip limit = getR ["txs", "histories", _address addr, search <> "?skip=" <> show skip <> "&limit=" <> show limit]
 --------------------------------------------------------------------------------
--- UPDATES ---------------------------------------------------------------------
+-- Updates ---------------------------------------------------------------------
 nextUpdate :: forall eff. Aff (ajax :: AJAX | eff) CUpdateInfo
-nextUpdate = getR ["update"]
+nextUpdate = getR $ noQueryParam ["update"]
 
 applyUpdate :: forall eff. Aff (ajax :: AJAX | eff) Unit
-applyUpdate = postR ["update"]
+applyUpdate = postR $ noQueryParam ["update"]
 --------------------------------------------------------------------------------
--- REDEMPTIONS -----------------------------------------------------------------
-redeemAda :: forall eff. CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
-redeemAda = postRBody ["redemptions", "ada"]
+-- Redemptions -----------------------------------------------------------------
+redeemAda :: forall eff. Maybe CPassPhrase -> CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
+redeemAda pass = postRBody $ queryParams ["redemptions", "ada"] [qParam "passphrase" $ _passPhrase <$> pass]
 
-redeemAdaPaperVend :: forall eff. CPaperVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
-redeemAdaPaperVend = postRBody ["papervend", "redemptions", "ada"]
+redeemAdaPaperVend :: forall eff. Maybe CPassPhrase -> CPaperVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
+redeemAdaPaperVend pass = postRBody $ queryParams ["papervend", "redemptions", "ada"] [qParam "passphrase" $ _passPhrase <$> pass]
 --------------------------------------------------------------------------------
 -- REPORTING ---------------------------------------------------------------------
 reportInit :: forall eff. CInitialized -> Aff (ajax :: AJAX | eff) Unit
-reportInit = postRBody ["reporting", "initialized"]
+reportInit = postRBody $ noQueryParam ["reporting", "initialized"]
+
 --------------------------------------------------------------------------------
 -- SETTINGS ---------------------------------------------------------------------
 blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
-blockchainSlotDuration = getR ["settings", "slots", "duration"]
+blockchainSlotDuration = getR $ noQueryParam ["settings", "slots", "duration"]
 
 systemVersion :: forall eff. Aff (ajax :: AJAX | eff) SoftwareVersion
-systemVersion = getR ["settings", "version"]
+systemVersion = getR $ noQueryParam ["settings", "version"]
 
 syncProgress :: forall eff. Aff (ajax :: AJAX | eff) SyncProgress
-syncProgress = getR ["settings", "sync", "progress"]
+syncProgress = getR $ noQueryParam ["settings", "sync", "progress"]
 --------------------------------------------------------------------------------

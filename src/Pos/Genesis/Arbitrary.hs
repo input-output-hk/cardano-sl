@@ -1,4 +1,4 @@
-
+-- | 'Arbitrary' instances for 'GenesisCoreData' and 'GenesisGtData'.
 module Pos.Genesis.Arbitrary
        (
        ) where
@@ -11,8 +11,11 @@ import           Pos.Ssc.GodTossing.Arbitrary ()
 import           Pos.Types                    (mkCoin)
 
 
-instance Arbitrary T.GenesisData where
-    arbitrary = T.GenesisData <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+instance Arbitrary T.GenesisCoreData where
+    arbitrary = T.GenesisCoreData <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary T.GenesisGtData where
+    arbitrary = T.GenesisGtData <$> arbitrary
 
 instance Arbitrary T.StakeDistribution where
     arbitrary = oneof

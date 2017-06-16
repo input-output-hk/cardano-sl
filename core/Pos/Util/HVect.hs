@@ -1,6 +1,4 @@
 {-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE KindSignatures       #-}
 {-# LANGUAGE RankNTypes           #-}

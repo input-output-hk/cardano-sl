@@ -1,6 +1,8 @@
-resolver: lts-8.5
+resolver: lts-8.13
 
-flags: {}
+flags:
+  ether:
+    disable-tup-instances: true
 
 extra-package-dbs: []
 
@@ -11,6 +13,9 @@ packages:
 - infra
 - db
 - lrc
+- ssc
+- godtossing
+- txp
 
 - location:
     git: https://github.com/serokell/time-units.git
@@ -22,7 +27,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: 21df94f41008f82ee023e8e0324c7e4a82c4fef2
+    commit: 92043c7e80e93aeb08212e8ce42c783edd9b2f80
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
@@ -35,7 +40,7 @@ packages:
 - location:
     git: https://github.com/thoughtpolice/hs-ed25519
     # We're waiting on next release
-    commit: 57adb970e198a9b377769ab46e776ec29f19cff6
+    commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
@@ -43,7 +48,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 22f8f3913bad6cc229b3c6e348ef8457e5a55b47
+    commit: 3fa7ccea4031a7424e77b63fd1f29e4d69b70b98
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -56,7 +61,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 838b064d8a59286142aa2fe14434fe7601896ddb
+    commit: 96adbd5aa9a906859deddf170f8762a9ed85c0c9
   extra-dep: true
 # We're using forked version of 'swagger2' package because of bug in haddock package.
 # Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
@@ -74,34 +79,37 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- foundation-0.0.8
-- memory-0.14.5
-- universum-0.3
+- universum-0.4.3
 - time-units-1.0.0
 - serokell-util-0.1.5.0
 - pvss-0.1
 - base58-bytestring-0.1.0
-- log-warper-1.1.1
+- log-warper-1.1.2
 - concurrent-extra-0.7.0.10       # not yet in lts-8
 - derive-2.6.2
 - binary-0.8.5.1
 - purescript-bridge-0.8.0.1
 - cryptonite-0.23
+- cryptonite-openssl-0.6
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
 - servant-0.10                    # servant-multipart supports version servant-10 only
 - servant-server-0.10             # so it triggers another dependencies to be v10
 - servant-swagger-1.1.2.1
-- servant-docs-0.10
 - servant-multipart-0.10
+- ether-0.5.1.0
+- transformers-lift-0.2.0.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
 # If you find it too restrictive, you can use `util-scripts/build.sh' script
 ghc-options:
-  cardano-sl-core:   -Werror
-  cardano-sl-db:     -Werror
-  cardano-sl-infra:  -Werror
-  cardano-sl-lrc:    -Werror
-  cardano-sl-update: -Werror
-  cardano-sl:        -Werror
+  cardano-sl-core:       -Werror
+  cardano-sl-db:         -Werror
+  cardano-sl-ssc:        -Werror
+  cardano-sl-infra:      -Werror
+  cardano-sl-lrc:        -Werror
+  cardano-sl-update:     -Werror
+  cardano-sl-godtossing: -Werror
+  cardano-sl-txp:        -Werror
+  cardano-sl:            -Werror

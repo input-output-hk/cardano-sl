@@ -10,8 +10,6 @@ module TxGeneration
        ) where
 
 import           Control.Concurrent.STM.TArray (TArray)
-import           Control.Concurrent.STM.TVar   (TVar, modifyTVar', newTVar, readTVar,
-                                                writeTVar)
 import           Data.Array.MArray             (newListArray, readArray, writeArray)
 import           Data.List                     (tail, (!!))
 import qualified Data.List.NonEmpty            as NE
@@ -28,11 +26,11 @@ import           Pos.Genesis                   (genesisAddresses, genesisDevPubl
                                                 genesisDevSecretKeys)
 import           Pos.Script                    (Script)
 import           Pos.Script.Examples           (multisigValidator)
-import           Pos.Txp                       (Tx (..), TxAux, TxId, TxIn (..),
+import           Pos.Txp                       (Tx (..), TxAux (..), TxId, TxIn (..),
                                                 TxOut (..), TxOutAux (..))
 import           Pos.Types                     (makePubKeyAddress, makeScriptAddress,
                                                 mkCoin)
-import           Pos.WorkMode                  (WorkMode)
+import           Pos.WorkMode.Class            (WorkMode)
 
 import           GenOptions                    (GenOptions (..))
 
@@ -50,23 +48,23 @@ tpsTxBound tps propThreshold =
 genChain :: SecretKey -> TxId -> Word32 -> [TxAux]
 genChain sk txInHash txInIndex =
     let addr = makePubKeyAddress $ toPublic sk
-        (tx, w, d) =
+        ta@(TxAux tx _ _) =
             makePubKeyTx
                 (fakeSigner sk)
                 (one $ TxIn txInHash txInIndex)
                 (one $ TxOutAux (TxOut addr (mkCoin 1)) [])
-    in (tx, w, d) : genChain sk (hash tx) 0
+    in ta : genChain sk (hash tx) 0
 
 genMOfNChain :: Script -> [Maybe SecretKey] -> TxId -> Word32 -> [TxAux]
 genMOfNChain val sks txInHash txInIndex =
     let addr = makeScriptAddress val
-        (tx, w, d) =
+        ta@(TxAux tx _ _) =
             makeMOfNTx
                 val
                 (fmap fakeSigner <$> sks)
                 (one $ TxIn txInHash txInIndex)
                 (one $ TxOutAux (TxOut addr (mkCoin 1)) [])
-    in (tx, w, d) : genMOfNChain val sks (hash tx) 0
+    in ta : genMOfNChain val sks (hash tx) 0
 
 initTransaction :: GenOptions -> Int -> TxAux
 initTransaction GenOptions{..} i =
@@ -94,14 +92,14 @@ data BambooPool = BambooPool
     }
 
 createBambooPool :: Maybe (Int, Int) -> Int -> TxAux -> IO BambooPool
-createBambooPool mOfN i (tx, w, d) = atomically $
+createBambooPool mOfN i ta@(TxAux tx _ _) = atomically $
     BambooPool
         <$> newListArray (0, outputsN - 1) bamboos
         <*> newTVar 0
   where
     outputsN = length (_txOutputs tx)
     sk       = genesisDevSecretKeys !! i
-    bamboos  = [ (tx, w, d) : mkChain (fromIntegral j)
+    bamboos  = [ ta : mkChain (fromIntegral j)
                | j <- [0 .. outputsN - 1] ]
     txId     = hash tx
     mkChain  =
@@ -150,7 +148,7 @@ nextValidTx
     -> m (Either TxAux TxAux)
 nextValidTx bp curTps propThreshold = do
     curTx <- liftIO $ curBambooTx bp 1
-    isVer <- isTxVerified $ view _1 curTx
+    isVer <- isTxVerified $ taTx curTx
     liftIO $
         if isVer
         then do

@@ -1,29 +1,19 @@
-Running command: stack exec cardano-keygen -- --genesis-file genesis.bin -f secrets/secret-{}.key -m 14 -n 12000 --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file /home/georgeee/work/serokell/cardano-sl/util-scripts/../util-scripts/avvm-files/utxo-dump-last-new.json --randcerts --blacklisted /home/georgeee/work/serokell/cardano-sl/util-scripts/../util-scripts/avvm-files/full_blacklist.js --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries 100
-USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey3843
+Running command: stack exec cardano-keygen -- -f secrets/secret-{}.key -m 4 -n 12000 --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file /home/yom/code/csl/util-scripts/../util-scripts/avvm-files/utxo-dump-last-new.json --randcerts --blacklisted /home/yom/code/csl/util-scripts/../util-scripts/avvm-files/full_blacklist.js --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries 100
+USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey78208
 NOT FOR PRODUCTION USAGE, ONLY FOR TESTING
-IF YOU INTEND TO GENERATE GENESIS.BIN FOR PRODUCTION, STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. THIS IS SERIOUS.
+IF YOU INTEND TO GENERATE GENESIS FOR PRODUCTION, STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. THIS IS SERIOUS.
 Removing 101 entries from utxo (out of 188 total entries in the blacklist)
 Total avvm stake after applying blacklist: 25927070538000000
-12014 keyfiles are generated
-Total testnet genesis stake: RichPoorStakes {sdRichmen = 14, sdRichStake = Coin {getCoin = 1280610239591429}, sdPoor = 12000, sdPoorStake = Coin {getCoin = 95364592309}}
+12004 keyfiles are generated
+Total testnet genesis stake: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 24000, sdPoorStake = Coin {getCoin = 47682296155}}
 100 fake avvm seeds are generated
-testnet genesis created successfully. First 30 addresses: [PubKeyAddress 757e6e7e (attrs: {}), PubKeyAddress 0dacfcb7 (attrs: {}), PubKeyAddress d1432ca0 (attrs: {}), PubKeyAddress 8048f9b2 (attrs: {}), PubKeyAddress 9d1e9ded (attrs: {}), PubKeyAddress 97383d8b (attrs: {}), PubKeyAddress 7bd6d6f1 (attrs: {}), PubKeyAddress 1ebbcb15 (attrs: {}), PubKeyAddress c9de0c57 (attrs: {}), PubKeyAddress 3d4989fe (attrs: {})] distr: Just (RichPoorStakes {sdRichmen = 14, sdRichStake = Coin {getCoin = 1280610239591429}, sdPoor = 12000, sdPoorStake = Coin {getCoin = 95364592309}})
+testnet genesis created successfully. First 30 addresses: [PubKeyAddress 7a25eb236fd92a77692d552a53b6bbbd7b3880c3b939e1326b6151a7 (attrs: {}), PubKeyAddress ea7f6e7f2639a0850745239ea19bf9483388e509434f42be954305fb (attrs: {}), PubKeyAddress fb3b6dd81de825a649742b06359695c41cf4cd63ace0ada54d033e5e (attrs: {}), PubKeyAddress 448b9fe2a7bdae416e71bf1556a2fd5ec75b763a38d7999514c02c9a (attrs: {}), PubKeyAddress ad966a563a7570190dd8752054c06f2d950c366a2b04cf0cab049275 (attrs: {}), PubKeyAddress 39cf345c8bdc8370233ebc493907fd8a7d12f019f22d3aa35a6529c4 (attrs: {}), PubKeyAddress cf286a24fc2f45eab755d3a0b145850dddd89cf9459a6be603b46b85 (attrs: {}), PubKeyAddress 2c3e554f02a226678b670909a70ee306059a0d4b08c541d40237ba98 (attrs: {}), PubKeyAddress a891be749c7292be3b299d630ec3ac99ebddc186f29df5d2414dd63f (attrs: {}), PubKeyAddress f36cec5ecf994c41d689d95b1a19e1fb1b2926e8e71e4290fca2e66d (attrs: {})] distr: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 24000, sdPoorStake = Coin {getCoin = 47682296155}}
+genesis-general.bin generated successfully
 [generating VSS keys for tests...]
 [generating keys for tests...]
-genesis.bin generated successfully
-
-'secrets/secret-1.key.primary' -> 'nodes/key1'
-'secrets/secret-2.key.primary' -> 'nodes/key2'
-'secrets/secret-3.key.primary' -> 'nodes/key3'
-'secrets/secret-4.key.primary' -> 'nodes/key4'
-'secrets/secret-5.key.primary' -> 'nodes/key5'
-'secrets/secret-6.key.primary' -> 'nodes/key6'
-'secrets/secret-7.key.primary' -> 'nodes/key7'
-'secrets/secret-8.key.primary' -> 'nodes/key8'
-'secrets/secret-9.key.primary' -> 'nodes/key9'
-'secrets/secret-10.key.primary' -> 'nodes/key10'
-'secrets/secret-11.key.primary' -> 'nodes/key11'
-'secrets/secret-12.key.primary' -> 'nodes/key12'
-'secrets/secret-13.key.primary' -> 'nodes/key13'
-'secrets/secret-14.key.primary' -> 'nodes/key14'
-'redeemingHolderKey3843' -> 'nodes/key0'
+godtossing/genesis-gt.bin generated successfully
+'secrets/secret-1.key.primary' -> 'nodes/key1.sk'
+'secrets/secret-2.key.primary' -> 'nodes/key2.sk'
+'secrets/secret-3.key.primary' -> 'nodes/key3.sk'
+'secrets/secret-4.key.primary' -> 'nodes/key4.sk'
+'redeemingHolderKey78208' -> 'nodes/key0.sk'

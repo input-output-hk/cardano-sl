@@ -2,28 +2,38 @@
 set -e
 set -o pipefail
 
-# Usage:
+# DESCRIPTION
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# This script builds the project in a way that is convenient for developers.
+# It passes the right flags into right places, builds the project with --fast,
+# tidies up and highlights error messages in GHC output.
+
+# USAGE
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   build.sh                           build
 #   build.sh -t                        build and run tests
-#   build.sh core|db|update|infra|sl   build only a specific project
-#   build.sh -c                        stack clean
+#   build.sh core|db|...|sl            build only a specific project
+#   build.sh -k                        typecheck but do not build
+#   build.sh -c                        do stack clean
 #
-# * Pass --no-nix if you want builds without Nix,
-#     or do `touch .no-nix`.
-# * Pass --ram if you have lots of RAM and want to make builds faster,
-#     or do `touch .ram`.
-# * Pass --prod if you want to compile in production mode.
+# Consider symlinking the script as `b` into the cardano-sl folder because 
+# typing `util-scripts/build.sh` is annoying.
 
-# This script builds the project in a way that is convenient for developers.
-# Specifically, it does the following:
-#
-#   * Builds dependencies without --fast (because Stack might break otherwise)
-#   * Builds the project with --fast (to make compilation faster),
-#     tests and benchmarks
-#   * Highlights error messages in GHC output
-#   * Strips unneeded info from GHC output (such as file names)
+# MODES
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#   Mode                             Options
+#   :
+#   dev mode                         <nothing>
+#   prod mode with wallet            --prod
+#   prod mode without wallet         --prod --no-wallet
 
-projects="core db lrc infra update"
+# CUSTOMIZATIONS
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# * Pass --no-nix or do `touch .no-nix` if you want builds without Nix
+# * Pass --ram or do `touch .ram`. if you have lots of RAM and want to
+#   make builds faster
+
+projects="core db lrc infra update ssc godtossing txp"
 
 args=''
 
@@ -35,6 +45,9 @@ spec_prj=''
 no_nix=false
 ram=false
 prod=false
+wallet=true
+explorer=false
+no_code=false
 
 if [ -e .no-nix ]; then
   no_nix=true
@@ -51,6 +64,9 @@ do
   # -c = clean
   elif [[ $var == "-c" ]]; then
     clean=true
+  # -k = -fno-code
+  elif [[ $var == "-k" ]]; then
+    no_code=true
   # --no-nix = don't use Nix
   elif [[ $var == "--no-nix" ]]; then
     no_nix=true
@@ -60,12 +76,21 @@ do
   # --prod = compile in production mode
   elif [[ $var == "--prod" ]]; then
     prod=true
-  # disabling -O0 (-O2 is default)
+  # --no-wallet = don't build in wallet mode
+  elif [[ $var == "--no-wallet" ]]; then
+    wallet=false
+  # disabling --fast
+  elif [[ $var == "--explorer" ]]; then
+    explorer=true
+  # disabling --fast
   elif [[ $var == "-O2" ]]; then
     no_fast=true
   # project name = build only the project
+  # (for “godtossing” we allow “gt” as an alias)
   elif [[ $var == "sl" ]]; then
     spec_prj="sl"
+  elif [[ $var == "gt" ]]; then
+    spec_prj="godtossing"
   elif [[ " $projects " =~ " $var " ]]; then
     spec_prj=$var
   # otherwise pass the arg to stack
@@ -86,6 +111,23 @@ if [[ $prod == true ]]; then
   export CSL_SYSTEM_TAG=linux64
 fi
 
+if [[ $explorer == true ]]; then
+  commonargs="$commonargs --flag cardano-sl:with-explorer"
+fi
+
+if [[ $wallet == false ]]; then
+  commonargs="$commonargs --flag cardano-sl:-with-wallet"
+fi
+
+# CONFIG = dev, prod, or wallet
+if [[ $prod == false ]]; then
+  ghc_opts="-DCONFIG=dev"
+elif [[ $prod == true && $wallet == false ]]; then
+  ghc_opts="-DCONFIG=prod"
+elif [[ $prod == true && $wallet == true ]]; then
+  ghc_opts="-DCONFIG=wallet"
+fi
+
 if [[ $no_fast == true ]]; then
   fast=""
 else
@@ -93,9 +135,9 @@ else
 fi
 
 if [[ $ram == true ]]; then
-  ghc_opts="-Wwarn +RTS -A2G -n4m -RTS"
+  ghc_opts="$ghc_opts -Werror +RTS -A2G -n4m -RTS"
 else
-  ghc_opts="-Wwarn +RTS -A256m -n2m -RTS"
+  ghc_opts="$ghc_opts -Werror +RTS -A256m -n2m -RTS"
 fi
 
 xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
@@ -133,8 +175,13 @@ for prj in $to_build; do
       --dependencies-only                   \
       $args                                 \
       $prj
+  if [[ $no_code == true ]]; then
+    ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"
+  else
+    ghc_opts_2="$ghc_opts"
+  fi
   stack build                               \
-      --ghc-options="$ghc_opts"             \
+      --ghc-options="$ghc_opts_2"           \
       $commonargs $norun                    \
       $fast                                 \
       $args                                 \

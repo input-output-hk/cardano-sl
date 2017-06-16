@@ -10,7 +10,7 @@ readonly PROJECT_FULL_NAME="${PROJECT_NAME}"-"${PROJECT_VERSION}"
 readonly DOC_ROOT=$(stack --nix --no-terminal path --local-doc-root)
 readonly PROJECT_DOC_DIR="${DOC_ROOT}"/"${PROJECT_FULL_NAME}"
 
-readonly CARDANO_DOCS_REPO="${HOME}"/cardano-docs
+readonly CARDANO_DOCS_REPO="${HOME}"/cardanodocs
 readonly LATEST_ROOT=haddock/latest
 readonly RELEASE_ROOT=haddock/release
 
@@ -19,7 +19,7 @@ readonly CURRENT_BRANCH="${TRAVIS_BRANCH}"
 echo "**** 2. Change external Haskell-related links to the Hackage-based ones ****"
 sed -i 's/href="\.\.\/\([^/]*\)\//href="http:\/\/hackage.haskell.org\/package\/\1\/docs\//g' "${PROJECT_DOC_DIR}"/*.html
 
-echo "**** 3. Cloning cardano-docs.iohk.io repository ****"
+echo "**** 3. Cloning cardanodocs.com repository ****"
 # Variable ${GITHUB_CARDANO_DOCS_ACCESS} already stored in Travis CI settings for 'cardano-sl' repository.
 # This token gives us an ability to push into docs repository.
 
@@ -27,7 +27,7 @@ rm -rf "${CARDANO_DOCS_REPO}"
 cd "${HOME}"
 # We need `master` only, because Jekyll builds docs from `master` branch.
 git clone --quiet --branch=master \
-    https://"${GITHUB_CARDANO_DOCS_ACCESS}"@github.com/input-output-hk/cardano-docs.iohk.io \
+    https://"${GITHUB_CARDANO_DOCS_ACCESS_2}"@github.com/input-output-hk/cardanodocs.com \
     "${CARDANO_DOCS_REPO}"
 cd "${CARDANO_DOCS_REPO}"
 
@@ -48,7 +48,7 @@ if [ "${CURRENT_BRANCH}" = "${PROJECT_FULL_NAME}" ]; then
     cd "${PROJECT_VERSION}"
     rsync -r "${PROJECT_DOC_DIR}"/ .
 
-    # 2. Add href in Haddock-page (cardano-docs.iohk.io/for-contributors/haddock).
+    # 2. Add href in Haddock-page (cardanodocs.com/for-contributors/haddock).
     # If this href already exists, skip this step.
     readonly HREF_TO_RELEASE_DOCS=/"${RELEASE_ROOT}"/"${PROJECT_VERSION}"/index.html
     readonly PATH_TO_HADDOCK_PAGE=_docs/for-contributors/haddock.md
@@ -73,7 +73,7 @@ if [ -n "$(git status --porcelain)" ]; then
     # Force-push to prevent race condition among few master-based CI-build. 
     git push -f origin master
     # After we push new docs in `master`,
-    # Jekyll will automatically rebuild it on cardano-docs.iohk.io website.
+    # Jekyll will automatically rebuild it on cardanodocs.com website.
 else
     echo "     No changes in Haddock-docs, skip.";
 fi

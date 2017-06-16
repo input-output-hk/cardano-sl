@@ -1,13 +1,11 @@
-{-# LANGUAGE CPP                  #-}
-{-# LANGUAGE ConstraintKinds      #-}
-{-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE KindSignatures       #-}
-{-# LANGUAGE RankNTypes           #-}
-{-# LANGUAGE ScopedTypeVariables  #-}
-{-# LANGUAGE TemplateHaskell      #-}
-{-# LANGUAGE TypeFamilies         #-}
-{-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 
 module Pos.Util.Config
        (
@@ -26,11 +24,6 @@ module Pos.Util.Config
        , askConfig
        , viewConfig
 
-       -- * 'ConfigT'
-       , ConfigT(..)
-       , runConfigT
-       , usingConfigT
-
        -- * Multi-configs
        , ConfigSet(..)
        , consConfigSet
@@ -38,9 +31,11 @@ module Pos.Util.Config
        , unsafeReadConfigSet
 
        -- * Cardano SL config
-       , cslConfigFilePath
        , cslConfig
        , parseFromCslConfig
+       -- ** Internal functions
+       , cslConfigFilePath
+       , getCslConfig
        ) where
 
 import           Control.Lens               (Getting, _Left)
@@ -56,6 +51,7 @@ import qualified Language.Haskell.TH.Syntax as TH
 import           System.IO.Unsafe           (unsafePerformIO)
 #endif
 
+import           Pos.Util.Config.Get        (getCslConfig)
 import           Pos.Util.Config.Path       (cslConfigFilePath)
 import           Pos.Util.HVect             (HVect)
 import qualified Pos.Util.HVect             as HVect
@@ -182,23 +178,6 @@ viewConfig f = view f <$> getConfig
 {-# INLINE viewConfig #-}
 
 ----------------------------------------------------------------------------
--- ConfigT
-----------------------------------------------------------------------------
-
-{- |
-'ConfigT' is a specific transformer that can be used for 'MonadConfig'. It's
-isomorphic to 'ReaderT'.
--}
-newtype ConfigT config m a = ConfigT {getConfigT :: ReaderT config m a}
-    deriving (Functor, Applicative, Monad)
-
-runConfigT :: ConfigT config m a -> config -> m a
-runConfigT act cfg = runReaderT (getConfigT act) cfg
-
-usingConfigT :: config -> ConfigT config m a -> m a
-usingConfigT cfg act = runReaderT (getConfigT act) cfg
-
-----------------------------------------------------------------------------
 -- ConfigSet
 ----------------------------------------------------------------------------
 
@@ -257,23 +236,19 @@ instance FromJSON (ConfigSet '[]) where
 -- | The config as a YAML value. In development mode it's read at the start
 -- of the program, in production mode it's embedded into the file.
 --
--- TODO: add a flag DO_NOT_EMBED_CONFIG which would be used on deployment
+-- The config (constants.yaml) is actually three configs in one: depending on
+-- the value of @CONFIG@ (a variable passed via CPP), 'cslConfig' will either
+-- be a @dev@, @prod@ or @wallet@ config.
 --
 -- TODO: allow overriding config values via an env var?
 cslConfig :: Y.Value
 #ifdef EMBED_CONFIG
 cslConfig = $(do
     TH.qAddDependentFile cslConfigFilePath
-    TH.runIO (Y.decodeFileEither @Y.Value cslConfigFilePath) >>= \case
-        Left err -> fail $ "Couldn't parse " ++ cslConfigFilePath ++
-                           ": " ++ Y.prettyPrintParseException err
-        Right x  -> TH.lift x)
+    either fail TH.lift =<< TH.runIO getCslConfig
+  )
 #else
-cslConfig = unsafePerformIO $
-    Y.decodeFileEither cslConfigFilePath >>= \case
-        Left err -> fail $ "Couldn't parse " ++ cslConfigFilePath ++
-                           ": " ++ Y.prettyPrintParseException err
-        Right x  -> return x
+cslConfig = unsafePerformIO $ either fail pure =<< getCslConfig
 {-# NOINLINE cslConfig #-}
 #endif
 

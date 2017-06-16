@@ -9,35 +9,27 @@
 module Pos.Constants
        (
          module Pos.Core.Constants
+       , module Pos.Core.Genesis
        , module Pos.DHT.Constants
        , module Pos.Communication.Constants
        , module Pos.Slotting.Constants
        , module Pos.Update.Constants
+       , module Pos.Ssc.GodTossing.Constants
 
        -- * Constants mentioned in paper
        , networkDiameter
 
-       -- * SSC constants
-       , sharedSeedLength
-       , mpcSendInterval
-
-       -- * Genesis constants
-       , genesisN
-
        -- * Other constants
-       , maxLocalTxs
        , networkConnectionTimeout
        , blockRetrievalQueueSize
        , propagationQueueSize
        , defaultPeers
-       , sysTimeBroadcastSlots
-       , vssMaxTTL
-       , vssMinTTL
        , recoveryHeadersMessage
        , messageCacheTimeout
 
        -- * Delegation
        , lightDlgConfirmationTimeout
+       , dlgCacheParam
 
        -- * Malicious activity detection constants
        , mdNoBlocksSlotThreshold
@@ -47,23 +39,26 @@ module Pos.Constants
        , appSystemTag
        ) where
 
-import           Data.Time.Units             (Microsecond)
-import           Language.Haskell.TH.Syntax  (lift, runIO)
-import           Serokell.Util               (ms, sec)
-import           System.Environment          (lookupEnv)
-import qualified Text.Parsec                 as P
-import           Universum                   hiding (lift)
+import           Universum                    hiding (lift)
 
-import           Pos.CompileConfig           (CompileConfig (..), compileConfig)
-import           Pos.DHT.Model.Types         (DHTNode, dhtNodeParser)
-import           Pos.Update.Core             (SystemTag, mkSystemTag)
-import           Pos.Util                    ()
+import           Data.Time.Units              (Microsecond)
+import           Language.Haskell.TH.Syntax   (lift, runIO)
+import           Serokell.Util                (ms, sec)
+import           System.Environment           (lookupEnv)
+import qualified Text.Parsec                  as P
+
+import           Pos.CompileConfig            (CompileConfig (..), compileConfig)
+import           Pos.Update.Core              (SystemTag, mkSystemTag)
+import           Pos.Util                     ()
+import           Pos.Util.TimeWarp            (NetworkAddress, addrParser)
 
 -- Reexports
 import           Pos.Communication.Constants
 import           Pos.Core.Constants
+import           Pos.Core.Genesis
 import           Pos.DHT.Constants
 import           Pos.Slotting.Constants
+import           Pos.Ssc.GodTossing.Constants
 import           Pos.Update.Constants
 
 ----------------------------------------------------------------------------
@@ -76,50 +71,8 @@ networkDiameter :: Microsecond
 networkDiameter = sec . ccNetworkDiameter $ compileConfig
 
 ----------------------------------------------------------------------------
--- SSC
-----------------------------------------------------------------------------
-
--- | Length of shared seed.
-sharedSeedLength :: Integral a => a
-sharedSeedLength = 32
-
--- | Length of interval during which node should send her MPC
--- message. Relevant only for one SSC implementation.
--- Also see 'Pos.CompileConfig.ccMpcSendInterval'.
-mpcSendInterval :: Microsecond
-mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ compileConfig
-
-----------------------------------------------------------------------------
--- Genesis
-----------------------------------------------------------------------------
-
--- | See 'Pos.CompileConfig.ccGenesisN'.
-genesisN :: Integral i => i
-genesisN = fromIntegral . ccGenesisN $ compileConfig
-
-----------------------------------------------------------------------------
 -- Other constants
 ----------------------------------------------------------------------------
-
--- | Maximum amount of transactions we have in storage
--- (i.e. we can accept without putting them in block).
--- There're next kind of storages in our implementation:
---
--- * temporary storage of transactions
---
--- * utxo map that corresponds to it
---
--- * utxo of blocks in history
---
--- This constant is size of first set.
--- Also see 'Pos.CompileConfig.ccMaxLocalTxs'.
-maxLocalTxs :: Integral i => i
-maxLocalTxs = fromIntegral . ccMaxLocalTxs $ compileConfig
-
--- | /Time-lord/ node announces system start time by broadcast. She does it
--- during first 'Pos.CompileConfig.ccSysTimeBroadcastSlots' slots.
-sysTimeBroadcastSlots :: Integral i => i
-sysTimeBroadcastSlots = fromIntegral . ccSysTimeBroadcastSlots $ compileConfig
 
 networkConnectionTimeout :: Microsecond
 networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ compileConfig
@@ -133,21 +86,13 @@ propagationQueueSize =
     fromIntegral $ ccPropagationQueueSize $ compileConfig
 
 -- | See 'Pos.CompileConfig.ccDefaultPeers'.
-defaultPeers :: [DHTNode]
+defaultPeers :: [NetworkAddress]
 defaultPeers = map parsePeer . ccDefaultPeers $ compileConfig
   where
-    parsePeer :: String -> DHTNode
+    parsePeer :: String -> NetworkAddress
     parsePeer =
         either (error . show) identity .
-        P.parse dhtNodeParser "Compile time config"
-
--- | Max VSS certificate TTL (Ssc.GodTossing part)
-vssMaxTTL :: Integral i => i
-vssMaxTTL = fromIntegral . ccVssMaxTTL $ compileConfig
-
--- | Min VSS certificate TTL (Ssc.GodTossing part)
-vssMinTTL :: Integral i => i
-vssMinTTL = fromIntegral . ccVssMinTTL $ compileConfig
+        P.parse addrParser "Compile time config"
 
 -- | Maximum amount of headers node can put into headers message while
 -- in "after offline" or "recovery" mode. Should be more than
@@ -167,6 +112,11 @@ messageCacheTimeout = fromIntegral . ccMessageCacheTimeout $ compileConfig
 -- | Amount of time we hold confirmations for light PSKs.
 lightDlgConfirmationTimeout :: (Integral a) => a
 lightDlgConfirmationTimeout = fromIntegral . ccLightDlgConfirmationTimeout $ compileConfig
+
+-- | This value parameterizes size of cache used in Delegation.
+-- Not bytes, but number of elements.
+dlgCacheParam :: Integral n => n
+dlgCacheParam = fromIntegral . ccDlgCacheParam $ compileConfig
 
 ----------------------------------------------------------------------------
 -- Malicious activity

@@ -13,17 +13,17 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Pos.DB
+                       Pos.DB.BatchOp
                        Pos.DB.Class
                        Pos.DB.Error
                        Pos.DB.Functions
                        Pos.DB.GState.Common
                        Pos.DB.GState.Balances
-                       Pos.DB.Holder
                        Pos.DB.Iterator
                        Pos.DB.Iterator.Class
                        Pos.DB.Iterator.DBIterator
-                       Pos.DB.Limits
                        Pos.DB.Misc.Common
+                       Pos.DB.Redirect
                        Pos.DB.Types
 
   build-depends:       base
@@ -31,17 +31,20 @@ library
                      , cardano-sl-core
                      , concurrent-extra
                      , data-default
+                     , ether >= 0.5
                      , formatting
                      , lens
                      , log-warper
-                     , monad-control
+                     , mmorph
                      , mtl
                      , node-sketch
                      , resourcet
                      , rocksdb
                      , serokell-util
-                     , transformers-base
                      , text-format
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
                      , universum
 
   default-language:    Haskell2010
@@ -63,6 +66,9 @@ library
                        ViewPatterns
                        LambdaCase
                        MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
 
   ghc-options:         -Wall
                        -fno-warn-orphans

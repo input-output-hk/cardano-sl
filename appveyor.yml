@@ -64,13 +64,32 @@ before_test:
 test_script:
   - cd "%WORK_DIR%"
   - stack setup --no-reinstall
-  # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
-  - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus
-      install -j 2 --test --no-haddock-deps --bench --no-run-benchmarks
+  - stack install happy
+      -j 2
+      --no-terminal
+      --local-bin-path %SYSTEMROOT%\system32
+      --fast
       --work-dir %STACK_WORK%
+      --extra-include-dirs="C:\OpenSSL-Win64\include"
+      --extra-lib-dirs="C:\OpenSSL-Win64"
+      --extra-include-dirs="%WORK_DIR%\rocksdb\include"
+      --extra-lib-dirs="%WORK_DIR%"
+  # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
+  - scripts\appveyor-retry call stack install cardano-sl
+      -j 2
+      --no-terminal
+      --local-bin-path daedalus
+      --fast
+      --test
+      --no-haddock-deps
+      --bench
+      --no-run-benchmarks
+      --work-dir %STACK_WORK%
+      --ghc-options="-DCONFIG=wallet"
+      --flag cardano-sl:for-installer
       --flag cardano-sl:with-web
       --flag cardano-sl:with-wallet
-      --flag cardano-sl:-asserts
+      --flag cardano-sl-core:-asserts
       --flag cardano-sl-core:-dev-mode
       --extra-include-dirs="C:\OpenSSL-Win64\include"
       --extra-lib-dirs="C:\OpenSSL-Win64"
@@ -79,9 +98,10 @@ test_script:
   # - scripts\appveyor-retry call stack --no-terminal --local-bin-path daedalus
   #     install -j 2 --no-haddock-deps
   #     --work-dir %STACK_WORK%
+  #     --flag cardano-sl:for-installer
   #     --flag cardano-sl:with-web
   #     --flag cardano-sl:with-wallet
-  #     --flag cardano-sl:-asserts
+  #     --flag cardano-sl-core:-asserts
   #     --flag cardano-sl-core:-dev-mode
   #     --extra-include-dirs="C:\OpenSSL-Win64\include"
   #     --extra-lib-dirs="C:\OpenSSL-Win64"

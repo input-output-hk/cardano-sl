@@ -15,8 +15,8 @@ module Pos.Lrc.DB.Issuers
 import           Universum
 
 import           Pos.Binary.Class  (encodeStrict)
-import           Pos.Core.Types    (Coin, EpochIndex, EpochIndex (..), StakeholderId)
-import           Pos.DB.Class      (MonadDB)
+import           Pos.Core.Types    (Coin, EpochIndex (..), StakeholderId)
+import           Pos.DB.Class      (MonadDB, MonadDBRead)
 import           Pos.DB.Error      (DBError (DBMalformed))
 import           Pos.Lrc.DB.Common (getBi, putBi)
 import           Pos.Util.Util     (maybeThrow)
@@ -27,7 +27,7 @@ import           Pos.Util.Util     (maybeThrow)
 -- per epoch from the first value.
 type IssuersStakes = HashMap StakeholderId Coin
 
-getIssuersStakes :: MonadDB m => EpochIndex -> m IssuersStakes
+getIssuersStakes :: MonadDBRead m => EpochIndex -> m IssuersStakes
 getIssuersStakes epoch =
     maybeThrow (DBMalformed "Issuers part of LRC DB is not initialized") =<<
     getBi (issuersKey epoch)

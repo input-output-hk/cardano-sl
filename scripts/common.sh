@@ -71,12 +71,12 @@ function dht_key {
     i2="0$i"
   fi
 
-  $(find_binary cardano-dht-keygen) 000000000000$i2 | tr -d '\n'
+  $(find_binary cardano-dht-keygen) -n 000000000000$i2 | tr -d '\n'
 }
 
 function peer_config {
   local j=$1
-  echo -n " --peer 127.0.0.1:"`get_port $j`'/'`dht_key $j`
+  echo -n " --kademlia-peer 127.0.0.1:"`get_port $j`
 }
 
 function dht_config {
@@ -98,21 +98,21 @@ function dht_config {
   fi
 
   if [[ "$i" != "rand" ]]; then
-    echo -n " --dht-key "`dht_key $i`
+    echo -n " --kademlia-id "`dht_key $i`
   fi
 }
 
 function node_cmd {
   local i=$1
-  local time_lord=$2
-  local dht_cmd=$3
-  local is_stat=$4
-  local stake_distr=$5
-  local wallet_args=$6
-  local kademlia_dump_path=$7
-  local system_start=$8
+  local dht_cmd=$2
+  local is_stat=$3
+  local stake_distr=$4
+  local wallet_args=$5
+  local kademlia_dump_path=$6
+  local system_start=$7
   local st=''
   local reb=''
+  local no_ntp=''
   local ssc_algo=''
   local web=''
 
@@ -123,14 +123,14 @@ function node_cmd {
       keys_args="--keyfile \"secrets/secret-$((i+1)).key\""
   fi
 
-  if [[ $time_lord != "" ]] && [[ $time_lord != 0 ]]; then
-    time_lord=" --time-lord"
-  fi
   if [[ "$SSC_ALGO" != "" ]]; then
     ssc_algo=" --ssc-algo $SSC_ALGO "
   fi
   if [[ $NO_REBUILD == "" ]]; then
     reb=" --rebuild-db "
+  fi
+  if [[ $NO_NTP != "" ]]; then
+    no_ntp=" --no-ntp "
   fi
   if [[ $is_stat != "" ]]; then
     stats=" --stats "
@@ -147,13 +147,15 @@ function node_cmd {
     rts_opts="+RTS -N -pa -A6G -qg -RTS"
   fi
 
-  echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $rts_opts  $reb $keys_args"
+  echo -n "$(find_binary cardano-node) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
 
   $dht_cmd
 
   # monitor_port=$((8000+$i))
 
+  echo -n " --address 127.0.0.1:"`get_port $i`
   echo -n " --listen 127.0.0.1:"`get_port $i`
+  echo -n " --kademlia-address 127.0.0.1:"`get_port $i`
   echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $stake_distr $ssc_algo "
   echo -n " $web "

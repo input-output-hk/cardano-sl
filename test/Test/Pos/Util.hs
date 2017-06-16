@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Test.Pos.Util
@@ -30,11 +29,12 @@ import qualified Data.ByteString.Lazy  as LBS
 import           Data.SafeCopy         (SafeCopy, safeGet, safePut)
 import qualified Data.Semigroup        as Semigroup
 import           Data.Serialize        (runGet, runPut)
+import           Data.Tagged           (Tagged (..))
 import           Data.Typeable         (typeRep)
 import           Formatting            (formatToString, int, (%))
 import           Prelude               (read)
 
-import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode)
+import           Pos.Binary            (AsBinaryClass (..), Bi (..), encode, encodeStrict)
 import           Pos.Communication     (Limit (..), MessageLimitedPure (..))
 
 import           Test.Hspec            (Expectation, Selector, Spec, describe,
@@ -45,6 +45,9 @@ import           Test.QuickCheck       (Arbitrary (arbitrary), Property, conjoin
                                         suchThat, vectorOf, (.&&.), (===))
 
 import           Universum
+
+instance Arbitrary a => Arbitrary (Tagged s a) where
+    arbitrary = Tagged <$> arbitrary
 
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
 binaryEncodeDecode a = Bin.runGet parser (encode a) === a
@@ -72,7 +75,7 @@ networkBinaryEncodeDecode a = stage1 $ runGetIncremental get
     stage1 (Fail _ _ why)    =
         failText $ "parse error: " ++ why
     stage1 (Partial continue)   =
-        stage2 $ continue $ Just (LBS.toStrict $ encode a)
+        stage2 $ continue $ Just (encodeStrict a)
 
     -- all data has been put
     stage2 (Done remaining _ b) =

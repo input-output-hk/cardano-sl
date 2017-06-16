@@ -57,9 +57,9 @@ dev: &dev
 
   # Update system
   applicationName: cardano-sl
-  applicationVersion: 0
+  applicationVersion: 1
   lastKnownBVMajor: 0
-  lastKnownBVMinor: 0
+  lastKnownBVMinor: 1
   lastKnownBVAlt: 0
 
   # Production start time

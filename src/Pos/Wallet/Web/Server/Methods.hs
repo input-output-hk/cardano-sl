@@ -138,10 +138,11 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, E
                                                    getWalletMeta, getWalletPassLU,
                                                    isChangeAddress, openState,
                                                    removeAccount, removeNextUpdate,
-                                                   removeWallet, setAccountMeta,
-                                                   setProfile, setWalletMeta,
-                                                   setWalletPassLU, setWalletTxMeta,
-                                                   testReset, totallyRemoveWAddress,
+                                                   removeWAddress, removeWallet,
+                                                   setAccountMeta, setProfile,
+                                                   setWalletMeta, setWalletPassLU,
+                                                   setWalletTxMeta, testReset,
+                                                   totallyRemoveWAddress,
                                                    updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, MonadWalletTracking,
@@ -915,22 +916,26 @@ changeWalletPassphrase
     :: WalletWebMode m
     => SendActions m -> CId Wal -> PassPhrase -> PassPhrase -> m ()
 changeWalletPassphrase sa wid oldPass newPass = do
-    oldSK   <- getSKByAddr wid
-    newSK   <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
+    oldSK <- getSKByAddr wid
 
-    addSecretKey newSK
-    oldAddrMeta <- (`E.onException` deleteSK newPass) $ do
-        (oldAddrMeta, newAddrMeta) <- cloneWalletSetWithPass newSK newPass wid
-            `E.onException` do
-                logError "Failed to clone wallet"
-        moveMoneyToClone sa oldPass wid (asExisting oldAddrMeta) (asExisting newAddrMeta)
-            `E.onException` do
-                logError "Money transmition to new wallet failed"
-                mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ newAddrMeta
-        return oldAddrMeta
-    mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ oldAddrMeta
-    setWalletPassLU wid =<< liftIO getPOSIXTime
-    deleteSK oldPass
+    -- 'cloneWalletSetWithPass' will work badly if accounts / addresses ids
+    -- don't actually change
+    unless (isJust $ checkPassMatches newPass oldSK) $ do
+        newSK <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
+
+        addSecretKey newSK
+        oldAddrMeta <- (`E.onException` deleteSK newPass) $ do
+            (oldAddrMeta, newAddrMeta) <- cloneWalletSetWithPass newSK newPass wid
+                `E.onException` do
+                    logError "Failed to clone wallet"
+            moveMoneyToClone sa oldPass wid (asExisting oldAddrMeta) (asExisting newAddrMeta)
+                `E.onException` do
+                    logError "Money transmition to new wallet failed"
+                    mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ newAddrMeta
+            return oldAddrMeta
+        mapM_ removeWAddress $ asExisting oldAddrMeta
+        setWalletPassLU wid =<< liftIO getPOSIXTime
+        deleteSK oldPass
   where
     badPass = RequestError "Invalid old passphrase given"
     deleteSK passphrase = do

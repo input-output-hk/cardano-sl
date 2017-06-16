@@ -42,9 +42,10 @@ import Explorer.View.CSS (dashBoardBlocksViewId, headerId, moveIn, moveOut) as C
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Explorer.View.Dashboard.Transactions (maxTransactionRows)
 import Network.HTTP.Affjax (AJAX)
-import Network.RemoteData (RemoteData(..), isNotAsked, isSuccess, withDefault)
+import Network.RemoteData (RemoteData(..), _Success, isNotAsked, isSuccess, withDefault)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
+import Pos.Explorer.Web.ClientTypes (CAddress(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress, caTxList)
 import Pux (EffModel, noEffects, onlyEffects)
 import Pux.Router (navigateTo) as P
 import Waypoints (WAYPOINT, destroy, waypoint', up) as WP
@@ -117,6 +118,23 @@ update (SocketTxsUpdated (Right txs)) state =
 
 update (SocketTxsUpdated (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
+    over errors (\errors' -> (show error) : errors') state
+
+update (SocketAddressTxsUpdated (Right txs)) state =
+    noEffects $
+    if isSuccess addrSummary
+    then do
+        -- Add latest tx on top to other txs of an address
+        -- Note: We have to "over" `addrSummary` and set
+        -- `currentAddressSummary` explicitly to update the view
+        let addrSummary' = over (_Success <<< _CAddressSummary <<< caTxList)
+                              (\txs' -> txs <> txs') addrSummary
+        set currentAddressSummary addrSummary' state
+    else state
+    where
+        addrSummary = state ^. currentAddressSummary
+
+update (SocketAddressTxsUpdated (Left error)) state = noEffects $
     over errors (\errors' -> (show error) : errors') state
 
 update SocketCallMe state =
@@ -687,8 +705,19 @@ update (ReceiveAddressSummary (Right address)) state =
         set loading false $
         set currentAddressSummary (Success address) state
     , effects:
-        [ pure $ GenerateQrCode $ address ^. (_CAddressSummary <<< caAddress) ]
+        [ pure $ GenerateQrCode caAddress'
+        ]
+        <>  ( if (syncBySocket $ state ^. syncAction)
+              then [ pure $ SocketAddSubscription subItem ]
+              else []
+            )
     }
+    where
+        caAddress' = address ^. (_CAddressSummary <<< caAddress)
+        subItem = mkSocketSubscriptionItem (SocketSubscription SubAddr) (SocketCAddressData caAddress')
+
+
+
 update (ReceiveAddressSummary (Left error)) state =
     noEffects $
     set loading false $
@@ -851,6 +880,7 @@ socketSubscribeEvent socket (SocketSubscriptionItem item) =
         subscribe :: Socket -> String -> SocketSubscriptionData -> Eff (socket :: SocketIO | eff) Unit
         subscribe s e SocketNoData = emit' s e
         subscribe s e (SocketOffsetData (SocketOffset o)) = emit s e o
+        subscribe s e (SocketCAddressData (CAddress addr)) = emit s e addr
 
 socketUnsubscribeEvent :: forall eff . Socket -> SocketSubscriptionItem
     -> Eff (socket :: SocketIO | eff) Unit

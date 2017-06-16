@@ -34,6 +34,7 @@ data Action
     | SocketConnected Boolean
     | SocketBlocksPageUpdated (Either Error (Tuple Int CBlockEntries))
     | SocketTxsUpdated (Either Error CTxEntries)
+    | SocketAddressTxsUpdated (Either Error CTxBriefs)
     | SocketAddSubscription SocketSubscriptionItem
     | SocketRemoveSubscription SocketSubscriptionItem
     | SocketClearSubscriptions

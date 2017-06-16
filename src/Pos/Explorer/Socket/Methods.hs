@@ -1,7 +1,6 @@
-{-# LANGUAGE ConstraintKinds     #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 -- | Logic of Explorer socket-io Server.
 
@@ -32,7 +31,6 @@ module Pos.Explorer.Socket.Methods
        , addrsTouchedByTx
        , getBlockTxs
        , getTxInfo
-       , groupTxsInfo
        ) where
 
 import           Control.Lens                   (at, ix, lens, non, (.=), _Just)
@@ -53,9 +51,8 @@ import qualified Pos.DB.GState                  as DB
 import           Pos.Explorer                   (TxExtra (..))
 import qualified Pos.Explorer                   as DB
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxOut (..),
-                                                 TxOutAux (..), txOutAddress,
-                                                 txpTxs)
+import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
+                                                 txOutAddress, txpTxs)
 import           Pos.Types                      (Address, HeaderHash)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (getOldestFirst)
@@ -64,24 +61,20 @@ import           System.Wlog                    (WithLogger, logDebug, logError,
 import           Universum
 
 import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Socket.Holder     (ClientContext,
-                                                 ConnectionsState, ccAddress,
-                                                 ccBlockOff, ccConnection,
+import           Pos.Explorer.Socket.Holder     (ClientContext, ConnectionsState,
+                                                 ccAddress, ccBlockOff, ccConnection,
                                                  csAddressSubscribers,
                                                  csBlocksOffSubscribers,
                                                  csBlocksPageSubscribers,
                                                  csBlocksSubscribers, csClients,
-                                                 csTxsSubscribers,
-                                                 mkClientContext)
+                                                 csTxsSubscribers, mkClientContext)
 import           Pos.Explorer.Socket.Util       (EventName (..), emitTo)
-import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxEntry (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxBrief, CTxEntry (..),
                                                  TxInternal (..), fromCAddress,
-                                                 tiToTxEntry, toBlockEntry)
+                                                 toBlockEntry, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Explorer.Web.Server        (ExplorerMode,
-                                                 getBlocksLastPage,
-                                                 getLastBlocks,
-                                                 topsortTxsOrFail)
+import           Pos.Explorer.Web.Server        (ExplorerMode, getBlocksLastPage,
+                                                 getLastBlocks, topsortTxsOrFail)
 
 -- * Event names
 
@@ -339,7 +332,7 @@ broadcast event args recipients = do
 
 notifyAddrSubscribers
     :: NotificationMode m
-    => Address -> [CTxEntry] -> m ()
+    => Address -> [CTxBrief] -> m ()
 notifyAddrSubscribers addr cTxEntries = do
     mRecipients <- view $ csAddressSubscribers . at addr
     whenJust mRecipients $ broadcast AddrUpdated cTxEntries
@@ -410,21 +403,15 @@ getBlockTxs (Left  _  ) = return []
 getBlockTxs (Right blk) = do
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
     forM txs $ \tx -> do
-        TxExtra {..} <- DB.getTxExtra (hash tx) >>=
+        extra@TxExtra {..} <- DB.getTxExtra (hash tx) >>=
             maybeThrow (Internal "In-block transaction doesn't \
                                  \have extra info in DB")
-        pure $ TxInternal teReceivedTime tx
+        pure $ TxInternal extra tx
 
 getTxInfo
     :: (ExplorerMode m)
-    => TxInternal -> m (CTxEntry, S.Set Address)
+    => TxInternal -> m (CTxBrief, S.Set Address)
 getTxInfo tx = do
-    let cTxEntry = tiToTxEntry tx
+    let ctxBrief = toTxBrief tx
     addrs <- addrsTouchedByTx (tiTx tx)
-    return (cTxEntry, addrs)
-
-groupTxsInfo :: [(CTxEntry, S.Set Address)] -> M.Map Address [CTxEntry]
-groupTxsInfo info =
-    let entries = fmap swap $ concat $ fmap sequence
-                $ toList <<$>> info :: [(Address, CTxEntry)]
-    in  fmap ($ []) $ M.fromListWith (.) $ fmap (second $ (++) . pure) entries
+    return (ctxBrief, addrs)

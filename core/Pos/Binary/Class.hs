@@ -220,7 +220,7 @@ getTinyVarInt' = do
             b <- getWord8
             if | testBit b 7 -> fail "getTinyVarInt': more than 2 bytes"
                | b == 0      -> fail "getTinyVarInt': second byte is 0"
-               | otherwise   -> pure $ shiftL (fromIntegral b) 7 .|.
+               | otherwise   -> pure $   shiftL (fromIntegral b) 7 .|.
                                        clearBit (fromIntegral a) 7
         else pure (fromIntegral a)
 

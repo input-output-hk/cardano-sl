@@ -51,7 +51,7 @@ tinyVarIntSpec = describe "TinyVarInt" $ do
     let hex n = "0x" ++ showHex n ""
         test_roundtrip n =
             prop ("roundtrip " ++ hex n) $ binaryEncodeDecode (B.TinyVarInt n)
-        plural b = show b ++ " byte" ++ if b == 1 then "s" else ""
+        plural b = show b ++ " byte" ++ if b > 1 then "s" else ""
         test_length n b =
             it ("serializing " ++ hex n ++ " takes " ++ plural b) $
                 B.biSize (B.TinyVarInt n) `shouldBe` b

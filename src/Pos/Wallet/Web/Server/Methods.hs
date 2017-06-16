@@ -52,6 +52,7 @@ import           Servant.Multipart                (fdFilePath)
 import           Servant.Server                   (Handler, Server, ServerT, err403,
                                                    runHandler, serve)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
+import           System.IO.Error                  (isDoesNotExistError)
 import           System.Wlog                      (logDebug, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes            ()
@@ -84,7 +85,8 @@ import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
 import           Pos.Util.Servant                 (decodeCType, encodeCType)
-import           Pos.Util.UserSecret              (readUserSecret, usWalletSet)
+import           Pos.Util.UserSecret              (UserSecretDecodingError (..),
+                                                   readUserSecret, usWalletSet)
 import           Pos.Wallet.KeyStorage            (addSecretKey, deleteSecretKey,
                                                    getSecretKeys)
 import           Pos.Wallet.Redirect              (WalletRedirects)
@@ -1051,14 +1053,18 @@ importWallet
     -> Text
     -> m CWallet
 importWallet sa passphrase (toString -> fp) = do
-    secret <- rewrapToWalletError $ readUserSecret fp
+    secret <-
+        rewrapToWalletError isDoesNotExistError noFile $
+        rewrapToWalletError (\UserSecretDecodingError{} -> True) decodeFailed $
+        readUserSecret fp
     wSecret <- maybeThrow noWalletSecret (secret ^. usWalletSet)
     wId <- cwId <$> importWalletSecret emptyPassphrase wSecret
     changeWalletPassphrase sa wId emptyPassphrase passphrase
     getWallet wId
   where
-    noWalletSecret =
-        RequestError "This key doesn't contain HD wallet info"
+    noWalletSecret = RequestError "This key doesn't contain HD wallet info"
+    noFile _ = "File doesn't exist"
+    decodeFailed = sformat ("Invalid secret file ("%build%")")
 
 importWalletSecret
     :: WalletWebMode m

@@ -1,7 +1,6 @@
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TypeFamilies              #-}
-{-# LANGUAGE TypeInType                #-}
 {-# LANGUAGE TypeOperators             #-}
 
 -- | Runtime context of node.
@@ -39,10 +38,9 @@ import           Universum
 import           Control.Concurrent.STM        (TBQueue)
 import qualified Control.Concurrent.STM        as STM
 import           Control.Lens                  (coerced, lens, makeLensesFor)
-import           Data.Kind                     (Type)
 import           Data.Time.Clock               (UTCTime)
 import qualified Ether
-import           Ether.Internal                (HList (..), HasLens (..), Tags, TagsK)
+import           Ether.Internal                (HasLens (..))
 import           Pos.Security.Params           (SecurityParams)
 import           System.Wlog                   (LoggerConfig)
 
@@ -195,68 +193,6 @@ makeLensesFor
     , ("npPropagation", "npPropagationL")
     , ("npCustomUtxo", "npCustomUtxoL") ]
     ''NodeParams
-
-type instance TagsK (NodeContext ssc) =
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  Type ':
-  '[]
-
-return []
-
-type (:::) = 'HCons
-
-infixr :::
-
-type instance Tags (NodeContext ssc) =
-  NodeContextTag         :::
-  SscContextTag          :::
-  UpdateContext          :::
-  LrcContext             :::
-  DiscoveryContextSum    :::
-  SlottingVar            :::
-  SlottingContextSum     :::
-  NodeParams             :::
-  UpdateParams           :::
-  SecurityParams         :::
-  PrimaryKeyTag          :::
-  ReportingContext       :::
-  RelayContext           :::
-  ShutdownContext        :::
-  TxpGlobalSettings      :::
-  GenesisUtxo            :::
-  GenesisLeaders         :::
-  TVar UserSecret        :::
-  ConnectedPeers         :::
-  BlkSemaphore           :::
-  StartTime              :::
-  LastKnownHeaderTag     :::
-  ProgressHeaderTag      :::
-  BlockRetrievalQueueTag :::
-  RecoveryHeaderTag      :::
-  'HNil
 
 instance HasLens NodeContextTag (NodeContext ssc) (NodeContext ssc) where
     lensOf = identity

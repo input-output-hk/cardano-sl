@@ -196,17 +196,11 @@ instance (Bi w) => Bi (ProxySignature w a) where
 
 instance Bi PassPhrase where
     put pp = do
-        -- currently passphrase may be 32-byte long, or empty
-        -- (for unencrypted keys)
         let bs = BS.pack $ ByteArray.unpack pp
-            bl = BS.length bs
-        unless (bl `elem` [0, 32]) $ error $
-            sformat ("put@PassPhrase: expected length 0 or 32, not "%int)
-                bl
+        putAssertLength "PassPhrase" passphraseLength bs
         putByteString bs
     get = label "PassPhrase" $
-          ByteArray.pack . BS.unpack <$>
-              (getByteString passphraseLength <|> getByteString 0)
+          ByteArray.pack . BS.unpack <$> getByteString passphraseLength
 
 -------------------------------------------------------------------------------
 -- Hierarchical derivation

@@ -39,7 +39,7 @@ import           Pos.Crypto.Hashing    (Hash, hash)
 import           Pos.Crypto.Random     (secureRandomBS)
 import           Pos.Crypto.Signing    (ProxyCert (..), ProxySecretKey (..),
                                         PublicKey (..), SecretKey (..), Signature (..),
-                                        sign, toPublic)
+                                        emptyPass, sign, toPublic)
 import           Pos.Crypto.SignTag    (SignTag (SignProxySK), signTag)
 
 data EncryptedSecretKey = EncryptedSecretKey
@@ -64,11 +64,7 @@ instance Buildable PassPhrase where
 
 -- | Empty passphrase used in development.
 emptyPassphrase :: PassPhrase
-emptyPassphrase = PassPhrase mempty
-
-{-instance Monoid PassPhrase where
-    mempty = PassPhrase mempty
-    mappend (PassPhrase p1) (PassPhrase p2) = PassPhrase (p1 `mappend` p2)-}
+emptyPassphrase = PassPhrase emptyPass
 
 mkEncSecret :: Bi PassPhrase => PassPhrase -> CC.XPrv -> EncryptedSecretKey
 mkEncSecret pp payload = EncryptedSecretKey payload (hash pp)

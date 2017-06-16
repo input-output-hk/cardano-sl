@@ -77,6 +77,8 @@ instance MonadPoll m => MonadPoll (RollT m) where
         insertIfNotExist id unChangedPropsL getProposal
         deactivateProposal id
 
+    setSlottingData = lift . setSlottingData
+
     setEpochProposers proposers = ether $ do
         whenNothingM_ (use unPrevProposersL) $ do
             prev <- getEpochProposers

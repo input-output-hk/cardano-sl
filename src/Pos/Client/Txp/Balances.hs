@@ -4,8 +4,6 @@ module Pos.Client.Txp.Balances
        ( MonadBalances(..)
        , getOwnUtxo
        , getBalanceFromUtxo
-       , BalancesRedirect
-       , runBalancesRedirect
        , getOwnUtxosWebWallet
        , getBalanceWebWallet
        ) where
@@ -13,12 +11,9 @@ module Pos.Client.Txp.Balances
 import           Universum
 
 import           Control.Monad.Trans          (MonadTrans)
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
 import qualified Data.Map                     as M
-import qualified Ether
 import           Formatting                   (sformat, stext, (%))
 import           System.Wlog                  (WithLogger, logWarning)
 
@@ -44,28 +39,18 @@ class Monad m => MonadBalances m where
     -- TODO: add a function to get amount of stake (it's different from
     -- balance because of distributions)
 
-    default getOwnUtxos :: (MonadTrans t, MonadBalances m', t m' ~ m) => [Address] -> m Utxo
-    getOwnUtxos = lift . getOwnUtxos
-
-    default getBalance :: (MonadTrans t, MonadBalances m', t m' ~ m) => Address -> m Coin
-    getBalance = lift . getBalance
-
 instance {-# OVERLAPPABLE #-}
     (MonadBalances m, MonadTrans t, Monad (t m)) =>
         MonadBalances (t m)
+  where
+    getOwnUtxos = lift . getOwnUtxos
+    getBalance = lift . getBalance
+
 
 getBalanceFromUtxo :: MonadBalances m => Address -> m Coin
 getBalanceFromUtxo addr =
     unsafeIntegerToCoin . sumCoins .
     map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
-
-data BalancesRedirectTag
-
-type BalancesRedirect =
-    Ether.TaggedTrans BalancesRedirectTag IdentityT
-
-runBalancesRedirect :: BalancesRedirect m a -> m a
-runBalancesRedirect = coerce
 
 type BalancesMonad ext m =
     (MonadRealDB m, MonadDBRead m, MonadGState m, MonadMask m, WithLogger m, MonadTxpMem ext m)
@@ -100,14 +85,6 @@ getBalanceWebWallet PubKeyAddress{..} = do
                      " using mempool, reason: "%stext) addrKeyHash er
     getFromDb = fromMaybe (mkCoin 0) <$> GS.getRealStake addrKeyHash
 getBalanceWebWallet addr = getBalanceFromUtxo addr
-
-instance
-    (MonadRealDB m, MonadDBRead m, MonadGState m, MonadMask m,
-     WithLogger m, MonadTxpMem ext m, t ~ IdentityT) =>
-        MonadBalances (Ether.TaggedTrans BalancesRedirectTag t m)
-  where
-    getOwnUtxos = getOwnUtxosWebWallet
-    getBalance = getBalanceWebWallet
 
 getOwnUtxo :: MonadBalances m => Address -> m Utxo
 getOwnUtxo = getOwnUtxos . one

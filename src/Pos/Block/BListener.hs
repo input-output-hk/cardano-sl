@@ -8,14 +8,9 @@ module Pos.Block.BListener
        ( MonadBListener (..)
        , onApplyBlocksStub
        , onRollbackBlocksStub
-       , BListenerStub
-       , runBListenerStub
        ) where
 
 import           Control.Monad.Trans          (MonadTrans (..))
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
-import qualified Ether
 import           Mockable                     (SharedAtomicT)
 import           Universum
 
@@ -53,16 +48,3 @@ onRollbackBlocksStub
     :: forall ssc m . (SscHelpersClass ssc, Monad m)
     => NewestFirst NE (Blund ssc) -> m ()
 onRollbackBlocksStub _ = pass
-
-data BListenerStubTag
-
-type BListenerStub = Ether.TaggedTrans BListenerStubTag IdentityT
-
-runBListenerStub :: BListenerStub m a -> m a
-runBListenerStub = coerce
-
--- Blockchain Listener is needed only for Wallet.
--- Stub implementation for usual node.
-instance (Monad m) => MonadBListener (BListenerStub m) where
-    onApplyBlocks = onApplyBlocksStub
-    onRollbackBlocks = onRollbackBlocksStub

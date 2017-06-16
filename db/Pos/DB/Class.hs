@@ -106,13 +106,11 @@ class MonadThrow m => MonadDBRead m where
     -- with given key from DB corresponding to given tag.
     dbGet :: DBTag -> ByteString -> m (Maybe ByteString)
 
-    default dbGet :: (MonadTrans t, MonadDBRead n, t n ~ m) =>
-        DBTag -> ByteString -> m (Maybe ByteString)
-    dbGet tag = lift . dbGet tag
-
 instance {-# OVERLAPPABLE #-}
     (MonadDBRead m, MonadTrans t, MonadThrow (t m)) =>
         MonadDBRead (t m)
+  where
+    dbGet tag = lift . dbGet tag
 
 -- | Pure interface to the database. Combines read-only interface and
 -- ability to put raw bytes.
@@ -140,21 +138,14 @@ class MonadDBRead m => MonadDB m where
     -- with given key from DB corresponding to given tag.
     dbDelete :: DBTag -> ByteString -> m ()
 
-    default dbPut :: (MonadTrans t, MonadDB n, t n ~ m) =>
-        DBTag -> ByteString -> ByteString -> m ()
-    dbPut = lift ... dbPut
-
-    default dbWriteBatch :: (MonadTrans t, MonadDB n, t n ~ m) =>
-        DBTag -> [Rocks.BatchOp] -> m ()
-    dbWriteBatch = lift ... dbWriteBatch
-
-    default dbDelete :: (MonadTrans t, MonadDB n, t n ~ m) =>
-        DBTag -> ByteString -> m ()
-    dbDelete = lift ... dbDelete
 
 instance {-# OVERLAPPABLE #-}
     (MonadDB m, MonadTrans t, MonadThrow (t m)) =>
         MonadDB (t m)
+  where
+    dbPut = lift ... dbPut
+    dbWriteBatch = lift ... dbWriteBatch
+    dbDelete = lift ... dbDelete
 
 ----------------------------------------------------------------------------
 -- GState abstraction

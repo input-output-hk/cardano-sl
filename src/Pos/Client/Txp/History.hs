@@ -22,8 +22,6 @@ module Pos.Client.Txp.History
        , getRelatedTxs
        , deriveAddrHistory
        , deriveAddrHistoryPartial
-       , TxHistoryRedirect
-       , runTxHistoryRedirect
        , getTxHistoryWebWallet
        , saveTxWebWallet
        ) where
@@ -34,9 +32,7 @@ import           Control.Lens                 (makeLenses, (%=))
 import           Control.Monad.Loops          (unfoldrM)
 import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
-import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Maybe    (MaybeT (..))
-import           Data.Coerce                  (coerce)
 import qualified Data.DList                   as DL
 import qualified Data.HashSet                 as HS
 import           Data.Tagged                  (Tagged (..))
@@ -167,25 +163,13 @@ class Monad m => MonadTxHistory m where
         => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
     saveTx :: (TxId, TxAux) -> m ()
 
-    default getTxHistory
-        :: (SscHelpersClass ssc, MonadTrans t, MonadTxHistory m', t m' ~ m)
-        => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
-    getTxHistory = fmap lift <<$>> getTxHistory
-
-    default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
-    saveTx = lift . saveTx
-
 instance {-# OVERLAPPABLE #-}
     (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
         MonadTxHistory (t m)
+  where
+    getTxHistory = fmap lift <<$>> getTxHistory
+    saveTx = lift . saveTx
 
-data TxHistoryRedirectTag
-
-type TxHistoryRedirect =
-    Ether.TaggedTrans TxHistoryRedirectTag IdentityT
-
-runTxHistoryRedirect :: TxHistoryRedirect m a -> m a
-runTxHistoryRedirect = coerce
 
 type TxHistoryMonad m =
     ( MonadRealDB m
@@ -198,22 +182,6 @@ type TxHistoryMonad m =
     , MonadTxpMem TxpExtra_TMP m
     , MonadBaseControl IO m
     )
-
-instance
-    ( MonadRealDB m
-    , MonadDBRead m
-    , MonadGState m
-    , MonadThrow m
-    , WithLogger m
-    , MonadSlots m
-    , Ether.MonadReader' GenesisUtxo m
-    , MonadTxpMem TxpExtra_TMP m
-    , MonadBaseControl IO m
-    , t ~ IdentityT
-    ) => MonadTxHistory (Ether.TaggedTrans TxHistoryRedirectTag t m)
-  where
-    getTxHistory = getTxHistoryWebWallet
-    saveTx = saveTxWebWallet
 
 getTxHistoryWebWallet
     :: forall ssc m. (SscHelpersClass ssc, TxHistoryMonad m)

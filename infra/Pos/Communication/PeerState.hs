@@ -11,16 +11,12 @@ module Pos.Communication.PeerState
        , PeerStateSnapshot
        , peerStateFromSnapshot
        , module Pos.Communication.Types.State
-       , PeerStateRedirect
-       , runPeerStateRedirect
        , getPeerStateReal
        , clearPeerStateReal
        , getAllStatesReal
        ) where
 
 import           Control.Monad.Trans.Class        (MonadTrans)
-import           Control.Monad.Trans.Identity     (IdentityT (..))
-import           Data.Coerce                      (coerce)
 import           Data.Default                     (Default (def))
 import qualified Ether
 import qualified ListT                            as LT
@@ -63,15 +59,6 @@ peerStateFromSnapshot (PeerStateSnapshot snapshot) = do
 
 data PeerStateTag
 
--- | Wrapper for monadic action which brings 'NodePeerState'.
-data PeerStateRedirectTag
-
-type PeerStateRedirect =
-    Ether.TaggedTrans PeerStateRedirectTag IdentityT
-
-runPeerStateRedirect :: PeerStateRedirect m a -> m a
-runPeerStateRedirect = coerce
-
 type PeerStateRealMonad m =
     ( MonadIO m, Mockable SharedAtomic m
     , Ether.MonadReader PeerStateTag (PeerStateCtx m) m )
@@ -105,11 +92,3 @@ getAllStatesReal = do
     m <- Ether.ask @PeerStateTag
     stream <- atomically $ LT.toList $ STM.stream m
     PeerStateSnapshot <$> forM stream (mapM readSharedAtomic)
-
-instance
-    ( PeerStateRealMonad m, t ~ IdentityT
-    ) => WithPeerState (Ether.TaggedTrans PeerStateRedirectTag t m)
-  where
-    getPeerState = getPeerStateReal
-    clearPeerState = clearPeerStateReal
-    getAllStates = getAllStatesReal

@@ -6,15 +6,11 @@
 
 module Pos.Wallet.Redirect
        ( MonadBlockchainInfo(..)
-       , BlockchainInfoRedirect
-       , runBlockchainInfoRedirect
        , networkChainDifficultyWebWallet
        , localChainDifficultyWebWallet
        , connectedPeersWebWallet
        , blockchainSlotDurationWebWallet
        , MonadUpdates(..)
-       , UpdatesRedirect
-       , runUpdatesRedirect
        , waitForUpdateWebWallet
        , applyLastUpdateWebWallet
        ) where
@@ -22,9 +18,7 @@ module Pos.Wallet.Redirect
 import           Universum
 
 import           Control.Concurrent.STM       (tryReadTMVar)
-import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Maybe    (MaybeT (..))
-import           Data.Coerce                  (coerce)
 import           Data.Time.Units              (Millisecond)
 import qualified Ether
 import           System.Wlog                  (WithLogger)
@@ -48,14 +42,6 @@ import           Pos.Wallet.WalletMode        (MonadBlockchainInfo (..),
 ----------------------------------------------------------------------------
 -- BlockchainInfo
 ----------------------------------------------------------------------------
-
-data BlockchainInfoRedirectTag
-
-type BlockchainInfoRedirect =
-    Ether.TaggedTrans BlockchainInfoRedirectTag IdentityT
-
-runBlockchainInfoRedirect :: BlockchainInfoRedirect m a -> m a
-runBlockchainInfoRedirect = coerce
 
 getLastKnownHeader
   :: (PC.MonadLastKnownHeader ssc m, MonadIO m)
@@ -114,33 +100,9 @@ blockchainSlotDurationWebWallet
     => m Millisecond
 blockchainSlotDurationWebWallet = getLastKnownSlotDuration
 
--- | Instance for full-node's ContextHolder
-instance
-    ( MonadBlockDB ssc m
-    , t ~ IdentityT
-    , PC.MonadLastKnownHeader ssc m
-    , PC.MonadProgressHeader ssc m
-    , Ether.MonadReader' PC.ConnectedPeers m
-    , MonadIO m
-    , MonadRealDB m
-    , MonadSlots m
-    ) => MonadBlockchainInfo (Ether.TaggedTrans BlockchainInfoRedirectTag t m)
-  where
-    networkChainDifficulty = networkChainDifficultyWebWallet
-    localChainDifficulty = localChainDifficultyWebWallet
-    connectedPeers = connectedPeersWebWallet
-    blockchainSlotDuration = blockchainSlotDurationWebWallet
-
 ----------------------------------------------------------------------------
 -- Updates
 ----------------------------------------------------------------------------
-
-data UpdatesRedirectTag
-
-type UpdatesRedirect = Ether.TaggedTrans UpdatesRedirectTag IdentityT
-
-runUpdatesRedirect :: UpdatesRedirect m a -> m a
-runUpdatesRedirect = coerce
 
 type UpdatesMonad m =
     ( MonadIO m
@@ -153,15 +115,3 @@ waitForUpdateWebWallet = takeMVar =<< Ether.asks' ucUpdateSemaphore
 
 applyLastUpdateWebWallet :: UpdatesMonad m => m ()
 applyLastUpdateWebWallet = triggerShutdown
-
--- | Instance for full node
-instance
-    ( MonadIO m
-    , WithLogger m
-    , t ~ IdentityT
-    , MonadShutdownMem m
-    , Ether.MonadReader' UpdateContext m
-    ) => MonadUpdates (Ether.TaggedTrans UpdatesRedirectTag t m)
-  where
-    waitForUpdate = waitForUpdateWebWallet
-    applyLastUpdate = applyLastUpdateWebWallet

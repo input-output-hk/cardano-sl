@@ -15,9 +15,7 @@ module Pos.Discovery.Holders
 
        , DiscoveryContextSum (..)
        , MonadDiscoverySum
-       , DiscoveryRedirect
        , askDiscoveryContextSum
-       , runDiscoveryRedirect
        , discoveryWorkers
        , getPeersReal
        , findPeersReal
@@ -25,8 +23,6 @@ module Pos.Discovery.Holders
 
 import           Universum
 
-import           Control.Monad.Trans.Identity     (IdentityT (..))
-import           Data.Coerce                      (coerce)
 import qualified Data.Set                         as S (fromList)
 import qualified Ether
 import           Mockable                         (Async, Catch, Mockables, Promise,
@@ -122,14 +118,6 @@ data DiscoveryContextSum
 -- uses only one of them).
 type MonadDiscoverySum = Ether.MonadReader' DiscoveryContextSum
 
-data DiscoveryRedirectTag
-
-type DiscoveryRedirect =
-    Ether.TaggedTrans DiscoveryRedirectTag IdentityT
-
-runDiscoveryRedirect :: DiscoveryRedirect m a -> m a
-runDiscoveryRedirect = coerce
-
 askDiscoveryContextSum :: MonadDiscoverySum m => m DiscoveryContextSum
 askDiscoveryContextSum = Ether.ask'
 
@@ -147,11 +135,6 @@ findPeersReal =
     Ether.ask' >>= \case
         DCStatic nodes -> runDiscoveryConstT nodes findPeers
         DCKademlia inst -> runDiscoveryKademliaT inst findPeers
-
-instance (DiscoveryRealMonad m, t ~ IdentityT) =>
-         MonadDiscovery (Ether.TaggedTrans DiscoveryRedirectTag t m) where
-    getPeers = getPeersReal
-    findPeers = findPeersReal
 
 -- | Get all discovery workers using 'DiscoveryContextSum'.
 discoveryWorkers ::

@@ -27,15 +27,12 @@ class Monad m => MonadIterator a m where
     -- or Nothing if it doesn't exist.
     curItem  :: m (Maybe a)
 
-    default nextItem :: (MonadTrans t, MonadIterator a n, t n ~ m) => m (Maybe a)
-    nextItem = lift nextItem
-
-    default curItem :: (MonadTrans t, MonadIterator a n, t n ~ m) => m (Maybe a)
-    curItem = lift curItem
-
 instance {-# OVERLAPPABLE #-}
     (MonadIterator a m, MonadTrans t, Monad (t m)) =>
         MonadIterator a (t m)
+  where
+    nextItem = lift nextItem
+    curItem = lift curItem
 
 -- | Encapsulation of list iterator.
 newtype ListHolderT s m a = ListHolderT (StateT [s] m a)

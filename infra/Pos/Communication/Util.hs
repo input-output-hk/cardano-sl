@@ -49,10 +49,10 @@ convWithWaitLog nodeId conv = conv { N.send = send', N.recv = recv' }
           (sformat ("Send "%base16F%" to "%shown%" in conversation")
             sndMsg nodeId) $
            N.send conv msg
-    recv' =
+    recv' limit =
         logWarningWaitLinear 4
           (sformat ("Recv from "%shown%" in conversation") nodeId) $
-           N.recv conv
+           N.recv conv limit
     MessageName sndMsg = messageName $
         ((\_ -> Proxy) :: N.ConversationActions snd rcv m -> Proxy snd) conv
 
@@ -67,10 +67,10 @@ convWithWaitLogL nodeId conv = conv { N.send = send', N.recv = recv' }
         logWarningWaitLinear 4
           (sformat ("Send to "%shown%" in conversation") nodeId) $
             N.send conv msg
-    recv' =
+    recv' limit =
         logWarningWaitLinear 4
           (sformat ("Recv "%base16F%" from "%shown%" in conversation") rcvMsg nodeId) $
-            N.recv conv
+            N.recv conv limit
     MessageName rcvMsg = messageName $
         ((\_ -> Proxy) :: N.ConversationActions snd rcv m -> Proxy rcv) conv
 
@@ -87,8 +87,8 @@ convWithTimeLimit timeout nodeId conv = conv { N.recv = recv', N.send = send' }
             whenNothing res . logWarning $
                 sformat ("Send to "%shown%" in conversation - timeout expired")
                     nodeId
-        recv' = do
-            res <- execWithTimeLimit timeout $ N.recv conv
+        recv' limit = do
+            res <- execWithTimeLimit timeout $ N.recv conv limit
             case res of
                 Nothing -> do
                     logWarning $

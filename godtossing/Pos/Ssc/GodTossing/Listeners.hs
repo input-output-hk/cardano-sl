@@ -12,7 +12,7 @@ import           Universum
 import           Control.Lens                          (at, to)
 import           Data.Tagged                           (Tagged (..), tagWith)
 import           Formatting                            (build, sformat, (%))
-import           Node.Message                          (Message)
+import           Node.Message.Class                    (Message)
 import           System.Wlog                           (logDebug)
 
 import           Pos.Binary.Class                      (Bi)

@@ -128,15 +128,14 @@ import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWe
                                                    notifyAll, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, Ever, Existing),
                                                    WalletWebDB, WebWalletModeDB,
-                                                   addOnlyNewTxMeta,
-                                                   addRemovedAccount, addUpdate,
-                                                   addWAddress, closeState, createAccount,
-                                                   createWallet, getAccountMeta,
-                                                   getAccountWAddresses, getHistoryCache,
-                                                   getNextUpdate, getProfile, getTxMeta,
-                                                   getWAddressIds, getWalletAddresses,
-                                                   getWalletMeta, getWalletPassLU,
-                                                   openState,
+                                                   addOnlyNewTxMeta, addRemovedAccount,
+                                                   addUpdate, addWAddress, closeState,
+                                                   createAccount, createWallet,
+                                                   getAccountMeta, getAccountWAddresses,
+                                                   getHistoryCache, getNextUpdate,
+                                                   getProfile, getTxMeta, getWAddressIds,
+                                                   getWalletAddresses, getWalletMeta,
+                                                   getWalletPassLU, openState,
                                                    removeAccount, removeNextUpdate,
                                                    removeWallet, setAccountMeta,
                                                    setProfile, setWalletMeta,
@@ -403,9 +402,9 @@ getWAddress cAddr = do
             (Just aId)
     let isUsed = not (null ctxs) || balance > minBound
     -- Suppose we have transaction with inputs A1, A2, A3. Output address B_j is referred to as change address if it belongs to same account as one of A_i
-    acctAddrs <- map cwamId <$> getAccountAddrsOrThrow Ever addrAccount
-    let containsChangeAddr ctx = aId `elem` (ctOutputAddrs ctx) && not (null $ filter (`elem` acctAddrs) (ctInputAddrs ctx))
-    let isChange = not $ null $ filter containsChangeAddr ctxs
+    acctAddrs <- (S.fromList . map cwamId) <$> getAccountAddrsOrThrow Ever addrAccount
+    let containsChangeAddr CTx {..} = aId `elem` ctOutputAddrs && any (`S.member` acctAddrs) ctInputAddrs
+    let isChange = any containsChangeAddr ctxs
     return $ CAddress aId (mkCCoin balance) isUsed isChange
 
 getAccountAddrsOrThrow

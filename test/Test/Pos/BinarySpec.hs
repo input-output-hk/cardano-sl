@@ -55,6 +55,7 @@ tinyVarIntSpec = describe "TinyVarInt" $ do
         test_length n b =
             it ("serializing " ++ hex n ++ " takes " ++ plural b) $
                 B.biSize (B.TinyVarInt n) `shouldBe` b
+        maxnum = 2^(14::Int)-1
 
     describe "1 byte" $ do
         test_length 0x00 1 >> test_roundtrip 0x00
@@ -69,7 +70,6 @@ tinyVarIntSpec = describe "TinyVarInt" $ do
         test_length 0x82   2 >> test_roundtrip 0x82
         test_length 0x100  2 >> test_roundtrip 0x100
         test_length 0x1000 2 >> test_roundtrip 0x1000
-        let maxnum = 2^(14::Int)-1
         it "serializing 2^14-1 takes 2 bytes" $
             B.biSize (B.TinyVarInt maxnum) `shouldBe` 2
         prop "roundtrip 2^14-1" $
@@ -78,19 +78,34 @@ tinyVarIntSpec = describe "TinyVarInt" $ do
             n <- generate $ B.TinyVarInt <$> choose (maxnum + 1, maxBound)
             shouldThrowException B.encode anyErrorCall n
 
-    describe "deserialize more than 2 bytes" $ do
-        prop "fails to deserialize more than 2 bytes" $ do
+    describe "more than 2 bytes" $ do
+        prop "can't completely deserialize 3+ arbitrary bytes" $ do
             bs <- generate $ arbitrary `suchThat` ((> 2) . length)
             B.decodeFull @B.TinyVarInt bs `shouldSatisfy` isLeft
-
-    describe "deserialize inefficiently encoded data" $ do
-        prop "fails to deserialize more than 2^14-1" $ do
-            let wordGen = generate $ flip setBit 7 <$> arbitrary
-            w1 <- wordGen
-            w2 <- wordGen
-            let bs = BS.pack [w1, w2]
+        prop "can't deserialize a *varint* with length 3+" $ do
+            len <- generate $ choose (3, 8)
+            bytes <- generate $ map (`setBit` 7) <$>
+                                  replicateM (len - 1) arbitrary
+            let bs = BS.pack (bytes ++ [0x01])
             shouldThrowException (B.decode @B.TinyVarInt) anyErrorCall bs
-        prop "fails to deserialize an ambiguous zero (e.g. 0x80 0x00)" $ do
+        prop "never generates more than 2 bytes" $ do
+            n <- generate $ choose (0, maxnum)
+            B.biSize (B.TinyVarInt n) `shouldSatisfy` (<= 2)
+
+    describe "normal varint followed by unrelated bytes" $ do
+        prop "1 byte" $ do
+            n <- generate $ choose (0x00, 0x79)
+            bs <- generate arbitrary
+            B.decode (B.encode (B.TinyVarInt n) <> bs)
+                `shouldBe` B.TinyVarInt n
+        prop "2 bytes" $ do
+            n <- generate $ choose (0x80, maxnum)
+            bs <- generate arbitrary
+            B.decode (B.encode (B.TinyVarInt n) <> bs)
+                `shouldBe` B.TinyVarInt n
+
+    describe "inefficiently encoded data" $ do
+        prop "fails to deserialize ambiguous numbers (e.g. 0x80 0x00)" $ do
             word8 <- generate $ flip setBit 7 <$> arbitrary
             let bs = BS.pack [word8, 0x00]
             shouldThrowException (B.decode @B.TinyVarInt) anyErrorCall bs

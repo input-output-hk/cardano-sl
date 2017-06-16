@@ -5,7 +5,7 @@
 module Pos.Update.Poll.PollState
        (
          -- * Types
-         PollState (..)
+         PollState (PollState)
 
        -- * Lenses
        -- * PollState

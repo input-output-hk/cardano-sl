@@ -62,7 +62,7 @@ usageExample :: Maybe Doc
 usageExample = Just [s|
 Command example:
 
-  stack exec -- cardano-genupdate /tmp/app-v000 /tmp/app-v001 /tmp/app-update.tar
+  stack exec -- cardano-genupdate --old /tmp/app-v000 --new /tmp/app-v001 -o /tmp/app-update.tar
 
 Both directories must have equal file structure (e.g. they must contain the same
 files in the same subdirectories correspondingly), otherwise 'cardano-genupdate' will fail.

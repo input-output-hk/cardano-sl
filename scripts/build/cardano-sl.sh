@@ -10,9 +10,9 @@ set -o pipefail
 
 # USAGE
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#   scripts/build/cardano-sl.sh                 build
+#   scripts/build/cardano-sl.sh                 build all packages one-by-one
 #   scripts/build/cardano-sl.sh -t              build and run tests
-#   scripts/build/cardano-sl.sh core|db|...|sl  build only a specific project
+#   scripts/build/cardano-sl.sh core|db|...|sl  build only a specific project (see below)
 #   scripts/build/cardano-sl.sh -k              typecheck but do not build
 #   scripts/build/cardano-sl.sh -c              do stack clean
 #

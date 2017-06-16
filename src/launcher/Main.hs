@@ -270,7 +270,7 @@ runUpdater (path, args, runnerPath, updateArchive) = do
         return ()
     else
     -}
-    
+
     whenM (testfile path) $ do
         echo "Running the updater"
         let args' = args ++ maybe [] (one . toText) updateArchive
@@ -294,7 +294,7 @@ runUpdaterProc path args = do
                  , Process.std_out = Process.CreatePipe
                  , Process.std_err = Process.CreatePipe
                  }
-    phvar <- liftIO newEmptyMVar
+    phvar <- newEmptyMVar
     system' phvar cr mempty
 
 writeWindowsUpdaterRunner :: FilePath -> IO ()

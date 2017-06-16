@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Error.Util
 
 import           Universum
 
+import           Control.Lens               (has)
 import           Control.Monad.Catch        (Handler (..), catches, handleAll, try,
                                              tryJust)
 import           Formatting                 (sformat, shown, (%))
@@ -16,7 +17,8 @@ import           Servant.Server             (err500)
 import           System.Wlog                (CanLog, logError, usingLoggerName)
 
 import           Pos.Constants              (isDevelopment)
-import           Pos.Wallet.Web.Error.Types (WalletError (..), _RequestError)
+import           Pos.Wallet.Web.Error.Types (WalletError (..), _DecodeError,
+                                             _InternalError, _RequestError)
 
 rewrapToWalletError :: MonadCatch m => m a -> m a
 rewrapToWalletError = flip catches
@@ -35,7 +37,8 @@ catchEndpointErrors action = catchOtherError $ tryWalletError action
   where
     tryWalletError
         | isDevelopment = try
-        | otherwise     = tryJust $ \e -> (e ^? _RequestError) $> e
+        | otherwise     = tryJust $ guarded $ \e ->
+            has _RequestError e || has _InternalError e || has _DecodeError e
     catchOtherError = handleAll $ \e -> do
         usingLoggerName logName $
             logError $ sformat ("Uncaught error in wallet method: "%shown) e

@@ -28,7 +28,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: 92043c7e80e93aeb08212e8ce42c783edd9b2f80
+    commit: 0774fdb4d222115dda4379209e23c34fe5dec886 
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype

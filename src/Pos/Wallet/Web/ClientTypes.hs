@@ -161,21 +161,22 @@ convertTxOutputs :: [TxOut] -> [(CId w, CCoin)]
 convertTxOutputs = map (addressToCId . txOutAddress &&& mkCCoin . txOutValue)
 
 -- | Get all addresses of source account of given transaction.
-getLocalAccountAddrs
-    :: [CWAddressMeta]  -- ^ all addresses in wallet
-    -> [CId Addr]       -- ^ Input addresses of transaction
-    -> Either Text [CId Addr]
-getLocalAccountAddrs walAddrMetas inputAddrs = do
+getChangeAccountAddrs
+    :: [CWAddressMeta]   -- ^ All addresses in wallet
+    -> [CId Addr]        -- ^ Input addresses of transaction
+    -> Either Text (Maybe [CId Addr])
+                         -- ^ `Just` change addrs if the wallet is source of
+                         --   transaction, `Nothing` otherwise
+getChangeAccountAddrs walAddrMetas inputAddrs = do
     someInputAddr <-
         head inputAddrs `whenNothing`
         throwError "No input addresses in transaction"
-    someSrcAddrMeta <-
-        find ((== someInputAddr) . cwamId) walAddrMetas `whenNothing`
-        throwError "Address doesn't belong to any wallet"
-    let srcAccount =
-            addrMetaToAccount someSrcAddrMeta
-    return $
-        map cwamId $ filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
+    return $ do
+        someSrcAddrMeta <- find ((== someInputAddr) . cwamId) walAddrMetas
+        let srcAccount = addrMetaToAccount someSrcAddrMeta
+        return $
+            map cwamId $
+            filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
 
 mkCTxs
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
@@ -184,12 +185,23 @@ mkCTxs
     -> [CWAddressMeta]    -- ^ Addresses of wallet
     -> Either Text CTxs
 mkCTxs diff THEntry {..} meta wAddrMetas = do
-    localAddrsSet <- S.fromList <$> getLocalAccountAddrs wAddrMetas ctInputAddrs
-    let isLocalAddr =
-            flip S.member localAddrsSet . addressToCId . txOutAddress
+    mChangeAddrs <- getChangeAccountAddrs wAddrMetas ctInputAddrs
+    let isChangeAddr = case mChangeAddrs of
+           Just changeAddrs -> do
+                -- if given wallet is source of tx, /changes addresses/
+                -- can be fetched according to definition
+                let changeAddrsSet = S.fromList changeAddrs
+                flip S.member changeAddrsSet
+           Nothing -> do
+                -- if given wallet is *not* source of tx, then it's incoming
+                -- transaction, and only addresses of given wallet are *not*
+                -- change addresses
+                let nonChangeAddrsSet = S.fromList $ cwamId <$> wAddrMetas
+                not . flip S.member nonChangeAddrsSet
+        isChangeTxOutput = isChangeAddr . addressToCId . txOutAddress
         ctAmount =
             mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
-            filter (not . isLocalAddr) outputs
+            filter (not . isChangeTxOutput) outputs
         mkCTx isOutgoing ctAddrs = do
             guard . not . null $ wAddrsSet `S.intersection` S.fromList ctAddrs
             return CTx {ctIsOutgoing = isOutgoing, ..}

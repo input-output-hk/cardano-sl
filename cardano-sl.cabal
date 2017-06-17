@@ -193,6 +193,11 @@ library
 
                         -- Heavy delegation
                         Pos.Delegation.Arbitrary
+                        Pos.Delegation.Cede
+                        Pos.Delegation.Cede.Class
+                        Pos.Delegation.Cede.Logic
+                        Pos.Delegation.Cede.Types
+                        Pos.Delegation.Cede.Holders
                         Pos.Delegation.Class
                         Pos.Delegation.DB
                         Pos.Delegation.Helpers

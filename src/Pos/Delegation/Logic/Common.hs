@@ -16,30 +16,35 @@ module Pos.Delegation.Logic.Common
        -- * Common helpers
        , initDelegation
        , getPSKsFromThisEpoch
+       , getDlgTransPsk
        ) where
 
 import           Control.Exception         (Exception (..))
 import           Control.Lens              ((%=), (.=))
+import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
 import qualified Data.Text.Buildable       as B
 import           Data.Time.Clock           (UTCTime, addUTCTime)
-import           Formatting                (bprint, stext, (%))
+import           Formatting                (bprint, build, sformat, stext, (%))
 import           Universum
 
 import           Pos.Block.Core            (Block, mainBlockDlgPayload)
 import           Pos.Constants             (lightDlgConfirmationTimeout,
                                             messageCacheTimeout)
 import           Pos.Core                  (HeaderHash, epochIndexL, headerHash)
-import           Pos.Crypto                (ProxySecretKey (..))
+import           Pos.Crypto                (ProxySecretKey (..), PublicKey)
+import           Pos.DB                    (DBError (DBMalformed), MonadDBRead)
 import qualified Pos.DB.Block              as DB
 import qualified Pos.DB.DB                 as DB
+import           Pos.Delegation.Cede       (getPskChain, runDBCede)
 import           Pos.Delegation.Class      (DelegationWrap (..), MonadDelegation,
                                             askDelegationState, dwConfirmationCache,
                                             dwEpochId, dwMessageCache, dwThisEpochPosted)
+import           Pos.Delegation.DB         (getDlgTransitive)
 import           Pos.Delegation.Types      (DlgPayload (getDlgPayload))
 import           Pos.Exception             (cardanoExceptionFromException,
                                             cardanoExceptionToException)
-import           Pos.Types                 (ProxySKHeavy)
+import           Pos.Types                 (ProxySKHeavy, StakeholderId, addressHash)
 import qualified Pos.Util.Concurrent.RWVar as RWV
 import           Pos.Util.LRU              (filterLRU)
 
@@ -120,3 +125,22 @@ initDelegation = do
     runDelegationStateAction $ do
         dwEpochId .= tipEpoch
         dwThisEpochPosted .= HS.fromList fromGenesisPsks
+
+-- | Retrieves last PSK in chain of delegation started by public key
+-- and resolves the passed issuer to a public key. Doesn't check that
+-- user himself didn't delegate. Uses database only.
+getDlgTransPsk
+    :: MonadDBRead m
+    => StakeholderId -> m (Maybe (PublicKey, ProxySKHeavy))
+getDlgTransPsk issuer = getDlgTransitive issuer >>= \case
+    Nothing -> pure Nothing
+    Just dPk -> do
+        chain <- runDBCede $ HM.elems <$> getPskChain issuer
+        let finalPsk = find (\psk -> pskDelegatePk psk == dPk) chain
+        let iPk = pskIssuerPk <$>
+                  find (\psk -> addressHash (pskIssuerPk psk) == issuer) chain
+        let throwEmpty = throwM $ DBMalformed $
+                sformat ("getDlgTransPk: couldn't find psk with dlgPk "%build%
+                         " and issuer "%build)
+                        dPk issuer
+        maybe throwEmpty (pure . Just) $ (,) <$> iPk <*> finalPsk

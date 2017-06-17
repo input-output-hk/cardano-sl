@@ -1,10 +1,10 @@
 
--- | Common things used in `Pos.Crypto.Arbitrary` and `Pos.Util.Arbitrary`
+-- | Common things used in `Pos.Crypto.Arbitrary`, `Pos.Util.Arbitrary` and
+-- elsewhere.
 
 module Pos.Util.TimeWarp
        ( NetworkAddress
        , localhost
-
        , currentTime
        , addressToNodeId
        , addressToNodeId'
@@ -12,11 +12,13 @@ module Pos.Util.TimeWarp
        , addrParser
        , readAddrFile
        , addrParserNoWildcard
+       , module JsonLog
        ) where
 
 import qualified Data.ByteString.Char8          as BS8
 import           Data.Time.Units                (Microsecond)
 import           Formatting                     (build, formatToString, shown, (%))
+import           JsonLog
 import           Mockable                       (realTime)
 import qualified Network.Transport.TCP.Internal as TCP
 import           Node                           (NodeId (..))

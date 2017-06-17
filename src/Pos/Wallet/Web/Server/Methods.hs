@@ -86,7 +86,8 @@ import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
 import           Pos.Util.Servant                 (decodeCType, encodeCType)
 import           Pos.Util.UserSecret              (UserSecretDecodingError (..),
-                                                   readUserSecret, usWalletSet)
+                                                   readUserSecret, usWalletSet,
+                                                   UserSecret)
 import           Pos.Wallet.KeyStorage            (addSecretKey, deleteSecretKey,
                                                    getSecretKeys)
 import           Pos.Wallet.Redirect              (WalletRedirects)
@@ -195,7 +196,7 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
-    :: (MonadIO m, WalletWebMode (WalletWebHandler m))
+    :: (MonadIO m, WalletWebMode (WalletWebHandler m), Ether.MonadReader (TVar UserSecret) (TVar UserSecret) m)
     => SendActions (WalletWebHandler m)
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)

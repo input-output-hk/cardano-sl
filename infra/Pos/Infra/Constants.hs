@@ -9,7 +9,6 @@ module Pos.Infra.Constants
 import           Data.Aeson                 (FromJSON (..), genericParseJSON)
 import           Data.Tagged                (Tagged (..))
 import           Serokell.Aeson.Options     (defaultOptions)
-import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
 import           Pos.Util.Config            (IsConfig (..), configParser,
@@ -47,11 +46,11 @@ data InfraConstants = InfraConstants
     --------------------------------------------------------------------------
     -- -- Relay
     --------------------------------------------------------------------------
-    , ccMaxReqSize               :: !Byte
+    , ccMaxReqSize               :: !Word32
       -- ^ Maximum `ReqMsg` size in bytes
-    , ccMaxInvSize               :: !Byte
+    , ccMaxInvSize               :: !Word32
       -- ^ Maximum `InvMsg` size in bytes
-    , ccMaxMempoolMsgSize        :: !Byte
+    , ccMaxMempoolMsgSize        :: !Word32
       -- ^ Maximum `MempoolMsg` size in bytes
     } deriving (Show, Generic)
 

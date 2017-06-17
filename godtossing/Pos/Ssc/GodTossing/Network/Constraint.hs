@@ -7,7 +7,7 @@ module Pos.Ssc.GodTossing.Network.Constraint
 import           Universum
 
 import           Data.Tagged                      (Tagged)
-import           Node.Message                     (Message)
+import           Node.Message.Class               (Message)
 
 import           Pos.Communication.Limits.Types   (MessageLimited)
 import           Pos.Communication.MessagePart    (MessagePart)

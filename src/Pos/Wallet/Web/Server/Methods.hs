@@ -131,20 +131,20 @@ import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWe
                                                    notifyAll, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, Ever, Existing),
                                                    WalletWebDB, WebWalletModeDB,
-                                                   addChangeAddress, addOnlyNewTxMeta,
-                                                   addRemovedAccount, addUpdate,
-                                                   addWAddress, closeState, createAccount,
-                                                   createWallet, getAccountMeta,
-                                                   getAccountWAddresses, getHistoryCache,
-                                                   getNextUpdate, getProfile, getTxMeta,
-                                                   getWAddressIds, getWalletAddresses,
-                                                   getWalletMeta, getWalletPassLU,
-                                                   isChangeAddress, openState,
+                                                   addOnlyNewTxMeta, addRemovedAccount,
+                                                   addUpdate, addWAddress, closeState,
+                                                   createAccount, createWallet,
+                                                   getAccountMeta, getAccountWAddresses,
+                                                   getHistoryCache, getNextUpdate,
+                                                   getProfile, getTxMeta, getWAddressIds,
+                                                   getWalletAddresses, getWalletMeta,
+                                                   getWalletPassLU, openState,
                                                    removeAccount, removeNextUpdate,
-                                                   removeWallet, setAccountMeta,
-                                                   setProfile, setWalletMeta,
-                                                   setWalletPassLU, setWalletTxMeta,
-                                                   testReset, totallyRemoveWAddress,
+                                                   removeWAddress, removeWallet,
+                                                   setAccountMeta, setProfile,
+                                                   setWalletMeta, setWalletPassLU,
+                                                   setWalletTxMeta, testReset,
+                                                   totallyRemoveWAddress,
                                                    updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, MonadWalletTracking,
@@ -395,15 +395,21 @@ getWAddressBalance addr =
     getBalance <=< decodeCIdOrFail $ cwamId addr
 
 getWAddress :: WalletWebMode m => CWAddressMeta -> m CAddress
-getWAddress cAddr@CWAddressMeta {..} = do
+getWAddress cAddr = do
+    let aId = cwamId cAddr
     balance <- getWAddressBalance cAddr
+    let addrAccount = addrMetaToAccount cAddr
     (ctxs, _) <-
         getHistory
             Nothing
-            (Just $ addrMetaToAccount cAddr)  -- just to specify addrId is not enough
-            (Just cwamId)
+            (Just addrAccount)  -- just to specify addrId is not enough
+            (Just aId)
     let isUsed = not (null ctxs) || balance > minBound
-    CAddress cwamId (mkCCoin balance) isUsed <$> isChangeAddress cAddr
+    -- Suppose we have transaction with inputs A1, A2, A3. Output address B_j is referred to as change address if it belongs to same account as one of A_i
+    acctAddrs <- (S.fromList . map cwamId) <$> getAccountAddrsOrThrow Ever addrAccount
+    let containsChangeAddr CTx {..} = aId `elem` ctOutputAddrs && any (`S.member` acctAddrs) ctInputAddrs
+    let isChange = any containsChangeAddr ctxs
+    return $ CAddress aId (mkCCoin balance) isUsed isChange
 
 getAccountAddrsOrThrow
     :: (WebWalletModeDB m, MonadThrow m)
@@ -584,7 +590,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
         | remaining == mkCoin 0 = return Nothing
         | otherwise = do
             relatedWallet <- getSomeMoneySourceAccount moneySource
-            account       <- newChangeAddress RandomSeed passphrase relatedWallet
+            account       <- newAddress RandomSeed passphrase relatedWallet
             remAddr       <- decodeCIdOrFail (cadId account)
             let remTx = TxOutAux (TxOut remAddr remaining) []
             return $ Just remTx
@@ -735,29 +741,18 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     walAddrMetas <- getWalletAddrMetas Ever cWalId
     mkCTxs diff wtx meta' walAddrMetas & either (throwM . InternalError) pure
 
-newAddress, newChangeAddress
+newAddress
     :: WalletWebMode m
     => AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CAddress
-newAddress = newAddress' addWAddress
-newChangeAddress = newAddress' addChangeAddress
-
--- Internal function
-newAddress'
-    :: WalletWebMode m
-    => (CWAddressMeta -> m ())
-    -> AddrGenSeed
-    -> PassPhrase
-    -> AccountId
-    -> m CAddress
-newAddress' addAddressFunc addGenSeed passphrase accId = do
+newAddress addGenSeed passphrase accId = do
     -- check wallet exists
     _ <- getAccount accId
 
     cAccAddr <- genUniqueAccountAddress addGenSeed passphrase accId
-    _ <- addAddressFunc cAccAddr
+    addWAddress cAccAddr
     getWAddress cAccAddr
 
 newAccount :: WalletWebMode m => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
@@ -918,22 +913,26 @@ changeWalletPassphrase
     :: WalletWebMode m
     => SendActions m -> CId Wal -> PassPhrase -> PassPhrase -> m ()
 changeWalletPassphrase sa wid oldPass newPass = do
-    oldSK   <- getSKByAddr wid
-    newSK   <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
+    oldSK <- getSKByAddr wid
 
-    addSecretKey newSK
-    oldAddrMeta <- (`E.onException` deleteSK newPass) $ do
-        (oldAddrMeta, newAddrMeta) <- cloneWalletSetWithPass newSK newPass wid
-            `E.onException` do
-                logError "Failed to clone wallet"
-        moveMoneyToClone sa oldPass wid (asExisting oldAddrMeta) (asExisting newAddrMeta)
-            `E.onException` do
-                logError "Money transmition to new wallet failed"
-                mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ newAddrMeta
-        return oldAddrMeta
-    mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ oldAddrMeta
-    setWalletPassLU wid =<< liftIO getPOSIXTime
-    deleteSK oldPass
+    -- 'cloneWalletSetWithPass' will work badly if accounts / addresses ids
+    -- don't actually change
+    unless (isJust $ checkPassMatches newPass oldSK) $ do
+        newSK <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
+
+        addSecretKey newSK
+        oldAddrMeta <- (`E.onException` deleteSK newPass) $ do
+            (oldAddrMeta, newAddrMeta) <- cloneWalletSetWithPass newSK newPass wid
+                `E.onException` do
+                    logError "Failed to clone wallet"
+            moveMoneyToClone sa oldPass wid (asExisting oldAddrMeta) (asExisting newAddrMeta)
+                `E.onException` do
+                    logError "Money transmition to new wallet failed"
+                    mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ newAddrMeta
+            return oldAddrMeta
+        mapM_ removeWAddress $ asExisting oldAddrMeta
+        setWalletPassLU wid =<< liftIO getPOSIXTime
+        deleteSK oldPass
   where
     badPass = RequestError "Invalid old passphrase given"
     deleteSK passphrase = do

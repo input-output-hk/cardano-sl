@@ -4,7 +4,7 @@ module Pos.Communication.Message
 
 import           Universum
 
-import           Node.Message                     (Message (..), MessageName (..))
+import           Node.Message.Class               (Message (..), MessageName (..))
 
 import           Pos.Binary.Class                 (UnsignedVarInt (..), encode)
 import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
@@ -22,6 +22,7 @@ import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote)
 varIntMName :: Int -> MessageName
 varIntMName = MessageName . encode . UnsignedVarInt
 
+-- Why?
 instance Message Void where
     messageName _ = varIntMName 0
     formatMessage _ = "Void"

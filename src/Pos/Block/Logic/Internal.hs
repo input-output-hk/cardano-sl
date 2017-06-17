@@ -23,19 +23,25 @@ module Pos.Block.Logic.Internal
 import           Universum
 
 import           Control.Lens            (each, _Wrapped)
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Ether
+import           Formatting              (sformat, (%))
 import           Paths_cardano_sl        (version)
+import           Serokell.Util.Text      (listJson)
 
+import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
                                           mbUpdatePayload)
-import           Pos.Block.Logic.Slog    (SlogMode, slogApplyBlocks, slogRollbackBlocks)
+import           Pos.Block.Logic.Slog    (SlogApplyMode, SlogMode, slogApplyBlocks,
+                                          slogRollbackBlocks)
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                (IsGenesisHeader, IsMainHeader, epochIndexL,
-                                          gbBody, gbHeader)
-import           Pos.DB                  (MonadDB, SomeBatchOp (..))
+                                          gbBody, gbHeader, headerHash)
+import           Pos.DB                  (MonadDB, MonadGState, MonadRealDB,
+                                          SomeBatchOp (..))
 import           Pos.DB.Block            (MonadBlockDB)
 import qualified Pos.DB.GState           as GS
-import           Pos.Delegation.Logic    (delegationApplyBlocks, delegationRollbackBlocks)
+import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgRollbackBlocks)
 import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Txp.Core            (TxPayload)
 #ifdef WITH_EXPLORER
@@ -43,9 +49,9 @@ import           Pos.Explorer.Txp        (eTxNormalize)
 #else
 import           Pos.Txp.Logic           (txNormalize)
 #endif
-import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Delegation.Class    (MonadDelegation)
 import           Pos.Discovery.Class     (MonadDiscovery)
+import           Pos.Exception           (assertionFailed)
 import           Pos.Reporting           (MonadReportingMem, reportingFatal)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
@@ -70,10 +76,12 @@ type BlockMode ssc m
        , MonadSscMem ssc m
        -- Needed to load blocks (at least delegation does it).
        , MonadBlockDB ssc m
+       -- Needed by some components.
+       , MonadGState m
        -- LRC is really needed.
        , Ether.MonadReader' LrcContext m
        -- Probably won't be needed after porting everything to smaller monads.
-       , MonadDB m
+       , MonadRealDB m
        -- This constraints define block components' global logic.
        , Ether.MonadReader' TxpGlobalSettings m
        , SscGStateClass ssc
@@ -85,6 +93,9 @@ type BlockVerifyMode ssc m = BlockMode ssc m
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
 type BlockApplyMode ssc m
      = ( BlockMode ssc m
+       , SlogApplyMode ssc m
+       -- It's obviously needed to write something to DB, for instance.
+       , MonadDB m
        -- Needed for iteration over DB.
        , MonadMask m
        -- Needed to embed custom logic.
@@ -97,6 +108,7 @@ type BlockApplyMode ssc m
        -- Needed for error reporting.
        , MonadReportingMem m
        , MonadDiscovery m
+       , MonadBaseControl IO m
        )
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
@@ -107,8 +119,13 @@ type BlockApplyMode ssc m
 applyBlocksUnsafe
     :: forall ssc m . BlockApplyMode ssc m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksUnsafe blunds0 pModifier =
-    reportingFatal version $
+applyBlocksUnsafe blunds pModifier = reportingFatal version $ do
+    -- Check that all blunds have the same epoch.
+    unless (null nextEpoch) $ assertionFailed $
+        sformat ("applyBlocksUnsafe: tried to apply more than we should"%
+                 "thisEpoch"%listJson%"\nnextEpoch:"%listJson)
+                (map (headerHash . fst) thisEpoch)
+                (map (headerHash . fst) nextEpoch)
     -- It's essential to apply genesis block separately, before
     -- applying other blocks.
     -- That's because applying genesis block may change protocol version
@@ -124,11 +141,8 @@ applyBlocksUnsafe blunds0 pModifier =
   where
     app x = applyBlocksUnsafeDo x pModifier
     app' = app . OldestFirst
-    -- [CSL-1167] Here we check that invariant holds, but we silently
-    -- ignore some blocks if it doesn't.
-    -- We should report a fatal error instead.
-    (OldestFirst -> blunds, _) =
-        spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds0
+    (thisEpoch, nextEpoch) =
+        spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksUnsafeDo
     :: forall ssc m . BlockApplyMode ssc m
@@ -139,7 +153,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     slogBatch <- slogApplyBlocks blunds
     TxpGlobalSettings {..} <- Ether.ask'
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
-    delegateBatch <- SomeBatchOp <$> delegationApplyBlocks blocks
+    delegateBatch <- SomeBatchOp <$> dlgApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
     sscBatch <- SomeBatchOp <$>
         -- TODO: pass not only 'Nothing'
@@ -170,7 +184,7 @@ rollbackBlocksUnsafe
     -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     slogRoll <- slogRollbackBlocks toRollback
-    dlgRoll <- SomeBatchOp <$> delegationRollbackBlocks toRollback
+    dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)

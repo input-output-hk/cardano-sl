@@ -127,8 +127,8 @@ doesWAddressExist mode = queryDisk . A.DoesWAddressExist mode
 getProfile :: WebWalletModeDB m => m CProfile
 getProfile = queryDisk A.GetProfile
 
-getTxMeta :: WebWalletModeDB m => AccountId -> CTxId -> m (Maybe CTxMeta)
-getTxMeta addr = queryDisk . A.GetTxMeta addr
+getTxMeta :: WebWalletModeDB m => CId Wal -> CTxId -> m (Maybe CTxMeta)
+getTxMeta cWalId = queryDisk . A.GetTxMeta cWalId
 
 getAccountHistory :: WebWalletModeDB m => AccountId -> m (Maybe [CTxMeta])
 getAccountHistory = queryDisk . A.GetAccountHistory
@@ -139,7 +139,7 @@ getUpdates = queryDisk A.GetUpdates
 getNextUpdate :: WebWalletModeDB m => m (Maybe CUpdateInfo)
 getNextUpdate = queryDisk A.GetNextUpdate
 
-getHistoryCache :: WebWalletModeDB m => AccountId -> m (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
+getHistoryCache :: WebWalletModeDB m => CId Wal -> m (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
 getHistoryCache = queryDisk . A.GetHistoryCache
 
 createAccount :: WebWalletModeDB m => AccountId -> CAccountMeta -> m ()
@@ -175,8 +175,8 @@ setAccountTransactionMeta addr ctxId = updateDisk . A.SetAccountTransactionMeta 
 setAccountHistory :: WebWalletModeDB m => AccountId -> [(CTxId, CTxMeta)] -> m ()
 setAccountHistory addr = updateDisk . A.SetAccountHistory addr
 
-addOnlyNewTxMeta :: WebWalletModeDB m => AccountId -> CTxId -> CTxMeta -> m ()
-addOnlyNewTxMeta addr ctxId = updateDisk . A.AddOnlyNewTxMeta addr ctxId
+addOnlyNewTxMeta :: WebWalletModeDB m => CId Wal -> CTxId -> CTxMeta -> m ()
+addOnlyNewTxMeta cWalId ctxId = updateDisk . A.AddOnlyNewTxMeta cWalId ctxId
 
 removeWallet :: WebWalletModeDB m => CId Wal -> m ()
 removeWallet = updateDisk . A.RemoveWallet
@@ -199,5 +199,5 @@ removeNextUpdate = updateDisk A.RemoveNextUpdate
 testReset :: WebWalletModeDB m => m ()
 testReset = updateDisk A.TestReset
 
-updateHistoryCache :: WebWalletModeDB m => AccountId -> HeaderHash -> Utxo -> [TxHistoryEntry] -> m ()
-updateHistoryCache cAddr h utxo = updateDisk . A.UpdateHistoryCache cAddr h utxo
+updateHistoryCache :: WebWalletModeDB m => CId Wal -> HeaderHash -> Utxo -> [TxHistoryEntry] -> m ()
+updateHistoryCache cWalId h utxo = updateDisk . A.UpdateHistoryCache cWalId h utxo

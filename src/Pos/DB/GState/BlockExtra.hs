@@ -25,10 +25,9 @@ import           Pos.Block.Types      (Blund)
 import           Pos.Constants        (genesisHash)
 import           Pos.Core             (HasHeaderHash, HeaderHash, headerHash)
 import           Pos.Crypto           (shortHashF)
+import           Pos.DB               (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
-import           Pos.DB.Class         (MonadDB, MonadDBPure, getGStateDB)
-import           Pos.DB.Functions     (RocksBatchOp (..), rocksPutBi)
-import           Pos.DB.GState.Common (gsGetBi)
+import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono      (OldestFirst (..))
 
 ----------------------------------------------------------------------------
@@ -37,13 +36,13 @@ import           Pos.Util.Chrono      (OldestFirst (..))
 
 -- | Tries to retrieve next block using current one (given a block/header).
 resolveForwardLink
-    :: (HasHeaderHash a, MonadDBPure m)
+    :: (HasHeaderHash a, MonadDBRead m)
     => a -> m (Maybe HeaderHash)
 resolveForwardLink x = gsGetBi (forwardLinkKey $ headerHash x)
 
 -- | Check if given hash representing block is in main chain.
 isBlockInMainChain
-    :: (HasHeaderHash a, MonadDBPure m)
+    :: (HasHeaderHash a, MonadDBRead m)
     => a -> m Bool
 isBlockInMainChain h =
     maybe False (\() -> True) <$> gsGetBi (mainChainKey $ headerHash h)
@@ -147,9 +146,8 @@ loadBlocksUpWhile start condition = loadUpWhile fst start condition
 
 prepareGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
 prepareGStateBlockExtra firstGenesisHash = do
-    db <- getGStateDB
-    rocksPutBi (mainChainKey firstGenesisHash) () db
-    rocksPutBi (forwardLinkKey genesisHash) firstGenesisHash db
+    gsPutBi (mainChainKey firstGenesisHash) ()
+    gsPutBi (forwardLinkKey genesisHash) firstGenesisHash
 
 ----------------------------------------------------------------------------
 -- Keys

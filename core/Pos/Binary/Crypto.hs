@@ -26,7 +26,7 @@ import           Formatting                 (int, sformat, stext, (%))
 
 import           Pos.Binary.Class           (AsBinary (..), Bi (..), Size (..),
                                              StaticSize (..), getBytes, getCopyBi, label,
-                                             putBytes, putCopyBi, sizeOf)
+                                             putBytes, putCopyBi, putField, sizeOf)
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Crypto.Hashing         (AbstractHash (..), HashAlgorithm,
                                              WithHash (..), hashDigestSize',
@@ -225,15 +225,14 @@ instance Bi a => Bi (Signed a) where
 deriving instance Bi (ProxyCert w)
 
 instance (Bi w) => Bi (ProxySecretKey w) where
-    size = Bi.combineSize (pskOmega, pskIssuerPk, pskDelegatePk, pskCert)
-    put (ProxySecretKey w iPk dPk cert) = put w >> put iPk >> put dPk >> put cert
+    sizeNPut = putField pskOmega <>
+               putField pskIssuerPk <>
+               putField pskDelegatePk <>
+               putField pskCert
     get = label "ProxySecretKey" $ liftM4 ProxySecretKey get get get get
 
 instance (Bi w) => Bi (ProxySignature w a) where
-    size = Bi.combineSize (pdPsk, pdSig)
-    put ProxySignature{..} = do
-        put pdPsk
-        put pdSig
+    sizeNPut = putField psigPsk <> putField psigSig
     get = label "ProxySignature" $ liftM2 ProxySignature get get
 
 instance Bi PassPhrase where

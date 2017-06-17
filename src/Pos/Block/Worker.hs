@@ -12,7 +12,6 @@ module Pos.Block.Worker
 import           Universum
 
 import           Control.Lens                (ix)
-import qualified Ether
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
 import           Serokell.Util               (listJson, pairF)
@@ -25,24 +24,25 @@ import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
                                               onNewSlotWorker)
 import           Pos.Constants               (networkDiameter)
-import           Pos.Context                 (npPublicKey, recoveryCommGuard)
-import           Pos.Core                    (ProxySKEither, SlotId (..),
-                                              Timestamp (Timestamp), gbHeader,
-                                              getSlotIndex, slotIdF)
+import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
+import           Pos.Core                    (SlotId (..), Timestamp (Timestamp),
+                                              gbHeader, getSlotIndex, slotIdF)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
-import           Pos.DB.Class                (MonadDBCore)
-import           Pos.DB.GState               (getDlgTransPsk, getPskByIssuer)
+import           Pos.DB.GState               (getPskByIssuer)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Delegation.Helpers      (isRevokePsk)
+import           Pos.Delegation.Logic        (getDlgTransPsk)
+import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Util                    (logWarningSWaitLinear, mconcatPair)
-import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
+import           Pos.Util.JsonLog            (jlCreatedBlock)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
                                               logWarningS)
+import           Pos.Util.TimeWarp           (CanJsonLog (..))
 import           Pos.WorkMode.Class          (WorkMode)
 #if defined(WITH_WALLET)
 import           Data.Time.Units             (Second, convertUnit)
@@ -53,7 +53,7 @@ import           Pos.Slotting                (getLastKnownSlotDuration)
 
 -- | All workers specific to block processing.
 blkWorkers
-    :: (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m)
     => ([WorkerSpec m], OutSpecs)
 blkWorkers =
     merge $ [ blkOnNewSlot
@@ -78,7 +78,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     mGenBlock <- createGenesisBlock siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
-        jlLog $ jlCreatedBlock (Left createdBlk)
+        jsonLog $ jlCreatedBlock (Left createdBlk)
 
     -- Then we get leaders for current epoch.
     -- Note: we are using non-blocking version here.  If we known
@@ -102,7 +102,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     logLeadersF = if siSlot == minBound then logInfo else logDebug
     logLeadersFS = if siSlot == minBound then logInfoS else logDebugS
     onKnownLeader leaders leader = do
-        ourPk <- Ether.asks' npPublicKey
+        ourPk <- getOurPublicKey
         let ourPkHash = addressHash ourPk
         logNoticeS "This is a test debug message which shouldn't be sent to the logging server."
         logLeadersFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
@@ -153,7 +153,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
 onNewSlotWhenLeader
     :: WorkMode ssc m
     => SlotId
-    -> Maybe ProxySKEither
+    -> ProxySKBlockInfo
     -> Worker' m
 onNewSlotWhenLeader slotId pske sendActions = do
     let logReason =
@@ -183,7 +183,7 @@ onNewSlotWhenLeader slotId pske sendActions = do
     whenCreated createdBlk = do
             logInfoS $
                 sformat ("Created a new block:\n" %build) createdBlk
-            jlLog $ jlCreatedBlock (Right createdBlk)
+            jsonLog $ jlCreatedBlock (Right createdBlk)
             void $ fork $ announceBlock sendActions $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
 

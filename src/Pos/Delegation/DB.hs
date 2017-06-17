@@ -22,16 +22,9 @@
 
 module Pos.Delegation.DB
        ( getPskByIssuer
-       , getPskChain
        , isIssuerByAddressHash
        , getDlgTransitive
-       , getDlgTransPsk
        , getDlgTransitiveReverse
-
-       , DlgEdgeAction (..)
-       , pskToDlgEdgeAction
-       , dlgEdgeActionIssuer
-       , withEActionsResolve
 
        , DelegationOp (..)
 
@@ -43,27 +36,23 @@ module Pos.Delegation.DB
 
 import           Universum
 
-import           Control.Lens           (uses, (%=))
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.HashSet           as HS
-import qualified Database.RocksDB       as Rocks
-import           Formatting             (build, sformat, (%))
+import qualified Data.HashMap.Strict       as HM
+import qualified Data.HashSet              as HS
+import qualified Database.RocksDB          as Rocks
 
-import           Pos.Binary.Class       (encode)
-import           Pos.Crypto             (PublicKey, pskDelegatePk, pskIssuerPk,
-                                         verifyProxySecretKey)
-import           Pos.DB                 (DBError (DBMalformed))
-import           Pos.DB.Class           (MonadDB, MonadDBPure)
-import           Pos.DB.Functions       (RocksBatchOp (..), encodeWithKeyPrefix)
-import           Pos.DB.GState.Common   (gsGetBi)
-import           Pos.DB.Iterator        (DBIteratorClass (..), DBnIterator,
-                                         DBnMapIterator, IterType, runDBnIterator,
-                                         runDBnMapIterator)
-import           Pos.DB.Types           (NodeDBs (_gStateDB))
-import           Pos.Delegation.Helpers (isRevokePsk)
-import           Pos.Delegation.Types   (DlgMemPool)
-import           Pos.Types              (ProxySKHeavy, StakeholderId, addressHash)
-import           Pos.Util.Iterator      (nextItem)
+import           Pos.Binary.Class          (encode)
+import           Pos.Crypto                (PublicKey, pskIssuerPk, verifyProxySecretKey)
+import           Pos.DB                    (RocksBatchOp (..), encodeWithKeyPrefix)
+import           Pos.DB.Class              (MonadDBRead, MonadRealDB)
+import           Pos.DB.GState.Common      (gsGetBi)
+import           Pos.DB.Iterator           (DBIteratorClass (..), DBnIterator,
+                                            DBnMapIterator, IterType, runDBnIterator,
+                                            runDBnMapIterator)
+import           Pos.DB.Types              (NodeDBs (_gStateDB))
+import           Pos.Delegation.Cede.Types (DlgEdgeAction (..))
+import           Pos.Delegation.Helpers    (isRevokePsk)
+import           Pos.Types                 (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Util.Iterator         (nextItem)
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors
@@ -72,109 +61,23 @@ import           Pos.Util.Iterator      (nextItem)
 -- | Retrieves certificate by issuer public key or his
 -- address/stakeholder id, if present.
 getPskByIssuer
-    :: MonadDBPure m
+    :: MonadDBRead m
     => Either PublicKey StakeholderId -> m (Maybe ProxySKHeavy)
 getPskByIssuer (either addressHash identity -> issuer) = gsGetBi (pskKey issuer)
 
--- | Given an issuer, retrieves all certificate chains starting in
--- issuer. This function performs a series of consequental db reads so
--- it must be used under the shared lock.
-getPskChain
-    :: MonadDBPure m
-    => StakeholderId -> m DlgMemPool
-getPskChain = getPskChainInternal HS.empty
-
--- See doc for 'getPskChain'. This function also stops traversal if
--- encounters anyone in 'toIgnore' set. This may be used to call it
--- several times to collect a whole tree/forest, for example.
-getPskChainInternal
-    :: MonadDBPure m
-    => HashSet StakeholderId -> StakeholderId -> m DlgMemPool
-getPskChainInternal toIgnore issuer =
-    -- State is tuple of returning mempool and "used flags" set.
-    view _1 <$> execStateT (trav issuer) (HM.empty, HS.empty)
-  where
-    trav x | HS.member x toIgnore = pass
-    trav x = do
-        whenM (uses _2 $ HS.member x) $
-            throwM $ DBMalformed "getPskChainInternal: found a PSK cycle"
-        _2 %= HS.insert x
-        pskM <- lift $ getPskByIssuer $ Right x
-        whenJust pskM $ \psk -> do
-            when (isRevokePsk psk) $ throwM $ DBMalformed $
-                "getPskChainInternal: found redeem psk: " <> pretty psk
-            _1 %= HM.insert (pskIssuerPk psk) psk
-            trav (addressHash $ pskDelegatePk psk)
-
 -- | Checks if stakeholder is psk issuer.
-isIssuerByAddressHash :: MonadDBPure m => StakeholderId -> m Bool
+isIssuerByAddressHash :: MonadDBRead m => StakeholderId -> m Bool
 isIssuerByAddressHash = fmap isJust . getPskByIssuer . Right
 
 -- | Given issuer @i@ returns @d@ such that there exists @x1..xn@ with
 -- @i->x1->...->xn->d@.
-getDlgTransitive :: MonadDBPure m => StakeholderId -> m (Maybe PublicKey)
+getDlgTransitive :: MonadDBRead m => StakeholderId -> m (Maybe PublicKey)
 getDlgTransitive issuer = gsGetBi (transDlgKey issuer)
-
--- | Retrieves last PSK in chain of delegation started by public key
--- and resolves the passed issuer to a public key. Doesn't check that
--- user himself didn't delegate.
-getDlgTransPsk
-    :: MonadDBPure m
-    => StakeholderId -> m (Maybe (PublicKey, ProxySKHeavy))
-getDlgTransPsk issuer = getDlgTransitive issuer >>= \case
-    Nothing -> pure Nothing
-    Just dPk -> do
-        chain <- HM.elems <$> getPskChain issuer
-        let finalPsk = find (\psk -> pskDelegatePk psk == dPk) chain
-        let iPk = pskIssuerPk <$>
-                  find (\psk -> addressHash (pskIssuerPk psk) == issuer) chain
-        let throwEmpty = throwM $ DBMalformed $
-                sformat ("getDlgTransPk: couldn't find psk with dlgPk "%build%
-                         " and issuer "%build)
-                        dPk issuer
-        maybe throwEmpty (pure . Just) $ (,) <$> iPk <*> finalPsk
 
 -- | Reverse map of transitive delegation. Given a delegate @d@
 -- returns all @i@ such that 'getDlgTransitive' returns @d@ on @i@.
-getDlgTransitiveReverse :: MonadDBPure m => PublicKey -> m (HashSet PublicKey)
+getDlgTransitiveReverse :: MonadDBRead m => PublicKey -> m (HashSet PublicKey)
 getDlgTransitiveReverse dPk = fromMaybe mempty <$> gsGetBi (transRevDlgKey dPk)
-
-----------------------------------------------------------------------------
--- DlgEdgeAction and friends
-----------------------------------------------------------------------------
-
--- | Action on delegation database, used commonly. Generalizes
--- applications and rollbacks.
-data DlgEdgeAction
-    = DlgEdgeAdd !ProxySKHeavy
-    | DlgEdgeDel !PublicKey
-    deriving (Show, Eq, Generic)
-
-instance Hashable DlgEdgeAction
-
--- | Converts heavy psk to the psk mapping action.
-pskToDlgEdgeAction :: ProxySKHeavy -> DlgEdgeAction
-pskToDlgEdgeAction psk
-    | isRevokePsk psk = DlgEdgeDel (pskIssuerPk psk)
-    | otherwise = DlgEdgeAdd psk
-
--- | Gets issuer of edge action (u from the edge uv).
-dlgEdgeActionIssuer :: DlgEdgeAction -> PublicKey
-dlgEdgeActionIssuer = \case
-    (DlgEdgeDel iPk) -> iPk
-    (DlgEdgeAdd psk) -> pskIssuerPk psk
-
--- | Resolves issuer to heavy PSK using mapping (1) with given set of
--- changes eActions. This set of changes is a map @i -> eAction@,
--- where @i = dlgEdgeActionIssuer eAction@.
-withEActionsResolve
-    :: (MonadDBPure m)
-    => HashMap PublicKey DlgEdgeAction -> PublicKey -> m (Maybe ProxySKHeavy)
-withEActionsResolve eActions iPk =
-    case HM.lookup iPk eActions of
-        Nothing                -> getPskByIssuer $ Left iPk
-        Just (DlgEdgeDel _)    -> pure Nothing
-        Just (DlgEdgeAdd psk ) -> pure (Just psk)
 
 ----------------------------------------------------------------------------
 -- Batch operations
@@ -223,12 +126,12 @@ instance DBIteratorClass DlgTransIter where
     iterKeyPrefix _ = iterTransPrefix
 
 runDlgTransIterator
-    :: forall m a . MonadDB m
+    :: forall m a . MonadRealDB m
     => DBnIterator DlgTransIter a -> m a
 runDlgTransIterator = runDBnIterator @DlgTransIter _gStateDB
 
 runDlgTransMapIterator
-    :: forall v m a . MonadDB m
+    :: forall v m a . MonadRealDB m
     => DBnMapIterator DlgTransIter v a -> (IterType DlgTransIter -> v) -> m a
 runDlgTransMapIterator = runDBnMapIterator @DlgTransIter _gStateDB
 
@@ -258,7 +161,7 @@ transRevDlgKey pk = "d/tb/" <> encode pk
 --
 -- NB. It's not called @getIssuers@ because we already have issuers (i.e.
 -- block issuers)
-getDelegators :: MonadDB m => m (HashMap StakeholderId [StakeholderId])
+getDelegators :: MonadRealDB m => m (HashMap StakeholderId [StakeholderId])
 getDelegators = runDlgTransMapIterator (step mempty) identity
   where
     step hm = nextItem >>= maybe (pure hm) (\(iss, addressHash -> del) -> do

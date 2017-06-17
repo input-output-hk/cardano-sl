@@ -1,6 +1,8 @@
 resolver: lts-8.13
 
-flags: {}
+flags:
+  ether:
+    disable-tup-instances: true
 
 extra-package-dbs: []
 
@@ -11,8 +13,10 @@ packages:
 - infra
 - db
 - lrc
+- lwallet
 - ssc
 - godtossing
+- txp
 
 - location:
     git: https://github.com/serokell/time-units.git
@@ -45,7 +49,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 111b026e7d3106ce5bf1f23e635069c29711da08
+    commit: 79acc87fcb6fc21998ee2bf1d2ae17d8894bc007
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -76,7 +80,7 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.4.2
+- universum-0.4.3
 - time-units-1.0.0
 - serokell-util-0.1.5.0
 - pvss-0.1
@@ -91,14 +95,16 @@ extra-deps:
 - servant-server-0.10             # so it triggers another dependencies to be v10
 - servant-swagger-1.1.2.1
 - servant-multipart-0.10
-- ether-0.5.0.0
+- ether-0.5.1.0
 - transformers-lift-0.2.0.1
 - store-0.4.3.1
+- lens-4.15.3                     # not yet in lts-8
+- th-abstraction-0.2.2.0          # needed for lens
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
-# If you find it too restrictive, you can use `util-scripts/build.sh' script
+# If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
   cardano-sl-core:       -Werror
   cardano-sl-db:         -Werror
@@ -107,4 +113,6 @@ ghc-options:
   cardano-sl-lrc:        -Werror
   cardano-sl-update:     -Werror
   cardano-sl-godtossing: -Werror
+  cardano-sl-txp:        -Werror
   cardano-sl:            -Werror
+  cardano-sl-lwallet:    -Werror

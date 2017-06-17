@@ -251,8 +251,8 @@ verifyProxySecretKey ProxySecretKey{..} =
 -- in heavyweight psk transitive delegation: i -> x -> d, we have psk
 -- from x to d, slot leader is i.
 data ProxySignature w a = ProxySignature
-    { pdPsk :: ProxySecretKey w
-    , pdSig :: CC.XSignature
+    { psigPsk :: ProxySecretKey w
+    , psigSig :: CC.XSignature
     } deriving (Eq, Ord, Show, Generic)
 
 instance NFData w => NFData (ProxySignature w a)
@@ -260,10 +260,10 @@ instance Hashable w => Hashable (ProxySignature w a)
 
 instance {-# OVERLAPPABLE #-}
          (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature w a) where
-    build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") pdPsk
+    build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") psigPsk
 
 instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature (w,w) a) where
-    build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") pdPsk
+    build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") psigPsk
 
 -- | Make a proxy delegate signature with help of certificate. If the
 -- delegate secret key passed doesn't pair with delegate public key in
@@ -279,8 +279,8 @@ proxySign t sk@(SecretKey delegateSk) psk@ProxySecretKey{..} m
                         pskDelegatePk (toPublic sk)
     | otherwise =
         ProxySignature
-        { pdPsk = psk
-        , pdSig = sigma
+        { psigPsk = psk
+        , psigSig = sigma
         }
   where
     PublicKey issuerPk = pskIssuerPk
@@ -300,11 +300,11 @@ proxyVerify
 proxyVerify t ProxySignature{..} omegaPred m =
     and [predCorrect, pskValid, sigValid]
   where
-    ProxySecretKey{..} = pdPsk
+    ProxySecretKey{..} = psigPsk
     PublicKey issuerPk = pskIssuerPk
     PublicKey pdDelegatePkRaw = pskDelegatePk
     predCorrect = omegaPred pskOmega
-    pskValid = verifyProxySecretKey pdPsk
+    pskValid = verifyProxySecretKey psigPsk
     sigValid =
         CC.verify
             pdDelegatePkRaw
@@ -314,4 +314,4 @@ proxyVerify t ProxySignature{..} omegaPred m =
                  , signTag t
                  , Bi.encode m
                  ])
-            pdSig
+            psigSig

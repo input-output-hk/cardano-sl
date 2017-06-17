@@ -21,14 +21,18 @@ library
 
                         -- Slotting
                         Pos.Slotting
+                        Pos.Slotting.Class
                         Pos.Slotting.Constants
+                        Pos.Slotting.Impl
+                        Pos.Slotting.Impl.Ntp
+                        Pos.Slotting.Impl.Simple
+                        Pos.Slotting.Impl.Sum
+                        Pos.Slotting.Impl.Util
                         Pos.Slotting.MemState
                         Pos.Slotting.MemState.Class
                         Pos.Slotting.MemState.Holder
                         Pos.Slotting.Types
-                        Pos.Slotting.Class
                         Pos.Slotting.Error
-                        Pos.Slotting.Ntp
                         Pos.Slotting.Util
 
                         Pos.Discovery
@@ -60,6 +64,7 @@ library
                         Pos.Communication.MessagePart
                         Pos.Communication.PeerState
                         Pos.Communication.Protocol
+                        Pos.Communication.Specs
                         Pos.Communication.Relay
                         Pos.Communication.Relay.Class
                         Pos.Communication.Relay.Logic
@@ -67,7 +72,10 @@ library
                         Pos.Communication.Relay.Util
                         Pos.Communication.Util
 
-                        -- Pos.Communication
+                        -- Recovery
+                        Pos.Recovery.Info
+
+                        -- Pos.Shutdown
                         Pos.Shutdown
                         Pos.Shutdown.Class
                         Pos.Shutdown.Logic
@@ -77,6 +85,7 @@ library
                         Pos.Binary.Infra
                         Pos.Binary.Infra.DHTModel
                         Pos.Binary.Infra.Slotting
+                        Pos.Binary.Infra.Relay
 
                         -- Pos.Util
                         Pos.Util.LogSafe
@@ -130,6 +139,7 @@ library
                       , transformers-base
                       , transformers-lift
                       , mmorph
+                      , network-transport
                       , universum
                       , unordered-containers
                       , wreq

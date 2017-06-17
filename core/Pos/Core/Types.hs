@@ -38,7 +38,6 @@ module Pos.Core.Types
        , ProxySKLight
        , ProxySigHeavy
        , ProxySKHeavy
-       , ProxySKEither
 
        , SharedSeed (..)
        , SlotLeaders
@@ -90,7 +89,7 @@ import           Serokell.AcidState         ()
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       (formatBase16)
 
-import           Pos.Core.Constants         (epochSlots)
+import           Pos.Core.Constants.Raw     (epochSlots)
 import           Pos.Core.Timestamp         (Timestamp (..))
 import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
                                              ProxySecretKey, ProxySignature, PublicKey,
@@ -246,12 +245,6 @@ type ProxySigHeavy a = ProxySignature EpochIndex a
 
 -- | Heavy delegation psk.
 type ProxySKHeavy = ProxySecretKey EpochIndex
-
--- | Lightweight PSK or heavyweight PSK with real leader public key
--- (because heavyweight psks have redelegation feature, so pskIssuerPk
--- hPsk /= leader in general case). This is used to create a block
--- header mainly.
-type ProxySKEither = Either ProxySKLight (ProxySKHeavy, PublicKey)
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw

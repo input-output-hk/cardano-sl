@@ -6,7 +6,7 @@ module Pos.Binary.Communication () where
 import           Universum
 
 import           Data.Bits                        (Bits (..))
-import           Node.Message                     (MessageName (..))
+import           Node.Message.Class               (MessageName (..))
 
 import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),

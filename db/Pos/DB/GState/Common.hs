@@ -34,12 +34,12 @@ import           Pos.Binary.Class    (Bi, encode)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (HeaderHash)
 import           Pos.Crypto          (shortHashF)
+import           Pos.DB.BatchOp      (RocksBatchOp (..), dbWriteBatch')
 import           Pos.DB.Class        (DBTag (GStateDB),
                                       MonadBlockDBGeneric (dbGetBlock, dbGetHeader),
-                                      MonadDB, MonadDBPure, getGStateDB)
+                                      MonadDB (dbDelete), MonadDBRead)
 import           Pos.DB.Error        (DBError (DBMalformed))
-import           Pos.DB.Functions    (RocksBatchOp (..), dbGetBi, rocksDelete, rocksPutBi,
-                                      rocksWriteBatch)
+import           Pos.DB.Functions    (dbGetBi, dbPutBi)
 import           Pos.Util.Util       (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -47,31 +47,31 @@ import           Pos.Util.Util       (maybeThrow)
 ----------------------------------------------------------------------------
 
 gsGetBi
-    :: (MonadDBPure m, Bi v)
+    :: (MonadDBRead m, Bi v)
     => ByteString -> m (Maybe v)
 gsGetBi k = dbGetBi GStateDB k
 
 gsPutBi
     :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
-gsPutBi k v = rocksPutBi k v =<< getGStateDB
+gsPutBi = dbPutBi GStateDB
 
 gsDelete :: (MonadDB m) => ByteString -> m ()
-gsDelete k = rocksDelete k =<< getGStateDB
+gsDelete = dbDelete GStateDB
 
 writeBatchGState :: (RocksBatchOp a, MonadDB m) => [a] -> m ()
-writeBatchGState batch = rocksWriteBatch batch =<< getGStateDB
+writeBatchGState = dbWriteBatch' GStateDB
 
 ----------------------------------------------------------------------------
 -- Common getters
 ----------------------------------------------------------------------------
 
 -- | Get current tip from GState DB.
-getTip :: MonadDBPure m => m HeaderHash
+getTip :: MonadDBRead m => m HeaderHash
 getTip = maybeThrow (DBMalformed "no tip in GState DB") =<< getTipMaybe
 
 -- | Get the hash of the first genesis block from GState DB.
-getBot :: MonadDBPure m => m HeaderHash
+getBot :: MonadDBRead m => m HeaderHash
 getBot = maybeThrow (DBMalformed "no bot in GState DB") =<< getBotMaybe
 
 -- | Get 'Block' corresponding to tip.
@@ -90,7 +90,7 @@ getTipHeader = getTipSomething "header" (dbGetHeader @_ @block)
 
 getTipSomething
     :: forall m smth.
-       MonadDBPure m
+       MonadDBRead m
     => Text -> (HeaderHash -> m (Maybe smth)) -> m smth
 getTipSomething smthDescription smthGetter =
     maybe onFailure pure =<< smthGetter =<< getTip
@@ -115,7 +115,7 @@ instance RocksBatchOp CommonOp where
 ----------------------------------------------------------------------------
 
 -- | Put missing initial common data into GState DB.
-prepareGStateCommon :: (MonadDB m, MonadDBPure m) => HeaderHash -> m ()
+prepareGStateCommon :: (MonadDB m) => HeaderHash -> m ()
 prepareGStateCommon initialTip = do
     whenNothingM_ getTipMaybe putGenesisTip
     whenNothingM_ getBotMaybe putGenesisBot
@@ -137,10 +137,10 @@ botKey = "c/bot"
 -- Details
 ----------------------------------------------------------------------------
 
-getTipMaybe :: MonadDBPure m => m (Maybe HeaderHash)
+getTipMaybe :: MonadDBRead m => m (Maybe HeaderHash)
 getTipMaybe = gsGetBi tipKey
 
-getBotMaybe :: MonadDBPure m => m (Maybe HeaderHash)
+getBotMaybe :: MonadDBRead m => m (Maybe HeaderHash)
 getBotMaybe = gsGetBi botKey
 
 putTip :: MonadDB m => HeaderHash -> m ()

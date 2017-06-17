@@ -227,7 +227,7 @@ deriveSimpleBi headTy constrs = do
                 doE (map (putField val) cFields)
 
     putTag :: Int -> Q Stmt
-    putTag ix = noBindS [| put (ix :: $tagType) |]
+    putTag ix = noBindS [| Bi.put (ix :: $tagType) |]
 
     putField :: ExpQ -> Field -> Q Stmt
     putField val Field{..} = noBindS [| Bi.put ($(varE fName) $val) |]

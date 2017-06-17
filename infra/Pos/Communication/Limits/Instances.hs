@@ -12,31 +12,13 @@ module Pos.Communication.Limits.Instances
 import           Universum
 
 import qualified Pos.Communication.Constants    as Const
-import           Pos.Communication.Limits.Types (Limit (..), Limiter (..),
-                                                 MessageLimited (..),
+import           Pos.Communication.Limits.Types (Limit (..), MessageLimited (..),
                                                  MessageLimitedPure (..))
 import           Pos.Communication.Types.Relay  (DataMsg (..), InvMsg, InvOrData,
                                                  MempoolMsg (..), ReqMsg)
 
-import qualified Pos.Binary.Class               as Bi
-newtype EitherLimiter a b = EitherLimiter (a, b)
-
 ----------------------------------------------------------------------------
--- Instances for Limiter
-----------------------------------------------------------------------------
-
--- | Bounds `InvOrData`.
-instance (Limiter l, Limiter t) => Limiter (EitherLimiter l t) where
-    limitGet (EitherLimiter (invLimit, dataLimits)) parser = do
-        Bi.lookAhead Bi.getWord8 >>= \case
-            0   -> limitGet invLimit parser
-            1   -> limitGet dataLimits parser
-            tag -> fail ("EitherLimiter: invalid tag: " ++ show tag)
-
-    addLimit a (EitherLimiter (l1, l2)) = EitherLimiter (a `addLimit` l1, a `addLimit` l2)
-
-----------------------------------------------------------------------------
--- Instances for MessageLimited
+-- Instances of MessageLimited for the relay types.
 ----------------------------------------------------------------------------
 
 instance MessageLimited (InvMsg key)
@@ -45,16 +27,14 @@ instance MessageLimited (MempoolMsg tag)
 
 instance MessageLimited (DataMsg contents)
       => MessageLimited (InvOrData key contents) where
-    type LimitType (InvOrData key contents) =
-        EitherLimiter (LimitType (InvMsg key)) (LimitType (DataMsg contents))
     getMsgLenLimit _ = do
-        invLim  <- getMsgLenLimit $ Proxy @(InvMsg key)
-        dataLim <- getMsgLenLimit $ Proxy @(DataMsg contents)
+        Limit invLim  <- getMsgLenLimit $ Proxy @(InvMsg key)
+        Limit dataLim <- getMsgLenLimit $ Proxy @(DataMsg contents)
         -- 1 byte is added because of `Either`
-        return $ EitherLimiter (1 `addLimit` invLim, 1 `addLimit` dataLim)
+        return $ Limit (1 + (invLim `max` dataLim))
 
 ----------------------------------------------------------------------------
--- Instances for MessageLimitedPure
+-- Instances of MessageLimitedPure for the relay types.
 ----------------------------------------------------------------------------
 
 instance MessageLimitedPure (InvMsg key) where

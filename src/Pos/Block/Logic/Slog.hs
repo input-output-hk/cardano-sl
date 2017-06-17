@@ -42,8 +42,8 @@ import           Pos.Context           (lrcActionOnEpochReason)
 import           Pos.Core              (BlockVersion (..), epochIndexL, headerHash,
                                         headerHashG, prevBlockL)
 import           Pos.DB                (SomeBatchOp (..))
-import           Pos.DB.Block          (putBlund)
-import           Pos.DB.Class          (MonadDB, MonadDBPure)
+import           Pos.DB.Block          (MonadBlockDBWrite (dbPutBlund))
+import           Pos.DB.Class          (MonadDBRead, MonadRealDB)
 import           Pos.DB.DB             (sanityCheckDB)
 import qualified Pos.DB.GState         as GS
 import           Pos.Exception         (assertionFailed)
@@ -99,17 +99,15 @@ mustDataBeKnown adoptedBV =
 type SlogMode ssc m =
     ( MonadSlots m
     , SscHelpersClass ssc
-    , MonadDBPure m
+    , MonadDBRead m
     , WithLogger m
     )
 
--- Sadly, MonadIO and MonadDB are needed for LRC, but it can be improved.
 -- | Set of constraints needed for Slog verification.
 type SlogVerifyMode ssc m =
     ( SlogMode ssc m
     , MonadError Text m
     , MonadIO m
-    , MonadDB m
     , Ether.MonadReader' LrcContext m
     )
 
@@ -145,9 +143,10 @@ slogVerifyBlocks blocks = do
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
 type SlogApplyMode ssc m =
     ( SlogMode ssc m
-    , MonadDB m
+    , MonadBlockDBWrite ssc m
     , MonadBListener m
     , MonadMask m
+    , MonadRealDB m  -- this one is currently needed for sanity check
     )
 
 -- | This function does everything that should be done when blocks are
@@ -158,7 +157,7 @@ slogApplyBlocks ::
     -> m SomeBatchOp
 slogApplyBlocks blunds = do
     -- Note: it's important to put blunds first
-    mapM_ putBlund blunds
+    mapM_ dbPutBlund blunds
     -- If the program is interrupted at this point (after putting on block),
     -- we will rollback all wallet sets at the next launch.
     onApplyBlocks blunds `catch` logWarn

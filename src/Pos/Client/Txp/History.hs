@@ -31,6 +31,7 @@ import           Universum
 import           Control.Lens                 (makeLenses, (%=))
 import           Control.Monad.Loops          (unfoldrM)
 import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Maybe    (MaybeT (..))
 import           Data.Coerce                  (coerce)
@@ -46,7 +47,7 @@ import           Pos.Context.Context          (GenesisUtxo (..))
 import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
                                                difficultyL, prevBlockL)
 import           Pos.Crypto                   (WithHash (..), withHash)
-import           Pos.DB                       (MonadDB, MonadDBPure)
+import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
 import qualified Pos.DB.Block                 as DB
 import           Pos.DB.Error                 (DBError (..))
 import qualified Pos.DB.GState                as GS
@@ -185,13 +186,15 @@ runTxHistoryRedirect :: TxHistoryRedirect m a -> m a
 runTxHistoryRedirect = coerce
 
 instance
-    ( MonadDB m
-    , MonadDBPure m
+    ( MonadRealDB m
+    , MonadDBRead m
+    , MonadGState m
     , MonadThrow m
     , WithLogger m
     , MonadSlots m
     , Ether.MonadReader' GenesisUtxo m
     , MonadTxpMem TxpExtra_TMP m
+    , MonadBaseControl IO m
     , t ~ IdentityT
     ) => MonadTxHistory (Ether.TaggedTrans TxHistoryRedirectTag t m)
   where

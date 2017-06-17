@@ -6,7 +6,7 @@ module Pos.Binary.Infra.Slotting
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), combineSize, label, putField)
+import           Pos.Binary.Class   (Bi (..), label, putField)
 import           Pos.Binary.Core    ()
 import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData (..))
 

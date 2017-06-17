@@ -21,10 +21,10 @@ import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Core             (mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Core                   (HeaderHash, headerHash, prevBlockL)
-import           Pos.DB.Class               (MonadDB, MonadDBPure)
+import           Pos.DB.Class               (MonadDBRead, MonadRealDB)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux, TxUndo, flattenTxPayload)
-import           Pos.Txp.Toil               (evalToilTEmpty, runDBTxp)
+import           Pos.Txp.Toil               (evalToilTEmpty, runDBToil)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier          as MM
 
@@ -36,8 +36,8 @@ import qualified Pos.Wallet.Web.State       as WS
 import           Pos.Wallet.Web.Tracking    (CAccModifier, applyModifierToWSet,
                                              trackingApplyTxs, trackingRollbackTxs)
 
-instance ( MonadDB m
-         , MonadDBPure m
+instance ( MonadRealDB m
+         , MonadDBRead m
          , MonadMockable m
          , MonadKeys m
          , WithLogger m
@@ -52,8 +52,8 @@ onApplyTracking
     ( SscHelpersClass ssc
     , AccountMode m
     , WithLogger m
-    , MonadDB m
-    , MonadDBPure m
+    , MonadRealDB m
+    , MonadDBRead m
     )
     => OldestFirst NE (Blund ssc) -> m ()
 onApplyTracking blunds = do
@@ -64,7 +64,7 @@ onApplyTracking blunds = do
     syncWalletSet :: HeaderHash -> [TxAux] -> CId Wal -> m ()
     syncWalletSet newTip txs wAddr = do
         encSK <- getSKByAddr wAddr
-        mapModifier <- runDBTxp $ evalToilTEmpty $ trackingApplyTxs encSK txs
+        mapModifier <- runDBToil $ evalToilTEmpty $ trackingApplyTxs encSK txs
         applyModifierToWSet wAddr newTip mapModifier
         logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)

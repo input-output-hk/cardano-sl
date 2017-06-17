@@ -49,7 +49,7 @@ import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (.
                                              MsgHeaders (..))
 import           Pos.Block.Pure             (verifyHeaders)
 import           Pos.Block.Types            (Blund)
-import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
+import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              NodeId, OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
@@ -58,7 +58,6 @@ import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHe
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
                                              gbHeader, headerHashG, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
-import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Exception              (cardanoExceptionFromException,
@@ -107,12 +106,11 @@ triggerRecovery :: forall ssc m.
     => SendActions m -> m ()
 triggerRecovery sendActions = unlessM recoveryInProgress $ do
     logDebug "Recovery started, requesting tips from neighbors"
-    reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
-        converseToNeighbors sendActions (pure . Conversation . requestTip limitProxy) `catch`
-            \(e :: SomeException) -> do
-               logDebug ("Error happened in triggerRecovery: " <> show e)
-               throwM e
-        logDebug "Finished requesting tips for recovery"
+    converseToNeighbors sendActions (pure . Conversation . requestTip) `catch`
+        \(e :: SomeException) -> do
+           logDebug ("Error happened in triggerRecovery: " <> show e)
+           throwM e
+    logDebug "Finished requesting tips for recovery"
 
 requestTipOuts :: OutSpecs
 requestTipOuts =
@@ -123,13 +121,12 @@ requestTipOuts =
 -- current blockchain state. Sends "what's your current tip" request
 -- to everybody we know.
 requestTip
-    :: forall ssc s m.
+    :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => Proxy s
-    -> NodeId
-    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
+    => NodeId
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
-requestTip _ nodeId conv = do
+requestTip nodeId conv = do
     logDebug "Requesting tip..."
     send conv (MsgGetHeaders [] Nothing)
     whenJustM (recvLimited conv) handleTip
@@ -156,11 +153,11 @@ mkHeadersRequest upto = do
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
-    :: forall ssc s m.
+    :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 handleUnsolicitedHeaders (header :| []) nodeId conv =
     handleUnsolicitedHeader header nodeId conv
@@ -170,11 +167,11 @@ handleUnsolicitedHeaders (h:|hs) _ _ = do
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
 handleUnsolicitedHeader
-    :: forall ssc s m.
+    :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => BlockHeader ssc
     -> NodeId
-    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 handleUnsolicitedHeader header nodeId conv = do
     logDebug $ sformat
@@ -191,7 +188,7 @@ handleUnsolicitedHeader header nodeId conv = do
             logInfo $ sformat alternativeFormat hHash
             mghM <- mkHeadersRequest (Just hHash)
             whenJust mghM $ \mgh ->
-                requestHeaders mgh nodeId (Just header) Proxy conv
+                requestHeaders mgh nodeId (Just header) conv
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
             logDebug $ sformat ("handleUnsolicited: header "%shortHashF%
@@ -242,15 +239,14 @@ matchRequestedHeaders headers MsgGetHeaders {..} inRecovery =
 -- Second argument is mghTo block header (not hash). Don't pass it
 -- only if you don't know it.
 requestHeaders
-    :: forall ssc s m.
+    :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => MsgGetHeaders
     -> NodeId
     -> Maybe (BlockHeader ssc)
-    -> Proxy s
-    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
-requestHeaders mgh nodeId origTip _ conv = do
+requestHeaders mgh nodeId origTip conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
@@ -381,7 +377,7 @@ mkBlocksRequest lcaChild wantedBlock =
 
 handleBlocks
     :: forall ssc m.
-       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => NodeId
     -> OldestFirst NE (Block ssc)
     -> SendActions m
@@ -402,7 +398,7 @@ handleBlocks nodeId blocks sendActions = do
 
 handleBlocksWithLca
     :: forall ssc m.
-       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
@@ -420,7 +416,7 @@ handleBlocksWithLca nodeId sendActions blocks lcaHash = do
 
 applyWithoutRollback
     :: forall ssc m.
-       (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
+       (WorkMode ssc m, SscWorkersClass ssc)
     => SendActions m
     -> OldestFirst NE (Block ssc)
     -> m ()
@@ -457,7 +453,7 @@ applyWithoutRollback sendActions blocks = do
 
 applyWithRollback
     :: forall ssc m.
-       (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
+       (WorkMode ssc m, SscWorkersClass ssc)
     => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)

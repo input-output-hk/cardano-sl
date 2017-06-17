@@ -106,53 +106,53 @@ deleteR = makeRequest $ defaultRequest { method = Left DELETE }
 testReset :: forall eff. Aff (ajax :: AJAX | eff) Unit
 testReset = postR $ noQueryParam ["test", "reset"]
 --------------------------------------------------------------------------------
--- Wallet Sets ---------------------------------------------------------------------
+-- Wallets ---------------------------------------------------------------------
 getWallet :: forall eff. CId Wal -> Aff (ajax :: AJAX | eff) CWallet
-getWallet addr = getR $ noQueryParam ["wallets", "sets", _address addr]
+getWallet addr = getR $ noQueryParam ["wallets", _address addr]
 
 getWallets :: forall eff. Aff (ajax :: AJAX | eff) (Array CWallet)
-getWallets = getR $ noQueryParam ["wallets", "sets"]
+getWallets = getR $ noQueryParam ["wallets"]
 
 newWallet :: forall eff. Maybe CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
-newWallet pass = postRBody $ queryParams ["wallets", "sets", "new"] [qParam "passphrase" $ _passPhrase <$> pass]
+newWallet pass = postRBody $ queryParams ["wallets", "new"] [qParam "passphrase" $ _passPhrase <$> pass]
 
 restoreWallet :: forall eff. Maybe CPassPhrase -> CWalletInit -> Aff (ajax :: AJAX | eff) CWallet
-restoreWallet pass = postRBody $ queryParams ["wallets", "sets", "restore"] [qParam "passphrase" $ _passPhrase <$> pass]
+restoreWallet pass = postRBody $ queryParams ["wallets", "restore"] [qParam "passphrase" $ _passPhrase <$> pass]
 
 renameWalletSet :: forall eff. CId Wal -> String -> Aff (ajax :: AJAX | eff) CWallet
-renameWalletSet wSetId name = postR $ noQueryParam ["wallets", "sets", "rename", _address wSetId, name]
+renameWalletSet wSetId name = postR $ noQueryParam ["wallets", "rename", _address wSetId, name]
 
 importWallet :: forall eff. Maybe CPassPhrase -> FilePath -> Aff (ajax :: AJAX | eff) CWallet
-importWallet pass = postRBody $ queryParams ["wallets", "sets", "keys"] [qParam "passphrase" $ _passPhrase <$> pass]
+importWallet pass = postRBody $ queryParams ["wallets", "keys"] [qParam "passphrase" $ _passPhrase <$> pass]
 
 changeWalletPass :: forall eff. CId Wal -> Maybe CPassPhrase -> Maybe CPassPhrase -> Aff (ajax :: AJAX | eff) Unit
-changeWalletPass wSetId old new = postR $ queryParams ["wallets", "sets", "password", _address wSetId] [qParam "old" $ _passPhrase <$> old, qParam "new" $ _passPhrase <$> new]
+changeWalletPass wSetId old new = postR $ queryParams ["wallets", "password", _address wSetId] [qParam "old" $ _passPhrase <$> old, qParam "new" $ _passPhrase <$> new]
 
 deleteWallet :: forall eff. CId Wal -> Aff (ajax :: AJAX | eff) Unit
-deleteWallet wSetId = deleteR $ noQueryParam ["wallets", "sets", _address wSetId]
---------------------------------------------------------------------------------
--- Wallets ---------------------------------------------------------------------
-
-getAccount :: forall eff. CAccountId -> Aff (ajax :: AJAX | eff) CAccount
-getAccount wId = getR $ noQueryParam ["wallets", walletAddressToUrl wId]
-
-getAccounts :: forall eff. Maybe (CId Wal) -> Aff (ajax :: AJAX | eff) (Array CAccount)
-getAccounts addr = getR $ queryParams ["wallets"] [qParam "walletSetId" $ _address <$> addr]
-
-updateAccount :: forall eff. CAccountId -> CAccountMeta -> Aff (ajax :: AJAX | eff) CAccount
-updateAccount wId = putRBody $ noQueryParam ["wallets", walletAddressToUrl wId]
-
-newAccount :: forall eff. Maybe CPassPhrase -> CAccountInit -> Aff (ajax :: AJAX | eff) CAccount
-newAccount pass = postRBody $ queryParams ["wallets"] [qParam "passphrase" $ _passPhrase <$> pass]
-
-deleteAccount :: forall eff. CAccountId -> Aff (ajax :: AJAX | eff) Unit
-deleteAccount wId = deleteR $ noQueryParam ["wallets", walletAddressToUrl wId]
-
+deleteWallet wSetId = deleteR $ noQueryParam ["wallets", _address wSetId]
 --------------------------------------------------------------------------------
 -- Accounts --------------------------------------------------------------------
 
+getAccount :: forall eff. CAccountId -> Aff (ajax :: AJAX | eff) CAccount
+getAccount wId = getR $ noQueryParam ["accounts", walletAddressToUrl wId]
+
+getAccounts :: forall eff. Maybe (CId Wal) -> Aff (ajax :: AJAX | eff) (Array CAccount)
+getAccounts addr = getR $ queryParams ["accounts"] [qParam "accountId" $ _address <$> addr]
+
+updateAccount :: forall eff. CAccountId -> CAccountMeta -> Aff (ajax :: AJAX | eff) CAccount
+updateAccount wId = putRBody $ noQueryParam ["accounts", walletAddressToUrl wId]
+
+newAccount :: forall eff. Maybe CPassPhrase -> CAccountInit -> Aff (ajax :: AJAX | eff) CAccount
+newAccount pass = postRBody $ queryParams ["accounts"] [qParam "passphrase" $ _passPhrase <$> pass]
+
+deleteAccount :: forall eff. CAccountId -> Aff (ajax :: AJAX | eff) Unit
+deleteAccount wId = deleteR $ noQueryParam ["accounts", walletAddressToUrl wId]
+
+--------------------------------------------------------------------------------
+-- Wallet addresses ------------------------------------------------------------
+
 newWAddress :: forall eff. Maybe CPassPhrase -> CAccountId -> Aff (ajax :: AJAX | eff) CAddress
-newWAddress pass = postRBody $ queryParams ["account"] [qParam "passphrase" $ _passPhrase <$> pass]
+newWAddress pass = postRBody $ queryParams ["addresses"] [qParam "passphrase" $ _passPhrase <$> pass]
 
 --------------------------------------------------------------------------------
 -- Addresses -------------------------------------------------------------------
@@ -178,11 +178,26 @@ newPaymentExtended pass addrFrom addrTo amount title desc = postR $ queryParams 
 updateTransaction :: forall eff. CAccountId -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
 updateTransaction addr ctxId = postRBody $ noQueryParam ["txs", "payments", walletAddressToUrl addr, _ctxIdValue ctxId]
 
-getHistory :: forall eff. CAccountId -> Maybe Int -> Maybe Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-getHistory addr skip limit = getR $ queryParams ["txs", "histories", walletAddressToUrl addr] [qParam "skip" $ show <$> skip, qParam "limit" $ show <$> limit]
+searchHistory
+  :: forall eff.
+     Maybe (CId Wal)
+  -> Maybe CAccountId
+  -> Maybe (CId Addr)
+  -> Maybe String
+  -> Maybe Int
+  -> Maybe Int
+  -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
+searchHistory walletId accountId addr search skip limit =
+  getR $ queryParams
+  ["txs", "histories"]
+  [ qParam "walletId" $ _address <$> walletId
+  , qParam "accountId" $ walletAddressToUrl <$> accountId
+  , qParam "address" $ _address <$> addr
+  , qParam "search" search
+  , qParam "skip" $ show <$> skip
+  , qParam "limit" $ show <$> limit
+  ]
 
-searchHistory :: forall eff. CAccountId -> Maybe (CId Addr) -> String -> Maybe Int -> Maybe Int -> Aff (ajax :: AJAX | eff) (Tuple (Array CTx) Int)
-searchHistory addr account search skip limit = getR $ queryParams ["txs", "histories", walletAddressToUrl addr, search] [qParam "account" $ _address <$> account, qParam "skip" $ show <$> skip, qParam "limit" $ show <$> limit]
 --------------------------------------------------------------------------------
 -- Updates ---------------------------------------------------------------------
 nextUpdate :: forall eff. Aff (ajax :: AJAX | eff) CUpdateInfo

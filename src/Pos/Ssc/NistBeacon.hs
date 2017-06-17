@@ -55,8 +55,8 @@ instance SscHelpersClass SscNistBeacon where
     sscDefaultPayload _ = ()
 
 instance SscWorkersClass SscNistBeacon where
-    sscWorkers = Tagged ([], mempty)
-    sscLrcConsumers = Tagged []
+    sscWorkers = ([], mempty)
+    sscLrcConsumers = []
 
 instance SscListenersClass SscNistBeacon where
     sscRelays = Tagged []

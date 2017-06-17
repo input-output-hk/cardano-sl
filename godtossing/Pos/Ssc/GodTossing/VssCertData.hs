@@ -161,7 +161,7 @@ expireById contains id wExp vcd@VssCertData{..}
         (S.delete (expiry, id) whenExpire)
         (S.insert (wExp, (id, ins, cert)) expiredCerts)
      | contains =
-        error $ sformat ("Not found cert with id = "%build%" but expected") id
+        error $ sformat ("Could not find expected certificate with id = "%build) id
      | otherwise = vcd
 
 -- | Remove elements from beginning of the set @expirySlot@

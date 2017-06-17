@@ -13,13 +13,13 @@ import           Control.Lens                (at, (%=), (.=))
 import           Control.Monad.Trans.Class   (MonadTrans)
 
 import           Pos.Core                    (Address, Coin)
-import           Pos.DB.Class                (MonadDBPure)
+import           Pos.DB.Class                (MonadDBRead)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra)
 import qualified Pos.Explorer.DB             as DB
 import           Pos.Explorer.Txp.Toil.Types (ExplorerExtra, eeAddrBalances,
                                               eeAddrHistories, eeLocalTxsExtra)
 import           Pos.Txp.Core                (TxId)
-import           Pos.Txp.Toil                (DBTxp, ToilT, tmExtra)
+import           Pos.Txp.Toil                (DBToil, ToilT, tmExtra)
 import           Pos.Util                    (ether)
 import qualified Pos.Util.Modifier           as MM
 
@@ -100,10 +100,10 @@ instance MonadTxExtraRead m => MonadTxExtra (ToilT ExplorerExtra m) where
         tmExtra . eeAddrBalances %= MM.delete addr
 
 ----------------------------------------------------------------------------
--- DBTxp instances
+-- DBToil instances
 ----------------------------------------------------------------------------
 
-instance (MonadDBPure m) => MonadTxExtraRead (DBTxp m) where
+instance (MonadDBRead m) => MonadTxExtraRead (DBToil m) where
     getTxExtra = DB.getTxExtra
     getAddrHistory = DB.getAddrHistory
     getAddrBalance = DB.getAddrBalance

@@ -52,20 +52,19 @@ import           Pos.Core                   (ApplicationName, BlockVersion,
                                              ChainDifficulty, NumSoftwareVersion, SlotId,
                                              SoftwareVersion (..), StakeholderId,
                                              Timestamp (..))
-import           Pos.Core.Constants         (epochSlots)
+import           Pos.Core.Constants         (epochSlots, genesisBlockVersionData,
+                                             genesisSlotDuration)
 import           Pos.Crypto                 (hash)
-import           Pos.DB.Class               (MonadDB, MonadDBPure, getGStateDB)
+import           Pos.DB                     (MonadDB, MonadDBRead, MonadRealDB,
+                                             RocksBatchOp (..), encodeWithKeyPrefix)
 import           Pos.DB.Error               (DBError (DBMalformed))
-import           Pos.DB.Functions           (RocksBatchOp (..), encodeWithKeyPrefix,
-                                             rocksWriteBatch)
-import           Pos.DB.GState.Common       (gsGetBi)
+import           Pos.DB.GState.Common       (gsGetBi, writeBatchGState)
 import           Pos.DB.Iterator            (DBIteratorClass (..), DBnIterator,
                                              DBnMapIterator, IterType, runDBnIterator,
                                              runDBnMapIterator)
 import           Pos.DB.Types               (NodeDBs (..))
 import           Pos.Slotting.Types         (EpochSlottingData (..), SlottingData (..))
-import           Pos.Update.Constants       (genesisBlockVersion, genesisBlockVersionData,
-                                             genesisSlotDuration, genesisSoftwareVersions,
+import           Pos.Update.Constants       (genesisBlockVersion, genesisSoftwareVersions,
                                              ourAppName)
 import           Pos.Update.Core            (BlockVersionData (..), UpId,
                                              UpdateProposal (..))
@@ -83,34 +82,34 @@ import           Pos.Util.Util              (maybeThrow)
 ----------------------------------------------------------------------------
 
 -- | Get last adopted block version.
-getAdoptedBV :: MonadDBPure m => m BlockVersion
+getAdoptedBV :: MonadDBRead m => m BlockVersion
 getAdoptedBV = fst <$> getAdoptedBVFull
 
 -- | Get state of last adopted BlockVersion.
-getAdoptedBVData :: MonadDBPure m => m BlockVersionData
+getAdoptedBVData :: MonadDBRead m => m BlockVersionData
 getAdoptedBVData = snd <$> getAdoptedBVFull
 
 -- | Get last adopted BlockVersion and data associated with it.
-getAdoptedBVFull :: MonadDBPure m => m (BlockVersion, BlockVersionData)
+getAdoptedBVFull :: MonadDBRead m => m (BlockVersion, BlockVersionData)
 getAdoptedBVFull = maybeThrow (DBMalformed msg) =<< getAdoptedBVFullMaybe
   where
     msg =
         "Update System part of GState DB is not initialized (last adopted BV is missing)"
 
 -- | Get maximum block size (in bytes).
-getMaxBlockSize :: MonadDBPure m => m Byte
+getMaxBlockSize :: MonadDBRead m => m Byte
 getMaxBlockSize = bvdMaxBlockSize <$> getAdoptedBVData
 
 -- | Get 'BlockVersionState' associated with given BlockVersion.
-getBVState :: MonadDBPure m => BlockVersion -> m (Maybe BlockVersionState)
+getBVState :: MonadDBRead m => BlockVersion -> m (Maybe BlockVersionState)
 getBVState = gsGetBi . bvStateKey
 
 -- | Get state of UpdateProposal for given UpId
-getProposalState :: MonadDBPure m => UpId -> m (Maybe ProposalState)
+getProposalState :: MonadDBRead m => UpId -> m (Maybe ProposalState)
 getProposalState = gsGetBi . proposalKey
 
 -- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
-getProposalsByApp :: MonadDB m => ApplicationName -> m [ProposalState]
+getProposalsByApp :: MonadRealDB m => ApplicationName -> m [ProposalState]
 getProposalsByApp appName = runProposalMapIterator (step []) snd
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
@@ -119,18 +118,18 @@ getProposalsByApp appName = runProposalMapIterator (step []) snd
         | otherwise = step res
 
 -- | Get last confirmed SoftwareVersion of given application.
-getConfirmedSV :: MonadDBPure m => ApplicationName -> m (Maybe NumSoftwareVersion)
+getConfirmedSV :: MonadDBRead m => ApplicationName -> m (Maybe NumSoftwareVersion)
 getConfirmedSV = gsGetBi . confirmedVersionKey
 
 -- | Get most recent 'SlottingData'.
-getSlottingData :: MonadDBPure m => m SlottingData
+getSlottingData :: MonadDBRead m => m SlottingData
 getSlottingData = maybeThrow (DBMalformed msg) =<< gsGetBi slottingDataKey
   where
     msg =
         "Update System part of GState DB is not initialized (slotting data is missing)"
 
 -- | Get proposers for current epoch.
-getEpochProposers :: MonadDBPure m => m (HashSet StakeholderId)
+getEpochProposers :: MonadDBRead m => m (HashSet StakeholderId)
 getEpochProposers = maybeThrow (DBMalformed msg) =<< gsGetBi epochProposersKey
   where
     msg =
@@ -183,7 +182,7 @@ instance RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUS :: (MonadDB m, MonadDBPure m) => Timestamp -> m ()
+prepareGStateUS :: (MonadDB m) => Timestamp -> m ()
 prepareGStateUS systemStart =
     unlessM isInitialized $ do
         let genesisSlottingData = SlottingData
@@ -202,14 +201,13 @@ prepareGStateUS systemStart =
                 { esdSlotDuration = genesisSlotDuration
                 , esdStart        = epoch1Start
                 }
-        db <- getGStateDB
-        flip rocksWriteBatch db $
+        writeBatchGState $
             PutSlottingData genesisSlottingData :
             PutEpochProposers mempty :
             SetAdopted genesisBlockVersion genesisBlockVersionData :
             map ConfirmVersion genesisSoftwareVersions
 
-isInitialized :: (MonadDB m, MonadDBPure m) => m Bool
+isInitialized :: (MonadDBRead m) => m Bool
 isInitialized = isJust <$> getAdoptedBVFullMaybe
 
 ----------------------------------------------------------------------------
@@ -224,12 +222,12 @@ instance DBIteratorClass PropIter where
     iterKeyPrefix _ = iterationPrefix
 
 runProposalIterator
-    :: forall m a . MonadDB m
+    :: forall m a . MonadRealDB m
     => DBnIterator PropIter a -> m a
 runProposalIterator = runDBnIterator @PropIter _gStateDB
 
 runProposalMapIterator
-    :: forall v m a . MonadDB m
+    :: forall v m a . MonadRealDB m
     => DBnMapIterator PropIter v a -> (IterType PropIter -> v) -> m a
 runProposalMapIterator = runDBnMapIterator @PropIter _gStateDB
 
@@ -237,7 +235,7 @@ runProposalMapIterator = runDBnMapIterator @PropIter _gStateDB
 -- 'SlotId's, but I don't think it may be crucial.
 -- | Get all proposals which were issued no later than given slot.
 getOldProposals
-    :: MonadDB m
+    :: MonadRealDB m
     => SlotId -> m [UndecidedProposalState]
 getOldProposals slotId = runProposalMapIterator (step []) snd
   where
@@ -252,7 +250,7 @@ getOldProposals slotId = runProposalMapIterator (step []) snd
 -- | Get all decided proposals which were accepted deeper than given
 -- difficulty.
 getDeepProposals
-    :: MonadDB m
+    :: MonadRealDB m
     => ChainDifficulty -> m [DecidedProposalState]
 getDeepProposals cd = runProposalMapIterator (step []) snd
   where
@@ -276,7 +274,7 @@ instance DBIteratorClass ConfPropIter where
 -- passed). For instance, current software version can be passed to
 -- this function to get all proposals with bigger version.
 getConfirmedProposals
-    :: MonadDB m
+    :: MonadRealDB m
     => Maybe NumSoftwareVersion -> m [ConfirmedProposalState]
 getConfirmedProposals reqNsv = runDBnIterator @ConfPropIter _gStateDB (step [])
   where
@@ -298,13 +296,13 @@ instance DBIteratorClass BVIter where
     iterKeyPrefix _ = bvStateIterationPrefix
 
 -- | Get all proposed 'BlockVersion's.
-getProposedBVs :: MonadDB m => m [BlockVersion]
+getProposedBVs :: MonadRealDB m => m [BlockVersion]
 getProposedBVs = runDBnMapIterator @BVIter _gStateDB (step []) fst
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
     onItem res = step . (: res)
 
-getProposedBVStates :: MonadDB m => m [BlockVersionState]
+getProposedBVStates :: MonadRealDB m => m [BlockVersionState]
 getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
   where
     step res = nextItem >>= maybe (pure res) (onItem res)
@@ -312,7 +310,7 @@ getProposedBVStates = runDBnMapIterator @BVIter _gStateDB (step []) snd
 
 -- | Get all competing 'BlockVersion's and their states.
 getCompetingBVStates
-    :: MonadDB m
+    :: MonadRealDB m
     => m [(BlockVersion, BlockVersionState)]
 getCompetingBVStates = runDBnIterator @BVIter _gStateDB (step [])
   where
@@ -363,6 +361,6 @@ epochProposersKey = "us/epoch-proposers/"
 ----------------------------------------------------------------------------
 
 getAdoptedBVFullMaybe
-    :: MonadDBPure m
+    :: MonadDBRead m
     => m (Maybe (BlockVersion, BlockVersionData))
 getAdoptedBVFullMaybe = gsGetBi adoptedBVKey

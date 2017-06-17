@@ -5,64 +5,48 @@
 
 module Pos.Communication.Listener
        ( listenerConv
-       , SizedCAHandler (..)
-       , convToSProxy
        ) where
 
-import           Data.Proxy                     (asProxyTypeOf)
-import           Data.Reflection                (Reifies)
 import qualified Node                           as N
 import           System.Wlog                    (WithLogger)
 import           Universum
 
 import           Pos.Binary.Class               (Bi)
 import           Pos.Binary.Infra               ()
-import           Pos.Communication.Limits.Types (LimitType, MessageLimited, SmartLimit,
-                                                 reifyMsgLimit)
+import           Pos.Communication.Limits.Types (MessageLimited)
 import           Pos.Communication.Protocol     (ConversationActions, HandlerSpec (..),
                                                  ListenerSpec (..), Message, NodeId,
                                                  OutSpecs, VerInfo, checkingInSpecs,
                                                  messageName)
-import           Pos.DB.Class                   (MonadGStateCore)
+import           Pos.DB.Class                   (MonadGState)
 
-
-data SizedCAHandler snd rcv m =
-    SizedCAHandler
-      (forall s. Reifies s (LimitType rcv) =>
-            NodeId -> ConversationActions snd (SmartLimit s rcv) m -> m ())
-
-convToSProxy :: ConversationActions snd (SmartLimit s rcv) m -> Proxy s
-convToSProxy _ = Proxy
-
+-- TODO automatically provide a 'recvLimited' here by using the
+-- 'MessageLimited'?
 listenerConv
-    :: ( Bi snd
+    :: forall snd rcv m .
+       ( Bi snd
        , Bi rcv
        , Message snd
        , Message rcv
-       , MonadGStateCore m
-       --, MessageLimited rcv
+       , MonadGState m
+       , MessageLimited rcv
        , WithLogger m
        )
-    => (VerInfo -> SizedCAHandler snd rcv m)
+    => (VerInfo -> NodeId -> ConversationActions snd rcv m -> m ())
     -> (ListenerSpec m, OutSpecs)
 listenerConv h = (lspec, mempty)
   where
     spec = (rcvMsgName, ConvHandler sndMsgName)
-    -- CSL-1122 reimplement (with no limit handling)
-    lspec = undefined
-      --flip ListenerSpec spec $ \ourVerInfo ->
-      --reifyMsgLimit rcvProxy $ \(_ :: Proxy s) ->
-      --    let convProxy = (const Proxy :: (a -> SizedCAHandler snd rcv m)
-      --                     -> Proxy (ConversationActions snd (SmartLimit s rcv) m)) h
-      --    in case h ourVerInfo of
-      --        SizedCAHandler handle ->
-      --            pure $ N.ListenerActionConversation $ \peerVerInfo' nNodeId conv -> do
-      --                let _ = conv `asProxyTypeOf` convProxy
-      --                checkingInSpecs ourVerInfo peerVerInfo' spec nNodeId $
-      --                    handle @s nNodeId conv
+    lspec =
+      flip ListenerSpec spec $ \ourVerInfo ->
+          N.ListenerActionConversation $ \peerVerInfo' nNodeId conv -> do
+              checkingInSpecs ourVerInfo peerVerInfo' spec nNodeId $
+                  h ourVerInfo nNodeId conv
 
-    sndProxy = (const Proxy :: (a -> SizedCAHandler snd rcv m) -> Proxy snd) h
-    rcvProxy = (const Proxy :: (a -> SizedCAHandler snd rcv m) -> Proxy rcv) h
+    sndProxy :: Proxy snd
+    sndProxy = Proxy
+    rcvProxy :: Proxy rcv
+    rcvProxy = Proxy
 
     sndMsgName = messageName sndProxy
     rcvMsgName = messageName rcvProxy

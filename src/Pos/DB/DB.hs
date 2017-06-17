@@ -8,6 +8,7 @@
 module Pos.DB.DB
        ( openNodeDBs
        , initNodeDBs
+       , closeNodeDBs
        , getTip
        , getTipBlock
        , getTipHeader
@@ -36,18 +37,18 @@ import           Pos.Block.Types              (Blund)
 import           Pos.Context.Context          (GenesisLeaders, GenesisUtxo, NodeParams)
 import           Pos.Context.Functions        (genesisLeadersM)
 import           Pos.Core                     (headerHash)
-import           Pos.DB.Block                 (MonadBlockDB, loadBlundsByDepth,
-                                               loadBlundsWhile, prepareBlockDB)
-import           Pos.DB.Class                 (MonadDB, MonadDBPure (..),
-                                               MonadGStateCore (..))
-import           Pos.DB.Functions             (openDB)
+import           Pos.DB.Block                 (MonadBlockDB, MonadBlockDBWrite,
+                                               loadBlundsByDepth, loadBlundsWhile,
+                                               prepareBlockDB)
+import           Pos.DB.Class                 (MonadDB, MonadDBRead (..),
+                                               MonadGState (..), MonadRealDB)
+import           Pos.DB.Functions             (closeDB, openDB)
 import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common         (getTip, getTipBlock, getTipHeader)
 import           Pos.DB.GState.GState         (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.DB.Misc                  (prepareMiscDB)
 import           Pos.DB.Types                 (NodeDBs (..))
 import           Pos.Lrc.DB                   (prepareLrcDB)
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
 import           Pos.Update.DB                (getAdoptedBVData)
 import           Pos.Util                     (inAssertMode)
 import           Pos.Util.Chrono              (NewestFirst)
@@ -57,6 +58,7 @@ import           Pos.Explorer.DB              (prepareExplorerDB)
 #endif
 
 -- | Open all DBs stored on disk.
+-- Don't forget to use 'closeNodeDBs' eventually.
 openNodeDBs
     :: (MonadIO m)
     => Bool -> FilePath -> m NodeDBs
@@ -86,12 +88,11 @@ openNodeDBs recreate fp = do
 -- | Initialize DBs if necessary.
 initNodeDBs
     :: forall ssc m.
-       ( SscHelpersClass ssc
-       , Ether.MonadReader' GenesisUtxo m
+       ( Ether.MonadReader' GenesisUtxo m
        , Ether.MonadReader' GenesisLeaders m
        , Ether.MonadReader' NodeParams m
+       , MonadBlockDBWrite ssc m
        , MonadDB m
-       , MonadDBPure m
        )
     => m ()
 initNodeDBs = do
@@ -107,22 +108,27 @@ initNodeDBs = do
     prepareExplorerDB
 #endif
 
+-- | Safely close all databases from 'NodeDBs'.
+closeNodeDBs :: MonadIO m => NodeDBs -> m ()
+closeNodeDBs NodeDBs {..} =
+    mapM_ closeDB [_blockIndexDB, _gStateDB, _lrcDB, _miscDB]
+
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (MonadBlockDB ssc m, MonadDBPure m)
+    :: (MonadBlockDB ssc m, MonadDBRead m)
     => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (MonadBlockDB ssc m, MonadDBPure m)
+    :: (MonadBlockDB ssc m, MonadDBRead m)
     => Word -> m (NewestFirst [] (Blund ssc))
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB
-    :: (MonadMask m, MonadDB m, WithLogger m, MonadDBPure m)
+    :: (MonadMask m, MonadRealDB m, WithLogger m, MonadDBRead m)
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
 
@@ -136,7 +142,7 @@ ensureDirectoryExists
 ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 
 ----------------------------------------------------------------------------
--- MonadGStateCore instance
+-- MonadGState instance
 ----------------------------------------------------------------------------
 
 data GStateCoreRedirectTag
@@ -148,7 +154,7 @@ runGStateCoreRedirect :: GStateCoreRedirect m a -> m a
 runGStateCoreRedirect = coerce
 
 instance
-    (MonadDBPure m, t ~ IdentityT) =>
-        MonadGStateCore (Ether.TaggedTrans GStateCoreRedirectTag t m)
+    (MonadDBRead m, t ~ IdentityT) =>
+        MonadGState (Ether.TaggedTrans GStateCoreRedirectTag t m)
   where
     gsAdoptedBVData = getAdoptedBVData

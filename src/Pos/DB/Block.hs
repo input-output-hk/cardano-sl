@@ -12,7 +12,6 @@ module Pos.DB.Block
        , blkGetBlund
 
        , deleteBlock
-       , putBlund
 
        , prepareBlockDB
 
@@ -26,77 +25,86 @@ module Pos.DB.Block
 
        -- * MonadBlockDB
        , MonadBlockDB
+       , MonadBlockDBWrite (..)
        , BlockDBRedirect
        , runBlockDBRedirect
        ) where
 
 import           Universum
 
-import           Control.Lens                 (_Wrapped)
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.ByteArray               (convert)
-import qualified Data.ByteString              as BS (readFile, writeFile)
-import           Data.Coerce                  (coerce)
-import           Data.Default                 (Default (def))
+import           Control.Lens                   (_Wrapped)
+import           Control.Monad.Trans            (MonadTrans (..))
+import           Control.Monad.Trans.Identity   (IdentityT (..))
+import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
+import           Data.ByteArray                 (convert)
+import qualified Data.ByteString                as BS (readFile, writeFile)
+import           Data.Coerce                    (coerce)
+import           Data.Default                   (Default (def))
 import qualified Ether
-import           Formatting                   (build, formatToString, sformat, (%))
-import           System.Directory             (createDirectoryIfMissing, removeFile)
-import           System.FilePath              ((</>))
-import           System.IO.Error              (isDoesNotExistError)
+import           Formatting                     (build, formatToString, sformat, (%))
+import           System.Directory               (createDirectoryIfMissing, removeFile)
+import           System.FilePath                ((</>))
+import           System.IO.Error                (isDoesNotExistError)
 
-import           Pos.Binary.Block             ()
-import           Pos.Binary.Class             (Bi, decodeFull, encode)
-import           Pos.Block.Core               (Block, BlockHeader, GenesisBlock)
-import qualified Pos.Block.Core               as BC
-import           Pos.Block.Types              (Blund, Undo (..))
-import           Pos.Constants                (genesisHash)
-import           Pos.Core                     (HasDifficulty (difficultyL),
-                                               HasPrevBlock (prevBlockL), HeaderHash,
-                                               IsHeader, headerHash)
-import           Pos.Crypto                   (hashHexF, shortHashF)
-import           Pos.DB.Class                 (DBTag (..), MonadBlockDBGeneric (..),
-                                               MonadDB, MonadDBPure, dbGetBlund,
-                                               getBlockIndexDB, getNodeDBs)
-import           Pos.DB.Error                 (DBError (DBMalformed))
-import           Pos.DB.Functions             (dbGetBi, rocksDelete, rocksPutBi)
-import           Pos.DB.Types                 (blockDataDir)
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
-import           Pos.Ssc.Class.Types          (SscBlock)
-import           Pos.Ssc.Util                 (toSscBlock)
-import           Pos.Util                     (Some (..), maybeThrow)
-import           Pos.Util.Chrono              (NewestFirst (..))
+import           Pos.Binary.Block               ()
+import           Pos.Binary.Class               (Bi, decodeFull, encode)
+import           Pos.Block.Core                 (Block, BlockHeader, GenesisBlock)
+import qualified Pos.Block.Core                 as BC
+import           Pos.Block.Types                (Blund, Undo (..))
+import           Pos.Constants                  (genesisHash)
+import           Pos.Core                       (HasDifficulty (difficultyL),
+                                                 HasPrevBlock (prevBlockL), HeaderHash,
+                                                 IsHeader, headerHash)
+import           Pos.Crypto                     (hashHexF, shortHashF)
+import           Pos.DB.Class                   (DBTag (..), MonadBlockDBGeneric (..),
+                                                 MonadDBRead, MonadRealDB, dbGetBlund,
+                                                 getBlockIndexDB, getNodeDBs)
+import           Pos.DB.Error                   (DBError (DBMalformed))
+import           Pos.DB.Functions               (dbGetBi, rocksDelete, rocksPutBi)
+import           Pos.DB.Types                   (blockDataDir)
+import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
+import           Pos.Ssc.Class.Types            (SscBlock)
+import           Pos.Ssc.Util                   (toSscBlock)
+import           Pos.Util                       (Some (..), maybeThrow)
+import           Pos.Util.Chrono                (NewestFirst (..))
+
+----------------------------------------------------------------------------
+-- Implementations for 'MonadRealDB'
+----------------------------------------------------------------------------
 
 -- Get block with given hash from Block DB.  This function has too
 -- strict constraint, consider using 'blkGetBlock'.
 
 getBlock
-    :: forall ssc m. (SscHelpersClass ssc, MonadDB m)
+    :: forall ssc m. (SscHelpersClass ssc, MonadRealDB m)
     => HeaderHash -> m (Maybe (Block ssc))
 getBlock = blockDataPath >=> getData
 
 -- | Returns header of block that was requested from Block DB.
 blkGetHeader
-    :: (SscHelpersClass ssc, MonadDBPure m)
+    :: (SscHelpersClass ssc, MonadDBRead m)
     => HeaderHash -> m (Maybe (BlockHeader ssc))
 blkGetHeader = dbGetBi BlockIndexDB . blockIndexKey
 
 -- Get undo data for block with given hash from Block DB. This
 -- function has too strict constraint, consider using 'blkGetUndo'.
-getUndo :: (MonadDB m) => HeaderHash -> m (Maybe Undo)
+getUndo :: (MonadRealDB m) => HeaderHash -> m (Maybe Undo)
 getUndo = undoDataPath >=> getData
 
--- | Put given block, its metadata and Undo data into Block DB.
-putBlund
-    :: (SscHelpersClass ssc, MonadDB m)
+-- Put given block, its metadata and Undo data into Block DB. This
+-- function uses 'MonadRealDB' constraint which is too
+-- severe. Consider using 'dbPutBlund' instead.
+putBlundReal
+    :: (SscHelpersClass ssc, MonadRealDB m)
     => Blund ssc -> m ()
-putBlund (blk, undo) = do
+putBlundReal (blk, undo) = do
     let h = headerHash blk
     liftIO . createDirectoryIfMissing False =<< dirDataPath h
     flip putData blk =<< blockDataPath h
     flip putData undo =<< undoDataPath h
     putBi (blockIndexKey h) (BC.getBlockHeader blk)
 
-deleteBlock :: (MonadDB m) => HeaderHash -> m ()
+deleteBlock :: (MonadRealDB m) => HeaderHash -> m ()
 deleteBlock hh = do
     delete (blockIndexKey hh)
     deleteData =<< blockDataPath hh
@@ -181,7 +189,7 @@ loadBlocksWhile = loadDataWhile getBlockThrow
 -- | Load headers starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadHeadersWhile
-    :: (SscHelpersClass ssc, MonadDBPure m)
+    :: (SscHelpersClass ssc, MonadDBRead m)
     => (BlockHeader ssc -> Bool)
     -> HeaderHash
     -> m (NewestFirst [] (BlockHeader ssc))
@@ -189,13 +197,13 @@ loadHeadersWhile = loadDataWhile getHeaderThrow
 
 -- | Load headers which have depth less than given.
 loadHeadersByDepth
-    :: (SscHelpersClass ssc, MonadDBPure m)
+    :: (SscHelpersClass ssc, MonadDBRead m)
     => Word -> HeaderHash -> m (NewestFirst [] (BlockHeader ssc))
 loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
 
 -- | Load headers which have depth less than given and match some criterion.
 loadHeadersByDepthWhile
-    :: (SscHelpersClass ssc, MonadDBPure m)
+    :: (SscHelpersClass ssc, MonadDBRead m)
     => (BlockHeader ssc -> Bool)
     -> Word
     -> HeaderHash
@@ -208,9 +216,9 @@ loadHeadersByDepthWhile = loadDataByDepth getHeaderThrow
 
 prepareBlockDB
     :: forall ssc m.
-       (SscHelpersClass ssc, MonadDB m)
+       MonadBlockDBWrite ssc m
     => GenesisBlock ssc -> m ()
-prepareBlockDB blk = putBlund (Left blk, def)
+prepareBlockDB blk = dbPutBlund (Left blk, def)
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -239,7 +247,7 @@ runBlockDBRedirect = coerce
 
 -- instance MonadBlockDBGeneric (Block ssc)
 
-instance (MonadDBPure m, MonadDB m, t ~ IdentityT, SscHelpersClass ssc) =>
+instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (Ether.TaggedTrans BlockDBRedirectTag t m) where
     dbGetBlock  = getBlock
     dbGetUndo   = getUndo
@@ -247,7 +255,7 @@ instance (MonadDBPure m, MonadDB m, t ~ IdentityT, SscHelpersClass ssc) =>
 
 -- instance MonadBlockDBGeneric (SscBlock ssc)
 
-instance (MonadDBPure m, MonadDB m, t ~ IdentityT, SscHelpersClass ssc) =>
+instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (Ether.TaggedTrans BlockDBRedirectTag t m) where
     dbGetBlock  = fmap (toSscBlock <$>) . getBlock
     dbGetUndo   = fmap (const () <$>)   . getUndo
@@ -273,16 +281,40 @@ blkGetBlund ::
     -> m $ Maybe (Blund ssc)
 blkGetBlund = dbGetBlund @(BlockHeader ssc) @(Block ssc) @Undo
 
+-- modifications
+
+-- | Superclass of 'MonadBlockDB' which allows to modify the Block
+-- DB. It's defined here instead of `cardano-sl-db`, because it makes
+-- sense to use it only in block processing component.
+--
+-- TODO: support deletion when we actually start using deletion
+-- (probably not soon).
+class MonadBlockDB ssc m => MonadBlockDBWrite ssc m where
+    -- | Put given 'Blund' into the Block DB.
+    dbPutBlund :: Blund ssc -> m ()
+
+instance {-# OVERLAPPABLE #-}
+    (MonadBlockDBWrite ssc m, MonadTrans t, LiftLocal t, MonadThrow (t m)) =>
+        MonadBlockDBWrite ssc (t m)
+  where
+    dbPutBlund = lift . dbPutBlund
+
+-- instance MonadBlockDBWrite
+
+instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
+         MonadBlockDBWrite ssc (Ether.TaggedTrans BlockDBRedirectTag t m) where
+    dbPutBlund = putBlundReal
+
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
 putBi
-    :: (MonadDB m, Bi v)
+    :: (MonadRealDB m, Bi v)
     => ByteString -> v -> m ()
 putBi k v = rocksPutBi k v =<< getBlockIndexDB
 
-delete :: (MonadDB m) => ByteString -> m ()
+delete :: (MonadRealDB m) => ByteString -> m ()
 delete k = rocksDelete k =<< getBlockIndexDB
 
 getData ::  (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
@@ -306,18 +338,18 @@ deleteData fp = (liftIO $ removeFile fp) `catch` handle
         | isDoesNotExistError e = pure ()
         | otherwise = throwM e
 
-dirDataPath :: MonadDB m => HeaderHash -> m FilePath
+dirDataPath :: MonadRealDB m => HeaderHash -> m FilePath
 dirDataPath (formatToString hashHexF -> fn) = gitDirDataPath fn
 
-blockDataPath :: MonadDB m => HeaderHash -> m FilePath
+blockDataPath :: MonadRealDB m => HeaderHash -> m FilePath
 blockDataPath (formatToString (hashHexF%".block") -> fn) =
     gitDirDataPath fn <&> (</> drop 2 fn)
 
-undoDataPath :: MonadDB m => HeaderHash -> m FilePath
+undoDataPath :: MonadRealDB m => HeaderHash -> m FilePath
 undoDataPath (formatToString (hashHexF%".undo") -> fn) =
     gitDirDataPath fn <&> (</> drop 2 fn)
 
-gitDirDataPath :: MonadDB m => [Char] -> m FilePath
+gitDirDataPath :: MonadRealDB m => [Char] -> m FilePath
 gitDirDataPath fn = getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> take 2 fn
 
 ----------------------------------------------------------------------------
@@ -341,7 +373,7 @@ getBlockThrow hash =
     errFmt = "getBlockThrow: no block with HeaderHash: "%shortHashF
 
 getHeaderThrow
-    :: (SscHelpersClass ssc, MonadDBPure m)
+    :: (SscHelpersClass ssc, MonadDBRead m)
     => HeaderHash -> m (BlockHeader ssc)
 getHeaderThrow hash =
     maybeThrow (DBMalformed $ sformat errFmt hash) =<< blkGetHeader hash

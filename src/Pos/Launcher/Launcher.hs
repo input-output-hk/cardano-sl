@@ -4,65 +4,38 @@
 
 module Pos.Launcher.Launcher
        ( -- * Node launchers.
-         runNodeProduction
-       , runNodeStats
-       , runNodeStatic
+         runNodeReal
        ) where
 
-import           Data.Set                   (Set)
 import           Mockable                   (Production)
-import           Network.Transport.Abstract (Transport)
 
-import           Pos.Communication          (NodeId)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
-import           Pos.DHT.Real               (KademliaDHTInstance)
 import           Pos.Launcher.Param         (NodeParams (..))
-import           Pos.Launcher.Runner        (runProductionMode, runStaticMode,
-                                             runStatsMode)
+import           Pos.Launcher.Resource      (NodeResources (..), bracketNodeResources,
+                                             hoistNodeResources)
+import           Pos.Launcher.Runner        (runRealMode)
 import           Pos.Launcher.Scenario      (runNode)
+import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Ssc.Class.Types        (SscParams)
-import           Pos.WorkMode               (ProductionMode, StaticMode, StatsMode)
+import           Pos.Util.Util              (powerLift)
+import           Pos.WorkMode               (RealMode)
 
 -----------------------------------------------------------------------------
 -- Main launchers
 -----------------------------------------------------------------------------
 
 -- | Run full node in real mode.
-runNodeProduction
+runNodeReal
     :: forall ssc.
-       SscConstraint ssc
-    => Transport (ProductionMode ssc)
-    -> KademliaDHTInstance
-    -> ([WorkerSpec (ProductionMode ssc)], OutSpecs)
-    -> NodeParams
+       (SscConstraint ssc, SecurityWorkersClass ssc)
+    => NodeParams
     -> SscParams ssc
+    -> ([WorkerSpec (RealMode ssc)], OutSpecs)
     -> Production ()
-runNodeProduction transport kinst plugins np sscnp =
-    runProductionMode transport kinst np sscnp (runNode @ssc plugins)
-
--- | Run full node in benchmarking node
-runNodeStats
-    :: forall ssc.
-       SscConstraint ssc
-    => Transport (StatsMode ssc)
-    -> KademliaDHTInstance
-    -> ([WorkerSpec (StatsMode ssc)], OutSpecs)
-    -> NodeParams
-    -> SscParams ssc
-    -> Production ()
-runNodeStats transport kinst plugins np sscnp =
-    runStatsMode transport kinst np sscnp (runNode @ssc plugins)
-
--- | Run full node in static mode
-runNodeStatic
-    :: forall ssc.
-       SscConstraint ssc
-    => Transport (StaticMode ssc)
-    -> Set NodeId
-    -> ([WorkerSpec (StaticMode ssc)], OutSpecs)
-    -> NodeParams
-    -> SscParams ssc
-    -> Production ()
-runNodeStatic transport peers plugins np sscnp =
-    runStaticMode transport peers np sscnp (runNode @ssc plugins)
+runNodeReal np sscnp plugins = bracketNodeResources np sscnp action
+  where
+    action nr@NodeResources {..} =
+        runRealMode
+            (hoistNodeResources powerLift nr)
+            (runNode @ssc nrContext plugins)

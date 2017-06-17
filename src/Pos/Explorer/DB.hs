@@ -19,8 +19,8 @@ import           Pos.Binary.Class      (encode)
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core              (unsafeAddCoin)
 import           Pos.Core.Types        (Address, Coin)
-import           Pos.DB.Class          (MonadDB, MonadDBPure, getGStateDB)
-import           Pos.DB.Functions      (RocksBatchOp (..), rocksGetBytes)
+import           Pos.DB                (DBTag (GStateDB), MonadDB, MonadDBRead (dbGet),
+                                        RocksBatchOp (..))
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
 import           Pos.Txp.Core          (TxId, TxOutAux (..), _TxOut)
@@ -31,14 +31,14 @@ import           Pos.Util.Chrono       (NewestFirst (..))
 -- Getters
 ----------------------------------------------------------------------------
 
-getTxExtra :: MonadDBPure m => TxId -> m (Maybe TxExtra)
+getTxExtra :: MonadDBRead m => TxId -> m (Maybe TxExtra)
 getTxExtra = gsGetBi . txExtraPrefix
 
-getAddrHistory :: MonadDBPure m => Address -> m AddrHistory
+getAddrHistory :: MonadDBRead m => Address -> m AddrHistory
 getAddrHistory = fmap (NewestFirst . concat . maybeToList) .
                  gsGetBi . addrHistoryPrefix
 
-getAddrBalance :: MonadDBPure m => Address -> m (Maybe Coin)
+getAddrBalance :: MonadDBRead m => Address -> m (Maybe Coin)
 getAddrBalance = gsGetBi . addrBalancePrefix
 
 ----------------------------------------------------------------------------
@@ -55,18 +55,18 @@ prepareExplorerDB =
 balancesInitFlag :: ByteString
 balancesInitFlag = "e/init/"
 
-areBalancesInitialized :: MonadDB m => m Bool
-areBalancesInitialized = isJust <$> (getGStateDB >>= rocksGetBytes balancesInitFlag)
+areBalancesInitialized :: MonadDBRead m => m Bool
+areBalancesInitialized = isJust <$> dbGet GStateDB balancesInitFlag
 
 putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
 
 putGenesisBalances :: MonadDB m => Utxo -> m ()
-putGenesisBalances genesisUtxo = do
-    let txOuts = map (view _TxOut . toaOut) . M.elems $ genesisUtxo
+putGenesisBalances genesisUtxo =
     writeBatchGState $
-        map (uncurry PutAddrBalance) $ combineWith unsafeAddCoin txOuts
+    map (uncurry PutAddrBalance) $ combineWith unsafeAddCoin txOuts
   where
+    txOuts = map (view _TxOut . toaOut) . M.elems $ genesisUtxo
     combineWith :: (Eq a, Hashable a) => (b -> b -> b) -> [(a, b)] -> [(a, b)]
     combineWith func = HM.toList . HM.fromListWith func
 

@@ -29,9 +29,8 @@ import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic    (handleBlocks, mkBlocksRequest,
                                              mkHeadersRequest, requestHeaders,
                                              triggerRecovery)
-import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
-                                             MsgHeaders (..))
-import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
+import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..))
+import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              NodeId, OutSpecs, SendActions (..),
                                              WorkerSpec, convH, toOutSpecs, worker)
@@ -40,7 +39,6 @@ import           Pos.Context                (BlockRetrievalQueueTag, ProgressHea
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
                                              prevBlockL)
 import           Pos.Crypto                 (shortHashF)
-import           Pos.DB.Class               (MonadDBCore)
 import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Ssc.Class              (SscWorkersClass)
@@ -50,7 +48,7 @@ import           Pos.WorkMode.Class         (WorkMode)
 
 retrievalWorker
     :: forall ssc m.
-       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => (WorkerSpec m, OutSpecs)
 retrievalWorker = worker outs retrievalWorkerImpl
   where
@@ -74,7 +72,7 @@ retrievalWorker = worker outs retrievalWorkerImpl
 --
 retrievalWorkerImpl
     :: forall ssc m.
-       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m -> m ()
 retrievalWorkerImpl sendActions =
     handleAll mainLoopE $ do
@@ -136,9 +134,8 @@ retrievalWorkerImpl sendActions =
         whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
             handleAll (handleHeadersRecoveryE nodeId) $
             reportingFatal version $
-            reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
             withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
-                requestHeaders mghNext nodeId (Just rHeader) limPx
+                requestHeaders mghNext nodeId (Just rHeader)
     handleHeadersRecoveryE nodeId e = do
         logWarning $ sformat
             ("Failed while trying to get more headers "%
@@ -199,7 +196,7 @@ dropRecoveryHeaderAndRepeat sendActions nodeId = do
 -- | Request blocks corresponding to a chain of headers, if we need those
 -- blocks
 workerHandle
-    :: (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m
     -> (NodeId, NewestFirst NE (BlockHeader ssc))
     -> m ()
@@ -238,7 +235,7 @@ workerHandle sendActions (nodeId, headers) = do
 
 handleCHsValid
     :: forall ssc m.
-       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m
     -> NodeId
     -> BlockHeader ssc
@@ -247,41 +244,39 @@ handleCHsValid
 handleCHsValid sendActions nodeId lcaChild newestHash = do
     let lcaChildHash = headerHash lcaChild
     logDebug $ sformat validFormat lcaChildHash newestHash
-    reifyMsgLimit (Proxy @(MsgBlock ssc)) $ \(_ :: Proxy s0) ->
-      withConnectionTo sendActions nodeId $
-      \_ -> pure $ Conversation $
-          \(conv :: ConversationActions MsgGetBlocks
-             (LimitedLength s0 (MsgBlock ssc)) m) -> do
-        send conv $ mkBlocksRequest lcaChildHash newestHash
-        chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
-        recHeaderVar <- Ether.ask @RecoveryHeaderTag
-        case chainE of
-            Left e -> do
-                logWarning $ sformat
-                    ("Error retrieving blocks from "%shortHashF%
-                     " to "%shortHashF%" from peer "%build%": "%stext)
-                    lcaChildHash newestHash nodeId e
-                dropRecoveryHeaderAndRepeat sendActions nodeId
-            Right blocks -> do
-                logDebug $ sformat
-                    ("retrievalWorker: retrieved blocks "%listJson)
-                    (map (headerHash . view blockHeader) blocks)
-                handleBlocks nodeId blocks sendActions
-                dropUpdateHeader
-                -- If we've downloaded any block with bigger
-                -- difficulty than ncrecoveryheader, we're
-                -- gracefully exiting recovery mode.
-                let isMoreDifficultThan b x = b ^. difficultyL >= x ^. difficultyL
-                atomically $ whenJustM (tryReadTMVar recHeaderVar) $ \(_,rHeader) ->
-                    when (any (`isMoreDifficultThan` rHeader) blocks)
-                         (void $ tryTakeTMVar recHeaderVar)
+    withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
+      \(conv :: ConversationActions MsgGetBlocks
+           (MsgBlock ssc) m) -> do
+      send conv $ mkBlocksRequest lcaChildHash newestHash
+      chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
+      recHeaderVar <- Ether.ask @RecoveryHeaderTag
+      case chainE of
+          Left e -> do
+              logWarning $ sformat
+                  ("Error retrieving blocks from "%shortHashF%
+                   " to "%shortHashF%" from peer "%build%": "%stext)
+                  lcaChildHash newestHash nodeId e
+              dropRecoveryHeaderAndRepeat sendActions nodeId
+          Right blocks -> do
+              logDebug $ sformat
+                  ("retrievalWorker: retrieved blocks "%listJson)
+                  (map (headerHash . view blockHeader) blocks)
+              handleBlocks nodeId blocks sendActions
+              dropUpdateHeader
+              -- If we've downloaded any block with bigger
+              -- difficulty than ncrecoveryheader, we're
+              -- gracefully exiting recovery mode.
+              let isMoreDifficultThan b x = b ^. difficultyL >= x ^. difficultyL
+              atomically $ whenJustM (tryReadTMVar recHeaderVar) $ \(_,rHeader) ->
+                  when (any (`isMoreDifficultThan` rHeader) blocks)
+                       (void $ tryTakeTMVar recHeaderVar)
   where
     validFormat =
         "Requesting blocks from " %shortHashF % " to " %shortHashF
 
 retrieveBlocks
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => ConversationActions MsgGetBlocks (LimitedLength s (MsgBlock ssc)) m
+    => ConversationActions MsgGetBlocks (MsgBlock ssc) m
     -> BlockHeader ssc
     -> HeaderHash
     -> ExceptT Text m (OldestFirst NE (Block ssc))
@@ -299,7 +294,7 @@ retrieveBlocks conv lcaChild endH = do
 retrieveBlocks'
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => Int        -- ^ Index of block we're requesting
-    -> ConversationActions MsgGetBlocks (LimitedLength s (MsgBlock ssc)) m
+    -> ConversationActions MsgGetBlocks (MsgBlock ssc) m
     -> HeaderHash -- ^ We're expecting a child of this block
     -> HeaderHash -- ^ Block at which to stop
     -> ExceptT Text m (OldestFirst NE (Block ssc))

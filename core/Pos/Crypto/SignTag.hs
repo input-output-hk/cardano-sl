@@ -6,10 +6,10 @@ module Pos.Crypto.SignTag
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, shown)
+import           Formatting             (bprint, shown)
 
-import qualified Pos.Binary.Class    as Bi
-import           Pos.Core.Constants  (protocolMagic)
+import qualified Pos.Binary.Class       as Bi
+import           Pos.Core.Constants.Raw (protocolMagic)
 
 -- | To protect agains replay attacks (i.e. when an attacker intercepts a
 -- signed piece of data and later sends it again), we add a tag to all data

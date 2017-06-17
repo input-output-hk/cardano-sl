@@ -6,8 +6,7 @@ module Pos.Binary.Core.Block
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), Size (ConstSize), combineSize, getSize,
-                                     label, putConst, putField, sizeAddField)
+import           Pos.Binary.Class   (Bi (..), label, putConst, putField)
 import qualified Pos.Core.Block     as T
 import           Pos.Core.Constants (protocolMagic)
 import qualified Pos.Core.Types     as T

@@ -11,18 +11,18 @@ import           Universum
 import           Pos.Core.Types      (Address (..), addrPkDerivationPath)
 import           Pos.Crypto.HD       (HDAddressPayload, HDPassphrase, unpackHDAddressAttr)
 import           Pos.Data.Attributes (attrData)
-import           Pos.DB.Class        (MonadDB)
+import           Pos.DB.Class        (MonadRealDB)
 import           Pos.Txp.Core        (toaOut, txOutAddress)
 import           Pos.Txp.DB          (UtxoIter, runUtxoMapIterator)
 import           Pos.Util.Iterator   (MonadIterator (..))
 
-discoverHDAddress :: MonadDB m => HDPassphrase -> m [(Address, [Word32])]
+discoverHDAddress :: MonadRealDB m => HDPassphrase -> m [(Address, [Word32])]
 discoverHDAddress walletPassphrase = safeHead <$> discoverHDAddresses [walletPassphrase]
   where
     safeHead [x] = x
     safeHead _ = []
 
-discoverHDAddresses :: MonadDB m => [HDPassphrase] -> m [[(Address, [Word32])]]
+discoverHDAddresses :: MonadRealDB m => [HDPassphrase] -> m [[(Address, [Word32])]]
 discoverHDAddresses walletPassphrases =
     runUtxoMapIterator @UtxoIter (step $ replicate (length walletPassphrases) [])
                                  (txOutAddress . toaOut . snd)

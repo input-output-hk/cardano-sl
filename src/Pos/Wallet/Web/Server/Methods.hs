@@ -136,10 +136,10 @@ import           Pos.Wallet.Web.State             (AccountLookupMode (..),
                                                    getWalletMeta, getWalletPassLU,
                                                    openState, removeAccount,
                                                    removeNextUpdate, removeWallet,
-                                                   setAccountMeta, setProfile,
+                                                   setAccountMeta,
+                                                   setAccountTransactionMeta, setProfile,
                                                    setWalletMeta, setWalletPassLU,
-                                                   setWalletTxMeta, testReset,
-                                                   totallyRemoveWAddress,
+                                                   testReset, totallyRemoveWAddress,
                                                    updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, MonadWalletTracking,
@@ -791,7 +791,7 @@ updateAccount accId wMeta = do
 
 updateTransaction :: WalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
 updateTransaction accId txId txMeta = do
-    setWalletTxMeta (aiWSId accId) txId txMeta
+    setAccountTransactionMeta accId txId txMeta
 
 deleteWallet :: WalletWebMode m => CId Wal -> m ()
 deleteWallet wid = do

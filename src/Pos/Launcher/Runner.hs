@@ -26,7 +26,7 @@ import           Node.Util.Monitor          (setupMonitor, stopMonitor)
 import qualified System.Metrics             as Metrics
 import           System.Random              (newStdGen)
 import qualified System.Remote.Monitoring   as Monitoring
-import           System.Wlog                (WithLogger, logDebug, logInfo)
+import           System.Wlog                (WithLogger, logInfo)
 
 import           Pos.Binary                 ()
 import           Pos.Communication          (ActionSpec (..), BiP (..), InSpecs (..),
@@ -44,7 +44,6 @@ import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Util.JsonLog           (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.WorkMode               (RealMode, RealModeContext (..), WorkMode,
                                              unRealMode)
-
 ----------------------------------------------------------------------------
 -- High level runners
 ----------------------------------------------------------------------------
@@ -139,7 +138,7 @@ runServer
 runServer transport mkL (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
-    node (simpleNodeEndPoint transport) (const $ pure Nothing) stdGen BiP ourVerInfo defaultNodeEnvironment $ \__node ->
+    node (simpleNodeEndPoint transport) (const $ pure Nothing) (const $ pure Nothing) stdGen BiP ourVerInfo defaultNodeEnvironment $ \__node ->
         NodeAction mkListeners' $ \sendActions -> do
             t <- withNode __node
             action ourVerInfo sendActions `finally` afterNode t
@@ -148,6 +147,5 @@ runServer transport mkL (OutSpecs wouts) withNode afterNode (ActionSpec action) 
     OutSpecs outs = outSpecs mkL
     ourVerInfo =
         VerInfo Const.protocolMagic Const.lastKnownBlockVersion ins $ outs <> wouts
-    mkListeners' theirVerInfo = do
-        logDebug $ sformat ("Incoming connection: theirVerInfo="%build) theirVerInfo
+    mkListeners' theirVerInfo =
         mkListeners mkL ourVerInfo theirVerInfo

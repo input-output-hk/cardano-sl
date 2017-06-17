@@ -24,7 +24,7 @@ module Pos.Wallet.Web.State.State
        , getWalletAddresses
        , doesWAddressExist
        , getTxMeta
-       , getWalletTxHistory
+       , getAccountHistory
        , getUpdates
        , getNextUpdate
        , getHistoryCache
@@ -40,8 +40,8 @@ module Pos.Wallet.Web.State.State
        , setWalletMeta
        , setWalletPassLU
        , setWalletSyncTip
-       , setWalletTxMeta
-       , setWalletTxHistory
+       , setAccountTransactionMeta
+       , setAccountHistory
        , addOnlyNewTxMeta
        , removeWallet
        , removeAccount
@@ -130,8 +130,8 @@ getProfile = queryDisk A.GetProfile
 getTxMeta :: WebWalletModeDB m => CId Wal -> CTxId -> m (Maybe CTxMeta)
 getTxMeta cWalId = queryDisk . A.GetTxMeta cWalId
 
-getWalletTxHistory :: WebWalletModeDB m => CId Wal -> m (Maybe [CTxMeta])
-getWalletTxHistory = queryDisk . A.GetWalletTxHistory
+getAccountHistory :: WebWalletModeDB m => AccountId -> m (Maybe [CTxMeta])
+getAccountHistory = queryDisk . A.GetAccountHistory
 
 getUpdates :: WebWalletModeDB m => m [CUpdateInfo]
 getUpdates = queryDisk A.GetUpdates
@@ -143,10 +143,10 @@ getHistoryCache :: WebWalletModeDB m => CId Wal -> m (Maybe (HeaderHash, Utxo, [
 getHistoryCache = queryDisk . A.GetHistoryCache
 
 createAccount :: WebWalletModeDB m => AccountId -> CAccountMeta -> m ()
-createAccount accId = updateDisk . A.CreateAccount accId
+createAccount addr = updateDisk . A.CreateAccount addr
 
 createWallet :: WebWalletModeDB m => CId Wal -> CWalletMeta -> PassPhraseLU -> m ()
-createWallet cWalId passLU = updateDisk . A.CreateWallet cWalId passLU
+createWallet addr passLU = updateDisk . A.CreateWallet addr passLU
 
 addWAddress :: WebWalletModeDB m => CWAddressMeta -> m ()
 addWAddress addr = updateDisk $ A.AddWAddress addr
@@ -155,28 +155,28 @@ addRemovedAccount :: WebWalletModeDB m => CWAddressMeta -> m ()
 addRemovedAccount addr = updateDisk $ A.AddRemovedAccount addr
 
 setAccountMeta :: WebWalletModeDB m => AccountId -> CAccountMeta -> m ()
-setAccountMeta accId = updateDisk . A.SetAccountMeta accId
+setAccountMeta addr = updateDisk . A.SetAccountMeta addr
 
 setWalletMeta :: WebWalletModeDB m => CId Wal -> CWalletMeta -> m ()
-setWalletMeta cWalId = updateDisk . A.SetWalletMeta cWalId
+setWalletMeta addr = updateDisk . A.SetWalletMeta addr
 
 setWalletPassLU :: WebWalletModeDB m => CId Wal -> PassPhraseLU -> m ()
-setWalletPassLU cWalId = updateDisk . A.SetWalletPassLU cWalId
+setWalletPassLU addr = updateDisk . A.SetWalletPassLU addr
 
 setWalletSyncTip :: WebWalletModeDB m => CId Wal -> HeaderHash -> m ()
-setWalletSyncTip cWalId = updateDisk . A.SetWalletSyncTip cWalId
+setWalletSyncTip addr = updateDisk . A.SetWalletSyncTip addr
 
 setProfile :: WebWalletModeDB m => CProfile -> m ()
 setProfile = updateDisk . A.SetProfile
 
-setWalletTxMeta :: WebWalletModeDB m => CId Wal -> CTxId -> CTxMeta -> m ()
-setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId
+setAccountTransactionMeta :: WebWalletModeDB m => AccountId -> CTxId -> CTxMeta -> m ()
+setAccountTransactionMeta addr ctxId = updateDisk . A.SetAccountTransactionMeta addr ctxId
 
-setWalletTxHistory :: WebWalletModeDB m => CId Wal -> [(CTxId, CTxMeta)] -> m ()
-setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
+setAccountHistory :: WebWalletModeDB m => AccountId -> [(CTxId, CTxMeta)] -> m ()
+setAccountHistory addr = updateDisk . A.SetAccountHistory addr
 
 addOnlyNewTxMeta :: WebWalletModeDB m => CId Wal -> CTxId -> CTxMeta -> m ()
-addOnlyNewTxMeta cWalId cTxId = updateDisk . A.AddOnlyNewTxMeta cWalId cTxId
+addOnlyNewTxMeta cWalId ctxId = updateDisk . A.AddOnlyNewTxMeta cWalId ctxId
 
 removeWallet :: WebWalletModeDB m => CId Wal -> m ()
 removeWallet = updateDisk . A.RemoveWallet
@@ -200,4 +200,4 @@ testReset :: WebWalletModeDB m => m ()
 testReset = updateDisk A.TestReset
 
 updateHistoryCache :: WebWalletModeDB m => CId Wal -> HeaderHash -> Utxo -> [TxHistoryEntry] -> m ()
-updateHistoryCache cWalId hh utxo = updateDisk . A.UpdateHistoryCache cWalId hh utxo
+updateHistoryCache cWalId h utxo = updateDisk . A.UpdateHistoryCache cWalId h utxo

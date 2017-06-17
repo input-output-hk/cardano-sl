@@ -7,22 +7,13 @@ module Pos.Communication.BiP
 
 import           Universum
 
-import           Data.Binary.Get               (runGetIncremental)
-import           Data.Binary.Put               (execPut)
-import qualified Data.ByteString.Builder.Extra as BS
-import qualified Data.ByteString.Lazy          as LBS
-import           Node.Message                  (Packable (..), Unpackable (..))
+import           Node.Message.Class            (Serializable (..))
+import           Node.Message.Binary           (binaryPackMsg, binaryUnpackMsg)
 
 import           Pos.Binary.Class              (Bi (..))
 
 data BiP = BiP
 
-instance Bi r => Packable BiP r where
-    packMsg _ m = BS.toLazyByteStringWith
-                    (BS.untrimmedStrategy 256 4096)
-                    LBS.empty
-                  . execPut
-                  $ put m
-
-instance Bi r => Unpackable BiP r where
-    unpackMsg _ = runGetIncremental get
+instance Bi r => Serializable BiP r where
+    packMsg _ = binaryPackMsg . put
+    unpackMsg _ = binaryUnpackMsg get

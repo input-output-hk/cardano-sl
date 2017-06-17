@@ -2,8 +2,8 @@ module Pos.Communication.MessagePart
        ( MessagePart (..)
        ) where
 
-import           Data.Tagged  (Tagged)
-import           Node.Message (MessageName (..))
+import           Data.Tagged        (Tagged)
+import           Node.Message.Class (MessageName (..))
 import           Universum
 
 class MessagePart a where

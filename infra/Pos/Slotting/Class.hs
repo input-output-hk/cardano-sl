@@ -6,8 +6,9 @@ module Pos.Slotting.Class
        ( MonadSlots (..)
        ) where
 
-import           Control.Monad.Trans   (MonadTrans)
 import           Universum
+
+import           Control.Monad.Trans   (MonadTrans)
 
 import           Pos.Core.Types        (SlotId (..), Timestamp)
 import           Pos.Slotting.MemState (MonadSlotsData)
@@ -31,8 +32,6 @@ class MonadSlotsData m => MonadSlots m where
 
     currentTimeSlotting :: m Timestamp
 
-    slottingWorkers :: [m ()]
-
     default getCurrentSlot :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
         m (Maybe SlotId)
     getCurrentSlot = lift getCurrentSlot
@@ -44,10 +43,6 @@ class MonadSlotsData m => MonadSlots m where
     default currentTimeSlotting :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
         m Timestamp
     currentTimeSlotting = lift currentTimeSlotting
-
-    default slottingWorkers :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
-        [m ()]
-    slottingWorkers = map lift slottingWorkers
 
     default getCurrentSlotInaccurate :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
         m SlotId

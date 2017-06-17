@@ -50,7 +50,7 @@ import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..),
                                              txOutAddress)
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
 import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT,
-                                             evalToilTEmpty, runDBTxp)
+                                             evalToilTEmpty, runDBToil)
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
 
@@ -95,7 +95,7 @@ instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
         case topsortTxs wHash txs of
             Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
             Just (map snd -> ordered) ->
-                runDBTxp $ evalToilTEmpty $ trackingApplyTxs encSK ordered
+                runDBToil $ evalToilTEmpty $ trackingApplyTxs encSK ordered
 
 ----------------------------------------------------------------------------
 -- Logic
@@ -191,7 +191,7 @@ syncWSetsWithGState encSK = do
         logDebug $
             sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                     wAddr wHeader tipHeader
-        if | diff tipHeader > diff wHeader -> runDBTxp $ evalToilTEmpty $ do
+        if | diff tipHeader > diff wHeader -> runDBToil $ evalToilTEmpty $ do
             -- If walletset syncTip before the current tip,
             -- then it loads wallets starting with @wHeader@.
             -- Sync tip can be before the current tip
@@ -273,7 +273,6 @@ applyModifierToWSet
     -> m ()
 applyModifierToWSet wAddr newTip mapModifier = do
     -- TODO maybe do it as one acid-state transaction.
-    mapM_ WS.removeWAddress (MM.deletions mapModifier)
     mapM_ (WS.addWAddress . fst) (MM.insertions mapModifier)
     WS.setWalletSyncTip wAddr newTip
 

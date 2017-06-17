@@ -26,16 +26,15 @@ module Pos.Txp.DB.Balances
        , sanityCheckBalances
        ) where
 
-import           Control.Monad.Trans.Resource (ResourceT, runResourceT)
-import           Data.Conduit                 (Source, mapOutput, runConduit,
-                                               runConduitRes, (.|))
+import           Control.Monad.Trans.Resource (ResourceT)
+import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB             as Rocks
 import           Formatting                   (bprint, bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
-import           System.Wlog                  (WithLogger, logDebug, logError)
+import           System.Wlog                  (WithLogger, logError)
 import           Universum
 
 import           Pos.Binary.Class             (encodeStrict)
@@ -62,7 +61,8 @@ import           Pos.Txp.Toil.Utxo            (utxoToStakes)
 
 data BalancesOp
     = PutFtsSum !Coin
-    | PutFtsStake !StakeholderId !Coin
+    | PutFtsStake !StakeholderId
+                  !Coin
 
 instance Buildable BalancesOp where
     build (PutFtsSum c) = bprint ("PutFtsSum ("%coinF%")") c
@@ -81,7 +81,7 @@ instance RocksBatchOp BalancesOp where
 
 -- TODO: provide actual implementation after corresponding
 -- flag is actually stored in the DB
-isBootstrapEra :: MonadDBRead m => m Bool
+isBootstrapEra :: Monad m => m Bool
 isBootstrapEra = pure $ not Const.isDevelopment && True
 
 genesisFakeTotalStake :: Coin

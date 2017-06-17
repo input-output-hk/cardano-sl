@@ -1,4 +1,4 @@
-Running command: stack exec cardano-keygen -- -f secrets/secret-{}.key -m 4 -n 12000 --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file /home/yom/code/csl/util-scripts/../util-scripts/avvm-files/utxo-dump-last-new.json --randcerts --blacklisted /home/yom/code/csl/util-scripts/../util-scripts/avvm-files/full_blacklist.js --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries 100
+Running command: stack exec cardano-keygen -- -f secrets/secret-{}.key -m 4 -n 12000 --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file /home/yom/code/csl/scripts/../scripts/avvm-files/utxo-dump-last-new.json --randcerts --blacklisted /home/yom/code/csl/scripts/../scripts/avvm-files/full_blacklist.js --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries 100
 USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey78208
 NOT FOR PRODUCTION USAGE, ONLY FOR TESTING
 IF YOU INTEND TO GENERATE GENESIS FOR PRODUCTION, STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. THIS IS SERIOUS.

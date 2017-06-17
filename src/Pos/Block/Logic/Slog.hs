@@ -43,7 +43,7 @@ import           Pos.Core              (BlockVersion (..), epochIndexL, headerHa
                                         headerHashG, prevBlockL)
 import           Pos.DB                (SomeBatchOp (..))
 import           Pos.DB.Block          (MonadBlockDBWrite (dbPutBlund))
-import           Pos.DB.Class          (MonadDBRead)
+import           Pos.DB.Class          (MonadDBRead, MonadRealDB)
 import           Pos.DB.DB             (sanityCheckDB)
 import qualified Pos.DB.GState         as GS
 import           Pos.Exception         (assertionFailed)
@@ -146,7 +146,7 @@ type SlogApplyMode ssc m =
     , MonadBlockDBWrite ssc m
     , MonadBListener m
     , MonadMask m
-    , MonadIO m
+    , MonadRealDB m  -- this one is currently needed for sanity check
     )
 
 -- | This function does everything that should be done when blocks are

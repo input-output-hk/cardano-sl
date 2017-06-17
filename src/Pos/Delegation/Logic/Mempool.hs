@@ -53,11 +53,13 @@ import           Pos.DB.Block                (MonadBlockDB)
 import qualified Pos.DB.DB                   as DB
 import qualified Pos.DB.GState               as GS
 import qualified Pos.DB.Misc                 as Misc
+import           Pos.Delegation.Cede         (detectCycleOnAddition, evalMapCede,
+                                              pskToDlgEdgeAction)
 import           Pos.Delegation.Class        (DlgMemPool, MonadDelegation,
                                               askDelegationState, dwConfirmationCache,
                                               dwEpochId, dwMessageCache, dwPoolSize,
                                               dwProxySKPool, dwThisEpochPosted)
-import           Pos.Delegation.Helpers      (detectCycleOnAddition, isRevokePsk)
+import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Delegation.Logic.Common (DelegationStateAction,
                                               runDelegationStateAction)
 import           Pos.Delegation.Types        (DlgPayload, DlgUndo, mkDlgPayload)
@@ -177,8 +179,13 @@ processProxySKHeavy psk = do
         hasPskInDB <- isJust <$> GS.getPskByIssuer (Left $ pskIssuerPk psk)
         let rerevoke = isRevokePsk psk && not hasPskInDB
         producesCycle <- use dwProxySKPool >>= \pool ->
-            let eActions = map GS.pskToDlgEdgeAction pool
-            in lift $ detectCycleOnAddition (GS.withEActionsResolve eActions) psk
+            -- This is inefficient. Consider supporting this map
+            -- in-memory or changing mempool key to stakeholderId.
+            let cedeModifier =
+                    HM.fromList $
+                    map (bimap addressHash pskToDlgEdgeAction) $
+                    HM.toList pool
+            in lift $ evalMapCede cedeModifier $ detectCycleOnAddition psk
         dwMessageCache %= LRU.insert msg curTime
         let maxMemPoolSize = memPoolLimitRatio * maxBlockSize
             -- Here it would be good to add size of data we want to insert

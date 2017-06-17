@@ -57,7 +57,7 @@ usageExample :: Maybe Doc
 usageExample = Just [s|
 Command example:
 
-  stack exec -- cardano-checks /tmp/cardano-sl /tmp/checks.md
+  stack exec -- cardano-checks -s /tmp/cardano-sl -o /tmp/checks.md
 
 Example of output file content:
 

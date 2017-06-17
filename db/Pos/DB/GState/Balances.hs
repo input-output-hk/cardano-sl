@@ -24,6 +24,7 @@ import           Pos.DB.Error         (DBError (DBMalformed))
 import           Pos.DB.Functions     (encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (gsGetBi)
 
+
 data BalanceIter
 
 instance DBIteratorClass BalanceIter where

@@ -5,6 +5,7 @@
 
 module Pos.DB.Functions
        ( openDB
+       , closeDB
 
        -- * Key/Value helpers
        -- ** General
@@ -31,6 +32,7 @@ import           Data.Default         (def)
 import qualified Database.RocksDB     as Rocks
 import           Formatting           (sformat, shown, string, (%))
 
+
 import           Pos.Binary.Class     (Bi, decodeFull, encodeStrict)
 import           Pos.DB.Class         (DBIteratorClass (..), DBTag, MonadDB (..),
                                        MonadDBRead (..))
@@ -43,6 +45,9 @@ openDB fp = DB def def def
                         { Rocks.createIfMissing = True
                         , Rocks.compression     = Rocks.NoCompression
                         }
+
+closeDB :: MonadIO m => DB -> m ()
+closeDB = Rocks.close . rocksDB
 
 encodeWithKeyPrefix
     :: forall i . (DBIteratorClass i, Bi (IterKey i))

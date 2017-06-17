@@ -4,24 +4,24 @@ module Main
   ( main
   ) where
 
+import qualified Codec.Archive.Tar            as Tar
+import qualified Control.Foldl                as Fold
+import           Crypto.Hash                  (Digest, SHA512, hashlazy)
+import qualified Data.ByteString.Lazy         as BSL
+import           Data.List                    ((\\))
 import           Data.String.QQ               (s)
 import           Data.Version                 (showVersion)
-import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import           Filesystem.Path              (filename)
 import           Options.Applicative.Simple   (Parser, execParser, footerDoc, fullDesc,
                                                help, helper, info, infoOption, long,
                                                metavar, progDesc, short)
 import qualified Options.Applicative.Simple   as S
 import           Options.Applicative.Text     (textOption)
 import           Paths_cardano_sl             (version)
-import qualified Codec.Archive.Tar            as Tar
-import qualified Control.Foldl                as Fold
-import           Crypto.Hash                 (Digest, SHA512, hashlazy)
-import qualified Data.ByteString.Lazy        as BSL
-import           Data.List                   ((\\))
-import           Filesystem.Path             (filename)
-import           Turtle                      hiding (f, s, toText)
-import           Turtle.Prelude              (stat)
-import           Universum                   hiding (FilePath, fold)
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import           Turtle                       hiding (f, s, toText)
+import           Turtle.Prelude               (stat)
+import           Universum                    hiding (FilePath, fold)
 
 data UpdateGenOptions = UpdateGenOptions
     { oldDir    :: !Text
@@ -62,7 +62,7 @@ usageExample :: Maybe Doc
 usageExample = Just [s|
 Command example:
 
-  stack exec -- cardano-genupdate /tmp/app-v000 /tmp/app-v001 /tmp/app-update.tar
+  stack exec -- cardano-genupdate --old /tmp/app-v000 --new /tmp/app-v001 -o /tmp/app-update.tar
 
 Both directories must have equal file structure (e.g. they must contain the same
 files in the same subdirectories correspondingly), otherwise 'cardano-genupdate' will fail.

@@ -14,26 +14,21 @@ module Pos.Wallet.Web.Server.Full.R
 import           Universum
 
 import           Mockable                          (Production)
-import           Network.Transport.Abstract        (Transport)
 import           Network.Wai                       (Application)
 import           System.Wlog                       (logInfo)
 
 import           Pos.Communication                 (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol        (SendActions)
-import           Pos.Constants                     (isDevelopment)
-import           Pos.Crypto                        (noPassEncrypt)
-import           Pos.Discovery                     (DiscoveryContextSum)
-import           Pos.Genesis                       (genesisDevSecretKeys)
-import           Pos.Launcher.Param                (NodeParams (..))
+import           Pos.Launcher.Resource             (NodeResources)
 import           Pos.Launcher.Runner               (runRealBasedMode)
-import           Pos.Ssc.Class                     (SscConstraint, SscParams)
-import           Pos.Wallet.KeyStorage             (addSecretKey)
 import           Pos.Wallet.Redirect               (liftWalletRedirects,
                                                     runWalletRedirects)
 import           Pos.Wallet.SscType                (WalletSscType)
 import           Pos.Wallet.Web.Server.Full.Common (nat)
-import           Pos.Wallet.Web.Server.Methods     (WalletWebHandler, walletApplication,
-                                                    walletServeImpl, walletServer)
+import           Pos.Wallet.Web.Server.Methods     (WalletWebHandler,
+                                                    addInitialRichAccount,
+                                                    walletApplication, walletServeImpl,
+                                                    walletServer)
 import           Pos.Wallet.Web.Server.Sockets     (ConnectionsVar, runWalletWS)
 import           Pos.Wallet.Web.State              (WalletState, runWalletWebDB)
 import           Pos.WorkMode                      (RealMode)
@@ -42,13 +37,9 @@ type WalletRealWebMode = WalletWebHandler (RealMode WalletSscType)
 
 -- | WalletRealWebMode runner.
 runWRealMode
-    :: SscConstraint WalletSscType
-    => WalletState
+    :: WalletState
     -> ConnectionsVar
-    -> DiscoveryContextSum
-    -> Transport WalletRealWebMode
-    -> NodeParams
-    -> SscParams WalletSscType
+    -> NodeResources WalletSscType WalletRealWebMode
     -> (ActionSpec WalletRealWebMode a, OutSpecs)
     -> Production a
 runWRealMode db conn =
@@ -62,8 +53,7 @@ runWRealMode db conn =
 {-# NOINLINE runWRealMode #-}
 
 walletServeWebFull
-    :: SscConstraint WalletSscType
-    => SendActions WalletRealWebMode
+    :: SendActions WalletRealWebMode
     -> Bool      -- whether to include genesis keys
     -> Word16
     -> WalletRealWebMode ()
@@ -72,6 +62,5 @@ walletServeWebFull sendActions debug = walletServeImpl action
     action :: WalletRealWebMode Application
     action = do
         logInfo "DAEDALUS has STARTED!"
-        when (isDevelopment && debug) $
-            mapM_ (addSecretKey . noPassEncrypt) genesisDevSecretKeys
+        when debug $ addInitialRichAccount 0
         walletApplication $ walletServer sendActions nat

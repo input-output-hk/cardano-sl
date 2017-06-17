@@ -16,7 +16,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
 import           Universum
 
-import           Pos.DB.Class        (MonadDBRead)
+import           Pos.DB.Class        (MonadDBRead, MonadRealDB)
 import           Pos.DB.GState       (getDelegators, getEffectiveStake,
                                       isIssuerByAddressHash)
 import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
@@ -72,7 +72,7 @@ data RichmenType
     = RTUsual
     | RTDelegation (HashMap StakeholderId (HashSet StakeholderId))
 
--- | Pure version of findRichmen which uses in-memory Utxo.
+--- | Pure version of findRichmen which uses in-memory Utxo.
 findRichmenPure :: [(StakeholderId, Coin)]
                 -> (Coin -> Coin)
                 -> RichmenType

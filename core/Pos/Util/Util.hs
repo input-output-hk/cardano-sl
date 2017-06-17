@@ -68,11 +68,10 @@ import           Control.Lens                   (ALens', Getter, Getting, cloneL
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Morph            (MFunctor (..))
 import           Control.Monad.Trans.Class      (MonadTrans)
-import           Control.Monad.Trans.Control    (MonadBaseControl)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
-                                                 runResourceT)
+                                                 transResourceT)
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
 import           Data.Tagged                    (Tagged (Tagged))
@@ -92,7 +91,6 @@ import           Mockable                       (ChannelT, Counter, Distribution
                                                  ThreadId)
 import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
-import           Serokell.Util.Lens             (WrappedM (..))
 import           System.Wlog                    (CanLog, HasLoggerName (..),
                                                  LoggerNameBox (..))
 
@@ -191,19 +189,13 @@ instance {-# OVERLAPPABLE #-}
   where
     liftResourceT = lift . liftResourceT
 
--- TODO Move this to serokell-util
-instance (MonadBaseControl IO m) => WrappedM (ResourceT m) where
-    type UnwrappedM (ResourceT m) = m
-    packM = runResourceT
-    unpackM = lift
-
 -- TODO Move it to log-warper
 instance CanLog m => CanLog (ResourceT m)
 instance (Monad m, HasLoggerName m) => HasLoggerName (ResourceT m) where
     getLoggerName = lift getLoggerName
-    modifyLoggerName = liftLocal getLoggerName modifyLoggerName
+    modifyLoggerName = transResourceT . modifyLoggerName
 
--- TODO Move it to ether
+-- TODO Move it to ether :peka:
 instance Ether.MonadReader tag r m => Ether.MonadReader tag r (ResourceT m) where
     ask = lift $ Ether.ask @tag
     local = liftLocal (Ether.ask @tag) (Ether.local @tag)
@@ -234,9 +226,6 @@ instance
     modifyLoggerName = liftLocal getLoggerName modifyLoggerName
 
 deriving instance LiftLocal LoggerNameBox
-
---instance (Mockable d m, MFunctor' d (ResourceT m) m) => Mockable d (ReaderT r m) where
---    liftMockable dmt = ReaderT $ \r -> liftMockable $ hoist' (flip runReaderT r) dmt
 
 instance {-# OVERLAPPABLE #-}
     (Monad m, MFunctor t) => MFunctor' t m n

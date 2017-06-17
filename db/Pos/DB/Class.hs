@@ -14,9 +14,9 @@
 --
 -- Apart from that we have few more classes here.
 --
--- 'MonadDBRead' contains reading and iterating capabilities.  The
--- advantage of it is that you don't need to do any 'IO' to use it
--- which makes it suitable for pure testing.
+-- 'MonadDBRead' contains only 'dbGet' method.  The advantage of it is
+-- that you don't need to do any 'IO' to use it which makes it
+-- suitable for pure testing. TODO: add iteration abilitiy.
 --
 -- 'MonadDB' is a superclass of 'MonadDB' and allows to modify
 -- DB. Again, its purpose is to make it possible to use DB w/o IO
@@ -205,7 +205,8 @@ class Monad m => MonadGState m where
     gsAdoptedBVData :: m BlockVersionData
 
 instance {-# OVERLAPPABLE #-}
-    (MonadGState m, MonadTrans t, LiftLocal t, Monad (t m)) =>
+    (MonadGState m, MonadTrans t, LiftLocal t,
+     Monad (t m)) =>
         MonadGState (t m)
   where
     gsAdoptedBVData = lift gsAdoptedBVData

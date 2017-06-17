@@ -95,7 +95,8 @@ type WebHandler ssc =
         ( Tagged DB.NodeDBs DB.NodeDBs
         , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
         ) (
-    Ether.ReadersT (NodeContext ssc) Production)
+    Ether.ReadersT (NodeContext ssc) Production
+    )
 
 convertHandler
     :: forall ssc a.

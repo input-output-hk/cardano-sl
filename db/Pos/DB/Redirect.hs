@@ -34,16 +34,18 @@ import           Pos.DB.Types                 (DB (..))
 import           Pos.Util.Util                (maybeThrow)
 
 
-
 data DBPureRedirectTag
 
-type DBPureRedirect = Ether.TaggedTrans DBPureRedirectTag IdentityT
+type DBPureRedirect =
+    Ether.TaggedTrans DBPureRedirectTag IdentityT
 
 runDBPureRedirect :: DBPureRedirect m a -> m a
 runDBPureRedirect = coerce
 
-instance (MonadRealDB m, t ~ IdentityT) =>
-         MonadDBRead (Ether.TaggedTrans DBPureRedirectTag t m) where
+instance
+    (MonadRealDB m, t ~ IdentityT) =>
+        MonadDBRead (Ether.TaggedTrans DBPureRedirectTag t m)
+  where
     dbGet tag key = do
         db <- view (dbTagToLens tag) <$> getNodeDBs
         rocksGetBytes key db

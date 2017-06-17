@@ -23,10 +23,10 @@ import           System.Wlog         (logDebug, logInfo, logWarning)
 import           Pos.Communication   (Conversation (..), ConversationActions (..),
                                       DataMsg (..), InvMsg (..), InvOrData,
                                       InvReqDataParams (..), MempoolMsg (..), NodeId,
-                                      ReqMsg (..), SendActions, SmartLimit, TxMsgContents,
+                                      ReqMsg (..), SendActions, TxMsgContents,
                                       convH, expectData, handleDataDo, handleInvDo,
-                                      reifyMsgLimit, toOutSpecs, withConnectionTo,
-                                      withLimitedLength, worker)
+                                      toOutSpecs, withConnectionTo, worker,
+                                      recvLimited)
 import           Pos.Discovery.Class (getPeers)
 import           Pos.Slotting        (getLastKnownSlotDuration)
 import           Pos.Txp.Core        (TxId)
@@ -105,27 +105,26 @@ getTxMempoolInvs
     => SendActions m -> NodeId -> m [TxId]
 getTxMempoolInvs sendActions node = do
     logInfo ("Querying tx mempool from node " <> show node)
-    reifyMsgLimit (Proxy @(InvMsg TxIdT)) $
-      \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_ -> pure $ Conversation $
-        \(conv :: (ConversationActions
-                                  (MempoolMsg TxMsgContents)
-                                  (SmartLimit s (InvMsg TxIdT))
-                                  m)
-        ) -> do
-            send conv MempoolMsg
-            let getInvs = do
-                  inv' <- recv conv
-                  case withLimitedLength <$> inv' of
-                      Nothing -> return []
-                      Just (InvMsg{..}) -> do
-                          useful <-
-                            case txInvReqDataParams of
-                              InvReqDataParams {..} ->
-                                  handleInvDo handleInv imKey
-                          case useful of
-                              Nothing           -> getInvs
-                              Just (Tagged key) -> (key:) <$> getInvs
-            getInvs
+    withConnectionTo sendActions node $ \_ -> pure $ Conversation $
+      \(conv :: (ConversationActions
+                                (MempoolMsg TxMsgContents)
+                                (InvMsg TxIdT)
+                                m)
+      ) -> do
+          send conv MempoolMsg
+          let getInvs = do
+                inv' <- recvLimited conv
+                case inv' of
+                    Nothing -> return []
+                    Just (InvMsg{..}) -> do
+                        useful <-
+                          case txInvReqDataParams of
+                            InvReqDataParams {..} ->
+                                handleInvDo handleInv imKey
+                        case useful of
+                            Nothing           -> getInvs
+                            Just (Tagged key) -> (key:) <$> getInvs
+          getInvs
 
 -- | Request several transactions.
 requestTxs
@@ -138,26 +137,25 @@ requestTxs sendActions node txIds = do
     logDebug $ sformat
         ("First 5 (or less) transactions: "%listJson)
         (take 5 txIds)
-    reifyMsgLimit (Proxy @(InvOrData TxIdT TxMsgContents)) $
-      \(_ :: Proxy s) -> withConnectionTo sendActions node $ \_ -> pure $ Conversation $
-       \(conv :: (ConversationActions
-                                  (ReqMsg TxIdT)
-                                  (SmartLimit s (InvOrData TxIdT TxMsgContents))
-                                  m)
-        ) -> do
-            let getTx id = do
-                    logDebug $ sformat ("Requesting transaction "%build) id
-                    send conv $ ReqMsg id
-                    dt' <- recv conv
-                    case withLimitedLength <$> dt' of
-                        Nothing -> error "didn't get an answer to Req"
-                        Just x  -> flip expectData x $
-                          \(DataMsg dmContents) ->
-                            case txInvReqDataParams of
-                              InvReqDataParams {..} ->
-                                  handleDataDo contentsToKey handleData dmContents
-            for_ txIds $ \(Tagged -> id) ->
-                getTx id `catch` handler id
+    withConnectionTo sendActions node $ \_ -> pure $ Conversation $
+     \(conv :: (ConversationActions
+                                (ReqMsg TxIdT)
+                                (InvOrData TxIdT TxMsgContents)
+                                m)
+      ) -> do
+          let getTx id = do
+                  logDebug $ sformat ("Requesting transaction "%build) id
+                  send conv $ ReqMsg id
+                  dt' <- recvLimited conv
+                  case dt' of
+                      Nothing -> error "didn't get an answer to Req"
+                      Just x  -> flip expectData x $
+                        \(DataMsg dmContents) ->
+                          case txInvReqDataParams of
+                            InvReqDataParams {..} ->
+                                handleDataDo contentsToKey handleData dmContents
+          for_ txIds $ \(Tagged -> id) ->
+              getTx id `catch` handler id
     logInfo $ sformat
         ("Finished requesting txs from node "%shown)
         node

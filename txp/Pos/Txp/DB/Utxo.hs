@@ -6,7 +6,7 @@
 
 module Pos.Txp.DB.Utxo
        (
-       -- * Getters
+         -- * Getters
          getTxOutFromDB
        , getTxOut
 
@@ -26,6 +26,7 @@ module Pos.Txp.DB.Utxo
        -- * Sanity checks
        , sanityCheckUtxo
        ) where
+
 
 import           Universum
 
@@ -47,8 +48,8 @@ import           Pos.Core             (Address, Coin, coinF, mkCoin, sumCoins,
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
 import           Pos.DB               (DBError (..), DBIteratorClass (..),
                                        DBTag (GStateDB), IterType, MonadDB,
-                                       MonadDBRead (dbGet), RocksBatchOp (..),
-                                       dbIterSource, encodeWithKeyPrefix, rocksGetBi)
+                                       MonadDBRead (..), RocksBatchOp (..), dbIterSource,
+                                       encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Types         (DB)
 import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsToSet, txOutStake)

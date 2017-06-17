@@ -50,7 +50,7 @@ prepareGStateDB initialTip = do
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB
     :: forall m.
-       (MonadDBRead m, MonadMask m, WithLogger m)
+       (MonadRealDB m, MonadDBRead m, MonadMask m, WithLogger m)
     => m ()
 sanityCheckGStateDB = do
     sanityCheckBalances

@@ -160,18 +160,19 @@ txIdToCTxId = mkCTxId . sformat hashHexF
 convertTxOutputs :: [TxOut] -> [(CId w, CCoin)]
 convertTxOutputs = map (addressToCId . txOutAddress &&& mkCCoin . txOutValue)
 
+-- [CSM-309] This may work until transaction have multiple source accounts
 -- | Get all addresses of source account of given transaction.
-getChangeAccountAddrs
+getTxChangeAddresses
     :: [CWAddressMeta]   -- ^ All addresses in wallet
     -> [CId Addr]        -- ^ Input addresses of transaction
     -> Either Text (Maybe [CId Addr])
                          -- ^ `Just` change addrs if the wallet is source of
                          --   transaction, `Nothing` otherwise
-getChangeAccountAddrs walAddrMetas inputAddrs = do
+getTxChangeAddresses walAddrMetas inputAddrs = do
     someInputAddr <-
         head inputAddrs `whenNothing`
         throwError "No input addresses in transaction"
-    return $ do
+    return $ do  -- 'Maybe' monad starts here
         someSrcAddrMeta <- find ((== someInputAddr) . cwamId) walAddrMetas
         let srcAccount = addrMetaToAccount someSrcAddrMeta
         return $
@@ -185,7 +186,7 @@ mkCTxs
     -> [CWAddressMeta]    -- ^ Addresses of wallet
     -> Either Text CTxs
 mkCTxs diff THEntry {..} meta wAddrMetas = do
-    mChangeAddrs <- getChangeAccountAddrs wAddrMetas ctInputAddrs
+    mChangeAddrs <- getTxChangeAddresses wAddrMetas ctInputAddrs
     let isChangeAddr = case mChangeAddrs of
            Just changeAddrs -> do
                 -- if given wallet is source of tx, /changes addresses/
@@ -196,6 +197,8 @@ mkCTxs diff THEntry {..} meta wAddrMetas = do
                 -- if given wallet is *not* source of tx, then it's incoming
                 -- transaction, and only addresses of given wallet are *not*
                 -- change addresses
+                -- [CSM-309] This may work until transaction have multiple
+                -- destination addresses
                 let nonChangeAddrsSet = S.fromList $ cwamId <$> wAddrMetas
                 not . flip S.member nonChangeAddrsSet
         isChangeTxOutput = isChangeAddr . addressToCId . txOutAddress

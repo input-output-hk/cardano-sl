@@ -192,12 +192,6 @@ instance KnownNat n => Bi (StaticSize n ByteString) where
     put = Store.poke
     get = Store.peek
 
--- CSL-1122: if we can get rid of it, get rid of it.
-constSize :: forall a . Bi a => Int
-constSize =  case size :: Size a of
-  VarSize   _ -> error "constSize: VarSize"
-  ConstSize a -> a
-
 execPoke :: Poke a -> Store.PokeState -> Store.Offset -> IO Store.Offset
 execPoke p ptr offset = fst <$> Store.runPoke p ptr offset
 
@@ -206,12 +200,13 @@ mkPoke
     -> Poke ()
 mkPoke f = Store.Poke (\ptr offset -> (,()) <$> f ptr offset)
 
--- [CSL-1122] TODO: fix this instance (@constSize UnsignedVarInt@ can't work)
 instance Bi a => Bi [a] where
     size =
-        VarSize $ \t -> case size :: Size a of
-            ConstSize n -> (n * length t) + constSize @(UnsignedVarInt Int)
-            VarSize f   -> foldl' (\acc x -> acc + f x) (constSize @(UnsignedVarInt Int)) t
+        VarSize $ \t ->
+            let s = getSize (UnsignedVarInt (length t))
+            in case size :: Size a of
+                   ConstSize n -> n * length t + s
+                   VarSize f   -> foldl' (\acc x -> acc + f x) s t
     put t = do
         put (UnsignedVarInt $ length t)
         mkPoke (\ptr offset ->

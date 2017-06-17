@@ -29,7 +29,6 @@ module Pos.Binary.Class.Store
        , mkPoke
        , execPoke
 
-       , constSize
        , convertSize
        , combineSize
        , sizeOf
@@ -91,12 +90,6 @@ putField f = (VarSize $ \a -> getSize (f a), put . f)
 ----------------------------------------------------------------------------
 -- Helpers to implement @size@
 ----------------------------------------------------------------------------
-
--- [CSL-1122] this is already defined in Pos.Binary.Class.Instances
-constSize :: forall a . Bi a => Int
-constSize =  case size :: Size a of
-    VarSize   _ -> error "constSize: VarSize"
-    ConstSize a -> a
 
 -- | Helper for implementation of @Bi.size@.
 -- You can get @Size a@ from @Size b@ if there is

@@ -44,17 +44,18 @@ import           Pos.Reporting.Methods        (retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report      (ReportType (..))
 
 data LauncherOptions = LO
-    { loNodePath       :: !FilePath
-    , loNodeArgs       :: ![Text]
-    , loNodeLogConfig  :: !(Maybe FilePath)
-    , loNodeLogPath    :: !(Maybe FilePath)
-    , loWalletPath     :: !(Maybe FilePath)
-    , loWalletArgs     :: ![Text]
-    , loUpdaterPath    :: !FilePath
-    , loUpdaterArgs    :: ![Text]
-    , loUpdateArchive  :: !(Maybe FilePath)
-    , loNodeTimeoutSec :: !Int
-    , loReportServer   :: !(Maybe String)
+    { loNodePath            :: !FilePath
+    , loNodeArgs            :: ![Text]
+    , loNodeLogConfig       :: !(Maybe FilePath)
+    , loNodeLogPath         :: !(Maybe FilePath)
+    , loWalletPath          :: !(Maybe FilePath)
+    , loWalletArgs          :: ![Text]
+    , loUpdaterPath         :: !FilePath
+    , loUpdaterArgs         :: ![Text]
+    , loUpdateArchive       :: !(Maybe FilePath)
+    , loUpdateWindowsRunner :: !(Maybe FilePath)
+    , loNodeTimeoutSec      :: !Int
+    , loReportServer        :: !(Maybe String)
     }
 
 optionsParser :: Parser LauncherOptions
@@ -103,6 +104,10 @@ optionsParser = do
     loUpdateArchive <- optional $ textOption $
         long    "update-archive" <>
         help    "Path to the update archive, it will be passed to the updater." <>
+        metavar "PATH"
+    loUpdateWindowsRunner <- optional $ textOption $
+        long    "updater-windows-runner" <>
+        help    "Path to write the Windows batch file executing updater" <>
         metavar "PATH"
 
     -- Other args
@@ -171,7 +176,7 @@ main = do
                  serverScenario
                      loNodeLogConfig
                      (loNodePath, realNodeArgs, loNodeLogPath)
-                     (loUpdaterPath, loUpdaterArgs, loUpdateArchive)
+                     (loUpdaterPath, loUpdaterArgs, loUpdateWindowsRunner, loUpdateArchive)
                      loReportServer
              Just wpath -> do
                  echo "Running in the client scenario"
@@ -179,7 +184,7 @@ main = do
                      loNodeLogConfig
                      (loNodePath, realNodeArgs, loNodeLogPath)
                      (wpath, loWalletArgs)
-                     (loUpdaterPath, loUpdaterArgs, loUpdateArchive)
+                     (loUpdaterPath, loUpdaterArgs, loUpdateWindowsRunner, loUpdateArchive)
                      loNodeTimeoutSec
                      loReportServer
 
@@ -191,7 +196,8 @@ main = do
 serverScenario
     :: Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
-    -> (FilePath, [Text], Maybe FilePath)  -- ^ Updater, args, the update .tar
+    -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
+    -- ^ Updater, args, updater runner, the update .tar
     -> Maybe String                        -- ^ Report server
     -> Shell ()
 serverScenario logConf node updater report = do
@@ -215,7 +221,8 @@ clientScenario
     :: Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text])                  -- ^ Wallet, args
-    -> (FilePath, [Text], Maybe FilePath)  -- ^ Updater, args, the update .tar
+    -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
+    -- ^ Updater, args, updater runner, the update .tar
     -> Int                                 -- ^ Node timeout, in seconds
     -> Maybe String                        -- ^ Report server
     -> Shell ()
@@ -252,8 +259,8 @@ clientScenario logConf node wallet updater nodeTimeout report = do
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: (FilePath, [Text], Maybe FilePath) -> Shell ()
-runUpdater (path, args, updateArchive) = do
+runUpdater :: (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> Shell ()
+runUpdater (path, args, runnerPath, updateArchive) = do
     {-
     exists <- testfile path
     if not exists then
@@ -263,15 +270,44 @@ runUpdater (path, args, updateArchive) = do
         return ()
     else
     -}
+
     whenM (testfile path) $ do
         echo "Running the updater"
         let args' = args ++ maybe [] (one . toText) updateArchive
-        exitCode <- proc (toText path) args' mempty
+        exitCode <- case runnerPath of
+            Nothing -> runUpdaterProc path args'
+            Just rp -> do
+                -- Write the bat script and pass it the updater with all args
+                liftIO $ writeWindowsUpdaterRunner $ rp
+                -- The script will terminate this updater so this function shouldn't return
+                runUpdaterProc rp ((toText path):args')
         printf ("The updater has exited with "%s%"\n") (show exitCode)
         when (exitCode == ExitSuccess) $ do
             -- this will throw an exception if the file doesn't exist but
             -- hopefully if the updater has succeeded it *does* exist
             whenJust updateArchive rm
+
+runUpdaterProc :: FilePath -> [Text] -> Shell (ExitCode)
+runUpdaterProc path args = do
+    let cr = (Process.proc (toString path) (map toString args))
+                 { Process.std_in  = Process.CreatePipe
+                 , Process.std_out = Process.CreatePipe
+                 , Process.std_err = Process.CreatePipe
+                 }
+    phvar <- newEmptyMVar
+    system' phvar cr mempty
+
+writeWindowsUpdaterRunner :: FilePath -> IO ()
+writeWindowsUpdaterRunner runnerPath =
+    writeFile (toString runnerPath) $ unlines
+        [ "TaskKill /IM cardano-launcher.exe /F"
+        -- Run updater
+        , "%*"
+        -- Delete updater
+        , "del %1"
+        -- Delete the bat file
+        , "(goto) 2>nul & del \"%~f0\""
+        ]
 
 ----------------------------------------------------------------------------
 -- Running stuff

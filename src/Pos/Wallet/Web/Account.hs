@@ -27,10 +27,9 @@ import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
-                                             addressToCId, encToCId,
-                                             walletAddrMetaToAccount)
+                                             addrMetaToAccount, addressToCId, encToCId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (AccountLookupMode (..), WebWalletModeDB,
+import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
                                              doesWAddressExist, getAccountMeta)
 import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 
@@ -61,7 +60,7 @@ getSKByAccAddr
     -> m EncryptedSecretKey
 getSKByAccAddr passphrase addrMeta@CWAddressMeta {..} = do
     (addr, accKey) <-
-        deriveAccountSK passphrase (walletAddrMetaToAccount addrMeta) cwamAccountIndex
+        deriveAccountSK passphrase (addrMetaToAccount addrMeta) cwamAccountIndex
     let accCAddr = addressToCId addr
     if accCAddr /= cwamId
              -- if you see this error, maybe you generated public key address with
@@ -155,7 +154,7 @@ deriveAccountSK
 deriveAccountSK passphrase AccountId{..} accIndex = do
     -- this function is used in conditions when several secret keys with same
     -- public key are stored, thus checking for passphrase here as well
-    let niceSK k = encToCId k == aiWSId
+    let niceSK k = encToCId k == aiWId
     key <- maybeThrow noKey . find niceSK =<< getSecretKeys
     maybeThrow badPass $
         deriveLvl2KeyPair passphrase key aiIndex accIndex
@@ -171,7 +170,7 @@ deriveAccountAddress
     -> m CWAddressMeta
 deriveAccountAddress passphrase accId@AccountId{..} cwamAccountIndex = do
     (addr, _) <- deriveAccountSK passphrase accId cwamAccountIndex
-    let cwamWSId   = aiWSId
+    let cwamWId         = aiWId
         cwamWalletIndex = aiIndex
-        cwamId     = addressToCId addr
+        cwamId          = addressToCId addr
     return CWAddressMeta{..}

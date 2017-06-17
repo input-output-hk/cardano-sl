@@ -3,7 +3,6 @@
 module Pos.Ssc.RichmenComponent
        ( RCSsc
        , getRichmenSsc
-       , putRichmenSsc
        ) where
 
 import           Universum
@@ -11,7 +10,7 @@ import           Universum
 import           Pos.Core               (EpochIndex)
 import           Pos.DB.Class           (MonadDB, MonadDBRead)
 import           Pos.Lrc.Class          (RichmenComponent (..))
-import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
+import           Pos.Lrc.DB.RichmenBase (getRichmen)
 import           Pos.Lrc.Types          (FullRichmenData, RichmenStake)
 import           Pos.Update.Constants   (genesisMpcThd)
 
@@ -26,8 +25,3 @@ instance RichmenComponent RCSsc where
 
 getRichmenSsc :: (MonadDBRead m) => EpochIndex -> m (Maybe RichmenStake)
 getRichmenSsc = getRichmen @RCSsc
-
-putRichmenSsc
-    :: (MonadDB m)
-    => EpochIndex -> FullRichmenData -> m ()
-putRichmenSsc = putRichmen @RCSsc

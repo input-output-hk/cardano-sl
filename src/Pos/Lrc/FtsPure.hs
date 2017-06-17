@@ -43,8 +43,9 @@ followTheSatoshi seed utxo
     | totalCoins > coinToInteger (maxBound @Coin) =
           error "followTheSatoshi: totalCoins exceeds Word64"
     | otherwise =
-      runConduitPure $ CL.sourceList stakes .| followTheSatoshiM seed totalCoinsCoin
+          runConduitPure $ CL.sourceList stakes .|
+                           followTheSatoshiM seed totalCoinsCoin
   where
     stakes = HM.toList $ utxoToStakes utxo
     totalCoins = sumCoins $ map snd stakes
-    totalCoinsCoin = mkCoin (fromInteger totalCoins)
+    totalCoinsCoin = mkCoin $ fromInteger totalCoins

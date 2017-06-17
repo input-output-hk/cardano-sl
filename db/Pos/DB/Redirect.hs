@@ -12,6 +12,7 @@ module Pos.DB.Redirect
 
 import           Universum
 
+import           Control.Exception            (SomeException)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString              as BS (isPrefixOf)
@@ -65,8 +66,8 @@ instance
 -- | Conduit source built from rocks iterator.
 iteratorSource ::
        forall m i.
-       ( MonadResource m
-       , MonadRealDB m
+       ( MonadRealDB m
+       , MonadResource m
        , DBIteratorClass i
        , Bi (IterKey i)
        , Bi (IterValue i)
@@ -75,11 +76,18 @@ iteratorSource ::
     -> Proxy i
     -> Source m (IterType i)
 iteratorSource tag _ = do
-    DB {..} <- view (dbTagToLens tag) <$> lift getNodeDBs
-    bracketP (Rocks.createIter rocksDB rocksReadOpts) Rocks.releaseIter $ \it -> do
-        lift $ Rocks.iterSeek it (iterKeyPrefix @i)
-        produce it
-  where
+    putText $ ("Iterator source, prefix " <> show (iterKeyPrefix @i))
+    DB{..} <- view (dbTagToLens tag) <$> lift getNodeDBs
+    let createIter = Rocks.createIter rocksDB rocksReadOpts
+    let releaseIter i = Rocks.releaseIter i
+    let onExc (e :: SomeException) = do
+            putText $ "Exception arised in redirect handler: " <> show e
+            throwM e
+    let action iter = do
+            Rocks.iterSeek iter (iterKeyPrefix @i)
+            produce iter `catch` onExc
+    bracketP createIter releaseIter $ \i -> action i `catch` onExc
+ where
     produce :: Rocks.Iterator -> Source m (IterType i)
     produce it = do
         entryStr <- processRes =<< Rocks.iterEntry it

@@ -3,7 +3,6 @@
 module Pos.Update.RichmenComponent
        ( RCUs
        , getRichmenUS
-       , putRichmenUS
        ) where
 
 import           Universum
@@ -11,7 +10,7 @@ import           Universum
 import           Pos.Core               (EpochIndex)
 import           Pos.DB.Class           (MonadDB, MonadDBRead)
 import           Pos.Lrc.Class          (RichmenComponent (..))
-import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
+import           Pos.Lrc.DB.RichmenBase (getRichmen)
 import           Pos.Lrc.Types          (FullRichmenData)
 import           Pos.Update.Constants   (genesisUpdateVoteThd)
 
@@ -26,6 +25,3 @@ instance RichmenComponent RCUs where
 
 getRichmenUS :: MonadDBRead m => EpochIndex -> m (Maybe FullRichmenData)
 getRichmenUS = getRichmen @RCUs
-
-putRichmenUS :: MonadDB m => EpochIndex -> FullRichmenData -> m ()
-putRichmenUS = putRichmen @RCUs

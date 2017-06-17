@@ -26,15 +26,16 @@ module Pos.Txp.DB.Balances
        , sanityCheckBalances
        ) where
 
-import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
+import           Control.Monad.Trans.Resource (ResourceT, runResourceT)
+import           Data.Conduit                 (Source, mapOutput, runConduit,
+                                               runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB             as Rocks
 import           Formatting                   (bprint, bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
-import           System.Wlog                  (WithLogger, logError)
+import           System.Wlog                  (WithLogger, logDebug, logError)
 import           Universum
 
 import           Pos.Binary.Class             (encodeStrict)
@@ -127,8 +128,8 @@ balanceSource
     => Source (ResourceT m) (IterType BalanceIter)
 balanceSource =
     ifM (lift isBootstrapEra)
-        (dbIterSource GStateDB (Proxy @BalanceIter))
         (CL.sourceList $ HM.toList genesisBalances)
+        (dbIterSource GStateDB (Proxy @BalanceIter))
 
 ----------------------------------------------------------------------------
 -- Sanity checks
@@ -138,16 +139,14 @@ sanityCheckBalances
     :: (MonadDBRead m, WithLogger m)
     => m ()
 sanityCheckBalances = do
-    calculatedTotalStake <-
-        runConduitRes $
+    calculatedTotalStake <- runConduitRes $
         mapOutput snd (dbIterSource GStateDB (Proxy @BalanceIter)) .|
         CL.fold unsafeAddCoin (mkCoin 0)
 
     totalStake <- getRealTotalStake
-    let fmt =
-            ("Wrong real total stake: \
-             \sum of real stakes: "%coinF%
-             ", but getRealTotalStake returned: "%coinF)
+    let fmt = ("Wrong real total stake: \
+              \sum of real stakes: "%coinF%
+              ", but getRealTotalStake returned: "%coinF)
     let msg = sformat fmt calculatedTotalStake totalStake
     unless (calculatedTotalStake == totalStake) $ do
         logError $ colorize Red msg

@@ -22,7 +22,7 @@ import           Formatting                 (build, sformat, (%))
 import           Mockable                   (forConcurrently)
 import           Paths_cardano_sl           (version)
 import           Serokell.Util.Exceptions   ()
-import           System.Wlog                (logInfo, logWarning)
+import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Logic.Internal   (BlockApplyMode, applyBlocksUnsafe,
@@ -218,6 +218,7 @@ richmenComputationDo
     => EpochIndex -> [LrcConsumer m] -> m ()
 richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     total <- GS.getEffectiveTotalStake
+    logDebug $ "Effective total stake: " <> show total
     consumersAndThds <-
         zip consumers <$> mapM (flip lcThreshold total) consumers
     let minThreshold :: Maybe Coin
@@ -226,6 +227,8 @@ richmenComputationDo epochIdx consumers = unless (null consumers) $ do
         minThresholdD = safeThreshold consumersAndThds lcConsiderDelegated
     (richmen, richmenD) <- runConduitRes $
         GS.balanceSource .| findAllRichmenMaybe minThreshold minThresholdD
+    logDebug $ "Size of richmen: " <> show (HM.size richmen)
+    logDebug $ "Size of richmenD: " <> show (HM.size richmenD)
     let callCallback (cons, thd) =
             if lcConsiderDelegated cons
             then lcComputedCallback cons epochIdx total

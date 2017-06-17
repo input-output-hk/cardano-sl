@@ -196,7 +196,7 @@ previous upper bound (and thus it's more or equal to the current lower bound).
 
 -}
 followTheSatoshiM
-    :: forall m . Monad m
+    :: forall m . (Monad m)
     => SharedSeed
     -> Coin
     -> Sink (StakeholderId, Coin) m SlotLeaders
@@ -236,5 +236,4 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
                 modify (ftsStateUpdate s)
                 findLeader coinIndex
 
-    nextStakeholder =
-        fromMaybe (error "followTheSatoshiM: indices out of range") <$> await
+    nextStakeholder = fromMaybe (error "followTheSatoshiM: indices out of range") <$> await

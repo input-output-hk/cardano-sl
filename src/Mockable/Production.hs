@@ -181,9 +181,9 @@ instance MonadBase IO Production where
     liftBase = Production
 
 instance MonadBaseControl IO Production where
-    type StM Production a = IO a
-    liftBaseWith f = Production $ f (return . runProduction)
-    restoreM = Production
+    type StM Production a = a
+    liftBaseWith f = Production $ liftBaseWith $ \q -> f (q . runProduction)
+    restoreM = Production . pure
 
 type instance Metrics.Counter Production = EKG.Counter.Counter
 type instance Metrics.Gauge Production = EKG.Gauge.Gauge

@@ -29,7 +29,7 @@ import           Universum
 import qualified Data.ByteString       as BS (drop, isPrefixOf)
 import           Data.Default          (def)
 import qualified Database.RocksDB      as Rocks
-import           Formatting            (sformat, shown, stext, string, (%))
+import           Formatting            (sformat, shown, stext, (%))
 
 import           Pos.Binary.Class      (Bi, decodeFull, encode)
 import           Pos.DB.Class          (DBTag, MonadDB (..), MonadDBRead (..))

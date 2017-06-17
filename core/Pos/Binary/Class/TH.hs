@@ -217,7 +217,7 @@ deriveSimpleBi headTy constrs = do
     --   put (field3 val)
     biPutConstr :: Int -> Cons -> MatchQ
     biPutConstr ix (Cons cName cFields) = do
-        val <- newName "val"
+        val <- newName $ if length cFields > 0 then "val" else "_"
         match (asP val (recP cName [])) (body (varE val)) []
       where
         body val = normalB $
@@ -328,7 +328,7 @@ deriveSimpleBi headTy constrs = do
     --     val@Bar{} -> getSize (field1 val) + getSize (field2 val)
     matchVarCons :: Cons -> MatchQ
     matchVarCons (Cons cName (map fName -> cFields)) = do
-        val <- newName "val"
+        val <- newName $ if length cFields > 0 then "val" else "_"
         match (asP val (recP cName [])) (body (varE val)) []
       where
         body val = normalB $

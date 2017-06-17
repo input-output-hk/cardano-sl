@@ -8,11 +8,10 @@ module Pos.Binary.Update
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..), PokeWithSize,
-                                          Size (..), combineSize, convertSize,
-                                          convertToSizeNPut, deriveSimpleBi,
-                                          getAsciiString1b, getSize, getWord8, label,
-                                          putAsciiString1b, putConst, putField, putS,
-                                          putWord8, putWord8S, sizeAsciiString1b)
+                                          Size (..), convertSize, convertToSizeNPut,
+                                          deriveSimpleBi, getAsciiString1b, getSize,
+                                          getWord8, label, putAsciiString1b, putField,
+                                          putS, putWord8, putWord8S, sizeAsciiString1b)
 import           Pos.Binary.Core         ()
 import           Pos.Binary.Core.Version ()
 import           Pos.Core.Types          (HeaderHash)

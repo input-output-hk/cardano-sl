@@ -87,3 +87,8 @@ deriveSimpleBi ''T.BlockVersionData [
         Field 'T.bvdUpdateImplicit    ''T.FlatSlotId,
         Field 'T.bvdUpdateSoftforkThd ''T.CoinPortion
     ]]
+
+data D = A | B
+deriveSimpleBi ''D [
+    Cons 'A [],
+    Cons 'B []]

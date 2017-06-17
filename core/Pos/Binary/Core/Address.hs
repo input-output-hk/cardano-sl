@@ -6,8 +6,8 @@ import           Universum
 import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
 import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (..),
-                                      UnsignedVarInt (..), convertToSizeNPut, encodeWithS,
-                                      getSmallWithLength, getWord8, label, putField, putS,
+                                      convertToSizeNPut, encodeWithS, getSmallWithLength,
+                                      getWord8, label, putField, putS,
                                       putSmallWithLengthS, putWord8S)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))

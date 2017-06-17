@@ -61,7 +61,7 @@ instance Bi T.TxInWitness where
             0 -> uncurry T.PkWitness <$> getWithLength get
             1 -> uncurry T.ScriptWitness <$> getWithLength get
             2 -> uncurry T.RedeemWitness <$> getWithLength get
-            t -> getWithLength (T.UnknownWitnessType t <$> get)
+            t -> T.UnknownWitnessType t <$> get
 
 instance Bi T.TxDistribution where
     sizeNPut = putField f

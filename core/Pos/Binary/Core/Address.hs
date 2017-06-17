@@ -6,7 +6,7 @@ import           Universum
 import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
 import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (..),
-                                      UnsignedVarInt (..), convertToSizeNPut, encode,
+                                      UnsignedVarInt (..), convertToSizeNPut, encodeWithS,
                                       getSmallWithLength, getWord8, label, putField, putS,
                                       putSmallWithLengthS, putWord8S)
 import           Pos.Binary.Crypto   ()
@@ -52,14 +52,14 @@ getAddressIncomplete = do
         t -> UnknownAddressType t <$> get
 
 instance CRC32 Address where
-    crc32Update seed = crc32Update seed . encode
+    crc32Update seed = crc32Update seed . encodeWithS sizeNPutAddressIncomplete
 
 instance Bi Address where
     sizeNPut = sizeNPutAddressIncomplete
-            <> putField (UnsignedVarInt . crc32)
+            <> putField crc32
     get = label "Address" $ do
        addr <- getAddressIncomplete
-       UnsignedVarInt checksum <- get
+       checksum <- get
        if checksum /= crc32 addr
            then fail "Address has invalid checksum!"
            else return addr

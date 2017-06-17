@@ -23,10 +23,10 @@ instance Bi PublicKey => ArbitraryUnsafe PublicKey where
     arbitraryUnsafe = Bi.decodeOrFail . BSL.toStrict <$> arbitrarySizedSL 32
 
 instance Bi SecretKey => ArbitraryUnsafe SecretKey where
-    arbitraryUnsafe =  Bi.decodeOrFail . BSL.toStrict <$> arbitrarySizedSL 64
+    arbitraryUnsafe = Bi.decodeOrFail . BSL.toStrict <$> arbitrarySizedSL 64
 
 instance Bi (Signature a) => ArbitraryUnsafe (Signature a) where
-    arbitraryUnsafe =  Bi.decodeOrFail . BSL.toStrict <$> arbitrarySizedSL 64
+    arbitraryUnsafe = Bi.decodeOrFail . BSL.toStrict <$> arbitrarySizedSL 64
 
 -- Generating invalid `Signed` objects doesn't make sense even in
 -- benchmarks

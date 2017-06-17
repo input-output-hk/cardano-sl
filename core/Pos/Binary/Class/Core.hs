@@ -7,6 +7,7 @@
 module Pos.Binary.Class.Core
        ( Bi (..)
        , encode
+       , encodeWithS
        , encodeLazy
        , decodeFull
        , decodeOrFail
@@ -64,6 +65,10 @@ class Bi t where
 encode :: Bi a => a -> ByteString
 encode x = Store.unsafeEncodeWith (put x) (getSize x)
 {-# INLINE encode #-}
+
+encodeWithS :: (Size a, a -> Poke ()) -> a -> ByteString
+encodeWithS (s, p) x = Store.unsafeEncodeWith (p x) (Store.getSizeWith s x)
+{-# INLINE encodeWithS #-}
 
 -- | Encode a value to a lazy bytestring
 encodeLazy :: Bi a => a -> BSL.ByteString

@@ -7,7 +7,7 @@ module Pos.Binary.Block.Core
 import           Universum
 
 import           Pos.Binary.Class             (Bi (..), convertToSizeNPut, getWord8,
-                                               label, pokeWithSize, putField, putWord8S)
+                                               label, putField, putS, putWord8S)
 import           Pos.Binary.Core              ()
 import           Pos.Binary.Txp               ()
 import           Pos.Binary.Update            ()
@@ -34,9 +34,9 @@ instance Ssc ssc =>
 instance Bi (BC.BlockSignature ssc) where
     sizeNPut = convertToSizeNPut f
       where
-        f (BC.BlockSignature sig)            = putWord8S 0 <> pokeWithSize sig
-        f (BC.BlockPSignatureLight proxySig) = putWord8S 1 <> pokeWithSize proxySig
-        f (BC.BlockPSignatureHeavy proxySig) = putWord8S 2 <> pokeWithSize proxySig
+        f (BC.BlockSignature sig)            = putWord8S 0 <> putS sig
+        f (BC.BlockPSignatureLight proxySig) = putWord8S 1 <> putS proxySig
+        f (BC.BlockPSignatureHeavy proxySig) = putWord8S 2 <> putS proxySig
     get = label "BlockSignature" $ getWord8 >>= \case
         0 -> BC.BlockSignature <$> get
         1 -> BC.BlockPSignatureLight <$> get

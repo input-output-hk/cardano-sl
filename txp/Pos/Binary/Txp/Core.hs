@@ -8,7 +8,7 @@ import           Universum
 
 import           Pos.Binary.Class   (Bi (..), PokeWithSize, UnsignedVarInt (..),
                                      convertToSizeNPut, getWithLength, getWord8, label,
-                                     pokeWithSize, putField, putWithLengthS, putWord8S)
+                                     putField, putS, putWithLengthS, putWord8S)
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Txp.Core.Types as T
@@ -44,7 +44,7 @@ instance Bi T.TxInWitness where
     sizeNPut = convertToSizeNPut f
       where
         withLen :: Bi a => a -> PokeWithSize ()
-        withLen = putWithLengthS . pokeWithSize
+        withLen = putWithLengthS . putS
 
         f :: T.TxInWitness -> PokeWithSize ()
         f (T.PkWitness key sig) =
@@ -54,7 +54,7 @@ instance Bi T.TxInWitness where
         f (T.RedeemWitness key sig) =
             putWord8S 2 <> withLen (key, sig)
         f (T.UnknownWitnessType t bs) =
-            pokeWithSize @Word8 t <> pokeWithSize bs
+            putS @Word8 t <> putS bs
     get = label "TxInWitness" $ do
         tag <- getWord8
         case tag of

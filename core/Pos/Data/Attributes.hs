@@ -112,7 +112,7 @@ sizeAttributes putMapper attrs =
 putAttributesWithSize :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> PokeWithSize ()
 putAttributesWithSize putMapper Attributes {..} =
     traverse_ putAttr kvs *>
-    pokeWithSize attrRemain
+    putS attrRemain
  where
    putAttr (k, v) = putWord8S k *> v
    kvs = sortOn fst $ putMapper attrData

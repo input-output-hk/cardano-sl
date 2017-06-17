@@ -10,7 +10,7 @@ import qualified Data.HashMap.Strict           as HM
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..), PokeWithSize, convertToSizeNPut,
-                                                getWord8, label, pokeWithSize, putField,
+                                                getWord8, label, putField, putS,
                                                 putWord8S)
 import           Pos.Binary.Crypto             ()
 import           Pos.Core.Address              (addressHash)
@@ -53,13 +53,13 @@ instance Bi GtPayload where
         toBi :: GtPayload -> PokeWithSize ()
         toBi = \case
             CommitmentsPayload commMap vssMap ->
-                putWord8S 0 <> pokeWithSize commMap <> pokeWithSize (toList vssMap)
+                putWord8S 0 <> putS commMap <> putS (toList vssMap)
             OpeningsPayload opMap vssMap ->
-                putWord8S 1 <> pokeWithSize opMap <> pokeWithSize (toList vssMap)
+                putWord8S 1 <> putS opMap <> putS (toList vssMap)
             SharesPayload sharesMap vssMap ->
-                putWord8S 2 <> pokeWithSize sharesMap <> pokeWithSize (toList vssMap)
+                putWord8S 2 <> putS sharesMap <> putS (toList vssMap)
             CertificatesPayload vssMap ->
-                putWord8S 3 <> pokeWithSize (toList vssMap)
+                putWord8S 3 <> putS (toList vssMap)
     get = label "GtPayload" $ do
         getWord8 >>= \case
             0 -> liftM2 CommitmentsPayload get getVssCerts
@@ -76,10 +76,10 @@ instance Bi GtProof where
       where
         toBi :: GtProof -> PokeWithSize ()
         toBi = \case
-            CommitmentsProof a b -> putWord8S 0 <> pokeWithSize a <> pokeWithSize b
-            OpeningsProof a b    -> putWord8S 1 <> pokeWithSize a <> pokeWithSize b
-            SharesProof a b      -> putWord8S 2 <> pokeWithSize a <> pokeWithSize b
-            CertificatesProof a  -> putWord8S 3 <> pokeWithSize a
+            CommitmentsProof a b -> putWord8S 0 <> putS a <> putS b
+            OpeningsProof a b    -> putWord8S 1 <> putS a <> putS b
+            SharesProof a b      -> putWord8S 2 <> putS a <> putS b
+            CertificatesProof a  -> putWord8S 3 <> putS a
     get = label "GtProof" $ do
         getWord8 >>= \case
             0 -> liftM2 CommitmentsProof get get

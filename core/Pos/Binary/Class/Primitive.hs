@@ -53,13 +53,13 @@ import           Pos.Binary.Class.Core      (Bi (..), decodeFull, encode, isolat
 import           Pos.Binary.Class.Numbers   (TinyVarInt (..), UnsignedVarInt (..),
                                              getWord8, putWord8)
 import           Pos.Binary.Class.Store     (Peek, Poke, PokeWithSize (..), Size (..),
-                                             StaticSize (..), pokeWithSize)
+                                             StaticSize (..), putS)
 
 import           Pos.Binary.Class.Instances ()
 -- TODO ^ Move Raw in Pos.Util.Util and remove the import.
 
 putWord8S :: Word8 -> PokeWithSize ()
-putWord8S = pokeWithSize @Word8
+putWord8S = putS @Word8
 
 ----------------------------------------------------------------------------
 -- Raw
@@ -133,7 +133,7 @@ putWithLength a = put (UnsignedVarInt $ pwsToSize a) *> pwsToPoke a
 
 -- | Like @putWithLength@ but returns PokeWithSize.
 putWithLengthS :: PokeWithSize a -> PokeWithSize a
-putWithLengthS a = pokeWithSize (UnsignedVarInt $ pwsToSize a) *> a
+putWithLengthS a = putS (UnsignedVarInt $ pwsToSize a) *> a
 
 -- | Read length in bytes and then parse something (which has to have exactly
 -- that length).
@@ -170,7 +170,7 @@ putSmallWithLengthS a@(PokeWithSize len _) = do
     if len >= 2^(14::Int)
         then error ("putSmallWithLength: length is " <> show len <>
                     ", but maximum allowed is 16383 (2^14-1)")
-        else pokeWithSize (TinyVarInt (fromIntegral len)) *> a
+        else putS (TinyVarInt (fromIntegral len)) *> a
 
 -- | Like 'getWithLength' but for 'putSmallWithLength'.
 getSmallWithLength :: Peek a -> Peek a

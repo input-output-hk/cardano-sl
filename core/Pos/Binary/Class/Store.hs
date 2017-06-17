@@ -18,7 +18,7 @@ module Pos.Binary.Class.Store
 
        -- * Poke with size of the poke.
        , PokeWithSize (..)
-       , pokeWithSize
+       , putS
 
        -- * The 'StaticSize' wrapper
        , StaticSize(..)
@@ -220,8 +220,8 @@ data PokeWithSize a
     } deriving (Functor)
 
 -- | Create @PokeWithSize@ from Bi a.
-pokeWithSize :: Bi a => a -> PokeWithSize ()
-pokeWithSize x = PokeWithSize (getSize x) (put x)
+putS :: Bi a => a -> PokeWithSize ()
+putS x = PokeWithSize (getSize x) (put x)
 
 -- | Conversion between two equivalent formats.
 -- Might be useful for @sizeNPut@ of datatype with several constructors.

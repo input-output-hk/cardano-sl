@@ -11,9 +11,8 @@ import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..), PokeWi
                                           Size (..), combineSize, convertSize,
                                           convertToSizeNPut, deriveSimpleBi,
                                           getAsciiString1b, getSize, getWord8, label,
-                                          pokeWithSize, putAsciiString1b, putConst,
-                                          putField, putWord8, putWord8S,
-                                          sizeAsciiString1b)
+                                          putAsciiString1b, putConst, putField, putS,
+                                          putWord8, putWord8S, sizeAsciiString1b)
 import           Pos.Binary.Core         ()
 import           Pos.Binary.Core.Version ()
 import           Pos.Core.Types          (HeaderHash)
@@ -111,7 +110,7 @@ instance Bi a => Bi (U.PrevValue a) where
         where
           toBi :: Bi a => U.PrevValue a -> PokeWithSize ()
           toBi = \case
-              U.PrevValue v -> putWord8S 2 <> pokeWithSize v
+              U.PrevValue v -> putWord8S 2 <> putS v
               U.NoExist     -> putWord8S 3
     get = label "PrevValue" $ getWord8 >>= \case
         2 -> U.PrevValue <$> get

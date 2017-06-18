@@ -121,7 +121,7 @@ processSkeleton payload =
         maxBlockSize <- bvdMaxBlockSize <$> DB.getAdoptedBVData
         let maxMemPoolSize = maxBlockSize * memPoolLimitRatio
         msIntermediate <-
-            if | maxMemPoolSize >= mpSize msPool -> refreshMemPool ms
+            if | maxMemPoolSize <= mpSize msPool -> refreshMemPool ms
                | otherwise -> pure ms
         processSkeletonDo msIntermediate
   where

@@ -11,17 +11,17 @@ module Pos.Wallet.Light.Redirect
 
 import           Universum
 
-import           Control.Monad.Trans.Maybe    (MaybeT (..))
-import           Data.Tagged                  (Tagged (..))
+import           Control.Monad.Trans.Maybe (MaybeT (..))
+import           Data.Tagged               (Tagged (..))
 import qualified Ether
 
-import           Pos.Client.Txp.Balances      (MonadBalances (..), getBalanceFromUtxo)
-import           Pos.Client.Txp.History       (TxHistoryAnswer, deriveAddrHistory)
-import           Pos.Core                     (Address, HeaderHash)
-import           Pos.Txp                      (TxAux, TxId, Utxo, filterUtxoByAddrs,
-                                               runUtxoStateT)
-import           Pos.Types                    (Coin)
-import qualified Pos.Wallet.Light.State       as LWS
+import           Pos.Client.Txp.Balances   (MonadBalances (..), getBalanceFromUtxo)
+import           Pos.Client.Txp.History    (TxHistoryAnswer, deriveAddrHistory)
+import           Pos.Core                  (Address, HeaderHash)
+import           Pos.Txp                   (TxAux, TxId, Utxo, filterUtxoByAddrs,
+                                            runUtxoStateT)
+import           Pos.Types                 (Coin)
+import qualified Pos.Wallet.Light.State    as LWS
 
 ----------------------------------------------------------------------------
 -- MonadBalances

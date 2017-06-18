@@ -29,6 +29,8 @@ module Pos.Util.Util
        -- * Ether
        , ether
        , Ether.TaggedTrans
+       , HasLens(..)
+       , lensOf'
 
        -- * Lifting monads
        , PowerLift(..)
@@ -70,8 +72,8 @@ import           Control.Monad.Morph            (MFunctor (..))
 import           Control.Monad.Trans.Class      (MonadTrans)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT, transResourceT,
-                                                 )
+import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
+                                                 transResourceT)
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
 import           Data.Tagged                    (Tagged (Tagged))
@@ -82,6 +84,7 @@ import           Data.Time.Units                (Attosecond, Day, Femtosecond, F
                                                  toMicroseconds)
 import           Data.Typeable                  (typeRep)
 import qualified Ether
+import           Ether.Internal                 (HasLens (..))
 import qualified Formatting                     as F
 import qualified Language.Haskell.TH.Syntax     as TH
 import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
@@ -297,6 +300,9 @@ leftToPanic msgPrefix = either (error . mappend msgPrefix . pretty) identity
 -- to make lenses work with Ether.
 ether :: trans m a -> Ether.TaggedTrans tag trans m a
 ether = Ether.TaggedTrans
+
+lensOf' :: forall tag a b. HasLens tag a b => Proxy tag -> Lens' a b
+lensOf' _ = lensOf @tag
 
 class PowerLift m n where
   powerLift :: m a -> n a

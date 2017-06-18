@@ -10,13 +10,13 @@ module Pos.Block.BListener
        , onRollbackBlocksStub
        ) where
 
-import           Control.Monad.Trans          (MonadTrans (..))
-import           Mockable                     (SharedAtomicT)
+import           Control.Monad.Trans   (MonadTrans (..))
+import           Mockable              (SharedAtomicT)
 import           Universum
 
-import           Pos.Block.Types              (Blund)
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
-import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Block.Types       (Blund)
+import           Pos.Ssc.Class.Helpers (SscHelpersClass)
+import           Pos.Util.Chrono       (NE, NewestFirst (..), OldestFirst (..))
 
 class Monad m => MonadBListener m where
     -- Callback will be called after putting blocks into BlocksDB

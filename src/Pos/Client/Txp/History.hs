@@ -28,43 +28,43 @@ module Pos.Client.Txp.History
 
 import           Universum
 
-import           Control.Lens                 (makeLenses, (%=))
-import           Control.Monad.Loops          (unfoldrM)
-import           Control.Monad.Trans          (MonadTrans)
-import           Control.Monad.Trans.Control  (MonadBaseControl)
-import           Control.Monad.Trans.Maybe    (MaybeT (..))
-import qualified Data.DList                   as DL
-import qualified Data.HashSet                 as HS
-import           Data.Tagged                  (Tagged (..))
+import           Control.Lens                (makeLenses, (%=))
+import           Control.Monad.Loops         (unfoldrM)
+import           Control.Monad.Trans         (MonadTrans)
+import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Control.Monad.Trans.Maybe   (MaybeT (..))
+import qualified Data.DList                  as DL
+import qualified Data.HashSet                as HS
+import           Data.Tagged                 (Tagged (..))
 import qualified Ether
-import           System.Wlog                  (WithLogger)
+import           System.Wlog                 (WithLogger)
 
-import           Pos.Block.Core               (Block, mainBlockTxPayload)
-import           Pos.Constants                (blkSecurityParam)
-import           Pos.Context.Context          (GenesisUtxo (..))
-import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
-                                               difficultyL, prevBlockL)
-import           Pos.Crypto                   (WithHash (..), withHash)
-import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
-import qualified Pos.DB.Block                 as DB
-import           Pos.DB.Error                 (DBError (..))
-import qualified Pos.DB.GState                as GS
-import           Pos.Slotting                 (MonadSlots)
-import           Pos.Ssc.Class                (SscHelpersClass)
+import           Pos.Block.Core              (Block, mainBlockTxPayload)
+import           Pos.Constants               (blkSecurityParam)
+import           Pos.Context.Context         (GenesisUtxo (..))
+import           Pos.Core                    (Address, ChainDifficulty, HeaderHash,
+                                              difficultyL, prevBlockL)
+import           Pos.Crypto                  (WithHash (..), withHash)
+import           Pos.DB                      (MonadDBRead, MonadGState, MonadRealDB)
+import qualified Pos.DB.Block                as DB
+import           Pos.DB.Error                (DBError (..))
+import qualified Pos.DB.GState               as GS
+import           Pos.Slotting                (MonadSlots)
+import           Pos.Ssc.Class               (SscHelpersClass)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
+import           Pos.Explorer.Txp.Local      (eTxProcessTransaction)
 #else
-import           Pos.Txp                      (txProcessTransaction)
+import           Pos.Txp                     (txProcessTransaction)
 #endif
-import           Pos.Txp                      (MonadTxpMem, MonadUtxoRead, Tx (..),
-                                               TxAux (..), TxDistribution, TxId, TxOut,
-                                               TxOutAux (..), TxWitness, Utxo, UtxoStateT,
-                                               applyTxToUtxo, evalUtxoStateT,
-                                               filterUtxoByAddrs, flattenTxPayload,
-                                               getLocalTxs, runUtxoStateT, topsortTxs,
-                                               txOutAddress, utxoGet)
-import           Pos.Util                     (ether, maybeThrow)
-import           Pos.WorkMode.Class           (TxpExtra_TMP)
+import           Pos.Txp                     (MonadTxpMem, MonadUtxoRead, Tx (..),
+                                              TxAux (..), TxDistribution, TxId, TxOut,
+                                              TxOutAux (..), TxWitness, Utxo, UtxoStateT,
+                                              applyTxToUtxo, evalUtxoStateT,
+                                              filterUtxoByAddrs, flattenTxPayload,
+                                              getLocalTxs, runUtxoStateT, topsortTxs,
+                                              txOutAddress, utxoGet)
+import           Pos.Util                    (ether, maybeThrow)
+import           Pos.WorkMode.Class          (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}

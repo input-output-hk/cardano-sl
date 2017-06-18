@@ -9,42 +9,24 @@ module Pos.Web.Mode
     , WebModeContext(..)
     ) where
 
-import           Universum
-
-import           Control.Lens
 import qualified Control.Monad.Reader as Mtl
-import           Ether.Internal       (HasLens (..))
 import           Mockable             (Production)
 
 import           Pos.Context          (NodeContext)
-import qualified Pos.DB               as DB
+import           Pos.DB               (NodeDBs)
 import           Pos.DB.Class         (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Redirect      (dbDeleteReal, dbGetReal, dbPutReal,
                                        dbWriteBatchReal)
-import           Pos.ExecMode         (ExecMode (..), ExecModeM)
+import           Pos.ExecMode         (ExecMode (..), ExecModeM, modeContext, (:::))
 import           Pos.Txp.MemState     (GenericTxpLocalData, TxpHolderTag)
 import           Pos.WorkMode         (TxpExtra_TMP)
 
-data WebModeContext ssc = WebModeContext
-    { wmcNodeDBs     :: !DB.NodeDBs
-    , wmcTxpData     :: !(GenericTxpLocalData TxpExtra_TMP)
-    , wmcNodeContext :: !(NodeContext ssc)
-    }
-
-makeLensesFor
-    [ ("wmcNodeContext", "wmcNodeContextL")
-    , ("wmcTxpData",     "wmcTxpDataL")
-    , ("wmcNodeDBs",     "wmcNodeDBsL") ]
-    ''WebModeContext
-
-instance {-# OVERLAPPABLE #-} HasLens tag (NodeContext ssc) r => HasLens tag (WebModeContext ssc) r where
-    lensOf = wmcNodeContextL . lensOf @tag
-
-instance HasLens TxpHolderTag (WebModeContext ssc) (GenericTxpLocalData TxpExtra_TMP) where
-    lensOf = wmcTxpDataL
-
-instance HasLens DB.NodeDBs (WebModeContext ssc) DB.NodeDBs where
-    lensOf = wmcNodeDBsL
+modeContext [d|
+    data WebModeContext ssc = WebModeContext
+        !(NodeDBs      ::: NodeDBs)
+        !(TxpHolderTag ::: GenericTxpLocalData TxpExtra_TMP)
+        !(NodeContext ssc)
+    |]
 
 data WEB ssc
 

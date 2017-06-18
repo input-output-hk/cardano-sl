@@ -1,21 +1,18 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 
 module Pos.Launcher.Mode
     ( InitMode
     , runInitMode
     , InitModeContext(..)
-    , newEmptyInitModeContext
-    , putInitRef
-    , InitRef(..)
+    , newInitFuture
     ) where
 
 import           Universum
 
-import           Control.Lens          (makeLensesFor)
 import qualified Control.Monad.Reader  as Mtl
-import           Ether.Internal        (HasLens (..))
 import           Mockable.Production   (Production)
 import           System.IO.Unsafe      (unsafeInterleaveIO)
 import           System.Wlog           (HasLoggerName (..))
@@ -33,7 +30,7 @@ import           Pos.DB.Class          (MonadBlockDBGeneric (..), MonadDB (..),
                                         MonadDBRead (..))
 import           Pos.DB.Redirect       (dbDeleteReal, dbGetReal, dbPutReal,
                                         dbWriteBatchReal)
-import           Pos.ExecMode          (ExecMode (..), ExecModeM)
+import           Pos.ExecMode          (ExecMode (..), ExecModeM, modeContext, (:::))
 import           Pos.Lrc.Context       (LrcContext)
 import           Pos.Slotting.Class    (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingReal,
@@ -46,65 +43,34 @@ import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Util              (Some (..))
 
-data InitRef a = InitRef
-    { initRefVar :: MVar a
-    , initRefVal :: a }
+-- | 'newInitFuture' creates a thunk and a procedure to fill it. This can be
+-- used to create a data structure and initialize it gradually while doing some
+-- IO (e.g. accessing the database).
+-- There are two contracts the caller must obey:
+-- * the thunk isn't forced until the procedure to fill it was called.
+--   Violation of this contract will lead to an error:
+--     "thread blocked indefinitely in an MVar operation".
+-- * the procedure to fill the thunk is called at most one time or multiple
+--   times but with equivalent values.  Violation of this contract will lead
+--   to non-deterministic choice of which value will be used.
+newInitFuture :: (MonadIO m, MonadIO m') => m (a, a -> m' ())
+newInitFuture = do
+    v <- newEmptyMVar
+    r <- liftIO $ unsafeInterleaveIO (readMVar v)
+    pure (r, putMVar v)
 
-makeLensesFor [ ("initRefVal", "initRefValL") ] ''InitRef
-
-newInitRef :: IO (InitRef a)
-newInitRef = do
-    m <- newEmptyMVar
-    r <- unsafeInterleaveIO (readMVar m)
-    pure (InitRef m r)
-
-data InitModeContext = InitModeContext
-    { imcNodeDBs         :: (InitRef NodeDBs)
-    , imcGenesisUtxo     :: (InitRef GenesisUtxo)
-    , imcGenesisLeaders  :: (InitRef GenesisLeaders)
-    , imcNodeParams      :: (InitRef NodeParams)
-    , imcSlottingVar     :: (InitRef SlottingVar)
-    , imcSlottingContext :: (InitRef SlottingContextSum)
-    , imcLrcContext      :: (InitRef LrcContext)
-    }
-
-newEmptyInitModeContext :: MonadIO m => m InitModeContext
-newEmptyInitModeContext = liftIO $
-    InitModeContext
-        <$> newInitRef <*> newInitRef <*> newInitRef
-        <*> newInitRef <*> newInitRef <*> newInitRef
-        <*> newInitRef
-
-makeLensesFor
-    [ ( "imcNodeDBs", "imcNodeDBsL" )
-    , ( "imcGenesisUtxo", "imcGenesisUtxoL")
-    , ( "imcGenesisLeaders", "imcGenesisLeadersL")
-    , ( "imcNodeParams", "imcNodeParamsL")
-    , ( "imcSlottingVar", "imcSlottingVarL")
-    , ( "imcSlottingContext", "imcSlottingContextL")
-    , ( "imcLrcContext", "imcLrcContextL") ]
-    ''InitModeContext
-
-instance HasLens NodeDBs InitModeContext NodeDBs where
-    lensOf = imcNodeDBsL . initRefValL
-
-instance HasLens GenesisUtxo InitModeContext GenesisUtxo where
-    lensOf = imcGenesisUtxoL . initRefValL
-
-instance HasLens GenesisLeaders InitModeContext GenesisLeaders where
-    lensOf = imcGenesisLeadersL . initRefValL
-
-instance HasLens NodeParams InitModeContext NodeParams where
-    lensOf = imcNodeParamsL . initRefValL
-
-instance HasLens SlottingVar InitModeContext SlottingVar where
-    lensOf = imcSlottingVarL . initRefValL
-
-instance HasLens SlottingContextSum InitModeContext SlottingContextSum where
-    lensOf = imcSlottingContextL . initRefValL
-
-instance HasLens LrcContext InitModeContext LrcContext where
-    lensOf = imcLrcContextL . initRefValL
+modeContext [d|
+    -- The fields are lazy on purpose: this allows using them with
+    -- futures.
+    data InitModeContext = InitModeContext
+        (NodeDBs            ::: NodeDBs)
+        (GenesisUtxo        ::: GenesisUtxo)
+        (GenesisLeaders     ::: GenesisLeaders)
+        (NodeParams         ::: NodeParams)
+        (SlottingVar        ::: SlottingVar)
+        (SlottingContextSum ::: SlottingContextSum)
+        (LrcContext         ::: LrcContext)
+    |]
 
 data INIT ssc
 
@@ -113,18 +79,8 @@ type InitMode ssc = ExecMode (INIT ssc)
 type instance ExecModeM (INIT ssc) =
     Mtl.ReaderT InitModeContext Production
 
-runInitMode
-    :: InitMode ssc a
-    -> Production a
-runInitMode act = do
-    imc <- newEmptyInitModeContext
-    Mtl.runReaderT (unExecMode act) imc
-
-putInitRef :: (InitModeContext -> InitRef a) -> a -> InitMode ssc ()
-putInitRef f a = do
-    imc <- ExecMode Mtl.ask
-    let InitRef v _ = f imc
-    liftIO $ putMVar v a
+runInitMode :: InitModeContext -> InitMode ssc a -> Production a
+runInitMode imc act = Mtl.runReaderT (unExecMode act) imc
 
 instance MonadDBRead (InitMode ssc) where
     dbGet = dbGetReal

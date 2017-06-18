@@ -16,12 +16,8 @@ module Pos.WorkMode
        , RealModeContext(..)
        ) where
 
-import           Universum
-
-import           Control.Lens                (makeLensesFor)
 import qualified Control.Monad.Reader        as Mtl
 import qualified Ether
-import           Ether.Internal              (HasLens (..))
 import           Mockable.Production         (Production)
 import           System.Wlog                 (HasLoggerName (..), LoggerName)
 
@@ -47,7 +43,7 @@ import           Pos.DB.Redirect             (dbDeleteReal, dbGetReal, dbPutReal
 import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.Discovery               (MonadDiscovery (..), findPeersReal,
                                               getPeersReal)
-import           Pos.ExecMode                (ExecMode (..), ExecModeM)
+import           Pos.ExecMode                (ExecMode (..), ExecModeM, modeContext, (:::))
 import           Pos.Slotting.Class          (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum       (currentTimeSlottingReal,
                                               getCurrentSlotBlockingReal,
@@ -65,51 +61,17 @@ import           Pos.Util.JsonLog            (JsonLogConfig, jsonLogReal)
 import           Pos.Util.TimeWarp           (CanJsonLog (..))
 import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
 
-data RealModeContext ssc = RealModeContext
-    { rmcNodeDBs       :: !NodeDBs
-    , rmcSscMem        :: !(SscState ssc)
-    , rmcTxpHolder     :: !(GenericTxpLocalData TxpExtra_TMP)
-    , rmcDelegationVar :: !DelegationVar
-    , rmcPeerState     :: !(PeerStateCtx Production)
-    , rmcJsonLogConfig :: !JsonLogConfig
-    , rmcLoggerName    :: !LoggerName
-    , rmcNodeContext   :: !(NodeContext ssc)
-    }
-
-makeLensesFor
-    [ ("rmcNodeDBs",       "rmcNodeDBsL")
-    , ("rmcSscMem",        "rmcSscMemL")
-    , ("rmcTxpHolder",     "rmcTxpHolderL")
-    , ("rmcDelegationVar", "rmcDelegationVarL")
-    , ("rmcPeerState",     "rmcPeerStateL")
-    , ("rmcJsonLogConfig", "rmcJsonLogConfigL")
-    , ("rmcLoggerName",    "rmcLoggerNameL")
-    , ("rmcNodeContext",   "rmcNodeContextL") ]
-    ''RealModeContext
-
-instance {-# OVERLAPPABLE #-} HasLens tag (NodeContext ssc) r => HasLens tag (RealModeContext ssc) r where
-    lensOf = rmcNodeContextL . lensOf @tag
-
-instance HasLens NodeDBs (RealModeContext ssc) NodeDBs where
-    lensOf = rmcNodeDBsL
-
-instance HasLens SscMemTag (RealModeContext ssc) (SscState ssc) where
-    lensOf = rmcSscMemL
-
-instance HasLens TxpHolderTag (RealModeContext ssc) (GenericTxpLocalData TxpExtra_TMP) where
-    lensOf = rmcTxpHolderL
-
-instance HasLens DelegationVar (RealModeContext ssc) DelegationVar where
-    lensOf = rmcDelegationVarL
-
-instance r ~ PeerStateCtx Production => HasLens PeerStateTag (RealModeContext ssc) r where
-    lensOf = rmcPeerStateL
-
-instance HasLens JsonLogConfig (RealModeContext ssc) JsonLogConfig where
-    lensOf = rmcJsonLogConfigL
-
-instance HasLens LoggerName (RealModeContext ssc) LoggerName where
-    lensOf = rmcLoggerNameL
+modeContext [d|
+    data RealModeContext ssc = RealModeContext
+        !(NodeDBs       ::: NodeDBs)
+        !(SscMemTag     ::: SscState ssc)
+        !(TxpHolderTag  ::: GenericTxpLocalData TxpExtra_TMP)
+        !(DelegationVar ::: DelegationVar)
+        !(PeerStateTag  ::: PeerStateCtx Production)
+        !(JsonLogConfig ::: JsonLogConfig)
+        !(LoggerName    ::: LoggerName)
+        !(NodeContext ssc)
+    |]
 
 data REAL ssc
 

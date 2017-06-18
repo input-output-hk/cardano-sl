@@ -43,7 +43,7 @@ runWRealMode
 runWRealMode db conn =
     runRealBasedMode
         (over _ExecMode (Mtl.withReaderT (WalletWebModeContext db conn)))
-        (over _ExecMode (Mtl.withReaderT wmcRealModeContext))
+        (over _ExecMode (Mtl.withReaderT (\(WalletWebModeContext _ _ rmc) -> rmc)))
 
 walletServeWebFull
     :: SendActions WalletWebMode

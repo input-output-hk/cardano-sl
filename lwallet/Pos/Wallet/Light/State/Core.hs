@@ -8,8 +8,8 @@ module Pos.Wallet.Light.State.Core
 
 import           Universum
 
-import qualified Pos.Constants                as Const
-import           Pos.Core                     (BlockVersionData)
+import qualified Pos.Constants as Const
+import           Pos.Core      (BlockVersionData)
 
 -- Currently 'WalletState' doesn't maintain block version data.
 gsAdoptedBVDataWallet :: Monad m => m BlockVersionData

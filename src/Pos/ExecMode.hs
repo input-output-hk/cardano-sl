@@ -6,6 +6,7 @@ module Pos.ExecMode
     ( ExecMode(..)
     , ExecModeM
     , _ExecMode
+    , module Pos.ExecMode.Context
     ) where
 
 import           Universum
@@ -24,6 +25,9 @@ import           Mockable                    (ChannelT, Counter, Distribution, G
 import           System.Wlog                 (CanLog)
 
 import           Pos.Util.Util               (PowerLift (..))
+
+-- Re-exports.
+import           Pos.ExecMode.Context
 
 type family ExecModeM mode :: * -> *
 

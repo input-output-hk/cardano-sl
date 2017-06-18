@@ -1,6 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 
 -- | Stack of monads used by light wallet.
 
@@ -12,10 +13,8 @@ module Pos.Wallet.Light.Mode
 
 import           Universum
 
-import           Control.Lens                     (makeLensesFor)
 import qualified Control.Monad.Reader             as Mtl
 import qualified Ether
-import           Ether.Internal                   (HasLens (..))
 import           Mockable                         (Production)
 import           System.Wlog                      (HasLoggerName (..), LoggerName)
 
@@ -30,7 +29,8 @@ import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Discovery                    (DiscoveryTag, MonadDiscovery (..),
                                                    findPeersConst, getPeersConst)
-import           Pos.ExecMode                     (ExecMode (..), ExecModeM)
+import           Pos.ExecMode                     ((:::), ExecMode (..), ExecModeM,
+                                                   modeContext)
 import           Pos.Reporting.MemState           (ReportingContext)
 import           Pos.Util.JsonLog                 (JsonLogConfig, jsonLogReal)
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
@@ -42,46 +42,16 @@ import           Pos.Wallet.Light.State.Core      (gsAdoptedBVDataWallet)
 import           Pos.Wallet.WalletMode            (MonadBlockchainInfo (..),
                                                    MonadUpdates (..))
 
-data LightWalletContext = LightWalletContext
-    { lwcPeerState        :: !(PeerStateCtx Production)
-    , lwcKeyData          :: !KeyData
-    , lwcWalletState      :: !WalletState
-    , lwcReportingContext :: !ReportingContext
-    , lwcDiscoveryConst   :: !(Set NodeId)
-    , lwcJsonLogConfig    :: !JsonLogConfig
-    , lwcLoggerName       :: !LoggerName
-    }
-
-makeLensesFor
-  [ ("lwcPeerState", "lwcPeerStateL")
-  , ("lwcKeyData", "lwcKeyDataL")
-  , ("lwcWalletState", "lwcWalletStateL")
-  , ("lwcReportingContext", "lwcReportingContextL")
-  , ("lwcDiscoveryConst", "lwcDiscoveryConstL")
-  , ("lwcJsonLogConfig", "lwcJsonLogConfigL")
-  , ("lwcLoggerName", "lwcLoggerNameL") ]
-  ''LightWalletContext
-
-instance r ~ PeerStateCtx Production => HasLens PeerStateTag LightWalletContext r where
-    lensOf = lwcPeerStateL
-
-instance HasLens KeyData LightWalletContext KeyData where
-    lensOf = lwcKeyDataL
-
-instance HasLens WalletState LightWalletContext WalletState where
-    lensOf = lwcWalletStateL
-
-instance HasLens ReportingContext LightWalletContext ReportingContext where
-    lensOf = lwcReportingContextL
-
-instance HasLens DiscoveryTag LightWalletContext (Set NodeId) where
-    lensOf = lwcDiscoveryConstL
-
-instance HasLens JsonLogConfig LightWalletContext JsonLogConfig where
-    lensOf = lwcJsonLogConfigL
-
-instance HasLens LoggerName LightWalletContext LoggerName where
-    lensOf = lwcLoggerNameL
+modeContext [d|
+    data LightWalletContext = LightWalletContext
+        !(PeerStateTag     ::: PeerStateCtx Production)
+        !(KeyData          ::: KeyData)
+        !(WalletState      ::: WalletState)
+        !(ReportingContext ::: ReportingContext)
+        !(DiscoveryTag     ::: Set NodeId)
+        !(JsonLogConfig    ::: JsonLogConfig)
+        !(LoggerName       ::: LoggerName)
+    |]
 
 data LW
 

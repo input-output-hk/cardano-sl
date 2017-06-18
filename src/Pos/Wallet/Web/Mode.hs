@@ -9,12 +9,8 @@ module Pos.Wallet.Web.Mode
     , WalletWebModeContext(..)
     ) where
 
-import           Universum
-
-import           Control.Lens
 import qualified Control.Monad.Reader          as Mtl
 import qualified Ether
-import           Ether.Internal                (HasLens (..))
 import           Mockable                      (Production)
 import           System.Wlog                   (HasLoggerName (..))
 
@@ -42,7 +38,7 @@ import           Pos.Client.Txp.History        (MonadTxHistory (..),
                                                 getTxHistoryWebWallet, saveTxWebWallet)
 import           Pos.Discovery                 (MonadDiscovery (..), findPeersReal,
                                                 getPeersReal)
-import           Pos.ExecMode                  (ExecMode (..), ExecModeM)
+import           Pos.ExecMode                  (ExecMode (..), ExecModeM, modeContext, (:::))
 import           Pos.Slotting.Class            (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum         (currentTimeSlottingReal,
                                                 getCurrentSlotBlockingReal,
@@ -72,26 +68,12 @@ import           Pos.Wallet.Web.Tracking       (MonadWalletTracking (..),
                                                 txMempoolToModifierWebWallet)
 import           Pos.WorkMode                  (RealModeContext)
 
-data WalletWebModeContext = WalletWebModeContext
-    { wmcWalletState     :: !WalletState
-    , wmcWebSockets      :: !ConnectionsVar
-    , wmcRealModeContext :: !(RealModeContext WalletSscType)
-    }
-
-makeLensesFor
-    [ ("wmcRealModeContext", "wmcRealModeContextL")
-    , ("wmcWalletState",     "wmcWalletStateL")
-    , ("wmcWebSockets",      "wmcWebSocketsL") ]
-    ''WalletWebModeContext
-
-instance {-# OVERLAPPABLE #-} HasLens tag (RealModeContext WalletSscType) r => HasLens tag WalletWebModeContext r where
-    lensOf = wmcRealModeContextL . lensOf @tag
-
-instance HasLens WalletState WalletWebModeContext WalletState where
-    lensOf = wmcWalletStateL
-
-instance HasLens ConnectionsVar WalletWebModeContext ConnectionsVar where
-    lensOf = wmcWebSocketsL
+modeContext [d|
+    data WalletWebModeContext = WalletWebModeContext
+        !(WalletState    ::: WalletState)
+        !(ConnectionsVar ::: ConnectionsVar)
+        !(RealModeContext WalletSscType)
+    |]
 
 data WWEB
 

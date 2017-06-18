@@ -62,6 +62,7 @@ import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..
 import           Pos.Lrc.Context             (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting                (SlottingContextSum (..), SlottingVar,
                                               mkNtpSlottingVar)
+import           Pos.Shutdown.Types          (ShutdownContext (..))
 import           Pos.Ssc.Class               (SscConstraint, SscParams,
                                               sscCreateNodeContext)
 import           Pos.Ssc.Extra               (SscState, mkSscState)
@@ -78,7 +79,7 @@ import           Pos.Update.MemState         (newMemVar)
 import           Pos.Util.Concurrent.RWVar   as RWV
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (TxpExtra_TMP)
-import           Pos.Launcher.Mode           (InitModeContext(..), runInitMode, InitMode, putInitRef)
+import           Pos.Launcher.Mode           (InitModeContext(..), runInitMode, InitMode, newInitFuture)
 import           Pos.Util.Util               (powerLift)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -120,35 +121,48 @@ allocateNodeResources
     => NodeParams
     -> SscParams ssc
     -> Production (NodeResources ssc Production)
-allocateNodeResources np@NodeParams {..} sscnp = runInitMode $ do
-    putInitRef imcNodeParams np
-    putInitRef imcGenesisUtxo (GenesisUtxo npCustomUtxo)
-    putInitRef imcGenesisLeaders (GenesisLeaders (genesisLeaders npCustomUtxo))
-    db <- openNodeDBs npRebuildDb npDbPathM
-    putInitRef imcNodeDBs db
-    initNodeDBs @ssc
-    ctx@NodeContext {..} <- allocateNodeContext np sscnp
-    putInitRef imcLrcContext ncLrcContext
-    initTip <- getTip
-    setupLoggers $ bpLoggingParams npBaseParams
-    dlgVar <- RWV.new def
-    txpVar <- mkTxpLocalData mempty initTip
-    peerState <- liftIO SM.newIO
-    sscState <- mkSscState @ssc
-    nrTransport <- powerLift @Production $ createTransportTCP $ npTcpAddr npNetwork
-    nrJLogHandle <-
-        case npJLFile of
-            Nothing -> pure Nothing
-            Just fp -> Just <$> openFile fp WriteMode
-    return NodeResources
-        { nrContext = ctx
-        , nrDBs = db
-        , nrSscState = sscState
-        , nrTxpState = txpVar
-        , nrDlgState = dlgVar
-        , nrPeerState = peerState
-        , ..
-        }
+allocateNodeResources np@NodeParams {..} sscnp = do
+    (futureNodeDBs, putNodeDBs) <- newInitFuture
+    (futureLrcContext, putLrcContext) <- newInitFuture
+    (futureSlottingVar, putSlottingVar) <- newInitFuture
+    (futureSlottingContext, putSlottingContext) <- newInitFuture
+    let putSlotting sv sc = do
+            putSlottingVar sv
+            putSlottingContext sc
+        initModeContext = InitModeContext
+            futureNodeDBs
+            (GenesisUtxo npCustomUtxo)
+            (GenesisLeaders (genesisLeaders npCustomUtxo))
+            np
+            futureSlottingVar
+            futureSlottingContext
+            futureLrcContext
+    runInitMode initModeContext $ do
+        db <- openNodeDBs npRebuildDb npDbPathM
+        putNodeDBs db
+        initNodeDBs @ssc
+        ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting
+        putLrcContext ncLrcContext
+        initTip <- getTip
+        setupLoggers $ bpLoggingParams npBaseParams
+        dlgVar <- RWV.new def
+        txpVar <- mkTxpLocalData mempty initTip
+        peerState <- liftIO SM.newIO
+        sscState <- mkSscState @ssc
+        nrTransport <- powerLift @Production $ createTransportTCP $ npTcpAddr npNetwork
+        nrJLogHandle <-
+            case npJLFile of
+                Nothing -> pure Nothing
+                Just fp -> Just <$> openFile fp WriteMode
+        return NodeResources
+            { nrContext = ctx
+            , nrDBs = db
+            , nrSscState = sscState
+            , nrTxpState = txpVar
+            , nrDlgState = dlgVar
+            , nrPeerState = peerState
+            , ..
+            }
 
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
@@ -200,8 +214,9 @@ allocateNodeContext
       (SscConstraint ssc, SecurityWorkersClass ssc)
     => NodeParams
     -> SscParams ssc
+    -> (SlottingVar -> SlottingContextSum -> InitMode ssc ())
     -> InitMode ssc (NodeContext ssc)
-allocateNodeContext np@NodeParams {..} sscnp = do
+allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
@@ -216,8 +231,7 @@ allocateNodeContext np@NodeParams {..} sscnp = do
         case npUseNTP of
             True  -> SCNtp <$> mkNtpSlottingVar
             False -> pure SCSimple
-    putInitRef imcSlottingVar ncSlottingVar
-    putInitRef imcSlottingContext ncSlottingContext
+    putSlotting ncSlottingVar ncSlottingContext
     ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $ newTBQueueIO Const.blockRetrievalQueueSize
     ncInvPropagationQueue <- liftIO $ newTBQueueIO Const.propagationQueueSize
@@ -237,10 +251,10 @@ allocateNodeContext np@NodeParams {..} sscnp = do
             { ncConnectedPeers = ConnectedPeers peersVar
             , ncLrcContext = LrcContext {..}
             , ncUpdateContext = UpdateContext {..}
+            , ncShutdownContext = ShutdownContext ncShutdownFlag shutdownQueue
             , ncNodeParams = np
-            , ncGenesisLeaders = genesisLeaders npCustomUtxo
+            , ncGenesisLeaders = GenesisLeaders (genesisLeaders npCustomUtxo)
             , ncSendLock = Nothing
-            , ncShutdownNotifyQueue = shutdownQueue
 #ifdef WITH_EXPLORER
             , ncTxpGlobalSettings = explorerTxpGlobalSettings
 #else

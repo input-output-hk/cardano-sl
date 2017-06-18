@@ -17,7 +17,7 @@ import           Pos.DB               (NodeDBs)
 import           Pos.DB.Class         (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Redirect      (dbDeleteDefault, dbGetDefault, dbPutDefault,
                                        dbWriteBatchDefault)
-import           Pos.ExecMode         (ExecMode (..), ExecModeM, modeContext, (:::))
+import           Pos.ExecMode         ((:::), ExecMode (..), ExecModeM, modeContext)
 import           Pos.Txp.MemState     (GenericTxpLocalData, TxpHolderTag)
 import           Pos.WorkMode         (TxpExtra_TMP)
 

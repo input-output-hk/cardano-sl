@@ -24,13 +24,13 @@ import           Pos.Core              (IsHeader)
 import           Pos.DB                (NodeDBs)
 import           Pos.DB.Block          (MonadBlockDBWrite (..), dbGetBlockDefault,
                                         dbGetBlockSscDefault, dbGetHeaderDefault,
-                                        dbGetHeaderSscDefault, dbGetUndoDefault, dbGetUndoSscDefault,
-                                        dbPutBlundDefault)
+                                        dbGetHeaderSscDefault, dbGetUndoDefault,
+                                        dbGetUndoSscDefault, dbPutBlundDefault)
 import           Pos.DB.Class          (MonadBlockDBGeneric (..), MonadDB (..),
                                         MonadDBRead (..))
 import           Pos.DB.Redirect       (dbDeleteDefault, dbGetDefault, dbPutDefault,
                                         dbWriteBatchDefault)
-import           Pos.ExecMode          (ExecMode (..), ExecModeM, modeContext, (:::))
+import           Pos.ExecMode          ((:::), ExecMode (..), ExecModeM, modeContext)
 import           Pos.Lrc.Context       (LrcContext)
 import           Pos.Slotting.Class    (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
@@ -38,7 +38,8 @@ import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingS
                                         getCurrentSlotInaccurateSum, getCurrentSlotSum)
 import           Pos.Slotting.MemState (MonadSlotsData (..), SlottingVar,
                                         getSlottingDataDefault, getSystemStartDefault,
-                                        putSlottingDataDefault, waitPenultEpochEqualsDefault)
+                                        putSlottingDataDefault,
+                                        waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Util              (Some (..))

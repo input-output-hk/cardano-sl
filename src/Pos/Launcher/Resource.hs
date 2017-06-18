@@ -28,8 +28,8 @@ import           Data.Default                (def)
 import           Data.Tagged                 (untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (sformat, shown, (%))
-import           Mockable                    (Catch, Mockable,
-                                              Production (..), Throw, bracket, throw)
+import           Mockable                    (Catch, Mockable, Production (..), Throw,
+                                              bracket, throw)
 import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport.Abstract  (Transport, closeTransport, hoistTransport)
 import           Network.Transport.Concrete  (concrete)
@@ -48,7 +48,7 @@ import qualified Pos.Constants               as Const
 import           Pos.Context                 (BlkSemaphore (..), ConnectedPeers (..),
                                               GenesisLeaders (..), GenesisUtxo (..),
                                               NodeContext (..), StartTime (..))
-import           Pos.Core                    (Timestamp ())
+import           Pos.Core                    (Timestamp)
 import           Pos.DB                      (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                   (closeNodeDBs, initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
@@ -60,9 +60,9 @@ import           Pos.Genesis                 (genesisLeaders)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NetworkParams (..), NodeParams (..))
 import           Pos.Lrc.Context             (LrcContext (..), mkLrcSyncData)
+import           Pos.Shutdown.Types          (ShutdownContext (..))
 import           Pos.Slotting                (SlottingContextSum (..), SlottingVar,
                                               mkNtpSlottingVar)
-import           Pos.Shutdown.Types          (ShutdownContext (..))
 import           Pos.Ssc.Class               (SscConstraint, SscParams,
                                               sscCreateNodeContext)
 import           Pos.Ssc.Extra               (SscState, mkSscState)
@@ -72,15 +72,16 @@ import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
 import           Pos.Txp                     (txpGlobalSettings)
 #endif
+import           Pos.Launcher.Mode           (InitMode, InitModeContext (..),
+                                              newInitFuture, runInitMode)
 import           Pos.Security                (SecurityWorkersClass)
 import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (newMemVar)
 import           Pos.Util.Concurrent.RWVar   as RWV
+import           Pos.Util.Util               (powerLift)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (TxpExtra_TMP)
-import           Pos.Launcher.Mode           (InitModeContext(..), runInitMode, InitMode, newInitFuture)
-import           Pos.Util.Util               (powerLift)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}

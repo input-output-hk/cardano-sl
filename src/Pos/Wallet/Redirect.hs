@@ -17,27 +17,26 @@ module Pos.Wallet.Redirect
 
 import           Universum
 
-import           Control.Concurrent.STM       (tryReadTMVar)
-import           Control.Monad.Trans.Maybe    (MaybeT (..))
-import           Data.Time.Units              (Millisecond)
+import           Control.Concurrent.STM    (tryReadTMVar)
+import           Control.Monad.Trans.Maybe (MaybeT (..))
+import           Data.Time.Units           (Millisecond)
 import qualified Ether
-import           System.Wlog                  (WithLogger)
+import           System.Wlog               (WithLogger)
 
-import           Pos.Block.Core               (Block, BlockHeader)
-import           Pos.Constants                (blkSecurityParam)
-import qualified Pos.Context                  as PC
-import           Pos.Core                     (ChainDifficulty, difficultyL,
-                                               flattenEpochOrSlot, flattenSlotId)
-import           Pos.DB                       (MonadRealDB)
-import           Pos.DB.Block                 (MonadBlockDB)
-import           Pos.DB.DB                    (getTipHeader)
-import           Pos.Shutdown                 (MonadShutdownMem, triggerShutdown)
-import           Pos.Slotting                 (MonadSlots (..), getLastKnownSlotDuration)
-import           Pos.Ssc.Class                (Ssc)
-import           Pos.Update.Context           (UpdateContext (ucUpdateSemaphore))
-import           Pos.Update.Poll.Types        (ConfirmedProposalState)
-import           Pos.Wallet.WalletMode        (MonadBlockchainInfo (..),
-                                               MonadUpdates (..))
+import           Pos.Block.Core            (Block, BlockHeader)
+import           Pos.Constants             (blkSecurityParam)
+import qualified Pos.Context               as PC
+import           Pos.Core                  (ChainDifficulty, difficultyL,
+                                            flattenEpochOrSlot, flattenSlotId)
+import           Pos.DB                    (MonadRealDB)
+import           Pos.DB.Block              (MonadBlockDB)
+import           Pos.DB.DB                 (getTipHeader)
+import           Pos.Shutdown              (MonadShutdownMem, triggerShutdown)
+import           Pos.Slotting              (MonadSlots (..), getLastKnownSlotDuration)
+import           Pos.Ssc.Class             (Ssc)
+import           Pos.Update.Context        (UpdateContext (ucUpdateSemaphore))
+import           Pos.Update.Poll.Types     (ConfirmedProposalState)
+import           Pos.Wallet.WalletMode     (MonadBlockchainInfo (..), MonadUpdates (..))
 
 ----------------------------------------------------------------------------
 -- BlockchainInfo

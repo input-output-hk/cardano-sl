@@ -1,18 +1,18 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeOperators       #-}
 
 module Pos.ExecMode.Context
-    ( type (:::)
+    ( (:::)
     , HasLens(..)
     , modeContext
     ) where
 
-import Universum
+import           Universum
 
-import Language.Haskell.TH
+import           Language.Haskell.TH
 
-import Pos.Util.Util (HasLens(..), lensOf')
+import           Pos.Util.Util       (HasLens (..), lensOf')
 
 -- | Bundle a tag and a value. The 'modeContext' function will transform
 -- @Tag ::: Integer@ to @Integer@ and use @Tag@ as meta-info about the field.
@@ -27,7 +27,7 @@ modeContext dsQ = do
         _ ->
             fail "modeContext: Expected a single data declaration"
     let
-        tyParam (PlainTV tvName) = VarT tvName
+        tyParam (PlainTV tvName)         = VarT tvName
         tyParam (KindedTV tvName tvKind) = VarT tvName `SigT` tvKind
         ty = foldl' AppT (ConT dName) (map tyParam dTyVarBndrs)
     (conName, conTys) <- case dCons of
@@ -51,7 +51,11 @@ modeContext dsQ = do
                     (map VarE $ xNames1 ++ [patakPrimeName] ++ xNames2)
             patakExpQ = return $ VarE patakName
             patakPrimePatQ = return $ VarP patakPrimeName
-          [e| \f $bubaPatQ -> fmap (\ $patakPrimePatQ -> $bubaExpQ ) (f $patakExpQ)|]
+            fmapQ a b = varE 'fmap `appE` a `appE` b
+          fName <- newName "f"
+          lamE [varP fName, bubaPatQ] $
+              fmapQ (lamE [patakPrimePatQ] bubaExpQ)
+                  (varE fName `appE` patakExpQ)
     (unzip -> (conNewTys, concat -> hasLensInstances)) <-
         forM (zip [0..] conTys) $ \(i, (tyBang, conTy)) -> do
             case conTy of

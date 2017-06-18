@@ -43,14 +43,16 @@ import           Pos.DB.Redirect             (dbDeleteDefault, dbGetDefault, dbP
 import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.Discovery               (MonadDiscovery (..), findPeersSum,
                                               getPeersSum)
-import           Pos.ExecMode                (ExecMode (..), ExecModeM, modeContext, (:::))
+import           Pos.ExecMode                ((:::), ExecMode (..), ExecModeM,
+                                              modeContext)
 import           Pos.Slotting.Class          (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
                                               getCurrentSlotBlockingSum,
                                               getCurrentSlotInaccurateSum,
                                               getCurrentSlotSum)
 import           Pos.Slotting.MemState       (MonadSlotsData (..), getSlottingDataDefault,
-                                              getSystemStartDefault, putSlottingDataDefault,
+                                              getSystemStartDefault,
+                                              putSlottingDataDefault,
                                               waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Ssc.Class.Types         (SscBlock)

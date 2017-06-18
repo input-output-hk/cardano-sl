@@ -32,23 +32,26 @@ import           Pos.DB.Block                  (MonadBlockDBWrite (..), dbGetBlo
 import           Pos.DB.Class                  (MonadBlockDBGeneric (..), MonadDB (..),
                                                 MonadDBRead (..))
 import           Pos.DB.DB                     (gsAdoptedBVDataDefault)
-import           Pos.DB.Redirect               (dbDeleteDefault, dbGetDefault, dbPutDefault,
-                                                dbWriteBatchDefault)
+import           Pos.DB.Redirect               (dbDeleteDefault, dbGetDefault,
+                                                dbPutDefault, dbWriteBatchDefault)
 
 import           Pos.Client.Txp.Balances       (MonadBalances (..), getBalanceDefault,
                                                 getOwnUtxosDefault)
-import           Pos.Client.Txp.History        (MonadTxHistory (..),
-                                                getTxHistoryDefault, saveTxDefault)
+import           Pos.Client.Txp.History        (MonadTxHistory (..), getTxHistoryDefault,
+                                                saveTxDefault)
 import           Pos.Discovery                 (MonadDiscovery (..), findPeersSum,
                                                 getPeersSum)
-import           Pos.ExecMode                  (ExecMode (..), ExecModeM, modeContext, (:::), HasLens(..))
+import           Pos.ExecMode                  ((:::), ExecMode (..), ExecModeM,
+                                                HasLens (..), modeContext)
 import           Pos.Slotting.Class            (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum         (currentTimeSlottingSum,
                                                 getCurrentSlotBlockingSum,
                                                 getCurrentSlotInaccurateSum,
                                                 getCurrentSlotSum)
-import           Pos.Slotting.MemState         (MonadSlotsData (..), getSlottingDataDefault,
-                                                getSystemStartDefault, putSlottingDataDefault,
+import           Pos.Slotting.MemState         (MonadSlotsData (..),
+                                                getSlottingDataDefault,
+                                                getSystemStartDefault,
+                                                putSlottingDataDefault,
                                                 waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Types           (SscBlock)
 import           Pos.Util                      (Some (..))

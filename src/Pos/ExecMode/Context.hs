@@ -30,9 +30,12 @@ modeContext dsQ = do
         tyParam (PlainTV tvName)         = VarT tvName
         tyParam (KindedTV tvName tvKind) = VarT tvName `SigT` tvKind
         ty = foldl' AppT (ConT dName) (map tyParam dTyVarBndrs)
-    (conName, conTys) <- case dCons of
-        [NormalC conName conTys] ->
-            return (conName, conTys)
+    (conName, conTys, mConTyNames) <- case dCons of
+        [NormalC conName conTys] -> return $
+            (conName, conTys, Nothing)
+        [RecC conName conNamedTys] -> return $
+            let (conTys, conTyNames) = unzip [ ((b, t), n) | (n, b, t) <- conNamedTys ]
+            in (conName, conTys, Just conTyNames)
         _ ->
             fail "modeContext: Expected a single normal constructor"
     let
@@ -69,6 +72,10 @@ modeContext dsQ = do
                         [d|instance {-# OVERLAPPABLE #-} HasLens tag $(pure conTy) patak => HasLens tag $(pure ty) patak where
                                lensOf = $(eLens i) . lensOf' (Proxy :: Proxy tag)|]
                     return ((tyBang, conTy), hasLensInst)
-    let dNewCons = [NormalC conName conNewTys]
+    let dNewCons = case mConTyNames of
+            Nothing -> [NormalC conName conNewTys]
+            Just conTyNames ->
+                let conNamedTys = [(n, b, t) | ((b, t), n) <- zip conNewTys conTyNames]
+                in [RecC conName conNamedTys]
         newDataDecl = DataD dCxt dName dTyVarBndrs dKs dNewCons dCxt'
     return (newDataDecl : hasLensInstances)

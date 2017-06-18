@@ -255,7 +255,6 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
             , ncShutdownContext = ShutdownContext ncShutdownFlag shutdownQueue
             , ncNodeParams = np
             , ncGenesisLeaders = GenesisLeaders (genesisLeaders npCustomUtxo)
-            , ncSendLock = Nothing
 #ifdef WITH_EXPLORER
             , ncTxpGlobalSettings = explorerTxpGlobalSettings
 #else

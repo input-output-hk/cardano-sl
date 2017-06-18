@@ -3,7 +3,7 @@
 module Test.Pos.Arbitrary.Infra.Communication () where
 
 import           Data.DeriveTH                    (derive, makeArbitrary)
-import           Node.Message                     (MessageName (..))
+import           Node.Message.Class               (MessageName (..))
 import           Test.QuickCheck                  (Arbitrary (..), choose, oneof)
 import           Universum
 

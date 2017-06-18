@@ -17,26 +17,27 @@ import           Control.Monad.Except (MonadError)
 import           System.Wlog          (WithLogger)
 
 import           Pos.Core             (IsGenesisHeader, IsMainHeader)
-import           Pos.DB               (MonadDBRead, SomeBatchOp)
+import           Pos.DB               (MonadDBRead, MonadGState, SomeBatchOp)
 import           Pos.Slotting         (MonadSlots)
 import           Pos.Txp.Core         (TxPayload, TxpUndo)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Util        (Some)
 
-type TxpGlobalVerifyMode m = ( WithLogger m
-                             , MonadDBRead m
+type TxpCommonMode m = ( WithLogger m
+                       , MonadDBRead m
+                       , MonadGState m
+                       )
+
+type TxpGlobalVerifyMode m = ( TxpCommonMode m
                              , MonadError ToilVerFailure m
                              )
 
-type TxpGlobalApplyMode m = ( WithLogger m
-                            , MonadDBRead m
+type TxpGlobalApplyMode m = ( TxpCommonMode m
                             , MonadSlots m  -- TODO: I don't like it (@gromak)
                             )
 
-type TxpGlobalRollbackMode m = ( WithLogger m
-                               , MonadDBRead m
-                               )
+type TxpGlobalRollbackMode m = TxpCommonMode m
 
 -- [CSL-1156] Maybe find better approach (at least wrap into normal types).
 type TxpBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, TxPayload)

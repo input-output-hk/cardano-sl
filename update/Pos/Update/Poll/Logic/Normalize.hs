@@ -20,8 +20,8 @@ import           System.Wlog                 (logWarning)
 import           Pos.Core                    (Coin, EpochIndex, SlotId (siEpoch),
                                               addressHash, applyCoinPortion, mkCoin,
                                               unsafeAddCoin)
+import           Pos.Core.Constants          (genesisUpdateProposalThd)
 import           Pos.Crypto                  (PublicKey, hash)
-import           Pos.Update.Constants        (genesisUpdateProposalThd)
 import           Pos.Update.Core             (LocalVotes, UpId, UpdateProposal,
                                               UpdateProposals, UpdateVote (..))
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))

@@ -65,9 +65,9 @@ library
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
-                     , conduit
                      , concurrent-extra
                      , containers
+                     , conduit
                      , data-default
                      , ether >= 0.5
                      , exceptions
@@ -79,6 +79,7 @@ library
                      , node-sketch
                      , parsec
                      , rocksdb
+                     , resourcet
                      , safecopy
                      , serokell-util
                      , stm

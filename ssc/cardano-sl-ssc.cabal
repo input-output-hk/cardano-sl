@@ -38,7 +38,6 @@ library
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
-                     , cardano-sl-update
                      , ether
                      , exceptions
                      , formatting

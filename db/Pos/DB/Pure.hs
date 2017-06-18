@@ -13,15 +13,16 @@ module Pos.DB.Pure
 
 import           Universum
 
-import           Control.Lens      (at, makeLenses, uses)
-import qualified Data.ByteString   as BS
-import qualified Data.Conduit.List as CL
-import qualified Data.Map          as M
+import           Control.Lens                (at, makeLenses, uses)
+import           Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Data.ByteString             as BS
+import qualified Data.Conduit.List           as CL
+import qualified Data.Map                    as M
 import qualified Ether
 
-import           Pos.DB.Class      (DBTag (..), MonadDBRead (..), iterKeyPrefix)
-import           Pos.DB.Functions  (processIterEntry)
-import           Pos.Util.Util     (ether)
+import           Pos.DB.Class                (DBTag (..), MonadDBRead (..), iterKeyPrefix)
+import           Pos.DB.Functions            (processIterEntry)
+import           Pos.Util.Util               (ether)
 
 type DBPureMap = Map ByteString ByteString
 
@@ -43,11 +44,11 @@ tagToLens MiscDB       = pureMiscDB
 
 type DBPureT m = Ether.StateT' DBPure m
 
-instance (MonadThrow m) => MonadDBRead (DBPureT m) where
+instance (MonadThrow m, MonadBaseControl IO m) => MonadDBRead (DBPureT m) where
     dbGet (tagToLens -> l) key = ether $ use $ l . at key
     dbIterSource (tagToLens -> l) (_ :: Proxy i) = do
         let filterPrefix = M.filterWithKey $ \k _ -> iterKeyPrefix @i `BS.isPrefixOf` k
         (filtered :: [(ByteString, ByteString)]) <-
-            lift $ ether $ uses l $ M.toList . filterPrefix
+            lift . lift $ ether $ uses l $ M.toList . filterPrefix
         deserialized <- catMaybes <$> mapM (processIterEntry @i) filtered
         CL.sourceList deserialized

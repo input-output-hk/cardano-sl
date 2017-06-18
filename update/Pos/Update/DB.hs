@@ -39,40 +39,40 @@ module Pos.Update.DB
 
 import           Universum
 
-import           Data.Conduit               (Source, mapOutput, sourceToList, (.|))
-import qualified Data.Conduit.List          as CL
-import           Data.Time.Units            (convertUnit)
-import qualified Database.RocksDB           as Rocks
-import           Serokell.Data.Memory.Units (Byte)
+import           Control.Monad.Trans.Resource (ResourceT)
+import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
+import qualified Data.Conduit.List            as CL
+import           Data.Time.Units              (convertUnit)
+import qualified Database.RocksDB             as Rocks
+import           Serokell.Data.Memory.Units   (Byte)
 
-import           Pos.Binary.Class           (encodeStrict)
-import           Pos.Binary.Infra.Slotting  ()
-import           Pos.Binary.Update          ()
-import           Pos.Core                   (ApplicationName, BlockVersion,
-                                             ChainDifficulty, NumSoftwareVersion, SlotId,
-                                             SoftwareVersion (..), StakeholderId,
-                                             Timestamp (..))
-import           Pos.Core.Constants         (epochSlots)
-import           Pos.Crypto                 (hash)
-import           Pos.DB                     (DBIteratorClass (..), DBTag (GStateDB),
-                                             IterType, MonadDB, MonadDBRead,
-                                             RocksBatchOp (..), dbIterSource,
-                                             encodeWithKeyPrefix)
-import           Pos.DB.Error               (DBError (DBMalformed))
-import           Pos.DB.GState.Common       (gsGetBi, writeBatchGState)
-import           Pos.Slotting.Types         (EpochSlottingData (..), SlottingData (..))
-import           Pos.Update.Constants       (genesisBlockVersion, genesisBlockVersionData,
-                                             genesisSlotDuration, genesisSoftwareVersions,
-                                             ourAppName)
-import           Pos.Update.Core            (BlockVersionData (..), UpId,
-                                             UpdateProposal (..))
-import           Pos.Update.Poll.Types      (BlockVersionState (..),
-                                             ConfirmedProposalState,
-                                             DecidedProposalState (dpsDifficulty),
-                                             ProposalState (..),
-                                             UndecidedProposalState (upsSlot),
-                                             cpsSoftwareVersion, psProposal)
-import           Pos.Util.Util              (maybeThrow)
+import           Pos.Binary.Class             (encodeStrict)
+import           Pos.Binary.Infra.Slotting    ()
+import           Pos.Binary.Update            ()
+import           Pos.Core                     (ApplicationName, BlockVersion,
+                                               ChainDifficulty, NumSoftwareVersion,
+                                               SlotId, SoftwareVersion (..),
+                                               StakeholderId, Timestamp (..))
+import           Pos.Core.Constants           (epochSlots, genesisBlockVersionData,
+                                               genesisSlotDuration)
+import           Pos.Crypto                   (hash)
+import           Pos.DB                       (DBIteratorClass (..), DBTag (..), IterType,
+                                               MonadDB, MonadDBRead (..),
+                                               RocksBatchOp (..), encodeWithKeyPrefix)
+import           Pos.DB.Error                 (DBError (DBMalformed))
+import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
+import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData (..))
+import           Pos.Update.Constants         (genesisBlockVersion,
+                                               genesisSoftwareVersions, ourAppName)
+import           Pos.Update.Core              (BlockVersionData (..), UpId,
+                                               UpdateProposal (..))
+import           Pos.Update.Poll.Types        (BlockVersionState (..),
+                                               ConfirmedProposalState,
+                                               DecidedProposalState (dpsDifficulty),
+                                               ProposalState (..),
+                                               UndecidedProposalState (upsSlot),
+                                               cpsSoftwareVersion, psProposal)
+import           Pos.Util.Util                (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -209,7 +209,7 @@ instance DBIteratorClass PropIter where
     type IterValue PropIter = ProposalState
     iterKeyPrefix = iterationPrefix
 
-proposalSource :: (MonadDBRead m) => Source m (IterType PropIter)
+proposalSource :: (MonadDBRead m) => Source (ResourceT m) (IterType PropIter)
 proposalSource = dbIterSource GStateDB (Proxy @PropIter)
 
 -- TODO: it can be optimized by storing some index sorted by
@@ -219,7 +219,7 @@ getOldProposals
     :: MonadDBRead m
     => SlotId -> m [UndecidedProposalState]
 getOldProposals slotId =
-    sourceToList $ mapOutput snd proposalSource .| CL.mapMaybe isOld
+    runConduitRes $ mapOutput snd proposalSource .| CL.mapMaybe isOld .| CL.consume
   where
     isOld (PSUndecided u) | upsSlot u <= slotId = Just u
     isOld _               = Nothing
@@ -230,7 +230,7 @@ getDeepProposals
     :: MonadDBRead m
     => ChainDifficulty -> m [DecidedProposalState]
 getDeepProposals cd =
-    sourceToList $ mapOutput snd proposalSource .| CL.mapMaybe isDeep
+    runConduitRes $ mapOutput snd proposalSource .| CL.mapMaybe isDeep .| CL.consume
   where
     isDeep e | PSDecided u <- e
              , Just proposalDifficulty <- dpsDifficulty u
@@ -240,7 +240,7 @@ getDeepProposals cd =
 -- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
 getProposalsByApp :: MonadDBRead m => ApplicationName -> m [ProposalState]
 getProposalsByApp appName =
-    sourceToList $ mapOutput snd proposalSource .| CL.filter matchesName
+    runConduitRes $ mapOutput snd proposalSource .| CL.filter matchesName .| CL.consume
   where
     matchesName e = appName == (svAppName $ upSoftwareVersion $ psProposal e)
 
@@ -260,9 +260,10 @@ getConfirmedProposals
     :: MonadDBRead m
     => Maybe NumSoftwareVersion -> m [ConfirmedProposalState]
 getConfirmedProposals reqNsv =
-    sourceToList $
+    runConduitRes $
         dbIterSource GStateDB (Proxy @ConfPropIter) .|
-        CL.mapMaybe onItem
+        CL.mapMaybe onItem .|
+        CL.consume
   where
     onItem (SoftwareVersion {..}, cps) =
         case reqNsv of
@@ -278,22 +279,22 @@ instance DBIteratorClass BVIter where
     type IterValue BVIter = BlockVersionState
     iterKeyPrefix = bvStateIterationPrefix
 
-bvSource :: (MonadDBRead m) => Source m (IterType BVIter)
+bvSource :: (MonadDBRead m) => Source (ResourceT m) (IterType BVIter)
 bvSource = dbIterSource GStateDB (Proxy @BVIter)
 
 -- | Get all proposed 'BlockVersion's.
 getProposedBVs :: MonadDBRead m => m [BlockVersion]
-getProposedBVs = sourceToList $ mapOutput fst bvSource
+getProposedBVs = runConduitRes $ mapOutput fst bvSource .| CL.consume
 
 getProposedBVStates :: MonadDBRead m => m [BlockVersionState]
-getProposedBVStates = sourceToList $ mapOutput snd bvSource
+getProposedBVStates = runConduitRes $ mapOutput snd bvSource .| CL.consume
 
 -- | Get all competing 'BlockVersion's and their states.
 getCompetingBVStates
     :: MonadDBRead m
     => m [(BlockVersion, BlockVersionState)]
 getCompetingBVStates =
-    sourceToList $ bvSource .| CL.filter (bvsIsConfirmed . snd)
+    runConduitRes $ bvSource .| CL.filter (bvsIsConfirmed . snd) .| CL.consume
 
 ----------------------------------------------------------------------------
 -- Keys ('us' prefix stands for Update System)

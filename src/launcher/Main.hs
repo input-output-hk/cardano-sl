@@ -133,30 +133,30 @@ usageExample :: Maybe Doc
 usageExample = Just [Q.s|
 Command example:
 
-  stack exec -- cardano-launcher                                     \
-    --node binaries_v000/cardano-node                                \
-    --node-log-config scripts/update-log-config.yaml                 \
-    -n "--update-server"                                             \
-    -n "http://localhost:3001"                                       \
-    -n "--update-latest-path"                                        \
-    -n "updateDownloaded.tar"                                        \
-    -n "--listen"                                                    \
-    -n "127.0.0.1:3004"                                              \
-    -n "--peer"                                                      \
-    -n "127.0.0.1:3000/a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA=" \
-    -n "--flat-distr"                                                \
-    -n "(3,100000)"                                                  \
-    -n "--rebuild-db"                                                \
-    -n "--wallet"                                                    \
-    -n "--web-port"                                                  \
-    -n 8080                                                          \
-    -n "--wallet-port"                                               \
-    -n 8090                                                          \
-    -n "--wallet-rebuild-db"                                         \
-    --updater cardano-updater                                        \
-    -u "dir"                                                         \
-    -u "binaries_v000"                                               \
-    --node-timeout 5                                                 \
+  stack exec -- cardano-launcher                                   \
+    --node binaries_v000/cardano-node                              \
+    --node-log-config scripts/log-templates/update-log-config.yaml \
+    -n "--update-server"                                           \
+    -n "http://localhost:3001"                                     \
+    -n "--update-latest-path"                                      \
+    -n "updateDownloaded.tar"                                      \
+    -n "--listen"                                                  \
+    -n "127.0.0.1:3004"                                            \
+    -n "--kademlia-id"                                             \
+    -n "a_P8zb6fNP7I2H54FtGuhqxaMDAwMDAwMDAwMDAwMDA="              \
+    -n "--flat-distr"                                              \
+    -n "(3,100000)"                                                \
+    -n "--rebuild-db"                                              \
+    -n "--wallet"                                                  \
+    -n "--web-port"                                                \
+    -n 8080                                                        \
+    -n "--wallet-port"                                             \
+    -n 8090                                                        \
+    -n "--wallet-rebuild-db"                                       \
+    --updater cardano-updater                                      \
+    -u "dir"                                                       \
+    -u "binaries_v000"                                             \
+    --node-timeout 5                                               \
     --update-archive updateDownloaded.tar|]
 
 main :: IO ()

@@ -7,7 +7,6 @@ module Pos.Ssc.Extra.Holder
        ( SscMemTag
        , SscState
        , mkSscState
-       , bottomSscState
        ) where
 
 import           Universum
@@ -39,6 +38,3 @@ mkSscState = do
     gState <- sscLoadGlobalState @ssc
     ld <- sscNewLocalData @ssc
     liftIO $ SscState <$> STM.newTVarIO gState <*> STM.newTVarIO ld
-
-bottomSscState :: SscState ssc
-bottomSscState = error "SSC var: don't force me"

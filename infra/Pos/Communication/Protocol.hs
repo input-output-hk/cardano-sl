@@ -16,6 +16,7 @@ module Pos.Communication.Protocol
        , worker
        , worker'
        , localWorker
+       , localSpecs
        , toAction
        , unpackLSpecs
        , hoistMkListeners
@@ -34,7 +35,7 @@ import           Formatting                       (bprint, build, sformat, (%))
 import           Mockable                         (Delay, Fork, Mockable, Mockables,
                                                    SharedAtomic, Throw, throw)
 import qualified Node                             as N
-import           Node.Message                     (Message (..), MessageName (..),
+import           Node.Message.Class               (Message (..), MessageName (..),
                                                    messageName')
 import           Serokell.Util.Text               (listJson)
 import           System.Wlog                      (WithLogger, logWarning)
@@ -93,9 +94,7 @@ hoistMkListeners
     -> MkListeners n
 hoistMkListeners nat rnat (MkListeners act ins outs) = MkListeners act' ins outs
   where
-    act' v p = do
-      ls <- nat (act v p)
-      pure $ map (N.hoistListenerAction nat rnat) ls
+    act' v p = let ls = act v p in map (N.hoistListenerAction nat rnat) ls
 
 convertSendActions
     :: ( WithLogger m
@@ -232,7 +231,10 @@ localOnNewSlotWorker
 localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlot b h, mempty)
 
 localWorker :: m () -> (WorkerSpec m, OutSpecs)
-localWorker h = (ActionSpec $ \__vI __sA -> h, mempty)
+localWorker = localSpecs
+
+localSpecs :: m a -> (ActionSpec m a, OutSpecs)
+localSpecs h = (ActionSpec $ \__vI __sA -> h, mempty)
 
 checkingInSpecs
     :: WithLogger m
@@ -264,9 +266,9 @@ constantListeners = toMkL . unpackLSpecs . second mconcat . unzip
   where
     toMkL (lGet, ins, outs) = MkListeners (\vI _ -> lGet vI) ins outs
 
-unpackLSpecs :: Monad m => ([ListenerSpec m], OutSpecs) -> (VerInfo -> m [Listener m], InSpecs, OutSpecs)
+unpackLSpecs :: Monad m => ([ListenerSpec m], OutSpecs) -> (VerInfo -> [Listener m], InSpecs, OutSpecs)
 unpackLSpecs =
-    over _1 (\ls verInfo -> mapM ($ verInfo) ls) .
+    over _1 (\ls verInfo -> fmap ($ verInfo) ls) .
     over _2 (InSpecs . HM.fromList) .
     convert . first (map lsToPair)
   where

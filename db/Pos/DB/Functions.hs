@@ -25,6 +25,7 @@ import qualified Data.ByteString      as BS (drop, isPrefixOf)
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting           (sformat, shown, string, (%))
 
+
 import           Pos.Binary.Class     (Bi, decodeFull, encodeStrict)
 import           Pos.DB.Class         (DBIteratorClass (..), DBTag, IterType,
                                        MonadDB (..), MonadDBRead (..))

@@ -34,13 +34,13 @@ module Pos.DB.Rocks.Types
 
 import           Universum
 
-import           Control.Lens                 (makeLenses)
-import           Control.Monad.Trans.Resource (MonadResource)
-import qualified Database.RocksDB             as Rocks
+import           Control.Lens                (makeLenses)
+import           Control.Monad.Trans.Control (MonadBaseControl)
+import qualified Database.RocksDB            as Rocks
 import qualified Ether
 
-import           Pos.DB.Class                 (DBTag (..))
-import           Pos.Util.Concurrent.RWLock   (RWLock)
+import           Pos.DB.Class                (DBTag (..))
+import           Pos.Util.Concurrent.RWLock  (RWLock)
 
 
 -- | This is the set of constraints necessary to operate on «real» DBs
@@ -49,7 +49,7 @@ import           Pos.Util.Concurrent.RWLock   (RWLock)
 -- to use real DB without IO. Finally, it has 'MonadCatch' constraints
 -- (partially for historical reasons, partially for good ones).
 type MonadRealDB m
-     = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadResource m, MonadCatch m)
+     = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadBaseControl IO m, MonadCatch m)
 
 -- should we replace `rocks` prefix by other or remove it at all?
 data DB = DB

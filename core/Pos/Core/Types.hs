@@ -89,7 +89,7 @@ import           Serokell.AcidState         ()
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       (formatBase16)
 
-import           Pos.Core.Constants         (epochSlots)
+import           Pos.Core.Constants.Raw     (epochSlots)
 import           Pos.Core.Timestamp         (Timestamp (..))
 import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
                                              ProxySecretKey, ProxySignature, PublicKey,

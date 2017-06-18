@@ -8,6 +8,7 @@
 module Pos.DB.DB
        ( openNodeDBs
        , initNodeDBs
+       , closeNodeDBs
        , getTip
        , getTipBlock
        , getTipHeader
@@ -45,7 +46,7 @@ import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common         (getTip, getTipBlock, getTipHeader)
 import           Pos.DB.GState.GState         (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.DB.Misc                  (prepareMiscDB)
-import           Pos.DB.Rocks                 (NodeDBs (..), openRocksDB)
+import           Pos.DB.Rocks                 (NodeDBs (..), closeRocksDB, openRocksDB)
 import           Pos.Lrc.DB                   (prepareLrcDB)
 import           Pos.Update.DB                (getAdoptedBVData)
 import           Pos.Util                     (inAssertMode)
@@ -56,6 +57,7 @@ import           Pos.Explorer.DB              (prepareExplorerDB)
 #endif
 
 -- | Open all DBs stored on disk.
+-- Don't forget to use 'closeNodeDBs' eventually.
 openNodeDBs
     :: (MonadIO m)
     => Bool -> FilePath -> m NodeDBs
@@ -104,6 +106,11 @@ initNodeDBs = do
 #ifdef WITH_EXPLORER
     prepareExplorerDB
 #endif
+
+-- | Safely close all databases from 'NodeDBs'.
+closeNodeDBs :: MonadIO m => NodeDBs -> m ()
+closeNodeDBs NodeDBs {..} =
+    mapM_ closeRocksDB [_blockIndexDB, _gStateDB, _lrcDB, _miscDB]
 
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.

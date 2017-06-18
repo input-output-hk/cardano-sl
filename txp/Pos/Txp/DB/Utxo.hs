@@ -26,9 +26,10 @@ module Pos.Txp.DB.Utxo
        , sanityCheckUtxo
        ) where
 
+
 import           Universum
 
-import           Data.Conduit         (Sink, mapOutput, runConduit, (.|))
+import           Data.Conduit         (Sink, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List    as CL
 import qualified Data.HashSet         as HS
 import qualified Data.Map             as M
@@ -111,7 +112,7 @@ utxoSink = CL.fold (\u (k,v) -> M.insert k v u) mempty
 -- | Retrieves only portion of UTXO related to given addresses list.
 getFilteredUtxo :: MonadDBRead m => [Address] -> m Utxo
 getFilteredUtxo addrs =
-    runConduit $
+    runConduitRes $
     dbIterSource GStateDB (Proxy @UtxoIter) .|
     CL.filter (\(_,out) -> out `addrBelongsToSet` addrsSet) .|
     utxoSink
@@ -122,7 +123,7 @@ getFilteredUtxo addrs =
 -- megabytes).
 getAllPotentiallyHugeUtxo :: MonadDBRead m => m Utxo
 getAllPotentiallyHugeUtxo =
-    runConduit $ dbIterSource GStateDB (Proxy @UtxoIter) .| utxoSink
+    runConduitRes $ dbIterSource GStateDB (Proxy @UtxoIter) .| utxoSink
 
 ----------------------------------------------------------------------------
 -- Sanity checks
@@ -136,7 +137,8 @@ sanityCheckUtxo expectedTotalStake = do
             mapOutput
             (map snd . txOutStake . snd)
             (dbIterSource GStateDB (Proxy @UtxoIter))
-    calculatedTotalStake <- runConduit $ utxoSource .| CL.fold foldAdd (mkCoin 0)
+    calculatedTotalStake <-
+        runConduitRes $ utxoSource .| CL.fold foldAdd (mkCoin 0)
     let fmt =
             ("Sum of stakes in Utxo differs from expected total stake (the former is "
              %coinF%", while the latter is "%coinF%")")

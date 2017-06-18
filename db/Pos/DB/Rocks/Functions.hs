@@ -8,6 +8,7 @@ module Pos.DB.Rocks.Functions
        (
        -- * Opening and modifications
          openRocksDB
+       , closeRocksDB
        , usingReadOptions
        , usingWriteOptions
 
@@ -50,6 +51,9 @@ openRocksDB fp = DB def def def
                         , Rocks.compression     = Rocks.NoCompression
                         }
 
+
+closeRocksDB :: MonadIO m => DB -> m ()
+closeRocksDB = Rocks.close . rocksDB
 
 usingReadOptions
     :: MonadRealDB m
@@ -122,10 +126,17 @@ rocksIterSource ::
     -> Proxy i
     -> Source m (IterType i)
 rocksIterSource tag _ = do
+    putText $ ("Iterator source, prefix " <> show (iterKeyPrefix @i))
     DB{..} <- lift $ getDBByTag tag
-    bracketP (Rocks.createIter rocksDB rocksReadOpts) Rocks.releaseIter $ \it -> do
-        lift $ Rocks.iterSeek it (iterKeyPrefix @i)
-        produce it
+    let createIter = Rocks.createIter rocksDB rocksReadOpts
+    let releaseIter i = Rocks.releaseIter i
+    let onExc (e :: SomeException) = do
+            putText $ "Exception arised in redirect handler: " <> show e
+            throwM e
+    let action iter = do
+            Rocks.iterSeek iter (iterKeyPrefix @i)
+            produce iter `catch` onExc
+    bracketP createIter releaseIter $ \i -> action i `catch` onExc
   where
     produce :: Rocks.Iterator -> Source m (IterType i)
     produce it = do

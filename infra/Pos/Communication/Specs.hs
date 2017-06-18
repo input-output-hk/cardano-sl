@@ -4,7 +4,7 @@ module Pos.Communication.Specs
        ( createOutSpecs
        ) where
 
-import           Node.Message                  (Message (..))
+import           Node.Message.Class            (Message (..))
 import           Universum
 
 import           Pos.Communication.Protocol    (OutSpecs, convH, toOutSpecs)

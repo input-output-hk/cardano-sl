@@ -3,19 +3,23 @@
 module Pos.Launcher.Param
        ( LoggingParams (..)
        , BaseParams (..)
+       , NetworkParams (..)
        , NodeParams (..)
        ) where
 
 import           Universum
 
-import           System.Wlog         (LoggerName)
+import qualified Network.Transport.TCP   as TCP
+import           System.Wlog             (LoggerName)
 
-import           Pos.Crypto          (SecretKey)
-import           Pos.Security.Params (SecurityParams)
-import           Pos.Txp.Toil.Types  (Utxo)
-import           Pos.Types           (Timestamp)
-import           Pos.Update.Params   (UpdateParams)
-import           Pos.Util.UserSecret (UserSecret)
+import           Pos.Communication.Types (NodeId)
+import           Pos.Crypto              (SecretKey)
+import           Pos.DHT.Real            (KademliaParams)
+import           Pos.Security.Params     (SecurityParams)
+import           Pos.Txp.Toil.Types      (Utxo)
+import           Pos.Types               (Timestamp)
+import           Pos.Update.Params       (UpdateParams)
+import           Pos.Util.UserSecret     (UserSecret)
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
@@ -30,7 +34,18 @@ data BaseParams = BaseParams
     { bpLoggingParams   :: !LoggingParams  -- ^ Logger parameters
     } deriving (Show)
 
--- | Contains algorithm specific & storage parameters for Node.
+-- | Network parameters.
+data NetworkParams = NetworkParams
+    { npDiscovery :: !(Either (Set NodeId) KademliaParams)
+    -- ^ If this value is 'Left', then given peers will be used in static mode.
+    -- Otherwise kademlia with given params will be used.
+    , npTcpAddr   :: !TCP.TCPAddr
+    -- ^ External TCP address of the node.
+    -- It encapsulates bind address and address visible to other nodes.
+    }
+
+-- | This data type contains all data necessary to launch node and
+-- known in advance (from CLI, configs, etc.)
 data NodeParams = NodeParams
     { npDbPathM        :: !FilePath          -- ^ Path to node's database.
     , npRebuildDb      :: !Bool              -- ^ @True@ if data-base should be rebuilt
@@ -45,4 +60,6 @@ data NodeParams = NodeParams
     , npUpdateParams   :: !UpdateParams      -- ^ Params for update system
     , npSecurityParams :: !SecurityParams    -- ^ Params for "Pos.Security"
     , npUseNTP         :: !Bool
-    } deriving (Show)
+    , npNetwork        :: !NetworkParams
+    -- ^ Network parameters.
+    } -- deriving (Show)

@@ -17,9 +17,8 @@ import           Pos.Block.Network.Announce (handleHeadersCommunication)
 import           Pos.Block.Network.Logic    (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgHeaders (..))
-import           Pos.Communication.Limits   (withLimitedLength')
-import           Pos.Communication.Listener (SizedCAHandler (..), convToSProxy,
-                                             listenerConv)
+import           Pos.Communication.Limits   (recvLimited)
+import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
                                              MkListeners, OutSpecs, constantListeners)
 import qualified Pos.DB.Block               as DB
@@ -44,18 +43,16 @@ handleGetHeaders
     :: forall ssc m.
        (WorkMode ssc m)
     => (ListenerSpec m, OutSpecs)
-handleGetHeaders = listenerConv $ \__ourVerInfo ->
-  SizedCAHandler $ \nodeId conv -> do
-      logDebug $ "handleGetHeaders: request from " <> show nodeId
-      handleHeadersCommunication conv (convToSProxy conv)
+handleGetHeaders = listenerConv $ \__ourVerInfo nodeId conv -> do
+    logDebug $ "handleGetHeaders: request from " <> show nodeId
+    handleHeadersCommunication conv --(convToSProxy conv)
 
 handleGetBlocks
     :: forall ssc m.
        (WorkMode ssc m)
     => (ListenerSpec m, OutSpecs)
-handleGetBlocks = listenerConv $ \__ourVerInfo ->
-  SizedCAHandler $ \nodeId conv -> do
-    mbMsg <- fmap (withLimitedLength' $ convToSProxy conv) <$> recv conv
+handleGetBlocks = listenerConv $ \__ourVerInfo nodeId conv -> do
+    mbMsg <- recvLimited conv
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("Got request on handleGetBlocks: "%build%" from "%build)
             mgb nodeId
@@ -81,9 +78,8 @@ handleBlockHeaders
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => (ListenerSpec m, OutSpecs)
-handleBlockHeaders = listenerConv $ \__ourVerInfo ->
-  SizedCAHandler $ \nodeId conv -> do
+handleBlockHeaders = listenerConv $ \__ourVerInfo nodeId conv -> do
     logDebug "handleBlockHeaders: got some unsolicited block header(s)"
-    mHeaders <- fmap (withLimitedLength' $ convToSProxy conv) <$> recv conv
+    mHeaders <- recvLimited conv
     whenJust mHeaders $ \(MsgHeaders headers) ->
         handleUnsolicitedHeaders (getNewestFirst headers) nodeId conv

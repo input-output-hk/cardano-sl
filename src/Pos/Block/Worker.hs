@@ -29,18 +29,20 @@ import           Pos.Core                    (SlotId (..), Timestamp (Timestamp)
                                               gbHeader, getSlotIndex, slotIdF)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
-import           Pos.DB.GState               (getDlgTransPsk, getPskByIssuer)
+import           Pos.DB.GState               (getPskByIssuer)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Delegation.Helpers      (isRevokePsk)
+import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Util                    (logWarningSWaitLinear, mconcatPair)
-import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
+import           Pos.Util.JsonLog            (jlCreatedBlock)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
                                               logWarningS)
+import           Pos.Util.TimeWarp           (CanJsonLog (..))
 import           Pos.WorkMode.Class          (WorkMode)
 #if defined(WITH_WALLET)
 import           Data.Time.Units             (Second, convertUnit)
@@ -76,7 +78,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     mGenBlock <- createGenesisBlock siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
-        jlLog $ jlCreatedBlock (Left createdBlk)
+        jsonLog $ jlCreatedBlock (Left createdBlk)
 
     -- Then we get leaders for current epoch.
     -- Note: we are using non-blocking version here.  If we known
@@ -181,7 +183,7 @@ onNewSlotWhenLeader slotId pske sendActions = do
     whenCreated createdBlk = do
             logInfoS $
                 sformat ("Created a new block:\n" %build) createdBlk
-            jlLog $ jlCreatedBlock (Right createdBlk)
+            jsonLog $ jlCreatedBlock (Right createdBlk)
             void $ fork $ announceBlock sendActions $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
 

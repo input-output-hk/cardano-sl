@@ -112,18 +112,18 @@ usageExample :: Maybe Doc
 usageExample = Just [s|
 Command example:
 
-  stack exec -- cardano-smart-generator                     \
-    -i 0                                                    \
-    --disable-propagation                                   \
-    --peer 35.157.97.210:3000/MHdrsP-oPf7UWl0007QuXnLK5RD=  \
-    -R 4                                                    \
-    -N 100                                                  \
-    -p 30                                                   \
-    --init-money 60000000                                   \
-    -t 1                                                    \
-    -S 1                                                    \
-    -P 2                                                    \
-    --recipients-share 0.3                                  \
-    --log-config static/txgen-logging.yaml                  \
-    --json-log txgen.json                                   \
+  stack exec -- cardano-smart-generator     \
+    -i 0                                    \
+    --disable-propagation                   \
+    --peer 35.157.97.210:3000               \
+    -R 4                                    \
+    -N 100                                  \
+    -p 30                                   \
+    --init-money 60000000                   \
+    -t 1                                    \
+    -S 1                                    \
+    -P 2                                    \
+    --recipients-share 0.3                  \
+    --log-config static/txgen-logging.yaml  \
+    --json-log txgen.json                   \
     --flat-distr "(80,60000000)"|]

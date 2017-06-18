@@ -94,11 +94,6 @@ newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
     , MonadFix
     )
 
-instance MonadBaseControl IO (RealMode ssc) where
-    type StM (RealMode ssc) a = StM (RealMode' ssc) a
-    liftBaseWith f = RealMode $ liftBaseWith $ \q -> f (q . unRealMode)
-    restoreM s = RealMode $ restoreM s
-
 type instance ThreadId (RealMode ssc) = ThreadId Production
 type instance Promise (RealMode ssc) = Promise Production
 type instance SharedAtomicT (RealMode ssc) = SharedAtomicT Production
@@ -122,6 +117,11 @@ deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
 deriving instance MonadBListener (RealMode ssc)
 deriving instance WithPeerState (RealMode ssc)
 deriving instance CanJsonLog (RealMode ssc)
+
+instance MonadBaseControl IO (RealMode ssc) where
+    type StM (RealMode ssc) a = StM (RealMode' ssc) a
+    liftBaseWith f = RealMode $ liftBaseWith $ \q -> f (q . unRealMode)
+    restoreM s = RealMode $ restoreM s
 
 instance PowerLift m (RealMode' ssc) => PowerLift m (RealMode ssc) where
   powerLift = RealMode . powerLift

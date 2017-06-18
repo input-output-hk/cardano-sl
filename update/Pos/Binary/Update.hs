@@ -11,6 +11,7 @@ import           Pos.Binary.Class        (Bi (..), getAsciiString1b, getWord8, l
                                           putAsciiString1b, putWord8)
 import           Pos.Binary.Core         ()
 import           Pos.Binary.Core.Version ()
+import           Pos.Binary.Infra        ()
 import           Pos.Crypto              (SignTag (SignUSVote), checkSig)
 import qualified Pos.Update.Core.Types   as U
 import qualified Pos.Update.Poll.Types   as U
@@ -101,6 +102,7 @@ instance Bi U.USUndo where
         unChangedSV <- get
         unChangedConfProps <- get
         unPrevProposers <- get
+        unSlottingData <- get
         return $ U.USUndo {..}
     put U.USUndo{..} = do
         put unChangedBV
@@ -109,6 +111,7 @@ instance Bi U.USUndo where
         put unChangedSV
         put unChangedConfProps
         put unPrevProposers
+        put unSlottingData
 
 instance Bi U.UpsExtra where
     put U.UpsExtra {..} = put ueProposedBlk

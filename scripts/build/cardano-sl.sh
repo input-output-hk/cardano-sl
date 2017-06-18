@@ -16,7 +16,7 @@ set -o pipefail
 #   scripts/build/cardano-sl.sh -k              typecheck but do not build
 #   scripts/build/cardano-sl.sh -c              do stack clean
 #
-# Consider symlinking the script as `b` into the cardano-sl folder because 
+# Consider symlinking the script as `b` into the cardano-sl folder because
 # typing `scripts/build/cardano-sl.sh` is annoying.
 
 # PROJECTS
@@ -41,6 +41,7 @@ set -o pipefail
 # * Pass --no-nix or do `touch .no-nix` if you want builds without Nix
 # * Pass --ram or do `touch .ram`. if you have lots of RAM and want to
 #   make builds faster
+# * Pass -Werror or do `touch .Werror` if you want to compile with -Werror
 
 # We can't have lwallet here, because it depends on 'cardano-sl'.
 projects="core db lrc infra update ssc godtossing txp"
@@ -58,12 +59,16 @@ prod=false
 wallet=true
 explorer=false
 no_code=false
+werror=false
 
 if [ -e .no-nix ]; then
   no_nix=true
 fi
 if [ -e .ram ]; then
   ram=true
+fi
+if [ -e .Werror ]; then
+  werror=true
 fi
 
 for var in "$@"
@@ -83,6 +88,9 @@ do
   # --ram = use more RAM
   elif [[ $var == "--ram" ]]; then
     ram=true
+  # -Werror = compile with -Werror
+  elif [[ $var == "-Werror" ]]; then
+    werror=true
   # --prod = build in production mode
   elif [[ $var == "--prod" ]]; then
     prod=true
@@ -142,16 +150,19 @@ elif [[ $prod == true && $wallet == true ]]; then
   ghc_opts="-DCONFIG=wallet"
 fi
 
-if [[ $no_fast == true ]]; then
-  fast=""
-else
-  fast="--fast"
+if [[ $no_fast == true ]];
+  then fast=""
+  else fast="--fast"
 fi
 
-if [[ $ram == true ]]; then
-  ghc_opts="$ghc_opts -Wwarn +RTS -A2G -n4m -RTS"
-else
-  ghc_opts="$ghc_opts -Wwarn +RTS -A256m -n2m -RTS"
+if [[ $werror == true ]];
+  then ghc_opts="$ghc_opts -Werror"
+  else ghc_opts="$ghc_opts -Wwarn"
+fi
+
+if [[ $ram == true ]];
+  then ghc_opts="$ghc_opts +RTS -A2G -n4m -RTS"
+  else ghc_opts="$ghc_opts +RTS -A256m -n2m -RTS"
 fi
 
 xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'

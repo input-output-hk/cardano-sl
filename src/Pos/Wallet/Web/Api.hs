@@ -39,9 +39,8 @@ module Pos.Wallet.Web.Api
        , UpdateProfile
 
        , NewPayment
-       , NewPaymentExt
        , UpdateTx
-       , SearchHistory
+       , GetHistory
 
        , NextUpdate
        , ApplyUpdate
@@ -242,18 +241,6 @@ type NewPayment =
     :> Capture "amount" Coin
     :> WRes Post CTx
 
-type NewPaymentExt =
-       "txs"
-    :> "payments"
-    :> CQueryParam "passphrase" CPassPhrase
-    :> CCapture "from" CAccountId
-    :> Capture "to" (CId Addr)
-    :> Capture "amount" Coin
-    :> Capture "title" Text
-    :> Capture "description" Text
-    :> WRes Post CTx
-
-
 type UpdateTx =
        "txs"
     :> "payments"
@@ -262,13 +249,12 @@ type UpdateTx =
     :> ReqBody '[JSON] CTxMeta
     :> WRes Post ()
 
-type SearchHistory =
+type GetHistory =
        "txs"
     :> "histories"
     :> QueryParam "walletId" (CId Wal)
     :> CQueryParam "accountId" CAccountId
     :> QueryParam "address" (CId Addr)
-    :> QueryParam "search" Text
     :> QueryParam "skip" Word
     :> QueryParam "limit" Word
     :> WRes Get ([CTx], Word)
@@ -407,14 +393,10 @@ type WalletApi = ApiPrefix :> (
     -- to support many2many
      NewPayment
     :<|>
-    -- TODO: for now we only support one2one sending. We should extend this
-    -- to support many2many
-     NewPaymentExt
-    :<|>
       -- FIXME: Should capture the URL parameters in the payload.
      UpdateTx
     :<|>
-     SearchHistory
+     GetHistory
     :<|>
      -------------------------------------------------------------------------
      -- Updates

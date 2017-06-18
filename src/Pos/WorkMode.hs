@@ -17,6 +17,8 @@ module Pos.WorkMode
 import           Universum
 
 import           Control.Monad.Fix
+import           Control.Monad.Base             (MonadBase)
+import           Control.Monad.Trans.Control
 import qualified Control.Monad.Trans.Lift.Local as Lift
 import           Data.Coerce
 import           Data.Tagged                    (Tagged)
@@ -78,17 +80,19 @@ type RealMode' ssc =
     LoggerNameBox Production
     ))))))))))
 
-newtype RealMode ssc a = RealMode (RealMode' ssc a)
+newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
   deriving
     ( Functor
     , Applicative
     , Monad
     , MonadIO
+    , MonadBase IO
     , MonadThrow
     , MonadCatch
     , MonadMask
     , MonadFix
     )
+
 type instance ThreadId (RealMode ssc) = ThreadId Production
 type instance Promise (RealMode ssc) = Promise Production
 type instance SharedAtomicT (RealMode ssc) = SharedAtomicT Production
@@ -113,6 +117,11 @@ deriving instance MonadBListener (RealMode ssc)
 -- deriving instance MonadBalances (RealMode ssc)
 -- deriving instance MonadTxHistory (RealMode ssc)
 deriving instance WithPeerState (RealMode ssc)
+
+instance MonadBaseControl IO (RealMode ssc) where
+    type StM (RealMode ssc) a = StM (RealMode' ssc) a
+    liftBaseWith f = RealMode $ liftBaseWith $ \q -> f (q . unRealMode)
+    restoreM s = RealMode $ restoreM s
 
 instance PowerLift m (RealMode' ssc) => PowerLift m (RealMode ssc) where
   powerLift = RealMode . powerLift

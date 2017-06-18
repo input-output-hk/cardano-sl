@@ -27,8 +27,7 @@ import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
-                                             addressToCId, encToCId,
-                                             walletAddrMetaToAccount)
+                                             addrMetaToAccount, addressToCId, encToCId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
                                              doesWAddressExist, getAccountMeta)
@@ -61,7 +60,7 @@ getSKByAccAddr
     -> m EncryptedSecretKey
 getSKByAccAddr passphrase addrMeta@CWAddressMeta {..} = do
     (addr, accKey) <-
-        deriveAccountSK passphrase (walletAddrMetaToAccount addrMeta) cwamAccountIndex
+        deriveAccountSK passphrase (addrMetaToAccount addrMeta) cwamAccountIndex
     let accCAddr = addressToCId addr
     if accCAddr /= cwamId
              -- if you see this error, maybe you generated public key address with

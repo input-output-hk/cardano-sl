@@ -27,6 +27,7 @@ module Daedalus.Types
        , walletAddressToUrl
        , mkCWalletInit
        , mkCWalletAssurance
+       , optionalString
        ) where
 
 import Prelude
@@ -202,11 +203,9 @@ _ctxIdValue (CT.CTxId tx) = _hash tx
 mkCTxId :: String -> CT.CTxId
 mkCTxId = CT.CTxId <<< CHash
 
-mkCTxMeta :: String -> String -> Number -> CT.CTxMeta
-mkCTxMeta title description date =
-    CT.CTxMeta { ctmTitle: title
-               , ctmDescription: description
-               , ctmDate: mkTime date
+mkCTxMeta :: Number -> CT.CTxMeta
+mkCTxMeta date =
+    CT.CTxMeta { ctmDate: mkTime date
                }
 
 mkCProfile :: String -> CT.CProfile

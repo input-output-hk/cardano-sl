@@ -44,7 +44,7 @@ proposalRelay =
            , handleReq = getLocalProposalNVotes . unTagged
            , handleData = \(proposal, votes) -> do
                  res <- processProposal proposal
-                 logProp res
+                 logProp proposal res
                  let processed = isRight res
                  processed <$ when processed (mapM_ processVoteLog votes)
            }
@@ -56,9 +56,12 @@ proposalRelay =
     logVote e@(Right _) =
         e <$ logDebug "Processing of proposal's vote is successfull"
 
-    logProp (Left cause) =
-        logDebug $ sformat ("Processing of proposal failed: "%build) cause
-    logProp (Right _) = logDebug "Processing of proposal is successfull"
+    logProp prop (Left cause) =
+        logDebug $ sformat ("Processing of proposal "%build%" with id "%build%" failed: "%build)
+              prop (hash prop) cause
+    logProp prop (Right _) =
+        logDebug $ sformat ("Processing of proposal "%build%" with id "%build%" is successful")
+              prop (hash prop)
 
 ----------------------------------------------------------------------------
 -- UpdateVote listeners

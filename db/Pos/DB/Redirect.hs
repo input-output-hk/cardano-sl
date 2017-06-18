@@ -6,10 +6,10 @@
 module Pos.DB.Redirect
        ( DBPureRedirect
        , runDBPureRedirect
-       , dbGetReal
-       , dbPutReal
-       , dbWriteBatchReal
-       , dbDeleteReal
+       , dbGetDefault
+       , dbPutDefault
+       , dbWriteBatchDefault
+       , dbDeleteDefault
        ) where
 
 import           Universum
@@ -32,23 +32,23 @@ type DBPureRedirect =
 runDBPureRedirect :: DBPureRedirect m a -> m a
 runDBPureRedirect = coerce
 
-dbGetReal :: MonadRealDB m => DBTag -> ByteString -> m (Maybe ByteString)
-dbGetReal tag key = do
+dbGetDefault :: MonadRealDB m => DBTag -> ByteString -> m (Maybe ByteString)
+dbGetDefault tag key = do
     db <- view (dbTagToLens tag) <$> getNodeDBs
     rocksGetBytes key db
 
-dbPutReal :: MonadRealDB m => DBTag -> ByteString -> ByteString -> m ()
-dbPutReal tag key val = do
+dbPutDefault :: MonadRealDB m => DBTag -> ByteString -> ByteString -> m ()
+dbPutDefault tag key val = do
     db <- view (dbTagToLens tag) <$> getNodeDBs
     rocksPutBytes key val db
 
-dbWriteBatchReal :: MonadRealDB m => DBTag -> [Rocks.BatchOp] -> m ()
-dbWriteBatchReal tag batch = do
+dbWriteBatchDefault :: MonadRealDB m => DBTag -> [Rocks.BatchOp] -> m ()
+dbWriteBatchDefault tag batch = do
     db <- view (dbTagToLens tag) <$> getNodeDBs
     rocksWriteBatch batch db
 
-dbDeleteReal :: MonadRealDB m => DBTag -> ByteString -> m ()
-dbDeleteReal tag key = do
+dbDeleteDefault :: MonadRealDB m => DBTag -> ByteString -> m ()
+dbDeleteDefault tag key = do
     db <- view (dbTagToLens tag) <$> getNodeDBs
     rocksDelete key db
 
@@ -56,12 +56,12 @@ instance
     (MonadRealDB m, t ~ IdentityT) =>
         MonadDBRead (Ether.TaggedTrans DBPureRedirectTag t m)
   where
-    dbGet = dbGetReal
+    dbGet = dbGetDefault
 
 instance
     (MonadRealDB m, t ~ IdentityT) =>
         MonadDB (Ether.TaggedTrans DBPureRedirectTag t m)
   where
-    dbPut = dbPutReal
-    dbWriteBatch = dbWriteBatchReal
-    dbDelete = dbDeleteReal
+    dbPut = dbPutDefault
+    dbWriteBatch = dbWriteBatchDefault
+    dbDelete = dbDeleteDefault

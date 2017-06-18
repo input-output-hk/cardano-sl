@@ -88,16 +88,16 @@ instance {-# OVERLAPPABLE #-}
     syncOnImport = lift . syncOnImport
     txMempoolToModifier = lift . txMempoolToModifier
 
-type WalletTrackingMonad ext m =
+type WalletTrackingEnv ext m =
      (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m, WS.MonadWalletWebDB m)
 
-syncWSetsAtStartWebWallet :: WalletTrackingMonad ext m => [EncryptedSecretKey] -> m ()
+syncWSetsAtStartWebWallet :: WalletTrackingEnv ext m => [EncryptedSecretKey] -> m ()
 syncWSetsAtStartWebWallet = syncWSetsWithGStateLock @WalletSscType
 
-syncOnImportWebWallet :: WalletTrackingMonad ext m => EncryptedSecretKey -> m ()
+syncOnImportWebWallet :: WalletTrackingEnv ext m => EncryptedSecretKey -> m ()
 syncOnImportWebWallet = selectAccountsFromUtxoLock @WalletSscType . pure
 
-txMempoolToModifierWebWallet :: WalletTrackingMonad ext m => EncryptedSecretKey -> m CAccModifier
+txMempoolToModifierWebWallet :: WalletTrackingEnv ext m => EncryptedSecretKey -> m CAccModifier
 txMempoolToModifierWebWallet encSK = do
     let wHash (i, TxAux {..}) = WithHash taTx i
     txs <- getLocalTxs

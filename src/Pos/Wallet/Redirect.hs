@@ -55,7 +55,7 @@ downloadHeader
 downloadHeader = do
     atomically . tryReadTMVar =<< Ether.ask @PC.ProgressHeaderTag
 
-type BlochainInfoMonad ssc m =
+type BlockchainInfoEnv ssc m =
     ( MonadBlockDB ssc m
     , PC.MonadLastKnownHeader ssc m
     , PC.MonadProgressHeader ssc m
@@ -66,7 +66,7 @@ type BlochainInfoMonad ssc m =
     )
 
 networkChainDifficultyWebWallet
-    :: forall ssc m. BlochainInfoMonad ssc m
+    :: forall ssc m. BlockchainInfoEnv ssc m
     => m (Maybe ChainDifficulty)
 networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
     Just lh -> do
@@ -82,21 +82,21 @@ networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
         return $ th ^. difficultyL
 
 localChainDifficultyWebWallet
-    :: forall ssc m. BlochainInfoMonad ssc m
+    :: forall ssc m. BlockchainInfoEnv ssc m
     => m ChainDifficulty
 localChainDifficultyWebWallet = downloadHeader >>= \case
     Just dh -> return $ dh ^. difficultyL
     Nothing -> view difficultyL <$> getTipHeader @(Block ssc)
 
 connectedPeersWebWallet
-    :: forall ssc m. BlochainInfoMonad ssc m
+    :: forall ssc m. BlockchainInfoEnv ssc m
     => m Word
 connectedPeersWebWallet = fromIntegral . length <$> do
     PC.ConnectedPeers cp <- Ether.ask'
     atomically (readTVar cp)
 
 blockchainSlotDurationWebWallet
-    :: forall ssc m. BlochainInfoMonad ssc m
+    :: forall ssc m. BlockchainInfoEnv ssc m
     => m Millisecond
 blockchainSlotDurationWebWallet = getLastKnownSlotDuration
 
@@ -104,14 +104,14 @@ blockchainSlotDurationWebWallet = getLastKnownSlotDuration
 -- Updates
 ----------------------------------------------------------------------------
 
-type UpdatesMonad m =
+type UpdatesEnv m =
     ( MonadIO m
     , WithLogger m
     , MonadShutdownMem m
     , Ether.MonadReader' UpdateContext m )
 
-waitForUpdateWebWallet :: UpdatesMonad m => m ConfirmedProposalState
+waitForUpdateWebWallet :: UpdatesEnv m => m ConfirmedProposalState
 waitForUpdateWebWallet = takeMVar =<< Ether.asks' ucUpdateSemaphore
 
-applyLastUpdateWebWallet :: UpdatesMonad m => m ()
+applyLastUpdateWebWallet :: UpdatesEnv m => m ()
 applyLastUpdateWebWallet = triggerShutdown

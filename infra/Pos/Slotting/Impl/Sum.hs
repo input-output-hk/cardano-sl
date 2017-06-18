@@ -9,10 +9,10 @@ module Pos.Slotting.Impl.Sum
        , SlotsRedirect
        , runSlotsRedirect
        , askSlottingContextSum
-       , getCurrentSlotReal
-       , getCurrentSlotBlockingReal
-       , getCurrentSlotInaccurateReal
-       , currentTimeSlottingReal
+       , getCurrentSlotSum
+       , getCurrentSlotBlockingSum
+       , getCurrentSlotInaccurateSum
+       , currentTimeSlottingSum
 
        -- * Workers
        , SlottingWorkerModeSum
@@ -51,33 +51,29 @@ runSlotsRedirect = coerce
 askSlottingContextSum :: MonadSlottingSum m => m SlottingContextSum
 askSlottingContextSum = Ether.ask'
 
-type SlottingModeSum m = (NtpMode m, SimpleSlottingMode m)
+type SlotsSumEnv m = (MonadSlottingSum m, NtpMode m, SimpleSlottingMode m)
 
-type SlotsRealMonad m =
-    (MonadSlottingSum m, SlottingModeSum m)
+getCurrentSlotSum :: SlotsSumEnv m => m (Maybe SlotId)
+getCurrentSlotSum = helper getCurrentSlot
 
+getCurrentSlotBlockingSum :: SlotsSumEnv m => m SlotId
+getCurrentSlotBlockingSum = helper getCurrentSlotBlocking
 
-getCurrentSlotReal :: SlotsRealMonad m => m (Maybe SlotId)
-getCurrentSlotReal = helper getCurrentSlot
+getCurrentSlotInaccurateSum :: SlotsSumEnv m => m SlotId
+getCurrentSlotInaccurateSum = helper getCurrentSlotInaccurate
 
-getCurrentSlotBlockingReal :: SlotsRealMonad m => m SlotId
-getCurrentSlotBlockingReal = helper getCurrentSlotBlocking
+currentTimeSlottingSum :: SlotsSumEnv m => m Timestamp
+currentTimeSlottingSum = helper currentTimeSlotting
 
-getCurrentSlotInaccurateReal :: SlotsRealMonad m => m SlotId
-getCurrentSlotInaccurateReal = helper getCurrentSlotInaccurate
-
-currentTimeSlottingReal :: SlotsRealMonad m => m Timestamp
-currentTimeSlottingReal = helper currentTimeSlotting
-
-instance (MonadSlottingSum m, SlottingModeSum m, t ~ IdentityT) =>
+instance (SlotsSumEnv m, t ~ IdentityT) =>
          MonadSlots (Ether.TaggedTrans SlotsRedirectTag t m) where
-    getCurrentSlot = getCurrentSlotReal
-    getCurrentSlotBlocking = getCurrentSlotBlockingReal
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateReal
-    currentTimeSlotting = currentTimeSlottingReal
+    getCurrentSlot = getCurrentSlotSum
+    getCurrentSlotBlocking = getCurrentSlotBlockingSum
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
+    currentTimeSlotting = currentTimeSlottingSum
 
 helper
-    :: (MonadSlottingSum m, SlottingModeSum m)
+    :: SlotsSumEnv m
     => (forall n. MonadSlots n => n a)
     -> m a
 helper action =

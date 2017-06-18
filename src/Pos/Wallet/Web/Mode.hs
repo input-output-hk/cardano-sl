@@ -18,38 +18,38 @@ import           Pos.Block.BListener           (MonadBListener (..), onApplyBloc
                                                 onRollbackBlocksStub)
 import           Pos.Block.Core                (Block, BlockHeader)
 import           Pos.Block.Types               (Undo)
-import           Pos.Communication.PeerState   (WithPeerState (..), clearPeerStateReal,
-                                                getAllStatesReal, getPeerStateReal)
+import           Pos.Communication.PeerState   (WithPeerState (..), clearPeerStateDefault,
+                                                getAllStatesDefault, getPeerStateDefault)
 import           Pos.Core                      (IsHeader)
 import           Pos.DB                        (MonadGState (..))
-import           Pos.DB.Block                  (MonadBlockDBWrite (..), dbGetBlockReal,
-                                                dbGetBlockReal', dbGetHeaderReal,
-                                                dbGetHeaderReal', dbGetUndoReal,
-                                                dbGetUndoReal', dbPutBlundReal)
+import           Pos.DB.Block                  (MonadBlockDBWrite (..), dbGetBlockDefault,
+                                                dbGetBlockSscDefault, dbGetHeaderDefault,
+                                                dbGetHeaderSscDefault, dbGetUndoDefault,
+                                                dbGetUndoSscDefault, dbPutBlundDefault)
 import           Pos.DB.Class                  (MonadBlockDBGeneric (..), MonadDB (..),
                                                 MonadDBRead (..))
-import           Pos.DB.DB                     (gsAdoptedBVDataDB)
-import           Pos.DB.Redirect               (dbDeleteReal, dbGetReal, dbPutReal,
-                                                dbWriteBatchReal)
+import           Pos.DB.DB                     (gsAdoptedBVDataDefault)
+import           Pos.DB.Redirect               (dbDeleteDefault, dbGetDefault, dbPutDefault,
+                                                dbWriteBatchDefault)
 
-import           Pos.Client.Txp.Balances       (MonadBalances (..), getBalanceWebWallet,
-                                                getOwnUtxosWebWallet)
+import           Pos.Client.Txp.Balances       (MonadBalances (..), getBalanceDefault,
+                                                getOwnUtxosDefault)
 import           Pos.Client.Txp.History        (MonadTxHistory (..),
-                                                getTxHistoryWebWallet, saveTxWebWallet)
-import           Pos.Discovery                 (MonadDiscovery (..), findPeersReal,
-                                                getPeersReal)
+                                                getTxHistoryDefault, saveTxDefault)
+import           Pos.Discovery                 (MonadDiscovery (..), findPeersSum,
+                                                getPeersSum)
 import           Pos.ExecMode                  (ExecMode (..), ExecModeM, modeContext, (:::))
 import           Pos.Slotting.Class            (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum         (currentTimeSlottingReal,
-                                                getCurrentSlotBlockingReal,
-                                                getCurrentSlotInaccurateReal,
-                                                getCurrentSlotReal)
-import           Pos.Slotting.MemState         (MonadSlotsData (..), getSlottingDataReal,
-                                                getSystemStartReal, putSlottingDataReal,
-                                                waitPenultEpochEqualsReal)
+import           Pos.Slotting.Impl.Sum         (currentTimeSlottingSum,
+                                                getCurrentSlotBlockingSum,
+                                                getCurrentSlotInaccurateSum,
+                                                getCurrentSlotSum)
+import           Pos.Slotting.MemState         (MonadSlotsData (..), getSlottingDataDefault,
+                                                getSystemStartDefault, putSlottingDataDefault,
+                                                waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Types           (SscBlock)
 import           Pos.Util                      (Some (..))
-import           Pos.Util.JsonLog              (jsonLogReal)
+import           Pos.Util.JsonLog              (jsonLogDefault)
 import           Pos.Util.TimeWarp             (CanJsonLog (..))
 import           Pos.Wallet.Redirect           (MonadBlockchainInfo (..),
                                                 MonadUpdates (..),
@@ -86,58 +86,58 @@ unWalletWebMode :: ExecMode WWEB a -> ExecModeM WWEB a
 unWalletWebMode = unExecMode
 
 instance WithPeerState WalletWebMode where
-    getPeerState = getPeerStateReal
-    clearPeerState = clearPeerStateReal
-    getAllStates = getAllStatesReal
+    getPeerState = getPeerStateDefault
+    clearPeerState = clearPeerStateDefault
+    getAllStates = getAllStatesDefault
 
 instance MonadSlotsData WalletWebMode where
-    getSystemStart = getSystemStartReal
-    getSlottingData = getSlottingDataReal
-    waitPenultEpochEquals = waitPenultEpochEqualsReal
-    putSlottingData = putSlottingDataReal
+    getSystemStart = getSystemStartDefault
+    getSlottingData = getSlottingDataDefault
+    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    putSlottingData = putSlottingDataDefault
 
 instance MonadSlots WalletWebMode where
-    getCurrentSlot = getCurrentSlotReal
-    getCurrentSlotBlocking = getCurrentSlotBlockingReal
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateReal
-    currentTimeSlotting = currentTimeSlottingReal
+    getCurrentSlot = getCurrentSlotSum
+    getCurrentSlotBlocking = getCurrentSlotBlockingSum
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
+    currentTimeSlotting = currentTimeSlottingSum
 
 instance MonadDiscovery WalletWebMode where
-    getPeers = getPeersReal
-    findPeers = findPeersReal
+    getPeers = getPeersSum
+    findPeers = findPeersSum
 
 instance HasLoggerName WalletWebMode where
     getLoggerName = Ether.ask'
     modifyLoggerName = Ether.local'
 
 instance CanJsonLog WalletWebMode where
-    jsonLog = jsonLogReal
+    jsonLog = jsonLogDefault
 
 instance MonadDBRead WalletWebMode where
-    dbGet = dbGetReal
+    dbGet = dbGetDefault
 
 instance MonadDB WalletWebMode where
-    dbPut = dbPutReal
-    dbWriteBatch = dbWriteBatchReal
-    dbDelete = dbDeleteReal
+    dbPut = dbPutDefault
+    dbWriteBatch = dbWriteBatchDefault
+    dbDelete = dbDeleteDefault
 
 instance MonadBlockDBWrite WalletSscType WalletWebMode where
-    dbPutBlund = dbPutBlundReal
+    dbPutBlund = dbPutBlundDefault
 
 instance MonadBlockDBGeneric (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode
   where
-    dbGetBlock  = dbGetBlockReal @WalletSscType
-    dbGetUndo   = dbGetUndoReal @WalletSscType
-    dbGetHeader = dbGetHeaderReal @WalletSscType
+    dbGetBlock  = dbGetBlockDefault @WalletSscType
+    dbGetUndo   = dbGetUndoDefault @WalletSscType
+    dbGetHeader = dbGetHeaderDefault @WalletSscType
 
 instance MonadBlockDBGeneric (Some IsHeader) (SscBlock WalletSscType) () WalletWebMode
   where
-    dbGetBlock  = dbGetBlockReal' @WalletSscType
-    dbGetUndo   = dbGetUndoReal' @WalletSscType
-    dbGetHeader = dbGetHeaderReal' @WalletSscType
+    dbGetBlock  = dbGetBlockSscDefault @WalletSscType
+    dbGetUndo   = dbGetUndoSscDefault @WalletSscType
+    dbGetHeader = dbGetHeaderSscDefault @WalletSscType
 
 instance MonadGState WalletWebMode where
-    gsAdoptedBVData = gsAdoptedBVDataDB
+    gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance MonadBListener WalletWebMode where
     onApplyBlocks = onApplyBlocksStub
@@ -154,12 +154,12 @@ instance MonadBlockchainInfo WalletWebMode where
     blockchainSlotDuration = blockchainSlotDurationWebWallet
 
 instance MonadBalances WalletWebMode where
-    getOwnUtxos = getOwnUtxosWebWallet
-    getBalance = getBalanceWebWallet
+    getOwnUtxos = getOwnUtxosDefault
+    getBalance = getBalanceDefault
 
 instance MonadTxHistory WalletWebMode where
-    getTxHistory = getTxHistoryWebWallet
-    saveTx = saveTxWebWallet
+    getTxHistory = getTxHistoryDefault
+    saveTx = saveTxDefault
 
 instance MonadWalletTracking WalletWebMode where
     syncWSetsAtStart = syncWSetsAtStartWebWallet

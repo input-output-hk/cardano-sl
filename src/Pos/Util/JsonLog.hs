@@ -12,7 +12,7 @@ module Pos.Util.JsonLog
        , fromJLSlotId
        , JsonLogConfig(..)
        , jsonLogConfigFromHandle
-       , jsonLogReal
+       , jsonLogDefault
        ) where
 
 import           Universum               hiding (catchAll)
@@ -90,6 +90,9 @@ showHash = sformat hashHexF
 jlAdoptedBlock :: SscHelpersClass ssc => Block ssc -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHash . headerHash
 
+-- FIXME: definitions below were copied (with slight modifications)
+-- from time-warp-nt/src/JsonLog/JsonLogT.hs because they're not exported.
+
 data JsonLogConfig
     = JsonLogDisabled
     | JsonLogConfig (MVar Handle) (JLTimedEvent -> IO Bool)
@@ -99,11 +102,11 @@ jsonLogConfigFromHandle h = do
     v <- newMVar h
     return $ JsonLogConfig v (\_ -> return True)
 
-jsonLogReal
+jsonLogDefault
     :: (ToJSON a, Ether.MonadReader' JsonLogConfig m, Mockable Catch m,
         MonadIO m, WithLogger m)
     => a -> m ()
-jsonLogReal x = do
+jsonLogDefault x = do
     jlc <- Ether.ask'
     case jlc of
         JsonLogDisabled -> return ()

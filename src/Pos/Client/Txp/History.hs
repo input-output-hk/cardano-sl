@@ -22,8 +22,8 @@ module Pos.Client.Txp.History
        , getRelatedTxs
        , deriveAddrHistory
        , deriveAddrHistoryPartial
-       , getTxHistoryWebWallet
-       , saveTxWebWallet
+       , getTxHistoryDefault
+       , saveTxDefault
        ) where
 
 import           Universum
@@ -171,7 +171,7 @@ instance {-# OVERLAPPABLE #-}
     saveTx = lift . saveTx
 
 
-type TxHistoryMonad m =
+type TxHistoryEnv m =
     ( MonadRealDB m
     , MonadDBRead m
     , MonadGState m
@@ -183,10 +183,10 @@ type TxHistoryMonad m =
     , MonadBaseControl IO m
     )
 
-getTxHistoryWebWallet
-    :: forall ssc m. (SscHelpersClass ssc, TxHistoryMonad m)
+getTxHistoryDefault
+    :: forall ssc m. (SscHelpersClass ssc, TxHistoryEnv m)
     => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
-getTxHistoryWebWallet = Tagged $ \addrs mInit -> do
+getTxHistoryDefault = Tagged $ \addrs mInit -> do
     tip <- GS.getTip
 
     let getGenUtxo = Ether.asks' unGenesisUtxo
@@ -230,9 +230,9 @@ getTxHistoryWebWallet = Tagged $ \addrs mInit -> do
 
     maybe (error "deriveAddrHistory: Nothing") pure mres
 
-saveTxWebWallet :: TxHistoryMonad m => (TxId, TxAux) -> m ()
+saveTxDefault :: TxHistoryEnv m => (TxId, TxAux) -> m ()
 #ifdef WITH_EXPLORER
-saveTxWebWallet txw = () <$ runExceptT (eTxProcessTransaction txw)
+saveTxDefault txw = () <$ runExceptT (eTxProcessTransaction txw)
 #else
-saveTxWebWallet txw = () <$ runExceptT (txProcessTransaction txw)
+saveTxDefault txw = () <$ runExceptT (txProcessTransaction txw)
 #endif

@@ -28,13 +28,13 @@ module Pos.DB.Block
        , MonadBlockDBWrite (..)
        , BlockDBRedirect
        , runBlockDBRedirect
-       , dbGetBlockReal
-       , dbGetUndoReal
-       , dbGetHeaderReal
-       , dbGetBlockReal'
-       , dbGetUndoReal'
-       , dbGetHeaderReal'
-       , dbPutBlundReal
+       , dbGetBlockDefault
+       , dbGetUndoDefault
+       , dbGetHeaderDefault
+       , dbGetBlockSscDefault
+       , dbGetUndoSscDefault
+       , dbGetHeaderSscDefault
+       , dbPutBlundDefault
        ) where
 
 import           Universum
@@ -254,40 +254,40 @@ runBlockDBRedirect = coerce
 
 -- instance MonadBlockDBGeneric (Block ssc)
 
-type BlockDBGenericRealMonad ssc m =
+type BlockDBGenericDefaultEnv ssc m =
     (MonadDBRead m, MonadRealDB m, SscHelpersClass ssc)
 
-dbGetBlockReal :: forall ssc m . BlockDBGenericRealMonad ssc m => HeaderHash -> m (Maybe (Block ssc))
-dbGetBlockReal = getBlock
+dbGetBlockDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe (Block ssc))
+dbGetBlockDefault = getBlock
 
-dbGetUndoReal :: forall ssc m . BlockDBGenericRealMonad ssc m => HeaderHash -> m (Maybe Undo)
-dbGetUndoReal = getUndo
+dbGetUndoDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe Undo)
+dbGetUndoDefault = getUndo
 
-dbGetHeaderReal :: forall ssc m . BlockDBGenericRealMonad ssc m => HeaderHash -> m (Maybe (BlockHeader ssc))
-dbGetHeaderReal = blkGetHeader
+dbGetHeaderDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe (BlockHeader ssc))
+dbGetHeaderDefault = blkGetHeader
 
 instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (Ether.TaggedTrans BlockDBRedirectTag t m) where
-    dbGetBlock  = dbGetBlockReal @ssc
-    dbGetUndo   = dbGetUndoReal @ssc
-    dbGetHeader = dbGetHeaderReal @ssc
+    dbGetBlock  = dbGetBlockDefault @ssc
+    dbGetUndo   = dbGetUndoDefault @ssc
+    dbGetHeader = dbGetHeaderDefault @ssc
 
 -- instance MonadBlockDBGeneric (SscBlock ssc)
 
-dbGetBlockReal' :: forall ssc m . BlockDBGenericRealMonad ssc m => HeaderHash -> m (Maybe (SscBlock ssc))
-dbGetBlockReal' = fmap (toSscBlock <$>) . getBlock
+dbGetBlockSscDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe (SscBlock ssc))
+dbGetBlockSscDefault = fmap (toSscBlock <$>) . getBlock
 
-dbGetUndoReal' :: forall ssc m . BlockDBGenericRealMonad ssc m => HeaderHash -> m (Maybe ())
-dbGetUndoReal' = fmap (const () <$>) . getUndo
+dbGetUndoSscDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe ())
+dbGetUndoSscDefault = fmap (const () <$>) . getUndo
 
-dbGetHeaderReal' :: forall ssc m . BlockDBGenericRealMonad ssc m => HeaderHash -> m (Maybe (Some IsHeader))
-dbGetHeaderReal' = fmap (Some <$>) . blkGetHeader @ssc
+dbGetHeaderSscDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe (Some IsHeader))
+dbGetHeaderSscDefault = fmap (Some <$>) . blkGetHeader @ssc
 
 instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (Ether.TaggedTrans BlockDBRedirectTag t m) where
-    dbGetBlock  = dbGetBlockReal' @ssc
-    dbGetUndo   = dbGetUndoReal' @ssc
-    dbGetHeader = dbGetHeaderReal' @ssc
+    dbGetBlock  = dbGetBlockSscDefault @ssc
+    dbGetUndo   = dbGetUndoSscDefault @ssc
+    dbGetHeader = dbGetHeaderSscDefault @ssc
 
 -- helpers
 
@@ -329,12 +329,12 @@ instance {-# OVERLAPPABLE #-}
 
 -- instance MonadBlockDBWrite
 
-dbPutBlundReal :: (MonadDBRead m, MonadRealDB m, SscHelpersClass ssc) => Blund ssc -> m ()
-dbPutBlundReal = putBlundReal
+dbPutBlundDefault :: (MonadDBRead m, MonadRealDB m, SscHelpersClass ssc) => Blund ssc -> m ()
+dbPutBlundDefault = putBlundReal
 
 instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBWrite ssc (Ether.TaggedTrans BlockDBRedirectTag t m) where
-    dbPutBlund = dbPutBlundReal
+    dbPutBlund = dbPutBlundDefault
 
 ----------------------------------------------------------------------------
 -- Helpers

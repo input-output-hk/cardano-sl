@@ -18,7 +18,7 @@ module Pos.DB.DB
 
        , GStateCoreRedirect
        , runGStateCoreRedirect
-       , gsAdoptedBVDataDB
+       , gsAdoptedBVDataDefault
        ) where
 
 import           Universum
@@ -154,11 +154,11 @@ type GStateCoreRedirect =
 runGStateCoreRedirect :: GStateCoreRedirect m a -> m a
 runGStateCoreRedirect = coerce
 
-gsAdoptedBVDataDB :: MonadDBRead m => m BlockVersionData
-gsAdoptedBVDataDB = getAdoptedBVData
+gsAdoptedBVDataDefault :: MonadDBRead m => m BlockVersionData
+gsAdoptedBVDataDefault = getAdoptedBVData
 
 instance
     (MonadDBRead m, t ~ IdentityT) =>
         MonadGState (Ether.TaggedTrans GStateCoreRedirectTag t m)
   where
-    gsAdoptedBVData = gsAdoptedBVDataDB
+    gsAdoptedBVData = gsAdoptedBVDataDefault

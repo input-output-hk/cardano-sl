@@ -26,38 +26,38 @@ import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocks
 import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Types             (Undo)
 import           Pos.Communication.PeerState (PeerStateCtx, PeerStateTag,
-                                              WithPeerState (..), clearPeerStateReal,
-                                              getAllStatesReal, getPeerStateReal)
+                                              WithPeerState (..), clearPeerStateDefault,
+                                              getAllStatesDefault, getPeerStateDefault)
 import           Pos.Context                 (NodeContext)
 import           Pos.Core                    (IsHeader)
 import           Pos.DB                      (MonadGState (..), NodeDBs)
-import           Pos.DB.Block                (MonadBlockDBWrite (..), dbGetBlockReal,
-                                              dbGetBlockReal', dbGetHeaderReal,
-                                              dbGetHeaderReal', dbGetUndoReal,
-                                              dbGetUndoReal', dbPutBlundReal)
+import           Pos.DB.Block                (MonadBlockDBWrite (..), dbGetBlockDefault,
+                                              dbGetBlockSscDefault, dbGetHeaderDefault,
+                                              dbGetHeaderSscDefault, dbGetUndoDefault,
+                                              dbGetUndoSscDefault, dbPutBlundDefault)
 import           Pos.DB.Class                (MonadBlockDBGeneric (..), MonadDB (..),
                                               MonadDBRead (..))
-import           Pos.DB.DB                   (gsAdoptedBVDataDB)
-import           Pos.DB.Redirect             (dbDeleteReal, dbGetReal, dbPutReal,
-                                              dbWriteBatchReal)
+import           Pos.DB.DB                   (gsAdoptedBVDataDefault)
+import           Pos.DB.Redirect             (dbDeleteDefault, dbGetDefault, dbPutDefault,
+                                              dbWriteBatchDefault)
 import           Pos.Delegation.Class        (DelegationVar)
-import           Pos.Discovery               (MonadDiscovery (..), findPeersReal,
-                                              getPeersReal)
+import           Pos.Discovery               (MonadDiscovery (..), findPeersSum,
+                                              getPeersSum)
 import           Pos.ExecMode                (ExecMode (..), ExecModeM, modeContext, (:::))
 import           Pos.Slotting.Class          (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum       (currentTimeSlottingReal,
-                                              getCurrentSlotBlockingReal,
-                                              getCurrentSlotInaccurateReal,
-                                              getCurrentSlotReal)
-import           Pos.Slotting.MemState       (MonadSlotsData (..), getSlottingDataReal,
-                                              getSystemStartReal, putSlottingDataReal,
-                                              waitPenultEpochEqualsReal)
+import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
+                                              getCurrentSlotBlockingSum,
+                                              getCurrentSlotInaccurateSum,
+                                              getCurrentSlotSum)
+import           Pos.Slotting.MemState       (MonadSlotsData (..), getSlottingDataDefault,
+                                              getSystemStartDefault, putSlottingDataDefault,
+                                              waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Ssc.Class.Types         (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState)
 import           Pos.Txp.MemState            (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Util                    (Some (..))
-import           Pos.Util.JsonLog            (JsonLogConfig, jsonLogReal)
+import           Pos.Util.JsonLog            (JsonLogConfig, jsonLogDefault)
 import           Pos.Util.TimeWarp           (CanJsonLog (..))
 import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
 
@@ -88,59 +88,59 @@ instance HasLoggerName (RealMode ssc) where
     modifyLoggerName = Ether.local'
 
 instance CanJsonLog (RealMode ssc) where
-    jsonLog = jsonLogReal
+    jsonLog = jsonLogDefault
 
 instance MonadSlotsData (RealMode ssc) where
-    getSystemStart = getSystemStartReal
-    getSlottingData = getSlottingDataReal
-    waitPenultEpochEquals = waitPenultEpochEqualsReal
-    putSlottingData = putSlottingDataReal
+    getSystemStart = getSystemStartDefault
+    getSlottingData = getSlottingDataDefault
+    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    putSlottingData = putSlottingDataDefault
 
 instance MonadSlots (RealMode ssc) where
-    getCurrentSlot = getCurrentSlotReal
-    getCurrentSlotBlocking = getCurrentSlotBlockingReal
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateReal
-    currentTimeSlotting = currentTimeSlottingReal
+    getCurrentSlot = getCurrentSlotSum
+    getCurrentSlotBlocking = getCurrentSlotBlockingSum
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
+    currentTimeSlotting = currentTimeSlottingSum
 
 instance MonadDiscovery (RealMode ssc) where
-    getPeers = getPeersReal
-    findPeers = findPeersReal
+    getPeers = getPeersSum
+    findPeers = findPeersSum
 
 instance MonadGState (RealMode ssc) where
-    gsAdoptedBVData = gsAdoptedBVDataDB
+    gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance MonadDBRead (RealMode ssc) where
-    dbGet = dbGetReal
+    dbGet = dbGetDefault
 
 instance MonadDB (RealMode ssc) where
-    dbPut = dbPutReal
-    dbWriteBatch = dbWriteBatchReal
-    dbDelete = dbDeleteReal
+    dbPut = dbPutDefault
+    dbWriteBatch = dbWriteBatchDefault
+    dbDelete = dbDeleteDefault
 
 instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc) where
-    dbPutBlund = dbPutBlundReal
+    dbPutBlund = dbPutBlundDefault
 
 instance MonadBListener (RealMode ssc) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
 
 instance WithPeerState (RealMode ssc) where
-    getPeerState = getPeerStateReal
-    clearPeerState = clearPeerStateReal
-    getAllStates = getAllStatesReal
+    getPeerState = getPeerStateDefault
+    clearPeerState = clearPeerStateDefault
+    getAllStates = getAllStatesDefault
 
 instance
     SscHelpersClass ssc =>
     MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (RealMode ssc)
   where
-    dbGetBlock  = dbGetBlockReal @ssc
-    dbGetUndo   = dbGetUndoReal @ssc
-    dbGetHeader = dbGetHeaderReal @ssc
+    dbGetBlock  = dbGetBlockDefault @ssc
+    dbGetUndo   = dbGetUndoDefault @ssc
+    dbGetHeader = dbGetHeaderDefault @ssc
 
 instance
     SscHelpersClass ssc =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (RealMode ssc)
   where
-    dbGetBlock  = dbGetBlockReal' @ssc
-    dbGetUndo   = dbGetUndoReal' @ssc
-    dbGetHeader = dbGetHeaderReal' @ssc
+    dbGetBlock  = dbGetBlockSscDefault @ssc
+    dbGetUndo   = dbGetUndoSscDefault @ssc
+    dbGetHeader = dbGetHeaderSscDefault @ssc

@@ -23,8 +23,8 @@ import           Pos.Block.BListener              (MonadBListener (..), onApplyB
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.PeerState      (PeerStateCtx, PeerStateTag,
-                                                   WithPeerState (..), clearPeerStateReal,
-                                                   getAllStatesReal, getPeerStateReal)
+                                                   WithPeerState (..), clearPeerStateDefault,
+                                                   getAllStatesDefault, getPeerStateDefault)
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Discovery                    (DiscoveryTag, MonadDiscovery (..),
@@ -32,7 +32,7 @@ import           Pos.Discovery                    (DiscoveryTag, MonadDiscovery 
 import           Pos.ExecMode                     ((:::), ExecMode (..), ExecModeM,
                                                    modeContext)
 import           Pos.Reporting.MemState           (ReportingContext)
-import           Pos.Util.JsonLog                 (JsonLogConfig, jsonLogReal)
+import           Pos.Util.JsonLog                 (JsonLogConfig, jsonLogDefault)
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
 import           Pos.Wallet.KeyStorage            (KeyData)
 import           Pos.Wallet.Light.Redirect        (getBalanceWallet, getOwnUtxosWallet,
@@ -68,7 +68,7 @@ instance HasLoggerName LightWalletMode where
     modifyLoggerName = Ether.local'
 
 instance CanJsonLog LightWalletMode where
-    jsonLog = jsonLogReal
+    jsonLog = jsonLogDefault
 
 instance MonadDiscovery LightWalletMode where
     getPeers = getPeersConst
@@ -91,9 +91,9 @@ instance MonadUpdates LightWalletMode where
     applyLastUpdate = pure ()
 
 instance WithPeerState LightWalletMode where
-    getPeerState = getPeerStateReal
-    clearPeerState = clearPeerStateReal
-    getAllStates = getAllStatesReal
+    getPeerState = getPeerStateDefault
+    clearPeerState = clearPeerStateDefault
+    getAllStates = getAllStatesDefault
 
 instance MonadGState LightWalletMode where
     gsAdoptedBVData = gsAdoptedBVDataWallet

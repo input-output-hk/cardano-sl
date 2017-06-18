@@ -17,8 +17,8 @@ module Pos.Discovery.Holders
        , MonadDiscoverySum
        , askDiscoveryContextSum
        , discoveryWorkers
-       , getPeersReal
-       , findPeersReal
+       , getPeersSum
+       , findPeersSum
        ) where
 
 import           Universum
@@ -121,17 +121,17 @@ type MonadDiscoverySum = Ether.MonadReader' DiscoveryContextSum
 askDiscoveryContextSum :: MonadDiscoverySum m => m DiscoveryContextSum
 askDiscoveryContextSum = Ether.ask'
 
-type DiscoveryRealMonad m =
+type DiscoverySumEnv m =
     (MonadDiscoverySum m, DiscoveryKademliaEnv m)
 
-getPeersReal :: DiscoveryRealMonad m => m (Set NodeId)
-getPeersReal =
+getPeersSum :: DiscoverySumEnv m => m (Set NodeId)
+getPeersSum =
     Ether.ask' >>= \case
         DCStatic nodes -> runDiscoveryConstT nodes getPeers
         DCKademlia inst -> runDiscoveryKademliaT inst getPeers
 
-findPeersReal :: DiscoveryRealMonad m => m (Set NodeId)
-findPeersReal =
+findPeersSum :: DiscoverySumEnv m => m (Set NodeId)
+findPeersSum =
     Ether.ask' >>= \case
         DCStatic nodes -> runDiscoveryConstT nodes findPeers
         DCKademlia inst -> runDiscoveryKademliaT inst findPeers

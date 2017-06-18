@@ -15,8 +15,8 @@ import           Mockable             (Production)
 import           Pos.Context          (NodeContext)
 import           Pos.DB               (NodeDBs)
 import           Pos.DB.Class         (MonadDB (..), MonadDBRead (..))
-import           Pos.DB.Redirect      (dbDeleteReal, dbGetReal, dbPutReal,
-                                       dbWriteBatchReal)
+import           Pos.DB.Redirect      (dbDeleteDefault, dbGetDefault, dbPutDefault,
+                                       dbWriteBatchDefault)
 import           Pos.ExecMode         (ExecMode (..), ExecModeM, modeContext, (:::))
 import           Pos.Txp.MemState     (GenericTxpLocalData, TxpHolderTag)
 import           Pos.WorkMode         (TxpExtra_TMP)
@@ -39,9 +39,9 @@ unWebMode :: ExecMode (WEB ssc) a -> ExecModeM (WEB ssc) a
 unWebMode = unExecMode
 
 instance MonadDBRead (WebMode ssc) where
-    dbGet = dbGetReal
+    dbGet = dbGetDefault
 
 instance MonadDB (WebMode ssc) where
-    dbPut = dbPutReal
-    dbWriteBatch = dbWriteBatchReal
-    dbDelete = dbDeleteReal
+    dbPut = dbPutDefault
+    dbWriteBatch = dbWriteBatchDefault
+    dbDelete = dbDeleteDefault

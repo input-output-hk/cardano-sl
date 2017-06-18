@@ -10,10 +10,10 @@ module Pos.Slotting.MemState.Holder
        , askSlottingTimestamp
        , SlotsDataRedirect
        , runSlotsDataRedirect
-       , getSystemStartReal
-       , getSlottingDataReal
-       , waitPenultEpochEqualsReal
-       , putSlottingDataReal
+       , getSystemStartDefault
+       , getSlottingDataDefault
+       , waitPenultEpochEqualsDefault
+       , putSlottingDataDefault
        ) where
 
 import           Universum
@@ -57,34 +57,34 @@ type SlotsDataRedirect =
 runSlotsDataRedirect :: SlotsDataRedirect m a -> m a
 runSlotsDataRedirect = coerce
 
-type SlotsRealMonad m =
+type SlotsDefaultEnv m =
     (MonadSlotting m, MonadIO m)
 
-getSystemStartReal :: SlotsRealMonad m => m Timestamp
-getSystemStartReal = askSlottingTimestamp
+getSystemStartDefault :: SlotsDefaultEnv m => m Timestamp
+getSystemStartDefault = askSlottingTimestamp
 
-getSlottingDataReal :: SlotsRealMonad m => m SlottingData
-getSlottingDataReal = atomically . readTVar =<< askSlottingVar
+getSlottingDataDefault :: SlotsDefaultEnv m => m SlottingData
+getSlottingDataDefault = atomically . readTVar =<< askSlottingVar
 
-waitPenultEpochEqualsReal :: SlotsRealMonad m => EpochIndex -> m ()
-waitPenultEpochEqualsReal target = do
+waitPenultEpochEqualsDefault :: SlotsDefaultEnv m => EpochIndex -> m ()
+waitPenultEpochEqualsDefault target = do
     var <- askSlottingVar
     atomically $ do
         penultEpoch <- sdPenultEpoch <$> readTVar var
         when (penultEpoch /= target) retry
 
-putSlottingDataReal :: SlotsRealMonad m => SlottingData -> m ()
-putSlottingDataReal sd = do
+putSlottingDataDefault :: SlotsDefaultEnv m => SlottingData -> m ()
+putSlottingDataDefault sd = do
     var <- askSlottingVar
     atomically $ do
         penultEpoch <- sdPenultEpoch <$> readTVar var
         when (penultEpoch < sdPenultEpoch sd) $ writeTVar var sd
 
 instance
-    (SlotsRealMonad m, t ~ IdentityT) =>
+    (SlotsDefaultEnv m, t ~ IdentityT) =>
          MonadSlotsData (Ether.TaggedTrans SlotsDataRedirectTag t m)
   where
-    getSystemStart = getSystemStartReal
-    getSlottingData = getSlottingDataReal
-    waitPenultEpochEquals = waitPenultEpochEqualsReal
-    putSlottingData = putSlottingDataReal
+    getSystemStart = getSystemStartDefault
+    getSlottingData = getSlottingDataDefault
+    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    putSlottingData = putSlottingDataDefault

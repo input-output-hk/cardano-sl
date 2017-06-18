@@ -22,23 +22,23 @@ import           Pos.Block.Types       (Undo)
 import           Pos.Context.Context   (GenesisLeaders, GenesisUtxo, NodeParams)
 import           Pos.Core              (IsHeader)
 import           Pos.DB                (NodeDBs)
-import           Pos.DB.Block          (MonadBlockDBWrite (..), dbGetBlockReal,
-                                        dbGetBlockReal', dbGetHeaderReal,
-                                        dbGetHeaderReal', dbGetUndoReal, dbGetUndoReal',
-                                        dbPutBlundReal)
+import           Pos.DB.Block          (MonadBlockDBWrite (..), dbGetBlockDefault,
+                                        dbGetBlockSscDefault, dbGetHeaderDefault,
+                                        dbGetHeaderSscDefault, dbGetUndoDefault, dbGetUndoSscDefault,
+                                        dbPutBlundDefault)
 import           Pos.DB.Class          (MonadBlockDBGeneric (..), MonadDB (..),
                                         MonadDBRead (..))
-import           Pos.DB.Redirect       (dbDeleteReal, dbGetReal, dbPutReal,
-                                        dbWriteBatchReal)
+import           Pos.DB.Redirect       (dbDeleteDefault, dbGetDefault, dbPutDefault,
+                                        dbWriteBatchDefault)
 import           Pos.ExecMode          (ExecMode (..), ExecModeM, modeContext, (:::))
 import           Pos.Lrc.Context       (LrcContext)
 import           Pos.Slotting.Class    (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingReal,
-                                        getCurrentSlotBlockingReal,
-                                        getCurrentSlotInaccurateReal, getCurrentSlotReal)
+import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
+                                        getCurrentSlotBlockingSum,
+                                        getCurrentSlotInaccurateSum, getCurrentSlotSum)
 import           Pos.Slotting.MemState (MonadSlotsData (..), SlottingVar,
-                                        getSlottingDataReal, getSystemStartReal,
-                                        putSlottingDataReal, waitPenultEpochEqualsReal)
+                                        getSlottingDataDefault, getSystemStartDefault,
+                                        putSlottingDataDefault, waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Util              (Some (..))
@@ -83,42 +83,42 @@ runInitMode :: InitModeContext -> InitMode ssc a -> Production a
 runInitMode imc act = Mtl.runReaderT (unExecMode act) imc
 
 instance MonadDBRead (InitMode ssc) where
-    dbGet = dbGetReal
+    dbGet = dbGetDefault
 
 instance MonadDB (InitMode ssc) where
-    dbPut = dbPutReal
-    dbWriteBatch = dbWriteBatchReal
-    dbDelete = dbDeleteReal
+    dbPut = dbPutDefault
+    dbWriteBatch = dbWriteBatchDefault
+    dbDelete = dbDeleteDefault
 
 instance SscHelpersClass ssc => MonadBlockDBWrite ssc (InitMode ssc) where
-    dbPutBlund = dbPutBlundReal
+    dbPutBlund = dbPutBlundDefault
 
 instance
     SscHelpersClass ssc =>
     MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (InitMode ssc)
   where
-    dbGetBlock  = dbGetBlockReal @ssc
-    dbGetUndo   = dbGetUndoReal @ssc
-    dbGetHeader = dbGetHeaderReal @ssc
+    dbGetBlock  = dbGetBlockDefault @ssc
+    dbGetUndo   = dbGetUndoDefault @ssc
+    dbGetHeader = dbGetHeaderDefault @ssc
 
 instance
     SscHelpersClass ssc =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (InitMode ssc)
   where
-    dbGetBlock  = dbGetBlockReal' @ssc
-    dbGetUndo   = dbGetUndoReal' @ssc
-    dbGetHeader = dbGetHeaderReal' @ssc
+    dbGetBlock  = dbGetBlockSscDefault @ssc
+    dbGetUndo   = dbGetUndoSscDefault @ssc
+    dbGetHeader = dbGetHeaderSscDefault @ssc
 
 instance MonadSlotsData (InitMode ssc) where
-    getSystemStart = getSystemStartReal
-    getSlottingData = getSlottingDataReal
-    waitPenultEpochEquals = waitPenultEpochEqualsReal
-    putSlottingData = putSlottingDataReal
+    getSystemStart = getSystemStartDefault
+    getSlottingData = getSlottingDataDefault
+    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    putSlottingData = putSlottingDataDefault
 
 instance MonadSlots (InitMode ssc) where
-    getCurrentSlot = getCurrentSlotReal
-    getCurrentSlotBlocking = getCurrentSlotBlockingReal
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateReal
-    currentTimeSlotting = currentTimeSlottingReal
+    getCurrentSlot = getCurrentSlotSum
+    getCurrentSlotBlocking = getCurrentSlotBlockingSum
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
+    currentTimeSlotting = currentTimeSlottingSum
 
 deriving instance HasLoggerName (InitMode ssc)

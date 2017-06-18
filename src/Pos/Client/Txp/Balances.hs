@@ -4,8 +4,8 @@ module Pos.Client.Txp.Balances
        ( MonadBalances(..)
        , getOwnUtxo
        , getBalanceFromUtxo
-       , getOwnUtxosWebWallet
-       , getBalanceWebWallet
+       , getOwnUtxosDefault
+       , getBalanceDefault
        ) where
 
 import           Universum
@@ -51,11 +51,11 @@ getBalanceFromUtxo addr =
     unsafeIntegerToCoin . sumCoins .
     map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
 
-type BalancesMonad ext m =
+type BalancesEnv ext m =
     (MonadRealDB m, MonadDBRead m, MonadGState m, MonadMask m, WithLogger m, MonadTxpMem ext m)
 
-getOwnUtxosWebWallet :: BalancesMonad ext m => [Address] -> m Utxo
-getOwnUtxosWebWallet addr = do
+getOwnUtxosDefault :: BalancesEnv ext m => [Address] -> m Utxo
+getOwnUtxosDefault addr = do
     utxo <- GS.getFilteredUtxo addr
     updates <- getUtxoModifier
     let addrsSet = HS.fromList $ AddressIA <$> addr
@@ -65,8 +65,8 @@ getOwnUtxosWebWallet addr = do
         utxo'    = foldr M.delete utxo toDel
     return $ HM.foldrWithKey M.insert utxo' toAdd
 
-getBalanceWebWallet :: (BalancesMonad ext m, MonadBalances m) => Address -> m Coin
-getBalanceWebWallet PubKeyAddress{..} = do
+getBalanceDefault :: (BalancesEnv ext m, MonadBalances m) => Address -> m Coin
+getBalanceDefault PubKeyAddress{..} = do
     (txs, undos) <- getLocalTxsNUndo
     let wHash (i, TxAux tx _ _) = WithHash tx i
     case topsortTxs wHash txs of
@@ -83,7 +83,7 @@ getBalanceWebWallet PubKeyAddress{..} = do
         sformat ("Couldn't compute balance of "%shortHashF%
                      " using mempool, reason: "%stext) addrKeyHash er
     getFromDb = fromMaybe (mkCoin 0) <$> GS.getRealStake addrKeyHash
-getBalanceWebWallet addr = getBalanceFromUtxo addr
+getBalanceDefault addr = getBalanceFromUtxo addr
 
 getOwnUtxo :: MonadBalances m => Address -> m Utxo
 getOwnUtxo = getOwnUtxos . one

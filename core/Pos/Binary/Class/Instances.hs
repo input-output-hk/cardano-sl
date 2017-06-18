@@ -26,8 +26,8 @@ import           System.IO.Unsafe            (unsafePerformIO)
 
 import           Pos.Binary.Class.Core       (Bi (..), getSize)
 import           Pos.Binary.Class.Numbers    (UnsignedVarInt (..), getWord8, putWord8)
-import           Pos.Binary.Class.Store      (Poke, Size (..), StaticSize, combineSize,
-                                              sizeOf)
+import           Pos.Binary.Class.Store      (Size (..), StaticSize, combineSize,
+                                              execPoke, mkPoke, sizeOf)
 
 ----------------------------------------------------------------------------
 -- Popular basic instances
@@ -191,14 +191,6 @@ instance KnownNat n => Bi (StaticSize n ByteString) where
     size = Store.size
     put = Store.poke
     get = Store.peek
-
-execPoke :: Poke a -> Store.PokeState -> Store.Offset -> IO Store.Offset
-execPoke p ptr offset = fst <$> Store.runPoke p ptr offset
-
-mkPoke
-    :: (Store.PokeState -> Store.Offset -> IO Store.Offset)
-    -> Poke ()
-mkPoke f = Store.Poke (\ptr offset -> (,()) <$> f ptr offset)
 
 instance Bi a => Bi [a] where
     size =

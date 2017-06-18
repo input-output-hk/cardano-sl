@@ -9,7 +9,7 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Size (..),
                                              UnsignedVarInt (..), deriveSimpleBi, label,
-                                             putField, putWord8)
+                                             labelP, labelS, putField, putWord8)
 import qualified Pos.Binary.Core.Coin       as BinCoin
 import           Pos.Binary.Core.Script     ()
 import           Pos.Binary.Core.Version    ()
@@ -21,30 +21,31 @@ import           Pos.Util.Util              (eitherToFail)
 -- verbosity and clarity
 
 instance Bi T.Timestamp where
-    sizeNPut = putField toInteger
+    sizeNPut = labelS "Timestamp" $ putField toInteger
     get = label "Timestamp" $ fromInteger <$> get
 
 instance Bi T.EpochIndex where
-    sizeNPut = putField (UnsignedVarInt . T.getEpochIndex)
+    sizeNPut = labelS "EpochIndex" $ putField (UnsignedVarInt . T.getEpochIndex)
     get = label "EpochIndex" $ T.EpochIndex . getUnsignedVarInt <$> get
 
 instance Bi (A.Attributes ()) where
     size = VarSize $ A.sizeAttributes (\() -> [])
     get = label "Attributes" $
         A.getAttributes (\_ () -> Nothing) (Just (128 * 1024 * 1024)) ()
-    put = A.putAttributes (\() -> [])
+    put = labelP "Attributes" . A.putAttributes (\() -> [])
 
 instance Bi T.Coin where
     size = VarSize BinCoin.size
-    put = mapM_ putWord8 . BinCoin.encode
+    put = labelP "Coin" . mapM_ putWord8 . BinCoin.encode
     get = label "Coin" $ BinCoin.decode
 
 instance Bi T.CoinPortion where
-    sizeNPut = putField T.getCoinPortion
+    sizeNPut = labelS "CoinPortion" $ putField T.getCoinPortion
     get = label "CoinPortion" $ get >>= T.mkCoinPortion
 
 instance Bi T.LocalSlotIndex where
-    sizeNPut = putField (UnsignedVarInt . T.getSlotIndex)
+    sizeNPut = labelS "LocalSlotIndex" $
+        putField (UnsignedVarInt . T.getSlotIndex)
     get =
         label "LocalSlotIndex" $
         eitherToFail . T.mkLocalSlotIndex . getUnsignedVarInt =<< get
@@ -56,8 +57,8 @@ deriveSimpleBi ''T.SlotId [
     ]]
 
 instance Bi T.EpochOrSlot where
-    sizeNPut = putField T.unEpochOrSlot
-    get = T.EpochOrSlot <$> get
+    sizeNPut = labelS "EpochOrSlot" $ putField T.unEpochOrSlot
+    get = label "EpochOrSlot" $ T.EpochOrSlot <$> get
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
@@ -68,7 +69,7 @@ deriveSimpleBi ''T.SharedSeed [
     ]]
 
 instance Bi T.ChainDifficulty where
-    sizeNPut = putField (UnsignedVarInt . T.getChainDifficulty)
+    sizeNPut = labelS "ChainDifficulty" $ putField (UnsignedVarInt . T.getChainDifficulty)
     get = label "ChainDifficulty" $
           T.ChainDifficulty . getUnsignedVarInt <$> get
 
@@ -87,8 +88,3 @@ deriveSimpleBi ''T.BlockVersionData [
         Field 'T.bvdUpdateImplicit    ''T.FlatSlotId,
         Field 'T.bvdUpdateSoftforkThd ''T.CoinPortion
     ]]
-
-data D = A | B
-deriveSimpleBi ''D [
-    Cons 'A [],
-    Cons 'B []]

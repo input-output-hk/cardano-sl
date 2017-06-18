@@ -207,7 +207,7 @@ deriveSimpleBi headTy constrs = do
         x <- newName "x"
         lam1E (varP x) $
           caseE (varE x) $
-            imap biPutConstr filteredConstrs
+              imap biPutConstr filteredConstrs
 
     -- Generate the following code:
     -- val@Constr{} -> do
@@ -220,7 +220,7 @@ deriveSimpleBi headTy constrs = do
         val <- newName $ if length cFields > 0 then "val" else "_"
         match (asP val (recP cName [])) (body (varE val)) []
       where
-        body val = normalB $
+        body val = normalB $ appE [| Bi.labelP shortNameTy |] $
             if length constrs >= 2 then
                 doE (putTag ix : map (putField val) cFields)
             else

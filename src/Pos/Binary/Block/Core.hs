@@ -7,7 +7,7 @@ module Pos.Binary.Block.Core
 import           Universum
 
 import           Pos.Binary.Class             (Bi (..), convertToSizeNPut, getWord8,
-                                               label, putField, putS, putWord8S)
+                                               label, labelS, putField, putS, putWord8S)
 import           Pos.Binary.Core              ()
 import           Pos.Binary.Txp               ()
 import           Pos.Binary.Update            ()
@@ -24,7 +24,7 @@ import           Pos.Ssc.Class.Types          (Ssc (..))
 
 instance Ssc ssc =>
          Bi (Core.BodyProof (BC.MainBlockchain ssc)) where
-    sizeNPut =
+    sizeNPut = labelS "MainProof" $
         putField BC.mpTxProof <>
         putField BC.mpMpcProof <>
         putField BC.mpProxySKsProof <>
@@ -32,7 +32,7 @@ instance Ssc ssc =>
     get = label "MainProof" $ BC.MainProof <$> get <*> get <*> get <*> get
 
 instance Bi (BC.BlockSignature ssc) where
-    sizeNPut = convertToSizeNPut f
+    sizeNPut = labelS "BlockSignature" $ convertToSizeNPut f
       where
         f (BC.BlockSignature sig)            = putWord8S 0 <> putS sig
         f (BC.BlockPSignatureLight proxySig) = putWord8S 1 <> putS proxySig
@@ -44,7 +44,7 @@ instance Bi (BC.BlockSignature ssc) where
         t -> fail $ "get@BlockSignature: unknown tag: " <> show t
 
 instance Bi (BC.ConsensusData (BC.MainBlockchain ssc)) where
-    sizeNPut =
+    sizeNPut = labelS "MainConsensusData" $
         putField BC._mcdSlot <>
         putField BC._mcdLeaderKey <>
         putField BC._mcdDifficulty <>
@@ -52,7 +52,7 @@ instance Bi (BC.ConsensusData (BC.MainBlockchain ssc)) where
     get = label "MainConsensusData" $ BC.MainConsensusData <$> get <*> get <*> get <*> get
 
 instance (Ssc ssc) => Bi (BC.Body (BC.MainBlockchain ssc)) where
-    sizeNPut =
+    sizeNPut = labelS "MainBody" $
         putField BC._mbTxPayload <>
         putField BC._mbSscPayload <>
         putField BC._mbDlgPayload <>
@@ -65,18 +65,18 @@ instance (Ssc ssc) => Bi (BC.Body (BC.MainBlockchain ssc)) where
         return BC.MainBody{..}
 
 instance Bi BC.MainExtraHeaderData where
-    sizeNPut =
+    sizeNPut = labelS "MainExtraHeaderData" $
         putField BC._mehBlockVersion <>
         putField BC._mehSoftwareVersion <>
         putField BC._mehAttributes
     get = label "MainExtraHeaderData" $ BC.MainExtraHeaderData <$> get <*> get <*> get
 
 instance Bi BC.MainExtraBodyData where
-   sizeNPut = putField BC._mebAttributes
+   sizeNPut = labelS "MainExtraBodyData" $ putField BC._mebAttributes
    get = label "MainExtraBodyData" $ BC.MainExtraBodyData <$> get
 
 instance Ssc ssc => Bi (BC.MainToSign ssc) where
-    sizeNPut =
+    sizeNPut = labelS "MainToSign" $
         putField BC._msHeaderHash <>
         putField BC._msBodyProof <>
         putField BC._msSlot <>
@@ -89,21 +89,23 @@ instance Ssc ssc => Bi (BC.MainToSign ssc) where
 -- ----------------------------------------------------------------------------
 
 instance Bi BC.GenesisExtraHeaderData where
-    sizeNPut = putField BC._gehAttributes
+    sizeNPut = labelS "GenesisExtraHeaderData" $ putField BC._gehAttributes
     get = label "GenesisExtraHeaderData" $ BC.GenesisExtraHeaderData <$> get
 
 instance Bi BC.GenesisExtraBodyData where
-    sizeNPut = putField BC._gebAttributes
+    sizeNPut = labelS "GenesisExtraBodyData" $ putField BC._gebAttributes
     get = label "GenesisExtraBodyData" $ BC.GenesisExtraBodyData <$> get
 
 instance Bi (BC.BodyProof (BC.GenesisBlockchain ssc)) where
-    sizeNPut = putField (\(BC.GenesisProof h) -> h)
+    sizeNPut = labelS "GenesisProof" $ putField (\(BC.GenesisProof h) -> h)
     get = label "GenesisProof" $ BC.GenesisProof <$> get
 
 instance Bi (BC.ConsensusData (BC.GenesisBlockchain ssc)) where
-    sizeNPut = putField BC._gcdEpoch <> putField BC._gcdDifficulty
+    sizeNPut = labelS "GenesisConsensusData" $
+        putField BC._gcdEpoch <>
+        putField BC._gcdDifficulty
     get = label "GenesisConsensusData" $ BC.GenesisConsensusData <$> get <*> get
 
 instance Bi (BC.Body (BC.GenesisBlockchain ssc)) where
-    sizeNPut = putField BC._gbLeaders
+    sizeNPut = labelS "GenesisBody" $ putField BC._gbLeaders
     get = label "GenesisBody" $ BC.GenesisBody <$> get

@@ -10,8 +10,9 @@ import           Universum
 import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..), PokeWithSize,
                                           Size (..), convertSize, convertToSizeNPut,
                                           deriveSimpleBi, getAsciiString1b, getSize,
-                                          getWord8, label, putAsciiString1b, putField,
-                                          putS, putWord8, putWord8S, sizeAsciiString1b)
+                                          getWord8, label, labelP, labelS,
+                                          putAsciiString1b, putField, putS, putWord8,
+                                          putWord8S, sizeAsciiString1b)
 import           Pos.Binary.Core         ()
 import           Pos.Binary.Core.Version ()
 import           Pos.Core.Types          (HeaderHash)
@@ -24,13 +25,13 @@ import qualified Pos.Update.Poll.Types   as U
 
 instance Bi U.SystemTag where
     size = convertSize (toString . U.getSystemTag) sizeAsciiString1b
-    put (toString . U.getSystemTag -> tag) = putAsciiString1b tag
-    get =
-        label "SystemTag" $
+    put (toString . U.getSystemTag -> tag) = labelP "SystemTag" $
+        putAsciiString1b tag
+    get = label "SystemTag" $
         U.mkSystemTag . toText =<< getAsciiString1b "SystemTag" U.systemTagMaxLength
 
 instance Bi U.UpdateVote where
-    sizeNPut =
+    sizeNPut = labelS "UpdateVote" $
         putField U.uvKey <>
         putField U.uvProposalId <>
         putField U.uvDecision <>
@@ -50,7 +51,7 @@ instance Bi U.UpdateVote where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.UpdateData where
-    sizeNPut =
+    sizeNPut = labelS "UpdateData" $
         putField U.udAppDiffHash <>
         putField U.udPkgHash <>
         putField U.udUpdaterHash <>
@@ -59,7 +60,7 @@ instance Bi U.UpdateData where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.UpdateProposal where
-    sizeNPut =
+    sizeNPut = labelS "UpdateProposal" $
         putField U.upBlockVersion <>
         putField U.upBlockVersionData <>
         putField U.upSoftwareVersion <>
@@ -79,7 +80,7 @@ instance Bi U.UpdateProposal where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.UpdateProposalToSign where
-    sizeNPut =
+    sizeNPut = labelS "UpdateProposalToSign" $
         putField U.upsBV <>
         putField U.upsBVD <>
         putField U.upsSV <>
@@ -95,7 +96,8 @@ instance Bi U.UpdateProposalToSign where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.UpdatePayload where
-    sizeNPut = putField U.upProposal <> putField U.upVotes
+    sizeNPut = labelS "UpdatePayload" $
+        putField U.upProposal <> putField U.upVotes
     get = label "UpdatePayload" $ liftA2 U.UpdatePayload get get
 
 deriveSimpleBi ''U.VoteState [
@@ -105,7 +107,7 @@ deriveSimpleBi ''U.VoteState [
     Cons 'U.NegativeRevote []]
 
 instance Bi a => Bi (U.PrevValue a) where
-    sizeNPut = convertToSizeNPut toBi
+    sizeNPut = labelS "PrevValue" $ convertToSizeNPut toBi
         where
           toBi :: Bi a => U.PrevValue a -> PokeWithSize ()
           toBi = \case
@@ -118,7 +120,7 @@ instance Bi a => Bi (U.PrevValue a) where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.USUndo where
-    sizeNPut =
+    sizeNPut = labelS "USUndo" $
         putField U.unChangedBV <>
         putField U.unLastAdoptedBV <>
         putField U.unChangedProps <>
@@ -145,7 +147,7 @@ deriveSimpleBi ''U.DpsExtra [
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.UndecidedProposalState where
-    sizeNPut =
+    sizeNPut = labelS "UndecidedProposalState" $
         putField U.upsVotes <>
         putField U.upsProposal <>
         putField U.upsSlot <>
@@ -163,7 +165,7 @@ instance Bi U.UndecidedProposalState where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.DecidedProposalState where
-    sizeNPut =
+    sizeNPut = labelS "DecidedProposalState" $
         putField U.dpsDecision <>
         putField U.dpsUndecided <>
         putField U.dpsDifficulty <>
@@ -180,8 +182,9 @@ instance Bi U.ProposalState where
     size = VarSize $ \case
         U.PSUndecided us -> 1 + getSize us
         U.PSDecided ds -> 1 + getSize ds
-    put (U.PSUndecided us) = putWord8 0 >> put us
-    put (U.PSDecided ds)   = putWord8 1 >> put ds
+    put = labelP "ProposalState" . \case
+        U.PSUndecided us -> putWord8 0 >> put us
+        U.PSDecided   ds -> putWord8 1 >> put ds
     get = label "ProposalState" $ getWord8 >>= \case
         0 -> U.PSUndecided <$> get
         1 -> U.PSDecided <$> get
@@ -189,7 +192,7 @@ instance Bi U.ProposalState where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.ConfirmedProposalState where
-    sizeNPut =
+    sizeNPut = labelS "ConfirmedProposalState" $
         putField U.cpsUpdateProposal <>
         putField U.cpsImplicit <>
         putField U.cpsDecided <>
@@ -212,7 +215,7 @@ instance Bi U.ConfirmedProposalState where
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.BlockVersionState where
-    sizeNPut =
+    sizeNPut = labelS "BlockVersionState" $
         putField U.bvsData <>
         putField U.bvsIsConfirmed <>
         putField U.bvsIssuersStable <>

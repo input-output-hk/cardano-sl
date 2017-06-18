@@ -12,8 +12,8 @@ import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
                                                    convertToSizeNPut, decodeFull, encode,
                                                    getSmallWithLength, getWord8, label,
-                                                   putField, putS, putSmallWithLengthS,
-                                                   putWord8S)
+                                                   labelS, putField, putS,
+                                                   putSmallWithLengthS, putWord8S)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
@@ -32,19 +32,19 @@ deriving instance Bi MessageName
 ----------------------------------------------------------------------------
 
 instance Bi MsgGetHeaders where
-    sizeNPut = putField mghFrom <> putField mghTo
+    sizeNPut = labelS "MsgGetHeaders" $ putField mghFrom <> putField mghTo
     get = label "MsgGetHeaders" $ MsgGetHeaders <$> get <*> get
 
 instance Bi MsgGetBlocks where
-    sizeNPut = putField mgbFrom <> putField mgbTo
+    sizeNPut = labelS "MsgGetBlocks" $ putField mgbFrom <> putField mgbTo
     get = label "MsgGetBlocks" $ MsgGetBlocks <$> get <*> get
 
 instance SscHelpersClass ssc => Bi (MsgHeaders ssc) where
-    sizeNPut = putField $ \(MsgHeaders b) -> b
+    sizeNPut = labelS "MsgHeaders" $ putField $ \(MsgHeaders b) -> b
     get = label "MsgHeaders" $ MsgHeaders <$> get
 
 instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
-    sizeNPut = putField $ \(MsgBlock b) -> b
+    sizeNPut = labelS "MsgBlock" $ putField $ \(MsgBlock b) -> b
     get = label "MsgBlock" $ MsgBlock <$> get
 
 ----------------------------------------------------------------------------
@@ -61,7 +61,7 @@ instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
 -- | UnknownHandler w8 bs                        | Variable | w8        | bs             |
 
 instance Bi HandlerSpec where
-    sizeNPut = convertToSizeNPut f
+    sizeNPut = labelS "HandlerSpec" $ convertToSizeNPut f
       where
         f (ConvHandler (MessageName m)) =
             case decodeFull m of
@@ -79,7 +79,7 @@ instance Bi HandlerSpec where
             getSmallWithLength (UnknownHandler t <$> getSmallWithLength get)
 
 instance Bi VerInfo where
-    sizeNPut =
+    sizeNPut = labelS "VerInfo" $
         putField vIMagic <>
         putField vIBlockVersion <>
         putField vIInHandlers <>

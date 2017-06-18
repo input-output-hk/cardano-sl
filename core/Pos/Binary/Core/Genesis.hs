@@ -6,7 +6,8 @@ import           Universum
 
 import           Pos.Binary.Class        (Bi (..), Peek, PokeWithSize,
                                           UnsignedVarInt (..), convertToSizeNPut,
-                                          getWord8, label, putField, putS, putWord8S)
+                                          getWord8, label, labelS, putField, putS,
+                                          putWord8S)
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Core.Types   ()
 import           Pos.Core.Address        ()
@@ -27,7 +28,7 @@ instance Bi StakeDistribution where
         4 -> ExplicitStakes <$> get
         5 -> CombinedStakes <$> get <*> get
         _ -> fail "Pos.Binary.Genesis: StakeDistribution: invalid tag"
-    sizeNPut = convertToSizeNPut f
+    sizeNPut = labelS "StakeDistribution" $ convertToSizeNPut f
       where
         f :: StakeDistribution -> PokeWithSize ()
         f (FlatStakes n total)       = putWord8S 0 <> putUVI n <> putS total
@@ -41,7 +42,7 @@ instance Bi StakeDistribution where
 
 instance Bi GenesisCoreData where
     get = label "GenesisCoreData" $ GenesisCoreData <$> get <*> get <*> get
-    sizeNPut =
+    sizeNPut = labelS "GenesisCoreData" $
         putField gcdAddresses
      <> putField gcdDistribution
      <> putField gcdBootstrapBalances

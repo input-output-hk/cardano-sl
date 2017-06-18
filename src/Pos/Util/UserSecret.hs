@@ -38,7 +38,8 @@ import           System.FileLock            (FileLock, SharedExclusive (..), loc
 import qualified Turtle                     as T
 import           Universum
 
-import           Pos.Binary.Class           (Bi (..), decodeFull, encode, label, putField)
+import           Pos.Binary.Class           (Bi (..), decodeFull, encode, label, labelS,
+                                             putField)
 import           Pos.Binary.Crypto          ()
 import           Pos.Crypto                 (EncryptedSecretKey, SecretKey, VssKeyPair)
 
@@ -109,7 +110,7 @@ instance Default UserSecret where
 -- | It's not network/system-related, so instance shouldn't be under
 -- @Pos.Binary.*@.
 instance Bi UserSecret where
-    sizeNPut =
+    sizeNPut = labelS "UserSecret" $
         putField _usVss <>
         putField _usPrimKey <>
         putField _usKeys <>

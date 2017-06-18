@@ -7,7 +7,7 @@ import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
 import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (..),
                                       convertToSizeNPut, encodeWithS, getSmallWithLength,
-                                      getWord8, label, putField, putS,
+                                      getWord8, label, labelS, putField, putS,
                                       putSmallWithLengthS, putWord8S)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
@@ -55,8 +55,9 @@ instance CRC32 Address where
     crc32Update seed = crc32Update seed . encodeWithS sizeNPutAddressIncomplete
 
 instance Bi Address where
-    sizeNPut = sizeNPutAddressIncomplete
-            <> putField crc32
+    sizeNPut = labelS "Address" $
+        sizeNPutAddressIncomplete <>
+        putField crc32
     get = label "Address" $ do
        addr <- getAddressIncomplete
        checksum <- get

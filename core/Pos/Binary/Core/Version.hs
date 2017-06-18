@@ -7,13 +7,14 @@ module Pos.Binary.Core.Version () where
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), convertSize,
-                                   deriveSimpleBi, getAsciiString1b, label,
+                                   deriveSimpleBi, getAsciiString1b, label, labelP,
                                    putAsciiString1b, sizeAsciiString1b)
 import qualified Pos.Core.Types   as V
 
 instance Bi V.ApplicationName where
     size = convertSize (toString . V.getApplicationName) sizeAsciiString1b
-    put (toString . V.getApplicationName -> tag) = putAsciiString1b tag
+    put (toString . V.getApplicationName -> tag) =
+        labelP "ApplicationName" $ putAsciiString1b tag
     get = label "ApplicationName" $ V.mkApplicationName . toText
             =<< getAsciiString1b "SystemTag" V.applicationNameMaxLength
 

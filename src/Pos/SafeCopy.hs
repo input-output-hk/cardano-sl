@@ -15,7 +15,6 @@ import qualified Cardano.Crypto.Wallet           as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
 import qualified Crypto.ECC.Edwards25519         as ED25519
 import qualified Crypto.Sign.Ed25519             as EDS25519
-import qualified Data.Text                       as T
 import           Pos.Binary.Class                (Bi)
 import qualified Pos.Binary.Class                as Bi
 import           Pos.Crypto.HD                   (HDAddressPayload (..))
@@ -282,7 +281,7 @@ instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
     getCopy = contain $ do
         bs <- safeGet
         case Bi.decodeFull bs of
-            Left err    -> fail $ T.unpack $ "getCopy@SafeCopy: " <> err
+            Left err    -> fail $ toString $ "getCopy@SafeCopy: " <> err
             Right (v,s) -> pure $ Signed v s
 
 instance SafeCopy (ProxyCert w) where

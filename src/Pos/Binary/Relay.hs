@@ -4,7 +4,7 @@ module Pos.Binary.Relay () where
 
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..), label, putField)
+import           Pos.Binary.Class                 (Bi (..), label, putField, labelS)
 import           Pos.Binary.Crypto                ()
 import           Pos.Binary.Ssc                   ()
 import           Pos.Binary.Update                ()
@@ -15,7 +15,7 @@ import           Pos.Types                        (ProxySKHeavy, ProxySKLight)
 import           Pos.Update.Core                  (UpdateProposal, UpdateVote (..))
 
 instance Bi (DataMsg (UpdateProposal, [UpdateVote])) where
-    sizeNPut = putField dmContents
+    sizeNPut = labelS "DataMsg (UpdateProposal, [UpdateVote])" $ putField dmContents
     get = label "DataMsg (UpdateProposal, [UpdateVote])" $ do
         c@(up, votes) <- get
         let !id = hash up
@@ -24,17 +24,17 @@ instance Bi (DataMsg (UpdateProposal, [UpdateVote])) where
         pure $ DataMsg c
 
 instance Bi (DataMsg UpdateVote) where
-    sizeNPut = putField dmContents
+    sizeNPut = labelS "DataMsg UpdateVote" $ putField dmContents
     get = label "DataMsg UpdateVote" $ DataMsg <$> get
 
 instance Bi (DataMsg ProxySKLight) where
-    sizeNPut = putField dmContents
+    sizeNPut = labelS "DataMsg ProxySKLight" $ putField dmContents
     get = label "DataMsg ProxySKLight" $ DataMsg <$> get
 
 instance Bi (DataMsg ProxySKHeavy) where
-    sizeNPut = putField dmContents
+    sizeNPut = labelS "DataMsg ProxySKHeavy" $ putField dmContents
     get = label "DataMsg ProxySKHeavy" $ DataMsg <$> get
 
 instance Bi (DataMsg ProxySKLightConfirmation) where
-    sizeNPut = putField dmContents
+    sizeNPut = labelS "DataMsg ProxySKLightConfirmation" $ putField dmContents
     get = label "DataMsg ProxySKLightConfirmation" $ DataMsg <$> get

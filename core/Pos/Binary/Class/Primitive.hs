@@ -45,7 +45,6 @@ import           Data.SafeCopy              (Contained, SafeCopy (..), contain, 
 import qualified Data.Serialize             as Cereal (Get, Put)
 import qualified Data.Store.Core            as Store
 import qualified Data.Store.Internal        as Store
-import qualified Data.Text                  as T
 import           Formatting                 (formatToString, int, (%))
 
 import           Pos.Binary.Class.Core      (Bi (..), decodeFull, encode, isolate64Full,
@@ -99,7 +98,7 @@ getCopyBi :: Bi a => Text -> Contained (Cereal.Get a)
 getCopyBi typeName = contain $ do
     bs <- safeGet
     case decodeFull bs of
-        Left err -> (fail . T.unpack) ("getCopy@" <> typeName <> ": " <> err)
+        Left err -> (fail . toString) ("getCopy@" <> typeName <> ": " <> err)
         Right x  -> return x
 
 ----------------------------------------------------------------------------
@@ -120,7 +119,7 @@ class AsBinaryClass a where
     fromBinary :: AsBinary a -> Either Text a
 
 fromBinaryM :: (AsBinaryClass a, MonadFail m) => AsBinary a -> m a
-fromBinaryM = either (fail . T.unpack) return . fromBinary
+fromBinaryM = either (fail . toString) return . fromBinary
 
 ----------------------------------------------------------------------------
 -- Serialization with length

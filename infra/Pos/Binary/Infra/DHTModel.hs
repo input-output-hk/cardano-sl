@@ -9,7 +9,7 @@ import           Data.Store                  (Store)
 import qualified Data.Store                  as Store
 import           Network.Kademlia.HashNodeId (HashId (..))
 
-import           Pos.Binary.Class            (Bi (..), Size (..), getSize, label)
+import           Pos.Binary.Class            (Bi (..), Size (..), getSize, label, labelP)
 import           Pos.DHT.Model.Types         (DHTData (..), DHTKey (..))
 
 instance Bi DHTKey where
@@ -20,11 +20,11 @@ instance Bi DHTKey where
 
 instance Bi DHTData where
     size = ConstSize 0
-    put (DHTData ()) = pure ()
-    get = pure $ DHTData ()
+    put (DHTData ()) = labelP "DHTData" $ pure ()
+    get = label "DHTData" $ pure $ DHTData ()
 
 -- For Kademlia snapshot
 instance Store DHTKey where
     size = VarSize $ \(DHTKey (HashId bs)) -> getSize bs
-    poke (DHTKey (HashId bs)) = Store.poke bs
-    peek = DHTKey . HashId <$> Store.peek
+    poke (DHTKey (HashId bs)) = labelP "Store: DHTKey" $ Store.poke bs
+    peek = label "Store: DHTKey" $ DHTKey . HashId <$> Store.peek

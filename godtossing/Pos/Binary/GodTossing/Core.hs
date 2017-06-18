@@ -10,7 +10,7 @@ import qualified Data.HashMap.Strict           as HM
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..), PokeWithSize, convertToSizeNPut,
-                                                getWord8, label, putField, putS,
+                                                getWord8, label, labelS, putField, putS,
                                                 putWord8S)
 import           Pos.Binary.Crypto             ()
 import           Pos.Core.Address              (addressHash)
@@ -21,9 +21,10 @@ import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), Commitment (..)
                                                 recreateVssCertificate)
 
 instance Bi Commitment where
-    sizeNPut = putField commShares
-            <> putField commExtra
-            <> putField commProof
+    sizeNPut = labelS "Commitment" $
+           putField commShares
+        <> putField commExtra
+        <> putField commProof
     get = label "Commitment" $ do
         commShares <- get
         when (null commShares) $ fail "get@Commitment: no shares"
@@ -32,23 +33,24 @@ instance Bi Commitment where
         return Commitment {..}
 
 instance Bi CommitmentsMap where
-    sizeNPut = putField (toList . getCommitmentsMap)
+    sizeNPut = labelS "CommitmentsMap" $ putField (toList . getCommitmentsMap)
     get = label "CommitmentsMap" $ mkCommitmentsMap <$> get
 
 instance Bi VssCertificate where
-    sizeNPut = putField vcVssKey
-            <> putField vcExpiryEpoch
-            <> putField vcSignature
-            <> putField vcSignature
+    sizeNPut = labelS "VssCertificate" $
+        putField vcVssKey
+        <> putField vcExpiryEpoch
+        <> putField vcSignature
+        <> putField vcSignature
     get = label "VssCertificate" $
         join $ liftM4 recreateVssCertificate get get get get
 
 instance Bi Opening where
-    sizeNPut = putField getOpening
+    sizeNPut = labelS "Opening" $  putField getOpening
     get = label "Opening" $ Opening <$> get
 
 instance Bi GtPayload where
-    sizeNPut = convertToSizeNPut toBi
+    sizeNPut = labelS "GtPayload" $ convertToSizeNPut toBi
       where
         toBi :: GtPayload -> PokeWithSize ()
         toBi = \case
@@ -72,7 +74,7 @@ instance Bi GtPayload where
             toCertPair vc = (addressHash $ vcSigningKey vc, vc)
 
 instance Bi GtProof where
-    sizeNPut = convertToSizeNPut toBi
+    sizeNPut = labelS "GtProof" $ convertToSizeNPut toBi
       where
         toBi :: GtProof -> PokeWithSize ()
         toBi = \case

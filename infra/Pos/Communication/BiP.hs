@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE TypeFamilies #-}
 
 -- | BiP datatype and related instance for time-warp abstracted
@@ -17,7 +18,7 @@ import qualified Network.Transport.Internal as NT (decodeWord32, encodeWord32)
 import           Node.Message.Class         (Serializable (..))
 import           Node.Message.Decoder       (Decoder (..))
 
-import           Pos.Binary.Class    (Bi (..), encode)
+import           Pos.Binary.Class           (Bi (..), encode, label)
 
 data BiP = BiP
 
@@ -30,7 +31,7 @@ instance  Bi t => Serializable BiP t where
         encodedLength = NT.encodeWord32 (fromIntegral (BS.length encodedBody))
         encoded = LBS.fromStrict (BS.append encodedLength encodedBody)
 
-    unpackMsg _ = storeDecoder get BS.empty
+    unpackMsg _ = storeDecoder (label "BiP t" get) BS.empty
 
 -- TODO remove
 storeDecoder :: Store.Peek t -> BS.ByteString  -> Decoder t

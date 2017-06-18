@@ -6,7 +6,7 @@ module Pos.Binary.Core.Block
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), label, putConst, putField)
+import           Pos.Binary.Class   (Bi (..), label, labelS, putConst, putField)
 import qualified Pos.Core.Block     as T
 import           Pos.Core.Constants (protocolMagic)
 import qualified Pos.Core.Types     as T
@@ -26,13 +26,13 @@ instance ( Bi (T.BHeaderHash b)
          , T.BlockchainHelpers b
          ) =>
          Bi (T.GenericBlockHeader b) where
-    sizeNPut = putConst protocolMagic <>
-               putField T._gbhPrevBlock <>
-               putField T._gbhBodyProof <>
-               putField T._gbhConsensus <>
-               putField T._gbhExtra
-    get =
-        label "GenericBlockHeader" $ do
+    sizeNPut = labelS "GenericBlockHeader" $
+        putConst protocolMagic <>
+        putField T._gbhPrevBlock <>
+        putField T._gbhBodyProof <>
+        putField T._gbhConsensus <>
+        putField T._gbhExtra
+    get = label "GenericBlockHeader" $ do
         blockMagic <- get
         when (blockMagic /= protocolMagic) $
             fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
@@ -51,7 +51,7 @@ instance ( Bi (T.BHeaderHash b)
          , T.BlockchainHelpers b
          ) =>
          Bi (T.GenericBlock b) where
-    sizeNPut =
+    sizeNPut = labelS "GenericBlock" $
         putField T._gbHeader <>
         putField T._gbBody <>
         putField T._gbExtra

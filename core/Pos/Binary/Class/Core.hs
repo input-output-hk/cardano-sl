@@ -14,6 +14,8 @@ module Pos.Binary.Class.Core
        , getSize
        , biSize
        , label
+       , labelP
+       , labelS
        -- * Primitives for limiting serialization
        , limitGet
        , isolate64Full
@@ -23,9 +25,10 @@ import           Universum
 
 import           Control.Lens               (_Left)
 import qualified Data.ByteString.Lazy       as BSL
-import           Data.Store                 (PeekException (..), Size)
+import           Data.Store                 (Size)
 import           Data.Store.Core            (Peek (..), PeekResult (..), Poke (..))
 import qualified Data.Store.Core            as Store
+import           Data.Store.Internal        (PeekException (..), PokeException (..))
 import qualified Data.Store.Internal        as Store
 import           Foreign.Ptr                (minusPtr, plusPtr)
 import           Formatting                 (build, sformat, shown, (%))
@@ -106,6 +109,16 @@ label msg p = Peek $ \pstate ptr ->
   where
     onPeekEx (PeekException offset msgEx) =
         throwM (PeekException offset (msgEx <> "\n" <> msg))
+
+labelP :: Text -> Poke a -> Poke a
+labelP msg p = Poke $ \pstate off ->
+    runPoke p pstate off `catch` onPokeEx
+  where
+    onPokeEx (PokeException offset msgEx) =
+        throwM (PokeException offset (msgEx <> "\n" <> msg))
+
+labelS :: Text -> (Size t, t -> Poke ()) -> (Size t, t -> Poke ())
+labelS msg (s, poke) = (s, labelP msg . poke)
 
 -- | Like 'isolate', but allows consuming less bytes than expected (just not
 -- more).

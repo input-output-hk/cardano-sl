@@ -8,7 +8,7 @@ import           Universum
 
 import           Pos.Binary.Class   (Bi (..), PokeWithSize, UnsignedVarInt (..),
                                      convertToSizeNPut, getWithLength, getWord8, label,
-                                     putField, putS, putWithLengthS, putWord8S)
+                                     labelS, putField, putS, putWithLengthS, putWord8S)
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Txp.Core.Types as T
@@ -18,30 +18,36 @@ import qualified Pos.Txp.Core.Types as T
 ----------------------------------------------------------------------------
 
 instance Bi T.TxIn where
-    sizeNPut = putField T.txInHash <> putField (UnsignedVarInt . T.txInIndex)
+    sizeNPut = labelS "TxIn" $
+        putField T.txInHash <>
+        putField (UnsignedVarInt . T.txInIndex)
     get = label "TxIn" $ T.TxIn <$> get <*> (getUnsignedVarInt <$> get)
 
 instance Bi T.TxOut where
-    sizeNPut = putField T.txOutAddress <> putField T.txOutValue
+    sizeNPut = labelS "TxOut" $
+        putField T.txOutAddress <>
+        putField T.txOutValue
     get = label "TxOut" $ T.TxOut <$> get <*> get
 
 instance Bi T.TxOutAux where
-    sizeNPut = putField T.toaOut <> putField T.toaDistr
+    sizeNPut = labelS "TxOutAux" $
+        putField T.toaOut <>
+        putField T.toaDistr
     get = label "TxOutAux" $ T.TxOutAux <$> get <*> get
 
 instance Bi T.Tx where
-    sizeNPut = putField T._txInputs
-            <> putField T._txOutputs
-            <> putField T._txAttributes
+    sizeNPut = labelS "Tx" $
+        putField T._txInputs <>
+        putField T._txOutputs <>
+        putField T._txAttributes
     get = label "Tx" $ do
         ins <- get
         outs <- get
         attrs <- get
         T.mkTx ins outs attrs
 
--- TODO CSL-1122
 instance Bi T.TxInWitness where
-    sizeNPut = convertToSizeNPut f
+    sizeNPut = labelS "TxInWitness" $ convertToSizeNPut f
       where
         withLen :: Bi a => a -> PokeWithSize ()
         withLen = putWithLengthS . putS
@@ -64,7 +70,7 @@ instance Bi T.TxInWitness where
             t -> T.UnknownWitnessType t <$> get
 
 instance Bi T.TxDistribution where
-    sizeNPut = putField f
+    sizeNPut = labelS "TxDistribution" $ putField f
       where
         f (T.TxDistribution ds) =
             if all null ds then Left (UnsignedVarInt (length ds))
@@ -79,10 +85,10 @@ instance Bi T.TxDistribution where
                 Right ds -> pure ds
 
 instance Bi T.TxSigData where
-    sizeNPut =
-        putField T.txSigInput
-     <> putField T.txSigOutsHash
-     <> putField T.txSigDistrHash
+    sizeNPut = labelS "TxSigData" $
+        putField T.txSigInput <>
+        putField T.txSigOutsHash <>
+        putField T.txSigDistrHash
     get = label "TxSigData" $ do
         txSigInput     <- get
         txSigOutsHash  <- get
@@ -90,27 +96,27 @@ instance Bi T.TxSigData where
         return T.TxSigData{..}
 
 instance Bi T.TxAux where
-    sizeNPut =
-        putField T.taTx
-     <> putField T.taWitness
-     <> putField T.taDistribution
+    sizeNPut = labelS "DataMsg TxMsgContents" $
+        putField T.taTx <>
+        putField T.taWitness <>
+        putField T.taDistribution
     get = label "DataMsg TxMsgContents" $ T.TxAux <$> get <*> get <*> get
 
 instance Bi T.TxProof where
-    sizeNPut =
-        putField (UnsignedVarInt . T.txpNumber)
-     <> putField T.txpRoot
-     <> putField T.txpWitnessesHash
-     <> putField T.txpDistributionsHash
+    sizeNPut = labelS "TxProof" $
+        putField (UnsignedVarInt . T.txpNumber) <>
+        putField T.txpRoot <>
+        putField T.txpWitnessesHash <>
+        putField T.txpDistributionsHash
     get = label "TxProof" $ do
-      txpNumber <- getUnsignedVarInt <$> get
-      txpRoot <- get
-      txpWitnessesHash <- get
-      txpDistributionsHash <- get
-      return T.TxProof {..}
+        txpNumber <- getUnsignedVarInt <$> get
+        txpRoot <- get
+        txpWitnessesHash <- get
+        txpDistributionsHash <- get
+        return T.TxProof {..}
 
 instance Bi T.TxPayload where
-    sizeNPut =
+    sizeNPut = labelS "TxPayload" $
         putField (\T.UnsafeTxPayload {..} ->
                  zip3 (toList _txpTxs) _txpWitnesses _txpDistributions)
-    get = T.mkTxPayload =<< get
+    get = label "TxPayload" $ T.mkTxPayload =<< get

@@ -8,6 +8,7 @@ module Pos.Lrc.Fts
        ) where
 
 import           Control.Lens       (makeLenses, makePrisms, uses)
+import           Data.Conduit       (Sink, await)
 import           Data.List.NonEmpty (fromList)
 import           Universum
 
@@ -15,9 +16,7 @@ import           Pos.Core.Coin      (coinToInteger, unsafeGetCoin)
 import           Pos.Core.Constants (epochSlots)
 import           Pos.Core.Types     (Coin, LocalSlotIndex (..), SharedSeed (..),
                                      SlotLeaders, StakeholderId, mkCoin)
-
 import           Pos.Crypto         (deterministic, randomNumber)
-import           Pos.Util.Iterator  (MonadIterator (..))
 
 -- | Whereas 'Coin' stores an amount of coins, 'CoinIndex' is an identifier
 -- for a particular coin.
@@ -69,13 +68,6 @@ ftsStateUpdate :: (StakeholderId, Coin) -> FtsState -> FtsState
 ftsStateUpdate (adr, val) =
     set fsCurrentStakeholder adr .
     over fsCurrentCoinRangeUpperBound (coinIndexOffset val)
-
--- | Retrieve the next stakeholder.
-nextStakeholder
-    :: MonadIterator (StakeholderId, Coin) m
-    => m (StakeholderId, Coin)
-nextStakeholder =
-    fromMaybe (error "followTheSatoshiM: indices out of range") <$> nextItem
 
 {- |
 
@@ -204,10 +196,10 @@ previous upper bound (and thus it's more or equal to the current lower bound).
 
 -}
 followTheSatoshiM
-    :: forall m . MonadIterator (StakeholderId, Coin) m
+    :: forall m . (Monad m)
     => SharedSeed
     -> Coin
-    -> m SlotLeaders
+    -> Sink (StakeholderId, Coin) m SlotLeaders
 followTheSatoshiM _ totalCoins
     | totalCoins == mkCoin 0 = error "followTheSatoshiM: nobody has any stake"
 followTheSatoshiM (SharedSeed seed) totalCoins = do
@@ -222,7 +214,8 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
 
     findLeaders = (traverse . _2) findLeader
 
-    findLeader :: CoinIndex -> StateT FtsState m StakeholderId
+    findLeader :: CoinIndex ->
+                  StateT FtsState (Sink (StakeholderId, Coin) m) StakeholderId
     findLeader coinIndex = do
         inRange <- uses fsCurrentCoinRangeUpperBound (coinIndex <=)
         if inRange
@@ -239,6 +232,8 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
                 -- are sorted, it is safe to assume that upcoming coins won't
                 -- belong to this stakeholder either. We move on to the next
                 -- stakeholder and retry the current coin.
-                s <- nextStakeholder
+                s <- lift nextStakeholder
                 modify (ftsStateUpdate s)
                 findLeader coinIndex
+
+    nextStakeholder = fromMaybe (error "followTheSatoshiM: indices out of range") <$> await

@@ -163,7 +163,7 @@ genesisUtxo sd =
     hdwAddresses = take genesisDevHdwKeyNum genesisDevHdwAccountAddresses
 
 
-genesisDelegation :: HashMap StakeholderId [StakeholderId]
+genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)
 genesisDelegation = mempty
 
 ----------------------------------------------------------------------------

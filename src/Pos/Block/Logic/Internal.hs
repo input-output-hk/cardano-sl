@@ -22,52 +22,52 @@ module Pos.Block.Logic.Internal
 
 import           Universum
 
-import           Control.Lens            (each, _Wrapped)
+import           Control.Lens                (each, _Wrapped)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Ether
-import           Formatting              (sformat, (%))
-import           Paths_cardano_sl        (version)
-import           Serokell.Util.Text      (listJson)
+import           Formatting                  (sformat, (%))
+import           Paths_cardano_sl            (version)
+import           Serokell.Util.Text          (listJson)
 
-import           Pos.Block.BListener     (MonadBListener)
-import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
-                                          mbUpdatePayload)
-import           Pos.Block.Logic.Slog    (SlogApplyMode, SlogMode, slogApplyBlocks,
-                                          slogRollbackBlocks)
-import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
-import           Pos.Core                (IsGenesisHeader, IsMainHeader, epochIndexL,
-                                          gbBody, gbHeader, headerHash)
-import           Pos.DB                  (MonadDB, MonadGState, MonadRealDB,
-                                          SomeBatchOp (..))
-import           Pos.DB.Block            (MonadBlockDB)
-import qualified Pos.DB.GState           as GS
-import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgRollbackBlocks)
-import           Pos.Lrc.Context         (LrcContext)
-import           Pos.Txp.Core            (TxPayload)
+import           Pos.Block.BListener         (MonadBListener)
+import           Pos.Block.Core              (Block, GenesisBlock, MainBlock, mbTxPayload,
+                                              mbUpdatePayload)
+import           Pos.Block.Logic.Slog        (SlogApplyMode, SlogMode, slogApplyBlocks,
+                                              slogRollbackBlocks)
+import           Pos.Block.Types             (Blund, Undo (undoTx, undoUS))
+import           Pos.Core                    (IsGenesisHeader, IsMainHeader, epochIndexL,
+                                              gbBody, gbHeader, headerHash)
+import           Pos.DB                      (MonadDB, MonadGState, SomeBatchOp (..))
+import           Pos.DB.Block                (MonadBlockDB)
+import qualified Pos.DB.GState               as GS
+import           Pos.Delegation.Logic        (dlgApplyBlocks, dlgRollbackBlocks)
+import           Pos.Lrc.Context             (LrcContext)
+import           Pos.Txp.Core                (TxPayload)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp        (eTxNormalize)
+import           Pos.Explorer.Txp            (eTxNormalize)
 #else
-import           Pos.Txp.Logic           (txNormalize)
+import           Pos.Txp.Logic               (txNormalize)
 #endif
-import           Pos.Delegation.Class    (MonadDelegation)
-import           Pos.Discovery.Class     (MonadDiscovery)
-import           Pos.Exception           (assertionFailed)
-import           Pos.Reporting           (MonadReportingMem, reportingFatal)
-import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
-import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
-import           Pos.Ssc.Class.Storage   (SscGStateClass)
-import           Pos.Ssc.Extra           (MonadSscMem, sscApplyBlocks, sscNormalize,
-                                          sscRollbackBlocks)
-import           Pos.Ssc.Util            (toSscBlock)
-import           Pos.Txp.MemState        (MonadTxpMem)
-import           Pos.Txp.Settings        (TxpBlock, TxpBlund, TxpGlobalSettings (..))
-import           Pos.Update.Context      (UpdateContext)
-import           Pos.Update.Core         (UpdateBlock, UpdatePayload)
-import           Pos.Update.Logic        (usApplyBlocks, usNormalize, usRollbackBlocks)
-import           Pos.Update.Poll         (PollModifier)
-import           Pos.Util                (Some (..), spanSafe)
-import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.WorkMode.Class      (TxpExtra_TMP)
+import           Pos.Delegation.Class        (MonadDelegation)
+import           Pos.Discovery.Class         (MonadDiscovery)
+import           Pos.Exception               (assertionFailed)
+import           Pos.Reporting               (MonadReportingMem, reportingFatal)
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
+import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
+import           Pos.Ssc.Class.Storage       (SscGStateClass)
+import           Pos.Ssc.Extra               (MonadSscMem, sscApplyBlocks, sscNormalize,
+                                              sscRollbackBlocks)
+import           Pos.Ssc.Util                (toSscBlock)
+import           Pos.Txp.MemState            (MonadTxpMem)
+import           Pos.Txp.Settings            (TxpBlock, TxpBlund, TxpGlobalSettings (..))
+import           Pos.Update.Context          (UpdateContext)
+import           Pos.Update.Core             (UpdateBlock, UpdatePayload)
+import           Pos.Update.Logic            (usApplyBlocks, usNormalize,
+                                              usRollbackBlocks)
+import           Pos.Update.Poll             (PollModifier)
+import           Pos.Util                    (Some (..), spanSafe)
+import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.WorkMode.Class          (TxpExtra_TMP)
 
 -- | Set of basic constraints used by high-level block processing.
 type BlockMode ssc m
@@ -80,11 +80,11 @@ type BlockMode ssc m
        , MonadGState m
        -- LRC is really needed.
        , Ether.MonadReader' LrcContext m
-       -- Probably won't be needed after porting everything to smaller monads.
-       , MonadRealDB m
        -- This constraints define block components' global logic.
        , Ether.MonadReader' TxpGlobalSettings m
        , SscGStateClass ssc
+       -- And 'MonadIO' is needed as usual.
+       , MonadIO m
        )
 
 -- | Set of constraints necessary for high-level block verification.

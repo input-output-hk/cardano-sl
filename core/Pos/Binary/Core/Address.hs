@@ -11,7 +11,7 @@ import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (.
                                       putSmallWithLengthS, putWord8S)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
-import           Pos.Data.Attributes (getAttributes, putAttributesWithSize)
+import           Pos.Data.Attributes (getAttributes, putAttributesS)
 
 -- | Encode everything in an address except for CRC32
 sizeNPutAddressIncomplete :: (Size Address, Address -> Poke ())
@@ -23,11 +23,12 @@ sizeNPutAddressIncomplete = convertToSizeNPut toBi
             putWord8S 0 <>
             putSmallWithLengthS (
                 putS keyHash <>
-                flip putAttributesWithSize attrs addrToList
+                flip putAttributesS attrs addrToList
             )
         ScriptAddress scrHash   -> putWord8S 1 <> putSmallS scrHash
         RedeemAddress keyHash   -> putWord8S 2 <> putSmallS keyHash
         UnknownAddressType t bs -> putWord8S t <> putSmallS bs
+
     putSmallS :: Bi a => a -> PokeWithSize ()
     putSmallS = putSmallWithLengthS . putS
 

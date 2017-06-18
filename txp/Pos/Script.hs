@@ -21,7 +21,6 @@ import           Control.Exception          (ArithException (..), ArrayException
                                              PatternMatchFail (..), SomeException (..),
                                              catches, displayException, throwIO)
 import qualified Data.ByteString.Lazy       as BSL
-import qualified Data.Text                  as T
 import qualified Interface.Integration      as PL
 import qualified Interface.Prelude          as PL
 import           Language.Haskell.TH.Syntax (Lift (..), runIO)

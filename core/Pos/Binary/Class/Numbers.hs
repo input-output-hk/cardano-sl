@@ -61,6 +61,7 @@ putUnsignedVarInt n
 
 -- CSL-1122: there should be tests for this.
 getUnsignedVarIntSize :: (Integral a, Bits a, FiniteBits a) => a -> Int
+getUnsignedVarIntSize 0 = 1
 getUnsignedVarIntSize n = (logBase2 n `div` 7) + 1
   where
     logBase2 x = finiteBitSize x - 1 - countLeadingZeros x

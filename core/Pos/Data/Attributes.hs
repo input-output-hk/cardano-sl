@@ -11,7 +11,7 @@ module Pos.Data.Attributes
        , areAttributesKnown
        , getAttributes
        , putAttributes
-       , putAttributesWithSize
+       , putAttributesS
        , sizeAttributes
        , mkAttributes
        ) where
@@ -102,15 +102,15 @@ getAttributes keyGetMapper maxLen initData = do
 -- | Generate 'Put' given the way to serialize inner attribute value
 -- into set of keys and values.
 putAttributes :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> Poke ()
-putAttributes putMapper attrs = putWithLength (putAttributesWithSize putMapper attrs)
+putAttributes putMapper attrs = putWithLength (putAttributesS putMapper attrs)
 
 sizeAttributes :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> Int
 sizeAttributes putMapper attrs =
-    let putted = putAttributesWithSize putMapper attrs in
+    let putted = putAttributesS putMapper attrs in
     getSize (UnsignedVarInt $ pwsToSize putted) + fromIntegral (pwsToSize putted)
 
-putAttributesWithSize :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> PokeWithSize ()
-putAttributesWithSize putMapper Attributes {..} =
+putAttributesS :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> PokeWithSize ()
+putAttributesS putMapper Attributes {..} =
     traverse_ putAttr kvs *>
     putS attrRemain
  where

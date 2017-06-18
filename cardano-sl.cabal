@@ -391,7 +391,7 @@ library
                       , random
                       , reflection
                       , resourcet
-                      , rocksdb >= 0.1.0.1
+                      , rocksdb-haskell >= 1.0.0
                       , safecopy
                       , serokell-util >= 0.1.3.4
                       , stm

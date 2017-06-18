@@ -78,8 +78,8 @@ library
                      , mtl
                      , node-sketch
                      , parsec
-                     , rocksdb
                      , resourcet
+                     , rocksdb-haskell >= 1.0.0
                      , safecopy
                      , serokell-util
                      , stm

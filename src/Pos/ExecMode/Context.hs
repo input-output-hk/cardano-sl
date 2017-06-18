@@ -18,6 +18,45 @@ import           Pos.Util.Util       (HasLens (..), lensOf')
 -- @Tag ::: Integer@ to @Integer@ and use @Tag@ as meta-info about the field.
 data tag ::: value
 
+{- | Generate a mode context record with 'HasLens' instances.
+
+The 'modeContext' function takes a declaration like this:
+
+@
+    data PatakCtx ssc = PatakCtx
+        !(Buba    ::: Buba)
+        !(HuhaTag ::: Huha ssc)
+        !Bardaq
+@
+
+and turns it into declarations like this:
+
+@
+    data PatakCtx ssc = PatakCtx
+        !Buba
+        !(Huha ssc)
+        !Bardaq
+
+    instance HasLens Buba (PatakCtx ssc) Buba where
+        lensOf = \f (PatakCtx b h q) -> fmap (\b' -> PatakCtx b' h q) (f b)
+
+    instance HasLens HuhaTag (PatakCtx ssc) (Huha ssc) where
+        lensOf = \f (PatakCtx b h q) -> fmap (\h' -> PatakCtx b h' q) (f h)
+
+    instance {-# OVERLAPPABLE #-}
+        HasLens tag Bardaq         r =>
+        HasLens tag (PatakCtx ssc) r
+      where
+        lensOf =
+            ( \f (PatakCtx b h q) -> fmap (\q' -> PatakCtx b h q') (f q)
+            ) . lensOf @tag
+
+Notice that types annotated with '(:::)' get turned into fields. The rest
+of the fields are inherited from the parent (a field without a tag annotation)
+using an overlappable instance. Only one parent is allowed.
+@
+-}
+
 modeContext :: DecsQ -> DecsQ
 modeContext dsQ = do
     ds <- dsQ

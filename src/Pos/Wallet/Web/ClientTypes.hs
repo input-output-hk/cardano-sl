@@ -163,21 +163,16 @@ convertTxOutputs = map (addressToCId . txOutAddress &&& mkCCoin . txOutValue)
 -- [CSM-309] This may work until transaction have multiple source accounts
 -- | Get all addresses of source account of given transaction.
 getTxSourceAccountAddresses
-    :: [CWAddressMeta]   -- ^ All addresses in wallet
-    -> [CId Addr]        -- ^ Input addresses of transaction
-    -> Either Text (Maybe [CId Addr])
-                         -- ^ `Just` addrs if the wallet is source of
-                         --   transaction, `Nothing` otherwise
-getTxSourceAccountAddresses walAddrMetas inputAddrs = do
-    someInputAddr <-
-        head inputAddrs `whenNothing`
-        throwError "No input addresses in transaction"
-    return $ do  -- 'Maybe' monad starts here
-        someSrcAddrMeta <- find ((== someInputAddr) . cwamId) walAddrMetas
-        let srcAccount = addrMetaToAccount someSrcAddrMeta
-        return $
-            map cwamId $
-            filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
+    :: [CWAddressMeta]      -- ^ All addresses in wallet
+    -> NonEmpty (CId Addr)  -- ^ Input addresses of transaction
+    -> Maybe [CId Addr]     -- ^ `Just` addrs if the wallet is source of
+                            --   transaction, `Nothing` otherwise
+getTxSourceAccountAddresses walAddrMetas (someInputAddr :| _) = do
+    someSrcAddrMeta <- find ((== someInputAddr) . cwamId) walAddrMetas
+    let srcAccount = addrMetaToAccount someSrcAddrMeta
+    return $
+        map cwamId $
+        filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
 
 mkCTxs
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
@@ -186,7 +181,10 @@ mkCTxs
     -> [CWAddressMeta]    -- ^ Addresses of wallet
     -> Either Text CTxs
 mkCTxs diff THEntry {..} meta wAddrMetas = do
-    mLocalAddrs <- getTxSourceAccountAddresses wAddrMetas ctInputAddrs
+    ctInputAddrsNe <-
+        nonEmpty ctInputAddrs
+        `whenNothing` throwError "No input addresses in tx!"
+    let mLocalAddrs = getTxSourceAccountAddresses wAddrMetas ctInputAddrsNe
     -- note: local addresses which belong to tx's outputs = change addresses
     let isLocalAddr = case mLocalAddrs of
            Just changeAddrs -> do

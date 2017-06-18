@@ -57,7 +57,7 @@ import           Pos.Core.Constants           (epochSlots, genesisBlockVersionDa
                                                genesisSlotDuration)
 import           Pos.Crypto                   (hash)
 import           Pos.DB                       (DBIteratorClass (..), DBTag (..), IterType,
-                                               MonadDB, MonadDBRead (..), MonadRealDB,
+                                               MonadDB, MonadDBRead (..),
                                                RocksBatchOp (..), encodeWithKeyPrefix)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)

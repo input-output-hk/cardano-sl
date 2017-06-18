@@ -8,10 +8,10 @@ module Pos.Ssc.RichmenComponent
 import           Universum
 
 import           Pos.Core               (EpochIndex, genesisMpcThd)
-import           Pos.DB.Class           (MonadDB, MonadDBRead)
+import           Pos.DB.Class           (MonadDBRead)
 import           Pos.Lrc.Class          (RichmenComponent (..))
 import           Pos.Lrc.DB.RichmenBase (getRichmen)
-import           Pos.Lrc.Types          (FullRichmenData, RichmenStake)
+import           Pos.Lrc.Types          (RichmenStake)
 
 data RCSsc
 

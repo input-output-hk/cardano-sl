@@ -216,9 +216,7 @@ createMainBlockFinish slotId pske prevHeader = do
     unchecked@(uncheckedBlock, _, _) <- createBlundFromMemPool
     (block, undo, pModifier) <-
         verifyCreatedBlock uncheckedBlock (pure unchecked) fallbackCreateBlock
-    logDebug "Created main block/undos, applying"
     lift $ applyBlocksUnsafe (one (Right block, undo)) (Just pModifier)
-    logDebug "Applied successfully"
     pure block
   where
     createBlundFromMemPool :: ExceptT Text m (MainBlock ssc, Undo, PollModifier)

@@ -23,8 +23,10 @@ import           Pos.Block.BListener              (MonadBListener (..), onApplyB
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.PeerState      (PeerStateCtx, PeerStateTag,
-                                                   WithPeerState (..), clearPeerStateDefault,
-                                                   getAllStatesDefault, getPeerStateDefault)
+                                                   WithPeerState (..),
+                                                   clearPeerStateDefault,
+                                                   getAllStatesDefault,
+                                                   getPeerStateDefault)
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Discovery                    (DiscoveryTag, MonadDiscovery (..),

@@ -2,6 +2,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
 -- | Wallet web server.
@@ -71,10 +72,9 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
-import           Pos.DB.Class                     (MonadGState)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
-import           Pos.Reporting.MemState           (MonadReportingMem, rcReportServers)
+import           Pos.Reporting.MemState           (rcReportServers)
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Txp                          (Utxo)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..))
@@ -87,7 +87,7 @@ import           Pos.Util.UserSecret              (readUserSecret, usWalletSet)
 import           Pos.Wallet.KeyStorage            (addSecretKey, deleteSecretKey,
                                                    getSecretKeys)
 import           Pos.Wallet.SscType               (WalletSscType)
-import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
+import           Pos.Wallet.WalletMode            (applyLastUpdate,
                                                    blockchainSlotDuration, connectedPeers,
                                                    getBalance, getTxHistory,
                                                    localChainDifficulty,
@@ -118,11 +118,11 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccoun
                                                    txContainsTitle, txIdToCTxId,
                                                    walletAddrMetaToAccount)
 import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError)
+import qualified Pos.Wallet.Web.Mode
 import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
                                                    mkGenesisWalletUserSecret, wusAccounts,
                                                    wusWalletName)
-import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
-                                                   closeWSConnections,
+import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (AccountLookupMode (..),
@@ -142,8 +142,7 @@ import           Pos.Wallet.Web.State             (AccountLookupMode (..),
                                                    testReset, totallyRemoveWAddress,
                                                    updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
-import           Pos.Wallet.Web.Tracking          (BlockLockMode, MonadWalletTracking,
-                                                   selectAccountsFromUtxoLock,
+import           Pos.Wallet.Web.Tracking          (selectAccountsFromUtxoLock,
                                                    syncWSetsWithGStateLock,
                                                    txMempoolToModifier)
 import           Pos.Wallet.Web.Util              (deriveLvl2KeyPair)
@@ -153,22 +152,14 @@ import           Pos.Web.Server                   (serveImpl)
 -- Top level functionality
 ----------------------------------------------------------------------------
 
-type WalletWebMode m
-    = ( WalletMode m
-      , WebWalletModeDB m
-      , MonadGState m
-      , MonadWalletWebSockets m
-      , MonadReportingMem m
-      , MonadWalletTracking m
-      , BlockLockMode WalletSscType m
-      )
+-- This constraint used to be abstract (a list of classes), but specifying a
+-- concrete monad is quite likely more performant.
+type WalletWebMode m = m ~ Pos.Wallet.Web.Mode.WalletWebMode
 
 makeLenses ''SyncProgress
 
 walletServeImpl
-    :: ( MonadIO m
-       , MonadMask m
-       , WalletWebMode m)
+    :: WalletWebMode m
     => m Application     -- ^ Application getter
     -> Word16                             -- ^ Port to listen
     -> m ()
@@ -184,7 +175,7 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
-    :: (MonadIO m, WalletWebMode m)
+    :: WalletWebMode m
     => SendActions m
     -> m (m :~> Handler)
     -> m (Server WalletApi)
@@ -455,7 +446,7 @@ decodeCCoinOrFail c =
 getWalletAccountIds :: WalletWebMode m => CId Wal -> m [AccountId]
 getWalletAccountIds cWalId = filter ((== cWalId) . aiWSId) <$> getWAddressIds
 
-getWalletAddrs :: (WalletWebMode m, MonadThrow m) => CId Wal -> m [CId Addr]
+getWalletAddrs :: WalletWebMode m => CId Wal -> m [CId Addr]
 getWalletAddrs cWalId = do
     addrs <- concatMapM (getAccountAddrsOrThrow Ever)
         =<< getWalletAccountIds cWalId

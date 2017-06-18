@@ -6,8 +6,11 @@
 module Pos.Wallet.Web.Mode
     ( WalletWebMode
     , unWalletWebMode
+    , WalletWebModeContextTag
     , WalletWebModeContext(..)
     ) where
+
+import           Universum
 
 import qualified Control.Monad.Reader          as Mtl
 import qualified Ether
@@ -38,7 +41,7 @@ import           Pos.Client.Txp.History        (MonadTxHistory (..),
                                                 getTxHistoryDefault, saveTxDefault)
 import           Pos.Discovery                 (MonadDiscovery (..), findPeersSum,
                                                 getPeersSum)
-import           Pos.ExecMode                  (ExecMode (..), ExecModeM, modeContext, (:::))
+import           Pos.ExecMode                  (ExecMode (..), ExecModeM, modeContext, (:::), HasLens(..))
 import           Pos.Slotting.Class            (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum         (currentTimeSlottingSum,
                                                 getCurrentSlotBlockingSum,
@@ -74,6 +77,11 @@ modeContext [d|
         !(ConnectionsVar ::: ConnectionsVar)
         !(RealModeContext WalletSscType)
     |]
+
+data WalletWebModeContextTag
+
+instance HasLens WalletWebModeContextTag WalletWebModeContext WalletWebModeContext where
+    lensOf = identity
 
 data WWEB
 

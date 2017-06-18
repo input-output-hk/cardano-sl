@@ -54,8 +54,7 @@ sanityCheckGStateDB
     => m ()
 sanityCheckGStateDB = do
     sanityCheckBalances
-    totalStake <- getRealTotalStake
-    sanityCheckUtxo totalStake
+    sanityCheckUtxo =<< getRealTotalStake
 
 usingGStateSnapshot :: (MonadRealDB m, MonadMask m) => m a -> m a
 usingGStateSnapshot action = do

@@ -218,7 +218,7 @@ richmenComputationDo
     => EpochIndex -> [LrcConsumer m] -> m ()
 richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     total <- GS.getEffectiveTotalStake
-    logDebug $ "Effective total stake: " <> show total
+    logDebug $ "Effective total stake: " <> pretty total
     consumersAndThds <-
         zip consumers <$> mapM (flip lcThreshold total) consumers
     let minThreshold :: Maybe Coin

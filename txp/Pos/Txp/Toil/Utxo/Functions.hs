@@ -119,10 +119,8 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _ distrs)=
                zip [0 :: Int ..] $ toList (NE.zip _txOutputs (getTxDistribution distrs))
            case txOutAddress of
                PubKeyAddress{..} ->
-                   [ ( null d
-                     , sformat ("output #"%int%" with pubkey address "%
-                                build%" has non-empty distribution") i txOutAddress)
-                   , ( areAttributesKnown addrPkAttributes
+                   checkDist i d txOutValue ++
+                   [ ( areAttributesKnown addrPkAttributes
                      , sformat ("output #"%int%" with pubkey address "%
                                 build%" has unknown attributes") i txOutAddress)
                    ]

@@ -44,8 +44,9 @@ txInToPair (TxIn h i) = (h, i)
 -- (e.g. for the purpose of running follow-the-satoshi).
 txOutStake :: TxOutAux -> TxOutDistribution
 txOutStake TxOutAux {..} = case txOutAddress toaOut of
-    PubKeyAddress x _ -> [(x, txOutValue toaOut)]
-    _                 -> toaDistr
+    PubKeyAddress x _
+        | null toaDistr -> [(x, txOutValue toaOut)]
+    _other              -> toaDistr
 
 -- | Construct 'TxProof' which proves given 'TxPayload'.
 mkTxProof :: TxPayload -> TxProof

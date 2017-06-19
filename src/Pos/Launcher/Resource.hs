@@ -123,7 +123,7 @@ allocateNodeResources
     -> SscParams ssc
     -> Production (NodeResources ssc Production)
 allocateNodeResources np@NodeParams {..} sscnp = do
-    (futureNodeDBs, putNodeDBs) <- newInitFuture
+    db <- openNodeDBs npRebuildDb npDbPathM
     (futureLrcContext, putLrcContext) <- newInitFuture
     (futureSlottingVar, putSlottingVar) <- newInitFuture
     (futureSlottingContext, putSlottingContext) <- newInitFuture
@@ -131,7 +131,7 @@ allocateNodeResources np@NodeParams {..} sscnp = do
             putSlottingVar sv
             putSlottingContext sc
         initModeContext = InitModeContext
-            futureNodeDBs
+            db
             (GenesisUtxo npCustomUtxo)
             (GenesisLeaders (genesisLeaders npCustomUtxo))
             np
@@ -139,8 +139,6 @@ allocateNodeResources np@NodeParams {..} sscnp = do
             futureSlottingContext
             futureLrcContext
     runInitMode initModeContext $ do
-        db <- openNodeDBs npRebuildDb npDbPathM
-        putNodeDBs db
         initNodeDBs @ssc
         ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting
         putLrcContext ncLrcContext

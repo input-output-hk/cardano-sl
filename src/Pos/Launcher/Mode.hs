@@ -3,12 +3,26 @@
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
+{- |
+
+The initialization mode is used to build the node context (node resources).
+We need a separate mode for this because our initialization procedures require
+database access, slotting, logging, etc.
+
+The tricky part specific to this mode is the use of futures. Some parts of the
+'InitModeContext' become available *during* initialization, so we create thunks
+out of thin air and fill them as we go. This way 'InitMode' has all instances
+it needs at all stages of initialization, but some of those instances can be
+unusable until the relevant parts of the context are set.
+
+-}
+
 module Pos.Launcher.Mode
-    ( InitMode
-    , runInitMode
-    , InitModeContext(..)
-    , newInitFuture
-    ) where
+       ( InitMode
+       , runInitMode
+       , InitModeContext(..)
+       , newInitFuture
+       ) where
 
 import           Universum
 

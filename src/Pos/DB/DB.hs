@@ -15,17 +15,12 @@ module Pos.DB.DB
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
        , sanityCheckDB
-
-       , GStateCoreRedirect
-       , runGStateCoreRedirect
        , gsAdoptedBVDataDefault
        ) where
 
 import           Universum
 
 import           Control.Monad.Catch          (MonadMask)
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
 import qualified Ether
 import           System.Directory             (createDirectoryIfMissing,
                                                doesDirectoryExist,
@@ -41,8 +36,7 @@ import           Pos.Core                     (BlockVersionData, headerHash)
 import           Pos.DB.Block                 (MonadBlockDB, MonadBlockDBWrite,
                                                loadBlundsByDepth, loadBlundsWhile,
                                                prepareBlockDB)
-import           Pos.DB.Class                 (MonadDB, MonadDBRead (..),
-                                               MonadGState (..))
+import           Pos.DB.Class                 (MonadDB, MonadDBRead (..))
 import           Pos.DB.Functions             (closeDB, openDB)
 import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common         (getTip, getTipBlock, getTipHeader)
@@ -146,19 +140,5 @@ ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 -- MonadGState instance
 ----------------------------------------------------------------------------
 
-data GStateCoreRedirectTag
-
-type GStateCoreRedirect =
-    Ether.TaggedTrans GStateCoreRedirectTag IdentityT
-
-runGStateCoreRedirect :: GStateCoreRedirect m a -> m a
-runGStateCoreRedirect = coerce
-
 gsAdoptedBVDataDefault :: MonadDBRead m => m BlockVersionData
 gsAdoptedBVDataDefault = getAdoptedBVData
-
-instance
-    (MonadDBRead m, t ~ IdentityT) =>
-        MonadGState (Ether.TaggedTrans GStateCoreRedirectTag t m)
-  where
-    gsAdoptedBVData = gsAdoptedBVDataDefault

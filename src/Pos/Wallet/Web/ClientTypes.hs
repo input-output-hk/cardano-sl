@@ -75,8 +75,8 @@ import           Pos.Binary.Class          (decodeFull, encodeStrict)
 import           Pos.Client.Txp.History    (TxHistoryEntry (..))
 import           Pos.Core.Coin             (mkCoin)
 import           Pos.Core.Types            (ScriptVersion)
-import           Pos.Crypto                (EncryptedSecretKey, PassPhrase,
-                                            emptyPassphrase, encToPublic, hashHexF)
+import           Pos.Crypto                (EncryptedSecretKey, PassPhrase, encToPublic,
+                                            hashHexF)
 import           Pos.Txp.Core.Types        (Tx (..), TxId, TxOut, txOutAddress,
                                             txOutValue)
 import           Pos.Types                 (Address (..), BlockVersion, ChainDifficulty,
@@ -87,7 +87,7 @@ import           Pos.Update.Core           (BlockVersionData (..), StakeholderVo
                                             UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll           (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase     (BackupPhrase)
-import           Pos.Util.Servant          (FromCType (..), ToCType (..))
+import           Pos.Util.Servant          (FromCType (..), OriginType, ToCType (..))
 
 
 data SyncProgress = SyncProgress
@@ -160,22 +160,24 @@ txIdToCTxId = mkCTxId . sformat hashHexF
 convertTxOutputs :: [TxOut] -> [(CId w, CCoin)]
 convertTxOutputs = map (addressToCId . txOutAddress &&& mkCCoin . txOutValue)
 
+-- [CSM-309] This may work until transaction have multiple source accounts
 -- | Get all addresses of source account of given transaction.
-getLocalAccountAddrs
-    :: [CWAddressMeta]  -- ^ all addresses in wallet
-    -> [CId Addr]       -- ^ Input addresses of transaction
-    -> Either Text [CId Addr]
-getLocalAccountAddrs walAddrMetas inputAddrs = do
+getTxChangeAddresses
+    :: [CWAddressMeta]   -- ^ All addresses in wallet
+    -> [CId Addr]        -- ^ Input addresses of transaction
+    -> Either Text (Maybe [CId Addr])
+                         -- ^ `Just` change addrs if the wallet is source of
+                         --   transaction, `Nothing` otherwise
+getTxChangeAddresses walAddrMetas inputAddrs = do
     someInputAddr <-
         head inputAddrs `whenNothing`
         throwError "No input addresses in transaction"
-    someSrcAddrMeta <-
-        find ((== someInputAddr) . cwamId) walAddrMetas `whenNothing`
-        throwError "Address doesn't belong to any wallet"
-    let srcAccount =
-            addrMetaToAccount someSrcAddrMeta
-    return $
-        map cwamId $ filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
+    return $ do  -- 'Maybe' monad starts here
+        someSrcAddrMeta <- find ((== someInputAddr) . cwamId) walAddrMetas
+        let srcAccount = addrMetaToAccount someSrcAddrMeta
+        return $
+            map cwamId $
+            filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
 
 mkCTxs
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
@@ -184,12 +186,25 @@ mkCTxs
     -> [CWAddressMeta]    -- ^ Addresses of wallet
     -> Either Text CTxs
 mkCTxs diff THEntry {..} meta wAddrMetas = do
-    localAddrsSet <- S.fromList <$> getLocalAccountAddrs wAddrMetas ctInputAddrs
-    let isLocalAddr =
-            flip S.member localAddrsSet . addressToCId . txOutAddress
+    mChangeAddrs <- getTxChangeAddresses wAddrMetas ctInputAddrs
+    let isChangeAddr = case mChangeAddrs of
+           Just changeAddrs -> do
+                -- if given wallet is source of tx, /changes addresses/
+                -- can be fetched according to definition
+                let changeAddrsSet = S.fromList changeAddrs
+                flip S.member changeAddrsSet
+           Nothing -> do
+                -- if given wallet is *not* source of tx, then it's incoming
+                -- transaction, and only addresses of given wallet are *not*
+                -- change addresses
+                -- [CSM-309] This may work until transaction have multiple
+                -- destination addresses
+                let nonChangeAddrsSet = S.fromList $ cwamId <$> wAddrMetas
+                not . flip S.member nonChangeAddrsSet
+        isChangeTxOutput = isChangeAddr . addressToCId . txOutAddress
         ctAmount =
             mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
-            filter (not . isLocalAddr) outputs
+            filter (not . isChangeTxOutput) outputs
         mkCTx isOutgoing ctAddrs = do
             guard . not . null $ wAddrsSet `S.intersection` S.fromList ctAddrs
             return CTx {ctIsOutgoing = isOutgoing, ..}
@@ -211,14 +226,13 @@ newtype CPassPhrase = CPassPhrase Text
 instance Show CPassPhrase where
     show _ = "<pass phrase>"
 
-instance FromCType (Maybe CPassPhrase) where
-    type FromOriginType (Maybe CPassPhrase) = PassPhrase
-    decodeCType Nothing = return emptyPassphrase
-    decodeCType (Just (CPassPhrase text)) =
+type instance OriginType CPassPhrase = PassPhrase
+
+instance FromCType CPassPhrase where
+    decodeCType (CPassPhrase text) =
         first toText . decodeFull . LBS.fromStrict =<< Base16.decode text
 
 instance ToCType CPassPhrase where
-    type ToOriginType CPassPhrase = PassPhrase
     encodeCType = CPassPhrase . Base16.encode . encodeStrict
 
 ----------------------------------------------------------------------------
@@ -242,8 +256,9 @@ instance Buildable AccountId where
 newtype CAccountId = CAccountId Text
     deriving (Eq, Show, Generic, Buildable)
 
+type instance OriginType CAccountId = AccountId
+
 instance FromCType CAccountId where
-    type FromOriginType CAccountId = AccountId
     decodeCType (CAccountId url) =
         case splitOn "@" url of
             [part1, part2] -> do
@@ -255,10 +270,6 @@ instance FromCType CAccountId where
 
 instance ToCType CAccountId where
     encodeCType = CAccountId . sformat F.build
-
-instance FromCType CAccountId => FromCType (Maybe CAccountId) where
-    type FromOriginType (Maybe CAccountId) = Maybe (FromOriginType CAccountId)
-    decodeCType = mapM decodeCType
 
 -- TODO: extract first three fields as @Coordinates@ and use only it where
 -- required (maybe nowhere)

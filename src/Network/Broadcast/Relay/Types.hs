@@ -37,16 +37,16 @@ data PropagationMsg packingType where
         , Eq key
         , Msg.Message (ReqMsg key)
         , Msg.Serializable packingType (ReqMsg key))
-        => !(Maybe NodeId) -- ^ The peer which sent it to us.
-        -> !key            -- ^ The key (will 'InvMsg' this to peers).
-        -> !contents       -- ^ The data associated with the key.
+        => !(Maybe NodeId) -- The peer which sent it to us.
+        -> !key            -- The key (will 'InvMsg' this to peers).
+        -> !contents       -- The data associated with the key.
         -> PropagationMsg packingType
     DataOnlyPM ::
         ( Msg.Message (DataMsg contents)
         , Msg.Serializable packingType (DataMsg contents)
         , Buildable contents)
-        => !(Maybe NodeId) -- ^ The peer which sent it to us.
-        -> !contents       -- ^ The data.
+        => !(Maybe NodeId) -- The peer which sent it to us.
+        -> !contents       -- The data.
         -> PropagationMsg packingType
 
 instance Buildable (PropagationMsg packingType) where

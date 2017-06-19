@@ -1,5 +1,9 @@
 resolver: lts-8.5
 
+flags:
+  ether:
+    disable-tup-instances: true
+
 packages:
   - '.'
   - location:

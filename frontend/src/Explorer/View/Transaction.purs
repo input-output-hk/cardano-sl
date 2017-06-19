@@ -143,14 +143,6 @@ summaryRow item =
         , P.td
             []
             [item.value]
-            -- if isJust item.mCurrency
-            -- then
-            -- [ P.span
-            --   [ P.className $ currencyCSSClass item.mCurrency ]
-            --   [ P.text item.value ]
-            -- ]
-            -- else
-            -- [ P.text item.value ]
         ]
 
 textTxHeaderView :: String -> P.Html Action

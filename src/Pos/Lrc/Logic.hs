@@ -10,7 +10,7 @@ module Pos.Lrc.Logic
        , RichmenType (..)
        ) where
 
-import           Data.Conduit        (Sink, runConduit, runConduitPure, (.|))
+import           Data.Conduit        (Sink, runConduitPure, runConduitRes, (.|))
 import qualified Data.Conduit.List   as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
@@ -32,7 +32,7 @@ findDelRichUsingPrecomp
     => RichmenStake -> Coin -> m RichmenStake
 findDelRichUsingPrecomp precomputed thr = do
     (old, new) <-
-        runConduit $
+        runConduitRes $
         getDelegators .|
         findDelegationStakes isIssuerByAddressHash getEffectiveStake thr
     -- attention: order of new and precomputed is important
@@ -62,7 +62,7 @@ findAllRichmenMaybe maybeT maybeTD
         richmenMin <- findRichmenStake mn
         let richmen = HM.filter (>= t) richmenMin
         let precomputedD = HM.filter (>= tD) richmenMin
-        richmenD <- findDelRichUsingPrecomp precomputedD tD
+        richmenD <- lift $ findDelRichUsingPrecomp precomputedD tD
         pure (richmen, richmenD)
     | Just t <- maybeT = (,mempty) <$> findRichmenStake t
     | Just tD <- maybeTD = (mempty,) <$> findDelegatedRichmen tD
@@ -72,7 +72,7 @@ data RichmenType
     = RTUsual
     | RTDelegation (HashMap StakeholderId (HashSet StakeholderId))
 
--- | Pure version of findRichmen which uses in-memory Utxo.
+--- | Pure version of findRichmen which uses in-memory Utxo.
 findRichmenPure :: [(StakeholderId, Coin)]
                 -> (Coin -> Coin)
                 -> RichmenType

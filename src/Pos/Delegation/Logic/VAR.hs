@@ -38,10 +38,14 @@ import           Pos.DB                       (DBError (DBMalformed), MonadDBRea
 import qualified Pos.DB                       as DB
 import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.GState                as GS
+import           Pos.Delegation.Cede          (CedeModifier, DlgEdgeAction (..), MapCede,
+                                               detectCycleOnAddition, dlgEdgeActionIssuer,
+                                               dlgReachesIssuance, evalMapCede,
+                                               getPskChain, getPskPk, modPsk,
+                                               pskToDlgEdgeAction, runDBCede)
 import           Pos.Delegation.Class         (MonadDelegation, dwEpochId,
                                                dwThisEpochPosted)
-import           Pos.Delegation.Helpers       (detectCycleOnAddition, dlgReachesIssuance,
-                                               isRevokePsk)
+import           Pos.Delegation.Helpers       (isRevokePsk)
 import           Pos.Delegation.Logic.Common  (DelegationError (..), getPSKsFromThisEpoch,
                                                runDelegationStateAction)
 import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
@@ -49,6 +53,7 @@ import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
 import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUndo)
 import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
+import           Pos.Types                    (StakeholderId)
 import           Pos.Util                     (getKeys, _neHead, _neLast)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
 
@@ -76,7 +81,7 @@ type ReverseTrans = HashMap PublicKey (HashSet PublicKey, HashSet PublicKey)
 calculateTransCorrections
     :: forall m.
        (MonadDBRead m, WithLogger m)
-    => HashSet GS.DlgEdgeAction -> m SomeBatchOp
+    => HashSet DlgEdgeAction -> m SomeBatchOp
 calculateTransCorrections eActions = do
     -- Get the changeset and convert it to transitive ops.
     changeset <- transChangeset
@@ -87,7 +92,8 @@ calculateTransCorrections eActions = do
 
     -- Once we figure out this piece of code works like a charm we
     -- can delete this logging.
-    logDebug $ sformat ("Trans changeset: "%mapJson) $ HM.toList changeset
+    unless (HM.null changeset) $
+        logDebug $ sformat ("Nonempty dlg trans changeset: "%mapJson) $ HM.toList changeset
 
     -- Bulid reverse transitive set and convert it to reverseTransOps
     let reverseTrans = buildReverseTrans changeset
@@ -168,7 +174,7 @@ calculateTransCorrections eActions = do
     transChangeset :: m TransChangeset
     transChangeset = do
         let xPoints :: [PublicKey]
-            xPoints = map GS.dlgEdgeActionIssuer $ HS.toList eActions
+            xPoints = map dlgEdgeActionIssuer $ HS.toList eActions
 
         -- Step 1.
         affected <- mconcat <$> mapM calculateLocalAf xPoints
@@ -218,24 +224,16 @@ calculateTransCorrections eActions = do
                 -- For these we'll find everyone who's upper (closer to
                 -- root/delegate) and take a diff. If iPk = dPk, then it will
                 -- return [].
-                chain <- getKeys <$> GS.getPskChain (addressHash iPk)
+                chain <- getKeys <$> runDBCede (getPskChain $ addressHash iPk)
                 let ret = HS.insert iPk (revIssuers `HS.difference` chain)
                 let retHm = HM.map (const $ Just dPk) $ HS.toMap ret
                 pure retHm
         -- We are delegate.
         xs -> pure $ HM.fromList $ (iPk,Nothing):(map (,Just iPk) xs)
 
-
-    eActionsHM :: HashMap PublicKey GS.DlgEdgeAction
-    eActionsHM =
-        HM.fromList $ map (\x -> (GS.dlgEdgeActionIssuer x, x)) $ HS.toList eActions
-
     calculateDlgNew :: PublicKey -> StateT (HashMap PublicKey (Maybe PublicKey)) m ()
     calculateDlgNew iPk =
-        let -- Gets delegate from G': either from 'eActionsHM' or database.
-            resolve :: (MonadDBRead n) => PublicKey -> n (Maybe PublicKey)
-            resolve v = fmap pskDelegatePk <$> GS.withEActionsResolve eActionsHM v
-
+        let resolve v = fmap pskDelegatePk <$> getPskPk v
             -- Sets real new trans delegate in state, returns it to
             -- child. Makes different if we're delegate d -- we set
             -- Nothing, but return d.
@@ -243,6 +241,9 @@ calculateTransCorrections eActions = do
                 Nothing       -> cont
                 Just (Just d) -> pure d
                 Just Nothing  -> pure v
+
+            loop :: PublicKey ->
+                    MapCede (StateT (HashMap PublicKey (Maybe PublicKey)) m) PublicKey
             loop v = retCached v $ resolve v >>= \case
                 -- There's no delegate = we are the delegate/end of the chain.
                 Nothing -> (identity . at v ?= Nothing) $> v
@@ -251,7 +252,13 @@ calculateTransCorrections eActions = do
                     dNew <- loop dPk
                     identity . at v ?= Just dNew
                     pure dNew
-        in void $ loop iPk
+
+            eActionsHM :: CedeModifier
+            eActionsHM =
+                HM.fromList $ map (\x -> (addressHash $ dlgEdgeActionIssuer x, x)) $
+                HS.toList eActions
+
+        in void $ evalMapCede eActionsHM $ loop iPk
 
     -- Given changeset, returns map d → (ad,dl), where ad is set of
     -- new issuers that delegate to d, while dl is set of issuers that
@@ -278,9 +285,6 @@ calculateTransCorrections eActions = do
 data DlgVerState = DlgVerState
     { _dvCurEpoch   :: HashSet PublicKey
       -- ^ Set of issuers that have already posted certificates this epoch
-    , _dvPskChanged :: HashMap PublicKey GS.DlgEdgeAction
-      -- ^ Psks added/removed from the database. Removed psk is
-      -- revoked one.
     }
 
 makeLenses ''DlgVerState
@@ -311,22 +315,22 @@ dlgVerifyBlocks blocks = do
     let _dvCurEpoch = HS.fromList $ map pskIssuerPk fromGenesisPsks
     when (HS.size _dvCurEpoch /= length fromGenesisPsks) $
         throwM $ DBMalformed "Multiple stakeholders have issued & published psks this epoch"
-    let initState = DlgVerState _dvCurEpoch HM.empty
-    richmen <-
+    let initState = DlgVerState _dvCurEpoch
+    (richmen :: HashSet StakeholderId) <-
         HS.fromList . toList <$>
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
         LrcDB.getRichmenDlg
-    evalStateT (runExceptT $ mapM (verifyBlock richmen) blocks) initState
+    flip evalStateT initState . evalMapCede mempty . runExceptT $
+        mapM (verifyBlock richmen) blocks
   where
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
-    -- Resolves publicKey into psk with a 'dvPskChanged' map. Doesn't
-    -- return revokation certs.
-    withMapResolve iPk =
-        use dvPskChanged >>= \eActions -> GS.withEActionsResolve eActions iPk
-    withMapModify psk =
-        dvPskChanged %= HM.insert (pskIssuerPk psk) (GS.pskToDlgEdgeAction psk)
+
+    verifyBlock ::
+        HashSet StakeholderId ->
+        Block ssc ->
+        ExceptT Text (MapCede (StateT DlgVerState m)) DlgUndo
     verifyBlock _ (Left _) = [] <$ (dvCurEpoch .= HS.empty)
     verifyBlock richmen (Right blk) = do
         -- We assume here that issuers list doesn't contain
@@ -338,7 +342,7 @@ dlgVerifyBlocks blocks = do
         let h = blk ^. gbHeader
         let issuer = h ^. mainHeaderLeaderKey
         let sig = h ^. gbhConsensus ^. mcdSignature
-        issuerPsk <- withMapResolve issuer
+        issuerPsk <- getPskPk issuer
         whenJust issuerPsk $ \psk -> case sig of
             (BlockSignature _) ->
                 throwError $
@@ -355,8 +359,7 @@ dlgVerifyBlocks blocks = do
             (BlockPSignatureHeavy pSig) -> do
                 let psk = psigPsk pSig
                 let delegate = pskDelegatePk psk
-                canIssue <-
-                    dlgReachesIssuance withMapResolve issuer delegate (psigPsk pSig)
+                canIssue <- dlgReachesIssuance issuer delegate (psigPsk pSig)
                 when (delegate == pskIssuerPk psk) $ throwError $
                     sformat ("using revoke heavy proxy signatures to sign block "%
                              "is forbidden: "%build)
@@ -402,7 +405,7 @@ dlgVerifyBlocks blocks = do
 
         -- Check 5: Every revoking psk indeed revokes previous
         -- non-revoking psk.
-        revokePrevCerts <- mapM (\x -> (x,) <$> withMapResolve x) revokeIssuers
+        revokePrevCerts <- mapM (\x -> (x,) <$> getPskPk x) revokeIssuers
         let dontHavePrevPsk = filter (isNothing . snd) revokePrevCerts
         unless (null dontHavePrevPsk) $
             throwError $
@@ -427,12 +430,12 @@ dlgVerifyBlocks blocks = do
         -- to 'dvPskChanged' and then perform the check.
 
         -- Collect rollback info, apply new psks
-        changePrevCerts <- mapM withMapResolve changeIssuers
+        changePrevCerts <- mapM getPskPk changeIssuers
         let toRollback = catMaybes $ map snd revokePrevCerts <> changePrevCerts
-        mapM_ withMapModify proxySKs
+        mapM_ (modPsk . pskToDlgEdgeAction) proxySKs
 
         -- Perform the check
-        cyclePoints <- catMaybes <$> mapM (detectCycleOnAddition withMapResolve) proxySKs
+        cyclePoints <- catMaybes <$> mapM detectCycleOnAddition proxySKs
         unless (null cyclePoints) $
             throwError $
             sformat ("Block "%build%" leads to psk cycles, at least in these certs: "%listJson)
@@ -470,7 +473,7 @@ dlgApplyBlocks blocks = do
     applyBlock (Right block) = do
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
-            edgeActions = map GS.pskToDlgEdgeAction proxySKs
+            edgeActions = map pskToDlgEdgeAction proxySKs
         transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
         let batchOps = SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
         runDelegationStateAction $ do
@@ -527,6 +530,6 @@ dlgRollbackBlocks blunds = do
             issuers = map pskIssuerPk proxySKs
             toUndo = undoPsk undo
             backDeleted = issuers \\ map pskIssuerPk toUndo
-            edgeActions = map GS.DlgEdgeDel backDeleted <> map GS.DlgEdgeAdd toUndo
+            edgeActions = map DlgEdgeDel backDeleted <> map DlgEdgeAdd toUndo
         transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
         pure $ SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections

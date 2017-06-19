@@ -188,7 +188,7 @@ swaggerSpecForWalletApi = toSwagger W.walletApi
     & wop @W.NewAccount             . description ?~ D.newAccount
     & wop @W.DeleteAccount          . description ?~ D.deleteAccount
 
-    & wop @W.NewWAddress            . description ?~ D.newWAddress
+    & wop @W.NewAddress             . description ?~ D.newAddress
 
     & wop @W.IsValidAddress         . description ?~ D.isValidAddress
 
@@ -196,9 +196,8 @@ swaggerSpecForWalletApi = toSwagger W.walletApi
     & wop @W.UpdateProfile          . description ?~ D.updateProfile
 
     & wop @W.NewPayment             . description ?~ D.newPayment
-    & wop @W.NewPaymentExt          . description ?~ D.newPaymentExt
     & wop @W.UpdateTx               . description ?~ D.updateTx
-    & wop @W.SearchHistory          . description ?~ D.searchHistory
+    & wop @W.GetHistory             . description ?~ D.getHistory
 
     & wop @W.NextUpdate             . description ?~ D.nextUpdate
     & wop @W.ApplyUpdate            . description ?~ D.applyUpdate

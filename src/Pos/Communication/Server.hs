@@ -39,10 +39,10 @@ allListeners = mconcat
   where
     modifier lname mkL = mkL { mkListeners = mkListeners' }
       where
-        mkListeners' v p = do
-            ls <- mkListeners mkL v p
-            let f = wrapListener (serverLoggerName <> lname)
-            pure $ map f ls
+        mkListeners' v p =
+            let ls = mkListeners mkL v p
+                f = wrapListener (serverLoggerName <> lname)
+            in  map f ls
 
 -- | Logger name for server.
 serverLoggerName :: LoggerName

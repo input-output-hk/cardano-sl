@@ -8,6 +8,7 @@ module Pos.Lrc.Core
        ) where
 
 import           Data.Conduit        (Sink, await)
+import qualified Data.Conduit.List   as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
 import           Universum
@@ -30,9 +31,9 @@ findDelegationStakes
     => (StakeholderId -> m Bool)                   -- ^ Check if user is issuer?
     -> (StakeholderId -> m (Maybe Coin))           -- ^ Gets effective stake.
     -> Coin                                        -- ^ Coin threshold
-    -> Sink (StakeholderId, HashSet StakeholderId) -- ^ Old richmen, new richmen
+    -> Sink (StakeholderId, HashSet StakeholderId)
             m
-            (RichmenSet, RichmenStake)
+            (RichmenSet, RichmenStake)             -- ^ Old richmen, new richmen
 findDelegationStakes isIssuer stakeResolver t = do
     (old, new) <- step (mempty, mempty)
     pure (getKeys ((HS.toMap old) `HM.difference` new), new)
@@ -68,13 +69,12 @@ findRichmenStake
     :: forall m . Monad m
     => Coin  -- ^ Eligibility threshold
     -> Sink (StakeholderId,Coin) m RichmenStake
-findRichmenStake t = step mempty
+findRichmenStake t = CL.fold tryAdd mempty
   where
-    step hm = await >>= maybe (pure hm) (\stake -> step (tryAdd stake hm))
-    tryAdd :: (StakeholderId, Coin)
-           -> HashMap StakeholderId Coin
+    tryAdd :: HashMap StakeholderId Coin
+           -> (StakeholderId, Coin)
            -> HashMap StakeholderId Coin
     -- Adding coins here should be safe because in utxo we're not supposed to
     -- ever have more coins than the total possible number of coins, and the
     -- total possible number of coins is less than Word64
-    tryAdd (a, c) hm = if c >= t then HM.insert a c hm else hm
+    tryAdd hm (a, c) = if c >= t then HM.insert a c hm else hm

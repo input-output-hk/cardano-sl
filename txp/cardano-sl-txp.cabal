@@ -61,18 +61,21 @@ library
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
-                     , conduit
                      , containers
+                     , conduit
                      , data-default
                      , derive
                      , ether
                      , formatting
                      , hashable
                      , lens
+                     , lifted-base
                      , log-warper
                      , mtl
+                     , monad-control
                      , neat-interpolation
                      , plutus-prototype
+                     , resourcet
                      , rocksdb
                      , serokell-util
                      , stm

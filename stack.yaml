@@ -13,6 +13,7 @@ packages:
 - infra
 - db
 - lrc
+- lwallet
 - ssc
 - godtossing
 - txp
@@ -48,7 +49,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 3fa7ccea4031a7424e77b63fd1f29e4d69b70b98
+    commit: 5614dbd3db4313029285fdf144df06e8b3e8c304 # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -96,11 +97,13 @@ extra-deps:
 - servant-multipart-0.10
 - ether-0.5.1.0
 - transformers-lift-0.2.0.1
+- lens-4.15.3                     # not yet in lts-8
+- th-abstraction-0.2.2.0          # needed for lens
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
-# If you find it too restrictive, you can use `util-scripts/build.sh' script
+# If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
   cardano-sl-core:       -Werror
   cardano-sl-db:         -Werror
@@ -111,3 +114,4 @@ ghc-options:
   cardano-sl-godtossing: -Werror
   cardano-sl-txp:        -Werror
   cardano-sl:            -Werror
+  cardano-sl-lwallet:    -Werror

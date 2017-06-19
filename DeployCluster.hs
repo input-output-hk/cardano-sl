@@ -111,7 +111,7 @@ deploymentScript Options{..} = do
     buildCardanoSLInProdMode = do
         echo ""
         echo ">>> We have to build 'cardano-sl' in prod-mode, for generating new keys correctly..."
-        shell "./util-scripts/build.sh --prod"
+        shell "./scripts/build/cardano-sl.sh --prod"
 
     makeSureClusterNameIsUnique = do
         echo ""
@@ -151,7 +151,7 @@ deploymentScript Options{..} = do
         echo ""
         echo ">>> Generate new keys for a cluster's nodes..."
         -- TODO: Probably N-value should be defined in CLI-option too.
-        shell $ "M=" <> show numberOfNodes <> " N=12000 ./util-scripts/generate-genesis.sh"
+        shell $ "M=" <> show numberOfNodes <> " N=12000 ./scripts/generate/genesis.sh"
 
     commitAndPushNewGenesisFiles = do
         echo ""

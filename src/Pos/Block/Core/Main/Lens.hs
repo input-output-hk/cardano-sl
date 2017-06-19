@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP             #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeOperators   #-}
 
@@ -87,21 +86,6 @@ import           Pos.Txp.Core              (Tx, TxDistribution, TxPayload, TxWit
                                             txpDistributions, txpTxs, txpWitnesses)
 import           Pos.Update.Core.Types     (UpdatePayload)
 
--- -- ***TODO*** -- --
--- This comment and macros are copy-pasted and it's bad, but I
--- will either do something with it later or we will just use a
--- solution.
--- -- ***TODO*** -- --
-
--- !!! Create issue about this on lens github or give link on existing issue !!!
--- 'makeLensesData' doesn't work with types with parameters. I don't
--- know how to design a 'makeLensesData' which would work with them (in fact,
--- I don't even know how an invocation of 'makeLensesData' would look like)
---
--- UPDATE: the issue is https://github.com/ekmett/lens/issues/733
-
-#define MAKE_LENS(l, field) l f s = (\y -> s {field = y}) <$> f (field s)
-
 ----------------------------------------------------------------------------
 -- MainToSign
 ----------------------------------------------------------------------------
@@ -119,23 +103,7 @@ makeLenses ''MainExtraBodyData
 -- MainConsensusData
 ----------------------------------------------------------------------------
 
--- makeLensesData ''ConsensusData ''(MainBlockchain ssc)
-
--- | Lens for 'SlotId' of 'MainBlockchain' in 'ConsensusData'.
-mcdSlot :: Lens' (ConsensusData (MainBlockchain ssc)) SlotId
-MAKE_LENS(mcdSlot, _mcdSlot)
-
--- | Lens for 'PublicKey' of 'MainBlockchain' in 'ConsensusData'.
-mcdLeaderKey :: Lens' (ConsensusData (MainBlockchain ssc)) PublicKey
-MAKE_LENS(mcdLeaderKey, _mcdLeaderKey)
-
--- | Lens for 'ChainDifficulty' of 'MainBlockchain' in 'ConsensusData'.
-mcdDifficulty :: Lens' (ConsensusData (MainBlockchain ssc)) ChainDifficulty
-MAKE_LENS(mcdDifficulty, _mcdDifficulty)
-
--- | Lens for 'Signature' of 'MainBlockchain' in 'ConsensusData'.
-mcdSignature :: Lens' (ConsensusData (MainBlockchain ssc)) (BlockSignature ssc)
-MAKE_LENS(mcdSignature, _mcdSignature)
+makeLenses 'MainConsensusData
 
 ----------------------------------------------------------------------------
 -- MainBlockHeader
@@ -185,11 +153,7 @@ mainHeaderAttributes = gbhExtra . mehAttributes
 -- MainBody
 ----------------------------------------------------------------------------
 
--- makeLensesData ''Body ''(MainBlockchain ssc)
-
--- | Lens for transaction payload in main block body.
-mbTxPayload :: Lens' (Body (MainBlockchain ssc)) TxPayload
-MAKE_LENS(mbTxPayload, _mbTxPayload)
+makeLenses 'MainBody
 
 -- | Lens for transaction tree in main block body.
 mbTxs :: Lens' (Body (MainBlockchain ssc)) (MerkleTree Tx)
@@ -202,18 +166,6 @@ mbWitnesses = mbTxPayload . txpWitnesses
 -- | Lens for distributions list in main block body.
 mbTxAddrDistributions :: Lens' (Body (MainBlockchain ssc)) [TxDistribution]
 mbTxAddrDistributions = mbTxPayload . txpDistributions
-
--- | Lens for 'SscPayload' in main block body.
-mbSscPayload :: Lens' (Body (MainBlockchain ssc)) (SscPayload ssc)
-MAKE_LENS(mbSscPayload, _mbSscPayload)
-
--- | Lens for ProxySKs in main block body.
-mbDlgPayload :: Lens' (Body (MainBlockchain ssc)) DlgPayload
-MAKE_LENS(mbDlgPayload, _mbDlgPayload)
-
--- | Lens for 'UpdatePayload' in main block body.
-mbUpdatePayload :: Lens' (Body (MainBlockchain ssc)) UpdatePayload
-MAKE_LENS(mbUpdatePayload, _mbUpdatePayload)
 
 ----------------------------------------------------------------------------
 -- MainBlock

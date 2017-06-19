@@ -85,7 +85,6 @@ library
                         Pos.Binary.Infra
                         Pos.Binary.Infra.DHTModel
                         Pos.Binary.Infra.Slotting
-                        Pos.Binary.Infra.Communication
                         Pos.Binary.Infra.Relay
 
                         -- Pos.Util

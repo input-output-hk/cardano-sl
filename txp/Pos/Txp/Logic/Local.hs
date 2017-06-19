@@ -6,28 +6,32 @@ module Pos.Txp.Logic.Local
        , txNormalize
        ) where
 
-import           Control.Monad.Except (MonadError (..))
-import           Data.Default         (Default (def))
-import qualified Data.List.NonEmpty   as NE
-import qualified Data.Map             as M (fromList)
-import           Formatting           (build, sformat, (%))
-import           System.Wlog          (WithLogger, logDebug)
+import           Control.Monad.Except        (MonadError (..))
+import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Data.Default                (Default (def))
+import qualified Data.List.NonEmpty          as NE
+import qualified Data.Map                    as M (fromList)
+import           Formatting                  (build, sformat, (%))
+import           System.Wlog                 (WithLogger, logDebug)
 import           Universum
 
-import           Pos.Core             (HeaderHash)
-import           Pos.DB.Class         (MonadDBRead, MonadGState)
-import qualified Pos.DB.GState.Common as GS
-import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId)
-import           Pos.Txp.MemState     (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
-                                       getUtxoModifier, modifyTxpLocalData,
-                                       setTxpLocalData)
-import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (..),
-                                       ToilEnv, ToilVerFailure (..), Utxo, execToilTLocal,
-                                       getToilEnv, normalizeToil, processTx, runDBToil,
-                                       runToilTLocal, runUtxoReaderT, utxoGet)
+import           Pos.Core                    (HeaderHash)
+import           Pos.DB.Class                (MonadDBRead, MonadGState)
+import qualified Pos.DB.GState.Common        as GS
+import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId)
+import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
+                                              getUtxoModifier, modifyTxpLocalData,
+                                              setTxpLocalData)
+import           Pos.Txp.Toil                (GenericToilModifier (..),
+                                              MonadUtxoRead (..), ToilEnv,
+                                              ToilVerFailure (..), Utxo, execToilTLocal,
+                                              getToilEnv, normalizeToil, processTx,
+                                              runDBToil, runToilTLocal, runUtxoReaderT,
+                                              utxoGet)
 
 type TxpLocalWorkMode m =
     ( MonadIO m
+    , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
     , MonadTxpMem () m
@@ -91,8 +95,14 @@ txProcessTransaction itw@(txId, txAux) = do
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool
 -- | 3. Set new tip to txp local data
-txNormalize
-    :: (MonadIO m, MonadDBRead m, MonadGState m, MonadTxpMem () m) => m ()
+txNormalize ::
+       ( MonadIO m
+       , MonadBaseControl IO m
+       , MonadDBRead m
+       , MonadGState m
+       , MonadTxpMem () m
+       )
+    => m ()
 txNormalize = do
     utxoTip <- GS.getTip
     localTxs <- getLocalTxs

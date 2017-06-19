@@ -31,7 +31,7 @@ module Pos.Wallet.Web.Api
        , DeleteAccount
        , NewAccount
 
-       , NewWAddress
+       , NewAddress
 
        , IsValidAddress
 
@@ -39,9 +39,8 @@ module Pos.Wallet.Web.Api
        , UpdateProfile
 
        , NewPayment
-       , NewPaymentExt
        , UpdateTx
-       , SearchHistory
+       , GetHistory
 
        , NextUpdate
        , ApplyUpdate
@@ -70,7 +69,7 @@ import           Pos.Util.Servant           (CCapture, CQueryParam, CReqBody,
                                              ModifiesApiRes (..), ReportDecodeError (..),
                                              VerbMod)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
-                                             CAccountMeta, CAddress, CElectronCrashReport,
+                                             CAccountMeta, CWalletMeta, CAddress, CElectronCrashReport,
                                              CId, CInitialized, CPaperVendWalletRedeem,
                                              CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
                                              CUpdateInfo, CWallet, CWalletInit,
@@ -125,6 +124,12 @@ type NewWallet =
     :> CQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
     :> WRes Post CWallet
+
+type UpdateWallet =
+       "wallets"
+    :> Capture "walletId" (CId Wal)
+    :> ReqBody '[JSON] CWalletMeta
+    :> WRes Put CWallet
 
 type RestoreWallet =
        "wallets"
@@ -195,7 +200,7 @@ type DeleteAccount =
 -- Wallet addresses
 -------------------------------------------------------------------------
 
-type NewWAddress =
+type NewAddress =
        "addresses"
     :> CQueryParam "passphrase" CPassPhrase
     :> CReqBody '[JSON] CAccountId
@@ -236,18 +241,6 @@ type NewPayment =
     :> Capture "amount" Coin
     :> WRes Post CTx
 
-type NewPaymentExt =
-       "txs"
-    :> "payments"
-    :> CQueryParam "passphrase" CPassPhrase
-    :> CCapture "from" CAccountId
-    :> Capture "to" (CId Addr)
-    :> Capture "amount" Coin
-    :> Capture "title" Text
-    :> Capture "description" Text
-    :> WRes Post CTx
-
-
 type UpdateTx =
        "txs"
     :> "payments"
@@ -256,13 +249,12 @@ type UpdateTx =
     :> ReqBody '[JSON] CTxMeta
     :> WRes Post ()
 
-type SearchHistory =
+type GetHistory =
        "txs"
     :> "histories"
     :> QueryParam "walletId" (CId Wal)
-    :> QueryParam "accountId" CAccountId
+    :> CQueryParam "accountId" CAccountId
     :> QueryParam "address" (CId Addr)
-    :> QueryParam "search" Text
     :> QueryParam "skip" Word
     :> QueryParam "limit" Word
     :> WRes Get ([CTx], Word)
@@ -350,6 +342,8 @@ type WalletApi = ApiPrefix :> (
     :<|>
      NewWallet
     :<|>
+     UpdateWallet
+    :<|>
      RestoreWallet
     :<|>
      RenameWallet
@@ -376,7 +370,7 @@ type WalletApi = ApiPrefix :> (
      -------------------------------------------------------------------------
      -- Walllet addresses
      -------------------------------------------------------------------------
-     NewWAddress
+     NewAddress
     :<|>
      -------------------------------------------------------------------------
      -- Addresses
@@ -399,14 +393,10 @@ type WalletApi = ApiPrefix :> (
     -- to support many2many
      NewPayment
     :<|>
-    -- TODO: for now we only support one2one sending. We should extend this
-    -- to support many2many
-     NewPaymentExt
-    :<|>
       -- FIXME: Should capture the URL parameters in the payload.
      UpdateTx
     :<|>
-     SearchHistory
+     GetHistory
     :<|>
      -------------------------------------------------------------------------
      -- Updates

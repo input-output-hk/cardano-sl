@@ -7,42 +7,43 @@
 module Pos.Launcher.Scenario
        ( runNode
        , initSemaphore
-       , initLrc
        , runNode'
+       , nodeStartMsg
        ) where
 
-import           Data.Default       (def)
-import           Development.GitRev (gitBranch, gitHash)
-import qualified Ether
-import           Formatting         (build, sformat, shown, (%))
-import           Mockable           (fork)
-import           Paths_cardano_sl   (version)
-import           System.Exit        (ExitCode (..))
-import           System.Wlog        (getLoggerName, logError, logInfo)
 import           Universum
 
-import           Pos.Communication  (ActionSpec (..), OutSpecs, WorkerSpec,
-                                     wrapActionSpec)
-import           Pos.Context        (BlkSemaphore (..), getOurPubKeyAddress,
-                                     getOurPublicKey)
-import qualified Pos.DB.GState      as GS
-import           Pos.Delegation     (initDelegation)
-import           Pos.Lrc.Context    (LrcSyncData (..), lcLrcSync)
-import qualified Pos.Lrc.DB         as LrcDB
-import           Pos.Reporting      (reportMisbehaviourMasked)
-import           Pos.Security       (SecurityWorkersClass)
-import           Pos.Shutdown       (waitForWorkers)
-import           Pos.Slotting       (MonadSlottingSum, SlottingContextSum,
-                                     askSlottingContextSum, getCurrentSlot,
-                                     waitSystemStart)
-import           Pos.Ssc.Class      (SscConstraint)
-import           Pos.Types          (SlotId (..), addressHash)
-import           Pos.Update         (MemState (..), mvState)
-import           Pos.Update.Context (UpdateContext (ucMemState))
-import           Pos.Util           (inAssertMode)
-import           Pos.Util.LogSafe   (logInfoS)
-import           Pos.Worker         (allWorkers, allWorkersCount)
-import           Pos.WorkMode.Class (WorkMode)
+import           Control.Lens        (each, to, _tail)
+import           Development.GitRev  (gitBranch, gitHash)
+import qualified Ether
+import           Formatting          (build, sformat, shown, (%))
+import           Mockable            (fork)
+import           Paths_cardano_sl    (version)
+import           System.Exit         (ExitCode (..))
+import           System.Wlog         (WithLogger, getLoggerName, logError, logInfo)
+
+import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
+                                      wrapActionSpec)
+import qualified Pos.Constants       as Const
+import           Pos.Context         (BlkSemaphore (..), MonadNodeContext, NodeContext,
+                                      NodeContextTag, NodeParams (..),
+                                      getOurPubKeyAddress, getOurPublicKey)
+import           Pos.Crypto          (createProxySecretKey, encToPublic)
+import           Pos.DB              (MonadDB)
+import qualified Pos.DB.GState       as GS
+import           Pos.DB.Misc         (addProxySecretKey)
+import           Pos.Delegation      (initDelegation)
+import           Pos.Reporting       (reportMisbehaviourMasked)
+import           Pos.Security        (SecurityWorkersClass)
+import           Pos.Shutdown        (waitForWorkers)
+import           Pos.Slotting        (waitSystemStart)
+import           Pos.Ssc.Class       (SscConstraint)
+import           Pos.Types           (addressHash)
+import           Pos.Util            (inAssertMode)
+import           Pos.Util.LogSafe    (logInfoS)
+import           Pos.Util.UserSecret (usKeys)
+import           Pos.Worker          (allWorkers, allWorkersCount)
+import           Pos.WorkMode.Class  (WorkMode)
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
@@ -51,13 +52,14 @@ runNode'
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc m
-       , MonadSlottingSum m
+       , MonadNodeContext ssc m
        )
     => [WorkerSpec m]
     -> WorkerSpec m
 runNode' plugins' = ActionSpec $ \vI sendActions -> do
 
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
+    nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey
     addr <- getOurPubKeyAddress
@@ -66,19 +68,18 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     logInfoS $ sformat ("My public key is: "%build%
                         ", address: "%build%
                         ", pk hash: "%build) pk addr pkHash
+    putProxySecreyKeys
     initDelegation @ssc
-    initLrc
-    initUSMemState
     initSemaphore
     waitSystemStart
     let unpackPlugin (ActionSpec action) =
             action vI sendActions `catch` reportHandler
     mapM_ (fork . unpackPlugin) plugins'
 
-    slottingCtx <- askSlottingContextSum
+    nc <- Ether.ask @NodeContextTag
 
     -- Instead of sleeping forever, we wait until graceful shutdown
-    waitForWorkers (allWorkersCount @ssc @m slottingCtx)
+    waitForWorkers (allWorkersCount @ssc nc)
     exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?
@@ -95,16 +96,37 @@ runNode ::
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc m
-       , MonadSlottingSum m
+       , MonadNodeContext ssc m
        )
-    => SlottingContextSum
+    => NodeContext ssc
     -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
-runNode slottingCtx (plugins, plOuts) =
+runNode nc (plugins, plOuts) =
     (, plOuts <> wOuts) $ runNode' $ workers' ++ plugins'
   where
-    (workers', wOuts) = allWorkers slottingCtx
+    (workers', wOuts) = allWorkers nc
     plugins' = map (wrapActionSpec "plugin") plugins
+
+-- | This function prints a very useful message when node is started.
+nodeStartMsg :: WithLogger m => m ()
+nodeStartMsg = logInfo msg
+  where
+    msg = sformat ("Application: " %build% ", last known block version " %build)
+                   Const.curSoftwareVersion Const.lastKnownBlockVersion
+
+----------------------------------------------------------------------------
+-- Details
+----------------------------------------------------------------------------
+
+putProxySecreyKeys :: (MonadDB m, Ether.MonadReader' NodeParams m) => m ()
+putProxySecreyKeys = do
+    userSecret <- npUserSecret <$> Ether.ask'
+    secretKey <- npSecretKey <$> Ether.ask'
+    let eternity = (minBound, maxBound)
+        makeOwnPSK =
+            flip (createProxySecretKey secretKey) eternity . encToPublic
+        ownPSKs = userSecret ^.. usKeys . _tail . each . to makeOwnPSK
+    for_ ownPSKs addProxySecretKey
 
 initSemaphore :: (WorkMode ssc m) => m ()
 initSemaphore = do
@@ -113,16 +135,3 @@ initSemaphore = do
         logError "ncBlkSemaphore is not empty at the very beginning"
     tip <- GS.getTip
     putMVar semaphore tip
-
-initLrc :: WorkMode ssc m => m ()
-initLrc = do
-    lrcSync <- Ether.asks' lcLrcSync
-    epoch <- LrcDB.getEpoch
-    atomically $ writeTVar lrcSync (LrcSyncData True epoch)
-
-initUSMemState :: WorkMode ssc m => m ()
-initUSMemState = do
-    tip <- GS.getTip
-    tvar <- mvState <$> Ether.asks' ucMemState
-    slot <- fromMaybe (SlotId 0 minBound) <$> getCurrentSlot
-    atomically $ writeTVar tvar (MemState slot tip def def)

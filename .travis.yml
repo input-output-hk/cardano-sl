@@ -7,6 +7,8 @@ matrix:
     - env: HLINT=false
     - os: osx
       osx_image: xcode8.3
+  allow_failures:
+    - os: osx
 env:
   global:
     - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz
@@ -35,10 +37,10 @@ after_failure:
 script:
 # DEVOPS-107: wait 20min for output due to haddock generation
 - if [[ "$HLINT" == "true" ]]; then
-    nix-shell -p haskellPackages.hlint moreutils --run "util-scripts/lint.sh --nix | ts";
+    nix-shell -p haskellPackages.hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
   else
     travis_wait 20 sleep 4600&
-    nix-shell -p moreutils expect --run "unbuffer ./util-scripts/travis.sh | ts";
+    nix-shell -p moreutils expect --run "unbuffer ./scripts/ci/travis.sh | ts";
   fi
 
 deploy:

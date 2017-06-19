@@ -58,7 +58,7 @@ import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
                                                 rcReportServers)
 import           Pos.Shutdown.Types            (ShutdownContext (..))
-import           Pos.Slotting                  (SlottingContextSum)
+import           Pos.Slotting                  (SlottingContextSum, SlottingVar)
 import           Pos.Ssc.Class.Types           (MonadSscContext, Ssc (SscNodeContext),
                                                 SscContextTag)
 import           Pos.Txp.Settings              (TxpGlobalSettings)
@@ -66,7 +66,6 @@ import           Pos.Txp.Toil.Types            (Utxo)
 import           Pos.Update.Context            (UpdateContext)
 import           Pos.Update.Params             (UpdateParams)
 import           Pos.Util.Chrono               (NE, NewestFirst)
-import           Pos.Util.JsonLog              (JLFile)
 import           Pos.Util.UserSecret           (UserSecret)
 
 ----------------------------------------------------------------------------
@@ -102,9 +101,7 @@ newtype StartTime = StartTime { unStartTime :: UTCTime }
 
 -- | NodeContext contains runtime context of node.
 data NodeContext ssc = NodeContext
-    { ncJLFile              :: !JLFile
-    -- @georgeee please add documentation when you see this comment
-    , ncSscContext          :: !(SscNodeContext ssc)
+    { ncSscContext          :: !(SscNodeContext ssc)
     -- @georgeee please add documentation when you see this comment
     , ncUpdateContext       :: !UpdateContext
     -- ^ Context needed for the update system
@@ -112,6 +109,8 @@ data NodeContext ssc = NodeContext
     -- ^ Context needed for LRC
     , ncDiscoveryContext    :: !DiscoveryContextSum
     -- ^ Context needed for Discovery.
+    , ncSlottingVar         :: !SlottingVar
+    -- ^ Data necessary for 'MonadSlotsData'.
     , ncSlottingContext     :: !SlottingContextSum
     -- ^ Context needed for Slotting.
     , ncBlkSemaphore        :: !BlkSemaphore
@@ -168,6 +167,7 @@ makeLensesFor
     , ("ncLrcContext", "ncLrcContextL")
     , ("ncDiscoveryContext", "ncDiscoveryContextL")
     , ("ncSlottingContext", "ncSlottingContextL")
+    , ("ncSlottingVar", "ncSlottingVarL")
     , ("ncSscContext", "ncSscContextL")
     , ("ncNodeParams", "ncNodeParamsL")
     , ("ncInvPropagationQueue", "ncInvPropagationQueueL")
@@ -236,6 +236,7 @@ type instance Tags (NodeContext ssc) =
   UpdateContext          :::
   LrcContext             :::
   DiscoveryContextSum    :::
+  SlottingVar            :::
   SlottingContextSum     :::
   NodeParams             :::
   UpdateParams           :::
@@ -245,7 +246,6 @@ type instance Tags (NodeContext ssc) =
   RelayContext           :::
   ShutdownContext        :::
   TxpGlobalSettings      :::
-  JLFile                 :::
   GenesisUtxo            :::
   GenesisLeaders         :::
   TVar UserSecret        :::
@@ -272,6 +272,9 @@ instance HasLens LrcContext (NodeContext ssc) LrcContext where
 
 instance HasLens DiscoveryContextSum (NodeContext ssc) DiscoveryContextSum where
     lensOf = ncDiscoveryContextL
+
+instance HasLens SlottingVar (NodeContext ssc) SlottingVar where
+    lensOf = ncSlottingVarL
 
 instance HasLens SlottingContextSum (NodeContext ssc) SlottingContextSum where
     lensOf = ncSlottingContextL
@@ -320,9 +323,6 @@ instance HasLens ShutdownContext (NodeContext ssc) ShutdownContext where
         setter sc =
             set ncShutdownFlagL (_shdnIsTriggered sc) .
             set ncShutdownNotifyQueueL (_shdnNotifyQueue sc)
-
-instance HasLens JLFile (NodeContext ssc) JLFile where
-    lensOf = ncJLFileL
 
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
     lensOf = ncNodeParamsL . npCustomUtxoL . coerced

@@ -13,17 +13,14 @@ module Pos.Lrc.DB.Richmen
        -- ** Ssc
        , RCSsc
        , getRichmenSsc
-       , putRichmenSsc
 
        -- ** US
        , RCUs
        , getRichmenUS
-       , putRichmenUS
 
        -- ** Delegation
        , RCDlg
        , getRichmenDlg
-       , putRichmenDlg
        ) where
 
 import           Universum
@@ -38,14 +35,13 @@ import           Pos.Genesis                 (genesisDelegation)
 import           Pos.Lrc.Class               (RichmenComponent (..),
                                               SomeRichmenComponent (..),
                                               someRichmenComponent)
-import           Pos.Lrc.DB.RichmenBase      (getRichmen, getRichmenP, putRichmen,
-                                              putRichmenP)
+import           Pos.Lrc.DB.RichmenBase      (getRichmen, getRichmenP, putRichmenP)
 import           Pos.Lrc.Logic               (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types               (FullRichmenData, Richmen, toRichmen)
-import           Pos.Ssc.RichmenComponent    (RCSsc, getRichmenSsc, putRichmenSsc)
+import           Pos.Ssc.RichmenComponent    (RCSsc, getRichmenSsc)
 import           Pos.Txp.Core                (TxOutDistribution, txOutStake)
 import           Pos.Types                   (EpochIndex, applyCoinPortion)
-import           Pos.Update.RichmenComponent (RCUs, getRichmenUS, putRichmenUS)
+import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -99,6 +95,3 @@ instance RichmenComponent RCDlg where
 
 getRichmenDlg :: MonadDBRead m => EpochIndex -> m (Maybe Richmen)
 getRichmenDlg epoch = getRichmen @RCDlg epoch
-
-putRichmenDlg :: MonadDB m => EpochIndex -> FullRichmenData -> m ()
-putRichmenDlg = putRichmen @RCDlg

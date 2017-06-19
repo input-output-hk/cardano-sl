@@ -225,5 +225,4 @@ Command example:
     --logs-prefix /tmp/logs/2017-05-22_181224                            \
     --log-config /tmp/logs/2017-05-22_181224/conf/node0.log.yaml         \
     --kademlia-dump-path /tmp/logs/2017-05-22_181224/dump/kademlia0.dump \
-    --system-start 1495462345                                            \
-    --peer-id UJqMkyR7xplAn9fQdMo=|]
+    --system-start 1495462345|]

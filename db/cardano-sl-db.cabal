@@ -33,6 +33,7 @@ library
                      , formatting
                      , lens
                      , log-warper
+                     , monad-control
                      , mmorph
                      , mtl
                      , node-sketch

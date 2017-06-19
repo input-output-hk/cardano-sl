@@ -6,7 +6,7 @@
 
 module Pos.Txp.DB.Utxo
        (
-       -- * Getters
+         -- * Getters
          getTxOutFromDB
        , getTxOut
 
@@ -27,9 +27,10 @@ module Pos.Txp.DB.Utxo
        , sanityCheckUtxo
        ) where
 
+
 import           Universum
 
-import           Data.Conduit         (Sink, mapOutput, runConduit, (.|))
+import           Data.Conduit         (Sink, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List    as CL
 import qualified Data.HashSet         as HS
 import qualified Data.Map             as M
@@ -47,8 +48,8 @@ import           Pos.Core             (Address, Coin, coinF, mkCoin, sumCoins,
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
 import           Pos.DB               (DBError (..), DBIteratorClass (..),
                                        DBTag (GStateDB), IterType, MonadDB,
-                                       MonadDBRead (dbGet), RocksBatchOp (..),
-                                       dbIterSource, encodeWithKeyPrefix, rocksGetBi)
+                                       MonadDBRead (..), RocksBatchOp (..), dbIterSource,
+                                       encodeWithKeyPrefix, rocksGetBi)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.DB.Types         (DB)
 import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsToSet, txOutStake)
@@ -116,7 +117,7 @@ utxoSink = CL.fold (\u (k,v) -> M.insert k v u) mempty
 -- | Retrieves only portion of UTXO related to given addresses list.
 getFilteredUtxo :: MonadDBRead m => [Address] -> m Utxo
 getFilteredUtxo addrs =
-    runConduit $
+    runConduitRes $
     dbIterSource GStateDB (Proxy @UtxoIter) .|
     CL.filter (\(_,out) -> out `addrBelongsToSet` addrsSet) .|
     utxoSink
@@ -127,7 +128,7 @@ getFilteredUtxo addrs =
 -- megabytes).
 getAllPotentiallyHugeUtxo :: MonadDBRead m => m Utxo
 getAllPotentiallyHugeUtxo =
-    runConduit $ dbIterSource GStateDB (Proxy @UtxoIter) .| utxoSink
+    runConduitRes $ dbIterSource GStateDB (Proxy @UtxoIter) .| utxoSink
 
 ----------------------------------------------------------------------------
 -- Sanity checks
@@ -141,7 +142,8 @@ sanityCheckUtxo expectedTotalStake = do
             mapOutput
             (map snd . txOutStake . snd)
             (dbIterSource GStateDB (Proxy @UtxoIter))
-    calculatedTotalStake <- runConduit $ utxoSource .| CL.fold foldAdd (mkCoin 0)
+    calculatedTotalStake <-
+        runConduitRes $ utxoSource .| CL.fold foldAdd (mkCoin 0)
     let fmt =
             ("Sum of stakes in Utxo differs from expected total stake (the former is "
              %coinF%", while the latter is "%coinF%")")

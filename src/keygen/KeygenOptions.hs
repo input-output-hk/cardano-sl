@@ -155,7 +155,7 @@ usageExample = Just [s|
 Command example:
 
   stack exec -- cardano-keygen                          \
-    --genesis-file genesis.bin                          \
+    --genesis-dir genesis                               \
     -f secrets/secret-{}.key                            \
     -m 5                                                \
     -n 1000                                             \

@@ -33,16 +33,18 @@ import           Pos.DB.Types                 (DB (..))
 import           Pos.Util.Util                (maybeThrow)
 
 
-
 data DBPureRedirectTag
 
-type DBPureRedirect = Ether.TaggedTrans DBPureRedirectTag IdentityT
+type DBPureRedirect =
+    Ether.TaggedTrans DBPureRedirectTag IdentityT
 
 runDBPureRedirect :: DBPureRedirect m a -> m a
 runDBPureRedirect = coerce
 
-instance (MonadRealDB m, t ~ IdentityT) =>
-         MonadDBRead (Ether.TaggedTrans DBPureRedirectTag t m) where
+instance
+    (MonadRealDB m, t ~ IdentityT) =>
+        MonadDBRead (Ether.TaggedTrans DBPureRedirectTag t m)
+  where
     dbGet tag key = do
         db <- view (dbTagToLens tag) <$> getNodeDBs
         rocksGetBytes key db
@@ -65,8 +67,8 @@ instance
 -- | Conduit source built from rocks iterator.
 iteratorSource ::
        forall m i.
-       ( MonadResource m
-       , MonadRealDB m
+       ( MonadRealDB m
+       , MonadResource m
        , DBIteratorClass i
        , Bi (IterKey i)
        , Bi (IterValue i)
@@ -75,11 +77,14 @@ iteratorSource ::
     -> Proxy i
     -> Source m (IterType i)
 iteratorSource tag _ = do
-    DB {..} <- view (dbTagToLens tag) <$> lift getNodeDBs
-    bracketP (Rocks.createIter rocksDB rocksReadOpts) Rocks.releaseIter $ \it -> do
-        lift $ Rocks.iterSeek it (iterKeyPrefix @i)
-        produce it
-  where
+    DB{..} <- view (dbTagToLens tag) <$> lift getNodeDBs
+    let createIter = Rocks.createIter rocksDB rocksReadOpts
+    let releaseIter i = Rocks.releaseIter i
+    let action iter = do
+            Rocks.iterSeek iter (iterKeyPrefix @i)
+            produce iter
+    bracketP createIter releaseIter action
+ where
     produce :: Rocks.Iterator -> Source m (IterType i)
     produce it = do
         entryStr <- processRes =<< Rocks.iterEntry it

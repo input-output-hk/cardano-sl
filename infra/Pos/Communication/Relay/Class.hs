@@ -11,7 +11,7 @@ module Pos.Communication.Relay.Class
        ) where
 
 import qualified Ether
-import           Node.Message                   (Message)
+import           Node.Message.Class             (Message)
 import           Pos.Binary.Class               (Bi)
 import           Universum
 

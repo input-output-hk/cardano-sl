@@ -76,7 +76,7 @@ library
                      , neat-interpolation
                      , plutus-prototype
                      , resourcet
-                     , rocksdb
+                     , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , stm
                      , tagged

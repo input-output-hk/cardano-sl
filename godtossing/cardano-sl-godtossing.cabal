@@ -78,7 +78,7 @@ library
                      , mono-traversable
                      , mtl
                      , node-sketch
-                     , rocksdb
+                     , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , stm
                      , tagged

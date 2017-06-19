@@ -29,7 +29,7 @@ data Relay packingType m where
       , Msg.Message (ReqMsg key)
       , Msg.Message (InvOrData key contents)
       )
-      => (PropagationMsg packingType -> m ()) -- ^ How to relay the data.
+      => (PropagationMsg packingType -> m ()) -- How to relay the data.
       -> InvReqDataParams key contents m
       -> Relay packingType m
   Data ::
@@ -38,7 +38,7 @@ data Relay packingType m where
       , Msg.Serializable packingType (DataMsg contents)
       , Msg.Message (DataMsg contents)
       )
-      => (PropagationMsg packingType -> m ()) -- ^ How to relay the data.
+      => (PropagationMsg packingType -> m ()) -- How to relay the data.
       -> DataParams contents m
       -> Relay packingType m
 

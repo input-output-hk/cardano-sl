@@ -60,7 +60,7 @@ import qualified Pos.Util.Modifier          as MM
 import           Pos.Wallet.SscType         (WalletSscType)
 import           Pos.Wallet.Web.ClientTypes (CId, CWAddressMeta (..), Wal, addressToCId,
                                              encToCId)
-import           Pos.Wallet.Web.State       (WalletWebDB, WebWalletModeDB)
+import           Pos.Wallet.Web.State       (WebWalletModeDB)
 import qualified Pos.Wallet.Web.State       as WS
 
 type CAccModifier = MM.MapModifier CWAddressMeta ()
@@ -105,12 +105,6 @@ txMempoolToModifierWebWallet encSK = do
         Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just (map snd -> ordered) ->
             runDBToil $ evalToilTEmpty $ trackingApplyTxs encSK ordered
-
-instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
-         => MonadWalletTracking (WalletWebDB m) where
-    syncWSetsAtStart = syncWSetsAtStartWebWallet
-    syncOnImport = syncOnImportWebWallet
-    txMempoolToModifier = txMempoolToModifierWebWallet
 
 ----------------------------------------------------------------------------
 -- Logic

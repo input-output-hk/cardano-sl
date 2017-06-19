@@ -75,8 +75,8 @@ import           Pos.Binary.Class          (decodeFull, encodeStrict)
 import           Pos.Client.Txp.History    (TxHistoryEntry (..))
 import           Pos.Core.Coin             (mkCoin)
 import           Pos.Core.Types            (ScriptVersion)
-import           Pos.Crypto                (EncryptedSecretKey, PassPhrase,
-                                            emptyPassphrase, encToPublic, hashHexF)
+import           Pos.Crypto                (EncryptedSecretKey, PassPhrase, encToPublic,
+                                            hashHexF)
 import           Pos.Txp.Core.Types        (Tx (..), TxId, TxOut, txOutAddress,
                                             txOutValue)
 import           Pos.Types                 (Address (..), BlockVersion, ChainDifficulty,
@@ -87,7 +87,7 @@ import           Pos.Update.Core           (BlockVersionData (..), StakeholderVo
                                             UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll           (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase     (BackupPhrase)
-import           Pos.Util.Servant          (FromCType (..), ToCType (..))
+import           Pos.Util.Servant          (FromCType (..), OriginType, ToCType (..))
 
 
 data SyncProgress = SyncProgress
@@ -226,14 +226,13 @@ newtype CPassPhrase = CPassPhrase Text
 instance Show CPassPhrase where
     show _ = "<pass phrase>"
 
-instance FromCType (Maybe CPassPhrase) where
-    type FromOriginType (Maybe CPassPhrase) = PassPhrase
-    decodeCType Nothing = return emptyPassphrase
-    decodeCType (Just (CPassPhrase text)) =
+type instance OriginType CPassPhrase = PassPhrase
+
+instance FromCType CPassPhrase where
+    decodeCType (CPassPhrase text) =
         first toText . decodeFull . LBS.fromStrict =<< Base16.decode text
 
 instance ToCType CPassPhrase where
-    type ToOriginType CPassPhrase = PassPhrase
     encodeCType = CPassPhrase . Base16.encode . encodeStrict
 
 ----------------------------------------------------------------------------
@@ -257,8 +256,9 @@ instance Buildable AccountId where
 newtype CAccountId = CAccountId Text
     deriving (Eq, Show, Generic, Buildable)
 
+type instance OriginType CAccountId = AccountId
+
 instance FromCType CAccountId where
-    type FromOriginType CAccountId = AccountId
     decodeCType (CAccountId url) =
         case splitOn "@" url of
             [part1, part2] -> do
@@ -270,10 +270,6 @@ instance FromCType CAccountId where
 
 instance ToCType CAccountId where
     encodeCType = CAccountId . sformat F.build
-
-instance FromCType CAccountId => FromCType (Maybe CAccountId) where
-    type FromOriginType (Maybe CAccountId) = Maybe (FromOriginType CAccountId)
-    decodeCType = mapM decodeCType
 
 -- TODO: extract first three fields as @Coordinates@ and use only it where
 -- required (maybe nowhere)

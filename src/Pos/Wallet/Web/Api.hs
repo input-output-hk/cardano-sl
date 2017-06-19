@@ -66,14 +66,15 @@ import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Util.Servant           (CCapture, CQueryParam, CReqBody,
-                                             ModifiesApiRes (..), ReportDecodeError (..),
-                                             VerbMod)
+                                             DCQueryParam, ModifiesApiRes (..),
+                                             ReportDecodeError (..), VerbMod)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
-                                             CAccountMeta, CWalletMeta, CAddress, CElectronCrashReport,
+                                             CAccountMeta, CAddress, CElectronCrashReport,
                                              CId, CInitialized, CPaperVendWalletRedeem,
                                              CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
                                              CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletRedeem, SyncProgress, Wal)
+                                             CWalletMeta, CWalletRedeem, SyncProgress,
+                                             Wal)
 import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
                                              catchEndpointErrors)
 
@@ -96,7 +97,6 @@ instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) 
 
 -- | Shortcut for common api result types.
 type WRes verbType a = WalletVerb (verbType '[JSON] a)
-
 
 -- All endpoints are defined as a separate types, for description in Swagger-based HTML-documentation.
 
@@ -121,7 +121,7 @@ type GetWallets =
 type NewWallet =
        "wallets"
     :> "new"
-    :> CQueryParam "passphrase" CPassPhrase
+    :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
     :> WRes Post CWallet
 
@@ -134,7 +134,7 @@ type UpdateWallet =
 type RestoreWallet =
        "wallets"
     :> "restore"
-    :> CQueryParam "passphrase" CPassPhrase
+    :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
     :> WRes Post CWallet
 
@@ -153,7 +153,7 @@ type DeleteWallet =
 type ImportWallet =
        "wallets"
     :> "keys"
-    :> CQueryParam "passphrase" CPassPhrase
+    :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] Text
     :> WRes Post CWallet
 
@@ -161,8 +161,8 @@ type ChangeWalletPassphrase =
        "wallets"
     :> "password"
     :> Capture "walletId" (CId Wal)
-    :> CQueryParam "old" CPassPhrase
-    :> CQueryParam "new" CPassPhrase
+    :> DCQueryParam "old" CPassPhrase
+    :> DCQueryParam "new" CPassPhrase
     :> WRes Post ()
 
 -------------------------------------------------------------------------
@@ -187,7 +187,7 @@ type UpdateAccount =
 
 type NewAccount =
        "accounts"
-    :> CQueryParam "passphrase" CPassPhrase
+    :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CAccountInit
     :> WRes Post CAccount
 
@@ -202,7 +202,7 @@ type DeleteAccount =
 
 type NewAddress =
        "addresses"
-    :> CQueryParam "passphrase" CPassPhrase
+    :> DCQueryParam "passphrase" CPassPhrase
     :> CReqBody '[JSON] CAccountId
     :> WRes Post CAddress
 
@@ -235,7 +235,7 @@ type UpdateProfile =
 type NewPayment =
        "txs"
     :> "payments"
-    :> CQueryParam "passphrase" CPassPhrase
+    :> DCQueryParam "passphrase" CPassPhrase
     :> CCapture "from" CAccountId
     :> Capture "to" (CId Addr)
     :> Capture "amount" Coin
@@ -278,7 +278,7 @@ type ApplyUpdate =
 type RedeemADA =
        "redemptions"
     :> "ada"
-    :> CQueryParam "passphrase" CPassPhrase
+    :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletRedeem
     :> WRes Post CTx
 
@@ -286,7 +286,7 @@ type RedeemADAPaperVend =
        "papervend"
     :> "redemptions"
     :> "ada"
-    :> CQueryParam "passphrase" CPassPhrase
+    :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CPaperVendWalletRedeem
     :> WRes Post CTx
 

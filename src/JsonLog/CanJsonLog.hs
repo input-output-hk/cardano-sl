@@ -44,8 +44,8 @@ class Monad m => CanJsonLog m where
     default jsonLog :: ( CanJsonLog n
                        , MonadTrans t
                        , m ~ t n
-                       , ToJSON a) 
-                    => a 
+                       , ToJSON a)
+                    => a
                     -> m ()
     jsonLog x = lift $ jsonLog x
 
@@ -56,8 +56,7 @@ instance (Monoid w, CanJsonLog m) => CanJsonLog (WriterT w m)
 instance CanJsonLog m => CanJsonLog (LoggerNameBox m)
 instance CanJsonLog m => CanJsonLog (ResourceT m)
 
-deriving instance CanJsonLog m => CanJsonLog (TaggedTrans tag IdentityT m)
-deriving instance CanJsonLog m => CanJsonLog (TaggedTrans tag (ReaderT a) m)
+deriving instance CanJsonLog (t m) => CanJsonLog (TaggedTrans tag t m)
 
 -- | @'jsonLogWrappedM'@ is a convenience default implementation
 -- of @'jsonLog'@ to facilitate providing instances of class @'CanJsonLog'@

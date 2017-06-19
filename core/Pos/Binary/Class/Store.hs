@@ -43,6 +43,8 @@ import           Data.Store.Core            (Peek (..), PeekResult (..), Poke (.
 import qualified Data.Store.Core            as Store
 import           Data.Store.Internal        (PeekException (..), StaticSize (..))
 import qualified Data.Store.Internal        as Store
+import           Foreign.Marshal.Alloc      (mallocBytes)
+import           Foreign.Marshal.Utils      (copyBytes)
 
 import           Pos.Binary.Class.Core      (Bi (..), getSize)
 
@@ -54,9 +56,9 @@ import           Pos.Binary.Class.Core      (Bi (..), getSize)
 instance Monoid a => Monoid (Poke a) where
     mempty = pure mempty
     m1 `mappend` m2 = Poke $ \ps off -> do
-        (off1, _) <- runPoke m1 ps off
-        (off2, res) <- runPoke m2 ps off1
-        pure (off2, res)
+        (off1, res1) <- runPoke m1 ps off
+        (off2, res2) <- runPoke m2 ps off1
+        pure (off2, res1 <> res2)
 
 instance Monoid (Size a) where
     mempty = ConstSize 0
@@ -245,7 +247,9 @@ isEmptyPeek = Peek $ \end ptr ->
 
 -- | Try to read @a@ but don't move pointer on the buffer, fail if can't.
 lookAhead :: Peek a -> Peek a
-lookAhead m = Peek $ \end ptr -> Store.runPeek m end ptr `catch` onEx
+lookAhead m = Peek $ \end ptr -> do
+    PeekResult _ res <- Store.runPeek m end ptr `catch` onEx
+    pure $ PeekResult ptr res
   where
     onEx (PeekException ptr exMsg) =
         throwM $ PeekException ptr (exMsg <> "\nlookAhead failed")

@@ -26,7 +26,8 @@ import           Formatting                 (int, sformat, stext, (%))
 
 import           Pos.Binary.Class           (AsBinary (..), Bi (..), Size (..),
                                              StaticSize (..), getBytes, getCopyBi, label,
-                                             putBytes, putCopyBi, putField, sizeOf)
+                                             labelP, putBytes, putCopyBi, putField,
+                                             sizeOf)
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Crypto.Hashing         (AbstractHash (..), HashAlgorithm,
                                              WithHash (..), hashDigestSize',
@@ -57,7 +58,7 @@ instance Bi a => SafeCopy (WithHash a) where
 
 instance HashAlgorithm algo => Bi (AbstractHash algo a) where
     size = ConstSize (hashDigestSize' @algo)
-    put (AbstractHash digest) =
+    put (AbstractHash digest) = labelP "AbstractHash" $
         reifyHashDigestSize @algo (\(Proxy :: Proxy n) ->
             let bs = ByteArray.convert digest :: BS.ByteString
             in put (StaticSize @n bs))
@@ -88,7 +89,7 @@ constantSizedBinaryToStoreGet bytes = do
 #define BiPvss(T, PT, BYTES) \
   instance Bi T where {\
     size = ConstSize BYTES ;\
-    put = putBytes . BSL.toStrict . Binary.encode ;\
+    put = labelP "T" . putBytes . BSL.toStrict . Binary.encode ;\
     get = label "T" $ constantSizedBinaryToStoreGet BYTES };\
   deriving instance Bi PT ;\
 
@@ -101,16 +102,18 @@ BiPvss (Pvss.Proof, SecretProof, 64)
 
 instance Store.Store Pvss.ExtraGen where
     size = ConstSize 33
-    poke = putBytes . BSL.toStrict . Binary.encode
+    poke = labelP "Pvss.ExtraGen" . putBytes . BSL.toStrict . Binary.encode
     peek = label "Pvss.ExtraGen" $ constantSizedBinaryToStoreGet 33
 instance Store.Store Pvss.Commitment where
     size = ConstSize 33
-    poke = putBytes . BSL.toStrict . Binary.encode
+    poke = labelP "Pvss.Commitment" . putBytes . BSL.toStrict . Binary.encode
     peek = label "Pvss.Commitment" $ constantSizedBinaryToStoreGet 33
 
 Store.makeStore ''SecretSharingExtra
 instance Bi SecretSharingExtra where
-    put = Store.poke; get = Store.peek; size = Store.size
+    put = labelP "SecretSharingExtra" . Store.poke
+    get = label "SecretSharingExtra" $ Store.peek
+    size = Store.size
 
 deriving instance Bi (AsBinary SecretSharingExtra)
 

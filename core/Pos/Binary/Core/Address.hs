@@ -42,12 +42,10 @@ getAddressIncomplete :: Peek Address
 getAddressIncomplete = do
     tag <- getWord8
     getSmallWithLength $ case tag of
-        0 -> let mapper 0 x = Just $
-                     get <&> \a -> x {addrPkDerivationPath = Just a}
-                 mapper _ _ = Nothing
-             in PubKeyAddress
-                    <$> get
-                    <*> getAttributes mapper Nothing def
+        0 -> do
+            let mapper 0 x = Just $ get <&> \a -> x {addrPkDerivationPath = Just a}
+                mapper _ _ = Nothing
+            PubKeyAddress <$> get <*> getAttributes mapper Nothing def
         1 -> ScriptAddress <$> get
         2 -> RedeemAddress <$> get
         t -> UnknownAddressType t <$> get

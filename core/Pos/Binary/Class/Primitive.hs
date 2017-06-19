@@ -128,11 +128,13 @@ fromBinaryM = either (fail . toString) return . fromBinary
 -- | Serialize something together with its length in bytes. The length comes
 -- first. If you want to serialize several things at once, use a tuple.
 putWithLength :: PokeWithSize a -> Poke a
-putWithLength a = put (UnsignedVarInt $ pwsToSize a) *> pwsToPoke a
+putWithLength a =
+    put (UnsignedVarInt $ (fromIntegral (pwsToSize a) :: Int64)) *> pwsToPoke a
 
 -- | Like @putWithLength@ but returns PokeWithSize.
 putWithLengthS :: PokeWithSize a -> PokeWithSize a
-putWithLengthS a = putS (UnsignedVarInt $ pwsToSize a) *> a
+putWithLengthS a =
+    putS (UnsignedVarInt $ (fromIntegral (pwsToSize a) :: Int64)) *> a
 
 -- | Read length in bytes and then parse something (which has to have exactly
 -- that length).
@@ -165,7 +167,7 @@ putSmallWithLength = pwsToPoke . putSmallWithLengthS
 
 -- | Like @putSmallWithLength@ but returns PokeWithSize.
 putSmallWithLengthS :: PokeWithSize a -> PokeWithSize a
-putSmallWithLengthS a@(PokeWithSize len _) = do
+putSmallWithLengthS a@(PokeWithSize len _) =
     if len >= 2^(14::Int)
         then error ("putSmallWithLength: length is " <> show len <>
                     ", but maximum allowed is 16383 (2^14-1)")

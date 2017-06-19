@@ -38,10 +38,10 @@ instance Bi CommitmentsMap where
 
 instance Bi VssCertificate where
     sizeNPut = labelS "VssCertificate" $
-        putField vcVssKey
-        <> putField vcExpiryEpoch
-        <> putField vcSignature
-        <> putField vcSignature
+        putField vcVssKey <>
+        putField vcExpiryEpoch <>
+        putField vcSignature <>
+        putField vcSigningKey
     get = label "VssCertificate" $
         join $ liftM4 recreateVssCertificate get get get get
 

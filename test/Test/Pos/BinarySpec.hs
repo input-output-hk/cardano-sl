@@ -5,7 +5,7 @@ module Test.Pos.BinarySpec
        ) where
 
 import           Data.Bits             (setBit)
-import qualified Data.ByteString.Lazy  as BS
+import qualified Data.ByteString       as BS
 import           Numeric               (showHex)
 
 import           Test.Hspec            (Spec, anyErrorCall, describe, it, shouldBe,
@@ -87,25 +87,13 @@ tinyVarIntSpec = describe "TinyVarInt" $ do
             bytes <- generate $ map (`setBit` 7) <$>
                                   replicateM (len - 1) arbitrary
             let bs = BS.pack (bytes ++ [0x01])
-            shouldThrowException (B.decode @B.TinyVarInt) anyErrorCall bs
+            shouldThrowException (B.decodeOrFail @B.TinyVarInt) anyErrorCall bs
         prop "never generates more than 2 bytes" $ do
             n <- generate $ choose (0, maxnum)
             B.biSize (B.TinyVarInt n) `shouldSatisfy` (<= 2)
-
-    describe "normal varint followed by unrelated bytes" $ do
-        prop "1 byte" $ do
-            n <- generate $ choose (0x00, 0x79)
-            bs <- generate arbitrary
-            B.decode (B.encode (B.TinyVarInt n) <> bs)
-                `shouldBe` B.TinyVarInt n
-        prop "2 bytes" $ do
-            n <- generate $ choose (0x80, maxnum)
-            bs <- generate arbitrary
-            B.decode (B.encode (B.TinyVarInt n) <> bs)
-                `shouldBe` B.TinyVarInt n
 
     describe "inefficiently encoded data" $ do
         prop "fails to deserialize ambiguous numbers (e.g. 0x80 0x00)" $ do
             word8 <- generate $ flip setBit 7 <$> arbitrary
             let bs = BS.pack [word8, 0x00]
-            shouldThrowException (B.decode @B.TinyVarInt) anyErrorCall bs
+            shouldThrowException (B.decodeOrFail @B.TinyVarInt) anyErrorCall bs

@@ -26,12 +26,10 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
 import qualified Prelude
 
-{-
-import           Pos.Binary.Class    (getRemainingByteString, getWithLength,
-                                      getWithLengthLimited, getWord8, putBytes,
-                                      putWithLength, putWord8)
--}
-import           Pos.Binary.Class
+import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize (..),
+                                      UnsignedVarInt (..), getSize, getWithLength,
+                                      getWithLengthLimited, getWord8, isEmptyPeek,
+                                      lookAhead, putS, putWithLengthS, putWord8S)
 
 mkAttributes :: h -> Attributes h
 mkAttributes dat = Attributes dat BS.empty
@@ -84,16 +82,15 @@ getAttributes :: (Word8 -> h -> Maybe (Peek h))
               -> Maybe Word32
               -> h
               -> Peek (Attributes h)
-getAttributes keyGetMapper maxLen initData = do
-   maybeLimit $ do
-       let readWhileKnown dat = ifM isEmptyPeek (pure dat) $ do
-               key <- lookAhead getWord8
-               case keyGetMapper key dat of
-                   Nothing -> pure dat
-                   Just gh -> getWord8 >> gh >>= readWhileKnown
-       attrData <- readWhileKnown initData
-       attrRemain <- get
-       pure $ Attributes {..}
+getAttributes keyGetMapper maxLen initData = maybeLimit $ do
+    attrRemain <- get
+    let readWhileKnown dat = ifM isEmptyPeek (pure dat) $ do
+            key <- lookAhead getWord8
+            case keyGetMapper key dat of
+                Nothing -> pure dat
+                Just gh -> getWord8 >> gh >>= readWhileKnown
+    attrData <- readWhileKnown initData
+    pure $ Attributes {..}
  where
    maybeLimit act = case maxLen of
        Nothing -> getWithLength act
@@ -102,17 +99,15 @@ getAttributes keyGetMapper maxLen initData = do
 -- | Generate 'Put' given the way to serialize inner attribute value
 -- into set of keys and values.
 putAttributes :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> Poke ()
-putAttributes putMapper attrs = putWithLength (putAttributesS putMapper attrs)
+putAttributes putMapper attrs = pwsToPoke (putAttributesS putMapper attrs)
 
 sizeAttributes :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> Int
-sizeAttributes putMapper attrs =
-    let putted = putAttributesS putMapper attrs in
-    getSize (UnsignedVarInt $ pwsToSize putted) + fromIntegral (pwsToSize putted)
+sizeAttributes putMapper attrs = pwsToSize (putAttributesS putMapper attrs)
 
 putAttributesS :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> PokeWithSize ()
-putAttributesS putMapper Attributes {..} =
-    traverse_ putAttr kvs *>
-    putS attrRemain
+putAttributesS putMapper Attributes {..} = putWithLengthS $
+    putS attrRemain *>
+    traverse_ putAttr kvs
  where
    putAttr (k, v) = putWord8S k *> v
    kvs = sortOn fst $ putMapper attrData

@@ -21,6 +21,7 @@ module Pos.Util
        , eitherToVerRes
        , readerToState
        , diffDoubleMap
+       , withMaybeFile
 
        -- * NonEmpty
        , neZipWith3
@@ -38,7 +39,7 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
-import           Universum                     hiding (bracket, finally)
+import           Universum                     hiding (finally)
 
 import           Control.Lens                  (lensRules)
 import           Control.Lens.Internal.FieldTH (makeFieldOpticsForDec)
@@ -50,6 +51,7 @@ import           Data.List                     (span, zipWith3)
 import qualified Data.Text                     as T
 import qualified Language.Haskell.TH           as TH
 import           Serokell.Util                 (VerificationRes (..))
+import           System.IO                     (hClose)
 import           System.Wlog                   (LoggerNameBox (..))
 import           Text.Parsec                   (ParsecT)
 -- SafeCopy instance for HashMap
@@ -106,6 +108,11 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
                 in if null diff
                        then res
                        else HM.insert extKey diff res
+
+withMaybeFile :: (MonadIO m, MonadMask m) => Maybe FilePath -> IOMode -> (Maybe Handle -> m r) -> m r
+withMaybeFile Nothing     _    f = f Nothing
+withMaybeFile (Just file) mode f = 
+    bracket (openFile file mode) (liftIO . hClose) (f . Just)
 
 ----------------------------------------------------------------------------
 -- NonEmpty

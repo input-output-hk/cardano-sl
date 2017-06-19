@@ -2,6 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE PolyKinds           #-}
 
 module Pos.WorkMode
        ( WorkMode
@@ -19,6 +20,7 @@ import           Universum
 import           Control.Monad.Fix
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Trans.Control
+import           Control.Monad.Trans.Identity   (IdentityT (..))
 import qualified Control.Monad.Trans.Lift.Local as Lift
 import           Data.Coerce
 import           Data.Tagged                    (Tagged)
@@ -51,6 +53,7 @@ import           Pos.Ssc.Extra                  (SscMemTag, SscState)
 import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Types                      (HeaderHash)
 import           Pos.Util.Util                  (PowerLift (..))
+import           Pos.Util.TimeWarp              (JsonLogT, CanJsonLog (..))
 import           Pos.WorkMode.Class             (MinWorkMode, TxpExtra_TMP, WorkMode)
 
 ----------------------------------------------------------------------------
@@ -77,8 +80,10 @@ type RealMode' ssc =
         , Tagged PeerStateTag (PeerStateCtx Production)
         ) (
     Ether.ReadersT (NodeContext ssc) (
-    LoggerNameBox Production
-    ))))))))))
+    LoggerNameBox (
+    JsonLogT 
+    Production
+    )))))))))))
 
 newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
   deriving
@@ -112,11 +117,8 @@ deriving instance MonadDBRead (RealMode ssc)
 deriving instance MonadDB (RealMode ssc)
 deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
 deriving instance MonadBListener (RealMode ssc)
--- deriving instance MonadUpdates (RealMode ssc)
--- deriving instance SscHelpersClass ssc => MonadBlockchainInfo (RealMode ssc)
--- deriving instance MonadBalances (RealMode ssc)
--- deriving instance MonadTxHistory (RealMode ssc)
 deriving instance WithPeerState (RealMode ssc)
+deriving instance CanJsonLog (RealMode ssc)
 
 instance MonadBaseControl IO (RealMode ssc) where
     type StM (RealMode ssc) a = StM (RealMode' ssc) a
@@ -168,8 +170,9 @@ instance
 type ServiceMode' =
     PeerStateRedirect (
     Ether.ReaderT PeerStateTag (PeerStateCtx Production) (
-    LoggerNameBox Production
-    ))
+    LoggerNameBox (
+    JsonLogT Production
+    )))
 
 newtype ServiceMode a = ServiceMode (ServiceMode' a)
   deriving
@@ -194,6 +197,7 @@ type instance Counter (ServiceMode) = Counter Production
 deriving instance CanLog (ServiceMode)
 deriving instance HasLoggerName (ServiceMode)
 deriving instance WithPeerState (ServiceMode)
+deriving instance CanJsonLog (ServiceMode)
 
 instance PowerLift m ServiceMode' => PowerLift m (ServiceMode) where
   powerLift = ServiceMode . powerLift

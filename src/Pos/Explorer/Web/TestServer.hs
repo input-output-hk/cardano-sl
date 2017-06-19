@@ -111,8 +111,8 @@ testBlocksPagesTotal
 testBlocksPagesTotal _ = pure $ pure 10
 
 testBlocksPages
-    :: Maybe Word 
-    -> Maybe Word 
+    :: Maybe Word
+    -> Maybe Word
     -> Handler (Either ExplorerError (Integer, [CBlockEntry]))
 testBlocksPages _ _  = pure . pure $ (1, [CBlockEntry
     { cbeEpoch      = 37294
@@ -182,6 +182,7 @@ testTxsSummary _       = pure . pure $ CTxSummary
     , ctsBlockHeight     = Just 11
     , ctsBlockEpoch      = Just 4
     , ctsBlockSlot       = Just 17
+    , ctsBlockHash       = Just $ CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
     , ctsRelayedBy       = Nothing
     , ctsTotalInput      = mkCCoin $ mkCoin 33333
     , ctsTotalOutput     = mkCCoin $ mkCoin 33333

@@ -73,7 +73,7 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary 
                                                  convertTxOutputs, fromCAddress,
                                                  fromCHash, fromCTxId, getEpochIndex,
                                                  getSlotIndex, mkCCoin, tiToTxEntry,
-                                                 toBlockEntry, toBlockSummary,
+                                                 toBlockEntry, toBlockSummary, toCHash,
                                                  toPosixTime, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
@@ -459,7 +459,8 @@ getTxSummary cTxId = do
         ctsBlockHeight      = blockFields ^. _2
         ctsBlockEpoch       = blockFields ^. _3
         ctsBlockSlot        = blockFields ^. _4
-        outputs             = blockFields ^. _5
+        ctsBlockHash        = blockFields ^. _5
+        outputs             = blockFields ^. _6
 
         ctsId               = cTxId
         ctsOutputs          = map (second mkCCoin) outputs
@@ -491,7 +492,7 @@ getTxSummary cTxId = do
             tx              <- fetchTxFromMempoolOrFail txId
 
             let txOutputs   = convertTxOutputs . NE.toList . _txOutputs $ taTx tx
-            pure (Nothing, Nothing, Nothing, Nothing, txOutputs)
+            pure (Nothing, Nothing, Nothing, Nothing, Nothing, txOutputs)
 
         -- Fetching transaction from DB.
         fetchBlockFieldsFromDb headerHash txIndexInBlock =  do
@@ -503,15 +504,16 @@ getTxSummary cTxId = do
 
             -- Get block epoch and slot index
             let blkHeaderSlot = mb ^. mainBlockSlot
-            let epochIndex    = getEpochIndex $ siEpoch blkHeaderSlot
-            let slotIndex     = getSlotIndex  $ siSlot  blkHeaderSlot
+                epochIndex    = getEpochIndex $ siEpoch blkHeaderSlot
+                slotIndex     = getSlotIndex  $ siSlot  blkHeaderSlot
+                blkHash       = toCHash $ headerHash mb
 
             tx <- maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
                   atMay (toList $ mb ^. mainBlockTxPayload . txpTxs) (fromIntegral txIndexInBlock)
 
             let txOutputs     = convertTxOutputs . NE.toList $ _txOutputs tx
                 ts            = toPosixTime <$> blkSlotStart
-            pure (ts, Just blockHeight, Just epochIndex, Just slotIndex, txOutputs)
+            pure (ts, Just blockHeight, Just epochIndex, Just slotIndex, Just blkHash, txOutputs)
 
 
 -- | Search the blocks by epoch and slot. Slot is optional.

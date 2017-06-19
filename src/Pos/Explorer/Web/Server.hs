@@ -506,7 +506,7 @@ getTxSummary cTxId = do
             let blkHeaderSlot = mb ^. mainBlockSlot
                 epochIndex    = getEpochIndex $ siEpoch blkHeaderSlot
                 slotIndex     = getSlotIndex  $ siSlot  blkHeaderSlot
-                blkHash       = toCHash $ headerHash mb
+                blkHash       = toCHash headerHash
 
             tx <- maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
                   atMay (toList $ mb ^. mainBlockTxPayload . txpTxs) (fromIntegral txIndexInBlock)

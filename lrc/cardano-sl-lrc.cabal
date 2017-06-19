@@ -12,7 +12,8 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Pos.Lrc.Fts
+  exposed-modules:     Pos.Lrc.Arbitrary
+                       Pos.Lrc.Fts
                        Pos.Lrc.Types
                        Pos.Lrc.Error
                        Pos.Lrc.Core
@@ -37,7 +38,9 @@ library
                      , lens
                      , log-warper
                      , node-sketch
+                     , reflection
                      , text-format
+                     , QuickCheck
                      , universum
                      , unordered-containers
 

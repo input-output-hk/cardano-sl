@@ -43,7 +43,7 @@ import           Pos.Ssc.GodTossing.Types.Message (GtTag (..), MCCommitment (..)
 import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
-import           Pos.Types.Arbitrary.Core.Unsafe  ()
+import           Pos.Core.Types.Arbitrary.Unsafe  ()
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)
 

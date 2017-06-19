@@ -4,14 +4,16 @@ module Test.Pos.Txp.Identity.BinarySpec
        ( spec
        ) where
 
+import           Universum
+
 import           Data.Tagged              (Tagged)
 import           Test.Hspec               (Spec, describe)
-import           Universum
 
 import           Pos.Binary               ()
 import           Pos.Block.Arbitrary      (SmallTxPayload)
 import           Pos.Communication.Relay  as R
 import qualified Pos.Txp                  as T
+import           Pos.Txp.Arbitrary        ()
 import           Test.Pos.Arbitrary.Infra ()
 
 import           Test.Pos.Util            (binaryTest, msgLenLimitedTest,

@@ -31,6 +31,7 @@ import           Pos.Data.Attributes      (Attributes (..), mkAttributes)
 import           Pos.Delegation.Arbitrary (genDlgPayload)
 import           Pos.Ssc.Arbitrary        (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class            (Ssc (..), SscHelpersClass)
+import           Pos.Txp.Arbitrary        ()
 import           Pos.Txp.Core             (TxAux (..), TxDistribution (..), TxPayload,
                                            mkTx, mkTxPayload)
 import qualified Pos.Types                as T

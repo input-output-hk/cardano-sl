@@ -43,6 +43,8 @@ library
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
                        Pos.Core.Types
+                       Pos.Core.Types.Arbitrary
+                       Pos.Core.Types.Arbitrary.Unsafe
                        Pos.Core.Version
 
                        Pos.Core.Genesis
@@ -50,6 +52,8 @@ library
                        Pos.Core.Genesis.Types
 
                        Pos.Crypto
+                       Pos.Crypto.Arbitrary
+                       Pos.Crypto.Arbitrary.Unsafe
                        Pos.Crypto.Encryption
                        Pos.Crypto.AsBinary
                        Pos.Crypto.HD
@@ -77,6 +81,7 @@ library
                        Pos.Binary.Core.Version
                        Pos.Binary.Core.Genesis
 
+                       Pos.Util.Arbitrary
                        Pos.Util.Concurrent
                        Pos.Util.Concurrent.RWLock
                        Pos.Util.Concurrent.RWVar

@@ -1,6 +1,6 @@
 -- | 'Arbitrary' unsafe instances for some types from 'Pos.Core.Types'.
 
-module Pos.Types.Arbitrary.Core.Unsafe () where
+module Pos.Core.Types.Arbitrary.Unsafe () where
 
 import           Universum
 
@@ -12,11 +12,12 @@ import           Pos.Core                    (Address (..), Coin, EpochIndex (..
                                               SlotId (..), mkCoin)
 import           Pos.Crypto.Arbitrary.Unsafe ()
 import           Pos.Data.Attributes         (mkAttributes)
-import           Pos.Types.Arbitrary         ()
+import           Pos.Core.Types.Arbitrary    ()
 import           Pos.Util.Arbitrary          (ArbitraryUnsafe (..))
 
 deriving instance ArbitraryUnsafe SharedSeed
 deriving instance ArbitraryUnsafe EpochIndex
+
 instance ArbitraryUnsafe LocalSlotIndex where
 
 instance ArbitraryUnsafe Coin where

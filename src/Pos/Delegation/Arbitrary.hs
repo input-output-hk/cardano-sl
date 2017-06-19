@@ -13,7 +13,7 @@ import           Pos.Binary.Core          ()
 import           Pos.Core                 (EpochIndex)
 import           Pos.Crypto               (ProxySecretKey (..), createProxySecretKey)
 import           Pos.Delegation.Types     (DlgPayload, mkDlgPayload)
-import           Pos.Types.Arbitrary.Core ()
+import           Pos.Core.Types.Arbitrary ()
 import           Pos.Util.Util            (leftToPanic)
 
 genDlgPayload :: EpochIndex -> Gen DlgPayload

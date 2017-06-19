@@ -98,7 +98,7 @@ translation =
         }
     , tx:
         { txTime: "入金時刻"
-        , txIncluded: "含まれているスロット"
+        , txIncluded: "含まれている"
         , txRelayed: "中継IP"
         , txEmpty: "トランザクションなし"
         , txFees: "トランザクション料"

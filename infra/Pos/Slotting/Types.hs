@@ -5,11 +5,12 @@ module Pos.Slotting.Types
        , SlottingData (..)
        ) where
 
-import           Data.Time.Units    (Millisecond)
 import           Universum
 
-import           Pos.Core.Timestamp ()
-import           Pos.Core.Types     (EpochIndex, Timestamp)
+import           Data.Time.Units (Millisecond)
+
+import           Pos.Core        (EpochIndex, Timestamp)
+import           Pos.Util.Util   ()
 
 -- | Data which is necessary for slotting and corresponds to a particular epoch.
 data EpochSlottingData = EpochSlottingData
@@ -17,7 +18,9 @@ data EpochSlottingData = EpochSlottingData
     -- ^ Slot duration actual for given epoch.
     , esdStart        :: !Timestamp
     -- ^ Time when epoch starts.
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Generic)
+
+instance NFData EpochSlottingData
 
 -- | Data necessary for slotting to work which is basically part of GState.
 data SlottingData = SlottingData
@@ -28,4 +31,6 @@ data SlottingData = SlottingData
     -- Last means 'sdPenultEpoch + 1'.
     , sdPenultEpoch :: !EpochIndex
     -- ^ Penult epoch for which 'EpochSlottingData' is known.
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Generic)
+
+instance NFData SlottingData

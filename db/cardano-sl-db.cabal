@@ -19,9 +19,6 @@ library
                        Pos.DB.Functions
                        Pos.DB.GState.Common
                        Pos.DB.GState.Balances
-                       Pos.DB.Iterator
-                       Pos.DB.Iterator.Class
-                       Pos.DB.Iterator.DBIterator
                        Pos.DB.Misc.Common
                        Pos.DB.Redirect
                        Pos.DB.Types
@@ -30,11 +27,13 @@ library
                      , bytestring
                      , cardano-sl-core
                      , concurrent-extra
+                     , conduit
                      , data-default
                      , ether >= 0.5
                      , formatting
                      , lens
                      , log-warper
+                     , monad-control
                      , mmorph
                      , mtl
                      , node-sketch

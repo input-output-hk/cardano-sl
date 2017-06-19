@@ -56,6 +56,7 @@ executable cardano-wallet
                      , lifted-async
                      , log-warper
                      , mmorph
+                     , monad-control
                      , monad-loops
                      , mtl
                      , network-transport-tcp

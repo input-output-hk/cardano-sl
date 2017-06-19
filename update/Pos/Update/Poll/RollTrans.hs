@@ -22,7 +22,8 @@ import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types (PrevValue, USUndo (..), cpsSoftwareVersion,
                                         maybeToPrev, psProposal, unChangedBVL,
                                         unChangedConfPropsL, unChangedPropsL,
-                                        unChangedSVL, unLastAdoptedBVL, unPrevProposersL)
+                                        unChangedSVL, unLastAdoptedBVL, unPrevProposersL,
+                                        unSlottingDataL)
 import           Pos.Util.Util         (ether)
 
 type RollT m = Ether.LazyStateT' USUndo m
@@ -41,11 +42,7 @@ instance MonadPoll m => MonadPoll (RollT m) where
         insertIfNotExist bv unChangedBVL getBVState
         delBVState bv
 
-    setAdoptedBV pv = ether $ do
-        prevBV <- getAdoptedBV
-        whenNothingM_ (use unLastAdoptedBVL) $
-            unLastAdoptedBVL .= Just prevBV
-        setAdoptedBV pv
+    setAdoptedBV = setValueWrapper unLastAdoptedBVL getAdoptedBV setAdoptedBV
 
     setLastConfirmedSV sv@SoftwareVersion{..} = ether $ do
         insertIfNotExist svAppName unChangedSVL getLastConfirmedSV
@@ -77,13 +74,29 @@ instance MonadPoll m => MonadPoll (RollT m) where
         insertIfNotExist id unChangedPropsL getProposal
         deactivateProposal id
 
-    setSlottingData = lift . setSlottingData
+    setSlottingData =
+        setValueWrapper unSlottingDataL getSlottingData setSlottingData
+    setEpochProposers =
+        setValueWrapper unPrevProposersL getEpochProposers setEpochProposers
 
-    setEpochProposers proposers = ether $ do
-        whenNothingM_ (use unPrevProposersL) $ do
-            prev <- getEpochProposers
-            unPrevProposersL .= Just prev
-        setEpochProposers proposers
+-- This is a convenient wrapper for functions which should set some
+-- value and this change should be recorded in USUndo. If change of
+-- such kind is already recorded in 'USUndo', then we don't record it
+-- and just propagate the new value to the underlying 'MonadPoll'. If
+-- it is not recorded, we put old value into 'USUndo' before
+-- propagating the new value.
+setValueWrapper ::
+       MonadPoll m
+    => Lens' USUndo (Maybe a)
+    -> m a
+    -> (a -> m ())
+    -> a
+    -> RollT m ()
+setValueWrapper lens getAction setAction value = ether $ do
+    whenNothingM_ (use lens) $ do
+        prev <- lift getAction
+        lens .= Just prev
+    lift (setAction value)
 
 insertIfNotExist
     :: (Eq a, Hashable a, MonadState USUndo m)

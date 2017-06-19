@@ -38,7 +38,8 @@ import           Pos.DB.Block                (MonadBlockDBWrite (..), dbGetBlock
 import           Pos.DB.Class                (MonadBlockDBGeneric (..), MonadDB (..),
                                               MonadDBRead (..))
 import           Pos.DB.DB                   (gsAdoptedBVDataDefault)
-import           Pos.DB.Redirect             (dbDeleteDefault, dbGetDefault, dbPutDefault,
+import           Pos.DB.Redirect             (dbDeleteDefault, dbGetDefault,
+                                              dbIterSourceDefault, dbPutDefault,
                                               dbWriteBatchDefault)
 import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.Discovery               (MonadDiscovery (..), findPeersSum,
@@ -113,6 +114,7 @@ instance MonadGState (RealMode ssc) where
 
 instance MonadDBRead (RealMode ssc) where
     dbGet = dbGetDefault
+    dbIterSource = dbIterSourceDefault
 
 instance MonadDB (RealMode ssc) where
     dbPut = dbPutDefault

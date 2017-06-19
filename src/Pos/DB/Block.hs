@@ -41,6 +41,7 @@ import           Universum
 
 import           Control.Lens                   (_Wrapped)
 import           Control.Monad.Trans            (MonadTrans (..))
+import           Control.Monad.Trans.Control    (MonadBaseControl)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Data.ByteArray                 (convert)
@@ -322,7 +323,11 @@ class MonadBlockDB ssc m => MonadBlockDBWrite ssc m where
     dbPutBlund :: Blund ssc -> m ()
 
 instance {-# OVERLAPPABLE #-}
-    (MonadBlockDBWrite ssc m, MonadTrans t, LiftLocal t, MonadThrow (t m)) =>
+    ( MonadBlockDBWrite ssc m
+    , MonadTrans t
+    , LiftLocal t
+    , MonadThrow (t m)
+    , MonadBaseControl IO (t m)) =>
         MonadBlockDBWrite ssc (t m)
   where
     dbPutBlund = lift . dbPutBlund

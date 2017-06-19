@@ -33,7 +33,8 @@ import           Pos.DB.Class                  (MonadBlockDBGeneric (..), MonadD
                                                 MonadDBRead (..))
 import           Pos.DB.DB                     (gsAdoptedBVDataDefault)
 import           Pos.DB.Redirect               (dbDeleteDefault, dbGetDefault,
-                                                dbPutDefault, dbWriteBatchDefault)
+                                                dbIterSourceDefault, dbPutDefault,
+                                                dbWriteBatchDefault)
 
 import           Pos.Client.Txp.Balances       (MonadBalances (..), getBalanceDefault,
                                                 getOwnUtxosDefault)
@@ -126,6 +127,7 @@ instance CanJsonLog WalletWebMode where
 
 instance MonadDBRead WalletWebMode where
     dbGet = dbGetDefault
+    dbIterSource = dbIterSourceDefault
 
 instance MonadDB WalletWebMode where
     dbPut = dbPutDefault

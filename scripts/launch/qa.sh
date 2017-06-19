@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 stack exec -- cardano-node \
-    --system-start 1496075885 \
+    --system-start 1497640619 \
     --kademlia-explicit-initial \
     --log-config scripts/log-templates/log-config-abc.yaml \
     --logs-prefix "logs/qanet" \

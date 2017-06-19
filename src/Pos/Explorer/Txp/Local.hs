@@ -7,35 +7,38 @@ module Pos.Explorer.Txp.Local
 
 import           Universum
 
-import           Control.Monad.Except  (MonadError (..))
+import           Control.Monad.Except        (MonadError (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Data.Default          (def)
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.List.NonEmpty    as NE
-import qualified Data.Map              as M (fromList)
-import           Formatting            (build, sformat, (%))
-import           System.Wlog           (WithLogger, logDebug)
+import           Data.Default                (def)
+import qualified Data.HashMap.Strict         as HM
+import qualified Data.List.NonEmpty          as NE
+import qualified Data.Map                    as M (fromList)
+import           Formatting                  (build, sformat, (%))
+import           System.Wlog                 (WithLogger, logDebug)
 
-import           Pos.Core              (HeaderHash, Timestamp)
-import           Pos.DB.Class          (MonadDBRead, MonadGState)
-import qualified Pos.DB.GState         as GS
-import qualified Pos.Explorer.DB       as ExDB
-import           Pos.Slotting          (MonadSlots (currentTimeSlotting))
-import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
-import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
-                                        getLocalTxsMap, getTxpExtra, getUtxoModifier,
-                                        modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Toil          (GenericToilModifier (..), MonadToilEnv,
-                                        MonadUtxoRead (..), ToilEnv, ToilVerFailure (..),
-                                        Utxo, getToilEnv, runDBToil, runToilTLocalExtra,
-                                        runUtxoReaderT, utxoGet)
-import           Pos.Util.Chrono       (NewestFirst (..))
-import qualified Pos.Util.Modifier     as MM
+import           Pos.Core                    (HeaderHash, Timestamp)
+import           Pos.DB.Class                (MonadDBRead, MonadGState)
+import qualified Pos.DB.GState               as GS
+import qualified Pos.Explorer.DB             as ExDB
+import           Pos.Slotting                (MonadSlots (currentTimeSlotting))
+import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, toaOut,
+                                              txOutAddress)
+import           Pos.Txp.MemState            (GenericTxpLocalDataPure, MonadTxpMem,
+                                              getLocalTxsMap, getTxpExtra,
+                                              getUtxoModifier, modifyTxpLocalData,
+                                              setTxpLocalData)
+import           Pos.Txp.Toil                (GenericToilModifier (..), MonadToilEnv,
+                                              MonadUtxoRead (..), ToilEnv,
+                                              ToilVerFailure (..), Utxo, getToilEnv,
+                                              runDBToil, runToilTLocalExtra,
+                                              runUtxoReaderT, utxoGet)
+import           Pos.Util.Chrono             (NewestFirst (..))
+import qualified Pos.Util.Modifier           as MM
 
-import           Pos.Explorer.Core     (TxExtra (..))
-import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
-                                        MonadTxExtraRead (..), eNormalizeToil, eProcessTx,
-                                        eeLocalTxsExtra)
+import           Pos.Explorer.Core           (TxExtra (..))
+import           Pos.Explorer.Txp.Toil       (ExplorerExtra, ExplorerExtraTxp (..),
+                                              MonadTxExtraRead (..), eNormalizeToil,
+                                              eProcessTx, eeLocalTxsExtra)
 
 type ETxpLocalWorkMode m =
     ( MonadIO m
@@ -145,8 +148,14 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
 -- | 1. Recompute UtxoView by current MemPool
 --   2. Remove invalid transactions from MemPool
 --   3. Set new tip to txp local data
-eTxNormalize
-    :: (MonadIO m, MonadBaseControl IO m, MonadDBRead m, MonadGState m, MonadTxpMem ExplorerExtra m) => m ()
+eTxNormalize ::
+       ( MonadIO m
+       , MonadBaseControl IO m
+       , MonadDBRead m
+       , MonadGState m
+       , MonadTxpMem ExplorerExtra m
+       )
+    => m ()
 eTxNormalize = do
     utxoTip <- GS.getTip
     localTxs <- getLocalTxsMap

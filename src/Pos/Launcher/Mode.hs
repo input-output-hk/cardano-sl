@@ -28,7 +28,8 @@ import           Pos.DB.Block          (MonadBlockDBWrite (..), dbGetBlockDefaul
                                         dbGetUndoSscDefault, dbPutBlundDefault)
 import           Pos.DB.Class          (MonadBlockDBGeneric (..), MonadDB (..),
                                         MonadDBRead (..))
-import           Pos.DB.Redirect       (dbDeleteDefault, dbGetDefault, dbPutDefault,
+import           Pos.DB.Redirect       (dbDeleteDefault, dbGetDefault,
+                                        dbIterSourceDefault, dbPutDefault,
                                         dbWriteBatchDefault)
 import           Pos.ExecMode          ((:::), ExecMode (..), ExecModeM, modeContext)
 import           Pos.Lrc.Context       (LrcContext)
@@ -85,6 +86,7 @@ runInitMode imc act = Mtl.runReaderT (unExecMode act) imc
 
 instance MonadDBRead (InitMode ssc) where
     dbGet = dbGetDefault
+    dbIterSource = dbIterSourceDefault
 
 instance MonadDB (InitMode ssc) where
     dbPut = dbPutDefault

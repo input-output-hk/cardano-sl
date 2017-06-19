@@ -3,7 +3,6 @@
 module Pos.Wallet.Web.State.State
        ( WalletState
        , MonadWalletWebDB
-       , WalletWebDBTag
        , getWalletWebState
        , WebWalletModeDB
        , openState
@@ -68,8 +67,6 @@ import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemS
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..), WalletStorage)
-
-data WalletWebDBTag
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
 type MonadWalletWebDB = Ether.MonadReader' WalletState

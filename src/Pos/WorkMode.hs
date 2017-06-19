@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -10,156 +11,140 @@ module Pos.WorkMode
        , TxpExtra_TMP
 
        -- * Actual modes
-       , RealMode(..)
+       , RealMode
+       , unRealMode
+       , RealModeContext(..)
        ) where
 
-import           Universum
-
-import           Control.Monad.Base             (MonadBase)
-import           Control.Monad.Fix              (MonadFix)
-import           Control.Monad.Morph            (hoist)
-import           Control.Monad.Trans.Control    (MonadBaseControl (..))
-import qualified Control.Monad.Trans.Lift.Local as Lift
-import           Data.Coerce
-import           Data.Tagged                    (Tagged)
+import qualified Control.Monad.Reader        as Mtl
 import qualified Ether
-import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
-                                                 MFunctor' (..), Mockable (..), Promise,
-                                                 SharedAtomicT, SharedExclusiveT,
-                                                 ThreadId)
-import           Mockable.Production            (Production)
-import           System.Wlog                    (CanLog, HasLoggerName,
-                                                 LoggerNameBox (..))
+import           Mockable.Production         (Production)
+import           System.Wlog                 (HasLoggerName (..), LoggerName)
 
-import           Pos.Block.BListener            (BListenerStub, MonadBListener)
-import           Pos.Communication.PeerState    (PeerStateCtx, PeerStateRedirect,
-                                                 PeerStateTag, WithPeerState)
-import           Pos.Context                    (NodeContext)
-import           Pos.DB                         (DBPureRedirect, MonadGState, NodeDBs)
-import           Pos.DB.Block                   (BlockDBRedirect, MonadBlockDBWrite)
-import           Pos.DB.Class                   (MonadBlockDBGeneric (..), MonadDB,
-                                                 MonadDBRead (..))
-import           Pos.DB.DB                      (GStateCoreRedirect)
-import           Pos.Delegation.Class           (DelegationVar)
-import           Pos.Discovery                  (DiscoveryRedirect, MonadDiscovery)
-import           Pos.Slotting.Class             (MonadSlots)
-import           Pos.Slotting.Impl              (SlotsRedirect)
-import           Pos.Slotting.MemState          (MonadSlotsData)
-import           Pos.Slotting.MemState.Holder   (SlotsDataRedirect)
-import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
-import           Pos.Ssc.Extra                  (SscMemTag, SscState)
-import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
-import           Pos.Types                      (HeaderHash)
-import           Pos.Util.TimeWarp              (CanJsonLog, JsonLogT)
-import           Pos.Util.Util                  (PowerLift (..))
-import           Pos.WorkMode.Class             (MinWorkMode, TxpExtra_TMP, WorkMode)
+import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
+                                              onRollbackBlocksStub)
+import           Pos.Block.Core              (Block, BlockHeader)
+import           Pos.Block.Types             (Undo)
+import           Pos.Communication.PeerState (PeerStateCtx, PeerStateTag,
+                                              WithPeerState (..), clearPeerStateDefault,
+                                              getAllStatesDefault, getPeerStateDefault)
+import           Pos.Context                 (NodeContext)
+import           Pos.Core                    (IsHeader)
+import           Pos.DB                      (MonadGState (..), NodeDBs)
+import           Pos.DB.Block                (MonadBlockDBWrite (..), dbGetBlockDefault,
+                                              dbGetBlockSscDefault, dbGetHeaderDefault,
+                                              dbGetHeaderSscDefault, dbGetUndoDefault,
+                                              dbGetUndoSscDefault, dbPutBlundDefault)
+import           Pos.DB.Class                (MonadBlockDBGeneric (..), MonadDB (..),
+                                              MonadDBRead (..))
+import           Pos.DB.DB                   (gsAdoptedBVDataDefault)
+import           Pos.DB.Redirect             (dbDeleteDefault, dbGetDefault,
+                                              dbIterSourceDefault, dbPutDefault,
+                                              dbWriteBatchDefault)
+import           Pos.Delegation.Class        (DelegationVar)
+import           Pos.Discovery               (MonadDiscovery (..), findPeersSum,
+                                              getPeersSum)
+import           Pos.ExecMode                ((:::), ExecMode (..), ExecModeM,
+                                              modeContext)
+import           Pos.Slotting.Class          (MonadSlots (..))
+import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
+                                              getCurrentSlotBlockingSum,
+                                              getCurrentSlotInaccurateSum,
+                                              getCurrentSlotSum)
+import           Pos.Slotting.MemState       (MonadSlotsData (..), getSlottingDataDefault,
+                                              getSystemStartDefault,
+                                              putSlottingDataDefault,
+                                              waitPenultEpochEqualsDefault)
+import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
+import           Pos.Ssc.Class.Types         (SscBlock)
+import           Pos.Ssc.Extra               (SscMemTag, SscState)
+import           Pos.Txp.MemState            (GenericTxpLocalData, TxpHolderTag)
+import           Pos.Util                    (Some (..))
+import           Pos.Util.JsonLog            (JsonLogConfig, jsonLogDefault)
+import           Pos.Util.TimeWarp           (CanJsonLog (..))
+import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
 
-----------------------------------------------------------------------------
--- Concrete types
-----------------------------------------------------------------------------
+modeContext [d|
+    data RealModeContext ssc = RealModeContext
+        !(NodeDBs       ::: NodeDBs)
+        !(SscMemTag     ::: SscState ssc)
+        !(TxpHolderTag  ::: GenericTxpLocalData TxpExtra_TMP)
+        !(DelegationVar ::: DelegationVar)
+        !(PeerStateTag  ::: PeerStateCtx Production)
+        !(JsonLogConfig ::: JsonLogConfig)
+        !(LoggerName    ::: LoggerName)
+        !(NodeContext ssc)
+    |]
 
--- | RealMode is a basis for `WorkMode`s used to really run system.
-type RealMode' ssc =
-    BListenerStub (
-    GStateCoreRedirect (
-    PeerStateRedirect (
-    DiscoveryRedirect (
-    SlotsRedirect (
-    SlotsDataRedirect (
-    BlockDBRedirect (
-    DBPureRedirect (
-    Ether.ReadersT
-        ( Tagged NodeDBs NodeDBs
-        , Tagged SscMemTag (SscState ssc)
-        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
-        , Tagged DelegationVar DelegationVar
-        , Tagged PeerStateTag (PeerStateCtx Production)
-        ) (
-    Ether.ReadersT (NodeContext ssc) (
-    JsonLogT (
-    LoggerNameBox (
-    Production
-    ))))))))))))
+data REAL ssc
 
-newtype RealMode ssc a = RealMode { unRealMode :: RealMode' ssc a }
-  deriving
-    ( Functor
-    , Applicative
-    , Monad
-    , MonadIO
-    , MonadBase IO
-    , MonadThrow
-    , MonadCatch
-    , MonadMask
-    , MonadFix
-    )
+type RealMode ssc = ExecMode (REAL ssc)
 
-type instance ThreadId (RealMode ssc) = ThreadId Production
-type instance Promise (RealMode ssc) = Promise Production
-type instance SharedAtomicT (RealMode ssc) = SharedAtomicT Production
-type instance SharedExclusiveT (RealMode ssc) = SharedExclusiveT Production
-type instance Gauge (RealMode ssc) = Gauge Production
-type instance ChannelT (RealMode ssc) = ChannelT Production
-type instance Distribution (RealMode ssc) = Distribution Production
-type instance Counter (RealMode ssc) = Counter Production
+type instance ExecModeM (REAL ssc) =
+    Mtl.ReaderT (RealModeContext ssc) Production
 
-deriving instance CanLog (RealMode ssc)
-deriving instance HasLoggerName (RealMode ssc)
-deriving instance MonadSlotsData (RealMode ssc)
-deriving instance MonadSlots (RealMode ssc)
-deriving instance MonadDiscovery (RealMode ssc)
-deriving instance MonadGState (RealMode ssc)
-deriving instance MonadDB (RealMode ssc)
+unRealMode :: ExecMode (REAL ssc) a -> ExecModeM (REAL ssc) a
+unRealMode = unExecMode
+
+instance HasLoggerName (RealMode ssc) where
+    getLoggerName = Ether.ask'
+    modifyLoggerName = Ether.local'
+
+instance CanJsonLog (RealMode ssc) where
+    jsonLog = jsonLogDefault
+
+instance MonadSlotsData (RealMode ssc) where
+    getSystemStart = getSystemStartDefault
+    getSlottingData = getSlottingDataDefault
+    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    putSlottingData = putSlottingDataDefault
+
+instance MonadSlots (RealMode ssc) where
+    getCurrentSlot = getCurrentSlotSum
+    getCurrentSlotBlocking = getCurrentSlotBlockingSum
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
+    currentTimeSlotting = currentTimeSlottingSum
+
+instance MonadDiscovery (RealMode ssc) where
+    getPeers = getPeersSum
+    findPeers = findPeersSum
+
+instance MonadGState (RealMode ssc) where
+    gsAdoptedBVData = gsAdoptedBVDataDefault
+
 instance MonadDBRead (RealMode ssc) where
-    dbGet a b = RealMode $ dbGet a b
-    dbIterSource t p = hoist (hoist RealMode) $ dbIterSource t p
-deriving instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc)
-deriving instance MonadBListener (RealMode ssc)
-deriving instance WithPeerState (RealMode ssc)
-deriving instance CanJsonLog (RealMode ssc)
+    dbGet = dbGetDefault
+    dbIterSource = dbIterSourceDefault
 
-instance MonadBaseControl IO (RealMode ssc) where
-    type StM (RealMode ssc) a = StM (RealMode' ssc) a
-    liftBaseWith f = RealMode $ liftBaseWith $ \q -> f (q . unRealMode)
-    restoreM s = RealMode $ restoreM s
+instance MonadDB (RealMode ssc) where
+    dbPut = dbPutDefault
+    dbWriteBatch = dbWriteBatchDefault
+    dbDelete = dbDeleteDefault
 
-instance PowerLift m (RealMode' ssc) => PowerLift m (RealMode ssc) where
-  powerLift = RealMode . powerLift
+instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc) where
+    dbPutBlund = dbPutBlundDefault
 
-instance
-    MonadBlockDBGeneric header blk undo (RealMode' ssc) =>
-    MonadBlockDBGeneric header blk undo (RealMode ssc) where
-    dbGetHeader = (coerce :: (HeaderHash -> RealMode' ssc (Maybe header)) ->
-                             (HeaderHash -> RealMode ssc (Maybe header)))
-                  (dbGetHeader @header @blk @undo)
-    dbGetBlock = (coerce :: (HeaderHash -> RealMode' ssc (Maybe blk)) ->
-                            (HeaderHash -> RealMode ssc (Maybe blk)))
-                 (dbGetBlock @header @blk @undo)
-    dbGetUndo = (coerce :: (HeaderHash -> RealMode' ssc (Maybe undo)) ->
-                           (HeaderHash -> RealMode ssc (Maybe undo)))
-                 (dbGetUndo @header @blk @undo)
+instance MonadBListener (RealMode ssc) where
+    onApplyBlocks = onApplyBlocksStub
+    onRollbackBlocks = onRollbackBlocksStub
+
+instance WithPeerState (RealMode ssc) where
+    getPeerState = getPeerStateDefault
+    clearPeerState = clearPeerStateDefault
+    getAllStates = getAllStatesDefault
 
 instance
-    ( Mockable d (RealMode' ssc)
-    , MFunctor' d (RealMode ssc) (RealMode' ssc)
-    )
-    => Mockable d (RealMode ssc) where
-    liftMockable dmt = RealMode $ liftMockable $ hoist' (\(RealMode m) -> m) dmt
-
-instance
-    Ether.MonadReader tag r (RealMode' ssc) =>
-    Ether.MonadReader tag r (RealMode ssc)
+    SscHelpersClass ssc =>
+    MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (RealMode ssc)
   where
-    ask =
-        (coerce :: RealMode' ssc r -> RealMode ssc r)
-        (Ether.ask @tag)
-    local =
-        (coerce :: forall a .
-            Lift.Local r (RealMode' ssc) a ->
-            Lift.Local r (RealMode ssc) a)
-        (Ether.local @tag)
-    reader =
-        (coerce :: forall a .
-            ((r -> a) -> RealMode' ssc a) ->
-            ((r -> a) -> RealMode ssc a))
-        (Ether.reader @tag)
+    dbGetBlock  = dbGetBlockDefault @ssc
+    dbGetUndo   = dbGetUndoDefault @ssc
+    dbGetHeader = dbGetHeaderDefault @ssc
+
+instance
+    SscHelpersClass ssc =>
+    MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (RealMode ssc)
+  where
+    dbGetBlock  = dbGetBlockSscDefault @ssc
+    dbGetUndo   = dbGetUndoSscDefault @ssc
+    dbGetHeader = dbGetHeaderSscDefault @ssc

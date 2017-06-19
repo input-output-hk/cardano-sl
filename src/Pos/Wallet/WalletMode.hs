@@ -30,42 +30,26 @@ class Monad m => MonadBlockchainInfo m where
     blockchainSlotDuration :: m Millisecond
     connectedPeers :: m Word
 
-    default networkChainDifficulty
-        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m (Maybe ChainDifficulty)
-    networkChainDifficulty = lift networkChainDifficulty
-
-    default localChainDifficulty
-        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m ChainDifficulty
-    localChainDifficulty = lift localChainDifficulty
-
-    default blockchainSlotDuration
-        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m Millisecond
-    blockchainSlotDuration = lift blockchainSlotDuration
-
-    default connectedPeers
-        :: (MonadTrans t, MonadBlockchainInfo m', t m' ~ m) => m Word
-    connectedPeers = lift connectedPeers
-
 instance {-# OVERLAPPABLE #-}
     (MonadBlockchainInfo m, MonadTrans t, Monad (t m)) =>
         MonadBlockchainInfo (t m)
+  where
+    networkChainDifficulty = lift networkChainDifficulty
+    localChainDifficulty = lift localChainDifficulty
+    blockchainSlotDuration = lift blockchainSlotDuration
+    connectedPeers = lift connectedPeers
 
 -- | Abstraction over getting update proposals
 class Monad m => MonadUpdates m where
     waitForUpdate :: m ConfirmedProposalState
     applyLastUpdate :: m ()
 
-    default waitForUpdate :: (MonadTrans t, MonadUpdates m', t m' ~ m)
-                          => m ConfirmedProposalState
-    waitForUpdate = lift waitForUpdate
-
-    default applyLastUpdate :: (MonadTrans t, MonadUpdates m', t m' ~ m)
-                            => m ()
-    applyLastUpdate = lift applyLastUpdate
-
 instance {-# OVERLAPPABLE #-}
     (MonadUpdates m, MonadTrans t, Monad (t m)) =>
         MonadUpdates (t m)
+  where
+    waitForUpdate = lift waitForUpdate
+    applyLastUpdate = lift applyLastUpdate
 
 ---------------------------------------------------------------
 -- Composite restrictions

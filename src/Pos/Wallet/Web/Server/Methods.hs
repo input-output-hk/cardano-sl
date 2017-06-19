@@ -2,13 +2,13 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
 -- | Wallet web server.
 
 module Pos.Wallet.Web.Server.Methods
-       ( WalletWebHandler
-       , walletApplication
+       ( walletApplication
        , walletServer
        , walletServeImpl
        , walletServerOuts
@@ -73,10 +73,9 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
-import           Pos.DB.Class                     (MonadGState)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
-import           Pos.Reporting.MemState           (MonadReportingMem, rcReportServers)
+import           Pos.Reporting.MemState           (rcReportServers)
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Txp                          (Utxo)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..))
@@ -89,9 +88,8 @@ import           Pos.Util.UserSecret              (UserSecretDecodingError (..),
                                                    readUserSecret, usWalletSet)
 import           Pos.Wallet.KeyStorage            (addSecretKey, deleteSecretKey,
                                                    getSecretKeys)
-import           Pos.Wallet.Redirect              (WalletRedirects)
 import           Pos.Wallet.SscType               (WalletSscType)
-import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
+import           Pos.Wallet.WalletMode            (applyLastUpdate,
                                                    blockchainSlotDuration, connectedPeers,
                                                    getBalance, getTxHistory,
                                                    localChainDifficulty,
@@ -121,15 +119,14 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccoun
                                                    mkCCoin, mkCTxId, mkCTxs,
                                                    toCUpdateInfo, txIdToCTxId)
 import           Pos.Wallet.Web.Error             (WalletError (..), rewrapToWalletError)
+import qualified Pos.Wallet.Web.Mode
 import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
                                                    mkGenesisWalletUserSecret, wusAccounts,
                                                    wusWalletName)
-import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWebSockets,
-                                                   WalletWebSockets, closeWSConnections,
+import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, Ever, Existing),
-                                                   WalletWebDB, WebWalletModeDB,
                                                    addOnlyNewTxMeta, addRemovedAccount,
                                                    addUpdate, addWAddress, closeState,
                                                    createAccount, createWallet,
@@ -146,8 +143,7 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, E
                                                    totallyRemoveWAddress,
                                                    updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
-import           Pos.Wallet.Web.Tracking          (BlockLockMode, MonadWalletTracking,
-                                                   selectAccountsFromUtxoLock,
+import           Pos.Wallet.Web.Tracking          (selectAccountsFromUtxoLock,
                                                    syncWSetsWithGStateLock,
                                                    txMempoolToModifier)
 import           Pos.Wallet.Web.Util              (deriveLvl2KeyPair)
@@ -157,32 +153,17 @@ import           Pos.Web.Server                   (serveImpl)
 -- Top level functionality
 ----------------------------------------------------------------------------
 
-type WalletWebHandler m =
-    WalletRedirects (
-    WalletWebSockets (
-    WalletWebDB (
-    m
-    )))
-
-type WalletWebMode m
-    = ( WalletMode m
-      , WebWalletModeDB m
-      , MonadGState m
-      , MonadWalletWebSockets m
-      , MonadReportingMem m
-      , MonadWalletTracking m
-      , BlockLockMode WalletSscType m
-      )
+-- This constraint used to be abstract (a list of classes), but specifying a
+-- concrete monad is quite likely more performant.
+type WalletWebMode m = m ~ Pos.Wallet.Web.Mode.WalletWebMode
 
 makeLenses ''SyncProgress
 
 walletServeImpl
-    :: ( MonadIO m
-       , MonadMask m
-       , WalletWebMode (WalletWebHandler m))
-    => WalletWebHandler m Application     -- ^ Application getter
+    :: WalletWebMode m
+    => m Application     -- ^ Application getter
     -> Word16                             -- ^ Port to listen
-    -> WalletWebHandler m ()
+    -> m ()
 walletServeImpl app port =
     serveImpl app "127.0.0.1" port
 
@@ -195,10 +176,10 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
-    :: (MonadIO m, WalletWebMode (WalletWebHandler m))
-    => SendActions (WalletWebHandler m)
-    -> WalletWebHandler m (WalletWebHandler m :~> Handler)
-    -> WalletWebHandler m (Server WalletApi)
+    :: WalletWebMode m
+    => SendActions m
+    -> m (m :~> Handler)
+    -> m (Server WalletApi)
 walletServer sendActions nat = do
     syncWSetsWithGStateLock @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
     nat >>= launchNotifier
@@ -411,7 +392,7 @@ getWAddress cAddr = do
     return $ CAddress aId (mkCCoin balance) isUsed isChange
 
 getAccountAddrsOrThrow
-    :: (WebWalletModeDB m, MonadThrow m)
+    :: WalletWebMode m
     => AddressLookupMode -> AccountId -> m [CWAddressMeta]
 getAccountAddrsOrThrow mode accId =
     getAccountWAddresses mode accId >>= maybeThrow noWallet
@@ -472,14 +453,14 @@ getWalletAccountIds :: WalletWebMode m => CId Wal -> m [AccountId]
 getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getWAddressIds
 
 getWalletAddrMetas
-    :: (WalletWebMode m, MonadThrow m)
+    :: WalletWebMode m
     => AddressLookupMode -> CId Wal -> m [CWAddressMeta]
 getWalletAddrMetas lookupMode cWalId =
     concatMapM (getAccountAddrsOrThrow lookupMode) =<<
     getWalletAccountIds cWalId
 
 getWalletAddrs
-    :: (WalletWebMode m, MonadThrow m)
+    :: WalletWebMode m
     => AddressLookupMode -> CId Wal -> m [CId Addr]
 getWalletAddrs = (cwamId <<$>>) ... getWalletAddrMetas
 

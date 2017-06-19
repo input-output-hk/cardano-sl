@@ -5,8 +5,7 @@
 -- Every message received from client will be ignored.
 
 module Pos.Wallet.Web.Server.Sockets
-       ( WalletWebSockets
-       , WebWalletSockets
+       ( WebWalletSockets
        , MonadWalletWebSockets
        , getWalletWebSockets
        , ConnectionsVar
@@ -14,7 +13,6 @@ module Pos.Wallet.Web.Server.Sockets
        , closeWSConnections
        , upgradeApplicationWS
        , notifyAll
-       , runWalletWS
        ) where
 
 import           Universum
@@ -93,9 +91,6 @@ instance WS.WebSocketsData NotifyEvent where
 -- API
 --------
 
--- | Holder for web wallet data
-type WalletWebSockets = Ether.ReaderT' ConnectionsVar
-
 -- | MonadWalletWebSockets stands for monad which is able to get web wallet sockets
 type MonadWalletWebSockets = Ether.MonadReader' ConnectionsVar
 
@@ -103,9 +98,6 @@ getWalletWebSockets :: MonadWalletWebSockets m => m ConnectionsVar
 getWalletWebSockets = Ether.ask'
 
 type WebWalletSockets m = (MonadWalletWebSockets m, MonadIO m)
-
-runWalletWS :: ConnectionsVar -> WalletWebSockets m a -> m a
-runWalletWS = flip Ether.runReaderT
 
 notifyAll :: WebWalletSockets m => NotifyEvent -> m ()
 notifyAll msg = do

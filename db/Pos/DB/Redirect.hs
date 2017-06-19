@@ -6,25 +6,24 @@
 -- Here it is related to type classes from 'Pos.DB.Class'.
 
 module Pos.DB.Redirect
-       ( DBPureRedirect
-       , runDBPureRedirect
+       ( dbGetDefault
+       , dbIterSourceDefault
+       , dbPutDefault
+       , dbWriteBatchDefault
+       , dbDeleteDefault
        ) where
 
 import           Universum
 
-import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Resource (MonadResource)
 import qualified Data.ByteString              as BS (isPrefixOf)
-import           Data.Coerce                  (coerce)
 import           Data.Conduit                 (ConduitM, Source, bracketP, yield)
 import qualified Database.RocksDB             as Rocks
-import qualified Ether
 import           Formatting                   (sformat, shown, string, (%))
 
 import           Pos.Binary.Class             (Bi)
 import           Pos.DB.BatchOp               (rocksWriteBatch)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag, IterType,
-                                               MonadDB (..), MonadDBRead (..),
                                                MonadRealDB, dbTagToLens, getNodeDBs)
 import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.Functions             (rocksDecodeMaybe, rocksDecodeMaybeWP,
@@ -33,39 +32,28 @@ import           Pos.DB.Types                 (DB (..))
 import           Pos.Util.Util                (maybeThrow)
 
 
-data DBPureRedirectTag
+dbGetDefault :: MonadRealDB m => DBTag -> ByteString -> m (Maybe ByteString)
+dbGetDefault tag key = do
+    db <- view (dbTagToLens tag) <$> getNodeDBs
+    rocksGetBytes key db
 
-type DBPureRedirect =
-    Ether.TaggedTrans DBPureRedirectTag IdentityT
+dbPutDefault :: MonadRealDB m => DBTag -> ByteString -> ByteString -> m ()
+dbPutDefault tag key val = do
+    db <- view (dbTagToLens tag) <$> getNodeDBs
+    rocksPutBytes key val db
 
-runDBPureRedirect :: DBPureRedirect m a -> m a
-runDBPureRedirect = coerce
+dbWriteBatchDefault :: MonadRealDB m => DBTag -> [Rocks.BatchOp] -> m ()
+dbWriteBatchDefault tag batch = do
+    db <- view (dbTagToLens tag) <$> getNodeDBs
+    rocksWriteBatch batch db
 
-instance
-    (MonadRealDB m, t ~ IdentityT) =>
-        MonadDBRead (Ether.TaggedTrans DBPureRedirectTag t m)
-  where
-    dbGet tag key = do
-        db <- view (dbTagToLens tag) <$> getNodeDBs
-        rocksGetBytes key db
-    dbIterSource tag p = iteratorSource tag p
-
-instance
-    (MonadRealDB m, t ~ IdentityT) =>
-        MonadDB (Ether.TaggedTrans DBPureRedirectTag t m)
-  where
-    dbPut tag key val = do
-        db <- view (dbTagToLens tag) <$> getNodeDBs
-        rocksPutBytes key val db
-    dbWriteBatch tag batch = do
-        db <- view (dbTagToLens tag) <$> getNodeDBs
-        rocksWriteBatch batch db
-    dbDelete tag key = do
-        db <- view (dbTagToLens tag) <$> getNodeDBs
-        rocksDelete key db
+dbDeleteDefault :: MonadRealDB m => DBTag -> ByteString -> m ()
+dbDeleteDefault tag key = do
+    db <- view (dbTagToLens tag) <$> getNodeDBs
+    rocksDelete key db
 
 -- | Conduit source built from rocks iterator.
-iteratorSource ::
+dbIterSourceDefault ::
        forall m i.
        ( MonadRealDB m
        , MonadResource m
@@ -76,7 +64,7 @@ iteratorSource ::
     => DBTag
     -> Proxy i
     -> Source m (IterType i)
-iteratorSource tag _ = do
+dbIterSourceDefault tag _ = do
     DB{..} <- view (dbTagToLens tag) <$> lift getNodeDBs
     let createIter = Rocks.createIter rocksDB rocksReadOpts
     let releaseIter i = Rocks.releaseIter i

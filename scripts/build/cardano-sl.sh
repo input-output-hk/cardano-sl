@@ -38,10 +38,12 @@ set -o pipefail
 
 # CUSTOMIZATIONS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# * Pass --no-nix or do `touch .no-nix` if you want builds without Nix
+# * Pass --no-nix or do `touch .no-nix` if you want builds without Nix.
 # * Pass --ram or do `touch .ram`. if you have lots of RAM and want to
-#   make builds faster
-# * Pass -Werror or do `touch .Werror` if you want to compile with -Werror
+#   make builds faster.
+# * Pass -Werror or do `touch .Werror` if you want to compile with -Werror.
+# * Pass --for-installer to enable 'for-installer' flag (which means that most
+#   of executables won't be built).
 
 # We can't have lwallet here, because it depends on 'cardano-sl'.
 projects="core db lrc infra update ssc godtossing txp"
@@ -60,6 +62,7 @@ wallet=true
 explorer=false
 no_code=false
 werror=false
+for_installer=false
 
 if [ -e .no-nix ]; then
   no_nix=true
@@ -100,6 +103,9 @@ do
   # --explorer = build with Explorer support
   elif [[ $var == "--explorer" ]]; then
     explorer=true
+  # --for-explorer = build with for-installer flag
+  elif [[ $var == "--for-installer" ]]; then
+    for_installer=true
   # disabling --fast
   elif [[ $var == "-O2" ]]; then
     no_fast=true
@@ -135,6 +141,10 @@ fi
 
 if [[ $explorer == true ]]; then
   commonargs="$commonargs --flag cardano-sl:with-explorer"
+fi
+
+if [[ $for_installer == true ]]; then
+  commonargs="$commonargs --flag cardano-sl:for-installer"
 fi
 
 if [[ $wallet == false ]]; then

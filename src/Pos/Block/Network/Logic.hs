@@ -447,7 +447,7 @@ applyWithoutRollback sendActions blocks = do
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
             relayBlock sendActions toRelay
             logInfo $ blocksAppliedMsg applied
-            forM_ blocks $ jsonLog . jlAdoptedBlock
+            for_ blocks $ jsonLog . jlAdoptedBlock
   where
     newestTip = blocks ^. _Wrapped . _neLast . headerHashG
     applyWithoutRollbackDo
@@ -482,7 +482,7 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
             reportRollback
             logInfo $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo $ blocksAppliedMsg (getOldestFirst toApply)
-            forM_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
+            for_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
             relayBlock sendActions $ toApply ^. _Wrapped . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback

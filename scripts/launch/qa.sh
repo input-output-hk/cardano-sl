@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 stack exec -- cardano-node \
-    --system-start 1497960253 \
+    --system-start 1497984045 \
     --log-config scripts/log-templates/log-config-qa.yaml \
     --logs-prefix "logs/qanet" \
     --db-path db-qanet \

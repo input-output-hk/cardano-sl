@@ -101,11 +101,11 @@ instance (HasServer (Verb mt st ct $ ApiModifiedRes mod a) ctx,
 -- Mapping API arguments: client types decoding
 -------------------------------------------------------------------------
 
--- | For many types with nice structure there exist a /client type/ -
--- intermediate form (more string-like in some sense) which has automatically
--- derived JSON instances and is used by daedalus-bridge.
--- | This family, for given /client type/, gets relative original type
--- (e.g. @CAccountAddress@ - @AccountAddress@).
+-- | For many types with nice structure there exists a /client type/, which is
+-- an intermediate representation between internal types and JSON. Their ToJSON
+-- instances are derived automatically and they are used by daedalus-bridge.
+-- | This family maps /client types/ to their respective original types
+-- (e.g. @CAccountAddress@ -> @AccountAddress@).
 type family OriginType ctype :: *
 
 class FromCType c where
@@ -122,7 +122,7 @@ instance FromCType a => FromCType (Maybe a) where
     decodeCType = mapM decodeCType
 
 
--- | Allows to throw error from any part of innards of servant API.
+-- | Allows to throw error from anywhere within the internals of Servant API.
 class ReportDecodeError api where
     -- | Propagate error to servant handler.
     reportDecodeError :: Proxy api -> Text -> Server api

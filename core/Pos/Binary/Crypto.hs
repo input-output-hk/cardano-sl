@@ -93,8 +93,8 @@ constantSizedBinaryToStoreGet bytes = do
     get = label "T" $ constantSizedBinaryToStoreGet BYTES };\
   deriving instance Bi PT ;\
 
-BiPvss (Pvss.PublicKey, VssPublicKey, 33)
-BiPvss (Pvss.KeyPair, VssKeyPair, 66)        -- 33+33
+BiPvss (Pvss.PublicKey, VssPublicKey, 33)    -- yes it's 33 and not 32
+BiPvss (Pvss.KeyPair, VssKeyPair, 65)        -- 32+33
 BiPvss (Pvss.Secret, Secret, 33)
 BiPvss (Pvss.DecryptedShare, Share, 101)     -- 4+33+64
 BiPvss (Pvss.EncryptedShare, EncShare, 101)

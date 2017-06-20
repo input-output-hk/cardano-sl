@@ -841,8 +841,6 @@ changeWalletPassphrase
 changeWalletPassphrase wid oldPass newPass = do
     oldSK <- getSKByAddr wid
 
-    -- 'cloneWalletSetWithPass' will work badly if accounts / addresses ids
-    -- don't actually change
     unless (isJust $ checkPassMatches newPass oldSK) $ do
         newSK <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
         deleteSK oldPass

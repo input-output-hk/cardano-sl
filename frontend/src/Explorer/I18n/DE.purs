@@ -98,7 +98,7 @@ translation =
         }
     , tx:
         { txTime: "Eingangszeit"
-        , txIncluded: "Bestand im Slot"
+        , txIncluded: "Bestand in"
         , txRelayed: "Weitergabe per IP"
         , txEmpty: "Keine Transaktionen"
         , txFees: "Transaktionsgebühr"

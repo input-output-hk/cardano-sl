@@ -2,19 +2,20 @@ module Explorer.View.Transaction (transactionView) where
 
 import Prelude
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..), fromMaybe, isJust)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (common, cBack2Dashboard, cDateFormat, cLoading, cTransaction, txNotFound, txFees, cSummary, tx, cTotalOutput, txIncluded, txTime) as I18nL
+import Explorer.I18n.Lenses (common, cBack2Dashboard, cDateFormat, cEpoch, cLoading, cSlot, cTransaction, txNotFound, txFees, cSummary, tx, cTotalOutput, txIncluded, txTime) as I18nL
 import Explorer.Lenses.State (currentTxSummary, lang)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (CCurrency(..), State)
+import Explorer.Util.Factory (mkEpochIndex)
 import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkTxBodyViewProps, mkTxHeaderViewProps, noData, txBodyView, txHeaderView)
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (ctsBlockHeight, ctsFees, ctsTotalOutput, ctsTxTimeIssued)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, ctsBlockEpoch, ctsBlockHash, ctsBlockSlot, ctsFees, ctsTotalOutput, ctsTxTimeIssued)
 import Pux.Html (Html, div, text, h3, p, span, table, tr, td) as P
 import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
 import Pux.Router (link) as P
@@ -66,35 +67,71 @@ type SummaryItems = Array SummaryItem
 
 type SummaryItem =
     { label :: String
-    , value :: String
-    , mCurrency :: Maybe CCurrency
+    , value :: P.Html Action
     }
 
 summaryItems :: CTxSummary -> Language -> SummaryItems
-summaryItems (CTxSummary txSummary) lang =
+summaryItems (ctxSum@CTxSummary txSummary) lang =
     [ { label: translate (I18nL.tx <<< I18nL.txTime) lang
-      , value: let dateFormat = translate (I18nL.common <<< I18nL.cDateFormat) lang in
-               fromMaybe noData <<< prettyDate dateFormat $ txSummary ^. ctsTxTimeIssued
-      , mCurrency: Nothing
+      , value: let  dateFormat = translate (I18nL.common <<< I18nL.cDateFormat) lang
+                    dateValue = fromMaybe noData <<< prettyDate dateFormat $ txSummary ^. ctsTxTimeIssued
+                in summaryRowSimpleValue dateValue
       }
     , { label: translate (I18nL.tx <<< I18nL.txIncluded) lang
-      , value: case txSummary ^. ctsBlockHeight of
-                  Nothing -> noData
-                  Just bHeight' -> show bHeight'
-      , mCurrency: Nothing
+      , value: summaryRowEpochSlot ctxSum lang
       }
     , { label: translate (I18nL.common <<< I18nL.cTotalOutput) lang
-      , value: formatADA (txSummary ^. ctsTotalOutput) lang
-      , mCurrency: Just ADA
+      , value:  let adaValue = formatADA (txSummary ^. ctsTotalOutput) lang
+                in summaryRowCurrency adaValue ADA
       }
     , { label: translate (I18nL.tx <<< I18nL.txFees) lang
-      , value: formatADA (txSummary ^. ctsFees) lang
-      , mCurrency: Just ADA
+      , value:  let adaValue = formatADA (txSummary ^. ctsFees) lang
+                in summaryRowCurrency adaValue ADA
       }
     ]
 
 emptySummaryRow :: P.Html Action
 emptySummaryRow = P.tr [] []
+
+summaryRowSimpleValue :: String -> P.Html Action
+summaryRowSimpleValue = P.text
+
+summaryRowEpochSlot :: CTxSummary -> Language -> P.Html Action
+summaryRowEpochSlot (CTxSummary ctxSummary) lang =
+    P.div
+        []
+        [ case ctxSummary ^. ctsBlockEpoch of
+              Just epoch ->
+                  let epochLabel = translate (I18nL.common <<< I18nL.cEpoch) lang in
+                  P.link (toUrl <<< Epoch $ mkEpochIndex epoch)
+                        [ P.className "link"]
+                        [ P.text $ epochLabel <> " " <> show epoch ]
+              Nothing ->
+                  P.span
+                      []
+                      [ P.text noData ]
+        , P.text " / "
+        , case ctxSummary ^. ctsBlockSlot of
+              Just slot ->
+                  let slotLabel   = translate (I18nL.common <<< I18nL.cSlot) lang
+                      mBlockHash  = ctxSummary ^. ctsBlockHash
+                      slotTag     = maybe P.span (P.link <<< toUrl <<< Block) mBlockHash
+                      slotClazz   = maybe "" (\_ -> "link") mBlockHash
+                  in
+                  slotTag
+                      [ P.className slotClazz ]
+                      [ P.text $ slotLabel <> " " <> show slot ]
+              Nothing ->
+                  P.span
+                      []
+                      [ P.text noData ]
+        ]
+
+summaryRowCurrency :: String -> CCurrency -> P.Html Action
+summaryRowCurrency value currency =
+    P.span
+        [ P.className <<< currencyCSSClass $ Just currency ]
+        [ P.text value ]
 
 summaryRow :: SummaryItem -> P.Html Action
 summaryRow item =
@@ -105,14 +142,7 @@ summaryRow item =
             [ P.text item.label ]
         , P.td
             []
-            if isJust item.mCurrency
-            then
-            [ P.span
-              [ P.className $ currencyCSSClass item.mCurrency ]
-              [ P.text item.value ]
-            ]
-            else
-            [ P.text item.value ]
+            [item.value]
         ]
 
 textTxHeaderView :: String -> P.Html Action

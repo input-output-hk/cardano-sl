@@ -267,6 +267,7 @@ data CTxSummary = CTxSummary
     , ctsBlockHeight     :: !(Maybe Word)
     , ctsBlockEpoch      :: !(Maybe Word64)
     , ctsBlockSlot       :: !(Maybe Word16)
+    , ctsBlockHash       :: !(Maybe CHash)
     , ctsRelayedBy       :: !(Maybe CNetworkAddress)
     , ctsTotalInput      :: !CCoin
     , ctsTotalOutput     :: !CCoin

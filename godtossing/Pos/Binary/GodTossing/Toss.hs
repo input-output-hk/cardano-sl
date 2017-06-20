@@ -19,8 +19,8 @@ deriveSimpleBi ''GtTag [
 
 deriveSimpleBi ''TossModifier [
     Cons 'TossModifier [
-        Field '_tmCommitments   ''CommitmentsMap,
-        Field '_tmOpenings      ''OpeningsMap,
-        Field '_tmShares        ''SharesMap,
-        Field '_tmCertificates  ''VssCertificatesMap
+        Field [| _tmCommitments  :: CommitmentsMap     |],
+        Field [| _tmOpenings     :: OpeningsMap        |],
+        Field [| _tmShares       :: SharesMap          |],
+        Field [| _tmCertificates :: VssCertificatesMap |]
     ]]

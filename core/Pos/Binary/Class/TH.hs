@@ -41,12 +41,12 @@ then the next deriveSimpleBi:
 
 deriveSimpleBi ''User [
     Cons 'Login [
-        Field 'login ''String,
-        Field 'age   ''Int,
+        Field [| login :: String |],
+        Field [| age   :: Int    |],
     ],
     Cons 'FullName [
-        Field 'firstName ''String,
-        Field 'age       ''Int,
+        Field [| firstName :: String |],
+        Field [| age       :: Int    |],
         Unused 'secondName
     ]]
 
@@ -99,10 +99,8 @@ data Field
     = Field {
     -- ^ The constructor means that you want
     -- a field to participate in serialisation/deserialization
-      fName :: Name
-    -- ^ Field name
-    , fType :: Name
-    -- ^ Type of the field
+      fFieldAndType :: ExpQ
+    -- ^ You're expected to write something like @[|foo :: Bar|]@ here
     }
     | Unused {
     -- ^ The constructor means that you don't want
@@ -111,9 +109,17 @@ data Field
     -- ^ Name of unused field
     }
 
-fieldToPair :: Field -> (Name, Maybe Type)
-fieldToPair (Unused nm)   = (nm, Nothing)
-fieldToPair (Field nm tp) = (nm, Just $ ConT tp)
+-- | Turn something like @[|foo :: Bar|]@ into @(foo, Bar)@.
+expToNameAndType :: ExpQ -> Q (Name, Type)
+expToNameAndType ex = ex >>= \case
+    SigE (VarE n) t -> pure (n, t)
+    other           -> fail $ "expToNameAndType: the expression should look \
+                              \like [|fname :: FType|], but it doesn't: "
+                              <> show other
+
+fieldToPair :: Field -> Q (Name, Maybe Type)
+fieldToPair (Unused nm) = pure (nm, Nothing)
+fieldToPair (Field ex)  = over _2 Just <$> expToNameAndType ex
 
 -- Some part of code copied from
 -- https://hackage.haskell.org/package/store-0.4.3.1/docs/src/Data-Store-TH-Internal.html#makeStore
@@ -151,7 +157,8 @@ deriveSimpleBi headTy constrs = do
                 when (length realFields /= length dcFields) $
                     failText $ sformat ("Some field of "%shown
                                        %" constructor doesn't have a explicit name") cName
-                case checkAllFields cFields realFields of
+                cResolvedFields <- mapM fieldToPair cFields
+                case checkAllFields cResolvedFields realFields of
                     MissedField field ->
                         failText $ sformat ("Field '"%shown%"' of the constructor '"
                                             %shown%"' isn't passed to deriveSimpleBi")
@@ -181,10 +188,10 @@ deriveSimpleBi headTy constrs = do
     -- [Fields of Constr1 [(FieldName, FieldType)],  Fields of Constr2 [(FieldName, FieldType)], ..]
     -- @filteredConstrs@ and @allUsedFields@ are almost same,
     -- but @filteredConstrs@ store the name of constructors.
-    allUsedFields :: [[(Name, Name)]]
+    allUsedFields :: [[Q (Name, Type)]]
     allUsedFields = map (\Cons{..} ->
-                         map (\Field{..} ->
-                             (fName, fType)) cFields) filteredConstrs
+                        map (\Field{..} -> expToNameAndType fFieldAndType) cFields)
+                    filteredConstrs
 
     -- Useful variables for @size@, @put@, @get@ --
     tagType :: TypeQ
@@ -230,17 +237,19 @@ deriveSimpleBi headTy constrs = do
     putTag ix = noBindS [| Bi.put (ix :: $tagType) |]
 
     putField :: ExpQ -> Field -> Q Stmt
-    putField val Field{..} = noBindS [| Bi.put ($(varE fName) $val) |]
+    putField val Field{..} = do
+        (fName, _) <- expToNameAndType fFieldAndType
+        noBindS [| Bi.put ($(varE fName) $val) |]
     putField _  (Unused _) = fail "Something went wrong: put Unused field"
 
     -- Size definition --
     biSizeExpr :: Q Exp
-    biSizeExpr = caseE (tupE (concatMap (map (sizeAtType . snd)) allUsedFields))
+    biSizeExpr = caseE (tupE (concatMap (map (sizeAtType . fmap snd)) allUsedFields))
                        [matchConstSize, matchVarSize]
 
     -- Generate code like "size :: Word8", "size :: Int"
-    sizeAtType :: Name -> ExpQ
-    sizeAtType ty = [| Bi.size :: Store.Size $(conT ty) |]
+    sizeAtType :: TypeQ -> ExpQ
+    sizeAtType ty = [| Bi.size :: Store.Size $ty |]
 
     -- Generate a unique name per each constructor:
     genConsUniques :: String -> Q [Name]
@@ -256,7 +265,8 @@ deriveSimpleBi headTy constrs = do
     genFieldUniques :: String -> Q [[Name]]
     genFieldUniques pref =
         forM filteredConstrs $ \Cons{..} ->
-        forM cFields $ \Field{..} ->
+        forM cFields $ \Field{..} -> do
+            (fName, _) <- expToNameAndType fFieldAndType
             -- TODO: this won't work if the constructor name is an
             -- operator. We need to mangle those names somehow.
             newName (pref ++ "_" ++ nameBase cName
@@ -327,12 +337,14 @@ deriveSimpleBi headTy constrs = do
     -- Generate the following code:
     --     val@Bar{} -> getSize (field1 val) + getSize (field2 val)
     matchVarCons :: Cons -> MatchQ
-    matchVarCons (Cons cName (map fName -> cFields)) = do
-        val <- newName $ if length cFields > 0 then "val" else "_"
-        match (asP val (recP cName [])) (body (varE val)) []
+    matchVarCons Cons{..} = do
+        -- we assume that the constructor is filtered and has only Field
+        fieldNames <- mapM (fmap fst . fieldToPair) cFields
+        val <- newName $ if length fieldNames > 0 then "val" else "_"
+        match (asP val (recP cName [])) (body (varE val) fieldNames) []
       where
-        body val = normalB $
-            sumE [[| Bi.getSize ($(varE f) $val) |] | f <- cFields]
+        body val fieldNames = normalB $
+            sumE [[| Bi.getSize ($(varE f) $val) |] | f <- fieldNames]
 
     -- Get definition --
     biGetExpr :: Q Exp
@@ -359,11 +371,12 @@ deriveSimpleBi headTy constrs = do
     biGetConstr Cons{..} = do
         let (usedFields, unusedFields) = partition isUsed cFields
 
-        varNames :: [Name] <- mapM (newName . nameBase . fName) usedFields
+        fieldNames :: [Name] <- mapM (fmap fst . fieldToPair) usedFields
+        varNames   :: [Name] <- mapM (newName . nameBase) fieldNames
         varPs :: [Pat] <- mapM varP varNames
         biGets :: [Exp] <- replicateM (length varPs) [| Bi.get |]
         bindExprs :: [Stmt] <- mapM (uncurry bindS . bimap pure pure) (zip varPs biGets)
-        let recWildUsedVars = map (\(f, ex) -> (fName f,) <$> varE ex) $ zip usedFields varNames
+        let recWildUsedVars = map (\(f, ex) -> (f,) <$> varE ex) $ zip fieldNames varNames
         let recWildUnusedVars = map (\f -> (fName f,) <$> [| def |]) unusedFields
         recordWildCardReturn <- noBindS $
                                 appE (varE 'pure) $
@@ -413,8 +426,8 @@ data MatchFields
     | TypeMismatched Name Type Type
     -- ^ Some field has mismatched type
 
-checkAllFields :: [Field] -> [(Name, Type)] -> MatchFields
-checkAllFields (map fieldToPair -> passedFields) realFields
+checkAllFields :: [(Name, Maybe Type)] -> [(Name, Type)] -> MatchFields
+checkAllFields passedFields realFields
     | Just nm <- map fst passedFields `inclusion` map fst realFields = UnknownField nm
     | Just nm <- map fst realFields `inclusion` map fst passedFields = MissedField nm
     | otherwise =

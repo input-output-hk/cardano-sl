@@ -32,20 +32,20 @@ instance Bi VssCertData where
 
 deriveSimpleBi ''GtGlobalState [
     Cons 'GtGlobalState [
-        Field '_gsCommitments      ''CommitmentsMap,
-        Field '_gsOpenings         ''OpeningsMap,
-        Field '_gsShares           ''SharesMap,
-        Field '_gsVssCertificates  ''VssCertData
+        Field [| _gsCommitments     :: CommitmentsMap |],
+        Field [| _gsOpenings        :: OpeningsMap    |],
+        Field [| _gsShares          :: SharesMap      |],
+        Field [| _gsVssCertificates :: VssCertData    |]
     ]]
 
 deriveSimpleBi ''GtSecretStorage [
     Cons 'GtSecretStorage [
-        Field 'gssCommitment ''SignedCommitment,
-        Field 'gssOpening    ''Opening,
-        Field 'gssEpoch      ''EpochIndex
+        Field [| gssCommitment :: SignedCommitment |],
+        Field [| gssOpening    :: Opening          |],
+        Field [| gssEpoch      :: EpochIndex       |]
     ]]
 
 deriveSimpleBi ''GenesisGtData [
     Cons 'GenesisGtData [
-        Field 'ggdVssCertificates ''VssCertificatesMap
+        Field [| ggdVssCertificates :: VssCertificatesMap |]
     ]]

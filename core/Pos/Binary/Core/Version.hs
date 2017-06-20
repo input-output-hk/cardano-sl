@@ -20,13 +20,13 @@ instance Bi V.ApplicationName where
 
 deriveSimpleBi ''V.SoftwareVersion [
     Cons 'V.SoftwareVersion [
-        Field 'V.svAppName ''V.ApplicationName,
-        Field 'V.svNumber  ''V.NumSoftwareVersion
+        Field [| V.svAppName :: V.ApplicationName    |],
+        Field [| V.svNumber  :: V.NumSoftwareVersion |]
     ]]
 
 deriveSimpleBi ''V.BlockVersion [
     Cons 'V.BlockVersion [
-        Field 'V.bvMajor ''Word16,
-        Field 'V.bvMinor ''Word16,
-        Field 'V.bvAlt   ''Word8
+        Field [| V.bvMajor :: Word16 |],
+        Field [| V.bvMinor :: Word16 |],
+        Field [| V.bvAlt   :: Word8  |]
     ]]

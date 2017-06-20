@@ -140,12 +140,14 @@ instance Bi U.USUndo where
 
 deriveSimpleBi ''U.UpsExtra [
     Cons 'U.UpsExtra [
-        Field 'U.ueProposedBlk ''HeaderHash]]
+        Field [| U.ueProposedBlk :: HeaderHash |]
+    ]]
 
 deriveSimpleBi ''U.DpsExtra [
     Cons 'U.DpsExtra [
-        Field 'U.deDecidedBlk ''HeaderHash,
-        Field 'U.deImplicit ''Bool]]
+        Field [| U.deDecidedBlk :: HeaderHash |],
+        Field [| U.deImplicit   :: Bool       |]
+    ]]
 
 -- TODO rewrite on deriveSimpleBi
 instance Bi U.UndecidedProposalState where

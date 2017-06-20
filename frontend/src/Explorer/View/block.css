@@ -66,12 +66,7 @@
   }
 
   .row__summary {
-    .ada {
-      padding-right: 10px;
-      background-repeat: no-repeat;
-      background-position: right center;
-      background-size: 8px 7px;
-    }
+
   }
 
   .row__hashes {
@@ -97,6 +92,13 @@
     &__hash,
     &__hash--link {
       text-overflow: ellipsis;
+    }
+
+    .ada {
+      padding-right: 10px;
+      background-repeat: no-repeat;
+      background-position: right center;
+      background-size: 8px 7px;
     }
   }
 

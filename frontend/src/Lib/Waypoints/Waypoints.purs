@@ -1,15 +1,15 @@
 module Waypoints where
 
 import Prelude
-import Control.Monad.Eff (Eff)
+import Control.Monad.Eff (kind Effect, Eff)
+import Control.Monad.Eff.Uncurried (EffFn3, runEffFn3)
 import DOM.Node.Types (ElementId)
-import Data.Function.Eff (EffFn3, runEffFn3)
 import Data.Function.Uncurried (Fn1)
 import Data.Generic (class Generic, gShow)
 import Data.Newtype (class Newtype)
 
-foreign import data WAYPOINT :: !
-foreign import data Waypoint :: *
+foreign import data WAYPOINT :: Effect
+foreign import data Waypoint :: Type
 
 type WaypointHandler eff = WaypointDirection -> Eff (waypoint :: WAYPOINT | eff) Unit
 

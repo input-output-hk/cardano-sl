@@ -10,71 +10,44 @@ import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
 import Explorer.Util.Config (commitHash, version)
 import Explorer.View.Common (langView)
-import Pux.Html (Html, div, text, nav, a, p, span) as P
-import Pux.Html.Attributes (className, href) as P
 
+import Text.Smolder.HTML (div, text, nav, a, p, span)
+import Text.Smolder.HTML.Attributes (className, href)
+import Text.Smolder.Markup (text, (#!))
+
+import Pux.DOM.HTML (Html) as P
 
 footerView :: State -> P.Html Action
 footerView state =
     let lang' = state ^. lang in
-    P.div [ P.className "explorer-footer" ]
-    [
-      P.div
-          [ P.className "explorer-footer__top" ]
-          [ P.div
-              [ P.className "explorer-footer__container" ]
-              [ P.nav
-                  [ P.className "nav__container"]
-                  [ navRowView $ resourcesNavRow lang'
-                  , navRowView $ followUsNavRow lang'
-                  , navRowView $ linksNavRow lang'
-                  ]
-              ]
-          ]
-      , P.div
-          [ P.className "explorer-footer__bottom" ]
-          [ P.div
-              [ P.className "explorer-footer__container" ]
-              [ P.div
-                  [ P.className "content content__left" ]
-                  [ P.div
-                      [ P.className "logo__container"]
-                      [ P.a
-                          [ P.className "logo__cardano-name bg-logo-cardano-name"
-                          , P.href "https://iohk.io/projects/cardano/"]
-                          []
-                      ]
-                  , P.span
-                      [ P.className "split" ]
-                      []
-                  , P.a
-                      [ P.className "support", P.href "//iohk.io/projects/cardano/"]
-                      [ P.text $ translate (I18nL.footer <<< I18nL.fooIohkSupportP) lang' ]
-                  , P.div
-                      [ P.className "logo__container"]
-                      [ P.a
-                          [ P.className "logo__iohk-name bg-iohk-logo"
-                          , P.href "https://iohk.io/"]
-                          []
-                      ]
-                  ]
-              ,  P.div
-                  [ P.className "content content__right"]
-                  [ langView state ]
-              ]
-          , P.div
-              [ P.className "explorer-footer__container explorer-footer__meta" ]
-              [ P.span
-                  [ P.className "version" ]
-                  [ P.text $ "v. " <> (show version) ]
-              , P.a
-                  [ P.className "commit"
-                  , P.href $ "https://github.com/input-output-hk/cardano-sl-explorer/commit/" <> commitHash
-                  ]
-                  [ P.text $ "( " <> (take 7 $ commitHash) <> " )" ]
-              ]
-          ]
-    ]
+    div ! className "explorer-footer" $ do
+        div ! className "explorer-footer__top" $ do
+            div ! className "explorer-footer__container" $ do
+                nav ! className "nav__container" $ do
+                    navRowView $ resourcesNavRow lang'
+                    navRowView $ followUsNavRow lang'
+                    navRowView $ linksNavRow lang'
+        div ! className "explorer-footer__bottom" $ do
+            div ! className "explorer-footer__container" $ do
+                div ! className "content content__left" $ do
+                    div ! className "logo__container" $ do
+                      a ! className "logo__cardano-name bg-logo-cardano-name"
+                        ! href "https://iohk.io/projects/cardano/"
+                    span ! className "split"
+                    a ! className "support"
+                      ! href "//iohk.io/projects/cardano/"
+                      $ text (translate (I18nL.footer <<< I18nL.fooIohkSupportP) lang')
+                    div ! className "logo__container" $ do
+                        a ! className "logo__iohk-name bg-iohk-logo"
+                          ! href "https://iohk.io/"
+                div ! className "content content__right" $ do
+                    langView stat
+            div ! className "explorer-footer__container explorer-footer__meta" $ do
+                span  ! className "version"
+                      $ text ("v. " <> (show version))
+                a ! className "commit"
+                  ! href ("https://github.com/input-output-hk/cardano-sl-explorer/commit/" <> commitHash)
+                  $ text $ "( " <> (take 7 $ commitHash) <> " )"
 
 -- nav
 
@@ -162,18 +135,14 @@ navItemsRow2 lang =
 
 navRowView :: NavRow -> P.Html Action
 navRowView row =
-    P.div
-        [ P.className "nav-item__container"]
-        [ P.p
-            [ P.className "nav-item__header"]
-            [ P.text row.header ]
-          , P.div
-            []
-            $ map navRowItemView row.items
-        ]
+    div ! className "nav-item__container" $ do
+        p ! className "nav-item__header"
+          $ text row.header
+        div do
+            map navRowItemView row.items
 
 navRowItemView :: NavItem -> P.Html Action
 navRowItemView item =
-    P.a
-      [ P.className "nav-item__item", P.href item.link]
-      [ P.text item.label ]
+    a ! className "nav-item__item"
+      ! href item.link
+      $ text item.label

@@ -16,52 +16,41 @@ import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkTxBodyViewPr
 import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, ctsBlockEpoch, ctsBlockHash, ctsBlockSlot, ctsFees, ctsTotalOutput, ctsTxTimeIssued)
-import Pux.Html (Html, div, text, h3, p, span, table, tr, td) as P
-import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
-import Pux.Router (link) as P
+
+import Text.Smolder.HTML (div, h3, p, span, table, tr, td)
+import Text.Smolder.HTML.Attributes (className)
+import Text.Smolder.Markup (text, (#!))
+
+import Pux.DOM.HTML (Html) as P
+import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 
 transactionView :: State -> P.Html Action
 transactionView state =
     let lang' = state ^. lang in
-    P.div
-        [ P.className "explorer-transaction" ]
-        [ P.div
-            [ P.className "explorer-transaction__wrapper" ]
-            [ P.div
-                [ P.className "explorer-transaction__container" ]
-                [ P.h3
-                    [ P.className "headline"]
-                    [ P.text $ translate (I18nL.common <<< I18nL.cTransaction) lang' ]
-                  , case state ^. currentTxSummary of
-                        NotAsked  -> emptyTxHeaderView
-                        Loading   -> textTxHeaderView $ translate (I18nL.common <<< I18nL.cLoading) lang'
-                        Failure _ -> failureView lang'
-                        Success txSum@(CTxSummary txSummary) ->
-                            P.div
-                                []
-                                [ txHeaderView lang' $ mkTxHeaderViewProps txSum
-                                , txBodyView lang' $ mkTxBodyViewProps txSum
-                                ]
-                ]
-            ]
-        , P.div
-            [ P.className "explorer-transaction__wrapper" ]
-            [ case state ^. currentTxSummary of
-                  NotAsked  -> emptySummaryView
-                  Loading   -> emptySummaryView
-                  Failure _ -> emptySummaryView
-                  Success txSum@(CTxSummary txSummary) ->
-                      P.div
-                          [ P.className "explorer-transaction__container" ]
-                          [ P.h3
-                              [ P.className "headline"]
-                              [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
-                          , P.table
-                              [ P.className "table-summary" ]
-                              <<< map summaryRow $ summaryItems txSum lang'
-                          ]
-            ]
-        ]
+    div ! className "explorer-transaction" $ do
+        div ! className "explorer-transaction__wrapper" $ do
+            div ! className "explorer-transaction__container" $ do
+                h3  ! className "headline"
+                    $ text (translate (I18nL.common <<< I18nL.cTransaction) lang')
+                case state ^. currentTxSummary of
+                    NotAsked  -> emptyTxHeaderView
+                    Loading   -> textTxHeaderView $ translate (I18nL.common <<< I18nL.cLoading) lang'
+                    Failure _ -> failureView lang'
+                    Success txSum@(CTxSummary txSummary) ->
+                        div do
+                            txHeaderView lang' $ mkTxHeaderViewProps txSum
+                            txBodyView lang' $ mkTxBodyViewProps txSum
+
+        div ! className "explorer-transaction__wrapper" $ do
+            case state ^. currentTxSummary of
+                NotAsked  -> emptySummaryView
+                Loading   -> emptySummaryView
+                Failure _ -> emptySummaryView
+                Success txSum@(CTxSummary txSummary) ->
+                    div ! className "explorer-transaction__container" $ do
+                        h3 ! className "headline" $ text $ translate (I18nL.common <<< I18nL.cSummary) lang'
+                        table ! className "table-summary" $ do
+                            map summaryRow $ summaryItems txSum lang'
 
 type SummaryItems = Array SummaryItem
 
@@ -91,84 +80,67 @@ summaryItems (ctxSum@CTxSummary txSummary) lang =
     ]
 
 emptySummaryRow :: P.Html Action
-emptySummaryRow = P.tr [] []
+emptySummaryRow = tr
 
 summaryRowSimpleValue :: String -> P.Html Action
-summaryRowSimpleValue = P.text
+summaryRowSimpleValue = text
 
 summaryRowEpochSlot :: CTxSummary -> Language -> P.Html Action
 summaryRowEpochSlot (CTxSummary ctxSummary) lang =
-    P.div
-        []
-        [ case ctxSummary ^. ctsBlockEpoch of
-              Just epoch ->
-                  let epochLabel = translate (I18nL.common <<< I18nL.cEpoch) lang in
-                  P.link (toUrl <<< Epoch $ mkEpochIndex epoch)
-                        [ P.className "link"]
-                        [ P.text $ epochLabel <> " " <> show epoch ]
-              Nothing ->
-                  P.span
-                      []
-                      [ P.text noData ]
-        , P.text " / "
-        , case ctxSummary ^. ctsBlockSlot of
-              Just slot ->
-                  let slotLabel   = translate (I18nL.common <<< I18nL.cSlot) lang
-                      mBlockHash  = ctxSummary ^. ctsBlockHash
-                      slotTag     = maybe P.span (P.link <<< toUrl <<< Block) mBlockHash
-                      slotClazz   = maybe "" (\_ -> "link") mBlockHash
-                  in
-                  slotTag
-                      [ P.className slotClazz ]
-                      [ P.text $ slotLabel <> " " <> show slot ]
-              Nothing ->
-                  P.span
-                      []
-                      [ P.text noData ]
-        ]
+    div do
+        case ctxSummary ^. ctsBlockEpoch of
+            Just epoch ->
+                let epochLabel = translate (I18nL.common <<< I18nL.cEpoch) lang
+                    epochRoute = Epoch $ mkEpochIndex epoch
+                in
+                a ! href (toUrl epochRoute)
+                  #! onClick (Navigate $ toUrl epochRoute)
+                  ! className "link"
+                  $ text (epochLabel <> " " <> show epoch)
+            Nothing ->
+                span $ text noData
+        text $ " / "
+        case ctxSummary ^. ctsBlockSlot of
+            Just slot ->
+                let slotLabel   = translate (I18nL.common <<< I18nL.cSlot) lang
+                    mBlockHash  = ctxSummary ^. ctsBlockHash
+                    slotTag     = maybe span (\bHash -> a ! href (toUrl $ Block bHash)
+                                                          #! onClick (toUrl $ Block bHash)
+                                             ) mBlockHash
+                    slotClazz   = maybe "" (\_ -> "link") mBlockHash
+                in
+                slotTag ! className slotClazz
+                        $ text (slotLabel <> " " <> show slot)
+            Nothing ->
+                span $ text noData
 
 summaryRowCurrency :: String -> CCurrency -> P.Html Action
 summaryRowCurrency value currency =
-    P.span
-        [ P.className <<< currencyCSSClass $ Just currency ]
-        [ P.text value ]
+    span  ! className (currencyCSSClass $ Just currency)
+          $ text value
 
 summaryRow :: SummaryItem -> P.Html Action
 summaryRow item =
-    P.tr
-        []
-        [ P.td
-            []
-            [ P.text item.label ]
-        , P.td
-            []
-            [item.value]
-        ]
+    tr do
+        td $ text item.label
+        td $ text item.value
 
 textTxHeaderView :: String -> P.Html Action
 textTxHeaderView message =
-    P.div
-        [ P.className "explorer-transaction__message" ]
-        [ P.div
-            [ P.dangerouslySetInnerHTML message ]
-            []
-        ]
+    div ! className "explorer-transaction__message" $ do
+        div ! P.dangerouslySetInnerHTML message
 
 
 emptySummaryView :: P.Html Action
 emptySummaryView =
-    P.div
-        [ P.className "explorer-transaction__container" ]
-        []
+    div ! className "explorer-transaction__container"
 
 failureView :: Language -> P.Html Action
 failureView lang =
-    P.div
-        []
-        [ P.p
-            [ P.className "tx-failed" ]
-            [ P.text $ translate (I18nL.tx <<< I18nL.txNotFound) lang ]
-        , P.link (toUrl Dashboard)
-            [ P.className "btn-back" ]
-            [ P.text $ translate (I18nL.common <<< I18nL.cBack2Dashboard) lang ]
-        ]
+    div do
+        p ! className "tx-failed"
+          $ text (translate (I18nL.tx <<< I18nL.txNotFound) lang)
+        a ! className "btn-back"
+          ! href (toUrl Dashboard)
+          #! onClick (toUrl Dashboard)
+          $ text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang)

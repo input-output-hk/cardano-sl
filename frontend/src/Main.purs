@@ -22,7 +22,6 @@ import Explorer.View.Layout (view)
 import Pos.Explorer.Socket.Methods (ServerEvent(..))
 import Prelude (bind, const, pure, ($), (*), (<$>), (<<<), (<>), (>>=), (>>>))
 import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
-import Pux.Devtool (Action, start) as Pux.Devtool
 import Pux.Router (sampleUrl)
 import Signal (Signal, (~>))
 import Signal.Channel (channel, send, subscribe)
@@ -106,16 +105,5 @@ main state = do
                   SyncByPolling -> pollingConfig appConfig
                   SyncBySocket -> socketConfig appConfig actionChannel
     app <- start config
-    renderToDOM appSelector app.html
-    pure app
-
-debug :: Ex.State -> Eff (CoreEffects AppEffects) (App Ex.State (Pux.Devtool.Action Ex.Action))
-debug state = do
-    actionChannel <- channel Ex.NoOp
-    appConfig <- commonConfig state actionChannel
-    config <- case state ^. syncAction of
-                    SyncByPolling -> pollingConfig appConfig
-                    SyncBySocket -> socketConfig appConfig actionChannel
-    app <- Pux.Devtool.start config {opened: false}
     renderToDOM appSelector app.html
     pure app

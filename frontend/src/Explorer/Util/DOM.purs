@@ -18,7 +18,7 @@ import DOM.HTML.Types (HTMLElement, HTMLInputElement, htmlDocumentToNonElementPa
 import DOM.HTML.Window (document)
 import DOM.Node.NonElementParentNode (getElementById)
 import DOM.Node.Types (DOMTokenList, Element, ElementId)
-import Data.Function.Eff (EffFn2, runEffFn2)
+import Control.Monad.Eff.Uncurried (EffFn2, runEffFn2)
 import Data.Maybe (Maybe(..))
 import Data.Nullable (toMaybe)
 import Pux.Html.Events (Target)

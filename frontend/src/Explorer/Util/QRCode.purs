@@ -6,7 +6,7 @@ module Explorer.Util.QrCode
 
 import DOM (DOM)
 import Control.Monad.Eff (Eff)
-import Data.Function.Eff (EffFn1, EffFn2, runEffFn1, runEffFn2)
+import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, runEffFn1, runEffFn2)
 import Prelude (Unit, bind, pure, unit)
 
 data QRCode

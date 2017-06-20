@@ -750,7 +750,7 @@ newAddress = newAddress' addWAddress
 newChangeAddress = newAddress' $ \addrMeta -> do
     addWAddress addrMeta
     -- TODO [CSM-296] Need function to add change address immediatelly
-    void $ addCustomAddress ChangeAddr (cwamId addrMeta) undefined
+    void $ addCustomAddress ChangeAddr (cwamId addrMeta, undefined)
 
 -- Internal function
 newAddress'

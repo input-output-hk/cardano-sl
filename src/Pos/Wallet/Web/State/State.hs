@@ -52,6 +52,7 @@ module Pos.Wallet.Web.State.State
        , removeWallet
        , removeAccount
        , removeWAddress
+       , removeCustomAddress
        , totallyRemoveWAddress
        , addUpdate
        , removeNextUpdate
@@ -168,7 +169,7 @@ createWallet cWalId passLU = updateDisk . A.CreateWallet cWalId passLU
 addWAddress :: WebWalletModeDB m => CWAddressMeta -> m ()
 addWAddress addr = updateDisk $ A.AddWAddress addr
 
-addCustomAddress :: WebWalletModeDB m => CustomAddressType -> CId Addr -> HeaderHash -> m Bool
+addCustomAddress :: WebWalletModeDB m => CustomAddressType -> (CId Addr, HeaderHash) -> m Bool
 addCustomAddress = updateDisk ... A.AddCustomAddress
 
 addRemovedAccount :: WebWalletModeDB m => CWAddressMeta -> m ()
@@ -209,6 +210,11 @@ removeWAddress = updateDisk . A.RemoveWAddress
 
 totallyRemoveWAddress :: WebWalletModeDB m => CWAddressMeta -> m ()
 totallyRemoveWAddress = updateDisk . A.TotallyRemoveWAddress
+
+removeCustomAddress
+    :: WebWalletModeDB m
+    => CustomAddressType -> (CId Addr, HeaderHash) -> m Bool
+removeCustomAddress = updateDisk ... A.RemoveCustomAddress
 
 addUpdate :: WebWalletModeDB m => CUpdateInfo -> m ()
 addUpdate = updateDisk . A.AddUpdate

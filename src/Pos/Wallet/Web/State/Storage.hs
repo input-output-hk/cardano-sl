@@ -28,6 +28,7 @@ module Pos.Wallet.Web.State.Storage
        , getCustomAddresses
        , getCustomAddress
        , addCustomAddress
+       , removeCustomAddress
        , createAccount
        , createWallet
        , addWAddress
@@ -210,8 +211,16 @@ getCustomAddresses t = HM.keys <$> view (customAddressL t)
 getCustomAddress :: CustomAddressType -> CId Addr -> Query (Maybe HeaderHash)
 getCustomAddress t addr = view $ customAddressL t . at addr
 
-addCustomAddress :: CustomAddressType -> CId Addr -> HeaderHash -> Update Bool
-addCustomAddress t addr hh = fmap isJust $ customAddressL t . at addr <<.= Just hh
+addCustomAddress :: CustomAddressType -> (CId Addr, HeaderHash) -> Update Bool
+addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
+
+removeCustomAddress :: CustomAddressType -> (CId Addr, HeaderHash) -> Update Bool
+removeCustomAddress t (addr, hh) = do
+    mhh' <- use $ customAddressL t . at addr
+    let exists = mhh' == Just hh
+    when exists $
+        customAddressL t . at addr .= Nothing
+    return exists
 
 createAccount :: AccountId -> CAccountMeta -> Update ()
 createAccount accId cAccMeta = wsAccountInfos . at accId ?= AccountInfo cAccMeta mempty mempty

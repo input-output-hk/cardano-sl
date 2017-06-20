@@ -1,9 +1,10 @@
 rotation:
     logLimit: 2097152 # 2MB
     keepFiles: 20
-severity: Debug
+severity: Error  # display only "node"'s log
 file: explorer-node.log
 node:
+    severity: Debug
     plugin:
         notifier:
             severity: Debug

@@ -27,21 +27,21 @@ module Pos.Explorer.Socket.Holder
        , ccConnection
        ) where
 
-import qualified Control.Concurrent.STM      as STM
+import qualified Control.Concurrent.STM   as STM
 --import           Control.Concurrent.STM.TVar (TVar)
-import           Control.Lens                (makeClassy)
-import           Control.Monad.Catch         (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Reader        (MonadReader)
-import           Control.Monad.Trans         (MonadIO (liftIO))
-import qualified Data.Map.Strict             as M
-import qualified Data.Set                    as S
-import           Network.EngineIO            (SocketId)
-import           Network.SocketIO            (Socket)
-import           Serokell.Util.Concurrent    (modifyTVarS)
-import           System.Wlog                 (NamedPureLogger, WithLogger,
-                                              launchNamedPureLog)
+import           Control.Lens             (makeClassy)
+import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow)
+import           Control.Monad.Reader     (MonadReader)
+import           Control.Monad.Trans      (MonadIO (liftIO))
+import qualified Data.Map.Strict          as M
+import qualified Data.Set                 as S
+import           Network.EngineIO         (SocketId)
+import           Network.SocketIO         (Socket)
+import           Serokell.Util.Concurrent (modifyTVarS)
+import           System.Wlog              (NamedPureLogger, WithLogger,
+                                           launchNamedPureLog)
 
-import           Pos.Types                   (Address)
+import           Pos.Types                (Address)
 import           Universum
 
 data ClientContext = ClientContext

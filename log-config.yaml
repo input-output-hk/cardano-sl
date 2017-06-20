@@ -1,10 +1,9 @@
 rotation:
     logLimit: 2097152 # 2MB
     keepFiles: 20
-severity: Error  # display only "node"'s log
+severity: Debug
 file: explorer-node.log
 node:
-    severity: Debug
     plugin:
         notifier:
             severity: Debug
@@ -12,4 +11,6 @@ node:
             socket-io:
                 severity: Debug
                 file: socket-io.log
+drop:
+    severity: Error
 

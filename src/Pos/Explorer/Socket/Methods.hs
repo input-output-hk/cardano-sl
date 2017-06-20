@@ -303,7 +303,7 @@ unsubscribeFully
 unsubscribeFully sessId = do
     logDebug $ sformat ("Client #"%shown%" unsubscribes from all updates")
                sessId
-    modifyLoggerName (const "<not to display>") $ do
+    modifyLoggerName (const "drop") $ do
         unsubscribeAddr sessId
         unsubscribeBlocks sessId
         unsubscribeBlocksOff sessId

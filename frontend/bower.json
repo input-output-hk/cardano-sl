@@ -15,24 +15,22 @@
     "tests"
   ],
   "dependencies": {
-    "purescript-pux": "7.0.0",
-    "purescript-maybe": "2.1.1",
-    "purescript-pux-devtool": "https://github.com/sectore/pux-devtool.git#feature/add-options",
-    "purescript-affjax": "3.0.2",
-    "purescript-maps": "2.1.2",
-    "purescript-profunctor-lenses": "2.6.0",
-    "purescript-argonaut-generic-codecs": "5.2.0",
-    "purescript-eff-functions": "2.0.0",
-    "purescript-formatters": "https://github.com/sectore/purescript-formatters.git#feature/minutes-seconds-two-digits",
-    "purescript-remotedata": "2.0.0",
-    "purescript-parsing": "3.2.1",
-    "purescript-now": "v2.0.0",
-    "purescript-strings": "2.1.0"
+    "purescript-pux": "10.0.0",
+    "purescript-maybe": "3.0.0",
+    "purescript-affjax": "4.0.0",
+    "purescript-maps": "3.3.1",
+    "purescript-profunctor-lenses": "3.2.0",
+    "purescript-argonaut-generic-codecs": "6.0.3",
+    "purescript-formatters": "1.0.1",
+    "purescript-remotedata": "2.1.0",
+    "purescript-parsing": "4.2.2",
+    "purescript-now": "v3.0.0",
+    "purescript-strings": "3.2.1"
   },
   "devDependencies": {
-    "purescript-debug": "2.0.0",
-    "purescript-console": "2.0.0",
-    "purescript-psci-support": "2.0.0",
-    "purescript-spec": "0.12.4"
+    "purescript-debug": "3.0.0",
+    "purescript-console": "3.0.0",
+    "purescript-psci-support": "3.0.0",
+    "purescript-spec": "1.0.0"
   }
 }

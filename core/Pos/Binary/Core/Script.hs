@@ -12,20 +12,20 @@ import           Pos.Core.Script    ()
 import           Pos.Core.Types     (Script (..))
 
 instance Bi PLCore.Term where
-  size = Store.size
-  {-# INLINE size #-}
-  get = label "PLCore.Term" $ Store.peek
-  {-# INLINE get #-}
-  put = labelP "PLCore.Term" . Store.poke
-  {-# INLINE put #-}
+    size = Store.size
+    {-# INLINE size #-}
+    get = label "PLCore.Term" $ Store.peek
+    {-# INLINE get #-}
+    put = labelP "PLCore.Term" . Store.poke
+    {-# INLINE put #-}
 
 instance Bi PLCore.Program where
-  size = Store.size
-  {-# INLINE size #-}
-  get = label "PLCore.Program" $ Store.peek
-  {-# INLINE get #-}
-  put = labelP "PLCore.Program" . Store.poke
-  {-# INLINE put #-}
+    size = Store.size
+    {-# INLINE size #-}
+    get = label "PLCore.Program" $ Store.peek
+    {-# INLINE get #-}
+    put = labelP "PLCore.Program" . Store.poke
+    {-# INLINE put #-}
 
 instance Bi Script where
     get = label "Script" $ do

@@ -33,7 +33,10 @@ instance  Bi t => Serializable BiP t where
 
     unpackMsg _ = storeDecoder (label "BiP t" get) BS.empty
 
--- TODO remove
+-- @pva701: It's copy-pasted from TW (due to it absents in the release branch of TW)
+-- so it must be removed, when this commit
+-- https://github.com/serokell/time-warp-nt/commit/8093761c30956eb5088a70da0ef971abd42ea842
+-- will be in the release branch
 storeDecoder :: Store.Peek t -> BS.ByteString  -> Decoder t
 storeDecoder peek bs = Partial $ \mbs -> case mbs of
     Nothing -> Fail BS.empty (fromIntegral (BS.length bs)) "Unexpected end of input (length prefix)"

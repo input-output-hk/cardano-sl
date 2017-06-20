@@ -4,7 +4,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | Serialization-related types
+-- | Store-related functionality.
 
 module Pos.Binary.Class.Store
        (

@@ -65,10 +65,10 @@ genesisDevHdwSecretKeys =
 
 generateGenesisKeyPair :: Int -> (PublicKey, SecretKey)
 generateGenesisKeyPair =
-   fromMaybe (error "deterministicKeyGen failed in Genesis") .
-   deterministicKeyGen .
-   encodeUtf8 .
-   T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
+    fromMaybe (error "deterministicKeyGen failed in Genesis") .
+    deterministicKeyGen .
+    encodeUtf8 .
+    T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
 
 generateHdwGenesisSecretKey :: Int -> EncryptedSecretKey
 generateHdwGenesisSecretKey =

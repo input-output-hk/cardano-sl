@@ -19,7 +19,7 @@ import           Pos.Crypto              (SignTag (SignUSVote), checkSig)
 import qualified Pos.Update.Core.Types   as U
 import qualified Pos.Update.Poll.Types   as U
 
--- TODO Most of Update types contains fields with composite types.
+-- TODO Most of Update datatypes contain fields of parametrized types.
 -- deriveSimpleBi doesn't support them yet.
 
 instance Bi U.SystemTag where

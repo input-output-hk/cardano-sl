@@ -23,7 +23,6 @@ module Pos.Communication.Limits.Types
 
 import           Universum
 
-
 import           Pos.Communication.Protocol (ConversationActions (..))
 import qualified Pos.DB.Class               as DB
 

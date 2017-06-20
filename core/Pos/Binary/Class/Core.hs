@@ -75,7 +75,7 @@ encodeWithS (s, p) x = Store.unsafeEncodeWith (p x) (Store.getSizeWith s x)
 
 -- | Encode a value to a lazy bytestring
 encodeLazy :: Bi a => a -> BSL.ByteString
-encodeLazy x = BSL.fromStrict (Store.unsafeEncodeWith (put x) (getSize x))
+encodeLazy = BSL.fromStrict . encode
 {-# INLINE encodeLazy #-}
 
 getSize :: Bi a => a -> Int

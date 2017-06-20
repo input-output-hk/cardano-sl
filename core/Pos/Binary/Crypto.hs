@@ -25,8 +25,8 @@ import           Formatting                 (int, sformat, stext, (%))
 
 import           Pos.Binary.Class           (AsBinary (..), Bi (..), Size (..),
                                              StaticSize (..), getBytes, getCopyBi, label,
-                                             labelP, putBytes, putCopyBi, putField,
-                                             sizeOf)
+                                             labelP, labelS, putBytes, putCopyBi,
+                                             putField, sizeOf)
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Crypto.Hashing         (AbstractHash (..), HashAlgorithm,
                                              WithHash (..), hashDigestSize',
@@ -153,7 +153,7 @@ putAssertLength typeName expectedLength bs =
 
 instance Bi Ed25519.PointCompressed where
     size = ConstSize publicKeyLength
-    put (Ed25519.unPointCompressed -> k) = do
+    put (Ed25519.unPointCompressed -> k) = labelP "Ed25519.PointCompressed" $ do
         putAssertLength "PointCompressed" publicKeyLength k
         putBytes k
     get = label "Ed25519.PointCompressed" $
@@ -161,7 +161,7 @@ instance Bi Ed25519.PointCompressed where
 
 instance Bi Ed25519.Scalar where
     size = ConstSize secretKeyLength
-    put (Ed25519.unScalar -> k) = do
+    put (Ed25519.unScalar -> k) = labelP "Ed25519.Scalar" $ do
         putAssertLength "Scalar" secretKeyLength k
         putBytes k
     get = label "Ed25519.Scalar" $
@@ -169,7 +169,7 @@ instance Bi Ed25519.Scalar where
 
 instance Bi Ed25519.Signature where
     size = ConstSize signatureLength
-    put (Ed25519.Signature s) = do
+    put (Ed25519.Signature s) = labelP "Ed25519.Signature" $ do
         putAssertLength "Signature" signatureLength s
         putBytes s
     get = label "Ed25519.Signature" $
@@ -185,7 +185,7 @@ instance Bi CC.ChainCode where
 
 instance Bi CC.XPub where
     size = ConstSize (publicKeyLength + chainCodeLength)
-    put (CC.unXPub -> kc) = do
+    put (CC.unXPub -> kc) = labelP "CC.XPub" $ do
         putAssertLength "XPub" (publicKeyLength + chainCodeLength) kc
         putBytes kc
     get = label "CC.XPub" $
@@ -194,7 +194,7 @@ instance Bi CC.XPub where
 
 instance Bi CC.XPrv where
     size = ConstSize encryptedKeyLength
-    put (CC.unXPrv -> kc) = do
+    put (CC.unXPrv -> kc) = labelP "CC.XPrv" $ do
         putAssertLength "XPrv" encryptedKeyLength kc
         putBytes kc
     get = label "CC.XPrv" $
@@ -203,7 +203,7 @@ instance Bi CC.XPrv where
 
 instance Bi CC.XSignature where
     size = ConstSize signatureLength
-    put (CC.unXSignature -> bs) = do
+    put (CC.unXSignature -> bs) = labelP "CC.XSignature" $ do
         putAssertLength "XSignature" signatureLength bs
         putBytes bs
     get = label "CC.XSignature" $
@@ -227,19 +227,20 @@ instance Bi a => Bi (Signed a) where
 deriving instance Bi (ProxyCert w)
 
 instance (Bi w) => Bi (ProxySecretKey w) where
-    sizeNPut = putField pskOmega <>
-               putField pskIssuerPk <>
-               putField pskDelegatePk <>
-               putField pskCert
+    sizeNPut = labelS "ProxySecretKey" $
+        putField pskOmega <>
+        putField pskIssuerPk <>
+        putField pskDelegatePk <>
+        putField pskCert
     get = label "ProxySecretKey" $ liftM4 ProxySecretKey get get get get
 
 instance (Bi w) => Bi (ProxySignature w a) where
-    sizeNPut = putField psigPsk <> putField psigSig
+    sizeNPut = labelS "ProxySignature" $ putField psigPsk <> putField psigSig
     get = label "ProxySignature" $ liftM2 ProxySignature get get
 
 instance Bi PassPhrase where
     size = ConstSize passphraseLength
-    put pp = do
+    put pp = labelP "PassPhrase" $ do
         -- currently passphrase may be 32-byte long, or empty (for
         -- unencrypted keys). The empty passphrase is serialized as 32
         -- zeroes.
@@ -260,10 +261,9 @@ instance Bi PassPhrase where
 -- Hierarchical derivation
 -------------------------------------------------------------------------------
 
--- CSL-1122 uncomment
 instance Bi HDAddressPayload where
     size = sizeOf getHDAddressPayload
-    put (HDAddressPayload payload) = put payload
+    put (HDAddressPayload payload) = labelP "HDAddressPayload" $ put payload
     get = label "HDAddressPayload" $ HDAddressPayload <$> get
 
 -------------------------------------------------------------------------------
@@ -277,7 +277,7 @@ standardSignatureLength = 64
 
 instance Bi EdStandard.PublicKey where
     size = ConstSize standardPublicKeyLength
-    put (EdStandard.PublicKey k) = do
+    put (EdStandard.PublicKey k) = labelP "EdStandard.PublicKey" $ do
         putAssertLength "PublicKey" standardPublicKeyLength k
         putBytes k
     get = label "EdStandard.PublicKey" $
@@ -285,7 +285,7 @@ instance Bi EdStandard.PublicKey where
 
 instance Bi EdStandard.SecretKey where
     size = ConstSize standardSecretKeyLength
-    put (EdStandard.SecretKey k) = do
+    put (EdStandard.SecretKey k) = labelP "EdStandard.SecretKey" $ do
         putAssertLength "SecretKey" standardSecretKeyLength k
         putBytes k
     get = label "EdStandard.SecretKey" $
@@ -293,7 +293,7 @@ instance Bi EdStandard.SecretKey where
 
 instance Bi EdStandard.Signature where
     size = ConstSize standardSignatureLength
-    put (EdStandard.Signature s) = do
+    put (EdStandard.Signature s) = labelP "EdStandard.Signature" $ do
         putAssertLength "Signature" standardSignatureLength s
         putBytes s
     get = label "EdStandard.Signature" $

@@ -239,7 +239,8 @@ instance (Bi a) => Bi (Maybe a) where
         w <- getWord8
         case w of
             0 -> return Nothing
-            _ -> Just <$> get
+            1 -> Just <$> get
+            _ -> fail "unexpected Maybe tag"
 
 instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
     get = fmap HM.fromList get

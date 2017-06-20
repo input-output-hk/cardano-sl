@@ -32,8 +32,8 @@ import qualified Database.RocksDB as Rocks
 import           Formatting       (sformat, shown, stext, (%))
 
 import           Pos.Binary.Class (Bi, decodeFull, encode)
-import           Pos.DB.Class     (DBTag, MonadDB (..), MonadDBRead (..))
-import           Pos.DB.Class     (DBIteratorClass (..))
+import           Pos.DB.Class     (DBIteratorClass (..), DBTag, MonadDB (..),
+                                   MonadDBRead (..))
 import           Pos.DB.Error     (DBError (DBMalformed))
 import           Pos.DB.Types     (DB (..))
 

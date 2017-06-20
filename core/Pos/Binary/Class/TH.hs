@@ -1,28 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
--- | TH helpers for Bi
-module Pos.Binary.Class.TH
-       ( deriveSimpleBi
-       , Cons (..)
-       , Field (Field)
-       ) where
-
-import           Universum
-import           Unsafe                   (unsafeHead)
-
-import           Control.Lens             (imap)
-import           Data.Default             (def)
-import           Data.List                (notElem, nubBy, partition)
-import qualified Data.Store.Internal      as Store
-import qualified Data.Text                as T
-import           Formatting               (sformat, shown, (%))
-import           Language.Haskell.TH
-import           TH.ReifySimple           (DataCon (..), DataType (..), reifyDataType)
-import           TH.Utilities             (plainInstanceD)
-
-import qualified Pos.Binary.Class.Core    as Bi
-
 {-
+TH helpers for Bi.
+
 Suppose you have the following datatype:
 
 data User
@@ -88,9 +68,31 @@ instance Bi User where
             _ -> Store.peekException ("Found invalid tag while getting User")
 -}
 
-data Cons
-    = Cons {
+module Pos.Binary.Class.TH
+       ( deriveSimpleBi
+       , Cons (..)
+       , Field (Field)
+       ) where
+
+import           Universum
+import           Unsafe                   (unsafeHead)
+
+import           Control.Lens             (imap)
+import           Data.Default             (def)
+import           Data.List                (notElem, nubBy, partition)
+import qualified Data.Store.Internal      as Store
+import qualified Data.Text                as T
+import           Formatting               (sformat, shown, (%))
+import           Language.Haskell.TH
+import           TH.ReifySimple           (DataCon (..), DataType (..), reifyDataType)
+import           TH.Utilities             (plainInstanceD)
+
+import qualified Pos.Binary.Class.Core    as Bi
+
+data Cons = Cons
+    { -- | Name of a constructor.
       cName   :: Name
+      -- | Field of a constructor.
     , cFields :: [Field]
     }
 
@@ -138,7 +140,7 @@ deriveSimpleBi headTy constrs = do
         failText "You passed no constructors to deriveSimpleBi"
     when (length constrs > 255) $
         failText "You passed too many constructors to deriveSimpleBi"
-    when (length (nubBy (\x y -> cName x == cName y) constrs) /= length constrs) $
+    when (length (nubBy ((==) `on` cName) constrs) /= length constrs) $
         failText "You passed two constructors with the same name"
     dt <- reifyDataType headTy
     case matchAllConstrs constrs (dtCons dt) of
@@ -155,7 +157,7 @@ deriveSimpleBi headTy constrs = do
                 let realFields = mapMaybe (\(n, t) -> (,t) <$> n) dcFields
                 when (length realFields /= length dcFields) $
                     failText $ sformat ("Some field of "%shown
-                                       %" constructor doesn't have a explicit name") cName
+                                       %" constructor doesn't have an explicit name") cName
                 cResolvedFields <- mapM fieldToPair cFields
                 case checkAllFields cResolvedFields realFields of
                     MissedField field ->
@@ -201,7 +203,7 @@ deriveSimpleBi headTy constrs = do
 
     -- Helpers --
     failText :: MonadFail m => T.Text -> m a
-    failText = fail . T.unpack
+    failText = fail . toString
 
     isUsed :: Field -> Bool
     isUsed (Unused _) = False

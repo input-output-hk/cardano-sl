@@ -105,7 +105,6 @@ getCopyBi typeName = contain $ do
 -- Binary serialization
 ----------------------------------------------------------------------------
 
--- | See `Pos.Crypto.SerTypes` for details on this types
 newtype AsBinary a = AsBinary
     { getAsBinary :: ByteString
     } deriving (Show, Eq, Ord, Hashable, NFData)

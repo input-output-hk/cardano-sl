@@ -63,16 +63,14 @@ import           Pos.Communication                (OutSpecs, SendActions, sendTx
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Core                         (Address (..), Coin, addressF,
                                                    decodeTextAddress, makePubKeyAddress,
-                                                   makeRedeemAddress, mkCoin, sumCoins,
-                                                   unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin)
+                                                   mkCoin, sumCoins, unsafeAddCoin,
+                                                   unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
                                                    aesDecrypt, changeEncPassphrase,
                                                    checkPassMatches, deriveAesKeyBS,
                                                    emptyPassphrase, encToPublic, hash,
                                                    redeemDeterministicKeyGen,
-                                                   redeemToPublic, withSafeSigner,
-                                                   withSafeSigner)
+                                                   withSafeSigner, withSafeSigner)
 import           Pos.DB.Class                     (MonadGState)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
@@ -627,7 +625,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
                     let txHash    = hash tx
                         srcWallet = getMoneySourceWallet moneySource
                     ctxs <- addHistoryTx srcWallet $
-                        THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs
+                        THEntry txHash tx srcTxOuts Nothing dstAddrs
                     ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
 
     noOutgoingTx = InternalError "Can't report outgoing transaction"
@@ -1004,7 +1002,6 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     -- new redemption wallet
     _ <- getAccount accId
 
-    let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
     dstCAddr <- genUniqueAccountAddress RandomSeed passphrase accId
     dstAddr <- decodeCIdOrFail $ cwamId dstCAddr
     na <- getPeers
@@ -1016,7 +1013,7 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
             -- add redemption transaction to the history of new wallet
             let txInputs = [TxOut redeemAddress redeemBalance]
             ctxs <- addHistoryTx (aiWId accId)
-                (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr])
+                (THEntry (hash taTx) taTx txInputs Nothing [dstAddr])
             ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
   where
    noOutgoingTx = InternalError "Can't report outgoing transaction"

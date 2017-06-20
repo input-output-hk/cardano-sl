@@ -72,7 +72,7 @@ import           Servant.Multipart         (FileData, FromMultipart (..), lookup
 
 import           Pos.Aeson.Types           ()
 import           Pos.Binary.Class          (decodeFull, encodeStrict)
-import           Pos.Client.Txp.History    (TxHistoryEntry (..))
+import           Pos.Client.Txp.History    (TxHistoryEntry (..), _thInputAddrs)
 import           Pos.Core.Coin             (mkCoin)
 import           Pos.Core.Types            (ScriptVersion)
 import           Pos.Crypto                (EncryptedSecretKey, PassPhrase, encToPublic,
@@ -180,7 +180,7 @@ mkCTxs
     -> CTxMeta            -- ^ Transaction metadata
     -> [CWAddressMeta]    -- ^ Addresses of wallet
     -> Either Text CTxs
-mkCTxs diff THEntry {..} meta wAddrMetas = do
+mkCTxs diff thEntry@THEntry {..} meta wAddrMetas = do
     ctInputAddrsNe <-
         nonEmpty ctInputAddrs
         `whenNothing` throwError "No input addresses in tx!"
@@ -221,7 +221,7 @@ mkCTxs diff THEntry {..} meta wAddrMetas = do
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
-    ctInputAddrs = map addressToCId _thInputAddrs
+    ctInputAddrs = map addressToCId (_thInputAddrs thEntry)
     ctOutputAddrs = map addressToCId _thOutputAddrs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctMeta = meta

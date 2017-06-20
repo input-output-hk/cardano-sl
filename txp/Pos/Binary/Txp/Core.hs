@@ -6,11 +6,14 @@ module Pos.Binary.Txp.Core
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), PokeWithSize, UnsignedVarInt (..),
-                                     convertToSizeNPut, getWithLength, getWord8, label,
+import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), PokeWithSize,
+                                     UnsignedVarInt (..), convertToSizeNPut,
+                                     deriveSimpleBi, getWithLength, getWord8, label,
                                      labelS, putField, putS, putWithLengthS, putWord8S)
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
+import qualified Pos.Core.Types     as T
+import           Pos.Crypto.Hashing (Hash)
 import qualified Pos.Txp.Core.Types as T
 
 ----------------------------------------------------------------------------
@@ -24,17 +27,17 @@ instance Bi T.TxIn where
     get = label "TxIn" $
         T.TxIn <$> get <*> (getUnsignedVarInt <$> get)
 
-instance Bi T.TxOut where
-    sizeNPut = labelS "TxOut" $
-        putField T.txOutAddress <>
-        putField T.txOutValue
-    get = label "TxOut" $ T.TxOut <$> get <*> get
+deriveSimpleBi ''T.TxOut [
+    Cons 'T.TxOut [
+        Field [| T.txOutAddress :: T.Address |],
+        Field [| T.txOutValue   :: T.Coin    |]
+    ]]
 
-instance Bi T.TxOutAux where
-    sizeNPut = labelS "TxOutAux" $
-        putField T.toaOut <>
-        putField T.toaDistr
-    get = label "TxOutAux" $ T.TxOutAux <$> get <*> get
+deriveSimpleBi ''T.TxOutAux [
+    Cons 'T.TxOutAux [
+        Field [| T.toaOut   :: T.TxOut             |],
+        Field [| T.toaDistr :: T.TxOutDistribution |]
+    ]]
 
 instance Bi T.Tx where
     sizeNPut = labelS "Tx" $
@@ -85,23 +88,20 @@ instance Bi T.TxDistribution where
                     nonEmpty $ replicate n []
                 Right ds -> pure ds
 
-instance Bi T.TxSigData where
-    sizeNPut = labelS "TxSigData" $
-        putField T.txSigInput <>
-        putField T.txSigOutsHash <>
-        putField T.txSigDistrHash
-    get = label "TxSigData" $ do
-        txSigInput     <- get
-        txSigOutsHash  <- get
-        txSigDistrHash <- get
-        return T.TxSigData{..}
 
-instance Bi T.TxAux where
-    sizeNPut = labelS "DataMsg TxMsgContents" $
-        putField T.taTx <>
-        putField T.taWitness <>
-        putField T.taDistribution
-    get = label "DataMsg TxMsgContents" $ T.TxAux <$> get <*> get <*> get
+deriveSimpleBi ''T.TxSigData [
+    Cons 'T.TxSigData [
+        Field [| T.txSigInput     :: T.TxIn                  |],
+        Field [| T.txSigOutsHash  :: Hash (NonEmpty T.TxOut) |],
+        Field [| T.txSigDistrHash :: Hash T.TxDistribution   |]
+    ]]
+
+deriveSimpleBi ''T.TxAux [
+    Cons 'T.TxAux [
+        Field [| T.taTx           :: T.Tx             |],
+        Field [| T.taWitness      :: T.TxWitness      |],
+        Field [| T.taDistribution :: T.TxDistribution |]
+    ]]
 
 instance Bi T.TxProof where
     sizeNPut = labelS "TxProof" $

@@ -4,29 +4,27 @@ module Pos.Binary.GodTossing.Types () where
 
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..),
-                                                   deriveSimpleBi, label, labelS,
-                                                   putField)
-import           Pos.Core.Types                   (EpochIndex)
+import           Pos.Binary.Class                 (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Core.Types                   (EpochIndex, EpochOrSlot, StakeholderId)
 import           Pos.Ssc.GodTossing.Core          (CommitmentsMap, Opening, OpeningsMap,
                                                    SharesMap, SignedCommitment,
-                                                   VssCertificatesMap)
+                                                   VssCertificate, VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Genesis.Types (GenesisGtData (..))
 import           Pos.Ssc.GodTossing.Types         (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 
--- rewrite on deriveSimpleBi
-instance Bi VssCertData where
-    sizeNPut = labelS "VssCertData" $
-        putField lastKnownEoS <>
-        putField certs <>
-        putField whenInsMap <>
-        putField whenInsSet <>
-        putField whenExpire <>
-        putField expiredCerts
-    get = label "VssCertData" $
-        VssCertData <$> get <*> get <*> get <*> get <*> get <*> get
+deriveSimpleBi ''VssCertData [
+    Cons 'VssCertData [
+        Field [| lastKnownEoS :: EpochOrSlot                       |],
+        Field [| certs        :: VssCertificatesMap                |],
+        Field [| whenInsMap   :: HashMap StakeholderId EpochOrSlot |],
+        Field [| whenInsSet   :: Set (EpochOrSlot, StakeholderId)  |],
+        Field [| whenExpire   :: Set (EpochOrSlot, StakeholderId)  |],
+        Field [| expiredCerts :: Set (EpochOrSlot, (StakeholderId,
+                                                      EpochOrSlot,
+                                                      VssCertificate)) |]
+    ]]
 
 deriveSimpleBi ''GtGlobalState [
     Cons 'GtGlobalState [

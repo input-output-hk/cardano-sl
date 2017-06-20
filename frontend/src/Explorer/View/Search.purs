@@ -16,8 +16,8 @@ import Explorer.State (maxSlotInEpoch)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
 import Explorer.View.Common (emptyView)
-import Pux.Html (Html, div, span, text, ul, li, label, input) as P
-import Pux.Html.Attributes (checked, className, htmlFor, id_, maxLength, name, type_, placeholder, value) as P
+import Pux.Html (Html, div, input, label, li, text, ul) as P
+import Pux.Html.Attributes (className, htmlFor, id_, maxLength, name, placeholder, type_, value) as P
 import Pux.Html.Events (onChange, onClick, onFocus, onBlur, onKey) as P
 
 inputEpochName :: String

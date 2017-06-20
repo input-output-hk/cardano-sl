@@ -176,7 +176,7 @@ periodicPollChanges connVar closed =
             forM_ txInfos $ \(addr, cTxBriefs) -> do
                 notifyAddrSubscribers addr cTxBriefs
                 logDebug $ sformat ("Notified address "%addressF%" about "
-                           %int%" transactions") addr (length cTxEntries)
+                           %int%" transactions") addr (length cTxBriefs)
 
             -- notify about transactions
             unless (null cTxEntries) $ do

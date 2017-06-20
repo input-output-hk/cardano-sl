@@ -56,8 +56,8 @@ import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (
 import           Pos.Types                      (Address, HeaderHash)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (getOldestFirst)
-import           System.Wlog                    (WithLogger, logDebug, logError,
-                                                 logWarning)
+import           System.Wlog                    (WithLogger, logDebug, logWarning,
+                                                 modifyLoggerName)
 import           Universum
 
 import           Pos.Explorer.Aeson.ClientTypes ()
@@ -155,8 +155,8 @@ finishSession
     => SocketId -> m ()
 finishSession sessId =
     whenJustM (use $ csClients . at sessId) $ \_ -> do
-        csClients . at sessId .= Nothing
         unsubscribeFully sessId
+        csClients . at sessId .= Nothing
         logDebug $ sformat ("Session #"%shown%" has finished") sessId
 
 subscribe
@@ -303,10 +303,11 @@ unsubscribeFully
 unsubscribeFully sessId = do
     logDebug $ sformat ("Client #"%shown%" unsubscribes from all updates")
                sessId
-    unsubscribeAddr sessId
-    unsubscribeBlocks sessId
-    unsubscribeBlocksOff sessId
-    unsubscribeTxs sessId
+    modifyLoggerName (const "<not to display>") $ do
+        unsubscribeAddr sessId
+        unsubscribeBlocks sessId
+        unsubscribeBlocksOff sessId
+        unsubscribeTxs sessId
 
 -- * Notifications
 
@@ -322,7 +323,7 @@ broadcast event args recipients = do
     forM_ recipients $ \sockid -> do
         mSock <- preview $ csClients . ix sockid . ccConnection
         case mSock of
-            Nothing   -> logError $
+            Nothing   -> logWarning $
                 sformat ("No socket with SocketId="%shown%" registered") sockid
             Just sock -> emitTo sock event args
                 `catchAll` handler sockid

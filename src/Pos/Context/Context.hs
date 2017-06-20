@@ -41,7 +41,6 @@ import           Control.Lens                  (coerced, lens, makeLensesFor)
 import           Data.Time.Clock               (UTCTime)
 import qualified Ether
 import           Ether.Internal                (HasLens (..))
-import           Pos.Security.Params           (SecurityParams)
 import           System.Wlog                   (LoggerConfig)
 
 import           Pos.Block.Core                (BlockHeader)
@@ -56,6 +55,7 @@ import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..)
 import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
                                                 rcReportServers)
+import           Pos.Security.Params           (SecurityParams)
 import           Pos.Shutdown.Types            (ShutdownContext (..))
 import           Pos.Slotting                  (SlottingContextSum, SlottingVar)
 import           Pos.Ssc.Class.Types           (MonadSscContext, Ssc (SscNodeContext),

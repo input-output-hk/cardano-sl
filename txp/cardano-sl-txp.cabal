@@ -57,6 +57,7 @@ library
     Pos.Binary.Txp.Core
 
   build-depends:       base
+                     , aeson
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-db

@@ -10,7 +10,8 @@ module Pos.Communication.Relay.Types
 import           Control.Concurrent.STM        (TBQueue)
 import qualified Data.Text.Buildable           as Buildable
 import           Formatting                    (bprint, build, (%))
-import           Node.Message.Class            (Message)
+import           Node                          (Message)
+import           Data.Time.Units               (Microsecond)
 import           Universum
 
 import           Pos.Binary.Class              (Bi)
@@ -44,7 +45,7 @@ instance Buildable PropagationMsg where
         Buildable.build conts
 
 -- | Queue of InvMsges which should be propagated.
-type RelayPropagationQueue = TBQueue PropagationMsg
+type RelayPropagationQueue = TBQueue (Microsecond, PropagationMsg)
 
 data RelayContext = RelayContext
     { _rlyIsPropagation    :: !Bool

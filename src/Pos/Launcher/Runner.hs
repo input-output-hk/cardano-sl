@@ -44,6 +44,7 @@ import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Util.JsonLog           (JsonLogConfig (..), jsonLogConfigFromHandle)
 import           Pos.WorkMode               (RealMode, RealModeContext (..), WorkMode,
                                              unRealMode)
+
 ----------------------------------------------------------------------------
 -- High level runners
 ----------------------------------------------------------------------------

@@ -19,11 +19,12 @@ instance Bi EpochSlottingData where
         esdStart        <- get
         pure EpochSlottingData{..}
 
+-- CSL-1122: add a test for serialization of 'SlottingData'
 instance Bi SlottingData where
     sizeNPut = labelS "SlottingData" $
         putField sdPenult <>
         putField sdLast <>
-        putField sdPenult
+        putField sdPenultEpoch
     get = label "SlottingData" $ do
         sdPenult      <- get
         sdLast        <- get

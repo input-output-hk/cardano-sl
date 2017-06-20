@@ -6,8 +6,10 @@ module Pos.Binary.Block.Core
 
 import           Universum
 
-import           Pos.Binary.Class             (Bi (..), convertToSizeNPut, getWord8,
-                                               label, labelS, putField, putS, putWord8S)
+import           Pos.Binary.Class             (Bi (..), Cons (..), Field (..),
+                                               convertToSizeNPut, deriveSimpleBi,
+                                               getWord8, label, labelS, putField, putS,
+                                               putWord8S)
 import           Pos.Binary.Core              ()
 import           Pos.Binary.Txp               ()
 import           Pos.Binary.Update            ()
@@ -15,6 +17,7 @@ import qualified Pos.Block.Core.Genesis.Chain as BC
 import qualified Pos.Block.Core.Genesis.Types as BC
 import qualified Pos.Block.Core.Main.Chain    as BC
 import qualified Pos.Block.Core.Main.Types    as BC
+import           Pos.Core                     (BlockVersion, SoftwareVersion)
 import qualified Pos.Core.Block               as Core
 import           Pos.Ssc.Class.Types          (Ssc (..))
 
@@ -64,16 +67,17 @@ instance (Ssc ssc) => Bi (BC.Body (BC.MainBlockchain ssc)) where
         _mbUpdatePayload <- get
         return BC.MainBody{..}
 
-instance Bi BC.MainExtraHeaderData where
-    sizeNPut = labelS "MainExtraHeaderData" $
-        putField BC._mehBlockVersion <>
-        putField BC._mehSoftwareVersion <>
-        putField BC._mehAttributes
-    get = label "MainExtraHeaderData" $ BC.MainExtraHeaderData <$> get <*> get <*> get
+deriveSimpleBi ''BC.MainExtraHeaderData [
+    Cons 'BC.MainExtraHeaderData [
+        Field [| BC._mehBlockVersion    :: BlockVersion             |],
+        Field [| BC._mehSoftwareVersion :: SoftwareVersion          |],
+        Field [| BC._mehAttributes      :: BC.BlockHeaderAttributes |]
+    ]]
 
-instance Bi BC.MainExtraBodyData where
-   sizeNPut = labelS "MainExtraBodyData" $ putField BC._mebAttributes
-   get = label "MainExtraBodyData" $ BC.MainExtraBodyData <$> get
+deriveSimpleBi ''BC.MainExtraBodyData [
+    Cons 'BC.MainExtraBodyData [
+        Field [| BC._mebAttributes :: BC.BlockBodyAttributes |]
+    ]]
 
 instance Ssc ssc => Bi (BC.MainToSign ssc) where
     sizeNPut = labelS "MainToSign" $
@@ -88,13 +92,15 @@ instance Ssc ssc => Bi (BC.MainToSign ssc) where
 -- -- GenesisBlock
 -- ----------------------------------------------------------------------------
 
-instance Bi BC.GenesisExtraHeaderData where
-    sizeNPut = labelS "GenesisExtraHeaderData" $ putField BC._gehAttributes
-    get = label "GenesisExtraHeaderData" $ BC.GenesisExtraHeaderData <$> get
+deriveSimpleBi ''BC.GenesisExtraHeaderData [
+    Cons 'BC.GenesisExtraHeaderData [
+        Field [| BC._gehAttributes :: BC.GenesisHeaderAttributes |]
+    ]]
 
-instance Bi BC.GenesisExtraBodyData where
-    sizeNPut = labelS "GenesisExtraBodyData" $ putField BC._gebAttributes
-    get = label "GenesisExtraBodyData" $ BC.GenesisExtraBodyData <$> get
+deriveSimpleBi ''BC.GenesisExtraBodyData [
+    Cons 'BC.GenesisExtraBodyData [
+        Field [| BC._gebAttributes :: BC.GenesisBodyAttributes |]
+    ]]
 
 instance Bi (BC.BodyProof (BC.GenesisBlockchain ssc)) where
     sizeNPut = labelS "GenesisProof" $ putField (\(BC.GenesisProof h) -> h)

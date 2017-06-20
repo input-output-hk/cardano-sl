@@ -4,29 +4,24 @@ module Pos.Binary.Infra.Slotting
        (
        ) where
 
-import           Universum
+import           Data.Time.Units    (Millisecond)
 
-import           Pos.Binary.Class   (Bi (..), label, labelS, putField)
+import           Pos.Binary.Class   (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Core    ()
+import           Pos.Core.Timestamp (Timestamp)
+import           Pos.Core.Types     (EpochIndex)
 import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData (..))
 
-instance Bi EpochSlottingData where
-    sizeNPut = labelS "EpochSlottingData" $
-        putField esdSlotDuration <>
-        putField esdStart
-    get = label "EpochSlottingData" $ do
-        esdSlotDuration <- get
-        esdStart        <- get
-        pure EpochSlottingData{..}
+deriveSimpleBi ''EpochSlottingData [
+    Cons 'EpochSlottingData [
+        Field [| esdSlotDuration :: Millisecond |],
+        Field [| esdStart        :: Timestamp   |]
+    ]]
 
 -- CSL-1122: add a test for serialization of 'SlottingData'
-instance Bi SlottingData where
-    sizeNPut = labelS "SlottingData" $
-        putField sdPenult <>
-        putField sdLast <>
-        putField sdPenultEpoch
-    get = label "SlottingData" $ do
-        sdPenult      <- get
-        sdLast        <- get
-        sdPenultEpoch <- get
-        pure SlottingData{..}
+deriveSimpleBi ''SlottingData [
+    Cons 'SlottingData [
+        Field [| sdPenult      :: EpochSlottingData |],
+        Field [| sdLast        :: EpochSlottingData |],
+        Field [| sdPenultEpoch :: EpochIndex        |]
+    ]]

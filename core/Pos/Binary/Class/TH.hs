@@ -316,7 +316,9 @@ deriveSimpleBi headTy constrs = do
           --     -> ConstSize (size_Foo + tagSize)
           let casePattern  = tupP [ [p| Store.ConstSize $(varP fs) |]
                                   | fs <- concat fieldSizeNames]
-              caseGuard    = andE $ zipConsecutive (infixApp [| (==) |]) totals
+              caseGuard    = andE $ zipConsecutive
+                                      (\a b -> infixApp a [|(==)|] b)
+                                      totals
               caseResult   = [| Store.ConstSize ($firstTotal + $mbTagSize) |]
           -- Put it all together!
           match casePattern
@@ -462,12 +464,12 @@ foldr1E f = foldr1 (\a b -> infixApp a f b)
 foldl1E :: ExpQ -> [ExpQ] -> ExpQ
 foldl1E f = foldl1 (\a b -> infixApp a f b)
 
--- | Generate an expression which is a 'sum' of a list of expressions
+-- | Put '(+)' between expressions.
 sumE :: [ExpQ] -> ExpQ
 sumE [] = [| 0 |]
 sumE xs = foldl1E [|(+)|] xs
 
--- | Generate an expression which is an 'and' of a list of expressions
+-- | Put '(&&)' between expressions.
 andE :: [ExpQ] -> ExpQ
 andE [] = [| True |]
 andE xs = foldr1E [|(&&)|] xs

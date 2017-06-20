@@ -5,22 +5,22 @@ module Pos.Binary.Update
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..), PokeWithSize,
-                                          Size (..), convertSize, convertToSizeNPut,
-                                          deriveSimpleBi, getAsciiString1b, getSize,
-                                          getWord8, label, labelP, labelS,
-                                          putAsciiString1b, putField, putS, putWord8,
+import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..), Raw,
+                                          convertSize, convertToSizeNPut, deriveSimpleBi,
+                                          getAsciiString1b, getWord8, label, labelP,
+                                          labelS, putAsciiString1b, putField, putS,
                                           putWord8S, sizeAsciiString1b)
 import           Pos.Binary.Core         ()
 import           Pos.Binary.Core.Version ()
 import           Pos.Binary.Infra        ()
-import           Pos.Core.Types          (HeaderHash)
-import           Pos.Crypto              (SignTag (SignUSVote), checkSig)
+import           Pos.Core.Types          (ApplicationName, BlockVersion, BlockVersionData,
+                                          ChainDifficulty, Coin, HeaderHash,
+                                          NumSoftwareVersion, SlotId, SoftwareVersion,
+                                          StakeholderId)
+import           Pos.Crypto              (Hash, SignTag (SignUSVote), checkSig)
+import           Pos.Slotting.Types      (SlottingData)
 import qualified Pos.Update.Core.Types   as U
 import qualified Pos.Update.Poll.Types   as U
-
--- TODO Most of Update datatypes contain fields of parametrized types.
--- deriveSimpleBi doesn't support them yet.
 
 instance Bi U.SystemTag where
     size = convertSize (toString . U.getSystemTag) sizeAsciiString1b
@@ -48,16 +48,14 @@ instance Bi U.UpdateVote where
             fail "Pos.Binary.Update: UpdateVote: invalid signature"
         return U.UpdateVote {..}
 
--- TODO rewrite on deriveSimpleBi
-instance Bi U.UpdateData where
-    sizeNPut = labelS "UpdateData" $
-        putField U.udAppDiffHash <>
-        putField U.udPkgHash <>
-        putField U.udUpdaterHash <>
-        putField U.udMetadataHash
-    get = label "UpdateData" $ U.UpdateData <$> get <*> get <*> get <*> get
+deriveSimpleBi ''U.UpdateData [
+    Cons 'U.UpdateData [
+        Field [| U.udAppDiffHash  :: Hash Raw |],
+        Field [| U.udPkgHash      :: Hash Raw |],
+        Field [| U.udUpdaterHash  :: Hash Raw |],
+        Field [| U.udMetadataHash :: Hash Raw |]
+    ]]
 
--- TODO rewrite on deriveSimpleBi
 instance Bi U.UpdateProposal where
     sizeNPut = labelS "UpdateProposal" $
         putField U.upBlockVersion <>
@@ -77,27 +75,20 @@ instance Bi U.UpdateProposal where
         i <- get
         U.mkUpdateProposal d r a t u t' i
 
--- TODO rewrite on deriveSimpleBi
-instance Bi U.UpdateProposalToSign where
-    sizeNPut = labelS "UpdateProposalToSign" $
-        putField U.upsBV <>
-        putField U.upsBVD <>
-        putField U.upsSV <>
-        putField U.upsData <>
-        putField U.upsAttr
-    get = label "UpdateProposalToSign" $
-          U.UpdateProposalToSign
-            <$> get
-            <*> get
-            <*> get
-            <*> get
-            <*> get
+deriveSimpleBi ''U.UpdateProposalToSign [
+    Cons 'U.UpdateProposalToSign [
+        Field [| U.upsBV   :: BlockVersion                     |],
+        Field [| U.upsBVD  :: BlockVersionData                 |],
+        Field [| U.upsSV   :: SoftwareVersion                  |],
+        Field [| U.upsData :: HashMap U.SystemTag U.UpdateData |],
+        Field [| U.upsAttr :: U.UpAttributes                   |]
+    ]]
 
--- TODO rewrite on deriveSimpleBi
-instance Bi U.UpdatePayload where
-    sizeNPut = labelS "UpdatePayload" $
-        putField U.upProposal <> putField U.upVotes
-    get = label "UpdatePayload" $ liftA2 U.UpdatePayload get get
+deriveSimpleBi ''U.UpdatePayload [
+    Cons 'U.UpdatePayload [
+        Field [| U.upProposal :: Maybe U.UpdateProposal |],
+        Field [| U.upVotes    :: [U.UpdateVote]         |]
+    ]]
 
 deriveSimpleBi ''U.VoteState [
     Cons 'U.PositiveVote [],
@@ -106,35 +97,36 @@ deriveSimpleBi ''U.VoteState [
     Cons 'U.NegativeRevote []]
 
 instance Bi a => Bi (U.PrevValue a) where
-    sizeNPut = labelS "PrevValue" $ convertToSizeNPut toBi
-        where
-          toBi :: Bi a => U.PrevValue a -> PokeWithSize ()
-          toBi = \case
-              U.PrevValue v -> putWord8S 2 <> putS v
-              U.NoExist     -> putWord8S 3
+    sizeNPut = labelS "PrevValue" $
+        convertToSizeNPut $ \case
+            U.PrevValue v -> putWord8S 2 <> putS v
+            U.NoExist     -> putWord8S 3
     get = label "PrevValue" $ getWord8 >>= \case
         2 -> U.PrevValue <$> get
         3 -> pure U.NoExist
         x -> fail $ "get@PrevValue: invalid tag: " <> show x
 
--- TODO rewrite on deriveSimpleBi
-instance Bi U.USUndo where
-    sizeNPut = labelS "USUndo" $
-        putField U.unChangedBV <>
-        putField U.unLastAdoptedBV <>
-        putField U.unChangedProps <>
-        putField U.unChangedSV <>
-        putField U.unChangedConfProps <>
-        putField U.unPrevProposers
-    get = label "USUndo" $ do
-        unChangedBV <- get
-        unLastAdoptedBV <- get
-        unChangedProps <- get
-        unChangedSV <- get
-        unChangedConfProps <- get
-        unPrevProposers <- get
-        unSlottingData <- get
-        return $ U.USUndo {..}
+deriveSimpleBi ''U.USUndo [
+    Cons 'U.USUndo [
+        Field [| U.unChangedBV
+                     :: HashMap BlockVersion
+                          (U.PrevValue U.BlockVersionState)      |],
+        Field [| U.unLastAdoptedBV
+                     :: Maybe BlockVersion                       |],
+        Field [| U.unChangedProps
+                     :: HashMap U.UpId
+                          (U.PrevValue U.ProposalState)          |],
+        Field [| U.unChangedSV
+                     :: HashMap ApplicationName
+                          (U.PrevValue NumSoftwareVersion)       |],
+        Field [| U.unChangedConfProps
+                     :: HashMap SoftwareVersion
+                          (U.PrevValue U.ConfirmedProposalState) |],
+        Field [| U.unPrevProposers
+                     :: Maybe (HashSet StakeholderId)            |],
+        Field [| U.unSlottingData
+                     :: Maybe SlottingData                       |]
+    ]]
 
 deriveSimpleBi ''U.UpsExtra [
     Cons 'U.UpsExtra [
@@ -147,89 +139,51 @@ deriveSimpleBi ''U.DpsExtra [
         Field [| U.deImplicit   :: Bool       |]
     ]]
 
--- TODO rewrite on deriveSimpleBi
-instance Bi U.UndecidedProposalState where
-    sizeNPut = labelS "UndecidedProposalState" $
-        putField U.upsVotes <>
-        putField U.upsProposal <>
-        putField U.upsSlot <>
-        putField U.upsPositiveStake <>
-        putField U.upsNegativeStake <>
-        putField U.upsExtra
-    get = label "UndecidedProposalState" $ do
-        upsVotes <- get
-        upsProposal <- get
-        upsSlot <- get
-        upsPositiveStake <- get
-        upsNegativeStake <- get
-        upsExtra <- get
-        return $ U.UndecidedProposalState {..}
+deriveSimpleBi ''U.UndecidedProposalState [
+    Cons 'U.UndecidedProposalState [
+        Field [| U.upsVotes         :: U.StakeholderVotes |],
+        Field [| U.upsProposal      :: U.UpdateProposal   |],
+        Field [| U.upsSlot          :: SlotId             |],
+        Field [| U.upsPositiveStake :: Coin               |],
+        Field [| U.upsNegativeStake :: Coin               |],
+        Field [| U.upsExtra         :: Maybe U.UpsExtra   |]
+    ]]
 
--- TODO rewrite on deriveSimpleBi
-instance Bi U.DecidedProposalState where
-    sizeNPut = labelS "DecidedProposalState" $
-        putField U.dpsDecision <>
-        putField U.dpsUndecided <>
-        putField U.dpsDifficulty <>
-        putField U.dpsExtra
-    get = label "DecidedProposalState" $ do
-        dpsDecision <- get
-        dpsUndecided <- get
-        dpsDifficulty <- get
-        dpsExtra <- get
-        return $ U.DecidedProposalState {..}
+deriveSimpleBi ''U.DecidedProposalState [
+    Cons 'U.DecidedProposalState [
+        Field [| U.dpsDecision   :: Bool                     |],
+        Field [| U.dpsUndecided  :: U.UndecidedProposalState |],
+        Field [| U.dpsDifficulty :: Maybe ChainDifficulty    |],
+        Field [| U.dpsExtra      :: Maybe U.DpsExtra         |]
+    ]]
 
--- TODO rewrite on deriveSimpleBi
-instance Bi U.ProposalState where
-    size = VarSize $ \case
-        U.PSUndecided us -> 1 + getSize us
-        U.PSDecided ds -> 1 + getSize ds
-    put = labelP "ProposalState" . \case
-        U.PSUndecided us -> putWord8 0 >> put us
-        U.PSDecided   ds -> putWord8 1 >> put ds
-    get = label "ProposalState" $ getWord8 >>= \case
-        0 -> U.PSUndecided <$> get
-        1 -> U.PSDecided <$> get
-        x -> fail $ "get@ProposalState: invalid tag: " <> show x
+deriveSimpleBi ''U.ProposalState [
+    Cons 'U.PSUndecided [
+        Field [| U.unPSUndecided :: U.UndecidedProposalState |]
+    ],
+    Cons 'U.PSDecided [
+        Field [| U.unPSDecided :: U.DecidedProposalState |]
+    ]]
 
--- TODO rewrite on deriveSimpleBi
-instance Bi U.ConfirmedProposalState where
-    sizeNPut = labelS "ConfirmedProposalState" $
-        putField U.cpsUpdateProposal <>
-        putField U.cpsImplicit <>
-        putField U.cpsProposed <>
-        putField U.cpsDecided <>
-        putField U.cpsConfirmed <>
-        putField U.cpsAdopted <>
-        putField U.cpsVotes <>
-        putField U.cpsPositiveStake <>
-        putField U.cpsNegativeStake
-    get = label "ConfirmedProposalState" $ do
-        cpsUpdateProposal <- get
-        cpsImplicit <- get
-        cpsProposed <- get
-        cpsDecided <- get
-        cpsConfirmed <- get
-        cpsAdopted <- get
-        cpsVotes <- get
-        cpsPositiveStake <- get
-        cpsNegativeStake <- get
-        return $ U.ConfirmedProposalState {..}
+deriveSimpleBi ''U.ConfirmedProposalState [
+    Cons 'U.ConfirmedProposalState [
+        Field [| U.cpsUpdateProposal :: U.UpdateProposal   |],
+        Field [| U.cpsImplicit       :: Bool               |],
+        Field [| U.cpsProposed       :: HeaderHash         |],
+        Field [| U.cpsDecided        :: HeaderHash         |],
+        Field [| U.cpsConfirmed      :: HeaderHash         |],
+        Field [| U.cpsAdopted        :: Maybe HeaderHash   |],
+        Field [| U.cpsVotes          :: U.StakeholderVotes |],
+        Field [| U.cpsPositiveStake  :: Coin               |],
+        Field [| U.cpsNegativeStake  :: Coin               |]
+    ]]
 
--- TODO rewrite on deriveSimpleBi
-instance Bi U.BlockVersionState where
-    sizeNPut = labelS "BlockVersionState" $
-        putField U.bvsData <>
-        putField U.bvsIsConfirmed <>
-        putField U.bvsIssuersStable <>
-        putField U.bvsIssuersUnstable <>
-        putField U.bvsLastBlockStable <>
-        putField U.bvsLastBlockUnstable
-    get = label "BlockVersionState" $ do
-        bvsData <- get
-        bvsIsConfirmed <- get
-        bvsIssuersStable <- get
-        bvsIssuersUnstable <- get
-        bvsLastBlockStable <- get
-        bvsLastBlockUnstable <- get
-        return $ U.BlockVersionState {..}
+deriveSimpleBi ''U.BlockVersionState [
+    Cons 'U.BlockVersionState [
+        Field [| U.bvsData              :: BlockVersionData      |],
+        Field [| U.bvsIsConfirmed       :: Bool                  |],
+        Field [| U.bvsIssuersStable     :: HashSet StakeholderId |],
+        Field [| U.bvsIssuersUnstable   :: HashSet StakeholderId |],
+        Field [| U.bvsLastBlockStable   :: Maybe HeaderHash      |],
+        Field [| U.bvsLastBlockUnstable :: Maybe HeaderHash      |]
+    ]]

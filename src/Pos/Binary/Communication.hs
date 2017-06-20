@@ -11,14 +11,17 @@ import           Data.Bits                        (Bits (..))
 import           Node.Message.Class               (MessageName (..))
 
 import           Pos.Binary.Block                 ()
-import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),
-                                                   convertToSizeNPut, decodeFull, encode,
+import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..),
+                                                   UnsignedVarInt (..), convertToSizeNPut,
+                                                   decodeFull, deriveSimpleBi, encode,
                                                    getSmallWithLength, getWord8, label,
                                                    labelS, putField, putS,
                                                    putSmallWithLengthS, putWord8S)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
+import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
+                                                   VerInfo (..))
+import           Pos.Core                         (BlockVersion, HeaderHash)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 
 ----------------------------------------------------------------------------
@@ -33,13 +36,17 @@ deriving instance Bi MessageName
 -- Blocks
 ----------------------------------------------------------------------------
 
-instance Bi MsgGetHeaders where
-    sizeNPut = labelS "MsgGetHeaders" $ putField mghFrom <> putField mghTo
-    get = label "MsgGetHeaders" $ MsgGetHeaders <$> get <*> get
+deriveSimpleBi ''MsgGetHeaders [
+    Cons 'MsgGetHeaders [
+        Field [| mghFrom :: [HeaderHash]     |],
+        Field [| mghTo   :: Maybe HeaderHash |]
+    ]]
 
-instance Bi MsgGetBlocks where
-    sizeNPut = labelS "MsgGetBlocks" $ putField mgbFrom <> putField mgbTo
-    get = label "MsgGetBlocks" $ MsgGetBlocks <$> get <*> get
+deriveSimpleBi ''MsgGetBlocks [
+    Cons 'MsgGetBlocks [
+        Field [| mgbFrom :: HeaderHash |],
+        Field [| mgbTo   :: HeaderHash |]
+    ]]
 
 instance SscHelpersClass ssc => Bi (MsgHeaders ssc) where
     sizeNPut = labelS "MsgHeaders" $ putField $ \(MsgHeaders b) -> b
@@ -54,7 +61,7 @@ instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
 ----------------------------------------------------------------------------
 
 --
--- Encoding of HandlerSpec is as follow:
+-- Encoding of HandlerSpec is as follows:
 --
 --  | Type                                 | Size     | Value     | Following data   |
 --  |--------------------------------------|----------|-----------|------------------|
@@ -88,10 +95,10 @@ instance Bi HandlerSpec where
         -- none of the above: unknown handler
           | otherwise -> UnknownHandler t <$> getSmallWithLength get
 
-instance Bi VerInfo where
-    sizeNPut = labelS "VerInfo" $
-        putField vIMagic <>
-        putField vIBlockVersion <>
-        putField vIInHandlers <>
-        putField vIOutHandlers
-    get = label "VerInfo" $ VerInfo <$> get <*> get <*> get <*> get
+deriveSimpleBi ''VerInfo [
+    Cons 'VerInfo [
+        Field [| vIMagic        :: Int32        |],
+        Field [| vIBlockVersion :: BlockVersion |],
+        Field [| vIInHandlers   :: HandlerSpecs |],
+        Field [| vIOutHandlers  :: HandlerSpecs |]
+    ]]

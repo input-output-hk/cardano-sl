@@ -38,14 +38,15 @@ import           Serokell.Data.Memory.Units (Byte)
 -- Bi typeclass
 ----------------------------------------------------------------------------
 
--- | Simplified definition of serializable object
--- Data.Binary.Class-alike.
+-- | A class for serialization (like the one in "Data.Store", but we
+-- reimplement it to have full control over serialization).
 --
--- You can implement @put@ and @size@ or only @sizeNPut@.
--- @sizeNPut@ is needed for convenient way to implement @put@ and @size@
--- together without boilerplate code. It also makes instance less error-prone.
--- Please implement @sizeNPut@ instead of @size@ and @put@ if it's possible.
--- There are some useful helpers at Pos.Binary.Class.Store (like @putField@, @putConst@, etc)
+-- You can implement @put@ and @size@ or only @sizeNPut@. @sizeNPut@ is
+-- needed for convenient way to implement @put@ and @size@ together without
+-- boilerplate code. It also makes instance less error-prone. Please
+-- implement @sizeNPut@ instead of @size@ and @put@ if it's possible. There
+-- are some useful helpers at Pos.Binary.Class.Store (like @putField@,
+-- @putConst@, etc)
 class Bi t where
     {-# MINIMAL get, put, size | get, sizeNPut  #-}
     sizeNPut :: (Size t, t -> Poke ())
@@ -58,11 +59,6 @@ class Bi t where
     put = snd sizeNPut
 
     get :: Peek t
-
-
---instance Serializable t => B.Binary t where
---    get = get
---    put = put
 
 -- | Encode a value to a strict bytestring
 encode :: Bi a => a -> ByteString

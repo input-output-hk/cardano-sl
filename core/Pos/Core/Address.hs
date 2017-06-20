@@ -24,6 +24,9 @@ module Pos.Core.Address
        , unsafeAddressHash
        ) where
 
+import           Universum
+
+import           Control.Lens           (_Left)
 import           Crypto.Hash            (Blake2b_224, Digest, SHA3_256)
 import qualified Crypto.Hash            as CryptoHash
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
@@ -33,7 +36,6 @@ import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (Format, bprint, build, int, later, (%))
 import           Serokell.Util.Base16   (base16F)
-import           Universum
 
 import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
@@ -83,7 +85,7 @@ decodeAddress :: Bi Address => ByteString -> Either String Address
 decodeAddress bs = do
     let base58Err = "Invalid base58 representation of address"
     dbs <- maybeToRight base58Err $ decodeBase58 addrAlphabet bs
-    bimap toString identity $ Bi.decodeFull dbs
+    over _Left toString $ Bi.decodeFull dbs
 
 decodeTextAddress :: Bi Address => Text -> Either Text Address
 decodeTextAddress = first toText . decodeAddress . encodeUtf8

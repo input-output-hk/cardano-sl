@@ -4,7 +4,7 @@ module Pos.Binary.GodTossing.Relay
 
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..), get, label, labelS, putField)
+import           Pos.Binary.Class              (Bi (..), label, labelS, putField)
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Ssc.GodTossing.Types      as T
 

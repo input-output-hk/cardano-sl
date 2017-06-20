@@ -30,15 +30,6 @@ import           Pos.Binary.Class.Store      (Size (..), StaticSize, combineSize
                                               execPoke, mkPoke, sizeOf)
 
 ----------------------------------------------------------------------------
--- Popular basic instances
-----------------------------------------------------------------------------
-
--- TODO get rid of boilerplate (or rewrite by hands to make it more clear)
--- I just copied most of it from here:
--- https://hackage.haskell.org/package/binary-0.8.4.1/docs/src/Data.Binary.Class.html#line-564
-
-
-----------------------------------------------------------------------------
 -- Primitive types
 ----------------------------------------------------------------------------
 
@@ -95,27 +86,32 @@ instance Bi Char where
 -- Numeric data
 ----------------------------------------------------------------------------
 
-instance Bi Integer where -- FIXME: CSL-1122 fixed endianness
+-- CSL-1122: All these instances should use the same endianness on all
+-- platforms (the instances defined in store have architecture-dependent
+-- endianness). Also, all these instances should be implemented manually
+-- instead of using store.
+
+instance Bi Integer where
     size = Store.size
     put = Store.poke
     get = Store.peek
 
-instance Bi Word16 where -- FIXME: CSL-1122 fixed endianness
+instance Bi Word16 where
     size = Store.size
     put = Store.poke
     get = Store.peek
 
-instance Bi Word32 where -- FIXME: CSL-1122 fixed endianness
+instance Bi Word32 where
     size = Store.size
     put = Store.poke
     get = Store.peek
 
-instance Bi Word64 where -- FIXME: CSL-1122 fixed endianness
+instance Bi Word64 where
     size = Store.size
     put = Store.poke
     get = Store.peek
 
-instance Bi Int32 where -- FIXME: CSL-1122 fixed endianness
+instance Bi Int32 where
     size = Store.size
     put = Store.poke
     get = Store.peek

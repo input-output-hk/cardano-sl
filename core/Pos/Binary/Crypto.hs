@@ -66,6 +66,8 @@ instance HashAlgorithm algo => Bi (AbstractHash algo a) where
             sbs <- get
             let bs = unStaticSize @n sbs :: BS.ByteString
             case digestFromByteString bs of
+                -- It's impossible because 'get' will already fail if there
+                -- weren't enough bytes available
                 Nothing -> error "AbstractHash.peek: impossible"
                 Just x  -> pure (AbstractHash x))
 

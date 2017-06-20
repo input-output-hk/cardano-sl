@@ -50,7 +50,8 @@ import           Pos.Binary.Class.Core      (Bi (..), getSize)
 -- Helpers to implement @sizeNPut@
 ----------------------------------------------------------------------------
 
--- [CSL-1122] shouldn't this mappend results as well? like Monoid (IO a) does
+-- CSL-1122: write an overlapping instance for Poke (), it might make things
+-- faster.
 instance Monoid a => Monoid (Poke a) where
     mempty = pure mempty
     m1 `mappend` m2 = Poke $ \ps off -> do

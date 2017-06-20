@@ -165,14 +165,13 @@ instance ZZEncode Int Word where
 -- Int/Word encoding
 ----------------------------------------------------------------------------
 
--- | A newtype wrapper for non-negative varints. During serialization its
--- contents will be encoded as a variable-sized integer.
+-- | A newtype wrapper optimized for non-negative varints. During
+-- serialization its contents will be encoded as a variable-sized integer.
 --
--- Despite its name, e.g. @UnsignedVarInt (-50 :: Int)@ will be serialized
--- and deserialized correctly; however, 'UnsignedVarInt' is optimized for
--- non-negative numbers, and will always take maximum space (e.g. 10 bytes in
--- case of 'Int64'). Specifically, @Int@ is simply coerced into its @Word@
--- representation before being serialized.
+-- Despite its name, 'UnsignedVarInt' correctly works with negative numbers!
+-- It will simply always take maximum space (e.g. 10 bytes in case of
+-- 'Int64') for negative numbers (because @Int@ is simply coerced into its
+-- @Word@ representation before being serialized).
 newtype UnsignedVarInt a = UnsignedVarInt {getUnsignedVarInt :: a}
     deriving (Eq, Ord, Show, Generic, NFData, Functor)
 

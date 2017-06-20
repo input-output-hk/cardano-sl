@@ -45,15 +45,15 @@ instance Bi User where
                val@Login{} -> getSize (login val) + getSize (age val)
                val@FullName{} -> getSize (firstName val) + getSize (age val)
     put = \x -> case x of
-        val@Login{} -> do
+        val@Login{} -> labelP "User" $ do
             put (0 :: Word8)
             put (login val)
             put (age val)
-        val@FullName{} -> do
+        val@FullName{} -> labelP "User" $ do
             put (1 :: Word8)
             put (firstName val)
             put (age val)
-    get = do
+    get = label "User" $ do
         tag <- get @Word8
         case tag of
             0 -> do
@@ -218,7 +218,7 @@ deriveSimpleBi headTy constrs = do
               imap biPutConstr filteredConstrs
 
     -- Generate the following code:
-    -- val@Constr{} -> do
+    -- val@Constr{} -> label "TypeName" $ do
     --   put (3 :: Word8)
     --   put (field1 val)
     --   put (field2 val)
@@ -245,11 +245,14 @@ deriveSimpleBi headTy constrs = do
 
     -- Size definition --
     biSizeExpr :: Q Exp
-    biSizeExpr = caseE (tupE (concatMap (map (sizeAtType . fmap snd)) allUsedFields)) $
-                       -- when there are no fields, the second branch will be redundant
-                       -- so we don't generate it at all
-                       [matchConstSize] ++
-                       [matchVarSize | not (all null allUsedFields)]
+    biSizeExpr = do
+        let sizes :: [ExpQ]
+            sizes = map (sizeAtType . fmap snd) $ concat allUsedFields
+        caseE (tupE sizes) $
+            -- when there are no fields, the second branch will be
+            -- redundant so we don't generate it at all
+            [matchConstSize] ++
+            [matchVarSize | not (all null allUsedFields)]
 
     -- Generate code like "size :: Word8", "size :: Int"
     sizeAtType :: TypeQ -> ExpQ

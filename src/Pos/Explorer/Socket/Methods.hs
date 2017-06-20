@@ -155,8 +155,8 @@ finishSession
     => SocketId -> m ()
 finishSession sessId =
     whenJustM (use $ csClients . at sessId) $ \_ -> do
-        csClients . at sessId .= Nothing
         unsubscribeFully sessId
+        csClients . at sessId .= Nothing
         logDebug $ sformat ("Session #"%shown%" has finished") sessId
 
 subscribe

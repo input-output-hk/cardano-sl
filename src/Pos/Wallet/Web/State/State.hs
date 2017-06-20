@@ -28,8 +28,6 @@ module Pos.Wallet.Web.State.State
        , getUpdates
        , getNextUpdate
        , getHistoryCache
-       , getChangeAddresses
-       , isChangeAddress
 
        -- * Setters
        , testReset
@@ -37,7 +35,6 @@ module Pos.Wallet.Web.State.State
        , createWallet
        , addRemovedAccount
        , addWAddress
-       , addChangeAddress
        , setProfile
        , setAccountMeta
        , setWalletMeta
@@ -145,12 +142,6 @@ getNextUpdate = queryDisk A.GetNextUpdate
 getHistoryCache :: WebWalletModeDB m => CId Wal -> m (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
 getHistoryCache = queryDisk . A.GetHistoryCache
 
-getChangeAddresses :: WebWalletModeDB m => m (HashSet CWAddressMeta)
-getChangeAddresses = queryDisk A.GetChangeAddresses
-
-isChangeAddress :: WebWalletModeDB m => CWAddressMeta -> m Bool
-isChangeAddress = queryDisk . A.IsChangeAddress
-
 createAccount :: WebWalletModeDB m => AccountId -> CAccountMeta -> m ()
 createAccount accId = updateDisk . A.CreateAccount accId
 
@@ -159,9 +150,6 @@ createWallet cWalId passLU = updateDisk . A.CreateWallet cWalId passLU
 
 addWAddress :: WebWalletModeDB m => CWAddressMeta -> m ()
 addWAddress addr = updateDisk $ A.AddWAddress addr
-
-addChangeAddress :: WebWalletModeDB m => CWAddressMeta -> m ()
-addChangeAddress addr = updateDisk $ A.AddChangeAddress addr
 
 addRemovedAccount :: WebWalletModeDB m => CWAddressMeta -> m ()
 addRemovedAccount addr = updateDisk $ A.AddRemovedAccount addr

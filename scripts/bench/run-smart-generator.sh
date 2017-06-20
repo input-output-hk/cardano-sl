@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 base=$(dirname "$0")
-. "$base"/../common.sh
+. "$base"/../common-functions.sh
 
 # create logs dir actually
 # TODO update wallet executable to support

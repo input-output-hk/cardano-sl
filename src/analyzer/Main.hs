@@ -20,7 +20,8 @@ import           Unsafe                     (unsafeFromJust)
 import           AnalyzerOptions            (Args (..), getAnalyzerOptions)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
-                                             JLTimedEvent (..), fromJLSlotId)
+                                             fromJLSlotIdUnsafe)
+import           Pos.Util.TimeWarp          (JLTimed (..))
 
 type TxId = Text
 type BlockId = Text
@@ -42,7 +43,7 @@ main = do
         putText $ sformat ("Writing TPS stats to file: "%string) csvFile
         writeFile csvFile $ tpsToCsv ds
 
-analyzeVerifyTimes :: FilePath -> Word64 -> HM.HashMap FilePath [JLTimedEvent] -> IO ()
+analyzeVerifyTimes :: FilePath -> Word64 -> HM.HashMap FilePath [JLTimed JLEvent] -> IO ()
 analyzeVerifyTimes txFile cParam logs = do
     (txSenderMap :: HashMap TxId Integer) <-
         HM.fromList . fromMaybe (error "failed to read txSenderMap") . decode <$>
@@ -61,15 +62,17 @@ analyzeVerifyTimes txFile cParam logs = do
         length common
     print averageMsec
 
-getTxAcceptTimeAvgs :: Word64 -> HM.HashMap FilePath [JLTimedEvent] -> HM.HashMap TxId Integer
+getTxAcceptTimeAvgs :: Word64 -> HM.HashMap FilePath [JLTimed JLEvent] -> HM.HashMap TxId Integer
 getTxAcceptTimeAvgs confirmations fileEvsMap = result
   where
     n = HM.size fileEvsMap
-    allEvs = map jlEvent $ mconcat $ HM.elems fileEvsMap
+    allEvs = map event $ mconcat $ HM.elems fileEvsMap
+    event :: JLTimed a -> a
+    event (JLTimed _ x) = x
     blocks :: HM.HashMap BlockId JLBlock
     blocks = foldl' addBlock mempty allEvs
     adopted :: HM.HashMap BlockId (HM.HashMap FilePath Integer)
-    adopted = HM.foldlWithKey' adPerFile mempty fileEvsMap
+    adopted = HM.map (HM.map fromIntegral) $ HM.foldlWithKey' adPerFile mempty fileEvsMap
     adPerFile m fp = foldl' (addAdopted fp) m . reverse
 
     adoptedAvgs :: HM.HashMap BlockId Integer
@@ -90,13 +93,13 @@ getTxAcceptTimeAvgs confirmations fileEvsMap = result
                   |otherwise     = Nothing
       where
         mInitB = initId `HM.lookup` blocks
-        kSl = unflattenSlotId $ flattenSlotId (fromJLSlotId $ jlSlot $ unsafeFromJust mInitB) - confirmations
+        kSl = unflattenSlotId $ flattenSlotId (fromJLSlotIdUnsafe $ jlSlot $ unsafeFromJust mInitB) - confirmations
         impl id = HM.lookup id blocks >>=
-                      \b -> if (fromJLSlotId $ jlSlot b) <= kSl
+                      \b -> if (fromJLSlotIdUnsafe $ jlSlot b) <= kSl
                                then return b
                                else impl (jlPrevBlock b)
 
-    addAdopted fp m (JLTimedEvent time (JLAdoptedBlock blockId)) = HM.insert blockId sm' m
+    addAdopted fp m (JLTimed time (JLAdoptedBlock blockId)) = HM.insert blockId sm' m
       where
         sm = fromMaybe mempty $ HM.lookup blockId m
         sm' = HM.insert fp time sm
@@ -105,10 +108,10 @@ getTxAcceptTimeAvgs confirmations fileEvsMap = result
     addBlock m (JLCreatedBlock block) = HM.insert (jlHash block) block m
     addBlock m _                      = m
 
-parseFiles :: [FilePath] -> IO (HM.HashMap FilePath [JLTimedEvent])
+parseFiles :: [FilePath] -> IO (HM.HashMap FilePath [JLTimed JLEvent])
 parseFiles = foldM (\m f -> flip (HM.insert f) m <$> parseFile f) mempty
 
-parseFile :: FilePath -> IO [JLTimedEvent]
+parseFile :: FilePath -> IO [JLTimed JLEvent]
 parseFile f = do
     bytes <- BS.readFile f
     res <- parseWith (pure mempty) (many' $ json' >>= fromJSON') bytes
@@ -123,16 +126,16 @@ parseFile f = do
 tpsCsvFilename :: FilePath -> FilePath
 tpsCsvFilename file = take (length file - 5) file ++ "-tps.csv"
 
-getTpsLog :: [JLTimedEvent] -> [(UTCTime, Double)]
+getTpsLog :: [JLTimed JLEvent] -> [(UTCTime, Double)]
 getTpsLog = map toTimedCount . filter isTpsEvent
-  where isTpsEvent ev = case jlEvent ev of
+  where isTpsEvent (JLTimed _ ev) = case ev of
             JLTpsStat _ -> True
             _           -> False
-        toTimedCount (JLTimedEvent time (JLTpsStat count)) =
+        toTimedCount (JLTimed time (JLTpsStat count)) =
             ( posixSecondsToUTCTime $ fromIntegral $ time `div` 1000000
             , fromIntegral count
             )
-        toTimedCount _ = error "getTpsLog: not TPS stat is given!"
+        toTimedCount _ = error "getTpsLog: no TPS stats given!"
 
 tpsToCsv :: [(UTCTime, Double)] -> Text
 tpsToCsv entries =

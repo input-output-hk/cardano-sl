@@ -22,6 +22,7 @@ import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Core                    (ChainDifficulty)
 import           Pos.Discovery               (MonadDiscovery)
 import           Pos.Update                  (ConfirmedProposalState (..))
+import           Pos.Util.TimeWarp           (CanJsonLog)
 import           Pos.Wallet.KeyStorage       (MonadKeys)
 
 class Monad m => MonadBlockchainInfo m where
@@ -78,4 +79,5 @@ type WalletMode m
       , MonadUpdates m
       , WithPeerState m
       , MonadDiscovery m
+      , CanJsonLog m
       )

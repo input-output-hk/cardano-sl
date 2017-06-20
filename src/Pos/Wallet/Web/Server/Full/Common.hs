@@ -40,6 +40,7 @@ import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
                                                 askTxpMem)
 import           Pos.Wallet.Redirect           (runWalletRedirects)
+import           Pos.Util.TimeWarp             (runWithoutJsonLogT)
 import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.Web.Server.Methods (WalletWebHandler)
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar, getWalletWebSockets,
@@ -87,7 +88,8 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
       . runWalletRedirects
 
     realRunner :: forall t . RealMode WalletSscType t -> IO t
-    realRunner (RealMode act) = runProduction
+    realRunner (RealMode act) = runProduction 
+           . runWithoutJsonLogT
            . usingLoggerName "wallet-api"
            . flip Ether.runReadersT nc
            . (\m -> do

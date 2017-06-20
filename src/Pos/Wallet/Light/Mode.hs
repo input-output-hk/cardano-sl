@@ -32,6 +32,7 @@ import           Pos.DB                         (DBPureRedirect, MonadBlockDBGen
 import           Pos.DB.Block                   (BlockDBRedirect)
 import           Pos.Discovery                  (DiscoveryConstT, MonadDiscovery)
 import           Pos.Reporting.MemState         (ReportingContext)
+import           Pos.Util.TimeWarp              (CanJsonLog, JsonLogT)
 import           Pos.Util.Util                  (PowerLift (..))
 import           Pos.Wallet.KeyStorage          (KeyData)
 import           Pos.Wallet.Light.Redirect      (BalancesWalletRedirect,
@@ -60,8 +61,9 @@ type LightWalletMode' =
         , Tagged ReportingContext ReportingContext
         ) (
     LoggerNameBox (
+    JsonLogT (
     Production
-    ))))))))))))
+    )))))))))))))
 
 newtype LightWalletMode a = LightWalletMode (LightWalletMode' a)
   deriving
@@ -96,6 +98,7 @@ deriving instance MonadBlockchainInfo (LightWalletMode)
 deriving instance MonadBalances (LightWalletMode)
 deriving instance MonadTxHistory (LightWalletMode)
 deriving instance WithPeerState (LightWalletMode)
+deriving instance CanJsonLog (LightWalletMode)
 
 instance PowerLift m (LightWalletMode') => PowerLift m (LightWalletMode) where
   powerLift = LightWalletMode . powerLift

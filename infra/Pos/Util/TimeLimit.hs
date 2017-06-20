@@ -23,8 +23,8 @@ import           Universum         hiding (bracket, finally)
 
 import           Data.Time.Units   (Microsecond, Second, convertUnit)
 import           Formatting        (sformat, shown, stext, (%))
-import           Mockable          (Async, Async, Bracket, Delay, Mockable,
-                                    delay, race, withAsync)
+import           Mockable          (Async, Async, Bracket, Delay, Mockable, delay, race,
+                                    withAsync)
 import           System.Wlog       (WithLogger, logWarning)
 
 import           Pos.Crypto.Random (randomNumber)

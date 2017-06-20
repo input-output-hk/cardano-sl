@@ -48,7 +48,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 3fa7ccea4031a7424e77b63fd1f29e4d69b70b98
+    commit: a85eee061008e42a8e8cfcb292064d4b0be6b52a
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -100,7 +100,7 @@ extra-deps:
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
-# If you find it too restrictive, you can use `util-scripts/build.sh' script
+# If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
   cardano-sl-core:       -Werror
   cardano-sl-db:         -Werror

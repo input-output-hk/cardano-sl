@@ -11,6 +11,7 @@ echo "Cleaning Cardano SL db..."
 
 rm -rf run/*
 rm -rf wallet-db/
-rm -rf db-abc/
+rm -rf db-qanet/
+rm -rf wdb-qanet/
 rm -rf node-*.*key*
 rm -rf kademlia-abc.dump

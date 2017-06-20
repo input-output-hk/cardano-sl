@@ -11,11 +11,11 @@ fi
 
 genesis_=`cd $genesis && pwd`
 
-{ for i in $genesis/avvm/*.seed; do cat $i; echo ''; done; } > ../../postvend-app/seeds.txt
+{ for i in $genesis/avvm/*.seed; do cat $i; echo ''; done; } > ../../../postvend-app/seeds.txt
 
 DIR=`pwd`
 
-cd ../../postvend-app
+cd ../../../postvend-app
 
 rm -Rf paper-certs-* redeem-certs-*
 

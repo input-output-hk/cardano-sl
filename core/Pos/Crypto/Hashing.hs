@@ -1,7 +1,6 @@
-{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Hashing capabilities.
 
@@ -40,11 +39,11 @@ import           Crypto.Hash          (Blake2b_256, Digest, HashAlgorithm, hashD
 import qualified Crypto.Hash          as Hash (hash)
 import qualified Data.ByteArray       as ByteArray
 import           Data.Hashable        (Hashable (hashWithSalt), hashPtrWithSalt)
+import           Data.Reflection      (reifyNat)
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (Format, bprint, fitLeft, later, (%.))
 import qualified Serokell.Util.Base16 as B16
 import           System.IO.Unsafe     (unsafeDupablePerformIO)
-import           Data.Reflection      (reifyNat)
 import           Universum
 
 import           Pos.Binary.Class     (Bi, Raw)

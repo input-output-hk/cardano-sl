@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Arbitrary instances for 'Txp' types.
 
 module Pos.Txp.Arbitrary () where

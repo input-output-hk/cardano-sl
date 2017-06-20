@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Test.Pos.Arbitrary.Infra.Communication () where
 
 import           Data.DeriveTH                    (derive, makeArbitrary)

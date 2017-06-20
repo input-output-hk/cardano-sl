@@ -1,5 +1,4 @@
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE TemplateHaskell           #-}
 {-# LANGUAGE TypeFamilies              #-}
 {-# LANGUAGE TypeOperators             #-}
 

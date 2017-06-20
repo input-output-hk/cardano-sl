@@ -1,6 +1,4 @@
-{-# LANGUAGE CPP             #-}
--- needed for stylish-haskell :(
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 
 module Pos.Core.Class
        (

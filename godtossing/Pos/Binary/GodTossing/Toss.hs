@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Binary instances for Toss types.
 
 module Pos.Binary.GodTossing.Toss

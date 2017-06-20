@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Delegation-related local types.
 
 module Pos.Delegation.Types

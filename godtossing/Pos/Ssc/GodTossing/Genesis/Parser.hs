@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Pos.Ssc.GodTossing.Genesis.Parser
        ( compileGenGtData
        ) where

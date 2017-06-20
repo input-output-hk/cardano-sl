@@ -166,6 +166,7 @@ library
                        ConstraintKinds
                        UndecidableInstances
                        BangPatterns
+                       TemplateHaskell
 
   ghc-options:         -Wall
                        -fno-warn-orphans

@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Contains part of 'Pos.Util.UserSecret' related to wallets
 
 module Pos.Wallet.Web.Secret

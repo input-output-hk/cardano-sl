@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Binary serialization of Version types (software, block)
 
 module Pos.Binary.Core.Version () where

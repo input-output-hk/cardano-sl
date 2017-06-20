@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Pos.Core.Script () where
 
 import           Universum

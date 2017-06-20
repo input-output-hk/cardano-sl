@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | TH helpers for Bi
 module Pos.Binary.Class.TH

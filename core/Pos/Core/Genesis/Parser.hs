@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Compile-time genesis data parser
 
 module Pos.Core.Genesis.Parser

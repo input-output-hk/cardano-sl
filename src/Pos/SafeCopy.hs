@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | SafeCopy serialization of Pos.Types.* modules, required for wallet
 
 module Pos.SafeCopy

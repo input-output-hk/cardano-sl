@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Serialization of GodTossing types.
 
 module Pos.Binary.GodTossing.Types () where

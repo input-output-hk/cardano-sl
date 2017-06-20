@@ -464,6 +464,7 @@ library
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -542,6 +543,7 @@ executable cardano-node
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -605,6 +607,7 @@ executable cardano-analyzer
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -653,6 +656,7 @@ executable cardano-wallet-hs2purs
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -739,6 +743,7 @@ executable cardano-smart-generator
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -812,6 +817,7 @@ executable cardano-dht-keygen
                         UndecidableInstances
                         BangPatterns
                         ApplicativeDo
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -982,6 +988,7 @@ executable cardano-keygen
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   if flag(for-installer)
     buildable: False
@@ -1078,6 +1085,7 @@ executable cardano-addr-convert
                         ConstraintKinds
                         UndecidableInstances
                         ApplicativeDo
+                        TemplateHaskell
 
 executable cardano-cli-docs
   hs-source-dirs:      src/cli-docs
@@ -1226,6 +1234,7 @@ test-suite cardano-test
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1284,6 +1293,7 @@ benchmark cardano-bench-criterion
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

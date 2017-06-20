@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 
 -- | Secret key file storage and management functions based on file
 -- locking.

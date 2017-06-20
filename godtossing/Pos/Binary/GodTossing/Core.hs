@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Serialization of core types from GodTossing SSC.
 
 module Pos.Binary.GodTossing.Core

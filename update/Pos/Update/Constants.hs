@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Pos.Update.Constants
        ( UpdateConstants(..)
        , updateConstants

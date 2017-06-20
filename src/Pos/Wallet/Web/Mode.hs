@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -64,10 +63,11 @@ import           Pos.Wallet.Redirect           (MonadBlockchainInfo (..),
                                                 networkChainDifficultyWebWallet,
                                                 waitForUpdateWebWallet)
 import           Pos.Wallet.SscType            (WalletSscType)
+import           Pos.Wallet.Web.BListener      (MonadBListener (..), onApplyTracking,
+                                                onRollbackTracking)
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar)
-import           Pos.Wallet.Web.State.State    (WalletState)
 import           Pos.Wallet.Web.State.Core     (gsAdoptedBVDataWebWallet)
-import           Pos.Wallet.Web.BListener      (MonadBListener(..), onApplyTracking, onRollbackTracking)
+import           Pos.Wallet.Web.State.State    (WalletState)
 import           Pos.Wallet.Web.Tracking       (MonadWalletTracking (..),
                                                 syncOnImportWebWallet,
                                                 syncWSetsAtStartWebWallet,

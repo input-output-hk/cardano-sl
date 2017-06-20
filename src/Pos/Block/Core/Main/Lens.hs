@@ -1,5 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeOperators   #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Lenses for main blockchain types.
 --

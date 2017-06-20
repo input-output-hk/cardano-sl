@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Module for safe (zero-memory) signing
 
 module Pos.Crypto.SafeSigning

@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Arbitrary instances for Update System Poll types.
 
 module Pos.Update.Arbitrary.Poll () where

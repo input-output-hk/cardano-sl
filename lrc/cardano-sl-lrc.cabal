@@ -61,6 +61,7 @@ library
                        ConstraintKinds
                        UndecidableInstances
                        BangPatterns
+                       TemplateHaskell
 
   default-language:    Haskell2010
 

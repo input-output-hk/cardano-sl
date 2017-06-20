@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Arbitrary instances for Update System core types.
 
 module Pos.Update.Arbitrary.Core

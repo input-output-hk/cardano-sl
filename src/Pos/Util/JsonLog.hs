@@ -1,5 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Monadic represantion of something that has @json@ journaled log
 -- of operations.
@@ -15,29 +14,29 @@ module Pos.Util.JsonLog
        , jsonLogDefault
        ) where
 
-import           Universum               hiding (catchAll)
+import           Universum              hiding (catchAll)
 
-import           Data.Aeson.TH           (deriveJSON)
-import           Data.Aeson.Types        (ToJSON)
+import           Data.Aeson.TH          (deriveJSON)
+import           Data.Aeson.Types       (ToJSON)
 import qualified Ether
-import           Formatting              (sformat)
-import           JsonLog.JsonLogT        (JsonLogConfig(..))
-import qualified JsonLog.JsonLogT        as JL
-import           Mockable.Class          (Mockable (..))
-import           Mockable.Exception      (Catch)
-import           Serokell.Aeson.Options  (defaultOptions)
-import           System.Wlog.CanLog      (WithLogger)
+import           Formatting             (sformat)
+import           JsonLog.JsonLogT       (JsonLogConfig (..))
+import qualified JsonLog.JsonLogT       as JL
+import           Mockable.Class         (Mockable (..))
+import           Mockable.Exception     (Catch)
+import           Serokell.Aeson.Options (defaultOptions)
+import           System.Wlog.CanLog     (WithLogger)
 
-import           Pos.Binary.Block        ()
-import           Pos.Binary.Core         ()
-import           Pos.Block.Core          (BiSsc, Block, blockHeader, mainBlockTxPayload)
-import           Pos.Core                (SlotId (..), epochIndexL, gbHeader,
-                                          gbhPrevBlock, getSlotIndex, headerHash,
-                                          headerSlotL, mkLocalSlotIndex)
-import           Pos.Crypto              (Hash, hash, hashHexF)
-import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
-import           Pos.Txp.Core            (txpTxs)
-import           Pos.Util.Util           (leftToPanic)
+import           Pos.Binary.Block       ()
+import           Pos.Binary.Core        ()
+import           Pos.Block.Core         (BiSsc, Block, blockHeader, mainBlockTxPayload)
+import           Pos.Core               (SlotId (..), epochIndexL, gbHeader, gbhPrevBlock,
+                                         getSlotIndex, headerHash, headerSlotL,
+                                         mkLocalSlotIndex)
+import           Pos.Crypto             (Hash, hash, hashHexF)
+import           Pos.Ssc.Class.Helpers  (SscHelpersClass)
+import           Pos.Txp.Core           (txpTxs)
+import           Pos.Util.Util          (leftToPanic)
 
 type BlockId = Text
 type TxId = Text

@@ -2,7 +2,6 @@
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Client.Txp.History

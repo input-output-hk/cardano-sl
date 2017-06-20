@@ -1,5 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeFamilies #-}
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/AcidState.hs
 
 module Pos.Wallet.Web.State.Acidic

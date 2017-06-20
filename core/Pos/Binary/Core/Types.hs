@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Pos.Binary.Core.Types () where
 
 import           Universum

@@ -1,6 +1,5 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ViewPatterns        #-}
 
 -- | Serializable instances for Pos.Crypto.*

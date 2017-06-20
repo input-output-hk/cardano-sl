@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Types related to Poll monad.
 
 module Pos.Update.Poll.Types

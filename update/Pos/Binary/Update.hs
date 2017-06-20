@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | 'Bi' instances for various types from cardano-sl-update.
 module Pos.Binary.Update
        (

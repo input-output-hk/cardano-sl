@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 
 -- | Types used for managing of transactions
 -- and synchronization with database.

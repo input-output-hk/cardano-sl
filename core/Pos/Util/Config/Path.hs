@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | This is a separate module due to the TH stage restriction
 module Pos.Util.Config.Path
        ( cslConfigFilePath

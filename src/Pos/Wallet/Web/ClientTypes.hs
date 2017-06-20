@@ -47,46 +47,46 @@ module Pos.Wallet.Web.ClientTypes
       , mkCTxs
       , mkCTxId
       , txIdToCTxId
-      , txContainsTitle
       , toCUpdateInfo
-      , walletAddrMetaToAccount
+      , addrMetaToAccount
       ) where
 
 import           Universum
 
-import           Control.Arrow          ((&&&))
-import           Data.Default           (Default, def)
-import           Data.Hashable          (Hashable (..))
-import qualified Data.Set               as S
-import           Data.Text              (Text, isInfixOf, splitOn, toLower)
-import           Data.Text.Buildable    (build)
-import           Data.Time.Clock.POSIX  (POSIXTime)
-import           Data.Typeable          (Typeable)
-import           Formatting             (bprint, sformat, (%))
-import qualified Formatting             as F
+import           Control.Arrow             ((&&&))
+import           Control.Monad.Error.Class (throwError)
+import           Data.Default              (Default, def)
+import           Data.Hashable             (Hashable (..))
+import qualified Data.Set                  as S
+import           Data.Text                 (Text, splitOn)
+import           Data.Text.Buildable       (build)
+import           Data.Time.Clock.POSIX     (POSIXTime)
+import           Data.Typeable             (Typeable)
+import           Formatting                (bprint, sformat, (%))
+import qualified Formatting                as F
 import qualified Prelude
-import qualified Serokell.Util.Base16   as Base16
-import           Servant.Multipart      (FileData, FromMultipart (..), lookupFile,
-                                         lookupInput)
+import qualified Serokell.Util.Base16      as Base16
+import           Servant.Multipart         (FileData, FromMultipart (..), lookupFile,
+                                            lookupInput)
 
-import           Pos.Aeson.Types        ()
-import           Pos.Binary.Class       (decodeFull, encode)
-import           Pos.Client.Txp.History (TxHistoryEntry (..))
-import           Pos.Core.Coin          (mkCoin)
-import           Pos.Core.Types         (ScriptVersion)
-import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, emptyPassphrase,
-                                         encToPublic, hashHexF)
-import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut, txOutAddress, txOutValue)
-import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
-                                         Coin, SoftwareVersion, decodeTextAddress,
-                                         makePubKeyAddress, sumCoins, unsafeGetCoin,
-                                         unsafeIntegerToCoin)
-import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
-                                         UpdateProposal (..), isPositiveVote)
-import           Pos.Update.Poll        (ConfirmedProposalState (..))
-import           Pos.Util.BackupPhrase  (BackupPhrase)
-import           Pos.Util.Servant       (FromCType (..), ToCType (..))
-
+import           Pos.Aeson.Types           ()
+import           Pos.Binary.Class          (decodeFull, encode)
+import           Pos.Client.Txp.History    (TxHistoryEntry (..))
+import           Pos.Core.Coin             (mkCoin)
+import           Pos.Core.Types            (ScriptVersion)
+import           Pos.Crypto                (EncryptedSecretKey, PassPhrase, encToPublic,
+                                            hashHexF)
+import           Pos.Txp.Core.Types        (Tx (..), TxId, TxOut, txOutAddress,
+                                            txOutValue)
+import           Pos.Types                 (Address (..), BlockVersion, ChainDifficulty,
+                                            Coin, SoftwareVersion, decodeTextAddress,
+                                            makePubKeyAddress, sumCoins, unsafeGetCoin,
+                                            unsafeIntegerToCoin)
+import           Pos.Update.Core           (BlockVersionData (..), StakeholderVotes,
+                                            UpdateProposal (..), isPositiveVote)
+import           Pos.Update.Poll           (ConfirmedProposalState (..))
+import           Pos.Util.BackupPhrase     (BackupPhrase)
+import           Pos.Util.Servant          (FromCType (..), OriginType, ToCType (..))
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -158,27 +158,65 @@ txIdToCTxId = mkCTxId . sformat hashHexF
 convertTxOutputs :: [TxOut] -> [(CId w, CCoin)]
 convertTxOutputs = map (addressToCId . txOutAddress &&& mkCCoin . txOutValue)
 
+-- [CSM-309] This may work until transaction have multiple source accounts
+-- | Get all addresses of source account of given transaction.
+getTxChangeAddresses
+    :: [CWAddressMeta]   -- ^ All addresses in wallet
+    -> [CId Addr]        -- ^ Input addresses of transaction
+    -> Either Text (Maybe [CId Addr])
+                         -- ^ `Just` change addrs if the wallet is source of
+                         --   transaction, `Nothing` otherwise
+getTxChangeAddresses walAddrMetas inputAddrs = do
+    someInputAddr <-
+        head inputAddrs `whenNothing`
+        throwError "No input addresses in transaction"
+    return $ do  -- 'Maybe' monad starts here
+        someSrcAddrMeta <- find ((== someInputAddr) . cwamId) walAddrMetas
+        let srcAccount = addrMetaToAccount someSrcAddrMeta
+        return $
+            map cwamId $
+            filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
+
 mkCTxs
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
-    -> [CId Addr]         -- ^ Addresses of wallet
-    -> CTxs
-mkCTxs diff THEntry {..} meta wAddrs = CTxs {..}
+    -> [CWAddressMeta]    -- ^ Addresses of wallet
+    -> Either Text CTxs
+mkCTxs diff THEntry {..} meta wAddrMetas = do
+    mChangeAddrs <- getTxChangeAddresses wAddrMetas ctInputAddrs
+    let isChangeAddr = case mChangeAddrs of
+           Just changeAddrs -> do
+                -- if given wallet is source of tx, /changes addresses/
+                -- can be fetched according to definition
+                let changeAddrsSet = S.fromList changeAddrs
+                flip S.member changeAddrsSet
+           Nothing -> do
+                -- if given wallet is *not* source of tx, then it's incoming
+                -- transaction, and only addresses of given wallet are *not*
+                -- change addresses
+                -- [CSM-309] This may work until transaction have multiple
+                -- destination addresses
+                let nonChangeAddrsSet = S.fromList $ cwamId <$> wAddrMetas
+                not . flip S.member nonChangeAddrsSet
+        isChangeTxOutput = isChangeAddr . addressToCId . txOutAddress
+        ctAmount =
+            mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
+            filter (not . isChangeTxOutput) outputs
+        mkCTx isOutgoing ctAddrs = do
+            guard . not . null $ wAddrsSet `S.intersection` S.fromList ctAddrs
+            return CTx {ctIsOutgoing = isOutgoing, ..}
+        ctsOutgoing = mkCTx True ctInputAddrs
+        ctsIncoming = mkCTx False ctOutputAddrs
+    return CTxs {..}
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
-    ctAmount = mkCCoin . unsafeIntegerToCoin . sumCoins $ map txOutValue outputs
-    ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
-    ctMeta = meta
     ctInputAddrs = map addressToCId _thInputAddrs
     ctOutputAddrs = map addressToCId _thOutputAddrs
-    wAddrsSet = S.fromList wAddrs
-    mkCTx isOutgoing ctAddrs = do
-        guard . not . null $ wAddrsSet `S.intersection` S.fromList ctAddrs
-        return CTx { ctIsOutgoing = isOutgoing, .. }
-    ctsOutgoing = mkCTx True ctInputAddrs
-    ctsIncoming = mkCTx False ctOutputAddrs
+    ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
+    ctMeta = meta
+    wAddrsSet = S.fromList $ map cwamId wAddrMetas
 
 newtype CPassPhrase = CPassPhrase Text
     deriving (Eq, Generic)
@@ -186,14 +224,13 @@ newtype CPassPhrase = CPassPhrase Text
 instance Show CPassPhrase where
     show _ = "<pass phrase>"
 
-instance FromCType (Maybe CPassPhrase) where
-    type FromOriginType (Maybe CPassPhrase) = PassPhrase
-    decodeCType Nothing = return emptyPassphrase
-    decodeCType (Just (CPassPhrase text)) =
-        first toText . decodeFull =<< Base16.decode text
+type instance OriginType CPassPhrase = PassPhrase
+
+instance FromCType CPassPhrase where
+    decodeCType (CPassPhrase text) =
+        first toText . decodeFull  =<< Base16.decode text
 
 instance ToCType CPassPhrase where
-    type ToOriginType CPassPhrase = PassPhrase
     encodeCType = CPassPhrase . Base16.encode . encode
 
 ----------------------------------------------------------------------------
@@ -202,8 +239,8 @@ instance ToCType CPassPhrase where
 
 -- | Wallet identifier
 data AccountId = AccountId
-    { -- | Address of wallet set this wallet belongs to
-      aiWSId  :: CId Wal
+    { -- | Address of wallet this wallet belongs to
+      aiWId   :: CId Wal
     , -- | Derivation index of this wallet key
       aiIndex :: Word32
     } deriving (Eq, Show, Generic, Typeable)
@@ -212,17 +249,18 @@ instance Hashable AccountId
 
 instance Buildable AccountId where
     build AccountId{..} =
-        bprint (F.build%"@"%F.build) aiWSId aiIndex
+        bprint (F.build%"@"%F.build) aiWId aiIndex
 
 newtype CAccountId = CAccountId Text
     deriving (Eq, Show, Generic, Buildable)
 
+type instance OriginType CAccountId = AccountId
+
 instance FromCType CAccountId where
-    type FromOriginType CAccountId = AccountId
     decodeCType (CAccountId url) =
         case splitOn "@" url of
             [part1, part2] -> do
-                aiWSId  <- addressToCId <$> decodeTextAddress part1
+                aiWId  <- addressToCId <$> decodeTextAddress part1
                 aiIndex <- maybe (Left "Invalid wallet index") Right $
                             readMaybe $ toString part2
                 return AccountId{..}
@@ -231,16 +269,12 @@ instance FromCType CAccountId where
 instance ToCType CAccountId where
     encodeCType = CAccountId . sformat F.build
 
-instance FromCType CAccountId => FromCType (Maybe CAccountId) where
-    type FromOriginType (Maybe CAccountId) = Maybe (FromOriginType CAccountId)
-    decodeCType = mapM decodeCType
-
 -- TODO: extract first three fields as @Coordinates@ and use only it where
 -- required (maybe nowhere)
 -- | Account identifier
 data CWAddressMeta = CWAddressMeta
-    { -- | Address of wallet set this account belongs to
-      cwamWSId         :: CId Wal
+    { -- | Address of wallet this account belongs to
+      cwamWId          :: CId Wal
     , -- | First index in derivation path of this account key
       cwamWalletIndex  :: Word32
     , -- | Second index in derivation path of this account key
@@ -252,11 +286,11 @@ data CWAddressMeta = CWAddressMeta
 instance Buildable CWAddressMeta where
     build CWAddressMeta{..} =
         bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
-        cwamWSId cwamWalletIndex cwamAccountIndex cwamId
+        cwamWId cwamWalletIndex cwamAccountIndex cwamId
 
-walletAddrMetaToAccount :: CWAddressMeta -> AccountId
-walletAddrMetaToAccount CWAddressMeta{..} = AccountId
-    { aiWSId  = cwamWSId
+addrMetaToAccount :: CWAddressMeta -> AccountId
+addrMetaToAccount CWAddressMeta{..} = AccountId
+    { aiWId  = cwamWId
     , aiIndex = cwamWalletIndex
     }
 
@@ -283,9 +317,10 @@ data CWalletAssurance
 
 -- | Single address in a account
 data CAddress = CAddress
-    { cadId     :: !(CId Addr)
-    , cadAmount :: !CCoin
-    , cadIsUsed :: !Bool
+    { cadId       :: !(CId Addr)
+    , cadAmount   :: !CCoin
+    , cadIsUsed   :: !Bool
+    , cadIsChange :: !Bool -- ^ Is this a change address
     } deriving (Show, Generic)
 
 -- Includes data which are not provided by Cardano
@@ -388,9 +423,7 @@ instance Default CProfile where
 
 -- | meta data of transactions
 data CTxMeta = CTxMeta
-    { ctmTitle       :: Text
-    , ctmDescription :: Text
-    , ctmDate        :: POSIXTime
+    { ctmDate        :: POSIXTime
     } deriving (Show, Generic)
 
 -- | Client transaction (CTx)
@@ -406,9 +439,6 @@ data CTx = CTx
     , ctOutputAddrs   :: [CId Addr]
     , ctIsOutgoing    :: Bool
     } deriving (Show, Generic, Typeable)
-
-txContainsTitle :: Text -> CTx -> Bool
-txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . ctMeta
 
 -- TODO [CSM-288] Rename?
 -- | In case of A -> A tranaction, we have to return two similar 'CTx's:

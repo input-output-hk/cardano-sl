@@ -27,6 +27,7 @@ import qualified Cardano.Crypto.Wallet as CC
 import           Data.ByteArray        (ByteArray, ByteArrayAccess, ScrubbedBytes)
 import qualified Data.ByteString       as BS
 import           Data.Coerce           (coerce)
+import           Data.Default          (Default (..))
 import           Data.Text.Buildable   (build)
 import qualified Data.Text.Buildable   as B
 import qualified Prelude
@@ -64,6 +65,9 @@ instance Buildable PassPhrase where
 -- | Empty passphrase used in development.
 emptyPassphrase :: PassPhrase
 emptyPassphrase = PassPhrase mempty
+
+instance Default PassPhrase where
+    def = emptyPassphrase
 
 {-instance Monoid PassPhrase where
     mempty = PassPhrase mempty

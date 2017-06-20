@@ -43,6 +43,8 @@ module Pos.DB.Class
          -- * Pure
          DBTag (..)
        , dbTagToLens
+       , DBIteratorClass (..)
+       , IterType
        , MonadDBRead (..)
        , MonadDB (..)
 
@@ -71,12 +73,17 @@ module Pos.DB.Class
 import           Universum
 
 import           Control.Lens                   (ASetter')
+import           Control.Monad.Morph            (hoist)
 import           Control.Monad.Trans            (MonadTrans (..))
+import           Control.Monad.Trans.Control    (MonadBaseControl)
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
+import           Control.Monad.Trans.Resource   (ResourceT)
+import           Data.Conduit                   (Source)
 import qualified Database.RocksDB               as Rocks
 import qualified Ether
 import           Serokell.Data.Memory.Units     (Byte)
 
+import           Pos.Binary.Class               (Bi)
 import           Pos.Core                       (BlockVersionData (..), HeaderHash)
 import           Pos.DB.Types                   (DB (..), NodeDBs, blockIndexDB, gStateDB,
                                                  lrcDB, miscDB)
@@ -99,20 +106,35 @@ dbTagToLens GStateDB     = gStateDB
 dbTagToLens LrcDB        = lrcDB
 dbTagToLens MiscDB       = miscDB
 
+-- | Key-value type family encapsulating the iterator (something we
+-- can iterate on) functionality.
+class DBIteratorClass i where
+    type IterKey   i :: *
+    type IterValue i :: *
+    iterKeyPrefix :: ByteString
+
+type IterType i = (IterKey i, IterValue i)
+
 -- | Pure read-only interface to the database.
--- TODO: add iteration, maybe something else.
-class MonadThrow m => MonadDBRead m where
+class (MonadBaseControl IO m, MonadThrow m) => MonadDBRead m where
     -- | This function takes tag and key and reads value associated
     -- with given key from DB corresponding to given tag.
     dbGet :: DBTag -> ByteString -> m (Maybe ByteString)
 
-    default dbGet :: (MonadTrans t, MonadDBRead n, t n ~ m) =>
-        DBTag -> ByteString -> m (Maybe ByteString)
-    dbGet tag = lift . dbGet tag
+    -- | Source producing iteration over given 'i'.
+    dbIterSource ::
+        ( DBIteratorClass i
+        , Bi (IterKey i)
+        , Bi (IterValue i)
+        ) => DBTag -> Proxy i -> Source (ResourceT m) (IterType i)
 
 instance {-# OVERLAPPABLE #-}
-    (MonadDBRead m, MonadTrans t, MonadThrow (t m)) =>
+    (MonadDBRead m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
         MonadDBRead (t m)
+  where
+    dbGet tag = lift . dbGet tag
+    dbIterSource tag (p :: Proxy i) =
+        hoist (hoist lift) (dbIterSource tag p)
 
 -- | Pure interface to the database. Combines read-only interface and
 -- ability to put raw bytes.
@@ -140,21 +162,14 @@ class MonadDBRead m => MonadDB m where
     -- with given key from DB corresponding to given tag.
     dbDelete :: DBTag -> ByteString -> m ()
 
-    default dbPut :: (MonadTrans t, MonadDB n, t n ~ m) =>
-        DBTag -> ByteString -> ByteString -> m ()
-    dbPut = lift ... dbPut
-
-    default dbWriteBatch :: (MonadTrans t, MonadDB n, t n ~ m) =>
-        DBTag -> [Rocks.BatchOp] -> m ()
-    dbWriteBatch = lift ... dbWriteBatch
-
-    default dbDelete :: (MonadTrans t, MonadDB n, t n ~ m) =>
-        DBTag -> ByteString -> m ()
-    dbDelete = lift ... dbDelete
 
 instance {-# OVERLAPPABLE #-}
-    (MonadDB m, MonadTrans t, MonadThrow (t m)) =>
+    (MonadDB m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
         MonadDB (t m)
+  where
+    dbPut = lift ... dbPut
+    dbWriteBatch = lift ... dbWriteBatch
+    dbDelete = lift ... dbDelete
 
 ----------------------------------------------------------------------------
 -- GState abstraction
@@ -232,7 +247,7 @@ dbGetBlund x =
 -- to use real DB without IO. Finally, it has 'MonadCatch' constraints
 -- (partially for historical reasons, partially for good ones).
 type MonadRealDB m
-     = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadCatch m)
+     = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadBaseControl IO m, MonadCatch m)
 
 getNodeDBs :: MonadRealDB m => m NodeDBs
 getNodeDBs = Ether.ask'

@@ -43,7 +43,8 @@ import           Pos.Types                          (ApplicationName, BlockVersi
                                                      ChainDifficulty, Coin,
                                                      SoftwareVersion)
 import           Pos.Util.BackupPhrase              (BackupPhrase)
-import           Pos.Util.Servant                   (CDecodeArg, VerbMod)
+import           Pos.Util.Servant                   (CDecodeApiArg, VerbMod,
+                                                     WithDefaultApiArg)
 import qualified Pos.Wallet.Web                     as W
 
 import qualified Description                        as D
@@ -148,10 +149,16 @@ instance {-# OVERLAPPING #-} (Typeable a, ToSchema a) => ToSchema (Either W.Wall
     declareNamedSchema proxy = genericDeclareNamedSchema defaultSchemaOptions proxy
         & mapped . name ?~ show (typeRep (Proxy @(Either W.WalletError a)))
 
-instance HasSwagger v => HasSwagger (VerbMod mod v) where
+instance HasSwagger v =>
+         HasSwagger (VerbMod mod v) where
     toSwagger _ = toSwagger (Proxy @v)
 
-instance HasSwagger (apiType a :> res) => HasSwagger (CDecodeArg apiType a :> res) where
+instance HasSwagger (apiType a :> res) =>
+         HasSwagger (CDecodeApiArg apiType a :> res) where
+    toSwagger _ = toSwagger (Proxy @(apiType a :> res))
+
+instance HasSwagger (apiType a :> res) =>
+         HasSwagger (WithDefaultApiArg apiType a :> res) where
     toSwagger _ = toSwagger (Proxy @(apiType a :> res))
 
 -- | Wallet API operations.
@@ -188,7 +195,7 @@ swaggerSpecForWalletApi = toSwagger W.walletApi
     & wop @W.NewAccount             . description ?~ D.newAccount
     & wop @W.DeleteAccount          . description ?~ D.deleteAccount
 
-    & wop @W.NewWAddress            . description ?~ D.newWAddress
+    & wop @W.NewAddress             . description ?~ D.newAddress
 
     & wop @W.IsValidAddress         . description ?~ D.isValidAddress
 
@@ -196,9 +203,8 @@ swaggerSpecForWalletApi = toSwagger W.walletApi
     & wop @W.UpdateProfile          . description ?~ D.updateProfile
 
     & wop @W.NewPayment             . description ?~ D.newPayment
-    & wop @W.NewPaymentExt          . description ?~ D.newPaymentExt
     & wop @W.UpdateTx               . description ?~ D.updateTx
-    & wop @W.SearchHistory          . description ?~ D.searchHistory
+    & wop @W.GetHistory             . description ?~ D.getHistory
 
     & wop @W.NextUpdate             . description ?~ D.nextUpdate
     & wop @W.ApplyUpdate            . description ?~ D.applyUpdate

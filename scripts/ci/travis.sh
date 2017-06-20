@@ -11,9 +11,7 @@ fi
 
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
     if [[ "$with_haddock" == "true" ]]; then
-      # DEVOPS-107
-      #export EXTRA_STACK="--haddock";
-    :
+      export EXTRA_STACK="--haddock";
     fi
 
     export EXTRA_STACK="--test $EXTRA_STACK";

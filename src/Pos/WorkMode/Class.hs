@@ -12,12 +12,13 @@ module Pos.WorkMode.Class
     , TxpExtra_TMP
     ) where
 
+import           Universum
+
 import           Control.Monad.Catch         (MonadMask)
 import           Control.Monad.IO.Class      (MonadIO)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Ether
 import           Mockable                    (MonadMockable)
-import           Universum                   (IO)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)

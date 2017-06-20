@@ -15,6 +15,7 @@ import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..), PokeWi
                                           putWord8S, sizeAsciiString1b)
 import           Pos.Binary.Core         ()
 import           Pos.Binary.Core.Version ()
+import           Pos.Binary.Infra        ()
 import           Pos.Core.Types          (HeaderHash)
 import           Pos.Crypto              (SignTag (SignUSVote), checkSig)
 import qualified Pos.Update.Core.Types   as U
@@ -134,6 +135,7 @@ instance Bi U.USUndo where
         unChangedSV <- get
         unChangedConfProps <- get
         unPrevProposers <- get
+        unSlottingData <- get
         return $ U.USUndo {..}
 
 deriveSimpleBi ''U.UpsExtra [

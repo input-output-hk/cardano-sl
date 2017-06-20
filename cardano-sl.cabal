@@ -125,6 +125,10 @@ library
                         Pos.Worker
                         Pos.WorkMode
                         Pos.WorkMode.Class
+
+                        -- Execution mode
+                        Pos.ExecMode
+                        Pos.ExecMode.Context
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer
@@ -212,6 +216,7 @@ library
 
                         -- Launcher
                         Pos.Launcher.Launcher
+                        Pos.Launcher.Mode
                         Pos.Launcher.Options
                         Pos.Launcher.Param
                         Pos.Launcher.Resource
@@ -287,6 +292,7 @@ library
     other-modules:      Pos.Aeson.Crypto
                         Pos.Aeson.Types
                         Pos.Web.Api
+                        Pos.Web.Mode
                         Pos.Web.Server
                         Pos.Web.Types
   if flag(with-wallet)
@@ -302,15 +308,13 @@ library
                         Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Error
                         Pos.Wallet.Web.Error.Util
+                        Pos.Wallet.Web.Mode
                         Pos.Wallet.Web.Server
                         Pos.Wallet.Web.Server.Methods
                         Pos.Wallet.Web.Server.Full
-                        Pos.Wallet.Web.Server.Full.Common
-                        Pos.Wallet.Web.Server.Full.R
                         Pos.Wallet.Web.Server.Sockets
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
-                        Pos.Wallet.Web.State.Holder
                         Pos.Wallet.Web.State.Core
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
@@ -391,7 +395,7 @@ library
                       , random
                       , reflection
                       , resourcet
-                      , rocksdb >= 0.1.0.1
+                      , rocksdb-haskell >= 1.0.0
                       , safecopy
                       , serokell-util >= 0.1.3.4
                       , stm

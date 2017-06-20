@@ -62,6 +62,7 @@ library
                      , cardano-sl-db
                      , cardano-sl-infra
                      , containers
+                     , conduit
                      , data-default
                      , derive
                      , ether
@@ -74,7 +75,8 @@ library
                      , monad-control
                      , neat-interpolation
                      , plutus-prototype
-                     , rocksdb
+                     , resourcet
+                     , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , stm
                      , tagged

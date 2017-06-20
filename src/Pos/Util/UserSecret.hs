@@ -23,41 +23,42 @@ module Pos.Util.UserSecret
        , writeUserSecret
        , writeUserSecretRelease
 
+       , UserSecretDecodingError (..)
        , ensureModeIs600
        ) where
 
-import           Control.Exception          (onException)
-import           Control.Lens               (makeLenses, to)
-import qualified Data.ByteString            as BS
-import           Data.Default               (Default (..))
-import           Formatting                 (build, formatToString, (%))
+import           Control.Exception     (onException)
+import           Control.Lens          (makeLenses, to)
+import qualified Data.ByteString       as BS
+import           Data.Default          (Default (..))
+import qualified Data.Text.Buildable
+import           Formatting            (bprint, build, formatToString, (%))
 import qualified Prelude
-import           Serokell.Util.Text         (listJson)
-import           System.FileLock            (FileLock, SharedExclusive (..), lockFile,
-                                             unlockFile, withFileLock)
-import qualified Turtle                     as T
+import           Serokell.Util.Text    (listJson)
+import           System.FileLock       (FileLock, SharedExclusive (..), lockFile,
+                                        unlockFile, withFileLock)
+import qualified Turtle                as T
 import           Universum
 
-import           Pos.Binary.Class           (Bi (..), decodeFull, encode, label, labelS,
-                                             putField)
-import           Pos.Binary.Crypto          ()
-import           Pos.Crypto                 (EncryptedSecretKey, SecretKey, VssKeyPair)
+import           Pos.Binary.Class      (Bi (..), decodeFull, encode, label, labelS,
+                                        putField)
+import           Pos.Binary.Crypto     ()
+import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
 
-import           Pos.Types                  (Address)
-import           System.Directory           (renameFile)
-import           System.FilePath            (takeDirectory, takeFileName)
-import           System.IO                  (hClose)
-import           System.IO.Temp             (openBinaryTempFile)
-import           System.Wlog                (WithLogger)
+import           Pos.Types             (Address)
+import           System.Directory      (renameFile)
+import           System.FilePath       (takeDirectory, takeFileName)
+import           System.IO             (hClose)
+import           System.IO.Temp        (openBinaryTempFile)
+import           System.Wlog           (WithLogger)
 
-import           Pos.Wallet.Web.Error.Types (WalletError (..))
-import           Pos.Wallet.Web.Secret      (WalletUserSecret)
+import           Pos.Wallet.Web.Secret (WalletUserSecret)
 
 #ifdef POSIX
-import           Formatting                 (oct, sformat)
-import qualified System.Posix.Files         as PSX
-import qualified System.Posix.Types         as PSX (FileMode)
-import           System.Wlog                (logWarning)
+import           Formatting            (oct, sformat)
+import qualified System.Posix.Files    as PSX
+import qualified System.Posix.Types    as PSX (FileMode)
+import           System.Wlog           (logWarning)
 #endif
 
 -- Because of the Formatting import
@@ -86,6 +87,16 @@ instance Bi Address => Show UserSecret where
             _usVss
             _usPath
             _usWalletSet
+
+newtype UserSecretDecodingError = UserSecretDecodingError Text
+    deriving (Show)
+
+instance Exception UserSecretDecodingError
+
+instance Buildable UserSecretDecodingError where
+    build (UserSecretDecodingError msg) =
+        "Failed to decode user secret: " <> bprint build msg
+
 
 -- | Path of lock file for the provided path.
 lockFilePath :: FilePath -> FilePath
@@ -182,7 +193,8 @@ readUserSecret path = do
     ensureModeIs600 path
 #endif
     takeReadLock path $ do
-        content <- either (throwM . RequestError) pure . decodeFull =<< BS.readFile path
+        content <- either (throwM . UserSecretDecodingError . toText) pure .
+                   decodeFull =<< BS.readFile path
         pure $ content & usPath .~ path
 
 -- | Reads user secret from the given file.

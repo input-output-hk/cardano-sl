@@ -10,13 +10,23 @@ module Pos.Util.JsonLog
        , jlCreatedBlock
        , jlAdoptedBlock
        , fromJLSlotId
+       , JsonLogConfig(..)
+       , jsonLogConfigFromHandle
+       , jsonLogDefault
        ) where
 
 import           Universum               hiding (catchAll)
 
 import           Data.Aeson.TH           (deriveJSON)
+import           Data.Aeson.Types        (ToJSON)
+import qualified Ether
 import           Formatting              (sformat)
+import           JsonLog.JsonLogT        (JsonLogConfig(..))
+import qualified JsonLog.JsonLogT        as JL
+import           Mockable.Class          (Mockable (..))
+import           Mockable.Exception      (Catch)
 import           Serokell.Aeson.Options  (defaultOptions)
+import           System.Wlog.CanLog      (WithLogger)
 
 import           Pos.Binary.Block        ()
 import           Pos.Binary.Core         ()
@@ -77,3 +87,16 @@ showHash = sformat hashHexF
 -- | Returns event of created 'Block'.
 jlAdoptedBlock :: SscHelpersClass ssc => Block ssc -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHash . headerHash
+
+jsonLogConfigFromHandle :: MonadIO m => Handle -> m JsonLogConfig
+jsonLogConfigFromHandle h = do
+    v <- newMVar h
+    return $ JsonLogConfig v (\_ -> return True)
+
+jsonLogDefault
+    :: (ToJSON a, Ether.MonadReader' JsonLogConfig m, Mockable Catch m,
+        MonadIO m, WithLogger m)
+    => a -> m ()
+jsonLogDefault x = do
+    jlc <- Ether.ask'
+    JL.jsonLogDefault jlc x

@@ -35,10 +35,6 @@ packages:
     commit: e2e2711e6978002279b4d7c49cab1aff47a2fd43
   extra-dep: true
 - location:
-    git: https://github.com/serokell/rocksdb-haskell.git
-    commit: 4dfd8d61263d78a91168e86e8005eb9b7069389e
-  extra-dep: true
-- location:
     git: https://github.com/thoughtpolice/hs-ed25519
     # We're waiting on next release
     commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
@@ -49,7 +45,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 79acc87fcb6fc21998ee2bf1d2ae17d8894bc007
+    commit: 50d664e676ff41d2176ee9e24d84b52475deef5c
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -100,6 +96,7 @@ extra-deps:
 - store-0.4.3.1
 - lens-4.15.3                     # not yet in lts-8
 - th-abstraction-0.2.2.0          # needed for lens
+- rocksdb-haskell-1.0.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

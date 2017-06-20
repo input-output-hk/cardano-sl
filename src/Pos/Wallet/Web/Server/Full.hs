@@ -1,7 +1,82 @@
--- | Re-exports of Pos.Wallet.Web.Server.Full.* functionality.
---
--- Initially it was all collected in single module, but functions like
--- `walletServeWebFull` consume too much memory and we can't afford keeping
--- two such methods together.
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
 
-{-# OPTIONS_GHC -F -pgmF autoexporter #-}
+-- | Module for `RealMode`-related part of full-node implementation of
+-- Daedalus API.
+
+module Pos.Wallet.Web.Server.Full
+       ( walletServeWebFull
+       , runWRealMode
+       ) where
+
+import           Universum                     hiding (over)
+
+import           Control.Lens                  (over)
+import qualified Control.Monad.Catch           as Catch
+import           Control.Monad.Except          (MonadError (throwError))
+import qualified Control.Monad.Reader          as Mtl
+import qualified Ether
+import           Mockable                      (Production, runProduction)
+import           Network.Wai                   (Application)
+import           Servant.Server                (Handler)
+import           Servant.Utils.Enter           ((:~>) (..))
+import           System.Wlog                   (logInfo)
+
+import           Pos.Communication             (ActionSpec (..), OutSpecs)
+import           Pos.Communication.Protocol    (SendActions)
+import           Pos.ExecMode                  (_ExecMode)
+import           Pos.Launcher.Resource         (NodeResources)
+import           Pos.Launcher.Runner           (runRealBasedMode)
+import           Pos.Wallet.SscType            (WalletSscType)
+import           Pos.Wallet.Web.Mode           (WalletWebMode, WalletWebModeContext (..),
+                                                WalletWebModeContextTag, unWalletWebMode)
+import           Pos.Wallet.Web.Server.Methods (addInitialRichAccount, walletApplication,
+                                                walletServeImpl, walletServer)
+import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar)
+import           Pos.Wallet.Web.State          (WalletState)
+
+-- | WalletWebMode runner.
+runWRealMode
+    :: WalletState
+    -> ConnectionsVar
+    -> NodeResources WalletSscType WalletWebMode
+    -> (ActionSpec WalletWebMode a, OutSpecs)
+    -> Production a
+runWRealMode db conn =
+    runRealBasedMode
+        (over _ExecMode (Mtl.withReaderT (WalletWebModeContext db conn)))
+        (over _ExecMode (Mtl.withReaderT (\(WalletWebModeContext _ _ rmc) -> rmc)))
+
+walletServeWebFull
+    :: SendActions WalletWebMode
+    -> Bool      -- whether to include genesis keys
+    -> Word16
+    -> WalletWebMode ()
+walletServeWebFull sendActions debug = walletServeImpl action
+  where
+    action :: WalletWebMode Application
+    action = do
+        logInfo "DAEDALUS has STARTED!"
+        when debug $ addInitialRichAccount 0
+        walletApplication $ walletServer sendActions nat
+
+nat :: WalletWebMode (WalletWebMode :~> Handler)
+nat = do
+    wwmc <- Ether.ask @WalletWebModeContextTag
+    pure $ NT (convertHandler wwmc)
+
+convertHandler
+    :: WalletWebModeContext
+    -> WalletWebMode a
+    -> Handler a
+convertHandler wwmc handler =
+    liftIO (walletRunner handler) `Catch.catches` excHandlers
+  where
+
+    walletRunner :: forall a . WalletWebMode a -> IO a
+    walletRunner act = runProduction $
+        Mtl.runReaderT (unWalletWebMode act) wwmc
+
+    excHandlers = [Catch.Handler catchServant]
+    catchServant = throwError

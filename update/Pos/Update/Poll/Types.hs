@@ -44,6 +44,7 @@ module Pos.Update.Poll.Types
        , unLastAdoptedBVL
        , unChangedConfPropsL
        , unPrevProposersL
+       , unSlottingDataL
        ) where
 
 import           Control.Lens               (makeLensesFor)
@@ -250,6 +251,10 @@ data USUndo = USUndo
     , unChangedSV        :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
     , unChangedConfProps :: !(HashMap SoftwareVersion (PrevValue ConfirmedProposalState))
     , unPrevProposers    :: !(Maybe (HashSet StakeholderId))
+    , unSlottingData     :: !(Maybe SlottingData)
+    -- ^ Previous slotting data, i. e. data which should be in GState
+    -- if this 'USUndo' is applied (i. e. corresponding block is
+    -- rolled back).
     } deriving (Generic, Show)
 
 
@@ -259,6 +264,7 @@ makeLensesFor [ ("unChangedBV", "unChangedBVL")
               , ("unChangedSV", "unChangedSVL")
               , ("unChangedConfProps", "unChangedConfPropsL")
               , ("unPrevProposers", "unPrevProposersL")
+              , ("unSlottingData", "unSlottingDataL")
               ]
   ''USUndo
 
@@ -266,7 +272,7 @@ instance Buildable USUndo where
     build _ = "BSUndo"
 
 instance Default USUndo where
-    def = USUndo mempty Nothing mempty mempty mempty Nothing
+    def = USUndo mempty Nothing mempty mempty mempty Nothing Nothing
 
 ----------------------------------------------------------------------------
 -- NFData instances

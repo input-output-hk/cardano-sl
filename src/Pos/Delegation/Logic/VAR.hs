@@ -92,7 +92,8 @@ calculateTransCorrections eActions = do
 
     -- Once we figure out this piece of code works like a charm we
     -- can delete this logging.
-    logDebug $ sformat ("Trans changeset: "%mapJson) $ HM.toList changeset
+    unless (HM.null changeset) $
+        logDebug $ sformat ("Nonempty dlg trans changeset: "%mapJson) $ HM.toList changeset
 
     -- Bulid reverse transitive set and convert it to reverseTransOps
     let reverseTrans = buildReverseTrans changeset

@@ -6,38 +6,27 @@ module Pos.Wallet.Light.Launcher.Runner
 import           Universum                       hiding (bracket)
 
 import           Control.Monad.Fix               (MonadFix)
-import           Data.Tagged                     (Tagged (..))
-import qualified Ether
+import qualified Control.Monad.Reader            as Mtl
 import           Formatting                      (sformat, shown, (%))
 import           Mockable                        (MonadMockable, Production, bracket,
                                                   fork, sleepForever)
 import           Network.Transport.Abstract      (Transport)
 import qualified STMContainers.Map               as SM
-import           System.Wlog                     (WithLogger, logDebug, logInfo,
-                                                  usingLoggerName)
+import           System.Wlog                     (WithLogger, logDebug, logInfo)
 
-import           Pos.Block.BListener             (runBListenerStub)
 import           Pos.Communication               (ActionSpec (..), MkListeners, NodeId,
                                                   OutSpecs, WorkerSpec)
-import           Pos.Communication.PeerState     (PeerStateTag, runPeerStateRedirect)
-import           Pos.DB                          (runDBPureRedirect)
-import           Pos.DB.Block                    (runBlockDBRedirect)
-import           Pos.Discovery                   (findPeers, runDiscoveryConstT)
+import           Pos.Discovery                   (findPeers)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..),
                                                   runServer)
-import           Pos.Reporting.MemState          (ReportingContext, emptyReportingContext)
-import           Pos.Util.TimeWarp               (runWithoutJsonLogT)
+import           Pos.Reporting.MemState          (emptyReportingContext)
+import           Pos.Util.JsonLog                (JsonLogConfig (..))
 import           Pos.Util.Util                   ()
-import           Pos.Wallet.KeyStorage           (KeyData, keyDataFromFile)
+import           Pos.Wallet.KeyStorage           (keyDataFromFile)
 import           Pos.Wallet.Light.Launcher.Param (WalletParams (..))
-import           Pos.Wallet.Light.Mode           (LightWalletMode (..))
-import           Pos.Wallet.Light.Redirect       (runBalancesWalletRedirect,
-                                                  runBlockchainInfoNotImplemented,
-                                                  runTxHistoryWalletRedirect,
-                                                  runUpdatesNotImplemented)
+import           Pos.Wallet.Light.Mode           (LightWalletContext (..),
+                                                  LightWalletMode, unLightWalletMode)
 import           Pos.Wallet.Light.State          (closeState, openMemState, openState)
-import           Pos.Wallet.Light.State.Acidic   (WalletState)
-import           Pos.Wallet.Light.State.Core     (runGStateCoreWalletRedirect)
 import           Pos.Wallet.WalletMode           (WalletMode)
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
@@ -90,27 +79,20 @@ runRawStaticPeersWallet
     -> Production a
 runRawStaticPeersWallet transport peers WalletParams {..}
                         listeners (ActionSpec action, outs) =
-    usingLoggerName lpRunnerTag .
-    runWithoutJsonLogT .
     bracket openDB closeDB $ \db -> do
         stateM <- liftIO SM.newIO
         keyData <- keyDataFromFile wpKeyFilePath
-        flip Ether.runReadersT
-            ( Tagged @PeerStateTag stateM
-            , Tagged @KeyData keyData
-            , Tagged @WalletState db
-            , Tagged @ReportingContext emptyReportingContext ) .
-            runDBPureRedirect .
-            runBlockDBRedirect .
-            runTxHistoryWalletRedirect .
-            runBalancesWalletRedirect .
-            runGStateCoreWalletRedirect .
-            runPeerStateRedirect .
-            runUpdatesNotImplemented .
-            runBlockchainInfoNotImplemented .
-            runBListenerStub .
-            runDiscoveryConstT peers .
-            (\(LightWalletMode m) -> m) .
+        flip Mtl.runReaderT
+            ( LightWalletContext
+                stateM
+                keyData
+                db
+                emptyReportingContext
+                peers
+                JsonLogDisabled
+                lpRunnerTag
+            ) .
+            unLightWalletMode .
             runServer_ transport listeners outs . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa
   where
@@ -121,7 +103,6 @@ runRawStaticPeersWallet transport peers WalletParams {..}
             (openState wpRebuildDb wpGenesisUtxo)
             wpDbPath
     closeDB = closeState
-{-# NOINLINE runRawStaticPeersWallet #-}
 
 runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)

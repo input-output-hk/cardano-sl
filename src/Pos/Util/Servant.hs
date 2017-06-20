@@ -12,17 +12,22 @@ module Pos.Util.Servant
     , VerbMod
 
     , ReportDecodeError (..)
-    , CDecodeArg
+    , CDecodeApiArg
 
+    , OriginType
     , FromCType (..)
     , ToCType (..)
+
+    , WithDefaultApiArg
 
     , CQueryParam
     , CCapture
     , CReqBody
+    , DCQueryParam
     ) where
 
 import           Control.Monad.Except (ExceptT (..))
+import           Data.Default         (Default (..))
 import           Formatting           (formatToString, sformat, shown, stext, string, (%))
 import           Servant.API          ((:>), Capture, QueryParam, ReqBody, Verb)
 import           Servant.Server       (Handler (..), HasServer (..), ServantErr, Server)
@@ -93,31 +98,29 @@ instance (HasServer (Verb mt st ct $ ApiModifiedRes mod a) ctx,
         handlerCatch = mapHandler $ modifyApiResult (Proxy @mod)
 
 -------------------------------------------------------------------------
--- Mapping API arguments
+-- Mapping API arguments: client types decoding
 -------------------------------------------------------------------------
 
--- | For many types with nice structure there exist a @CType@ - intermediate
--- form (more string-like in some sense) which has automatically derived
--- JSON instances and is used by daedalus-bridge.
+-- | For many types with nice structure there exist a /client type/ -
+-- intermediate form (more string-like in some sense) which has automatically
+-- derived JSON instances and is used by daedalus-bridge.
+-- | This family, for given /client type/, gets relative original type
+-- (e.g. @CAccountAddress@ - @AccountAddress@).
+type family OriginType ctype :: *
+
 class FromCType c where
-   -- | For given @CType@ - relative original type
-   -- (e.g. @CAccountAddress@ - @AccountAddress@).
-   type family FromOriginType c :: *
-   type instance FromOriginType c = ToOriginType c
-
    -- | Way to decode from @CType@.
-   decodeCType :: c -> Either Text (FromOriginType c)
+   decodeCType :: c -> Either Text (OriginType c)
 
--- This is not used for now
 class ToCType c where
-   -- | Same as 'FromOriginType'. For some types they actually differ,
-   -- e.g. 'PassPhrase' is decoded from @Maybe CPassPhrase@ but encoded
-   -- into just @PassPhrase@.
-   type family ToOriginType c :: *
-   type instance ToOriginType c = FromOriginType c
-
    -- | Way to encode to @CType@.
-   encodeCType :: ToOriginType c -> c
+   encodeCType :: OriginType c -> c
+
+type instance OriginType (Maybe a) = Maybe $ OriginType a
+
+instance FromCType a => FromCType (Maybe a) where
+    decodeCType = mapM decodeCType
+
 
 -- | Allows to throw error from any part of innards of servant API.
 class ReportDecodeError api where
@@ -133,10 +136,10 @@ instance ( ReportDecodeError res
 
 -- | Wrapper over API argument specifier which says to decode specified argument
 -- with 'decodeCType'.
-data CDecodeArg (argType :: * -> *) a
+data CDecodeApiArg (argType :: * -> *) a
 
-instance ApiHasArg apiType => ApiHasArg (CDecodeArg apiType) where
-    type ApiArg (CDecodeArg apiType) a = FromOriginType (ApiArg apiType a)
+instance ApiHasArg apiType => ApiHasArg (CDecodeApiArg apiType) where
+    type ApiArg (CDecodeApiArg apiType) a = OriginType (ApiArg apiType a)
     apiArgName _ = apiArgName (Proxy @apiType)
 
 instance ( HasServer (apiType a :> res) ctx
@@ -145,9 +148,9 @@ instance ( HasServer (apiType a :> res) ctx
          , FromCType (ApiArg apiType a)
          , ReportDecodeError res
          ) =>
-         HasServer (CDecodeArg apiType a :> res) ctx where
-    type ServerT (CDecodeArg apiType a :> res) m =
-         FromOriginType (ApiArg apiType a) -> ServerT res m
+         HasServer (CDecodeApiArg apiType a :> res) ctx where
+    type ServerT (CDecodeApiArg apiType a :> res) m =
+         OriginType (ApiArg apiType a) -> ServerT res m
     route _ ctx del =
         route (Proxy @(apiType a :> res)) ctx $
         del <&> \f a -> decodeCType a & either reportError f
@@ -159,9 +162,40 @@ instance ( HasServer (apiType a :> res) ctx
                 err
 
 -------------------------------------------------------------------------
+-- Mapping API arguments: defaults
+-------------------------------------------------------------------------
+
+type family UnmaybeArg a where
+    UnmaybeArg (Maybe a -> b) = a -> b
+
+type family Unmaybe a where
+    Unmaybe (Maybe a) = a
+
+data WithDefaultApiArg (argType :: * -> *) a
+
+-- TODO: why is it needed at all? 'DefaultApiArg' is used only at top
+-- layer for given argument
+instance ApiHasArg apiType => ApiHasArg (WithDefaultApiArg apiType) where
+    type ApiArg (WithDefaultApiArg apiType) a = Unmaybe (ApiArg apiType a)
+    apiArgName _ = apiArgName (Proxy @apiType)
+
+instance ( HasServer (apiType a :> res) ctx
+         , Server (apiType a :> res) ~ (Maybe c -> d)
+         , Default c
+         ) =>
+         HasServer (WithDefaultApiArg apiType a :> res) ctx where
+    type ServerT (WithDefaultApiArg apiType a :> res) m =
+         UnmaybeArg (ServerT (apiType a :> res) m)
+    route _ ctx del =
+        route (Proxy @(apiType a :> res)) ctx $
+        del <&> \f a -> f $ fromMaybe def a
+
+-------------------------------------------------------------------------
 -- API construction Helpers
 -------------------------------------------------------------------------
 
-type CQueryParam s a = CDecodeArg (QueryParam s) a
-type CCapture s a    = CDecodeArg (Capture s) a
-type CReqBody c a    = CDecodeArg (ReqBody c) a
+type CQueryParam s a = CDecodeApiArg (QueryParam s) a
+type CCapture s a    = CDecodeApiArg (Capture s) a
+type CReqBody c a    = CDecodeApiArg (ReqBody c) a
+
+type DCQueryParam s a = WithDefaultApiArg (CDecodeApiArg $ QueryParam s) a

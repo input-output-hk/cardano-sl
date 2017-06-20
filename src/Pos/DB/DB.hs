@@ -15,16 +15,12 @@ module Pos.DB.DB
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
        , sanityCheckDB
-
-       , GStateCoreRedirect
-       , runGStateCoreRedirect
+       , gsAdoptedBVDataDefault
        ) where
 
 import           Universum
 
 import           Control.Monad.Catch          (MonadMask)
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
 import qualified Ether
 import           System.Directory             (createDirectoryIfMissing,
                                                doesDirectoryExist,
@@ -36,12 +32,11 @@ import           Pos.Block.Core               (Block, mkGenesisBlock)
 import           Pos.Block.Types              (Blund)
 import           Pos.Context.Context          (GenesisLeaders, GenesisUtxo, NodeParams)
 import           Pos.Context.Functions        (genesisLeadersM)
-import           Pos.Core                     (headerHash)
+import           Pos.Core                     (BlockVersionData, headerHash)
 import           Pos.DB.Block                 (MonadBlockDB, MonadBlockDBWrite,
                                                loadBlundsByDepth, loadBlundsWhile,
                                                prepareBlockDB)
-import           Pos.DB.Class                 (MonadDB, MonadDBRead (..),
-                                               MonadGState (..), MonadRealDB)
+import           Pos.DB.Class                 (MonadDB, MonadDBRead (..))
 import           Pos.DB.Functions             (closeDB, openDB)
 import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common         (getTip, getTipBlock, getTipHeader)
@@ -128,7 +123,7 @@ loadBlundsFromTipByDepth
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB
-    :: (MonadMask m, MonadRealDB m, WithLogger m, MonadDBRead m)
+    :: (MonadMask m, WithLogger m, MonadDBRead m)
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
 
@@ -145,16 +140,5 @@ ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 -- MonadGState instance
 ----------------------------------------------------------------------------
 
-data GStateCoreRedirectTag
-
-type GStateCoreRedirect =
-    Ether.TaggedTrans GStateCoreRedirectTag IdentityT
-
-runGStateCoreRedirect :: GStateCoreRedirect m a -> m a
-runGStateCoreRedirect = coerce
-
-instance
-    (MonadDBRead m, t ~ IdentityT) =>
-        MonadGState (Ether.TaggedTrans GStateCoreRedirectTag t m)
-  where
-    gsAdoptedBVData = getAdoptedBVData
+gsAdoptedBVDataDefault :: MonadDBRead m => m BlockVersionData
+gsAdoptedBVDataDefault = getAdoptedBVData

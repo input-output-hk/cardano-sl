@@ -70,81 +70,26 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     getAdoptedBVData :: m BlockVersionData
     getAdoptedBVData = snd <$> getAdoptedBVFull
 
-    -- | Default implementations for 'MonadTrans'.
-    default getBVState
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
-        BlockVersion -> m (Maybe BlockVersionState)
-    getBVState = lift . getBVState
-
-    default getProposedBVs
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m [BlockVersion]
-    getProposedBVs = lift getProposedBVs
-
-    default getEpochProposers
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m (HashSet StakeholderId)
-    getEpochProposers = lift getEpochProposers
-
-    default getCompetingBVStates
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
-        m [(BlockVersion, BlockVersionState)]
-    getCompetingBVStates = lift getCompetingBVStates
-
-    default getAdoptedBVFull
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m (BlockVersion, BlockVersionData)
-    getAdoptedBVFull = lift getAdoptedBVFull
-
-    default getLastConfirmedSV
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
-        ApplicationName -> m (Maybe Word32)
-    getLastConfirmedSV = lift . getLastConfirmedSV
-
-    default getProposal
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
-        UpId -> m (Maybe ProposalState)
-    getProposal = lift . getProposal
-
-    default getProposalsByApp
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
-        ApplicationName -> m [ProposalState]
-    getProposalsByApp = lift . getProposalsByApp
-
-    default getConfirmedProposals
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
-        m [ConfirmedProposalState]
-    getConfirmedProposals = lift getConfirmedProposals
-
-    default getEpochTotalStake
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
-        EpochIndex -> m (Maybe Coin)
-    getEpochTotalStake = lift . getEpochTotalStake
-
-    default getRichmanStake
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
-        EpochIndex -> StakeholderId -> m (Maybe Coin)
-    getRichmanStake e = lift . getRichmanStake e
-
-    default getOldProposals
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
-        SlotId -> m [UndecidedProposalState]
-    getOldProposals = lift . getOldProposals
-
-    default getDeepProposals
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
-        ChainDifficulty -> m [DecidedProposalState]
-    getDeepProposals = lift . getDeepProposals
-
-    default getBlockIssuerStake
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) =>
-        EpochIndex -> StakeholderId -> m (Maybe Coin)
-    getBlockIssuerStake e = lift . getBlockIssuerStake e
-
-    default getSlottingData
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m SlottingData
-    getSlottingData = lift getSlottingData
-
 instance {-# OVERLAPPABLE #-}
     (MonadPollRead m, MonadTrans t, Monad (t m), WithLogger (t m)) =>
         MonadPollRead (t m)
+  where
+    getBVState = lift . getBVState
+    getProposedBVs = lift getProposedBVs
+    getEpochProposers = lift getEpochProposers
+    getCompetingBVStates = lift getCompetingBVStates
+    getAdoptedBVFull = lift getAdoptedBVFull
+    getLastConfirmedSV = lift . getLastConfirmedSV
+    getProposal = lift . getProposal
+    getProposalsByApp = lift . getProposalsByApp
+    getConfirmedProposals = lift getConfirmedProposals
+    getEpochTotalStake = lift . getEpochTotalStake
+    getRichmanStake e = lift . getRichmanStake e
+    getOldProposals = lift . getOldProposals
+    getDeepProposals = lift . getDeepProposals
+    getBlockIssuerStake e = lift . getBlockIssuerStake e
+    getSlottingData = lift getSlottingData
+
 
 ----------------------------------------------------------------------------
 -- Writeable
@@ -176,51 +121,19 @@ class MonadPollRead m => MonadPoll m where
     setEpochProposers :: HashSet StakeholderId -> m ()
     -- ^ Set proposers.
 
-    -- | Default implementations for 'MonadTrans'.
-    default putBVState
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => BlockVersion -> BlockVersionState -> m ()
-    putBVState pv = lift . putBVState pv
-
-    default delBVState
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => BlockVersion -> m ()
-    delBVState = lift . delBVState
-
-    default setAdoptedBV
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => BlockVersion -> m ()
-    setAdoptedBV = lift . setAdoptedBV
-
-    default setLastConfirmedSV
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => SoftwareVersion -> m ()
-    setLastConfirmedSV = lift . setLastConfirmedSV
-
-    default delConfirmedSV
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ApplicationName -> m ()
-    delConfirmedSV = lift . delConfirmedSV
-
-    default addConfirmedProposal
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ConfirmedProposalState -> m ()
-    addConfirmedProposal = lift . addConfirmedProposal
-
-    default delConfirmedProposal
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => SoftwareVersion -> m ()
-    delConfirmedProposal = lift . delConfirmedProposal
-
-    default insertActiveProposal
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => ProposalState -> m ()
-    insertActiveProposal = lift . insertActiveProposal
-
-    default deactivateProposal
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => UpId -> m ()
-    deactivateProposal = lift . deactivateProposal
-
-    default setSlottingData
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => SlottingData -> m ()
-    setSlottingData = lift . setSlottingData
-
-    default setEpochProposers
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => HashSet StakeholderId -> m ()
-    setEpochProposers = lift . setEpochProposers
-
 instance {-# OVERLAPPABLE #-}
     (MonadPoll m, MonadTrans t, Monad (t m), WithLogger (t m)) =>
         MonadPoll (t m)
+  where
+    putBVState pv = lift . putBVState pv
+    delBVState = lift . delBVState
+    setAdoptedBV = lift . setAdoptedBV
+    setLastConfirmedSV = lift . setLastConfirmedSV
+    delConfirmedSV = lift . delConfirmedSV
+    addConfirmedProposal = lift . addConfirmedProposal
+    delConfirmedProposal = lift . delConfirmedProposal
+    insertActiveProposal = lift . insertActiveProposal
+    deactivateProposal = lift . deactivateProposal
+    setSlottingData = lift . setSlottingData
+    setEpochProposers = lift . setEpochProposers
+

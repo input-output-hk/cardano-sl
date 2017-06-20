@@ -32,22 +32,12 @@ class MonadSlotsData m => MonadSlots m where
 
     currentTimeSlotting :: m Timestamp
 
-    default getCurrentSlot :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
-        m (Maybe SlotId)
-    getCurrentSlot = lift getCurrentSlot
-
-    default getCurrentSlotBlocking :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
-        m SlotId
-    getCurrentSlotBlocking = lift getCurrentSlotBlocking
-
-    default currentTimeSlotting :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
-        m Timestamp
-    currentTimeSlotting = lift currentTimeSlotting
-
-    default getCurrentSlotInaccurate :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
-        m SlotId
-    getCurrentSlotInaccurate = lift getCurrentSlotInaccurate
 
 instance {-# OVERLAPPABLE #-}
     (MonadSlots m, MonadTrans t, Monad (t m)) =>
         MonadSlots (t m)
+  where
+    getCurrentSlot = lift getCurrentSlot
+    getCurrentSlotBlocking = lift getCurrentSlotBlocking
+    currentTimeSlotting = lift currentTimeSlotting
+    getCurrentSlotInaccurate = lift getCurrentSlotInaccurate

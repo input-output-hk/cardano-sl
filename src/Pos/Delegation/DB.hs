@@ -28,31 +28,28 @@ module Pos.Delegation.DB
 
        , DelegationOp (..)
 
-       , runDlgTransIterator
-       , runDlgTransMapIterator
-
+         -- * Iteration
+       , DlgTransRevIter
        , getDelegators
        ) where
 
 import           Universum
 
-import qualified Data.HashMap.Strict       as HM
-import qualified Data.HashSet              as HS
-import qualified Database.RocksDB          as Rocks
+import           Control.Monad.Trans.Resource (ResourceT)
+import           Data.Conduit                 (Source, mapOutput)
+import qualified Data.HashSet                 as HS
+import qualified Database.RocksDB             as Rocks
 
-import           Pos.Binary.Class          (encode)
-import           Pos.Crypto                (PublicKey, pskIssuerPk, verifyProxySecretKey)
-import           Pos.DB                    (RocksBatchOp (..), encodeWithKeyPrefix)
-import           Pos.DB.Class              (MonadDBRead, MonadRealDB)
-import           Pos.DB.GState.Common      (gsGetBi)
-import           Pos.DB.Iterator           (DBIteratorClass (..), DBnIterator,
-                                            DBnMapIterator, IterType, runDBnIterator,
-                                            runDBnMapIterator)
-import           Pos.DB.Types              (NodeDBs (_gStateDB))
-import           Pos.Delegation.Cede.Types (DlgEdgeAction (..))
-import           Pos.Delegation.Helpers    (isRevokePsk)
-import           Pos.Types                 (ProxySKHeavy, StakeholderId, addressHash)
-import           Pos.Util.Iterator         (nextItem)
+import           Pos.Binary.Class             (encode)
+import           Pos.Crypto                   (PublicKey, pskIssuerPk,
+                                               verifyProxySecretKey)
+import           Pos.DB                       (RocksBatchOp (..), encodeWithKeyPrefix)
+import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..),
+                                               MonadDBRead (..))
+import           Pos.DB.GState.Common         (gsGetBi)
+import           Pos.Delegation.Cede.Types    (DlgEdgeAction (..))
+import           Pos.Delegation.Helpers       (isRevokePsk)
+import           Pos.Types                    (ProxySKHeavy, StakeholderId, addressHash)
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors
@@ -118,22 +115,22 @@ instance RocksBatchOp DelegationOp where
 ----------------------------------------------------------------------------
 
 -- Transitive relation iteration
-data DlgTransIter
+data DlgTransRevIter
 
-instance DBIteratorClass DlgTransIter where
-    type IterKey DlgTransIter = StakeholderId
-    type IterValue DlgTransIter = PublicKey
-    iterKeyPrefix _ = iterTransPrefix
+instance DBIteratorClass DlgTransRevIter where
+    type IterKey DlgTransRevIter = PublicKey
+    type IterValue DlgTransRevIter = HashSet PublicKey
+    iterKeyPrefix = iterTransRevPrefix
 
-runDlgTransIterator
-    :: forall m a . MonadRealDB m
-    => DBnIterator DlgTransIter a -> m a
-runDlgTransIterator = runDBnIterator @DlgTransIter _gStateDB
-
-runDlgTransMapIterator
-    :: forall v m a . MonadRealDB m
-    => DBnMapIterator DlgTransIter v a -> (IterType DlgTransIter -> v) -> m a
-runDlgTransMapIterator = runDBnMapIterator @DlgTransIter _gStateDB
+-- | For each stakeholder, say who has delegated to that stakeholder
+-- (basically iterate over transitive reverse relation).
+--
+-- NB. It's not called @getIssuers@ because we already have issuers (i.e.
+-- block issuers)
+getDelegators :: MonadDBRead m => Source (ResourceT m) (StakeholderId, HashSet StakeholderId)
+getDelegators = mapOutput conv $ dbIterSource GStateDB (Proxy @DlgTransRevIter)
+  where
+    conv (addressHash -> del, issuers) = (del, HS.map addressHash issuers)
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -144,26 +141,10 @@ pskKey :: StakeholderId -> ByteString
 pskKey s = "d/p/" <> encode s
 
 transDlgKey :: StakeholderId -> ByteString
-transDlgKey = encodeWithKeyPrefix @DlgTransIter
+transDlgKey s = "d/t/" <> encode s
 
-iterTransPrefix :: ByteString
-iterTransPrefix = "d/t/"
+iterTransRevPrefix :: ByteString
+iterTransRevPrefix = "d/tr/"
 
--- Reverse index of iterTransitive
 transRevDlgKey :: PublicKey -> ByteString
-transRevDlgKey pk = "d/tb/" <> encode pk
-
-----------------------------------------------------------------------------
--- Helper functions
-----------------------------------------------------------------------------
-
--- | For each stakeholder, say who has delegated to that stakeholder.
---
--- NB. It's not called @getIssuers@ because we already have issuers (i.e.
--- block issuers)
-getDelegators :: MonadRealDB m => m (HashMap StakeholderId [StakeholderId])
-getDelegators = runDlgTransMapIterator (step mempty) identity
-  where
-    step hm = nextItem >>= maybe (pure hm) (\(iss, addressHash -> del) -> do
-        let curList = HM.lookupDefault [] del hm
-        step (HM.insert del (iss:curList) hm))
+transRevDlgKey = encodeWithKeyPrefix @DlgTransRevIter

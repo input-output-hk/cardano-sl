@@ -7,6 +7,8 @@ matrix:
     - env: HLINT=false
     - os: osx
       osx_image: xcode8.3
+  allow_failures:
+    - os: osx
 env:
   global:
     - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz

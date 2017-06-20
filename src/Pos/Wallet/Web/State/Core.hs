@@ -1,13 +1,13 @@
--- | Keeps instance of `MonadGState`.
+-- | `MonadGState` implementation for web wallet.
 
-module Pos.Wallet.Web.State.Core () where
+module Pos.Wallet.Web.State.Core (gsAdoptedBVDataWebWallet) where
 
 import           Universum
 
+import           Pos.Core.Types              (BlockVersionData)
 import qualified Pos.Constants               as Const
-import           Pos.DB.Class                (MonadGState (..))
-import           Pos.Wallet.Web.State.Holder (WalletWebDB)
 
 -- TODO [CSL-803]: don't rely on constants
-instance MonadIO m => MonadGState (WalletWebDB m) where
-    gsAdoptedBVData = return Const.genesisBlockVersionData
+gsAdoptedBVDataWebWallet :: Monad m => m BlockVersionData
+gsAdoptedBVDataWebWallet =
+    return Const.genesisBlockVersionData

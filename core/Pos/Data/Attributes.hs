@@ -27,9 +27,9 @@ import           Formatting          (bprint, build, int, (%))
 import qualified Prelude
 
 import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize (..),
-                                      UnsignedVarInt (..), getSize, getWithLength,
-                                      getWithLengthLimited, getWord8, isEmptyPeek,
-                                      lookAhead, putS, putWithLengthS, putWord8S)
+                                      getWithLength, getWithLengthLimited, getWord8,
+                                      isEmptyPeek, lookAhead, putS, putWithLengthS,
+                                      putWord8S)
 
 mkAttributes :: h -> Attributes h
 mkAttributes dat = Attributes dat BS.empty

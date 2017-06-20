@@ -39,7 +39,6 @@ import           Universum
 
 import qualified Data.ByteString            as BS
 import           Data.Char                  (isAscii)
-import           Data.Functor.Contravariant (contramap)
 import           Data.Reflection            (reifyNat)
 import           Data.SafeCopy              (Contained, SafeCopy (..), contain, safeGet,
                                              safePut)

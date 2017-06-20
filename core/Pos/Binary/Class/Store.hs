@@ -43,8 +43,6 @@ import           Data.Store.Core            (Peek (..), PeekResult (..), Poke (.
 import qualified Data.Store.Core            as Store
 import           Data.Store.Internal        (PeekException (..), StaticSize (..))
 import qualified Data.Store.Internal        as Store
-import           Foreign.Marshal.Alloc      (mallocBytes)
-import           Foreign.Marshal.Utils      (copyBytes)
 
 import           Pos.Binary.Class.Core      (Bi (..), getSize)
 

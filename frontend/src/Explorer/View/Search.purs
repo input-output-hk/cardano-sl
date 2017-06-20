@@ -16,7 +16,7 @@ import Explorer.State (maxSlotInEpoch)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
 import Explorer.View.Common (emptyView)
-import Pux.Html (Html, div, text, ul, li, label, input) as P
+import Pux.Html (Html, div, span, text, ul, li, label, input) as P
 import Pux.Html.Attributes (checked, className, htmlFor, id_, maxLength, name, type_, placeholder, value) as P
 import Pux.Html.Events (onChange, onClick, onFocus, onBlur, onKey) as P
 
@@ -161,18 +161,6 @@ searchItemView item selectedSearch =
         selectedClass = if selected then " selected" else ""
     in
     P.li
-        [ P.className "explorer-search-nav__item" ]
-        [ P.input
-            [ P.type_ "radio"
-            , P.id_ $ show item.value
-            , P.name $ show item.value
-            , P.onChange <<< const $ GlobalUpdateSelectedSearch item.value
-            , P.checked $ item.value == selectedSearch
-            , P.value $ show item.value
-            ]
-            []
-        , P.label
-            [ P.className $ "explorer-search-nav__item--label" <> selectedClass
-            , P.htmlFor $ show item.value ]
-            [ P.text item.label ]
-        ]
+        [ P.className $ "explorer-search-nav__item"  <> selectedClass
+        , P.onClick <<< const $ GlobalUpdateSelectedSearch item.value ]
+        [ P.text item.label ]

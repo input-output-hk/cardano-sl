@@ -85,9 +85,9 @@ import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
 import           Pos.Util.Servant                 (decodeCType, encodeCType)
-import           Pos.Util.UserSecret              (UserSecretDecodingError (..),
-                                                   readUserSecret, usWalletSet,
-                                                   UserSecret)
+import           Pos.Util.UserSecret              (UserSecret,
+                                                   UserSecretDecodingError (..),
+                                                   readUserSecret, usWalletSet)
 import           Pos.Wallet.KeyStorage            (addSecretKey, deleteSecretKey,
                                                    getSecretKeys)
 import           Pos.Wallet.Redirect              (WalletRedirects)
@@ -131,14 +131,15 @@ import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWe
                                                    notifyAll, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, Ever, Existing),
                                                    WalletWebDB, WebWalletModeDB,
-                                                   addOnlyNewTxMeta, addRemovedAccount,
-                                                   addUpdate, addWAddress, closeState,
-                                                   createAccount, createWallet,
-                                                   getAccountMeta, getAccountWAddresses,
-                                                   getHistoryCache, getNextUpdate,
-                                                   getProfile, getTxMeta, getWAddressIds,
-                                                   getWalletAddresses, getWalletMeta,
-                                                   getWalletPassLU, openState,
+                                                   addChangeAddress, addOnlyNewTxMeta,
+                                                   addRemovedAccount, addUpdate,
+                                                   addWAddress, closeState, createAccount,
+                                                   createWallet, getAccountMeta,
+                                                   getAccountWAddresses, getHistoryCache,
+                                                   getNextUpdate, getProfile, getTxMeta,
+                                                   getWAddressIds, getWalletAddresses,
+                                                   getWalletMeta, getWalletPassLU,
+                                                   isChangeAddress, openState,
                                                    removeAccount, removeNextUpdate,
                                                    removeWAddress, removeWallet,
                                                    setAccountMeta, setProfile,
@@ -405,10 +406,7 @@ getWAddress cAddr = do
             (Just addrAccount)  -- just to specify addrId is not enough
             (Just aId)
     let isUsed = not (null ctxs) || balance > minBound
-    -- Suppose we have transaction with inputs A1, A2, A3. Output address B_j is referred to as change address if it belongs to same account as one of A_i
-    acctAddrs <- (S.fromList . map cwamId) <$> getAccountAddrsOrThrow Ever addrAccount
-    let containsChangeAddr CTx {..} = aId `elem` ctOutputAddrs && any (`S.member` acctAddrs) ctInputAddrs
-    let isChange = any containsChangeAddr ctxs
+    isChange <- isChangeAddress cAddr
     return $ CAddress aId (mkCCoin balance) isUsed isChange
 
 getAccountAddrsOrThrow
@@ -590,7 +588,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
         | remaining == mkCoin 0 = return Nothing
         | otherwise = do
             relatedWallet <- getSomeMoneySourceAccount moneySource
-            account       <- newAddress RandomSeed passphrase relatedWallet
+            account       <- newChangeAddress RandomSeed passphrase relatedWallet
             remAddr       <- decodeCIdOrFail (cadId account)
             let remTx = TxOutAux (TxOut remAddr remaining) []
             return $ Just remTx
@@ -741,18 +739,29 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     walAddrMetas <- getWalletAddrMetas Ever cWalId
     mkCTxs diff wtx meta' walAddrMetas & either (throwM . InternalError) pure
 
-newAddress
+newAddress, newChangeAddress
     :: WalletWebMode m
     => AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CAddress
-newAddress addGenSeed passphrase accId = do
+newAddress = newAddress' addWAddress
+newChangeAddress = newAddress' addChangeAddress
+
+-- Internal function
+newAddress'
+    :: WalletWebMode m
+    => (CWAddressMeta -> m ())
+    -> AddrGenSeed
+    -> PassPhrase
+    -> AccountId
+    -> m CAddress
+newAddress' addAddressFunc addGenSeed passphrase accId = do
     -- check wallet exists
     _ <- getAccount accId
 
     cAccAddr <- genUniqueAccountAddress addGenSeed passphrase accId
-    addWAddress cAccAddr
+    _ <- addAddressFunc cAccAddr
     getWAddress cAccAddr
 
 newAccount :: WalletWebMode m => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount

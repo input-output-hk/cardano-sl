@@ -130,8 +130,9 @@ import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWe
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, Ever, Existing),
+                                                   CustomAddressType (ChangeAddr),
                                                    WalletWebDB, WebWalletModeDB,
-                                                   addChangeAddress, addOnlyNewTxMeta,
+                                                   addCustomAddress, addOnlyNewTxMeta,
                                                    addRemovedAccount, addUpdate,
                                                    addWAddress, closeState, createAccount,
                                                    createWallet, getAccountMeta,
@@ -139,7 +140,7 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, E
                                                    getNextUpdate, getProfile, getTxMeta,
                                                    getWAddressIds, getWalletAddresses,
                                                    getWalletMeta, getWalletPassLU,
-                                                   isChangeAddress, openState,
+                                                   isCustomAddress, openState,
                                                    removeAccount, removeNextUpdate,
                                                    removeWAddress, removeWallet,
                                                    setAccountMeta, setProfile,
@@ -406,7 +407,7 @@ getWAddress cAddr = do
             (Just addrAccount)  -- just to specify addrId is not enough
             (Just aId)
     let isUsed = not (null ctxs) || balance > minBound
-    isChange <- isChangeAddress cAddr
+    isChange <- isCustomAddress ChangeAddr (cwamId cAddr)
     return $ CAddress aId (mkCCoin balance) isUsed isChange
 
 getAccountAddrsOrThrow
@@ -746,7 +747,7 @@ newAddress, newChangeAddress
     -> AccountId
     -> m CAddress
 newAddress = newAddress' addWAddress
-newChangeAddress = newAddress' addChangeAddress
+newChangeAddress = newAddress' (addCustomAddress ChangeAddr)
 
 -- Internal function
 newAddress'

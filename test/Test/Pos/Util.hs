@@ -53,9 +53,11 @@ binaryEncodeDecode a = Store.decodeExWith parser (encode a) === a
   where
     parser = get <* unlessM isEmptyPeek (fail "Unconsumed input")
 
--- | This check is indended to be used for all messages sent via
+-- | This check is intended to be used for all messages sent via
 -- networking.
 -- TODO @pva701: should we write more clever stuff here?
+-- TODO [CSL-1122] this test used to test that the message doesn't encode
+--      into an empty string, but after pva's changes it doesn't
 networkBinaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
 networkBinaryEncodeDecode a = decodeOrFail (encode a) === a
 

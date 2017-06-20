@@ -195,6 +195,7 @@ instance Bi U.ConfirmedProposalState where
     sizeNPut = labelS "ConfirmedProposalState" $
         putField U.cpsUpdateProposal <>
         putField U.cpsImplicit <>
+        putField U.cpsProposed <>
         putField U.cpsDecided <>
         putField U.cpsConfirmed <>
         putField U.cpsAdopted <>

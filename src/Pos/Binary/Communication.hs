@@ -68,7 +68,7 @@ instance Bi HandlerSpec where
                 Right (UnsignedVarInt a)
                     | a < 64 -> putWord8S (0x40 .|. (fromIntegral (a :: Word) .&. 0x3f))
                 _ -> putWord8S 1 <> putSmallWithLengthS (putS m)
-        f (UnknownHandler t b) = putWord8S t <> putS b
+        f (UnknownHandler t b) = putWord8S t <> putSmallWithLengthS (putS b)
     get = label "HandlerSpec" $ getWord8 >>= \case
         0                        -> pure $ UnknownHandler 0 mempty
         1                        -> getSmallWithLength (ConvHandler <$> get)
@@ -76,7 +76,7 @@ instance Bi HandlerSpec where
             pure . ConvHandler . MessageName . encode $
             UnsignedVarInt (fromIntegral (t .&. 0x3f) :: Word)
           | otherwise            ->
-            getSmallWithLength (UnknownHandler t <$> getSmallWithLength get)
+            UnknownHandler t <$> getSmallWithLength get
 
 instance Bi VerInfo where
     sizeNPut = labelS "VerInfo" $

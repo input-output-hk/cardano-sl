@@ -21,7 +21,8 @@ instance Bi T.TxIn where
     sizeNPut = labelS "TxIn" $
         putField T.txInHash <>
         putField (UnsignedVarInt . T.txInIndex)
-    get = label "TxIn" $ T.TxIn <$> get <*> (getUnsignedVarInt <$> get)
+    get = label "TxIn" $
+        T.TxIn <$> get <*> (getUnsignedVarInt <$> get)
 
 instance Bi T.TxOut where
     sizeNPut = labelS "TxOut" $

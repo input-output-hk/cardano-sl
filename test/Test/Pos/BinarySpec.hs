@@ -92,6 +92,19 @@ tinyVarIntSpec = describe "TinyVarInt" $ do
             n <- generate $ choose (0, maxnum)
             B.biSize (B.TinyVarInt n) `shouldSatisfy` (<= 2)
 
+-- CSL-1122: restore this test
+--    describe "normal varint followed by unrelated bytes" $ do
+--        prop "1 byte" $ do
+--            n <- generate $ choose (0x00, 0x79)
+--            bs <- generate arbitrary
+--            B.decode (B.encode (B.TinyVarInt n) <> bs)
+--                `shouldBe` B.TinyVarInt n
+--        prop "2 bytes" $ do
+--            n <- generate $ choose (0x80, maxnum)
+--            bs <- generate arbitrary
+--            B.decode (B.encode (B.TinyVarInt n) <> bs)
+--                `shouldBe` B.TinyVarInt n
+
     describe "inefficiently encoded data" $ do
         prop "fails to deserialize ambiguous numbers (e.g. 0x80 0x00)" $ do
             word8 <- generate $ flip setBit 7 <$> arbitrary

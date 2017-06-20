@@ -23,9 +23,10 @@ filterUtxoByAddr addr = M.filter (`addrBelongsTo` addr)
 
 -- | Select only TxOuts for given addresses
 filterUtxoByAddrs :: [Address] -> Utxo -> Utxo
-filterUtxoByAddrs addrs =
+filterUtxoByAddrs addrs utxo =
     let addrSet = HS.fromList $ map AddressIA addrs
-    in  M.filter (`addrBelongsToSet` addrSet)
+    in traceShow ("Filtering: by " <> show addrs <> "\n\t: " <> show utxo <> "\n") $
+       M.filter (`addrBelongsToSet` addrSet) utxo
 
 -- | Convert 'Utxo' to map from 'StakeholderId' to stake.
 utxoToStakes :: Utxo -> HashMap StakeholderId Coin

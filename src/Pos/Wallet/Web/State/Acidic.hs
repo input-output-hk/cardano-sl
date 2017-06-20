@@ -29,8 +29,7 @@ module Pos.Wallet.Web.State.Acidic
        , TestReset (..)
        , GetHistoryCache (..)
        , GetCustomAddresses (..)
-       , IsCustomAddress (..)
-       , SetCustomAddress (..)
+       , GetCustomAddress (..)
        , AddCustomAddress (..)
        , CreateAccount (..)
        , AddWAddress (..)
@@ -109,8 +108,7 @@ makeAcidic ''WalletStorage
     , 'WS.getNextUpdate
     , 'WS.getHistoryCache
     , 'WS.getCustomAddresses
-    , 'WS.isCustomAddress
-    , 'WS.setCustomAddress
+    , 'WS.getCustomAddress
     , 'WS.addCustomAddress
     , 'WS.createAccount
     , 'WS.createWallet

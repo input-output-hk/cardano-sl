@@ -31,6 +31,7 @@ module Pos.Wallet.Web.State.State
        , getNextUpdate
        , getHistoryCache
        , getCustomAddresses
+       , getCustomAddress
        , isCustomAddress
 
        -- * Setters
@@ -40,7 +41,6 @@ module Pos.Wallet.Web.State.State
        , addRemovedAccount
        , addWAddress
        , addCustomAddress
-       , setCustomAddress
        , setProfile
        , setAccountMeta
        , setWalletMeta
@@ -153,8 +153,11 @@ getHistoryCache = queryDisk . A.GetHistoryCache
 getCustomAddresses :: WebWalletModeDB m => CustomAddressType -> m [CId Addr]
 getCustomAddresses = queryDisk ... A.GetCustomAddresses
 
+getCustomAddress :: WebWalletModeDB m => CustomAddressType -> CId Addr -> m (Maybe HeaderHash)
+getCustomAddress = queryDisk ... A.GetCustomAddress
+
 isCustomAddress :: WebWalletModeDB m => CustomAddressType -> CId Addr -> m Bool
-isCustomAddress = queryDisk ... A.IsCustomAddress
+isCustomAddress = fmap isJust . queryDisk ... A.GetCustomAddress
 
 createAccount :: WebWalletModeDB m => AccountId -> CAccountMeta -> m ()
 createAccount accId = updateDisk . A.CreateAccount accId
@@ -165,10 +168,7 @@ createWallet cWalId passLU = updateDisk . A.CreateWallet cWalId passLU
 addWAddress :: WebWalletModeDB m => CWAddressMeta -> m ()
 addWAddress addr = updateDisk $ A.AddWAddress addr
 
-setCustomAddress :: WebWalletModeDB m => CustomAddressType -> CId Addr -> m ()
-setCustomAddress = updateDisk ... A.SetCustomAddress
-
-addCustomAddress :: WebWalletModeDB m => CustomAddressType -> CWAddressMeta -> m ()
+addCustomAddress :: WebWalletModeDB m => CustomAddressType -> CId Addr -> HeaderHash -> m Bool
 addCustomAddress = updateDisk ... A.AddCustomAddress
 
 addRemovedAccount :: WebWalletModeDB m => CWAddressMeta -> m ()

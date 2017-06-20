@@ -26,8 +26,7 @@ module Pos.Wallet.Web.State.Storage
        , getNextUpdate
        , getHistoryCache
        , getCustomAddresses
-       , isCustomAddress
-       , setCustomAddress
+       , getCustomAddress
        , addCustomAddress
        , createAccount
        , createWallet
@@ -75,6 +74,9 @@ type TransactionHistory = HashMap CTxId CTxMeta
 
 type CAddresses = HashSet CWAddressMeta
 
+-- | For each address - first occurance in blockchain
+type CustomAddresses = HashMap (CId Addr) (HeaderHash)
+
 data WalletInfo = WalletInfo
     { _wiMeta         :: CWalletMeta
     , _wiPassphraseLU :: PassPhraseLU
@@ -98,8 +100,8 @@ data WalletStorage = WalletStorage
     , _wsReadyUpdates    :: [CUpdateInfo]
     , _wsTxHistory       :: !(HashMap (CId Wal) TransactionHistory)
     , _wsHistoryCache    :: !(HashMap (CId Wal) (HeaderHash, Utxo, [TxHistoryEntry]))
-    , _wsUsedAddresses   :: !(HashSet (CId Addr))
-    , _wsChangeAddresses :: !(HashSet (CId Addr))
+    , _wsUsedAddresses   :: !CustomAddresses
+    , _wsChangeAddresses :: !CustomAddresses
     }
 
 makeClassy ''WalletStorage
@@ -136,7 +138,7 @@ data CustomAddressType
     = UsedAddr
     | ChangeAddr
 
-customAddressL :: CustomAddressType -> Lens' WalletStorage (HashSet (CId Addr))
+customAddressL :: CustomAddressType -> Lens' WalletStorage CustomAddresses
 customAddressL UsedAddr   = wsUsedAddresses
 customAddressL ChangeAddr = wsChangeAddresses
 
@@ -203,16 +205,13 @@ getHistoryCache :: CId Wal -> Query (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
 getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
 
 getCustomAddresses :: CustomAddressType -> Query [CId Addr]
-getCustomAddresses t = toList <$> view (customAddressL t)
+getCustomAddresses t = HM.keys <$> view (customAddressL t)
 
-isCustomAddress :: CustomAddressType -> CId Addr -> Query Bool
-isCustomAddress t addr = isJust <$> preview (customAddressL t . ix addr)
+getCustomAddress :: CustomAddressType -> CId Addr -> Query (Maybe HeaderHash)
+getCustomAddress t addr = view $ customAddressL t . at addr
 
-setCustomAddress :: CustomAddressType -> CId Addr -> Update ()
-setCustomAddress t addr = customAddressL t . at addr ?= ()
-
-addCustomAddress :: CustomAddressType -> CWAddressMeta -> Update ()
-addCustomAddress t addr = addWAddress addr >> setCustomAddress t (cwamId addr)
+addCustomAddress :: CustomAddressType -> CId Addr -> HeaderHash -> Update Bool
+addCustomAddress t addr hh = fmap isJust $ customAddressL t . at addr <<.= Just hh
 
 createAccount :: AccountId -> CAccountMeta -> Update ()
 createAccount accId cAccMeta = wsAccountInfos . at accId ?= AccountInfo cAccMeta mempty mempty

@@ -244,8 +244,11 @@ deriveSimpleBi headTy constrs = do
 
     -- Size definition --
     biSizeExpr :: Q Exp
-    biSizeExpr = caseE (tupE (concatMap (map (sizeAtType . fmap snd)) allUsedFields))
-                       [matchConstSize, matchVarSize]
+    biSizeExpr = caseE (tupE (concatMap (map (sizeAtType . fmap snd)) allUsedFields)) $
+                       -- when there are no fields, the second branch will be redundant
+                       -- so we don't generate it at all
+                       [matchConstSize] ++
+                       [matchVarSize | not (all null allUsedFields)]
 
     -- Generate code like "size :: Word8", "size :: Int"
     sizeAtType :: TypeQ -> ExpQ

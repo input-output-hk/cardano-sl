@@ -19,6 +19,7 @@ import Signal.Channel (Channel)
 data Action
     = SetLanguage Language
     -- routing
+    | Navigate String DOMEvent
     | UpdateView Route
     -- DOM
     | ScrollTop

@@ -737,6 +737,16 @@ update Reload state = update (UpdateView state.route) state
 
 -- routing
 
+update (Navigate url ev) state = onlyEffects state
+    [ do
+        liftEff do
+            preventDefault ev
+            h <- history =<< window
+            -- TODO (jk) Set document title
+            pushState (toForeign {}) (DocumentTitle "") (URL url) h
+        pure <<< Just $ UpdateView (match url)
+    ]
+
 update (UpdateView route) state = routeEffects route (state { route = route })
 
 routeEffects :: forall eff. Route -> State -> EffModel State Action (dom :: DOM

@@ -61,6 +61,7 @@ genesisBlockVersionData =
     , bvdUpdateProposalThd = genesisUpdateProposalThd
     , bvdUpdateImplicit = genesisUpdateImplicit
     , bvdUpdateSoftforkThd = genesisUpdateSoftforkThd
+    , bvdTxFeePolicy = Nothing
     }
 
 -- | ScriptVersion used at the very beginning

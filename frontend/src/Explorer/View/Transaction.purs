@@ -56,7 +56,7 @@ type SummaryItems = Array SummaryItem
 
 type SummaryItem =
     { label :: String
-    , value :: P.Html Action
+    , value :: P.HTML Action
     }
 
 summaryItems :: CTxSummary -> Language -> SummaryItems
@@ -79,7 +79,7 @@ summaryItems (ctxSum@CTxSummary txSummary) lang =
       }
     ]
 
-emptySummaryRow :: P.Html Action
+emptySummaryRow :: P.HTML Action
 emptySummaryRow = tr
 
 summaryRowSimpleValue :: String -> P.HTML Action
@@ -131,7 +131,7 @@ textTxHeaderView message =
         div ! P.dangerouslySetInnerHTML message
 
 
-emptySummaryView :: P.Html Action
+emptySummaryView :: P.HTML Action
 emptySummaryView =
     div ! className "explorer-transaction__container"
 

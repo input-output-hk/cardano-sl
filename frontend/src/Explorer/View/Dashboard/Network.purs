@@ -1,6 +1,8 @@
 module Explorer.View.Dashboard.Network (networkView) where
 
 import Prelude
+
+import Data.Foldable (for_)
 import Data.Lens ((^.))
 
 import Explorer.I18n.Lang (Language, translate)
@@ -11,7 +13,7 @@ import Explorer.Types.State (State)
 import Explorer.Util.String (substitute)
 
 import Pux.DOM.HTML (HTML) as P
-import Text.Smolder.HTML (div, h3, text, h4, p)
+import Text.Smolder.HTML (div, h3, h4, p)
 import Text.Smolder.HTML.Attributes (className)
 import Text.Smolder.Markup (text, (!))
 
@@ -56,17 +58,17 @@ networkView state =
     let lang' = state ^. lang in
     div ! className "explorer-dashboard__wrapper"
         $ div ! className "explorer-dashboard__container" $ do
-              h3 ! className "headline"
-                 $ text (translate (I18nL.common <<< I18nL.cNetwork) lang')
+              h3  ! className "headline"
+                  $ text (translate (I18nL.common <<< I18nL.cNetwork) lang')
               div ! className "explorer-dashboard__teaser"
-                  $ map (networkItem state) (networkItems lang')
+                  $ for_ (networkItems lang') (networkItem state)
 
 networkItem :: State -> NetworkItem -> P.HTML Action
 networkItem state item =
     div ! className "teaser-item" $ do
         h3  ! className "teaser-item__headline"
             $ text item.headline
-        h4  ! className $ "teaser-item__subheadline"
+        h4  ! className "teaser-item__subheadline"
             $ text item.subheadline
-        p ! className $ "teaser-item__description"
-          $ text item.description
+        p   ! className "teaser-item__description"
+            $ text item.description

@@ -75,19 +75,19 @@ module Pos.Binary.Class.TH
        ) where
 
 import           Universum
-import           Unsafe                   (unsafeHead)
+import           Unsafe                (unsafeHead)
 
-import           Control.Lens             (imap)
-import           Data.Default             (def)
-import           Data.List                (notElem, nubBy, partition)
-import qualified Data.Store.Internal      as Store
-import qualified Data.Text                as T
-import           Formatting               (sformat, shown, (%))
+import           Control.Lens          (imap)
+import           Data.Default          (def)
+import           Data.List             (notElem, nubBy, partition)
+import qualified Data.Store.Internal   as Store
+import qualified Data.Text             as T
+import           Formatting            (sformat, shown, (%))
 import           Language.Haskell.TH
-import           TH.ReifySimple           (DataCon (..), DataType (..), reifyDataType)
-import           TH.Utilities             (plainInstanceD)
+import           TH.ReifySimple        (DataCon (..), DataType (..), reifyDataType)
+import           TH.Utilities          (plainInstanceD)
 
-import qualified Pos.Binary.Class.Core    as Bi
+import qualified Pos.Binary.Class.Core as Bi
 
 data Cons = Cons
     { -- | Name of a constructor.
@@ -225,7 +225,7 @@ deriveSimpleBi headTy constrs = do
     --   put (field3 val)
     biPutConstr :: Int -> Cons -> MatchQ
     biPutConstr ix (Cons cName cFields) = do
-        val <- newName $ if length cFields > 0 then "val" else "_"
+        val <- newName $ if null cFields then "_" else "val"
         match (asP val (recP cName [])) (body (varE val)) []
       where
         body val = normalB $ appE [| Bi.labelP shortNameTy |] $
@@ -317,7 +317,7 @@ deriveSimpleBi headTy constrs = do
           --     | size_Foo == size_Bar && size_Bar == size_Baz && ...
           -- The result:
           --     -> ConstSize (size_Foo + tagSize)
-          let casePattern  = tupP [ [p| Store.ConstSize $(varP fs) |]
+          let casePattern  = tupP [ conP 'Store.ConstSize [varP fs]
                                   | fs <- concat fieldSizeNames]
               caseGuard    = andE $ zipConsecutive
                                       (\a b -> infixApp a [|(==)|] b)
@@ -329,18 +329,19 @@ deriveSimpleBi headTy constrs = do
                 totalsDecls
 
     -- Generate the following code:
-    -- _ -> VarSize $ \x -> tagSize +
+    -- _ -> VarSize (\x -> tagSize +
     --    case x of
     --        val@Bar{} -> getSize (f1 val) + getSize (f2 val)
-    --        val@Baz{} -> getSize (f1 val)
+    --        val@Baz{} -> getSize (f1 val))
     matchVarSize :: MatchQ
     matchVarSize = do
         x <- newName "x"
         let branches = map matchVarCons filteredConstrs
         match wildP
-              (normalB
-                 [| Store.VarSize $ \ $(varP x) ->
-                        $mbTagSize + $(caseE (varE x) branches) |])
+              (normalB $
+                 appE [|Store.VarSize|] $
+                   lam1E (varP x)
+                     [| $mbTagSize + $(caseE (varE x) branches) |])
               []
 
     -- Generate the following code:
@@ -349,7 +350,7 @@ deriveSimpleBi headTy constrs = do
     matchVarCons Cons{..} = do
         -- we assume that the constructor is filtered and has only Field
         fieldNames <- mapM (fmap fst . fieldToPair) cFields
-        val <- newName $ if length fieldNames > 0 then "val" else "_"
+        val <- newName $ if null fieldNames then "_" else "val"
         match (asP val (recP cName [])) (body (varE val) fieldNames) []
       where
         body val fieldNames = normalB $
@@ -358,13 +359,14 @@ deriveSimpleBi headTy constrs = do
     -- Get definition --
     biGetExpr :: Q Exp
     biGetExpr =  appE [| Bi.label shortNameTy |] $ case constrs of
-        []        ->
+        []     ->
             failText $ sformat ("Attempting to peek type without constructors "%shown) headTy
-        (cons:[]) ->
+        [cons] ->
             (biGetConstr cons) -- There is one constructor
-        _         ->do
+        _      -> do
             let tagName = mkName "tag"
-            let getMatch (ix, con) = match (litP (IntegerL ix)) (normalB (biGetConstr con)) []
+            let getMatch ix con = match (litP (IntegerL (fromIntegral ix)))
+                                        (normalB (biGetConstr con)) []
             let mismatchConstr =
                     match wildP (normalB
                         [| Store.peekException ("Found invalid tag while getting " <> shortNameTy) |]) []
@@ -372,7 +374,7 @@ deriveSimpleBi headTy constrs = do
                 [ bindS (varP tagName) [| Bi.get |]
                 , noBindS (caseE
                                 (sigE (varE tagName) tagType)
-                                (map getMatch (zip [0..] constrs) ++ [mismatchConstr]))
+                                (imap getMatch constrs ++ [mismatchConstr]))
                 ]
 
     biGetConstr :: Cons -> Q Exp
@@ -416,7 +418,7 @@ matchAllConstrs (map cName -> passedNames) realCons@(map dcName -> realNames)
     | Just nm <- passedNames `inclusion` realNames = UnknownCons nm
     | Just nm <- realNames `inclusion` passedNames = MissedCons nm
     | otherwise =
-        let ret = catMaybes $ map (\x -> find ((x==) . dcName) realCons) passedNames in
+        let ret = mapMaybe (\x -> find ((x==) . dcName) realCons) passedNames in
         if length ret /= length passedNames then
             error "Something went wrong. Matched list of constructors has different length"
         else
@@ -440,7 +442,7 @@ checkAllFields passedFields realFields
     | Just nm <- map fst passedFields `inclusion` map fst realFields = UnknownField nm
     | Just nm <- map fst realFields `inclusion` map fst passedFields = MissedField nm
     | otherwise =
-        let ret = catMaybes $ map (\x -> find ((fst x ==) . fst) realFields) passedFields in
+        let ret = mapMaybe (\x -> find ((fst x ==) . fst) realFields) passedFields in
         if length ret /= length passedFields then
             error "Something went wrong. Matched list of fields has different length"
         else

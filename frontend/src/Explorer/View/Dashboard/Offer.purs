@@ -1,17 +1,21 @@
 module Explorer.View.Dashboard.Offer (offerView) where
 
 import Prelude
+
 import Data.Lens ((^.))
+import Pux.DOM.HTML (Html) as P
+import Text.Smolder.HTML (div, h3, text, p)
+import Text.Smolder.HTML.Attributes (className)
+import Text.Smolder.Markup (text, (!))
+
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (dbApiDescription
-  , dbAddressSearch, dbAddressSearchDescription, dbBlockchainOffer, dbBlockSearch, dbBlockSearchDescription
-  , dbTransactionSearch, dbTransactionSearchDescription, cApi
-  , common, dashboard) as I18nL
+  , dbAddressSearch, dbAddressSearchDescription, dbBlockchainOffer, dbBlockSearch
+  , dbBlockSearchDescription, dbTransactionSearch, dbTransactionSearchDescription
+  , cApi , common, dashboard) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
-import Pux.Html (Html, div, h3, text, p) as P
-import Pux.Html.Attributes (className) as P
 
 -- FIXME (jk): just for now, will use later `real` ADTs
 type OfferItems = Array OfferItem
@@ -38,31 +42,20 @@ offerItems lang =
       }
     ]
 
-
 offerView :: State -> P.Html Action
 offerView state =
     let lang' = state ^. lang in
-    P.div
-        [ P.className "explorer-dashboard__wrapper" ]
-        [ P.div
-          [ P.className "explorer-dashboard__container" ]
-          [ P.h3
-                [ P.className "headline"]
-                [ P.text $ translate (I18nL.dashboard <<< I18nL.dbBlockchainOffer) lang' ]
-          , P.div
-                [ P.className "explorer-dashboard__teaser" ]
-                <<< map (offerItem state) $ offerItems lang'
-          ]
-        ]
+    div ! className "explorer-dashboard__wrapper" $ do
+        div ! className "explorer-dashboard__container" $ ddo
+            h3 ! className "headline"
+               $ text (translate (I18nL.dashboard <<< I18nL.dbBlockchainOffer) lang')
+            div ! className "explorer-dashboard__teaser"
+                $ map (offerItem state) $ offerItems lang'
 
 offerItem :: State -> OfferItem -> P.Html Action
 offerItem state item =
-    P.div
-        [ P.className "teaser-item" ]
-        [ P.h3
-            [ P.className "teaser-item__headline" ]
-            [ P.text item.headline ]
-        , P.p
-              [ P.className $ "teaser-item__description" ]
-              [ P.text item.description ]
-        ]
+    div ! className "teaser-item" $ do
+        h3 ! className "teaser-item__headline"
+           $ text item.headline
+        p ! className "teaser-item__description"
+          $ P.text item.description

@@ -1,9 +1,11 @@
 module Explorer.View.Address where
 
 import Prelude hiding (id)
+
 import Data.Array (length, null, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), isJust)
+
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance, tx, txEmpty, txNotFound) as I18nL
 import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, currentAddressSummary, lang, viewStates)
@@ -13,7 +15,9 @@ import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), PageNumber(..), State, CTxBriefs)
 import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
+
 import Network.RemoteData (RemoteData(..))
+
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..), CTxBrief)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxNum)
 

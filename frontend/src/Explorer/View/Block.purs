@@ -1,9 +1,11 @@
 module Explorer.View.Block (blockView) where
 
 import Prelude
+
 import Data.Array (length, null, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), isJust)
+
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cBlock, blSlotNotFound, common, cBack2Dashboard, cOf, cLoading, cNotAvailable, block, blFees, blRoot, blNextBlock, blPrevBlock, blEstVolume, cHash, cSummary, cTotalOutput, cHashes, cSlot, cTransactions, tx, txNotFound, txEmpty) as I18nL
 import Explorer.Lenses.State (_PageNumber, blockDetail, blockTxPagination, blockTxPaginationEditable, currentBlockSummary, currentBlockTxs, lang, viewStates)
@@ -14,12 +16,18 @@ import Explorer.Types.State (CCurrency(..), CTxBriefs, PageNumber(..), State)
 import Explorer.Util.Factory (mkCoin)
 import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, emptyView, getMaxPaginationNumber, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
+
 import Network.RemoteData (RemoteData(..), isFailure)
+
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..), CTxBrief)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
-import Pux.Html (Html, div, text, h3, span) as P
-import Pux.Html.Attributes (className) as P
-import Pux.Router (link) as P
+
+import Pux.DOM.HTML (Html) as P
+import Pux.DOM.Events (onClick) as P
+
+import Text.Smolder.HTML (div, h3, span)
+import Text.Smolder.HTML.Attributes (className)
+import Text.Smolder.Markup (text, (#!), (!))
 
 
 
@@ -29,49 +37,35 @@ blockView state =
         blockSummary = state ^. currentBlockSummary
         blockTxs = state ^. currentBlockTxs
     in
-    P.div
-        [ P.className "explorer-block" ]
-        [ P.div
-            [ P.className "explorer-block__wrapper" ]
-            [ P.div
-                  [ P.className "explorer-block__container" ]
-                  [ P.h3
-                        [ P.className "headline"]
-                        [ P.text $ translate (I18nL.common <<< I18nL.cBlock) lang' ]
-                    , case blockSummary of
-                          NotAsked -> blockSummaryEmptyView ""
-                          Loading -> blockSummaryEmptyView $ translate (I18nL.common <<< I18nL.cLoading) lang'
-                          Failure _ -> blockSummaryEmptyView $ translate (I18nL.block <<< I18nL.blSlotNotFound) lang'
-                          Success block -> blockSummaryView block lang'
-                  ]
-
-            ]
-        , P.div
-            [ P.className "explorer-block__wrapper" ]
-            [ P.div
-                [ P.className "explorer-block__container" ]
-                [ P.h3
-                      [ P.className "headline"]
-                      [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang' ]
-                , case blockTxs of
-                      NotAsked -> txEmptyContentView ""
-                      Loading -> txEmptyContentView $ translate (I18nL.common <<< I18nL.cLoading) lang'
-                      Failure _ -> txEmptyContentView $ translate (I18nL.tx <<< I18nL.txNotFound) lang'
-                      Success txs -> blockTxsView txs state
-                ]
-            , if (isFailure blockSummary && isFailure blockTxs)
-              -- Show back button if both results ^ are failed
-              then
-                  P.div
-                      [ P.className "explorer-block__container" ]
-                      [ P.link (toUrl Dashboard)
-                          [ P.className "btn-back" ]
-                          [ P.text $ translate (I18nL.common <<< I18nL.cBack2Dashboard) lang' ]
-                      ]
-              else
-                  emptyView
-            ]
-        ]
+    div ! className "explorer-block" $ do
+        div ! className "explorer-block__wrapper"
+            $ div ! className "explorer-block__container"  $ do
+                  h3  ! className "headline"
+                      $ text (translate (I18nL.common <<< I18nL.cBlock) lang')
+                  case blockSummary of
+                      NotAsked -> blockSummaryEmptyView ""
+                      Loading -> blockSummaryEmptyView $ translate (I18nL.common <<< I18nL.cLoading) lang'
+                      Failure _ -> blockSummaryEmptyView $ translate (I18nL.block <<< I18nL.blSlotNotFound) lang'
+                      Success block -> blockSummaryView block lang'
+        div ! className "explorer-block__wrapper" $ do
+            div ! className "explorer-block__container" $ do
+                h3 ! className "headline"
+                   $ text (translate (I18nL.common <<< I18nL.cSummary) lang')
+                case blockTxs of
+                    NotAsked -> txEmptyContentView ""
+                    Loading -> txEmptyContentView $ translate (I18nL.common <<< I18nL.cLoading) lang'
+                    Failure _ -> txEmptyContentView $ translate (I18nL.tx <<< I18nL.txNotFound) lang'
+                    Success txs -> blockTxsView txs state
+            if (isFailure blockSummary && isFailure blockTxs)
+                -- Show back button if both results ^ are failed
+                then
+                    div ! className "explorer-block__container"
+                        $ a ! href (toUrl Dashboard)
+                            #! onClick (toUrl Dashboard)
+                            !className "btn-back"
+                            $ text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang')
+                else
+                    emptyView
 
 --  summary
 
@@ -111,53 +105,31 @@ mkSummaryItems lang (CBlockEntry entry) =
 
 summaryRow :: SummaryRowItem -> P.Html Action
 summaryRow item =
-    P.div
-        [ P.className "row row__summary" ]
-        [ P.div
-            [ P.className "column column__label" ]
-            [ P.text item.label ]
-        , P.div
-              [ P.className $ "column column__amount" ]
-              if isJust item.mCurrency
-              then
-                  [ P.span
-                        [ P.className $ currencyCSSClass item.mCurrency ]
-                        [ P.text item.amount ]
-                  ]
-              else
-                  [ P.text item.amount ]
-        ]
+    div ! className "row row__summary" $ do
+        div ! className "column column__label"
+            $ text item.label
+        div ! className $ "column column__amount"
+            $ if isJust item.mCurrency
+                  then span ! className (currencyCSSClass item.mCurrency)
+                            $ text item.amount
+                  else text item.amount
 
 blockSummaryEmptyView :: String -> P.Html Action
 blockSummaryEmptyView message =
-    P.div
-        [ P.className "summary-empty__container" ]
-        [P.text message ]
+    div ! className "summary-empty__container"
+        $ text message
 
 blockSummaryView :: CBlockSummary -> Language -> P.Html Action
 blockSummaryView block lang =
-    P.div
-      [ P.className "blocks-wrapper" ]
-      [ P.div
-        -- summary
-        [ P.className "summary-container" ]
-        [ P.h3
-          [ P.className "subheadline" ]
-          [ P.text $ translate (I18nL.common <<< I18nL.cSummary) lang ]
-        , P.div
-            []
-            <<< map summaryRow <<< mkSummaryItems lang $ block ^. (_CBlockSummary <<< cbsEntry)
-        ]-- hashes
-      , P.div
-        [ P.className "hashes-container" ]
-        [ P.h3
-            [ P.className "subheadline" ]
-            [ P.text $ translate (I18nL.common <<< I18nL.cHashes) lang ]
-        , P.div
-            []
-            <<< map hashesRow $ mkHashItems lang block
-        ]
-  ]
+    div ! className "blocks-wrapper" $ do
+        div ! className "summary-container" $ do
+            h3  ! className "subheadline"
+                $ text (translate (I18nL.common <<< I18nL.cSummary) lang)
+            div $ map summaryRow <<< mkSummaryItems lang $ block ^. (_CBlockSummary <<< cbsEntry)
+        div ! className "hashes-container" $ do
+            h3  ! className "subheadline"
+                $ text (translate (I18nL.common <<< I18nL.cHashes) lang)
+            div $ map hashesRow $ mkHashItems lang block
 
 -- hashes
 
@@ -196,19 +168,16 @@ mkHashItems lang (CBlockSummary blockSummery) =
 
 hashesRow :: HashRowItem -> P.Html Action
 hashesRow item =
-    P.div
-        [ P.className "row row__hashes" ]
-        [ P.div
-            [ P.className "column column__label" ]
-            [ P.text item.label ]
-        , case item.link of
-              Nothing ->  P.div
-                              [ P.className $ "column column__hash" ]
-                              [ P.text item.hash ]
-              Just link -> P.link link
-                              [ P.className $ "column column__hash--link" ]
-                              [ P.text item.hash ]
-        ]
+    div ! className "row row__hashes" $ do
+        div ! className "column column__label"
+            $ text item.label
+        case item.link of
+            Nothing ->  div ! className "column column__hash"
+                            $ text item.hash
+            Just link -> a  ! href link
+                            #! onClick link
+                            ! className "column column__hash--link"
+                            $ text item.hash
 
 maxTxRows :: Int
 maxTxRows = 5
@@ -223,27 +192,21 @@ blockTxsView txs state =
             minTxIndex = (txPagination - minPagination) * maxTxRows
             currentTxs = slice minTxIndex (minTxIndex + maxTxRows) txs
         in
-        P.div
-            []
-            [ P.div
-                  []
-                  $ map (\tx -> blockTxView tx lang') currentTxs
-            , txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                , currentPage: PageNumber txPagination
-                                , minPage: PageNumber minPagination
-                                , maxPage: PageNumber $ getMaxPaginationNumber (length txs) maxTxRows
-                                , changePageAction: BlockPaginateTxs
-                                , editable: state ^. (viewStates <<< blockDetail <<< blockTxPaginationEditable)
-                                , editableAction: BlockEditTxsPageNumber
-                                , invalidPageAction: BlockInvalidTxsPageNumber
-                                , disabled: false
-                                }
-            ]
+        div do
+            div $ map (\tx -> blockTxView tx lang') currentTxs
+            txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                              , currentPage: PageNumber txPagination
+                              , minPage: PageNumber minPagination
+                              , maxPage: PageNumber $ getMaxPaginationNumber (length txs) maxTxRows
+                              , changePageAction: BlockPaginateTxs
+                              , editable: state ^. (viewStates <<< blockDetail <<< blockTxPaginationEditable)
+                              , editableAction: BlockEditTxsPageNumber
+                              , invalidPageAction: BlockInvalidTxsPageNumber
+                              , disabled: false
+                              }
 
 blockTxView :: CTxBrief -> Language -> P.Html Action
 blockTxView tx lang =
-    P.div
-        []
-        [ txHeaderView lang $ mkTxHeaderViewProps tx
-        , txBodyView lang $ mkTxBodyViewProps tx
-        ]
+    div do
+        txHeaderView lang $ mkTxHeaderViewProps tx
+        txBodyView lang $ mkTxBodyViewProps tx

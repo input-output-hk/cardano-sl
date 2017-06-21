@@ -1,9 +1,19 @@
 module Explorer.View.Dashboard.Blocks (dashBoardBlocksView) where
 
-import Prelude
+import Prelude hiding (id)
+
 import Data.Array (length, null, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
+import Network.RemoteData (RemoteData(..), isLoading, isNotAsked, withDefault)
+
+import Pux.DOM.HTML (Html) as P
+import Pux.DOM.Events (onClick) as P
+
+import Text.Smolder.HTML (div, p)
+import Text.Smolder.HTML.Attributes (className, id)
+import Text.Smolder.Markup (text, (#!), (!))
+
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (cExpand, cOf, cLoading, dashboard, dbLastBlocks, common, dbExploreBlocks, cNoData) as I18nL
 import Explorer.Lenses.State (dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, lang, latestBlocks)
@@ -16,27 +26,18 @@ import Explorer.View.Common (paginationView)
 import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
-import Network.RemoteData (RemoteData(..), isLoading, isNotAsked, withDefault)
-import Pux.Html (Html, div, p, text) as P
-import Pux.Html.Attributes (className, id_) as P
-import Pux.DOM.Events (onClick) as P
 
 dashBoardBlocksView :: State -> P.Html Action
 dashBoardBlocksView state =
-    P.div
-        [ P.className CSS.dashboardWrapper
-        , P.id_ CSS.dashBoardBlocksViewId
-        ]
-        [ P.div
-            [ P.className CSS.dashboardContainer ]
-            [ headerView state headerOptions
-            , case state ^. latestBlocks of
+    div ! className CSS.dashboardWrapper
+        ! id CSS.dashBoardBlocksViewId
+        $ div ! className CSS.dashboardContainer $ do
+              headerView state headerOptions
+              case state ^. latestBlocks of
                   NotAsked  -> emptyBlocksView ""
                   Loading -> if hasBlocks then blocksView else emptyBlocksView ""
                   Failure _ -> emptyBlocksView $ translate (I18nL.common <<< I18nL.cNoData) lang'
                   Success _ -> blocksView
-            ]
-        ]
       where
         headerOptions = HeaderOptions
             { headline: translate (I18nL.dashboard <<< I18nL.dbLastBlocks) lang'
@@ -47,38 +48,26 @@ dashBoardBlocksView state =
         hasBlocks = not null $ withDefault [] $ state ^. latestBlocks
         remoteDataMaxPages = state ^. (dashboardViewState <<< dbViewMaxBlockPagination)
         blocksView =
-            P.div
-                []
-                [ blocksHeaderView (withDefault [] $ state ^. latestBlocks) lang'
-                , P.div
-                    [ P.className CSS.blocksBodyWrapper ]
-                    [ P.div
-                        [ P.className CSS.blocksBody ]
+            div do
+                blocksHeaderView (withDefault [] $ state ^. latestBlocks) lang'
+                div ! className CSS.blocksBodyWrapper $ do
+                    div ! className CSS.blocksBody
                         $ map (blockRow state) (currentBlocks state)
-                    , P.div
-                        [ P.className $ CSS.blocksBodyCover
-                        <>  if  isNotAsked remoteDataMaxPages ||
-                                isLoading remoteDataMaxPages ||
-                                state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)
-                            then " show"
-                            else ""
-                        ]
-                        [ P.p
-                              [ P.className CSS.blocksBodyCoverLabel ]
-                              [ P.text $ translate (I18nL.common <<< I18nL.cLoading) lang' ]
-                        ]
-                    ]
-
-                , P.div
-                    [ P.className CSS.blocksFooter ]
-                    [ blocksFooterView state ]
-                ]
+                    div ! className $ CSS.blocksBodyCover
+                              <>  if  isNotAsked remoteDataMaxPages ||
+                                      isLoading remoteDataMaxPages ||
+                                      state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)
+                                  then " show"
+                                  else ""
+                        $ p ! className CSS.blocksBodyCoverLabel
+                            $ text (translate (I18nL.common <<< I18nL.cLoading) lang')
+                div ! className CSS.blocksFooter
+                    $ blocksFooterView state
 
 emptyBlocksView :: String -> P.Html Action
 emptyBlocksView message =
-    P.div
-        [ P.className CSS.blocksWaiting ]
-        [ P.text message ]
+    div ! className CSS.blocksWaiting
+        $ text message
 
 currentBlocks :: State -> CBlockEntries
 currentBlocks state =
@@ -104,10 +93,9 @@ blocksFooterView state =
                                     state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)
                         }
     else
-        P.div
-            [ P.className $ "btn-expand" <> visibleBtnExpandClazz
-            , P.onClick clickHandler ]
-            [ P.text $ translate (I18nL.common <<< I18nL.cExpand) lang']
+        div ! className ("btn-expand" <> visibleBtnExpandClazz)
+            #! onClick clickHandler
+            $ text (translate (I18nL.common <<< I18nL.cExpand) lang')
     where
         lang' = state ^. lang
         remoteDataMaxPages = state ^. (dashboardViewState <<< dbViewMaxBlockPagination)

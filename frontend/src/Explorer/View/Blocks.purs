@@ -8,12 +8,14 @@ module Explorer.View.Blocks
     ) where
 
 import Prelude
+
 import Data.Array (length, null, slice)
 import Data.DateTime (diff)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.String (take)
 import Data.Time.Duration (Milliseconds)
+
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (block, blEpochSlotNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
 import Explorer.Lenses.State (_PageNumber, blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
@@ -26,12 +28,19 @@ import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
 import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, noData, paginationView)
+
 import Network.RemoteData (RemoteData(..), withDefault)
+
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeBlockLead, cbeSize, cbeTotalSent, cbeTxNum)
-import Pux.Html (Html, div, text, span, h3, p) as P
-import Pux.Html.Attributes (className, dangerouslySetInnerHTML) as P
-import Pux.Router (link) as P
+
+import Pux.DOM.HTML (Html) as P
+import Pux.DOM.Events (onClick) as P
+import Pux.Renderer.React (dangerouslySetInnerHTML) as P
+
+import Text.Smolder.HTML (div, span, h3, p)
+import Text.Smolder.HTML.Attributes (className)
+import Text.Smolder.Markup (text, (#!), (!))
 
 maxBlockRows :: Int
 maxBlockRows = 10
@@ -42,70 +51,52 @@ minBlockRows = 3
 blocksView :: State -> P.Html Action
 blocksView state =
     let lang' = state ^. lang in
-    P.div
-        [ P.className "explorer-blocks" ]
-        [ P.div
-            [ P.className "explorer-blocks__wrapper" ]
-            [ P.div
-                [ P.className "explorer-blocks__container" ]
-                [ P.h3
-                      [ P.className "headline" ]
-                      [ P.text $
-                            (translate (I18nL.common <<< I18nL.cEpoch) lang')
-                            <> " / " <>
-                            (translate (I18nL.common <<< I18nL.cSlot) lang')
-                      ]
-                , case state ^. currentBlocksResult of
-                      NotAsked  -> emptyBlocksView ""
-                      Loading   -> emptyBlocksView $ translate (I18nL.common <<< I18nL.cLoading) lang'
-                      Failure _ -> failureView lang'
-                      Success blocks ->
-                          let paginationViewProps =
-                                  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                  , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
-                                  , minPage: PageNumber minPagination
-                                  , maxPage: PageNumber $ getMaxPaginationNumber (length blocks) maxBlockRows
-                                  , changePageAction: BlocksPaginateBlocks
-                                  , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
-                                  , editableAction: BlocksEditBlocksPageNumber
-                                  , invalidPageAction: BlocksInvalidBlocksPageNumber
-                                  , disabled: false
-                                  }
-                          in
-                          P.div
-                              []
-                              [ blocksHeaderView blocks lang'
-                              , P.div
-                                  [ P.className CSS.blocksBody ]
-                                  $ map (blockRow state) (currentBlocks state)
-                              , P.div
-                                  [ P.className CSS.blocksFooter ]
-                                  [ paginationView paginationViewProps ]
-                              ]
-                  ]
-            ]
-        ]
-
-
+    div ! className "explorer-blocks"
+        $ div ! className "explorer-blocks__wrapper"
+              $ div ! className "explorer-blocks__container" $ do
+                    h3  ! className "headline"
+                        $ P.text (( translate (I18nL.common <<< I18nL.cEpoch) lang')
+                                    <> " / " <>
+                                    (translate (I18nL.common <<< I18nL.cSlot) lang')
+                                  )
+                    case state ^. currentBlocksResult of
+                        NotAsked  -> emptyBlocksView ""
+                        Loading   -> emptyBlocksView $ translate (I18nL.common <<< I18nL.cLoading) lang'
+                        Failure _ -> failureView lang'
+                        Success blocks ->
+                            let paginationViewProps =
+                                    { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                                    , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+                                    , minPage: PageNumber minPagination
+                                    , maxPage: PageNumber $ getMaxPaginationNumber (length blocks) maxBlockRows
+                                    , changePageAction: BlocksPaginateBlocks
+                                    , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
+                                    , editableAction: BlocksEditBlocksPageNumber
+                                    , invalidPageAction: BlocksInvalidBlocksPageNumber
+                                    , disabled: false
+                                    }
+                            in
+                            div do
+                                blocksHeaderView blocks lang'
+                                div ! className CSS.blocksBody
+                                    $ map (blockRow state) (currentBlocks state)
+                                div ! className CSS.blocksFooter
+                                    $ paginationView paginationViewProps
 
 emptyBlocksView :: String -> P.Html Action
 emptyBlocksView message =
-    P.div
-        [ P.className "blocks-message"
-        , P.dangerouslySetInnerHTML message ]
-        []
+    div ! className "blocks-message"
+        ! P.dangerouslySetInnerHTML message
 
 failureView :: Language -> P.Html Action
 failureView lang =
-    P.div
-        []
-        [ P.p
-            [ P.className CSS.blocksFailed ]
-            [ P.text $ translate (I18nL.block <<< I18nL.blEpochSlotNotFound) lang ]
-        , P.link (toUrl Dashboard)
-            [ P.className "btn-back" ]
-            [ P.text $ translate (I18nL.common <<< I18nL.cBack2Dashboard) lang ]
-        ]
+    div do
+        p ! className CSS.blocksFailed
+          $ text (translate (I18nL.block <<< I18nL.blEpochSlotNotFound) lang)
+        a ! href (toUrl Dashboard)
+          #! onClick (toUrl Dashboard)
+          ! className "btn-back"
+          $ text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang)
 
 currentBlocks :: State -> CBlockEntries
 currentBlocks state =
@@ -117,44 +108,42 @@ currentBlocks state =
 
 blockRow :: State -> CBlockEntry -> P.Html Action
 blockRow state (CBlockEntry entry) =
-    P.div
-        [ P.className CSS.blocksBodyRow ]
-        [ blockColumn { label: show $ entry ^. cbeEpoch
-                      , mRoute: Just <<< Epoch <<< mkEpochIndex $ entry ^. cbeEpoch
-                      , clazz: CSS.blocksColumnEpoch
-                      , mCurrency: Nothing
-                      }
-        , blockColumn { label: show $ entry ^. cbeSlot
-                      , mRoute: Just <<< Block $ entry ^. cbeBlkHash
-                      , clazz: CSS.blocksColumnSlot
-                      , mCurrency: Nothing
-                      }
-        , blockColumn { label: labelAge
-                      , mRoute: Nothing
-                      , clazz: CSS.blocksColumnAge
-                      , mCurrency: Nothing
-                      }
-        , blockColumn { label: show $ entry ^. cbeTxNum
-                      , mRoute: Nothing
-                      , clazz: CSS.blocksColumnTxs
-                      , mCurrency: Nothing
-                      }
-        , blockColumn { label: formatADA (entry ^. cbeTotalSent) $ state ^. lang
-                      , mRoute: Nothing
-                      , clazz: CSS.blocksColumnTotalSent
-                      , mCurrency: Just ADA
-                      }
-        , blockColumn { label: labelBlockLead
-                      , mRoute: Nothing
-                      , clazz: CSS.blocksColumnLead
-                      , mCurrency: Nothing
-                      }
-        , blockColumn { label: show $ entry ^. cbeSize
-                      , mRoute: Nothing
-                      , clazz: CSS.blocksColumnSize
-                      , mCurrency: Nothing
-                      }
-        ]
+    div ! className CSS.blocksBodyRow $ do
+        blockColumn { label: show $ entry ^. cbeEpoch
+                    , mRoute: Just <<< Epoch <<< mkEpochIndex $ entry ^. cbeEpoch
+                    , clazz: CSS.blocksColumnEpoch
+                    , mCurrency: Nothing
+                    }
+        blockColumn { label: show $ entry ^. cbeSlot
+                    , mRoute: Just <<< Block $ entry ^. cbeBlkHash
+                    , clazz: CSS.blocksColumnSlot
+                    , mCurrency: Nothing
+                    }
+        blockColumn { label: labelAge
+                    , mRoute: Nothing
+                    , clazz: CSS.blocksColumnAge
+                    , mCurrency: Nothing
+                    }
+        blockColumn { label: show $ entry ^. cbeTxNum
+                    , mRoute: Nothing
+                    , clazz: CSS.blocksColumnTxs
+                    , mCurrency: Nothing
+                    }
+        blockColumn { label: formatADA (entry ^. cbeTotalSent) $ state ^. lang
+                    , mRoute: Nothing
+                    , clazz: CSS.blocksColumnTotalSent
+                    , mCurrency: Just ADA
+                    }
+        blockColumn { label: labelBlockLead
+                    , mRoute: Nothing
+                    , clazz: CSS.blocksColumnLead
+                    , mCurrency: Nothing
+                    }
+        blockColumn { label: show $ entry ^. cbeSize
+                    , mRoute: Nothing
+                    , clazz: CSS.blocksColumnSize
+                    , mCurrency: Nothing
+                    }
     where
         language = state ^. lang
         labelAge = fromMaybe noData $ (prettyDuration language :: Milliseconds -> String) <<< diff state.now <$> (nominalDiffTimeToDateTime  =<< entry.cbeTimeIssued)
@@ -172,19 +161,15 @@ type BlockColumnProps =
 blockColumn :: BlockColumnProps -> P.Html Action
 blockColumn props =
     let tag = case props.mRoute of
-                  Just route -> P.link (toUrl route)
-                  Nothing -> P.div
+                  Just route -> a ! (toUrl route)
+                                  #! onClick (toUrl route)
+                  Nothing -> div
     in
-    tag
-        [ P.className props.clazz ]
-        if isJust props.mCurrency
-        then
-        [ P.span
-          [ P.className $ currencyCSSClass props.mCurrency ]
-          [ P.text props.label ]
-        ]
-        else
-        [ P.text props.label ]
+    tag ! P.className props.clazz
+        $ if isJust props.mCurrency
+              then span ! className $ currencyCSSClass props.mCurrency
+                        $ text props.label
+              else text props.label
 
 type BlocksHeaderProps =
     { label :: String
@@ -218,14 +203,10 @@ mkBlocksHeaderProps lang =
 
 blocksHeaderView :: CBlockEntries -> Language -> P.Html Action
 blocksHeaderView blocks lang =
-    P.div
-          [ P.className $ CSS.blocksHeader
-                <>  if null blocks then " hide" else ""
-          ]
-          <<< map blockHeaderItemView $ mkBlocksHeaderProps lang
+    div ! className (CSS.blocksHeader <> if null blocks then " hide" else "")
+        $ map blockHeaderItemView (mkBlocksHeaderProps lang)
 
 blockHeaderItemView :: BlocksHeaderProps -> P.Html Action
 blockHeaderItemView props =
-    P.div
-        [ P.className props.clazz ]
-        [ P.text props.label ]
+    div ! className props.clazz
+        $ text props.label

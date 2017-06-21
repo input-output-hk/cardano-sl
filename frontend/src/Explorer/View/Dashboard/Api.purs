@@ -1,10 +1,12 @@
 module Explorer.View.Dashboard.Api (apiView) where
 
 import Prelude
+
 import Data.Lens ((^.))
 import Data.Map (Map, fromFoldable, lookup, toAscUnfoldable) as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
+
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (dbAboutBlockchain, dbAboutBlockchainDescription, dbCurl
     , dbGetAddress, dbGetApiKey, dbMoreExamples, dbJQuery, dbNode, dbResponse

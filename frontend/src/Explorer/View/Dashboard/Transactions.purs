@@ -7,6 +7,15 @@ import Prelude
 import Data.Array (length, slice)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
+import Network.RemoteData (RemoteData(..), isSuccess)
+
+import Pux.DOM.HTML (Html) as P
+import Pux.DOM.Events (onClick, MouseEvent) as P
+
+import Text.Smolder.HTML (div, text, span)
+import Text.Smolder.HTML.Attributes (className)
+import Text.Smolder.Markup (text, (#!), (!))
+
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (dbExploreTransactions, cCollapse, cNoData, cExpand, common, dashboard, cTransactionFeed, cDateFormat) as I18nL
 import Explorer.Lenses.State (lang, latestTransactions)
@@ -19,13 +28,10 @@ import Explorer.View.Common (currencyCSSClass, noData)
 import Explorer.View.Dashboard.Lenses (dashboardTransactionsExpanded)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
-import Network.RemoteData (RemoteData(..), isSuccess)
+
 import Pos.Explorer.Web.ClientTypes (CTxEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
-import Pux.Html (Html, div, text, span) as P
-import Pux.Html.Attributes (className) as P
-import Pux.DOM.Events (onClick, MouseEvent) as P
-import Pux.Router (link) as P
+
 
 maxTransactionRows :: Int
 maxTransactionRows = 10
@@ -35,27 +41,17 @@ minTransactionRows = 5
 
 transactionsView :: State -> P.Html Action
 transactionsView state =
-    P.div
-        [ P.className "explorer-dashboard__wrapper" ]
-        [ P.div
-          [ P.className "explorer-dashboard__container" ]
-          [ headerView state headerOptions
-          , P.div
-              [ P.className $ "transactions__waiting" <> visibleWaitingClazz ]
-              [ P.text $ translate (I18nL.common <<< I18nL.cNoData) lang' ]
-          , P.div
-              [ P.className $ "transactions__container" <> visibleTxClazz ]
-              $ map (transactionRow state) $ transactions'
-          , P.div
-            [ P.className $ "transactions__footer" <> visibleTxClazz ]
-            [ P.div
-                [ P.className $ "btn-expand" <> visibleBtnExpandClazz
-                , P.onClick clickHandler
-                ]
-                [ P.text expandLabel]
-            ]
-          ]
-        ]
+    div ! className "explorer-dashboard__wrapper"
+        div ! className "explorer-dashboard__container" $ do
+            h eaderView state headerOptions
+            div ! className $ "transactions__waiting" <> visibleWaitingClazz
+                $ text (translate (I18nL.common <<< I18nL.cNoData) lang')
+            div ! className ("transactions__container" <> visibleTxClazz)
+                $ map (transactionRow state) $ transactions'
+            div ! className ("transactions__footer" <> visibleTxClazz) $ do
+                div ! className ("btn-expand" <> visibleBtnExpandClazz)
+                    #! onClick clickHandler
+                    $ text expandLabel
     where
       lang' = state ^. lang
       expanded = state ^. dashboardTransactionsExpanded
@@ -93,22 +89,16 @@ transactionRow state (CTxEntry entry) =
     let lang' = state ^. lang
         format = translate (I18nL.common <<< I18nL.cDateFormat) lang'
         dateValue = fromMaybe noData <<< prettyDate format $ entry ^. cteTimeIssued
+        txRoute = Tx $ entry ^. cteId
     in
-    P.div
-        [ P.className "transactions__row" ]
-        [ P.div
-              [ P.className "transactions__column--hash-container" ]
-              [ P.link (toUrl <<< Tx $ entry ^. cteId)
-                [ P.className "hash"]
-                [ P.text $ entry ^. (cteId <<< _CTxId <<< _CHash) ]
-              ]
-        , P.div
-              [ P.className $ "transactions__column--date" ]
-              [ P.text dateValue ]
-        , P.div
-              [ P.className $ "transactions__column--currency" ]
-              [ P.span
-                  [ P.className <<< currencyCSSClass $ Just ADA ]
-                  [ P.text $ formatADA (entry ^. cteAmount) lang' ]
-              ]
-        ]
+    div ! className "transactions__row" $ do
+        div ! className "transactions__column--hash-container" $ do
+            a ! href (toUrl txRoute)
+              #! onClick (toUrl txRoute)
+              ! className "hash"
+              $ text $ entry ^. (cteId <<< _CTxId <<< _CHash)
+        div ! className "transactions__column--date"
+            $ text dateValue
+        div ! className "transactions__column--currency"
+            $ span ! className (currencyCSSClass $ Just ADA)
+                   $ text (formatADA (entry ^. cteAmount) lang')

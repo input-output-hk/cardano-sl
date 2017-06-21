@@ -22,7 +22,7 @@ import Explorer.View.Common (emptyView)
 import Pux.DOM.HTML (Html) as P
 import Pux.DOM.Events (onChange, onClick, onFocus, onBlur, onKey) as P
 
-import Text.Smolder.HTML (div, input, label, li, text, ul)
+import Text.Smolder.HTML (div, input, label, li, ul)
 import Text.Smolder.HTML.Attributes (className, for, id, maxLength, name, placeholder, type', value)
 import Text.Smolder.Markup (text, (#!), (!))
 

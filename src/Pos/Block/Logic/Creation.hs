@@ -57,7 +57,7 @@ import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), ProxySK
 import           Pos.Exception              (assertionFailed, reportFatalError)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Lrc.Error              (LrcError (..))
-import           Pos.Reporting              (reportMisbehaviourMasked, reportingFatal)
+import           Pos.Reporting              (reportMisbehaviourSilent, reportingFatal)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal)
 import           Pos.Txp.Core               (TxAux (..), mkTxPayload, topsortTxs)
@@ -251,7 +251,7 @@ createMainBlockFinish slotId pske prevHeader = do
     fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
     fallbackCreateBlock er = do
         logError $ sformat ("We've created bad main block: "%stext) er
-        lift $ reportMisbehaviourMasked version $
+        lift $ reportMisbehaviourSilent version $
             sformat ("We've created bad main block: "%build) er
         logDebug $ "Creating empty block"
         clearMempools

@@ -100,15 +100,15 @@ callYouEventHandler channel _ =
 callYouStringEventHandler :: forall eff. ActionChannel -> String
     -> Eff (channel :: CHANNEL | eff) Unit
 callYouStringEventHandler channel str = do
-    traceAnyM "callYouStringEventHandler"
-    traceAnyM str
+    _ <- traceAnyM "callYouStringEventHandler"
+    _ <- traceAnyM str
     send channel NoOp
 
 callYouCTxIdEventHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
 callYouCTxIdEventHandler channel json = do
-    traceAnyM "callYouCTxIdEventHandler"
-    traceAnyM json
+    _ <- traceAnyM "callYouCTxIdEventHandler"
+    _ <- traceAnyM json
     let result = decodeResult' json
-    traceAnyM (result :: Either Error CTxId)
+    _ <- traceAnyM (result :: Either Error CTxId)
     send channel NoOp

@@ -9,7 +9,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Network.RemoteData (RemoteData(..), isSuccess)
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick, MouseEvent) as P
 
 import Text.Smolder.HTML (div, text, span)
@@ -39,7 +39,7 @@ maxTransactionRows = 10
 minTransactionRows :: Int
 minTransactionRows = 5
 
-transactionsView :: State -> P.Html Action
+transactionsView :: State -> P.HTML Action
 transactionsView state =
     div ! className "explorer-dashboard__wrapper"
         div ! className "explorer-dashboard__container" $ do
@@ -84,7 +84,7 @@ transactionsView state =
           then slice 0 maxTransactionRows transactions
           else slice 0 minTransactionRows transactions
 
-transactionRow :: State -> CTxEntry -> P.Html Action
+transactionRow :: State -> CTxEntry -> P.HTML Action
 transactionRow state (CTxEntry entry) =
     let lang' = state ^. lang
         format = translate (I18nL.common <<< I18nL.cDateFormat) lang'

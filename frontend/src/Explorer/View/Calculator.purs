@@ -14,9 +14,9 @@ import Text.Smolder.HTML.Attributes (className, href)
 import Text.Smolder.Markup (text, (#!), (!))
 
 import Pux.DOM.Events (onClick) as P
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 
-calculatorView :: State -> P.Html Action
+calculatorView :: State -> P.HTML Action
 calculatorView state =
     div ! className "explorer-calculator" $ do
         div

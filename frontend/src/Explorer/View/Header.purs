@@ -3,7 +3,7 @@ module Explorer.View.Header (headerView) where
 import Prelude hiding (id)
 import Data.Lens ((^.))
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick) as P
 
 import Text.Smolder.HTML ( div, header)
@@ -19,7 +19,7 @@ import Explorer.View.CSS (header, headerId) as CSS
 import Explorer.View.Common (clickableLogoView, langView)
 import Explorer.View.Search (searchInputView, searchItemViews)
 
-headerView :: State -> P.Html Action
+headerView :: State -> P.HTML Action
 headerView state =
     let lang' = state ^. lang
         selectedSearch = state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch)

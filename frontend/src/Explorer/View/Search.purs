@@ -19,7 +19,7 @@ import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (Search(..), State)
 import Explorer.View.Common (emptyView)
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onChange, onClick, onFocus, onBlur, onKey) as P
 
 import Text.Smolder.HTML (div, input, label, li, ul)
@@ -32,7 +32,7 @@ inputEpochName = "inp_epoch"
 inputSlotName :: String
 inputSlotName = "inp_slot"
 
-searchInputView :: ElementId -> State -> P.Html Action
+searchInputView :: ElementId -> State -> P.HTML Action
 searchInputView (ElementId viewId) state =
     let lang' = state ^. lang
         dbViewSearchInputFocused = state ^. (viewStates <<< globalViewState <<< gViewSearchInputFocused)
@@ -130,12 +130,12 @@ mkSearchItems lang =
       }
     ]
 
-searchItemViews :: Language -> Search -> P.Html Action
+searchItemViews :: Language -> Search -> P.HTML Action
 searchItemViews lang selectedSearch =
     ul ! P.className $ "explorer-search-nav__container" $ do
         map (\item -> searchItemView item selectedSearch) $ mkSearchItems lang
 
-searchItemView :: SearchItem -> Search -> P.Html Action
+searchItemView :: SearchItem -> Search -> P.HTML Action
 searchItemView item selectedSearch =
     let selected = item.value == selectedSearch
         selectedClass = if selected then " selected" else ""

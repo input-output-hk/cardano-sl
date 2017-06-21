@@ -15,9 +15,9 @@ import Text.Smolder.HTML (div, text, nav, a, p, span)
 import Text.Smolder.HTML.Attributes (className, href)
 import Text.Smolder.Markup (text, (#!))
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 
-footerView :: State -> P.Html Action
+footerView :: State -> P.HTML Action
 footerView state =
     let lang' = state ^. lang in
     div ! className "explorer-footer" $ do
@@ -133,7 +133,7 @@ navItemsRow2 lang =
       }
     ]
 
-navRowView :: NavRow -> P.Html Action
+navRowView :: NavRow -> P.HTML Action
 navRowView row =
     div ! className "nav-item__container" $ do
         p ! className "nav-item__header"
@@ -141,7 +141,7 @@ navRowView row =
         div do
             map navRowItemView row.items
 
-navRowItemView :: NavItem -> P.Html Action
+navRowItemView :: NavItem -> P.HTML Action
 navRowItemView item =
     a ! className "nav-item__item"
       ! href item.link

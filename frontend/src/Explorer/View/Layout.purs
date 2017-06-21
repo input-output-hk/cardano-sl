@@ -3,7 +3,7 @@ module Explorer.View.Layout where
 import Prelude
 import Data.Lens ((^.))
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 
 import Text.Smolder.HTML (div, main)
 import Text.Smolder.HTML.Attributes (className)
@@ -24,7 +24,7 @@ import Explorer.View.NotFound (notFoundView)
 import Explorer.View.Playground (playgroundView)
 import Explorer.View.Transaction (transactionView)
 
-view :: State -> P.Html Action
+view :: State -> P.HTML Action
 view state =
     let mobileMenuClazz = if state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)
                           then " mobile__menu--opened"

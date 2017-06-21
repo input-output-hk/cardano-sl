@@ -7,7 +7,7 @@ import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Network.RemoteData (RemoteData(..), isLoading, isNotAsked, withDefault)
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick) as P
 
 import Text.Smolder.HTML (div, p)
@@ -27,7 +27,7 @@ import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewSta
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 
-dashBoardBlocksView :: State -> P.Html Action
+dashBoardBlocksView :: State -> P.HTML Action
 dashBoardBlocksView state =
     div ! className CSS.dashboardWrapper
         ! id CSS.dashBoardBlocksViewId
@@ -64,7 +64,7 @@ dashBoardBlocksView state =
                 div ! className CSS.blocksFooter
                     $ blocksFooterView state
 
-emptyBlocksView :: String -> P.Html Action
+emptyBlocksView :: String -> P.HTML Action
 emptyBlocksView message =
     div ! className CSS.blocksWaiting
         $ text message
@@ -78,7 +78,7 @@ currentBlocks state =
         blocks = withDefault [] $ state ^. latestBlocks
         expanded = state ^. dashboardBlocksExpanded
 
-blocksFooterView :: State -> P.Html Action
+blocksFooterView :: State -> P.HTML Action
 blocksFooterView state =
     if expanded then
         paginationView { label: translate (I18nL.common <<< I18nL.cOf) $ lang'

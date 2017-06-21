@@ -10,7 +10,7 @@ import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
 import Explorer.Util.String (substitute)
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 import Text.Smolder.HTML (div, h3, text, h4, p)
 import Text.Smolder.HTML.Attributes (className)
 import Text.Smolder.Markup (text, (!))
@@ -51,7 +51,7 @@ networkItems lang =
     ]
 
 
-networkView :: State -> P.Html Action
+networkView :: State -> P.HTML Action
 networkView state =
     let lang' = state ^. lang in
     div ! className "explorer-dashboard__wrapper"
@@ -61,7 +61,7 @@ networkView state =
               div ! className "explorer-dashboard__teaser"
                   $ map (networkItem state) (networkItems lang')
 
-networkItem :: State -> NetworkItem -> P.Html Action
+networkItem :: State -> NetworkItem -> P.HTML Action
 networkItem state item =
     div ! className "teaser-item" $ do
         h3  ! className "teaser-item__headline"

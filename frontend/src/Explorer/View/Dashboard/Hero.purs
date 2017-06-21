@@ -6,7 +6,7 @@ import Prelude hiding (id)
 
 import Data.Lens ((^.))
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 
 import Text.Smolder.HTML (div, text, h1, h2)
 import Text.Smolder.HTML.Attributes (className, id)
@@ -21,7 +21,7 @@ import Explorer.Types.State (State)
 import Explorer.View.Common (logoView)
 import Explorer.View.Search (searchInputView)
 
-heroView :: State -> P.Html Action
+heroView :: State -> P.HTML Action
 heroView state =
     let
         lang' = state ^. lang

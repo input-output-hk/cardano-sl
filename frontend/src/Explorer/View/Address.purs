@@ -21,7 +21,7 @@ import Network.RemoteData (RemoteData(..))
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..), CTxBrief)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxNum)
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 import Pux.DOM.Events (onClick) as P
 
@@ -29,7 +29,7 @@ import Text.Smolder.HTML (div, text, span, h3, p)
 import Text.Smolder.HTML.Attributes (className, href, id)
 import Text.Smolder.Markup (text, (#!), (!))
 
-addressView :: State -> P.Html Action
+addressView :: State -> P.HTML Action
 addressView state =
     let lang' = state ^. lang in
     div ! className "explorer-address" $ do
@@ -50,7 +50,7 @@ addressView state =
                             addressTxsView addressSummary.caTxList state
 
 -- | Address overview, we leave the error abstract (we are not using it)
-addressOverview :: forall e. RemoteData e CAddressSummary -> Language -> P.Html Action
+addressOverview :: forall e. RemoteData e CAddressSummary -> Language -> P.HTML Action
 addressOverview NotAsked    lang = emptyAddressDetail ""
 addressOverview Loading     lang = emptyAddressDetail <<< translate (I18nL.common <<< I18nL.cLoading) $ lang
 addressOverview (Failure _) lang = failureView lang
@@ -59,12 +59,12 @@ addressOverview (Success addressSummary) lang =
         addressDetailView addressSummary lang
         addressQr addressSummary lang
 
-addressDetailView :: CAddressSummary -> Language -> P.Html Action
+addressDetailView :: CAddressSummary -> Language -> P.HTML Action
 addressDetailView addressSummary lang =
     div ! className "address-detail" $ do
         map addressDetailRow $ addressDetailRowItems addressSummary lang
 
-addressQr :: CAddressSummary -> Language -> P.Html Action
+addressQr :: CAddressSummary -> Language -> P.HTML Action
 addressQr _ lang =
     div ! className "address-qr" $ do
         p ! className "address-qr__tab"
@@ -99,7 +99,7 @@ addressDetailRowItems (CAddressSummary address) lang =
       }
     ]
 
-addressDetailRow :: SummaryRowItem -> P.Html Action
+addressDetailRow :: SummaryRowItem -> P.HTML Action
 addressDetailRow item =
     div ! className "address-detail__row" $ do
         div ! className "address-detail__column label"
@@ -110,7 +110,7 @@ addressDetailRow item =
                           $ text item.value
                 else text item.value
 
-emptyAddressDetail :: String -> P.Html Action
+emptyAddressDetail :: String -> P.HTML Action
 emptyAddressDetail message =
     div ! className "message" $ do
         div ! P.dangerouslySetInnerHTML message
@@ -118,7 +118,7 @@ emptyAddressDetail message =
 maxTxRows :: Int
 maxTxRows = 5
 
-addressTxsView :: CTxBriefs -> State -> P.Html Action
+addressTxsView :: CTxBriefs -> State -> P.HTML Action
 addressTxsView txs state =
     if null txs then
         txEmptyContentView $ translate (I18nL.tx <<< I18nL.txEmpty) (state ^. lang)
@@ -142,13 +142,13 @@ addressTxsView txs state =
                               , disabled: false
                               }
 
-addressTxView :: CTxBrief -> Language -> P.Html Action
+addressTxView :: CTxBrief -> Language -> P.HTML Action
 addressTxView tx lang =
     div do
         txHeaderView lang $ mkTxHeaderViewProps tx
         txBodyView lang $ mkTxBodyViewProps tx
 
-failureView :: Language -> P.Html Action
+failureView :: Language -> P.HTML Action
 failureView lang =
     div do
         p ! className "address-failed"

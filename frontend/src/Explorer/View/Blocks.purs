@@ -34,7 +34,7 @@ import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeBlockLead, cbeSize, cbeTotalSent, cbeTxNum)
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick) as P
 import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 
@@ -48,7 +48,7 @@ maxBlockRows = 10
 minBlockRows :: Int
 minBlockRows = 3
 
-blocksView :: State -> P.Html Action
+blocksView :: State -> P.HTML Action
 blocksView state =
     let lang' = state ^. lang in
     div ! className "explorer-blocks"
@@ -83,12 +83,12 @@ blocksView state =
                                 div ! className CSS.blocksFooter
                                     $ paginationView paginationViewProps
 
-emptyBlocksView :: String -> P.Html Action
+emptyBlocksView :: String -> P.HTML Action
 emptyBlocksView message =
     div ! className "blocks-message"
         ! P.dangerouslySetInnerHTML message
 
-failureView :: Language -> P.Html Action
+failureView :: Language -> P.HTML Action
 failureView lang =
     div do
         p ! className CSS.blocksFailed
@@ -106,7 +106,7 @@ currentBlocks state =
         currentBlockPage = state ^. (viewStates <<< blocksViewState <<< blsViewPagination <<< _PageNumber)
         minBlockIndex = (currentBlockPage - 1) * maxBlockRows
 
-blockRow :: State -> CBlockEntry -> P.Html Action
+blockRow :: State -> CBlockEntry -> P.HTML Action
 blockRow state (CBlockEntry entry) =
     div ! className CSS.blocksBodyRow $ do
         blockColumn { label: show $ entry ^. cbeEpoch
@@ -158,7 +158,7 @@ type BlockColumnProps =
     , mRoute :: Maybe Route
     }
 
-blockColumn :: BlockColumnProps -> P.Html Action
+blockColumn :: BlockColumnProps -> P.HTML Action
 blockColumn props =
     let tag = case props.mRoute of
                   Just route -> a ! (toUrl route)
@@ -201,12 +201,12 @@ mkBlocksHeaderProps lang =
       }
     ]
 
-blocksHeaderView :: CBlockEntries -> Language -> P.Html Action
+blocksHeaderView :: CBlockEntries -> Language -> P.HTML Action
 blocksHeaderView blocks lang =
     div ! className (CSS.blocksHeader <> if null blocks then " hide" else "")
         $ map blockHeaderItemView (mkBlocksHeaderProps lang)
 
-blockHeaderItemView :: BlocksHeaderProps -> P.Html Action
+blockHeaderItemView :: BlocksHeaderProps -> P.HTML Action
 blockHeaderItemView props =
     div ! className props.clazz
         $ text props.label

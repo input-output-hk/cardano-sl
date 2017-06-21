@@ -3,7 +3,7 @@ module Explorer.View.Dashboard.Offer (offerView) where
 import Prelude
 
 import Data.Lens ((^.))
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 import Text.Smolder.HTML (div, h3, text, p)
 import Text.Smolder.HTML.Attributes (className)
 import Text.Smolder.Markup (text, (!))
@@ -42,7 +42,7 @@ offerItems lang =
       }
     ]
 
-offerView :: State -> P.Html Action
+offerView :: State -> P.HTML Action
 offerView state =
     let lang' = state ^. lang in
     div ! className "explorer-dashboard__wrapper" $ do
@@ -52,7 +52,7 @@ offerView state =
             div ! className "explorer-dashboard__teaser"
                 $ map (offerItem state) $ offerItems lang'
 
-offerItem :: State -> OfferItem -> P.Html Action
+offerItem :: State -> OfferItem -> P.HTML Action
 offerItem state item =
     div ! className "teaser-item" $ do
         h3 ! className "teaser-item__headline"

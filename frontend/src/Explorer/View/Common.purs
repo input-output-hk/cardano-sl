@@ -48,7 +48,7 @@ import Pos.Explorer.Web.ClientTypes (CCoin, CAddress(..), CTxBrief(..), CTxEntry
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 
 import Pux.DOM.Events (DOMEvent, KeyboardEvent, MouseEvent, onBlur, onChange, onFocus, onKey, onClick) as P
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 
 import Text.Smolder.HTML (div, p, span, input, option, select)
 import Text.Smolder.HTML.Attributes (className, href, value, disabled, type', min, max, defaultValue)
@@ -97,7 +97,7 @@ instance emtpyTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory EmptyViewProp
         , txhAmount: mkCoin "0"
         }
 
-txHeaderView :: Language -> TxHeaderViewProps -> P.Html Action
+txHeaderView :: Language -> TxHeaderViewProps -> P.HTML Action
 txHeaderView lang (TxHeaderViewProps props) =
     div ! className "transaction-header" $ do
         div ! className "hash-container"
@@ -119,7 +119,7 @@ emptyTxHeaderView :: P.Html Action
 emptyTxHeaderView =
     div ! className "transaction-header"
 
-txAmountView :: CCoin -> Language -> P.Html Action
+txAmountView :: CCoin -> Language -> P.HTML Action
 txAmountView coin lang =
     div ! className "amount-container"
         $ div ! className "amount bg-ada"
@@ -157,7 +157,7 @@ instance emptyTxBodyViewPropsFactory :: TxBodyViewPropsFactory EmptyViewProps wh
         , txbAmount: mkCoin "0"
         }
 
-txBodyView :: Language -> TxBodyViewProps -> P.Html Action
+txBodyView :: Language -> TxBodyViewProps -> P.HTML Action
 txBodyView lang (TxBodyViewProps props) =
     div ! className "transaction-body" $ do
         div ! className "from-hash-container"
@@ -173,7 +173,7 @@ emptyTxBodyView :: P.Html Action
 emptyTxBodyView =
     div ! className "transaction-body"
 
-txFromView :: Tuple CAddress CCoin -> P.Html Action
+txFromView :: Tuple CAddress CCoin -> P.HTML Action
 txFromView (Tuple (CAddress cAddress) _) =
     let addressRoute = Address $ mkCAddress cAddress in
     a ! href (toUrl addressRoute)
@@ -181,7 +181,7 @@ txFromView (Tuple (CAddress cAddress) _) =
       ! className "from-hash"
       $ text cAddress
 
-txToView :: Tuple CAddress CCoin -> P.Html Action
+txToView :: Tuple CAddress CCoin -> P.HTML Action
 txToView (Tuple (CAddress cAddress) _) =
     let addressRoute = Address $ mkCAddress cAddress in
     a ! href (toUrl addressRoute)
@@ -189,7 +189,7 @@ txToView (Tuple (CAddress cAddress) _) =
       ! className "to-hash"
       $ text cAddress
 
-txBodyAmountView :: Language -> Tuple CAddress CCoin -> P.Html Action
+txBodyAmountView :: Language -> Tuple CAddress CCoin -> P.HTML Action
 txBodyAmountView lang (Tuple _ coin) =
     div ! className "amount-wrapper"
         $ span ! className "plain-amount bg-ada-dark"
@@ -211,12 +211,12 @@ type PaginationViewProps =
     , disabled :: Boolean
     }
 
-txPaginationView :: PaginationViewProps -> P.Html Action
+txPaginationView :: PaginationViewProps -> P.HTML Action
 txPaginationView props =
     div ! className "transaction-pagination"
         $ paginationView props
 
-paginationView :: PaginationViewProps -> P.Html Action
+paginationView :: PaginationViewProps -> P.HTML Action
 paginationView props =
     div ! className "pagination-wrapper" $ do
         div ! className "pagination"
@@ -282,7 +282,7 @@ getMaxPaginationNumber quantity max =
 -- txs empty view
 -- -----------------
 
-txEmptyContentView :: String -> P.Html Action
+txEmptyContentView :: String -> P.HTML Action
 txEmptyContentView message = P.div
                         [ P.className "tx-empty__container" ]
                         [ P.text message ]
@@ -291,7 +291,7 @@ txEmptyContentView message = P.div
 -- logo
 -- -----------------
 
-logoView' :: Maybe Route -> P.Html Action
+logoView' :: Maybe Route -> P.HTML Action
 logoView' mRoute =
     let logoContentTag = case mRoute of
                               Just route -> P.link (toUrl route)
@@ -305,7 +305,7 @@ logoView' mRoute =
 logoView :: P.Html Action
 logoView = logoView' Nothing
 
-clickableLogoView :: Route -> P.Html Action
+clickableLogoView :: Route -> P.HTML Action
 clickableLogoView = logoView' <<< Just
 
 -- -----------------
@@ -321,14 +321,14 @@ langItems =
     , German
     ]
 
-langView :: State -> P.Html Action
+langView :: State -> P.HTML Action
 langView state =
   select ! className "lang__select bg-arrow-up"
          ! defaultValue <<< show $ state ^. lang
          #! onChange $ SetLanguage <<< fromMaybe (_.lang initialState) <<< readLanguage <<< _.value <<< _.target
          $ map (langItemView state) langItems
 
-langItemView :: State -> Language -> P.Html Action
+langItemView :: State -> Language -> P.HTML Action
 langItemView state lang' =
   let selected = (show lang') == (show $ state ^. lang) in
   option ! value $ show lang'
@@ -356,7 +356,7 @@ currencyCSSClass mCurrency =
       _ -> ""
 
 -- TODO (jk) Remove placeholderView if all views are implemented
-placeholderView :: String -> P.Html Action
+placeholderView :: String -> P.HTML Action
 placeholderView label =
     div ! className "explorer-dashboard__content"
         $ text label

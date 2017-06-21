@@ -22,7 +22,7 @@ import Network.RemoteData (RemoteData(..), isFailure)
 import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..), CTxBrief)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick) as P
 
 import Text.Smolder.HTML (div, h3, span)
@@ -31,7 +31,7 @@ import Text.Smolder.Markup (text, (#!), (!))
 
 
 
-blockView :: State -> P.Html Action
+blockView :: State -> P.HTML Action
 blockView state =
     let lang' = state ^. lang
         blockSummary = state ^. currentBlockSummary
@@ -103,7 +103,7 @@ mkSummaryItems lang (CBlockEntry entry) =
       }
     ]
 
-summaryRow :: SummaryRowItem -> P.Html Action
+summaryRow :: SummaryRowItem -> P.HTML Action
 summaryRow item =
     div ! className "row row__summary" $ do
         div ! className "column column__label"
@@ -114,12 +114,12 @@ summaryRow item =
                             $ text item.amount
                   else text item.amount
 
-blockSummaryEmptyView :: String -> P.Html Action
+blockSummaryEmptyView :: String -> P.HTML Action
 blockSummaryEmptyView message =
     div ! className "summary-empty__container"
         $ text message
 
-blockSummaryView :: CBlockSummary -> Language -> P.Html Action
+blockSummaryView :: CBlockSummary -> Language -> P.HTML Action
 blockSummaryView block lang =
     div ! className "blocks-wrapper" $ do
         div ! className "summary-container" $ do
@@ -166,7 +166,7 @@ mkHashItems lang (CBlockSummary blockSummery) =
     ]
 
 
-hashesRow :: HashRowItem -> P.Html Action
+hashesRow :: HashRowItem -> P.HTML Action
 hashesRow item =
     div ! className "row row__hashes" $ do
         div ! className "column column__label"
@@ -182,7 +182,7 @@ hashesRow item =
 maxTxRows :: Int
 maxTxRows = 5
 
-blockTxsView :: CTxBriefs -> State -> P.Html Action
+blockTxsView :: CTxBriefs -> State -> P.HTML Action
 blockTxsView txs state =
     if null txs then
         txEmptyContentView $ translate (I18nL.tx <<< I18nL.txEmpty) (state ^. lang)
@@ -205,7 +205,7 @@ blockTxsView txs state =
                               , disabled: false
                               }
 
-blockTxView :: CTxBrief -> Language -> P.Html Action
+blockTxView :: CTxBrief -> Language -> P.HTML Action
 blockTxView tx lang =
     div do
         txHeaderView lang $ mkTxHeaderViewProps tx

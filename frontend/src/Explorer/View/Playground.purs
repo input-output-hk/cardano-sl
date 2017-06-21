@@ -9,9 +9,9 @@ import Text.Smolder.HTML (div, text, h1)
 import Text.Smolder.HTML.Attributes (className)
 import Text.Smolder.Markup (text, (#!))
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 
-playgroundView :: State -> P.Html Action
+playgroundView :: State -> P.HTML Action
 playgroundView state =
     div ! className "explorer-calculator" $ do
         div ! className "explorer-calculator__container" $ do

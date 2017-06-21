@@ -22,7 +22,7 @@ import Text.Smolder.HTML (div, h3, text, p, code)
 import Text.Smolder.HTML.Attributes (className, href)
 import Text.Smolder.Markup (text, (#!), (!))
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick) as P
 import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 
@@ -45,7 +45,7 @@ apiCodes =
       ]
     )
 
-apiView :: State -> P.Html Action
+apiView :: State -> P.HTML Action
 apiView state =
     div ! className "explorer-dashboard__wrapper" $ do
         div ! className "explorer-dashboard__container" $ do
@@ -82,7 +82,7 @@ apiTabs lang =
         , Tuple JQuery $ translate (I18nL.dashboard <<< I18nL.dbJQuery) lang
         ])
 
-apiCodeTabView :: State -> Tuple DashboardAPICode ApiTabLabel -> P.Html Action
+apiCodeTabView :: State -> Tuple DashboardAPICode ApiTabLabel -> P.HTML Action
 apiCodeTabView state (Tuple code label) =
     div ! className $ "api-code__tab " <> selectedClazz
         #! onClick <<< const $ DashboardShowAPICode code
@@ -90,7 +90,7 @@ apiCodeTabView state (Tuple code label) =
     where
       selectedClazz = if state ^. dashboardSelectedApiCode == code then "selected" else ""
 
-apiCodeSnippetView :: String -> String -> P.Html Action
+apiCodeSnippetView :: String -> String -> P.HTML Action
 apiCodeSnippetView headline snippet =
     div ! className "api-snippet" $ do
         h3  ! className "api-snippet__headline"

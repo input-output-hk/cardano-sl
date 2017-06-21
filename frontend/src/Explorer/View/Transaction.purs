@@ -21,10 +21,10 @@ import Text.Smolder.HTML (div, h3, p, span, table, tr, td)
 import Text.Smolder.HTML.Attributes (className)
 import Text.Smolder.Markup (text, (#!))
 
-import Pux.DOM.HTML (Html) as P
+import Pux.DOM.HTML (HTML) as P
 import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 
-transactionView :: State -> P.Html Action
+transactionView :: State -> P.HTML Action
 transactionView state =
     let lang' = state ^. lang in
     div ! className "explorer-transaction" $ do
@@ -82,10 +82,10 @@ summaryItems (ctxSum@CTxSummary txSummary) lang =
 emptySummaryRow :: P.Html Action
 emptySummaryRow = tr
 
-summaryRowSimpleValue :: String -> P.Html Action
+summaryRowSimpleValue :: String -> P.HTML Action
 summaryRowSimpleValue = text
 
-summaryRowEpochSlot :: CTxSummary -> Language -> P.Html Action
+summaryRowEpochSlot :: CTxSummary -> Language -> P.HTML Action
 summaryRowEpochSlot (CTxSummary ctxSummary) lang =
     div do
         case ctxSummary ^. ctsBlockEpoch of
@@ -114,18 +114,18 @@ summaryRowEpochSlot (CTxSummary ctxSummary) lang =
             Nothing ->
                 span $ text noData
 
-summaryRowCurrency :: String -> CCurrency -> P.Html Action
+summaryRowCurrency :: String -> CCurrency -> P.HTML Action
 summaryRowCurrency value currency =
     span  ! className (currencyCSSClass $ Just currency)
           $ text value
 
-summaryRow :: SummaryItem -> P.Html Action
+summaryRow :: SummaryItem -> P.HTML Action
 summaryRow item =
     tr do
         td $ text item.label
         td $ text item.value
 
-textTxHeaderView :: String -> P.Html Action
+textTxHeaderView :: String -> P.HTML Action
 textTxHeaderView message =
     div ! className "explorer-transaction__message" $ do
         div ! P.dangerouslySetInnerHTML message
@@ -135,7 +135,7 @@ emptySummaryView :: P.Html Action
 emptySummaryView =
     div ! className "explorer-transaction__container"
 
-failureView :: Language -> P.Html Action
+failureView :: Language -> P.HTML Action
 failureView lang =
     div do
         p ! className "tx-failed"

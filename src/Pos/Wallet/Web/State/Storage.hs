@@ -53,7 +53,7 @@ module Pos.Wallet.Web.State.Storage
 import           Universum
 
 import           Control.Lens               (at, ix, makeClassy, makeLenses, (%=), (.=),
-                                             (<<.=), (?=), _head)
+                                             (<<.=), (?=), _head, non', _Empty)
 import           Control.Monad.State.Class  (put)
 import           Data.Default               (Default, def)
 import qualified Data.HashMap.Strict        as HM
@@ -263,8 +263,7 @@ setWalletTxHistory cWalId cTxs = mapM_ (uncurry $ addWalletTxHistory cWalId) cTx
 addOnlyNewTxMeta :: CId Wal -> CTxId -> CTxMeta -> Update ()
 addOnlyNewTxMeta cWalId cTxId cTxMeta =
     -- Double nested HashMap update (if either or both of cWalId, cTxId don't exist, they will be created)
-    -- TODO: There is probably a better lens operator for this
-    wsTxHistory . at cWalId %= Just . (execState (at cTxId ?= cTxMeta)) . fromMaybe HM.empty
+    wsTxHistory . at cWalId . non' _Empty . at cTxId %= Just . fromMaybe cTxMeta
 
 -- NOTE: sets transaction meta only for transactions ids that are already seen
 setWalletTxMeta :: CId Wal -> CTxId -> CTxMeta -> Update ()

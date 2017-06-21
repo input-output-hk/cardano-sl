@@ -2,6 +2,8 @@ module Explorer.Util.DOM
     ( addClass
     , addClassToElement
     , classList
+    , enterKeyPressed
+    , eventToKeyPressed
     , findElementById
     , removeClass
     , removeClassFromElement
@@ -12,15 +14,17 @@ module Explorer.Util.DOM
 
 import Prelude
 import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Uncurried (EffFn2, runEffFn2)
+import Control.Monad.Except (runExcept)
+import Data.Either (either)
+import Data.Maybe (Maybe(..))
 import DOM (DOM)
+import DOM.Event.KeyboardEvent (eventToKeyboardEvent, key)
 import DOM.HTML (window)
-import DOM.HTML.Types (HTMLElement, HTMLInputElement, Node, htmlDocumentToNonElementParentNode)
+import DOM.HTML.Types (HTMLElement, HTMLInputElement, htmlDocumentToNonElementParentNode)
 import DOM.HTML.Window (document)
 import DOM.Node.NonElementParentNode (getElementById)
-import DOM.Node.Types (DOMTokenList, Element, ElementId)
-import Control.Monad.Eff.Uncurried (EffFn2, runEffFn2)
-import Data.Maybe (Maybe(..))
-import Data.Nullable (toMaybe)
+import DOM.Node.Types (DOMTokenList, Element, ElementId, Node)
 import Pux.DOM.Events (DOMEvent)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -44,7 +48,7 @@ findElementById id' = do
     el <- window >>=
               document >>=
                   getElementById id' <<< htmlDocumentToNonElementParentNode
-    pure $ toMaybe el
+    pure el
 
 -- | Returns a `classList` from `Element`
 foreign import classList :: forall eff. Element -> Eff (dom :: DOM | eff) DOMTokenList
@@ -82,3 +86,10 @@ removeClassFromElement elemId clazz = do
             removeClass cL clazz
         Nothing ->
             pure unit
+
+eventToKeyPressed :: DOMEvent -> String
+eventToKeyPressed ev = either (const "") key $ runExcept $ eventToKeyboardEvent ev
+
+enterKeyPressed :: DOMEvent -> Boolean
+enterKeyPressed event =
+    (eventToKeyPressed event) == "Enter"

@@ -30,6 +30,7 @@ import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
 
+
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
 import Explorer.I18n.Lenses (common, cDateFormat) as I18nL
 import Explorer.Lenses.State (lang)
@@ -46,7 +47,7 @@ import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
 import Pos.Explorer.Web.ClientTypes (CCoin, CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
 
-import Pux.DOM.Events (onBlur, onChange, onFocus, onKey, KeyboardEvent, MouseEvent, Target, onClick) as P
+import Pux.DOM.Events (DOMEvent, KeyboardEvent, MouseEvent, onBlur, onChange, onFocus, onKey, onClick) as P
 import Pux.DOM.HTML (Html) as P
 
 import Text.Smolder.HTML (div, p, span, input, option, select)
@@ -205,8 +206,8 @@ type PaginationViewProps =
     , maxPage :: PageNumber
     , editable :: Boolean
     , changePageAction :: (PageNumber -> Action)
-    , editableAction :: (P.Target -> Boolean -> Action)
-    , invalidPageAction :: (P.Target -> Action)
+    , editableAction :: (P.DOMEvent -> Boolean -> Action)
+    , invalidPageAction :: (P.DOMEvent -> Action)
     , disabled :: Boolean
     }
 
@@ -228,8 +229,8 @@ paginationView props =
                         ! min <<< show $ unwrap props.minPage
                         ! max <<< show $ unwrap props.maxPage
                         !? props.editable value (show $ unwrap props.currentPage)
-                        #! P.onFocus (\event -> props.editableAction (_.target event)) true
-                        #! P.onBlur (\event -> props.editableAction (_.target event)) false
+                        #! P.onFocus (props.editableAction) true
+                        #! P.onBlur (props.editableAction) false
                         #! P.onKey "enter" onEnterHandler
                   p ! className "label"
                     $ text props.label

@@ -33,7 +33,7 @@ import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery,
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State, WaypointItem(..))
 import Explorer.Util.Config (SyncAction(..), syncBySocket)
-import Explorer.Util.DOM (addClassToElement, findElementById, removeClassFromElement, scrollTop, targetToHTMLElement, targetToHTMLInputElement)
+import Explorer.Util.DOM (addClassToElement, findElementById, removeClassFromElement, scrollTop, nodeToHTMLElement, nodeToHTMLInputElement)
 import Explorer.Util.Data (sortTxsByTime', unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
@@ -231,21 +231,21 @@ update (DashboardPaginateBlocks pageNumber) state =
           ]
     }
 
-update (DashboardEditBlocksPageNumber target editable) state =
+update (DashboardEditBlocksPageNumber event editable) state =
     { state:
           set (dashboardViewState <<< dbViewBlockPaginationEditable) editable state
     , effects:
           [ if editable
-            then pure $ SelectInputText $ targetToHTMLInputElement target
+            then pure $ SelectInputText $ nodeToHTMLInputElement (target event)
             else pure NoOp
           ]
     }
 
-update (DashboardInvalidBlocksPageNumber target) state =
+update (DashboardInvalidBlocksPageNumber event) state =
     { state:
           set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
     , effects:
-          [ pure $ BlurElement $ targetToHTMLElement target
+          [ pure $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
 
@@ -257,21 +257,21 @@ update (DashboardShowAPICode code) state = noEffects $
 update (AddressPaginateTxs value) state = noEffects $
     set (viewStates <<< addressDetail <<< addressTxPagination) value state
 
-update (AddressEditTxsPageNumber target editable) state =
+update (AddressEditTxsPageNumber event editable) state =
     { state:
           set (viewStates <<< addressDetail <<< addressTxPaginationEditable) editable state
     , effects:
           [ if editable
-            then pure $ SelectInputText $ targetToHTMLInputElement target
+            then pure $ SelectInputText $ nodeToHTMLInputElement (target event)
             else pure NoOp
           ]
     }
 
-update (AddressInvalidTxsPageNumber target) state =
+update (AddressInvalidTxsPageNumber event) state =
     { state:
           set (viewStates <<< addressDetail <<< addressTxPaginationEditable) false state
       , effects:
-          [ pure $ BlurElement $ targetToHTMLElement target
+          [ pure $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
 
@@ -280,21 +280,21 @@ update (AddressInvalidTxsPageNumber target) state =
 update (BlockPaginateTxs value) state = noEffects $
     set (viewStates <<< blockDetail <<< blockTxPagination) value state
 
-update (BlockEditTxsPageNumber target editable) state =
+update (BlockEditTxsPageNumber event editable) state =
     { state:
           set (viewStates <<< blockDetail <<< blockTxPaginationEditable) editable state
     , effects:
           [ if editable
-            then pure $ SelectInputText $ targetToHTMLInputElement target
+            then pure $ SelectInputText $ nodeToHTMLInputElement (target event)
             else pure NoOp
           ]
     }
 
-update (BlockInvalidTxsPageNumber target) state =
+update (BlockInvalidTxsPageNumber event) state =
     { state:
           set (viewStates <<< blockDetail <<< blockTxPaginationEditable) false state
       , effects:
-          [ pure $ BlurElement $ targetToHTMLElement target
+          [ pure $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
 
@@ -303,21 +303,21 @@ update (BlockInvalidTxsPageNumber target) state =
 update (BlocksPaginateBlocks value) state = noEffects $
     set (viewStates <<< blocksViewState <<< blsViewPagination) value state
 
-update (BlocksEditBlocksPageNumber target editable) state =
+update (BlocksEditBlocksPageNumber event editable) state =
     { state:
           set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) editable state
     , effects:
           [ if editable
-            then pure $ SelectInputText $ targetToHTMLInputElement target
+            then pure $ SelectInputText $ nodeToHTMLInputElement (target event)
             else pure NoOp
           ]
     }
 
-update (BlocksInvalidBlocksPageNumber target) state =
+update (BlocksInvalidBlocksPageNumber event) state =
     { state:
           set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) false state
       , effects:
-          [ pure $ BlurElement $ targetToHTMLElement target
+          [ pure $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
 

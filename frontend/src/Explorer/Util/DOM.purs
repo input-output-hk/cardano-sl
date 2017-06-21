@@ -6,22 +6,22 @@ module Explorer.Util.DOM
     , removeClass
     , removeClassFromElement
     , scrollTop
-    , targetToHTMLElement
-    , targetToHTMLInputElement
+    , nodeToHTMLElement
+    , nodeToHTMLInputElement
     ) where
 
 import Prelude
 import Control.Monad.Eff (Eff)
 import DOM (DOM)
 import DOM.HTML (window)
-import DOM.HTML.Types (HTMLElement, HTMLInputElement, htmlDocumentToNonElementParentNode)
+import DOM.HTML.Types (HTMLElement, HTMLInputElement, Node, htmlDocumentToNonElementParentNode)
 import DOM.HTML.Window (document)
 import DOM.Node.NonElementParentNode (getElementById)
 import DOM.Node.Types (DOMTokenList, Element, ElementId)
 import Control.Monad.Eff.Uncurried (EffFn2, runEffFn2)
 import Data.Maybe (Maybe(..))
 import Data.Nullable (toMaybe)
-import Pux.DOM.Events (Target)
+import Pux.DOM.Events (DOMEvent)
 import Unsafe.Coerce (unsafeCoerce)
 
 foreign import scrollTopImpl :: forall eff. Eff (dom :: DOM | eff) Unit
@@ -30,13 +30,13 @@ foreign import scrollTopImpl :: forall eff. Eff (dom :: DOM | eff) Unit
 scrollTop :: forall eff. Eff (dom :: DOM | eff) Unit
 scrollTop = scrollTopImpl
 
--- | Converts a Pux `Target` to DOM `HTMLInputElement`
-targetToHTMLInputElement :: Target -> HTMLInputElement
-targetToHTMLInputElement = unsafeCoerce
+-- | Converts a `Node` to `HTMLInputElement`
+nodeToHTMLInputElement :: Node -> HTMLInputElement
+nodeToHTMLInputElement = unsafeCoerce
 
--- | Converts a Pux `Target` to DOM `HTMLElement`
-targetToHTMLElement :: Target -> HTMLElement
-targetToHTMLElement = unsafeCoerce
+-- | Converts a `Node` to `HTMLElement`
+nodeToHTMLElement :: Node -> HTMLElement
+nodeToHTMLElement = unsafeCoerce
 
 -- | Helper function get an `getElementById` from document
 findElementById :: forall eff. ElementId -> Eff (dom :: DOM | eff) (Maybe Element)

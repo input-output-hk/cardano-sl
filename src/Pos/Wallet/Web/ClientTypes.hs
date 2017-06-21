@@ -49,6 +49,7 @@ module Pos.Wallet.Web.ClientTypes
       , txIdToCTxId
       , toCUpdateInfo
       , addrMetaToAccount
+      , isTxLocalAddress
       ) where
 
 import           Universum

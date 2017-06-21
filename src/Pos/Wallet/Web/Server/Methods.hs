@@ -60,7 +60,8 @@ import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
                                                    TxHistoryEntry (..))
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
-import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
+import           Pos.Constants                    (curSoftwareVersion, genesisHash,
+                                                   isDevelopment)
 import           Pos.Core                         (Address (..), Coin, addressF,
                                                    decodeTextAddress, makePubKeyAddress,
                                                    makeRedeemAddress, mkCoin, sumCoins,
@@ -149,9 +150,10 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, E
                                                    totallyRemoveWAddress,
                                                    updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
-import           Pos.Wallet.Web.Tracking          (BlockLockMode, MonadWalletTracking,
+import           Pos.Wallet.Web.Tracking          (BlockLockMode, CAccModifier (..),
+                                                   MonadWalletTracking,
                                                    selectAccountsFromUtxoLock,
-                                                   syncWSetsWithGStateLock,
+                                                   syncWalletsWithGStateLock,
                                                    txMempoolToModifier)
 import           Pos.Wallet.Web.Util              (deriveLvl2KeyPair)
 import           Pos.Web.Server                   (serveImpl)
@@ -203,7 +205,7 @@ walletServer
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
-    syncWSetsWithGStateLock @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
+    syncWalletsWithGStateLock @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
     nat >>= launchNotifier
     (`enter` servantHandlers sendActions) <$> nat
 
@@ -424,7 +426,7 @@ getAccount :: WalletWebMode m => AccountId -> m CAccount
 getAccount accId = do
     encSK <- getSKByAddr (aiWId accId)
     addrs <- getAccountAddrsOrThrow Existing accId
-    modifier <- txMempoolToModifier encSK
+    modifier <- camAddresses <$> txMempoolToModifier encSK
     let insertions = map fst (MM.insertions modifier)
     let mergedAccAddrs = ordNub $ addrs ++ insertions
     mergedAccs <- mapM getWAddress mergedAccAddrs
@@ -466,7 +468,6 @@ decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
 decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
 decodeCCoinOrFail c =
     coinFromCCoin c `whenNothing` throwM (DecodeError "Wrong coin format")
-
 
 getWalletAccountIds :: WalletWebMode m => CId Wal -> m [AccountId]
 getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getWAddressIds
@@ -749,8 +750,8 @@ newAddress, newChangeAddress
 newAddress = newAddress' addWAddress
 newChangeAddress = newAddress' $ \addrMeta -> do
     addWAddress addrMeta
-    -- TODO [CSM-296] Need function to add change address immediatelly
-    void $ addCustomAddress ChangeAddr (cwamId addrMeta, undefined)
+    -- We don't want to admit rollback of manually added address, so use @genesisHash@
+    void $ addCustomAddress ChangeAddr (cwamId addrMeta, genesisHash)
 
 -- Internal function
 newAddress'

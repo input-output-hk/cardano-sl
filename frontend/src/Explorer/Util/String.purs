@@ -50,7 +50,7 @@ parseSearchEpochQuery = do
 parseSearchEpochSlotQuery :: Parser String SearchEpochSlotQuery
 parseSearchEpochSlotQuery = do
     epoch <- many digit >>= pure <<< fromString <<< fromCharArray
-    char ','
+    _ <- char ','
     slot  <- many digit >>= pure <<< fromString <<< fromCharArray
     pure $ Tuple epoch slot
 

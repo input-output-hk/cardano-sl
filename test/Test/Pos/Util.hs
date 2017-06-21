@@ -51,6 +51,7 @@ instance Arbitrary a => Arbitrary (Tagged s a) where
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
 binaryEncodeDecode a = Store.decodeExWith parser (encode a) === a
   where
+    -- CSL-1122: is 'isEmptyPeek' needed here?
     parser = get <* unlessM isEmptyPeek (fail "Unconsumed input")
 
 -- | This check is intended to be used for all messages sent via

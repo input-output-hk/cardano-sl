@@ -23,7 +23,7 @@ sizeNPutAddressIncomplete = convertToSizeNPut toBi
             putWord8S 0 <>
             putSmallWithLengthS (
                 putS keyHash <>
-                flip putAttributesS attrs addrToList
+                putAttributesS addrToList attrs
             )
         ScriptAddress scrHash   -> putWord8S 1 <> putSmallS scrHash
         RedeemAddress keyHash   -> putWord8S 2 <> putSmallS keyHash

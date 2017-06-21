@@ -16,9 +16,10 @@ module Pos.Binary.Class.Core
        , label
        , labelP
        , labelS
-       -- * Primitives for limiting serialization
+       -- * Length things
        , limitGet
        , isolate64Full
+       , getPeekLength
        ) where
 
 import           Universum
@@ -159,3 +160,10 @@ isolate64Full len m = Peek $ \ps ptr -> do
     when (ptr' > ptr2) $
         throwM $ PeekException (ptr' `minusPtr` ptr2) "Overshot end of isolated bytes"
     return $ PeekResult ptr2 x
+
+-- | Find out how many bytes were read during a 'Peek'.
+getPeekLength :: Peek a -> Peek (a, Int)
+getPeekLength m = Peek $ \ps ptr -> do
+    PeekResult ptr2 x <- Store.runPeek m ps ptr
+    return (PeekResult ptr2 (x, ptr2 `minusPtr` ptr))
+{-# INLINE getPeekLength #-}

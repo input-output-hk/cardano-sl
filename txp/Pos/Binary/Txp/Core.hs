@@ -68,9 +68,9 @@ instance Bi T.TxInWitness where
     get = label "TxInWitness" $ do
         tag <- getWord8
         case tag of
-            0 -> uncurry T.PkWitness <$> getWithLength get
-            1 -> uncurry T.ScriptWitness <$> getWithLength get
-            2 -> uncurry T.RedeemWitness <$> getWithLength get
+            0 -> uncurry T.PkWitness <$> getWithLength (const get)
+            1 -> uncurry T.ScriptWitness <$> getWithLength (const get)
+            2 -> uncurry T.RedeemWitness <$> getWithLength (const get)
             t -> T.UnknownWitnessType t <$> get
 
 instance Bi T.TxDistribution where

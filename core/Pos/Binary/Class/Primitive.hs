@@ -6,6 +6,7 @@ module Pos.Binary.Class.Primitive
        (
        -- * Primitives for serialization
          putWord8S
+       , putBytesS
 
        -- * Bi to SafeCopy
        , getCopyBi
@@ -57,8 +58,13 @@ import           Pos.Binary.Class.Store     (Peek, Poke, PokeWithSize (..), Size
 import           Pos.Binary.Class.Instances ()
 -- TODO ^ Move Raw in Pos.Util.Util and remove the import.
 
+-- | See 'putWord8'.
 putWord8S :: Word8 -> PokeWithSize ()
 putWord8S = putS @Word8
+
+-- | See 'putBytes'.
+putBytesS :: ByteString -> PokeWithSize ()
+putBytesS bs = PokeWithSize (BS.length bs) (putBytes bs)
 
 ----------------------------------------------------------------------------
 -- Raw
@@ -137,20 +143,20 @@ putWithLengthS a =
 
 -- | Read length in bytes and then parse something (which has to have exactly
 -- that length).
-getWithLength :: Peek a -> Peek a
+getWithLength :: (Int64 -> Peek a) -> Peek a
 getWithLength getter = do
     -- We limit the int to 20 bytes because an UnsignedVarInt Int64 takes at
     -- most 10 bytes. (20 and not 10 because it doesn't hurt to be cautious.)
     UnsignedVarInt (len :: Int64) <- limitGet 20 get
-    isolate64Full len getter
+    isolate64Full len (getter len)
 
 -- | Read length in bytes, check that it's not bigger than a specified limit,
 -- and then parse something (which has to have exactly the parsed length).
-getWithLengthLimited :: Int64 -> Peek a -> Peek a
+getWithLengthLimited :: Int64 -> (Int64 -> Peek a) -> Peek a
 getWithLengthLimited lim getter = do
     UnsignedVarInt (len :: Int64) <- limitGet 20 get
     if len <= lim
-        then isolate64Full len getter
+        then isolate64Full len (getter len)
         else fail $ formatToString
                       ("getWithLengthLimited: data ("%int%" bytes) is "%
                        "bigger than the limit ("%int%" bytes)")

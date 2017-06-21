@@ -34,17 +34,19 @@ module Pos.Crypto.Hashing
        , reifyHashDigestSize
        ) where
 
+import           Universum
+
 import           Control.Lens         (makeLensesFor)
 import           Crypto.Hash          (Blake2b_256, Digest, HashAlgorithm, hashDigestSize)
-import qualified Crypto.Hash          as Hash (hash)
+import qualified Crypto.Hash          as Hash
 import qualified Data.ByteArray       as ByteArray
 import           Data.Hashable        (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.Reflection      (reifyNat)
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (Format, bprint, fitLeft, later, (%.))
+import qualified Prelude
 import qualified Serokell.Util.Base16 as B16
 import           System.IO.Unsafe     (unsafeDupablePerformIO)
-import           Universum
 
 import           Pos.Binary.Class     (Bi, Raw)
 import qualified Pos.Binary.Class     as Bi
@@ -80,6 +82,13 @@ withHash a = WithHash a (force h)
 -- different situations
 newtype AbstractHash algo a = AbstractHash (Digest algo)
     deriving (Show, Eq, Ord, ByteArray.ByteArrayAccess, Generic, NFData)
+
+instance HashAlgorithm algo => Read (AbstractHash algo a) where
+    readsPrec _ s = case B16.decode (toText s) of
+        Left _   -> []
+        Right bs -> case Hash.digestFromByteString bs of
+            Nothing -> []
+            Just h  -> [(AbstractHash h, "")]
 
 instance Hashable (AbstractHash algo a) where
     hashWithSalt s h =

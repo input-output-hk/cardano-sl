@@ -23,11 +23,13 @@ module Explorer.View.Common (
     ) where
 
 import Prelude
+
 import Data.Int (ceil, fromString, toNumber)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
+
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
 import Explorer.I18n.Lenses (common, cDateFormat) as I18nL
 import Explorer.Lenses.State (lang)
@@ -40,12 +42,19 @@ import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDate)
 import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
+
 import Pos.Explorer.Web.ClientTypes (CCoin, CAddress(..), CTxBrief(..), CTxEntry(..), CTxSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId, ctbId, ctbInputs, ctbOutputs, ctbOutputSum, ctbTimeIssued, cteId, cteTimeIssued, ctsBlockTimeIssued, ctsId, ctsInputs, ctsOutputs, ctsTotalOutput)
-import Pux.Html (Html, text, div, p, span, input, option, select) as P
-import Pux.Html.Attributes (className, href, value, disabled, type_, min, max, defaultValue) as P
+
 import Pux.DOM.Events (onBlur, onChange, onFocus, onKey, KeyboardEvent, MouseEvent, Target, onClick) as P
-import Pux.Router (link) as P
+import Pux.DOM.HTML (Html) as P
+
+import Text.Smolder.HTML (div, p, span, input, option, select)
+import Text.Smolder.HTML.Attributes (className, href, value, disabled, type', min, max, defaultValue)
+import Text.Smolder.Markup (text, (#!), (!), (!?))
+
+
+
 
 -- -----------------
 -- tx header
@@ -89,39 +98,32 @@ instance emtpyTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory EmptyViewProp
 
 txHeaderView :: Language -> TxHeaderViewProps -> P.Html Action
 txHeaderView lang (TxHeaderViewProps props) =
-    P.div
-          [ P.className "transaction-header"]
-          [ P.div
-              [ P.className "hash-container" ]
-              [ P.link (toUrl <<< Tx $ props ^. txhHash)
-                [ P.className "hash"]
-                [ P.text $ props ^. (txhHash <<< _CTxId <<< _CHash) ]
-              ]
-          , P.div
-              [ P.className "date"]
-              [ P.text $ case props ^. txhTimeIssued of
+    div ! className "transaction-header" $ do
+        div ! className "hash-container"
+            $ a ! href (toUrl txRoute)
+                #! onClick (toUrl txRoute)
+                ! className "hash"
+                $ text (props ^. (txhHash <<< _CTxId <<< _CHash))
+        div ! className "date"
+            $ text $ case props ^. txhTimeIssued of
                               Just time ->
                                   let format = translate (I18nL.common <<< I18nL.cDateFormat) lang
                                   in fromMaybe noData $ prettyDate format time
                               Nothing -> noData
-              ]
-          , txAmountView (props ^. txhAmount) lang
-          ]
+        txAmountView (props ^. txhAmount) lang
+    where
+        txRoute = Tx $ props ^. txhHash
 
 emptyTxHeaderView :: P.Html Action
 emptyTxHeaderView =
-    P.div
-        [ P.className "transaction-header"]
-        [ ]
+    div ! className "transaction-header"
 
 txAmountView :: CCoin -> Language -> P.Html Action
 txAmountView coin lang =
-    P.div
-        [ P.className "amount-container" ]
-        [ P.div
-            [ P.className "amount bg-ada" ]
-            [ P.text $ formatADA coin lang ]
-        ]
+    div ! className "amount-container"
+        $ div ! className "amount bg-ada"
+              $ text (formatADA coin lang)
+
 -- -----------------
 -- tx body
 -- -----------------
@@ -156,49 +158,41 @@ instance emptyTxBodyViewPropsFactory :: TxBodyViewPropsFactory EmptyViewProps wh
 
 txBodyView :: Language -> TxBodyViewProps -> P.Html Action
 txBodyView lang (TxBodyViewProps props) =
-    P.div
-        [ P.className "transaction-body" ]
-        [ P.div
-            [ P.className "from-hash-container" ]
-            <<< map txFromView $ props ^. txbInputs
-        , P.div
-            [ P.className "to-hash-container bg-transaction-arrow" ]
-            [ P.div
-                [ P.className "to-hash-wrapper"]
-                <<< map txToView $ props ^. txbOutputs
-            ]
-        , P.div
-              [ P.className "amounts-container" ]
-              <<< map (txBodyAmountView lang) $ props ^. txbOutputs
-        , txAmountView (props ^. txbAmount) lang
-        ]
+    div ! className "transaction-body" $ do
+        div ! className "from-hash-container"
+            $ map txFromView (props ^. txbInputs)
+        div ! className "to-hash-container bg-transaction-arrow"
+            $ div ! className "to-hash-wrapper"
+                  $ map txToView (props ^. txbOutputs)
+        div ! className "amounts-container"
+            $ map (txBodyAmountView lang) (props ^. txbOutputs)
+        txAmountView (props ^. txbAmount) lang
 
 emptyTxBodyView :: P.Html Action
 emptyTxBodyView =
-    P.div
-        [ P.className "transaction-body" ]
-        []
+    div ! className "transaction-body"
 
 txFromView :: Tuple CAddress CCoin -> P.Html Action
 txFromView (Tuple (CAddress cAddress) _) =
-    P.link (toUrl <<< Address $ mkCAddress cAddress)
-        [ P.className "from-hash" ]
-        [ P.text cAddress ]
+    let addressRoute = Address $ mkCAddress cAddress in
+    a ! href (toUrl addressRoute)
+      #! onClick addressRoute
+      ! className "from-hash"
+      $ text cAddress
 
 txToView :: Tuple CAddress CCoin -> P.Html Action
 txToView (Tuple (CAddress cAddress) _) =
-    P.link (toUrl <<< Address $ mkCAddress cAddress)
-          [ P.className "to-hash"]
-          [ P.text cAddress ]
+    let addressRoute = Address $ mkCAddress cAddress in
+    a ! href (toUrl addressRoute)
+      #! onClick (toUrl addressRoute)
+      ! className "to-hash"
+      $ text cAddress
 
 txBodyAmountView :: Language -> Tuple CAddress CCoin -> P.Html Action
 txBodyAmountView lang (Tuple _ coin) =
-    P.div
-        [ P.className "amount-wrapper" ]
-        [ P.span
-            [ P.className "plain-amount bg-ada-dark" ]
-            [ P.text $ formatADA coin lang ]
-        ]
+    div ! className "amount-wrapper"
+        $ span ! className "plain-amount bg-ada-dark"
+               $ text (formatADA coin lang)
 
 -- -----------------
 -- pagination
@@ -218,66 +212,36 @@ type PaginationViewProps =
 
 txPaginationView :: PaginationViewProps -> P.Html Action
 txPaginationView props =
-    P.div
-        [ P.className "transaction-pagination"]
-        [ paginationView props ]
+    div ! className "transaction-pagination"
+        $ paginationView props
 
 paginationView :: PaginationViewProps -> P.Html Action
 paginationView props =
-    P.div
-        [ P.className "pagination-wrapper"]
-        [ P.div
-              [ P.className "pagination" ]
-              [ P.div
-                  [ P.className "pagination__container" ]
-                  [ P.div
-                      [ P.className $ "btn-page" <> disablePrevBtnClazz
-                      , P.onClick prevClickHandler ]
-                      [ P.div
-                          [ P.className "icon bg-triangle-left" ]
-                          []
-                      ]
-                  , P.input
-                      ([ P.className "page-number"
-                      , P.disabled $ props.maxPage == props.minPage
-                      , P.min <<< show $ unwrap props.minPage
-                      , P.max <<< show $ unwrap props.maxPage
-                      , P.onFocus \event -> props.editableAction (_.target event) true
-                      , P.onBlur \event -> props.editableAction (_.target event) false
-                      ]
-                      <>  if props.editable
-                          then [ P.onKey "enter" onEnterHandler ]
-                          else [ P.value <<< show $ unwrap props.currentPage ]
-                      )
-                      []
-                  , P.p
-                      [ P.className "label" ]
-                      [ P.text props.label ]
-                  , P.input
-                      [ P.className "page-number"
-                      , P.disabled true
-                      , P.type_ "search"
-                      , P.value <<< show $ unwrap props.maxPage
-                      ]
-                      []
-                  , P.div
-                      [ P.className $ "btn-page" <> disableNextBtnClazz
-                        , P.onClick nextClickHandler ]
-                      [ P.div
-                          [ P.className "icon bg-triangle-right" ]
-                          []
-                      ]
-                  ]
-              ]
-          , P.div
-              [ P.className $ "pagination-cover"
-                    <>  if props.disabled
-                        then " show"
-                        else ""
-              , P.onClick $ const NoOp
-              ]
-              []
-          ]
+    div ! className "pagination-wrapper" $ do
+        div ! className "pagination"
+            $ div ! className "pagination__container" $ do
+                  div ! className ("btn-page" <> disablePrevBtnClazz)
+                      #! onClick prevClickHandler
+                      $ div ! className "icon bg-triangle-left"
+                  input ! className "page-number"
+                        ! disabled $ props.maxPage == props.minPage
+                        ! min <<< show $ unwrap props.minPage
+                        ! max <<< show $ unwrap props.maxPage
+                        !? props.editable value (show $ unwrap props.currentPage)
+                        #! P.onFocus (\event -> props.editableAction (_.target event)) true
+                        #! P.onBlur (\event -> props.editableAction (_.target event)) false
+                        #! P.onKey "enter" onEnterHandler
+                  p ! className "label"
+                    $ text props.label
+                  input ! className "page-number"
+                        ! disabled true
+                        ! type' "search"
+                        ! value (show $ unwrap props.maxPage)
+                  div ! className ("btn-page" <> disableNextBtnClazz)
+                      #! P.onClick nextClickHandler
+                      $ div ! className "icon bg-triangle-right"
+        div ! className ("pagination-cover" <> if props.disabled then " show" else "")
+            #! onClick (const NoOp) -- add click handler to hide clickes from children
           where
             disablePrevBtnClazz = if props.currentPage == props.minPage then " disabled" else ""
             disableNextBtnClazz = if props.currentPage == props.maxPage then " disabled" else ""
@@ -332,16 +296,10 @@ logoView' mRoute =
                               Just route -> P.link (toUrl route)
                               Nothing -> P.div
     in
-    P.div
-        [ P.className "logo__container"]
-        [ P.div
-            [ P.className "logo__wrapper"]
-            [ logoContentTag
-                [ P.className "logo__img bg-logo"
-                , P.href "/"]
-                []
-            ]
-        ]
+    div ! className "logo__container"
+        $ div ! className "logo__wrapper"
+              $ logoContentTag ! className "logo__img bg-logo"
+                               ! href (toUrl Dashboard)
 
 logoView :: P.Html Action
 logoView = logoView' Nothing
@@ -364,20 +322,17 @@ langItems =
 
 langView :: State -> P.Html Action
 langView state =
-  P.select
-      [ P.className "lang__select bg-arrow-up"
-      , P.defaultValue <<< show $ state ^. lang
-      , P.onChange $ SetLanguage <<< fromMaybe (_.lang initialState) <<< readLanguage <<< _.value <<< _.target]
-      $ map (langItemView state) langItems
+  select ! className "lang__select bg-arrow-up"
+         ! defaultValue <<< show $ state ^. lang
+         #! onChange $ SetLanguage <<< fromMaybe (_.lang initialState) <<< readLanguage <<< _.value <<< _.target
+         $ map (langItemView state) langItems
 
 langItemView :: State -> Language -> P.Html Action
 langItemView state lang' =
   let selected = (show lang') == (show $ state ^. lang) in
-  P.option
-    [ P.value $ show lang'
-    , P.className $ if selected then "selected" else ""
-    ]
-    [ P.text $ show lang' ]
+  option ! value $ show lang'
+         ! className $ if selected then "selected" else ""
+         $ text (show lang')
 
 -- -----------------
 -- helper
@@ -402,9 +357,8 @@ currencyCSSClass mCurrency =
 -- TODO (jk) Remove placeholderView if all views are implemented
 placeholderView :: String -> P.Html Action
 placeholderView label =
-    P.div
-        [ P.className "explorer-dashboard__content" ]
-        [ P.text label ]
+    div ! className "explorer-dashboard__content"
+        $ text label
 
 emptyView :: P.Html Action
-emptyView = P.div [] []
+emptyView = div

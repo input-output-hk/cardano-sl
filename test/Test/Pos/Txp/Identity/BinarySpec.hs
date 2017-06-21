@@ -6,6 +6,7 @@ module Test.Pos.Txp.Identity.BinarySpec
 
 import           Data.Tagged              (Tagged)
 import           Test.Hspec               (Spec, describe)
+import           Test.Hspec.QuickCheck    (modifyMaxSuccess)
 import           Universum
 
 import           Pos.Binary               ()
@@ -22,15 +23,16 @@ spec =
   describe "Txp (transaction processing) system" $ do
     describe "Bi instances" $ do
       describe "Core" $ do
-        binaryTest @T.TxInWitness
-        binaryTest @T.TxDistribution
-        binaryTest @T.TxIn
-        binaryTest @T.TxOut
-        binaryTest @T.TxOutAux
-        binaryTest @T.Tx
-        binaryTest @T.TxAux
-        binaryTest @T.TxProof
-        binaryTest @SmallTxPayload
+        modifyMaxSuccess (const 1000) $ do
+          binaryTest @T.TxInWitness
+          binaryTest @T.TxDistribution
+          binaryTest @T.TxIn
+          binaryTest @T.TxOut
+          binaryTest @T.TxOutAux
+          binaryTest @T.Tx
+          binaryTest @T.TxAux
+          binaryTest @T.TxProof
+          binaryTest @SmallTxPayload
       describe "Network" $ do
         networkBinaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
         networkBinaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))

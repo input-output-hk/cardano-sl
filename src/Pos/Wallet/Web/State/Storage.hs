@@ -263,7 +263,9 @@ setWalletTxHistory cWalId cTxs = mapM_ (uncurry $ addWalletTxHistory cWalId) cTx
 -- FIXME: this will be removed later (temporary solution)
 addOnlyNewTxMeta :: CId Wal -> CTxId -> CTxMeta -> Update ()
 addOnlyNewTxMeta cWalId cTxId cTxMeta =
-    wsTxHistory . ix cWalId . at cTxId %= Just . fromMaybe cTxMeta
+    -- Double nested HashMap update (if either or both of cWalId, cTxId don't exist, they will be created)
+    -- TODO: There is probably a better lens operator for this
+    wsTxHistory . at cWalId %= Just . (execState (at cTxId ?= cTxMeta)) . fromMaybe HM.empty
 
 -- NOTE: sets transaction meta only for transactions ids that are already seen
 setWalletTxMeta :: CId Wal -> CTxId -> CTxMeta -> Update ()

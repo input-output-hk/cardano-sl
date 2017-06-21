@@ -9,8 +9,8 @@ import           Universum
 import           Data.Fixed       (Fixed (..))
 
 import           Pos.Binary.Class (Bi (..), FixedSizeInt (..), getRemainingByteString,
-                                   getWithLength, getWord8, label, putWithLength,
-                                   putWord8)
+                                   getWithLength, getWord8, label, putByteString,
+                                   putWithLength, putWord8)
 import           Pos.Core.Fee     (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 
 instance Bi Coeff where
@@ -41,5 +41,5 @@ instance Bi TxFeePolicy where
             putWithLength $ put tsp
         TxFeePolicyUnknown v bs -> do
             putWord8 v
-            putWithLength $ put bs
+            putWithLength $ putByteString bs
 

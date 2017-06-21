@@ -20,13 +20,13 @@ foreign import onImpl :: forall a eff. Fn3 Socket Event (EventHandler a eff) (Ef
 connect :: forall eff. Host -> Eff (socket :: SocketIO | eff) Socket
 connect host = runFn1 connectImpl host
 
--- | Emits an event and data
-emit :: forall d eff. Socket -> Event -> d -> Eff (socket :: SocketIO | eff) Unit
-emit socket event dataObj = runFn3 emitDataImpl socket event dataObj
-
 -- | Emits an event without data
-emit' :: forall eff. Socket -> Event -> Eff (socket :: SocketIO | eff) Unit
-emit' socket event = runFn2 emitImpl socket event
+emit :: forall eff. Socket -> Event -> Eff (socket :: SocketIO | eff) Unit
+emit socket event = runFn2 emitImpl socket event
+
+-- | Emits an event and data
+emitData :: forall d eff. Socket -> Event -> d -> Eff (socket :: SocketIO | eff) Unit
+emitData socket event dataObj = runFn3 emitDataImpl socket event dataObj
 
 on :: forall a eff. Socket -> Event -> (EventHandler a eff) -> Eff (socket :: SocketIO | eff) Unit
 on socket event callback = runFn3 onImpl socket event callback

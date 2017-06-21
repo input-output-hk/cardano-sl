@@ -7,7 +7,7 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Now (nowDateTime, NOW)
-import Control.SocketIO.Client (Socket, SocketIO, emit, emit')
+import Control.SocketIO.Client (Socket, SocketIO, emit, emitData)
 import DOM (DOM)
 import DOM.Event.Event (target)
 import DOM.HTML.HTMLElement (blur, focus)
@@ -81,7 +81,7 @@ update SocketPing state =
     { state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff <<< emit' socket' $ toEvent CallMe
+              Just socket' -> liftEff <<< emit socket' $ toEvent CallMe
               Nothing -> pure unit
           pure NoOp
     ]}
@@ -141,7 +141,7 @@ update SocketCallMe state =
     { state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff <<< emit' socket' $ toEvent CallMe
+              Just socket' -> liftEff <<< emit socket' $ toEvent CallMe
               Nothing -> pure unit
           pure NoOp
     ]}
@@ -150,7 +150,7 @@ update (SocketCallMeString str) state =
     { state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emit socket' (toEvent CallMeString) str
+              Just socket' -> liftEff $ emitData socket' (toEvent CallMeString) str
               Nothing -> pure unit
           pure NoOp
     ]}
@@ -159,7 +159,7 @@ update (SocketCallMeCTxId id) state =
     { state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emit socket' (toEvent CallMeTxId) id
+              Just socket' -> liftEff $ emitData socket' (toEvent CallMeTxId) id
               Nothing -> pure unit
           pure NoOp
     ]}
@@ -878,13 +878,13 @@ socketSubscribeEvent socket (SocketSubscriptionItem item) =
         subData = _.socketSubData item
 
         subscribe :: Socket -> String -> SocketSubscriptionData -> Eff (socket :: SocketIO | eff) Unit
-        subscribe s e SocketNoData = emit' s e
-        subscribe s e (SocketOffsetData (SocketOffset o)) = emit s e o
-        subscribe s e (SocketCAddressData (CAddress addr)) = emit s e addr
+        subscribe s e SocketNoData = emit s e
+        subscribe s e (SocketOffsetData (SocketOffset o)) = emitData s e o
+        subscribe s e (SocketCAddressData (CAddress addr)) = emitData s e addr
 
 socketUnsubscribeEvent :: forall eff . Socket -> SocketSubscriptionItem
     -> Eff (socket :: SocketIO | eff) Unit
 socketUnsubscribeEvent socket (SocketSubscriptionItem item)  =
-    emit' socket event
+    emit socket event
     where
         event = toEvent <<< Unsubscribe <<< unwrap $ _.socketSub item

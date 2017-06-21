@@ -29,7 +29,7 @@ import qualified Pos.DB.GState      as GS
 import           Pos.Delegation     (initDelegation)
 import           Pos.Lrc.Context    (LrcSyncData (..), lcLrcSync)
 import qualified Pos.Lrc.DB         as LrcDB
-import           Pos.Reporting      (reportMisbehaviourMasked)
+import           Pos.Reporting      (reportMisbehaviourSilent)
 import           Pos.Security       (SecurityWorkersClass)
 import           Pos.Shutdown       (waitForWorkers)
 import           Pos.Slotting       (getCurrentSlot, waitSystemStart)
@@ -77,7 +77,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     -- FIXME shouldn't this kill the whole program?
     reportHandler (SomeException e) = do
         loggerName <- getLoggerName
-        reportMisbehaviourMasked version $
+        reportMisbehaviourSilent version $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e

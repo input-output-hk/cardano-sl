@@ -119,7 +119,7 @@ qanet: &qanet
 
   protocolMagic: 60987800
 
-  recoveryHeadersMessage: 20
+  recoveryHeadersMessage: 10000
 
 testnet: &testnet
   <<: *prod_base

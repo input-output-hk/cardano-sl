@@ -10,7 +10,7 @@ import           Numeric               (showHex)
 
 import           Test.Hspec            (Spec, anyErrorCall, describe, it, shouldBe,
                                         shouldSatisfy)
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (..), choose, generate, suchThat)
 import           Universum
 
@@ -22,10 +22,11 @@ import           Test.Pos.Util         (binaryEncodeDecode, binaryTest,
 spec :: Spec
 spec = describe "Bi" $ do
     describe "Numbers" $ do
-        unsignedVarIntSpec
-        signedVarIntSpec
-        fixedSizeIntSpec
-        tinyVarIntSpec
+        modifyMaxSuccess (const 10000) $ do
+            unsignedVarIntSpec
+            signedVarIntSpec
+            fixedSizeIntSpec
+            tinyVarIntSpec
 
 unsignedVarIntSpec :: Spec
 unsignedVarIntSpec = describe "UnsignedVarInt" $ do

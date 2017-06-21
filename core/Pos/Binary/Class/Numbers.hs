@@ -50,8 +50,17 @@ putWord8 = put @Word8
 -- Variable-sized numbers
 ----------------------------------------------------------------------------
 
+class    NonNegative a
+instance NonNegative Word
+instance NonNegative Word8
+instance NonNegative Word16
+instance NonNegative Word32
+instance NonNegative Word64
+
 -- Copied from Edward Kmett's 'bytes' library (licensed under BSD3)
-putUnsignedVarInt :: (Integral a, Bits a) => a -> Poke ()
+putUnsignedVarInt
+    :: (NonNegative a, Integral a, Bits a)
+    => a -> Poke ()
 putUnsignedVarInt n
     | n < 0x80 = putWord8 $ fromIntegral n
     | otherwise = do
@@ -59,18 +68,18 @@ putUnsignedVarInt n
           putUnsignedVarInt $ shiftR n 7
 {-# INLINE putUnsignedVarInt #-}
 
--- CSL-1122: there should be tests for this.
--- CSL-1122: this should handle negative numbers.
---           Also there should be a test checking that
---           those are handled correctly.
-getUnsignedVarIntSize :: (Integral a, Bits a, FiniteBits a) => a -> Int
+getUnsignedVarIntSize
+    :: (NonNegative a, Integral a, Bits a, FiniteBits a)
+    => a -> Int
 getUnsignedVarIntSize 0 = 1
 getUnsignedVarIntSize n = (logBase2 n `div` 7) + 1
   where
     logBase2 x = finiteBitSize x - 1 - countLeadingZeros x
 {-# INLINE getUnsignedVarIntSize #-}
 
-getUnsignedVarInt' :: (Integral a, Bits a, FiniteBits a) => Peek a
+getUnsignedVarInt'
+    :: (NonNegative a, Integral a, Bits a, FiniteBits a)
+    => Peek a
 getUnsignedVarInt' = do
     (bytes, i) <- getWord8 >>= go
     let iBytes = Store.unsafeEncodeWith (putUnsignedVarInt i) (getUnsignedVarIntSize i)
@@ -131,7 +140,7 @@ getTinyVarInt' = do
 -- [5, 6]
 -- >>> map zzDecode [5, 6]
 -- [-3, 3]
-class ZZEncode a b | a -> b, b -> a where
+class NonNegative b => ZZEncode a b | a -> b, b -> a where
     zzEncode :: a -> b
     zzDecode :: b -> a
 

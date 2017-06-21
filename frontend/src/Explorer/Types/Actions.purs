@@ -13,7 +13,7 @@ import Explorer.Routes (Route)
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CHash, CTxId, CTxSummary)
-import Pux.Html.Events (Target)
+import Pux.DOM.Events (Target)
 import Signal.Channel (Channel)
 
 data Action

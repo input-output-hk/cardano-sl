@@ -12,7 +12,7 @@ import Explorer.View.Common (clickableLogoView, langView)
 import Explorer.View.Search (searchInputView, searchItemViews)
 import Pux.Html (Html, div, header, text) as P
 import Pux.Html.Attributes (className, id_) as P
-import Pux.Html.Events (onClick) as P
+import Pux.DOM.Events (onClick) as P
 
 headerView :: State -> P.Html Action
 headerView state =

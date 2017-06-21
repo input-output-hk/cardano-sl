@@ -13,6 +13,7 @@ import Text.Smolder.HTML (div, a)
 import Text.Smolder.HTML.Attributes (className, href)
 import Text.Smolder.Markup (text, (#!), (!))
 
+import Pux.DOM.Events (onClick) as P
 import Pux.DOM.HTML (Html) as P
 
 calculatorView :: State -> P.Html Action

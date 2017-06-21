@@ -21,7 +21,7 @@ import DOM.Node.Types (DOMTokenList, Element, ElementId)
 import Control.Monad.Eff.Uncurried (EffFn2, runEffFn2)
 import Data.Maybe (Maybe(..))
 import Data.Nullable (toMaybe)
-import Pux.Html.Events (Target)
+import Pux.DOM.Events (Target)
 import Unsafe.Coerce (unsafeCoerce)
 
 foreign import scrollTopImpl :: forall eff. Eff (dom :: DOM | eff) Unit

@@ -19,7 +19,7 @@ import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 import Network.RemoteData (RemoteData(..), isLoading, isNotAsked, withDefault)
 import Pux.Html (Html, div, p, text) as P
 import Pux.Html.Attributes (className, id_) as P
-import Pux.Html.Events (onClick) as P
+import Pux.DOM.Events (onClick) as P
 
 dashBoardBlocksView :: State -> P.Html Action
 dashBoardBlocksView state =

@@ -24,7 +24,7 @@ import Pos.Explorer.Web.ClientTypes (CTxEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cteId, cteAmount, cteTimeIssued, _CTxId, _CHash)
 import Pux.Html (Html, div, text, span) as P
 import Pux.Html.Attributes (className) as P
-import Pux.Html.Events (onClick, MouseEvent) as P
+import Pux.DOM.Events (onClick, MouseEvent) as P
 import Pux.Router (link) as P
 
 maxTransactionRows :: Int

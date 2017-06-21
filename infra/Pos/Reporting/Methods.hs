@@ -60,7 +60,7 @@ import           Pos.Util.Util            (maybeThrow)
     lhs' = reverse $ dropWhile isSlash $ reverse lhs
     rhs' = dropWhile isSlash rhs
 
-type ReportingMode m =
+type MonadReporting m =
        ( MonadIO m
        , MonadMask m
        , MonadReportingMem m
@@ -75,7 +75,7 @@ type ReportingMode m =
 -- retrieving all logger files from it. List of servers is also taken
 -- from node's configuration.
 sendReportNode
-    :: (ReportingMode m)
+    :: (MonadReporting m)
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
     noServers <- null <$> Ether.asks' (view rcReportServers)
@@ -107,11 +107,11 @@ sendReportNode version reportType = do
         "servers to [] or include .pub files in log config"
 
 -- | Same as 'sendReportNode', but doesn't attach any logs.
-sendReportNodeNologs :: (ReportingMode m) => Version -> ReportType -> m ()
+sendReportNodeNologs :: (MonadReporting m) => Version -> ReportType -> m ()
 sendReportNodeNologs = sendReportNodeImpl []
 
 sendReportNodeImpl
-    :: (ReportingMode m)
+    :: (MonadReporting m)
     => [Text] -> Version -> ReportType -> m ()
 sendReportNodeImpl rawLogs version reportType = do
     servers <- Ether.asks' (view rcReportServers)
@@ -151,7 +151,7 @@ getNodeInfo = do
 -- | Reports misbehaviour given reason string. Effectively designed
 -- for 'WorkMode' context.
 reportMisbehaviour
-    :: (ReportingMode m, MonadDiscovery m)
+    :: (MonadReporting m, MonadDiscovery m)
     => Version -> Text -> m ()
 reportMisbehaviour version reason = do
     logError $ "Reporting misbehaviour \"" <> reason <> "\""
@@ -163,7 +163,7 @@ reportMisbehaviour version reason = do
 -- FIXME catch and squelch *all* exceptions? Probably a bad idea.
 -- | Report misbehaviour, but catch all errors inside
 reportMisbehaviourSilent
-    :: forall m . (ReportingMode m, MonadDiscovery m)
+    :: forall m . (MonadReporting m, MonadDiscovery m)
     => Version -> Text -> m ()
 reportMisbehaviourSilent version reason =
     reportMisbehaviour version reason `catch` handler
@@ -178,7 +178,7 @@ reportMisbehaviourSilent version reason =
 -- happens and rethrow. Errors related to reporting itself are caught,
 -- logged and ignored.
 reportingFatal
-    :: forall m a . (ReportingMode m, MonadDiscovery m)
+    :: forall m a . (MonadReporting m, MonadDiscovery m)
     => Version -> m a -> m a
 reportingFatal version action =
     action `catch` handler1 `catch` handler2

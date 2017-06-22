@@ -1,12 +1,15 @@
 module Main where
 
+import Prelude
+
 import Control.Monad.Eff (Eff)
 import Control.SocketIO.Client (connect, on)
 import DOM.Event.EventTarget (addEventListener, eventListener)
 import DOM.HTML (window)
 import DOM.HTML.Event.EventTypes (click)
+import DOM.HTML.Location (pathname)
 import DOM.HTML.Types (htmlDocumentToEventTarget)
-import DOM.HTML.Window (document)
+import DOM.HTML.Window (document, location)
 import Data.Lens ((^.), set)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Explorer.Api.Socket (addressTxsUpdatedEventHandler, blocksPageUpdatedEventHandler, callYouEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
@@ -20,7 +23,6 @@ import Explorer.Update (update) as Ex
 import Explorer.Util.Config (SyncAction(..), hostname, isProduction, secureProtocol)
 import Explorer.View.Layout (view)
 import Pos.Explorer.Socket.Methods (ServerEvent(..))
-import Prelude (bind, const, pure, ($), (*), (<$>), (<<<), (<>), (>>=), (>>>))
 import Pux (App, Config, CoreEffects, start)
 import Pux.DOM.Events (DOMEvent)
 import Pux.DOM.History (sampleURL)
@@ -66,9 +68,8 @@ pollingConfig appConfig =
 commonConfig :: forall eff . Ex.State -> Ex.ActionChannel -> Eff (CoreEffects (AppEffects eff)) (AppConfig eff)
 commonConfig state actionChannel = do
     -- routing
-    win <- window
-    urlSignal <- sampleURL win
-    let routeSignal = urlSignal ~> Ex.UpdateView <<< match
+    urlSignal <- sampleURL =<< window
+    let routeSignal = urlSignal ~> (Ex.UpdateView <<< match)
     -- timer
     let clockSignal = every second ~> const Ex.UpdateClock
     -- detected locale
@@ -89,8 +90,9 @@ commonConfig state actionChannel = do
         , foldp: Ex.update
         , view
         , inputs:
-              [ clockSignal
-              , actionSignal
+              [
+              -- clockSignal
+              actionSignal
               -- Important note:
               -- routeSignal has to be the last signal in row !!!
               , routeSignal
@@ -111,4 +113,12 @@ main state = do
                   SyncBySocket -> socketConfig appConfig actionChannel
     app <- start config
     _ <- renderToDOM appSelector app.markup app.input
+
+    -- Trigger `UpdateView` after starting app
+    -- to run side effects which are needed by each route
+    -- Because it's not triggered by Pux 10.x - maybe a bug???
+    _ <- window >>=
+            location >>=
+                pathname >>= send actionChannel <<< Ex.UpdateView <<< match
+
     pure app

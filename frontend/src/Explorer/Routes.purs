@@ -1,8 +1,9 @@
 module Explorer.Routes where
 
 import Prelude
+
 import Control.Alt ((<|>))
-import Data.Generic (class Generic, gEq)
+import Data.Generic (class Generic, gEq, gShow)
 import Data.Lens ((^.))
 import Data.Maybe (fromMaybe)
 import Explorer.Util.Factory (mkCAddress, mkCHash, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
@@ -25,7 +26,9 @@ data Route
 
 derive instance genericRoute :: Generic Route
 instance eqRoute :: Eq Route where
-  eq = gEq
+    eq = gEq
+instance sRoute :: Show Route where
+    show = gShow
 
 match :: String -> Route
 match url = fromMaybe NotFound $ router url $

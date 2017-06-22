@@ -25,6 +25,11 @@ dev: &dev
   genesisUpdateProposalThd: 0.1 # 10% of total stake
   genesisUpdateImplicit: 10 # slots
   genesisUpdateSoftforkThd: 0.75 # 75% of total stake
+  genesisTxFeePolicy:
+    txSizeLinear:
+      a: 1.2
+      b: 0.037582
+
 
   # P2P, networking
   defaultPeers: []

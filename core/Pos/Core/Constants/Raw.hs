@@ -37,6 +37,7 @@ import           Serokell.Aeson.Options     (defaultOptions)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util              (sec)
 
+import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Crypto.Hashing         (Hash, unsafeHash)
 import           Pos.Util.Config            (IsConfig (..), configParser,
                                              parseFromCslConfig)
@@ -96,6 +97,7 @@ data CoreConstants = CoreConstants
       -- blocks with some block version is bigger than this portion, this
       -- block version is adopted.
     , ccGenesisUpdateSoftforkThd     :: !Double
+    , ccGenesisTxFeePolicy           :: !(Maybe TxFeePolicy)
       -- | Maximum block size in bytes
     , ccGenesisMaxBlockSize          :: !Byte
       -- | Maximum block header size in bytes

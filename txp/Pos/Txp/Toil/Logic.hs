@@ -25,7 +25,7 @@ import           System.Wlog                (WithLogger)
 import           Pos.Binary.Class           (biSize)
 import           Pos.Core.Constants         (memPoolLimitRatio)
 import qualified Pos.Core.Fee               as Fee
-import           Pos.Core.Types             (Coin, unsafeGetCoin)
+import           Pos.Core.Types             (unsafeGetCoin)
 import           Pos.Crypto                 (WithHash (..), hash)
 import           Pos.Txp.Core               (TxAux (..), TxId, TxUndo, TxpUndo,
                                              topsortTxs)
@@ -33,7 +33,7 @@ import           Pos.Txp.Toil.Balances      (applyTxsToBalances, rollbackTxsBala
 import           Pos.Txp.Toil.Class         (MonadBalances (..), MonadToilEnv (..),
                                              MonadTxPool (..), MonadUtxo (..))
 import           Pos.Txp.Toil.Failure       (ToilVerFailure (..))
-import           Pos.Txp.Toil.Types         (ToilEnv (..), TxFee(..))
+import           Pos.Txp.Toil.Types         (ToilEnv (..), TxFee (..))
 import qualified Pos.Txp.Toil.Utxo          as Utxo
 
 ----------------------------------------------------------------------------

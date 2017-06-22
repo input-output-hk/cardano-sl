@@ -29,6 +29,7 @@ import           Serokell.Util              (sec)
 
 import           Pos.Core.Constants.Raw     (CoreConstants (..), coreConstants,
                                              staticSysStartRaw)
+import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Types             (BlockVersionData (..), CoinPortion,
                                              ScriptVersion, Timestamp (..),
                                              unsafeCoinPortionFromDouble)
@@ -61,7 +62,7 @@ genesisBlockVersionData =
     , bvdUpdateProposalThd = genesisUpdateProposalThd
     , bvdUpdateImplicit = genesisUpdateImplicit
     , bvdUpdateSoftforkThd = genesisUpdateSoftforkThd
-    , bvdTxFeePolicy = Nothing
+    , bvdTxFeePolicy = genesisTxFeePolicy
     }
 
 -- | ScriptVersion used at the very beginning
@@ -119,3 +120,6 @@ genesisUpdateImplicit = fromIntegral $
 genesisUpdateSoftforkThd :: CoinPortion
 genesisUpdateSoftforkThd = unsafeCoinPortionFromDouble $
     ccGenesisUpdateSoftforkThd coreConstants
+
+genesisTxFeePolicy :: Maybe TxFeePolicy
+genesisTxFeePolicy = ccGenesisTxFeePolicy coreConstants

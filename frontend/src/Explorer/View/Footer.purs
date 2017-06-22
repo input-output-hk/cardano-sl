@@ -16,7 +16,7 @@ import Explorer.View.Common (langView)
 import Text.Smolder.HTML (div, nav, a, p, span) as S
 import Text.Smolder.HTML.Attributes (className, href) as S
 import Text.Smolder.Markup (text) as S
-import Text.Smolder.Markup ((!), (#!))
+import Text.Smolder.Markup ((!))
 
 import Pux.DOM.HTML (HTML) as P
 

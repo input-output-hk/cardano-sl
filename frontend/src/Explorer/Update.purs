@@ -1,22 +1,26 @@
 module Explorer.Update where
 
 import Prelude
+
 import Control.Comonad (extract)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Now (nowDateTime, NOW)
+import Control.Monad.Eff.Now (nowDateTime)
 import Control.SocketIO.Client (Socket, SocketIO, emit, emitData)
 import DOM (DOM)
 import DOM.Event.Event (target, preventDefault)
+import DOM.HTML (window)
 import DOM.HTML.HTMLElement (blur, focus)
 import DOM.HTML.HTMLInputElement (select)
+import DOM.HTML.History (DocumentTitle(..), URL(..), pushState)
+import DOM.HTML.Window (history)
 import DOM.Node.Node (contains)
 import DOM.Node.Types (ElementId(..), elementToNode)
 import Data.Array (filter, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
+import Data.Foreign (toForeign)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..))
@@ -28,9 +32,10 @@ import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..)
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
 import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, syncAction, viewStates)
-import Explorer.Routes (Route(..), toUrl)
+import Explorer.Routes (Route(..), match, toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
+import Explorer.Types.App (AppEffects)
 import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State, WaypointItem(..))
 import Explorer.Util.Config (SyncAction(..), syncBySocket)
 import Explorer.Util.DOM (addClassToElement, findElementById, removeClassFromElement, scrollTop, nodeToHTMLElement, nodeToHTMLInputElement)
@@ -49,16 +54,7 @@ import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddre
 import Pux (EffModel, noEffects, onlyEffects)
 import Waypoints (WAYPOINT, destroy, waypoint', up) as WP
 
-update :: forall eff. Action -> State ->
-    EffModel State Action
-    ( dom :: DOM
-    , ajax :: AJAX
-    , socket :: SocketIO
-    , waypoint :: WP.WAYPOINT
-    , now :: NOW
-    , console :: CONSOLE
-    | eff
-    )
+update :: forall eff. Action -> State -> EffModel State Action (AppEffects eff)
 
 -- Language
 
@@ -71,8 +67,8 @@ update (SocketConnected connected') state =
     { state: set (socket <<< connected) connected' state
     , effects:
           [ if connected'
-            then pure SocketReconnectSubscriptions
-            else pure NoOp
+            then pure $ Just SocketReconnectSubscriptions
+            else pure Nothing
           ]
     }
 
@@ -82,7 +78,7 @@ update SocketPing state =
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> liftEff <<< emit socket' $ toEvent CallMe
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 update (SocketBlocksPageUpdated (Right (Tuple totalPages blocks))) state =
@@ -142,7 +138,7 @@ update SocketCallMe state =
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> liftEff <<< emit socket' $ toEvent CallMe
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 update (SocketCallMeString str) state =
@@ -151,7 +147,7 @@ update (SocketCallMeString str) state =
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> liftEff $ emitData socket' (toEvent CallMeString) str
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 update (SocketCallMeCTxId id) state =
@@ -160,7 +156,7 @@ update (SocketCallMeCTxId id) state =
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> liftEff $ emitData socket' (toEvent CallMeTxId) id
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 -- | Creates a new socket subscription
@@ -171,7 +167,7 @@ update (SocketAddSubscription subItem) state =
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> liftEff $ socketSubscribeEvent socket' subItem
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 -- | Removes an existing socket subscription
@@ -182,7 +178,7 @@ update (SocketRemoveSubscription subItem) state =
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> liftEff $ socketUnsubscribeEvent socket' subItem
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 
@@ -196,7 +192,7 @@ update (SocketClearSubscriptions) state =
                   traverse_ (liftEff <<< socketUnsubscribeEvent socket')
                       (state ^. socket <<< subscriptions)
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 update SocketReconnectSubscriptions state =
@@ -211,7 +207,7 @@ update SocketReconnectSubscriptions state =
                 traverse_ (liftEff <<< socketSubscribeEvent socket') currentSubs
 
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 -- Dashboard
@@ -226,7 +222,7 @@ update (DashboardPaginateBlocks pageNumber) state =
     { state:
           set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber state
     , effects:
-          [ pure $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
+          [ pure <<< Just $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
           ]
     }
 
@@ -235,8 +231,8 @@ update (DashboardEditBlocksPageNumber event editable) state =
           set (dashboardViewState <<< dbViewBlockPaginationEditable) editable state
     , effects:
           [ if editable
-            then pure $ SelectInputText $ nodeToHTMLInputElement (target event)
-            else pure NoOp
+            then pure <<< Just $ SelectInputText $ nodeToHTMLInputElement (target event)
+            else pure Nothing
           ]
     }
 
@@ -244,7 +240,7 @@ update (DashboardInvalidBlocksPageNumber event) state =
     { state:
           set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
     , effects:
-          [ pure $ BlurElement $ nodeToHTMLElement (target event)
+          [ pure <<< Just $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
 
@@ -261,8 +257,8 @@ update (AddressEditTxsPageNumber event editable) state =
           set (viewStates <<< addressDetail <<< addressTxPaginationEditable) editable state
     , effects:
           [ if editable
-            then pure $ SelectInputText $ nodeToHTMLInputElement (target event)
-            else pure NoOp
+            then pure <<< Just $ SelectInputText $ nodeToHTMLInputElement (target event)
+            else pure Nothing
           ]
     }
 
@@ -270,7 +266,7 @@ update (AddressInvalidTxsPageNumber event) state =
     { state:
           set (viewStates <<< addressDetail <<< addressTxPaginationEditable) false state
       , effects:
-          [ pure $ BlurElement $ nodeToHTMLElement (target event)
+          [ pure <<< Just $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
 
@@ -284,8 +280,8 @@ update (BlockEditTxsPageNumber event editable) state =
           set (viewStates <<< blockDetail <<< blockTxPaginationEditable) editable state
     , effects:
           [ if editable
-            then pure $ SelectInputText $ nodeToHTMLInputElement (target event)
-            else pure NoOp
+            then pure <<< Just $ SelectInputText $ nodeToHTMLInputElement (target event)
+            else pure Nothing
           ]
     }
 
@@ -293,7 +289,7 @@ update (BlockInvalidTxsPageNumber event) state =
     { state:
           set (viewStates <<< blockDetail <<< blockTxPaginationEditable) false state
       , effects:
-          [ pure $ BlurElement $ nodeToHTMLElement (target event)
+          [ pure <<< Just $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
 
@@ -307,8 +303,8 @@ update (BlocksEditBlocksPageNumber event editable) state =
           set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) editable state
     , effects:
           [ if editable
-            then pure $ SelectInputText $ nodeToHTMLInputElement (target event)
-            else pure NoOp
+            then pure <<< Just $ SelectInputText $ nodeToHTMLInputElement (target event)
+            else pure Nothing
           ]
     }
 
@@ -316,7 +312,7 @@ update (BlocksInvalidBlocksPageNumber event) state =
     { state:
           set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) false state
       , effects:
-          [ pure $ BlurElement $ nodeToHTMLElement (target event)
+          [ pure <<< Just $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
 
@@ -328,42 +324,42 @@ update ScrollTop state =
         case state ^. syncAction of
             -- Don't scroll if we are doing polling
             -- TODO (jk) Remove this workaround if socket-io will be fixed
-            SyncByPolling -> [ pure NoOp ]
-            SyncBySocket -> [ liftEff scrollTop >>= \_ -> pure NoOp ]
+            SyncByPolling -> [ pure Nothing ]
+            SyncBySocket -> [ liftEff scrollTop >>= \_ -> pure Nothing ]
     }
 
 update (SelectInputText input) state =
     { state
     , effects:
-        [ liftEff $ select input >>= \_ -> pure NoOp
+        [ liftEff $ select input >>= \_ -> pure Nothing
         ]
     }
 
 update (BlurElement elem) state =
     { state
     , effects:
-        [ liftEff $ blur elem >>= \_ -> pure NoOp
+        [ liftEff $ blur elem >>= \_ -> pure Nothing
         ]
     }
 
 update (FocusElement elem) state =
     { state
     , effects:
-        [ liftEff $ focus elem >>= \_ -> pure NoOp
+        [ liftEff $ focus elem >>= \_ -> pure Nothing
         ]
     }
 
 update (GenerateQrCode address) state =
     { state
     , effects:
-        [ liftEff $ generateQrCode (address ^. _CAddress) addressQRImageId *> pure NoOp
+        [ liftEff $ generateQrCode (address ^. _CAddress) addressQRImageId *> pure Nothing
         ]
     }
 
 update (DashboardAddWaypoint elementId) state =
     { state
     , effects:
-        [ liftEff waypoint >>= \wp -> pure <<< StoreWaypoint $ WaypointItem { wpInstance: wp, wpRoute: Dashboard }
+        [ liftEff waypoint >>= \wp -> pure <<< Just <<< StoreWaypoint $ WaypointItem { wpInstance: wp, wpRoute: Dashboard }
         ]
     }
     where
@@ -387,7 +383,7 @@ update ClearWaypoints state =
     , effects:
           [ do
                 traverse_ (liftEff <<< disposeWaypoint) waypointItems
-                pure NoOp
+                pure Nothing
           ]
     }
     where
@@ -427,9 +423,9 @@ update (DocumentClicked event) state =
                   headerSearchContainerClicked <- findElementById headerSearchContainerId >>= elementClicked
                   -- If any of these children are clicked we know, that the search UI has been set to active (focused)
                   let clicked = heroSearchContainerClicked || mobileMenuSearchContainerClicked || headerSearchContainerClicked
-                  pure $ GlobalFocusSearchInput clicked
+                  pure <<< Just $ GlobalFocusSearchInput clicked
             else
-                pure NoOp
+                pure Nothing
         ]
     }
     where
@@ -456,7 +452,7 @@ update (GlobalFocusSearchInput value) state = noEffects $
         )
     state
 
-update GlobalSearch state =
+update (GlobalSearch event) state =
     let query = state ^. (viewStates <<< globalViewState <<< gViewSearchQuery) in
     { state:
           set (viewStates <<< globalViewState <<< gViewSearchQuery) emptySearchQuery $
@@ -464,16 +460,16 @@ update GlobalSearch state =
           state
     , effects: [
       -- set state of focus explicitly
-      pure $ GlobalFocusSearchInput false
+      pure <<< Just $ GlobalFocusSearchInput false
       , case state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch) of
           SearchAddress ->
-              Navigate <<< toUrl <<< Address $ mkCAddress query
+              pure <<< Just $ Navigate (toUrl <<< Address $ mkCAddress query) event
           SearchTx ->
-              Navigate <<< toUrl <<< Tx $ mkCTxId query
-          _ -> pure NoOp  -- TODO (ks) maybe put up a message?
+              pure <<< Just $ Navigate (toUrl <<< Tx $ mkCTxId query) event
+          _ -> pure Nothing  -- TODO (ks) maybe put up a message?
       ]
     }
-update GlobalSearchTime state =
+update (GlobalSearchTime event) state =
     let query = state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
     in
     { state:
@@ -482,21 +478,21 @@ update GlobalSearchTime state =
           state
     , effects: [
       -- set state of focus explicitly
-      pure $ GlobalFocusSearchInput false
+      pure <<< Just $ GlobalFocusSearchInput false
       , case query of
             Tuple (Just epoch) (Just slot) ->
                 let epochIndex = mkEpochIndex epoch
                     slotIndex  = mkLocalSlotIndex slot
                     epochSlotUrl = EpochSlot epochIndex slotIndex
                 in
-                Navigate $ toUrl epochSlotUrl
+                pure <<< Just $ Navigate (toUrl epochSlotUrl) event
             Tuple (Just epoch) Nothing ->
                 let epochIndex = mkEpochIndex epoch
                     epochUrl   = Epoch $ epochIndex
                 in
-                Navigate $ toUrl epochUrl
+                pure <<< Just $ Navigate (toUrl epochUrl) event
 
-            _ -> pure NoOp -- TODO (ks) maybe put up a message?
+            _ -> pure Nothing -- TODO (ks) maybe put up a message?
       ]
     }
 
@@ -531,7 +527,7 @@ update DashboardRequestBlocksTotalPages state =
           set loading true $
           set (dashboardViewState <<< dbViewMaxBlockPagination) Loading
           state
-    , effects: [ attempt fetchBlocksTotalPages >>= pure <<< DashboardReceiveBlocksTotalPages ]
+    , effects: [ attempt fetchBlocksTotalPages >>= pure <<< Just <<< DashboardReceiveBlocksTotalPages ]
     }
 
 update (DashboardReceiveBlocksTotalPages (Right totalPages)) state =
@@ -542,7 +538,7 @@ update (DashboardReceiveBlocksTotalPages (Right totalPages)) state =
           set (dashboardViewState <<< dbViewBlockPagination)
               (PageNumber totalPages) state
     , effects:
-        [ pure $ DashboardPaginateBlocks (PageNumber totalPages) ]
+        [ pure <<< Just $ DashboardPaginateBlocks (PageNumber totalPages) ]
     }
 
 update (DashboardReceiveBlocksTotalPages (Left error)) state =
@@ -559,7 +555,7 @@ update (RequestPaginatedBlocks pageNumber pageSize) state =
           -- set latestBlocks Loading
           set (dashboardViewState <<< dbViewLoadingBlockPagination) true
           state
-    , effects: [ attempt (fetchPageBlocks pageNumber pageSize) >>= pure <<< ReceivePaginatedBlocks ]
+    , effects: [ attempt (fetchPageBlocks pageNumber pageSize) >>= pure <<< Just <<< ReceivePaginatedBlocks ]
     }
 
 update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
@@ -571,7 +567,7 @@ update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
           set latestBlocks (Success blocks) state
     , effects:
         if (syncBySocket $ state ^. syncAction)
-        then [ pure $ SocketAddSubscription subItem ]
+        then [ pure <<< Just $ SocketAddSubscription subItem ]
         else []
     }
     where
@@ -590,7 +586,7 @@ update (RequestBlockSummary hash) state =
           set loading true $
           set currentBlockSummary Loading
           state
-    , effects: [ attempt (fetchBlockSummary hash) >>= pure <<< ReceiveBlockSummary ]
+    , effects: [ attempt (fetchBlockSummary hash) >>= pure <<< Just <<< ReceiveBlockSummary ]
     }
 update (ReceiveBlockSummary (Right blockSummary)) state =
     noEffects $
@@ -610,7 +606,7 @@ update (RequestSearchBlocks epoch slot) state =
           set loading true $
           set currentBlocksResult Loading
           state
-    , effects: [ attempt (searchEpoch epoch slot) >>= pure <<< ReceiveSearchBlocks ]
+    , effects: [ attempt (searchEpoch epoch slot) >>= pure <<< Just <<< ReceiveSearchBlocks ]
     }
 update (ReceiveSearchBlocks (Right blocks)) state =
     noEffects $
@@ -628,7 +624,7 @@ update (RequestBlockTxs hash) state =
           set loading true $
           set currentBlockTxs Loading
           state
-    , effects: [ attempt (fetchBlockTxs hash) >>= pure <<< ReceiveBlockTxs ]
+    , effects: [ attempt (fetchBlockTxs hash) >>= pure <<< Just <<< ReceiveBlockTxs ]
     }
 update (ReceiveBlockTxs (Right txs)) state =
     noEffects $
@@ -648,7 +644,7 @@ update (RequestLastTxs) state =
           state
     , effects:
         [ attempt (fetchLatestTxs (RequestLimit maxTransactionRows) (RequestOffset 0)) >>=
-              pure <<< ReceiveLastTxs
+              pure <<< Just <<< ReceiveLastTxs
         ]
     }
 
@@ -665,7 +661,7 @@ update (ReceiveLastTxs (Right txs)) state =
           state
     , effects:
         if (syncBySocket $ state ^. syncAction)
-        then [ pure $ SocketAddSubscription subItem ]
+        then [ pure <<< Just $ SocketAddSubscription subItem ]
         else []
     }
     where
@@ -680,7 +676,7 @@ update (RequestTxSummary id) state =
           set loading true $
           set currentTxSummary Loading
           state
-    , effects: [ attempt (fetchTxSummary id) >>= pure <<< ReceiveTxSummary ]
+    , effects: [ attempt (fetchTxSummary id) >>= pure <<< Just <<< ReceiveTxSummary ]
     }
 update (ReceiveTxSummary (Right tx)) state =
     noEffects $
@@ -697,17 +693,17 @@ update (RequestAddressSummary address) state =
           set loading true $
           set currentAddressSummary Loading
           state
-    , effects: [ attempt (fetchAddressSummary address) >>= pure <<< ReceiveAddressSummary ]
+    , effects: [ attempt (fetchAddressSummary address) >>= pure <<< Just <<< ReceiveAddressSummary ]
     }
 update (ReceiveAddressSummary (Right address)) state =
     { state:
         set loading false $
         set currentAddressSummary (Success address) state
     , effects:
-        [ pure $ GenerateQrCode caAddress'
+        [ pure <<< Just $ GenerateQrCode caAddress'
         ]
         <>  ( if (syncBySocket $ state ^. syncAction)
-              then [ pure $ SocketAddSubscription subItem ]
+              then [ pure <<< Just $ SocketAddSubscription subItem ]
               else []
             )
     }
@@ -724,10 +720,11 @@ update (ReceiveAddressSummary (Left error)) state =
     over errors (\errors' -> (show error) : errors') state
 
 -- clock
-update UpdateClock state = onlyEffects state $
+update UpdateClock state = onlyEffects state
     [ do
-         SetClock <<< extract <$> liftEff nowDateTime
+        Just <<< SetClock <<< extract <$> liftEff nowDateTime
     ]
+
 update (SetClock date) state = noEffects $ state { now = date }
 
 -- Reload pages
@@ -756,18 +753,18 @@ routeEffects Dashboard state =
             (translate (I18nL.common <<< I18nL.cTitle) $ state ^. lang)
             state
     , effects:
-        [ pure ScrollTop
-        , pure ClearWaypoints
-        , pure <<< DashboardAddWaypoint $ ElementId CSS.dashBoardBlocksViewId
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure <<< Just <<< DashboardAddWaypoint $ ElementId CSS.dashBoardBlocksViewId
         , if isSuccess maxBlockPage
-          then pure $ DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
+          then pure <<< Just <<< DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
           else
               -- Note: Request `total pages `only once.
               -- Check is needed due reloading by http pooling
               if isNotAsked maxBlockPage
-              then pure DashboardRequestBlocksTotalPages
-              else pure NoOp
-        , pure RequestLastTxs
+              then pure $ Just DashboardRequestBlocksTotalPages
+              else pure Nothing
+        , pure $ Just RequestLastTxs
         ]
     }
     where
@@ -779,10 +776,10 @@ routeEffects (Tx tx) state =
             (translate (I18nL.common <<< I18nL.cTransaction) $ state ^. lang)
             state
     , effects:
-        [ pure ScrollTop
-        , pure ClearWaypoints
-        , pure SocketClearSubscriptions
-        , pure $ RequestTxSummary tx
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure $ Just SocketClearSubscriptions
+        , pure <<< Just $ RequestTxSummary tx
         ]
     }
 
@@ -794,10 +791,10 @@ routeEffects (Address cAddress) state =
             (translate (I18nL.common <<< I18nL.cAddress) $ state ^. lang)
             state
     , effects:
-        [ pure ScrollTop
-        , pure ClearWaypoints
-        , pure SocketClearSubscriptions
-        , pure $ RequestAddressSummary cAddress
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure $ Just SocketClearSubscriptions
+        , pure <<< Just $ RequestAddressSummary cAddress
         ]
     }
 
@@ -809,9 +806,9 @@ routeEffects (Epoch epochIndex) state =
             (translate (I18nL.common <<< I18nL.cEpoch) $ state ^. lang)
             state
     , effects:
-        [ pure ScrollTop
-        , pure ClearWaypoints
-        , pure $ RequestSearchBlocks epochIndex Nothing
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure <<< Just $ RequestSearchBlocks epochIndex Nothing
         ]
     }
 
@@ -825,9 +822,9 @@ routeEffects (EpochSlot epochIndex slotIndex) state =
             (epochTitle <> " / " <> slotTitle)
             state
     , effects:
-        [ pure ScrollTop
-        , pure ClearWaypoints
-        , pure $ RequestSearchBlocks epochIndex (Just slotIndex)
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure <<< Just $ RequestSearchBlocks epochIndex (Just slotIndex)
         ]
     }
 
@@ -838,8 +835,8 @@ routeEffects Calculator state =
             (translate (I18nL.common <<< I18nL.cCalculator) $ state ^. lang)
             state
     , effects:
-        [ pure ScrollTop
-        , pure ClearWaypoints
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
         ]
     }
 
@@ -849,20 +846,20 @@ routeEffects (Block hash) state =
             (translate (I18nL.common <<< I18nL.cBlock) $ state ^. lang)
             state
     , effects:
-        [ pure ScrollTop
-        , pure ClearWaypoints
-        , pure SocketClearSubscriptions
-        , pure $ RequestBlockSummary hash
-        , pure $ RequestBlockTxs hash
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure $ Just SocketClearSubscriptions
+        , pure <<< Just $ RequestBlockSummary hash
+        , pure <<< Just $ RequestBlockTxs hash
         ]
     }
 
 routeEffects Playground state =
     { state
     , effects:
-        [ pure ScrollTop
-        , pure ClearWaypoints
-        , pure SocketClearSubscriptions
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure $ Just SocketClearSubscriptions
         ]
     }
 
@@ -872,9 +869,9 @@ routeEffects NotFound state =
             (translate (I18nL.notfound <<< I18nL.nfTitle) $ state ^. lang)
             state
     , effects:
-        [ pure ScrollTop
-        , pure ClearWaypoints
-        , pure SocketClearSubscriptions
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure $ Just SocketClearSubscriptions
         ]
     }
 

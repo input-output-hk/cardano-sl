@@ -5,8 +5,9 @@ import Data.Lens ((^.))
 
 import Pux.DOM.HTML (HTML) as P
 
-import Text.Smolder.HTML (div, main)
-import Text.Smolder.HTML.Attributes (className)
+import Text.Smolder.HTML (div) as S
+import Text.Smolder.HTML.Attributes (className) as S
+import Text.Smolder.Markup ((!))
 
 import Explorer.Lenses.State (gViewMobileMenuOpenend, globalViewState, route, viewStates)
 import Explorer.Routes (Route(..))
@@ -31,19 +32,19 @@ view state =
                           else ""
         routeClazz = CSS.route $ state ^. route
     in
-    div ! className ("explorer-container" <> mobileMenuClazz <> " " <> routeClazz) $ do
-        div ! className "explorer-bg__container" $ do
-            div ! className "explorer-content__wrapper" $ do
-                main ! className "explorer-content" $ do
-                    case state ^. route of
-                        Dashboard -> dashboardView state
-                        (Tx id) -> transactionView state
-                        (Address address) -> addressView state
-                        (Epoch epoch) -> blocksView state
-                        (EpochSlot epoch slot) -> blocksView state
-                        Calculator -> calculatorView state
-                        (Block hash) -> blockView state
-                        Playground -> playgroundView state
-                        NotFound -> notFoundView state
-                    footerView state
-            headerView state
+    S.div ! S.className ("explorer-container" <> mobileMenuClazz <> " " <> routeClazz)
+          $ S.div ! S.className "explorer-bg__container"
+                  $ S.div ! S.className "explorer-content__wrapper" $ do
+                      S.div ! S.className "explorer-content" $ do
+                            case state ^. route of
+                                Dashboard -> dashboardView state
+                                (Tx id) -> transactionView state
+                                (Address address) -> addressView state
+                                (Epoch epoch) -> blocksView state
+                                (EpochSlot epoch slot) -> blocksView state
+                                Calculator -> calculatorView state
+                                (Block hash) -> blockView state
+                                Playground -> playgroundView state
+                                NotFound -> notFoundView state
+                            footerView state
+                      headerView state

@@ -62,8 +62,8 @@ data Action
     | ReceiveSearchBlocks (Either Error CBlockEntries)
     -- global view states
     | GlobalToggleMobileMenu Boolean
-    | GlobalSearch                          -- search for address + transaction
-    | GlobalSearchTime                      -- search for time
+    | GlobalSearch DOMEvent                          -- search for address + transaction
+    | GlobalSearchTime DOMEvent                      -- search for time
     | GlobalUpdateSelectedSearch Search
     | GlobalUpdateSearchValue String
     | GlobalUpdateSearchEpochValue String

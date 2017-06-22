@@ -5,7 +5,7 @@ import Prelude
 import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.Monoid (mempty)
-import Data.Map (Map, fromFoldable, lookup, toAscUnfoldable) as M
+import Data.Map (Map, fromFoldable, lookup) as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
 
@@ -56,7 +56,7 @@ apiView state =
               S.div ! S.className "api-content" $ do
                   S.div ! S.className "api-content__container api-code" $ do
                       S.div ! S.className "api-code__tabs" $ do
-                          for_ (M.toAscUnfoldable $ apiTabs lang') (apiCodeTabView state)
+                          for_ (apiTabs lang') (apiCodeTabView state)
                           apiCodeSnippetView (translate (I18nL.dashboard <<< I18nL.dbGetAddress) lang') addressSnippet
                           apiCodeSnippetView (translate (I18nL.dashboard <<< I18nL.dbResponse) lang') responseSnippet
                   S.div ! S.className "api-content__container api-about" $ do
@@ -78,13 +78,12 @@ apiView state =
             , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbMoreExamples) lang', action: NoOp }
             }
 
-apiTabs :: Language -> M.Map DashboardAPICode ApiTabLabel
+apiTabs :: Language -> Array (Tuple DashboardAPICode ApiTabLabel)
 apiTabs lang =
-    M.fromFoldable(
-        [ Tuple Curl $ translate (I18nL.dashboard <<< I18nL.dbCurl) lang
-        , Tuple Node $ translate (I18nL.dashboard <<< I18nL.dbNode) lang
-        , Tuple JQuery $ translate (I18nL.dashboard <<< I18nL.dbJQuery) lang
-        ])
+    [ Tuple Curl $ translate (I18nL.dashboard <<< I18nL.dbCurl) lang
+    , Tuple Node $ translate (I18nL.dashboard <<< I18nL.dbNode) lang
+    , Tuple JQuery $ translate (I18nL.dashboard <<< I18nL.dbJQuery) lang
+    ]
 
 apiCodeTabView :: State -> Tuple DashboardAPICode ApiTabLabel -> P.HTML Action
 apiCodeTabView state (Tuple code label) =

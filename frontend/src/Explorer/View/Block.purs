@@ -127,7 +127,7 @@ blockSummaryView block lang =
         S.div ! S.className "summary-container" $ do
             S.h3  ! S.className "subheadline"
                   $ S.text (translate (I18nL.common <<< I18nL.cSummary) lang)
-            S.div $ for_ (block ^. (_CBlockSummary <<< cbsEntry)) (summaryRow <<< mkSummaryItems lang)
+            S.div $ for_ (mkSummaryItems lang $ block ^. (_CBlockSummary <<< cbsEntry)) summaryRow
         S.div ! S.className "hashes-container" $ do
             S.h3  ! S.className "subheadline"
                   $ S.text (translate (I18nL.common <<< I18nL.cHashes) lang)

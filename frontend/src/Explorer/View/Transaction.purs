@@ -21,7 +21,7 @@ import Explorer.View.Common (currencyCSSClass, emptyTxHeaderView, mkTxBodyViewPr
 import Network.RemoteData (RemoteData(..))
 
 import Pos.Explorer.Web.ClientTypes (CTxSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, ctsBlockEpoch, ctsBlockHash, ctsBlockSlot, ctsFees, ctsTotalOutput, ctsTxTimeIssued)
+import Pos.Explorer.Web.Lenses.ClientTypes (ctsBlockEpoch, ctsBlockHash, ctsBlockSlot, ctsFees, ctsTotalOutput, ctsTxTimeIssued)
 
 import Pux.DOM.HTML (HTML) as P
 import Pux.Renderer.React (dangerouslySetInnerHTML) as P

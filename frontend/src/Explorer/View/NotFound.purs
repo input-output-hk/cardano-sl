@@ -12,19 +12,19 @@ import Explorer.Types.State (State)
 
 import Pux.DOM.Events (onClick) as P
 
-import Text.Smolder.HTML (div, a)
-import Text.Smolder.HTML.Attributes (className, href)
-import Text.Smolder.Markup (text, (!), (#!))
+import Text.Smolder.HTML (div, a) as S
+import Text.Smolder.HTML.Attributes (className, href) as S
+import Text.Smolder.Markup ((!), (#!))
 
 import Pux.DOM.HTML (HTML) as P
 
 notFoundView :: State -> P.HTML Action
 notFoundView state =
     let lang' = state ^. lang in
-    div ! className "explorer-404"
-        $ div ! className "explorer-404__wrapper"
-              $ div ! className "explorer-404__container"
-                    $ a ! href (toUrl Dashboard)
-                        #! P.onClick (Navigate (toUrl Dashboard))
-                        ! className "bg-image-404"
-                        $ mempty
+    S.div ! S.className "explorer-404"
+          $ S.div ! S.className "explorer-404__wrapper"
+                  $ S.div ! S.className "explorer-404__container"
+                          $ S.a ! S.href (toUrl Dashboard)
+                              #! P.onClick (Navigate (toUrl Dashboard))
+                              ! S.className "bg-image-404"
+                              $ mempty

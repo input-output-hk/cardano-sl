@@ -7,22 +7,23 @@ import Explorer.Util.Factory (mkCTxId)
 
 import Pux.DOM.Events (onClick) as P
 
-import Text.Smolder.HTML (div, h1)
-import Text.Smolder.HTML.Attributes (className)
-import Text.Smolder.Markup (text, (!), (#!))
+import Text.Smolder.HTML (div, h1) as S
+import Text.Smolder.HTML.Attributes (className) as S
+import Text.Smolder.Markup (text) as S
+import Text.Smolder.Markup ((!), (#!))
 
 import Pux.DOM.HTML (HTML) as P
 
 playgroundView :: State -> P.HTML Action
 playgroundView state =
-    div ! className "explorer-calculator"
-        $ div ! className "explorer-calculator__container" $ do
-              h1  ! className "headline"
-                  #! P.onClick (const SocketCallMe)
-                  $ text "socket -> callme"
-              h1  ! className "headline"
-                  #! P.onClick (const $ SocketCallMeString "hi there")
-                  $ text "socket -> callme-string"
-              h1  ! className "headline"
-                  #! P.onClick (const <<< SocketCallMeCTxId $ mkCTxId "xyz-123-abc")
-                  $ text "socket -> callme-txid"
+    S.div ! S.className "explorer-calculator"
+          $ S.div ! S.className "explorer-calculator__container" $ do
+              S.h1  ! S.className "headline"
+                    #! P.onClick (const SocketCallMe)
+                    $ S.text "socket -> callme"
+              S.h1  ! S.className "headline"
+                    #! P.onClick (const $ SocketCallMeString "hi there")
+                    $ S.text "socket -> callme-string"
+              S.h1  ! S.className "headline"
+                    #! P.onClick (const <<< SocketCallMeCTxId $ mkCTxId "xyz-123-abc")
+                    $ S.text "socket -> callme-txid"

@@ -44,7 +44,7 @@ instance Bi VssCertificate where
         join $ liftM4 recreateVssCertificate get get get get
 
 instance Bi Opening where
-    sizeNPut = labelS "Opening" $  putField getOpening
+    sizeNPut = labelS "Opening" $ putField getOpening
     get = label "Opening" $ Opening <$> get
 
 instance Bi GtPayload where

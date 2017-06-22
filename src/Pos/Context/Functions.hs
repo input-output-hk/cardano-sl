@@ -21,16 +21,17 @@ module Pos.Context.Functions
        , getUptime
        ) where
 
+import           Universum
+
 import           Data.Time           (diffUTCTime, getCurrentTime)
 import           Data.Time.Units     (Microsecond, fromMicroseconds)
 import qualified Ether
-import           Universum
 
-import           Pos.Context.Context (BlkSemaphore (..), GenesisLeaders (..),
-                                      GenesisUtxo (..), StartTime (..))
+import           Pos.Context.Context (BlkSemaphore (..), GenesisUtxo (..), StartTime (..))
+import           Pos.Core            (HeaderHash, SlotLeaders)
+import           Pos.Genesis         (genesisLeaders)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
 import           Pos.Txp.Toil.Types  (Utxo)
-import           Pos.Types           (HeaderHash, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -39,8 +40,8 @@ import           Pos.Types           (HeaderHash, SlotLeaders)
 genesisUtxoM :: (Functor m, Ether.MonadReader' GenesisUtxo m) => m Utxo
 genesisUtxoM = Ether.asks' unGenesisUtxo
 
-genesisLeadersM :: (Functor m, Ether.MonadReader' GenesisLeaders m) => m SlotLeaders
-genesisLeadersM = Ether.asks' unGenesisLeaders
+genesisLeadersM :: (Functor m, Ether.MonadReader' GenesisUtxo m) => m SlotLeaders
+genesisLeadersM = genesisLeaders <$> genesisUtxoM
 
 ----------------------------------------------------------------------------
 -- Semaphore-related logic

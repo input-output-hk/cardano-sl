@@ -15,11 +15,13 @@ import qualified Database.RocksDB           as Rocks
 import qualified Ether
 import           System.Wlog                (WithLogger)
 
-import           Pos.Context.Context        (GenesisUtxo (..), NodeParams (..))
+import           Pos.Context.Context        (GenesisUtxo (..))
 import           Pos.Context.Functions      (genesisUtxoM)
+import           Pos.Core                   (HeaderHash, Timestamp)
 import           Pos.DB.Class               (MonadDB, MonadDBRead, MonadRealDB,
                                              getNodeDBs, usingReadOptions)
 import           Pos.DB.GState.Balances     (getRealTotalStake)
+import           Pos.DB.GState.BlockExtra   (prepareGStateBlockExtra)
 import           Pos.DB.GState.Common       (prepareGStateCommon)
 import           Pos.DB.Types               (DB (..), NodeDBs (..), Snapshot (..),
                                              gStateDB, usingSnapshot)
@@ -27,25 +29,23 @@ import           Pos.Ssc.GodTossing.DB      (prepareGtDB)
 import           Pos.Ssc.GodTossing.Genesis (genesisCertificates)
 import           Pos.Txp.DB                 (prepareGStateBalances, prepareGStateUtxo,
                                              sanityCheckBalances, sanityCheckUtxo)
-import           Pos.Types                  (HeaderHash)
 import           Pos.Update.DB              (prepareGStateUS)
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB
     :: forall m.
-       ( Ether.MonadReader' NodeParams m
-       , Ether.MonadReader' GenesisUtxo m
+       ( Ether.MonadReader' GenesisUtxo m
        , MonadDB m
        )
-    => HeaderHash -> m ()
-prepareGStateDB initialTip = do
+    => Timestamp -> HeaderHash -> m ()
+prepareGStateDB systemStart initialTip = do
     prepareGStateCommon initialTip
     genesisUtxo <- genesisUtxoM
     prepareGStateUtxo genesisUtxo
     prepareGtDB genesisCertificates
     prepareGStateBalances genesisUtxo
-    systemStart <- Ether.asks' npSystemStart
     prepareGStateUS systemStart
+    prepareGStateBlockExtra initialTip
 
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB

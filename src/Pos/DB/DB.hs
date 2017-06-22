@@ -20,36 +20,34 @@ module Pos.DB.DB
 
 import           Universum
 
-import           Control.Monad.Catch          (MonadMask)
+import           Control.Monad.Catch        (MonadMask)
 import qualified Ether
-import           System.Directory             (createDirectoryIfMissing,
-                                               doesDirectoryExist,
-                                               removeDirectoryRecursive)
-import           System.FilePath              ((</>))
-import           System.Wlog                  (WithLogger)
+import           System.Directory           (createDirectoryIfMissing, doesDirectoryExist,
+                                             removeDirectoryRecursive)
+import           System.FilePath            ((</>))
+import           System.Wlog                (WithLogger)
 
-import           Pos.Block.Core               (Block, mkGenesisBlock)
-import           Pos.Block.Types              (Blund)
-import           Pos.Context.Context          (GenesisLeaders, GenesisUtxo, NodeParams)
-import           Pos.Context.Functions        (genesisLeadersM)
-import           Pos.Core                     (BlockVersionData, headerHash)
-import           Pos.DB.Block                 (MonadBlockDB, MonadBlockDBWrite,
-                                               loadBlundsByDepth, loadBlundsWhile,
-                                               prepareBlockDB)
-import           Pos.DB.Class                 (MonadDB, MonadDBRead (..))
-import           Pos.DB.Functions             (closeDB, openDB)
-import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
-import           Pos.DB.GState.Common         (getTip, getTipBlock, getTipHeader)
-import           Pos.DB.GState.GState         (prepareGStateDB, sanityCheckGStateDB)
-import           Pos.DB.Misc                  (prepareMiscDB)
-import           Pos.DB.Types                 (NodeDBs (..))
-import           Pos.Lrc.DB                   (prepareLrcDB)
-import           Pos.Update.DB                (getAdoptedBVData)
-import           Pos.Util                     (inAssertMode)
-import           Pos.Util.Chrono              (NewestFirst)
-import qualified Pos.Util.Concurrent.RWLock   as RWL
+import           Pos.Block.Core             (Block, mkGenesisBlock)
+import           Pos.Block.Types            (Blund)
+import           Pos.Context.Context        (GenesisUtxo)
+import           Pos.Context.Functions      (genesisLeadersM)
+import           Pos.Core                   (BlockVersionData, Timestamp, headerHash)
+import           Pos.DB.Block               (MonadBlockDB, MonadBlockDBWrite,
+                                             loadBlundsByDepth, loadBlundsWhile,
+                                             prepareBlockDB)
+import           Pos.DB.Class               (MonadDB, MonadDBRead (..))
+import           Pos.DB.Functions           (closeDB, openDB)
+import           Pos.DB.GState.Common       (getTip, getTipBlock, getTipHeader)
+import           Pos.DB.GState.GState       (prepareGStateDB, sanityCheckGStateDB)
+import           Pos.DB.Misc                (prepareMiscDB)
+import           Pos.DB.Types               (NodeDBs (..))
+import           Pos.Lrc.DB                 (prepareLrcDB)
+import           Pos.Update.DB              (getAdoptedBVData)
+import           Pos.Util                   (inAssertMode)
+import           Pos.Util.Chrono            (NewestFirst)
+import qualified Pos.Util.Concurrent.RWLock as RWL
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.DB              (prepareExplorerDB)
+import           Pos.Explorer.DB            (prepareExplorerDB)
 #endif
 
 -- | Open all DBs stored on disk.
@@ -84,19 +82,16 @@ openNodeDBs recreate fp = do
 initNodeDBs
     :: forall ssc m.
        ( Ether.MonadReader' GenesisUtxo m
-       , Ether.MonadReader' GenesisLeaders m
-       , Ether.MonadReader' NodeParams m
        , MonadBlockDBWrite ssc m
        , MonadDB m
        )
-    => m ()
-initNodeDBs = do
+    => Timestamp -> m ()
+initNodeDBs systemStart = do
     leaders0 <- genesisLeadersM
     let genesisBlock0 = mkGenesisBlock @ssc Nothing 0 leaders0
         initialTip = headerHash genesisBlock0
     prepareBlockDB genesisBlock0
-    prepareGStateDB initialTip
-    prepareGStateBlockExtra initialTip
+    prepareGStateDB systemStart initialTip
     prepareLrcDB
     prepareMiscDB
 #ifdef WITH_EXPLORER

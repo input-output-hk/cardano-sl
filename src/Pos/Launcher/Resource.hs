@@ -46,8 +46,8 @@ import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication.PeerState (PeerStateCtx)
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (BlkSemaphore (..), ConnectedPeers (..),
-                                              GenesisLeaders (..), GenesisUtxo (..),
-                                              NodeContext (..), StartTime (..))
+                                              GenesisUtxo (..), NodeContext (..),
+                                              StartTime (..))
 import           Pos.Core                    (Timestamp)
 import           Pos.DB                      (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                   (closeNodeDBs, initNodeDBs, openNodeDBs)
@@ -56,7 +56,6 @@ import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.DHT.Real                (KademliaDHTInstance, KademliaParams (..),
                                               startDHTInstance, stopDHTInstance)
 import           Pos.Discovery               (DiscoveryContextSum (..))
-import           Pos.Genesis                 (genesisLeaders)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NetworkParams (..), NodeParams (..))
 import           Pos.Lrc.Context             (LrcContext (..), mkLrcSyncData)
@@ -133,13 +132,12 @@ allocateNodeResources np@NodeParams {..} sscnp = do
         initModeContext = InitModeContext
             db
             (GenesisUtxo npCustomUtxo)
-            (GenesisLeaders (genesisLeaders npCustomUtxo))
             np
             futureSlottingVar
             futureSlottingContext
             futureLrcContext
     runInitMode initModeContext $ do
-        initNodeDBs @ssc
+        initNodeDBs @ssc npSystemStart
         ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting
         putLrcContext ncLrcContext
         initTip <- getTip
@@ -252,7 +250,6 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
             , ncUpdateContext = UpdateContext {..}
             , ncShutdownContext = ShutdownContext ncShutdownFlag shutdownQueue
             , ncNodeParams = np
-            , ncGenesisLeaders = GenesisLeaders (genesisLeaders npCustomUtxo)
 #ifdef WITH_EXPLORER
             , ncTxpGlobalSettings = explorerTxpGlobalSettings
 #else

@@ -8,7 +8,7 @@ import           Universum
 
 import qualified Ether
 
-import           Pos.Context.Context (GenesisLeaders, GenesisUtxo)
+import           Pos.Context.Context (GenesisUtxo)
 import           Pos.DB.Class        (MonadDB)
 import           Pos.DB.Error        (DBError (..))
 import           Pos.Lrc.DB.Common   (prepareLrcCommon)
@@ -20,8 +20,7 @@ import           Pos.Util            (maybeThrow)
 
 -- | Put missing initial data into LRC DB.
 prepareLrcDB
-    :: ( Ether.MonadReader' GenesisLeaders m
-       , Ether.MonadReader' GenesisUtxo m
+    :: ( Ether.MonadReader' GenesisUtxo m
        , MonadDB m
        )
     => m ()

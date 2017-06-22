@@ -57,6 +57,7 @@ library
     Pos.Binary.Txp.Core
 
   build-depends:       base
+                     , aeson
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
@@ -76,7 +77,7 @@ library
                      , neat-interpolation
                      , plutus-prototype
                      , resourcet
-                     , rocksdb
+                     , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , stm
                      , tagged

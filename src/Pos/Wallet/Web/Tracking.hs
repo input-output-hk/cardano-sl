@@ -11,6 +11,9 @@ module Pos.Wallet.Web.Tracking
        , BlockLockMode
        , CAccModifier
        , MonadWalletTracking (..)
+       , syncWSetsAtStartWebWallet
+       , syncOnImportWebWallet
+       , txMempoolToModifierWebWallet
        ) where
 
 import           Universum
@@ -57,7 +60,7 @@ import qualified Pos.Util.Modifier          as MM
 import           Pos.Wallet.SscType         (WalletSscType)
 import           Pos.Wallet.Web.ClientTypes (CId, CWAddressMeta (..), Wal, addressToCId,
                                              encToCId)
-import           Pos.Wallet.Web.State       (WalletWebDB, WebWalletModeDB)
+import           Pos.Wallet.Web.State       (WebWalletModeDB)
 import qualified Pos.Wallet.Web.State       as WS
 
 type CAccModifier = MM.MapModifier CWAddressMeta ()
@@ -85,17 +88,23 @@ instance {-# OVERLAPPABLE #-}
     syncOnImport = lift . syncOnImport
     txMempoolToModifier = lift . txMempoolToModifier
 
-instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
-         => MonadWalletTracking (WalletWebDB m) where
-    syncWSetsAtStart = syncWSetsWithGStateLock @WalletSscType
-    syncOnImport = selectAccountsFromUtxoLock @WalletSscType . pure
-    txMempoolToModifier encSK = do
-        let wHash (i, TxAux {..}) = WithHash taTx i
-        txs <- getLocalTxs
-        case topsortTxs wHash txs of
-            Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
-            Just (map snd -> ordered) ->
-                runDBToil $ evalToilTEmpty $ trackingApplyTxs encSK ordered
+type WalletTrackingEnv ext m =
+     (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m, WS.MonadWalletWebDB m)
+
+syncWSetsAtStartWebWallet :: WalletTrackingEnv ext m => [EncryptedSecretKey] -> m ()
+syncWSetsAtStartWebWallet = syncWSetsWithGStateLock @WalletSscType
+
+syncOnImportWebWallet :: WalletTrackingEnv ext m => EncryptedSecretKey -> m ()
+syncOnImportWebWallet = selectAccountsFromUtxoLock @WalletSscType . pure
+
+txMempoolToModifierWebWallet :: WalletTrackingEnv ext m => EncryptedSecretKey -> m CAccModifier
+txMempoolToModifierWebWallet encSK = do
+    let wHash (i, TxAux {..}) = WithHash taTx i
+    txs <- getLocalTxs
+    case topsortTxs wHash txs of
+        Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
+        Just (map snd -> ordered) ->
+            runDBToil $ evalToilTEmpty $ trackingApplyTxs encSK ordered
 
 ----------------------------------------------------------------------------
 -- Logic

@@ -42,7 +42,7 @@ library
                      , mtl
                      , node-sketch
                      , resourcet
-                     , rocksdb
+                     , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , text-format
                      , transformers

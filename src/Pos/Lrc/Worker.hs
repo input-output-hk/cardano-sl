@@ -47,7 +47,7 @@ import           Pos.Lrc.Error              (LrcError (..))
 import           Pos.Lrc.Fts                (followTheSatoshiM)
 import           Pos.Lrc.Logic              (findAllRichmenMaybe)
 import           Pos.Lrc.Mode               (LrcMode)
-import           Pos.Reporting              (reportMisbehaviourMasked)
+import           Pos.Reporting              (reportMisbehaviourSilent)
 import           Pos.Slotting               (MonadSlots)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscCalculateSeed)
@@ -75,7 +75,7 @@ lrcOnNewSlotWorker = recoveryCommGuard $ localOnNewSlotWorker True $ \SlotId {..
             "LRC worker can't do anything, because recent blocks aren't known"
     onLrcError e = reportError e >> throwM e
     reportError e =
-        reportMisbehaviourMasked version $ "Lrc worker failed with error: " <> show e
+        reportMisbehaviourSilent version $ "Lrc worker failed with error: " <> show e
 
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.
 type LrcModeFull ssc m =
@@ -218,7 +218,7 @@ richmenComputationDo
     => EpochIndex -> [LrcConsumer m] -> m ()
 richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     total <- GS.getEffectiveTotalStake
-    logDebug $ "Effective total stake: " <> show total
+    logDebug $ "Effective total stake: " <> pretty total
     consumersAndThds <-
         zip consumers <$> mapM (flip lcThreshold total) consumers
     let minThreshold :: Maybe Coin

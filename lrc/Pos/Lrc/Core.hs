@@ -31,9 +31,9 @@ findDelegationStakes
     => (StakeholderId -> m Bool)                   -- ^ Check if user is issuer?
     -> (StakeholderId -> m (Maybe Coin))           -- ^ Gets effective stake.
     -> Coin                                        -- ^ Coin threshold
-    -> Sink (StakeholderId, HashSet StakeholderId) -- ^ Old richmen, new richmen
+    -> Sink (StakeholderId, HashSet StakeholderId)
             m
-            (RichmenSet, RichmenStake)
+            (RichmenSet, RichmenStake)             -- ^ Old richmen, new richmen
 findDelegationStakes isIssuer stakeResolver t = do
     (old, new) <- step (mempty, mempty)
     pure (getKeys ((HS.toMap old) `HM.difference` new), new)

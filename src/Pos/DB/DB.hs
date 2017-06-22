@@ -15,45 +15,39 @@ module Pos.DB.DB
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
        , sanityCheckDB
-
-       , GStateCoreRedirect
-       , runGStateCoreRedirect
+       , gsAdoptedBVDataDefault
        ) where
 
 import           Universum
 
-import           Control.Monad.Catch          (MonadMask)
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
+import           Control.Monad.Catch        (MonadMask)
 import qualified Ether
-import           System.Directory             (createDirectoryIfMissing,
-                                               doesDirectoryExist,
-                                               removeDirectoryRecursive)
-import           System.FilePath              ((</>))
-import           System.Wlog                  (WithLogger)
+import           System.Directory           (createDirectoryIfMissing, doesDirectoryExist,
+                                             removeDirectoryRecursive)
+import           System.FilePath            ((</>))
+import           System.Wlog                (WithLogger)
 
-import           Pos.Block.Core               (Block, mkGenesisBlock)
-import           Pos.Block.Types              (Blund)
-import           Pos.Context.Context          (GenesisLeaders, GenesisUtxo, NodeParams)
-import           Pos.Context.Functions        (genesisLeadersM)
-import           Pos.Core                     (headerHash)
-import           Pos.DB.Block                 (MonadBlockDB, MonadBlockDBWrite,
-                                               loadBlundsByDepth, loadBlundsWhile,
-                                               prepareBlockDB)
-import           Pos.DB.Class                 (MonadDB, MonadDBRead (..),
-                                               MonadGState (..))
-import           Pos.DB.GState.BlockExtra     (prepareGStateBlockExtra)
-import           Pos.DB.GState.Common         (getTip, getTipBlock, getTipHeader)
-import           Pos.DB.GState.GState         (prepareGStateDB, sanityCheckGStateDB)
-import           Pos.DB.Misc                  (prepareMiscDB)
-import           Pos.DB.Rocks                 (NodeDBs (..), closeRocksDB, openRocksDB)
-import           Pos.Lrc.DB                   (prepareLrcDB)
-import           Pos.Update.DB                (getAdoptedBVData)
-import           Pos.Util                     (inAssertMode)
-import           Pos.Util.Chrono              (NewestFirst)
-import qualified Pos.Util.Concurrent.RWLock   as RWL
+import           Pos.Block.Core             (Block, mkGenesisBlock)
+import           Pos.Block.Types            (Blund)
+import           Pos.Context.Context        (GenesisLeaders, GenesisUtxo, NodeParams)
+import           Pos.Context.Functions      (genesisLeadersM)
+import           Pos.Core                   (BlockVersionData, headerHash)
+import           Pos.DB.Block               (MonadBlockDB, MonadBlockDBWrite,
+                                             loadBlundsByDepth, loadBlundsWhile,
+                                             prepareBlockDB)
+import           Pos.DB.Class               (MonadDB, MonadDBRead (..))
+import           Pos.DB.GState.BlockExtra   (prepareGStateBlockExtra)
+import           Pos.DB.GState.Common       (getTip, getTipBlock, getTipHeader)
+import           Pos.DB.GState.GState       (prepareGStateDB, sanityCheckGStateDB)
+import           Pos.DB.Misc                (prepareMiscDB)
+import           Pos.DB.Rocks               (NodeDBs (..), closeRocksDB, openRocksDB)
+import           Pos.Lrc.DB                 (prepareLrcDB)
+import           Pos.Update.DB              (getAdoptedBVData)
+import           Pos.Util                   (inAssertMode)
+import           Pos.Util.Chrono            (NewestFirst)
+import qualified Pos.Util.Concurrent.RWLock as RWL
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.DB              (prepareExplorerDB)
+import           Pos.Explorer.DB            (prepareExplorerDB)
 #endif
 
 -- | Open all DBs stored on disk.
@@ -144,16 +138,5 @@ ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 -- MonadGState instance
 ----------------------------------------------------------------------------
 
-data GStateCoreRedirectTag
-
-type GStateCoreRedirect =
-    Ether.TaggedTrans GStateCoreRedirectTag IdentityT
-
-runGStateCoreRedirect :: GStateCoreRedirect m a -> m a
-runGStateCoreRedirect = coerce
-
-instance
-    (MonadDBRead m, t ~ IdentityT) =>
-        MonadGState (Ether.TaggedTrans GStateCoreRedirectTag t m)
-  where
-    gsAdoptedBVData = getAdoptedBVData
+gsAdoptedBVDataDefault :: MonadDBRead m => m BlockVersionData
+gsAdoptedBVDataDefault = getAdoptedBVData

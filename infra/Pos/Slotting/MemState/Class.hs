@@ -21,22 +21,11 @@ class Monad m => MonadSlotsData m where
 
     putSlottingData :: SlottingData -> m ()
 
-    default getSystemStart :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
-       m Timestamp
-    getSystemStart = lift getSystemStart
-
-    default getSlottingData :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
-        m SlottingData
-    getSlottingData = lift getSlottingData
-
-    default waitPenultEpochEquals :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
-        EpochIndex -> m ()
-    waitPenultEpochEquals = lift . waitPenultEpochEquals
-
-    default putSlottingData :: (MonadTrans t, MonadSlotsData m', t m' ~ m) =>
-        SlottingData -> m ()
-    putSlottingData = lift . putSlottingData
 
 instance {-# OVERLAPPABLE #-}
     (MonadSlotsData m, MonadTrans t, Monad (t m)) =>
-        MonadSlotsData (t m)
+        MonadSlotsData (t m) where
+    getSystemStart = lift getSystemStart
+    getSlottingData = lift getSlottingData
+    waitPenultEpochEquals = lift . waitPenultEpochEquals
+    putSlottingData = lift . putSlottingData

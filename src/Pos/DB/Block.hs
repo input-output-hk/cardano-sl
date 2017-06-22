@@ -28,6 +28,13 @@ module Pos.DB.Block
        , MonadBlockDBWrite (..)
        , BlockDBRedirect
        , runBlockDBRedirect
+       , dbGetBlockDefault
+       , dbGetUndoDefault
+       , dbGetHeaderDefault
+       , dbGetBlockSscDefault
+       , dbGetUndoSscDefault
+       , dbGetHeaderSscDefault
+       , dbPutBlundDefault
        ) where
 
 import           Universum
@@ -249,19 +256,40 @@ runBlockDBRedirect = coerce
 
 -- instance MonadBlockDBGeneric (Block ssc)
 
+type BlockDBGenericDefaultEnv ssc m =
+    (MonadDBRead m, MonadRealDB m, SscHelpersClass ssc)
+
+dbGetBlockDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe (Block ssc))
+dbGetBlockDefault = getBlock
+
+dbGetUndoDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe Undo)
+dbGetUndoDefault = getUndo
+
+dbGetHeaderDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe (BlockHeader ssc))
+dbGetHeaderDefault = blkGetHeader
+
 instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (Ether.TaggedTrans BlockDBRedirectTag t m) where
-    dbGetBlock  = getBlock
-    dbGetUndo   = getUndo
-    dbGetHeader = blkGetHeader
+    dbGetBlock  = dbGetBlockDefault @ssc
+    dbGetUndo   = dbGetUndoDefault @ssc
+    dbGetHeader = dbGetHeaderDefault @ssc
 
 -- instance MonadBlockDBGeneric (SscBlock ssc)
 
+dbGetBlockSscDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe (SscBlock ssc))
+dbGetBlockSscDefault = fmap (toSscBlock <$>) . getBlock
+
+dbGetUndoSscDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe ())
+dbGetUndoSscDefault = fmap (const () <$>) . getUndo
+
+dbGetHeaderSscDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe (Some IsHeader))
+dbGetHeaderSscDefault = fmap (Some <$>) . blkGetHeader @ssc
+
 instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (Ether.TaggedTrans BlockDBRedirectTag t m) where
-    dbGetBlock  = fmap (toSscBlock <$>) . getBlock
-    dbGetUndo   = fmap (const () <$>)   . getUndo
-    dbGetHeader = fmap (Some <$>)       . blkGetHeader @ssc
+    dbGetBlock  = dbGetBlockSscDefault @ssc
+    dbGetUndo   = dbGetUndoSscDefault @ssc
+    dbGetHeader = dbGetHeaderSscDefault @ssc
 
 -- helpers
 
@@ -307,9 +335,12 @@ instance {-# OVERLAPPABLE #-}
 
 -- instance MonadBlockDBWrite
 
+dbPutBlundDefault :: (MonadDBRead m, MonadRealDB m, SscHelpersClass ssc) => Blund ssc -> m ()
+dbPutBlundDefault = putBlundReal
+
 instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
          MonadBlockDBWrite ssc (Ether.TaggedTrans BlockDBRedirectTag t m) where
-    dbPutBlund = putBlundReal
+    dbPutBlund = dbPutBlundDefault
 
 ----------------------------------------------------------------------------
 -- Helpers

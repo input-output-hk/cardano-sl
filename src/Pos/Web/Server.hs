@@ -5,7 +5,7 @@
 
 module Pos.Web.Server
        ( MyWorkMode
-       , WebHandler
+       , WebMode
        , serveImpl
        , nat
        , serveWebBase
@@ -18,7 +18,7 @@ import           Universum
 
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
-import           Data.Tagged                          (Tagged (..))
+import qualified Control.Monad.Reader                 as Mtl
 import qualified Ether
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
@@ -36,14 +36,15 @@ import           Pos.Context                          (MonadNodeContext, NodeCon
                                                        getOurPublicKey)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
-import           Pos.DB.Rocks                         (DBRealRedirect, runDBRealRedirect)
 import qualified Pos.Lrc.DB                           as LrcDB
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp                              (TxOut (..), toaOut)
-import           Pos.Txp.MemState                     (GenericTxpLocalData, TxpHolderTag,
-                                                       askTxpMem, getLocalTxs)
+import           Pos.Txp.MemState                     (GenericTxpLocalData, askTxpMem,
+                                                       getLocalTxs)
 import           Pos.Types                            (EpochIndex (..), SlotLeaders)
+import           Pos.Web.Mode                         (WebMode, WebModeContext (..),
+                                                       unWebMode)
 import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
@@ -89,38 +90,23 @@ serveImpl application host port =
 -- Servant infrastructure
 ----------------------------------------------------------------------------
 
-type WebHandler ssc =
-    DBRealRedirect $
-    Ether.ReadersT
-        ( Tagged DB.NodeDBs DB.NodeDBs
-        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
-        ) (
-    Ether.ReadersT (NodeContext ssc) Production
-    )
-
 convertHandler
     :: forall ssc a.
        NodeContext ssc
     -> DB.NodeDBs
     -> GenericTxpLocalData TxpExtra_TMP
-    -> WebHandler ssc a
+    -> WebMode ssc a
     -> Handler a
 convertHandler nc nodeDBs wrap handler =
-    liftIO (runProduction .
-            flip Ether.runReadersT nc .
-            flip Ether.runReadersT
-              ( Tagged @DB.NodeDBs nodeDBs
-              , Tagged @TxpHolderTag wrap
-              ) .
-            runDBRealRedirect $
-            handler)
+    liftIO (runProduction $
+        Mtl.runReaderT (unWebMode handler) (WebModeContext nodeDBs wrap nc))
     `Catch.catches`
     excHandlers
   where
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
 
-nat :: forall ssc m . MyWorkMode ssc m => m (WebHandler ssc :~> Handler)
+nat :: forall ssc m . MyWorkMode ssc m => m (WebMode ssc :~> Handler)
 nat = do
     nc <- Ether.ask @NodeContextTag
     nodeDBs <- DB.getNodeDBs
@@ -138,7 +124,7 @@ servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
 -- Base handlers
 ----------------------------------------------------------------------------
 
-baseServantHandlers :: ServerT (BaseNodeApi ssc) (WebHandler ssc)
+baseServantHandlers :: ServerT (BaseNodeApi ssc) (WebMode ssc)
 baseServantHandlers =
     getLeaders
     :<|>
@@ -150,7 +136,7 @@ baseServantHandlers =
     :<|>
     getLocalTxsNum
 
-getLeaders :: Maybe EpochIndex -> WebHandler ssc SlotLeaders
+getLeaders :: Maybe EpochIndex -> WebMode ssc SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
@@ -158,23 +144,23 @@ getLeaders maybeEpoch = do
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
-getUtxo :: WebHandler ssc [TxOut]
+getUtxo :: WebMode ssc [TxOut]
 getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
-getLocalTxsNum :: WebHandler ssc Word
+getLocalTxsNum :: WebMode ssc Word
 getLocalTxsNum = fromIntegral . length <$> getLocalTxs
 
 ----------------------------------------------------------------------------
 -- GodTossing handlers
 ----------------------------------------------------------------------------
 
-type GtWebHandler = WebHandler SscGodTossing
+type GtWebMode = WebMode SscGodTossing
 
-gtServantHandlers :: ServerT GodTossingApi GtWebHandler
+gtServantHandlers :: ServerT GodTossingApi GtWebMode
 gtServantHandlers =
     toggleGtParticipation {- :<|> gtHasSecret :<|> getOurSecret :<|> getGtStage -}
 
-toggleGtParticipation :: Bool -> GtWebHandler ()
+toggleGtParticipation :: Bool -> GtWebMode ()
 toggleGtParticipation enable =
     Ether.ask @SscContextTag >>=
     atomically . flip writeTVar enable . gtcParticipateSsc

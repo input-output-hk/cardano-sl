@@ -6,20 +6,17 @@
 
 module Pos.Block.BListener
        ( MonadBListener (..)
-       , BListenerStub
-       , runBListenerStub
+       , onApplyBlocksStub
+       , onRollbackBlocksStub
        ) where
 
-import           Control.Monad.Trans          (MonadTrans (..))
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
-import qualified Ether
-import           Mockable                     (SharedAtomicT)
+import           Control.Monad.Trans   (MonadTrans (..))
+import           Mockable              (SharedAtomicT)
 import           Universum
 
-import           Pos.Block.Types              (Blund)
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
-import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Block.Types       (Blund)
+import           Pos.Ssc.Class.Helpers (SscHelpersClass)
+import           Pos.Util.Chrono       (NE, NewestFirst (..), OldestFirst (..))
 
 class Monad m => MonadBListener m where
     -- Callback will be called after putting blocks into BlocksDB
@@ -42,16 +39,12 @@ instance {-# OVERLAPPABLE #-}
     onApplyBlocks = lift . onApplyBlocks
     onRollbackBlocks = lift . onRollbackBlocks
 
+onApplyBlocksStub
+    :: forall ssc m . (SscHelpersClass ssc, Monad m)
+    => OldestFirst NE (Blund ssc) -> m ()
+onApplyBlocksStub _ = pass
 
-data BListenerStubTag
-
-type BListenerStub = Ether.TaggedTrans BListenerStubTag IdentityT
-
-runBListenerStub :: BListenerStub m a -> m a
-runBListenerStub = coerce
-
--- Blockchain Listener is needed only for Wallet.
--- Stub implementation for usual node.
-instance (Monad m) => MonadBListener (BListenerStub m) where
-    onApplyBlocks _ = pass
-    onRollbackBlocks _ = pass
+onRollbackBlocksStub
+    :: forall ssc m . (SscHelpersClass ssc, Monad m)
+    => NewestFirst NE (Blund ssc) -> m ()
+onRollbackBlocksStub _ = pass

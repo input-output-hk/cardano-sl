@@ -33,7 +33,7 @@ import           Pos.DB              (MonadDB)
 import qualified Pos.DB.GState       as GS
 import           Pos.DB.Misc         (addProxySecretKey)
 import           Pos.Delegation      (initDelegation)
-import           Pos.Reporting       (reportMisbehaviourMasked)
+import           Pos.Reporting       (reportMisbehaviourSilent)
 import           Pos.Security        (SecurityWorkersClass)
 import           Pos.Shutdown        (waitForWorkers)
 import           Pos.Slotting        (waitSystemStart)
@@ -85,7 +85,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     -- FIXME shouldn't this kill the whole program?
     reportHandler (SomeException e) = do
         loggerName <- getLoggerName
-        reportMisbehaviourMasked version $
+        reportMisbehaviourSilent version $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e

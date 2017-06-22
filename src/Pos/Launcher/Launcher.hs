@@ -12,6 +12,7 @@ import           Mockable                   (Production)
 import           Network.Transport.Abstract (Transport)
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
+import           Pos.DHT.Real               (KademliaDHTInstance)
 import           Pos.Discovery              (DiscoveryContextSum)
 import           Pos.Launcher.Param         (NodeParams (..))
 import           Pos.Launcher.Runner        (runRealMode)
@@ -31,9 +32,10 @@ runNodeReal
        (SscConstraint ssc, SecurityWorkersClass ssc)
     => DiscoveryContextSum
     -> Transport (RealMode ssc)
+    -> Maybe KademliaDHTInstance
     -> ([WorkerSpec (RealMode ssc)], OutSpecs)
     -> NodeParams
     -> SscParams ssc
     -> Production ()
-runNodeReal discCtx transport plugins np sscnp =
-    runRealMode discCtx transport np sscnp (runNode @ssc Nothing plugins)
+runNodeReal discCtx transport mKinst plugins np sscnp =
+    runRealMode discCtx transport np sscnp (runNode @ssc mKinst plugins)

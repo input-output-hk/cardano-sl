@@ -162,22 +162,17 @@ convertTxOutputs = map (addressToCId . txOutAddress &&& mkCCoin . txOutValue)
 
 -- [CSM-309] This may work until transaction have multiple source accounts
 -- | Get all addresses of source account of given transaction.
-getTxChangeAddresses
-    :: [CWAddressMeta]   -- ^ All addresses in wallet
-    -> [CId Addr]        -- ^ Input addresses of transaction
-    -> Either Text (Maybe [CId Addr])
-                         -- ^ `Just` change addrs if the wallet is source of
-                         --   transaction, `Nothing` otherwise
-getTxChangeAddresses walAddrMetas inputAddrs = do
-    someInputAddr <-
-        head inputAddrs `whenNothing`
-        throwError "No input addresses in transaction"
-    return $ do  -- 'Maybe' monad starts here
-        someSrcAddrMeta <- find ((== someInputAddr) . cwamId) walAddrMetas
-        let srcAccount = addrMetaToAccount someSrcAddrMeta
-        return $
-            map cwamId $
-            filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
+getTxSourceAccountAddresses
+    :: [CWAddressMeta]      -- ^ All addresses in wallet
+    -> NonEmpty (CId Addr)  -- ^ Input addresses of transaction
+    -> Maybe [CId Addr]     -- ^ `Just` addrs if the wallet is source of
+                            --   transaction, `Nothing` otherwise
+getTxSourceAccountAddresses walAddrMetas (someInputAddr :| _) = do
+    someSrcAddrMeta <- find ((== someInputAddr) . cwamId) walAddrMetas
+    let srcAccount = addrMetaToAccount someSrcAddrMeta
+    return $
+        map cwamId $
+        filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
 
 mkCTxs
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
@@ -186,8 +181,12 @@ mkCTxs
     -> [CWAddressMeta]    -- ^ Addresses of wallet
     -> Either Text CTxs
 mkCTxs diff THEntry {..} meta wAddrMetas = do
-    mChangeAddrs <- getTxChangeAddresses wAddrMetas ctInputAddrs
-    let isChangeAddr = case mChangeAddrs of
+    ctInputAddrsNe <-
+        nonEmpty ctInputAddrs
+        `whenNothing` throwError "No input addresses in tx!"
+    let mLocalAddrs = getTxSourceAccountAddresses wAddrMetas ctInputAddrsNe
+    -- note: local addresses which belong to tx's outputs = change addresses
+    let isLocalAddr = case mLocalAddrs of
            Just changeAddrs -> do
                 -- if given wallet is source of tx, /changes addresses/
                 -- can be fetched according to definition
@@ -199,17 +198,25 @@ mkCTxs diff THEntry {..} meta wAddrMetas = do
                 -- change addresses
                 -- [CSM-309] This may work until transaction have multiple
                 -- destination addresses
-                let nonChangeAddrsSet = S.fromList $ cwamId <$> wAddrMetas
-                not . flip S.member nonChangeAddrsSet
-        isChangeTxOutput = isChangeAddr . addressToCId . txOutAddress
+                let nonLocalAddrsSet = S.fromList $ cwamId <$> wAddrMetas
+                not . flip S.member nonLocalAddrsSet
+        isLocalTxOutput = isLocalAddr . addressToCId . txOutAddress
+        -- [CSM-309] Bad for multiple-destinations transactions
+        isWithinWallet = all isLocalAddr ctOutputAddrs
         ctAmount =
             mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
-            filter (not . isChangeTxOutput) outputs
-        mkCTx isOutgoing ctAddrs = do
-            guard . not . null $ wAddrsSet `S.intersection` S.fromList ctAddrs
+            filter (not . isLocalTxOutput) outputs
+        mkCTx isOutgoing significantAddrs = do
+            guard . not . null $
+                wAddrsSet `S.intersection` S.fromList significantAddrs
             return CTx {ctIsOutgoing = isOutgoing, ..}
+        -- Output addresses which presence make us to display transaction
+        -- (incoming half, i.e. one with 'isOutgoing' set to @false@).
+        ctSignificantOutputAddrs =
+            ctOutputAddrs &
+            if isWithinWallet then identity else filter (not . isLocalAddr)
         ctsOutgoing = mkCTx True ctInputAddrs
-        ctsIncoming = mkCTx False ctOutputAddrs
+        ctsIncoming = mkCTx False ctSignificantOutputAddrs
     return CTxs {..}
   where
     ctId = txIdToCTxId _thTxId

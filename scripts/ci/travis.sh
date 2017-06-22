@@ -65,5 +65,5 @@ popd
 
 # Replace TRAVIS_BRANCH slash not to fail on subdirectory missing
 echo "Packing up daedalus-bridge ..."
-XZ_OPT=-1 tar cJf s3/daedalus-bridge-$TRAVIS_OS_NAME-${TRAVIS_BRANCH/\//-}.tar.xz daedalus/
+XZ_OPT=-1 tar cJf s3/daedalus-bridge-$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}.tar.xz daedalus/
 echo "Done"

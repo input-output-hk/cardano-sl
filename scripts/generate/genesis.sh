@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -xe
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"/..
 IOHKOPS_DIR="$DIR/../.."
 name=${1:-genesis-qanet-`date +%F`}

@@ -746,6 +746,7 @@ update (UpdateView r@Dashboard) state =
     { state:
         set (viewStates <<< globalViewState <<< gViewTitle)
             (translate (I18nL.common <<< I18nL.cTitle) $ state ^. lang) $
+        set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
         set route r state
     , effects:
         [ pure $ Just ScrollTop

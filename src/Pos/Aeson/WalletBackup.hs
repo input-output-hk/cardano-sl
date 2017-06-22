@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Pos.Aeson.WalletBackup
        (
        ) where
@@ -9,13 +11,15 @@ import           Data.Aeson                 (FromJSON (..), ToJSON (..), Value (
 import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.Vector                as V
+import           Formatting                 (sformat, stext, (%))
 import qualified Serokell.Util.Base64       as B64
 
 import qualified Pos.Binary                 as Bi
 import           Pos.Crypto                 (EncryptedSecretKey (..))
 import           Pos.Util.Util              (eitherToFail)
 import           Pos.Wallet.Web.Backup      (AccountMetaBackup (..), StateBackup (..),
-                                             WalletBackup (..), WalletMetaBackup (..))
+                                             WalletBackup (..), WalletMetaBackup (..),
+                                             currentBackupFormatVersion)
 import           Pos.Wallet.Web.ClientTypes (CAccountMeta (..), CWalletAssurance (..),
                                              CWalletMeta (..))
 
@@ -37,6 +41,14 @@ unitToStr _ = error "Units >1 are not currently used in Cardano!"
 assuranceToStr :: CWalletAssurance -> Text
 assuranceToStr CWANormal = "normal"
 assuranceToStr CWAStrict = "strict"
+
+checkIfCurrentVersion :: MonadFail m => Text -> m ()
+checkIfCurrentVersion version
+    | version == currentBackupFormatVersion = pure ()
+    | otherwise =
+          fail . toString $
+          sformat ("Unsupported backup format version "%stext%", expected "%stext)
+          version currentBackupFormatVersion
 
 instance FromJSON AccountMetaBackup where
     parseJSON = withObject "AccountMetaBackup" $ \o -> do
@@ -67,6 +79,15 @@ instance FromJSON WalletBackup where
         let encKey = EncryptedSecretKey prvKey passPhraseHash
         return $ WalletBackup encKey walletMeta walletAccounts
 
+instance FromJSON StateBackup where
+    parseJSON = withObject "StateBackup" $ \o -> do
+        fileType :: Text <- o .: "fileType"
+        case fileType of
+            "WALLETS_EXPORT" -> do
+                o .: "fileVersion" >>= checkIfCurrentVersion
+                FullStateBackup <$> o .: "wallets"
+            unknownType -> fail $ "Unknown type of backup file: " ++ toString unknownType
+
 instance ToJSON AccountMetaBackup where
     toJSON (AccountMetaBackup (CAccountMeta {..})) =
         object ["name" .= caName]
@@ -93,3 +114,10 @@ instance ToJSON WalletBackup where
         accEntry (idx, accMeta) =
             let (Object obj) = toJSON accMeta
             in Object $ HM.insert "index" (toJSON idx) obj
+
+instance ToJSON StateBackup where
+    toJSON (FullStateBackup wallets) = object
+        [ "fileType" .= ("WALLETS_EXPORT" :: Text)
+        , "fileVersion" .= currentBackupFormatVersion
+        , "wallets" .= wallets
+        ]

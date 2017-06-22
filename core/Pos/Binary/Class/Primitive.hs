@@ -179,10 +179,10 @@ putSmallWithLengthS a@(PokeWithSize len _) =
         else putS (TinyVarInt (fromIntegral len)) *> a
 
 -- | Like 'getWithLength' but for 'putSmallWithLength'.
-getSmallWithLength :: Peek a -> Peek a
+getSmallWithLength :: (Word16 -> Peek a) -> Peek a
 getSmallWithLength getter = do
     TinyVarInt len <- get
-    isolate64Full (fromIntegral len) getter
+    isolate64Full (fromIntegral len) (getter len)
 
 ----------------------------------------------------------------------------
 -- Other binary utils

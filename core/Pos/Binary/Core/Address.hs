@@ -6,9 +6,10 @@ import           Universum
 import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
 import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (..),
-                                      convertToSizeNPut, encodeWithS, getSmallWithLength,
-                                      getWord8, label, labelS, putField, putS,
-                                      putSmallWithLengthS, putWord8S)
+                                      convertToSizeNPut, encodeWithS, getBytes,
+                                      getSmallWithLength, getWord8, label, labelS,
+                                      putBytesS, putField, putS, putSmallWithLengthS,
+                                      putWord8S)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
 import           Pos.Data.Attributes (getAttributes, putAttributesS)
@@ -20,17 +21,19 @@ sizeNPutAddressIncomplete = convertToSizeNPut toBi
     toBi :: Address -> PokeWithSize ()
     toBi = \case
         PubKeyAddress keyHash attrs ->
-            putWord8S 0 <>
-            putSmallWithLengthS (
+            putWithTag 0 $
                 putS keyHash <>
                 putAttributesS addrToList attrs
-            )
-        ScriptAddress scrHash   -> putWord8S 1 <> putSmallS scrHash
-        RedeemAddress keyHash   -> putWord8S 2 <> putSmallS keyHash
-        UnknownAddressType t bs -> putWord8S t <> putSmallS bs
+        ScriptAddress scrHash ->
+            putWithTag 1 $ putS scrHash
+        RedeemAddress keyHash ->
+            putWithTag 2 $ putS keyHash
+        UnknownAddressType t bs ->
+            putWithTag t $ putBytesS bs
 
-    putSmallS :: Bi a => a -> PokeWithSize ()
-    putSmallS = putSmallWithLengthS . putS
+    -- | Put tag, then length of X, then X itself
+    putWithTag :: Word8 -> PokeWithSize () -> PokeWithSize ()
+    putWithTag t x = putWord8S t <> putSmallWithLengthS x
 
     addrToList :: AddrPkAttrs -> [(Word8, PokeWithSize ())]
     addrToList = \case
@@ -41,14 +44,14 @@ sizeNPutAddressIncomplete = convertToSizeNPut toBi
 getAddressIncomplete :: Peek Address
 getAddressIncomplete = do
     tag <- getWord8
-    getSmallWithLength $ case tag of
+    getSmallWithLength $ \len -> case tag of
         0 -> do
             let mapper 0 x = Just $ get <&> \a -> x {addrPkDerivationPath = Just a}
                 mapper _ _ = Nothing
             PubKeyAddress <$> get <*> getAttributes mapper Nothing def
         1 -> ScriptAddress <$> get
         2 -> RedeemAddress <$> get
-        t -> UnknownAddressType t <$> get
+        t -> UnknownAddressType t <$> getBytes (fromIntegral len)
 
 instance CRC32 Address where
     crc32Update seed = crc32Update seed . encodeWithS sizeNPutAddressIncomplete

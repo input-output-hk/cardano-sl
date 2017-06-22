@@ -87,13 +87,13 @@ instance Bi HandlerSpec where
         -- 0000 0000: reserved
         0 -> pure $ UnknownHandler 0 mempty
         -- 0000 0001: ConvHandler with a message name
-        1 -> getSmallWithLength (ConvHandler <$> get)
+        1 -> getSmallWithLength (\_ -> ConvHandler <$> get)
         -- 01xx xxxx: ConvHandler (MessageName xxxxxx)
         t | (t .&. 0b11000000) == 0b01000000 ->
             pure . ConvHandler . MessageName . encode $
             UnsignedVarInt (fromIntegral (t .&. 0b00111111) :: Word)
         -- none of the above: unknown handler
-          | otherwise -> UnknownHandler t <$> getSmallWithLength get
+          | otherwise -> UnknownHandler t <$> getSmallWithLength (\_ -> get)
 
 deriveSimpleBi ''VerInfo [
     Cons 'VerInfo [

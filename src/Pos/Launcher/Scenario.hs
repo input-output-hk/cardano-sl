@@ -17,8 +17,9 @@ import qualified Ether
 import           Formatting         (build, sformat, shown, (%))
 import           Mockable           (fork)
 import           Paths_cardano_sl   (version)
+import           Serokell.Util.Text (listJson)
 import           System.Exit        (ExitCode (..))
-import           System.Wlog        (getLoggerName, logError, logInfo)
+import           System.Wlog        (getLoggerName, logError, logInfo, logWarning)
 import           Universum
 
 import           Pos.Communication  (ActionSpec (..), OutSpecs, WorkerSpec,
@@ -57,10 +58,17 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     pk <- getOurPublicKey
     addr <- getOurPubKeyAddress
     let pkHash = addressHash pk
-
     logInfoS $ sformat ("My public key is: "%build%
                         ", address: "%build%
                         ", pk hash: "%build) pk addr pkHash
+    lastKnownEpoch <- LrcDB.getEpoch
+    let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"
+    let onLeaders leaders =
+            logInfo $
+            sformat ("Last known leaders for epoch "%build%" are: "%listJson)
+                    lastKnownEpoch leaders
+    LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
+
     initDelegation @ssc
     initLrc
     initUSMemState

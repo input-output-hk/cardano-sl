@@ -47,11 +47,16 @@ instance Arbitrary Fee.TxSizeLinear where
     shrink = genericShrink
 
 instance Arbitrary Fee.TxFeePolicy where
-    arbitrary = do
-        v <- arbitrary
-        case v of
-            0 -> Fee.TxFeePolicyTxSizeLinear <$> arbitrary
-            _ -> Fee.TxFeePolicyUnknown v <$> arbitrary
+    arbitrary = oneof
+        [ Fee.TxFeePolicyTxSizeLinear <$> arbitrary
+        , do
+              policyCode <-
+                  -- The lower bound is needed so that
+                  -- we don't get codes for known policies.
+                  choose (1, maxBound)
+              policyPayload <- arbitrary
+              return $ Fee.TxFeePolicyUnknown policyCode policyPayload
+        ]
     shrink = \case
         Fee.TxFeePolicyTxSizeLinear a ->
             Fee.TxFeePolicyTxSizeLinear <$> shrink a

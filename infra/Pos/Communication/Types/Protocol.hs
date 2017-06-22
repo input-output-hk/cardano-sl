@@ -6,46 +6,53 @@
 -- | Protocol/versioning related communication types.
 
 module Pos.Communication.Types.Protocol
-       ( HandlerSpec (..)
-       , VerInfo (..)
-       , PeerData
-       , PackingType
-       , SendActions (..)
-       , Conversation (..)
-       , N.ConversationActions (..)
-       , Listener
-       , listenerMessageName
-       , Action
+       ( Action
        , Action'
        , ActionSpec (..)
+       , checkInSpecs
+       , Conversation (..)
+       , convH
+       , HandlerSpec (..)
+       , HandlerSpecs
+       , InSpecs (..)
+       , Listener
+       , listenerMessageName
+       , ListenerSpec (..)
+       , MkListeners (..)
+       , notInSpecs
+       , NSendActions
+       , N.ConversationActions (..)
+       , N.NodeId
+       , OutSpecs (..)
+       , PackingType
+       , PeerId (..)
+       , PeerData
+       , SendActions (..)
+       , toOutSpecs
+       , VerInfo (..)
        , Worker
        , Worker'
        , WorkerSpec
-       , HandlerSpecs
-       , checkInSpecs
-       , notInSpecs
-       , ListenerSpec (..)
-       , InSpecs (..)
-       , OutSpecs (..)
-       , toOutSpecs
-       , convH
-       , MkListeners (..)
-       , N.NodeId
        ) where
 
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.Text.Buildable   as B
-import           Formatting            (bprint, build, hex, int, sformat, stext, (%))
-import qualified Node                  as N
-import           Node.Message.Class    (Message (..), MessageName (..))
-import           Serokell.Util.Base16  (base16F)
-import           Serokell.Util.Text    (listJson, mapJson)
+import           Data.Aeson                 (ToJSON (..), FromJSON (..), Value)
+import           Data.Aeson.Types           (Parser)
+import qualified Data.ByteString.Base64     as B64 (encode, decode)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.Text.Buildable        as B
+import qualified Data.Text.Encoding         as Text (encodeUtf8, decodeUtf8)
+import qualified Data.Text.Internal.Builder as B
+import           Formatting                 (bprint, build, hex, sformat, (%))
+import           Network.Transport          (EndPointAddress (..))
+import qualified Node                       as N
+import           Node.Message.Class         (Message (..), MessageName (..))
+import           Serokell.Util.Text         (listJson, mapJson)
+import           Serokell.Util.Base16       (base16F)
 import           Universum
 
-import           Pos.Binary.Class      (Bi)
-import           Pos.Communication.BiP (BiP)
-import           Pos.Core.Types        (BlockVersion)
-import           Pos.Util.TimeWarp     (nodeIdToAddress)
+import           Pos.Binary.Class           (Bi)
+import           Pos.Communication.BiP      (BiP)
+import           Pos.Core.Types             (BlockVersion)
 
 type PackingType = BiP
 type PeerData = VerInfo
@@ -83,14 +90,40 @@ data Conversation m t where
         => (N.ConversationActions snd rcv m -> m t)
         -> Conversation m t
 
--- TODO move to time-warp-nt
-instance Buildable N.NodeId where
-    build nNodeId =
-        maybe "<unknown host:port>" (uncurry $ bprint (stext%":"%int)) $
-                   first decodeUtf8 <$>
-                   nodeIdToAddress nNodeId
+newtype PeerId = PeerId ByteString
+  deriving (Eq, Ord, Show, Generic, Hashable)
 
--- FIXME reply types shouldn't have MessageNames.
+instance ToJSON PeerId where
+    toJSON (PeerId bs) = toJSONBS bs
+
+instance ToJSON N.NodeId where
+    toJSON (N.NodeId (EndPointAddress bs)) = toJSON (Text.decodeUtf8 (B64.encode bs))
+
+toJSONBS :: ByteString -> Value
+toJSONBS = toJSON . Text.decodeUtf8 . B64.encode
+
+instance FromJSON PeerId where
+    parseJSON = fromJSONBS PeerId
+
+instance FromJSON N.NodeId where
+    parseJSON = fromJSONBS (N.NodeId . EndPointAddress)
+
+fromJSONBS :: (ByteString -> a) -> Value -> Parser a
+fromJSONBS f v = do
+    bs <- Text.encodeUtf8 <$> parseJSON v
+    case B64.decode bs of
+        Left err -> fail err
+        Right decoded -> pure $ f decoded
+
+instance Buildable PeerId where
+    build (PeerId bs) = buildBS bs
+
+instance Buildable N.NodeId where
+    build (N.NodeId (EndPointAddress bs)) = buildBS bs
+
+buildBS :: ByteString -> B.Builder
+buildBS = bprint base16F
+
 data HandlerSpec
     = ConvHandler { hsReplyType :: MessageName }
     | UnknownHandler Word8 ByteString

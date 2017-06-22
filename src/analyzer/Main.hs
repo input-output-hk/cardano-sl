@@ -20,7 +20,7 @@ import           Unsafe                     (unsafeFromJust)
 import           AnalyzerOptions            (Args (..), getAnalyzerOptions)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
-                                             fromJLSlotId)
+                                             fromJLSlotIdUnsafe)
 import           Pos.Util.TimeWarp          (JLTimed (..), fromEvent)
 import           Pos.Util                   (mapEither)
 
@@ -67,7 +67,9 @@ getTxAcceptTimeAvgs :: Word64 -> HM.HashMap FilePath [JLTimed JLEvent] -> HM.Has
 getTxAcceptTimeAvgs confirmations fileEvsMap = result
   where
     n = HM.size fileEvsMap
-    allEvs = map jltContent $ mconcat $ HM.elems fileEvsMap
+    allEvs = map event $ mconcat $ HM.elems fileEvsMap
+    event :: JLTimed a -> a
+    event (JLTimed _ x) = x
     blocks :: HM.HashMap BlockId JLBlock
     blocks = foldl' addBlock mempty allEvs
     adopted :: HM.HashMap BlockId (HM.HashMap FilePath Integer)
@@ -92,9 +94,9 @@ getTxAcceptTimeAvgs confirmations fileEvsMap = result
                   |otherwise     = Nothing
       where
         mInitB = initId `HM.lookup` blocks
-        kSl = unflattenSlotId $ flattenSlotId (fromJLSlotId $ jlSlot $ unsafeFromJust mInitB) - confirmations
+        kSl = unflattenSlotId $ flattenSlotId (fromJLSlotIdUnsafe $ jlSlot $ unsafeFromJust mInitB) - confirmations
         impl id = HM.lookup id blocks >>=
-                      \b -> if (fromJLSlotId $ jlSlot b) <= kSl
+                      \b -> if (fromJLSlotIdUnsafe $ jlSlot b) <= kSl
                                then return b
                                else impl (jlPrevBlock b)
 
@@ -127,7 +129,7 @@ tpsCsvFilename file = take (length file - 5) file ++ "-tps.csv"
 
 getTpsLog :: [JLTimed JLEvent] -> [(UTCTime, Double)]
 getTpsLog = map toTimedCount . filter isTpsEvent
-  where isTpsEvent e = case jltContent e of
+  where isTpsEvent (JLTimed _ ev) = case ev of
             JLTpsStat _ -> True
             _           -> False
         toTimedCount (JLTimed time (JLTpsStat count)) =

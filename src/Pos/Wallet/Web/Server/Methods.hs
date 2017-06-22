@@ -833,18 +833,18 @@ instance Buildable AccountsSnapshot where
             asExisting
             asDeleted
 
--- | Clones existing accounts of wallet with new passphrase and returns
--- list of old accounts
-cloneWalletSetWithPass
+-- | Clones existing accounts of a wallet with a new passphrase and returns
+-- a list of old accounts.
+cloneWalletWithNewPass
     :: WalletWebMode m
     => EncryptedSecretKey
     -> PassPhrase
     -> CId Wal
     -> m (AccountsSnapshot, AccountsSnapshot)
-cloneWalletSetWithPass newSK newPass wid = do
-    accIds <- getWalletAccountIds wid
+cloneWalletWithNewPass newSK newPass cWalId = do
+    accIds <- getWalletAccountIds cWalId
     fmap mconcat . forM accIds $ \accId@AccountId{..} -> do
-        wMeta <- getAccountMeta accId >>= maybeThrow noWMeta
+        wMeta <- getAccountMetaOrThrow accId
         setAccountMeta accId wMeta
         (oldDeleted, newDeleted) <-
             unzip <$> cloneAccounts accId Deleted addRemovedAccount
@@ -863,6 +863,7 @@ cloneWalletSetWithPass newSK newPass wid = do
                 newAddrMeta
         return (oldAddrMeta, newAddrMeta)
   where
+    getAccountMetaOrThrow accId = maybeThrow noWMeta =<< getAccountMeta accId
     noWMeta = InternalError "Can't get wallet meta (inconsistent db)"
     cloneAccounts oldAccId lookupMode addToDB = do
         accAddrs <- getAccountAddrsOrThrow lookupMode oldAccId
@@ -892,31 +893,31 @@ moveMoneyToClone sa oldPass wid oldAddrMeta newAddrMeta = do
 changeWalletPassphrase
     :: WalletWebMode m
     => SendActions m -> CId Wal -> PassPhrase -> PassPhrase -> m ()
-changeWalletPassphrase sa wid oldPass newPass = do
-    oldSK <- getSKByAddr wid
+changeWalletPassphrase sa cWalId oldPass newPass = do
+    oldSK <- getSKByAddr cWalId
 
-    -- 'cloneWalletSetWithPass' will work badly if accounts / addresses ids
+    -- 'cloneWalletWithNewPass' will work badly if accounts / addresses ids
     -- don't actually change
     unless (isJust $ checkPassMatches newPass oldSK) $ do
         newSK <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
 
         addSecretKey newSK
         oldAddrMeta <- (`E.onException` deleteSK newPass) $ do
-            (oldAddrMeta, newAddrMeta) <- cloneWalletSetWithPass newSK newPass wid
+            (oldAddrMeta, newAddrMeta) <- cloneWalletWithNewPass newSK newPass cWalId
                 `E.onException` do
                     logError "Failed to clone wallet"
-            moveMoneyToClone sa oldPass wid (asExisting oldAddrMeta) (asExisting newAddrMeta)
+            moveMoneyToClone sa oldPass cWalId (asExisting oldAddrMeta) (asExisting newAddrMeta)
                 `E.onException` do
-                    logError "Money transmition to new wallet failed"
+                    logError "Failed to transmit money to a new wallet"
                     mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ newAddrMeta
             return oldAddrMeta
         mapM_ removeWAddress $ asExisting oldAddrMeta
-        setWalletPassLU wid =<< liftIO getPOSIXTime
+        setWalletPassLU cWalId =<< liftIO getPOSIXTime
         deleteSK oldPass
   where
     badPass = RequestError "Invalid old passphrase given"
     deleteSK passphrase = do
-        let nice k = encToCId k == wid && isJust (checkPassMatches passphrase k)
+        let nice k = encToCId k == cWalId && isJust (checkPassMatches passphrase k)
         midx <- findIndex nice <$> getSecretKeys
         idx  <- RequestError "No key with such address and pass found"
                 `maybeThrow` midx

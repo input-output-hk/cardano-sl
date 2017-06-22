@@ -18,19 +18,23 @@ module Pos.Txp.Toil.Logic
 
 import           Universum
 
-import           Control.Monad.Except  (MonadError (..))
-import           System.Wlog           (WithLogger)
+import           Control.Monad.Except       (MonadError (..))
+import           Serokell.Data.Memory.Units (Byte)
+import           System.Wlog                (WithLogger)
 
-import           Pos.Binary.Class      (biSize)
-import           Pos.Core.Constants    (memPoolLimitRatio)
-import           Pos.Crypto            (WithHash (..), hash)
-import           Pos.Txp.Core          (TxAux (..), TxId, TxUndo, TxpUndo, topsortTxs)
-import           Pos.Txp.Toil.Balances (applyTxsToBalances, rollbackTxsBalances)
-import           Pos.Txp.Toil.Class    (MonadBalances (..), MonadToilEnv (..),
-                                        MonadTxPool (..), MonadUtxo (..))
-import           Pos.Txp.Toil.Failure  (ToilVerFailure (..))
-import           Pos.Txp.Toil.Types    (ToilEnv (teMaxBlockSize, teMaxTxSize))
-import qualified Pos.Txp.Toil.Utxo     as Utxo
+import           Pos.Binary.Class           (biSize)
+import           Pos.Core.Constants         (memPoolLimitRatio)
+import qualified Pos.Core.Fee               as Fee
+import           Pos.Core.Types             (Coin, unsafeGetCoin)
+import           Pos.Crypto                 (WithHash (..), hash)
+import           Pos.Txp.Core               (TxAux (..), TxId, TxUndo, TxpUndo,
+                                             topsortTxs)
+import           Pos.Txp.Toil.Balances      (applyTxsToBalances, rollbackTxsBalances)
+import           Pos.Txp.Toil.Class         (MonadBalances (..), MonadToilEnv (..),
+                                             MonadTxPool (..), MonadUtxo (..))
+import           Pos.Txp.Toil.Failure       (ToilVerFailure (..))
+import           Pos.Txp.Toil.Types         (ToilEnv (..), TxFee(..))
+import qualified Pos.Txp.Toil.Utxo          as Utxo
 
 ----------------------------------------------------------------------------
 -- Global
@@ -115,12 +119,46 @@ normalizeToil txs = mapM_ normalize ordered
 
 verifyToilEnv
     :: (MonadToilEnv m, MonadError ToilVerFailure m)
-    => TxAux -> m ()
-verifyToilEnv txAux = do
-    limit <- teMaxTxSize <$> getToilEnv
-    let txSize = biSize txAux
+    => TxAux -> TxFee -> m ()
+verifyToilEnv txAux txFee = do
+    toilEnv <- getToilEnv
+    let
+        limit = teMaxTxSize toilEnv
+        mtxFeePolicy = teTxFeePolicy toilEnv
+        txSize = biSize txAux
+    case mtxFeePolicy of
+        Nothing ->
+            -- There's no adopted minimal transaction fee policy. Allow
+            -- arbitrary fees (including no fee).
+            return ()
+        Just txFeePolicy ->
+            unless (txFeePolicyAdherent txFee txFeePolicy txSize) $
+                throwError ToilInsufficientFee
+                    { tifSize = txSize
+                    , tifPolicy = txFeePolicy }
     when (txSize > limit) $
         throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}
+
+txFeePolicyAdherent :: TxFee -> Fee.TxFeePolicy -> Byte -> Bool
+txFeePolicyAdherent (TxFee txFee) policy txSize = case policy of
+    Fee.TxFeePolicyTxSizeLinear txSizeLinear ->
+        lessEqThanFee $ Fee.calculateTxSizeLinear txSizeLinear txSize
+    Fee.TxFeePolicyUnknown _ _ ->
+        -- The minimal transaction fee policy exists, but the current
+        -- version of the node doesn't know how to handle it. There are
+        -- three possible options mentioned in [CSLREQ-157]:
+        -- 1. Reject all new-coming transactions (b/c we can't calculate
+        --    fee for them)
+        -- 2. Use latest policy of known type
+        -- 3. Discard the check
+        -- Implementation-wise, the 1st option corresponds to returning
+        -- 'False' here (reject), the 3rd option -- 'True' (accept), and
+        -- the 2nd option would require some engineering feats to
+        -- retrieve previous 'TxFeePolicy' and check against it.
+        True
+    where
+        lessEqThanFee :: (Num a, Ord a) => a -> Bool
+        lessEqThanFee x = x <= (fromIntegral . unsafeGetCoin) txFee
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -130,8 +168,10 @@ verifyAndApplyTx
     :: (MonadUtxo m, MonadToilEnv m, MonadError ToilVerFailure m)
     => Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx verifyVersions tx@(_, txAux) = do
-    verifyToilEnv txAux
-    Utxo.verifyTxUtxo ctx txAux <* applyTxToUtxo' tx
+    applyTxToUtxo' tx
+    (txUndo, txFee) <- Utxo.verifyTxUtxo ctx txAux
+    verifyToilEnv txAux txFee
+    return txUndo
   where
     ctx = Utxo.VTxContext verifyVersions
 

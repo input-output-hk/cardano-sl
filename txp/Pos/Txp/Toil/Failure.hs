@@ -12,7 +12,7 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Base16       (base16F)
 import           Serokell.Util.Verify       (formatAllErrors)
 
-import           Pos.Core                   (HeaderHash)
+import           Pos.Core                   (HeaderHash, TxFeePolicy)
 import           Pos.Txp.Core               (TxIn)
 
 -- | Result of transaction processing
@@ -30,6 +30,8 @@ data ToilVerFailure
     | ToilInvalidInputs ![Text] -- [CSL-814] TODO: make it more informative
     | ToilTooLargeTx { ttltSize  :: !Byte
                      , ttltLimit :: !Byte}
+    | ToilInsufficientFee { tifPolicy :: !TxFeePolicy
+                          , tifSize   :: !Byte }
     | ToilUnknownAttributes !ByteString
     deriving (Show, Eq)
 
@@ -55,5 +57,8 @@ instance Buildable ToilVerFailure where
     build (ToilTooLargeTx {..}) =
         bprint ("transaction's size exceeds limit "%
                 "("%memory%" > "%memory%")") ttltSize ttltLimit
+    build (ToilInsufficientFee {..}) =
+        bprint ("transaction of size "%memory%" does not adhere to fee"%
+                "policy "%build) tifSize tifPolicy
     build (ToilUnknownAttributes bs) =
         bprint ("transaction has unknown attributes: "%base16F) bs

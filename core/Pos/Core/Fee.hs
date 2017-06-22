@@ -1,14 +1,16 @@
 module Pos.Core.Fee
        ( Coeff(..)
        , TxSizeLinear(..)
+       , calculateTxSizeLinear
        , TxFeePolicy(..)
        ) where
 
 import           Universum
 
-import           Data.Fixed          (Fixed (..), Nano, showFixed)
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, shown, (%))
+import           Data.Fixed                 (Fixed (..), Nano, showFixed)
+import qualified Data.Text.Buildable        as Buildable
+import           Formatting                 (bprint, build, shown, (%))
+import           Serokell.Data.Memory.Units (Byte, toBytes)
 
 -- | A fractional coefficient of fixed precision.
 newtype Coeff = Coeff Nano
@@ -28,6 +30,12 @@ instance NFData TxSizeLinear
 instance Buildable TxSizeLinear where
     build (TxSizeLinear a b) =
         bprint (build%" + "%build%"*s") a b
+
+calculateTxSizeLinear :: TxSizeLinear -> Byte -> Nano
+calculateTxSizeLinear
+    (TxSizeLinear (Coeff a) (Coeff b))
+    (fromInteger . toBytes -> txSize) =
+        a + b * txSize
 
 data TxFeePolicy
     = TxFeePolicyTxSizeLinear !TxSizeLinear

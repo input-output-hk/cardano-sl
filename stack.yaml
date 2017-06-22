@@ -45,7 +45,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 50d664e676ff41d2176ee9e24d84b52475deef5c
+    commit: 8bfba580e628791a03b0bec4d913890dde16811d # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -58,7 +58,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 96adbd5aa9a906859deddf170f8762a9ed85c0c9
+    commit: 84f8c358463bbf6bb09168aac5ad990faa9d310a
   extra-dep: true
 # We're using forked version of 'swagger2' package because of bug in haddock package.
 # Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will

@@ -112,7 +112,7 @@ prod_base: &prod_base
   ntpPollDelay: 60000000 # 1 min
 
   blockRetrievalQueueSize: 100
-  recoveryHeadersMessage: 100
+  recoveryHeadersMessage: 1000
 
 qanet: &qanet
   <<: *prod_base
@@ -123,6 +123,8 @@ qanet: &qanet
   mdNoBlocksSlotThreshold: 10
 
   protocolMagic: 60987800
+
+  recoveryHeadersMessage: 100
 
 testnet: &testnet
   <<: *prod_base

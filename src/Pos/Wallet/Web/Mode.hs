@@ -29,6 +29,7 @@ import           Pos.DB.Block                  (MonadBlockDBWrite (..), dbGetBlo
                                                 dbGetUndoSscDefault, dbPutBlundDefault)
 import           Pos.DB.Class                  (MonadBlockDBGeneric (..), MonadDB (..),
                                                 MonadDBRead (..))
+import           Pos.DB.DB                     (gsAdoptedBVDataDefault)
 import           Pos.DB.Redirect               (dbDeleteDefault, dbGetDefault,
                                                 dbIterSourceDefault, dbPutDefault,
                                                 dbWriteBatchDefault)
@@ -64,10 +65,10 @@ import           Pos.Wallet.Redirect           (MonadBlockchainInfo (..),
                                                 networkChainDifficultyWebWallet,
                                                 waitForUpdateWebWallet)
 import           Pos.Wallet.SscType            (WalletSscType)
+import           Pos.Wallet.Web.BListener      (MonadBListener (..), onApplyTracking,
+                                                onRollbackTracking)
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State.State    (WalletState)
-import           Pos.Wallet.Web.State.Core     (gsAdoptedBVDataWebWallet)
-import           Pos.Wallet.Web.BListener      (MonadBListener(..), onApplyTracking, onRollbackTracking)
 import           Pos.Wallet.Web.Tracking       (MonadWalletTracking (..),
                                                 syncOnImportWebWallet,
                                                 syncWSetsAtStartWebWallet,
@@ -149,7 +150,7 @@ instance MonadBlockDBGeneric (Some IsHeader) (SscBlock WalletSscType) () WalletW
     dbGetHeader = dbGetHeaderSscDefault @WalletSscType
 
 instance MonadGState WalletWebMode where
-    gsAdoptedBVData = gsAdoptedBVDataWebWallet
+    gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance MonadBListener WalletWebMode where
     onApplyBlocks = onApplyTracking

@@ -230,9 +230,10 @@ paginationView props =
                               #! P.onClick prevClickHandler
                               $ S.div ! S.className "icon bg-triangle-left"
                                       $ mempty
-                      (S.input !? props.editable) (S.value <<< show $ unwrap props.currentPage)
+                      (S.input !? not props.editable) (S.value <<< show $ unwrap props.currentPage)
                             ! S.className "page-number"
-                            ! S.disabled (show $ props.maxPage == props.minPage)
+                            -- ! S.disabled (show $ props.maxPage == props.minPage)
+                            ! S.disabled (if props.maxPage == props.minPage then "disabled" else "")
                             ! S.min (show $ unwrap props.minPage)
                             ! S.max (show $ unwrap props.maxPage)
                             #! P.onFocus (\ev -> props.editableAction ev true)

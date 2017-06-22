@@ -2,7 +2,9 @@ module Explorer.View.Dashboard.Api (apiView) where
 
 import Prelude
 
+import Data.Foldable (for_)
 import Data.Lens ((^.))
+import Data.Monoid (mempty)
 import Data.Map (Map, fromFoldable, lookup, toAscUnfoldable) as M
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple(..))
@@ -18,9 +20,10 @@ import Explorer.View.Dashboard.Lenses (dashboardSelectedApiCode)
 import Explorer.View.Dashboard.Shared (headerView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
 
-import Text.Smolder.HTML (div, h3, text, p, code)
-import Text.Smolder.HTML.Attributes (className, href)
-import Text.Smolder.Markup (text, (#!), (!))
+import Text.Smolder.HTML (div, h3, p, code) as S
+import Text.Smolder.HTML.Attributes (className) as S
+import Text.Smolder.Markup (text) as S
+import Text.Smolder.Markup ((#!), (!))
 
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick) as P
@@ -47,32 +50,33 @@ apiCodes =
 
 apiView :: State -> P.HTML Action
 apiView state =
-    div ! className "explorer-dashboard__wrapper" $ do
-        div ! className "explorer-dashboard__container" $ do
-            headerView state $ headerOptions lang'
-            div ! className "api-content" $ do
-                div ! className "api-content__container api-code" $ do
-                    div ! className "api-code__tabs" $ do
-                        map (apiCodeTabView state) <<< M.toAscUnfoldable $ apiTabs lang'
-                        apiCodeSnippetView (translate (I18nL.dashboard <<< I18nL.dbGetAddress) lang') addressSnippet
-                        apiCodeSnippetView (translate (I18nL.dashboard <<< I18nL.dbResponse) lang') responseSnippet
-                div ! className "api-content__container api-about" $ do
-                    h3  ! className "api-about__headline"
-                        $ text (translate (I18nL.dashboard <<< I18nL.dbAboutBlockchain) lang')
-                    p   ! className "api-about__description"
-                        ! P.dangerouslySetInnerHTML (translate (I18nL.dashboard <<< I18nL.dbAboutBlockchainDescription) lang')
-                div ! className "api-about__button"
-                    $ text (translate (I18nL.dashboard <<< I18nL.dbGetApiKey) lang')
-    where
-      apiCode :: ApiCode
-      apiCode = fromMaybe emptyApiCode $ M.lookup (state ^. dashboardSelectedApiCode) apiCodes
-      lang' = state ^. lang
-      addressSnippet = _.getAddress $ apiCode
-      responseSnippet = _.response $ apiCode
-      headerOptions lang = HeaderOptions
-          { headline: translate (I18nL.common <<< I18nL.cApi) lang
-          , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbMoreExamples) lang', action: NoOp }
-          }
+    S.div ! S.className "explorer-dashboard__wrapper" $ do
+          S.div ! S.className "explorer-dashboard__container" $ do
+              headerView state $ headerOptions lang'
+              S.div ! S.className "api-content" $ do
+                  S.div ! S.className "api-content__container api-code" $ do
+                      S.div ! S.className "api-code__tabs" $ do
+                          for_ (M.toAscUnfoldable $ apiTabs lang') (apiCodeTabView state)
+                          apiCodeSnippetView (translate (I18nL.dashboard <<< I18nL.dbGetAddress) lang') addressSnippet
+                          apiCodeSnippetView (translate (I18nL.dashboard <<< I18nL.dbResponse) lang') responseSnippet
+                  S.div ! S.className "api-content__container api-about" $ do
+                      S.h3  ! S.className "api-about__headline"
+                            $ S.text (translate (I18nL.dashboard <<< I18nL.dbAboutBlockchain) lang')
+                      S.p ! S.className "api-about__description"
+                          ! P.dangerouslySetInnerHTML (translate (I18nL.dashboard <<< I18nL.dbAboutBlockchainDescription) lang')
+                          $ mempty
+                  S.div ! S.className "api-about__button"
+                        $ S.text (translate (I18nL.dashboard <<< I18nL.dbGetApiKey) lang')
+      where
+        apiCode :: ApiCode
+        apiCode = fromMaybe emptyApiCode $ M.lookup (state ^. dashboardSelectedApiCode) apiCodes
+        lang' = state ^. lang
+        addressSnippet = _.getAddress $ apiCode
+        responseSnippet = _.response $ apiCode
+        headerOptions lang = HeaderOptions
+            { headline: translate (I18nL.common <<< I18nL.cApi) lang
+            , link: Just $ HeaderLink { label: translate (I18nL.dashboard <<< I18nL.dbMoreExamples) lang', action: NoOp }
+            }
 
 apiTabs :: Language -> M.Map DashboardAPICode ApiTabLabel
 apiTabs lang =
@@ -84,16 +88,16 @@ apiTabs lang =
 
 apiCodeTabView :: State -> Tuple DashboardAPICode ApiTabLabel -> P.HTML Action
 apiCodeTabView state (Tuple code label) =
-    div ! className $ "api-code__tab " <> selectedClazz
-        #! onClick <<< const $ DashboardShowAPICode code
-        $ text label
+    S.div ! S.className ("api-code__tab " <> selectedClazz)
+          #! P.onClick (const $ DashboardShowAPICode code)
+          $ S.text label
     where
       selectedClazz = if state ^. dashboardSelectedApiCode == code then "selected" else ""
 
 apiCodeSnippetView :: String -> String -> P.HTML Action
 apiCodeSnippetView headline snippet =
-    div ! className "api-snippet" $ do
-        h3  ! className "api-snippet__headline"
-            $ text headline
-        code  ! className "api-snippet__code"
-              $ text snippet
+    S.div ! S.className "api-snippet" $ do
+        S.h3  ! S.className "api-snippet__headline"
+              $ S.text headline
+        S.code  ! S.className "api-snippet__code"
+                $ S.text snippet

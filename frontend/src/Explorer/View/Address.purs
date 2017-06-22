@@ -1,10 +1,12 @@
 module Explorer.View.Address where
 
-import Prelude hiding (id)
+import Prelude
 
 import Data.Array (length, null, slice)
+import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), isJust)
+import Data.Monoid (mempty)
 
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance, tx, txEmpty, txNotFound) as I18nL
@@ -25,29 +27,30 @@ import Pux.DOM.HTML (HTML) as P
 import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 import Pux.DOM.Events (onClick) as P
 
-import Text.Smolder.HTML (div, text, span, h3, p)
-import Text.Smolder.HTML.Attributes (className, href, id)
-import Text.Smolder.Markup (text, (#!), (!))
+import Text.Smolder.HTML (a, div, span, h3, p) as S
+import Text.Smolder.HTML.Attributes (className, href, id) as S
+import Text.Smolder.Markup (text) as S
+import Text.Smolder.Markup ((#!), (!))
 
 addressView :: State -> P.HTML Action
 addressView state =
     let lang' = state ^. lang in
-    div ! className "explorer-address" $ do
-        div ! className "explorer-address__wrapper" $ do
-            div ! className "explorer-address__container" $ do
-                h3  ! className "headline"
-                    $ text (translate (I18nL.common <<< I18nL.cAddress) lang')
+    S.div ! S.className "explorer-address" $ do
+        S.div ! S.className "explorer-address__wrapper" $ do
+            S.div ! S.className "explorer-address__container" $ do
+                S.h3  ! S.className "headline"
+                      $ S.text (translate (I18nL.common <<< I18nL.cAddress) lang')
                 addressOverview (state ^. currentAddressSummary) lang'
-            div ! className "explorer-address__wrapper" $ do
-                div ! className "explorer-address__container" $ do
-                    case state ^. currentAddressSummary of
-                        NotAsked  -> txEmptyContentView ""
-                        Loading   -> txEmptyContentView $
-                            translate (I18nL.common <<< I18nL.cLoading) lang'
-                        Failure _ -> txEmptyContentView $
-                            translate (I18nL.tx <<< I18nL.txNotFound) lang'
-                        Success (CAddressSummary addressSummary) ->
-                            addressTxsView addressSummary.caTxList state
+            S.div ! S.className "explorer-address__wrapper"
+                  $ S.div ! S.className "explorer-address__container"
+                          $ case state ^. currentAddressSummary of
+                                NotAsked  -> txEmptyContentView ""
+                                Loading   -> txEmptyContentView $
+                                    translate (I18nL.common <<< I18nL.cLoading) lang'
+                                Failure _ -> txEmptyContentView $
+                                    translate (I18nL.tx <<< I18nL.txNotFound) lang'
+                                Success (CAddressSummary addressSummary) ->
+                                    addressTxsView addressSummary.caTxList state
 
 -- | Address overview, we leave the error abstract (we are not using it)
 addressOverview :: forall e. RemoteData e CAddressSummary -> Language -> P.HTML Action
@@ -55,25 +58,26 @@ addressOverview NotAsked    lang = emptyAddressDetail ""
 addressOverview Loading     lang = emptyAddressDetail <<< translate (I18nL.common <<< I18nL.cLoading) $ lang
 addressOverview (Failure _) lang = failureView lang
 addressOverview (Success addressSummary) lang =
-    div ! className "address-overview" $ do
+    S.div ! S.className "address-overview" $ do
         addressDetailView addressSummary lang
         addressQr addressSummary lang
 
 addressDetailView :: CAddressSummary -> Language -> P.HTML Action
 addressDetailView addressSummary lang =
-    div ! className "address-detail" $ do
-        map addressDetailRow $ addressDetailRowItems addressSummary lang
+    S.div ! S.className "address-detail"
+          $ for_ (addressDetailRowItems addressSummary lang) addressDetailRow
 
 addressQr :: CAddressSummary -> Language -> P.HTML Action
 addressQr _ lang =
-    div ! className "address-qr" $ do
-        p ! className "address-qr__tab"
-          $ text $ translate (I18nL.address <<< I18nL.addQrCode) lang
-        div ! className "address-qr__wrapper" $ do
-            div ! className "address-qr__image"
-                ! id addressQRImageId
-            p ! className "address-qr__description"
-              $ text (translate (I18nL.address <<< I18nL.addScan) lang)
+    S.div ! S.className "address-qr" $ do
+        S.p ! S.className "address-qr__tab"
+            $ S.text $ translate (I18nL.address <<< I18nL.addQrCode) lang
+        S.div ! S.className "address-qr__wrapper" $ do
+            S.div ! S.className "address-qr__image"
+                  ! S.id addressQRImageId
+                  $ mempty
+            S.p ! S.className "address-qr__description"
+                $ S.text (translate (I18nL.address <<< I18nL.addScan) lang)
 
 type SummaryRowItem =
     { label :: String
@@ -101,19 +105,20 @@ addressDetailRowItems (CAddressSummary address) lang =
 
 addressDetailRow :: SummaryRowItem -> P.HTML Action
 addressDetailRow item =
-    div ! className "address-detail__row" $ do
-        div ! className "address-detail__column label"
-            $ text item.label
-        div ! className $ "address-detail__column amount" $ do
-            if isJust item.mCurrency
-                then span ! className (currencyCSSClass item.mCurrency)
-                          $ text item.value
-                else text item.value
+    S.div ! S.className "address-detail__row" $ do
+        S.div ! S.className "address-detail__column label"
+              $ S.text item.label
+        S.div ! S.className "address-detail__column amount"
+              $ if isJust item.mCurrency
+                    then S.span ! S.className (currencyCSSClass item.mCurrency)
+                                $ S.text item.value
+                    else S.text item.value
 
 emptyAddressDetail :: String -> P.HTML Action
 emptyAddressDetail message =
-    div ! className "message" $ do
-        div ! P.dangerouslySetInnerHTML message
+    S.div ! S.className "message"
+          $ S.div ! P.dangerouslySetInnerHTML message
+                  $ mempty
 
 maxTxRows :: Int
 maxTxRows = 5
@@ -128,9 +133,9 @@ addressTxsView txs state =
         minTxIndex = (txPagination - minPagination) * maxTxRows
         currentTxs = slice minTxIndex (minTxIndex + maxTxRows) txs
     in
-    div do
-        div do
-            map (\tx -> addressTxView tx lang') currentTxs
+    S.div
+        $ S.div do
+            for_ currentTxs (\tx -> addressTxView tx lang')
             txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                               , currentPage: PageNumber txPagination
                               , minPage: PageNumber minPagination
@@ -144,16 +149,16 @@ addressTxsView txs state =
 
 addressTxView :: CTxBrief -> Language -> P.HTML Action
 addressTxView tx lang =
-    div do
+    S.div do
         txHeaderView lang $ mkTxHeaderViewProps tx
         txBodyView lang $ mkTxBodyViewProps tx
 
 failureView :: Language -> P.HTML Action
 failureView lang =
-    div do
-        p ! className "address-failed"
-          $ text (translate (I18nL.address <<< I18nL.addNotFound) lang)
-        a ! href (toUrl Dashboard)
-          #! onClick (toUrl Dashboard)
-          ! className "btn-back"
-          $ text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang)
+    S.div do
+        S.p ! S.className "address-failed"
+            $ S.text (translate (I18nL.address <<< I18nL.addNotFound) lang)
+        S.a ! S.href (toUrl Dashboard)
+            #! P.onClick (Navigate $ toUrl Dashboard)
+            ! S.className "btn-back"
+            $ S.text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang)

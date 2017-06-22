@@ -44,7 +44,7 @@ headerView state =
                             div ! className if mobileMenuOpenend
                                                 then "cross__icon bg-icon-cross"
                                                 else "hamburger__icon bg-icon-hamburger"
-                                #! onClick <<< const <<< GlobalToggleMobileMenu $ not mobileMenuOpenend
+                                #! onClick (const <<< GlobalToggleMobileMenu $ not mobileMenuOpenend)
             div ! className "explorer-header__wrapper--vmiddle" $ do
                 div ! className "vmiddle-content__search--wrapper"
                     $ searchInputView mobileMenuSearchContainerId state

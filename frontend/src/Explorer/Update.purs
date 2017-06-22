@@ -9,7 +9,7 @@ import Control.Monad.Eff.Console (CONSOLE)
 import Control.Monad.Eff.Now (nowDateTime, NOW)
 import Control.SocketIO.Client (Socket, SocketIO, emit, emitData)
 import DOM (DOM)
-import DOM.Event.Event (target)
+import DOM.Event.Event (target, preventDefault)
 import DOM.HTML.HTMLElement (blur, focus)
 import DOM.HTML.HTMLInputElement (select)
 import DOM.Node.Node (contains)
@@ -47,7 +47,6 @@ import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.ClientTypes (CAddress(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress, caTxList)
 import Pux (EffModel, noEffects, onlyEffects)
-import Pux.Router (navigateTo) as P
 import Waypoints (WAYPOINT, destroy, waypoint', up) as WP
 
 update :: forall eff. Action -> State ->
@@ -468,9 +467,9 @@ update GlobalSearch state =
       pure $ GlobalFocusSearchInput false
       , case state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch) of
           SearchAddress ->
-              (liftEff <<< P.navigateTo <<< toUrl <<< Address $ mkCAddress query) *> pure NoOp
+              Navigate <<< toUrl <<< Address $ mkCAddress query
           SearchTx ->
-              (liftEff <<< P.navigateTo <<< toUrl <<< Tx $ mkCTxId query) *> pure NoOp
+              Navigate <<< toUrl <<< Tx $ mkCTxId query
           _ -> pure NoOp  -- TODO (ks) maybe put up a message?
       ]
     }
@@ -490,12 +489,12 @@ update GlobalSearchTime state =
                     slotIndex  = mkLocalSlotIndex slot
                     epochSlotUrl = EpochSlot epochIndex slotIndex
                 in
-                (liftEff <<< P.navigateTo <<< toUrl $ epochSlotUrl) *> pure NoOp
+                Navigate $ toUrl epochSlotUrl
             Tuple (Just epoch) Nothing ->
                 let epochIndex = mkEpochIndex epoch
                     epochUrl   = Epoch $ epochIndex
                 in
-                (liftEff <<< P.navigateTo <<< toUrl $ epochUrl) *> pure NoOp
+                Navigate $ toUrl epochUrl
 
             _ -> pure NoOp -- TODO (ks) maybe put up a message?
       ]

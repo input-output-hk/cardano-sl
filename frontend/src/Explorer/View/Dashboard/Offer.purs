@@ -16,9 +16,10 @@ import Explorer.Types.State (State)
 
 import Pux.DOM.HTML (HTML) as P
 
-import Text.Smolder.HTML (div, h3, p)
-import Text.Smolder.HTML.Attributes (className)
-import Text.Smolder.Markup (text, (!))
+import Text.Smolder.HTML (div, h3, p) as S
+import Text.Smolder.HTML.Attributes (className) as S
+import Text.Smolder.Markup (text) as S
+import Text.Smolder.Markup ((!))
 
 -- FIXME (jk): just for now, will use later `real` ADTs
 type OfferItems = Array OfferItem
@@ -48,17 +49,17 @@ offerItems lang =
 offerView :: State -> P.HTML Action
 offerView state =
     let lang' = state ^. lang in
-    div ! className "explorer-dashboard__wrapper"
-        $ div ! className "explorer-dashboard__container" $ do
-              h3 ! className "headline"
-                 $ text (translate (I18nL.dashboard <<< I18nL.dbBlockchainOffer) lang')
-              div ! className "explorer-dashboard__teaser"
-                  $ for_ (offerItems lang') (offerItem state)
+    S.div ! S.className "explorer-dashboard__wrapper"
+          $ S.div ! S.className "explorer-dashboard__container" $ do
+                  S.h3  ! S.className "headline"
+                        $ S.text (translate (I18nL.dashboard <<< I18nL.dbBlockchainOffer) lang')
+                  S.div ! S.className "explorer-dashboard__teaser"
+                        $ for_ (offerItems lang') (offerItem state)
 
 offerItem :: State -> OfferItem -> P.HTML Action
 offerItem state item =
-    div ! className "teaser-item" $ do
-        h3 ! className "teaser-item__headline"
-           $ text item.headline
-        p ! className "teaser-item__description"
-          $ text item.description
+    S.div ! S.className "teaser-item" $ do
+          S.h3  ! S.className "teaser-item__headline"
+                $ S.text item.headline
+          S.p   ! S.className "teaser-item__description"
+                $ S.text item.description

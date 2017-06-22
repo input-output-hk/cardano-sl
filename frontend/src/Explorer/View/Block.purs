@@ -3,6 +3,7 @@ module Explorer.View.Block (blockView) where
 import Prelude
 
 import Data.Array (length, null, slice)
+import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), isJust)
 
@@ -25,9 +26,10 @@ import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick) as P
 
-import Text.Smolder.HTML (div, h3, span)
-import Text.Smolder.HTML.Attributes (className)
-import Text.Smolder.Markup (text, (#!), (!))
+import Text.Smolder.HTML (a, div, h3, span) as S
+import Text.Smolder.HTML.Attributes (className, href) as S
+import Text.Smolder.Markup (text) as S
+import Text.Smolder.Markup ((#!), (!))
 
 
 
@@ -37,20 +39,20 @@ blockView state =
         blockSummary = state ^. currentBlockSummary
         blockTxs = state ^. currentBlockTxs
     in
-    div ! className "explorer-block" $ do
-        div ! className "explorer-block__wrapper"
-            $ div ! className "explorer-block__container"  $ do
-                  h3  ! className "headline"
-                      $ text (translate (I18nL.common <<< I18nL.cBlock) lang')
-                  case blockSummary of
-                      NotAsked -> blockSummaryEmptyView ""
-                      Loading -> blockSummaryEmptyView $ translate (I18nL.common <<< I18nL.cLoading) lang'
-                      Failure _ -> blockSummaryEmptyView $ translate (I18nL.block <<< I18nL.blSlotNotFound) lang'
-                      Success block -> blockSummaryView block lang'
-        div ! className "explorer-block__wrapper" $ do
-            div ! className "explorer-block__container" $ do
-                h3 ! className "headline"
-                   $ text (translate (I18nL.common <<< I18nL.cSummary) lang')
+    S.div ! S.className "explorer-block" $ do
+        S.div ! S.className "explorer-block__wrapper"
+              $ S.div ! S.className "explorer-block__container"  $ do
+                    S.h3  ! S.className "headline"
+                        $ S.text (translate (I18nL.common <<< I18nL.cBlock) lang')
+                    case blockSummary of
+                        NotAsked -> blockSummaryEmptyView ""
+                        Loading -> blockSummaryEmptyView $ translate (I18nL.common <<< I18nL.cLoading) lang'
+                        Failure _ -> blockSummaryEmptyView $ translate (I18nL.block <<< I18nL.blSlotNotFound) lang'
+                        Success block -> blockSummaryView block lang'
+        S.div ! S.className "explorer-block__wrapper" $ do
+            S.div ! S.className "explorer-block__container" $ do
+                S.h3  ! S.className "headline"
+                      $ S.text (translate (I18nL.common <<< I18nL.cSummary) lang')
                 case blockTxs of
                     NotAsked -> txEmptyContentView ""
                     Loading -> txEmptyContentView $ translate (I18nL.common <<< I18nL.cLoading) lang'
@@ -59,11 +61,11 @@ blockView state =
             if (isFailure blockSummary && isFailure blockTxs)
                 -- Show back button if both results ^ are failed
                 then
-                    div ! className "explorer-block__container"
-                        $ a ! href (toUrl Dashboard)
-                            #! onClick (toUrl Dashboard)
-                            !className "btn-back"
-                            $ text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang')
+                    S.div ! S.className "explorer-block__container"
+                          $ S.a ! S.href (toUrl Dashboard)
+                                #! P.onClick (Navigate $ toUrl Dashboard)
+                                ! S.className "btn-back"
+                                $ S.text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang')
                 else
                     emptyView
 
@@ -105,31 +107,31 @@ mkSummaryItems lang (CBlockEntry entry) =
 
 summaryRow :: SummaryRowItem -> P.HTML Action
 summaryRow item =
-    div ! className "row row__summary" $ do
-        div ! className "column column__label"
-            $ text item.label
-        div ! className $ "column column__amount"
-            $ if isJust item.mCurrency
-                  then span ! className (currencyCSSClass item.mCurrency)
-                            $ text item.amount
-                  else text item.amount
+    S.div ! S.className "row row__summary" $ do
+        S.div ! S.className "column column__label"
+              $ S.text item.label
+        S.div ! S.className "column column__amount"
+              $ if isJust item.mCurrency
+                    then S.span ! S.className (currencyCSSClass item.mCurrency)
+                                $ S.text item.amount
+                    else S.text item.amount
 
 blockSummaryEmptyView :: String -> P.HTML Action
 blockSummaryEmptyView message =
-    div ! className "summary-empty__container"
-        $ text message
+    S.div ! S.className "summary-empty__container"
+          $ S.text message
 
 blockSummaryView :: CBlockSummary -> Language -> P.HTML Action
 blockSummaryView block lang =
-    div ! className "blocks-wrapper" $ do
-        div ! className "summary-container" $ do
-            h3  ! className "subheadline"
-                $ text (translate (I18nL.common <<< I18nL.cSummary) lang)
-            div $ map summaryRow <<< mkSummaryItems lang $ block ^. (_CBlockSummary <<< cbsEntry)
-        div ! className "hashes-container" $ do
-            h3  ! className "subheadline"
-                $ text (translate (I18nL.common <<< I18nL.cHashes) lang)
-            div $ map hashesRow $ mkHashItems lang block
+    S.div ! S.className "blocks-wrapper" $ do
+        S.div ! S.className "summary-container" $ do
+            S.h3  ! S.className "subheadline"
+                  $ S.text (translate (I18nL.common <<< I18nL.cSummary) lang)
+            S.div $ for_ (block ^. (_CBlockSummary <<< cbsEntry)) (summaryRow <<< mkSummaryItems lang)
+        S.div ! S.className "hashes-container" $ do
+            S.h3  ! S.className "subheadline"
+                  $ S.text (translate (I18nL.common <<< I18nL.cHashes) lang)
+            S.div $ for_ (mkHashItems lang block) hashesRow
 
 -- hashes
 
@@ -168,16 +170,16 @@ mkHashItems lang (CBlockSummary blockSummery) =
 
 hashesRow :: HashRowItem -> P.HTML Action
 hashesRow item =
-    div ! className "row row__hashes" $ do
-        div ! className "column column__label"
-            $ text item.label
+    S.div ! S.className "row row__hashes" $ do
+        S.div ! S.className "column column__label"
+              $ S.text item.label
         case item.link of
-            Nothing ->  div ! className "column column__hash"
-                            $ text item.hash
-            Just link -> a  ! href link
-                            #! onClick link
-                            ! className "column column__hash--link"
-                            $ text item.hash
+            Nothing ->  S.div ! S.className "column column__hash"
+                              $ S.text item.hash
+            Just link -> S.a  ! S.href link
+                              #! P.onClick (Navigate link)
+                              ! S.className "column column__hash--link"
+                              $ S.text item.hash
 
 maxTxRows :: Int
 maxTxRows = 5
@@ -192,8 +194,8 @@ blockTxsView txs state =
             minTxIndex = (txPagination - minPagination) * maxTxRows
             currentTxs = slice minTxIndex (minTxIndex + maxTxRows) txs
         in
-        div do
-            div $ map (\tx -> blockTxView tx lang') currentTxs
+        S.div do
+            S.div $ for_ currentTxs (\tx -> blockTxView tx lang')
             txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                               , currentPage: PageNumber txPagination
                               , minPage: PageNumber minPagination
@@ -207,6 +209,6 @@ blockTxsView txs state =
 
 blockTxView :: CTxBrief -> Language -> P.HTML Action
 blockTxView tx lang =
-    div do
+    S.div do
         txHeaderView lang $ mkTxHeaderViewProps tx
         txBodyView lang $ mkTxBodyViewProps tx

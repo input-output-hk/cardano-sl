@@ -13,9 +13,11 @@ import Explorer.Types.State (State)
 import Explorer.Util.String (substitute)
 
 import Pux.DOM.HTML (HTML) as P
-import Text.Smolder.HTML (div, h3, h4, p)
-import Text.Smolder.HTML.Attributes (className)
-import Text.Smolder.Markup (text, (!))
+
+import Text.Smolder.HTML (div, h3, h4, p) as S
+import Text.Smolder.HTML.Attributes (className) as S
+import Text.Smolder.Markup (text) as S
+import Text.Smolder.Markup ((!))
 
 
 -- FIXME (jk): just for now, will use later `real` ADTs
@@ -56,19 +58,19 @@ networkItems lang =
 networkView :: State -> P.HTML Action
 networkView state =
     let lang' = state ^. lang in
-    div ! className "explorer-dashboard__wrapper"
-        $ div ! className "explorer-dashboard__container" $ do
-              h3  ! className "headline"
-                  $ text (translate (I18nL.common <<< I18nL.cNetwork) lang')
-              div ! className "explorer-dashboard__teaser"
-                  $ for_ (networkItems lang') (networkItem state)
+    S.div ! S.className "explorer-dashboard__wrapper"
+          $ S.div ! S.className "explorer-dashboard__container" $ do
+                  S.h3  ! S.className "headline"
+                        $ S.text (translate (I18nL.common <<< I18nL.cNetwork) lang')
+                  S.div ! S.className "explorer-dashboard__teaser"
+                        $ for_ (networkItems lang') (networkItem state)
 
 networkItem :: State -> NetworkItem -> P.HTML Action
 networkItem state item =
-    div ! className "teaser-item" $ do
-        h3  ! className "teaser-item__headline"
-            $ text item.headline
-        h4  ! className "teaser-item__subheadline"
-            $ text item.subheadline
-        p   ! className "teaser-item__description"
-            $ text item.description
+    S.div ! S.className "teaser-item" $ do
+          S.h3  ! S.className "teaser-item__headline"
+                $ S.text item.headline
+          S.h4  ! S.className "teaser-item__subheadline"
+                $ S.text item.subheadline
+          S.p   ! S.className "teaser-item__description"
+                $ S.text item.description

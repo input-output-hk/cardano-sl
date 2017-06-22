@@ -11,7 +11,9 @@ import Prelude
 
 import Data.Array (length, null, slice)
 import Data.DateTime (diff)
+import Data.Foldable (for_)
 import Data.Lens ((^.))
+import Data.Monoid (mempty)
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.String (take)
 import Data.Time.Duration (Milliseconds)
@@ -38,9 +40,10 @@ import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.Events (onClick) as P
 import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 
-import Text.Smolder.HTML (div, span, h3, p)
-import Text.Smolder.HTML.Attributes (className)
-import Text.Smolder.Markup (text, (#!), (!))
+import Text.Smolder.HTML (a, div, span, h3, p) as S
+import Text.Smolder.HTML.Attributes (className, href) as S
+import Text.Smolder.Markup (text) as S
+import Text.Smolder.Markup ((#!), (!))
 
 maxBlockRows :: Int
 maxBlockRows = 10
@@ -51,52 +54,53 @@ minBlockRows = 3
 blocksView :: State -> P.HTML Action
 blocksView state =
     let lang' = state ^. lang in
-    div ! className "explorer-blocks"
-        $ div ! className "explorer-blocks__wrapper"
-              $ div ! className "explorer-blocks__container" $ do
-                    h3  ! className "headline"
-                        $ P.text (( translate (I18nL.common <<< I18nL.cEpoch) lang')
-                                    <> " / " <>
-                                    (translate (I18nL.common <<< I18nL.cSlot) lang')
-                                  )
-                    case state ^. currentBlocksResult of
-                        NotAsked  -> emptyBlocksView ""
-                        Loading   -> emptyBlocksView $ translate (I18nL.common <<< I18nL.cLoading) lang'
-                        Failure _ -> failureView lang'
-                        Success blocks ->
-                            let paginationViewProps =
-                                    { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                    , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
-                                    , minPage: PageNumber minPagination
-                                    , maxPage: PageNumber $ getMaxPaginationNumber (length blocks) maxBlockRows
-                                    , changePageAction: BlocksPaginateBlocks
-                                    , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
-                                    , editableAction: BlocksEditBlocksPageNumber
-                                    , invalidPageAction: BlocksInvalidBlocksPageNumber
-                                    , disabled: false
-                                    }
-                            in
-                            div do
-                                blocksHeaderView blocks lang'
-                                div ! className CSS.blocksBody
-                                    $ map (blockRow state) (currentBlocks state)
-                                div ! className CSS.blocksFooter
-                                    $ paginationView paginationViewProps
+    S.div ! S.className "explorer-blocks"
+          $ S.div ! S.className "explorer-blocks__wrapper"
+                  $ S.div ! S.className "explorer-blocks__container" $ do
+                        S.h3  ! S.className "headline"
+                              $ S.text (( translate (I18nL.common <<< I18nL.cEpoch) lang')
+                                          <> " / " <>
+                                          (translate (I18nL.common <<< I18nL.cSlot) lang')
+                                        )
+                        case state ^. currentBlocksResult of
+                            NotAsked  -> emptyBlocksView ""
+                            Loading   -> emptyBlocksView $ translate (I18nL.common <<< I18nL.cLoading) lang'
+                            Failure _ -> failureView lang'
+                            Success blocks ->
+                                let paginationViewProps =
+                                        { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                                        , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+                                        , minPage: PageNumber minPagination
+                                        , maxPage: PageNumber $ getMaxPaginationNumber (length blocks) maxBlockRows
+                                        , changePageAction: BlocksPaginateBlocks
+                                        , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
+                                        , editableAction: BlocksEditBlocksPageNumber
+                                        , invalidPageAction: BlocksInvalidBlocksPageNumber
+                                        , disabled: false
+                                        }
+                                in
+                                S.div do
+                                    blocksHeaderView blocks lang'
+                                    S.div ! S.className CSS.blocksBody
+                                          $ for_ (currentBlocks state) (blockRow state)
+                                    S.div ! S.className CSS.blocksFooter
+                                          $ paginationView paginationViewProps
 
 emptyBlocksView :: String -> P.HTML Action
 emptyBlocksView message =
-    div ! className "blocks-message"
-        ! P.dangerouslySetInnerHTML message
+    S.div ! S.className "blocks-message"
+          ! P.dangerouslySetInnerHTML message
+          $ mempty
 
 failureView :: Language -> P.HTML Action
 failureView lang =
-    div do
-        p ! className CSS.blocksFailed
-          $ text (translate (I18nL.block <<< I18nL.blEpochSlotNotFound) lang)
-        a ! href (toUrl Dashboard)
-          #! onClick (toUrl Dashboard)
-          ! className "btn-back"
-          $ text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang)
+    S.div do
+        S.p ! S.className CSS.blocksFailed
+            $ S.text (translate (I18nL.block <<< I18nL.blEpochSlotNotFound) lang)
+        S.a ! S.href (toUrl Dashboard)
+            #! P.onClick (Navigate $ toUrl Dashboard)
+            ! S.className "btn-back"
+            $ S.text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang)
 
 currentBlocks :: State -> CBlockEntries
 currentBlocks state =
@@ -108,7 +112,7 @@ currentBlocks state =
 
 blockRow :: State -> CBlockEntry -> P.HTML Action
 blockRow state (CBlockEntry entry) =
-    div ! className CSS.blocksBodyRow $ do
+    S.div ! S.className CSS.blocksBodyRow $ do
         blockColumn { label: show $ entry ^. cbeEpoch
                     , mRoute: Just <<< Epoch <<< mkEpochIndex $ entry ^. cbeEpoch
                     , clazz: CSS.blocksColumnEpoch
@@ -161,15 +165,17 @@ type BlockColumnProps =
 blockColumn :: BlockColumnProps -> P.HTML Action
 blockColumn props =
     let tag = case props.mRoute of
-                  Just route -> a ! (toUrl route)
-                                  #! onClick (toUrl route)
-                  Nothing -> div
+                  Just route ->
+                      S.a ! S.href (toUrl route)
+                          #! P.onClick (Navigate $ toUrl route)
+                  Nothing ->
+                      S.div
     in
-    tag ! P.className props.clazz
+    tag ! S.className props.clazz
         $ if isJust props.mCurrency
-              then span ! className $ currencyCSSClass props.mCurrency
-                        $ text props.label
-              else text props.label
+              then S.span ! S.className (currencyCSSClass props.mCurrency)
+                          $ S.text props.label
+              else S.text props.label
 
 type BlocksHeaderProps =
     { label :: String
@@ -203,10 +209,10 @@ mkBlocksHeaderProps lang =
 
 blocksHeaderView :: CBlockEntries -> Language -> P.HTML Action
 blocksHeaderView blocks lang =
-    div ! className (CSS.blocksHeader <> if null blocks then " hide" else "")
-        $ map blockHeaderItemView (mkBlocksHeaderProps lang)
+    S.div ! S.className (CSS.blocksHeader <> if null blocks then " hide" else "")
+          $ for_ (mkBlocksHeaderProps lang) blockHeaderItemView
 
 blockHeaderItemView :: BlocksHeaderProps -> P.HTML Action
 blockHeaderItemView props =
-    div ! className props.clazz
-        $ text props.label
+    S.div ! S.className props.clazz
+          $ S.text props.label

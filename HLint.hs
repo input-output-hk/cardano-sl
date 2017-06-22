@@ -85,8 +85,6 @@ warn = Data.Map.toAscList (Data.Map.fromList x) ==>
 warn = Data.Map.toDescList (Data.Map.fromList x) ==>
            Universum.sortWith (Down . fst) x
 
-warn = forM_ ==> for_
-
 warn = map fst &&& map snd ==> unzip
 
 

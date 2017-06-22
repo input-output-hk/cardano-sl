@@ -38,9 +38,9 @@ import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Util                    (logWarningSWaitLinear, mconcatPair)
-import           Pos.Util.JsonLog            (jlCreatedBlock, jlLog)
-import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
-                                              logWarningS)
+import           Pos.Util.JsonLog            (jlCreatedBlock)
+import           Pos.Util.LogSafe            (logDebugS, logInfoS, logWarningS)
+import           Pos.Util.TimeWarp           (CanJsonLog (..))
 import           Pos.WorkMode.Class          (WorkMode)
 #if defined(WITH_WALLET)
 import           Data.Time.Units             (Second, convertUnit)
@@ -76,7 +76,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     mGenBlock <- createGenesisBlock siEpoch
     whenJust mGenBlock $ \createdBlk -> do
         logInfo $ sformat ("Created genesis block:\n" %build) createdBlk
-        jlLog $ jlCreatedBlock (Left createdBlk)
+        jsonLog $ jlCreatedBlock (Left createdBlk)
 
     -- Then we get leaders for current epoch.
     -- Note: we are using non-blocking version here.  If we known
@@ -97,16 +97,25 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
   where
     onNoLeader =
         logWarning "Couldn't find a leader for current slot among known ones"
-    logLeadersF = if siSlot == minBound then logInfo else logDebug
-    logLeadersFS = if siSlot == minBound then logInfoS else logDebugS
+    logOnEpochFS = if siSlot == minBound then logInfoS else logDebugS
+    logOnEpochF = if siSlot == minBound then logInfo else logDebug
     onKnownLeader leaders leader = do
         ourPk <- getOurPublicKey
         let ourPkHash = addressHash ourPk
-        logNoticeS "This is a test debug message which shouldn't be sent to the logging server."
-        logLeadersFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
-        logLeadersF $ sformat ("Slot leaders: "%listJson) $
-                      map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
-        logLeadersF $ sformat ("Current slot leader: "%build) leader
+        logOnEpochFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
+        logOnEpochF $ sformat ("Current slot leader: "%build) leader
+
+
+        let -- position, how many to drop, list. This is to show some
+            -- of leaders before and after current slot, but not all
+            -- of them.
+            dropAround :: Int -> Int -> [a] -> [a]
+            dropAround p s = take (2*s + 1) . drop (max 0 (p - s))
+            strLeaders = map (bprint pairF) (zip [0 :: Int ..] $ toList leaders)
+        if siSlot == minBound
+            then logInfo $ sformat ("Full slot leaders: "%listJson) strLeaders
+            else logDebug $ sformat ("Trimmed leaders: "%listJson) $
+                            dropAround (fromIntegral $ fromEnum $ siSlot) 10 strLeaders
 
         proxyCerts <- getProxySecretKeys -- TODO rename it with "light" suffix
         let validCerts =
@@ -181,7 +190,7 @@ onNewSlotWhenLeader slotId pske sendActions = do
     whenCreated createdBlk = do
             logInfoS $
                 sformat ("Created a new block:\n" %build) createdBlk
-            jlLog $ jlCreatedBlock (Right createdBlk)
+            jsonLog $ jlCreatedBlock (Right createdBlk)
             void $ fork $ announceBlock sendActions $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
 

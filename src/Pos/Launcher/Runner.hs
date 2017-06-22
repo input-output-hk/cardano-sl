@@ -103,9 +103,10 @@ import           Pos.Txp                      (txpGlobalSettings)
 import           Pos.Update.Context           (UpdateContext (..))
 import qualified Pos.Update.DB                as GState
 import           Pos.Update.MemState          (newMemVar)
+import           Pos.Util                     (withMaybeFile)
 import           Pos.Util.Concurrent.RWVar    as RWV
-import           Pos.Util.JsonLog             (JLFile (..))
 import           Pos.Util.UserSecret          (usKeys)
+import           Pos.Util.TimeWarp            (runJsonLogT', runWithoutJsonLogT)
 import           Pos.Worker                   (allWorkersCount)
 import           Pos.WorkMode                 (RealMode (..), ServiceMode (..), WorkMode)
 
@@ -166,7 +167,7 @@ runRealModeDo
     -> ActionSpec (RealMode ssc) a
     -> Production a
 runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs (ActionSpec action) =
-    usingLoggerName lpRunnerTag $ do
+    withMaybeFile npJLFile WriteMode $ \mJLHandle -> runJsonLogT' mJLHandle $ usingLoggerName lpRunnerTag $ do
         initNC <- untag @ssc sscCreateNodeContext sscnp
         modernDBs <- openNodeDBs npRebuildDb npDbPathM
         let allWorkersNum = allWorkersCount @ssc @(RealMode ssc) :: Int
@@ -192,6 +193,7 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
         let runIO :: forall t . RealMode ssc t -> IO t
             runIO (RealMode act) =
                runProduction .
+                   runWithoutJsonLogT .
                    usingLoggerName lpRunnerTag .
                    runCHHere .
                    flip Ether.runReadersT
@@ -277,7 +279,7 @@ runServiceMode
     -> Production a
 runServiceMode transport bp@BaseParams {..} listeners outSpecs (ActionSpec action) = do
     stateM <- liftIO SM.newIO
-    usingLoggerName (lpRunnerTag bpLoggingParams) .
+    runWithoutJsonLogT $ usingLoggerName (lpRunnerTag bpLoggingParams) .
         flip (Ether.runReaderT @PeerStateTag) stateM .
         runPeerStateRedirect .
         (\(ServiceMode m) -> m) .
@@ -339,8 +341,6 @@ runCH
     -> m a
 runCH allWorkersNum discoveryCtx params@NodeParams {..} sscNodeContext db act = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    ncJLFile <- JLFile <$>
-        liftIO (maybe (pure Nothing) (fmap Just . newMVar) npJLFile)
     ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
 

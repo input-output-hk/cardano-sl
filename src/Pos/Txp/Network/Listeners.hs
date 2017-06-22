@@ -30,6 +30,8 @@ import           Pos.Txp.Logic             (txProcessTransaction)
 import           Pos.Txp.MemState          (getMemPool)
 import           Pos.Txp.Network.Types     (TxMsgContents (..))
 import           Pos.Txp.Toil.Types        (MemPool (..))
+import           Pos.Util.JsonLog          (JLEvent (..), JLTxR (..))
+import           Pos.Util.TimeWarp         (CanJsonLog (..))
 import           Pos.WorkMode.Class        (WorkMode)
 
 txInvReqDataParams :: WorkMode ssc m
@@ -72,12 +74,18 @@ handleTxDo txAux = do
 #else
     res <- runExceptT $ txProcessTransaction (txId, txAux)
 #endif
+    let json me = jsonLog $ JLTxReceived $ JLTxR
+            { jlrTxId     = sformat build txId
+            , jlrError    = me
+            }
     case res of
         Right _ -> do
             logInfo $
                 sformat ("Transaction has been added to storage: "%build) txId
+            json Nothing
             pure True
         Left er -> do
             logInfo $
                 sformat ("Transaction hasn't been added to storage: "%build%" , reason: "%build) txId er
+            json $ Just $ sformat build er
             pure False

@@ -53,7 +53,7 @@ import Pux.DOM.Events (DOMEvent, onBlur, onChange, onFocus, onKeyDown, onClick, 
 import Pux.DOM.HTML (HTML) as P
 
 import Text.Smolder.HTML (a, div, p, span, input, option, select) as S
-import Text.Smolder.HTML.Attributes (className, href, value, disabled, type', min, max) as S
+import Text.Smolder.HTML.Attributes (className, href, value, disabled, selected, type', min, max) as S
 import Text.Smolder.Markup (text) as S
 import Text.Smolder.Markup ((#!), (!), (!?))
 
@@ -345,6 +345,7 @@ langItemView state lang' =
   let selected = (show lang') == (show $ state ^. lang) in
   (S.option !? selected) (S.className "selected")
       ! S.value (show lang')
+      ! S.selected (show selected)
       $ S.text (show lang')
 
 -- -----------------

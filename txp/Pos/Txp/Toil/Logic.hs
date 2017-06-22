@@ -168,9 +168,9 @@ verifyAndApplyTx
     :: (MonadUtxo m, MonadToilEnv m, MonadError ToilVerFailure m)
     => Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx verifyVersions tx@(_, txAux) = do
-    applyTxToUtxo' tx
     (txUndo, txFee) <- Utxo.verifyTxUtxo ctx txAux
     verifyToilEnv txAux txFee
+    applyTxToUtxo' tx
     return txUndo
   where
     ctx = Utxo.VTxContext verifyVersions

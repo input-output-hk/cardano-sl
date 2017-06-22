@@ -72,14 +72,66 @@ instance Hashable h => Hashable (Attributes h)
 areAttributesKnown :: Attributes __ -> Bool
 areAttributesKnown = null . attrRemain
 
+{- NOTE: Attributes serialization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Attributes are a way to add fields to datatypes while maintaining backwards
+compatibility. Suppose that you have this datatype:
+
+    data Foo = Foo {
+        x :: Int,
+        y :: Int,
+        attrs :: Attributes FooAttrs }
+
+@Attributes FooAttrs@ is a key-value map that deserializes into @FooAttrs@.
+Each key is a single byte, and each value is an arbitary bytestring. It's
+serialized like this:
+
+    <length of following data>
+    <k1><first attribute>
+    <k2><second attribute>
+    <attrRemain>
+
+The attributes are read as long as their keys are “known” (i.e. as long as we
+know how to interpret those keys), and the rest is stored separately. For
+instance, let's say that in first version of CSL, @FooAttrs@ looks like this:
+
+    data FooAttrs = FooAttrs {
+        foo :: Text,
+        bar :: [Int] }
+
+It would be serialized as follows:
+
+    <length> <0x00><foo> <0x01><bar>
+
+In the next version of CSL we add a new field @quux@. The new version would
+serialize it like this:
+
+    <length> <0x00><foo> <0x01><bar> <0x02><quux>
+
+And the old version would treat it like this:
+
+    <length> <0x00><foo> <0x01><bar> <attrRemain>
+
+This way the old version can serialize and deserialize data received from the
+new version in a lossless way (i.e. when the old version does serialization
+it would just put @attrRemain@ back after other attributes and the new
+version would be able to parse it).
+
+-}
+
 -- | Generate 'Attributes' reader given mapper from keys to 'Get',
 -- maximum input length and the attribute value 'h' itself.
 --
 -- The mapper will be applied until it returns 'Nothing'.
-getAttributes :: (Word8 -> h -> Maybe (Peek h))
-              -> Maybe Word32
-              -> h
-              -> Peek (Attributes h)
+getAttributes
+    :: (Word8 -> h -> Maybe (Peek h))   -- ^ A function to parse an attribute
+                                        --    with given key and “set” it in
+                                        --    the attributes structure
+    -> Maybe Word32                     -- ^ Maximum length of the structure
+    -> h                                -- ^ Default data (which read
+                                        --    attributes are applied to)
+    -> Peek (Attributes h)
 getAttributes keyGetMapper maxLen initData = maybeLimit $ \len -> do
     let readWhileKnown remaining dat
           | remaining < 0 = fail "getAttributes: read more bytes than expected"
@@ -94,6 +146,8 @@ getAttributes keyGetMapper maxLen initData = maybeLimit $ \len -> do
                         (dat', read) <- getPeekLength (getWord8 >> gh)
                         readWhileKnown (remaining - fromIntegral read) dat'
     (attrData, remaining) <- readWhileKnown len initData
+    -- It's important that we use 'getBytes' here and not 'get'.
+    -- See the note above.
     attrRemain <- getBytes (fromIntegral remaining)
     pure $ Attributes {..}
  where
@@ -113,6 +167,8 @@ putAttributesS :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> PokeWithS
 putAttributesS putMapper Attributes {..} =
     putWithLengthS $
         traverse_ putAttr kvs *>
+        -- Note: it's important that we use 'putBytesS' here and not 'putS'.
+        -- See the note above.
         putBytesS attrRemain
  where
    putAttr (k, v) = putWord8S k *> v

@@ -24,6 +24,7 @@ import Pos.Explorer.Web.ClientTypes (CBlockEntry(..), CBlockSummary(..), CTxBrie
 import Pos.Explorer.Web.Lenses.ClientTypes (_CBlockEntry, _CBlockSummary, _CHash, cbeBlkHash, cbeSlot, cbeTotalSent, cbeTxNum, cbsEntry, cbsMerkleRoot, cbsNextHash, cbsPrevHash)
 
 import Pux.DOM.HTML (HTML) as P
+import Pux.DOM.HTML.Attributes (key) as P
 import Pux.DOM.Events (onClick) as P
 
 import Text.Smolder.HTML (a, div, h3, span) as S
@@ -72,7 +73,8 @@ blockView state =
 --  summary
 
 type SummaryRowItem =
-    { label :: String
+    { id :: String
+    , label :: String
     , amount :: String
     , mCurrency :: Maybe CCurrency
     }
@@ -81,25 +83,30 @@ type SummaryItems = Array SummaryRowItem
 
 mkSummaryItems :: Language -> CBlockEntry -> SummaryItems
 mkSummaryItems lang (CBlockEntry entry) =
-    [ { label: translate (I18nL.common <<< I18nL.cTransactions) lang
+    [ { id: "0"
+      , label: translate (I18nL.common <<< I18nL.cTransactions) lang
       , amount: show $ entry ^. cbeTxNum
       , mCurrency: Nothing
       }
-    , { label: translate (I18nL.common <<< I18nL.cTotalOutput) lang
+    , { id: "1"
+      , label: translate (I18nL.common <<< I18nL.cTotalOutput) lang
       , amount: formatADA (entry ^. cbeTotalSent) lang
       , mCurrency: Just ADA
       }
-    , { label: translate (I18nL.block <<< I18nL.blEstVolume) lang
+    , { id: "2"
+      , label: translate (I18nL.block <<< I18nL.blEstVolume) lang
       -- TODO: We do need real data here
       , amount: formatADA (mkCoin "0") lang
       , mCurrency: Just ADA
       }
-    , { label: translate (I18nL.block <<< I18nL.blFees) lang
+    , { id: "3"
+      , label: translate (I18nL.block <<< I18nL.blFees) lang
       -- TODO: We do need real data here
       , amount: formatADA (mkCoin "0") lang
       , mCurrency: Just ADA
       }
-    , { label: translate (I18nL.common <<< I18nL.cSlot) lang
+    , { id: "4"
+      , label: translate (I18nL.common <<< I18nL.cSlot) lang
       , amount: show $ entry ^. cbeSlot
       , mCurrency: Nothing
       }
@@ -107,14 +114,16 @@ mkSummaryItems lang (CBlockEntry entry) =
 
 summaryRow :: SummaryRowItem -> P.HTML Action
 summaryRow item =
-    S.div ! S.className "row row__summary" $ do
-        S.div ! S.className "column column__label"
-              $ S.text item.label
-        S.div ! S.className "column column__amount"
-              $ if isJust item.mCurrency
-                    then S.span ! S.className (currencyCSSClass item.mCurrency)
-                                $ S.text item.amount
-                    else S.text item.amount
+    S.div ! S.className "row row__summary"
+          ! P.key item.id
+          $ do
+          S.div ! S.className "column column__label"
+                $ S.text item.label
+          S.div ! S.className "column column__amount"
+                $ if isJust item.mCurrency
+                      then S.span ! S.className (currencyCSSClass item.mCurrency)
+                                  $ S.text item.amount
+                      else S.text item.amount
 
 blockSummaryEmptyView :: String -> P.HTML Action
 blockSummaryEmptyView message =
@@ -138,22 +147,26 @@ blockSummaryView block lang =
 type HashItems = Array HashRowItem
 
 type HashRowItem =
-    { label :: String
+    { id :: String
+    , label :: String
     , hash :: String
     , link :: Maybe String
     }
 
 mkHashItems :: Language -> CBlockSummary -> HashItems
 mkHashItems lang (CBlockSummary blockSummery) =
-    [ { label: translate (I18nL.common <<< I18nL.cHash) lang
+    [ { id: "0"
+      , label: translate (I18nL.common <<< I18nL.cHash) lang
       , hash: blockSummery ^. (cbsEntry <<< _CBlockEntry <<< cbeBlkHash <<< _CHash)
       , link: Nothing
       }
-    , { label: translate (I18nL.block <<< I18nL.blPrevBlock) lang
+    , { id: "1"
+      , label: translate (I18nL.block <<< I18nL.blPrevBlock) lang
       , hash: blockSummery ^. (cbsPrevHash <<< _CHash)
       , link: Just <<< toUrl <<< Block $ blockSummery ^. cbsPrevHash
       }
-    , { label: translate (I18nL.block <<< I18nL.blNextBlock) lang
+    , { id: "2"
+      , label: translate (I18nL.block <<< I18nL.blNextBlock) lang
       , hash: case blockSummery ^. cbsNextHash of
           Nothing -> translate (I18nL.common <<< I18nL.cNotAvailable) lang
           Just hash -> hash ^. _CHash
@@ -161,7 +174,8 @@ mkHashItems lang (CBlockSummary blockSummery) =
           Nothing -> Nothing
           Just hash -> Just <<< toUrl $ Block hash
       }
-    , { label: translate (I18nL.block <<< I18nL.blRoot) lang
+    , { id: "3"
+      , label: translate (I18nL.block <<< I18nL.blRoot) lang
       , hash: blockSummery ^. (cbsMerkleRoot <<< _CHash)
       , link: Nothing
       }
@@ -170,16 +184,18 @@ mkHashItems lang (CBlockSummary blockSummery) =
 
 hashesRow :: HashRowItem -> P.HTML Action
 hashesRow item =
-    S.div ! S.className "row row__hashes" $ do
-        S.div ! S.className "column column__label"
-              $ S.text item.label
-        case item.link of
-            Nothing ->  S.div ! S.className "column column__hash"
-                              $ S.text item.hash
-            Just link -> S.a  ! S.href link
-                              #! P.onClick (Navigate link)
-                              ! S.className "column column__hash--link"
-                              $ S.text item.hash
+    S.div ! S.className "row row__hashes"
+          ! P.key item.id
+          $ do
+          S.div ! S.className "column column__label"
+                $ S.text item.label
+          case item.link of
+              Nothing ->  S.div ! S.className "column column__hash"
+                                $ S.text item.hash
+              Just link -> S.a  ! S.href link
+                                #! P.onClick (Navigate link)
+                                ! S.className "column column__hash--link"
+                                $ S.text item.hash
 
 maxTxRows :: Int
 maxTxRows = 5

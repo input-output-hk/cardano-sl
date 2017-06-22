@@ -7,7 +7,6 @@ import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), isJust)
 import Data.Monoid (mempty)
-
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (addNotFound, cAddress, cBack2Dashboard, common, cLoading, cOf, cTransactions, address, addScan, addQrCode, addFinalBalance, tx, txEmpty, txNotFound) as I18nL
 import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, currentAddressSummary, lang, viewStates)
@@ -17,20 +16,17 @@ import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CCurrency(..), PageNumber(..), State, CTxBriefs)
 import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, mkTxBodyViewProps, mkTxHeaderViewProps, txBodyView, txEmptyContentView, txHeaderView, txPaginationView)
-
 import Network.RemoteData (RemoteData(..))
-
 import Pos.Explorer.Web.ClientTypes (CAddressSummary(..), CTxBrief)
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, caAddress, caBalance, caTxNum)
-
-import Pux.DOM.HTML (HTML) as P
-import Pux.Renderer.React (dangerouslySetInnerHTML) as P
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CHash, _CTxBrief, _CTxId, caAddress, caBalance, caTxNum, ctbId)
 import Pux.DOM.Events (onClick) as P
-
+import Pux.DOM.HTML (HTML) as P
+import Pux.DOM.HTML.Attributes (key) as P
+import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 import Text.Smolder.HTML (a, div, span, h3, p) as S
 import Text.Smolder.HTML.Attributes (className, href, id) as S
-import Text.Smolder.Markup (text) as S
 import Text.Smolder.Markup ((#!), (!))
+import Text.Smolder.Markup (text) as S
 
 addressView :: State -> P.HTML Action
 addressView state =
@@ -80,7 +76,8 @@ addressQr _ lang =
                 $ S.text (translate (I18nL.address <<< I18nL.addScan) lang)
 
 type SummaryRowItem =
-    { label :: String
+    { id :: String -- needed by React https://facebook.github.io/react/docs/lists-and-keys.html
+    , label :: String
     , value :: String
     , mCurrency :: Maybe CCurrency
     }
@@ -89,15 +86,18 @@ type SummaryItems = Array SummaryRowItem
 
 addressDetailRowItems :: CAddressSummary -> Language -> SummaryItems
 addressDetailRowItems (CAddressSummary address) lang =
-    [ { label: translate (I18nL.common <<< I18nL.cAddress) lang
+    [ { id: "0"
+      , label: translate (I18nL.common <<< I18nL.cAddress) lang
       , value: address ^. (caAddress <<< _CAddress)
       , mCurrency: Nothing
     }
-    , { label: translate (I18nL.common <<< I18nL.cTransactions) lang
+    , { id: "1"
+      , label: translate (I18nL.common <<< I18nL.cTransactions) lang
       , value: show $ address ^. caTxNum
       , mCurrency: Nothing
     }
-    , { label: translate (I18nL.address <<< I18nL.addFinalBalance) lang
+    , { id: "2"
+      ,label: translate (I18nL.address <<< I18nL.addFinalBalance) lang
       , value: formatADA (address ^. caBalance) lang
       , mCurrency: Just ADA
       }
@@ -105,14 +105,16 @@ addressDetailRowItems (CAddressSummary address) lang =
 
 addressDetailRow :: SummaryRowItem -> P.HTML Action
 addressDetailRow item =
-    S.div ! S.className "address-detail__row" $ do
-        S.div ! S.className "address-detail__column label"
-              $ S.text item.label
-        S.div ! S.className "address-detail__column amount"
-              $ if isJust item.mCurrency
-                    then S.span ! S.className (currencyCSSClass item.mCurrency)
-                                $ S.text item.value
-                    else S.text item.value
+    S.div ! S.className "address-detail__row"
+          ! P.key item.id
+          $ do
+          S.div ! S.className "address-detail__column label"
+                $ S.text item.label
+          S.div ! S.className "address-detail__column amount"
+                $ if isJust item.mCurrency
+                      then S.span ! S.className (currencyCSSClass item.mCurrency)
+                                  $ S.text item.value
+                      else S.text item.value
 
 emptyAddressDetail :: String -> P.HTML Action
 emptyAddressDetail message =
@@ -149,9 +151,10 @@ addressTxsView txs state =
 
 addressTxView :: CTxBrief -> Language -> P.HTML Action
 addressTxView tx lang =
-    S.div do
-        txHeaderView lang $ mkTxHeaderViewProps tx
-        txBodyView lang $ mkTxBodyViewProps tx
+    S.div ! P.key (tx ^. (_CTxBrief <<< ctbId <<< _CTxId <<< _CHash))
+          $ do
+          txHeaderView lang $ mkTxHeaderViewProps tx
+          txBodyView lang $ mkTxBodyViewProps tx
 
 failureView :: Language -> P.HTML Action
 failureView lang =

@@ -37,6 +37,7 @@ import Pos.Explorer.Web.ClientTypes (CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (cbeBlkHash, cbeEpoch, cbeSlot, cbeBlockLead, cbeSize, cbeTotalSent, cbeTxNum)
 
 import Pux.DOM.HTML (HTML) as P
+import Pux.DOM.HTML.Attributes (key) as P
 import Pux.DOM.Events (onClick) as P
 import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 
@@ -112,42 +113,43 @@ currentBlocks state =
 
 blockRow :: State -> CBlockEntry -> P.HTML Action
 blockRow state (CBlockEntry entry) =
-    S.div ! S.className CSS.blocksBodyRow $ do
-        blockColumn { label: show $ entry ^. cbeEpoch
-                    , mRoute: Just <<< Epoch <<< mkEpochIndex $ entry ^. cbeEpoch
-                    , clazz: CSS.blocksColumnEpoch
-                    , mCurrency: Nothing
-                    }
-        blockColumn { label: show $ entry ^. cbeSlot
-                    , mRoute: Just <<< Block $ entry ^. cbeBlkHash
-                    , clazz: CSS.blocksColumnSlot
-                    , mCurrency: Nothing
-                    }
-        blockColumn { label: labelAge
-                    , mRoute: Nothing
-                    , clazz: CSS.blocksColumnAge
-                    , mCurrency: Nothing
-                    }
-        blockColumn { label: show $ entry ^. cbeTxNum
-                    , mRoute: Nothing
-                    , clazz: CSS.blocksColumnTxs
-                    , mCurrency: Nothing
-                    }
-        blockColumn { label: formatADA (entry ^. cbeTotalSent) $ state ^. lang
-                    , mRoute: Nothing
-                    , clazz: CSS.blocksColumnTotalSent
-                    , mCurrency: Just ADA
-                    }
-        blockColumn { label: labelBlockLead
-                    , mRoute: Nothing
-                    , clazz: CSS.blocksColumnLead
-                    , mCurrency: Nothing
-                    }
-        blockColumn { label: show $ entry ^. cbeSize
-                    , mRoute: Nothing
-                    , clazz: CSS.blocksColumnSize
-                    , mCurrency: Nothing
-                    }
+    S.div ! S.className CSS.blocksBodyRow
+          ! P.key ((show $ entry ^. cbeEpoch) <> "-" <> (show $ entry ^. cbeSlot)) $ do
+          blockColumn { label: show $ entry ^. cbeEpoch
+                      , mRoute: Just <<< Epoch <<< mkEpochIndex $ entry ^. cbeEpoch
+                      , clazz: CSS.blocksColumnEpoch
+                      , mCurrency: Nothing
+                      }
+          blockColumn { label: show $ entry ^. cbeSlot
+                      , mRoute: Just <<< Block $ entry ^. cbeBlkHash
+                      , clazz: CSS.blocksColumnSlot
+                      , mCurrency: Nothing
+                      }
+          blockColumn { label: labelAge
+                      , mRoute: Nothing
+                      , clazz: CSS.blocksColumnAge
+                      , mCurrency: Nothing
+                      }
+          blockColumn { label: show $ entry ^. cbeTxNum
+                      , mRoute: Nothing
+                      , clazz: CSS.blocksColumnTxs
+                      , mCurrency: Nothing
+                      }
+          blockColumn { label: formatADA (entry ^. cbeTotalSent) $ state ^. lang
+                      , mRoute: Nothing
+                      , clazz: CSS.blocksColumnTotalSent
+                      , mCurrency: Just ADA
+                      }
+          blockColumn { label: labelBlockLead
+                      , mRoute: Nothing
+                      , clazz: CSS.blocksColumnLead
+                      , mCurrency: Nothing
+                      }
+          blockColumn { label: show $ entry ^. cbeSize
+                      , mRoute: Nothing
+                      , clazz: CSS.blocksColumnSize
+                      , mCurrency: Nothing
+                      }
     where
         language = state ^. lang
         labelAge = fromMaybe noData $ (prettyDuration language :: Milliseconds -> String) <<< diff state.now <$> (nominalDiffTimeToDateTime  =<< entry.cbeTimeIssued)
@@ -178,31 +180,39 @@ blockColumn props =
               else S.text props.label
 
 type BlocksHeaderProps =
-    { label :: String
+    { id :: String
+    , label :: String
     , clazz :: String
     }
 
 mkBlocksHeaderProps :: Language -> Array BlocksHeaderProps
 mkBlocksHeaderProps lang =
-    [ { label: translate (I18nL.common <<< I18nL.cEpoch) lang
+    [ { id: "0"
+      , label: translate (I18nL.common <<< I18nL.cEpoch) lang
       , clazz: CSS.blocksColumnEpoch
       }
-    , { label: translate (I18nL.common <<< I18nL.cSlot) lang
+    , { id: "1"
+      , label: translate (I18nL.common <<< I18nL.cSlot) lang
       , clazz: CSS.blocksColumnSlot
       }
-    , { label: translate (I18nL.common <<< I18nL.cAge) lang
+    , { id: "2"
+      , label: translate (I18nL.common <<< I18nL.cAge) lang
       , clazz: CSS.blocksColumnAge
       }
-    , { label: translate (I18nL.common <<< I18nL.cTransactions) lang
+    , { id: "3"
+      , label: translate (I18nL.common <<< I18nL.cTransactions) lang
       , clazz: CSS.blocksColumnTxs
       }
-    , { label: translate (I18nL.common <<< I18nL.cTotalSent) lang
+    , { id: "4"
+      , label: translate (I18nL.common <<< I18nL.cTotalSent) lang
       , clazz: CSS.blocksColumnTotalSent
       }
-    , { label: translate (I18nL.common <<< I18nL.cBlockLead) lang
+    , { id: "5"
+      , label: translate (I18nL.common <<< I18nL.cBlockLead) lang
       , clazz: CSS.blocksColumnLead
       }
-    , { label: translate (I18nL.common <<< I18nL.cSize) lang
+    , { id: "6"
+      , label: translate (I18nL.common <<< I18nL.cSize) lang
       , clazz: CSS.blocksColumnSize
       }
     ]
@@ -215,4 +225,5 @@ blocksHeaderView blocks lang =
 blockHeaderItemView :: BlocksHeaderProps -> P.HTML Action
 blockHeaderItemView props =
     S.div ! S.className props.clazz
+          ! P.key props.id
           $ S.text props.label

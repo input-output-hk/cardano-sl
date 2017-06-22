@@ -14,12 +14,44 @@ import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
 import           Pos.Data.Attributes (getAttributes, putAttributesS)
 
+{- NOTE: Address serialization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+An address is serialized as follows:
+
+    <one-byte tag><length of content><content>
+
+This lets us have backwards compatibility. For instance, if a newer version
+of CSL adds an address with tag 5:
+
+    data Address
+        = ...
+        | SuperAddress A B C
+
+then older versions would deserialize it as follows:
+
+    UnknownAddressType 5 <some bytes>
+
+The length is needed because otherwise we wouldn't know where the address
+ends and the next part of the structure begins (if an address is embedded
+into a bigger structure).
+
+Moreover, since we want *any* address to be potentially deserializable as
+UnknownAddressType, we add length to already existing addresses
+(PubKeyAddress, ScriptAddress, etc) as well even though it's not strictly
+necessary (because there are no previous versions of CSL to be
+backwards-compatible with and so we could special-case those types of
+addresses and save a byte).
+-}
+
 -- | Encode everything in an address except for CRC32
 sizeNPutAddressIncomplete :: (Size Address, Address -> Poke ())
 sizeNPutAddressIncomplete = convertToSizeNPut toBi
   where
     toBi :: Address -> PokeWithSize ()
     toBi = \case
+        -- It's important that we use 'putWithTag' for all branches.
+        -- See the note above.
         PubKeyAddress keyHash attrs ->
             putWithTag 0 $
                 putS keyHash <>
@@ -29,6 +61,8 @@ sizeNPutAddressIncomplete = convertToSizeNPut toBi
         RedeemAddress keyHash ->
             putWithTag 2 $ putS keyHash
         UnknownAddressType t bs ->
+            -- It's important that it's 'putBytesS' and not just 'putS'.
+            -- See the note above.
             putWithTag t $ putBytesS bs
 
     -- | Put tag, then length of X, then X itself

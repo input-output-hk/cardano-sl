@@ -202,6 +202,7 @@ nextUpdate = getR $ noQueryParam ["update"]
 
 applyUpdate :: forall eff. Aff (ajax :: AJAX | eff) Unit
 applyUpdate = postR $ noQueryParam ["update"]
+
 --------------------------------------------------------------------------------
 -- Redemptions -----------------------------------------------------------------
 redeemAda :: forall eff. Maybe CPassPhrase -> CWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
@@ -209,13 +210,14 @@ redeemAda pass = postRBody $ queryParams ["redemptions", "ada"] [qParam "passphr
 
 redeemAdaPaperVend :: forall eff. Maybe CPassPhrase -> CPaperVendWalletRedeem -> Aff (ajax :: AJAX | eff) CTx
 redeemAdaPaperVend pass = postRBody $ queryParams ["papervend", "redemptions", "ada"] [qParam "passphrase" $ _passPhrase <$> pass]
+
 --------------------------------------------------------------------------------
--- REPORTING ---------------------------------------------------------------------
+-- REPORTING -------------------------------------------------------------------
 reportInit :: forall eff. CInitialized -> Aff (ajax :: AJAX | eff) Unit
 reportInit = postRBody $ noQueryParam ["reporting", "initialized"]
 
 --------------------------------------------------------------------------------
--- SETTINGS ---------------------------------------------------------------------
+-- SETTINGS --------------------------------------------------------------------
 blockchainSlotDuration :: forall eff. Aff (ajax :: AJAX | eff) Int
 blockchainSlotDuration = getR $ noQueryParam ["settings", "slots", "duration"]
 
@@ -224,4 +226,11 @@ systemVersion = getR $ noQueryParam ["settings", "version"]
 
 syncProgress :: forall eff. Aff (ajax :: AJAX | eff) SyncProgress
 syncProgress = getR $ noQueryParam ["settings", "sync", "progress"]
+
 --------------------------------------------------------------------------------
+-- JSON BACKUP -----------------------------------------------------------------
+importBackupJSON :: forall eff. String -> Aff (ajax :: AJAX | eff) (Array CWallet)
+importBackupJSON = postRBody $ noQueryParam ["backup", "import"]
+
+exportBackupJSON :: forall eff. String -> Aff (ajax :: AJAX | eff) Unit
+exportBackupJSON = postRBody $ noQueryParam ["backup", "export"]

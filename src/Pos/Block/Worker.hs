@@ -40,8 +40,7 @@ import           Pos.Slotting                (currentTimeSlotting,
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Util                    (logWarningSWaitLinear, mconcatPair)
 import           Pos.Util.JsonLog            (jlCreatedBlock)
-import           Pos.Util.LogSafe            (logDebugS, logInfoS, logNoticeS,
-                                              logWarningS)
+import           Pos.Util.LogSafe            (logDebugS, logInfoS, logWarningS)
 import           Pos.Util.TimeWarp           (CanJsonLog (..))
 import           Pos.WorkMode.Class          (WorkMode)
 #if defined(WITH_WALLET)
@@ -104,7 +103,6 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
     onKnownLeader leaders leader = do
         ourPk <- getOurPublicKey
         let ourPkHash = addressHash ourPk
-        logNoticeS "This is a test debug message which shouldn't be sent to the logging server."
         logOnEpochFS $ sformat ("Our pk: "%build%", our pkHash: "%build) ourPk ourPkHash
         logOnEpochF $ sformat ("Current slot leader: "%build) leader
 

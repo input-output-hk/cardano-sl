@@ -44,6 +44,7 @@
     "purescript-base58": "https://github.com/input-output-hk/purescript-base58.git",
     "purescript-arraybuffer-types": "^0.2.0",
     "purescript-int-53": "^2.1.1",
-    "purescript-foreign": "^3.2.0"
+    "purescript-foreign": "^3.2.0",
+    "purescript-form-urlencoded": "^2.0.0"
   }
 }

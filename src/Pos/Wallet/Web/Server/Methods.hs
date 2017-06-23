@@ -131,7 +131,7 @@ import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWe
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, Ever, Existing),
-                                                   CustomAddressType (ChangeAddr),
+                                                   CustomAddressType (ChangeAddr, UsedAddr),
                                                    WalletWebDB, WebWalletModeDB,
                                                    addCustomAddress, addOnlyNewTxMeta,
                                                    addRemovedAccount, addUpdate,
@@ -402,13 +402,7 @@ getWAddress :: WalletWebMode m => CWAddressMeta -> m CAddress
 getWAddress cAddr = do
     let aId = cwamId cAddr
     balance <- getWAddressBalance cAddr
-    let addrAccount = addrMetaToAccount cAddr
-    (ctxs, _) <-
-        getHistory
-            Nothing
-            (Just addrAccount)  -- just to specify addrId is not enough
-            (Just aId)
-    let isUsed = not (null ctxs) || balance > minBound
+    isUsed <- isCustomAddress UsedAddr (cwamId cAddr)
     isChange <- isCustomAddress ChangeAddr (cwamId cAddr)
     return $ CAddress aId (mkCCoin balance) isUsed isChange
 

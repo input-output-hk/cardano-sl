@@ -254,7 +254,7 @@ setWalletSyncTip cWalId hh = wsWalletInfos . ix cWalId . wiSyncTip .= hh
 
 addWalletTxHistory :: CId Wal -> CTxId -> CTxMeta -> Update ()
 addWalletTxHistory cWalId cTxId cTxMeta =
-    wsTxHistory . ix cWalId . at cTxId ?= cTxMeta
+    wsTxHistory . at cWalId . non' _Empty . at cTxId ?= cTxMeta
 
 setWalletTxHistory :: CId Wal -> [(CTxId, CTxMeta)] -> Update ()
 setWalletTxHistory cWalId cTxs = mapM_ (uncurry $ addWalletTxHistory cWalId) cTxs

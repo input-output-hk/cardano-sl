@@ -11,7 +11,7 @@ import           Test.QuickCheck          (Arbitrary (..), Gen, listOf)
 
 import           Pos.Binary.Core          ()
 import           Pos.Core                 (EpochIndex)
-import           Pos.Crypto               (ProxySecretKey (..), createProxySecretKey)
+import           Pos.Crypto               (ProxySecretKey (..), createPsk)
 import           Pos.Delegation.Types     (DlgPayload, mkDlgPayload)
 import           Pos.Types.Arbitrary.Core ()
 import           Pos.Util.Util            (leftToPanic)
@@ -23,7 +23,7 @@ genDlgPayload epoch =
     listOf genPSK
   where
     convert psk = (pskIssuerPk psk, psk)
-    genPSK = createProxySecretKey <$> arbitrary <*> arbitrary <*> pure epoch
+    genPSK = createPsk <$> arbitrary <*> arbitrary <*> pure epoch
 
 instance Arbitrary DlgPayload where
     arbitrary = arbitrary >>= genDlgPayload

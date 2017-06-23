@@ -17,10 +17,10 @@ module Pos.Crypto.SafeSigning
        , safeDeterministicKeyGen
        , withSafeSigner
        , fakeSigner
-       , createProxyCert
-       , createProxySecretKey
        , safeCreateProxyCert
-       , safeCreateProxySecretKey
+       , safeCreatePsk
+       , createProxyCert
+       , createPsk
        ) where
 
 import qualified Cardano.Crypto.Wallet as CC
@@ -170,19 +170,6 @@ withSafeSigner sk ppGetter action = do
 fakeSigner :: SecretKey -> SafeSigner
 fakeSigner = FakeSigner
 
--- [CSL-1157] `createProxyCert` and `createProxySecretKey` are not safe and
---   left here because of their implementation details
---   in future should be removed completely, now left for compatibility with tests
-
--- | Proxy certificate creation from secret key of issuer, public key
--- of delegate and the message space ω.
-createProxyCert :: (Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
-createProxyCert = safeCreateProxyCert . fakeSigner
-
--- | Creates proxy secret key
-createProxySecretKey :: (Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
-createProxySecretKey = safeCreateProxySecretKey . fakeSigner
-
 -- | Proxy certificate creation from secret key of issuer, public key
 -- of delegate and the message space ω.
 safeCreateProxyCert :: (Bi w) => SafeSigner -> PublicKey -> w -> ProxyCert w
@@ -193,6 +180,19 @@ safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
                           ["00", CC.unXPub delegatePk, Bi.encodeStrict o]
 
 -- | Creates proxy secret key
-safeCreateProxySecretKey :: (Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w
-safeCreateProxySecretKey ss delegatePk w =
+safeCreatePsk :: (Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w
+safeCreatePsk ss delegatePk w =
     ProxySecretKey w (safeToPublic ss) delegatePk $ safeCreateProxyCert ss delegatePk w
+
+-- [CSL-1157] `createProxyCert` and `createProxySecretKey` are not safe and
+--   left here because of their implementation details
+--   in future should be removed completely, now left for compatibility with tests
+
+-- | Proxy certificate creation from secret key of issuer, public key
+-- of delegate and the message space ω.
+createProxyCert :: (Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
+createProxyCert = safeCreateProxyCert . fakeSigner
+
+-- | Creates proxy secret key
+createPsk :: (Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
+createPsk = safeCreatePsk . fakeSigner

@@ -26,7 +26,7 @@ import qualified Pos.Block.Pure           as T
 import           Pos.Constants            (epochSlots)
 import qualified Pos.Core                 as Core
 import           Pos.Crypto               (ProxySecretKey, PublicKey, SecretKey,
-                                           createProxySecretKey, toPublic)
+                                           createPsk, toPublic)
 import           Pos.Data.Attributes      (Attributes (..), mkAttributes)
 import           Pos.Delegation.Arbitrary (genDlgPayload)
 import           Pos.Ssc.Arbitrary        (SscPayloadDependsOnSlot (..))
@@ -323,7 +323,7 @@ recursiveHeaderGen (eitherOfLeader : leaders)
                     let w = (lowEpoch, highEpoch)
                         delegatePK = toPublic delegateSK
                         curried :: Bi w => w -> ProxySecretKey w
-                        curried = createProxySecretKey issuerSK delegatePK
+                        curried = createPsk issuerSK delegatePK
                         proxy = if isSigEpoch
                                 then Right (curried epochCounter, toPublic issuerSK)
                                 else Left $ curried w

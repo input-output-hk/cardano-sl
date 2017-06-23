@@ -22,8 +22,7 @@ import           Serokell.Util        (listJson)
 
 import           Pos.Binary.Core      ()
 import           Pos.Core             (ProxySKHeavy, ProxySKLight, ProxySigLight)
-import           Pos.Crypto           (ProxySecretKey (..), PublicKey,
-                                       verifyProxySecretKey)
+import           Pos.Crypto           (ProxySecretKey (..), PublicKey, verifyPsk)
 
 -- Consider making this a set.
 -- | 'DlgPayload' is put into 'MainBlock' and consists of a list of
@@ -59,7 +58,7 @@ mkDlgPayload proxySKs = do
         filter (\x -> length x > 1) $
         groupBy ((==) `on` pskIssuerPk) $ sortOn pskIssuerPk psks
     duplicates = proxySKsDups proxySKs
-    wrongPSKs = filter (not . verifyProxySecretKey) proxySKs
+    wrongPSKs = filter (not . verifyPsk) proxySKs
 
 -- | PSKs we've overwritten/deleted.
 type DlgUndo = [ProxySKHeavy]

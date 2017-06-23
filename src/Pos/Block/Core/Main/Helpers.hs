@@ -24,7 +24,9 @@ import           Pos.Block.Core.Union.Types (BiHeader, BlockSignature (..))
 import           Pos.Core                   (Blockchain (..), BlockchainHelpers (..),
                                              GenericBlock (..), GenericBlockHeader (..),
                                              IsMainHeader (..), SlotId (..), epochIndexL)
-import           Pos.Crypto                 (SignTag (..), checkSig, proxyVerify)
+import           Pos.Crypto                 (ProxySecretKey (..), ProxySignature (..),
+                                             SignTag (..), checkSig, isSelfSignedPsk,
+                                             proxyVerify)
 import           Pos.Delegation.Helpers     (dlgVerifyPayload)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
@@ -47,10 +49,17 @@ verifyMainBlockHeader ::
        (Ssc ssc, MonadError Text m, Bi $ BodyProof $ MainBlockchain ssc)
     => MainBlockHeader ssc
     -> m ()
-verifyMainBlockHeader mbh =
+verifyMainBlockHeader mbh = do
+    when (selfSignedProxy $ _mcdSignature) $
+        throwError "can't use self-signed psk to issue the block"
     unless (verifyBlockSignature _mcdSignature) $
-    throwError "can't verify signature"
+        throwError "can't verify signature"
   where
+
+    selfSignedProxy (BlockSignature _)                      = False
+    selfSignedProxy (BlockPSignatureLight (psigPsk -> psk)) = isSelfSignedPsk psk
+    selfSignedProxy (BlockPSignatureHeavy (psigPsk -> psk)) = isSelfSignedPsk psk
+
     verifyBlockSignature (BlockSignature sig) =
         checkSig SignMainBlock leaderPk signature sig
     verifyBlockSignature (BlockPSignatureLight proxySig) =

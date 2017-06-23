@@ -354,32 +354,24 @@ dlgVerifyBlocks blocks = do
         -- Check 2: Check that if proxy sig is used, delegate indeed
         -- has right to issue the block. Signatures themselves are
         -- checked in the constructor, here we only verify they are
-        -- related to slot leader.
+        -- related to slot leader. Self-signed proxySigs are forbidden
+        -- on block construction level.
         case h ^. gbhConsensus ^. mcdSignature of
             (BlockPSignatureHeavy pSig) -> do
                 let psk = psigPsk pSig
                 let delegate = pskDelegatePk psk
-                canIssue <- dlgReachesIssuance issuer delegate (psigPsk pSig)
-                when (delegate == pskIssuerPk psk) $ throwError $
-                    sformat ("using revoke heavy proxy signatures to sign block "%
-                             "is forbidden: "%build)
-                            psk
+                canIssue <- dlgReachesIssuance issuer delegate psk
                 unless canIssue $ throwError $
                     sformat ("heavy proxy signature's "%build%" "%
                              "related proxy cert can't be found/doesn't "%
                              "match the one in current allowed heavy psks set")
                             pSig
             (BlockPSignatureLight pSig) -> do
-                let psk = psigPsk pSig
-                let pskIPk = pskIssuerPk psk
+                let pskIPk = pskIssuerPk (psigPsk pSig)
                 unless (pskIPk == issuer) $ throwError $
                     sformat ("light proxy signature's "%build%" issuer "%
                              build%" doesn't match block slot leader "%build)
                             pSig pskIPk issuer
-                unless (pskIPk == pskDelegatePk psk) $ throwError $
-                    sformat ("using revoke light proxy signatures to sign block "%
-                             "is forbidden: "%build)
-                            psk
             _ -> pass
 
         ------------- [Payload] -------------

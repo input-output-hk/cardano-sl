@@ -32,7 +32,8 @@ module Pos.Crypto.Signing
        , ProxyCert (..)
        , verifyProxyCert
        , ProxySecretKey (..)
-       , verifyProxySecretKey
+       , verifyPsk
+       , isSelfSignedPsk
        , ProxySignature (..)
        , proxySign
        , proxyVerify
@@ -242,16 +243,21 @@ instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey (w,w)) whe
 
 -- | Checks if proxy secret key is valid (the signature/cert inside is
 -- correct).
-verifyProxySecretKey :: (Bi w) => ProxySecretKey w -> Bool
-verifyProxySecretKey ProxySecretKey{..} =
+verifyPsk :: (Bi w) => ProxySecretKey w -> Bool
+verifyPsk ProxySecretKey{..} =
     verifyProxyCert pskIssuerPk pskDelegatePk pskOmega pskCert
+
+-- | Checks if delegate and issuer fields of proxy secret key are
+-- equal.
+isSelfSignedPsk :: ProxySecretKey w -> Bool
+isSelfSignedPsk ProxySecretKey{..} = pskIssuerPk == pskDelegatePk
 
 -- | Delegate signature made with certificate-based permission. @w@
 -- stays for message type used in proxy (ω in the implementation
 -- notes), @a@ for type of message signed.
 --
 -- We add whole psk as a field because otherwise we can't verify sig
--- in heavyweight psk transitive delegation: i -> x -> d, we have psk
+-- in heavyweight psk transitive delegation: i → x → d, we have psk
 -- from x to d, slot leader is i.
 data ProxySignature w a = ProxySignature
     { psigPsk :: ProxySecretKey w
@@ -307,7 +313,7 @@ proxyVerify t ProxySignature{..} omegaPred m =
     PublicKey issuerPk = pskIssuerPk
     PublicKey pdDelegatePkRaw = pskDelegatePk
     predCorrect = omegaPred pskOmega
-    pskValid = verifyProxySecretKey psigPsk
+    pskValid = verifyPsk psigPsk
     sigValid =
         CC.verify
             pdDelegatePkRaw

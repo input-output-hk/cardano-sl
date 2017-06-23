@@ -19,8 +19,8 @@ import qualified Pos.Block.Core        as T
 import qualified Pos.Block.Pure        as T
 import           Pos.Constants         (genesisHash)
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
-                                        SignTag (..), createProxySecretKey, proxySign,
-                                        sign, toPublic)
+                                        SignTag (..), createPsk, proxySign, sign,
+                                        toPublic)
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Ssc.Class         (SscHelpersClass)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
@@ -116,7 +116,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
             w = (epoch, epoch)
             delegatePK = toPublic delegateSK
             curried :: Bi w => w -> ProxySecretKey w
-            curried = createProxySecretKey issuerSK delegatePK
+            curried = createPsk issuerSK delegatePK
             proxy =
                 if isSigEpoch
                     then Right $ curried epoch

@@ -24,9 +24,8 @@ import           Pos.Block.Core.Union.Types (BiHeader, BlockSignature (..))
 import           Pos.Core                   (Blockchain (..), BlockchainHelpers (..),
                                              GenericBlock (..), GenericBlockHeader (..),
                                              IsMainHeader (..), SlotId (..), epochIndexL)
-import           Pos.Crypto                 (ProxySecretKey (..), ProxySignature (..),
-                                             SignTag (..), checkSig, isSelfSignedPsk,
-                                             proxyVerify)
+import           Pos.Crypto                 (ProxySignature (..), SignTag (..), checkSig,
+                                             isSelfSignedPsk, proxyVerify)
 import           Pos.Delegation.Helpers     (dlgVerifyPayload)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))

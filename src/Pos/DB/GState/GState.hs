@@ -20,15 +20,16 @@ import           Pos.Context.Functions      (genesisUtxoM)
 import           Pos.DB.Class               (MonadDB, MonadDBRead, MonadRealDB,
                                              getNodeDBs, usingReadOptions)
 import           Pos.DB.GState.Balances     (getRealTotalStake)
-import           Pos.DB.GState.Common       (prepareGStateCommon)
+import           Pos.DB.GState.Common       (initGStateCommon, isInitialized,
+                                             setInitialized)
 import           Pos.DB.Types               (DB (..), NodeDBs (..), Snapshot (..),
                                              gStateDB, usingSnapshot)
-import           Pos.Ssc.GodTossing.DB      (prepareGtDB)
+import           Pos.Ssc.GodTossing.DB      (initGtDB)
 import           Pos.Ssc.GodTossing.Genesis (genesisCertificates)
-import           Pos.Txp.DB                 (prepareGStateBalances, prepareGStateUtxo,
+import           Pos.Txp.DB                 (initGStateBalances, initGStateUtxo,
                                              sanityCheckBalances, sanityCheckUtxo)
 import           Pos.Types                  (HeaderHash)
-import           Pos.Update.DB              (prepareGStateUS)
+import           Pos.Update.DB              (initGStateUS)
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB
@@ -38,14 +39,17 @@ prepareGStateDB
        , MonadDB m
        )
     => HeaderHash -> m ()
-prepareGStateDB initialTip = do
-    prepareGStateCommon initialTip
+prepareGStateDB initialTip = unlessM isInitialized $ do
     genesisUtxo <- genesisUtxoM
-    prepareGStateUtxo genesisUtxo
-    prepareGtDB genesisCertificates
-    prepareGStateBalances genesisUtxo
     systemStart <- Ether.asks' npSystemStart
-    prepareGStateUS systemStart
+
+    initGStateCommon initialTip
+    initGStateUtxo genesisUtxo
+    initGtDB genesisCertificates
+    initGStateBalances genesisUtxo
+    initGStateUS systemStart
+
+    setInitialized
 
 -- | Check that GState DB is consistent.
 sanityCheckGStateDB

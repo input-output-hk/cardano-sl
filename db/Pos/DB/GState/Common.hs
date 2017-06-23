@@ -13,7 +13,9 @@ module Pos.DB.GState.Common
        , getTipSomething
 
          -- * Initialization
-       , prepareGStateCommon
+       , isInitialized
+       , setInitialized
+       , initGStateCommon
 
          -- * Helpers
        , gsGetBi
@@ -111,21 +113,31 @@ instance RocksBatchOp CommonOp where
     toBatchOp (PutTip h) = [Rocks.Put tipKey (encodeStrict h)]
 
 ----------------------------------------------------------------------------
--- Common initialization
+-- Initialization
 ----------------------------------------------------------------------------
 
 -- | Put missing initial common data into GState DB.
-prepareGStateCommon :: (MonadDB m) => HeaderHash -> m ()
-prepareGStateCommon initialTip = do
-    whenNothingM_ getTipMaybe putGenesisTip
-    whenNothingM_ getBotMaybe putGenesisBot
-  where
-    putGenesisTip = putTip initialTip
-    putGenesisBot = putBot initialTip
+initGStateCommon :: (MonadDB m) => HeaderHash -> m ()
+initGStateCommon initialTip = do
+    putTip initialTip
+    putBot initialTip
+
+-- | Checks if gstate is initialized.
+isInitialized :: MonadDBRead m => m Bool
+isInitialized = do
+    (x :: Maybe ()) <- gsGetBi initKey
+    pure $ maybe False (const True) x
+
+-- | Marks gstate as initialized
+setInitialized :: MonadDB m => m ()
+setInitialized = gsPutBi initKey ()
 
 ----------------------------------------------------------------------------
 -- Keys
 ----------------------------------------------------------------------------
+
+initKey :: ByteString
+initKey = "init/gstate"
 
 tipKey :: ByteString
 tipKey = "c/tip"

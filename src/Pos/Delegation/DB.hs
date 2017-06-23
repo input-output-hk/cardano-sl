@@ -21,11 +21,14 @@
 -- mapping. Notice: here also Delegate ∉ Issuers (see (2)).
 
 module Pos.Delegation.DB
-       ( getPskByIssuer
+       (
+         -- * Getters and predicates
+         getPskByIssuer
        , isIssuerByAddressHash
        , getDlgTransitive
        , getDlgTransitiveReverse
 
+         -- * Batch ops
        , DelegationOp (..)
 
          -- * Iteration

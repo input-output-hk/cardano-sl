@@ -16,7 +16,7 @@ module Pos.Txp.DB.Balances
        , genesisFakeTotalStake
 
          -- * Initialization
-       , prepareGStateBalances
+       , initGStateBalances
 
          -- * Iteration
        , BalanceIter
@@ -101,22 +101,20 @@ getEffectiveStake id = ifM isBootstrapEra
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateBalances
+initGStateBalances
     :: forall m.
        MonadDB m
     => Utxo -> m ()
-prepareGStateBalances genesisUtxo = do
-    whenNothingM_ getRealStakeSumMaybe putFtsStakes
-    whenNothingM_ getRealStakeSumMaybe putGenesisTotalStake
+initGStateBalances genesisUtxo = do
+    putFtsStakes
+    putGenesisTotalStake
   where
+    putTotalFtsStake = gsPutBi ftsSumKey
     totalCoins = sumCoins $ map snd $ concatMap txOutStake $ toList genesisUtxo
     -- Will 'error' if the result doesn't fit into 'Coin' (which should never
     -- happen)
     putGenesisTotalStake = putTotalFtsStake (unsafeIntegerToCoin totalCoins)
     putFtsStakes = mapM_ (uncurry putFtsStake) . HM.toList $ utxoToStakes genesisUtxo
-
-putTotalFtsStake :: MonadDB m => Coin -> m ()
-putTotalFtsStake = gsPutBi ftsSumKey
 
 ----------------------------------------------------------------------------
 -- Balance

@@ -17,8 +17,12 @@ module Pos.Slotting.Impl.Ntp
          -- * MonadSlots, redirects, etc.
        , askNtpSlotting
        , mkNtpSlottingVar
-       , NtpSlotsRedirect
-       , runNtpSlotsRedirect
+
+         -- * Methods
+       , ntpGetCurrentSlot
+       , ntpGetCurrentSlotBlocking
+       , ntpGetCurrentSlotInaccurate
+       , ntpCurrentTime
 
        -- * Workers
        , ntpWorkers
@@ -26,31 +30,28 @@ module Pos.Slotting.Impl.Ntp
 
 import           Universum
 
-import qualified Control.Concurrent.STM       as STM
-import           Control.Lens                 (makeLenses)
-import           Control.Monad.Trans.Control  (MonadBaseControl)
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
-import           Data.List                    ((!!))
-import           Data.Time.Units              (Microsecond)
+import qualified Control.Concurrent.STM      as STM
+import           Control.Lens                (makeLenses)
+import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Data.List                   ((!!))
+import           Data.Time.Units             (Microsecond)
 import qualified Ether
-import           Formatting                   (int, sformat, shown, stext, (%))
-import           Mockable                     (Catch, CurrentTime, Delay, Fork, Mockables,
-                                               Throw, currentTime, delay)
-import           NTP.Client                   (NtpClientSettings (..), ntpSingleShot,
-                                               startNtpClient)
-import           NTP.Example                  ()
-import           Serokell.Util                (sec)
-import           System.Wlog                  (WithLogger, logDebug, logInfo, logWarning)
+import           Formatting                  (int, sformat, shown, stext, (%))
+import           Mockable                    (Catch, CurrentTime, Delay, Fork, Mockables,
+                                              Throw, currentTime, delay)
+import           NTP.Client                  (NtpClientSettings (..), ntpSingleShot,
+                                              startNtpClient)
+import           NTP.Example                 ()
+import           Serokell.Util               (sec)
+import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 
-import qualified Pos.Core.Constants           as C
-import           Pos.Core.Slotting            (unflattenSlotId)
-import           Pos.Core.Types               (EpochIndex, SlotId (..), Timestamp (..))
-import           Pos.Slotting.Class           (MonadSlots (..))
-import qualified Pos.Slotting.Constants       as C
-import           Pos.Slotting.Impl.Util       (approxSlotUsingOutdated, slotFromTimestamp)
-import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
-import           Pos.Slotting.Types           (SlottingData (..))
+import qualified Pos.Core.Constants          as C
+import           Pos.Core.Slotting           (unflattenSlotId)
+import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
+import qualified Pos.Slotting.Constants      as C
+import           Pos.Slotting.Impl.Util      (approxSlotUsingOutdated, slotFromTimestamp)
+import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
+import           Pos.Slotting.Types          (SlottingData (..))
 
 ----------------------------------------------------------------------------
 -- TODO
@@ -140,21 +141,6 @@ type MonadNtpSlotting = Ether.MonadReader' NtpSlottingVar
 
 askNtpSlotting :: MonadNtpSlotting m => m NtpSlottingVar
 askNtpSlotting = Ether.ask'
-
-data NtpSlotsRedirectTag
-
-type NtpSlotsRedirect =
-    Ether.TaggedTrans NtpSlotsRedirectTag IdentityT
-
-runNtpSlotsRedirect :: NtpSlotsRedirect m a -> m a
-runNtpSlotsRedirect = coerce
-
-instance (MonadNtpSlotting m, NtpMode m, t ~ IdentityT) =>
-         MonadSlots (Ether.TaggedTrans NtpSlotsRedirectTag t m) where
-    getCurrentSlot = ntpGetCurrentSlot
-    getCurrentSlotBlocking = ntpGetCurrentSlotBlocking
-    getCurrentSlotInaccurate = ntpGetCurrentSlotInaccurate
-    currentTimeSlotting = ntpCurrentTime
 
 ntpCurrentTime
     :: (NtpMode m, MonadNtpSlotting m)

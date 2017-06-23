@@ -57,10 +57,6 @@ module Pos.Util.Util
        -- ** Buildable Day
        -- ** Buildable Week
        -- ** Buildable Fortnight
-
-       -- ** Ether instances
-       -- *** CanLog Ether.StateT
-       -- *** HasLoggerName Ether.StateT
        ) where
 
 import           Universum

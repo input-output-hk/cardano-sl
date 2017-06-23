@@ -21,6 +21,11 @@ Library
 
                         Network.Broadcast.Relay.Simple
 
+                        Network.Broadcast.OutboundQueue
+                        Network.Broadcast.OutboundQueue.Classification
+                        Network.Broadcast.OutboundQueue.ConcurrentMultiQueue
+                        Network.Broadcast.OutboundQueue.Demo
+
                         Node
 
                         Mockable
@@ -58,7 +63,7 @@ Library
                         NTP.Util
                         Data.NonEmptySet
 
-  build-depends:        aeson 
+  build-depends:        aeson
                       , async
                       , attoparsec
                       , base

@@ -3,6 +3,7 @@
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE KindSignatures        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE UndecidableInstances  #-}
 
@@ -25,6 +26,7 @@ module Mockable.Concurrent (
   , Promise
   , Async(..)
   , async
+  , asyncWithUnmask
   , withAsync
   , wait
   , cancelWith
@@ -45,7 +47,7 @@ module Mockable.Concurrent (
 
 import           Data.Time.Units    (TimeUnit)
 import           Mockable.Class
-import           Mockable.Exception (Catch, catchAll)
+import           Mockable.Exception
 import           Control.Exception (Exception, AsyncException(ThreadKilled))
 
 type family ThreadId (m :: * -> *) :: *
@@ -122,6 +124,11 @@ data Async m t where
 {-# INLINE async #-}
 async :: ( Mockable Async m ) => m t -> m (Promise m t)
 async m = liftMockable $ Async m
+
+{-# INLINE asyncWithUnmask #-}
+asyncWithUnmask :: ( Mockable Async m, Mockable Bracket m )
+                => ((forall a. m a -> m a) -> m t) -> m (Promise m t)
+asyncWithUnmask f = async (f unsafeUnmask)
 
 {-# INLINE withAsync #-}
 withAsync :: ( Mockable Async m ) => m t -> (Promise m t -> m r) -> m r

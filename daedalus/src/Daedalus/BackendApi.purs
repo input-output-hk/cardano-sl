@@ -11,6 +11,7 @@ import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Array (catMaybes)
 import Data.Bifunctor (lmap, bimap)
 import Data.Either (either, Either(Left))
+import Data.FormURLEncoded (fromArray, encode)
 import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(POST, PUT, DELETE))
 import Data.Maybe (Maybe(Just))
@@ -40,8 +41,7 @@ qParam :: String -> Maybe String -> QueryParam
 qParam = Tuple
 
 mkUrl :: URLPath -> URL
-mkUrl (Tuple urlPath params) = joinWith "/" urlPath <> "?" <> queryParamToString  params
-  where queryParamToString = joinWith "&" <<< map (\(Tuple l r) -> l <> "=" <> r) <<< catMaybes <<< map (\(Tuple name mParam) -> Tuple <$> pure name <*> mParam)
+mkUrl (Tuple urlPath params) = joinWith "/" urlPath <> "?" <> encode (fromArray params)
 
 backendApi :: URLPath -> URL
 backendApi = mkUrl <<< lmap ((<>) [backendPrefix, "api"])

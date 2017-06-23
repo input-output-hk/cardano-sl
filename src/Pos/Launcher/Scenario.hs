@@ -17,8 +17,9 @@ import qualified Ether
 import           Formatting         (build, sformat, shown, (%))
 import           Mockable           (fork)
 import           Paths_cardano_sl   (version)
+import           Serokell.Util.Text (listJson)
 import           System.Exit        (ExitCode (..))
-import           System.Wlog        (getLoggerName, logError, logInfo)
+import           System.Wlog        (getLoggerName, logError, logInfo, logWarning)
 import           Universum
 
 import           Pos.Communication  (ActionSpec (..), OutSpecs, WorkerSpec,
@@ -29,7 +30,7 @@ import qualified Pos.DB.GState      as GS
 import           Pos.Delegation     (initDelegation)
 import           Pos.Lrc.Context    (LrcSyncData (..), lcLrcSync)
 import qualified Pos.Lrc.DB         as LrcDB
-import           Pos.Reporting      (reportMisbehaviourMasked)
+import           Pos.Reporting      (reportMisbehaviourSilent)
 import           Pos.Security       (SecurityWorkersClass)
 import           Pos.Shutdown       (waitForWorkers)
 import           Pos.Slotting       (getCurrentSlot, waitSystemStart)
@@ -57,10 +58,17 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     pk <- getOurPublicKey
     addr <- getOurPubKeyAddress
     let pkHash = addressHash pk
-
     logInfoS $ sformat ("My public key is: "%build%
                         ", address: "%build%
                         ", pk hash: "%build) pk addr pkHash
+    lastKnownEpoch <- LrcDB.getEpoch
+    let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"
+    let onLeaders leaders =
+            logInfo $
+            sformat ("Last known leaders for epoch "%build%" are: "%listJson)
+                    lastKnownEpoch leaders
+    LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
+
     initDelegation @ssc
     initLrc
     initUSMemState
@@ -77,7 +85,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     -- FIXME shouldn't this kill the whole program?
     reportHandler (SomeException e) = do
         loggerName <- getLoggerName
-        reportMisbehaviourMasked version $
+        reportMisbehaviourSilent version $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e

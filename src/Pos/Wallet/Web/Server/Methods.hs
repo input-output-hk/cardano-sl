@@ -66,10 +66,10 @@ import           Pos.Core                         (Address (..), Coin, addressF,
                                                    makeRedeemAddress, mkCoin, sumCoins,
                                                    unsafeAddCoin, unsafeIntegerToCoin,
                                                    unsafeSubCoin)
-import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
-                                                   aesDecrypt, changeEncPassphrase,
-                                                   checkPassMatches, deriveAesKeyBS,
-                                                   emptyPassphrase, encToPublic, hash,
+import           Pos.Crypto                       (PassPhrase, aesDecrypt,
+                                                   changeEncPassphrase, checkPassMatches,
+                                                   deriveAesKeyBS, emptyPassphrase,
+                                                   encToPublic, hash,
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
@@ -129,31 +129,27 @@ import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWe
                                                    WalletWebSockets, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
-import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, Ever, Existing),
-                                                   CustomAddressType (ChangeAddr, UsedAddr),
+import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing), CustomAddressType (ChangeAddr, UsedAddr),
                                                    WalletWebDB, WebWalletModeDB,
-                                                   addOnlyNewTxMeta, addRemovedAccount,
-                                                   addUpdate, addWAddress, closeState,
-                                                   createAccount, createWallet,
-                                                   getAccountMeta, getAccountWAddresses,
-                                                   getHistoryCache, getNextUpdate,
-                                                   getProfile, getTxMeta, getWAddressIds,
-                                                   getWalletAddresses, getWalletMeta,
-                                                   getWalletPassLU, isCustomAddress,
-                                                   openState, removeAccount,
-                                                   removeNextUpdate, removeWAddress,
+                                                   addOnlyNewTxMeta, addUpdate,
+                                                   addWAddress, closeState, createAccount,
+                                                   createWallet, getAccountMeta,
+                                                   getAccountWAddresses, getHistoryCache,
+                                                   getNextUpdate, getProfile, getTxMeta,
+                                                   getWAddressIds, getWalletAddresses,
+                                                   getWalletMeta, getWalletPassLU,
+                                                   isCustomAddress, openState,
+                                                   removeAccount, removeNextUpdate,
                                                    removeWallet, setAccountMeta,
                                                    setProfile, setWalletMeta,
                                                    setWalletPassLU, setWalletTxMeta,
-                                                   testReset, totallyRemoveWAddress,
-                                                   updateHistoryCache)
+                                                   testReset, updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, CAccModifier (..),
                                                    MonadWalletTracking,
                                                    selectAccountsFromUtxoLock,
                                                    syncWalletsWithGStateLock,
                                                    txMempoolToModifier)
-import           Pos.Wallet.Web.Util              (deriveLvl2KeyPair)
 import           Pos.Web.Server                   (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -324,9 +320,9 @@ servantHandlers sendActions =
     :<|>
      deleteWallet
     :<|>
-     importWallet sendActions
+     importWallet
     :<|>
-     changeWalletPassphrase sendActions
+     changeWalletPassphrase
     :<|>
 
      getAccount
@@ -822,21 +818,6 @@ renameWSet cid newName = do
     setWalletMeta cid meta{ cwName = newName }
     getWallet cid
 
--- | Creates account address with same derivation path for new wallet.
-rederiveAccountAddress
-    :: WalletWebMode m
-    => EncryptedSecretKey -> PassPhrase -> CWAddressMeta -> m CWAddressMeta
-rederiveAccountAddress newSK newPass CWAddressMeta{..} = do
-    (accAddr, _) <- maybeThrow badPass $
-        deriveLvl2KeyPair newPass newSK cwamWalletIndex cwamAccountIndex
-    return CWAddressMeta
-        { cwamWId      = encToCId newSK
-        , cwamId        = addressToCId accAddr
-        , ..
-        }
-  where
-    badPass = RequestError "Passphrase doesn't match"
-
 data AccountsSnapshot = AccountsSnapshot
     { asExisting :: [CWAddressMeta]
     , asDeleted  :: [CWAddressMeta]
@@ -854,86 +835,17 @@ instance Buildable AccountsSnapshot where
             asExisting
             asDeleted
 
--- | Clones existing accounts of wallet with new passphrase and returns
--- list of old accounts
-cloneWalletSetWithPass
-    :: WalletWebMode m
-    => EncryptedSecretKey
-    -> PassPhrase
-    -> CId Wal
-    -> m (AccountsSnapshot, AccountsSnapshot)
-cloneWalletSetWithPass newSK newPass wid = do
-    accIds <- getWalletAccountIds wid
-    fmap mconcat . forM accIds $ \accId@AccountId{..} -> do
-        wMeta <- getAccountMeta accId >>= maybeThrow noWMeta
-        setAccountMeta accId wMeta
-        (oldDeleted, newDeleted) <-
-            unzip <$> cloneAccounts accId Deleted addRemovedAccount
-        (oldExisting, newExisting) <-
-            unzip <$> cloneAccounts accId Existing addWAddress
-        let oldAddrMeta =
-                AccountsSnapshot
-                {asExisting = oldExisting, asDeleted = oldDeleted}
-            newAddrMeta =
-                AccountsSnapshot
-                {asExisting = newExisting, asDeleted = newDeleted}
-        logDebug $
-            sformat
-                ("Cloned wallet accounts: "%build%"\n\t-> "%build)
-                oldAddrMeta
-                newAddrMeta
-        return (oldAddrMeta, newAddrMeta)
-  where
-    noWMeta = InternalError "Can't get wallet meta (inconsistent db)"
-    cloneAccounts oldAccId lookupMode addToDB = do
-        accAddrs <- getAccountAddrsOrThrow lookupMode oldAccId
-        forM accAddrs $ \accAddr@CWAddressMeta {..} -> do
-            newAcc <- rederiveAccountAddress newSK newPass accAddr
-            _ <- addToDB newAcc
-            return (accAddr, newAcc)
-
-moveMoneyToClone
-    :: WalletWebMode m
-    => SendActions m
-    -> PassPhrase
-    -> CId Wal
-    -> [CWAddressMeta]
-    -> [CWAddressMeta]
-    -> m ()
-moveMoneyToClone sa oldPass wid oldAddrMeta newAddrMeta = do
-    let ms = WalletMoneySource wid
-    dist <-
-        forM (zip oldAddrMeta newAddrMeta) $ \(oldAcc, newAcc) ->
-            (cwamId newAcc, ) <$> getWAddressBalance oldAcc
-    whenNotNull dist $ \dist' ->
-        unless (all ((== mkCoin 0) . snd) dist) $
-        void $
-        sendMoney sa oldPass ms dist'
-
 changeWalletPassphrase
     :: WalletWebMode m
-    => SendActions m -> CId Wal -> PassPhrase -> PassPhrase -> m ()
-changeWalletPassphrase sa wid oldPass newPass = do
+    => CId Wal -> PassPhrase -> PassPhrase -> m ()
+changeWalletPassphrase wid oldPass newPass = do
     oldSK <- getSKByAddr wid
 
-    -- 'cloneWalletSetWithPass' will work badly if accounts / addresses ids
-    -- don't actually change
     unless (isJust $ checkPassMatches newPass oldSK) $ do
         newSK <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
-
-        addSecretKey newSK
-        oldAddrMeta <- (`E.onException` deleteSK newPass) $ do
-            (oldAddrMeta, newAddrMeta) <- cloneWalletSetWithPass newSK newPass wid
-                `E.onException` do
-                    logError "Failed to clone wallet"
-            moveMoneyToClone sa oldPass wid (asExisting oldAddrMeta) (asExisting newAddrMeta)
-                `E.onException` do
-                    logError "Money transmition to new wallet failed"
-                    mapM_ totallyRemoveWAddress $ asDeleted <> asExisting $ newAddrMeta
-            return oldAddrMeta
-        mapM_ removeWAddress $ asExisting oldAddrMeta
-        setWalletPassLU wid =<< liftIO getPOSIXTime
         deleteSK oldPass
+        addSecretKey newSK
+        setWalletPassLU wid =<< liftIO getPOSIXTime
   where
     badPass = RequestError "Invalid old passphrase given"
     deleteSK passphrase = do
@@ -1049,18 +961,17 @@ reportingElectroncrash celcrash = do
 
 importWallet
     :: WalletWebMode m
-    => SendActions m
-    -> PassPhrase
+    => PassPhrase
     -> Text
     -> m CWallet
-importWallet sa passphrase (toString -> fp) = do
+importWallet passphrase (toString -> fp) = do
     secret <-
         rewrapToWalletError isDoesNotExistError noFile $
         rewrapToWalletError (\UserSecretDecodingError{} -> True) decodeFailed $
         readUserSecret fp
     wSecret <- maybeThrow noWalletSecret (secret ^. usWalletSet)
     wId <- cwId <$> importWalletSecret emptyPassphrase wSecret
-    changeWalletPassphrase sa wId emptyPassphrase passphrase
+    changeWalletPassphrase wId emptyPassphrase passphrase
     getWallet wId
   where
     noWalletSecret = RequestError "This key doesn't contain HD wallet info"

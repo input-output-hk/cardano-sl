@@ -7,7 +7,7 @@ module Pos.Wallet.Web.Util
 import           Universum
 
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, Wal)
-import           Pos.Wallet.Web.State       (WebWalletModeDB)
+import           Pos.Wallet.Web.State       (WebWalletModeDB, getWAddressIds)
 
 -- TODO: move more here from Methods.hs
 

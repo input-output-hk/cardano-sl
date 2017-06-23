@@ -24,6 +24,7 @@ import           Formatting              (bprint, build, formatToString, (%))
 import           Mockable                (Production, currentTime, runProduction)
 import qualified Prelude
 import           System.IO.Temp          (withSystemTempDirectory)
+import           System.Wlog             (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck         (Arbitrary (..), Testable (..), ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
@@ -45,7 +46,11 @@ import           Pos.DB.DB               (closeNodeDBs, gsAdoptedBVDataDefault,
 import qualified Pos.DB.GState           as GState
 import           Pos.ExecMode            ((:::), ExecMode (..), ExecModeM, HasLens (..),
                                           modeContext)
-import           Pos.Slotting            (MonadSlots (..), currentTimeSlottingSimple,
+import           Pos.Launcher            (InitModeContext (..), newInitFuture,
+                                          runInitMode)
+import           Pos.Lrc                 (LrcContext (..), mkLrcSyncData)
+import           Pos.Slotting            (MonadSlots (..), SlottingContextSum (SCSimple),
+                                          currentTimeSlottingSimple,
                                           getCurrentSlotBlockingSimple,
                                           getCurrentSlotInaccurateSimple,
                                           getCurrentSlotSimple)
@@ -54,8 +59,10 @@ import           Pos.Slotting.MemState   (MonadSlotsData (..), SlottingVar,
                                           putSlottingDataDefault,
                                           waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class           (SscBlock)
+import           Pos.Ssc.Extra           (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing      (SscGodTossing)
-import           Pos.Txp                 (utxoF)
+import           Pos.Txp                 (TxpGlobalSettings, txpGlobalSettings, utxoF)
+import           Pos.Update.Context      (UpdateContext, mkUpdateContext)
 import           Pos.Util.Util           (Some)
 
 -- TODO: it shouldn't be 'Production', but currently we don't have anything else.
@@ -68,8 +75,13 @@ type BaseMonad = Production
 
 modeContext [d|
     data BlockTestContext = BlockTestContext
-        { btcDBs         :: !(NodeDBs     ::: NodeDBs)
-        , btcSlottingVar :: !(SlottingVar ::: SlottingVar)
+        { btcDBs               :: !(NodeDBs     ::: NodeDBs)
+        , btcSlottingVar       :: !(SlottingVar ::: SlottingVar)
+        , btcLoggerName        :: !(LoggerName  ::: LoggerName)
+        , btcLrcContext        :: !(LrcContext  ::: LrcContext)
+        , btcUpdateContext     :: !(UpdateContext ::: UpdateContext)
+        , btcSscState          :: !(SscMemTag     ::: SscState SscGodTossing)
+        , btcTxpGlobalSettings :: !(TxpGlobalSettings ::: TxpGlobalSettings)
         }
     |]
 
@@ -106,26 +118,6 @@ instance Arbitrary TestParams where
 -- Initialization
 ----------------------------------------------------------------------------
 
-modeContext [d|
-    data InitCtx = InitCtx
-        !(GenesisUtxo ::: GenesisUtxo)
-        !(NodeDBs     ::: NodeDBs)
-    |]
-
-data InitTag
-
-instance HasLens InitTag InitCtx InitCtx where
-    lensOf = identity
-
-data BTestInit
-
-type BlockTestInitMode = ExecMode BTestInit
-
-type instance ExecModeM BTestInit = Mtl.ReaderT InitCtx BaseMonad
-
-runBlockTestInitMode :: InitCtx -> BlockTestInitMode a -> BaseMonad a
-runBlockTestInitMode ctx (unExecMode -> action) = runReaderT action ctx
-
 -- Maybe we will make everything pure somewhere in 2021, but for now
 -- this is commented out and let's use 'bracket'.
 -- initBlockTestContext :: BlockTestContext
@@ -136,16 +128,33 @@ bracketBlockTestContext ::
        TestParams -> (BlockTestContext -> BaseMonad a) -> BaseMonad a
 bracketBlockTestContext TestParams {..} callback =
     withSystemTempDirectory "cardano-sl-testing" $ \dbPath ->
-        bracket (openNodeDBs False dbPath) closeNodeDBs $ \btcDBs ->
-            let initCtx = InitCtx tpGenUtxo btcDBs
-            in runBlockTestInitMode initCtx $ do
-                   systemStart <- Timestamp <$> currentTime
-                   Ether.runReaderT'
-                       (initNodeDBs @SscGodTossing systemStart)
-                       tpGenUtxo
-                   slottingData <- GState.getSlottingData
-                   btcSlottingVar <- (systemStart, ) <$> newTVarIO slottingData
-                   ExecMode . lift $ callback BlockTestContext {..}
+        bracket (openNodeDBs False dbPath) closeNodeDBs $ \nodeDBs -> do
+            (futureLrcCtx, putLrcCtx) <- newInitFuture
+            (futureSlottingVar, putSlottingVar) <- newInitFuture
+            let initCtx =
+                    InitModeContext
+                        nodeDBs
+                        tpGenUtxo
+                        futureSlottingVar
+                        SCSimple
+                        futureLrcCtx
+            runInitMode @SscGodTossing initCtx $
+                bracketBlockTestContextDo nodeDBs putSlottingVar putLrcCtx
+  where
+    bracketBlockTestContextDo btcDBs putSlottingVar putLrcCtx = do
+        systemStart <- Timestamp <$> currentTime
+        initNodeDBs @SscGodTossing systemStart
+        slottingData <- GState.getSlottingData
+        btcSlottingVar <- (systemStart, ) <$> newTVarIO slottingData
+        putSlottingVar btcSlottingVar
+        let btcLoggerName = "testing"
+        lcLrcSync <- mkLrcSyncData >>= newTVarIO
+        let btcLrcContext = LrcContext {..}
+        putLrcCtx btcLrcContext
+        btcUpdateContext <- mkUpdateContext
+        btcSscState <- mkSscState @SscGodTossing
+        let btcTxpGlobalSettings = txpGlobalSettings
+        ExecMode . lift $ callback BlockTestContext {..}
 
 ----------------------------------------------------------------------------
 -- ExecMode
@@ -160,7 +169,6 @@ data BTest
 
 type BlockTestMode = ExecMode BTest
 
--- TODO: it shouldn't be 'BaseMonad', but currently we don't have anything else.
 type instance ExecModeM BTest =
     Mtl.ReaderT BlockTestContext BaseMonad
 
@@ -186,33 +194,11 @@ instance Testable (BlockProperty a) where
 -- Boilerplate instances
 ----------------------------------------------------------------------------
 
--- Init mode
-
-instance MonadDBRead BlockTestInitMode where
-    dbGet = dbGetDefault
-    dbIterSource = dbIterSourceDefault
-
-instance MonadDB BlockTestInitMode where
-    dbPut = dbPutDefault
-    dbWriteBatch = dbWriteBatchDefault
-    dbDelete = dbDeleteDefault
-
-instance MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestInitMode
-  where
-    dbGetBlock  = dbGetBlockDefault @SscGodTossing
-    dbGetUndo   = dbGetUndoDefault @SscGodTossing
-    dbGetHeader = dbGetHeaderDefault @SscGodTossing
-
-instance MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTestInitMode
-  where
-    dbGetBlock  = dbGetBlockSscDefault @SscGodTossing
-    dbGetUndo   = dbGetUndoSscDefault @SscGodTossing
-    dbGetHeader = dbGetHeaderSscDefault @SscGodTossing
-
-instance MonadBlockDBWrite SscGodTossing BlockTestInitMode where
-    dbPutBlund = dbPutBlundDefault
-
 -- Test mode
+
+instance HasLoggerName BlockTestMode where
+    getLoggerName = Ether.ask'
+    modifyLoggerName = Ether.local'
 
 instance MonadSlotsData BlockTestMode where
     getSystemStart = getSystemStartDefault

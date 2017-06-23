@@ -10,6 +10,10 @@ import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (prop)
 import           Test.QuickCheck.Monadic   (assert)
 
+import           Pos.Block.Core            (MainBlock)
+import           Pos.Block.Logic           (verifyBlocksPrefix)
+import           Pos.Ssc.GodTossing        (SscGodTossing)
+
 import           Test.Pos.Block.Logic.Mode (BlockProperty)
 
 spec :: Spec
@@ -31,4 +35,7 @@ verifyBlocksPrefixSpec = do
 -- TODO
 verifyEmptyMainBlock :: BlockProperty ()
 verifyEmptyMainBlock = do
-    assert True
+    let mainBlock :: MainBlock SscGodTossing
+        mainBlock = undefined
+        block = Right mainBlock
+    lift (verifyBlocksPrefix (one block)) >>= assert . isRight

@@ -74,9 +74,8 @@ import           Pos.Txp                     (txpGlobalSettings)
 import           Pos.Launcher.Mode           (InitMode, InitModeContext (..),
                                               newInitFuture, runInitMode)
 import           Pos.Security                (SecurityWorkersClass)
-import           Pos.Update.Context          (UpdateContext (..))
+import           Pos.Update.Context          (mkUpdateContext)
 import qualified Pos.Update.DB               as GState
-import           Pos.Update.MemState         (newMemVar)
 import           Pos.Util.Concurrent.RWVar   as RWV
 import           Pos.Util.Util               (powerLift)
 import           Pos.Worker                  (allWorkersCount)
@@ -132,7 +131,6 @@ allocateNodeResources np@NodeParams {..} sscnp = do
         initModeContext = InitModeContext
             db
             (GenesisUtxo npCustomUtxo)
-            np
             futureSlottingVar
             futureSlottingContext
             futureLrcContext
@@ -216,7 +214,6 @@ allocateNodeContext
 allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
-    ucUpdateSemaphore <- newEmptyMVar
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
     ncDiscoveryContext <-
         case npDiscovery npNetwork of
@@ -237,8 +234,7 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     ncShutdownFlag <- newTVarIO False
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
-    ucMemState <- newMemVar
-    ucDownloadingUpdates <- newTVarIO mempty
+    ncUpdateContext <- mkUpdateContext
     ncSscContext <- untag @ssc sscCreateNodeContext sscnp
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
@@ -247,7 +243,6 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar
             , ncLrcContext = LrcContext {..}
-            , ncUpdateContext = UpdateContext {..}
             , ncShutdownContext = ShutdownContext ncShutdownFlag shutdownQueue
             , ncNodeParams = np
 #ifdef WITH_EXPLORER

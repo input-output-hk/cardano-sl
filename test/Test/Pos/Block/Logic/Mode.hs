@@ -18,13 +18,18 @@ module Test.Pos.Block.Logic.Mode
 import           Universum
 
 import qualified Control.Monad.Reader    as Mtl
+import qualified Data.Text.Buildable
+import qualified Ether
+import           Formatting              (bprint, build, formatToString, (%))
 import           Mockable                (Production, currentTime, runProduction)
+import qualified Prelude
 import           System.IO.Temp          (withSystemTempDirectory)
-import           Test.QuickCheck         (Testable (..), ioProperty)
+import           Test.QuickCheck         (Arbitrary (..), Testable (..), ioProperty)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Block.Core          (Block, BlockHeader)
 import           Pos.Block.Types         (Undo)
+import           Pos.Context             (GenesisUtxo (..))
 import           Pos.Core                (IsHeader, Timestamp (..))
 import           Pos.DB                  (MonadBlockDBGeneric (..), MonadDB (..),
                                           MonadDBRead (..), MonadGState (..), NodeDBs,
@@ -35,8 +40,8 @@ import           Pos.DB.Block            (MonadBlockDBWrite (..), dbGetBlockDefa
                                           dbGetBlockSscDefault, dbGetHeaderDefault,
                                           dbGetHeaderSscDefault, dbGetUndoDefault,
                                           dbGetUndoSscDefault, dbPutBlundDefault)
-import           Pos.DB.DB               (closeNodeDBs, openNodeDBs)
-import           Pos.DB.DB               (gsAdoptedBVDataDefault)
+import           Pos.DB.DB               (closeNodeDBs, gsAdoptedBVDataDefault,
+                                          initNodeDBs, openNodeDBs)
 import qualified Pos.DB.GState           as GState
 import           Pos.ExecMode            ((:::), ExecMode (..), ExecModeM, HasLens (..),
                                           modeContext)
@@ -50,6 +55,7 @@ import           Pos.Slotting.MemState   (MonadSlotsData (..), SlottingVar,
                                           waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class           (SscBlock)
 import           Pos.Ssc.GodTossing      (SscGodTossing)
+import           Pos.Txp                 (utxoF)
 import           Pos.Util.Util           (Some)
 
 -- TODO: it shouldn't be 'Production', but currently we don't have anything else.
@@ -68,12 +74,42 @@ modeContext [d|
     |]
 
 ----------------------------------------------------------------------------
+-- Parameters
+----------------------------------------------------------------------------
+
+-- TODO
+instance Arbitrary GenesisUtxo where
+    arbitrary = pure $ GenesisUtxo mempty
+
+-- | This data type contains all parameters which should be generated
+-- before testing starts.
+data TestParams = TestParams
+    { tpGenUtxo :: !GenesisUtxo
+    }
+
+instance Buildable TestParams where
+    build TestParams {..} =
+        bprint ("TestParams {\n"%
+                "  utxo = "%utxoF%"\n"%
+                "}\n")
+            utxo
+      where
+        utxo = case tpGenUtxo of GenesisUtxo u -> u
+
+instance Show TestParams where
+    show = formatToString build
+
+instance Arbitrary TestParams where
+    arbitrary = TestParams <$> arbitrary
+
+----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
 modeContext [d|
     data InitCtx = InitCtx
-        !(NodeDBs ::: NodeDBs)
+        !(GenesisUtxo ::: GenesisUtxo)
+        !(NodeDBs     ::: NodeDBs)
     |]
 
 data InitTag
@@ -87,8 +123,8 @@ type BlockTestInitMode = ExecMode BTestInit
 
 type instance ExecModeM BTestInit = Mtl.ReaderT InitCtx BaseMonad
 
-runBlockTestInitMode :: NodeDBs -> BlockTestInitMode a -> BaseMonad a
-runBlockTestInitMode db (unExecMode -> action) = runReaderT action (InitCtx db)
+runBlockTestInitMode :: InitCtx -> BlockTestInitMode a -> BaseMonad a
+runBlockTestInitMode ctx (unExecMode -> action) = runReaderT action ctx
 
 -- Maybe we will make everything pure somewhere in 2021, but for now
 -- this is commented out and let's use 'bracket'.
@@ -96,16 +132,20 @@ runBlockTestInitMode db (unExecMode -> action) = runReaderT action (InitCtx db)
 -- initBlockTestContext = ¯\_(ツ)_/¯
 
 -- So here we go. Bracket, yes.
-bracketBlockTestContext :: (BlockTestContext -> BaseMonad a) -> BaseMonad a
-bracketBlockTestContext callback =
+bracketBlockTestContext ::
+       TestParams -> (BlockTestContext -> BaseMonad a) -> BaseMonad a
+bracketBlockTestContext TestParams {..} callback =
     withSystemTempDirectory "cardano-sl-testing" $ \dbPath ->
         bracket (openNodeDBs False dbPath) closeNodeDBs $ \btcDBs ->
-            runBlockTestInitMode btcDBs $ do
-                -- TODO: init DB
-                systemStart <- Timestamp <$> currentTime
-                slottingData <- GState.getSlottingData
-                btcSlottingVar <- (systemStart, ) <$> newTVarIO slottingData
-                ExecMode . lift $ callback BlockTestContext {..}
+            let initCtx = InitCtx tpGenUtxo btcDBs
+            in runBlockTestInitMode initCtx $ do
+                   systemStart <- Timestamp <$> currentTime
+                   Ether.runReaderT'
+                       (initNodeDBs @SscGodTossing systemStart)
+                       tpGenUtxo
+                   slottingData <- GState.getSlottingData
+                   btcSlottingVar <- (systemStart, ) <$> newTVarIO slottingData
+                   ExecMode . lift $ callback BlockTestContext {..}
 
 ----------------------------------------------------------------------------
 -- ExecMode
@@ -127,9 +167,9 @@ type instance ExecModeM BTest =
 unBlockTestMode :: ExecMode BTest a -> ExecModeM BTest a
 unBlockTestMode = unExecMode
 
-runBlockTestMode :: BlockTestMode a -> IO a
-runBlockTestMode (unBlockTestMode -> action) =
-    runProduction $ bracketBlockTestContext (runReaderT action)
+runBlockTestMode :: TestParams -> BlockTestMode a -> IO a
+runBlockTestMode tp (unBlockTestMode -> action) =
+    runProduction $ bracketBlockTestContext tp (runReaderT action)
 
 ----------------------------------------------------------------------------
 -- Property
@@ -139,15 +179,40 @@ type BlockProperty = PropertyM BlockTestMode
 
 instance Testable (BlockProperty a) where
     property blockProperty =
-        property (monadic (ioProperty . runBlockTestMode) blockProperty)
+        property $ \testParams ->
+            (monadic (ioProperty . runBlockTestMode testParams) blockProperty)
 
 ----------------------------------------------------------------------------
 -- Boilerplate instances
 ----------------------------------------------------------------------------
 
+-- Init mode
+
 instance MonadDBRead BlockTestInitMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
+
+instance MonadDB BlockTestInitMode where
+    dbPut = dbPutDefault
+    dbWriteBatch = dbWriteBatchDefault
+    dbDelete = dbDeleteDefault
+
+instance MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestInitMode
+  where
+    dbGetBlock  = dbGetBlockDefault @SscGodTossing
+    dbGetUndo   = dbGetUndoDefault @SscGodTossing
+    dbGetHeader = dbGetHeaderDefault @SscGodTossing
+
+instance MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTestInitMode
+  where
+    dbGetBlock  = dbGetBlockSscDefault @SscGodTossing
+    dbGetUndo   = dbGetUndoSscDefault @SscGodTossing
+    dbGetHeader = dbGetHeaderSscDefault @SscGodTossing
+
+instance MonadBlockDBWrite SscGodTossing BlockTestInitMode where
+    dbPutBlund = dbPutBlundDefault
+
+-- Test mode
 
 instance MonadSlotsData BlockTestMode where
     getSystemStart = getSystemStartDefault

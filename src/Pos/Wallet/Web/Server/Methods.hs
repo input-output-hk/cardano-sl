@@ -149,6 +149,7 @@ import           Pos.Wallet.Web.Tracking          (BlockLockMode, MonadWalletTra
                                                    selectAccountsFromUtxoLock,
                                                    syncWSetsWithGStateLock,
                                                    txMempoolToModifier)
+import           Pos.Wallet.Web.Utils             (getWalletAccountIds)
 import           Pos.Web.Server                   (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -464,10 +465,6 @@ decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
 decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
 decodeCCoinOrFail c =
     coinFromCCoin c `whenNothing` throwM (DecodeError "Wrong coin format")
-
-
-getWalletAccountIds :: WalletWebMode m => CId Wal -> m [AccountId]
-getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getWAddressIds
 
 getWalletAddrMetas
     :: (WalletWebMode m, MonadThrow m)

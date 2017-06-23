@@ -60,8 +60,7 @@ import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
                                                    TxHistoryEntry (..))
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
-import           Pos.Constants                    (curSoftwareVersion, genesisHash,
-                                                   isDevelopment)
+import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Core                         (Address (..), Coin, addressF,
                                                    decodeTextAddress, makePubKeyAddress,
                                                    makeRedeemAddress, mkCoin, sumCoins,
@@ -133,21 +132,20 @@ import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWe
 import           Pos.Wallet.Web.State             (AddressLookupMode (Deleted, Ever, Existing),
                                                    CustomAddressType (ChangeAddr, UsedAddr),
                                                    WalletWebDB, WebWalletModeDB,
-                                                   addCustomAddress, addOnlyNewTxMeta,
-                                                   addRemovedAccount, addUpdate,
-                                                   addWAddress, closeState, createAccount,
-                                                   createWallet, getAccountMeta,
-                                                   getAccountWAddresses, getHistoryCache,
-                                                   getNextUpdate, getProfile, getTxMeta,
-                                                   getWAddressIds, getWalletAddresses,
-                                                   getWalletMeta, getWalletPassLU,
-                                                   isCustomAddress, openState,
-                                                   removeAccount, removeNextUpdate,
-                                                   removeWAddress, removeWallet,
-                                                   setAccountMeta, setProfile,
-                                                   setWalletMeta, setWalletPassLU,
-                                                   setWalletTxMeta, testReset,
-                                                   totallyRemoveWAddress,
+                                                   addOnlyNewTxMeta, addRemovedAccount,
+                                                   addUpdate, addWAddress, closeState,
+                                                   createAccount, createWallet,
+                                                   getAccountMeta, getAccountWAddresses,
+                                                   getHistoryCache, getNextUpdate,
+                                                   getProfile, getTxMeta, getWAddressIds,
+                                                   getWalletAddresses, getWalletMeta,
+                                                   getWalletPassLU, isCustomAddress,
+                                                   openState, removeAccount,
+                                                   removeNextUpdate, removeWAddress,
+                                                   removeWallet, setAccountMeta,
+                                                   setProfile, setWalletMeta,
+                                                   setWalletPassLU, setWalletTxMeta,
+                                                   testReset, totallyRemoveWAddress,
                                                    updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, CAccModifier (..),
@@ -402,8 +400,17 @@ getWAddress :: WalletWebMode m => CWAddressMeta -> m CAddress
 getWAddress cAddr = do
     let aId = cwamId cAddr
     balance <- getWAddressBalance cAddr
-    isUsed <- isCustomAddress UsedAddr (cwamId cAddr)
-    isChange <- isCustomAddress ChangeAddr (cwamId cAddr)
+
+    -- get info about flags which came from mempool
+    cAccMod <- txMempoolToModifier =<< getSKByAddr (cwamWId cAddr)
+
+    let getFlag customType accessMod = do
+            checkDB <- isCustomAddress customType (cwamId cAddr)
+            let checkMempool = any (== aId) . map (fst . fst) . toList $
+                               MM.insertions $ accessMod cAccMod
+            return (checkDB || checkMempool)
+    isUsed   <- getFlag UsedAddr camUsed
+    isChange <- getFlag ChangeAddr camChange
     return $ CAddress aId (mkCCoin balance) isUsed isChange
 
 getAccountAddrsOrThrow
@@ -584,7 +591,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
         | remaining == mkCoin 0 = return Nothing
         | otherwise = do
             relatedWallet <- getSomeMoneySourceAccount moneySource
-            account       <- newChangeAddress RandomSeed passphrase relatedWallet
+            account       <- newAddress RandomSeed passphrase relatedWallet
             remAddr       <- decodeCIdOrFail (cadId account)
             let remTx = TxOutAux (TxOut remAddr remaining) []
             return $ Just remTx
@@ -735,32 +742,18 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     walAddrMetas <- getWalletAddrMetas Ever cWalId
     mkCTxs diff wtx meta' walAddrMetas & either (throwM . InternalError) pure
 
-newAddress, newChangeAddress
+newAddress
     :: WalletWebMode m
     => AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CAddress
-newAddress = newAddress' addWAddress
-newChangeAddress = newAddress' $ \addrMeta -> do
-    addWAddress addrMeta
-    -- We don't want to admit rollback of manually added address, so use @genesisHash@
-    void $ addCustomAddress ChangeAddr (cwamId addrMeta, genesisHash)
-
--- Internal function
-newAddress'
-    :: WalletWebMode m
-    => (CWAddressMeta -> m ())
-    -> AddrGenSeed
-    -> PassPhrase
-    -> AccountId
-    -> m CAddress
-newAddress' addAddressFunc addGenSeed passphrase accId = do
-    -- check wallet exists
+newAddress addGenSeed passphrase accId = do
+    -- check account exists
     _ <- getAccount accId
 
     cAccAddr <- genUniqueAccountAddress addGenSeed passphrase accId
-    _ <- addAddressFunc cAccAddr
+    _ <- addWAddress cAccAddr
     getWAddress cAccAddr
 
 newAccount :: WalletWebMode m => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount

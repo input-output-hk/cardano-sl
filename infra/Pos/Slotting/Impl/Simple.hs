@@ -6,6 +6,11 @@ module Pos.Slotting.Impl.Simple
        ( SimpleSlottingMode
        , SimpleSlotsRedirect
        , runSimpleSlotsRedirect
+
+       , getCurrentSlotSimple
+       , getCurrentSlotBlockingSimple
+       , getCurrentSlotInaccurateSimple
+       , currentTimeSlottingSimple
        ) where
 
 import           Universum
@@ -42,33 +47,33 @@ runSimpleSlotsRedirect = coerce
 
 instance (SimpleSlottingMode m, t ~ IdentityT) =>
          MonadSlots (Ether.TaggedTrans SimpleSlotsRedirectTag t m) where
-    getCurrentSlot = simpleGetCurrentSlot
-    getCurrentSlotBlocking = simpleGetCurrentSlotBlocking
-    getCurrentSlotInaccurate = simpleGetCurrentSlotInaccurate
-    currentTimeSlotting = simpleCurrentTimeSlotting
+    getCurrentSlot = getCurrentSlotSimple
+    getCurrentSlotBlocking = getCurrentSlotBlockingSimple
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
+    currentTimeSlotting = currentTimeSlottingSimple
 
 ----------------------------------------------------------------------------
 -- Implementation
 ----------------------------------------------------------------------------
 
-simpleGetCurrentSlot :: SimpleSlottingMode m => m (Maybe SlotId)
-simpleGetCurrentSlot = simpleCurrentTimeSlotting >>= slotFromTimestamp
+getCurrentSlotSimple :: SimpleSlottingMode m => m (Maybe SlotId)
+getCurrentSlotSimple = currentTimeSlottingSimple >>= slotFromTimestamp
 
-simpleGetCurrentSlotBlocking :: SimpleSlottingMode m => m SlotId
-simpleGetCurrentSlotBlocking = do
+getCurrentSlotBlockingSimple :: SimpleSlottingMode m => m SlotId
+getCurrentSlotBlockingSimple = do
     penult <- sdPenultEpoch <$> getSlottingData
-    simpleGetCurrentSlot >>= \case
+    getCurrentSlotSimple >>= \case
         Just slot -> pure slot
         Nothing -> do
             waitPenultEpochEquals (penult + 1)
-            simpleGetCurrentSlotBlocking
+            getCurrentSlotBlockingSimple
 
-simpleGetCurrentSlotInaccurate :: SimpleSlottingMode m => m SlotId
-simpleGetCurrentSlotInaccurate = do
+getCurrentSlotInaccurateSimple :: SimpleSlottingMode m => m SlotId
+getCurrentSlotInaccurateSimple = do
     penult <- sdPenultEpoch <$> getSlottingData
-    simpleGetCurrentSlot >>= \case
+    getCurrentSlotSimple >>= \case
         Just slot -> pure slot
-        Nothing -> simpleCurrentTimeSlotting >>= approxSlotUsingOutdated penult
+        Nothing -> currentTimeSlottingSimple >>= approxSlotUsingOutdated penult
 
-simpleCurrentTimeSlotting :: SimpleSlottingMode m => m Timestamp
-simpleCurrentTimeSlotting = Timestamp <$> currentTime
+currentTimeSlottingSimple :: SimpleSlottingMode m => m Timestamp
+currentTimeSlottingSimple = Timestamp <$> currentTime

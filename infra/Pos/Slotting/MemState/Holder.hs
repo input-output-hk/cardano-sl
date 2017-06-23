@@ -8,8 +8,6 @@ module Pos.Slotting.MemState.Holder
        , askSlotting
        , askSlottingVar
        , askSlottingTimestamp
-       , SlotsDataRedirect
-       , runSlotsDataRedirect
        , getSystemStartDefault
        , getSlottingDataDefault
        , waitPenultEpochEqualsDefault
@@ -18,14 +16,11 @@ module Pos.Slotting.MemState.Holder
 
 import           Universum
 
-import           Control.Monad.STM            (retry)
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
+import           Control.Monad.STM  (retry)
 import qualified Ether
-import           Pos.Core.Types               (EpochIndex, Timestamp)
 
-import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
-import           Pos.Slotting.Types           (SlottingData (sdPenultEpoch))
+import           Pos.Core.Types     (EpochIndex, Timestamp)
+import           Pos.Slotting.Types (SlottingData (sdPenultEpoch))
 
 ----------------------------------------------------------------------------
 -- Transformer
@@ -49,14 +44,6 @@ askSlottingTimestamp  = fst <$> askSlotting
 -- MonadSlotsData implementation
 ----------------------------------------------------------------------------
 
-data SlotsDataRedirectTag
-
-type SlotsDataRedirect =
-    Ether.TaggedTrans SlotsDataRedirectTag IdentityT
-
-runSlotsDataRedirect :: SlotsDataRedirect m a -> m a
-runSlotsDataRedirect = coerce
-
 type SlotsDefaultEnv m =
     (MonadSlotting m, MonadIO m)
 
@@ -79,12 +66,3 @@ putSlottingDataDefault sd = do
     atomically $ do
         penultEpoch <- sdPenultEpoch <$> readTVar var
         when (penultEpoch < sdPenultEpoch sd) $ writeTVar var sd
-
-instance
-    (SlotsDefaultEnv m, t ~ IdentityT) =>
-         MonadSlotsData (Ether.TaggedTrans SlotsDataRedirectTag t m)
-  where
-    getSystemStart = getSystemStartDefault
-    getSlottingData = getSlottingDataDefault
-    waitPenultEpochEquals = waitPenultEpochEqualsDefault
-    putSlottingData = putSlottingDataDefault

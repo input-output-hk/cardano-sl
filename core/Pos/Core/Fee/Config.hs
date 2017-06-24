@@ -9,7 +9,7 @@ import qualified Data.Aeson.Types    as JSON
 import           Data.Fixed          (Fixed (..), resolution)
 import qualified Data.HashMap.Strict as HM.S
 
-import           Pos.Core.Fee
+import           Pos.Core.Fee        (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 
 -- | A newtype for 'JSON.FromJSON' instances used in a config file. We use
 -- it because we don't want those instances to be defined for core types.

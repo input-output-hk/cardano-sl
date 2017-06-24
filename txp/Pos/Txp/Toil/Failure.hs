@@ -63,13 +63,13 @@ instance Buildable ToilVerFailure where
         bprint ("transaction's size exceeds limit "%
                 "("%memory%" > "%memory%")") ttltSize ttltLimit
     build (ToilInvalidMinFee {..}) =
-        bprint ("policy"%build%" generates invalid minimal fee on a "%
+        bprint (build%" generates invalid minimal fee on a "%
                 "transaction of size "%memory)
             timfPolicy
             timfSize
     build (ToilInsufficientFee {..}) =
-        bprint ("transaction of size "%memory%" does not adhere to fee "%
-                "policy "%build%"; it has fee "%build%" but needs "%build)
+        bprint ("transaction of size "%memory%" does not adhere to "%
+                build%"; it has fee "%build%" but needs "%build)
             tifSize
             tifPolicy
             tifFee

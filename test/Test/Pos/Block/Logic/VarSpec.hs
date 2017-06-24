@@ -11,7 +11,7 @@ import qualified Data.List.NonEmpty        as NE
 import qualified Ether
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (prop)
-import           Test.QuickCheck.Monadic   (PropertyM, assert, stop)
+import           Test.QuickCheck.Monadic   (PropertyM, stop)
 import           Test.QuickCheck.Property  (Result (..), failed)
 
 import           Pos.Block.Core            (MainBlock, emptyMainBody, mkMainBlock)
@@ -76,4 +76,4 @@ verifyEmptyMainBlock = do
                 Nothing
                 (emptyMainBody minBound)
     block <- either stopProperty (pure . Right) mainBlock
-    lift (verifyBlocksPrefix (one block)) >>= assert . isRight
+    whenLeftM (lift $ verifyBlocksPrefix (one block)) stopProperty

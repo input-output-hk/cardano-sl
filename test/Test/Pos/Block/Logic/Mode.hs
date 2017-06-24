@@ -27,6 +27,7 @@ import qualified Ether
 import           Formatting              (bprint, build, formatToString, int, shown, (%))
 import           Mockable                (Production, currentTime, runProduction)
 import qualified Prelude
+import           Serokell.Util           (listJson)
 import           System.IO.Temp          (withSystemTempDirectory)
 import           System.Wlog             (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck         (Arbitrary (..), Gen, Testable (..), choose,
@@ -106,8 +107,12 @@ instance Buildable TestParams where
                 "  utxo = "%utxoF%"\n"%
                 "  secret keys: "%int%" items\n"%
                 "  stake distribution: "%shown%"\n"%
+                "  stakeholders: "%listJson%"\n"%
                 "}\n")
-            utxo (length tpSecretKeys) tpStakeDistribution
+            utxo
+            (length tpSecretKeys)
+            tpStakeDistribution
+            (HM.keys tpSecretKeys)
       where
         utxo = tpGenUtxo & \(GenesisUtxo u) -> u
 

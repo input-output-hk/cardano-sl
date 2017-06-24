@@ -28,7 +28,7 @@ import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 
-import           Pos.Block.Core             (Block, BlockHeader, getBlockHeader,
+import           Pos.Block.Core             (BlockHeader, getBlockHeader,
                                              mainBlockTxPayload)
 import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Types            (Blund, undoTx)
@@ -170,7 +170,7 @@ syncWSetsWithGState
     => EncryptedSecretKey
     -> m ()
 syncWSetsWithGState encSK = do
-    tipHeader <- DB.getTipHeader @(Block ssc)
+    tipHeader <- DB.getTipHeader @ssc
     let wAddr = encToCId encSK
     whenJustM (WS.getWalletSyncTip wAddr) $ \wTip ->
         if | wTip == genesisHash && headerHash tipHeader == genesisHash ->

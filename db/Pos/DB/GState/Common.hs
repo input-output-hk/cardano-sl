@@ -8,8 +8,8 @@ module Pos.DB.GState.Common
          -- * Getters
          getTip
        , getBot
-       , getTipBlock
-       , getTipHeader
+       , getTipBlockGeneric
+       , getTipHeaderGeneric
        , getTipSomething
 
          -- * Initialization
@@ -75,18 +75,18 @@ getBot :: MonadDBRead m => m HeaderHash
 getBot = maybeThrow (DBMalformed "no bot in GState DB") =<< getBotMaybe
 
 -- | Get 'Block' corresponding to tip.
-getTipBlock
+getTipBlockGeneric
     :: forall block header undo m.
        MonadBlockDBGeneric header block undo m
     => m block
-getTipBlock = getTipSomething "block" (dbGetBlock @_ @block)
+getTipBlockGeneric = getTipSomething "block" (dbGetBlock @_ @block)
 
 -- | Get 'BlockHeader' corresponding to tip.
-getTipHeader
+getTipHeaderGeneric
     :: forall block header undo m.
        MonadBlockDBGeneric header block undo m
     => m header
-getTipHeader = getTipSomething "header" (dbGetHeader @_ @block)
+getTipHeaderGeneric = getTipSomething "header" (dbGetHeader @_ @block)
 
 getTipSomething
     :: forall m smth.

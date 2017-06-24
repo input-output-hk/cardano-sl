@@ -6,11 +6,13 @@
 module Pos.Block.Core.Main.Misc
        ( mkMainBlock
        , mkMainHeader
+       , emptyMainBody
        ) where
 
 import           Universum
 
 import           Control.Monad.Except        (MonadError)
+import           Data.Default                (Default (def))
 import qualified Data.Text.Buildable         as Buildable
 import           Formatting                  (bprint, build, int, stext, (%))
 import           Serokell.Util               (Color (Magenta), colorize, listJson)
@@ -28,23 +30,26 @@ import           Pos.Block.Core.Main.Lens    (mainBlockBlockVersion, mainBlockDi
                                               mehSoftwareVersion)
 import           Pos.Block.Core.Main.Types   (BlockSignature (..), MainBlock,
                                               MainBlockHeader, MainBlockchain,
-                                              MainExtraBodyData (..), MainExtraHeaderData,
-                                              MainToSign (..))
+                                              MainExtraBodyData (..),
+                                              MainExtraHeaderData (..), MainToSign (..))
 import           Pos.Block.Core.Union.Types  (BiHeader, BiSsc, BlockHeader,
                                               blockHeaderHash)
+import qualified Pos.Constants               as Const
 import           Pos.Core                    (EpochOrSlot (..), GenericBlock (..),
                                               GenericBlockHeader (..),
                                               HasBlockVersion (..), HasDifficulty (..),
                                               HasEpochIndex (..), HasEpochOrSlot (..),
                                               HasHeaderHash (..), HasSoftwareVersion (..),
                                               HeaderHash, IsHeader, IsMainHeader (..),
-                                              SlotId, mkGenericHeader,
+                                              LocalSlotIndex, SlotId, mkGenericHeader,
                                               recreateGenericBlock, slotIdF)
 import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
                                               SignTag (..), hashHexF, proxySign, sign,
                                               toPublic)
+import           Pos.Data.Attributes         (mkAttributes)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
+import           Pos.Txp.Core                (emptyTxPayload)
 import           Pos.Util.Util               (leftToPanic)
 
 instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
@@ -204,11 +209,31 @@ mkMainBlock
     -> SecretKey
     -> ProxySKBlockInfo
     -> Body (MainBlockchain ssc)
-    -> MainExtraHeaderData
-    -> MainExtraBodyData
     -> m (MainBlock ssc)
-mkMainBlock prevHeader slotId sk pske body extraH extraB =
+mkMainBlock prevHeader slotId sk pske body =
     recreateGenericBlock
         (mkMainHeader prevHeader slotId sk pske body extraH)
         body
         extraB
+  where
+    extraB :: MainExtraBodyData
+    extraB = MainExtraBodyData (mkAttributes ())
+    extraH :: MainExtraHeaderData
+    extraH =
+        MainExtraHeaderData
+            Const.lastKnownBlockVersion
+            Const.curSoftwareVersion
+            (mkAttributes ())
+
+-- | Empty (i. e. no payload) body of main block for given local slot index.
+emptyMainBody ::
+       forall ssc. SscHelpersClass ssc
+    => LocalSlotIndex
+    -> Body (MainBlockchain ssc)
+emptyMainBody slot =
+    MainBody
+    { _mbTxPayload = emptyTxPayload
+    , _mbSscPayload = sscDefaultPayload @ssc slot
+    , _mbDlgPayload = def
+    , _mbUpdatePayload = def
+    }

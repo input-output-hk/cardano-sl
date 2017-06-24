@@ -6,7 +6,9 @@
 -- | Execution modes for block logic tests.
 
 module Test.Pos.Block.Logic.Mode
-       ( BlockTestContextTag
+       ( TestParams (..)
+
+       , BlockTestContextTag
        , BlockTestContext(..)
        , BlockTestMode
        , unBlockTestMode

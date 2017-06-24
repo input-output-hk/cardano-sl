@@ -13,6 +13,7 @@ import           Universum
 import           Data.Conduit        (runConduitPure, (.|))
 import qualified Data.Conduit.List   as CL
 import qualified Data.HashMap.Strict as HM
+import           Formatting          (int, sformat, (%))
 
 import           Pos.Core            (Coin, SharedSeed (..), StakeholderId, coinToInteger,
                                       mkCoin, sumCoins)
@@ -40,7 +41,9 @@ import           Pos.Txp.Toil        (Utxo, utxoToStakes)
 followTheSatoshi :: SharedSeed -> [(StakeholderId, Coin)] -> NonEmpty StakeholderId
 followTheSatoshi seed stakes
     | totalCoins > coinToInteger maxBound =
-        error "followTheSatoshi: total stake exceeds limit"
+        error $ sformat
+        ("followTheSatoshi: total stake exceeds limit ("%int%" > "%int%")")
+        totalCoins (coinToInteger maxBound)
     | totalCoinsCoin == minBound = error "followTheSatoshi: no stake"
     | otherwise =
           runConduitPure $ CL.sourceList stakes .|

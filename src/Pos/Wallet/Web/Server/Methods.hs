@@ -402,7 +402,7 @@ getWAddress cAddr = do
 
     let getFlag customType accessMod = do
             checkDB <- isCustomAddress customType (cwamId cAddr)
-            let checkMempool = any (== aId) . map (fst . fst) . toList $
+            let checkMempool = elem aId . map (fst . fst) . toList $
                                MM.insertions $ accessMod cAccMod
             return (checkDB || checkMempool)
     isUsed   <- getFlag UsedAddr camUsed

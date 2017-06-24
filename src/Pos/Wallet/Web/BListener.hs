@@ -93,7 +93,7 @@ onRollbackTracking blunds = do
         allAddresses <- getWalletAddrMetasDB Ever wAddr
         encSK <- getSKByAddr wAddr
         let mapModifier = trackingRollbackTxs encSK allAddresses $
-                          zipWith (\(aux, undo) h -> (aux, undo, h)) txs (repeat newTip)
+                          map (\(aux, undo) -> (aux, undo, newTip)) txs
         rollbackModifierFromWallet wAddr newTip mapModifier
         logMsg "rolled back" (getNewestFirst blunds) wAddr mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)

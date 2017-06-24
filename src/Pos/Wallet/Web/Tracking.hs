@@ -322,8 +322,8 @@ applyModifierToWallet
 applyModifierToWallet wAddr newTip CAccModifier{..} = do
     -- TODO maybe do it as one acid-state transaction.
     mapM_ (WS.addWAddress . fst) (MM.insertions camAddresses)
-    mapM_ (WS.addCustomAddress UsedAddr) (map fst $ MM.insertions camUsed)
-    mapM_ (WS.addCustomAddress ChangeAddr) (map fst $ MM.insertions camChange)
+    mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions camUsed)
+    mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
     WS.setWalletSyncTip wAddr newTip
 
 rollbackModifierFromWallet

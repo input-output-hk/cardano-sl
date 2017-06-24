@@ -23,9 +23,9 @@ import           Serokell.Data.Memory.Units (Byte)
 import           System.Wlog                (WithLogger)
 
 import           Pos.Binary.Class           (biSize)
+import           Pos.Core.Coin              (integerToCoin)
 import           Pos.Core.Constants         (memPoolLimitRatio)
 import qualified Pos.Core.Fee               as Fee
-import           Pos.Core.Types             (unsafeGetCoin)
 import           Pos.Crypto                 (WithHash (..), hash)
 import           Pos.Txp.Core               (TxAux (..), TxId, TxUndo, TxpUndo,
                                              topsortTxs)
@@ -131,19 +131,43 @@ verifyToilEnv txAux txFee = do
             -- There's no adopted minimal transaction fee policy. Allow
             -- arbitrary fees (including no fee).
             return ()
-        Just txFeePolicy ->
-            unless (txFeePolicyAdherent txFee txFeePolicy txSize) $
-                throwError ToilInsufficientFee
-                    { tifSize = txSize
-                    , tifFee = txFee
-                    , tifPolicy = txFeePolicy }
+        Just txFeePolicy -> do
+            verifyTxFeePolicy txFee txFeePolicy txSize
     when (txSize > limit) $
         throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}
 
-txFeePolicyAdherent :: TxFee -> Fee.TxFeePolicy -> Byte -> Bool
-txFeePolicyAdherent (TxFee txFee) policy txSize = case policy of
-    Fee.TxFeePolicyTxSizeLinear txSizeLinear ->
-        lessEqThanFee $ Fee.calculateTxSizeLinear txSizeLinear txSize
+verifyTxFeePolicy
+    :: (MonadToilEnv m, MonadError ToilVerFailure m)
+    => TxFee
+    -> Fee.TxFeePolicy
+    -> Byte
+    -> m ()
+verifyTxFeePolicy (TxFee txFee) policy txSize = case policy of
+    Fee.TxFeePolicyTxSizeLinear txSizeLinear -> do
+        let
+            -- We use 'ceiling' to convert from a fixed-precision fractional
+            -- to coin amount. The actual fee is always a non-negative integer
+            -- amount of coins, so if @min_fee <= fee@ holds (the ideal check),
+            -- then @ceiling min_fee <= fee@ holds too.
+            -- The reason we can't compare fractionals directly is that the
+            -- minimal fee may need to appear in an error message (as a reason
+            -- for rejecting the transaction).
+            mTxMinFee = integerToCoin . ceiling $
+                Fee.calculateTxSizeLinear txSizeLinear txSize
+        -- The policy must be designed in a way that makes this impossible,
+        -- but in case the result of its evaluation is negative or exceeds
+        -- maximum coin value, we throw an error.
+        txMinFee <- case mTxMinFee of
+            Nothing -> throwError ToilInvalidMinFee
+                { timfPolicy = policy
+                , timfSize = txSize }
+            Just a -> return a
+        unless (txMinFee <= txFee) $
+            throwError ToilInsufficientFee
+                { tifSize = txSize
+                , tifFee = TxFee txFee
+                , tifMinFee = TxFee txMinFee
+                , tifPolicy = policy }
     Fee.TxFeePolicyUnknown _ _ ->
         -- The minimal transaction fee policy exists, but the current
         -- version of the node doesn't know how to handle it. There are
@@ -152,14 +176,11 @@ txFeePolicyAdherent (TxFee txFee) policy txSize = case policy of
         --    fee for them)
         -- 2. Use latest policy of known type
         -- 3. Discard the check
-        -- Implementation-wise, the 1st option corresponds to returning
-        -- 'False' here (reject), the 3rd option -- 'True' (accept), and
+        -- Implementation-wise, the 1st option corresponds to throwing an
+        -- error here (reject), the 3rd option -- doing nothing (accept), and
         -- the 2nd option would require some engineering feats to
         -- retrieve previous 'TxFeePolicy' and check against it.
-        True
-    where
-        lessEqThanFee :: (Num a, Ord a) => a -> Bool
-        lessEqThanFee x = x <= (fromIntegral . unsafeGetCoin) txFee
+        return ()
 
 ----------------------------------------------------------------------------
 -- Helpers

@@ -9,13 +9,17 @@ module Pos.DB.DB
        ( openNodeDBs
        , initNodeDBs
        , closeNodeDBs
+
        , getTip
        , getTipBlock
        , getTipHeader
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
+
        , sanityCheckDB
+
        , gsAdoptedBVDataDefault
+       , gsIsBootstrapEraDefault
        ) where
 
 import           Universum
@@ -32,6 +36,7 @@ import           Pos.Block.Types            (Blund)
 import           Pos.Context.Context        (GenesisLeaders, GenesisUtxo, NodeParams)
 import           Pos.Context.Functions      (genesisLeadersM)
 import           Pos.Core                   (BlockVersionData, headerHash)
+import           Pos.Core.Constants         (isDevelopment)
 import           Pos.DB.Block               (MonadBlockDB, MonadBlockDBWrite,
                                              loadBlundsByDepth, loadBlundsWhile,
                                              prepareBlockDB)
@@ -141,3 +146,10 @@ ensureDirectoryExists = liftIO . createDirectoryIfMissing True
 
 gsAdoptedBVDataDefault :: MonadDBRead m => m BlockVersionData
 gsAdoptedBVDataDefault = getAdoptedBVData
+
+-- TODO: CSL-1204 provide actual implementation after corresponding
+-- flag is actually stored in the DB
+gsIsBootstrapEraDefault :: MonadDBRead m => m Bool
+gsIsBootstrapEraDefault
+    | isDevelopment = pure False
+    | otherwise     = pure True

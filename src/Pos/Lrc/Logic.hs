@@ -16,7 +16,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
 import           Universum
 
-import           Pos.DB.Class        (MonadDBRead)
+import           Pos.DB.Class        (MonadDBRead, MonadGState)
 import           Pos.DB.GState       (getDelegators, getEffectiveStake,
                                       isIssuerByAddressHash)
 import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
@@ -28,7 +28,7 @@ import           Pos.Types           (Coin, StakeholderId, sumCoins, unsafeInteg
 -- Do it using one pass by delegation DB.
 findDelRichUsingPrecomp
     :: forall m.
-       (MonadDBRead m)
+       (MonadDBRead m, MonadGState m)
     => RichmenStake -> Coin -> m RichmenStake
 findDelRichUsingPrecomp precomputed thr = do
     (old, new) <-
@@ -41,7 +41,7 @@ findDelRichUsingPrecomp precomputed thr = do
 
 -- | Find delegated richmen.
 findDelegatedRichmen
-    :: (MonadDBRead m)
+    :: (MonadDBRead m, MonadGState m)
     => Coin -> Sink (StakeholderId, Coin) m RichmenStake
 findDelegatedRichmen thr = do
     st <- findRichmenStake thr
@@ -51,7 +51,7 @@ findDelegatedRichmen thr = do
 -- and compute using one pass by stake DB and one pass by delegation DB.
 findAllRichmenMaybe
     :: forall m.
-       (MonadDBRead m)
+       (MonadDBRead m, MonadGState m)
     => Maybe Coin -- ^ Eligibility threshold (optional)
     -> Maybe Coin -- ^ Delegation threshold (optional)
     -> Sink (StakeholderId, Coin) m (RichmenStake, RichmenStake)

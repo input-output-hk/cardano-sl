@@ -15,7 +15,6 @@ module Pos.Update.DB
        , getMaxBlockSize
        , getSlottingData
        , getEpochProposers
-       , isBootstrapEra
 
          -- * Operations
        , UpdateOp (..)
@@ -55,7 +54,7 @@ import           Pos.Core                     (ApplicationName, BlockVersion,
                                                SlotId, SoftwareVersion (..),
                                                StakeholderId, Timestamp (..))
 import           Pos.Core.Constants           (epochSlots, genesisBlockVersionData,
-                                               genesisSlotDuration, isDevelopment)
+                                               genesisSlotDuration)
 import           Pos.Crypto                   (hash)
 import           Pos.DB                       (DBIteratorClass (..), DBTag (..), IterType,
                                                MonadDB, MonadDBRead (..),
@@ -123,12 +122,6 @@ getEpochProposers = maybeThrow (DBMalformed msg) =<< gsGetBi epochProposersKey
   where
     msg =
         "Update System part of GState DB is not initialized (epoch proposers are missing)"
-
--- TODO: CSL-1204 provide actual implementation after corresponding
--- flag is actually stored in the DB
-isBootstrapEra :: MonadDBRead m => m Bool
-isBootstrapEra | isDevelopment = pure False
-               | otherwise     = pure True
 
 ----------------------------------------------------------------------------
 -- Operations

@@ -10,7 +10,6 @@ module Pos.Txp.DB.Balances
          BalancesOp (..)
 
          -- * Getters
-       , isBootstrapEra
        , getEffectiveTotalStake
        , getEffectiveStake
        , genesisFakeTotalStake
@@ -44,15 +43,14 @@ import           Pos.Core                     (Coin, StakeholderId, coinF, mkCoi
 import           Pos.Core.Genesis             (genesisBalances)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
-                                               MonadDB, MonadDBRead, RocksBatchOp (..),
-                                               dbIterSource)
+                                               MonadDB, MonadDBRead, MonadGState (..),
+                                               RocksBatchOp (..), dbIterSource)
 import           Pos.DB.GState.Balances       (BalanceIter, ftsStakeKey, ftsSumKey,
                                                getRealStake, getRealTotalStake)
 import           Pos.DB.GState.Common         (gsPutBi)
 import           Pos.Txp.Core                 (txOutStake)
 import           Pos.Txp.Toil.Types           (Utxo)
 import           Pos.Txp.Toil.Utxo            (utxoToStakes)
-import           Pos.Update.DB                (isBootstrapEra)
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -81,13 +79,13 @@ instance RocksBatchOp BalancesOp where
 genesisFakeTotalStake :: Coin
 genesisFakeTotalStake = unsafeIntegerToCoin $ sumCoins genesisBalances
 
-getEffectiveTotalStake :: MonadDBRead m => m Coin
-getEffectiveTotalStake = ifM isBootstrapEra
+getEffectiveTotalStake :: (MonadDBRead m, MonadGState m) => m Coin
+getEffectiveTotalStake = ifM gsIsBootstrapEra
     (pure genesisFakeTotalStake)
     getRealTotalStake
 
-getEffectiveStake :: MonadDBRead m => StakeholderId -> m (Maybe Coin)
-getEffectiveStake id = ifM isBootstrapEra
+getEffectiveStake :: (MonadDBRead m, MonadGState m) => StakeholderId -> m (Maybe Coin)
+getEffectiveStake id = ifM gsIsBootstrapEra
     (pure $ HM.lookup id genesisBalances)
     (getRealStake id)
 
@@ -116,10 +114,10 @@ initGStateBalances genesisUtxo = do
 
 -- | Run iterator over effective balances.
 balanceSource
-    :: forall m . (MonadDBRead m)
+    :: (MonadDBRead m, MonadGState m)
     => Source (ResourceT m) (IterType BalanceIter)
 balanceSource =
-    ifM (lift isBootstrapEra)
+    ifM (lift gsIsBootstrapEra)
         (CL.sourceList $ HM.toList genesisBalances)
         (dbIterSource GStateDB (Proxy @BalanceIter))
 

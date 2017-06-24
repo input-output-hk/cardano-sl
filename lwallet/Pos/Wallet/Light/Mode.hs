@@ -99,6 +99,7 @@ instance WithPeerState LightWalletMode where
 
 instance MonadGState LightWalletMode where
     gsAdoptedBVData = gsAdoptedBVDataWallet
+    gsIsBootstrapEra = gsIsBootstrapEraDefault
 
 instance MonadBalances LightWalletMode where
     getOwnUtxos = getOwnUtxosWallet

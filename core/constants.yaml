@@ -27,8 +27,8 @@ dev: &dev
   genesisUpdateSoftforkThd: 0.75 # 75% of total stake
   genesisTxFeePolicy:
     txSizeLinear:
-      a: 1.2
-      b: 0.037582
+      a: 0
+      b: 0
 
 
   # P2P, networking

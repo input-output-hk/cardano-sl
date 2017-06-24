@@ -7,15 +7,15 @@ module Test.Pos.Types.CoinSpec
 import           Universum
 
 
-import           Test.Hspec               (Expectation, Spec, anyErrorCall, describe, it,
-                                           shouldBe)
-import           Test.Hspec.QuickCheck    (prop)
-import           Test.QuickCheck          (Property, (===))
+import           Test.Hspec            (Expectation, Spec, anyErrorCall, describe, it,
+                                        shouldBe)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck       (Property, (===))
 
-import qualified Pos.Core.Types.Arbitrary as C
-import qualified Pos.Types                as C
+import qualified Pos.Core.Arbitrary    as C
+import qualified Pos.Types             as C
 
-import           Test.Pos.Util            (shouldThrowException, (.=.), (>=.))
+import           Test.Pos.Util         (shouldThrowException, (.=.), (>=.))
 
 spec :: Spec
 spec = describe "Coin properties" $ do

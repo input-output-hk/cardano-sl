@@ -32,6 +32,8 @@ flag embed-config
 library
   exposed-modules:     Pos.Core
                        Pos.Core.Address
+                       Pos.Core.Arbitrary
+                       Pos.Core.Arbitrary.Unsafe
                        Pos.Core.Block
                        Pos.Core.BlockVersionData
                        Pos.Core.Class
@@ -43,8 +45,6 @@ library
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
                        Pos.Core.Types
-                       Pos.Core.Types.Arbitrary
-                       Pos.Core.Types.Arbitrary.Unsafe
                        Pos.Core.Version
 
                        Pos.Core.Genesis

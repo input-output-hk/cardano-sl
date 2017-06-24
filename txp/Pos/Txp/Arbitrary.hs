@@ -8,31 +8,32 @@ module Pos.Txp.Arbitrary
        , goodTxToTxAux
        , SmallBadSigsTx (..)
        , SmallGoodTx (..)
+       , SmallTxPayload (..)
        ) where
 
 import           Universum
 
-import           Data.Default             (Default (def))
-import           Data.DeriveTH            (derive, makeArbitrary)
-import           Data.List.NonEmpty       ((<|))
-import qualified Data.List.NonEmpty       as NE
-import qualified Data.Vector              as V
-import           Test.QuickCheck          (Arbitrary (..), choose, oneof, scale)
+import           Data.Default        (Default (def))
+import           Data.DeriveTH       (derive, makeArbitrary)
+import           Data.List.NonEmpty  ((<|))
+import qualified Data.List.NonEmpty  as NE
+import qualified Data.Vector         as V
+import           Test.QuickCheck     (Arbitrary (..), Gen, choose, listOf, oneof, scale)
 
-import           Pos.Binary.Class         (Raw)
-import           Pos.Binary.Txp.Core      ()
-import           Pos.Core.Address          (makePubKeyAddress)
-import           Pos.Core.Types           (Coin)
-import           Pos.Core.Types.Arbitrary ()
-import           Pos.Crypto               (Hash, SecretKey, SignTag (SignTxIn), hash,
-                                           sign, toPublic)
-import           Pos.Data.Attributes      (mkAttributes)
-import           Pos.Merkle               (MerkleRoot (..), MerkleTree, mkMerkleTree)
-import           Pos.Txp.Core.Types       (Tx (..), TxAux (..), TxDistribution (..),
-                                           TxIn (..), TxInWitness (..),TxOut (..),
-                                           TxOutAux (..), TxProof (..), TxSigData (..),
-                                           mkTx)
-import           Pos.Util.Arbitrary       (makeSmall)
+import           Pos.Binary.Class    (Bi, Raw)
+import           Pos.Binary.Txp.Core ()
+import           Pos.Core.Address    (makePubKeyAddress)
+import           Pos.Core.Types      (Coin)
+import           Pos.Core.Arbitrary  ()
+import           Pos.Crypto          (Hash, SecretKey, SignTag (SignTxIn), hash,
+                                      sign, toPublic)
+import           Pos.Data.Attributes (mkAttributes)
+import           Pos.Merkle          (MerkleRoot (..), MerkleTree, mkMerkleTree)
+import           Pos.Txp.Core.Types  (Tx (..), TxAux (..), TxDistribution (..),
+                                      TxIn (..), TxInWitness (..),TxOut (..),
+                                      TxOutAux (..), TxPayload (..), TxProof (..),
+                                      TxSigData (..), mkTx, mkTxPayload)
+import           Pos.Util.Arbitrary  (makeSmall)
 
 ----------------------------------------------------------------------------
 -- Arbitrary txp types
@@ -164,3 +165,33 @@ instance Arbitrary TxProof where
     arbitrary = TxProof <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 derive makeArbitrary ''TxAux
+
+----------------------------------------------------------------------------
+-- Utilities used in 'Pos.Block.Arbitrary'
+----------------------------------------------------------------------------
+
+txOutDistGen :: Gen [TxAux]
+txOutDistGen =
+    listOf $ do
+        txInW <- arbitrary
+        txIns <- arbitrary
+        (txOuts, txDist) <- second TxDistribution . NE.unzip <$> arbitrary
+        let tx =
+                either
+                    (error . mappend "failed to create tx in txOutDistGen: ")
+                    identity $
+                mkTx txIns txOuts (mkAttributes ())
+        return $ TxAux tx (txInW) txDist
+
+instance Arbitrary TxPayload where
+    arbitrary =
+        fromMaybe (error "arbitrary@TxPayload: mkTxPayload failed") .
+        mkTxPayload <$>
+        txOutDistGen
+
+newtype SmallTxPayload =
+    SmallTxPayload TxPayload
+    deriving (Show, Eq, Bi)
+
+instance Arbitrary SmallTxPayload where
+    arbitrary = SmallTxPayload <$> makeSmall arbitrary

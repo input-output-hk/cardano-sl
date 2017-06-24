@@ -6,21 +6,21 @@ module Pos.Update.Arbitrary.Core
        (
        ) where
 
-import           Data.DeriveTH            (derive, makeArbitrary)
-import qualified Data.HashMap.Strict      as HM
-import           Test.QuickCheck          (Arbitrary (..), listOf1, oneof)
+import           Data.DeriveTH         (derive, makeArbitrary)
+import qualified Data.HashMap.Strict   as HM
+import           Test.QuickCheck       (Arbitrary (..), listOf1, oneof)
 import           Universum
 
-import           Pos.Binary.Update        ()
-import           Pos.Crypto               (SignTag (SignUSVote), fakeSigner, sign, toPublic)
-import           Pos.Crypto.Arbitrary     ()
-import           Pos.Data.Attributes      (mkAttributes)
-import           Pos.Core.Types.Arbitrary ()
-import           Pos.Update.Core.Types    (BlockVersionData (..), SystemTag,
-                                           UpdateData (..), UpdatePayload (..),
-                                           UpdateProposal (..), UpdateVote (..),
-                                           VoteState (..), mkSystemTag,
-                                           mkUpdateProposalWSign)
+import           Pos.Binary.Update     ()
+import           Pos.Crypto            (SignTag (SignUSVote), fakeSigner, sign, toPublic)
+import           Pos.Crypto.Arbitrary  ()
+import           Pos.Data.Attributes   (mkAttributes)
+import           Pos.Core.Arbitrary    ()
+import           Pos.Update.Core.Types (BlockVersionData (..), SystemTag,
+                                        UpdateData (..), UpdatePayload (..),
+                                        UpdateProposal (..), UpdateVote (..),
+                                        VoteState (..), mkSystemTag,
+                                        mkUpdateProposalWSign)
 
 instance Arbitrary SystemTag where
     arbitrary =

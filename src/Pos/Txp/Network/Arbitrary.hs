@@ -13,7 +13,7 @@ import           Pos.Binary.Update             ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Txp.Arbitrary             ()
 import           Pos.Txp.Network.Types         (TxMsgContents (..))
-import           Pos.Core.Types.Arbitrary      ()
+import           Pos.Core.Arbitrary            ()
 
 derive makeArbitrary ''TxMsgContents
 

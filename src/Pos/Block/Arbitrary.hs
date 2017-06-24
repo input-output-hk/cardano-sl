@@ -4,7 +4,6 @@
 module Pos.Block.Arbitrary
        ( HeaderAndParams (..)
        , BlockHeaderList (..)
-       , SmallTxPayload (..)
        ) where
 
 import           Universum
@@ -157,32 +156,6 @@ instance (Ssc ssc, Arbitrary (SscProof ssc)) => Arbitrary (T.MainToSign ssc) whe
 -- ensures that for every transaction generated, a transaction witness is generated as
 -- well, and the lengths of its list of outputs must also be the same as the length of its
 -- corresponding TxDistribution item.
-
-txOutDistGen :: Gen [TxAux]
-txOutDistGen =
-    listOf $ do
-        txInW <- arbitrary
-        txIns <- arbitrary
-        (txOuts, txDist) <- second TxDistribution . NE.unzip <$> arbitrary
-        let tx =
-                either
-                    (error . mappend "failed to create tx in txOutDistGen: ")
-                    identity $
-                mkTx txIns txOuts (mkAttributes ())
-        return $ TxAux tx (txInW) txDist
-
-instance Arbitrary TxPayload where
-    arbitrary =
-        fromMaybe (error "arbitrary@TxPayload: mkTxPayload failed") .
-        mkTxPayload <$>
-        txOutDistGen
-
-newtype SmallTxPayload =
-    SmallTxPayload TxPayload
-    deriving (Show, Eq, Bi)
-
-instance Arbitrary SmallTxPayload where
-    arbitrary = SmallTxPayload <$> makeSmall arbitrary
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 

@@ -11,7 +11,7 @@ import           Universum
 import           Pos.Binary.Core                ()
 import           Pos.Binary.Update              ()
 import           Pos.Slotting.Arbitrary         ()
-import           Pos.Core.Types.Arbitrary       ()
+import           Pos.Core.Arbitrary             ()
 import           Pos.Update.Arbitrary.Core      ()
 import           Pos.Update.Poll.PollState      (PollState (..))
 import           Pos.Update.Poll.Types          (BlockVersionState (..),

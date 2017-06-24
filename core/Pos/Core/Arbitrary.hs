@@ -2,7 +2,7 @@
 
 -- | Arbitrary instances for core.
 
-module Pos.Core.Types.Arbitrary
+module Pos.Core.Arbitrary
        ( CoinPairOverflowSum (..)
        , CoinPairOverflowSub (..)
        , CoinPairOverflowMul (..)

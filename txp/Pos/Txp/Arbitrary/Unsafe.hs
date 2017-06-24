@@ -4,9 +4,9 @@ module Pos.Txp.Arbitrary.Unsafe () where
 
 import           Universum
 
-import           Pos.Core.Types.Arbitrary.Unsafe ()
-import           Pos.Txp.Core.Types              (TxOut (..))
-import           Pos.Util.Arbitrary              (ArbitraryUnsafe (..))
+import           Pos.Core.Arbitrary.Unsafe ()
+import           Pos.Txp.Core.Types        (TxOut (..))
+import           Pos.Util.Arbitrary        (ArbitraryUnsafe (..))
 
 instance ArbitraryUnsafe TxOut where
     arbitraryUnsafe = TxOut <$> arbitraryUnsafe <*> arbitraryUnsafe

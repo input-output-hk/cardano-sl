@@ -66,7 +66,6 @@ import           Pos.Binary.Core      ()
 import           Pos.Binary.Crypto    ()
 import           Pos.Core             (Address (..), Coin, Script, StakeholderId,
                                        addressHash, coinF, mkCoin)
-import           Pos.Core.Types.Arbitrary ()
 import           Pos.Crypto           (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
                                        Signature, hash, shortHashF)
 import           Pos.Data.Attributes  (Attributes, areAttributesKnown)

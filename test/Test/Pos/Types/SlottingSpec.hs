@@ -4,13 +4,13 @@ module Test.Pos.Types.SlottingSpec
        ( spec
        ) where
 
-import           Test.Hspec               (Spec, describe)
-import           Test.Hspec.QuickCheck    (prop)
-import           Test.QuickCheck          (Property, (===))
+import           Test.Hspec            (Spec, describe)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck       (Property, (===))
 import           Universum
 
-import           Pos.Core.Types.Arbitrary ()
-import           Pos.Types                (SlotId, flattenSlotId, unflattenSlotId)
+import           Pos.Core.Arbitrary    ()
+import           Pos.Types             (SlotId, flattenSlotId, unflattenSlotId)
 
 spec :: Spec
 spec = describe "SlotId" $ do

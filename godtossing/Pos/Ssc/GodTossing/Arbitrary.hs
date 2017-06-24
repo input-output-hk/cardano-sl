@@ -20,12 +20,13 @@ import           Test.QuickCheck                  (Arbitrary (..), Gen, choose, 
 import           Pos.Binary.Class                 (asBinary)
 import           Pos.Binary.GodTossing            ()
 import           Pos.Communication.Types.Relay    (DataMsg (..))
-import           Pos.Ssc.GodTossing.Constants     (vssMaxTTL, vssMinTTL)
 import           Pos.Core                         (EpochIndex, SlotId (..), addressHash,
                                                    addressHash)
+import           Pos.Core.Arbitrary.Unsafe        ()
 import           Pos.Crypto                       (SecretKey, deterministicVssKeyGen,
                                                    toVssPublicKey)
 import           Pos.Ssc.Arbitrary                (SscPayloadDependsOnSlot (..))
+import           Pos.Ssc.GodTossing.Constants     (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core          (Commitment (..), CommitmentsMap,
                                                    GtPayload (..), GtProof (..),
                                                    Opening (..), Opening (..),
@@ -43,7 +44,6 @@ import           Pos.Ssc.GodTossing.Types.Message (GtTag (..), MCCommitment (..)
 import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
-import           Pos.Core.Types.Arbitrary.Unsafe  ()
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)
 

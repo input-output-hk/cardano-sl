@@ -10,10 +10,9 @@ import           Data.Tagged              (Tagged)
 import           Test.Hspec               (Spec, describe)
 
 import           Pos.Binary               ()
-import           Pos.Block.Arbitrary      (SmallTxPayload)
 import           Pos.Communication.Relay  as R
 import qualified Pos.Txp                  as T
-import           Pos.Txp.Arbitrary        ()
+import           Pos.Txp.Arbitrary        (SmallTxPayload)
 import           Test.Pos.Arbitrary.Infra ()
 
 import           Test.Pos.Util            (binaryTest, msgLenLimitedTest,

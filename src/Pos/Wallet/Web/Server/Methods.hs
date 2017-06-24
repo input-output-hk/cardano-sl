@@ -129,7 +129,7 @@ import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, MonadWalletWe
                                                    WalletWebSockets, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
-import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing),
+import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing), CustomAddressType (ChangeAddr, UsedAddr),
                                                    WalletWebDB, WebWalletModeDB,
                                                    addOnlyNewTxMeta, addUpdate,
                                                    addWAddress, closeState, createAccount,
@@ -138,16 +138,17 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    getNextUpdate, getProfile, getTxMeta,
                                                    getWAddressIds, getWalletAddresses,
                                                    getWalletMeta, getWalletPassLU,
-                                                   openState, removeAccount,
-                                                   removeNextUpdate, removeWallet,
-                                                   setAccountMeta, setProfile,
-                                                   setWalletMeta, setWalletPassLU,
-                                                   setWalletTxMeta, testReset,
-                                                   updateHistoryCache)
+                                                   isCustomAddress, openState,
+                                                   removeAccount, removeNextUpdate,
+                                                   removeWallet, setAccountMeta,
+                                                   setProfile, setWalletMeta,
+                                                   setWalletPassLU, setWalletTxMeta,
+                                                   testReset, updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
-import           Pos.Wallet.Web.Tracking          (BlockLockMode, MonadWalletTracking,
+import           Pos.Wallet.Web.Tracking          (BlockLockMode, CAccModifier (..),
+                                                   MonadWalletTracking,
                                                    selectAccountsFromUtxoLock,
-                                                   syncWSetsWithGStateLock,
+                                                   syncWalletsWithGStateLock,
                                                    txMempoolToModifier)
 import           Pos.Web.Server                   (serveImpl)
 
@@ -198,7 +199,7 @@ walletServer
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
-    syncWSetsWithGStateLock @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
+    syncWalletsWithGStateLock @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
     nat >>= launchNotifier
     (`enter` servantHandlers sendActions) <$> nat
 
@@ -395,17 +396,17 @@ getWAddress :: WalletWebMode m => CWAddressMeta -> m CAddress
 getWAddress cAddr = do
     let aId = cwamId cAddr
     balance <- getWAddressBalance cAddr
-    let addrAccount = addrMetaToAccount cAddr
-    (ctxs, _) <-
-        getHistory
-            Nothing
-            (Just addrAccount)  -- just to specify addrId is not enough
-            (Just aId)
-    let isUsed = not (null ctxs) || balance > minBound
-    -- Suppose we have transaction with inputs A1, A2, A3. Output address B_j is referred to as change address if it belongs to same account as one of A_i
-    acctAddrs <- (S.fromList . map cwamId) <$> getAccountAddrsOrThrow Ever addrAccount
-    let containsChangeAddr CTx {..} = aId `elem` ctOutputAddrs && any (`S.member` acctAddrs) ctInputAddrs
-    let isChange = any containsChangeAddr ctxs
+
+    -- get info about flags which came from mempool
+    cAccMod <- txMempoolToModifier =<< getSKByAddr (cwamWId cAddr)
+
+    let getFlag customType accessMod = do
+            checkDB <- isCustomAddress customType (cwamId cAddr)
+            let checkMempool = elem aId . map (fst . fst) . toList $
+                               MM.insertions $ accessMod cAccMod
+            return (checkDB || checkMempool)
+    isUsed   <- getFlag UsedAddr camUsed
+    isChange <- getFlag ChangeAddr camChange
     return $ CAddress aId (mkCCoin balance) isUsed isChange
 
 getAccountAddrsOrThrow
@@ -422,7 +423,7 @@ getAccount :: WalletWebMode m => AccountId -> m CAccount
 getAccount accId = do
     encSK <- getSKByAddr (aiWId accId)
     addrs <- getAccountAddrsOrThrow Existing accId
-    modifier <- txMempoolToModifier encSK
+    modifier <- camAddresses <$> txMempoolToModifier encSK
     let insertions = map fst (MM.insertions modifier)
     let mergedAccAddrs = ordNub $ addrs ++ insertions
     mergedAccs <- mapM getWAddress mergedAccAddrs
@@ -464,7 +465,6 @@ decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
 decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
 decodeCCoinOrFail c =
     coinFromCCoin c `whenNothing` throwM (DecodeError "Wrong coin format")
-
 
 getWalletAccountIds :: WalletWebMode m => CId Wal -> m [AccountId]
 getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getWAddressIds
@@ -745,11 +745,11 @@ newAddress
     -> AccountId
     -> m CAddress
 newAddress addGenSeed passphrase accId = do
-    -- check wallet exists
+    -- check account exists
     _ <- getAccount accId
 
     cAccAddr <- genUniqueAccountAddress addGenSeed passphrase accId
-    addWAddress cAccAddr
+    _ <- addWAddress cAccAddr
     getWAddress cAccAddr
 
 newAccount :: WalletWebMode m => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount

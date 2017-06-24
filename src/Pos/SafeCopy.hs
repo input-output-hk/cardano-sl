@@ -28,6 +28,8 @@ import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey
 import           Pos.Ssc.Class.Types             (Ssc (..))
 
 import           Pos.Block.Core
+import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
+                                                  TxSizeLinear (..))
 import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..),
                                                   ApplicationName (..), BlockVersion (..),
                                                   BlockVersionData (..),
@@ -130,6 +132,9 @@ deriveSafeCopySimple 0 'base ''GenesisExtraBodyData
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData
+deriveSafeCopySimple 0 'base ''Coeff
+deriveSafeCopySimple 0 'base ''TxSizeLinear
+deriveSafeCopySimple 0 'base ''TxFeePolicy
 deriveSafeCopySimple 0 'base ''BlockVersionData
 deriveSafeCopySimple 0 'base ''UpdateProposal
 deriveSafeCopySimple 0 'base ''UpdateVote

@@ -4,6 +4,7 @@ import           Universum
 
 import           Pos.Binary.Class        (Bi (..), UnsignedVarInt (..), label, putWord8)
 import qualified Pos.Binary.Core.Coin    as BinCoin
+import           Pos.Binary.Core.Fee     ()
 import           Pos.Binary.Core.Script  ()
 import           Pos.Binary.Core.Version ()
 import qualified Pos.Core.Types          as T
@@ -76,6 +77,7 @@ instance Bi T.BlockVersionData where
         bvdUpdateProposalThd <- get
         bvdUpdateImplicit    <- get
         bvdUpdateSoftforkThd <- get
+        bvdTxFeePolicy       <- get
         return $ T.BlockVersionData {..}
     put T.BlockVersionData {..} = do
         put bvdScriptVersion
@@ -90,3 +92,4 @@ instance Bi T.BlockVersionData where
         put bvdUpdateProposalThd
         put bvdUpdateImplicit
         put bvdUpdateSoftforkThd
+        put bvdTxFeePolicy

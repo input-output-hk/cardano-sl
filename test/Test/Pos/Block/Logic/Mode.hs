@@ -24,20 +24,21 @@ import qualified Data.HashMap.Strict     as HM
 import qualified Data.Map.Strict         as M
 import qualified Data.Text.Buildable
 import qualified Ether
-import           Formatting              (bprint, build, formatToString, int, (%))
+import           Formatting              (bprint, build, formatToString, int, shown, (%))
 import           Mockable                (Production, currentTime, runProduction)
 import qualified Prelude
 import           System.IO.Temp          (withSystemTempDirectory)
 import           System.Wlog             (HasLoggerName (..), LoggerName)
-import           Test.QuickCheck         (Arbitrary (..), Testable (..), ioProperty,
-                                          suchThat)
+import           Test.QuickCheck         (Arbitrary (..), Gen, Testable (..), choose,
+                                          ioProperty, oneof)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Block.Core          (Block, BlockHeader)
 import           Pos.Block.Types         (Undo)
 import           Pos.Context             (GenesisUtxo (..))
 import           Pos.Core                (IsHeader, StakeDistribution (..), StakeholderId,
-                                          Timestamp (..), addressHash, makePubKeyAddress)
+                                          Timestamp (..), addressHash, makePubKeyAddress,
+                                          mkCoin, unsafeGetCoin)
 import           Pos.Crypto              (SecretKey, toPublic, unsafeHash)
 import           Pos.DB                  (MonadBlockDBGeneric (..), MonadDB (..),
                                           MonadDBRead (..), MonadGState (..), NodeDBs,
@@ -85,14 +86,18 @@ type BaseMonad = Production
 -- | This data type contains all parameters which should be generated
 -- before testing starts.
 data TestParams = TestParams
-    { tpGenUtxo    :: !GenesisUtxo
+    { tpGenUtxo           :: !GenesisUtxo
     -- ^ Genesis 'Utxo'.
-    , tpSecretKeys :: !(HashMap StakeholderId SecretKey)
+    , tpSecretKeys        :: !(HashMap StakeholderId SecretKey)
     -- ^ Secret keys corresponding to 'PubKeyAddress'es from
     -- genesis 'Utxo'.
     -- They are stored in map (with 'StakeholderId' as key) to make it easy
     -- to find 'SecretKey' corresponding to given 'StakeholderId'.
     -- In tests we often want to have inverse of 'hash' and 'toPublic'.
+    , tpStakeDistribution :: !StakeDistribution
+    -- ^ Stake distribution which was used to generate genesis utxo.
+    -- It's primarily needed to see which distribution was used (e. g.
+    -- when test fails).
     }
 
 instance Buildable TestParams where
@@ -100,36 +105,42 @@ instance Buildable TestParams where
         bprint ("TestParams {\n"%
                 "  utxo = "%utxoF%"\n"%
                 "  secret keys: "%int%" items\n"%
+                "  stake distribution: "%shown%"\n"%
                 "}\n")
-            utxo (length tpSecretKeys)
+            utxo (length tpSecretKeys) tpStakeDistribution
       where
         utxo = tpGenUtxo & \(GenesisUtxo u) -> u
 
 instance Show TestParams where
     show = formatToString build
 
+-- More distributions can be added if we want (e. g. RichPoor).
+genSuitableStakeDistribution :: Word -> Gen StakeDistribution
+genSuitableStakeDistribution stakeholdersNum =
+    oneof [genFlat, genBitcoin, pure ExponentialStakes]
+  where
+    totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
+    genFlat =
+        FlatStakes stakeholdersNum <$> totalCoins
+    genBitcoin = BitcoinStakes stakeholdersNum <$> totalCoins
+
 instance Arbitrary TestParams where
     arbitrary = do
-        secretKeysList <- arbitrary
+        secretKeysList <- toList @(NonEmpty SecretKey) <$> arbitrary
         let toSecretPair sk = (addressHash (toPublic sk), sk)
         let tpSecretKeys = HM.fromList $ map toSecretPair secretKeysList
-        let suitableDistribution =
-                \case
-                    FlatStakes _ _ -> True
-                    BitcoinStakes _ _ -> True
-                    RichPoorStakes {} -> True
-                    ExponentialStakes -> True
-                    _ -> False
-        -- TODO: avoid `suchThat` and add generator which always generates
-        -- suitable distribution, but probably after CSL-1160.
-        sd <- arbitrary `suchThat` suitableDistribution
+        tpStakeDistribution <-
+            genSuitableStakeDistribution (fromIntegral $ length secretKeysList)
         let zipF secretKey (coin, toaDistr) =
                 let addr = makePubKeyAddress (toPublic secretKey)
                     toaOut = TxOut addr coin
                 in (TxIn (unsafeHash addr) 0, TxOutAux {..})
         let tpGenUtxo =
                 GenesisUtxo . M.fromList $
-                zipWith zipF secretKeysList (stakeDistribution sd)
+                zipWith
+                    zipF
+                    secretKeysList
+                    (stakeDistribution tpStakeDistribution)
         return TestParams {..}
 
 ----------------------------------------------------------------------------

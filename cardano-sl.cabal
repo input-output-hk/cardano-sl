@@ -463,6 +463,7 @@ executable cardano-node
                      , Secrets
   build-depends:       base
                      , ansi-wl-pprint
+                     , gitrev
                      , binary
                      , bytestring
                      , cardano-sl-core
@@ -537,6 +538,8 @@ executable cardano-analyzer
   other-modules:       AnalyzerOptions
   if !flag(for-installer)
    build-depends:      base
+                     , gitrev
+                     , log-warper
                      , aeson
                      , ansi-wl-pprint
                      , attoparsec
@@ -736,6 +739,8 @@ executable cardano-dht-keygen
   main-is:             Main.hs
   if !flag(for-installer)
    build-depends:      QuickCheck
+                     , gitrev
+                     , log-warper
                      , base
                      , aeson
                      , array
@@ -847,6 +852,8 @@ executable cardano-checks
   if !flag(for-installer)
    build-depends:      base
                      , ansi-wl-pprint
+                     , gitrev
+                     , log-warper
                      , containers
                      , foldl
                      , optparse-simple
@@ -875,6 +882,8 @@ executable cardano-genupdate
   main-is:             Main.hs
   build-depends:       base
                      , ansi-wl-pprint
+                     , gitrev
+                     , log-warper
                      , bytestring
                      , cryptonite
                      , foldl
@@ -910,6 +919,7 @@ executable cardano-keygen
                      , Testnet
   if !flag(for-installer)
    build-depends:      QuickCheck >= 2.9
+                     , gitrev
                      , Glob
                      , base
                      , aeson
@@ -974,6 +984,8 @@ executable cardano-launcher
   main-is:             Main.hs
   build-depends:       ansi-wl-pprint
                      , async
+                     , gitrev
+                     , log-warper
                      , base
                      , optparse-simple
                      , cardano-report-server >= 0.1.1
@@ -1013,6 +1025,8 @@ executable cardano-addr-convert
   main-is:             Main.hs
   build-depends:       base
                      , ansi-wl-pprint
+                     , gitrev
+                     , log-warper
                      , bytestring
                      , cardano-sl
                      , cardano-sl-core

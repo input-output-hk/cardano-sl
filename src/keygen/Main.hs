@@ -1,9 +1,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Main
        ( main
        ) where
 
+import           Development.GitRev   (gitBranch, gitHash)
 import           Control.Lens         (each, _head)
 import           Data.Aeson           (eitherDecode)
 import qualified Data.ByteString.Lazy as BSL
@@ -14,7 +16,7 @@ import           Serokell.Util.Text   (listJson)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      (takeDirectory, (</>))
 import           System.FilePath.Glob (glob)
-import           System.Wlog          (WithLogger, usingLoggerName)
+import           System.Wlog          (logInfo, WithLogger, usingLoggerName)
 import           Universum
 
 import           Pos.Binary           (decodeFull, encode)
@@ -117,6 +119,7 @@ getAvvmGenesis AvvmStakeOptions {..} = do
 
 main :: IO ()
 main = do
+    usingLoggerName "kifla" $ logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     ko@(KeygenOptions{..}) <- getKeygenOptions
     usingLoggerName "keygen" $
         if | Just msk <- koRearrangeMask  -> rearrange msk

@@ -3,11 +3,13 @@
 {-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Main
        ( main
        ) where
 
+import           Development.GitRev         (gitBranch, gitHash)
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.Reader       (MonadReader (..), ReaderT, runReaderT)
 import           Control.Monad.Trans.Either (EitherT (..))
@@ -25,7 +27,7 @@ import           Formatting                 (build, int, sformat, stext, (%))
 import           Mockable                   (Production, delay, runProduction)
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import           System.IO                  (hFlush, stdout)
-import           System.Wlog                (logDebug, logError, logInfo, logWarning)
+import           System.Wlog                (logDebug, logError, logInfo, logWarning, usingLoggerName)
 #if !(defined(mingw32_HOST_OS))
 import           System.Exit                (ExitCode (ExitSuccess))
 import           System.Posix.Process       (exitImmediately)
@@ -314,6 +316,7 @@ main = do
             }
         baseParams = BaseParams { bpLoggingParams = logParams }
 
+    usingLoggerName "kifla" $ logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     let sysStart = CLI.sysStart woCommonArgs
     let params =
             WalletParams

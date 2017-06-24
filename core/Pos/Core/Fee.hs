@@ -39,8 +39,8 @@ calculateTxSizeLinear
 
 -- | Transaction fee policy represents a formula to compute the minimal allowed
 -- fee for a transaction. Transactions with lesser fees won't be accepted. The
--- minimal fee depends on the properties of a transaction (for example, its
--- size in bytes), so the minimal fee cannot be a constant.
+-- minimal fee may depend on the properties of a transaction (for example, its
+-- size in bytes), so the policy can't be represented simply as a number.
 --
 -- Recall that a transaction fee is the difference between the sum of its
 -- inputs and the sum of its outputs. The transaction is accepted when

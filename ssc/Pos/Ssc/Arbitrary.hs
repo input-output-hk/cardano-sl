@@ -8,7 +8,7 @@ import           Test.QuickCheck          (Arbitrary (..), Gen)
 
 import           Pos.Ssc.Class.Types      (Ssc (..))
 import           Pos.Ssc.NistBeacon       (SscNistBeacon)
-import           Pos.Types                (SlotId)
+import           Pos.Core                 (SlotId)
 
 newtype SscPayloadDependsOnSlot ssc = SscPayloadDependsOnSlot
     { genPayloadDependsOnSlot :: SlotId -> Gen (SscPayload ssc)

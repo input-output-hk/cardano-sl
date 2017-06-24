@@ -18,9 +18,9 @@ import           Test.QuickCheck                  (Arbitrary (..), Gen, choose, 
                                                    listOf, oneof)
 
 import           Pos.Binary.Class                 (asBinary)
-import           Pos.Binary.Ssc                   ()
+import           Pos.Binary.GodTossing            ()
 import           Pos.Communication.Types.Relay    (DataMsg (..))
-import           Pos.Constants                    (vssMaxTTL, vssMinTTL)
+import           Pos.Ssc.GodTossing.Constants     (vssMaxTTL, vssMinTTL)
 import           Pos.Core                         (EpochIndex, SlotId (..), addressHash,
                                                    addressHash)
 import           Pos.Crypto                       (SecretKey, deterministicVssKeyGen,

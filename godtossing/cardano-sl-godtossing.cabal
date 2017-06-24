@@ -13,6 +13,8 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+    Pos.Ssc.GodTossing.Arbitrary
+
     Pos.Ssc.GodTossing.Core
     Pos.Ssc.GodTossing.Core.Types
     Pos.Ssc.GodTossing.Core.Core
@@ -78,6 +80,7 @@ library
                      , mono-traversable
                      , mtl
                      , node-sketch
+                     , QuickCheck
                      , rocksdb
                      , serokell-util
                      , stm

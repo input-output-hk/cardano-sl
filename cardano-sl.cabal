@@ -83,9 +83,8 @@ library
                         Pos.Security.Workers
 
                         -- SSC
-                        Pos.Ssc.Arbitrary
+
                         Pos.Ssc.GodTossing
-                        Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
 
                         -- Client
@@ -235,8 +234,6 @@ library
 
                         -- SSC
                         Pos.Ssc.Util
-
-                        Pos.Ssc.GodTossing.Arbitrary
 
                         -- Txp
                         Pos.Txp.Network

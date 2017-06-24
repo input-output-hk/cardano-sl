@@ -30,6 +30,7 @@ import           Serokell.Util              (sec)
 import           Pos.Core.Constants.Raw     (CoreConstants (..), coreConstants,
                                              staticSysStartRaw)
 import           Pos.Core.Fee               (TxFeePolicy)
+import           Pos.Core.Fee.Config        (ConfigOf (..))
 import           Pos.Core.Types             (BlockVersionData (..), CoinPortion,
                                              ScriptVersion, Timestamp (..),
                                              unsafeCoinPortionFromDouble)
@@ -122,4 +123,4 @@ genesisUpdateSoftforkThd = unsafeCoinPortionFromDouble $
     ccGenesisUpdateSoftforkThd coreConstants
 
 genesisTxFeePolicy :: Maybe TxFeePolicy
-genesisTxFeePolicy = ccGenesisTxFeePolicy coreConstants
+genesisTxFeePolicy = getConfigOf <$> ccGenesisTxFeePolicy coreConstants

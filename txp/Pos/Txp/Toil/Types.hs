@@ -69,6 +69,7 @@ utxoF = later formatUtxo
 
 -- | tx.fee = sum(tx.in) - sum (tx.out)
 newtype TxFee = TxFee Coin
+    deriving (Show, Eq, Generic)
 
 ----------------------------------------------------------------------------
 -- BalancesView

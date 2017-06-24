@@ -135,6 +135,7 @@ verifyToilEnv txAux txFee = do
             unless (txFeePolicyAdherent txFee txFeePolicy txSize) $
                 throwError ToilInsufficientFee
                     { tifSize = txSize
+                    , tifFee = txFee
                     , tifPolicy = txFeePolicy }
     when (txSize > limit) $
         throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}

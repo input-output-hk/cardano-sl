@@ -7,13 +7,10 @@ module Pos.Core.Fee
 
 import           Universum
 
-import qualified Data.Aeson                 as JSON
-import qualified Data.Aeson.Types           as JSON
-import           Data.Fixed                 (Fixed (..), Nano, resolution, showFixed)
+import           Data.Fixed                 (Fixed (..), Nano, showFixed)
 import qualified Data.Text.Buildable        as Buildable
 import           Formatting                 (bprint, build, shown, (%))
 import           Serokell.Data.Memory.Units (Byte, toBytes)
-import qualified Data.HashMap.Strict        as HM.S
 
 -- | A fractional coefficient of fixed precision.
 newtype Coeff = Coeff Nano
@@ -22,21 +19,9 @@ newtype Coeff = Coeff Nano
 instance Buildable Coeff where
     build (Coeff x) = fromString (showFixed True x)
 
-instance JSON.FromJSON Coeff where
-    parseJSON = JSON.withScientific "Coeff" $ \sc -> do
-        -- Code below is resistant to changes in precision of 'Coeff'.
-        let
-            rat = toRational sc * toRational res
-            fxd = MkFixed (numerator rat)
-            res = resolution fxd
-            bad = denominator rat /= 1
-        when bad $
-            fail "Fixed precision for coefficient exceeded"
-        return $ Coeff fxd
-
 -- | A linear equation on the transaction size. Represents the @\s -> a + b*s@
--- function where @s@ is the transaction size, @a@ and @b@ are constant
--- coefficients.
+-- function where @s@ is the transaction size in bytes, @a@ and @b@ are
+-- constant coefficients.
 data TxSizeLinear = TxSizeLinear !Coeff !Coeff
     deriving (Eq, Show, Generic)
 
@@ -46,18 +31,27 @@ instance Buildable TxSizeLinear where
     build (TxSizeLinear a b) =
         bprint (build%" + "%build%"*s") a b
 
-instance JSON.FromJSON TxSizeLinear where
-    parseJSON = JSON.withObject "TxSizeLinear" $ \o ->
-        TxSizeLinear
-            <$> o JSON..: "a"
-            <*> o JSON..: "b"
-
 calculateTxSizeLinear :: TxSizeLinear -> Byte -> Nano
 calculateTxSizeLinear
     (TxSizeLinear (Coeff a) (Coeff b))
     (fromInteger . toBytes -> txSize) =
         a + b * txSize
 
+-- | Transaction fee policy represents a formula to compute the minimal allowed
+-- fee for a transaction. Transactions with lesser fees won't be accepted. The
+-- minimal fee depends on the properties of a transaction (for example, its
+-- size in bytes), so the minimal fee cannot be a constant.
+--
+-- Recall that a transaction fee is the difference between the sum of its
+-- inputs and the sum of its outputs. The transaction is accepted when
+-- @minimal_fee(tx) <= fee(tx)@, where @minimal_fee@ is the function defined
+-- by the policy.
+--
+-- The policy can change during the lifetime of the blockchain (using the
+-- update mechanism). At the moment we have just one policy type (a linear
+-- equation on the transaction size), but in the future other policies may
+-- be added. To make this future-proof, we also have an "unknown" policy used
+-- by older node versions (the ones that haven't updated yet).
 data TxFeePolicy
     = TxFeePolicyTxSizeLinear !TxSizeLinear
     | TxFeePolicyUnknown !Word8 !ByteString
@@ -70,21 +64,3 @@ instance Buildable TxFeePolicy where
         bprint ("policy(tx-size-linear): "%build) tsp
     build (TxFeePolicyUnknown v bs) =
         bprint ("policy(unknown:"%build%"): "%shown) v bs
-
-instance JSON.FromJSON TxFeePolicy where
-    parseJSON = JSON.withObject "TxFeePolicy" $ \o -> do
-        (policyName, policyBody) <- case HM.S.toList o of
-            [] -> fail "TxFeePolicy: none provided"
-            [a] -> pure a
-            _ -> fail "TxFeePolicy: ambiguous choice"
-        let
-          policyParser :: JSON.FromJSON p => JSON.Parser p
-          policyParser = JSON.parseJSON policyBody
-        case policyName of
-            "txSizeLinear" -> TxFeePolicyTxSizeLinear <$> policyParser
-            "unknown" -> mkTxFeePolicyUnknown <$> policyParser
-            _ -> fail "TxFeePolicy: unknown policy name"
-        where
-            mkTxFeePolicyUnknown (policyTag, policyPayload) =
-                TxFeePolicyUnknown policyTag
-                    (encodeUtf8 @Text @ByteString policyPayload)

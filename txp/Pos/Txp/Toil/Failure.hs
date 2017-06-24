@@ -14,6 +14,7 @@ import           Serokell.Util.Verify       (formatAllErrors)
 
 import           Pos.Core                   (HeaderHash, TxFeePolicy)
 import           Pos.Txp.Core               (TxIn)
+import           Pos.Txp.Toil.Types         (TxFee)
 
 -- | Result of transaction processing
 data ToilVerFailure
@@ -31,6 +32,7 @@ data ToilVerFailure
     | ToilTooLargeTx { ttltSize  :: !Byte
                      , ttltLimit :: !Byte}
     | ToilInsufficientFee { tifPolicy :: !TxFeePolicy
+                          , tifFee    :: !TxFee
                           , tifSize   :: !Byte }
     | ToilUnknownAttributes !ByteString
     deriving (Show, Eq)

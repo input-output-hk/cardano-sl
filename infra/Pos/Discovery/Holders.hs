@@ -7,22 +7,22 @@ module Pos.Discovery.Holders
        ( DiscoveryTag
        , DiscoveryConstT
        , runDiscoveryConstT
+       , getPeersConst
+       , findPeersConst
        , DiscoveryKademliaT
        , askDHTInstance
        , runDiscoveryKademliaT
 
        , DiscoveryContextSum (..)
        , MonadDiscoverySum
-       , DiscoveryRedirect
        , askDiscoveryContextSum
-       , runDiscoveryRedirect
        , discoveryWorkers
+       , getPeersSum
+       , findPeersSum
        ) where
 
 import           Universum
 
-import           Control.Monad.Trans.Identity     (IdentityT (..))
-import           Data.Coerce                      (coerce)
 import qualified Data.Set                         as S (fromList)
 import qualified Ether
 import           Mockable                         (Async, Catch, Mockables, Promise,
@@ -54,9 +54,15 @@ data DiscoveryTag -- loneliness is something we all know
 -- set of peers and doesn't do anything on 'findPeers' call.
 type DiscoveryConstT m = Ether.ReaderT DiscoveryTag (Set NodeId) m
 
+getPeersConst :: Ether.MonadReader DiscoveryTag (Set NodeId) m => m (Set NodeId)
+getPeersConst = Ether.ask @DiscoveryTag
+
+findPeersConst :: Ether.MonadReader DiscoveryTag (Set NodeId) m => m (Set NodeId)
+findPeersConst = getPeersConst
+
 instance (Monad m) => MonadDiscovery (DiscoveryConstT m) where
-    getPeers = Ether.ask @DiscoveryTag
-    findPeers = getPeers
+    getPeers = getPeersConst
+    findPeers = findPeersConst
 
 runDiscoveryConstT :: (Set NodeId) -> DiscoveryConstT m a -> m a
 runDiscoveryConstT = flip (Ether.runReaderT @DiscoveryTag)
@@ -112,27 +118,23 @@ data DiscoveryContextSum
 -- uses only one of them).
 type MonadDiscoverySum = Ether.MonadReader' DiscoveryContextSum
 
-data DiscoveryRedirectTag
-
-type DiscoveryRedirect =
-    Ether.TaggedTrans DiscoveryRedirectTag IdentityT
-
-runDiscoveryRedirect :: DiscoveryRedirect m a -> m a
-runDiscoveryRedirect = coerce
-
 askDiscoveryContextSum :: MonadDiscoverySum m => m DiscoveryContextSum
 askDiscoveryContextSum = Ether.ask'
 
-instance (MonadDiscoverySum m, DiscoveryKademliaEnv m, t ~ IdentityT) =>
-         MonadDiscovery (Ether.TaggedTrans DiscoveryRedirectTag t m) where
-    getPeers =
-        Ether.ask' >>= \case
-            DCStatic nodes -> runDiscoveryConstT nodes getPeers
-            DCKademlia inst -> runDiscoveryKademliaT inst getPeers
-    findPeers =
-        Ether.ask' >>= \case
-            DCStatic nodes -> runDiscoveryConstT nodes findPeers
-            DCKademlia inst -> runDiscoveryKademliaT inst findPeers
+type DiscoverySumEnv m =
+    (MonadDiscoverySum m, DiscoveryKademliaEnv m)
+
+getPeersSum :: DiscoverySumEnv m => m (Set NodeId)
+getPeersSum =
+    Ether.ask' >>= \case
+        DCStatic nodes -> runDiscoveryConstT nodes getPeers
+        DCKademlia inst -> runDiscoveryKademliaT inst getPeers
+
+findPeersSum :: DiscoverySumEnv m => m (Set NodeId)
+findPeersSum =
+    Ether.ask' >>= \case
+        DCStatic nodes -> runDiscoveryConstT nodes findPeers
+        DCKademlia inst -> runDiscoveryKademliaT inst findPeers
 
 -- | Get all discovery workers using 'DiscoveryContextSum'.
 discoveryWorkers ::

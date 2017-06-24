@@ -128,26 +128,13 @@ class (MonadBaseControl IO m, MonadThrow m) => MonadDBRead m where
         , Bi (IterValue i)
         ) => DBTag -> Proxy i -> Source (ResourceT m) (IterType i)
 
-    default dbGet :: (MonadTrans t, MonadDBRead n, t n ~ m) =>
-        DBTag -> ByteString -> m (Maybe ByteString)
-    dbGet tag = lift . dbGet tag
-
-    default dbIterSource :: forall n t i .
-        ( DBIteratorClass i
-        , Bi (IterKey i)
-        , Bi (IterValue i)
-        , MonadTrans t
-        , MonadDBRead n
-        , t n ~ m
-        )
-        => DBTag -> Proxy i -> Source (ResourceT m) (IterType i)
-    dbIterSource tag _ =
-        let (c :: Source (ResourceT n) (IterType i)) = dbIterSource tag (Proxy @i)
-        in hoist (hoist lift) c
-
 instance {-# OVERLAPPABLE #-}
     (MonadDBRead m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
         MonadDBRead (t m)
+  where
+    dbGet tag = lift . dbGet tag
+    dbIterSource tag (p :: Proxy i) =
+        hoist (hoist lift) (dbIterSource tag p)
 
 -- | Pure interface to the database. Combines read-only interface and
 -- ability to put raw bytes.
@@ -175,21 +162,14 @@ class MonadDBRead m => MonadDB m where
     -- with given key from DB corresponding to given tag.
     dbDelete :: DBTag -> ByteString -> m ()
 
-    default dbPut :: (MonadTrans t, MonadDB n, t n ~ m) =>
-        DBTag -> ByteString -> ByteString -> m ()
-    dbPut = lift ... dbPut
-
-    default dbWriteBatch :: (MonadTrans t, MonadDB n, t n ~ m) =>
-        DBTag -> [Rocks.BatchOp] -> m ()
-    dbWriteBatch = lift ... dbWriteBatch
-
-    default dbDelete :: (MonadTrans t, MonadDB n, t n ~ m) =>
-        DBTag -> ByteString -> m ()
-    dbDelete = lift ... dbDelete
 
 instance {-# OVERLAPPABLE #-}
     (MonadDB m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
         MonadDB (t m)
+  where
+    dbPut = lift ... dbPut
+    dbWriteBatch = lift ... dbWriteBatch
+    dbDelete = lift ... dbDelete
 
 ----------------------------------------------------------------------------
 -- GState abstraction

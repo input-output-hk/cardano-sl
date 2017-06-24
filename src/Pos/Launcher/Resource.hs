@@ -24,15 +24,12 @@ module Pos.Launcher.Resource
 import           Universum                   hiding (bracket, finally)
 
 import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO)
-import           Control.Monad.Base          (MonadBase)
-import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default                (def)
-import           Data.Tagged                 (Tagged (..), untag)
+import           Data.Tagged                 (untag)
 import qualified Data.Time                   as Time
-import qualified Ether
 import           Formatting                  (sformat, shown, (%))
-import           Mockable                    (Catch, Mockable, MonadMockable,
-                                              Production (..), Throw, bracket, throw)
+import           Mockable                    (Catch, Mockable, Production (..), Throw,
+                                              bracket, throw)
 import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport.Abstract  (Transport, closeTransport, hoistTransport)
 import           Network.Transport.Concrete  (concrete)
@@ -51,9 +48,8 @@ import qualified Pos.Constants               as Const
 import           Pos.Context                 (BlkSemaphore (..), ConnectedPeers (..),
                                               GenesisLeaders (..), GenesisUtxo (..),
                                               NodeContext (..), StartTime (..))
-import           Pos.Core                    (Timestamp ())
-import           Pos.DB                      (MonadDBRead, NodeDBs, runDBPureRedirect)
-import           Pos.DB.Block                (runBlockDBRedirect)
+import           Pos.Core                    (Timestamp)
+import           Pos.DB                      (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                   (closeNodeDBs, initNodeDBs, openNodeDBs)
 import           Pos.DB.GState               (getTip)
 import           Pos.Delegation.Class        (DelegationVar)
@@ -64,9 +60,9 @@ import           Pos.Genesis                 (genesisLeaders)
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NetworkParams (..), NodeParams (..))
 import           Pos.Lrc.Context             (LrcContext (..), mkLrcSyncData)
+import           Pos.Shutdown.Types          (ShutdownContext (..))
 import           Pos.Slotting                (SlottingContextSum (..), SlottingVar,
-                                              mkNtpSlottingVar, runSlotsDataRedirect,
-                                              runSlotsRedirect)
+                                              mkNtpSlottingVar)
 import           Pos.Ssc.Class               (SscConstraint, SscParams,
                                               sscCreateNodeContext)
 import           Pos.Ssc.Extra               (SscState, mkSscState)
@@ -76,11 +72,14 @@ import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
 import           Pos.Txp                     (txpGlobalSettings)
 #endif
+import           Pos.Launcher.Mode           (InitMode, InitModeContext (..),
+                                              newInitFuture, runInitMode)
 import           Pos.Security                (SecurityWorkersClass)
 import           Pos.Update.Context          (UpdateContext (..))
 import qualified Pos.Update.DB               as GState
 import           Pos.Update.MemState         (newMemVar)
 import           Pos.Util.Concurrent.RWVar   as RWV
+import           Pos.Util.Util               (powerLift)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (TxpExtra_TMP)
 
@@ -117,63 +116,52 @@ hoistNodeResources nat nr =
 ----------------------------------------------------------------------------
 
 -- | Allocate all resources used by node. They must be released eventually.
-allocateNodeResources ::
-       forall ssc m.
-       ( SscConstraint ssc
-       , SecurityWorkersClass ssc
-       , WithLogger m
-       , MonadIO m
-       , MonadMockable m
-       , MonadMask m
-       , MonadBase IO m
-       , MonadBaseControl IO m
-       )
+allocateNodeResources
+    :: forall ssc.
+      (SscConstraint ssc, SecurityWorkersClass ssc)
     => NodeParams
     -> SscParams ssc
-    -> m $ NodeResources ssc m
+    -> Production (NodeResources ssc Production)
 allocateNodeResources np@NodeParams {..} sscnp = do
     db <- openNodeDBs npRebuildDb npDbPathM
-    -- TODO: usage of 'runResourceT' here is strange.
-    let runDBAction = flip Ether.runReaderT' db . runDBPureRedirect
-    let genLeaders = genesisLeaders npCustomUtxo
-    -- DB initialization is hard.
-    flip
-        Ether.runReadersT
-        ( Tagged @GenesisUtxo (GenesisUtxo npCustomUtxo)
-        , Tagged @GenesisLeaders (GenesisLeaders genLeaders)
-        , Tagged @NodeDBs db
-        , Tagged @NodeParams np) $
-        runDBPureRedirect . runBlockDBRedirect $ initNodeDBs @ssc
-    ctx@NodeContext {..} <- runDBAction $ allocateNodeContext np sscnp
-    initTip <- runDBAction getTip
-    setupLoggers $ bpLoggingParams npBaseParams
-    dlgVar <- RWV.new def
-    txpVar <- mkTxpLocalData mempty initTip
-    peerState <- liftIO SM.newIO
-    sscState <-
-        runDBAction .
-        flip
-            Ether.runReadersT
-            ( Tagged @SlottingVar ncSlottingVar
-            , Tagged @SlottingContextSum ncSlottingContext
-            , Tagged @LrcContext ncLrcContext) .
-        runSlotsDataRedirect . runSlotsRedirect $
-        mkSscState @ssc
-    nrTransport <- createTransportTCP $ npTcpAddr npNetwork
-    nrJLogHandle <-
-        case npJLFile of
-            Nothing -> pure Nothing
-            Just fp -> Just <$> openFile fp WriteMode
-    return
-        NodeResources
-        { nrContext = ctx
-        , nrDBs = db
-        , nrSscState = sscState
-        , nrTxpState = txpVar
-        , nrDlgState = dlgVar
-        , nrPeerState = peerState
-        , ..
-        }
+    (futureLrcContext, putLrcContext) <- newInitFuture
+    (futureSlottingVar, putSlottingVar) <- newInitFuture
+    (futureSlottingContext, putSlottingContext) <- newInitFuture
+    let putSlotting sv sc = do
+            putSlottingVar sv
+            putSlottingContext sc
+        initModeContext = InitModeContext
+            db
+            (GenesisUtxo npCustomUtxo)
+            (GenesisLeaders (genesisLeaders npCustomUtxo))
+            np
+            futureSlottingVar
+            futureSlottingContext
+            futureLrcContext
+    runInitMode initModeContext $ do
+        initNodeDBs @ssc
+        ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting
+        putLrcContext ncLrcContext
+        initTip <- getTip
+        setupLoggers $ bpLoggingParams npBaseParams
+        dlgVar <- RWV.new def
+        txpVar <- mkTxpLocalData mempty initTip
+        peerState <- liftIO SM.newIO
+        sscState <- mkSscState @ssc
+        nrTransport <- powerLift @Production $ createTransportTCP $ npTcpAddr npNetwork
+        nrJLogHandle <-
+            case npJLFile of
+                Nothing -> pure Nothing
+                Just fp -> Just <$> openFile fp WriteMode
+        return NodeResources
+            { nrContext = ctx
+            , nrDBs = db
+            , nrSscState = sscState
+            , nrTxpState = txpVar
+            , nrDlgState = dlgVar
+            , nrPeerState = peerState
+            , ..
+            }
 
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
@@ -188,21 +176,12 @@ releaseNodeResources NodeResources {..} = do
 
 -- | Run computation which requires 'NodeResources' ensuring that
 -- resources will be released eventually.
-bracketNodeResources ::
-       forall ssc m a.
-       ( SscConstraint ssc
-       , SecurityWorkersClass ssc
-       , MonadIO m
-       , WithLogger m
-       , MonadMockable m
-       , MonadMask m
-       , MonadBase IO m
-       , MonadBaseControl IO m
-       )
+bracketNodeResources :: forall ssc a.
+      (SscConstraint ssc, SecurityWorkersClass ssc)
     => NodeParams
     -> SscParams ssc
-    -> (NodeResources ssc m -> m a)
-    -> m a
+    -> (NodeResources ssc Production -> Production a)
+    -> Production a
 bracketNodeResources np sp =
     bracket (allocateNodeResources np sp) releaseNodeResources
 
@@ -229,22 +208,14 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 -- NodeContext
 ----------------------------------------------------------------------------
 
-allocateNodeContext ::
-       forall ssc m.
-       ( SscConstraint ssc
-       , SecurityWorkersClass ssc
-       , MonadIO m
-       , WithLogger m
-       , MonadMockable m
-       , MonadMask m
-       , MonadBase IO m
-       , MonadBaseControl IO m
-       , MonadDBRead m
-       )
+allocateNodeContext
+    :: forall ssc .
+      (SscConstraint ssc, SecurityWorkersClass ssc)
     => NodeParams
     -> SscParams ssc
-    -> m $ NodeContext ssc
-allocateNodeContext np@NodeParams {..} sscnp = do
+    -> (SlottingVar -> SlottingContextSum -> InitMode ssc ())
+    -> InitMode ssc (NodeContext ssc)
+allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
     ncBlkSemaphore <- BlkSemaphore <$> newEmptyMVar
     ucUpdateSemaphore <- newEmptyMVar
@@ -259,12 +230,7 @@ allocateNodeContext np@NodeParams {..} sscnp = do
         case npUseNTP of
             True  -> SCNtp <$> mkNtpSlottingVar
             False -> pure SCSimple
-    let runSlottingAction =
-            flip
-                Ether.runReadersT
-                ( Tagged @SlottingVar ncSlottingVar
-                , Tagged @SlottingContextSum ncSlottingContext) .
-            runSlotsDataRedirect . runSlotsRedirect
+    putSlotting ncSlottingVar ncSlottingContext
     ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $ newTBQueueIO Const.blockRetrievalQueueSize
     ncInvPropagationQueue <- liftIO $ newTBQueueIO Const.propagationQueueSize
@@ -273,7 +239,7 @@ allocateNodeContext np@NodeParams {..} sscnp = do
     ncShutdownFlag <- newTVarIO False
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
-    ucMemState <- runSlottingAction newMemVar
+    ucMemState <- newMemVar
     ucDownloadingUpdates <- newTVarIO mempty
     ncSscContext <- untag @ssc sscCreateNodeContext sscnp
     -- TODO synchronize the NodeContext peers var with whatever system
@@ -284,10 +250,9 @@ allocateNodeContext np@NodeParams {..} sscnp = do
             { ncConnectedPeers = ConnectedPeers peersVar
             , ncLrcContext = LrcContext {..}
             , ncUpdateContext = UpdateContext {..}
+            , ncShutdownContext = ShutdownContext ncShutdownFlag shutdownQueue
             , ncNodeParams = np
-            , ncGenesisLeaders = genesisLeaders npCustomUtxo
-            , ncSendLock = Nothing
-            , ncShutdownNotifyQueue = shutdownQueue
+            , ncGenesisLeaders = GenesisLeaders (genesisLeaders npCustomUtxo)
 #ifdef WITH_EXPLORER
             , ncTxpGlobalSettings = explorerTxpGlobalSettings
 #else

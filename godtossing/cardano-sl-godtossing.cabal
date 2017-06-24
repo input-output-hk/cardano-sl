@@ -81,7 +81,7 @@ library
                      , mtl
                      , node-sketch
                      , QuickCheck
-                     , rocksdb
+                     , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , stm
                      , tagged

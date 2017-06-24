@@ -99,6 +99,7 @@ library
   build-depends:        aeson
                       , base
                       , parsec
+                      , base64-bytestring
                       , binary
                       , bytestring
                       , cardano-sl-core
@@ -120,6 +121,7 @@ library
                       , monad-control
                       , mtl
                       , network-info
+                      , network-transport
                       , network-transport-tcp
                       , node-sketch
                       , optparse-simple

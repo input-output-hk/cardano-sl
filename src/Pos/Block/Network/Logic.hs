@@ -62,10 +62,12 @@ import qualified Pos.DB.DB                  as DB
 import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
-import           Pos.Reporting.Methods      (reportMisbehaviourMasked)
+import           Pos.Reporting.Methods      (reportMisbehaviourSilent)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.JsonLog           (jlAdoptedBlock)
+import           Pos.Util.TimeWarp          (CanJsonLog (..))
 import           Pos.WorkMode.Class         (WorkMode)
 
 ----------------------------------------------------------------------------
@@ -442,6 +444,7 @@ applyWithoutRollback sendActions blocks = do
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
             relayBlock sendActions toRelay
             logInfo $ blocksAppliedMsg applied
+            for_ blocks $ jsonLog . jlAdoptedBlock
   where
     newestTip = blocks ^. _Wrapped . _neLast . headerHashG
     applyWithoutRollbackDo
@@ -476,6 +479,7 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
             reportRollback
             logInfo $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo $ blocksAppliedMsg (getOldestFirst toApply)
+            for_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
             relayBlock sendActions $ toApply ^. _Wrapped . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback
@@ -487,7 +491,7 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
     reportRollback =
         unlessM recoveryInProgress $ do
             logDebug "Reporting rollback happened"
-            reportMisbehaviourMasked version $
+            reportMisbehaviourSilent version $
                 sformat reportF nodeId toRollbackHashes toApplyHashes
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

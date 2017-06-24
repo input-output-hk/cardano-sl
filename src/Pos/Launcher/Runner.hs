@@ -1,8 +1,6 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-{-# OPTIONS -fno-cross-module-specialise #-}
-
 -- | Runners in various modes.
 
 module Pos.Launcher.Runner
@@ -14,49 +12,38 @@ module Pos.Launcher.Runner
        , runServer
        ) where
 
-import           Universum                   hiding (finally)
+import           Universum                  hiding (finally)
 
-import           Control.Monad.Fix           (MonadFix)
-import           Data.Tagged                 (Tagged (..))
-import qualified Ether
-import           Formatting                  (build, sformat, (%))
-import           Mockable                    (MonadMockable, Production (..), finally)
-import           Network.Transport.Abstract  (Transport)
-import           Node                        (Node, NodeAction (..),
-                                              defaultNodeEnvironment, hoistSendActions,
-                                              node, simpleNodeEndPoint)
-import           Node.Util.Monitor           (setupMonitor, stopMonitor)
-import qualified System.Metrics              as Metrics
-import           System.Random               (newStdGen)
-import qualified System.Remote.Monitoring    as Monitoring
-import           System.Wlog                 (WithLogger, logInfo, usingLoggerName)
+import           Control.Monad.Fix          (MonadFix)
+import qualified Control.Monad.Reader       as Mtl
+import           Formatting                 (build, sformat, (%))
+import           Mockable                   (MonadMockable, Production (..), finally)
+import           Network.Transport.Abstract (Transport)
+import           Node                       (Node, NodeAction (..),
+                                             defaultNodeEnvironment, hoistSendActions,
+                                             node, simpleNodeEndPoint)
+import           Node.Util.Monitor          (setupMonitor, stopMonitor)
+import qualified System.Metrics             as Metrics
+import           System.Random              (newStdGen)
+import qualified System.Remote.Monitoring   as Monitoring
+import           System.Wlog                (WithLogger, logInfo)
 
-import           Pos.Binary                  ()
-import           Pos.Block.BListener         (runBListenerStub)
-import           Pos.Communication           (ActionSpec (..), BiP (..), InSpecs (..),
-                                              MkListeners (..), OutSpecs (..),
-                                              VerInfo (..), allListeners,
-                                              hoistMkListeners)
-import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect)
-import qualified Pos.Constants               as Const
-import           Pos.Context                 (NodeContext (..))
-import           Pos.DB                      (NodeDBs, runDBPureRedirect)
-import           Pos.DB.Block                (runBlockDBRedirect)
-import           Pos.DB.DB                   (runGStateCoreRedirect)
-import           Pos.Delegation.Class        (DelegationVar)
-import           Pos.DHT.Real                (foreverRejoinNetwork)
-import           Pos.Discovery               (DiscoveryContextSum (..),
-                                              runDiscoveryRedirect)
-import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
-                                              NodeParams (..))
-import           Pos.Launcher.Resource       (NodeResources (..), hoistNodeResources)
-import           Pos.Security                (SecurityWorkersClass)
-import           Pos.Slotting                (runSlotsDataRedirect, runSlotsRedirect)
-import           Pos.Ssc.Class               (SscConstraint)
-import           Pos.Ssc.Extra               (SscMemTag)
-import           Pos.Txp.MemState            (TxpHolderTag)
-import           Pos.Util.TimeWarp           (runJsonLogT')
-import           Pos.WorkMode                (RealMode (..), WorkMode)
+import           Pos.Binary                 ()
+import           Pos.Communication          (ActionSpec (..), BiP (..), InSpecs (..),
+                                             MkListeners (..), OutSpecs (..),
+                                             VerInfo (..), allListeners, hoistMkListeners)
+import qualified Pos.Constants              as Const
+import           Pos.Context                (NodeContext (..))
+import           Pos.DHT.Real               (foreverRejoinNetwork)
+import           Pos.Discovery              (DiscoveryContextSum (..))
+import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
+                                             NodeParams (..))
+import           Pos.Launcher.Resource      (NodeResources (..), hoistNodeResources)
+import           Pos.Security               (SecurityWorkersClass)
+import           Pos.Ssc.Class              (SscConstraint)
+import           Pos.Util.JsonLog           (JsonLogConfig (..), jsonLogConfigFromHandle)
+import           Pos.WorkMode               (RealMode, RealModeContext (..), WorkMode,
+                                             unRealMode)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -104,14 +91,18 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
         let startMonitoring node' = case lpEkgPort of
                 Nothing   -> return Nothing
                 Just port -> Just <$> do
-                        ekgStore' <- setupMonitor (runProduction . runToProd Nothing)
+                        ekgStore' <- setupMonitor (runProduction . runToProd JsonLogDisabled)
                             node' ekgStore
                         liftIO $ Metrics.registerGcMetrics ekgStore'
                         liftIO $ Monitoring.forkServerWith ekgStore' "127.0.0.1" port
 
         let stopMonitoring it = whenJust it stopMonitor
+        jsonLogConfig <- maybe
+            (pure JsonLogDisabled)
+            jsonLogConfigFromHandle
+            nrJLogHandle
 
-        runToProd nrJLogHandle $
+        runToProd jsonLogConfig $
             runServer nrTransport listeners outSpecs
             startMonitoring stopMonitoring action
   where
@@ -124,28 +115,17 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
         DCStatic _          -> identity
         DCKademlia kademlia -> foreverRejoinNetwork kademlia
 
-    runToProd :: forall t . Maybe Handle -> RealMode ssc t -> Production t
-    runToProd jlHandle (RealMode act) =
-        usingLoggerName lpRunnerTag .
-            runJsonLogT' jlHandle .
-            flip Ether.runReadersT nrContext .
-            flip Ether.runReadersT
-                ( Tagged @NodeDBs nrDBs
-                , Tagged @SscMemTag nrSscState
-                , Tagged @TxpHolderTag nrTxpState
-                , Tagged @DelegationVar nrDlgState
-                , Tagged @PeerStateTag nrPeerState
-                ) .
-            runDBPureRedirect .
-            runBlockDBRedirect .
-            runSlotsDataRedirect .
-            runSlotsRedirect .
-            runDiscoveryRedirect .
-            runPeerStateRedirect .
-            runGStateCoreRedirect .
-            runBListenerStub $
-            act
-{-# NOINLINE runRealMode #-}
+    runToProd :: forall t . JsonLogConfig -> RealMode ssc t -> Production t
+    runToProd jlConf act = Mtl.runReaderT (unRealMode act) $
+        RealModeContext
+            nrDBs
+            nrSscState
+            nrTxpState
+            nrDlgState
+            nrPeerState
+            jlConf
+            lpRunnerTag
+            nrContext
 
 runServer
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)

@@ -9,6 +9,10 @@ module Pos.Slotting.Impl.Sum
        , SlotsRedirect
        , runSlotsRedirect
        , askSlottingContextSum
+       , getCurrentSlotSum
+       , getCurrentSlotBlockingSum
+       , getCurrentSlotInaccurateSum
+       , currentTimeSlottingSum
 
        -- * Workers
        , SlottingWorkerModeSum
@@ -21,6 +25,7 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Ether
 
+import           Pos.Core.Types               (SlotId (..), Timestamp)
 import           Pos.Slotting.Class           (MonadSlots (..))
 import           Pos.Slotting.Impl.Ntp        (NtpMode, NtpSlottingVar, NtpWorkerMode,
                                                ntpWorkers, runNtpSlotsRedirect)
@@ -46,20 +51,31 @@ runSlotsRedirect = coerce
 askSlottingContextSum :: MonadSlottingSum m => m SlottingContextSum
 askSlottingContextSum = Ether.ask'
 
-type SlottingModeSum m = (NtpMode m, SimpleSlottingMode m)
+type SlotsSumEnv m = (MonadSlottingSum m, NtpMode m, SimpleSlottingMode m)
 
-instance (MonadSlottingSum m, SlottingModeSum m, t ~ IdentityT) =>
+getCurrentSlotSum :: SlotsSumEnv m => m (Maybe SlotId)
+getCurrentSlotSum = helper getCurrentSlot
+
+getCurrentSlotBlockingSum :: SlotsSumEnv m => m SlotId
+getCurrentSlotBlockingSum = helper getCurrentSlotBlocking
+
+getCurrentSlotInaccurateSum :: SlotsSumEnv m => m SlotId
+getCurrentSlotInaccurateSum = helper getCurrentSlotInaccurate
+
+currentTimeSlottingSum :: SlotsSumEnv m => m Timestamp
+currentTimeSlottingSum = helper currentTimeSlotting
+
+instance (SlotsSumEnv m, t ~ IdentityT) =>
          MonadSlots (Ether.TaggedTrans SlotsRedirectTag t m) where
-    getCurrentSlot = helper getCurrentSlot
-    getCurrentSlotBlocking = helper getCurrentSlotBlocking
-    getCurrentSlotInaccurate = helper getCurrentSlotInaccurate
-    currentTimeSlotting = helper currentTimeSlotting
+    getCurrentSlot = getCurrentSlotSum
+    getCurrentSlotBlocking = getCurrentSlotBlockingSum
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
+    currentTimeSlotting = currentTimeSlottingSum
 
-helper ::
-       (MonadSlottingSum m, SlottingModeSum m, t ~ IdentityT)
-    => (forall n. MonadSlots n =>
-                      n a)
-    -> Ether.TaggedTrans SlotsRedirectTag t m a
+helper
+    :: SlotsSumEnv m
+    => (forall n. MonadSlots n => n a)
+    -> m a
 helper action =
     Ether.ask' >>= \case
         SCSimple -> runSimpleSlotsRedirect action

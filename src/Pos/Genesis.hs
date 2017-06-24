@@ -10,6 +10,7 @@ module Pos.Genesis
        , module Pos.Ssc.GodTossing.Genesis
 
        -- * Static state
+       , stakeDistribution
        , genesisUtxo
        , genesisDelegation
        , genesisSeed
@@ -31,6 +32,7 @@ import qualified Pos.Constants              as Const
 import           Pos.Core.Types             (Address, StakeholderId)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstNonHardened, unsafeHash)
+import           Pos.Genesis.Arbitrary      ()
 import           Pos.Lrc.FtsPure            (followTheSatoshi, followTheSatoshiUtxo)
 import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..),

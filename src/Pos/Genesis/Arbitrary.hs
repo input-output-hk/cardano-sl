@@ -3,13 +3,14 @@ module Pos.Genesis.Arbitrary
        (
        ) where
 
-import           Test.QuickCheck              (Arbitrary (..), choose, oneof)
 import           Universum
 
-import qualified Pos.Genesis                  as T
-import           Pos.Ssc.GodTossing.Arbitrary ()
-import           Pos.Types                    (mkCoin)
+import           Test.QuickCheck              (Arbitrary (..), choose, oneof)
 
+import           Pos.Core                     (mkCoin)
+import qualified Pos.Core.Genesis             as T
+import           Pos.Ssc.GodTossing.Arbitrary ()
+import qualified Pos.Ssc.GodTossing.Genesis   as T
 
 instance Arbitrary T.GenesisCoreData where
     arbitrary = T.GenesisCoreData <$> arbitrary <*> arbitrary <*> arbitrary

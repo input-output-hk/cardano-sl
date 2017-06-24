@@ -18,20 +18,25 @@ module Test.Pos.Block.Logic.Mode
 import           Universum
 
 import qualified Control.Monad.Reader    as Mtl
+import qualified Data.HashMap.Strict     as HM
+import qualified Data.Map.Strict         as M
 import qualified Data.Text.Buildable
 import qualified Ether
-import           Formatting              (bprint, build, formatToString, (%))
+import           Formatting              (bprint, build, formatToString, int, (%))
 import           Mockable                (Production, currentTime, runProduction)
 import qualified Prelude
 import           System.IO.Temp          (withSystemTempDirectory)
 import           System.Wlog             (HasLoggerName (..), LoggerName)
-import           Test.QuickCheck         (Arbitrary (..), Testable (..), ioProperty)
+import           Test.QuickCheck         (Arbitrary (..), Testable (..), ioProperty,
+                                          suchThat)
 import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Block.Core          (Block, BlockHeader)
 import           Pos.Block.Types         (Undo)
 import           Pos.Context             (GenesisUtxo (..))
-import           Pos.Core                (IsHeader, Timestamp (..))
+import           Pos.Core                (IsHeader, StakeDistribution (..), StakeholderId,
+                                          Timestamp (..), addressHash, makePubKeyAddress)
+import           Pos.Crypto              (SecretKey, toPublic, unsafeHash)
 import           Pos.DB                  (MonadBlockDBGeneric (..), MonadDB (..),
                                           MonadDBRead (..), MonadGState (..), NodeDBs,
                                           dbDeleteDefault, dbGetDefault,
@@ -46,6 +51,7 @@ import           Pos.DB.DB               (closeNodeDBs, gsAdoptedBVDataDefault,
 import qualified Pos.DB.GState           as GState
 import           Pos.ExecMode            ((:::), ExecMode (..), ExecModeM, HasLens (..),
                                           modeContext)
+import           Pos.Genesis             (stakeDistribution)
 import           Pos.Launcher            (InitModeContext (..), newInitFuture,
                                           runInitMode)
 import           Pos.Lrc                 (LrcContext (..), mkLrcSyncData)
@@ -61,13 +67,68 @@ import           Pos.Slotting.MemState   (MonadSlotsData (..), SlottingVar,
 import           Pos.Ssc.Class           (SscBlock)
 import           Pos.Ssc.Extra           (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing      (SscGodTossing)
-import           Pos.Txp                 (TxpGlobalSettings, txpGlobalSettings, utxoF)
+import           Pos.Txp                 (TxIn (..), TxOut (..), TxOutAux (..),
+                                          TxpGlobalSettings, txpGlobalSettings, utxoF)
 import           Pos.Update.Context      (UpdateContext, mkUpdateContext)
 import           Pos.Util.Util           (Some)
 
 -- TODO: it shouldn't be 'Production', but currently we don't have anything else.
 -- Expect some changes here somewhere in 2019.
 type BaseMonad = Production
+
+----------------------------------------------------------------------------
+-- Parameters
+----------------------------------------------------------------------------
+
+-- | This data type contains all parameters which should be generated
+-- before testing starts.
+data TestParams = TestParams
+    { tpGenUtxo    :: !GenesisUtxo
+    -- ^ Genesis 'Utxo'.
+    , tpSecretKeys :: !(HashMap StakeholderId SecretKey)
+    -- ^ Secret keys corresponding to 'PubKeyAddress'es from
+    -- genesis 'Utxo'.
+    -- They are stored in map (with 'StakeholderId' as key) to make it easy
+    -- to find 'SecretKey' corresponding to given 'StakeholderId'.
+    -- In tests we often want to have inverse of 'hash' and 'toPublic'.
+    }
+
+instance Buildable TestParams where
+    build TestParams {..} =
+        bprint ("TestParams {\n"%
+                "  utxo = "%utxoF%"\n"%
+                "  secret keys: "%int%" items\n"%
+                "}\n")
+            utxo (length tpSecretKeys)
+      where
+        utxo = tpGenUtxo & \(GenesisUtxo u) -> u
+
+instance Show TestParams where
+    show = formatToString build
+
+instance Arbitrary TestParams where
+    arbitrary = do
+        secretKeysList <- arbitrary
+        let toSecretPair sk = (addressHash (toPublic sk), sk)
+        let tpSecretKeys = HM.fromList $ map toSecretPair secretKeysList
+        let suitableDistribution =
+                \case
+                    FlatStakes _ _ -> True
+                    BitcoinStakes _ _ -> True
+                    RichPoorStakes {} -> True
+                    ExponentialStakes -> True
+                    _ -> False
+        -- TODO: avoid `suchThat` and add generator which always generates
+        -- suitable distribution, but probably after CSL-1160.
+        sd <- arbitrary `suchThat` suitableDistribution
+        let zipF secretKey (coin, toaDistr) =
+                let addr = makePubKeyAddress (toPublic secretKey)
+                    toaOut = TxOut addr coin
+                in (TxIn (unsafeHash addr) 0, TxOutAux {..})
+        let tpGenUtxo =
+                GenesisUtxo . M.fromList $
+                zipWith zipF secretKeysList (stakeDistribution sd)
+        return TestParams {..}
 
 ----------------------------------------------------------------------------
 -- Main context
@@ -82,37 +143,9 @@ modeContext [d|
         , btcUpdateContext     :: !(UpdateContext ::: UpdateContext)
         , btcSscState          :: !(SscMemTag     ::: SscState SscGodTossing)
         , btcTxpGlobalSettings :: !(TxpGlobalSettings ::: TxpGlobalSettings)
+        , btcParams            :: !(TestParams  ::: TestParams)
         }
     |]
-
-----------------------------------------------------------------------------
--- Parameters
-----------------------------------------------------------------------------
-
--- TODO
-instance Arbitrary GenesisUtxo where
-    arbitrary = pure $ GenesisUtxo mempty
-
--- | This data type contains all parameters which should be generated
--- before testing starts.
-data TestParams = TestParams
-    { tpGenUtxo :: !GenesisUtxo
-    }
-
-instance Buildable TestParams where
-    build TestParams {..} =
-        bprint ("TestParams {\n"%
-                "  utxo = "%utxoF%"\n"%
-                "}\n")
-            utxo
-      where
-        utxo = case tpGenUtxo of GenesisUtxo u -> u
-
-instance Show TestParams where
-    show = formatToString build
-
-instance Arbitrary TestParams where
-    arbitrary = TestParams <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -126,7 +159,7 @@ instance Arbitrary TestParams where
 -- So here we go. Bracket, yes.
 bracketBlockTestContext ::
        TestParams -> (BlockTestContext -> BaseMonad a) -> BaseMonad a
-bracketBlockTestContext TestParams {..} callback =
+bracketBlockTestContext testParams@TestParams {..} callback =
     withSystemTempDirectory "cardano-sl-testing" $ \dbPath ->
         bracket (openNodeDBs False dbPath) closeNodeDBs $ \nodeDBs -> do
             (futureLrcCtx, putLrcCtx) <- newInitFuture
@@ -154,6 +187,7 @@ bracketBlockTestContext TestParams {..} callback =
         btcUpdateContext <- mkUpdateContext
         btcSscState <- mkSscState @SscGodTossing
         let btcTxpGlobalSettings = txpGlobalSettings
+        let btcParams = testParams
         ExecMode . lift $ callback BlockTestContext {..}
 
 ----------------------------------------------------------------------------

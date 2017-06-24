@@ -41,19 +41,18 @@ import           Pos.Binary.Class             (encodeStrict)
 import           Pos.Core                     (Coin, StakeholderId, coinF, mkCoin,
                                                sumCoins, unsafeAddCoin,
                                                unsafeIntegerToCoin)
-import qualified Pos.Core.Constants           as Const
 import           Pos.Core.Genesis             (genesisBalances)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
                                                MonadDB, MonadDBRead, RocksBatchOp (..),
                                                dbIterSource)
 import           Pos.DB.GState.Balances       (BalanceIter, ftsStakeKey, ftsSumKey,
-                                               getRealStake, getRealStakeSumMaybe,
-                                               getRealTotalStake)
+                                               getRealStake, getRealTotalStake)
 import           Pos.DB.GState.Common         (gsPutBi)
 import           Pos.Txp.Core                 (txOutStake)
 import           Pos.Txp.Toil.Types           (Utxo)
 import           Pos.Txp.Toil.Utxo            (utxoToStakes)
+import           Pos.Update.DB                (isBootstrapEra)
 
 ----------------------------------------------------------------------------
 -- Operations
@@ -78,11 +77,6 @@ instance RocksBatchOp BalancesOp where
 ----------------------------------------------------------------------------
 -- Overloaded getters (for fixed balances for bootstrap era)
 ----------------------------------------------------------------------------
-
--- TODO: provide actual implementation after corresponding
--- flag is actually stored in the DB
-isBootstrapEra :: Monad m => m Bool
-isBootstrapEra = pure $ not Const.isDevelopment && True
 
 genesisFakeTotalStake :: Coin
 genesisFakeTotalStake = unsafeIntegerToCoin $ sumCoins genesisBalances

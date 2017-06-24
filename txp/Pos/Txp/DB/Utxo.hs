@@ -50,7 +50,7 @@ import           Pos.DB               (DBError (..), DBIteratorClass (..),
                                        DBTag (GStateDB), IterType, MonadDB,
                                        MonadDBRead (..), RocksBatchOp (..), dbIterSource,
                                        encodeWithKeyPrefix, rocksGetBi)
-import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
+import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
 import           Pos.DB.Types         (DB)
 import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types   (Utxo)

@@ -10,13 +10,11 @@ import           Universum
 
 import           Control.Lens             (to)
 import           Data.Ix                  (range)
-import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, build, (%))
 import           Prelude                  (Show (..))
 import           System.Random            (mkStdGen, randomR)
-import           Test.QuickCheck          (Arbitrary (..), Gen, choose, listOf, listOf,
-                                           oneof, oneof, vectorOf)
+import           Test.QuickCheck          (Arbitrary (..), Gen, choose, oneof, vectorOf)
 
 import           Pos.Binary.Class         (Bi, Raw, biSize)
 import qualified Pos.Block.Core           as T
@@ -26,13 +24,11 @@ import           Pos.Constants            (epochSlots)
 import qualified Pos.Core                 as Core
 import           Pos.Crypto               (ProxySecretKey, PublicKey, SecretKey,
                                            createProxySecretKey, toPublic)
-import           Pos.Data.Attributes      (Attributes (..), mkAttributes)
+import           Pos.Data.Attributes      (Attributes (..))
 import           Pos.Delegation.Arbitrary (genDlgPayload)
 import           Pos.Ssc.Arbitrary        (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class            (Ssc (..), SscHelpersClass)
 import           Pos.Txp.Arbitrary        ()
-import           Pos.Txp.Core             (TxAux (..), TxDistribution (..), TxPayload,
-                                           mkTx, mkTxPayload)
 import qualified Pos.Types                as T
 import           Pos.Update.Arbitrary     ()
 import           Pos.Util.Arbitrary       (makeSmall)

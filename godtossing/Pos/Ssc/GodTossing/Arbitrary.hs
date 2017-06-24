@@ -36,6 +36,7 @@ import           Pos.Ssc.GodTossing.Core          (Commitment (..), CommitmentsM
                                                    isSharesId, mkCommitmentsMap,
                                                    mkCommitmentsMap, mkSignedCommitment,
                                                    mkVssCertificate)
+import qualified Pos.Ssc.GodTossing.Genesis.Types as G
 import           Pos.Ssc.GodTossing.Toss.Types    (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message (GtTag (..), MCCommitment (..),
@@ -240,3 +241,10 @@ instance Arbitrary (DataMsg MCShares) where
 
 instance Arbitrary (DataMsg MCVssCertificate) where
     arbitrary = DataMsg <$> arbitrary
+
+----------------------------------------------------------------------------
+-- Arbitrary types from 'Pos.Ssc.GodTossing.Genesis.Types'
+----------------------------------------------------------------------------
+
+instance Arbitrary G.GenesisGtData where
+    arbitrary = G.GenesisGtData <$> arbitrary

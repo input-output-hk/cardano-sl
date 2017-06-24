@@ -35,6 +35,7 @@ import           Pos.Core.Address          (makePubKeyAddress, makeRedeemAddress
                                             makeScriptAddress)
 import           Pos.Core.Coin             (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Constants        (sharedSeedLength)
+import qualified Pos.Core.Genesis          as G
 import           Pos.Core.Types            (BlockVersion (..), Script (..),
                                             SoftwareVersion (..))
 import qualified Pos.Core.Types            as Types
@@ -262,6 +263,30 @@ instance Arbitrary Types.ApplicationName where
 
 derive makeArbitrary ''Types.BlockVersion
 derive makeArbitrary ''Types.SoftwareVersion
+
+----------------------------------------------------------------------------
+-- Arbitrary types from 'Pos.Core.Genesis'
+----------------------------------------------------------------------------
+
+instance Arbitrary G.GenesisCoreData where
+    arbitrary = G.GenesisCoreData <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary G.StakeDistribution where
+    arbitrary = oneof
+      [ do stakeholders <- choose (1, 10000)
+           coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
+           return (G.FlatStakes (fromIntegral stakeholders) coins)
+      , do stakeholders <- choose (1, 10000)
+           coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
+           return (G.BitcoinStakes (fromIntegral stakeholders) coins)
+      , do sdRichmen <- choose (0, 20)
+           sdRichStake <- Types.mkCoin <$> choose (100000, 5000000)
+           sdPoor <- choose (0, 20)
+           sdPoorStake <- Types.mkCoin <$> choose (1000, 50000)
+           return G.RichPoorStakes{..}
+      , return G.ExponentialStakes
+      , G.ExplicitStakes <$> arbitrary
+      ]
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types

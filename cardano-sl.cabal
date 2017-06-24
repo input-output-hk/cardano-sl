@@ -65,7 +65,6 @@ library
 
                         -- Genesis data
                         Pos.Genesis
-                        Pos.Genesis.Arbitrary
 
                         -- LRC
                         Pos.Lrc

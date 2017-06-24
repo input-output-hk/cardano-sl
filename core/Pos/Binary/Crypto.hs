@@ -190,11 +190,9 @@ instance (Bi w) => Bi (ProxySecretKey w) where
 
 instance (Bi w) => Bi (ProxySignature w a) where
     put ProxySignature{..} = do
-        put pdOmega
-        put pdDelegatePk
-        put pdCert
-        put pdSig
-    get = label "ProxySignature" $ liftM4 ProxySignature get get get get
+        put psigPsk
+        put psigSig
+    get = label "ProxySignature" $ liftM2 ProxySignature get get
 
 instance Bi PassPhrase where
     put pp = do

@@ -11,7 +11,7 @@ module Pos.Communication.Relay.Class
        ) where
 
 import qualified Ether
-import           Node.Message                   (Message)
+import           Node.Message.Class             (Message)
 import           Pos.Binary.Class               (Bi)
 import           Universum
 
@@ -56,25 +56,21 @@ data MempoolParams m where
       , Typeable key
       ) => Proxy tag -> m [key] -> MempoolParams m
 
-data InvReqDataParams key contents m =
-    InvReqDataParams
-        {
-        -- | Get key for given contents.
-          contentsToKey :: contents -> m key
-
-        -- | Handle inv msg and return whether it's useful or not
-        , handleInv     :: key -> m Bool
-
-        -- | Handle req msg and return (Just data) in case requested data can be provided
-        , handleReq     :: key -> m (Maybe contents)
-
-        -- | Handle data msg and return True if message is to be propagated
-        , handleData    :: contents -> m Bool
-        }
+data InvReqDataParams key contents m = InvReqDataParams
+    { contentsToKey :: contents -> m key
+      -- ^ Get key for given contents.
+    , handleInv     :: key -> m Bool
+      -- ^ Handle inv msg and return whether it's useful or not
+    , handleReq     :: key -> m (Maybe contents)
+      -- ^ Handle req msg and return (Just data) in case requested data can be provided
+    , handleData    :: contents -> m Bool
+      -- ^ Handle data msg and return True if message is to be propagated
+    }
 
 data DataParams contents m = DataParams
-        { handleDataOnly :: contents -> m Bool
-        }
+    { handleDataOnly :: contents -> m Bool
+      -- ^ Handle data msg and return True if message is to be propagated
+    }
 
 
 type MonadRelayMem = Ether.MonadReader' RelayContext

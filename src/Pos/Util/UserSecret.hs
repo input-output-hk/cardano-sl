@@ -23,15 +23,17 @@ module Pos.Util.UserSecret
        , writeUserSecret
        , writeUserSecretRelease
 
+       , UserSecretDecodingError (..)
        , ensureModeIs600
        ) where
 
-import           Control.Exception     (onException)
 import           Control.Lens          (makeLenses, to)
+import           Control.Monad.Catch   (onException)
 import           Data.Binary.Get       (label)
 import qualified Data.ByteString.Lazy  as BSL
 import           Data.Default          (Default (..))
-import           Formatting            (build, formatToString, (%))
+import qualified Data.Text.Buildable
+import           Formatting            (bprint, build, formatToString, (%))
 import qualified Prelude
 import           Serokell.Util.Text    (listJson)
 import           System.FileLock       (FileLock, SharedExclusive (..), lockFile,
@@ -50,7 +52,6 @@ import           System.IO             (hClose)
 import           System.IO.Temp        (openBinaryTempFile)
 import           System.Wlog           (WithLogger)
 
-import           Pos.Wallet.Web.Error  (WalletError (..))
 import           Pos.Wallet.Web.Secret (WalletUserSecret)
 
 #ifdef POSIX
@@ -86,6 +87,16 @@ instance Bi Address => Show UserSecret where
             _usVss
             _usPath
             _usWalletSet
+
+newtype UserSecretDecodingError = UserSecretDecodingError Text
+    deriving (Show)
+
+instance Exception UserSecretDecodingError
+
+instance Buildable UserSecretDecodingError where
+    build (UserSecretDecodingError msg) =
+        "Failed to decode user secret: " <> bprint build msg
+
 
 -- | Path of lock file for the provided path.
 lockFilePath :: FilePath -> FilePath
@@ -182,7 +193,8 @@ readUserSecret path = do
     ensureModeIs600 path
 #endif
     takeReadLock path $ do
-        content <- either (throwM . RequestError . toText) pure . decodeFull =<< BSL.readFile path
+        content <- either (throwM . UserSecretDecodingError . toText) pure .
+                   decodeFull =<< BSL.readFile path
         pure $ content & usPath .~ path
 
 -- | Reads user secret from the given file.

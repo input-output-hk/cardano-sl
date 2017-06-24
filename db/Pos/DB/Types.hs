@@ -19,9 +19,9 @@ module Pos.DB.Types
        , usingSnapshot
        ) where
 
-import           Control.Concurrent.ReadWriteLock (RWLock)
-import           Control.Lens                     (makeLenses)
-import qualified Database.RocksDB                 as Rocks
+import           Control.Lens               (makeLenses)
+import qualified Database.RocksDB           as Rocks
+import           Pos.Util.Concurrent.RWLock (RWLock)
 import           Universum
 
 ----------------------------------------------------------------------------

@@ -14,17 +14,7 @@ import           Pos.Util  ()
 -- | Compile time configuration. See example in /constants.yaml/ file.
 data CompileConfig = CompileConfig
     {
-
-----------------------------------------------------------------------------
--- Genesis
-----------------------------------------------------------------------------
-      ccGenesisN                      :: !Int
-      -- ^ Number of pre-generated keys
-
-----------------------------------------------------------------------------
--- Other
-----------------------------------------------------------------------------
-    , ccNetworkDiameter               :: !Int
+      ccNetworkDiameter               :: !Int
       -- ^ Estimated time for broadcasting messages
     , ccDefaultPeers                  :: ![String]
       -- ^ List of default peers
@@ -50,11 +40,4 @@ data CompileConfig = CompileConfig
       -- ^ Block retrieval queue capacity
     , ccPropagationQueueSize          :: !Int
       -- ^ InvMsg propagation queue capacity
-
-----------------------------------------------------------------------------
--- Hardware/system
-----------------------------------------------------------------------------
-    , ccMemPoolLimitRatio             :: !Word
-      -- ^ Size of mem pool will be limited by this value muliplied by block
-      -- size limit.
     } deriving (Show)

@@ -8,37 +8,42 @@ module Pos.Crypto.HDDiscovery
 
 import           Universum
 
+import           Data.Conduit        (mapOutput, runConduitRes, (.|))
+import qualified Data.Conduit.List   as CL
+
 import           Pos.Core.Types      (Address (..), addrPkDerivationPath)
 import           Pos.Crypto.HD       (HDAddressPayload, HDPassphrase, unpackHDAddressAttr)
 import           Pos.Data.Attributes (attrData)
-import           Pos.DB.Class        (MonadDB)
+import           Pos.DB.Class        (DBTag (GStateDB), MonadDBRead, dbIterSource)
 import           Pos.Txp.Core        (toaOut, txOutAddress)
-import           Pos.Txp.DB          (UtxoIter, runUtxoMapIterator)
-import           Pos.Util.Iterator   (MonadIterator (..))
+import           Pos.Txp.DB          (UtxoIter)
 
-discoverHDAddress :: MonadDB m => HDPassphrase -> m [(Address, [Word32])]
-discoverHDAddress walletPassphrase = safeHead <$> discoverHDAddresses [walletPassphrase]
+discoverHDAddress :: MonadDBRead m => HDPassphrase -> m [(Address, [Word32])]
+discoverHDAddress walletPassphrase =
+    safeHead <$> discoverHDAddresses [walletPassphrase]
   where
     safeHead [x] = x
-    safeHead _ = []
+    safeHead _   = []
 
-discoverHDAddresses :: MonadDB m => [HDPassphrase] -> m [[(Address, [Word32])]]
+discoverHDAddresses :: MonadDBRead m => [HDPassphrase] -> m [[(Address, [Word32])]]
 discoverHDAddresses walletPassphrases =
-    runUtxoMapIterator @UtxoIter (step $ replicate (length walletPassphrases) [])
-                                 (txOutAddress . toaOut . snd)
+    runConduitRes $ mapOutput outAddr utxoSource .| CL.fold step initWallets
   where
+    initWallets = replicate (length walletPassphrases) []
+    utxoSource = dbIterSource GStateDB (Proxy @UtxoIter)
+    outAddr = txOutAddress . toaOut . snd
+
     hdPayload :: Address -> Maybe HDAddressPayload
     hdPayload (PubKeyAddress _ p) =
         addrPkDerivationPath . attrData $ p
     hdPayload _ = Nothing
 
-    onItem !res address
-        | Just payload <- hdPayload address = do
-            let unpackResults = map (flip unpackHDAddressAttr payload) walletPassphrases
-            step $ map appendMaybe $ zip3 unpackResults (repeat address) res
-        | otherwise = step res
-    step res = nextItem >>= maybe (pure res) (onItem res)
-
     appendMaybe :: (Maybe a, b, [(b, a)]) -> [(b, a)]
     appendMaybe (Nothing, _, r) = r
-    appendMaybe (Just x, b, r) = (b, x):r
+    appendMaybe (Just x, b, r)  = (b, x):r
+
+    step res address
+        | Just payload <- hdPayload address = do
+            let unpackResults = map (flip unpackHDAddressAttr payload) walletPassphrases
+            map appendMaybe $ zip3 unpackResults (repeat address) res
+        | otherwise = res

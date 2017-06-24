@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- This module is to be moved later anywhere else, just to have a
 -- starting point
@@ -6,28 +7,28 @@
 -- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes
       ( SyncProgress (..)
-      , CAddress (..)
+      , CId (..)
       , CHash (..)
       , CPassPhrase (..)
-      , MCPassPhrase
       , CProfile (..)
       , CPwHash
       , CTx (..)
+      , CTxs (..)
       , CTxId
       , CTxMeta (..)
       , CTExMeta (..)
       , CInitialized (..)
-      , WalletAddress (..)
-      , CWalletAddress (..)
-      , CAccountAddress (..)
+      , AccountId (..)
+      , CAccountId (..)
+      , CWAddressMeta (..)
+      , CAddress (..)
       , CAccount (..)
+      , CWalletAssurance (..)
+      , CAccountMeta (..)
+      , CAccountInit (..)
       , CWallet (..)
-      , CWalletSetAssurance (..)
       , CWalletMeta (..)
       , CWalletInit (..)
-      , CWalletSet (..)
-      , CWalletSetMeta (..)
-      , CWalletSetInit (..)
       , CUpdateInfo (..)
       , CWalletRedeem (..)
       , CPaperVendWalletRedeem (..)
@@ -38,56 +39,55 @@ module Pos.Wallet.Web.ClientTypes
       , CElectronCrashReport (..)
       , NotifyEvent (..)
       , WithDerivationPath (..)
-      , WS (..)
-      , Acc (..)
-      , addressToCAddress
-      , cAddressToAddress
-      , encToCAddress
-      , passPhraseToCPassPhrase
-      , cPassPhraseToPassPhrase
-      , mkCTx
+      , Wal (..)
+      , Addr (..)
+      , addressToCId
+      , cIdToAddress
+      , encToCId
+      , mkCTxs
       , mkCTxId
       , txIdToCTxId
-      , txContainsTitle
       , toCUpdateInfo
-      , walletAddrByAccount
-      , fromCWalletAddress
-      , toCWalletAddress
+      , addrMetaToAccount
       ) where
 
 import           Universum
 
-import           Control.Arrow          ((&&&))
-import qualified Data.ByteString.Lazy   as LBS
-import           Data.Default           (Default, def)
-import           Data.Hashable          (Hashable (..))
-import           Data.Text              (Text, isInfixOf, splitOn, toLower)
-import           Data.Text.Buildable    (build)
-import           Data.Time.Clock.POSIX  (POSIXTime)
-import           Data.Typeable          (Typeable)
-import           Formatting             (bprint, sformat, (%))
-import qualified Formatting             as F
+import           Control.Arrow             ((&&&))
+import           Control.Monad.Error.Class (throwError)
+import qualified Data.ByteString.Lazy      as LBS
+import           Data.Default              (Default, def)
+import           Data.Hashable             (Hashable (..))
+import qualified Data.Set                  as S
+import           Data.Text                 (Text, splitOn)
+import           Data.Text.Buildable       (build)
+import           Data.Time.Clock.POSIX     (POSIXTime)
+import           Data.Typeable             (Typeable)
+import           Formatting                (bprint, sformat, (%))
+import qualified Formatting                as F
 import qualified Prelude
-import qualified Serokell.Util.Base16   as Base16
-import           Servant.Multipart      (FileData, FromMultipart (..), lookupFile,
-                                         lookupInput)
+import qualified Serokell.Util.Base16      as Base16
+import           Servant.Multipart         (FileData, FromMultipart (..), lookupFile,
+                                            lookupInput)
 
-import           Pos.Aeson.Types        ()
-import           Pos.Binary.Class       (decodeFull, encodeStrict)
-import           Pos.Client.Txp.History (TxHistoryEntry (..))
-import           Pos.Core.Coin          (mkCoin)
-import           Pos.Core.Types         (ScriptVersion)
-import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, encToPublic,
-                                         hashHexF)
-import           Pos.Txp.Core.Types     (Tx (..), TxId, TxOut, txOutAddress, txOutValue)
-import           Pos.Types              (Address (..), BlockVersion, ChainDifficulty,
-                                         Coin, SoftwareVersion, decodeTextAddress,
-                                         makePubKeyAddress, sumCoins, unsafeGetCoin,
-                                         unsafeIntegerToCoin)
-import           Pos.Update.Core        (BlockVersionData (..), StakeholderVotes,
-                                         UpdateProposal (..), isPositiveVote)
-import           Pos.Update.Poll        (ConfirmedProposalState (..))
-import           Pos.Util.BackupPhrase  (BackupPhrase)
+import           Pos.Aeson.Types           ()
+import           Pos.Binary.Class          (decodeFull, encodeStrict)
+import           Pos.Client.Txp.History    (TxHistoryEntry (..))
+import           Pos.Core.Coin             (mkCoin)
+import           Pos.Core.Types            (ScriptVersion)
+import           Pos.Crypto                (EncryptedSecretKey, PassPhrase, encToPublic,
+                                            hashHexF)
+import           Pos.Txp.Core.Types        (Tx (..), TxId, TxOut, txOutAddress,
+                                            txOutValue)
+import           Pos.Types                 (Address (..), BlockVersion, ChainDifficulty,
+                                            Coin, SoftwareVersion, decodeTextAddress,
+                                            makePubKeyAddress, sumCoins, unsafeGetCoin,
+                                            unsafeIntegerToCoin)
+import           Pos.Update.Core           (BlockVersionData (..), StakeholderVotes,
+                                            UpdateProposal (..), isPositiveVote)
+import           Pos.Update.Poll           (ConfirmedProposalState (..))
+import           Pos.Util.BackupPhrase     (BackupPhrase)
+import           Pos.Util.Servant          (FromCType (..), OriginType, ToCType (..))
 
 
 data SyncProgress = SyncProgress
@@ -102,7 +102,7 @@ instance Default SyncProgress where
 -- Notifications
 data NotifyEvent
     = ConnectionOpened
-    -- _ | NewWalletTransaction CAddress
+    -- _ | NewWalletTransaction CId
     -- _ | NewTransaction
     | NetworkDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
     | LocalDifficultyChanged ChainDifficulty -- ie new block or fork (rollback)
@@ -120,15 +120,15 @@ instance Hashable CHash where
 
 -- | Client address
 -- @w@ is phantom type and stands for type of item this address belongs to.
-newtype CAddress w = CAddress CHash
+newtype CId w = CId CHash
     deriving (Show, Eq, Ord, Generic, Hashable, Buildable)
 
 -- | Marks address as belonging to wallet set.
-data WS = WS
+data Wal = Wal
     deriving (Show, Generic)
 
 -- | Marks address as belonging to account.
-data Acc = Acc
+data Addr = Addr
     deriving (Show, Generic)
 
 -- TODO: this is not completely safe. If someone changes
@@ -136,15 +136,15 @@ data Acc = Acc
 -- safe to introduce `class PSSimplified` that would have the same
 -- implementation has it is with Buildable Address but then person
 -- will know it will probably change something for purescript.
--- | Transform Address into CAddress
-addressToCAddress :: Address -> CAddress w
-addressToCAddress = CAddress . CHash . sformat F.build
+-- | Transform Address into CId
+addressToCId :: Address -> CId w
+addressToCId = CId . CHash . sformat F.build
 
-cAddressToAddress :: CAddress w -> Either Text Address
-cAddressToAddress (CAddress (CHash h)) = decodeTextAddress h
+cIdToAddress :: CId w -> Either Text Address
+cIdToAddress (CId (CHash h)) = decodeTextAddress h
 
-encToCAddress :: EncryptedSecretKey -> CAddress w
-encToCAddress = addressToCAddress . makePubKeyAddress . encToPublic
+encToCId :: EncryptedSecretKey -> CId w
+encToCId = addressToCId . makePubKeyAddress . encToPublic
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash
@@ -157,101 +157,153 @@ mkCTxId = CTxId . CHash
 txIdToCTxId :: TxId -> CTxId
 txIdToCTxId = mkCTxId . sformat hashHexF
 
-convertTxOutputs :: [TxOut] -> [(CAddress w, CCoin)]
-convertTxOutputs = map (addressToCAddress . txOutAddress &&& mkCCoin . txOutValue)
+convertTxOutputs :: [TxOut] -> [(CId w, CCoin)]
+convertTxOutputs = map (addressToCId . txOutAddress &&& mkCCoin . txOutValue)
 
-mkCTx
+-- [CSM-309] This may work until transaction have multiple source accounts
+-- | Get all addresses of source account of given transaction.
+getTxSourceAccountAddresses
+    :: [CWAddressMeta]      -- ^ All addresses in wallet
+    -> NonEmpty (CId Addr)  -- ^ Input addresses of transaction
+    -> Maybe [CId Addr]     -- ^ `Just` addrs if the wallet is source of
+                            --   transaction, `Nothing` otherwise
+getTxSourceAccountAddresses walAddrMetas (someInputAddr :| _) = do
+    someSrcAddrMeta <- find ((== someInputAddr) . cwamId) walAddrMetas
+    let srcAccount = addrMetaToAccount someSrcAddrMeta
+    return $
+        map cwamId $
+        filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
+
+mkCTxs
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
-    -> CTx
-mkCTx diff THEntry {..} meta = CTx {..}
+    -> [CWAddressMeta]    -- ^ Addresses of wallet
+    -> Either Text CTxs
+mkCTxs diff THEntry {..} meta wAddrMetas = do
+    ctInputAddrsNe <-
+        nonEmpty ctInputAddrs
+        `whenNothing` throwError "No input addresses in tx!"
+    let mLocalAddrs = getTxSourceAccountAddresses wAddrMetas ctInputAddrsNe
+    -- note: local addresses which belong to tx's outputs = change addresses
+    let isLocalAddr = case mLocalAddrs of
+           Just changeAddrs -> do
+                -- if given wallet is source of tx, /changes addresses/
+                -- can be fetched according to definition
+                let changeAddrsSet = S.fromList changeAddrs
+                flip S.member changeAddrsSet
+           Nothing -> do
+                -- if given wallet is *not* source of tx, then it's incoming
+                -- transaction, and only addresses of given wallet are *not*
+                -- change addresses
+                -- [CSM-309] This may work until transaction have multiple
+                -- destination addresses
+                let nonLocalAddrsSet = S.fromList $ cwamId <$> wAddrMetas
+                not . flip S.member nonLocalAddrsSet
+        isLocalTxOutput = isLocalAddr . addressToCId . txOutAddress
+        -- [CSM-309] Bad for multiple-destinations transactions
+        isWithinWallet = all isLocalAddr ctOutputAddrs
+        ctAmount =
+            mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
+            filter (not . isLocalTxOutput) outputs
+        mkCTx isOutgoing significantAddrs = do
+            guard . not . null $
+                wAddrsSet `S.intersection` S.fromList significantAddrs
+            return CTx {ctIsOutgoing = isOutgoing, ..}
+        -- Output addresses which presence make us to display transaction
+        -- (incoming half, i.e. one with 'isOutgoing' set to @false@).
+        ctSignificantOutputAddrs =
+            ctOutputAddrs &
+            if isWithinWallet then identity else filter (not . isLocalAddr)
+        ctsOutgoing = mkCTx True ctInputAddrs
+        ctsIncoming = mkCTx False ctSignificantOutputAddrs
+    return CTxs {..}
   where
     ctId = txIdToCTxId _thTxId
     outputs = toList $ _txOutputs _thTx
-    ctAmount = mkCCoin . unsafeIntegerToCoin . sumCoins $ map txOutValue outputs
+    ctInputAddrs = map addressToCId _thInputAddrs
+    ctOutputAddrs = map addressToCId _thOutputAddrs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctMeta = meta
-    ctInputAddrs = map addressToCAddress _thInputAddrs
-    ctOutputAddrs = map addressToCAddress _thOutputAddrs
+    wAddrsSet = S.fromList $ map cwamId wAddrMetas
 
 newtype CPassPhrase = CPassPhrase Text
     deriving (Eq, Generic)
 
--- | This is most common use case for 'CPassPhrase', as there is a default
--- value for it
-type MCPassPhrase = Maybe CPassPhrase
-
 instance Show CPassPhrase where
     show _ = "<pass phrase>"
 
-passPhraseToCPassPhrase :: PassPhrase -> CPassPhrase
-passPhraseToCPassPhrase passphrase =
-    CPassPhrase . Base16.encode $ encodeStrict passphrase
+type instance OriginType CPassPhrase = PassPhrase
 
-cPassPhraseToPassPhrase
-    :: CPassPhrase -> Either Text PassPhrase
-cPassPhraseToPassPhrase (CPassPhrase text) =
-    first toText . decodeFull . LBS.fromStrict =<< Base16.decode text
+instance FromCType CPassPhrase where
+    decodeCType (CPassPhrase text) =
+        first toText . decodeFull . LBS.fromStrict =<< Base16.decode text
+
+instance ToCType CPassPhrase where
+    encodeCType = CPassPhrase . Base16.encode . encodeStrict
 
 ----------------------------------------------------------------------------
 -- Wallet
 ----------------------------------------------------------------------------
 
 -- | Wallet identifier
-data WalletAddress = WalletAddress
-    { -- | Address of wallet set this wallet belongs to
-      waWSId  :: CAddress WS
+data AccountId = AccountId
+    { -- | Address of wallet this wallet belongs to
+      aiWId   :: CId Wal
     , -- | Derivation index of this wallet key
-      waIndex :: Word32
+      aiIndex :: Word32
     } deriving (Eq, Show, Generic, Typeable)
 
-instance Hashable WalletAddress
+instance Hashable AccountId
 
-instance Buildable WalletAddress where
-    build WalletAddress{..} =
-        bprint (F.build%"@"%F.build) waWSId waIndex
+instance Buildable AccountId where
+    build AccountId{..} =
+        bprint (F.build%"@"%F.build) aiWId aiIndex
 
-newtype CWalletAddress = CWalletAddress Text
+newtype CAccountId = CAccountId Text
     deriving (Eq, Show, Generic, Buildable)
 
-toCWalletAddress :: WalletAddress -> CWalletAddress
-toCWalletAddress = CWalletAddress . sformat F.build
+type instance OriginType CAccountId = AccountId
 
-fromCWalletAddress :: CWalletAddress -> Either Text WalletAddress
-fromCWalletAddress (CWalletAddress url) =
-    case splitOn "@" url of
-        [part1, part2] -> do
-            waWSId  <- addressToCAddress <$> decodeTextAddress part1
-            waIndex <- maybe (Left "Invalid wallet index") Right $
+instance FromCType CAccountId where
+    decodeCType (CAccountId url) =
+        case splitOn "@" url of
+            [part1, part2] -> do
+                aiWId  <- addressToCId <$> decodeTextAddress part1
+                aiIndex <- maybe (Left "Invalid wallet index") Right $
                             readMaybe $ toString part2
-            return WalletAddress{..}
-        _ -> Left "Expected 2 parts separated by '@'"
+                return AccountId{..}
+            _ -> Left "Expected 2 parts separated by '@'"
 
+instance ToCType CAccountId where
+    encodeCType = CAccountId . sformat F.build
+
+-- TODO: extract first three fields as @Coordinates@ and use only it where
+-- required (maybe nowhere)
 -- | Account identifier
-data CAccountAddress = CAccountAddress
-    { -- | Address of wallet set this account belongs to
-      caaWSId         :: CAddress WS
+data CWAddressMeta = CWAddressMeta
+    { -- | Address of wallet this account belongs to
+      cwamWId          :: CId Wal
     , -- | First index in derivation path of this account key
-      caaWalletIndex  :: Word32
+      cwamWalletIndex  :: Word32
     , -- | Second index in derivation path of this account key
-      caaAccountIndex :: Word32
+      cwamAccountIndex :: Word32
     , -- | Actual adress of this account
-      caaId           :: CAddress Acc
+      cwamId           :: CId Addr
     } deriving (Eq, Ord, Show, Generic, Typeable)
 
-instance Buildable CAccountAddress where
-    build CAccountAddress{..} =
+instance Buildable CWAddressMeta where
+    build CWAddressMeta{..} =
         bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
-        caaWSId caaWalletIndex caaAccountIndex caaId
+        cwamWId cwamWalletIndex cwamAccountIndex cwamId
 
-walletAddrByAccount :: CAccountAddress -> WalletAddress
-walletAddrByAccount CAccountAddress{..} = WalletAddress
-    { waWSId  = caaWSId
-    , waIndex = caaWalletIndex
+addrMetaToAccount :: CWAddressMeta -> AccountId
+addrMetaToAccount CWAddressMeta{..} = AccountId
+    { aiWId  = cwamWId
+    , aiIndex = cwamWalletIndex
     }
 
-instance Hashable CAccountAddress
+instance Hashable CWAddressMeta
 
 newtype CCoin = CCoin
     { getCCoin :: Text
@@ -267,88 +319,89 @@ coinFromCCoin = fmap mkCoin . readMaybe . toString . getCCoin
 type PassPhraseLU = POSIXTime
 
 -- | A level of assurance for the wallet "meta type"
-data CWalletSetAssurance
+data CWalletAssurance
     = CWAStrict
     | CWANormal
     deriving (Show, Eq, Generic)
 
--- | Single account in a wallet
-data CAccount = CAccount
-    { caId     :: !(CAddress Acc)
-    , caAmount :: !CCoin
+-- | Single address in a account
+data CAddress = CAddress
+    { cadId       :: !(CId Addr)
+    , cadAmount   :: !CCoin
+    , cadIsUsed   :: !Bool
+    , cadIsChange :: !Bool -- ^ Is this a change address
     } deriving (Show, Generic)
 
 -- Includes data which are not provided by Cardano
-data CWalletMeta = CWalletMeta
-    { cwName      :: !Text
+data CAccountMeta = CAccountMeta
+    { caName      :: !Text
     } deriving (Show, Generic)
 
-instance Default CWalletMeta where
-    def = CWalletMeta "Personal Wallet"
+instance Default CAccountMeta where
+    def = CAccountMeta "Personal Wallet"
 
--- | Client Wallet (CW)
--- (Flow type: walletType)
-data CWallet = CWallet
-    { cwId       :: !CWalletAddress
-    , cwMeta     :: !CWalletMeta
-    , cwAccounts :: ![CAccount]
-    , cwAmount   :: !CCoin
+-- | Client Account (CA)
+-- (Flow type: accountType)
+data CAccount = CAccount
+    { caId        :: !CAccountId
+    , caMeta      :: !CAccountMeta
+    , caAddresses :: ![CAddress]
+    , caAmount    :: !CCoin
     } deriving (Show, Generic, Typeable)
 
--- | Query data for wallet creation
-data CWalletInit = CWalletInit
-    { cwInitMeta   :: !CWalletMeta
-    , cwInitWSetId :: !(CAddress WS)
+-- | Query data for account creation
+data CAccountInit = CAccountInit
+    { caInitMeta :: !CAccountMeta
+    , caInitWId  :: !(CId Wal)
     } deriving (Show, Generic)
 
 -- | Query data for redeem
 data CWalletRedeem = CWalletRedeem
-    { crWalletId :: !CWalletAddress
+    { crWalletId :: !CAccountId
     , crSeed     :: !Text -- TODO: newtype!
     } deriving (Show, Generic)
 
--- | Meta data of 'CWalletSet'
-data CWalletSetMeta = CWalletSetMeta
-    { cwsName      :: !Text
-    , cwsAssurance :: !CWalletSetAssurance
-    , cwsUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
+-- | Meta data of 'CWallet'
+data CWalletMeta = CWalletMeta
+    { cwName      :: !Text
+    , cwAssurance :: !CWalletAssurance
+    , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
     } deriving (Show, Eq, Generic)
 
-instance Default CWalletSetMeta where
-    def = CWalletSetMeta "Personal Wallet Set" CWANormal 0
+instance Default CWalletMeta where
+    def = CWalletMeta "Personal Wallet Set" CWANormal 0
 
--- | Client Wallet Set (CW)
-data CWalletSet = CWalletSet
-    { cwsId            :: !(CAddress WS)
-    , cwsWSetMeta      :: !CWalletSetMeta
-    , cwsWalletsNumber :: !Int
-    , cwsAmount        :: !CCoin
-    , cwsHasPassphrase :: !Bool
-    , cwsPassphraseLU  :: !PassPhraseLU  -- last update time
+-- | Client Wallet (CW)
+data CWallet = CWallet
+    { cwId             :: !(CId Wal)
+    , cwMeta           :: !CWalletMeta
+    , cwAccountsNumber :: !Int
+    , cwAmount         :: !CCoin
+    , cwHasPassphrase  :: !Bool
+    , cwPassphraseLU   :: !PassPhraseLU  -- last update time
     } deriving (Eq, Show, Generic)
 
--- TODO: Newtype?
--- | Query data for wallet set creation
-data CWalletSetInit = CWalletSetInit
-    { cwsInitMeta     :: !CWalletSetMeta
-    , cwsBackupPhrase :: !BackupPhrase
+-- | Query data for wallet creation
+data CWalletInit = CWalletInit
+    { cwInitMeta     :: !CWalletMeta
+    , cwBackupPhrase :: !BackupPhrase
     } deriving (Eq, Show, Generic)
 
 class WithDerivationPath a where
     getDerivationPath :: a -> [Word32]
 
-instance WithDerivationPath (CAddress WS) where
+instance WithDerivationPath (CId Wal) where
     getDerivationPath _ = []
 
-instance WithDerivationPath WalletAddress where
-    getDerivationPath WalletAddress{..} = [waIndex]
+instance WithDerivationPath AccountId where
+    getDerivationPath AccountId{..} = [aiIndex]
 
-instance WithDerivationPath CAccountAddress where
-    getDerivationPath CAccountAddress{..} = [caaWalletIndex, caaAccountIndex]
+instance WithDerivationPath CWAddressMeta where
+    getDerivationPath CWAddressMeta{..} = [cwamWalletIndex, cwamAccountIndex]
 
 -- | Query data for redeem
 data CPaperVendWalletRedeem = CPaperVendWalletRedeem
-    { pvWalletId     :: !CWalletAddress
+    { pvWalletId     :: !CAccountId
     , pvSeed         :: !Text -- TODO: newtype!
     , pvBackupPhrase :: !BackupPhrase
     } deriving (Show, Generic)
@@ -379,9 +432,7 @@ instance Default CProfile where
 
 -- | meta data of transactions
 data CTxMeta = CTxMeta
-    { ctmTitle       :: Text
-    , ctmDescription :: Text
-    , ctmDate        :: POSIXTime
+    { ctmDate        :: POSIXTime
     } deriving (Show, Generic)
 
 -- | Client transaction (CTx)
@@ -393,12 +444,25 @@ data CTx = CTx
     , ctAmount        :: CCoin
     , ctConfirmations :: Word
     , ctMeta          :: CTxMeta
-    , ctInputAddrs    :: [CAddress Acc]
-    , ctOutputAddrs   :: [CAddress Acc]
+    , ctInputAddrs    :: [CId Addr]
+    , ctOutputAddrs   :: [CId Addr]
+    , ctIsOutgoing    :: Bool
     } deriving (Show, Generic, Typeable)
 
-txContainsTitle :: Text -> CTx -> Bool
-txContainsTitle search = isInfixOf (toLower search) . toLower . ctmTitle . ctMeta
+-- TODO [CSM-288] Rename?
+-- | In case of A -> A tranaction, we have to return two similar 'CTx's:
+-- one with 'ctIsOutgoing' set to /true/, one with the flag set to /false/.
+-- This type gathers these two together.
+data CTxs = CTxs
+    { ctsOutgoing :: Maybe CTx
+    , ctsIncoming :: Maybe CTx
+    } deriving (Show)
+
+type instance Element CTxs = CTx
+
+instance Container CTxs where
+    null = null . toList
+    toList = toList . ctsOutgoing <> toList . ctsIncoming
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta
@@ -407,7 +471,7 @@ data CTExMeta = CTExMeta
     , cexDate        :: POSIXTime
     , cexRate        :: Text
     , cexLabel       :: Text -- counter part of client's 'exchange' value
-    , cexId          :: CAddress Acc
+    , cexId          :: CId Addr
     } deriving (Show, Generic)
 
 -- | Update system data

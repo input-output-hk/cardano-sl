@@ -1,15 +1,19 @@
-{-# LANGUAGE AllowAmbiguousTypes       #-}
-{-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE ScopedTypeVariables       #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Basically wrappers over RocksDB library.
 
 module Pos.DB.Functions
        ( openDB
+       , closeDB
 
        -- * Key/Value helpers
+       -- ** General
        , encodeWithKeyPrefix
        , dbGetBi
+       , dbPutBi
+
+       -- ** RocksDB
        , rocksDelete
        , rocksGetBi
        , rocksGetBytes
@@ -18,29 +22,22 @@ module Pos.DB.Functions
        , rocksDecodeWP
        , rocksDecodeMaybe
        , rocksDecodeMaybeWP
-       , rocksDecodeKeyValMaybe
-
-       -- * Batch
-       , RocksBatchOp (..)
-       , SomeBatchOp (..)
-       , SomePrettyBatchOp (..)
-       , rocksWriteBatch
        ) where
 
-import qualified Data.ByteString       as BS (drop, isPrefixOf)
-import qualified Data.ByteString.Lazy  as BSL
-import           Data.Default          (def)
-import qualified Data.Text.Buildable
-import qualified Database.RocksDB      as Rocks
-import           Formatting            (bprint, sformat, shown, string, (%))
-import           Serokell.Util.Text    (listJson)
 import           Universum
 
-import           Pos.Binary.Class      (Bi, decodeFull, encodeStrict)
-import           Pos.DB.Class          (DBTag, MonadDBPure (..))
-import           Pos.DB.Error          (DBError (DBMalformed))
-import           Pos.DB.Iterator.Class (DBIteratorClass (..))
-import           Pos.DB.Types          (DB (..))
+import qualified Data.ByteString      as BS (drop, isPrefixOf)
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Default         (def)
+import qualified Database.RocksDB     as Rocks
+import           Formatting           (sformat, shown, string, (%))
+
+
+import           Pos.Binary.Class     (Bi, decodeFull, encodeStrict)
+import           Pos.DB.Class         (DBIteratorClass (..), DBTag, MonadDB (..),
+                                       MonadDBRead (..))
+import           Pos.DB.Error         (DBError (DBMalformed))
+import           Pos.DB.Types         (DB (..))
 
 openDB :: MonadIO m => FilePath -> m DB
 openDB fp = DB def def def
@@ -49,10 +46,13 @@ openDB fp = DB def def def
                         , Rocks.compression     = Rocks.NoCompression
                         }
 
+closeDB :: MonadIO m => DB -> m ()
+closeDB = Rocks.close . rocksDB
+
 encodeWithKeyPrefix
     :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => IterKey i -> ByteString
-encodeWithKeyPrefix = (iterKeyPrefix @i Proxy <>) . encodeStrict
+encodeWithKeyPrefix = (iterKeyPrefix @i <>) . encodeStrict
 
 -- | Read ByteString from RocksDb using given key.
 rocksGetBytes :: (MonadIO m) => ByteString -> DB -> m (Maybe ByteString)
@@ -63,11 +63,15 @@ rocksGetBytes key DB {..} = Rocks.get rocksDB rocksReadOpts key
 -- | Read serialized value associated with given key from pure DB.
 dbGetBi
     :: forall v m.
-       (Bi v, MonadDBPure m, MonadThrow m)
+       (Bi v, MonadDBRead m)
     => DBTag -> ByteString -> m (Maybe v)
 dbGetBi tag key = do
     bytes <- dbGet tag key
     traverse (rocksDecode . (ToDecodeValue key)) bytes
+
+-- | Write serializable value to DB for given key.
+dbPutBi :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> m ()
+dbPutBi tag k v = dbPut tag k (encodeStrict v)
 
 -- | Read serialized value from RocksDB using given key.
 rocksGetBi
@@ -99,39 +103,28 @@ rocksDecodeWP
     :: forall i m . (MonadThrow m, DBIteratorClass i, Bi (IterKey i))
     => ByteString -> m (IterKey i)
 rocksDecodeWP key
-    | BS.isPrefixOf (iterKeyPrefix @i Proxy) key =
+    | BS.isPrefixOf (iterKeyPrefix @i) key =
         either (onParseError key) pure .
         decodeFull .
         BSL.fromStrict .
-        BS.drop (length $ iterKeyPrefix @i Proxy) $
+        BS.drop (length $ iterKeyPrefix @i) $
         key
     | otherwise = onParseError key "unexpected prefix"
-
--- rocksDecodeKeyValWP :: forall i m . (MonadThrow m, DBIteratorClass i,
---                         Bi (IterKey i), Bi (IterValue i))
---                     => (ByteString, ByteString) -> m (IterKey i, IterValue i)
--- rocksDecodeKeyValWP (k, v) =
---     (,) <$> rocksDecodeWP @i k <*> rocksDecode (ToDecodeValue k v)
 
 -- Parse maybe
 rocksDecodeMaybeWP
     :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => ByteString -> Maybe (IterKey i)
 rocksDecodeMaybeWP s
-    | BS.isPrefixOf (iterKeyPrefix @i Proxy) s =
+    | BS.isPrefixOf (iterKeyPrefix @i) s =
           rightToMaybe .
           decodeFull .
           BSL.fromStrict .
-          BS.drop (length $ iterKeyPrefix @i Proxy) $ s
+          BS.drop (length $ iterKeyPrefix @i) $ s
     | otherwise = Nothing
 
 rocksDecodeMaybe :: (Bi v) => ByteString -> Maybe v
 rocksDecodeMaybe = rightToMaybe . decodeFull . BSL.fromStrict
-
-rocksDecodeKeyValMaybe
-    :: (Bi k, Bi v)
-    => (ByteString, ByteString) -> Maybe (k, v)
-rocksDecodeKeyValMaybe (k, v) = (,) <$> rocksDecodeMaybe k <*> rocksDecodeMaybe v
 
 -- | Write ByteString to RocksDB for given key.
 rocksPutBytes :: (MonadIO m) => ByteString -> ByteString -> DB -> m ()
@@ -143,63 +136,3 @@ rocksPutBi k v = rocksPutBytes k (encodeStrict v)
 
 rocksDelete :: (MonadIO m) => ByteString -> DB -> m ()
 rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
-
-----------------------------------------------------------------------------
--- Batch
-----------------------------------------------------------------------------
-
-class RocksBatchOp a where
-    toBatchOp :: a -> [Rocks.BatchOp]
-
-instance RocksBatchOp Rocks.BatchOp where
-    toBatchOp = one
-
-data EmptyBatchOp
-
-instance RocksBatchOp EmptyBatchOp where
-    toBatchOp _ = []
-
-instance Buildable EmptyBatchOp where
-    build _ = ""
-
-data SomeBatchOp =
-    forall a. RocksBatchOp a =>
-              SomeBatchOp a
-
-instance Monoid SomeBatchOp where
-    mempty = SomeBatchOp ([]::[EmptyBatchOp])
-    mappend a b = SomeBatchOp [a, b]
-
-instance RocksBatchOp SomeBatchOp where
-    toBatchOp (SomeBatchOp a) = toBatchOp a
-
-data SomePrettyBatchOp =
-    forall a. (RocksBatchOp a, Buildable a) =>
-              SomePrettyBatchOp a
-
-instance Monoid SomePrettyBatchOp where
-    mempty = SomePrettyBatchOp ([]::[SomePrettyBatchOp])
-    mappend a b = SomePrettyBatchOp [a, b]
-
-instance RocksBatchOp SomePrettyBatchOp where
-    toBatchOp (SomePrettyBatchOp a) = toBatchOp a
-
-instance Buildable SomePrettyBatchOp where
-    build (SomePrettyBatchOp x) = Data.Text.Buildable.build x
-
--- instance (Foldable t, RocksBatchOp a) => RocksBatchOp (t a) where
---     toBatchOp = concatMap toBatchOp -- overlapping instances, wtf ?????
-
-instance RocksBatchOp a => RocksBatchOp [a] where
-    toBatchOp = concatMap toBatchOp
-
-instance RocksBatchOp a => RocksBatchOp (NonEmpty a) where
-    toBatchOp = concatMap toBatchOp
-
-instance Buildable [SomePrettyBatchOp] where
-    build = bprint listJson
-
--- | Write Batch encapsulation
-rocksWriteBatch :: (RocksBatchOp a, MonadIO m) => [a] -> DB -> m ()
-rocksWriteBatch batch DB {..} =
-    Rocks.write rocksDB rocksWriteOpts (concatMap toBatchOp batch)

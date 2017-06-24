@@ -37,12 +37,17 @@ library
                        Pos.Core.Class
                        Pos.Core.Coin
                        Pos.Core.Constants
+                       Pos.Core.Context
                        Pos.Core.Script
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
                        Pos.Core.Types
                        Pos.Core.Version
+
+                       Pos.Core.Genesis
+                       Pos.Core.Genesis.Parser
+                       Pos.Core.Genesis.Types
 
                        Pos.Crypto
                        Pos.Crypto.Encryption
@@ -62,6 +67,7 @@ library
 
                        Pos.Binary.Class
                        Pos.Binary.Crypto
+                       Pos.Binary.Merkle
                        Pos.Binary.Core
                        Pos.Binary.Core.Address
                        Pos.Binary.Core.Block
@@ -69,18 +75,24 @@ library
                        Pos.Binary.Core.Script
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Version
+                       Pos.Binary.Core.Genesis
 
+                       Pos.Util.Concurrent
+                       Pos.Util.Concurrent.RWLock
+                       Pos.Util.Concurrent.RWVar
                        Pos.Util.Chrono
                        Pos.Util.Config
                        Pos.Util.HVect
-                       Pos.Util.Iterator
                        Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Mnemonics
                        Pos.Util.Modifier
                        Pos.Util.Util
 
-  other-modules:       Pos.Util.Config.Path
+  other-modules:
+                       Pos.Core.Constants.Raw
+                       Pos.Core.Constants.Typed
+                       Pos.Util.Config.Path
                        Pos.Util.Config.Get
 
   build-depends:      QuickCheck
@@ -89,7 +101,8 @@ library
                     , base
                     , base58-bytestring
                     , concurrent-extra
-                    , ether >= 0.5
+                    , ether >= 0.5.1
+                    , file-embed
                     , log-warper >= 1.0.3
                     , mmorph
                     , resourcet
@@ -107,6 +120,7 @@ library
                      , bytestring
                      , cardano-crypto
                      , cereal
+                     , concurrent-extra
                      , containers
                      , cryptonite
                      , cryptonite-openssl >= 0.5
@@ -133,6 +147,7 @@ library
                      , safecopy
                      , semigroups
                      , serokell-util
+                     , stm
                      , tagged
                      , template-haskell
                      , text

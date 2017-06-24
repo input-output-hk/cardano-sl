@@ -6,27 +6,31 @@
 
 -- | A set of type classes which provide access to database.
 --
--- 'MonadDB' is the most featured class (actually just a set of
+-- 'MonadRealDB' is the most featured class (actually just a set of
 -- constraints) which wraps 'NodeDBs' which contains RocksDB
 -- databases. This class can be used to manipulate RocksDB
 -- directly. It may be useful when you need an access to advanced
 -- features of RocksDB.
 --
--- Apart from that we have three more classes here.
+-- Apart from that we have few more classes here.
 --
--- 'MonadDBPure' contains only 'dbGet' method.  The advantage of it is
+-- 'MonadDBRead' contains only 'dbGet' method.  The advantage of it is
 -- that you don't need to do any 'IO' to use it which makes it
--- suitable for pure testing.
--- TODO: add put to this monad (actually putBatch is more important).
+-- suitable for pure testing. TODO: add iteration abilitiy.
 --
--- 'MonadGStateCore' contains functions to retrieve some data from
+-- 'MonadDB' is a superclass of 'MonadDB' and allows to modify
+-- DB. Again, its purpose is to make it possible to use DB w/o IO
+-- context.
+--
+-- 'MonadGState' contains functions to retrieve some data from
 -- GState DB without knowledge of where this data is located (where in
 -- code and where in DB, i. e. by which key). For example, if X wants
 -- to get data maintained by Y and doesn't know about Y, it can use
--- 'MonadGStateCore' (which is at pretty low level).
+-- 'MonadGState' (which is at pretty low level).
 --
--- 'MonadBlockDBGeneric' contains functions which provide access to Block DB.
--- For this DB we don't want to use 'MonadDB' for several reasons:
+-- 'MonadBlockDBGeneric' contains functions which provide read-only
+-- access to the Block DB.
+-- For this DB we don't want to use 'MonadRealDB' for several reasons:
 -- • we store blocks and undos in files, not in key-value storage;
 -- • there are only three getters, so it's not a big problem to make all of
 -- them part of type class;
@@ -39,22 +43,24 @@ module Pos.DB.Class
          -- * Pure
          DBTag (..)
        , dbTagToLens
-       , MonadDBPure (..)
+       , DBIteratorClass (..)
+       , IterType
+       , MonadDBRead (..)
+       , MonadDB (..)
 
-         -- * GState Core
-       , MonadGStateCore (..)
+         -- * GState
+       , MonadGState (..)
        , gsMaxBlockSize
        , gsMaxHeaderSize
        , gsMaxTxSize
        , gsMaxProposalSize
-       , MonadDBCore
 
          -- * Block DB
        , MonadBlockDBGeneric (..)
        , dbGetBlund
 
          -- * RocksDB
-       , MonadDB
+       , MonadRealDB
        , getNodeDBs
        , usingReadOptions
        , usingWriteOptions
@@ -67,12 +73,17 @@ module Pos.DB.Class
 import           Universum
 
 import           Control.Lens                   (ASetter')
+import           Control.Monad.Morph            (hoist)
 import           Control.Monad.Trans            (MonadTrans (..))
+import           Control.Monad.Trans.Control    (MonadBaseControl)
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
+import           Control.Monad.Trans.Resource   (ResourceT)
+import           Data.Conduit                   (Source)
 import qualified Database.RocksDB               as Rocks
 import qualified Ether
 import           Serokell.Data.Memory.Units     (Byte)
 
+import           Pos.Binary.Class               (Bi)
 import           Pos.Core                       (BlockVersionData (..), HeaderHash)
 import           Pos.DB.Types                   (DB (..), NodeDBs, blockIndexDB, gStateDB,
                                                  lrcDB, miscDB)
@@ -95,18 +106,70 @@ dbTagToLens GStateDB     = gStateDB
 dbTagToLens LrcDB        = lrcDB
 dbTagToLens MiscDB       = miscDB
 
--- | Pure interface to the database.
--- TODO: add some ways to put something.
-class MonadThrow m => MonadDBPure m where
+-- | Key-value type family encapsulating the iterator (something we
+-- can iterate on) functionality.
+class DBIteratorClass i where
+    type IterKey   i :: *
+    type IterValue i :: *
+    iterKeyPrefix :: ByteString
+
+type IterType i = (IterKey i, IterValue i)
+
+-- | Pure read-only interface to the database.
+class (MonadBaseControl IO m, MonadThrow m) => MonadDBRead m where
+    -- | This function takes tag and key and reads value associated
+    -- with given key from DB corresponding to given tag.
     dbGet :: DBTag -> ByteString -> m (Maybe ByteString)
 
-    default dbGet :: (MonadTrans t, MonadDBPure n, t n ~ m) =>
-        DBTag -> ByteString -> m (Maybe ByteString)
-    dbGet tag = lift . dbGet tag
+    -- | Source producing iteration over given 'i'.
+    dbIterSource ::
+        ( DBIteratorClass i
+        , Bi (IterKey i)
+        , Bi (IterValue i)
+        ) => DBTag -> Proxy i -> Source (ResourceT m) (IterType i)
 
 instance {-# OVERLAPPABLE #-}
-    (MonadDBPure m, MonadTrans t, MonadThrow (t m)) =>
-        MonadDBPure (t m)
+    (MonadDBRead m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
+        MonadDBRead (t m)
+  where
+    dbGet tag = lift . dbGet tag
+    dbIterSource tag (p :: Proxy i) =
+        hoist (hoist lift) (dbIterSource tag p)
+
+-- | Pure interface to the database. Combines read-only interface and
+-- ability to put raw bytes.
+class MonadDBRead m => MonadDB m where
+    -- | This function takes tag, key and value and puts given value
+    -- associated with given key into DB corresponding to given tag.
+    dbPut :: DBTag -> ByteString -> ByteString -> m ()
+
+    -- | Write batch of operations into DB corresponding to given
+    -- tag. This write is atomic.
+    --
+    -- There are multiple candidates for a type representing batch
+    -- operation, for instance:
+    -- • Rocks.BatchOp is a good candidate because it's exactly what we want
+    -- for pure implementation and it can be used as is for RocksDB.
+    -- • We could define our own type for this class, but it would be an
+    -- overkill.
+    -- • 'SomeBatchOp' could also be used, but it seems to be overcomplication
+    -- for such simple interface.
+    --
+    -- So a list of 'Rocks.BatchOp' was chosen.
+    dbWriteBatch :: DBTag -> [Rocks.BatchOp] -> m ()
+
+    -- | This function takes tag and key and deletes value associated
+    -- with given key from DB corresponding to given tag.
+    dbDelete :: DBTag -> ByteString -> m ()
+
+
+instance {-# OVERLAPPABLE #-}
+    (MonadDB m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
+        MonadDB (t m)
+  where
+    dbPut = lift ... dbPut
+    dbWriteBatch = lift ... dbWriteBatch
+    dbDelete = lift ... dbDelete
 
 ----------------------------------------------------------------------------
 -- GState abstraction
@@ -116,42 +179,39 @@ instance {-# OVERLAPPABLE #-}
 -- The idea is that actual getters may be defined at high levels, but
 -- may be needed at lower levels.
 --
--- This class doesn't have a 'MonadDB' constraint, because alternative
--- DBs my be used to provide this data. There is also 'MonadDBCore' constraint
--- which unites 'MonadDB' and 'GStateCore'.
-class Monad m => MonadGStateCore m where
+-- This class doesn't have a 'MonadRealDB' constraint, because
+-- alternative DBs my be used to provide this data.
+class Monad m => MonadGState m where
     gsAdoptedBVData :: m BlockVersionData
 
 instance {-# OVERLAPPABLE #-}
-    (MonadGStateCore m, MonadTrans t, LiftLocal t,
+    (MonadGState m, MonadTrans t, LiftLocal t,
      Monad (t m)) =>
-        MonadGStateCore (t m)
+        MonadGState (t m)
   where
     gsAdoptedBVData = lift gsAdoptedBVData
 
-gsMaxBlockSize :: MonadGStateCore m => m Byte
+gsMaxBlockSize :: MonadGState m => m Byte
 gsMaxBlockSize = bvdMaxBlockSize <$> gsAdoptedBVData
 
-gsMaxHeaderSize :: MonadGStateCore m => m Byte
+gsMaxHeaderSize :: MonadGState m => m Byte
 gsMaxHeaderSize = bvdMaxHeaderSize <$> gsAdoptedBVData
 
-gsMaxTxSize :: MonadGStateCore m => m Byte
+gsMaxTxSize :: MonadGState m => m Byte
 gsMaxTxSize = bvdMaxTxSize <$> gsAdoptedBVData
 
-gsMaxProposalSize :: MonadGStateCore m => m Byte
+gsMaxProposalSize :: MonadGState m => m Byte
 gsMaxProposalSize = bvdMaxProposalSize <$> gsAdoptedBVData
-
-type MonadDBCore m = (MonadDB m, MonadGStateCore m)
 
 ----------------------------------------------------------------------------
 -- Block DB abstraction
 ----------------------------------------------------------------------------
 
--- | Monad which provides access to the Block DB. It's generic in a
--- way that it's allows to specify different types of
+-- | Monad which provides read-only access to the Block DB. It's
+-- generic in a way that it allows to specify different types of
 -- block|header|undo. Read rationale behind this type in the
 -- documentation of this module.
-class MonadDBPure m =>
+class MonadDBRead m =>
       MonadBlockDBGeneric header blk undo m | blk -> header, blk -> undo where
     dbGetHeader :: HeaderHash -> m (Maybe header)
     dbGetBlock :: HeaderHash -> m (Maybe blk)
@@ -159,7 +219,7 @@ class MonadDBPure m =>
 
 instance {-# OVERLAPPABLE #-}
     (MonadBlockDBGeneric header blk undo m, MonadTrans t, LiftLocal t,
-     MonadDBPure (t m)) =>
+     MonadDBRead (t m)) =>
         MonadBlockDBGeneric header blk undo (t m)
   where
     dbGetHeader = lift . dbGetHeader @header @blk @undo
@@ -181,14 +241,19 @@ dbGetBlund x =
 -- RocksDB
 ----------------------------------------------------------------------------
 
-type MonadDB m
-     = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadCatch m)
+-- | This is the set of constraints necessary to operate on «real» DBs
+-- (which are wrapped into 'NodeDBs').  Apart from providing access to
+-- 'NodeDBs' it also has 'MonadIO' constraint, because it's impossible
+-- to use real DB without IO. Finally, it has 'MonadCatch' constraints
+-- (partially for historical reasons, partially for good ones).
+type MonadRealDB m
+     = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadBaseControl IO m, MonadCatch m)
 
-getNodeDBs :: MonadDB m => m NodeDBs
+getNodeDBs :: MonadRealDB m => m NodeDBs
 getNodeDBs = Ether.ask'
 
 usingReadOptions
-    :: MonadDB m
+    :: MonadRealDB m
     => Rocks.ReadOptions
     -> ASetter' NodeDBs DB
     -> m a
@@ -197,7 +262,7 @@ usingReadOptions opts l =
     Ether.local' (over l (\db -> db {rocksReadOpts = opts}))
 
 usingWriteOptions
-    :: MonadDB m
+    :: MonadRealDB m
     => Rocks.WriteOptions
     -> ASetter' NodeDBs DB
     -> m a
@@ -205,14 +270,14 @@ usingWriteOptions
 usingWriteOptions opts l =
     Ether.local' (over l (\db -> db {rocksWriteOpts = opts}))
 
-getBlockIndexDB :: MonadDB m => m DB
+getBlockIndexDB :: MonadRealDB m => m DB
 getBlockIndexDB = view blockIndexDB <$> getNodeDBs
 
-getGStateDB :: MonadDB m => m DB
+getGStateDB :: MonadRealDB m => m DB
 getGStateDB = view gStateDB <$> getNodeDBs
 
-getLrcDB :: MonadDB m => m DB
+getLrcDB :: MonadRealDB m => m DB
 getLrcDB = view lrcDB <$> getNodeDBs
 
-getMiscDB :: MonadDB m => m DB
+getMiscDB :: MonadRealDB m => m DB
 getMiscDB = view miscDB <$> getNodeDBs

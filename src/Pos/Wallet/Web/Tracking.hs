@@ -11,6 +11,9 @@ module Pos.Wallet.Web.Tracking
        , BlockLockMode
        , CAccModifier
        , MonadWalletTracking (..)
+       , syncWSetsAtStartWebWallet
+       , syncOnImportWebWallet
+       , txMempoolToModifierWebWallet
        ) where
 
 import           Universum
@@ -41,7 +44,7 @@ import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
 import           Pos.Crypto.HDDiscovery     (discoverHDAddresses)
 import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
-import           Pos.DB.Class               (MonadDB)
+import           Pos.DB.Class               (MonadRealDB)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..),
@@ -50,22 +53,22 @@ import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..),
                                              txOutAddress)
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
 import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT,
-                                             evalToilTEmpty, runDBTxp)
+                                             evalToilTEmpty, runDBToil)
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
 
 import           Pos.Wallet.SscType         (WalletSscType)
-import           Pos.Wallet.Web.ClientTypes (CAccountAddress (..), CAddress, WS,
-                                             addressToCAddress, encToCAddress)
-import           Pos.Wallet.Web.State       (WalletWebDB, WebWalletModeDB)
+import           Pos.Wallet.Web.ClientTypes (CId, CWAddressMeta (..), Wal, addressToCId,
+                                             encToCId)
+import           Pos.Wallet.Web.State       (WebWalletModeDB)
 import qualified Pos.Wallet.Web.State       as WS
 
-type CAccModifier = MM.MapModifier CAccountAddress ()
+type CAccModifier = MM.MapModifier CWAddressMeta ()
 
 type BlockLockMode ssc m =
     ( WithLogger m
     , Ether.MonadReader' BlkSemaphore m
-    , MonadDB m
+    , MonadRealDB m
     , DB.MonadBlockDB ssc m
     , MonadMask m
     )
@@ -85,17 +88,23 @@ instance {-# OVERLAPPABLE #-}
     syncOnImport = lift . syncOnImport
     txMempoolToModifier = lift . txMempoolToModifier
 
-instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
-         => MonadWalletTracking (WalletWebDB m) where
-    syncWSetsAtStart = syncWSetsWithGStateLock @WalletSscType
-    syncOnImport = selectAccountsFromUtxoLock @WalletSscType . pure
-    txMempoolToModifier encSK = do
-        let wHash (i, TxAux {..}) = WithHash taTx i
-        txs <- getLocalTxs
-        case topsortTxs wHash txs of
-            Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
-            Just (map snd -> ordered) ->
-                runDBTxp $ evalToilTEmpty $ trackingApplyTxs encSK ordered
+type WalletTrackingEnv ext m =
+     (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m, WS.MonadWalletWebDB m)
+
+syncWSetsAtStartWebWallet :: WalletTrackingEnv ext m => [EncryptedSecretKey] -> m ()
+syncWSetsAtStartWebWallet = syncWSetsWithGStateLock @WalletSscType
+
+syncOnImportWebWallet :: WalletTrackingEnv ext m => EncryptedSecretKey -> m ()
+syncOnImportWebWallet = selectAccountsFromUtxoLock @WalletSscType . pure
+
+txMempoolToModifierWebWallet :: WalletTrackingEnv ext m => EncryptedSecretKey -> m CAccModifier
+txMempoolToModifierWebWallet encSK = do
+    let wHash (i, TxAux {..}) = WithHash taTx i
+    txs <- getLocalTxs
+    case topsortTxs wHash txs of
+        Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
+        Just (map snd -> ordered) ->
+            runDBToil $ evalToilTEmpty $ trackingApplyTxs encSK ordered
 
 ----------------------------------------------------------------------------
 -- Logic
@@ -122,22 +131,22 @@ selectAccountsFromUtxoLock
     => [EncryptedSecretKey]
     -> m ()
 selectAccountsFromUtxoLock encSKs = withBlkSemaphore_ $ \tip -> do
-    let (hdPass, wsAddr) = unzip $ map getEncInfo encSKs
-    logDebug $ sformat ("Select accounts from Utxo: tip "%build%" for "%listJson) tip wsAddr
+    let (hdPass, wAddr) = unzip $ map getEncInfo encSKs
+    logDebug $ sformat ("Select accounts from Utxo: tip "%build%" for "%listJson) tip wAddr
     addresses <- discoverHDAddresses hdPass
-    let allAddreses = concatMap createAccounts $ zip wsAddr addresses
-    mapM_ WS.addAccount allAddreses
+    let allAddreses = concatMap createWAddresss $ zip wAddr addresses
+    mapM_ WS.addWAddress allAddreses
     tip <$  logDebug (sformat ("After selection from Utxo addresses was added: "%listJson) allAddreses)
   where
-    createAccounts :: (CAddress WS, [(Address, [Word32])]) -> [CAccountAddress]
-    createAccounts (wsAddr, addresses) = do
+    createWAddresss :: (CId Wal, [(Address, [Word32])]) -> [CWAddressMeta]
+    createWAddresss (wAddr, addresses) = do
         let (ads, paths) = unzip addresses
-        mapMaybe createAccount $ zip3 (repeat wsAddr) ads paths
+        mapMaybe createWAddress $ zip3 (repeat wAddr) ads paths
 
-    createAccount :: (CAddress WS, Address, [Word32]) -> Maybe CAccountAddress
-    createAccount (wsAddr, addr, derPath) = do
+    createWAddress :: (CId Wal, Address, [Word32]) -> Maybe CWAddressMeta
+    createWAddress (wAddr, addr, derPath) = do
         guard $ length derPath == 2
-        pure $ CAccountAddress wsAddr (derPath !! 0) (derPath !! 1) (addressToCAddress addr)
+        pure $ CWAddressMeta wAddr (derPath !! 0) (derPath !! 1) (addressToCId addr)
 
 -- Iterate over blocks (using forward links) and actualize our accounts.
 syncWSetsWithGStateLock
@@ -155,59 +164,59 @@ syncWSetsWithGStateLock encSKs = withBlkSemaphore_ $ \tip ->
 syncWSetsWithGState
     :: forall ssc m .
     ( WebWalletModeDB m
-    , MonadDB m
+    , MonadRealDB m
     , DB.MonadBlockDB ssc m
     , WithLogger m)
     => EncryptedSecretKey
     -> m ()
 syncWSetsWithGState encSK = do
     tipHeader <- DB.getTipHeader @(Block ssc)
-    let wsAddr = encToCAddress encSK
-    whenJustM (WS.getWSetSyncTip wsAddr) $ \wsTip ->
-        if | wsTip == genesisHash && headerHash tipHeader == genesisHash ->
-               logDebug $ sformat ("Walletset "%build%" at genesis state, synced") wsAddr
-           | wsTip == genesisHash ->
-               whenJustM (resolveForwardLink wsTip) $ \nx-> sync wsAddr nx tipHeader
-           | otherwise -> sync wsAddr wsTip tipHeader
+    let wAddr = encToCId encSK
+    whenJustM (WS.getWalletSyncTip wAddr) $ \wTip ->
+        if | wTip == genesisHash && headerHash tipHeader == genesisHash ->
+               logDebug $ sformat ("Wallet "%build%" at genesis state, synced") wAddr
+           | wTip == genesisHash ->
+               whenJustM (resolveForwardLink wTip) $ \nx-> sync wAddr nx tipHeader
+           | otherwise -> sync wAddr wTip tipHeader
   where
-    sync :: CAddress WS -> HeaderHash -> BlockHeader ssc -> m ()
-    sync wsAddr wsTip tipHeader = DB.blkGetHeader wsTip >>= \case
+    sync :: CId Wal -> HeaderHash -> BlockHeader ssc -> m ()
+    sync wAddr wTip tipHeader = DB.blkGetHeader wTip >>= \case
         Nothing ->
             logWarning $
-                sformat ("Couldn't get block header of walletset "%build
-                         %" by last synced hh: "%build) wsAddr wsTip
-        Just wsHeader -> do
-            mapModifier <- compareHeaders wsAddr wsHeader tipHeader
-            applyModifierToWSet wsAddr (headerHash tipHeader) mapModifier
-            logDebug $ sformat ("Walletset "%build
-                               %" has been synced with tip "%shortHashF%", added accounts: "%listJson
-                               %", deleted accounts: "%listJson)
-                       wsAddr wsTip
+                sformat ("Couldn't get block header of wallet "%build
+                         %" by last synced hh: "%build) wAddr wTip
+        Just wHeader -> do
+            mapModifier <- compareHeaders wAddr wHeader tipHeader
+            applyModifierToWSet wAddr (headerHash tipHeader) mapModifier
+            logDebug $ sformat ("Wallet "%build
+                               %" has been synced with tip "%shortHashF%", added addresses: "%listJson
+                               %", deleted addresses: "%listJson)
+                       wAddr wTip
                        (map fst $ MM.insertions mapModifier)
                        (MM.deletions mapModifier)
 
-    compareHeaders :: CAddress WS -> BlockHeader ssc -> BlockHeader ssc -> m CAccModifier
-    compareHeaders wsAddr wsHeader tipHeader = do
+    compareHeaders :: CId Wal -> BlockHeader ssc -> BlockHeader ssc -> m CAccModifier
+    compareHeaders wAddr wHeader tipHeader = do
         logDebug $
-            sformat ("Walletset "%build%" header: "%build%", current tip header: "%build)
-                    wsAddr wsHeader tipHeader
-        if | diff tipHeader > diff wsHeader -> runDBTxp $ evalToilTEmpty $ do
+            sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
+                    wAddr wHeader tipHeader
+        if | diff tipHeader > diff wHeader -> runDBToil $ evalToilTEmpty $ do
             -- If walletset syncTip before the current tip,
-            -- then it loads wallets starting with @wsHeader@.
+            -- then it loads wallets starting with @wHeader@.
             -- Sync tip can be before the current tip
             -- when we call @syncWalletSetWithTip@ at the first time
             -- or if the application was interrupted during rollback.
             -- We don't load blocks explicitly, because blockain can be long.
                 maybe (pure mempty)
-                      (\wsNextHeader -> foldlUpWhileM applyBlock wsNextHeader constTrue mappendR mempty)
-                      =<< resolveForwardLink wsHeader
-           | diff tipHeader < diff wsHeader -> do
+                      (\wNextHeader -> foldlUpWhileM applyBlock wNextHeader constTrue mappendR mempty)
+                      =<< resolveForwardLink wHeader
+           | diff tipHeader < diff wHeader -> do
             -- This rollback can occur
             -- if the application was interrupted during blocks application.
                 blunds <- getNewestFirst <$>
-                            DB.loadBlundsWhile (\b -> getBlockHeader b /= tipHeader) (headerHash wsHeader)
+                            DB.loadBlundsWhile (\b -> getBlockHeader b /= tipHeader) (headerHash wHeader)
                 pure $ foldl' (\r b -> r <> rollbackBlock b) mempty blunds
-           | otherwise -> mempty <$ logInfo (sformat ("Walletset "%build%" is already synced") wsAddr)
+           | otherwise -> mempty <$ logInfo (sformat ("Wallet "%build%" is already synced") wAddr)
     constTrue = \_ _ -> True
     mappendR r mm = pure (r <> mm)
     diff = (^. difficultyL)
@@ -267,47 +276,46 @@ trackingRollbackTxs (getEncInfo -> encInfo) txs =
 
 applyModifierToWSet
     :: WebWalletModeDB m
-    => CAddress WS
+    => CId Wal
     -> HeaderHash
     -> CAccModifier
     -> m ()
-applyModifierToWSet wsAddr newTip mapModifier = do
+applyModifierToWSet wAddr newTip mapModifier = do
     -- TODO maybe do it as one acid-state transaction.
-    mapM_ WS.removeAccount (MM.deletions mapModifier)
-    mapM_ (WS.addAccount . fst) (MM.insertions mapModifier)
-    WS.setWSetSyncTip wsAddr newTip
+    mapM_ (WS.addWAddress . fst) (MM.insertions mapModifier)
+    WS.setWalletSyncTip wAddr newTip
 
-getEncInfo :: EncryptedSecretKey -> (HDPassphrase, CAddress WS)
+getEncInfo :: EncryptedSecretKey -> (HDPassphrase, CId Wal)
 getEncInfo encSK = do
     let pubKey = encToPublic encSK
     let hdPass = deriveHDPassphrase pubKey
-    let wsCAddress = addressToCAddress $ makePubKeyAddress pubKey
-    (hdPass, wsCAddress)
+    let wCId = addressToCId $ makePubKeyAddress pubKey
+    (hdPass, wCId)
 
 selectOwnAccounts
-    :: (HDPassphrase, CAddress WS)
+    :: (HDPassphrase, CId Wal)
     -> (a -> Address)
     -> [a]
-    -> [(a, CAccountAddress)]
+    -> [(a, CWAddressMeta)]
 selectOwnAccounts encInfo getAddr =
     mapMaybe (\a -> (a,) <$> decryptAccount encInfo (getAddr a))
 
-deleteAndInsertMM :: [CAccountAddress] -> [CAccountAddress] -> CAccModifier -> CAccModifier
+deleteAndInsertMM :: [CWAddressMeta] -> [CWAddressMeta] -> CAccModifier -> CAccModifier
 deleteAndInsertMM dels ins mapModifier =
-    -- Insert CAccountAddress coressponding to outputs of tx.
+    -- Insert CWAddressMeta coressponding to outputs of tx.
     (\mm -> foldl' insertAcc mm ins) $
-    -- Delete CAccountAddress coressponding to inputs of tx.
+    -- Delete CWAddressMeta coressponding to inputs of tx.
     foldl' deleteAcc mapModifier dels
   where
-    insertAcc :: CAccModifier -> CAccountAddress -> CAccModifier
+    insertAcc :: CAccModifier -> CWAddressMeta -> CAccModifier
     insertAcc modifier acc = MM.insert acc () modifier
 
-    deleteAcc :: CAccModifier -> CAccountAddress -> CAccModifier
+    deleteAcc :: CAccModifier -> CWAddressMeta -> CAccModifier
     deleteAcc modifier acc = MM.delete acc modifier
 
-decryptAccount :: (HDPassphrase, CAddress WS) -> Address -> Maybe CAccountAddress
-decryptAccount (hdPass, wsCAddress) addr@(PubKeyAddress _ (Attributes (AddrPkAttrs (Just hdPayload)) _)) = do
+decryptAccount :: (HDPassphrase, CId Wal) -> Address -> Maybe CWAddressMeta
+decryptAccount (hdPass, wCId) addr@(PubKeyAddress _ (Attributes (AddrPkAttrs (Just hdPayload)) _)) = do
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2
-    pure $ CAccountAddress wsCAddress (derPath !! 0) (derPath !! 1) (addressToCAddress addr)
+    pure $ CWAddressMeta wCId (derPath !! 0) (derPath !! 1) (addressToCId addr)
 decryptAccount _ _ = Nothing

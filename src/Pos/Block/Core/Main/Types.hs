@@ -34,7 +34,8 @@ data MainBlockchain ssc
 -- | Data to be signed in main block.
 data MainToSign ssc
     = MainToSign
-    { _msHeaderHash  :: !HeaderHash
+    { _msHeaderHash  :: !HeaderHash  -- ^ Hash of previous header
+                                     --    in the chain
     , _msBodyProof   :: !(BodyProof (MainBlockchain ssc))
     , _msSlot        :: !SlotId
     , _msChainDiff   :: !ChainDifficulty

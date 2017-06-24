@@ -1,6 +1,8 @@
 resolver: lts-8.13
 
-flags: {}
+flags:
+  ether:
+    disable-tup-instances: true
 
 extra-package-dbs: []
 
@@ -11,8 +13,10 @@ packages:
 - infra
 - db
 - lrc
+- lwallet
 - ssc
 - godtossing
+- txp
 
 - location:
     git: https://github.com/serokell/time-units.git
@@ -31,10 +35,6 @@ packages:
     commit: e2e2711e6978002279b4d7c49cab1aff47a2fd43
   extra-dep: true
 - location:
-    git: https://github.com/serokell/rocksdb-haskell.git
-    commit: 4dfd8d61263d78a91168e86e8005eb9b7069389e
-  extra-dep: true
-- location:
     git: https://github.com/thoughtpolice/hs-ed25519
     # We're waiting on next release
     commit: da4247b5b3420120e20451e6a252e2a2ca15b43c
@@ -45,7 +45,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: 3fa7ccea4031a7424e77b63fd1f29e4d69b70b98
+    commit: 8bfba580e628791a03b0bec4d913890dde16811d # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -58,7 +58,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 96adbd5aa9a906859deddf170f8762a9ed85c0c9
+    commit: 84f8c358463bbf6bb09168aac5ad990faa9d310a
   extra-dep: true
 # We're using forked version of 'swagger2' package because of bug in haddock package.
 # Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
@@ -76,7 +76,7 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
-- universum-0.4.2
+- universum-0.4.3
 - time-units-1.0.0
 - serokell-util-0.1.5.0
 - pvss-0.1
@@ -91,13 +91,16 @@ extra-deps:
 - servant-server-0.10             # so it triggers another dependencies to be v10
 - servant-swagger-1.1.2.1
 - servant-multipart-0.10
-- ether-0.5.0.0
+- ether-0.5.1.0
 - transformers-lift-0.2.0.1
+- lens-4.15.3                     # not yet in lts-8
+- th-abstraction-0.2.2.0          # needed for lens
+- rocksdb-haskell-1.0.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
-# If you find it too restrictive, you can use `util-scripts/build.sh' script
+# If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
   cardano-sl-core:       -Werror
   cardano-sl-db:         -Werror
@@ -106,4 +109,6 @@ ghc-options:
   cardano-sl-lrc:        -Werror
   cardano-sl-update:     -Werror
   cardano-sl-godtossing: -Werror
+  cardano-sl-txp:        -Werror
   cardano-sl:            -Werror
+  cardano-sl-lwallet:    -Werror

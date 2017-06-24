@@ -19,22 +19,18 @@ module Pos.Context.Functions
 
          -- * Misc
        , getUptime
-       , recoveryInProgress
        ) where
 
-import qualified Control.Concurrent.STM as STM
-import           Data.Time              (diffUTCTime, getCurrentTime)
-import           Data.Time.Units        (Microsecond, fromMicroseconds)
+import           Data.Time           (diffUTCTime, getCurrentTime)
+import           Data.Time.Units     (Microsecond, fromMicroseconds)
 import qualified Ether
 import           Universum
 
-import           Pos.Context.Context    (BlkSemaphore (..), GenesisLeaders (..),
-                                         GenesisUtxo (..), MonadRecoveryHeader,
-                                         RecoveryHeaderTag, StartTime (..))
-import           Pos.Lrc.Context        (lrcActionOnEpoch, lrcActionOnEpochReason,
-                                         waitLrc)
-import           Pos.Txp.Toil.Types     (Utxo)
-import           Pos.Types              (HeaderHash, SlotLeaders)
+import           Pos.Context.Context (BlkSemaphore (..), GenesisLeaders (..),
+                                      GenesisUtxo (..), StartTime (..))
+import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
+import           Pos.Txp.Toil.Types  (Utxo)
+import           Pos.Types           (HeaderHash, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -76,10 +72,3 @@ getUptime = do
     startTime <- Ether.asks' unStartTime
     let seconds = toRational $ curTime `diffUTCTime` startTime
     pure $ fromMicroseconds $ round $ seconds * 1000 * 1000
-
--- | Returns if 'RecoveryHeader' is 'Just' which is equivalent to
--- “we're doing recovery”.
-recoveryInProgress :: (MonadIO m, MonadRecoveryHeader ssc m) => m Bool
-recoveryInProgress = do
-    var <- Ether.ask @RecoveryHeaderTag
-    isJust <$> atomically (STM.tryReadTMVar var)

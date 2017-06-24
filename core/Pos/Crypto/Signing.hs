@@ -48,7 +48,8 @@ import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
 import qualified Data.Text.Buildable    as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, bprint, build, fitLeft, later, (%), (%.))
+import           Formatting             (Format, bprint, build, fitLeft, later, sformat,
+                                         (%), (%.))
 import           Prelude                (show)
 import qualified Serokell.Util.Base16   as B16
 import qualified Serokell.Util.Base64   as Base64 (decode, formatBase64)
@@ -245,14 +246,16 @@ verifyProxySecretKey :: (Bi w) => ProxySecretKey w -> Bool
 verifyProxySecretKey ProxySecretKey{..} =
     verifyProxyCert pskIssuerPk pskDelegatePk pskOmega pskCert
 
--- | Delegate signature made with certificate-based permission. @a@
+-- | Delegate signature made with certificate-based permission. @w@
 -- stays for message type used in proxy (ω in the implementation
--- notes), @b@ for type of message signed.
+-- notes), @a@ for type of message signed.
+--
+-- We add whole psk as a field because otherwise we can't verify sig
+-- in heavyweight psk transitive delegation: i -> x -> d, we have psk
+-- from x to d, slot leader is i.
 data ProxySignature w a = ProxySignature
-    { pdOmega      :: w
-    , pdDelegatePk :: PublicKey
-    , pdCert       :: ProxyCert w
-    , pdSig        :: CC.XSignature
+    { psigPsk :: ProxySecretKey w
+    , psigSig :: CC.XSignature
     } deriving (Eq, Ord, Show, Generic)
 
 instance NFData w => NFData (ProxySignature w a)
@@ -260,31 +263,27 @@ instance Hashable w => Hashable (ProxySignature w a)
 
 instance {-# OVERLAPPABLE #-}
          (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature w a) where
-    build ProxySignature{..} =
-        bprint ("Proxy signature { w = "%build%", delegatePk = "%build%" }")
-               pdOmega pdDelegatePk
+    build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") psigPsk
 
 instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySignature (w,w) a) where
-    build ProxySignature{..} =
-        bprint ("Proxy signature { w = "%pairF%", delegatePk = "%build%" }")
-               pdOmega pdDelegatePk
+    build ProxySignature{..} = bprint ("Proxy signature { psk = "%build%" }") psigPsk
 
 -- | Make a proxy delegate signature with help of certificate. If the
 -- delegate secret key passed doesn't pair with delegate public key in
 -- certificate inside, we panic. Please check this condition outside
 -- of this function.
 proxySign
-    :: (Bi a)
+    :: (Bi a, Bi PublicKey)
     => SignTag -> SecretKey -> ProxySecretKey w -> a -> ProxySignature w a
-proxySign t sk@(SecretKey delegateSk) ProxySecretKey{..} m
+proxySign t sk@(SecretKey delegateSk) psk@ProxySecretKey{..} m
     | toPublic sk /= pskDelegatePk =
-        error "proxySign called with irrelevant certificate"
+        error $ sformat ("proxySign called with irrelevant certificate "%
+                         "(psk delegatePk: "%build%", real delegate pk: "%build%")")
+                        pskDelegatePk (toPublic sk)
     | otherwise =
         ProxySignature
-        { pdOmega = pskOmega
-        , pdDelegatePk = pskDelegatePk
-        , pdCert = pskCert
-        , pdSig = sigma
+        { psigPsk = psk
+        , psigSig = sigma
         }
   where
     PublicKey issuerPk = pskIssuerPk
@@ -300,13 +299,15 @@ proxySign t sk@(SecretKey delegateSk) ProxySecretKey{..} m
 -- space predicate and message itself.
 proxyVerify
     :: (Bi w, Bi a)
-    => SignTag -> PublicKey -> ProxySignature w a -> (w -> Bool) -> a -> Bool
-proxyVerify t iPk@(PublicKey issuerPk) ProxySignature{..} omegaPred m =
-    and [predCorrect, certValid, sigValid]
+    => SignTag -> ProxySignature w a -> (w -> Bool) -> a -> Bool
+proxyVerify t ProxySignature{..} omegaPred m =
+    and [predCorrect, pskValid, sigValid]
   where
-    PublicKey pdDelegatePkRaw = pdDelegatePk
-    predCorrect = omegaPred pdOmega
-    certValid = verifyProxyCert iPk pdDelegatePk pdOmega pdCert
+    ProxySecretKey{..} = psigPsk
+    PublicKey issuerPk = pskIssuerPk
+    PublicKey pdDelegatePkRaw = pskDelegatePk
+    predCorrect = omegaPred pskOmega
+    pskValid = verifyProxySecretKey psigPsk
     sigValid =
         CC.verify
             pdDelegatePkRaw
@@ -316,4 +317,4 @@ proxyVerify t iPk@(PublicKey issuerPk) ProxySignature{..} omegaPred m =
                  , signTag t
                  , Bi.encodeStrict m
                  ])
-            pdSig
+            psigSig

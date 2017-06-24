@@ -49,7 +49,7 @@ import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (.
                                              MsgHeaders (..))
 import           Pos.Block.Pure             (verifyHeaders)
 import           Pos.Block.Types            (Blund)
-import           Pos.Communication.Limits   (LimitedLength, recvLimited, reifyMsgLimit)
+import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              NodeId, OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
@@ -58,15 +58,16 @@ import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHe
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
                                              gbHeader, headerHashG, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
-import           Pos.DB.Class               (MonadDBCore)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
-import           Pos.Reporting.Methods      (reportMisbehaviourMasked)
+import           Pos.Reporting.Methods      (reportMisbehaviourSilent)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.JsonLog           (jlAdoptedBlock)
+import           Pos.Util.TimeWarp          (CanJsonLog (..))
 import           Pos.WorkMode.Class         (WorkMode)
 
 ----------------------------------------------------------------------------
@@ -107,12 +108,11 @@ triggerRecovery :: forall ssc m.
     => SendActions m -> m ()
 triggerRecovery sendActions = unlessM recoveryInProgress $ do
     logDebug "Recovery started, requesting tips from neighbors"
-    reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
-        converseToNeighbors sendActions (pure . Conversation . requestTip limitProxy) `catch`
-            \(e :: SomeException) -> do
-               logDebug ("Error happened in triggerRecovery: " <> show e)
-               throwM e
-        logDebug "Finished requesting tips for recovery"
+    converseToNeighbors sendActions (pure . Conversation . requestTip) `catch`
+        \(e :: SomeException) -> do
+           logDebug ("Error happened in triggerRecovery: " <> show e)
+           throwM e
+    logDebug "Finished requesting tips for recovery"
 
 requestTipOuts :: OutSpecs
 requestTipOuts =
@@ -123,13 +123,12 @@ requestTipOuts =
 -- current blockchain state. Sends "what's your current tip" request
 -- to everybody we know.
 requestTip
-    :: forall ssc s m.
+    :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
-    => Proxy s
-    -> NodeId
-    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
+    => NodeId
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
-requestTip _ nodeId conv = do
+requestTip nodeId conv = do
     logDebug "Requesting tip..."
     send conv (MsgGetHeaders [] Nothing)
     whenJustM (recvLimited conv) handleTip
@@ -156,11 +155,11 @@ mkHeadersRequest upto = do
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
-    :: forall ssc s m.
+    :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 handleUnsolicitedHeaders (header :| []) nodeId conv =
     handleUnsolicitedHeader header nodeId conv
@@ -170,11 +169,11 @@ handleUnsolicitedHeaders (h:|hs) _ _ = do
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
 handleUnsolicitedHeader
-    :: forall ssc s m.
+    :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => BlockHeader ssc
     -> NodeId
-    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
 handleUnsolicitedHeader header nodeId conv = do
     logDebug $ sformat
@@ -191,7 +190,7 @@ handleUnsolicitedHeader header nodeId conv = do
             logInfo $ sformat alternativeFormat hHash
             mghM <- mkHeadersRequest (Just hHash)
             whenJust mghM $ \mgh ->
-                requestHeaders mgh nodeId (Just header) Proxy conv
+                requestHeaders mgh nodeId (Just header) conv
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
             logDebug $ sformat ("handleUnsolicited: header "%shortHashF%
@@ -242,15 +241,14 @@ matchRequestedHeaders headers MsgGetHeaders {..} inRecovery =
 -- Second argument is mghTo block header (not hash). Don't pass it
 -- only if you don't know it.
 requestHeaders
-    :: forall ssc s m.
+    :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => MsgGetHeaders
     -> NodeId
     -> Maybe (BlockHeader ssc)
-    -> Proxy s
-    -> ConversationActions MsgGetHeaders (LimitedLength s (MsgHeaders ssc)) m
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
-requestHeaders mgh nodeId origTip _ conv = do
+requestHeaders mgh nodeId origTip conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
@@ -381,7 +379,7 @@ mkBlocksRequest lcaChild wantedBlock =
 
 handleBlocks
     :: forall ssc m.
-       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => NodeId
     -> OldestFirst NE (Block ssc)
     -> SendActions m
@@ -402,7 +400,7 @@ handleBlocks nodeId blocks sendActions = do
 
 handleBlocksWithLca
     :: forall ssc m.
-       (MonadDBCore m, SscWorkersClass ssc, WorkMode ssc m)
+       (SscWorkersClass ssc, WorkMode ssc m)
     => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
@@ -420,7 +418,7 @@ handleBlocksWithLca nodeId sendActions blocks lcaHash = do
 
 applyWithoutRollback
     :: forall ssc m.
-       (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
+       (WorkMode ssc m, SscWorkersClass ssc)
     => SendActions m
     -> OldestFirst NE (Block ssc)
     -> m ()
@@ -446,6 +444,7 @@ applyWithoutRollback sendActions blocks = do
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
             relayBlock sendActions toRelay
             logInfo $ blocksAppliedMsg applied
+            for_ blocks $ jsonLog . jlAdoptedBlock
   where
     newestTip = blocks ^. _Wrapped . _neLast . headerHashG
     applyWithoutRollbackDo
@@ -457,7 +456,7 @@ applyWithoutRollback sendActions blocks = do
 
 applyWithRollback
     :: forall ssc m.
-       (MonadDBCore m, WorkMode ssc m, SscWorkersClass ssc)
+       (WorkMode ssc m, SscWorkersClass ssc)
     => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
@@ -480,6 +479,7 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
             reportRollback
             logInfo $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo $ blocksAppliedMsg (getOldestFirst toApply)
+            for_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
             relayBlock sendActions $ toApply ^. _Wrapped . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback
@@ -491,7 +491,7 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
     reportRollback =
         unlessM recoveryInProgress $ do
             logDebug "Reporting rollback happened"
-            reportMisbehaviourMasked version $
+            reportMisbehaviourSilent version $
                 sformat reportF nodeId toRollbackHashes toApplyHashes
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

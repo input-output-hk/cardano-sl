@@ -1,6 +1,9 @@
+-- | In-memory state of LRC.
+
 module Pos.Lrc.Context
        ( LrcSyncData(..)
        , LrcContext(..)
+       , mkLrcSyncData
 
        , waitLrc
        , lrcActionOnEpoch
@@ -11,13 +14,15 @@ import           Universum
 
 import qualified Ether
 
-import           Pos.Core      (EpochIndex)
-import           Pos.Lrc.Error (LrcError (..))
-import           Pos.Util.Util (maybeThrow, readTVarConditional)
+import           Pos.Core            (EpochIndex)
+import           Pos.DB.Class        (MonadDBRead)
+import           Pos.Lrc.DB.Common   (getEpoch)
+import           Pos.Lrc.Error       (LrcError (..))
+import           Pos.Util.Concurrent (readTVarConditional)
+import           Pos.Util.Util       (maybeThrow)
 
 data LrcContext = LrcContext
-    {
-    -- | Primitive for synchronization with LRC.
+    { -- | Primitive for synchronization with LRC.
       lcLrcSync :: !(TVar LrcSyncData)
     }
 
@@ -28,6 +33,10 @@ data LrcSyncData = LrcSyncData
     { lrcNotRunning    :: !Bool
     , lastEpochWithLrc :: !EpochIndex
     }
+
+-- | Make new 'LrcSyncData' using read-only access to DB.
+mkLrcSyncData :: MonadDBRead m => m LrcSyncData
+mkLrcSyncData = LrcSyncData True <$> getEpoch
 
 ----------------------------------------------------------------------------
 -- LRC synchronization

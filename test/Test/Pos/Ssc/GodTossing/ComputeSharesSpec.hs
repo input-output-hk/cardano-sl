@@ -6,15 +6,15 @@ module Test.Pos.Ssc.GodTossing.ComputeSharesSpec
 
 import           Control.Monad.Except  (runExcept)
 import qualified Data.HashMap.Strict   as HM
-import           Data.Reflection       (Reifies (..))
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
 import           Universum
 
 import           Pos.Constants         (genesisMpcThd)
-import           Pos.Core              (CoinPortion, mkCoin)
+import           Pos.Core              (mkCoin)
 import           Pos.Core.Coin         (coinPortionToDouble, sumCoins)
-import           Pos.Lrc               (InvalidRichmenStake (..), ValidRichmenStake (..))
+import           Pos.Lrc               (GenesisMpcThd, InvalidRichmenStake (..),
+                                        ValidRichmenStake (..))
 import qualified Pos.Ssc.GodTossing    as T
 
 spec :: Spec
@@ -41,11 +41,6 @@ emptyRichmenStake :: Expectation
 emptyRichmenStake =
     let emptyRes = runExcept $ T.computeSharesDistr mempty
     in isLeft emptyRes `shouldBe` True
-
-data GenesisMpcThd
-
-instance Reifies GenesisMpcThd CoinPortion where
-    reflect _ = genesisMpcThd
 
 allRichmenGetShares :: ValidRichmenStake GenesisMpcThd -> Bool
 allRichmenGetShares (getValid -> richmen) =

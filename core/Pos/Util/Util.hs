@@ -29,22 +29,14 @@ module Pos.Util.Util
        -- * Ether
        , ether
        , Ether.TaggedTrans
+       , HasLens(..)
+       , lensOf'
 
        -- * Lifting monads
        , PowerLift(..)
 
        -- * Asserts
        , inAssertMode
-
-       -- * Concurrency
-       , clearMVar
-       , forcePutMVar
-       , readMVarConditional
-       , readUntilEqualMVar
-       , readTVarConditional
-       , readUntilEqualTVar
-       , withReadLifted
-       , withWriteLifted
 
        -- * Instances
        -- ** Lift Byte
@@ -74,16 +66,14 @@ module Pos.Util.Util
 import           Universum
 import           Unsafe                         (unsafeInit, unsafeLast)
 
-import           Control.Concurrent.ReadWriteLock (RWLock, acquireRead, acquireWrite,
-                                                   releaseRead, releaseWrite)
 import           Control.Lens                   (ALens', Getter, Getting, cloneLens, to)
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Morph            (MFunctor (..))
-import           Control.Monad.STM              (retry)
 import           Control.Monad.Trans.Class      (MonadTrans)
 import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource   (MonadResource (..))
+import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
+                                                 transResourceT)
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import           Data.HashSet                   (fromMap)
 import           Data.Tagged                    (Tagged (Tagged))
@@ -94,6 +84,7 @@ import           Data.Time.Units                (Attosecond, Day, Femtosecond, F
                                                  toMicroseconds)
 import           Data.Typeable                  (typeRep)
 import qualified Ether
+import           Ether.Internal                 (HasLens (..))
 import qualified Formatting                     as F
 import qualified Language.Haskell.TH.Syntax     as TH
 import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
@@ -187,7 +178,32 @@ instance Buildable Microsecond where
     build = build . (++ "mcs") . show . toMicroseconds
 
 ----------------------------------------------------------------------------
--- Ether instances
+-- MonadResource/ResourceT
+----------------------------------------------------------------------------
+
+instance LiftLocal ResourceT where
+    liftLocal _ l f = hoist (l f)
+
+instance {-# OVERLAPPABLE #-}
+    (MonadResource m, MonadTrans t, Applicative (t m),
+     MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>
+        MonadResource (t m)
+  where
+    liftResourceT = lift . liftResourceT
+
+-- TODO Move it to log-warper
+instance CanLog m => CanLog (ResourceT m)
+instance (Monad m, HasLoggerName m) => HasLoggerName (ResourceT m) where
+    getLoggerName = lift getLoggerName
+    modifyLoggerName = transResourceT . modifyLoggerName
+
+-- TODO Move it to ether :peka:
+instance Ether.MonadReader tag r m => Ether.MonadReader tag r (ResourceT m) where
+    ask = lift $ Ether.ask @tag
+    local = liftLocal (Ether.ask @tag) (Ether.local @tag)
+
+----------------------------------------------------------------------------
+-- Instances required by 'ether'
 ----------------------------------------------------------------------------
 
 instance
@@ -210,13 +226,6 @@ instance
     modifyLoggerName = liftLocal getLoggerName modifyLoggerName
 
 deriving instance LiftLocal LoggerNameBox
-
-instance {-# OVERLAPPABLE #-}
-    (MonadResource m, MonadTrans t, Applicative (t m),
-     MonadBase IO (t m), MonadIO (t m), MonadThrow (t m)) =>
-        MonadResource (t m)
-  where
-    liftResourceT = lift . liftResourceT
 
 instance {-# OVERLAPPABLE #-}
     (Monad m, MFunctor t) => MFunctor' t m n
@@ -292,6 +301,9 @@ leftToPanic msgPrefix = either (error . mappend msgPrefix . pretty) identity
 ether :: trans m a -> Ether.TaggedTrans tag trans m a
 ether = Ether.TaggedTrans
 
+lensOf' :: forall tag a b. HasLens tag a b => Proxy tag -> Lens' a b
+lensOf' _ = lensOf @tag
+
 class PowerLift m n where
   powerLift :: m a -> n a
 
@@ -338,56 +350,3 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
-
-----------------------------------------------------------------------------
--- Concurrency utilites (MVar/TVar/RWLock..)
-----------------------------------------------------------------------------
-
-clearMVar :: MonadIO m => MVar a -> m ()
-clearMVar = void . tryTakeMVar
-
-forcePutMVar :: MonadIO m => MVar a -> a -> m ()
-forcePutMVar mvar val = do
-    unlessM (tryPutMVar mvar val) $ do
-        _ <- tryTakeMVar mvar
-        forcePutMVar mvar val
-
--- | Block until value in MVar satisfies given predicate. When value
--- satisfies, it is returned.
-readMVarConditional :: (MonadIO m) => (x -> Bool) -> MVar x -> m x
-readMVarConditional predicate mvar = do
-    rData <- readMVar mvar -- first we try to read for optimization only
-    if predicate rData then pure rData
-    else do
-        tData <- takeMVar mvar         -- now take data
-        if predicate tData then do     -- check again
-            _ <- tryPutMVar mvar tData -- try to put taken value
-            pure tData
-        else
-            readMVarConditional predicate mvar
-
--- | Read until value is equal to stored value comparing by some function.
-readUntilEqualMVar
-    :: (Eq a, MonadIO m)
-    => (x -> a) -> MVar x -> a -> m x
-readUntilEqualMVar f mvar expVal = readMVarConditional ((expVal ==) . f) mvar
-
--- | Block until value in TVar satisfies given predicate. When value
--- satisfies, it is returned.
-readTVarConditional :: (MonadIO m) => (x -> Bool) -> TVar x -> m x
-readTVarConditional predicate tvar = atomically $ do
-    res <- readTVar tvar
-    if predicate res then pure res
-    else retry
-
--- | Read until value is equal to stored value comparing by some function.
-readUntilEqualTVar
-    :: (Eq a, MonadIO m)
-    => (x -> a) -> TVar x -> a -> m x
-readUntilEqualTVar f tvar expVal = readTVarConditional ((expVal ==) . f) tvar
-
-withReadLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
-withReadLifted l = bracket_ (liftIO $ acquireRead l) (liftIO $ releaseRead l)
-
-withWriteLifted :: (MonadIO m, MonadMask m) => RWLock -> m a -> m a
-withWriteLifted l = bracket_ (liftIO $ acquireWrite l) (liftIO $ releaseWrite l)

@@ -21,9 +21,10 @@ import           Pos.Communication.Message     ()
 import           Pos.Communication.Relay       (DataParams (..), PropagationMsg (..),
                                                 Relay (..), addToRelayQueue)
 import           Pos.Communication.Relay.Types ()
-import           Pos.Context                   (BlkSemaphore (..), NodeParams,
-                                                npSecretKey)
-import           Pos.Crypto                    (SignTag (SignProxySK), proxySign)
+import           Pos.Context                   (BlkSemaphore (..))
+import           Pos.Core                      (getOurKeys)
+import           Pos.Crypto                    (SignTag (SignProxySK), proxySign,
+                                                pskDelegatePk)
 import           Pos.Delegation.Logic          (ConfirmPskLightVerdict (..),
                                                 PskHeavyVerdict (..),
                                                 PskLightVerdict (..),
@@ -50,22 +51,22 @@ pskLightRelay
     :: WorkMode ssc m
     => Relay m
 pskLightRelay = Data $ DataParams $ \pSk -> do
-    -- do it in worker once in ~sometimes instead of on every request
+    logDebug $ sformat ("Got request to handle lightweight psk: "%build) pSk
     verdict <- processProxySKLight pSk
     logResult pSk verdict
     case verdict of
-        PLUnrelated -> return True
+        PLUnrelated -> pure True
         PLAdded -> do
-           logDebug $
-               sformat ("Generating delivery proof and propagating it to neighbors: "%build) pSk
-           sk <- npSecretKey <$> Ether.ask @NodeParams
-           let proof = proxySign SignProxySK sk pSk pSk -- but still proving is
-                                                        -- nothing but fear
-           addToRelayQueue (DataOnlyPM (pSk, proof))
-
-           -- Broadcasted further for case we have multiple nodes up with same secret key
-           return True
-        _ -> return False
+           (sk, pk) <- getOurKeys
+           if pskDelegatePk pSk == pk then do
+               -- if we're final delegate, don't propagate psk, propagate proof instead
+               logDebug $
+                   sformat ("Generating delivery proof and propagating it to neighbors: "%build) pSk
+               let proof = proxySign SignProxySK sk pSk pSk
+               addToRelayQueue (DataOnlyPM (pSk, proof))
+               pure False
+           else pure True
+        _ -> pure False
   where
     logResult pSk PLAdded =
         logInfo $ sformat ("Got valid related proxy secret key: "%build) pSk
@@ -84,7 +85,7 @@ pskHeavyRelay = Data $ DataParams $ handlePsk
   where
     handlePsk :: forall ssc m. WorkMode ssc m => ProxySKHeavy -> m Bool
     handlePsk pSk = do
-        logDebug $ sformat ("GLightLightot request to handle heavyweight psk: "%build) pSk
+        logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
         verdict <- processProxySKHeavy @ssc pSk
         logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
         case verdict of
@@ -105,15 +106,3 @@ confirmPskRelay = Data $ DataParams $ \(pSk, proof) -> do
     pure $ case verdict of
         CPValid -> True
         _       -> False
-
---handleCheckProxySKConfirmed
---    :: forall ssc m.
---       (WorkMode ssc m)
---    => (ListenerSpec m, OutSpecs)
---handleCheckProxySKConfirmed = listenerOneMsg outSpecs $
---    \_ nodeId sendActions (CheckProxySKConfirmed pSk :: CheckProxySKConfirmed) -> do
---        logDebug $ sformat ("Got request to check if psk: "%build%" was delivered.") pSk
---        res <- runDelegationStateAction $ isProxySKConfirmed pSk
---        sendTo sendActions nodeId $ CheckProxySKConfirmedRes res
---  where
---    outSpecs = toOutSpecs [oneMsgH (Proxy :: Proxy CheckProxySKConfirmedRes)]

@@ -1,15 +1,68 @@
--- | A tool to convert vending addresses into testnet addresses.
+{-# LANGUAGE QuasiQuotes #-}
 
 module Main (main) where
 
 import           Universum
 
-import qualified Data.ByteString      as BS
-import qualified Data.Text            as T
-import qualified Serokell.Util.Base64 as B64
+import qualified Data.ByteString              as BS
+import           Data.String.QQ               (s)
+import qualified Data.Text                    as T
+import           Data.Version                 (showVersion)
+import           Options.Applicative          (Parser, execParser, footerDoc, fullDesc,
+                                               header, help, helper, info, infoOption,
+                                               long, metavar, optional, progDesc, short)
+import           Options.Applicative.Text     (textOption)
+import qualified Serokell.Util.Base64         as B64
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
-import           Pos.Crypto           (RedeemPublicKey (..), redeemPkBuild)
-import           Pos.Types            (makeRedeemAddress)
+import           Paths_cardano_sl             (version)
+import           Pos.Crypto                   (RedeemPublicKey (..), redeemPkBuild)
+import           Pos.Types                    (makeRedeemAddress)
+
+data AddrConvertOptions = AddrConvertOptions
+    { address :: !(Maybe Text)
+    }
+
+optionsParser :: Parser AddrConvertOptions
+optionsParser = do
+    address <- optional $ textOption $
+           short   'a'
+        <> long    "address"
+        <> help    "Address to convert. It must be in base64(url) format."
+        <> metavar "STRING"
+    return AddrConvertOptions{..}
+
+getAddrConvertOptions :: IO AddrConvertOptions
+getAddrConvertOptions = execParser programInfo
+  where
+    programInfo = info (helper <*> versionOption <*> optionsParser) $
+        fullDesc <> progDesc  "Produce public key and write it in stdout."
+                 <> header    "Tool to convert vending addresses into testnet addresses."
+                 <> footerDoc usageExample
+
+    versionOption = infoOption
+        ("cardano-addr-convert-" <> showVersion version)
+        (long "version" <> help "Show version.")
+
+usageExample :: Maybe Doc
+usageExample = Just [s|
+Command example:
+
+  stack exec -- cardano-addr-convert -a 2HF83bvYCTzoCbVta6t64W8rFEnvnkJbIUFoT5tOyoU=
+
+Output example:
+
+  3mhNKjfhaCT13DjcQ9eMK4VHfZrFxmyXq8SjVPRtz7SWfP
+
+You can also run it without arguments to switch to interactive mode.
+In this case each entered vending address is echoed with a testnet address.|]
+
+main :: IO ()
+main = do
+    AddrConvertOptions{..} <- getAddrConvertOptions
+    case address of
+        Just addr -> convertAddr addr >>= putText
+        Nothing   -> forever (getLine >>= convertAddr >>= putText)
 
 -- | Read the text into a redeeming public key.
 --
@@ -26,28 +79,5 @@ fromAvvmPk addrText = do
         fail "Address' length is not equal to 32, can't be redeeming pk"
     pure $ redeemPkBuild addrParsed
 
-usage :: Text
-usage =
-    "Usage:\n\
-    \\n\
-    \    cardano-addr-convert <address>\n\
-    \\n\
-    \You can also run it without arguments to switch to interactive mode,\n\
-    \in which each entered vending address is echoed with a testnet address\n"
-
 convertAddr :: Text -> IO Text
 convertAddr addr = pretty . makeRedeemAddress <$> fromAvvmPk (toText addr)
-
--- Sample output:
---
--- > cardano-addr-convert 2HF83bvYCTzoCbVta6t64W8rFEnvnkJbIUFoT5tOyoU=
--- 3mhNKjfhaCT13DjcQ9eMK4VHfZrFxmyXq8SjVPRtz7SWfP
-main :: IO ()
-main = do
-    args <- map toText <$> getArgs
-    case args of
-        []         -> forever (getLine >>= convertAddr >>= putText)
-        ["-h"]     -> putText usage
-        ["--help"] -> putText usage
-        [addr]     -> convertAddr addr >>= putText
-        _          -> putText usage

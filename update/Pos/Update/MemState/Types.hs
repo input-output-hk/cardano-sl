@@ -7,7 +7,6 @@ module Pos.Update.MemState.Types
 
        , MemState (..)
        , MemVar (..)
-       , mkMemState
        , newMemVar
        ) where
 
@@ -17,8 +16,10 @@ import           Control.Concurrent.Lock    (Lock, new)
 import           Data.Default               (Default (def))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core.Types             (HeaderHash, SlotId (..))
-import           Pos.Crypto                 (unsafeHash)
+import           Pos.Core                   (HeaderHash, SlotId (..))
+import           Pos.DB.Class               (MonadDBRead)
+import           Pos.DB.GState.Common       (getTip)
+import           Pos.Slotting               (MonadSlots (getCurrentSlot))
 import           Pos.Update.Core            (LocalVotes, UpdateProposals)
 import           Pos.Update.Poll.Modifier   ()
 import           Pos.Update.Poll.Types      (PollModifier)
@@ -48,21 +49,16 @@ data MemState = MemState
     -- ^ Modifier of GState corresponding to 'msPool'.
     }
 
-mkMemState :: MemState
-mkMemState = MemState
-    { msSlot = SlotId 0 minBound
-    , msTip = unsafeHash ("dratuti" :: Text)
-    , msPool = def
-    , msModifier = def
-    }
-
 -- | MemVar uses concurrency primitives and stores MemState.
 data MemVar = MemVar
     { mvState :: !(TVar MemState)  -- ^ MemState itself.
     , mvLock  :: !Lock             -- ^ Lock for modifting MemState.
     }
 
-newMemVar
-    :: MonadIO m
-    => m MemVar
-newMemVar = liftIO $ MemVar <$> newTVarIO mkMemState <*> new
+-- | Create new 'MemVar' using slotting and read-only access to DB.
+newMemVar :: (MonadIO m, MonadSlots m, MonadDBRead m) => m MemVar
+newMemVar = do
+    msSlot <- fromMaybe (SlotId 0 minBound) <$> getCurrentSlot
+    msTip <- getTip
+    let ms = MemState { msPool = def, msModifier = mempty, .. }
+    liftIO $ MemVar <$> newTVarIO ms <*> new

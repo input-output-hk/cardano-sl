@@ -7,7 +7,7 @@ import           Universum
 
 import           Data.Bits                        (Bits (..))
 import qualified Data.ByteString.Lazy             as BSL
-import           Node.Message                     (MessageName (..))
+import           Node.Message.Class               (MessageName (..))
 
 import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), UnsignedVarInt (..),

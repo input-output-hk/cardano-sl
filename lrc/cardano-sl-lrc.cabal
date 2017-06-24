@@ -19,8 +19,8 @@ library
                        Pos.Lrc.Consumer
                        Pos.Lrc.Class
                        Pos.Lrc.Genesis
-
                        Pos.Lrc.Context
+                       Pos.Lrc.Mode
 
                        Pos.Lrc.DB.Common
                        Pos.Lrc.DB.Issuers
@@ -31,9 +31,12 @@ library
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
+                     , conduit
                      , ether
                      , formatting
                      , lens
+                     , log-warper
+                     , node-sketch
                      , text-format
                      , universum
                      , unordered-containers

@@ -21,13 +21,13 @@ import           Pos.Crypto           (EncryptedSecretKey, PublicKey, RedeemPubl
                                        secureRandomBS, toPublic, toVssPublicKey,
                                        vssKeyGen)
 import           Pos.Genesis          (StakeDistribution (..), accountGenesisIndex,
-                                       walletGenesisIndex)
+                                       wAddressGenesisIndex)
 import           Pos.Ssc.GodTossing   (VssCertificate, mkVssCertificate)
 import           Pos.Types            (Address, coinPortionToDouble, unsafeIntegerToCoin)
 import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
                                        usPrimKey, usVss, usWalletSet,
                                        writeUserSecretRelease)
-import           Pos.Wallet           (WalletUserSecret (..), deriveLvl2KeyPair)
+import           Pos.Wallet           (deriveLvl2KeyPair, mkGenesisWalletUserSecret)
 
 import           KeygenOptions        (TestStakeOptions (..))
 
@@ -41,7 +41,7 @@ rearrangeKeyfile fp = do
 generateKeyfile
     :: (MonadIO m, MonadFail m, WithLogger m)
     => Bool
-    -> Maybe (SecretKey, EncryptedSecretKey)  -- plain key & hd wallet root key
+    -> Maybe (SecretKey, EncryptedSecretKey)  -- ^ plain key & hd wallet root key
     -> FilePath
     -> m (PublicKey, VssCertificate, Address)  -- ^ plain key, certificate & hd wallet account address
 generateKeyfile isPrim mbSk fp = do
@@ -67,16 +67,8 @@ generateKeyfile isPrim mbSk fp = do
         hdwAccountPk =
             fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
             deriveLvl2KeyPair emptyPassphrase hdwSk
-                walletGenesisIndex accountGenesisIndex
+                accountGenesisIndex wAddressGenesisIndex
     return (toPublic sk, vssCert, hdwAccountPk)
-
-mkGenesisWalletUserSecret
-    :: EncryptedSecretKey -> WalletUserSecret
-mkGenesisWalletUserSecret wusRootKey = do
-    let wusWSetName = "Genesis wallet set"
-        wusWallets  = [(walletGenesisIndex, "Genesis wallet")]
-        wusAccounts = [(walletGenesisIndex, accountGenesisIndex)]
-    WalletUserSecret{..}
 
 generateFakeAvvm :: MonadIO m => FilePath -> m RedeemPublicKey
 generateFakeAvvm fp = do

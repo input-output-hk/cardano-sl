@@ -21,42 +21,71 @@ library
     Pos.Ssc.GodTossing.Types.Types
     Pos.Ssc.GodTossing.Types.Message
 
+    Pos.Ssc.GodTossing.Genesis
+    Pos.Ssc.GodTossing.Genesis.Types
+    Pos.Ssc.GodTossing.Genesis.Parser
+
+    Pos.Ssc.GodTossing.Toss
+    Pos.Ssc.GodTossing.Toss.Logic
+    Pos.Ssc.GodTossing.Toss.Pure
     Pos.Ssc.GodTossing.Toss.Base
     Pos.Ssc.GodTossing.Toss.Class
     Pos.Ssc.GodTossing.Toss.Failure
     Pos.Ssc.GodTossing.Toss.Trans
     Pos.Ssc.GodTossing.Toss.Types
 
+    Pos.Ssc.GodTossing.LocalData
+    Pos.Ssc.GodTossing.LocalData.Types
+    Pos.Ssc.GodTossing.LocalData.Logic
+
     Pos.Ssc.GodTossing.VssCertData
     Pos.Ssc.GodTossing.Error
     Pos.Ssc.GodTossing.SecretStorage
     Pos.Ssc.GodTossing.Constants
+    Pos.Ssc.GodTossing.Functions
+    Pos.Ssc.GodTossing.Type
+    Pos.Ssc.GodTossing.DB
+    Pos.Ssc.GodTossing.GState
+    Pos.Ssc.GodTossing.Richmen
+    Pos.Ssc.GodTossing.Seed
+    Pos.Ssc.GodTossing.Shares
+    Pos.Ssc.GodTossing.Listeners
+    Pos.Ssc.GodTossing.Workers
+    Pos.Ssc.GodTossing.Network.Constraint
 
-    Pos.Binary.Ssc.GodTossing.Core
-    Pos.Binary.Ssc.GodTossing.Types
-    Pos.Binary.Ssc.GodTossing.Toss
+    Pos.Binary.GodTossing
+    Pos.Binary.GodTossing.Core
+    Pos.Binary.GodTossing.Types
+    Pos.Binary.GodTossing.Toss
+    Pos.Binary.GodTossing.Relay
 
   build-depends:       aeson
                      , base
+                     , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
+                     , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-ssc
-                     , cardano-sl-update
                      , containers
+                     , cryptonite
                      , data-default
                      , ether
+                     , file-embed
                      , formatting
                      , lens
                      , log-warper
                      , mono-traversable
                      , mtl
                      , node-sketch
+                     , rocksdb-haskell >= 1.0.0
                      , serokell-util
+                     , stm
                      , tagged
                      , text
                      , text-format
                      , time-units
+                     , transformers
                      , universum
                      , unordered-containers
 

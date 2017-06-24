@@ -115,7 +115,6 @@ instance MessageLimitedPure w => MessageLimitedPure (ProxySecretKey w) where
 
 instance MessageLimitedPure w => MessageLimitedPure (ProxySignature w a) where
     msgLenLimit = ProxySignature <$> msgLenLimit <+> msgLenLimit
-                                 <+> msgLenLimit <+> msgLenLimit
 
 instance MessageLimitedPure w => MessageLimited (ProxySecretKey w)
 instance MessageLimitedPure w => MessageLimited (ProxySignature w a)
@@ -129,7 +128,7 @@ instance MessageLimited ProxySKLightConfirmation
 -- | Upper bound on number of `PVSS.Commitment`s in single
 -- `Commitment`.  Actually it's a maximum number of participants in
 -- GodTossing. So it also limits number of shares, for instance.
-commitmentsNumLimit :: DB.MonadGStateCore m => m Int
+commitmentsNumLimit :: DB.MonadGState m => m Int
 commitmentsNumLimit =
     -- succ is just in case
     succ . ceiling . recip . coinPortionToDouble . bvdMpcThd <$>
@@ -181,12 +180,12 @@ instance MessageLimited MCOpening
 instance MessageLimited MCVssCertificate
 
 instance MessageLimited MCCommitment where
-    type LimitType MCCommitment = Limit MCCommitment
+    --type LimitType MCCommitment = Limit MCCommitment
     getMsgLenLimit _ = fmap MCCommitment
           <$> getMsgLenLimit (Proxy @SignedCommitment)
 
 instance MessageLimited MCShares where
-    type LimitType MCShares = Limit MCShares
+    --type LimitType MCShares = Limit MCShares
     getMsgLenLimit _ = (MCShares <$> msgLenLimit <+>)
           <$> getMsgLenLimit (Proxy @InnerSharesMap)
 
@@ -202,15 +201,16 @@ instance MessageLimitedPure a => MessageLimitedPure (DataMsg a) where
     msgLenLimit = DataMsg <$> msgLenLimit
 
 instance MessageLimited a => MessageLimited (DataMsg a) where
-    type LimitType (DataMsg a) = LimitType a
-    getMsgLenLimit _ = getMsgLenLimit (Proxy @a)
+    --type LimitType (DataMsg a) = LimitType a
+    getMsgLenLimit _ = (fmap . fmap) DataMsg (getMsgLenLimit (Proxy @a))
 
 ----------------------------------------------------------------------------
 ---- Txp
 ----------------------------------------------------------------------------
 
 instance MessageLimited TxAux where
-    getMsgLenLimit _ = Limit <$> DB.gsMaxTxSize
+    -- FIXME Integer -> Word32
+    getMsgLenLimit _ = Limit . fromIntegral <$> DB.gsMaxTxSize
 
 instance MessageLimited TxMsgContents where
     getMsgLenLimit _ = fmap TxMsgContents <$> getMsgLenLimit (Proxy @TxAux)
@@ -220,7 +220,7 @@ instance MessageLimited TxMsgContents where
 ----------------------------------------------------------------------------
 
 -- | Upper bound on number of votes carried with single `UpdateProposal`.
-updateVoteNumLimit :: DB.MonadGStateCore m => m Int
+updateVoteNumLimit :: DB.MonadGState m => m Int
 updateVoteNumLimit =
     -- succ is just in case
     succ . ceiling . recip . coinPortionToDouble . bvdUpdateVoteThd <$>
@@ -234,7 +234,8 @@ instance MessageLimitedPure UpdateVote where
 instance MessageLimited UpdateVote
 
 instance MessageLimited UpdateProposal where
-    getMsgLenLimit _ = Limit <$> DB.gsMaxProposalSize
+    -- FIXME Integer -> Word32
+    getMsgLenLimit _ = Limit . fromIntegral <$> DB.gsMaxProposalSize
 
 instance MessageLimited (UpdateProposal, [UpdateVote]) where
     getMsgLenLimit _ = do
@@ -252,10 +253,12 @@ instance MessageLimitedPure MsgGetBlocks where
 instance MessageLimited MsgGetBlocks
 
 instance MessageLimited (BlockHeader ssc) where
-    getMsgLenLimit _ = Limit <$> DB.gsMaxHeaderSize
+    -- FIXME Integer -> Word32
+    getMsgLenLimit _ = Limit . fromIntegral <$> DB.gsMaxHeaderSize
 
 instance MessageLimited (Block ssc) where
-    getMsgLenLimit _ = Limit <$> DB.gsMaxBlockSize
+    -- FIXME Integer -> Word32
+    getMsgLenLimit _ = Limit . fromIntegral <$> DB.gsMaxBlockSize
 
 instance MessageLimited (MsgBlock ssc) where
     getMsgLenLimit _ = do

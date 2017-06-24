@@ -25,7 +25,6 @@ import           Universum
 
 import           Control.Lens          (_Wrapped)
 import           Control.Monad.Except  (MonadError (throwError))
-import qualified Data.HashMap.Strict   as HM
 import qualified Data.List.NonEmpty    as NE
 import qualified Ether
 import           Formatting            (build, sformat, (%))
@@ -35,7 +34,7 @@ import           System.Wlog           (WithLogger, logWarning)
 
 import           Pos.Binary.Core       ()
 import           Pos.Block.BListener   (MonadBListener (..))
-import           Pos.Block.Core        (Block, genBlockLeaders, mainBlockLeaderKey)
+import           Pos.Block.Core        (Block, genBlockLeaders)
 import           Pos.Block.Pure        (verifyBlocks)
 import           Pos.Block.Types       (Blund)
 import           Pos.Constants         (lastKnownBlockVersion)
@@ -43,8 +42,8 @@ import           Pos.Context           (lrcActionOnEpochReason)
 import           Pos.Core              (BlockVersion (..), epochIndexL, headerHash,
                                         headerHashG, prevBlockL)
 import           Pos.DB                (SomeBatchOp (..))
-import           Pos.DB.Block          (putBlund)
-import           Pos.DB.Class          (MonadDB, MonadDBPure)
+import           Pos.DB.Block          (MonadBlockDBWrite (dbPutBlund))
+import           Pos.DB.Class          (MonadDBRead)
 import           Pos.DB.DB             (sanityCheckDB)
 import qualified Pos.DB.GState         as GS
 import           Pos.Exception         (assertionFailed)
@@ -97,18 +96,20 @@ mustDataBeKnown adoptedBV =
 ----------------------------------------------------------------------------
 
 -- | Set of basic constraints needed by Slog.
-type SlogMode ssc m
-     = (MonadSlots m, SscHelpersClass ssc, MonadDBPure m, WithLogger m)
+type SlogMode ssc m =
+    ( MonadSlots m
+    , SscHelpersClass ssc
+    , MonadDBRead m
+    , WithLogger m
+    )
 
--- Sadly, MonadIO and MonadDB are needed for LRC, but it can be improved.
 -- | Set of constraints needed for Slog verification.
-type SlogVerifyMode ssc m
-     = ( SlogMode ssc m
-       , MonadError Text m
-       , MonadIO m
-       , MonadDB m
-       , Ether.MonadReader' LrcContext m
-       )
+type SlogVerifyMode ssc m =
+    ( SlogMode ssc m
+    , MonadError Text m
+    , MonadIO m
+    , Ether.MonadReader' LrcContext m
+    )
 
 -- | Verify everything from block that is not checked by other components.
 -- All blocks must be from the same epoch.
@@ -136,24 +137,17 @@ slogVerifyBlocks blocks = do
             when (block ^. genBlockLeaders /= leaders) $
                 throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
-    -- For all issuers of blocks we're processing retrieve their PSK
-    -- if any and create a hashmap of these.
-    pskCerts <-
-        fmap (HM.fromList . catMaybes) $
-        forM (rights $ toList $ blocks ^. _Wrapped) $ \b ->
-        let issuer = b ^. mainBlockLeaderKey
-        in fmap (issuer,) <$> GS.getPSKByIssuer issuer
     verResToMonadError formatAllErrors $
-        verifyBlocks curSlot dataMustBeKnown adoptedBVD
-        leaders pskCerts blocks
+        verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocks
 
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
-type SlogApplyMode ssc m
-     = ( SlogMode ssc m
-       , MonadDB m
-       , MonadBListener m
-       , MonadMask m
-       )
+type SlogApplyMode ssc m =
+    ( SlogMode ssc m
+    , MonadBlockDBWrite ssc m
+    , MonadBListener m
+    , MonadMask m
+    , MonadIO m
+    )
 
 -- | This function does everything that should be done when blocks are
 -- applied and is not done in other components.
@@ -163,7 +157,7 @@ slogApplyBlocks ::
     -> m SomeBatchOp
 slogApplyBlocks blunds = do
     -- Note: it's important to put blunds first
-    mapM_ putBlund blunds
+    mapM_ dbPutBlund blunds
     -- If the program is interrupted at this point (after putting on block),
     -- we will rollback all wallet sets at the next launch.
     onApplyBlocks blunds `catch` logWarn

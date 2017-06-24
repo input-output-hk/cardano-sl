@@ -1,4 +1,5 @@
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DataKinds    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Transformer that carries peer discovery capabilities.
 
@@ -6,9 +7,18 @@ module Pos.Discovery.Holders
        ( DiscoveryTag
        , DiscoveryConstT
        , runDiscoveryConstT
+       , getPeersConst
+       , findPeersConst
        , DiscoveryKademliaT
        , askDHTInstance
        , runDiscoveryKademliaT
+
+       , DiscoveryContextSum (..)
+       , MonadDiscoverySum
+       , askDiscoveryContextSum
+       , discoveryWorkers
+       , getPeersSum
+       , findPeersSum
        ) where
 
 import           Universum
@@ -19,12 +29,15 @@ import           Mockable                         (Async, Catch, Mockables, Prom
                                                    Throw)
 import           System.Wlog                      (WithLogger)
 
-import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Communication.Types.Protocol (NodeId, OutSpecs, WorkerSpec)
 import           Pos.DHT.Model                    (randomDHTKey)
 import           Pos.DHT.Real                     (KademliaDHTInstance,
                                                    kademliaGetKnownPeers, kdiHandle,
                                                    lookupNode)
+import           Pos.DHT.Workers                  (DhtWorkMode, dhtWorkers)
 import           Pos.Discovery.Class              (MonadDiscovery (..))
+import           Pos.Recovery.Info                (MonadRecoveryInfo,
+                                                   recoveryCommGuardSimple)
 import           Pos.Util.TimeWarp                (addressToNodeId)
 
 ----------------------------------------------------------------------------
@@ -41,9 +54,15 @@ data DiscoveryTag -- loneliness is something we all know
 -- set of peers and doesn't do anything on 'findPeers' call.
 type DiscoveryConstT m = Ether.ReaderT DiscoveryTag (Set NodeId) m
 
+getPeersConst :: Ether.MonadReader DiscoveryTag (Set NodeId) m => m (Set NodeId)
+getPeersConst = Ether.ask @DiscoveryTag
+
+findPeersConst :: Ether.MonadReader DiscoveryTag (Set NodeId) m => m (Set NodeId)
+findPeersConst = getPeersConst
+
 instance (Monad m) => MonadDiscovery (DiscoveryConstT m) where
-    getPeers = Ether.ask @DiscoveryTag
-    findPeers = getPeers
+    getPeers = getPeersConst
+    findPeers = findPeersConst
 
 runDiscoveryConstT :: (Set NodeId) -> DiscoveryConstT m a -> m a
 runDiscoveryConstT = flip (Ether.runReaderT @DiscoveryTag)
@@ -84,3 +103,46 @@ runDiscoveryKademliaT
     :: (DiscoveryKademliaEnv m)
     => KademliaDHTInstance -> DiscoveryKademliaT m a -> m a
 runDiscoveryKademliaT = flip (Ether.runReaderT @DiscoveryTag)
+
+----------------------------------------------------------------------------
+-- Sum
+----------------------------------------------------------------------------
+
+-- | Context of Discovery implementation. It's basically a sum of all
+-- possible contexts.
+data DiscoveryContextSum
+    = DCStatic !(Set NodeId)
+    | DCKademlia !KademliaDHTInstance
+
+-- | Monad which combines all 'MonadDiscovery' implementations (and
+-- uses only one of them).
+type MonadDiscoverySum = Ether.MonadReader' DiscoveryContextSum
+
+askDiscoveryContextSum :: MonadDiscoverySum m => m DiscoveryContextSum
+askDiscoveryContextSum = Ether.ask'
+
+type DiscoverySumEnv m =
+    (MonadDiscoverySum m, DiscoveryKademliaEnv m)
+
+getPeersSum :: DiscoverySumEnv m => m (Set NodeId)
+getPeersSum =
+    Ether.ask' >>= \case
+        DCStatic nodes -> runDiscoveryConstT nodes getPeers
+        DCKademlia inst -> runDiscoveryKademliaT inst getPeers
+
+findPeersSum :: DiscoverySumEnv m => m (Set NodeId)
+findPeersSum =
+    Ether.ask' >>= \case
+        DCStatic nodes -> runDiscoveryConstT nodes findPeers
+        DCKademlia inst -> runDiscoveryKademliaT inst findPeers
+
+-- | Get all discovery workers using 'DiscoveryContextSum'.
+discoveryWorkers ::
+       (MonadRecoveryInfo m, DhtWorkMode m)
+    => DiscoveryContextSum
+    -> ([WorkerSpec m], OutSpecs)
+discoveryWorkers ctx =
+    first (map recoveryCommGuardSimple) $
+    case ctx of
+        DCStatic _     -> mempty
+        DCKademlia var -> dhtWorkers var

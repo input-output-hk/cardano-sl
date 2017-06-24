@@ -6,7 +6,7 @@ import {mockSuccessResponse, mockErrorResponse} from '../../mock-factory';
 
 export default function () {
 
-  describe('deleteWallet()', () => {
+  describe('deleteAccount()', () => {
 
     let xhr;
     let requests;
@@ -22,7 +22,7 @@ export default function () {
     it('returns empty object', (done) => {
       const response = mockSuccessResponse([]);
 
-      Daedalus.ClientApi.deleteWallet('123')()
+      Daedalus.ClientApi.deleteAccount('123')()
         .then( (result) => {
           assert.deepEqual(result, {}, '"unit" as a return value');
           done();
@@ -38,7 +38,7 @@ export default function () {
 
     it('returns a HTTPStatusError if server returns "400"', (done) => {
 
-      Daedalus.ClientApi.deleteWallet('not-exist')()
+      Daedalus.ClientApi.deleteAccount('not-exist')()
         .then( (result) => done(),
           (error) => {
             assert.include(error.message, 'HTTPStatusError',
@@ -56,7 +56,7 @@ export default function () {
     it('rejects with a ServerError if server response with Left', (done) => {
       const response = mockErrorResponse();
 
-      Daedalus.ClientApi.deleteWallet('')()
+      Daedalus.ClientApi.deleteAccount('')()
         .then( (result) => done(),
           (error) => {
             assert.include(error.message, 'ServerError', 'ServerError error message');

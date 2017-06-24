@@ -13,7 +13,7 @@ import           Universum
 
 import           Pos.Core               (BlockVersionData, Coin, CoinPortion, EpochIndex,
                                          applyCoinPortion)
-import           Pos.DB.Class           (MonadDBCore, gsAdoptedBVData)
+import           Pos.DB.Class           (MonadDB, MonadGState, gsAdoptedBVData)
 import           Pos.Lrc.Class          (RichmenComponent (..))
 import           Pos.Lrc.DB.RichmenBase (getRichmen, putRichmen)
 import           Pos.Lrc.Types          (RichmenStake)
@@ -47,17 +47,14 @@ lrcConsumerFromComponent thd ifNeedCompute callback =
     { lcThreshold = thd
     , lcIfNeedCompute = ifNeedCompute
     , lcComputedCallback = callback
-    , lcConsiderDelegated = rcConsiderDelegated proxy
+    , lcConsiderDelegated = rcConsiderDelegated $ Proxy @c
     }
-  where
-    proxy :: Proxy c
-    proxy = Proxy
 
 -- | Create simple LrcConsumer using constants from RichmenComponent
 -- which uses only LRC DB.
 lrcConsumerFromComponentSimple
     :: forall c m.
-       (RichmenComponent c, MonadDBCore m)
+       (RichmenComponent c, MonadGState m, MonadDB m)
     => (BlockVersionData -> CoinPortion) -> LrcConsumer m
 lrcConsumerFromComponentSimple thresholdGetter =
     lrcConsumerFromComponent @c toThreshold ifNeedCompute onComputed

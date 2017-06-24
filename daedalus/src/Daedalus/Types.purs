@@ -8,51 +8,50 @@ module Daedalus.Types
        , _ccoin
        , _passPhrase
        , mkCCoin
-       , mkCAddress
-       , mkCWalletMeta
-       , mkCWalletInit
-       , mkCWalletAddress
+       , mkCId
+       , mkCAccountMeta
+       , mkCAccountInit
+       , mkCAccountId
        , mkCTxMeta
        , mkCTxId
        , mkCProfile
        , _ctxIdValue
        , mkBackupPhrase
        , mkCWalletRedeem
+       , mkCWalletMeta
        , mkCPaperVendWalletRedeem
        , mkCInitialized
        , mkCPassPhrase
        , emptyCPassPhrase
        , getProfileLocale
        , walletAddressToUrl
-       , mkCWalletSetInit
-       , mkCWalletSetAssurance
+       , mkCWalletInit
+       , mkCWalletAssurance
+       , optionalString
        ) where
 
 import Prelude
-
-import Pos.Wallet.Web.ClientTypes (CAddress (..), CHash (..), CPassPhrase (..), CCoin (..), WS (..), CWalletAddress (..), CWalletSetMeta (..))
-
-import Pos.Wallet.Web.ClientTypes as CT
-import Pos.Core.Types as C
-import Pos.Wallet.Web.Error as E
-import Pos.Util.BackupPhrase (BackupPhrase (..))
-import Pos.Util.BackupPhrase as BP
-
-import Control.Monad.Eff.Exception (error, Error)
-import Data.Either (either, Either (..))
-import Data.Maybe (Maybe (..))
-import Data.Argonaut.Generic.Aeson (decodeJson)
-import Data.Argonaut.Core (fromString)
-import Data.Generic (gShow)
-import Data.Array.Partial (last)
-import Data.Array (length, filter)
-import Partial.Unsafe (unsafePartial)
-import Data.String (split, null, trim, joinWith, Pattern (..))
-
-import Daedalus.Crypto (isValidMnemonic, blake2b, bytesToB16)
-import Data.Types (mkTime)
 import Data.Types as DT
-import Data.Int53 (fromInt, toString)
+import Pos.Core.Types as C
+import Pos.Util.BackupPhrase as BP
+import Pos.Wallet.Web.ClientTypes as CT
+import Pos.Wallet.Web.Error.Types as E
+import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Exception (EXCEPTION, Error, error, throw)
+import Control.Monad.Except (runExcept)
+import Daedalus.Crypto (isValidMnemonic, blake2b, bytesToB16)
+import Data.Argonaut.Core (fromString)
+import Data.Argonaut.Generic.Aeson (decodeJson)
+import Data.Array (length, filter)
+import Data.Either (either, Either(..))
+import Data.Foreign (F, Foreign, isNull, readString)
+import Data.Foreign.Null (readNull, unNull, Null)
+import Data.Int53 (fromInt)
+import Data.Maybe (Maybe(Nothing))
+import Data.String (split, null, trim, joinWith, Pattern(..))
+import Data.Types (mkTime)
+import Pos.Util.BackupPhrase (BackupPhrase(..))
+import Pos.Wallet.Web.ClientTypes (CId(..), CHash(..), CPassPhrase(..), CCoin(..), Wal(..), CAccountId(..), CWalletMeta(..))
 
 space :: Pattern
 space = Pattern " "
@@ -89,14 +88,14 @@ mkBackupPhraseIgnoreChecksum len mnemonic =
 
 -- TODO: it would be useful to extend purescript-bridge
 -- and generate lenses
-walletAddressToUrl :: CWalletAddress -> String
-walletAddressToUrl (CWalletAddress r) = r
+walletAddressToUrl :: CAccountId -> String
+walletAddressToUrl (CAccountId r) = r
 
 _hash :: CHash -> String
 _hash (CHash h) = h
 
-_address :: forall a. CAddress a -> String
-_address (CAddress a) = _hash a
+_address :: forall a. CId a -> String
+_address (CId a) = _hash a
 
 _passPhrase :: CPassPhrase -> String
 _passPhrase (CPassPhrase p) = p
@@ -104,12 +103,31 @@ _passPhrase (CPassPhrase p) = p
 emptyCPassPhrase :: CPassPhrase
 emptyCPassPhrase = CPassPhrase ""
 
-mkCPassPhrase :: String -> Maybe CPassPhrase
-mkCPassPhrase "" = Nothing
-mkCPassPhrase pass = Just <<< CPassPhrase <<< bytesToB16 $ blake2b pass
+-- | Create/Make password from foreign javascript code. Return errors if you
+-- find them.
+mkCPassPhrase :: forall eff. Foreign -> Eff (err :: EXCEPTION | eff) (Maybe CPassPhrase)
+mkCPassPhrase pass = do
+  optionalPass <- optionalString pass "password"
+  pure $ CPassPhrase <<< bytesToB16 <<< blake2b <$> optionalPass
 
-mkCAddress :: forall a. String -> CAddress a
-mkCAddress = CAddress <<< CHash
+-- | We take a @Foreign@ parameter and if it's null, we return it as @Nothing@,
+-- and if it's not null, we try to parse it as a @String@, and return errors
+-- associated with converting.
+optionalString :: forall eff. Foreign -> String -> Eff (err :: EXCEPTION | eff) (Maybe String)
+optionalString string paramName =
+    if (isNull string)
+    then pure Nothing
+    else either (const raiseError) pure runForeignRead
+  where
+    runForeignRead = runExcept $ unNull <$> theReadString
+    -- type F (Maybe String) = ExceptT (NonEmptyList ForeignError) Identity (Maybe String)
+    theReadString :: F (Null String)
+    theReadString = readNull readString string
+
+    raiseError = throw ("Error with converting parameter '" <> paramName <> "' to string.")
+
+mkCId :: forall a. String -> CId a
+mkCId = CId <<< CHash
 
 _ccoin :: CCoin -> String
 _ccoin (CCoin c) = c.getCCoin
@@ -118,16 +136,16 @@ mkCCoin :: String -> CCoin
 mkCCoin amount = CCoin { getCCoin: amount }
 
 -- NOTE: use genericRead maybe https://github.com/paluh/purescript-generic-read-example
-mkCWSetAssurance :: String -> CT.CWalletSetAssurance
+mkCWSetAssurance :: String -> CT.CWalletAssurance
 mkCWSetAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
 
-mkCWalletMeta :: String -> CT.CWalletMeta
-mkCWalletMeta wName =
-    CT.CWalletMeta { cwName: wName
+mkCAccountMeta :: String -> CT.CAccountMeta
+mkCAccountMeta wName =
+    CT.CAccountMeta { caName: wName
                    }
 
-mkCWalletAddress :: String -> CT.CWalletAddress
-mkCWalletAddress = CWalletAddress
+mkCAccountId :: String -> CT.CAccountId
+mkCAccountId = CAccountId
 
 mkCInitialized :: Int -> Int -> CT.CInitialized
 mkCInitialized total preInit =
@@ -135,36 +153,43 @@ mkCInitialized total preInit =
                     , cPreInit: fromInt preInit
                     }
 
-mkCWalletInit :: String -> CAddress WS -> CT.CWalletInit
-mkCWalletInit wName wSetId =
-    CT.CWalletInit { cwInitWSetId: wSetId
-                   , cwInitMeta: mkCWalletMeta wName
-                   }
+mkCAccountInit :: String -> CId Wal -> CT.CAccountInit
+mkCAccountInit wName wSetId =
+    CT.CAccountInit { caInitWId: wSetId
+                    , caInitMeta: mkCAccountMeta wName
+                    }
 
-mkCWalletSetAssurance :: String -> CT.CWalletSetAssurance
-mkCWalletSetAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
+mkCWalletAssurance :: String -> CT.CWalletAssurance
+mkCWalletAssurance = either (const CT.CWANormal) id <<< decodeJson <<< fromString
 
-mkCWalletSetInit :: String -> String -> Int -> String -> Either Error CT.CWalletSetInit
-mkCWalletSetInit wSetName wsAssurance wsUnit mnemonic = do
+mkCWalletMeta :: String -> String -> Int -> CWalletMeta
+mkCWalletMeta wName wAssurance wUnit =
+  CWalletMeta { cwName: wName
+                 , cwAssurance: mkCWalletAssurance wAssurance
+                 , cwUnit: wUnit
+                 }
+
+mkCWalletInit :: String -> String -> Int -> String -> Either Error CT.CWalletInit
+mkCWalletInit wSetName wsAssurance wsUnit mnemonic = do
     bp <- mkBackupPhrase backupMnemonicLen mnemonic
-    pure $ CT.CWalletSetInit { cwsInitMeta:
-                                CWalletSetMeta
-                                    { cwsName: wSetName
-                                    , cwsAssurance: mkCWalletSetAssurance wsAssurance
-                                    , cwsUnit: wsUnit
+    pure $ CT.CWalletInit { cwInitMeta:
+                                CWalletMeta
+                                    { cwName: wSetName
+                                    , cwAssurance: mkCWalletAssurance wsAssurance
+                                    , cwUnit: wsUnit
                                     }
-                             , cwsBackupPhrase: bp
+                             , cwBackupPhrase: bp
                              }
 
 
-mkCWalletRedeem :: String -> CWalletAddress -> CT.CWalletRedeem
+mkCWalletRedeem :: String -> CAccountId -> CT.CWalletRedeem
 mkCWalletRedeem seed wAddress = do
     CT.CWalletRedeem { crWalletId: wAddress
                      , crSeed: seed
                      }
 
 -- NOTE: if you will be bumping bip39 to >=2.2.0 be aware of https://issues.serokell.io/issue/VD-95 . In this case you will have to modify how we validate paperVendMnemonics.
-mkCPaperVendWalletRedeem :: String -> String -> CWalletAddress -> Either Error CT.CPaperVendWalletRedeem
+mkCPaperVendWalletRedeem :: String -> String -> CAccountId -> Either Error CT.CPaperVendWalletRedeem
 mkCPaperVendWalletRedeem seed mnemonic wAddress = do
     bp <- mkBackupPhrase paperVendMnemonicLen mnemonic
     pure $ CT.CPaperVendWalletRedeem { pvWalletId: wAddress
@@ -178,11 +203,9 @@ _ctxIdValue (CT.CTxId tx) = _hash tx
 mkCTxId :: String -> CT.CTxId
 mkCTxId = CT.CTxId <<< CHash
 
-mkCTxMeta :: String -> String -> Number -> CT.CTxMeta
-mkCTxMeta title description date =
-    CT.CTxMeta { ctmTitle: title
-               , ctmDescription: description
-               , ctmDate: mkTime date
+mkCTxMeta :: Number -> CT.CTxMeta
+mkCTxMeta date =
+    CT.CTxMeta { ctmDate: mkTime date
                }
 
 mkCProfile :: String -> CT.CProfile

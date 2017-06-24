@@ -38,8 +38,6 @@ module Pos.Core.Types
        , ProxySKLight
        , ProxySigHeavy
        , ProxySKHeavy
-       , ProxySKEither
-       , ProxySKHeavyMap
 
        , SharedSeed (..)
        , SlotLeaders
@@ -91,7 +89,7 @@ import           Serokell.AcidState         ()
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       (formatBase16)
 
-import           Pos.Core.Constants         (epochSlots)
+import           Pos.Core.Constants.Raw     (epochSlots)
 import           Pos.Core.Timestamp         (Timestamp (..))
 import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
                                              ProxySecretKey, ProxySignature, PublicKey,
@@ -247,12 +245,6 @@ type ProxySigHeavy a = ProxySignature EpochIndex a
 
 -- | Heavy delegation psk.
 type ProxySKHeavy = ProxySecretKey EpochIndex
-
--- | Some proxy secret key.
-type ProxySKEither = Either ProxySKLight ProxySKHeavy
-
--- | Map from issuers to heavy certs.
-type ProxySKHeavyMap = HashMap PublicKey ProxySKHeavy
 
 ----------------------------------------------------------------------------
 -- SSC. It means shared seed computation, btw

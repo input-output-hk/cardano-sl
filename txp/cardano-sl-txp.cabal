@@ -1,0 +1,120 @@
+name:                cardano-sl-txp
+version:             0.4.4
+synopsis:            Cardano SL - transaction processing
+description:         Cardano SL - transaction processing
+license:             MIT
+license-file:        LICENSE
+author:              Serokell
+maintainer:          hi@serokell.io
+copyright:           2016 IOHK
+category:            Currency
+build-type:          Simple
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+    Pos.Txp.Core
+    Pos.Txp.Core.Core
+    Pos.Txp.Core.Tx
+    Pos.Txp.Core.Types
+
+    Pos.Txp.DB
+    Pos.Txp.DB.Balances
+    Pos.Txp.DB.Utxo
+
+    Pos.Txp.Toil
+    Pos.Txp.Toil.Balances
+    Pos.Txp.Toil.Balances.Functions
+    Pos.Txp.Toil.Balances.Pure
+    Pos.Txp.Toil.Class
+    Pos.Txp.Toil.DBToil
+    Pos.Txp.Toil.Failure
+    Pos.Txp.Toil.Logic
+    Pos.Txp.Toil.Trans
+    Pos.Txp.Toil.Types
+    Pos.Txp.Toil.Utxo
+    Pos.Txp.Toil.Utxo.Functions
+    Pos.Txp.Toil.Utxo.Pure
+    Pos.Txp.Toil.Utxo.Util
+
+    Pos.Txp.Logic
+    Pos.Txp.Logic.Global
+    Pos.Txp.Logic.Local
+
+    Pos.Txp.MemState
+    Pos.Txp.MemState.Class
+    Pos.Txp.MemState.Holder
+    Pos.Txp.MemState.Types
+
+    Pos.Txp.Settings
+    Pos.Txp.Settings.Global
+
+    Pos.Txp.Error
+
+    Pos.Script
+    Pos.Script.Examples
+
+    Pos.Binary.Txp.Core
+
+  build-depends:       base
+                     , aeson
+                     , bytestring
+                     , cardano-sl-core
+                     , cardano-sl-db
+                     , cardano-sl-infra
+                     , containers
+                     , conduit
+                     , data-default
+                     , derive
+                     , ether
+                     , formatting
+                     , hashable
+                     , lens
+                     , lifted-base
+                     , log-warper
+                     , mtl
+                     , monad-control
+                     , neat-interpolation
+                     , plutus-prototype
+                     , resourcet
+                     , rocksdb-haskell >= 1.0.0
+                     , serokell-util
+                     , stm
+                     , tagged
+                     , template-haskell
+                     , text
+                     , text-format
+                     , transformers
+                     , universum
+                     , unordered-containers
+                     , vector
+
+  default-language:    Haskell2010
+
+  default-extensions:  DeriveDataTypeable
+                       DeriveGeneric
+                       GeneralizedNewtypeDeriving
+                       StandaloneDeriving
+                       FlexibleContexts
+                       FlexibleInstances
+                       MultiParamTypeClasses
+                       FunctionalDependencies
+                       DefaultSignatures
+                       NoImplicitPrelude
+                       OverloadedStrings
+                       RecordWildCards
+                       TypeApplications
+                       TupleSections
+                       ViewPatterns
+                       LambdaCase
+                       MultiWayIf
+                       ConstraintKinds
+                       UndecidableInstances
+                       BangPatterns
+
+  ghc-options:         -Wall
+                       -fno-warn-orphans
+                       -O2
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp

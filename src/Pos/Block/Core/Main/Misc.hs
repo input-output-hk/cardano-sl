@@ -38,11 +38,12 @@ import           Pos.Core                    (EpochOrSlot (..), GenericBlock (..
                                               HasEpochIndex (..), HasEpochOrSlot (..),
                                               HasHeaderHash (..), HasSoftwareVersion (..),
                                               HeaderHash, IsHeader, IsMainHeader (..),
-                                              ProxySKEither, SlotId, mkGenericHeader,
+                                              SlotId, mkGenericHeader,
                                               recreateGenericBlock, slotIdF)
 import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
                                               SignTag (..), hashHexF, proxySign, sign,
                                               toPublic)
+import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Util.Util               (leftToPanic)
 
@@ -53,15 +54,17 @@ instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
              "    hash: "%hashHexF%"\n"%
              "    previous block: "%hashHexF%"\n"%
              "    slot: "%slotIdF%"\n"%
-             "    leader: "%build%"\n"%
              "    difficulty: "%int%"\n"%
+             "    leader: "%build%"\n"%
+             "    signature: "%build%"\n"%
              build
             )
             gbhHeaderHash
             _gbhPrevBlock
             _mcdSlot
-            _mcdLeaderKey
             _mcdDifficulty
+            _mcdLeaderKey
+            _mcdSignature
             _gbhExtra
       where
         gbhHeaderHash :: HeaderHash
@@ -161,11 +164,11 @@ mkMainHeader
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe ProxySKEither
+    -> ProxySKBlockInfo
     -> Body (MainBlockchain ssc)
     -> MainExtraHeaderData
     -> MainBlockHeader ssc
-mkMainHeader prevHeader slotId sk pSk body extra =
+mkMainHeader prevHeader slotId sk pske body extra =
     -- here we know that header creation can't fail, because the only invariant
     -- which we check in 'verifyBBlockHeader' is signature correctness, which
     -- is enforced in this function
@@ -175,19 +178,19 @@ mkMainHeader prevHeader slotId sk pSk body extra =
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
     makeSignature toSign (Left psk) =
         BlockPSignatureLight $ proxySign SignMainBlockLight sk psk toSign
-    makeSignature toSign (Right psk) =
+    makeSignature toSign (Right (psk,_)) =
         BlockPSignatureHeavy $ proxySign SignMainBlockHeavy sk psk toSign
     signature prevHash proof =
         let toSign = MainToSign prevHash proof slotId difficulty extra
         in maybe
                (BlockSignature $ sign SignMainBlock sk toSign)
                (makeSignature toSign)
-               pSk
+               pske
+    leaderPk = maybe (toPublic sk) (either pskIssuerPk snd) pske
     consensus prevHash proof =
         MainConsensusData
         { _mcdSlot = slotId
-        , _mcdLeaderKey =
-              maybe (toPublic sk) (either pskIssuerPk pskIssuerPk) pSk
+        , _mcdLeaderKey = leaderPk
         , _mcdDifficulty = difficulty
         , _mcdSignature = signature prevHash proof
         }
@@ -199,13 +202,13 @@ mkMainBlock
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
-    -> Maybe ProxySKEither
+    -> ProxySKBlockInfo
     -> Body (MainBlockchain ssc)
     -> MainExtraHeaderData
     -> MainExtraBodyData
     -> m (MainBlock ssc)
-mkMainBlock prevHeader slotId sk proxyInfo body extraH extraB =
+mkMainBlock prevHeader slotId sk pske body extraH extraB =
     recreateGenericBlock
-        (mkMainHeader prevHeader slotId sk proxyInfo body extraH)
+        (mkMainHeader prevHeader slotId sk pske body extraH)
         body
         extraB

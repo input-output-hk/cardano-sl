@@ -40,8 +40,9 @@ import           Universum
 
 import           Pos.Binary.Class                (AsBinary, fromBinaryM)
 import           Pos.Core                        (EpochIndex, StakeholderId, addressHash,
+                                                  coinPortionDenominator, getCoinPortion,
                                                   unsafeGetCoin)
-import           Pos.Core.Types                  (coinPortionDenominator, getCoinPortion)
+import           Pos.Core.Constants              (genesisMpcThd)
 import           Pos.Crypto                      (Share, verifyShare)
 import           Pos.Lrc.Types                   (RichmenSet, RichmenStake)
 import           Pos.Ssc.GodTossing.Core         (Commitment (..),
@@ -55,7 +56,6 @@ import           Pos.Ssc.GodTossing.Core         (Commitment (..),
                                                   verifyOpening, _gpCertificates)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
-import           Pos.Update.Constants            (genesisMpcThd)
 import           Pos.Util.Util                   (getKeys)
 
 ----------------------------------------------------------------------------

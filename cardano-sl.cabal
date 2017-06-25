@@ -364,6 +364,7 @@ library
                       , filepath
                       , focus
                       , formatting
+                      , generic-arbitrary
                       , gitrev
                       , hashable
                       , http-client
@@ -1123,6 +1124,7 @@ test-suite cardano-test
                        Test.Pos.Block.LogicSpec
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
+                       Test.Pos.ConstantsSpec
                        Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.CryptoSpec
                        Test.Pos.DHT.Identity.BinarySpec

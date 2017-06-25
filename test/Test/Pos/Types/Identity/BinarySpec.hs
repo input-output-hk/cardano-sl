@@ -7,6 +7,7 @@ module Test.Pos.Types.Identity.BinarySpec
 import           Test.Hspec    (Spec, describe)
 import           Universum
 
+import qualified Pos.Core.Fee  as Fee
 import qualified Pos.Types     as T
 
 import           Test.Pos.Util (binaryTest)
@@ -21,3 +22,6 @@ spec = describe "Types" $ do
         binaryTest @T.Address
         binaryTest @T.SharedSeed
         binaryTest @T.ChainDifficulty
+        binaryTest @Fee.Coeff
+        binaryTest @Fee.TxSizeLinear
+        binaryTest @Fee.TxFeePolicy

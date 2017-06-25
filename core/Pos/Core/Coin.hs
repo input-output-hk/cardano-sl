@@ -11,6 +11,7 @@ module Pos.Core.Coin
        , mkCoin
        , unsafeGetCoin
        , coinToInteger
+       , integerToCoin
        , unsafeIntegerToCoin
        , coinPortionToDouble
 
@@ -18,6 +19,7 @@ module Pos.Core.Coin
        , unsafeAddCoin
        , unsafeSubCoin
        , unsafeMulCoin
+       , subCoin
        , divCoin
        , applyCoinPortion
        ) where
@@ -50,11 +52,16 @@ unsafeAddCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
     res = a+b
 {-# INLINE unsafeAddCoin #-}
 
+-- | Subtraction of coins. Returns 'Nothing' when the subtrahend is bigger
+-- than the minuend, and 'Just' otherwise.
+subCoin :: Coin -> Coin -> Maybe Coin
+subCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
+    | a >= b = Just (mkCoin (a-b))
+    | otherwise = Nothing
+
 -- | Only use if you're sure there'll be no underflow.
 unsafeSubCoin :: Coin -> Coin -> Coin
-unsafeSubCoin (unsafeGetCoin -> a) (unsafeGetCoin -> b)
-    | a >= b = mkCoin (a-b)
-    | otherwise = error "unsafeSubCoin: underflow"
+unsafeSubCoin a b = fromMaybe (error "unsafeSubCoin: underflow") (subCoin a b)
 {-# INLINE unsafeSubCoin #-}
 
 -- | Only use if you're sure there'll be no overflow.
@@ -69,10 +76,14 @@ divCoin :: Integral a => Coin -> a -> Coin
 divCoin (unsafeGetCoin -> a) b =
     mkCoin (fromInteger (toInteger a `div` toInteger b))
 
+integerToCoin :: Integer -> Maybe Coin
+integerToCoin n
+    | n <= coinToInteger (maxBound :: Coin) = Just $ mkCoin (fromInteger n)
+    | otherwise = Nothing
+
 unsafeIntegerToCoin :: Integer -> Coin
-unsafeIntegerToCoin n
-  | n <= coinToInteger (maxBound :: Coin) = mkCoin (fromInteger n)
-  | otherwise = error "unsafeIntegerToCoin: overflow"
+unsafeIntegerToCoin n =
+    fromMaybe (error "unsafeIntegerToCoin: overflow") (integerToCoin n)
 {-# INLINE unsafeIntegerToCoin #-}
 
 ----------------------------------------------------------------------------

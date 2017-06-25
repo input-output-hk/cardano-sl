@@ -9,6 +9,8 @@ import           Universum
 import           Control.Lens              (at)
 import qualified Data.List.NonEmpty        as NE
 import qualified Ether
+import           Formatting                (sformat, (%))
+import           Serokell.Util             (listJson)
 import           Test.Hspec                (Spec, describe)
 import           Test.Hspec.QuickCheck     (prop)
 import           Test.QuickCheck.Monadic   (PropertyM, stop)
@@ -61,10 +63,13 @@ verifyEmptyMainBlock = do
         maybeStopProperty "no genesis leaders" =<< lift (getLeaders 0)
     let theLeader = NE.head genesisLeaders
     idToSecret <- lift (Ether.asks' tpSecretKeys)
+    let unknownLeaderMsg =
+            sformat
+                ("the secret key of the leader is unknown, leaders are: "
+                 %listJson)
+                genesisLeaders
     theSecretKey <-
-        maybeStopProperty
-            "the secret key of the leader is unknown"
-            (idToSecret ^. at theLeader)
+        maybeStopProperty unknownLeaderMsg (idToSecret ^. at theLeader)
     tipHeader <- lift (getTipHeader @SscGodTossing)
     let slot0 = SlotId 0 minBound
     let mainBlock :: Either Text (MainBlock SscGodTossing)

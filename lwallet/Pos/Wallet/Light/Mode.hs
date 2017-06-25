@@ -34,6 +34,7 @@ import           Pos.Discovery                    (DiscoveryTag, MonadDiscovery 
 import           Pos.ExecMode                     ((:::), ExecMode (..), ExecModeM,
                                                    modeContext)
 import           Pos.Reporting.MemState           (ReportingContext)
+import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Util.JsonLog                 (JsonLogConfig, jsonLogDefault)
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
 import           Pos.Wallet.KeyStorage            (KeyData)
@@ -43,6 +44,9 @@ import           Pos.Wallet.Light.State.Acidic    (WalletState)
 import           Pos.Wallet.Light.State.Core      (gsAdoptedBVDataWallet)
 import           Pos.Wallet.WalletMode            (MonadBlockchainInfo (..),
                                                    MonadUpdates (..))
+
+type LightWalletSscType = SscGodTossing
+-- type LightWalletSscType = SscNistBeacon
 
 modeContext [d|
     data LightWalletContext = LightWalletContext
@@ -104,6 +108,6 @@ instance MonadBalances LightWalletMode where
     getOwnUtxos = getOwnUtxosWallet
     getBalance = getBalanceWallet
 
-instance MonadTxHistory LightWalletMode where
+instance MonadTxHistory LightWalletSscType LightWalletMode where
     getTxHistory = getTxHistoryWallet
     saveTx = saveTxWallet

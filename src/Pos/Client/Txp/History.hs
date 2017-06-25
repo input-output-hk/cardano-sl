@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -35,7 +36,6 @@ import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.DList                  as DL
 import qualified Data.HashSet                as HS
-import           Data.Tagged                 (Tagged (..))
 import qualified Ether
 import           System.Wlog                 (WithLogger)
 
@@ -159,17 +159,18 @@ deriveAddrHistoryPartial hist addrs chain =
 ----------------------------------------------------------------------------
 
 -- | A class which have methods to get transaction history
-class Monad m => MonadTxHistory m where
+class (Monad m, SscHelpersClass ssc) => MonadTxHistory ssc m | m -> ssc where
     getTxHistory
-        :: SscHelpersClass ssc
-        => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
+        :: [Address]
+        -> Maybe (HeaderHash, Utxo)
+        -> m TxHistoryAnswer
     saveTx :: (TxId, TxAux) -> m ()
 
 instance {-# OVERLAPPABLE #-}
-    (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
-        MonadTxHistory (t m)
+    (MonadTxHistory ssc m, MonadTrans t, Monad (t m)) =>
+        MonadTxHistory ssc (t m)
   where
-    getTxHistory = fmap lift <<$>> getTxHistory
+    getTxHistory = lift <<$>> getTxHistory
     saveTx = lift . saveTx
 
 
@@ -194,8 +195,8 @@ type TxHistoryEnv' ssc m =
 
 getTxHistoryDefault
     :: forall ssc m. TxHistoryEnv' ssc m
-    => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
-getTxHistoryDefault = Tagged $ \addrs mInit -> do
+    => [Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer
+getTxHistoryDefault addrs mInit = do
     tip <- GS.getTip
 
     let getGenUtxo = Ether.asks' unGenesisUtxo

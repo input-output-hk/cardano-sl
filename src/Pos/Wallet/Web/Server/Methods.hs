@@ -31,7 +31,6 @@ import           Data.Default                     (Default (def))
 import           Data.List                        (findIndex)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
-import           Data.Tagged                      (untag)
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
 import           Data.Time.Units                  (Microsecond, Second)
@@ -629,7 +628,7 @@ getFullWalletHistory cWalId = do
     cHistory <- do
         (mInit, cachedTxs) <- transCache <$> getHistoryCache cWalId
 
-        TxHistoryAnswer {..} <- untag @WalletSscType getTxHistory addrs mInit
+        TxHistoryAnswer {..} <- getTxHistory addrs mInit
 
         -- Add allowed portion of result to cache
         let fullHistory = taHistory <> cachedTxs

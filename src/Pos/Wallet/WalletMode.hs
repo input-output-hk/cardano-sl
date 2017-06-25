@@ -1,13 +1,13 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | 'WalletMode' constraint. Like `WorkMode`, but for wallet.
+-- | 'MonadWallet' constraint. Like `WorkMode`, but for wallet.
 
 module Pos.Wallet.WalletMode
        ( MonadBalances (..)
        , MonadTxHistory (..)
        , MonadBlockchainInfo (..)
        , MonadUpdates (..)
-       , WalletMode
+       , MonadWallet
        ) where
 
 import           Universum
@@ -56,8 +56,8 @@ instance {-# OVERLAPPABLE #-}
 -- Composite restrictions
 ---------------------------------------------------------------
 
-type WalletMode m
-    = ( TxMode m
+type MonadWallet ssc m
+    = ( TxMode ssc m
       , MonadKeys m
       , MonadBlockchainInfo m
       , MonadUpdates m

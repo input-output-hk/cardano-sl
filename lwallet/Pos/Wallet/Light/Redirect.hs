@@ -12,7 +12,6 @@ module Pos.Wallet.Light.Redirect
 import           Universum
 
 import           Control.Monad.Trans.Maybe (MaybeT (..))
-import           Data.Tagged               (Tagged (..))
 import qualified Ether
 
 import           Pos.Client.Txp.Balances   (MonadBalances (..), getBalanceFromUtxo)
@@ -39,8 +38,8 @@ getBalanceWallet = getBalanceFromUtxo
 
 getTxHistoryWallet
     :: (Ether.MonadReader' LWS.WalletState m, MonadIO m)
-    => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
-getTxHistoryWallet = Tagged $ \addrs _ -> do
+    => [Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer
+getTxHistoryWallet addrs _ = do
     chain <- LWS.getBestChain
     utxo <- LWS.getOldestUtxo
     _ <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $

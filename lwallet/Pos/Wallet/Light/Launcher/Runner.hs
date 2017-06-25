@@ -27,7 +27,7 @@ import           Pos.Wallet.Light.Launcher.Param (WalletParams (..))
 import           Pos.Wallet.Light.Mode           (LightWalletContext (..),
                                                   LightWalletMode, unLightWalletMode)
 import           Pos.Wallet.Light.State          (closeState, openMemState, openState)
-import           Pos.Wallet.WalletMode           (WalletMode)
+import           Pos.Wallet.WalletMode           (MonadWallet)
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
 -- meaningful ones
@@ -55,7 +55,7 @@ runWalletStaticPeers transport peers wp =
     runLightWalletMode transport peers wp . runWallet
 
 runWallet
-    :: WalletMode m
+    :: MonadWallet ssc m
     => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do

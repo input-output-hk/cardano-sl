@@ -52,7 +52,6 @@ import           Pos.Slotting.MemState         (MonadSlotsData (..),
                                                 getSystemStartDefault,
                                                 putSlottingDataDefault,
                                                 waitPenultEpochEqualsDefault)
-import           Pos.Ssc.Class.Helpers         (SscHelpersClass)
 import           Pos.Ssc.Class.Types           (SscBlock)
 import           Pos.Util                      (Some (..))
 import           Pos.Util.JsonLog              (jsonLogDefault)
@@ -138,17 +137,17 @@ instance MonadDB WalletWebMode where
 instance MonadBlockDBWrite WalletSscType WalletWebMode where
     dbPutBlund = dbPutBlundDefault
 
-instance SscHelpersClass ssc => MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo WalletWebMode
+instance MonadBlockDBGeneric (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode
   where
-    dbGetBlock  = dbGetBlockDefault @ssc
-    dbGetUndo   = dbGetUndoDefault @ssc
-    dbGetHeader = dbGetHeaderDefault @ssc
+    dbGetBlock  = dbGetBlockDefault @WalletSscType
+    dbGetUndo   = dbGetUndoDefault @WalletSscType
+    dbGetHeader = dbGetHeaderDefault @WalletSscType
 
-instance SscHelpersClass ssc => MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () WalletWebMode
+instance MonadBlockDBGeneric (Some IsHeader) (SscBlock WalletSscType) () WalletWebMode
   where
-    dbGetBlock  = dbGetBlockSscDefault @ssc
-    dbGetUndo   = dbGetUndoSscDefault @ssc
-    dbGetHeader = dbGetHeaderSscDefault @ssc
+    dbGetBlock  = dbGetBlockSscDefault @WalletSscType
+    dbGetUndo   = dbGetUndoSscDefault @WalletSscType
+    dbGetHeader = dbGetHeaderSscDefault @WalletSscType
 
 instance MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
@@ -171,8 +170,8 @@ instance MonadBalances WalletWebMode where
     getOwnUtxos = getOwnUtxosDefault
     getBalance = getBalanceDefault
 
-instance MonadTxHistory WalletWebMode where
-    getTxHistory = getTxHistoryDefault
+instance MonadTxHistory WalletSscType WalletWebMode where
+    getTxHistory = getTxHistoryDefault @WalletSscType
     saveTx = saveTxDefault
 
 instance MonadWalletTracking WalletWebMode where

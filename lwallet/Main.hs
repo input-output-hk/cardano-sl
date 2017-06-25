@@ -60,7 +60,7 @@ import           Pos.Update                 (BlockVersionData (..), UpdateData (
                                              UpdateVote (..), mkUpdateProposalWSign)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Util.Util              (powerLift)
-import           Pos.Wallet                 (WalletMode, addSecretKey, getBalance,
+import           Pos.Wallet                 (MonadWallet, addSecretKey, getBalance,
                                              getSecretKeys)
 import           Pos.Wallet.Light           (LightWalletMode, WalletParams (..),
                                              runWalletStaticPeers)
@@ -106,7 +106,7 @@ Avaliable commands:
    quit                           -- shutdown node wallet
 |]
 
-runCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()
+runCmd :: MonadWallet ssc m => SendActions m -> Command -> CmdRunner m ()
 runCmd _ (Balance addr) = lift (getBalance addr) >>=
                           putText . sformat ("Current balance: "%coinF)
 runCmd sendActions (Send idx outputs) = do
@@ -245,11 +245,11 @@ runCmdOuts = relayPropagateOut $ mconcat
                 , txRelays @SscGodTossing @(RealMode SscGodTossing)
                 ]
 
-evalCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()
+evalCmd :: MonadWallet ssc m => SendActions m -> Command -> CmdRunner m ()
 evalCmd _ Quit = pure ()
 evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
-evalCommands :: WalletMode m => SendActions m -> CmdRunner m ()
+evalCommands :: MonadWallet ssc m => SendActions m -> CmdRunner m ()
 evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -259,7 +259,7 @@ evalCommands sa = do
         Left err   -> putStrLn err >> evalCommands sa
         Right cmd_ -> evalCmd sa cmd_
 
-initialize :: WalletMode m => WalletOptions -> m [NodeId]
+initialize :: MonadWallet ssc m => WalletOptions -> m [NodeId]
 initialize WalletOptions{..} = do
     peers <- S.toList <$> getPeers
     bool (pure peers) getPeersUntilSome (null peers)
@@ -274,14 +274,14 @@ initialize WalletOptions{..} = do
         then getPeersUntilSome
         else pure peers
 
-runWalletRepl :: WalletMode m => WalletOptions -> Worker' m
+runWalletRepl :: MonadWallet ssc m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
     let keysPool = if isDevelopment then genesisDevSecretKeys else []
     runReaderT (evalCmd sa Help) (CmdCtx keysPool na)
 
-runWalletCmd :: WalletMode m => WalletOptions -> Text -> Worker' m
+runWalletCmd :: MonadWallet ssc m => WalletOptions -> Text -> Worker' m
 runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str

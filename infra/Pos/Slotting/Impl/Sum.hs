@@ -49,25 +49,25 @@ getCurrentSlotSum :: SlotsSumEnv m => m (Maybe SlotId)
 getCurrentSlotSum =
     Ether.ask' >>= \case
         SCSimple -> simpleGetCurrentSlot
-        SCNtp var -> Ether.runReaderT' ntpGetCurrentSlot var
+        SCNtp var -> ntpGetCurrentSlot var
 
 getCurrentSlotBlockingSum :: SlotsSumEnv m => m SlotId
 getCurrentSlotBlockingSum =
     Ether.ask' >>= \case
         SCSimple -> simpleGetCurrentSlotBlocking
-        SCNtp var -> Ether.runReaderT' ntpGetCurrentSlotBlocking var
+        SCNtp var -> ntpGetCurrentSlotBlocking var
 
 getCurrentSlotInaccurateSum :: SlotsSumEnv m => m SlotId
 getCurrentSlotInaccurateSum =
     Ether.ask' >>= \case
         SCSimple -> simpleGetCurrentSlotInaccurate
-        SCNtp var -> Ether.runReaderT' ntpGetCurrentSlotInaccurate var
+        SCNtp var -> ntpGetCurrentSlotInaccurate var
 
 currentTimeSlottingSum :: SlotsSumEnv m => m Timestamp
 currentTimeSlottingSum =
     Ether.ask' >>= \case
         SCSimple -> simpleCurrentTimeSlotting
-        SCNtp var -> Ether.runReaderT' ntpCurrentTime var
+        SCNtp var -> ntpCurrentTime var
 
 type SlottingWorkerModeSum m = NtpWorkerMode m
 

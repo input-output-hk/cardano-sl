@@ -29,8 +29,7 @@ import           Pos.Communication.PeerState      (PeerStateCtx, PeerStateTag,
                                                    getPeerStateDefault)
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.DB                           (MonadGState (..))
-import           Pos.Discovery                    (DiscoveryTag, MonadDiscovery (..),
-                                                   findPeersConst, getPeersConst)
+import           Pos.Discovery                    (MonadDiscovery (..))
 import           Pos.ExecMode                     ((:::), ExecMode (..), ExecModeM,
                                                    modeContext)
 import           Pos.Reporting.MemState           (ReportingContext)
@@ -47,6 +46,8 @@ import           Pos.Wallet.WalletMode            (MonadBlockchainInfo (..),
 
 type LightWalletSscType = SscGodTossing
 -- type LightWalletSscType = SscNistBeacon
+
+data DiscoveryTag
 
 modeContext [d|
     data LightWalletContext = LightWalletContext
@@ -77,8 +78,8 @@ instance CanJsonLog LightWalletMode where
     jsonLog = jsonLogDefault
 
 instance MonadDiscovery LightWalletMode where
-    getPeers = getPeersConst
-    findPeers = findPeersConst
+    getPeers = Ether.ask @DiscoveryTag
+    findPeers = Ether.ask @DiscoveryTag
 
 instance MonadBListener LightWalletMode where
     onApplyBlocks = onApplyBlocksStub

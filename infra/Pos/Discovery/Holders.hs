@@ -4,18 +4,8 @@
 -- | Transformer that carries peer discovery capabilities.
 
 module Pos.Discovery.Holders
-       ( DiscoveryTag
-       , DiscoveryConstT
-       , runDiscoveryConstT
-       , getPeersConst
-       , findPeersConst
-       , DiscoveryKademliaT
-       , askDHTInstance
-       , runDiscoveryKademliaT
-
-       , DiscoveryContextSum (..)
+       ( DiscoveryContextSum (..)
        , MonadDiscoverySum
-       , askDiscoveryContextSum
        , discoveryWorkers
        , getPeersSum
        , findPeersSum
@@ -35,51 +25,13 @@ import           Pos.DHT.Real                     (KademliaDHTInstance,
                                                    kademliaGetKnownPeers, kdiHandle,
                                                    lookupNode)
 import           Pos.DHT.Workers                  (DhtWorkMode, dhtWorkers)
-import           Pos.Discovery.Class              (MonadDiscovery (..))
 import           Pos.Recovery.Info                (MonadRecoveryInfo,
                                                    recoveryCommGuardSimple)
 import           Pos.Util.TimeWarp                (addressToNodeId)
 
 ----------------------------------------------------------------------------
--- Common
-----------------------------------------------------------------------------
-
-data DiscoveryTag -- loneliness is something we all know
-
-----------------------------------------------------------------------------
--- Constant peers
-----------------------------------------------------------------------------
-
--- | 'MonadDiscovery' capable transformer that uses a constant/static
--- set of peers and doesn't do anything on 'findPeers' call.
-type DiscoveryConstT m = Ether.ReaderT DiscoveryTag (Set NodeId) m
-
-getPeersConst :: Ether.MonadReader DiscoveryTag (Set NodeId) m => m (Set NodeId)
-getPeersConst = Ether.ask @DiscoveryTag
-
-findPeersConst :: Ether.MonadReader DiscoveryTag (Set NodeId) m => m (Set NodeId)
-findPeersConst = getPeersConst
-
-instance (Monad m) => MonadDiscovery (DiscoveryConstT m) where
-    getPeers = getPeersConst
-    findPeers = findPeersConst
-
-runDiscoveryConstT :: (Set NodeId) -> DiscoveryConstT m a -> m a
-runDiscoveryConstT = flip (Ether.runReaderT @DiscoveryTag)
-
-----------------------------------------------------------------------------
 -- Kademlia DHT
 ----------------------------------------------------------------------------
-
--- | Transformer that captures the Kademlia DHT functionality
--- inside. Its 'MonadDiscovery' instance performs a node lookup on
--- 'findPeers'.
-type DiscoveryKademliaT m = Ether.ReaderT DiscoveryTag KademliaDHTInstance m
-
-askDHTInstance
-    :: (Ether.MonadReader DiscoveryTag KademliaDHTInstance m)
-    => m KademliaDHTInstance
-askDHTInstance = Ether.ask @DiscoveryTag
 
 type DiscoveryKademliaEnv m =
     ( MonadIO m
@@ -88,21 +40,16 @@ type DiscoveryKademliaEnv m =
     , WithLogger m
     )
 
-instance (DiscoveryKademliaEnv m) => MonadDiscovery (DiscoveryKademliaT m) where
-    getPeers = do
-        kademliaInstance <- askDHTInstance
-        S.fromList . fmap addressToNodeId <$>
-            kademliaGetKnownPeers kademliaInstance
-    findPeers = do
-        kademliaInstance <- askDHTInstance
-        key <- randomDHTKey
-        void $ liftIO $ lookupNode (kdiHandle kademliaInstance) key
-        getPeers
+getPeersKademlia :: DiscoveryKademliaEnv m => KademliaDHTInstance -> m (Set NodeId)
+getPeersKademlia kademliaInstance = do
+    S.fromList . fmap addressToNodeId <$>
+        kademliaGetKnownPeers kademliaInstance
 
-runDiscoveryKademliaT
-    :: (DiscoveryKademliaEnv m)
-    => KademliaDHTInstance -> DiscoveryKademliaT m a -> m a
-runDiscoveryKademliaT = flip (Ether.runReaderT @DiscoveryTag)
+findPeersKademlia :: DiscoveryKademliaEnv m => KademliaDHTInstance -> m (Set NodeId)
+findPeersKademlia kademliaInstance = do
+    key <- randomDHTKey
+    void $ liftIO $ lookupNode (kdiHandle kademliaInstance) key
+    getPeersKademlia kademliaInstance
 
 ----------------------------------------------------------------------------
 -- Sum
@@ -118,23 +65,20 @@ data DiscoveryContextSum
 -- uses only one of them).
 type MonadDiscoverySum = Ether.MonadReader' DiscoveryContextSum
 
-askDiscoveryContextSum :: MonadDiscoverySum m => m DiscoveryContextSum
-askDiscoveryContextSum = Ether.ask'
-
 type DiscoverySumEnv m =
     (MonadDiscoverySum m, DiscoveryKademliaEnv m)
 
 getPeersSum :: DiscoverySumEnv m => m (Set NodeId)
 getPeersSum =
     Ether.ask' >>= \case
-        DCStatic nodes -> runDiscoveryConstT nodes getPeers
-        DCKademlia inst -> runDiscoveryKademliaT inst getPeers
+        DCStatic nodes -> return nodes
+        DCKademlia inst -> getPeersKademlia inst
 
 findPeersSum :: DiscoverySumEnv m => m (Set NodeId)
 findPeersSum =
     Ether.ask' >>= \case
-        DCStatic nodes -> runDiscoveryConstT nodes findPeers
-        DCKademlia inst -> runDiscoveryKademliaT inst findPeers
+        DCStatic nodes -> return nodes
+        DCKademlia inst -> findPeersKademlia inst
 
 -- | Get all discovery workers using 'DiscoveryContextSum'.
 discoveryWorkers ::

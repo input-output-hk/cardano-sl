@@ -24,9 +24,9 @@ import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, get
                                               setTxpLocalData)
 import           Pos.Txp.Toil                (GenericToilModifier (..),
                                               MonadUtxoRead (..), ToilEnv,
-                                              ToilVerFailure (..), Utxo, execToilTLocal,
-                                              getToilEnv, normalizeToil, processTx,
-                                              runDBToil, runToilTLocal, evalUtxoStateT,
+                                              ToilVerFailure (..), Utxo, evalUtxoStateT,
+                                              execToilTLocal, getToilEnv, normalizeToil,
+                                              processTx, runDBToil, runToilTLocal,
                                               utxoGet)
 
 type TxpLocalWorkMode m =

@@ -9,17 +9,17 @@ module Pos.Web.Mode
     , WebModeContext(..)
     ) where
 
-import qualified Control.Monad.Reader as Mtl
-import           Mockable             (Production)
+import           Mockable         (Production)
 
-import           Pos.Context          (NodeContext)
-import           Pos.DB               (NodeDBs)
-import           Pos.DB.Class         (MonadDB (..), MonadDBRead (..))
-import           Pos.DB.Redirect      (dbDeleteDefault, dbGetDefault, dbIterSourceDefault,
-                                       dbPutDefault, dbWriteBatchDefault)
-import           Pos.ExecMode         ((:::), ExecMode (..), ExecModeM, modeContext)
-import           Pos.Txp.MemState     (GenericTxpLocalData, TxpHolderTag)
-import           Pos.WorkMode         (TxpExtra_TMP)
+import           Pos.Context      (NodeContext)
+import           Pos.DB           (NodeDBs)
+import           Pos.DB.Class     (MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Redirect  (dbDeleteDefault, dbGetDefault, dbIterSourceDefault,
+                                   dbPutDefault, dbWriteBatchDefault)
+import           Pos.ExecMode     ((:::), ExecMode (..), ExecModeBase, ExecModeM,
+                                   modeContext)
+import           Pos.Txp.MemState (GenericTxpLocalData, TxpHolderTag)
+import           Pos.WorkMode     (TxpExtra_TMP)
 
 modeContext [d|
     data WebModeContext ssc = WebModeContext
@@ -28,14 +28,11 @@ modeContext [d|
         !(NodeContext ssc)
     |]
 
-data WEB ssc
+type WebMode ssc = ExecMode (WebModeContext ssc)
 
-type WebMode ssc = ExecMode (WEB ssc)
+type instance ExecModeBase (WebModeContext ssc) = Production
 
-type instance ExecModeM (WEB ssc) =
-    Mtl.ReaderT (WebModeContext ssc) Production
-
-unWebMode :: ExecMode (WEB ssc) a -> ExecModeM (WEB ssc) a
+unWebMode :: ExecMode (WebModeContext ssc) a -> ExecModeM (WebModeContext ssc) a
 unWebMode = unExecMode
 
 instance MonadDBRead (WebMode ssc) where

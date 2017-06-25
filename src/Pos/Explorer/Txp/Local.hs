@@ -29,9 +29,9 @@ import           Pos.Txp.MemState            (GenericTxpLocalDataPure, MonadTxpM
                                               setTxpLocalData)
 import           Pos.Txp.Toil                (GenericToilModifier (..), MonadToilEnv,
                                               MonadUtxoRead (..), ToilEnv,
-                                              ToilVerFailure (..), Utxo, getToilEnv,
-                                              runDBToil, runToilTLocalExtra,
-                                              evalUtxoStateT, utxoGet)
+                                              ToilVerFailure (..), Utxo, evalUtxoStateT,
+                                              getToilEnv, runDBToil, runToilTLocalExtra,
+                                              utxoGet)
 import           Pos.Util.Chrono             (NewestFirst (..))
 import qualified Pos.Util.Modifier           as MM
 

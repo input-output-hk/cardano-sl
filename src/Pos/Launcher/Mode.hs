@@ -45,7 +45,7 @@ import           Pos.DB.Class          (MonadBlockDBGeneric (..), MonadDB (..),
 import           Pos.DB.Redirect       (dbDeleteDefault, dbGetDefault,
                                         dbIterSourceDefault, dbPutDefault,
                                         dbWriteBatchDefault)
-import           Pos.ExecMode          ((:::), ExecMode (..), ExecModeM, modeContext)
+import           Pos.ExecMode          ((:::), ExecMode (..), ExecModeBase, modeContext)
 import           Pos.Lrc.Context       (LrcContext)
 import           Pos.Slotting.Class    (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
@@ -78,7 +78,7 @@ newInitFuture = do
 modeContext [d|
     -- The fields are lazy on purpose: this allows using them with
     -- futures.
-    data InitModeContext = InitModeContext
+    data InitModeContext ssc = InitModeContext
         (NodeDBs            ::: NodeDBs)
         (GenesisUtxo        ::: GenesisUtxo)
         (GenesisLeaders     ::: GenesisLeaders)
@@ -88,14 +88,11 @@ modeContext [d|
         (LrcContext         ::: LrcContext)
     |]
 
-data INIT ssc
+type InitMode ssc = ExecMode (InitModeContext ssc)
 
-type InitMode ssc = ExecMode (INIT ssc)
+type instance ExecModeBase (InitModeContext ssc) = Production
 
-type instance ExecModeM (INIT ssc) =
-    Mtl.ReaderT InitModeContext Production
-
-runInitMode :: InitModeContext -> InitMode ssc a -> Production a
+runInitMode :: InitModeContext ssc -> InitMode ssc a -> Production a
 runInitMode imc act = Mtl.runReaderT (unExecMode act) imc
 
 instance MonadDBRead (InitMode ssc) where

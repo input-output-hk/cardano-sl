@@ -16,7 +16,6 @@ module Pos.WorkMode
        , RealModeContext(..)
        ) where
 
-import qualified Control.Monad.Reader        as Mtl
 import qualified Ether
 import           Mockable.Production         (Production)
 import           System.Wlog                 (HasLoggerName (..), LoggerName)
@@ -44,8 +43,8 @@ import           Pos.DB.Redirect             (dbDeleteDefault, dbGetDefault,
 import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.Discovery               (MonadDiscovery (..), findPeersSum,
                                               getPeersSum)
-import           Pos.ExecMode                ((:::), ExecMode (..), ExecModeM,
-                                              modeContext)
+import           Pos.ExecMode                ((:::), ExecMode (..), ExecModeBase,
+                                              ExecModeM, modeContext)
 import           Pos.Slotting.Class          (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
                                               getCurrentSlotBlockingSum,
@@ -76,14 +75,11 @@ modeContext [d|
         !(NodeContext ssc)
     |]
 
-data REAL ssc
+type RealMode ssc = ExecMode (RealModeContext ssc)
 
-type RealMode ssc = ExecMode (REAL ssc)
+type instance ExecModeBase (RealModeContext ssc) = Production
 
-type instance ExecModeM (REAL ssc) =
-    Mtl.ReaderT (RealModeContext ssc) Production
-
-unRealMode :: ExecMode (REAL ssc) a -> ExecModeM (REAL ssc) a
+unRealMode :: ExecMode (RealModeContext ssc) a -> ExecModeM (RealModeContext ssc) a
 unRealMode = unExecMode
 
 instance HasLoggerName (RealMode ssc) where

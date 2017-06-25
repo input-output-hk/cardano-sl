@@ -13,7 +13,6 @@ module Pos.Wallet.Light.Mode
 
 import           Universum
 
-import qualified Control.Monad.Reader             as Mtl
 import qualified Ether
 import           Mockable                         (Production)
 import           System.Wlog                      (HasLoggerName (..), LoggerName)
@@ -30,8 +29,8 @@ import           Pos.Communication.PeerState      (PeerStateCtx, PeerStateTag,
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Discovery                    (MonadDiscovery (..))
-import           Pos.ExecMode                     ((:::), ExecMode (..), ExecModeM,
-                                                   modeContext)
+import           Pos.ExecMode                     ((:::), ExecMode (..), ExecModeBase,
+                                                   ExecModeM, modeContext)
 import           Pos.Reporting.MemState           (ReportingContext)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Util.JsonLog                 (JsonLogConfig, jsonLogDefault)
@@ -60,14 +59,11 @@ modeContext [d|
         !(LoggerName       ::: LoggerName)
     |]
 
-data LW
+type LightWalletMode = ExecMode LightWalletContext
 
-type LightWalletMode = ExecMode LW
+type instance ExecModeBase LightWalletContext = Production
 
-type instance ExecModeM LW =
-    Mtl.ReaderT LightWalletContext Production
-
-unLightWalletMode :: ExecMode LW a -> ExecModeM LW a
+unLightWalletMode :: ExecMode LightWalletContext a -> ExecModeM LightWalletContext a
 unLightWalletMode = unExecMode
 
 instance HasLoggerName LightWalletMode where

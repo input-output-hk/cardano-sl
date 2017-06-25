@@ -57,6 +57,7 @@ This way we can talk about some @'ExecMode' mode@, i.e. abstract over the
 module Pos.ExecMode
     ( ExecMode(..)
     , ExecModeM
+    , ExecModeBase
     , _ExecMode
     , module Pos.ExecMode.Context
     ) where
@@ -82,8 +83,10 @@ import           Pos.Util.Util               (PowerLift (..))
 import           Pos.ExecMode.Context
 
 -- | The inner workings of an execution mode.
--- Example: @type instance ExecModeM Buba = ReaderT BubaEnv IO@.
-type family ExecModeM mode :: * -> *
+-- Example: @ExecModeM Buba = ReaderT BubaEnv IO@.
+type ExecModeM mode = Mtl.ReaderT mode (ExecModeBase mode)
+
+type family ExecModeBase mode :: * -> *
 
 -- | A newtype over an execution mode. The mode itself is a parameter and
 -- can be abstracted over. Keep the @mode@ parameter small, without structure

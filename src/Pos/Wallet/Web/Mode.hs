@@ -12,7 +12,6 @@ module Pos.Wallet.Web.Mode
 
 import           Universum
 
-import qualified Control.Monad.Reader          as Mtl
 import qualified Ether
 import           Mockable                      (Production)
 import           System.Wlog                   (HasLoggerName (..))
@@ -40,8 +39,8 @@ import           Pos.Client.Txp.History        (MonadTxHistory (..), getTxHistor
                                                 saveTxDefault)
 import           Pos.Discovery                 (MonadDiscovery (..), findPeersSum,
                                                 getPeersSum)
-import           Pos.ExecMode                  ((:::), ExecMode (..), ExecModeM,
-                                                HasLens (..), modeContext)
+import           Pos.ExecMode                  ((:::), ExecMode (..), ExecModeBase,
+                                                ExecModeM, HasLens (..), modeContext)
 import           Pos.Slotting.Class            (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum         (currentTimeSlottingSum,
                                                 getCurrentSlotBlockingSum,
@@ -87,14 +86,11 @@ data WalletWebModeContextTag
 instance HasLens WalletWebModeContextTag WalletWebModeContext WalletWebModeContext where
     lensOf = identity
 
-data WWEB
+type WalletWebMode = ExecMode WalletWebModeContext
 
-type WalletWebMode = ExecMode WWEB
+type instance ExecModeBase WalletWebModeContext = Production
 
-type instance ExecModeM WWEB =
-    Mtl.ReaderT WalletWebModeContext Production
-
-unWalletWebMode :: ExecMode WWEB a -> ExecModeM WWEB a
+unWalletWebMode :: ExecMode WalletWebModeContext a -> ExecModeM WalletWebModeContext a
 unWalletWebMode = unExecMode
 
 instance WithPeerState WalletWebMode where

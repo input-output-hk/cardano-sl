@@ -133,11 +133,11 @@ genSuitableStakeDistribution stakeholdersNum =
 
 instance Arbitrary TestParams where
     arbitrary = do
-        secretKeysList <- toList @(NonEmpty SecretKey) <$> arbitrary
+        secretKeysList <- toList @(NonEmpty SecretKey) <$> arbitrary -- might have repetitions
         let toSecretPair sk = (addressHash (toPublic sk), sk)
         let tpSecretKeys = HM.fromList $ map toSecretPair secretKeysList
         tpStakeDistribution <-
-            genSuitableStakeDistribution (fromIntegral $ length secretKeysList)
+            genSuitableStakeDistribution (fromIntegral $ length tpSecretKeys)
         let zipF secretKey (coin, toaDistr) =
                 let addr = makePubKeyAddress (toPublic secretKey)
                     toaOut = TxOut addr coin
@@ -146,7 +146,7 @@ instance Arbitrary TestParams where
                 GenesisUtxo . M.fromList $
                 zipWith
                     zipF
-                    secretKeysList
+                    (toList tpSecretKeys)
                     (stakeDistribution tpStakeDistribution)
         return TestParams {..}
 

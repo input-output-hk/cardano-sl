@@ -13,7 +13,7 @@ module Pos.Wallet.Light.Mode
 
 import           Universum
 
-import qualified Ether
+import           EtherCompat
 import           Mockable                         (Production)
 import           System.Wlog                      (HasLoggerName (..), LoggerName)
 
@@ -67,15 +67,15 @@ unLightWalletMode :: ExecMode LightWalletContext a -> ExecModeM LightWalletConte
 unLightWalletMode = unExecMode
 
 instance HasLoggerName LightWalletMode where
-    getLoggerName = Ether.ask'
-    modifyLoggerName = Ether.local'
+    getLoggerName = askCtx @LoggerName
+    modifyLoggerName = localCtx @LoggerName
 
 instance CanJsonLog LightWalletMode where
     jsonLog = jsonLogDefault
 
 instance MonadDiscovery LightWalletMode where
-    getPeers = Ether.ask @DiscoveryTag
-    findPeers = Ether.ask @DiscoveryTag
+    getPeers = askCtx @DiscoveryTag
+    findPeers = askCtx @DiscoveryTag
 
 instance MonadBListener LightWalletMode where
     onApplyBlocks = onApplyBlocksStub

@@ -13,7 +13,7 @@ module Pos.Ssc.Class.Types
 import           Control.Lens        (choosing, makeWrapped, _Wrapped)
 import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
-import qualified Ether
+import           EtherCompat
 import           Universum
 
 import           Pos.Binary.Class    (Bi)
@@ -94,4 +94,4 @@ instance HasEpochOrSlot (SscBlock ssc) where
     getEpochOrSlot = either getEpochOrSlot (getEpochOrSlot . fst) . getSscBlock
 
 data SscContextTag
-type MonadSscContext ssc = Ether.MonadReader SscContextTag (SscNodeContext ssc)
+type MonadSscContext ssc ctx m = MonadCtx ctx SscContextTag (SscNodeContext ssc) m

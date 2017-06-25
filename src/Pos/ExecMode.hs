@@ -29,7 +29,7 @@ the expressive power to implement a class/type instance for all modes at
 once. For example, one would need to derive 'Functor', 'MonadIO', 'MonadMask',
 and other classes, for every newtype. Type families and ambiguous type variables
 make the issue worse because deriving can't handle them, so 'MonadBaseControl'
-and 'Ether.MonadReader' would need manually defined instances, and 'Mockable'-related
+would need manually defined instances, and 'Mockable'-related
 type families would need numerous instances as well.
 
 What we want is to implement some class and type instances for all modes at
@@ -69,8 +69,6 @@ import           Control.Monad.Base          (MonadBase)
 import           Control.Monad.Fix           (MonadFix)
 import qualified Control.Monad.Reader        as Mtl
 import           Control.Monad.Trans.Control (MonadBaseControl (..))
-import           Data.Coerce                 (coerce)
-import qualified Ether
 import           Ether.Internal              (HasLens (..))
 import           Mockable                    (ChannelT, Counter, Distribution, Gauge,
                                               MFunctor' (..), Mockable (..), Promise,
@@ -106,6 +104,8 @@ deriving instance MonadCatch (ExecModeM mode) => MonadCatch (ExecMode mode)
 deriving instance MonadMask (ExecModeM mode) => MonadMask (ExecMode mode)
 deriving instance MonadFix (ExecModeM mode) => MonadFix (ExecMode mode)
 
+deriving instance Monad (ExecModeBase mode) => Mtl.MonadReader mode (ExecMode mode)
+
 instance MonadBaseControl b (ExecModeM mode) => MonadBaseControl b (ExecMode mode) where
     type StM (ExecMode mode) a = StM (ExecModeM mode) a
     liftBaseWith f = ExecMode $ liftBaseWith $ \q -> f (q . unExecMode)
@@ -126,25 +126,6 @@ instance
     ) => Mockable d (ExecMode mode)
   where
     liftMockable dmt = ExecMode $ liftMockable $ hoist' unExecMode dmt
-
--- | The 'Ether.MonadReader' instance for 'ExecMode' uses a lens to focus
--- on a part of the inner 'ReaderT'. We use the 'HasLens' class to find a lens
--- and 'Mtl.MonadReader' to find the 'ReaderT' transformer. Since 'ExecMode'
--- is always a base layer, we don't need to \"close the world\" with a
--- type-level list of environment parts.
-instance
-    ( Mtl.MonadReader payload (ExecModeM mode)
-    , HasLens tag payload r
-    ) => Ether.MonadReader tag r (ExecMode mode)
-  where
-    ask =
-        (coerce :: ExecModeM mode r -> ExecMode mode r)
-        (Mtl.asks (view (lensOf @tag @payload @r)))
-    local f =
-        (coerce :: forall a.
-            (ExecModeM mode a -> ExecModeM mode a) ->
-            (ExecMode mode a -> ExecMode mode a))
-        (Mtl.local (over (lensOf @tag @payload @r) f))
 
 deriving instance CanLog (ExecModeM mode) => CanLog (ExecMode mode)
 

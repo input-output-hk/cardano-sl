@@ -15,7 +15,7 @@ import           Universum
 
 import           Control.Lens        (each, to, _tail)
 import           Development.GitRev  (gitBranch, gitHash)
-import qualified Ether
+import           EtherCompat
 import           Formatting          (build, sformat, shown, (%))
 import           Mockable            (fork)
 import           Paths_cardano_sl    (version)
@@ -51,11 +51,11 @@ import           Pos.WorkMode.Class  (WorkMode)
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode'
-    :: forall ssc m.
+    :: forall ssc ctx m.
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
-       , WorkMode ssc m
-       , MonadNodeContext ssc m
+       , WorkMode ssc ctx m
+       , MonadNodeContext ssc ctx m
        )
     => [WorkerSpec m]
     -> WorkerSpec m
@@ -87,7 +87,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
             action vI sendActions `catch` reportHandler
     mapM_ (fork . unpackPlugin) plugins'
 
-    nc <- Ether.ask @NodeContextTag
+    nc <- askCtx @NodeContextTag
 
     -- Instead of sleeping forever, we wait until graceful shutdown
     waitForWorkers (allWorkersCount @ssc nc)
@@ -106,8 +106,8 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
 runNode ::
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
-       , WorkMode ssc m
-       , MonadNodeContext ssc m
+       , WorkMode ssc ctx m
+       , MonadNodeContext ssc ctx m
        )
     => NodeContext ssc
     -> ([WorkerSpec m], OutSpecs)
@@ -129,19 +129,19 @@ nodeStartMsg = logInfo msg
 -- Details
 ----------------------------------------------------------------------------
 
-putProxySecreyKeys :: (MonadDB m, Ether.MonadReader' NodeParams m) => m ()
+putProxySecreyKeys :: (MonadDB m, MonadCtx ctx NodeParams NodeParams m) => m ()
 putProxySecreyKeys = do
-    userSecret <- npUserSecret <$> Ether.ask'
-    secretKey <- npSecretKey <$> Ether.ask'
+    userSecret <- npUserSecret <$> askCtx @NodeParams
+    secretKey <- npSecretKey <$> askCtx @NodeParams
     let eternity = (minBound, maxBound)
         makeOwnPSK =
             flip (createProxySecretKey secretKey) eternity . encToPublic
         ownPSKs = userSecret ^.. usKeys . _tail . each . to makeOwnPSK
     for_ ownPSKs addProxySecretKey
 
-initSemaphore :: (WorkMode ssc m) => m ()
+initSemaphore :: (WorkMode ssc ctx m) => m ()
 initSemaphore = do
-    semaphore <- Ether.asks' unBlkSemaphore
+    semaphore <- asksCtx @BlkSemaphore unBlkSemaphore
     whenJustM (tryReadMVar semaphore) $ const $
         logError "ncBlkSemaphore is not empty at the very beginning"
     tip <- GS.getTip

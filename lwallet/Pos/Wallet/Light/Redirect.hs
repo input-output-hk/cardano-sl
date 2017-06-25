@@ -12,7 +12,7 @@ module Pos.Wallet.Light.Redirect
 import           Universum
 
 import           Control.Monad.Trans.Maybe (MaybeT (..))
-import qualified Ether
+import           EtherCompat
 
 import           Pos.Client.Txp.Balances   (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History    (TxHistoryAnswer, deriveAddrHistory)
@@ -26,7 +26,7 @@ import qualified Pos.Wallet.Light.State    as LWS
 -- MonadBalances
 ----------------------------------------------------------------------------
 
-getOwnUtxosWallet :: (MonadIO m, Ether.MonadReader' LWS.WalletState m) => [Address] -> m Utxo
+getOwnUtxosWallet :: (MonadIO m, MonadCtx ctx LWS.WalletState LWS.WalletState m) => [Address] -> m Utxo
 getOwnUtxosWallet addrs = filterUtxoByAddrs addrs <$> LWS.getUtxo
 
 getBalanceWallet :: (MonadIO m, MonadBalances m) => Address -> m Coin
@@ -37,7 +37,7 @@ getBalanceWallet = getBalanceFromUtxo
 ----------------------------------------------------------------------------
 
 getTxHistoryWallet
-    :: (Ether.MonadReader' LWS.WalletState m, MonadIO m)
+    :: (MonadCtx ctx LWS.WalletState LWS.WalletState m, MonadIO m)
     => [Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer
 getTxHistoryWallet addrs _ = do
     chain <- LWS.getBestChain

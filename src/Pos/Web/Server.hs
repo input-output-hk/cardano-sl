@@ -19,7 +19,7 @@ import           Universum
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
 import qualified Control.Monad.Reader                 as Mtl
-import qualified Ether
+import           EtherCompat
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
 import           Network.Wai.Handler.Warp             (defaultSettings, runSettings,
@@ -56,24 +56,24 @@ import           Pos.Web.Api                          (BaseNodeApi, GodTossingAp
 ----------------------------------------------------------------------------
 
 -- [CSL-152]: I want SscConstraint to be part of WorkMode.
-type MyWorkMode ssc m =
-    ( WorkMode ssc m
+type MyWorkMode ssc ctx m =
+    ( WorkMode ssc ctx m
     , SscConstraint ssc
-    , MonadNodeContext ssc m -- for ConvertHandler
+    , MonadNodeContext ssc ctx m -- for ConvertHandler
     )
 
-serveWebBase :: MyWorkMode ssc m => Word16 -> m ()
+serveWebBase :: MyWorkMode ssc ctx m => Word16 -> m ()
 serveWebBase = serveImpl applicationBase "127.0.0.1"
 
-applicationBase :: MyWorkMode ssc m => m Application
+applicationBase :: MyWorkMode ssc ctx m => m Application
 applicationBase = do
     server <- servantServerBase
     return $ serve baseNodeApi server
 
-serveWebGT :: MyWorkMode SscGodTossing m => Word16 -> m ()
+serveWebGT :: MyWorkMode SscGodTossing ctx m => Word16 -> m ()
 serveWebGT = serveImpl applicationGT "127.0.0.1"
 
-applicationGT :: MyWorkMode SscGodTossing m => m Application
+applicationGT :: MyWorkMode SscGodTossing ctx m => m Application
 applicationGT = do
     server <- servantServerGT
     return $ serve gtNodeApi server
@@ -106,19 +106,19 @@ convertHandler nc nodeDBs wrap handler =
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
 
-nat :: forall ssc m . MyWorkMode ssc m => m (WebMode ssc :~> Handler)
+nat :: forall ssc ctx m . MyWorkMode ssc ctx m => m (WebMode ssc :~> Handler)
 nat = do
-    nc <- Ether.ask @NodeContextTag
+    nc <- askCtx @NodeContextTag
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- askTxpMem
     return $ NT (convertHandler nc nodeDBs txpLocalData)
 
-servantServerBase :: forall ssc m . MyWorkMode ssc m => m (Server (BaseNodeApi ssc))
-servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @m)
+servantServerBase :: forall ssc ctx m . MyWorkMode ssc ctx m => m (Server (BaseNodeApi ssc))
+servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @ctx @m)
 
-servantServerGT :: forall m . MyWorkMode SscGodTossing m => m (Server GtNodeApi)
+servantServerGT :: forall ctx m . MyWorkMode SscGodTossing ctx m => m (Server GtNodeApi)
 servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
-    (nat @SscGodTossing @m)
+    (nat @SscGodTossing @ctx @m)
 
 ----------------------------------------------------------------------------
 -- Base handlers
@@ -162,7 +162,7 @@ gtServantHandlers =
 
 toggleGtParticipation :: Bool -> GtWebMode ()
 toggleGtParticipation enable =
-    Ether.ask @SscContextTag >>=
+    askCtx @SscContextTag >>=
     atomically . flip writeTVar enable . gtcParticipateSsc
 
 -- gtHasSecret :: GtWebHandler Bool

@@ -13,7 +13,7 @@ import           Universum
 
 import           Control.Monad.Except (MonadError, runExceptT)
 import           Data.Default         (Default (def))
-import qualified Ether
+import           EtherCompat
 import           Serokell.Util        (Color (Red), colorize)
 import           System.Wlog          (WithLogger, logError, modifyLoggerName)
 
@@ -39,17 +39,19 @@ import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 import qualified Pos.Util.Modifier    as MM
 import           Pos.Util.Util        (inAssertMode)
 
-type USGlobalApplyMode m = ( WithLogger m
-                           , MonadIO m
-                           , DB.MonadDBRead m
-                           , Ether.MonadReader' LrcContext m
-                           )
-type USGlobalVerifyMode m = ( WithLogger m
-                            , MonadIO m
-                            , DB.MonadDBRead m
-                            , Ether.MonadReader' LrcContext m
-                            , MonadError PollVerFailure m
-                            )
+type USGlobalApplyMode ctx m =
+    ( WithLogger m
+    , MonadIO m
+    , DB.MonadDBRead m
+    , MonadCtx ctx LrcContext LrcContext m
+    )
+type USGlobalVerifyMode ctx m =
+    ( WithLogger m
+    , MonadIO m
+    , DB.MonadDBRead m
+    , MonadCtx ctx LrcContext LrcContext m
+    , MonadError PollVerFailure m
+    )
 
 withUSLogger :: WithLogger m => m a -> m a
 withUSLogger = modifyLoggerName (<> "us")
@@ -61,7 +63,7 @@ withUSLogger = modifyLoggerName (<> "us")
 -- application, one can pass 'PollModifier' obtained from verification
 -- to this function.
 usApplyBlocks
-    :: (MonadThrow m, USGlobalApplyMode m)
+    :: (MonadThrow m, USGlobalApplyMode ctx m)
     => OldestFirst NE UpdateBlock
     -> Maybe PollModifier
     -> m [DB.SomeBatchOp]
@@ -87,8 +89,8 @@ usApplyBlocks blocks modifierMaybe = withUSLogger $
 -- data. The caller must ensure that the tip stored in DB is 'headerHash' of
 -- head.
 usRollbackBlocks
-    :: forall m.
-       USGlobalApplyMode m
+    :: forall ctx m.
+       USGlobalApplyMode ctx m
     => NewestFirst NE (UpdateBlock, USUndo) -> m [DB.SomeBatchOp]
 usRollbackBlocks blunds = withUSLogger $
     modifierToBatch <$>
@@ -104,7 +106,7 @@ usRollbackBlocks blunds = withUSLogger $
 -- only known attributes, but I can't guarantee this comment will
 -- always be up-to-date.
 usVerifyBlocks
-    :: (USGlobalVerifyMode m)
+    :: (USGlobalVerifyMode ctx m)
     => Bool
     -> OldestFirst NE UpdateBlock
     -> m (PollModifier, OldestFirst NE USUndo)
@@ -114,7 +116,7 @@ usVerifyBlocks verifyAllIsKnown blocks =
     run = runDBPoll . runPollT def
 
 verifyBlock
-    :: (USGlobalVerifyMode m, MonadPoll m)
+    :: (USGlobalVerifyMode ctx m, MonadPoll m)
     => Bool -> UpdateBlock -> m USUndo
 verifyBlock _ (Left genBlk) =
     execRollT $ processGenesisBlock (genBlk ^. epochIndexL)
@@ -141,7 +143,7 @@ usCanCreateBlock ::
        ( WithLogger m
        , MonadIO m
        , DB.MonadDBRead m
-       , Ether.MonadReader' LrcContext m
+       , MonadCtx ctx LrcContext LrcContext m
        )
     => m Bool
 usCanCreateBlock =

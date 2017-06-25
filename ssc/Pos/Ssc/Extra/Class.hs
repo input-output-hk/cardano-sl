@@ -8,13 +8,13 @@ module Pos.Ssc.Extra.Class
        , SscMemTag
        ) where
 
-import qualified Ether
+import           EtherCompat
 
 import           Pos.Ssc.Extra.Types (SscState)
 
 data SscMemTag
 
-type MonadSscMem ssc = Ether.MonadReader SscMemTag (SscState ssc)
+type MonadSscMem ssc ctx m = MonadCtx ctx SscMemTag (SscState ssc) m
 
-askSscMem :: MonadSscMem ssc m => m (SscState ssc)
-askSscMem = Ether.ask @SscMemTag
+askSscMem :: MonadSscMem ssc ctx m => m (SscState ssc)
+askSscMem = askCtx @SscMemTag

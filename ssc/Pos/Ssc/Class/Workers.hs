@@ -16,9 +16,9 @@ import           Pos.Ssc.Mode               (SscMode)
 class Ssc ssc => SscWorkersClass ssc where
 
     -- | All workers specific to SSC.
-    sscWorkers :: SscMode ssc m
+    sscWorkers :: SscMode ssc ctx m
                => ([WorkerSpec m], OutSpecs)
 
     -- | LRC consumers. Note that this uses 'LrcMode', not 'SscMode'.
-    sscLrcConsumers :: LrcMode ssc m
+    sscLrcConsumers :: LrcMode ssc ctx m
                     => [LrcConsumer m]

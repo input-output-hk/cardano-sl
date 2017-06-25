@@ -23,7 +23,7 @@ module Pos.Context.Functions
 
 import           Data.Time           (diffUTCTime, getCurrentTime)
 import           Data.Time.Units     (Microsecond, fromMicroseconds)
-import qualified Ether
+import           EtherCompat
 import           Universum
 
 import           Pos.Context.Context (BlkSemaphore (..), GenesisLeaders (..),
@@ -36,39 +36,39 @@ import           Pos.Types           (HeaderHash, SlotLeaders)
 -- Genesis
 ----------------------------------------------------------------------------
 
-genesisUtxoM :: (Functor m, Ether.MonadReader' GenesisUtxo m) => m Utxo
-genesisUtxoM = Ether.asks' unGenesisUtxo
+genesisUtxoM :: (Functor m, MonadCtx ctx GenesisUtxo GenesisUtxo m) => m Utxo
+genesisUtxoM = asksCtx @GenesisUtxo unGenesisUtxo
 
-genesisLeadersM :: (Functor m, Ether.MonadReader' GenesisLeaders m) => m SlotLeaders
-genesisLeadersM = Ether.asks' unGenesisLeaders
+genesisLeadersM :: (Functor m, MonadCtx ctx GenesisLeaders GenesisLeaders m) => m SlotLeaders
+genesisLeadersM = asksCtx @GenesisLeaders unGenesisLeaders
 
 ----------------------------------------------------------------------------
 -- Semaphore-related logic
 ----------------------------------------------------------------------------
 
 takeBlkSemaphore
-    :: (MonadIO m, Ether.MonadReader' BlkSemaphore m)
+    :: (MonadIO m, MonadCtx ctx BlkSemaphore BlkSemaphore m)
     => m HeaderHash
-takeBlkSemaphore = takeMVar =<< Ether.asks' unBlkSemaphore
+takeBlkSemaphore = takeMVar =<< asksCtx @BlkSemaphore unBlkSemaphore
 
 putBlkSemaphore
-    :: (MonadIO m, Ether.MonadReader' BlkSemaphore m)
+    :: (MonadIO m, MonadCtx ctx BlkSemaphore BlkSemaphore m)
     => HeaderHash -> m ()
-putBlkSemaphore tip = flip putMVar tip =<< Ether.asks' unBlkSemaphore
+putBlkSemaphore tip = flip putMVar tip =<< asksCtx @BlkSemaphore unBlkSemaphore
 
 readBlkSemaphore
-    :: (MonadIO m, Ether.MonadReader' BlkSemaphore m)
+    :: (MonadIO m, MonadCtx ctx BlkSemaphore BlkSemaphore m)
     => m HeaderHash
-readBlkSemaphore = readMVar =<< Ether.asks' unBlkSemaphore
+readBlkSemaphore = readMVar =<< asksCtx @BlkSemaphore unBlkSemaphore
 
 ----------------------------------------------------------------------------
 -- Misc
 ----------------------------------------------------------------------------
 
 -- | Returns node uptime based on current time and 'StartTime'.
-getUptime :: (MonadIO m, Ether.MonadReader' StartTime m) => m Microsecond
+getUptime :: (MonadIO m, MonadCtx ctx StartTime StartTime m) => m Microsecond
 getUptime = do
     curTime <- liftIO getCurrentTime
-    startTime <- Ether.asks' unStartTime
+    startTime <- asksCtx @StartTime unStartTime
     let seconds = toRational $ curTime `diffUTCTime` startTime
     pure $ fromMicroseconds $ round $ seconds * 1000 * 1000

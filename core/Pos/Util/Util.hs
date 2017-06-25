@@ -193,11 +193,6 @@ instance (Monad m, HasLoggerName m) => HasLoggerName (ResourceT m) where
     getLoggerName = lift getLoggerName
     modifyLoggerName = transResourceT . modifyLoggerName
 
--- TODO Move it to ether :peka:
-instance Ether.MonadReader tag r m => Ether.MonadReader tag r (ResourceT m) where
-    ask = lift $ Ether.ask @tag
-    local = liftLocal (Ether.ask @tag) (Ether.local @tag)
-
 ----------------------------------------------------------------------------
 -- Instances required by 'ether'
 ----------------------------------------------------------------------------

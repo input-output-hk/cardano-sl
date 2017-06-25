@@ -12,9 +12,9 @@ module Pos.Wallet.Web.Mode
 
 import           Universum
 
-import qualified Ether
+import           EtherCompat
 import           Mockable                      (Production)
-import           System.Wlog                   (HasLoggerName (..))
+import           System.Wlog                   (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.Core                (Block, BlockHeader)
 import           Pos.Block.Types               (Undo)
@@ -115,8 +115,8 @@ instance MonadDiscovery WalletWebMode where
     findPeers = findPeersSum
 
 instance HasLoggerName WalletWebMode where
-    getLoggerName = Ether.ask'
-    modifyLoggerName = Ether.local'
+    getLoggerName = askCtx @LoggerName
+    modifyLoggerName = localCtx @LoggerName
 
 instance CanJsonLog WalletWebMode where
     jsonLog = jsonLogDefault

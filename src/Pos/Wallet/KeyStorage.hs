@@ -17,7 +17,7 @@ module Pos.Wallet.KeyStorage
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens           ((<>~))
 import           Control.Monad.Catch    (MonadThrow)
-import qualified Ether
+import           EtherCompat
 import           System.Wlog            (WithLogger)
 import           Universum
 
@@ -34,29 +34,29 @@ type KeyData = TVar UserSecret
 -- MonadKeys class
 ----------------------------------------------------------------------
 
-type MonadKeys m =
-    ( Ether.MonadReader' KeyData m
+type MonadKeys ctx m =
+    ( MonadCtx ctx KeyData KeyData m
     , MonadIO m
     , MonadThrow m )
 
-getPrimaryKey :: MonadKeys m => m (Maybe SecretKey)
+getPrimaryKey :: MonadKeys ctx m => m (Maybe SecretKey)
 getPrimaryKey = view usPrimKey <$> getSecret
 
-getSecretKeys :: MonadKeys m => m [EncryptedSecretKey]
+getSecretKeys :: MonadKeys ctx m => m [EncryptedSecretKey]
 getSecretKeys = view usKeys <$> getSecret
 
-addSecretKey :: MonadKeys m => EncryptedSecretKey -> m ()
+addSecretKey :: MonadKeys ctx m => EncryptedSecretKey -> m ()
 addSecretKey sk = do
     us <- getSecret
     unless (view usKeys us `containsKey` sk) $
         putSecret (us & usKeys <>~ [sk])
 
-deleteSecretKey :: MonadKeys m => Word -> m ()
+deleteSecretKey :: MonadKeys ctx m => Word -> m ()
 deleteSecretKey (fromIntegral -> i) =
     modifySecret (usKeys %~ deleteAt i)
 
 -- | Helper for generating a new secret key
-newSecretKey :: MonadKeys m => PassPhrase -> m EncryptedSecretKey
+newSecretKey :: MonadKeys ctx m => PassPhrase -> m EncryptedSecretKey
 newSecretKey pp = do
     (_, sk) <- safeKeyGen pp
     addSecretKey sk
@@ -66,13 +66,13 @@ newSecretKey pp = do
 -- Common functions
 ------------------------------------------------------------------------
 
-getSecret :: MonadKeys m => m UserSecret
-getSecret = Ether.ask' >>= atomically . STM.readTVar
+getSecret :: MonadKeys ctx m => m UserSecret
+getSecret = askCtx @KeyData >>= atomically . STM.readTVar
 
-putSecret :: MonadKeys m => UserSecret -> m ()
-putSecret s = Ether.ask' >>= atomically . flip STM.writeTVar s >> writeUserSecret s
+putSecret :: MonadKeys ctx m => UserSecret -> m ()
+putSecret s = askCtx @KeyData >>= atomically . flip STM.writeTVar s >> writeUserSecret s
 
-modifySecret :: MonadKeys m => (UserSecret -> UserSecret) -> m ()
+modifySecret :: MonadKeys ctx m => (UserSecret -> UserSecret) -> m ()
 modifySecret f =
     -- TODO: Current definition preserves the behavior before the refactoring.
     -- It can be improved if we access the TVar just once to modify it instead

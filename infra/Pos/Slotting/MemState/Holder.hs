@@ -17,7 +17,7 @@ module Pos.Slotting.MemState.Holder
 import           Universum
 
 import           Control.Monad.STM  (retry)
-import qualified Ether
+import           EtherCompat
 
 import           Pos.Core.Types     (EpochIndex, Timestamp)
 import           Pos.Slotting.Types (SlottingData (sdPenultEpoch))
@@ -29,38 +29,38 @@ import           Pos.Slotting.Types (SlottingData (sdPenultEpoch))
 -- | System start and slotting data
 type SlottingVar = (Timestamp, TVar SlottingData)
 
-type MonadSlotting = Ether.MonadReader' SlottingVar
+type MonadSlotting ctx m = MonadCtx ctx SlottingVar SlottingVar m
 
-askSlotting :: MonadSlotting m => m SlottingVar
-askSlotting = Ether.ask'
+askSlotting :: MonadSlotting ctx m => m SlottingVar
+askSlotting = askCtx @SlottingVar
 
-askSlottingVar :: MonadSlotting m => m (TVar SlottingData)
+askSlottingVar :: MonadSlotting ctx m => m (TVar SlottingData)
 askSlottingVar = snd <$> askSlotting
 
-askSlottingTimestamp :: MonadSlotting m => m Timestamp
+askSlottingTimestamp :: MonadSlotting ctx m => m Timestamp
 askSlottingTimestamp  = fst <$> askSlotting
 
 ----------------------------------------------------------------------------
 -- MonadSlotsData implementation
 ----------------------------------------------------------------------------
 
-type SlotsDefaultEnv m =
-    (MonadSlotting m, MonadIO m)
+type SlotsDefaultEnv ctx m =
+    (MonadSlotting ctx m, MonadIO m)
 
-getSystemStartDefault :: SlotsDefaultEnv m => m Timestamp
+getSystemStartDefault :: SlotsDefaultEnv ctx m => m Timestamp
 getSystemStartDefault = askSlottingTimestamp
 
-getSlottingDataDefault :: SlotsDefaultEnv m => m SlottingData
+getSlottingDataDefault :: SlotsDefaultEnv ctx m => m SlottingData
 getSlottingDataDefault = atomically . readTVar =<< askSlottingVar
 
-waitPenultEpochEqualsDefault :: SlotsDefaultEnv m => EpochIndex -> m ()
+waitPenultEpochEqualsDefault :: SlotsDefaultEnv ctx m => EpochIndex -> m ()
 waitPenultEpochEqualsDefault target = do
     var <- askSlottingVar
     atomically $ do
         penultEpoch <- sdPenultEpoch <$> readTVar var
         when (penultEpoch /= target) retry
 
-putSlottingDataDefault :: SlotsDefaultEnv m => SlottingData -> m ()
+putSlottingDataDefault :: SlotsDefaultEnv ctx m => SlottingData -> m ()
 putSlottingDataDefault sd = do
     var <- askSlottingVar
     atomically $ do

@@ -79,7 +79,7 @@ type DelegationStateAction m = StateT DelegationWrap m
 -- allows you to run some computation producing updated ProxyCaches
 -- and return value. Will put MVar back on exception.
 runDelegationStateAction
-    :: (MonadIO m, MonadMask m, MonadDelegation m)
+    :: (MonadIO m, MonadMask m, MonadDelegation ctx m)
     => DelegationStateAction m a -> m a
 runDelegationStateAction action = do
     var <- askDelegationState
@@ -114,8 +114,8 @@ getPSKsFromThisEpoch tip =
 -- * Sets `_dwEpochId` to epoch of tip.
 -- * Loads `_dwThisEpochPosted` from database
 initDelegation
-    :: forall ssc m.
-       (MonadIO m, DB.MonadBlockDB ssc m, MonadDelegation m, MonadMask m)
+    :: forall ssc ctx m.
+       (MonadIO m, DB.MonadBlockDB ssc m, MonadDelegation ctx m, MonadMask m)
     => m ()
 initDelegation = do
     tip <- DB.getTipHeader @(Block ssc)

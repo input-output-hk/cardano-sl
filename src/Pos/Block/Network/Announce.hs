@@ -10,7 +10,7 @@ module Pos.Block.Network.Announce
 import           Universum
 
 import           Control.Monad.Except       (runExceptT)
-import qualified Ether
+import           EtherCompat
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (throw)
 import           System.Wlog                (logDebug)
@@ -42,11 +42,11 @@ announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy (MsgHeaders ssc))
                                ]
 
 announceBlock
-    :: WorkMode ssc m
+    :: WorkMode ssc ctx m
     => SendActions m -> MainBlockHeader ssc -> m ()
 announceBlock sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    SecurityParams{..} <- Ether.ask'
+    SecurityParams{..} <- askCtx @SecurityParams
     let throwOnIgnored nId =
             whenJust (nodeIdToAddress nId) $ \addr ->
                 whenM (shouldIgnoreAddress addr) $
@@ -72,8 +72,8 @@ announceBlock sendActions header = do
         handleHeadersCommunication cA
 
 handleHeadersCommunication
-    :: forall ssc m .
-       (WorkMode ssc m)
+    :: forall ssc ctx m .
+       (WorkMode ssc ctx m)
     => ConversationActions (MsgHeaders ssc) MsgGetHeaders m
     -> m ()
 handleHeadersCommunication conv = do

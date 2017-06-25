@@ -36,7 +36,7 @@ import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.DList                  as DL
 import qualified Data.HashSet                as HS
-import qualified Ether
+import           EtherCompat
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.Core              (Block, BlockHeader, mainBlockTxPayload)
@@ -174,32 +174,32 @@ instance {-# OVERLAPPABLE #-}
     saveTx = lift . saveTx
 
 
-type TxHistoryEnv m =
-    ( MonadRealDB m
+type TxHistoryEnv ctx m =
+    ( MonadRealDB ctx m
     , MonadDBRead m
     , MonadGState m
     , MonadThrow m
     , WithLogger m
     , MonadSlots m
-    , Ether.MonadReader' GenesisUtxo m
-    , MonadTxpMem TxpExtra_TMP m
+    , MonadCtx ctx GenesisUtxo GenesisUtxo m
+    , MonadTxpMem TxpExtra_TMP ctx m
     , MonadBaseControl IO m
     )
 
-type TxHistoryEnv' ssc m =
+type TxHistoryEnv' ssc ctx m =
     ( SscHelpersClass ssc
-    , TxHistoryEnv m
+    , TxHistoryEnv ctx m
     , MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo m
     , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
     )
 
 getTxHistoryDefault
-    :: forall ssc m. TxHistoryEnv' ssc m
+    :: forall ssc ctx m. TxHistoryEnv' ssc ctx m
     => [Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer
 getTxHistoryDefault addrs mInit = do
     tip <- GS.getTip
 
-    let getGenUtxo = Ether.asks' unGenesisUtxo
+    let getGenUtxo = asksCtx @GenesisUtxo unGenesisUtxo
     (bot, genUtxo) <- maybe ((,) <$> GS.getBot <*> getGenUtxo) pure mInit
 
     -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
@@ -240,7 +240,7 @@ getTxHistoryDefault addrs mInit = do
 
     maybe (error "deriveAddrHistory: Nothing") pure mres
 
-saveTxDefault :: TxHistoryEnv m => (TxId, TxAux) -> m ()
+saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
 #ifdef WITH_EXPLORER
 saveTxDefault txw = () <$ runExceptT (eTxProcessTransaction txw)
 #else

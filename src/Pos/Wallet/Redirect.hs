@@ -20,7 +20,7 @@ import           Universum
 import           Control.Concurrent.STM    (tryReadTMVar)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import           Data.Time.Units           (Millisecond)
-import qualified Ether
+import           EtherCompat
 import           System.Wlog               (WithLogger)
 
 import           Pos.Block.Core            (Block, BlockHeader)
@@ -43,29 +43,29 @@ import           Pos.Wallet.WalletMode     (MonadBlockchainInfo (..), MonadUpdat
 ----------------------------------------------------------------------------
 
 getLastKnownHeader
-  :: (PC.MonadLastKnownHeader ssc m, MonadIO m)
+  :: (PC.MonadLastKnownHeader ssc ctx m, MonadIO m)
   => m (Maybe (BlockHeader ssc))
 getLastKnownHeader =
-    atomically . readTVar =<< Ether.ask @PC.LastKnownHeaderTag
+    atomically . readTVar =<< askCtx @PC.LastKnownHeaderTag
 
 downloadHeader
-    :: (Ssc ssc, MonadIO m, PC.MonadProgressHeader ssc m)
+    :: (Ssc ssc, MonadIO m, PC.MonadProgressHeader ssc ctx m)
     => m (Maybe (BlockHeader ssc))
 downloadHeader = do
-    atomically . tryReadTMVar =<< Ether.ask @PC.ProgressHeaderTag
+    atomically . tryReadTMVar =<< askCtx @PC.ProgressHeaderTag
 
-type BlockchainInfoEnv ssc m =
+type BlockchainInfoEnv ssc ctx m =
     ( MonadBlockDB ssc m
-    , PC.MonadLastKnownHeader ssc m
-    , PC.MonadProgressHeader ssc m
-    , Ether.MonadReader' PC.ConnectedPeers m
+    , PC.MonadLastKnownHeader ssc ctx m
+    , PC.MonadProgressHeader ssc ctx m
+    , MonadCtx ctx PC.ConnectedPeers PC.ConnectedPeers m
     , MonadIO m
-    , MonadRealDB m
+    , MonadRealDB ctx m
     , MonadSlots m
     )
 
 networkChainDifficultyWebWallet
-    :: forall ssc m. BlockchainInfoEnv ssc m
+    :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
     => m (Maybe ChainDifficulty)
 networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
     Just lh -> do
@@ -81,21 +81,21 @@ networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
         return $ th ^. difficultyL
 
 localChainDifficultyWebWallet
-    :: forall ssc m. BlockchainInfoEnv ssc m
+    :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
     => m ChainDifficulty
 localChainDifficultyWebWallet = downloadHeader >>= \case
     Just dh -> return $ dh ^. difficultyL
     Nothing -> view difficultyL <$> getTipHeader @(Block ssc)
 
 connectedPeersWebWallet
-    :: forall ssc m. BlockchainInfoEnv ssc m
+    :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
     => m Word
 connectedPeersWebWallet = fromIntegral . length <$> do
-    PC.ConnectedPeers cp <- Ether.ask'
+    PC.ConnectedPeers cp <- askCtx @PC.ConnectedPeers
     atomically (readTVar cp)
 
 blockchainSlotDurationWebWallet
-    :: forall ssc m. BlockchainInfoEnv ssc m
+    :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
     => m Millisecond
 blockchainSlotDurationWebWallet = getLastKnownSlotDuration
 
@@ -103,14 +103,14 @@ blockchainSlotDurationWebWallet = getLastKnownSlotDuration
 -- Updates
 ----------------------------------------------------------------------------
 
-type UpdatesEnv m =
+type UpdatesEnv ctx m =
     ( MonadIO m
     , WithLogger m
-    , MonadShutdownMem m
-    , Ether.MonadReader' UpdateContext m )
+    , MonadShutdownMem ctx m
+    , MonadCtx ctx UpdateContext UpdateContext m )
 
-waitForUpdateWebWallet :: UpdatesEnv m => m ConfirmedProposalState
-waitForUpdateWebWallet = takeMVar =<< Ether.asks' ucUpdateSemaphore
+waitForUpdateWebWallet :: UpdatesEnv ctx m => m ConfirmedProposalState
+waitForUpdateWebWallet = takeMVar =<< asksCtx @UpdateContext ucUpdateSemaphore
 
-applyLastUpdateWebWallet :: UpdatesEnv m => m ()
+applyLastUpdateWebWallet :: UpdatesEnv ctx m => m ()
 applyLastUpdateWebWallet = triggerShutdown

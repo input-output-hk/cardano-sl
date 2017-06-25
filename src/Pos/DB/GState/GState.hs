@@ -12,7 +12,7 @@ import           Universum
 
 import           Control.Monad.Catch        (MonadMask)
 import qualified Database.RocksDB           as Rocks
-import qualified Ether
+import           EtherCompat
 import           System.Wlog                (WithLogger)
 
 import           Pos.Context.Context        (GenesisUtxo (..), NodeParams (..))
@@ -32,9 +32,9 @@ import           Pos.Update.DB              (prepareGStateUS)
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB
-    :: forall m.
-       ( Ether.MonadReader' NodeParams m
-       , Ether.MonadReader' GenesisUtxo m
+    :: forall ctx m.
+       ( MonadCtx ctx NodeParams NodeParams m
+       , MonadCtx ctx GenesisUtxo GenesisUtxo m
        , MonadDB m
        )
     => HeaderHash -> m ()
@@ -44,7 +44,7 @@ prepareGStateDB initialTip = do
     prepareGStateUtxo genesisUtxo
     prepareGtDB genesisCertificates
     prepareGStateBalances genesisUtxo
-    systemStart <- Ether.asks' npSystemStart
+    systemStart <- asksCtx @NodeParams npSystemStart
     prepareGStateUS systemStart
 
 -- | Check that GState DB is consistent.
@@ -56,7 +56,7 @@ sanityCheckGStateDB = do
     sanityCheckBalances
     sanityCheckUtxo =<< getRealTotalStake
 
-usingGStateSnapshot :: (MonadRealDB m, MonadMask m) => m a -> m a
+usingGStateSnapshot :: (MonadRealDB ctx m, MonadMask m) => m a -> m a
 usingGStateSnapshot action = do
     db <- _gStateDB <$> getNodeDBs
     let readOpts = rocksReadOpts db

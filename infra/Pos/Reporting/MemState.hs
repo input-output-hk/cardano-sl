@@ -11,7 +11,7 @@ module Pos.Reporting.MemState
        ) where
 
 import           Control.Lens             (makeLenses)
-import qualified Ether
+import           EtherCompat
 import           System.Wlog.LoggerConfig (LoggerConfig)
 import           Universum
 
@@ -25,7 +25,7 @@ makeLenses ''ReportingContext
 
 -- | Monads are able to do remote error reporting. IO for making http
 -- requests, context for saving reporting-related data.
-type MonadReportingMem = Ether.MonadReader' ReportingContext
+type MonadReportingMem ctx m = MonadCtx ctx ReportingContext ReportingContext m
 
 emptyReportingContext :: ReportingContext
 emptyReportingContext = ReportingContext [] mempty

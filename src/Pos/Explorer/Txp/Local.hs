@@ -40,12 +40,12 @@ import           Pos.Explorer.Txp.Toil       (ExplorerExtra, ExplorerExtraTxp (.
                                               MonadTxExtraRead (..), eNormalizeToil,
                                               eProcessTx, eeLocalTxsExtra)
 
-type ETxpLocalWorkMode m =
+type ETxpLocalWorkMode ctx m =
     ( MonadIO m
     , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
-    , MonadTxpMem ExplorerExtra m
+    , MonadTxpMem ExplorerExtra ctx m
     , WithLogger m
     , MonadError ToilVerFailure m
     , MonadSlots m
@@ -72,7 +72,7 @@ instance Monad m => MonadTxExtraRead (ExplorerReaderWrapper (ReaderT ExplorerExt
     getAddrBalance addr = HM.lookup addr . eetAddrBalances <$> ExplorerReaderWrapper ask
 
 eTxProcessTransaction
-    :: ETxpLocalWorkMode m
+    :: ETxpLocalWorkMode ctx m
     => (TxId, TxAux) -> m ()
 eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     tipBefore <- GS.getTip
@@ -153,7 +153,7 @@ eTxNormalize ::
        , MonadBaseControl IO m
        , MonadDBRead m
        , MonadGState m
-       , MonadTxpMem ExplorerExtra m
+       , MonadTxpMem ExplorerExtra ctx m
        )
     => m ()
 eTxNormalize = do

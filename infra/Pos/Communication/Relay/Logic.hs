@@ -1,7 +1,7 @@
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Framework for Inv\/Req\/Data message handling
 
@@ -29,13 +29,13 @@ module Pos.Communication.Relay.Logic
 
 import           Control.Concurrent.STM             (isFullTBQueue, readTBQueue,
                                                      writeTBQueue)
-import           Data.Aeson.TH                      (deriveJSON, defaultOptions)
+import           Data.Aeson.TH                      (defaultOptions, deriveJSON)
 import           Data.Proxy                         (asProxyTypeOf)
 import           Data.Tagged                        (Tagged, tagWith)
 import           Data.Typeable                      (typeRep)
 import           Formatting                         (build, sformat, shown, stext, (%))
 import           Mockable                           (Mockable, MonadMockable, Throw,
-                                                     handleAll, throw, throw, currentTime)
+                                                     currentTime, handleAll, throw)
 import           Node.Message.Class                 (Message)
 import           Paths_cardano_sl_infra             (version)
 import           System.Wlog                        (WithLogger, logDebug, logError,
@@ -44,8 +44,7 @@ import           Universum
 
 import           Pos.Binary.Class                   (Bi (..))
 import           Pos.Communication.Limits.Instances ()
-import           Pos.Communication.Limits.Types     (MessageLimited,
-                                                     recvLimited)
+import           Pos.Communication.Limits.Types     (MessageLimited, recvLimited)
 import           Pos.Communication.Listener         (listenerConv)
 import           Pos.Communication.PeerState        (WithPeerState)
 import           Pos.Communication.Protocol         (Conversation (..),
@@ -62,8 +61,8 @@ import           Pos.Communication.Relay.Types      (PropagationMsg (..),
                                                      RelayContext (..))
 import           Pos.Communication.Relay.Util       (expectData, expectInv)
 import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), InvOrData,
-                                                     MempoolMsg (..), ReqMsg (..),
-                                                     RelayLogEvent (..))
+                                                     MempoolMsg (..), RelayLogEvent (..),
+                                                     ReqMsg (..))
 import           Pos.DB.Class                       (MonadGState)
 import           Pos.Discovery.Broadcast            (converseToNeighbors)
 import           Pos.Discovery.Class                (MonadDiscovery)
@@ -78,9 +77,9 @@ type MinRelayWorkMode m =
     , WithPeerState m
     )
 
-type RelayWorkMode m =
+type RelayWorkMode ctx m =
     ( MinRelayWorkMode m
-    , MonadRelayMem m
+    , MonadRelayMem ctx m
     )
 
 handleReqL
@@ -143,12 +142,12 @@ handleMempoolL (KeyMempool tagP handleMempool) = pure $ listenerConv $
     mmP = (const Proxy :: Proxy tag -> Proxy (MempoolMsg tag)) tagP
 
 handleDataOnlyL
-    :: forall contents m .
+    :: forall contents ctx m .
        ( Bi (DataMsg contents)
        , Message Void
        , Message (DataMsg contents)
        , Buildable contents
-       , RelayWorkMode m
+       , RelayWorkMode ctx m
        , MonadGState m
        , MessageLimited (DataMsg contents)
        )
@@ -171,8 +170,8 @@ handleDataOnlyL handleData = listenerConv $ \__ourVerInfo __nodeId conv ->
 
 -- Returns True if we should propagate.
 handleDataDo
-    :: forall key contents m .
-       ( RelayWorkMode m
+    :: forall key contents ctx m .
+       ( RelayWorkMode ctx m
        , Buildable key
        , Eq key
        , Buildable contents
@@ -193,7 +192,7 @@ handleDataDo contentsToKey handleData dmContents = do
                 ("Ignoring data "%build%" for key "%build) dmContents dmKey
 
 propagateData
-    :: RelayWorkMode m
+    :: RelayWorkMode ctx m
     => PropagationMsg
     -> m ()
 propagateData pm = do
@@ -206,8 +205,8 @@ propagateData pm = do
     else logInfo $ sformat ("Adopted data "%build%", propagation is off") pm
 
 handleInvDo
-    :: forall key m .
-       ( RelayWorkMode m
+    :: forall key ctx m .
+       ( RelayWorkMode ctx m
        , Buildable key
        )
     => (key -> m Bool)
@@ -226,10 +225,10 @@ handleInvDo handleInv imKey =
         imKey
 
 relayListenersOne
-  :: forall m.
+  :: forall ctx m.
      ( Mockable Throw m
      , WithLogger m
-     , RelayWorkMode m
+     , RelayWorkMode ctx m
      , MonadGState m
      , Message Void
      )
@@ -242,10 +241,10 @@ relayListenersOne (Data DataParams{..}) =
     [handleDataOnlyL handleDataOnly]
 
 relayListeners
-  :: forall m.
+  :: forall ctx m.
      ( Mockable Throw m
      , WithLogger m
-     , RelayWorkMode m
+     , RelayWorkMode ctx m
      , MonadGState m
      , Message Void
      )
@@ -253,8 +252,8 @@ relayListeners
 relayListeners = mconcat . map relayListenersOne
 
 invDataListener
-  :: forall m key contents.
-     ( RelayWorkMode m
+  :: forall key contents ctx m.
+     ( RelayWorkMode ctx m
      , MonadGState m
      , Message (ReqMsg key)
      , Message (InvOrData key contents)
@@ -286,8 +285,8 @@ invDataListener InvReqDataParams{..} = listenerConv $ \__ourVerInfo __nodeId con
     in handlingLoop
 
 addToRelayQueue
-    :: forall m.
-       RelayWorkMode m
+    :: forall ctx m.
+       RelayWorkMode ctx m
     => PropagationMsg -> m ()
 addToRelayQueue pm = do
     queue <- _rlyPropagationQueue <$> askRelayMem
@@ -319,24 +318,24 @@ propagateOutImpl (Data dp) = toOutSpecs
                             -> Proxy (DataMsg contents)) dp
 
 relayWorkers
-    :: forall m.
+    :: forall ctx m.
        ( Mockable Throw m
        , MonadDiscovery m
-       , RelayWorkMode m
+       , RelayWorkMode ctx m
        , MonadMask m
-       , MonadReportingMem m
+       , MonadReportingMem ctx m
        , Message Void
        )
     => [Relay m] -> ([WorkerSpec m], OutSpecs)
 relayWorkers rls = relayWorkersImpl $ relayPropagateOut rls
 
 relayWorkersImpl
-    :: forall m.
+    :: forall ctx m.
        ( Mockable Throw m
        , MonadDiscovery m
-       , RelayWorkMode m
+       , RelayWorkMode ctx m
        , MonadMask m
-       , MonadReportingMem m
+       , MonadReportingMem ctx m
        , Message Void
        )
     => OutSpecs -> ([WorkerSpec m], OutSpecs)
@@ -456,7 +455,7 @@ invReqDataFlowNeighbors
        , Bi (ReqMsg key)
        )
     => Text -> SendActions m -> key -> contents -> m ()
-invReqDataFlowNeighbors what sendActions key dt = handleAll handleE $ 
+invReqDataFlowNeighbors what sendActions key dt = handleAll handleE $
     converseToNeighbors sendActions (pure . Conversation . invReqDataFlowDo what key dt )
   where
     handleE e = logWarning $

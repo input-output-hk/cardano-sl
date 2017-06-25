@@ -10,7 +10,7 @@ module Pos.Delegation.Listeners
 import           Universum
 
 import qualified Data.Text.Buildable
-import qualified Ether
+import           EtherCompat
 import           Formatting                    (build, sformat, shown, (%))
 import           Serokell.Util.Text            (pairBuilder)
 import           System.Wlog                   (logDebug, logInfo)
@@ -39,7 +39,7 @@ instance Buildable ProxySKLightConfirmation where
 
 -- | Listeners for requests related to delegation processing.
 delegationRelays
-    :: forall ssc m. WorkMode ssc m
+    :: forall ssc ctx m. WorkMode ssc ctx m
     => [Relay m]
 delegationRelays =
         [ pskLightRelay
@@ -48,7 +48,7 @@ delegationRelays =
         ]
 
 pskLightRelay
-    :: WorkMode ssc m
+    :: WorkMode ssc ctx m
     => Relay m
 pskLightRelay = Data $ DataParams $ \pSk -> do
     logDebug $ sformat ("Got request to handle lightweight psk: "%build) pSk
@@ -79,11 +79,11 @@ pskLightRelay = Data $ DataParams $ \pSk -> do
         sformat ("Got proxy signature that wasn't accepted. Reason: "%shown) verdict
 
 pskHeavyRelay
-    :: WorkMode ssc m
+    :: WorkMode ssc ctx m
     => Relay m
 pskHeavyRelay = Data $ DataParams $ handlePsk
   where
-    handlePsk :: forall ssc m. WorkMode ssc m => ProxySKHeavy -> m Bool
+    handlePsk :: forall ssc ctx m. WorkMode ssc ctx m => ProxySKHeavy -> m Bool
     handlePsk pSk = do
         logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
         verdict <- processProxySKHeavy @ssc pSk
@@ -92,14 +92,14 @@ pskHeavyRelay = Data $ DataParams $ handlePsk
             PHIncoherent -> do
                 -- We're probably updating state over epoch, so leaders
                 -- can be calculated incorrectly.
-                blkSemaphore <- Ether.asks' unBlkSemaphore
+                blkSemaphore <- asksCtx @BlkSemaphore unBlkSemaphore
                 void $ readMVar blkSemaphore
                 handlePsk pSk
             PHAdded -> pure True
             _ -> pure False
 
 confirmPskRelay
-    :: WorkMode ssc m
+    :: WorkMode ssc ctx m
     => Relay m
 confirmPskRelay = Data $ DataParams $ \(pSk, proof) -> do
     verdict <- processConfirmProxySk pSk proof

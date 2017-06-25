@@ -92,6 +92,8 @@ library
                        Pos.Util.Modifier
                        Pos.Util.Util
 
+                       EtherCompat
+
   other-modules:
                        Pos.Core.Constants.Raw
                        Pos.Core.Constants.Typed

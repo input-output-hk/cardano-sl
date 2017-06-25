@@ -16,7 +16,7 @@ import           Control.Lens                  (over)
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import qualified Control.Monad.Reader          as Mtl
-import qualified Ether
+import           EtherCompat
 import           Mockable                      (Production, runProduction)
 import           Network.Wai                   (Application)
 import           Servant.Server                (Handler)
@@ -63,7 +63,7 @@ walletServeWebFull sendActions debug = walletServeImpl action
 
 nat :: WalletWebMode (WalletWebMode :~> Handler)
 nat = do
-    wwmc <- Ether.ask @WalletWebModeContextTag
+    wwmc <- askCtx @WalletWebModeContextTag
     pure $ NT (convertHandler wwmc)
 
 convertHandler

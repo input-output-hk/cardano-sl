@@ -10,7 +10,7 @@ module Pos.Core.Context
 
 import           Universum
 
-import qualified Ether
+import           EtherCompat
 
 import           Pos.Core.Address (addressHash, makePubKeyAddress)
 import           Pos.Core.Types   (Address, StakeholderId)
@@ -19,19 +19,19 @@ import           Pos.Crypto       (PublicKey, SecretKey, toPublic)
 data PrimaryKeyTag
 
 -- | Access to primary key of the node.
-type MonadPrimaryKey = Ether.MonadReader PrimaryKeyTag SecretKey
+type MonadPrimaryKey ctx m = MonadCtx ctx PrimaryKeyTag SecretKey m
 
-getOurSecretKey :: MonadPrimaryKey m => m SecretKey
-getOurSecretKey = Ether.ask @PrimaryKeyTag
+getOurSecretKey :: MonadPrimaryKey ctx m => m SecretKey
+getOurSecretKey = askCtx @PrimaryKeyTag
 
-getOurPublicKey :: MonadPrimaryKey m => m PublicKey
+getOurPublicKey :: MonadPrimaryKey ctx m => m PublicKey
 getOurPublicKey = toPublic <$> getOurSecretKey
 
-getOurKeys :: MonadPrimaryKey m => m (SecretKey, PublicKey)
+getOurKeys :: MonadPrimaryKey ctx m => m (SecretKey, PublicKey)
 getOurKeys = (identity &&& toPublic) <$> getOurSecretKey
 
-getOurStakeholderId :: MonadPrimaryKey m => m StakeholderId
+getOurStakeholderId :: MonadPrimaryKey ctx m => m StakeholderId
 getOurStakeholderId = addressHash <$> getOurPublicKey
 
-getOurPubKeyAddress :: MonadPrimaryKey m => m Address
+getOurPubKeyAddress :: MonadPrimaryKey ctx m => m Address
 getOurPubKeyAddress = makePubKeyAddress <$> getOurPublicKey

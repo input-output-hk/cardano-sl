@@ -34,7 +34,7 @@ import qualified Data.Set                         as S
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
 import           Data.Time.Units                  (Microsecond, Second)
-import qualified Ether
+import           EtherCompat
 import           Formatting                       (bprint, build, sformat, shown, stext,
                                                    (%))
 import qualified Formatting                       as F
@@ -74,7 +74,7 @@ import           Pos.Crypto                       (PassPhrase, aesDecrypt,
                                                    withSafeSigner)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
-import           Pos.Reporting.MemState           (rcReportServers)
+import           Pos.Reporting.MemState           (ReportingContext, rcReportServers)
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Txp                          (Utxo)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..))
@@ -924,7 +924,7 @@ reportingInitialized cinit = do
 
 reportingElectroncrash :: forall m. WalletWebMode m => CElectronCrashReport -> m ()
 reportingElectroncrash celcrash = do
-    servers <- Ether.asks' (view rcReportServers)
+    servers <- asksCtx @ReportingContext (view rcReportServers)
     errors <- fmap lefts $ forM servers $ \serv ->
         try $ sendReport [fdFilePath $ cecUploadDump celcrash]
                          []

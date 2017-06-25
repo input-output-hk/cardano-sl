@@ -12,7 +12,7 @@ import           Pos.Shutdown.Class     (MonadShutdownMem, askShutdownMem)
 import           Pos.Shutdown.Types     (ShutdownContext (..))
 
 runIfNotShutdown
-    :: (MonadIO m, MonadShutdownMem m, WithLogger m)
+    :: (MonadIO m, MonadShutdownMem ctx m, WithLogger m)
     => m () -> m ()
 runIfNotShutdown = ifM isShutdown notifyQueue
   where
@@ -23,14 +23,14 @@ runIfNotShutdown = ifM isShutdown notifyQueue
             atomically . flip writeTBQueue ()
 
 triggerShutdown
-    :: (MonadIO m, WithLogger m, MonadShutdownMem m)
+    :: (MonadIO m, WithLogger m, MonadShutdownMem ctx m)
     => m ()
 triggerShutdown = do
     logInfo "NODE SHUTDOWN TRIGGERED, WAITING FOR WORKERS TO TERMINATE"
     _shdnIsTriggered <$> askShutdownMem >>= atomically . flip writeTVar True
 
 waitForWorkers
-    :: (MonadIO m, MonadShutdownMem m)
+    :: (MonadIO m, MonadShutdownMem ctx m)
     => Int -> m ()
 waitForWorkers 0 = pass
 waitForWorkers n = do

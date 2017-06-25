@@ -14,7 +14,7 @@ module Pos.Discovery.Holders
 import           Universum
 
 import qualified Data.Set                         as S (fromList)
-import qualified Ether
+import           EtherCompat
 import           Mockable                         (Async, Catch, Mockables, Promise,
                                                    Throw)
 import           System.Wlog                      (WithLogger)
@@ -63,26 +63,26 @@ data DiscoveryContextSum
 
 -- | Monad which combines all 'MonadDiscovery' implementations (and
 -- uses only one of them).
-type MonadDiscoverySum = Ether.MonadReader' DiscoveryContextSum
+type MonadDiscoverySum ctx m = (MonadCtx ctx DiscoveryContextSum DiscoveryContextSum m)
 
-type DiscoverySumEnv m =
-    (MonadDiscoverySum m, DiscoveryKademliaEnv m)
+type DiscoverySumEnv ctx m =
+    (MonadDiscoverySum ctx m, DiscoveryKademliaEnv m)
 
-getPeersSum :: DiscoverySumEnv m => m (Set NodeId)
+getPeersSum :: DiscoverySumEnv ctx m => m (Set NodeId)
 getPeersSum =
-    Ether.ask' >>= \case
+    askCtx @DiscoveryContextSum >>= \case
         DCStatic nodes -> return nodes
         DCKademlia inst -> getPeersKademlia inst
 
-findPeersSum :: DiscoverySumEnv m => m (Set NodeId)
+findPeersSum :: DiscoverySumEnv ctx m => m (Set NodeId)
 findPeersSum =
-    Ether.ask' >>= \case
+    askCtx @DiscoveryContextSum >>= \case
         DCStatic nodes -> return nodes
         DCKademlia inst -> findPeersKademlia inst
 
 -- | Get all discovery workers using 'DiscoveryContextSum'.
 discoveryWorkers ::
-       (MonadRecoveryInfo m, DhtWorkMode m)
+       (MonadRecoveryInfo m, DhtWorkMode ctx m)
     => DiscoveryContextSum
     -> ([WorkerSpec m], OutSpecs)
 discoveryWorkers ctx =

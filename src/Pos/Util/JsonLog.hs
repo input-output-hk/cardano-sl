@@ -22,27 +22,26 @@ import           Universum                     hiding (catchAll)
 import           Control.Monad.Except          (MonadError)
 import           Data.Aeson.TH                 (deriveJSON)
 import           Data.Aeson.Types              (ToJSON)
-import qualified Ether
-import           Formatting                          (sformat)
-import           JsonLog.JsonLogT              (JsonLogConfig(..))
+import           EtherCompat
+import           Formatting                    (sformat)
+import           JsonLog.JsonLogT              (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT              as JL
 import           Mockable.Class                (Mockable (..))
 import           Mockable.Exception            (Catch)
 import           Pos.Binary.Block              ()
 import           Pos.Binary.Core               ()
 import           Pos.Block.Core                (BiSsc, Block, mainBlockTxPayload)
-import           Pos.Core                      (SlotId (..), gbHeader,
-                                                gbhPrevBlock, getSlotIndex, headerHash,
-                                                mkLocalSlotIndex)
 import           Pos.Block.Core.Genesis.Lens   (genBlockEpoch)
 import           Pos.Block.Core.Main.Lens      (mainBlockSlot)
 import           Pos.Communication.Relay.Logic (InvReqDataFlowLog)
+import           Pos.Core                      (SlotId (..), gbHeader, gbhPrevBlock,
+                                                getSlotIndex, headerHash,
+                                                mkLocalSlotIndex)
 import           Pos.Crypto                    (hash, hashHexF)
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass)
 import           Pos.Txp.Core                  (txpTxs)
 import           Pos.Txp.MemState.Types        (MemPoolModifyReason)
-import           Pos.Types                     (EpochIndex (..),
-                                                HeaderHash, headerHashF)
+import           Pos.Types                     (EpochIndex (..), HeaderHash, headerHashF)
 import           Serokell.Aeson.Options        (defaultOptions)
 import           System.Wlog.CanLog            (WithLogger)
 
@@ -67,8 +66,8 @@ data JLTxS = JLTxS
 
 -- | Json log of one transaction being received by a node.
 data JLTxR = JLTxR
-    { jlrTxId     :: Text
-    , jlrError    :: Maybe Text
+    { jlrTxId  :: Text
+    , jlrError :: Maybe Text
     } deriving Show
 
 -- | Get 'SlotId' from 'JLSlotId'.
@@ -105,7 +104,7 @@ data JLEvent = JLCreatedBlock JLBlock
              | JLAdoptedBlock BlockId
              | JLTpsStat Int
              | JLTxSent JLTxS
-             | JLTxReceived JLTxR 
+             | JLTxReceived JLTxR
              | JLMemPoolEvent JLMemPool
   deriving (Show, Generic)
 
@@ -149,9 +148,9 @@ jsonLogConfigFromHandle h = do
     return $ JsonLogConfig v (\_ -> return True)
 
 jsonLogDefault
-    :: (ToJSON a, Ether.MonadReader' JsonLogConfig m, Mockable Catch m,
+    :: (ToJSON a, MonadCtx ctx JsonLogConfig JsonLogConfig m, Mockable Catch m,
         MonadIO m, WithLogger m)
     => a -> m ()
 jsonLogDefault x = do
-    jlc <- Ether.ask'
+    jlc <- askCtx @JsonLogConfig
     JL.jsonLogDefault jlc x

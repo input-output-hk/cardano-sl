@@ -16,7 +16,7 @@ module Pos.WorkMode
        , RealModeContext(..)
        ) where
 
-import qualified Ether
+import           EtherCompat
 import           Mockable.Production         (Production)
 import           System.Wlog                 (HasLoggerName (..), LoggerName)
 
@@ -83,8 +83,8 @@ unRealMode :: ExecMode (RealModeContext ssc) a -> ExecModeM (RealModeContext ssc
 unRealMode = unExecMode
 
 instance HasLoggerName (RealMode ssc) where
-    getLoggerName = Ether.ask'
-    modifyLoggerName = Ether.local'
+    getLoggerName = askCtx @LoggerName
+    modifyLoggerName = localCtx @LoggerName
 
 instance CanJsonLog (RealMode ssc) where
     jsonLog = jsonLogDefault

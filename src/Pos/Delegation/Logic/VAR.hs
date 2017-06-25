@@ -18,7 +18,7 @@ import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
 import           Data.List                    (partition, (\\))
 import qualified Data.Text.Buildable          as B
-import qualified Ether
+import           EtherCompat
 import           Formatting                   (bprint, build, sformat, (%))
 import           Serokell.Util                (listJson, mapJson)
 import           System.Wlog                  (WithLogger, logDebug)
@@ -301,11 +301,11 @@ makeLenses ''DlgVerState
 -- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
 -- point of view.
 dlgVerifyBlocks ::
-       forall ssc m.
+       forall ssc ctx m.
        ( DB.MonadBlockDB ssc m
        , DB.MonadDBRead m
        , MonadIO m
-       , Ether.MonadReader' LrcContext m
+       , MonadCtx ctx LrcContext LrcContext m
        )
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE DlgUndo))
@@ -449,8 +449,8 @@ dlgVerifyBlocks blocks = do
 -- returns batchops. It works correctly only in case blocks don't
 -- cross over epoch. So genesis block is either absent or the head.
 dlgApplyBlocks
-    :: forall ssc m.
-       (MonadDelegation m, MonadIO m, MonadDBRead m, WithLogger m, MonadMask m)
+    :: forall ssc ctx m.
+       (MonadDelegation ctx m, MonadIO m, MonadDBRead m, WithLogger m, MonadMask m)
     => OldestFirst NE (Block ssc) -> m (NonEmpty SomeBatchOp)
 dlgApplyBlocks blocks = do
     tip <- GS.getTip
@@ -487,14 +487,14 @@ dlgApplyBlocks blocks = do
 -- restore them after the rollback (see Txp#normalizeTxpLD). You can
 -- rollback arbitrary number of blocks.
 dlgRollbackBlocks
-    :: forall ssc m.
-       ( MonadDelegation m
+    :: forall ssc ctx m.
+       ( MonadDelegation ctx m
        , DB.MonadBlockDB ssc m
        , DB.MonadDBRead m
        , MonadIO m
        , MonadMask m
        , WithLogger m
-       , Ether.MonadReader' LrcContext m
+       , MonadCtx ctx LrcContext LrcContext m
        )
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
 dlgRollbackBlocks blunds = do

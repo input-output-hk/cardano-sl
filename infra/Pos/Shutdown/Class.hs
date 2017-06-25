@@ -5,10 +5,10 @@ module Pos.Shutdown.Class
        , askShutdownMem
        ) where
 
-import qualified Ether
+import           EtherCompat
 import           Pos.Shutdown.Types (ShutdownContext)
 
-type MonadShutdownMem = Ether.MonadReader' ShutdownContext
+type MonadShutdownMem ctx m = MonadCtx ctx ShutdownContext ShutdownContext m
 
-askShutdownMem :: MonadShutdownMem m => m ShutdownContext
-askShutdownMem = Ether.ask'
+askShutdownMem :: MonadShutdownMem ctx m => m ShutdownContext
+askShutdownMem = askCtx @ShutdownContext

@@ -19,7 +19,7 @@ module Pos.Slotting.Impl.Sum
 
 import           Universum
 
-import qualified Ether
+import           EtherCompat
 
 import           Pos.Core.Types           (SlotId (..), Timestamp)
 import           Pos.Slotting.Impl.Ntp    (NtpMode, NtpSlottingVar, NtpWorkerMode,
@@ -38,34 +38,34 @@ data SlottingContextSum
 
 -- | Monad which combines all 'MonadSlots' implementations (and
 -- uses only one of them).
-type MonadSlottingSum = Ether.MonadReader' SlottingContextSum
+type MonadSlottingSum ctx m = MonadCtx ctx SlottingContextSum SlottingContextSum m
 
-askSlottingContextSum :: MonadSlottingSum m => m SlottingContextSum
-askSlottingContextSum = Ether.ask'
+askSlottingContextSum :: MonadSlottingSum ctx m => m SlottingContextSum
+askSlottingContextSum = askCtx @SlottingContextSum
 
-type SlotsSumEnv m = (MonadSlottingSum m, NtpMode m, SimpleSlottingMode m)
+type SlotsSumEnv ctx m = (MonadSlottingSum ctx m, NtpMode m, SimpleSlottingMode m)
 
-getCurrentSlotSum :: SlotsSumEnv m => m (Maybe SlotId)
+getCurrentSlotSum :: SlotsSumEnv ctx m => m (Maybe SlotId)
 getCurrentSlotSum =
-    Ether.ask' >>= \case
+    askCtx @SlottingContextSum >>= \case
         SCSimple -> simpleGetCurrentSlot
         SCNtp var -> ntpGetCurrentSlot var
 
-getCurrentSlotBlockingSum :: SlotsSumEnv m => m SlotId
+getCurrentSlotBlockingSum :: SlotsSumEnv ctx m => m SlotId
 getCurrentSlotBlockingSum =
-    Ether.ask' >>= \case
+    askCtx @SlottingContextSum >>= \case
         SCSimple -> simpleGetCurrentSlotBlocking
         SCNtp var -> ntpGetCurrentSlotBlocking var
 
-getCurrentSlotInaccurateSum :: SlotsSumEnv m => m SlotId
+getCurrentSlotInaccurateSum :: SlotsSumEnv ctx m => m SlotId
 getCurrentSlotInaccurateSum =
-    Ether.ask' >>= \case
+    askCtx @SlottingContextSum >>= \case
         SCSimple -> simpleGetCurrentSlotInaccurate
         SCNtp var -> ntpGetCurrentSlotInaccurate var
 
-currentTimeSlottingSum :: SlotsSumEnv m => m Timestamp
+currentTimeSlottingSum :: SlotsSumEnv ctx m => m Timestamp
 currentTimeSlottingSum =
-    Ether.ask' >>= \case
+    askCtx @SlottingContextSum >>= \case
         SCSimple -> simpleCurrentTimeSlotting
         SCNtp var -> ntpCurrentTime var
 

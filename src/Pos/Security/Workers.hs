@@ -60,7 +60,7 @@ instance SecurityWorkersClass SscNistBeacon where
     securityWorkers = Tagged $ first pure checkForReceivedBlocksWorker
 
 checkForReceivedBlocksWorker ::
-    (SscWorkersClass ssc, WorkMode ssc m)
+    (SscWorkersClass ssc, WorkMode ssc ctx m)
     => (WorkerSpec m, OutSpecs)
 checkForReceivedBlocksWorker =
     worker requestTipOuts checkForReceivedBlocksWorkerImpl
@@ -102,8 +102,8 @@ checkEclipsed ourPk slotId x = notEclipsed x
                      Nothing -> onBlockLoadFailure header $> True
 
 checkForReceivedBlocksWorkerImpl
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     repeatOnInterval (const (sec' 4)) . reportingFatal version $
@@ -142,15 +142,15 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
 
 
 checkForIgnoredCommitmentsWorker
-    :: forall m.
-       WorkMode SscGodTossing m
+    :: forall ctx m.
+       WorkMode SscGodTossing ctx m
     => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     epochIdx <- atomically (newTVar 0)
     void $ onNewSlot True (checkForIgnoredCommitmentsWorkerImpl epochIdx)
 
 checkForIgnoredCommitmentsWorkerImpl
-    :: forall m. (WorkMode SscGodTossing m)
+    :: forall ctx m. (WorkMode SscGodTossing ctx m)
     => TVar EpochIndex -> SlotId -> m ()
 checkForIgnoredCommitmentsWorkerImpl tvar slotId = do
     -- Check prev blocks

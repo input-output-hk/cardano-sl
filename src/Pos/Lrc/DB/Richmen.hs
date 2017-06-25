@@ -25,7 +25,7 @@ module Pos.Lrc.DB.Richmen
 
 import           Universum
 
-import qualified Ether
+import           EtherCompat
 
 import           Pos.Binary.Core             ()
 import           Pos.Constants               (genesisHeavyDelThd)
@@ -48,7 +48,7 @@ import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
 ----------------------------------------------------------------------------
 
 prepareLrcRichmen
-    :: (Ether.MonadReader' GenesisUtxo m, MonadDB m)
+    :: (MonadCtx ctx GenesisUtxo GenesisUtxo m, MonadDB m)
     => m ()
 prepareLrcRichmen = do
     genesisDistribution <- concatMap txOutStake . toList <$> genesisUtxoM

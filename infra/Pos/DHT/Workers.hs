@@ -24,25 +24,25 @@ import           Pos.Reporting              (MonadReportingMem)
 import           Pos.Shutdown               (MonadShutdownMem)
 import           Pos.Slotting.Class         (MonadSlots)
 
-type DhtWorkMode m =
+type DhtWorkMode ctx m =
     ( WithLogger m
     , MonadSlots m
     , MonadIO m
     , MonadMask m
     , Mockable Fork m
     , Mockable Delay m
-    , MonadReportingMem m
-    , MonadShutdownMem m
+    , MonadReportingMem ctx m
+    , MonadShutdownMem ctx m
     , MonadDiscovery m
     )
 
 dhtWorkers
-    :: DhtWorkMode m
+    :: DhtWorkMode ctx m
     => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
 dhtWorkers kademliaInst = first pure (dumpKademliaStateWorker kademliaInst)
 
 dumpKademliaStateWorker
-    :: DhtWorkMode m
+    :: DhtWorkMode ctx m
     => KademliaDHTInstance
     -> (WorkerSpec m, OutSpecs)
 dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->

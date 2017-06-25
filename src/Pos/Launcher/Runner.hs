@@ -60,8 +60,8 @@ runRealMode = runRealBasedMode identity identity
 
 -- | Run activity in something convertible to 'RealMode' and back.
 runRealBasedMode
-    :: forall ssc m a.
-       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m a.
+       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc ctx m)
     => (forall b. m b -> RealMode ssc b)
     -> (forall b. RealMode ssc b -> m b)
     -> NodeResources ssc m

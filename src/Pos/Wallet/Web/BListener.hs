@@ -37,11 +37,11 @@ import           Pos.Wallet.Web.Tracking    (CAccModifier, applyModifierToWSet,
 
 -- Perform this action under block lock.
 onApplyTracking
-    :: forall ssc m .
+    :: forall ssc ctx m .
     ( SscHelpersClass ssc
-    , AccountMode m
+    , AccountMode ctx m
     , WithLogger m
-    , MonadRealDB m
+    , MonadRealDB ctx m
     , MonadDBRead m
     )
     => OldestFirst NE (Blund ssc) -> m ()
@@ -60,9 +60,9 @@ onApplyTracking blunds = do
 
 -- Perform this action under block lock.
 onRollbackTracking
-    :: forall ssc m .
+    :: forall ssc ctx m .
     ( SscHelpersClass ssc
-    , AccountMode m
+    , AccountMode ctx m
     , WithLogger m
     )
     => NewestFirst NE (Blund ssc) -> m ()

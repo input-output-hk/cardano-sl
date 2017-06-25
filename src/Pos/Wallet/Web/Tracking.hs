@@ -22,7 +22,7 @@ import           Control.Lens               (to)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
-import qualified Ether
+import           EtherCompat
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
@@ -65,10 +65,10 @@ import qualified Pos.Wallet.Web.State       as WS
 
 type CAccModifier = MM.MapModifier CWAddressMeta ()
 
-type BlockLockMode ssc m =
+type BlockLockMode ssc ctx m =
     ( WithLogger m
-    , Ether.MonadReader' BlkSemaphore m
-    , MonadRealDB m
+    , MonadCtx ctx BlkSemaphore BlkSemaphore m
+    , MonadRealDB ctx m
     , DB.MonadBlockDB ssc m
     , MonadMask m
     )
@@ -88,16 +88,16 @@ instance {-# OVERLAPPABLE #-}
     syncOnImport = lift . syncOnImport
     txMempoolToModifier = lift . txMempoolToModifier
 
-type WalletTrackingEnv ext m =
-     (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m, WS.MonadWalletWebDB m)
+type WalletTrackingEnv ext ctx m =
+     (BlockLockMode WalletSscType ctx m, MonadMockable m, MonadTxpMem ext ctx m, WS.MonadWalletWebDB ctx m)
 
-syncWSetsAtStartWebWallet :: WalletTrackingEnv ext m => [EncryptedSecretKey] -> m ()
+syncWSetsAtStartWebWallet :: WalletTrackingEnv ext ctx m => [EncryptedSecretKey] -> m ()
 syncWSetsAtStartWebWallet = syncWSetsWithGStateLock @WalletSscType
 
-syncOnImportWebWallet :: WalletTrackingEnv ext m => EncryptedSecretKey -> m ()
+syncOnImportWebWallet :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m ()
 syncOnImportWebWallet = selectAccountsFromUtxoLock @WalletSscType . pure
 
-txMempoolToModifierWebWallet :: WalletTrackingEnv ext m => EncryptedSecretKey -> m CAccModifier
+txMempoolToModifierWebWallet :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m CAccModifier
 txMempoolToModifierWebWallet encSK = do
     let wHash (i, TxAux {..}) = WithHash taTx i
     txs <- getLocalTxs
@@ -127,7 +127,7 @@ txMempoolToModifierWebWallet encSK = do
 -- Select our accounts from Utxo and put to wallet-db.
 -- Used for importing of a secret key.
 selectAccountsFromUtxoLock
-    :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
+    :: forall ssc ctx m . (WebWalletModeDB ctx m, BlockLockMode ssc ctx m)
     => [EncryptedSecretKey]
     -> m ()
 selectAccountsFromUtxoLock encSKs = withBlkSemaphore_ $ \tip -> do
@@ -150,7 +150,7 @@ selectAccountsFromUtxoLock encSKs = withBlkSemaphore_ $ \tip -> do
 
 -- Iterate over blocks (using forward links) and actualize our accounts.
 syncWSetsWithGStateLock
-    :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
+    :: forall ssc ctx m . (WebWalletModeDB ctx m, BlockLockMode ssc ctx m)
     => [EncryptedSecretKey]
     -> m ()
 syncWSetsWithGStateLock encSKs = withBlkSemaphore_ $ \tip ->
@@ -162,9 +162,9 @@ syncWSetsWithGStateLock encSKs = withBlkSemaphore_ $ \tip ->
 -- These operation aren't atomic and don't take a lock.
 
 syncWSetsWithGState
-    :: forall ssc m .
-    ( WebWalletModeDB m
-    , MonadRealDB m
+    :: forall ssc ctx m .
+    ( WebWalletModeDB ctx m
+    , MonadRealDB ctx m
     , DB.MonadBlockDB ssc m
     , WithLogger m)
     => EncryptedSecretKey
@@ -275,7 +275,7 @@ trackingRollbackTxs (getEncInfo -> encInfo) txs =
         deleteAndInsertMM ownOutputs ownInputs mapModifier
 
 applyModifierToWSet
-    :: WebWalletModeDB m
+    :: WebWalletModeDB ctx m
     => CId Wal
     -> HeaderHash
     -> CAccModifier

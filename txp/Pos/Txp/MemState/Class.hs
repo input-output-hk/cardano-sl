@@ -21,59 +21,59 @@ module Pos.Txp.MemState.Class
 
 import           Universum
 
-import qualified Control.Concurrent.STM as STM
+import qualified Control.Concurrent.STM      as STM
+import qualified Control.Exception.Lifted    as L
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Control.Exception.Lifted as L
-import           Data.Default           (Default (def))
-import qualified Data.HashMap.Strict    as HM
-import qualified Ether
-import           System.IO.Unsafe       (unsafePerformIO)
+import           Data.Default                (Default (def))
+import qualified Data.HashMap.Strict         as HM
+import           EtherCompat
+import           System.IO.Unsafe            (unsafePerformIO)
 
-import           Pos.Txp.Core.Types     (TxAux, TxId, TxOutAux)
-import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
-                                         GenericTxpLocalDataPure)
-import           Pos.Txp.Toil.Types     (MemPool (_mpLocalTxs), UtxoModifier)
+import           Pos.Txp.Core.Types          (TxAux, TxId, TxOutAux)
+import           Pos.Txp.MemState.Types      (GenericTxpLocalData (..),
+                                              GenericTxpLocalDataPure)
+import           Pos.Txp.Toil.Types          (MemPool (_mpLocalTxs), UtxoModifier)
 
 data TxpHolderTag
 
 -- | Reduced equivalent of @MonadReader (GenericTxpLocalData mw) m@.
-type MonadTxpMem ext = Ether.MonadReader TxpHolderTag (GenericTxpLocalData ext)
+type MonadTxpMem ext ctx m = MonadCtx ctx TxpHolderTag (GenericTxpLocalData ext) m
 
-askTxpMem :: MonadTxpMem ext m => m (GenericTxpLocalData ext)
-askTxpMem = Ether.ask @TxpHolderTag
+askTxpMem :: MonadTxpMem ext ctx m => m (GenericTxpLocalData ext)
+askTxpMem = askCtx @TxpHolderTag
 
 getTxpLocalData
-    :: (MonadIO m, MonadTxpMem e m)
+    :: (MonadIO m, MonadTxpMem e ctx m)
     => (GenericTxpLocalData e -> STM.STM a) -> m a
 getTxpLocalData getter = askTxpMem >>= \ld -> atomically (getter ld)
 
 getUtxoModifier
-    :: (MonadTxpMem e m, MonadIO m)
+    :: (MonadTxpMem e ctx m, MonadIO m)
     => m UtxoModifier
 getUtxoModifier = getTxpLocalData (STM.readTVar . txpUtxoModifier)
 
 getLocalTxsMap
-    :: (MonadIO m, MonadTxpMem e m)
+    :: (MonadIO m, MonadTxpMem e ctx m)
     => m (HashMap TxId TxAux)
 getLocalTxsMap = _mpLocalTxs <$> getMemPool
 
 getLocalTxs
-    :: (MonadIO m, MonadTxpMem e m)
+    :: (MonadIO m, MonadTxpMem e ctx m)
     => m [(TxId, TxAux)]
 getLocalTxs = HM.toList <$> getLocalTxsMap
 
 getLocalTxsNUndo
-    :: (MonadIO m, MonadTxpMem e m)
+    :: (MonadIO m, MonadTxpMem e ctx m)
     => m ([(TxId, TxAux)], HashMap TxId (NonEmpty TxOutAux))
 getLocalTxsNUndo =
     getTxpLocalData $ \TxpLocalData {..} ->
         (,) <$> (HM.toList . _mpLocalTxs <$> STM.readTVar txpMemPool) <*>
         STM.readTVar txpUndos
 
-getMemPool :: (MonadIO m, MonadTxpMem e m) => m MemPool
+getMemPool :: (MonadIO m, MonadTxpMem e ctx m) => m MemPool
 getMemPool = getTxpLocalData (STM.readTVar . txpMemPool)
 
-getTxpExtra :: (MonadIO m, MonadTxpMem e m) => m e
+getTxpExtra :: (MonadIO m, MonadTxpMem e ctx m) => m e
 getTxpExtra = getTxpLocalData (STM.readTVar . txpExtra)
 
 txpLocalDataLock :: MVar ()
@@ -81,7 +81,7 @@ txpLocalDataLock = unsafePerformIO $ newMVar ()
 {-# NOINLINE txpLocalDataLock #-}
 
 modifyTxpLocalData
-    :: (MonadIO m, MonadBaseControl IO m, MonadTxpMem ext m)
+    :: (MonadIO m, MonadBaseControl IO m, MonadTxpMem ext ctx m)
     => (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext)) -> m a
 modifyTxpLocalData f =
     askTxpMem >>= \TxpLocalData{..} -> withLock . atomically $ do
@@ -102,11 +102,11 @@ modifyTxpLocalData f =
    withLock = L.bracket_ (takeMVar txpLocalDataLock) (putMVar txpLocalDataLock ())
 
 setTxpLocalData
-    :: (MonadIO m, MonadBaseControl IO m, MonadTxpMem ext m)
+    :: (MonadIO m, MonadBaseControl IO m, MonadTxpMem ext ctx m)
     => GenericTxpLocalDataPure ext -> m ()
 setTxpLocalData x = modifyTxpLocalData (const ((), x))
 
-clearTxpMemPool :: (MonadIO m, MonadBaseControl IO m, MonadTxpMem ext m, Default ext) => m ()
+clearTxpMemPool :: (MonadIO m, MonadBaseControl IO m, MonadTxpMem ext ctx m, Default ext) => m ()
 clearTxpMemPool = modifyTxpLocalData clearF
   where
     clearF (_, _, _, tip, _) = ((), (mempty, def, mempty, tip, def))

@@ -55,7 +55,7 @@ runWalletStaticPeers transport peers wp =
     runLightWalletMode transport peers wp . runWallet
 
 runWallet
-    :: MonadWallet ssc m
+    :: MonadWallet ssc ctx m
     => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do

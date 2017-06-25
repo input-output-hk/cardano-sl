@@ -24,7 +24,7 @@ import           Universum
 
 import           Control.Lens                (each, _Wrapped)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Ether
+import           EtherCompat
 import           Formatting                  (sformat, (%))
 import           Paths_cardano_sl            (version)
 import           Serokell.Util.Text          (listJson)
@@ -70,29 +70,29 @@ import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst 
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
 
 -- | Set of basic constraints used by high-level block processing.
-type BlockMode ssc m
+type BlockMode ssc ctx m
      = ( SlogMode ssc m
        -- Needed because SSC state is fully stored in memory.
-       , MonadSscMem ssc m
+       , MonadSscMem ssc ctx m
        -- Needed to load blocks (at least delegation does it).
        , MonadBlockDB ssc m
        -- Needed by some components.
        , MonadGState m
        -- LRC is really needed.
-       , Ether.MonadReader' LrcContext m
+       , MonadCtx ctx LrcContext LrcContext m
        -- This constraints define block components' global logic.
-       , Ether.MonadReader' TxpGlobalSettings m
+       , MonadCtx ctx TxpGlobalSettings TxpGlobalSettings m
        , SscGStateClass ssc
        -- And 'MonadIO' is needed as usual.
        , MonadIO m
        )
 
 -- | Set of constraints necessary for high-level block verification.
-type BlockVerifyMode ssc m = BlockMode ssc m
+type BlockVerifyMode ssc ctx m = BlockMode ssc ctx m
 
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
-type BlockApplyMode ssc m
-     = ( BlockMode ssc m
+type BlockApplyMode ssc ctx m
+     = ( BlockMode ssc ctx m
        , SlogApplyMode ssc m
        -- It's obviously needed to write something to DB, for instance.
        , MonadDB m
@@ -101,12 +101,12 @@ type BlockApplyMode ssc m
        -- Needed to embed custom logic.
        , MonadBListener m
        -- Needed for normalization.
-       , MonadTxpMem TxpExtra_TMP m
-       , MonadDelegation m
+       , MonadTxpMem TxpExtra_TMP ctx m
+       , MonadDelegation ctx m
        , SscLocalDataClass ssc
-       , Ether.MonadReader' UpdateContext m
+       , MonadCtx ctx UpdateContext UpdateContext m
        -- Needed for error reporting.
-       , MonadReportingMem m
+       , MonadReportingMem ctx m
        , MonadDiscovery m
        , MonadBaseControl IO m
        )
@@ -117,7 +117,7 @@ type BlockApplyMode ssc m
 --
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
-    :: forall ssc m . BlockApplyMode ssc m
+    :: forall ssc ctx m . BlockApplyMode ssc ctx m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafe blunds pModifier = reportingFatal version $ do
     -- Check that all blunds have the same epoch.
@@ -145,13 +145,13 @@ applyBlocksUnsafe blunds pModifier = reportingFatal version $ do
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksUnsafeDo
-    :: forall ssc m . BlockApplyMode ssc m
+    :: forall ssc ctx m . BlockApplyMode ssc ctx m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
     slogBatch <- slogApplyBlocks blunds
-    TxpGlobalSettings {..} <- Ether.ask'
+    TxpGlobalSettings {..} <- askCtx @TxpGlobalSettings
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
@@ -179,7 +179,7 @@ applyBlocksUnsafeDo blunds pModifier = do
 -- head being current tip. It's also assumed that lock on block db is
 -- taken.  application is taken already.
 rollbackBlocksUnsafe
-    :: forall ssc m. (BlockApplyMode ssc m)
+    :: forall ssc ctx m. (BlockApplyMode ssc ctx m)
     => NewestFirst NE (Blund ssc)
     -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal version $ do
@@ -188,7 +188,7 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
-    TxpGlobalSettings {..} <- Ether.ask'
+    TxpGlobalSettings {..} <- askCtx @TxpGlobalSettings
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
     sscBatch <- SomeBatchOp <$> sscRollbackBlocks
         (map (toSscBlock . fst) toRollback)

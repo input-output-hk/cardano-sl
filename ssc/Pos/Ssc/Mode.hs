@@ -7,7 +7,7 @@ module Pos.Ssc.Mode
 import           Universum
 
 import           Control.Monad.Catch         (MonadMask)
-import qualified Ether
+import           EtherCompat
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
@@ -26,7 +26,7 @@ import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Util.TimeWarp           (CanJsonLog)
 
 -- | Mode used for all SSC listeners, workers, and the like.
-type SscMode ssc m
+type SscMode ssc ctx m
     = ( WithLogger m
       , CanJsonLog m
       , MonadIO m
@@ -35,14 +35,14 @@ type SscMode ssc m
       , MonadSlots m
       , MonadGState m
       , MonadDB m
-      , MonadSscMem ssc m
-      , MonadPrimaryKey m
+      , MonadSscMem ssc ctx m
+      , MonadPrimaryKey ctx m
       , MonadRecoveryInfo m
-      , MonadReportingMem m
-      , MonadShutdownMem m
+      , MonadReportingMem ctx m
+      , MonadShutdownMem ctx m
       , MonadDiscovery m
       , WithPeerState m
-      , MonadSscContext ssc m
-      , Ether.MonadReader' SecurityParams m
-      , Ether.MonadReader' LrcContext m
+      , MonadSscContext ssc ctx m
+      , MonadCtx ctx SecurityParams SecurityParams m
+      , MonadCtx ctx LrcContext LrcContext m
       )

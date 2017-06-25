@@ -29,12 +29,12 @@ import           Pos.Txp.Toil                (GenericToilModifier (..),
                                               processTx, runDBToil, runToilTLocal,
                                               utxoGet)
 
-type TxpLocalWorkMode m =
+type TxpLocalWorkMode ctx m =
     ( MonadIO m
     , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
-    , MonadTxpMem () m
+    , MonadTxpMem () ctx m
     , WithLogger m
     , MonadError ToilVerFailure m
     )
@@ -42,7 +42,7 @@ type TxpLocalWorkMode m =
 -- CHECK: @processTx
 -- #processTxDo
 txProcessTransaction
-    :: TxpLocalWorkMode m
+    :: TxpLocalWorkMode ctx m
     => (TxId, TxAux) -> m ()
 txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
@@ -100,7 +100,7 @@ txNormalize ::
        , MonadBaseControl IO m
        , MonadDBRead m
        , MonadGState m
-       , MonadTxpMem () m
+       , MonadTxpMem () ctx m
        )
     => m ()
 txNormalize = do

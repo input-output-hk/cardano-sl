@@ -12,7 +12,7 @@ module Pos.Ssc.Extra.Holder
 import           Universum
 
 import qualified Control.Concurrent.STM  as STM
-import qualified Ether
+import           EtherCompat
 import           System.Wlog             (WithLogger)
 
 import           Pos.DB                  (MonadDBRead)
@@ -24,9 +24,9 @@ import           Pos.Ssc.Extra.Class     (SscMemTag)
 import           Pos.Ssc.Extra.Types     (SscState (..))
 
 mkSscState
-    :: forall ssc m .
+    :: forall ssc ctx m .
        ( WithLogger m
-       , Ether.MonadReader' LrcContext m
+       , MonadCtx ctx LrcContext LrcContext m
        , SscGStateClass ssc
        , SscLocalDataClass ssc
        , MonadDBRead m

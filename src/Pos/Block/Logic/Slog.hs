@@ -26,7 +26,7 @@ import           Universum
 import           Control.Lens          (_Wrapped)
 import           Control.Monad.Except  (MonadError (throwError))
 import qualified Data.List.NonEmpty    as NE
-import qualified Ether
+import           EtherCompat
 import           Formatting            (build, sformat, (%))
 import           Serokell.Util         (Color (Red), colorize)
 import           Serokell.Util.Verify  (formatAllErrors, verResToMonadError)
@@ -104,18 +104,18 @@ type SlogMode ssc m =
     )
 
 -- | Set of constraints needed for Slog verification.
-type SlogVerifyMode ssc m =
+type SlogVerifyMode ssc ctx m =
     ( SlogMode ssc m
     , MonadError Text m
     , MonadIO m
-    , Ether.MonadReader' LrcContext m
+    , MonadCtx ctx LrcContext LrcContext m
     )
 
 -- | Verify everything from block that is not checked by other components.
 -- All blocks must be from the same epoch.
 slogVerifyBlocks
-    :: forall ssc m.
-       SlogVerifyMode ssc m
+    :: forall ssc ctx m.
+       SlogVerifyMode ssc ctx m
     => OldestFirst NE (Block ssc)
     -> m ()
 slogVerifyBlocks blocks = do

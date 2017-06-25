@@ -16,7 +16,7 @@ import           Universum
 
 import           Control.Monad.Catch         (MonadMask)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Ether
+import           EtherCompat
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
@@ -59,7 +59,7 @@ type TxpExtra_TMP = ()
 #endif
 
 -- | Bunch of constraints to perform work for real world distributed system.
-type WorkMode ssc m
+type WorkMode ssc ctx m
     = ( MinWorkMode m
       , MonadBaseControl IO m
       , MonadMask m
@@ -67,32 +67,32 @@ type WorkMode ssc m
       , MonadDB m
       , MonadBlockDBWrite ssc m
       , MonadGState m
-      , MonadRealDB m
-      , MonadTxpMem TxpExtra_TMP m
-      , MonadRelayMem m
-      , MonadDelegation m
-      , MonadSscMem ssc m
-      , MonadReportingMem m
+      , MonadRealDB ctx m
+      , MonadTxpMem TxpExtra_TMP ctx m
+      , MonadRelayMem ctx m
+      , MonadDelegation ctx m
+      , MonadSscMem ssc ctx m
+      , MonadReportingMem ctx m
       , SscGStateClass ssc
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
-      , MonadBlockRetrievalQueue ssc m
+      , MonadBlockRetrievalQueue ssc ctx m
       , MonadRecoveryInfo m
-      , MonadRecoveryHeader ssc m
-      , MonadProgressHeader ssc m
-      , MonadLastKnownHeader ssc m
-      , MonadPrimaryKey m
-      , Ether.MonadReader' StartTime m
-      , Ether.MonadReader' BlkSemaphore m
-      , Ether.MonadReader' LrcContext m
-      , Ether.MonadReader' UpdateContext m
-      , Ether.MonadReader' NodeParams m
-      , Ether.MonadReader' UpdateParams m
-      , Ether.MonadReader' SecurityParams m
-      , Ether.MonadReader' TxpGlobalSettings m
-      , MonadSscContext ssc m
+      , MonadRecoveryHeader ssc ctx m
+      , MonadProgressHeader ssc ctx m
+      , MonadLastKnownHeader ssc ctx m
+      , MonadPrimaryKey ctx m
+      , MonadCtx ctx StartTime StartTime m
+      , MonadCtx ctx BlkSemaphore BlkSemaphore m
+      , MonadCtx ctx LrcContext LrcContext m
+      , MonadCtx ctx UpdateContext UpdateContext m
+      , MonadCtx ctx NodeParams NodeParams m
+      , MonadCtx ctx UpdateParams UpdateParams m
+      , MonadCtx ctx SecurityParams SecurityParams m
+      , MonadCtx ctx TxpGlobalSettings TxpGlobalSettings m
+      , MonadSscContext ssc ctx m
       , WithPeerState m
-      , MonadShutdownMem m
+      , MonadShutdownMem ctx m
       , MonadBListener m
       , MonadDiscovery m
       )

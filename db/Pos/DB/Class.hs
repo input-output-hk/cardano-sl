@@ -80,7 +80,7 @@ import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (ResourceT)
 import           Data.Conduit                   (Source)
 import qualified Database.RocksDB               as Rocks
-import qualified Ether
+import           EtherCompat
 import           Serokell.Data.Memory.Units     (Byte)
 
 import           Pos.Binary.Class               (Bi)
@@ -246,38 +246,38 @@ dbGetBlund x =
 -- 'NodeDBs' it also has 'MonadIO' constraint, because it's impossible
 -- to use real DB without IO. Finally, it has 'MonadCatch' constraints
 -- (partially for historical reasons, partially for good ones).
-type MonadRealDB m
-     = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadBaseControl IO m, MonadCatch m)
+type MonadRealDB ctx m
+     = (MonadCtx ctx NodeDBs NodeDBs m, MonadIO m, MonadBaseControl IO m, MonadCatch m)
 
-getNodeDBs :: MonadRealDB m => m NodeDBs
-getNodeDBs = Ether.ask'
+getNodeDBs :: MonadRealDB ctx m => m NodeDBs
+getNodeDBs = askCtx @NodeDBs
 
 usingReadOptions
-    :: MonadRealDB m
+    :: MonadRealDB ctx m
     => Rocks.ReadOptions
     -> ASetter' NodeDBs DB
     -> m a
     -> m a
 usingReadOptions opts l =
-    Ether.local' (over l (\db -> db {rocksReadOpts = opts}))
+    localCtx @NodeDBs (over l (\db -> db {rocksReadOpts = opts}))
 
 usingWriteOptions
-    :: MonadRealDB m
+    :: MonadRealDB ctx m
     => Rocks.WriteOptions
     -> ASetter' NodeDBs DB
     -> m a
     -> m a
 usingWriteOptions opts l =
-    Ether.local' (over l (\db -> db {rocksWriteOpts = opts}))
+    localCtx @NodeDBs (over l (\db -> db {rocksWriteOpts = opts}))
 
-getBlockIndexDB :: MonadRealDB m => m DB
+getBlockIndexDB :: MonadRealDB ctx m => m DB
 getBlockIndexDB = view blockIndexDB <$> getNodeDBs
 
-getGStateDB :: MonadRealDB m => m DB
+getGStateDB :: MonadRealDB ctx m => m DB
 getGStateDB = view gStateDB <$> getNodeDBs
 
-getLrcDB :: MonadRealDB m => m DB
+getLrcDB :: MonadRealDB ctx m => m DB
 getLrcDB = view lrcDB <$> getNodeDBs
 
-getMiscDB :: MonadRealDB m => m DB
+getMiscDB :: MonadRealDB ctx m => m DB
 getMiscDB = view miscDB <$> getNodeDBs

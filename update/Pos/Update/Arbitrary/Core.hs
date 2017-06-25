@@ -15,10 +15,11 @@ import           Pos.Binary.Update     ()
 import           Pos.Crypto            (SignTag (SignUSVote), fakeSigner, sign, toPublic)
 import           Pos.Crypto.Arbitrary  ()
 import           Pos.Data.Attributes   (mkAttributes)
-import           Pos.Types.Arbitrary   ()
-import           Pos.Update.Core.Types (BlockVersionData (..), SystemTag, UpdateData (..),
-                                        UpdatePayload (..), UpdateProposal (..),
-                                        UpdateVote (..), VoteState (..), mkSystemTag,
+import           Pos.Core.Arbitrary    ()
+import           Pos.Update.Core.Types (BlockVersionData (..), SystemTag,
+                                        UpdateData (..), UpdatePayload (..),
+                                        UpdateProposal (..), UpdateVote (..),
+                                        VoteState (..), mkSystemTag,
                                         mkUpdateProposalWSign)
 
 instance Arbitrary SystemTag where

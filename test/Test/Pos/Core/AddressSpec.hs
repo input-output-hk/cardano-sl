@@ -1,6 +1,6 @@
--- | Specification of Pos.Types.Address.
+-- | Specification of Pos.Core.Address.
 
-module Test.Pos.Types.AddressSpec
+module Test.Pos.Core.AddressSpec
        ( spec
        ) where
 

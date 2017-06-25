@@ -31,7 +31,7 @@ import           Pos.Txp.Toil                (GenericToilModifier (..), MonadToi
                                               MonadUtxoRead (..), ToilEnv,
                                               ToilVerFailure (..), Utxo, getToilEnv,
                                               runDBToil, runToilTLocalExtra,
-                                              runUtxoReaderT, utxoGet)
+                                              evalUtxoStateT, utxoGet)
 import           Pos.Util.Chrono             (NewestFirst (..))
 import qualified Pos.Util.Modifier           as MM
 
@@ -129,7 +129,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
                 txUndo = NE.fromList $ toList resolved
                 res =
                     (runExceptT $
-                     flip runUtxoReaderT resolved $
+                     flip evalUtxoStateT resolved $
                      flip runReaderT eet $
                      runExplorerReaderWrapper $
                      execToil $

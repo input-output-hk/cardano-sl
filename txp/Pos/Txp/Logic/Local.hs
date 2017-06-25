@@ -26,7 +26,7 @@ import           Pos.Txp.Toil                (GenericToilModifier (..),
                                               MonadUtxoRead (..), ToilEnv,
                                               ToilVerFailure (..), Utxo, execToilTLocal,
                                               getToilEnv, normalizeToil, processTx,
-                                              runDBToil, runToilTLocal, runUtxoReaderT,
+                                              runDBToil, runToilTLocal, evalUtxoStateT,
                                               utxoGet)
 
 type TxpLocalWorkMode m =
@@ -81,7 +81,7 @@ txProcessTransaction itw@(txId, txAux) = do
         | tipDB /= tip = (Left $ ToilTipsMismatch tipDB tip, txld)
         | otherwise =
             let res = (runExceptT $
-                      flip runUtxoReaderT resolved $
+                      flip evalUtxoStateT resolved $
                       execToilTLocal uv mp undo $
                       processTx tx
                       ) toilEnv

@@ -57,7 +57,6 @@ library
                         Pos.CompileConfig
                         Pos.Communication
                         Pos.Constants
-                        Pos.Crypto.Arbitrary
 
                         Pos.DB.DB
                         Pos.DB.Block
@@ -67,14 +66,10 @@ library
 
                         -- Genesis data
                         Pos.Genesis
-                        Pos.Genesis.Arbitrary
 
                         -- LRC
                         Pos.Lrc
                         Pos.Lrc.FtsPure
-
-                        -- Slotting
-                        Pos.Slotting.Arbitrary
 
                         -- Something
                         Pos.Launcher
@@ -88,9 +83,8 @@ library
                         Pos.Security.Workers
 
                         -- SSC
-                        Pos.Ssc.Arbitrary
+
                         Pos.Ssc.GodTossing
-                        Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
 
                         -- Client
@@ -102,18 +96,13 @@ library
                         Pos.Txp
 
                         Pos.Types
-                        Pos.Types.Arbitrary
-                        Pos.Types.Arbitrary.Core
-                        Pos.Types.Arbitrary.Unsafe
 
                         -- Update system
                         Pos.Update
-                        Pos.Update.Arbitrary
 
                         -- Utilities/helpers
                         Pos.Util
                         Pos.Util.Undefined
-                        Pos.Util.Arbitrary
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
                         Pos.Util.UserSecret
@@ -192,7 +181,6 @@ library
                         Pos.Context.Functions
 
                         -- Crypto
-                        Pos.Crypto.Arbitrary.Unsafe
                         Pos.Crypto.HDDiscovery
 
                         -- Heavy delegation
@@ -238,7 +226,6 @@ library
                         Pos.DB.Misc
 
                         -- LRC
-                        Pos.Lrc.Arbitrary
                         Pos.Lrc.Consumers
                         Pos.Lrc.DB
                         Pos.Lrc.DB.Leaders
@@ -252,20 +239,14 @@ library
                         -- SSC
                         Pos.Ssc.Util
 
-                        Pos.Ssc.GodTossing.Arbitrary
-
                         -- Txp
-                        Pos.Txp.Arbitrary
                         Pos.Txp.Network
+                        Pos.Txp.Network.Arbitrary
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
                         Pos.Txp.Worker
 
                         -- Update System
-                        Pos.Update.Arbitrary.Core
-                        Pos.Update.Arbitrary.MemState
-                        Pos.Update.Arbitrary.Network
-                        Pos.Update.Arbitrary.Poll
                         Pos.Update.Download
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
@@ -1136,6 +1117,7 @@ test-suite cardano-test
                        -- Everything else
                        Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.ConstantsSpec
+                       Test.Pos.Core.AddressSpec
                        Test.Pos.CryptoSpec
                        Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.FollowTheSatoshiSpec
@@ -1151,12 +1133,12 @@ test-suite cardano-test
                        Test.Pos.Txp.CoreSpec
                        Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Txp.Toil.UtxoSpec
-                       Test.Pos.Types.AddressSpec
                        Test.Pos.Types.BlockSpec
                        Test.Pos.Types.CoinSpec
                        Test.Pos.Types.Identity.BinarySpec
                        Test.Pos.Types.Identity.SafeCopySpec
-                       Test.Pos.Types.Identity.TimestampSpec
+                       Test.Pos.Types.Identity.ShowReadSpec
+                       Test.Pos.Types.SeedSpec
                        Test.Pos.Types.SlottingSpec
                        Test.Pos.Update.Identity.BinarySpec
                        Test.Pos.Update.Identity.SafeCopySpec
@@ -1255,6 +1237,7 @@ benchmark cardano-bench-criterion
                      , binary
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-txp
                      , cardano-sl
                      , containers
                      , criterion

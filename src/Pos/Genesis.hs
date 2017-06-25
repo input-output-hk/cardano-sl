@@ -35,7 +35,6 @@ import           Pos.Core                   (Address, Coin, SlotLeaders, Stakeho
                                              unsafeAddCoin, unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstNonHardened, unsafeHash)
-import           Pos.Genesis.Arbitrary      ()
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..),

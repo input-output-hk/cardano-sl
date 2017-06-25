@@ -13,6 +13,8 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+    Pos.Ssc.Arbitrary
+
     Pos.Ssc.Class
     Pos.Ssc.Class.Types
     Pos.Ssc.Class.LocalData
@@ -28,6 +30,7 @@ library
     Pos.Ssc.Extra.Logic
 
     Pos.Ssc.Mode
+    Pos.Ssc.NistBeacon
     Pos.Ssc.RichmenComponent
 
     Pos.Security.Params
@@ -38,14 +41,17 @@ library
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cryptonite
                      , ether
                      , exceptions
                      , formatting
                      , lens
                      , log-warper
+                     , memory
                      , mmorph
                      , mtl
                      , node-sketch
+                     , QuickCheck
                      , serokell-util
                      , stm
                      , tagged

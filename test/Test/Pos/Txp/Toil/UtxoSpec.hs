@@ -37,10 +37,10 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         TxOutAux (..), TxSigData (..), TxWitness, Utxo,
                                         VTxContext (..), applyTxToUtxoPure, verifyTxUtxo,
                                         verifyTxUtxoPure)
-import           Pos.Types             (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
-                                        SmallGoodTx (..), checkPubKeyAddress,
-                                        makePubKeyAddress, makeScriptAddress, mkCoin,
-                                        sumCoins)
+import           Pos.Txp.Arbitrary     (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
+                                        SmallGoodTx (..))
+import           Pos.Types             (checkPubKeyAddress, makePubKeyAddress,
+                                        makeScriptAddress, mkCoin, sumCoins)
 import           Pos.Util              (nonrepeating, runGen)
 
 ----------------------------------------------------------------------------

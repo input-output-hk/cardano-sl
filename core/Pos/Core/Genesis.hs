@@ -7,7 +7,7 @@ module Pos.Core.Genesis
        -- ** Derived data
        , genesisAddresses
        , genesisStakeDistribution
-       , genesisBalances
+       , genesisStakes
 
        -- * Constants
        , genesisDevKeyPairs
@@ -93,7 +93,7 @@ genesisStakeDistribution
     | isDevelopment = def
     | otherwise     = gcdDistribution compileGenCoreData
 
-genesisBalances :: HashMap StakeholderId Coin
-genesisBalances
+genesisStakes :: HashMap StakeholderId Coin
+genesisStakes
     | isDevelopment = mempty
     | otherwise     = gcdBootstrapBalances compileGenCoreData

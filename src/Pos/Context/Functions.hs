@@ -5,6 +5,7 @@ module Pos.Context.Functions
          -- * Genesis
          GenesisUtxo(..)
        , genesisUtxoM
+       , genesisStakesM
        , genesisLeadersM
 
          -- * Block semaphore.
@@ -27,8 +28,9 @@ import           Data.Time           (diffUTCTime, getCurrentTime)
 import           Data.Time.Units     (Microsecond, fromMicroseconds)
 import qualified Ether
 
-import           Pos.Context.Context (BlkSemaphore (..), GenesisUtxo (..), StartTime (..))
-import           Pos.Core            (HeaderHash, SlotLeaders)
+import           Pos.Context.Context (BlkSemaphore (..), GenesisStakes (..),
+                                      GenesisUtxo (..), StartTime (..))
+import           Pos.Core            (HeaderHash, SlotLeaders, StakesMap)
 import           Pos.Genesis         (genesisLeaders)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
 import           Pos.Txp.Toil.Types  (Utxo)
@@ -40,8 +42,11 @@ import           Pos.Txp.Toil.Types  (Utxo)
 genesisUtxoM :: (Functor m, Ether.MonadReader' GenesisUtxo m) => m Utxo
 genesisUtxoM = Ether.asks' unGenesisUtxo
 
-genesisLeadersM :: (Functor m, Ether.MonadReader' GenesisUtxo m) => m SlotLeaders
-genesisLeadersM = genesisLeaders <$> genesisUtxoM
+genesisStakesM :: (Functor m, Ether.MonadReader' GenesisStakes m) => m StakesMap
+genesisStakesM = Ether.asks' unGenesisStakes
+
+genesisLeadersM :: (Functor m, Ether.MonadReader' GenesisStakes m) => m SlotLeaders
+genesisLeadersM = genesisLeaders <$> genesisStakesM
 
 ----------------------------------------------------------------------------
 -- Semaphore-related logic

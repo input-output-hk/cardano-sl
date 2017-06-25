@@ -36,7 +36,7 @@ import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Block.Core          (Block, BlockHeader)
 import           Pos.Block.Types         (Undo)
-import           Pos.Context             (GenesisUtxo (..))
+import           Pos.Context             (GenesisStakes (..), GenesisUtxo (..))
 import           Pos.Core                (IsHeader, StakeDistribution (..), StakeholderId,
                                           Timestamp (..), addressHash, makePubKeyAddress,
                                           mkCoin, unsafeGetCoin)
@@ -72,7 +72,8 @@ import           Pos.Ssc.Class           (SscBlock)
 import           Pos.Ssc.Extra           (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing      (SscGodTossing)
 import           Pos.Txp                 (TxIn (..), TxOut (..), TxOutAux (..),
-                                          TxpGlobalSettings, txpGlobalSettings, utxoF)
+                                          TxpGlobalSettings, txpGlobalSettings, utxoF,
+                                          utxoToStakes)
 import           Pos.Update.Context      (UpdateContext, mkUpdateContext)
 import           Pos.Util.Util           (Some)
 
@@ -188,6 +189,7 @@ bracketBlockTestContext testParams@TestParams {..} callback =
                     InitModeContext
                         nodeDBs
                         tpGenUtxo
+                        (GenesisStakes $ utxoToStakes $ unGenesisUtxo tpGenUtxo)
                         futureSlottingVar
                         SCSimple
                         futureLrcCtx

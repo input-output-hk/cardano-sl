@@ -33,7 +33,7 @@ import           System.Wlog           (HasLoggerName (..))
 
 import           Pos.Block.Core        (Block, BlockHeader)
 import           Pos.Block.Types       (Undo)
-import           Pos.Context.Context   (GenesisUtxo)
+import           Pos.Context.Context   (GenesisStakes, GenesisUtxo)
 import           Pos.Core              (IsHeader)
 import           Pos.DB                (NodeDBs)
 import           Pos.DB.Block          (MonadBlockDBWrite (..), dbGetBlockDefault,
@@ -81,6 +81,7 @@ modeContext [d|
     data InitModeContext = InitModeContext
         (NodeDBs            ::: NodeDBs)
         (GenesisUtxo        ::: GenesisUtxo)
+        (GenesisStakes      ::: GenesisStakes)
         (SlottingVar        ::: SlottingVar)
         (SlottingContextSum ::: SlottingContextSum)
         (LrcContext         ::: LrcContext)

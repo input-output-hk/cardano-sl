@@ -29,18 +29,18 @@ import qualified Data.Map.Strict            as M
 import           Serokell.Util              (enumerate)
 
 import qualified Pos.Constants              as Const
-import           Pos.Core.Types             (Address, StakeholderId)
+import           Pos.Core                   (Address, Coin, SlotLeaders, StakeholderId,
+                                             StakesMap, applyCoinPortion, coinToInteger,
+                                             divCoin, makePubKeyAddress, mkCoin,
+                                             unsafeAddCoin, unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstNonHardened, unsafeHash)
 import           Pos.Genesis.Arbitrary      ()
-import           Pos.Lrc.FtsPure            (followTheSatoshi, followTheSatoshiUtxo)
+import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..),
                                              TxOutDistribution)
 import           Pos.Txp.Toil               (Utxo)
-import           Pos.Types                  (Coin, SlotLeaders, applyCoinPortion,
-                                             coinToInteger, divCoin, makePubKeyAddress,
-                                             mkCoin, unsafeAddCoin, unsafeMulCoin)
 import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 
 -- reexports
@@ -172,8 +172,7 @@ genesisDelegation = mempty
 -- Slot leaders
 ----------------------------------------------------------------------------
 
--- | Leaders of genesis. See 'followTheSatoshi'.
-genesisLeaders :: Utxo -> SlotLeaders
-genesisLeaders genUtxo
-    | Const.isDevelopment = followTheSatoshiUtxo genesisSeed genUtxo
-    | otherwise = followTheSatoshi genesisSeed $ HM.toList genesisStakes
+-- | Compute leaders of the 0-th epoch from stake distribution.
+genesisLeaders :: StakesMap -> SlotLeaders
+genesisLeaders genesisStakes =
+    followTheSatoshi genesisSeed $ HM.toList genesisStakes

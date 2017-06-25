@@ -345,6 +345,7 @@ library
                       , filepath
                       , focus
                       , formatting
+                      , generic-arbitrary
                       , gitrev
                       , hashable
                       , http-client

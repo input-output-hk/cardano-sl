@@ -40,6 +40,8 @@ library
                        Pos.Core.Coin
                        Pos.Core.Constants
                        Pos.Core.Context
+                       Pos.Core.Fee
+                       Pos.Core.Fee.Config
                        Pos.Core.Script
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting
@@ -76,6 +78,7 @@ library
                        Pos.Binary.Core.Address
                        Pos.Binary.Core.Block
                        Pos.Binary.Core.Coin
+                       Pos.Binary.Core.Fee
                        Pos.Binary.Core.Script
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Version
@@ -138,6 +141,7 @@ library
                      , ed25519
                      , filepath
                      , formatting
+                     , generic-arbitrary
                      , hashable
                      , lens
                      , lrucache

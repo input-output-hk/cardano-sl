@@ -13,6 +13,7 @@ cabal-dev
 .virtualenv
 .hsenv
 .hpc
+.Werror
 *.svg
 .stack-work/
 .cabal-sandbox/

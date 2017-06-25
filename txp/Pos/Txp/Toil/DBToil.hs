@@ -43,4 +43,5 @@ instance (MonadGState m) =>
             ToilEnv
             { teMaxBlockSize = bvdMaxBlockSize
             , teMaxTxSize = bvdMaxTxSize
+            , teTxFeePolicy = bvdTxFeePolicy
             }

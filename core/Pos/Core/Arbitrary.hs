@@ -19,30 +19,34 @@ module Pos.Core.Arbitrary
 
 import           Universum
 
-import qualified Data.ByteString           as BS (pack)
-import           Data.DeriveTH             (derive, makeArbitrary)
-import           Data.Time.Units           (Microsecond, Millisecond, fromMicroseconds)
-import           Test.QuickCheck           (Arbitrary (..), Gen, choose, oneof, scale,
-                                            suchThat)
-import           Test.QuickCheck.Instances ()
-import           System.Random             (Random)
+import qualified Data.ByteString                   as BS (pack)
+import           Data.DeriveTH                     (derive, makeArbitrary)
+import           Data.Time.Units                   (Microsecond, Millisecond,
+                                                    fromMicroseconds)
+import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, oneof,
+                                                    scale, suchThat)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck.Instances         ()
+import           System.Random                     (Random)
 
-import           Pos.Binary.Class          (AsBinary, FixedSizeInt (..),
-                                            SignedVarInt (..), UnsignedVarInt (..))
-import           Pos.Binary.Core           ()
-import           Pos.Binary.Crypto         ()
-import           Pos.Core.Address          (makePubKeyAddress, makeRedeemAddress,
-                                            makeScriptAddress)
-import           Pos.Core.Coin             (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Core.Constants        (sharedSeedLength)
-import qualified Pos.Core.Genesis          as G
-import           Pos.Core.Types            (BlockVersion (..), Script (..),
-                                            SoftwareVersion (..))
-import qualified Pos.Core.Types            as Types
-import           Pos.Crypto                (PublicKey, Share)
-import           Pos.Crypto.Arbitrary      ()
-import           Pos.Util.Arbitrary        (makeSmall)
-import           Pos.Util.Util             (leftToPanic)
+import           Pos.Binary.Class                  (AsBinary, FixedSizeInt (..),
+                                                    SignedVarInt (..),
+                                                    UnsignedVarInt (..))
+import           Pos.Binary.Core                   ()
+import           Pos.Binary.Crypto                 ()
+import           Pos.Core.Address                  (makePubKeyAddress, makeRedeemAddress,
+                                                    makeScriptAddress)
+import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
+import           Pos.Core.Constants                (sharedSeedLength)
+import qualified Pos.Core.Fee                      as Fee
+import qualified Pos.Core.Genesis                  as G
+import           Pos.Core.Types                    (BlockVersion (..), Script (..),
+                                                    SoftwareVersion (..))
+import qualified Pos.Core.Types                    as Types
+import           Pos.Crypto                        (PublicKey, Share)
+import           Pos.Crypto.Arbitrary              ()
+import           Pos.Util.Arbitrary                (makeSmall)
+import           Pos.Util.Util                     (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- Arbitrary core types
@@ -263,6 +267,33 @@ instance Arbitrary Types.ApplicationName where
 
 derive makeArbitrary ''Types.BlockVersion
 derive makeArbitrary ''Types.SoftwareVersion
+
+----------------------------------------------------------------------------
+-- Arbitrary types from 'Pos.Core.Fee'
+----------------------------------------------------------------------------
+
+deriving instance Arbitrary Fee.Coeff
+
+instance Arbitrary Fee.TxSizeLinear where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary Fee.TxFeePolicy where
+    arbitrary = oneof
+        [ Fee.TxFeePolicyTxSizeLinear <$> arbitrary
+        , do
+              policyCode <-
+                  -- The lower bound is needed so that
+                  -- we don't get codes for known policies.
+                  choose (1, maxBound)
+              policyPayload <- arbitrary
+              return $ Fee.TxFeePolicyUnknown policyCode policyPayload
+        ]
+    shrink = \case
+        Fee.TxFeePolicyTxSizeLinear a ->
+            Fee.TxFeePolicyTxSizeLinear <$> shrink a
+        Fee.TxFeePolicyUnknown v a ->
+            Fee.TxFeePolicyUnknown v <$> shrink a
 
 ----------------------------------------------------------------------------
 -- Arbitrary types from 'Pos.Core.Genesis'

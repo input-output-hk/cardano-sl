@@ -52,6 +52,7 @@ import           Pos.Slotting.MemState         (MonadSlotsData (..),
                                                 getSystemStartDefault,
                                                 putSlottingDataDefault,
                                                 waitPenultEpochEqualsDefault)
+import           Pos.Ssc.Class.Helpers         (SscHelpersClass)
 import           Pos.Ssc.Class.Types           (SscBlock)
 import           Pos.Util                      (Some (..))
 import           Pos.Util.JsonLog              (jsonLogDefault)
@@ -137,17 +138,17 @@ instance MonadDB WalletWebMode where
 instance MonadBlockDBWrite WalletSscType WalletWebMode where
     dbPutBlund = dbPutBlundDefault
 
-instance MonadBlockDBGeneric (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode
+instance SscHelpersClass ssc => MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo WalletWebMode
   where
-    dbGetBlock  = dbGetBlockDefault @WalletSscType
-    dbGetUndo   = dbGetUndoDefault @WalletSscType
-    dbGetHeader = dbGetHeaderDefault @WalletSscType
+    dbGetBlock  = dbGetBlockDefault @ssc
+    dbGetUndo   = dbGetUndoDefault @ssc
+    dbGetHeader = dbGetHeaderDefault @ssc
 
-instance MonadBlockDBGeneric (Some IsHeader) (SscBlock WalletSscType) () WalletWebMode
+instance SscHelpersClass ssc => MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () WalletWebMode
   where
-    dbGetBlock  = dbGetBlockSscDefault @WalletSscType
-    dbGetUndo   = dbGetUndoSscDefault @WalletSscType
-    dbGetHeader = dbGetHeaderSscDefault @WalletSscType
+    dbGetBlock  = dbGetBlockSscDefault @ssc
+    dbGetUndo   = dbGetUndoSscDefault @ssc
+    dbGetHeader = dbGetHeaderSscDefault @ssc
 
 instance MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault

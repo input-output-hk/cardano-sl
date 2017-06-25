@@ -39,18 +39,20 @@ import           Data.Tagged                 (Tagged (..))
 import qualified Ether
 import           System.Wlog                 (WithLogger)
 
-import           Pos.Block.Core              (Block, mainBlockTxPayload)
+import           Pos.Block.Core              (Block, BlockHeader, mainBlockTxPayload)
+import           Pos.Block.Types             (Undo)
 import           Pos.Constants               (blkSecurityParam)
 import           Pos.Context.Context         (GenesisUtxo (..))
 import           Pos.Core                    (Address, ChainDifficulty, HeaderHash,
-                                              difficultyL, prevBlockL)
+                                              IsHeader, difficultyL, prevBlockL)
 import           Pos.Crypto                  (WithHash (..), withHash)
-import           Pos.DB                      (MonadDBRead, MonadGState, MonadRealDB)
+import           Pos.DB                      (MonadBlockDBGeneric, MonadDBRead,
+                                              MonadGState, MonadRealDB)
 import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
 import           Pos.Slotting                (MonadSlots)
-import           Pos.Ssc.Class               (SscHelpersClass)
+import           Pos.Ssc.Class               (SscBlock, SscHelpersClass)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local      (eTxProcessTransaction)
 #else
@@ -63,7 +65,7 @@ import           Pos.Txp                     (MonadTxpMem, MonadUtxoRead, Tx (..
                                               filterUtxoByAddrs, flattenTxPayload,
                                               getLocalTxs, runUtxoStateT, topsortTxs,
                                               txOutAddress, utxoGet)
-import           Pos.Util                    (ether, maybeThrow)
+import           Pos.Util                    (Some, ether, maybeThrow)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -183,8 +185,15 @@ type TxHistoryEnv m =
     , MonadBaseControl IO m
     )
 
+type TxHistoryEnv' ssc m =
+    ( SscHelpersClass ssc
+    , TxHistoryEnv m
+    , MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo m
+    , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
+    )
+
 getTxHistoryDefault
-    :: forall ssc m. (SscHelpersClass ssc, TxHistoryEnv m)
+    :: forall ssc m. TxHistoryEnv' ssc m
     => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
 getTxHistoryDefault = Tagged $ \addrs mInit -> do
     tip <- GS.getTip
@@ -197,7 +206,7 @@ getTxHistoryDefault = Tagged $ \addrs mInit -> do
         if h == bot
         then return Nothing
         else do
-            header <- DB.runBlockDBRedirect $ DB.blkGetHeader @ssc h >>=
+            header <- DB.blkGetHeader @ssc h >>=
                 maybeThrow (DBMalformed "Best blockchain is non-continuous")
             let prev = header ^. prevBlockL
             return $ Just (h, prev)
@@ -207,13 +216,13 @@ getTxHistoryDefault = Tagged $ \addrs mInit -> do
         nonCachedHashes = take blkSecurityParam hashList
 
     let blockFetcher h txs = do
-            blk <- lift . lift . DB.runBlockDBRedirect $ DB.blkGetBlock @ssc h >>=
+            blk <- DB.blkGetBlock @ssc h >>=
                    maybeThrow (DBMalformed "A block mysteriously disappeared!")
             deriveAddrHistoryPartial txs addrs [blk]
         localFetcher blkTxs = do
             let mp (txid, TxAux {..}) =
                   (WithHash taTx txid, taWitness, taDistribution)
-            ltxs <- lift . lift $ getLocalTxs
+            ltxs <- getLocalTxs
             txs <- getRelatedTxs addrs $ map mp ltxs
             return $ txs ++ blkTxs
 

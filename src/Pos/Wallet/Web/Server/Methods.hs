@@ -22,12 +22,13 @@ module Pos.Wallet.Web.Server.Methods
 import           Universum
 
 import           Control.Concurrent               (forkFinally)
-import           Control.Lens                     (ix, makeLenses, traversed, (.=))
+import           Control.Lens                     (ix, makeLenses, traversed, (.=), _head)
 import           Control.Monad.Catch              (SomeException, try)
 import qualified Control.Monad.Catch              as E
 import           Control.Monad.State              (runStateT)
 import           Data.ByteString.Base58           (bitcoinAlphabet, decodeBase58)
 import           Data.Default                     (Default (def))
+import qualified Data.HashSet                     as HS
 import           Data.List                        (findIndex)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
@@ -61,11 +62,12 @@ import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
-import           Pos.Core                         (Address (..), Coin, addressF,
+import           Pos.Core                         (Address (..), Coin, HeaderHash,
+                                                   StakeholderId, addressF,
                                                    decodeTextAddress, makePubKeyAddress,
                                                    makeRedeemAddress, mkCoin, sumCoins,
-                                                   unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin)
+                                                   unsafeAddCoin, unsafeGetCoin,
+                                                   unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto                       (PassPhrase, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
                                                    deriveAesKeyBS, emptyPassphrase,
@@ -73,13 +75,14 @@ import           Pos.Crypto                       (PassPhrase, aesDecrypt,
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
+import           Pos.DB.Class                     (gsIsBootstrapEra)
 import           Pos.Discovery                    (getPeers)
-import           Pos.Genesis                      (genesisDevHdwSecretKeys)
+import           Pos.Genesis                      (genesisBootStakeholders,
+                                                   genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (rcReportServers)
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Txp                          (Utxo)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..))
-import           Pos.Types                        (HeaderHash)
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
@@ -531,9 +534,12 @@ sendMoney sendActions passphrase moneySource dstDistr = do
     distr@(remaining, spendings) <- selectSrcAccounts coins notDstAccounts
     logDebug $ buildDistribution distr
     mRemTx <- mkRemainingTx remaining
+    bootEra <- gsIsBootstrapEra
+    let stakeDistr c | bootEra = splitBoot c
+                     | otherwise = []
     txOuts <- forM dstDistr $ \(cAddr, coin) -> do
         addr <- decodeCIdOrFail cAddr
-        return $ TxOutAux (TxOut addr coin) []
+        return $ TxOutAux (TxOut addr coin) (stakeDistr coin)
     let txOutsWithRem = maybe txOuts (\remTx -> remTx :| toList txOuts) mRemTx
     srcTxOuts <- forM (toList spendings) $ \(cAddr, c) -> do
         addr <- decodeCIdOrFail $ cwamId cAddr
@@ -606,6 +612,28 @@ sendMoney sendActions passphrase moneySource dstDistr = do
                     ctxs <- addHistoryTx srcWallet $
                         THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs
                     ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
+
+    -- Returns a distribution sharing coins to 'genesisBootStakeholders'.
+    -- If number of addresses is less then coins, we give 1 coin to prefix.
+    -- Otherwise we give quotient to everyone and remainder to the first one.
+    splitBoot :: Coin -> [(StakeholderId, Coin)]
+    splitBoot c = do
+        let cval :: Int
+            cval = fromIntegral $ unsafeGetCoin c
+            addrsNum :: Int
+            addrsNum = length genesisBootStakeholders
+            bootStakeholders = HS.toList genesisBootStakeholders
+        if | cval <= 0 ->
+             error $ "sendMoney#splitBoot: cval <= 0: " <> show cval
+           | cval < addrsNum ->
+             map (,mkCoin 1) $ take cval bootStakeholders
+           | otherwise ->
+             let (d :: Word64, m :: Word64) =
+                     bimap fromIntegral fromIntegral $
+                     divMod cval addrsNum
+                 stakeCoins = replicate addrsNum (mkCoin d) &
+                                  _head %~ unsafeAddCoin (mkCoin m)
+             in bootStakeholders `zip` stakeCoins
 
     noOutgoingTx = InternalError "Can't report outgoing transaction"
 

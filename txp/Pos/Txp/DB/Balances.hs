@@ -40,7 +40,7 @@ import           Pos.Binary.Class             (encodeStrict)
 import           Pos.Core                     (Coin, StakeholderId, coinF, mkCoin,
                                                sumCoins, unsafeAddCoin,
                                                unsafeIntegerToCoin)
-import           Pos.Core.Genesis             (genesisBalances)
+import           Pos.Core.Genesis             (genesisBootBalances)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
                                                MonadDB, MonadDBRead, MonadGState (..),
@@ -77,7 +77,7 @@ instance RocksBatchOp BalancesOp where
 ----------------------------------------------------------------------------
 
 genesisFakeTotalStake :: Coin
-genesisFakeTotalStake = unsafeIntegerToCoin $ sumCoins genesisBalances
+genesisFakeTotalStake = unsafeIntegerToCoin $ sumCoins genesisBootBalances
 
 getEffectiveTotalStake :: (MonadDBRead m, MonadGState m) => m Coin
 getEffectiveTotalStake = ifM gsIsBootstrapEra
@@ -86,7 +86,7 @@ getEffectiveTotalStake = ifM gsIsBootstrapEra
 
 getEffectiveStake :: (MonadDBRead m, MonadGState m) => StakeholderId -> m (Maybe Coin)
 getEffectiveStake id = ifM gsIsBootstrapEra
-    (pure $ HM.lookup id genesisBalances)
+    (pure $ HM.lookup id genesisBootBalances)
     (getRealStake id)
 
 ----------------------------------------------------------------------------
@@ -118,7 +118,7 @@ balanceSource
     => Source (ResourceT m) (IterType BalanceIter)
 balanceSource =
     ifM (lift gsIsBootstrapEra)
-        (CL.sourceList $ HM.toList genesisBalances)
+        (CL.sourceList $ HM.toList genesisBootBalances)
         (dbIterSource GStateDB (Proxy @BalanceIter))
 
 ----------------------------------------------------------------------------

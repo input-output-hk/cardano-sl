@@ -7,7 +7,8 @@ module Pos.Core.Genesis
        -- ** Derived data
        , genesisAddresses
        , genesisStakeDistribution
-       , genesisBalances
+       , genesisBootBalances
+       , genesisBootStakeholders
 
        -- * Constants
        , genesisDevKeyPairs
@@ -37,6 +38,7 @@ import           Pos.Core.Types          (Address, Coin, StakeholderId)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
                                           safeDeterministicKeyGen)
 import           Pos.Crypto.Signing      (PublicKey, SecretKey, deterministicKeyGen)
+import           Pos.Util.Util           (getKeys)
 
 ----------------------------------------------------------------------------
 -- Constants
@@ -82,7 +84,7 @@ generateHdwGenesisSecretKey =
 -- GenesisCore-derived data
 ----------------------------------------------------------------------------
 
--- | List of addresses in genesis. See 'genesisPublicKeys'.
+-- | List of addresses in genesis.
 genesisAddresses :: [Address]
 genesisAddresses
     | isDevelopment = map makePubKeyAddress genesisDevPublicKeys
@@ -93,7 +95,12 @@ genesisStakeDistribution
     | isDevelopment = def
     | otherwise     = gcdDistribution compileGenCoreData
 
-genesisBalances :: HashMap StakeholderId Coin
-genesisBalances
+-- | List of bootstrap balances with coins.
+genesisBootBalances :: HashMap StakeholderId Coin
+genesisBootBalances
     | isDevelopment = mempty
     | otherwise     = gcdBootstrapBalances compileGenCoreData
+
+-- | Bootstrap era stakeholders.
+genesisBootStakeholders :: HashSet StakeholderId
+genesisBootStakeholders = getKeys genesisBootBalances

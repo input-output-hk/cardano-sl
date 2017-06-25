@@ -100,6 +100,12 @@ import           Pos.Data.Attributes        (Attributes)
 -- Address
 ----------------------------------------------------------------------------
 
+-- | Hash of address
+type AddressHash = AbstractHash Blake2b_224
+
+-- | Stakeholder identifier (stakeholders are identified by their public keys)
+type StakeholderId = AddressHash PublicKey
+
 -- | Address is where you can send coins.
 data Address
     = PubKeyAddress
@@ -112,19 +118,14 @@ data Address
     | UnknownAddressType !Word8 !ByteString
     deriving (Eq, Ord, Generic, Typeable, Show)
 
+instance NFData Address
+
 newtype AddrPkAttrs = AddrPkAttrs
     { addrPkDerivationPath :: Maybe HDAddressPayload
     } deriving (Eq, Ord, Show, Generic, Typeable, NFData)
 
 instance Default AddrPkAttrs where
     def = AddrPkAttrs Nothing
-
--- | Stakeholder identifier (stakeholders are identified by their public keys)
-type StakeholderId = AddressHash PublicKey
-
-type AddressHash = AbstractHash Blake2b_224
-
-instance NFData Address
 
 ----------------------------------------------------------------------------
 -- ChainDifficulty

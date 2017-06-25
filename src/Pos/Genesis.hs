@@ -174,4 +174,4 @@ genesisDelegation = mempty
 genesisLeaders :: Utxo -> SlotLeaders
 genesisLeaders genUtxo
     | Const.isDevelopment = followTheSatoshiUtxo genesisSeed genUtxo
-    | otherwise = followTheSatoshi genesisSeed $ HM.toList genesisBalances
+    | otherwise = followTheSatoshi genesisSeed $ HM.toList genesisBootBalances

@@ -59,11 +59,12 @@ getTotalStake (ExplicitStakes balances) = unsafeIntegerToCoin $
 getTotalStake (CombinedStakes st1 st2) =
     getTotalStake st1 `unsafeAddCoin` getTotalStake st2
 
--- | Hardcoded genesis data
+-- | Hardcoded genesis data.
 data GenesisCoreData = GenesisCoreData
     { gcdAddresses         :: [Address]
     , gcdDistribution      :: StakeDistribution
     , gcdBootstrapBalances :: !(HashMap StakeholderId Coin)
+      -- ^ Bootstrap era balances.
     }
     deriving (Show, Eq)
 

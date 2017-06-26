@@ -32,12 +32,16 @@ flag embed-config
 library
   exposed-modules:     Pos.Core
                        Pos.Core.Address
+                       Pos.Core.Arbitrary
+                       Pos.Core.Arbitrary.Unsafe
                        Pos.Core.Block
                        Pos.Core.BlockVersionData
                        Pos.Core.Class
                        Pos.Core.Coin
                        Pos.Core.Constants
                        Pos.Core.Context
+                       Pos.Core.Fee
+                       Pos.Core.Fee.Config
                        Pos.Core.Script
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting
@@ -50,6 +54,8 @@ library
                        Pos.Core.Genesis.Types
 
                        Pos.Crypto
+                       Pos.Crypto.Arbitrary
+                       Pos.Crypto.Arbitrary.Unsafe
                        Pos.Crypto.Encryption
                        Pos.Crypto.AsBinary
                        Pos.Crypto.HD
@@ -72,11 +78,13 @@ library
                        Pos.Binary.Core.Address
                        Pos.Binary.Core.Block
                        Pos.Binary.Core.Coin
+                       Pos.Binary.Core.Fee
                        Pos.Binary.Core.Script
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Version
                        Pos.Binary.Core.Genesis
 
+                       Pos.Util.Arbitrary
                        Pos.Util.Concurrent
                        Pos.Util.Concurrent.RWLock
                        Pos.Util.Concurrent.RWVar
@@ -133,6 +141,7 @@ library
                      , ed25519
                      , filepath
                      , formatting
+                     , generic-arbitrary
                      , hashable
                      , lens
                      , lrucache

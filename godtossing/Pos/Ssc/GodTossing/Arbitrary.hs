@@ -18,14 +18,15 @@ import           Test.QuickCheck                  (Arbitrary (..), Gen, choose, 
                                                    listOf, oneof)
 
 import           Pos.Binary.Class                 (asBinary)
-import           Pos.Binary.Ssc                   ()
+import           Pos.Binary.GodTossing            ()
 import           Pos.Communication.Types.Relay    (DataMsg (..))
-import           Pos.Constants                    (vssMaxTTL, vssMinTTL)
 import           Pos.Core                         (EpochIndex, SlotId (..), addressHash,
                                                    addressHash)
+import           Pos.Core.Arbitrary.Unsafe        ()
 import           Pos.Crypto                       (SecretKey, deterministicVssKeyGen,
                                                    toVssPublicKey)
 import           Pos.Ssc.Arbitrary                (SscPayloadDependsOnSlot (..))
+import           Pos.Ssc.GodTossing.Constants     (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core          (Commitment (..), CommitmentsMap,
                                                    GtPayload (..), GtProof (..),
                                                    Opening (..), Opening (..),
@@ -35,6 +36,7 @@ import           Pos.Ssc.GodTossing.Core          (Commitment (..), CommitmentsM
                                                    isSharesId, mkCommitmentsMap,
                                                    mkCommitmentsMap, mkSignedCommitment,
                                                    mkVssCertificate)
+import qualified Pos.Ssc.GodTossing.Genesis.Types as G
 import           Pos.Ssc.GodTossing.Toss.Types    (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message (GtTag (..), MCCommitment (..),
@@ -43,7 +45,6 @@ import           Pos.Ssc.GodTossing.Types.Message (GtTag (..), MCCommitment (..)
 import           Pos.Ssc.GodTossing.Types.Types   (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
-import           Pos.Types.Arbitrary.Unsafe       ()
 import           Pos.Util.Arbitrary               (Nonrepeating (..), makeSmall, sublistN,
                                                    unsafeMakePool)
 
@@ -240,3 +241,10 @@ instance Arbitrary (DataMsg MCShares) where
 
 instance Arbitrary (DataMsg MCVssCertificate) where
     arbitrary = DataMsg <$> arbitrary
+
+----------------------------------------------------------------------------
+-- Arbitrary types from 'Pos.Ssc.GodTossing.Genesis.Types'
+----------------------------------------------------------------------------
+
+instance Arbitrary G.GenesisGtData where
+    arbitrary = G.GenesisGtData <$> arbitrary

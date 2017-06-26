@@ -90,6 +90,7 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       (formatBase16)
 
 import           Pos.Core.Constants.Raw     (epochSlots)
+import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Timestamp         (Timestamp (..))
 import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
                                              ProxySecretKey, ProxySignature, PublicKey,
@@ -212,6 +213,7 @@ data BlockVersionData = BlockVersionData
     , bvdUpdateProposalThd :: !CoinPortion
     , bvdUpdateImplicit    :: !FlatSlotId
     , bvdUpdateSoftforkThd :: !CoinPortion
+    , bvdTxFeePolicy       :: !(Maybe TxFeePolicy)
     } deriving (Show, Eq, Generic, Typeable)
 
 ----------------------------------------------------------------------------
@@ -284,6 +286,7 @@ instance Bounded Coin where
 maxCoinVal :: Word64
 maxCoinVal = 45000000000000000
 
+-- FIXME: This operation is unsafe because it doesn't check 'maxCoinVal'.
 -- | Make Coin from Word64.
 mkCoin :: Word64 -> Coin
 mkCoin = Coin

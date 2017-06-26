@@ -27,6 +27,7 @@ import           Control.Monad.Catch              (SomeException, try)
 import qualified Control.Monad.Catch              as E
 import           Control.Monad.State              (runStateT)
 import           Data.ByteString.Base58           (bitcoinAlphabet, decodeBase58)
+import qualified Data.ByteString.Lazy             as BSL
 import           Data.Default                     (Default (def))
 import           Data.List                        (findIndex)
 import qualified Data.List.NonEmpty               as NE
@@ -56,6 +57,7 @@ import           System.IO.Error                  (isDoesNotExistError)
 import           System.Wlog                      (logDebug, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes            ()
+import qualified Pos.Binary.Class                 as Bi
 import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
                                                    TxHistoryEntry (..))
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
@@ -776,12 +778,16 @@ createWalletSafe cid wsMeta = do
 newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase CWalletInit {..} = do
     let CWalletMeta {..} = cwInitMeta
+
+    bpSeed <- either (throwM . RequestError) pure $
+        Bi.decode . BSL.fromStrict <$> toSeed cwBackupPhrase
+
     cAddr <- genSaveRootAddress passphrase cwBackupPhrase
     wallet@CWallet{..} <- createWalletSafe cAddr cwInitMeta
 
     let accMeta = CAccountMeta { caName = "Initial account" }
     let accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-    _ <- newAccount RandomSeed passphrase accInit
+    _ <- newAccount (DeterminedSeed bpSeed) passphrase accInit
     return wallet
 
 updateWallet :: WalletWebMode m => CId Wal -> CWalletMeta -> m CWallet

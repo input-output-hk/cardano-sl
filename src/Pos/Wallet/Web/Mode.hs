@@ -71,7 +71,7 @@ import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar)
 import           Pos.Wallet.Web.State.State    (WalletState)
 import           Pos.Wallet.Web.Tracking       (MonadWalletTracking (..),
                                                 syncOnImportWebWallet,
-                                                syncWSetsAtStartWebWallet,
+                                                syncWalletsAtStartWebWallet,
                                                 txMempoolToModifierWebWallet)
 import           Pos.WorkMode                  (RealModeContext)
 
@@ -175,6 +175,6 @@ instance MonadTxHistory WalletWebMode where
     saveTx = saveTxDefault
 
 instance MonadWalletTracking WalletWebMode where
-    syncWSetsAtStart = syncWSetsAtStartWebWallet
+    syncWalletsAtStart = syncWalletsAtStartWebWallet
     syncOnImport = syncOnImportWebWallet
     txMempoolToModifier = txMempoolToModifierWebWallet

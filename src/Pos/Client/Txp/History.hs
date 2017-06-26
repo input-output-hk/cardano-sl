@@ -29,7 +29,7 @@ module Pos.Client.Txp.History
 
 import           Universum
 
-import           Control.Lens                (makeLenses, (%=))
+import           Control.Lens                (makeLenses, views, (%=))
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Control (MonadBaseControl)

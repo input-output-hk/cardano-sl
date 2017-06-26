@@ -10,6 +10,7 @@ module Pos.DB.GState.GState
 
 import           Universum
 
+import           Control.Lens               (views)
 import           Control.Monad.Catch        (MonadMask)
 import qualified Database.RocksDB           as Rocks
 import           EtherCompat

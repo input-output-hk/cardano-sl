@@ -11,6 +11,7 @@ module Main
 
 import           Universum
 
+import           Control.Lens        (views)
 import           Data.Maybe          (fromJust)
 import           EtherCompat
 import           Formatting          (sformat, shown, (%))

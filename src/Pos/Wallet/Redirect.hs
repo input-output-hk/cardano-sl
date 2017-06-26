@@ -18,6 +18,7 @@ module Pos.Wallet.Redirect
 import           Universum
 
 import           Control.Concurrent.STM    (tryReadTMVar)
+import           Control.Lens              (views)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import           Data.Time.Units           (Millisecond)
 import           EtherCompat

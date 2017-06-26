@@ -12,6 +12,7 @@ module Pos.Lrc.Context
 
 import           Universum
 
+import           Control.Lens        (views)
 import           EtherCompat
 
 import           Pos.Core            (EpochIndex)

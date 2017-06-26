@@ -9,6 +9,7 @@ module Pos.Update.Download
        ) where
 
 import           Control.Concurrent.STM  (modifyTVar')
+import           Control.Lens            (views)
 import           Control.Monad.Except    (ExceptT (..), throwError)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL

@@ -9,6 +9,7 @@ module Pos.Delegation.Listeners
 
 import           Universum
 
+import           Control.Lens                  (views)
 import qualified Data.Text.Buildable
 import           EtherCompat
 import           Formatting                    (build, sformat, shown, (%))

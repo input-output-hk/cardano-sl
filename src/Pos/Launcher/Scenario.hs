@@ -13,7 +13,7 @@ module Pos.Launcher.Scenario
 
 import           Universum
 
-import           Control.Lens        (each, to, _tail)
+import           Control.Lens        (each, to, views, _tail)
 import           Development.GitRev  (gitBranch, gitHash)
 import           EtherCompat
 import           Formatting          (build, sformat, shown, (%))

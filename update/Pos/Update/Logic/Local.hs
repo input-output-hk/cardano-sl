@@ -25,6 +25,7 @@ module Pos.Update.Logic.Local
 import           Universum
 
 import           Control.Concurrent.STM (modifyTVar', readTVar, writeTVar)
+import           Control.Lens           (views)
 import           Control.Monad.Except   (runExceptT)
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM

@@ -10,7 +10,7 @@ module Pos.Ssc.GodTossing.Workers
 import           Universum
 
 import           Control.Concurrent.STM                (readTVar)
-import           Control.Lens                          (at, to)
+import           Control.Lens                          (at, to, views)
 import           Control.Monad.Except                  (runExceptT)
 import           Control.Monad.Trans.Maybe             (runMaybeT)
 import qualified Data.HashMap.Strict                   as HM

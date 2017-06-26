@@ -21,6 +21,7 @@ module Pos.Context.Functions
        , getUptime
        ) where
 
+import           Control.Lens        (views)
 import           Data.Time           (diffUTCTime, getCurrentTime)
 import           Data.Time.Units     (Microsecond, fromMicroseconds)
 import           EtherCompat

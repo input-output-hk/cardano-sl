@@ -8,6 +8,7 @@ module Pos.Update.MemState.Functions
 import           Universum
 
 import qualified Control.Concurrent.Lock   as Lock
+import           Control.Lens              (views)
 import           Control.Monad.Catch       (MonadMask, bracket_)
 import qualified Data.HashMap.Strict       as HM
 import           EtherCompat

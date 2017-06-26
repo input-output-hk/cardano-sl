@@ -30,7 +30,7 @@ module Pos.Delegation.Logic.Mempool
 
 import           Universum
 
-import           Control.Lens                (at, uses, (%=), (+=), (-=), (.=))
+import           Control.Lens                (at, uses, views, (%=), (+=), (-=), (.=))
 import qualified Data.Cache.LRU              as LRU
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS

@@ -27,8 +27,9 @@ module Pos.Core.Genesis
 
 import           Universum
 
-import           Control.Lens            (_head)
+import           Control.Lens            (ix)
 import           Data.Default            (def)
+import           Data.Hashable           (hash)
 import qualified Data.HashSet            as HS
 import qualified Data.Text               as T
 import           Formatting              (int, sformat, (%))
@@ -113,9 +114,10 @@ genesisBootStakeholders :: HashSet StakeholderId
 genesisBootStakeholders = getKeys genesisBootBalances
 
 -- | Returns a distribution sharing coins to
--- 'genesisBootStakeholders'.  If number of addresses is less then
--- coins, we give 1 coin to prefix.  Otherwise we give quotient to
--- everyone and remainder to the first one.
+-- 'genesisBootStakeholders'. If number of addresses @n@ is more then
+-- coins @c@, we give 1 coin to every addr in the prefix of length
+-- @n@. Otherwise we give quotient to every boot addr and assign
+-- remainder randomly based on passed coin hash among addresses.
 genesisSplitBoot :: Coin -> [(StakeholderId, Coin)]
 genesisSplitBoot c
     | cval <= 0 =
@@ -126,10 +128,14 @@ genesisSplitBoot c
       let (d :: Word64, m :: Word64) =
               bimap fromIntegral fromIntegral $
               divMod cval addrsNum
-          stakeCoins = replicate addrsNum (mkCoin d) &
-                           _head %~ unsafeAddCoin (mkCoin m)
+          stakeCoins =
+              replicate addrsNum (mkCoin d) &
+              ix remReceiver %~ unsafeAddCoin (mkCoin m)
       in bootStakeholders `zip` stakeCoins
   where
+    -- Person who will get the remainder in (2) case.
+    remReceiver :: Int
+    remReceiver = abs (hash c) `mod` addrsNum
     cval :: Int
     cval = fromIntegral $ unsafeGetCoin c
     addrsNum :: Int

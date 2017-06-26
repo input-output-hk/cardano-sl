@@ -51,6 +51,7 @@ library
                         Pos.Block.Logic
                         Pos.Block.Network
                         Pos.Block.Pure
+                        Pos.Block.Types
                         Pos.CLI
                         Pos.Context
                         Pos.CompileConfig
@@ -169,7 +170,6 @@ library
                         Pos.Block.Network.Listeners
                         Pos.Block.Network.Logic
                         Pos.Block.Network.Retrieval
-                        Pos.Block.Types
                         Pos.Block.Worker
 
                         -- Compile config
@@ -1097,16 +1097,26 @@ executable cardano-cli-docs
 
 test-suite cardano-test
   main-is:             Test.hs
-  other-modules:       Spec
+  other-modules:
+                       -- Standard module with some magic
+                       Spec
+
+                       -- Something
                        Test.Pos.Arbitrary.Infra
                        Test.Pos.Arbitrary.Infra.Communication
                        Test.Pos.Arbitrary.Infra.DHT
                        Test.Pos.BinarySpec
-                       Test.Pos.Block.LogicSpec
+
+                       -- Pos.Block testing
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
-                       Test.Pos.ConstantsSpec
+                       Test.Pos.Block.Logic.CreationSpec
+                       Test.Pos.Block.Logic.Mode
+                       Test.Pos.Block.Logic.VarSpec
+
+                       -- Everything else
                        Test.Pos.Communication.Identity.BinarySpec
+                       Test.Pos.ConstantsSpec
                        Test.Pos.Core.AddressSpec
                        Test.Pos.CryptoSpec
                        Test.Pos.DHT.Identity.BinarySpec
@@ -1144,6 +1154,7 @@ test-suite cardano-test
                      , binary
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-txp
@@ -1155,6 +1166,7 @@ test-suite cardano-test
                      , cryptonite
                      , data-default
                      , derive
+                     , ether
                      , formatting
                      , hspec
                      , kademlia
@@ -1172,6 +1184,8 @@ test-suite cardano-test
                      , safecopy
                      , serokell-util >= 0.1.3.4
                      , tagged
+                     , temporary
+                     , text-format
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers

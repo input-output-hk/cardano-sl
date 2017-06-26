@@ -25,7 +25,7 @@ import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..), isVerSuccess)
 import           System.Wlog               (WithLogger, logDebug)
 
-import           Pos.Block.Core            (Block, BlockHeader)
+import           Pos.Block.Core            (BlockHeader)
 import           Pos.Block.Logic.Util      (lcaWithMainChain, needRecovery)
 import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeader,
                                             verifyHeaders)
@@ -76,7 +76,7 @@ classifyNewHeader
 classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
 classifyNewHeader (Right header) = do
     curSlot <- getCurrentSlot
-    tipHeader <- DB.getTipHeader @(Block ssc)
+    tipHeader <- DB.getTipHeader @ssc
     let tipEoS = getEpochOrSlot tipHeader
     let newHeaderEoS = getEpochOrSlot header
     let newHeaderSlot = header ^. headerSlotL
@@ -155,7 +155,7 @@ classifyHeaders ::
     => NewestFirst NE (BlockHeader ssc)
     -> m (ClassifyHeadersRes ssc)
 classifyHeaders headers = do
-    tipHeader <- DB.getTipHeader @(Block ssc)
+    tipHeader <- DB.getTipHeader @ssc
     let tip = headerHash tipHeader
     haveOldestParent <- isJust <$> DB.blkGetHeader @ssc oldestParentHash
     let headersValid = isVerSuccess $

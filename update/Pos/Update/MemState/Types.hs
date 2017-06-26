@@ -56,9 +56,10 @@ data MemVar = MemVar
     }
 
 -- | Create new 'MemVar' using slotting and read-only access to DB.
-newMemVar :: (MonadIO m, MonadSlots m, MonadDBRead m) => m MemVar
+newMemVar :: (MonadIO m, MonadDBRead m, MonadSlots m) => m MemVar
 newMemVar = do
-    msSlot <- fromMaybe (SlotId 0 minBound) <$> getCurrentSlot
+    let slot0 = SlotId 0 minBound
+    msSlot <- fromMaybe slot0 <$> getCurrentSlot
     msTip <- getTip
     let ms = MemState { msPool = def, msModifier = mempty, .. }
     liftIO $ MemVar <$> newTVarIO ms <*> new

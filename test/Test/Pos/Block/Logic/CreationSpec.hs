@@ -1,6 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Test.Pos.Block.LogicSpec
+-- | Specification of 'Pos.Block.Logic.Creation' module.
+
+module Test.Pos.Block.Logic.CreationSpec
        ( spec
        ) where
 
@@ -33,7 +35,7 @@ import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util.Arbitrary         (makeSmall)
 
 spec :: Spec
-spec = describe "Block.Logic" $ do
+spec = describe "Block.Logic.Creation" $ do
 
     -- Sampling the minimum empty block size
     (sk0,prevHeader0) <- runIO $ generate arbitrary

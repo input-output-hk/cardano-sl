@@ -11,6 +11,8 @@ module Pos.Core.Types
        , AddrPkAttrs (..)
        , AddressHash
        , StakeholderId
+       , StakesMap
+       , GenesisStakes (..)
 
        , Timestamp (..)
 
@@ -120,10 +122,15 @@ newtype AddrPkAttrs = AddrPkAttrs
 instance Default AddrPkAttrs where
     def = AddrPkAttrs Nothing
 
+type AddressHash = AbstractHash Blake2b_224
+
 -- | Stakeholder identifier (stakeholders are identified by their public keys)
 type StakeholderId = AddressHash PublicKey
 
-type AddressHash = AbstractHash Blake2b_224
+-- | A mapping between stakeholders and they stakes.
+type StakesMap = HashMap StakeholderId Coin
+
+newtype GenesisStakes = GenesisStakes { unGenesisStakes :: StakesMap }
 
 instance NFData Address
 

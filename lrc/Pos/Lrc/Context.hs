@@ -44,14 +44,14 @@ mkLrcSyncData = LrcSyncData True <$> getEpoch
 
 -- | Block until LRC data is available for given epoch.
 waitLrc
-    :: (MonadIO m, MonadCtx ctx LrcContext LrcContext m)
+    :: (MonadIO m, MonadReader ctx m, HasLens LrcContext ctx LrcContext)
     => EpochIndex -> m ()
 waitLrc epoch = do
-    sync <- asksCtx @LrcContext lcLrcSync
+    sync <- views (lensOf @LrcContext) lcLrcSync
     () <$ readTVarConditional ((>= epoch) . lastEpochWithLrc) sync
 
 lrcActionOnEpoch
-    :: (MonadIO m, MonadCtx ctx LrcContext LrcContext m, MonadThrow m)
+    :: (MonadIO m, MonadReader ctx m, HasLens LrcContext ctx LrcContext, MonadThrow m)
     => EpochIndex
     -> (EpochIndex -> m (Maybe a))
     -> m a
@@ -61,7 +61,7 @@ lrcActionOnEpoch epoch =
         "action on lrcCallOnEpoch couldn't be performed properly"
 
 lrcActionOnEpochReason
-    :: (MonadIO m, MonadCtx ctx LrcContext LrcContext m, MonadThrow m)
+    :: (MonadIO m, MonadReader ctx m, HasLens LrcContext ctx LrcContext, MonadThrow m)
     => EpochIndex
     -> Text
     -> (EpochIndex -> m (Maybe a))

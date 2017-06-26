@@ -61,7 +61,7 @@ walletServeWebFull sendActions debug = walletServeImpl action
 
 nat :: WalletWebMode (WalletWebMode :~> Handler)
 nat = do
-    wwmc <- askCtx @WalletWebModeContextTag
+    wwmc <- view (lensOf @WalletWebModeContextTag)
     pure $ NT (convertHandler wwmc)
 
 convertHandler

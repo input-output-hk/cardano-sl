@@ -82,14 +82,15 @@ type WorkMode ssc ctx m
       , MonadProgressHeader ssc ctx m
       , MonadLastKnownHeader ssc ctx m
       , MonadPrimaryKey ctx m
-      , MonadCtx ctx StartTime StartTime m
-      , MonadCtx ctx BlkSemaphore BlkSemaphore m
-      , MonadCtx ctx LrcContext LrcContext m
-      , MonadCtx ctx UpdateContext UpdateContext m
-      , MonadCtx ctx NodeParams NodeParams m
-      , MonadCtx ctx UpdateParams UpdateParams m
-      , MonadCtx ctx SecurityParams SecurityParams m
-      , MonadCtx ctx TxpGlobalSettings TxpGlobalSettings m
+      , MonadReader ctx m
+      , HasLens StartTime ctx StartTime
+      , HasLens BlkSemaphore ctx BlkSemaphore
+      , HasLens LrcContext ctx LrcContext
+      , HasLens UpdateContext ctx UpdateContext
+      , HasLens NodeParams ctx NodeParams
+      , HasLens UpdateParams ctx UpdateParams
+      , HasLens SecurityParams ctx SecurityParams
+      , HasLens TxpGlobalSettings ctx TxpGlobalSettings
       , MonadSscContext ssc ctx m
       , WithPeerState m
       , MonadShutdownMem ctx m

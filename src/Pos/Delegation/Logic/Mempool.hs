@@ -150,7 +150,8 @@ processProxySKHeavy
        , MonadBlockDB ssc m
        , MonadGState m
        , MonadDelegation ctx m
-       , MonadCtx ctx LrcContext LrcContext m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk = do
@@ -229,7 +230,8 @@ data PskLightVerdict
 -- adds/caches on decision, returns this decision).
 processProxySKLight ::
        ( MonadDelegation ctx m
-       , MonadCtx ctx NodeParams NodeParams m
+       , MonadReader ctx m
+       , HasLens NodeParams ctx NodeParams
        , MonadDB m
        , MonadMask m
        , MonadRealDB ctx m
@@ -237,7 +239,7 @@ processProxySKLight ::
     => ProxySKLight
     -> m PskLightVerdict
 processProxySKLight psk = do
-    sk <- asksCtx @NodeParams npSecretKey
+    sk <- views (lensOf @NodeParams) npSecretKey
     curTime <- liftIO getCurrentTime
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
     psks <- RWL.withRead miscLock Misc.getProxySecretKeys

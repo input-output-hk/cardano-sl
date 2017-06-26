@@ -73,8 +73,9 @@ import           Pos.Util.Util              (leftToPanic)
 type CreationMode ssc ctx m
      = ( BlockApplyMode ssc ctx m
        , MonadPrimaryKey ctx m
-       , MonadCtx ctx BlkSemaphore BlkSemaphore m
-       , MonadCtx ctx NodeParams NodeParams m
+       , MonadReader ctx m
+       , HasLens BlkSemaphore ctx BlkSemaphore
+       , HasLens NodeParams ctx NodeParams
        )
 
 ----------------------------------------------------------------------------

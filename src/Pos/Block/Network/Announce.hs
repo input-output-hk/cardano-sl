@@ -46,7 +46,7 @@ announceBlock
     => SendActions m -> MainBlockHeader ssc -> m ()
 announceBlock sendActions header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
-    SecurityParams{..} <- askCtx @SecurityParams
+    SecurityParams{..} <- view (lensOf @SecurityParams)
     let throwOnIgnored nId =
             whenJust (nodeIdToAddress nId) $ \addr ->
                 whenM (shouldIgnoreAddress addr) $

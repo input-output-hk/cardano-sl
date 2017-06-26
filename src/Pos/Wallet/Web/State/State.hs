@@ -69,10 +69,10 @@ import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..), WalletStorage)
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
-type MonadWalletWebDB ctx m = MonadCtx ctx WalletState WalletState m
+type MonadWalletWebDB ctx m = (MonadReader ctx m, HasLens WalletState ctx WalletState)
 
 getWalletWebState :: MonadWalletWebDB ctx m => m WalletState
-getWalletWebState = askCtx @WalletState
+getWalletWebState = view (lensOf @WalletState)
 
 -- | Constraint for working with web wallet DB
 type WebWalletModeDB ctx m = (MonadWalletWebDB ctx m, MonadIO m, MonadMockable m)

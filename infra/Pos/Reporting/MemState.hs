@@ -25,7 +25,7 @@ makeLenses ''ReportingContext
 
 -- | Monads are able to do remote error reporting. IO for making http
 -- requests, context for saving reporting-related data.
-type MonadReportingMem ctx m = MonadCtx ctx ReportingContext ReportingContext m
+type MonadReportingMem ctx m = (MonadReader ctx m, HasLens ReportingContext ctx ReportingContext)
 
 emptyReportingContext :: ReportingContext
 emptyReportingContext = ReportingContext [] mempty

@@ -43,6 +43,7 @@ type SscMode ssc ctx m
       , MonadDiscovery m
       , WithPeerState m
       , MonadSscContext ssc ctx m
-      , MonadCtx ctx SecurityParams SecurityParams m
-      , MonadCtx ctx LrcContext LrcContext m
+      , MonadReader ctx m
+      , HasLens SecurityParams ctx SecurityParams
+      , HasLens LrcContext ctx LrcContext
       )

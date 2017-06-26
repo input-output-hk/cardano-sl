@@ -71,7 +71,7 @@ lcaWithMainChain headers =
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
 withBlkSemaphore
-    :: (MonadIO m, MonadMask m, MonadCtx ctx BlkSemaphore BlkSemaphore m)
+    :: (MonadIO m, MonadMask m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
     => (HeaderHash -> m (a, HeaderHash)) -> m a
 withBlkSemaphore action =
     bracketOnError takeBlkSemaphore putBlkSemaphore doAction
@@ -82,7 +82,7 @@ withBlkSemaphore action =
 
 -- | Version of withBlkSemaphore which doesn't have any result.
 withBlkSemaphore_
-    :: (MonadIO m, MonadMask m, MonadCtx ctx BlkSemaphore BlkSemaphore m)
+    :: (MonadIO m, MonadMask m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
     => (HeaderHash -> m HeaderHash) -> m ()
 withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
 

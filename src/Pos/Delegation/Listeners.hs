@@ -92,7 +92,7 @@ pskHeavyRelay = Data $ DataParams $ handlePsk
             PHIncoherent -> do
                 -- We're probably updating state over epoch, so leaders
                 -- can be calculated incorrectly.
-                blkSemaphore <- asksCtx @BlkSemaphore unBlkSemaphore
+                blkSemaphore <- views (lensOf @BlkSemaphore) unBlkSemaphore
                 void $ readMVar blkSemaphore
                 handlePsk pSk
             PHAdded -> pure True

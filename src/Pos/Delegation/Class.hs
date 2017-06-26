@@ -89,7 +89,7 @@ type DelegationVar = RWVar DelegationWrap
 -- | We're locking on the whole delegation wrap at once. Locking on
 -- independent components is better in performance, so there's a place
 -- for optimization here.
-type MonadDelegation ctx m = MonadCtx ctx DelegationVar DelegationVar m
+type MonadDelegation ctx m = (MonadReader ctx m, HasLens DelegationVar ctx DelegationVar)
 
 askDelegationState :: MonadDelegation ctx m => m DelegationVar
-askDelegationState = askCtx @DelegationVar
+askDelegationState = view (lensOf @DelegationVar)

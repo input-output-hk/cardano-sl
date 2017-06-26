@@ -331,9 +331,9 @@ addToBlockRequestQueue
     -> Maybe (BlockHeader ssc)
     -> m ()
 addToBlockRequestQueue headers nodeId mrecoveryTip = do
-    queue <- askCtx @BlockRetrievalQueueTag
-    recHeaderVar <- askCtx @RecoveryHeaderTag
-    lastKnownH <- askCtx @LastKnownHeaderTag
+    queue <- view (lensOf @BlockRetrievalQueueTag)
+    recHeaderVar <- view (lensOf @RecoveryHeaderTag)
+    lastKnownH <- view (lensOf @LastKnownHeaderTag)
     let updateRecoveryHeader (Just recoveryTip) = do
             oldV <- readTVar lastKnownH
             when (maybe True (recoveryTip `isMoreDifficult`) oldV) $

@@ -92,10 +92,10 @@ instance WS.WebSocketsData NotifyEvent where
 --------
 
 -- | MonadWalletWebSockets stands for monad which is able to get web wallet sockets
-type MonadWalletWebSockets ctx m = MonadCtx ctx ConnectionsVar ConnectionsVar m
+type MonadWalletWebSockets ctx m = (MonadReader ctx m, HasLens ConnectionsVar ctx ConnectionsVar)
 
 getWalletWebSockets :: MonadWalletWebSockets ctx m => m ConnectionsVar
-getWalletWebSockets = askCtx @ConnectionsVar
+getWalletWebSockets = view (lensOf @ConnectionsVar)
 
 type WebWalletSockets ctx m = (MonadWalletWebSockets ctx m, MonadIO m)
 

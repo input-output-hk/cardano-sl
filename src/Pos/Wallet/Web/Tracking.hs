@@ -67,7 +67,8 @@ type CAccModifier = MM.MapModifier CWAddressMeta ()
 
 type BlockLockMode ssc ctx m =
     ( WithLogger m
-    , MonadCtx ctx BlkSemaphore BlkSemaphore m
+    , MonadReader ctx m
+    , HasLens BlkSemaphore ctx BlkSemaphore
     , MonadRealDB ctx m
     , DB.MonadBlockDB ssc m
     , MonadMask m

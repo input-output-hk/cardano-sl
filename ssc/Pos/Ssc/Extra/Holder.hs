@@ -26,7 +26,8 @@ import           Pos.Ssc.Extra.Types     (SscState (..))
 mkSscState
     :: forall ssc ctx m .
        ( WithLogger m
-       , MonadCtx ctx LrcContext LrcContext m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
        , SscGStateClass ssc
        , SscLocalDataClass ssc
        , MonadDBRead m

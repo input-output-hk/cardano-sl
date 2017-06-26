@@ -73,7 +73,7 @@ data DataParams contents m = DataParams
     }
 
 
-type MonadRelayMem ctx m = MonadCtx ctx RelayContext RelayContext m
+type MonadRelayMem ctx m = (MonadReader ctx m, HasLens RelayContext ctx RelayContext)
 
 askRelayMem :: MonadRelayMem ctx m => m RelayContext
-askRelayMem = askCtx @RelayContext
+askRelayMem = view (lensOf @RelayContext)

@@ -87,7 +87,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
             action vI sendActions `catch` reportHandler
     mapM_ (fork . unpackPlugin) plugins'
 
-    nc <- askCtx @NodeContextTag
+    nc <- view (lensOf @NodeContextTag)
 
     -- Instead of sleeping forever, we wait until graceful shutdown
     waitForWorkers (allWorkersCount @ssc nc)
@@ -129,10 +129,10 @@ nodeStartMsg = logInfo msg
 -- Details
 ----------------------------------------------------------------------------
 
-putProxySecreyKeys :: (MonadDB m, MonadCtx ctx NodeParams NodeParams m) => m ()
+putProxySecreyKeys :: (MonadDB m, MonadReader ctx m, HasLens NodeParams ctx NodeParams) => m ()
 putProxySecreyKeys = do
-    userSecret <- npUserSecret <$> askCtx @NodeParams
-    secretKey <- npSecretKey <$> askCtx @NodeParams
+    userSecret <- npUserSecret <$> view (lensOf @NodeParams)
+    secretKey <- npSecretKey <$> view (lensOf @NodeParams)
     let eternity = (minBound, maxBound)
         makeOwnPSK =
             flip (createProxySecretKey secretKey) eternity . encToPublic
@@ -141,7 +141,7 @@ putProxySecreyKeys = do
 
 initSemaphore :: (WorkMode ssc ctx m) => m ()
 initSemaphore = do
-    semaphore <- asksCtx @BlkSemaphore unBlkSemaphore
+    semaphore <- views (lensOf @BlkSemaphore) unBlkSemaphore
     whenJustM (tryReadMVar semaphore) $ const $
         logError "ncBlkSemaphore is not empty at the very beginning"
     tip <- GS.getTip

@@ -80,8 +80,8 @@ retrievalWorkerImpl sendActions =
         mainLoop
   where
     mainLoop = runIfNotShutdown $ reportingFatal version $ do
-        queue        <- askCtx @BlockRetrievalQueueTag
-        recHeaderVar <- askCtx @RecoveryHeaderTag
+        queue        <- view (lensOf @BlockRetrievalQueueTag)
+        recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         -- It is not our job to *start* recovery; if we actually need
         -- recovery, the 'checkForReceivedBlocksWorker' worker in
         -- Pos.Security.Workers will trigger it. What we do here is simply an
@@ -146,7 +146,7 @@ retrievalWorkerImpl sendActions =
 
 dropUpdateHeader :: WorkMode ssc ctx m => m ()
 dropUpdateHeader = do
-    progressHeaderVar <- askCtx @ProgressHeaderTag
+    progressHeaderVar <- view (lensOf @ProgressHeaderTag)
     void $ atomically $ tryTakeTMVar progressHeaderVar
 
 -- | The returned 'Bool' signifies whether given peer was kicked and recovery
@@ -163,7 +163,7 @@ dropRecoveryHeader
     => NodeId
     -> m Bool
 dropRecoveryHeader nodeId = do
-    recHeaderVar <- askCtx @RecoveryHeaderTag
+    recHeaderVar <- view (lensOf @RecoveryHeaderTag)
     (kicked,realPeer) <- atomically $ do
         let processKick (peer,_) = do
                 let p = peer == nodeId
@@ -249,7 +249,7 @@ handleCHsValid sendActions nodeId lcaChild newestHash = do
            (MsgBlock ssc) m) -> do
       send conv $ mkBlocksRequest lcaChildHash newestHash
       chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
-      recHeaderVar <- askCtx @RecoveryHeaderTag
+      recHeaderVar <- view (lensOf @RecoveryHeaderTag)
       case chainE of
           Left e -> do
               logWarning $ sformat
@@ -308,7 +308,7 @@ retrieveBlocks' i conv prevH endH = lift (recvLimited conv) >>= \case
                 ("Received block #"%int%" with prev hash "%shortHashF%
                  " while "%shortHashF%" was expected: "%build)
                 i prevH' prevH (block ^. blockHeader)
-        progressHeaderVar <- askCtx @ProgressHeaderTag
+        progressHeaderVar <- view (lensOf @ProgressHeaderTag)
         atomically $ do void $ tryTakeTMVar progressHeaderVar
                         putTMVar progressHeaderVar $ block ^. blockHeader
         if curH == endH

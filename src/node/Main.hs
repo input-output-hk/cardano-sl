@@ -68,7 +68,7 @@ updateTriggerWorker
     => ([WorkerSpec (RealMode ssc)], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
-    void $ takeMVar =<< asksCtx @UpdateContext ucUpdateSemaphore
+    void $ takeMVar =<< views (lensOf @UpdateContext) ucUpdateSemaphore
     triggerShutdown
 
 ----------------------------------------------------------------------------

@@ -35,7 +35,8 @@ type KeyData = TVar UserSecret
 ----------------------------------------------------------------------
 
 type MonadKeys ctx m =
-    ( MonadCtx ctx KeyData KeyData m
+    ( MonadReader ctx m
+    , HasLens KeyData ctx KeyData
     , MonadIO m
     , MonadThrow m )
 
@@ -67,10 +68,10 @@ newSecretKey pp = do
 ------------------------------------------------------------------------
 
 getSecret :: MonadKeys ctx m => m UserSecret
-getSecret = askCtx @KeyData >>= atomically . STM.readTVar
+getSecret = view (lensOf @KeyData) >>= atomically . STM.readTVar
 
 putSecret :: MonadKeys ctx m => UserSecret -> m ()
-putSecret s = askCtx @KeyData >>= atomically . flip STM.writeTVar s >> writeUserSecret s
+putSecret s = view (lensOf @KeyData) >>= atomically . flip STM.writeTVar s >> writeUserSecret s
 
 modifySecret :: MonadKeys ctx m => (UserSecret -> UserSecret) -> m ()
 modifySecret f =

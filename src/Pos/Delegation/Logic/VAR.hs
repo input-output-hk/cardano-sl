@@ -305,7 +305,8 @@ dlgVerifyBlocks ::
        ( DB.MonadBlockDB ssc m
        , DB.MonadDBRead m
        , MonadIO m
-       , MonadCtx ctx LrcContext LrcContext m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
        )
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE DlgUndo))
@@ -494,7 +495,8 @@ dlgRollbackBlocks
        , MonadIO m
        , MonadMask m
        , WithLogger m
-       , MonadCtx ctx LrcContext LrcContext m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
        )
     => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
 dlgRollbackBlocks blunds = do

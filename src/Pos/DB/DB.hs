@@ -82,9 +82,10 @@ openNodeDBs recreate fp = do
 -- | Initialize DBs if necessary.
 initNodeDBs
     :: forall ssc ctx m.
-       ( MonadCtx ctx GenesisUtxo GenesisUtxo m
-       , MonadCtx ctx GenesisLeaders GenesisLeaders m
-       , MonadCtx ctx NodeParams NodeParams m
+       ( MonadReader ctx m
+       , HasLens GenesisUtxo ctx GenesisUtxo
+       , HasLens GenesisLeaders ctx GenesisLeaders
+       , HasLens NodeParams ctx NodeParams
        , MonadBlockDBWrite ssc m
        , MonadDB m
        )

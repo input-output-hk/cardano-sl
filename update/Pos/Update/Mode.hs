@@ -25,7 +25,8 @@ type UpdateMode ctx m
       , MonadGState m
       , MonadDB m
       , MonadRelayMem ctx m
-      , MonadCtx ctx UpdateContext UpdateContext m
-      , MonadCtx ctx LrcContext LrcContext m
-      , MonadCtx ctx UpdateParams UpdateParams m
+      , MonadReader ctx m
+      , HasLens UpdateContext ctx UpdateContext
+      , HasLens LrcContext ctx LrcContext
+      , HasLens UpdateParams ctx UpdateParams
       )

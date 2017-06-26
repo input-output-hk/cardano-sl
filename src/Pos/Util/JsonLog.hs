@@ -148,9 +148,9 @@ jsonLogConfigFromHandle h = do
     return $ JsonLogConfig v (\_ -> return True)
 
 jsonLogDefault
-    :: (ToJSON a, MonadCtx ctx JsonLogConfig JsonLogConfig m, Mockable Catch m,
+    :: (ToJSON a, MonadReader ctx m, HasLens JsonLogConfig ctx JsonLogConfig, Mockable Catch m,
         MonadIO m, WithLogger m)
     => a -> m ()
 jsonLogDefault x = do
-    jlc <- askCtx @JsonLogConfig
+    jlc <- view (lensOf @JsonLogConfig)
     JL.jsonLogDefault jlc x

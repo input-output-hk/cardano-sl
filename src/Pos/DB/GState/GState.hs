@@ -33,8 +33,9 @@ import           Pos.Update.DB              (prepareGStateUS)
 -- | Put missing initial data into GState DB.
 prepareGStateDB
     :: forall ctx m.
-       ( MonadCtx ctx NodeParams NodeParams m
-       , MonadCtx ctx GenesisUtxo GenesisUtxo m
+       ( MonadReader ctx m
+       , HasLens NodeParams ctx NodeParams
+       , HasLens GenesisUtxo ctx GenesisUtxo
        , MonadDB m
        )
     => HeaderHash -> m ()
@@ -44,7 +45,7 @@ prepareGStateDB initialTip = do
     prepareGStateUtxo genesisUtxo
     prepareGtDB genesisCertificates
     prepareGStateBalances genesisUtxo
-    systemStart <- asksCtx @NodeParams npSystemStart
+    systemStart <- views (lensOf @NodeParams) npSystemStart
     prepareGStateUS systemStart
 
 -- | Check that GState DB is consistent.

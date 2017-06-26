@@ -43,13 +43,15 @@ type USGlobalApplyMode ctx m =
     ( WithLogger m
     , MonadIO m
     , DB.MonadDBRead m
-    , MonadCtx ctx LrcContext LrcContext m
+    , MonadReader ctx m
+    , HasLens LrcContext ctx LrcContext
     )
 type USGlobalVerifyMode ctx m =
     ( WithLogger m
     , MonadIO m
     , DB.MonadDBRead m
-    , MonadCtx ctx LrcContext LrcContext m
+    , MonadReader ctx m
+    , HasLens LrcContext ctx LrcContext
     , MonadError PollVerFailure m
     )
 
@@ -143,7 +145,8 @@ usCanCreateBlock ::
        ( WithLogger m
        , MonadIO m
        , DB.MonadDBRead m
-       , MonadCtx ctx LrcContext LrcContext m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
        )
     => m Bool
 usCanCreateBlock =

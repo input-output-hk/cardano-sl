@@ -247,10 +247,10 @@ dbGetBlund x =
 -- to use real DB without IO. Finally, it has 'MonadCatch' constraints
 -- (partially for historical reasons, partially for good ones).
 type MonadRealDB ctx m
-     = (MonadCtx ctx NodeDBs NodeDBs m, MonadIO m, MonadBaseControl IO m, MonadCatch m)
+     = (MonadReader ctx m, HasLens NodeDBs ctx NodeDBs, MonadIO m, MonadBaseControl IO m, MonadCatch m)
 
 getNodeDBs :: MonadRealDB ctx m => m NodeDBs
-getNodeDBs = askCtx @NodeDBs
+getNodeDBs = view (lensOf @NodeDBs)
 
 usingReadOptions
     :: MonadRealDB ctx m
@@ -259,7 +259,7 @@ usingReadOptions
     -> m a
     -> m a
 usingReadOptions opts l =
-    localCtx @NodeDBs (over l (\db -> db {rocksReadOpts = opts}))
+    local (over (lensOf @NodeDBs . l) (\db -> db {rocksReadOpts = opts}))
 
 usingWriteOptions
     :: MonadRealDB ctx m
@@ -268,7 +268,7 @@ usingWriteOptions
     -> m a
     -> m a
 usingWriteOptions opts l =
-    localCtx @NodeDBs (over l (\db -> db {rocksWriteOpts = opts}))
+    local (over (lensOf @NodeDBs . l) (\db -> db {rocksWriteOpts = opts}))
 
 getBlockIndexDB :: MonadRealDB ctx m => m DB
 getBlockIndexDB = view blockIndexDB <$> getNodeDBs

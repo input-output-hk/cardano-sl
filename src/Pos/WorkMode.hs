@@ -15,6 +15,8 @@ module Pos.WorkMode
        , RealModeContext(..)
        ) where
 
+import           Universum
+
 import qualified Control.Monad.Reader        as Mtl
 import           EtherCompat
 import           Mockable.Production         (Production)
@@ -77,8 +79,8 @@ modeContext [d|
 type RealMode ssc = Mtl.ReaderT (RealModeContext ssc) Production
 
 instance {-# OVERLAPPING #-} HasLoggerName (RealMode ssc) where
-    getLoggerName = askCtx @LoggerName
-    modifyLoggerName = localCtx @LoggerName
+    getLoggerName = view (lensOf @LoggerName)
+    modifyLoggerName f = local (lensOf @LoggerName %~ f)
 
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ssc) where
     jsonLog = jsonLogDefault

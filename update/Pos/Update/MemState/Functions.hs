@@ -23,10 +23,10 @@ import           Pos.Update.MemState.Types (MemPool (..), MemVar (..))
 type UpdateVotes = HashMap PublicKey UpdateVote
 
 withUSLock
-    :: (MonadCtx ctx UpdateContext UpdateContext m, MonadIO m, MonadMask m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m, MonadMask m)
     => m a -> m a
 withUSLock action = do
-    lock <- mvLock <$> asksCtx @UpdateContext ucMemState
+    lock <- mvLock <$> views (lensOf @UpdateContext) ucMemState
     bracket_ (liftIO $ Lock.acquire lock) (liftIO $ Lock.release lock) action
 
 -- | Add given payload to MemPool. Size is updated assuming that all added

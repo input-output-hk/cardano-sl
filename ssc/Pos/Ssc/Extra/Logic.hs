@@ -112,7 +112,8 @@ sscCalculateSeed
        ( MonadSscMem ssc ctx m
        , MonadDBRead m
        , SscGStateClass ssc
-       , MonadCtx ctx LrcContext LrcContext m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
        , MonadIO m
        , WithLogger m )
     => EpochIndex
@@ -145,7 +146,8 @@ sscNormalize
        , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
        , MonadSscMem ssc ctx m
        , SscLocalDataClass ssc
-       , MonadCtx ctx LrcContext LrcContext m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
        , SscHelpersClass ssc
        , WithLogger m
        , MonadIO m
@@ -186,10 +188,10 @@ sscResetLocal = do
 -- 'MonadIO' is needed only for 'TVar' (I hope).
 type SscGlobalApplyMode ssc ctx m =
     (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
-     MonadDBRead m, MonadIO m, MonadCtx ctx LrcContext LrcContext m)
+     MonadDBRead m, MonadIO m, MonadReader ctx m, HasLens LrcContext ctx LrcContext)
 type SscGlobalVerifyMode ssc ctx m =
     (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
-     MonadDBRead m, MonadCtx ctx LrcContext LrcContext m, MonadIO m,
+     MonadDBRead m, MonadReader ctx m, HasLens LrcContext ctx LrcContext, MonadIO m,
      MonadError (SscVerifyError ssc) m)
 
 sscRunGlobalUpdate
@@ -303,7 +305,7 @@ sscVerifyBlocks blocks = do
 ----------------------------------------------------------------------------
 
 getRichmenFromLrc
-    :: (MonadIO m, MonadDBRead m, MonadCtx ctx LrcContext LrcContext m)
+    :: (MonadIO m, MonadDBRead m, MonadReader ctx m, HasLens LrcContext ctx LrcContext)
     => Text -> EpochIndex -> m RichmenStake
 getRichmenFromLrc fname epoch =
     lrcActionOnEpochReason

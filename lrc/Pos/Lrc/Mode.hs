@@ -23,5 +23,5 @@ type LrcMode ssc ctx m
        , MonadDB m
        , MonadIO m
        , Mockables m [Async, Concurrently, Delay]
-       , MonadCtx ctx LrcContext LrcContext m
+       , MonadReader ctx m, HasLens LrcContext ctx LrcContext
        )

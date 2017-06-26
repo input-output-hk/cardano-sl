@@ -20,8 +20,9 @@ import           Pos.Util            (maybeThrow)
 
 -- | Put missing initial data into LRC DB.
 prepareLrcDB
-    :: ( MonadCtx ctx GenesisLeaders GenesisLeaders m
-       , MonadCtx ctx GenesisUtxo GenesisUtxo m
+    :: ( MonadReader ctx m
+       , HasLens GenesisLeaders ctx GenesisLeaders
+       , HasLens GenesisUtxo ctx GenesisUtxo
        , MonadDB m
        )
     => m ()

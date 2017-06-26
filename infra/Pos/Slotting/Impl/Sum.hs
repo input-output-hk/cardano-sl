@@ -38,34 +38,34 @@ data SlottingContextSum
 
 -- | Monad which combines all 'MonadSlots' implementations (and
 -- uses only one of them).
-type MonadSlottingSum ctx m = MonadCtx ctx SlottingContextSum SlottingContextSum m
+type MonadSlottingSum ctx m = (MonadReader ctx m, HasLens SlottingContextSum ctx SlottingContextSum)
 
 askSlottingContextSum :: MonadSlottingSum ctx m => m SlottingContextSum
-askSlottingContextSum = askCtx @SlottingContextSum
+askSlottingContextSum = view (lensOf @SlottingContextSum)
 
 type SlotsSumEnv ctx m = (MonadSlottingSum ctx m, NtpMode m, SimpleSlottingMode m)
 
 getCurrentSlotSum :: SlotsSumEnv ctx m => m (Maybe SlotId)
 getCurrentSlotSum =
-    askCtx @SlottingContextSum >>= \case
+    view (lensOf @SlottingContextSum) >>= \case
         SCSimple -> simpleGetCurrentSlot
         SCNtp var -> ntpGetCurrentSlot var
 
 getCurrentSlotBlockingSum :: SlotsSumEnv ctx m => m SlotId
 getCurrentSlotBlockingSum =
-    askCtx @SlottingContextSum >>= \case
+    view (lensOf @SlottingContextSum) >>= \case
         SCSimple -> simpleGetCurrentSlotBlocking
         SCNtp var -> ntpGetCurrentSlotBlocking var
 
 getCurrentSlotInaccurateSum :: SlotsSumEnv ctx m => m SlotId
 getCurrentSlotInaccurateSum =
-    askCtx @SlottingContextSum >>= \case
+    view (lensOf @SlottingContextSum) >>= \case
         SCSimple -> simpleGetCurrentSlotInaccurate
         SCNtp var -> ntpGetCurrentSlotInaccurate var
 
 currentTimeSlottingSum :: SlotsSumEnv ctx m => m Timestamp
 currentTimeSlottingSum =
-    askCtx @SlottingContextSum >>= \case
+    view (lensOf @SlottingContextSum) >>= \case
         SCSimple -> simpleCurrentTimeSlotting
         SCNtp var -> ntpCurrentTime var
 

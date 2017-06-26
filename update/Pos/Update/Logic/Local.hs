@@ -61,46 +61,47 @@ type USLocalLogicMode ctx m =
     , MonadDBRead m
     , MonadMask m
     , WithLogger m
-    , MonadCtx ctx UpdateContext UpdateContext m
-    , MonadCtx ctx LrcContext LrcContext m
+    , MonadReader ctx m
+    , HasLens UpdateContext ctx UpdateContext
+    , HasLens LrcContext ctx LrcContext
     )
 
 getMemPool
-    :: (MonadCtx ctx UpdateContext UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => m MemPool
 getMemPool = msPool <$>
-    (atomically . readTVar . mvState =<< asksCtx @UpdateContext ucMemState)
+    (atomically . readTVar . mvState =<< views (lensOf @UpdateContext) ucMemState)
 
 clearUSMemPool
-    :: (MonadCtx ctx UpdateContext UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => m ()
 clearUSMemPool =
-    atomically . flip modifyTVar' resetData . mvState =<< asksCtx @UpdateContext ucMemState
+    atomically . flip modifyTVar' resetData . mvState =<< views (lensOf @UpdateContext) ucMemState
   where
     resetData memState = memState {msPool = def, msModifier = def}
 
 getPollModifier
-    :: (MonadCtx ctx UpdateContext UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => m PollModifier
 getPollModifier = msModifier <$>
-    (atomically . readTVar . mvState =<< asksCtx @UpdateContext ucMemState)
+    (atomically . readTVar . mvState =<< views (lensOf @UpdateContext) ucMemState)
 
 getLocalProposals
-    :: (MonadCtx ctx UpdateContext UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => m UpdateProposals
 getLocalProposals = mpProposals <$> getMemPool
 
 getLocalVotes
-    :: (MonadCtx ctx UpdateContext UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => m LocalVotes
 getLocalVotes = mpLocalVotes <$> getMemPool
 
 withCurrentTip
-    :: (MonadCtx ctx UpdateContext UpdateContext m, MonadDBRead m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadDBRead m, MonadIO m)
     => (MemState -> m MemState) -> m ()
 withCurrentTip action = do
     tipBefore <- DB.getTip
-    stateVar <- mvState <$> asksCtx @UpdateContext ucMemState
+    stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
     ms <- atomically $ readTVar stateVar
     newMS <- action ms
     atomically $ modifyTVar' stateVar $ \cur ->
@@ -137,8 +138,9 @@ processSkeleton payload =
 refreshMemPool
     :: ( MonadDBRead m
        , MonadIO m
-       , MonadCtx ctx UpdateContext UpdateContext m
-       , MonadCtx ctx LrcContext LrcContext m
+       , MonadReader ctx m
+       , HasLens UpdateContext ctx UpdateContext
+       , HasLens LrcContext ctx LrcContext
        , WithLogger m
        )
     => MemState -> m MemState
@@ -161,13 +163,13 @@ refreshMemPool ms@MemState {..} = do
 -- | This function returns true if update proposal with given
 -- identifier should be requested.
 isProposalNeeded
-    :: (MonadCtx ctx UpdateContext UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => UpId -> m Bool
 isProposalNeeded id = not . HM.member id <$> getLocalProposals
 
 -- | Get update proposal with given id if it is known.
 getLocalProposalNVotes
-    :: (MonadCtx ctx UpdateContext UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => UpId -> m (Maybe (UpdateProposal, [UpdateVote]))
 getLocalProposalNVotes id = do
     prop <- HM.lookup id <$> getLocalProposals
@@ -215,7 +217,7 @@ isVoteNeeded propId pk decision = do
 -- | Get update vote for proposal with given id from given issuer and
 -- with given decision if it is known.
 getLocalVote
-    :: (MonadCtx ctx UpdateContext UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => UpId -> PublicKey -> Bool -> m (Maybe UpdateVote)
 getLocalVote propId pk decision = do
     voteMaybe <- lookupVote propId pk <$> getLocalVotes
@@ -249,7 +251,7 @@ usNormalize :: (USLocalLogicMode ctx m) => m ()
 usNormalize =
     withUSLock $ do
         tip <- DB.getTip
-        stateVar <- mvState <$> asksCtx @UpdateContext ucMemState
+        stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
         atomically . writeTVar stateVar =<< usNormalizeDo (Just tip) Nothing
 
 -- Normalization under lock.
@@ -257,7 +259,7 @@ usNormalizeDo
     :: (USLocalLogicMode ctx m)
     => Maybe HeaderHash -> Maybe SlotId -> m MemState
 usNormalizeDo tip slot = do
-    stateVar <- mvState <$> asksCtx @UpdateContext ucMemState
+    stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
     ms@MemState {..} <- atomically $ readTVar stateVar
     let MemPool {..} = msPool
     ((newProposals, newVotes), newModifier) <-

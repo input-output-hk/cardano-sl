@@ -79,12 +79,13 @@ type BlockMode ssc ctx m
        -- Needed by some components.
        , MonadGState m
        -- LRC is really needed.
-       , MonadCtx ctx LrcContext LrcContext m
+       , HasLens LrcContext ctx LrcContext
        -- This constraints define block components' global logic.
-       , MonadCtx ctx TxpGlobalSettings TxpGlobalSettings m
+       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
        , SscGStateClass ssc
        -- And 'MonadIO' is needed as usual.
        , MonadIO m
+       , MonadReader ctx m
        )
 
 -- | Set of constraints necessary for high-level block verification.
@@ -104,11 +105,12 @@ type BlockApplyMode ssc ctx m
        , MonadTxpMem TxpExtra_TMP ctx m
        , MonadDelegation ctx m
        , SscLocalDataClass ssc
-       , MonadCtx ctx UpdateContext UpdateContext m
+       , HasLens UpdateContext ctx UpdateContext
        -- Needed for error reporting.
        , MonadReportingMem ctx m
        , MonadDiscovery m
        , MonadBaseControl IO m
+       , MonadReader ctx m
        )
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
@@ -151,7 +153,7 @@ applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
     slogBatch <- slogApplyBlocks blunds
-    TxpGlobalSettings {..} <- askCtx @TxpGlobalSettings
+    TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
@@ -188,7 +190,7 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
-    TxpGlobalSettings {..} <- askCtx @TxpGlobalSettings
+    TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
     sscBatch <- SomeBatchOp <$> sscRollbackBlocks
         (map (toSscBlock . fst) toRollback)

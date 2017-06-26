@@ -45,7 +45,7 @@ putLeaders epoch = putBi (leadersKey epoch)
 ----------------------------------------------------------------------------
 
 prepareLrcLeaders ::
-       (MonadCtx ctx GenesisLeaders GenesisLeaders m, MonadDB m, MonadDBRead m)
+       (MonadReader ctx m, HasLens GenesisLeaders ctx GenesisLeaders, MonadDB m, MonadDBRead m)
     => m ()
 prepareLrcLeaders =
     whenNothingM_ (getLeaders 0) $

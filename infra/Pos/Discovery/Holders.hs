@@ -63,20 +63,20 @@ data DiscoveryContextSum
 
 -- | Monad which combines all 'MonadDiscovery' implementations (and
 -- uses only one of them).
-type MonadDiscoverySum ctx m = (MonadCtx ctx DiscoveryContextSum DiscoveryContextSum m)
+type MonadDiscoverySum ctx m = (MonadReader ctx m, HasLens DiscoveryContextSum ctx DiscoveryContextSum)
 
 type DiscoverySumEnv ctx m =
     (MonadDiscoverySum ctx m, DiscoveryKademliaEnv m)
 
 getPeersSum :: DiscoverySumEnv ctx m => m (Set NodeId)
 getPeersSum =
-    askCtx @DiscoveryContextSum >>= \case
+    view (lensOf @DiscoveryContextSum) >>= \case
         DCStatic nodes -> return nodes
         DCKademlia inst -> getPeersKademlia inst
 
 findPeersSum :: DiscoverySumEnv ctx m => m (Set NodeId)
 findPeersSum =
-    askCtx @DiscoveryContextSum >>= \case
+    view (lensOf @DiscoveryContextSum) >>= \case
         DCStatic nodes -> return nodes
         DCKademlia inst -> findPeersKademlia inst
 

@@ -51,8 +51,8 @@ versionIsNew ver = svAppName ver /= svAppName curSoftwareVersion
 -- | Determine whether to download update and download it if needed.
 downloadUpdate :: forall ctx m . UpdateMode ctx m => ConfirmedProposalState -> m ()
 downloadUpdate cst@ConfirmedProposalState {..} = do
-    unlessM (liftIO . doesFileExist =<< asksCtx @UpdateParams upUpdatePath) $ do
-        downSetVar <- asksCtx @UpdateContext ucDownloadingUpdates
+    unlessM (liftIO . doesFileExist =<< views (lensOf @UpdateParams) upUpdatePath) $ do
+        downSetVar <- views (lensOf @UpdateContext) ucDownloadingUpdates
         let upId = hash cpsUpdateProposal
         whenM (tryPutToSet downSetVar upId) $
             downloadUpdateDo cst
@@ -69,8 +69,8 @@ downloadUpdate cst@ConfirmedProposalState {..} = do
 downloadUpdateDo :: UpdateMode ctx m => ConfirmedProposalState -> m ()
 downloadUpdateDo cst@ConfirmedProposalState {..} = do
     logDebug "Update downloading triggered"
-    useInstaller <- asksCtx @UpdateParams upUpdateWithPkg
-    updateServers <- asksCtx @UpdateParams upUpdateServers
+    useInstaller <- views (lensOf @UpdateParams) upUpdateWithPkg
+    updateServers <- views (lensOf @UpdateParams) upUpdateServers
 
     let dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = castHash . dataHash <$>
@@ -85,7 +85,7 @@ downloadUpdateDo cst@ConfirmedProposalState {..} = do
                                   \current software version is newer than \
                                   \update version") updHash
 
-        updPath <- asksCtx @UpdateParams upUpdatePath
+        updPath <- views (lensOf @UpdateParams) upUpdatePath
         whenM (liftIO $ doesFileExist updPath) $
             throwError "There's unapplied update already downloaded"
 
@@ -96,7 +96,7 @@ downloadUpdateDo cst@ConfirmedProposalState {..} = do
 
         liftIO $ BSL.writeFile updPath file
         logInfo "Update was downloaded"
-        sm <- asksCtx @UpdateContext ucUpdateSemaphore
+        sm <- views (lensOf @UpdateContext) ucUpdateSemaphore
         putMVar sm cst
         logInfo "Update MVar filled, wallet is notified"
 

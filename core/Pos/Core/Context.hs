@@ -19,10 +19,10 @@ import           Pos.Crypto       (PublicKey, SecretKey, toPublic)
 data PrimaryKeyTag
 
 -- | Access to primary key of the node.
-type MonadPrimaryKey ctx m = MonadCtx ctx PrimaryKeyTag SecretKey m
+type MonadPrimaryKey ctx m = (MonadReader ctx m, HasLens PrimaryKeyTag ctx SecretKey)
 
 getOurSecretKey :: MonadPrimaryKey ctx m => m SecretKey
-getOurSecretKey = askCtx @PrimaryKeyTag
+getOurSecretKey = view (lensOf @PrimaryKeyTag)
 
 getOurPublicKey :: MonadPrimaryKey ctx m => m PublicKey
 getOurPublicKey = toPublic <$> getOurSecretKey

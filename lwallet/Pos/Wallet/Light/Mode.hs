@@ -61,15 +61,15 @@ modeContext [d|
 type LightWalletMode = Mtl.ReaderT LightWalletContext Production
 
 instance {-# OVERLAPPING #-} HasLoggerName LightWalletMode where
-    getLoggerName = askCtx @LoggerName
-    modifyLoggerName = localCtx @LoggerName
+    getLoggerName = view (lensOf @LoggerName)
+    modifyLoggerName f = local (lensOf @LoggerName %~ f)
 
 instance {-# OVERLAPPING #-} CanJsonLog LightWalletMode where
     jsonLog = jsonLogDefault
 
 instance MonadDiscovery LightWalletMode where
-    getPeers = askCtx @DiscoveryTag
-    findPeers = askCtx @DiscoveryTag
+    getPeers = view (lensOf @DiscoveryTag)
+    findPeers = view (lensOf @DiscoveryTag)
 
 instance MonadBListener LightWalletMode where
     onApplyBlocks = onApplyBlocksStub

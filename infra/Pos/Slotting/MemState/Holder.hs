@@ -29,10 +29,10 @@ import           Pos.Slotting.Types (SlottingData (sdPenultEpoch))
 -- | System start and slotting data
 type SlottingVar = (Timestamp, TVar SlottingData)
 
-type MonadSlotting ctx m = MonadCtx ctx SlottingVar SlottingVar m
+type MonadSlotting ctx m = (MonadReader ctx m, HasLens SlottingVar ctx SlottingVar)
 
 askSlotting :: MonadSlotting ctx m => m SlottingVar
-askSlotting = askCtx @SlottingVar
+askSlotting = view (lensOf @SlottingVar)
 
 askSlottingVar :: MonadSlotting ctx m => m (TVar SlottingData)
 askSlottingVar = snd <$> askSlotting

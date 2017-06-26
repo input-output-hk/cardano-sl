@@ -36,39 +36,39 @@ import           Pos.Types           (HeaderHash, SlotLeaders)
 -- Genesis
 ----------------------------------------------------------------------------
 
-genesisUtxoM :: (Functor m, MonadCtx ctx GenesisUtxo GenesisUtxo m) => m Utxo
-genesisUtxoM = asksCtx @GenesisUtxo unGenesisUtxo
+genesisUtxoM :: (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) => m Utxo
+genesisUtxoM = views (lensOf @GenesisUtxo) unGenesisUtxo
 
-genesisLeadersM :: (Functor m, MonadCtx ctx GenesisLeaders GenesisLeaders m) => m SlotLeaders
-genesisLeadersM = asksCtx @GenesisLeaders unGenesisLeaders
+genesisLeadersM :: (Functor m, MonadReader ctx m, HasLens GenesisLeaders ctx GenesisLeaders) => m SlotLeaders
+genesisLeadersM = views (lensOf @GenesisLeaders) unGenesisLeaders
 
 ----------------------------------------------------------------------------
 -- Semaphore-related logic
 ----------------------------------------------------------------------------
 
 takeBlkSemaphore
-    :: (MonadIO m, MonadCtx ctx BlkSemaphore BlkSemaphore m)
+    :: (MonadIO m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
     => m HeaderHash
-takeBlkSemaphore = takeMVar =<< asksCtx @BlkSemaphore unBlkSemaphore
+takeBlkSemaphore = takeMVar =<< views (lensOf @BlkSemaphore) unBlkSemaphore
 
 putBlkSemaphore
-    :: (MonadIO m, MonadCtx ctx BlkSemaphore BlkSemaphore m)
+    :: (MonadIO m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
     => HeaderHash -> m ()
-putBlkSemaphore tip = flip putMVar tip =<< asksCtx @BlkSemaphore unBlkSemaphore
+putBlkSemaphore tip = flip putMVar tip =<< views (lensOf @BlkSemaphore) unBlkSemaphore
 
 readBlkSemaphore
-    :: (MonadIO m, MonadCtx ctx BlkSemaphore BlkSemaphore m)
+    :: (MonadIO m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
     => m HeaderHash
-readBlkSemaphore = readMVar =<< asksCtx @BlkSemaphore unBlkSemaphore
+readBlkSemaphore = readMVar =<< views (lensOf @BlkSemaphore) unBlkSemaphore
 
 ----------------------------------------------------------------------------
 -- Misc
 ----------------------------------------------------------------------------
 
 -- | Returns node uptime based on current time and 'StartTime'.
-getUptime :: (MonadIO m, MonadCtx ctx StartTime StartTime m) => m Microsecond
+getUptime :: (MonadIO m, MonadReader ctx m, HasLens StartTime ctx StartTime) => m Microsecond
 getUptime = do
     curTime <- liftIO getCurrentTime
-    startTime <- asksCtx @StartTime unStartTime
+    startTime <- views (lensOf @StartTime) unStartTime
     let seconds = toRational $ curTime `diffUTCTime` startTime
     pure $ fromMicroseconds $ round $ seconds * 1000 * 1000

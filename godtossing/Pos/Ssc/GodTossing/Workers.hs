@@ -103,7 +103,7 @@ onNewSlotSsc = recoveryCommGuard $ onNewSlotWorker True outs $ \slotId sendActio
         "couldn't get SSC richmen"
         getRichmenSsc
     localOnNewSlot slotId
-    participationEnabled <- askCtx @SscContextTag >>=
+    participationEnabled <- view (lensOf @SscContextTag) >>=
         atomically . readTVar . gtcParticipateSsc
     ourId <- getOurStakeholderId
     let enoughStake = ourId `HM.member` richmen
@@ -177,7 +177,7 @@ checkNSendOurCert sendActions = do
                 return $ createOurCert slot
 
 getOurVssKeyPair :: SscMode SscGodTossing ctx m => m VssKeyPair
-getOurVssKeyPair = asksCtx @SscContextTag gtcVssKeyPair
+getOurVssKeyPair = views (lensOf @SscContextTag) gtcVssKeyPair
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
@@ -249,7 +249,7 @@ onNewSlotShares SlotId {..} sendActions = do
         sharesInBlockchain <- hasShares ourId <$> gtGetGlobalState
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
-        ourVss <- asksCtx @SscContextTag gtcVssKeyPair
+        ourVss <- views (lensOf @SscContextTag) gtcVssKeyPair
         shares <- getOurShares ourVss
         let lShares = fmap (NE.map asBinary) shares
         unless (HM.null shares) $ do

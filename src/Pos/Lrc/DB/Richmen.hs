@@ -48,7 +48,7 @@ import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
 ----------------------------------------------------------------------------
 
 prepareLrcRichmen
-    :: (MonadCtx ctx GenesisUtxo GenesisUtxo m, MonadDB m)
+    :: (MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, MonadDB m)
     => m ()
 prepareLrcRichmen = do
     genesisDistribution <- concatMap txOutStake . toList <$> genesisUtxoM

@@ -108,7 +108,8 @@ type SlogVerifyMode ssc ctx m =
     ( SlogMode ssc m
     , MonadError Text m
     , MonadIO m
-    , MonadCtx ctx LrcContext LrcContext m
+    , MonadReader ctx m
+    , HasLens LrcContext ctx LrcContext
     )
 
 -- | Verify everything from block that is not checked by other components.

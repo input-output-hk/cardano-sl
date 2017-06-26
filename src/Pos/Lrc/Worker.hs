@@ -84,7 +84,8 @@ type LrcModeFull ssc ctx m =
     , MonadSscMem ssc ctx m
     , MonadSlots m
     , BlockApplyMode ssc ctx m
-    , MonadCtx ctx BlkSemaphore BlkSemaphore m
+    , MonadReader ctx m
+    , HasLens BlkSemaphore ctx BlkSemaphore
     )
 
 -- | Run leaders and richmen computation for given epoch. If stable
@@ -106,7 +107,7 @@ lrcSingleShotImpl
     :: forall ssc ctx m. (LrcModeFull ssc ctx m)
     => Bool -> EpochIndex -> [LrcConsumer m] -> m ()
 lrcSingleShotImpl withSemaphore epoch consumers = do
-    lock <- asksCtx @LrcContext lcLrcSync
+    lock <- views (lensOf @LrcContext) lcLrcSync
     tryAcquireExclusiveLock epoch lock onAcquiredLock
   where
     onAcquiredLock = do

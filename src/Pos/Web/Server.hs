@@ -107,7 +107,7 @@ convertHandler nc nodeDBs wrap handler =
 
 nat :: forall ssc ctx m . MyWorkMode ssc ctx m => m (WebMode ssc :~> Handler)
 nat = do
-    nc <- askCtx @NodeContextTag
+    nc <- view (lensOf @NodeContextTag)
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- askTxpMem
     return $ NT (convertHandler nc nodeDBs txpLocalData)
@@ -161,7 +161,7 @@ gtServantHandlers =
 
 toggleGtParticipation :: Bool -> GtWebMode ()
 toggleGtParticipation enable =
-    askCtx @SscContextTag >>=
+    view (lensOf @SscContextTag) >>=
     atomically . flip writeTVar enable . gtcParticipateSsc
 
 -- gtHasSecret :: GtWebHandler Bool

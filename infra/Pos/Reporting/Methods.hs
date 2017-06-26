@@ -78,9 +78,9 @@ sendReportNode
     :: (MonadReporting ctx m)
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
-    noServers <- null <$> asksCtx @ReportingContext (view rcReportServers)
+    noServers <- null <$> view (lensOf @ReportingContext . rcReportServers)
     if noServers then onNoServers else do
-        logConfig <- asksCtx @ReportingContext (view rcLoggingConfig)
+        logConfig <- view (lensOf @ReportingContext . rcLoggingConfig)
         let allFiles = map snd $ retrieveLogFiles logConfig
         logFile <-
             maybeThrow (TextException onNoPubfiles)
@@ -114,7 +114,7 @@ sendReportNodeImpl
     :: (MonadReporting ctx m)
     => [Text] -> Version -> ReportType -> m ()
 sendReportNodeImpl rawLogs version reportType = do
-    servers <- asksCtx @ReportingContext (view rcReportServers)
+    servers <- view (lensOf @ReportingContext . rcReportServers)
     when (null servers) onNoServers
     errors <- fmap lefts $ forM servers $ try .
         sendReport [] rawLogs reportType "cardano-node" version . toString

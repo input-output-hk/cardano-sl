@@ -12,7 +12,6 @@ module Pos.Wallet.Web.Mode
 import           Universum
 
 import qualified Control.Monad.Reader          as Mtl
-import           EtherCompat
 import           Mockable                      (Production)
 import           System.Wlog                   (HasLoggerName (..), LoggerName)
 
@@ -109,8 +108,8 @@ instance MonadDiscovery WalletWebMode where
     findPeers = findPeersSum
 
 instance {-# OVERLAPPING #-} HasLoggerName WalletWebMode where
-    getLoggerName = askCtx @LoggerName
-    modifyLoggerName = localCtx @LoggerName
+    getLoggerName = view (lensOf @LoggerName)
+    modifyLoggerName f = local (lensOf @LoggerName %~ f)
 
 instance {-# OVERLAPPING #-} CanJsonLog WalletWebMode where
     jsonLog = jsonLogDefault

@@ -46,19 +46,20 @@ getLastKnownHeader
   :: (PC.MonadLastKnownHeader ssc ctx m, MonadIO m)
   => m (Maybe (BlockHeader ssc))
 getLastKnownHeader =
-    atomically . readTVar =<< askCtx @PC.LastKnownHeaderTag
+    atomically . readTVar =<< view (lensOf @PC.LastKnownHeaderTag)
 
 downloadHeader
     :: (Ssc ssc, MonadIO m, PC.MonadProgressHeader ssc ctx m)
     => m (Maybe (BlockHeader ssc))
 downloadHeader = do
-    atomically . tryReadTMVar =<< askCtx @PC.ProgressHeaderTag
+    atomically . tryReadTMVar =<< view (lensOf @PC.ProgressHeaderTag)
 
 type BlockchainInfoEnv ssc ctx m =
     ( MonadBlockDB ssc m
     , PC.MonadLastKnownHeader ssc ctx m
     , PC.MonadProgressHeader ssc ctx m
-    , MonadCtx ctx PC.ConnectedPeers PC.ConnectedPeers m
+    , MonadReader ctx m
+    , HasLens PC.ConnectedPeers ctx PC.ConnectedPeers
     , MonadIO m
     , MonadRealDB ctx m
     , MonadSlots m
@@ -91,7 +92,7 @@ connectedPeersWebWallet
     :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
     => m Word
 connectedPeersWebWallet = fromIntegral . length <$> do
-    PC.ConnectedPeers cp <- askCtx @PC.ConnectedPeers
+    PC.ConnectedPeers cp <- view (lensOf @PC.ConnectedPeers)
     atomically (readTVar cp)
 
 blockchainSlotDurationWebWallet
@@ -107,10 +108,12 @@ type UpdatesEnv ctx m =
     ( MonadIO m
     , WithLogger m
     , MonadShutdownMem ctx m
-    , MonadCtx ctx UpdateContext UpdateContext m )
+    , MonadReader ctx m
+    , HasLens UpdateContext ctx UpdateContext
+    )
 
 waitForUpdateWebWallet :: UpdatesEnv ctx m => m ConfirmedProposalState
-waitForUpdateWebWallet = takeMVar =<< asksCtx @UpdateContext ucUpdateSemaphore
+waitForUpdateWebWallet = takeMVar =<< views (lensOf @UpdateContext) ucUpdateSemaphore
 
 applyLastUpdateWebWallet :: UpdatesEnv ctx m => m ()
 applyLastUpdateWebWallet = triggerShutdown

@@ -181,7 +181,8 @@ type TxHistoryEnv ctx m =
     , MonadThrow m
     , WithLogger m
     , MonadSlots m
-    , MonadCtx ctx GenesisUtxo GenesisUtxo m
+    , MonadReader ctx m
+    , HasLens GenesisUtxo ctx GenesisUtxo
     , MonadTxpMem TxpExtra_TMP ctx m
     , MonadBaseControl IO m
     )
@@ -199,7 +200,7 @@ getTxHistoryDefault
 getTxHistoryDefault addrs mInit = do
     tip <- GS.getTip
 
-    let getGenUtxo = asksCtx @GenesisUtxo unGenesisUtxo
+    let getGenUtxo = views (lensOf @GenesisUtxo) unGenesisUtxo
     (bot, genUtxo) <- maybe ((,) <$> GS.getBot <*> getGenUtxo) pure mInit
 
     -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)

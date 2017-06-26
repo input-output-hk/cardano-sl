@@ -32,10 +32,10 @@ import           Pos.Wallet.Light.State.Acidic  as A
 import           Pos.Wallet.Light.State.Storage (Block', Storage)
 
 -- | MonadWalletDB stands for monad which is able to get web wallet state
-type MonadWalletDB ctx m = MonadCtx ctx WalletState WalletState m
+type MonadWalletDB ctx m = (MonadReader ctx m, HasLens WalletState ctx WalletState)
 
 getWalletState :: MonadWalletDB ctx m => m WalletState
-getWalletState = askCtx @WalletState
+getWalletState = view (lensOf @WalletState)
 
 -- | Constraint for working with web wallet DB
 type WalletModeDB ctx m = (MonadWalletDB ctx m, MonadIO m)

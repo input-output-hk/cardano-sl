@@ -36,7 +36,7 @@ type DBPoll = Ether.TaggedTrans DBPollTag IdentityT
 runDBPoll :: DBPoll m a -> m a
 runDBPoll = coerce
 
-instance (MonadIO m, MonadDBRead m, WithLogger m, MonadCtx ctx LrcContext LrcContext m) =>
+instance (MonadIO m, MonadDBRead m, WithLogger m, MonadReader ctx m, HasLens LrcContext ctx LrcContext) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
     getProposedBVs = GS.getProposedBVs

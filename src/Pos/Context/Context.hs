@@ -40,7 +40,6 @@ import qualified Control.Concurrent.STM        as STM
 import           Control.Lens                  (coerced, lens, makeLensesFor)
 import           Data.Time.Clock               (UTCTime)
 import           Ether.Internal                (HasLens (..))
-import           EtherCompat
 import           System.Wlog                   (LoggerConfig)
 
 import           Pos.Block.Core                (BlockHeader)
@@ -74,20 +73,20 @@ import           Pos.Util.UserSecret           (UserSecret)
 data NodeContextTag
 data LastKnownHeaderTag
 type LastKnownHeader ssc = TVar (Maybe (BlockHeader ssc))
-type MonadLastKnownHeader ssc ctx m = MonadCtx ctx LastKnownHeaderTag (LastKnownHeader ssc) m
+type MonadLastKnownHeader ssc ctx m = (MonadReader ctx m, HasLens LastKnownHeaderTag ctx (LastKnownHeader ssc))
 
 data ProgressHeaderTag
 type ProgressHeader ssc = STM.TMVar (BlockHeader ssc)
-type MonadProgressHeader ssc ctx m = MonadCtx ctx ProgressHeaderTag (ProgressHeader ssc) m
+type MonadProgressHeader ssc ctx m = (MonadReader ctx m, HasLens ProgressHeaderTag ctx (ProgressHeader ssc))
 
 data BlockRetrievalQueueTag
 type BlockRetrievalQueue ssc = TBQueue (NodeId, NewestFirst NE (BlockHeader ssc))
 type MonadBlockRetrievalQueue ssc ctx m =
-    MonadCtx ctx BlockRetrievalQueueTag (BlockRetrievalQueue ssc) m
+    (MonadReader ctx m, HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc))
 
 data RecoveryHeaderTag
 type RecoveryHeader ssc = STM.TMVar (NodeId, BlockHeader ssc)
-type MonadRecoveryHeader ssc ctx m = MonadCtx ctx RecoveryHeaderTag (RecoveryHeader ssc) m
+type MonadRecoveryHeader ssc ctx m = (MonadReader ctx m, HasLens RecoveryHeaderTag ctx (RecoveryHeader ssc))
 
 newtype GenesisUtxo = GenesisUtxo { unGenesisUtxo :: Utxo }
 newtype GenesisLeaders = GenesisLeaders { unGenesisLeaders :: SlotLeaders }
@@ -154,7 +153,7 @@ modeContext [d|
         }
     |]
 
-type MonadNodeContext ssc ctx m = MonadCtx ctx NodeContextTag (NodeContext ssc) m
+type MonadNodeContext ssc ctx m = (MonadReader ctx m, HasLens NodeContextTag ctx (NodeContext ssc))
 
 makeLensesFor
     [ ("npUpdateParams", "npUpdateParamsL")

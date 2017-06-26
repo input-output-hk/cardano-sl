@@ -94,4 +94,4 @@ instance HasEpochOrSlot (SscBlock ssc) where
     getEpochOrSlot = either getEpochOrSlot (getEpochOrSlot . fst) . getSscBlock
 
 data SscContextTag
-type MonadSscContext ssc ctx m = MonadCtx ctx SscContextTag (SscNodeContext ssc) m
+type MonadSscContext ssc ctx m = (MonadReader ctx m, HasLens SscContextTag ctx (SscNodeContext ssc))

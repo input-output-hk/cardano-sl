@@ -70,7 +70,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     -- And then we run verification of each component.
     slogVerifyBlocks blocks
     _ <- withExceptT pretty $ sscVerifyBlocks (map toSscBlock blocks)
-    TxpGlobalSettings {..} <- askCtx @TxpGlobalSettings
+    TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txUndo <- withExceptT pretty $ tgsVerifyBlocks dataMustBeKnown $
         map toTxpBlock blocks
     pskUndo <- ExceptT $ dlgVerifyBlocks blocks

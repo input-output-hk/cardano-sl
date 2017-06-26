@@ -5,10 +5,12 @@ module Pos.Shutdown.Class
        , askShutdownMem
        ) where
 
+import           Universum
+
 import           EtherCompat
 import           Pos.Shutdown.Types (ShutdownContext)
 
-type MonadShutdownMem ctx m = MonadCtx ctx ShutdownContext ShutdownContext m
+type MonadShutdownMem ctx m = (MonadReader ctx m, HasLens ShutdownContext ctx ShutdownContext)
 
 askShutdownMem :: MonadShutdownMem ctx m => m ShutdownContext
-askShutdownMem = askCtx @ShutdownContext
+askShutdownMem = view (lensOf @ShutdownContext)

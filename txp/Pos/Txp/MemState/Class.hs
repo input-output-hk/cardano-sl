@@ -37,10 +37,10 @@ import           Pos.Txp.Toil.Types          (MemPool (_mpLocalTxs), UtxoModifie
 data TxpHolderTag
 
 -- | Reduced equivalent of @MonadReader (GenericTxpLocalData mw) m@.
-type MonadTxpMem ext ctx m = MonadCtx ctx TxpHolderTag (GenericTxpLocalData ext) m
+type MonadTxpMem ext ctx m = (MonadReader ctx m, HasLens TxpHolderTag ctx (GenericTxpLocalData ext))
 
 askTxpMem :: MonadTxpMem ext ctx m => m (GenericTxpLocalData ext)
-askTxpMem = askCtx @TxpHolderTag
+askTxpMem = view (lensOf @TxpHolderTag)
 
 getTxpLocalData
     :: (MonadIO m, MonadTxpMem e ctx m)

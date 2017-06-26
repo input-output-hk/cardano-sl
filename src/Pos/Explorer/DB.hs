@@ -45,7 +45,7 @@ getAddrBalance = gsGetBi . addrBalancePrefix
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareExplorerDB :: (MonadCtx ctx GenesisUtxo GenesisUtxo m, MonadDB m) => m ()
+prepareExplorerDB :: (MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, MonadDB m) => m ()
 prepareExplorerDB =
     unlessM areBalancesInitialized $ do
         genesisUtxo <- genesisUtxoM

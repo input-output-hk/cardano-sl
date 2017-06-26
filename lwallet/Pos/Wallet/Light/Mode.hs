@@ -14,14 +14,14 @@ import           Universum
 
 import qualified Control.Monad.Reader             as Mtl
 import           EtherCompat
-import           Mockable                         (Production)
+import           Mockable                         (Production, SharedAtomicT)
 import           System.Wlog                      (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener              (MonadBListener (..), onApplyBlocksStub,
                                                    onRollbackBlocksStub)
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
-import           Pos.Communication.PeerState      (PeerStateCtx, PeerStateTag,
+import           Pos.Communication.PeerState      (HasPeerState (..), PeerStateCtx,
                                                    WithPeerState (..),
                                                    clearPeerStateDefault,
                                                    getAllStatesDefault,
@@ -46,6 +46,7 @@ type LightWalletSscType = SscGodTossing
 -- type LightWalletSscType = SscNistBeacon
 
 data DiscoveryTag
+data PeerStateTag
 
 modeContext [d|
     data LightWalletContext = LightWalletContext
@@ -59,6 +60,9 @@ modeContext [d|
     |]
 
 type LightWalletMode = Mtl.ReaderT LightWalletContext Production
+
+instance sa ~ SharedAtomicT Production => HasPeerState sa LightWalletContext where
+    peerState = lensOf @PeerStateTag
 
 instance {-# OVERLAPPING #-} HasLoggerName LightWalletMode where
     getLoggerName = view (lensOf @LoggerName)

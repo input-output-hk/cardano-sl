@@ -12,12 +12,13 @@ module Pos.Wallet.Web.Mode
 import           Universum
 
 import qualified Control.Monad.Reader          as Mtl
-import           Mockable                      (Production)
+import           Mockable                      (Production, SharedAtomicT)
 import           System.Wlog                   (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.Core                (Block, BlockHeader)
 import           Pos.Block.Types               (Undo)
-import           Pos.Communication.PeerState   (WithPeerState (..), clearPeerStateDefault,
+import           Pos.Communication.PeerState   (HasPeerState (..), WithPeerState (..),
+                                                clearPeerStateDefault,
                                                 getAllStatesDefault, getPeerStateDefault)
 import           Pos.Core                      (IsHeader)
 import           Pos.DB                        (MonadGState (..))
@@ -93,6 +94,9 @@ instance HasDiscoveryContextSum WalletWebModeContext where
 
 instance HasReportingContext WalletWebModeContext  where
     reportingContext = wwmcRealModeContext . reportingContext
+
+instance sa ~ SharedAtomicT Production => HasPeerState sa WalletWebModeContext where
+    peerState = wwmcRealModeContext . peerState
 
 data WalletWebModeContextTag
 

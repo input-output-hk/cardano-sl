@@ -19,14 +19,14 @@ import           Universum
 
 import qualified Control.Monad.Reader        as Mtl
 import           EtherCompat
-import           Mockable.Production         (Production)
+import           Mockable                    (Production, SharedAtomicT)
 import           System.Wlog                 (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener         (MonadBListener (..), onApplyBlocksStub,
                                               onRollbackBlocksStub)
 import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Types             (Undo)
-import           Pos.Communication.PeerState (PeerStateCtx, PeerStateTag,
+import           Pos.Communication.PeerState (HasPeerState (..), PeerStateCtx,
                                               WithPeerState (..), clearPeerStateDefault,
                                               getAllStatesDefault, getPeerStateDefault)
 import           Pos.Context                 (HasSscContext (..), NodeContext)
@@ -66,6 +66,8 @@ import           Pos.Util.JsonLog            (JsonLogConfig, jsonLogDefault)
 import           Pos.Util.TimeWarp           (CanJsonLog (..))
 import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
 
+data PeerStateTag
+
 modeContext [d|
     data RealModeContext ssc = RealModeContext
         !(NodeDBs       ::: NodeDBs)
@@ -90,6 +92,9 @@ instance HasDiscoveryContextSum (RealModeContext ssc) where
 
 instance HasReportingContext (RealModeContext ssc) where
     reportingContext = rmcNodeContext . reportingContext
+
+instance sa ~ SharedAtomicT Production => HasPeerState sa (RealModeContext ssc) where
+    peerState = lensOf @PeerStateTag
 
 type RealMode ssc = Mtl.ReaderT (RealModeContext ssc) Production
 

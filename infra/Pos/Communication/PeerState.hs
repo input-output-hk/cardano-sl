@@ -6,7 +6,7 @@
 
 module Pos.Communication.PeerState
        ( WithPeerState (..)
-       , PeerStateTag
+       , HasPeerState (..)
        , PeerStateCtx
        , PeerStateSnapshot
        , peerStateFromSnapshot
@@ -18,7 +18,6 @@ module Pos.Communication.PeerState
 
 import           Control.Monad.Trans.Class        (MonadTrans)
 import           Data.Default                     (Default (def))
-import           EtherCompat
 import qualified ListT                            as LT
 import           Mockable                         (Mockable, SharedAtomic, SharedAtomicT,
                                                    newSharedAtomic, readSharedAtomic)
@@ -29,7 +28,9 @@ import           Universum
 import           Pos.Communication.Types.State
 import           Pos.Util.Util                    ()
 
-type PeerStateCtx m = STM.Map NodeId (SharedAtomicT m PeerState)
+type PeerStateCtx' sa = STM.Map NodeId (sa PeerState)
+
+type PeerStateCtx m = PeerStateCtx' (SharedAtomicT m)
 
 -- | PeerStateCtx with no dependency on `m` type.
 newtype PeerStateSnapshot = PeerStateSnapshot [(NodeId, PeerState)]
@@ -57,17 +58,18 @@ peerStateFromSnapshot (PeerStateSnapshot snapshot) = do
     atomically $ for_ ctx $ \(k, v) -> STM.insert v k m
     return m
 
-data PeerStateTag
+class HasPeerState sa ctx | ctx -> sa where
+    peerState :: Lens' ctx (PeerStateCtx' sa)
 
 type PeerStateDefaultEnv ctx m =
     ( MonadIO m, Mockable SharedAtomic m
     , MonadReader ctx m
-    , HasLens PeerStateTag ctx (PeerStateCtx m) )
+    , HasPeerState (SharedAtomicT m) ctx )
 
 getPeerStateDefault
     :: PeerStateDefaultEnv ctx m
     => NodeId -> m (SharedAtomicT m PeerState)
-getPeerStateDefault nodeId = view (lensOf @PeerStateTag) >>= \m -> do
+getPeerStateDefault nodeId = view peerState >>= \m -> do
     mV <- atomically $ nodeId `STM.lookup` m
     case mV of
       Just v -> return v
@@ -83,13 +85,13 @@ clearPeerStateDefault
     :: PeerStateDefaultEnv ctx m
     => NodeId -> m ()
 clearPeerStateDefault nodeId = do
-    m <- view (lensOf @PeerStateTag)
+    m <- view peerState
     atomically $ nodeId `STM.delete` m
 
 getAllStatesDefault
     :: PeerStateDefaultEnv ctx m
     => m PeerStateSnapshot
 getAllStatesDefault = do
-    m <- view (lensOf @PeerStateTag)
+    m <- view peerState
     stream <- atomically $ LT.toList $ STM.stream m
     PeerStateSnapshot <$> forM stream (mapM readSharedAtomic)

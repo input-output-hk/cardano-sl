@@ -126,7 +126,7 @@ initGStateCommon initialTip = do
 isInitialized :: MonadDBRead m => m Bool
 isInitialized = do
     (x :: Maybe ()) <- gsGetBi initKey
-    pure $ maybe False (const True) x
+    pure $ isJust x
 
 -- | Marks gstate as initialized
 setInitialized :: MonadDB m => m ()

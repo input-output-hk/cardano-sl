@@ -12,6 +12,7 @@ pushd ..
 if [ -n "$EXPLORER_NIX_FILE" ]; then
   $(nix-build -A cardano-sl-explorer-static $EXPLORER_NIX_FILE)/bin/cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
 else
+  stack --nix install happy --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
   stack --nix build --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
   stack --nix exec -- cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
 fi

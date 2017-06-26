@@ -4,20 +4,17 @@
 module Pos.Block.Arbitrary
        ( HeaderAndParams (..)
        , BlockHeaderList (..)
-       , SmallTxPayload (..)
        ) where
 
 import           Universum
 
 import           Control.Lens             (to)
 import           Data.Ix                  (range)
-import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, build, (%))
 import           Prelude                  (Show (..))
 import           System.Random            (mkStdGen, randomR)
-import           Test.QuickCheck          (Arbitrary (..), Gen, choose, listOf, listOf,
-                                           oneof, oneof, vectorOf)
+import           Test.QuickCheck          (Arbitrary (..), Gen, choose, oneof, vectorOf)
 
 import           Pos.Binary.Class         (Bi, Raw, biSize)
 import qualified Pos.Block.Core           as T
@@ -27,12 +24,11 @@ import           Pos.Constants            (epochSlots)
 import qualified Pos.Core                 as Core
 import           Pos.Crypto               (ProxySecretKey, PublicKey, SecretKey,
                                            createProxySecretKey, hash, toPublic)
-import           Pos.Data.Attributes      (Attributes (..), mkAttributes)
+import           Pos.Data.Attributes      (Attributes (..))
 import           Pos.Delegation.Arbitrary (genDlgPayload)
 import           Pos.Ssc.Arbitrary        (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class            (Ssc (..), SscHelpersClass)
-import           Pos.Txp.Core             (TxAux (..), TxDistribution (..), TxPayload,
-                                           mkTx, mkTxPayload)
+import           Pos.Txp.Arbitrary        ()
 import qualified Pos.Types                as T
 import           Pos.Update.Arbitrary     ()
 import           Pos.Util.Arbitrary       (makeSmall)
@@ -157,32 +153,6 @@ instance (Ssc ssc, Arbitrary (SscProof ssc)) => Arbitrary (T.MainToSign ssc) whe
 -- ensures that for every transaction generated, a transaction witness is generated as
 -- well, and the lengths of its list of outputs must also be the same as the length of its
 -- corresponding TxDistribution item.
-
-txOutDistGen :: Gen [TxAux]
-txOutDistGen =
-    listOf $ do
-        txInW <- arbitrary
-        txIns <- arbitrary
-        (txOuts, txDist) <- second TxDistribution . NE.unzip <$> arbitrary
-        let tx =
-                either
-                    (error . mappend "failed to create tx in txOutDistGen: ")
-                    identity $
-                mkTx txIns txOuts (mkAttributes ())
-        return $ TxAux tx (txInW) txDist
-
-instance Arbitrary TxPayload where
-    arbitrary =
-        fromMaybe (error "arbitrary@TxPayload: mkTxPayload failed") .
-        mkTxPayload <$>
-        txOutDistGen
-
-newtype SmallTxPayload =
-    SmallTxPayload TxPayload
-    deriving (Show, Eq, Bi)
-
-instance Arbitrary SmallTxPayload where
-    arbitrary = SmallTxPayload <$> makeSmall arbitrary
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 

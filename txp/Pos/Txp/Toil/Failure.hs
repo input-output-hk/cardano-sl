@@ -12,8 +12,9 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           Serokell.Util.Base16       (base16F)
 import           Serokell.Util.Verify       (formatAllErrors)
 
-import           Pos.Core                   (HeaderHash)
+import           Pos.Core                   (HeaderHash, TxFeePolicy)
 import           Pos.Txp.Core               (TxIn)
+import           Pos.Txp.Toil.Types         (TxFee)
 
 -- | Result of transaction processing
 data ToilVerFailure
@@ -30,6 +31,12 @@ data ToilVerFailure
     | ToilInvalidInputs ![Text] -- [CSL-814] TODO: make it more informative
     | ToilTooLargeTx { ttltSize  :: !Byte
                      , ttltLimit :: !Byte}
+    | ToilInvalidMinFee { timfPolicy :: !TxFeePolicy
+                        , timfSize   :: !Byte }
+    | ToilInsufficientFee { tifPolicy :: !TxFeePolicy
+                          , tifFee    :: !TxFee
+                          , tifMinFee :: !TxFee
+                          , tifSize   :: !Byte }
     | ToilUnknownAttributes !ByteString
     deriving (Show, Eq)
 
@@ -55,5 +62,17 @@ instance Buildable ToilVerFailure where
     build (ToilTooLargeTx {..}) =
         bprint ("transaction's size exceeds limit "%
                 "("%memory%" > "%memory%")") ttltSize ttltLimit
+    build (ToilInvalidMinFee {..}) =
+        bprint (build%" generates invalid minimal fee on a "%
+                "transaction of size "%memory)
+            timfPolicy
+            timfSize
+    build (ToilInsufficientFee {..}) =
+        bprint ("transaction of size "%memory%" does not adhere to "%
+                build%"; it has fee "%build%" but needs "%build)
+            tifSize
+            tifPolicy
+            tifFee
+            tifMinFee
     build (ToilUnknownAttributes bs) =
         bprint ("transaction has unknown attributes: "%base16F) bs

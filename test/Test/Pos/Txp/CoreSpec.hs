@@ -20,6 +20,7 @@ import           Test.QuickCheck.Gen   (Gen)
 
 import           Pos.Crypto            (hash, whData, withHash)
 import           Pos.Data.Attributes   (mkAttributes)
+import           Pos.Txp.Arbitrary     ()
 import           Pos.Txp.Core          (Tx (..), TxIn (..), TxOut (..), mkTx, topsortTxs)
 import           Pos.Types             (mkCoin)
 import           Pos.Util              (sublistN, _neHead)

@@ -27,8 +27,8 @@ import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              commitmentMapEpochGen, mkVssCertificatesMap,
                                              vssCertificateEpochGen)
+import           Pos.Txp.Arbitrary          (SmallGoodTx (..), goodTxToTxAux)
 import           Pos.Txp.Core               (TxAux)
-import           Pos.Types                  (SmallGoodTx (..), goodTxToTxAux)
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util.Arbitrary         (makeSmall)
 

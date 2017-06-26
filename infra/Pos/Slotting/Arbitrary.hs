@@ -4,12 +4,12 @@
 
 module Pos.Slotting.Arbitrary () where
 
-import           Data.DeriveTH       (derive, makeArbitrary)
-import           Test.QuickCheck     (Arbitrary (..))
+import           Data.DeriveTH      (derive, makeArbitrary)
+import           Test.QuickCheck    (Arbitrary (..))
 import           Universum
 
-import           Pos.Slotting.Types  (EpochSlottingData (..), SlottingData (..))
-import           Pos.Types.Arbitrary ()
+import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData (..))
+import           Pos.Core.Arbitrary ()
 
 derive makeArbitrary ''EpochSlottingData
 derive makeArbitrary ''SlottingData

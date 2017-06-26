@@ -13,6 +13,8 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+    Pos.Txp.Arbitrary
+    Pos.Txp.Arbitrary.Unsafe
     Pos.Txp.Core
     Pos.Txp.Core.Core
     Pos.Txp.Core.Tx
@@ -76,6 +78,7 @@ library
                      , monad-control
                      , neat-interpolation
                      , plutus-prototype
+                     , QuickCheck
                      , resourcet
                      , rocksdb-haskell >= 1.0.0
                      , serokell-util

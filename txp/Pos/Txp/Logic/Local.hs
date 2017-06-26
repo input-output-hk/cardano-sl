@@ -9,16 +9,19 @@ module Pos.Txp.Logic.Local
 import           Control.Monad.Except        (MonadError (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default                (Default (def))
+import qualified Data.HashSet                as HS
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as M (fromList)
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
 import           Universum
+import           Unsafe                      (unsafeHead)
 
-import           Pos.Core                    (HeaderHash)
-import           Pos.DB.Class                (MonadDBRead, MonadGState)
+import           Pos.Core                    (HeaderHash, genesisBootStakeholders)
+import           Pos.DB.Class                (MonadDBRead, MonadGState, gsIsBootstrapEra)
 import qualified Pos.DB.GState.Common        as GS
-import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId)
+import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId,
+                                              getTxDistribution)
 import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
@@ -47,6 +50,7 @@ txProcessTransaction
 txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
+    bootEra <- gsIsBootstrapEra
     localUM <- getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
@@ -62,7 +66,7 @@ txProcessTransaction itw@(txId, txAux) = do
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     pRes <- modifyTxpLocalData $
-            processTxDo resolved toilEnv tipDB itw
+            processTxDo resolved toilEnv tipDB itw bootEra
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
@@ -70,23 +74,31 @@ txProcessTransaction itw@(txId, txAux) = do
         Right _   ->
             logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
+    notBootRelated =
+        let txDistr = getTxDistribution $ taDistribution txAux
+            inBoot (s,_) = s `HS.member` genesisBootStakeholders
+        in NE.filter (\txOutDistr -> any (not . inBoot) txOutDistr) txDistr
+
     processTxDo
         :: Utxo
         -> ToilEnv
         -> HeaderHash
         -> (TxId, TxAux)
+        -> Bool
         -> TxpLocalDataPure
         -> (Either ToilVerFailure (), TxpLocalDataPure)
-    processTxDo resolved toilEnv tipDB tx txld@(uv, mp, undo, tip, ())
-        | tipDB /= tip = (Left $ ToilTipsMismatch tipDB tip, txld)
+    processTxDo resolved toilEnv tipDB tx bootEra txld@(uv, mp, undo, tip, ())
+        | tipDB /= tip =
+            (Left $ ToilTipsMismatch tipDB tip, txld)
+        | bootEra && not (null notBootRelated) =
+            -- We do not allow txs with non-boot-addr stake distr in boot era.
+            (Left $ ToilBootDifferentStake $ unsafeHead notBootRelated, txld)
         | otherwise =
             let res = (runExceptT $
-                      flip runUtxoReaderT resolved $
-                      execToilTLocal uv mp undo $
-                      processTx tx
-                      ) toilEnv
-            in
-            case res of
+                       flip runUtxoReaderT resolved $
+                       execToilTLocal uv mp undo $
+                       processTx tx) toilEnv
+            in case res of
                 Left er  -> (Left er, txld)
                 Right ToilModifier{..} ->
                     (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, ()))

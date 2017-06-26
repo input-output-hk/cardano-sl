@@ -14,7 +14,7 @@
     "build:prod": "./node_modules/.bin/rimraf dist && mkdir dist && NODE_ENV=production ./node_modules/.bin/webpack --config webpack.config.babel.js",
     "test": "npm run clean:output && npm run test:all",
     "test:rename-placeholders": "node 'test/rename-placeholders.js'",
-    "test:all": "purs -o output 'bower_components/purescript-*/src/**/*.purs' 'src/**/*.purs' && npm run test:rename-placeholders && NODE_PATH=./output node -e 'require(\"./test/setup\").setup(); require(\"Main.Test\").main();'"
+    "test:all": "purs compile 'bower_components/purescript-*/src/**/*.purs' 'src/**/*.purs' -o output && npm run test:rename-placeholders && NODE_PATH=./output node -e 'require(\"./test/setup\").setup(); require(\"Main.Test\").main();'"
   },
   "repository": {
     "type": "git",

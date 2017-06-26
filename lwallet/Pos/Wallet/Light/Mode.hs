@@ -40,7 +40,8 @@ import           Pos.Wallet.KeyStorage            (KeyData)
 import           Pos.Wallet.Light.Redirect        (getBalanceWallet, getOwnUtxosWallet,
                                                    getTxHistoryWallet, saveTxWallet)
 import           Pos.Wallet.Light.State.Acidic    (WalletState)
-import           Pos.Wallet.Light.State.Core      (gsAdoptedBVDataWallet)
+import           Pos.Wallet.Light.State.Core      (gsAdoptedBVDataWallet,
+                                                   gsIsBootstrapEraWallet)
 import           Pos.Wallet.WalletMode            (MonadBlockchainInfo (..),
                                                    MonadUpdates (..))
 
@@ -99,7 +100,7 @@ instance WithPeerState LightWalletMode where
 
 instance MonadGState LightWalletMode where
     gsAdoptedBVData = gsAdoptedBVDataWallet
-    gsIsBootstrapEra = gsIsBootstrapEraDefault
+    gsIsBootstrapEra = gsIsBootstrapEraWallet
 
 instance MonadBalances LightWalletMode where
     getOwnUtxos = getOwnUtxosWallet

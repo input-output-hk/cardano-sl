@@ -27,9 +27,9 @@ import           System.Wlog         (WithLogger, getLoggerName, logError, logIn
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
                                       wrapActionSpec)
 import qualified Pos.Constants       as Const
-import           Pos.Context         (BlkSemaphore (..), MonadNodeContext, NodeContext,
-                                      NodeContextTag, NodeParams (..),
-                                      getOurPubKeyAddress, getOurPublicKey)
+import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..), NodeContext,
+                                      NodeParams (..), getOurPubKeyAddress,
+                                      getOurPublicKey)
 import           Pos.Crypto          (createProxySecretKey, encToPublic)
 import           Pos.DB              (MonadDB)
 import qualified Pos.DB.GState       as GS
@@ -55,7 +55,7 @@ runNode'
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc ctx m
-       , MonadNodeContext ssc ctx m
+       , HasNodeContext ssc ctx
        )
     => [WorkerSpec m]
     -> WorkerSpec m
@@ -87,7 +87,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
             action vI sendActions `catch` reportHandler
     mapM_ (fork . unpackPlugin) plugins'
 
-    nc <- view (lensOf @NodeContextTag)
+    nc <- view nodeContext
 
     -- Instead of sleeping forever, we wait until graceful shutdown
     waitForWorkers (allWorkersCount @ssc nc)
@@ -107,7 +107,7 @@ runNode ::
        ( SscConstraint ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc ctx m
-       , MonadNodeContext ssc ctx m
+       , HasNodeContext ssc ctx
        )
     => NodeContext ssc
     -> ([WorkerSpec m], OutSpecs)

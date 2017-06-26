@@ -22,7 +22,7 @@ import           Pos.Binary          ()
 import qualified Pos.CLI             as CLI
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Constants       (isDevelopment)
-import           Pos.Context         (MonadNodeContext)
+import           Pos.Context         (HasNodeContext)
 import           Pos.Core.Types      (Timestamp (..))
 import           Pos.Launcher        (NodeParams (..), NodeResources (..),
                                       bracketNodeResources, hoistNodeResources, runNode,
@@ -110,7 +110,7 @@ actionWithWallet = error "actionWithWallet"
 #ifdef WITH_WEB
 pluginsGT ::
     ( WorkMode SscGodTossing ctx m
-    , MonadNodeContext SscGodTossing ctx m
+    , HasNodeContext SscGodTossing ctx
     ) => Args -> [m ()]
 pluginsGT Args {..}
     | enableWeb = [serveWebGT webPort]

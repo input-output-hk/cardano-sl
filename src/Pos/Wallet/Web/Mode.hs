@@ -20,6 +20,7 @@ import           Pos.Block.Types               (Undo)
 import           Pos.Communication.PeerState   (HasPeerState (..), WithPeerState (..),
                                                 clearPeerStateDefault,
                                                 getAllStatesDefault, getPeerStateDefault)
+import           Pos.Context                   (HasNodeContext (..))
 import           Pos.Core                      (IsHeader)
 import           Pos.DB                        (MonadGState (..))
 import           Pos.DB.Block                  (MonadBlockDBWrite (..), dbGetBlockDefault,
@@ -97,6 +98,9 @@ instance HasReportingContext WalletWebModeContext  where
 
 instance sa ~ SharedAtomicT Production => HasPeerState sa WalletWebModeContext where
     peerState = wwmcRealModeContext . peerState
+
+instance HasNodeContext WalletSscType WalletWebModeContext where
+    nodeContext = wwmcRealModeContext . nodeContext
 
 data WalletWebModeContextTag
 

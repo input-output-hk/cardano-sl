@@ -34,7 +34,6 @@ import qualified Data.Set                         as S
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
 import           Data.Time.Units                  (Microsecond, Second)
-import           EtherCompat
 import           Formatting                       (bprint, build, sformat, shown, stext,
                                                    (%))
 import qualified Formatting                       as F
@@ -75,7 +74,7 @@ import           Pos.Crypto                       (PassPhrase, aesDecrypt,
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Reporting.MemState           (HasReportingContext (..),
-                                                   ReportingContext, rcReportServers)
+                                                   rcReportServers)
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Txp                          (Utxo)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..))

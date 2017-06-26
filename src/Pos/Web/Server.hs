@@ -19,7 +19,6 @@ import           Universum
 import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
 import qualified Control.Monad.Reader                 as Mtl
-import           EtherCompat
 import           Mockable                             (Production (runProduction))
 import           Network.Wai                          (Application)
 import           Network.Wai.Handler.Warp             (defaultSettings, runSettings,
@@ -31,9 +30,9 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (NT), enter)
 
 import           Pos.Aeson.Types                      ()
-import           Pos.Context                          (HasSscContext (..),
-                                                       MonadNodeContext, NodeContext,
-                                                       NodeContextTag, getOurPublicKey)
+import           Pos.Context                          (HasNodeContext (..),
+                                                       HasSscContext (..), NodeContext,
+                                                       getOurPublicKey)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
 import qualified Pos.Lrc.DB                           as LrcDB
@@ -58,7 +57,7 @@ import           Pos.Web.Api                          (BaseNodeApi, GodTossingAp
 type MyWorkMode ssc ctx m =
     ( WorkMode ssc ctx m
     , SscConstraint ssc
-    , MonadNodeContext ssc ctx m -- for ConvertHandler
+    , HasNodeContext ssc ctx -- for ConvertHandler
     )
 
 serveWebBase :: MyWorkMode ssc ctx m => Word16 -> m ()
@@ -107,7 +106,7 @@ convertHandler nc nodeDBs wrap handler =
 
 nat :: forall ssc ctx m . MyWorkMode ssc ctx m => m (WebMode ssc :~> Handler)
 nat = do
-    nc <- view (lensOf @NodeContextTag)
+    nc <- view nodeContext
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- askTxpMem
     return $ NT (convertHandler nc nodeDBs txpLocalData)

@@ -29,7 +29,8 @@ import           Pos.Block.Types             (Undo)
 import           Pos.Communication.PeerState (HasPeerState (..), PeerStateCtx,
                                               WithPeerState (..), clearPeerStateDefault,
                                               getAllStatesDefault, getPeerStateDefault)
-import           Pos.Context                 (HasSscContext (..), NodeContext)
+import           Pos.Context                 (HasNodeContext (..), HasSscContext (..),
+                                              NodeContext)
 import           Pos.Core                    (IsHeader)
 import           Pos.DB                      (MonadGState (..), NodeDBs)
 import           Pos.DB.Block                (MonadBlockDBWrite (..), dbGetBlockDefault,
@@ -92,6 +93,9 @@ instance HasDiscoveryContextSum (RealModeContext ssc) where
 
 instance HasReportingContext (RealModeContext ssc) where
     reportingContext = rmcNodeContext . reportingContext
+
+instance HasNodeContext ssc (RealModeContext ssc) where
+    nodeContext = rmcNodeContext
 
 instance sa ~ SharedAtomicT Production => HasPeerState sa (RealModeContext ssc) where
     peerState = lensOf @PeerStateTag

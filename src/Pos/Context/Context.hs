@@ -6,8 +6,7 @@
 -- | Runtime context of node.
 
 module Pos.Context.Context
-       ( NodeContextTag
-       , MonadNodeContext
+       ( HasNodeContext(..)
        , HasSscContext(..)
        , NodeContext (..)
        , NodeParams(..)
@@ -70,7 +69,6 @@ import           Pos.Util.UserSecret           (UserSecret)
 -- NodeContext
 ----------------------------------------------------------------------------
 
-data NodeContextTag
 data LastKnownHeaderTag
 type LastKnownHeader ssc = TVar (Maybe (BlockHeader ssc))
 type MonadLastKnownHeader ssc ctx m = (MonadReader ctx m, HasLens LastKnownHeaderTag ctx (LastKnownHeader ssc))
@@ -155,7 +153,11 @@ modeContext [d|
         }
     |]
 
-type MonadNodeContext ssc ctx m = (MonadReader ctx m, HasLens NodeContextTag ctx (NodeContext ssc))
+class HasNodeContext ssc ctx | ctx -> ssc where
+    nodeContext :: Lens' ctx (NodeContext ssc)
+
+instance HasNodeContext ssc (NodeContext ssc) where
+    nodeContext = identity
 
 makeLensesFor
     [ ("npUpdateParams", "npUpdateParamsL")
@@ -171,9 +173,6 @@ instance HasSscContext ssc (NodeContext ssc) where
 
 instance HasDiscoveryContextSum (NodeContext ssc) where
     discoveryContextSum = lensOf @DiscoveryContextSum
-
-instance HasLens NodeContextTag (NodeContext ssc) (NodeContext ssc) where
-    lensOf = identity
 
 instance HasLens UpdateParams (NodeContext ssc) UpdateParams where
     lensOf = lensOf @NodeParams . npUpdateParamsL

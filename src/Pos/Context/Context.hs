@@ -8,8 +8,7 @@
 module Pos.Context.Context
        ( NodeContextTag
        , MonadNodeContext
-       , SscContextTag
-       , MonadSscContext
+       , HasSscContext(..)
        , NodeContext (..)
        , NodeParams(..)
        , BaseParams(..)
@@ -57,8 +56,7 @@ import           Pos.Reporting.MemState        (ReportingContext (..), rcLogging
 import           Pos.Security.Params           (SecurityParams)
 import           Pos.Shutdown.Types            (ShutdownContext (..))
 import           Pos.Slotting                  (SlottingContextSum, SlottingVar)
-import           Pos.Ssc.Class.Types           (MonadSscContext, Ssc (SscNodeContext),
-                                                SscContextTag)
+import           Pos.Ssc.Class.Types           (HasSscContext (..), Ssc (SscNodeContext))
 import           Pos.Txp.Settings              (TxpGlobalSettings)
 import           Pos.Txp.Toil.Types            (Utxo)
 import           Pos.Update.Context            (UpdateContext)
@@ -93,6 +91,8 @@ newtype GenesisLeaders = GenesisLeaders { unGenesisLeaders :: SlotLeaders }
 newtype ConnectedPeers = ConnectedPeers { unConnectedPeers :: STM.TVar (Set NodeId) }
 newtype BlkSemaphore = BlkSemaphore { unBlkSemaphore :: MVar HeaderHash }
 newtype StartTime = StartTime { unStartTime :: UTCTime }
+
+data SscContextTag
 
 modeContext [d|
     -- NodeContext contains runtime context of node.
@@ -163,6 +163,9 @@ makeLensesFor
     , ("npPropagation", "npPropagationL")
     , ("npCustomUtxo", "npCustomUtxoL") ]
     ''NodeParams
+
+instance HasSscContext ssc (NodeContext ssc) where
+    sscContext = lensOf @SscContextTag
 
 instance HasLens NodeContextTag (NodeContext ssc) (NodeContext ssc) where
     lensOf = identity

@@ -49,7 +49,7 @@ import           Pos.Slotting.MemState         (MonadSlotsData (..),
                                                 getSystemStartDefault,
                                                 putSlottingDataDefault,
                                                 waitPenultEpochEqualsDefault)
-import           Pos.Ssc.Class.Types           (SscBlock)
+import           Pos.Ssc.Class.Types           (HasSscContext (..), SscBlock)
 import           Pos.Util                      (Some (..))
 import           Pos.Util.JsonLog              (jsonLogDefault)
 import           Pos.Util.TimeWarp             (CanJsonLog (..))
@@ -78,6 +78,13 @@ modeContext [d|
         !(ConnectionsVar ::: ConnectionsVar)
         !(RealModeContext WalletSscType)
     |]
+
+wwmcRealModeContext :: Lens' WalletWebModeContext (RealModeContext WalletSscType)
+wwmcRealModeContext f (WalletWebModeContext x1 x2 rmc) =
+    WalletWebModeContext x1 x2 <$> f rmc
+
+instance HasSscContext WalletSscType WalletWebModeContext where
+    sscContext = wwmcRealModeContext . sscContext
 
 data WalletWebModeContextTag
 

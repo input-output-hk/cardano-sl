@@ -8,10 +8,12 @@ module Pos.Web.Mode
     , WebModeContext(..)
     ) where
 
+import           Universum
+
 import qualified Control.Monad.Reader as Mtl
 import           Mockable             (Production)
 
-import           Pos.Context          (NodeContext)
+import           Pos.Context          (HasSscContext (..), NodeContext)
 import           Pos.DB               (NodeDBs)
 import           Pos.DB.Class         (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Redirect      (dbDeleteDefault, dbGetDefault, dbIterSourceDefault,
@@ -26,6 +28,12 @@ modeContext [d|
         !(TxpHolderTag ::: GenericTxpLocalData TxpExtra_TMP)
         !(NodeContext ssc)
     |]
+
+wmcNodeContext :: Lens' (WebModeContext ssc) (NodeContext ssc)
+wmcNodeContext f (WebModeContext x1 x2 nc) = WebModeContext x1 x2 <$> f nc
+
+instance HasSscContext ssc (WebModeContext ssc) where
+    sscContext = wmcNodeContext . sscContext
 
 type WebMode ssc = Mtl.ReaderT (WebModeContext ssc) Production
 

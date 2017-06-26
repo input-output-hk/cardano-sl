@@ -21,7 +21,7 @@ import           Pos.Reporting               (MonadReportingMem)
 import           Pos.Security.Params         (SecurityParams)
 import           Pos.Shutdown                (MonadShutdownMem)
 import           Pos.Slotting                (MonadSlots)
-import           Pos.Ssc.Class.Types         (MonadSscContext)
+import           Pos.Ssc.Class.Types         (HasSscContext)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Util.TimeWarp           (CanJsonLog)
 
@@ -42,8 +42,8 @@ type SscMode ssc ctx m
       , MonadShutdownMem ctx m
       , MonadDiscovery m
       , WithPeerState m
-      , MonadSscContext ssc ctx m
       , MonadReader ctx m
+      , HasSscContext ssc ctx
       , HasLens SecurityParams ctx SecurityParams
       , HasLens LrcContext ctx LrcContext
       )

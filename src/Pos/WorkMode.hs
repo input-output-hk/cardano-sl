@@ -29,7 +29,7 @@ import           Pos.Block.Types             (Undo)
 import           Pos.Communication.PeerState (PeerStateCtx, PeerStateTag,
                                               WithPeerState (..), clearPeerStateDefault,
                                               getAllStatesDefault, getPeerStateDefault)
-import           Pos.Context                 (NodeContext)
+import           Pos.Context                 (HasSscContext (..), NodeContext)
 import           Pos.Core                    (IsHeader)
 import           Pos.DB                      (MonadGState (..), NodeDBs)
 import           Pos.DB.Block                (MonadBlockDBWrite (..), dbGetBlockDefault,
@@ -75,6 +75,13 @@ modeContext [d|
         !(LoggerName    ::: LoggerName)
         !(NodeContext ssc)
     |]
+
+rmcNodeContext :: Lens' (RealModeContext ssc) (NodeContext ssc)
+rmcNodeContext f (RealModeContext x1 x2 x3 x4 x5 x6 x7 nc) =
+    RealModeContext x1 x2 x3 x4 x5 x6 x7 <$> f nc
+
+instance HasSscContext ssc (RealModeContext ssc) where
+    sscContext = rmcNodeContext . sscContext
 
 type RealMode ssc = Mtl.ReaderT (RealModeContext ssc) Production
 

@@ -993,8 +993,7 @@ importWalletSecret
     -> m CWallet
 importWalletSecret passphrase WalletUserSecret{..} = do
     let key    = _wusRootKey
-        addr   = makePubKeyAddress $ encToPublic key
-        wid    = addressToCId addr
+        wid    = encToCId key
         wMeta  = def { cwName = _wusWalletName }
     addSecretKey key
     importedWallet <- createWalletSafe wid wMeta
@@ -1048,7 +1047,7 @@ testResetAll | isDevelopment = deleteAllKeys >> testReset
 
 restoreWalletFromBackup :: WalletWebMode m => WalletBackup -> m CWallet
 restoreWalletFromBackup WalletBackup {..} = do
-    let wId = addressToCId . makePubKeyAddress $ encToPublic wbSecretKey
+    let wId = encToCId wbSecretKey
         (WalletMetaBackup wMeta) = wbMeta
         accList = HM.toList wbAccounts
                   & each . _2 %~ \(AccountMetaBackup am) -> am

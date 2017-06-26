@@ -11,7 +11,7 @@ import           Data.Aeson                 (FromJSON (..), ToJSON (..), Value (
 import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.Vector                as V
-import           Formatting                 (sformat, stext, (%))
+import           Formatting                 (formatToString, stext, (%))
 import qualified Serokell.Util.Base64       as B64
 
 import qualified Pos.Binary                 as Bi
@@ -22,6 +22,8 @@ import           Pos.Wallet.Web.Backup      (AccountMetaBackup (..), StateBackup
                                              currentBackupFormatVersion)
 import           Pos.Wallet.Web.ClientTypes (CAccountMeta (..), CWalletAssurance (..),
                                              CWalletMeta (..))
+
+data IndexedAccountMeta = IndexedAccountMeta Int AccountMetaBackup
 
 strToUnit :: MonadFail m => Text -> m Int
 strToUnit "ADA"      = pure 0
@@ -46,8 +48,8 @@ checkIfCurrentVersion :: MonadFail m => Text -> m ()
 checkIfCurrentVersion version
     | version == currentBackupFormatVersion = pure ()
     | otherwise =
-          fail . toString $
-          sformat ("Unsupported backup format version "%stext%", expected "%stext)
+          fail $ formatToString
+          ("Unsupported backup format version "%stext%", expected "%stext)
           version currentBackupFormatVersion
 
 instance FromJSON AccountMetaBackup where
@@ -62,13 +64,18 @@ instance FromJSON WalletMetaBackup where
         cwUnit <- strToUnit =<< o .: "unit"
         return $ WalletMetaBackup $ CWalletMeta {..}
 
+instance FromJSON IndexedAccountMeta where
+    parseJSON = withObject "IndexedAccountMeta" $ \o -> do
+        idx <- o .: "index"
+        meta <- parseJSON $ Object o
+        return $ IndexedAccountMeta idx meta
+
 instance FromJSON WalletBackup where
     parseJSON = withObject "WalletBackup" $ \o -> do
         let decodeBase64 x = eitherToFail (B64.decode x) >>= eitherToFail . Bi.decodeFull . BSL.fromStrict
             collectAccMap = foldlM parseAddAcc HM.empty
-            parseAddAcc accMap = withObject "WalletBackup.accounts.item" $ \v -> do
-                idx <- v .: "index"
-                meta <- parseJSON $ Object v
+            parseAddAcc accMap v = do
+                IndexedAccountMeta idx meta <- parseJSON v
                 return $ HM.insert idx meta accMap
 
         prvKey <- decodeBase64 =<< o .: "walletSecretKey"
@@ -99,6 +106,12 @@ instance ToJSON WalletMetaBackup where
         , "unit" .= unitToStr cwUnit
         ]
 
+instance ToJSON IndexedAccountMeta where
+    toJSON (IndexedAccountMeta idx meta) =
+        case toJSON meta of
+            Object v -> Object $ HM.insert "index" (toJSON idx) v
+            _        -> error "Account metadata isn't encoded as JSON object"
+
 instance ToJSON WalletBackup where
     toJSON (WalletBackup skey wMeta wAccounts) = object
         [ "walletSecretKey" .= B64.encode (Bi.encodeStrict prvKey)
@@ -108,12 +121,7 @@ instance ToJSON WalletBackup where
         ]
       where
         EncryptedSecretKey prvKey passPhraseHash = skey
-        encodeAccMap accMap =
-            Array . V.fromList . map accEntry $
-            HM.toList accMap
-        accEntry (idx, accMeta) =
-            let (Object obj) = toJSON accMeta
-            in Object $ HM.insert "index" (toJSON idx) obj
+        encodeAccMap = toJSON . map (uncurry IndexedAccountMeta) . HM.toList
 
 instance ToJSON StateBackup where
     toJSON (FullStateBackup wallets) = object

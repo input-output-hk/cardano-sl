@@ -10,25 +10,30 @@ module Pos.Lrc.Logic
        , RichmenType (..)
        ) where
 
+import           Universum
+
 import           Data.Conduit        (Sink, runConduitPure, runConduitRes, (.|))
 import qualified Data.Conduit.List   as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
-import           Universum
+import qualified Ether
 
+import           Pos.Core            (Coin, GenesisStakes, StakeholderId, sumCoins,
+                                      unsafeIntegerToCoin)
 import           Pos.DB.Class        (MonadDBRead, MonadGState)
 import           Pos.DB.GState       (getDelegators, getEffectiveStake,
                                       isIssuerByAddressHash)
 import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
 import           Pos.Lrc.Types       (FullRichmenData, RichmenStake)
-import           Pos.Types           (Coin, StakeholderId, sumCoins, unsafeIntegerToCoin)
+
+type MonadDBReadFull m = (MonadDBRead m, Ether.MonadReader' GenesisStakes m, MonadGState m)
 
 -- Can it be improved using conduits?
 -- | Find delegated richmen using precomputed usual richmen.
 -- Do it using one pass by delegation DB.
 findDelRichUsingPrecomp
     :: forall m.
-       (MonadDBRead m, MonadGState m)
+       (MonadDBReadFull m)
     => RichmenStake -> Coin -> m RichmenStake
 findDelRichUsingPrecomp precomputed thr = do
     (old, new) <-
@@ -41,7 +46,7 @@ findDelRichUsingPrecomp precomputed thr = do
 
 -- | Find delegated richmen.
 findDelegatedRichmen
-    :: (MonadDBRead m, MonadGState m)
+    :: (MonadDBReadFull m)
     => Coin -> Sink (StakeholderId, Coin) m RichmenStake
 findDelegatedRichmen thr = do
     st <- findRichmenStake thr
@@ -51,7 +56,7 @@ findDelegatedRichmen thr = do
 -- and compute using one pass by stake DB and one pass by delegation DB.
 findAllRichmenMaybe
     :: forall m.
-       (MonadDBRead m, MonadGState m)
+       (MonadDBReadFull m)
     => Maybe Coin -- ^ Eligibility threshold (optional)
     -> Maybe Coin -- ^ Delegation threshold (optional)
     -> Sink (StakeholderId, Coin) m (RichmenStake, RichmenStake)

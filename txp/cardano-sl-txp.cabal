@@ -63,7 +63,6 @@ library
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
-                     , cardano-sl-update
                      , cardano-sl-infra
                      , containers
                      , conduit

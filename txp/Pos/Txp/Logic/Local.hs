@@ -17,7 +17,8 @@ import           System.Wlog                 (WithLogger, logDebug)
 import           Universum
 import           Unsafe                      (unsafeHead)
 
-import           Pos.Core                    (HeaderHash, genesisBootStakeholders)
+import           Pos.Core                    (HeaderHash, genesisBootProdStakeholders)
+import           Pos.Core.Constants          (isDevelopment)
 import           Pos.DB.Class                (MonadDBRead, MonadGState, gsIsBootstrapEra)
 import qualified Pos.DB.GState.Common        as GS
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId,
@@ -76,7 +77,7 @@ txProcessTransaction itw@(txId, txAux) = do
   where
     notBootRelated =
         let txDistr = getTxDistribution $ taDistribution txAux
-            inBoot (s,_) = s `HS.member` genesisBootStakeholders
+            inBoot (s,_) = s `HS.member` genesisBootProdStakeholders
         in NE.filter (\txOutDistr -> any (not . inBoot) txOutDistr) txDistr
 
     processTxDo
@@ -90,7 +91,7 @@ txProcessTransaction itw@(txId, txAux) = do
     processTxDo resolved toilEnv tipDB tx bootEra txld@(uv, mp, undo, tip, ())
         | tipDB /= tip =
             (Left $ ToilTipsMismatch tipDB tip, txld)
-        | bootEra && not (null notBootRelated) =
+        | not isDevelopment && bootEra && not (null notBootRelated) =
             -- We do not allow txs with non-boot-addr stake distr in boot era.
             (Left $ ToilBootDifferentStake $ unsafeHead notBootRelated, txld)
         | otherwise =

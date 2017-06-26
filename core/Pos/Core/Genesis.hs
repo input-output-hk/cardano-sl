@@ -9,8 +9,8 @@ module Pos.Core.Genesis
        -- ** Derived data
        , genesisAddresses
        , genesisStakeDistribution
-       , genesisBootBalances
-       , genesisBootStakeholders
+       , genesisBootProdStakes
+       , genesisBootProdStakeholders
 
        -- * Constants
        , genesisDevKeyPairs
@@ -41,7 +41,7 @@ import           Pos.Core.Constants      (genesisKeysN, isDevelopment)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (GenesisCoreData (..), StakeDistribution (..),
                                           getTotalStake)
-import           Pos.Core.Types          (Address, Coin, StakeholderId, mkCoin,
+import           Pos.Core.Types          (Address, Coin, StakeholderId, StakesMap, mkCoin,
                                           unsafeGetCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
                                           safeDeterministicKeyGen)
@@ -103,18 +103,16 @@ genesisStakeDistribution
     | isDevelopment = def
     | otherwise     = gcdDistribution compileGenCoreData
 
--- | List of bootstrap balances with coins.
-genesisBootBalances :: HashMap StakeholderId Coin
-genesisBootBalances
-    | isDevelopment = mempty
-    | otherwise     = gcdBootstrapBalances compileGenCoreData
+-- | Genesis stakes which should be used only in production mode.
+genesisBootProdStakes :: StakesMap
+genesisBootProdStakes = gcdBootstrapBalances compileGenCoreData
 
--- | Bootstrap era stakeholders.
-genesisBootStakeholders :: HashSet StakeholderId
-genesisBootStakeholders = getKeys genesisBootBalances
+-- | Bootstrap era stakeholders derived from 'genesisBootProdStakes'.
+genesisBootProdStakeholders :: HashSet StakeholderId
+genesisBootProdStakeholders = getKeys genesisBootProdStakes
 
 -- | Returns a distribution sharing coins to
--- 'genesisBootStakeholders'. If number of addresses @n@ is more then
+-- 'genesisBootStakeholders'. If number of addresses @n@ is more than
 -- coins @c@, we give 1 coin to every addr in the prefix of length
 -- @n@. Otherwise we give quotient to every boot addr and assign
 -- remainder randomly based on passed coin hash among addresses.
@@ -138,6 +136,7 @@ genesisSplitBoot c
     remReceiver = abs (hash c) `mod` addrsNum
     cval :: Int
     cval = fromIntegral $ unsafeGetCoin c
+    bootStakeholders :: [StakeholderId]
+    bootStakeholders = HS.toList genesisBootProdStakeholders
     addrsNum :: Int
-    addrsNum = length genesisBootStakeholders
-    bootStakeholders = HS.toList genesisBootStakeholders
+    addrsNum = length bootStakeholders

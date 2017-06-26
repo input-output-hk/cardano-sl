@@ -3,10 +3,11 @@
 module Pos.Txp.Core.Core
        ( addrBelongsTo
        , addrBelongsToSet
+       , emptyTxPayload
+       , flattenTxPayload
        , mkTxProof
        , txInToPair
        , txOutStake
-       , flattenTxPayload
        ) where
 
 import           Universum
@@ -23,7 +24,8 @@ import           Pos.Crypto          (hash)
 import           Pos.Merkle          (mtRoot)
 import           Pos.Txp.Core.Types  (TxAux (..), TxId, TxIn (..), TxOut (..),
                                       TxOutAux (..), TxOutDistribution, TxPayload (..),
-                                      TxProof (..))
+                                      TxProof (..), mkTxPayload)
+import           Pos.Util.Util       (leftToPanic)
 
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.
@@ -61,3 +63,6 @@ mkTxProof UnsafeTxPayload {..} =
 flattenTxPayload :: TxPayload -> [TxAux]
 flattenTxPayload UnsafeTxPayload {..} =
     zipWith3 TxAux (toList _txpTxs) _txpWitnesses _txpDistributions
+
+emptyTxPayload :: TxPayload
+emptyTxPayload = leftToPanic @Text "emptyTxPayload failed" $ mkTxPayload []

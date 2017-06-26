@@ -12,7 +12,6 @@ module Pos.Txp.DB.Balances
          -- * Getters
        , getEffectiveTotalStake
        , getEffectiveStake
-       , genesisFakeTotalStake
 
          -- * Initialization
        , initGStateBalances
@@ -25,22 +24,23 @@ module Pos.Txp.DB.Balances
        , sanityCheckBalances
        ) where
 
+import           Universum
+
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB             as Rocks
+import qualified Ether
 import           Formatting                   (bprint, bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
-import           Universum
 
 import           Pos.Binary.Class             (encodeStrict)
-import           Pos.Core                     (Coin, StakeholderId, coinF, mkCoin,
-                                               sumCoins, unsafeAddCoin,
+import           Pos.Core                     (Coin, GenesisStakes (..), StakeholderId,
+                                               coinF, mkCoin, sumCoins, unsafeAddCoin,
                                                unsafeIntegerToCoin)
-import           Pos.Core.Genesis             (genesisBootBalances)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
                                                MonadDB, MonadDBRead, MonadGState (..),
@@ -76,17 +76,23 @@ instance RocksBatchOp BalancesOp where
 -- Overloaded getters (for fixed balances for bootstrap era)
 ----------------------------------------------------------------------------
 
-genesisFakeTotalStake :: Coin
-genesisFakeTotalStake = unsafeIntegerToCoin $ sumCoins genesisBootBalances
+genesisFakeTotalStake :: Ether.MonadReader' GenesisStakes m => m Coin
+genesisFakeTotalStake =
+    unsafeIntegerToCoin . sumCoins . unGenesisStakes <$> Ether.ask'
 
-getEffectiveTotalStake :: (MonadDBRead m, MonadGState m) => m Coin
+getEffectiveTotalStake ::
+       (Ether.MonadReader' GenesisStakes m, MonadDBRead m, MonadGState m)
+    => m Coin
 getEffectiveTotalStake = ifM gsIsBootstrapEra
-    (pure genesisFakeTotalStake)
+    genesisFakeTotalStake
     getRealTotalStake
 
-getEffectiveStake :: (MonadDBRead m, MonadGState m) => StakeholderId -> m (Maybe Coin)
+getEffectiveStake ::
+       (Ether.MonadReader' GenesisStakes m, MonadDBRead m, MonadGState m)
+    => StakeholderId
+    -> m (Maybe Coin)
 getEffectiveStake id = ifM gsIsBootstrapEra
-    (pure $ HM.lookup id genesisBootBalances)
+    (HM.lookup id . unGenesisStakes <$> Ether.ask')
     (getRealStake id)
 
 ----------------------------------------------------------------------------
@@ -113,12 +119,13 @@ initGStateBalances genesisUtxo = do
 ----------------------------------------------------------------------------
 
 -- | Run iterator over effective balances.
-balanceSource
-    :: (MonadDBRead m, MonadGState m)
+balanceSource ::
+       forall m.
+       (Ether.MonadReader' GenesisStakes m, MonadDBRead m, MonadGState m)
     => Source (ResourceT m) (IterType BalanceIter)
 balanceSource =
     ifM (lift gsIsBootstrapEra)
-        (CL.sourceList $ HM.toList genesisBootBalances)
+        (CL.sourceList . HM.toList . unGenesisStakes =<< lift Ether.ask')
         (dbIterSource GStateDB (Proxy @BalanceIter))
 
 ----------------------------------------------------------------------------

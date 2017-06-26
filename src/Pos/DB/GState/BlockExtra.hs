@@ -11,7 +11,7 @@ module Pos.DB.GState.BlockExtra
        , foldlUpWhileM
        , loadHeadersUpWhile
        , loadBlocksUpWhile
-       , prepareGStateBlockExtra
+       , initGStateBlockExtra
        ) where
 
 import qualified Data.Text.Buildable
@@ -144,8 +144,8 @@ loadBlocksUpWhile start condition = loadUpWhile fst start condition
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
-prepareGStateBlockExtra firstGenesisHash = do
+initGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
+initGStateBlockExtra firstGenesisHash = do
     gsPutBi (mainChainKey firstGenesisHash) ()
     gsPutBi (forwardLinkKey genesisHash) firstGenesisHash
 

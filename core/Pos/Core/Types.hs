@@ -11,6 +11,8 @@ module Pos.Core.Types
        , AddrPkAttrs (..)
        , AddressHash
        , StakeholderId
+       , StakesMap
+       , GenesisStakes (..)
 
        , Timestamp (..)
 
@@ -127,6 +129,12 @@ newtype AddrPkAttrs = AddrPkAttrs
 
 instance Default AddrPkAttrs where
     def = AddrPkAttrs Nothing
+
+-- | A mapping between stakeholders and they stakes.
+type StakesMap = HashMap StakeholderId Coin
+
+-- | Newtype over 'StakesMap' to be used in genesis.
+newtype GenesisStakes = GenesisStakes { unGenesisStakes :: StakesMap }
 
 ----------------------------------------------------------------------------
 -- ChainDifficulty

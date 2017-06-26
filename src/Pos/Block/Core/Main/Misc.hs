@@ -21,8 +21,7 @@ import           Pos.Binary.Block.Core       ()
 import           Pos.Block.Core.Main.Chain   (Body (..), ConsensusData (..))
 import           Pos.Block.Core.Main.Helpers ()
 import           Pos.Block.Core.Main.Lens    (mainBlockBlockVersion, mainBlockDifficulty,
-                                              mainBlockSlot, mainBlockSlot,
-                                              mainBlockSoftwareVersion,
+                                              mainBlockSlot, mainBlockSoftwareVersion,
                                               mainHeaderBlockVersion,
                                               mainHeaderDifficulty, mainHeaderLeaderKey,
                                               mainHeaderSlot, mainHeaderSoftwareVersion,
@@ -44,8 +43,8 @@ import           Pos.Core                    (EpochOrSlot (..), GenericBlock (..
                                               LocalSlotIndex, SlotId, mkGenericHeader,
                                               recreateGenericBlock, slotIdF)
 import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
-                                              SignTag (..), hashHexF, proxySign, sign,
-                                              toPublic)
+                                              SignTag (..), hash, hashHexF, proxySign,
+                                              sign, toPublic)
 import           Pos.Data.Attributes         (mkAttributes)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
@@ -224,6 +223,7 @@ mkMainBlock prevHeader slotId sk pske body =
             Const.lastKnownBlockVersion
             Const.curSoftwareVersion
             (mkAttributes ())
+            (hash extraB)
 
 -- | Empty (i. e. no payload) body of main block for given local slot index.
 emptyMainBody ::

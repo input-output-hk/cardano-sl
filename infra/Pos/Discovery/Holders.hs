@@ -5,7 +5,7 @@
 
 module Pos.Discovery.Holders
        ( DiscoveryContextSum (..)
-       , MonadDiscoverySum
+       , HasDiscoveryContextSum (..)
        , discoveryWorkers
        , getPeersSum
        , findPeersSum
@@ -61,22 +61,21 @@ data DiscoveryContextSum
     = DCStatic !(Set NodeId)
     | DCKademlia !KademliaDHTInstance
 
--- | Monad which combines all 'MonadDiscovery' implementations (and
--- uses only one of them).
-type MonadDiscoverySum ctx m = (MonadReader ctx m, HasLens DiscoveryContextSum ctx DiscoveryContextSum)
+class HasDiscoveryContextSum ctx where
+    discoveryContextSum :: Lens' ctx DiscoveryContextSum
 
 type DiscoverySumEnv ctx m =
-    (MonadDiscoverySum ctx m, DiscoveryKademliaEnv m)
+    (MonadReader ctx m, HasDiscoveryContextSum ctx, DiscoveryKademliaEnv m)
 
 getPeersSum :: DiscoverySumEnv ctx m => m (Set NodeId)
 getPeersSum =
-    view (lensOf @DiscoveryContextSum) >>= \case
+    view discoveryContextSum >>= \case
         DCStatic nodes -> return nodes
         DCKademlia inst -> getPeersKademlia inst
 
 findPeersSum :: DiscoverySumEnv ctx m => m (Set NodeId)
 findPeersSum =
-    view (lensOf @DiscoveryContextSum) >>= \case
+    view discoveryContextSum >>= \case
         DCStatic nodes -> return nodes
         DCKademlia inst -> findPeersKademlia inst
 

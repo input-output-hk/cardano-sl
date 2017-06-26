@@ -43,7 +43,8 @@ import           Pos.DB.Redirect             (dbDeleteDefault, dbGetDefault,
                                               dbIterSourceDefault, dbPutDefault,
                                               dbWriteBatchDefault)
 import           Pos.Delegation.Class        (DelegationVar)
-import           Pos.Discovery               (MonadDiscovery (..), findPeersSum,
+import           Pos.Discovery               (HasDiscoveryContextSum (..),
+                                              MonadDiscovery (..), findPeersSum,
                                               getPeersSum)
 import           Pos.ExecMode.Context        ((:::), modeContext)
 import           Pos.Slotting.Class          (MonadSlots (..))
@@ -82,6 +83,9 @@ rmcNodeContext f (RealModeContext x1 x2 x3 x4 x5 x6 x7 nc) =
 
 instance HasSscContext ssc (RealModeContext ssc) where
     sscContext = rmcNodeContext . sscContext
+
+instance HasDiscoveryContextSum (RealModeContext ssc) where
+    discoveryContextSum = rmcNodeContext . discoveryContextSum
 
 type RealMode ssc = Mtl.ReaderT (RealModeContext ssc) Production
 

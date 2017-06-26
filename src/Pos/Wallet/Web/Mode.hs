@@ -36,7 +36,8 @@ import           Pos.Client.Txp.Balances       (MonadBalances (..), getBalanceDe
                                                 getOwnUtxosDefault)
 import           Pos.Client.Txp.History        (MonadTxHistory (..), getTxHistoryDefault,
                                                 saveTxDefault)
-import           Pos.Discovery                 (MonadDiscovery (..), findPeersSum,
+import           Pos.Discovery                 (HasDiscoveryContextSum(..),
+                                                MonadDiscovery (..), findPeersSum,
                                                 getPeersSum)
 import           Pos.ExecMode.Context          ((:::), HasLens (..), modeContext)
 import           Pos.Slotting.Class            (MonadSlots (..))
@@ -85,6 +86,9 @@ wwmcRealModeContext f (WalletWebModeContext x1 x2 rmc) =
 
 instance HasSscContext WalletSscType WalletWebModeContext where
     sscContext = wwmcRealModeContext . sscContext
+
+instance HasDiscoveryContextSum WalletWebModeContext where
+    discoveryContextSum = wwmcRealModeContext . discoveryContextSum
 
 data WalletWebModeContextTag
 

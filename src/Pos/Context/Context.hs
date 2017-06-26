@@ -47,7 +47,8 @@ import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
 import           Pos.Core                      (HeaderHash, PrimaryKeyTag, SlotLeaders)
 import           Pos.Crypto                    (SecretKey)
-import           Pos.Discovery                 (DiscoveryContextSum)
+import           Pos.Discovery                 (DiscoveryContextSum,
+                                                HasDiscoveryContextSum (..))
 import           Pos.ExecMode.Context          ((:::), modeContext)
 import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
@@ -166,6 +167,9 @@ makeLensesFor
 
 instance HasSscContext ssc (NodeContext ssc) where
     sscContext = lensOf @SscContextTag
+
+instance HasDiscoveryContextSum (NodeContext ssc) where
+    discoveryContextSum = lensOf @DiscoveryContextSum
 
 instance HasLens NodeContextTag (NodeContext ssc) (NodeContext ssc) where
     lensOf = identity

@@ -5,6 +5,8 @@ module Pos.Explorer.DB
        , getTxExtra
        , getAddrHistory
        , getAddrBalance
+       , getPageBlocks
+       , getEpochBlocks
        , prepareExplorerDB
        ) where
 
@@ -18,7 +20,7 @@ import qualified Ether
 import           Pos.Binary.Class      (encodeStrict)
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core              (unsafeAddCoin)
-import           Pos.Core.Types        (Address, Coin)
+import           Pos.Core.Types        (Address, Coin, HeaderHash)
 import           Pos.DB                (DBTag (GStateDB), MonadDB, MonadDBRead (dbGet),
                                         RocksBatchOp (..))
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
@@ -26,6 +28,17 @@ import           Pos.Explorer.Core     (AddrHistory, TxExtra (..))
 import           Pos.Txp.Core          (TxId, TxOutAux (..), _TxOut)
 import           Pos.Txp.Toil          (Utxo)
 import           Pos.Util.Chrono       (NewestFirst (..))
+
+----------------------------------------------------------------------------
+-- Types
+----------------------------------------------------------------------------
+
+type Page = Integer
+type Epoch = Integer
+
+-- type PageBlocks = [Block SscGodTossing]
+-- ^ this is much simpler but we are trading time for space 
+-- (since space is an issue, it seems)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -40,6 +53,12 @@ getAddrHistory = fmap (NewestFirst . concat . maybeToList) .
 
 getAddrBalance :: MonadDBRead m => Address -> m (Maybe Coin)
 getAddrBalance = gsGetBi . addrBalancePrefix
+
+getPageBlocks :: MonadDBRead m => Page -> m (Maybe [HeaderHash])
+getPageBlocks = gsGetBi . blockPagePrefix
+
+getEpochBlocks :: MonadDBRead m => Epoch -> m (Maybe [HeaderHash])
+getEpochBlocks = gsGetBi . blockEpochPrefix
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -77,17 +96,38 @@ putGenesisBalances genesisUtxo =
 data ExplorerOp
     = AddTxExtra !TxId !TxExtra
     | DelTxExtra !TxId
+
+    | PutPageBlocks !Page ![HeaderHash]
+    | DelPageBlocks !Page
+
+    | PutEpochBlocks !Epoch ![HeaderHash]
+    | DelEpochBlocks !Epoch
+
     | UpdateAddrHistory !Address !AddrHistory
+
     | PutAddrBalance !Address !Coin
     | DelAddrBalance !Address
 
 instance RocksBatchOp ExplorerOp where
+  
     toBatchOp (AddTxExtra id extra) =
         [Rocks.Put (txExtraPrefix id) (encodeStrict extra)]
     toBatchOp (DelTxExtra id) =
         [Rocks.Del $ txExtraPrefix id]
+    
+    toBatchOp (PutPageBlocks page pageBlocks) =
+        [Rocks.Put (blockPagePrefix page) (encodeStrict pageBlocks)]
+    toBatchOp (DelPageBlocks page) =
+        [Rocks.Del $ blockPagePrefix page]
+
+    toBatchOp (PutEpochBlocks epoch pageBlocks) =
+        [Rocks.Put (blockEpochPrefix epoch) (encodeStrict pageBlocks)]
+    toBatchOp (DelEpochBlocks epoch) =
+        [Rocks.Del $ blockEpochPrefix epoch]
+
     toBatchOp (UpdateAddrHistory addr txs) =
         [Rocks.Put (addrHistoryPrefix addr) (encodeStrict txs)]
+
     toBatchOp (PutAddrBalance addr coin) =
         [Rocks.Put (addrBalancePrefix addr) (encodeStrict coin)]
     toBatchOp (DelAddrBalance addr) =
@@ -105,3 +145,9 @@ addrHistoryPrefix addr = "e/ah/" <> encodeStrict addr
 
 addrBalancePrefix :: Address -> ByteString
 addrBalancePrefix addr = "e/ab/" <> encodeStrict addr
+
+blockPagePrefix :: Page -> ByteString
+blockPagePrefix page = "e/page/" <> encodeStrict page
+
+blockEpochPrefix :: Epoch -> ByteString
+blockEpochPrefix epoch = "e/epoch/" <> encodeStrict epoch

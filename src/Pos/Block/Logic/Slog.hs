@@ -30,7 +30,7 @@ import qualified Ether
 import           Formatting            (build, sformat, (%))
 import           Serokell.Util         (Color (Red), colorize)
 import           Serokell.Util.Verify  (formatAllErrors, verResToMonadError)
-import           System.Wlog           (WithLogger, logWarning)
+import           System.Wlog           (WithLogger)
 
 import           Pos.Binary.Core       ()
 import           Pos.Block.BListener   (MonadBListener (..))
@@ -159,14 +159,15 @@ slogApplyBlocks blunds = do
     -- Note: it's important to put blunds first
     mapM_ dbPutBlund blunds
     -- If the program is interrupted at this point (after putting on block),
-    -- we will rollback all wallet sets at the next launch.
-    onApplyBlocks blunds `catch` logWarn
+    -- we won't save any blocks.
+    callbackBlocks <- onApplyBlocks blunds
+
     let putTip =
             SomeBatchOp $
             GS.PutTip $ headerHash $ NE.last $ getOldestFirst blunds
     sanityCheckDB
     putSlottingData =<< GS.getSlottingData
-    return $ SomeBatchOp [putTip, forwardLinksBatch, inMainBatch]
+    return $ SomeBatchOp [putTip, callbackBlocks, forwardLinksBatch, inMainBatch]
   where
     blocks = fmap fst blunds
     forwardLinks = map (view prevBlockL &&& view headerHashG) $ toList blocks
@@ -175,9 +176,6 @@ slogApplyBlocks blunds = do
     inMainBatch =
         SomeBatchOp . getOldestFirst $
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
-    -- ↓ was written by @pva701
-    logWarn :: SomeException -> m ()
-    logWarn = logWarning . sformat ("onApplyBlocks raised exception: " %build)
 
 -- | This function does everything that should be done when rollback
 -- happens and that is not done in other components.
@@ -191,14 +189,15 @@ slogRollbackBlocks blunds = do
         assertionFailed $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
     -- If program is interrupted after call @onRollbackBlocks@,
-    -- we will load all wallet set not rolled yet at the next launch.
-    onRollbackBlocks blunds `catch` logWarn
+    -- we won't save any blocks.
+    callbackBlocks <- onRollbackBlocks blunds
+    
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $
                  (NE.last $ getNewestFirst blunds) ^. prevBlockL
     sanityCheckDB
-    return $ SomeBatchOp [putTip, forwardLinksBatch, inMainBatch]
+    return $ SomeBatchOp [putTip, callbackBlocks, forwardLinksBatch, inMainBatch]
   where
     blocks = fmap fst blunds
     inMainBatch =
@@ -209,6 +208,3 @@ slogRollbackBlocks blunds = do
         fmap (GS.RemoveForwardLink . view prevBlockL) blocks
     isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
     isGenesis0 (Right _)         = False
-    -- ↓ was written by @pva701
-    logWarn :: SomeException -> m ()
-    logWarn = logWarning . sformat ("onRollbackBlocks raised exception: "%build)

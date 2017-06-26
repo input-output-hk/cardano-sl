@@ -25,13 +25,11 @@ module Pos.Lrc.DB.Richmen
 
 import           Universum
 
-import qualified Data.HashMap.Strict         as HM
 import qualified Ether
 
 import           Pos.Binary.Core             ()
 import           Pos.Constants               (genesisHeavyDelThd)
-import           Pos.Context                 (GenesisStakes, genesisStakesM)
-import           Pos.Core                    (EpochIndex, applyCoinPortion)
+import           Pos.Context.Functions       (GenesisUtxo (..), genesisUtxoM)
 import           Pos.DB.Class                (MonadDB, MonadDBRead)
 import           Pos.Genesis                 (genesisDelegation)
 import           Pos.Lrc.Class               (RichmenComponent (..),
@@ -41,7 +39,8 @@ import           Pos.Lrc.DB.RichmenBase      (getRichmen, getRichmenP, putRichme
 import           Pos.Lrc.Logic               (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types               (FullRichmenData, Richmen, toRichmen)
 import           Pos.Ssc.RichmenComponent    (RCSsc, getRichmenSsc)
-import           Pos.Txp.Core                (TxOutDistribution)
+import           Pos.Txp.Core                (TxOutDistribution, txOutStake)
+import           Pos.Types                   (EpochIndex, applyCoinPortion)
 import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
 
 ----------------------------------------------------------------------------
@@ -49,10 +48,10 @@ import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
 ----------------------------------------------------------------------------
 
 prepareLrcRichmen
-    :: (Ether.MonadReader' GenesisStakes m, MonadDB m)
+    :: (Ether.MonadReader' GenesisUtxo m, MonadDB m)
     => m ()
 prepareLrcRichmen = do
-    genesisDistribution <- HM.toList <$> genesisStakesM
+    genesisDistribution <- concatMap txOutStake . toList <$> genesisUtxoM
     mapM_ (prepareLrcRichmenDo genesisDistribution) components
   where
     prepareLrcRichmenDo distr (SomeRichmenComponent proxy) =

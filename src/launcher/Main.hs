@@ -3,9 +3,11 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
+import           Development.GitRev           (gitBranch, gitHash)
 import           Control.Concurrent           (modifyMVar_)
 import           Control.Concurrent.Async     (Async, cancel, poll, waitAny,
                                                withAsyncWithUnmask)
@@ -25,7 +27,7 @@ import qualified System.IO                    as IO
 import           System.Process               (ProcessHandle)
 import qualified System.Process               as Process
 import           System.Timeout               (timeout)
-import           System.Wlog                  (lcFilePrefix)
+import           System.Wlog                  (lcFilePrefix, logInfo, usingLoggerName)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Turtle                       (ExitCode (..), FilePath, Line, Shell,
                                                appendonly, d, echo, fork, format, fp,
@@ -166,6 +168,7 @@ Command example:
 
 main :: IO ()
 main = do
+    usingLoggerName "kifla" $ logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     LO {..} <- getLauncherOptions
     let realNodeArgs = case loNodeLogConfig of
             Nothing -> loNodeArgs

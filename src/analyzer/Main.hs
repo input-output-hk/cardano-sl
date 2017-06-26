@@ -1,9 +1,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Main
   ( main
   ) where
 
+import           Development.GitRev         (gitBranch, gitHash)
+import           System.Wlog                (logInfo, usingLoggerName)
 import           Data.Aeson                 (decode, fromJSON, json')
 import qualified Data.Aeson                 as A
 import           Data.Attoparsec.ByteString (eitherResult, many', parseWith)
@@ -30,6 +33,7 @@ type BlockId = Text
 main :: IO ()
 main = do
     Args {..} <- getAnalyzerOptions
+    usingLoggerName "kifla" $ logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     logs <- parseFiles files
 
     case txFile of

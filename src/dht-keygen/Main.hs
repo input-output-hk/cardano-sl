@@ -1,7 +1,11 @@
+{-# LANGUAGE TemplateHaskell     #-}
+
 module Main
   ( main
   ) where
 
+import           Development.GitRev          (gitBranch, gitHash)
+import           System.Wlog                 (logInfo, usingLoggerName)
 import qualified Data.ByteString.Char8       as BS
 import           Data.Version                (showVersion)
 import           Network.Kademlia.HashNodeId (HashId (..), Nonce (..), genNonce,
@@ -58,6 +62,7 @@ getKeyGenOptions = execParser programInfo
 
 main :: IO ()
 main = do
+    usingLoggerName "kifla" $ logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     KeyGenOptions{..} <- getKeyGenOptions
     key <- generateKey $ BS.pack nonce
     putStrLn . fromMaybe "Invalid nonce length, it must be 14 characters." . fmap encodeUrl $ key

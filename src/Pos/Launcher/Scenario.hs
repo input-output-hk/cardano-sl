@@ -61,7 +61,6 @@ runNode'
     -> WorkerSpec m
 runNode' plugins' = ActionSpec $ \vI sendActions -> do
 
-    logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey

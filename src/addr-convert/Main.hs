@@ -1,9 +1,12 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Main (main) where
 
 import           Universum
 
+import           Development.GitRev           (gitBranch, gitHash)
+import           System.Wlog                  (logInfo, usingLoggerName)
 import qualified Data.ByteString              as BS
 import           Data.String.QQ               (s)
 import qualified Data.Text                    as T
@@ -81,3 +84,7 @@ fromAvvmPk addrText = do
 
 convertAddr :: Text -> IO Text
 convertAddr addr = pretty . makeRedeemAddress <$> fromAvvmPk (toText addr)
+
+
+main :: IO ()
+main = usingLoggerName "kifla" $ logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)

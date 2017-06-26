@@ -1,10 +1,15 @@
+{-# LANGUAGE TemplateHaskell     #-}
+
 #!/usr/bin/env stack
 -- stack --install-ghc runghc --package turtle
 
 {-# LANGUAGE ApplicativeDo   #-}
 {-# LANGUAGE QuasiQuotes     #-}
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE TemplateHaskell #-}
 
+import           Development.GitRev           (gitBranch, gitHash)
+import           System.Wlog                  (logInfo, usingLoggerName)
 import qualified Control.Foldl                as F
 import           Data.Function                (on)
 import           Data.List                    (foldl', sortBy)
@@ -76,6 +81,7 @@ Example of output file content:
 
 main :: IO ()
 main = do
+    usingLoggerName "kifla" $ logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     ChecksOptions{..} <- getChecksOptions
     folder' <- realpath $ fromText sourcesDir
     let file' = fromText outputFile

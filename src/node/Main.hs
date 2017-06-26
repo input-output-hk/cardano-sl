@@ -4,18 +4,20 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Main
        ( main
        ) where
 
+import           Development.GitRev  (gitBranch, gitHash)
 import           Universum
 
 import           Data.Maybe          (fromJust)
 import qualified Ether
 import           Formatting          (sformat, shown, (%))
 import           Mockable            (Production, currentTime, runProduction)
-import           System.Wlog         (logError, logInfo)
+import           System.Wlog         (logError, logInfo, usingLoggerName)
 
 import           Pos.Binary          ()
 import qualified Pos.CLI             as CLI
@@ -140,6 +142,7 @@ printFlags = do
 main :: IO ()
 main = do
     args <- getNodeOptions
+    usingLoggerName "kifla" $ logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     printFlags
     runProduction (action args)
 

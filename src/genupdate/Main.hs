@@ -1,9 +1,12 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 module Main
   ( main
   ) where
 
+import           Development.GitRev           (gitBranch, gitHash)
+import           System.Wlog                  (logInfo, usingLoggerName)
 import qualified Codec.Archive.Tar            as Tar
 import qualified Control.Foldl                as Fold
 import           Crypto.Hash                  (Digest, SHA512, hashlazy)
@@ -71,6 +74,7 @@ Please note that 'cardano-genupdate' uses 'bsdiff' program, so make sure 'bsdiff
 
 main :: IO ()
 main = do
+    usingLoggerName "kifla" $ logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     UpdateGenOptions{..} <- getUpdateGenOptions
     createUpdate (fromText oldDir)
                  (fromText newDir)

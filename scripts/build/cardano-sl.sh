@@ -103,7 +103,7 @@ do
   # --explorer = build with Explorer support
   elif [[ $var == "--explorer" ]]; then
     explorer=true
-  # --for-explorer = build with for-installer flag
+  # --for-installer = build with for-installer flag
   elif [[ $var == "--for-installer" ]]; then
     for_installer=true
   # disabling --fast
@@ -119,6 +119,8 @@ do
     spec_prj="godtossing"
   elif [[ $var == "lwallet" ]]; then
     spec_prj="lwallet"
+  elif [[ $var == "tools" ]]; then
+    spec_prj="tools"
   elif [[ " $projects " =~ " $var " ]]; then
     spec_prj=$var
   # otherwise pass the arg to stack
@@ -144,7 +146,7 @@ if [[ $explorer == true ]]; then
 fi
 
 if [[ $for_installer == true ]]; then
-  commonargs="$commonargs --flag cardano-sl:for-installer"
+  commonargs="$commonargs --flag cardano-sl-tools:for-installer"
 fi
 
 if [[ $wallet == false ]]; then
@@ -179,6 +181,10 @@ xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
 xgrep="((^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|^)"
 
 if [[ $clean == true ]]; then
+  echo "Cleaning cardano-sl-tools"
+  stack clean cardano-sl-tools
+  echo "Cleaning cardano-sl-lwallet"
+  stack clean cardano-sl-lwallet
   echo "Cleaning cardano-sl"
   stack clean cardano-sl
   for prj in $projects; do
@@ -193,13 +199,13 @@ if [[ $spec_prj == "" ]]; then
   for prj in $projects; do
     to_build="$to_build cardano-sl-$prj"
   done
-  to_build="$to_build cardano-sl cardano-sl-lwallet"
+  to_build="$to_build cardano-sl cardano-sl-lwallet cardano-sl-tools"
 elif [[ $spec_prj == "sl" ]]; then
   to_build="cardano-sl"
 elif [[ $spec_prj == "lwallet" ]]; then
   to_build="cardano-sl-lwallet"
 elif [[ $spec_prj == "sl+" ]]; then
-  to_build="cardano-sl cardano-sl-lwallet"
+  to_build="cardano-sl cardano-sl-lwallet cardano-sl-tools"
 else
   to_build="cardano-sl-$spec_prj"
 fi

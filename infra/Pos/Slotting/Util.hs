@@ -35,7 +35,7 @@ import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..)
 import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
 import           Pos.Reporting.MemState (MonadReportingMem)
-import           Pos.Reporting.Methods  (reportMisbehaviourMasked, reportingFatal)
+import           Pos.Reporting.Methods  (reportMisbehaviourSilent, reportingFatal)
 import           Pos.Shutdown           (MonadShutdownMem, runIfNotShutdown)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
@@ -115,7 +115,7 @@ onNewSlotImpl withLogging startImmediately action =
     workerHandler e = do
         let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
         logError $ msg
-        reportMisbehaviourMasked version msg
+        reportMisbehaviourSilent version msg
         delay =<< getLastKnownSlotDuration
         onNewSlotImpl withLogging startImmediately action
 

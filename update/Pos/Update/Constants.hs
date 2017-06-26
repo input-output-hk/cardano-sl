@@ -9,11 +9,13 @@ module Pos.Update.Constants
        -- * Genesis constants
        , genesisBlockVersion
        , genesisSoftwareVersions
+       , genesisAppNames
        ) where
 
 import           Universum
 
 import           Data.Aeson             (FromJSON (..), genericParseJSON)
+import qualified Data.Aeson.Types       as A
 import           Data.Tagged            (Tagged (..))
 import           Serokell.Aeson.Options (defaultOptions)
 
@@ -47,10 +49,17 @@ data UpdateConstants = UpdateConstants
     deriving (Show, Generic)
 
 instance FromJSON UpdateConstants where
-    parseJSON = genericParseJSON defaultOptions
+    parseJSON = checkConstants <=< genericParseJSON defaultOptions
 
 instance IsConfig UpdateConstants where
     configPrefix = Tagged Nothing
+
+-- | Check invariants
+checkConstants :: UpdateConstants -> A.Parser UpdateConstants
+checkConstants cs@UpdateConstants{..} = do
+    unless (isJust $ mkApplicationName ccApplicationName) $
+        fail "UpdateConstants: mkApplicationName ccApplicationName is Nothing"
+    pure cs
 
 ----------------------------------------------------------------------------
 -- Various constants
@@ -99,21 +108,3 @@ genesisAppNames :: [(Text, Either Text ApplicationName)]
 genesisAppNames = map f ["cardano-sl", "csl-daedalus"]
   where
     f name = (name, mkApplicationName name)
-
-----------------------------------------------------------------------------
--- Asserts
-----------------------------------------------------------------------------
-
-{- I'm just going to move them somewhere at some point,
-   because they won't work in this module (@neongreen)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-staticAssert
-    (isJust $ mkApplicationName $ ccApplicationName updateConstants)
-    "it's sad, because ourAppName will be `error' sadly"
-
-staticAssert
-    (all (isRight . snd) $ genesisAppNames)
-    "it's sad too, I guess you realize it"
-
--}

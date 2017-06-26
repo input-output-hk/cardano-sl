@@ -382,15 +382,19 @@ checkPayload
     -> m ()
 checkPayload epoch payload = do
     let payloadCerts = _gpCertificates payload
+    -- We explicitly don't check commitments if they are empty.
+    -- It's ok, because empty commitments are always valid.
+    -- And it certainly makes sense, because commitments check requires us to
+    -- compute 'SharesDistribution' which might expensive.
+    -- Apart from that there is another important reason for it: currently
+    -- 'computeSharesDistr' is quite broken. See [CSL-1283] for details.
     case payload of
-        CommitmentsPayload  comms  _ ->
-            checkCommitmentsPayload epoch comms
-        OpeningsPayload     opens  _ ->
-            checkOpeningsPayload opens
-        SharesPayload       shares _ ->
-            checkSharesPayload epoch shares
-        CertificatesPayload        _ ->
-            pass
+        CommitmentsPayload comms _
+            | null comms -> pass
+            | otherwise -> checkCommitmentsPayload epoch comms
+        OpeningsPayload opens _ -> checkOpeningsPayload opens
+        SharesPayload shares _ -> checkSharesPayload epoch shares
+        CertificatesPayload _ -> pass
     checkCertificatesPayload epoch payloadCerts
 
 ----------------------------------------------------------------------------

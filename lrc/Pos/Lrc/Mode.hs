@@ -12,6 +12,7 @@ import qualified Ether
 import           Mockable        (Async, Concurrently, Delay, Mockables)
 import           System.Wlog     (WithLogger)
 
+import           Pos.Core        (GenesisStakes)
 import           Pos.DB.Class    (MonadDB, MonadGState)
 import           Pos.Lrc.Context (LrcContext)
 
@@ -24,4 +25,5 @@ type LrcMode ssc m
        , MonadIO m
        , Mockables m [Async, Concurrently, Delay]
        , Ether.MonadReader' LrcContext m
+       , Ether.MonadReader' GenesisStakes m
        )

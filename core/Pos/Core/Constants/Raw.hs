@@ -31,12 +31,15 @@ module Pos.Core.Constants.Raw
 import           Universum
 
 import           Data.Aeson                 (FromJSON (..), genericParseJSON)
+import qualified Data.Aeson.Types           as A
 import           Data.Tagged                (Tagged (..))
 import           Data.Time.Units            (Microsecond)
 import           Serokell.Aeson.Options     (defaultOptions)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util              (sec)
 
+import           Pos.Core.Fee               (TxFeePolicy)
+import           Pos.Core.Fee.Config        (ConfigOf (..))
 import           Pos.Crypto.Hashing         (Hash, unsafeHash)
 import           Pos.Util.Config            (IsConfig (..), configParser,
                                              parseFromCslConfig)
@@ -96,6 +99,7 @@ data CoreConstants = CoreConstants
       -- blocks with some block version is bigger than this portion, this
       -- block version is adopted.
     , ccGenesisUpdateSoftforkThd     :: !Double
+    , ccGenesisTxFeePolicy           :: !(Maybe (ConfigOf TxFeePolicy))
       -- | Maximum block size in bytes
     , ccGenesisMaxBlockSize          :: !Byte
       -- | Maximum block header size in bytes
@@ -116,10 +120,27 @@ coreConstants =
         Right x  -> x
 
 instance FromJSON CoreConstants where
-    parseJSON = genericParseJSON defaultOptions
+    parseJSON = checkConstants <=< genericParseJSON defaultOptions
 
 instance IsConfig CoreConstants where
     configPrefix = Tagged Nothing
+
+-- | Check invariants
+checkConstants :: CoreConstants -> A.Parser CoreConstants
+checkConstants cs@CoreConstants{..} = do
+    let check :: [a -> Bool] -> a -> Bool
+        check ps x = all ($ x) ps
+    unless (check [(>= 0), (< 1)] ccGenesisMpcThd) $
+        fail "CoreConstants: genesisMpcThd is not in range [0, 1)"
+    unless (check [(>= 0), (< 1)] ccGenesisUpdateVoteThd) $
+        fail "CoreConstants: genesisUpdateVoteThd is not in range [0, 1)"
+    unless (check [(>= 0), (< 1)] ccGenesisHeavyDelThd) $
+        fail "CoreConstants: genesisHeavyDelThd is not in range [0, 1)"
+    unless (check [(> 0), (< 1)] ccGenesisUpdateProposalThd) $
+        fail "CoreConstants: genesisUpdateProposalThd is not in range (0, 1)"
+    unless (check [(> 0), (< 1)] ccGenesisUpdateSoftforkThd) $
+        fail "CoreConstants: genesisUpdateSoftforkThd is not in range (0, 1)"
+    pure cs
 
 ----------------------------------------------------------------------------
 -- Constants taken from the config
@@ -169,38 +190,3 @@ genesisKeysN = fromIntegral . ccGenesisN $ coreConstants
 -- size limit.
 memPoolLimitRatio :: Integral i => i
 memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ coreConstants
-
-----------------------------------------------------------------------------
--- Asserts
-----------------------------------------------------------------------------
-
-{- I'm just going to move them somewhere at some point,
-   because they won't work in this module (@neongreen)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-staticAssert
-    (ccGenesisMpcThd coreConstants >= 0 &&
-     ccGenesisMpcThd coreConstants < 1)
-    "genesisMpcThd is not in range [0, 1)"
-
-staticAssert
-    (ccGenesisCoreVoteThd coreConstants >= 0 &&
-     ccGenesisCoreVoteThd coreConstants < 1)
-    "genesisCoreVoteThd is not in range [0, 1)"
-
-staticAssert
-    (ccGenesisHeavyDelThd coreConstants >= 0 &&
-     ccGenesisHeavyDelThd coreConstants < 1)
-    "genesisHeavyDelThd is not in range [0, 1)"
-
-staticAssert
-    (ccGenesisCoreProposalThd coreConstants > 0 &&
-     ccGenesisCoreProposalThd coreConstants < 1)
-    "genesisCoreProposalThd is not in range (0, 1)"
-
-staticAssert
-    (ccGenesisCoreSoftforkThd coreConstants > 0 &&
-     ccGenesisCoreSoftforkThd coreConstants < 1)
-    "genesisCoreSoftforkThd is not in range (0, 1)"
-
--}

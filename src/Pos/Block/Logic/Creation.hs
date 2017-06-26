@@ -27,18 +27,15 @@ import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog                (logDebug, logError, logInfo)
 
 import           Pos.Binary.Class           (biSize)
-import           Pos.Block.Core             (Block, BlockHeader, GenesisBlock, MainBlock,
-                                             MainBlockchain, MainExtraBodyData (..),
-                                             MainExtraHeaderData (..), mkGenesisBlock,
-                                             mkMainBlock)
+import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBlock,
+                                             MainBlockchain, mkGenesisBlock, mkMainBlock)
 import qualified Pos.Block.Core             as BC
 import           Pos.Block.Logic.Internal   (BlockApplyMode, BlockVerifyMode,
                                              applyBlocksUnsafe, toUpdateBlock)
 import           Pos.Block.Logic.Util       (withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Types            (Undo (..))
-import           Pos.Constants              (curSoftwareVersion, lastKnownBlockVersion,
-                                             slotSecurityParam)
+import           Pos.Constants              (slotSecurityParam)
 import           Pos.Context                (BlkSemaphore, MonadPrimaryKey, NodeParams,
                                              getOurSecretKey, lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
@@ -47,7 +44,6 @@ import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              flattenSlotId, getEpochOrSlot, getSlotIndex,
                                              headerHash, mkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
-import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
@@ -57,10 +53,11 @@ import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), ProxySK
 import           Pos.Exception              (assertionFailed, reportFatalError)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Lrc.Error              (LrcError (..))
-import           Pos.Reporting              (reportMisbehaviourMasked, reportingFatal)
+import           Pos.Reporting              (reportMisbehaviourSilent, reportingFatal)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload))
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal)
-import           Pos.Txp.Core               (TxAux (..), mkTxPayload, topsortTxs)
+import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload,
+                                             topsortTxs)
 import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxsNUndo)
 import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
@@ -166,7 +163,7 @@ createMainBlock sId pske =
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
-        tipHeader <- DB.getTipHeader @(Block ssc)
+        tipHeader <- DB.getTipHeader @ssc
         logInfo $ sformat msgFmt tipHeader
         canWrtUs <- usCanCreateBlock
         case (canCreateBlock sId tipHeader, canWrtUs) of
@@ -251,7 +248,7 @@ createMainBlockFinish slotId pske prevHeader = do
     fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
     fallbackCreateBlock er = do
         logError $ sformat ("We've created bad main block: "%stext) er
-        lift $ reportMisbehaviourMasked version $
+        lift $ reportMisbehaviourSilent version $
             sformat ("We've created bad main block: "%build) er
         logDebug $ "Creating empty block"
         clearMempools
@@ -304,28 +301,17 @@ createMainBlockPure
 createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     bodyLimit <- execStateT computeBodyLimit limit
     body <- createMainBody bodyLimit sId rawPayload
-    mkMainBlock (Just prevHeader) sId sk pske body extraH extraB
+    mkMainBlock (Just prevHeader) sId sk pske body
   where
-    extraB :: MainExtraBodyData
-    extraB = MainExtraBodyData (mkAttributes ())
-    extraH :: MainExtraHeaderData
-    extraH =
-        MainExtraHeaderData
-            lastKnownBlockVersion
-            curSoftwareVersion
-            (mkAttributes ())
     -- default ssc to put in case we won't fit a normal one
     defSsc :: SscPayload ssc
     defSsc = sscDefaultPayload @ssc (siSlot sId)
     computeBodyLimit :: StateT Byte m ()
     computeBodyLimit = do
         -- account for block header and serialization overhead, etc;
-        let musthaveBody = BC.MainBody
-                (leftToPanic @Text "createMainBlockPure: impossible " $
-                 mkTxPayload mempty)
-                defSsc def def
+        let musthaveBody = BC.MainBody emptyTxPayload defSsc def def
         musthaveBlock <-
-            mkMainBlock (Just prevHeader) sId sk pske musthaveBody extraH extraB
+            mkMainBlock (Just prevHeader) sId sk pske musthaveBody
         let mhbSize = biSize musthaveBlock
         when (mhbSize > limit) $ throwError $
             "Musthave block size is more than limit: " <> show mhbSize

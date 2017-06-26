@@ -9,6 +9,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (===))
 import           Universum
 
+import           Pos.Core.Arbitrary    ()
 import           Pos.Types             (SlotId, flattenSlotId, unflattenSlotId)
 
 spec :: Spec

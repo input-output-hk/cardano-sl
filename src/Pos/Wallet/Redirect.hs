@@ -23,7 +23,7 @@ import           Data.Time.Units           (Millisecond)
 import qualified Ether
 import           System.Wlog               (WithLogger)
 
-import           Pos.Block.Core            (Block, BlockHeader)
+import           Pos.Block.Core            (BlockHeader)
 import           Pos.Constants             (blkSecurityParam)
 import qualified Pos.Context               as PC
 import           Pos.Core                  (ChainDifficulty, difficultyL,
@@ -69,12 +69,12 @@ networkChainDifficultyWebWallet
     => m (Maybe ChainDifficulty)
 networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
     Just lh -> do
-        thDiff <- view difficultyL <$> getTipHeader @(Block ssc)
+        thDiff <- view difficultyL <$> getTipHeader @ssc
         let lhDiff = lh ^. difficultyL
         return . Just $ max thDiff lhDiff
     Nothing -> runMaybeT $ do
         cSlot <- flattenSlotId <$> MaybeT getCurrentSlot
-        th <- lift (getTipHeader @(Block ssc))
+        th <- lift (getTipHeader @ssc)
         let hSlot = flattenEpochOrSlot th
         when (hSlot <= cSlot - blkSecurityParam) $
             fail "Local tip is outdated"
@@ -85,7 +85,7 @@ localChainDifficultyWebWallet
     => m ChainDifficulty
 localChainDifficultyWebWallet = downloadHeader >>= \case
     Just dh -> return $ dh ^. difficultyL
-    Nothing -> view difficultyL <$> getTipHeader @(Block ssc)
+    Nothing -> view difficultyL <$> getTipHeader @ssc
 
 connectedPeersWebWallet
     :: forall ssc m. BlockchainInfoEnv ssc m

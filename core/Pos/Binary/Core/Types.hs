@@ -2,18 +2,20 @@ module Pos.Binary.Core.Types () where
 
 import           Universum
 
-import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
+import           Data.Time.Units            (Millisecond)
 
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Size (..),
                                              UnsignedVarInt (..), deriveSimpleBi, label,
                                              labelP, labelS, putField, putWord8)
-import qualified Pos.Binary.Core.Coin       as BinCoin
-import           Pos.Binary.Core.Script     ()
-import           Pos.Binary.Core.Version    ()
-import qualified Pos.Core.Types             as T
-import qualified Pos.Data.Attributes        as A
-import           Pos.Util.Util              (eitherToFail)
+import qualified Pos.Binary.Core.Coin    as BinCoin
+import           Pos.Binary.Core.Fee     ()
+import           Pos.Binary.Core.Script  ()
+import           Pos.Binary.Core.Version ()
+import qualified Pos.Core.Types          as T
+import qualified Pos.Core.Fee            as T
+import qualified Pos.Data.Attributes     as A
+import           Pos.Util.Util           (eitherToFail)
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
@@ -73,16 +75,17 @@ instance Bi T.ChainDifficulty where
 
 deriveSimpleBi ''T.BlockVersionData [
     Cons 'T.BlockVersionData [
-        Field [| T.bvdScriptVersion     :: T.ScriptVersion |],
-        Field [| T.bvdSlotDuration      :: Millisecond     |],
-        Field [| T.bvdMaxBlockSize      :: Byte            |],
-        Field [| T.bvdMaxHeaderSize     :: Byte            |],
-        Field [| T.bvdMaxTxSize         :: Byte            |],
-        Field [| T.bvdMaxProposalSize   :: Byte            |],
-        Field [| T.bvdMpcThd            :: T.CoinPortion   |],
-        Field [| T.bvdHeavyDelThd       :: T.CoinPortion   |],
-        Field [| T.bvdUpdateVoteThd     :: T.CoinPortion   |],
-        Field [| T.bvdUpdateProposalThd :: T.CoinPortion   |],
-        Field [| T.bvdUpdateImplicit    :: T.FlatSlotId    |],
-        Field [| T.bvdUpdateSoftforkThd :: T.CoinPortion   |]
+        Field [| T.bvdScriptVersion     :: T.ScriptVersion     |],
+        Field [| T.bvdSlotDuration      :: Millisecond         |],
+        Field [| T.bvdMaxBlockSize      :: Byte                |],
+        Field [| T.bvdMaxHeaderSize     :: Byte                |],
+        Field [| T.bvdMaxTxSize         :: Byte                |],
+        Field [| T.bvdMaxProposalSize   :: Byte                |],
+        Field [| T.bvdMpcThd            :: T.CoinPortion       |],
+        Field [| T.bvdHeavyDelThd       :: T.CoinPortion       |],
+        Field [| T.bvdUpdateVoteThd     :: T.CoinPortion       |],
+        Field [| T.bvdUpdateProposalThd :: T.CoinPortion       |],
+        Field [| T.bvdUpdateImplicit    :: T.FlatSlotId        |],
+        Field [| T.bvdUpdateSoftforkThd :: T.CoinPortion       |],
+        Field [| T.bvdTxFeePolicy       :: Maybe T.TxFeePolicy |]
     ]]

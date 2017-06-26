@@ -14,7 +14,7 @@ module Pos.Context.Context
        , BaseParams(..)
        , TxpGlobalSettings
        , GenesisUtxo(..)
-       , GenesisLeaders(..)
+       , GenesisStakes(..)
        , StartTime(..)
        , LastKnownHeader
        , LastKnownHeaderTag
@@ -40,14 +40,14 @@ import           Control.Lens                  (coerced, lens, makeLensesFor)
 import           Data.Time.Clock               (UTCTime)
 import qualified Ether
 import           Ether.Internal                (HasLens (..))
-import           Pos.Security.Params           (SecurityParams)
 import           System.Wlog                   (LoggerConfig)
 
 import           Pos.Block.Core                (BlockHeader)
 import           Pos.Communication.Relay       (RelayPropagationQueue)
 import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
-import           Pos.Core                      (HeaderHash, PrimaryKeyTag, SlotLeaders)
+import           Pos.Core                      (GenesisStakes (..), HeaderHash,
+                                                PrimaryKeyTag)
 import           Pos.Crypto                    (SecretKey)
 import           Pos.Discovery                 (DiscoveryContextSum)
 import           Pos.ExecMode                  ((:::), modeContext)
@@ -55,6 +55,7 @@ import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..)
 import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
                                                 rcReportServers)
+import           Pos.Security.Params           (SecurityParams)
 import           Pos.Shutdown.Types            (ShutdownContext (..))
 import           Pos.Slotting                  (SlottingContextSum, SlottingVar)
 import           Pos.Ssc.Class.Types           (MonadSscContext, Ssc (SscNodeContext),
@@ -89,7 +90,6 @@ type RecoveryHeader ssc = STM.TMVar (NodeId, BlockHeader ssc)
 type MonadRecoveryHeader ssc = Ether.MonadReader RecoveryHeaderTag (RecoveryHeader ssc)
 
 newtype GenesisUtxo = GenesisUtxo { unGenesisUtxo :: Utxo }
-newtype GenesisLeaders = GenesisLeaders { unGenesisLeaders :: SlotLeaders }
 newtype ConnectedPeers = ConnectedPeers { unConnectedPeers :: STM.TVar (Set NodeId) }
 newtype BlkSemaphore = BlkSemaphore { unBlkSemaphore :: MVar HeaderHash }
 newtype StartTime = StartTime { unStartTime :: UTCTime }
@@ -146,8 +146,6 @@ modeContext [d|
         -- (status in Daedalus). It's easy to falsify this value.
         , ncTxpGlobalSettings   :: !(TxpGlobalSettings ::: TxpGlobalSettings)
         -- Settings for global Txp.
-        , ncGenesisLeaders      :: !(GenesisLeaders ::: GenesisLeaders)
-        -- Leaders of the first epoch
         , ncConnectedPeers      :: !(ConnectedPeers ::: ConnectedPeers)
         -- Set of peers that we're connected to.
         }
@@ -161,7 +159,8 @@ makeLensesFor
     , ("npSecretKey", "npSecretKeyL")
     , ("npReportServers", "npReportServersL")
     , ("npPropagation", "npPropagationL")
-    , ("npCustomUtxo", "npCustomUtxoL") ]
+    , ("npCustomUtxo", "npCustomUtxoL")
+    , ("npGenesisStakes", "npGenesisStakesL") ]
     ''NodeParams
 
 instance HasLens NodeContextTag (NodeContext ssc) (NodeContext ssc) where
@@ -178,6 +177,9 @@ instance HasLens PrimaryKeyTag (NodeContext ssc) SecretKey where
 
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
     lensOf = lensOf @NodeParams . npCustomUtxoL . coerced
+
+instance HasLens GenesisStakes (NodeContext ssc) GenesisStakes where
+    lensOf = lensOf @NodeParams . npGenesisStakesL . coerced
 
 instance HasLens ReportingContext (NodeContext ssc) ReportingContext where
     lensOf = lens getter (flip setter)

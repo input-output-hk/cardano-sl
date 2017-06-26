@@ -1,6 +1,7 @@
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Framework for Inv\/Req\/Data message handling
 
@@ -23,16 +24,18 @@ module Pos.Communication.Relay.Logic
        , invReqDataFlowNeighborsTK
        , addToRelayQueue
        , dataFlow
+       , InvReqDataFlowLog (..)
        ) where
 
 import           Control.Concurrent.STM             (isFullTBQueue, readTBQueue,
                                                      writeTBQueue)
+import           Data.Aeson.TH                      (deriveJSON, defaultOptions)
 import           Data.Proxy                         (asProxyTypeOf)
 import           Data.Tagged                        (Tagged, tagWith)
 import           Data.Typeable                      (typeRep)
 import           Formatting                         (build, sformat, shown, stext, (%))
 import           Mockable                           (Mockable, MonadMockable, Throw,
-                                                     handleAll, throw, throw)
+                                                     handleAll, throw, throw, currentTime)
 import           Node.Message.Class                 (Message)
 import           Paths_cardano_sl_infra             (version)
 import           System.Wlog                        (WithLogger, logDebug, logError,
@@ -58,14 +61,17 @@ import           Pos.Communication.Relay.Types      (PropagationMsg (..),
                                                      RelayContext (..))
 import           Pos.Communication.Relay.Util       (expectData, expectInv)
 import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), InvOrData,
-                                                     MempoolMsg (..), ReqMsg (..))
+                                                     MempoolMsg (..), ReqMsg (..),
+                                                     RelayLogEvent (..))
 import           Pos.DB.Class                       (MonadGState)
 import           Pos.Discovery.Broadcast            (converseToNeighbors)
 import           Pos.Discovery.Class                (MonadDiscovery)
 import           Pos.Reporting                      (MonadReportingMem, reportingFatal)
+import           Pos.Util.TimeWarp                  (CanJsonLog (..))
 
 type MinRelayWorkMode m =
     ( WithLogger m
+    , CanJsonLog m
     , MonadMockable m
     , MonadIO m
     , WithPeerState m
@@ -285,10 +291,12 @@ addToRelayQueue
 addToRelayQueue pm = do
     queue <- _rlyPropagationQueue <$> askRelayMem
     isFull <- atomically $ isFullTBQueue queue
-    if isFull then
+    if isFull then do
         logWarning $ "Propagation queue is full, no propagation"
-    else
-        atomically $ writeTBQueue queue pm
+        jsonLog RelayQueueFull
+    else do
+        ts <- currentTime
+        atomically $ writeTBQueue queue (ts, pm)
 
 relayPropagateOut :: Message Void => [Relay m] -> OutSpecs
 relayPropagateOut = mconcat . map propagateOutImpl
@@ -337,17 +345,20 @@ relayWorkersImpl allOutSpecs =
   where
     action sendActions = do
         queue <- _rlyPropagationQueue <$> askRelayMem
-        forever $ atomically (readTBQueue queue) >>= \case
-            InvReqDataPM key contents -> do
-                logDebug $ sformat
-                    ("Propagation data with key: "%build) key
-                converseToNeighbors sendActions $ \__node ->
-                    pure $ Conversation $ irdHandler key contents
-            DataOnlyPM contents -> do
-                logDebug $ sformat
-                    ("Propagation data: "%build) contents
-                converseToNeighbors sendActions $ \__node ->
-                    pure $ Conversation $ doHandler contents
+        forever $ atomically (readTBQueue queue) >>= \(ts, message) -> do
+            ts' <- currentTime
+            jsonLog $ EnqueueDequeueTime $ fromIntegral $ ts' - ts
+            case message of
+                InvReqDataPM key contents -> do
+                    logDebug $ sformat
+                        ("Propagation data with key: "%build) key
+                    converseToNeighbors sendActions $ \__node ->
+                        pure $ Conversation $ irdHandler key contents
+                DataOnlyPM contents -> do
+                    logDebug $ sformat
+                        ("Propagation data: "%build) contents
+                    converseToNeighbors sendActions $ \__node ->
+                        pure $ Conversation $ doHandler contents
 
     doHandler
         :: contents1
@@ -378,6 +389,22 @@ relayWorkersImpl allOutSpecs =
 ----------------------------------------------------------------------------
 -- Helpers for Communication.Methods
 ----------------------------------------------------------------------------
+
+data InvReqDataFlowLog =
+      InvReqAccepted
+        { invReqStart    :: !Integer
+        , invReqReceived :: !Integer
+        , invReqSent     :: !Integer
+        , invReqClosed   :: !Integer
+        }
+    | InvReqRejected
+        { invReqStart    :: !Integer
+        , invReqReceived :: !Integer
+        }
+    | InvReqException !Text
+    deriving Show
+
+$(deriveJSON defaultOptions ''InvReqDataFlowLog)
 
 invReqDataFlowNeighborsTK
     :: forall key contents m.

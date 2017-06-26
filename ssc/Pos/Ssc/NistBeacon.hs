@@ -10,20 +10,18 @@ module Pos.Ssc.NistBeacon
 import           Crypto.Hash             (SHA256)
 import qualified Crypto.Hash             as Hash
 import qualified Data.ByteArray          as ByteArray (convert)
-import qualified Data.ByteString.Lazy    as BSL
 import           Data.Tagged             (Tagged (..))
 import           Data.Text.Buildable     (Buildable (build))
 import           Universum
 
-import           Pos.Binary.Class        (encode)
-import           Pos.Binary.Relay        ()
+import           Pos.Binary.Class        (encodeLazy)
+import           Pos.Core                (SharedSeed (..))
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass (..))
 import           Pos.Ssc.Class.Listeners (SscListenersClass (..))
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage   (SscGStateClass (..))
 import           Pos.Ssc.Class.Types     (Ssc (..))
 import           Pos.Ssc.Class.Workers   (SscWorkersClass (..))
-import           Pos.Types               (SharedSeed (..))
 
 -- | Data type tag for Nist Beacon implementation of Shared Seed Calculation.
 data SscNistBeacon
@@ -73,5 +71,5 @@ instance SscGStateClass SscNistBeacon where
     sscVerifyAndApplyBlocks _ _ = pass
     sscCalculateSeedQ i _ = do
         let h :: ByteString
-            h = ByteArray.convert $ Hash.hashlazy @SHA256 $ BSL.fromStrict (encode i)
+            h = ByteArray.convert $ Hash.hashlazy @SHA256 (encodeLazy i)
         return $ Right (SharedSeed h)

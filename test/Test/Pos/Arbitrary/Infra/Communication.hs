@@ -8,7 +8,7 @@ import           Universum
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), VerInfo (..))
 import           Pos.Communication.Types.Relay    (InvMsg (..), MempoolMsg (..),
                                                    ReqMsg (..))
-import           Pos.Types.Arbitrary              ()
+import           Pos.Core.Arbitrary               ()
 
 instance (Arbitrary key) => Arbitrary (ReqMsg key) where
     arbitrary = ReqMsg <$> arbitrary

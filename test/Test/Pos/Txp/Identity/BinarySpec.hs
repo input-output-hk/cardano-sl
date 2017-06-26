@@ -4,15 +4,15 @@ module Test.Pos.Txp.Identity.BinarySpec
        ( spec
        ) where
 
-import           Data.Tagged              (Tagged)
-import           Test.Hspec               (Spec, describe)
-import           Test.Hspec.QuickCheck    (modifyMaxSuccess)
 import           Universum
 
+import           Data.Tagged              (Tagged)
+import           Test.Hspec               (Spec, describe)
+
 import           Pos.Binary               ()
-import           Pos.Block.Arbitrary      (SmallTxPayload)
 import           Pos.Communication.Relay  as R
 import qualified Pos.Txp                  as T
+import           Pos.Txp.Arbitrary        (SmallTxPayload)
 import           Test.Pos.Arbitrary.Infra ()
 
 import           Test.Pos.Util            (binaryTest, msgLenLimitedTest,
@@ -23,7 +23,6 @@ spec =
   describe "Txp (transaction processing) system" $ do
     describe "Bi instances" $ do
       describe "Core" $ do
-        modifyMaxSuccess (const 1000) $ do
           binaryTest @T.TxInWitness
           binaryTest @T.TxDistribution
           binaryTest @T.TxIn

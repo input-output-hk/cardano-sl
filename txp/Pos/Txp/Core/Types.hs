@@ -42,6 +42,8 @@ module Pos.Txp.Core.Types
        -- * Undo
        , TxUndo
        , TxpUndo
+
+       -- * Block message
        ) where
 
 import           Control.Lens         (makeLenses, makePrisms)

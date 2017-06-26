@@ -4,6 +4,7 @@ module Test.Pos.CryptoSpec
        ( spec
        ) where
 
+import           Crypto.Hash             (Blake2b_224, Blake2b_256)
 import qualified Data.ByteString         as BS
 import           Formatting              (sformat)
 import           Prelude                 ((!!))
@@ -21,7 +22,8 @@ import           Pos.Crypto.Arbitrary    (SharedSecrets (..))
 import           Pos.Ssc.GodTossing      ()
 
 import           Test.Pos.Util           (binaryEncodeDecode, binaryTest,
-                                          safeCopyEncodeDecode, safeCopyTest, serDeserId,
+                                          msgLenLimitedTest, safeCopyEncodeDecode,
+                                          safeCopyTest, serDeserId,
                                           (.=.))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -129,6 +131,17 @@ spec = describe "Crypto" $ do
                 safeCopyTest @(AsBinary Crypto.EncShare)
                 safeCopyTest @(AsBinary Crypto.SecretProof)
                 safeCopyTest @(AsBinary Crypto.SecretSharingExtra)
+            describe "msgLenLimitedTest" $ do
+                msgLenLimitedTest @Crypto.PublicKey
+                msgLenLimitedTest @Crypto.EncShare
+                -- msgLenLimitedTest @(C.MaxSize SecretSharingExtra)
+                msgLenLimitedTest @(Crypto.Signature ())
+                msgLenLimitedTest @(Crypto.AbstractHash Blake2b_224 Void)
+                msgLenLimitedTest @(Crypto.AbstractHash Blake2b_256 Void)
+                msgLenLimitedTest @Crypto.SecretProof
+                msgLenLimitedTest @Crypto.VssPublicKey
+                msgLenLimitedTest @Crypto.Share
+
         describe "AsBinaryClass" $ do
             prop "VssPublicKey <-> AsBinary VssPublicKey"
                 (serDeserId @Crypto.VssPublicKey)

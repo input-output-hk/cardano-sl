@@ -13,6 +13,7 @@ import           Pos.Binary.Class             (Bi (..), Cons (..), Field (..),
 import           Pos.Binary.Core              ()
 import           Pos.Binary.Txp               ()
 import           Pos.Binary.Update            ()
+import           Pos.Crypto                   (Hash)
 import qualified Pos.Block.Core.Genesis.Chain as BC
 import qualified Pos.Block.Core.Genesis.Types as BC
 import qualified Pos.Block.Core.Main.Chain    as BC
@@ -69,9 +70,10 @@ instance (Ssc ssc) => Bi (BC.Body (BC.MainBlockchain ssc)) where
 
 deriveSimpleBi ''BC.MainExtraHeaderData [
     Cons 'BC.MainExtraHeaderData [
-        Field [| BC._mehBlockVersion    :: BlockVersion             |],
-        Field [| BC._mehSoftwareVersion :: SoftwareVersion          |],
-        Field [| BC._mehAttributes      :: BC.BlockHeaderAttributes |]
+        Field [| BC._mehBlockVersion    :: BlockVersion              |],
+        Field [| BC._mehSoftwareVersion :: SoftwareVersion           |],
+        Field [| BC._mehAttributes      :: BC.BlockHeaderAttributes  |],
+        Field [| BC._mehEBDataProof     :: Hash BC.MainExtraBodyData |]
     ]]
 
 deriveSimpleBi ''BC.MainExtraBodyData [

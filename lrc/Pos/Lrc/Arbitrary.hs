@@ -10,16 +10,16 @@ module Pos.Lrc.Arbitrary
 
 import           Universum
 
-import qualified Data.HashMap.Strict as HM
-import           Data.Reflection     (Reifies (..))
-import           Test.QuickCheck     (Arbitrary (..), Gen, choose)
+import qualified Data.HashMap.Strict      as HM
+import           Data.Reflection          (Reifies (..))
+import           Test.QuickCheck          (Arbitrary (..), Gen, choose)
 
-import           Pos.Constants       (genesisMpcThd)
-import           Pos.Core            (Coin, CoinPortion, StakeholderId, mkCoin,
-                                      unsafeGetCoin)
-import           Pos.Core.Coin       (coinPortionToDouble)
-import           Pos.Lrc.Types       (RichmenStake)
-import           Pos.Types           ()
+import           Pos.Core.Constants       (genesisMpcThd)
+import           Pos.Core                 (Coin, CoinPortion, StakeholderId, mkCoin,
+                                           unsafeGetCoin)
+import           Pos.Core.Coin            (coinPortionToDouble)
+import           Pos.Lrc.Types            (RichmenStake)
+import           Pos.Core.Arbitrary       ()
 
 -- | Wrapper over 'RichmenStake'. Its 'Arbitrary' instance enforces that the stake
 -- distribution inside must be valid with respect to the threshold 'thd', i.e. all of the

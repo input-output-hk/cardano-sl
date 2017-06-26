@@ -57,6 +57,7 @@ module Pos.Block.Core.Main.Lens
        , mainBlockBlockVersion
        , mainBlockSoftwareVersion
        , mainBlockHeaderAttributes
+       , mainBlockEBDataProof
        , mainBlockTxPayload
        , mainBlockSscPayload
        , mainBlockDlgPayload
@@ -77,7 +78,7 @@ import           Pos.Core                  (BlockVersion, ChainDifficulty, Heade
                                             SlotId, SoftwareVersion, gbBody, gbExtra,
                                             gbHeader, gbPrevBlock, gbhBodyProof,
                                             gbhConsensus, gbhExtra, gbhPrevBlock)
-import           Pos.Crypto                (PublicKey)
+import           Pos.Crypto                (Hash, PublicKey)
 import           Pos.Delegation.Types      (DlgPayload)
 import           Pos.Merkle                (MerkleTree)
 import           Pos.Ssc.Class.Types       (Ssc (..))
@@ -148,6 +149,11 @@ mainHeaderAttributes ::
        Lens' (MainBlockHeader ssc) BlockHeaderAttributes
 mainHeaderAttributes = gbhExtra . mehAttributes
 
+-- | Lens from 'MainBlockHeader' to 'MainExtraBodyData'
+mainHeaderEBDataProof ::
+       Lens' (MainBlockHeader ssc) (Hash MainExtraBodyData)
+mainHeaderEBDataProof = gbhExtra . mehEBDataProof
+
 ----------------------------------------------------------------------------
 -- MainBody
 ----------------------------------------------------------------------------
@@ -208,6 +214,11 @@ mainBlockSoftwareVersion = gbHeader . mainHeaderSoftwareVersion
 mainBlockHeaderAttributes ::
        Lens' (MainBlock ssc) BlockHeaderAttributes
 mainBlockHeaderAttributes = gbHeader . mainHeaderAttributes
+
+-- | Lens from 'MainBlock' to proof (hash) of 'MainExtraBodyData'.
+mainBlockEBDataProof ::
+       Lens' (MainBlock ssc) (Hash MainExtraBodyData)
+mainBlockEBDataProof = gbHeader . mainHeaderEBDataProof
 
 -- | Lens from 'MainBlock' to 'TxPayload'.
 mainBlockTxPayload :: Lens' (MainBlock ssc) TxPayload

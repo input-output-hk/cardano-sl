@@ -35,7 +35,7 @@ import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (MonadBlockDB, blkGetHeader)
 import           Pos.DB.DB                  (getTipHeader, loadBlundsFromTipByDepth)
-import           Pos.Reporting.Methods      (reportMisbehaviourMasked, reportingFatal)
+import           Pos.Reporting.Methods      (reportMisbehaviourSilent, reportingFatal)
 import           Pos.Security.Class         (SecurityWorkersClass (..))
 import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Slotting               (getCurrentSlot, getLastKnownSlotDuration,
@@ -112,7 +112,7 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do
-                header <- getTipHeader @(Block ssc)
+                header <- getTipHeader @ssc
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
         whenJustM getCurrentSlot onSlotDefault
   where
@@ -138,7 +138,7 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)
         when (nonTrivialUptime && not isRecovery) $
-            reportMisbehaviourMasked version reason
+            reportMisbehaviourSilent version reason
 
 
 checkForIgnoredCommitmentsWorker

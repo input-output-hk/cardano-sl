@@ -42,8 +42,7 @@ import           Pos.Launcher.Resource      (NodeResources (..), hoistNodeResour
 import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Util.JsonLog           (JsonLogConfig (..), jsonLogConfigFromHandle)
-import           Pos.WorkMode               (RealMode, RealModeContext (..), WorkMode,
-                                             unRealMode)
+import           Pos.WorkMode               (RealMode, RealModeContext (..), WorkMode)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -116,7 +115,7 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
         DCKademlia kademlia -> foreverRejoinNetwork kademlia
 
     runToProd :: forall t . JsonLogConfig -> RealMode ssc t -> Production t
-    runToProd jlConf act = Mtl.runReaderT (unRealMode act) $
+    runToProd jlConf act = Mtl.runReaderT act $
         RealModeContext
             nrDBs
             nrSscState

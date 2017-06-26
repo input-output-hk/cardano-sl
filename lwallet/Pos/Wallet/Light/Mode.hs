@@ -7,12 +7,12 @@
 
 module Pos.Wallet.Light.Mode
        ( LightWalletMode
-       , unLightWalletMode
        , LightWalletContext(..)
        ) where
 
 import           Universum
 
+import qualified Control.Monad.Reader             as Mtl
 import           EtherCompat
 import           Mockable                         (Production)
 import           System.Wlog                      (HasLoggerName (..), LoggerName)
@@ -29,8 +29,7 @@ import           Pos.Communication.PeerState      (PeerStateCtx, PeerStateTag,
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.Discovery                    (MonadDiscovery (..))
-import           Pos.ExecMode                     ((:::), ExecMode (..), ExecModeBase,
-                                                   ExecModeM, modeContext)
+import           Pos.ExecMode.Context             ((:::), modeContext)
 import           Pos.Reporting.MemState           (ReportingContext)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Util.JsonLog                 (JsonLogConfig, jsonLogDefault)
@@ -59,18 +58,13 @@ modeContext [d|
         !(LoggerName       ::: LoggerName)
     |]
 
-type LightWalletMode = ExecMode LightWalletContext
+type LightWalletMode = Mtl.ReaderT LightWalletContext Production
 
-type instance ExecModeBase LightWalletContext = Production
-
-unLightWalletMode :: ExecMode LightWalletContext a -> ExecModeM LightWalletContext a
-unLightWalletMode = unExecMode
-
-instance HasLoggerName LightWalletMode where
+instance {-# OVERLAPPING #-} HasLoggerName LightWalletMode where
     getLoggerName = askCtx @LoggerName
     modifyLoggerName = localCtx @LoggerName
 
-instance CanJsonLog LightWalletMode where
+instance {-# OVERLAPPING #-} CanJsonLog LightWalletMode where
     jsonLog = jsonLogDefault
 
 instance MonadDiscovery LightWalletMode where

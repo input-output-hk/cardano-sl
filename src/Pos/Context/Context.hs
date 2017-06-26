@@ -50,7 +50,7 @@ import           Pos.Communication.Types       (NodeId)
 import           Pos.Core                      (HeaderHash, PrimaryKeyTag, SlotLeaders)
 import           Pos.Crypto                    (SecretKey)
 import           Pos.Discovery                 (DiscoveryContextSum)
-import           Pos.ExecMode                  ((:::), modeContext)
+import           Pos.ExecMode.Context          ((:::), modeContext)
 import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,

@@ -127,7 +127,6 @@ library
                         Pos.WorkMode.Class
 
                         -- Execution mode
-                        Pos.ExecMode
                         Pos.ExecMode.Context
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:

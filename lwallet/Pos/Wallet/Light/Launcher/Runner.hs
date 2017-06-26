@@ -25,7 +25,7 @@ import           Pos.Util.Util                   ()
 import           Pos.Wallet.KeyStorage           (keyDataFromFile)
 import           Pos.Wallet.Light.Launcher.Param (WalletParams (..))
 import           Pos.Wallet.Light.Mode           (LightWalletContext (..),
-                                                  LightWalletMode, unLightWalletMode)
+                                                  LightWalletMode)
 import           Pos.Wallet.Light.State          (closeState, openMemState, openState)
 import           Pos.Wallet.WalletMode           (MonadWallet)
 
@@ -92,7 +92,6 @@ runRawStaticPeersWallet transport peers WalletParams {..}
                 JsonLogDisabled
                 lpRunnerTag
             ) .
-            unLightWalletMode .
             runServer_ transport listeners outs . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa
   where

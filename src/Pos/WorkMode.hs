@@ -12,10 +12,10 @@ module Pos.WorkMode
 
        -- * Actual modes
        , RealMode
-       , unRealMode
        , RealModeContext(..)
        ) where
 
+import qualified Control.Monad.Reader        as Mtl
 import           EtherCompat
 import           Mockable.Production         (Production)
 import           System.Wlog                 (HasLoggerName (..), LoggerName)
@@ -43,8 +43,7 @@ import           Pos.DB.Redirect             (dbDeleteDefault, dbGetDefault,
 import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.Discovery               (MonadDiscovery (..), findPeersSum,
                                               getPeersSum)
-import           Pos.ExecMode                ((:::), ExecMode (..), ExecModeBase,
-                                              ExecModeM, modeContext)
+import           Pos.ExecMode.Context        ((:::), modeContext)
 import           Pos.Slotting.Class          (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
                                               getCurrentSlotBlockingSum,
@@ -75,18 +74,13 @@ modeContext [d|
         !(NodeContext ssc)
     |]
 
-type RealMode ssc = ExecMode (RealModeContext ssc)
+type RealMode ssc = Mtl.ReaderT (RealModeContext ssc) Production
 
-type instance ExecModeBase (RealModeContext ssc) = Production
-
-unRealMode :: ExecMode (RealModeContext ssc) a -> ExecModeM (RealModeContext ssc) a
-unRealMode = unExecMode
-
-instance HasLoggerName (RealMode ssc) where
+instance {-# OVERLAPPING #-} HasLoggerName (RealMode ssc) where
     getLoggerName = askCtx @LoggerName
     modifyLoggerName = localCtx @LoggerName
 
-instance CanJsonLog (RealMode ssc) where
+instance {-# OVERLAPPING #-} CanJsonLog (RealMode ssc) where
     jsonLog = jsonLogDefault
 
 instance MonadSlotsData (RealMode ssc) where

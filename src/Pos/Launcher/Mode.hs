@@ -29,7 +29,6 @@ import           Universum
 import qualified Control.Monad.Reader  as Mtl
 import           Mockable.Production   (Production)
 import           System.IO.Unsafe      (unsafeInterleaveIO)
-import           System.Wlog           (HasLoggerName (..))
 
 import           Pos.Block.Core        (Block, BlockHeader)
 import           Pos.Block.Types       (Undo)
@@ -45,7 +44,7 @@ import           Pos.DB.Class          (MonadBlockDBGeneric (..), MonadDB (..),
 import           Pos.DB.Redirect       (dbDeleteDefault, dbGetDefault,
                                         dbIterSourceDefault, dbPutDefault,
                                         dbWriteBatchDefault)
-import           Pos.ExecMode          ((:::), ExecMode (..), ExecModeBase, modeContext)
+import           Pos.ExecMode.Context  ((:::), modeContext)
 import           Pos.Lrc.Context       (LrcContext)
 import           Pos.Slotting.Class    (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
@@ -88,12 +87,10 @@ modeContext [d|
         (LrcContext         ::: LrcContext)
     |]
 
-type InitMode ssc = ExecMode (InitModeContext ssc)
-
-type instance ExecModeBase (InitModeContext ssc) = Production
+type InitMode ssc = Mtl.ReaderT (InitModeContext ssc) Production
 
 runInitMode :: InitModeContext ssc -> InitMode ssc a -> Production a
-runInitMode imc act = Mtl.runReaderT (unExecMode act) imc
+runInitMode = flip Mtl.runReaderT
 
 instance MonadDBRead (InitMode ssc) where
     dbGet = dbGetDefault
@@ -134,5 +131,3 @@ instance MonadSlots (InitMode ssc) where
     getCurrentSlotBlocking = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
     currentTimeSlotting = currentTimeSlottingSum
-
-deriving instance HasLoggerName (InitMode ssc)

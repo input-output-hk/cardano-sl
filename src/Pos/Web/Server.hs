@@ -43,8 +43,7 @@ import           Pos.Txp                              (TxOut (..), toaOut)
 import           Pos.Txp.MemState                     (GenericTxpLocalData, askTxpMem,
                                                        getLocalTxs)
 import           Pos.Types                            (EpochIndex (..), SlotLeaders)
-import           Pos.Web.Mode                         (WebMode, WebModeContext (..),
-                                                       unWebMode)
+import           Pos.Web.Mode                         (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
@@ -99,7 +98,7 @@ convertHandler
     -> Handler a
 convertHandler nc nodeDBs wrap handler =
     liftIO (runProduction $
-        Mtl.runReaderT (unWebMode handler) (WebModeContext nodeDBs wrap nc))
+        Mtl.runReaderT handler (WebModeContext nodeDBs wrap nc))
     `Catch.catches`
     excHandlers
   where

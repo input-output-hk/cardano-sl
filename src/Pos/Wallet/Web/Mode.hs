@@ -5,13 +5,13 @@
 
 module Pos.Wallet.Web.Mode
     ( WalletWebMode
-    , unWalletWebMode
     , WalletWebModeContextTag
     , WalletWebModeContext(..)
     ) where
 
 import           Universum
 
+import qualified Control.Monad.Reader          as Mtl
 import           EtherCompat
 import           Mockable                      (Production)
 import           System.Wlog                   (HasLoggerName (..), LoggerName)
@@ -39,8 +39,7 @@ import           Pos.Client.Txp.History        (MonadTxHistory (..), getTxHistor
                                                 saveTxDefault)
 import           Pos.Discovery                 (MonadDiscovery (..), findPeersSum,
                                                 getPeersSum)
-import           Pos.ExecMode                  ((:::), ExecMode (..), ExecModeBase,
-                                                ExecModeM, HasLens (..), modeContext)
+import           Pos.ExecMode.Context          ((:::), HasLens (..), modeContext)
 import           Pos.Slotting.Class            (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum         (currentTimeSlottingSum,
                                                 getCurrentSlotBlockingSum,
@@ -86,12 +85,7 @@ data WalletWebModeContextTag
 instance HasLens WalletWebModeContextTag WalletWebModeContext WalletWebModeContext where
     lensOf = identity
 
-type WalletWebMode = ExecMode WalletWebModeContext
-
-type instance ExecModeBase WalletWebModeContext = Production
-
-unWalletWebMode :: ExecMode WalletWebModeContext a -> ExecModeM WalletWebModeContext a
-unWalletWebMode = unExecMode
+type WalletWebMode = Mtl.ReaderT WalletWebModeContext Production
 
 instance WithPeerState WalletWebMode where
     getPeerState = getPeerStateDefault
@@ -114,11 +108,11 @@ instance MonadDiscovery WalletWebMode where
     getPeers = getPeersSum
     findPeers = findPeersSum
 
-instance HasLoggerName WalletWebMode where
+instance {-# OVERLAPPING #-} HasLoggerName WalletWebMode where
     getLoggerName = askCtx @LoggerName
     modifyLoggerName = localCtx @LoggerName
 
-instance CanJsonLog WalletWebMode where
+instance {-# OVERLAPPING #-} CanJsonLog WalletWebMode where
     jsonLog = jsonLogDefault
 
 instance MonadDBRead WalletWebMode where

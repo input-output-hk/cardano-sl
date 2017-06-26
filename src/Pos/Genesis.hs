@@ -72,8 +72,6 @@ genesisDevHdwAccountKeyDatas =
             accountGenesisIndex
             wAddressGenesisIndex
 
-genesisDevHdwAccountAddresses :: [Address]
-genesisDevHdwAccountAddresses = map fst genesisDevHdwAccountKeyDatas
 
 -- 10000 coins in total. For thresholds testing.
 -- 0.5,0.25,0.125,0.0625,0.0312,0.0156,0.0078,0.0039,0.0019,0.0008,0.0006,0.0004,0.0002,0.0001
@@ -145,23 +143,28 @@ genesisUtxo :: StakeDistribution -> Utxo
 genesisUtxo sd =
     M.fromList $ concat
         [ zipWith zipF (stakeDistribution sd)
-            (genesisAddresses <> tailAddresses)
+              (genesisAddresses <> tailAddresses)
         , map (zipF hwdDistr) hdwAddresses
         ]
   where
+    defaultStakeDistr coin distr
+        | HM.null genesisBootBalances = distr
+        | otherwise = genesisSplitBoot coin
     zipF (coin, distr) addr =
         ( TxIn (unsafeHash addr) 0
-        , TxOutAux (TxOut addr coin) distr
+        , TxOutAux (TxOut addr coin) (defaultStakeDistr coin distr)
         )
-    tailAddresses = map (makePubKeyAddress . fst .
-                         generateGenesisKeyPair)
-                      [Const.genesisKeysN ..]
+    tailAddresses =
+        map (makePubKeyAddress . fst . generateGenesisKeyPair)
+            [Const.genesisKeysN ..]
     -- not much money to avoid making wallets slot leaders
     hwdDistr = (mkCoin 100, [])
     -- should be enough for testing.
     genesisDevHdwKeyNum = 2
     hdwAddresses = take genesisDevHdwKeyNum genesisDevHdwAccountAddresses
 
+    genesisDevHdwAccountAddresses :: [Address]
+    genesisDevHdwAccountAddresses = map fst genesisDevHdwAccountKeyDatas
 
 genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)
 genesisDelegation = mempty

@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Pos.Core.Genesis
        (
        -- * /genesis-core.bin/
@@ -20,21 +22,26 @@ module Pos.Core.Genesis
        , generateGenesisKeyPair
        , generateHdwGenesisSecretKey
        , getTotalStake
+       , genesisSplitBoot
        ) where
 
 import           Universum
 
+import           Control.Lens            (_head)
 import           Data.Default            (def)
+import qualified Data.HashSet            as HS
 import qualified Data.Text               as T
 import           Formatting              (int, sformat, (%))
 
 import           Pos.Binary.Crypto       ()
 import           Pos.Core.Address        (makePubKeyAddress)
+import           Pos.Core.Coin           (unsafeAddCoin)
 import           Pos.Core.Constants      (genesisKeysN, isDevelopment)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (GenesisCoreData (..), StakeDistribution (..),
                                           getTotalStake)
-import           Pos.Core.Types          (Address, Coin, StakeholderId)
+import           Pos.Core.Types          (Address, Coin, StakeholderId, mkCoin,
+                                          unsafeGetCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
                                           safeDeterministicKeyGen)
 import           Pos.Crypto.Signing      (PublicKey, SecretKey, deterministicKeyGen)
@@ -104,3 +111,27 @@ genesisBootBalances
 -- | Bootstrap era stakeholders.
 genesisBootStakeholders :: HashSet StakeholderId
 genesisBootStakeholders = getKeys genesisBootBalances
+
+-- | Returns a distribution sharing coins to
+-- 'genesisBootStakeholders'.  If number of addresses is less then
+-- coins, we give 1 coin to prefix.  Otherwise we give quotient to
+-- everyone and remainder to the first one.
+genesisSplitBoot :: Coin -> [(StakeholderId, Coin)]
+genesisSplitBoot c
+    | cval <= 0 =
+      error $ "sendMoney#splitBoot: cval <= 0: " <> show cval
+    | cval < addrsNum =
+      map (,mkCoin 1) $ take cval bootStakeholders
+    | otherwise =
+      let (d :: Word64, m :: Word64) =
+              bimap fromIntegral fromIntegral $
+              divMod cval addrsNum
+          stakeCoins = replicate addrsNum (mkCoin d) &
+                           _head %~ unsafeAddCoin (mkCoin m)
+      in bootStakeholders `zip` stakeCoins
+  where
+    cval :: Int
+    cval = fromIntegral $ unsafeGetCoin c
+    addrsNum :: Int
+    addrsNum = length genesisBootStakeholders
+    bootStakeholders = HS.toList genesisBootStakeholders

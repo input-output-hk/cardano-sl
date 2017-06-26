@@ -139,7 +139,6 @@ instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
 -- Logic
 ----------------------------------------------------------------------------
 
--- THIS FUNCTION ISN'T USED!
 -- Select our accounts from Utxo and put to wallet-db.
 -- Used for importing of a secret key.
 selectAccountsFromUtxoLock

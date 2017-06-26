@@ -100,7 +100,7 @@ import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
                                                    localChainDifficulty,
                                                    networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
-                                                   genSaveRootAddress,
+                                                   genSaveRootKey,
                                                    genUniqueAccountAddress,
                                                    genUniqueAccountId, getAddrIdx,
                                                    getSKByAccAddr, getSKByAddr,
@@ -782,13 +782,19 @@ newWallet passphrase CWalletInit {..} = do
     bpSeed <- either (throwM . RequestError) pure $
         Bi.decode . BSL.fromStrict <$> toSeed cwBackupPhrase
 
-    cAddr <- genSaveRootAddress passphrase cwBackupPhrase
-    wallet@CWallet{..} <- createWalletSafe cAddr cwInitMeta
+    skey <- genSaveRootKey passphrase cwBackupPhrase
+    let cAddr = encToCId skey
+
+    CWallet{..} <- createWalletSafe cAddr cwInitMeta
 
     let accMeta = CAccountMeta { caName = "Initial account" }
-    let accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
+        accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
     _ <- newAccount (DeterminedSeed bpSeed) passphrase accInit
-    return wallet
+
+    selectAccountsFromUtxoLock @WalletSscType [skey]
+
+    -- We get the wallet again to have proper balances returned
+    getWallet cAddr
 
 updateWallet :: WalletWebMode m => CId Wal -> CWalletMeta -> m CWallet
 updateWallet wId wMeta = do

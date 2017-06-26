@@ -10,8 +10,10 @@ module Pos.Wallet.Web.State.State
        , openMemState
        , closeState
 
-       -- * Getters
        , AddressLookupMode (..)
+       , CustomAddressType (..)
+
+       -- * Getters
        , getProfile
        , getWAddressIds
        , getAccountMetas
@@ -28,6 +30,9 @@ module Pos.Wallet.Web.State.State
        , getUpdates
        , getNextUpdate
        , getHistoryCache
+       , getCustomAddresses
+       , getCustomAddress
+       , isCustomAddress
 
        -- * Setters
        , testReset
@@ -35,6 +40,7 @@ module Pos.Wallet.Web.State.State
        , createWallet
        , addRemovedAccount
        , addWAddress
+       , addCustomAddress
        , setProfile
        , setAccountMeta
        , setWalletMeta
@@ -46,6 +52,7 @@ module Pos.Wallet.Web.State.State
        , removeWallet
        , removeAccount
        , removeWAddress
+       , removeCustomAddress
        , totallyRemoveWAddress
        , addUpdate
        , removeNextUpdate
@@ -61,13 +68,15 @@ import           Universum
 import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Txp                      (Utxo)
 import           Pos.Types                    (HeaderHash)
-import           Pos.Wallet.Web.ClientTypes   (AccountId, CAccountMeta, CId, CProfile,
-                                               CTxId, CTxMeta, CUpdateInfo, CWAddressMeta,
-                                               CWalletMeta, PassPhraseLU, Wal)
+import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
+                                               CProfile, CTxId, CTxMeta, CUpdateInfo,
+                                               CWAddressMeta, CWalletMeta, PassPhraseLU,
+                                               Wal)
 import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
-import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..), WalletStorage)
+import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
+                                               CustomAddressType (..), WalletStorage)
 
 data WalletWebDBTag
 
@@ -142,6 +151,15 @@ getNextUpdate = queryDisk A.GetNextUpdate
 getHistoryCache :: WebWalletModeDB m => CId Wal -> m (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
 getHistoryCache = queryDisk . A.GetHistoryCache
 
+getCustomAddresses :: WebWalletModeDB m => CustomAddressType -> m [CId Addr]
+getCustomAddresses = queryDisk ... A.GetCustomAddresses
+
+getCustomAddress :: WebWalletModeDB m => CustomAddressType -> CId Addr -> m (Maybe HeaderHash)
+getCustomAddress = queryDisk ... A.GetCustomAddress
+
+isCustomAddress :: WebWalletModeDB m => CustomAddressType -> CId Addr -> m Bool
+isCustomAddress = fmap isJust . queryDisk ... A.GetCustomAddress
+
 createAccount :: WebWalletModeDB m => AccountId -> CAccountMeta -> m ()
 createAccount accId = updateDisk . A.CreateAccount accId
 
@@ -150,6 +168,9 @@ createWallet cWalId passLU = updateDisk . A.CreateWallet cWalId passLU
 
 addWAddress :: WebWalletModeDB m => CWAddressMeta -> m ()
 addWAddress addr = updateDisk $ A.AddWAddress addr
+
+addCustomAddress :: WebWalletModeDB m => CustomAddressType -> (CId Addr, HeaderHash) -> m Bool
+addCustomAddress = updateDisk ... A.AddCustomAddress
 
 addRemovedAccount :: WebWalletModeDB m => CWAddressMeta -> m ()
 addRemovedAccount addr = updateDisk $ A.AddRemovedAccount addr
@@ -189,6 +210,11 @@ removeWAddress = updateDisk . A.RemoveWAddress
 
 totallyRemoveWAddress :: WebWalletModeDB m => CWAddressMeta -> m ()
 totallyRemoveWAddress = updateDisk . A.TotallyRemoveWAddress
+
+removeCustomAddress
+    :: WebWalletModeDB m
+    => CustomAddressType -> (CId Addr, HeaderHash) -> m Bool
+removeCustomAddress = updateDisk ... A.RemoveCustomAddress
 
 addUpdate :: WebWalletModeDB m => CUpdateInfo -> m ()
 addUpdate = updateDisk . A.AddUpdate

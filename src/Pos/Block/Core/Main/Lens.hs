@@ -79,7 +79,7 @@ import           Pos.Core                  (BlockVersion, ChainDifficulty, Heade
                                             SlotId, SoftwareVersion, gbBody, gbExtra,
                                             gbHeader, gbPrevBlock, gbhBodyProof,
                                             gbhConsensus, gbhExtra, gbhPrevBlock)
-import           Pos.Crypto                (PublicKey, Hash)
+import           Pos.Crypto                (Hash, PublicKey)
 import           Pos.Delegation.Types      (DlgPayload)
 import           Pos.Merkle                (MerkleTree)
 import           Pos.Ssc.Class.Types       (Ssc (..))
@@ -216,7 +216,7 @@ mainBlockHeaderAttributes ::
        Lens' (MainBlock ssc) BlockHeaderAttributes
 mainBlockHeaderAttributes = gbHeader . mainHeaderAttributes
 
--- | Lens from 'MainBlock' to 'BlockHeaderAttributes'.
+-- | Lens from 'MainBlock' to proof (hash) of 'MainExtraBodyData'.
 mainBlockEBDataProof ::
        Lens' (MainBlock ssc) (Hash MainExtraBodyData)
 mainBlockEBDataProof = gbHeader . mainHeaderEBDataProof

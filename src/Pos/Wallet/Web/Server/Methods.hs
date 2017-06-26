@@ -27,7 +27,6 @@ import           Control.Monad.Catch              (SomeException, try)
 import qualified Control.Monad.Catch              as E
 import           Control.Monad.State              (runStateT)
 import           Data.ByteString.Base58           (bitcoinAlphabet, decodeBase58)
-import qualified Data.ByteString.Lazy             as BSL
 import           Data.Default                     (Default (def))
 import           Data.List                        (findIndex)
 import qualified Data.List.NonEmpty               as NE
@@ -57,7 +56,6 @@ import           System.IO.Error                  (isDoesNotExistError)
 import           System.Wlog                      (logDebug, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes            ()
-import qualified Pos.Binary.Class                 as Bi
 import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
                                                    TxHistoryEntry (..))
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
@@ -779,19 +777,18 @@ newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase CWalletInit {..} = do
     let CWalletMeta {..} = cwInitMeta
 
-    bpSeed <- either (throwM . RequestError) pure $
-        Bi.decode . BSL.fromStrict <$> toSeed cwBackupPhrase
-
     skey <- genSaveRootKey passphrase cwBackupPhrase
     let cAddr = encToCId skey
 
     CWallet{..} <- createWalletSafe cAddr cwInitMeta
+    foundAddrs <- selectAccountsFromUtxoLock @WalletSscType [skey]
 
-    let accMeta = CAccountMeta { caName = "Initial account" }
-        accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-    _ <- newAccount (DeterminedSeed bpSeed) passphrase accInit
-
-    selectAccountsFromUtxoLock @WalletSscType [skey]
+    -- If no addresses for given root key are found in utxo,
+    -- create an account with random seed
+    when (null foundAddrs) $ do
+        let accMeta = CAccountMeta { caName = "Initial account" }
+            accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
+        () <$ newAccount RandomSeed passphrase accInit
 
     -- We get the wallet again to have proper balances returned
     getWallet cAddr
@@ -1013,7 +1010,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         let accId = AccountId wid walletIndex
         newAddress (DeterminedSeed accountIndex) passphrase accId
 
-    selectAccountsFromUtxoLock @WalletSscType [key]
+    _ <- selectAccountsFromUtxoLock @WalletSscType [key]
 
     return importedWallet
 

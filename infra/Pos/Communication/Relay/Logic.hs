@@ -66,7 +66,7 @@ import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), 
 import           Pos.DB.Class                       (MonadGState)
 import           Pos.Discovery.Broadcast            (converseToNeighbors)
 import           Pos.Discovery.Class                (MonadDiscovery)
-import           Pos.Reporting                      (MonadReportingMem, reportingFatal)
+import           Pos.Reporting                      (HasReportingContext, reportingFatal)
 import           Pos.Util.TimeWarp                  (CanJsonLog (..))
 
 type MinRelayWorkMode m =
@@ -323,7 +323,8 @@ relayWorkers
        , MonadDiscovery m
        , RelayWorkMode ctx m
        , MonadMask m
-       , MonadReportingMem ctx m
+       , HasReportingContext ctx
+       , MonadReader ctx m
        , Message Void
        )
     => [Relay m] -> ([WorkerSpec m], OutSpecs)
@@ -335,7 +336,8 @@ relayWorkersImpl
        , MonadDiscovery m
        , RelayWorkMode ctx m
        , MonadMask m
-       , MonadReportingMem ctx m
+       , MonadReader ctx m
+       , HasReportingContext ctx
        , Message Void
        )
     => OutSpecs -> ([WorkerSpec m], OutSpecs)

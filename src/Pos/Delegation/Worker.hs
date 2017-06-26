@@ -18,7 +18,7 @@ import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.Delegation.Logic       (invalidateProxyCaches,
                                              runDelegationStateAction)
 import           Pos.Discovery.Class        (MonadDiscovery)
-import           Pos.Reporting              (MonadReportingMem)
+import           Pos.Reporting              (HasReportingContext)
 import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (MonadShutdownMem, runIfNotShutdown)
 import           Pos.WorkMode.Class         (WorkMode)
@@ -34,10 +34,11 @@ dlgInvalidateCaches
        , MonadMask m
        , WithLogger m
        , Mockable Delay m
-       , MonadReportingMem ctx m
+       , HasReportingContext ctx
        , MonadShutdownMem ctx m
        , MonadDelegation ctx m
        , MonadDiscovery m
+       , MonadReader ctx m
        )
     => m ()
 dlgInvalidateCaches = runIfNotShutdown $ do

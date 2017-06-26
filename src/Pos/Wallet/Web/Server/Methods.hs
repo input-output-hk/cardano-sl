@@ -74,7 +74,8 @@ import           Pos.Crypto                       (PassPhrase, aesDecrypt,
                                                    withSafeSigner)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
-import           Pos.Reporting.MemState           (ReportingContext, rcReportServers)
+import           Pos.Reporting.MemState           (HasReportingContext (..),
+                                                   ReportingContext, rcReportServers)
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Txp                          (Utxo)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..))
@@ -924,7 +925,7 @@ reportingInitialized cinit = do
 
 reportingElectroncrash :: forall m. WalletWebMode m => CElectronCrashReport -> m ()
 reportingElectroncrash celcrash = do
-    servers <- view (lensOf @ReportingContext . rcReportServers)
+    servers <- view (reportingContext . rcReportServers)
     errors <- fmap lefts $ forM servers $ \serv ->
         try $ sendReport [fdFilePath $ cecUploadDump celcrash]
                          []

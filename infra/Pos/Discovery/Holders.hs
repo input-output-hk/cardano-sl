@@ -14,7 +14,6 @@ module Pos.Discovery.Holders
 import           Universum
 
 import qualified Data.Set                         as S (fromList)
-import           EtherCompat
 import           Mockable                         (Async, Catch, Mockables, Promise,
                                                    Throw)
 import           System.Wlog                      (WithLogger)

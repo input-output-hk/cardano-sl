@@ -6,7 +6,7 @@ module Pos.Reporting.MemState
        ( ReportingContext (..)
        , rcReportServers
        , rcLoggingConfig
-       , MonadReportingMem
+       , HasReportingContext (..)
        , emptyReportingContext
        ) where
 
@@ -23,9 +23,8 @@ data ReportingContext = ReportingContext
 
 makeLenses ''ReportingContext
 
--- | Monads are able to do remote error reporting. IO for making http
--- requests, context for saving reporting-related data.
-type MonadReportingMem ctx m = (MonadReader ctx m, HasLens ReportingContext ctx ReportingContext)
+class HasReportingContext ctx where
+    reportingContext :: Lens' ctx ReportingContext
 
 emptyReportingContext :: ReportingContext
 emptyReportingContext = ReportingContext [] mempty

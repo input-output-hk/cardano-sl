@@ -20,7 +20,7 @@ import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
 import           Pos.Discovery.Class        (MonadDiscovery)
-import           Pos.Reporting              (MonadReportingMem)
+import           Pos.Reporting              (HasReportingContext)
 import           Pos.Shutdown               (MonadShutdownMem)
 import           Pos.Slotting.Class         (MonadSlots)
 
@@ -31,7 +31,8 @@ type DhtWorkMode ctx m =
     , MonadMask m
     , Mockable Fork m
     , Mockable Delay m
-    , MonadReportingMem ctx m
+    , MonadReader ctx m
+    , HasReportingContext ctx
     , MonadShutdownMem ctx m
     , MonadDiscovery m
     )

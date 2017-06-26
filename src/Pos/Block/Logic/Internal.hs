@@ -51,7 +51,7 @@ import           Pos.Txp.Logic               (txNormalize)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Discovery.Class         (MonadDiscovery)
 import           Pos.Exception               (assertionFailed)
-import           Pos.Reporting               (MonadReportingMem, reportingFatal)
+import           Pos.Reporting               (HasReportingContext, reportingFatal)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscGStateClass)
@@ -107,7 +107,7 @@ type BlockApplyMode ssc ctx m
        , SscLocalDataClass ssc
        , HasLens UpdateContext ctx UpdateContext
        -- Needed for error reporting.
-       , MonadReportingMem ctx m
+       , HasReportingContext ctx
        , MonadDiscovery m
        , MonadBaseControl IO m
        , MonadReader ctx m

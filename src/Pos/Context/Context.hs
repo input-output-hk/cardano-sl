@@ -52,7 +52,8 @@ import           Pos.Discovery                 (DiscoveryContextSum,
 import           Pos.ExecMode.Context          ((:::), modeContext)
 import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
-import           Pos.Reporting.MemState        (ReportingContext (..), rcLoggingConfig,
+import           Pos.Reporting.MemState        (HasReportingContext (..),
+                                                ReportingContext (..), rcLoggingConfig,
                                                 rcReportServers)
 import           Pos.Security.Params           (SecurityParams)
 import           Pos.Shutdown.Types            (ShutdownContext (..))
@@ -186,8 +187,8 @@ instance HasLens PrimaryKeyTag (NodeContext ssc) SecretKey where
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
     lensOf = lensOf @NodeParams . npCustomUtxoL . coerced
 
-instance HasLens ReportingContext (NodeContext ssc) ReportingContext where
-    lensOf = lens getter (flip setter)
+instance HasReportingContext (NodeContext ssc) where
+    reportingContext = lens getter (flip setter)
       where
         getter nc =
             ReportingContext

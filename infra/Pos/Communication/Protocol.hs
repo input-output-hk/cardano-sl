@@ -46,7 +46,7 @@ import           Pos.Communication.PeerState      (WithPeerState (..))
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Types                   (SlotId)
 import           Pos.Discovery.Class              (MonadDiscovery)
-import           Pos.Reporting                    (MonadReportingMem)
+import           Pos.Reporting                    (HasReportingContext)
 import           Pos.Shutdown                     (MonadShutdownMem)
 import           Pos.Slotting                     (MonadSlots)
 import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
@@ -198,11 +198,12 @@ type OnNewSlotComm ctx m =
 
 type LocalOnNewSlotComm ctx m =
     ( MonadIO m
+    , MonadReader ctx m
     , MonadSlots m
     , MonadMask m
     , WithLogger m
     , Mockables m [Fork, Delay]
-    , MonadReportingMem ctx m
+    , HasReportingContext ctx
     , MonadShutdownMem ctx m
     , MonadDiscovery m
     )

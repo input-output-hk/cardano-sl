@@ -38,7 +38,7 @@ import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
 import           Pos.Core                    (MonadPrimaryKey)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
-import           Pos.Reporting               (MonadReportingMem)
+import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)
 import           Pos.Shutdown                (MonadShutdownMem)
 import           Pos.Slotting.Class          (MonadSlots)
@@ -73,7 +73,6 @@ type WorkMode ssc ctx m
       , MonadRelayMem ctx m
       , MonadDelegation ctx m
       , MonadSscMem ssc ctx m
-      , MonadReportingMem ctx m
       , SscGStateClass ssc
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
@@ -93,6 +92,7 @@ type WorkMode ssc ctx m
       , HasLens SecurityParams ctx SecurityParams
       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
       , HasSscContext ssc ctx
+      , HasReportingContext ctx
       , WithPeerState m
       , MonadShutdownMem ctx m
       , MonadBListener m

@@ -34,7 +34,7 @@ import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..)
                                          flattenSlotId, getSlotIndex, slotIdF)
 import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
-import           Pos.Reporting.MemState (MonadReportingMem)
+import           Pos.Reporting.MemState (HasReportingContext)
 import           Pos.Reporting.Methods  (reportMisbehaviourSilent, reportingFatal)
 import           Pos.Shutdown           (MonadShutdownMem, runIfNotShutdown)
 import           Pos.Slotting.Class     (MonadSlots (..))
@@ -74,12 +74,13 @@ getLastKnownSlotDuration = esdSlotDuration . sdLast <$> getSlottingData
 -- | Type constraint for `onNewSlot*` workers
 type OnNewSlot ctx m =
     ( MonadIO m
+    , MonadReader ctx m
     , MonadSlots m
     , MonadMask m
     , WithLogger m
     , Mockable Fork m
     , Mockable Delay m
-    , MonadReportingMem ctx m
+    , HasReportingContext ctx
     , MonadShutdownMem ctx m
     , MonadDiscovery m
     )

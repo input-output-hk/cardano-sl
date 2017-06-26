@@ -26,7 +26,6 @@ import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (getCurrentTime)
 import           Data.Version             (Version (..))
-import           EtherCompat
 import           Formatting               (sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
@@ -46,8 +45,8 @@ import           Pos.Core.Constants       (protocolMagic)
 import           Pos.Discovery.Class      (MonadDiscovery, getPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (MonadReportingMem, ReportingContext,
-                                           rcLoggingConfig, rcReportServers)
+import           Pos.Reporting.MemState   (HasReportingContext (..), rcLoggingConfig,
+                                           rcReportServers)
 import           Pos.Util.Util            (maybeThrow)
 
 -- TODO From Pos.Util, remove after refactoring.
@@ -63,7 +62,8 @@ import           Pos.Util.Util            (maybeThrow)
 type MonadReporting ctx m =
        ( MonadIO m
        , MonadMask m
-       , MonadReportingMem ctx m
+       , MonadReader ctx m
+       , HasReportingContext ctx
        , WithLogger m
        )
 
@@ -78,9 +78,9 @@ sendReportNode
     :: (MonadReporting ctx m)
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
-    noServers <- null <$> view (lensOf @ReportingContext . rcReportServers)
+    noServers <- null <$> view (reportingContext . rcReportServers)
     if noServers then onNoServers else do
-        logConfig <- view (lensOf @ReportingContext . rcLoggingConfig)
+        logConfig <- view (reportingContext . rcLoggingConfig)
         let allFiles = map snd $ retrieveLogFiles logConfig
         logFile <-
             maybeThrow (TextException onNoPubfiles)
@@ -114,7 +114,7 @@ sendReportNodeImpl
     :: (MonadReporting ctx m)
     => [Text] -> Version -> ReportType -> m ()
 sendReportNodeImpl rawLogs version reportType = do
-    servers <- view (lensOf @ReportingContext . rcReportServers)
+    servers <- view (reportingContext . rcReportServers)
     when (null servers) onNoServers
     errors <- fmap lefts $ forM servers $ try .
         sendReport [] rawLogs reportType "cardano-node" version . toString

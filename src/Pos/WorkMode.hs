@@ -47,6 +47,7 @@ import           Pos.Discovery               (HasDiscoveryContextSum (..),
                                               MonadDiscovery (..), findPeersSum,
                                               getPeersSum)
 import           Pos.ExecMode.Context        ((:::), modeContext)
+import           Pos.Reporting               (HasReportingContext (..))
 import           Pos.Slotting.Class          (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
                                               getCurrentSlotBlockingSum,
@@ -86,6 +87,9 @@ instance HasSscContext ssc (RealModeContext ssc) where
 
 instance HasDiscoveryContextSum (RealModeContext ssc) where
     discoveryContextSum = rmcNodeContext . discoveryContextSum
+
+instance HasReportingContext (RealModeContext ssc) where
+    reportingContext = rmcNodeContext . reportingContext
 
 type RealMode ssc = Mtl.ReaderT (RealModeContext ssc) Production
 

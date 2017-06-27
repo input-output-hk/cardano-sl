@@ -9,10 +9,6 @@ module Pos.Txp.DB.Balances
          -- * Operations
          BalancesOp (..)
 
-         -- * Getters
-       , getEffectiveTotalStake
-       , getEffectiveStake
-
          -- * Initialization
        , initGStateBalances
 
@@ -32,21 +28,20 @@ import qualified Data.Conduit.List            as CL
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB             as Rocks
-import qualified Ether
 import           Formatting                   (bprint, bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Class             (encodeStrict)
-import           Pos.Core                     (Coin, GenesisStakes (..), StakeholderId,
-                                               coinF, mkCoin, sumCoins, unsafeAddCoin,
+import           Pos.Core                     (Coin, StakeholderId, coinF, mkCoin,
+                                               sumCoins, unsafeAddCoin,
                                                unsafeIntegerToCoin)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
                                                MonadDB, MonadDBRead, MonadGState (..),
                                                RocksBatchOp (..), dbIterSource)
 import           Pos.DB.GState.Balances       (BalanceIter, ftsStakeKey, ftsSumKey,
-                                               getRealStake, getRealTotalStake)
+                                               getRealTotalStake)
 import           Pos.DB.GState.Common         (gsPutBi)
 import           Pos.Txp.Core                 (txOutStake)
 import           Pos.Txp.Toil.Types           (Utxo)
@@ -71,29 +66,6 @@ instance RocksBatchOp BalancesOp where
     toBatchOp (PutFtsStake ad c) =
         if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]
         else [Rocks.Put (ftsStakeKey ad) (encodeStrict c)]
-
-----------------------------------------------------------------------------
--- Overloaded getters (for fixed balances for bootstrap era)
-----------------------------------------------------------------------------
-
-genesisFakeTotalStake :: Ether.MonadReader' GenesisStakes m => m Coin
-genesisFakeTotalStake =
-    unsafeIntegerToCoin . sumCoins . unGenesisStakes <$> Ether.ask'
-
-getEffectiveTotalStake ::
-       (Ether.MonadReader' GenesisStakes m, MonadDBRead m, MonadGState m)
-    => m Coin
-getEffectiveTotalStake = ifM gsIsBootstrapEra
-    genesisFakeTotalStake
-    getRealTotalStake
-
-getEffectiveStake ::
-       (Ether.MonadReader' GenesisStakes m, MonadDBRead m, MonadGState m)
-    => StakeholderId
-    -> m (Maybe Coin)
-getEffectiveStake id = ifM gsIsBootstrapEra
-    (HM.lookup id . unGenesisStakes <$> Ether.ask')
-    (getRealStake id)
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -121,12 +93,9 @@ initGStateBalances genesisUtxo = do
 -- | Run iterator over effective balances.
 balanceSource ::
        forall m.
-       (Ether.MonadReader' GenesisStakes m, MonadDBRead m, MonadGState m)
+       (MonadDBRead m, MonadGState m)
     => Source (ResourceT m) (IterType BalanceIter)
-balanceSource =
-    ifM (lift gsIsBootstrapEra)
-        (CL.sourceList . HM.toList . unGenesisStakes =<< lift Ether.ask')
-        (dbIterSource GStateDB (Proxy @BalanceIter))
+balanceSource = dbIterSource GStateDB (Proxy @BalanceIter)
 
 ----------------------------------------------------------------------------
 -- Sanity checks

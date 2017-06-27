@@ -4,34 +4,21 @@ module Pos.Binary.GodTossing.Toss
        (
        ) where
 
-import           Universum
-
-import           Pos.Binary.Class              (Bi (get, put), getWord8, label, putWord8)
+import           Pos.Binary.Class              (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Ssc.GodTossing.Core       (CommitmentsMap, OpeningsMap, SharesMap,
+                                                VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Toss.Types (GtTag (..), TossModifier (..))
 
-instance Bi GtTag where
-    put msgtag = case msgtag of
-        CommitmentMsg     -> putWord8 0
-        OpeningMsg        -> putWord8 1
-        SharesMsg         -> putWord8 2
-        VssCertificateMsg -> putWord8 3
-    get = label "GtTag" $ do
-        getWord8 >>= \case
-            0 -> pure CommitmentMsg
-            1 -> pure OpeningMsg
-            2 -> pure SharesMsg
-            3 -> pure VssCertificateMsg
-            tag -> fail ("get@MsgTag: invalid tag: " ++ show tag)
+deriveSimpleBi ''GtTag [
+    Cons 'CommitmentMsg [],
+    Cons 'OpeningMsg [],
+    Cons 'SharesMsg [],
+    Cons 'VssCertificateMsg []]
 
-instance Bi TossModifier where
-    put TossModifier {..} = do
-        put _tmCommitments
-        put _tmOpenings
-        put _tmShares
-        put _tmCertificates
-    get = label "TossModifier" $ do
-        _tmCommitments <- get
-        _tmOpenings <- get
-        _tmShares <- get
-        _tmCertificates <- get
-        return $ TossModifier {..}
+deriveSimpleBi ''TossModifier [
+    Cons 'TossModifier [
+        Field [| _tmCommitments  :: CommitmentsMap     |],
+        Field [| _tmOpenings     :: OpeningsMap        |],
+        Field [| _tmShares       :: SharesMap          |],
+        Field [| _tmCertificates :: VssCertificatesMap |]
+    ]]

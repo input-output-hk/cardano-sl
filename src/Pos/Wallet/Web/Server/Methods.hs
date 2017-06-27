@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 

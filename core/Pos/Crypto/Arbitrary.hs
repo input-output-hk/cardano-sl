@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | `Arbitrary` instances for using in tests and benchmarks
 
 module Pos.Crypto.Arbitrary

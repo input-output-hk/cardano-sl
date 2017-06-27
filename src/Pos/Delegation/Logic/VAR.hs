@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Delegation-related verify/apply/rollback part.
 

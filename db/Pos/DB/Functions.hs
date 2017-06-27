@@ -26,18 +26,16 @@ module Pos.DB.Functions
 
 import           Universum
 
-import qualified Data.ByteString      as BS (drop, isPrefixOf)
-import qualified Data.ByteString.Lazy as BSL
-import           Data.Default         (def)
-import qualified Database.RocksDB     as Rocks
-import           Formatting           (sformat, shown, string, (%))
+import qualified Data.ByteString  as BS (drop, isPrefixOf)
+import           Data.Default     (def)
+import qualified Database.RocksDB as Rocks
+import           Formatting       (sformat, shown, stext, (%))
 
-
-import           Pos.Binary.Class     (Bi, decodeFull, encodeStrict)
-import           Pos.DB.Class         (DBIteratorClass (..), DBTag, MonadDB (..),
-                                       MonadDBRead (..))
-import           Pos.DB.Error         (DBError (DBMalformed))
-import           Pos.DB.Types         (DB (..))
+import           Pos.Binary.Class (Bi, decodeFull, encode)
+import           Pos.DB.Class     (DBIteratorClass (..), DBTag, MonadDB (..),
+                                   MonadDBRead (..))
+import           Pos.DB.Error     (DBError (DBMalformed))
+import           Pos.DB.Types     (DB (..))
 
 openDB :: MonadIO m => FilePath -> m DB
 openDB fp = DB def def def
@@ -52,7 +50,7 @@ closeDB = Rocks.close . rocksDB
 encodeWithKeyPrefix
     :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => IterKey i -> ByteString
-encodeWithKeyPrefix = (iterKeyPrefix @i <>) . encodeStrict
+encodeWithKeyPrefix = (iterKeyPrefix @i <>) . encode
 
 -- | Read ByteString from RocksDb using given key.
 rocksGetBytes :: (MonadIO m) => ByteString -> DB -> m (Maybe ByteString)
@@ -71,7 +69,7 @@ dbGetBi tag key = do
 
 -- | Write serializable value to DB for given key.
 dbPutBi :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> m ()
-dbPutBi tag k v = dbPut tag k (encodeStrict v)
+dbPutBi tag k v = dbPut tag k (encode v)
 
 -- | Read serialized value from RocksDB using given key.
 rocksGetBi
@@ -89,14 +87,14 @@ data ToDecode
 
 rocksDecode :: (Bi v, MonadThrow m) => ToDecode -> m v
 rocksDecode (ToDecodeKey key) =
-    either (onParseError key) pure . decodeFull . BSL.fromStrict $ key
+    either (onParseError key) pure . decodeFull $ key
 rocksDecode (ToDecodeValue key val) =
-    either (onParseError key) pure . decodeFull . BSL.fromStrict $ val
+    either (onParseError key) pure . decodeFull $ val
 
-onParseError :: (MonadThrow m) => ByteString -> String -> m a
+onParseError :: (MonadThrow m) => ByteString -> Text -> m a
 onParseError rawKey errMsg = throwM $ DBMalformed $ sformat fmt rawKey errMsg
   where
-    fmt = "rocksGetBi: stored value is malformed, key = "%shown%", err: "%string
+    fmt = "rocksGetBi: stored value is malformed, key = "%shown%", err: "%stext
 
 -- with prefix
 rocksDecodeWP
@@ -106,7 +104,6 @@ rocksDecodeWP key
     | BS.isPrefixOf (iterKeyPrefix @i) key =
         either (onParseError key) pure .
         decodeFull .
-        BSL.fromStrict .
         BS.drop (length $ iterKeyPrefix @i) $
         key
     | otherwise = onParseError key "unexpected prefix"
@@ -119,12 +116,11 @@ rocksDecodeMaybeWP s
     | BS.isPrefixOf (iterKeyPrefix @i) s =
           rightToMaybe .
           decodeFull .
-          BSL.fromStrict .
           BS.drop (length $ iterKeyPrefix @i) $ s
     | otherwise = Nothing
 
 rocksDecodeMaybe :: (Bi v) => ByteString -> Maybe v
-rocksDecodeMaybe = rightToMaybe . decodeFull . BSL.fromStrict
+rocksDecodeMaybe = rightToMaybe . decodeFull
 
 -- | Write ByteString to RocksDB for given key.
 rocksPutBytes :: (MonadIO m) => ByteString -> ByteString -> DB -> m ()
@@ -132,7 +128,7 @@ rocksPutBytes k v DB {..} = Rocks.put rocksDB rocksWriteOpts k v
 
 -- | Write serializable value to RocksDb for given key.
 rocksPutBi :: (Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
-rocksPutBi k v = rocksPutBytes k (encodeStrict v)
+rocksPutBi k v = rocksPutBytes k (encode v)
 
 rocksDelete :: (MonadIO m) => ByteString -> DB -> m ()
 rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k

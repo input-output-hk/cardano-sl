@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Pos.Crypto.RedeemSigning
        ( RedeemSecretKey (..)
        , RedeemPublicKey (..)
@@ -111,7 +109,7 @@ instance B.Buildable (RedeemSignature a) where
 
 -- | Encode something with 'Binary' and sign it.
 redeemSign :: Bi a => RedeemSecretKey -> a -> RedeemSignature a
-redeemSign k = coerce . redeemSignRaw k . Bi.encodeStrict
+redeemSign k = coerce . redeemSignRaw k . Bi.encode
 
 -- | Alias for constructor.
 redeemSignRaw :: RedeemSecretKey -> ByteString -> RedeemSignature Raw
@@ -120,7 +118,7 @@ redeemSignRaw (RedeemSecretKey k) x = RedeemSignature (Ed25519.dsign k x)
 -- CHECK: @redeemCheckSig
 -- | Verify a signature.
 redeemCheckSig :: Bi a => RedeemPublicKey -> a -> RedeemSignature a -> Bool
-redeemCheckSig k x s = redeemVerifyRaw k (Bi.encodeStrict x) (coerce s)
+redeemCheckSig k x s = redeemVerifyRaw k (Bi.encode x) (coerce s)
 
 -- CHECK: @redeemVerifyRaw
 -- | Verify raw 'ByteString'.

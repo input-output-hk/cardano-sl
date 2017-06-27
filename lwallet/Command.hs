@@ -6,7 +6,6 @@ module Command
        ) where
 
 import           Data.ByteString.Base58     (bitcoinAlphabet, decodeBase58)
-import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.List.NonEmpty         as NE
 import           Prelude                    (read, show)
 import           Serokell.Data.Memory.Units (Byte)
@@ -98,10 +97,7 @@ base58PkParser = do
     token <- some $ noneOf " "
     bs <- maybe (fail "Incorrect base58") pure $
         decodeBase58 bitcoinAlphabet (encodeUtf8 $ toText token)
-    either takeErr takeRes $ decodeOrFail $ BSL.fromStrict bs
-  where
-    takeErr = fail . toString . view _3
-    takeRes = pure . view _3
+    pure (decodeOrFail bs)
 
 delegateL, delegateH :: Parser Command
 delegateL = DelegateLight <$> num <*> base58PkParser <*> num <*> optional num

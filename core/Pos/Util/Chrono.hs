@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE TemplateHaskell   #-}
 {-# LANGUAGE TypeFamilies      #-}
 
 -- | Chronological sequences.

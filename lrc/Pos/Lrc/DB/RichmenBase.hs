@@ -20,7 +20,7 @@ module Pos.Lrc.DB.RichmenBase
 
 import           Universum
 
-import           Pos.Binary.Class  (encodeStrict)
+import           Pos.Binary.Class  (encode)
 import           Pos.Binary.Core   ()
 import           Pos.Core.Types    (EpochIndex)
 import           Pos.DB.Class      (MonadDB, MonadDBRead)
@@ -70,4 +70,4 @@ richmenKeyP
     :: forall c.
        RichmenComponent c
     => Proxy c -> EpochIndex -> ByteString
-richmenKeyP proxy e = mconcat ["r/", rcTag proxy, "/", encodeStrict e]
+richmenKeyP proxy e = mconcat ["r/", rcTag proxy, "/", encode e]

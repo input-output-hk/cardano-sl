@@ -1,19 +1,16 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Pos.Infra.Constants
        ( InfraConstants (..)
        , infraConstants
        , neighborsSendThreshold
        ) where
 
-import           Data.Aeson                 (FromJSON (..), genericParseJSON)
-import           Data.Tagged                (Tagged (..))
-import           Serokell.Aeson.Options     (defaultOptions)
+import           Data.Aeson             (FromJSON (..), genericParseJSON)
+import           Data.Tagged            (Tagged (..))
+import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
 
-import           Pos.Util.Config            (IsConfig (..), configParser,
-                                             parseFromCslConfig)
-import           Pos.Util.Util              ()
+import           Pos.Util.Config        (IsConfig (..), configParser, parseFromCslConfig)
+import           Pos.Util.Util          ()
 
 ----------------------------------------------------------------------------
 -- Parsing

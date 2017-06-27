@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Heavy/lightweight PSK processing, in-mem state and
 -- mempool-related functions.

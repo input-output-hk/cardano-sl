@@ -40,7 +40,7 @@ import           Data.Conduit                 (Source, mapOutput)
 import qualified Data.HashSet                 as HS
 import qualified Database.RocksDB             as Rocks
 
-import           Pos.Binary.Class             (encodeStrict)
+import           Pos.Binary.Class             (encode)
 import           Pos.Crypto                   (PublicKey, pskIssuerPk,
                                                verifyProxySecretKey)
 import           Pos.DB                       (RocksBatchOp (..), encodeWithKeyPrefix)
@@ -99,16 +99,16 @@ instance RocksBatchOp DelegationOp where
         | not (verifyProxySecretKey psk) =
           error $ "Tried to insert invalid psk: " <> pretty psk
         | otherwise =
-          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (encodeStrict psk)]
+          [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (encode psk)]
     toBatchOp (PskFromEdgeAction (DlgEdgeDel issuerPk)) =
         [Rocks.Del $ pskKey $ addressHash issuerPk]
     toBatchOp (AddTransitiveDlg iPk dPk) =
-        [Rocks.Put (transDlgKey $ addressHash iPk) (encodeStrict dPk)]
+        [Rocks.Put (transDlgKey $ addressHash iPk) (encode dPk)]
     toBatchOp (DelTransitiveDlg iPk) =
         [Rocks.Del $ transDlgKey $ addressHash iPk]
     toBatchOp (SetTransitiveDlgRev dPk iPks)
         | HS.null iPks = [Rocks.Del $ transRevDlgKey dPk]
-        | otherwise    = [Rocks.Put (transRevDlgKey dPk) (encodeStrict iPks)]
+        | otherwise    = [Rocks.Put (transRevDlgKey dPk) (encode iPks)]
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -138,10 +138,10 @@ getDelegators = mapOutput conv $ dbIterSource GStateDB (Proxy @DlgTransRevIter)
 
 -- Storing Hash IssuerPk -> ProxySKHeavy
 pskKey :: StakeholderId -> ByteString
-pskKey s = "d/p/" <> encodeStrict s
+pskKey s = "d/p/" <> encode s
 
 transDlgKey :: StakeholderId -> ByteString
-transDlgKey s = "d/t/" <> encodeStrict s
+transDlgKey s = "d/t/" <> encode s
 
 iterTransRevPrefix :: ByteString
 iterTransRevPrefix = "d/tr/"

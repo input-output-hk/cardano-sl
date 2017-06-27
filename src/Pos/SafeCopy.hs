@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | SafeCopy serialization of Pos.Types.* modules, required for wallet
 
 module Pos.SafeCopy
@@ -286,7 +284,7 @@ instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
     getCopy = contain $ do
         bs <- safeGet
         case Bi.decodeFull bs of
-            Left err    -> fail $ "getCopy@SafeCopy: " ++ err
+            Left err    -> fail $ toString $ "getCopy@SafeCopy: " <> err
             Right (v,s) -> pure $ Signed v s
 
 instance SafeCopy (ProxyCert w) where

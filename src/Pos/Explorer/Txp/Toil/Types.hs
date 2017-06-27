@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Additional types used by explorer's toil.
 
 module Pos.Explorer.Txp.Toil.Types

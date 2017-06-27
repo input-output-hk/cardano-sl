@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Arbitrary instances for Update System networking types.
 
 module Pos.Update.Arbitrary.Network

@@ -36,7 +36,7 @@ import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport.Abstract  (Transport, closeTransport, hoistTransport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
-import           Network.Broadcast.Relay     (simpleRelayer)
+import           Network.Broadcast.Relay.Simple (simpleRelayer)
 import qualified STMContainers.Map           as SM
 import           System.IO                   (Handle, hClose)
 import           System.Wlog                 (CanLog, LoggerConfig (..), WithLogger,

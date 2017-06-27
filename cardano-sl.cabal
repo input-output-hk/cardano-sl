@@ -87,6 +87,9 @@ library
                         Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
 
+                        -- Statistics
+                        Pos.Statistics
+
                         -- Client
                         Pos.Client.Txp.Balances
                         Pos.Client.Txp.History
@@ -243,6 +246,10 @@ library
 
                         Pos.Ssc.GodTossing.Arbitrary
 
+                        -- Statistics
+                        Pos.Statistics.Ekg
+                        Pos.Statistics.Statsd
+
                         -- Txp
                         Pos.Txp.Arbitrary
                         Pos.Txp.Network
@@ -363,6 +370,7 @@ library
                       , ed25519
                       , ekg
                       , ekg-core
+                      , ekg-statsd
                       , ether >= 0.5
                       , exceptions
                       , file-embed >= 0.0.10

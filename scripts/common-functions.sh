@@ -151,7 +151,8 @@ function node_cmd {
 
   $dht_cmd
 
-  # monitor_port=$((8000+$i))
+  ekg_server="127.0.0.1:"$((8000+$i))
+  statsd_server="127.0.0.1:"$((8125+$i))
 
   echo -n " --address 127.0.0.1:"`get_port $i`
   echo -n " --listen 127.0.0.1:"`get_port $i`
@@ -163,7 +164,9 @@ function node_cmd {
   echo -n " $wallet_args "
   echo -n " --kademlia-dump-path  $(dump_path $kademlia_dump_path)"
   echo -n " --system-start $system_start"
-  # echo -n " --monitor-port $monitor_port +RTS -T -RTS "
+  echo -n " --metrics +RTS -T -RTS"
+  echo -n " --ekg-server $ekg_server"
+  #echo -n " --statsd-server $statsd_server"
   echo ''
 }
 

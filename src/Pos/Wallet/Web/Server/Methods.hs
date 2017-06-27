@@ -22,12 +22,15 @@ module Pos.Wallet.Web.Server.Methods
 import           Universum
 
 import           Control.Concurrent               (forkFinally)
-import           Control.Lens                     (ix, makeLenses, traversed, (.=))
+import           Control.Lens                     (each, ix, makeLenses, traversed, (.=))
 import           Control.Monad.Catch              (SomeException, try)
 import qualified Control.Monad.Catch              as E
 import           Control.Monad.State              (runStateT)
+import qualified Data.Aeson                       as A
 import           Data.ByteString.Base58           (bitcoinAlphabet, decodeBase58)
+import qualified Data.ByteString.Lazy             as BSL
 import           Data.Default                     (Default (def))
+import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (findIndex)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
@@ -56,20 +59,19 @@ import           System.IO.Error                  (isDoesNotExistError)
 import           System.Wlog                      (logDebug, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes            ()
+import           Pos.Aeson.WalletBackup           ()
 import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
                                                    TxHistoryEntry (..))
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Core                         (Address (..), Coin, addressF,
-                                                   decodeTextAddress, makePubKeyAddress,
-                                                   makeRedeemAddress, mkCoin, sumCoins,
-                                                   unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin)
+                                                   decodeTextAddress, makeRedeemAddress,
+                                                   mkCoin, sumCoins, unsafeAddCoin,
+                                                   unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto                       (PassPhrase, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
-                                                   deriveAesKeyBS, emptyPassphrase,
-                                                   encToPublic, hash,
+                                                   deriveAesKeyBS, emptyPassphrase, hash,
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
@@ -104,6 +106,9 @@ import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    getSKByAccAddr, getSKByAddr,
                                                    myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
+import           Pos.Wallet.Web.Backup            (AccountMetaBackup (..),
+                                                   StateBackup (..), WalletBackup (..),
+                                                   WalletMetaBackup (..), getStateBackup)
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccount (..),
                                                    CAccountId (..), CAccountInit (..),
                                                    CAccountMeta (..), CAddress (..),
@@ -150,6 +155,7 @@ import           Pos.Wallet.Web.Tracking          (BlockLockMode, CAccModifier (
                                                    selectAccountsFromUtxoLock,
                                                    syncWalletsWithGStateLock,
                                                    txMempoolToModifier)
+import           Pos.Wallet.Web.Util              (getWalletAccountIds)
 import           Pos.Web.Server                   (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -374,6 +380,10 @@ servantHandlers sendActions =
      pure curSoftwareVersion
     :<|>
      syncProgress
+    :<|>
+     importStateJSON
+    :<|>
+     exportStateJSON
 
 -- getAddresses :: WalletWebMode m => m [CId]
 -- getAddresses = map addressToCId <$> myAddresses
@@ -465,9 +475,6 @@ decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
 decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
 decodeCCoinOrFail c =
     coinFromCCoin c `whenNothing` throwM (DecodeError "Wrong coin format")
-
-getWalletAccountIds :: WalletWebMode m => CId Wal -> m [AccountId]
-getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getWAddressIds
 
 getWalletAddrMetas
     :: (WalletWebMode m, MonadThrow m)
@@ -994,8 +1001,7 @@ importWalletSecret
     -> m CWallet
 importWalletSecret passphrase WalletUserSecret{..} = do
     let key    = _wusRootKey
-        addr   = makePubKeyAddress $ encToPublic key
-        wid    = addressToCId addr
+        wid    = encToCId key
         wMeta  = def { cwName = _wusWalletName }
     addSecretKey key
     importedWallet <- createWalletSafe wid wMeta
@@ -1043,6 +1049,45 @@ testResetAll | isDevelopment = deleteAllKeys >> testReset
         keyNum <- length <$> getSecretKeys
         replicateM_ keyNum $ deleteSecretKey 0
 
+----------------------------------------------------------------------------
+-- JSON backup methods
+----------------------------------------------------------------------------
+
+restoreWalletFromBackup :: WalletWebMode m => WalletBackup -> m CWallet
+restoreWalletFromBackup WalletBackup {..} = do
+    let wId = encToCId wbSecretKey
+        (WalletMetaBackup wMeta) = wbMeta
+        accList = HM.toList wbAccounts
+                  & each . _2 %~ \(AccountMetaBackup am) -> am
+
+    addSecretKey wbSecretKey
+    for_ accList $ \(idx, meta) -> do
+        let aIdx = fromInteger $ fromIntegral idx
+            seedGen = DeterminedSeed aIdx
+        accId <- genUniqueAccountId seedGen wId
+        createAccount accId meta
+
+    _ <- selectAccountsFromUtxoLock @WalletSscType [wbSecretKey]
+    createWalletSafe wId wMeta
+
+restoreStateFromBackup :: WalletWebMode m => StateBackup -> m [CWallet]
+restoreStateFromBackup (FullStateBackup walletBackups) =
+    forM walletBackups restoreWalletFromBackup
+
+importStateJSON :: WalletWebMode m => Text -> m [CWallet]
+importStateJSON (toString -> fp) = do
+    contents <- liftIO $ BSL.readFile fp
+    wState <- either parseErr pure $ A.eitherDecode contents
+    restoreStateFromBackup wState
+  where
+    parseErr err = throwM . RequestError $
+        sformat ("Error while reading JSON backup file: "%stext) $
+        toText err
+
+exportStateJSON :: WalletWebMode m => Text -> m ()
+exportStateJSON (toString -> fp) = do
+    wState <- getStateBackup
+    liftIO $ BSL.writeFile fp $ A.encode wState
 
 ----------------------------------------------------------------------------
 -- Orphan instances

@@ -327,6 +327,22 @@ type GetSyncProgress =
     :> "progress"
     :> WRes Get SyncProgress
 
+-------------------------------------------------------------------------
+-- JSON backup
+-------------------------------------------------------------------------
+
+type ImportBackupJSON =
+       "backup"
+    :> "import"
+    :> ReqBody '[JSON] Text
+    :> WRes Post [CWallet]
+
+type ExportBackupJSON =
+       "backup"
+    :> "export"
+    :> ReqBody '[JSON] Text
+    :> WRes Post ()
+
 -- | Servant API which provides access to wallet.
 -- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis
 type WalletApi = ApiPrefix :> (
@@ -427,6 +443,13 @@ type WalletApi = ApiPrefix :> (
      GetVersion
     :<|>
      GetSyncProgress
+    :<|>
+     -------------------------------------------------------------------------
+     -- JSON backup
+     -------------------------------------------------------------------------
+     ImportBackupJSON
+    :<|>
+     ExportBackupJSON
     )
 
 -- | Helper Proxy.

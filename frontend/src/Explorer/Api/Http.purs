@@ -30,7 +30,7 @@ endpointPrefix = "/api/"
 decodeResponse :: forall a eff. Generic a => {response :: Json | eff} -> Either Error a
 decodeResponse = decodeResult <<< _.response
 
-request :: forall a r eff. (Generic a, Requestable r) => AffjaxRequest r ->
+request :: forall a r eff. Generic a => Requestable r => AffjaxRequest r ->
     Endpoint -> Aff (ajax :: AJAX | eff) a
 request req endpoint = do
     result <- affjax $ req { url = endpointPrefix <> endpoint }

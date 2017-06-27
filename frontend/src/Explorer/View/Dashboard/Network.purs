@@ -1,15 +1,23 @@
 module Explorer.View.Dashboard.Network (networkView) where
 
 import Prelude
+
+import Data.Foldable (for_)
 import Data.Lens ((^.))
+
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (cADA, dbTotalAmountOfTransactions, cTransactions, dbTotalAmountOf, dbTotalSupply, dbPriceSince, dbPriceForOne, dbPriceAverage, cNetwork, common, dashboard, dbLastBlocks, dbLastBlocksDescription) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
 import Explorer.Util.String (substitute)
-import Pux.Html (Html, div, h3, text, h4, p) as P
-import Pux.Html.Attributes (className) as P
+
+import Pux.DOM.HTML (HTML) as P
+
+import Text.Smolder.HTML (div, h3, h4, p) as S
+import Text.Smolder.HTML.Attributes (className) as S
+import Text.Smolder.Markup (text) as S
+import Text.Smolder.Markup ((!))
 
 
 -- FIXME (jk): just for now, will use later `real` ADTs
@@ -47,33 +55,22 @@ networkItems lang =
     ]
 
 
-networkView :: State -> P.Html Action
+networkView :: State -> P.HTML Action
 networkView state =
     let lang' = state ^. lang in
-    P.div
-        [ P.className "explorer-dashboard__wrapper" ]
-        [ P.div
-          [ P.className "explorer-dashboard__container" ]
-          [ P.h3
-                [ P.className "headline" ]
-                [ P.text $ translate (I18nL.common <<< I18nL.cNetwork) lang' ]
-          , P.div
-                [ P.className "explorer-dashboard__teaser" ]
-                <<< map (networkItem state) $ networkItems lang'
-          ]
-        ]
+    S.div ! S.className "explorer-dashboard__wrapper"
+          $ S.div ! S.className "explorer-dashboard__container" $ do
+                  S.h3  ! S.className "headline"
+                        $ S.text (translate (I18nL.common <<< I18nL.cNetwork) lang')
+                  S.div ! S.className "explorer-dashboard__teaser"
+                        $ for_ (networkItems lang') (networkItem state)
 
-networkItem :: State -> NetworkItem -> P.Html Action
+networkItem :: State -> NetworkItem -> P.HTML Action
 networkItem state item =
-    P.div
-        [ P.className "teaser-item" ]
-        [ P.h3
-            [ P.className "teaser-item__headline" ]
-            [ P.text item.headline ]
-        , P.h4
-              [ P.className $ "teaser-item__subheadline" ]
-              [ P.text item.subheadline ]
-        , P.p
-              [ P.className $ "teaser-item__description" ]
-              [ P.text item.description ]
-        ]
+    S.div ! S.className "teaser-item" $ do
+          S.h3  ! S.className "teaser-item__headline"
+                $ S.text item.headline
+          S.h4  ! S.className "teaser-item__subheadline"
+                $ S.text item.subheadline
+          S.p   ! S.className "teaser-item__description"
+                $ S.text item.description

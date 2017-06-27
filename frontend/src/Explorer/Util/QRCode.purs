@@ -6,7 +6,7 @@ module Explorer.Util.QrCode
 
 import DOM (DOM)
 import Control.Monad.Eff (Eff)
-import Data.Function.Eff (EffFn1, EffFn2, runEffFn1, runEffFn2)
+import Control.Monad.Eff.Uncurried (EffFn1, EffFn2, runEffFn1, runEffFn2)
 import Prelude (Unit, bind, pure, unit)
 
 data QRCode
@@ -46,6 +46,6 @@ clear = runEffFn1 clearImpl
 
 generateQrCode :: forall eff. String -> String -> Eff (dom :: DOM | eff) Unit
 generateQrCode text id = do
-  clearDomNode id
+  _ <- clearDomNode id
   qrCode <- mkQRCode id defaultConfig { text = text, width = 96, height = 96 }
   pure unit

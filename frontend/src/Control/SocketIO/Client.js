@@ -6,14 +6,17 @@ exports.connectImpl = function (url) {
   };
 }
 
-exports.emitImpl = function(socket, eventName, data) {
+exports.emitImpl = function(socket, eventName) {
   // console.log("emit eventName ", eventName);
   return function() {
-    if (data !== undefined) {
-      socket.emit(eventName, data);
-    } else {
-      socket.emit(eventName);
-    }
+    socket.emit(eventName);
+  };
+}
+
+exports.emitDataImpl = function(socket, eventName, data) {
+  // console.log("emit eventName ", eventName);
+  return function() {
+    socket.emit(eventName, data);
   };
 }
 

@@ -1,7 +1,7 @@
 language: nix
 sudo: true
 env:
-- NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/09c7601c204016c8ecdefd474f721fb841e834df.tar.gz
+- NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/cb90e6a0361554d01b7a576af6c6fae4c28d7513.tar.gz
 install:
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
 script:

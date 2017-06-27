@@ -70,8 +70,6 @@ module.exports = {
   entry: [
     // https://babeljs.io/docs/usage/polyfill/
     'babel-polyfill',
-    // https://github.com/serokell/custom-event-polyfill/
-    'custom-event-polyfill',
     path.join(__dirname, 'src/index.js')
   ],
   resolve: {

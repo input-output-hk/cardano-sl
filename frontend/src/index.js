@@ -4,14 +4,13 @@ import './index.css';
 import Main from './Main.purs';
 import {initialState} from './Explorer/State.purs';
 
-const entry = !$PRODUCTION ? 'debug' : 'main';
 // HMR
 if(module.hot) {
-  var main = Main[entry](window.lastState || initialState)();
+  var main = Main.main(window.__puxLastState || initialState)()
   main.state.subscribe(function (state) {
-    window.lastState = state;
+    window.__puxLastState = state;
   });
   module.hot.accept();
 } else {
-  Main[entry](initialState)();
+  Main.main(initialState)();
 }

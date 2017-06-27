@@ -1,30 +1,31 @@
 module Explorer.View.Dashboard.Shared (headerView) where
 
+import Prelude
+
 import Data.Maybe (Maybe(..))
+
+import Pux.DOM.HTML (HTML) as P
+import Text.Smolder.HTML (div, h3) as S
+import Text.Smolder.HTML.Attributes (className) as S
+import Text.Smolder.Markup (text) as S
+import Text.Smolder.Markup ((!))
+
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
 import Explorer.View.Common (emptyView)
 import Explorer.View.Dashboard.Types (HeaderLink(..), HeaderOptions(..))
-import Pux.Html (Html, div, h3, text) as P
-import Pux.Html.Attributes (className) as P
 
--- header view
-
-headerView :: State -> HeaderOptions -> P.Html Action
+headerView :: State -> HeaderOptions -> P.HTML Action
 headerView state (HeaderOptions options) =
-    P.div
-        [ P.className "explorer-dashboard__header" ]
-        [ P.h3
-            [ P.className "headline"]
-            [ P.text options.headline ]
-        -- , P.div
-            -- [ P.className "more__container"]
-            -- [ linkView options.link ]
-        ]
+    S.div ! S.className "explorer-dashboard__header" $ do
+          S.h3  ! S.className "headline"
+                $ S.text options.headline
+        -- S.div
+            -- ! S.className "more__container"
+            -- $ linkView options.link
     where
       linkView link = case link of
           Just (HeaderLink link') ->
-              P.div
-                  [ P.className "more__link bg-arrow-right" ]
-                  [ P.text link'.label ]
+              S.div ! S.className "more__link bg-arrow-right"
+                    $ S.text link'.label
           Nothing -> emptyView

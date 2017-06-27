@@ -1,7 +1,9 @@
 module Explorer.View.Footer (footerView) where
 
 import Prelude
+import Data.Foldable (for_)
 import Data.Lens ((^.))
+import Data.Monoid (mempty)
 import Data.String (take)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (common, cApi, footer, fooLinks, fooResources, fooFollow, fooIohkSupportP, fooDocumentation, fooGithub, fooLinkedin, fooTwitter, fooDaedalusWallet, fooWhyCardano, fooCardanoRoadmap, fooCardanoADAFaucet, fooCardanoSLDocumentation) as I18nL
@@ -10,71 +12,48 @@ import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
 import Explorer.Util.Config (commitHash, version)
 import Explorer.View.Common (langView)
-import Pux.Html (Html, div, text, nav, a, p, span) as P
-import Pux.Html.Attributes (className, href) as P
 
+import Text.Smolder.HTML (div, nav, a, p, span) as S
+import Text.Smolder.HTML.Attributes (className, href) as S
+import Text.Smolder.Markup (text) as S
+import Text.Smolder.Markup ((!))
 
-footerView :: State -> P.Html Action
+import Pux.DOM.HTML (HTML) as P
+
+footerView :: State -> P.HTML Action
 footerView state =
     let lang' = state ^. lang in
-    P.div [ P.className "explorer-footer" ]
-    [
-      P.div
-          [ P.className "explorer-footer__top" ]
-          [ P.div
-              [ P.className "explorer-footer__container" ]
-              [ P.nav
-                  [ P.className "nav__container"]
-                  [ navRowView $ resourcesNavRow lang'
-                  , navRowView $ followUsNavRow lang'
-                  , navRowView $ linksNavRow lang'
-                  ]
-              ]
-          ]
-      , P.div
-          [ P.className "explorer-footer__bottom" ]
-          [ P.div
-              [ P.className "explorer-footer__container" ]
-              [ P.div
-                  [ P.className "content content__left" ]
-                  [ P.div
-                      [ P.className "logo__container"]
-                      [ P.a
-                          [ P.className "logo__cardano-name bg-logo-cardano-name"
-                          , P.href "https://iohk.io/projects/cardano/"]
-                          []
-                      ]
-                  , P.span
-                      [ P.className "split" ]
-                      []
-                  , P.a
-                      [ P.className "support", P.href "//iohk.io/projects/cardano/"]
-                      [ P.text $ translate (I18nL.footer <<< I18nL.fooIohkSupportP) lang' ]
-                  , P.div
-                      [ P.className "logo__container"]
-                      [ P.a
-                          [ P.className "logo__iohk-name bg-iohk-logo"
-                          , P.href "https://iohk.io/"]
-                          []
-                      ]
-                  ]
-              ,  P.div
-                  [ P.className "content content__right"]
-                  [ langView state ]
-              ]
-          , P.div
-              [ P.className "explorer-footer__container explorer-footer__meta" ]
-              [ P.span
-                  [ P.className "version" ]
-                  [ P.text $ "v. " <> (show version) ]
-              , P.a
-                  [ P.className "commit"
-                  , P.href $ "https://github.com/input-output-hk/cardano-sl-explorer/commit/" <> commitHash
-                  ]
-                  [ P.text $ "( " <> (take 7 $ commitHash) <> " )" ]
-              ]
-          ]
-    ]
+    S.div ! S.className "explorer-footer" $ do
+        S.div ! S.className "explorer-footer__top" $ do
+            S.div ! S.className "explorer-footer__container" $ do
+                S.nav ! S.className "nav__container" $ do
+                    navRowView $ resourcesNavRow lang'
+                    navRowView $ followUsNavRow lang'
+                    navRowView $ linksNavRow lang'
+        S.div ! S.className "explorer-footer__bottom" $ do
+            S.div ! S.className "explorer-footer__container" $ do
+                S.div ! S.className "content content__left" $ do
+                    S.div ! S.className "logo__container" $ do
+                        S.a ! S.className "logo__cardano-name bg-logo-cardano-name"
+                            ! S.href "https://iohk.io/projects/cardano/"
+                            $ mempty
+                    S.span  ! S.className "split"
+                            $ mempty
+                    S.a ! S.className "support"
+                        ! S.href "//iohk.io/projects/cardano/"
+                        $ S.text (translate (I18nL.footer <<< I18nL.fooIohkSupportP) lang')
+                    S.div ! S.className "logo__container"
+                          $ S.a ! S.className "logo__iohk-name bg-iohk-logo"
+                                ! S.href "https://iohk.io/"
+                                $ mempty
+                S.div ! S.className "content content__right"
+                      $ langView state
+            S.div ! S.className "explorer-footer__container explorer-footer__meta" $ do
+                S.span  ! S.className "version"
+                        $ S.text ("v. " <> (show version))
+                S.a ! S.className "commit"
+                    ! S.href ("https://github.com/input-output-hk/cardano-sl-explorer/commit/" <> commitHash)
+                    $ S.text $ "( " <> (take 7 $ commitHash) <> " )"
 
 -- nav
 
@@ -160,20 +139,15 @@ navItemsRow2 lang =
       }
     ]
 
-navRowView :: NavRow -> P.Html Action
+navRowView :: NavRow -> P.HTML Action
 navRowView row =
-    P.div
-        [ P.className "nav-item__container"]
-        [ P.p
-            [ P.className "nav-item__header"]
-            [ P.text row.header ]
-          , P.div
-            []
-            $ map navRowItemView row.items
-        ]
+    S.div ! S.className "nav-item__container" $ do
+        S.p ! S.className "nav-item__header"
+            $ S.text row.header
+        S.div $ for_ row.items navRowItemView
 
-navRowItemView :: NavItem -> P.Html Action
+navRowItemView :: NavItem -> P.HTML Action
 navRowItemView item =
-    P.a
-      [ P.className "nav-item__item", P.href item.link]
-      [ P.text item.label ]
+    S.a ! S.className "nav-item__item"
+        ! S.href item.link
+        $ S.text item.label

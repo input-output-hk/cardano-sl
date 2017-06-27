@@ -5,7 +5,7 @@ module Pos.Wallet.Web.Account
        , getAddrIdx
        , getSKByAddr
        , getSKByAccAddr
-       , genSaveRootAddress
+       , genSaveRootKey
        , genUniqueAccountId
        , genUniqueAccountAddress
        , deriveAccountSK
@@ -68,18 +68,17 @@ getSKByAccAddr passphrase addrMeta@CWAddressMeta {..} = do
         then throwM . InternalError $ "Account is contradictory!"
         else return accKey
 
-genSaveRootAddress
+genSaveRootKey
     :: AccountMode m
     => PassPhrase
     -> BackupPhrase
-    -> m (CId Wal)
-genSaveRootAddress passphrase ph = encToCId <$> genSaveSK
+    -> m EncryptedSecretKey
+genSaveRootKey passphrase ph = do
+    sk <- either keyFromPhraseFailed (pure . fst) $
+        safeKeysFromPhrase passphrase ph
+    addSecretKey sk
+    return sk
   where
-    genSaveSK = do
-        sk <- either keyFromPhraseFailed (pure . fst)
-            $ safeKeysFromPhrase passphrase ph
-        addSecretKey sk
-        return sk
     keyFromPhraseFailed msg =
         throwM . RequestError $ "Key creation from phrase failed: " <> msg
 

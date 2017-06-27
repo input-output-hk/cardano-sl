@@ -256,7 +256,6 @@ main = do
             { lpRunnerTag     = "smart-gen"
             , lpHandlerPrefix = CLI.logPrefix goCommonArgs
             , lpConfigPath    = CLI.logConfig goCommonArgs
-            , lpEkgPort       = Nothing
             }
         baseParams =
             BaseParams
@@ -298,6 +297,9 @@ main = do
                     , spAttackTargets = []
                     }
                 , npUseNTP = True
+                , npEnableMetrics = False
+                , npEkgParams = Nothing
+                , npStatsdParams = Nothing
                 }
             gtParams =
                 GtParams

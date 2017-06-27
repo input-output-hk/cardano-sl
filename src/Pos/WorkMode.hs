@@ -29,8 +29,8 @@ import           Pos.Block.Types             (Undo)
 import           Pos.Communication.PeerState (HasPeerState (..), PeerStateCtx,
                                               WithPeerState (..), clearPeerStateDefault,
                                               getAllStatesDefault, getPeerStateDefault)
-import           Pos.Context                 (HasNodeContext (..), HasSscContext (..),
-                                              NodeContext)
+import           Pos.Context                 (HasNodeContext (..), HasPrimaryKey (..),
+                                              HasSscContext (..), NodeContext)
 import           Pos.Core                    (IsHeader)
 import           Pos.DB                      (MonadGState (..), NodeDBs)
 import           Pos.DB.Block                (MonadBlockDBWrite (..), dbGetBlockDefault,
@@ -65,6 +65,7 @@ import           Pos.Txp.MemState            (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Util                    (Some (..))
 import           Pos.Util.JsonLog            (JsonLogConfig, jsonLogDefault)
 import           Pos.Util.TimeWarp           (CanJsonLog (..))
+import           Pos.Util.UserSecret         (HasUserSecret (..))
 import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
 
 data PeerStateTag
@@ -88,11 +89,17 @@ rmcNodeContext f (RealModeContext x1 x2 x3 x4 x5 x6 x7 nc) =
 instance HasSscContext ssc (RealModeContext ssc) where
     sscContext = rmcNodeContext . sscContext
 
+instance HasPrimaryKey (RealModeContext ssc) where
+    primaryKey = rmcNodeContext . primaryKey
+
 instance HasDiscoveryContextSum (RealModeContext ssc) where
     discoveryContextSum = rmcNodeContext . discoveryContextSum
 
 instance HasReportingContext (RealModeContext ssc) where
     reportingContext = rmcNodeContext . reportingContext
+
+instance HasUserSecret (RealModeContext ssc) where
+    userSecret = rmcNodeContext . userSecret
 
 instance HasNodeContext ssc (RealModeContext ssc) where
     nodeContext = rmcNodeContext

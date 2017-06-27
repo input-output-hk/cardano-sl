@@ -17,7 +17,6 @@ module Pos.Wallet.KeyStorage
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens           ((<>~))
 import           Control.Monad.Catch    (MonadThrow)
-import           EtherCompat
 import           System.Wlog            (WithLogger)
 import           Universum
 
@@ -25,8 +24,8 @@ import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, SecretKey, hash,
                                          safeKeyGen)
 import           Pos.Util               ()
-import           Pos.Util.UserSecret    (UserSecret, peekUserSecret, usKeys, usPrimKey,
-                                         writeUserSecret)
+import           Pos.Util.UserSecret    (HasUserSecret (..), UserSecret, peekUserSecret,
+                                         usKeys, usPrimKey, writeUserSecret)
 
 type KeyData = TVar UserSecret
 
@@ -36,7 +35,7 @@ type KeyData = TVar UserSecret
 
 type MonadKeys ctx m =
     ( MonadReader ctx m
-    , HasLens KeyData ctx KeyData
+    , HasUserSecret ctx
     , MonadIO m
     , MonadThrow m )
 
@@ -68,10 +67,10 @@ newSecretKey pp = do
 ------------------------------------------------------------------------
 
 getSecret :: MonadKeys ctx m => m UserSecret
-getSecret = view (lensOf @KeyData) >>= atomically . STM.readTVar
+getSecret = view userSecret >>= atomically . STM.readTVar
 
 putSecret :: MonadKeys ctx m => UserSecret -> m ()
-putSecret s = view (lensOf @KeyData) >>= atomically . flip STM.writeTVar s >> writeUserSecret s
+putSecret s = view userSecret >>= atomically . flip STM.writeTVar s >> writeUserSecret s
 
 modifySecret :: MonadKeys ctx m => (UserSecret -> UserSecret) -> m ()
 modifySecret f =

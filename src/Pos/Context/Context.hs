@@ -47,9 +47,8 @@ import           Pos.Communication.Relay       (HasPropagationFlag (..),
                                                 RelayPropagationQueue)
 import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
-import           Pos.Core                      (GenesisStakes (..), HeaderHash,
-                                                PrimaryKeyTag)
-import           Pos.Crypto                    (SecretKey)
+import           Pos.Core                      (GenesisStakes (..), HasPrimaryKey (..),
+                                                HeaderHash)
 import           Pos.Discovery                 (DiscoveryContextSum,
                                                 HasDiscoveryContextSum (..))
 import           Pos.Launcher.Param            (BaseParams (..), GenesisUtxo (..),
@@ -67,7 +66,7 @@ import           Pos.Txp.Settings              (TxpGlobalSettings)
 import           Pos.Update.Context            (UpdateContext)
 import           Pos.Update.Params             (UpdateParams)
 import           Pos.Util.Chrono               (NE, NewestFirst)
-import           Pos.Util.UserSecret           (UserSecret)
+import           Pos.Util.UserSecret           (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util                 (postfixLFields)
 
 ----------------------------------------------------------------------------
@@ -166,9 +165,6 @@ instance HasSscContext ssc (NodeContext ssc) where
 instance HasDiscoveryContextSum (NodeContext ssc) where
     discoveryContextSum = ncDiscoveryContext_L
 
-instance HasLens NodeParams (NodeContext ssc) NodeParams where
-    lensOf = ncNodeParams_L
-
 instance HasLens SlottingVar (NodeContext ssc) SlottingVar where
     lensOf = ncSlottingVar_L
 
@@ -190,8 +186,8 @@ instance HasLens ShutdownContext (NodeContext ssc) ShutdownContext where
 instance HasLens UpdateContext (NodeContext ssc) UpdateContext where
     lensOf = ncUpdateContext_L
 
-instance HasLens (TVar UserSecret) (NodeContext ssc) (TVar UserSecret) where
-    lensOf = ncUserSecret_L
+instance HasUserSecret (NodeContext ssc) where
+    userSecret = ncUserSecret_L
 
 instance HasLens RecoveryHeaderTag (NodeContext ssc) (RecoveryHeader ssc) where
     lensOf = ncRecoveryHeader_L
@@ -212,31 +208,31 @@ instance HasLens TxpGlobalSettings (NodeContext ssc) TxpGlobalSettings where
     lensOf = ncTxpGlobalSettings_L
 
 instance HasLens UpdateParams (NodeContext ssc) UpdateParams where
-    lensOf = lensOf @NodeParams . lensOf @UpdateParams
+    lensOf = ncNodeParams_L . lensOf @UpdateParams
 
 instance HasLens SecurityParams (NodeContext ssc) SecurityParams where
-    lensOf = lensOf @NodeParams . lensOf @SecurityParams
-
-instance HasLens PrimaryKeyTag (NodeContext ssc) SecretKey where
-    lensOf = lensOf @NodeParams . lensOf @PrimaryKeyTag
+    lensOf = ncNodeParams_L . lensOf @SecurityParams
 
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
-    lensOf = lensOf @NodeParams . lensOf @GenesisUtxo
+    lensOf = ncNodeParams_L . lensOf @GenesisUtxo
 
 instance HasLens GenesisStakes (NodeContext ssc) GenesisStakes where
-    lensOf = lensOf @NodeParams . lensOf @GenesisStakes
+    lensOf = ncNodeParams_L . lensOf @GenesisStakes
 
 instance HasReportServers (NodeContext ssc) where
-    reportServers = lensOf @NodeParams . reportServers
+    reportServers = ncNodeParams_L . reportServers
 
 instance HasLoggerConfig (NodeContext ssc) where
     loggerConfig = ncLoggerConfig_L
 
 instance HasPropagationFlag (NodeContext ssc) where
-    propagationFlag = lensOf @NodeParams . propagationFlag
+    propagationFlag = ncNodeParams_L . propagationFlag
 
 instance HasPropagationQueue (NodeContext ssc) where
     propagationQueue = ncInvPropagationQueue_L
+
+instance HasPrimaryKey (NodeContext ssc) where
+    primaryKey = ncNodeParams_L . primaryKey
 
 instance HasReportingContext (NodeContext ssc) where
     reportingContext = lens getter (flip setter)

@@ -20,8 +20,8 @@ import           System.Wlog             (LoggerName)
 
 import           Pos.Communication.Relay (HasPropagationFlag (..))
 import           Pos.Communication.Types (NodeId)
-import           Pos.Core                (GenesisStakes (..), PrimaryKeyTag, StakesMap,
-                                          Timestamp)
+import           Pos.Core                (GenesisStakes (..), HasPrimaryKey (..),
+                                          StakesMap, Timestamp)
 import           Pos.Crypto              (SecretKey)
 import           Pos.DHT.Real            (KademliaParams)
 import           Pos.Reporting.MemState  (HasReportServers (..))
@@ -85,9 +85,6 @@ instance HasLens UpdateParams NodeParams UpdateParams where
 instance HasLens SecurityParams NodeParams SecurityParams where
     lensOf = npSecurityParams_L
 
-instance HasLens PrimaryKeyTag NodeParams SecretKey where
-    lensOf = npSecretKey_L
-
 instance HasLens GenesisUtxo NodeParams GenesisUtxo where
     lensOf = npCustomUtxo_L . coerced
 
@@ -99,3 +96,6 @@ instance HasReportServers NodeParams where
 
 instance HasPropagationFlag NodeParams where
     propagationFlag = npPropagation_L
+
+instance HasPrimaryKey NodeParams where
+    primaryKey = npSecretKey_L

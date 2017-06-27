@@ -1,6 +1,5 @@
 module Pos.Core.Context
-       ( PrimaryKeyTag
-       , MonadPrimaryKey
+       ( HasPrimaryKey(..)
        , getOurSecretKey
        , getOurPublicKey
        , getOurKeys
@@ -10,28 +9,25 @@ module Pos.Core.Context
 
 import           Universum
 
-import           EtherCompat
-
 import           Pos.Core.Address (addressHash, makePubKeyAddress)
 import           Pos.Core.Types   (Address, StakeholderId)
 import           Pos.Crypto       (PublicKey, SecretKey, toPublic)
 
-data PrimaryKeyTag
-
 -- | Access to primary key of the node.
-type MonadPrimaryKey ctx m = (MonadReader ctx m, HasLens PrimaryKeyTag ctx SecretKey)
+class HasPrimaryKey ctx where
+    primaryKey :: Lens' ctx SecretKey
 
-getOurSecretKey :: MonadPrimaryKey ctx m => m SecretKey
-getOurSecretKey = view (lensOf @PrimaryKeyTag)
+getOurSecretKey :: (MonadReader ctx m, HasPrimaryKey ctx) => m SecretKey
+getOurSecretKey = view primaryKey
 
-getOurPublicKey :: MonadPrimaryKey ctx m => m PublicKey
+getOurPublicKey :: (MonadReader ctx m, HasPrimaryKey ctx) => m PublicKey
 getOurPublicKey = toPublic <$> getOurSecretKey
 
-getOurKeys :: MonadPrimaryKey ctx m => m (SecretKey, PublicKey)
+getOurKeys :: (MonadReader ctx m, HasPrimaryKey ctx) => m (SecretKey, PublicKey)
 getOurKeys = (identity &&& toPublic) <$> getOurSecretKey
 
-getOurStakeholderId :: MonadPrimaryKey ctx m => m StakeholderId
+getOurStakeholderId :: (MonadReader ctx m, HasPrimaryKey ctx) => m StakeholderId
 getOurStakeholderId = addressHash <$> getOurPublicKey
 
-getOurPubKeyAddress :: MonadPrimaryKey ctx m => m Address
+getOurPubKeyAddress :: (MonadReader ctx m, HasPrimaryKey ctx) => m Address
 getOurPubKeyAddress = makePubKeyAddress <$> getOurPublicKey

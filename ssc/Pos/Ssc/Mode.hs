@@ -12,7 +12,7 @@ import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Communication.PeerState (WithPeerState)
-import           Pos.Core                    (MonadPrimaryKey)
+import           Pos.Core                    (HasPrimaryKey)
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.Discovery               (MonadDiscovery)
 import           Pos.Lrc.Context             (LrcContext)
@@ -36,7 +36,6 @@ type SscMode ssc ctx m
       , MonadGState m
       , MonadDB m
       , MonadSscMem ssc ctx m
-      , MonadPrimaryKey ctx m
       , MonadRecoveryInfo m
       , MonadShutdownMem ctx m
       , MonadDiscovery m
@@ -44,6 +43,7 @@ type SscMode ssc ctx m
       , MonadReader ctx m
       , HasSscContext ssc ctx
       , HasReportingContext ctx
+      , HasPrimaryKey ctx
       , HasLens SecurityParams ctx SecurityParams
       , HasLens LrcContext ctx LrcContext
       )

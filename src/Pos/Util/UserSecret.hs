@@ -14,6 +14,7 @@ module Pos.Util.UserSecret
        , usVss
        , usWalletSet
        , usPrimKey
+       , HasUserSecret(..)
        , getUSPath
        , simpleUserSecret
        , initializeUserSecret
@@ -76,6 +77,10 @@ data UserSecret = UserSecret
     }
 
 makeLenses ''UserSecret
+
+class HasUserSecret ctx where
+    -- if you're going to mock this TVar, look how it's done for peer state.
+    userSecret :: Lens' ctx (TVar UserSecret)
 
 -- | Show instance to be able to include it into NodeParams
 instance Bi Address => Show UserSecret where

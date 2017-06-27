@@ -26,7 +26,7 @@ import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (BlkSemaphore, GenesisStakes, HasSscContext,
                                               MonadBlockRetrievalQueue,
                                               MonadLastKnownHeader, MonadProgressHeader,
-                                              MonadRecoveryHeader, NodeParams, StartTime,
+                                              MonadRecoveryHeader, StartTime,
                                               TxpGlobalSettings)
 import           Pos.DB.Block                (MonadBlockDBWrite)
 import           Pos.DB.Class                (MonadDB, MonadGState, MonadRealDB)
@@ -36,7 +36,7 @@ import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
-import           Pos.Core                    (MonadPrimaryKey)
+import           Pos.Core                    (HasPrimaryKey)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
 import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)
@@ -81,19 +81,18 @@ type WorkMode ssc ctx m
       , MonadRecoveryHeader ssc ctx m
       , MonadProgressHeader ssc ctx m
       , MonadLastKnownHeader ssc ctx m
-      , MonadPrimaryKey ctx m
       , MonadReader ctx m
       , HasLens StartTime ctx StartTime
       , HasLens BlkSemaphore ctx BlkSemaphore
       , HasLens LrcContext ctx LrcContext
       , HasLens UpdateContext ctx UpdateContext
-      , HasLens NodeParams ctx NodeParams
       , HasLens UpdateParams ctx UpdateParams
       , HasLens SecurityParams ctx SecurityParams
       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
       , HasLens GenesisStakes ctx GenesisStakes
       , HasSscContext ssc ctx
       , HasReportingContext ctx
+      , HasPrimaryKey ctx
       , WithPeerState m
       , MonadShutdownMem ctx m
       , MonadBListener m

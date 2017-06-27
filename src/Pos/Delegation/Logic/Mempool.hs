@@ -30,7 +30,7 @@ module Pos.Delegation.Logic.Mempool
 
 import           Universum
 
-import           Control.Lens                (at, uses, views, (%=), (+=), (-=), (.=))
+import           Control.Lens                (at, uses, (%=), (+=), (-=), (.=))
 import qualified Data.Cache.LRU              as LRU
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
@@ -40,8 +40,9 @@ import           EtherCompat
 import           Pos.Binary.Class            (biSize)
 import           Pos.Binary.Communication    ()
 import           Pos.Constants               (memPoolLimitRatio)
-import           Pos.Context                 (NodeParams (..), lrcActionOnEpochReason)
-import           Pos.Core                    (addressHash, bvdMaxBlockSize, epochIndexL)
+import           Pos.Context                 (lrcActionOnEpochReason)
+import           Pos.Core                    (HasPrimaryKey (..), addressHash,
+                                              bvdMaxBlockSize, epochIndexL)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               SignTag (SignProxySK), proxyVerify,
                                               toPublic, verifyProxySecretKey)
@@ -230,7 +231,7 @@ data PskLightVerdict
 processProxySKLight ::
        ( MonadDelegation ctx m
        , MonadReader ctx m
-       , HasLens NodeParams ctx NodeParams
+       , HasPrimaryKey ctx
        , MonadDB m
        , MonadMask m
        , MonadRealDB ctx m
@@ -238,7 +239,7 @@ processProxySKLight ::
     => ProxySKLight
     -> m PskLightVerdict
 processProxySKLight psk = do
-    sk <- views (lensOf @NodeParams) npSecretKey
+    sk <- view primaryKey
     curTime <- liftIO getCurrentTime
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
     psks <- RWL.withRead miscLock Misc.getProxySecretKeys

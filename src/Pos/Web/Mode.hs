@@ -13,7 +13,8 @@ import           Universum
 import qualified Control.Monad.Reader as Mtl
 import           Mockable             (Production)
 
-import           Pos.Context          (HasSscContext (..), NodeContext)
+import           Pos.Context          (HasPrimaryKey (..), HasSscContext (..),
+                                       NodeContext)
 import           Pos.DB               (NodeDBs)
 import           Pos.DB.Class         (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Redirect      (dbDeleteDefault, dbGetDefault, dbIterSourceDefault,
@@ -34,6 +35,9 @@ wmcNodeContext f (WebModeContext x1 x2 nc) = WebModeContext x1 x2 <$> f nc
 
 instance HasSscContext ssc (WebModeContext ssc) where
     sscContext = wmcNodeContext . sscContext
+
+instance HasPrimaryKey (WebModeContext ssc) where
+    primaryKey = wmcNodeContext . primaryKey
 
 type WebMode ssc = Mtl.ReaderT (WebModeContext ssc) Production
 

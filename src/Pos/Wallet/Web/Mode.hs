@@ -21,7 +21,7 @@ import           Pos.Communication.PeerState   (HasPeerState (..), WithPeerState
                                                 clearPeerStateDefault,
                                                 getAllStatesDefault, getPeerStateDefault)
 import           Pos.Context                   (HasNodeContext (..))
-import           Pos.Core                      (IsHeader)
+import           Pos.Core                      (HasPrimaryKey (..), IsHeader)
 import           Pos.DB                        (MonadGState (..))
 import           Pos.DB.Block                  (MonadBlockDBWrite (..), dbGetBlockDefault,
                                                 dbGetBlockSscDefault, dbGetHeaderDefault,
@@ -57,6 +57,7 @@ import           Pos.Ssc.Class.Types           (HasSscContext (..), SscBlock)
 import           Pos.Util                      (Some (..))
 import           Pos.Util.JsonLog              (jsonLogDefault)
 import           Pos.Util.TimeWarp             (CanJsonLog (..))
+import           Pos.Util.UserSecret           (HasUserSecret (..))
 import           Pos.Wallet.Redirect           (MonadBlockchainInfo (..),
                                                 MonadUpdates (..),
                                                 applyLastUpdateWebWallet,
@@ -90,11 +91,17 @@ wwmcRealModeContext f (WalletWebModeContext x1 x2 rmc) =
 instance HasSscContext WalletSscType WalletWebModeContext where
     sscContext = wwmcRealModeContext . sscContext
 
+instance HasPrimaryKey WalletWebModeContext where
+    primaryKey = wwmcRealModeContext . primaryKey
+
 instance HasDiscoveryContextSum WalletWebModeContext where
     discoveryContextSum = wwmcRealModeContext . discoveryContextSum
 
 instance HasReportingContext WalletWebModeContext  where
     reportingContext = wwmcRealModeContext . reportingContext
+
+instance HasUserSecret WalletWebModeContext where
+    userSecret = wwmcRealModeContext . userSecret
 
 instance sa ~ SharedAtomicT Production => HasPeerState sa WalletWebModeContext where
     peerState = wwmcRealModeContext . peerState

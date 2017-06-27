@@ -27,9 +27,9 @@ import           System.Wlog         (WithLogger, getLoggerName, logError, logIn
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
                                       wrapActionSpec)
 import qualified Pos.Constants       as Const
-import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..), NodeContext,
-                                      NodeParams (..), getOurPubKeyAddress,
-                                      getOurPublicKey)
+import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..),
+                                      HasPrimaryKey (..), NodeContext,
+                                      getOurPubKeyAddress, getOurPublicKey)
 import           Pos.Crypto          (createProxySecretKey, encToPublic)
 import           Pos.DB              (MonadDB)
 import qualified Pos.DB.GState       as GS
@@ -44,7 +44,7 @@ import           Pos.Ssc.Class       (SscConstraint)
 import           Pos.Types           (addressHash)
 import           Pos.Util            (inAssertMode)
 import           Pos.Util.LogSafe    (logInfoS)
-import           Pos.Util.UserSecret (usKeys)
+import           Pos.Util.UserSecret (HasUserSecret (..), usKeys)
 import           Pos.Worker          (allWorkers, allWorkersCount)
 import           Pos.WorkMode.Class  (WorkMode)
 
@@ -56,6 +56,7 @@ runNode'
        , SecurityWorkersClass ssc
        , WorkMode ssc ctx m
        , HasNodeContext ssc ctx
+       , HasUserSecret ctx
        )
     => [WorkerSpec m]
     -> WorkerSpec m
@@ -79,7 +80,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
                     lastKnownEpoch leaders
     LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
 
-    putProxySecreyKeys
+    putProxySecretKeys
     initDelegation @ssc
     initSemaphore
     waitSystemStart
@@ -108,6 +109,7 @@ runNode ::
        , SecurityWorkersClass ssc
        , WorkMode ssc ctx m
        , HasNodeContext ssc ctx
+       , HasUserSecret ctx
        )
     => NodeContext ssc
     -> ([WorkerSpec m], OutSpecs)
@@ -129,14 +131,20 @@ nodeStartMsg = logInfo msg
 -- Details
 ----------------------------------------------------------------------------
 
-putProxySecreyKeys :: (MonadDB m, MonadReader ctx m, HasLens NodeParams ctx NodeParams) => m ()
-putProxySecreyKeys = do
-    userSecret <- npUserSecret <$> view (lensOf @NodeParams)
-    secretKey <- npSecretKey <$> view (lensOf @NodeParams)
+putProxySecretKeys ::
+       ( MonadDB m
+       , MonadReader ctx m
+       , MonadIO m
+       , HasUserSecret ctx
+       , HasPrimaryKey ctx )
+    => m ()
+putProxySecretKeys = do
+    uSecret <- atomically . readTVar =<< view userSecret
+    secretKey <- view primaryKey
     let eternity = (minBound, maxBound)
         makeOwnPSK =
             flip (createProxySecretKey secretKey) eternity . encToPublic
-        ownPSKs = userSecret ^.. usKeys . _tail . each . to makeOwnPSK
+        ownPSKs = uSecret ^.. usKeys . _tail . each . to makeOwnPSK
     for_ ownPSKs addProxySecretKey
 
 initSemaphore :: (WorkMode ssc ctx m) => m ()

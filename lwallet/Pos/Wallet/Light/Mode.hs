@@ -34,6 +34,7 @@ import           Pos.Reporting.MemState           (ReportingContext)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Util.JsonLog                 (JsonLogConfig, jsonLogDefault)
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
+import           Pos.Util.UserSecret              (HasUserSecret (..))
 import           Pos.Wallet.KeyStorage            (KeyData)
 import           Pos.Wallet.Light.Redirect        (getBalanceWallet, getOwnUtxosWallet,
                                                    getTxHistoryWallet, saveTxWallet)
@@ -63,6 +64,9 @@ type LightWalletMode = Mtl.ReaderT LightWalletContext Production
 
 instance sa ~ SharedAtomicT Production => HasPeerState sa LightWalletContext where
     peerState = lensOf @PeerStateTag
+
+instance HasUserSecret LightWalletContext where
+    userSecret = lensOf @KeyData
 
 instance {-# OVERLAPPING #-} HasLoggerName LightWalletMode where
     getLoggerName = view (lensOf @LoggerName)

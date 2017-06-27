@@ -36,8 +36,8 @@ import           Pos.Block.Logic.Util       (withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Types            (Undo (..))
 import           Pos.Constants              (slotSecurityParam)
-import           Pos.Context                (BlkSemaphore, MonadPrimaryKey, NodeParams,
-                                             getOurSecretKey, lrcActionOnEpochReason)
+import           Pos.Context                (BlkSemaphore, HasPrimaryKey, getOurSecretKey,
+                                             lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              EpochOrSlot (..), HeaderHash, SlotId (..),
                                              SlotLeaders, crucialSlot, epochOrSlot,
@@ -69,10 +69,9 @@ import           Pos.Util.Util              (leftToPanic)
 
 type CreationMode ssc ctx m
      = ( BlockApplyMode ssc ctx m
-       , MonadPrimaryKey ctx m
        , MonadReader ctx m
+       , HasPrimaryKey ctx
        , HasLens BlkSemaphore ctx BlkSemaphore
-       , HasLens NodeParams ctx NodeParams
        )
 
 ----------------------------------------------------------------------------

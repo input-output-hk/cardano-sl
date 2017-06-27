@@ -1,8 +1,8 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- API server logic
 
@@ -24,41 +24,42 @@ import           Control.Lens                   (at)
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
+import qualified Data.ByteString                as BS
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
+import qualified Data.Text                      as T
 import           Data.Time.Clock.POSIX          (POSIXTime)
 import           Formatting                     (build, sformat, (%))
 import           Network.Wai                    (Application)
+import qualified Serokell.Util.Base64           as B64
 import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Server, ServerT, serve)
 
 import           Pos.Communication              (SendActions)
-import           Pos.Crypto                     (WithHash (..), hash, withHash)
+import           Pos.Crypto                     (RedeemPublicKey, WithHash (..), hash,
+                                                 redeemPkBuild, withHash)
 
 import qualified Pos.DB.Block                   as DB
 import qualified Pos.DB.DB                      as DB
 import qualified Pos.DB.GState                  as GS
 
-import           Pos.Block.Core                 (Block, MainBlock,
-                                                 mainBlockSlot,
+import           Pos.Block.Core                 (Block, MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (Tx (..), TxAux, TxId,
-                                                 TxOutAux (..), getLocalTxs,
-                                                 getMemPool, mpLocalTxs, taTx,
-                                                 topsortTxs, txOutValue,
-                                                 _txOutputs)
-import           Pos.Txp                        (MonadTxpMem, txpTxs)
+import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, TxId,
+                                                 TxOutAux (..), getLocalTxs, getMemPool,
+                                                 mpLocalTxs, taTx, topsortTxs, txOutValue,
+                                                 txpTxs, _txOutputs)
 import           Pos.Types                      (Address (..), Coin, EpochIndex,
-                                                 HeaderHash, Timestamp,
-                                                 difficultyL, gbHeader,
-                                                 gbhConsensus,
-                                                 getChainDifficulty, mkCoin,
-                                                 prevBlockL, siEpoch, siSlot,
-                                                 sumCoins, unsafeIntegerToCoin,
-                                                 unsafeSubCoin)
+                                                 HeaderHash, LocalSlotIndex (..),
+                                                 Timestamp, difficultyL, gbHeader,
+                                                 gbhConsensus, getChainDifficulty,
+                                                 headerHashG, makeRedeemAddress, mkCoin,
+                                                 mkLocalSlotIndex, prevBlockL, prevBlockL,
+                                                 siEpoch, siSlot, sumCoins,
+                                                 unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
 import           Pos.Web                        (serveImpl)
@@ -66,26 +67,20 @@ import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer                   (TxExtra (..), getEpochBlocks,
                                                  getPageBlocks, getTxExtra)
-import qualified Pos.Explorer                   as EX (getAddrBalance,
-                                                       getAddrHistory,
+import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHistory,
                                                        getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..),
-                                                 CAddressSummary (..),
-                                                 CAddressType (..),
-                                                 CBlockEntry (..),
-                                                 CBlockSummary (..), CHash,
-                                                 CTxBrief (..), CTxEntry (..),
-                                                 CTxId (..), CTxSummary (..),
-                                                 TxInternal (..),
+import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
+                                                 CAddressType (..), CBlockEntry (..),
+                                                 CBlockSummary (..), CHash, CTxBrief (..),
+                                                 CTxEntry (..), CTxId (..),
+                                                 CTxSummary (..), TxInternal (..),
                                                  convertTxOutputs, fromCAddress,
-                                                 fromCHash, fromCTxId,
-                                                 getEpochIndex, getSlotIndex,
-                                                 mkCCoin, tiToTxEntry,
-                                                 toBlockEntry, toBlockSummary,
-                                                 toCHash, toPosixTime,
-                                                 toTxBrief)
+                                                 fromCHash, fromCTxId, getEpochIndex,
+                                                 getSlotIndex, mkCCoin, tiToTxEntry,
+                                                 toBlockEntry, toBlockSummary, toCHash,
+                                                 toPosixTime, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 
 
@@ -477,9 +472,9 @@ epochSlotSearch epochIndex slotIndex = do
   where
     -- Get epoch slot block that's being searched or return all epochs if
     -- the slot is @Nothing@.
-    getEpochSlots 
-        :: Maybe Word16 
-        -> [MainBlock SscGodTossing] 
+    getEpochSlots
+        :: Maybe Word16
+        -> [MainBlock SscGodTossing]
         -> [MainBlock SscGodTossing]
     getEpochSlots Nothing          blocks = blocks
     getEpochSlots (Just slotIndex') blocks = filter filterBlocksBySlotIndex blocks
@@ -495,7 +490,7 @@ epochSlotSearch epochIndex slotIndex = do
         filterBlocksBySlotIndex block = getBlockSlotIndex block == slotIndex'
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
-    getPageHHsOrThrow 
+    getPageHHsOrThrow
         :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
         => EpochIndex
         -> m [HeaderHash]
@@ -506,11 +501,11 @@ epochSlotSearch epochIndex slotIndex = do
         errMsg = sformat ("No blocks on epoch "%build%" found!") epoch
 
     -- Either get the block from the @HeaderHash@ or throw an exception.
-    getBlockOrThrow 
-        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m) 
-        => HeaderHash 
+    getBlockOrThrow
+        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        => HeaderHash
         -> m (Block SscGodTossing)
-    getBlockOrThrow headerHash = DB.blkGetBlock headerHash >>= 
+    getBlockOrThrow headerHash = DB.blkGetBlock headerHash >>=
         maybeThrow (Internal "Block with hash cannot be found!")
 
 
@@ -586,15 +581,38 @@ topsortTxsOrFail f =
     maybeThrow (Internal "Dependency loop in txs set") .
     topsortTxs f
 
--- | Convert server address to client address,
--- with the possible exception (effect).
+-- | Deserialize Cardano or RSCoin address and convert it to Cardano address.
+-- Throw exception on failure.
 cAddrToAddr :: MonadThrow m => CAddress -> m Address
-cAddrToAddr cAddr = either exception pure (fromCAddress cAddr)
+cAddrToAddr cAddr@(CAddress rawAddrText) =
+    if (not $ T.null rawAddrText) && (T.last rawAddrText == '=') then do
+        -- RSCoin
+        cardanoAddr <- convertAddr rawAddrText
+        either badRSCoinAddress pure (fromCAddress $ CAddress cardanoAddr)
+    else
+        -- Cardano
+        either badCardanoAddress pure (fromCAddress cAddr)
   where
-    exception = const $ throwM $ Internal "Invalid address!"
+    badCardanoAddress = const $ throwM $ Internal "Invalid Cardano address!"
+    badRSCoinAddress  = const $ throwM $ Internal "Invalid RSCoin address!"
+    -- Copied from cardano-sl/tools/src/keygen/Avvm.hs
+    fromAvvmPk :: (MonadThrow m, Monad m) => Text -> m RedeemPublicKey
+    fromAvvmPk addrText = do
+        let base64rify = T.replace "-" "+" . T.replace "_" "/"
+        let parsedM = B64.decode $ base64rify addrText
+        addrParsed <-
+            maybe (throwM $ errorBase64 addrText) pure (rightToMaybe parsedM)
+        unless (BS.length addrParsed == 32) $
+            throwM errorLength
+        pure $ redeemPkBuild addrParsed
+    errorBase64 addrText = Internal $ "Address " <> addrText <> " is not base64(url) format"
+    errorLength = Internal "Address' length is not equal to 32, can't be redeeming pk"
+    -- Copied from cardano-sl/tools/src/addr-convert/Main.hs
+    convertAddr :: (MonadThrow m, Monad m) => Text -> m Text
+    convertAddr addr = pretty . makeRedeemAddress <$> fromAvvmPk (toText addr)
 
--- | Convert server transaction to client transaction,
--- with the possible exception (effect).
+-- | Deserialize transaction ID.
+-- Throw exception on failure.
 cTxIdToTxId :: MonadThrow m => CTxId -> m TxId
 cTxIdToTxId cTxId = either exception pure (fromCTxId cTxId)
   where

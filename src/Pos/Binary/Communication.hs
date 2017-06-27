@@ -14,9 +14,9 @@ import           Pos.Binary.Block                 ()
 import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..),
                                                    UnsignedVarInt (..), convertToSizeNPut,
                                                    decodeFull, deriveSimpleBi, encode,
-                                                   getSmallWithLength, getWord8, label,
-                                                   labelS, putField, putS,
-                                                   putSmallWithLengthS, putWord8S)
+                                                   getBytes, getSmallWithLength, getWord8,
+                                                   label, labelS, putBytesS, putField,
+                                                   putS, putSmallWithLengthS, putWord8S)
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
@@ -60,16 +60,17 @@ instance SscHelpersClass ssc => Bi (MsgBlock ssc) where
 -- Protocol version info and related
 ----------------------------------------------------------------------------
 
---
--- Encoding of HandlerSpec is as follows:
---
---  | Type                                 | Size     | Value     | Following data   |
---  |--------------------------------------|----------|-----------|------------------|
---  | <reserved for future usage>          | Fixed    | 0000 0000 | <none>           |
---  | ConvHandler m, m:UnsignedVarInt < 64 | Fixed    | 01xx xxxx | <none>           |
---  | ConvHandler m, m:Unknown             | Variable | 0000 0001 | len,MessageName  |
---  | UnknownHandler w8 bs                 | Variable | w8        | len,bs           |
---
+{- Encoding of HandlerSpec is as follows:
+
+| Type                                 | Size     | Value    | Following data |
+|--------------------------------------|----------|----------|----------------|
+| <reserved for future usage>          | Fixed    | 00000000 | <none>         |
+| ConvHandler m, m:UnsignedVarInt < 64 | Fixed    | 01xxxxxx | <none>         |
+| ConvHandler m, m:Unknown             | Variable | 00000001 | MessageName    |
+| UnknownHandler w8 bytes              | Variable | w8       | len, bytes     |
+
+-}
+
 instance Bi HandlerSpec where
     sizeNPut = labelS "HandlerSpec" $ convertToSizeNPut f
       where
@@ -78,22 +79,21 @@ instance Bi HandlerSpec where
             case decodeFull m of
                 Right (UnsignedVarInt a)
                     | a < 64 -> putWord8S (0x40 .|. (fromIntegral (a :: Word) .&. 0x3f))
-                _ -> putWord8S 1 <> putSmallWithLengthS (putS m)
-        -- CSL-1122: putSmallWithLengthS shouldn't be used on bytestrings
-        -- because bytestring serialization already puts length
-        f (UnknownHandler t b) = putWord8S t <> putSmallWithLengthS (putS b)
+                _ -> putWord8S 1 <> putS m
+        f (UnknownHandler t b) = putWord8S t <> putSmallWithLengthS (putBytesS b)
 
     get = label "HandlerSpec" $ getWord8 >>= \case
         -- 0000 0000: reserved
         0 -> pure $ UnknownHandler 0 mempty
         -- 0000 0001: ConvHandler with a message name
-        1 -> getSmallWithLength (\_ -> ConvHandler <$> get)
+        1 -> ConvHandler <$> get
         -- 01xx xxxx: ConvHandler (MessageName xxxxxx)
         t | (t .&. 0b11000000) == 0b01000000 ->
             pure . ConvHandler . MessageName . encode $
             UnsignedVarInt (fromIntegral (t .&. 0b00111111) :: Word)
         -- none of the above: unknown handler
-          | otherwise -> UnknownHandler t <$> getSmallWithLength (\_ -> get)
+          | otherwise -> UnknownHandler t <$>
+                getSmallWithLength (getBytes . fromIntegral)
 
 deriveSimpleBi ''VerInfo [
     Cons 'VerInfo [

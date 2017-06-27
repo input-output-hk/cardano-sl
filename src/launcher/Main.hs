@@ -20,7 +20,8 @@ import           Options.Applicative.Simple   (Mod, OptionFields, Parser, auto,
                                                metavar, option, progDesc, short,
                                                strOption)
 import           System.Directory             (getTemporaryDirectory)
-import           System.FilePath              ((</>))
+import           System.Environment           (getExecutablePath)
+import           System.FilePath              ((</>), takeDirectory)
 import qualified System.IO                    as IO
 import           System.Process               (ProcessHandle)
 import qualified System.Process               as Process
@@ -298,13 +299,16 @@ runUpdaterProc path args = do
     system' phvar cr mempty
 
 writeWindowsUpdaterRunner :: FilePath -> IO ()
-writeWindowsUpdaterRunner runnerPath =
+writeWindowsUpdaterRunner runnerPath = do
+    exePath <- getExecutablePath
     writeFile (toString runnerPath) $ unlines
         [ "TaskKill /IM cardano-launcher.exe /F"
         -- Run updater
-        , "%*"
+        , "start /wait %*"
         -- Delete updater
         , "del %1"
+        -- Run launcher again
+        , "start /wait " ++ (takeDirectory exePath) ++ "daedalus.bat"
         -- Delete the bat file
         , "(goto) 2>nul & del \"%~f0\""
         ]

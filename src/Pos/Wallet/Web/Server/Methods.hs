@@ -61,10 +61,10 @@ import           Pos.Communication                (OutSpecs, SendActions, sendTx
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Core                         (Address (..), Coin, addressF,
-                                                   decodeTextAddress, makePubKeyAddress,
-                                                   makeRedeemAddress, mkCoin, sumCoins,
-                                                   unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin)
+                                                   decodeTextAddress, makePubKeyAddress, getCurrentTimestamp,
+                                                   getTimestamp, makeRedeemAddress,
+                                                   mkCoin, sumCoins, unsafeAddCoin,
+                                                   unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto                       (PassPhrase, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
                                                    deriveAesKeyBS, emptyPassphrase,
@@ -602,8 +602,9 @@ sendMoney sendActions passphrase moneySource dstDistr = do
                     -- TODO: this should be removed in production
                     let txHash    = hash tx
                         srcWallet = getMoneySourceWallet moneySource
+                    ts <- Just <$> liftIO getCurrentTimestamp
                     ctxs <- addHistoryTx srcWallet $
-                        THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs
+                        THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs ts
                     ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
 
     noOutgoingTx = InternalError "Can't report outgoing transaction"
@@ -650,7 +651,6 @@ getFullWalletHistory cWalId = do
         -> (Maybe (HeaderHash, Utxo), [TxHistoryEntry])
     transCache Nothing                = (Nothing, [])
     transCache (Just (hh, utxo, txs)) = (Just (hh, utxo), txs)
-
 
 getHistory
     :: WalletWebMode m
@@ -710,7 +710,9 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
-    meta <- CTxMeta <$> liftIO getPOSIXTime
+    meta <- CTxMeta <$> case _thTimestamp of
+      Nothing -> liftIO $ getPOSIXTime
+      Just ts -> return $ fromIntegral (getTimestamp ts) / 1000000
     let cId = txIdToCTxId _thTxId
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
@@ -916,8 +918,9 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
         Right (TxAux {..}, redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             let txInputs = [TxOut redeemAddress redeemBalance]
+            ts <- Just <$> liftIO getCurrentTimestamp
             ctxs <- addHistoryTx (aiWId accId)
-                (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr])
+                (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts)
             ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
   where
    noOutgoingTx = InternalError "Can't report outgoing transaction"

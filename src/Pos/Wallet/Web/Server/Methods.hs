@@ -98,7 +98,7 @@ import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
                                                    localChainDifficulty,
                                                    networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
-                                                   genSaveRootAddress,
+                                                   genSaveRootKey,
                                                    genUniqueAccountAddress,
                                                    genUniqueAccountId, getAddrIdx,
                                                    getSKByAccAddr, getSKByAddr,
@@ -776,13 +776,22 @@ createWalletSafe cid wsMeta = do
 newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase CWalletInit {..} = do
     let CWalletMeta {..} = cwInitMeta
-    cAddr <- genSaveRootAddress passphrase cwBackupPhrase
-    wallet@CWallet{..} <- createWalletSafe cAddr cwInitMeta
 
-    let accMeta = CAccountMeta { caName = "Initial account" }
-    let accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-    _ <- newAccount RandomSeed passphrase accInit
-    return wallet
+    skey <- genSaveRootKey passphrase cwBackupPhrase
+    let cAddr = encToCId skey
+
+    CWallet{..} <- createWalletSafe cAddr cwInitMeta
+    foundAddrs <- selectAccountsFromUtxoLock @WalletSscType [skey]
+
+    -- If no addresses for given root key are found in utxo,
+    -- create an account with random seed
+    when (null foundAddrs) $ do
+        let accMeta = CAccountMeta { caName = "Initial account" }
+            accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
+        () <$ newAccount RandomSeed passphrase accInit
+
+    -- We get the wallet again to have proper balances returned
+    getWallet cAddr
 
 updateWallet :: WalletWebMode m => CId Wal -> CWalletMeta -> m CWallet
 updateWallet wId wMeta = do
@@ -1001,7 +1010,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         let accId = AccountId wid walletIndex
         newAddress (DeterminedSeed accountIndex) passphrase accId
 
-    selectAccountsFromUtxoLock @WalletSscType [key]
+    _ <- selectAccountsFromUtxoLock @WalletSscType [key]
 
     return importedWallet
 

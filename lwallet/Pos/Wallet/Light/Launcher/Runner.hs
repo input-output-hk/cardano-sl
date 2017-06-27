@@ -11,6 +11,7 @@ import           Formatting                      (sformat, shown, (%))
 import           Mockable                        (MonadMockable, Production, bracket,
                                                   fork, sleepForever)
 import           Network.Transport.Abstract      (Transport)
+import           Node                            (noReceiveDelay, simpleNodeEndPoint)
 import qualified STMContainers.Map               as SM
 import           System.Wlog                     (WithLogger, logDebug, logInfo)
 
@@ -108,7 +109,8 @@ runServer_
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
     => Transport m -> MkListeners m -> OutSpecs -> ActionSpec m b -> m b
 runServer_ transport mkl outSpecs =
-    runServer transport mkl outSpecs acquire release
+    runServer (simpleNodeEndPoint transport) (const noReceiveDelay) mkl
+        outSpecs acquire release
   where
     acquire = const pass
     release = const pass

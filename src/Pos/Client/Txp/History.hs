@@ -18,7 +18,7 @@ module Pos.Client.Txp.History
        , MonadTxHistory(..)
 
        -- * History derivation
-       , getRelatedTxs
+       , getRelatedTxsByAddrs
        , deriveAddrHistory
        , deriveAddrHistoryPartial
        , getTxHistoryDefault
@@ -100,27 +100,36 @@ makeLenses ''TxHistoryEntry
 -- | Type of monad used to deduce history
 type TxSelectorT m = UtxoStateT (MaybeT m)
 
--- | Select transactions related to given addresses
-getRelatedTxs
+-- | Select transactions by predicate on related addresses
+getTxsByPredicate
     :: Monad m
-    => [Address]
+    => ([Address] -> Bool)
     -> [(WithHash Tx, TxWitness, TxDistribution)]
     -> TxSelectorT m [TxHistoryEntry]
-getRelatedTxs (HS.fromList -> addrs) txs = do
-    lift (MaybeT $ return $ topsortTxs (view _1) txs) >>=
-        fmap catMaybes . mapM step
+getTxsByPredicate pred txs = do
+    txs' <- lift . MaybeT . return $ topsortTxs (view _1) txs
+    reverse <$> go txs' []
   where
-    step (WithHash tx txId, _wit, dist) = do
+    go [] acc = return acc
+    go ((wh@(WithHash tx txId), _wit, dist) : rest) acc = do
         inputs <- getSenders tx
         let outgoings = toList $ txOutAddress <$> _txOutputs tx
         let incomings = ordNub $ map txOutAddress inputs
 
-        applyTxToUtxo (WithHash tx txId) dist
+        applyTxToUtxo wh dist
 
-        return $ do
-            guard . not . null $
-                HS.fromList (incomings ++ outgoings) `HS.intersection` addrs
-            return $ THEntry txId tx inputs Nothing incomings outgoings
+        let acc' = if pred (incomings ++ outgoings)
+                   then (THEntry txId tx inputs Nothing incomings outgoings : acc)
+                   else acc
+        go rest acc'
+
+-- | Select transactions related to one of given addresses
+getRelatedTxsByAddrs
+    :: Monad m
+    => [Address]
+    -> [(WithHash Tx, TxWitness, TxDistribution)]
+    -> TxSelectorT m [TxHistoryEntry]
+getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
 
 -- | Given a full blockchain, derive address history and Utxo
 -- TODO: Such functionality will still be useful for merging
@@ -145,8 +154,8 @@ deriveAddrHistoryPartial hist addrs chain =
     updateAll (Left _) hst = pure hst
     updateAll (Right blk) hst = do
         let mapper TxAux {..} = (withHash taTx, taWitness, taDistribution)
-        txs <- getRelatedTxs addrs $
-                   map mapper $ flattenTxPayload (blk ^. mainBlockTxPayload)
+        txs <- getRelatedTxsByAddrs addrs . map mapper . flattenTxPayload $
+               blk ^. mainBlockTxPayload
         let difficulty = blk ^. difficultyL
             txs' = map (thDifficulty .~ Just difficulty) txs
         return $ DL.fromList txs' <> hst
@@ -191,6 +200,9 @@ getTxHistoryDefault = Tagged $ \addrs mInit -> do
     let getGenUtxo = Ether.asks' unGenesisUtxo
     (bot, genUtxo) <- maybe ((,) <$> GS.getBot <*> getGenUtxo) pure mInit
 
+    tipHeader <- DB.runBlockDBRedirect $ DB.blkGetHeader @ssc tip
+    let curDifficulty = tipHeader ^. difficultyL
+    
     -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
     hashList <- flip unfoldrM tip $ \h ->
         if h == bot
@@ -213,7 +225,7 @@ getTxHistoryDefault = Tagged $ \addrs mInit -> do
             let mp (txid, TxAux {..}) =
                   (WithHash taTx txid, taWitness, taDistribution)
             ltxs <- lift . lift $ getLocalTxs
-            txs <- getRelatedTxs addrs $ map mp ltxs
+            txs <- getRelatedTxsByAddrs addrs $ map mp ltxs
             return $ txs ++ blkTxs
 
     mres <- runMaybeT $ do

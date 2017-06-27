@@ -16,6 +16,7 @@ packages:
 - lwallet
 - ssc
 - godtossing
+- tools
 - txp
 
 - location:
@@ -113,4 +114,5 @@ ghc-options:
   cardano-sl-godtossing: -Werror
   cardano-sl-txp:        -Werror
   cardano-sl:            -Werror
+  cardano-sl-tools:      -Werror
   cardano-sl-lwallet:    -Werror

@@ -5,6 +5,7 @@ module Pos.Wallet.Web.State.Storage
        (
          WalletStorage (..)
        , AddressLookupMode (..)
+       , CustomAddressType (..)
        , Query
        , Update
        , getProfile
@@ -23,6 +24,10 @@ module Pos.Wallet.Web.State.Storage
        , getUpdates
        , getNextUpdate
        , getHistoryCache
+       , getCustomAddresses
+       , getCustomAddress
+       , addCustomAddress
+       , removeCustomAddress
        , createAccount
        , createWallet
        , addWAddress
@@ -69,6 +74,9 @@ type TransactionHistory = HashMap CTxId CTxMeta
 
 type CAddresses = HashSet CWAddressMeta
 
+-- | For each address - first occurance in blockchain
+type CustomAddresses = HashMap (CId Addr) (HeaderHash)
+
 data WalletInfo = WalletInfo
     { _wiMeta         :: CWalletMeta
     , _wiPassphraseLU :: PassPhraseLU
@@ -86,12 +94,14 @@ data AccountInfo = AccountInfo
 makeLenses ''AccountInfo
 
 data WalletStorage = WalletStorage
-    { _wsWalletInfos  :: !(HashMap (CId Wal) WalletInfo)
-    , _wsAccountInfos :: !(HashMap AccountId AccountInfo)
-    , _wsProfile      :: !CProfile
-    , _wsReadyUpdates :: [CUpdateInfo]
-    , _wsTxHistory    :: !(HashMap (CId Wal) TransactionHistory)
-    , _wsHistoryCache :: !(HashMap (CId Wal) (HeaderHash, Utxo, [TxHistoryEntry]))
+    { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
+    , _wsAccountInfos    :: !(HashMap AccountId AccountInfo)
+    , _wsProfile         :: !CProfile
+    , _wsReadyUpdates    :: [CUpdateInfo]
+    , _wsTxHistory       :: !(HashMap (CId Wal) TransactionHistory)
+    , _wsHistoryCache    :: !(HashMap (CId Wal) (HeaderHash, Utxo, [TxHistoryEntry]))
+    , _wsUsedAddresses   :: !CustomAddresses
+    , _wsChangeAddresses :: !CustomAddresses
     }
 
 makeClassy ''WalletStorage
@@ -99,12 +109,14 @@ makeClassy ''WalletStorage
 instance Default WalletStorage where
     def =
         WalletStorage
-        { _wsWalletInfos  = mempty
-        , _wsAccountInfos = mempty
-        , _wsProfile      = def
-        , _wsReadyUpdates = mempty
-        , _wsTxHistory    = mempty
-        , _wsHistoryCache = mempty
+        { _wsWalletInfos     = mempty
+        , _wsAccountInfos    = mempty
+        , _wsProfile         = def
+        , _wsReadyUpdates    = mempty
+        , _wsTxHistory       = mempty
+        , _wsHistoryCache    = mempty
+        , _wsUsedAddresses   = mempty
+        , _wsChangeAddresses = mempty
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
@@ -120,6 +132,15 @@ withAccLookupMode :: (Monad m, Monoid a) => AddressLookupMode -> m a -> m a -> m
 withAccLookupMode Existing existing _       = existing
 withAccLookupMode Deleted  _        deleted = deleted
 withAccLookupMode Ever     existing deleted = mappend <$> existing <*> deleted
+
+-- | Specifies special category of addresses which are stored in base.
+data CustomAddressType
+    = UsedAddr
+    | ChangeAddr
+
+customAddressL :: CustomAddressType -> Lens' WalletStorage CustomAddresses
+customAddressL UsedAddr   = wsUsedAddresses
+customAddressL ChangeAddr = wsChangeAddresses
 
 getProfile :: Query CProfile
 getProfile = view wsProfile
@@ -182,6 +203,23 @@ getNextUpdate = preview (wsReadyUpdates . _head)
 
 getHistoryCache :: CId Wal -> Query (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
 getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
+
+getCustomAddresses :: CustomAddressType -> Query [CId Addr]
+getCustomAddresses t = HM.keys <$> view (customAddressL t)
+
+getCustomAddress :: CustomAddressType -> CId Addr -> Query (Maybe HeaderHash)
+getCustomAddress t addr = view $ customAddressL t . at addr
+
+addCustomAddress :: CustomAddressType -> (CId Addr, HeaderHash) -> Update Bool
+addCustomAddress t (addr, hh) = fmap isJust $ customAddressL t . at addr <<.= Just hh
+
+removeCustomAddress :: CustomAddressType -> (CId Addr, HeaderHash) -> Update Bool
+removeCustomAddress t (addr, hh) = do
+    mhh' <- use $ customAddressL t . at addr
+    let exists = mhh' == Just hh
+    when exists $
+        customAddressL t . at addr .= Nothing
+    return exists
 
 createAccount :: AccountId -> CAccountMeta -> Update ()
 createAccount accId cAccMeta = wsAccountInfos . at accId ?= AccountInfo cAccMeta mempty mempty
@@ -277,6 +315,7 @@ deriveSafeCopySimple 0 'base ''TxHistoryEntry
 deriveSafeCopySimple 0 'base ''CTxMeta
 deriveSafeCopySimple 0 'base ''CUpdateInfo
 deriveSafeCopySimple 0 'base ''AddressLookupMode
+deriveSafeCopySimple 0 'base ''CustomAddressType
 deriveSafeCopySimple 0 'base ''WalletInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletStorage

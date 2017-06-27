@@ -32,8 +32,10 @@ import qualified Pos.Util.Modifier          as MM
 import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
 import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import qualified Pos.Wallet.Web.State       as WS
-import           Pos.Wallet.Web.Tracking    (CAccModifier, applyModifierToWSet,
-                                             trackingApplyTxs, trackingRollbackTxs)
+import           Pos.Wallet.Web.Tracking    (CAccModifier (..), applyModifierToWallet,
+                                             getWalletAddrMetasDB,
+                                             rollbackModifierFromWallet, trackingApplyTxs,
+                                             trackingRollbackTxs)
 
 -- Perform this action under block lock.
 onApplyTracking
@@ -52,9 +54,13 @@ onApplyTracking blunds = do
   where
     syncWalletSet :: HeaderHash -> [TxAux] -> CId Wal -> m ()
     syncWalletSet newTip txs wAddr = do
+        allAddresses <- getWalletAddrMetasDB WS.Ever wAddr
         encSK <- getSKByAddr wAddr
-        mapModifier <- runDBToil $ evalToilTEmpty $ trackingApplyTxs encSK txs
-        applyModifierToWSet wAddr newTip mapModifier
+        mapModifier <- runDBToil $
+                       evalToilTEmpty $
+                       trackingApplyTxs encSK allAddresses $
+                       zip txs (repeat newTip)
+        applyModifierToWallet wAddr newTip mapModifier
         logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
@@ -73,9 +79,11 @@ onRollbackTracking blunds = do
   where
     syncWalletSet :: HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
     syncWalletSet newTip txs wAddr = do
+        allAddresses <- getWalletAddrMetasDB WS.Ever wAddr
         encSK <- getSKByAddr wAddr
-        let mapModifier = trackingRollbackTxs encSK txs
-        applyModifierToWSet wAddr newTip mapModifier
+        let mapModifier = trackingRollbackTxs encSK allAddresses $
+                          map (\(aux, undo) -> (aux, undo, newTip)) txs
+        rollbackModifierFromWallet wAddr newTip mapModifier
         logMsg "rolled back" (getNewestFirst blunds) wAddr mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
     blundTxUn (b, u) = zip (gbTxs b) (undoTx u)
@@ -87,9 +95,15 @@ logMsg
     -> CId Wal
     -> CAccModifier
     -> m ()
-logMsg action (NE.length -> bNums) wAddr mm =
+logMsg action (NE.length -> bNums) wAddr CAccModifier{..} =
     logDebug $
         sformat ("Wallet Tracking: "%build%" "%build%" block(s) to walletset "%build
                 %", added accounts: "%listJson
-                %", deleted accounts: "%listJson)
-        action bNums wAddr (map fst $ MM.insertions mm) (MM.deletions mm)
+                %", deleted accounts: "%listJson
+                %", used address: "%listJson
+                %", change address: "%listJson)
+        action bNums wAddr
+        (map fst $ MM.insertions camAddresses)
+        (MM.deletions camAddresses)
+        (map (fst . fst) $ MM.insertions camUsed)
+        (map (fst . fst) $ MM.insertions camChange)

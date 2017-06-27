@@ -14,7 +14,8 @@ import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, build, (%))
 import           Prelude                  (Show (..))
 import           System.Random            (mkStdGen, randomR)
-import           Test.QuickCheck          (Arbitrary (..), Gen, choose, oneof, vectorOf)
+import           Test.QuickCheck          (Arbitrary (..), Gen, choose, oneof, suchThat,
+                                           vectorOf)
 
 import           Pos.Binary.Class         (Bi, Raw, biSize)
 import qualified Pos.Block.Core           as T
@@ -298,11 +299,11 @@ recursiveHeaderGen (eitherOfLeader : leaders)
                 Right (issuerSK, delegateSK, isSigEpoch) ->
                     let w = (lowEpoch, highEpoch)
                         delegatePK = toPublic delegateSK
-                        curried :: Bi w => w -> ProxySecretKey w
-                        curried = createPsk issuerSK delegatePK
+                        toPsk :: Bi w => w -> ProxySecretKey w
+                        toPsk = createPsk issuerSK delegatePK
                         proxy = if isSigEpoch
-                                then Right (curried epochCounter, toPublic issuerSK)
-                                else Left $ curried w
+                                then Right (toPsk epochCounter, toPublic issuerSK)
+                                else Left $ toPsk w
                     in (delegateSK, Just proxy)
         pure $ Right $
             T.mkMainHeader (Just prevHeader) slotId leader proxySK body extraHData
@@ -332,9 +333,15 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
     arbitrary = BHL <$> do
         fullEpochs <- choose (startingEpoch, maxEpochs)
         incompleteEpochSize <- choose (1, epochSlots - 1)
+        let correctLeaderGen :: Gen (Either SecretKey (SecretKey, SecretKey, Bool))
+            correctLeaderGen =
+                -- We don't want to create blocks with self-signed psks
+                let issDelDiff (Left _)        = True
+                    issDelDiff (Right (i,d,_)) = i /= d
+                in arbitrary `suchThat` issDelDiff
         leadersList <-
             vectorOf ((epochSlots * fullEpochs) + incompleteEpochSize)
-                arbitrary
+                     correctLeaderGen
         firstGenesisBody <- arbitrary
         let firstHeader = Left $ T.mkGenesisHeader Nothing startingEpoch firstGenesisBody
             actualLeaders = map (toPublic . either identity (view _1)) leadersList

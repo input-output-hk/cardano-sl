@@ -11,7 +11,7 @@ import           Universum
 import           Serokell.Util         (isVerSuccess)
 import           Test.Hspec            (Spec, describe, it)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, (===))
+import           Test.QuickCheck       (Property, (===), (==>))
 
 import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
@@ -96,8 +96,10 @@ mainHeaderFormation
     -> T.MainExtraHeaderData
     -> Property
 mainHeaderFormation prevHeader slotId signer body extra =
-    header === manualHeader
+    correctSigner signer ==> (header === manualHeader)
   where
+    correctSigner (Left _)        = True
+    correctSigner (Right (i,d,_)) = i /= d
     header =
         leftToPanic "mainHeaderFormation: " $
         T.mkGenericHeader prevHeader body consensus extra

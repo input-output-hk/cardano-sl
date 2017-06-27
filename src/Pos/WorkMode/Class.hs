@@ -22,7 +22,6 @@ import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Block.Slog.Types        (HasSlogContext)
-import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
                                               BlockRetrievalQueueTag, GenesisUtxo,
                                               HasSscContext, MonadLastKnownHeader,
@@ -72,7 +71,6 @@ type WorkMode ssc ctx m
       , MonadSscBlockDB ssc m
       , MonadBlockDBWrite ssc m
       , MonadTxpMem TxpExtra_TMP ctx m
-      , MonadRelayMem ctx m
       , MonadDelegation ctx m
       , MonadSscMem ssc ctx m
       , SscGStateClass ssc

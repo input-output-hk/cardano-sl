@@ -9,7 +9,6 @@ import           Ether.Internal          (HasLens (..))
 import           Mockable                (MonadMockable)
 import           System.Wlog             (WithLogger)
 
-import           Pos.Communication.Relay (MonadRelayMem)
 import           Pos.DB.Class            (MonadDB, MonadGState)
 import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Update.Context      (UpdateContext)
@@ -22,7 +21,6 @@ type UpdateMode ctx m
       , MonadMask m
       , MonadGState m
       , MonadDB m
-      , MonadRelayMem ctx m
       , MonadReader ctx m
       , HasLens UpdateContext ctx UpdateContext
       , HasLens LrcContext ctx LrcContext

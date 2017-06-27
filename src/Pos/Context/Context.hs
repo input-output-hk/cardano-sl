@@ -42,10 +42,6 @@ import           Pos.Block.Core                (BlockHeader)
 import           Pos.Block.RetrievalQueue      (BlockRetrievalQueue,
                                                 BlockRetrievalQueueTag)
 import           Pos.Block.Slog.Types          (HasSlogContext (..), SlogContext (..))
-import           Pos.Communication.Relay       (HasPropagationFlag (..),
-                                                HasPropagationQueue (..),
-                                                RelayPropagationQueue)
-import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
 import           Pos.Core                      (GenesisStakeholders (..),
                                                 HasPrimaryKey (..), HeaderHash, Timestamp)
@@ -53,6 +49,7 @@ import           Pos.Discovery                 (DiscoveryContextSum,
                                                 HasDiscoveryContextSum (..))
 import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
+import           Pos.Network.Types             (NetworkConfig (..))
 import           Pos.Reporting.MemState        (HasLoggerConfig (..),
                                                 HasReportServers (..),
                                                 HasReportingContext (..),
@@ -136,9 +133,6 @@ data NodeContext ssc = NodeContext
     , ncProgressHeader      :: !(ProgressHeader ssc)
     -- ^ Header of the last block that was downloaded in retrieving
     -- queue. Is needed to show smooth prorgess on the frontend.
-    , ncInvPropagationQueue :: !RelayPropagationQueue
-    -- ^ Queue is used in Relay framework,
-    -- it stores inv messages for earlier received data.
     , ncLoggerConfig        :: !LoggerConfig
     -- ^ Logger config, as taken/read from CLI.
     , ncNodeParams          :: !NodeParams
@@ -149,6 +143,7 @@ data NodeContext ssc = NodeContext
     -- ^ Settings for global Txp.
     , ncConnectedPeers      :: !ConnectedPeers
     -- ^ Set of peers that we're connected to.
+    , ncNetworkConfig       :: !NetworkConfig
     }
 
 makeLensesWith postfixLFields ''NodeContext
@@ -226,12 +221,6 @@ instance HasReportServers (NodeContext ssc) where
 instance HasLoggerConfig (NodeContext ssc) where
     loggerConfig = ncLoggerConfig_L
 
-instance HasPropagationFlag (NodeContext ssc) where
-    propagationFlag = ncNodeParams_L . propagationFlag
-
-instance HasPropagationQueue (NodeContext ssc) where
-    propagationQueue = ncInvPropagationQueue_L
-
 instance HasPrimaryKey (NodeContext ssc) where
     primaryKey = ncNodeParams_L . primaryKey
 
@@ -245,14 +234,3 @@ instance HasReportingContext (NodeContext ssc) where
         setter rc =
             set reportServers (rc ^. reportServers) .
             set loggerConfig  (rc ^. loggerConfig)
-
-instance HasLens RelayContext (NodeContext ssc) RelayContext where
-    lensOf = lens getter (flip setter)
-      where
-        getter nc =
-            RelayContext
-                (nc ^. propagationFlag)
-                (nc ^. propagationQueue)
-        setter rc =
-            set propagationFlag (rc ^. propagationFlag) .
-            set propagationQueue (rc ^. propagationQueue)

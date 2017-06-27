@@ -44,11 +44,12 @@ import           Pos.Binary                 (Raw, encode)
 import qualified Pos.CLI                    as CLI
 import           Pos.Client.Txp.Util        (createTx)
 import           Pos.Client.Txp.Balances    (getOwnUtxo)
-import           Pos.Communication          (NodeId, OutSpecs, SendActions, Worker',
+import           Pos.Communication          (NodeId, OutSpecs, SendActions (..), Worker,
                                              WorkerSpec, dataFlow, delegationRelays,
                                              relayPropagateOut, submitTx, submitTxRaw,
                                              submitUpdateProposal, submitVote, txRelays,
-                                             usRelays, worker)
+                                             usRelays, worker, MsgType (..), Origin (..),
+                                             immediateConcurrentConversations)
 import           Pos.Constants              (genesisBlockVersionData, genesisSlotDuration,
                                              isDevelopment)
 import           Pos.Core.Types             (Timestamp (..), mkCoin)
@@ -291,8 +292,7 @@ runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) CmdCtx{na}
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
           let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
-          for_ na $ \nodeId ->
-             dataFlow "pskLight" sendActions nodeId psk
+          dataFlow "pskLight" (immediateConcurrentConversations sendActions na) (MsgTransaction OriginSender) psk
    putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i delegatePk curEpoch) CmdCtx{na} = do
    issuerSk <- (!! i) <$> getSecretKeys
@@ -300,8 +300,7 @@ runCmd sendActions (DelegateHeavy i delegatePk curEpoch) CmdCtx{na} = do
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
           let psk = safeCreatePsk ss delegatePk curEpoch
-          for_ na $ \nodeId ->
-             dataFlow "pskHeavy" sendActions nodeId psk
+          dataFlow "pskHeavy" (immediateConcurrentConversations sendActions na) (MsgTransaction OriginSender) psk
    putText "Sent heavyweight cert"
 runCmd _ (AddKeyFromPool i) CmdCtx{..} = do
    let key = skeys !! i
@@ -365,14 +364,14 @@ initialize WalletOptions{..} = do
         then getPeersUntilSome
         else pure peers
 
-runWalletRepl :: MonadWallet ssc ctx m => WalletOptions -> Worker' m
+runWalletRepl :: MonadWallet ssc ctx m => WalletOptions -> Worker m
 runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
     let keysPool = if isDevelopment then genesisDevSecretKeys else []
     evalCmd sa Help (CmdCtx keysPool na)
 
-runWalletCmd :: MonadWallet ssc ctx m => WalletOptions -> Text -> Worker' m
+runWalletCmd :: MonadWallet ssc ctx m => WalletOptions -> Text -> Worker m
 runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str

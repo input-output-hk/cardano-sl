@@ -14,7 +14,7 @@ import           Universum
 import           Control.Lens                (ix)
 import qualified Data.List.NonEmpty          as NE
 import           Formatting                  (bprint, build, fixed, sformat, shown, (%))
-import           Mockable                    (concurrently, delay, fork)
+import           Mockable                    (concurrently, delay)
 import           Serokell.Util               (listJson, pairF, sec)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
@@ -25,7 +25,7 @@ import           Pos.Block.Logic             (calcChainQualityM,
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog              (slogGetLastSlots)
-import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
+import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker, WorkerSpec,
                                               onNewSlotWorker)
 import           Pos.Constants               (blkSecurityParam, criticalCQ,
                                               criticalCQBootstrap, networkDiameter,
@@ -185,7 +185,7 @@ onNewSlotWhenLeader
     :: WorkMode ssc ctx m
     => SlotId
     -> ProxySKBlockInfo
-    -> Worker' m
+    -> Worker m
 onNewSlotWhenLeader slotId pske sendActions = do
     let logReason =
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
@@ -215,7 +215,7 @@ onNewSlotWhenLeader slotId pske sendActions = do
             logInfoS $
                 sformat ("Created a new block:\n" %build) createdBlk
             jsonLog $ jlCreatedBlock (Right createdBlk)
-            void $ fork $ announceBlock sendActions $ createdBlk ^. gbHeader
+            void $ announceBlock (enqueueMsg sendActions) $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
 
 ----------------------------------------------------------------------------
@@ -300,7 +300,7 @@ queryBlocksWorker = worker requestTipOuts $ \sendActions -> do
             let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
             recoveryCommGuard $ do
                 logInfo "Querying blocks from behind NAT"
-                triggerRecovery sendActions
+                triggerRecovery (enqueueMsg sendActions)
             delay $ delayInterval
         handler (e :: SomeException) = do
             logWarning $ "Exception arised in queryBlocksWorker: " <> show e

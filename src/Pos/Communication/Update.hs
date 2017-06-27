@@ -7,11 +7,10 @@ module Pos.Communication.Update
 
 import           Universum
 
-import           Mockable                   (forConcurrently)
-
 import           Pos.Binary                 ()
 import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
-import           Pos.Communication.Protocol (NodeId, SendActions)
+import           Pos.Communication.Protocol (NodeId, SendActions,
+                                             immediateConcurrentConversations)
 import           Pos.Crypto                 (SafeSigner, SignTag (SignUSVote), hash,
                                              safeSign, safeToPublic)
 import           Pos.DB.Class               (MonadGState)
@@ -26,8 +25,7 @@ submitVote
     -> UpdateVote
     -> m ()
 submitVote sendActions na voteUpd = do
-    void $ forConcurrently na $
-        \addr -> sendVote sendActions addr voteUpd
+    sendVote (immediateConcurrentConversations sendActions na) voteUpd
 
 -- | Send UpdateProposal with one positive vote to given addresses
 submitUpdateProposal
@@ -45,5 +43,4 @@ submitUpdateProposal sendActions ss na prop = do
             , uvDecision   = True
             , uvSignature  = safeSign SignUSVote ss (upid, True)
             }
-    void $ forConcurrently na $
-        \addr -> sendUpdateProposal sendActions addr upid prop [initUpdVote]
+    sendUpdateProposal (immediateConcurrentConversations sendActions na) upid prop [initUpdVote]

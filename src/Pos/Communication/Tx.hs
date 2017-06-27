@@ -10,7 +10,7 @@ module Pos.Communication.Tx
        ) where
 
 import           Formatting                 (build, sformat, (%))
-import           Mockable                   (MonadMockable, mapConcurrently)
+import           Mockable                   (MonadMockable)
 import           System.Wlog                (logInfo)
 import           Universum
 
@@ -20,7 +20,8 @@ import           Pos.Client.Txp.History     (MonadTxHistory (..))
 import           Pos.Client.Txp.Util        (TxError (..), createMTx, createRedemptionTx,
                                              createTx)
 import           Pos.Communication.Methods  (sendTx)
-import           Pos.Communication.Protocol (NodeId, OutSpecs, SendActions)
+import           Pos.Communication.Protocol (NodeId, OutSpecs, SendActions,
+                                             immediateConcurrentConversations)
 import           Pos.Communication.Specs    (createOutSpecs)
 import           Pos.Communication.Types    (InvOrDataTK)
 import           Pos.Crypto                 (RedeemSecretKey, SafeSigner, hash,
@@ -112,7 +113,7 @@ submitTxRaw sa na txAux@TxAux {..} = do
     let txId = hash taTx
     logInfo $ sformat ("Submitting transaction: "%txaF) txAux
     logInfo $ sformat ("Transaction id: "%build) txId
-    void $ mapConcurrently (flip (sendTx sa) txAux) na
+    sendTx (immediateConcurrentConversations sa na) txAux
 
 sendTxOuts :: OutSpecs
 sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))

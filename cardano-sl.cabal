@@ -389,6 +389,7 @@ library
                       , mtl
                       , neat-interpolation
                       , network-info >= 0.2.0.8
+                      , network-transport
                       , network-transport-tcp
                       , node-sketch >= 0.1.0.0
                       , optparse-applicative

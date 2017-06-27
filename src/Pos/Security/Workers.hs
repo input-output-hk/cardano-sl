@@ -20,7 +20,7 @@ import           Pos.Block.Core             (Block, BlockHeader, MainBlock,
                                              mainBlockSscPayload)
 import           Pos.Block.Logic            (needRecovery)
 import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
-import           Pos.Communication.Protocol (OutSpecs, SendActions, WorkerSpec,
+import           Pos.Communication.Protocol (OutSpecs, SendActions (..), WorkerSpec,
                                              localWorker, worker)
 import           Pos.Constants              (blkSecurityParam, genesisHash,
                                              mdNoBlocksSlotThreshold,
@@ -108,7 +108,7 @@ checkForReceivedBlocksWorkerImpl
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     repeatOnInterval (const (sec' 4)) . reportingFatal . recoveryCommGuard $
-        whenM (needRecovery @ssc) $ triggerRecovery sendActions
+        whenM (needRecovery @ssc) $ triggerRecovery (enqueueMsg sendActions)
     repeatOnInterval (min (sec' 20)) . reportingFatal . recoveryCommGuard $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do

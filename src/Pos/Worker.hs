@@ -6,7 +6,6 @@
 
 module Pos.Worker
        ( allWorkers
-       , allWorkersCount
        ) where
 
 import           Universum
@@ -14,31 +13,34 @@ import           Universum
 import           Data.Tagged          (untag)
 
 import           Pos.Block.Worker     (blkWorkers)
-import           Pos.Communication    (OutSpecs, WorkerSpec, localWorker, relayWorkers,
-                                       wrapActionSpec)
+import           Pos.Communication    (OutSpecs, WorkerSpec, localWorker,
+                                       wrapActionSpec, Relay,
+                                       relayPropagateOut)
 import           Pos.Context          (NodeContext (..), recoveryCommGuard)
 import           Pos.Delegation       (delegationRelays, dlgWorkers)
 import           Pos.Discovery        (discoveryWorkers)
+import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.Worker       (lrcOnNewSlotWorker)
 import           Pos.Security.Workers (SecurityWorkersClass, securityWorkers)
 import           Pos.Slotting         (logNewSlotWorker, slottingWorkers)
-import           Pos.Ssc.Class        (SscConstraint, SscListenersClass (sscRelays),
+import           Pos.Ssc.Class        (SscListenersClass (sscRelays),
                                        SscWorkersClass (sscWorkers))
 import           Pos.Txp              (txRelays)
 import           Pos.Txp.Worker       (txpWorkers)
 import           Pos.Update           (usRelays, usWorkers)
 import           Pos.Util             (mconcatPair)
-import           Pos.WorkMode         (RealMode, RealModeContext, WorkMode)
+import           Pos.WorkMode         (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
-    :: ( SscListenersClass ssc
+    :: forall ssc ctx m .
+       ( SscListenersClass ssc
        , SscWorkersClass ssc
        , SecurityWorkersClass ssc
        , WorkMode ssc ctx m
        )
-    => NodeContext ssc  -> ([WorkerSpec m], OutSpecs)
-allWorkers NodeContext {..} = mconcatPair
+    => NodeResources ssc m -> ([WorkerSpec m], OutSpecs)
+allWorkers NodeResources {..} = mconcatPair
     [
       -- Only workers of "onNewSlot" type
       -- I have no idea what this ↑ comment means (@gromak).
@@ -55,22 +57,15 @@ allWorkers NodeContext {..} = mconcatPair
     , wrap' "txp"        $ txpWorkers
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
-    , wrap' "relay"      $ relayWorkers $ mconcat
-        [delegationRelays, untag sscRelays, txRelays, usRelays]
+
+      -- MAGIC "relay" out specs.
+      -- There's no cardano-sl worker for them; they're put out by the outbound
+      -- queue system from time-warp (enqueueConversation on SendActions).
+    , ([], relayPropagateOut (mconcat [delegationRelays, untag sscRelays, txRelays, usRelays] :: [Relay m]))
     ]
   where
+    NodeContext {..} = nrContext
     properSlottingWorkers =
        fst (localWorker (recoveryCommGuard logNewSlotWorker)) :
        map (fst . localWorker) (slottingWorkers ncSlottingContext)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
-
--- FIXME this shouldn't be needed.
--- FIXME 'RealMode' is hardcoded, maybe it's bad, this mechanism seems
--- to be fundamentally broken.
-allWorkersCount
-    :: forall ssc.
-       ( SscConstraint ssc
-       , SecurityWorkersClass ssc
-       )
-    => NodeContext ssc -> Int
-allWorkersCount = length . fst . (allWorkers @ssc @(RealModeContext ssc) @(RealMode ssc))

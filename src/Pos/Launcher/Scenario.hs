@@ -25,9 +25,10 @@ import           System.Wlog         (WithLogger, getLoggerName, logError, logIn
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
                                       wrapActionSpec)
 import qualified Pos.Constants       as Const
-import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..), NodeContext,
+import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..),
                                       getOurPubKeyAddress, getOurPublicKey)
 import qualified Pos.GState          as GS
+import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourSilent)
 import           Pos.Security        (SecurityWorkersClass)
@@ -38,7 +39,7 @@ import           Pos.Types           (addressHash)
 import           Pos.Util            (inAssertMode)
 import           Pos.Util.LogSafe    (logInfoS)
 import           Pos.Util.UserSecret (HasUserSecret (..))
-import           Pos.Worker          (allWorkers, allWorkersCount)
+import           Pos.Worker          (allWorkers)
 import           Pos.WorkMode.Class  (WorkMode)
 
 -- | Entry point of full node.
@@ -52,8 +53,9 @@ runNode'
        , HasUserSecret ctx
        )
     => [WorkerSpec m]
+    -> [WorkerSpec m]
     -> WorkerSpec m
-runNode' plugins' = ActionSpec $ \vI sendActions -> do
+runNode' workers' plugins' = ActionSpec $ \vI sendActions -> do
 
     logInfo $ "cardano-sl, commit " <> $(gitHash) <> " @ " <> $(gitBranch)
     nodeStartMsg
@@ -77,12 +79,12 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     waitSystemStart
     let unpackPlugin (ActionSpec action) =
             action vI sendActions `catch` reportHandler
+    mapM_ (fork . unpackPlugin) workers'
     mapM_ (fork . unpackPlugin) plugins'
 
-    nc <- view nodeContext
-
     -- Instead of sleeping forever, we wait until graceful shutdown
-    waitForWorkers (allWorkersCount @ssc nc)
+    -- TBD why don't we also wait for the plugins?
+    waitForWorkers (length workers')
     exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?
@@ -104,13 +106,13 @@ runNode ::
        , HasNodeContext ssc ctx
        , HasUserSecret ctx
        )
-    => NodeContext ssc
+    => NodeResources ssc m
     -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
-runNode nc (plugins, plOuts) =
-    (, plOuts <> wOuts) $ runNode' $ workers' ++ plugins'
+runNode nr (plugins, plOuts) =
+    (, plOuts <> wOuts) $ runNode' workers' plugins'
   where
-    (workers', wOuts) = allWorkers nc
+    (workers', wOuts) = allWorkers nr
     plugins' = map (wrapActionSpec "plugin") plugins
 
 -- | This function prints a very useful message when node is started.

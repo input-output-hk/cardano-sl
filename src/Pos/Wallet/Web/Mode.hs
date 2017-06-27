@@ -78,7 +78,7 @@ import           Pos.Wallet.Web.State.State    (WalletState)
 import           Pos.Wallet.Web.Tracking       (MonadWalletTracking (..),
                                                 syncWalletOnImportWebWallet,
                                                 txMempoolToModifierWebWallet)
-import           Pos.WorkMode                  (RealModeContext)
+import           Pos.WorkMode                  (RealModeContext (..))
 
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState

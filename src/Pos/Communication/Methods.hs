@@ -1,5 +1,7 @@
 -- | Wrappers on top of communication methods
 
+{-# LANGUAGE RankNTypes #-}
+
 module Pos.Communication.Methods
        ( sendTx
        , sendVote
@@ -14,7 +16,7 @@ import           Pos.Binary.Communication   ()
 import           Pos.Binary.Core            ()
 import           Pos.Binary.Relay           ()
 import           Pos.Communication.Message  ()
-import           Pos.Communication.Protocol (NodeId, SendActions)
+import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..))
 import           Pos.Communication.Relay    (invReqDataFlowTK)
 import           Pos.Crypto                 (hash, hashHexF)
 import           Pos.DB.Class               (MonadGState)
@@ -24,39 +26,43 @@ import           Pos.Update                 (UpId, UpdateProposal, UpdateVote, m
 import           Pos.WorkMode.Class         (MinWorkMode)
 
 
--- | Send Tx to given address.
+-- | Send Tx to given addresses.
 sendTx
     :: (MinWorkMode m, MonadGState m)
-    => SendActions m -> NodeId -> TxAux -> m ()
-sendTx sendActions addr txAux =
+    => EnqueueMsg m -> TxAux -> m ()
+sendTx enqueue txAux =
     invReqDataFlowTK
         "tx"
-        sendActions
-        addr
+        enqueue
+        (MsgTransaction OriginSender)
         (hash $ taTx txAux)
         (TxMsgContents txAux)
 
--- Send UpdateVote to given address.
+-- Send UpdateVote to given addresses.
 sendVote
     :: (MinWorkMode m, MonadGState m)
-    => SendActions m -> NodeId -> UpdateVote -> m ()
-sendVote sendActions addr vote =
-    invReqDataFlowTK "UpdateVote" sendActions addr (mkVoteId vote) vote
+    => EnqueueMsg m -> UpdateVote -> m ()
+sendVote enqueue vote =
+    invReqDataFlowTK
+        "UpdateVote"
+        enqueue
+        (MsgMPC OriginSender)
+        (mkVoteId vote)
+        vote
 
 -- Send UpdateProposal to given address.
 sendUpdateProposal
     :: (MinWorkMode m, MonadGState m)
-    => SendActions m
-    -> NodeId
+    => EnqueueMsg m
     -> UpId
     -> UpdateProposal
     -> [UpdateVote]
     -> m ()
-sendUpdateProposal sendActions addr upid proposal votes = do
+sendUpdateProposal enqueue upid proposal votes = do
     logInfo $ sformat ("Announcing proposal with id "%hashHexF) upid
     invReqDataFlowTK
         "UpdateProposal"
-        sendActions
-        addr
+        enqueue
+        (MsgMPC OriginSender)
         upid
         (proposal, votes)

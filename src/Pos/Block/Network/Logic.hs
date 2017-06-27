@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes          #-}
 
 -- | Network-related logic that's mostly methods and dialogs between
 -- nodes. Also see "Pos.Block.Network.Retrieval" for retrieval worker
@@ -31,7 +32,6 @@ import qualified Data.Text.Buildable        as B
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (bprint, build, builder, sformat, shown,
                                              stext, (%))
-import           Mockable                   (fork)
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatFirstError)
@@ -55,8 +55,9 @@ import           Pos.Block.RetrievalQueue   (BlockRetrievalQueue, BlockRetrieval
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             NodeId, OutSpecs, SendActions (..), convH,
-                                             toOutSpecs)
+                                             NodeId, OutSpecs, EnqueueMsg, convH,
+                                             toOutSpecs, waitForConversations,
+                                             MsgType (..))
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
                                              recoveryCommGuard, recoveryInProgress)
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, gbHeader,
@@ -64,7 +65,6 @@ import           Pos.Core                   (HasHeaderHash (..), HeaderHash, gbH
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
-import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
 import           Pos.Reporting.Methods      (reportMisbehaviourSilent)
@@ -111,10 +111,10 @@ instance Exception BlockNetLogicException where
 -- and until we're finished we shouldn't be asking for new blocks.
 triggerRecovery :: forall ssc ctx m.
     (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => SendActions m -> m ()
-triggerRecovery sendActions = unlessM recoveryInProgress $ do
+    => EnqueueMsg m -> m ()
+triggerRecovery enqueue = unlessM recoveryInProgress $ do
     logDebug "Recovery triggered, requesting tips from neighbors"
-    converseToNeighbors sendActions (pure . Conversation . requestTip) `catch`
+    void (enqueue MsgRequestBlockHeaders (\addr _ -> pure (Conversation (requestTip addr))) >>= waitForConversations) `catch`
         \(e :: SomeException) -> do
            logDebug ("Error happened in triggerRecovery: " <> show e)
            throwM e
@@ -408,15 +408,15 @@ handleBlocks
        (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NodeId
     -> OldestFirst NE (Block ssc)
-    -> SendActions m
+    -> EnqueueMsg m
     -> m ()
-handleBlocks nodeId blocks sendActions = do
+handleBlocks nodeId blocks enqueue = do
     logDebug "handleBlocks: processing"
     inAssertMode $
         logInfo $
             sformat ("Processing sequence of blocks: " %listJson % "...") $
                     fmap headerHash blocks
-    maybe onNoLca (handleBlocksWithLca nodeId sendActions blocks) =<<
+    maybe onNoLca (handleBlocksWithLca nodeId enqueue blocks) =<<
         lcaWithMainChain (map (view blockHeader) blocks)
     inAssertMode $ logDebug $ "Finished processing sequence of blocks"
   where
@@ -428,16 +428,16 @@ handleBlocksWithLca
     :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NodeId
-    -> SendActions m
+    -> EnqueueMsg m
     -> OldestFirst NE (Block ssc)
     -> HeaderHash
     -> m ()
-handleBlocksWithLca nodeId sendActions blocks lcaHash = do
+handleBlocksWithLca nodeId enqueue blocks lcaHash = do
     logDebug $ sformat lcaFmt lcaHash
     -- Head blund in result is the youngest one.
     toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
-    maybe (applyWithoutRollback sendActions blocks)
-          (applyWithRollback nodeId sendActions blocks lcaHash)
+    maybe (applyWithoutRollback enqueue blocks)
+          (applyWithRollback nodeId enqueue blocks lcaHash)
           (_Wrapped nonEmpty toRollback)
   where
     lcaFmt = "Handling block w/ LCA, which is "%shortHashF
@@ -445,10 +445,10 @@ handleBlocksWithLca nodeId sendActions blocks lcaHash = do
 applyWithoutRollback
     :: forall ssc ctx m.
        (WorkMode ssc ctx m, SscWorkersClass ssc)
-    => SendActions m
+    => EnqueueMsg m
     -> OldestFirst NE (Block ssc)
     -> m ()
-applyWithoutRollback sendActions blocks = do
+applyWithoutRollback enqueue blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
         fmap (view blockHeader) blocks
     withBlkSemaphore applyWithoutRollbackDo >>= \case
@@ -468,7 +468,7 @@ applyWithoutRollback sendActions blocks = do
                     & map (view blockHeader)
                 applied = NE.fromList $
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
-            relayBlock sendActions toRelay
+            relayBlock enqueue toRelay
             logInfo $ blocksAppliedMsg applied
             for_ blocks $ jsonLog . jlAdoptedBlock
   where
@@ -486,12 +486,12 @@ applyWithRollback
     :: forall ssc ctx m.
        (WorkMode ssc ctx m, SscWorkersClass ssc)
     => NodeId
-    -> SendActions m
+    -> EnqueueMsg m
     -> OldestFirst NE (Block ssc)
     -> HeaderHash
     -> NewestFirst NE (Blund ssc)
     -> m ()
-applyWithRollback nodeId sendActions toApply lca toRollback = do
+applyWithRollback nodeId enqueue toApply lca toRollback = do
     logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
         (map (view blockHeader) toApply)
     logInfo $ sformat ("Blocks to rollback "%listJson) toRollbackHashes
@@ -508,7 +508,7 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
             logInfo $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo $ blocksAppliedMsg (getOldestFirst toApply)
             for_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
-            relayBlock sendActions $ toApply ^. _Wrapped . _neLast
+            relayBlock enqueue $ toApply ^. _Wrapped . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback
     toApplyHashes = fmap headerHash toApply
@@ -532,14 +532,14 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
 relayBlock
     :: forall ssc ctx m.
        (WorkMode ssc ctx m)
-    => SendActions m -> Block ssc -> m ()
+    => EnqueueMsg m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
-relayBlock sendActions (Right mainBlk) = do
+relayBlock enqueue (Right mainBlk) = do
     recoveryInProgress >>= \case
         True -> logDebug "Not relaying block in recovery mode"
         False -> do
             logDebug $ sformat ("Calling announceBlock for "%build%".") (mainBlk ^. gbHeader)
-            void $ fork $ announceBlock sendActions $ mainBlk ^. gbHeader
+            void $ announceBlock enqueue $ mainBlk ^. gbHeader
 
 ----------------------------------------------------------------------------
 -- Common logging / logic sink points

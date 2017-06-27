@@ -17,11 +17,11 @@ import           Ether.Internal          (HasLens (..))
 import qualified Network.Transport.TCP   as TCP
 import           System.Wlog             (LoggerName)
 
-import           Pos.Communication.Relay (HasPropagationFlag (..))
 import           Pos.Communication.Types (NodeId)
 import           Pos.Core                (HasPrimaryKey (..), Timestamp)
 import           Pos.Crypto              (SecretKey)
 import           Pos.DHT.Real            (KademliaParams)
+import           Pos.Network.Types       (NetworkConfig)
 import           Pos.Reporting.MemState  (HasReportServers (..))
 import           Pos.Security.Params     (SecurityParams)
 import           Pos.Statistics          (EkgParams, StatsdParams)
@@ -72,6 +72,7 @@ data NodeParams = NodeParams
     , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
+    , npNetworkConfig  :: !NetworkConfig
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams
@@ -87,9 +88,6 @@ instance HasLens GenesisUtxo NodeParams GenesisUtxo where
 
 instance HasReportServers NodeParams where
     reportServers = npReportServers_L
-
-instance HasPropagationFlag NodeParams where
-    propagationFlag = npPropagation_L
 
 instance HasPrimaryKey NodeParams where
     primaryKey = npSecretKey_L

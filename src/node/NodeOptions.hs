@@ -19,6 +19,7 @@ import           Options.Applicative.Simple   (Parser, auto, execParser, footerD
 import           Prelude                      (show)
 import           Serokell.Util.OptParse       (fromParsec)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
+import qualified Text.Parsec.Char             as P
 import           Universum                    hiding (show)
 
 import           Paths_cardano_sl             (version)
@@ -28,11 +29,12 @@ import           Pos.DHT.Model                (DHTKey)
 import           Pos.DHT.Real.CLI             (dhtExplicitInitialOption, dhtKeyOption,
                                                dhtNetworkAddressOption,
                                                dhtPeersFileOption)
+import           Pos.Network.Types            (NodeType (..), NodeId)
 import           Pos.Security                 (AttackTarget, AttackType)
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
-import           Pos.Util.TimeWarp            (NetworkAddress, addrParser)
+import           Pos.Util.TimeWarp            (addressToNodeId, NetworkAddress, addrParser)
 
 data Args = Args
     { dbPath                    :: !FilePath
@@ -51,11 +53,15 @@ data Args = Args
     , dhtNetworkAddress         :: !NetworkAddress
     , dhtKey                    :: !(Maybe DHTKey)
       -- ^ The Kademlia key to use. Randomly generated if Nothing is given.
-    , dhtPeersList              :: ![NetworkAddress]
-      -- ^ A list of initial Kademlia peers to useA.
-    , dhtPeersFile              :: !(Maybe FilePath)
-      -- ^ A file containing a list of Kademlia peers to use.
     , dhtExplicitInitial        :: !Bool
+    , dhtPeers                  :: ![NetworkAddress]
+      -- ^ Addresses of known Kademlia peers.
+    , nodeType                  :: !NodeType
+    , peers                     :: ![(NodeId, NodeType)]
+      -- ^ Known peers (addresses with classification).
+    , peersFile                 :: !(Maybe FilePath)
+      -- ^ A file containing a list of peers to use to supplement the ones
+      -- given directly on command line.
     , jlPath                    :: !(Maybe FilePath)
     , maliciousEmulationAttacks :: ![AttackType]
     , maliciousEmulationTargets :: ![AttackTarget]
@@ -127,9 +133,11 @@ argsParser = do
         help "Launch DHT supporter instead of full node"
     dhtNetworkAddress <- dhtNetworkAddressOption (Just ("0.0.0.0", 0))
     dhtKey <- optional dhtKeyOption
-    dhtPeersList <- many addrNodeOption
-    dhtPeersFile <- optional dhtPeersFileOption
+    dhtPeers <- many dhtPeerOption
     dhtExplicitInitial <- dhtExplicitInitialOption
+    nodeType <- nodeTypeOption
+    peers <- (++) <$> corePeersList <*> relayPeersList
+    peersFile <- optional dhtPeersFileOption
     jlPath <-
         CLI.optionalJSONPath
     maliciousEmulationAttacks <-
@@ -214,9 +222,32 @@ argsParser = do
     statsdParams <- optional statsdParamsOption
 
     pure Args{..}
+  where
+    corePeersList = many (peerOption "peer-core" (flip (,) NodeCore . addressToNodeId))
+    relayPeersList = many (peerOption "peer-relay" (flip (,) NodeRelay . addressToNodeId))
 
-addrNodeOption :: Parser NetworkAddress
-addrNodeOption =
+nodeTypeOption :: Parser NodeType
+nodeTypeOption =
+    option (fromParsec nodeTypeParser) $
+        long "node-type" <>
+        value NodeCore <>
+        metavar "core|relay|edge" <>
+        help "The type of this node (core, relay, edge), default core"
+  where
+    nodeTypeParser =
+            (NodeCore  <$ P.string "core")
+        <|> (NodeRelay <$ P.string "relay")
+        <|> (NodeEdge  <$ P.string "edge")
+
+peerOption :: String -> (NetworkAddress -> (NodeId, NodeType)) -> Parser (NodeId, NodeType)
+peerOption longName mk =
+    option (fromParsec (mk <$> addrParser)) $
+        long longName <>
+        metavar "HOST:PORT" <>
+        help "Address of a peer"
+
+dhtPeerOption :: Parser NetworkAddress
+dhtPeerOption =
     option (fromParsec addrParser) $
         long "kademlia-peer" <>
         metavar "HOST:PORT" <>

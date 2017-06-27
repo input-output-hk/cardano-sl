@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes          #-}
 
 -- | Server which deals with blocks processing.
 
@@ -12,6 +13,7 @@ import           Control.Lens               (_Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM          (retry)
 import           Data.List.NonEmpty         ((<|))
+import qualified Data.Set                   as S
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, builder, int, sformat, shown, stext,
                                              (%))
@@ -34,7 +36,9 @@ import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              NodeId, OutSpecs, SendActions (..),
-                                             WorkerSpec, convH, toOutSpecs, worker)
+                                             EnqueueMsg, waitForConversations,
+                                             WorkerSpec, convH, toOutSpecs, worker,
+                                             MsgType (..))
 import           Pos.Context                (BlockRetrievalQueueTag, ProgressHeaderTag,
                                              RecoveryHeaderTag)
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
@@ -80,6 +84,8 @@ retrievalWorkerImpl sendActions =
         logDebug "Starting retrievalWorker loop"
         mainLoop
   where
+    enqueue :: EnqueueMsg m
+    enqueue = enqueueMsg sendActions
     mainLoop = runIfNotShutdown $ reportingFatal $ do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
@@ -107,7 +113,7 @@ retrievalWorkerImpl sendActions =
             brtHeader
     handleContinues nodeId header = do
         endedRecoveryVar <- newEmptyMVar
-        processContHeader sendActions endedRecoveryVar nodeId header
+        processContHeader enqueue endedRecoveryVar nodeId header
     handleAlternative nodeId header = do
         mhrr <- mkHeadersRequest (headerHash header)
         case mhrr of
@@ -121,9 +127,9 @@ retrievalWorkerImpl sendActions =
         endedRecoveryVar <- newEmptyMVar
         let cont (headers :: NewestFirst NE (BlockHeader ssc)) =
                 let firstHeader = headers ^. _Wrapped . _neLast
-                in handleCHsValid sendActions endedRecoveryVar nodeId
+                in handleCHsValid enqueue endedRecoveryVar nodeId
                                   firstHeader (headerHash header)
-        withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $ \conv ->
+        void $ enqueue (MsgRequestBlock (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $ \conv ->
             requestHeaders cont mgh nodeId conv
                 `finally` void (tryPutMVar endedRecoveryVar False)
         -- Block until the conversation has ended.
@@ -134,7 +140,7 @@ retrievalWorkerImpl sendActions =
             ("Error handling nodeId="%build%", header="%build%": "%shown)
             nodeId (headerHash header) e
         dropUpdateHeader
-        dropRecoveryHeaderAndRepeat sendActions nodeId
+        dropRecoveryHeaderAndRepeat enqueue nodeId
 
     handleHeadersRecovery nodeId rHeader = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
@@ -235,15 +241,15 @@ dropRecoveryHeader nodeId = do
 
 dropRecoveryHeaderAndRepeat
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => SendActions m -> NodeId -> m ()
-dropRecoveryHeaderAndRepeat sendActions nodeId = do
+    => EnqueueMsg m -> NodeId -> m ()
+dropRecoveryHeaderAndRepeat enqueue nodeId = do
     kicked <- dropRecoveryHeader nodeId
     when kicked $ attemptRestartRecovery
   where
     attemptRestartRecovery = do
         logInfo "Attempting to restart recovery"
         delay $ sec 2
-        handleAll handleRecoveryTriggerE $ triggerRecovery sendActions
+        handleAll handleRecoveryTriggerE $ triggerRecovery enqueue
         logDebug "Attempting to restart recovery over"
     handleRecoveryTriggerE e =
         logError $ "Exception happened while trying to trigger " <>
@@ -253,16 +259,16 @@ dropRecoveryHeaderAndRepeat sendActions nodeId = do
 -- now, it is discarded.
 processContHeader
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => SendActions m
+    => EnqueueMsg m
     -> MVar Bool
     -> NodeId
     -> BlockHeader ssc
     -> m ()
-processContHeader sendActions endedRecoveryVar nodeId header = do
+processContHeader enqueue endedRecoveryVar nodeId header = do
     classificationRes <- classifyNewHeader header
     case classificationRes of
         CHContinues ->
-            handleCHsValid sendActions endedRecoveryVar nodeId
+            handleCHsValid enqueue endedRecoveryVar nodeId
                            header (headerHash header)
         res -> logDebug $
             "processContHeader: expected header to " <>
@@ -271,16 +277,16 @@ processContHeader sendActions endedRecoveryVar nodeId header = do
 handleCHsValid
     :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => SendActions m
+    => EnqueueMsg m
     -> MVar Bool
     -> NodeId
     -> BlockHeader ssc
     -> HeaderHash
     -> m ()
-handleCHsValid sendActions endedRecoveryVar nodeId lcaChild newestHash = do
+handleCHsValid enqueue endedRecoveryVar nodeId lcaChild newestHash = do
     let lcaChildHash = headerHash lcaChild
     logDebug $ sformat validFormat lcaChildHash newestHash
-    withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
+    its <- enqueue (MsgRequestBlock (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $
       \(conv :: ConversationActions MsgGetBlocks (MsgBlock ssc) m) -> do
         send conv $ mkBlocksRequest lcaChildHash newestHash
         chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
@@ -291,13 +297,13 @@ handleCHsValid sendActions endedRecoveryVar nodeId lcaChild newestHash = do
                     ("Error retrieving blocks from "%shortHashF%
                      " to "%shortHashF%" from peer "%build%": "%stext)
                     lcaChildHash newestHash nodeId e
-                dropRecoveryHeaderAndRepeat sendActions nodeId
+                dropRecoveryHeaderAndRepeat enqueue nodeId
             Right blocks -> do
                 logDebug $ sformat
                     ("retrievalWorker: retrieved blocks of size "%builder%": "%listJson)
                     (unitBuilder $ biSize blocks)
                     (map (headerHash . view blockHeader) blocks)
-                handleBlocks nodeId blocks sendActions
+                handleBlocks nodeId blocks enqueue
                 dropUpdateHeader
                 -- If we've downloaded any block with bigger
                 -- difficulty than ncrecoveryheader, we're
@@ -312,6 +318,7 @@ handleCHsValid sendActions endedRecoveryVar nodeId lcaChild newestHash = do
                                 then isJust <$> tryTakeTMVar recHeaderVar
                                 else return False
                 void $ tryPutMVar endedRecoveryVar endedRecovery
+    void $ waitForConversations its
   where
     validFormat =
         "Requesting blocks from " %shortHashF % " to " %shortHashF

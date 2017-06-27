@@ -18,21 +18,21 @@ import           Pos.Communication.BiP       (BiP)
 import           Pos.Communication.Constants (networkWaitLogInterval)
 import           Pos.Communication.Protocol  (ActionSpec (..), Listener, Message (..),
                                               MessageName (..), PeerData, mapActionSpec,
-                                              mapListener, mapListener')
+                                              mapListener, mapListener',
+                                              SendActions (..), Conversation (..))
 import           Pos.Util.TimeLimit          (CanLogInParallel, logWarningWaitLinear)
 
 sendActionsWithWaitLog :: ( CanLogInParallel m )
-            => N.SendActions BiP PeerData m
-            -> N.SendActions BiP PeerData m
+            => SendActions m
+            -> SendActions m
 sendActionsWithWaitLog sendActions = sendActions
-    { N.withConnectionTo =
-        \nodeId mkConv ->
-          N.withConnectionTo sendActions nodeId $ \peerData ->
-              case mkConv peerData of
-                  N.Conversation l ->
-                      N.Conversation $ \cA ->
-                          l $ convWithWaitLog nodeId cA
+    { withConnectionTo = \nodeId mkConvs ->
+          withConnectionTo sendActions nodeId $ \peerData ->
+              fmap (introduceLog nodeId) (mkConvs peerData)
     }
+  where
+    introduceLog nodeId (Conversation l) = Conversation $ \cA ->
+        l $ convWithWaitLog nodeId cA
 
 convWithWaitLog
     :: (CanLogInParallel m, Message snd)
@@ -84,7 +84,7 @@ wrapListener lname =
     addWaitLogging .
     modifyLogger lname
   where
-    addWaitLogging = mapListener' sendActionsWithWaitLog convWithWaitLogL identity
+    addWaitLogging = mapListener' convWithWaitLogL identity
     modifyLogger _name = mapListener $ modifyLoggerName (<> lname)
 
 wrapActionSpec
@@ -108,7 +108,7 @@ wrapSendActions
      , MonadIO m
      , WithLogger m
      )
-  => N.SendActions BiP PeerData m
-  -> N.SendActions BiP PeerData m
+  => SendActions m
+  -> SendActions m
 wrapSendActions =
     sendActionsWithWaitLog

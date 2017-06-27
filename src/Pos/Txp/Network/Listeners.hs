@@ -16,6 +16,7 @@ import           Universum
 
 import           Pos.Binary.Communication  ()
 import           Pos.Binary.Relay          ()
+import           Pos.Communication.Types   (MsgType (..))
 import           Pos.Communication.Limits  ()
 import           Pos.Communication.Message ()
 import           Pos.Communication.Relay   (InvReqDataParams (..), MempoolParams (..),
@@ -38,10 +39,11 @@ txInvReqDataParams :: WorkMode ssc ctx m
     => InvReqDataParams (Tagged TxMsgContents TxId) TxMsgContents m
 txInvReqDataParams =
     InvReqDataParams
-       { contentsToKey = txContentsToKey
-       , handleInv = txHandleInv
-       , handleReq = txHandleReq
-       , handleData = txHandleData
+       { invReqMsgType = MsgTransaction
+       , contentsToKey = txContentsToKey
+       , handleInv = \_ -> txHandleInv
+       , handleReq = \_ -> txHandleReq
+       , handleData = \_ -> txHandleData
        }
   where
     txContentsToKey = pure . Tagged . hash . taTx . getTxMsgContents

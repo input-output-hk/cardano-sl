@@ -1,5 +1,7 @@
 -- | Server part.
 
+{-# LANGUAGE RankNTypes #-}
+
 module Pos.Communication.Server
        ( allListeners
        , serverLoggerName
@@ -16,7 +18,7 @@ import           System.Wlog                 (LoggerName)
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Network.Listeners (blockListeners)
-import           Pos.Communication.Protocol  (MkListeners (..))
+import           Pos.Communication.Protocol  (MkListeners (..), EnqueueMsg)
 import           Pos.Communication.Relay     (relayListeners)
 import           Pos.Communication.Util      (wrapListener)
 import           Pos.Delegation.Listeners    (delegationRelays)
@@ -28,13 +30,15 @@ import           Pos.WorkMode.Class          (WorkMode)
 -- | All listeners running on one node.
 allListeners
     :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc ctx m)
-    => MkListeners m
-allListeners = mconcat
+    => EnqueueMsg m -> MkListeners m
+allListeners enqueue = mconcat
+        -- TODO blockListeners should use 'enqueue' rather than its own
+        -- block retrieval queue, no?
         [ modifier "block"       $ blockListeners
-        , modifier "ssc"         $ relayListeners (untag sscRelays)
-        , modifier "tx"          $ relayListeners txRelays
-        , modifier "delegation"  $ relayListeners delegationRelays
-        , modifier "update"      $ relayListeners usRelays
+        , modifier "ssc"         $ relayListeners enqueue (untag sscRelays)
+        , modifier "tx"          $ relayListeners enqueue txRelays
+        , modifier "delegation"  $ relayListeners enqueue delegationRelays
+        , modifier "update"      $ relayListeners enqueue usRelays
         ]
   where
     modifier lname mkL = mkL { mkListeners = mkListeners' }

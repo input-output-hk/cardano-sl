@@ -7,7 +7,6 @@
 
 module Pos.Communication.Types.Protocol
        ( Action
-       , Action'
        , ActionSpec (..)
        , checkInSpecs
        , Conversation (..)
@@ -20,29 +19,42 @@ module Pos.Communication.Types.Protocol
        , ListenerSpec (..)
        , MkListeners (..)
        , notInSpecs
-       , NSendActions
        , N.ConversationActions (..)
-       , N.NodeId
+       , NodeId
        , OutSpecs (..)
        , PackingType
        , PeerId (..)
        , PeerData
+       , N.Converse (..)
        , SendActions (..)
+       , EnqueueMsg
+       , immediateConcurrentConversations
+       , enqueueMsg'
+       , waitForConversations
        , toOutSpecs
        , VerInfo (..)
        , Worker
-       , Worker'
        , WorkerSpec
+       , NodeType (..)
+       , MsgType (..)
+       , Origin (..)
+       , Msg
        ) where
 
 import           Data.Aeson                 (ToJSON (..), FromJSON (..), Value)
 import           Data.Aeson.Types           (Parser)
 import qualified Data.ByteString.Base64     as B64 (encode, decode)
+import qualified Data.Map                   as M
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.Text.Buildable        as B
 import qualified Data.Text.Encoding         as Text (encodeUtf8, decodeUtf8)
 import qualified Data.Text.Internal.Builder as B
 import           Formatting                 (bprint, build, hex, sformat, (%))
+-- TODO should not have to import outboundqueue stuff here. MsgType and
+-- NodeType should be a cardano-sl notion.
+import           Pos.Network.Types          (NodeType (..), MsgType (..), Origin (..), NodeId (..))
+import           Mockable.Class             (Mockable)
+import           Mockable.Concurrent        (Async, async, wait)
 import           Network.Transport          (EndPointAddress (..))
 import qualified Node                       as N
 import           Node.Message.Class         (Message (..), MessageName (..))
@@ -59,28 +71,73 @@ type PeerData = VerInfo
 
 type Listener = N.Listener PackingType PeerData
 type Worker m = Action m ()
-type Action m a = NSendActions m -> m a
-type Action' m a = SendActions m -> m a
-type Worker' m = Action' m ()
-type NSendActions = N.SendActions PackingType PeerData
+type Action m a = SendActions m -> m a
 newtype ActionSpec m a = ActionSpec (VerInfo -> Action m a)
 type WorkerSpec m = ActionSpec m ()
 
+type Msg = MsgType NodeId
+
 data SendActions m = SendActions {
-    -- | Establish a bi-direction conversation session with a node.
-    --
-    -- A NonEmpty of Conversations is given as a sort of multi-version
-    -- handling thing. The one to use is determined by trying to match
-    -- in- and out-specs using VerInfo of our node and the peer.
-    --
-    -- FIXME change this. Surely there is a more straightforward way.
-    -- Why use in- and out-specs at all? Why not just a version number?
-    withConnectionTo
-        :: forall t .
-        N.NodeId
-        -> (PeerData -> NonEmpty (Conversation m t))
-        -> m t
+      -- | Establish a bi-direction conversation session with a node.
+      --
+      -- A NonEmpty of Conversations is given as a sort of multi-version
+      -- handling thing. The one to use is determined by trying to match
+      -- in- and out-specs using VerInfo of our node and the peer.
+      --
+      -- FIXME change this. Surely there is a more straightforward way.
+      -- Why use in- and out-specs at all? Why not just a version number?
+      withConnectionTo
+          :: forall t .
+             NodeId
+          -> (PeerData -> NonEmpty (Conversation m t))
+          -> m t
+    , enqueueMsg
+          :: forall t .
+             Msg
+          -> (NodeId -> PeerData -> NonEmpty (Conversation m t))
+          -> m (Map NodeId (m t))
     }
+
+-- | An 'EnqueueMsg m' which concurrently converses with a list of nodes.
+-- This will spawn a conversation against each of them and then return.
+--
+-- You probably do not want to use this. Use 'enqueueMsg' instead.
+immediateConcurrentConversations
+    :: ( Applicative m, Mockable Async m )
+    => SendActions m
+    -> [NodeId]
+    -> EnqueueMsg m
+immediateConcurrentConversations sendActions peers _ k = do
+    lst <- forM peers $ \peer -> do
+        it <- async $ withConnectionTo sendActions peer $ \pd -> k peer pd
+        return (peer, wait it)
+    return $ M.fromList lst
+
+type EnqueueMsg m =
+       forall t .
+       Msg
+    -> (NodeId -> PeerData -> NonEmpty (Conversation m t))
+    -> m (Map NodeId (m t))
+
+-- | Enqueue a conversation with a bunch of peers and then wait for all of
+-- the results.
+enqueueMsg'
+    :: forall m t .
+       ( Monad m )
+    => SendActions m
+    -> Msg
+    -> (NodeId -> PeerData -> NonEmpty (Conversation m t))
+    -> m (Map NodeId t)
+enqueueMsg' sendActions msg k =
+    enqueueMsg sendActions msg k >>= waitForConversations
+
+-- | Wait for enqueued conversations to complete (useful in a bind with
+-- 'enqueueMsg').
+waitForConversations
+    :: ( Applicative m )
+    => Map NodeId (m t)
+    -> m (Map NodeId t)
+waitForConversations = sequenceA
 
 -- FIXME do not demand Message on rcv. That's only done for the benefit of
 -- this in- and out-spec motif. See TW-152.
@@ -96,8 +153,8 @@ newtype PeerId = PeerId ByteString
 instance ToJSON PeerId where
     toJSON (PeerId bs) = toJSONBS bs
 
-instance ToJSON N.NodeId where
-    toJSON (N.NodeId (EndPointAddress bs)) = toJSON (Text.decodeUtf8 (B64.encode bs))
+instance ToJSON NodeId where
+    toJSON (NodeId (EndPointAddress bs)) = toJSON (Text.decodeUtf8 (B64.encode bs))
 
 toJSONBS :: ByteString -> Value
 toJSONBS = toJSON . Text.decodeUtf8 . B64.encode
@@ -105,8 +162,8 @@ toJSONBS = toJSON . Text.decodeUtf8 . B64.encode
 instance FromJSON PeerId where
     parseJSON = fromJSONBS PeerId
 
-instance FromJSON N.NodeId where
-    parseJSON = fromJSONBS (N.NodeId . EndPointAddress)
+instance FromJSON NodeId where
+    parseJSON = fromJSONBS (NodeId . EndPointAddress)
 
 fromJSONBS :: (ByteString -> a) -> Value -> Parser a
 fromJSONBS f v = do
@@ -118,8 +175,8 @@ fromJSONBS f v = do
 instance Buildable PeerId where
     build (PeerId bs) = buildBS bs
 
-instance Buildable N.NodeId where
-    build (N.NodeId (EndPointAddress bs)) = buildBS bs
+instance Buildable NodeId where
+    build (NodeId (EndPointAddress bs)) = buildBS bs
 
 buildBS :: ByteString -> B.Builder
 buildBS = bprint base16F
@@ -183,7 +240,7 @@ data ListenerSpec m = ListenerSpec
 
 -- | The MessageName that the listener responds to.
 listenerMessageName :: forall m . Listener m -> MessageName
-listenerMessageName (N.ListenerActionConversation (_ :: PeerData -> N.NodeId -> N.ConversationActions snd rcv m -> m ())) =
+listenerMessageName (N.Listener (_ :: PeerData -> NodeId -> N.ConversationActions snd rcv m -> m ())) =
     messageName (Proxy @rcv)
 
 newtype InSpecs = InSpecs HandlerSpecs

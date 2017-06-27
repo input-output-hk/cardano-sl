@@ -6,7 +6,7 @@
   "scripts": {
     "start": "npm run server:dev",
     "postinstall": "bower cache clean && bower install",
-    "preinstall": "which purs || npm install purescript@0.11.5",
+    "preinstall": "which psc || which purs || npm install purescript@0.11.5",
     "clean:output": "./node_modules/.bin/rimraf output",
     "server:webpack": "./node_modules/.bin/webpack-dev-server --config webpack.config.babel.js --progress",
     "server:dev": "npm run clean:output && NODE_ENV=development npm run server:webpack",

@@ -11,7 +11,6 @@ module Pos.Reporting.MemState
        ) where
 
 import           Control.Lens             (makeLenses)
-import           EtherCompat
 import           System.Wlog.LoggerConfig (LoggerConfig)
 import           Universum
 

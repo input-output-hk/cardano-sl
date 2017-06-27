@@ -10,7 +10,6 @@ import           Data.Aeson                 (FromJSON (..), ToJSON (..), Value (
                                              object, withArray, withObject, (.:), (.=))
 import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.HashMap.Strict        as HM
-import qualified Data.Vector                as V
 import           Formatting                 (formatToString, stext, (%))
 import qualified Serokell.Util.Base64       as B64
 

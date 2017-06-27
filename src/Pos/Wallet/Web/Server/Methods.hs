@@ -66,14 +66,12 @@ import           Pos.Communication                (OutSpecs, SendActions, sendTx
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Core                         (Address (..), Coin, addressF,
-                                                   decodeTextAddress, makePubKeyAddress,
-                                                   makeRedeemAddress, mkCoin, sumCoins,
-                                                   unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin)
+                                                   decodeTextAddress, makeRedeemAddress,
+                                                   mkCoin, sumCoins, unsafeAddCoin,
+                                                   unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto                       (PassPhrase, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
-                                                   deriveAesKeyBS, emptyPassphrase,
-                                                   encToPublic, hash,
+                                                   deriveAesKeyBS, emptyPassphrase, hash,
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
@@ -1069,7 +1067,7 @@ restoreWalletFromBackup WalletBackup {..} = do
         accId <- genUniqueAccountId seedGen wId
         createAccount accId meta
 
-    selectAccountsFromUtxoLock @WalletSscType [wbSecretKey]
+    _ <- selectAccountsFromUtxoLock @WalletSscType [wbSecretKey]
     createWalletSafe wId wMeta
 
 restoreStateFromBackup :: WalletWebMode m => StateBackup -> m [CWallet]
@@ -1079,8 +1077,8 @@ restoreStateFromBackup (FullStateBackup walletBackups) =
 importStateJSON :: WalletWebMode m => Text -> m [CWallet]
 importStateJSON (toString -> fp) = do
     contents <- liftIO $ BSL.readFile fp
-    state <- either parseErr pure $ A.eitherDecode contents
-    restoreStateFromBackup state
+    wState <- either parseErr pure $ A.eitherDecode contents
+    restoreStateFromBackup wState
   where
     parseErr err = throwM . RequestError $
         sformat ("Error while reading JSON backup file: "%stext) $
@@ -1088,8 +1086,8 @@ importStateJSON (toString -> fp) = do
 
 exportStateJSON :: WalletWebMode m => Text -> m ()
 exportStateJSON (toString -> fp) = do
-    state <- getStateBackup
-    liftIO $ BSL.writeFile fp $ A.encode state
+    wState <- getStateBackup
+    liftIO $ BSL.writeFile fp $ A.encode wState
 
 ----------------------------------------------------------------------------
 -- Orphan instances

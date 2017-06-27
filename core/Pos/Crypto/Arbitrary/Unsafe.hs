@@ -2,9 +2,10 @@
 
 module Pos.Crypto.Arbitrary.Unsafe () where
 
+import           Universum
+
 import           Test.QuickCheck           (Arbitrary (..), choose)
 import           Test.QuickCheck.Instances ()
-import           Universum
 
 import           Pos.Binary.Class          (Bi)
 import qualified Pos.Binary.Class          as Bi
@@ -15,16 +16,16 @@ import           Pos.Crypto.SecretSharing  (VssKeyPair, VssPublicKey,
 import           Pos.Crypto.Signing        (PublicKey, SecretKey, Signature, Signed,
                                             mkSigned)
 import           Pos.Crypto.SignTag        (SignTag)
-import           Pos.Util.Arbitrary        (ArbitraryUnsafe (..), arbitrarySizedSL)
+import           Pos.Util.Arbitrary        (ArbitraryUnsafe (..), arbitrarySizedS)
 
 instance Bi PublicKey => ArbitraryUnsafe PublicKey where
-    arbitraryUnsafe = Bi.decode <$> arbitrarySizedSL 32
+    arbitraryUnsafe = Bi.decodeOrFail <$> arbitrarySizedS 32
 
 instance Bi SecretKey => ArbitraryUnsafe SecretKey where
-    arbitraryUnsafe = Bi.decode <$> arbitrarySizedSL 64
+    arbitraryUnsafe = Bi.decodeOrFail <$> arbitrarySizedS 64
 
 instance Bi (Signature a) => ArbitraryUnsafe (Signature a) where
-    arbitraryUnsafe = Bi.decode <$> arbitrarySizedSL 64
+    arbitraryUnsafe = Bi.decodeOrFail <$> arbitrarySizedS 64
 
 -- Generating invalid `Signed` objects doesn't make sense even in
 -- benchmarks

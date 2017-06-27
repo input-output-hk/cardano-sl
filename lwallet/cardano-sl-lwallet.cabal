@@ -108,6 +108,7 @@ executable cardano-wallet
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

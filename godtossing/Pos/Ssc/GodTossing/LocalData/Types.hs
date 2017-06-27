@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Pos.Ssc.GodTossing.LocalData.Types
        ( GtLocalData (..)
        , ldModifier

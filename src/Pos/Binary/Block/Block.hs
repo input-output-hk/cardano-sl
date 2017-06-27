@@ -4,14 +4,17 @@ module Pos.Binary.Block.Block
        (
        ) where
 
-import           Data.Binary.Get   (label)
-import           Universum
+import           Pos.Binary.Class      (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Binary.Core       ()
+import           Pos.Binary.Update     ()
+import           Pos.Block.Types       (Undo (..))
+import           Pos.Delegation.Types  (DlgUndo)
+import           Pos.Txp.Core.Types    (TxpUndo)
+import           Pos.Update.Poll.Types (USUndo)
 
-import           Pos.Binary.Class  (Bi (..))
-import           Pos.Binary.Core   ()
-import           Pos.Binary.Update ()
-import           Pos.Block.Types   (Undo (..))
-
-instance Bi Undo where
-    put (Undo txs psks usUndo) = put txs >> put psks >> put usUndo
-    get = label "Undo" $ Undo <$> get <*> get <*> get
+deriveSimpleBi ''Undo [
+    Cons 'Undo [
+        Field [| undoTx  :: TxpUndo |],
+        Field [| undoPsk :: DlgUndo |],
+        Field [| undoUS  :: USUndo  |]
+    ]]

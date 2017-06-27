@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Core types. TODO: we need to have a meeting, come up with project
 -- structure and follow it.

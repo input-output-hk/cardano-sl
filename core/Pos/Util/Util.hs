@@ -3,7 +3,6 @@
 {-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Util.Util

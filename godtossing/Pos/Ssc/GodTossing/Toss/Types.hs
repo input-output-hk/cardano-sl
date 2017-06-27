@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Types related to Toss.
 
 module Pos.Ssc.GodTossing.Toss.Types

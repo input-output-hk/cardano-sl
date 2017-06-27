@@ -32,7 +32,7 @@ import qualified Database.RocksDB    as Rocks
 import           Formatting          (bprint, sformat, stext, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi, encodeStrict)
+import           Pos.Binary.Class    (Bi, encode)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (HeaderHash)
 import           Pos.Crypto          (shortHashF)
@@ -110,7 +110,7 @@ instance Buildable CommonOp where
     build (PutTip h) = bprint ("PutTip ("%shortHashF%")") h
 
 instance RocksBatchOp CommonOp where
-    toBatchOp (PutTip h) = [Rocks.Put tipKey (encodeStrict h)]
+    toBatchOp (PutTip h) = [Rocks.Put tipKey (encode h)]
 
 ----------------------------------------------------------------------------
 -- Initialization

@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- Types related Poll update system
 
 module Pos.Update.Poll.PollState

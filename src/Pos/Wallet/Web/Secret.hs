@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Contains part of 'Pos.Util.UserSecret' related to wallets
 
 module Pos.Wallet.Web.Secret
@@ -17,7 +15,7 @@ import qualified Data.Text.Buildable
 import           Formatting          (Format, bprint, build, later, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi (..), label)
+import           Pos.Binary.Class    (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Crypto          (EncryptedSecretKey, encToPublic)
 import           Pos.Genesis         (accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Types           (addressF, makePubKeyAddress)
@@ -44,18 +42,13 @@ instance Buildable WalletUserSecret where
         pairsF :: (Buildable a, Buildable b) => Format r ([(a, b)] -> r)
         pairsF = later $ mconcat . map (uncurry $ bprint ("("%build%", "%build%")"))
 
-instance Bi WalletUserSecret where
-    put WalletUserSecret{..} = do
-        put _wusRootKey
-        put _wusWalletName
-        put _wusAccounts
-        put _wusAddrs
-    get = label "WalletUserSecret" $ do
-        _wusRootKey <- get
-        _wusWalletName <- get
-        _wusAccounts <- get
-        _wusAddrs <- get
-        return WalletUserSecret{..}
+deriveSimpleBi ''WalletUserSecret [
+    Cons 'WalletUserSecret [
+        Field [| _wusRootKey    :: EncryptedSecretKey |],
+        Field [| _wusWalletName :: Text               |],
+        Field [| _wusAccounts   :: [(Word32, Text)]   |],
+        Field [| _wusAddrs      :: [(Word32, Word32)] |]
+    ]]
 
 mkGenesisWalletUserSecret :: EncryptedSecretKey -> WalletUserSecret
 mkGenesisWalletUserSecret _wusRootKey = do

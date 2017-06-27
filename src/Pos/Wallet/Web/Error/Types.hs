@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Types describing runtime errors related to Wallet.
 
 module Pos.Wallet.Web.Error.Types

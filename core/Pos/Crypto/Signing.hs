@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Signing done with public/private keys.
 module Pos.Crypto.Signing
        (
@@ -44,7 +42,6 @@ import qualified Cardano.Crypto.Wallet  as CC
 -- import qualified Crypto.ECC.Edwards25519         as Ed25519
 import           Data.ByteArray         (ScrubbedBytes)
 import qualified Data.ByteString        as BS
-import qualified Data.ByteString.Lazy   as BSL
 import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
 import qualified Data.Text.Buildable    as B
@@ -114,9 +111,7 @@ shortPublicKeyHexF = fitLeft 8 %. fullPublicKeyHexF
 parseFullPublicKey :: (Bi PublicKey) => Text -> Maybe PublicKey
 parseFullPublicKey s = do
     b <- rightToMaybe $ Base64.decode s
-    (unconsumed, _, a) <- rightToMaybe $ Bi.decodeOrFail (BSL.fromStrict b)
-    guard $ BSL.null unconsumed
-    pure a
+    rightToMaybe $ Bi.decodeFull b
 
 emptyPass :: ScrubbedBytes
 emptyPass = mempty
@@ -165,7 +160,7 @@ sign
     -> SecretKey
     -> a
     -> Signature a
-sign t k = coerce . signRaw (Just t) k . Bi.encodeStrict
+sign t k = coerce . signRaw (Just t) k . Bi.encode
 
 -- | Sign a bytestring.
 signRaw
@@ -183,7 +178,7 @@ signRaw mbTag (SecretKey k) x = Signature (CC.sign emptyPass k (tag <> x))
 -- | Verify a signature.
 -- #verifyRaw
 checkSig :: Bi a => SignTag -> PublicKey -> a -> Signature a -> Bool
-checkSig t k x s = verifyRaw (Just t) k (Bi.encodeStrict x) (coerce s)
+checkSig t k x s = verifyRaw (Just t) k (Bi.encode x) (coerce s)
 
 -- CHECK: @verifyRaw
 -- | Verify raw 'ByteString'.
@@ -217,7 +212,7 @@ instance B.Buildable (ProxyCert w) where
 verifyProxyCert :: (Bi w) => PublicKey -> PublicKey -> w -> ProxyCert w -> Bool
 verifyProxyCert issuerPk (PublicKey delegatePk) o (ProxyCert sig) =
     checkSig SignProxySK issuerPk
-        (mconcat ["00", CC.unXPub delegatePk, Bi.encodeStrict o])
+        (mconcat ["00", CC.unXPub delegatePk, Bi.encode o])
         (Signature sig)
 
 -- | Convenient wrapper for secret key, that's basically ω plus
@@ -298,7 +293,7 @@ proxySign t sk@(SecretKey delegateSk) psk@ProxySecretKey{..} m
         mconcat
             -- it's safe to put the tag after issuerPk because `CC.unXPub
             -- issuerPk` always takes 64 bytes
-            ["01", CC.unXPub issuerPk, signTag t, Bi.encodeStrict m]
+            ["01", CC.unXPub issuerPk, signTag t, Bi.encode m]
 
 -- CHECK: @proxyVerify
 -- | Verify delegated signature given issuer's pk, signature, message
@@ -321,6 +316,6 @@ proxyVerify t ProxySignature{..} omegaPred m =
                  [ "01"
                  , CC.unXPub issuerPk
                  , signTag t
-                 , Bi.encodeStrict m
+                 , Bi.encode m
                  ])
             psigSig

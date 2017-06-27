@@ -11,12 +11,13 @@ module Pos.Util.BackupPhrase
        , safeKeysFromPhrase
        ) where
 
-import           Data.Text.Buildable (Buildable (..))
-import qualified Prelude
 import           Universum
 
+import           Data.Text.Buildable (Buildable (..))
+import qualified Prelude
+
 import           Crypto.Hash         (Blake2b_256)
-import           Pos.Binary          (Bi (..), encodeStrict, label)
+import           Pos.Binary          (Bi (..), encode, label, labelS, putField)
 import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhrase,
                                       SecretKey, VssKeyPair, deterministicKeyGen,
                                       deterministicVssKeyGen, safeDeterministicKeyGen,
@@ -30,7 +31,7 @@ newtype BackupPhrase = BackupPhrase
     } deriving (Eq, Generic)
 
 instance Bi BackupPhrase where
-    put BackupPhrase{..} = put bpToList
+    sizeNPut = labelS "BackupPhrase" $ putField bpToList
     get = label "BackupPhrase" $ BackupPhrase <$> get
 
 -- | Number of words in backup phrase
@@ -62,7 +63,7 @@ toSeed :: BackupPhrase -> Either Text ByteString
 toSeed = first toText . fromMnemonic . unwords . bpToList
 
 toHashSeed :: BackupPhrase -> Either Text ByteString
-toHashSeed bp = encodeStrict . blake2b <$> toSeed bp
+toHashSeed bp = encode . blake2b <$> toSeed bp
   where blake2b :: Bi a => a -> AbstractHash Blake2b_256 b
         blake2b = unsafeAbstractHash
 

@@ -1,5 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE TypeFamilies #-}
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/AcidState.hs
 
 module Pos.Wallet.Web.State.Acidic
@@ -28,6 +27,9 @@ module Pos.Wallet.Web.State.Acidic
        , GetNextUpdate (..)
        , TestReset (..)
        , GetHistoryCache (..)
+       , GetCustomAddresses (..)
+       , GetCustomAddress (..)
+       , AddCustomAddress (..)
        , CreateAccount (..)
        , AddWAddress (..)
        , AddRemovedAccount (..)
@@ -44,6 +46,7 @@ module Pos.Wallet.Web.State.Acidic
        , RemoveWallet (..)
        , RemoveAccount (..)
        , RemoveWAddress (..)
+       , RemoveCustomAddress (..)
        , TotallyRemoveWAddress (..)
        , AddUpdate (..)
        , RemoveNextUpdate (..)
@@ -104,6 +107,10 @@ makeAcidic ''WalletStorage
     , 'WS.getUpdates
     , 'WS.getNextUpdate
     , 'WS.getHistoryCache
+    , 'WS.getCustomAddresses
+    , 'WS.getCustomAddress
+    , 'WS.addCustomAddress
+    , 'WS.removeCustomAddress
     , 'WS.createAccount
     , 'WS.createWallet
     , 'WS.addWAddress

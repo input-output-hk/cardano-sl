@@ -49,13 +49,13 @@ module Pos.Wallet.Web.ClientTypes
       , txIdToCTxId
       , toCUpdateInfo
       , addrMetaToAccount
+      , isTxLocalAddress
       ) where
 
 import           Universum
 
 import           Control.Arrow             ((&&&))
 import           Control.Monad.Error.Class (throwError)
-import qualified Data.ByteString.Lazy      as LBS
 import           Data.Default              (Default, def)
 import           Data.Hashable             (Hashable (..))
 import qualified Data.Set                  as S
@@ -71,7 +71,7 @@ import           Servant.Multipart         (FileData, FromMultipart (..), lookup
                                             lookupInput)
 
 import           Pos.Aeson.Types           ()
-import           Pos.Binary.Class          (decodeFull, encodeStrict)
+import           Pos.Binary.Class          (decodeFull, encode)
 import           Pos.Client.Txp.History    (TxHistoryEntry (..))
 import           Pos.Core.Coin             (mkCoin)
 import           Pos.Core.Types            (ScriptVersion)
@@ -88,7 +88,6 @@ import           Pos.Update.Core           (BlockVersionData (..), StakeholderVo
 import           Pos.Update.Poll           (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase     (BackupPhrase)
 import           Pos.Util.Servant          (FromCType (..), OriginType, ToCType (..))
-
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -174,6 +173,32 @@ getTxSourceAccountAddresses walAddrMetas (someInputAddr :| _) = do
         map cwamId $
         filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
 
+-- | Makes function, which for given address says, whether does it belong to
+-- same account as sources of given transaction.
+-- Note, that applying this function to outputs of transaction, you efficiently
+-- get /change/ addresses.
+isTxLocalAddress
+    :: [CWAddressMeta]      -- ^ All addresses in wallet
+    -> NonEmpty (CId Addr)  -- ^ Input addresses of transaction
+    -> CId Addr
+    -> Bool
+isTxLocalAddress wAddrMetas inputs = do
+    let mLocalAddrs = getTxSourceAccountAddresses wAddrMetas inputs
+    case mLocalAddrs of
+       Just changeAddrs -> do
+           -- if given wallet is source of tx, /local addresses/
+           -- can be fetched according to definition
+           let changeAddrsSet = S.fromList changeAddrs
+           flip S.member changeAddrsSet
+       Nothing -> do
+           -- if given wallet is *not* source of tx, then it's incoming
+           -- transaction, and only addresses of given wallet are *not*
+           -- local addresses
+           -- [CSM-309] This may work until transaction have multiple
+           -- destination addresses
+           let nonLocalAddrsSet = S.fromList $ cwamId <$> wAddrMetas
+           not . flip S.member nonLocalAddrsSet
+
 mkCTxs
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
@@ -184,22 +209,7 @@ mkCTxs diff THEntry {..} meta wAddrMetas = do
     ctInputAddrsNe <-
         nonEmpty ctInputAddrs
         `whenNothing` throwError "No input addresses in tx!"
-    let mLocalAddrs = getTxSourceAccountAddresses wAddrMetas ctInputAddrsNe
-    -- note: local addresses which belong to tx's outputs = change addresses
-    let isLocalAddr = case mLocalAddrs of
-           Just changeAddrs -> do
-                -- if given wallet is source of tx, /changes addresses/
-                -- can be fetched according to definition
-                let changeAddrsSet = S.fromList changeAddrs
-                flip S.member changeAddrsSet
-           Nothing -> do
-                -- if given wallet is *not* source of tx, then it's incoming
-                -- transaction, and only addresses of given wallet are *not*
-                -- change addresses
-                -- [CSM-309] This may work until transaction have multiple
-                -- destination addresses
-                let nonLocalAddrsSet = S.fromList $ cwamId <$> wAddrMetas
-                not . flip S.member nonLocalAddrsSet
+    let isLocalAddr = isTxLocalAddress wAddrMetas ctInputAddrsNe
         isLocalTxOutput = isLocalAddr . addressToCId . txOutAddress
         -- [CSM-309] Bad for multiple-destinations transactions
         isWithinWallet = all isLocalAddr ctOutputAddrs
@@ -237,10 +247,10 @@ type instance OriginType CPassPhrase = PassPhrase
 
 instance FromCType CPassPhrase where
     decodeCType (CPassPhrase text) =
-        first toText . decodeFull . LBS.fromStrict =<< Base16.decode text
+        first toText . decodeFull  =<< Base16.decode text
 
 instance ToCType CPassPhrase where
-    encodeCType = CPassPhrase . Base16.encode . encodeStrict
+    encodeCType = CPassPhrase . Base16.encode . encode
 
 ----------------------------------------------------------------------------
 -- Wallet

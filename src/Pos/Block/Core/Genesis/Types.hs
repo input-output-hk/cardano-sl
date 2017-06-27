@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Types defining the genesis blockchain.
 
 module Pos.Block.Core.Genesis.Types

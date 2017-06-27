@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 
 {-| Constants used by algorithm. See paper for more details.
     Some constants are parsed at compile-time (see 'Pos.CompileConfig.Type').

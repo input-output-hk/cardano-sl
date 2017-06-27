@@ -19,7 +19,7 @@ import qualified Database.RocksDB     as Rocks
 import           Formatting           (bprint, build, (%))
 import           Universum
 
-import           Pos.Binary.Class     (encodeStrict)
+import           Pos.Binary.Class     (encode)
 import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
 import           Pos.Block.Types      (Blund)
 import           Pos.Constants        (genesisHash)
@@ -70,13 +70,13 @@ instance Buildable BlockExtraOp where
 
 instance RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
-        [Rocks.Put (forwardLinkKey from) (encodeStrict to)]
+        [Rocks.Put (forwardLinkKey from) (encode to)]
     toBatchOp (RemoveForwardLink from) =
         [Rocks.Del $ forwardLinkKey from]
     toBatchOp (SetInMainChain False h) =
         [Rocks.Del $ mainChainKey h]
     toBatchOp (SetInMainChain True h) =
-        [Rocks.Put (mainChainKey h) (encodeStrict ()) ]
+        [Rocks.Put (mainChainKey h) (encode ()) ]
 
 ----------------------------------------------------------------------------
 -- Loops on forward links
@@ -154,7 +154,7 @@ initGStateBlockExtra firstGenesisHash = do
 ----------------------------------------------------------------------------
 
 forwardLinkKey :: HeaderHash -> ByteString
-forwardLinkKey h = "e/fl/" <> encodeStrict h
+forwardLinkKey h = "e/fl/" <> encode h
 
 mainChainKey :: HeaderHash -> ByteString
-mainChainKey h = "e/mc/" <> encodeStrict h
+mainChainKey h = "e/mc/" <> encode h

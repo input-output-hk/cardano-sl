@@ -1,6 +1,5 @@
-{-# LANGUAGE DataKinds       #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE DataKinds    #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | NTP-based implementation of slotting.
 

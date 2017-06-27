@@ -177,7 +177,7 @@ genGenesisFiles KeygenOptions{..} = do
        liftIO $ createDirectoryIfMissing True (takeDirectory path)
        case decodeFull bin of
            Right (_ :: GenesisCoreData) -> do
-               liftIO $ BSL.writeFile path bin
+               liftIO $ BSL.writeFile path $ BSL.fromStrict bin
                putText (toText name <> " generated successfully")
            Left err ->
                putText ("Generated GenesisCoreData can't be read: " <> toText err)
@@ -189,7 +189,7 @@ genGenesisFiles KeygenOptions{..} = do
        liftIO $ createDirectoryIfMissing True (takeDirectory path)
        case decodeFull bin of
            Right (_ :: GenesisGtData) -> do
-               liftIO $ BSL.writeFile path bin
+               liftIO $ BSL.writeFile path $ BSL.fromStrict bin
                putText (toText name <> " generated successfully")
            Left err ->
                putText ("Generated GenesisGtData can't be read: " <> toText err)

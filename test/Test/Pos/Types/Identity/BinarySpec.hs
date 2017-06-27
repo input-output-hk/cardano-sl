@@ -14,6 +14,8 @@ import           Test.Pos.Util (binaryTest)
 
 spec :: Spec
 spec = describe "Types" $ do
+    -- 100 is not enough to catch some bugs (e.g. there was a bug with
+    -- addresses that only manifested when address's CRC started with 0x00)
     describe "Bi instances" $ do
         binaryTest @T.EpochIndex
         binaryTest @T.LocalSlotIndex

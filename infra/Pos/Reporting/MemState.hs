@@ -4,8 +4,8 @@
 -- | Reporting functionality abstracted.
 module Pos.Reporting.MemState
        ( ReportingContext (..)
-       , rcReportServers
-       , rcLoggingConfig
+       , HasReportServers (..)
+       , HasLoggerConfig (..)
        , HasReportingContext (..)
        , emptyReportingContext
        ) where
@@ -21,6 +21,18 @@ data ReportingContext = ReportingContext
     }
 
 makeLenses ''ReportingContext
+
+class HasReportServers ctx where
+    reportServers :: Lens' ctx [Text]
+
+instance HasReportServers ReportingContext where
+    reportServers = rcReportServers
+
+class HasLoggerConfig ctx where
+    loggerConfig :: Lens' ctx LoggerConfig
+
+instance HasLoggerConfig ReportingContext where
+    loggerConfig = rcLoggingConfig
 
 class HasReportingContext ctx where
     reportingContext :: Lens' ctx ReportingContext

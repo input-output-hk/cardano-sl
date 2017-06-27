@@ -45,8 +45,8 @@ import           Pos.Core.Constants       (protocolMagic)
 import           Pos.Discovery.Class      (MonadDiscovery, getPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (HasReportingContext (..), rcLoggingConfig,
-                                           rcReportServers)
+import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServers (..),
+                                           HasReportingContext (..))
 import           Pos.Util.Util            (maybeThrow)
 
 -- TODO From Pos.Util, remove after refactoring.
@@ -78,9 +78,9 @@ sendReportNode
     :: (MonadReporting ctx m)
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
-    noServers <- null <$> view (reportingContext . rcReportServers)
+    noServers <- null <$> view (reportingContext . reportServers)
     if noServers then onNoServers else do
-        logConfig <- view (reportingContext . rcLoggingConfig)
+        logConfig <- view (reportingContext . loggerConfig)
         let allFiles = map snd $ retrieveLogFiles logConfig
         logFile <-
             maybeThrow (TextException onNoPubfiles)
@@ -114,7 +114,7 @@ sendReportNodeImpl
     :: (MonadReporting ctx m)
     => [Text] -> Version -> ReportType -> m ()
 sendReportNodeImpl rawLogs version reportType = do
-    servers <- view (reportingContext . rcReportServers)
+    servers <- view (reportingContext . reportServers)
     when (null servers) onNoServers
     errors <- fmap lefts $ forM servers $ try .
         sendReport [] rawLogs reportType "cardano-node" version . toString

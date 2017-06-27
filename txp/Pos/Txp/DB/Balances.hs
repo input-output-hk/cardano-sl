@@ -35,7 +35,7 @@ import qualified Data.HashMap.Strict          as HM
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB             as Rocks
 import           EtherCompat
-import           Formatting                   (bprint, bprint, sformat, (%))
+import           Formatting                   (bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 

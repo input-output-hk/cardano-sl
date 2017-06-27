@@ -25,6 +25,7 @@ module Pos.Util.Util
        , _neHead
        , _neTail
        , _neLast
+       , postfixLFields
 
        -- * Ether
        , ether
@@ -62,7 +63,9 @@ module Pos.Util.Util
 import           Universum
 import           Unsafe                         (unsafeInit, unsafeLast)
 
-import           Control.Lens                   (ALens', Getter, Getting, cloneLens, to)
+import           Control.Lens                   (ALens', Getter, Getting, LensRules,
+                                                 cloneLens, lensField, lensRules,
+                                                 mappingNamer, to)
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Morph            (MFunctor (..))
 import           Control.Monad.Trans.Class      (MonadTrans)
@@ -341,3 +344,6 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
+
+postfixLFields :: LensRules
+postfixLFields = lensRules & lensField .~ mappingNamer (\s -> [s++"_L"])

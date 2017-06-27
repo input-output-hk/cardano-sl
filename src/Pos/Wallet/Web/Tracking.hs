@@ -129,7 +129,7 @@ syncWalletsAtStartWebWallet :: WalletTrackingEnv ext m => [EncryptedSecretKey] -
 syncWalletsAtStartWebWallet = syncWalletsWithGStateLock @WalletSscType
 
 syncOnImportWebWallet :: WalletTrackingEnv ext m => EncryptedSecretKey -> m ()
-syncOnImportWebWallet = selectAccountsFromUtxoLock @WalletSscType . one
+syncOnImportWebWallet = (() <$) . selectAccountsFromUtxoLock @WalletSscType . one
 
 txMempoolToModifierWebWallet :: WalletTrackingEnv ext m => EncryptedSecretKey -> m CAccModifier
 txMempoolToModifierWebWallet encSK = do

@@ -2,24 +2,29 @@
 
 module Pos.Binary.Core.Version () where
 
-import           Data.Binary.Get  (label)
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), getAsciiString1b, putAsciiString1b)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), convertSize,
+                                   deriveSimpleBi, getAsciiString1b, label, labelP,
+                                   putAsciiString1b, sizeAsciiString1b)
 import qualified Pos.Core.Types   as V
 
 instance Bi V.ApplicationName where
+    size = convertSize (toString . V.getApplicationName) sizeAsciiString1b
+    put (toString . V.getApplicationName -> tag) =
+        labelP "ApplicationName" $ putAsciiString1b tag
     get = label "ApplicationName" $ V.mkApplicationName . toText
             =<< getAsciiString1b "SystemTag" V.applicationNameMaxLength
-    put (toString . V.getApplicationName -> tag) = putAsciiString1b tag
 
-instance Bi V.SoftwareVersion where
-    get = label "SoftwareVersion" $ V.SoftwareVersion <$> get <*> get
-    put V.SoftwareVersion {..} =  put svAppName
-                               *> put svNumber
+deriveSimpleBi ''V.SoftwareVersion [
+    Cons 'V.SoftwareVersion [
+        Field [| V.svAppName :: V.ApplicationName    |],
+        Field [| V.svNumber  :: V.NumSoftwareVersion |]
+    ]]
 
-instance Bi V.BlockVersion where
-    get = label "BlockVersion" $ V.BlockVersion <$> get <*> get <*> get
-    put V.BlockVersion {..} =  put bvMajor
-                               *> put bvMinor
-                               *> put bvAlt
+deriveSimpleBi ''V.BlockVersion [
+    Cons 'V.BlockVersion [
+        Field [| V.bvMajor :: Word16 |],
+        Field [| V.bvMinor :: Word16 |],
+        Field [| V.bvAlt   :: Word8  |]
+    ]]

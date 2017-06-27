@@ -11,9 +11,9 @@ import           Test.QuickCheck               (Arbitrary (..))
 
 import           Pos.Binary.Update             ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
+import           Pos.Core.Arbitrary            ()
 import           Pos.Txp.Arbitrary             ()
 import           Pos.Txp.Network.Types         (TxMsgContents (..))
-import           Pos.Core.Arbitrary            ()
 
 derive makeArbitrary ''TxMsgContents
 

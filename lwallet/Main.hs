@@ -32,7 +32,7 @@ import           System.Posix.Process       (exitImmediately)
 import           Serokell.Util              (ms, sec)
 import           Universum
 
-import           Pos.Binary                 (Raw, encodeStrict)
+import           Pos.Binary                 (Raw, encode)
 import qualified Pos.CLI                    as CLI
 import           Pos.Communication          (NodeId, OutSpecs, SendActions, Worker',
                                              WorkerSpec, dataFlow, delegationRelays,
@@ -200,7 +200,7 @@ runCmd _ ListAddresses _ = do
        putText $ sformat ("    #"%int%":   "%build%" (PK: "%stext%")")
                     i (makePubKeyAddress pk) (toBase58Text pk)
   where
-    toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . encodeStrict
+    toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . encode
 runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) CmdCtx{na} = do
    issuerSk <- (!! i) <$> getSecretKeys
    withSafeSigner issuerSk (pure emptyPassphrase) $ \case

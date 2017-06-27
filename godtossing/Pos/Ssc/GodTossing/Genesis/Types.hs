@@ -9,8 +9,7 @@ import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap)
 -- | GodTossing data hardcoded in genesis.
 data GenesisGtData = GenesisGtData
     { ggdVssCertificates :: VssCertificatesMap
-    }
-    deriving (Show, Eq)
+    } deriving (Show, Eq)
 
 instance Monoid GenesisGtData where
     mempty = GenesisGtData mempty

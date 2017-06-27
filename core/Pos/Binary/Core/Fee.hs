@@ -8,38 +8,38 @@ import           Universum
 
 import           Data.Fixed       (Fixed (..))
 
-import           Pos.Binary.Class (Bi (..), FixedSizeInt (..), getRemainingByteString,
-                                   getWithLength, getWord8, label, putByteString,
-                                   putWithLength, putWord8)
+import           Pos.Binary.Class (Bi (..), FixedSizeInt (..), PokeWithSize,
+                                   convertToSizeNPut, getWithLength, getWord8, label,
+                                   labelS, putField, putS, putWithLengthS, putWord8S)
 import           Pos.Core.Fee     (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 
 instance Bi Coeff where
     get = label "Coeff" $ do
         FixedSizeInt (a :: Int64) <- get
-        return (Coeff . MkFixed . fromIntegral $ a)
-    put (Coeff (MkFixed a)) = do
-        put $ FixedSizeInt (fromIntegral a :: Int64)
+        pure (Coeff . MkFixed . fromIntegral $ a)
+    sizeNPut = labelS "Coeff" $
+        putField $ \(Coeff (MkFixed a)) -> FixedSizeInt (fromIntegral a :: Int64)
 
 instance Bi TxSizeLinear where
     get = label "TxSizeLinear" $
         TxSizeLinear <$> get <*> get
-    put (TxSizeLinear a b) = do
-        put a
-        put b
+    sizeNPut = labelS "TxSizeLinear" $
+        putField (\(TxSizeLinear a _) -> a) <>
+        putField (\(TxSizeLinear _ b) -> b)
 
 instance Bi TxFeePolicy where
     get = label "TxFeePolicy" $ do
         policyVersion <- getWord8
-        getWithLength $ case policyVersion of
+        getWithLength $ const $ case policyVersion of
             0 -> TxFeePolicyTxSizeLinear <$> get
-            _ -> do
-                bs <- getRemainingByteString
-                return $ TxFeePolicyUnknown policyVersion bs
-    put = \case
-        TxFeePolicyTxSizeLinear tsp -> do
-            putWord8 0
-            putWithLength $ put tsp
-        TxFeePolicyUnknown v bs -> do
-            putWord8 v
-            putWithLength $ putByteString bs
-
+            _ -> TxFeePolicyUnknown policyVersion <$> get
+    sizeNPut = labelS "TxFeePolicy" $ convertToSizeNPut toBi
+      where
+        toBi :: TxFeePolicy -> PokeWithSize ()
+        toBi = \case
+            TxFeePolicyTxSizeLinear tsp ->
+                putWord8S 0 *>
+                putWithLengthS (putS tsp)
+            TxFeePolicyUnknown v bs ->
+                putWord8S v *>
+                putWithLengthS (putS bs)

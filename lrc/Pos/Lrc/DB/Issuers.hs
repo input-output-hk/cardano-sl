@@ -14,7 +14,7 @@ module Pos.Lrc.DB.Issuers
 
 import           Universum
 
-import           Pos.Binary.Class  (encodeStrict)
+import           Pos.Binary.Class  (encode)
 import           Pos.Core.Types    (Coin, EpochIndex (..), StakeholderId)
 import           Pos.DB.Class      (MonadDB, MonadDBRead)
 import           Pos.DB.Error      (DBError (DBMalformed))
@@ -47,4 +47,4 @@ isInitialized = (isJust @(Maybe IssuersStakes)) <$> getBi (issuersKey $ EpochInd
 ----------------------------------------------------------------------------
 
 issuersKey :: EpochIndex -> ByteString
-issuersKey = mappend "i/" . encodeStrict
+issuersKey = mappend "i/" . encode

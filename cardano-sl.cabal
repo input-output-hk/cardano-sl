@@ -368,6 +368,7 @@ library
                       , serokell-util >= 0.1.3.4
                       , stm
                       , stm-containers
+                      , store
                       , tagged
                       , template-haskell
                       , temporary >= 1.2.0.4
@@ -431,6 +432,7 @@ library
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -509,6 +511,7 @@ executable cardano-node
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -574,7 +577,6 @@ test-suite cardano-test
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base
-                     , binary
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
@@ -606,6 +608,7 @@ test-suite cardano-test
                      , regex-tdfa-text
                      , safecopy
                      , serokell-util >= 0.1.3.4
+                     , store
                      , tagged
                      , temporary
                      , text-format
@@ -645,6 +648,7 @@ test-suite cardano-test
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -704,6 +708,7 @@ benchmark cardano-bench-criterion
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

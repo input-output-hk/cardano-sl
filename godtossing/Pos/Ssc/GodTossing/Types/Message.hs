@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Messages used for communication in GodTossing SSC.
 
 module Pos.Ssc.GodTossing.Types.Message

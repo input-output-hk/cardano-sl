@@ -15,7 +15,7 @@ import qualified Data.Map.Strict       as M
 import qualified Database.RocksDB      as Rocks
 import           EtherCompat
 
-import           Pos.Binary.Class      (encodeStrict)
+import           Pos.Binary.Class      (encode)
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core              (unsafeAddCoin)
 import           Pos.Core.Types        (Address, Coin)
@@ -83,13 +83,13 @@ data ExplorerOp
 
 instance RocksBatchOp ExplorerOp where
     toBatchOp (AddTxExtra id extra) =
-        [Rocks.Put (txExtraPrefix id) (encodeStrict extra)]
+        [Rocks.Put (txExtraPrefix id) (encode extra)]
     toBatchOp (DelTxExtra id) =
         [Rocks.Del $ txExtraPrefix id]
     toBatchOp (UpdateAddrHistory addr txs) =
-        [Rocks.Put (addrHistoryPrefix addr) (encodeStrict txs)]
+        [Rocks.Put (addrHistoryPrefix addr) (encode txs)]
     toBatchOp (PutAddrBalance addr coin) =
-        [Rocks.Put (addrBalancePrefix addr) (encodeStrict coin)]
+        [Rocks.Put (addrBalancePrefix addr) (encode coin)]
     toBatchOp (DelAddrBalance addr) =
         [Rocks.Del $ addrBalancePrefix addr]
 
@@ -98,10 +98,10 @@ instance RocksBatchOp ExplorerOp where
 ----------------------------------------------------------------------------
 
 txExtraPrefix :: TxId -> ByteString
-txExtraPrefix h = "e/tx/" <> encodeStrict h
+txExtraPrefix h = "e/tx/" <> encode h
 
 addrHistoryPrefix :: Address -> ByteString
-addrHistoryPrefix addr = "e/ah/" <> encodeStrict addr
+addrHistoryPrefix addr = "e/ah/" <> encode addr
 
 addrBalancePrefix :: Address -> ByteString
-addrBalancePrefix addr = "e/ab/" <> encodeStrict addr
+addrBalancePrefix addr = "e/ab/" <> encode addr

@@ -23,15 +23,15 @@ spec =
   describe "Txp (transaction processing) system" $ do
     describe "Bi instances" $ do
       describe "Core" $ do
-        binaryTest @T.TxInWitness
-        binaryTest @T.TxDistribution
-        binaryTest @T.TxIn
-        binaryTest @T.TxOut
-        binaryTest @T.TxOutAux
-        binaryTest @T.Tx
-        binaryTest @T.TxAux
-        binaryTest @T.TxProof
-        binaryTest @SmallTxPayload
+          binaryTest @T.TxInWitness
+          binaryTest @T.TxDistribution
+          binaryTest @T.TxIn
+          binaryTest @T.TxOut
+          binaryTest @T.TxOutAux
+          binaryTest @T.Tx
+          binaryTest @T.TxAux
+          binaryTest @T.TxProof
+          binaryTest @SmallTxPayload
       describe "Network" $ do
         networkBinaryTest @(R.InvMsg (Tagged T.TxMsgContents T.TxId))
         networkBinaryTest @(R.ReqMsg (Tagged T.TxMsgContents T.TxId))

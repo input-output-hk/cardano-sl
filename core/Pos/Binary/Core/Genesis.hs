@@ -4,18 +4,21 @@ module Pos.Binary.Core.Genesis () where
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..), Get, Put, UnsignedVarInt (..),
-                                          getWord8, label, putWord8)
+import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..), Peek,
+                                          PokeWithSize, UnsignedVarInt (..),
+                                          convertToSizeNPut, deriveSimpleBi, getWord8,
+                                          label, labelS, putS, putWord8S)
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Core.Types   ()
 import           Pos.Core.Address        ()
 import           Pos.Core.Genesis.Types  (GenesisCoreData (..), StakeDistribution (..))
+import           Pos.Core.Types          (Address, Coin, StakeholderId)
 
-getUVI :: Get Word
+getUVI :: Peek Word
 getUVI = getUnsignedVarInt <$> get
 
-putUVI :: Word -> Put
-putUVI = put . UnsignedVarInt
+putUVI :: Word -> PokeWithSize ()
+putUVI = putS . UnsignedVarInt
 
 instance Bi StakeDistribution where
     get = label "StakeDistribution" $ getWord8 >>= \case
@@ -25,19 +28,22 @@ instance Bi StakeDistribution where
         3 -> pure ExponentialStakes
         4 -> ExplicitStakes <$> get
         5 -> CombinedStakes <$> get <*> get
-        _ -> fail "Pos.Binary.Core.Genesis: StakeDistribution: invalid tag"
-    put (FlatStakes n total)       = putWord8 0 >> putUVI n >> put total
-    put (BitcoinStakes n total)    = putWord8 1 >> putUVI n >> put total
-    put (RichPoorStakes m rs n ps) = putWord8 2 >> putUVI m >> put rs >>
-                                     putUVI n >> put ps
-    put ExponentialStakes          = putWord8 3
-    put (ExplicitStakes balances)  = putWord8 4 >> put balances
-    put (CombinedStakes st1 st2)   = putWord8 5 >> put st1 >> put st2
+        _ -> fail "Pos.Binary.Genesis: StakeDistribution: invalid tag"
+    sizeNPut = labelS "StakeDistribution" $ convertToSizeNPut f
+      where
+        f :: StakeDistribution -> PokeWithSize ()
+        f (FlatStakes n total)       = putWord8S 0 <> putUVI n <> putS total
+        f (BitcoinStakes n total)    = putWord8S 1 <> putUVI n <> putS total
+        f (RichPoorStakes m rs n ps) =
+            putWord8S 2 <> putUVI m <> putS rs <>
+            putUVI n <> putS ps
+        f ExponentialStakes          = putWord8S 3
+        f (ExplicitStakes balances)  = putWord8S 4 <> putS balances
+        f (CombinedStakes st1 st2)   = putWord8S 5 <> putS st1 <> putS st2
 
-instance Bi GenesisCoreData where
-    get = label "GenesisCoreData" $ GenesisCoreData <$> get <*> get <*> get
-    put GenesisCoreData {..} = do
-        put gcdAddresses
-        put gcdDistribution
-        put gcdBootstrapBalances
-
+deriveSimpleBi ''GenesisCoreData [
+    Cons 'GenesisCoreData [
+        Field [| gcdAddresses         :: [Address]                  |],
+        Field [| gcdDistribution      :: StakeDistribution          |],
+        Field [| gcdBootstrapBalances :: HashMap StakeholderId Coin |]
+    ]]

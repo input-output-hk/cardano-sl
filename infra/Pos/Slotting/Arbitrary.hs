@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Arbitrary instances for Pos.Slotting types (infra package)
 
 module Pos.Slotting.Arbitrary () where

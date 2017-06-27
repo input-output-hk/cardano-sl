@@ -13,7 +13,7 @@ import qualified Data.Text.Buildable
 import qualified Database.RocksDB         as Rocks
 import           Formatting               (bprint, build, (%))
 
-import           Pos.Binary.Class         (encodeStrict)
+import           Pos.Binary.Class         (encode)
 import           Pos.Binary.GodTossing    ()
 import           Pos.DB                   (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error             (DBError (DBMalformed))
@@ -53,7 +53,7 @@ instance Buildable GtOp where
     build (PutGlobalState gs) = bprint ("GtOp ("%build%")") gs
 
 instance RocksBatchOp GtOp where
-    toBatchOp (PutGlobalState gs) = [Rocks.Put gtKey (encodeStrict gs)]
+    toBatchOp (PutGlobalState gs) = [Rocks.Put gtKey (encode gs)]
 
 ----------------------------------------------------------------------------
 -- Key

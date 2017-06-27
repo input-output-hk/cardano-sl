@@ -24,17 +24,18 @@ module Pos.Core.Address
        , unsafeAddressHash
        ) where
 
-import           Crypto.Hash            (Blake2b_224, Digest, SHA3_256, hashlazy)
+import           Universum
+
+import           Control.Lens           (_Left)
+import           Crypto.Hash            (Blake2b_224, Digest, SHA3_256)
 import qualified Crypto.Hash            as CryptoHash
 import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58,
                                          encodeBase58)
-import qualified Data.ByteString.Lazy   as BSL (fromStrict)
 import           Data.Hashable          (Hashable (..))
 import           Data.Text.Buildable    (Buildable)
 import qualified Data.Text.Buildable    as Buildable
 import           Formatting             (Format, bprint, build, int, later, (%))
 import           Serokell.Util.Base16   (base16F)
-import           Universum
 
 import           Pos.Binary.Class       (Bi)
 import qualified Pos.Binary.Class       as Bi
@@ -59,7 +60,7 @@ addrAlphabet :: Alphabet
 addrAlphabet = bitcoinAlphabet
 
 addrToBase58 :: Bi Address => Address -> ByteString
-addrToBase58 = encodeBase58 addrAlphabet . Bi.encodeStrict
+addrToBase58 = encodeBase58 addrAlphabet . Bi.encode
 
 instance Bi Address => Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
@@ -83,10 +84,8 @@ instance Bi Address => Hashable AddressIgnoringAttributes where
 decodeAddress :: Bi Address => ByteString -> Either String Address
 decodeAddress bs = do
     let base58Err = "Invalid base58 representation of address"
-        takeErr = toString . view _3
-        takeRes = view _3
     dbs <- maybeToRight base58Err $ decodeBase58 addrAlphabet bs
-    bimap takeErr takeRes $ Bi.decodeOrFail $ BSL.fromStrict dbs
+    over _Left toString $ Bi.decodeFull dbs
 
 decodeTextAddress :: Bi Address => Text -> Either Text Address
 decodeTextAddress = first toText . decodeAddress . encodeUtf8
@@ -189,7 +188,7 @@ unsafeAddressHash :: Bi a => a -> AddressHash b
 unsafeAddressHash = AbstractHash . secondHash . firstHash
   where
     firstHash :: Bi a => a -> Digest SHA3_256
-    firstHash = hashlazy . Bi.encode
+    firstHash = CryptoHash.hash . Bi.encode
     secondHash :: Digest SHA3_256 -> Digest Blake2b_224
     secondHash = CryptoHash.hash
 

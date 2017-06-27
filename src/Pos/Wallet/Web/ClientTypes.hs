@@ -56,7 +56,6 @@ import           Universum
 
 import           Control.Arrow             ((&&&))
 import           Control.Monad.Error.Class (throwError)
-import qualified Data.ByteString.Lazy      as LBS
 import           Data.Default              (Default, def)
 import           Data.Hashable             (Hashable (..))
 import qualified Data.Set                  as S
@@ -72,7 +71,7 @@ import           Servant.Multipart         (FileData, FromMultipart (..), lookup
                                             lookupInput)
 
 import           Pos.Aeson.Types           ()
-import           Pos.Binary.Class          (decodeFull, encodeStrict)
+import           Pos.Binary.Class          (decodeFull, encode)
 import           Pos.Client.Txp.History    (TxHistoryEntry (..))
 import           Pos.Core.Coin             (mkCoin)
 import           Pos.Core.Types            (ScriptVersion)
@@ -89,7 +88,6 @@ import           Pos.Update.Core           (BlockVersionData (..), StakeholderVo
 import           Pos.Update.Poll           (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase     (BackupPhrase)
 import           Pos.Util.Servant          (FromCType (..), OriginType, ToCType (..))
-
 
 data SyncProgress = SyncProgress
     { _spLocalCD   :: ChainDifficulty
@@ -249,10 +247,10 @@ type instance OriginType CPassPhrase = PassPhrase
 
 instance FromCType CPassPhrase where
     decodeCType (CPassPhrase text) =
-        first toText . decodeFull . LBS.fromStrict =<< Base16.decode text
+        first toText . decodeFull  =<< Base16.decode text
 
 instance ToCType CPassPhrase where
-    encodeCType = CPassPhrase . Base16.encode . encodeStrict
+    encodeCType = CPassPhrase . Base16.encode . encode
 
 ----------------------------------------------------------------------------
 -- Wallet

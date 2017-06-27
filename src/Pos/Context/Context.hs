@@ -48,7 +48,7 @@ import           Pos.Communication.Relay       (HasPropagationFlag (..),
 import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
 import           Pos.Core                      (GenesisStakes (..), HasPrimaryKey (..),
-                                                HeaderHash)
+                                                HeaderHash, Timestamp)
 import           Pos.Discovery                 (DiscoveryContextSum,
                                                 HasDiscoveryContextSum (..))
 import           Pos.Launcher.Param            (BaseParams (..), GenesisUtxo (..),
@@ -61,7 +61,8 @@ import           Pos.Reporting.MemState        (HasLoggerConfig (..),
 import           Pos.Security.Params           (SecurityParams)
 import           Pos.Shutdown                  (HasShutdownContext (..),
                                                 ShutdownContext (..))
-import           Pos.Slotting                  (SlottingContextSum, SlottingVar)
+import           Pos.Slotting                  (HasSlottingVar (..), SlottingContextSum,
+                                                SlottingData)
 import           Pos.Ssc.Class.Types           (HasSscContext (..), Ssc (SscNodeContext))
 import           Pos.Txp.Settings              (TxpGlobalSettings)
 import           Pos.Update.Context            (UpdateContext)
@@ -107,7 +108,7 @@ data NodeContext ssc = NodeContext
     -- ^ Context needed for LRC
     , ncDiscoveryContext    :: !DiscoveryContextSum
     -- ^ Context needed for Discovery.
-    , ncSlottingVar         :: !SlottingVar
+    , ncSlottingVar         :: !(Timestamp, TVar SlottingData)
     -- ^ Data necessary for 'MonadSlotsData'.
     , ncSlottingContext     :: !SlottingContextSum
     -- ^ Context needed for Slotting.
@@ -166,8 +167,9 @@ instance HasSscContext ssc (NodeContext ssc) where
 instance HasDiscoveryContextSum (NodeContext ssc) where
     discoveryContextSum = ncDiscoveryContext_L
 
-instance HasLens SlottingVar (NodeContext ssc) SlottingVar where
-    lensOf = ncSlottingVar_L
+instance HasSlottingVar (NodeContext ssc) where
+    slottingTimestamp = ncSlottingVar_L . _1
+    slottingVar = ncSlottingVar_L . _2
 
 instance HasLens SlottingContextSum (NodeContext ssc) SlottingContextSum where
     lensOf = ncSlottingContext_L

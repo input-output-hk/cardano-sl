@@ -55,7 +55,8 @@ import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
                                               getCurrentSlotBlockingSum,
                                               getCurrentSlotInaccurateSum,
                                               getCurrentSlotSum)
-import           Pos.Slotting.MemState       (MonadSlotsData (..), getSlottingDataDefault,
+import           Pos.Slotting.MemState       (HasSlottingVar (..), MonadSlotsData (..),
+                                              getSlottingDataDefault,
                                               getSystemStartDefault,
                                               putSlottingDataDefault,
                                               waitPenultEpochEqualsDefault)
@@ -104,6 +105,10 @@ instance HasUserSecret (RealModeContext ssc) where
 
 instance HasShutdownContext (RealModeContext ssc) where
     shutdownContext = rmcNodeContext . shutdownContext
+
+instance HasSlottingVar (RealModeContext ssc) where
+    slottingTimestamp = rmcNodeContext . slottingTimestamp
+    slottingVar = rmcNodeContext . slottingVar
 
 instance HasNodeContext ssc (RealModeContext ssc) where
     nodeContext = rmcNodeContext

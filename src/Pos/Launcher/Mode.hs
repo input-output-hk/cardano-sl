@@ -27,13 +27,14 @@ module Pos.Launcher.Mode
 import           Universum
 
 import qualified Control.Monad.Reader  as Mtl
+import           EtherCompat
 import           Mockable.Production   (Production)
 import           System.IO.Unsafe      (unsafeInterleaveIO)
 
 import           Pos.Block.Core        (Block, BlockHeader)
 import           Pos.Block.Types       (Undo)
 import           Pos.Context.Context   (GenesisStakes, GenesisUtxo)
-import           Pos.Core              (IsHeader)
+import           Pos.Core              (IsHeader, Timestamp)
 import           Pos.DB                (NodeDBs)
 import           Pos.DB.Block          (MonadBlockDBWrite (..), dbGetBlockDefault,
                                         dbGetBlockSscDefault, dbGetHeaderDefault,
@@ -46,13 +47,13 @@ import           Pos.DB.Redirect       (dbDeleteDefault, dbGetDefault,
                                         dbWriteBatchDefault)
 import           Pos.ExecMode.Context  ((:::), modeContext)
 import           Pos.Lrc.Context       (LrcContext)
+import           Pos.Slotting          (HasSlottingVar (..), SlottingData)
 import           Pos.Slotting.Class    (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
                                         getCurrentSlotBlockingSum,
                                         getCurrentSlotInaccurateSum, getCurrentSlotSum)
-import           Pos.Slotting.MemState (MonadSlotsData (..), SlottingVar,
-                                        getSlottingDataDefault, getSystemStartDefault,
-                                        putSlottingDataDefault,
+import           Pos.Slotting.MemState (MonadSlotsData (..), getSlottingDataDefault,
+                                        getSystemStartDefault, putSlottingDataDefault,
                                         waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
@@ -74,6 +75,8 @@ newInitFuture = do
     r <- liftIO $ unsafeInterleaveIO (readMVar v)
     pure (r, putMVar v)
 
+data SlottingVarTag
+
 modeContext [d|
     -- The fields are lazy on purpose: this allows using them with
     -- futures.
@@ -81,7 +84,7 @@ modeContext [d|
         (NodeDBs            ::: NodeDBs)
         (GenesisUtxo        ::: GenesisUtxo)
         (GenesisStakes      ::: GenesisStakes)
-        (SlottingVar        ::: SlottingVar)
+        (SlottingVarTag     ::: (Timestamp, TVar SlottingData))
         (SlottingContextSum ::: SlottingContextSum)
         (LrcContext         ::: LrcContext)
     |]
@@ -90,6 +93,10 @@ type InitMode ssc = Mtl.ReaderT (InitModeContext ssc) Production
 
 runInitMode :: InitModeContext ssc -> InitMode ssc a -> Production a
 runInitMode = flip Mtl.runReaderT
+
+instance HasSlottingVar (InitModeContext ssc) where
+    slottingTimestamp = lensOf @SlottingVarTag . _1
+    slottingVar = lensOf @SlottingVarTag . _2
 
 instance MonadDBRead (InitMode ssc) where
     dbGet = dbGetDefault

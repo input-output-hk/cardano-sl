@@ -49,7 +49,7 @@ import           Pos.Slotting.Impl.Sum         (currentTimeSlottingSum,
                                                 getCurrentSlotBlockingSum,
                                                 getCurrentSlotInaccurateSum,
                                                 getCurrentSlotSum)
-import           Pos.Slotting.MemState         (MonadSlotsData (..),
+import           Pos.Slotting.MemState         (HasSlottingVar (..), MonadSlotsData (..),
                                                 getSlottingDataDefault,
                                                 getSystemStartDefault,
                                                 putSlottingDataDefault,
@@ -112,6 +112,10 @@ instance HasShutdownContext WalletWebModeContext where
 
 instance HasNodeContext WalletSscType WalletWebModeContext where
     nodeContext = wwmcRealModeContext . nodeContext
+
+instance HasSlottingVar WalletWebModeContext where
+    slottingTimestamp = wwmcRealModeContext . slottingTimestamp
+    slottingVar = wwmcRealModeContext . slottingVar
 
 data WalletWebModeContextTag
 

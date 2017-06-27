@@ -3,11 +3,7 @@
 -- | Default implementation of 'MonadSlotsData' based on 'TVar'.
 
 module Pos.Slotting.MemState.Holder
-       ( SlottingVar
-       , MonadSlotting
-       , askSlotting
-       , askSlottingVar
-       , askSlottingTimestamp
+       ( HasSlottingVar(..)
        , getSystemStartDefault
        , getSlottingDataDefault
        , waitPenultEpochEqualsDefault
@@ -17,52 +13,42 @@ module Pos.Slotting.MemState.Holder
 import           Universum
 
 import           Control.Monad.STM  (retry)
-import           EtherCompat
 
 import           Pos.Core.Types     (EpochIndex, Timestamp)
 import           Pos.Slotting.Types (SlottingData (sdPenultEpoch))
 
 ----------------------------------------------------------------------------
--- Transformer
+-- Context
 ----------------------------------------------------------------------------
 
 -- | System start and slotting data
-type SlottingVar = (Timestamp, TVar SlottingData)
-
-type MonadSlotting ctx m = (MonadReader ctx m, HasLens SlottingVar ctx SlottingVar)
-
-askSlotting :: MonadSlotting ctx m => m SlottingVar
-askSlotting = view (lensOf @SlottingVar)
-
-askSlottingVar :: MonadSlotting ctx m => m (TVar SlottingData)
-askSlottingVar = snd <$> askSlotting
-
-askSlottingTimestamp :: MonadSlotting ctx m => m Timestamp
-askSlottingTimestamp  = fst <$> askSlotting
+class HasSlottingVar ctx where
+    slottingTimestamp :: Lens' ctx Timestamp
+    slottingVar :: Lens' ctx (TVar SlottingData)
 
 ----------------------------------------------------------------------------
 -- MonadSlotsData implementation
 ----------------------------------------------------------------------------
 
 type SlotsDefaultEnv ctx m =
-    (MonadSlotting ctx m, MonadIO m)
+    (MonadReader ctx m, HasSlottingVar ctx, MonadIO m)
 
 getSystemStartDefault :: SlotsDefaultEnv ctx m => m Timestamp
-getSystemStartDefault = askSlottingTimestamp
+getSystemStartDefault = view slottingTimestamp
 
 getSlottingDataDefault :: SlotsDefaultEnv ctx m => m SlottingData
-getSlottingDataDefault = atomically . readTVar =<< askSlottingVar
+getSlottingDataDefault = atomically . readTVar =<< view slottingVar
 
 waitPenultEpochEqualsDefault :: SlotsDefaultEnv ctx m => EpochIndex -> m ()
 waitPenultEpochEqualsDefault target = do
-    var <- askSlottingVar
+    var <- view slottingVar
     atomically $ do
         penultEpoch <- sdPenultEpoch <$> readTVar var
         when (penultEpoch /= target) retry
 
 putSlottingDataDefault :: SlotsDefaultEnv ctx m => SlottingData -> m ()
 putSlottingDataDefault sd = do
-    var <- askSlottingVar
+    var <- view slottingVar
     atomically $ do
         penultEpoch <- sdPenultEpoch <$> readTVar var
         when (penultEpoch < sdPenultEpoch sd) $ writeTVar var sd

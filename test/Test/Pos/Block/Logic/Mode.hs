@@ -57,14 +57,14 @@ import           Pos.Genesis             (stakeDistribution)
 import           Pos.Launcher            (InitModeContext (..), newInitFuture,
                                           runInitMode)
 import           Pos.Lrc                 (LrcContext (..), mkLrcSyncData)
-import           Pos.Slotting            (MonadSlots (..), SlottingContextSum (SCSimple),
+import           Pos.Slotting            (HasSlottingVar (..), MonadSlots (..),
+                                          SlottingContextSum (SCSimple), SlottingData,
                                           currentTimeSlottingSimple,
                                           getCurrentSlotBlockingSimple,
                                           getCurrentSlotInaccurateSimple,
                                           getCurrentSlotSimple)
-import           Pos.Slotting.MemState   (MonadSlotsData (..), SlottingVar,
-                                          getSlottingDataDefault, getSystemStartDefault,
-                                          putSlottingDataDefault,
+import           Pos.Slotting.MemState   (MonadSlotsData (..), getSlottingDataDefault,
+                                          getSystemStartDefault, putSlottingDataDefault,
                                           waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class           (SscBlock)
 import           Pos.Ssc.Extra           (SscMemTag, SscState, mkSscState)
@@ -153,10 +153,12 @@ instance Arbitrary TestParams where
 -- Main context
 ----------------------------------------------------------------------------
 
+data SlottingVarTag
+
 modeContext [d|
     data BlockTestContext = BlockTestContext
         { btcDBs               :: !(NodeDBs     ::: NodeDBs)
-        , btcSlottingVar       :: !(SlottingVar ::: SlottingVar)
+        , btcSlottingVar       :: !(SlottingVarTag ::: (Timestamp, TVar SlottingData))
         , btcLoggerName        :: !(LoggerName  ::: LoggerName)
         , btcLrcContext        :: !(LrcContext  ::: LrcContext)
         , btcUpdateContext     :: !(UpdateContext ::: UpdateContext)
@@ -241,6 +243,10 @@ instance Testable (BlockProperty a) where
 ----------------------------------------------------------------------------
 
 -- Test mode
+
+instance HasSlottingVar BlockTestContext where
+    slottingTimestamp = lensOf @SlottingVarTag . _1
+    slottingVar = lensOf @SlottingVarTag . _2
 
 instance {-# OVERLAPPING #-} HasLoggerName BlockTestMode where
     getLoggerName = view (lensOf @LoggerName)

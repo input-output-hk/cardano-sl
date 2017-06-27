@@ -83,7 +83,7 @@ import           Pos.Types                 (Address (..), BlockVersion, ChainDif
                                             Coin, SoftwareVersion, decodeTextAddress,
                                             makePubKeyAddress, sumCoins, unsafeGetCoin,
                                             unsafeIntegerToCoin)
-import           Pos.Update.Core           (BlockVersionData (..), StakeholderVotes,
+import           Pos.Update.Core           (BlockVersionModifier (..), StakeholderVotes,
                                             UpdateProposal (..), isPositiveVote)
 import           Pos.Update.Poll           (ConfirmedProposalState (..))
 import           Pos.Util.BackupPhrase     (BackupPhrase)
@@ -513,7 +513,7 @@ toCUpdateInfo ConfirmedProposalState {..} =
     let UnsafeUpdateProposal {..} = cpsUpdateProposal
         cuiSoftwareVersion  = upSoftwareVersion
         cuiBlockVesion      = upBlockVersion
-        cuiScriptVersion    = bvdScriptVersion upBlockVersionData
+        cuiScriptVersion    = bvmScriptVersion upBlockVersionMod
         cuiImplicit         = cpsImplicit
 --        cuiProposed         = cpsProposed
 --        cuiDecided          = cpsDecided

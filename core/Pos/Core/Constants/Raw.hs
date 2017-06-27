@@ -99,7 +99,7 @@ data CoreConstants = CoreConstants
       -- blocks with some block version is bigger than this portion, this
       -- block version is adopted.
     , ccGenesisUpdateSoftforkThd     :: !Double
-    , ccGenesisTxFeePolicy           :: !(Maybe (ConfigOf TxFeePolicy))
+    , ccGenesisTxFeePolicy           :: !(ConfigOf TxFeePolicy)
       -- | Maximum block size in bytes
     , ccGenesisMaxBlockSize          :: !Byte
       -- | Maximum block header size in bytes

@@ -56,7 +56,8 @@ import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (coinF, makePubKeyAddress)
-import           Pos.Update                 (BlockVersionData (..), UpdateData (..),
+import           Pos.Update                 (BlockVersionData (..),
+                                             BlockVersionModifier (..), UpdateData (..),
                                              UpdateVote (..), mkUpdateProposalWSign)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Util.Util              (powerLift)
@@ -163,42 +164,61 @@ runCmd sendActions v@(Vote idx decision upid) = do
                 else do
                     lift $ submitVote sendActions na voteUpd
                     putText "Submitted vote"
-runCmd sendActions ProposeUpdate{..} = do
+runCmd sendActions ProposeUpdate {..} = do
     logDebug "Proposing update..."
-    CmdCtx{na} <- ask
+    CmdCtx {na} <- ask
     skey <- (!! puIdx) <$> getSecretKeys
-    (diffFile :: Maybe (Hash Raw)) <- runMaybeT $ do
-        filePath <- MaybeT $ pure puFilePath
-        fileData <- liftIO $ BS.readFile filePath
-        let h = unsafeHash fileData
-        liftIO $ putText $ sformat ("Read file succesfuly, its hash: "%hashHexF) h
-        pure h
-    let bvd = genesisBlockVersionData
-            { bvdScriptVersion = puScriptVersion
-            , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
-            , bvdMaxBlockSize = puMaxBlockSize
+    (diffFile :: Maybe (Hash Raw)) <-
+        runMaybeT $ do
+            filePath <- MaybeT $ pure puFilePath
+            fileData <- liftIO $ BS.readFile filePath
+            let h = unsafeHash fileData
+            liftIO $
+                putText $
+                sformat ("Read file succesfuly, its hash: " %hashHexF) h
+            pure h
+    let BlockVersionData {..} = genesisBlockVersionData
+    let bvm =
+            BlockVersionModifier
+            { bvmScriptVersion     = puScriptVersion
+            , bvmSlotDuration      = convertUnit (sec puSlotDurationSec)
+            , bvmMaxBlockSize      = puMaxBlockSize
+            , bvmMaxHeaderSize     = bvdMaxHeaderSize
+            , bvmMaxTxSize         = bvdMaxTxSize
+            , bvmMaxProposalSize   = bvdMaxProposalSize
+            , bvmMpcThd            = bvdMpcThd
+            , bvmHeavyDelThd       = bvdHeavyDelThd
+            , bvmUpdateVoteThd     = bvdUpdateVoteThd
+            , bvmUpdateProposalThd = bvdUpdateProposalThd
+            , bvmUpdateImplicit    = bvdUpdateImplicit
+            , bvmUpdateSoftforkThd = bvdUpdateSoftforkThd
+            , bvmTxFeePolicy       = Nothing
             }
     let udata' h = HM.fromList [(puSystemTag, UpdateData h h h h)]
     let udata = maybe (error "Failed to read prop file") udata' diffFile
     let whenCantCreate = error . mappend "Failed to create update proposal: "
-    lift $ withSafeSigner skey (pure emptyPassphrase) $ \case
-        Nothing -> putText "Invalid passphrase"
-        Just ss -> do
-            let updateProposal = either whenCantCreate identity $
-                    mkUpdateProposalWSign
-                        puBlockVersion
-                        bvd
-                        puSoftwareVersion
-                        udata
-                        (mkAttributes ())
-                        ss
-            if null na
-                then putText "Error: no addresses specified"
-                else do
-                    submitUpdateProposal sendActions ss na updateProposal
-                    let id = hash updateProposal
-                    putText $
-                      sformat ("Update proposal submitted, upId: "%hashHexF) id
+    lift $
+        withSafeSigner skey (pure emptyPassphrase) $ \case
+            Nothing -> putText "Invalid passphrase"
+            Just ss -> do
+                let updateProposal =
+                        either whenCantCreate identity $
+                        mkUpdateProposalWSign
+                            puBlockVersion
+                            bvm
+                            puSoftwareVersion
+                            udata
+                            (mkAttributes ())
+                            ss
+                if null na
+                    then putText "Error: no addresses specified"
+                    else do
+                        submitUpdateProposal sendActions ss na updateProposal
+                        let id = hash updateProposal
+                        putText $
+                            sformat
+                                ("Update proposal submitted, upId: " %hashHexF)
+                                id
 runCmd _ Help = putText helpMsg
 runCmd _ ListAddresses = do
    addrs <- map encToPublic <$> getSecretKeys

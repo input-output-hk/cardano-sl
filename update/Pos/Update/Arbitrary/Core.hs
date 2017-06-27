@@ -4,21 +4,24 @@ module Pos.Update.Arbitrary.Core
        (
        ) where
 
+import           Universum
+
 import           Data.DeriveTH         (derive, makeArbitrary)
 import qualified Data.HashMap.Strict   as HM
 import           Test.QuickCheck       (Arbitrary (..), listOf1, oneof)
-import           Universum
 
 import           Pos.Binary.Update     ()
+import           Pos.Core.Arbitrary    ()
 import           Pos.Crypto            (SignTag (SignUSVote), fakeSigner, sign, toPublic)
 import           Pos.Crypto.Arbitrary  ()
 import           Pos.Data.Attributes   (mkAttributes)
-import           Pos.Core.Arbitrary    ()
-import           Pos.Update.Core.Types (BlockVersionData (..), SystemTag,
+import           Pos.Update.Core.Types (BlockVersionModifier (..), SystemTag,
                                         UpdateData (..), UpdatePayload (..),
                                         UpdateProposal (..), UpdateVote (..),
                                         VoteState (..), mkSystemTag,
                                         mkUpdateProposalWSign)
+
+derive makeArbitrary ''BlockVersionModifier
 
 instance Arbitrary SystemTag where
     arbitrary =
@@ -39,7 +42,7 @@ instance Arbitrary UpdateVote where
 instance Arbitrary UpdateProposal where
     arbitrary = do
         upBlockVersion <- arbitrary
-        upBlockVersionData <- arbitrary
+        upBlockVersionMod <- arbitrary
         upSoftwareVersion <- arbitrary
         upData <- HM.fromList <$> listOf1 arbitrary
         let upAttributes = mkAttributes ()
@@ -48,7 +51,7 @@ instance Arbitrary UpdateProposal where
         either onFailure pure $
             mkUpdateProposalWSign
                 upBlockVersion
-                upBlockVersionData
+                upBlockVersionMod
                 upSoftwareVersion
                 upData
                 upAttributes
@@ -61,4 +64,3 @@ instance Arbitrary VoteState where
 
 derive makeArbitrary ''UpdateData
 derive makeArbitrary ''UpdatePayload
-derive makeArbitrary ''BlockVersionData

@@ -14,8 +14,12 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Pos.Update.Arbitrary
                        Pos.Update.Error
+
+                       -- Core
                        Pos.Update.Core
+                       Pos.Update.Core.BlockVersion
                        Pos.Update.Core.Types
+
                        Pos.Update.Mode
                        Pos.Update.DB
                        Pos.Update.Constants

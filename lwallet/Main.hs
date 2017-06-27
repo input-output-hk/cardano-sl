@@ -39,7 +39,7 @@ import           Pos.Communication          (NodeId, OutSpecs, SendActions, Work
                                              WorkerSpec, dataFlow, delegationRelays,
                                              relayPropagateOut, submitTx,
                                              submitUpdateProposal, submitVote, txRelays,
-                                             usRelays, worker)
+                                             usRelays, worker, RelayContext)
 import           Pos.Constants              (genesisBlockVersionData, isDevelopment)
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVote),
                                              emptyPassphrase, encToPublic, fakeSigner,
@@ -238,10 +238,10 @@ runCmd _ (AddKeyFromFile f) = do
 runCmd _ Quit = pure ()
 
 -- This solution is hacky, but will work for now
-runCmdOuts :: OutSpecs
-runCmdOuts = relayPropagateOut $ mconcat
+runCmdOuts :: RelayContext (RealMode SscGodTossing) -> OutSpecs
+runCmdOuts relayContext = relayPropagateOut $ mconcat
                 [ usRelays @(RealMode SscGodTossing)
-                , delegationRelays @SscGodTossing @(RealMode SscGodTossing)
+                , delegationRelays @SscGodTossing @(RealMode SscGodTossing) relayContext
                 , txRelays @SscGodTossing @(RealMode SscGodTossing)
                 ]
 
@@ -336,6 +336,7 @@ main = do
 
     loggerBracket logParams $ runProduction $
       bracketTransport TCP.Unaddressable $ \transport -> do
+        relayContext <- pure (error "TODO make a realy context")
         let transport' :: Transport LightWalletMode
             transport' = hoistTransport
                 (powerLift :: forall t . Production t -> LightWalletMode t)
@@ -343,8 +344,8 @@ main = do
 
             plugins :: ([ WorkerSpec LightWalletMode ], OutSpecs)
             plugins = first pure $ case woAction of
-                Repl    -> worker runCmdOuts $ runWalletRepl opts
-                Cmd cmd -> worker runCmdOuts $ runWalletCmd opts cmd
+                Repl    -> worker (runCmdOuts relayContext) $ runWalletRepl opts
+                Cmd cmd -> worker (runCmdOuts relayContext) $ runWalletCmd opts cmd
                 Serve __webPort __webDaedalusDbPath -> error "light wallet server is disabled"
                 -- Serve webPort webDaedalusDbPath -> worker walletServerOuts $ \sendActions ->
                 --     walletServeWebLite sendActions webDaedalusDbPath False webPort

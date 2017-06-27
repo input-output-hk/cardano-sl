@@ -32,6 +32,7 @@ import           Pos.Binary                 ()
 import           Pos.Communication          (ActionSpec (..), BiP (..), InSpecs (..),
                                              MkListeners (..), OutSpecs (..),
                                              VerInfo (..), allListeners, hoistMkListeners)
+import           Pos.Communication.Relay    (hoistRelayContext)
 import qualified Pos.Constants              as Const
 import           Pos.Context                (NodeContext (..))
 import           Pos.DHT.Real               (foreverRejoinNetwork)
@@ -42,6 +43,7 @@ import           Pos.Launcher.Resource      (NodeResources (..), hoistNodeResour
 import           Pos.Security               (SecurityWorkersClass)
 import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Util.JsonLog           (JsonLogConfig (..), jsonLogConfigFromHandle)
+import           Pos.Util.Util              (powerLift)
 import           Pos.WorkMode               (RealMode, RealModeContext (..), WorkMode,
                                              unRealMode)
 
@@ -72,7 +74,8 @@ runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs)
     ActionSpec $ \vI sendActions ->
         unwrap . action vI $ hoistSendActions wrap unwrap sendActions
   where
-    listeners = hoistMkListeners unwrap wrap allListeners
+    listeners = hoistMkListeners unwrap wrap
+        (allListeners (hoistRelayContext powerLift nrRelayContext))
 
 -- | RealMode runner.
 runRealModeDo
@@ -125,6 +128,7 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
             nrPeerState
             jlConf
             lpRunnerTag
+            nrRelayContext
             nrContext
 
 runServer

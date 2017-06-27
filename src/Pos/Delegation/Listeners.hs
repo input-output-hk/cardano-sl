@@ -20,7 +20,7 @@ import           Pos.Communication.Limits      ()
 import           Pos.Communication.Message     ()
 import           Pos.Communication.Relay       (DataParams (..), PropagationMsg (..),
                                                 Relay (..), addToRelayQueue)
-import           Pos.Communication.Relay.Types ()
+import           Pos.Communication.Relay.Types (RelayContext)
 import           Pos.Context                   (BlkSemaphore (..))
 import           Pos.Core                      (getOurKeys)
 import           Pos.Crypto                    (SignTag (SignProxySK), proxySign,
@@ -40,17 +40,18 @@ instance Buildable ProxySKLightConfirmation where
 -- | Listeners for requests related to delegation processing.
 delegationRelays
     :: forall ssc m. WorkMode ssc m
-    => [Relay m]
-delegationRelays =
-        [ pskLightRelay
+    => RelayContext m -> [Relay m]
+delegationRelays relayContext =
+        [ pskLightRelay relayContext
         , pskHeavyRelay
         , confirmPskRelay
         ]
 
 pskLightRelay
     :: WorkMode ssc m
-    => Relay m
-pskLightRelay = Data $ DataParams $ \pSk -> do
+    => RelayContext m
+    -> Relay m
+pskLightRelay relayContext = Data $ DataParams $ \provenance pSk -> do
     logDebug $ sformat ("Got request to handle lightweight psk: "%build) pSk
     verdict <- processProxySKLight pSk
     logResult pSk verdict
@@ -63,7 +64,9 @@ pskLightRelay = Data $ DataParams $ \pSk -> do
                logDebug $
                    sformat ("Generating delivery proof and propagating it to neighbors: "%build) pSk
                let proof = proxySign SignProxySK sk pSk pSk
-               addToRelayQueue (DataOnlyPM (pSk, proof))
+               -- FIXME seems like a mistake. Shouldn't the relay subsystem
+               -- take care of deiciding when to relay?
+               addToRelayQueue relayContext (DataOnlyPM (pSk, proof)) provenance
                pure False
            else pure True
         _ -> pure False
@@ -81,7 +84,7 @@ pskLightRelay = Data $ DataParams $ \pSk -> do
 pskHeavyRelay
     :: WorkMode ssc m
     => Relay m
-pskHeavyRelay = Data $ DataParams $ handlePsk
+pskHeavyRelay = Data $ DataParams $ \_ -> handlePsk
   where
     handlePsk :: forall ssc m. WorkMode ssc m => ProxySKHeavy -> m Bool
     handlePsk pSk = do
@@ -101,7 +104,7 @@ pskHeavyRelay = Data $ DataParams $ handlePsk
 confirmPskRelay
     :: WorkMode ssc m
     => Relay m
-confirmPskRelay = Data $ DataParams $ \(pSk, proof) -> do
+confirmPskRelay = Data $ DataParams $ \_ (pSk, proof) -> do
     verdict <- processConfirmProxySk pSk proof
     pure $ case verdict of
         CPValid -> True

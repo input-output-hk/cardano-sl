@@ -40,9 +40,9 @@ proposalRelay =
         NoMempool $
         InvReqDataParams
            { contentsToKey = \(up, _) -> pure . tag  $ hash up
-           , handleInv = isProposalNeeded . unTagged
-           , handleReq = getLocalProposalNVotes . unTagged
-           , handleData = \(proposal, votes) -> do
+           , handleInv = \_ -> isProposalNeeded . unTagged
+           , handleReq = \_ -> getLocalProposalNVotes . unTagged
+           , handleData = \_ (proposal, votes) -> do
                  res <- processProposal proposal
                  logProp proposal res
                  let processed = isRight res
@@ -76,9 +76,9 @@ voteRelay =
         InvReqDataParams
            { contentsToKey = \UpdateVote{..} ->
                  pure $ tag (uvProposalId, uvKey, uvDecision)
-           , handleInv = \(Tagged (id, pk, dec)) -> isVoteNeeded id pk dec
-           , handleReq = \(Tagged (id, pk, dec)) -> getLocalVote id pk dec
-           , handleData = \uv -> do
+           , handleInv = \_ (Tagged (id, pk, dec)) -> isVoteNeeded id pk dec
+           , handleReq = \_ (Tagged (id, pk, dec)) -> getLocalVote id pk dec
+           , handleData = \_ uv -> do
                  res <- processVote uv
                  logProcess res
                  pure $ isRight res

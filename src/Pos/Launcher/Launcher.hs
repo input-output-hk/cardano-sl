@@ -10,6 +10,7 @@ module Pos.Launcher.Launcher
 import           Mockable                   (Production)
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
+import           Pos.Communication.Relay    (hoistRelayContext)
 import           Pos.Launcher.Param         (NodeParams (..))
 import           Pos.Launcher.Resource      (NodeResources (..), bracketNodeResources,
                                              hoistNodeResources)
@@ -38,4 +39,4 @@ runNodeReal np sscnp plugins = bracketNodeResources np sscnp action
     action nr@NodeResources {..} =
         runRealMode
             (hoistNodeResources powerLift nr)
-            (runNode @ssc nrContext plugins)
+            (runNode @ssc (hoistRelayContext powerLift nrRelayContext) nrContext plugins)

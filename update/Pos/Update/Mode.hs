@@ -10,7 +10,6 @@ import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Communication.PeerState (WithPeerState)
-import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Update.Context          (UpdateContext)
@@ -24,7 +23,6 @@ type UpdateMode m
       , MonadMask m
       , MonadGState m
       , MonadDB m
-      , MonadRelayMem m
       , Ether.MonadReader' UpdateContext m
       , Ether.MonadReader' LrcContext m
       , Ether.MonadReader' UpdateParams m

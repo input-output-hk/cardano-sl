@@ -25,6 +25,8 @@ import           Universum                   hiding (bracket, finally)
 
 import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO)
 import           Data.Default                (def)
+import           Data.Set                    (Set)
+import qualified Data.Set                    as Set
 import           Data.Tagged                 (untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (sformat, shown, (%))
@@ -34,6 +36,7 @@ import           Network.QDisc.Fair          (fairQDisc)
 import           Network.Transport.Abstract  (Transport, closeTransport, hoistTransport)
 import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
+import           Network.Broadcast.Relay     (simpleRelayer)
 import qualified STMContainers.Map           as SM
 import           System.IO                   (Handle, hClose)
 import           System.Wlog                 (CanLog, LoggerConfig (..), WithLogger,
@@ -44,6 +47,8 @@ import           System.Wlog                 (CanLog, LoggerConfig (..), WithLog
 import           Pos.Binary                  ()
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication.PeerState (PeerStateCtx)
+import           Pos.Communication.Types.Protocol (NodeId)
+import           Pos.Communication.Relay     (RelayContext (..), PropagationMsg)
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (BlkSemaphore (..), ConnectedPeers (..),
                                               GenesisStakes (..), GenesisUtxo (..),
@@ -54,7 +59,8 @@ import           Pos.DB.DB                   (closeNodeDBs, initNodeDBs, openNod
 import           Pos.DB.GState               (getTip)
 import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.DHT.Real                (KademliaDHTInstance, KademliaParams (..),
-                                              startDHTInstance, stopDHTInstance)
+                                              startDHTInstance, stopDHTInstance,
+                                              kademliaGetKnownPeers)
 import           Pos.Discovery               (DiscoveryContextSum (..))
 import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..),
                                               NetworkParams (..), NodeParams (..))
@@ -78,7 +84,7 @@ import           Pos.Update.Context          (mkUpdateContext)
 import qualified Pos.Update.DB               as GState
 import           Pos.Util.Concurrent.RWVar   as RWV
 import           Pos.Util.Util               (powerLift)
-import           Pos.Worker                  (allWorkersCount)
+import           Pos.Util.TimeWarp           (addressToNodeId)
 import           Pos.WorkMode                (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -99,6 +105,7 @@ data NodeResources ssc m = NodeResources
     , nrTransport  :: !(Transport m)
     , nrJLogHandle :: !(Maybe Handle)
     -- ^ Handle for JSON logging (optional).
+    , nrRelayContext :: !(RelayContext Production)
     }
 
 hoistNodeResources ::
@@ -150,6 +157,21 @@ allocateNodeResources np@NodeParams {..} sscnp = do
             case npJLFile of
                 Nothing -> pure Nothing
                 Just fp -> Just <$> openFile fp WriteMode
+        let eliminateOrigin :: Maybe NodeId -> Set NodeId -> Set NodeId
+            eliminateOrigin Nothing  = identity
+            eliminateOrigin (Just n) = Set.delete n
+            -- Targets are all of the known peers, regardless of the message.
+            getTargets :: PropagationMsg -> Maybe NodeId -> Production (Set NodeId)
+            getTargets _ origin = eliminateOrigin origin <$> case ncDiscoveryContext of
+                DCStatic peers -> pure peers
+                DCKademlia kdi -> Set.fromList . fmap addressToNodeId <$>
+                    kademliaGetKnownPeers kdi
+        (relayEnqueue, relayDequeue) <- powerLift @Production (simpleRelayer getTargets)
+        let nrRelayContext = RelayContext
+                { _rlyIsPropagation = npPropagation
+                , _rlyEnqueue = relayEnqueue
+                , _rlyDequeue = relayDequeue
+                }
         return NodeResources
             { nrContext = ctx
             , nrDBs = db
@@ -229,7 +251,6 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     putSlotting ncSlottingVar ncSlottingContext
     ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $ newTBQueueIO Const.blockRetrievalQueueSize
-    ncInvPropagationQueue <- liftIO $ newTBQueueIO Const.propagationQueueSize
     ncRecoveryHeader <- liftIO newEmptyTMVarIO
     ncProgressHeader <- liftIO newEmptyTMVarIO
     ncShutdownFlag <- newTVarIO False
@@ -253,10 +274,8 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
 #endif
             , ..
             }
-    -- This queue won't be used.
-    fakeQueue <- liftIO (newTBQueueIO 100500)
-    let allWorkersNum = allWorkersCount @ssc (ctx fakeQueue)
-    ctx <$> liftIO (newTBQueueIO allWorkersNum)
+    -- TODO bounded queue not necessary.
+    ctx <$> liftIO (newTBQueueIO maxBound)
 
 releaseNodeContext :: forall ssc m . MonadIO m => NodeContext ssc -> m ()
 releaseNodeContext NodeContext {..} =

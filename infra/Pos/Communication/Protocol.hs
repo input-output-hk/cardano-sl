@@ -61,8 +61,8 @@ mapListener'
           -> N.ConversationActions snd rcv m
           -> N.ConversationActions snd rcv m)
     -> (forall t. m t -> m t) -> Listener m -> Listener m
-mapListener' _ caMapper mapper (N.ListenerActionConversation f) =
-    N.ListenerActionConversation $ \d nId -> mapper . f d nId . caMapper nId
+mapListener' _ caMapper mapper (N.Listener f) =
+    N.Listener $ \d nId -> mapper . f d nId . caMapper nId
 
 mapActionSpec
     :: (N.SendActions BiP PeerData m -> N.SendActions BiP PeerData m)
@@ -94,7 +94,7 @@ hoistMkListeners
     -> MkListeners n
 hoistMkListeners nat rnat (MkListeners act ins outs) = MkListeners act' ins outs
   where
-    act' v p = let ls = act v p in map (N.hoistListenerAction nat rnat) ls
+    act' v p = let ls = act v p in map (N.hoistListener nat rnat) ls
 
 convertSendActions
     :: ( WithLogger m

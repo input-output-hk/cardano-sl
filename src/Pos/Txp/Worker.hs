@@ -26,7 +26,7 @@ import           Pos.Communication   (Conversation (..), ConversationActions (..
                                       ReqMsg (..), SendActions, TxMsgContents,
                                       convH, expectData, handleDataDo, handleInvDo,
                                       toOutSpecs, withConnectionTo, worker,
-                                      recvLimited)
+                                      recvLimited, RelayContext)
 import           Pos.Discovery.Class (getPeers)
 import           Pos.Slotting        (getLastKnownSlotDuration)
 import           Pos.Txp.Core        (TxId)
@@ -36,11 +36,11 @@ import           Pos.Txp.Network     (txInvReqDataParams)
 -- | All workers specific to transaction processing.
 txpWorkers
     :: (SscWorkersClass ssc, WorkMode ssc m)
-    => ([WorkerSpec m], OutSpecs)
-txpWorkers =
+    => RelayContext m -> ([WorkerSpec m], OutSpecs)
+txpWorkers relayContext =
     merge $ []
 #if defined(WITH_WALLET)
-            ++ [ queryTxsWorker ]
+            ++ [ queryTxsWorker relayContext ]
 #endif
   where
     merge = mconcatPair . map (first pure)
@@ -55,8 +55,8 @@ txpWorkers =
 -- tx mempool.
 queryTxsWorker
     :: (WorkMode ssc m, SscWorkersClass ssc)
-    => (WorkerSpec m, OutSpecs)
-queryTxsWorker = worker queryTxsSpec $ \sendActions -> do
+    => RelayContext m -> (WorkerSpec m, OutSpecs)
+queryTxsWorker relayContext = worker queryTxsSpec $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
     nodesRef <- liftIO . newIORef . toList =<< getPeers
     let delayInterval = max (slotDur `div` 4) (convertUnit (5 :: Second))
@@ -71,7 +71,7 @@ queryTxsWorker = worker queryTxsSpec $ \sendActions -> do
                 (node:rest) -> do
                     liftIO $ writeIORef nodesRef rest
                     txs <- getTxMempoolInvs sendActions node
-                    requestTxs sendActions node txs
+                    requestTxs relayContext sendActions node txs
             delay $ delayInterval
         handler (e :: SomeException) = do
             logWarning $ "Exception arised in queryTxsWorker: " <> show e
@@ -100,6 +100,8 @@ queryTxsSpec =
 
 -- | Send a MempoolMsg to a node and receive incoming 'InvMsg's with
 -- transaction IDs.
+--
+-- TODO use the relay queue.
 getTxMempoolInvs
     :: WorkMode ssc m
     => SendActions m -> NodeId -> m [TxId]
@@ -120,17 +122,19 @@ getTxMempoolInvs sendActions node = do
                         useful <-
                           case txInvReqDataParams of
                             InvReqDataParams {..} ->
-                                handleInvDo handleInv imKey
+                                handleInvDo (handleInv (Just node)) imKey
                         case useful of
                             Nothing           -> getInvs
                             Just (Tagged key) -> (key:) <$> getInvs
           getInvs
 
 -- | Request several transactions.
+--
+-- TODO use the relay queue.
 requestTxs
     :: WorkMode ssc m
-    => SendActions m -> NodeId -> [TxId] -> m ()
-requestTxs sendActions node txIds = do
+    => RelayContext m -> SendActions m -> NodeId -> [TxId] -> m ()
+requestTxs relayContext sendActions node txIds = do
     logInfo $ sformat
         ("Requesting "%int%" txs from node "%shown)
         (length txIds) node
@@ -153,7 +157,7 @@ requestTxs sendActions node txIds = do
                         \(DataMsg dmContents) ->
                           case txInvReqDataParams of
                             InvReqDataParams {..} ->
-                                handleDataDo contentsToKey handleData dmContents
+                                handleDataDo relayContext (Just node) contentsToKey (handleData (Just node)) dmContents
           for_ txIds $ \(Tagged -> id) ->
               getTx id `catch` handler id
     logInfo $ sformat

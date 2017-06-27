@@ -22,7 +22,7 @@ import qualified Ether
 import           Pos.Binary.Class      (UnsignedVarInt (..), encodeStrict)
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core              (unsafeAddCoin)
-import           Pos.Core.Types        (Address, Coin, HeaderHash)
+import           Pos.Core.Types        (Address, Coin, HeaderHash, EpochIndex)
 import           Pos.DB                (DBTag (GStateDB), MonadDB, MonadDBRead (dbGet),
                                         RocksBatchOp (..))
 import           Pos.DB.GState.Common  (gsGetBi, gsPutBi, writeBatchGState)
@@ -35,8 +35,9 @@ import           Pos.Util.Chrono       (NewestFirst (..))
 -- Types
 ----------------------------------------------------------------------------
 
+-- Left like type aliases in order to remain flexible.
 type Page = Int
-type Epoch = Int -- TODO: Switch to EpochIndex, fix Servant parameter?
+type Epoch = EpochIndex
 
 -- type PageBlocks = [Block SscGodTossing]
 -- ^ this is much simpler but we are trading time for space 
@@ -149,7 +150,9 @@ addrBalancePrefix :: Address -> ByteString
 addrBalancePrefix addr = "e/ab/" <> encodeStrict addr
 
 blockPagePrefix :: Page -> ByteString
-blockPagePrefix page = "e/page/" <> (encodeStrict $ UnsignedVarInt page)
+blockPagePrefix page = "e/page/" <> encodedPage
+  where
+    encodedPage = encodeStrict $ UnsignedVarInt page
 
 blockEpochPrefix :: Epoch -> ByteString
-blockEpochPrefix epoch = "e/epoch/" <> (encodeStrict $ UnsignedVarInt epoch)
+blockEpochPrefix epoch = "e/epoch/" <> encodeStrict epoch

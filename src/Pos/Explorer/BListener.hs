@@ -25,8 +25,7 @@ import           Pos.Block.Core               (Block)
 import           Pos.Block.Types              (Blund)
 import           Pos.Core                     (HeaderHash, difficultyL,
                                                epochIndexL, getChainDifficulty,
-                                               getEpochIndex, headerHash)
-import           Pos.DB.BatchOp               (SomeBatchOp)
+                                               headerHash)
 import           Pos.DB.BatchOp               (SomeBatchOp (..))
 import           Pos.DB.Class                 (MonadDBRead, MonadRealDB)
 import           Pos.Explorer.DB              (Page, Epoch)
@@ -215,7 +214,7 @@ minEpochBlocks neBlocks = (minEpoch, minEpochBlocksHH)
     epochBlocks blocks' = getBlockEpoch <$> blocks'
 
     getBlockEpoch :: (Block ssc) -> Epoch
-    getBlockEpoch block = fromIntegral $ getEpochIndex $ block ^. epochIndexL
+    getBlockEpoch block = block ^. epochIndexL
 
     blocks :: [Block ssc]
     blocks = NE.toList neBlocks

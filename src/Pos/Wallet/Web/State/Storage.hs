@@ -223,10 +223,12 @@ removeCustomAddress t (addr, hh) = do
     return exists
 
 createAccount :: AccountId -> CAccountMeta -> Update ()
-createAccount accId cAccMeta = wsAccountInfos . at accId ?= AccountInfo cAccMeta mempty mempty
+createAccount accId cAccMeta =
+    wsAccountInfos . at accId %= Just . fromMaybe (AccountInfo cAccMeta mempty mempty)
 
 createWallet :: CId Wal -> CWalletMeta -> PassPhraseLU -> Update ()
-createWallet cWalId cWalMeta passLU = wsWalletInfos . at cWalId ?= WalletInfo cWalMeta passLU genesisHash
+createWallet cWalId cWalMeta passLU =
+    wsWalletInfos . at cWalId %= Just . fromMaybe (WalletInfo cWalMeta passLU genesisHash)
 
 addWAddress :: CWAddressMeta -> Update ()
 addWAddress addr@CWAddressMeta{..} = do

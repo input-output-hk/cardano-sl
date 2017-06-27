@@ -7,6 +7,8 @@ module Pos.Explorer.Web.Transform
        , notifierPlugin
        ) where
 
+import           Universum
+
 import qualified Control.Monad.Catch         as Catch (Handler (..), catches)
 import           Control.Monad.Except        (MonadError (throwError))
 import           Data.Tagged                 (Tagged (..))
@@ -15,7 +17,6 @@ import           Mockable                    (runProduction)
 import           Servant.Server              (Handler)
 import           Servant.Utils.Enter         ((:~>) (..), enter)
 import           System.Wlog                 (usingLoggerName)
-import           Universum
 
 import           Pos.Block.BListener         (runBListenerStub)
 import           Pos.Communication           (OutSpecs, PeerStateSnapshot, SendActions,
@@ -42,6 +43,7 @@ import           Pos.Explorer                (ExplorerExtra)
 import           Pos.Explorer.Socket.App     (NotifierSettings, notifierApp)
 import           Pos.Explorer.Web.Server     (explorerApp, explorerHandlers,
                                               explorerServeImpl)
+import           Pos.Util.TimeWarp           (runWithoutJsonLogT)
 
 -----------------------------------------------------------------
 -- Transformation to `Handler`
@@ -88,6 +90,7 @@ convertHandler nc modernDBs tlw ssc delWrap psCtx slotVar ntpSlotVar handler =
   where
     realRunner :: forall t . RealMode SscGodTossing t -> IO t
     realRunner (RealMode act) = runProduction
+           . runWithoutJsonLogT
            . usingLoggerName "explorer-api"
            . flip Ether.runReadersT nc
            . (\m -> do

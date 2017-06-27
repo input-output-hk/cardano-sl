@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 module Pos.WorkMode
        ( WorkMode
@@ -17,6 +18,7 @@ module Pos.WorkMode
 
 import           Universum
 
+import           Control.Lens                (makeLensesWith)
 import qualified Control.Monad.Reader        as Mtl
 import           EtherCompat
 import           Mockable                    (Production, SharedAtomicT)
@@ -47,7 +49,6 @@ import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.Discovery               (HasDiscoveryContextSum (..),
                                               MonadDiscovery (..), findPeersSum,
                                               getPeersSum)
-import           Pos.ExecMode.Context        ((:::), modeContext)
 import           Pos.Reporting               (HasReportingContext (..))
 import           Pos.Shutdown                (HasShutdownContext (..))
 import           Pos.Slotting.Class          (MonadSlots (..))
@@ -65,62 +66,85 @@ import           Pos.Ssc.Class.Types         (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState)
 import           Pos.Txp.MemState            (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Util                    (Some (..))
-import           Pos.Util.JsonLog            (JsonLogConfig, jsonLogDefault)
+import           Pos.Util.JsonLog            (HasJsonLogConfig (..), JsonLogConfig,
+                                              jsonLogDefault)
+import           Pos.Util.LoggerName         (HasLoggerName' (..), getLoggerNameDefault,
+                                              modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp           (CanJsonLog (..))
 import           Pos.Util.UserSecret         (HasUserSecret (..))
+import           Pos.Util.Util               (postfixLFields)
 import           Pos.WorkMode.Class          (MinWorkMode, TxpExtra_TMP, WorkMode)
 
-data PeerStateTag
+data RealModeContext ssc = RealModeContext
+    { rmcNodeDBs       :: !(NodeDBs)
+    , rmcSscState      :: !(SscState ssc)
+    , rmcTxpLocalData  :: !(GenericTxpLocalData TxpExtra_TMP)
+    , rmcDelegationVar :: !DelegationVar
+    , rmcPeerState     :: !(PeerStateCtx Production)
+    , rmcJsonLogConfig :: !JsonLogConfig
+    , rmcLoggerName    :: !LoggerName
+    , rmcNodeContext   :: !(NodeContext ssc)
+    }
 
-modeContext [d|
-    data RealModeContext ssc = RealModeContext
-        !(NodeDBs       ::: NodeDBs)
-        !(SscMemTag     ::: SscState ssc)
-        !(TxpHolderTag  ::: GenericTxpLocalData TxpExtra_TMP)
-        !(DelegationVar ::: DelegationVar)
-        !(PeerStateTag  ::: PeerStateCtx Production)
-        !(JsonLogConfig ::: JsonLogConfig)
-        !(LoggerName    ::: LoggerName)
-        !(NodeContext ssc)
-    |]
+makeLensesWith postfixLFields ''RealModeContext
 
-rmcNodeContext :: Lens' (RealModeContext ssc) (NodeContext ssc)
-rmcNodeContext f (RealModeContext x1 x2 x3 x4 x5 x6 x7 nc) =
-    RealModeContext x1 x2 x3 x4 x5 x6 x7 <$> f nc
+instance HasLens NodeDBs (RealModeContext ssc) NodeDBs where
+    lensOf = rmcNodeDBs_L
+
+instance HasLens SscMemTag (RealModeContext ssc) (SscState ssc) where
+    lensOf = rmcSscState_L
+
+instance HasLens TxpHolderTag (RealModeContext ssc) (GenericTxpLocalData TxpExtra_TMP) where
+    lensOf = rmcTxpLocalData_L
+
+instance HasLens DelegationVar (RealModeContext ssc) DelegationVar where
+    lensOf = rmcDelegationVar_L
+
+instance {-# OVERLAPPABLE #-}
+    HasLens tag (NodeContext ssc) r =>
+    HasLens tag (RealModeContext ssc) r
+  where
+    lensOf = rmcNodeContext_L . lensOf @tag
 
 instance HasSscContext ssc (RealModeContext ssc) where
-    sscContext = rmcNodeContext . sscContext
+    sscContext = rmcNodeContext_L . sscContext
 
 instance HasPrimaryKey (RealModeContext ssc) where
-    primaryKey = rmcNodeContext . primaryKey
+    primaryKey = rmcNodeContext_L . primaryKey
 
 instance HasDiscoveryContextSum (RealModeContext ssc) where
-    discoveryContextSum = rmcNodeContext . discoveryContextSum
+    discoveryContextSum = rmcNodeContext_L . discoveryContextSum
 
 instance HasReportingContext (RealModeContext ssc) where
-    reportingContext = rmcNodeContext . reportingContext
+    reportingContext = rmcNodeContext_L . reportingContext
 
 instance HasUserSecret (RealModeContext ssc) where
-    userSecret = rmcNodeContext . userSecret
+    userSecret = rmcNodeContext_L . userSecret
 
 instance HasShutdownContext (RealModeContext ssc) where
-    shutdownContext = rmcNodeContext . shutdownContext
+    shutdownContext = rmcNodeContext_L . shutdownContext
 
 instance HasSlottingVar (RealModeContext ssc) where
-    slottingTimestamp = rmcNodeContext . slottingTimestamp
-    slottingVar = rmcNodeContext . slottingVar
+    slottingTimestamp = rmcNodeContext_L . slottingTimestamp
+    slottingVar = rmcNodeContext_L . slottingVar
 
 instance HasNodeContext ssc (RealModeContext ssc) where
-    nodeContext = rmcNodeContext
+    nodeContext = rmcNodeContext_L
+
+instance HasLoggerName' (RealModeContext ssc) where
+    loggerName = rmcLoggerName_L
+
+instance HasJsonLogConfig (RealModeContext ssc) where
+    jsonLogConfig = rmcJsonLogConfig_L
 
 instance sa ~ SharedAtomicT Production => HasPeerState sa (RealModeContext ssc) where
-    peerState = lensOf @PeerStateTag
+    peerState = rmcPeerState_L
 
 type RealMode ssc = Mtl.ReaderT (RealModeContext ssc) Production
 
 instance {-# OVERLAPPING #-} HasLoggerName (RealMode ssc) where
-    getLoggerName = view (lensOf @LoggerName)
-    modifyLoggerName f = local (lensOf @LoggerName %~ f)
+    getLoggerName = getLoggerNameDefault
+    modifyLoggerName = modifyLoggerNameDefault
 
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ssc) where
     jsonLog = jsonLogDefault

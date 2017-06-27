@@ -12,6 +12,7 @@ module Pos.Util.JsonLog
        , jlAdoptedBlock
        , fromJLSlotId
        , JsonLogConfig(..)
+       , HasJsonLogConfig(..)
        , jsonLogConfigFromHandle
        , jsonLogDefault
        , fromJLSlotIdUnsafe
@@ -22,7 +23,6 @@ import           Universum                     hiding (catchAll)
 import           Control.Monad.Except          (MonadError)
 import           Data.Aeson.TH                 (deriveJSON)
 import           Data.Aeson.Types              (ToJSON)
-import           EtherCompat
 import           Formatting                    (sformat)
 import           JsonLog.JsonLogT              (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT              as JL
@@ -147,10 +147,13 @@ jsonLogConfigFromHandle h = do
     v <- newMVar h
     return $ JsonLogConfig v (\_ -> return True)
 
+class HasJsonLogConfig ctx where
+    jsonLogConfig :: Lens' ctx JsonLogConfig
+
 jsonLogDefault
-    :: (ToJSON a, MonadReader ctx m, HasLens JsonLogConfig ctx JsonLogConfig, Mockable Catch m,
+    :: (ToJSON a, MonadReader ctx m, HasJsonLogConfig ctx, Mockable Catch m,
         MonadIO m, WithLogger m)
     => a -> m ()
 jsonLogDefault x = do
-    jlc <- view (lensOf @JsonLogConfig)
+    jlc <- view jsonLogConfig
     JL.jsonLogDefault jlc x

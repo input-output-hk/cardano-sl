@@ -11,9 +11,11 @@ module Pos.Wallet.Web.Mode
 
 import           Universum
 
+import           Control.Lens                  (makeLensesWith)
 import qualified Control.Monad.Reader          as Mtl
+import           EtherCompat
 import           Mockable                      (Production, SharedAtomicT)
-import           System.Wlog                   (HasLoggerName (..), LoggerName)
+import           System.Wlog                   (HasLoggerName (..))
 
 import           Pos.Block.Core                (Block, BlockHeader)
 import           Pos.Block.Types               (Undo)
@@ -41,7 +43,6 @@ import           Pos.Client.Txp.History        (MonadTxHistory (..), getTxHistor
 import           Pos.Discovery                 (HasDiscoveryContextSum (..),
                                                 MonadDiscovery (..), findPeersSum,
                                                 getPeersSum)
-import           Pos.ExecMode.Context          ((:::), HasLens (..), modeContext)
 import           Pos.Reporting                 (HasReportingContext (..))
 import           Pos.Shutdown                  (HasShutdownContext (..))
 import           Pos.Slotting.Class            (MonadSlots (..))
@@ -56,9 +57,12 @@ import           Pos.Slotting.MemState         (HasSlottingVar (..), MonadSlotsD
                                                 waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Types           (HasSscContext (..), SscBlock)
 import           Pos.Util                      (Some (..))
-import           Pos.Util.JsonLog              (jsonLogDefault)
+import           Pos.Util.JsonLog              (HasJsonLogConfig (..), jsonLogDefault)
+import           Pos.Util.LoggerName           (HasLoggerName' (..), getLoggerNameDefault,
+                                                modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp             (CanJsonLog (..))
 import           Pos.Util.UserSecret           (HasUserSecret (..))
+import           Pos.Util.Util                 (postfixLFields)
 import           Pos.Wallet.Redirect           (MonadBlockchainInfo (..),
                                                 MonadUpdates (..),
                                                 applyLastUpdateWebWallet,
@@ -78,44 +82,59 @@ import           Pos.Wallet.Web.Tracking       (MonadWalletTracking (..),
                                                 txMempoolToModifierWebWallet)
 import           Pos.WorkMode                  (RealModeContext)
 
-modeContext [d|
-    data WalletWebModeContext = WalletWebModeContext
-        !(WalletState    ::: WalletState)
-        !(ConnectionsVar ::: ConnectionsVar)
-        !(RealModeContext WalletSscType)
-    |]
+data WalletWebModeContext = WalletWebModeContext
+    { wwmcWalletState     :: !WalletState
+    , wwmcConnectionsVar  :: !ConnectionsVar
+    , wwmcRealModeContext :: !(RealModeContext WalletSscType)
+    }
 
-wwmcRealModeContext :: Lens' WalletWebModeContext (RealModeContext WalletSscType)
-wwmcRealModeContext f (WalletWebModeContext x1 x2 rmc) =
-    WalletWebModeContext x1 x2 <$> f rmc
+makeLensesWith postfixLFields ''WalletWebModeContext
 
 instance HasSscContext WalletSscType WalletWebModeContext where
-    sscContext = wwmcRealModeContext . sscContext
+    sscContext = wwmcRealModeContext_L . sscContext
 
 instance HasPrimaryKey WalletWebModeContext where
-    primaryKey = wwmcRealModeContext . primaryKey
+    primaryKey = wwmcRealModeContext_L . primaryKey
 
 instance HasDiscoveryContextSum WalletWebModeContext where
-    discoveryContextSum = wwmcRealModeContext . discoveryContextSum
+    discoveryContextSum = wwmcRealModeContext_L . discoveryContextSum
 
 instance HasReportingContext WalletWebModeContext  where
-    reportingContext = wwmcRealModeContext . reportingContext
+    reportingContext = wwmcRealModeContext_L . reportingContext
 
 instance HasUserSecret WalletWebModeContext where
-    userSecret = wwmcRealModeContext . userSecret
+    userSecret = wwmcRealModeContext_L . userSecret
 
 instance sa ~ SharedAtomicT Production => HasPeerState sa WalletWebModeContext where
-    peerState = wwmcRealModeContext . peerState
+    peerState = wwmcRealModeContext_L . peerState
 
 instance HasShutdownContext WalletWebModeContext where
-    shutdownContext = wwmcRealModeContext . shutdownContext
+    shutdownContext = wwmcRealModeContext_L . shutdownContext
 
 instance HasNodeContext WalletSscType WalletWebModeContext where
-    nodeContext = wwmcRealModeContext . nodeContext
+    nodeContext = wwmcRealModeContext_L . nodeContext
 
 instance HasSlottingVar WalletWebModeContext where
-    slottingTimestamp = wwmcRealModeContext . slottingTimestamp
-    slottingVar = wwmcRealModeContext . slottingVar
+    slottingTimestamp = wwmcRealModeContext_L . slottingTimestamp
+    slottingVar = wwmcRealModeContext_L . slottingVar
+
+instance HasLens WalletState WalletWebModeContext WalletState where
+    lensOf = wwmcWalletState_L
+
+instance HasLens ConnectionsVar WalletWebModeContext ConnectionsVar where
+    lensOf = wwmcConnectionsVar_L
+
+instance {-# OVERLAPPABLE #-}
+    HasLens tag (RealModeContext WalletSscType) r =>
+    HasLens tag WalletWebModeContext r
+  where
+    lensOf = wwmcRealModeContext_L . lensOf @tag
+
+instance HasLoggerName' WalletWebModeContext where
+    loggerName = wwmcRealModeContext_L . loggerName
+
+instance HasJsonLogConfig WalletWebModeContext where
+    jsonLogConfig = wwmcRealModeContext_L . jsonLogConfig
 
 data WalletWebModeContextTag
 
@@ -146,8 +165,8 @@ instance MonadDiscovery WalletWebMode where
     findPeers = findPeersSum
 
 instance {-# OVERLAPPING #-} HasLoggerName WalletWebMode where
-    getLoggerName = view (lensOf @LoggerName)
-    modifyLoggerName f = local (lensOf @LoggerName %~ f)
+    getLoggerName = getLoggerNameDefault
+    modifyLoggerName = modifyLoggerNameDefault
 
 instance {-# OVERLAPPING #-} CanJsonLog WalletWebMode where
     jsonLog = jsonLogDefault

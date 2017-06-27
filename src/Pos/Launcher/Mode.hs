@@ -2,6 +2,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 {- |
 
@@ -26,6 +27,7 @@ module Pos.Launcher.Mode
 
 import           Universum
 
+import           Control.Lens          (makeLensesWith)
 import qualified Control.Monad.Reader  as Mtl
 import           EtherCompat
 import           Mockable.Production   (Production)
@@ -45,7 +47,6 @@ import           Pos.DB.Class          (MonadBlockDBGeneric (..), MonadDB (..),
 import           Pos.DB.Redirect       (dbDeleteDefault, dbGetDefault,
                                         dbIterSourceDefault, dbPutDefault,
                                         dbWriteBatchDefault)
-import           Pos.ExecMode.Context  ((:::), modeContext)
 import           Pos.Lrc.Context       (LrcContext)
 import           Pos.Slotting          (HasSlottingVar (..), SlottingData)
 import           Pos.Slotting.Class    (MonadSlots (..))
@@ -58,6 +59,7 @@ import           Pos.Slotting.MemState (MonadSlotsData (..), getSlottingDataDefa
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Util              (Some (..))
+import           Pos.Util.Util         (postfixLFields)
 
 -- | 'newInitFuture' creates a thunk and a procedure to fill it. This can be
 -- used to create a data structure and initialize it gradually while doing some
@@ -75,28 +77,42 @@ newInitFuture = do
     r <- liftIO $ unsafeInterleaveIO (readMVar v)
     pure (r, putMVar v)
 
-data SlottingVarTag
+-- The fields are lazy on purpose: this allows using them with
+-- futures.
+data InitModeContext ssc = InitModeContext
+    { imcNodeDBs            :: NodeDBs
+    , imcGenesisUtxo        :: GenesisUtxo
+    , imcGenesisStakes      :: GenesisStakes
+    , imcSlottingVar        :: (Timestamp, TVar SlottingData)
+    , imcSlottingContextSum :: SlottingContextSum
+    , imcLrcContext         :: LrcContext
+    }
 
-modeContext [d|
-    -- The fields are lazy on purpose: this allows using them with
-    -- futures.
-    data InitModeContext ssc = InitModeContext
-        (NodeDBs            ::: NodeDBs)
-        (GenesisUtxo        ::: GenesisUtxo)
-        (GenesisStakes      ::: GenesisStakes)
-        (SlottingVarTag     ::: (Timestamp, TVar SlottingData))
-        (SlottingContextSum ::: SlottingContextSum)
-        (LrcContext         ::: LrcContext)
-    |]
+makeLensesWith postfixLFields ''InitModeContext
 
 type InitMode ssc = Mtl.ReaderT (InitModeContext ssc) Production
 
 runInitMode :: InitModeContext ssc -> InitMode ssc a -> Production a
 runInitMode = flip Mtl.runReaderT
 
+instance HasLens NodeDBs (InitModeContext ssc) NodeDBs where
+    lensOf = imcNodeDBs_L
+
+instance HasLens GenesisUtxo (InitModeContext ssc) GenesisUtxo where
+    lensOf = imcGenesisUtxo_L
+
+instance HasLens GenesisStakes (InitModeContext ssc) GenesisStakes where
+    lensOf = imcGenesisStakes_L
+
+instance HasLens SlottingContextSum (InitModeContext ssc) SlottingContextSum where
+    lensOf = imcSlottingContextSum_L
+
+instance HasLens LrcContext (InitModeContext ssc) LrcContext where
+    lensOf = imcLrcContext_L
+
 instance HasSlottingVar (InitModeContext ssc) where
-    slottingTimestamp = lensOf @SlottingVarTag . _1
-    slottingVar = lensOf @SlottingVarTag . _2
+    slottingTimestamp = imcSlottingVar_L . _1
+    slottingVar = imcSlottingVar_L . _2
 
 instance MonadDBRead (InitMode ssc) where
     dbGet = dbGetDefault

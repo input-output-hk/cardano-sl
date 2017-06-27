@@ -10,7 +10,9 @@ module Pos.Web.Mode
 
 import           Universum
 
+import           Control.Lens         (makeLensesWith)
 import qualified Control.Monad.Reader as Mtl
+import           EtherCompat
 import           Mockable             (Production)
 
 import           Pos.Context          (HasPrimaryKey (..), HasSscContext (..),
@@ -19,25 +21,35 @@ import           Pos.DB               (NodeDBs)
 import           Pos.DB.Class         (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Redirect      (dbDeleteDefault, dbGetDefault, dbIterSourceDefault,
                                        dbPutDefault, dbWriteBatchDefault)
-import           Pos.ExecMode.Context ((:::), modeContext)
 import           Pos.Txp.MemState     (GenericTxpLocalData, TxpHolderTag)
+import           Pos.Util.Util        (postfixLFields)
 import           Pos.WorkMode         (TxpExtra_TMP)
 
-modeContext [d|
-    data WebModeContext ssc = WebModeContext
-        !(NodeDBs      ::: NodeDBs)
-        !(TxpHolderTag ::: GenericTxpLocalData TxpExtra_TMP)
-        !(NodeContext ssc)
-    |]
+data WebModeContext ssc = WebModeContext
+    { wmcNodeDBs      :: !NodeDBs
+    , wmcTxpLocalData :: !(GenericTxpLocalData TxpExtra_TMP)
+    , wmcNodeContext  :: !(NodeContext ssc)
+    }
 
-wmcNodeContext :: Lens' (WebModeContext ssc) (NodeContext ssc)
-wmcNodeContext f (WebModeContext x1 x2 nc) = WebModeContext x1 x2 <$> f nc
+makeLensesWith postfixLFields ''WebModeContext
+
+instance HasLens NodeDBs (WebModeContext ssc) NodeDBs where
+    lensOf = wmcNodeDBs_L
+
+instance HasLens TxpHolderTag (WebModeContext ssc) (GenericTxpLocalData TxpExtra_TMP) where
+    lensOf = wmcTxpLocalData_L
+
+instance {-# OVERLAPPABLE #-}
+    HasLens tag (NodeContext ssc) r =>
+    HasLens tag (WebModeContext ssc) r
+  where
+    lensOf = wmcNodeContext_L . lensOf @tag
 
 instance HasSscContext ssc (WebModeContext ssc) where
-    sscContext = wmcNodeContext . sscContext
+    sscContext = wmcNodeContext_L . sscContext
 
 instance HasPrimaryKey (WebModeContext ssc) where
-    primaryKey = wmcNodeContext . primaryKey
+    primaryKey = wmcNodeContext_L . primaryKey
 
 type WebMode ssc = Mtl.ReaderT (WebModeContext ssc) Production
 

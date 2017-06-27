@@ -91,6 +91,7 @@ library
 
                         -- Utilities/helpers
                         Pos.Util
+                        Pos.Util.LoggerName
                         Pos.Util.Undefined
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
@@ -105,8 +106,6 @@ library
                         Pos.WorkMode
                         Pos.WorkMode.Class
 
-                        -- Execution mode
-                        Pos.ExecMode.Context
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer

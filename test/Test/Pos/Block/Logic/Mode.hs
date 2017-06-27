@@ -18,6 +18,7 @@ module Test.Pos.Block.Logic.Mode
 
 import           Universum
 
+import           Control.Lens            (makeLensesWith)
 import qualified Control.Monad.Reader    as Mtl
 import qualified Data.HashMap.Strict     as HM
 import qualified Data.Map.Strict         as M
@@ -52,7 +53,6 @@ import           Pos.DB.Block            (MonadBlockDBWrite (..), dbGetBlockDefa
 import           Pos.DB.DB               (closeNodeDBs, gsAdoptedBVDataDefault,
                                           initNodeDBs, openNodeDBs)
 import qualified Pos.DB.GState           as GState
-import           Pos.ExecMode.Context    ((:::), modeContext)
 import           Pos.Genesis             (stakeDistribution)
 import           Pos.Launcher            (InitModeContext (..), newInitFuture,
                                           runInitMode)
@@ -73,6 +73,9 @@ import           Pos.Txp                 (TxIn (..), TxOut (..), TxOutAux (..),
                                           TxpGlobalSettings, txpGlobalSettings, utxoF,
                                           utxoToStakes)
 import           Pos.Update.Context      (UpdateContext, mkUpdateContext)
+import           Pos.Util.LoggerName     (HasLoggerName' (..), getLoggerNameDefault,
+                                          modifyLoggerNameDefault)
+import           Pos.Util.Util           (postfixLFields)
 import           Pos.Util.Util           (Some)
 
 -- TODO: it shouldn't be 'Production', but currently we don't have anything else.
@@ -153,20 +156,18 @@ instance Arbitrary TestParams where
 -- Main context
 ----------------------------------------------------------------------------
 
-data SlottingVarTag
+data BlockTestContext = BlockTestContext
+    { btcDBs               :: !NodeDBs
+    , btcSlottingVar       :: !(Timestamp, TVar SlottingData)
+    , btcLoggerName        :: !LoggerName
+    , btcLrcContext        :: !LrcContext
+    , btcUpdateContext     :: !UpdateContext
+    , btcSscState          :: !(SscState SscGodTossing)
+    , btcTxpGlobalSettings :: !TxpGlobalSettings
+    , btcParams            :: !TestParams
+    }
 
-modeContext [d|
-    data BlockTestContext = BlockTestContext
-        { btcDBs               :: !(NodeDBs     ::: NodeDBs)
-        , btcSlottingVar       :: !(SlottingVarTag ::: (Timestamp, TVar SlottingData))
-        , btcLoggerName        :: !(LoggerName  ::: LoggerName)
-        , btcLrcContext        :: !(LrcContext  ::: LrcContext)
-        , btcUpdateContext     :: !(UpdateContext ::: UpdateContext)
-        , btcSscState          :: !(SscMemTag     ::: SscState SscGodTossing)
-        , btcTxpGlobalSettings :: !(TxpGlobalSettings ::: TxpGlobalSettings)
-        , btcParams            :: !(TestParams  ::: TestParams)
-        }
-    |]
+makeLensesWith postfixLFields ''BlockTestContext
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -244,13 +245,37 @@ instance Testable (BlockProperty a) where
 
 -- Test mode
 
+instance HasLens NodeDBs BlockTestContext NodeDBs where
+      lensOf = btcDBs_L
+
+instance HasLens LoggerName BlockTestContext LoggerName where
+      lensOf = btcLoggerName_L
+
+instance HasLens LrcContext BlockTestContext LrcContext where
+      lensOf = btcLrcContext_L
+
+instance HasLens UpdateContext BlockTestContext UpdateContext where
+      lensOf = btcUpdateContext_L
+
+instance HasLens SscMemTag BlockTestContext (SscState SscGodTossing) where
+      lensOf = btcSscState_L
+
+instance HasLens TxpGlobalSettings BlockTestContext TxpGlobalSettings where
+      lensOf = btcTxpGlobalSettings_L
+
+instance HasLens TestParams BlockTestContext TestParams where
+      lensOf = btcParams_L
+
 instance HasSlottingVar BlockTestContext where
-    slottingTimestamp = lensOf @SlottingVarTag . _1
-    slottingVar = lensOf @SlottingVarTag . _2
+    slottingTimestamp = btcSlottingVar_L . _1
+    slottingVar = btcSlottingVar_L . _2
+
+instance HasLoggerName' BlockTestContext where
+    loggerName = lensOf @LoggerName
 
 instance {-# OVERLAPPING #-} HasLoggerName BlockTestMode where
-    getLoggerName = view (lensOf @LoggerName)
-    modifyLoggerName f = local (lensOf @LoggerName %~ f)
+    getLoggerName = getLoggerNameDefault
+    modifyLoggerName = modifyLoggerNameDefault
 
 instance MonadSlotsData BlockTestMode where
     getSystemStart = getSystemStartDefault

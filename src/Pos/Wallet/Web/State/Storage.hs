@@ -53,8 +53,8 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
-import           Control.Lens               (at, ix, makeClassy, makeLenses, (%=), (.=),
-                                             (<<.=), (?=), _head, non', _Empty)
+import           Control.Lens               (at, ix, makeClassy, makeLenses, non', (%=),
+                                             (.=), (<<.=), (?=), _Empty, _head)
 import           Control.Monad.State.Class  (put)
 import           Data.Default               (Default, def)
 import qualified Data.HashMap.Strict        as HM
@@ -62,6 +62,7 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 
 import           Pos.Client.Txp.History     (TxHistoryEntry)
 import           Pos.Constants              (genesisHash)
+import           Pos.Core.Types             (Timestamp)
 import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
@@ -315,6 +316,7 @@ deriveSafeCopySimple 0 'base ''CWalletAssurance
 deriveSafeCopySimple 0 'base ''CAccountMeta
 deriveSafeCopySimple 0 'base ''CWalletMeta
 deriveSafeCopySimple 0 'base ''CTxId
+deriveSafeCopySimple 0 'base ''Timestamp
 deriveSafeCopySimple 0 'base ''TxHistoryEntry
 deriveSafeCopySimple 0 'base ''CTxMeta
 deriveSafeCopySimple 0 'base ''CUpdateInfo

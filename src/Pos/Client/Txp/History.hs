@@ -41,17 +41,18 @@ import           Data.Tagged                  (Tagged (..))
 import qualified Ether
 import           System.Wlog                  (WithLogger)
 
-import           Pos.Block.Core               (Block, mainBlockTxPayload)
+import           Pos.Block.Core               (Block, mainBlockSlot, mainBlockTxPayload)
 import           Pos.Constants                (blkSecurityParam)
 import           Pos.Context.Context          (GenesisUtxo (..))
 import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
-                                               difficultyL, prevBlockL)
+                                               Timestamp (..), difficultyL, prevBlockL)
 import           Pos.Crypto                   (WithHash (..), withHash)
-import           Pos.DB                       (MonadRealDB, MonadDBRead)
+import           Pos.DB                       (MonadDBRead, MonadRealDB)
 import qualified Pos.DB.Block                 as DB
 import           Pos.DB.Error                 (DBError (..))
 import qualified Pos.DB.GState                as GS
-import           Pos.Slotting                 (MonadSlots)
+import           Pos.Slotting                 (MonadSlots, SlottingData (..),
+                                               getSlotStartPure)
 import           Pos.Ssc.Class                (SscHelpersClass)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
@@ -96,6 +97,7 @@ data TxHistoryEntry = THEntry
     , _thDifficulty  :: !(Maybe ChainDifficulty)
     , _thInputAddrs  :: ![Address]  -- TODO: remove in favor of _thInputs
     , _thOutputAddrs :: ![Address]
+    , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic)
 
 makeLenses ''TxHistoryEntry
@@ -123,7 +125,7 @@ getRelatedTxs (HS.fromList -> addrs) txs = do
         return $ do
             guard . not . null $
                 HS.fromList (incomings ++ outgoings) `HS.intersection` addrs
-            return $ THEntry txId tx inputs Nothing incomings outgoings
+            return $ THEntry txId tx inputs Nothing incomings outgoings Nothing
 
 -- | Given a full blockchain, derive address history and Utxo
 -- TODO: Such functionality will still be useful for merging
@@ -142,7 +144,16 @@ deriveAddrHistoryPartial
     -> [Address]
     -> [Block ssc]
     -> TxSelectorT m [TxHistoryEntry]
-deriveAddrHistoryPartial hist addrs chain =
+deriveAddrHistoryPartial hist addrs chain = deriveAddrHistoryPartialWithTimestamp hist addrs chain Nothing
+
+deriveAddrHistoryPartialWithTimestamp
+    :: (Monad m)
+    => [TxHistoryEntry]
+    -> [Address]
+    -> [Block ssc]
+    -> Maybe SlottingData
+    -> TxSelectorT m [TxHistoryEntry]
+deriveAddrHistoryPartialWithTimestamp hist addrs chain maybeSd =
     DL.toList <$> foldrM updateAll (DL.fromList hist) chain
   where
     updateAll (Left _) hst = pure hst
@@ -152,7 +163,9 @@ deriveAddrHistoryPartial hist addrs chain =
                    map mapper $ flattenTxPayload (blk ^. mainBlockTxPayload)
         let difficulty = blk ^. difficultyL
             txs' = map (thDifficulty .~ Just difficulty) txs
-        return $ DL.fromList txs' <> hst
+        let maybeTimestamp = maybeSd >>= getSlotStartPure (blk ^. mainBlockSlot)
+            txs'' = map (thTimestamp .~ maybeTimestamp) txs'
+        return $ DL.fromList txs'' <> hst
 
 ----------------------------------------------------------------------------
 -- MonadTxHistory
@@ -219,10 +232,12 @@ instance
         let cachedHashes = drop blkSecurityParam hashList
             nonCachedHashes = take blkSecurityParam hashList
 
+        sd <- GS.getSlottingData
+
         let blockFetcher h txs = do
                 blk <- lift . lift . DB.runBlockDBRedirect $ DB.blkGetBlock @ssc h >>=
                        maybeThrow (DBMalformed "A block mysteriously disappeared!")
-                deriveAddrHistoryPartial txs addrs [blk]
+                deriveAddrHistoryPartialWithTimestamp txs addrs [blk] (Just sd)
             localFetcher blkTxs = do
                 let mp (txid, TxAux {..}) =
                       (WithHash taTx txid, taWitness, taDistribution)

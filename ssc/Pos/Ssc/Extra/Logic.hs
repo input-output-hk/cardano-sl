@@ -32,7 +32,7 @@ import           Control.Monad.Except     (MonadError, runExceptT)
 import           Control.Monad.Morph      (generalize, hoist)
 import           Control.Monad.State      (get, put)
 import           Data.Tagged              (untag)
-import           EtherCompat
+import           Ether.Internal           (HasLens (..))
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Util            (listJson)
 import           System.Wlog              (NamedPureLogger, WithLogger,

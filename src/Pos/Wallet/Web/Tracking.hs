@@ -40,7 +40,7 @@ import           Control.Lens               (to)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
-import           EtherCompat
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)

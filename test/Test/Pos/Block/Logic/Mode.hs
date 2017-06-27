@@ -23,7 +23,7 @@ import qualified Control.Monad.Reader    as Mtl
 import qualified Data.HashMap.Strict     as HM
 import qualified Data.Map.Strict         as M
 import qualified Data.Text.Buildable
-import           EtherCompat
+import           Ether.Internal          (HasLens (..))
 import           Formatting              (bprint, build, formatToString, int, shown, (%))
 import           Mockable                (Production, currentTime, runProduction)
 import qualified Prelude

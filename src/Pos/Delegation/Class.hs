@@ -24,7 +24,7 @@ import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
 import           Data.Time.Clock            (UTCTime)
-import           EtherCompat
+import           Ether.Internal             (HasLens (..))
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 

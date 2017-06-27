@@ -35,7 +35,7 @@ import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.DList                  as DL
 import qualified Data.HashSet                as HS
-import           EtherCompat
+import           Ether.Internal              (HasLens (..))
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.Core              (Block, BlockHeader, mainBlockTxPayload)

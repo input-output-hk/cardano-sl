@@ -15,7 +15,7 @@ import           Universum
 
 import           Control.Lens                     (makeLensesWith)
 import qualified Control.Monad.Reader             as Mtl
-import           EtherCompat
+import           Ether.Internal                   (HasLens (..))
 import           Mockable                         (Production, SharedAtomicT)
 import           System.Wlog                      (HasLoggerName (..), LoggerName)
 

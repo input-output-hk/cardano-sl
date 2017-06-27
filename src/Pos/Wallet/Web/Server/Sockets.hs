@@ -22,7 +22,7 @@ import           Control.Monad.State.Strict     (MonadState (get, put))
 import           Data.Aeson                     (encode)
 import           Data.Default                   (Default (def))
 import qualified Data.IntMap.Strict             as IM
-import           EtherCompat
+import           Ether.Internal                 (HasLens (..))
 import           Formatting                     (build, sformat, (%))
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)

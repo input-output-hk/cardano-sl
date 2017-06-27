@@ -6,7 +6,7 @@ module Pos.Lrc.DB.Lrc
 
 import           Universum
 
-import           EtherCompat
+import           Ether.Internal      (HasLens (..))
 
 import           Pos.Context.Context (GenesisStakes, GenesisUtxo)
 import           Pos.DB.Class        (MonadDB)

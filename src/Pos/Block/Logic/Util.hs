@@ -19,7 +19,7 @@ import           Universum
 import           Control.Lens        (_Wrapped)
 import           Control.Monad.Catch (bracketOnError)
 import           Data.List.NonEmpty  ((<|))
-import           EtherCompat
+import           Ether.Internal      (HasLens (..))
 import           Formatting          (sformat, stext, (%))
 
 import           Pos.Block.Core      (BlockHeader)

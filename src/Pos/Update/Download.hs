@@ -15,7 +15,7 @@ import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
 import qualified Data.Set                as S
-import           EtherCompat
+import           Ether.Internal          (HasLens (..))
 import           Formatting              (build, sformat, stext, (%))
 import           Network.HTTP.Client     (Manager, newManager)
 import           Network.HTTP.Client.TLS (tlsManagerSettings)

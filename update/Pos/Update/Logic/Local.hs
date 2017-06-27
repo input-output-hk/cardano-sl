@@ -30,7 +30,7 @@ import           Control.Monad.Except   (runExceptT)
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
-import           EtherCompat
+import           Ether.Internal         (HasLens (..))
 import           Formatting             (sformat, (%))
 import           System.Wlog            (WithLogger, logWarning)
 

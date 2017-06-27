@@ -8,7 +8,7 @@ module Pos.Ssc.Extra.Class
        , SscMemTag
        ) where
 
-import           EtherCompat
+import           Ether.Internal      (HasLens (..))
 import           Universum
 
 import           Pos.Ssc.Extra.Types (SscState)

@@ -60,7 +60,7 @@ module Pos.Wallet.Web.State.State
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent)
-import           EtherCompat
+import           Ether.Internal               (HasLens (..))
 import           Mockable                     (MonadMockable)
 import           Universum
 

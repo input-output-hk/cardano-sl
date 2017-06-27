@@ -14,7 +14,7 @@ module Pos.Launcher.Param
 import           Universum
 
 import           Control.Lens            (coerced, makeLensesWith)
-import           EtherCompat
+import           Ether.Internal          (HasLens (..))
 import qualified Network.Transport.TCP   as TCP
 import           System.Wlog             (LoggerName)
 

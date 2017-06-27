@@ -16,7 +16,7 @@ module Pos.Lrc.DB.Leaders
 
 import           Universum
 
-import           EtherCompat
+import           Ether.Internal        (HasLens (..))
 
 import           Pos.Binary.Class      (encode)
 import           Pos.Binary.Core       ()

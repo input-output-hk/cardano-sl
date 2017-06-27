@@ -10,7 +10,7 @@ module Pos.Communication.Relay.Class
        , askRelayMem
        ) where
 
-import           EtherCompat
+import           Ether.Internal                 (HasLens (..))
 import           Node.Message.Class             (Message)
 import           Pos.Binary.Class               (Bi)
 import           Universum

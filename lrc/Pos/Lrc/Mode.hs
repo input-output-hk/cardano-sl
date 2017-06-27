@@ -8,7 +8,7 @@ module Pos.Lrc.Mode
 
 import           Universum
 
-import           EtherCompat
+import           Ether.Internal  (HasLens (..))
 import           Mockable        (Async, Concurrently, Delay, Mockables)
 import           System.Wlog     (WithLogger)
 

@@ -5,7 +5,7 @@ module Pos.Security.Util
 
 import           Universum
 
-import           EtherCompat
+import           Ether.Internal      (HasLens (..))
 
 import           Pos.Core            (StakeholderId)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..),

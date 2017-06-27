@@ -10,7 +10,7 @@ module Pos.Block.Network.Announce
 import           Universum
 
 import           Control.Monad.Except       (runExceptT)
-import           EtherCompat
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (throw)
 import           System.Wlog                (logDebug)

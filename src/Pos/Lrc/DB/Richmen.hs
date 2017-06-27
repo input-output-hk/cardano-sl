@@ -26,7 +26,7 @@ module Pos.Lrc.DB.Richmen
 import           Universum
 
 import qualified Data.HashMap.Strict         as HM
-import           EtherCompat
+import           Ether.Internal              (HasLens (..))
 
 import           Pos.Binary.Core             ()
 import           Pos.Constants               (genesisHeavyDelThd)

@@ -12,7 +12,7 @@ import           Universum
 
 import           Control.Monad.Catch        (MonadMask)
 import qualified Database.RocksDB           as Rocks
-import           EtherCompat
+import           Ether.Internal             (HasLens (..))
 import           System.Wlog                (WithLogger)
 
 import           Pos.Context.Context        (GenesisUtxo (..))

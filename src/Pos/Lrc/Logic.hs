@@ -16,7 +16,7 @@ import           Data.Conduit        (Sink, runConduitPure, runConduitRes, (.|))
 import qualified Data.Conduit.List   as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
-import           EtherCompat
+import           Ether.Internal      (HasLens (..))
 
 import           Pos.Core            (Coin, GenesisStakes, StakeholderId, sumCoins,
                                       unsafeIntegerToCoin)

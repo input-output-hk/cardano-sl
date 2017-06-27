@@ -34,7 +34,7 @@ import qualified Data.Cache.LRU              as LRU
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Data.Time.Clock             (getCurrentTime)
-import           EtherCompat
+import           Ether.Internal              (HasLens (..))
 
 import           Pos.Binary.Class            (biSize)
 import           Pos.Binary.Communication    ()

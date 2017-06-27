@@ -27,7 +27,7 @@ import           Universum
 import           Control.Lens        (views)
 import           Data.Time           (diffUTCTime, getCurrentTime)
 import           Data.Time.Units     (Microsecond, fromMicroseconds)
-import           EtherCompat
+import           Ether.Internal      (HasLens (..))
 
 import           Pos.Context.Context (BlkSemaphore (..), GenesisStakes (..),
                                       GenesisUtxo (..), StartTime (..))

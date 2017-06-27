@@ -80,7 +80,7 @@ import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (ResourceT)
 import           Data.Conduit                   (Source)
 import qualified Database.RocksDB               as Rocks
-import           EtherCompat
+import           Ether.Internal                 (HasLens (..))
 import           Serokell.Data.Memory.Units     (Byte)
 
 import           Pos.Binary.Class               (Bi)

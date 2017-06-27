@@ -16,7 +16,7 @@ import           Universum
 
 import           Control.Monad.Catch         (MonadMask)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           EtherCompat
+import           Ether.Internal              (HasLens (..))
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 

@@ -19,7 +19,7 @@ module Pos.Slotting.Impl.Sum
 
 import           Universum
 
-import           EtherCompat
+import           Ether.Internal           (HasLens (..))
 
 import           Pos.Core.Types           (SlotId (..), Timestamp)
 import           Pos.Slotting.Impl.Ntp    (NtpMode, NtpSlottingVar, NtpWorkerMode,

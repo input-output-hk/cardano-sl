@@ -26,7 +26,7 @@ import qualified Control.Exception.Lifted    as L
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default                (Default (def))
 import qualified Data.HashMap.Strict         as HM
-import           EtherCompat
+import           Ether.Internal              (HasLens (..))
 import           System.IO.Unsafe            (unsafePerformIO)
 
 import           Pos.Txp.Core.Types          (TxAux, TxId, TxOutAux)

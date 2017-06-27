@@ -5,7 +5,7 @@ module Pos.Recovery.Instance
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import           EtherCompat
+import           Ether.Internal         (HasLens (..))
 
 import           Pos.Context.Context    (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (..))

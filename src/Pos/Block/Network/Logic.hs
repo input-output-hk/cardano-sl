@@ -27,7 +27,7 @@ import           Control.Exception          (Exception (..))
 import           Control.Lens               (_Wrapped)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
-import           EtherCompat
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (bprint, build, sformat, shown, stext, (%))
 import           Mockable                   (fork)
 import           Paths_cardano_sl           (version)

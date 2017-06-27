@@ -15,7 +15,7 @@ import           Universum                     hiding (over)
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import qualified Control.Monad.Reader          as Mtl
-import           EtherCompat
+import           Ether.Internal                (HasLens (..))
 import           Mockable                      (Production, runProduction)
 import           Network.Wai                   (Application)
 import           Servant.Server                (Handler)

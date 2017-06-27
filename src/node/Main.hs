@@ -13,7 +13,7 @@ import           Universum
 
 import           Control.Lens        (views)
 import           Data.Maybe          (fromJust)
-import           EtherCompat
+import           Ether.Internal      (HasLens (..))
 import           Formatting          (sformat, shown, (%))
 import           Mockable            (Production, currentTime, runProduction)
 import           System.Wlog         (logError, logInfo)

@@ -34,7 +34,7 @@ import qualified Data.Conduit.List            as CL
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB             as Rocks
-import           EtherCompat
+import           Ether.Internal               (HasLens (..))
 import           Formatting                   (bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)

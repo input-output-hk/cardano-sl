@@ -13,7 +13,7 @@ module Pos.Lrc.Context
 import           Universum
 
 import           Control.Lens        (views)
-import           EtherCompat
+import           Ether.Internal      (HasLens (..))
 
 import           Pos.Core            (EpochIndex)
 import           Pos.DB.Class        (MonadDBRead)

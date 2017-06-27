@@ -11,7 +11,7 @@ import           Universum
 
 import           Control.Lens                  (views)
 import qualified Data.Text.Buildable
-import           EtherCompat
+import           Ether.Internal                (HasLens (..))
 import           Formatting                    (build, sformat, shown, (%))
 import           Serokell.Util.Text            (pairBuilder)
 import           System.Wlog                   (logDebug, logInfo)

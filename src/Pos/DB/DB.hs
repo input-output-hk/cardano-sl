@@ -21,7 +21,7 @@ module Pos.DB.DB
 import           Universum
 
 import           Control.Monad.Catch        (MonadMask)
-import           EtherCompat
+import           Ether.Internal             (HasLens (..))
 import           System.Directory           (createDirectoryIfMissing, doesDirectoryExist,
                                              removeDirectoryRecursive)
 import           System.FilePath            ((</>))

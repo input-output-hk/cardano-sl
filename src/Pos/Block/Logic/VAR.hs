@@ -17,7 +17,7 @@ import           Control.Lens             (_Wrapped)
 import           Control.Monad.Except     (ExceptT (ExceptT), MonadError (throwError),
                                            runExceptT, withExceptT)
 import qualified Data.List.NonEmpty       as NE
-import           EtherCompat
+import           Ether.Internal           (HasLens (..))
 import           Paths_cardano_sl         (version)
 
 import           Pos.Block.Core           (Block)

@@ -14,7 +14,7 @@ import           Universum
 
 import           Control.Lens        (each, to, views, _tail)
 import           Development.GitRev  (gitBranch, gitHash)
-import           EtherCompat
+import           Ether.Internal      (HasLens (..))
 import           Formatting          (build, sformat, shown, (%))
 import           Mockable            (fork)
 import           Paths_cardano_sl    (version)

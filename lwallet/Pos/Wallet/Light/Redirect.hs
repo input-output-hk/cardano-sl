@@ -12,7 +12,7 @@ module Pos.Wallet.Light.Redirect
 import           Universum
 
 import           Control.Monad.Trans.Maybe (MaybeT (..))
-import           EtherCompat
+import           Ether.Internal            (HasLens (..))
 
 import           Pos.Client.Txp.Balances   (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History    (TxHistoryAnswer, deriveAddrHistory)

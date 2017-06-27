@@ -18,7 +18,7 @@ import           Control.Monad.STM          (retry)
 import           Data.Conduit               (runConduitRes, (.|))
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
-import           EtherCompat
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (forConcurrently)
 import           Paths_cardano_sl           (version)

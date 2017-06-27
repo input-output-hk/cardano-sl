@@ -12,7 +12,7 @@ module Pos.Ssc.Extra.Holder
 import           Universum
 
 import qualified Control.Concurrent.STM  as STM
-import           EtherCompat
+import           Ether.Internal          (HasLens (..))
 import           System.Wlog             (WithLogger)
 
 import           Pos.DB                  (MonadDBRead)

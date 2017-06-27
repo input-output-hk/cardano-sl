@@ -20,7 +20,7 @@ import           Control.Monad.Catch        (try)
 import           Control.Monad.Except       (MonadError (throwError), runExceptT)
 import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
-import           EtherCompat
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, ords, sformat, stext, (%))
 import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (Byte, memory)

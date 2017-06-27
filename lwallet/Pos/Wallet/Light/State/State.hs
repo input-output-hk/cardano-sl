@@ -21,7 +21,7 @@ module Pos.Wallet.Light.State.State
 import           Universum
 
 import           Data.Acid                      (EventResult, EventState, QueryEvent)
-import           EtherCompat
+import           Ether.Internal                 (HasLens (..))
 
 import           Pos.Txp                        (Tx, Utxo)
 import           Pos.Types                      (HeaderHash)

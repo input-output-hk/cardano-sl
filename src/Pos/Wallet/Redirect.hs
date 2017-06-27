@@ -21,7 +21,7 @@ import           Control.Concurrent.STM    (tryReadTMVar)
 import           Control.Lens              (views)
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import           Data.Time.Units           (Millisecond)
-import           EtherCompat
+import           Ether.Internal            (HasLens (..))
 import           System.Wlog               (WithLogger)
 
 import           Pos.Block.Core            (BlockHeader)

@@ -12,7 +12,7 @@ import           Control.Lens               (_Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM          (retry)
 import           Data.List.NonEmpty         ((<|))
-import           EtherCompat
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, int, sformat, shown, stext, (%))
 import           Mockable                   (handleAll, throw)
 import           Paths_cardano_sl           (version)

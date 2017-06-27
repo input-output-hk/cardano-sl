@@ -26,7 +26,7 @@ import           Universum
 import           Control.Lens          (_Wrapped)
 import           Control.Monad.Except  (MonadError (throwError))
 import qualified Data.List.NonEmpty    as NE
-import           EtherCompat
+import           Ether.Internal        (HasLens (..))
 import           Formatting            (build, sformat, (%))
 import           Serokell.Util         (Color (Red), colorize)
 import           Serokell.Util.Verify  (formatAllErrors, verResToMonadError)

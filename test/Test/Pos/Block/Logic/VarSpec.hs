@@ -8,7 +8,7 @@ import           Universum
 
 import           Control.Lens              (at, views)
 import qualified Data.List.NonEmpty        as NE
-import           EtherCompat
+import           Ether.Internal            (HasLens (..))
 import           Formatting                (sformat, (%))
 import           Serokell.Util             (listJson)
 import           Test.Hspec                (Spec, describe)

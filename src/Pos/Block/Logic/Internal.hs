@@ -24,7 +24,7 @@ import           Universum
 
 import           Control.Lens                (each, _Wrapped)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           EtherCompat
+import           Ether.Internal              (HasLens (..))
 import           Formatting                  (sformat, (%))
 import           Paths_cardano_sl            (version)
 import           Serokell.Util.Text          (listJson)

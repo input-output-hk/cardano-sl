@@ -17,7 +17,7 @@ import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
 import           Data.List                    (partition, (\\))
 import qualified Data.Text.Buildable          as B
-import           EtherCompat
+import           Ether.Internal               (HasLens (..))
 import           Formatting                   (bprint, build, sformat, (%))
 import           Serokell.Util                (listJson, mapJson)
 import           System.Wlog                  (WithLogger, logDebug)

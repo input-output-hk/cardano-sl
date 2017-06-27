@@ -75,8 +75,7 @@ import           Pos.Txp                 (TxIn (..), TxOut (..), TxOutAux (..),
 import           Pos.Update.Context      (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName     (HasLoggerName' (..), getLoggerNameDefault,
                                           modifyLoggerNameDefault)
-import           Pos.Util.Util           (postfixLFields)
-import           Pos.Util.Util           (Some)
+import           Pos.Util.Util           (Some, postfixLFields)
 
 -- TODO: it shouldn't be 'Production', but currently we don't have anything else.
 -- Expect some changes here somewhere in 2019.

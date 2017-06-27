@@ -60,6 +60,7 @@ import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
+import           Pos.Context                      (genesisStakeholdersM)
 import           Pos.Core                         (Address (..), Coin, HeaderHash,
                                                    addressF, decodeTextAddress,
                                                    genesisSplitBoot, makePubKeyAddress,
@@ -532,7 +533,8 @@ sendMoney sendActions passphrase moneySource dstDistr = do
     logDebug $ buildDistribution distr
     mRemTx <- mkRemainingTx remaining
     bootEra <- gsIsBootstrapEra
-    let stakeDistr c | bootEra = genesisSplitBoot c
+    genStakeholders <- genesisStakeholdersM
+    let stakeDistr c | bootEra = genesisSplitBoot genStakeholders c
                      | otherwise = []
     txOuts <- forM dstDistr $ \(cAddr, coin) -> do
         addr <- decodeCIdOrFail cAddr

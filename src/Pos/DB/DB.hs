@@ -34,7 +34,7 @@ import           System.Wlog                (WithLogger)
 import           Pos.Block.Core             (Block, BlockHeader, mkGenesisBlock)
 import           Pos.Block.Types            (Blund)
 import           Pos.Constants              (isDevelopment)
-import           Pos.Context.Context        (GenesisStakes, GenesisUtxo)
+import           Pos.Context.Context        (GenesisUtxo)
 import           Pos.Context.Functions      (genesisLeadersM)
 import           Pos.Core                   (BlockVersionData, Timestamp, headerHash)
 import           Pos.DB.Block               (MonadBlockDB, MonadBlockDBWrite,
@@ -88,7 +88,6 @@ openNodeDBs recreate fp = do
 initNodeDBs
     :: forall ssc m.
        ( Ether.MonadReader' GenesisUtxo m
-       , Ether.MonadReader' GenesisStakes m
        , MonadBlockDBWrite ssc m
        , MonadDB m
        )

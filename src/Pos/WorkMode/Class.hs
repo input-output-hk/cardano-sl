@@ -23,8 +23,8 @@ import           System.Wlog                 (WithLogger)
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
-import           Pos.Context                 (BlkSemaphore, GenesisStakes,
-                                              MonadBlockRetrievalQueue,
+import           Pos.Context                 (BlkSemaphore, GenesisStakeholders,
+                                              GenesisUtxo, MonadBlockRetrievalQueue,
                                               MonadLastKnownHeader, MonadProgressHeader,
                                               MonadRecoveryHeader, MonadSscContext,
                                               NodeParams, StartTime, TxpGlobalSettings)
@@ -91,7 +91,8 @@ type WorkMode ssc m
       , Ether.MonadReader' UpdateParams m
       , Ether.MonadReader' SecurityParams m
       , Ether.MonadReader' TxpGlobalSettings m
-      , Ether.MonadReader' GenesisStakes m
+      , Ether.MonadReader' GenesisStakeholders m
+      , Ether.MonadReader' GenesisUtxo m
       , MonadSscContext ssc m
       , WithPeerState m
       , MonadShutdownMem m

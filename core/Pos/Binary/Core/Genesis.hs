@@ -11,7 +11,8 @@ import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..), Peek,
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Core.Types   ()
 import           Pos.Core.Address        ()
-import           Pos.Core.Genesis.Types  (GenesisCoreData (..), StakeDistribution (..))
+import           Pos.Core.Genesis.Types  (GenesisCoreData (..), GenesisCoreData0 (..),
+                                          StakeDistribution (..))
 import           Pos.Core.Types          (Address, Coin, StakeholderId)
 
 getUVI :: Peek Word
@@ -41,9 +42,17 @@ instance Bi StakeDistribution where
         f (ExplicitStakes balances)  = putWord8S 4 <> putS balances
         f (CombinedStakes st1 st2)   = putWord8S 5 <> putS st1 <> putS st2
 
+-- compatibility
+deriveSimpleBi ''GenesisCoreData0 [
+    Cons 'GenesisCoreData0 [
+        Field [| _0gcdAddresses         :: [Address]                  |],
+        Field [| _0gcdDistribution      :: StakeDistribution          |],
+        Field [| _0gcdBootstrapBalances :: HashMap StakeholderId Coin |]
+    ]]
+
 deriveSimpleBi ''GenesisCoreData [
     Cons 'GenesisCoreData [
-        Field [| gcdAddresses         :: [Address]                  |],
-        Field [| gcdDistribution      :: StakeDistribution          |],
-        Field [| gcdBootstrapBalances :: HashMap StakeholderId Coin |]
+        Field [| gcdAddresses             :: [Address]             |],
+        Field [| gcdDistribution          :: StakeDistribution     |],
+        Field [| gcdBootstrapStakeholders :: HashSet StakeholderId |]
     ]]

@@ -13,7 +13,7 @@ import qualified Network.Transport.TCP   as TCP
 import           System.Wlog             (LoggerName)
 
 import           Pos.Communication.Types (NodeId)
-import           Pos.Core                (StakesMap, Timestamp)
+import           Pos.Core                (Stakeholders, Timestamp)
 import           Pos.Crypto              (SecretKey)
 import           Pos.DHT.Real            (KademliaParams)
 import           Pos.Security.Params     (SecurityParams)
@@ -47,20 +47,19 @@ data NetworkParams = NetworkParams
 -- | This data type contains all data necessary to launch node and
 -- known in advance (from CLI, configs, etc.)
 data NodeParams = NodeParams
-    { npDbPathM        :: !FilePath          -- ^ Path to node's database.
-    , npRebuildDb      :: !Bool              -- ^ @True@ if data-base should be rebuilt
-    , npSystemStart    :: !Timestamp         -- ^ System start
-    , npSecretKey      :: !SecretKey         -- ^ Primary secret key of node
-    , npUserSecret     :: !UserSecret        -- ^ All node secret keys
-    , npBaseParams     :: !BaseParams        -- ^ See 'BaseParams'
-    , npCustomUtxo     :: !Utxo              -- ^ Predefined genesis utxo.
-    , npGenesisStakes  :: !StakesMap         -- ^ Predefined genesis stakes.
-    , npJLFile         :: !(Maybe FilePath)  -- @georgeee please write comment to this field when you see this sign, i made it very long on purpose so it won't fit even in your huge monitor
-    , npPropagation    :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
-    , npReportServers  :: ![Text]            -- ^ List of report server URLs
-    , npUpdateParams   :: !UpdateParams      -- ^ Params for update system
-    , npSecurityParams :: !SecurityParams    -- ^ Params for "Pos.Security"
-    , npUseNTP         :: !Bool
-    , npNetwork        :: !NetworkParams
-    -- ^ Network parameters.
-    } -- deriving (Show)
+    { npDbPathM             :: !FilePath          -- ^ Path to node's database
+    , npRebuildDb           :: !Bool              -- ^ @True@ if data-base should be rebuilt
+    , npSystemStart         :: !Timestamp         -- ^ System start
+    , npSecretKey           :: !SecretKey         -- ^ Primary secret key of node
+    , npUserSecret          :: !UserSecret        -- ^ All node secret keys
+    , npBaseParams          :: !BaseParams        -- ^ See 'BaseParams'
+    , npCustomUtxo          :: !Utxo              -- ^ Predefined genesis utxo
+    , npGenesisStakeholders :: !Stakeholders      -- ^ Predefined genesis boot stakeholders
+    , npJLFile              :: !(Maybe FilePath)  -- TODO COMMENT
+    , npPropagation         :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
+    , npReportServers       :: ![Text]            -- ^ List of report server URLs
+    , npUpdateParams        :: !UpdateParams      -- ^ Params for update system
+    , npSecurityParams      :: !SecurityParams    -- ^ Params for "Pos.Security"
+    , npUseNTP              :: !Bool              -- TODO COMMENT
+    , npNetwork             :: !NetworkParams     -- ^ Network parameters
+    }

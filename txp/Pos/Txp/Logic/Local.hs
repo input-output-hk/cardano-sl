@@ -12,14 +12,15 @@ import           Data.Default                (Default (def))
 import qualified Data.HashSet                as HS
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as M (fromList)
+import qualified Ether
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
 import           Universum
 import           Unsafe                      (unsafeHead)
 
-import           Pos.Core                    (Coin, HeaderHash, StakeholderId,
+import           Pos.Core                    (Coin, GenesisStakeholders (..), HeaderHash,
+                                              StakeholderId, Stakeholders,
                                               genesisBootProdStakeholders)
-import           Pos.Core.Constants          (isDevelopment)
 import           Pos.DB.Class                (MonadDBRead, MonadGState, gsIsBootstrapEra)
 import qualified Pos.DB.GState.Common        as GS
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId,
@@ -41,6 +42,7 @@ type TxpLocalWorkMode m =
     , MonadGState m
     , MonadTxpMem () m
     , WithLogger m
+    , Ether.MonadReader' GenesisStakeholders m
     , MonadError ToilVerFailure m
     )
 
@@ -53,12 +55,14 @@ txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
     bootEra <- gsIsBootstrapEra
+    bootHolders <- Ether.asks' unGenesisStakeholders
     localUM <- getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
     -- possible that invalid transaction will appear in
     -- mempool. However, in this case it will be removed by
     -- normalization before releasing lock on block application.
+    let runUM um = runToilTLocal um def mempty
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
     toilEnv <- runDBToil getToilEnv
     -- Resolved are unspent transaction outputs corresponding to input
@@ -68,7 +72,7 @@ txProcessTransaction itw@(txId, txAux) = do
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     pRes <- modifyTxpLocalData $
-            processTxDo resolved toilEnv tipDB itw bootEra
+            processTxDo resolved bootHolders toilEnv tipDB itw bootEra
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
@@ -76,7 +80,7 @@ txProcessTransaction itw@(txId, txAux) = do
         Right _   ->
             logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
-    notBootRelated =
+    notBootRelated bootHolders =
         let txDistr = getTxDistribution $ taDistribution txAux
             inBoot s = s `HS.member` genesisBootProdStakeholders
             mentioned pool addr = addr `elem` pool
@@ -85,33 +89,35 @@ txProcessTransaction itw@(txId, txAux) = do
                 -- Has unrelated address
                 any (not . inBoot) txOutDistr ||
                 -- Not all genesis boot addrs are mentioned
-                any (not . mentioned txOutDistr) (HS.toList genesisBootProdStakeholders)
+                any (not . mentioned txOutDistr) (HS.toList bootHolders)
         in NE.filter bad txDistr
 
     processTxDo
         :: Utxo
+        -> Stakeholders
         -> ToilEnv
         -> HeaderHash
         -> (TxId, TxAux)
         -> Bool
         -> TxpLocalDataPure
         -> (Either ToilVerFailure (), TxpLocalDataPure)
-    processTxDo resolved toilEnv tipDB tx bootEra txld@(uv, mp, undo, tip, ())
-        | tipDB /= tip =
-            (Left $ ToilTipsMismatch tipDB tip, txld)
-        | not isDevelopment && bootEra && not (null notBootRelated) =
+    processTxDo resolved bootHolders toilEnv tipDB tx bootEra txld@(uv, mp, undo, tip, ()) = do
+        let tipMismatch = tipDB /= tip
+            bootRel = notBootRelated bootHolders
+        if | tipMismatch ->
+             (Left $ ToilTipsMismatch tipDB tip, txld)
+           | bootEra && not (null bootRel) ->
             -- We do not allow txs with non-boot-addr stake distr in boot era.
-            (Left $ ToilBootDifferentStake $ unsafeHead notBootRelated, txld)
-        | otherwise =
-            let res = (runExceptT $
-                       flip runUtxoReaderT resolved $
-                       execToilTLocal uv mp undo $
-                       processTx tx) toilEnv
-            in case res of
-                Left er  -> (Left er, txld)
-                Right ToilModifier{..} ->
-                    (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, ()))
-    runUM um = runToilTLocal um def mempty
+             (Left $ ToilBootDifferentStake $ unsafeHead bootRel, txld)
+           | otherwise ->
+             let res = (runExceptT $
+                        flip runUtxoReaderT resolved $
+                        execToilTLocal uv mp undo $
+                        processTx tx) toilEnv
+             in case res of
+                 Left er  -> (Left er, txld)
+                 Right ToilModifier{..} ->
+                     (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, ()))
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool

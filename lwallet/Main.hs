@@ -48,7 +48,8 @@ import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVot
                                              withSafeSigner)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Discovery              (findPeers, getPeers)
-import           Pos.Genesis                (genesisDevSecretKeys,
+import           Pos.Genesis                (genesisBootProdStakeholders,
+                                             genesisDevSecretKeys,
                                              genesisStakeDistribution, genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              bracketTransport, loggerBracket, stakesDistr)
@@ -315,6 +316,10 @@ main = do
         baseParams = BaseParams { bpLoggingParams = logParams }
 
     let sysStart = CLI.sysStart woCommonArgs
+    let npGenesisStakeholders =
+            if isDevelopment
+                then Nothing
+                else Just genesisBootProdStakeholders
     let params =
             WalletParams
             { wpDbPath      = Just woDbPath
@@ -324,7 +329,7 @@ main = do
             , wpGenesisKeys = woDebug
             , wpBaseParams  = baseParams
             , wpGenesisUtxo =
-                  genesisUtxo $
+                  genesisUtxo npGenesisStakeholders $
                   if isDevelopment
                       then stakesDistr
                                (CLI.flatDistr woCommonArgs)

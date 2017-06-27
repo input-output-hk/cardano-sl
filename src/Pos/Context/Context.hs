@@ -14,7 +14,7 @@ module Pos.Context.Context
        , BaseParams(..)
        , TxpGlobalSettings
        , GenesisUtxo(..)
-       , GenesisStakes(..)
+       , GenesisStakeholders(..)
        , StartTime(..)
        , LastKnownHeader
        , LastKnownHeaderTag
@@ -46,7 +46,7 @@ import           Pos.Block.Core                (BlockHeader)
 import           Pos.Communication.Relay       (RelayPropagationQueue)
 import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
-import           Pos.Core                      (GenesisStakes (..), HeaderHash,
+import           Pos.Core                      (GenesisStakeholders (..), HeaderHash,
                                                 PrimaryKeyTag)
 import           Pos.Crypto                    (SecretKey)
 import           Pos.Discovery                 (DiscoveryContextSum)
@@ -160,7 +160,7 @@ makeLensesFor
     , ("npReportServers", "npReportServersL")
     , ("npPropagation", "npPropagationL")
     , ("npCustomUtxo", "npCustomUtxoL")
-    , ("npGenesisStakes", "npGenesisStakesL") ]
+    , ("npGenesisStakeholders", "npGenesisStakeholdersL") ]
     ''NodeParams
 
 instance HasLens NodeContextTag (NodeContext ssc) (NodeContext ssc) where
@@ -178,8 +178,8 @@ instance HasLens PrimaryKeyTag (NodeContext ssc) SecretKey where
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
     lensOf = lensOf @NodeParams . npCustomUtxoL . coerced
 
-instance HasLens GenesisStakes (NodeContext ssc) GenesisStakes where
-    lensOf = lensOf @NodeParams . npGenesisStakesL . coerced
+instance HasLens GenesisStakeholders (NodeContext ssc) GenesisStakeholders where
+    lensOf = lensOf @NodeParams . npGenesisStakeholdersL . coerced
 
 instance HasLens ReportingContext (NodeContext ssc) ReportingContext where
     lensOf = lens getter (flip setter)

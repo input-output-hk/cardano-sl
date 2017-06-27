@@ -16,9 +16,8 @@ import           Data.Conduit           (Sink, runConduitPure, runConduitRes, (.
 import qualified Data.Conduit.List      as CL
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
-import qualified Ether
 
-import           Pos.Core               (Coin, GenesisStakes, StakeholderId, sumCoins,
+import           Pos.Core               (Coin, StakeholderId, sumCoins,
                                          unsafeIntegerToCoin)
 import           Pos.DB.Class           (MonadDBRead, MonadGState)
 import           Pos.DB.GState          (getDelegators, isIssuerByAddressHash)
@@ -26,7 +25,7 @@ import           Pos.DB.GState.Balances (getRealStake)
 import           Pos.Lrc.Core           (findDelegationStakes, findRichmenStake)
 import           Pos.Lrc.Types          (FullRichmenData, RichmenStake)
 
-type MonadDBReadFull m = (MonadDBRead m, Ether.MonadReader' GenesisStakes m, MonadGState m)
+type MonadDBReadFull m = (MonadDBRead m, MonadGState m)
 
 -- Can it be improved using conduits?
 -- | Find delegated richmen using precomputed usual richmen.

@@ -2,6 +2,10 @@ module Pos.Core.Genesis.Types
        ( StakeDistribution (..)
        , GenesisCoreData (..)
        , getTotalStake
+
+       -- compatibility
+       , GenesisCoreData0 (..)
+       , toGenesisCoreData
        ) where
 
 import           Universum
@@ -12,6 +16,7 @@ import           Pos.Core.Coin      (coinToInteger, sumCoins, unsafeAddCoin,
                                      unsafeIntegerToCoin, unsafeMulCoin)
 import           Pos.Core.Constants (genesisKeysN)
 import           Pos.Core.Types     (Address, Coin, StakeholderId, mkCoin)
+import           Pos.Util.Util      (getKeys)
 
 -- | Stake distribution in genesis block.
 -- FlatStakes is a flat distribution, i. e. each node has the same amount of coins.
@@ -64,10 +69,10 @@ getTotalStake (CombinedStakes st1 st2) =
 
 -- | Hardcoded genesis data.
 data GenesisCoreData = GenesisCoreData
-    { gcdAddresses         :: [Address]
-    , gcdDistribution      :: StakeDistribution
-    , gcdBootstrapBalances :: !(HashMap StakeholderId Coin)
-      -- ^ Bootstrap era balances.
+    { gcdAddresses             :: !([Address])
+    , gcdDistribution          :: !StakeDistribution
+    , gcdBootstrapStakeholders :: !(HashSet StakeholderId)
+      -- ^ Bootstrap era stakeholders.
     }
     deriving (Show, Eq)
 
@@ -75,3 +80,19 @@ instance Monoid GenesisCoreData where
     mempty = GenesisCoreData mempty mempty mempty
     (GenesisCoreData addrsA distA bbsA) `mappend` (GenesisCoreData addrsB distB bbsB) =
         GenesisCoreData (addrsA <> addrsB) (distA <> distB) (bbsA <> bbsB)
+
+----------------------------------------------------------------------------
+-- Compatibility
+----------------------------------------------------------------------------
+
+-- | Compatibility datatype for 'GenesisCoreData'
+data GenesisCoreData0 = GenesisCoreData0
+    { _0gcdAddresses         :: !([Address])
+    , _0gcdDistribution      :: !StakeDistribution
+    , _0gcdBootstrapBalances :: !(HashMap StakeholderId Coin)
+      -- ^ Bootstrap era addresses.
+    }
+    deriving (Show, Eq)
+
+toGenesisCoreData :: GenesisCoreData0 -> GenesisCoreData
+toGenesisCoreData (GenesisCoreData0 a b c) = GenesisCoreData a b (getKeys c)

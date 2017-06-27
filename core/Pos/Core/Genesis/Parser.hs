@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Compile-time genesis data parser
 
 module Pos.Core.Genesis.Parser
@@ -9,7 +11,8 @@ import           Universum               hiding (lift)
 
 import           Pos.Binary.Class        (decodeFull)
 import           Pos.Binary.Core.Genesis ()
-import           Pos.Core.Genesis.Types  (GenesisCoreData (..))
+import           Pos.Core.Genesis.Types  (GenesisCoreData (..), GenesisCoreData0,
+                                          toGenesisCoreData)
 
 -- | Fetch pre-generated genesis data from /genesis-core.bin/ in compile
 -- time. Doesn't use TH with lift because it's difficult to provide 'Lift'
@@ -17,8 +20,17 @@ import           Pos.Core.Genesis.Types  (GenesisCoreData (..))
 compileGenCoreData :: GenesisCoreData
 compileGenCoreData =
     let file = $(embedFile =<< makeRelativeToProject "genesis-core.bin")
+    -- ala safecopy!
     in case decodeFull file of
-        Left a  -> error $ toText a
-        Right d -> if null (gcdAddresses d)
-                   then error "No addresses in genesis-core.bin"
-                   else d
+        Left _                        ->
+            case decodeFull file of
+              Left a                       ->
+                  error $ "Failed to read genesis: " <> toText a
+              Right (d :: GenesisCoreData) ->
+                  processDecoded d
+        Right (d :: GenesisCoreData0) -> processDecoded (toGenesisCoreData d)
+  where
+    processDecoded d =
+        if null (gcdAddresses d)
+        then error "No addresses in genesis-core.bin"
+        else d

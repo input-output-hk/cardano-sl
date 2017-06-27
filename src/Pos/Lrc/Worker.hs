@@ -30,7 +30,7 @@ import           Pos.Block.Logic.Internal   (BlockApplyMode, applyBlocksUnsafe,
 import           Pos.Block.Logic.Util       (withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
-import           Pos.Context                (BlkSemaphore, recoveryCommGuard)
+import           Pos.Context                (BlkSemaphore, GenesisUtxo, recoveryCommGuard)
 import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
                                              EpochOrSlot (..), HeaderHash, HeaderHash,
                                              SharedSeed, SlotId (..), StakeholderId,
@@ -87,6 +87,7 @@ type LrcModeFull ssc m =
     , MonadSlots m
     , BlockApplyMode ssc m
     , Ether.MonadReader' BlkSemaphore m
+    , Ether.MonadReader' GenesisUtxo m
     )
 
 -- | Run leaders and richmen computation for given epoch. If stable

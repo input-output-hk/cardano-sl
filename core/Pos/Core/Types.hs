@@ -10,8 +10,9 @@ module Pos.Core.Types
        , AddrPkAttrs (..)
        , AddressHash
        , StakeholderId
+       , Stakeholders
        , StakesMap
-       , GenesisStakes (..)
+       , GenesisStakeholders (..)
 
        , Timestamp (..)
 
@@ -102,11 +103,14 @@ import           Pos.Data.Attributes        (Attributes)
 -- Address
 ----------------------------------------------------------------------------
 
--- | Hash of address
+-- | Hash used to identify address.
 type AddressHash = AbstractHash Blake2b_224
 
 -- | Stakeholder identifier (stakeholders are identified by their public keys)
 type StakeholderId = AddressHash PublicKey
+
+-- | Alias for set of stakeholders.
+type Stakeholders = HashSet StakeholderId
 
 -- | Address is where you can send coins.
 data Address
@@ -133,7 +137,8 @@ instance Default AddrPkAttrs where
 type StakesMap = HashMap StakeholderId Coin
 
 -- | Newtype over 'StakesMap' to be used in genesis.
-newtype GenesisStakes = GenesisStakes { unGenesisStakes :: StakesMap }
+newtype GenesisStakeholders =
+    GenesisStakeholders { unGenesisStakeholders :: Stakeholders }
 
 ----------------------------------------------------------------------------
 -- ChainDifficulty

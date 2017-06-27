@@ -30,16 +30,16 @@ import           Serokell.Util              (enumerate)
 
 import qualified Pos.Constants              as Const
 import           Pos.Core                   (Address, Coin, SlotLeaders, StakeholderId,
-                                             StakesMap, applyCoinPortion, coinToInteger,
-                                             divCoin, makePubKeyAddress, mkCoin,
-                                             unsafeAddCoin, unsafeMulCoin)
+                                             Stakeholders, applyCoinPortion,
+                                             coinToInteger, divCoin, makePubKeyAddress,
+                                             mkCoin, unsafeAddCoin, unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstNonHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
 import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..),
                                              TxOutDistribution)
-import           Pos.Txp.Toil               (Utxo)
+import           Pos.Txp.Toil               (Utxo, utxoToStakes)
 import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 
 -- reexports
@@ -140,8 +140,8 @@ bitcoinDistributionImpl ratio coins (coinIdx, coin) =
                   (toAddValMin `unsafeMulCoin` (toAddNum - 1))
 
 -- | Genesis 'Utxo'.
-genesisUtxo :: StakeDistribution -> Utxo
-genesisUtxo sd =
+genesisUtxo :: Maybe Stakeholders -> StakeDistribution -> Utxo
+genesisUtxo bootStakeholders sd =
     M.fromList $ concat
         [ zipWith zipF (stakeDistribution sd)
               (genesisAddresses <> tailAddresses)
@@ -149,8 +149,9 @@ genesisUtxo sd =
         ]
   where
     defaultStakeDistr coin distr
-        | Const.isDevelopment = distr
-        | otherwise = genesisSplitBoot coin
+        = maybe distr
+                (\genDistr -> genesisSplitBoot genDistr coin)
+                bootStakeholders
     zipF (coin, distr) addr =
         ( TxIn (unsafeHash addr) 0
         , TxOutAux (TxOut addr coin) (defaultStakeDistr coin distr)
@@ -175,6 +176,6 @@ genesisDelegation = mempty
 ----------------------------------------------------------------------------
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
-genesisLeaders :: StakesMap -> SlotLeaders
-genesisLeaders genesisStakes =
-    followTheSatoshi genesisSeed $ HM.toList genesisStakes
+genesisLeaders :: Utxo -> SlotLeaders
+genesisLeaders utxo =
+    followTheSatoshi genesisSeed $ HM.toList $ utxoToStakes utxo

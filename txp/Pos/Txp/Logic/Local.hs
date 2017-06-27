@@ -17,7 +17,8 @@ import           System.Wlog                 (WithLogger, logDebug)
 import           Universum
 import           Unsafe                      (unsafeHead)
 
-import           Pos.Core                    (HeaderHash, genesisBootProdStakeholders)
+import           Pos.Core                    (Coin, HeaderHash, StakeholderId,
+                                              genesisBootProdStakeholders)
 import           Pos.Core.Constants          (isDevelopment)
 import           Pos.DB.Class                (MonadDBRead, MonadGState, gsIsBootstrapEra)
 import qualified Pos.DB.GState.Common        as GS
@@ -77,8 +78,15 @@ txProcessTransaction itw@(txId, txAux) = do
   where
     notBootRelated =
         let txDistr = getTxDistribution $ taDistribution txAux
-            inBoot (s,_) = s `HS.member` genesisBootProdStakeholders
-        in NE.filter (\txOutDistr -> any (not . inBoot) txOutDistr) txDistr
+            inBoot s = s `HS.member` genesisBootProdStakeholders
+            mentioned pool addr = addr `elem` pool
+            bad :: [(StakeholderId, Coin)] -> Bool
+            bad (map fst -> txOutDistr) =
+                -- Has unrelated address
+                any (not . inBoot) txOutDistr ||
+                -- Not all genesis boot addrs are mentioned
+                any (not . mentioned txOutDistr) (HS.toList genesisBootProdStakeholders)
+        in NE.filter bad txDistr
 
     processTxDo
         :: Utxo

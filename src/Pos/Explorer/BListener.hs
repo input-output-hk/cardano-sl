@@ -13,7 +13,6 @@ import           Universum
 
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
-import           Data.List                    (nub)
 import qualified Data.List.NonEmpty           as NE
 import qualified Data.Map                     as M
 import qualified Ether
@@ -88,7 +87,7 @@ onApplyEpochBlocksExplorer blunds = do
     -- add the (Epoch, [HeaderHash]) pair back to the database).
     mBlocksHHs <- DB.getEpochBlocks epoch
     let blocksHHsOrEmpty = fromMaybe mempty mBlocksHHs
-    let uniqueHHs = nub $ blocksHHsOrEmpty <> blockHHs
+    let uniqueHHs = ordNub $ blocksHHsOrEmpty <> blockHHs
 
     -- In the end make sure we place this under @SomeBatchOp@ in order to
     -- preserve atomicity.
@@ -124,7 +123,7 @@ onApplyPageBlocksExplorer blunds = do
     let newExistingPageBlocks = M.toList $ M.unionWith (<>) newPageBlocksMap existingPageBlocksMap
 
     let deletedPages = [ DB.DelPageBlocks page | page <- pages]
-    let createdPages = [ DB.PutPageBlocks (pB ^. _1) (pB ^. _2) | pB <- newExistingPageBlocks]
+    let createdPages = [ DB.PutPageBlocks (pB ^. _1) (ordNub $ pB ^. _2) | pB <- newExistingPageBlocks]
 
     -- In the end make sure we place this under @SomeBatchOp@ in order to
     -- preserve atomicity.

@@ -939,9 +939,9 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
             let txInputs = [TxOut redeemAddress redeemBalance]
             ctxs <- addHistoryTx (aiWId accId)
                 (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr])
-            ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
+            ctsIncoming ctxs `whenNothing` throwM noIncomingTx
   where
-   noOutgoingTx = InternalError "Can't report outgoing transaction"
+   noIncomingTx = InternalError "Can't report incoming transaction"
 
 reportingInitialized :: WalletWebMode m => CInitialized -> m ()
 reportingInitialized cinit = do

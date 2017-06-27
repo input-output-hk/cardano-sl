@@ -222,7 +222,7 @@ mkCTxs diff THEntry {..} meta wAddrMetas = do
             guard . not . null $
                 wAddrsSet `S.intersection` S.fromList significantAddrs
             return CTx {ctIsOutgoing = isOutgoing, ..}
-        -- Output addresses which presence make us to display transaction
+        -- Output addresses whose presence make us display transaction
         -- (incoming half, i.e. one with 'isOutgoing' set to @false@).
         ctSignificantOutputAddrs =
             ctOutputAddrs &

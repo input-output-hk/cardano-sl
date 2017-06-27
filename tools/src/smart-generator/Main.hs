@@ -40,7 +40,7 @@ import           Pos.Ssc.Class         (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
-import           Pos.Txp               (TxAux (..))
+import           Pos.Txp               (TxAux (..), utxoToStakes)
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util.JsonLog      ()
 import           Pos.Util.UserSecret   (simpleUserSecret)
@@ -263,6 +263,12 @@ main = do
 
     let systemStart = CLI.sysStart goCommonArgs
 
+    let npCustomUtxo =  genesisUtxo $
+                                    stakesDistr
+                                    (CLI.flatDistr goCommonArgs)
+                                    (CLI.bitcoinDistr goCommonArgs)
+                                    (CLI.richPoorDistr goCommonArgs)
+                                    (CLI.expDistr goCommonArgs)
     let params =
             NodeParams
             { npDbPathM       = "rocks-smartwallet"
@@ -271,12 +277,7 @@ main = do
             , npSecretKey     = sk
             , npUserSecret    = simpleUserSecret sk "smartgen-secret.sk"
             , npBaseParams    = baseParams
-            , npCustomUtxo    = genesisUtxo $
-                                    stakesDistr
-                                    (CLI.flatDistr goCommonArgs)
-                                    (CLI.bitcoinDistr goCommonArgs)
-                                    (CLI.richPoorDistr goCommonArgs)
-                                    (CLI.expDistr goCommonArgs)
+            , npGenesisStakes = utxoToStakes npCustomUtxo
             , npJLFile        = goJLFile
             , npPropagation   = not (CLI.disablePropagation goCommonArgs)
             , npReportServers = []
@@ -291,6 +292,7 @@ main = do
                 }
             , npUseNTP = True
             , npNetwork = networkParams
+            , ..
             }
         gtParams =
             GtParams

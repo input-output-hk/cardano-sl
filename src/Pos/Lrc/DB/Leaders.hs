@@ -20,7 +20,7 @@ import           EtherCompat
 
 import           Pos.Binary.Class      (encodeStrict)
 import           Pos.Binary.Core       ()
-import           Pos.Context.Context   (GenesisLeaders)
+import           Pos.Context.Context   (GenesisStakes)
 import           Pos.Context.Functions (genesisLeadersM)
 import           Pos.DB.Class          (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common     (getBi, putBi)
@@ -45,7 +45,7 @@ putLeaders epoch = putBi (leadersKey epoch)
 ----------------------------------------------------------------------------
 
 prepareLrcLeaders ::
-       (MonadReader ctx m, HasLens GenesisLeaders ctx GenesisLeaders, MonadDB m, MonadDBRead m)
+       (MonadReader ctx m, HasLens GenesisStakes ctx GenesisStakes, MonadDB m)
     => m ()
 prepareLrcLeaders =
     whenNothingM_ (getLeaders 0) $

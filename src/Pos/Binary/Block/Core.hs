@@ -65,7 +65,8 @@ instance Bi BC.MainExtraHeaderData where
     put BC.MainExtraHeaderData {..} =  put _mehBlockVersion
                                    *> put _mehSoftwareVersion
                                    *> put _mehAttributes
-    get = label "MainExtraHeaderData" $ BC.MainExtraHeaderData <$> get <*> get <*> get
+                                   *> put _mehEBDataProof
+    get = label "MainExtraHeaderData" $ BC.MainExtraHeaderData <$> get <*> get <*> get <*> get
 
 instance Bi BC.MainExtraBodyData where
    put BC.MainExtraBodyData{..} = put _mebAttributes

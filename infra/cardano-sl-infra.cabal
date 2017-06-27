@@ -21,6 +21,7 @@ library
 
                         -- Slotting
                         Pos.Slotting
+                        Pos.Slotting.Arbitrary
                         Pos.Slotting.Class
                         Pos.Slotting.Constants
                         Pos.Slotting.Impl
@@ -106,6 +107,7 @@ library
                       , cardano-report-server
                       , containers
                       , data-default
+                      , derive
                       , directory
                       , ether >= 0.5
                       , exceptions
@@ -123,6 +125,7 @@ library
                       , network-transport-tcp
                       , node-sketch
                       , optparse-simple
+                      , QuickCheck
                       , reflection
                       , serokell-util >= 0.1.3.4
                       , stm

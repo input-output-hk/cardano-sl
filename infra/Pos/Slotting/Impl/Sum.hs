@@ -26,10 +26,10 @@ import           Pos.Slotting.Impl.Ntp    (NtpMode, NtpSlottingVar, NtpWorkerMod
                                            ntpCurrentTime, ntpGetCurrentSlot,
                                            ntpGetCurrentSlotBlocking,
                                            ntpGetCurrentSlotInaccurate, ntpWorkers)
-import           Pos.Slotting.Impl.Simple (SimpleSlottingMode, simpleCurrentTimeSlotting,
-                                           simpleGetCurrentSlot,
-                                           simpleGetCurrentSlotBlocking,
-                                           simpleGetCurrentSlotInaccurate)
+import           Pos.Slotting.Impl.Simple (SimpleSlottingMode, currentTimeSlottingSimple,
+                                           getCurrentSlotBlockingSimple,
+                                           getCurrentSlotInaccurateSimple,
+                                           getCurrentSlotSimple)
 
 -- | Sum of all contexts used by slotting implementations.
 data SlottingContextSum
@@ -48,25 +48,25 @@ type SlotsSumEnv ctx m = (MonadSlottingSum ctx m, NtpMode m, SimpleSlottingMode 
 getCurrentSlotSum :: SlotsSumEnv ctx m => m (Maybe SlotId)
 getCurrentSlotSum =
     view (lensOf @SlottingContextSum) >>= \case
-        SCSimple -> simpleGetCurrentSlot
+        SCSimple -> getCurrentSlotSimple
         SCNtp var -> ntpGetCurrentSlot var
 
 getCurrentSlotBlockingSum :: SlotsSumEnv ctx m => m SlotId
 getCurrentSlotBlockingSum =
     view (lensOf @SlottingContextSum) >>= \case
-        SCSimple -> simpleGetCurrentSlotBlocking
+        SCSimple -> getCurrentSlotBlockingSimple
         SCNtp var -> ntpGetCurrentSlotBlocking var
 
 getCurrentSlotInaccurateSum :: SlotsSumEnv ctx m => m SlotId
 getCurrentSlotInaccurateSum =
     view (lensOf @SlottingContextSum) >>= \case
-        SCSimple -> simpleGetCurrentSlotInaccurate
+        SCSimple -> getCurrentSlotInaccurateSimple
         SCNtp var -> ntpGetCurrentSlotInaccurate var
 
 currentTimeSlottingSum :: SlotsSumEnv ctx m => m Timestamp
 currentTimeSlottingSum =
     view (lensOf @SlottingContextSum) >>= \case
-        SCSimple -> simpleCurrentTimeSlotting
+        SCSimple -> currentTimeSlottingSimple
         SCNtp var -> ntpCurrentTime var
 
 type SlottingWorkerModeSum m = NtpWorkerMode m

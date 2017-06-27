@@ -23,7 +23,7 @@ import           System.Wlog                 (WithLogger)
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
-import           Pos.Context                 (BlkSemaphore, HasSscContext,
+import           Pos.Context                 (BlkSemaphore, GenesisStakes, HasSscContext,
                                               MonadBlockRetrievalQueue,
                                               MonadLastKnownHeader, MonadProgressHeader,
                                               MonadRecoveryHeader, NodeParams, StartTime,
@@ -91,6 +91,7 @@ type WorkMode ssc ctx m
       , HasLens UpdateParams ctx UpdateParams
       , HasLens SecurityParams ctx SecurityParams
       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
+      , HasLens GenesisStakes ctx GenesisStakes
       , HasSscContext ssc ctx
       , HasReportingContext ctx
       , WithPeerState m

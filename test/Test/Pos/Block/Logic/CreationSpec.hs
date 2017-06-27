@@ -1,6 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Test.Pos.Block.LogicSpec
+-- | Specification of 'Pos.Block.Logic.Creation' module.
+
+module Test.Pos.Block.Logic.CreationSpec
        ( spec
        ) where
 
@@ -27,13 +29,13 @@ import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              commitmentMapEpochGen, mkVssCertificatesMap,
                                              vssCertificateEpochGen)
+import           Pos.Txp.Arbitrary          (SmallGoodTx (..), goodTxToTxAux)
 import           Pos.Txp.Core               (TxAux)
-import           Pos.Types                  (SmallGoodTx (..), goodTxToTxAux)
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util.Arbitrary         (makeSmall)
 
 spec :: Spec
-spec = describe "Block.Logic" $ do
+spec = describe "Block.Logic.Creation" $ do
 
     -- Sampling the minimum empty block size
     (sk0,prevHeader0) <- runIO $ generate arbitrary

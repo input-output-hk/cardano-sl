@@ -27,18 +27,18 @@ import           System.Directory           (createDirectoryIfMissing, doesDirec
 import           System.FilePath            ((</>))
 import           System.Wlog                (WithLogger)
 
-import           Pos.Block.Core             (Block, mkGenesisBlock)
+import           Pos.Block.Core             (Block, BlockHeader, mkGenesisBlock)
 import           Pos.Block.Types            (Blund)
-import           Pos.Context.Context        (GenesisLeaders, GenesisUtxo, NodeParams)
+import           Pos.Context.Context        (GenesisStakes, GenesisUtxo)
 import           Pos.Context.Functions      (genesisLeadersM)
-import           Pos.Core                   (BlockVersionData, headerHash)
+import           Pos.Core                   (BlockVersionData, Timestamp, headerHash)
 import           Pos.DB.Block               (MonadBlockDB, MonadBlockDBWrite,
                                              loadBlundsByDepth, loadBlundsWhile,
                                              prepareBlockDB)
 import           Pos.DB.Class               (MonadDB, MonadDBRead (..))
 import           Pos.DB.Functions           (closeDB, openDB)
-import           Pos.DB.GState.BlockExtra   (prepareGStateBlockExtra)
-import           Pos.DB.GState.Common       (getTip, getTipBlock, getTipHeader)
+import           Pos.DB.GState.Common       (getTip, getTipBlockGeneric,
+                                             getTipHeaderGeneric)
 import           Pos.DB.GState.GState       (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.DB.Misc                (prepareMiscDB)
 import           Pos.DB.Types               (NodeDBs (..))
@@ -84,19 +84,17 @@ initNodeDBs
     :: forall ssc ctx m.
        ( MonadReader ctx m
        , HasLens GenesisUtxo ctx GenesisUtxo
-       , HasLens GenesisLeaders ctx GenesisLeaders
-       , HasLens NodeParams ctx NodeParams
+       , HasLens GenesisStakes ctx GenesisStakes
        , MonadBlockDBWrite ssc m
        , MonadDB m
        )
-    => m ()
-initNodeDBs = do
+    => Timestamp -> m ()
+initNodeDBs systemStart = do
     leaders0 <- genesisLeadersM
     let genesisBlock0 = mkGenesisBlock @ssc Nothing 0 leaders0
         initialTip = headerHash genesisBlock0
     prepareBlockDB genesisBlock0
-    prepareGStateDB initialTip
-    prepareGStateBlockExtra initialTip
+    prepareGStateDB systemStart initialTip
     prepareLrcDB
     prepareMiscDB
 #ifdef WITH_EXPLORER
@@ -126,6 +124,18 @@ sanityCheckDB
     :: (MonadMask m, WithLogger m, MonadDBRead m)
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
+
+-- | Specialized version of 'getTipBlockGeneric'.
+getTipBlock ::
+       forall ssc m. MonadBlockDB ssc m
+    => m (Block ssc)
+getTipBlock = getTipBlockGeneric @(Block ssc)
+
+-- | Specialized version of 'getTipHeaderGeneric'.
+getTipHeader ::
+       forall ssc m. MonadBlockDB ssc m
+    => m (BlockHeader ssc)
+getTipHeader = getTipHeaderGeneric @(Block ssc)
 
 ----------------------------------------------------------------------------
 -- Details

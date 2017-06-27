@@ -41,7 +41,7 @@ import           System.Wlog              (NamedPureLogger, WithLogger,
 import           Pos.Core                 (EpochIndex, HeaderHash, IsHeader, SharedSeed,
                                            SlotId, epochIndexL, headerHash)
 import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead, SomeBatchOp)
-import           Pos.DB.GState.Common     (getTipHeader)
+import           Pos.DB.GState.Common     (getTipHeaderGeneric)
 import           Pos.Exception            (assertionFailed)
 import           Pos.Lrc.Context          (LrcContext, lrcActionOnEpochReason)
 import           Pos.Lrc.Types            (RichmenStake)
@@ -154,7 +154,7 @@ sscNormalize
        )
     => m ()
 sscNormalize = do
-    tipEpoch <- view epochIndexL <$> getTipHeader @(SscBlock ssc)
+    tipEpoch <- view epochIndexL <$> getTipHeaderGeneric @(SscBlock ssc)
     richmenData <- getRichmenFromLrc "sscNormalize" tipEpoch
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem

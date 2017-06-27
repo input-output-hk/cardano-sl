@@ -5,6 +5,7 @@ module Pos.Context.Functions
          -- * Genesis
          GenesisUtxo(..)
        , genesisUtxoM
+       , genesisStakesM
        , genesisLeadersM
 
          -- * Block semaphore.
@@ -21,17 +22,19 @@ module Pos.Context.Functions
        , getUptime
        ) where
 
+import           Universum
+
 import           Control.Lens        (views)
 import           Data.Time           (diffUTCTime, getCurrentTime)
 import           Data.Time.Units     (Microsecond, fromMicroseconds)
 import           EtherCompat
-import           Universum
 
-import           Pos.Context.Context (BlkSemaphore (..), GenesisLeaders (..),
+import           Pos.Context.Context (BlkSemaphore (..), GenesisStakes (..),
                                       GenesisUtxo (..), StartTime (..))
+import           Pos.Core            (HeaderHash, SlotLeaders, StakesMap)
+import           Pos.Genesis         (genesisLeaders)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
 import           Pos.Txp.Toil.Types  (Utxo)
-import           Pos.Types           (HeaderHash, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -40,8 +43,11 @@ import           Pos.Types           (HeaderHash, SlotLeaders)
 genesisUtxoM :: (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) => m Utxo
 genesisUtxoM = views (lensOf @GenesisUtxo) unGenesisUtxo
 
-genesisLeadersM :: (Functor m, MonadReader ctx m, HasLens GenesisLeaders ctx GenesisLeaders) => m SlotLeaders
-genesisLeadersM = views (lensOf @GenesisLeaders) unGenesisLeaders
+genesisStakesM :: (Functor m, MonadReader ctx m, HasLens GenesisStakes ctx GenesisStakes) => m StakesMap
+genesisStakesM = views (lensOf @GenesisStakes) unGenesisStakes
+
+genesisLeadersM :: (Functor m, MonadReader ctx m, HasLens GenesisStakes ctx GenesisStakes) => m SlotLeaders
+genesisLeadersM = genesisLeaders <$> genesisStakesM
 
 ----------------------------------------------------------------------------
 -- Semaphore-related logic

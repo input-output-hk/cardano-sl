@@ -22,7 +22,7 @@ import           Data.List.NonEmpty  ((<|))
 import           EtherCompat
 import           Formatting          (sformat, stext, (%))
 
-import           Pos.Block.Core      (Block, BlockHeader)
+import           Pos.Block.Core      (BlockHeader)
 import           Pos.Constants       (slotSecurityParam)
 import           Pos.Context         (BlkSemaphore, putBlkSemaphore, takeBlkSemaphore)
 import           Pos.Core            (HeaderHash, diffEpochOrSlot, getEpochOrSlot,
@@ -106,7 +106,7 @@ needRecovery ::
 needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
   where
     isTooOld currentSlot = do
-        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader @(Block ssc)
+        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader @ssc
         let distance = getEpochOrSlot currentSlot `diffEpochOrSlot`
                        lastKnownBlockSlot
         pure (distance > slotSecurityParam)

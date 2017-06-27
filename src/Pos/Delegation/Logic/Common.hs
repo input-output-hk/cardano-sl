@@ -28,7 +28,7 @@ import           Data.Time.Clock           (UTCTime, addUTCTime)
 import           Formatting                (bprint, build, sformat, stext, (%))
 import           Universum
 
-import           Pos.Block.Core            (Block, mainBlockDlgPayload)
+import           Pos.Block.Core            (mainBlockDlgPayload)
 import           Pos.Constants             (lightDlgConfirmationTimeout,
                                             messageCacheTimeout)
 import           Pos.Core                  (HeaderHash, epochIndexL, headerHash)
@@ -118,7 +118,7 @@ initDelegation
        (MonadIO m, DB.MonadBlockDB ssc m, MonadDelegation ctx m, MonadMask m)
     => m ()
 initDelegation = do
-    tip <- DB.getTipHeader @(Block ssc)
+    tip <- DB.getTipHeader @ssc
     let tipEpoch = tip ^. epochIndexL
     fromGenesisPsks <-
         map pskIssuerPk <$> (getPSKsFromThisEpoch @ssc) (headerHash tip)

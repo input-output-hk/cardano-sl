@@ -12,7 +12,7 @@ import           Universum
 import           Pos.Binary.Update         ()
 import           Pos.Communication.Relay   (DataMsg (..))
 import           Pos.Crypto                (SignTag (SignUSVote), hash, sign, toPublic)
-import           Pos.Types.Arbitrary       ()
+import           Pos.Core.Arbitrary        ()
 import           Pos.Update.Arbitrary.Core ()
 import           Pos.Update.Core.Types     (UpdateProposal (..), UpdateVote (..))
 

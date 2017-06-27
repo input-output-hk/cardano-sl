@@ -37,7 +37,7 @@ if [[ "$with_haddock" == "true" ]]; then
   find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"wallet"/g' {} +
 fi
 
-targets="cardano-sl cardano-sl-lwallet"
+targets="cardano-sl cardano-sl-lwallet cardano-sl-tools"
 
 for trgt in $targets; do
 

@@ -112,7 +112,7 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
     repeatOnInterval (min (sec' 20)) . reportingFatal version $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do
-                header <- getTipHeader @(Block ssc)
+                header <- getTipHeader @ssc
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
         whenJustM getCurrentSlot onSlotDefault
   where

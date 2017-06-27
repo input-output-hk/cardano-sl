@@ -39,7 +39,6 @@ import           EtherCompat
 
 import           Pos.Binary.Class            (biSize)
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Core              (Block)
 import           Pos.Constants               (memPoolLimitRatio)
 import           Pos.Context                 (NodeParams (..), lrcActionOnEpochReason)
 import           Pos.Core                    (addressHash, bvdMaxBlockSize, epochIndexL)
@@ -156,7 +155,7 @@ processProxySKHeavy
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk = do
     curTime <- liftIO getCurrentTime
-    headEpoch <- view epochIndexL <$> DB.getTipHeader @(Block ssc)
+    headEpoch <- view epochIndexL <$> DB.getTipHeader @ssc
     richmen <-
         toList <$>
         lrcActionOnEpochReason

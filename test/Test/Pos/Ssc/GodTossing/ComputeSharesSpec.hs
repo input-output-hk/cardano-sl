@@ -13,7 +13,7 @@ import           Universum
 import           Pos.Constants         (genesisMpcThd)
 import           Pos.Core              (mkCoin)
 import           Pos.Core.Coin         (coinPortionToDouble, sumCoins)
-import           Pos.Lrc               (GenesisMpcThd, InvalidRichmenStake (..),
+import           Pos.Lrc.Arbitrary     (GenesisMpcThd, InvalidRichmenStake (..),
                                         ValidRichmenStake (..))
 import qualified Pos.Ssc.GodTossing    as T
 

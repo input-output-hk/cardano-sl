@@ -43,6 +43,7 @@ import           Pos.Discovery                 (HasDiscoveryContextSum (..),
                                                 getPeersSum)
 import           Pos.ExecMode.Context          ((:::), HasLens (..), modeContext)
 import           Pos.Reporting                 (HasReportingContext (..))
+import           Pos.Shutdown                  (HasShutdownContext (..))
 import           Pos.Slotting.Class            (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum         (currentTimeSlottingSum,
                                                 getCurrentSlotBlockingSum,
@@ -105,6 +106,9 @@ instance HasUserSecret WalletWebModeContext where
 
 instance sa ~ SharedAtomicT Production => HasPeerState sa WalletWebModeContext where
     peerState = wwmcRealModeContext . peerState
+
+instance HasShutdownContext WalletWebModeContext where
+    shutdownContext = wwmcRealModeContext . shutdownContext
 
 instance HasNodeContext WalletSscType WalletWebModeContext where
     nodeContext = wwmcRealModeContext . nodeContext

@@ -47,7 +47,7 @@ import           Pos.Communication.Types.Protocol
 import           Pos.Core.Types                   (SlotId)
 import           Pos.Discovery.Class              (MonadDiscovery)
 import           Pos.Reporting                    (HasReportingContext)
-import           Pos.Shutdown                     (MonadShutdownMem)
+import           Pos.Shutdown                     (HasShutdownContext)
 import           Pos.Slotting                     (MonadSlots)
 import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
 
@@ -204,7 +204,7 @@ type LocalOnNewSlotComm ctx m =
     , WithLogger m
     , Mockables m [Fork, Delay]
     , HasReportingContext ctx
-    , MonadShutdownMem ctx m
+    , HasShutdownContext ctx
     , MonadDiscovery m
     )
 

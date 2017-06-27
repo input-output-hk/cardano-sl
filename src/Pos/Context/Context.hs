@@ -59,7 +59,8 @@ import           Pos.Reporting.MemState        (HasLoggerConfig (..),
                                                 HasReportingContext (..),
                                                 ReportingContext (..))
 import           Pos.Security.Params           (SecurityParams)
-import           Pos.Shutdown.Types            (ShutdownContext (..))
+import           Pos.Shutdown                  (HasShutdownContext (..),
+                                                ShutdownContext (..))
 import           Pos.Slotting                  (SlottingContextSum, SlottingVar)
 import           Pos.Ssc.Class.Types           (HasSscContext (..), Ssc (SscNodeContext))
 import           Pos.Txp.Settings              (TxpGlobalSettings)
@@ -180,8 +181,8 @@ instance HasLens BlkSemaphore (NodeContext ssc) BlkSemaphore where
 instance HasLens LastKnownHeaderTag (NodeContext ssc) (LastKnownHeader ssc) where
     lensOf = ncLastKnownHeader_L
 
-instance HasLens ShutdownContext (NodeContext ssc) ShutdownContext where
-    lensOf = ncShutdownContext_L
+instance HasShutdownContext (NodeContext ssc) where
+    shutdownContext = ncShutdownContext_L
 
 instance HasLens UpdateContext (NodeContext ssc) UpdateContext where
     lensOf = ncUpdateContext_L

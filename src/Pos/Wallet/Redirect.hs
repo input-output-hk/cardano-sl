@@ -32,7 +32,7 @@ import           Pos.Core                  (ChainDifficulty, difficultyL,
 import           Pos.DB                    (MonadRealDB)
 import           Pos.DB.Block              (MonadBlockDB)
 import           Pos.DB.DB                 (getTipHeader)
-import           Pos.Shutdown              (MonadShutdownMem, triggerShutdown)
+import           Pos.Shutdown              (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting              (MonadSlots (..), getLastKnownSlotDuration)
 import           Pos.Ssc.Class             (Ssc)
 import           Pos.Update.Context        (UpdateContext (ucUpdateSemaphore))
@@ -108,7 +108,7 @@ blockchainSlotDurationWebWallet = getLastKnownSlotDuration
 type UpdatesEnv ctx m =
     ( MonadIO m
     , WithLogger m
-    , MonadShutdownMem ctx m
+    , HasShutdownContext ctx
     , MonadReader ctx m
     , HasLens UpdateContext ctx UpdateContext
     )

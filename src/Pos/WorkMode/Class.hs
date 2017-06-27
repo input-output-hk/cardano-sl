@@ -40,7 +40,7 @@ import           Pos.Core                    (HasPrimaryKey)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
 import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)
-import           Pos.Shutdown                (MonadShutdownMem)
+import           Pos.Shutdown                (HasShutdownContext)
 import           Pos.Slotting.Class          (MonadSlots)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
@@ -81,6 +81,9 @@ type WorkMode ssc ctx m
       , MonadRecoveryHeader ssc ctx m
       , MonadProgressHeader ssc ctx m
       , MonadLastKnownHeader ssc ctx m
+      , WithPeerState m
+      , MonadBListener m
+      , MonadDiscovery m
       , MonadReader ctx m
       , HasLens StartTime ctx StartTime
       , HasLens BlkSemaphore ctx BlkSemaphore
@@ -93,10 +96,7 @@ type WorkMode ssc ctx m
       , HasSscContext ssc ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx
-      , WithPeerState m
-      , MonadShutdownMem ctx m
-      , MonadBListener m
-      , MonadDiscovery m
+      , HasShutdownContext ctx
       )
 
 -- | More relaxed version of 'WorkMode'.

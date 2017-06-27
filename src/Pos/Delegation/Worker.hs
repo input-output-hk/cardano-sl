@@ -20,7 +20,7 @@ import           Pos.Delegation.Logic       (invalidateProxyCaches,
 import           Pos.Discovery.Class        (MonadDiscovery)
 import           Pos.Reporting              (HasReportingContext)
 import           Pos.Reporting.Methods      (reportingFatal)
-import           Pos.Shutdown               (MonadShutdownMem, runIfNotShutdown)
+import           Pos.Shutdown               (HasShutdownContext, runIfNotShutdown)
 import           Pos.WorkMode.Class         (WorkMode)
 
 -- | All workers specific to proxy sertificates processing.
@@ -35,7 +35,7 @@ dlgInvalidateCaches
        , WithLogger m
        , Mockable Delay m
        , HasReportingContext ctx
-       , MonadShutdownMem ctx m
+       , HasShutdownContext ctx
        , MonadDelegation ctx m
        , MonadDiscovery m
        , MonadReader ctx m

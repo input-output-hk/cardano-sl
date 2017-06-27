@@ -36,7 +36,7 @@ import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
 import           Pos.Reporting.MemState (HasReportingContext)
 import           Pos.Reporting.Methods  (reportMisbehaviourSilent, reportingFatal)
-import           Pos.Shutdown           (MonadShutdownMem, runIfNotShutdown)
+import           Pos.Shutdown           (HasShutdownContext, runIfNotShutdown)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
 import           Pos.Slotting.MemState  (MonadSlotsData (..))
@@ -81,7 +81,7 @@ type OnNewSlot ctx m =
     , Mockable Fork m
     , Mockable Delay m
     , HasReportingContext ctx
-    , MonadShutdownMem ctx m
+    , HasShutdownContext ctx
     , MonadDiscovery m
     )
 

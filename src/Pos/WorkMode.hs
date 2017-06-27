@@ -49,6 +49,7 @@ import           Pos.Discovery               (HasDiscoveryContextSum (..),
                                               getPeersSum)
 import           Pos.ExecMode.Context        ((:::), modeContext)
 import           Pos.Reporting               (HasReportingContext (..))
+import           Pos.Shutdown                (HasShutdownContext (..))
 import           Pos.Slotting.Class          (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum       (currentTimeSlottingSum,
                                               getCurrentSlotBlockingSum,
@@ -100,6 +101,9 @@ instance HasReportingContext (RealModeContext ssc) where
 
 instance HasUserSecret (RealModeContext ssc) where
     userSecret = rmcNodeContext . userSecret
+
+instance HasShutdownContext (RealModeContext ssc) where
+    shutdownContext = rmcNodeContext . shutdownContext
 
 instance HasNodeContext ssc (RealModeContext ssc) where
     nodeContext = rmcNodeContext

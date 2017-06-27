@@ -19,7 +19,7 @@ import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
 import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)
-import           Pos.Shutdown                (MonadShutdownMem)
+import           Pos.Shutdown                (HasShutdownContext)
 import           Pos.Slotting                (MonadSlots)
 import           Pos.Ssc.Class.Types         (HasSscContext)
 import           Pos.Ssc.Extra               (MonadSscMem)
@@ -37,7 +37,7 @@ type SscMode ssc ctx m
       , MonadDB m
       , MonadSscMem ssc ctx m
       , MonadRecoveryInfo m
-      , MonadShutdownMem ctx m
+      , HasShutdownContext ctx
       , MonadDiscovery m
       , WithPeerState m
       , MonadReader ctx m

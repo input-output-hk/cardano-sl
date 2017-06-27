@@ -4,35 +4,36 @@
 -- Callbacks on application and rollback.
 
 module Pos.Explorer.BListener
-       ( runExplorerBListener -- (+) BListener instance
+       ( runExplorerBListener 
+       -- * Instances
+       -- ** MonadBListener (ExplorerBListener m)
        ) where
+
+import           Universum
 
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
-import qualified Ether
-
-import           Pos.Block.Types              (Blund)
-import           Pos.DB.BatchOp               (SomeBatchOp)
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
-import           Pos.Util.Chrono              (NE, NewestFirst (..),
-                                               OldestFirst (..))
-import           Universum
-
 import           Data.List                    (nub)
 import qualified Data.List.NonEmpty           as NE
 import qualified Data.Map                     as M
-import           Mockable                     (MonadMockable)
+import qualified Ether
 import           System.Wlog                  (WithLogger)
 
+import           Mockable                     (MonadMockable)
 import           Pos.Block.BListener          (MonadBListener (..))
 import           Pos.Block.Core               (Block)
+import           Pos.Block.Types              (Blund)
 import           Pos.Core                     (HeaderHash, difficultyL,
                                                epochIndexL, getChainDifficulty,
                                                getEpochIndex, headerHash)
+import           Pos.DB.BatchOp               (SomeBatchOp)
 import           Pos.DB.BatchOp               (SomeBatchOp (..))
 import           Pos.DB.Class                 (MonadDBRead, MonadRealDB)
+import           Pos.Explorer.DB              (Page, Epoch)
 import qualified Pos.Explorer.DB              as DB
-
+import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
+import           Pos.Util.Chrono              (NE, NewestFirst (..),
+                                               OldestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Declarations
@@ -110,17 +111,15 @@ onApplyPageBlocksExplorer
     )
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyPageBlocksExplorer blunds = do
+    -- [(Integer, [HeaderHash])]
     let newPageBlocks = blocksPagePages blocksNE
     let pages = fst <$> newPageBlocks
     -- Get existing @HeaderHash@es from the pages so we can merge them.
-    mPageBlocks <- sequence [ DB.getPageBlocks page | page <- pages]
-    
-    let pageBlocks = fromMaybe [] <$> mPageBlocks
-    let exisitingPageBlocks = pages `zip` pageBlocks
+    existingPageBlocks <- sequence [ getPagePageBlocks page | page <- pages]
 
     -- convert to Map
     let newPageBlocksMap      = M.fromList newPageBlocks
-    let existingPageBlocksMap = M.fromList exisitingPageBlocks
+    let existingPageBlocksMap = M.fromList existingPageBlocks
 
     -- Merge the old and the new
     let newExistingPageBlocks = M.toList $ M.unionWith (<>) newPageBlocksMap existingPageBlocksMap
@@ -134,6 +133,17 @@ onApplyPageBlocksExplorer blunds = do
   where
     blocksNE :: NE (Block ssc)  
     blocksNE = fst <$> getOldestFirst blunds
+
+    -- Get exisiting page blocks paired with the page number. If there are no
+    -- saved blocks on the page return an empty list.
+    getPagePageBlocks 
+        :: (MonadDBRead m) 
+        => Page 
+        -> m (Page, [HeaderHash])
+    getPagePageBlocks page = do
+        pageBlocks      <- DB.getPageBlocks page
+        let mPageBlocks = fromMaybe [] pageBlocks
+        pure (page, mPageBlocks)
 
 ----------------------------------------------------------------------------
 -- Rollback
@@ -189,23 +199,23 @@ onRollbackPageBlocksExplorer blunds = do
 minEpochBlocks 
     :: forall ssc. (SscHelpersClass ssc)
     => NE (Block ssc) 
-    -> (Integer, [HeaderHash])
+    -> (Epoch, [HeaderHash])
 minEpochBlocks neBlocks = (minEpoch, minEpochBlocksHH)
   where
     -- I presume there are blocks from a single epoch as the comment in 
     -- `applyBlocksUnsafeDo` says.
     -- What about the case when the blocks are empty? Possible?
-    minEpoch :: Integer
+    minEpoch :: Epoch
     minEpoch = minimum $ epochBlocks blocks
 
     minEpochBlocksHH :: [HeaderHash]
     minEpochBlocksHH = headerHash <$> blocks
 
-    epochBlocks :: [Block ssc] -> [Integer]
+    epochBlocks :: [Block ssc] -> [Epoch]
     epochBlocks blocks' = getBlockEpoch <$> blocks'
 
-    getBlockEpoch :: (Block ssc) -> Integer
-    getBlockEpoch block = toInteger $ getEpochIndex $ block ^. epochIndexL
+    getBlockEpoch :: (Block ssc) -> Epoch
+    getBlockEpoch block = fromIntegral $ getEpochIndex $ block ^. epochIndexL
 
     blocks :: [Block ssc]
     blocks = NE.toList neBlocks
@@ -214,34 +224,34 @@ minEpochBlocks neBlocks = (minEpoch, minEpochBlocksHH)
 blocksPagePages 
     :: forall ssc. (SscHelpersClass ssc) 
     => NE (Block ssc) 
-    -> [(Integer, [HeaderHash])]
+    -> [(Page, [HeaderHash])]
 blocksPagePages neBlocks = blocksPages blockIndexBlock
   where
     -- Page number, page element
-    blocksPages :: [(Integer, HeaderHash)] -> [(Integer, [HeaderHash])]
+    blocksPages :: [(Page, HeaderHash)] -> [(Page, [HeaderHash])]
     blocksPages blockIndexBlock' = 
         M.toList $ M.fromListWith (++) [(k, [v]) | (k, v) <- blockIndexBlock']
 
-    blockIndexBlock :: [(Integer, HeaderHash)]
+    blockIndexBlock :: [(Page, HeaderHash)]
     blockIndexBlock = blockPages `zip` blocksHHs
       where 
         blocksHHs :: [HeaderHash]
         blocksHHs = headerHash <$> blocks 
 
-        blockPages :: [Integer]
+        blockPages :: [Page]
         blockPages = currentPage <$> blockIndexes
 
-        currentPage :: Integer -> Integer
+        currentPage :: Int -> Page
         currentPage blockIndex = blockIndex `rem` pageSize
 
-        pageSize :: Integer
+        pageSize :: Int
         pageSize = 10
 
-    blockIndexes :: [Integer]
+    blockIndexes :: [Int]
     blockIndexes = getBlockIndex <$> blocks
 
-    getBlockIndex :: (Block ssc) -> Integer
-    getBlockIndex block = toInteger $ getChainDifficulty $ block ^. difficultyL
+    getBlockIndex :: (Block ssc) -> Int
+    getBlockIndex block = fromIntegral $ getChainDifficulty $ block ^. difficultyL
 
     blocks :: [Block ssc]
     blocks = NE.toList neBlocks

@@ -2,6 +2,8 @@
 
 module Pos.Explorer.DB
        ( ExplorerOp (..)
+       , Page
+       , Epoch
        , getTxExtra
        , getAddrHistory
        , getAddrBalance
@@ -17,7 +19,7 @@ import qualified Data.Map.Strict       as M
 import qualified Database.RocksDB      as Rocks
 import qualified Ether
 
-import           Pos.Binary.Class      (encodeStrict)
+import           Pos.Binary.Class      (UnsignedVarInt (..), encodeStrict)
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
 import           Pos.Core              (unsafeAddCoin)
 import           Pos.Core.Types        (Address, Coin, HeaderHash)
@@ -33,8 +35,8 @@ import           Pos.Util.Chrono       (NewestFirst (..))
 -- Types
 ----------------------------------------------------------------------------
 
-type Page = Integer
-type Epoch = Integer
+type Page = Int
+type Epoch = Int -- TODO: Switch to EpochIndex, fix Servant parameter?
 
 -- type PageBlocks = [Block SscGodTossing]
 -- ^ this is much simpler but we are trading time for space 
@@ -147,7 +149,7 @@ addrBalancePrefix :: Address -> ByteString
 addrBalancePrefix addr = "e/ab/" <> encodeStrict addr
 
 blockPagePrefix :: Page -> ByteString
-blockPagePrefix page = "e/page/" <> encodeStrict page
+blockPagePrefix page = "e/page/" <> (encodeStrict $ UnsignedVarInt page)
 
 blockEpochPrefix :: Epoch -> ByteString
-blockEpochPrefix epoch = "e/epoch/" <> encodeStrict epoch
+blockEpochPrefix epoch = "e/epoch/" <> (encodeStrict $ UnsignedVarInt epoch)

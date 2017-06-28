@@ -8,21 +8,29 @@
 -- better though it's immutable.
 
 module Pos.DB.Pure
-       ( DBPureT
+       ( DBPureMap
+       , DBPure
+       , MonadPureDB
+
+       , dbGetPureDefault
+       , dbIterSourcePureDefault
        ) where
 
 import           Universum
 
-import           Control.Lens                (at, makeLenses, uses)
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Data.ByteString             as BS
-import qualified Data.Conduit.List           as CL
-import qualified Data.Map                    as M
+import           Control.Lens                 (at, makeLenses)
+import           Control.Monad.Trans.Control  (MonadBaseControl)
+import           Control.Monad.Trans.Resource (ResourceT)
+import qualified Data.ByteString              as BS
+import           Data.Conduit                 (Source)
+import qualified Data.Conduit.List            as CL
+import qualified Data.Map                     as M
 import qualified Ether
 
-import           Pos.DB.Class                (DBTag (..), MonadDBRead (..), iterKeyPrefix)
-import           Pos.DB.Functions            (processIterEntry)
-import           Pos.Util.Util               (ether)
+import           Pos.Binary.Class             (Bi)
+import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), IterType,
+                                               iterKeyPrefix)
+import           Pos.DB.Functions             (processIterEntry)
 
 type DBPureMap = Map ByteString ByteString
 
@@ -41,14 +49,26 @@ tagToLens GStateDB     = pureGStateDB
 tagToLens LrcDB        = pureLrcDB
 tagToLens MiscDB       = pureMiscDB
 
+type MonadPureDB m
+     = (Ether.MonadReader' DBPure m, MonadBaseControl IO m, MonadThrow m)
 
-type DBPureT m = Ether.StateT' DBPure m
+dbGetPureDefault :: MonadPureDB m => DBTag -> ByteString -> m (Maybe ByteString)
+dbGetPureDefault (tagToLens -> l) key = Ether.asks' $ view $ l . at key
 
-instance (MonadThrow m, MonadBaseControl IO m) => MonadDBRead (DBPureT m) where
-    dbGet (tagToLens -> l) key = ether $ use $ l . at key
-    dbIterSource (tagToLens -> l) (_ :: Proxy i) = do
-        let filterPrefix = M.filterWithKey $ \k _ -> iterKeyPrefix @i `BS.isPrefixOf` k
-        (filtered :: [(ByteString, ByteString)]) <-
-            lift . lift $ ether $ uses l $ M.toList . filterPrefix
-        deserialized <- catMaybes <$> mapM (processIterEntry @i) filtered
-        CL.sourceList deserialized
+dbIterSourcePureDefault ::
+       forall m i.
+       ( MonadPureDB m
+       , DBIteratorClass i
+       , Bi (IterKey i)
+       , Bi (IterValue i)
+       )
+    => DBTag
+    -> Proxy i
+    -> Source (ResourceT m) (IterType i)
+dbIterSourcePureDefault (tagToLens -> l) (_ :: Proxy i) = do
+    let filterPrefix = M.filterWithKey $ \k _ -> iterKeyPrefix @i `BS.isPrefixOf` k
+    (dbPure :: DBPure) <- lift Ether.ask'
+    let filtered :: [(ByteString, ByteString)]
+        filtered = M.toList . filterPrefix $ dbPure ^. l
+    deserialized <- catMaybes <$> mapM (processIterEntry @i) filtered
+    CL.sourceList deserialized

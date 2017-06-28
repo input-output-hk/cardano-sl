@@ -111,7 +111,7 @@ instance MonadDiscovery (RealMode ssc) where
 instance MonadGState (RealMode ssc) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance MonadDBRead (RealMode ssc) where
+instance (MonadRealDB m) => MonadDBRead m where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
 

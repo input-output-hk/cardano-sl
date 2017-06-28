@@ -40,7 +40,7 @@ import           Pos.Ssc.Class         (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
 import           Pos.Ssc.NistBeacon    (SscNistBeacon)
 import           Pos.Ssc.SscAlgo       (SscAlgo (..))
-import           Pos.Txp               (TxAux (..), utxoToStakes)
+import           Pos.Txp               (TxAux (..))
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util.JsonLog      ()
 import           Pos.Util.UserSecret   (simpleUserSecret)
@@ -263,7 +263,8 @@ main = do
 
     let systemStart = CLI.sysStart goCommonArgs
 
-    let npCustomUtxo =  genesisUtxo $
+    -- todo this is wrong
+    let npCustomUtxo =  genesisUtxo mempty $
                                     stakesDistr
                                     (CLI.flatDistr goCommonArgs)
                                     (CLI.bitcoinDistr goCommonArgs)
@@ -277,7 +278,7 @@ main = do
             , npSecretKey     = sk
             , npUserSecret    = simpleUserSecret sk "smartgen-secret.sk"
             , npBaseParams    = baseParams
-            , npGenesisStakes = utxoToStakes npCustomUtxo
+            , npGenesisStakeholders = mempty
             , npJLFile        = goJLFile
             , npPropagation   = not (CLI.disablePropagation goCommonArgs)
             , npReportServers = []

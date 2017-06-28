@@ -18,12 +18,14 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Universum                    hiding (show)
 
+import           Pos.Core.Types               (StakeholderId)
+
 import           Paths_cardano_sl             (version)
 
 data KeygenOptions = KeygenOptions
-    { koGenesisDir     :: FilePath
-    , koRearrangeMask  :: Maybe FilePath
+    { koRearrangeMask  :: Maybe FilePath
     , koDumpDevGenKeys :: Maybe FilePath
+    , koGenesisDir     :: FilePath
     , koTestStake      :: Maybe TestStakeOptions
     , koAvvmStake      :: Maybe AvvmStakeOptions
     , koFakeAvvmStake  :: Maybe FakeAvvmOptions
@@ -52,20 +54,22 @@ data FakeAvvmOptions = FakeAvvmOptions
 
 optionsParser :: Parser KeygenOptions
 optionsParser = do
-    koGenesisDir <- strOption $
-        long    "genesis-dir" <>
-        metavar "DIR" <>
-        value   "." <>
-        help    "Directory to dump genesis data into"
     koRearrangeMask <- optional $ strOption $
         long    "rearrange-mask" <>
         metavar "PATTERN" <>
         help    "Secret keyfiles to rearrange."
+
     koDumpDevGenKeys <- optional $ strOption $
         long    "dump-dev-genesis-keys" <>
         metavar "PATTERN" <>
         help    "Dump keys from genesisDevSecretKeys to files \
                 \named according to this pattern."
+
+    koGenesisDir <- strOption $
+        long    "genesis-dir" <>
+        metavar "DIR" <>
+        value   "." <>
+        help    "Directory to dump genesis data into"
     koTestStake <- optional testStakeParser
     koAvvmStake <- optional avvmStakeParser
     koFakeAvvmStake <- optional fakeAvvmParser
@@ -119,6 +123,8 @@ avvmStakeParser = do
         help    "Path to the file containing blacklisted addresses \
                 \(an address per line)."
     pure AvvmStakeOptions{..}
+  where
+
 
 fakeAvvmParser :: Parser FakeAvvmOptions
 fakeAvvmParser = do

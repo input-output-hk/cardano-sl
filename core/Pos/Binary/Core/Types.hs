@@ -2,11 +2,18 @@ module Pos.Binary.Core.Types () where
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..), UnsignedVarInt (..), label, putWord8)
+import           Serokell.Data.Memory.Units (Byte)
+import           Data.Time.Units            (Millisecond)
+
+import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Size (..),
+                                             UnsignedVarInt (..), deriveSimpleBi, label,
+                                             labelP, labelS, putField, putWord8)
 import qualified Pos.Binary.Core.Coin    as BinCoin
+import           Pos.Binary.Core.Fee     ()
 import           Pos.Binary.Core.Script  ()
 import           Pos.Binary.Core.Version ()
 import qualified Pos.Core.Types          as T
+import qualified Pos.Core.Fee            as T
 import qualified Pos.Data.Attributes     as A
 import           Pos.Util.Util           (eitherToFail)
 
@@ -14,79 +21,71 @@ import           Pos.Util.Util           (eitherToFail)
 -- verbosity and clarity
 
 instance Bi T.Timestamp where
+    sizeNPut = labelS "Timestamp" $ putField toInteger
     get = label "Timestamp" $ fromInteger <$> get
-    put = put . toInteger
 
 instance Bi T.EpochIndex where
+    sizeNPut = labelS "EpochIndex" $ putField (UnsignedVarInt . T.getEpochIndex)
     get = label "EpochIndex" $ T.EpochIndex . getUnsignedVarInt <$> get
-    put (T.EpochIndex c) = put (UnsignedVarInt c)
 
 instance Bi (A.Attributes ()) where
+    size = VarSize $ A.sizeAttributes (\() -> [])
     get = label "Attributes" $
         A.getAttributes (\_ () -> Nothing) (Just (128 * 1024 * 1024)) ()
-    put = A.putAttributes (\() -> [])
+    put = labelP "Attributes" . A.putAttributes (\() -> [])
 
 instance Bi T.Coin where
-    put = mapM_ putWord8 . BinCoin.encode
+    size = VarSize BinCoin.size
+    put = labelP "Coin" . mapM_ putWord8 . BinCoin.encode
     get = label "Coin" $ BinCoin.decode
 
 instance Bi T.CoinPortion where
-    put = put . T.getCoinPortion
+    sizeNPut = labelS "CoinPortion" $ putField T.getCoinPortion
     get = label "CoinPortion" $ get >>= T.mkCoinPortion
 
 instance Bi T.LocalSlotIndex where
+    sizeNPut = labelS "LocalSlotIndex" $
+        putField (UnsignedVarInt . T.getSlotIndex)
     get =
         label "LocalSlotIndex" $
         eitherToFail . T.mkLocalSlotIndex . getUnsignedVarInt =<< get
-    put (T.getSlotIndex -> c) = put (UnsignedVarInt c)
 
-instance Bi T.SlotId where
-    put (T.SlotId e s) = put e >> put s
-    get = label "SlotId" $ do
-        siEpoch <- get
-        siSlot <- get
-        return $ T.SlotId {..}
+deriveSimpleBi ''T.SlotId [
+    Cons 'T.SlotId [
+        Field [| T.siEpoch :: T.EpochIndex     |],
+        Field [| T.siSlot  :: T.LocalSlotIndex |]
+    ]]
 
 instance Bi T.EpochOrSlot where
-    put (T.EpochOrSlot x) = put x
-    get = T.EpochOrSlot <$> get
+    sizeNPut = labelS "EpochOrSlot" $ putField T.unEpochOrSlot
+    get = label "EpochOrSlot" $ T.EpochOrSlot <$> get
 
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
 
-instance Bi T.SharedSeed where
-    put (T.SharedSeed bs) = put bs
-    get = label "SharedSeed" $ T.SharedSeed <$> get
+deriveSimpleBi ''T.SharedSeed [
+    Cons 'T.SharedSeed [
+        Field [| T.getSharedSeed :: ByteString |]
+    ]]
 
 instance Bi T.ChainDifficulty where
-    get = label "ChainDifficulty" $ T.ChainDifficulty . getUnsignedVarInt <$> get
-    put (T.ChainDifficulty c) = put (UnsignedVarInt c)
+    sizeNPut = labelS "ChainDifficulty" $ putField (UnsignedVarInt . T.getChainDifficulty)
+    get = label "ChainDifficulty" $
+          T.ChainDifficulty . getUnsignedVarInt <$> get
 
-instance Bi T.BlockVersionData where
-    get = label "BlockVersionData" $ do
-        bvdScriptVersion     <- get
-        bvdSlotDuration      <- get
-        bvdMaxBlockSize      <- get
-        bvdMaxHeaderSize     <- get
-        bvdMaxTxSize         <- get
-        bvdMaxProposalSize   <- get
-        bvdMpcThd            <- get
-        bvdHeavyDelThd       <- get
-        bvdUpdateVoteThd     <- get
-        bvdUpdateProposalThd <- get
-        bvdUpdateImplicit    <- get
-        bvdUpdateSoftforkThd <- get
-        return $ T.BlockVersionData {..}
-    put T.BlockVersionData {..} = do
-        put bvdScriptVersion
-        put bvdSlotDuration
-        put bvdMaxBlockSize
-        put bvdMaxHeaderSize
-        put bvdMaxTxSize
-        put bvdMaxProposalSize
-        put bvdMpcThd
-        put bvdHeavyDelThd
-        put bvdUpdateVoteThd
-        put bvdUpdateProposalThd
-        put bvdUpdateImplicit
-        put bvdUpdateSoftforkThd
+deriveSimpleBi ''T.BlockVersionData [
+    Cons 'T.BlockVersionData [
+        Field [| T.bvdScriptVersion     :: T.ScriptVersion     |],
+        Field [| T.bvdSlotDuration      :: Millisecond         |],
+        Field [| T.bvdMaxBlockSize      :: Byte                |],
+        Field [| T.bvdMaxHeaderSize     :: Byte                |],
+        Field [| T.bvdMaxTxSize         :: Byte                |],
+        Field [| T.bvdMaxProposalSize   :: Byte                |],
+        Field [| T.bvdMpcThd            :: T.CoinPortion       |],
+        Field [| T.bvdHeavyDelThd       :: T.CoinPortion       |],
+        Field [| T.bvdUpdateVoteThd     :: T.CoinPortion       |],
+        Field [| T.bvdUpdateProposalThd :: T.CoinPortion       |],
+        Field [| T.bvdUpdateImplicit    :: T.FlatSlotId        |],
+        Field [| T.bvdUpdateSoftforkThd :: T.CoinPortion       |],
+        Field [| T.bvdTxFeePolicy       :: Maybe T.TxFeePolicy |]
+    ]]

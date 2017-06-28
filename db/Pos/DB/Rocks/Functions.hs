@@ -35,7 +35,7 @@ import           Data.Default                 (def)
 import qualified Database.RocksDB             as Rocks
 import qualified Ether
 
-import           Pos.Binary.Class             (Bi, encodeStrict)
+import           Pos.Binary.Class             (Bi, encode)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), IterType)
 import           Pos.DB.Functions             (processIterEntry)
 import           Pos.DB.Rocks.Types           (DB (..), MonadRealDB, NodeDBs, getDBByTag)
@@ -91,8 +91,9 @@ rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
 
 -- garbage, should be abstracted and hidden
 
-rocksPutBi :: (Bi v, MonadRealDB m) => ByteString -> v -> DB -> m ()
-rocksPutBi k v = rocksPutBytes k (encodeStrict v)
+-- | Write serializable value to RocksDb for given key.
+rocksPutBi :: (Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
+rocksPutBi k v = rocksPutBytes k (encode v)
 
 ----------------------------------------------------------------------------
 -- Snapshot

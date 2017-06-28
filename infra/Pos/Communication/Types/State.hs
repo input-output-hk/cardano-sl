@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- TODO: is this module needed?
 
 -- | Socket state of server.

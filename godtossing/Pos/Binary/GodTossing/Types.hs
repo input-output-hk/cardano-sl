@@ -4,37 +4,44 @@ module Pos.Binary.GodTossing.Types () where
 
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..), label)
+import           Pos.Binary.Class                 (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Core.Types                   (EpochIndex, EpochOrSlot, StakeholderId)
+import           Pos.Ssc.GodTossing.Core          (CommitmentsMap, Opening, OpeningsMap,
+                                                   SharesMap, SignedCommitment,
+                                                   VssCertificate, VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Genesis.Types (GenesisGtData (..))
 import           Pos.Ssc.GodTossing.Types         (GtGlobalState (..),
                                                    GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
 
-instance Bi GtGlobalState where
-    put GtGlobalState {..} = do
-        put _gsCommitments
-        put _gsOpenings
-        put _gsShares
-        put _gsVssCertificates
-    get = label "GtGlobalState" $ liftM4 GtGlobalState get get get get
+deriveSimpleBi ''VssCertData [
+    Cons 'VssCertData [
+        Field [| lastKnownEoS :: EpochOrSlot                       |],
+        Field [| certs        :: VssCertificatesMap                |],
+        Field [| whenInsMap   :: HashMap StakeholderId EpochOrSlot |],
+        Field [| whenInsSet   :: Set (EpochOrSlot, StakeholderId)  |],
+        Field [| whenExpire   :: Set (EpochOrSlot, StakeholderId)  |],
+        Field [| expiredCerts :: Set (EpochOrSlot, (StakeholderId,
+                                                      EpochOrSlot,
+                                                      VssCertificate)) |]
+    ]]
 
-instance Bi VssCertData where
-    put VssCertData {..} = do
-        put lastKnownEoS
-        put certs
-        put whenInsMap
-        put whenInsSet
-        put whenExpire
-        put expiredCerts
-    get = label "VssCertData" $
-        VssCertData <$> get <*> get <*> get <*> get <*> get <*> get
+deriveSimpleBi ''GtGlobalState [
+    Cons 'GtGlobalState [
+        Field [| _gsCommitments     :: CommitmentsMap |],
+        Field [| _gsOpenings        :: OpeningsMap    |],
+        Field [| _gsShares          :: SharesMap      |],
+        Field [| _gsVssCertificates :: VssCertData    |]
+    ]]
 
-instance Bi GtSecretStorage where
-    put (GtSecretStorage c o e) = put c >> put o >> put e
-    get = label "GtSecretStorage" $
-        GtSecretStorage <$> get <*> get <*> get
+deriveSimpleBi ''GtSecretStorage [
+    Cons 'GtSecretStorage [
+        Field [| gssCommitment :: SignedCommitment |],
+        Field [| gssOpening    :: Opening          |],
+        Field [| gssEpoch      :: EpochIndex       |]
+    ]]
 
-instance Bi GenesisGtData where
-    put (GenesisGtData a) = put a
-    get = label "GenesisGtData" $
-        GenesisGtData <$> get
+deriveSimpleBi ''GenesisGtData [
+    Cons 'GenesisGtData [
+        Field [| ggdVssCertificates :: VssCertificatesMap |]
+    ]]

@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | SafeCopy serialization of Pos.Types.* modules, required for wallet
 
 module Pos.SafeCopy
@@ -28,6 +26,8 @@ import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey
 import           Pos.Ssc.Class.Types             (Ssc (..))
 
 import           Pos.Block.Core
+import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
+                                                  TxSizeLinear (..))
 import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..),
                                                   ApplicationName (..), BlockVersion (..),
                                                   BlockVersionData (..),
@@ -130,6 +130,9 @@ deriveSafeCopySimple 0 'base ''GenesisExtraBodyData
 
 deriveSafeCopySimple 0 'base ''SystemTag
 deriveSafeCopySimple 0 'base ''UpdateData
+deriveSafeCopySimple 0 'base ''Coeff
+deriveSafeCopySimple 0 'base ''TxSizeLinear
+deriveSafeCopySimple 0 'base ''TxFeePolicy
 deriveSafeCopySimple 0 'base ''BlockVersionData
 deriveSafeCopySimple 0 'base ''UpdateProposal
 deriveSafeCopySimple 0 'base ''UpdateVote
@@ -281,7 +284,7 @@ instance (Bi (Signature a), Bi a) => SafeCopy (Signed a) where
     getCopy = contain $ do
         bs <- safeGet
         case Bi.decodeFull bs of
-            Left err    -> fail $ "getCopy@SafeCopy: " ++ err
+            Left err    -> fail $ toString $ "getCopy@SafeCopy: " <> err
             Right (v,s) -> pure $ Signed v s
 
 instance SafeCopy (ProxyCert w) where

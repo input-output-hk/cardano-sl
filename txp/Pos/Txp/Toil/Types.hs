@@ -1,5 +1,4 @@
-{-# LANGUAGE CPP             #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE CPP #-}
 
 -- | Types used for managing of transactions
 -- and synchronization with database.
@@ -9,6 +8,7 @@ module Pos.Txp.Toil.Types
        , formatUtxo
        , utxoF
 
+       , TxFee(..)
        , MemPool (..)
        , mpLocalTxs
        , mpSize
@@ -40,7 +40,7 @@ import           Formatting                 (Format, later)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (mapBuilderJson)
 
-import           Pos.Core                   (Coin, StakeholderId)
+import           Pos.Core                   (Coin, StakeholderId, TxFeePolicy)
 import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import qualified Pos.Util.Modifier          as MM
 
@@ -61,6 +61,14 @@ formatUtxo = mapBuilderJson . M.toList
 -- | Specialized formatter for 'Utxo'.
 utxoF :: Format r (Utxo -> r)
 utxoF = later formatUtxo
+
+----------------------------------------------------------------------------
+-- Fee
+----------------------------------------------------------------------------
+
+-- | tx.fee = sum(tx.in) - sum (tx.out)
+newtype TxFee = TxFee Coin
+    deriving (Show, Eq, Generic, Buildable)
 
 ----------------------------------------------------------------------------
 -- BalancesView
@@ -130,4 +138,5 @@ makeLenses ''GenericToilModifier
 data ToilEnv = ToilEnv
     { teMaxTxSize    :: !Byte
     , teMaxBlockSize :: !Byte
+    , teTxFeePolicy  :: !(Maybe TxFeePolicy)
     }

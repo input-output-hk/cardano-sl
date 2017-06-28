@@ -13,7 +13,7 @@ import           System.Random         (mkStdGen, randomR)
 import           Pos.Binary            (AsBinary)
 import           Pos.Crypto            (PublicKey, SecretKey, Share,
                                         SignTag (SignCommitment), sign, toPublic)
-import           Pos.Lrc               (GenesisMpcThd, ValidRichmenStake (..))
+import           Pos.Lrc.Arbitrary     (GenesisMpcThd, ValidRichmenStake (..))
 import           Pos.Lrc.Types         (RichmenStake)
 import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadCommitment (..),
                                         BadSignedCommitment (..), Commitment,

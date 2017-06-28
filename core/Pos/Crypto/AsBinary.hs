@@ -7,13 +7,12 @@ module Pos.Crypto.AsBinary () where
 import           Universum
 
 import qualified Data.ByteString          as BS
-import qualified Data.ByteString.Lazy     as LBS
 import           Data.Text.Buildable      (Buildable)
 import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, int, sformat, stext, (%))
 
 import           Pos.Binary.Class         (AsBinary (..), AsBinaryClass (..), Bi,
-                                           decodeFull, encode, encodeStrict)
+                                           decodeFull, encode)
 import           Pos.Crypto.Hashing       (hash, shortHashF)
 import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
                                            SecretSharingExtra (..), Share (..),
@@ -30,10 +29,6 @@ checkLen :: Text -> Text -> Int -> ByteString -> ByteString
 checkLen action name len bs =
     maybe bs error $ checkLenImpl action name len $ BS.length bs
 
-checkLenL :: Text -> Text -> Int64 -> LByteString -> LByteString
-checkLenL action name len bs =
-    maybe bs error $ checkLenImpl action name len $ LBS.length bs
-
 checkLenImpl :: Integral a => Text -> Text -> a -> a -> Maybe Text
 checkLenImpl action name expectedLen len
     | expectedLen == len = Nothing
@@ -49,8 +44,8 @@ checkLenImpl action name expectedLen len
 
 #define Ser(B, Bytes, Name) \
   instance (Bi B, Bi (AsBinary B)) => AsBinaryClass B where {\
-    asBinary = AsBinary . checkLen "asBinary" Name Bytes . encodeStrict ;\
-    fromBinary = decodeFull . checkLenL "fromBinary" Name Bytes . encode }; \
+    asBinary = AsBinary . checkLen "asBinary" Name Bytes . encode ;\
+    fromBinary = decodeFull . checkLen "fromBinary" Name Bytes . encode }; \
 
 Ser(VssPublicKey, 33, "VssPublicKey")
 Ser(Secret, 33, "Secret")
@@ -71,5 +66,5 @@ instance Bi (AsBinary VssPublicKey) => Buildable (AsBinary VssPublicKey) where
     build = bprint ("vsspub:"%shortHashF) . hash
 
 instance Bi SecretSharingExtra => AsBinaryClass SecretSharingExtra where
-    asBinary = AsBinary . encodeStrict
-    fromBinary = decodeFull . LBS.fromStrict . getAsBinary
+    asBinary = AsBinary . encode
+    fromBinary = decodeFull . getAsBinary

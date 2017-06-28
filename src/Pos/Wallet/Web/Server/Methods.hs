@@ -1,7 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -95,7 +94,7 @@ import           Pos.Wallet.WalletMode            (applyLastUpdate,
                                                    localChainDifficulty,
                                                    networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
-                                                   genSaveRootAddress,
+                                                   genSaveRootKey,
                                                    genUniqueAccountAddress,
                                                    genUniqueAccountId, getAddrIdx,
                                                    getSKByAccAddr, getSKByAddr,
@@ -126,7 +125,7 @@ import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
-import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing),
+import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing), CustomAddressType (ChangeAddr, UsedAddr),
                                                    addOnlyNewTxMeta, addUpdate,
                                                    addWAddress, closeState, createAccount,
                                                    createWallet, getAccountMeta,
@@ -134,15 +133,16 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    getNextUpdate, getProfile, getTxMeta,
                                                    getWAddressIds, getWalletAddresses,
                                                    getWalletMeta, getWalletPassLU,
-                                                   openState, removeAccount,
-                                                   removeNextUpdate, removeWallet,
-                                                   setAccountMeta, setProfile,
-                                                   setWalletMeta, setWalletPassLU,
-                                                   setWalletTxMeta, testReset,
-                                                   updateHistoryCache)
+                                                   isCustomAddress, openState,
+                                                   removeAccount, removeNextUpdate,
+                                                   removeWallet, setAccountMeta,
+                                                   setProfile, setWalletMeta,
+                                                   setWalletPassLU, setWalletTxMeta,
+                                                   testReset, updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
-import           Pos.Wallet.Web.Tracking          (selectAccountsFromUtxoLock,
-                                                   syncWSetsWithGStateLock,
+import           Pos.Wallet.Web.Tracking          (CAccModifier (..),
+                                                   selectAccountsFromUtxoLock,
+                                                   syncWalletsWithGStateLock,
                                                    txMempoolToModifier)
 import           Pos.Web.Server                   (serveImpl)
 
@@ -178,7 +178,7 @@ walletServer
     -> m (m :~> Handler)
     -> m (Server WalletApi)
 walletServer sendActions nat = do
-    syncWSetsWithGStateLock @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
+    syncWalletsWithGStateLock @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
     nat >>= launchNotifier
     (`enter` servantHandlers sendActions) <$> nat
 
@@ -375,17 +375,17 @@ getWAddress :: WalletWebMode m => CWAddressMeta -> m CAddress
 getWAddress cAddr = do
     let aId = cwamId cAddr
     balance <- getWAddressBalance cAddr
-    let addrAccount = addrMetaToAccount cAddr
-    (ctxs, _) <-
-        getHistory
-            Nothing
-            (Just addrAccount)  -- just to specify addrId is not enough
-            (Just aId)
-    let isUsed = not (null ctxs) || balance > minBound
-    -- Suppose we have transaction with inputs A1, A2, A3. Output address B_j is referred to as change address if it belongs to same account as one of A_i
-    acctAddrs <- (S.fromList . map cwamId) <$> getAccountAddrsOrThrow Ever addrAccount
-    let containsChangeAddr CTx {..} = aId `elem` ctOutputAddrs && any (`S.member` acctAddrs) ctInputAddrs
-    let isChange = any containsChangeAddr ctxs
+
+    -- get info about flags which came from mempool
+    cAccMod <- txMempoolToModifier =<< getSKByAddr (cwamWId cAddr)
+
+    let getFlag customType accessMod = do
+            checkDB <- isCustomAddress customType (cwamId cAddr)
+            let checkMempool = elem aId . map (fst . fst) . toList $
+                               MM.insertions $ accessMod cAccMod
+            return (checkDB || checkMempool)
+    isUsed   <- getFlag UsedAddr camUsed
+    isChange <- getFlag ChangeAddr camChange
     return $ CAddress aId (mkCCoin balance) isUsed isChange
 
 getAccountAddrsOrThrow
@@ -402,7 +402,7 @@ getAccount :: WalletWebMode m => AccountId -> m CAccount
 getAccount accId = do
     encSK <- getSKByAddr (aiWId accId)
     addrs <- getAccountAddrsOrThrow Existing accId
-    modifier <- txMempoolToModifier encSK
+    modifier <- camAddresses <$> txMempoolToModifier encSK
     let insertions = map fst (MM.insertions modifier)
     let mergedAccAddrs = ordNub $ addrs ++ insertions
     mergedAccs <- mapM getWAddress mergedAccAddrs
@@ -444,7 +444,6 @@ decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
 decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
 decodeCCoinOrFail c =
     coinFromCCoin c `whenNothing` throwM (DecodeError "Wrong coin format")
-
 
 getWalletAccountIds :: WalletWebMode m => CId Wal -> m [AccountId]
 getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getWAddressIds
@@ -725,11 +724,11 @@ newAddress
     -> AccountId
     -> m CAddress
 newAddress addGenSeed passphrase accId = do
-    -- check wallet exists
+    -- check account exists
     _ <- getAccount accId
 
     cAccAddr <- genUniqueAccountAddress addGenSeed passphrase accId
-    addWAddress cAccAddr
+    _ <- addWAddress cAccAddr
     getWAddress cAccAddr
 
 newAccount :: WalletWebMode m => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
@@ -756,13 +755,22 @@ createWalletSafe cid wsMeta = do
 newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase CWalletInit {..} = do
     let CWalletMeta {..} = cwInitMeta
-    cAddr <- genSaveRootAddress passphrase cwBackupPhrase
-    wallet@CWallet{..} <- createWalletSafe cAddr cwInitMeta
 
-    let accMeta = CAccountMeta { caName = "Initial account" }
-    let accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-    _ <- newAccount RandomSeed passphrase accInit
-    return wallet
+    skey <- genSaveRootKey passphrase cwBackupPhrase
+    let cAddr = encToCId skey
+
+    CWallet{..} <- createWalletSafe cAddr cwInitMeta
+    foundAddrs <- selectAccountsFromUtxoLock @WalletSscType [skey]
+
+    -- If no addresses for given root key are found in utxo,
+    -- create an account with random seed
+    when (null foundAddrs) $ do
+        let accMeta = CAccountMeta { caName = "Initial account" }
+            accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
+        () <$ newAccount RandomSeed passphrase accInit
+
+    -- We get the wallet again to have proper balances returned
+    getWallet cAddr
 
 updateWallet :: WalletWebMode m => CId Wal -> CWalletMeta -> m CWallet
 updateWallet wId wMeta = do
@@ -981,7 +989,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         let accId = AccountId wid walletIndex
         newAddress (DeterminedSeed accountIndex) passphrase accId
 
-    selectAccountsFromUtxoLock @WalletSscType [key]
+    _ <- selectAccountsFromUtxoLock @WalletSscType [key]
 
     return importedWallet
 

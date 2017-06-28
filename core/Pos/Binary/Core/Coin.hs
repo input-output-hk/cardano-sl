@@ -1,15 +1,15 @@
 module Pos.Binary.Core.Coin
        ( encode
        , decode
+       , size
        ) where
 
 import           Universum
 
-import           Data.Binary.Get  (Get)
 import           Data.Bits        (Bits (..))
 import           Data.Word        ()
 
-import           Pos.Binary.Class (getWord8)
+import           Pos.Binary.Class (Peek, getWord8)
 import           Pos.Core.Types   (Coin, mkCoin, unsafeGetCoin)
 
 -- number of total coins is 45*10^9 * 10^6
@@ -73,6 +73,20 @@ encode (unsafeGetCoin -> w) = encodeVarint mega ++ encodeVarint (reversedBase10 
   where
     (mega, micros) = w `divMod` 1000000
 
+size :: Coin -> Int
+size (unsafeGetCoin -> w) = sizeVarint mega + sizeVarint (reversedBase10 micros)
+  where
+    (mega, micros) = w `divMod` 1000000
+
+sizeVarint :: Word64 -> Int
+sizeVarint w
+    | w <= 0x7F         = 1
+    | w <= 0x3FFF       = 2
+    | w <= 0x1FFFFF     = 3
+    | w <= 0x0FFFFFFF   = 4
+    | w <= 0x0FFFFFFFFF = 5
+    | otherwise         = error $ "invalid encoding for integral part: " <> show w
+
 encodeVarint :: Word64 -> [Word8]
 encodeVarint w
     | w <= 0x7F         = [fromIntegral w]
@@ -101,7 +115,7 @@ hdrToParam h
     | isClear h 4 = (3, fromIntegral (h .&. 0x0f))
     | otherwise   = (4, fromIntegral (h .&. 0x0f))
 
-decodeVarint :: Get Word64
+decodeVarint :: Peek Word64
 decodeVarint = do
     (nbBytes, acc) <- hdrToParam <$> getWord8
     conts <- replicateM nbBytes getWord8
@@ -112,7 +126,7 @@ decodeVarint = do
     orAndShift acc []     = acc
     orAndShift acc (x:xs) = orAndShift ((acc `shiftL` 8) .|. fromIntegral x) xs
 
-decode :: Get Coin
+decode :: Peek Coin
 decode = do
     (mega, microsReversed) <- (,) <$> decodeVarint <*> decodeVarint
     let micros = reversedBase10 microsReversed

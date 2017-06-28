@@ -4,6 +4,7 @@ module Test.Pos.CryptoSpec
        ( spec
        ) where
 
+import           Crypto.Hash             (Blake2b_224, Blake2b_256)
 import qualified Data.ByteString         as BS
 import           Formatting              (sformat)
 import           Prelude                 ((!!))
@@ -21,7 +22,8 @@ import           Pos.Crypto.Arbitrary    (SharedSecrets (..))
 import           Pos.Ssc.GodTossing      ()
 
 import           Test.Pos.Util           (binaryEncodeDecode, binaryTest,
-                                          safeCopyEncodeDecode, safeCopyTest, serDeserId,
+                                          msgLenLimitedTest, safeCopyEncodeDecode,
+                                          safeCopyTest, serDeserId,
                                           (.=.))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
@@ -66,7 +68,8 @@ spec = describe "Crypto" $ do
                     -- "009d179ba955ae9b0690b8f6a96a866972b1606d97b0c9d8094073a374de77b7612d4ae35ac3e38f4092aced0f1680295a0bc95722ad039253ee6aa275569848" -- Blake2b_512
                     -- "c43b29d95a3585cb5264b3223d70e853f899a82e01cb3e62b0bdd871" -- Blake2s_224
                     -- "4bd3a3255713f33d6c673f7d84048a7a8bcfc206464c85555c603ef4d72189c6" -- Blake2s_256
-                    "12dd0a6a7d0e222a97926da03adb5a7768d31cc7c5c2bd6828e14a7d25fa3a60" -- Blake2b_256
+                    --"12dd0a6a7d0e222a97926da03adb5a7768d31cc7c5c2bd6828e14a7d25fa3a60" -- Blake2b_256, before switching to different endianness
+                    "1dbd7d0b561a41d23c2a469ad42fbd70d5438bae826f6fd607413190c37c363b"
 
     describe "Signing" $ do
         describe "SafeSigning" $ do
@@ -128,6 +131,17 @@ spec = describe "Crypto" $ do
                 safeCopyTest @(AsBinary Crypto.EncShare)
                 safeCopyTest @(AsBinary Crypto.SecretProof)
                 safeCopyTest @(AsBinary Crypto.SecretSharingExtra)
+            describe "msgLenLimitedTest" $ do
+                msgLenLimitedTest @Crypto.PublicKey
+                msgLenLimitedTest @Crypto.EncShare
+                -- msgLenLimitedTest @(C.MaxSize SecretSharingExtra)
+                msgLenLimitedTest @(Crypto.Signature ())
+                msgLenLimitedTest @(Crypto.AbstractHash Blake2b_224 Void)
+                msgLenLimitedTest @(Crypto.AbstractHash Blake2b_256 Void)
+                msgLenLimitedTest @Crypto.SecretProof
+                msgLenLimitedTest @Crypto.VssPublicKey
+                msgLenLimitedTest @Crypto.Share
+
         describe "AsBinaryClass" $ do
             prop "VssPublicKey <-> AsBinary VssPublicKey"
                 (serDeserId @Crypto.VssPublicKey)

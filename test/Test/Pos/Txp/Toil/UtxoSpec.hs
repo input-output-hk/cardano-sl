@@ -37,10 +37,10 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         TxOutAux (..), TxSigData (..), TxWitness, Utxo,
                                         VTxContext (..), applyTxToUtxoPure, verifyTxUtxo,
                                         verifyTxUtxoPure)
-import           Pos.Types             (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
-                                        SmallGoodTx (..), checkPubKeyAddress,
-                                        makePubKeyAddress, makeScriptAddress, mkCoin,
-                                        sumCoins)
+import           Pos.Txp.Arbitrary     (BadSigsTx (..), GoodTx (..), SmallBadSigsTx (..),
+                                        SmallGoodTx (..))
+import           Pos.Types             (checkPubKeyAddress, makePubKeyAddress,
+                                        makeScriptAddress, mkCoin, sumCoins)
 import           Pos.Util              (nonrepeating, runGen)
 
 ----------------------------------------------------------------------------
@@ -62,7 +62,7 @@ spec = describe "Txp.Toil.Utxo" $ do
     scriptTxSpec
   where
     myTx = TxIn myHash 0
-    myHash = unsafeHash @Int64 0
+    myHash = unsafeHash @Int32 0
     description_findTxInUtxo =
         "correctly finds the TxOut corresponding to (txHash, txIndex) when the key is in\
         \ the Utxo map, and doesn't find it otherwise"

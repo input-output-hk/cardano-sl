@@ -7,7 +7,7 @@ module Pos.Core.Genesis
        -- ** Derived data
        , genesisAddresses
        , genesisStakeDistribution
-       , genesisBalances
+       , genesisStakesProdMod
 
        -- * Constants
        , genesisDevKeyPairs
@@ -33,7 +33,7 @@ import           Pos.Core.Constants      (genesisKeysN, isDevelopment)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (GenesisCoreData (..), StakeDistribution (..),
                                           getTotalStake)
-import           Pos.Core.Types          (Address, Coin, StakeholderId)
+import           Pos.Core.Types          (Address, StakesMap)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
                                           safeDeterministicKeyGen)
 import           Pos.Crypto.Signing      (PublicKey, SecretKey, deterministicKeyGen)
@@ -93,7 +93,6 @@ genesisStakeDistribution
     | isDevelopment = def
     | otherwise     = gcdDistribution compileGenCoreData
 
-genesisBalances :: HashMap StakeholderId Coin
-genesisBalances
-    | isDevelopment = mempty
-    | otherwise     = gcdBootstrapBalances compileGenCoreData
+-- | Genesis stakes which should be used only in production mode.
+genesisStakesProdMod :: StakesMap
+genesisStakesProdMod = gcdBootstrapBalances compileGenCoreData

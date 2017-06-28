@@ -1,4 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Instances and other stuff for 'Undefined'. We don't want GHC to

@@ -21,16 +21,15 @@ module Pos.DB.Functions
 
 import           Universum
 
-import qualified Data.ByteString      as BS (drop, isPrefixOf)
-import qualified Data.ByteString.Lazy as BSL
-import           Formatting           (sformat, shown, string, (%))
+import qualified Data.ByteString  as BS (drop, isPrefixOf)
+import           Formatting       (sformat, shown, stext, string, (%))
 
+import           Pos.Binary.Class (Bi, decodeFull, encode)
+import           Pos.DB.Class     (DBIteratorClass (..), DBTag, IterType, MonadDB (..),
+                                   MonadDBRead (..))
+import           Pos.DB.Error     (DBError (DBMalformed))
+import           Pos.Util.Util    (maybeThrow)
 
-import           Pos.Binary.Class     (Bi, decodeFull, encodeStrict)
-import           Pos.DB.Class         (DBIteratorClass (..), DBTag, IterType,
-                                       MonadDB (..), MonadDBRead (..))
-import           Pos.DB.Error         (DBError (DBMalformed))
-import           Pos.Util.Util        (maybeThrow)
 
 -- | Read serialized value associated with given key from pure DB.
 dbGetBi
@@ -43,7 +42,7 @@ dbGetBi tag key = do
 
 -- | Write serializable value to DB for given key.
 dbPutBi :: (Bi v, MonadDB m) => DBTag -> ByteString -> v -> m ()
-dbPutBi tag k v = dbPut tag k (encodeStrict v)
+dbPutBi tag k v = dbPut tag k (encode v)
 
 
 data ToDecode
@@ -51,16 +50,16 @@ data ToDecode
     | ToDecodeValue !ByteString
                     !ByteString
 
-onParseError :: (MonadThrow m) => ByteString -> String -> m a
-onParseError rawKey errMsg = throwM $ DBMalformed $ sformat fmt rawKey errMsg
-  where
-    fmt = "dbGetBi: stored value is malformed, key = "%shown%", err: "%string
-
 dbDecode :: (Bi v, MonadThrow m) => ToDecode -> m v
 dbDecode (ToDecodeKey key) =
-    either (onParseError key) pure . decodeFull . BSL.fromStrict $ key
+    either (onParseError key) pure . decodeFull $ key
 dbDecode (ToDecodeValue key val) =
-    either (onParseError key) pure . decodeFull . BSL.fromStrict $ val
+    either (onParseError key) pure . decodeFull $ val
+
+onParseError :: (MonadThrow m) => ByteString -> Text -> m a
+onParseError rawKey errMsg = throwM $ DBMalformed $ sformat fmt rawKey errMsg
+  where
+    fmt = "rocksGetBi: stored value is malformed, key = "%shown%", err: "%stext
 
 -- with prefix
 dbDecodeWP
@@ -70,13 +69,12 @@ dbDecodeWP key
     | BS.isPrefixOf (iterKeyPrefix @i) key =
         either (onParseError key) pure .
         decodeFull .
-        BSL.fromStrict .
         BS.drop (length $ iterKeyPrefix @i) $
         key
     | otherwise = onParseError key "unexpected prefix"
 
 dbDecodeMaybe :: (Bi v) => ByteString -> Maybe v
-dbDecodeMaybe = rightToMaybe . decodeFull . BSL.fromStrict
+dbDecodeMaybe = rightToMaybe . decodeFull
 
 -- Parse maybe
 dbDecodeMaybeWP
@@ -86,7 +84,6 @@ dbDecodeMaybeWP s
     | BS.isPrefixOf (iterKeyPrefix @i) s =
           rightToMaybe .
           decodeFull .
-          BSL.fromStrict .
           BS.drop (length $ iterKeyPrefix @i) $ s
     | otherwise = Nothing
 
@@ -95,7 +92,7 @@ dbDecodeMaybeWP s
 encodeWithKeyPrefix
     :: forall i . (DBIteratorClass i, Bi (IterKey i))
     => IterKey i -> ByteString
-encodeWithKeyPrefix = (iterKeyPrefix @i <>) . encodeStrict
+encodeWithKeyPrefix = (iterKeyPrefix @i <>) . encode
 
 -- | Given a @(k,v)@ as pair of strings, try to decode both.
 processIterEntry ::

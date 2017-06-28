@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Specification for submodules of Pos.Update.Poll
 
 module Test.Pos.Update.PollSpec

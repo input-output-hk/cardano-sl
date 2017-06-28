@@ -16,6 +16,7 @@ packages:
 - lwallet
 - ssc
 - godtossing
+- tools
 - txp
 
 - location:
@@ -28,7 +29,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/kademlia.git
-    commit: 92043c7e80e93aeb08212e8ce42c783edd9b2f80
+    commit: bbdca50c263c6dae251e67eb36a7d4e1ba7c1cb6
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/plutus-prototype
@@ -93,9 +94,11 @@ extra-deps:
 - servant-multipart-0.10
 - ether-0.5.1.0
 - transformers-lift-0.2.0.1
+- store-0.4.3.1
 - lens-4.15.3                     # not yet in lts-8
 - th-abstraction-0.2.2.0          # needed for lens
 - rocksdb-haskell-1.0.0
+- generic-arbitrary-0.1.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
@@ -111,4 +114,5 @@ ghc-options:
   cardano-sl-godtossing: -Werror
   cardano-sl-txp:        -Werror
   cardano-sl:            -Werror
+  cardano-sl-tools:      -Werror
   cardano-sl-lwallet:    -Werror

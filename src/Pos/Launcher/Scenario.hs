@@ -1,6 +1,5 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | High-level scenarios which can be launched.
 
@@ -19,8 +18,10 @@ import qualified Ether
 import           Formatting          (build, sformat, shown, (%))
 import           Mockable            (fork)
 import           Paths_cardano_sl    (version)
+import           Serokell.Util.Text  (listJson)
 import           System.Exit         (ExitCode (..))
-import           System.Wlog         (WithLogger, getLoggerName, logError, logInfo)
+import           System.Wlog         (WithLogger, getLoggerName, logError, logInfo,
+                                      logWarning)
 
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec,
                                       wrapActionSpec)
@@ -33,6 +34,7 @@ import           Pos.DB              (MonadDB)
 import qualified Pos.DB.GState       as GS
 import           Pos.DB.Misc         (addProxySecretKey)
 import           Pos.Delegation      (initDelegation)
+import           Pos.Lrc.DB          as LrcDB
 import           Pos.Reporting       (reportMisbehaviourSilent)
 import           Pos.Security        (SecurityWorkersClass)
 import           Pos.Shutdown        (waitForWorkers)
@@ -64,10 +66,18 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     pk <- getOurPublicKey
     addr <- getOurPubKeyAddress
     let pkHash = addressHash pk
-
     logInfoS $ sformat ("My public key is: "%build%
                         ", address: "%build%
                         ", pk hash: "%build) pk addr pkHash
+
+    lastKnownEpoch <- LrcDB.getEpoch
+    let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"
+    let onLeaders leaders =
+            logInfo $
+            sformat ("Last known leaders for epoch "%build%" are: "%listJson)
+                    lastKnownEpoch leaders
+    LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
+
     putProxySecreyKeys
     initDelegation @ssc
     initSemaphore

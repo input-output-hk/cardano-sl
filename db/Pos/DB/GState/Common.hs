@@ -8,8 +8,8 @@ module Pos.DB.GState.Common
          -- * Getters
          getTip
        , getBot
-       , getTipBlock
-       , getTipHeader
+       , getTipBlockGeneric
+       , getTipHeaderGeneric
        , getTipSomething
 
          -- * Initialization
@@ -30,7 +30,7 @@ import qualified Database.RocksDB    as Rocks
 import           Formatting          (bprint, sformat, stext, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi, encodeStrict)
+import           Pos.Binary.Class    (Bi, encode)
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (HeaderHash)
 import           Pos.Crypto          (shortHashF)
@@ -75,18 +75,18 @@ getBot :: MonadDBRead m => m HeaderHash
 getBot = maybeThrow (DBMalformed "no bot in GState DB") =<< getBotMaybe
 
 -- | Get 'Block' corresponding to tip.
-getTipBlock
+getTipBlockGeneric
     :: forall block header undo m.
        MonadBlockDBGeneric header block undo m
     => m block
-getTipBlock = getTipSomething "block" (dbGetBlock @_ @block)
+getTipBlockGeneric = getTipSomething "block" (dbGetBlock @_ @block)
 
 -- | Get 'BlockHeader' corresponding to tip.
-getTipHeader
+getTipHeaderGeneric
     :: forall block header undo m.
        MonadBlockDBGeneric header block undo m
     => m header
-getTipHeader = getTipSomething "header" (dbGetHeader @_ @block)
+getTipHeaderGeneric = getTipSomething "header" (dbGetHeader @_ @block)
 
 getTipSomething
     :: forall m smth.
@@ -108,7 +108,7 @@ instance Buildable CommonOp where
     build (PutTip h) = bprint ("PutTip ("%shortHashF%")") h
 
 instance RocksBatchOp CommonOp where
-    toBatchOp (PutTip h) = [Rocks.Put tipKey (encodeStrict h)]
+    toBatchOp (PutTip h) = [Rocks.Put tipKey (encode h)]
 
 ----------------------------------------------------------------------------
 -- Common initialization

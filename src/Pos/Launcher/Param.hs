@@ -13,11 +13,11 @@ import qualified Network.Transport.TCP   as TCP
 import           System.Wlog             (LoggerName)
 
 import           Pos.Communication.Types (NodeId)
+import           Pos.Core                (StakesMap, Timestamp)
 import           Pos.Crypto              (SecretKey)
 import           Pos.DHT.Real            (KademliaParams)
 import           Pos.Security.Params     (SecurityParams)
 import           Pos.Txp.Toil.Types      (Utxo)
-import           Pos.Types               (Timestamp)
 import           Pos.Update.Params       (UpdateParams)
 import           Pos.Util.UserSecret     (UserSecret)
 
@@ -53,7 +53,8 @@ data NodeParams = NodeParams
     , npSecretKey      :: !SecretKey         -- ^ Primary secret key of node
     , npUserSecret     :: !UserSecret        -- ^ All node secret keys
     , npBaseParams     :: !BaseParams        -- ^ See 'BaseParams'
-    , npCustomUtxo     :: !Utxo              -- ^ predefined custom utxo
+    , npCustomUtxo     :: !Utxo              -- ^ Predefined genesis utxo.
+    , npGenesisStakes  :: !StakesMap         -- ^ Predefined genesis stakes.
     , npJLFile         :: !(Maybe FilePath)  -- @georgeee please write comment to this field when you see this sign, i made it very long on purpose so it won't fit even in your huge monitor
     , npPropagation    :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
     , npReportServers  :: ![Text]            -- ^ List of report server URLs

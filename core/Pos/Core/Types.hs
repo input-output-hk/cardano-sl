@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Core types. TODO: we need to have a meeting, come up with project
 -- structure and follow it.
@@ -11,6 +10,8 @@ module Pos.Core.Types
        , AddrPkAttrs (..)
        , AddressHash
        , StakeholderId
+       , StakesMap
+       , GenesisStakes (..)
 
        , Timestamp (..)
 
@@ -90,6 +91,7 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       (formatBase16)
 
 import           Pos.Core.Constants.Raw     (epochSlots)
+import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Timestamp         (Timestamp (..))
 import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
                                              ProxySecretKey, ProxySignature, PublicKey,
@@ -119,10 +121,15 @@ newtype AddrPkAttrs = AddrPkAttrs
 instance Default AddrPkAttrs where
     def = AddrPkAttrs Nothing
 
+type AddressHash = AbstractHash Blake2b_224
+
 -- | Stakeholder identifier (stakeholders are identified by their public keys)
 type StakeholderId = AddressHash PublicKey
 
-type AddressHash = AbstractHash Blake2b_224
+-- | A mapping between stakeholders and they stakes.
+type StakesMap = HashMap StakeholderId Coin
+
+newtype GenesisStakes = GenesisStakes { unGenesisStakes :: StakesMap }
 
 instance NFData Address
 
@@ -211,6 +218,7 @@ data BlockVersionData = BlockVersionData
     , bvdUpdateProposalThd :: !CoinPortion
     , bvdUpdateImplicit    :: !FlatSlotId
     , bvdUpdateSoftforkThd :: !CoinPortion
+    , bvdTxFeePolicy       :: !(Maybe TxFeePolicy)
     } deriving (Show, Eq, Generic, Typeable)
 
 ----------------------------------------------------------------------------
@@ -283,6 +291,7 @@ instance Bounded Coin where
 maxCoinVal :: Word64
 maxCoinVal = 45000000000000000
 
+-- FIXME: This operation is unsafe because it doesn't check 'maxCoinVal'.
 -- | Make Coin from Word64.
 mkCoin :: Word64 -> Coin
 mkCoin = Coin

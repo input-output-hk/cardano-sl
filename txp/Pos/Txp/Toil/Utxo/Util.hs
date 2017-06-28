@@ -12,7 +12,7 @@ import qualified Data.Map.Strict     as M
 import           Universum
 
 import           Pos.Binary.Core     ()
-import           Pos.Core            (Address, Coin, StakeholderId, unsafeAddCoin)
+import           Pos.Core            (Address, StakesMap, unsafeAddCoin)
 import           Pos.Core.Address    (AddressIgnoringAttributes (..))
 import           Pos.Txp.Core        (addrBelongsTo, addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types  (Utxo)
@@ -27,8 +27,8 @@ filterUtxoByAddrs addrs =
     let addrSet = HS.fromList $ map AddressIA addrs
     in  M.filter (`addrBelongsToSet` addrSet)
 
--- | Convert 'Utxo' to map from 'StakeholderId' to stake.
-utxoToStakes :: Utxo -> HashMap StakeholderId Coin
+-- | Convert 'Utxo' to 'StakesMap'.
+utxoToStakes :: Utxo -> StakesMap
 utxoToStakes = foldl' putDistr mempty . M.toList
   where
     plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm

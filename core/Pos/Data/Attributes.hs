@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Helper data type for block, tx attributes.
 --
 -- Map with integer 1-byte keys, arbitrary-type polymorph values.
@@ -11,14 +9,13 @@ module Pos.Data.Attributes
        , areAttributesKnown
        , getAttributes
        , putAttributes
+       , putAttributesS
+       , sizeAttributes
        , mkAttributes
        ) where
 
 import           Universum
 
-import           Data.Binary.Get     (Get)
-import qualified Data.Binary.Get     as G
-import           Data.Binary.Put     (Put)
 import qualified Data.ByteString     as BS
 import           Data.Default        (Default (..))
 import           Data.DeriveTH       (derive, makeNFData)
@@ -27,9 +24,10 @@ import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
 import qualified Prelude
 
-import           Pos.Binary.Class    (getRemainingByteString, getWithLength,
-                                      getWithLengthLimited, getWord8, putByteString,
-                                      putWithLength, putWord8)
+import           Pos.Binary.Class    (Peek, Poke, PokeWithSize (..), getBytes,
+                                      getPeekLength, getWithLength, getWithLengthLimited,
+                                      getWord8, lookAhead, putBytesS, putWithLengthS,
+                                      putWord8S)
 
 mkAttributes :: h -> Attributes h
 mkAttributes dat = Attributes dat BS.empty
@@ -74,38 +72,106 @@ instance Hashable h => Hashable (Attributes h)
 areAttributesKnown :: Attributes __ -> Bool
 areAttributesKnown = null . attrRemain
 
+{- NOTE: Attributes serialization
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Attributes are a way to add fields to datatypes while maintaining backwards
+compatibility. Suppose that you have this datatype:
+
+    data Foo = Foo {
+        x :: Int,
+        y :: Int,
+        attrs :: Attributes FooAttrs }
+
+@Attributes FooAttrs@ is a key-value map that deserializes into @FooAttrs@.
+Each key is a single byte, and each value is an arbitary bytestring. It's
+serialized like this:
+
+    <length of following data>
+    <k1><first attribute>
+    <k2><second attribute>
+    <attrRemain>
+
+The attributes are read as long as their keys are “known” (i.e. as long as we
+know how to interpret those keys), and the rest is stored separately. For
+instance, let's say that in first version of CSL, @FooAttrs@ looks like this:
+
+    data FooAttrs = FooAttrs {
+        foo :: Text,
+        bar :: [Int] }
+
+It would be serialized as follows:
+
+    <length> <0x00><foo> <0x01><bar>
+
+In the next version of CSL we add a new field @quux@. The new version would
+serialize it like this:
+
+    <length> <0x00><foo> <0x01><bar> <0x02><quux>
+
+And the old version would treat it like this:
+
+    <length> <0x00><foo> <0x01><bar> <attrRemain>
+
+This way the old version can serialize and deserialize data received from the
+new version in a lossless way (i.e. when the old version does serialization
+it would just put @attrRemain@ back after other attributes and the new
+version would be able to parse it).
+
+-}
+
 -- | Generate 'Attributes' reader given mapper from keys to 'Get',
 -- maximum input length and the attribute value 'h' itself.
 --
 -- The mapper will be applied until it returns 'Nothing'.
-getAttributes :: (Word8 -> h -> Maybe (Get h))
-              -> Maybe Word32
-              -> h
-              -> Get (Attributes h)
-getAttributes keyGetMapper maxLen initData =
-    maybeLimit $ do
-        let readWhileKnown dat = ifM G.isEmpty (return dat) $ do
-                key <- G.lookAhead getWord8
+getAttributes
+    :: (Word8 -> h -> Maybe (Peek h))   -- ^ A function to parse an attribute
+                                        --    with given key and “set” it in
+                                        --    the attributes structure
+    -> Maybe Word32                     -- ^ Maximum length of the structure
+    -> h                                -- ^ Default data (which read
+                                        --    attributes are applied to)
+    -> Peek (Attributes h)
+getAttributes keyGetMapper maxLen initData = maybeLimit $ \len -> do
+    let readWhileKnown remaining dat
+          | remaining < 0 = fail "getAttributes: read more bytes than expected"
+          | remaining == 0 = pure (dat, remaining)
+          | otherwise = do
+                key <- lookAhead getWord8
                 case keyGetMapper key dat of
-                    Nothing -> return dat
-                    Just gh -> getWord8 >> gh >>= readWhileKnown
-        attrData <- readWhileKnown initData
-        attrRemain <- getRemainingByteString
-        return $ Attributes {..}
-  where
-    maybeLimit act = case maxLen of
-        Nothing -> getWithLength act
-        Just l  -> getWithLengthLimited (fromIntegral l) act
+                    -- the attribute is unknown, so we finish reading
+                    Nothing -> pure (dat, remaining)
+                    -- the attribute is known, so we proceed with reading
+                    Just gh -> do
+                        (dat', read) <- getPeekLength (getWord8 >> gh)
+                        readWhileKnown (remaining - fromIntegral read) dat'
+    (attrData, remaining) <- readWhileKnown len initData
+    -- It's important that we use 'getBytes' here and not 'get'.
+    -- See the note above.
+    attrRemain <- getBytes (fromIntegral remaining)
+    pure $ Attributes {..}
+ where
+   maybeLimit act = case maxLen of
+       Nothing -> getWithLength act
+       Just l  -> getWithLengthLimited (fromIntegral l) act
 
 -- | Generate 'Put' given the way to serialize inner attribute value
 -- into set of keys and values.
-putAttributes :: (h -> [(Word8, Put)]) -> Attributes h -> Put
-putAttributes putMapper Attributes {..} =
-    putWithLength $ do
-        mapM_ putAttr kvs
-        putByteString attrRemain
-  where
-    putAttr (k, v) = putWord8 k *> v
-    kvs = sortOn fst $ putMapper attrData
+putAttributes :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> Poke ()
+putAttributes putMapper attrs = pwsToPoke (putAttributesS putMapper attrs)
+
+sizeAttributes :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> Int
+sizeAttributes putMapper attrs = pwsToSize (putAttributesS putMapper attrs)
+
+putAttributesS :: (h -> [(Word8, PokeWithSize ())]) -> Attributes h -> PokeWithSize ()
+putAttributesS putMapper Attributes {..} =
+    putWithLengthS $
+        traverse_ putAttr kvs *>
+        -- Note: it's important that we use 'putBytesS' here and not 'putS'.
+        -- See the note above.
+        putBytesS attrRemain
+ where
+   putAttr (k, v) = putWord8S k *> v
+   kvs = sortOn fst $ putMapper attrData
 
 derive makeNFData ''Attributes

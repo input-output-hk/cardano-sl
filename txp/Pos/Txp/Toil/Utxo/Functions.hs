@@ -19,7 +19,8 @@ import           Serokell.Util             (VerificationRes, allDistinct,
 
 import           Pos.Binary.Txp.Core       ()
 import           Pos.Core                  (Address (..), StakeholderId, coinF,
-                                            coinToInteger, mkCoin, sumCoins)
+                                            coinToInteger, integerToCoin, mkCoin,
+                                            sumCoins)
 import           Pos.Core.Address          (addressDetailedF, checkPubKeyAddress,
                                             checkRedeemAddress, checkScriptAddress,
                                             checkUnknownAddressType)
@@ -34,6 +35,7 @@ import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..),
                                             TxSigData (..), TxUndo, TxWitness, txOutputs)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure      (ToilVerFailure (..))
+import           Pos.Txp.Toil.Types        (TxFee (..))
 
 ----------------------------------------------------------------------------
 -- Verification
@@ -73,17 +75,17 @@ verifyTxUtxo
     :: (MonadUtxoRead m, MonadError ToilVerFailure m)
     => VTxContext
     -> TxAux
-    -> m TxUndo
+    -> m (TxUndo, TxFee)
 verifyTxUtxo ctx@VTxContext {..} ta@(TxAux UnsafeTx {..} witnesses _) = do
     verifyConsistency _txInputs witnesses
     verResToMonadError (ToilInvalidOutputs . formatFirstError) $
         verifyOutputs ctx ta
     resolvedInputs <- mapM resolveInput _txInputs
-    verifySums resolvedInputs _txOutputs
+    txFee <- verifySums resolvedInputs _txOutputs
     verResToMonadError ToilInvalidInputs $
         verifyInputs ctx resolvedInputs ta
     when vtcVerifyAllIsKnown $ verifyAttributesAreKnown _txAttributes
-    return $ map snd resolvedInputs
+    return (map snd resolvedInputs, txFee)
 
 resolveInput
     :: (MonadUtxoRead m, MonadError ToilVerFailure m)
@@ -92,11 +94,15 @@ resolveInput txIn = (txIn, ) <$> (note (ToilNotUnspent txIn) =<< utxoGet txIn)
 
 verifySums
     :: MonadError ToilVerFailure m
-    => NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> m ()
+    => NonEmpty (TxIn, TxOutAux) -> NonEmpty TxOut -> m TxFee
 verifySums resolvedInputs outputs =
-    when (outSum > inpSum) $
-    throwError $ ToilOutGTIn {tInputSum = inpSum, tOutputSum = outSum}
+  case mTxFee of
+      Nothing -> throwError $
+          ToilOutGTIn {tInputSum = inpSum, tOutputSum = outSum}
+      Just txFee ->
+          return txFee
   where
+    mTxFee = TxFee <$> integerToCoin (inpSum - outSum)
     outSum = sumCoins $ map txOutValue outputs
     inpSum = sumCoins $ map (txOutValue . toaOut . snd) resolvedInputs
 
@@ -119,10 +125,8 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _ distrs)=
                zip [0 :: Int ..] $ toList (NE.zip _txOutputs (getTxDistribution distrs))
            case txOutAddress of
                PubKeyAddress{..} ->
-                   [ ( null d
-                     , sformat ("output #"%int%" with pubkey address "%
-                                build%" has non-empty distribution") i txOutAddress)
-                   , ( areAttributesKnown addrPkAttributes
+                   checkDist i d txOutValue ++
+                   [ ( areAttributesKnown addrPkAttributes
                      , sformat ("output #"%int%" with pubkey address "%
                                 build%" has unknown attributes") i txOutAddress)
                    ]

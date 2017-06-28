@@ -31,7 +31,7 @@ import           Pos.Binary.Core             ()
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.Txp.Core                (Tx, TxAux, TxDistribution, TxUndo)
 import           Pos.Txp.Toil.Failure        (ToilVerFailure)
-import           Pos.Txp.Toil.Types          (Utxo)
+import           Pos.Txp.Toil.Types          (TxFee, Utxo)
 import           Pos.Txp.Toil.Utxo.Functions (VTxContext, applyTxToUtxo, verifyTxUtxo)
 
 ----------------------------------------------------------------------------
@@ -81,7 +81,7 @@ execUtxoState = Ether.execState
 -- | Pure version of verifyTxUtxo.
 verifyTxUtxoPure
     :: MonadError ToilVerFailure m
-    => VTxContext -> Utxo -> TxAux -> m TxUndo
+    => VTxContext -> Utxo -> TxAux -> m (TxUndo, TxFee)
 verifyTxUtxoPure ctx utxo txAux = runUtxoReaderT (verifyTxUtxo ctx txAux) utxo
 
 -- | Pure version of applyTxToUtxo.

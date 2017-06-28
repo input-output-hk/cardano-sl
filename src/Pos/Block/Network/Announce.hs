@@ -93,14 +93,14 @@ handleHeadersCommunication conv = do
     -- genesis otherwise.
     getLastMainHeader :: m (BlockHeader ssc)
     getLastMainHeader = do
-        (tip :: Block ssc) <- DB.getTipBlock @(Block ssc)
+        (tip :: Block ssc) <- DB.getTipBlock
         let tipHeader = tip ^. blockHeader
         case tip of
             Left _  -> fromMaybe tipHeader <$> DB.blkGetHeader (tip ^. prevBlockL)
             Right _ -> pure tipHeader
     handleSuccess h = do
-        onSuccess
         send conv (MsgHeaders h)
+        onSuccess
         handleHeadersCommunication conv
     onSuccess =
         logDebug "handleGetHeaders: responded successfully"

@@ -6,10 +6,7 @@ module Pos.Binary.Core.Block
 
 import           Universum
 
-import           Data.Binary.Get    (getInt32be)
-import           Data.Binary.Put    (putInt32be)
-
-import           Pos.Binary.Class   (Bi (..), label)
+import           Pos.Binary.Class   (Bi (..), label, labelS, putConst, putField)
 import qualified Pos.Core.Block     as T
 import           Pos.Core.Constants (protocolMagic)
 import qualified Pos.Core.Types     as T
@@ -18,6 +15,7 @@ import           Pos.Util.Util      (eitherToFail)
 -- | This instance required only for Arbitrary instance of HeaderHash
 -- due to @instance Bi a => Hash a@.
 instance Bi T.BlockHeaderStub where
+    size  = error "somebody tried to binary size BlockHeaderStub"
     put _ = error "somebody tried to binary put BlockHeaderStub"
     get   = error "somebody tried to binary get BlockHeaderStub"
 
@@ -28,15 +26,14 @@ instance ( Bi (T.BHeaderHash b)
          , T.BlockchainHelpers b
          ) =>
          Bi (T.GenericBlockHeader b) where
-    put T.UnsafeGenericBlockHeader{..} = do
-        putInt32be protocolMagic
-        put _gbhPrevBlock
-        put _gbhBodyProof
-        put _gbhConsensus
-        put _gbhExtra
-    get =
-        label "GenericBlockHeader" $ do
-        blockMagic <- getInt32be
+    sizeNPut = labelS "GenericBlockHeader" $
+        putConst protocolMagic <>
+        putField T._gbhPrevBlock <>
+        putField T._gbhBodyProof <>
+        putField T._gbhConsensus <>
+        putField T._gbhExtra
+    get = label "GenericBlockHeader" $ do
+        blockMagic <- get
         when (blockMagic /= protocolMagic) $
             fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
         prevBlock <- get
@@ -54,10 +51,10 @@ instance ( Bi (T.BHeaderHash b)
          , T.BlockchainHelpers b
          ) =>
          Bi (T.GenericBlock b) where
-    put T.UnsafeGenericBlock {..} = do
-        put _gbHeader
-        put _gbBody
-        put _gbExtra
+    sizeNPut = labelS "GenericBlock" $
+        putField T._gbHeader <>
+        putField T._gbBody <>
+        putField T._gbExtra
     get =
         label "GenericBlock" $ do
             header <- get

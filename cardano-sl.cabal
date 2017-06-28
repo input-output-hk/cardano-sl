@@ -30,17 +30,6 @@ Flag with-explorer
 
   description: Build with explorer
 
--- Note: for components that we don't want to build, we add both "buildable:
--- False" *and* wrap build-depends into "if !flag(for-installer)". This is
--- because stack doesn't seem to take "buildable: False" into account when
--- calculating the build plan.
-Flag for-installer
-  default:     False
-  manual:      True
-
-  description: Build a reduced set of components (only what is needed for the
-               installer, plus tests)
-
 library
   exposed-modules:      Paths_cardano_sl
                         Pos.Aeson
@@ -51,12 +40,12 @@ library
                         Pos.Block.Logic
                         Pos.Block.Network
                         Pos.Block.Pure
+                        Pos.Block.Types
                         Pos.CLI
                         Pos.Context
                         Pos.CompileConfig
                         Pos.Communication
                         Pos.Constants
-                        Pos.Crypto.Arbitrary
 
                         Pos.DB.DB
                         Pos.DB.Block
@@ -66,14 +55,10 @@ library
 
                         -- Genesis data
                         Pos.Genesis
-                        Pos.Genesis.Arbitrary
 
                         -- LRC
                         Pos.Lrc
                         Pos.Lrc.FtsPure
-
-                        -- Slotting
-                        Pos.Slotting.Arbitrary
 
                         -- Something
                         Pos.Launcher
@@ -87,9 +72,8 @@ library
                         Pos.Security.Workers
 
                         -- SSC
-                        Pos.Ssc.Arbitrary
+
                         Pos.Ssc.GodTossing
-                        Pos.Ssc.NistBeacon
                         Pos.Ssc.SscAlgo
 
                         -- Client
@@ -101,18 +85,13 @@ library
                         Pos.Txp
 
                         Pos.Types
-                        Pos.Types.Arbitrary
-                        Pos.Types.Arbitrary.Core
-                        Pos.Types.Arbitrary.Unsafe
 
                         -- Update system
                         Pos.Update
-                        Pos.Update.Arbitrary
 
                         -- Utilities/helpers
                         Pos.Util
                         Pos.Util.Undefined
-                        Pos.Util.Arbitrary
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
                         Pos.Util.UserSecret
@@ -180,7 +159,6 @@ library
                         Pos.Block.Network.Listeners
                         Pos.Block.Network.Logic
                         Pos.Block.Network.Retrieval
-                        Pos.Block.Types
                         Pos.Block.Worker
 
                         -- Compile config
@@ -192,7 +170,6 @@ library
                         Pos.Context.Functions
 
                         -- Crypto
-                        Pos.Crypto.Arbitrary.Unsafe
                         Pos.Crypto.HDDiscovery
 
                         -- Heavy delegation
@@ -238,7 +215,6 @@ library
                         Pos.DB.Misc
 
                         -- LRC
-                        Pos.Lrc.Arbitrary
                         Pos.Lrc.Consumers
                         Pos.Lrc.DB
                         Pos.Lrc.DB.Leaders
@@ -252,20 +228,14 @@ library
                         -- SSC
                         Pos.Ssc.Util
 
-                        Pos.Ssc.GodTossing.Arbitrary
-
                         -- Txp
-                        Pos.Txp.Arbitrary
                         Pos.Txp.Network
+                        Pos.Txp.Network.Arbitrary
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
                         Pos.Txp.Worker
 
                         -- Update System
-                        Pos.Update.Arbitrary.Core
-                        Pos.Update.Arbitrary.MemState
-                        Pos.Update.Arbitrary.Network
-                        Pos.Update.Arbitrary.Poll
                         Pos.Update.Download
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
@@ -364,6 +334,7 @@ library
                       , filepath
                       , focus
                       , formatting
+                      , generic-arbitrary
                       , gitrev
                       , hashable
                       , http-client
@@ -399,6 +370,7 @@ library
                       , serokell-util >= 0.1.3.4
                       , stm
                       , stm-containers
+                      , store
                       , tagged
                       , template-haskell
                       , temporary >= 1.2.0.4
@@ -462,6 +434,7 @@ library
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -540,6 +513,7 @@ executable cardano-node
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -549,581 +523,29 @@ executable cardano-node
   if flag(with-wallet)
     cpp-options: -DWITH_WALLET
 
-executable cardano-analyzer
-  hs-source-dirs:      src/analyzer
-  main-is:             Main.hs
-  other-modules:       AnalyzerOptions
-  if !flag(for-installer)
-   build-depends:      base
-                     , aeson
-                     , ansi-wl-pprint
-                     , attoparsec
-                     , bytestring
-                     , cardano-sl-core
-                     , cardano-sl-infra
-                     , cardano-sl
-                     , formatting
-                     , log-warper
-                     , optparse-simple
-                     , serokell-util >= 0.1.3.4
-                     , string-qq
-                     , text
-                     , time
-                     , time-units
-                     , universum >= 0.1.11
-                     , unordered-containers
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        StandaloneDeriving
-                        FlexibleContexts
-                        FlexibleInstances
-                        MultiParamTypeClasses
-                        FunctionalDependencies
-                        DefaultSignatures
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-                        TupleSections
-                        ViewPatterns
-                        LambdaCase
-                        MultiWayIf
-                        ConstraintKinds
-                        UndecidableInstances
-                        BangPatterns
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(for-installer)
-    buildable: False
-
-executable cardano-wallet-hs2purs
-  hs-source-dirs:      src/wallet-purescript
-  main-is:             Main.hs
-  other-modules:       PSTypes
-  build-depends:       base
-                     , cardano-sl-core
-                     , cardano-sl
-                     , optparse-simple
-                     , purescript-bridge
-                     , universum >= 0.1.11
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        StandaloneDeriving
-                        FlexibleContexts
-                        FlexibleInstances
-                        MultiParamTypeClasses
-                        FunctionalDependencies
-                        DefaultSignatures
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-                        TupleSections
-                        ViewPatterns
-                        LambdaCase
-                        MultiWayIf
-                        ConstraintKinds
-                        UndecidableInstances
-                        BangPatterns
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(with-wallet) && flag(with-web)
-    buildable:         True
-  else
-    buildable:         False
-
-  if flag(with-web)
-    cpp-options: -DWITH_WEB
-
-executable cardano-smart-generator
-  hs-source-dirs:      src/smart-generator
-  main-is:             Main.hs
-  other-modules:       GenOptions
-                       TxGeneration
-                       TxAnalysis
-                       Util
-  if !flag(for-installer)
-   build-depends:      QuickCheck
-                     , base
-                     , aeson
-                     , ansi-wl-pprint
-                     , array
-                     , bytestring
-                     , data-default
-                     , cardano-sl-core
-                     , cardano-sl-infra
-                     , cardano-sl-txp
-                     , cardano-sl-update
-                     , cardano-sl-ssc
-                     , cardano-sl
-                     , containers
-                     , filepath
-                     , formatting
-                     , lens
-                     , lifted-async
-                     , log-warper
-                     , network-transport-tcp
-                     , node-sketch
-                     , optparse-applicative
-                     , parsec
-                     , random
-                     , random-shuffle
-                     , serokell-util >= 0.1.3.4
-                     , stm
-                     , string-qq
-                     , text
-                     , time
-                     , time-units
-                     , transformers
-                     , universum >= 0.1.11
-                     , unordered-containers
-                     , vector
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        StandaloneDeriving
-                        FlexibleContexts
-                        FlexibleInstances
-                        MultiParamTypeClasses
-                        FunctionalDependencies
-                        DefaultSignatures
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-                        TupleSections
-                        ViewPatterns
-                        LambdaCase
-                        MultiWayIf
-                        ConstraintKinds
-                        UndecidableInstances
-                        BangPatterns
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(with-wallet)
-    buildable:         True
-  else
-    buildable:         False
-
-  if flag(for-installer)
-    buildable: False
-
-executable cardano-dht-keygen
-  hs-source-dirs:      src/dht-keygen
-  main-is:             Main.hs
-  if !flag(for-installer)
-   build-depends:      QuickCheck
-                     , base
-                     , aeson
-                     , array
-                     , bytestring
-                     , data-default
-                     , cardano-sl-core
-                     , cardano-sl
-                     , filepath
-                     , formatting
-                     , kademlia
-                     , lens
-                     , lifted-async
-                     , log-warper
-                     , optparse-simple
-                     , parsec
-                     , random
-                     , random-shuffle
-                     , serokell-util >= 0.1.3.4
-                     , stm
-                     , text
-                     , time
-                     , universum >= 0.1.11
-                     , unordered-containers
-                     , vector
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        StandaloneDeriving
-                        FlexibleContexts
-                        FlexibleInstances
-                        MultiParamTypeClasses
-                        FunctionalDependencies
-                        DefaultSignatures
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-                        TupleSections
-                        ViewPatterns
-                        LambdaCase
-                        MultiWayIf
-                        ConstraintKinds
-                        UndecidableInstances
-                        BangPatterns
-                        ApplicativeDo
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(for-installer)
-    buildable: False
-
-executable cardano-swagger
-  hs-source-dirs:      src/wallet-web-api-swagger
-  main-is:             Main.hs
-  other-modules:       Description
-  if !flag(for-installer)
-   build-depends:      aeson
-                     , base
-                     , bytestring
-                     , cardano-sl
-                     , lens
-                     , optparse-simple
-                     , swagger2
-                     , servant
-                     , servant-server
-                     , servant-multipart
-                     , servant-swagger
-                     , servant-swagger-ui
-                     , text
-                     , universum >= 0.1.11
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   NoImplicitPrelude
-                        BangPatterns
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(for-installer)
-    buildable: False
-
-  if !flag(with-wallet) || !flag(with-web)
-    buildable: False
-
-executable cardano-checks
-  hs-source-dirs:      src/checks
-  main-is:             Main.hs
-  if !flag(for-installer)
-   build-depends:      base
-                     , ansi-wl-pprint
-                     , containers
-                     , foldl
-                     , optparse-simple
-                     , optparse-text
-                     , string-qq
-                     , text
-                     , turtle
-  default-language:    Haskell2010
-  ghc-options:         -threaded
-                       -Wall
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:  OverloadedStrings
-                       BangPatterns
-
-  if flag(for-installer)
-    buildable: False
-
-executable cardano-genupdate
-  hs-source-dirs:      src/genupdate
-  main-is:             Main.hs
-  build-depends:       base
-                     , ansi-wl-pprint
-                     , bytestring
-                     , cryptonite
-                     , foldl
-                     , optparse-simple
-                     , optparse-text
-                     , string-qq
-                     , system-filepath
-                     , tar
-                     , text
-                     , turtle >= 1.3.0
-                     , universum
-  default-language:    Haskell2010
-  ghc-options:         -threaded
-                       -Wall
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:  OverloadedStrings
-                       NoImplicitPrelude
-                       BangPatterns
-                       ApplicativeDo
-                       RecordWildCards
-
-executable cardano-keygen
-  hs-source-dirs:      src/keygen
-  main-is:             Main.hs
-  other-modules:       KeygenOptions
-                     , Avvm
-                     , Testnet
-  if !flag(for-installer)
-   build-depends:      QuickCheck >= 2.9
-                     , Glob
-                     , base
-                     , aeson
-                     , ansi-wl-pprint
-                     , cardano-sl-core
-                     , cardano-sl-txp
-                     , cardano-sl
-                     , ed25519
-                     , formatting
-                     , universum >= 0.1
-                     , serokell-util >= 0.1
-                     , text
-                     , lens
-                     , optparse-applicative >= 0.12
-                     , string-qq
-                     , unordered-containers
-                     , bytestring >= 0.10
-                     , random >= 1.1
-                     , filepath
-                     , directory
-                     , log-warper
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        StandaloneDeriving
-                        FlexibleContexts
-                        FlexibleInstances
-                        MultiParamTypeClasses
-                        FunctionalDependencies
-                        DefaultSignatures
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-                        TupleSections
-                        ViewPatterns
-                        LambdaCase
-                        MultiWayIf
-                        ConstraintKinds
-                        UndecidableInstances
-                        BangPatterns
-
-  if flag(for-installer)
-    buildable: False
-
-  if !flag(with-wallet)
-    buildable: False
-
-executable cardano-launcher
-  hs-source-dirs:      src/launcher
-  main-is:             Main.hs
-  build-depends:       ansi-wl-pprint
-                     , async
-                     , base
-                     , optparse-simple
-                     , cardano-report-server >= 0.1.1
-                     , log-warper
-                     , cardano-sl
-                     , cardano-sl-infra
-                     , directory
-                     , filepath
-                     , process
-                     , string-qq
-                     , system-filepath
-                     , text
-                     , turtle
-                     , universum
-                     , wreq
-                     , lens
-  default-language:    Haskell2010
-  ghc-options:         -threaded
-                       -Wall
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:  OverloadedStrings
-                       RecordWildCards
-                       TupleSections
-                       BangPatterns
-
-  if os(windows)
-    LD-Options:     -mwindows
-
-executable cardano-addr-convert
-  hs-source-dirs:      src/addr-convert
-  main-is:             Main.hs
-  build-depends:       base
-                     , ansi-wl-pprint
-                     , bytestring
-                     , cardano-sl
-                     , cardano-sl-core
-                     , directory
-                     , filepath
-                     , optparse-applicative
-                     , optparse-text
-                     , process
-                     , serokell-util
-                     , string-qq
-                     , system-filepath
-                     , text
-                     , turtle
-                     , universum
-                     , lens
-  default-language:    Haskell2010
-  ghc-options:         -threaded
-                       -Wall
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   DeriveDataTypeable
-                        DeriveGeneric
-                        GeneralizedNewtypeDeriving
-                        StandaloneDeriving
-                        FlexibleContexts
-                        FlexibleInstances
-                        MultiParamTypeClasses
-                        FunctionalDependencies
-                        DefaultSignatures
-                        NoImplicitPrelude
-                        OverloadedStrings
-                        RecordWildCards
-                        TypeApplications
-                        TupleSections
-                        ViewPatterns
-                        LambdaCase
-                        MultiWayIf
-                        ConstraintKinds
-                        UndecidableInstances
-                        ApplicativeDo
-
-executable cardano-cli-docs
-  hs-source-dirs:      src/cli-docs
-  main-is:             Main.hs
-  if !flag(for-installer)
-   build-depends:      base
-                     , bytestring
-                     , directory
-                     , filepath
-                     , optparse-applicative
-                     , process
-                     , string-qq
-                     , text
-                     , universum >= 0.1.11
-  default-language:    Haskell2010
-  ghc-options:         -threaded -rtsopts
-                       -Wall
-                       -fno-warn-orphans
-                       -O2
-
-  -- linker speed up for linux
-  if os(linux)
-    ghc-options:       -optl-fuse-ld=gold
-    ld-options:        -fuse-ld=gold
-
-  default-extensions:   NoImplicitPrelude
-                        BangPatterns
-                        RecordWildCards
-                        OverloadedStrings
-                        ApplicativeDo
-
-  build-tools: cpphs >= 1.19
-  ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(for-installer)
-    buildable: False
-
 test-suite cardano-test
   main-is:             Test.hs
-  other-modules:       Spec
+  other-modules:
+                       -- Standard module with some magic
+                       Spec
+
+                       -- Something
                        Test.Pos.Arbitrary.Infra
                        Test.Pos.Arbitrary.Infra.Communication
                        Test.Pos.Arbitrary.Infra.DHT
                        Test.Pos.BinarySpec
-                       Test.Pos.Block.LogicSpec
+
+                       -- Pos.Block testing
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
+                       Test.Pos.Block.Logic.CreationSpec
+                       Test.Pos.Block.Logic.Mode
+                       Test.Pos.Block.Logic.VarSpec
+
+                       -- Everything else
                        Test.Pos.Communication.Identity.BinarySpec
+                       Test.Pos.ConstantsSpec
+                       Test.Pos.Core.AddressSpec
                        Test.Pos.CryptoSpec
                        Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.FollowTheSatoshiSpec
@@ -1139,12 +561,12 @@ test-suite cardano-test
                        Test.Pos.Txp.CoreSpec
                        Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Txp.Toil.UtxoSpec
-                       Test.Pos.Types.AddressSpec
                        Test.Pos.Types.BlockSpec
                        Test.Pos.Types.CoinSpec
                        Test.Pos.Types.Identity.BinarySpec
                        Test.Pos.Types.Identity.SafeCopySpec
-                       Test.Pos.Types.Identity.TimestampSpec
+                       Test.Pos.Types.Identity.ShowReadSpec
+                       Test.Pos.Types.SeedSpec
                        Test.Pos.Types.SlottingSpec
                        Test.Pos.Update.Identity.BinarySpec
                        Test.Pos.Update.Identity.SafeCopySpec
@@ -1157,9 +579,9 @@ test-suite cardano-test
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base
-                     , binary
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-txp
@@ -1171,6 +593,7 @@ test-suite cardano-test
                      , cryptonite
                      , data-default
                      , derive
+                     , ether
                      , formatting
                      , hspec
                      , kademlia
@@ -1187,7 +610,10 @@ test-suite cardano-test
                      , regex-tdfa-text
                      , safecopy
                      , serokell-util >= 0.1.3.4
+                     , store
                      , tagged
+                     , temporary
+                     , text-format
                      , time-units
                      , universum >= 0.1.11
                      , unordered-containers
@@ -1224,6 +650,7 @@ test-suite cardano-test
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -1239,6 +666,7 @@ benchmark cardano-bench-criterion
                      , binary
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-txp
                      , cardano-sl
                      , containers
                      , criterion
@@ -1282,6 +710,7 @@ benchmark cardano-bench-criterion
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        TemplateHaskell
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

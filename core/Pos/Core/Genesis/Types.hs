@@ -38,7 +38,10 @@ data StakeDistribution
 
 instance Monoid StakeDistribution where
     mempty = FlatStakes 0 (mkCoin 0)
-    mappend = CombinedStakes
+    mappend a b
+        | a == mempty = b
+        | b == mempty = a
+        | otherwise = CombinedStakes a b
 
 instance Default StakeDistribution where
     def = FlatStakes genesisKeysN

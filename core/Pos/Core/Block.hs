@@ -1,6 +1,5 @@
-{-# LANGUAGE Rank2Types      #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies    #-}
+{-# LANGUAGE Rank2Types   #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | This module contains some general definitions related to blocks
 -- and headers. The heart of this module is 'Blockchain' type class.

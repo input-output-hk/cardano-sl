@@ -3,10 +3,11 @@
 module Pos.Txp.Core.Core
        ( addrBelongsTo
        , addrBelongsToSet
+       , emptyTxPayload
+       , flattenTxPayload
        , mkTxProof
        , txInToPair
        , txOutStake
-       , flattenTxPayload
        ) where
 
 import           Universum
@@ -23,7 +24,8 @@ import           Pos.Crypto          (hash)
 import           Pos.Merkle          (mtRoot)
 import           Pos.Txp.Core.Types  (TxAux (..), TxId, TxIn (..), TxOut (..),
                                       TxOutAux (..), TxOutDistribution, TxPayload (..),
-                                      TxProof (..))
+                                      TxProof (..), mkTxPayload)
+import           Pos.Util.Util       (leftToPanic)
 
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.
@@ -44,8 +46,9 @@ txInToPair (TxIn h i) = (h, i)
 -- (e.g. for the purpose of running follow-the-satoshi).
 txOutStake :: TxOutAux -> TxOutDistribution
 txOutStake TxOutAux {..} = case txOutAddress toaOut of
-    PubKeyAddress x _ -> [(x, txOutValue toaOut)]
-    _                 -> toaDistr
+    PubKeyAddress x _
+        | null toaDistr -> [(x, txOutValue toaOut)]
+    _other              -> toaDistr
 
 -- | Construct 'TxProof' which proves given 'TxPayload'.
 mkTxProof :: TxPayload -> TxProof
@@ -61,3 +64,6 @@ mkTxProof UnsafeTxPayload {..} =
 flattenTxPayload :: TxPayload -> [TxAux]
 flattenTxPayload UnsafeTxPayload {..} =
     zipWith3 TxAux (toList _txpTxs) _txpWitnesses _txpDistributions
+
+emptyTxPayload :: TxPayload
+emptyTxPayload = leftToPanic @Text "emptyTxPayload failed" $ mkTxPayload []

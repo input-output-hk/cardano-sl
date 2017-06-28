@@ -2,4 +2,4 @@
 
 base=$(dirname "$0")
 
-WALLET_TEST=1 "$base"/demo-without-wallet-api.sh
+WALLET_TEST=1 "$base"/demo.sh

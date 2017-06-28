@@ -46,7 +46,6 @@ import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Data.ByteArray                 (convert)
 import qualified Data.ByteString                as BS (readFile, writeFile)
-import qualified Data.ByteString.Lazy           as BSL
 import           Data.Coerce                    (coerce)
 import           Data.Default                   (Default (def))
 import qualified Ether
@@ -56,7 +55,7 @@ import           System.FilePath                ((</>))
 import           System.IO.Error                (isDoesNotExistError)
 
 import           Pos.Binary.Block               ()
-import           Pos.Binary.Class               (Bi, decodeFull, encodeStrict)
+import           Pos.Binary.Class               (Bi, decodeFull, encode)
 import           Pos.Block.Core                 (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Block.Core                 as BC
 import           Pos.Block.Types                (Blund, Undo (..))
@@ -84,6 +83,7 @@ import           Pos.Util.Chrono                (NewestFirst (..))
 
 -- Get block with given hash from Block DB.  This function has too
 -- strict constraint, consider using 'blkGetBlock'.
+
 getBlock
     :: forall ssc m. (SscHelpersClass ssc, MonadRealDB m)
     => HeaderHash -> m (Maybe (Block ssc))
@@ -358,8 +358,7 @@ getData ::  (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
 getData fp = flip catch handle $ liftIO $
     either (\er -> throwM $ DBMalformed $
              sformat ("Couldn't deserialize "%build%", reason: "%build) fp er) pure .
-    decodeFull .
-    BSL.fromStrict <$>
+    decodeFull <$>
     BS.readFile fp
   where
     handle e
@@ -367,7 +366,7 @@ getData fp = flip catch handle $ liftIO $
         | otherwise = throwM e
 
 putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
-putData fp = liftIO . BS.writeFile fp . encodeStrict
+putData fp = liftIO . BS.writeFile fp . encode
 
 deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
 deleteData fp = (liftIO $ removeFile fp) `catch` handle

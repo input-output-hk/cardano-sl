@@ -1,5 +1,4 @@
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Core types of Txp component, i. e. types which actually form
 -- block or are used by other components.
@@ -43,6 +42,8 @@ module Pos.Txp.Core.Types
        -- * Undo
        , TxUndo
        , TxpUndo
+
+       -- * Block message
        ) where
 
 import           Control.Lens         (makeLenses, makePrisms)
@@ -272,24 +273,20 @@ data TxProof = TxProof
 data TxPayload = UnsafeTxPayload
     { -- | Transactions are the main payload.
       _txpTxs           :: !(MerkleTree Tx)
-    , -- | Transaction witnesses. Invariant: there are as many witnesses
-      -- as there are transactions in the block. This is checked during
-      -- deserialisation. We can't put them into the same Merkle tree
-      -- with transactions, as the whole point of segwit is to separate
-      -- transactions and witnesses.
+    , -- | Witnesses for each transaction. The length of this field is
+      -- checked during deserialisation; we can't put witnesses into the same
+      -- Merkle tree with transactions, as the whole point of SegWit is to
+      -- separate transactions and witnesses.
       --
       -- TODO: should they be put into a separate Merkle tree or left as
       -- a list?
       _txpWitnesses     :: ![TxWitness]
-    , -- | Distributions for P2SH addresses in transaction outputs.
-      --     * length mbTxAddrDistributions == length mbTxs
-      --     * i-th element is 'Just' if at least one output of i-th
-      --         transaction is P2SH
-      --     * n-th element of i-th element is 'Just' if n-th output
-      --         of i-th transaction is P2SH
-      -- Ask @neongreen if you don't understand wtf is going on.
-      -- Basically, address distributions are needed so that (potential)
-      -- receivers of P2SH funds would count as stakeholders.
+    , -- | Stake distribution for each transaction. Follow-the-satoshi will
+      -- use this information to decide who “owns” which satoshi, even though
+      -- in reality we don't know it for e.g. P2SH transactions. So, one of
+      -- the reasons we need distributions is that we want (potential)
+      -- receivers of P2SH funds to count as stakeholders, though there are
+      -- also other things distributions are useful for.
       _txpDistributions :: ![TxDistribution]
     } deriving (Show, Eq, Generic)
 

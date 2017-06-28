@@ -2,16 +2,17 @@
 
 module Pos.Binary.Explorer () where
 
-import           Data.Binary.Get         (label)
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..))
+import           Pos.Binary.Class        (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Txp          ()
+import           Pos.Core                (HeaderHash, Timestamp)
 import           Pos.Explorer.Core.Types (TxExtra (..))
+import           Pos.Txp.Core            (TxOutAux)
 
-instance Bi TxExtra where
-    get = label "TxExtra" $
-          TxExtra <$> get <*> get <*> get
-    put TxExtra {..} = put teBlockchainPlace >>
-                       put teReceivedTime >>
-                       put teInputOutputs
+deriveSimpleBi ''TxExtra [
+    Cons 'TxExtra [
+        Field [| teBlockchainPlace :: Maybe (HeaderHash, Word32) |],
+        Field [| teReceivedTime    :: Timestamp                  |],
+        Field [| teInputOutputs    :: NonEmpty TxOutAux          |]
+    ]]

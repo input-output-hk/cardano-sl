@@ -13,6 +13,8 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+    Pos.Ssc.GodTossing.Arbitrary
+
     Pos.Ssc.GodTossing.Core
     Pos.Ssc.GodTossing.Core.Types
     Pos.Ssc.GodTossing.Core.Core
@@ -78,6 +80,7 @@ library
                      , mono-traversable
                      , mtl
                      , node-sketch
+                     , QuickCheck
                      , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , stm
@@ -111,6 +114,7 @@ library
                        ConstraintKinds
                        UndecidableInstances
                        BangPatterns
+                       TemplateHaskell
 
   ghc-options:         -Wall
                        -fno-warn-orphans

@@ -49,7 +49,6 @@ type ETxpLocalWorkMode m =
     , WithLogger m
     , MonadError ToilVerFailure m
     , MonadSlots m
-    , MonadDBRead m
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra

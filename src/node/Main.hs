@@ -19,7 +19,8 @@ import           System.Wlog         (logError, logInfo)
 
 import           Pos.Binary          ()
 import qualified Pos.CLI             as CLI
-import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
+import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker,
+                                      hoistRelayContext)
 import           Pos.Constants       (isDevelopment)
 import           Pos.Context         (MonadNodeContext)
 import           Pos.Core.Types      (Timestamp (..))
@@ -86,7 +87,7 @@ actionWithWallet sscParams nodeParams args@Args {..} =
                     db
                     conn
                     (hoistNodeResources powerLift nr)
-                    (runNode @SscGodTossing nrContext plugins)
+                    (runNode @SscGodTossing (hoistRelayContext powerLift nrRelayContext) nrContext plugins)
   where
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
     plugins :: ([WorkerSpec WalletWebMode], OutSpecs)

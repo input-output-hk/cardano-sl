@@ -1,20 +1,21 @@
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Pos.Communication.Relay.Types
        ( RelayError (..)
        , PropagationMsg (..)
-       , RelayPropagationQueue
        , RelayContext (..)
+       , hoistRelayContext
        ) where
 
-import           Control.Concurrent.STM        (TBQueue)
 import qualified Data.Text.Buildable           as Buildable
+import           Data.Time.Units               (Microsecond)
 import           Formatting                    (bprint, build, (%))
 import           Node                          (Message)
-import           Data.Time.Units               (Microsecond)
 import           Universum
 
 import           Pos.Binary.Class              (Bi)
+import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.Communication.Types.Relay (DataMsg, InvOrData, ReqMsg)
 
 data RelayError = UnexpectedInv
@@ -44,10 +45,17 @@ instance Buildable PropagationMsg where
     build (DataOnlyPM conts) =
         Buildable.build conts
 
--- | Queue of InvMsges which should be propagated.
-type RelayPropagationQueue = TBQueue (Microsecond, PropagationMsg)
+data RelayContext m = RelayContext
+    { _rlyIsPropagation :: !Bool
+    , _rlyEnqueue :: !(PropagationMsg -> Maybe NodeId -> m ())
+    , _rlyDequeue :: !(m (PropagationMsg, Maybe NodeId, NodeId, Microsecond))
+    }
 
-data RelayContext = RelayContext
-    { _rlyIsPropagation    :: !Bool
-    , _rlyPropagationQueue :: !RelayPropagationQueue
+hoistRelayContext
+    :: (forall a . m a -> n a)
+    -> RelayContext m
+    -> RelayContext n
+hoistRelayContext nat rc = rc
+    { _rlyEnqueue = \msg provenance -> nat (_rlyEnqueue rc msg provenance)
+    , _rlyDequeue = nat (_rlyDequeue rc)
     }

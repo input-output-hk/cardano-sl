@@ -39,7 +39,7 @@ listenerConv h = (lspec, mempty)
     spec = (rcvMsgName, ConvHandler sndMsgName)
     lspec =
       flip ListenerSpec spec $ \ourVerInfo ->
-          N.ListenerActionConversation $ \peerVerInfo' nNodeId conv -> do
+          N.Listener $ \peerVerInfo' nNodeId conv -> do
               checkingInSpecs ourVerInfo peerVerInfo' spec nNodeId $
                   h ourVerInfo nNodeId conv
 

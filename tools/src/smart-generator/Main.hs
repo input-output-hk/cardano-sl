@@ -24,7 +24,7 @@ import           Test.QuickCheck       (arbitrary, generate)
 import qualified Pos.CLI               as CLI
 import           Pos.Communication     (ActionSpec (..), NodeId, SendActions,
                                         convertSendActions, sendTxOuts, submitTxRaw,
-                                        wrapSendActions)
+                                        wrapSendActions, hoistRelayContext)
 import           Pos.Constants         (genesisKeysN, genesisSlotDuration,
                                         neighborsSendThreshold, slotSecurityParam)
 import           Pos.Crypto            (hash)
@@ -32,9 +32,9 @@ import           Pos.Discovery         (MonadDiscovery, findPeers, getPeers)
 import           Pos.Genesis           (genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NetworkParams (..), NodeParams (..),
-                                        NodeResources (nrContext), bracketNodeResources,
-                                        hoistNodeResources, runNode', runRealMode,
-                                        stakesDistr)
+                                        NodeResources (nrContext, nrRelayContext),
+                                        bracketNodeResources, hoistNodeResources,
+                                        runNode', runRealMode, stakesDistr)
 import           Pos.Security          (SecurityParams (..), SecurityWorkersClass)
 import           Pos.Ssc.Class         (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing    (GtParams (..), SscGodTossing)
@@ -108,7 +108,7 @@ runSmartGen nr opts@GenOptions{..} =
 
     txTimestamps <- liftIO createTxTimestamps
 
-    let ActionSpec nodeAction = runNode' @ssc workers'
+    let ActionSpec nodeAction = runNode' @ssc workers' []
 
     -- | Run all the usual node workers in order to get
     -- access to blockchain
@@ -223,7 +223,8 @@ runSmartGen nr opts@GenOptions{..} =
 
       return (newTPS, newStep)
   where
-    (workers', wOuts) = allWorkers (nrContext nr)
+    relayContext = hoistRelayContext powerLift (nrRelayContext nr)
+    (workers', wOuts) = allWorkers relayContext (nrContext nr)
 
 -----------------------------------------------------------------------------
 -- Main

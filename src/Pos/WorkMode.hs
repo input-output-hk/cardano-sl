@@ -27,6 +27,7 @@ import           Pos.Block.Types             (Undo)
 import           Pos.Communication.PeerState (PeerStateCtx, PeerStateTag,
                                               WithPeerState (..), clearPeerStateDefault,
                                               getAllStatesDefault, getPeerStateDefault)
+import           Pos.Communication.Relay     (RelayContext)
 import           Pos.Context                 (NodeContext)
 import           Pos.Core                    (IsHeader)
 import           Pos.DB                      (MonadGState (..), NodeDBs)
@@ -72,6 +73,7 @@ modeContext [d|
         !(PeerStateTag  ::: PeerStateCtx Production)
         !(JsonLogConfig ::: JsonLogConfig)
         !(LoggerName    ::: LoggerName)
+        !(RelayContext  ::: RelayContext Production)
         !(NodeContext ssc)
     |]
 

@@ -17,12 +17,11 @@ import           Universum
 import           Control.Monad.Catch         (MonadMask)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Ether
-import           Mockable                    (MonadMockable)
+import           Mockable                    (MonadMockable, Production)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Communication.PeerState (WithPeerState)
-import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (BlkSemaphore, GenesisStakes,
                                               MonadBlockRetrievalQueue,
                                               MonadLastKnownHeader, MonadProgressHeader,
@@ -50,6 +49,7 @@ import           Pos.Txp.MemState            (MonadTxpMem)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
 import           Pos.Util.TimeWarp           (CanJsonLog)
+import           Pos.Util.Util               (PowerLift)
 
 -- Something extremely unpleasant.
 -- TODO: get rid of it after CSL-777 is done.
@@ -70,7 +70,6 @@ type WorkMode ssc m
       , MonadGState m
       , MonadRealDB m
       , MonadTxpMem TxpExtra_TMP m
-      , MonadRelayMem m
       , MonadDelegation m
       , MonadSscMem ssc m
       , MonadReportingMem m
@@ -97,6 +96,7 @@ type WorkMode ssc m
       , MonadShutdownMem m
       , MonadBListener m
       , MonadDiscovery m
+      , PowerLift Production m
       )
 
 -- | More relaxed version of 'WorkMode'.

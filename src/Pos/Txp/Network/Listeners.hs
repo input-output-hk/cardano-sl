@@ -39,9 +39,9 @@ txInvReqDataParams :: WorkMode ssc m
 txInvReqDataParams =
     InvReqDataParams
        { contentsToKey = txContentsToKey
-       , handleInv = txHandleInv
-       , handleReq = txHandleReq
-       , handleData = txHandleData
+       , handleInv = \_ -> txHandleInv
+       , handleReq = \_ -> txHandleReq
+       , handleData = \_ -> txHandleData
        }
   where
     txContentsToKey = pure . Tagged . hash . taTx . getTxMsgContents

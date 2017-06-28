@@ -183,7 +183,7 @@ data ListenerSpec m = ListenerSpec
 
 -- | The MessageName that the listener responds to.
 listenerMessageName :: forall m . Listener m -> MessageName
-listenerMessageName (N.ListenerActionConversation (_ :: PeerData -> N.NodeId -> N.ConversationActions snd rcv m -> m ())) =
+listenerMessageName (N.Listener (_ :: PeerData -> N.NodeId -> N.ConversationActions snd rcv m -> m ())) =
     messageName (Proxy @rcv)
 
 newtype InSpecs = InSpecs HandlerSpecs

@@ -6,19 +6,16 @@ module Pos.Communication.Relay.Class
        , InvReqDataParams (..)
        , DataParams (..)
        , MempoolParams (..)
-       , MonadRelayMem
-       , askRelayMem
        ) where
 
-import qualified Ether
 import           Node.Message.Class             (Message)
 import           Pos.Binary.Class               (Bi)
 import           Universum
 
 import           Pos.Communication.Limits.Types (MessageLimited)
-import           Pos.Communication.Relay.Types  (RelayContext)
 import           Pos.Communication.Types.Relay  (DataMsg, InvMsg, InvOrData, MempoolMsg,
                                                  ReqMsg (..))
+import           Pos.Communication.Types.Protocol (NodeId)
 
 -- | Data for general Inv/Req/Dat framework
 
@@ -59,21 +56,15 @@ data MempoolParams m where
 data InvReqDataParams key contents m = InvReqDataParams
     { contentsToKey :: contents -> m key
       -- ^ Get key for given contents.
-    , handleInv     :: key -> m Bool
+    , handleInv     :: Maybe NodeId -> key -> m Bool
       -- ^ Handle inv msg and return whether it's useful or not
-    , handleReq     :: key -> m (Maybe contents)
+    , handleReq     :: Maybe NodeId -> key -> m (Maybe contents)
       -- ^ Handle req msg and return (Just data) in case requested data can be provided
-    , handleData    :: contents -> m Bool
+    , handleData    :: Maybe NodeId -> contents -> m Bool
       -- ^ Handle data msg and return True if message is to be propagated
     }
 
 data DataParams contents m = DataParams
-    { handleDataOnly :: contents -> m Bool
+    { handleDataOnly :: Maybe NodeId -> contents -> m Bool
       -- ^ Handle data msg and return True if message is to be propagated
     }
-
-
-type MonadRelayMem = Ether.MonadReader' RelayContext
-
-askRelayMem :: MonadRelayMem m => m RelayContext
-askRelayMem = Ether.ask'

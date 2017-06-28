@@ -48,7 +48,6 @@ getLoggingParams tag Args{..} =
     { lpHandlerPrefix = CLI.logPrefix commonArgs
     , lpConfigPath    = CLI.logConfig commonArgs
     , lpRunnerTag = tag
-    , lpEkgPort = monitorPort
     }
 
 getPeersFromArgs :: Args -> IO [NetworkAddress]
@@ -105,6 +104,8 @@ getNodeParams args@Args {..} systemStart = do
             { spAttackTypes   = []
             , spAttackTargets = []
             }
-        , npUseNTP = True
-        -- ^ @pva701: Should we add the command line option?
+          , npUseNTP = not noNTP
+          , npEnableMetrics = enableMetrics
+          , npEkgParams = ekgParams
+          , npStatsdParams = statsdParams
         }

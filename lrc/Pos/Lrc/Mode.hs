@@ -12,7 +12,6 @@ import qualified Ether
 import           Mockable        (Async, Concurrently, Delay, Mockables)
 import           System.Wlog     (WithLogger)
 
-import           Pos.Core        (GenesisStakeholders)
 import           Pos.DB.Class    (MonadDB, MonadGState)
 import           Pos.Lrc.Context (LrcContext)
 

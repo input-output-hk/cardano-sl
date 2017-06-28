@@ -123,8 +123,6 @@ avvmStakeParser = do
         help    "Path to the file containing blacklisted addresses \
                 \(an address per line)."
     pure AvvmStakeOptions{..}
-  where
-
 
 fakeAvvmParser :: Parser FakeAvvmOptions
 fakeAvvmParser = do

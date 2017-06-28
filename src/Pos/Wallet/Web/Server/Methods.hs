@@ -65,8 +65,8 @@ import           Pos.Core                         (Address (..), Coin, HeaderHas
                                                    addressF, decodeTextAddress,
                                                    genesisSplitBoot, makePubKeyAddress,
                                                    makeRedeemAddress, mkCoin, sumCoins,
-                                                   unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin)
+                                                   unsafeAddCoin, unsafeGetCoin,
+                                                   unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto                       (PassPhrase, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
                                                    deriveAesKeyBS, emptyPassphrase,
@@ -534,11 +534,21 @@ sendMoney sendActions passphrase moneySource dstDistr = do
     mRemTx <- mkRemainingTx remaining
     bootEra <- gsIsBootstrapEra
     genStakeholders <- genesisStakeholdersM
-    let stakeDistr c | bootEra = genesisSplitBoot genStakeholders c
-                     | otherwise = []
+    let cantSpendDust c =
+            throwM $ RequestError $
+            sformat ("Can't spend "%build%" coins: amount is too small for boot "%
+                     " era and can't be distributed among genStakeholders")
+                    c
+    let stakeDistr c =
+            if not bootEra then pure [] else do
+                -- we want to be able to distribute at least 1 coin to everybody
+                when (unsafeGetCoin c < fromIntegral (length genStakeholders)) $
+                    cantSpendDust c
+                pure $ genesisSplitBoot genStakeholders c
     txOuts <- forM dstDistr $ \(cAddr, coin) -> do
         addr <- decodeCIdOrFail cAddr
-        return $ TxOutAux (TxOut addr coin) (stakeDistr coin)
+        realDistr <- stakeDistr coin
+        return $ TxOutAux (TxOut addr coin) realDistr
     let txOutsWithRem = maybe txOuts (\remTx -> remTx :| toList txOuts) mRemTx
     srcTxOuts <- forM (toList spendings) $ \(cAddr, c) -> do
         addr <- decodeCIdOrFail $ cwamId cAddr

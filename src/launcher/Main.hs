@@ -21,7 +21,7 @@ import           Options.Applicative.Simple   (Mod, OptionFields, Parser, auto,
                                                strOption)
 import           System.Directory             (getTemporaryDirectory)
 import           System.Environment           (getExecutablePath)
-import           System.FilePath              ((</>), takeDirectory)
+import           System.FilePath              (takeDirectory, (</>))
 import qualified System.IO                    as IO
 import           System.Process               (ProcessHandle)
 import qualified System.Process               as Process
@@ -308,7 +308,7 @@ writeWindowsUpdaterRunner runnerPath = do
         -- Delete updater
         , "del %1"
         -- Run launcher again
-        , "start /wait " ++ (takeDirectory exePath) ++ "daedalus.bat"
+        , "start /wait " <> (toText $ takeDirectory exePath) <> "daedalus.bat"
         -- Delete the bat file
         , "(goto) 2>nul & del \"%~f0\""
         ]

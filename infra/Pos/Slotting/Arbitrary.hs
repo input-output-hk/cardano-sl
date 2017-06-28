@@ -2,12 +2,17 @@
 
 module Pos.Slotting.Arbitrary () where
 
-import           Data.DeriveTH      (derive, makeArbitrary)
-import           Test.QuickCheck    (Arbitrary (..))
-import           Universum
+import           Test.QuickCheck                   (Arbitrary (..))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData (..))
-import           Pos.Core.Arbitrary ()
+import           Pos.Slotting.Types                (EpochSlottingData (..),
+                                                    SlottingData (..))
+import           Pos.Core.Arbitrary                ()
 
-derive makeArbitrary ''EpochSlottingData
-derive makeArbitrary ''SlottingData
+instance Arbitrary EpochSlottingData where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary SlottingData where
+    arbitrary = genericArbitrary
+    shrink = genericShrink

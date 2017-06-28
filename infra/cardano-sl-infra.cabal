@@ -114,6 +114,7 @@ library
                       , exceptions
                       , filepath
                       , formatting
+                      , generic-arbitrary
                       , hashable
                       , kademlia
                       , lens

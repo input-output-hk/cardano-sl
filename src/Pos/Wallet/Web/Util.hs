@@ -1,25 +1,15 @@
 -- | Different utils for wallets
 
 module Pos.Wallet.Web.Util
-    ( deriveLvl2KeyPair
+    ( getWalletAccountIds
     ) where
 
 import           Universum
 
-import           Pos.Core   (Address, createHDAddressH)
-import           Pos.Crypto (EncryptedSecretKey, PassPhrase, deriveHDPassphrase,
-                             deriveHDSecretKey, encToPublic)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, Wal)
+import           Pos.Wallet.Web.State       (WebWalletModeDB, getWAddressIds)
 
 -- TODO: move more here from Methods.hs
 
--- | Makes account secret key for given wallet set.
-deriveLvl2KeyPair
-    :: PassPhrase
-    -> EncryptedSecretKey  -- ^ key of wallet set
-    -> Word32              -- ^ wallet derivation index
-    -> Word32              -- ^ account derivation index
-    -> Maybe (Address, EncryptedSecretKey)
-deriveLvl2KeyPair passphrase wsKey walletIndex accIndex = do
-    wKey <- deriveHDSecretKey passphrase wsKey walletIndex
-    let hdPass = deriveHDPassphrase $ encToPublic wsKey
-    createHDAddressH passphrase hdPass wKey [walletIndex] accIndex
+getWalletAccountIds :: WebWalletModeDB m => CId Wal -> m [AccountId]
+getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getWAddressIds

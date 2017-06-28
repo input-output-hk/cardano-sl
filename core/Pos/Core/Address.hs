@@ -15,6 +15,7 @@ module Pos.Core.Address
        , makeScriptAddress
        , makeRedeemAddress
        , decodeTextAddress
+       , deriveLvl2KeyPair
 
        , StakeholderId
 
@@ -45,8 +46,8 @@ import           Pos.Crypto             (AbstractHash (AbstractHash), EncryptedS
                                          PublicKey, RedeemPublicKey, encToPublic,
                                          hashHexF)
 import           Pos.Crypto.HD          (HDAddressPayload, HDPassphrase,
-                                         deriveHDPublicKey, deriveHDSecretKey,
-                                         packHDAddressAttr)
+                                         deriveHDPassphrase, deriveHDPublicKey,
+                                         deriveHDSecretKey, packHDAddressAttr)
 import           Pos.Crypto.SafeSigning (PassPhrase)
 import           Pos.Data.Attributes    (mkAttributes)
 
@@ -195,3 +196,19 @@ unsafeAddressHash = AbstractHash . secondHash . firstHash
 
 addressHash :: Bi a => a -> AddressHash a
 addressHash = unsafeAddressHash
+
+----------------------------------------------------------------------------
+-- Utils
+----------------------------------------------------------------------------
+
+-- | Makes account secret key for given wallet set.
+deriveLvl2KeyPair
+    :: PassPhrase
+    -> EncryptedSecretKey  -- ^ key of wallet set
+    -> Word32              -- ^ wallet derivation index
+    -> Word32              -- ^ account derivation index
+    -> Maybe (Address, EncryptedSecretKey)
+deriveLvl2KeyPair passphrase wsKey walletIndex accIndex = do
+    wKey <- deriveHDSecretKey passphrase wsKey walletIndex
+    let hdPass = deriveHDPassphrase $ encToPublic wsKey
+    createHDAddressH passphrase hdPass wKey [walletIndex] accIndex

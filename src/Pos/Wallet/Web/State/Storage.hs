@@ -53,8 +53,8 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
-import           Control.Lens               (at, ix, makeClassy, makeLenses, (%=), (.=),
-                                             (<<.=), (?=), _head)
+import           Control.Lens               (at, ix, makeClassy, makeLenses, non', (%=),
+                                             (.=), (<<.=), (?=), _Empty, _head)
 import           Control.Monad.State.Class  (put)
 import           Data.Default               (Default, def)
 import qualified Data.HashMap.Strict        as HM
@@ -62,6 +62,7 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 
 import           Pos.Client.Txp.History     (TxHistoryEntry)
 import           Pos.Constants              (genesisHash)
+import           Pos.Core.Types             (Timestamp)
 import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
@@ -255,7 +256,7 @@ setWalletSyncTip cWalId hh = wsWalletInfos . ix cWalId . wiSyncTip .= hh
 
 addWalletTxHistory :: CId Wal -> CTxId -> CTxMeta -> Update ()
 addWalletTxHistory cWalId cTxId cTxMeta =
-    wsTxHistory . ix cWalId . at cTxId ?= cTxMeta
+    wsTxHistory . at cWalId . non' _Empty . at cTxId ?= cTxMeta
 
 setWalletTxHistory :: CId Wal -> [(CTxId, CTxMeta)] -> Update ()
 setWalletTxHistory cWalId cTxs = mapM_ (uncurry $ addWalletTxHistory cWalId) cTxs
@@ -263,7 +264,8 @@ setWalletTxHistory cWalId cTxs = mapM_ (uncurry $ addWalletTxHistory cWalId) cTx
 -- FIXME: this will be removed later (temporary solution)
 addOnlyNewTxMeta :: CId Wal -> CTxId -> CTxMeta -> Update ()
 addOnlyNewTxMeta cWalId cTxId cTxMeta =
-    wsTxHistory . ix cWalId . at cTxId %= Just . fromMaybe cTxMeta
+    -- Double nested HashMap update (if either or both of cWalId, cTxId don't exist, they will be created)
+    wsTxHistory . at cWalId . non' _Empty . at cTxId %= Just . fromMaybe cTxMeta
 
 -- NOTE: sets transaction meta only for transactions ids that are already seen
 setWalletTxMeta :: CId Wal -> CTxId -> CTxMeta -> Update ()
@@ -314,6 +316,7 @@ deriveSafeCopySimple 0 'base ''CWalletAssurance
 deriveSafeCopySimple 0 'base ''CAccountMeta
 deriveSafeCopySimple 0 'base ''CWalletMeta
 deriveSafeCopySimple 0 'base ''CTxId
+deriveSafeCopySimple 0 'base ''Timestamp
 deriveSafeCopySimple 0 'base ''TxHistoryEntry
 deriveSafeCopySimple 0 'base ''CTxMeta
 deriveSafeCopySimple 0 'base ''CUpdateInfo

@@ -3,14 +3,16 @@
 module Pos.Core.Timestamp
        ( Timestamp (..)
        , timestampF
+       , getCurrentTimestamp
        ) where
 
 import           Universum
 
-import           Data.Text.Buildable (Buildable)
-import qualified Data.Text.Buildable as Buildable
-import           Data.Time.Units     (Microsecond)
-import           Formatting          (Format, build)
+import           Data.Text.Buildable   (Buildable)
+import qualified Data.Text.Buildable   as Buildable
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units       (Microsecond)
+import           Formatting            (Format, build)
 import qualified Prelude
 
 -- | Timestamp is a number which represents some point in time. It is
@@ -39,3 +41,7 @@ instance NFData Timestamp where
 -- | Specialized formatter for 'Timestamp' data type.
 timestampF :: Format r (Timestamp -> r)
 timestampF = build
+
+-- Get the current time as a timestamp
+getCurrentTimestamp :: IO Timestamp
+getCurrentTimestamp = Timestamp . round . (*1000000) <$> getPOSIXTime

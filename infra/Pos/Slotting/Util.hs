@@ -7,6 +7,7 @@ module Pos.Slotting.Util
          -- * Helpers using 'MonadSlots[Data]'
          getCurrentSlotFlat
        , getSlotStart
+       , getSlotStartPure
        , getSlotStartEmpatically
        , getLastKnownSlotDuration
 
@@ -49,12 +50,14 @@ getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
 getSlotStart :: MonadSlotsData m => SlotId -> m (Maybe Timestamp)
-getSlotStart SlotId{..} = do
-    SlottingData{..} <- getSlottingData
-    if | siEpoch < sdPenultEpoch -> pure Nothing
-       | siEpoch == sdPenultEpoch -> pure . Just $ slotTimestamp siSlot sdPenult
-       | siEpoch == sdPenultEpoch + 1 -> pure . Just $ slotTimestamp siSlot sdLast
-       | otherwise -> pure Nothing
+getSlotStart sid = getSlotStartPure sid <$> getSlottingData
+
+getSlotStartPure :: SlotId -> SlottingData -> (Maybe Timestamp)
+getSlotStartPure SlotId{..} SlottingData{..} = do
+    if | siEpoch < sdPenultEpoch -> Nothing
+       | siEpoch == sdPenultEpoch -> Just $ slotTimestamp siSlot sdPenult
+       | siEpoch == sdPenultEpoch + 1 -> Just $ slotTimestamp siSlot sdLast
+       | otherwise -> Nothing
   where
     slotTimestamp (getSlotIndex -> locSlot) EpochSlottingData{..} =
         esdStart + Timestamp (fromIntegral locSlot * convertUnit esdSlotDuration)

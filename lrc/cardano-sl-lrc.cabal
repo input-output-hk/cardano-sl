@@ -35,6 +35,7 @@ library
                      , conduit
                      , ether
                      , formatting
+                     , generic-arbitrary
                      , lens
                      , log-warper
                      , node-sketch

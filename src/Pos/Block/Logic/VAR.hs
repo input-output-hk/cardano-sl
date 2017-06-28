@@ -14,12 +14,14 @@ module Pos.Block.Logic.VAR
 import           Universum
 
 import           Control.Lens             (_Wrapped)
+import           Control.Monad.Catch      (bracketOnError)
 import           Control.Monad.Except     (ExceptT (ExceptT), MonadError (throwError),
                                            runExceptT, withExceptT)
 import qualified Data.List.NonEmpty       as NE
 import           Ether.Internal           (HasLens (..))
 import           System.Wlog              (logDebug)
 
+import           Paths_cardano_sl         (version)
 import           Pos.Block.Core           (Block)
 import           Pos.Block.Logic.Internal (BlockApplyMode, BlockVerifyMode,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe,
@@ -230,22 +232,26 @@ applyWithRollback
     -> m (Either Text HeaderHash)
 applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
     tip <- GS.getTip
-    when (tip /= newestToRollback) $ do
-        throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)
+    when (tip /= newestToRollback) $
+        throwError $ tipMismatchMsg "applyWithRollback/rollback"
+                         tip newestToRollback
     lift $ rollbackBlocksUnsafe toRollback
-    tipAfterRollback <- GS.getTip
-    when (tipAfterRollback /= expectedTipApply) $ do
-        applyBack
-        throwError (tipMismatchMsg "apply in 'apply with rollback'" tip newestToRollback)
-    lift (verifyAndApplyBlocks True toApply) >>= \case
-        -- We didn't succeed to apply blocks, so will apply
-        -- rollbacked back.
-        Left err -> do
-            applyBack
-            throwError err
-        Right tipHash  -> pure tipHash
+    ExceptT $ bracketOnError (pure ()) (\_ -> applyBack) $ \_ -> do
+        tipAfterRollback <- GS.getTip
+        if tipAfterRollback /= expectedTipApply
+            then onBadRollback tip
+            else onGoodRollback
   where
     reApply = toOldestFirst toRollback
-    applyBack = lift $ applyBlocks True Nothing reApply
+    applyBack = applyBlocks True Nothing reApply
     expectedTipApply = toApply ^. _Wrapped . _neHead . prevBlockL
     newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG
+
+    onBadRollback tip =
+        applyBack $> Left (tipMismatchMsg "applyWithRollback/apply"
+                               tip newestToRollback)
+
+    onGoodRollback =
+        verifyAndApplyBlocks True toApply >>= \case
+            Left err      -> applyBack $> Left err
+            Right tipHash -> pure (Right tipHash)

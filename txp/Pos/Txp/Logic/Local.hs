@@ -18,9 +18,8 @@ import           System.Wlog                 (WithLogger, logDebug)
 import           Universum
 import           Unsafe                      (unsafeHead)
 
-import           Pos.Core                    (Coin, GenesisStakeholders (..), HeaderHash,
-                                              StakeholderId, Stakeholders,
-                                              genesisBootProdStakeholders)
+import           Pos.Core                    (Coin, HeaderHash, StakeholderId,
+                                              Stakeholders, genesisBootProdStakeholders)
 import           Pos.DB.Class                (MonadDBRead, MonadGState, gsIsBootstrapEra)
 import qualified Pos.DB.GState.Common        as GS
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId,
@@ -28,12 +27,13 @@ import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId,
 import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
-import           Pos.Txp.Toil                (GenericToilModifier (..),
+import           Pos.Txp.Toil                (GenericToilModifier (..), GenesisUtxo (..),
                                               MonadUtxoRead (..), ToilEnv,
                                               ToilVerFailure (..), Utxo, execToilTLocal,
                                               getToilEnv, normalizeToil, processTx,
                                               runDBToil, runToilTLocal, runUtxoReaderT,
-                                              utxoGet)
+                                              utxoGet, utxoToStakes)
+import           Pos.Util.Util               (getKeys)
 
 type TxpLocalWorkMode m =
     ( MonadIO m
@@ -42,7 +42,7 @@ type TxpLocalWorkMode m =
     , MonadGState m
     , MonadTxpMem () m
     , WithLogger m
-    , Ether.MonadReader' GenesisStakeholders m
+    , Ether.MonadReader' GenesisUtxo m
     , MonadError ToilVerFailure m
     )
 
@@ -55,7 +55,7 @@ txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
     bootEra <- gsIsBootstrapEra
-    bootHolders <- Ether.asks' unGenesisStakeholders
+    bootHolders <- Ether.asks' $ getKeys . utxoToStakes . unGenesisUtxo
     localUM <- getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's

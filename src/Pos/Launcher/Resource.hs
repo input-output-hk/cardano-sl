@@ -46,8 +46,8 @@ import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication.PeerState (PeerStateCtx)
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (BlkSemaphore (..), ConnectedPeers (..),
-                                              GenesisStakeholders (..), GenesisUtxo (..),
-                                              NodeContext (..), StartTime (..))
+                                              GenesisUtxo (..), NodeContext (..),
+                                              StartTime (..))
 import           Pos.Core                    (Timestamp)
 import           Pos.DB                      (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                   (closeNodeDBs, initNodeDBs, openNodeDBs)
@@ -131,7 +131,6 @@ allocateNodeResources np@NodeParams {..} sscnp = do
         initModeContext = InitModeContext
             db
             (GenesisUtxo npCustomUtxo)
-            (GenesisStakeholders npGenesisStakeholders)
             futureSlottingVar
             futureSlottingContext
             futureLrcContext

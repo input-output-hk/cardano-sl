@@ -28,12 +28,12 @@ import           Data.Time           (diffUTCTime, getCurrentTime)
 import           Data.Time.Units     (Microsecond, fromMicroseconds)
 import qualified Ether
 
-import           Pos.Context.Context (BlkSemaphore (..), GenesisStakeholders (..),
-                                      GenesisUtxo (..), StartTime (..))
+import           Pos.Context.Context (BlkSemaphore (..), GenesisUtxo (..), StartTime (..))
 import           Pos.Core            (HeaderHash, SlotLeaders, Stakeholders)
 import           Pos.Genesis         (genesisLeaders)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
-import           Pos.Txp.Toil.Types  (Utxo)
+import           Pos.Txp.Toil        (Utxo, utxoToStakes)
+import           Pos.Util.Util       (getKeys)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -42,8 +42,8 @@ import           Pos.Txp.Toil.Types  (Utxo)
 genesisUtxoM :: (Functor m, Ether.MonadReader' GenesisUtxo m) => m Utxo
 genesisUtxoM = Ether.asks' unGenesisUtxo
 
-genesisStakeholdersM :: (Functor m, Ether.MonadReader' GenesisStakeholders m) => m Stakeholders
-genesisStakeholdersM = Ether.asks' unGenesisStakeholders
+genesisStakeholdersM :: (Functor m, Ether.MonadReader' GenesisUtxo m) => m Stakeholders
+genesisStakeholdersM = Ether.asks' $ getKeys . utxoToStakes . unGenesisUtxo
 
 genesisLeadersM :: (Functor m, Ether.MonadReader' GenesisUtxo m) => m SlotLeaders
 genesisLeadersM = genesisLeaders <$> genesisUtxoM

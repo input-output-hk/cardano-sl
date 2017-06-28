@@ -7,6 +7,7 @@ module Pos.Txp.Toil.Types
        ( Utxo
        , formatUtxo
        , utxoF
+       , GenesisUtxo (..)
 
        , TxFee(..)
        , MemPool (..)
@@ -61,6 +62,9 @@ formatUtxo = mapBuilderJson . M.toList
 -- | Specialized formatter for 'Utxo'.
 utxoF :: Format r (Utxo -> r)
 utxoF = later formatUtxo
+
+-- | Wrapper for genesis utxo.
+newtype GenesisUtxo = GenesisUtxo { unGenesisUtxo :: Utxo }
 
 ----------------------------------------------------------------------------
 -- Fee

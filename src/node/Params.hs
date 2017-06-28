@@ -89,12 +89,11 @@ getNodeParams args@Args {..} systemStart = do
         updateUserSecretVSS args =<<
         peekUserSecret (getKeyfilePath args)
     npNetwork <- liftIO $ getNetworkParams args
-    let npGenesisStakeholders0 =
+    let genesisStakeholders =
             if isDevelopment
                 then Nothing
                 else Just genesisBootProdStakeholders
-    let npGenesisStakeholders = fromMaybe mempty npGenesisStakeholders0
-    let npCustomUtxo = genesisUtxo npGenesisStakeholders0 $
+    let npCustomUtxo = genesisUtxo genesisStakeholders $
             if isDevelopment
                 then stakesDistr (CLI.flatDistr commonArgs)
                                  (CLI.bitcoinDistr commonArgs)

@@ -61,7 +61,7 @@ import           Pos.Slotting                  (SlottingContextSum, SlottingVar)
 import           Pos.Ssc.Class.Types           (MonadSscContext, Ssc (SscNodeContext),
                                                 SscContextTag)
 import           Pos.Txp.Settings              (TxpGlobalSettings)
-import           Pos.Txp.Toil.Types            (Utxo)
+import           Pos.Txp.Toil.Types            (GenesisUtxo (..))
 import           Pos.Update.Context            (UpdateContext)
 import           Pos.Update.Params             (UpdateParams)
 import           Pos.Util.Chrono               (NE, NewestFirst)
@@ -89,7 +89,6 @@ data RecoveryHeaderTag
 type RecoveryHeader ssc = STM.TMVar (NodeId, BlockHeader ssc)
 type MonadRecoveryHeader ssc = Ether.MonadReader RecoveryHeaderTag (RecoveryHeader ssc)
 
-newtype GenesisUtxo = GenesisUtxo { unGenesisUtxo :: Utxo }
 newtype ConnectedPeers = ConnectedPeers { unConnectedPeers :: STM.TVar (Set NodeId) }
 newtype BlkSemaphore = BlkSemaphore { unBlkSemaphore :: MVar HeaderHash }
 newtype StartTime = StartTime { unStartTime :: UTCTime }
@@ -159,8 +158,7 @@ makeLensesFor
     , ("npSecretKey", "npSecretKeyL")
     , ("npReportServers", "npReportServersL")
     , ("npPropagation", "npPropagationL")
-    , ("npCustomUtxo", "npCustomUtxoL")
-    , ("npGenesisStakeholders", "npGenesisStakeholdersL") ]
+    , ("npCustomUtxo", "npCustomUtxoL") ]
     ''NodeParams
 
 instance HasLens NodeContextTag (NodeContext ssc) (NodeContext ssc) where
@@ -177,9 +175,6 @@ instance HasLens PrimaryKeyTag (NodeContext ssc) SecretKey where
 
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
     lensOf = lensOf @NodeParams . npCustomUtxoL . coerced
-
-instance HasLens GenesisStakeholders (NodeContext ssc) GenesisStakeholders where
-    lensOf = lensOf @NodeParams . npGenesisStakeholdersL . coerced
 
 instance HasLens ReportingContext (NodeContext ssc) ReportingContext where
     lensOf = lens getter (flip setter)

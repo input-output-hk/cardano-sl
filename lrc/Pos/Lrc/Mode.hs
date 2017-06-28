@@ -25,5 +25,4 @@ type LrcMode ssc m
        , MonadIO m
        , Mockables m [Async, Concurrently, Delay]
        , Ether.MonadReader' LrcContext m
-       , Ether.MonadReader' GenesisStakeholders m
        )

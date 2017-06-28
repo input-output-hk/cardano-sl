@@ -278,7 +278,6 @@ main = do
             , npSecretKey     = sk
             , npUserSecret    = simpleUserSecret sk "smartgen-secret.sk"
             , npBaseParams    = baseParams
-            , npGenesisStakeholders = mempty
             , npJLFile        = goJLFile
             , npPropagation   = not (CLI.disablePropagation goCommonArgs)
             , npReportServers = []

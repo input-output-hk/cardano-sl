@@ -36,7 +36,7 @@ import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Block.Core          (Block, BlockHeader)
 import           Pos.Block.Types         (Undo)
-import           Pos.Context             (GenesisStakeholders (..), GenesisUtxo (..))
+import           Pos.Context             (GenesisUtxo (..))
 import           Pos.Core                (IsHeader, StakeDistribution (..), StakeholderId,
                                           Timestamp (..), addressHash, makePubKeyAddress,
                                           mkCoin, unsafeGetCoin)
@@ -73,10 +73,9 @@ import           Pos.Ssc.Class           (SscBlock)
 import           Pos.Ssc.Extra           (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing      (SscGodTossing)
 import           Pos.Txp                 (TxIn (..), TxOut (..), TxOutAux (..),
-                                          TxpGlobalSettings, txpGlobalSettings, utxoF,
-                                          utxoToStakes)
+                                          TxpGlobalSettings, txpGlobalSettings, utxoF)
 import           Pos.Update.Context      (UpdateContext, mkUpdateContext)
-import           Pos.Util.Util           (Some, getKeys)
+import           Pos.Util.Util           (Some)
 
 -- TODO: it shouldn't be 'Production', but currently we don't have anything else.
 -- Expect some changes here somewhere in 2019.
@@ -190,8 +189,6 @@ bracketBlockTestContext testParams@TestParams {..} callback =
                     InitModeContext
                         nodeDBs
                         tpGenUtxo
-                        (GenesisStakeholders $ getKeys $
-                             utxoToStakes $ unGenesisUtxo tpGenUtxo)
                         futureSlottingVar
                         SCSimple
                         futureLrcCtx

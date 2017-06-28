@@ -40,7 +40,7 @@ import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.Core              (Block, mainBlockTxPayload)
 import           Pos.Constants               (blkSecurityParam)
-import           Pos.Context.Context         (GenesisStakeholders, GenesisUtxo (..))
+import           Pos.Context.Context         (GenesisUtxo (..))
 import           Pos.Core                    (Address, ChainDifficulty, HeaderHash,
                                               difficultyL, prevBlockL)
 import           Pos.Crypto                  (WithHash (..), withHash)
@@ -178,7 +178,6 @@ type TxHistoryEnv m =
     , WithLogger m
     , MonadSlots m
     , Ether.MonadReader' GenesisUtxo m
-    , Ether.MonadReader' GenesisStakeholders m
     , MonadTxpMem TxpExtra_TMP m
     , MonadBaseControl IO m
     )

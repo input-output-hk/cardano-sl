@@ -18,8 +18,6 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Universum                    hiding (show)
 
-import           Pos.Core.Types               (StakeholderId)
-
 import           Paths_cardano_sl             (version)
 
 data KeygenOptions = KeygenOptions

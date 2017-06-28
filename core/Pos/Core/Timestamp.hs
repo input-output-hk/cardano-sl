@@ -4,6 +4,8 @@ module Pos.Core.Timestamp
        ( Timestamp (..)
        , timestampF
        , getCurrentTimestamp
+       , diffTimestamp
+       , addMicrosecondsToTimestamp
        ) where
 
 import           Universum
@@ -44,3 +46,9 @@ timestampF = build
 -- Get the current time as a timestamp
 getCurrentTimestamp :: IO Timestamp
 getCurrentTimestamp = Timestamp . round . (*1000000) <$> getPOSIXTime
+
+diffTimestamp :: Timestamp -> Timestamp -> Microsecond
+diffTimestamp t1 t2 = getTimestamp t1 - getTimestamp t2
+
+addMicrosecondsToTimestamp :: Microsecond -> Timestamp -> Timestamp
+addMicrosecondsToTimestamp m t = Timestamp { getTimestamp = (getTimestamp t) + m }

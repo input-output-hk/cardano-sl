@@ -163,7 +163,7 @@ deriveAddrHistoryPartialWithTimestamp hist addrs chain maybeSd =
                    map mapper $ flattenTxPayload (blk ^. mainBlockTxPayload)
         let difficulty = blk ^. difficultyL
             txs' = map (thDifficulty .~ Just difficulty) txs
-        let maybeTimestamp = maybeSd >>= getSlotStartPure (blk ^. mainBlockSlot)
+        let maybeTimestamp = maybeSd >>= getSlotStartPure True (blk ^. mainBlockSlot)
             txs'' = map (thTimestamp .~ maybeTimestamp) txs'
         return $ DL.fromList txs'' <> hst
 

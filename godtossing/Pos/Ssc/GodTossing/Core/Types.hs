@@ -22,7 +22,7 @@ module Pos.Ssc.GodTossing.Core.Types
        , SharesDistribution
 
          -- * Vss certificates
-       , VssCertificate (vcVssKey, vcExpiryEpoch, vcSignature, vcSigningKey)
+       , VssCertificate (..)
        , mkVssCertificate
        , recreateVssCertificate
        , getCertId
@@ -79,7 +79,7 @@ type SignedCommitment = (PublicKey, Commitment, CommitmentSignature)
 -- from 'SignedCommitment' corresponds to key which is 'StakeholderId'.
 newtype CommitmentsMap = CommitmentsMap
     { getCommitmentsMap :: HashMap StakeholderId SignedCommitment
-    } deriving (Semigroup, Monoid, Show, Eq, Container, NFData)
+    } deriving (Generic, Semigroup, Monoid, Show, Eq, Container, NFData)
 
 type instance Element CommitmentsMap = SignedCommitment
 

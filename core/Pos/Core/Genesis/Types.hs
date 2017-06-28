@@ -34,7 +34,7 @@ data StakeDistribution
     -- @[(StakeholderId, Coin)]@.
     | ExplicitStakes !(HashMap Address (Coin, [(StakeholderId, Coin)]))
     | CombinedStakes StakeDistribution StakeDistribution
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
 
 instance Monoid StakeDistribution where
     mempty = FlatStakes 0 (mkCoin 0)
@@ -68,7 +68,7 @@ data GenesisCoreData = GenesisCoreData
     , gcdDistribution      :: StakeDistribution
     , gcdBootstrapBalances :: !(HashMap StakeholderId Coin)
     }
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
 
 instance Monoid GenesisCoreData where
     mempty = GenesisCoreData mempty mempty mempty

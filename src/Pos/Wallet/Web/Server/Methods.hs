@@ -432,19 +432,25 @@ getAccountAddrsOrThrow mode accId =
 
 getAccount :: WalletWebMode m => AccountId -> m CAccount
 getAccount accId = do
-    encSK <- getSKByAddr (aiWId accId)
-    addrs <- getAccountAddrsOrThrow Existing accId
-    modifier <- camAddresses <$> txMempoolToModifier encSK
-    let insertions = map fst (MM.insertions modifier)
-    let mergedAccAddrs = ordNub $ addrs ++ insertions
-    mergedAccs <- mapM getWAddress mergedAccAddrs
-    balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
-               mapM getWAddressBalance mergedAccAddrs
+    encSK      <- getSKByAddr (aiWId accId)
+    dbAddrs    <- getAccountAddrsOrThrow Existing accId
+    modifier   <- camAddresses <$> txMempoolToModifier encSK
+    let allAddrIds = gatherAddresses modifier dbAddrs
+    allAddrs <- mapM getWAddress allAddrIds
+    balance  <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
+                mapM getWAddressBalance allAddrIds
     meta <- getAccountMeta accId >>= maybeThrow noWallet
-    pure $ CAccount (encodeCType accId) meta mergedAccs balance
+    pure $ CAccount (encodeCType accId) meta allAddrs balance
   where
     noWallet =
         RequestError $ sformat ("No account with address "%build%" found") accId
+    addUnique as bs = do  -- @bs@ is expected to be much smaller than @as@
+        let bSet = S.fromList bs
+        filter (`S.notMember` bSet) as <> bs
+    gatherAddresses modifier dbAddrs = do
+        let insertions = map fst (MM.insertions modifier)
+            relatedIns = filter ((== accId) . addrMetaToAccount) insertions
+        dbAddrs `addUnique` relatedIns
 
 getWallet :: WalletWebMode m => CId Wal -> m CWallet
 getWallet cAddr = do

@@ -669,14 +669,12 @@ getFullWalletHistory cWalId = do
 
         -- Add allowed portion of result to cache
         let fullHistory = taHistory <> cachedTxs
-            lenHistory = length taHistory
-            cached = drop (lenHistory - taCachedNum) taHistory
-        unless (null cached) $
+        unless (null taHistory) $
             updateHistoryCache
                 cWalId
                 taLastCachedHash
                 taCachedUtxo
-                (cached <> cachedTxs)
+                fullHistory
 
         ctxs <- forM fullHistory $ addHistoryTx cWalId
         pure $ concatMap toList ctxs

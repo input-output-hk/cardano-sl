@@ -16,7 +16,7 @@ import           Pos.Block.Logic            (getHeadersFromToIncl)
 import           Pos.Block.Network.Announce (handleHeadersCommunication)
 import           Pos.Block.Network.Logic    (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
-                                             MsgHeaders (..))
+                                             MsgGetHeaders, MsgHeaders (..))
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
@@ -78,7 +78,10 @@ handleBlockHeaders
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => (ListenerSpec m, OutSpecs)
-handleBlockHeaders = listenerConv @Void $ \__ourVerInfo nodeId conv -> do
+handleBlockHeaders = listenerConv @MsgGetHeaders $ \__ourVerInfo nodeId conv -> do
+    -- The type of the messages we send is set to 'MsgGetHeaders' for
+    -- protocol compatibility reasons only. We could use 'Void' here because
+    -- we don't really send any messages.
     logDebug "handleBlockHeaders: got some unsolicited block header(s)"
     mHeaders <- recvLimited conv
     whenJust mHeaders $ \(MsgHeaders headers) ->

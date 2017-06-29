@@ -156,18 +156,23 @@ slogApplyBlocks ::
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
 slogApplyBlocks blunds = do
-    -- Note: it's important to put blunds first
+    -- Note: it's important to put blunds first. The invariant is that
+    -- the sequence of blocks corresponding to the tip must exist in
+    -- BlockDB. If program is interrupted after we put blunds and
+    -- before we update GState, this invariant won't be violated. If
+    -- we update GState first, this invariant may be violated.
     mapM_ dbPutBlund blunds
-    -- If the program is interrupted at this point (after putting on block),
-    -- we won't save any blocks.
-    callbackBlocks <- onApplyBlocks blunds
+    -- If the program is interrupted at this point (after putting on
+    -- block), we will have a garbage block in BlockDB, but it's not a
+    -- problem.
+    bListenerBatch <- onApplyBlocks blunds
 
     let putTip =
             SomeBatchOp $
             GS.PutTip $ headerHash $ NE.last $ getOldestFirst blunds
     sanityCheckDB
     putSlottingData =<< GS.getSlottingData
-    return $ SomeBatchOp [putTip, callbackBlocks, forwardLinksBatch, inMainBatch]
+    return $ SomeBatchOp [putTip, bListenerBatch, forwardLinksBatch, inMainBatch]
   where
     blocks = fmap fst blunds
     forwardLinks = map (view prevBlockL &&& view headerHashG) $ toList blocks
@@ -188,16 +193,14 @@ slogRollbackBlocks blunds = do
         when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
         assertionFailed $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
-    -- If program is interrupted after call @onRollbackBlocks@,
-    -- we won't save any blocks.
-    callbackBlocks <- onRollbackBlocks blunds
-    
+    bListenerBatch <- onRollbackBlocks blunds
+
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $
                  (NE.last $ getNewestFirst blunds) ^. prevBlockL
     sanityCheckDB
-    return $ SomeBatchOp [putTip, callbackBlocks, forwardLinksBatch, inMainBatch]
+    return $ SomeBatchOp [putTip, bListenerBatch, forwardLinksBatch, inMainBatch]
   where
     blocks = fmap fst blunds
     inMainBatch =

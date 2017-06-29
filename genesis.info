@@ -1,14 +1,334 @@
-Running command: /nix/store/p311ham6rmvhzkvrj1wq6jxnlmbi7v5b-cardano-sl-0.4.4/bin/cardano-keygen -f /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-{}.key -m 14 -n 12000 --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../avvm-files/utxo-dump-last-new.json --randcerts --blacklisted /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../avvm-files/full_blacklist.js --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries 100
-Key file at /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-1.key has access mode 644 instead of 600. Fixing it automatically.
-Key file at /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-2.key has access mode 644 instead of 600. Fixing it automatically.
-Key file at /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-3.key has access mode 644 instead of 600. Fixing it automatically.
-Key file at /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-4.key has access mode 644 instead of 600. Fixing it automatically.
-Key file at /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-5.key has access mode 644 instead of 600. Fixing it automatically.
-Key file at /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-6.key has access mode 644 instead of 600. Fixing it automatically.
-Key file at /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-7.key has access mode 644 instead of 600. Fixing it automatically.
-Key file at /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-8.key has access mode 644 instead of 600. Fixing it automatically.
-Key file at /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-9.key has access mode 644 instead of 600. Fixing it automatically.
-USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey49614
+these paths will be fetched (0.17 MiB download, 180.61 MiB unpacked):
+  /nix/store/14mclbx01ji07yrsqxc0cs3s7dh2v3l0-zlib-bindings-0.1.1.5
+  /nix/store/1vxwn4y3zji6sshi2skys5w3iz2fwwv0-HUnit-1.5.0.0
+  /nix/store/1yhsgimnbfiyqssgmcfcg67s8if8hvg0-cardano-sl-0.4.4
+  /nix/store/26vy9hipwn2g288azrb4wh3z8a9x7fbs-stm-2.4.4.1
+  /nix/store/4v50lyigwrls8gr0vi2apnvzxlxs5sa8-bytestring-builder-0.10.8.1.0
+  /nix/store/5axq1cfymm3i5cv1qc8xsjczkx29z45r-regex-posix-0.95.2
+  /nix/store/5pykww3pxwsjdhkiaw5bkn5y28sbjb9k-monad-control-1.0.1.0
+  /nix/store/66vpd5gkd6lpx42rggrnjv91lrr5ng63-transformers-compat-0.5.1.4
+  /nix/store/73zd24n5c7d5bx7wx3n9v2x3vyz5vd69-unix-compat-0.4.3.1
+  /nix/store/8m5jzkjbcwx0f79s843li4adxw2c8vr4-ekg-json-0.1.0.5
+  /nix/store/a1j0vg153gs3b9jmdsdv2i3pk46v7sl7-case-insensitive-1.2.0.9
+  /nix/store/a5ksya9vl9ckd96gziny0zgjiz3882xx-random-1.1
+  /nix/store/c89rwwl098frzysq6ma03fjvhcv3sd4d-regex-base-0.93.2
+  /nix/store/cav250c36ixcdj0dsn5x3dw8ydkdg372-primitive-0.6.1.0
+  /nix/store/cmcj5i4k52g960ab1l41s96i36rb5lhj-parsec-3.1.11
+  /nix/store/d4246rhjkmn80ax9g0kg3zhw5r4q3xh2-scientific-0.3.4.12
+  /nix/store/f6lckln44cvl4w12hb435b1f0czbrwhk-io-streams-1.3.6.1
+  /nix/store/g34an3c087qp9wjcsiam3y4znv6vahrw-time-locale-compat-0.1.1.3
+  /nix/store/gbzl6wnagjs3ncivsf41mlmzhw9b8nbn-io-streams-haproxy-1.0.0.1
+  /nix/store/h53fvsx1rixx5ijj24bk1z5idncax51x-readable-0.3.1
+  /nix/store/h7406pyaapzh67a0h4s3g8f0qclv048h-ekg-core-0.1.1.1
+  /nix/store/hpqjmapd7vxm2h4rb77n27jkwjdiac8s-hashable-1.2.6.0
+  /nix/store/irfvl86ca1irmyzjyrra5jfa16vsiyxn-snap-core-1.0.2.0
+  /nix/store/jqpmvwnkqgx6qa49w7hmgam7w5a6c1qq-mtl-2.2.1
+  /nix/store/l7yqv065cb82bz7bv235f53h6gki1f66-call-stack-0.1.0
+  /nix/store/lbdrxn1qfxz890mv16kc13lz5y5p1ybv-base-compat-0.9.3
+  /nix/store/nd8dmnh21chc8qsc0c5pnhp7ix201m16-blaze-builder-0.4.0.2
+  /nix/store/niki6brifxdz2wc9zgg33dq08bkg7y2m-tagged-0.8.5
+  /nix/store/npcqklg40ggxp809rdgzvsl5133gqdqj-transformers-base-0.4.4
+  /nix/store/pgghkr37qmyi8rrf623x4zfs91dia3j8-lifted-base-0.2.3.10
+  /nix/store/pl7f3v357yav0i1x69f2401d4w113s6q-ekg-0.4.0.13
+  /nix/store/qnbfixg949innwn35b9jf5fy27c799lk-aeson-1.0.2.1
+  /nix/store/rhvqpd3gw07c9si59sg5q699sc11hbxc-attoparsec-0.13.1.0
+  /nix/store/rsk8gf17zhlql1kgqyf42nhj0hdbdfdx-zlib-0.6.1.2
+  /nix/store/sp76hgqr255jfwbv9kvzq45rnz7hzp1n-old-locale-1.0.0.7
+  /nix/store/v8q30fri9chm16h2y612ab1wrfmcmf12-unordered-containers-0.2.8.0
+  /nix/store/w21r4pxdcfm78fs24zvw26xznzh9997w-integer-logarithms-1.0.1
+  /nix/store/wpb6gcvq7si03qwfghl9w3ln9mprm9nc-vector-0.11.0.0
+  /nix/store/wxz3rschhrm9ps9xij2222sm4i5skw8w-network-2.6.3.1
+  /nix/store/yh911hbispm1yrwg6h8bvlivs5xv2z02-snap-server-1.0.2.0
+  /nix/store/zsh8aqr331ifpasydn1l0f50kjfrycxj-network-uri-2.6.1.0
+fetching path ‘/nix/store/4v50lyigwrls8gr0vi2apnvzxlxs5sa8-bytestring-builder-0.10.8.1.0’...
+fetching path ‘/nix/store/lbdrxn1qfxz890mv16kc13lz5y5p1ybv-base-compat-0.9.3’...
+fetching path ‘/nix/store/nd8dmnh21chc8qsc0c5pnhp7ix201m16-blaze-builder-0.4.0.2’...
+fetching path ‘/nix/store/l7yqv065cb82bz7bv235f53h6gki1f66-call-stack-0.1.0’...
+fetching path ‘/nix/store/hpqjmapd7vxm2h4rb77n27jkwjdiac8s-hashable-1.2.6.0’...
+fetching path ‘/nix/store/w21r4pxdcfm78fs24zvw26xznzh9997w-integer-logarithms-1.0.1’...
+fetching path ‘/nix/store/jqpmvwnkqgx6qa49w7hmgam7w5a6c1qq-mtl-2.2.1’...
+fetching path ‘/nix/store/wxz3rschhrm9ps9xij2222sm4i5skw8w-network-2.6.3.1’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/hpqjmapd7vxm2h4rb77n27jkwjdiac8s-hashable-1.2.6.0’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/hpqjmapd7vxm2h4rb77n27jkwjdiac8s-hashable-1.2.6.0’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/4v50lyigwrls8gr0vi2apnvzxlxs5sa8-bytestring-builder-0.10.8.1.0’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/4v50lyigwrls8gr0vi2apnvzxlxs5sa8-bytestring-builder-0.10.8.1.0’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/lbdrxn1qfxz890mv16kc13lz5y5p1ybv-base-compat-0.9.3’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/lbdrxn1qfxz890mv16kc13lz5y5p1ybv-base-compat-0.9.3’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/l7yqv065cb82bz7bv235f53h6gki1f66-call-stack-0.1.0’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/l7yqv065cb82bz7bv235f53h6gki1f66-call-stack-0.1.0’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+*** Downloading ‘https://hydra.iohk.io/nar/w21r4pxdcfm78fs24zvw26xznzh9997w-integer-logarithms-1.0.1’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/w21r4pxdcfm78fs24zvw26xznzh9997w-integer-logarithms-1.0.1’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/wxz3rschhrm9ps9xij2222sm4i5skw8w-network-2.6.3.1’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/wxz3rschhrm9ps9xij2222sm4i5skw8w-network-2.6.3.1’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/jqpmvwnkqgx6qa49w7hmgam7w5a6c1qq-mtl-2.2.1’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/jqpmvwnkqgx6qa49w7hmgam7w5a6c1qq-mtl-2.2.1’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+*** Downloading ‘https://hydra.iohk.io/nar/nd8dmnh21chc8qsc0c5pnhp7ix201m16-blaze-builder-0.4.0.2’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/nd8dmnh21chc8qsc0c5pnhp7ix201m16-blaze-builder-0.4.0.2’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  2156    0  2156    0     0  11434      0 --:--:-- --:--:-- --:--:-- 11468
+
+fetching path ‘/nix/store/sp76hgqr255jfwbv9kvzq45rnz7hzp1n-old-locale-1.0.0.7’...
+100 16080    0 16080    0     0  67304      0 --:--:-- --:--:-- --:--:-- 67563
+
+*** Downloading ‘https://hydra.iohk.io/nar/sp76hgqr255jfwbv9kvzq45rnz7hzp1n-old-locale-1.0.0.7’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/sp76hgqr255jfwbv9kvzq45rnz7hzp1n-old-locale-1.0.0.7’...
+
+fetching path ‘/nix/store/cav250c36ixcdj0dsn5x3dw8ydkdg372-primitive-0.6.1.0’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+*** Downloading ‘https://hydra.iohk.io/nar/cav250c36ixcdj0dsn5x3dw8ydkdg372-primitive-0.6.1.0’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/cav250c36ixcdj0dsn5x3dw8ydkdg372-primitive-0.6.1.0’...
+100  108k    0  108k    0     0   340k      0 --:--:-- --:--:-- --:--:--  341k
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+fetching path ‘/nix/store/1vxwn4y3zji6sshi2skys5w3iz2fwwv0-HUnit-1.5.0.0’...
+100 34908    0 34908    0     0   103k      0 --:--:-- --:--:-- --:--:--  103k
+
+fetching path ‘/nix/store/a1j0vg153gs3b9jmdsdv2i3pk46v7sl7-case-insensitive-1.2.0.9’...
+100 38328    0 38328    0     0   112k      0 --:--:-- --:--:-- --:--:--  113k
+
+fetching path ‘/nix/store/a5ksya9vl9ckd96gziny0zgjiz3882xx-random-1.1’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/1vxwn4y3zji6sshi2skys5w3iz2fwwv0-HUnit-1.5.0.0’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/1vxwn4y3zji6sshi2skys5w3iz2fwwv0-HUnit-1.5.0.0’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/a1j0vg153gs3b9jmdsdv2i3pk46v7sl7-case-insensitive-1.2.0.9’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/a1j0vg153gs3b9jmdsdv2i3pk46v7sl7-case-insensitive-1.2.0.9’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 82952    0 82952    0     0   201k      0 --:--:-- --:--:-- --:--:--  201k
+100  471k    0  471k    0     0  1135k      0 --:--:-- --:--:-- --:--:-- 1137k
+
+
+fetching path ‘/nix/store/h53fvsx1rixx5ijj24bk1z5idncax51x-readable-0.3.1’...
+100  126k    0  126k    0     0   296k      0 --:--:-- --:--:-- --:--:--  297k
+
+*** Downloading ‘https://hydra.iohk.io/nar/a5ksya9vl9ckd96gziny0zgjiz3882xx-random-1.1’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/a5ksya9vl9ckd96gziny0zgjiz3882xx-random-1.1’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0fetching path ‘/nix/store/26vy9hipwn2g288azrb4wh3z8a9x7fbs-stm-2.4.4.1’...
+
+fetching path ‘/nix/store/66vpd5gkd6lpx42rggrnjv91lrr5ng63-transformers-compat-0.5.1.4’...
+100 34592    0 34592    0     0   143k      0 --:--:-- --:--:-- --:--:--  144k
+
+fetching path ‘/nix/store/cmcj5i4k52g960ab1l41s96i36rb5lhj-parsec-3.1.11’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/h53fvsx1rixx5ijj24bk1z5idncax51x-readable-0.3.1’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/h53fvsx1rixx5ijj24bk1z5idncax51x-readable-0.3.1’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/26vy9hipwn2g288azrb4wh3z8a9x7fbs-stm-2.4.4.1’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/26vy9hipwn2g288azrb4wh3z8a9x7fbs-stm-2.4.4.1’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/66vpd5gkd6lpx42rggrnjv91lrr5ng63-transformers-compat-0.5.1.4’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/66vpd5gkd6lpx42rggrnjv91lrr5ng63-transformers-compat-0.5.1.4’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+*** Downloading ‘https://hydra.iohk.io/nar/cmcj5i4k52g960ab1l41s96i36rb5lhj-parsec-3.1.11’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/cmcj5i4k52g960ab1l41s96i36rb5lhj-parsec-3.1.11’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  128k    0  128k    0     0   444k      0 --:--:-- --:--:-- --:--:--  445k
+
+fetching path ‘/nix/store/c89rwwl098frzysq6ma03fjvhcv3sd4d-regex-base-0.93.2’...
+100 51896    0 51896    0     0   211k      0 --:--:-- --:--:-- --:--:--  212k
+
+fetching path ‘/nix/store/g34an3c087qp9wjcsiam3y4znv6vahrw-time-locale-compat-0.1.1.3’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/c89rwwl098frzysq6ma03fjvhcv3sd4d-regex-base-0.93.2’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/c89rwwl098frzysq6ma03fjvhcv3sd4d-regex-base-0.93.2’...
+100  127k    0  127k    0     0   456k      0 --:--:-- --:--:-- --:--:--  457k
+
+fetching path ‘/nix/store/73zd24n5c7d5bx7wx3n9v2x3vyz5vd69-unix-compat-0.4.3.1’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  133k    0  133k    0     0   491k      0 --:--:-- --:--:-- --:--:--  494k
+
+fetching path ‘/nix/store/v8q30fri9chm16h2y612ab1wrfmcmf12-unordered-containers-0.2.8.0’...
+100 29188    0 29188    0     0   138k      0 --:--:-- --:--:-- --:--:--  139k
+
+fetching path ‘/nix/store/wpb6gcvq7si03qwfghl9w3ln9mprm9nc-vector-0.11.0.0’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/g34an3c087qp9wjcsiam3y4znv6vahrw-time-locale-compat-0.1.1.3’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/g34an3c087qp9wjcsiam3y4znv6vahrw-time-locale-compat-0.1.1.3’...
+100 16168    0 16168    0     0  74935      0 --:--:-- --:--:-- --:--:-- 75200
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+fetching path ‘/nix/store/rsk8gf17zhlql1kgqyf42nhj0hdbdfdx-zlib-0.6.1.2’...
+100 78892    0 78892    0     0   313k      0 --:--:-- --:--:-- --:--:--  314k
+
+*** Downloading ‘https://hydra.iohk.io/nar/73zd24n5c7d5bx7wx3n9v2x3vyz5vd69-unix-compat-0.4.3.1’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/73zd24n5c7d5bx7wx3n9v2x3vyz5vd69-unix-compat-0.4.3.1’...
+
+fetching path ‘/nix/store/niki6brifxdz2wc9zgg33dq08bkg7y2m-tagged-0.8.5’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+*** Downloading ‘https://hydra.iohk.io/nar/v8q30fri9chm16h2y612ab1wrfmcmf12-unordered-containers-0.2.8.0’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/v8q30fri9chm16h2y612ab1wrfmcmf12-unordered-containers-0.2.8.0’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+*** Downloading ‘https://hydra.iohk.io/nar/wpb6gcvq7si03qwfghl9w3ln9mprm9nc-vector-0.11.0.0’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/wpb6gcvq7si03qwfghl9w3ln9mprm9nc-vector-0.11.0.0’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 32513    0 32513    0     0   130k      0 --:--:-- --:--:-- --:--:--  130k
+*** Downloading ‘https://cache.nixos.org/nar/0npb71yhmzmsc52gc4y3ji8ffqy69crmkvf6ql2d7cdj1nrvw7zn.nar.xz’ (signed by ‘cache.nixos.org-1’) to ‘/nix/store/rsk8gf17zhlql1kgqyf42nhj0hdbdfdx-zlib-0.6.1.2’...
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+*** Downloading ‘https://hydra.iohk.io/nar/niki6brifxdz2wc9zgg33dq08bkg7y2m-tagged-0.8.5’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/niki6brifxdz2wc9zgg33dq08bkg7y2m-tagged-0.8.5’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  363k    0  363k    0     0  1127k      0 --:--:-- --:--:-- --:--:-- 1125k
+
+fetching path ‘/nix/store/npcqklg40ggxp809rdgzvsl5133gqdqj-transformers-base-0.4.4’...
+100  4792    0  4792    0     0  27770      0 --:--:-- --:--:-- --:--:-- 27699
+
+fetching path ‘/nix/store/zsh8aqr331ifpasydn1l0f50kjfrycxj-network-uri-2.6.1.0’...
+100 75584    0 75584    0     0   330k      0 --:--:-- --:--:-- --:--:--  329k
+
+fetching path ‘/nix/store/5axq1cfymm3i5cv1qc8xsjczkx29z45r-regex-posix-0.95.2’...
+100 13448    0 13448    0     0  77667      0 --:--:-- --:--:-- --:--:-- 77734
+
+
+*** Downloading ‘https://hydra.iohk.io/nar/npcqklg40ggxp809rdgzvsl5133gqdqj-transformers-base-0.4.4’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/npcqklg40ggxp809rdgzvsl5133gqdqj-transformers-base-0.4.4’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/5axq1cfymm3i5cv1qc8xsjczkx29z45r-regex-posix-0.95.2’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/5axq1cfymm3i5cv1qc8xsjczkx29z45r-regex-posix-0.95.2’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dlo
+*** Downloading ‘https://hydra.iohk.io/nar/zsh8aqr331ifpasydn1l0f50kjfrycxj-network-uri-2.6.1.0’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/zsh8aqr331ifpasydn1l0f50kjfrycxj-network-uri-2.6.1.0’...
+ad  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  % Total    %  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0 Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  316k    0  316k    0     0   984k      0 --:--:-- --:--:-- --:--:--  984k
+
+fetching path ‘/nix/store/h7406pyaapzh67a0h4s3g8f0qclv048h-ekg-core-0.1.1.1’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/h7406pyaapzh67a0h4s3g8f0qclv048h-ekg-core-0.1.1.1’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/h7406pyaapzh67a0h4s3g8f0qclv048h-ekg-core-0.1.1.1’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  111k    0  111k    0     0   249k      0 --:--:-- --:--:-- --:--:--  250k
+
+100 31164    0 31164    0     0  84351      0 --:--:-- --:--:-- --:--:-- 84455
+
+fetching path ‘/nix/store/5pykww3pxwsjdhkiaw5bkn5y28sbjb9k-monad-control-1.0.1.0’...
+100 1764k    0 1764k    0     0  2955k      0 --:--:-- --:--:-- --:--:-- 2951k
+
+fetching path ‘/nix/store/d4246rhjkmn80ax9g0kg3zhw5r4q3xh2-scientific-0.3.4.12’...
+100  175k    0  175k    0     0   403k      0 --:--:-- --:--:-- --:--:--  404k
+
+100  162k    0  162k    0     0   360k      0 --:--:-- --:--:-- --:--:--  360k
+
+
+*** Downloading ‘https://hydra.iohk.io/nar/5pykww3pxwsjdhkiaw5bkn5y28sbjb9k-monad-control-1.0.1.0’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/5pykww3pxwsjdhkiaw5bkn5y28sbjb9k-monad-control-1.0.1.0’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+*** Downloading ‘https://hydra.iohk.io/nar/d4246rhjkmn80ax9g0kg3zhw5r4q3xh2-scientific-0.3.4.12’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/d4246rhjkmn80ax9g0kg3zhw5r4q3xh2-scientific-0.3.4.12’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  103k    0  103k    0     0   276k      0 --:--:-- --:--:-- --:--:--  277k
+
+100 45064    0 45064    0     0   200k      0 --:--:-- --:--:-- --:--:--  201k
+
+fetching path ‘/nix/store/pgghkr37qmyi8rrf623x4zfs91dia3j8-lifted-base-0.2.3.10’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/pgghkr37qmyi8rrf623x4zfs91dia3j8-lifted-base-0.2.3.10’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/pgghkr37qmyi8rrf623x4zfs91dia3j8-lifted-base-0.2.3.10’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  143k    0  143k    0     0   529k      0 --:--:-- --:--:-- --:--:--  530k100  179k    0  179k    0     0   656k      0 --:--:-- --:--:-- --:--:--  656k
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+fetching path ‘/nix/store/rhvqpd3gw07c9si59sg5q699sc11hbxc-attoparsec-0.13.1.0’...
+ 28  176k   28 51853    0     0  50579      0  0:00:03  0:00:01  0:00:02 50637
+*** Downloading ‘https://hydra.iohk.io/nar/rhvqpd3gw07c9si59sg5q699sc11hbxc-attoparsec-0.13.1.0’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/rhvqpd3gw07c9si59sg5q699sc11hbxc-attoparsec-0.13.1.0’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 52108    0 52108    0     0   226k      0 --:--:-- --:--:-- --:--:--  226k
+
+100  176k  100  176k    0     0   131k      0  0:00:01  0:00:01 --:--:--  131k
+
+fetching path ‘/nix/store/14mclbx01ji07yrsqxc0cs3s7dh2v3l0-zlib-bindings-0.1.1.5’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/14mclbx01ji07yrsqxc0cs3s7dh2v3l0-zlib-bindings-0.1.1.5’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/14mclbx01ji07yrsqxc0cs3s7dh2v3l0-zlib-bindings-0.1.1.5’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 50196    0 50196    0     0   218k      0 --:--:-- --:--:-- --:--:--  219k
+
+100  803k    0  803k    0     0  1307k      0 --:--:-- --:--:-- --:--:-- 1307k
+
+fetching path ‘/nix/store/qnbfixg949innwn35b9jf5fy27c799lk-aeson-1.0.2.1’...
+fetching path ‘/nix/store/f6lckln44cvl4w12hb435b1f0czbrwhk-io-streams-1.3.6.1’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/f6lckln44cvl4w12hb435b1f0czbrwhk-io-streams-1.3.6.1’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/f6lckln44cvl4w12hb435b1f0czbrwhk-io-streams-1.3.6.1’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/qnbfixg949innwn35b9jf5fy27c799lk-aeson-1.0.2.1’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/qnbfixg949innwn35b9jf5fy27c799lk-aeson-1.0.2.1’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 32513    0 32513    0     0   139k      0 --:--:-- --:--:-- --:--:--  138k100 32513    0 32513    0     0   133k      0 --:--:-- --:--:-- --:--:--  133k100  355k    0  355k    0     0  1227k      0 --:--:-- --:--:-- --:--:-- 1227k
+
+fetching path ‘/nix/store/gbzl6wnagjs3ncivsf41mlmzhw9b8nbn-io-streams-haproxy-1.0.0.1’...
+fetching path ‘/nix/store/irfvl86ca1irmyzjyrra5jfa16vsiyxn-snap-core-1.0.2.0’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/gbzl6wnagjs3ncivsf41mlmzhw9b8nbn-io-streams-haproxy-1.0.0.1’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/gbzl6wnagjs3ncivsf41mlmzhw9b8nbn-io-streams-haproxy-1.0.0.1’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/irfvl86ca1irmyzjyrra5jfa16vsiyxn-snap-core-1.0.2.0’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/irfvl86ca1irmyzjyrra5jfa16vsiyxn-snap-core-1.0.2.0’...
+  % Total    % Received % Xferd  Average Speed   Time      % Total    % Received % Xferd  Average Speed   TTime     Tiime    Timeme  Curren     Time t
+        Current
+                                                    Dload         DUpload load  U  Total pload     Spent Total   S   Left  Spent    Leftpeed
+  Speed
+  0     0  0      0     0       0    0     0  0     0   0          0 0      0     0 -      0 -:--:-- --:--:----:--:- --:--:-- --:--:- --:----     :--     00100 2339k    0 2339k    0     0  4570k      0 --:--:-- --:--:-- --:--:-- 4569k
+
+fetching path ‘/nix/store/8m5jzkjbcwx0f79s843li4adxw2c8vr4-ekg-json-0.1.0.5’...
+100 67256    0 67256    0     0   247k      0 --:--:-- --:--:-- --:--:--  247k
+
+*** Downloading ‘https://hydra.iohk.io/nar/8m5jzkjbcwx0f79s843li4adxw2c8vr4-ekg-json-0.1.0.5’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/8m5jzkjbcwx0f79s843li4adxw2c8vr4-ekg-json-0.1.0.5’...
+
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 1018k    0 1018k    0     0  2555k      0 --:--:-- --:--:-- --:--:-- 2558k
+
+fetching path ‘/nix/store/yh911hbispm1yrwg6h8bvlivs5xv2z02-snap-server-1.0.2.0’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/yh911hbispm1yrwg6h8bvlivs5xv2z02-snap-server-1.0.2.0’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/yh911hbispm1yrwg6h8bvlivs5xv2z02-snap-server-1.0.2.0’...
+100 44244    0 44244    0     0   191k      0 --:--:-- --:--:-- --:--:--  192k
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+100  517k    0  517k    0     0  1718k      0 --:--:-- --:--:-- --:--:-- 1723k
+
+fetching path ‘/nix/store/pl7f3v357yav0i1x69f2401d4w113s6q-ekg-0.4.0.13’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/pl7f3v357yav0i1x69f2401d4w113s6q-ekg-0.4.0.13’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/pl7f3v357yav0i1x69f2401d4w113s6q-ekg-0.4.0.13’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100  112k    0  112k    0     0   465k      0 --:--:-- --:--:-- --:--:--  466k
+
+fetching path ‘/nix/store/1yhsgimnbfiyqssgmcfcg67s8if8hvg0-cardano-sl-0.4.4’...
+
+*** Downloading ‘https://hydra.iohk.io/nar/1yhsgimnbfiyqssgmcfcg67s8if8hvg0-cardano-sl-0.4.4’ (signed by ‘hydra.iohk.io’) to ‘/nix/store/1yhsgimnbfiyqssgmcfcg67s8if8hvg0-cardano-sl-0.4.4’...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100 2655k    0 2655k    0     0  4022k      0 --:--:-- --:--:-- --:--:-- 4023k100 9150k    0 9150k    0     0  5508k      0 --:--:--  0:00:01 --:--:-- 5508k100 14.8M    0 14.8M    0     0  5712k      0 --:--:--  0:00:02 --:--:-- 5711k100 20.8M    0 20.8M    0     0  5822k      0 --:--:--  0:00:03 --:--:-- 5822k100 22.0M    0 22.0M    0     0  5827k      0 --:--:--  0:00:03 --:--:-- 5826k
+
+Running command: /nix/store/1yhsgimnbfiyqssgmcfcg67s8if8hvg0-cardano-sl-0.4.4/bin/cardano-keygen -f /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-{}.key -m 14 -n 12000 --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../avvm-files/utxo-dump-last-new.json --randcerts --blacklisted /home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../avvm-files/full_blacklist.js --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries 100
+USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey42257
 NOT FOR PRODUCTION USAGE, ONLY FOR TESTING
 IF YOU INTEND TO GENERATE GENESIS FOR PRODUCTION, STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. THIS IS SERIOUS.
 Removing 101 entries from utxo (out of 188 total entries in the blacklist)
@@ -16,7 +336,7 @@ Total avvm stake after applying blacklist: 25927070538000000
 12014 keyfiles are generated
 Total testnet genesis stake: RichPoorStakes {sdRichmen = 14, sdRichStake = Coin {getCoin = 1280610239591429}, sdPoor = 24000, sdPoorStake = Coin {getCoin = 47682296154}}
 100 fake avvm seeds are generated
-testnet genesis created successfully. First 30 addresses: [PubKeyAddress 2a65a1a45fab1254cddc7603f82e89e24c24b4fdf3fa578929ed38c5 (attrs: {}), PubKeyAddress d75d9aea05a0a9ad7537098c862c278ac26e8d13a30edd78424eee70 (attrs: {}), PubKeyAddress c3d5b7592a9ce4bc5c30bcc406953b1038eeea4a57d5957c338570d4 (attrs: {}), PubKeyAddress e209141bd591a80ae9dce8cf98aada05665eb6a9243eb870d91c578b (attrs: {}), PubKeyAddress d4f1a1033c3b6c69ed6ca7c66f6cec1542d6579621a634cde6e82551 (attrs: {}), PubKeyAddress bb6daf4210aff3a289178dc7f751209c7eb0e341f95a11d12f11d692 (attrs: {}), PubKeyAddress d7e06e3692451c35994dbf1c5ec114fa40fe76c6896509de15ac1d03 (attrs: {}), PubKeyAddress 24b84448e984da64c2d8fe574b8cf9dfbcbfb938ad16b02b7d61763d (attrs: {}), PubKeyAddress fa07427c6aac3f68043142fdac9c4621768d9126effdb85057ab133d (attrs: {}), PubKeyAddress 83179703869d2099e7dce33632acb231ed7fd2cfc373ed0c64181d03 (attrs: {})] distr: RichPoorStakes {sdRichmen = 14, sdRichStake = Coin {getCoin = 1280610239591429}, sdPoor = 24000, sdPoorStake = Coin {getCoin = 47682296154}}
+testnet genesis created successfully. First 30 addresses: [PubKeyAddress 14f370c280cd65c57bc0eba8454aedc24d4a649b06fa3a4c24c3e383 (attrs: {}), PubKeyAddress 3e7f0408b60eb97fa952ffbca93850907b18193f718f14ecbd6c5743 (attrs: {}), PubKeyAddress c71788ce0490bb41d1c9539cebec2264bfebb9d413c81c45d4526214 (attrs: {}), PubKeyAddress 5f54a37a598418517c5ffef86f6252a2694595b23d155662d7a4f46f (attrs: {}), PubKeyAddress 4fca09a2ae2ac4abfe905dffe533445a0253c7ef5daa6e8a810d88cd (attrs: {}), PubKeyAddress 62b7dab0a09d44e9fa2d9abe4c75c3bebac1d57c058ba39b26e5de42 (attrs: {}), PubKeyAddress b10ec82d201ad0f889c3aea91e00357fe87368a70522acbbc568c84a (attrs: {}), PubKeyAddress 1fb6f01cf53d4ababbc55f7fe4005c2db92f5480e5633632aa947f2a (attrs: {}), PubKeyAddress 1241fdf0930e4ec72c5ea2e19676003ca97b613966c6fb30e39927e2 (attrs: {}), PubKeyAddress fabd2a599cfad0aae19f336b3f0a3e070c2a4b1d2238c36d9ef00ffe (attrs: {})] distr: RichPoorStakes {sdRichmen = 14, sdRichStake = Coin {getCoin = 1280610239591429}, sdPoor = 24000, sdPoorStake = Coin {getCoin = 47682296154}}
 core/genesis-core.bin generated successfully
 [generating VSS keys for tests...]
 [generating keys for tests...]
@@ -35,4 +355,4 @@ godtossing/genesis-godtossing.bin generated successfully
 '/home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-12.key.primary' -> 'nodes/key12.sk'
 '/home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-13.key.primary' -> 'nodes/key13.sk'
 '/home/ielectric/dev/serokell/daedalus/cardano-sl/scripts/generate/../../secrets/secret-14.key.primary' -> 'nodes/key14.sk'
-'redeemingHolderKey49614' -> 'nodes/key0.sk'
+'redeemingHolderKey42257' -> 'nodes/key0.sk'

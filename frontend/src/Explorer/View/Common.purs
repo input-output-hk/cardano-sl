@@ -326,8 +326,6 @@ clickableLogoView = logoView' <<< Just
 -- lang
 -- -----------------
 
--- currency
-
 langItems :: Array Language
 langItems =
     [ English
@@ -338,15 +336,15 @@ langItems =
 langView :: State -> P.HTML Action
 langView state =
     S.select  ! S.className "lang__select bg-arrow-up"
+              ! S.value (show $ state ^. lang)
               #! P.onChange (SetLanguage <<< fromMaybe (_.lang initialState) <<< readLanguage <<< P.targetValue)
               $ for_ langItems (langItemView state)
 
 langItemView :: State -> Language -> P.HTML Action
 langItemView state lang' =
-  let selected = (show lang') == (show $ state ^. lang) in
-  (S.option !? selected) (S.className "selected")
+  let isSelected = lang' == state ^. lang in
+  (S.option !? isSelected) (S.className "selected")
       ! S.value (show lang')
-      ! S.selected (show selected)
       $ S.text (show lang')
 
 -- -----------------

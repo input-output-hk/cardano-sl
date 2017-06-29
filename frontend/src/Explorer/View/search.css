@@ -19,14 +19,14 @@
       }
 
       &__wrapper {
-        width: 100%;
+        box-item: flex-1;
         box: horizontal;
       }
 
       &__label {
           color: color(var(--color3) a(0.5));
           font-family: var(--fontFamily0-Light);
-          box-item: center;
+          box: center;
           padding-left: 15px;
       }
 

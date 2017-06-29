@@ -101,10 +101,8 @@ data ExplorerOp
     | DelTxExtra !TxId
 
     | PutPageBlocks !Page ![HeaderHash]
-    | DelPageBlocks !Page
 
     | PutEpochBlocks !Epoch ![HeaderHash]
-    | DelEpochBlocks !Epoch
 
     | UpdateAddrHistory !Address !AddrHistory
 
@@ -120,13 +118,9 @@ instance RocksBatchOp ExplorerOp where
     
     toBatchOp (PutPageBlocks page pageBlocks) =
         [Rocks.Put (blockPagePrefix page) (encodeStrict pageBlocks)]
-    toBatchOp (DelPageBlocks page) =
-        [Rocks.Del $ blockPagePrefix page]
 
     toBatchOp (PutEpochBlocks epoch pageBlocks) =
         [Rocks.Put (blockEpochPrefix epoch) (encodeStrict pageBlocks)]
-    toBatchOp (DelEpochBlocks epoch) =
-        [Rocks.Del $ blockEpochPrefix epoch]
 
     toBatchOp (UpdateAddrHistory addr txs) =
         [Rocks.Put (addrHistoryPrefix addr) (encodeStrict txs)]

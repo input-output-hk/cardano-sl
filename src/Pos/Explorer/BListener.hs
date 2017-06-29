@@ -39,6 +39,7 @@ import           Pos.Util.Chrono              (NE, NewestFirst (..),
 -- Declarations
 ----------------------------------------------------------------------------
 
+
 data ExplorerBListenerTag
 
 type ExplorerBListener = Ether.TaggedTrans ExplorerBListenerTag IdentityT
@@ -65,9 +66,11 @@ instance ( MonadDBRead m
     onApplyBlocks     blunds = onApplyCallGeneral blunds
     onRollbackBlocks  blunds = onRollbackCallGeneral blunds
 
+
 ----------------------------------------------------------------------------
 -- General calls
 ----------------------------------------------------------------------------
+
 
 onApplyCallGeneral
     :: forall ssc m . 
@@ -88,9 +91,11 @@ onRollbackCallGeneral blunds = do
     pageBlocks  <- onRollbackPageBlocksExplorer blunds
     pure $ SomeBatchOp [epochBlocks, pageBlocks]
 
+
 ----------------------------------------------------------------------------
 -- Function calls
 ----------------------------------------------------------------------------
+
 
 -- For @EpochBlocks@
 onApplyEpochBlocksExplorer
@@ -101,7 +106,7 @@ onApplyEpochBlocksExplorer
 onApplyEpochBlocksExplorer blunds = do
 
     -- Get existing @HeaderHash@es from the keys so we can merge them.
-    existingBlocks <- getExistingBlocks $ M.keys newBlocks
+    existingBlocks <- getExistingBlocks keys
 
     -- Merge the new and the old
     let mergedBlocksMap = M.unionWith (<>) existingBlocks newBlocks
@@ -114,46 +119,14 @@ onApplyEpochBlocksExplorer blunds = do
     pure $ SomeBatchOp mergedBlocks
   where
 
+    keys :: [Epoch]
+    keys = M.keys newBlocks
+
     newBlocks :: M.Map Epoch [HeaderHash]
     newBlocks = epochBlocksMap blocksNE
 
     blocksNE :: NE (Block ssc)  
     blocksNE = fst <$> getOldestFirst blunds
-
-    -- Get exisiting key blocks paired with the key.
-    getExistingBlocks
-        :: (MonadDBRead m) 
-        => [Epoch]
-        -> m (M.Map Epoch [HeaderHash])
-    getExistingBlocks keys = do
-        keyBlocks <- sequence [ getExistingKeyBlocks key | key <- keys ]
-        pure $ M.unions keyBlocks
-      where
-        -- Get exisiting key blocks paired with the key. If there are no
-        -- saved blocks on the key return an empty list.
-        getExistingKeyBlocks 
-            :: (MonadDBRead m)
-            => Epoch 
-            -> m (M.Map Epoch [HeaderHash])
-        getExistingKeyBlocks key = do
-            keyBlocks        <- DB.getEpochBlocks key
-            let mKeyBlocks = fromMaybe [] keyBlocks
-            pure $ M.singleton key mKeyBlocks
-
-    -- For each (k, [v]) pair, create a database operation.
-    putKeysBlocks 
-        :: M.Map Epoch [HeaderHash]
-        -> [DB.ExplorerOp]
-    putKeysBlocks keysBlocks = putKeyBlocks <$> M.toList keysBlocks
-      where
-        putKeyBlocks 
-            :: (Epoch, [HeaderHash])
-            -> DB.ExplorerOp
-        putKeyBlocks keyBlocks = DB.PutEpochBlocks key uniqueBlocks
-          where
-            key           = keyBlocks ^. _1
-            blocks        = keyBlocks ^. _2
-            uniqueBlocks  = ordNub blocks
 
 
 -- For @PageBlocks@
@@ -165,7 +138,7 @@ onApplyPageBlocksExplorer
 onApplyPageBlocksExplorer blunds = do
 
     -- Get existing @HeaderHash@es from the keys so we can merge them.
-    existingBlocks <- getExistingBlocks $ M.keys newBlocks
+    existingBlocks <- getExistingBlocks keys
 
     -- Merge the new and the old
     let mergedBlocksMap = M.unionWith (<>) existingBlocks newBlocks
@@ -178,51 +151,24 @@ onApplyPageBlocksExplorer blunds = do
     pure $ SomeBatchOp mergedBlocks
   where
 
+    keys :: [Page]
+    keys = M.keys newBlocks
+
     newBlocks :: M.Map Page [HeaderHash]
     newBlocks = pageBlocksMap blocksNE
 
     blocksNE :: NE (Block ssc)  
     blocksNE = fst <$> getOldestFirst blunds
 
-    -- Get exisiting key blocks paired with the key.
-    getExistingBlocks
-        :: (MonadDBRead m) 
-        => [Page]
-        -> m (M.Map Page [HeaderHash])
-    getExistingBlocks keys = do
-        keyBlocks <- sequence [ getExistingKeyBlocks key | key <- keys ]
-        pure $ M.unions keyBlocks
-      where
-        -- Get exisiting key blocks paired with the key. If there are no
-        -- saved blocks on the key return an empty list.
-        getExistingKeyBlocks 
-            :: (MonadDBRead m)
-            => Page 
-            -> m (M.Map Page [HeaderHash])
-        getExistingKeyBlocks key = do
-            keyBlocks        <- DB.getPageBlocks key
-            let mKeyBlocks = fromMaybe [] keyBlocks
-            pure $ M.singleton key mKeyBlocks
-
-    -- For each (k, [v]) pair, create a database operation.
-    putKeysBlocks 
-        :: M.Map Page [HeaderHash]
-        -> [DB.ExplorerOp]
-    putKeysBlocks keysBlocks = putKeyBlocks <$> M.toList keysBlocks
-      where
-        putKeyBlocks 
-            :: (Page, [HeaderHash])
-            -> DB.ExplorerOp
-        putKeyBlocks keyBlocks = DB.PutPageBlocks key uniqueBlocks
-          where
-            key           = keyBlocks ^. _1
-            blocks        = keyBlocks ^. _2
-            uniqueBlocks  = ordNub blocks
-    
 
 ----------------------------------------------------------------------------
 -- Rollback
 ----------------------------------------------------------------------------
+
+
+-- So the parameters can be type checked.
+newtype PrevKBlocks  k = PrevKBlocks { getPrevKBlocks :: M.Map k [HeaderHash] }
+newtype NewKBlocks   k = NewKBlocks { getNewKBlocks :: M.Map k [HeaderHash] }
 
 -- For @EpochBlocks@
 onRollbackEpochBlocksExplorer
@@ -233,9 +179,11 @@ onRollbackEpochBlocksExplorer blunds = do
     
     -- Get existing @HeaderHash@es from the keys so we can merge them.
     existingBlocks <- getExistingBlocks keys
+    let prevKeyBlocks = PrevKBlocks existingBlocks
+    let newKeyBlocks  = NewKBlocks  newBlocks
 
     -- Diffrence between the new and the old
-    let mergedBlocksMap = rollbackedBlocks keys newBlocks existingBlocks
+    let mergedBlocksMap = rollbackedBlocks keys prevKeyBlocks newKeyBlocks
 
     -- Create database operation
     let mergedBlocks = putKeysBlocks mergedBlocksMap
@@ -254,72 +202,6 @@ onRollbackEpochBlocksExplorer blunds = do
     blocksNE :: NE (Block ssc)  
     blocksNE = fst <$> getNewestFirst blunds
 
-    -- Get exisiting key blocks paired with the key.
-    getExistingBlocks
-        :: (MonadDBRead m) 
-        => [Epoch]
-        -> m (M.Map Epoch [HeaderHash])
-    getExistingBlocks keys' = do
-        keyBlocks <- sequence [ getExistingKeyBlocks key | key <- keys' ]
-        pure $ M.unions keyBlocks
-      where
-        -- Get exisiting key blocks paired with the key. If there are no
-        -- saved blocks on the key return an empty list.
-        getExistingKeyBlocks 
-            :: (MonadDBRead m)
-            => Epoch 
-            -> m (M.Map Epoch [HeaderHash])
-        getExistingKeyBlocks key = do
-            keyBlocks        <- DB.getEpochBlocks key
-            let mKeyBlocks = fromMaybe [] keyBlocks
-            pure $ M.singleton key mKeyBlocks
-
-    -- For each (k, [v]) pair, create a database operation.
-    putKeysBlocks 
-        :: M.Map Epoch [HeaderHash]
-        -> [DB.ExplorerOp]
-    putKeysBlocks keysBlocks = putKeyBlocks <$> M.toList keysBlocks
-      where
-        putKeyBlocks 
-            :: (Epoch, [HeaderHash])
-            -> DB.ExplorerOp
-        putKeyBlocks keyBlocks = DB.PutEpochBlocks key uniqueBlocks
-          where
-            key           = keyBlocks ^. _1
-            blocks        = keyBlocks ^. _2
-            uniqueBlocks  = ordNub blocks
-
-    -- The result is the map that contains diffed blocks from the keys.
-    rollbackedBlocks
-        :: [Epoch]
-        -> M.Map Epoch [HeaderHash]
-        -> M.Map Epoch [HeaderHash]
-        -> M.Map Epoch [HeaderHash]
-    rollbackedBlocks keys' oldMap' newMap' = M.unions rolledbackKeyMaps
-      where
-        rolledbackKeyMaps = [ rollbackedKey key oldMap' newMap' | key <- keys' ]
-
-        -- From a single key, retrieve blocks and return their difference
-        rollbackedKey
-            :: Epoch
-            -> M.Map Epoch [HeaderHash]
-            -> M.Map Epoch [HeaderHash]
-            -> M.Map Epoch [HeaderHash]
-        rollbackedKey key oldMap newMap = elementsExist
-          where
-            newBlocks' :: [HeaderHash]
-            newBlocks' = newMap ^. at key . non []
-
-            existingBlocks :: [HeaderHash]
-            existingBlocks = oldMap ^. at key . non []
-
-            elementsExist :: M.Map Epoch [HeaderHash]
-            elementsExist = M.singleton key finalBlocks
-              where
-                -- Rollback the new blocks, remove them from the collection
-                finalBlocks :: [HeaderHash]
-                finalBlocks = existingBlocks \\ newBlocks'
-
 
 onRollbackPageBlocksExplorer
     :: forall ssc m .
@@ -329,9 +211,11 @@ onRollbackPageBlocksExplorer blunds = do
     
     -- Get existing @HeaderHash@es from the keys so we can merge them.
     existingBlocks <- getExistingBlocks keys
+    let prevKeyBlocks = PrevKBlocks existingBlocks
+    let newKeyBlocks  = NewKBlocks  newBlocks
 
     -- Diffrence between the new and the old
-    let mergedBlocksMap = rollbackedBlocks keys newBlocks existingBlocks
+    let mergedBlocksMap = rollbackedBlocks keys prevKeyBlocks newKeyBlocks 
 
     -- Create database operation
     let mergedBlocks = putKeysBlocks mergedBlocksMap
@@ -350,75 +234,11 @@ onRollbackPageBlocksExplorer blunds = do
     blocksNE :: NE (Block ssc)  
     blocksNE = fst <$> getNewestFirst blunds
 
-    -- Get exisiting key blocks paired with the key.
-    getExistingBlocks
-        :: (MonadDBRead m) 
-        => [Page]
-        -> m (M.Map Page [HeaderHash])
-    getExistingBlocks keys' = do
-        keyBlocks <- sequence [ getExistingKeyBlocks key | key <- keys' ]
-        pure $ M.unions keyBlocks
-      where
-        -- Get exisiting key blocks paired with the key. If there are no
-        -- saved blocks on the key return an empty list.
-        getExistingKeyBlocks 
-            :: (MonadDBRead m)
-            => Page 
-            -> m (M.Map Page [HeaderHash])
-        getExistingKeyBlocks key = do
-            keyBlocks        <- DB.getPageBlocks key
-            let mKeyBlocks = fromMaybe [] keyBlocks
-            pure $ M.singleton key mKeyBlocks
-
-    -- For each (k, [v]) pair, create a database operation.
-    putKeysBlocks 
-        :: M.Map Page [HeaderHash]
-        -> [DB.ExplorerOp]
-    putKeysBlocks keysBlocks = putKeyBlocks <$> M.toList keysBlocks
-      where
-        putKeyBlocks 
-            :: (Page, [HeaderHash])
-            -> DB.ExplorerOp
-        putKeyBlocks keyBlocks = DB.PutPageBlocks key uniqueBlocks
-          where
-            key           = keyBlocks ^. _1
-            blocks        = keyBlocks ^. _2
-            uniqueBlocks  = ordNub blocks
-
-    -- The result is the map that contains diffed blocks from the keys.
-    rollbackedBlocks
-        :: [Page]
-        -> M.Map Page [HeaderHash]
-        -> M.Map Page [HeaderHash]
-        -> M.Map Page [HeaderHash]
-    rollbackedBlocks keys' oldMap' newMap' = M.unions rolledbackKeyMaps
-      where
-        rolledbackKeyMaps = [ rollbackedKey key oldMap' newMap' | key <- keys' ]
-
-        -- From a single key, retrieve blocks and return their difference
-        rollbackedKey
-            :: Page
-            -> M.Map Page [HeaderHash]
-            -> M.Map Page [HeaderHash]
-            -> M.Map Page [HeaderHash]
-        rollbackedKey key oldMap newMap = elementsExist
-          where
-            newBlocks' :: [HeaderHash]
-            newBlocks' = newMap ^. at key . non []
-
-            existingBlocks :: [HeaderHash]
-            existingBlocks = oldMap ^. at key . non []
-
-            elementsExist :: M.Map Page [HeaderHash]
-            elementsExist = M.singleton key finalBlocks
-              where
-                -- Rollback the new blocks, remove them from the collection
-                finalBlocks :: [HeaderHash]
-                finalBlocks = existingBlocks \\ newBlocks'
 
 ----------------------------------------------------------------------------
 -- Common
 ----------------------------------------------------------------------------
+
 
 epochBlocksMap 
     :: forall ssc. (SscHelpersClass ssc)
@@ -479,3 +299,87 @@ pageBlocksMap neBlocks = blocksPages
 
     blocks :: [Block ssc]
     blocks = NE.toList neBlocks
+
+-- The result is the map that contains diffed blocks from the keys.
+rollbackedBlocks
+    :: forall a
+     . (Ord a)
+    => [a]
+    -> PrevKBlocks a
+    -> NewKBlocks a
+    -> M.Map a [HeaderHash]
+rollbackedBlocks keys' oldMap' newMap' = M.unions rolledbackKeyMaps
+  where
+    rolledbackKeyMaps = [ rollbackedKey key oldMap' newMap' | key <- keys' ]
+
+    -- From a single key, retrieve blocks and return their difference
+    rollbackedKey
+        :: a
+        -> PrevKBlocks a
+        -> NewKBlocks a
+        -> M.Map a [HeaderHash]
+    rollbackedKey key oldMap newMap = elementsExist
+      where
+        newBlocks' :: [HeaderHash]
+        newBlocks' = getNewKBlocks newMap ^. at key . non []
+
+        existingBlocks :: [HeaderHash]
+        existingBlocks = getPrevKBlocks oldMap ^. at key . non []
+
+        elementsExist :: M.Map a [HeaderHash]
+        elementsExist = M.singleton key finalBlocks
+          where
+            -- Rollback the new blocks, remove them from the collection
+            finalBlocks :: [HeaderHash]
+            finalBlocks = existingBlocks \\ newBlocks'
+
+-- The repetitions can be extracted
+class (Ord k) => PutKeyBlocksOperation k where
+    putKeyBlocksF :: (k -> [HeaderHash] -> DB.ExplorerOp)
+    getKeyBlocksF :: (MonadDBRead m) => (k -> m (Maybe [HeaderHash]))
+
+instance PutKeyBlocksOperation Epoch where
+    putKeyBlocksF = DB.PutEpochBlocks
+    getKeyBlocksF = DB.getEpochBlocks
+
+instance PutKeyBlocksOperation Page where
+    putKeyBlocksF = DB.PutPageBlocks
+    getKeyBlocksF = DB.getPageBlocks
+
+-- For each (k, [v]) pair, create a database operation.
+putKeysBlocks
+    :: forall k
+     . (PutKeyBlocksOperation k)
+    => M.Map k [HeaderHash]
+    -> [DB.ExplorerOp]
+putKeysBlocks keysBlocks = putKeyBlocks <$> M.toList keysBlocks
+  where
+    putKeyBlocks 
+        :: (k, [HeaderHash])
+        -> DB.ExplorerOp
+    putKeyBlocks keyBlocks = putKeyBlocksF key uniqueBlocks
+      where
+        key           = keyBlocks ^. _1
+        blocks        = keyBlocks ^. _2
+        uniqueBlocks  = ordNub blocks
+
+-- Get exisiting key blocks paired with the key.
+getExistingBlocks
+    :: forall m k. (MonadDBRead m, PutKeyBlocksOperation k) 
+    => [k]
+    -> m (M.Map k [HeaderHash])
+getExistingBlocks keys = do
+    keyBlocks <- sequence [ getExistingKeyBlocks key | key <- keys ]
+    pure $ M.unions keyBlocks
+  where
+    -- Get exisiting key blocks paired with the key. If there are no
+    -- saved blocks on the key return an empty list.
+    getExistingKeyBlocks 
+        :: (MonadDBRead m)
+        => k 
+        -> m (M.Map k [HeaderHash])
+    getExistingKeyBlocks key = do
+        keyBlocks        <- getKeyBlocksF key
+        let mKeyBlocks = fromMaybe [] keyBlocks
+        pure $ M.singleton key mKeyBlocks
+

@@ -71,7 +71,7 @@ instance FromJSON IndexedAccountMeta where
 
 instance FromJSON WalletBackup where
     parseJSON = withObject "WalletBackup" $ \o -> do
-        let decodeBase64 x = eitherToFail (B64.decode x) >>= eitherToFail . Bi.decodeFull . BSL.fromStrict
+        let decodeBase64 x = eitherToFail (B64.decode x) >>= eitherToFail . Bi.decodeFull
             collectAccMap = foldlM parseAddAcc HM.empty
             parseAddAcc accMap v = do
                 IndexedAccountMeta idx meta <- parseJSON v
@@ -113,8 +113,8 @@ instance ToJSON IndexedAccountMeta where
 
 instance ToJSON WalletBackup where
     toJSON (WalletBackup skey wMeta wAccounts) = object
-        [ "walletSecretKey" .= B64.encode (Bi.encodeStrict prvKey)
-        , "passwordHash" .= B64.encode (Bi.encodeStrict passPhraseHash)
+        [ "walletSecretKey" .= B64.encode (Bi.encode prvKey)
+        , "passwordHash" .= B64.encode (Bi.encode passPhraseHash)
         , "walletMeta" .= wMeta
         , "accounts" .= encodeAccMap wAccounts
         ]

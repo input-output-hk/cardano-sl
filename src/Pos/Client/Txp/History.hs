@@ -36,16 +36,17 @@ import           Data.Tagged                 (Tagged (..))
 import qualified Ether
 import           System.Wlog                 (WithLogger)
 
-import           Pos.Block.Core              (Block, mainBlockTxPayload)
+import           Pos.Block.Core              (Block, MainBlock, mainBlockSlot,
+                                              mainBlockTxPayload)
 import           Pos.Block.Types             (Blund)
-import           Pos.Context.Context         (GenesisUtxo (..))
+import           Pos.Context                 (GenesisUtxo, genesisUtxoM)
 import           Pos.Core                    (Address, ChainDifficulty, HeaderHash,
-                                              difficultyL)
+                                              Timestamp (..), difficultyL)
 import           Pos.Crypto                  (WithHash (..), withHash)
 import           Pos.DB                      (MonadDBRead, MonadGState, MonadRealDB)
 import qualified Pos.DB.Block                as DB
 import qualified Pos.DB.GState               as GS
-import           Pos.Slotting                (MonadSlots)
+import           Pos.Slotting                (MonadSlots, getSlotStartPure)
 import           Pos.Ssc.Class               (SscHelpersClass)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local      (eTxProcessTransaction)
@@ -87,6 +88,7 @@ data TxHistoryEntry = THEntry
     , _thDifficulty  :: !(Maybe ChainDifficulty)
     , _thInputAddrs  :: ![Address]  -- TODO: remove in favor of _thInputs
     , _thOutputAddrs :: ![Address]
+    , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic)
 
 makeLenses ''TxHistoryEntry
@@ -108,7 +110,7 @@ getTxsByPredicate pr txs = go txs []
         applyTxToUtxo wh dist
 
         let acc' = if pr (incomings ++ outgoings)
-                   then (THEntry txId tx inputs Nothing incomings outgoings : acc)
+                   then (THEntry txId tx inputs Nothing incomings outgoings Nothing : acc)
                    else acc
         go rest acc'
 
@@ -128,21 +130,24 @@ deriveAddrHistory
     :: MonadUtxo m
     => [Address] -> [Block ssc] -> m [TxHistoryEntry]
 deriveAddrHistory addrs chain =
-    DL.toList <$> foldrM (flip $ deriveAddrHistoryBlk addrs) mempty chain
+    DL.toList <$> foldrM (flip $ deriveAddrHistoryBlk addrs $ const Nothing) mempty chain
 
 deriveAddrHistoryBlk
     :: MonadUtxo m
     => [Address]
+    -> (MainBlock ssc -> Maybe Timestamp)
     -> DList TxHistoryEntry
     -> Block ssc
     -> m (DList TxHistoryEntry)
-deriveAddrHistoryBlk _ hist (Left _) = pure hist
-deriveAddrHistoryBlk addrs hist (Right blk) = do
+deriveAddrHistoryBlk _ _ hist (Left _) = pure hist
+deriveAddrHistoryBlk addrs getTs hist (Right blk) = do
     let mapper TxAux {..} = (withHash taTx, taWitness, taDistribution)
     txs <- getRelatedTxsByAddrs addrs . map mapper . flattenTxPayload $
            blk ^. mainBlockTxPayload
     let difficulty = blk ^. difficultyL
-        txs' = map (thDifficulty .~ Just difficulty) txs
+        alterEntry e = e & thDifficulty .~ Just difficulty
+                         & thTimestamp .~ getTs blk
+        txs' = map alterEntry txs
     return $ DL.fromList txs' <> hist
 
 ----------------------------------------------------------------------------
@@ -179,18 +184,19 @@ getTxHistoryDefault
     :: forall ssc m. (SscHelpersClass ssc, TxHistoryEnv m)
     => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
 getTxHistoryDefault = Tagged $ \addrs mInit -> do
-    tip <- GS.getTip
-
-    let getGenUtxo = Ether.asks' unGenesisUtxo
-        getGenPair = (,) <$> GS.getBot <*> getGenUtxo
+    let getGenPair = (,) <$> GS.getBot <*> genesisUtxoM
     (bot, bottomUtxo) <- maybe getGenPair pure mInit
+    sd <- GS.getSlottingData
 
     let fromBlund :: Blund ssc -> UtxoStateT (DB.BlockDBRedirect m) (Block ssc)
         fromBlund = pure . fst
 
+        getBlockTimestamp :: MainBlock ssc -> Maybe Timestamp
+        getBlockTimestamp blk = getSlotStartPure True (blk ^. mainBlockSlot) sd
+
         blockFetcher :: HeaderHash -> UtxoStateT (DB.BlockDBRedirect m) (DList TxHistoryEntry)
         blockFetcher start = GS.foldlUpWhileM fromBlund start (const $ const True)
-            (deriveAddrHistoryBlk addrs) mempty
+            (deriveAddrHistoryBlk addrs getBlockTimestamp) mempty
 
         localFetcher :: UtxoStateT (DB.BlockDBRedirect m) (DList TxHistoryEntry)
         localFetcher = do
@@ -203,6 +209,7 @@ getTxHistoryDefault = Tagged $ \addrs mInit -> do
     DB.runBlockDBRedirect $ do
         (blockTxs, cachedUtxo) <- runUtxoStateT (blockFetcher bot) bottomUtxo
         localTxs <- evalUtxoStateT localFetcher cachedUtxo
+        tip <- GS.getTip
         return . TxHistoryAnswer tip cachedUtxo . DL.toList $ localTxs <> blockTxs
 
 saveTxDefault :: TxHistoryEnv m => (TxId, TxAux) -> m ()

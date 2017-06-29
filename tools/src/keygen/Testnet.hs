@@ -15,6 +15,7 @@ import           Universum
 
 import           Pos.Binary           (asBinary)
 import qualified Pos.Constants        as Const
+import           Pos.Core             (deriveLvl2KeyPair)
 import           Pos.Crypto           (EncryptedSecretKey, PublicKey, RedeemPublicKey,
                                        SecretKey, emptyPassphrase, keyGen, noPassEncrypt,
                                        redeemDeterministicKeyGen, safeKeyGen,
@@ -27,7 +28,7 @@ import           Pos.Types            (Address, coinPortionToDouble, unsafeInteg
 import           Pos.Util.UserSecret  (initializeUserSecret, takeUserSecret, usKeys,
                                        usPrimKey, usVss, usWalletSet,
                                        writeUserSecretRelease)
-import           Pos.Wallet           (deriveLvl2KeyPair, mkGenesisWalletUserSecret)
+import           Pos.Wallet           (mkGenesisWalletUserSecret)
 
 import           KeygenOptions        (TestStakeOptions (..))
 

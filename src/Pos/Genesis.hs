@@ -31,8 +31,9 @@ import           Serokell.Util              (enumerate)
 import qualified Pos.Constants              as Const
 import           Pos.Core                   (Address, Coin, SlotLeaders, StakeholderId,
                                              StakesMap, applyCoinPortion, coinToInteger,
-                                             divCoin, makePubKeyAddress, mkCoin,
-                                             unsafeAddCoin, unsafeMulCoin)
+                                             deriveLvl2KeyPair, divCoin,
+                                             makePubKeyAddress, mkCoin, unsafeAddCoin,
+                                             unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstNonHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshi)
@@ -40,7 +41,6 @@ import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..),
                                              TxOutDistribution)
 import           Pos.Txp.Toil               (Utxo)
-import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 
 -- reexports
 import           Pos.Core.Genesis

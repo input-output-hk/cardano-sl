@@ -24,6 +24,7 @@ import           Data.Time.Units            (convertUnit)
 import           Formatting                 (build, int, sformat, stext, (%))
 import           Mockable                   (Production, delay, runProduction)
 import           Network.Transport.Abstract (Transport, hoistTransport)
+import           Network.Broadcast.Relay.Simple (simpleRelayer)
 import           System.IO                  (hFlush, stdout)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
 #if !(defined(mingw32_HOST_OS))
@@ -39,7 +40,8 @@ import           Pos.Communication          (NodeId, OutSpecs, SendActions, Work
                                              WorkerSpec, dataFlow, delegationRelays,
                                              relayPropagateOut, submitTx,
                                              submitUpdateProposal, submitVote, txRelays,
-                                             usRelays, worker, RelayContext)
+                                             usRelays, worker, RelayContext (..),
+                                             hoistRelayContext)
 import           Pos.Constants              (genesisBlockVersionData, isDevelopment)
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVote),
                                              emptyPassphrase, encToPublic, fakeSigner,
@@ -336,8 +338,15 @@ main = do
 
     loggerBracket logParams $ runProduction $
       bracketTransport TCP.Unaddressable $ \transport -> do
-        relayContext <- pure (error "TODO make a realy context")
-        let transport' :: Transport LightWalletMode
+        let getTargets _ _ = pure (S.fromList allPeers)
+        (relayEnqueue, relayDequeue) <- powerLift @Production (simpleRelayer getTargets)
+        let relayContext :: RelayContext (RealMode SscGodTossing)
+            relayContext = hoistRelayContext powerLift $ RelayContext
+                { _rlyIsPropagation = True
+                , _rlyEnqueue = relayEnqueue
+                , _rlyDequeue = relayDequeue
+                }
+            transport' :: Transport LightWalletMode
             transport' = hoistTransport
                 (powerLift :: forall t . Production t -> LightWalletMode t)
                 transport

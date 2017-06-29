@@ -30,7 +30,6 @@ import           Universum
 import           Control.Lens                (makeLenses)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import           Data.DList                  (DList)
 import qualified Data.DList                  as DL
 import           Data.Tagged                 (Tagged (..))
@@ -53,13 +52,14 @@ import           Pos.Explorer.Txp.Local      (eTxProcessTransaction)
 #else
 import           Pos.Txp                     (txProcessTransaction)
 #endif
-import           Pos.Txp                     (MonadTxpMem, MonadUtxoRead, Tx (..),
+import           Pos.Txp                     (MonadTxpMem, MonadUtxoRead, Tx (..), MonadUtxo,
                                               TxAux (..), TxDistribution, TxId, TxOut,
                                               TxOutAux (..), TxWitness, Utxo, UtxoStateT,
                                               applyTxToUtxo, evalUtxoStateT,
                                               flattenTxPayload,
                                               getLocalTxs, runUtxoStateT, topsortTxs,
                                               txOutAddress, utxoGet)
+import Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -93,18 +93,17 @@ data TxHistoryEntry = THEntry
 
 makeLenses ''TxHistoryEntry
 
--- | Type of monad used to deduce history
-type TxSelectorT m = UtxoStateT (MaybeT m)
-
 -- | Select transactions by predicate on related addresses
 getTxsByPredicate
-    :: Monad m
+    :: (MonadUtxo m, MonadThrow m)
     => ([Address] -> Bool)
     -> [(WithHash Tx, TxWitness, TxDistribution)]
-    -> TxSelectorT m [TxHistoryEntry]
+    -> m [TxHistoryEntry]
 getTxsByPredicate pr txs = do
-    txs' <- lift . MaybeT . return $ topsortTxs (view _1) txs
-    go txs' []
+    case topsortTxs (view _1) txs of
+        Just txs' -> go txs' []
+        Nothing -> throwM $
+            InternalError "getTxsByPredicate: Topsort has failed!"
   where
     go [] acc = return acc
     go ((wh@(WithHash tx txId), _wit, dist) : rest) acc = do
@@ -121,10 +120,10 @@ getTxsByPredicate pr txs = do
 
 -- | Select transactions related to one of given addresses
 getRelatedTxsByAddrs
-    :: Monad m
+    :: (MonadUtxo m, MonadThrow m)
     => [Address]
     -> [(WithHash Tx, TxWitness, TxDistribution)]
-    -> TxSelectorT m [TxHistoryEntry]
+    -> m [TxHistoryEntry]
 getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
 
 -- | Given a full blockchain, derive address history and Utxo
@@ -132,17 +131,17 @@ getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
 -- blockchains when wallet state is ready, but some metadata for
 -- Tx will be required.
 deriveAddrHistory
-    :: (Monad m) => [Address] -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
-    -- :: (Monad m, Ssc ssc) => Address -> [Block ssc] -> TxSelectorT m [TxHistoryEntry]
+    :: (MonadUtxo m, MonadThrow m)
+    => [Address] -> [Block ssc] -> m [TxHistoryEntry]
 deriveAddrHistory addrs chain =
     DL.toList <$> foldrM (flip $ deriveAddrHistoryBlk addrs) mempty chain
 
 deriveAddrHistoryBlk
-    :: Monad m
+    :: (MonadUtxo m, MonadThrow m)
     => [Address]
     -> DList TxHistoryEntry
     -> Block ssc
-    -> TxSelectorT m (DList TxHistoryEntry)
+    -> m (DList TxHistoryEntry)
 deriveAddrHistoryBlk _ hist (Left _) = pure hist
 deriveAddrHistoryBlk addrs hist (Right blk) = do
     let mapper TxAux {..} = (withHash taTx, taWitness, taDistribution)
@@ -192,14 +191,14 @@ getTxHistoryDefault = Tagged $ \addrs mInit -> do
         getGenPair = (,) <$> GS.getBot <*> getGenUtxo
     (bot, bottomUtxo) <- maybe getGenPair pure mInit
 
-    let fromBlund :: Blund ssc -> TxSelectorT (DB.BlockDBRedirect m) (Block ssc)
+    let fromBlund :: Blund ssc -> UtxoStateT (DB.BlockDBRedirect m) (Block ssc)
         fromBlund = pure . fst
 
-        blockFetcher :: HeaderHash -> TxSelectorT (DB.BlockDBRedirect m) (DList TxHistoryEntry)
+        blockFetcher :: HeaderHash -> UtxoStateT (DB.BlockDBRedirect m) (DList TxHistoryEntry)
         blockFetcher start = GS.foldlUpWhileM fromBlund start (const $ const True)
             (deriveAddrHistoryBlk addrs) mempty
 
-        localFetcher :: TxSelectorT (DB.BlockDBRedirect m) (DList TxHistoryEntry)
+        localFetcher :: UtxoStateT (DB.BlockDBRedirect m) (DList TxHistoryEntry)
         localFetcher = do
             let mapper (txid, TxAux {..}) =
                     (WithHash taTx txid, taWitness, taDistribution)
@@ -207,12 +206,10 @@ getTxHistoryDefault = Tagged $ \addrs mInit -> do
             txs <- getRelatedTxsByAddrs addrs $ map mapper ltxs
             return $ DL.fromList txs
 
-    mres <- DB.runBlockDBRedirect . runMaybeT $ do
+    DB.runBlockDBRedirect $ do
         (blockTxs, cachedUtxo) <- runUtxoStateT (blockFetcher bot) bottomUtxo
         localTxs <- evalUtxoStateT localFetcher cachedUtxo
         return . TxHistoryAnswer tip cachedUtxo . DL.toList $ localTxs <> blockTxs
-
-    maybe (error "deriveAddrHistory: Nothing") pure mres
 
 saveTxDefault :: TxHistoryEnv m => (TxId, TxAux) -> m ()
 #ifdef WITH_EXPLORER

@@ -68,7 +68,7 @@ import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Util.Servant           (CCapture, CQueryParam, CReqBody,
                                              DCQueryParam, ModifiesApiRes (..),
                                              ReportDecodeError (..), VerbMod)
-import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
+import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit, CCoin,
                                              CAccountMeta, CAddress, CElectronCrashReport,
                                              CId, CInitialized, CPaperVendWalletRedeem,
                                              CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
@@ -241,6 +241,15 @@ type NewPayment =
     :> Capture "amount" Coin
     :> WRes Post CTx
 
+type TxFee =
+       "txs"
+    :> "fee"
+    :> DCQueryParam "passphrase" CPassPhrase
+    :> CCapture "from" CAccountId
+    :> Capture "to" (CId Addr)
+    :> Capture "amount" Coin
+    :> WRes Get CCoin
+
 type UpdateTx =
        "txs"
     :> "payments"
@@ -392,6 +401,8 @@ type WalletApi = ApiPrefix :> (
     -- TODO: for now we only support one2one sending. We should extend this
     -- to support many2many
      NewPayment
+    :<|>
+     TxFee
     :<|>
       -- FIXME: Should capture the URL parameters in the payload.
      UpdateTx

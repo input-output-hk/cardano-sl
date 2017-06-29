@@ -137,7 +137,7 @@ retrievalWorkerImpl sendActions =
     handleHeadersRecovery (nodeId, rHeader) = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
                  \ so we will request more headers"
-        whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
+        whenJustM (mkHeadersRequest (headerHash rHeader)) $ \mghNext ->
             handleAll (handleHeadersRecoveryE nodeId) $
             reportingFatal version $
             withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
@@ -155,7 +155,7 @@ retrievalWorkerImpl sendActions =
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat sendActions nodeId
     handleBlockRetrievalWithTip nodeId tip = do
-        mghM <- mkHeadersRequest (Just (headerHash tip))
+        mghM <- mkHeadersRequest (headerHash tip)
         whenJust mghM $ \mgh ->
             withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
                 requestHeaders' (handleBlockRetrieval nodeId) mgh nodeId

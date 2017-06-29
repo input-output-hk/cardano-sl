@@ -150,10 +150,11 @@ requestTip nodeId conv = do
 mkHeadersRequest
     :: forall ssc m.
        WorkMode ssc m
-    => Maybe HeaderHash -> m (Maybe MsgGetHeaders)
-mkHeadersRequest upto = do
-    mbHeaders <- nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
-    pure $ (\h -> MsgGetHeaders (toList h) upto) <$> mbHeaders
+    => HeaderHash -> m (Maybe MsgGetHeaders)
+mkHeadersRequest upto = runMaybeT $ do
+    bHeaders <- MaybeT $ nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
+    guard (not $ upto `elem` bHeaders)
+    pure $ MsgGetHeaders (toList bHeaders) (Just upto)
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders

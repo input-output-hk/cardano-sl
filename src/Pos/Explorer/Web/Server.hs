@@ -135,7 +135,7 @@ explorerHandlers _sendActions =
       catchExplorerError $ getLastBlocks (defaultLimit limit) (defaultSkip skip)
 
     getBlocksPagesDefault     page size  =
-      catchExplorerError $ getBlocksPage (defaultPage page) (defaultPageSize size)
+      catchExplorerError $ getBlocksPage page (defaultPageSize size)
 
     getBlocksPagesTotalDefault     size  =
       catchExplorerError $ getBlocksPagesTotal (defaultPageSize size)
@@ -149,7 +149,6 @@ explorerHandlers _sendActions =
     tryEpochSlotSearch   epoch maybeSlot =
       catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    defaultPage  page    = (fromIntegral $ fromMaybe 1   page)
     defaultPageSize size = (fromIntegral $ fromMaybe 10  size)
     defaultLimit limit   = (fromIntegral $ fromMaybe 10  limit)
     defaultSkip  skip    = (fromIntegral $ fromMaybe 0   skip)
@@ -270,16 +269,21 @@ getBlocksTotal = do
 -- Currently the pages are in chronological order.
 getBlocksPage
     :: (ExplorerMode m)
-    => Word
+    => Maybe Word
     -> Word
     -> m (Integer, [CBlockEntry])
-getBlocksPage pageNumber pageSize = do
-
-    -- Get total blocks in the blockchain.
-    blocksTotal <- toInteger <$> getBlocksTotal
+getBlocksPage mPageNumber pageSize = do
 
     -- Get total pages from the blocks.
     totalPages <- getBlocksPagesTotal pageSize
+
+    -- Initially set on the last page number.
+    let pageNumber      = fromMaybe totalPages $ toInteger <$> mPageNumber
+    let calculateOffset = pageNumber * pageSizeInt
+    let pageNumberInt   = toInteger pageNumber
+
+    -- Get total blocks in the blockchain.
+    blocksTotal <- toInteger <$> getBlocksTotal
 
     -- Make sure the parameters are valid.
     when (pageNumberInt > totalPages) $
@@ -306,8 +310,6 @@ getBlocksPage pageNumber pageSize = do
     -- Return total pages and the blocks. We start from page 1.
     pure (totalPages, pageBlocks)
   where
-    calculateOffset = pageNumber * pageSize
-    pageNumberInt   = toInteger pageNumber
     pageSizeInt     = toInteger pageSize
 
 
@@ -338,14 +340,10 @@ getBlocksPagesTotal pageSize = do
 getBlocksLastPage
     :: (ExplorerMode m)
     => m (Integer, [CBlockEntry])
-getBlocksLastPage = do
-    -- The default page size for the __explorer__.
-    let pageSize = 10
-
-    -- Get total pages from the blocks.
-    totalPages <- getBlocksPagesTotal pageSize
-
-    getBlocksPage (fromIntegral totalPages) pageSize
+getBlocksLastPage = getBlocksPage Nothing pageSize
+  where
+    pageSize :: Word
+    pageSize = 10
 
 
 -- | Get last transactions from the blockchain

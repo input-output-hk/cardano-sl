@@ -70,9 +70,10 @@ import           Pos.Core                         (Address (..), Coin, addressF,
                                                    getTimestamp, makeRedeemAddress,
                                                    mkCoin, sumCoins, unsafeAddCoin,
                                                    unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Crypto                       (PassPhrase, aesDecrypt,
-                                                   changeEncPassphrase, checkPassMatches,
-                                                   deriveAesKeyBS, emptyPassphrase, hash,
+import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
+                                                   aesDecrypt, changeEncPassphrase,
+                                                   checkPassMatches, deriveAesKeyBS,
+                                                   emptyPassphrase, hash,
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
@@ -321,7 +322,7 @@ servantHandlers sendActions =
     :<|>
      updateWallet
     :<|>
-     newWallet
+     restoreWallet
     :<|>
      renameWSet
     :<|>
@@ -789,25 +790,39 @@ createWalletSafe cid wsMeta = do
     createWallet cid wsMeta curTime
     getWallet cid
 
-newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
-newWallet passphrase CWalletInit {..} = do
+-- | Which index to use to create initial account and address on new wallet
+-- creation
+initialAccAddrIdxs :: Word32
+initialAccAddrIdxs = 0
+
+newWalletFromBackupPhrase
+    :: WalletWebMode m
+    => PassPhrase -> CWalletInit -> m (EncryptedSecretKey, CId Wal)
+newWalletFromBackupPhrase passphrase CWalletInit {..} = do
     let CWalletMeta {..} = cwInitMeta
 
     skey <- genSaveRootKey passphrase cwBackupPhrase
     let cAddr = encToCId skey
 
     CWallet{..} <- createWalletSafe cAddr cwInitMeta
-    foundAddrs <- selectAccountsFromUtxoLock @WalletSscType [skey]
+    -- can't return this result, since balances can change
 
-    -- If no addresses for given root key are found in utxo,
-    -- create an account with random seed
-    when (null foundAddrs) $ do
-        let accMeta = CAccountMeta { caName = "Initial account" }
-            accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-        () <$ newAccount RandomSeed passphrase accInit
+    let accMeta = CAccountMeta { caName = "Initial account" }
+        accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
+    () <$ newAccount (DeterminedSeed initialAccAddrIdxs) passphrase accInit
 
-    -- We get the wallet again to have proper balances returned
-    getWallet cAddr
+    return (skey, cAddr)
+
+newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
+newWallet passphrase cwInit = do
+    (_, wId) <- newWalletFromBackupPhrase passphrase cwInit
+    getWallet wId
+
+restoreWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
+restoreWallet passphrase cwInit = do
+    (sk, wId) <- newWalletFromBackupPhrase passphrase cwInit
+    syncWalletsWithGStateLock @WalletSscType [sk]
+    getWallet wId
 
 updateWallet :: WalletWebMode m => CId Wal -> CWalletMeta -> m CWallet
 updateWallet wId wMeta = do

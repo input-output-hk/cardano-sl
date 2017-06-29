@@ -20,7 +20,6 @@ import           Control.Lens        (traversed, (%=), (.=))
 import           Control.Monad.State (StateT (..), evalStateT)
 import qualified Data.HashMap.Strict as HM
 import           Data.List           (tail)
-import           Data.List.NonEmpty  ((<|))
 import qualified Data.Map            as M
 import qualified Data.Vector         as V
 import           Universum
@@ -120,18 +119,20 @@ prepareInpsOuts
     -> NonEmpty Address
     -> TxOutputs
     -> Either TxError (TxOwnedInputs Address, TxOutputs)
-prepareInpsOuts utxo addrs@(someAddr :| _) outputs = do
-    futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
-    let inputSum =
-            unsafeIntegerToCoin $ sumCoins $ map (txOutValue . toaOut . snd) futxo
-        newOuts
-            | inputSum > totalMoney =
-                TxOutAux (TxOut someAddr (inputSum `unsafeSubCoin` totalMoney)) [] <|
-                outputs
-            | otherwise = outputs
+prepareInpsOuts utxo addrs outputs = do
+    -- @pva701: @flyingleaf, we added fees and this code became invalid,
+    -- I just commented it. Remove these comments if it's ok or rewrite otherwise.
+    -- futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
+    -- let inputSum =
+    --         unsafeIntegerToCoin $ sumCoins $ map (txOutValue . toaOut . snd) futxo
+        -- newOuts
+        --     | inputSum > totalMoney =
+        --         TxOutAux (TxOut someAddr (inputSum `unsafeSubCoin` totalMoney)) [] <|
+        --         outputs
+        --     | otherwise = outputs
     case nonEmpty futxo of
         Nothing       -> fail "Failed to prepare inputs!"
-        Just inputsNE -> pure (map formTxInputs inputsNE, newOuts)
+        Just inputsNE -> pure (map formTxInputs inputsNE, outputs)
   where
     totalMoney = unsafeIntegerToCoin $ sumCoins $ map (txOutValue . toaOut) outputs
     allUnspent = M.toList $ filterUtxoByAddrs (toList addrs) utxo

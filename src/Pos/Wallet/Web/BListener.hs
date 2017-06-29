@@ -48,8 +48,9 @@ onApplyTracking
     )
     => OldestFirst NE (Blund ssc) -> m ()
 onApplyTracking blunds = do
-    let txs = concatMap (gbTxs . fst) $ getOldestFirst blunds
-    let newTip = headerHash $ NE.last $ getOldestFirst blunds
+    let oldestFirst = getOldestFirst blunds
+        txs = concatMap (gbTxs . fst) oldestFirst
+        newTip = headerHash $ NE.last oldestFirst
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
   where
     syncWalletSet :: HeaderHash -> [TxAux] -> CId Wal -> m ()

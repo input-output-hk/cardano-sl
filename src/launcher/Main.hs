@@ -304,11 +304,11 @@ writeWindowsUpdaterRunner runnerPath = do
     writeFile (toString runnerPath) $ unlines
         [ "TaskKill /IM cardano-launcher.exe /F"
         -- Run updater
-        , "start /wait %*"
+        , "%*"
         -- Delete updater
         , "del %1"
         -- Run launcher again
-        , "start /wait " <> (toText $ takeDirectory exePath) <> "daedalus.bat"
+        , "call \"" <> (toText $ takeDirectory exePath) <> "\\daedalus.bat\""
         -- Delete the bat file
         , "(goto) 2>nul & del \"%~f0\""
         ]

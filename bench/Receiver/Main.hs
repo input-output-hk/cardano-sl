@@ -21,7 +21,7 @@ import           Bench.Network.Commons      (MeasureEvent (..), Ping (..), Pong 
                                              loadLogConfig, logMeasure)
 import qualified Network.Transport.TCP      as TCP
 import           Network.Transport.Concrete (concrete)
-import           Node                       (ListenerAction (..), NodeAction (..), node,
+import           Node                       (Listener (..), NodeAction (..), node,
                                              defaultNodeEnvironment, ConversationActions (..),
                                              simpleNodeEndPoint, noReceiveDelay)
 import           Node.Message.Binary        (BinaryP (..))
@@ -52,7 +52,7 @@ main = do
                 threadDelay (fromIntegral duration :: Second)
   where
     pingListener noPong =
-        ListenerActionConversation $ \_ _ cactions -> do
+        Listener $ \_ _ cactions -> do
             Just (Ping mid payload) <- recv cactions maxBound
             logMeasure PingReceived mid payload
             unless noPong $ do

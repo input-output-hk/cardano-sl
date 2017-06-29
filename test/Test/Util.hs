@@ -75,8 +75,8 @@ import           Test.QuickCheck.Gen         (choose)
 import           Test.QuickCheck.Modifiers   (getLarge)
 import           Test.QuickCheck.Property    (Testable (..), failed, reason, succeeded)
 
-import           Node                        (ConversationActions (..), Listener,
-                                              ListenerAction (..), Message (..),
+import           Node                        (ConversationActions (..),
+                                              Listener (..), Message (..),
                                               NodeAction (..), NodeId, SendActions (..),
                                               Worker, node, nodeId, defaultNodeEnvironment,
                                               simpleNodeEndPoint, Conversation (..),
@@ -214,7 +214,7 @@ awaitSTM time predicate = do
 -- | Way to send pack of messages
 data TalkStyle
     = ConversationStyle
-    -- ^ corresponds to `withConnectionTo` and `ListenerActionConversation` usage
+    -- ^ corresponds to `withConnectionTo` and `Listener` usage
 
 instance Show TalkStyle where
     show ConversationStyle  = "conversation style"
@@ -252,12 +252,12 @@ receiveAll
        )
     => TalkStyle
     -> (msg -> m ())
-    -> ListenerAction BinaryP () m
+    -> Listener BinaryP () m
 -- For conversation style, we send a response for every message received.
 -- The sender awaits a response for each message. This ensures that the
 -- sender doesn't finish before the conversation SYN/ACK completes.
 receiveAll ConversationStyle  handler =
-    ListenerActionConversation @_ @_ @_ @Bool $ \_ _ cactions ->
+    Listener @_ @_ @_ @Bool $ \_ _ cactions ->
         let loop = do mmsg <- recv cactions maxBound
                       case mmsg of
                           Nothing -> pure ()

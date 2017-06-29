@@ -71,8 +71,8 @@ worker anId generator discovery = pingWorker generator
 listeners :: NodeId -> BS.ByteString -> [Listener Packing BS.ByteString Production]
 listeners anId = const [pongListener]
     where
-    pongListener :: ListenerAction Packing BS.ByteString Production
-    pongListener = ListenerActionConversation $ \peerData peerId (cactions :: ConversationActions Pong Void Production) -> do
+    pongListener :: Listener Packing BS.ByteString Production
+    pongListener = Listener $ \peerData peerId (cactions :: ConversationActions Pong Void Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId ++ " with peer data " ++ B8.unpack peerData
         send cactions Pong
 

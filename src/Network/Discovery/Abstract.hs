@@ -14,6 +14,8 @@ import Data.Typeable (Typeable)
 import Data.Set (Set)
 import Network.Transport.Abstract (EndPointAddress)
 
+-- Note: we'll need a way to be notified of new peers.
+
 data NetworkDiscovery err m = NetworkDiscovery {
       knownPeers :: m (Set EndPointAddress)
     , discoverPeers :: m (Either (DiscoveryError err) (Set EndPointAddress))

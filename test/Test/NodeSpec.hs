@@ -81,7 +81,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 10) $ do
                 serverFinished <- newSharedExclusive
                 let attempts = 1
 
-                let listener = ListenerActionConversation $ \pd _ cactions -> do
+                let listener = Listener $ \pd _ cactions -> do
                         True <- return $ pd == ("client", 24)
                         initial <- timeout "server waiting for request" 30000000 (recv cactions maxBound)
                         case initial of
@@ -126,7 +126,7 @@ spec = describe "Node" $ modifyMaxSuccess (const 10) $ do
                 -- of attempts without taking too much time.
                 let attempts = 100
 
-                let listener = ListenerActionConversation $ \pd _ cactions -> do
+                let listener = Listener $ \pd _ cactions -> do
                         True <- return $ pd == ("some string", 42)
                         initial <- recv cactions maxBound
                         case initial of

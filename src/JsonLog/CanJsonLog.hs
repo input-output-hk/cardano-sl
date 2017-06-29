@@ -29,7 +29,6 @@ import Control.Monad.Trans.Class    (MonadTrans (..))
 import Control.Monad.Trans.Identity (IdentityT)
 import Control.Monad.Trans.Resource (ResourceT)
 import Data.Aeson.Types             (ToJSON)
-import Ether                        (TaggedTrans (..))
 import Serokell.Util.Lens           (WrappedM (..))
 import System.Wlog.LoggerNameBox    (LoggerNameBox)
 
@@ -55,8 +54,6 @@ instance CanJsonLog m => CanJsonLog (StateT s m)
 instance (Monoid w, CanJsonLog m) => CanJsonLog (WriterT w m)
 instance CanJsonLog m => CanJsonLog (LoggerNameBox m)
 instance CanJsonLog m => CanJsonLog (ResourceT m)
-
-deriving instance CanJsonLog (t m) => CanJsonLog (TaggedTrans tag t m)
 
 -- | @'jsonLogWrappedM'@ is a convenience default implementation
 -- of @'jsonLog'@ to facilitate providing instances of class @'CanJsonLog'@

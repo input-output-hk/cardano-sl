@@ -22,6 +22,7 @@ module Node.Internal (
     defaultNodeEnvironment,
     NodeEndPoint(..),
     simpleNodeEndPoint,
+    manualNodeEndPoint,
     ReceiveDelay,
     noReceiveDelay,
     constantReceiveDelay,
@@ -609,6 +610,14 @@ data NodeEndPoint m = NodeEndPoint {
 simpleNodeEndPoint :: NT.Transport m -> NodeEndPoint m
 simpleNodeEndPoint transport = NodeEndPoint {
       newNodeEndPoint = NT.newEndPoint transport
+    , closeNodeEndPoint = NT.closeEndPoint
+    }
+
+-- | Use an existing 'EndPoint'. It will be closed automatically when the node
+--   stops, so do not close it yourself.
+manualNodeEndPoint :: Applicative m => NT.EndPoint m -> NodeEndPoint m
+manualNodeEndPoint ep = NodeEndPoint {
+      newNodeEndPoint = pure $ Right ep
     , closeNodeEndPoint = NT.closeEndPoint
     }
 

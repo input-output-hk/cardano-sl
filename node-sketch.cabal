@@ -19,10 +19,7 @@ Library
                         Network.Transport.Concrete.TCP
                         Network.QDisc.Fair
 
-                        Network.Broadcast.Relay.Types
-                        Network.Broadcast.Relay.Class
-                        Network.Broadcast.Relay.Util
-                        Network.Broadcast.Relay.Logic
+                        Network.Broadcast.Relay.Simple
 
                         Node
 
@@ -70,7 +67,6 @@ Library
                       , bytestring
                       , deepseq
                       , data-default
-                      , ether
                       , exceptions
                       , formatting
                       , hashable

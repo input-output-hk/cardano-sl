@@ -52,14 +52,12 @@ import           Pos.Explorer.Txp.Local      (eTxProcessTransaction)
 #else
 import           Pos.Txp                     (txProcessTransaction)
 #endif
-import           Pos.Txp                     (MonadTxpMem, MonadUtxoRead, Tx (..), MonadUtxo,
-                                              TxAux (..), TxDistribution, TxId, TxOut,
-                                              TxOutAux (..), TxWitness, Utxo, UtxoStateT,
-                                              applyTxToUtxo, evalUtxoStateT,
-                                              flattenTxPayload,
-                                              getLocalTxs, runUtxoStateT, topsortTxs,
-                                              txOutAddress, utxoGet)
-import Pos.Wallet.Web.Error (WalletError (..))
+import           Pos.Txp                     (MonadTxpMem, MonadUtxo, MonadUtxoRead,
+                                              Tx (..), TxAux (..), TxDistribution, TxId,
+                                              TxOut, TxOutAux (..), TxWitness, Utxo,
+                                              UtxoStateT, applyTxToUtxo, evalUtxoStateT,
+                                              flattenTxPayload, getLocalTxs,
+                                              runUtxoStateT, txOutAddress, utxoGet)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -95,15 +93,11 @@ makeLenses ''TxHistoryEntry
 
 -- | Select transactions by predicate on related addresses
 getTxsByPredicate
-    :: (MonadUtxo m, MonadThrow m)
+    :: MonadUtxo m
     => ([Address] -> Bool)
     -> [(WithHash Tx, TxWitness, TxDistribution)]
     -> m [TxHistoryEntry]
-getTxsByPredicate pr txs = do
-    case topsortTxs (view _1) txs of
-        Just txs' -> go txs' []
-        Nothing -> throwM $
-            InternalError "getTxsByPredicate: Topsort has failed!"
+getTxsByPredicate pr txs = go txs []
   where
     go [] acc = return acc
     go ((wh@(WithHash tx txId), _wit, dist) : rest) acc = do
@@ -120,7 +114,7 @@ getTxsByPredicate pr txs = do
 
 -- | Select transactions related to one of given addresses
 getRelatedTxsByAddrs
-    :: (MonadUtxo m, MonadThrow m)
+    :: MonadUtxo m
     => [Address]
     -> [(WithHash Tx, TxWitness, TxDistribution)]
     -> m [TxHistoryEntry]
@@ -131,13 +125,13 @@ getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
 -- blockchains when wallet state is ready, but some metadata for
 -- Tx will be required.
 deriveAddrHistory
-    :: (MonadUtxo m, MonadThrow m)
+    :: MonadUtxo m
     => [Address] -> [Block ssc] -> m [TxHistoryEntry]
 deriveAddrHistory addrs chain =
     DL.toList <$> foldrM (flip $ deriveAddrHistoryBlk addrs) mempty chain
 
 deriveAddrHistoryBlk
-    :: (MonadUtxo m, MonadThrow m)
+    :: MonadUtxo m
     => [Address]
     -> DList TxHistoryEntry
     -> Block ssc

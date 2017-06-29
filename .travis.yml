@@ -3,14 +3,14 @@ language: nix
 sudo: true
 matrix:
   include:
-    - env: HLINT=true
-    - env: HLINT=false
+    - env: MODE=hlint
+    - env: MODE=normal
+    - env: MODE=nix
+    - env: MODE=stack2nix
     - os: osx
       osx_image: xcode8
       # don't use sierra (xcode 8.1+) because of too restrictive linker path (DEVOPS-168)
-env:
-  global:
-    - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz
+
 cache:
   directories:
   - "$HOME/.stack"
@@ -31,14 +31,25 @@ before_install:
 - sudo /etc/init.d/memcached stop || true
 - sudo /etc/init.d/mysql stop || true
 - sudo /etc/init.d/postgresql stop || true
+- cat /etc/nix/nix.conf > ~/nix.conf
+- echo "binary-caches = https://cache.nixos.org https://hydra.iohk.io" >> ~/nix.conf
+- echo "binary-cache-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" >> ~/nix.conf
+- export NIX_CONF_DIR=~
+
+install:
+  - source scripts/set_nixpath.sh
 
 after_failure:
 - sudo dmesg
 
 script:
 # DEVOPS-107: wait 20min for output due to haddock generation
-- if [[ "$HLINT" == "true" ]]; then
+- if [[ "$MODE" == "nix" ]]; then
+    nix-build -A cardano-sl --no-build-output --keep-going || nix-build -A cardano-sl -j 1 ;
+  elif [[ "$MODE" == "hlint" ]]; then
     nix-shell -p haskellPackages.hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
+  elif [[ "$MODE" == "stack2nix" ]]; then
+    nix-shell -p cabal2nix stack cabal-install ghc -Q -j 4 --run scripts/check-stack2nix.sh ;
   else
     nix-shell -p moreutils expect --run "unbuffer ./scripts/ci/travis.sh | ts";
   fi

@@ -13,6 +13,7 @@ module Pos.Block.Network.Logic
        , handleUnsolicitedHeaders
        , mkHeadersRequest
        , requestHeaders
+       , requestHeaders'
 
        , mkBlocksRequest
        , handleBlocks
@@ -245,7 +246,21 @@ requestHeaders
     -> Maybe (BlockHeader ssc)
     -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
-requestHeaders mgh nodeId origTip conv = do
+requestHeaders mgh nodeId origTip =
+    requestHeaders' cont mgh nodeId
+    where
+        cont headersPostfix =
+            addToBlockRequestQueue headersPostfix nodeId origTip
+
+requestHeaders'
+    :: forall ssc m.
+       (SscWorkersClass ssc, WorkMode ssc m)
+    => (NewestFirst NE (BlockHeader ssc) -> m ())
+    -> MsgGetHeaders
+    -> NodeId
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> m ()
+requestHeaders' cont mgh nodeId conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
@@ -257,7 +272,7 @@ requestHeaders mgh nodeId origTip conv = do
             (map headerHash headers)
         case matchRequestedHeaders headers mgh inRecovery of
             MRGood           -> do
-                handleRequestedHeaders headers nodeId origTip
+                handleRequestedHeaders cont headers
             MRUnexpected msg -> handleUnexpected headers msg
   where
     onNothing = do
@@ -279,11 +294,10 @@ requestHeaders mgh nodeId origTip conv = do
 handleRequestedHeaders
     :: forall ssc m.
        WorkMode ssc m
-    => NewestFirst NE (BlockHeader ssc)
-    -> NodeId
-    -> Maybe (BlockHeader ssc)
+    => (NewestFirst NE (BlockHeader ssc) -> m ())
+    -> NewestFirst NE (BlockHeader ssc)
     -> m ()
-handleRequestedHeaders headers nodeId origTip = do
+handleRequestedHeaders cont headers = do
     logDebug "handleRequestedHeaders: headers were requested, will process"
     classificationRes <- classifyHeaders headers
     let newestHeader = headers ^. _Wrapped . _neHead
@@ -300,7 +314,7 @@ handleRequestedHeaders headers nodeId origTip = do
                     "handleRequestedHeaders: couldn't find LCA child " <>
                     "within headers returned, most probably classifyHeaders is broken"
                 Just headersPostfix ->
-                    addToBlockRequestQueue (NewestFirst headersPostfix) nodeId origTip
+                    cont (NewestFirst headersPostfix)
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid reason ->

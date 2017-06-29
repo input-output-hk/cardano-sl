@@ -27,8 +27,7 @@ import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              classifyNewHeader, needRecovery)
 import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic    (handleBlocks, mkBlocksRequest,
-                                             mkHeadersRequest, requestHeaders,
-                                             triggerRecovery)
+                                             mkHeadersRequest, requestHeaders, requestHeaders', triggerRecovery)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..))
 import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
 import           Pos.Communication.Limits   (recvLimited)
@@ -115,11 +114,7 @@ retrievalWorkerImpl sendActions =
                         RetrieveBlocksByHeaders headers ->
                             pure (handleBlockRetrieval nodeId headers)
                         RetrieveHeadersByTip tip ->
-                            pure $ do
-                                mghM <- mkHeadersRequest (Just (headerHash tip))
-                                whenJust mghM $ \mgh ->
-                                    withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
-                                        requestHeaders mgh nodeId (Just tip)
+                            pure (handleBlockRetrievalWithTip nodeId tip)
                 (_, Just rec')  ->
                     pure (handleHeadersRecovery rec')
         thingToDoNext
@@ -146,6 +141,11 @@ retrievalWorkerImpl sendActions =
             handleAll (handleHeadersRecoveryE nodeId) $
             reportingFatal version $
             withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
+                -- TODO: Write a comment why we use 'requestHeaders' here which
+                -- creates another task in the BlockRetrievalQueue. We could
+                -- just retrieve the blocks right away (see
+                -- 'handleBlockRetrievalWithTip' below). If there isn't a
+                -- reason, change the behavior.
                 requestHeaders mghNext nodeId (Just rHeader)
     handleHeadersRecoveryE nodeId e = do
         logWarning $ sformat
@@ -154,6 +154,12 @@ retrievalWorkerImpl sendActions =
             nodeId e
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat sendActions nodeId
+    handleBlockRetrievalWithTip nodeId tip = do
+        mghM <- mkHeadersRequest (Just (headerHash tip))
+        whenJust mghM $ \mgh ->
+            withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
+                requestHeaders' (handleBlockRetrieval nodeId) mgh nodeId
+
 
 dropUpdateHeader :: WorkMode ssc m => m ()
 dropUpdateHeader = do

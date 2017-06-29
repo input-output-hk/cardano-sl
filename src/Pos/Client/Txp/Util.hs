@@ -120,9 +120,9 @@ prepareInpsOuts
     -> TxOutputs
     -> Either TxError (TxOwnedInputs Address, TxOutputs)
 prepareInpsOuts utxo addrs outputs = do
+    futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
     -- @pva701: @flyingleaf, we added fees and this code became invalid,
     -- I just commented it. Remove these comments if it's ok or rewrite otherwise.
-    -- futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
     -- let inputSum =
     --         unsafeIntegerToCoin $ sumCoins $ map (txOutValue . toaOut . snd) futxo
         -- newOuts

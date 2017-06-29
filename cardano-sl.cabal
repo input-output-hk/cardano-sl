@@ -279,8 +279,10 @@ library
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
+                        Pos.Aeson.WalletBackup
                         Pos.Wallet.Web.Account
                         Pos.Wallet.Web.Api
+                        Pos.Wallet.Web.Backup
                         Pos.Wallet.Web.BListener
                         Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Error
@@ -394,6 +396,7 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
+                      , versions
                       , wreq
                       , yaml
 

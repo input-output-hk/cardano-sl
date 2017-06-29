@@ -10,6 +10,7 @@ module Pos.Core.Timestamp
 
 import           Universum
 
+import           Data.Text.Buildable   (Buildable)
 import qualified Data.Text.Buildable   as Buildable
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Data.Time.Units       (Microsecond)

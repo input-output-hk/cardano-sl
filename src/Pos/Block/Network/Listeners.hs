@@ -78,8 +78,8 @@ handleBlockHeaders
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => (ListenerSpec m, OutSpecs)
-handleBlockHeaders = listenerConv $ \__ourVerInfo nodeId conv -> do
+handleBlockHeaders = listenerConv @Void $ \__ourVerInfo nodeId conv -> do
     logDebug "handleBlockHeaders: got some unsolicited block header(s)"
     mHeaders <- recvLimited conv
     whenJust mHeaders $ \(MsgHeaders headers) ->
-        handleUnsolicitedHeaders (getNewestFirst headers) nodeId conv
+        handleUnsolicitedHeaders (getNewestFirst headers) nodeId

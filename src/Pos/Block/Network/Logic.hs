@@ -48,6 +48,7 @@ import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
                                              MsgHeaders (..))
 import           Pos.Block.Pure             (verifyHeaders)
+import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
@@ -135,7 +136,7 @@ requestTip nodeId conv = do
   where
     handleTip (MsgHeaders (NewestFirst (tip:|[]))) = do
         logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
-        handleUnsolicitedHeader tip nodeId conv
+        handleUnsolicitedHeader tip nodeId
     handleTip _ = pass
 
 ----------------------------------------------------------------------------
@@ -159,12 +160,11 @@ handleUnsolicitedHeaders
        (SscWorkersClass ssc, WorkMode ssc m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
-handleUnsolicitedHeaders (header :| []) nodeId conv =
-    handleUnsolicitedHeader header nodeId conv
+handleUnsolicitedHeaders (header :| []) nodeId =
+    handleUnsolicitedHeader header nodeId
 -- TODO: ban node for sending more than one unsolicited header.
-handleUnsolicitedHeaders (h:|hs) _ _ = do
+handleUnsolicitedHeaders (h:|hs) _ = do
     logWarning "Someone sent us nonzero amount of headers we didn't expect"
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
@@ -173,9 +173,8 @@ handleUnsolicitedHeader
        (SscWorkersClass ssc, WorkMode ssc m)
     => BlockHeader ssc
     -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
-handleUnsolicitedHeader header nodeId conv = do
+handleUnsolicitedHeader header nodeId = do
     logDebug $ sformat
         ("handleUnsolicitedHeader: single header "%shortHashF%
          " was propagated, processing")
@@ -188,9 +187,7 @@ handleUnsolicitedHeader header nodeId conv = do
             addToBlockRequestQueue (one header) nodeId Nothing
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
-            mghM <- mkHeadersRequest (Just hHash)
-            whenJust mghM $ \mgh ->
-                requestHeaders mgh nodeId (Just header) conv
+            addToBlockRequestQueue' nodeId header
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
             logDebug $ sformat ("handleUnsolicited: header "%shortHashF%
@@ -351,7 +348,7 @@ addToBlockRequestQueue headers nodeId mrecoveryTip = do
         updateRecoveryHeader mrecoveryTip
         ifM (isFullTBQueue queue)
             (pure False)
-            (True <$ writeTBQueue queue (nodeId, headers))
+            (True <$ writeTBQueue queue (nodeId, RetrieveBlocksByHeaders headers))
     if added
     then logDebug $ sformat ("Added to block request queue: nodeId="%build%
                              ", headers="%listJson)
@@ -362,6 +359,27 @@ addToBlockRequestQueue headers nodeId mrecoveryTip = do
   where
     a `isMoreDifficult` b = a ^. difficultyL > b ^. difficultyL
 
+addToBlockRequestQueue'
+    :: forall ssc m.
+       (WorkMode ssc m)
+    => NodeId
+    -> BlockHeader ssc
+    -> m ()
+addToBlockRequestQueue' nodeId tip = do
+    queue <- Ether.ask @BlockRetrievalQueueTag
+    added <- atomically $ do
+        ifM (isFullTBQueue queue)
+            (pure False)
+            (True <$ writeTBQueue queue (nodeId, RetrieveHeadersByTip tip))
+    if added
+        then logDebug $
+            sformat ("Added to block request queue: nodeId="%build%
+                    ", tip="%build)
+                    nodeId tip
+        else logWarning $
+            sformat ("Failed to add headers from "%build%
+                    " to block retrieval queue: queue is full")
+                    nodeId
 
 ----------------------------------------------------------------------------
 -- Handling blocks

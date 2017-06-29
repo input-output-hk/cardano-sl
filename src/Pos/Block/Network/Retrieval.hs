@@ -30,6 +30,7 @@ import           Pos.Block.Network.Logic    (handleBlocks, mkBlocksRequest,
                                              mkHeadersRequest, requestHeaders,
                                              triggerRecovery)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..))
+import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              NodeId, OutSpecs, SendActions (..),
@@ -109,19 +110,29 @@ retrievalWorkerImpl sendActions =
                                else pure Nothing
             case (mbQueuedHeadersChunk, mbRecHeader) of
                 (Nothing, Nothing) -> retry
-                (Just chunk, _)    -> pure (handleBlockRetrieval chunk)
-                (_, Just rec')     -> pure (handleHeadersRecovery rec')
+                (Just (nodeId, task), _) ->
+                    case task of
+                        RetrieveBlocksByHeaders headers ->
+                            pure (handleBlockRetrieval nodeId headers)
+                        RetrieveHeadersByTip tip ->
+                            pure $ do
+                                mghM <- mkHeadersRequest (Just (headerHash tip))
+                                whenJust mghM $ \mgh ->
+                                    withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
+                                        requestHeaders mgh nodeId (Just tip)
+                (_, Just rec')  ->
+                    pure (handleHeadersRecovery rec')
         thingToDoNext
         mainLoop
     mainLoopE e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
     --
-    handleBlockRetrieval chunk =
-        handleAll (handleBlockRetrievalE chunk) $
+    handleBlockRetrieval nodeId headers =
+        handleAll (handleBlockRetrievalE nodeId headers) $
         reportingFatal version $
-        workerHandle sendActions chunk
-    handleBlockRetrievalE (nodeId, headers) e = do
+        workerHandle sendActions nodeId headers
+    handleBlockRetrievalE nodeId headers e = do
         logWarning $ sformat
             ("Error handling nodeId="%build%", headers="%listJson%": "%shown)
             nodeId (fmap headerHash headers) e
@@ -198,9 +209,10 @@ dropRecoveryHeaderAndRepeat sendActions nodeId = do
 workerHandle
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m
-    -> (NodeId, NewestFirst NE (BlockHeader ssc))
+    -> NodeId
+    -> NewestFirst NE (BlockHeader ssc)
     -> m ()
-workerHandle sendActions (nodeId, headers) = do
+workerHandle sendActions nodeId headers = do
     logDebug $ sformat
         ("retrievalWorker: handling nodeId="%build%", headers="%listJson)
         nodeId (fmap headerHash headers)

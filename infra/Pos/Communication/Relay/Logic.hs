@@ -298,15 +298,6 @@ addToRelayQueue
 addToRelayQueue relayContext pm provenance = do
     let enqueue = _rlyEnqueue relayContext
     enqueue pm provenance
-    {-
-    isFull <- atomically $ isFullTBQueue queue
-    if isFull then do
-        logWarning $ "Propagation queue is full, no propagation"
-        jsonLog RelayQueueFull
-    else do
-        ts <- currentTime
-        atomically $ writeTBQueue queue (ts, pm)
-    -}
 
 relayPropagateOut :: Message Void => [Relay m] -> OutSpecs
 relayPropagateOut = mconcat . map propagateOutImpl
@@ -374,24 +365,6 @@ relayWorkersImpl relayContext allOutSpecs =
             (msg, provenance, peer, time) <- dequeue
             sendIt msg provenance peer time
 
-
-        {-
-        enqueue <- _rlyDequeue <$> askRelayMem
-        forever $ atomically (readTBQueue queue) >>= \(ts, message) -> do
-            ts' <- currentTime
-            jsonLog $ EnqueueDequeueTime $ fromIntegral $ ts' - ts
-            case message of
-                InvReqDataPM _ key contents -> do
-                    logDebug $ sformat
-                        ("Propagation data with key: "%build) key
-                    converseToNeighbors sendActions $ \__node ->
-                        pure $ Conversation $ irdHandler key contents
-                DataOnlyPM _ contents -> do
-                    logDebug $ sformat
-                        ("Propagation data: "%build) contents
-                    converseToNeighbors sendActions $ \__node ->
-                        pure $ Conversation $ doHandler contents
-        -}
 
     doHandler
         :: contents1

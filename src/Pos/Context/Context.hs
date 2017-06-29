@@ -185,16 +185,3 @@ instance HasLens ReportingContext (NodeContext ssc) ReportingContext where
         setter rc =
             set (lensOf @NodeParams . npReportServersL) (rc ^. rcReportServers) .
             set (lensOf @LoggerConfig) (rc ^. rcLoggingConfig)
-
-{-
-instance HasLens RelayContext (NodeContext ssc) RelayContext where
-    lensOf = lens getter (flip setter)
-      where
-        getter nc =
-            RelayContext
-                (nc ^. lensOf @NodeParams . npPropagationL)
-                (nc ^. lensOf @RelayPropagationQueue)
-        setter rc =
-            set (lensOf @NodeParams . npPropagationL) (_rlyIsPropagation rc) .
-            set (lensOf @RelayPropagationQueue) (_rlyPropagationQueue rc)
--}

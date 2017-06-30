@@ -144,7 +144,6 @@ module.exports = {
         target: 'http://localhost:8100',
         secure: false
       }
-    },
-    disableHostCheck: true
+    }
   }
 };

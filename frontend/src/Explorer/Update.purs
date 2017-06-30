@@ -223,6 +223,7 @@ update (DashboardPaginateBlocks mEvent pageNumber) state =
           set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
     , effects:
           [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+          -- ^ blur element - needed by iOS to close native keyboard
           , pure <<< Just $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
           ]
     }
@@ -256,6 +257,7 @@ update (AddressPaginateTxs mEvent pageNumber) state =
           set (viewStates <<< addressDetail <<< addressTxPaginationEditable) false state
     , effects:
         [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
         ]
     }
 
@@ -285,6 +287,7 @@ update (BlockPaginateTxs mEvent pageNumber) state =
           set (viewStates <<< blockDetail <<< blockTxPaginationEditable) false state
     , effects:
         [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
         ]
     }
 
@@ -314,6 +317,7 @@ update (BlocksPaginateBlocks mEvent pageNumber) state =
           set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) false state
     , effects:
         [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
         ]
     }
 
@@ -477,16 +481,18 @@ update (GlobalSearch event) state =
           set (viewStates <<< globalViewState <<< gViewSearchQuery) emptySearchQuery $
           set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
           state
-    , effects: [
-      -- set state of focus explicitly
-      pure <<< Just $ GlobalFocusSearchInput false
-      , case state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch) of
-          SearchAddress ->
-              pure <<< Just $ Navigate (toUrl <<< Address $ mkCAddress query) event
-          SearchTx ->
-              pure <<< Just $ Navigate (toUrl <<< Tx $ mkCTxId query) event
-          _ -> pure Nothing  -- TODO (ks) maybe put up a message?
-      ]
+    , effects:
+        [ pure <<< Just $ GlobalFocusSearchInput false
+        -- ^ set state of focus explicitly
+        , pure <<< Just <<< BlurElement <<< nodeToHTMLElement $ target event
+        -- ^ blur element - needed by iOS to close native keyboard
+        , case state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch) of
+            SearchAddress ->
+                pure <<< Just $ Navigate (toUrl <<< Address $ mkCAddress query) event
+            SearchTx ->
+                pure <<< Just $ Navigate (toUrl <<< Tx $ mkCTxId query) event
+            _ -> pure Nothing  -- TODO (ks) maybe put up a message?
+        ]
     }
 update (GlobalSearchTime event) state =
     let query = state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
@@ -495,24 +501,26 @@ update (GlobalSearchTime event) state =
           set (viewStates <<< globalViewState <<< gViewSearchTimeQuery) emptySearchTimeQuery $
           set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
           state
-    , effects: [
-      -- set state of focus explicitly
-      pure <<< Just $ GlobalFocusSearchInput false
-      , case query of
-            Tuple (Just epoch) (Just slot) ->
-                let epochIndex = mkEpochIndex epoch
-                    slotIndex  = mkLocalSlotIndex slot
-                    epochSlotUrl = EpochSlot epochIndex slotIndex
-                in
-                pure <<< Just $ Navigate (toUrl epochSlotUrl) event
-            Tuple (Just epoch) Nothing ->
-                let epochIndex = mkEpochIndex epoch
-                    epochUrl   = Epoch $ epochIndex
-                in
-                pure <<< Just $ Navigate (toUrl epochUrl) event
+    , effects:
+        [ pure <<< Just $ GlobalFocusSearchInput false
+          -- ^ set state of focus explicitly
+          , pure <<< Just <<< BlurElement <<< nodeToHTMLElement $ target event
+          -- ^ blur element - needed by iOS to close native keyboard
+          , case query of
+                Tuple (Just epoch) (Just slot) ->
+                    let epochIndex = mkEpochIndex epoch
+                        slotIndex  = mkLocalSlotIndex slot
+                        epochSlotUrl = EpochSlot epochIndex slotIndex
+                    in
+                    pure <<< Just $ Navigate (toUrl epochSlotUrl) event
+                Tuple (Just epoch) Nothing ->
+                    let epochIndex = mkEpochIndex epoch
+                        epochUrl   = Epoch $ epochIndex
+                    in
+                    pure <<< Just $ Navigate (toUrl epochUrl) event
 
-            _ -> pure Nothing -- TODO (ks) maybe put up a message?
-      ]
+                _ -> pure Nothing -- TODO (ks) maybe put up a message?
+        ]
     }
 
 update (GlobalUpdateSelectedSearch search) state =

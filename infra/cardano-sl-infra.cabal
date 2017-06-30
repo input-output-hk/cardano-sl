@@ -54,6 +54,7 @@ library
                         Pos.DHT.Workers
 
                         -- Pos.Communication
+                        Pos.Communication.Arbitrary
                         Pos.Communication.Constants
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.State
@@ -114,6 +115,7 @@ library
                       , exceptions
                       , filepath
                       , formatting
+                      , generic-arbitrary
                       , hashable
                       , kademlia
                       , lens

@@ -112,6 +112,7 @@ spec = describe "Crypto" $ do
                 binaryTest @(AsBinary Crypto.EncShare)
                 binaryTest @(AsBinary Crypto.SecretProof)
                 binaryTest @(AsBinary Crypto.SecretSharingExtra)
+                binaryTest @Crypto.HDAddressPayload
             describe "SafeCopy instances" $ do
                 safeCopyTest @Crypto.SecretKey
                 safeCopyTest @Crypto.PublicKey

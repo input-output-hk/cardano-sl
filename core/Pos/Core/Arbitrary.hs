@@ -45,6 +45,7 @@ import           Pos.Core.Types                    (BlockVersion (..), Script (.
 import qualified Pos.Core.Types                    as Types
 import           Pos.Crypto                        (PublicKey, Share)
 import           Pos.Crypto.Arbitrary              ()
+import           Pos.Data.Attributes               (Attributes (..))
 import           Pos.Util.Arbitrary                (makeSmall)
 import           Pos.Util.Util                     (leftToPanic)
 
@@ -87,6 +88,9 @@ instance Arbitrary Types.EpochOrSlot where
           Types.EpochOrSlot . Left <$> arbitrary
         , Types.EpochOrSlot . Right <$> arbitrary
         ]
+
+instance Arbitrary h => Arbitrary (Attributes h) where
+    arbitrary = genericArbitrary
 
 instance Arbitrary Types.Coin where
     arbitrary = Types.mkCoin <$> choose (1, Types.unsafeGetCoin maxBound)

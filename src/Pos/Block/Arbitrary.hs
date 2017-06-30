@@ -104,11 +104,6 @@ instance ( Arbitrary (SscPayload ssc)
         arbitrary <*>
         arbitrary
 
-instance Arbitrary h => Arbitrary (Attributes h) where
-    arbitrary = Attributes
-        <$> arbitrary
-        <*> arbitrary
-
 instance Arbitrary T.MainExtraHeaderData where
     arbitrary = T.MainExtraHeaderData
         <$> arbitrary

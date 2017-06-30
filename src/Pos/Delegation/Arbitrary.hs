@@ -12,7 +12,7 @@ import           Test.QuickCheck          (Arbitrary (..), Gen, listOf)
 import           Pos.Binary.Core          ()
 import           Pos.Core                 (EpochIndex)
 import           Pos.Crypto               (ProxySecretKey (..), createProxySecretKey)
-import           Pos.Delegation.Types     (DlgPayload, mkDlgPayload)
+import           Pos.Delegation.Types     (DlgPayload, mkDlgPayload, )
 import           Pos.Core.Arbitrary       ()
 import           Pos.Util.Util            (leftToPanic)
 

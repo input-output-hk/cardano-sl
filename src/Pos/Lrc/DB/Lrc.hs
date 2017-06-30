@@ -6,7 +6,7 @@ module Pos.Lrc.DB.Lrc
 
 import           Universum
 
-import qualified Ether
+import           Ether.Internal      (HasLens (..))
 
 import           Pos.Context.Context (GenesisStakes, GenesisUtxo)
 import           Pos.DB.Class        (MonadDB)
@@ -20,8 +20,9 @@ import           Pos.Util            (maybeThrow)
 
 -- | Put missing initial data into LRC DB.
 prepareLrcDB
-    :: ( Ether.MonadReader' GenesisStakes m
-       , Ether.MonadReader' GenesisUtxo m
+    :: ( MonadReader ctx m
+       , HasLens GenesisStakes ctx GenesisStakes
+       , HasLens GenesisUtxo ctx GenesisUtxo
        , MonadDB m
        )
     => m ()

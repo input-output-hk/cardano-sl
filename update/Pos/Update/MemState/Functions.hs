@@ -8,9 +8,10 @@ module Pos.Update.MemState.Functions
 import           Universum
 
 import qualified Control.Concurrent.Lock   as Lock
+import           Control.Lens              (views)
 import           Control.Monad.Catch       (MonadMask, bracket_)
 import qualified Data.HashMap.Strict       as HM
-import qualified Ether
+import           Ether.Internal            (HasLens (..))
 
 import           Pos.Binary.Class          (biSize)
 import           Pos.Binary.Update         ()
@@ -23,10 +24,10 @@ import           Pos.Update.MemState.Types (MemPool (..), MemVar (..))
 type UpdateVotes = HashMap PublicKey UpdateVote
 
 withUSLock
-    :: (Ether.MonadReader' UpdateContext m, MonadIO m, MonadMask m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m, MonadMask m)
     => m a -> m a
 withUSLock action = do
-    lock <- mvLock <$> Ether.asks' ucMemState
+    lock <- mvLock <$> views (lensOf @UpdateContext) ucMemState
     bracket_ (liftIO $ Lock.acquire lock) (liftIO $ Lock.release lock) action
 
 -- | Add given payload to MemPool. Size is updated assuming that all added

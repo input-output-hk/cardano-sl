@@ -4,9 +4,6 @@
 
 module Pos.Slotting.Impl.Simple
        ( SimpleSlottingMode
-       , SimpleSlotsRedirect
-       , runSimpleSlotsRedirect
-
        , getCurrentSlotSimple
        , getCurrentSlotBlockingSimple
        , getCurrentSlotInaccurateSimple
@@ -15,42 +12,19 @@ module Pos.Slotting.Impl.Simple
 
 import           Universum
 
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
-import qualified Ether
-import           Mockable                     (CurrentTime, Mockable, currentTime)
-import           NTP.Example                  ()
+import           Mockable                    (CurrentTime, Mockable, currentTime)
+import           NTP.Example                 ()
 
-import           Pos.Core.Types               (SlotId (..), Timestamp (..))
-import           Pos.Slotting.Class           (MonadSlots (..))
-import           Pos.Slotting.Impl.Util       (approxSlotUsingOutdated, slotFromTimestamp)
-import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
-import           Pos.Slotting.Types           (SlottingData (..))
+import           Pos.Core.Types              (SlotId (..), Timestamp (..))
+import           Pos.Slotting.Impl.Util      (approxSlotUsingOutdated, slotFromTimestamp)
+import           Pos.Slotting.MemState.Class (MonadSlotsData (..))
+import           Pos.Slotting.Types          (SlottingData (..))
 
 ----------------------------------------------------------------------------
 -- Mode
 ----------------------------------------------------------------------------
 
 type SimpleSlottingMode m = (Mockable CurrentTime m, MonadSlotsData m)
-
-----------------------------------------------------------------------------
--- MonadSlots implementation
-----------------------------------------------------------------------------
-
-data SimpleSlotsRedirectTag
-
-type SimpleSlotsRedirect =
-    Ether.TaggedTrans SimpleSlotsRedirectTag IdentityT
-
-runSimpleSlotsRedirect :: SimpleSlotsRedirect m a -> m a
-runSimpleSlotsRedirect = coerce
-
-instance (SimpleSlottingMode m, t ~ IdentityT) =>
-         MonadSlots (Ether.TaggedTrans SimpleSlotsRedirectTag t m) where
-    getCurrentSlot = getCurrentSlotSimple
-    getCurrentSlotBlocking = getCurrentSlotBlockingSimple
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
-    currentTimeSlotting = currentTimeSlottingSimple
 
 ----------------------------------------------------------------------------
 -- Implementation

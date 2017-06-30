@@ -24,6 +24,7 @@ module Pos.Util.Util
        , _neHead
        , _neTail
        , _neLast
+       , postfixLFields
 
        -- * Ether
        , ether
@@ -57,17 +58,15 @@ module Pos.Util.Util
        -- ** Buildable Week
        -- ** Buildable Fortnight
 
-       -- ** Ether instances
-       -- *** CanLog Ether.StateT
-       -- *** HasLoggerName Ether.StateT
-
        , dumpSplices
        ) where
 
 import           Universum
 import           Unsafe                         (unsafeInit, unsafeLast)
 
-import           Control.Lens                   (ALens', Getter, Getting, cloneLens, to)
+import           Control.Lens                   (ALens', Getter, Getting, LensRules,
+                                                 cloneLens, lensField, lensRules,
+                                                 mappingNamer, to)
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Morph            (MFunctor (..))
 import           Control.Monad.Trans.Class      (MonadTrans)
@@ -198,11 +197,6 @@ instance CanLog m => CanLog (ResourceT m)
 instance (Monad m, HasLoggerName m) => HasLoggerName (ResourceT m) where
     getLoggerName = lift getLoggerName
     modifyLoggerName = transResourceT . modifyLoggerName
-
--- TODO Move it to ether :peka:
-instance Ether.MonadReader tag r m => Ether.MonadReader tag r (ResourceT m) where
-    ask = lift $ Ether.ask @tag
-    local = liftLocal (Ether.ask @tag) (Ether.local @tag)
 
 ----------------------------------------------------------------------------
 -- Instances required by 'ether'
@@ -367,3 +361,6 @@ dumpSplices x = do
     let code = Prelude.lines (TH.pprint ds)
     TH.reportWarning ("\n" ++ Prelude.unlines (map ("    " ++) code))
     return ds
+
+postfixLFields :: LensRules
+postfixLFields = lensRules & lensField .~ mappingNamer (\s -> [s++"_L"])

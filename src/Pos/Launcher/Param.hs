@@ -17,6 +17,7 @@ import           Pos.Core                (Timestamp)
 import           Pos.Crypto              (SecretKey)
 import           Pos.DHT.Real            (KademliaParams)
 import           Pos.Security.Params     (SecurityParams)
+import           Pos.Statistics          (EkgParams, StatsdParams)
 import           Pos.Txp.Toil.Types      (Utxo)
 import           Pos.Update.Params       (UpdateParams)
 import           Pos.Util.UserSecret     (UserSecret)
@@ -26,7 +27,6 @@ data LoggingParams = LoggingParams
     { lpRunnerTag     :: !LoggerName        -- ^ Prefix for logger, like "time-slave"
     , lpHandlerPrefix :: !(Maybe FilePath)  -- ^ Prefix of path for all logs
     , lpConfigPath    :: !(Maybe FilePath)  -- ^ Path to logger configuration
-    , lpEkgPort       :: !(Maybe Int)
     } deriving (Show)
 
 -- | Contains basic & networking parameters for running node.
@@ -47,18 +47,21 @@ data NetworkParams = NetworkParams
 -- | This data type contains all data necessary to launch node and
 -- known in advance (from CLI, configs, etc.)
 data NodeParams = NodeParams
-    { npDbPathM        :: !FilePath          -- ^ Path to node's database
-    , npRebuildDb      :: !Bool              -- ^ @True@ if data-base should be rebuilt
-    , npSystemStart    :: !Timestamp         -- ^ System start
-    , npSecretKey      :: !SecretKey         -- ^ Primary secret key of node
-    , npUserSecret     :: !UserSecret        -- ^ All node secret keys
-    , npBaseParams     :: !BaseParams        -- ^ See 'BaseParams'
-    , npCustomUtxo     :: !Utxo              -- ^ Predefined genesis utxo
-    , npJLFile         :: !(Maybe FilePath)  -- TODO COMMENT
-    , npPropagation    :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
-    , npReportServers  :: ![Text]            -- ^ List of report server URLs
-    , npUpdateParams   :: !UpdateParams      -- ^ Params for update system
-    , npSecurityParams :: !SecurityParams    -- ^ Params for "Pos.Security"
-    , npUseNTP         :: !Bool              -- TODO COMMENT
-    , npNetwork        :: !NetworkParams     -- ^ Network parameters
-    }
+    { npDbPathM        :: !FilePath             -- ^ Path to node's database
+    , npRebuildDb      :: !Bool                 -- ^ @True@ if data-base should be rebuilt
+    , npSystemStart    :: !Timestamp            -- ^ System start
+    , npSecretKey      :: !SecretKey            -- ^ Primary secret key of node
+    , npUserSecret     :: !UserSecret           -- ^ All node secret keys
+    , npBaseParams     :: !BaseParams           -- ^ See 'BaseParams'
+    , npCustomUtxo     :: !Utxo                 -- ^ Predefined genesis utxo
+    , npJLFile         :: !(Maybe FilePath)     -- TODO COMMENT
+    , npPropagation    :: !Bool                 -- ^ Whether to propagate txs, ssc data, blocks to neighbors
+    , npReportServers  :: ![Text]               -- ^ List of report server URLs
+    , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
+    , npSecurityParams :: !SecurityParams       -- ^ Params for "Pos.Security"
+    , npUseNTP         :: !Bool                 -- TODO COMMENT
+    , npNetwork        :: !NetworkParams        -- ^ Network parameters
+    , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
+    , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
+    , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
+    } -- deriving (Show)

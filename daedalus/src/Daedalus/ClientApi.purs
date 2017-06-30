@@ -832,6 +832,14 @@ syncProgress :: forall eff. Eff (ajax :: AJAX | eff) (Promise Json)
 syncProgress = fromAff $ map encodeJson B.syncProgress
 
 --------------------------------------------------------------------------------
+-- JSON backup -----------------------------------------------------------------
+importBackupJSON :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Json)
+importBackupJSON = mkEffFn1 $ fromAff <<< map encodeJson <<< B.importBackupJSON
+
+exportBackupJSON :: forall eff. EffFn1 (ajax :: AJAX | eff) String (Promise Unit)
+exportBackupJSON = mkEffFn1 $ fromAff <<< B.exportBackupJSON
+
+--------------------------------------------------------------------------------
 -- Mnemonics ---------------------------------------------------------------------
 
 -- Example in nodejs:

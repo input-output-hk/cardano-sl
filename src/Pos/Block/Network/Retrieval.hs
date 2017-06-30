@@ -27,9 +27,9 @@ import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              classifyNewHeader, needRecovery)
 import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic    (handleBlocks, mkBlocksRequest,
-                                             mkHeadersRequest, requestHeaders,
-                                             triggerRecovery)
+                                             mkHeadersRequest, requestHeaders, requestHeaders', triggerRecovery)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..))
+import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              NodeId, OutSpecs, SendActions (..),
@@ -109,19 +109,25 @@ retrievalWorkerImpl sendActions =
                                else pure Nothing
             case (mbQueuedHeadersChunk, mbRecHeader) of
                 (Nothing, Nothing) -> retry
-                (Just chunk, _)    -> pure (handleBlockRetrieval chunk)
-                (_, Just rec')     -> pure (handleHeadersRecovery rec')
+                (Just (nodeId, task), _) ->
+                    case task of
+                        RetrieveBlocksByHeaders headers ->
+                            pure (handleBlockRetrieval nodeId headers)
+                        RetrieveHeadersByTip tip ->
+                            pure (handleBlockRetrievalWithTip nodeId tip)
+                (_, Just rec')  ->
+                    pure (handleHeadersRecovery rec')
         thingToDoNext
         mainLoop
     mainLoopE e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
     --
-    handleBlockRetrieval chunk =
-        handleAll (handleBlockRetrievalE chunk) $
+    handleBlockRetrieval nodeId headers =
+        handleAll (handleBlockRetrievalE nodeId headers) $
         reportingFatal version $
-        workerHandle sendActions chunk
-    handleBlockRetrievalE (nodeId, headers) e = do
+        workerHandle sendActions nodeId headers
+    handleBlockRetrievalE nodeId headers e = do
         logWarning $ sformat
             ("Error handling nodeId="%build%", headers="%listJson%": "%shown)
             nodeId (fmap headerHash headers) e
@@ -131,10 +137,15 @@ retrievalWorkerImpl sendActions =
     handleHeadersRecovery (nodeId, rHeader) = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
                  \ so we will request more headers"
-        whenJustM (mkHeadersRequest (Just $ headerHash rHeader)) $ \mghNext ->
+        whenJustM (mkHeadersRequest (headerHash rHeader)) $ \mghNext ->
             handleAll (handleHeadersRecoveryE nodeId) $
             reportingFatal version $
             withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
+                -- TODO: Write a comment why we use 'requestHeaders' here which
+                -- creates another task in the BlockRetrievalQueue. We could
+                -- just retrieve the blocks right away (see
+                -- 'handleBlockRetrievalWithTip' below). If there isn't a
+                -- reason, change the behavior.
                 requestHeaders mghNext nodeId (Just rHeader)
     handleHeadersRecoveryE nodeId e = do
         logWarning $ sformat
@@ -143,6 +154,12 @@ retrievalWorkerImpl sendActions =
             nodeId e
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat sendActions nodeId
+    handleBlockRetrievalWithTip nodeId tip = do
+        mghM <- mkHeadersRequest (headerHash tip)
+        whenJust mghM $ \mgh ->
+            withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
+                requestHeaders' (handleBlockRetrieval nodeId) mgh nodeId
+
 
 dropUpdateHeader :: WorkMode ssc m => m ()
 dropUpdateHeader = do
@@ -198,9 +215,10 @@ dropRecoveryHeaderAndRepeat sendActions nodeId = do
 workerHandle
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m
-    -> (NodeId, NewestFirst NE (BlockHeader ssc))
+    -> NodeId
+    -> NewestFirst NE (BlockHeader ssc)
     -> m ()
-workerHandle sendActions (nodeId, headers) = do
+workerHandle sendActions nodeId headers = do
     logDebug $ sformat
         ("retrievalWorker: handling nodeId="%build%", headers="%listJson)
         nodeId (fmap headerHash headers)

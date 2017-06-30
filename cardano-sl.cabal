@@ -40,6 +40,7 @@ library
                         Pos.Block.Logic
                         Pos.Block.Network
                         Pos.Block.Pure
+                        Pos.Block.RetrievalQueue
                         Pos.Block.Types
                         Pos.CLI
                         Pos.Context
@@ -75,6 +76,9 @@ library
 
                         Pos.Ssc.GodTossing
                         Pos.Ssc.SscAlgo
+
+                        -- Statistics
+                        Pos.Statistics
 
                         -- Client
                         Pos.Client.Txp.Balances
@@ -228,6 +232,10 @@ library
                         -- SSC
                         Pos.Ssc.Util
 
+                        -- Statistics
+                        Pos.Statistics.Ekg
+                        Pos.Statistics.Statsd
+
                         -- Txp
                         Pos.Txp.Network
                         Pos.Txp.Network.Arbitrary
@@ -272,8 +280,10 @@ library
                         Pos.Wallet.SscType
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
+                        Pos.Aeson.WalletBackup
                         Pos.Wallet.Web.Account
                         Pos.Wallet.Web.Api
+                        Pos.Wallet.Web.Backup
                         Pos.Wallet.Web.BListener
                         Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Error
@@ -327,6 +337,7 @@ library
                       , ed25519
                       , ekg
                       , ekg-core
+                      , ekg-statsd
                       , ether >= 0.5
                       , exceptions
                       , file-embed >= 0.0.10
@@ -386,6 +397,7 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
+                      , versions
                       , wreq
                       , yaml
 

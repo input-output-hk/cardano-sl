@@ -145,13 +145,15 @@ isolate64Full len m = Peek $ \ps ptr -> do
     let end = Store.peekStateEndPtr ps
         remaining = end `minusPtr` ptr
     when (len > fromIntegral remaining) $
-      -- Do not perform the check on the new pointer, since it could have overflowed
+      -- Do not perform the check on the new pointer, since it could have
+      -- overflowed
 #if (WORD_SIZE_IN_BITS >= 64)
-      Store.tooManyBytes (fromIntegral len) remaining "isolate64"
+      Store.tooManyBytes (fromIntegral len) remaining "isolate64Full"
 #else
-      (if len <= (maxBound :: Int)
-         then Store.tooManyBytes (fromIntegral len) remaining "isolate64"
-         else throwM $ PeekException 0 "")
+# error 32-bit platforms not supported yet
+      (if len <= fromIntegral (maxBound :: Int)
+         then Store.tooManyBytes (fromIntegral len) remaining "isolate64Full"
+         else throwM $ PeekException 0 "isolate64Full: size too large for 32-bit")
 #endif
     PeekResult ptr' x <- Store.runPeek m ps ptr
     let ptr2 = ptr `plusPtr` fromIntegral len

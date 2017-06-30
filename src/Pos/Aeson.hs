@@ -11,6 +11,7 @@ import           Pos.Aeson.Crypto        ()
 import           Pos.Aeson.Types         ()
 #ifdef WITH_WALLET
 import           Pos.Aeson.ClientTypes   ()
+import           Pos.Aeson.WalletBackup  ()
 #endif
 #endif
 

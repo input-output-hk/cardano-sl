@@ -39,7 +39,10 @@ fi
 # System start time in seconds (time since epoch).
 # An extra second is added so that the nodes have extra time to start up
 # and start processing the first slot.
-system_start=$((`date +%s` + 1))
+if [ -z "$system_start" ]
+  then
+    system_start=$((`date +%s` + 1))
+fi
 
 echo "Using system start time "$system_start
 

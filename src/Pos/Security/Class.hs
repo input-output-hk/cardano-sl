@@ -9,4 +9,4 @@ import           Pos.Ssc.Class.Types        (Ssc)
 import           Pos.WorkMode.Class         (WorkMode)
 
 class Ssc ssc => SecurityWorkersClass ssc where
-    securityWorkers :: WorkMode ssc m => Tagged ssc ([WorkerSpec m], OutSpecs)
+    securityWorkers :: WorkMode ssc ctx m => Tagged ssc ([WorkerSpec m], OutSpecs)

@@ -5,14 +5,12 @@
 module Pos.Ssc.Class.Types
        ( Ssc(..)
        , SscBlock(..)
-       , SscContextTag
-       , MonadSscContext
+       , HasSscContext(..)
        ) where
 
 import           Control.Lens        (choosing, makeWrapped, _Wrapped)
 import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
-import qualified Ether
 import           Universum
 
 import           Pos.Binary.Class    (Bi)
@@ -92,5 +90,5 @@ instance HasHeaderHash (SscBlock ssc) where
 instance HasEpochOrSlot (SscBlock ssc) where
     getEpochOrSlot = either getEpochOrSlot (getEpochOrSlot . fst) . getSscBlock
 
-data SscContextTag
-type MonadSscContext ssc = Ether.MonadReader SscContextTag (SscNodeContext ssc)
+class HasSscContext ssc ctx | ctx -> ssc where
+    sscContext :: Lens' ctx (SscNodeContext ssc)

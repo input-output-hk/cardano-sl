@@ -24,7 +24,7 @@ import           Pos.Update.Logic.Local    (getLocalProposalNVotes, getLocalVote
 import           Pos.Update.Mode           (UpdateMode)
 
 -- | Relays for data related to update system
-usRelays :: forall m. UpdateMode m
+usRelays :: forall ctx m. UpdateMode ctx m
     => [Relay m]
 usRelays = [proposalRelay, voteRelay]
 
@@ -33,7 +33,7 @@ usRelays = [proposalRelay, voteRelay]
 ----------------------------------------------------------------------------
 
 proposalRelay
-    :: UpdateMode m
+    :: UpdateMode ctx m
     => Relay m
 proposalRelay =
     InvReqData
@@ -68,7 +68,7 @@ proposalRelay =
 ----------------------------------------------------------------------------
 
 voteRelay
-    :: UpdateMode m
+    :: UpdateMode ctx m
     => Relay m
 voteRelay =
     InvReqData

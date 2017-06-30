@@ -38,7 +38,7 @@ data WalletBackup = WalletBackup
 
 data StateBackup = FullStateBackup [WalletBackup]
 
-getWalletBackup :: AccountMode m => CId Wal -> m WalletBackup
+getWalletBackup :: AccountMode ctx m => CId Wal -> m WalletBackup
 getWalletBackup wId = do
     sk <- getSKByAddr wId
     meta <- maybeThrow (InternalError "Wallet have no meta") =<<
@@ -58,5 +58,5 @@ getWalletBackup wId = do
         , wbAccounts = accountsMap
         }
 
-getStateBackup :: AccountMode m => m StateBackup
+getStateBackup :: AccountMode ctx m => m StateBackup
 getStateBackup = getWalletAddresses >>= fmap FullStateBackup . mapM getWalletBackup

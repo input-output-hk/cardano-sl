@@ -137,11 +137,11 @@ curBambooTx bp@BambooPool {..} idx = atomically $
 peekTx :: BambooPool -> IO TxAux
 peekTx bp = curBambooTx bp 0
 
-isTxVerified :: (WorkMode ssc m) => Tx -> m Bool
+isTxVerified :: (WorkMode ssc ctx m) => Tx -> m Bool
 isTxVerified tx = allM (fmap isJust . getTxOut) $ toList (_txInputs tx)
 
 nextValidTx
-    :: WorkMode ssc m
+    :: WorkMode ssc ctx m
     => BambooPool
     -> Double
     -> Int

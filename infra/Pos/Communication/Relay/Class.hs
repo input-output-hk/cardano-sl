@@ -10,7 +10,7 @@ module Pos.Communication.Relay.Class
        , askRelayMem
        ) where
 
-import qualified Ether
+import           Ether.Internal                 (HasLens (..))
 import           Node.Message.Class             (Message)
 import           Pos.Binary.Class               (Bi)
 import           Universum
@@ -73,7 +73,7 @@ data DataParams contents m = DataParams
     }
 
 
-type MonadRelayMem = Ether.MonadReader' RelayContext
+type MonadRelayMem ctx m = (MonadReader ctx m, HasLens RelayContext ctx RelayContext)
 
-askRelayMem :: MonadRelayMem m => m RelayContext
-askRelayMem = Ether.ask'
+askRelayMem :: MonadRelayMem ctx m => m RelayContext
+askRelayMem = view (lensOf @RelayContext)

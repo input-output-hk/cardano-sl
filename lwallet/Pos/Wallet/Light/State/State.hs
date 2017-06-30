@@ -21,7 +21,7 @@ module Pos.Wallet.Light.State.State
 import           Universum
 
 import           Data.Acid                      (EventResult, EventState, QueryEvent)
-import qualified Ether
+import           Ether.Internal                 (HasLens (..))
 
 import           Pos.Txp                        (Tx, Utxo)
 import           Pos.Types                      (HeaderHash)
@@ -32,16 +32,16 @@ import           Pos.Wallet.Light.State.Acidic  as A
 import           Pos.Wallet.Light.State.Storage (Block', Storage)
 
 -- | MonadWalletDB stands for monad which is able to get web wallet state
-type MonadWalletDB = Ether.MonadReader' WalletState
+type MonadWalletDB ctx m = (MonadReader ctx m, HasLens WalletState ctx WalletState)
 
-getWalletState :: MonadWalletDB m => m WalletState
-getWalletState = Ether.ask'
+getWalletState :: MonadWalletDB ctx m => m WalletState
+getWalletState = view (lensOf @WalletState)
 
 -- | Constraint for working with web wallet DB
-type WalletModeDB m = (MonadWalletDB m, MonadIO m)
+type WalletModeDB ctx m = (MonadWalletDB ctx m, MonadIO m)
 
 queryDisk
-    :: (EventState event ~ Storage, QueryEvent event, WalletModeDB m)
+    :: (EventState event ~ Storage, QueryEvent event, WalletModeDB ctx m)
     => event -> m (EventResult event)
 queryDisk e = getWalletState >>= flip A.query e
 
@@ -50,17 +50,17 @@ queryDisk e = getWalletState >>= flip A.query e
 --     => event -> m (EventResult event)
 -- updateDisk e = getWalletState >>= flip A.update e
 
-getBlock :: WalletModeDB m => HeaderHash -> m (Maybe Block')
+getBlock :: WalletModeDB ctx m => HeaderHash -> m (Maybe Block')
 getBlock = queryDisk . A.GetBlock
 
-getBestChain :: WalletModeDB m => m [Block']
+getBestChain :: WalletModeDB ctx m => m [Block']
 getBestChain = queryDisk A.GetBestChain
 
-getUtxo :: WalletModeDB m => m Utxo
+getUtxo :: WalletModeDB ctx m => m Utxo
 getUtxo = queryDisk A.GetUtxo
 
-getOldestUtxo :: WalletModeDB m => m Utxo
+getOldestUtxo :: WalletModeDB ctx m => m Utxo
 getOldestUtxo = queryDisk A.GetOldestUtxo
 
-getTxHistory :: WalletModeDB m => m [Tx]
+getTxHistory :: WalletModeDB ctx m => m [Tx]
 getTxHistory = queryDisk A.GetTxHistory

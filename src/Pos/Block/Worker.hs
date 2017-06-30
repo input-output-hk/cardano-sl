@@ -52,7 +52,7 @@ import           Pos.Slotting                (getLastKnownSlotDuration)
 
 -- | All workers specific to block processing.
 blkWorkers
-    :: (SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
     => ([WorkerSpec m], OutSpecs)
 blkWorkers =
     merge $ [ blkOnNewSlot
@@ -65,11 +65,11 @@ blkWorkers =
     merge = mconcatPair . map (first pure)
 
 -- Action which should be done when new slot starts.
-blkOnNewSlot :: WorkMode ssc m => (WorkerSpec m, OutSpecs)
+blkOnNewSlot :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
 blkOnNewSlot = recoveryCommGuard $ onNewSlotWorker True announceBlockOuts blkOnNewSlotImpl
 
 blkOnNewSlotImpl
-    :: WorkMode ssc m
+    :: WorkMode ssc ctx m
     => SlotId -> SendActions m -> m ()
 blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
 
@@ -159,7 +159,7 @@ blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
            | otherwise -> pass
 
 onNewSlotWhenLeader
-    :: WorkMode ssc m
+    :: WorkMode ssc ctx m
     => SlotId
     -> ProxySKBlockInfo
     -> Worker' m
@@ -208,7 +208,7 @@ onNewSlotWhenLeader slotId pske sendActions = do
 -- peer asking them to push new data on it. This works even for NAT, since it's
 -- the consumer which initiates contact.
 queryBlocksWorker
-    :: (WorkMode ssc m, SscWorkersClass ssc)
+    :: (WorkMode ssc ctx m, SscWorkersClass ssc)
     => (WorkerSpec m, OutSpecs)
 queryBlocksWorker = worker requestTipOuts $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration

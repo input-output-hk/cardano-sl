@@ -16,7 +16,7 @@ module Pos.Lrc.DB.Leaders
 
 import           Universum
 
-import qualified Ether
+import           Ether.Internal        (HasLens (..))
 
 import           Pos.Binary.Class      (encode)
 import           Pos.Binary.Core       ()
@@ -45,7 +45,7 @@ putLeaders epoch = putBi (leadersKey epoch)
 ----------------------------------------------------------------------------
 
 prepareLrcLeaders ::
-       (Ether.MonadReader' GenesisStakes m, MonadDB m)
+       (MonadReader ctx m, HasLens GenesisStakes ctx GenesisStakes, MonadDB m)
     => m ()
 prepareLrcLeaders =
     whenNothingM_ (getLeaders 0) $

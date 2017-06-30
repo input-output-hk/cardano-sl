@@ -1,3 +1,6 @@
+{-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
+
 -- | Parameters for launching everything.
 
 module Pos.Launcher.Param
@@ -5,22 +8,29 @@ module Pos.Launcher.Param
        , BaseParams (..)
        , NetworkParams (..)
        , NodeParams (..)
+       , GenesisUtxo(..)
        ) where
 
 import           Universum
 
+import           Control.Lens            (coerced, makeLensesWith)
+import           Ether.Internal          (HasLens (..))
 import qualified Network.Transport.TCP   as TCP
 import           System.Wlog             (LoggerName)
 
+import           Pos.Communication.Relay (HasPropagationFlag (..))
 import           Pos.Communication.Types (NodeId)
-import           Pos.Core                (StakesMap, Timestamp)
+import           Pos.Core                (GenesisStakes (..), HasPrimaryKey (..),
+                                          StakesMap, Timestamp)
 import           Pos.Crypto              (SecretKey)
 import           Pos.DHT.Real            (KademliaParams)
+import           Pos.Reporting.MemState  (HasReportServers (..))
 import           Pos.Security.Params     (SecurityParams)
 import           Pos.Statistics          (EkgParams, StatsdParams)
 import           Pos.Txp.Toil.Types      (Utxo)
 import           Pos.Update.Params       (UpdateParams)
 import           Pos.Util.UserSecret     (UserSecret)
+import           Pos.Util.Util           (postfixLFields)
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams
@@ -43,6 +53,8 @@ data NetworkParams = NetworkParams
     -- ^ External TCP address of the node.
     -- It encapsulates bind address and address visible to other nodes.
     }
+
+newtype GenesisUtxo = GenesisUtxo { unGenesisUtxo :: Utxo }
 
 -- | This data type contains all data necessary to launch node and
 -- known in advance (from CLI, configs, etc.)
@@ -67,3 +79,26 @@ data NodeParams = NodeParams
     , npEkgParams      :: !(Maybe EkgParams) -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
     } -- deriving (Show)
+
+makeLensesWith postfixLFields ''NodeParams
+
+instance HasLens UpdateParams NodeParams UpdateParams where
+    lensOf = npUpdateParams_L
+
+instance HasLens SecurityParams NodeParams SecurityParams where
+    lensOf = npSecurityParams_L
+
+instance HasLens GenesisUtxo NodeParams GenesisUtxo where
+    lensOf = npCustomUtxo_L . coerced
+
+instance HasLens GenesisStakes NodeParams GenesisStakes where
+    lensOf = npGenesisStakes_L . coerced
+
+instance HasReportServers NodeParams where
+    reportServers = npReportServers_L
+
+instance HasPropagationFlag NodeParams where
+    propagationFlag = npPropagation_L
+
+instance HasPrimaryKey NodeParams where
+    primaryKey = npSecretKey_L

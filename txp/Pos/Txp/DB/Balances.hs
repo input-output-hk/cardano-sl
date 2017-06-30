@@ -27,14 +27,15 @@ module Pos.Txp.DB.Balances
 
 import           Universum
 
+import           Control.Lens                 (views)
 import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB             as Rocks
-import qualified Ether
-import           Formatting                   (bprint, bprint, sformat, (%))
+import           Ether.Internal               (HasLens (..))
+import           Formatting                   (bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
@@ -84,22 +85,25 @@ instance RocksBatchOp BalancesOp where
 isBootstrapEra :: Monad m => m Bool
 isBootstrapEra = pure $ not Const.isDevelopment && True
 
-genesisFakeTotalStake :: Ether.MonadReader' GenesisStakes m => m Coin
+genesisFakeTotalStake ::
+       (MonadReader ctx m, HasLens GenesisStakes ctx GenesisStakes)
+    => m Coin
 genesisFakeTotalStake =
-    unsafeIntegerToCoin . sumCoins . unGenesisStakes <$> Ether.ask'
+    views (lensOf @GenesisStakes) (unsafeIntegerToCoin . sumCoins . unGenesisStakes)
 
 getEffectiveTotalStake ::
-       (Ether.MonadReader' GenesisStakes m, MonadDBRead m) => m Coin
+       (MonadReader ctx m, HasLens GenesisStakes ctx GenesisStakes, MonadDBRead m)
+    => m Coin
 getEffectiveTotalStake = ifM isBootstrapEra
     genesisFakeTotalStake
     getRealTotalStake
 
 getEffectiveStake ::
-       (Ether.MonadReader' GenesisStakes m, MonadDBRead m)
+       (MonadReader ctx m, HasLens GenesisStakes ctx GenesisStakes, MonadDBRead m)
     => StakeholderId
     -> m (Maybe Coin)
 getEffectiveStake id = ifM isBootstrapEra
-    (HM.lookup id . unGenesisStakes <$> Ether.ask')
+    (views (lensOf @GenesisStakes) (HM.lookup id . unGenesisStakes))
     (getRealStake id)
 
 ----------------------------------------------------------------------------
@@ -129,11 +133,11 @@ putTotalFtsStake = gsPutBi ftsSumKey
 
 -- | Run iterator over effective balances.
 balanceSource
-    :: forall m . (Ether.MonadReader' GenesisStakes m, MonadDBRead m)
+    :: forall ctx m . (MonadReader ctx m, HasLens GenesisStakes ctx GenesisStakes, MonadDBRead m)
     => Source (ResourceT m) (IterType BalanceIter)
 balanceSource =
     ifM (lift isBootstrapEra)
-        (CL.sourceList . HM.toList . unGenesisStakes =<< lift Ether.ask')
+        (CL.sourceList . HM.toList . unGenesisStakes =<< view (lensOf @GenesisStakes))
         (dbIterSource GStateDB (Proxy @BalanceIter))
 
 ----------------------------------------------------------------------------

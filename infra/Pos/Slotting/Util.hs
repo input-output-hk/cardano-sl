@@ -36,9 +36,9 @@ import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..)
                                          flattenSlotId, getSlotIndex, slotIdF)
 import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
-import           Pos.Reporting.MemState (MonadReportingMem)
+import           Pos.Reporting.MemState (HasReportingContext)
 import           Pos.Reporting.Methods  (reportMisbehaviourSilent, reportingFatal)
-import           Pos.Shutdown           (MonadShutdownMem, runIfNotShutdown)
+import           Pos.Shutdown           (HasShutdownContext, runIfNotShutdown)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
 import           Pos.Slotting.MemState  (MonadSlotsData (..))
@@ -92,15 +92,16 @@ getLastKnownSlotDuration :: MonadSlotsData m => m Millisecond
 getLastKnownSlotDuration = esdSlotDuration . sdLast <$> getSlottingData
 
 -- | Type constraint for `onNewSlot*` workers
-type OnNewSlot m =
+type OnNewSlot ctx m =
     ( MonadIO m
+    , MonadReader ctx m
     , MonadSlots m
     , MonadMask m
     , WithLogger m
     , Mockable Fork m
     , Mockable Delay m
-    , MonadReportingMem m
-    , MonadShutdownMem m
+    , HasReportingContext ctx
+    , HasShutdownContext ctx
     , MonadDiscovery m
     )
 
@@ -108,18 +109,18 @@ type OnNewSlot m =
 -- it.  This function uses Mockable and assumes consistency between
 -- MonadSlots and Mockable implementations.
 onNewSlot
-    :: OnNewSlot m
+    :: OnNewSlot ctx m
     => Bool -> (SlotId -> m ()) -> m ()
 onNewSlot = onNewSlotImpl False
 
 onNewSlotWithLogging
-    :: OnNewSlot m
+    :: OnNewSlot ctx m
     => Bool -> (SlotId -> m ()) -> m ()
 onNewSlotWithLogging = onNewSlotImpl True
 
 -- TODO [CSL-198]: think about exceptions more carefully.
 onNewSlotImpl
-    :: forall m. OnNewSlot m
+    :: forall ctx m. OnNewSlot ctx m
     => Bool -> Bool -> (SlotId -> m ()) -> m ()
 onNewSlotImpl withLogging startImmediately action =
     reportingFatal version impl `catch` workerHandler
@@ -140,7 +141,7 @@ onNewSlotImpl withLogging startImmediately action =
         onNewSlotImpl withLogging startImmediately action
 
 onNewSlotDo
-    :: OnNewSlot m
+    :: OnNewSlot ctx m
     => Bool -> Maybe SlotId -> Bool -> (SlotId -> m ()) -> m ()
 onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdown $ do
     curSlot <- waitUntilExpectedSlot
@@ -171,7 +172,7 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdow
     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait
 
-logNewSlotWorker :: OnNewSlot m => m ()
+logNewSlotWorker :: OnNewSlot ctx m => m ()
 logNewSlotWorker =
     onNewSlotWithLogging True $ \slotId -> do
         modifyLoggerName (<> "slotting") $

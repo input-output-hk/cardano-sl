@@ -1,5 +1,14 @@
 Running command: stack exec cardano-keygen -- -f /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-{}.key -m 4 -n 1000 --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file /home/georgeee/work/cardano-sl/scripts/generate/../avvm-files/utxo-dump-last-new.json --randcerts --blacklisted /home/georgeee/work/cardano-sl/scripts/generate/../avvm-files/full_blacklist.js --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries 100
-USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey38178
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-1.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-2.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-3.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-4.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-5.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-6.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-7.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-8.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-9.key has access mode 644 instead of 600. Fixing it automatically.
+USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey52167
 NOT FOR PRODUCTION USAGE, ONLY FOR TESTING
 IF YOU INTEND TO GENERATE GENESIS FOR PRODUCTION, STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. THIS IS SERIOUS.
 Removing 101 entries from utxo (out of 188 total entries in the blacklist)
@@ -7,7 +16,7 @@ Total avvm stake after applying blacklist: 25927070538000000
 1004 keyfiles are generated
 Total testnet genesis stake: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 2000, sdPoorStake = Coin {getCoin = 572187553860}}
 100 fake avvm seeds are generated
-testnet genesis created successfully. First 30 addresses: [PubKeyAddress 2bea780c0d219cfb52c5db300533a6dbc56e86089b9dab51390d9390 (attrs: {}), PubKeyAddress d9fa6c6ec8e40adef5bbcbbc1cd4db9fd20eb754c52c299d8314bd80 (attrs: {}), PubKeyAddress a0df428fb8648dad5d758bbd72254cbc5906e158c8735c2f918c5a00 (attrs: {}), PubKeyAddress 85db2e3795827b128dd52540c4bc64d95bf0875a3adcdb0422ae9eb3 (attrs: {}), PubKeyAddress cd3113bd816d96b129be2ce7d2acf447be0fedbb3c0aa19146ad0920 (attrs: {}), PubKeyAddress cbac0f0536181178e9906031680bb3a3c1ec395972e0e7e978e2adfc (attrs: {}), PubKeyAddress 729f8f99d5fb445e4be70b93defea9079507cfe6c00a71bb04851977 (attrs: {}), PubKeyAddress a85296bf9e1d3cd24e69aed1462c16d88ab2e4052991c364d3b948e4 (attrs: {}), PubKeyAddress 34e982831f6ae76cb9821c33781536f701b90e93697789ab69c910a3 (attrs: {}), PubKeyAddress 81096d03f842b09f28ede26cf014fdeb239798c82abd2458b4f2005b (attrs: {})] distr: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 2000, sdPoorStake = Coin {getCoin = 572187553860}}
+testnet genesis created successfully. First 30 addresses: [PubKeyAddress 323f738d1d5dc3cf4028084c77695c506a236d77cabf490994edaadc (attrs: {}), PubKeyAddress e1cb49a3e8a4d5aa428eacbaceb5871f43c3c980b9e609b4aa4b0a4a (attrs: {}), PubKeyAddress edd562dcf0f3040309f25d9c09b18e737dbfc38514302f7acbbbff70 (attrs: {}), PubKeyAddress 965907fe7229fde6f08b0299c62d10b5c400745073f630ddf84da824 (attrs: {}), PubKeyAddress d7b69f3645289430497aec7e8606cc69881994a6ea4e77e25424b7c9 (attrs: {}), PubKeyAddress 8d03e9feeb843525a46a874d535e7830ca81340989b9e6274834419e (attrs: {}), PubKeyAddress 0a0c84d4e144171b21ad86cce4361a0176a759f100384e7f4acef08f (attrs: {}), PubKeyAddress d5dc39fe494c5645f3ef5c0869032f539da77df9c03d7d917ef6a810 (attrs: {}), PubKeyAddress 63c94e80f12f26d89145582b360add2abb6c865a274a52b5876e2807 (attrs: {}), PubKeyAddress 64eaa2f6fd7df1646384d7cbf68b5aa7dd283e089a928b257439c0f3 (attrs: {})] distr: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 2000, sdPoorStake = Coin {getCoin = 572187553860}}
 core/genesis-core.bin generated successfully
 [generating VSS keys for tests...]
 [generating keys for tests...]
@@ -16,4 +25,4 @@ godtossing/genesis-godtossing.bin generated successfully
 '/home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-2.key.primary' -> 'nodes/key2.sk'
 '/home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-3.key.primary' -> 'nodes/key3.sk'
 '/home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-4.key.primary' -> 'nodes/key4.sk'
-'redeemingHolderKey38178' -> 'nodes/key0.sk'
+'redeemingHolderKey52167' -> 'nodes/key0.sk'

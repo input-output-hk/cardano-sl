@@ -3,14 +3,13 @@
 -- | Reporting functionality abstracted.
 module Pos.Reporting.MemState
        ( ReportingContext (..)
-       , rcReportServers
-       , rcLoggingConfig
-       , MonadReportingMem
+       , HasReportServers (..)
+       , HasLoggerConfig (..)
+       , HasReportingContext (..)
        , emptyReportingContext
        ) where
 
 import           Control.Lens             (makeLenses)
-import qualified Ether
 import           System.Wlog.LoggerConfig (LoggerConfig)
 import           Universum
 
@@ -22,9 +21,20 @@ data ReportingContext = ReportingContext
 
 makeLenses ''ReportingContext
 
--- | Monads are able to do remote error reporting. IO for making http
--- requests, context for saving reporting-related data.
-type MonadReportingMem = Ether.MonadReader' ReportingContext
+class HasReportServers ctx where
+    reportServers :: Lens' ctx [Text]
+
+instance HasReportServers ReportingContext where
+    reportServers = rcReportServers
+
+class HasLoggerConfig ctx where
+    loggerConfig :: Lens' ctx LoggerConfig
+
+instance HasLoggerConfig ReportingContext where
+    loggerConfig = rcLoggingConfig
+
+class HasReportingContext ctx where
+    reportingContext :: Lens' ctx ReportingContext
 
 emptyReportingContext :: ReportingContext
 emptyReportingContext = ReportingContext [] mempty

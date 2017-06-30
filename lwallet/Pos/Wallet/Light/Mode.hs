@@ -2,40 +2,45 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 -- | Stack of monads used by light wallet.
 
 module Pos.Wallet.Light.Mode
        ( LightWalletMode
-       , unLightWalletMode
        , LightWalletContext(..)
        ) where
 
 import           Universum
 
+import           Control.Lens                     (makeLensesWith)
 import qualified Control.Monad.Reader             as Mtl
-import qualified Ether
-import           Mockable                         (Production)
+import           Ether.Internal                   (HasLens (..))
+import           Mockable                         (Production, SharedAtomicT)
 import           System.Wlog                      (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener              (MonadBListener (..), onApplyBlocksStub,
                                                    onRollbackBlocksStub)
 import           Pos.Client.Txp.Balances          (MonadBalances (..))
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
-import           Pos.Communication.PeerState      (PeerStateCtx, PeerStateTag,
+import           Pos.Communication.PeerState      (HasPeerState (..), PeerStateCtx,
                                                    WithPeerState (..),
                                                    clearPeerStateDefault,
                                                    getAllStatesDefault,
                                                    getPeerStateDefault)
 import           Pos.Communication.Types.Protocol (NodeId)
 import           Pos.DB                           (MonadGState (..))
-import           Pos.Discovery                    (DiscoveryTag, MonadDiscovery (..),
-                                                   findPeersConst, getPeersConst)
-import           Pos.ExecMode                     ((:::), ExecMode (..), ExecModeM,
-                                                   modeContext)
+import           Pos.Discovery                    (MonadDiscovery (..))
 import           Pos.Reporting.MemState           (ReportingContext)
-import           Pos.Util.JsonLog                 (JsonLogConfig, jsonLogDefault)
+import           Pos.Ssc.GodTossing               (SscGodTossing)
+import           Pos.Util.JsonLog                 (HasJsonLogConfig (..), JsonLogConfig,
+                                                   jsonLogDefault)
+import           Pos.Util.LoggerName              (HasLoggerName' (..),
+                                                   getLoggerNameDefault,
+                                                   modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
+import           Pos.Util.UserSecret              (HasUserSecret (..))
+import           Pos.Util.Util                    (postfixLFields)
 import           Pos.Wallet.KeyStorage            (KeyData)
 import           Pos.Wallet.Light.Redirect        (getBalanceWallet, getOwnUtxosWallet,
                                                    getTxHistoryWallet, saveTxWallet)
@@ -44,37 +49,48 @@ import           Pos.Wallet.Light.State.Core      (gsAdoptedBVDataWallet)
 import           Pos.Wallet.WalletMode            (MonadBlockchainInfo (..),
                                                    MonadUpdates (..))
 
-modeContext [d|
-    data LightWalletContext = LightWalletContext
-        !(PeerStateTag     ::: PeerStateCtx Production)
-        !(KeyData          ::: KeyData)
-        !(WalletState      ::: WalletState)
-        !(ReportingContext ::: ReportingContext)
-        !(DiscoveryTag     ::: Set NodeId)
-        !(JsonLogConfig    ::: JsonLogConfig)
-        !(LoggerName       ::: LoggerName)
-    |]
+type LightWalletSscType = SscGodTossing
+-- type LightWalletSscType = SscNistBeacon
 
-data LW
+data LightWalletContext = LightWalletContext
+    { lwcPeerState        :: !(PeerStateCtx Production)
+    , lwcKeyData          :: !KeyData
+    , lwcWalletState      :: !WalletState
+    , lwcReportingContext :: !ReportingContext
+    , lwcDiscoveryPeers   :: !(Set NodeId)
+    , lwcJsonLogConfig    :: !JsonLogConfig
+    , lwcLoggerName       :: !LoggerName
+    }
 
-type LightWalletMode = ExecMode LW
+makeLensesWith postfixLFields ''LightWalletContext
 
-type instance ExecModeM LW =
-    Mtl.ReaderT LightWalletContext Production
+type LightWalletMode = Mtl.ReaderT LightWalletContext Production
 
-unLightWalletMode :: ExecMode LW a -> ExecModeM LW a
-unLightWalletMode = unExecMode
+instance sa ~ SharedAtomicT Production => HasPeerState sa LightWalletContext where
+    peerState = lwcPeerState_L
 
-instance HasLoggerName LightWalletMode where
-    getLoggerName = Ether.ask'
-    modifyLoggerName = Ether.local'
+instance HasUserSecret LightWalletContext where
+    userSecret = lwcKeyData_L
 
-instance CanJsonLog LightWalletMode where
+instance HasLens WalletState LightWalletContext WalletState where
+    lensOf = lwcWalletState_L
+
+instance HasLoggerName' LightWalletContext where
+    loggerName = lwcLoggerName_L
+
+instance HasJsonLogConfig LightWalletContext where
+    jsonLogConfig = lwcJsonLogConfig_L
+
+instance {-# OVERLAPPING #-} HasLoggerName LightWalletMode where
+    getLoggerName = getLoggerNameDefault
+    modifyLoggerName = modifyLoggerNameDefault
+
+instance {-# OVERLAPPING #-} CanJsonLog LightWalletMode where
     jsonLog = jsonLogDefault
 
 instance MonadDiscovery LightWalletMode where
-    getPeers = getPeersConst
-    findPeers = findPeersConst
+    getPeers = view lwcDiscoveryPeers_L
+    findPeers = view lwcDiscoveryPeers_L
 
 instance MonadBListener LightWalletMode where
     onApplyBlocks = onApplyBlocksStub
@@ -104,6 +120,6 @@ instance MonadBalances LightWalletMode where
     getOwnUtxos = getOwnUtxosWallet
     getBalance = getBalanceWallet
 
-instance MonadTxHistory LightWalletMode where
+instance MonadTxHistory LightWalletSscType LightWalletMode where
     getTxHistory = getTxHistoryWallet
     saveTx = saveTxWallet

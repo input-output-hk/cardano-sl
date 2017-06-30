@@ -11,6 +11,7 @@ environment:
     CSL_SYSTEM_TAG: "win64"
     CACHE_DIR: "c:\\c"
     WORK_DIR: "c:\\w"
+    DCONFIG: "testnet_staging_wallet"
 
 init:
   - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%
@@ -85,7 +86,7 @@ test_script:
       --bench
       --no-run-benchmarks
       --work-dir %STACK_WORK%
-      --ghc-options="-DCONFIG=wallet"
+      --ghc-options="-DCONFIG=%DCONFIG%"
       --flag cardano-sl:for-installer
       --flag cardano-sl:with-web
       --flag cardano-sl:with-wallet

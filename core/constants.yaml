@@ -83,6 +83,8 @@ dev: &dev
   memPoolLimitRatio: 2 # mem pool will be limited by this value
                        # muliplied by block size limit
 
+  genesisBinSuffix: qa # qa is set here arbitrarily, it won't be actually used
+
 
 ##############################################################################
 ##                                                                          ##
@@ -121,23 +123,23 @@ qanet: &qanet
 
   recoveryHeadersMessage: 100
 
+  genesisBinSuffix: qa
+
 testnet: &testnet
   <<: *prod_base
 
-  k: 60
+  k: 72
   genesisSlotDurationSec: 120
   networkDiameter: 45
   mdNoBlocksSlotThreshold: 45
 
   protocolMagic: 50987800
 
+  genesisBinSuffix: tn
+
 testnet_staging: &testnet_staging
   <<: *testnet
-
   protocolMagic: 50987900
-
-prod: &prod
-  <<: *qanet
 
 ##############################################################################
 ##                                                                          ##
@@ -145,7 +147,14 @@ prod: &prod
 ##                                                                          ##
 ##############################################################################
 
-wallet: &wallet
-  <<: *prod
+testnet_wallet: &testnet_wallet
+  <<: *testnet
+  applicationName: csl-daedalus
 
+testnet_staging_wallet: &testnet_staging_wallet
+  <<: *testnet_staging
+  applicationName: csl-daedalus
+
+qanet_wallet: &qanet_wallet
+  <<: *qanet
   applicationName: csl-daedalus

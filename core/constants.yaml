@@ -112,7 +112,6 @@ prod_base: &prod_base
   ntpPollDelay: 60000000 # 1 min
 
   blockRetrievalQueueSize: 100
-  recoveryHeadersMessage: 1000
 
 qanet: &qanet
   <<: *prod_base
@@ -129,12 +128,17 @@ qanet: &qanet
 testnet: &testnet
   <<: *prod_base
 
-  k: 60
-  genesisSlotDurationSec: 120
-  networkDiameter: 45
-  mdNoBlocksSlotThreshold: 45
+  k: 2160
+  genesisSlotDurationSec: 20
+  networkDiameter: 18
+  mdNoBlocksSlotThreshold: 18
 
   protocolMagic: 50987800
+
+  networkReceiveTimeout: 300000 # 5 mins
+  #  ^ This timeout shouldn't be triggered at all, it's some precaution for bug somewhere in networking 
+  recoveryHeadersMessage: 2200
+
 
 testnet_staging: &testnet_staging
   <<: *testnet
@@ -142,7 +146,7 @@ testnet_staging: &testnet_staging
   protocolMagic: 50987900
 
 prod: &prod
-  <<: *qanet
+  <<: *testnet_staging
 
 ##############################################################################
 ##                                                                          ##

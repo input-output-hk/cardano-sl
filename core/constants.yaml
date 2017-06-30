@@ -129,10 +129,10 @@ qanet: &qanet
 testnet: &testnet
   <<: *prod_base
 
-  k: 60
-  genesisSlotDurationSec: 120
-  networkDiameter: 45
-  mdNoBlocksSlotThreshold: 45
+  k: 2160
+  genesisSlotDurationSec: 20
+  networkDiameter: 18
+  mdNoBlocksSlotThreshold: 18
 
   protocolMagic: 50987800
 

@@ -93,12 +93,13 @@ mkSummaryItems lang (CBlockEntry entry) =
       , amount: formatADA (entry ^. cbeTotalSent) lang
       , mCurrency: Just ADA
       }
-    , { id: "2"
-      , label: translate (I18nL.block <<< I18nL.blEstVolume) lang
-      -- TODO: We do need real data here
-      , amount: formatADA (mkCoin "0") lang
-      , mCurrency: Just ADA
-      }
+    -- TODO: Enable it later again ([CSE-168] Remove `Est. Volume` temporary)
+    -- , { id: "2"
+    --   , label: translate (I18nL.block <<< I18nL.blEstVolume) lang
+    --   -- TODO: We do need real data here
+    --   , amount: formatADA (mkCoin "0") lang
+    --   , mCurrency: Just ADA
+    --   }
     , { id: "3"
       , label: translate (I18nL.block <<< I18nL.blFees) lang
       -- TODO: We do need real data here

@@ -18,10 +18,11 @@ import           Pos.Constants         (isDevelopment)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
 import           Pos.DHT.Real          (KademliaParams (..))
-import           Pos.Genesis           (genesisBootProdStakeholders,
-                                        genesisStakeDistribution, genesisUtxo)
+import           Pos.Genesis           (devAddrDistr, devStakesDistr,
+                                        genesisProdAddrDistribution,
+                                        genesisProdBootStakeholders, genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
-                                        NetworkParams (..), NodeParams (..), stakesDistr)
+                                        NetworkParams (..), NodeParams (..))
 import           Pos.Security          (SecurityParams (..))
 import           Pos.Ssc.GodTossing    (GtParams (..))
 import           Pos.Update.Params     (UpdateParams (..))
@@ -88,17 +89,17 @@ getNodeParams args@Args {..} systemStart = do
         updateUserSecretVSS args =<<
         peekUserSecret (getKeyfilePath args)
     npNetwork <- liftIO $ getNetworkParams args
-    let genesisStakeholders =
+    let devStakeDistr =
+            devStakesDistr
+                (CLI.flatDistr commonArgs)
+                (CLI.bitcoinDistr commonArgs)
+                (CLI.richPoorDistr commonArgs)
+                (CLI.expDistr commonArgs)
+    let npCustomUtxo =
             if isDevelopment
-                then Nothing
-                else Just genesisBootProdStakeholders
-    let npCustomUtxo = genesisUtxo genesisStakeholders $
-            if isDevelopment
-                then stakesDistr (CLI.flatDistr commonArgs)
-                                 (CLI.bitcoinDistr commonArgs)
-                                 (CLI.richPoorDistr commonArgs)
-                                 (CLI.expDistr commonArgs)
-                else genesisStakeDistribution
+            then genesisUtxo Nothing (devAddrDistr devStakeDistr)
+            else genesisUtxo (Just genesisProdBootStakeholders)
+                             genesisProdAddrDistribution
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB

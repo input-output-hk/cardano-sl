@@ -2,20 +2,23 @@
 
 module Pos.Core.Genesis
        (
-       -- * Constants
+       -- * Constants/devmode
          genesisDevKeyPairs
        , genesisDevPublicKeys
        , genesisDevSecretKeys
        , genesisDevHdwSecretKeys
+       , genesisDevAddresses
+       , genesisDevFlatDistr
 
        -- * /genesis-core.bin/
        , StakeDistribution(..)
        , GenesisCoreData(..)
+       , AddrDistribution
        , compileGenCoreData
        -- ** Derived data
-       , genesisAddresses
-       , genesisStakeDistribution
-       , genesisBootProdStakeholders
+       , genesisProdAddresses
+       , genesisProdAddrDistribution
+       , genesisProdBootStakeholders
 
        -- * Utils
        , generateGenesisKeyPair
@@ -27,7 +30,6 @@ module Pos.Core.Genesis
 import           Universum
 
 import           Control.Lens            (ix)
-import           Data.Default            (def)
 import           Data.Hashable           (hash)
 import qualified Data.HashSet            as HS
 import qualified Data.Text               as T
@@ -35,11 +37,11 @@ import           Formatting              (int, sformat, (%))
 
 import           Pos.Binary.Crypto       ()
 import           Pos.Core.Address        (makePubKeyAddress)
-import           Pos.Core.Coin           (unsafeAddCoin)
-import           Pos.Core.Constants      (genesisKeysN, isDevelopment)
+import           Pos.Core.Coin           (unsafeAddCoin, unsafeMulCoin)
+import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
-import           Pos.Core.Genesis.Types  (GenesisCoreData (..), StakeDistribution (..),
-                                          getTotalStake)
+import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
+                                          StakeDistribution (..), getTotalStake)
 import           Pos.Core.Types          (Address, Coin, StakeholderId, Stakeholders,
                                           mkCoin, unsafeGetCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
@@ -47,7 +49,7 @@ import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
 import           Pos.Crypto.Signing      (PublicKey, SecretKey, deterministicKeyGen)
 
 ----------------------------------------------------------------------------
--- Constants
+-- Constants/development
 ----------------------------------------------------------------------------
 
 -- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
@@ -67,24 +69,32 @@ genesisDevHdwSecretKeys :: [EncryptedSecretKey]
 genesisDevHdwSecretKeys =
     map generateHdwGenesisSecretKey [0 .. genesisKeysN - 1]
 
+-- | List of addresses in genesis for dev mode.
+genesisDevAddresses :: [Address]
+genesisDevAddresses = map makePubKeyAddress genesisDevPublicKeys
+
+-- | Default flat stakes distributed among 'genesisKeysN' (from constants).
+genesisDevFlatDistr :: StakeDistribution
+genesisDevFlatDistr =
+    FlatStakes genesisKeysN $
+    mkCoin 10000 `unsafeMulCoin` (genesisKeysN :: Int)
+
 ----------------------------------------------------------------------------
--- GenesisCore-derived data
+-- GenesisCore derived data, production
 ----------------------------------------------------------------------------
 
--- | List of addresses in genesis.
-genesisAddresses :: [Address]
-genesisAddresses
-    | isDevelopment = map makePubKeyAddress genesisDevPublicKeys
-    | otherwise     = gcdAddresses compileGenCoreData
+-- | List of addresses in genesis binary file.
+genesisProdAddresses :: [Address]
+genesisProdAddresses =
+    concatMap (toList . fst) $ gcdAddrDistribution compileGenCoreData
 
-genesisStakeDistribution :: StakeDistribution
-genesisStakeDistribution
-    | isDevelopment = def
-    | otherwise     = gcdDistribution compileGenCoreData
+-- | Address and distribution set for production mode.
+genesisProdAddrDistribution :: AddrDistribution
+genesisProdAddrDistribution = gcdAddrDistribution compileGenCoreData
 
 -- | Bootstrap era stakeholders for production mode.
-genesisBootProdStakeholders :: HashSet StakeholderId
-genesisBootProdStakeholders =
+genesisProdBootStakeholders :: HashSet StakeholderId
+genesisProdBootStakeholders =
     gcdBootstrapStakeholders compileGenCoreData
 
 ----------------------------------------------------------------------------

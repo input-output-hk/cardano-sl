@@ -136,6 +136,22 @@ dumpKeys pat = do
         \(i :: Int, k, wk) ->
         generateKeyfile False (Just (k, wk)) $ applyPattern pat i
 
+-- | Reassigns all balances in utxo to 'gcdBootstrapStakeholders'.
+reassignBalances :: GenesisCoreData -> GenesisCoreData
+reassignBalances GenesisCoreData{..} = GenesisCoreData
+    { gcdBootstrapBalances = newBalances
+    , ..
+    }
+  where
+    newBalances = HM.fromList $ HM.toList gcdBootstrapBalances
+                  & each . _2 .~ newBalance
+                  & _head . _2 .~ newBalance `unsafeAddCoin` remainder
+    totalBalance = coinToInteger $ getTotalStake gcdDistribution
+    nBalances = fromIntegral $ length gcdBootstrapBalances
+    newBalance = unsafeIntegerToCoin $ totalBalance `div` nBalances
+    remainder = unsafeIntegerToCoin $ totalBalance `mod` nBalances
+
+
 genGenesisFiles
     :: (MonadIO m, MonadFail m, WithLogger m)
     => KeygenOptions -> m ()

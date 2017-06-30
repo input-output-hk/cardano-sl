@@ -14,16 +14,19 @@ module Pos.Genesis
        , genesisUtxo
        , genesisDelegation
        , genesisSeed
+       , genesisLeaders
+
+       -- * Dev mode genesis
        , accountGenesisIndex
        , wAddressGenesisIndex
-
-       -- * Ssc
-       , genesisLeaders
+       , devStakesDistr
+       , devAddrDistr
        ) where
 
 import           Universum
 
 import qualified Data.HashMap.Strict        as HM
+import qualified Data.HashSet               as HS
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
 import           Serokell.Util              (enumerate)
@@ -50,30 +53,6 @@ import           Pos.Ssc.GodTossing.Genesis
 -- Static state
 ----------------------------------------------------------------------------
 
--- | First index in derivation path for HD account, which is put to genesis utxo
-accountGenesisIndex :: Word32
-accountGenesisIndex = firstNonHardened
-
--- | Second index in derivation path for HD account, which is put to genesis
--- utxo
-wAddressGenesisIndex :: Word32
-wAddressGenesisIndex = firstNonHardened
-
--- | Addresses and secret keys of genesis HD wallets' /addresses/.
--- It's important to return 'Address' here, not 'PublicKey', since valid HD
--- wallet address keeps 'HDAddressPayload' attribute which value depends on
--- secret key.
-genesisDevHdwAccountKeyDatas :: [(Address, EncryptedSecretKey)]
-genesisDevHdwAccountKeyDatas =
-    genesisDevHdwSecretKeys <&> \key ->
-        fromMaybe (error "Passphrase doesn't match in Genesis") $
-        deriveLvl2KeyPair
-            emptyPassphrase
-            key
-            accountGenesisIndex
-            wAddressGenesisIndex
-
-
 -- 10000 coins in total. For thresholds testing.
 -- 0.5,0.25,0.125,0.0625,0.0312,0.0156,0.0078,0.0039,0.0019,0.0008,0.0006,0.0004,0.0002,0.0001
 expTwoDistribution :: [Coin]
@@ -83,34 +62,6 @@ expTwoDistribution =
 bitcoinDistribution20 :: [Coin]
 bitcoinDistribution20 = map mkCoin
     [200,163,120,105,78,76,57,50,46,31,26,13,11,11,7,4,2,0,0,0]
-
-stakeDistribution :: StakeDistribution -> [(Coin, TxOutDistribution)]
-stakeDistribution (FlatStakes stakeholders coins) =
-    genericReplicate stakeholders val
-  where
-    val = (coins `divCoin` stakeholders, [])
-stakeDistribution (BitcoinStakes stakeholders coins) =
-    map ((, []) . normalize) $ bitcoinDistribution1000Coins stakeholders
-  where
-    normalize x = x `unsafeMulCoin`
-                  coinToInteger (coins `divCoin` (1000 :: Int))
-stakeDistribution ExponentialStakes = map (, []) expTwoDistribution
-stakeDistribution ts@RichPoorStakes {..} =
-    checkMpcThd (getTotalStake ts) sdRichStake $
-    map (, []) basicDist
-  where
-    -- Node won't start if richmen cannot participate in MPC
-    checkMpcThd total richs =
-        if richs < applyCoinPortion Const.genesisMpcThd total
-        then error "Pos.Genesis: RichPoorStakes: richmen stake \
-                   \is less than MPC threshold"
-        else identity
-    basicDist = genericReplicate sdRichmen sdRichStake ++
-                genericReplicate sdPoor sdPoorStake
-stakeDistribution (ExplicitStakes balances) =
-    toList balances
-stakeDistribution (CombinedStakes distA distB) =
-    stakeDistribution distA <> stakeDistribution distB
 
 bitcoinDistribution1000Coins :: Word -> [Coin]
 bitcoinDistribution1000Coins stakeholders
@@ -139,43 +90,145 @@ bitcoinDistributionImpl ratio coins (coinIdx, coin) =
     toAddValMax = coin `unsafeAddCoin`
                   (toAddValMin `unsafeMulCoin` (toAddNum - 1))
 
--- | Genesis 'Utxo'.
-genesisUtxo :: Maybe Stakeholders -> StakeDistribution -> Utxo
-genesisUtxo bootStakeholders sd =
-    M.fromList $ concat
-        [ zipWith zipF (stakeDistribution sd)
-              (genesisAddresses <> tailAddresses)
-        , map (zipF hwdDistr) hdwAddresses
-        ]
+-- | Given the stake distribution, produces map from coin to txDistr
+-- (which may be empty list).
+stakeDistribution :: StakeDistribution -> [(Coin, TxOutDistribution)]
+stakeDistribution (FlatStakes stakeholders coins) =
+    genericReplicate stakeholders val
+  where
+    val = (coins `divCoin` stakeholders, [])
+stakeDistribution (BitcoinStakes stakeholders coins) =
+    map ((, []) . normalize) $ bitcoinDistribution1000Coins stakeholders
+  where
+    normalize x =
+        x `unsafeMulCoin` coinToInteger (coins `divCoin` (1000 :: Int))
+stakeDistribution ExponentialStakes = map (, []) expTwoDistribution
+stakeDistribution ts@RichPoorStakes {..} =
+    checkMpcThd (getTotalStake ts) sdRichStake $
+    map (, []) basicDist
+  where
+    -- Node won't start if richmen cannot participate in MPC
+    checkMpcThd total richs =
+        if richs < applyCoinPortion Const.genesisMpcThd total
+        then error "Pos.Genesis: RichPoorStakes: richmen stake \
+                   \is less than MPC threshold"
+        else identity
+    basicDist = genericReplicate sdRichmen sdRichStake ++
+                genericReplicate sdPoor sdPoorStake
+stakeDistribution (ExplicitStakes balances) =
+    toList balances
+
+-- | Generates genesis 'Utxo' given optional boot stakeholders list
+-- and address distribution. In case boot stakeholders are supplied,
+-- all the balance is distributed among them. Otherwise, txDistr is
+-- set to @[]@ or left as it is (in case of 'ExplicitStakes').
+genesisUtxo :: Maybe Stakeholders -> AddrDistribution -> Utxo
+genesisUtxo bootStakeholders ad =
+    M.fromList $ concatMap (uncurry toUtxo . second stakeDistribution) ad
   where
     defaultStakeDistr coin distr
         = maybe distr
                 (\genDistr -> genesisSplitBoot genDistr coin)
                 bootStakeholders
-    zipF (coin, distr) addr =
-        ( TxIn (unsafeHash addr) 0
-        , TxOutAux (TxOut addr coin) (defaultStakeDistr coin distr)
-        )
-    tailAddresses =
-        map (makePubKeyAddress . fst . generateGenesisKeyPair)
-            [Const.genesisKeysN ..]
-    -- not much money to avoid making wallets slot leaders
-    hwdDistr = (mkCoin 100, [])
-    -- should be enough for testing.
-    genesisDevHdwKeyNum = 2
-    hdwAddresses = take genesisDevHdwKeyNum genesisDevHdwAccountAddresses
+    toUtxo :: HashSet Address -> [(Coin, TxOutDistribution)] -> [(TxIn, TxOutAux)]
+    toUtxo (toList -> addr) distrs =
+        let utxoEntry a (coin,txOutDistr) =
+                ( TxIn (unsafeHash a) 0
+                , TxOutAux (TxOut a coin) (defaultStakeDistr coin txOutDistr)
+                )
+        in map (uncurry utxoEntry) $ addr `zip` distrs
 
-    genesisDevHdwAccountAddresses :: [Address]
-    genesisDevHdwAccountAddresses = map fst genesisDevHdwAccountKeyDatas
-
+-- This is probably 100% useless.
 genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)
 genesisDelegation = mempty
-
-----------------------------------------------------------------------------
--- Slot leaders
-----------------------------------------------------------------------------
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
 genesisLeaders :: Utxo -> SlotLeaders
 genesisLeaders utxo =
     followTheSatoshi genesisSeed $ HM.toList $ utxoToStakes utxo
+
+----------------------------------------------------------------------------
+-- Development mode genesis
+----------------------------------------------------------------------------
+
+-- | First index in derivation path for HD account, which is put to genesis utxo
+accountGenesisIndex :: Word32
+accountGenesisIndex = firstNonHardened
+
+-- | Second index in derivation path for HD account, which is put to genesis
+-- utxo
+wAddressGenesisIndex :: Word32
+wAddressGenesisIndex = firstNonHardened
+
+-- | Chooses among common distributions for dev mode.
+devStakesDistr
+    :: Maybe (Int, Int)                   -- flat distr
+    -> Maybe (Int, Int)                   -- bitcoin distr
+    -> Maybe (Int, Int, Integer, Double)  -- rich/poor distr
+    -> Bool                               -- exp distr
+    -> StakeDistribution
+devStakesDistr Nothing Nothing Nothing False = genesisDevFlatDistr
+devStakesDistr (Just (nodes, coins)) Nothing Nothing False =
+    FlatStakes (fromIntegral nodes) (mkCoin (fromIntegral coins))
+devStakesDistr Nothing (Just (nodes, coins)) Nothing False =
+    BitcoinStakes (fromIntegral nodes) (mkCoin (fromIntegral coins))
+devStakesDistr Nothing Nothing (Just (richs, poors, coins, richShare)) False =
+    checkConsistency $ RichPoorStakes {..}
+  where
+    sdRichmen = fromIntegral richs
+    sdPoor = fromIntegral poors
+
+    totalRichStake = round $ richShare * fromIntegral coins
+    totalPoorStake = coins - totalRichStake
+    richStake = totalRichStake `div` fromIntegral richs
+    poorStake = totalPoorStake `div` fromIntegral poors
+    sdRichStake = mkCoin $ fromIntegral richStake
+    sdPoorStake = mkCoin $ fromIntegral poorStake
+
+    checkConsistency =
+        if poorStake <= 0 || richStake <= 0
+        then error "Impossible to make RichPoorStakes with given parameters."
+        else identity
+devStakesDistr Nothing Nothing Nothing True = ExponentialStakes
+devStakesDistr _ _ _ _ =
+    error "Conflicting distribution options were enabled. \
+          \Choose one at most or nothing."
+
+-- | Addresses and secret keys of genesis HD wallets' /addresses/.
+-- It's important to return 'Address' here, not 'PublicKey', since valid HD
+-- wallet address keeps 'HDAddressPayload' attribute which value depends on
+-- secret key.
+genesisDevHdwAccountKeyDatas :: [(Address, EncryptedSecretKey)]
+genesisDevHdwAccountKeyDatas =
+    genesisDevHdwSecretKeys <&> \key ->
+        fromMaybe (error "Passphrase doesn't match in Genesis") $
+        deriveLvl2KeyPair
+            emptyPassphrase
+            key
+            accountGenesisIndex
+            wAddressGenesisIndex
+
+-- | Address distribution for dev mode. It's supposed that you pass
+-- the distribution from 'devStakesDistr' here. This function will add
+-- dev genesis addresses and hd addrs/distr.
+devAddrDistr :: StakeDistribution -> AddrDistribution
+devAddrDistr distr =
+    [ (mainAddrs, distr)        -- Addresses from passed stake
+    , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
+    ]
+  where
+    distrSize = length $ stakeDistribution distr
+    mainAddrs = HS.fromList $
+        take distrSize $ genesisDevAddresses <> tailAddresses
+    tailAddresses =
+        map (makePubKeyAddress . fst . generateGenesisKeyPair)
+            [Const.genesisKeysN ..]
+    hdwSize = 2 -- should be positive
+    -- 200 coins split among hdwSize users. Should be small sum enough
+    -- to avoid making wallets slot leaders.
+    hdwDistr = FlatStakes (fromIntegral hdwSize) (mkCoin 200)
+    -- should be enough for testing.
+    hdwAddresses = HS.fromList $ take hdwSize genesisDevHdwAccountAddresses
+
+    genesisDevHdwAccountAddresses :: [Address]
+    genesisDevHdwAccountAddresses = map fst genesisDevHdwAccountKeyDatas

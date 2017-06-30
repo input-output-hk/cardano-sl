@@ -19,7 +19,7 @@ import           Universum
 import           Unsafe                      (unsafeHead)
 
 import           Pos.Core                    (Coin, HeaderHash, StakeholderId,
-                                              Stakeholders, genesisBootProdStakeholders)
+                                              Stakeholders)
 import           Pos.DB.Class                (MonadDBRead, MonadGState, gsIsBootstrapEra)
 import qualified Pos.DB.GState.Common        as GS
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId,
@@ -82,7 +82,7 @@ txProcessTransaction itw@(txId, txAux) = do
   where
     notBootRelated bootHolders =
         let txDistr = getTxDistribution $ taDistribution txAux
-            inBoot s = s `HS.member` genesisBootProdStakeholders
+            inBoot s = s `HS.member` bootHolders
             mentioned pool addr = addr `elem` pool
             bad :: [(StakeholderId, Coin)] -> Bool
             bad (map fst -> txOutDistr) =

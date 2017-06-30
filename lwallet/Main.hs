@@ -48,11 +48,12 @@ import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVot
                                              withSafeSigner)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Discovery              (findPeers, getPeers)
-import           Pos.Genesis                (genesisBootProdStakeholders,
+import           Pos.Genesis                (devAddrDistr, devStakesDistr,
                                              genesisDevSecretKeys,
-                                             genesisStakeDistribution, genesisUtxo)
+                                             genesisProdAddrDistribution,
+                                             genesisProdBootStakeholders, genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             bracketTransport, loggerBracket, stakesDistr)
+                                             bracketTransport, loggerBracket)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
@@ -315,10 +316,17 @@ main = do
         baseParams = BaseParams { bpLoggingParams = logParams }
 
     let sysStart = CLI.sysStart woCommonArgs
-    let npGenesisStakeholders =
+    let devStakeDistr =
+            devStakesDistr
+                (CLI.flatDistr woCommonArgs)
+                (CLI.bitcoinDistr woCommonArgs)
+                (CLI.richPoorDistr woCommonArgs)
+                (CLI.expDistr woCommonArgs)
+    let npCustomUtxo =
             if isDevelopment
-                then Nothing
-                else Just genesisBootProdStakeholders
+            then genesisUtxo Nothing (devAddrDistr devStakeDistr)
+            else genesisUtxo (Just genesisProdBootStakeholders)
+                             genesisProdAddrDistribution
     let params =
             WalletParams
             { wpDbPath      = Just woDbPath
@@ -327,15 +335,7 @@ main = do
             , wpSystemStart = sysStart
             , wpGenesisKeys = woDebug
             , wpBaseParams  = baseParams
-            , wpGenesisUtxo =
-                  genesisUtxo npGenesisStakeholders $
-                  if isDevelopment
-                      then stakesDistr
-                               (CLI.flatDistr woCommonArgs)
-                               (CLI.bitcoinDistr woCommonArgs)
-                               (CLI.richPoorDistr woCommonArgs)
-                               (CLI.expDistr woCommonArgs)
-                      else genesisStakeDistribution
+            , wpGenesisUtxo = npCustomUtxo
             }
 
     loggerBracket logParams $ runProduction $

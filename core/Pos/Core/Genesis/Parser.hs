@@ -26,11 +26,5 @@ compileGenCoreData =
             case decodeFull file of
               Left a                       ->
                   error $ "Failed to read genesis: " <> toText a
-              Right (d :: GenesisCoreData) ->
-                  processDecoded d
-        Right (d :: GenesisCoreData0) -> processDecoded (toGenesisCoreData d)
-  where
-    processDecoded d =
-        if null (gcdAddresses d)
-        then error "No addresses in genesis-core.bin"
-        else d
+              Right (d :: GenesisCoreData) -> d
+        Right (d :: GenesisCoreData0) -> toGenesisCoreData d

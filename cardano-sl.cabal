@@ -198,7 +198,6 @@ library
                         -- Launcher
                         Pos.Launcher.Launcher
                         Pos.Launcher.Mode
-                        Pos.Launcher.Options
                         Pos.Launcher.Param
                         Pos.Launcher.Resource
                         Pos.Launcher.Runner

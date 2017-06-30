@@ -7,12 +7,12 @@ import           Universum
 import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..), Peek,
                                           PokeWithSize, UnsignedVarInt (..),
                                           convertToSizeNPut, deriveSimpleBi, getWord8,
-                                          label, labelS, putS, putWord8S)
+                                          label, labelS, putField, putS, putWord8S)
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Core.Types   ()
 import           Pos.Core.Address        ()
 import           Pos.Core.Genesis.Types  (GenesisCoreData (..), GenesisCoreData0 (..),
-                                          StakeDistribution (..))
+                                          StakeDistribution (..), mkGenesisCoreData)
 import           Pos.Core.Types          (Address, Coin, StakeholderId)
 
 getUVI :: Peek Word
@@ -28,7 +28,6 @@ instance Bi StakeDistribution where
         2 -> RichPoorStakes <$> getUVI <*> get <*> getUVI <*> get
         3 -> pure ExponentialStakes
         4 -> ExplicitStakes <$> get
-        5 -> CombinedStakes <$> get <*> get
         _ -> fail "Pos.Binary.Genesis: StakeDistribution: invalid tag"
     sizeNPut = labelS "StakeDistribution" $ convertToSizeNPut f
       where
@@ -40,7 +39,18 @@ instance Bi StakeDistribution where
             putUVI n <> putS ps
         f ExponentialStakes          = putWord8S 3
         f (ExplicitStakes balances)  = putWord8S 4 <> putS balances
-        f (CombinedStakes st1 st2)   = putWord8S 5 <> putS st1 <> putS st2
+
+instance Bi GenesisCoreData where
+    get = label "GenesisCoreData" $ do
+        addrDistribution <- get
+        bootstrapStakeholders <- get
+        case mkGenesisCoreData addrDistribution bootstrapStakeholders of
+            Left e  -> fail $ "Couldn't construct genesis data: " <> e
+            Right x -> pure x
+    sizeNPut =
+        labelS "GenesisCoreData" $
+            putField gcdAddrDistribution <>
+            putField gcdBootstrapStakeholders
 
 -- compatibility
 deriveSimpleBi ''GenesisCoreData0 [
@@ -48,11 +58,4 @@ deriveSimpleBi ''GenesisCoreData0 [
         Field [| _0gcdAddresses         :: [Address]                  |],
         Field [| _0gcdDistribution      :: StakeDistribution          |],
         Field [| _0gcdBootstrapBalances :: HashMap StakeholderId Coin |]
-    ]]
-
-deriveSimpleBi ''GenesisCoreData [
-    Cons 'GenesisCoreData [
-        Field [| gcdAddresses             :: [Address]             |],
-        Field [| gcdDistribution          :: StakeDistribution     |],
-        Field [| gcdBootstrapStakeholders :: HashSet StakeholderId |]
     ]]

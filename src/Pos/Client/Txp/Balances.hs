@@ -22,8 +22,7 @@ import           System.Wlog                  (WithLogger, logWarning)
 
 import           Pos.Core                     (AddressIgnoringAttributes (AddressIA))
 import           Pos.Crypto                   (WithHash (..), shortHashF)
-import           Pos.DB                       (MonadDBRead, MonadRealDB)
-import qualified Pos.DB.GState                as GS
+import           Pos.DB                       (MonadDBRead)
 import qualified Pos.DB.GState.Balances       as GS
 import           Pos.Txp                      (GenericToilModifier (..), MonadTxpMem,
                                                TxAux (..), TxOutAux (..), Utxo,
@@ -34,6 +33,8 @@ import           Pos.Txp                      (GenericToilModifier (..), MonadTx
 import           Pos.Types                    (Address (..), Coin, mkCoin, sumCoins,
                                                unsafeIntegerToCoin)
 import qualified Pos.Util.Modifier            as MM
+import           Pos.Wallet.Web.State         (WebWalletModeDB)
+import qualified Pos.Wallet.Web.State         as WS
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -66,18 +67,18 @@ runBalancesRedirect :: BalancesRedirect m a -> m a
 runBalancesRedirect = coerce
 
 instance
-    (MonadRealDB m, MonadDBRead m, MonadMask m, WithLogger m, MonadTxpMem ext m, t ~ IdentityT) =>
+    ( MonadDBRead m
+    , WebWalletModeDB m
+    ,  MonadMask m
+    , WithLogger m
+    , MonadTxpMem ext m, t ~ IdentityT) =>
         MonadBalances (Ether.TaggedTrans BalancesRedirectTag t m)
   where
     getOwnUtxos addr = do
-        utxo <- GS.getFilteredUtxo addr
         updates <- getUtxoModifier
+        locUtxo <- MM.modifyMap updates <$> WS.getWalletUtxo
         let addrsSet = HS.fromList $ AddressIA <$> addr
-            toDel    = MM.deletions updates
-            toAdd    = HM.filter (`addrBelongsToSet` addrsSet) $
-                       MM.insertionsMap updates
-            utxo'    = foldr M.delete utxo toDel
-        return $ HM.foldrWithKey M.insert utxo' toAdd
+        pure $ M.filter (`addrBelongsToSet` addrsSet) locUtxo
 
     getBalance PubKeyAddress{..} = do
         (txs, undos) <- getLocalTxsNUndo

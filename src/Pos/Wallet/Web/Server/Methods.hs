@@ -30,6 +30,7 @@ import           Data.ByteString.Base58           (bitcoinAlphabet, decodeBase58
 import qualified Data.ByteString.Lazy             as BSL
 import           Data.Default                     (Default (def))
 import qualified Data.HashMap.Strict              as HM
+import qualified Data.DList as DL
 import           Data.List                        (findIndex)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
@@ -62,8 +63,7 @@ import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
 import           Pos.Client.Txp.Util              (createMTx)
-import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
-                                                   TxHistoryEntry (..))
+import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
@@ -84,9 +84,7 @@ import           Pos.Genesis                      (genesisDevHdwSecretKeys)
 import           Pos.Binary.Class (biSize)
 import           Pos.Reporting.MemState           (rcReportServers)
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
-import           Pos.Txp                          (Utxo)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..))
-import           Pos.Types                        (HeaderHash)
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
@@ -98,7 +96,7 @@ import           Pos.Wallet.KeyStorage            (addSecretKey, deleteSecretKey
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (applyLastUpdate,
                                                    blockchainSlotDuration, connectedPeers,
-                                                   getBalance, getTxHistory,
+                                                   getBalance, getBlockHistory, getLocalHistory,
                                                    localChainDifficulty,
                                                    networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
@@ -714,29 +712,20 @@ prepareTxInfo passphrase moneySource dstDistr = do
 getFullWalletHistory :: WalletWebMode m => CId Wal -> m ([CTx], Word)
 getFullWalletHistory cWalId = do
     addrs <- mapM decodeCIdOrFail =<< getWalletAddrs Ever cWalId
-    cHistory <- do
-        (mInit, cachedTxs) <- transCache <$> getHistoryCache cWalId
 
-        TxHistoryAnswer {..} <- untag @WalletSscType getTxHistory addrs mInit
+    blockHistory <- getHistoryCache cWalId >>= \case
+        Just hist -> pure $ DL.fromList hist
+        Nothing -> do
+            derivedHistory <- untag @WalletSscType getBlockHistory addrs
+            updateHistoryCache cWalId $ DL.toList derivedHistory
+            pure derivedHistory
 
-        -- Add allowed portion of result to cache
-        let fullHistory = taHistory <> cachedTxs
-        unless (null taHistory) $
-            updateHistoryCache
-                cWalId
-                taLastCachedHash
-                taCachedUtxo
-                fullHistory
+    localHistory <- getLocalHistory addrs
 
-        ctxs <- forM fullHistory $ addHistoryTx cWalId
-        pure $ concatMap toList ctxs
+    let fullHistory = DL.toList $ localHistory <> blockHistory
+    ctxs <- forM fullHistory $ addHistoryTx cWalId
+    let cHistory = concatMap toList ctxs
     pure (cHistory, fromIntegral $ length cHistory)
-  where
-    transCache
-        :: Maybe (HeaderHash, Utxo, [TxHistoryEntry])
-        -> (Maybe (HeaderHash, Utxo), [TxHistoryEntry])
-    transCache Nothing                = (Nothing, [])
-    transCache (Just (hh, utxo, txs)) = (Just (hh, utxo), txs)
 
 getHistory
     :: WalletWebMode m

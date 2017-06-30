@@ -37,8 +37,10 @@ import           Pos.Reporting.MemState           (ReportingContext)
 import           Pos.Util.JsonLog                 (JsonLogConfig, jsonLogDefault)
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
 import           Pos.Wallet.KeyStorage            (KeyData)
-import           Pos.Wallet.Light.Redirect        (getBalanceWallet, getOwnUtxosWallet,
-                                                   getTxHistoryWallet, saveTxWallet)
+import           Pos.Wallet.Light.Redirect        (getBalanceWallet,
+                                                   getBlockHistoryWallet,
+                                                   getLocalHistoryWallet,
+                                                   getOwnUtxosWallet, saveTxWallet)
 import           Pos.Wallet.Light.State.Acidic    (WalletState)
 import           Pos.Wallet.Light.State.Core      (gsAdoptedBVDataWallet)
 import           Pos.Wallet.WalletMode            (MonadBlockchainInfo (..),
@@ -105,5 +107,6 @@ instance MonadBalances LightWalletMode where
     getBalance = getBalanceWallet
 
 instance MonadTxHistory LightWalletMode where
-    getTxHistory = getTxHistoryWallet
+    getBlockHistory = getBlockHistoryWallet
+    getLocalHistory = getLocalHistoryWallet
     saveTx = saveTxWallet

@@ -5,19 +5,21 @@
 module Pos.Wallet.Light.Redirect
        ( getOwnUtxosWallet
        , getBalanceWallet
-       , getTxHistoryWallet
+       , getBlockHistoryWallet
+       , getLocalHistoryWallet
        , saveTxWallet
        ) where
 
 import           Universum
 
 import           Control.Monad.Trans.Maybe (MaybeT (..))
+import           Data.DList                (DList)
 import           Data.Tagged               (Tagged (..))
 import qualified Ether
 
 import           Pos.Client.Txp.Balances   (MonadBalances (..), getBalanceFromUtxo)
-import           Pos.Client.Txp.History    (TxHistoryAnswer, deriveAddrHistory)
-import           Pos.Core                  (Address, HeaderHash)
+import           Pos.Client.Txp.History    (TxHistoryEntry, deriveAddrHistory)
+import           Pos.Core                  (Address)
 import           Pos.Txp                   (TxAux, TxId, Utxo, filterUtxoByAddrs,
                                             runUtxoStateT)
 import           Pos.Types                 (Coin)
@@ -37,16 +39,22 @@ getBalanceWallet = getBalanceFromUtxo
 -- MonadTxHistory
 ----------------------------------------------------------------------------
 
-getTxHistoryWallet
+getBlockHistoryWallet
     :: (Ether.MonadReader' LWS.WalletState m, MonadIO m)
-    => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
-getTxHistoryWallet = Tagged $ \addrs _ -> do
+    => Tagged ssc ([Address] -> m (DList TxHistoryEntry))
+getBlockHistoryWallet = Tagged $ \addrs -> do
     chain <- LWS.getBestChain
     utxo <- LWS.getOldestUtxo
     _ <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
         runMaybeT $ flip runUtxoStateT utxo $
         deriveAddrHistory addrs chain
-    pure $ error "getTxHistory is not implemented for light wallet"
+    pure $ error "getBlockHistory is not implemented for light wallet"
+
+getLocalHistoryWallet
+    :: (Ether.MonadReader' LWS.WalletState m, MonadIO m)
+    => [Address] -> m (DList TxHistoryEntry)
+getLocalHistoryWallet = pure $
+    error "getLocalHistory is not implemented for light wallet"
 
 saveTxWallet :: Monad m => (TxId, TxAux) -> m ()
 saveTxWallet _ = pure ()

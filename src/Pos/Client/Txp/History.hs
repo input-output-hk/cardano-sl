@@ -13,62 +13,58 @@ module Pos.Client.Txp.History
        , thInputAddrs
        , thOutputAddrs
 
-       , TxHistoryAnswer(..)
-
        , MonadTxHistory(..)
 
        -- * History derivation
        , getRelatedTxsByAddrs
        , deriveAddrHistory
        , deriveAddrHistoryBlk
-       , getTxHistoryDefault
+       , getBlockHistoryDefault
+       , getLocalHistoryDefault
        , saveTxDefault
        ) where
 
 import           Universum
 
-import           Control.Lens                (makeLenses)
-import           Control.Monad.Trans         (MonadTrans)
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Data.DList                  (DList)
-import qualified Data.DList                  as DL
-import           Data.Tagged                 (Tagged (..))
+import           Control.Lens                 (makeLenses)
+import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Control  (MonadBaseControl)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Coerce                  (coerce)
+import           Data.DList                   (DList)
+import qualified Data.DList                   as DL
+import qualified Data.Map.Strict              as M (lookup)
+import           Data.Tagged                  (Tagged (..))
 import qualified Ether
-import           System.Wlog                 (WithLogger)
+import           System.Wlog                  (WithLogger)
 
-import           Pos.Block.Core              (Block, MainBlock, mainBlockSlot,
-                                              mainBlockTxPayload)
-import           Pos.Block.Types             (Blund)
-import           Pos.Context                 (GenesisUtxo, genesisUtxoM)
-import           Pos.Core                    (Address, ChainDifficulty, HeaderHash,
-                                              Timestamp (..), difficultyL)
-import           Pos.Crypto                  (WithHash (..), withHash)
-import           Pos.DB                      (MonadDBRead, MonadGState, MonadRealDB)
-import qualified Pos.DB.Block                as DB
-import qualified Pos.DB.GState               as GS
-import           Pos.Slotting                (MonadSlots, getSlotStartPure)
-import           Pos.Ssc.Class               (SscHelpersClass)
+import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
+                                               mainBlockTxPayload)
+import           Pos.Block.Types              (Blund)
+import           Pos.Context                  (GenesisUtxo, genesisUtxoM)
+import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
+                                               Timestamp (..), difficultyL)
+import           Pos.Crypto                   (WithHash (..), withHash)
+import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
+import qualified Pos.DB.Block                 as DB
+import qualified Pos.DB.GState                as GS
+import           Pos.Slotting                 (MonadSlots, getSlotStartPure)
+import           Pos.Ssc.Class                (SscHelpersClass)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp.Local      (eTxProcessTransaction)
+import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
 #else
-import           Pos.Txp                     (txProcessTransaction)
+import           Pos.Txp                      (txProcessTransaction)
 #endif
-import           Pos.Txp                     (MonadTxpMem, MonadUtxo, MonadUtxoRead,
-                                              Tx (..), TxAux (..), TxDistribution, TxId,
-                                              TxOut, TxOutAux (..), TxWitness, Utxo,
-                                              UtxoStateT, applyTxToUtxo, evalUtxoStateT,
-                                              flattenTxPayload, getLocalTxs,
-                                              runUtxoStateT, txOutAddress, utxoGet)
-import           Pos.WorkMode.Class          (TxpExtra_TMP)
+import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxoRead,
+                                               ToilT, Tx (..), TxAux (..), TxDistribution,
+                                               TxId, TxOut, TxOutAux (..), TxWitness,
+                                               applyTxToUtxo, evalToilTEmpty,
+                                               flattenTxPayload, getLocalTxs, runDBToil,
+                                               runUtxoStateT, txOutAddress, utxoGet)
+import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
-
-data TxHistoryAnswer = TxHistoryAnswer
-    { taLastCachedHash :: HeaderHash
-    , taCachedUtxo     :: Utxo
-    , taHistory        :: [TxHistoryEntry]
-    } deriving (Show)
 
 ----------------------------------------------------------------------
 -- Deduction of history
@@ -151,21 +147,42 @@ deriveAddrHistoryBlk addrs getTs hist (Right blk) = do
     return $ DL.fromList txs' <> hist
 
 ----------------------------------------------------------------------------
+-- GenesisToil
+----------------------------------------------------------------------------
+
+-- | Identity wrapper to use genesis utxo in context as `MonadUtxoRead` instance
+-- TODO: probably should be moved elsewhere; `Pos.Txp.Toil` is not possible, because
+-- of dependency on `Pos.Context` from main package
+data GenesisToilTag
+
+type GenesisToil = Ether.TaggedTrans GenesisToilTag IdentityT
+
+runGenesisToil :: GenesisToil m a -> m a
+runGenesisToil = coerce
+
+instance (Ether.MonadReader' GenesisUtxo m) =>
+         MonadUtxoRead (GenesisToil m) where
+    utxoGet txIn = M.lookup txIn <$> genesisUtxoM
+
+----------------------------------------------------------------------------
 -- MonadTxHistory
 ----------------------------------------------------------------------------
 
 -- | A class which have methods to get transaction history
 class Monad m => MonadTxHistory m where
-    getTxHistory
+    getBlockHistory
         :: SscHelpersClass ssc
-        => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
+        => Tagged ssc ([Address] -> m (DList TxHistoryEntry))
+    getLocalHistory
+        :: [Address] -> m (DList TxHistoryEntry)
     saveTx :: (TxId, TxAux) -> m ()
 
 instance {-# OVERLAPPABLE #-}
     (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
         MonadTxHistory (t m)
   where
-    getTxHistory = fmap lift <<$>> getTxHistory
+    getBlockHistory = (lift .) <$> getBlockHistory
+    getLocalHistory = lift . getLocalHistory
     saveTx = lift . saveTx
 
 type TxHistoryEnv m =
@@ -180,37 +197,37 @@ type TxHistoryEnv m =
     , Ether.MonadReader' GenesisUtxo m
     )
 
-getTxHistoryDefault
+type GenesisHistoryFetcher m = ToilT () (GenesisToil (DB.BlockDBRedirect m))
+
+getBlockHistoryDefault
     :: forall ssc m. (SscHelpersClass ssc, TxHistoryEnv m)
-    => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
-getTxHistoryDefault = Tagged $ \addrs mInit -> do
-    let getGenPair = (,) <$> GS.getBot <*> genesisUtxoM
-    (bot, bottomUtxo) <- maybe getGenPair pure mInit
+    => Tagged ssc ([Address] -> m (DList TxHistoryEntry))
+getBlockHistoryDefault = Tagged $ \addrs -> do
+    bot <- GS.getBot
     sd <- GS.getSlottingData
 
-    let fromBlund :: Blund ssc -> UtxoStateT (DB.BlockDBRedirect m) (Block ssc)
+    let fromBlund :: Blund ssc -> GenesisHistoryFetcher m (Block ssc)
         fromBlund = pure . fst
 
         getBlockTimestamp :: MainBlock ssc -> Maybe Timestamp
         getBlockTimestamp blk = getSlotStartPure True (blk ^. mainBlockSlot) sd
 
-        blockFetcher :: HeaderHash -> UtxoStateT (DB.BlockDBRedirect m) (DList TxHistoryEntry)
+        blockFetcher :: HeaderHash -> GenesisHistoryFetcher m (DList TxHistoryEntry)
         blockFetcher start = GS.foldlUpWhileM fromBlund start (const $ const True)
             (deriveAddrHistoryBlk addrs getBlockTimestamp) mempty
 
-        localFetcher :: UtxoStateT (DB.BlockDBRedirect m) (DList TxHistoryEntry)
-        localFetcher = do
-            let mapper (txid, TxAux {..}) =
-                    (WithHash taTx txid, taWitness, taDistribution)
-            ltxs <- lift . lift $ getLocalTxs
-            txs <- getRelatedTxsByAddrs addrs $ map mapper ltxs
-            return $ DL.fromList txs
+    DB.runBlockDBRedirect . runGenesisToil . evalToilTEmpty $
+        blockFetcher bot
 
-    DB.runBlockDBRedirect $ do
-        (blockTxs, cachedUtxo) <- runUtxoStateT (blockFetcher bot) bottomUtxo
-        localTxs <- evalUtxoStateT localFetcher cachedUtxo
-        tip <- GS.getTip
-        return . TxHistoryAnswer tip cachedUtxo . DL.toList $ localTxs <> blockTxs
+getLocalHistoryDefault
+    :: forall m. TxHistoryEnv m
+    => [Address] -> m (DList TxHistoryEntry)
+getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
+    let mapper (txid, TxAux {..}) =
+            (WithHash taTx txid, taWitness, taDistribution)
+    ltxs <- getLocalTxs
+    txs <- getRelatedTxsByAddrs addrs $ map mapper ltxs
+    return $ DL.fromList txs
 
 saveTxDefault :: TxHistoryEnv m => (TxId, TxAux) -> m ()
 #ifdef WITH_EXPLORER

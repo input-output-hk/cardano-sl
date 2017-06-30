@@ -549,6 +549,34 @@ newPayment = mkEffFn4 cNewPayment
 
         fromAff <<< map encodeJson $ newCPayment
 
+-- TODO: add documentation
+-- This is similar to newPayment, except it returns how much fees would the payment take
+txFee
+    :: forall eff.
+    EffFn4 (ajax :: AJAX, err :: EXCEPTION | eff)
+    String
+    String
+    String
+    Foreign
+    (Promise Json)
+txFee = mkEffFn4 cTxFee
+  where
+    cTxFee
+        :: String
+        -> String
+        -> String
+        -> Foreign
+        -> Eff  (ajax :: AJAX, err :: EXCEPTION | eff) (Promise Json)
+    cTxFee wFrom addrTo amount spendingPassword = do
+        pass <- mkCPassPhrase spendingPassword
+        let accountId   = mkCAccountId wFrom
+        let cId         = mkCId addrTo
+        let cAmount     = mkCCoin amount
+        let txFee' = B.txFee pass accountId cId cAmount
+
+        fromAff <<< map encodeJson $ txFee'
+
+
 -- | Updates transaction meta data.
 -- Arguments: wallet object/id, transaction id/hash, currency, title, description, date
 -- Returns

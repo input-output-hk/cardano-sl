@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 -- | Blockchain listener for Explorer.
 -- Callbacks on application and rollback.
@@ -103,30 +104,7 @@ onApplyEpochBlocksExplorer
     MonadBListenerT m ssc
     => OldestFirst NE (Blund ssc) 
     -> m SomeBatchOp
-onApplyEpochBlocksExplorer blunds = do
-
-    -- Get existing @HeaderHash@es from the keys so we can merge them.
-    existingBlocks <- getExistingBlocks keys
-
-    -- Merge the new and the old
-    let mergedBlocksMap = M.unionWith (<>) existingBlocks newBlocks
-
-    -- Create database operation
-    let mergedBlocks = putKeysBlocks mergedBlocksMap
-
-    -- In the end make sure we place this under @SomeBatchOp@ in order to
-    -- preserve atomicity.
-    pure $ SomeBatchOp mergedBlocks
-  where
-
-    keys :: [Epoch]
-    keys = M.keys newBlocks
-
-    newBlocks :: M.Map Epoch [HeaderHash]
-    newBlocks = epochBlocksMap blocksNE
-
-    blocksNE :: NE (Block ssc)  
-    blocksNE = fst <$> getOldestFirst blunds
+onApplyEpochBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds epochBlocksMap 
 
 
 -- For @PageBlocks@
@@ -135,30 +113,7 @@ onApplyPageBlocksExplorer
     MonadBListenerT m ssc
     => OldestFirst NE (Blund ssc) 
     -> m SomeBatchOp
-onApplyPageBlocksExplorer blunds = do
-
-    -- Get existing @HeaderHash@es from the keys so we can merge them.
-    existingBlocks <- getExistingBlocks keys
-
-    -- Merge the new and the old
-    let mergedBlocksMap = M.unionWith (<>) existingBlocks newBlocks
-
-    -- Create database operation
-    let mergedBlocks = putKeysBlocks mergedBlocksMap
-
-    -- In the end make sure we place this under @SomeBatchOp@ in order to
-    -- preserve atomicity.
-    pure $ SomeBatchOp mergedBlocks
-  where
-
-    keys :: [Page]
-    keys = M.keys newBlocks
-
-    newBlocks :: M.Map Page [HeaderHash]
-    newBlocks = pageBlocksMap blocksNE
-
-    blocksNE :: NE (Block ssc)  
-    blocksNE = fst <$> getOldestFirst blunds
+onApplyPageBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds pageBlocksMap 
 
 
 ----------------------------------------------------------------------------
@@ -166,73 +121,20 @@ onApplyPageBlocksExplorer blunds = do
 ----------------------------------------------------------------------------
 
 
--- So the parameters can be type checked.
-newtype PrevKBlocks  k = PrevKBlocks { getPrevKBlocks :: M.Map k [HeaderHash] }
-newtype NewKBlocks   k = NewKBlocks { getNewKBlocks :: M.Map k [HeaderHash] }
-
 -- For @EpochBlocks@
 onRollbackEpochBlocksExplorer
     :: forall ssc m .
     MonadBListenerT m ssc
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
-onRollbackEpochBlocksExplorer blunds = do
-    
-    -- Get existing @HeaderHash@es from the keys so we can merge them.
-    existingBlocks <- getExistingBlocks keys
-    let prevKeyBlocks = PrevKBlocks existingBlocks
-    let newKeyBlocks  = NewKBlocks  newBlocks
-
-    -- Diffrence between the new and the old
-    let mergedBlocksMap = rollbackedBlocks keys prevKeyBlocks newKeyBlocks
-
-    -- Create database operation
-    let mergedBlocks = putKeysBlocks mergedBlocksMap
-
-    -- In the end make sure we place this under @SomeBatchOp@ in order to
-    -- preserve atomicity.
-    pure $ SomeBatchOp mergedBlocks
-  where
-
-    keys :: [Epoch]
-    keys = M.keys newBlocks
-
-    newBlocks :: M.Map Epoch [HeaderHash]
-    newBlocks = epochBlocksMap blocksNE
-
-    blocksNE :: NE (Block ssc)  
-    blocksNE = fst <$> getNewestFirst blunds
+onRollbackEpochBlocksExplorer blunds = onRollbackGeneralBlocks blunds epochBlocksMap
 
 
+-- For @PageBlocks@
 onRollbackPageBlocksExplorer
     :: forall ssc m .
     MonadBListenerT m ssc
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
-onRollbackPageBlocksExplorer blunds = do
-    
-    -- Get existing @HeaderHash@es from the keys so we can merge them.
-    existingBlocks <- getExistingBlocks keys
-    let prevKeyBlocks = PrevKBlocks existingBlocks
-    let newKeyBlocks  = NewKBlocks  newBlocks
-
-    -- Diffrence between the new and the old
-    let mergedBlocksMap = rollbackedBlocks keys prevKeyBlocks newKeyBlocks 
-
-    -- Create database operation
-    let mergedBlocks = putKeysBlocks mergedBlocksMap
-
-    -- In the end make sure we place this under @SomeBatchOp@ in order to
-    -- preserve atomicity.
-    pure $ SomeBatchOp mergedBlocks
-  where
-    
-    keys :: [Page]
-    keys = M.keys newBlocks
-
-    newBlocks :: M.Map Page [HeaderHash]
-    newBlocks = pageBlocksMap blocksNE
-
-    blocksNE :: NE (Block ssc)  
-    blocksNE = fst <$> getNewestFirst blunds
+onRollbackPageBlocksExplorer blunds = onRollbackGeneralBlocks blunds pageBlocksMap
 
 
 ----------------------------------------------------------------------------
@@ -240,6 +142,7 @@ onRollbackPageBlocksExplorer blunds = do
 ----------------------------------------------------------------------------
 
 
+-- Return a map from @Epoch@ to @HeaderHash@es for all non-empty blocks.
 epochBlocksMap 
     :: forall ssc. (SscHelpersClass ssc)
     => NE (Block ssc) 
@@ -266,6 +169,7 @@ epochBlocksMap neBlocks = blocksEpochs
     blocks = NE.toList neBlocks
 
 
+-- Return a map from @Page@ to @HeaderHash@es for all non-empty blocks.
 pageBlocksMap 
     :: forall ssc. (SscHelpersClass ssc) 
     => NE (Block ssc) 
@@ -300,6 +204,12 @@ pageBlocksMap neBlocks = blocksPages
     blocks :: [Block ssc]
     blocks = NE.toList neBlocks
 
+
+-- So the parameters can be type checked.
+newtype PrevKBlocks  k = PrevKBlocks { getPrevKBlocks :: M.Map k [HeaderHash] }
+newtype NewKBlocks   k = NewKBlocks { getNewKBlocks :: M.Map k [HeaderHash] }
+
+
 -- The result is the map that contains diffed blocks from the keys.
 rollbackedBlocks
     :: forall a
@@ -333,23 +243,25 @@ rollbackedBlocks keys' oldMap' newMap' = M.unions rolledbackKeyMaps
             finalBlocks :: [HeaderHash]
             finalBlocks = existingBlocks \\ newBlocks'
 
+
 -- The repetitions can be extracted
-class (Ord k) => PutKeyBlocksOperation k where
+class (Ord k) => KeyBlocksOperation k where
     putKeyBlocksF :: (k -> [HeaderHash] -> DB.ExplorerOp)
     getKeyBlocksF :: (MonadDBRead m) => (k -> m (Maybe [HeaderHash]))
 
-instance PutKeyBlocksOperation Epoch where
+instance KeyBlocksOperation Epoch where
     putKeyBlocksF = DB.PutEpochBlocks
     getKeyBlocksF = DB.getEpochBlocks
 
-instance PutKeyBlocksOperation Page where
+instance KeyBlocksOperation Page where
     putKeyBlocksF = DB.PutPageBlocks
     getKeyBlocksF = DB.getPageBlocks
+
 
 -- For each (k, [v]) pair, create a database operation.
 putKeysBlocks
     :: forall k
-     . (PutKeyBlocksOperation k)
+     . (KeyBlocksOperation k)
     => M.Map k [HeaderHash]
     -> [DB.ExplorerOp]
 putKeysBlocks keysBlocks = putKeyBlocks <$> M.toList keysBlocks
@@ -363,9 +275,10 @@ putKeysBlocks keysBlocks = putKeyBlocks <$> M.toList keysBlocks
         blocks        = keyBlocks ^. _2
         uniqueBlocks  = ordNub blocks
 
+
 -- Get exisiting key blocks paired with the key.
 getExistingBlocks
-    :: forall m k. (MonadDBRead m, PutKeyBlocksOperation k) 
+    :: forall k m. (MonadDBRead m, KeyBlocksOperation k) 
     => [k]
     -> m (M.Map k [HeaderHash])
 getExistingBlocks keys = do
@@ -383,3 +296,72 @@ getExistingBlocks keys = do
         let mKeyBlocks = fromMaybe [] keyBlocks
         pure $ M.singleton key mKeyBlocks
 
+
+-- A general @Key@ @Block@ database application for the apply call.
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+onApplyKeyBlocksGeneral
+    :: forall k ssc m.
+    (MonadBListenerT m ssc, KeyBlocksOperation k)
+    => OldestFirst NE (Blund ssc) 
+    -> (NE (Block ssc) -> M.Map k [HeaderHash])
+    -> m SomeBatchOp
+onApplyKeyBlocksGeneral blunds newBlocksMapF = do
+
+    -- Get existing @HeaderHash@es from the keys so we can merge them.
+    existingBlocks <- getExistingBlocks keys
+
+    -- Merge the new and the old
+    let mergedBlocksMap = M.unionWith (<>) existingBlocks newBlocks
+
+    -- Create database operation
+    let mergedBlocks = putKeysBlocks mergedBlocksMap
+
+    -- In the end make sure we place this under @SomeBatchOp@ in order to
+    -- preserve atomicity.
+    pure $ SomeBatchOp mergedBlocks
+  where
+
+    keys :: [k]
+    keys = M.keys newBlocks
+
+    newBlocks :: M.Map k [HeaderHash]
+    newBlocks = newBlocksMapF blocksNE
+
+    blocksNE :: NE (Block ssc)  
+    blocksNE = fst <$> getOldestFirst blunds
+
+
+-- A general @Key@ @Block@ database application for the rollback call.
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+onRollbackGeneralBlocks
+    :: forall k ssc m.
+    (MonadBListenerT m ssc, KeyBlocksOperation k)
+    => NewestFirst NE (Blund ssc) 
+    -> (NE (Block ssc) -> M.Map k [HeaderHash])
+    -> m SomeBatchOp
+onRollbackGeneralBlocks blunds newBlocksMapF = do
+    
+    -- Get existing @HeaderHash@es from the keys so we can merge them.
+    existingBlocks <- getExistingBlocks keys
+    let prevKeyBlocks = PrevKBlocks existingBlocks
+    let newKeyBlocks  = NewKBlocks  newBlocks
+
+    -- Diffrence between the new and the old
+    let mergedBlocksMap = rollbackedBlocks keys prevKeyBlocks newKeyBlocks
+
+    -- Create database operation
+    let mergedBlocks = putKeysBlocks mergedBlocksMap
+
+    -- In the end make sure we place this under @SomeBatchOp@ in order to
+    -- preserve atomicity.
+    pure $ SomeBatchOp mergedBlocks
+  where
+
+    keys :: [k]
+    keys = M.keys newBlocks
+
+    newBlocks :: M.Map k [HeaderHash]
+    newBlocks = newBlocksMapF blocksNE
+
+    blocksNE :: NE (Block ssc)  
+    blocksNE = fst <$> getNewestFirst blunds

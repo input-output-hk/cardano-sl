@@ -39,6 +39,8 @@ module Pos.Wallet.Web.State.Storage
        , setWalletSyncTip
        , setWalletTxHistory
        , getWalletTxHistory
+       , getWalletUtxo
+       , setWalletUtxo
        , addOnlyNewTxMeta
        , setWalletTxMeta
        , removeWallet
@@ -102,6 +104,7 @@ data WalletStorage = WalletStorage
     , _wsReadyUpdates    :: [CUpdateInfo]
     , _wsTxHistory       :: !(HashMap (CId Wal) TransactionHistory)
     , _wsHistoryCache    :: !(HashMap (CId Wal) (HeaderHash, Utxo, [TxHistoryEntry]))
+    , _wsUtxo            :: !Utxo
     , _wsUsedAddresses   :: !CustomAddresses
     , _wsChangeAddresses :: !CustomAddresses
     }
@@ -119,6 +122,7 @@ instance Default WalletStorage where
         , _wsHistoryCache    = mempty
         , _wsUsedAddresses   = mempty
         , _wsChangeAddresses = mempty
+        , _wsUtxo            = mempty
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
@@ -196,6 +200,12 @@ getTxMeta cid ctxId = preview $ wsTxHistory . ix cid . ix ctxId
 
 getWalletTxHistory :: CId Wal -> Query (Maybe [CTxMeta])
 getWalletTxHistory cWalId = toList <<$>> preview (wsTxHistory . ix cWalId)
+
+getWalletUtxo :: Query Utxo
+getWalletUtxo = view wsUtxo
+
+setWalletUtxo :: Utxo -> Update ()
+setWalletUtxo utxo = wsUtxo .= utxo
 
 getUpdates :: Query [CUpdateInfo]
 getUpdates = view wsReadyUpdates

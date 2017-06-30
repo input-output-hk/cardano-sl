@@ -71,6 +71,7 @@ import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..),
                                              evalToilTEmpty, runDBTxp)
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
+import           Pos.Util.Modifier          (MapModifier)
 import           Pos.Util.Util              (maybeThrow)
 
 import           Pos.Wallet.SscType         (WalletSscType)
@@ -85,7 +86,7 @@ import qualified Pos.Wallet.Web.State       as WS
 
 -- VoidModifier describes a difference between two states.
 -- It's (set of added k, set of deleted k) essentially.
-type VoidModifier a = MM.MapModifier a ()
+type VoidModifier a = MapModifier a ()
 
 data CAccModifier = CAccModifier {
       camAddresses :: !(VoidModifier CWAddressMeta)
@@ -361,12 +362,13 @@ applyModifierToWallet
     -> HeaderHash
     -> CAccModifier
     -> m ()
-applyModifierToWallet wAddr newTip CAccModifier{..} = do
+applyModifierToWallet wid newTip CAccModifier{..} = do
     -- TODO maybe do it as one acid-state transaction.
     mapM_ (WS.addWAddress . fst) (MM.insertions camAddresses)
     mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions camUsed)
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
-    WS.setWalletSyncTip wAddr newTip
+    WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
+    WS.setWalletSyncTip wid newTip
 
 rollbackModifierFromWallet
     :: WebWalletModeDB m
@@ -374,12 +376,13 @@ rollbackModifierFromWallet
     -> HeaderHash
     -> CAccModifier
     -> m ()
-rollbackModifierFromWallet wAddr newTip CAccModifier{..} = do
+rollbackModifierFromWallet wid newTip CAccModifier{..} = do
     -- TODO maybe do it as one acid-state transaction.
     mapM_ WS.removeWAddress (MM.deletions camAddresses)
     mapM_ (WS.removeCustomAddress UsedAddr) (MM.deletions camUsed)
     mapM_ (WS.removeCustomAddress ChangeAddr) (MM.deletions camChange)
-    WS.setWalletSyncTip wAddr newTip
+    WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
+    WS.setWalletSyncTip wid newTip
 
 evalChange
     :: [CWAddressMeta] -- ^ All adresses
@@ -429,17 +432,7 @@ getWalletAddrMetasDB lookupMode cWalId = do
         sformat ("No account with address "%build%" found") accId
 
 deleteAndInsertVM :: (Eq a, Hashable a) => [a] -> [a] -> VoidModifier a -> VoidModifier a
-deleteAndInsertVM dels ins mapModifier =
-    -- Insert CWAddressMeta coressponding to outputs of tx.
-    (\mm -> foldl' insertAcc mm ins) $
-    -- Delete CWAddressMeta coressponding to inputs of tx.
-    foldl' deleteAcc mapModifier dels
-  where
-    insertAcc :: (Hashable a, Eq a) => VoidModifier a -> a -> VoidModifier a
-    insertAcc modifier acc = MM.insert acc () modifier
-
-    deleteAcc :: (Hashable a, Eq a) => VoidModifier a -> a -> VoidModifier a
-    deleteAcc modifier acc = MM.delete acc modifier
+deleteAndInsertVM dels ins mapModifier = deleteAndInsertMM dels (zip ins $ repeat ()) mapModifier
 
 deleteAndInsertMM :: (Eq k, Hashable k) => [k] -> [(k, v)] -> MM.MapModifier k v -> MM.MapModifier k v
 deleteAndInsertMM dels ins mapModifier =

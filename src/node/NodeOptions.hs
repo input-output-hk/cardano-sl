@@ -29,6 +29,8 @@ import           Pos.DHT.Real.CLI             (dhtExplicitInitialOption, dhtKeyO
                                                dhtNetworkAddressOption,
                                                dhtPeersFileOption)
 import           Pos.Security                 (AttackTarget, AttackType)
+import           Pos.Statistics               (EkgParams, StatsdParams,
+                                               ekgParamsOption, statsdParamsOption)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp            (NetworkAddress, addrParser)
 
@@ -72,9 +74,11 @@ data Args = Args
     , commonArgs                :: !CLI.CommonArgs
     , updateLatestPath          :: !FilePath
     , updateWithPackage         :: !Bool
-    , monitorPort               :: !(Maybe Int)
     , noNTP                     :: !Bool
     , staticPeers               :: !Bool
+    , enableMetrics             :: !Bool
+    , ekgParams                 :: !(Maybe EkgParams)
+    , statsdParams              :: !(Maybe StatsdParams)
     } deriving Show
 
 argsParser :: Parser Args
@@ -177,16 +181,19 @@ argsParser = do
     updateWithPackage <- switch $
         long "update-with-package" <>
         help "Enable updating via installer."
-    monitorPort <- optional $ option auto $
-        long    "monitor-port" <>
-        metavar "INT" <>
-        help    "Run web monitor on this port."
     noNTP <- switch $
         long "no-ntp" <>
         help "Whether to use real NTP servers to synchronise time or rely on local time"
     staticPeers <- switch $
         long "static-peers" <>
         help "Don't use Kademlia, use only static peers"
+
+    enableMetrics <- switch $
+        long "metrics" <>
+        help "Enable metrics (EKG, statsd)"
+
+    ekgParams <- optional ekgParamsOption
+    statsdParams <- optional statsdParamsOption
 
     pure Args{..}
 

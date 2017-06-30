@@ -124,7 +124,7 @@ qanet: &qanet
 testnet: &testnet
   <<: *prod_base
 
-  k: 60
+  k: 72
   genesisSlotDurationSec: 120
   networkDiameter: 45
   mdNoBlocksSlotThreshold: 45
@@ -137,7 +137,7 @@ testnet_staging: &testnet_staging
   protocolMagic: 50987900
 
 prod: &prod
-  <<: *qanet
+  <<: *testnet_staging
 
 ##############################################################################
 ##                                                                          ##

@@ -9,10 +9,9 @@ module Pos.Block.Arbitrary
 import           Universum
 
 import           Control.Lens             (to)
-import           Data.Ix                  (range)
 import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, build, (%))
-import           Prelude                  (Show (..))
+import qualified Prelude
 import           System.Random            (mkStdGen, randomR)
 import           Test.QuickCheck          (Arbitrary (..), Gen, choose, oneof, vectorOf)
 
@@ -238,14 +237,6 @@ newtype BlockHeaderList ssc = BHL
 instance T.BiSsc ssc => Show (BlockHeaderList ssc) where
     show = toString . unlines . map pretty . uncurry zip . getHeaderList
 
--- | Starting Epoch in block header verification tests
-startingEpoch :: Integral a => a
-startingEpoch = 0
-
--- | Maximum permitted epoch in block header verification tests
-maxEpochs :: Integral a => a
-maxEpochs = 0
-
 -- | Generation of arbitrary, valid headerchain along with a list of leaders for
 -- each epoch.
 --
@@ -266,33 +257,33 @@ maxEpochs = 0
 -- * if an epoch is `n` slots long, every `n+1`-th block will be of the genesis kind.
 recursiveHeaderGen
     :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc)
-    => [Either SecretKey (SecretKey, SecretKey, Bool)]
+    => Bool -- ^ Whether to create genesis block before creating main block for 0th slot
+    -> [Either SecretKey (SecretKey, SecretKey, Bool)]
     -> [T.SlotId]
     -> [T.BlockHeader ssc]
     -> Gen [T.BlockHeader ssc]
-recursiveHeaderGen (eitherOfLeader : leaders)
+recursiveHeaderGen genesis
+                   (eitherOfLeader : leaders)
                    (T.SlotId{..} : rest)
-                   blockchain@(prevHeader : _)
-    | Core.getSlotIndex siSlot > epochSlots = pure []
+                   blockchain
+    | genesis && T.getSlotIndex siSlot == 0 = do
+          gBody <- arbitrary
+          let gHeader = Left $ T.mkGenesisHeader (head blockchain) siEpoch gBody
+          mHeader <- genMainHeader (Just gHeader)
+          recursiveHeaderGen True leaders rest (mHeader : gHeader : blockchain)
     | otherwise = do
-        curHeader <- genHeader
-        recursiveHeaderGen leaders rest (curHeader : blockchain)
+          curHeader <- genMainHeader (head blockchain)
+          recursiveHeaderGen True leaders rest (curHeader : blockchain)
   where
-    epochCounter = siEpoch
-    genHeader
-      | Core.getSlotIndex siSlot == epochSlots = do
-          body <- arbitrary
-          return $ Left $ T.mkGenesisHeader (Just prevHeader) (epochCounter + 1) body
-      | otherwise = genMainHeader
-    genMainHeader = do
+    genMainHeader prevHeader = do
         body <- arbitrary
         extraHData <- arbitrary
-        lowEpoch <- choose (0, epochCounter)
-        highEpoch <- choose (epochCounter, maxEpochs + 1)
+        lowEpoch <- choose (0, siEpoch)
+        highEpoch <- choose (siEpoch, bhlMaxStartingEpoch + 5)
         -- These two values may not be used at all. If the slot in question
         -- will have a simple signature, laziness will prevent them from
         -- being calculated. Otherwise, they'll be the proxy secret key's ω.
-        let slotId = T.SlotId epochCounter siSlot
+        let slotId = T.SlotId siEpoch siSlot
             (leader, proxySK) = case eitherOfLeader of
                 Left sk -> (sk, Nothing)
                 Right (issuerSK, delegateSK, isSigEpoch) ->
@@ -301,15 +292,22 @@ recursiveHeaderGen (eitherOfLeader : leaders)
                         curried :: Bi w => w -> ProxySecretKey w
                         curried = createProxySecretKey issuerSK delegatePK
                         proxy = if isSigEpoch
-                                then Right (curried epochCounter, toPublic issuerSK)
+                                then Right (curried siEpoch, toPublic issuerSK)
                                 else Left $ curried w
                     in (delegateSK, Just proxy)
         pure $ Right $
-            T.mkMainHeader (Just prevHeader) slotId leader proxySK body extraHData
-recursiveHeaderGen [] _ b = return b
-recursiveHeaderGen _ [] b = return b
-recursiveHeaderGen _ _ _  = return []
+            T.mkMainHeader prevHeader slotId leader proxySK body extraHData
+recursiveHeaderGen _ [] _ b = return b
+recursiveHeaderGen _ _ [] b = return b
 
+
+-- | Maximum start epoch in block header verification tests
+bhlMaxStartingEpoch :: Integral a => a
+bhlMaxStartingEpoch = 1000000
+
+-- | Amount of full epochs in block header verification tests
+bhlEpochs :: Integral a => a
+bhlEpochs = 2
 
 -- | This type is used to generate a blockchain, as well a list of leaders for every
 -- slot with which the chain will be paired. The leaders are in reverse order to the
@@ -329,28 +327,31 @@ recursiveHeaderGen _ _ _  = return []
 -- (Not exactly a leader - see previous comment)
 instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
          Arbitrary (BlockHeaderList ssc) where
-    arbitrary = BHL <$> do
-        fullEpochs <- choose (startingEpoch, maxEpochs)
+    arbitrary = do
         incompleteEpochSize <- choose (1, epochSlots - 1)
-        leadersList <-
-            vectorOf ((epochSlots * fullEpochs) + incompleteEpochSize)
-                arbitrary
-        firstGenesisBody <- arbitrary
-        let firstHeader = Left $ T.mkGenesisHeader Nothing startingEpoch firstGenesisBody
-            actualLeaders = map (toPublic . either identity (view _1)) leadersList
-            slotIdsRange =
-                map (\(a,b) -> T.SlotId a
-                      (leftToPanic "arbitrary @BlockHeaderList: " $
-                       T.mkLocalSlotIndex $ fromIntegral b)) $
-                range ((startingEpoch, 0), (fromIntegral fullEpochs, epochSlots)) ++
-                zip (repeat $ fromIntegral (fullEpochs + 1)) [0 .. incompleteEpochSize - 1]
-        (, actualLeaders) <$>
-            recursiveHeaderGen
-                leadersList
-                slotIdsRange
-                -- This `range` will give us pairs with all complete epochs and for each,
-                -- every slot therein.
-                [firstHeader]
+        let slot = T.SlotId 0 $ leftToPanic "generateBHL: " $ T.mkLocalSlotIndex 0
+        generateBHL True slot (epochSlots * bhlEpochs + incompleteEpochSize)
+
+generateBHL :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc)
+            => Bool -- ^ Whether to create genesis block before creating main block for 0th slot
+            -> T.SlotId -- ^ Start slot
+            -> Int -- ^ Slot count
+            -> Gen (BlockHeaderList ssc)
+generateBHL createInitGenesis startSlot slotCount = BHL <$> do
+    leadersList <- vectorOf slotCount arbitrary
+    let actualLeaders = map (toPublic . either identity (view _1)) leadersList
+        slotIdsRange =
+            map T.unflattenSlotId
+              [T.flattenSlotId startSlot ..
+               T.flattenSlotId startSlot + fromIntegral slotCount - 1]
+    (, actualLeaders) <$>
+        recursiveHeaderGen
+            createInitGenesis
+            leadersList
+            slotIdsRange
+            -- This `range` will give us pairs with all complete epochs and for each,
+            -- every slot therein.
+            []
 
 -- | This type is used to generate a valid blockheader and associated header
 -- verification params. With regards to the block header function
@@ -369,7 +370,8 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
     arbitrary = do
         -- This integer is used as a seed to randomly choose a slot down below
         seed <- arbitrary :: Gen Int
-        (headers, leaders) <- first reverse . getHeaderList <$> arbitrary
+        startSlot <- T.SlotId <$> choose (0, bhlMaxStartingEpoch) <*> arbitrary
+        (headers, leaders) <- first reverse . getHeaderList <$> (generateBHL True startSlot =<< choose (1, 2))
         let num = length headers
         -- 'skip' is the random number of headers that should be skipped in the header
         -- chain. This ensures different parts of it are chosen each time.

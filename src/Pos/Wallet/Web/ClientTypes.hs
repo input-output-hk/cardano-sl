@@ -175,15 +175,16 @@ getTxSourceAccountAddresses walAddrMetas (someInputAddr :| _) = do
         map cwamId $
         filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
 
--- | Makes function, which for given address says, whether does it belong to
--- same account as sources of given transaction.
--- Note, that applying this function to outputs of transaction, you efficiently
--- get /change/ addresses.
+-- | Produces a function which for a given address says whether this address
+-- belongs to the same account as the addresses which are the sources
+-- of a given transaction. This assumes that the source addresses belong
+-- to the same account.
+-- Note that if you apply this function to the outputs of a transaction,
+-- you will effectively get /change/ addresses.
 isTxLocalAddress
     :: [CWAddressMeta]      -- ^ All addresses in wallet
     -> NonEmpty (CId Addr)  -- ^ Input addresses of transaction
-    -> CId Addr
-    -> Bool
+    -> (CId Addr -> Bool)
 isTxLocalAddress wAddrMetas inputs = do
     let mLocalAddrs = getTxSourceAccountAddresses wAddrMetas inputs
     case mLocalAddrs of
@@ -214,19 +215,19 @@ mkCTxs diff THEntry {..} meta wAddrMetas = do
     let isLocalAddr = isTxLocalAddress wAddrMetas ctInputAddrsNe
         isLocalTxOutput = isLocalAddr . addressToCId . txOutAddress
         -- [CSM-309] Bad for multiple-destinations transactions
-        isWithinWallet = all isLocalAddr ctOutputAddrs
+        outputsAreOnlyFromOurWallet = all (flip S.member wAddrsSet) ctOutputAddrs
         ctAmount =
             mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
             filter (not . isLocalTxOutput) outputs
-        mkCTx isOutgoing significantAddrs = do
+        mkCTx isOutgoing significantAddrs = do  -- Maybe monad starts here
             guard . not . null $
                 wAddrsSet `S.intersection` S.fromList significantAddrs
             return CTx {ctIsOutgoing = isOutgoing, ..}
-        -- Output addresses whose presence make us display transaction
+        -- Output addresses whose presence makes us display the transaction
         -- (incoming half, i.e. one with 'isOutgoing' set to @false@).
         ctSignificantOutputAddrs =
             ctOutputAddrs &
-            if isWithinWallet then identity else filter (not . isLocalAddr)
+            if outputsAreOnlyFromOurWallet then identity else filter (not . isLocalAddr)
         ctsOutgoing = mkCTx True ctInputAddrs
         ctsIncoming = mkCTx False ctSignificantOutputAddrs
     return CTxs {..}

@@ -65,6 +65,7 @@ import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
+import           Pos.Context                      (GenesisUtxo)
 import           Pos.Core                         (Address (..), Coin, addressF,
                                                    decodeTextAddress, getCurrentTimestamp,
                                                    getTimestamp, makeRedeemAddress,
@@ -154,6 +155,7 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, CAccModifier (..),
                                                    MonadWalletTracking,
+                                                   syncWalletOnImport,
                                                    syncWalletsWithGState,
                                                    txMempoolToModifier)
 import           Pos.Wallet.Web.Util              (getWalletAccountIds)
@@ -201,7 +203,10 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
-    :: (MonadIO m, WalletWebMode (WalletWebHandler m), Ether.MonadReader (TVar UserSecret) (TVar UserSecret) m)
+    :: ( MonadIO m
+       , WalletWebMode (WalletWebHandler m)
+       , Ether.MonadReader (TVar UserSecret) (TVar UserSecret) m
+       , Ether.MonadReader' GenesisUtxo m)
     => SendActions (WalletWebHandler m)
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
@@ -820,7 +825,7 @@ newWallet passphrase cwInit = do
 restoreWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 restoreWallet passphrase cwInit = do
     (sk, wId) <- newWalletFromBackupPhrase passphrase cwInit
-    syncWalletsWithGState @WalletSscType [sk]
+    syncWalletOnImport sk
     getWallet wId
 
 updateWallet :: WalletWebMode m => CId Wal -> CWalletMeta -> m CWallet
@@ -1040,7 +1045,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         let accId = AccountId wid walletIndex
         newAddress (DeterminedSeed accountIndex) passphrase accId
 
-    void $ syncWalletsWithGState @WalletSscType [key]
+    void $ syncWalletOnImport key
 
     return importedWallet
 
@@ -1090,7 +1095,7 @@ restoreWalletFromBackup WalletBackup {..} = do
             seedGen = DeterminedSeed aIdx
         accId <- genUniqueAccountId seedGen wId
         createAccount accId meta
-    void $ syncWalletsWithGState @WalletSscType [wbSecretKey]
+    void $ syncWalletOnImport wbSecretKey
     createWalletSafe wId wMeta
 
 restoreStateFromBackup :: WalletWebMode m => StateBackup -> m [CWallet]

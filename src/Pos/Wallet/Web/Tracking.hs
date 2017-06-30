@@ -35,6 +35,7 @@ import           Control.Lens               (to)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
+import qualified Data.Map                   as M
 import qualified Ether
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable, SharedAtomicT)
@@ -46,7 +47,7 @@ import           Pos.Block.Core             (Block, BlockHeader, getBlockHeader,
 import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Constants              (genesisHash)
-import           Pos.Context                (BlkSemaphore)
+import           Pos.Context                (BlkSemaphore, genesisUtxoM, GenesisUtxo (..))
 import           Pos.Core                   (AddrPkAttrs (..), Address (..),
                                              HasDifficulty (..), HeaderHash, headerHash,
                                              makePubKeyAddress)
@@ -107,24 +108,23 @@ type BlockLockMode ssc m =
     )
 
 class Monad m => MonadWalletTracking m where
-    syncWSetsAtStart :: [EncryptedSecretKey] -> m ()
-    syncOnImport :: EncryptedSecretKey -> m ()
+    syncWalletOnImport :: EncryptedSecretKey -> m ()
     txMempoolToModifier :: EncryptedSecretKey -> m CAccModifier
-
 
 instance {-# OVERLAPPABLE #-}
     ( MonadWalletTracking m, Monad m, MonadTrans t, Monad (t m)
     , SharedAtomicT m ~ SharedAtomicT (t m) ) =>
         MonadWalletTracking (t m)
   where
-    syncWSetsAtStart = lift . syncWSetsAtStart
-    syncOnImport = lift . syncOnImport
+    syncWalletOnImport = lift . syncWalletOnImport
     txMempoolToModifier = lift . txMempoolToModifier
 
-instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
+instance ( BlockLockMode WalletSscType m
+         , MonadMockable m
+         , MonadTxpMem ext m
+         , Ether.MonadReader' GenesisUtxo m)
          => MonadWalletTracking (WalletWebDB m) where
-    syncWSetsAtStart = syncWalletsWithGState @WalletSscType
-    syncOnImport = syncWalletsWithGState @WalletSscType . one
+    syncWalletOnImport = syncWalletsWithGState @WalletSscType . one
     txMempoolToModifier encSK = do
         let wHash (i, TxAux {..}) = WithHash taTx i
         let wId = encToCId encSK
@@ -142,23 +142,12 @@ instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
 -- Logic
 ----------------------------------------------------------------------------
 
--- Select our accounts from Utxo and put to wallet-db.
--- Used for importing of a secret key.
--- This function DOESN'T synchronize Change and Used addresses.
--- Usages of this function will be removed soon,
--- but it won't be removed, because frontenders
--- can change logic of Used and Change andresses
--- and this function will be useful again
--- syncAddressesWithUtxo
---     :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
---     => [EncryptedSecretKey]
---     -> m [CWAddressMeta]
--- syncAddressesWithUtxo encSKs =
---     withBlkSemaphore $ \tip -> (, tip) <$> syncAddressesWithUtxoUnsafe @ssc tip encSKs
-
 -- Iterate over blocks (using forward links) and actualize our accounts.
 syncWalletsWithGState
-    :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
+    :: forall ssc m . (
+      WebWalletModeDB m,
+      BlockLockMode ssc m,
+      Ether.MonadReader' GenesisUtxo m)
     => [EncryptedSecretKey]
     -> m ()
 syncWalletsWithGState encSKs = withBlkSemaphore_ $ \tip ->
@@ -169,51 +158,13 @@ syncWalletsWithGState encSKs = withBlkSemaphore_ $ \tip ->
 ----------------------------------------------------------------------------
 -- These operation aren't atomic and don't take the block lock.
 
--- BE CAREFUL! This function iterates over Utxo,
--- the Utxo can be large (but not such large as the blockchain)
--- syncAddressesWithUtxoUnsafe
---     :: forall ssc m .
---     ( WebWalletModeDB m
---     , MonadRealDB m
---     , DB.MonadBlockDB ssc m
---     , WithLogger m)
---     => HeaderHash
---     -> [EncryptedSecretKey]
---     -> m [CWAddressMeta]
--- syncAddressesWithUtxoUnsafe tip encSKs = do
---     let (hdPass, wAddr) = unzip $ map getEncInfo encSKs
---     logDebug $ sformat ("Sync addresses with Utxo: tip "%build%" for "%listJson) tip wAddr
---     addresses <- discoverHDAddresses hdPass
---     let allAddresses = concatMap createWAddresses $ zip wAddr addresses
---     mapM_ addMetaInfo allAddresses
---     logDebug (sformat ("After syncing with Utxo addresses was added: "%listJson) allAddresses)
---     pure allAddresses
---   where
---     createWAddresses :: (CId Wal, [(Address, [Word32])]) -> [CWAddressMeta]
---     createWAddresses (wAddr, addresses) = do
---         let (ads, paths) = unzip addresses
---         mapMaybe createWAddress $ zip3 (repeat wAddr) ads paths
-
---     createWAddress :: (CId Wal, Address, [Word32]) -> Maybe CWAddressMeta
---     createWAddress (wAddr, addr, derPath) = do
---         guard $ length derPath == 2
---         pure $ CWAddressMeta wAddr (derPath !! 0) (derPath !! 1) (addressToCId addr)
-
---     addMetaInfo :: CWAddressMeta -> m ()
---     addMetaInfo cwMeta = do
---         let accId = addrMetaToAccount cwMeta
---             accMeta = CAccountMeta
---                       { caName = sformat ("Account #"%int) $ aiIndex accId
---                       }
---         WS.createAccount accId accMeta
---         WS.addWAddress cwMeta
-
 -- BE CAREFUL! This function iterates over blockchain, the blockcahin can be large.
 syncWalletWithGStateUnsafe
     :: forall ssc m .
     ( WebWalletModeDB m
     , MonadRealDB m
     , DB.MonadBlockDB ssc m
+    , Ether.MonadReader' GenesisUtxo m
     , WithLogger m)
     => EncryptedSecretKey
     -> m ()
@@ -223,33 +174,46 @@ syncWalletWithGStateUnsafe encSK = do
     whenJustM (WS.getWalletSyncTip wAddr) $ \wTip ->
         if | wTip == genesisHash && headerHash tipHeader == genesisHash ->
                logDebug $ sformat ("Wallet "%build%" at genesis state, synced") wAddr
-           | wTip == genesisHash ->
-               whenJustM (resolveForwardLink wTip) $ \nx-> sync wAddr nx tipHeader
            | otherwise -> sync wAddr wTip tipHeader
   where
     sync :: CId Wal -> HeaderHash -> BlockHeader ssc -> m ()
-    sync wAddr wTip tipHeader = DB.blkGetHeader wTip >>= \case
-        Nothing ->
-            logWarning $
-                sformat ("Couldn't get block header of wallet "%build
-                         %" by last synced hh: "%build) wAddr wTip
-        Just wHeader -> do
-            mapModifier@CAccModifier{..} <- compareHeaders wAddr wHeader tipHeader
-            applyModifierToWallet wAddr (headerHash tipHeader) mapModifier
-            logDebug $ sformat ("Wallet "%build
-                               %" has been synced with tip "%shortHashF
-                               %", added addresses: "%listJson
-                               %", deleted addresses: "%listJson
-                               %", used addresses: "%listJson
-                               %", change addresses: "%listJson)
-                       wAddr wTip
-                       (map fst $ MM.insertions camAddresses)
-                       (MM.deletions camAddresses)
-                       (map (fst . fst) $ MM.insertions camUsed)
-                       (map (fst . fst) $ MM.insertions camChange)
+    sync wAddr wTip tipHeader = do
+        startFrom <-
+            if wTip == genesisHash then
+                resolveForwardLink wTip >>=
+                maybe (error "Unexpected state: wTip doesn't have forward link") pure
+            else pure wTip
 
-    compareHeaders :: CId Wal -> BlockHeader ssc -> BlockHeader ssc -> m CAccModifier
-    compareHeaders wAddr wHeader tipHeader = do
+        DB.blkGetHeader startFrom >>= \case
+            Nothing ->
+                logWarning $
+                    sformat ("Couldn't get block header of wallet "%build
+                            %" by last synced hh: "%build) wAddr wTip
+            Just wHeader -> do
+                mapModifier@CAccModifier{..} <- computeAccModifier wAddr wHeader tipHeader
+                when (wTip == genesisHash) $ do
+                    genesisUtxo <- genesisUtxoM
+                    let encInfo = getEncInfo encSK
+                    let ownGenesisUtxo =
+                            M.fromList $
+                            map fst $
+                            selectOwnAccounts encInfo (txOutAddress . toaOut . snd) (M.toList genesisUtxo)
+                    WS.getWalletUtxo >>= WS.setWalletUtxo . (ownGenesisUtxo <>)
+                applyModifierToWallet wAddr (headerHash tipHeader) mapModifier
+                logDebug $ sformat ("Wallet "%build
+                                %" has been synced with tip "%shortHashF
+                                %", added addresses: "%listJson
+                                %", deleted addresses: "%listJson
+                                %", used addresses: "%listJson
+                                %", change addresses: "%listJson)
+                        wAddr wTip
+                        (map fst $ MM.insertions camAddresses)
+                        (MM.deletions camAddresses)
+                        (map (fst . fst) $ MM.insertions camUsed)
+                        (map (fst . fst) $ MM.insertions camChange)
+
+    computeAccModifier :: CId Wal -> BlockHeader ssc -> BlockHeader ssc -> m CAccModifier
+    computeAccModifier wAddr wHeader tipHeader = do
         allAddresses <- getWalletAddrMetasDB Ever wAddr
         logDebug $
             sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
@@ -445,3 +409,55 @@ deleteAndInsertMM dels ins mapModifier =
     deleteAcc :: (Hashable k, Eq k) => MapModifier k v -> k -> MapModifier k v
     deleteAcc = flip MM.delete
 
+-- Select our accounts from Utxo and put to wallet-db.
+-- Used for importing of a secret key.
+-- This function DOESN'T synchronize Change and Used addresses.
+-- Usages of this function will be removed soon,
+-- but it won't be removed, because frontenders
+-- can change logic of Used and Change andresses
+-- and this function will be useful again
+-- syncAddressesWithUtxo
+--     :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
+--     => [EncryptedSecretKey]
+--     -> m [CWAddressMeta]
+-- syncAddressesWithUtxo encSKs =
+--     withBlkSemaphore $ \tip -> (, tip) <$> syncAddressesWithUtxoUnsafe @ssc tip encSKs
+
+-- BE CAREFUL! This function iterates over Utxo,
+-- the Utxo can be large (but not such large as the blockchain)
+-- syncAddressesWithUtxoUnsafe
+--     :: forall ssc m .
+--     ( WebWalletModeDB m
+--     , MonadRealDB m
+--     , DB.MonadBlockDB ssc m
+--     , WithLogger m)
+--     => HeaderHash
+--     -> [EncryptedSecretKey]
+--     -> m [CWAddressMeta]
+-- syncAddressesWithUtxoUnsafe tip encSKs = do
+--     let (hdPass, wAddr) = unzip $ map getEncInfo encSKs
+--     logDebug $ sformat ("Sync addresses with Utxo: tip "%build%" for "%listJson) tip wAddr
+--     addresses <- discoverHDAddresses hdPass
+--     let allAddresses = concatMap createWAddresses $ zip wAddr addresses
+--     mapM_ addMetaInfo allAddresses
+--     logDebug (sformat ("After syncing with Utxo addresses was added: "%listJson) allAddresses)
+--     pure allAddresses
+--   where
+--     createWAddresses :: (CId Wal, [(Address, [Word32])]) -> [CWAddressMeta]
+--     createWAddresses (wAddr, addresses) = do
+--         let (ads, paths) = unzip addresses
+--         mapMaybe createWAddress $ zip3 (repeat wAddr) ads paths
+
+--     createWAddress :: (CId Wal, Address, [Word32]) -> Maybe CWAddressMeta
+--     createWAddress (wAddr, addr, derPath) = do
+--         guard $ length derPath == 2
+--         pure $ CWAddressMeta wAddr (derPath !! 0) (derPath !! 1) (addressToCId addr)
+
+--     addMetaInfo :: CWAddressMeta -> m ()
+--     addMetaInfo cwMeta = do
+--         let accId = addrMetaToAccount cwMeta
+--             accMeta = CAccountMeta
+--                       { caName = sformat ("Account #"%int) $ aiIndex accId
+--                       }
+--         WS.createAccount accId accMeta
+--         WS.addWAddress cwMeta

@@ -73,29 +73,37 @@ import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoi
                                              CWalletMeta, PassPhraseLU, Wal,
                                              addrMetaToAccount)
 
-type TransactionHistory = HashMap CTxId CTxMeta
+type AddressSortingKey = Int
 
-type CAddresses = HashSet CWAddressMeta
+data AddressInfo = AddressInfo
+    { adiCWAddressMeta :: !CWAddressMeta
+    , adiKey           :: !AddressSortingKey
+    }
 
--- | For each address - first occurance in blockchain
-type CustomAddresses = HashMap (CId Addr) (HeaderHash)
+-- | Maps addresses to their first occurrence in the blockchain
+type CustomAddresses = HashMap (CId Addr) HeaderHash
 
 data WalletInfo = WalletInfo
-    { _wiMeta         :: CWalletMeta
-    , _wiPassphraseLU :: PassPhraseLU
-    , _wiCreationTime :: POSIXTime
-    , _wiSyncTip      :: HeaderHash
+    { _wiMeta         :: !CWalletMeta
+    , _wiPassphraseLU :: !PassPhraseLU
+    , _wiCreationTime :: !POSIXTime
+    , _wiSyncTip      :: !HeaderHash
     }
 
 makeLenses ''WalletInfo
 
+type CAddresses = HashMap (CId Addr) AddressInfo
+
 data AccountInfo = AccountInfo
-    { _aiMeta            :: CAccountMeta
-    , _aiAccounts        :: CAddresses
-    , _aiRemovedAccounts :: CAddresses
+    { _aiMeta            :: !CAccountMeta
+    , _aiAccounts        :: !CAddresses
+    , _aiRemovedAccounts :: !CAddresses
+    , _aiUnusedKey       :: !AddressSortingKey
     }
 
 makeLenses ''AccountInfo
+
+type TransactionHistory = HashMap CTxId CTxMeta
 
 data WalletStorage = WalletStorage
     { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)

@@ -162,7 +162,8 @@ instance Arbitrary (MerkleTree Tx) where
     arbitrary = mkMerkleTree <$> arbitrary
 
 instance Arbitrary TxProof where
-    arbitrary = TxProof <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = makeSmall $
+        TxProof <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 derive makeArbitrary ''TxAux
 

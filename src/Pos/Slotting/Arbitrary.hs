@@ -8,8 +8,7 @@ import           Data.DeriveTH       (derive, makeArbitrary)
 import           Test.QuickCheck     (Arbitrary (..))
 import           Universum
 
-import           Pos.Slotting.Types  (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Types  (EpochSlottingData (..))
 import           Pos.Types.Arbitrary ()
 
 derive makeArbitrary ''EpochSlottingData
-derive makeArbitrary ''SlottingData

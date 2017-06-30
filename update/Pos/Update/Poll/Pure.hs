@@ -19,6 +19,7 @@ import           System.Wlog               (CanLog, HasLoggerName (..), LogEvent
 import           Pos.Binary.Class          (Bi)
 import           Pos.Core                  (SoftwareVersion (..))
 import           Pos.Crypto                (hash)
+import           Pos.Slotting.Types        (getLastEpochIndex)
 import           Pos.Update.Core           (UpdateProposal (..))
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
 import qualified Pos.Update.Poll.PollState as Poll
@@ -87,7 +88,8 @@ instance MonadPollRead PurePoll where
             HM.elems
     getBlockIssuerStake ei si =
         PurePoll $ uses Poll.psIssuersStakes $ HM.lookup si <=< HM.lookup ei
-    getSlottingData = PurePoll $ use Poll.psSlottingData
+    getEpochSlottingData ei = PurePoll $ use $ Poll.psEpochSlottingData . at ei
+    getEpochLastIndex = PurePoll $ fromMaybe 0 . getLastEpochIndex <$> use Poll.psEpochSlottingData
 
 instance Bi UpdateProposal => MonadPoll PurePoll where
     putBVState bv bvs = PurePoll $ Poll.psBlockVersions . at bv .= Just bvs
@@ -118,5 +120,6 @@ instance Bi UpdateProposal => MonadPoll PurePoll where
     deactivateProposal ui =
         PurePoll $ (Poll.psActiveProposals . at ui .= Nothing) >>
                    (Poll.psActivePropsIdx . mapped . at ui .= Nothing)
-    setSlottingData sd = PurePoll $ Poll.psSlottingData .= sd
+    putEpochSlottingData ei esd = PurePoll $ Poll.psEpochSlottingData . at ei .= Just esd
+    delEpochSlottingData ei = PurePoll $ Poll.psEpochSlottingData . at ei .= Nothing
     setEpochProposers hs = PurePoll $ Poll.psEpochProposers .= hs

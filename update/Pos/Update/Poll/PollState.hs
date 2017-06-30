@@ -16,7 +16,8 @@ module Pos.Update.Poll.PollState
        , psConfirmedProposals
        , psActiveProposals
        , psActivePropsIdx
-       , psSlottingData
+       , psEpochSlottingData
+       , psEpochLastIndex
        , psFullRichmenData
        , psIssuersStakes
 
@@ -35,7 +36,7 @@ import           Pos.Core.Types        (ApplicationName, BlockVersion, BlockVers
                                         SoftwareVersion (..), StakeholderId)
 import           Pos.Lrc.DB.Issuers    (IssuersStakes)
 import           Pos.Lrc.Types         (FullRichmenData)
-import           Pos.Slotting.Types    (SlottingData)
+import           Pos.Slotting.Types    (EpochSlottingData)
 import           Pos.Update.Core       (UpId, UpdateProposal (..))
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
                                         PollModifier (..), ProposalState, psProposal)
@@ -57,7 +58,9 @@ data PollState = PollState
       -- | Update proposals for each application
     , _psActivePropsIdx     :: !(HM.HashMap ApplicationName (HashSet UpId))
       -- | Slotting data for this node
-    , _psSlottingData       :: !SlottingData
+    , _psEpochSlottingData  :: !(HashMap EpochIndex EpochSlottingData)
+      -- | Last updated epoch index
+    , _psEpochLastIndex  :: !EpochIndex
       -- | Mapping between epochs and their richmen stake distribution
     , _psFullRichmenData    :: !(HM.HashMap EpochIndex FullRichmenData)
       -- | Mapping between epochs and stake of each of the epoch's slot's block issuer
@@ -75,7 +78,8 @@ modifyPollState PollModifier {..} PollState {..} =
               (modifyHashMap pmConfirmedProps _psConfirmedProposals)
               (modifyHashMap pmActiveProps _psActiveProposals)
               (resultActiveProposals _psActivePropsIdx)
-              (fromMaybe _psSlottingData pmSlottingData)
+              (modifyHashMap pmSlottingData _psEpochSlottingData)
+              _psEpochLastIndex
               _psFullRichmenData
               _psIssuersStakes
   where

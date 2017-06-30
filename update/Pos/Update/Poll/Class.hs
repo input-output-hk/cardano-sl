@@ -14,7 +14,7 @@ import           Universum
 import           Pos.Core              (ApplicationName, BlockVersion, ChainDifficulty,
                                         Coin, EpochIndex, NumSoftwareVersion, SlotId,
                                         SoftwareVersion, StakeholderId)
-import           Pos.Slotting.Types    (SlottingData)
+import           Pos.Slotting.Types    (EpochSlottingData)
 import           Pos.Update.Core       (BlockVersionData, UpId)
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
                                         DecidedProposalState, ProposalState,
@@ -61,8 +61,10 @@ class (Monad m, WithLogger m) => MonadPollRead m where
     -- stake distribution which is stable in given epoch.
     -- Only issuer of stable block can be passed to this function, otherwise
     -- 'Nothing' will be returned.
-    getSlottingData :: m SlottingData
-    -- ^ Get most recent 'SlottingData'.
+    getEpochSlottingData :: EpochIndex -> m (Maybe EpochSlottingData)
+    -- ^ Get 'EpochSlottingData' for an epoch.
+    getEpochLastIndex :: m EpochIndex
+    -- ^ Get index of the latest epoch
 
     getAdoptedBV :: m BlockVersion
     getAdoptedBV = fst <$> getAdoptedBVFull
@@ -138,9 +140,13 @@ class (Monad m, WithLogger m) => MonadPollRead m where
         EpochIndex -> StakeholderId -> m (Maybe Coin)
     getBlockIssuerStake e = lift . getBlockIssuerStake e
 
-    default getSlottingData
-        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m SlottingData
-    getSlottingData = lift getSlottingData
+    default getEpochSlottingData
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => EpochIndex -> m (Maybe EpochSlottingData)
+    getEpochSlottingData = lift . getEpochSlottingData
+
+    default getEpochLastIndex
+        :: (MonadTrans t, MonadPollRead m', t m' ~ m) => m EpochIndex
+    getEpochLastIndex = lift getEpochLastIndex
 
 instance {-# OVERLAPPABLE #-}
     (MonadPollRead m, MonadTrans t, Monad (t m), WithLogger (t m)) =>
@@ -171,8 +177,10 @@ class MonadPollRead m => MonadPoll m where
     -- ^ Add new active proposal with its state.
     deactivateProposal :: UpId -> m ()
     -- ^ Delete active proposal given its name and identifier.
-    setSlottingData :: SlottingData -> m ()
-    -- ^ Set most recent 'SlottingData'.
+    putEpochSlottingData :: EpochIndex -> EpochSlottingData -> m ()
+    -- ^ Set 'EpochSlottingData'.
+    delEpochSlottingData :: EpochIndex -> m ()
+    -- ^ Delete EpochSlottingData (for rollback only)
     setEpochProposers :: HashSet StakeholderId -> m ()
     -- ^ Set proposers.
 
@@ -213,9 +221,13 @@ class MonadPollRead m => MonadPoll m where
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => UpId -> m ()
     deactivateProposal = lift . deactivateProposal
 
-    default setSlottingData
-        :: (MonadTrans t, MonadPoll m', t m' ~ m) => SlottingData -> m ()
-    setSlottingData = lift . setSlottingData
+    default putEpochSlottingData
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => EpochIndex -> EpochSlottingData -> m ()
+    putEpochSlottingData = (lift .) . putEpochSlottingData
+
+    default delEpochSlottingData
+        :: (MonadTrans t, MonadPoll m', t m' ~ m) => EpochIndex -> m ()
+    delEpochSlottingData = lift . delEpochSlottingData
 
     default setEpochProposers
         :: (MonadTrans t, MonadPoll m', t m' ~ m) => HashSet StakeholderId -> m ()

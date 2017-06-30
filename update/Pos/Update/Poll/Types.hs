@@ -55,10 +55,11 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
 import           Pos.Core.Types             (ApplicationName, BlockVersion,
-                                             ChainDifficulty, Coin, HeaderHash,
-                                             NumSoftwareVersion, ScriptVersion, SlotId,
-                                             SoftwareVersion, StakeholderId, mkCoin)
-import           Pos.Slotting.Types         (SlottingData)
+                                             ChainDifficulty, Coin, EpochIndex,
+                                             HeaderHash, NumSoftwareVersion,
+                                             ScriptVersion, SlotId, SoftwareVersion,
+                                             StakeholderId, mkCoin)
+import           Pos.Slotting.Types         (EpochSlottingData)
 import           Pos.Update.Core            (BlockVersionData (..), StakeholderVotes,
                                              UpId, UpdateProposal (..))
 import           Pos.Util.Modifier          (MapModifier)
@@ -216,7 +217,7 @@ data PollModifier = PollModifier
     , pmConfirmed      :: !(MapModifier ApplicationName NumSoftwareVersion)
     , pmConfirmedProps :: !(MapModifier SoftwareVersion ConfirmedProposalState)
     , pmActiveProps    :: !(MapModifier UpId ProposalState)
-    , pmSlottingData   :: !(Maybe SlottingData)
+    , pmSlottingData   :: !(MapModifier EpochIndex EpochSlottingData)
     , pmEpochProposers :: !(Maybe (HashSet StakeholderId))
     } deriving (Eq, Show)
 
@@ -251,8 +252,7 @@ data USUndo = USUndo
     , unChangedSV        :: !(HashMap ApplicationName (PrevValue NumSoftwareVersion))
     , unChangedConfProps :: !(HashMap SoftwareVersion (PrevValue ConfirmedProposalState))
     , unPrevProposers    :: !(Maybe (HashSet StakeholderId))
-    , unSlottingData     :: !(Maybe SlottingData)
-    -- ^ Previous slotting data, i. e. data which should be in GState
+    , unSlottingData     :: !(HashMap EpochIndex (PrevValue EpochSlottingData))
     -- if this 'USUndo' is applied (i. e. corresponding block is
     -- rolled back).
     } deriving (Generic, Show)
@@ -272,7 +272,7 @@ instance Buildable USUndo where
     build _ = "BSUndo"
 
 instance Default USUndo where
-    def = USUndo mempty Nothing mempty mempty mempty Nothing Nothing
+    def = USUndo mempty Nothing mempty mempty mempty Nothing mempty
 
 ----------------------------------------------------------------------------
 -- NFData instances

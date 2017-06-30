@@ -21,7 +21,8 @@ import qualified Ether
 import           Pos.Core.Types               (Timestamp)
 
 import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
-import           Pos.Slotting.Types           (SlottingData (sdPenultEpoch))
+import           Pos.Slotting.Types           (SlottingData, addEpochSlottingData,
+                                               getPenultEpochIndex, lookupEpochSlottingData, getLastEpochIndex)
 
 ----------------------------------------------------------------------------
 -- Transformer
@@ -58,14 +59,19 @@ instance
          MonadSlotsData (Ether.TaggedTrans SlotsDataRedirectTag t m)
   where
     getSystemStart = askSlottingTimestamp
-    getSlottingData = atomically . readTVar =<< askSlottingVar
+    getEpochLastIndex = do
+        var <- askSlottingVar
+        atomically $ (fromMaybe 0 . getLastEpochIndex) <$> readTVar var
+    getEpochSlottingData ei = do
+        var <- askSlottingVar
+        atomically $ lookupEpochSlottingData ei <$> readTVar var
     waitPenultEpochEquals target = do
         var <- askSlottingVar
         atomically $ do
-            penultEpoch <- sdPenultEpoch <$> readTVar var
+            penultEpoch <- getPenultEpochIndex <$> readTVar var
             when (penultEpoch /= target) retry
-    putSlottingData sd = do
+    putEpochSlottingData ei esd = do
         var <- askSlottingVar
         atomically $ do
-            penultEpoch <- sdPenultEpoch <$> readTVar var
-            when (penultEpoch < sdPenultEpoch sd) $ writeTVar var sd
+            sd <- readTVar var
+            writeTVar var (addEpochSlottingData ei esd sd)

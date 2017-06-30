@@ -57,4 +57,5 @@ instance (MonadDBRead m, MonadRealDB m, WithLogger m, Ether.MonadReader' LrcCont
         lrcActionOnEpochReason epoch
             "couldn't get issuers's stakes"
             (fmap (Just . HM.lookup id) . getIssuersStakes)
-    getSlottingData = GS.getSlottingData
+    getEpochSlottingData = GS.getEpochSlottingData
+    getEpochLastIndex = GS.getEpochLastIndex

@@ -22,13 +22,6 @@ class MonadSlotsData m => MonadSlots m where
     -- return until current slot is known.
     getCurrentSlotBlocking :: m SlotId
 
-    -- | This function tries to predict current slot as accurately as it can.
-    -- If 'getCurrentTime' returns unreliable time,
-    -- then function returns last known slot
-    -- If our slotting data into DB is outdated,
-    -- then function tries to extrapolate slot using last know slotting data
-    getCurrentSlotInaccurate :: m SlotId
-
     currentTimeSlotting :: m Timestamp
 
     slottingWorkers :: [m ()]
@@ -48,10 +41,6 @@ class MonadSlotsData m => MonadSlots m where
     default slottingWorkers :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
         [m ()]
     slottingWorkers = map lift slottingWorkers
-
-    default getCurrentSlotInaccurate :: (MonadTrans t, MonadSlots m', t m' ~ m) =>
-        m SlotId
-    getCurrentSlotInaccurate = lift getCurrentSlotInaccurate
 
 instance {-# OVERLAPPABLE #-}
     (MonadSlots m, MonadTrans t, Monad (t m)) =>

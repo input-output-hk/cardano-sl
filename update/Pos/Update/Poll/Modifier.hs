@@ -18,7 +18,7 @@ instance Default PollModifier where
         , pmConfirmed = mempty
         , pmConfirmedProps = mempty
         , pmActiveProps = mempty
-        , pmSlottingData = Nothing
+        , pmSlottingData = mempty
         , pmEpochProposers = mempty
         }
 
@@ -31,7 +31,7 @@ modifyPollModifier pmOld pmNew = PollModifier
     (pmConfirmed pmOld <> pmConfirmed pmNew)
     (pmConfirmedProps pmOld <> pmConfirmedProps pmNew)
     (pmActiveProps pmOld <> pmActiveProps pmNew)
-    (pmSlottingData pmNew <|> pmSlottingData pmOld)
+    (pmSlottingData pmNew <> pmSlottingData pmOld)
     (pmEpochProposers pmNew <|> pmEpochProposers pmOld)
 
 instance Semigroup PollModifier where

@@ -8,7 +8,7 @@ import           Universum
 
 import           Pos.Binary.Class   (Bi (..))
 import           Pos.Binary.Core    ()
-import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Types (EpochSlottingData (..))
 
 instance Bi EpochSlottingData where
     put EpochSlottingData {..} = do
@@ -18,14 +18,3 @@ instance Bi EpochSlottingData where
         esdSlotDuration <- get
         esdStart <- get
         return EpochSlottingData {..}
-
-instance Bi SlottingData where
-    put SlottingData {..} = do
-        put sdPenult
-        put sdLast
-        put sdPenultEpoch
-    get = do
-        sdPenult <- get
-        sdLast <- get
-        sdPenultEpoch <- get
-        return SlottingData {..}

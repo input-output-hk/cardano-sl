@@ -22,7 +22,7 @@ module Pos.Slotting.Util
        , waitSystemStart
        ) where
 
-import           Data.Time.Units        (Millisecond, convertUnit)
+import           Data.Time.Units        (Millisecond)
 import           Formatting             (build, int, sformat, shown, (%))
 import           Mockable               (Delay, Fork, Mockable, delay, fork)
 import           Paths_cardano_sl_infra (version)
@@ -32,8 +32,7 @@ import           System.Wlog            (WithLogger, logDebug, logError, logInfo
 import           Universum
 
 import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..),
-                                         addMicrosecondsToTimestamp, diffTimestamp,
-                                         flattenSlotId, getSlotIndex, slotIdF)
+                                         flattenSlotId, slotIdF)
 import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
@@ -43,7 +42,7 @@ import           Pos.Shutdown           (MonadShutdownMem, runIfNotShutdown)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
 import           Pos.Slotting.MemState  (MonadSlotsData (..))
-import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Types     (EpochSlottingData (..), computeSlotStart)
 import           Pos.Util.Util          (maybeThrow)
 
 -- | Get flat id of current slot based on MonadSlots.
@@ -52,33 +51,11 @@ getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
 getSlotStart :: MonadSlotsData m => SlotId -> m (Maybe Timestamp)
-getSlotStart sid = getSlotStartPure False sid <$> getSlottingData
+getSlotStart si@(SlotId {..}) = fmap (getSlotStartPure si) <$> getEpochSlottingData siEpoch
 
 -- | Pure timestamp calculation for a given slot.
--- If `imprecise` is true, then we assume that the slot duration doesn't change.
--- That allows us to compute a timestamp for slots earlier the penultimate epoch.
-getSlotStartPure :: Bool -> SlotId -> SlottingData -> (Maybe Timestamp)
-getSlotStartPure imprecise SlotId{..} SlottingData{..} = do
-    if | imprecise && siEpoch < sdPenultEpoch ->
-         Just $ slotTimestamp siSlot $ extrapolateSlottingData siEpoch
-       | siEpoch == sdPenultEpoch -> Just $ slotTimestamp siSlot sdPenult
-       | siEpoch == sdPenultEpoch + 1 -> Just $ slotTimestamp siSlot sdLast
-       | otherwise -> Nothing
-  where
-    -- Extrapolate slotting data for arbitrary epochs
-    extrapolateSlottingData desiredEpoch =
-      let
-        -- Assuming these durations stay constant
-        epochDuration = diffTimestamp (esdStart sdLast) (esdStart sdPenult)
-        slotDuration = esdSlotDuration sdPenult
-        msDiff = fromIntegral (toInteger epochDuration * (toInteger desiredEpoch - toInteger sdPenultEpoch))
-      in
-        EpochSlottingData { esdSlotDuration = slotDuration
-                          , esdStart = addMicrosecondsToTimestamp msDiff (esdStart sdPenult)
-                          }
-    -- Calculate timestamp normally
-    slotTimestamp (getSlotIndex -> locSlot) EpochSlottingData{..} =
-        esdStart + Timestamp (fromIntegral locSlot * convertUnit esdSlotDuration)
+getSlotStartPure :: SlotId -> EpochSlottingData -> Timestamp
+getSlotStartPure = computeSlotStart
 
 -- | Get timestamp when given slot starts empatically, which means
 -- that function throws exception when slot start is unknown.
@@ -90,7 +67,10 @@ getSlotStartEmpatically slot =
 
 -- | Get last known slot duration.
 getLastKnownSlotDuration :: MonadSlotsData m => m Millisecond
-getLastKnownSlotDuration = esdSlotDuration . sdLast <$> getSlottingData
+getLastKnownSlotDuration = do
+  eli <- getEpochLastIndex
+  -- AJ: TODO: GOOD DEFAULT VALUE FOR SLOT DURATION?
+  maybe 0 esdSlotDuration <$> getEpochSlottingData eli
 
 -- | Type constraint for `onNewSlot*` workers
 type OnNewSlot m =

@@ -43,7 +43,7 @@ import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, H
                                           unsafeSubCoin)
 import           Pos.Core.Constants      (epochSlots)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
-import           Pos.Slotting            (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Types      (EpochSlottingData (..))
 import           Pos.Update.Core         (BlockVersionData (..), UpId,
                                           UpdateProposal (..), UpdateVote (..),
                                           combineVotes, isPositiveVote, newVoteState)
@@ -200,18 +200,21 @@ updateSlottingData
     :: (MonadError PollVerFailure m, MonadPoll m)
     => EpochIndex -> m ()
 updateSlottingData epoch = do
-    sd@SlottingData {..} <- getSlottingData
     let errFmt =
             ("can't update slotting data, stored penult epoch is "%int%
              ", while given epoch is "%int%
              ")")
-    if | sdPenultEpoch + 1 == epoch -> updateSlottingDataDo sd
+    let err = throwError $ PollInternalError $ sformat errFmt (-1) epoch
+    mres <- do
+      li <- getEpochLastIndex
+      fmap (li,) <$> getEpochSlottingData li
+    (lastIndex, esd) <- maybe err return mres
+    if | lastIndex == epoch -> updateSlottingDataDo lastIndex esd
        -- This can happen if there was rollback of genesis block.
-       | sdPenultEpoch == epoch -> pass
-       | otherwise ->
-           throwError $ PollInternalError $ sformat errFmt sdPenultEpoch epoch
+       | lastIndex - 1 == epoch -> pass
+       | otherwise -> throwError $ PollInternalError $ sformat errFmt (lastIndex - 1) epoch
   where
-    updateSlottingDataDo sd@SlottingData {..} = do
+    updateSlottingDataDo sdLastIndex sdLast = do
         latestSlotDuration <- bvdSlotDuration <$> getAdoptedBVData
         let newLastStart =
                 esdStart sdLast +
@@ -219,12 +222,7 @@ updateSlottingData epoch = do
         let newLast =
                 EpochSlottingData
                 {esdSlotDuration = latestSlotDuration, esdStart = newLastStart}
-        setSlottingData
-            sd
-            { sdPenultEpoch = sdPenultEpoch + 1
-            , sdPenult = sdLast
-            , sdLast = newLast
-            }
+        putEpochSlottingData (sdLastIndex+1) newLast
 
 -- | Verify that 'BlockVersionData' passed as last argument can follow
 -- 'BlockVersionData' passed as second argument. First argument

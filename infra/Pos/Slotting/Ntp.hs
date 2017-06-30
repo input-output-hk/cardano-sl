@@ -43,7 +43,8 @@ import           Pos.Util.Util                (leftToPanic)
 import           Pos.Slotting.Class           (MonadSlots (..))
 import qualified Pos.Slotting.Constants       as C
 import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
-import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Types           (EpochSlottingData (..), getLastEpoch,
+                                               getPenultEpoch, getPenultEpochIndex, findMatchingEpoch)
 
 ----------------------------------------------------------------------------
 -- State
@@ -112,11 +113,9 @@ instance
          MonadSlots (Ether.TaggedTrans SlotsRedirectTag t m)
   where
     getCurrentSlot =
-        ifNtpUsed ntpGetCurrentSlot simpleGetCurrentSlot
+        ifNtpUsed ntpGetCurrentSlot (Just <$> simpleGetCurrentSlot)
     getCurrentSlotBlocking =
-        ifNtpUsed ntpGetCurrentSlotBlocking simpleGetCurrentSlotBlocking
-    getCurrentSlotInaccurate =
-        ifNtpUsed ntpGetCurrentSlotInaccurate simpleGetCurrentSlotInaccurate
+        ifNtpUsed ntpGetCurrentSlotBlocking simpleGetCurrentSlot
     currentTimeSlotting =
         ifNtpUsed ntpCurrentTime simpleCurrentTimeSlotting
     slottingWorkers = [ntpSyncWorker]
@@ -130,9 +129,6 @@ ifNtpUsed t f = Ether.asks' @(Bool, NtpSlottingVar) fst >>= bool f t
 
 data SlotStatus
     = CantTrust Text                    -- ^ We can't trust local time.
-    | OutdatedSlottingData !EpochIndex  -- ^ We don't know recent
-                                        -- slotting data, last known
-                                        -- penult epoch is attached.
     | CurrentSlot !SlotId               -- ^ Slot is calculated successfully.
 
 ntpGetCurrentSlot
@@ -140,33 +136,15 @@ ntpGetCurrentSlot
     => m (Maybe SlotId)
 ntpGetCurrentSlot = ntpGetCurrentSlotImpl >>= \case
     CurrentSlot slot -> pure $ Just slot
-    OutdatedSlottingData i -> do
-        logWarning $ sformat
-            ("Can't get current slot, because slotting data"%
-             " is outdated. Last known penult epoch = "%int)
-            i
-        Nothing <$ printSlottingData
     CantTrust t -> do
         logWarning $
             "Can't get current slot, because we can't trust local time, details: " <> t
         Nothing <$ printSlottingData
   where
     printSlottingData = do
-        sd <- getSlottingData
+        eli <- getEpochLastIndex
+        sd <- getEpochSlottingData eli
         logWarning $ "Slotting data: " <> show sd
-
-ntpGetCurrentSlotInaccurate
-    :: (SlottingConstraint m, MonadNtpSlotting m)
-    => m SlotId
-ntpGetCurrentSlotInaccurate = do
-    res <- ntpGetCurrentSlotImpl
-    case res of
-        CurrentSlot slot -> pure slot
-        CantTrust _        -> do
-            var <- askNtpSlotting
-            _nssLastSlot <$> atomically (STM.readTVar var)
-        OutdatedSlottingData penult ->
-            ntpCurrentTime >>= approxSlotUsingOutdated penult
 
 ntpGetCurrentSlotImpl
     :: (SlottingConstraint m, MonadNtpSlotting m)
@@ -177,12 +155,10 @@ ntpGetCurrentSlotImpl = do
     t <- Timestamp . (+ _nssLastMargin) <$> currentTime
     case canWeTrustLocalTime _nssLastLocalTime t of
       Nothing -> do
-          penult <- sdPenultEpoch <$> getSlottingData
-          res <- fmap (max _nssLastSlot) <$> getCurrentSlotDo t
-          let setLastSlot s =
-                  atomically $ STM.modifyTVar' var (nssLastSlot %~ max s)
-          whenJust res setLastSlot
-          pure $ maybe (OutdatedSlottingData penult) CurrentSlot res
+          penult <- pred <$> getEpochLastIndex
+          res <- max _nssLastSlot <$> getCurrentSlotDo t
+          atomically $ STM.modifyTVar' var (nssLastSlot %~ max res)
+          pure $ CurrentSlot res
       Just reason -> pure $ CantTrust reason
   where
     -- We can trust getCurrentTime if it is:
@@ -206,9 +182,6 @@ ntpGetCurrentSlotBlocking = ntpGetCurrentSlotImpl >>= \case
     CantTrust _ -> do
         delay C.ntpPollDelay
         ntpGetCurrentSlotBlocking
-    OutdatedSlottingData penult -> do
-        waitPenultEpochEquals (penult + 1)
-        ntpGetCurrentSlotBlocking
     CurrentSlot slot -> pure slot
 
 ntpCurrentTime
@@ -219,46 +192,20 @@ ntpCurrentTime = do
     lastMargin <- view nssLastMargin <$> atomically (STM.readTVar var)
     Timestamp . (+ lastMargin) <$> currentTime
 
--- Independent of slotting algorithm functions
-approxSlotUsingOutdated :: SlottingConstraint m => EpochIndex -> Timestamp -> m SlotId
-approxSlotUsingOutdated penult t = do
-    SlottingData {..} <- getSlottingData
-    pure $
-        if | t < esdStart sdLast -> SlotId (penult + 1) minBound
-           | otherwise           -> outdatedEpoch t (penult + 1) sdLast
-  where
-    outdatedEpoch (Timestamp curTime) epoch EpochSlottingData {..} =
-        let duration = convertUnit esdSlotDuration
-            start = getTimestamp esdStart in
-        unflattenSlotId $
-        flattenEpochIndex epoch + fromIntegral ((curTime - start) `div` duration)
-
 getCurrentSlotDo
     :: SlottingConstraint m
-    => Timestamp -> m (Maybe SlotId)
+    => Timestamp -> m SlotId
 getCurrentSlotDo approxCurTime = do
-    SlottingData {..} <- getSlottingData
-    let tryEpoch = computeSlotUsingEpoch approxCurTime
-    let penultRes = tryEpoch sdPenultEpoch sdPenult
-    let lastRes = tryEpoch (succ sdPenultEpoch) sdLast
-    return $ penultRes <|> lastRes
-
-computeSlotUsingEpoch
-    :: Timestamp
-    -> EpochIndex
-    -> EpochSlottingData
-    -> Maybe SlotId
-computeSlotUsingEpoch (Timestamp curTime) epoch EpochSlottingData {..}
-    | curTime < start = Nothing
-    | curTime < start + duration * C.epochSlots = Just $ SlotId epoch localSlot
-    | otherwise = Nothing
+  li <- getEpochLastIndex
+  me <- findMatchingEpoch approxCurTime li getEpochSlottingData
+  case me of
+    Nothing -> return $ SlotId 0 $ localSlot (0::Int)
+    Just (ei, EpochSlottingData{..}) -> do
+      return $ SlotId ei $ localSlot $ (getTimestamp approxCurTime - getTimestamp esdStart) `div` convertUnit esdSlotDuration
   where
-    localSlotNumeric = fromIntegral $ (curTime - start) `div` duration
-    localSlot =
-        leftToPanic "computeSlotUsingEpoch: " $
-        mkLocalSlotIndex localSlotNumeric
-    duration = convertUnit esdSlotDuration
-    start = getTimestamp esdStart
+    localSlot n =
+        leftToPanic "getCurrentSlotDo: " $
+        mkLocalSlotIndex (fromIntegral n)
 
 ----------------------------------------------------------------------------
 -- Running
@@ -339,24 +286,8 @@ ntpSettings var = NtpClientSettings
 -- Simple Slotting
 ----------------------------------------------------------------------------
 
-simpleGetCurrentSlot :: SlottingConstraint m => m (Maybe SlotId)
+simpleGetCurrentSlot :: SlottingConstraint m => m SlotId
 simpleGetCurrentSlot = simpleCurrentTimeSlotting >>= getCurrentSlotDo
-
-simpleGetCurrentSlotBlocking :: SlottingConstraint m => m SlotId
-simpleGetCurrentSlotBlocking = do
-    penult <- sdPenultEpoch <$> getSlottingData
-    simpleGetCurrentSlot >>= \case
-        Just slot -> pure slot
-        Nothing -> do
-            waitPenultEpochEquals (penult + 1)
-            simpleGetCurrentSlotBlocking
-
-simpleGetCurrentSlotInaccurate :: SlottingConstraint m => m SlotId
-simpleGetCurrentSlotInaccurate = do
-    penult <- sdPenultEpoch <$> getSlottingData
-    simpleGetCurrentSlot >>= \case
-        Just slot -> pure slot
-        Nothing -> simpleCurrentTimeSlotting >>= approxSlotUsingOutdated penult
 
 simpleCurrentTimeSlotting :: SlottingConstraint m => m Timestamp
 simpleCurrentTimeSlotting = Timestamp <$> currentTime

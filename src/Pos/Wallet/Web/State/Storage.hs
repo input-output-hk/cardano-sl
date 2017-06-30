@@ -77,20 +77,8 @@ type AddressSortingKey = Int
 
 data AddressInfo = AddressInfo
     { adiCWAddressMeta :: !CWAddressMeta
-    , adiKey           :: !AddressSortingKey
+    , adiSortingKey    :: !AddressSortingKey
     }
-
--- | Maps addresses to their first occurrence in the blockchain
-type CustomAddresses = HashMap (CId Addr) HeaderHash
-
-data WalletInfo = WalletInfo
-    { _wiMeta         :: !CWalletMeta
-    , _wiPassphraseLU :: !PassPhraseLU
-    , _wiCreationTime :: !POSIXTime
-    , _wiSyncTip      :: !HeaderHash
-    }
-
-makeLenses ''WalletInfo
 
 type CAddresses = HashMap (CId Addr) AddressInfo
 
@@ -103,7 +91,19 @@ data AccountInfo = AccountInfo
 
 makeLenses ''AccountInfo
 
+data WalletInfo = WalletInfo
+    { _wiMeta         :: !CWalletMeta
+    , _wiPassphraseLU :: !PassPhraseLU
+    , _wiCreationTime :: !POSIXTime
+    , _wiSyncTip      :: !HeaderHash
+    }
+
+makeLenses ''WalletInfo
+
 type TransactionHistory = HashMap CTxId CTxMeta
+
+-- | Maps addresses to their first occurrence in the blockchain
+type CustomAddresses = HashMap (CId Addr) HeaderHash
 
 data WalletStorage = WalletStorage
     { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
@@ -335,6 +335,7 @@ deriveSafeCopySimple 0 'base ''CTxMeta
 deriveSafeCopySimple 0 'base ''CUpdateInfo
 deriveSafeCopySimple 0 'base ''AddressLookupMode
 deriveSafeCopySimple 0 'base ''CustomAddressType
-deriveSafeCopySimple 0 'base ''WalletInfo
+deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
+deriveSafeCopySimple 0 'base ''WalletInfo
 deriveSafeCopySimple 0 'base ''WalletStorage

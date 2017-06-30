@@ -20,7 +20,7 @@ import           Pos.Binary.Delegation      ()
 import           Pos.Binary.Txp             ()
 import           Pos.Binary.Update          ()
 import           Pos.Block.Core.Main.Types  (MainBlock, MainBlockchain, MainExtraBodyData,
-                                             MainExtraHeaderData)
+                                             MainExtraHeaderData, MainToSign (..))
 import           Pos.Block.Core.Union.Types (BiHeader, Block, BlockHeader,
                                              BlockSignature (..))
 import           Pos.Core                   (Blockchain (..), ChainDifficulty,
@@ -83,10 +83,14 @@ instance ( BiHeader ssc
         , mpUpdateProof = mkUpdateProof _mbUpdatePayload
         }
 
-deriving instance Ssc ssc => Show (BodyProof (MainBlockchain ssc))
-deriving instance Ssc ssc => Eq (BodyProof (MainBlockchain ssc))
 deriving instance Ssc ssc => Show (Body (MainBlockchain ssc))
 deriving instance (Eq (SscPayload ssc), Ssc ssc) => Eq (Body (MainBlockchain ssc))
+deriving instance Ssc ssc => Show (BodyProof (MainBlockchain ssc))
+deriving instance Ssc ssc => Eq (BodyProof (MainBlockchain ssc))
+-- The two previous instances are required for the following two
+
+deriving instance Ssc ssc => Show (MainToSign ssc)
+deriving instance Ssc ssc => Eq (MainToSign ssc)
 
 instance (Ssc ssc) => NFData (BodyProof (MainBlockchain ssc))
 instance (Ssc ssc) => NFData (ConsensusData (MainBlockchain ssc))

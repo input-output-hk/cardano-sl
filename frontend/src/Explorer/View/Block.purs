@@ -210,8 +210,8 @@ blockTxsView txs state =
             minTxIndex = (txPagination - minPagination) * maxTxRows
             currentTxs = slice minTxIndex (minTxIndex + maxTxRows) txs
         in
-        S.div do
-            S.div $ for_ currentTxs (\tx -> blockTxView tx lang')
+        do
+            for_ currentTxs (\tx -> blockTxView tx lang')
             txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                               , currentPage: PageNumber txPagination
                               , minPage: PageNumber minPagination
@@ -225,6 +225,7 @@ blockTxsView txs state =
 
 blockTxView :: CTxBrief -> Language -> P.HTML Action
 blockTxView tx lang =
-    S.div do
+    S.div ! S.className "explorer-block__tx-container"
+        $ do
         txHeaderView lang $ mkTxHeaderViewProps tx
         txBodyView lang $ mkTxBodyViewProps tx

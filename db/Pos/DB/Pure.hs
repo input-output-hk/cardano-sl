@@ -14,6 +14,10 @@ module Pos.DB.Pure
 
        , dbGetPureDefault
        , dbIterSourcePureDefault
+
+       , dbPutPureDefault
+       , dbDeletePureDefault
+       , dbWriteBatchPureDefault
        ) where
 
 import           Universum
@@ -25,12 +29,14 @@ import qualified Data.ByteString              as BS
 import           Data.Conduit                 (Source)
 import qualified Data.Conduit.List            as CL
 import qualified Data.Map                     as M
+import qualified Database.RocksDB             as Rocks
 import qualified Ether
 
 import           Pos.Binary.Class             (Bi)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), IterType,
                                                iterKeyPrefix)
 import           Pos.DB.Functions             (processIterEntry)
+import           Pos.Util.Concurrent.RWVar    as RWV
 
 type DBPureMap = Map ByteString ByteString
 
@@ -41,6 +47,8 @@ data DBPure = DBPure
     , _pureMiscDB       :: DBPureMap
     }
 
+type DBPureVar = RWV.RWVar DBPure
+
 makeLenses ''DBPure
 
 tagToLens :: DBTag -> Lens' DBPure DBPureMap
@@ -49,11 +57,16 @@ tagToLens GStateDB     = pureGStateDB
 tagToLens LrcDB        = pureLrcDB
 tagToLens MiscDB       = pureMiscDB
 
-type MonadPureDB m
-     = (Ether.MonadReader' DBPure m, MonadBaseControl IO m, MonadThrow m)
+type MonadPureDB m =
+    ( Ether.MonadReader' DBPureVar m
+    , MonadMask m
+    , MonadBaseControl IO m
+    , MonadIO m
+    )
 
 dbGetPureDefault :: MonadPureDB m => DBTag -> ByteString -> m (Maybe ByteString)
-dbGetPureDefault (tagToLens -> l) key = Ether.asks' $ view $ l . at key
+dbGetPureDefault (tagToLens -> l) key =
+    view (l . at key) <$> (Ether.ask' >>= RWV.read)
 
 dbIterSourcePureDefault ::
        forall m i.
@@ -67,8 +80,22 @@ dbIterSourcePureDefault ::
     -> Source (ResourceT m) (IterType i)
 dbIterSourcePureDefault (tagToLens -> l) (_ :: Proxy i) = do
     let filterPrefix = M.filterWithKey $ \k _ -> iterKeyPrefix @i `BS.isPrefixOf` k
-    (dbPure :: DBPure) <- lift Ether.ask'
-    let filtered :: [(ByteString, ByteString)]
-        filtered = M.toList . filterPrefix $ dbPure ^. l
+    (dbPureVar :: DBPureVar) <- lift Ether.ask'
+    (filtered :: [(ByteString, ByteString)]) <-
+        M.toList . filterPrefix . (view l) <$> lift (RWV.read dbPureVar)
     deserialized <- catMaybes <$> mapM (processIterEntry @i) filtered
     CL.sourceList deserialized
+
+dbPutPureDefault :: MonadPureDB m => DBTag -> ByteString -> ByteString -> m ()
+dbPutPureDefault (tagToLens -> l) key val =
+    Ether.ask' >>= flip RWV.modifyPure (l . at key .~ Just val)
+
+dbDeletePureDefault :: MonadPureDB m => DBTag -> ByteString -> m ()
+dbDeletePureDefault (tagToLens -> l) key =
+    Ether.ask' >>= flip RWV.modifyPure (l . at key .~ Nothing)
+
+dbWriteBatchPureDefault :: MonadPureDB m => DBTag -> [Rocks.BatchOp] -> m ()
+dbWriteBatchPureDefault tag = mapM_ processOp
+  where
+    processOp (Rocks.Put k v) = dbPutPureDefault tag k v
+    processOp (Rocks.Del k)   = dbDeletePureDefault tag k

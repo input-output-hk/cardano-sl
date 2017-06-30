@@ -44,6 +44,7 @@
         .hash {
           overflow: hidden;
           text-overflow: ellipsis;
+          display: block;
           button: standard-button;
           button-color: var(--color8) var(--color5) var(--color5);
         }
@@ -81,6 +82,11 @@
 
         &--hash-container {
           lost-column: 8/12;
+
+          .hash {
+            display: inline-block; /* needed to select text in browser */
+          }
+
         }
 
         &--date {

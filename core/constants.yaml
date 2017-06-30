@@ -146,7 +146,7 @@ testnet_staging: &testnet_staging
   protocolMagic: 50987900
 
 prod: &prod
-  <<: *testnet_staging
+  <<: *qanet
 
 ##############################################################################
 ##                                                                          ##

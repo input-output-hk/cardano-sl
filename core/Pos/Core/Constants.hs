@@ -25,6 +25,8 @@ module Pos.Core.Constants
        , memPoolLimitRatio
        -- * Genesis constants
        , genesisN
+
+       , genesisBinSuffix
        ) where
 
 import           Data.Aeson             (FromJSON (..), genericParseJSON)
@@ -75,6 +77,8 @@ data CoreConstants = CoreConstants
       -- | Size of mem pool will be limited by this value muliplied by block
       -- size limit.
     , ccMemPoolLimitRatio          :: !Word
+      -- | Suffix for genesis.bin files
+    , ccGenesisBinSuffix           :: ![Char]
     }
     deriving (Show, Generic)
 
@@ -92,6 +96,10 @@ instance IsConfig CoreConstants where
 -- rolled back.
 blkSecurityParam :: Integral a => a
 blkSecurityParam = fromIntegral . ccK $ coreConstants
+
+-- | Suffix for genesis.bin files
+genesisBinSuffix :: [Char]
+genesisBinSuffix = ccGenesisBinSuffix coreConstants
 
 -- | Security parameter expressed in number of slots. It uses chain
 -- quality property. It's basically @blkSecurityParam / chain_quality@.

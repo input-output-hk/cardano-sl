@@ -22,7 +22,7 @@ import           System.Wlog                (logInfo)
 
 import           Pos.Binary                 ()
 import qualified Pos.CLI                    as CLI
-import           Pos.Communication          (OutSpecs, WorkerSpec, worker, wrapActionSpec)
+import           Pos.Communication          (OutSpecs, WorkerSpec, ActionSpec (..), worker, wrapActionSpec)
 import           Pos.Context                (recoveryCommGuard)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.DHT.Workers            (dhtWorkers)
@@ -44,12 +44,15 @@ import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
 import           Pos.WorkMode               (RealMode, WorkMode)
 
+import           Pos.Explorer               (ExplorerExtra, ExplorerBListener, runExplorerBListener)
 import           Pos.Explorer.Socket        (NotifierSettings (..))
 import           Pos.Explorer.Web           (explorerPlugin, notifierPlugin)
 
 import           ExplorerOptions            (Args (..), getExplorerOptions)
 import           Params                     (getBaseParams, getKademliaParams,
                                              getNodeParams, gtSscParams)
+
+type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
 
 -- Note: for now Kademlia discovery is hardcoded.
 
@@ -70,7 +73,8 @@ action kad args@Args {..} transport = do
         wDhtWorkers = (\(ws, outs) -> (map (fst . recoveryCommGuard . (, outs)) ws, outs)) . -- TODO simplify
                       first (map $ wrapActionSpec $ "worker" <> "dht") . dhtWorkers
 
-    let plugins = mconcatPair
+    let plugins :: ([WorkerSpec ExplorerProd], OutSpecs)
+        plugins = mconcatPair
             [ explorerPlugin webPort
             , notifierPlugin NotifierSettings{ nsPort = notifierPort }
             , wDhtWorkers kad
@@ -83,13 +87,26 @@ action kad args@Args {..} transport = do
     runNodeReal @SscGodTossing
         (DCKademlia kad)
         transport
-        plugins
+        (runProdPlugins plugins)
         currentParams
         gtParams
 
+
+runProdPlugins 
+    :: ([WorkerSpec (ExplorerBListener (RealMode SscGodTossing))], OutSpecs)
+    -> ([WorkerSpec (RealMode SscGodTossing)], OutSpecs)
+runProdPlugins (workSpecs, outSpecs) = (prodModeRun <$> workSpecs, outSpecs)
+  where
+    prodModeRun
+        :: WorkerSpec (ExplorerBListener (RealMode SscGodTossing))
+        -> WorkerSpec (RealMode SscGodTossing)
+    -- prodModeRun (ActionSpec actionSpec) = (fmap runExplorerBListener) . actionSpec
+    prodModeRun workerSpec = runExplorerBListener <$> workerSpec
+
+
+-- type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
 updateTriggerWorker
-    :: SscConstraint ssc
-    => ([WorkerSpec (RealMode ssc)], OutSpecs)
+    :: ([WorkerSpec ExplorerProd], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
     void $ takeMVar =<< Ether.asks' ucUpdateSemaphore

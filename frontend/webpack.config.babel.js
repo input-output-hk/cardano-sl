@@ -70,6 +70,9 @@ module.exports = {
   entry: [
     // https://babeljs.io/docs/usage/polyfill/
     'babel-polyfill',
+    // https://github.com/inexorabletash/polyfill/
+    path.join(__dirname, 'node_modules/js-polyfills/polyfill.js'),
+    path.join(__dirname, 'node_modules/js-polyfills/keyboard.js'),
     path.join(__dirname, 'src/index.js')
   ],
   resolve: {

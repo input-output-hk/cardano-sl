@@ -13,11 +13,10 @@ module Explorer.Util.DOM
     ) where
 
 import Prelude
+
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Uncurried (EffFn2, runEffFn2)
 import Control.Monad.Except (runExcept)
-import Data.Either (either)
-import Data.Maybe (Maybe(..))
 import DOM (DOM)
 import DOM.Event.KeyboardEvent (eventToKeyboardEvent, key)
 import DOM.HTML (window)
@@ -25,6 +24,8 @@ import DOM.HTML.Types (HTMLElement, HTMLInputElement, htmlDocumentToNonElementPa
 import DOM.HTML.Window (document)
 import DOM.Node.NonElementParentNode (getElementById)
 import DOM.Node.Types (DOMTokenList, Element, ElementId, Node)
+import Data.Either (either)
+import Data.Maybe (Maybe(..))
 import Pux.DOM.Events (DOMEvent)
 import Unsafe.Coerce (unsafeCoerce)
 

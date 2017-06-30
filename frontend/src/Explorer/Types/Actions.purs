@@ -73,22 +73,22 @@ data Action
     | DashboardRequestBlocksTotalPages
     | DashboardReceiveBlocksTotalPages (Either Error Int)
     | DashboardExpandBlocks Boolean                   -- expand list of blocks
-    | DashboardPaginateBlocks PageNumber              -- pagination of blocks
+    | DashboardPaginateBlocks (Maybe DOMEvent) PageNumber     -- pagination of blocks
     | DashboardEditBlocksPageNumber DOMEvent Boolean  -- toggle editable state of page numbers
     | DashboardInvalidBlocksPageNumber DOMEvent       -- invalid page number
     | DashboardExpandTransactions Boolean             -- expand dashboard transactions
     | DashboardShowAPICode DashboardAPICode           -- toggle dashboard api
     | DashboardAddWaypoint ElementId
     -- address detail view
-    | AddressPaginateTxs PageNumber               -- current pagination of transactions
+    | AddressPaginateTxs (Maybe DOMEvent) PageNumber      -- current pagination of transactions
     | AddressEditTxsPageNumber DOMEvent Boolean   -- toggle editable state of page numbers
     | AddressInvalidTxsPageNumber DOMEvent        -- invalid page number
     -- block detail view
-    | BlockPaginateTxs PageNumber                 -- current pagination of transactions
+    | BlockPaginateTxs (Maybe DOMEvent) PageNumber                 -- current pagination of transactions
     | BlockEditTxsPageNumber DOMEvent Boolean     -- toggle editable state of page numbers
     | BlockInvalidTxsPageNumber DOMEvent          -- invalid page number
     -- blocks view
-    | BlocksPaginateBlocks PageNumber                 -- current pagination of blocks
+    | BlocksPaginateBlocks (Maybe DOMEvent) PageNumber        -- current pagination of blocks
     | BlocksEditBlocksPageNumber DOMEvent Boolean     -- toggle editable state of page numbers
     | BlocksInvalidBlocksPageNumber DOMEvent          -- invalid page number
     -- clock

@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -12,37 +14,44 @@ module Pos.Launcher.Runner
        , runServer
        ) where
 
-import           Universum                  hiding (finally)
+import           Universum                       hiding (bracket)
 
-import           Control.Monad.Fix          (MonadFix)
-import qualified Control.Monad.Reader       as Mtl
-import           Formatting                 (build, sformat, (%))
-import           Mockable                   (MonadMockable, Production (..), finally)
-import           Network.Transport.Abstract (Transport)
-import           Node                       (Node, NodeAction (..),
-                                             defaultNodeEnvironment, hoistSendActions,
-                                             node, simpleNodeEndPoint)
-import           Node.Util.Monitor          (setupMonitor, stopMonitor)
-import qualified System.Metrics             as Metrics
-import           System.Random              (newStdGen)
-import qualified System.Remote.Monitoring   as Monitoring
-import           System.Wlog                (WithLogger, logInfo)
+import           Control.Monad.Fix               (MonadFix)
+import qualified Control.Monad.Reader            as Mtl
+import           Formatting                      (build, sformat, (%))
+import           Mockable                        (MonadMockable, Production (..), bracket,
+                                                  killThread)
+import           Node                            (Node, NodeAction (..), NodeEndPoint,
+                                                  ReceiveDelay, Statistics,
+                                                  defaultNodeEnvironment,
+                                                  hoistSendActions, noReceiveDelay, node,
+                                                  simpleNodeEndPoint)
+import           Node.Util.Monitor               (setupMonitor, stopMonitor)
+import qualified System.Metrics                  as Metrics
+import           System.Random                   (newStdGen)
+import qualified System.Remote.Monitoring        as Monitoring
+import qualified System.Remote.Monitoring.Statsd as Monitoring
+import           System.Wlog                     (WithLogger, logInfo)
 
-import           Pos.Binary                 ()
-import           Pos.Communication          (ActionSpec (..), BiP (..), InSpecs (..),
-                                             MkListeners (..), OutSpecs (..),
-                                             VerInfo (..), allListeners, hoistMkListeners)
-import qualified Pos.Constants              as Const
-import           Pos.Context                (NodeContext (..))
-import           Pos.DHT.Real               (foreverRejoinNetwork)
-import           Pos.Discovery              (DiscoveryContextSum (..))
-import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
-                                             NodeParams (..))
-import           Pos.Launcher.Resource      (NodeResources (..), hoistNodeResources)
-import           Pos.Security               (SecurityWorkersClass)
-import           Pos.Ssc.Class              (SscConstraint)
-import           Pos.Util.JsonLog           (JsonLogConfig (..), jsonLogConfigFromHandle)
-import           Pos.WorkMode               (RealMode, RealModeContext (..), WorkMode)
+import           Pos.Binary                      ()
+import           Pos.Communication               (ActionSpec (..), BiP (..), InSpecs (..),
+                                                  MkListeners (..), OutSpecs (..),
+                                                  VerInfo (..), allListeners,
+                                                  hoistMkListeners)
+import qualified Pos.Constants                   as Const
+import           Pos.Context                     (NodeContext (..))
+import           Pos.DHT.Real                    (foreverRejoinNetwork)
+import           Pos.Discovery                   (DiscoveryContextSum (..))
+import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
+                                                  NodeParams (..))
+import           Pos.Launcher.Resource           (NodeResources (..), hoistNodeResources)
+import           Pos.Security                    (SecurityWorkersClass)
+import           Pos.Ssc.Class                   (SscConstraint)
+import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
+import           Pos.Util.JsonLog                (JsonLogConfig (..),
+                                                  jsonLogConfigFromHandle)
+import           Pos.WorkMode                    (RealMode, RealModeContext (..),
+                                                  WorkMode)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -84,30 +93,49 @@ runRealModeDo
     -> Production a
 runRealModeDo NodeResources {..} listeners outSpecs action =
     specialDiscoveryWrapper $ do
-        ekgStore <- liftIO $ Metrics.newStore
-        -- To start monitoring, add the time-warp metrics and the GC
-        -- metrics then spin up the server.
-        let startMonitoring node' = case lpEkgPort of
-                Nothing   -> return Nothing
-                Just port -> Just <$> do
-                        ekgStore' <- setupMonitor (runProduction . runToProd JsonLogDisabled)
-                            node' ekgStore
-                        liftIO $ Metrics.registerGcMetrics ekgStore'
-                        liftIO $ Monitoring.forkServerWith ekgStore' "127.0.0.1" port
-
-        let stopMonitoring it = whenJust it stopMonitor
         jsonLogConfig <- maybe
             (pure JsonLogDisabled)
             jsonLogConfigFromHandle
             nrJLogHandle
 
         runToProd jsonLogConfig $
-            runServer nrTransport listeners outSpecs
+            runServer (simpleNodeEndPoint nrTransport) (const noReceiveDelay)
+            listeners outSpecs
             startMonitoring stopMonitoring action
   where
     NodeContext {..} = nrContext
     NodeParams {..} = ncNodeParams
     LoggingParams {..} = bpLoggingParams npBaseParams
+    startMonitoring node' =
+        case npEnableMetrics of
+            False -> return Nothing
+            True  -> Just <$> do
+                ekgStore <- liftIO $ Metrics.newStore
+                ekgStore' <- setupMonitor
+                    (runProduction . runToProd JsonLogDisabled) node' ekgStore
+                liftIO $ Metrics.registerGcMetrics ekgStore'
+                mEkgServer <- case npEkgParams of
+                    Nothing -> return Nothing
+                    Just (EkgParams {..}) -> Just <$> do
+                        liftIO $ Monitoring.forkServerWith ekgStore' ekgHost ekgPort
+                mStatsdServer <- case npStatsdParams of
+                    Nothing -> return Nothing
+                    Just (StatsdParams {..}) -> Just <$> do
+                        let statsdOptions = Monitoring.defaultStatsdOptions
+                                { Monitoring.host = statsdHost
+                                , Monitoring.port = statsdPort
+                                , Monitoring.flushInterval = statsdInterval
+                                , Monitoring.debug = statsdDebug
+                                , Monitoring.prefix = statsdPrefix
+                                , Monitoring.suffix = statsdSuffix
+                                }
+                        liftIO $ Monitoring.forkStatsd statsdOptions ekgStore'
+                return (mEkgServer, mStatsdServer)
+
+    stopMonitoring Nothing = return ()
+    stopMonitoring (Just (mEkg, mStatsd)) = do
+        whenJust mStatsd (killThread . Monitoring.statsdThreadId)
+        whenJust mEkg stopMonitor
 
     -- TODO: it would be good to put this behavior into 'Discovery' class.
     specialDiscoveryWrapper = case ncDiscoveryContext of
@@ -128,21 +156,22 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
 
 runServer
     :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
-    => Transport m
+    => (m (Statistics m) -> NodeEndPoint m)
+    -> (m (Statistics m) -> ReceiveDelay m)
     -> MkListeners m
     -> OutSpecs
     -> (Node m -> m t)
     -> (t -> m ())
     -> ActionSpec m b
     -> m b
-runServer transport mkL (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
+runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode (ActionSpec action) = do
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
-    node (simpleNodeEndPoint transport) (const $ pure Nothing) (const $ pure Nothing) stdGen BiP ourVerInfo defaultNodeEnvironment $ \__node ->
-        NodeAction mkListeners' $ \sendActions -> do
-            t <- withNode __node
-            action ourVerInfo sendActions `finally` afterNode t
+    node mkTransport mkReceiveDelay mkConnectDelay stdGen BiP ourVerInfo defaultNodeEnvironment $ \__node ->
+        NodeAction mkListeners' $ \sendActions ->
+            bracket (withNode __node) afterNode (const (action ourVerInfo sendActions))
   where
+    mkConnectDelay = const (pure Nothing)
     InSpecs ins = inSpecs mkL
     OutSpecs outs = outSpecs mkL
     ourVerInfo =

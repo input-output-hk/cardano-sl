@@ -23,11 +23,11 @@ import           System.Wlog                 (WithLogger)
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
-import           Pos.Context                 (BlkSemaphore, GenesisStakes, HasSscContext,
-                                              MonadBlockRetrievalQueue,
-                                              MonadLastKnownHeader, MonadProgressHeader,
-                                              MonadRecoveryHeader, StartTime,
-                                              TxpGlobalSettings)
+import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
+                                              BlockRetrievalQueueTag, GenesisStakes,
+                                              HasSscContext, MonadLastKnownHeader,
+                                              MonadProgressHeader, MonadRecoveryHeader,
+                                              StartTime, TxpGlobalSettings)
 import           Pos.DB.Block                (MonadBlockDBWrite)
 import           Pos.DB.Class                (MonadDB, MonadGState, MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
@@ -76,7 +76,6 @@ type WorkMode ssc ctx m
       , SscGStateClass ssc
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
-      , MonadBlockRetrievalQueue ssc ctx m
       , MonadRecoveryInfo m
       , MonadRecoveryHeader ssc ctx m
       , MonadProgressHeader ssc ctx m
@@ -93,6 +92,7 @@ type WorkMode ssc ctx m
       , HasLens SecurityParams ctx SecurityParams
       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
       , HasLens GenesisStakes ctx GenesisStakes
+      , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
       , HasSscContext ssc ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx

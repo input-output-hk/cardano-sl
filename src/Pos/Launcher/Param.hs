@@ -26,6 +26,7 @@ import           Pos.Crypto              (SecretKey)
 import           Pos.DHT.Real            (KademliaParams)
 import           Pos.Reporting.MemState  (HasReportServers (..))
 import           Pos.Security.Params     (SecurityParams)
+import           Pos.Statistics          (EkgParams, StatsdParams)
 import           Pos.Txp.Toil.Types      (Utxo)
 import           Pos.Update.Params       (UpdateParams)
 import           Pos.Util.UserSecret     (UserSecret)
@@ -36,7 +37,6 @@ data LoggingParams = LoggingParams
     { lpRunnerTag     :: !LoggerName        -- ^ Prefix for logger, like "time-slave"
     , lpHandlerPrefix :: !(Maybe FilePath)  -- ^ Prefix of path for all logs
     , lpConfigPath    :: !(Maybe FilePath)  -- ^ Path to logger configuration
-    , lpEkgPort       :: !(Maybe Int)
     } deriving (Show)
 
 -- | Contains basic & networking parameters for running node.
@@ -75,6 +75,9 @@ data NodeParams = NodeParams
     , npUseNTP         :: !Bool
     , npNetwork        :: !NetworkParams
     -- ^ Network parameters.
+    , npEnableMetrics  :: !Bool              -- ^ Gather runtime statistics.
+    , npEkgParams      :: !(Maybe EkgParams) -- ^ EKG statistics monitoring.
+    , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams

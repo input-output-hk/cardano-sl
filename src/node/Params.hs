@@ -38,8 +38,7 @@ loggingParams tag Args{..} =
     LoggingParams
     { lpHandlerPrefix = CLI.logPrefix commonArgs
     , lpConfigPath    = CLI.logConfig commonArgs
-    , lpRunnerTag = tag
-    , lpEkgPort = monitorPort
+    , lpRunnerTag     = tag
     }
 
 getPeersFromArgs :: Args -> IO [NetworkAddress]
@@ -121,6 +120,9 @@ getNodeParams args@Args {..} systemStart = do
             , spAttackTargets = maliciousEmulationTargets
             }
         , npUseNTP = not noNTP
+        , npEnableMetrics = enableMetrics
+        , npEkgParams = ekgParams
+        , npStatsdParams = statsdParams
         , ..
         }
 

@@ -301,7 +301,6 @@ main = do
             { lpRunnerTag     = "smart-wallet"
             , lpHandlerPrefix = CLI.logPrefix woCommonArgs
             , lpConfigPath    = CLI.logConfig woCommonArgs
-            , lpEkgPort       = Nothing
             }
         baseParams = BaseParams { bpLoggingParams = logParams }
 

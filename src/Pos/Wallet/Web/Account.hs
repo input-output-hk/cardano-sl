@@ -20,7 +20,7 @@ import           Formatting                 (build, sformat, (%))
 import           System.Random              (Random, randomIO)
 import           Universum
 
-import           Pos.Core                   (Address (..))
+import           Pos.Core                   (Address (..), deriveLvl2KeyPair)
 import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
                                              isNonHardened)
 import           Pos.Util                   (maybeThrow)
@@ -31,7 +31,6 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta 
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
                                              doesWAddressExist, getAccountMeta)
-import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 
 type AccountMode ctx m = (MonadKeys ctx m, WebWalletModeDB ctx m, MonadThrow m)
 

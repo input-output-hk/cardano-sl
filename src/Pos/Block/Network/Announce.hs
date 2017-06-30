@@ -99,8 +99,8 @@ handleHeadersCommunication conv = do
             Left _  -> fromMaybe tipHeader <$> DB.blkGetHeader (tip ^. prevBlockL)
             Right _ -> pure tipHeader
     handleSuccess h = do
-        onSuccess
         send conv (MsgHeaders h)
+        onSuccess
         handleHeadersCommunication conv
     onSuccess =
         logDebug "handleGetHeaders: responded successfully"

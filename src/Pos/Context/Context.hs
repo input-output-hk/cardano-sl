@@ -23,7 +23,6 @@ module Pos.Context.Context
        , MonadProgressHeader
        , BlockRetrievalQueueTag
        , BlockRetrievalQueue
-       , MonadBlockRetrievalQueue
        , RecoveryHeaderTag
        , RecoveryHeader
        , MonadRecoveryHeader
@@ -33,7 +32,6 @@ module Pos.Context.Context
 
 import           Universum
 
-import           Control.Concurrent.STM        (TBQueue)
 import qualified Control.Concurrent.STM        as STM
 import           Control.Lens                  (lens, makeLensesWith)
 import           Data.Time.Clock               (UTCTime)
@@ -41,6 +39,8 @@ import           Ether.Internal                (HasLens (..))
 import           System.Wlog                   (LoggerConfig)
 
 import           Pos.Block.Core                (BlockHeader)
+import           Pos.Block.RetrievalQueue      (BlockRetrievalQueue,
+                                                BlockRetrievalQueueTag)
 import           Pos.Communication.Relay       (HasPropagationFlag (..),
                                                 HasPropagationQueue (..),
                                                 RelayPropagationQueue)
@@ -66,7 +66,6 @@ import           Pos.Ssc.Class.Types           (HasSscContext (..), Ssc (SscNode
 import           Pos.Txp.Settings              (TxpGlobalSettings)
 import           Pos.Update.Context            (UpdateContext)
 import           Pos.Update.Params             (UpdateParams)
-import           Pos.Util.Chrono               (NE, NewestFirst)
 import           Pos.Util.UserSecret           (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util                 (postfixLFields)
 
@@ -81,11 +80,6 @@ type MonadLastKnownHeader ssc ctx m = (MonadReader ctx m, HasLens LastKnownHeade
 data ProgressHeaderTag
 type ProgressHeader ssc = STM.TMVar (BlockHeader ssc)
 type MonadProgressHeader ssc ctx m = (MonadReader ctx m, HasLens ProgressHeaderTag ctx (ProgressHeader ssc))
-
-data BlockRetrievalQueueTag
-type BlockRetrievalQueue ssc = TBQueue (NodeId, NewestFirst NE (BlockHeader ssc))
-type MonadBlockRetrievalQueue ssc ctx m =
-    (MonadReader ctx m, HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc))
 
 data RecoveryHeaderTag
 type RecoveryHeader ssc = STM.TMVar (NodeId, BlockHeader ssc)

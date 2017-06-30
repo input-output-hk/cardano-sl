@@ -26,6 +26,7 @@ import           Serokell.Util              (enumerate)
 import           Universum
 
 import qualified Pos.Constants              as Const
+import           Pos.Core.Address           (deriveLvl2KeyPair)
 import           Pos.Core.Types             (Address, StakeholderId)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstNonHardened, unsafeHash)
@@ -37,7 +38,6 @@ import           Pos.Txp.Toil.Types         (Utxo)
 import           Pos.Types                  (Coin, SlotLeaders, applyCoinPortion,
                                              coinToInteger, divCoin, makePubKeyAddress,
                                              mkCoin, unsafeAddCoin, unsafeMulCoin)
-import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 
 -- reexports
 import           Pos.Core.Genesis

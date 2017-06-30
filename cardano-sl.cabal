@@ -284,6 +284,7 @@ library
                         Pos.Explorer.Txp.Toil.Logic
                         Pos.Explorer.Txp.Toil.Types
                         Pos.Explorer.DB
+                        Pos.Explorer.BListener
 
   if flag(with-web)
     other-modules:      Pos.Aeson.Crypto
@@ -309,12 +310,14 @@ library
                         Pos.Wallet.WalletMode
   if (flag(with-wallet) && flag(with-web))
     other-modules:      Pos.Aeson.ClientTypes
+                        Pos.Aeson.WalletBackup
                         Pos.Wallet.Light.Mode
                         Pos.Wallet.Light.Redirect
                         Pos.Wallet.Light.Web
                         Pos.Wallet.Light.Web.Server
                         Pos.Wallet.Web.Account
                         Pos.Wallet.Web.Api
+                        Pos.Wallet.Web.Backup
                         Pos.Wallet.Web.BListener
                         Pos.Wallet.Web.ClientTypes
                         Pos.Wallet.Web.Error
@@ -428,6 +431,7 @@ library
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
+                      , versions
                       , wreq
                       , yaml
 

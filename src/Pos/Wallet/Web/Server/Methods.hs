@@ -154,8 +154,8 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, CAccModifier (..),
                                                    MonadWalletTracking,
-                                                   selectAccountsFromUtxoLock,
-                                                   syncWalletsWithGStateLock,
+                                                   syncAddressesWithUtxo,
+                                                   syncWalletsWithGState,
                                                    txMempoolToModifier)
 import           Pos.Wallet.Web.Util              (getWalletAccountIds)
 import           Pos.Web.Server                   (serveImpl)
@@ -207,7 +207,7 @@ walletServer
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
-    syncWalletsWithGStateLock @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
+    syncWalletsWithGState @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
     nat >>= launchNotifier
     (`enter` servantHandlers sendActions) <$> nat
 
@@ -821,7 +821,7 @@ newWallet passphrase cwInit = do
 restoreWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 restoreWallet passphrase cwInit = do
     (sk, wId) <- newWalletFromBackupPhrase passphrase cwInit
-    syncWalletsWithGStateLock @WalletSscType [sk]
+    syncWalletsWithGState @WalletSscType [sk]
     getWallet wId
 
 updateWallet :: WalletWebMode m => CId Wal -> CWalletMeta -> m CWallet
@@ -1041,7 +1041,8 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         let accId = AccountId wid walletIndex
         newAddress (DeterminedSeed accountIndex) passphrase accId
 
-    _ <- selectAccountsFromUtxoLock @WalletSscType [key]
+    -- TODO seems it's bug, should use @syncWalletsWithGState@
+    _ <- syncAddressesWithUtxo @WalletSscType [key]
 
     return importedWallet
 
@@ -1091,8 +1092,8 @@ restoreWalletFromBackup WalletBackup {..} = do
             seedGen = DeterminedSeed aIdx
         accId <- genUniqueAccountId seedGen wId
         createAccount accId meta
-
-    _ <- selectAccountsFromUtxoLock @WalletSscType [wbSecretKey]
+    -- TODO seems it's bug, should use @syncWalletsWithGState@
+    _ <- syncAddressesWithUtxo @WalletSscType [wbSecretKey]
     createWalletSafe wId wMeta
 
 restoreStateFromBackup :: WalletWebMode m => StateBackup -> m [CWallet]

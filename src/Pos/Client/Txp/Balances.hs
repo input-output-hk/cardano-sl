@@ -22,7 +22,7 @@ import           System.Wlog                  (WithLogger, logWarning)
 
 import           Pos.Core                     (AddressIgnoringAttributes (AddressIA))
 import           Pos.Crypto                   (WithHash (..), shortHashF)
-import           Pos.DB                       (MonadRealDB, MonadDBRead)
+import           Pos.DB                       (MonadDBRead, MonadRealDB)
 import qualified Pos.DB.GState                as GS
 import qualified Pos.DB.GState.Balances       as GS
 import           Pos.Txp                      (GenericToilModifier (..), MonadTxpMem,

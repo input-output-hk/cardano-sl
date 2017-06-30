@@ -17,8 +17,8 @@
 --   Utxo (GStateDB), because blockchain can be large.
 
 module Pos.Wallet.Web.Tracking
-       ( syncWalletsWithGStateLock
-       , selectAccountsFromUtxoLock
+       ( syncWalletsWithGState
+       , syncAddressesWithUtxo
        , trackingApplyTxs
        , trackingRollbackTxs
        , applyModifierToWallet
@@ -121,8 +121,8 @@ instance {-# OVERLAPPABLE #-}
 
 instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
          => MonadWalletTracking (WalletWebDB m) where
-    syncWSetsAtStart = syncWalletsWithGStateLock @WalletSscType
-    syncOnImport = syncWalletsWithGStateLock @WalletSscType . one
+    syncWSetsAtStart = syncWalletsWithGState @WalletSscType
+    syncOnImport = syncWalletsWithGState @WalletSscType . one
     txMempoolToModifier encSK = do
         let wHash (i, TxAux {..}) = WithHash taTx i
         let wId = encToCId encSK
@@ -133,8 +133,8 @@ instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
             Just (map snd -> ordered) ->
                 runDBTxp $
                 evalToilTEmpty $
-                trackingApplyTxs encSK allAddresses (zip ordered (repeat genesisHash))
                 -- Hash doesn't matter
+                trackingApplyTxs encSK allAddresses (zip ordered (repeat genesisHash))
 
 ----------------------------------------------------------------------------
 -- Logic
@@ -142,18 +142,50 @@ instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
 
 -- Select our accounts from Utxo and put to wallet-db.
 -- Used for importing of a secret key.
-selectAccountsFromUtxoLock
+-- This function DOESN'T synchronize Change and Used addresses.
+-- Usages of this function will be removed soon,
+-- but it won't be removed, because frontenders
+-- can change logic of Used and Change andresses
+-- and this function will be useful again
+syncAddressesWithUtxo
     :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
     => [EncryptedSecretKey]
     -> m [CWAddressMeta]
-selectAccountsFromUtxoLock encSKs = withBlkSemaphore $ \tip -> do
+syncAddressesWithUtxo encSKs =
+    withBlkSemaphore $ \tip -> (, tip) <$> syncAddressesWithUtxoUnsafe @ssc tip encSKs
+
+-- Iterate over blocks (using forward links) and actualize our accounts.
+syncWalletsWithGState
+    :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
+    => [EncryptedSecretKey]
+    -> m ()
+syncWalletsWithGState encSKs = withBlkSemaphore_ $ \tip ->
+    tip <$ mapM_ (syncWalletWithGStateUnsafe @ssc) encSKs
+
+----------------------------------------------------------------------------
+-- Unsafe operations. Core logic.
+----------------------------------------------------------------------------
+-- These operation aren't atomic and don't take the block lock.
+
+-- BE CAREFUL! This function iterates over Utxo,
+-- the Utxo can be large (but not such large as the blockchain)
+syncAddressesWithUtxoUnsafe
+    :: forall ssc m .
+    ( WebWalletModeDB m
+    , MonadRealDB m
+    , DB.MonadBlockDB ssc m
+    , WithLogger m)
+    => HeaderHash
+    -> [EncryptedSecretKey]
+    -> m [CWAddressMeta]
+syncAddressesWithUtxoUnsafe tip encSKs = do
     let (hdPass, wAddr) = unzip $ map getEncInfo encSKs
-    logDebug $ sformat ("Select accounts from Utxo: tip "%build%" for "%listJson) tip wAddr
+    logDebug $ sformat ("Sync addresses with Utxo: tip "%build%" for "%listJson) tip wAddr
     addresses <- discoverHDAddresses hdPass
     let allAddresses = concatMap createWAddresses $ zip wAddr addresses
     mapM_ addMetaInfo allAddresses
-    logDebug (sformat ("After selection from Utxo addresses was added: "%listJson) allAddresses)
-    return (allAddresses, tip)
+    logDebug (sformat ("After syncing with Utxo addresses was added: "%listJson) allAddresses)
+    pure allAddresses
   where
     createWAddresses :: (CId Wal, [(Address, [Word32])]) -> [CWAddressMeta]
     createWAddresses (wAddr, addresses) = do
@@ -174,20 +206,8 @@ selectAccountsFromUtxoLock encSKs = withBlkSemaphore $ \tip -> do
         WS.createAccount accId accMeta
         WS.addWAddress cwMeta
 
--- Iterate over blocks (using forward links) and actualize our accounts.
-syncWalletsWithGStateLock
-    :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
-    => [EncryptedSecretKey]
-    -> m ()
-syncWalletsWithGStateLock encSKs = withBlkSemaphore_ $ \tip ->
-    tip <$ mapM_ (syncWalletWithGState @ssc) encSKs
-
-----------------------------------------------------------------------------
--- Unsafe operations. Core logic.
-----------------------------------------------------------------------------
--- These operation aren't atomic and don't take the block lock.
-
-syncWalletWithGState
+-- BE CAREFUL! This function iterates over blockchain, the blockcahin can be large.
+syncWalletWithGStateUnsafe
     :: forall ssc m .
     ( WebWalletModeDB m
     , MonadRealDB m
@@ -195,7 +215,7 @@ syncWalletWithGState
     , WithLogger m)
     => EncryptedSecretKey
     -> m ()
-syncWalletWithGState encSK = do
+syncWalletWithGStateUnsafe encSK = do
     tipHeader <- DB.getTipHeader @(Block ssc)
     let wAddr = encToCId encSK
     whenJustM (WS.getWalletSyncTip wAddr) $ \wTip ->

@@ -23,7 +23,7 @@ import Data.Foldable (traverse_)
 import Data.Foreign (toForeign)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
@@ -217,11 +217,14 @@ update (DashboardExpandBlocks expanded) state = noEffects $
 update (DashboardExpandTransactions expanded) state = noEffects $
     set (dashboardViewState <<< dbViewTxsExpanded) expanded state
 
-update (DashboardPaginateBlocks pageNumber) state =
+update (DashboardPaginateBlocks mEvent pageNumber) state =
     { state:
-          set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber state
+          set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber $
+          set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
     , effects:
-          [ pure <<< Just $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
+          [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+          -- ^ blur element - needed by iOS to close native keyboard
+          , pure <<< Just $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
           ]
     }
 
@@ -248,8 +251,15 @@ update (DashboardShowAPICode code) state = noEffects $
 
 -- Address
 
-update (AddressPaginateTxs value) state = noEffects $
-    set (viewStates <<< addressDetail <<< addressTxPagination) value state
+update (AddressPaginateTxs mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< addressDetail <<< addressTxPagination) pageNumber $
+          set (viewStates <<< addressDetail <<< addressTxPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
+        ]
+    }
 
 update (AddressEditTxsPageNumber event editable) state =
     { state:
@@ -271,8 +281,15 @@ update (AddressInvalidTxsPageNumber event) state =
 
 -- Block
 
-update (BlockPaginateTxs value) state = noEffects $
-    set (viewStates <<< blockDetail <<< blockTxPagination) value state
+update (BlockPaginateTxs mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< blockDetail <<< blockTxPagination) pageNumber $
+          set (viewStates <<< blockDetail <<< blockTxPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
+        ]
+    }
 
 update (BlockEditTxsPageNumber event editable) state =
     { state:
@@ -294,8 +311,15 @@ update (BlockInvalidTxsPageNumber event) state =
 
 -- Blocks
 
-update (BlocksPaginateBlocks value) state = noEffects $
-    set (viewStates <<< blocksViewState <<< blsViewPagination) value state
+update (BlocksPaginateBlocks mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< blocksViewState <<< blsViewPagination) pageNumber $
+          set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
+        ]
+    }
 
 update (BlocksEditBlocksPageNumber event editable) state =
     { state:
@@ -457,16 +481,18 @@ update (GlobalSearch event) state =
           set (viewStates <<< globalViewState <<< gViewSearchQuery) emptySearchQuery $
           set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
           state
-    , effects: [
-      -- set state of focus explicitly
-      pure <<< Just $ GlobalFocusSearchInput false
-      , case state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch) of
-          SearchAddress ->
-              pure <<< Just $ Navigate (toUrl <<< Address $ mkCAddress query) event
-          SearchTx ->
-              pure <<< Just $ Navigate (toUrl <<< Tx $ mkCTxId query) event
-          _ -> pure Nothing  -- TODO (ks) maybe put up a message?
-      ]
+    , effects:
+        [ pure <<< Just $ GlobalFocusSearchInput false
+        -- ^ set state of focus explicitly
+        , pure <<< Just <<< BlurElement <<< nodeToHTMLElement $ target event
+        -- ^ blur element - needed by iOS to close native keyboard
+        , case state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch) of
+            SearchAddress ->
+                pure <<< Just $ Navigate (toUrl <<< Address $ mkCAddress query) event
+            SearchTx ->
+                pure <<< Just $ Navigate (toUrl <<< Tx $ mkCTxId query) event
+            _ -> pure Nothing  -- TODO (ks) maybe put up a message?
+        ]
     }
 update (GlobalSearchTime event) state =
     let query = state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
@@ -475,24 +501,26 @@ update (GlobalSearchTime event) state =
           set (viewStates <<< globalViewState <<< gViewSearchTimeQuery) emptySearchTimeQuery $
           set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
           state
-    , effects: [
-      -- set state of focus explicitly
-      pure <<< Just $ GlobalFocusSearchInput false
-      , case query of
-            Tuple (Just epoch) (Just slot) ->
-                let epochIndex = mkEpochIndex epoch
-                    slotIndex  = mkLocalSlotIndex slot
-                    epochSlotUrl = EpochSlot epochIndex slotIndex
-                in
-                pure <<< Just $ Navigate (toUrl epochSlotUrl) event
-            Tuple (Just epoch) Nothing ->
-                let epochIndex = mkEpochIndex epoch
-                    epochUrl   = Epoch $ epochIndex
-                in
-                pure <<< Just $ Navigate (toUrl epochUrl) event
+    , effects:
+        [ pure <<< Just $ GlobalFocusSearchInput false
+          -- ^ set state of focus explicitly
+          , pure <<< Just <<< BlurElement <<< nodeToHTMLElement $ target event
+          -- ^ blur element - needed by iOS to close native keyboard
+          , case query of
+                Tuple (Just epoch) (Just slot) ->
+                    let epochIndex = mkEpochIndex epoch
+                        slotIndex  = mkLocalSlotIndex slot
+                        epochSlotUrl = EpochSlot epochIndex slotIndex
+                    in
+                    pure <<< Just $ Navigate (toUrl epochSlotUrl) event
+                Tuple (Just epoch) Nothing ->
+                    let epochIndex = mkEpochIndex epoch
+                        epochUrl   = Epoch $ epochIndex
+                    in
+                    pure <<< Just $ Navigate (toUrl epochUrl) event
 
-            _ -> pure Nothing -- TODO (ks) maybe put up a message?
-      ]
+                _ -> pure Nothing -- TODO (ks) maybe put up a message?
+        ]
     }
 
 update (GlobalUpdateSelectedSearch search) state =
@@ -537,7 +565,7 @@ update (DashboardReceiveBlocksTotalPages (Right totalPages)) state =
           set (dashboardViewState <<< dbViewBlockPagination)
               (PageNumber totalPages) state
     , effects:
-        [ pure <<< Just $ DashboardPaginateBlocks (PageNumber totalPages) ]
+        [ pure <<< Just $ DashboardPaginateBlocks Nothing (PageNumber totalPages) ]
     }
 
 update (DashboardReceiveBlocksTotalPages (Left error)) state =
@@ -753,7 +781,7 @@ update (UpdateView r@Dashboard) state =
         , pure $ Just ClearWaypoints
         , pure <<< Just <<< DashboardAddWaypoint $ ElementId CSS.dashBoardBlocksViewId
         , if isSuccess maxBlockPage
-          then pure <<< Just <<< DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
+          then pure <<< Just $ DashboardPaginateBlocks Nothing (state ^. (dashboardViewState <<< dbViewBlockPagination))
           else
               -- Note: Request `total pages `only once.
               -- Check is needed due reloading by http pooling

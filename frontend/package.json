@@ -32,6 +32,7 @@
     "animate.css": "^3.5.2",
     "babel-polyfill": "^6.23.0",
     "bignumber.js": "^4.0.2",
+    "js-polyfills": "^0.1.33",
     "react": "^15.4.2",
     "react-dom": "^15.4.2",
     "socket.io-client": "^2.0.3",

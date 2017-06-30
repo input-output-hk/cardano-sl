@@ -135,23 +135,23 @@ addressTxsView txs state =
         minTxIndex = (txPagination - minPagination) * maxTxRows
         currentTxs = slice minTxIndex (minTxIndex + maxTxRows) txs
     in
-    S.div
-        $ S.div do
-            for_ currentTxs (\tx -> addressTxView tx lang')
-            txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                              , currentPage: PageNumber txPagination
-                              , minPage: PageNumber minPagination
-                              , maxPage: PageNumber $ getMaxPaginationNumber (length txs) maxTxRows
-                              , changePageAction: AddressPaginateTxs
-                              , editable: state ^. (viewStates <<< addressDetail <<< addressTxPaginationEditable)
-                              , editableAction: AddressEditTxsPageNumber
-                              , invalidPageAction: AddressInvalidTxsPageNumber
-                              , disabled: false
-                              }
+    do
+        for_ currentTxs (\tx -> addressTxView tx lang')
+        txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                          , currentPage: PageNumber txPagination
+                          , minPage: PageNumber minPagination
+                          , maxPage: PageNumber $ getMaxPaginationNumber (length txs) maxTxRows
+                          , changePageAction: AddressPaginateTxs
+                          , editable: state ^. (viewStates <<< addressDetail <<< addressTxPaginationEditable)
+                          , editableAction: AddressEditTxsPageNumber
+                          , invalidPageAction: AddressInvalidTxsPageNumber
+                          , disabled: false
+                          }
 
 addressTxView :: CTxBrief -> Language -> P.HTML Action
 addressTxView tx lang =
     S.div ! P.key (tx ^. (_CTxBrief <<< ctbId <<< _CTxId <<< _CHash))
+          ! S.className "explorer-address__tx-container"
           $ do
           txHeaderView lang $ mkTxHeaderViewProps tx
           txBodyView lang $ mkTxBodyViewProps tx

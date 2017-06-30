@@ -135,7 +135,7 @@ testnet: &testnet
 
   protocolMagic: 50987800
 
-  genesisBinSuffix: testnet
+  genesisBinSuffix: tn
 
 testnet_staging: &testnet_staging
   <<: *testnet

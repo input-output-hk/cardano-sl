@@ -67,7 +67,7 @@ import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..),
                                              getTxDistribution, toaOut, topsortTxs,
                                              txOutAddress)
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
-import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT,
+import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT, UtxoModifier,
                                              evalToilTEmpty, runDBTxp)
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
@@ -83,18 +83,21 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (..),
                                              WebWalletModeDB)
 import qualified Pos.Wallet.Web.State       as WS
 
+-- VoidModifier describes a difference between two states.
+-- It's (set of added k, set of deleted k) essentially.
 type VoidModifier a = MM.MapModifier a ()
 
 data CAccModifier = CAccModifier {
       camAddresses :: !(VoidModifier CWAddressMeta)
     , camUsed      :: !(VoidModifier (CId Addr, HeaderHash))
     , camChange    :: !(VoidModifier (CId Addr, HeaderHash))
+    , camUtxo      :: !UtxoModifier
     }
 
 instance Monoid CAccModifier where
-    mempty = CAccModifier mempty mempty mempty
-    (CAccModifier a b c) `mappend` (CAccModifier a1 b1 c1) =
-        CAccModifier (a <> a1) (b <> b1) (c <> c1)
+    mempty = CAccModifier mempty mempty mempty mempty
+    (CAccModifier a b c d) `mappend` (CAccModifier a1 b1 c1 d1) =
+        CAccModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1)
 
 type BlockLockMode ssc m =
     ( WithLogger m
@@ -281,7 +284,8 @@ syncWalletWithGStateUnsafe encSK = do
 
     applyBlock :: (WithLogger m1, MonadUtxoRead m1)
                => [CWAddressMeta] -> Blund ssc -> ToilT () m1 CAccModifier
-    applyBlock allAddresses (b, _) = trackingApplyTxs encSK allAddresses $ zip (gbTxs b) (repeat $ headerHash b)
+    applyBlock allAddresses (b, _) =
+        trackingApplyTxs encSK allAddresses $ zip (gbTxs b) (repeat $ headerHash b)
 
 -- Process transactions on block application,
 -- decrypt our addresses, and add/delete them to/from wallet-db.
@@ -297,26 +301,29 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses txs =
     foldlM applyTx mempty txs
   where
     snd3 (_, x, _) = x
-    applyTxOut txid (idx, out, dist) = utxoPut (TxIn txid idx) (TxOutAux out dist)
+    toTxInOut txid (idx, out, dist) = (TxIn txid idx, TxOutAux out dist)
 
     applyTx :: CAccModifier -> (TxAux, HeaderHash) -> m CAccModifier
     applyTx CAccModifier{..} (TxAux {..}, hh) = do
         let hhs = repeat hh
         let tx@(UnsafeTx (NE.toList -> inps) (NE.toList -> outs) _) = taTx
-        let txid = hash tx
+        let !txid = hash tx
         resolvedInputs <- catMaybes <$> mapM (\tin -> fmap (tin, ) <$> utxoGet tin) inps
         let ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut . snd) resolvedInputs
         let ownOutputs = selectOwnAccounts encInfo (txOutAddress . snd3) $
                          zip3 [0..] outs (NE.toList $ getTxDistribution taDistribution)
+        let ownTxIns = map (fst . fst) ownInputs
+        let ownTxOuts = map (toTxInOut txid . fst) ownOutputs
         -- Delete and insert only own addresses to avoid large the underlying UtxoModifier.
-        mapM_ (utxoDel . fst . fst) ownInputs -- del TxIn's (like in the applyTxToUtxo)
-        mapM_ (applyTxOut txid . fst) ownOutputs -- add TxIn -> TxOutAux (like in the applyTxToUtxo)
+        mapM_ utxoDel ownTxIns            -- del TxIn's (like in the applyTxToUtxo)
+        mapM_ (uncurry utxoPut) ownTxOuts -- add TxIn -> TxOutAux (like in the applyTxToUtxo)
         let usedAddrs = map (cwamId . snd) ownOutputs
         let changeAddrs = evalChange allAddresses (map snd ownInputs) (map snd ownOutputs)
         pure $ CAccModifier
-            (deleteAndInsertMM (map snd ownInputs) (map snd ownOutputs) camAddresses)
-            (deleteAndInsertMM [] (zip usedAddrs  hhs) camUsed)
-            (deleteAndInsertMM [] (zip changeAddrs hhs) camChange)
+            (deleteAndInsertVM (map snd ownInputs) (map snd ownOutputs) camAddresses)
+            (deleteAndInsertVM [] (zip usedAddrs  hhs) camUsed)
+            (deleteAndInsertVM [] (zip changeAddrs hhs) camChange)
+            (deleteAndInsertMM ownTxIns ownTxOuts camUtxo)
 
 -- Process transactions on block rollback.
 -- Like @trackingApplyTx@, but vise versa.
@@ -331,17 +338,22 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
     rollbackTx :: CAccModifier -> (TxAux, TxUndo, HeaderHash) -> CAccModifier
     rollbackTx CAccModifier{..} (TxAux {..}, NE.toList -> undoL, hh) = do
         let hhs = repeat hh
-        let UnsafeTx _ (toList -> outs) _ = taTx
-        let ownInputs = map snd . selectOwnAccounts encInfo (txOutAddress . toaOut) $ undoL
+        let tx@(UnsafeTx (toList -> inps) (toList -> outs) _) = taTx
+        let !txid = hash tx
+        let ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut) $ undoL
         let ownOutputs = map snd . selectOwnAccounts encInfo txOutAddress $ outs
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
+        let l = fromIntegral (length outs) :: Word32
+        let ownTxIns = zip inps (map fst ownInputs)
+        let ownTxOuts = map (uncurry TxIn) $ zip (repeat txid) ([0..l-1] :: [Word32])
         let usedAddrs = map cwamId ownOutputs
-        let changeAddrs = evalChange allAddress ownInputs ownOutputs
+        let changeAddrs = evalChange allAddress (map snd ownInputs) ownOutputs
         CAccModifier
-            (deleteAndInsertMM ownOutputs ownInputs camAddresses)
-            (deleteAndInsertMM (zip usedAddrs hhs) [] camUsed)
-            (deleteAndInsertMM (zip changeAddrs hhs) [] camChange)
+            (deleteAndInsertVM ownOutputs (map snd ownInputs) camAddresses)
+            (deleteAndInsertVM (zip usedAddrs hhs) [] camUsed)
+            (deleteAndInsertVM (zip changeAddrs hhs) [] camChange)
+            (deleteAndInsertMM ownTxOuts ownTxIns camUtxo)
 
 applyModifierToWallet
     :: WebWalletModeDB m
@@ -393,19 +405,6 @@ selectOwnAccounts
 selectOwnAccounts encInfo getAddr =
     mapMaybe (\a -> (a,) <$> decryptAccount encInfo (getAddr a))
 
-deleteAndInsertMM :: (Eq a, Hashable a) => [a] -> [a] -> VoidModifier a -> VoidModifier a
-deleteAndInsertMM dels ins mapModifier =
-    -- Insert CWAddressMeta coressponding to outputs of tx.
-    (\mm -> foldl' insertAcc mm ins) $
-    -- Delete CWAddressMeta coressponding to inputs of tx.
-    foldl' deleteAcc mapModifier dels
-  where
-    insertAcc :: (Hashable a, Eq a) => VoidModifier a -> a -> VoidModifier a
-    insertAcc modifier acc = MM.insert acc () modifier
-
-    deleteAcc :: (Hashable a, Eq a) => VoidModifier a -> a -> VoidModifier a
-    deleteAcc modifier acc = MM.delete acc modifier
-
 decryptAccount :: (HDPassphrase, CId Wal) -> Address -> Maybe CWAddressMeta
 decryptAccount (hdPass, wCId) addr@(PubKeyAddress _ (Attributes (AddrPkAttrs (Just hdPayload)) _)) = do
     derPath <- unpackHDAddressAttr hdPass hdPayload
@@ -428,3 +427,30 @@ getWalletAddrMetasDB lookupMode cWalId = do
         WS.getAccountWAddresses mode accId >>= maybeThrow (noWallet accId)
     noWallet accId = DBMalformed $
         sformat ("No account with address "%build%" found") accId
+
+deleteAndInsertVM :: (Eq a, Hashable a) => [a] -> [a] -> VoidModifier a -> VoidModifier a
+deleteAndInsertVM dels ins mapModifier =
+    -- Insert CWAddressMeta coressponding to outputs of tx.
+    (\mm -> foldl' insertAcc mm ins) $
+    -- Delete CWAddressMeta coressponding to inputs of tx.
+    foldl' deleteAcc mapModifier dels
+  where
+    insertAcc :: (Hashable a, Eq a) => VoidModifier a -> a -> VoidModifier a
+    insertAcc modifier acc = MM.insert acc () modifier
+
+    deleteAcc :: (Hashable a, Eq a) => VoidModifier a -> a -> VoidModifier a
+    deleteAcc modifier acc = MM.delete acc modifier
+
+deleteAndInsertMM :: (Eq k, Hashable k) => [k] -> [(k, v)] -> MM.MapModifier k v -> MM.MapModifier k v
+deleteAndInsertMM dels ins mapModifier =
+    -- Insert CWAddressMeta coressponding to outputs of tx (2)
+    (\mm -> foldl' insertAcc mm ins) $
+    -- Delete CWAddressMeta coressponding to inputs of tx (1)
+    foldl' deleteAcc mapModifier dels
+  where
+    insertAcc :: (Hashable k, Eq k) => MapModifier k v -> (k, v) -> MapModifier k v
+    insertAcc modifier (k, v) = MM.insert k v modifier
+
+    deleteAcc :: (Hashable k, Eq k) => MapModifier k v -> k -> MapModifier k v
+    deleteAcc = flip MM.delete
+

@@ -21,30 +21,31 @@ import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
 import           Pos.Discovery.Class        (MonadDiscovery)
-import           Pos.Reporting              (MonadReportingMem)
-import           Pos.Shutdown               (MonadShutdownMem)
+import           Pos.Reporting              (HasReportingContext)
+import           Pos.Shutdown               (HasShutdownContext)
 import           Pos.Slotting.Class         (MonadSlots)
 
-type DhtWorkMode m =
+type DhtWorkMode ctx m =
     ( WithLogger m
     , MonadSlots m
     , MonadIO m
     , MonadMask m
     , Mockable Fork m
     , Mockable Delay m
-    , MonadReportingMem m
-    , MonadShutdownMem m
+    , MonadReader ctx m
+    , HasReportingContext ctx
+    , HasShutdownContext ctx
     , MonadDiscovery m
     )
 
 dhtWorkers
-    :: ( DhtWorkMode m
+    :: ( DhtWorkMode ctx m
        )
     => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
 dhtWorkers kademliaInst = first pure (dumpKademliaStateWorker kademliaInst)
 
 dumpKademliaStateWorker
-    :: ( DhtWorkMode m
+    :: ( DhtWorkMode ctx m
        )
     => KademliaDHTInstance
     -> (WorkerSpec m, OutSpecs)

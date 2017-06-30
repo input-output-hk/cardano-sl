@@ -13,7 +13,7 @@ import           Universum
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.Map.Strict       as M
 import qualified Database.RocksDB      as Rocks
-import qualified Ether
+import           Ether.Internal        (HasLens (..))
 
 import           Pos.Binary.Class      (encode)
 import           Pos.Context.Functions (GenesisUtxo, genesisUtxoM)
@@ -45,7 +45,7 @@ getAddrBalance = gsGetBi . addrBalancePrefix
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareExplorerDB :: (Ether.MonadReader' GenesisUtxo m, MonadDB m) => m ()
+prepareExplorerDB :: (MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, MonadDB m) => m ()
 prepareExplorerDB =
     unlessM areBalancesInitialized $ do
         genesisUtxo <- genesisUtxoM

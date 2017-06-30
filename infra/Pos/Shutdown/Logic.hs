@@ -4,35 +4,36 @@ module Pos.Shutdown.Logic
        , waitForWorkers
        ) where
 
-import           Control.Concurrent.STM (readTBQueue, readTVar, writeTBQueue, writeTVar)
-import           System.Wlog            (WithLogger, logDebug, logInfo)
 import           Universum
 
-import           Pos.Shutdown.Class     (MonadShutdownMem, askShutdownMem)
-import           Pos.Shutdown.Types     (ShutdownContext (..))
+import           Control.Concurrent.STM (readTBQueue, readTVar, writeTBQueue, writeTVar)
+import           System.Wlog            (WithLogger, logDebug, logInfo)
+
+import           Pos.Shutdown.Class     (HasShutdownContext (..))
+import           Pos.Shutdown.Types     (shdnIsTriggered, shdnNotifyQueue)
 
 runIfNotShutdown
-    :: (MonadIO m, MonadShutdownMem m, WithLogger m)
+    :: (MonadIO m, MonadReader ctx m, HasShutdownContext ctx, WithLogger m)
     => m () -> m ()
 runIfNotShutdown = ifM isShutdown notifyQueue
   where
-    isShutdown = _shdnIsTriggered <$> askShutdownMem >>= atomically . readTVar
+    isShutdown = view (shutdownContext . shdnIsTriggered) >>= atomically . readTVar
     notifyQueue = do
         logDebug "runIfNotShutdown: shutdown case triggered"
-        _shdnNotifyQueue <$> askShutdownMem >>=
+        view (shutdownContext . shdnNotifyQueue) >>=
             atomically . flip writeTBQueue ()
 
 triggerShutdown
-    :: (MonadIO m, WithLogger m, MonadShutdownMem m)
+    :: (MonadIO m, MonadReader ctx m, WithLogger m, HasShutdownContext ctx)
     => m ()
 triggerShutdown = do
     logInfo "NODE SHUTDOWN TRIGGERED, WAITING FOR WORKERS TO TERMINATE"
-    _shdnIsTriggered <$> askShutdownMem >>= atomically . flip writeTVar True
+    view (shutdownContext . shdnIsTriggered) >>= atomically . flip writeTVar True
 
 waitForWorkers
-    :: (MonadIO m, MonadShutdownMem m)
+    :: (MonadIO m, MonadReader ctx m, HasShutdownContext ctx)
     => Int -> m ()
 waitForWorkers 0 = pass
 waitForWorkers n = do
-    _shdnNotifyQueue <$> askShutdownMem >>= atomically . readTBQueue
+    view (shutdownContext . shdnNotifyQueue) >>= atomically . readTBQueue
     waitForWorkers (n - 1)

@@ -13,6 +13,7 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Data.HashMap.Strict          as HM
 import qualified Ether
+import           Ether.Internal               (HasLens (..))
 import           System.Wlog                  (WithLogger)
 
 import           Pos.Core                     (Coin)
@@ -35,7 +36,7 @@ type DBPoll = Ether.TaggedTrans DBPollTag IdentityT
 runDBPoll :: DBPoll m a -> m a
 runDBPoll = coerce
 
-instance (MonadIO m, MonadDBRead m, WithLogger m, Ether.MonadReader' LrcContext m) =>
+instance (MonadIO m, MonadDBRead m, WithLogger m, MonadReader ctx m, HasLens LrcContext ctx LrcContext) =>
          MonadPollRead (DBPoll m) where
     getBVState = GS.getBVState
     getProposedBVs = GS.getProposedBVs

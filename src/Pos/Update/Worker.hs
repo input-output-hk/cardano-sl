@@ -17,13 +17,13 @@ import           Pos.Update.Logic.Local     (processNewSlot)
 import           Pos.WorkMode.Class         (WorkMode)
 
 -- | Update System related workers.
-usWorkers :: WorkMode ssc m => ([WorkerSpec m], OutSpecs)
+usWorkers :: WorkMode ssc ctx m => ([WorkerSpec m], OutSpecs)
 usWorkers =
     first pure $
     recoveryCommGuard $ localOnNewSlotWorker True $ \s ->
         processNewSlot s >> void (fork checkForUpdate)
 
-checkForUpdate :: WorkMode ssc m => m ()
+checkForUpdate :: WorkMode ssc ctx m => m ()
 checkForUpdate =
     mapM_ downloadUpdate =<<
     getConfirmedProposals (Just $ svNumber curSoftwareVersion)

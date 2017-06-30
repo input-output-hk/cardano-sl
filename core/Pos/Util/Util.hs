@@ -24,6 +24,7 @@ module Pos.Util.Util
        , _neHead
        , _neTail
        , _neLast
+       , postfixLFields
 
        -- * Ether
        , ether
@@ -56,16 +57,14 @@ module Pos.Util.Util
        -- ** Buildable Day
        -- ** Buildable Week
        -- ** Buildable Fortnight
-
-       -- ** Ether instances
-       -- *** CanLog Ether.StateT
-       -- *** HasLoggerName Ether.StateT
        ) where
 
 import           Universum
 import           Unsafe                         (unsafeInit, unsafeLast)
 
-import           Control.Lens                   (ALens', Getter, Getting, cloneLens, to)
+import           Control.Lens                   (ALens', Getter, Getting, LensRules,
+                                                 cloneLens, lensField, lensRules,
+                                                 mappingNamer, to)
 import           Control.Monad.Base             (MonadBase)
 import           Control.Monad.Morph            (MFunctor (..))
 import           Control.Monad.Trans.Class      (MonadTrans)
@@ -195,11 +194,6 @@ instance CanLog m => CanLog (ResourceT m)
 instance (Monad m, HasLoggerName m) => HasLoggerName (ResourceT m) where
     getLoggerName = lift getLoggerName
     modifyLoggerName = transResourceT . modifyLoggerName
-
--- TODO Move it to ether :peka:
-instance Ether.MonadReader tag r m => Ether.MonadReader tag r (ResourceT m) where
-    ask = lift $ Ether.ask @tag
-    local = liftLocal (Ether.ask @tag) (Ether.local @tag)
 
 ----------------------------------------------------------------------------
 -- Instances required by 'ether'
@@ -349,3 +343,6 @@ _neTail f (x :| xs) = (x :|) <$> f xs
 _neLast :: Lens' (NonEmpty a) a
 _neLast f (x :| []) = (:| []) <$> f x
 _neLast f (x :| xs) = (\y -> x :| unsafeInit xs ++ [y]) <$> f (unsafeLast xs)
+
+postfixLFields :: LensRules
+postfixLFields = lensRules & lensField .~ mappingNamer (\s -> [s++"_L"])

@@ -46,8 +46,8 @@ import           Pos.Communication.PeerState      (WithPeerState (..))
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Types                   (SlotId)
 import           Pos.Discovery.Class              (MonadDiscovery)
-import           Pos.Reporting                    (MonadReportingMem)
-import           Pos.Shutdown                     (MonadShutdownMem)
+import           Pos.Reporting                    (HasReportingContext)
+import           Pos.Shutdown                     (HasShutdownContext)
 import           Pos.Slotting                     (MonadSlots)
 import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
 
@@ -189,26 +189,27 @@ worker' outSpecs h =
     (,outSpecs) $ ActionSpec $ \vI -> h vI . convertSendActions vI
 
 
-type OnNewSlotComm m =
-    ( LocalOnNewSlotComm m
+type OnNewSlotComm ctx m =
+    ( LocalOnNewSlotComm ctx m
     , Mockable Throw m
     , WithPeerState m
     , Mockable SharedAtomic m
     )
 
-type LocalOnNewSlotComm m =
+type LocalOnNewSlotComm ctx m =
     ( MonadIO m
+    , MonadReader ctx m
     , MonadSlots m
     , MonadMask m
     , WithLogger m
     , Mockables m [Fork, Delay]
-    , MonadReportingMem m
-    , MonadShutdownMem m
+    , HasReportingContext ctx
+    , HasShutdownContext ctx
     , MonadDiscovery m
     )
 
 onNewSlot'
-    :: OnNewSlotComm m
+    :: OnNewSlotComm ctx m
     => Bool -> Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
 onNewSlot' withLog startImmediately (h, outs) =
     (,outs) . ActionSpec $ \vI sA ->
@@ -216,17 +217,17 @@ onNewSlot' withLog startImmediately (h, outs) =
             \slotId -> let ActionSpec h' = h slotId
                         in h' vI sA
 onNewSlotWorker
-    :: OnNewSlotComm m
+    :: OnNewSlotComm ctx m
     => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
 onNewSlotWorker b outs = onNewSlot' False b . workerHelper outs
 
 onNewSlotWithLoggingWorker
-    :: OnNewSlotComm m
+    :: OnNewSlotComm ctx m
     => Bool -> OutSpecs -> (SlotId -> Worker' m) -> (WorkerSpec m, OutSpecs)
 onNewSlotWithLoggingWorker b outs = onNewSlot' True b . workerHelper outs
 
 localOnNewSlotWorker
-    :: LocalOnNewSlotComm m
+    :: LocalOnNewSlotComm ctx m
     => Bool -> (SlotId -> m ()) -> (WorkerSpec m, OutSpecs)
 localOnNewSlotWorker b h = (ActionSpec $ \__vI __sA -> onNewSlot b h, mempty)
 

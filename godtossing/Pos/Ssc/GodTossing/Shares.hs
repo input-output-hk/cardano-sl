@@ -28,7 +28,7 @@ type GSQuery a = SscGlobalQuery SscGodTossing a
 -- | Decrypt shares (in commitments) that are intended for us and that we can
 -- decrypt.
 getOurShares
-    :: (MonadSscMem SscGodTossing m, MonadIO m, WithLogger m)
+    :: (MonadSscMem SscGodTossing ctx m, MonadIO m, WithLogger m)
     => VssKeyPair -> m (HashMap StakeholderId (NonEmpty Share))
 getOurShares ourKey = do
     randSeed <- liftIO seedNew

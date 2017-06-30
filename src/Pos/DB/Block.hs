@@ -26,8 +26,6 @@ module Pos.DB.Block
        -- * MonadBlockDB
        , MonadBlockDB
        , MonadBlockDBWrite (..)
-       , BlockDBRedirect
-       , runBlockDBRedirect
        , dbGetBlockDefault
        , dbGetUndoDefault
        , dbGetHeaderDefault
@@ -42,13 +40,10 @@ import           Universum
 import           Control.Lens                   (_Wrapped)
 import           Control.Monad.Trans            (MonadTrans (..))
 import           Control.Monad.Trans.Control    (MonadBaseControl)
-import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Data.ByteArray                 (convert)
 import qualified Data.ByteString                as BS (readFile, writeFile)
-import           Data.Coerce                    (coerce)
 import           Data.Default                   (Default (def))
-import qualified Ether
 import           Formatting                     (build, formatToString, sformat, (%))
 import           System.Directory               (createDirectoryIfMissing, removeFile)
 import           System.FilePath                ((</>))
@@ -84,7 +79,7 @@ import           Pos.Util.Chrono                (NewestFirst (..))
 -- strict constraint, consider using 'blkGetBlock'.
 
 getBlock
-    :: forall ssc m. (SscHelpersClass ssc, MonadRealDB m)
+    :: forall ssc ctx m. (SscHelpersClass ssc, MonadRealDB ctx m)
     => HeaderHash -> m (Maybe (Block ssc))
 getBlock = blockDataPath >=> getData
 
@@ -96,14 +91,14 @@ blkGetHeader = dbGetBi BlockIndexDB . blockIndexKey
 
 -- Get undo data for block with given hash from Block DB. This
 -- function has too strict constraint, consider using 'blkGetUndo'.
-getUndo :: (MonadRealDB m) => HeaderHash -> m (Maybe Undo)
+getUndo :: (MonadRealDB ctx m) => HeaderHash -> m (Maybe Undo)
 getUndo = undoDataPath >=> getData
 
 -- Put given block, its metadata and Undo data into Block DB. This
 -- function uses 'MonadRealDB' constraint which is too
 -- severe. Consider using 'dbPutBlund' instead.
 putBlundReal
-    :: (SscHelpersClass ssc, MonadRealDB m)
+    :: (SscHelpersClass ssc, MonadRealDB ctx m)
     => Blund ssc -> m ()
 putBlundReal (blk, undo) = do
     let h = headerHash blk
@@ -112,7 +107,7 @@ putBlundReal (blk, undo) = do
     flip putData undo =<< undoDataPath h
     putBi (blockIndexKey h) (BC.getBlockHeader blk)
 
-deleteBlock :: (MonadRealDB m) => HeaderHash -> m ()
+deleteBlock :: (MonadRealDB ctx m) => HeaderHash -> m ()
 deleteBlock hh = do
     delete (blockIndexKey hh)
     deleteData =<< blockDataPath hh
@@ -245,50 +240,30 @@ type MonadBlockDB ssc m
        , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
        , SscHelpersClass ssc)
 
-data BlockDBRedirectTag
-
-type BlockDBRedirect =
-    Ether.TaggedTrans BlockDBRedirectTag IdentityT
-
-runBlockDBRedirect :: BlockDBRedirect m a -> m a
-runBlockDBRedirect = coerce
-
 -- instance MonadBlockDBGeneric (Block ssc)
 
-type BlockDBGenericDefaultEnv ssc m =
-    (MonadDBRead m, MonadRealDB m, SscHelpersClass ssc)
+type BlockDBGenericDefaultEnv ssc ctx m =
+    (MonadDBRead m, MonadRealDB ctx m, SscHelpersClass ssc)
 
-dbGetBlockDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe (Block ssc))
+dbGetBlockDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe (Block ssc))
 dbGetBlockDefault = getBlock
 
-dbGetUndoDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe Undo)
+dbGetUndoDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe Undo)
 dbGetUndoDefault = getUndo
 
-dbGetHeaderDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe (BlockHeader ssc))
+dbGetHeaderDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe (BlockHeader ssc))
 dbGetHeaderDefault = blkGetHeader
-
-instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
-         MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (Ether.TaggedTrans BlockDBRedirectTag t m) where
-    dbGetBlock  = dbGetBlockDefault @ssc
-    dbGetUndo   = dbGetUndoDefault @ssc
-    dbGetHeader = dbGetHeaderDefault @ssc
 
 -- instance MonadBlockDBGeneric (SscBlock ssc)
 
-dbGetBlockSscDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe (SscBlock ssc))
+dbGetBlockSscDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe (SscBlock ssc))
 dbGetBlockSscDefault = fmap (toSscBlock <$>) . getBlock
 
-dbGetUndoSscDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe ())
+dbGetUndoSscDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe ())
 dbGetUndoSscDefault = fmap (const () <$>) . getUndo
 
-dbGetHeaderSscDefault :: forall ssc m . BlockDBGenericDefaultEnv ssc m => HeaderHash -> m (Maybe (Some IsHeader))
+dbGetHeaderSscDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe (Some IsHeader))
 dbGetHeaderSscDefault = fmap (Some <$>) . blkGetHeader @ssc
-
-instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
-         MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (Ether.TaggedTrans BlockDBRedirectTag t m) where
-    dbGetBlock  = dbGetBlockSscDefault @ssc
-    dbGetUndo   = dbGetUndoSscDefault @ssc
-    dbGetHeader = dbGetHeaderSscDefault @ssc
 
 -- helpers
 
@@ -334,23 +309,19 @@ instance {-# OVERLAPPABLE #-}
 
 -- instance MonadBlockDBWrite
 
-dbPutBlundDefault :: (MonadDBRead m, MonadRealDB m, SscHelpersClass ssc) => Blund ssc -> m ()
+dbPutBlundDefault :: (MonadDBRead m, MonadRealDB ctx m, SscHelpersClass ssc) => Blund ssc -> m ()
 dbPutBlundDefault = putBlundReal
-
-instance (MonadDBRead m, MonadRealDB m, t ~ IdentityT, SscHelpersClass ssc) =>
-         MonadBlockDBWrite ssc (Ether.TaggedTrans BlockDBRedirectTag t m) where
-    dbPutBlund = dbPutBlundDefault
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
 putBi
-    :: (MonadRealDB m, Bi v)
+    :: (MonadRealDB ctx m, Bi v)
     => ByteString -> v -> m ()
 putBi k v = rocksPutBi k v =<< getBlockIndexDB
 
-delete :: (MonadRealDB m) => ByteString -> m ()
+delete :: (MonadRealDB ctx m) => ByteString -> m ()
 delete k = rocksDelete k =<< getBlockIndexDB
 
 getData ::  (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
@@ -374,18 +345,18 @@ deleteData fp = (liftIO $ removeFile fp) `catch` handle
         | isDoesNotExistError e = pure ()
         | otherwise = throwM e
 
-dirDataPath :: MonadRealDB m => HeaderHash -> m FilePath
+dirDataPath :: MonadRealDB ctx m => HeaderHash -> m FilePath
 dirDataPath (formatToString hashHexF -> fn) = gitDirDataPath fn
 
-blockDataPath :: MonadRealDB m => HeaderHash -> m FilePath
+blockDataPath :: MonadRealDB ctx m => HeaderHash -> m FilePath
 blockDataPath (formatToString (hashHexF%".block") -> fn) =
     gitDirDataPath fn <&> (</> drop 2 fn)
 
-undoDataPath :: MonadRealDB m => HeaderHash -> m FilePath
+undoDataPath :: MonadRealDB ctx m => HeaderHash -> m FilePath
 undoDataPath (formatToString (hashHexF%".undo") -> fn) =
     gitDirDataPath fn <&> (</> drop 2 fn)
 
-gitDirDataPath :: MonadRealDB m => [Char] -> m FilePath
+gitDirDataPath :: MonadRealDB ctx m => [Char] -> m FilePath
 gitDirDataPath fn = getNodeDBs <&> \dbs -> dbs ^. blockDataDir </> take 2 fn
 
 ----------------------------------------------------------------------------

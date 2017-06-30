@@ -124,7 +124,7 @@ sscIsDataUseful
     :: ( WithLogger m
        , MonadIO m
        , MonadSlots m
-       , MonadSscMem SscGodTossing m
+       , MonadSscMem SscGodTossing ctx m
        )
     => GtTag -> StakeholderId -> m Bool
 sscIsDataUseful tag id =
@@ -140,7 +140,7 @@ sscIsDataUseful tag id =
     evalTossInMem
         :: ( WithLogger m
            , MonadIO m
-           , MonadSscMem SscGodTossing m
+           , MonadSscMem SscGodTossing ctx m
            )
         => TossT PureToss a -> m a
     evalTossInMem action = do
@@ -154,21 +154,21 @@ sscIsDataUseful tag id =
 ---- Data processing
 ----------------------------------------------------------------------------
 
-type GtDataProcessingMode m =
+type GtDataProcessingMode ctx m =
     ( WithLogger m
     , MonadIO m      -- STM at least
     , MonadDBRead m  -- to get richmen
     , MonadGState m  -- to get block size limit
     , MonadSlots m
-    , MonadSscMem SscGodTossing m
+    , MonadSscMem SscGodTossing ctx m
     , MonadError TossVerFailure m
     )
 
 -- | Process 'SignedCommitment' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCommitment
-    :: forall m.
-       GtDataProcessingMode m
+    :: forall ctx m.
+       GtDataProcessingMode ctx m
     => SignedCommitment -> m ()
 sscProcessCommitment comm =
     sscProcessData CommitmentMsg $
@@ -177,7 +177,7 @@ sscProcessCommitment comm =
 -- | Process 'Opening' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessOpening
-    :: GtDataProcessingMode m
+    :: GtDataProcessingMode ctx m
     => StakeholderId -> Opening -> m ()
 sscProcessOpening id opening =
     sscProcessData OpeningMsg $
@@ -186,7 +186,7 @@ sscProcessOpening id opening =
 -- | Process 'InnerSharesMap' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessShares
-    :: GtDataProcessingMode m
+    :: GtDataProcessingMode ctx m
     => StakeholderId -> InnerSharesMap -> m ()
 sscProcessShares id shares =
     sscProcessData SharesMsg $ SharesPayload (HM.fromList [(id, shares)]) mempty
@@ -194,15 +194,15 @@ sscProcessShares id shares =
 -- | Process 'VssCertificate' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCertificate
-    :: GtDataProcessingMode m
+    :: GtDataProcessingMode ctx m
     => VssCertificate -> m ()
 sscProcessCertificate cert =
     sscProcessData VssCertificateMsg $
     CertificatesPayload (mkVssCertificatesMap [cert])
 
 sscProcessData
-    :: forall m.
-       GtDataProcessingMode m
+    :: forall ctx m.
+       GtDataProcessingMode ctx m
     => GtTag -> GtPayload -> m ()
 sscProcessData tag payload =
     generalizeExceptT $ do
@@ -274,7 +274,7 @@ sscProcessDataDo richmenData maxBlockSize gs payload =
 -- validity of local data.
 -- Currently it does nothing, but maybe later we'll decide to do clean-up.
 localOnNewSlot
-    :: MonadSscMem SscGodTossing m
+    :: MonadSscMem SscGodTossing ctx m
     => SlotId -> m ()
 localOnNewSlot _ = pass
 -- unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty

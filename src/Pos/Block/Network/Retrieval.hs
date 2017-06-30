@@ -12,7 +12,7 @@ import           Control.Lens               (_Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM          (retry)
 import           Data.List.NonEmpty         ((<|))
-import qualified Ether
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, int, sformat, shown, stext, (%))
 import           Mockable                   (handleAll, throw)
 import           Paths_cardano_sl           (version)
@@ -27,7 +27,8 @@ import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              classifyNewHeader, needRecovery)
 import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic    (handleBlocks, mkBlocksRequest,
-                                             mkHeadersRequest, requestHeaders, requestHeaders', triggerRecovery)
+                                             mkHeadersRequest, requestHeaders,
+                                             requestHeaders', triggerRecovery)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..))
 import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
 import           Pos.Communication.Limits   (recvLimited)
@@ -47,8 +48,8 @@ import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (
 import           Pos.WorkMode.Class         (WorkMode)
 
 retrievalWorker
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => (WorkerSpec m, OutSpecs)
 retrievalWorker = worker outs retrievalWorkerImpl
   where
@@ -71,8 +72,8 @@ retrievalWorker = worker outs retrievalWorkerImpl
 -- If both happen at the same time, 'BlockRetrievalQueue' takes precedence.
 --
 retrievalWorkerImpl
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => SendActions m -> m ()
 retrievalWorkerImpl sendActions =
     handleAll mainLoopE $ do
@@ -80,8 +81,8 @@ retrievalWorkerImpl sendActions =
         mainLoop
   where
     mainLoop = runIfNotShutdown $ reportingFatal version $ do
-        queue        <- Ether.ask @BlockRetrievalQueueTag
-        recHeaderVar <- Ether.ask @RecoveryHeaderTag
+        queue        <- view (lensOf @BlockRetrievalQueueTag)
+        recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         -- It is not our job to *start* recovery; if we actually need
         -- recovery, the 'checkForReceivedBlocksWorker' worker in
         -- Pos.Security.Workers will trigger it. What we do here is simply an
@@ -161,9 +162,9 @@ retrievalWorkerImpl sendActions =
                 requestHeaders' (handleBlockRetrieval nodeId) mgh nodeId
 
 
-dropUpdateHeader :: WorkMode ssc m => m ()
+dropUpdateHeader :: WorkMode ssc ctx m => m ()
 dropUpdateHeader = do
-    progressHeaderVar <- Ether.ask @ProgressHeaderTag
+    progressHeaderVar <- view (lensOf @ProgressHeaderTag)
     void $ atomically $ tryTakeTMVar progressHeaderVar
 
 -- | The returned 'Bool' signifies whether given peer was kicked and recovery
@@ -176,11 +177,11 @@ dropUpdateHeader = do
 -- to continue working with P2 and ignore the exception that happened with P.
 -- So, @nodeId@ is used to check that the peer wasn't replaced mid-execution.
 dropRecoveryHeader
-    :: WorkMode ssc m
+    :: WorkMode ssc ctx m
     => NodeId
     -> m Bool
 dropRecoveryHeader nodeId = do
-    recHeaderVar <- Ether.ask @RecoveryHeaderTag
+    recHeaderVar <- view (lensOf @RecoveryHeaderTag)
     (kicked,realPeer) <- atomically $ do
         let processKick (peer,_) = do
                 let p = peer == nodeId
@@ -195,7 +196,7 @@ dropRecoveryHeader nodeId = do
     pure kicked
 
 dropRecoveryHeaderAndRepeat
-    :: (SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
     => SendActions m -> NodeId -> m ()
 dropRecoveryHeaderAndRepeat sendActions nodeId = do
     kicked <- dropRecoveryHeader nodeId
@@ -213,7 +214,7 @@ dropRecoveryHeaderAndRepeat sendActions nodeId = do
 -- | Request blocks corresponding to a chain of headers, if we need those
 -- blocks
 workerHandle
-    :: (SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
     => SendActions m
     -> NodeId
     -> NewestFirst NE (BlockHeader ssc)
@@ -252,8 +253,8 @@ workerHandle sendActions nodeId headers = do
         " is useless for the following reason: " %stext
 
 handleCHsValid
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => SendActions m
     -> NodeId
     -> BlockHeader ssc
@@ -267,7 +268,7 @@ handleCHsValid sendActions nodeId lcaChild newestHash = do
            (MsgBlock ssc) m) -> do
       send conv $ mkBlocksRequest lcaChildHash newestHash
       chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
-      recHeaderVar <- Ether.ask @RecoveryHeaderTag
+      recHeaderVar <- view (lensOf @RecoveryHeaderTag)
       case chainE of
           Left e -> do
               logWarning $ sformat
@@ -293,7 +294,7 @@ handleCHsValid sendActions nodeId lcaChild newestHash = do
         "Requesting blocks from " %shortHashF % " to " %shortHashF
 
 retrieveBlocks
-    :: (SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
     => ConversationActions MsgGetBlocks (MsgBlock ssc) m
     -> BlockHeader ssc
     -> HeaderHash
@@ -310,7 +311,7 @@ retrieveBlocks conv lcaChild endH = do
 
 
 retrieveBlocks'
-    :: (SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
     => Int        -- ^ Index of block we're requesting
     -> ConversationActions MsgGetBlocks (MsgBlock ssc) m
     -> HeaderHash -- ^ We're expecting a child of this block
@@ -326,7 +327,7 @@ retrieveBlocks' i conv prevH endH = lift (recvLimited conv) >>= \case
                 ("Received block #"%int%" with prev hash "%shortHashF%
                  " while "%shortHashF%" was expected: "%build)
                 i prevH' prevH (block ^. blockHeader)
-        progressHeaderVar <- Ether.ask @ProgressHeaderTag
+        progressHeaderVar <- view (lensOf @ProgressHeaderTag)
         atomically $ do void $ tryTakeTMVar progressHeaderVar
                         putTMVar progressHeaderVar $ block ^. blockHeader
         if curH == endH

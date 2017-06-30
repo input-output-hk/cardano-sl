@@ -40,13 +40,10 @@ instance {-# OVERLAPPABLE #-}
         MonadUtxoRead (t m)
 
 instance MonadUtxoRead ((->) Utxo) where
-    utxoGet txIn utxo = utxo ^. at txIn
+    utxoGet id = view (at id)
 
 instance Monad m => MonadUtxoRead (Ether.StateT' Utxo m) where
     utxoGet id = ether $ use (at id)
-
-instance Monad m => MonadUtxoRead (Ether.ReaderT' Utxo m) where
-    utxoGet id = ether $ view (at id)
 
 class MonadUtxoRead m => MonadUtxo m where
     utxoPut :: TxIn -> TxOutAux -> m ()

@@ -24,7 +24,7 @@ import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.HashSet               as HS
 import           Data.Time.Clock            (UTCTime)
-import qualified Ether
+import           Ether.Internal             (HasLens (..))
 import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
@@ -88,7 +88,7 @@ type DelegationVar = RWVar DelegationWrap
 -- | We're locking on the whole delegation wrap at once. Locking on
 -- independent components is better in performance, so there's a place
 -- for optimization here.
-type MonadDelegation = Ether.MonadReader' DelegationVar
+type MonadDelegation ctx m = (MonadReader ctx m, HasLens DelegationVar ctx DelegationVar)
 
-askDelegationState :: MonadDelegation m => m DelegationVar
-askDelegationState = Ether.ask'
+askDelegationState :: MonadDelegation ctx m => m DelegationVar
+askDelegationState = view (lensOf @DelegationVar)

@@ -5,7 +5,7 @@ module Pos.Security.Util
 
 import           Universum
 
-import qualified Ether
+import           Ether.Internal      (HasLens (..))
 
 import           Pos.Core            (StakeholderId)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..),
@@ -13,19 +13,19 @@ import           Pos.Security.Params (AttackTarget (..), AttackType (..),
 import           Pos.Util.TimeWarp   (NetworkAddress)
 
 shouldIgnoreAddress
-    :: Ether.MonadReader' SecurityParams m
+    :: (MonadReader ctx m, HasLens SecurityParams ctx SecurityParams)
     => NetworkAddress -> m Bool
 shouldIgnoreAddress addr = do
-    SecurityParams{..} <- Ether.ask'
+    SecurityParams{..} <- view (lensOf @SecurityParams)
     return $ and [
         AttackNoBlocks `elem` spAttackTypes,
         NetworkAddressTarget addr `elem` spAttackTargets ]
 
 shouldIgnorePkAddress
-    :: Ether.MonadReader' SecurityParams m
+    :: (MonadReader ctx m, HasLens SecurityParams ctx SecurityParams)
     => StakeholderId -> m Bool
 shouldIgnorePkAddress addr = do
-    SecurityParams{..} <- Ether.ask'
+    SecurityParams{..} <- view (lensOf @SecurityParams)
     return $ and [
         AttackNoCommitments `elem` spAttackTypes,
         PubKeyAddressTarget addr `elem` spAttackTargets ]

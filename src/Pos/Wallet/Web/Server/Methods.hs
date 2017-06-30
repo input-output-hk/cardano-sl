@@ -154,7 +154,6 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, CAccModifier (..),
                                                    MonadWalletTracking,
-                                                   syncAddressesWithUtxo,
                                                    syncWalletsWithGState,
                                                    txMempoolToModifier)
 import           Pos.Wallet.Web.Util              (getWalletAccountIds)
@@ -1041,8 +1040,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         let accId = AccountId wid walletIndex
         newAddress (DeterminedSeed accountIndex) passphrase accId
 
-    -- TODO seems it's bug, should use @syncWalletsWithGState@
-    _ <- syncAddressesWithUtxo @WalletSscType [key]
+    void $ syncWalletsWithGState @WalletSscType [key]
 
     return importedWallet
 
@@ -1092,8 +1090,7 @@ restoreWalletFromBackup WalletBackup {..} = do
             seedGen = DeterminedSeed aIdx
         accId <- genUniqueAccountId seedGen wId
         createAccount accId meta
-    -- TODO seems it's bug, should use @syncWalletsWithGState@
-    _ <- syncAddressesWithUtxo @WalletSscType [wbSecretKey]
+    void $ syncWalletsWithGState @WalletSscType [wbSecretKey]
     createWalletSafe wId wMeta
 
 restoreStateFromBackup :: WalletWebMode m => StateBackup -> m [CWallet]

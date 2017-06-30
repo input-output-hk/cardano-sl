@@ -1,6 +1,7 @@
 module Explorer.Update.Test where
 
 import Prelude
+
 import Control.Monad.Aff (Aff)
 import Control.Monad.State (StateT)
 import Data.Array (index, length, (..), (:))
@@ -8,7 +9,7 @@ import Data.Either (Either(..))
 import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime (mkTime)
 import Data.Tuple (Tuple(..))
@@ -207,7 +208,7 @@ testUpdate =
 
         describe "handles DashboardPaginateBlocks action" do
             let newPage = PageNumber 4
-                effModel = update (DashboardPaginateBlocks newPage) initialState
+                effModel = update (DashboardPaginateBlocks Nothing newPage) initialState
                 state = _.state effModel
             it "to set dbViewNextBlockPagination"
                 let result = state ^. (dashboardViewState <<< dbViewNextBlockPagination)

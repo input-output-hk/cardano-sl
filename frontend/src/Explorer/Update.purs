@@ -23,7 +23,7 @@ import Data.Foldable (traverse_)
 import Data.Foreign (toForeign)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
@@ -217,11 +217,13 @@ update (DashboardExpandBlocks expanded) state = noEffects $
 update (DashboardExpandTransactions expanded) state = noEffects $
     set (dashboardViewState <<< dbViewTxsExpanded) expanded state
 
-update (DashboardPaginateBlocks pageNumber) state =
+update (DashboardPaginateBlocks mEvent pageNumber) state =
     { state:
-          set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber state
+          set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber $
+          set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
     , effects:
-          [ pure <<< Just $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
+          [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+          , pure <<< Just $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
           ]
     }
 
@@ -248,8 +250,14 @@ update (DashboardShowAPICode code) state = noEffects $
 
 -- Address
 
-update (AddressPaginateTxs value) state = noEffects $
-    set (viewStates <<< addressDetail <<< addressTxPagination) value state
+update (AddressPaginateTxs mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< addressDetail <<< addressTxPagination) pageNumber $
+          set (viewStates <<< addressDetail <<< addressTxPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        ]
+    }
 
 update (AddressEditTxsPageNumber event editable) state =
     { state:
@@ -271,8 +279,14 @@ update (AddressInvalidTxsPageNumber event) state =
 
 -- Block
 
-update (BlockPaginateTxs value) state = noEffects $
-    set (viewStates <<< blockDetail <<< blockTxPagination) value state
+update (BlockPaginateTxs mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< blockDetail <<< blockTxPagination) pageNumber $
+          set (viewStates <<< blockDetail <<< blockTxPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        ]
+    }
 
 update (BlockEditTxsPageNumber event editable) state =
     { state:
@@ -294,8 +308,14 @@ update (BlockInvalidTxsPageNumber event) state =
 
 -- Blocks
 
-update (BlocksPaginateBlocks value) state = noEffects $
-    set (viewStates <<< blocksViewState <<< blsViewPagination) value state
+update (BlocksPaginateBlocks mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< blocksViewState <<< blsViewPagination) pageNumber $
+          set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        ]
+    }
 
 update (BlocksEditBlocksPageNumber event editable) state =
     { state:
@@ -537,7 +557,7 @@ update (DashboardReceiveBlocksTotalPages (Right totalPages)) state =
           set (dashboardViewState <<< dbViewBlockPagination)
               (PageNumber totalPages) state
     , effects:
-        [ pure <<< Just $ DashboardPaginateBlocks (PageNumber totalPages) ]
+        [ pure <<< Just $ DashboardPaginateBlocks Nothing (PageNumber totalPages) ]
     }
 
 update (DashboardReceiveBlocksTotalPages (Left error)) state =
@@ -753,7 +773,7 @@ update (UpdateView r@Dashboard) state =
         , pure $ Just ClearWaypoints
         , pure <<< Just <<< DashboardAddWaypoint $ ElementId CSS.dashBoardBlocksViewId
         , if isSuccess maxBlockPage
-          then pure <<< Just <<< DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
+          then pure <<< Just $ DashboardPaginateBlocks Nothing (state ^. (dashboardViewState <<< dbViewBlockPagination))
           else
               -- Note: Request `total pages `only once.
               -- Check is needed due reloading by http pooling

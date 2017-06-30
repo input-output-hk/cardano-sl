@@ -53,7 +53,7 @@ import Pux.DOM.Events (DOMEvent, onBlur, onChange, onFocus, onKeyDown, onClick, 
 import Pux.DOM.HTML (HTML) as P
 
 import Text.Smolder.HTML (a, div, p, span, input, option, select) as S
-import Text.Smolder.HTML.Attributes (className, href, value, disabled, selected, type', min, max) as S
+import Text.Smolder.HTML.Attributes (className, href, value, disabled, type', min, max) as S
 import Text.Smolder.Markup (text) as S
 import Text.Smolder.Markup ((#!), (!), (!?))
 
@@ -210,7 +210,7 @@ type PaginationViewProps =
     , minPage :: PageNumber
     , maxPage :: PageNumber
     , editable :: Boolean
-    , changePageAction :: (PageNumber -> Action)
+    , changePageAction :: (Maybe P.DOMEvent -> PageNumber -> Action)
     , editableAction :: (P.DOMEvent -> Boolean -> Action)
     , invalidPageAction :: (P.DOMEvent -> Action)
     , disabled :: Boolean
@@ -258,14 +258,14 @@ paginationView props =
               nextClickHandler :: P.DOMEvent -> Action
               nextClickHandler event =
                   if props.currentPage < props.maxPage then
-                  props.changePageAction <<< PageNumber $ (unwrap props.currentPage) + 1
+                  props.changePageAction Nothing (PageNumber $ (unwrap props.currentPage) + 1)
                   else
                   NoOp
 
               prevClickHandler :: P.DOMEvent -> Action
-              prevClickHandler _ =
+              prevClickHandler event =
                   if props.currentPage > props.minPage && not props.disabled then
-                  props.changePageAction <<< PageNumber $ (unwrap props.currentPage) - 1
+                  props.changePageAction Nothing (PageNumber $ (unwrap props.currentPage) - 1)
                   else
                   NoOp
 
@@ -278,7 +278,7 @@ paginationView props =
                           then
                               let page = PageNumber <<< fromMaybe (unwrap props.currentPage) <<< fromString $ P.targetValue event in
                               if page >= props.minPage && page <= props.maxPage
-                                  then props.changePageAction page
+                                  then props.changePageAction (Just event) page
                                   else props.invalidPageAction event
                           else NoOp
 

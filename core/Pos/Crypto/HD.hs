@@ -13,6 +13,7 @@ module Pos.Crypto.HD
        , toEither
 
        , firstNonHardened
+       , firstHardened
        , isNonHardened
        ) where
 
@@ -72,6 +73,9 @@ deriveHDPassphrase (PublicKey pk) = HDPassphrase $
 -- child.
 firstNonHardened :: Word32
 firstNonHardened = 2 ^ (31 :: Word32)
+
+firstHardened :: Word32
+firstHardened = 0
 
 -- Child with index less or equal than @maxHardened@ is a hardened child.
 maxHardened :: Word32

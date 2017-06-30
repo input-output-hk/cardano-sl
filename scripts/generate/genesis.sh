@@ -24,14 +24,14 @@ fi
 F=100 # fake avvm keys
 
 function abc {
-  cmd="stack exec cardano-keygen -- -f $DIR/../secrets/secret-{}.key -m $M -n $N --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file $utxo_file --randcerts --blacklisted $blacklist --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries $F"
+  cmd="stack exec cardano-keygen -- -f secrets/secret-{}.key -m $M -n $N --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file $utxo_file --randcerts --blacklisted $blacklist --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries $F"
   echo "Running command: $cmd"
   $cmd
-  rm $DIR/../secrets/*.lock
+  rm secrets/*.lock
   mkdir nodes
   i=1
   while [[ $i -le $M ]]; do
-    mv -v $DIR/../secrets/secret-$i.key.primary nodes/key$i.sk
+    mv -v secrets/secret-$i.key.primary nodes/key$i.sk
     i=$((i+1))
   done
   cp -v redeemingHolderKey* nodes/key0.sk

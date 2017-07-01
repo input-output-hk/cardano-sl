@@ -218,7 +218,7 @@ data BlockVersionData = BlockVersionData
     , bvdUpdateProposalThd :: !CoinPortion
     , bvdUpdateImplicit    :: !FlatSlotId
     , bvdUpdateSoftforkThd :: !CoinPortion
-    , bvdTxFeePolicy       :: !(Maybe TxFeePolicy)
+    , bvdTxFeePolicy       :: !TxFeePolicy
     } deriving (Show, Eq, Generic, Typeable)
 
 ----------------------------------------------------------------------------

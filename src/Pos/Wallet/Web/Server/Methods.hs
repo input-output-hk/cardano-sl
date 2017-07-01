@@ -552,28 +552,26 @@ computeTxFee
     -> NonEmpty (CId Addr, Coin)
     -> m CCoin
 computeTxFee passphrase moneySource dstDistr = mkCCoin <$> do
-    feesPolicyMB <- bvdTxFeePolicy <$> gsAdoptedBVData
-    case feesPolicyMB of
-        Nothing -> pure $ mkCoin 0
-        Just feePolicy -> case feePolicy of
-            TxFeePolicyUnknown w _               -> throwM $ unknownFeePolicy w
-            TxFeePolicyTxSizeLinear linearPolicy -> do
-                (srcAddrMetas, outs, _) <- prepareTxInfo passphrase moneySource dstDistr
-                sks <- forM srcAddrMetas $ getSKByAccAddr passphrase
-                srcAddrs <- forM srcAddrMetas $ decodeCIdOrFail . cwamId
-                txAuxEi <- withSafeSigners passphrase sks $ \ss -> do
-                    let hdwSigner = NE.zip ss srcAddrs
-                    let addrs = map snd $ toList hdwSigner
-                    utxo <- getOwnUtxos addrs
-                    pure $ createMTx utxo hdwSigner outs
-                either
-                    invalidTxEx
-                    (maybeThrow negFee .
-                     integerToCoin .
-                     ceiling .
-                     calculateTxSizeLinear linearPolicy .
-                     biSize @TxAux)
-                    txAuxEi
+    feePolicy <- bvdTxFeePolicy <$> gsAdoptedBVData
+    case feePolicy of
+        TxFeePolicyUnknown w _               -> throwM $ unknownFeePolicy w
+        TxFeePolicyTxSizeLinear linearPolicy -> do
+            (srcAddrMetas, outs, _) <- prepareTxInfo passphrase moneySource dstDistr
+            sks <- forM srcAddrMetas $ getSKByAccAddr passphrase
+            srcAddrs <- forM srcAddrMetas $ decodeCIdOrFail . cwamId
+            txAuxEi <- withSafeSigners passphrase sks $ \ss -> do
+                let hdwSigner = NE.zip ss srcAddrs
+                let addrs = map snd $ toList hdwSigner
+                utxo <- getOwnUtxos addrs
+                pure $ createMTx utxo hdwSigner outs
+            either
+                invalidTxEx
+                (maybeThrow negFee .
+                 integerToCoin .
+                 ceiling .
+                 calculateTxSizeLinear linearPolicy .
+                 biSize @TxAux)
+                txAuxEi
   where
     invalidTxEx = throwM . RequestError . sformat ("Couldn't create a transaction, reason: "%build)
     negFee = InternalError "Negative fee"

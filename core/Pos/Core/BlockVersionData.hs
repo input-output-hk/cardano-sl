@@ -28,6 +28,7 @@ instance Buildable BlockVersionData where
               ", update proposal threshold: "%build%
               ", update implicit period: "%int%" slots"%
               ", update softfork threshold: "%build%
+              ", tx fee policy: "%build%
               " }")
         bvdScriptVersion
         bvdSlotDuration
@@ -41,5 +42,6 @@ instance Buildable BlockVersionData where
         bvdUpdateProposalThd
         bvdUpdateImplicit
         bvdUpdateSoftforkThd
+        bvdTxFeePolicy
 
 instance NFData BlockVersionData where

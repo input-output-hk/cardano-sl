@@ -22,7 +22,7 @@ module Pos.Ssc.GodTossing.Core.Types
        , SharesDistribution
 
          -- * Vss certificates
-       , VssCertificate (..)
+       , VssCertificate (vcVssKey, vcExpiryEpoch, vcSignature, vcSigningKey)
        , mkVssCertificate
        , recreateVssCertificate
        , getCertId

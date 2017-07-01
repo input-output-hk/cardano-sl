@@ -184,13 +184,13 @@ instance ZZEncode Int Word where
 -- 'Int64') for negative numbers (because @Int@ is simply coerced into its
 -- @Word@ representation before being serialized).
 newtype UnsignedVarInt a = UnsignedVarInt {getUnsignedVarInt :: a}
-    deriving (Eq, Ord, Show, Generic, NFData, Functor)
+    deriving (Eq, Ord, Show, Generic, NFData, Functor, Enum, Num, Integral, Real)
 
 -- | A newtype wrapper for varints. Uses zig-zag encoding to serialize
 -- negative integers – e.g. @-3@ is turned into 5, @-4@ is turned into 7,
 -- etc; thus it's fair but less optimal for positive integers.
 newtype SignedVarInt a = SignedVarInt {getSignedVarInt :: a}
-    deriving (Eq, Ord, Show, Generic, NFData, Functor)
+    deriving (Eq, Ord, Show, Generic, NFData, Functor, Enum, Num, Integral, Real)
 
 -- | A newtype wrapper for non-negative integers less than @2^14@. Use it if
 -- you want to be extra careful. It is guaranteed to take either 1 or 2 bytes
@@ -202,7 +202,7 @@ newtype TinyVarInt = TinyVarInt {getTinyVarInt :: Word16}
 -- | A newtype wrapper for signifying that an integer should be serialized
 -- using a fixed amount of bytes.
 newtype FixedSizeInt a = FixedSizeInt {getFixedSizeInt :: a}
-    deriving (Eq, Ord, Show, Generic, NFData, Functor)
+    deriving (Eq, Ord, Show, Generic, NFData, Functor, Enum, Num, Integral, Real)
 
 instance TypeError
     ('Text "Do not encode 'Int' directly. Instead, use one of newtype wrappers:" ':$$:

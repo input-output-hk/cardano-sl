@@ -136,9 +136,6 @@ instance Arbitrary Opening where
 
 instance Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
-    shrink VssCertificate {..} = [ VssCertificate { vcExpiryEpoch = shrunkEpoch, .. }
-                                 | shrunkEpoch <- shrink vcExpiryEpoch
-                                 ]
 
 -- | For given epoch @e@ enerates vss certificate having epoch in
 -- range @[e+vssMin,e+vssMax)@.

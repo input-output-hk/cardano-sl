@@ -4,35 +4,39 @@ module Pos.Update.Poll.Failure
        ( PollVerFailure (..)
        ) where
 
-import qualified Data.Text.Buildable
-import           Data.Time.Units            (Millisecond)
-import           Formatting                 (bprint, build, int, sformat, stext, (%))
-import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
+import qualified Data.Text.Buildable
+import           Formatting                 (bprint, build, int, sformat, stext, (%))
+import           Serokell.Data.Memory.Units (Byte, memory)
+
 import           Pos.Core.Coin              (coinF)
-import           Pos.Core.Types             (ApplicationName, BlockVersion, Coin,
-                                             EpochIndex, NumSoftwareVersion,
-                                             ScriptVersion, StakeholderId)
+import           Pos.Core.Types             (ApplicationName, BlockVersion,
+                                             BlockVersionData, Coin, EpochIndex,
+                                             NumSoftwareVersion, ScriptVersion,
+                                             StakeholderId)
 import           Pos.Crypto                 (shortHashF)
-import           Pos.Update.Core            (UpAttributes, UpId)
+import           Pos.Update.Core            (BlockVersionModifier, UpAttributes, UpId)
 
 -- | PollVerFailure represents all possible errors which can
 -- appear in Poll data verification.
 data PollVerFailure
-    = PollWrongScriptVersion { pwsvExpected :: !ScriptVersion
-                             , pwsvFound    :: !ScriptVersion
+    =
+      -- | 'BlockVersionModifier' for this 'BlockVersion' is already known and
+      -- the one we saw doesn't match it.
+      PollInconsistentBVM { pibExpected :: !BlockVersionModifier
+                          , pibFound    :: !BlockVersionModifier
+                          , pibUpId     :: !UpId}
+    -- | 'BlockVersion' is already adopted and 'BlockVersionData' associated
+    -- with it differs from the one we saw.
+    | PollAlreadyAdoptedDiffers { paadAdopted  :: !BlockVersionData
+                                , paadProposed :: !BlockVersionModifier
+                                , paadUpId     :: !UpId}
+    -- | Proposed script version must be the same as adopted one or
+    -- greater by one, but this rule is violated.
+    | PollWrongScriptVersion { pwsvAdopted  :: !ScriptVersion
+                             , pwsvProposed :: !ScriptVersion
                              , pwsvUpId     :: !UpId}
-    -- | Slot duration for this block version is already known and the one we
-    -- saw doesn't match it
-    | PollWrongSlotDuration { pwsdExpected :: !Millisecond
-                            , pwsdFound    :: !Millisecond
-                            , pwsdUpId     :: !UpId}
-    -- | Max block size for this block version is already known and the one
-    -- we saw doesn't match it
-    | PollWrongMaxBlockSize { pwmbsExpected :: !Byte
-                            , pwmbsFound    :: !Byte
-                            , pwmbsUpId     :: !UpId}
     -- | A proposal tried to increase the block size limit more than it was
     -- allowed to
     | PollLargeMaxBlockSize { plmbsMaxPossible :: !Byte
@@ -76,22 +80,28 @@ data PollVerFailure
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
-    build (PollWrongScriptVersion expected found upId) =
-        bprint ("wrong script version in proposal "%build%
-                " (expected "%int%", found "%int%")")
-        upId expected found
-    build (PollWrongSlotDuration expected found upId) =
-        bprint ("wrong slot duration in proposal "%build%
-                " (expected "%int%", found "%int%")")
-        upId expected found
-    build (PollWrongMaxBlockSize expected found upId) =
-        bprint ("wrong max block size in proposal "%build%
-                " (expected "%int%", found "%int%")")
-        upId expected found
+    build (PollInconsistentBVM {..}) =
+        bprint ("proposal "%shortHashF%" contains block version"%
+                " which is already competing and its"%
+                " BlockVersionModifier is different"%
+                " (expected "%build%", proposed "%build%")")
+        pibUpId pibExpected pibFound
+    build (PollAlreadyAdoptedDiffers {..}) =
+        bprint ("proposal "%shortHashF%" contains block version"%
+                " which is already adopted and its"%
+                " BlockVersionModifier doesn't correspond to the adopted"%
+                " BlockVersionData (adopted "%build%", proposed "%build%")")
+        paadUpId paadAdopted paadProposed
+    build (PollWrongScriptVersion {..}) =
+        bprint ("proposal "%shortHashF%" contains script version"%
+                " which is neither same not greater by one than the"%
+                " adopted one (adopted one is "%int%
+                ", proposed one is "%int%")")
+        pwsvUpId pwsvAdopted pwsvProposed
     build (PollLargeMaxBlockSize maxPossible found upId) =
         bprint ("proposal "%build%" tried to increase max block size"%
                 " beyond what is allowed"%
-                " (expected max. "%int%", found "%int%")")
+                " (expected max. "%memory%", found "%memory%")")
         upId maxPossible found
     build (PollProposalAlreadyActive upId) =
         bprint ("proposal "%build%" was already proposed") upId

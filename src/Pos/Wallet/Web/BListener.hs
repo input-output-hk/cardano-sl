@@ -22,7 +22,8 @@ import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Core             (mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Core                   (HeaderHash, headerHash, prevBlockL)
-import           Pos.DB.Class               (MonadDBRead, MonadRealDB)
+import           Pos.DB.Class               (MonadRealDB, MonadDBRead)
+import           Pos.DB.BatchOp             (SomeBatchOp)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux, TxUndo, flattenTxPayload)
 import           Pos.Txp.Toil               (evalToilTEmpty, runDBToil)
@@ -46,11 +47,15 @@ onApplyTracking
     , MonadRealDB ctx m
     , MonadDBRead m
     )
-    => OldestFirst NE (Blund ssc) -> m ()
+    => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = do
     let txs = concatMap (gbTxs . fst) $ getOldestFirst blunds
     let newTip = headerHash $ NE.last $ getOldestFirst blunds
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
+    
+    -- It's silly, but when the wallet is migrated to RocksDB, we can write
+    -- something a bit more reasonable.
+    pure mempty
   where
     syncWalletSet :: HeaderHash -> [TxAux] -> CId Wal -> m ()
     syncWalletSet newTip txs wAddr = do
@@ -71,11 +76,15 @@ onRollbackTracking
     , AccountMode ctx m
     , WithLogger m
     )
-    => NewestFirst NE (Blund ssc) -> m ()
+    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 onRollbackTracking blunds = do
     let txs = concatMap (reverse . blundTxUn) $ getNewestFirst blunds
     let newTip = (NE.last $ getNewestFirst blunds) ^. prevBlockL
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
+
+    -- It's silly, but when the wallet is migrated to RocksDB, we can write
+    -- something a bit more reasonable.
+    pure mempty
   where
     syncWalletSet :: HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
     syncWalletSet newTip txs wAddr = do

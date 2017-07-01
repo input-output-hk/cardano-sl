@@ -1,0 +1,19 @@
+Running command: stack exec cardano-keygen -- -f /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-{}.key -m 4 -n 1000 --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file /home/georgeee/work/cardano-sl/scripts/generate/../avvm-files/utxo-dump-last-new.json --randcerts --blacklisted /home/georgeee/work/cardano-sl/scripts/generate/../avvm-files/full_blacklist.js --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries 100
+USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey5852
+NOT FOR PRODUCTION USAGE, ONLY FOR TESTING
+IF YOU INTEND TO GENERATE GENESIS FOR PRODUCTION, STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. THIS IS SERIOUS.
+Removing 101 entries from utxo (out of 188 total entries in the blacklist)
+Total avvm stake after applying blacklist: 25927070538000000
+1004 keyfiles are generated
+Total testnet genesis stake: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 2000, sdPoorStake = Coin {getCoin = 572187553860}}
+100 fake avvm seeds are generated
+testnet genesis created successfully. First 30 addresses: [PubKeyAddress aa93327077e3ffdd29cb04b5fdb21a49b2296e0e7171c757df555555 (attrs: {}), PubKeyAddress 70534c762801a59a3e54a6780f48b910f8671dd22ae784e736d83356 (attrs: {}), PubKeyAddress 7d736fdf48c834b5dbd1e8fdcf323dd1023ed9da84bfdff8adaa5186 (attrs: {}), PubKeyAddress f2d27a7de9deb3d0fc137b827c34cd2b5c68a92a2161a03613a4ad50 (attrs: {}), PubKeyAddress 78b74cd2b5ccd53e525e4f216f7858a60ed0b152b6cb01818d24f3e9 (attrs: {}), PubKeyAddress 76b485b034c18192970438540535028505faabcf77125f99e168767b (attrs: {}), PubKeyAddress 073057ef7a04e1eab4afa8c7cfad4bb2e278f5df0c097d148471459f (attrs: {}), PubKeyAddress e23eab7abee43fc59b14752bb5858649c36f54ce2a0cedec0b3475fe (attrs: {}), PubKeyAddress 99a4f7fb1425c504b9c0db8a23ef772db0ceecbd0d9a1ea9ff048a73 (attrs: {}), PubKeyAddress 168dde9204fbe1d2cba529fe8d81819a7d3fa9ee94f9881d14b27317 (attrs: {})] distr: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 2000, sdPoorStake = Coin {getCoin = 572187553860}}
+core/genesis-core.bin generated successfully
+[generating VSS keys for tests...]
+[generating keys for tests...]
+godtossing/genesis-godtossing.bin generated successfully
+'/home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-1.key.primary' -> 'nodes/key1.sk'
+'/home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-2.key.primary' -> 'nodes/key2.sk'
+'/home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-3.key.primary' -> 'nodes/key3.sk'
+'/home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-4.key.primary' -> 'nodes/key4.sk'
+'redeemingHolderKey5852' -> 'nodes/key0.sk'

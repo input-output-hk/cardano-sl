@@ -16,12 +16,17 @@ import           Pos.Crypto                        (SignTag (SignUSVote), fakeSi
 import           Pos.Crypto.Arbitrary              ()
 import           Pos.Data.Attributes               (mkAttributes)
 import           Pos.Core.Arbitrary                ()
-import           Pos.Update.Core.Types             (BlockVersionData (..), SystemTag,
+import           Pos.Update.Core.Types             (BlockVersionData (..),
+                                                    BlockVersionModifier, SystemTag,
                                                     UpdateData (..), UpdatePayload (..),
                                                     UpdateProposal (..),
                                                     UpdateProposalToSign (..),
                                                     UpdateVote (..), VoteState (..),
                                                     mkSystemTag, mkUpdateProposalWSign)
+
+instance Arbitrary BlockVersionModifier where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary SystemTag where
     arbitrary =
@@ -44,7 +49,7 @@ instance Arbitrary UpdateVote where
 instance Arbitrary UpdateProposal where
     arbitrary = do
         upBlockVersion <- arbitrary
-        upBlockVersionData <- arbitrary
+        upBlockVersionMod <- arbitrary
         upSoftwareVersion <- arbitrary
         upData <- HM.fromList <$> listOf1 arbitrary
         let upAttributes = mkAttributes ()
@@ -53,7 +58,7 @@ instance Arbitrary UpdateProposal where
         either onFailure pure $
             mkUpdateProposalWSign
                 upBlockVersion
-                upBlockVersionData
+                upBlockVersionMod
                 upSoftwareVersion
                 upData
                 upAttributes

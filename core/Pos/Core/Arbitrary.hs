@@ -22,11 +22,11 @@ import           Universum
 import qualified Data.ByteString                   as BS (pack)
 import           Data.Time.Units                   (Microsecond, Millisecond,
                                                     TimeUnit (..))
+import           System.Random                     (Random)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, oneof,
                                                     scale, shrinkIntegral, suchThat)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
-import           System.Random                     (Random)
 
 import           Pos.Binary.Class                  (AsBinary, FixedSizeInt (..),
                                                     SignedVarInt (..),

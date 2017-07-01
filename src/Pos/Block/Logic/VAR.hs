@@ -28,7 +28,7 @@ import           Pos.Block.Logic.Slog     (mustDataBeKnown, slogVerifyBlocks)
 import           Pos.Block.Logic.Util     (tipMismatchMsg)
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
-                                           prevBlockL, prevBlockL)
+                                           prevBlockL)
 import qualified Pos.DB.GState            as GS
 import           Pos.Delegation.Logic     (dlgVerifyBlocks)
 import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShotNoLock)

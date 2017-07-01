@@ -9,9 +9,9 @@ module Pos.Communication.Relay.Types
 
 import           Control.Concurrent.STM        (TBQueue)
 import qualified Data.Text.Buildable           as Buildable
+import           Data.Time.Units               (Microsecond)
 import           Formatting                    (bprint, build, (%))
 import           Node                          (Message)
-import           Data.Time.Units               (Microsecond)
 import           Universum
 
 import           Pos.Binary.Class              (Bi)

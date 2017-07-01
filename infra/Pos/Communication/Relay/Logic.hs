@@ -1,7 +1,7 @@
 {-# LANGUAGE Rank2Types          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Framework for Inv\/Req\/Data message handling
 
@@ -29,13 +29,13 @@ module Pos.Communication.Relay.Logic
 
 import           Control.Concurrent.STM             (isFullTBQueue, readTBQueue,
                                                      writeTBQueue)
-import           Data.Aeson.TH                      (deriveJSON, defaultOptions)
+import           Data.Aeson.TH                      (defaultOptions, deriveJSON)
 import           Data.Proxy                         (asProxyTypeOf)
 import           Data.Tagged                        (Tagged, tagWith)
 import           Data.Typeable                      (typeRep)
 import           Formatting                         (build, sformat, shown, stext, (%))
 import           Mockable                           (Mockable, MonadMockable, Throw,
-                                                     handleAll, throw, throw, currentTime)
+                                                     currentTime, handleAll, throw)
 import           Node.Message.Class                 (Message)
 import           Paths_cardano_sl_infra             (version)
 import           System.Wlog                        (WithLogger, logDebug, logError,
@@ -61,8 +61,8 @@ import           Pos.Communication.Relay.Types      (PropagationMsg (..),
                                                      RelayContext (..))
 import           Pos.Communication.Relay.Util       (expectData, expectInv)
 import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), InvOrData,
-                                                     MempoolMsg (..), ReqMsg (..),
-                                                     RelayLogEvent (..))
+                                                     MempoolMsg (..), RelayLogEvent (..),
+                                                     ReqMsg (..))
 import           Pos.DB.Class                       (MonadGState)
 import           Pos.Discovery.Broadcast            (converseToNeighbors)
 import           Pos.Discovery.Class                (MonadDiscovery)

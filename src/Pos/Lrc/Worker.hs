@@ -32,10 +32,10 @@ import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlo
 import           Pos.Constants              (slotSecurityParam)
 import           Pos.Context                (BlkSemaphore, recoveryCommGuard)
 import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
-                                             EpochOrSlot (..), HeaderHash, HeaderHash,
-                                             SharedSeed, SlotId (..), StakeholderId,
-                                             crucialSlot, epochIndexL, getEpochOrSlot,
-                                             getEpochOrSlot, getSlotIndex)
+                                             EpochOrSlot (..), HeaderHash, SharedSeed,
+                                             SlotId (..), StakeholderId, crucialSlot,
+                                             epochIndexL, getEpochOrSlot, getEpochOrSlot,
+                                             getSlotIndex)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))

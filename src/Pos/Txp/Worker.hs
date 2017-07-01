@@ -23,10 +23,9 @@ import           System.Wlog         (logDebug, logInfo, logWarning)
 import           Pos.Communication   (Conversation (..), ConversationActions (..),
                                       DataMsg (..), InvMsg (..), InvOrData,
                                       InvReqDataParams (..), MempoolMsg (..), NodeId,
-                                      ReqMsg (..), SendActions, TxMsgContents,
-                                      convH, expectData, handleDataDo, handleInvDo,
-                                      toOutSpecs, withConnectionTo, worker,
-                                      recvLimited)
+                                      ReqMsg (..), SendActions, TxMsgContents, convH,
+                                      expectData, handleDataDo, handleInvDo, recvLimited,
+                                      toOutSpecs, withConnectionTo, worker)
 import           Pos.Discovery.Class (getPeers)
 import           Pos.Slotting        (getLastKnownSlotDuration)
 import           Pos.Txp.Core        (TxId)

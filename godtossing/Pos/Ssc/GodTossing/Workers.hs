@@ -38,9 +38,8 @@ import           Pos.Communication.Relay               (DataMsg, ReqMsg,
 import           Pos.Communication.Specs               (createOutSpecs)
 import           Pos.Communication.Types.Relay         (InvOrData, InvOrDataTK)
 import           Pos.Core                              (EpochIndex, SlotId (..),
-                                                        StakeholderId, StakeholderId,
-                                                        Timestamp (..), addressHash,
-                                                        getOurSecretKey,
+                                                        StakeholderId, Timestamp (..),
+                                                        addressHash, getOurSecretKey,
                                                         getOurStakeholderId,
                                                         mkLocalSlotIndex)
 import           Pos.Core.Constants                    (slotSecurityParam)

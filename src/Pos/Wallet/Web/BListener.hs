@@ -14,23 +14,26 @@ import           Universum
 
 import           Control.Lens               (to)
 import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (build, sformat, (%))
+import           Formatting                 (build, sformat, stext, (%))
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug)
 
 import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Core             (mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
+import           Pos.Client.Txp.History     (getRelatedTxsByAddrs, thTxId)
 import           Pos.Core                   (HeaderHash, headerHash, prevBlockL)
+import           Pos.Crypto                 (hash, withHash)
 import           Pos.DB.Class               (MonadDBRead, MonadRealDB)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
-import           Pos.Txp.Core               (TxAux, TxUndo, flattenTxPayload)
+import           Pos.Txp.Core               (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Txp.Toil               (evalToilTEmpty, runDBToil)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
 import qualified Pos.Util.Modifier          as MM
 
 import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
-import           Pos.Wallet.Web.ClientTypes (CId, Wal)
+import           Pos.Wallet.Web.ClientTypes (CId, CWAddressMeta (..), Wal, cIdToAddress)
+import           Pos.Wallet.Web.Error       (WalletError (..))
 import qualified Pos.Wallet.Web.State       as WS
 import           Pos.Wallet.Web.Tracking    (CAccModifier (..), applyModifierToWallet,
                                              getWalletAddrMetasDB,
@@ -62,8 +65,21 @@ onApplyTracking blunds = do
                        trackingApplyTxs encSK allAddresses $
                        zip txs (repeat newTip)
         applyModifierToWallet wAddr newTip mapModifier
+        addrs <- either addrDecodeErr pure $
+                 mapM (cIdToAddress . cwamId) allAddresses
+
+        let auxToTuple TxAux {..} = (withHash taTx, taWitness, taDistribution)
+            whTxs = map auxToTuple txs
+        txHistoryBlk <- runDBToil $
+                        evalToilTEmpty $
+                        getRelatedTxsByAddrs addrs whTxs
+
+        cachedTxs <- fromMaybe [] <$> WS.getHistoryCache wAddr
+        WS.updateHistoryCache wAddr $ txHistoryBlk <> cachedTxs
         logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
+    addrDecodeErr = throwM . InternalError .
+        sformat ("onApplyBlocks: error while decoding address: "%stext)
 
 -- Perform this action under block lock.
 onRollbackTracking
@@ -74,8 +90,9 @@ onRollbackTracking
     )
     => NewestFirst NE (Blund ssc) -> m ()
 onRollbackTracking blunds = do
-    let txs = concatMap (reverse . blundTxUn) $ getNewestFirst blunds
-    let newTip = (NE.last $ getNewestFirst blunds) ^. prevBlockL
+    let newestFirst = getNewestFirst blunds
+        txs = concatMap (reverse . blundTxUn) newestFirst
+        newTip = (NE.last newestFirst) ^. prevBlockL
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
   where
     syncWalletSet :: HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
@@ -85,6 +102,16 @@ onRollbackTracking blunds = do
         let mapModifier = trackingRollbackTxs encSK allAddresses $
                           map (\(aux, undo) -> (aux, undo, newTip)) txs
         rollbackModifierFromWallet wAddr newTip mapModifier
+
+        let txIds = map (hash . taTx . fst) txs
+            -- TODO: if there's lots of txs in block, this would be slow
+            theInBlock the = (the ^. thTxId) `elem` txIds
+
+        WS.getHistoryCache wAddr >>= \case
+            Nothing -> pure ()
+            Just cachedTxs -> WS.updateHistoryCache wAddr $
+                dropWhile theInBlock cachedTxs
+
         logMsg "rolled back" (getNewestFirst blunds) wAddr mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
     blundTxUn (b, u) = zip (gbTxs b) (undoTx u)

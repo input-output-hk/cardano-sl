@@ -30,7 +30,7 @@ import           Ether.Internal        (HasLens (..))
 import           Formatting            (build, sformat, (%))
 import           Serokell.Util         (Color (Red), colorize)
 import           Serokell.Util.Verify  (formatAllErrors, verResToMonadError)
-import           System.Wlog           (WithLogger, logWarning)
+import           System.Wlog           (WithLogger)
 
 import           Pos.Binary.Core       ()
 import           Pos.Block.BListener   (MonadBListener (..))
@@ -157,17 +157,23 @@ slogApplyBlocks ::
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
 slogApplyBlocks blunds = do
-    -- Note: it's important to put blunds first
+    -- Note: it's important to put blunds first. The invariant is that
+    -- the sequence of blocks corresponding to the tip must exist in
+    -- BlockDB. If program is interrupted after we put blunds and
+    -- before we update GState, this invariant won't be violated. If
+    -- we update GState first, this invariant may be violated.
     mapM_ dbPutBlund blunds
-    -- If the program is interrupted at this point (after putting on block),
-    -- we will rollback all wallet sets at the next launch.
-    onApplyBlocks blunds `catch` logWarn
+    -- If the program is interrupted at this point (after putting on
+    -- block), we will have a garbage block in BlockDB, but it's not a
+    -- problem.
+    bListenerBatch <- onApplyBlocks blunds
+
     let putTip =
             SomeBatchOp $
             GS.PutTip $ headerHash $ NE.last $ getOldestFirst blunds
     sanityCheckDB
     putSlottingData =<< GS.getSlottingData
-    return $ SomeBatchOp [putTip, forwardLinksBatch, inMainBatch]
+    return $ SomeBatchOp [putTip, bListenerBatch, forwardLinksBatch, inMainBatch]
   where
     blocks = fmap fst blunds
     forwardLinks = map (view prevBlockL &&& view headerHashG) $ toList blocks
@@ -176,9 +182,6 @@ slogApplyBlocks blunds = do
     inMainBatch =
         SomeBatchOp . getOldestFirst $
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
-    -- ↓ was written by @pva701
-    logWarn :: SomeException -> m ()
-    logWarn = logWarning . sformat ("onApplyBlocks raised exception: " %build)
 
 -- | This function does everything that should be done when rollback
 -- happens and that is not done in other components.
@@ -191,15 +194,14 @@ slogRollbackBlocks blunds = do
         when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
         assertionFailed $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
-    -- If program is interrupted after call @onRollbackBlocks@,
-    -- we will load all wallet set not rolled yet at the next launch.
-    onRollbackBlocks blunds `catch` logWarn
+    bListenerBatch <- onRollbackBlocks blunds
+
     let putTip = SomeBatchOp $
                  GS.PutTip $
                  headerHash $
                  (NE.last $ getNewestFirst blunds) ^. prevBlockL
     sanityCheckDB
-    return $ SomeBatchOp [putTip, forwardLinksBatch, inMainBatch]
+    return $ SomeBatchOp [putTip, bListenerBatch, forwardLinksBatch, inMainBatch]
   where
     blocks = fmap fst blunds
     inMainBatch =
@@ -210,6 +212,3 @@ slogRollbackBlocks blunds = do
         fmap (GS.RemoveForwardLink . view prevBlockL) blocks
     isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
     isGenesis0 (Right _)         = False
-    -- ↓ was written by @pva701
-    logWarn :: SomeException -> m ()
-    logWarn = logWarning . sformat ("onRollbackBlocks raised exception: "%build)

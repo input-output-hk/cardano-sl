@@ -199,7 +199,9 @@ getAccountWAddresses mode accId =
         -- to the value stored in the environment, returning `m (Maybe a)`
         cAddresses <- preview (wsAccountInfos . ix accId . which)
         -- here `cAddresses` has type `Maybe CAddresses`
-        pure $ (map (adiCWAddressMeta . snd) . HM.toList) <$> cAddresses
+        pure $
+            (map adiCWAddressMeta . sortOn adiSortingKey . map snd . HM.toList)
+            <$> cAddresses
 
 doesWAddressExist :: AddressLookupMode -> CWAddressMeta -> Query Bool
 doesWAddressExist mode addrMeta@(addrMetaToAccount -> wAddr) =

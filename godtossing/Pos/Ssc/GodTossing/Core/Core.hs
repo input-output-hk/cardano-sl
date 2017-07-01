@@ -52,12 +52,11 @@ import           Pos.Binary.Class              (AsBinary, Bi, asBinary, biSize,
                                                 fromBinaryM)
 import           Pos.Binary.Crypto             ()
 import           Pos.Binary.GodTossing.Core    ()
+import           Pos.Core                      (EpochIndex (..), LocalSlotIndex,
+                                                SharedSeed (..), SlotCount, SlotId (..),
+                                                StakeholderId, unsafeMkLocalSlotIndex)
 import           Pos.Core.Address              (addressHash)
-import           Pos.Core.Constants            (blkSecurityParam)
-import           Pos.Core.Types                (EpochIndex (..),
-                                                LocalSlotIndex (getSlotIndex),
-                                                SharedSeed (..), SlotId (..),
-                                                StakeholderId)
+import           Pos.Core.Constants            (slotSecurityParam)
 import           Pos.Crypto                    (EncShare, Secret, SecretKey,
                                                 SecureRandom (..),
                                                 SignTag (SignCommitment), Threshold,
@@ -105,16 +104,23 @@ mkSignedCommitment
     => SecretKey -> EpochIndex -> Commitment -> SignedCommitment
 mkSignedCommitment sk i c = (toPublic sk, c, sign SignCommitment sk (i, c))
 
+toLocalSlotIndex :: SlotCount -> LocalSlotIndex
+toLocalSlotIndex = unsafeMkLocalSlotIndex . fromIntegral
+
 isCommitmentIdx :: LocalSlotIndex -> Bool
-isCommitmentIdx = inRange (0, 2 * blkSecurityParam - 1) . getSlotIndex
+isCommitmentIdx =
+    inRange (toLocalSlotIndex 0,
+             toLocalSlotIndex (slotSecurityParam - 1))
 
 isOpeningIdx :: LocalSlotIndex -> Bool
 isOpeningIdx =
-    inRange (4 * blkSecurityParam, 6 * blkSecurityParam - 1) . getSlotIndex
+    inRange (toLocalSlotIndex (2 * slotSecurityParam),
+             toLocalSlotIndex (3 * slotSecurityParam - 1))
 
 isSharesIdx :: LocalSlotIndex -> Bool
 isSharesIdx =
-    inRange (8 * blkSecurityParam, 10 * blkSecurityParam - 1) . getSlotIndex
+    inRange (toLocalSlotIndex (4 * slotSecurityParam),
+             toLocalSlotIndex (5 * slotSecurityParam - 1))
 
 isCommitmentId :: SlotId -> Bool
 isCommitmentId = isCommitmentIdx . siSlot

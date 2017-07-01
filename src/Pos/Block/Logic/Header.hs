@@ -31,8 +31,9 @@ import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeade
                                             verifyHeaders)
 import           Pos.Constants             (blkSecurityParam, genesisHash,
                                             recoveryHeadersMessage)
-import           Pos.Core                  (EpochOrSlot (..), HeaderHash, SlotId (..),
-                                            difficultyL, epochOrSlotG, getEpochOrSlot,
+import           Pos.Core                  (BlockCount, EpochOrSlot (..), HeaderHash,
+                                            SlotId (..), difficultyL, epochOrSlotG,
+                                            getChainDifficulty, getEpochOrSlot,
                                             headerHash, headerHashG, headerSlotL,
                                             prevBlockL, prevBlockL)
 import           Pos.Crypto                (hash)
@@ -197,7 +198,9 @@ classifyHeaders headers = do
         lca <-
             MaybeT . DB.blkGetHeader =<<
             MaybeT (lcaWithMainChain $ toOldestFirst headers)
-        let depthDiff = tipHeader ^. difficultyL - lca ^. difficultyL
+        let depthDiff :: BlockCount
+            depthDiff = getChainDifficulty (tipHeader ^. difficultyL) -
+                        getChainDifficulty (lca ^. difficultyL)
         lcaChild <- MaybeT $ pure $
             find (\bh -> bh ^. prevBlockL == headerHash lca) headers
         pure $ if
@@ -207,7 +210,7 @@ classifyHeaders headers = do
                   CHsUseless $
                   sformat ("Difficulty difference of (tip,lca) is "%int%
                            " which is more than blkSecurityParam = "%int)
-                          depthDiff (blkSecurityParam :: Int)
+                          depthDiff blkSecurityParam
             | otherwise -> CHsValid lcaChild
 
 -- | Given a set of checkpoints @c@ to stop at and a terminating
@@ -279,7 +282,8 @@ getHeadersOlderExp upto = do
     let upToReal = fromMaybe tip upto
     -- Using 'blkSecurityParam + 1' because fork can happen on k+1th one.
     allHeaders <-
-        toOldestFirst <$> DB.loadHeadersByDepth @ssc (blkSecurityParam + 1) upToReal
+        toOldestFirst <$>
+        DB.loadHeadersByDepth @ssc (blkSecurityParam + 1) upToReal
     pure $ OldestFirst $
         selectIndices
             (getOldestFirst (map headerHash allHeaders))

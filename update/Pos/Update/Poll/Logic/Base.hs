@@ -214,9 +214,10 @@ updateSlottingData epoch = do
   where
     updateSlottingDataDo sd@SlottingData {..} = do
         latestSlotDuration <- bvdSlotDuration <$> getAdoptedBVData
+        let epochDuration = fromIntegral epochSlots *
+                            convertUnit (esdSlotDuration sdLast)
         let newLastStart =
-                esdStart sdLast +
-                epochSlots * (Timestamp $ convertUnit $ esdSlotDuration sdLast)
+                esdStart sdLast + Timestamp epochDuration
         let newLast =
                 EpochSlottingData
                 {esdSlotDuration = latestSlotDuration, esdStart = newLastStart}

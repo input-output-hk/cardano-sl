@@ -17,7 +17,7 @@ import           System.Wlog                   (logDebug, logInfo, logNotice)
 import           Universum
 
 import           Pos.Binary.Class              (biSize)
-import           Pos.Core                      (ChainDifficulty, Coin, EpochIndex,
+import           Pos.Core                      (ChainDifficulty (..), Coin, EpochIndex,
                                                 HeaderHash, IsMainHeader (..),
                                                 SlotId (siEpoch), SoftwareVersion (..),
                                                 addressHash, addressHash,
@@ -306,10 +306,10 @@ applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
 applyDepthCheck
     :: ApplyMode m
     => HeaderHash -> ChainDifficulty -> m ()
-applyDepthCheck hh cd
+applyDepthCheck hh (ChainDifficulty cd)
     | cd <= blkSecurityParam = pass
     | otherwise = do
-        deepProposals <- getDeepProposals (cd - blkSecurityParam)
+        deepProposals <- getDeepProposals (ChainDifficulty (cd - blkSecurityParam))
         let winners =
                 concatMap (toList . resetAllDecisions . NE.sortBy proposalCmp) $
                 NE.groupWith groupCriterion deepProposals

@@ -59,7 +59,7 @@ import           Pos.Block.Core        (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Block.Core        as BC
 import           Pos.Block.Types       (Blund, Undo (..))
 import           Pos.Constants         (genesisHash)
-import           Pos.Core              (HasDifficulty (difficultyL),
+import           Pos.Core              (BlockCount, HasDifficulty (difficultyL),
                                         HasPrevBlock (prevBlockL), HeaderHash, IsHeader,
                                         headerHash)
 import           Pos.Crypto            (hashHexF, shortHashF)
@@ -150,7 +150,7 @@ loadDataByDepth
        (Monad m, HasPrevBlock a, HasDifficulty a)
     => (HeaderHash -> m a)
     -> (a -> Bool)
-    -> Word
+    -> BlockCount
     -> HeaderHash
     -> m (NewestFirst [] a)
 loadDataByDepth _ _ 0 _ = pure (NewestFirst [])
@@ -186,7 +186,7 @@ loadBlundsWhile predicate = loadDataWhile getBlundThrow (predicate . fst)
 -- | Load blunds which have depth less than given.
 loadBlundsByDepth
     :: (MonadBlockDB ssc m)
-    => Word -> HeaderHash -> m (NewestFirst [] (Blund ssc))
+    => BlockCount -> HeaderHash -> m (NewestFirst [] (Blund ssc))
 loadBlundsByDepth = loadDataByDepth getBlundThrow (const True)
 
 -- | Load blocks starting from block with header hash equal to given hash
@@ -208,14 +208,14 @@ loadHeadersWhile = loadDataWhile getHeaderThrow
 -- | Load headers which have depth less than given.
 loadHeadersByDepth
     :: (SscHelpersClass ssc, MonadDBRead m)
-    => Word -> HeaderHash -> m (NewestFirst [] (BlockHeader ssc))
+    => BlockCount -> HeaderHash -> m (NewestFirst [] (BlockHeader ssc))
 loadHeadersByDepth = loadDataByDepth getHeaderThrow (const True)
 
 -- | Load headers which have depth less than given and match some criterion.
 loadHeadersByDepthWhile
     :: (SscHelpersClass ssc, MonadDBRead m)
     => (BlockHeader ssc -> Bool)
-    -> Word
+    -> BlockCount
     -> HeaderHash
     -> m (NewestFirst [] (BlockHeader ssc))
 loadHeadersByDepthWhile = loadDataByDepth getHeaderThrow

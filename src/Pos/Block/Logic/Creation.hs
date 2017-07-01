@@ -39,10 +39,10 @@ import           Pos.Constants              (slotSecurityParam)
 import           Pos.Context                (BlkSemaphore, HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
-                                             EpochOrSlot (..), HeaderHash, SlotId (..),
-                                             SlotLeaders, crucialSlot, epochOrSlot,
-                                             flattenSlotId, getEpochOrSlot, getSlotIndex,
-                                             headerHash, mkLocalSlotIndex)
+                                             EpochOrSlot (..), HeaderHash, LocalSlotIndex,
+                                             SlotId (..), SlotLeaders, addLocalSlotIndex,
+                                             crucialSlot, epochOrSlot, flattenSlotId,
+                                             getEpochOrSlot, headerHash, siSlotL)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
@@ -182,14 +182,13 @@ canCreateBlock sId tipHeader
         Just "slot id is not greater than one from the tip block"
     | otherwise = Nothing
   where
+    headSlot :: EpochOrSlot
     headSlot = getEpochOrSlot tipHeader
-    addSafe si =
-        si
-        { siSlot =
-              either (const maxBound) identity $
-              mkLocalSlotIndex (getSlotIndex (siSlot si) + slotSecurityParam)
-        }
-    maxSlotId = addSafe $ epochOrSlot (`SlotId` minBound) identity headSlot
+    addSafe :: LocalSlotIndex -> LocalSlotIndex
+    addSafe = fromMaybe maxBound . addLocalSlotIndex slotSecurityParam
+    maxSlotId :: SlotId
+    maxSlotId = over siSlotL addSafe $
+                epochOrSlot (`SlotId` minBound) identity headSlot
 
 data RawPayload ssc = RawPayload
     { rpTxp    :: ![TxAux]

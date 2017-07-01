@@ -60,6 +60,14 @@ instance Bi T.EpochOrSlot where
     sizeNPut = labelS "EpochOrSlot" $ putField T.unEpochOrSlot
     get = label "EpochOrSlot" $ T.EpochOrSlot <$> get
 
+instance Bi T.SlotCount where
+    sizeNPut = labelS "SlotCount" $ putField (UnsignedVarInt . T.getSlotCount)
+    get = label "SlotCount" $ T.SlotCount . getUnsignedVarInt <$> get
+
+instance Bi T.BlockCount where
+    sizeNPut = labelS "BlockCount" $ putField (UnsignedVarInt . T.getBlockCount)
+    get = label "BlockCount" $ T.BlockCount . getUnsignedVarInt <$> get
+
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
 
@@ -68,10 +76,10 @@ deriveSimpleBi ''T.SharedSeed [
         Field [| T.getSharedSeed :: ByteString |]
     ]]
 
-instance Bi T.ChainDifficulty where
-    sizeNPut = labelS "ChainDifficulty" $ putField (UnsignedVarInt . T.getChainDifficulty)
-    get = label "ChainDifficulty" $
-          T.ChainDifficulty . getUnsignedVarInt <$> get
+deriveSimpleBi ''T.ChainDifficulty [
+    Cons 'T.ChainDifficulty [
+        Field [| T.getChainDifficulty :: T.BlockCount |]
+    ]]
 
 deriveSimpleBi ''T.BlockVersionData [
     Cons 'T.BlockVersionData [

@@ -4,6 +4,9 @@
 module Pos.Core.Constants.Typed
        (
          staticSysStart
+       , blkSecurityParam
+       , slotSecurityParam
+       , epochSlots
 
        -- * Genesis constants
        , genesisBlockVersionData
@@ -31,9 +34,9 @@ import           Pos.Core.Constants.Raw     (CoreConstants (..), coreConstants,
                                              staticSysStartRaw)
 import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Fee.Config        (ConfigOf (..))
-import           Pos.Core.Types             (BlockVersionData (..), CoinPortion,
-                                             ScriptVersion, Timestamp (..),
-                                             unsafeCoinPortionFromDouble)
+import           Pos.Core.Types             (BlockCount, BlockVersionData (..),
+                                             CoinPortion, ScriptVersion, SlotCount,
+                                             Timestamp (..), unsafeCoinPortionFromDouble)
 
 ----------------------------------------------------------------------------
 -- Constants taken from the config
@@ -42,6 +45,20 @@ import           Pos.Core.Types             (BlockVersionData (..), CoinPortion,
 -- | System start time embedded into binary.
 staticSysStart :: Timestamp
 staticSysStart = Timestamp staticSysStartRaw
+
+-- | Security parameter which is maximum number of blocks which can be
+-- rolled back.
+blkSecurityParam :: BlockCount
+blkSecurityParam = fromIntegral $ ccK coreConstants
+
+-- | Security parameter expressed in number of slots. It uses chain
+-- quality property. It's basically @blkSecurityParam / chain_quality@.
+slotSecurityParam :: SlotCount
+slotSecurityParam = fromIntegral $ 2 * ccK coreConstants
+
+-- | Number of slots inside one epoch.
+epochSlots :: SlotCount
+epochSlots = fromIntegral $ 10 * ccK coreConstants
 
 ----------------------------------------------------------------------------
 -- Genesis

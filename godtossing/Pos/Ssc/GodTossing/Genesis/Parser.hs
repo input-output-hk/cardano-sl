@@ -8,13 +8,14 @@ import           Data.FileEmbed                   (embedFile, makeRelativeToProj
 
 import           Pos.Binary.Class                 (decodeFull)
 import           Pos.Binary.GodTossing.Types      ()
+import           Pos.Core.Constants               (genesisBinSuffix)
 import           Pos.Ssc.GodTossing.Genesis.Types (GenesisGtData (..))
 
 -- | Fetch pre-generated genesis data from /genesis-godtossing.bin/ in
 -- compile time
 compileGenGtData :: GenesisGtData
 compileGenGtData =
-    let file = $(embedFile =<< makeRelativeToProject "genesis-godtossing.bin")
+    let file = $(embedFile =<< makeRelativeToProject ("genesis-godtossing-" <> genesisBinSuffix <> ".bin"))
     in case decodeFull file of
          Left a  -> error $ toText a
          Right d -> if null (ggdVssCertificates d)

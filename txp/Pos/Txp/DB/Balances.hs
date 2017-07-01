@@ -38,8 +38,8 @@ import           Pos.Core                     (Coin, StakeholderId, coinF, mkCoi
                                                unsafeIntegerToCoin)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
-                                               MonadDB, MonadDBRead, MonadGState (..),
-                                               RocksBatchOp (..), dbIterSource)
+                                               MonadDB, MonadDBRead, RocksBatchOp (..),
+                                               dbIterSource)
 import           Pos.DB.GState.Balances       (BalanceIter, ftsStakeKey, ftsSumKey,
                                                getRealTotalStake)
 import           Pos.DB.GState.Common         (gsPutBi)
@@ -92,8 +92,7 @@ initGStateBalances genesisUtxo = do
 
 -- | Run iterator over effective balances.
 balanceSource ::
-       forall m.
-       (MonadDBRead m, MonadGState m)
+       forall m. (MonadDBRead m)
     => Source (ResourceT m) (IterType BalanceIter)
 balanceSource = dbIterSource GStateDB (Proxy @BalanceIter)
 

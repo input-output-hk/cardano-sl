@@ -19,7 +19,7 @@ import           System.Wlog               (CanLog, HasLoggerName (..), LogEvent
 import           Pos.Binary.Class          (Bi)
 import           Pos.Core                  (SoftwareVersion (..))
 import           Pos.Crypto                (hash)
-import           Pos.Update.Core           (UpdateProposal (..))
+import           Pos.Update.Core           (UpdateProposal (..), applyBVM)
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
 import qualified Pos.Update.Poll.PollState as Poll
 import           Pos.Update.Poll.Types     (BlockVersionState (..),
@@ -98,7 +98,9 @@ instance Bi UpdateProposal => MonadPoll PurePoll where
             Nothing ->
                 logWarning $
                     "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
-            Just (bvsData -> bvd) -> PurePoll $ Poll.psAdoptedBV .= (bv, bvd)
+            Just (bvsModifier -> bvm) -> PurePoll $ do
+                Poll.psAdoptedBV . _1 .= bv
+                Poll.psAdoptedBV . _2 %= applyBVM bvm
     setLastConfirmedSV SoftwareVersion {..} =
         PurePoll $ Poll.psConfirmedANs . at svAppName .= Just svNumber
     delConfirmedSV an = PurePoll $ Poll.psConfirmedANs . at an .= Nothing

@@ -26,6 +26,7 @@ module Pos.Core.Constants.Raw
        , genesisKeysN
        , memPoolLimitRatio
 
+       , genesisBinSuffix
        ) where
 
 import           Universum
@@ -99,7 +100,7 @@ data CoreConstants = CoreConstants
       -- blocks with some block version is bigger than this portion, this
       -- block version is adopted.
     , ccGenesisUpdateSoftforkThd     :: !Double
-    , ccGenesisTxFeePolicy           :: !(Maybe (ConfigOf TxFeePolicy))
+    , ccGenesisTxFeePolicy           :: !(ConfigOf TxFeePolicy)
       -- | Maximum block size in bytes
     , ccGenesisMaxBlockSize          :: !Byte
       -- | Maximum block header size in bytes
@@ -110,8 +111,14 @@ data CoreConstants = CoreConstants
     , ccGenesisHeavyDelThd           :: !Double
       -- | Eligibility threshold for MPC
     , ccGenesisMpcThd                :: !Double
+      -- | Suffix for genesis.bin files
+    , ccGenesisBinSuffix             :: ![Char]
     }
     deriving (Show, Generic)
+
+-- | Suffix for genesis.bin files
+genesisBinSuffix :: [Char]
+genesisBinSuffix = ccGenesisBinSuffix coreConstants
 
 coreConstants :: CoreConstants
 coreConstants =

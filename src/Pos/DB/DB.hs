@@ -25,7 +25,7 @@ module Pos.DB.DB
 import           Universum
 
 import           Control.Monad.Catch        (MonadMask)
-import qualified Ether
+import           Ether.Internal             (HasLens (..))
 import           System.Directory           (createDirectoryIfMissing, doesDirectoryExist,
                                              removeDirectoryRecursive)
 import           System.FilePath            ((</>))
@@ -86,8 +86,9 @@ openNodeDBs recreate fp = do
 
 -- | Initialize DBs if necessary.
 initNodeDBs
-    :: forall ssc m.
-       ( Ether.MonadReader' GenesisUtxo m
+    :: forall ssc ctx m.
+       ( MonadReader ctx m
+       , HasLens GenesisUtxo ctx GenesisUtxo
        , MonadBlockDBWrite ssc m
        , MonadDB m
        )

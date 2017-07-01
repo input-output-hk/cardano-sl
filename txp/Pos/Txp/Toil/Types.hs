@@ -142,5 +142,5 @@ makeLenses ''GenericToilModifier
 data ToilEnv = ToilEnv
     { teMaxTxSize    :: !Byte
     , teMaxBlockSize :: !Byte
-    , teTxFeePolicy  :: !(Maybe TxFeePolicy)
+    , teTxFeePolicy  :: !TxFeePolicy
     }

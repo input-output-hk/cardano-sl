@@ -34,7 +34,7 @@ stack --nix --no-terminal install happy \
 #    --haddock-arguments="--optghc=-DCONFIG=wallet"
 if [[ "$with_haddock" == "true" ]]; then
   find core/ -name '*.hs' -exec sed -i 's/defined(CONFIG)/1/g' {} +
-  find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"wallet"/g' {} +
+  find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"'$DCONFIG'"/g' {} +
 fi
 
 targets="cardano-sl cardano-sl-lwallet cardano-sl-tools"
@@ -43,7 +43,7 @@ for trgt in $targets; do
 
     stack --nix --no-terminal --local-bin-path daedalus/ install "$trgt" \
       $EXTRA_STACK --fast --jobs=2 \
-      --ghc-options="-j -DCONFIG=wallet +RTS -A128m -n2m -RTS" \
+      --ghc-options="-j -DCONFIG=$DCONFIG +RTS -A128m -n2m -RTS" \
       --flag cardano-sl-core:-asserts \
       --flag cardano-sl-core:-dev-mode
 

@@ -11,6 +11,7 @@ import           Universum               hiding (lift)
 
 import           Pos.Binary.Class        (decodeFull)
 import           Pos.Binary.Core.Genesis ()
+import           Pos.Core.Constants      (genesisBinSuffix)
 import           Pos.Core.Genesis.Types  (GenesisCoreData (..), GenesisCoreData0,
                                           toGenesisCoreData)
 
@@ -19,7 +20,7 @@ import           Pos.Core.Genesis.Types  (GenesisCoreData (..), GenesisCoreData0
 -- instance to 'GenesisCoreData'
 compileGenCoreData :: GenesisCoreData
 compileGenCoreData =
-    let file = $(embedFile =<< makeRelativeToProject "genesis-core.bin")
+    let file = $(embedFile =<< makeRelativeToProject ("genesis-core-" <> genesisBinSuffix <> ".bin"))
     -- ala safecopy!
     in case decodeFull file of
         Left _                        ->

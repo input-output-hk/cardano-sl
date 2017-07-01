@@ -20,6 +20,7 @@ cache:
 before_install:
 - echo $TRAVIS_OS_NAME
 - export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
+- export DCONFIG=qanet_tns_wallet
 - mkdir -p ~/.local/bin s3
 - export PATH=$HOME/.local/bin:$PATH
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true

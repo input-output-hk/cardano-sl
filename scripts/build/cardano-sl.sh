@@ -32,9 +32,15 @@ set -o pipefail
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Mode                             Options
 #   :
-#   dev mode                         <nothing>
-#   prod mode with wallet            --prod
-#   prod mode without wallet         --prod --no-wallet
+#   dev mode                            <nothing>
+#   Testnet staging mode with wallet    --tns
+#   Testnet staging mode without wallet --tns --no-wallet
+#   Testnet mode with wallet            --tn
+#   Testnet mode without wallet         --tn --no-wallet
+#   Qanet mode with wallet              --qa
+#   Qanet mode with wallet              --qa
+#   US testing mode without wallet      --qa-upd --no-wallet
+#   US testing mode without wallet      --qa-upd --no-wallet
 
 # CUSTOMIZATIONS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -57,7 +63,7 @@ spec_prj=''
 
 no_nix=false
 ram=false
-prod=false
+prodMode=
 wallet=true
 explorer=false
 no_code=false
@@ -73,6 +79,8 @@ fi
 if [ -e .Werror ]; then
   werror=true
 fi
+
+prodModesCounter=0
 
 for var in "$@"
 do
@@ -94,9 +102,22 @@ do
   # -Werror = compile with -Werror
   elif [[ $var == "-Werror" ]]; then
     werror=true
-  # --prod = build in production mode
+  # Production modes
+  elif [[ $var == "--tns" ]]; then
+    prodMode="testnet_staging"
+    prodModesCounter=$((prodModesCounter+1))
+  elif [[ $var == "--tn" ]]; then
+    prodMode="testnet"
+    prodModesCounter=$((prodModesCounter+1))
+  elif [[ $var == "--qa" ]]; then
+    prodMode="qanet_tns"
+    prodModesCounter=$((prodModesCounter+1))
+  elif [[ $var == "--qa-upd" ]]; then
+    prodMode="qanet_upd"
+    prodModesCounter=$((prodModesCounter+1))
   elif [[ $var == "--prod" ]]; then
-    prod=true
+    echo "--prod flag is outdated, use one of --qa, --tn, --tns, --qa-upd" >&2
+    exit 12
   # --no-wallet = don't build in wallet mode
   elif [[ $var == "--no-wallet" ]]; then
     wallet=false
@@ -129,6 +150,11 @@ do
   fi
 done
 
+if [[ $prodModesCounter -gt 1 ]]; then
+  echo "More than one of --tns --tn --qa specified" >&2
+  exit 23
+fi
+
 commonargs='--test --no-haddock-deps --bench --jobs=4'
 norun='--no-run-tests --no-run-benchmarks'
 
@@ -136,7 +162,7 @@ if [[ $no_nix == true ]]; then
   commonargs="$commonargs --no-nix"
 fi
 
-if [[ $prod == true ]]; then
+if [[ "$prodMode" != "" ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-dev-mode"
   export CSL_SYSTEM_TAG=linux64
 fi
@@ -154,13 +180,14 @@ if [[ $wallet == false ]]; then
 fi
 
 # CONFIG = dev, prod, or wallet
-if [[ $prod == false ]]; then
-  ghc_opts="-DCONFIG=dev"
-elif [[ $prod == true && $wallet == false ]]; then
-  ghc_opts="-DCONFIG=prod"
-elif [[ $prod == true && $wallet == true ]]; then
-  ghc_opts="-DCONFIG=wallet"
+dconfig=dev
+if [[ "$prodMode" != "" ]]; then
+  dconfig=$prodMode
+  if [[ $wallet == true ]]; then
+    dconfig="${dconfig}_wallet"
+  fi
 fi
+ghc_opts="-DCONFIG=$dconfig"
 
 if [[ $no_fast == true ]];
   then fast=""

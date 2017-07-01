@@ -51,7 +51,7 @@ import           Pos.Statistics                  (EkgParams (..), StatsdParams (
 import           Pos.Util.JsonLog                (JsonLogConfig (..),
                                                   jsonLogConfigFromHandle)
 import           Pos.WorkMode                    (RealMode, RealModeContext (..),
-                                                  WorkMode, unRealMode)
+                                                  WorkMode)
 
 ----------------------------------------------------------------------------
 -- High level runners
@@ -68,8 +68,8 @@ runRealMode = runRealBasedMode identity identity
 
 -- | Run activity in something convertible to 'RealMode' and back.
 runRealBasedMode
-    :: forall ssc m a.
-       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m a.
+       (SscConstraint ssc, SecurityWorkersClass ssc, WorkMode ssc ctx m)
     => (forall b. m b -> RealMode ssc b)
     -> (forall b. RealMode ssc b -> m b)
     -> NodeResources ssc m
@@ -143,7 +143,7 @@ runRealModeDo NodeResources {..} listeners outSpecs action =
         DCKademlia kademlia -> foreverRejoinNetwork kademlia
 
     runToProd :: forall t . JsonLogConfig -> RealMode ssc t -> Production t
-    runToProd jlConf act = Mtl.runReaderT (unRealMode act) $
+    runToProd jlConf act = Mtl.runReaderT act $
         RealModeContext
             nrDBs
             nrSscState

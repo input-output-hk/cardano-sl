@@ -60,7 +60,7 @@ import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..
                                               NetworkParams (..), NodeParams (..))
 import           Pos.Lrc.Context             (LrcContext (..), mkLrcSyncData)
 import           Pos.Shutdown.Types          (ShutdownContext (..))
-import           Pos.Slotting                (SlottingContextSum (..), SlottingVar,
+import           Pos.Slotting                (SlottingContextSum (..), SlottingData,
                                               mkNtpSlottingVar)
 import           Pos.Ssc.Class               (SscConstraint, SscParams,
                                               sscCreateNodeContext)
@@ -209,7 +209,7 @@ allocateNodeContext
       (SscConstraint ssc, SecurityWorkersClass ssc)
     => NodeParams
     -> SscParams ssc
-    -> (SlottingVar -> SlottingContextSum -> InitMode ssc ())
+    -> ((Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ())
     -> InitMode ssc (NodeContext ssc)
 allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
@@ -220,7 +220,7 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
             Left peers -> pure (DCStatic peers)
             Right kadParams ->
                 DCKademlia <$> createKademliaInstance npBaseParams kadParams
-    ncSlottingVar <- mkSlottingVar npSystemStart
+    ncSlottingVar <- (npSystemStart,) <$> mkSlottingVar
     ncSlottingContext <-
         case npUseNTP of
             True  -> SCNtp <$> mkNtpSlottingVar
@@ -265,10 +265,8 @@ releaseNodeContext NodeContext {..} =
 
 -- Create new 'SlottingVar' using data from DB. Probably it would be
 -- good to have it in 'infra', but it's complicated.
-mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
-mkSlottingVar sysStart = do
-    sd <- GState.getSlottingData
-    (sysStart, ) <$> newTVarIO sd
+mkSlottingVar :: (MonadIO m, MonadDBRead m) => m (TVar SlottingData)
+mkSlottingVar = newTVarIO =<< GState.getSlottingData
 
 ----------------------------------------------------------------------------
 -- Kademlia

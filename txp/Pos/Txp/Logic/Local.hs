@@ -6,6 +6,7 @@ module Pos.Txp.Logic.Local
        , txNormalize
        ) where
 
+import           Control.Lens                (views)
 import           Control.Monad.Except        (MonadError (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default                (Default (def))
@@ -13,6 +14,7 @@ import qualified Data.HashSet                as HS
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as M (fromList)
 import qualified Ether
+import           Ether.Internal              (HasLens (..))
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
 import           Universum
@@ -29,33 +31,33 @@ import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, get
                                               setTxpLocalData)
 import           Pos.Txp.Toil                (GenericToilModifier (..), GenesisUtxo (..),
                                               MonadUtxoRead (..), ToilEnv,
-                                              ToilVerFailure (..), Utxo, execToilTLocal,
-                                              getToilEnv, normalizeToil, processTx,
-                                              runDBToil, runToilTLocal, runUtxoReaderT,
+                                              ToilVerFailure (..), Utxo, evalUtxoStateT,
+                                              execToilTLocal, getToilEnv, normalizeToil,
+                                              processTx, runDBToil, runToilTLocal,
                                               utxoGet, utxoToStakes)
 import           Pos.Util.Util               (getKeys)
 
-type TxpLocalWorkMode m =
+type TxpLocalWorkMode ctx m =
     ( MonadIO m
     , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
-    , MonadTxpMem () m
+    , MonadTxpMem () ctx m
     , WithLogger m
-    , Ether.MonadReader' GenesisUtxo m
+    , HasLens GenesisUtxo ctx GenesisUtxo
     , MonadError ToilVerFailure m
     )
 
 -- CHECK: @processTx
 -- #processTxDo
 txProcessTransaction
-    :: TxpLocalWorkMode m
+    :: TxpLocalWorkMode ctx m
     => (TxId, TxAux) -> m ()
 txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
     bootEra <- gsIsBootstrapEra
-    bootHolders <- Ether.asks' $ getKeys . utxoToStakes . unGenesisUtxo
+    bootHolders <- views (lensOf @GenesisUtxo) $ getKeys . utxoToStakes . unGenesisUtxo
     localUM <- getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
@@ -111,7 +113,7 @@ txProcessTransaction itw@(txId, txAux) = do
              (Left $ ToilBootDifferentStake $ unsafeHead bootRel, txld)
            | otherwise ->
              let res = (runExceptT $
-                        flip runUtxoReaderT resolved $
+                        flip evalUtxoStateT resolved $
                         execToilTLocal uv mp undo $
                         processTx tx) toilEnv
              in case res of
@@ -127,7 +129,7 @@ txNormalize ::
        , MonadBaseControl IO m
        , MonadDBRead m
        , MonadGState m
-       , MonadTxpMem () m
+       , MonadTxpMem () ctx m
        )
     => m ()
 txNormalize = do

@@ -10,7 +10,7 @@ import           Universum
 
 import           Serokell.Util         (isVerSuccess)
 import           Test.Hspec            (Spec, describe, it)
-import           Test.Hspec.QuickCheck (prop)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Property, (===), (==>))
 
 import           Pos.Binary            (Bi)
@@ -40,7 +40,7 @@ spec = describe "Block properties" $ do
     describe "verifyHeader" $ do
         prop verifyHeaderDesc (validateGoodMainHeader @SscNistBeacon)
         prop verifyHeaderDesc (validateGoodMainHeader @SscGodTossing)
-    describe "verifyHeaders" $ do
+    describe "verifyHeaders" $ modifyMaxSuccess (const 1) $ do
         prop verifyHeadersDesc (validateGoodHeaderChain @SscNistBeacon)
         prop verifyHeadersDesc (validateGoodHeaderChain @SscGodTossing)
         emptyHeaderChain (NewestFirst [] ::

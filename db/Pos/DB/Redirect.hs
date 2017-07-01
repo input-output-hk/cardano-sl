@@ -32,30 +32,30 @@ import           Pos.DB.Types                 (DB (..))
 import           Pos.Util.Util                (maybeThrow)
 
 
-dbGetDefault :: MonadRealDB m => DBTag -> ByteString -> m (Maybe ByteString)
+dbGetDefault :: MonadRealDB ctx m => DBTag -> ByteString -> m (Maybe ByteString)
 dbGetDefault tag key = do
     db <- view (dbTagToLens tag) <$> getNodeDBs
     rocksGetBytes key db
 
-dbPutDefault :: MonadRealDB m => DBTag -> ByteString -> ByteString -> m ()
+dbPutDefault :: MonadRealDB ctx m => DBTag -> ByteString -> ByteString -> m ()
 dbPutDefault tag key val = do
     db <- view (dbTagToLens tag) <$> getNodeDBs
     rocksPutBytes key val db
 
-dbWriteBatchDefault :: MonadRealDB m => DBTag -> [Rocks.BatchOp] -> m ()
+dbWriteBatchDefault :: MonadRealDB ctx m => DBTag -> [Rocks.BatchOp] -> m ()
 dbWriteBatchDefault tag batch = do
     db <- view (dbTagToLens tag) <$> getNodeDBs
     rocksWriteBatch batch db
 
-dbDeleteDefault :: MonadRealDB m => DBTag -> ByteString -> m ()
+dbDeleteDefault :: MonadRealDB ctx m => DBTag -> ByteString -> m ()
 dbDeleteDefault tag key = do
     db <- view (dbTagToLens tag) <$> getNodeDBs
     rocksDelete key db
 
 -- | Conduit source built from rocks iterator.
 dbIterSourceDefault ::
-       forall m i.
-       ( MonadRealDB m
+       forall ctx m i.
+       ( MonadRealDB ctx m
        , MonadResource m
        , DBIteratorClass i
        , Bi (IterKey i)

@@ -34,13 +34,14 @@ import qualified Data.Cache.LRU              as LRU
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import           Data.Time.Clock             (getCurrentTime)
-import qualified Ether
+import           Ether.Internal              (HasLens (..))
 
 import           Pos.Binary.Class            (biSize)
 import           Pos.Binary.Communication    ()
 import           Pos.Constants               (memPoolLimitRatio)
-import           Pos.Context                 (NodeParams (..), lrcActionOnEpochReason)
-import           Pos.Core                    (addressHash, bvdMaxBlockSize, epochIndexL)
+import           Pos.Context                 (lrcActionOnEpochReason)
+import           Pos.Core                    (HasPrimaryKey (..), addressHash,
+                                              bvdMaxBlockSize, epochIndexL)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               SignTag (SignProxySK), proxyVerify,
                                               toPublic, verifyPsk)
@@ -75,7 +76,7 @@ import qualified Pos.Util.Concurrent.RWVar   as RWV
 
 -- | Retrieves current mempool of heavyweight psks plus undo part.
 getDlgMempool
-    :: (MonadIO m, MonadDBRead m, MonadDelegation m, MonadMask m)
+    :: (MonadIO m, MonadDBRead m, MonadDelegation ctx m, MonadMask m)
     => m (DlgPayload, DlgUndo)
 getDlgMempool = do
     sks <- runDelegationStateAction $
@@ -87,7 +88,7 @@ getDlgMempool = do
 
 -- | Clears delegation mempool.
 clearDlgMemPool
-    :: (MonadIO m, MonadDelegation m, MonadMask m)
+    :: (MonadIO m, MonadDelegation ctx m, MonadMask m)
     => m ()
 clearDlgMemPool = runDelegationStateAction clearDlgMemPoolAction
 
@@ -141,14 +142,15 @@ data PskHeavyVerdict
 -- depending on issuer's stake, overrides if exists, checks
 -- validity and cachemsg state.
 processProxySKHeavy
-    :: forall ssc m.
+    :: forall ssc ctx m.
        ( MonadIO m
        , MonadMask m
        , MonadDBRead m
        , MonadBlockDB ssc m
        , MonadGState m
-       , MonadDelegation m
-       , Ether.MonadReader' LrcContext m
+       , MonadDelegation ctx m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk = do
@@ -226,16 +228,17 @@ data PskLightVerdict
 -- | Processes proxy secret key (understands do we need it,
 -- adds/caches on decision, returns this decision).
 processProxySKLight ::
-       ( MonadDelegation m
-       , Ether.MonadReader' NodeParams m
+       ( MonadDelegation ctx m
+       , MonadReader ctx m
+       , HasPrimaryKey ctx
        , MonadDB m
        , MonadMask m
-       , MonadRealDB m
+       , MonadRealDB ctx m
        )
     => ProxySKLight
     -> m PskLightVerdict
 processProxySKLight psk = do
-    sk <- Ether.asks' npSecretKey
+    sk <- view primaryKey
     curTime <- liftIO getCurrentTime
     miscLock <- view DB.miscLock <$> DB.getNodeDBs
     psks <- RWL.withRead miscLock Misc.getProxySecretKeys
@@ -275,7 +278,7 @@ data ConfirmPskLightVerdict
 -- | Takes a lightweight psk, delegate proof of delivery. Checks if
 -- it's valid or not. Caches message in any case.
 processConfirmProxySk
-    :: (MonadDelegation m, MonadIO m, MonadMask m)
+    :: (MonadDelegation ctx m, MonadIO m, MonadMask m)
     => ProxySKLight -> ProxySigLight ProxySKLight -> m ConfirmPskLightVerdict
 processConfirmProxySk psk proof = do
     curTime <- liftIO getCurrentTime
@@ -289,7 +292,7 @@ processConfirmProxySk psk proof = do
 
 -- | Checks if we hold a confirmation for given PSK.
 isProxySKConfirmed
-    :: (MonadIO m, MonadMask m, MonadDelegation m)
+    :: (MonadIO m, MonadMask m, MonadDelegation ctx m)
     => ProxySKLight -> m Bool
 isProxySKConfirmed psk = do
     var <- askDelegationState

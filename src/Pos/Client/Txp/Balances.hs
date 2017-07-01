@@ -51,10 +51,10 @@ getBalanceFromUtxo addr =
     unsafeIntegerToCoin . sumCoins .
     map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
 
-type BalancesEnv ext m =
-    (MonadRealDB m, MonadDBRead m, MonadGState m, MonadMask m, WithLogger m, MonadTxpMem ext m)
+type BalancesEnv ext ctx m =
+    (MonadRealDB ctx m, MonadDBRead m, MonadGState m, MonadMask m, WithLogger m, MonadTxpMem ext ctx m)
 
-getOwnUtxosDefault :: BalancesEnv ext m => [Address] -> m Utxo
+getOwnUtxosDefault :: BalancesEnv ext ctx m => [Address] -> m Utxo
 getOwnUtxosDefault addr = do
     utxo <- GS.getFilteredUtxo addr
     updates <- getUtxoModifier
@@ -65,7 +65,7 @@ getOwnUtxosDefault addr = do
         utxo'    = foldr M.delete utxo toDel
     return $ HM.foldrWithKey M.insert utxo' toAdd
 
-getBalanceDefault :: (BalancesEnv ext m, MonadBalances m) => Address -> m Coin
+getBalanceDefault :: (BalancesEnv ext ctx m, MonadBalances m) => Address -> m Coin
 getBalanceDefault PubKeyAddress{..} = do
     (txs, undos) <- getLocalTxsNUndo
     let wHash (i, TxAux tx _ _) = WithHash tx i

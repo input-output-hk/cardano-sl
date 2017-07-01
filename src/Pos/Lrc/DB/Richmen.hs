@@ -26,7 +26,7 @@ module Pos.Lrc.DB.Richmen
 import           Universum
 
 import qualified Data.HashMap.Strict         as HM
-import qualified Ether
+import           Ether.Internal              (HasLens (..))
 
 import           Pos.Binary.Core             ()
 import           Pos.Constants               (genesisHeavyDelThd)
@@ -49,7 +49,7 @@ import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
 ----------------------------------------------------------------------------
 
 prepareLrcRichmen
-    :: (Ether.MonadReader' GenesisUtxo m, MonadDB m)
+    :: (MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, MonadDB m)
     => m ()
 prepareLrcRichmen = do
     genesisDistribution <- HM.toList <$> genesisStakesM

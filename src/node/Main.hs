@@ -11,8 +11,9 @@ module Main
 
 import           Universum
 
+import           Control.Lens        (views)
 import           Data.Maybe          (fromJust)
-import qualified Ether
+import           Ether.Internal      (HasLens (..))
 import           Formatting          (sformat, shown, (%))
 import           Mockable            (Production, currentTime, runProduction)
 import           System.Wlog         (logError, logInfo)
@@ -21,7 +22,7 @@ import           Pos.Binary          ()
 import qualified Pos.CLI             as CLI
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Constants       (isDevelopment)
-import           Pos.Context         (MonadNodeContext)
+import           Pos.Context         (HasNodeContext)
 import           Pos.Core.Types      (Timestamp (..))
 import           Pos.Launcher        (NodeParams (..), NodeResources (..),
                                       bracketNodeResources, hoistNodeResources, runNode,
@@ -32,7 +33,7 @@ import           Pos.Ssc.Class       (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 import           Pos.Ssc.SscAlgo     (SscAlgo (..))
-import           Pos.Update.Context  (ucUpdateSemaphore)
+import           Pos.Update.Context  (UpdateContext, ucUpdateSemaphore)
 import           Pos.Util            (inAssertMode)
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Util.Util       (powerLift)
@@ -68,7 +69,7 @@ updateTriggerWorker
     => ([WorkerSpec (RealMode ssc)], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
-    void $ takeMVar =<< Ether.asks' ucUpdateSemaphore
+    void $ takeMVar =<< views (lensOf @UpdateContext) ucUpdateSemaphore
     triggerShutdown
 
 ----------------------------------------------------------------------------
@@ -108,8 +109,8 @@ actionWithWallet = error "actionWithWallet"
 
 #ifdef WITH_WEB
 pluginsGT ::
-    ( WorkMode SscGodTossing m
-    , MonadNodeContext SscGodTossing m
+    ( WorkMode SscGodTossing ctx m
+    , HasNodeContext SscGodTossing ctx
     ) => Args -> [m ()]
 pluginsGT Args {..}
     | enableWeb = [serveWebGT webPort]

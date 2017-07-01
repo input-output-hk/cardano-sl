@@ -26,9 +26,9 @@ import           Pos.Util.Util                   ()
 import           Pos.Wallet.KeyStorage           (keyDataFromFile)
 import           Pos.Wallet.Light.Launcher.Param (WalletParams (..))
 import           Pos.Wallet.Light.Mode           (LightWalletContext (..),
-                                                  LightWalletMode, unLightWalletMode)
+                                                  LightWalletMode)
 import           Pos.Wallet.Light.State          (closeState, openMemState, openState)
-import           Pos.Wallet.WalletMode           (WalletMode)
+import           Pos.Wallet.WalletMode           (MonadWallet)
 
 -- TODO: Move to some `Pos.Wallet.Worker` and provide
 -- meaningful ones
@@ -56,7 +56,7 @@ runWalletStaticPeers transport peers wp =
     runLightWalletMode transport peers wp . runWallet
 
 runWallet
-    :: WalletMode m
+    :: MonadWallet ssc ctx m
     => ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
@@ -93,7 +93,6 @@ runRawStaticPeersWallet transport peers WalletParams {..}
                 JsonLogDisabled
                 lpRunnerTag
             ) .
-            unLightWalletMode .
             runServer_ transport listeners outs . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa
   where

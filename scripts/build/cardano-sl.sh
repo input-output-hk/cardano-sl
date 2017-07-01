@@ -99,6 +99,9 @@ do
   elif [[ $var == "--qa" ]]; then
     qa=true
     prodModesCounter=$((prodModesCounter+1))
+  elif [[ $var == "--prod" ]]; then
+    echo "--prod flag is outdated, use one of --qa, --tn, --tns" >&2
+    exit 12
   # --no-wallet = don't build in wallet mode
   elif [[ $var == "--no-wallet" ]]; then
     wallet=false

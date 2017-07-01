@@ -1,3 +1,6 @@
+-- | The main goal of this module is to encapsulate recovery mechanism
+-- and provide helpers related to it.
+
 module Pos.Recovery.Info
        ( MonadRecoveryInfo(..)
        , recoveryCommGuard
@@ -5,17 +8,15 @@ module Pos.Recovery.Info
 
 import           Universum
 
-import           Pos.Communication.Types.Protocol (ActionSpec (..), OutSpecs, WorkerSpec)
-
 class Monad m => MonadRecoveryInfo m where
     -- | Returns if 'RecoveryHeader' is 'Just' (which is equivalent to “we're
     -- doing recovery”).
     recoveryInProgress :: m Bool
 
--- | This function is a helper for workers. It doesn't run a worker if the
--- node is in recovery mode.
+-- | This is a helper function which runs given action only if we are
+-- not doing recovery at this moment.  It is useful for workers which
+-- shouldn't do anything while we are not synchronized.
 recoveryCommGuard
     :: MonadRecoveryInfo m
-    => (WorkerSpec m, OutSpecs) -> (WorkerSpec m, OutSpecs)
-recoveryCommGuard (ActionSpec worker, outs) =
-    (,outs) . ActionSpec $ \vI sA -> unlessM recoveryInProgress $ worker vI sA
+    => m () -> m ()
+recoveryCommGuard action = unlessM recoveryInProgress action

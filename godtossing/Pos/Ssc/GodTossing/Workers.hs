@@ -38,9 +38,8 @@ import           Pos.Communication.Relay               (DataMsg, ReqMsg,
 import           Pos.Communication.Specs               (createOutSpecs)
 import           Pos.Communication.Types.Relay         (InvOrData, InvOrDataTK)
 import           Pos.Core                              (EpochIndex, SlotId (..),
-                                                        StakeholderId, StakeholderId,
-                                                        Timestamp (..), addressHash,
-                                                        getOurSecretKey,
+                                                        StakeholderId, Timestamp (..),
+                                                        addressHash, getOurSecretKey,
                                                         getOurStakeholderId,
                                                         mkLocalSlotIndex)
 import           Pos.Core.Constants                    (slotSecurityParam)
@@ -99,22 +98,23 @@ instance GtMessageConstraints => SscWorkersClass SscGodTossing where
 onNewSlotSsc
     :: (GtMessageConstraints, SscMode SscGodTossing m)
     => (WorkerSpec m, OutSpecs)
-onNewSlotSsc = recoveryCommGuard $ onNewSlotWorker True outs $ \slotId sendActions -> do
-    richmen <- lrcActionOnEpochReason (siEpoch slotId)
-        "couldn't get SSC richmen"
-        getRichmenSsc
-    localOnNewSlot slotId
-    participationEnabled <- Ether.ask @SscContextTag >>=
-        atomically . readTVar . gtcParticipateSsc
-    ourId <- getOurStakeholderId
-    let enoughStake = ourId `HM.member` richmen
-    when (participationEnabled && not enoughStake) $
-        logDebug "Not enough stake to participate in MPC"
-    when (participationEnabled && enoughStake) $ do
-        checkNSendOurCert sendActions
-        onNewSlotCommitment slotId sendActions
-        onNewSlotOpening slotId sendActions
-        onNewSlotShares slotId sendActions
+onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
+    recoveryCommGuard $ do
+        richmen <- lrcActionOnEpochReason (siEpoch slotId)
+            "couldn't get SSC richmen"
+            getRichmenSsc
+        localOnNewSlot slotId
+        participationEnabled <- Ether.ask @SscContextTag >>=
+            atomically . readTVar . gtcParticipateSsc
+        ourId <- getOurStakeholderId
+        let enoughStake = ourId `HM.member` richmen
+        when (participationEnabled && not enoughStake) $
+            logDebug "Not enough stake to participate in MPC"
+        when (participationEnabled && enoughStake) $ do
+            checkNSendOurCert sendActions
+            onNewSlotCommitment slotId sendActions
+            onNewSlotOpening slotId sendActions
+            onNewSlotShares slotId sendActions
   where
     outs = mconcat
         [ createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCCommitment))

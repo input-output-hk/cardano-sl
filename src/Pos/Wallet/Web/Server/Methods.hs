@@ -307,7 +307,7 @@ servantHandlers sendActions =
     :<|>
      updateWallet
     :<|>
-     newWallet
+     restoreWallet
     :<|>
      renameWSet
     :<|>
@@ -420,19 +420,25 @@ getAccountAddrsOrThrow mode accId =
 
 getAccount :: WalletWebMode m => AccountId -> m CAccount
 getAccount accId = do
-    encSK <- getSKByAddr (aiWId accId)
-    addrs <- getAccountAddrsOrThrow Existing accId
-    modifier <- camAddresses <$> txMempoolToModifier encSK
-    let insertions = map fst (MM.insertions modifier)
-    let mergedAccAddrs = ordNub $ addrs ++ insertions
-    mergedAccs <- mapM getWAddress mergedAccAddrs
-    balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
-               mapM getWAddressBalance mergedAccAddrs
+    encSK      <- getSKByAddr (aiWId accId)
+    dbAddrs    <- getAccountAddrsOrThrow Existing accId
+    modifier   <- camAddresses <$> txMempoolToModifier encSK
+    let allAddrIds = gatherAddresses modifier dbAddrs
+    allAddrs <- mapM getWAddress allAddrIds
+    balance  <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
+                mapM getWAddressBalance allAddrIds
     meta <- getAccountMeta accId >>= maybeThrow noWallet
-    pure $ CAccount (encodeCType accId) meta mergedAccs balance
+    pure $ CAccount (encodeCType accId) meta allAddrs balance
   where
     noWallet =
         RequestError $ sformat ("No account with address "%build%" found") accId
+    addUnique as bs = do  -- @bs@ is expected to be much smaller than @as@
+        let bSet = S.fromList bs
+        filter (`S.notMember` bSet) as <> bs
+    gatherAddresses modifier dbAddrs = do
+        let insertions = map fst (MM.insertions modifier)
+            relatedIns = filter ((== accId) . addrMetaToAccount) insertions
+        dbAddrs `addUnique` relatedIns
 
 getWallet :: WalletWebMode m => CId Wal -> m CWallet
 getWallet cAddr = do
@@ -842,25 +848,39 @@ createWalletSafe cid wsMeta = do
     createWallet cid wsMeta curTime
     getWallet cid
 
-newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
-newWallet passphrase CWalletInit {..} = do
+-- | Which index to use to create initial account and address on new wallet
+-- creation
+initialAccAddrIdxs :: Word32
+initialAccAddrIdxs = 0
+
+newWalletFromBackupPhrase
+    :: WalletWebMode m
+    => PassPhrase -> CWalletInit -> m (EncryptedSecretKey, CId Wal)
+newWalletFromBackupPhrase passphrase CWalletInit {..} = do
     let CWalletMeta {..} = cwInitMeta
 
     skey <- genSaveRootKey passphrase cwBackupPhrase
     let cAddr = encToCId skey
 
     CWallet{..} <- createWalletSafe cAddr cwInitMeta
-    foundAddrs <- selectAccountsFromUtxoLock @WalletSscType [skey]
+    -- can't return this result, since balances can change
 
-    -- If no addresses for given root key are found in utxo,
-    -- create an account with random seed
-    when (null foundAddrs) $ do
-        let accMeta = CAccountMeta { caName = "Initial account" }
-            accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-        () <$ newAccount RandomSeed passphrase accInit
+    let accMeta = CAccountMeta { caName = "Initial account" }
+        accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
+    () <$ newAccount (DeterminedSeed initialAccAddrIdxs) passphrase accInit
 
-    -- We get the wallet again to have proper balances returned
-    getWallet cAddr
+    return (skey, cAddr)
+
+newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
+newWallet passphrase cwInit = do
+    (_, wId) <- newWalletFromBackupPhrase passphrase cwInit
+    getWallet wId
+
+restoreWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
+restoreWallet passphrase cwInit = do
+    (sk, wId) <- newWalletFromBackupPhrase passphrase cwInit
+    syncWalletsWithGStateLock @WalletSscType [sk]
+    getWallet wId
 
 updateWallet :: WalletWebMode m => CId Wal -> CWalletMeta -> m CWallet
 updateWallet wId wMeta = do

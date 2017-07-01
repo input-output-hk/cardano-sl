@@ -283,7 +283,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses txs =
         let usedAddrs = map (cwamId . snd) ownOutputs
         let changeAddrs = evalChange allAddresses (map snd ownInputs) (map snd ownOutputs)
         pure $ CAccModifier
-            (deleteAndInsertVM (map snd ownInputs) (map snd ownOutputs) camAddresses)
+            (deleteAndInsertVM [] (map snd ownOutputs) camAddresses)
             (deleteAndInsertVM [] (zip usedAddrs  hhs) camUsed)
             (deleteAndInsertVM [] (zip changeAddrs hhs) camChange)
             (deleteAndInsertMM ownTxIns ownTxOuts camUtxo)
@@ -313,7 +313,7 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
         let usedAddrs = map cwamId ownOutputs
         let changeAddrs = evalChange allAddress (map snd ownInputs) ownOutputs
         CAccModifier
-            (deleteAndInsertVM ownOutputs (map snd ownInputs) camAddresses)
+            (deleteAndInsertVM ownOutputs [] camAddresses)
             (deleteAndInsertVM (zip usedAddrs hhs) [] camUsed)
             (deleteAndInsertVM (zip changeAddrs hhs) [] camChange)
             (deleteAndInsertMM ownTxOuts ownTxIns camUtxo)

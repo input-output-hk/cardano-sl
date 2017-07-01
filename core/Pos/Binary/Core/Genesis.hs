@@ -4,16 +4,15 @@ module Pos.Binary.Core.Genesis () where
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..), Peek,
-                                          PokeWithSize, UnsignedVarInt (..),
-                                          convertToSizeNPut, deriveSimpleBi, getWord8,
-                                          label, labelS, putField, putS, putWord8S)
+import           Pos.Binary.Class        (Bi (..), Peek, PokeWithSize,
+                                          UnsignedVarInt (..), convertToSizeNPut,
+                                          getWord8, label, labelS, putField, putS,
+                                          putWord8S)
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Core.Types   ()
 import           Pos.Core.Address        ()
-import           Pos.Core.Genesis.Types  (GenesisCoreData (..), GenesisCoreData0 (..),
-                                          StakeDistribution (..), mkGenesisCoreData)
-import           Pos.Core.Types          (Address, Coin, StakeholderId)
+import           Pos.Core.Genesis.Types  (GenesisCoreData (..), StakeDistribution (..),
+                                          mkGenesisCoreData)
 
 getUVI :: Peek Word
 getUVI = getUnsignedVarInt <$> get
@@ -51,11 +50,3 @@ instance Bi GenesisCoreData where
         labelS "GenesisCoreData" $
             putField gcdAddrDistribution <>
             putField gcdBootstrapStakeholders
-
--- compatibility
-deriveSimpleBi ''GenesisCoreData0 [
-    Cons 'GenesisCoreData0 [
-        Field [| _0gcdAddresses         :: [Address]                  |],
-        Field [| _0gcdDistribution      :: StakeDistribution          |],
-        Field [| _0gcdBootstrapBalances :: HashMap StakeholderId Coin |]
-    ]]

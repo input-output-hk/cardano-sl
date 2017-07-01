@@ -13,7 +13,6 @@ import           Data.Default                (Default (def))
 import qualified Data.HashSet                as HS
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as M (fromList)
-import qualified Ether
 import           Ether.Internal              (HasLens (..))
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)

@@ -41,7 +41,6 @@ import           Formatting                       (bprint, build, sformat, shown
 import qualified Formatting                       as F
 import           Network.Wai                      (Application)
 import           Paths_cardano_sl                 (version)
-import           Pos.DB.Class                     (gsAdoptedBVData)
 import           Pos.ReportServer.Report          (ReportType (RInfo))
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Serokell.Util                    (threadDelay)
@@ -83,7 +82,7 @@ import           Pos.Crypto                       (EncryptedSecretKey, PassPhras
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
-import           Pos.DB.Class                     (gsIsBootstrapEra)
+import           Pos.DB.Class                     (gsAdoptedBVData, gsIsBootstrapEra)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys,
                                                    genesisSplitBoot)

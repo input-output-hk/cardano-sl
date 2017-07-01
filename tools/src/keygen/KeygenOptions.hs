@@ -84,10 +84,11 @@ genesisGenParser = do
 
 testStakeParser :: Parser TestStakeOptions
 testStakeParser = do
-    tsoPattern <- fmap (fromMaybe "testnet{}.key") $ optional $ strOption $
+    tsoPattern <- strOption $
         long    "file-pattern" <>
         short   'f' <>
         metavar "PATTERN" <>
+        value   "testnet{}.key" <>
         help    "Filename pattern for generated keyfiles \
                 \(`{}` is a place for number). E.g. key{}.kek"
     tsoPoors <- option auto $
@@ -159,7 +160,6 @@ Command example:
 
   stack exec -- cardano-keygen                          \
     --genesis-dir genesis                               \
-    -f secrets/secret-{}.key                            \
     -m 5                                                \
     -n 1000                                             \
     --richmen-share 0.94                                \
@@ -167,7 +167,6 @@ Command example:
     --utxo-file /tmp/avvm-files/utxo-dump-last-new.json \
     --randcerts                                         \
     --blacklisted /tmp/avvm-files/full_blacklist.js     \
-    --fake-avvm-seed-pattern avvm/fake-{}.seed          \
     --fake-avvm-entries 100
 
 Subdirectory 'genesis-*/nodes' contains keys for uploading to nodes (in cluster).

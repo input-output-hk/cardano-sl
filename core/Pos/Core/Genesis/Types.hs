@@ -8,10 +8,6 @@ module Pos.Core.Genesis.Types
        , GenesisCoreData (..)
        , mkGenesisCoreData
        , concatGenesisCoreData
-
-       -- compatibility
-       , GenesisCoreData0 (..)
-       , toGenesisCoreData
        ) where
 
 import           Universum
@@ -93,20 +89,3 @@ concatGenesisCoreData
         let distrs = distA <> distB
             bootStakeholders = bsA <> bsB
         in mkGenesisCoreData distrs bootStakeholders
-
-----------------------------------------------------------------------------
--- Compatibility
-----------------------------------------------------------------------------
-
--- | Compatibility datatype for 'GenesisCoreData'
-data GenesisCoreData0 = GenesisCoreData0
-    { _0gcdAddresses         :: !([Address])
-    , _0gcdDistribution      :: !StakeDistribution
-    , _0gcdBootstrapBalances :: !(HashMap StakeholderId Coin)
-    }
-    deriving (Show, Eq)
-
-toGenesisCoreData :: GenesisCoreData0 -> GenesisCoreData
-toGenesisCoreData _ =
-    error $ "toGenesisCoreData: old format is no longer " <>
-            "supported. Kick @volhovm to delete this code"

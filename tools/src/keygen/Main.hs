@@ -4,6 +4,7 @@ module Main
        ( main
        ) where
 
+import           Control.Lens         ((?~))
 import           Data.Aeson           (eitherDecode)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict  as HM
@@ -14,7 +15,9 @@ import           Serokell.Util.Text   (listJson)
 import           System.Directory     (createDirectoryIfMissing)
 import           System.FilePath      (takeDirectory, (</>))
 import           System.FilePath.Glob (glob)
-import           System.Wlog          (WithLogger, logInfo, usingLoggerName)
+import           System.Wlog          (Severity (Debug), WithLogger, consoleOutB,
+                                       lcTermSeverity, logError, logInfo, setupLogging,
+                                       usingLoggerName)
 import           Universum
 
 import           Pos.Binary           (decodeFull, encode)
@@ -58,18 +61,22 @@ getTestnetData ::
     -> TestStakeOptions
     -> m (AddrDistribution, HashSet StakeholderId, GenesisGtData)
 getTestnetData dir tso@TestStakeOptions{..} = do
+
     let keysDir = dir </> "keys-testnet"
+    let richDir = keysDir </> "rich"
+    let poorDir = keysDir </> "poor"
     logInfo $ "Generating testnet data into " <> fromString keysDir
-    liftIO $ createDirectoryIfMissing True keysDir
+    liftIO $ createDirectoryIfMissing True richDir
+    liftIO $ createDirectoryIfMissing True poorDir
 
     let totalStakeholders = tsoRichmen + tsoPoors
 
     richmenList <- forM [1 .. tsoRichmen] $ \i ->
         generateKeyfile True Nothing $
-        keysDir </> (applyPattern tsoPattern i <> ".primary")
+        richDir </> (applyPattern tsoPattern i)
     poorsList <- forM [1 .. tsoPoors] $ \i ->
         generateKeyfile False Nothing $
-        keysDir </> applyPattern tsoPattern i
+        poorDir </> applyPattern tsoPattern i
 
     let genesisList = map (\(k, vc, _) -> (k, vc)) $ richmenList ++ poorsList
     let genesisListRich = take (fromIntegral tsoRichmen) genesisList
@@ -101,12 +108,13 @@ getFakeAvvmGenesis
     => FilePath -> FakeAvvmOptions -> m AddrDistribution
 getFakeAvvmGenesis dir FakeAvvmOptions{..} = do
     let keysDir = dir </> "keys-fakeavvm"
+    logInfo $ "Generating fake avvm data into " <> fromString keysDir
     liftIO $ createDirectoryIfMissing True keysDir
 
     fakeAvvmPubkeys <- forM [1 .. faoCount] $
         generateFakeAvvm . (\x -> keysDir </> ("fake-"<>show x<>".seed"))
 
-    putText $ show faoCount <> " fake avvm seeds are generated"
+    logInfo $ show faoCount <> " fake avvm seeds are generated"
 
     let gcdAddresses = map makeRedeemAddress fakeAvvmPubkeys
         gcdDistribution = CustomStakes $
@@ -117,16 +125,17 @@ getFakeAvvmGenesis dir FakeAvvmOptions{..} = do
 
 -- Reads avvm json file and returns related 'AddrDistribution'
 getAvvmGenesis
-    :: (MonadIO m, WithLogger m)
+    :: (MonadIO m, WithLogger m, MonadFail m)
     => AvvmStakeOptions -> m AddrDistribution
 getAvvmGenesis AvvmStakeOptions {..} = do
+    logInfo "Generating avvm data"
     jsonfile <- liftIO $ BSL.readFile asoJsonPath
     case eitherDecode jsonfile of
         Left err       -> error $ toText err
         Right avvmData -> do
-            avvmDataFiltered <- liftIO $ applyBlacklisted asoBlacklisted avvmData
+            avvmDataFiltered <- applyBlacklisted asoBlacklisted avvmData
             let totalAvvmStake = sum $ map aeCoin $ utxo avvmDataFiltered
-            putText $ "Total avvm stake after applying blacklist: " <> show totalAvvmStake
+            logInfo $ "Total avvm stake after applying blacklist: " <> show totalAvvmStake
             pure $ avvmAddrDistribution avvmDataFiltered
 
 ----------------------------------------------------------------------------
@@ -154,6 +163,7 @@ genGenesisFiles GenesisGenOptions{..} = do
         error "At least one of options (AVVM stake or testnet stake) \
               \should be provided"
 
+    logInfo "Generating requested raw data"
     mAvvmAddrDistr <- traverse getAvvmGenesis ggoAvvmStake
     mFakeAvvmAddrDistr <- traverse (getFakeAvvmGenesis ggoGenesisDir) ggoFakeAvvmStake
     mTestnetData <- traverse (getTestnetData ggoGenesisDir) ggoTestStake
@@ -196,27 +206,27 @@ genGenesisFiles GenesisGenOptions{..} = do
 
     -- write genesis-core.bin
     do let bin = encode genCoreData
-           name = "core" </> "genesis-core.bin"
+           name = "genesis-core.bin"
            path = ggoGenesisDir </> name
        liftIO $ createDirectoryIfMissing True (takeDirectory path)
        case decodeFull bin of
            Right (_ :: GenesisCoreData) -> do
                liftIO $ BSL.writeFile path $ BSL.fromStrict bin
-               putText (toText name <> " generated successfully")
+               logInfo (toText name <> " generated successfully")
            Left err ->
-               putText ("Generated GenesisCoreData can't be read: " <> toText err)
+               logError ("Generated GenesisCoreData can't be read: " <> toText err)
 
     -- write godtossing/genesis-godtossing.bin
     do let bin = encode genGtData
-           name = "godtossing" </> "genesis-godtossing.bin"
+           name = "genesis-godtossing.bin"
            path = ggoGenesisDir </> name
        liftIO $ createDirectoryIfMissing True (takeDirectory path)
        case decodeFull bin of
            Right (_ :: GenesisGtData) -> do
                liftIO $ BSL.writeFile path $ BSL.fromStrict bin
-               putText (toText name <> " generated successfully")
+               logInfo (toText name <> " generated successfully")
            Left err ->
-               putText ("Generated GenesisGtData can't be read: " <> toText err)
+               logError ("Generated GenesisGtData can't be read: " <> toText err)
 
 ----------------------------------------------------------------------------
 -- Main
@@ -225,7 +235,9 @@ genGenesisFiles GenesisGenOptions{..} = do
 main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
-    usingLoggerName "keygen" $
+    setupLogging $ consoleOutB True & lcTermSeverity ?~ Debug
+    usingLoggerName "keygen" $ do
+        logInfo "Processing command"
         if | Just msk <- koRearrangeMask  -> rearrange msk
            | Just pat <- koDumpDevGenKeys -> dumpKeys pat
            | Just ggo <- koGenesisGen     -> genGenesisFiles ggo

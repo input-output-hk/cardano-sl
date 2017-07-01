@@ -17,6 +17,7 @@ import qualified Data.HashSet         as HS
 import           Data.List            ((\\))
 import qualified Data.Text            as T
 import qualified Serokell.Util.Base64 as B64
+import           System.Wlog          (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Crypto           (RedeemPublicKey (..), redeemPkBuild)
@@ -92,14 +93,18 @@ avvmAddrDistribution (utxo -> avvmData) =
 
 -- | Applies blacklist to avvm utxo, produces warnings and stats about
 -- how much was deleted.
-applyBlacklisted :: Maybe FilePath -> AvvmData -> IO AvvmData
-applyBlacklisted Nothing r = r <$ putText "Blacklisting: file not specified, skipping"
+applyBlacklisted ::
+       (WithLogger m, MonadIO m, MonadFail m)
+    => Maybe FilePath
+    -> AvvmData
+    -> m AvvmData
+applyBlacklisted Nothing r = r <$ logInfo "Blacklisting: file not specified, skipping"
 applyBlacklisted (Just blacklistPath) AvvmData{..} = do
     addrTexts <- lines <$> readFile blacklistPath
     blacklisted <- mapM fromAvvmPk addrTexts
     let filteredBad = filter ((`elem` blacklisted) . aePublicKey) utxo
     let filtered = utxo \\ filteredBad
-    putText $
+    logInfo $
         "Removing " <> show (length filteredBad) <> " entries from utxo (out of " <>
         show (length blacklisted) <> " total entries in the blacklist)"
     pure $ AvvmData filtered

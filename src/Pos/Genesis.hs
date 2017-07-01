@@ -135,7 +135,7 @@ genesisUtxo bootStakeholders ad =
                 ( TxIn (unsafeHash a) 0
                 , TxOutAux (TxOut a coin) (defaultStakeDistr coin txOutDistr)
                 )
-        in map (uncurry utxoEntry) $ addr `zip` distrs
+        in zipWith utxoEntry addr distrs
 
 -- This is probably 100% useless.
 genesisDelegation :: HashMap StakeholderId (HashSet StakeholderId)

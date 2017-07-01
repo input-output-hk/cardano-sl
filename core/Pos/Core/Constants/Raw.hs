@@ -26,6 +26,7 @@ module Pos.Core.Constants.Raw
        , genesisKeysN
        , memPoolLimitRatio
 
+       , genesisBinSuffix
        ) where
 
 import           Universum
@@ -110,8 +111,14 @@ data CoreConstants = CoreConstants
     , ccGenesisHeavyDelThd           :: !Double
       -- | Eligibility threshold for MPC
     , ccGenesisMpcThd                :: !Double
+      -- | Suffix for genesis.bin files
+    , ccGenesisBinSuffix             :: ![Char]
     }
     deriving (Show, Generic)
+
+-- | Suffix for genesis.bin files
+genesisBinSuffix :: [Char]
+genesisBinSuffix = ccGenesisBinSuffix coreConstants
 
 coreConstants :: CoreConstants
 coreConstants =

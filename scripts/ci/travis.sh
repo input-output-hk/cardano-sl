@@ -43,7 +43,7 @@ for trgt in $targets; do
 
     stack --nix --no-terminal --local-bin-path daedalus/ install "$trgt" \
       $EXTRA_STACK --fast --jobs=2 \
-      --ghc-options="-j -DCONFIG=wallet +RTS -A128m -n2m -RTS" \
+      --ghc-options="-j -DCONFIG=$DCONFIG +RTS -A128m -n2m -RTS" \
       --flag cardano-sl-core:-asserts \
       --flag cardano-sl-core:-dev-mode
 

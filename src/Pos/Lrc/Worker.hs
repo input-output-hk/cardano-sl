@@ -31,10 +31,10 @@ import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlo
 import           Pos.Constants              (slotSecurityParam)
 import           Pos.Context                (BlkSemaphore, recoveryCommGuard)
 import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
-                                             EpochOrSlot (..), HeaderHash, HeaderHash,
-                                             SharedSeed, SlotId (..), StakeholderId,
-                                             crucialSlot, epochIndexL, getEpochOrSlot,
-                                             getEpochOrSlot, getSlotIndex)
+                                             EpochOrSlot (..), HeaderHash, SharedSeed,
+                                             SlotId (..), StakeholderId, crucialSlot,
+                                             epochIndexL, getEpochOrSlot, getEpochOrSlot,
+                                             getSlotIndex)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
@@ -60,9 +60,10 @@ lrcOnNewSlotWorker
     :: forall ssc m.
        (WorkMode ssc m, SscWorkersClass ssc)
     => (WorkerSpec m, OutSpecs)
-lrcOnNewSlotWorker = recoveryCommGuard $ localOnNewSlotWorker True $ \SlotId {..} ->
-    when (getSlotIndex siSlot < slotSecurityParam) $
-        lrcSingleShot @ssc siEpoch `catch` onLrcError
+lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
+    recoveryCommGuard $
+        when (getSlotIndex siSlot < slotSecurityParam) $
+            lrcSingleShot @ssc siEpoch `catch` onLrcError
   where
     -- Here we log it as a warning and report an error, even though it
     -- can happen there we don't know recent blocks. That's because if

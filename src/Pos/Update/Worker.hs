@@ -20,7 +20,8 @@ import           Pos.WorkMode.Class         (WorkMode)
 usWorkers :: WorkMode ssc m => ([WorkerSpec m], OutSpecs)
 usWorkers =
     first pure $
-    recoveryCommGuard $ localOnNewSlotWorker True $ \s ->
+    localOnNewSlotWorker True $ \s ->
+        recoveryCommGuard $
         processNewSlot s >> void (fork checkForUpdate)
 
 checkForUpdate :: WorkMode ssc m => m ()

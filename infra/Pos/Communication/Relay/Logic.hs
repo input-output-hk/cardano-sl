@@ -123,21 +123,18 @@ handleMempoolL
     -> [(ListenerSpec m, OutSpecs)]
 handleMempoolL NoMempool = []
 handleMempoolL (KeyMempool tagP handleMempool) = pure $ listenerConv $
-    \__ourVerInfo __nodeId conv ->
-        let handlingLoop = do
-                mbMsg <- recvLimited conv
-                whenJust mbMsg $ \msg@MempoolMsg -> do
-                    let _ = msg `asProxyTypeOf` mmP
-                    res <- handleMempool
-                    case nonEmpty res of
-                        Nothing ->
-                            logDebug $ sformat
-                                ("We don't have mempool data "%shown) (typeRep tagP)
-                        Just xs -> do
-                            logDebug $ sformat ("We have mempool data "%shown) (typeRep tagP)
-                            mapM_ (send conv . InvMsg) xs
-                    handlingLoop
-         in handlingLoop
+    \__ourVerInfo __nodeId conv -> do
+        mbMsg <- recvLimited conv
+        whenJust mbMsg $ \msg@MempoolMsg -> do
+            let _ = msg `asProxyTypeOf` mmP
+            res <- handleMempool
+            case nonEmpty res of
+                Nothing ->
+                    logDebug $ sformat
+                        ("We don't have mempool data "%shown) (typeRep tagP)
+                Just xs -> do
+                    logDebug $ sformat ("We have mempool data "%shown) (typeRep tagP)
+                    mapM_ (send conv . InvMsg) xs
   where
     mmP = (const Proxy :: Proxy tag -> Proxy (MempoolMsg tag)) tagP
 

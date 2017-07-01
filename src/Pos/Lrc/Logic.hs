@@ -16,7 +16,7 @@ import           Data.Conduit        (Sink, runConduitPure, runConduitRes, (.|))
 import qualified Data.Conduit.List   as CL
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
-import qualified Ether
+import           Ether.Internal      (HasLens (..))
 
 import           Pos.Core            (Coin, GenesisStakes, StakeholderId, sumCoins,
                                       unsafeIntegerToCoin)
@@ -26,14 +26,18 @@ import           Pos.DB.GState       (getDelegators, getEffectiveStake,
 import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
 import           Pos.Lrc.Types       (FullRichmenData, RichmenStake)
 
-type MonadDBReadFull m = (MonadDBRead m, Ether.MonadReader' GenesisStakes m)
+type MonadDBReadFull ctx m =
+    ( MonadDBRead m
+    , MonadReader ctx m
+    , HasLens GenesisStakes ctx GenesisStakes
+    )
 
 -- Can it be improved using conduits?
 -- | Find delegated richmen using precomputed usual richmen.
 -- Do it using one pass by delegation DB.
 findDelRichUsingPrecomp
-    :: forall m.
-       (MonadDBReadFull m)
+    :: forall ctx m.
+       (MonadDBReadFull ctx m)
     => RichmenStake -> Coin -> m RichmenStake
 findDelRichUsingPrecomp precomputed thr = do
     (old, new) <-
@@ -46,7 +50,7 @@ findDelRichUsingPrecomp precomputed thr = do
 
 -- | Find delegated richmen.
 findDelegatedRichmen
-    :: (MonadDBReadFull m)
+    :: (MonadDBReadFull ctx m)
     => Coin -> Sink (StakeholderId, Coin) m RichmenStake
 findDelegatedRichmen thr = do
     st <- findRichmenStake thr
@@ -55,8 +59,8 @@ findDelegatedRichmen thr = do
 -- | Function considers all variants of computation
 -- and compute using one pass by stake DB and one pass by delegation DB.
 findAllRichmenMaybe
-    :: forall m.
-       (MonadDBReadFull m)
+    :: forall ctx m.
+       (MonadDBReadFull ctx m)
     => Maybe Coin -- ^ Eligibility threshold (optional)
     -> Maybe Coin -- ^ Delegation threshold (optional)
     -> Sink (StakeholderId, Coin) m (RichmenStake, RichmenStake)

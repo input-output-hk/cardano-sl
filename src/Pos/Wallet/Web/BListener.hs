@@ -22,6 +22,7 @@ import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Core             (mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Core                   (HeaderHash, headerHash, prevBlockL)
+import           Pos.DB.BatchOp             (SomeBatchOp)
 import           Pos.DB.Class               (MonadDBRead)
 import           Pos.DB.Rocks               (MonadRealDB)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
@@ -40,18 +41,22 @@ import           Pos.Wallet.Web.Tracking    (CAccModifier (..), applyModifierToW
 
 -- Perform this action under block lock.
 onApplyTracking
-    :: forall ssc m .
+    :: forall ssc ctx m .
     ( SscHelpersClass ssc
-    , AccountMode m
+    , AccountMode ctx m
     , WithLogger m
-    , MonadRealDB m
+    , MonadRealDB ctx m
     , MonadDBRead m
     )
-    => OldestFirst NE (Blund ssc) -> m ()
+    => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = do
     let txs = concatMap (gbTxs . fst) $ getOldestFirst blunds
     let newTip = headerHash $ NE.last $ getOldestFirst blunds
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
+
+    -- It's silly, but when the wallet is migrated to RocksDB, we can write
+    -- something a bit more reasonable.
+    pure mempty
   where
     syncWalletSet :: HeaderHash -> [TxAux] -> CId Wal -> m ()
     syncWalletSet newTip txs wAddr = do
@@ -67,16 +72,20 @@ onApplyTracking blunds = do
 
 -- Perform this action under block lock.
 onRollbackTracking
-    :: forall ssc m .
+    :: forall ssc ctx m .
     ( SscHelpersClass ssc
-    , AccountMode m
+    , AccountMode ctx m
     , WithLogger m
     )
-    => NewestFirst NE (Blund ssc) -> m ()
+    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 onRollbackTracking blunds = do
     let txs = concatMap (reverse . blundTxUn) $ getNewestFirst blunds
     let newTip = (NE.last $ getNewestFirst blunds) ^. prevBlockL
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
+
+    -- It's silly, but when the wallet is migrated to RocksDB, we can write
+    -- something a bit more reasonable.
+    pure mempty
   where
     syncWalletSet :: HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
     syncWalletSet newTip txs wAddr = do

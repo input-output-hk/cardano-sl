@@ -1,6 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# OPTIONS -fno-warn-unused-top-binds #-} -- for lenses
 
 {- |
 
@@ -25,15 +26,16 @@ module Pos.Launcher.Mode
 
 import           Universum
 
+import           Control.Lens          (makeLensesWith)
 import qualified Control.Monad.Reader  as Mtl
+import           Ether.Internal        (HasLens (..))
 import           Mockable.Production   (Production)
 import           System.IO.Unsafe      (unsafeInterleaveIO)
-import           System.Wlog           (HasLoggerName (..))
 
 import           Pos.Block.Core        (Block, BlockHeader)
 import           Pos.Block.Types       (Undo)
 import           Pos.Context.Context   (GenesisStakes, GenesisUtxo)
-import           Pos.Core              (IsHeader)
+import           Pos.Core              (IsHeader, Timestamp)
 import           Pos.DB                (NodeDBs)
 import           Pos.DB.Block          (MonadBlockDBWrite (..), dbGetBlockDefault,
                                         dbGetBlockSscDefault, dbGetHeaderDefault,
@@ -44,19 +46,19 @@ import           Pos.DB.Class          (MonadBlockDBGeneric (..), MonadDB (..),
 import           Pos.DB.Rocks.Redirect (dbDeleteDefault, dbGetDefault,
                                         dbIterSourceDefault, dbPutDefault,
                                         dbWriteBatchDefault)
-import           Pos.ExecMode          ((:::), ExecMode (..), ExecModeM, modeContext)
 import           Pos.Lrc.Context       (LrcContext)
+import           Pos.Slotting          (HasSlottingVar (..), SlottingData)
 import           Pos.Slotting.Class    (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
                                         getCurrentSlotBlockingSum,
                                         getCurrentSlotInaccurateSum, getCurrentSlotSum)
-import           Pos.Slotting.MemState (MonadSlotsData (..), SlottingVar,
-                                        getSlottingDataDefault, getSystemStartDefault,
-                                        putSlottingDataDefault,
+import           Pos.Slotting.MemState (MonadSlotsData (..), getSlottingDataDefault,
+                                        getSystemStartDefault, putSlottingDataDefault,
                                         waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Util              (Some (..))
+import           Pos.Util.Util         (postfixLFields)
 
 -- | 'newInitFuture' creates a thunk and a procedure to fill it. This can be
 -- used to create a data structure and initialize it gradually while doing some
@@ -74,27 +76,42 @@ newInitFuture = do
     r <- liftIO $ unsafeInterleaveIO (readMVar v)
     pure (r, putMVar v)
 
-modeContext [d|
-    -- The fields are lazy on purpose: this allows using them with
-    -- futures.
-    data InitModeContext = InitModeContext
-        (NodeDBs            ::: NodeDBs)
-        (GenesisUtxo        ::: GenesisUtxo)
-        (GenesisStakes      ::: GenesisStakes)
-        (SlottingVar        ::: SlottingVar)
-        (SlottingContextSum ::: SlottingContextSum)
-        (LrcContext         ::: LrcContext)
-    |]
+-- The fields are lazy on purpose: this allows using them with
+-- futures.
+data InitModeContext ssc = InitModeContext
+    { imcNodeDBs            :: NodeDBs
+    , imcGenesisUtxo        :: GenesisUtxo
+    , imcGenesisStakes      :: GenesisStakes
+    , imcSlottingVar        :: (Timestamp, TVar SlottingData)
+    , imcSlottingContextSum :: SlottingContextSum
+    , imcLrcContext         :: LrcContext
+    }
 
-data INIT ssc
+makeLensesWith postfixLFields ''InitModeContext
 
-type InitMode ssc = ExecMode (INIT ssc)
+type InitMode ssc = Mtl.ReaderT (InitModeContext ssc) Production
 
-type instance ExecModeM (INIT ssc) =
-    Mtl.ReaderT InitModeContext Production
+runInitMode :: InitModeContext ssc -> InitMode ssc a -> Production a
+runInitMode = flip Mtl.runReaderT
 
-runInitMode :: InitModeContext -> InitMode ssc a -> Production a
-runInitMode imc act = Mtl.runReaderT (unExecMode act) imc
+instance HasLens NodeDBs (InitModeContext ssc) NodeDBs where
+    lensOf = imcNodeDBs_L
+
+instance HasLens GenesisUtxo (InitModeContext ssc) GenesisUtxo where
+    lensOf = imcGenesisUtxo_L
+
+instance HasLens GenesisStakes (InitModeContext ssc) GenesisStakes where
+    lensOf = imcGenesisStakes_L
+
+instance HasLens SlottingContextSum (InitModeContext ssc) SlottingContextSum where
+    lensOf = imcSlottingContextSum_L
+
+instance HasLens LrcContext (InitModeContext ssc) LrcContext where
+    lensOf = imcLrcContext_L
+
+instance HasSlottingVar (InitModeContext ssc) where
+    slottingTimestamp = imcSlottingVar_L . _1
+    slottingVar = imcSlottingVar_L . _2
 
 instance MonadDBRead (InitMode ssc) where
     dbGet = dbGetDefault
@@ -135,5 +152,3 @@ instance MonadSlots (InitMode ssc) where
     getCurrentSlotBlocking = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
     currentTimeSlotting = currentTimeSlottingSum
-
-deriving instance HasLoggerName (InitMode ssc)

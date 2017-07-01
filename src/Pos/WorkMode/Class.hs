@@ -16,18 +16,18 @@ import           Universum
 
 import           Control.Monad.Catch         (MonadMask)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Ether
+import           Ether.Internal              (HasLens (..))
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
-import           Pos.Context                 (BlkSemaphore, GenesisStakes,
-                                              MonadBlockRetrievalQueue,
-                                              MonadLastKnownHeader, MonadProgressHeader,
-                                              MonadRecoveryHeader, MonadSscContext,
-                                              NodeParams, StartTime, TxpGlobalSettings)
+import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
+                                              BlockRetrievalQueueTag, GenesisStakes,
+                                              HasSscContext, MonadLastKnownHeader,
+                                              MonadProgressHeader, MonadRecoveryHeader,
+                                              StartTime, TxpGlobalSettings)
 import           Pos.DB.Block                (MonadBlockDBWrite)
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
@@ -37,11 +37,11 @@ import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
-import           Pos.Core                    (MonadPrimaryKey)
+import           Pos.Core                    (HasPrimaryKey)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
-import           Pos.Reporting               (MonadReportingMem)
+import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)
-import           Pos.Shutdown                (MonadShutdownMem)
+import           Pos.Shutdown                (HasShutdownContext)
 import           Pos.Slotting.Class          (MonadSlots)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
@@ -61,7 +61,7 @@ type TxpExtra_TMP = ()
 #endif
 
 -- | Bunch of constraints to perform work for real world distributed system.
-type WorkMode ssc m
+type WorkMode ssc ctx m
     = ( MinWorkMode m
       , MonadBaseControl IO m
       , MonadMask m
@@ -69,35 +69,35 @@ type WorkMode ssc m
       , MonadDB m
       , MonadBlockDBWrite ssc m
       , MonadGState m
-      , MonadRealDB m
-      , MonadTxpMem TxpExtra_TMP m
-      , MonadRelayMem m
-      , MonadDelegation m
-      , MonadSscMem ssc m
-      , MonadReportingMem m
+      , MonadRealDB ctx m
+      , MonadTxpMem TxpExtra_TMP ctx m
+      , MonadRelayMem ctx m
+      , MonadDelegation ctx m
+      , MonadSscMem ssc ctx m
       , SscGStateClass ssc
       , SscLocalDataClass ssc
       , SscHelpersClass ssc
-      , MonadBlockRetrievalQueue ssc m
       , MonadRecoveryInfo m
-      , MonadRecoveryHeader ssc m
-      , MonadProgressHeader ssc m
-      , MonadLastKnownHeader ssc m
-      , MonadPrimaryKey m
-      , Ether.MonadReader' StartTime m
-      , Ether.MonadReader' BlkSemaphore m
-      , Ether.MonadReader' LrcContext m
-      , Ether.MonadReader' UpdateContext m
-      , Ether.MonadReader' NodeParams m
-      , Ether.MonadReader' UpdateParams m
-      , Ether.MonadReader' SecurityParams m
-      , Ether.MonadReader' TxpGlobalSettings m
-      , Ether.MonadReader' GenesisStakes m
-      , MonadSscContext ssc m
+      , MonadRecoveryHeader ssc ctx m
+      , MonadProgressHeader ssc ctx m
+      , MonadLastKnownHeader ssc ctx m
       , WithPeerState m
-      , MonadShutdownMem m
       , MonadBListener m
       , MonadDiscovery m
+      , MonadReader ctx m
+      , HasLens StartTime ctx StartTime
+      , HasLens BlkSemaphore ctx BlkSemaphore
+      , HasLens LrcContext ctx LrcContext
+      , HasLens UpdateContext ctx UpdateContext
+      , HasLens UpdateParams ctx UpdateParams
+      , HasLens SecurityParams ctx SecurityParams
+      , HasLens TxpGlobalSettings ctx TxpGlobalSettings
+      , HasLens GenesisStakes ctx GenesisStakes
+      , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
+      , HasSscContext ssc ctx
+      , HasReportingContext ctx
+      , HasPrimaryKey ctx
+      , HasShutdownContext ctx
       )
 
 -- | More relaxed version of 'WorkMode'.

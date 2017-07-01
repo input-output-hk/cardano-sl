@@ -23,7 +23,7 @@ import           Pos.Delegation.Cede.Class    (MonadCede (..), MonadCedeRead (..
 import           Pos.Delegation.Cede.Types    (CedeModifier, DlgEdgeAction (..),
                                                dlgEdgeActionIssuer)
 import qualified Pos.Delegation.DB            as DB
-import           Pos.Types                    (addressHash)
+import           Pos.Types                    (ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Util.Util                (ether)
 
 ----------------------------------------------------------------------------
@@ -37,8 +37,11 @@ type DBCede = Ether.TaggedTrans DBCedeTag IdentityT
 runDBCede :: DBCede m a -> m a
 runDBCede = coerce
 
+getPskDB :: MonadDBRead m => StakeholderId -> m (Maybe ProxySKHeavy)
+getPskDB = DB.getPskByIssuer . Right
+
 instance MonadDBRead m => MonadCedeRead (DBCede m) where
-    getPsk = DB.getPskByIssuer . Right
+    getPsk = getPskDB
 
 ----------------------------------------------------------------------------
 -- DB + CedeModifier resolving

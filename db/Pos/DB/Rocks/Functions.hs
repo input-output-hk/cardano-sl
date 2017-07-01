@@ -33,7 +33,7 @@ import           Control.Monad.Trans.Resource (MonadResource)
 import           Data.Conduit                 (ConduitM, Source, bracketP, yield)
 import           Data.Default                 (def)
 import qualified Database.RocksDB             as Rocks
-import qualified Ether
+import           Ether.Internal               (lensOf)
 
 import           Pos.Binary.Class             (Bi, encode)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), IterType)
@@ -56,22 +56,22 @@ closeRocksDB :: MonadIO m => DB -> m ()
 closeRocksDB = Rocks.close . rocksDB
 
 usingReadOptions
-    :: MonadRealDB m
+    :: MonadRealDB ctx m
     => Rocks.ReadOptions
     -> ASetter' NodeDBs DB
     -> m a
     -> m a
 usingReadOptions opts l =
-    Ether.local' (over l (\db -> db {rocksReadOpts = opts}))
+    local (over (lensOf @NodeDBs . l) (\db -> db {rocksReadOpts = opts}))
 
 usingWriteOptions
-    :: MonadRealDB m
+    :: MonadRealDB ctx m
     => Rocks.WriteOptions
     -> ASetter' NodeDBs DB
     -> m a
     -> m a
 usingWriteOptions opts l =
-    Ether.local' (over l (\db -> db {rocksWriteOpts = opts}))
+    local (over (lensOf @NodeDBs . l) (\db -> db {rocksWriteOpts = opts}))
 
 ----------------------------------------------------------------------------
 -- Reading/writing
@@ -116,9 +116,9 @@ usingSnapshot DB {..} action =
 
 -- | Conduit source built from rocks iterator.
 rocksIterSource ::
-       forall m i.
+       forall ctx m i.
        ( MonadResource m
-       , MonadRealDB m
+       , MonadRealDB ctx m
        , DBIteratorClass i
        , Bi (IterKey i)
        , Bi (IterValue i)

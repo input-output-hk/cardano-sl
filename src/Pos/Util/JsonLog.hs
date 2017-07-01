@@ -7,43 +7,47 @@ module Pos.Util.JsonLog
        , JLTxR (..)
        , JLMemPool (..)
        , JLBlock (..)
+       , JLTimedEvent(..)
        , jlCreatedBlock
        , jlAdoptedBlock
+       , appendJL
        , fromJLSlotId
        , JsonLogConfig(..)
+       , HasJsonLogConfig(..)
        , jsonLogConfigFromHandle
        , jsonLogDefault
        , fromJLSlotIdUnsafe
        ) where
 
-import           Universum                     hiding (catchAll)
+import           Universum
 
 import           Control.Monad.Except          (MonadError)
+import           Data.Aeson                    (encode)
 import           Data.Aeson.TH                 (deriveJSON)
 import           Data.Aeson.Types              (ToJSON)
-import qualified Ether
-import           Formatting                          (sformat)
-import           JsonLog.JsonLogT              (JsonLogConfig(..))
+import qualified Data.ByteString.Lazy          as LBS
+import           Formatting                    (sformat)
+import           JsonLog.JsonLogT              (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT              as JL
-import           Mockable.Class                (Mockable (..))
-import           Mockable.Exception            (Catch)
+import           Mockable                      (Catch, Mockable)
+import           Serokell.Aeson.Options        (defaultOptions)
+import           System.Wlog                   (WithLogger)
+
 import           Pos.Binary.Block              ()
 import           Pos.Binary.Core               ()
 import           Pos.Block.Core                (BiSsc, Block, mainBlockTxPayload)
-import           Pos.Core                      (SlotId (..), gbHeader,
-                                                gbhPrevBlock, getSlotIndex, headerHash,
-                                                mkLocalSlotIndex)
 import           Pos.Block.Core.Genesis.Lens   (genBlockEpoch)
 import           Pos.Block.Core.Main.Lens      (mainBlockSlot)
 import           Pos.Communication.Relay.Logic (InvReqDataFlowLog)
+import           Pos.Core                      (SlotId (..), gbHeader, gbhPrevBlock,
+                                                getSlotIndex, headerHash,
+                                                mkLocalSlotIndex)
 import           Pos.Crypto                    (hash, hashHexF)
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass)
 import           Pos.Txp.Core                  (txpTxs)
 import           Pos.Txp.MemState.Types        (MemPoolModifyReason)
-import           Pos.Types                     (EpochIndex (..),
-                                                HeaderHash, headerHashF)
-import           Serokell.Aeson.Options        (defaultOptions)
-import           System.Wlog.CanLog            (WithLogger)
+import           Pos.Types                     (EpochIndex (..), HeaderHash, headerHashF)
+import           Pos.Util.TimeWarp             (currentTime)
 
 type BlockId = Text
 type TxId = Text
@@ -66,8 +70,8 @@ data JLTxS = JLTxS
 
 -- | Json log of one transaction being received by a node.
 data JLTxR = JLTxR
-    { jlrTxId     :: Text
-    , jlrError    :: Maybe Text
+    { jlrTxId  :: Text
+    , jlrError :: Maybe Text
     } deriving Show
 
 -- | Get 'SlotId' from 'JLSlotId'.
@@ -104,12 +108,19 @@ data JLEvent = JLCreatedBlock JLBlock
              | JLAdoptedBlock BlockId
              | JLTpsStat Int
              | JLTxSent JLTxS
-             | JLTxReceived JLTxR 
+             | JLTxReceived JLTxR
              | JLMemPoolEvent JLMemPool
   deriving (Show, Generic)
 
+-- | 'JLEvent' with 'Timestamp' -- corresponding time of this event.
+data JLTimedEvent = JLTimedEvent
+    { jlTimestamp :: Integer
+    , jlEvent     :: JLEvent
+    } deriving Show
+
 $(deriveJSON defaultOptions ''JLBlock)
 $(deriveJSON defaultOptions ''JLEvent)
+$(deriveJSON defaultOptions ''JLTimedEvent)
 $(deriveJSON defaultOptions ''JLTxS)
 $(deriveJSON defaultOptions ''JLTxR)
 $(deriveJSON defaultOptions ''JLMemPool)
@@ -138,6 +149,12 @@ jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
 showHeaderHash :: HeaderHash -> Text
 showHeaderHash = sformat headerHashF
 
+-- | Append event into log by given 'FilePath'.
+appendJL :: (MonadIO m) => FilePath -> JLEvent -> m ()
+appendJL path ev = liftIO $ do
+  time <- currentTime
+  LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
+
 -- | Returns event of created 'Block'.
 jlAdoptedBlock :: SscHelpersClass ssc => Block ssc -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHeaderHash . headerHash
@@ -147,10 +164,13 @@ jsonLogConfigFromHandle h = do
     v <- newMVar h
     return $ JsonLogConfig v (\_ -> return True)
 
+class HasJsonLogConfig ctx where
+    jsonLogConfig :: Lens' ctx JsonLogConfig
+
 jsonLogDefault
-    :: (ToJSON a, Ether.MonadReader' JsonLogConfig m, Mockable Catch m,
+    :: (ToJSON a, MonadReader ctx m, HasJsonLogConfig ctx, Mockable Catch m,
         MonadIO m, WithLogger m)
     => a -> m ()
 jsonLogDefault x = do
-    jlc <- Ether.ask'
+    jlc <- view jsonLogConfig
     JL.jsonLogDefault jlc x

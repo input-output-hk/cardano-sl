@@ -9,7 +9,6 @@ module Main
        ) where
 
 import           Control.Monad.Error.Class  (throwError)
-import           Control.Monad.Reader       (MonadReader (..), ReaderT, runReaderT)
 import           Control.Monad.Trans.Either (EitherT (..))
 import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import qualified Data.ByteString            as BS
@@ -56,22 +55,21 @@ import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (coinF, makePubKeyAddress)
-import           Pos.Update                 (BlockVersionData (..), UpdateData (..),
+import           Pos.Update                 (BlockVersionData (..),
+                                             BlockVersionModifier (..), UpdateData (..),
                                              UpdateVote (..), mkUpdateProposalWSign)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Util.Util              (powerLift)
-import           Pos.Wallet                 (WalletMode, addSecretKey, getBalance,
+import           Pos.Wallet                 (MonadWallet, addSecretKey, getBalance,
                                              getSecretKeys)
 import           Pos.Wallet.Light           (LightWalletMode, WalletParams (..),
                                              runWalletStaticPeers)
-import           Pos.WorkMode               (RealMode)
+import           Pos.WorkMode               (RealMode, RealModeContext)
 
 import           Command                    (Command (..), parseCommand)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
 import           WalletOptions              (WalletAction (..), WalletOptions (..),
                                              getWalletOptions)
-
-type CmdRunner = ReaderT CmdCtx
 
 data CmdCtx =
   CmdCtx
@@ -106,14 +104,14 @@ Avaliable commands:
    quit                           -- shutdown node wallet
 |]
 
-runCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()
-runCmd _ (Balance addr) = lift (getBalance addr) >>=
-                          putText . sformat ("Current balance: "%coinF)
-runCmd sendActions (Send idx outputs) = do
-    CmdCtx{na} <- ask
+runCmd :: MonadWallet ssc ctx m => SendActions m -> Command -> CmdCtx -> m ()
+runCmd _ (Balance addr) _ =
+    getBalance addr >>=
+    putText . sformat ("Current balance: "%coinF)
+runCmd sendActions (Send idx outputs) CmdCtx{na} = do
     skeys <- getSecretKeys
     etx <-
-        lift $ withSafeSigner (skeys !! idx) (pure emptyPassphrase) $ \mss ->
+        withSafeSigner (skeys !! idx) (pure emptyPassphrase) $ \mss ->
         runEitherT $ do
             ss <- mss `whenNothing` throwError "Invalid passphrase"
             EitherT $
@@ -125,15 +123,13 @@ runCmd sendActions (Send idx outputs) = do
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
-runCmd sendActions (SendToAllGenesis amount delay_) = do
-    CmdCtx{..} <- ask
+runCmd sendActions (SendToAllGenesis amount delay_) CmdCtx{..} = do
     for_ skeys $ \key -> do
         let txOut = TxOut {
             txOutAddress = makePubKeyAddress (toPublic key),
             txOutValue = amount
         }
         etx <-
-            lift $
             submitTx
                 sendActions
                 (fakeSigner key)
@@ -143,11 +139,10 @@ runCmd sendActions (SendToAllGenesis amount delay_) = do
             Left err -> putText $ sformat ("Error: "%stext) err
             Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
         delay $ ms delay_
-runCmd sendActions v@(Vote idx decision upid) = do
+runCmd sendActions v@(Vote idx decision upid) CmdCtx{na} = do
     logDebug $ "Submitting a vote :" <> show v
-    CmdCtx{na} <- ask
     skey <- (!! idx) <$> getSecretKeys
-    msignature <- lift $ withSafeSigner skey (pure emptyPassphrase) $ mapM $
+    msignature <- withSafeSigner skey (pure emptyPassphrase) $ mapM $
                         \ss -> pure $ safeSign SignUSVote ss (upid, decision)
     case msignature of
         Nothing -> putText "Invalid passphrase"
@@ -161,33 +156,47 @@ runCmd sendActions v@(Vote idx decision upid) = do
             if null na
                 then putText "Error: no addresses specified"
                 else do
-                    lift $ submitVote sendActions na voteUpd
+                    submitVote sendActions na voteUpd
                     putText "Submitted vote"
-runCmd sendActions ProposeUpdate{..} = do
+runCmd sendActions ProposeUpdate{..} CmdCtx{na} = do
     logDebug "Proposing update..."
-    CmdCtx{na} <- ask
     skey <- (!! puIdx) <$> getSecretKeys
-    (diffFile :: Maybe (Hash Raw)) <- runMaybeT $ do
-        filePath <- MaybeT $ pure puFilePath
-        fileData <- liftIO $ BS.readFile filePath
-        let h = unsafeHash fileData
-        liftIO $ putText $ sformat ("Read file succesfuly, its hash: "%hashHexF) h
-        pure h
-    let bvd = genesisBlockVersionData
-            { bvdScriptVersion = puScriptVersion
-            , bvdSlotDuration = convertUnit (sec puSlotDurationSec)
-            , bvdMaxBlockSize = puMaxBlockSize
+    (diffFile :: Maybe (Hash Raw)) <-
+        runMaybeT $ do
+            filePath <- MaybeT $ pure puFilePath
+            fileData <- liftIO $ BS.readFile filePath
+            let h = unsafeHash fileData
+            liftIO $
+                putText $
+                sformat ("Read file succesfuly, its hash: " %hashHexF) h
+            pure h
+    let BlockVersionData {..} = genesisBlockVersionData
+    let bvm =
+            BlockVersionModifier
+            { bvmScriptVersion     = puScriptVersion
+            , bvmSlotDuration      = convertUnit (sec puSlotDurationSec)
+            , bvmMaxBlockSize      = puMaxBlockSize
+            , bvmMaxHeaderSize     = bvdMaxHeaderSize
+            , bvmMaxTxSize         = bvdMaxTxSize
+            , bvmMaxProposalSize   = bvdMaxProposalSize
+            , bvmMpcThd            = bvdMpcThd
+            , bvmHeavyDelThd       = bvdHeavyDelThd
+            , bvmUpdateVoteThd     = bvdUpdateVoteThd
+            , bvmUpdateProposalThd = bvdUpdateProposalThd
+            , bvmUpdateImplicit    = bvdUpdateImplicit
+            , bvmUpdateSoftforkThd = bvdUpdateSoftforkThd
+            , bvmTxFeePolicy       = Nothing
             }
     let udata' h = HM.fromList [(puSystemTag, UpdateData h h h h)]
     let udata = maybe (error "Failed to read prop file") udata' diffFile
     let whenCantCreate = error . mappend "Failed to create update proposal: "
-    lift $ withSafeSigner skey (pure emptyPassphrase) $ \case
+    withSafeSigner skey (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
             let updateProposal = either whenCantCreate identity $
                     mkUpdateProposalWSign
                         puBlockVersion
-                        bvd
+                        bvm
                         puSoftwareVersion
                         udata
                         (mkAttributes ())
@@ -199,8 +208,8 @@ runCmd sendActions ProposeUpdate{..} = do
                     let id = hash updateProposal
                     putText $
                       sformat ("Update proposal submitted, upId: "%hashHexF) id
-runCmd _ Help = putText helpMsg
-runCmd _ ListAddresses = do
+runCmd _ Help _ = putText helpMsg
+runCmd _ ListAddresses _ = do
    addrs <- map encToPublic <$> getSecretKeys
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $ \(i, pk) ->
@@ -208,58 +217,55 @@ runCmd _ ListAddresses = do
                     i (makePubKeyAddress pk) (toBase58Text pk)
   where
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . encode
-runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do
-   CmdCtx{na} <- ask
+runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) CmdCtx{na} = do
    issuerSk <- (!! i) <$> getSecretKeys
-   lift $ withSafeSigner issuerSk (pure emptyPassphrase) $ \case
+   withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
           let psk = safeCreateProxySecretKey ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
           for_ na $ \nodeId ->
              dataFlow "pskLight" sendActions nodeId psk
    putText "Sent lightweight cert"
-runCmd sendActions (DelegateHeavy i delegatePk curEpoch) = do
-   CmdCtx{na} <- ask
+runCmd sendActions (DelegateHeavy i delegatePk curEpoch) CmdCtx{na} = do
    issuerSk <- (!! i) <$> getSecretKeys
-   lift $ withSafeSigner issuerSk (pure emptyPassphrase) $ \case
+   withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
           let psk = safeCreateProxySecretKey ss delegatePk curEpoch
           for_ na $ \nodeId ->
              dataFlow "pskHeavy" sendActions nodeId psk
    putText "Sent heavyweight cert"
-runCmd _ (AddKeyFromPool i) = do
-   CmdCtx{..} <- ask
+runCmd _ (AddKeyFromPool i) CmdCtx{..} = do
    let key = skeys !! i
    addSecretKey $ noPassEncrypt key
-runCmd _ (AddKeyFromFile f) = do
+runCmd _ (AddKeyFromFile f) _ = do
     secret <- readUserSecret f
     mapM_ addSecretKey $ secret ^. usKeys
-runCmd _ Quit = pure ()
+runCmd _ Quit _ = pure ()
 
 -- This solution is hacky, but will work for now
 runCmdOuts :: OutSpecs
 runCmdOuts = relayPropagateOut $ mconcat
-                [ usRelays @(RealMode SscGodTossing)
-                , delegationRelays @SscGodTossing @(RealMode SscGodTossing)
-                , txRelays @SscGodTossing @(RealMode SscGodTossing)
+                [ usRelays @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
+                , delegationRelays @SscGodTossing @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
+                , txRelays @SscGodTossing @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
                 ]
 
-evalCmd :: WalletMode m => SendActions m -> Command -> CmdRunner m ()
-evalCmd _ Quit = pure ()
-evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
+evalCmd :: MonadWallet ssc ctx m => SendActions m -> Command -> CmdCtx -> m ()
+evalCmd _ Quit _      = pure ()
+evalCmd sa cmd cmdCtx = runCmd sa cmd cmdCtx >> evalCommands sa cmdCtx
 
-evalCommands :: WalletMode m => SendActions m -> CmdRunner m ()
-evalCommands sa = do
+evalCommands :: MonadWallet ssc ctx m => SendActions m -> CmdCtx -> m ()
+evalCommands sa cmdCtx = do
     putStr @Text "> "
     liftIO $ hFlush stdout
     line <- getLine
     let cmd = parseCommand line
     case cmd of
-        Left err   -> putStrLn err >> evalCommands sa
-        Right cmd_ -> evalCmd sa cmd_
+        Left err   -> putStrLn err >> evalCommands sa cmdCtx
+        Right cmd_ -> evalCmd sa cmd_ cmdCtx
 
-initialize :: WalletMode m => WalletOptions -> m [NodeId]
+initialize :: MonadWallet ssc ctx m => WalletOptions -> m [NodeId]
 initialize WalletOptions{..} = do
     peers <- S.toList <$> getPeers
     bool (pure peers) getPeersUntilSome (null peers)
@@ -274,23 +280,24 @@ initialize WalletOptions{..} = do
         then getPeersUntilSome
         else pure peers
 
-runWalletRepl :: WalletMode m => WalletOptions -> Worker' m
+runWalletRepl :: MonadWallet ssc ctx m => WalletOptions -> Worker' m
 runWalletRepl wo sa = do
     na <- initialize wo
     putText "Welcome to Wallet CLI Node"
     let keysPool = if isDevelopment then genesisDevSecretKeys else []
-    runReaderT (evalCmd sa Help) (CmdCtx keysPool na)
+    evalCmd sa Help (CmdCtx keysPool na)
 
-runWalletCmd :: WalletMode m => WalletOptions -> Text -> Worker' m
+runWalletCmd :: MonadWallet ssc ctx m => WalletOptions -> Text -> Worker' m
 runWalletCmd wo str sa = do
     na <- initialize wo
     let strs = T.splitOn "," str
     let keysPool = if isDevelopment then genesisDevSecretKeys else []
-    flip runReaderT (CmdCtx keysPool na) $ for_ strs $ \scmd -> do
+    let cmdCtx = CmdCtx keysPool na
+    for_ strs $ \scmd -> do
         let mcmd = parseCommand scmd
         case mcmd of
             Left err   -> putStrLn err
-            Right cmd' -> runCmd sa cmd'
+            Right cmd' -> runCmd sa cmd' cmdCtx
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
@@ -310,7 +317,6 @@ main = do
             { lpRunnerTag     = "smart-wallet"
             , lpHandlerPrefix = CLI.logPrefix woCommonArgs
             , lpConfigPath    = CLI.logConfig woCommonArgs
-            , lpEkgPort       = Nothing
             }
         baseParams = BaseParams { bpLoggingParams = logParams }
 

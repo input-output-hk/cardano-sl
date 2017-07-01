@@ -20,7 +20,7 @@ import           Control.Monad.Catch        (try)
 import           Control.Monad.Except       (MonadError (throwError), runExceptT)
 import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
-import qualified Ether
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, ords, sformat, stext, (%))
 import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (Byte, memory)
@@ -36,8 +36,8 @@ import           Pos.Block.Logic.Util       (withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Types            (Undo (..))
 import           Pos.Constants              (slotSecurityParam)
-import           Pos.Context                (BlkSemaphore, MonadPrimaryKey, NodeParams,
-                                             getOurSecretKey, lrcActionOnEpochReason)
+import           Pos.Context                (BlkSemaphore, HasPrimaryKey, getOurSecretKey,
+                                             lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              EpochOrSlot (..), HeaderHash, SlotId (..),
                                              SlotLeaders, crucialSlot, epochOrSlot,
@@ -67,11 +67,11 @@ import           Pos.Update.Poll            (PollModifier, USUndo)
 import           Pos.Util                   (maybeThrow, _neHead)
 import           Pos.Util.Util              (leftToPanic)
 
-type CreationMode ssc m
-     = ( BlockApplyMode ssc m
-       , MonadPrimaryKey m
-       , Ether.MonadReader' BlkSemaphore m
-       , Ether.MonadReader' NodeParams m
+type CreationMode ssc ctx m
+     = ( BlockApplyMode ssc ctx m
+       , MonadReader ctx m
+       , HasPrimaryKey ctx
+       , HasLens BlkSemaphore ctx BlkSemaphore
        )
 
 ----------------------------------------------------------------------------
@@ -89,8 +89,8 @@ type CreationMode ssc m
 -- impossible for them to be valid.
 -- [CSL-481] We can consider doing it though.
 createGenesisBlock
-    :: forall ssc m.
-       CreationMode ssc m
+    :: forall ssc ctx m.
+       CreationMode ssc ctx m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 createGenesisBlock epoch = reportingFatal version $ do
     leadersOrErr <-
@@ -112,8 +112,8 @@ shouldCreateGenesisBlock epoch headEpochOrSlot =
         siEpoch == epoch - 1 && slot > siSlot (crucialSlot epoch)
 
 createGenesisBlockDo
-    :: forall ssc m.
-       BlockApplyMode ssc m
+    :: forall ssc ctx m.
+       BlockApplyMode ssc ctx m
     => EpochIndex
     -> SlotLeaders
     -> HeaderHash
@@ -153,8 +153,8 @@ createGenesisBlockDo epoch leaders tip = do
 -- • last known block is not more than 'slotSecurityParam' blocks away from
 -- given SlotId
 createMainBlock
-    :: forall ssc m.
-       (CreationMode ssc m)
+    :: forall ssc ctx m.
+       (CreationMode ssc ctx m)
     => SlotId
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
@@ -203,8 +203,8 @@ data RawPayload ssc = RawPayload
 -- Returns valid block or fail.
 -- Here we assume that blkSemaphore has been taken.
 createMainBlockFinish
-    :: forall ssc m.
-       (CreationMode ssc m)
+    :: forall ssc ctx m.
+       (CreationMode ssc ctx m)
     => SlotId
     -> ProxySKBlockInfo
     -> BlockHeader ssc
@@ -235,7 +235,7 @@ createMainBlockFinish slotId pske prevHeader = do
         evaluateNF_ (undo, block)
         pure (block, undo, pModifier)
     verifyCreatedBlock ::
-        forall n a. BlockVerifyMode ssc n =>
+        forall n a. BlockVerifyMode ssc ctx n =>
         MainBlock ssc -> n a -> (Text -> n a) -> n a
     verifyCreatedBlock block onSuccess onFailure =
         verifyBlocksPrefix (one (Right block)) >>=
@@ -258,8 +258,8 @@ createMainBlockFinish slotId pske prevHeader = do
              ("We couldn't create even block with empty payload: "%stext))
 
 getRawPayloadAndUndo
-    :: forall ssc m.
-       (CreationMode ssc m)
+    :: forall ssc ctx m.
+       (CreationMode ssc ctx m)
     => SlotId
     -> ExceptT Text m (RawPayload ssc, (USUndo -> Undo))
 getRawPayloadAndUndo slotId = do

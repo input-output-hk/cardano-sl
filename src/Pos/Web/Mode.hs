@@ -4,39 +4,54 @@
 
 module Pos.Web.Mode
     ( WebMode
-    , unWebMode
     , WebModeContext(..)
     ) where
 
+import           Universum
+
+import           Control.Lens          (makeLensesWith)
 import qualified Control.Monad.Reader  as Mtl
+import           Ether.Internal        (HasLens (..))
 import           Mockable              (Production)
 
-import           Pos.Context           (NodeContext)
+import           Pos.Context           (HasPrimaryKey (..), HasSscContext (..),
+                                        NodeContext)
 import           Pos.DB                (NodeDBs)
 import           Pos.DB.Class          (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks.Redirect (dbDeleteDefault, dbGetDefault,
                                         dbIterSourceDefault, dbPutDefault,
                                         dbWriteBatchDefault)
-import           Pos.ExecMode          ((:::), ExecMode (..), ExecModeM, modeContext)
 import           Pos.Txp.MemState      (GenericTxpLocalData, TxpHolderTag)
+import           Pos.Util.Util         (postfixLFields)
 import           Pos.WorkMode          (TxpExtra_TMP)
 
-modeContext [d|
-    data WebModeContext ssc = WebModeContext
-        !(NodeDBs      ::: NodeDBs)
-        !(TxpHolderTag ::: GenericTxpLocalData TxpExtra_TMP)
-        !(NodeContext ssc)
-    |]
+data WebModeContext ssc = WebModeContext
+    { wmcNodeDBs      :: !NodeDBs
+    , wmcTxpLocalData :: !(GenericTxpLocalData TxpExtra_TMP)
+    , wmcNodeContext  :: !(NodeContext ssc)
+    }
 
-data WEB ssc
+makeLensesWith postfixLFields ''WebModeContext
 
-type WebMode ssc = ExecMode (WEB ssc)
+instance HasLens NodeDBs (WebModeContext ssc) NodeDBs where
+    lensOf = wmcNodeDBs_L
 
-type instance ExecModeM (WEB ssc) =
-    Mtl.ReaderT (WebModeContext ssc) Production
+instance HasLens TxpHolderTag (WebModeContext ssc) (GenericTxpLocalData TxpExtra_TMP) where
+    lensOf = wmcTxpLocalData_L
 
-unWebMode :: ExecMode (WEB ssc) a -> ExecModeM (WEB ssc) a
-unWebMode = unExecMode
+instance {-# OVERLAPPABLE #-}
+    HasLens tag (NodeContext ssc) r =>
+    HasLens tag (WebModeContext ssc) r
+  where
+    lensOf = wmcNodeContext_L . lensOf @tag
+
+instance HasSscContext ssc (WebModeContext ssc) where
+    sscContext = wmcNodeContext_L . sscContext
+
+instance HasPrimaryKey (WebModeContext ssc) where
+    primaryKey = wmcNodeContext_L . primaryKey
+
+type WebMode ssc = Mtl.ReaderT (WebModeContext ssc) Production
 
 instance MonadDBRead (WebMode ssc) where
     dbGet = dbGetDefault

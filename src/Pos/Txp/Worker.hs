@@ -23,10 +23,9 @@ import           System.Wlog         (logDebug, logInfo, logWarning)
 import           Pos.Communication   (Conversation (..), ConversationActions (..),
                                       DataMsg (..), InvMsg (..), InvOrData,
                                       InvReqDataParams (..), MempoolMsg (..), NodeId,
-                                      ReqMsg (..), SendActions, TxMsgContents,
-                                      convH, expectData, handleDataDo, handleInvDo,
-                                      toOutSpecs, withConnectionTo, worker,
-                                      recvLimited)
+                                      ReqMsg (..), SendActions, TxMsgContents, convH,
+                                      expectData, handleDataDo, handleInvDo, recvLimited,
+                                      toOutSpecs, withConnectionTo, worker)
 import           Pos.Discovery.Class (getPeers)
 import           Pos.Slotting        (getLastKnownSlotDuration)
 import           Pos.Txp.Core        (TxId)
@@ -35,7 +34,7 @@ import           Pos.Txp.Network     (txInvReqDataParams)
 
 -- | All workers specific to transaction processing.
 txpWorkers
-    :: (SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
     => ([WorkerSpec m], OutSpecs)
 txpWorkers =
     merge $ []
@@ -54,7 +53,7 @@ txpWorkers =
 -- This worker just triggers every @max (slotDur / 4) 5@ seconds and asks for
 -- tx mempool.
 queryTxsWorker
-    :: (WorkMode ssc m, SscWorkersClass ssc)
+    :: (WorkMode ssc ctx m, SscWorkersClass ssc)
     => (WorkerSpec m, OutSpecs)
 queryTxsWorker = worker queryTxsSpec $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
@@ -101,7 +100,7 @@ queryTxsSpec =
 -- | Send a MempoolMsg to a node and receive incoming 'InvMsg's with
 -- transaction IDs.
 getTxMempoolInvs
-    :: WorkMode ssc m
+    :: WorkMode ssc ctx m
     => SendActions m -> NodeId -> m [TxId]
 getTxMempoolInvs sendActions node = do
     logInfo ("Querying tx mempool from node " <> show node)
@@ -128,7 +127,7 @@ getTxMempoolInvs sendActions node = do
 
 -- | Request several transactions.
 requestTxs
-    :: WorkMode ssc m
+    :: WorkMode ssc ctx m
     => SendActions m -> NodeId -> [TxId] -> m ()
 requestTxs sendActions node txIds = do
     logInfo $ sformat

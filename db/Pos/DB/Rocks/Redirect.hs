@@ -28,21 +28,21 @@ import           Pos.DB.Rocks.Functions       (rocksDelete, rocksGetBytes,
 import           Pos.DB.Rocks.Types           (MonadRealDB, getDBByTag)
 
 
-dbGetDefault :: MonadRealDB m => DBTag -> ByteString -> m (Maybe ByteString)
+dbGetDefault :: MonadRealDB ctx m => DBTag -> ByteString -> m (Maybe ByteString)
 dbGetDefault tag key = getDBByTag tag >>= rocksGetBytes key
 
-dbPutDefault :: MonadRealDB m => DBTag -> ByteString -> ByteString -> m ()
+dbPutDefault :: MonadRealDB ctx m => DBTag -> ByteString -> ByteString -> m ()
 dbPutDefault tag key val = getDBByTag tag >>= rocksPutBytes key val
 
-dbWriteBatchDefault :: MonadRealDB m => DBTag -> [Rocks.BatchOp] -> m ()
+dbWriteBatchDefault :: MonadRealDB ctx m => DBTag -> [Rocks.BatchOp] -> m ()
 dbWriteBatchDefault tag batch = getDBByTag tag >>= rocksWriteBatch batch
 
-dbDeleteDefault :: MonadRealDB m => DBTag -> ByteString -> m ()
+dbDeleteDefault :: MonadRealDB ctx m => DBTag -> ByteString -> m ()
 dbDeleteDefault tag key = getDBByTag tag >>= rocksDelete key
 
 dbIterSourceDefault ::
-       forall m i.
-       ( MonadRealDB m
+       forall ctx m i.
+       ( MonadRealDB ctx m
        , MonadResource m
        , DBIteratorClass i
        , Bi (IterKey i)

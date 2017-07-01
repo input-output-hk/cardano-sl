@@ -23,11 +23,11 @@ import qualified Data.ByteString                   as BS (pack)
 import           Data.DeriveTH                     (derive, makeArbitrary)
 import           Data.Time.Units                   (Microsecond, Millisecond,
                                                     fromMicroseconds)
+import           System.Random                     (Random)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, oneof,
                                                     scale, suchThat)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
-import           System.Random                     (Random)
 
 import           Pos.Binary.Class                  (AsBinary, FixedSizeInt (..),
                                                     SignedVarInt (..),
@@ -40,7 +40,8 @@ import           Pos.Core.Coin                     (coinToInteger, divCoin, unsa
 import           Pos.Core.Constants                (sharedSeedLength)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
-import           Pos.Core.Types                    (BlockVersion (..), Script (..),
+import           Pos.Core.Types                    (BlockVersion (..),
+                                                    BlockVersionData (..), Script (..),
                                                     SoftwareVersion (..))
 import qualified Pos.Core.Types                    as Types
 import           Pos.Crypto                        (PublicKey, Share)
@@ -266,6 +267,7 @@ instance Arbitrary Types.ApplicationName where
         arbitrary
 
 derive makeArbitrary ''Types.BlockVersion
+derive makeArbitrary ''Types.BlockVersionData
 derive makeArbitrary ''Types.SoftwareVersion
 
 ----------------------------------------------------------------------------

@@ -195,8 +195,6 @@ getAccountWAddresses mode accId =
   where
     fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [CWAddressMeta])
     fetch which = do
-        -- `preview` operates within a `MonadReader m` and applies the lens
-        -- to the value stored in the environment, returning `m (Maybe a)`
         cAddresses <- preview (wsAccountInfos . ix accId . which)
         -- here `cAddresses` has type `Maybe CAddresses`
         pure $

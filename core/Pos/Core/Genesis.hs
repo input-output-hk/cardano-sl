@@ -13,6 +13,7 @@ module Pos.Core.Genesis
        -- * /genesis-core.bin/
        , StakeDistribution(..)
        , GenesisCoreData(..)
+       , mkGenesisCoreData
        , AddrDistribution
        , compileGenCoreData
        -- ** Derived data
@@ -41,7 +42,8 @@ import           Pos.Core.Coin           (unsafeAddCoin, unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
-                                          StakeDistribution (..), getTotalStake)
+                                          StakeDistribution (..), getTotalStake,
+                                          mkGenesisCoreData)
 import           Pos.Core.Types          (Address, Coin, StakeholderId, Stakeholders,
                                           mkCoin, unsafeGetCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
@@ -93,7 +95,7 @@ genesisProdAddrDistribution :: AddrDistribution
 genesisProdAddrDistribution = gcdAddrDistribution compileGenCoreData
 
 -- | Bootstrap era stakeholders for production mode.
-genesisProdBootStakeholders :: HashSet StakeholderId
+genesisProdBootStakeholders :: Stakeholders
 genesisProdBootStakeholders =
     gcdBootstrapStakeholders compileGenCoreData
 

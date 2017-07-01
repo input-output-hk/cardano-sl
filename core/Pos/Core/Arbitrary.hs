@@ -317,7 +317,7 @@ instance Arbitrary G.StakeDistribution where
            sdPoorStake <- Types.mkCoin <$> choose (1000, 50000)
            return G.RichPoorStakes{..}
       , return G.ExponentialStakes
-      , G.ExplicitStakes <$> arbitrary
+      , G.CustomStakes <$> arbitrary
       ]
 
 ----------------------------------------------------------------------------

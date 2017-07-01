@@ -37,10 +37,8 @@ data StakeDistribution
         }
     -- | First three nodes get 0.875% of stake.
     | ExponentialStakes
-    -- | Basically, 'Utxo'. Except that we can't use
-    -- 'TxOutDistribution' here (it's defined in txp/) and instead we
-    -- use @[(StakeholderId, Coin)]@.
-    | ExplicitStakes !(HashMap Address (Coin, [(StakeholderId, Coin)]))
+    -- | Custom stakes list.
+    | CustomStakes [Coin]
     deriving (Show, Eq)
 
 -- | Gets total amount of stake and addresses of distribution.
@@ -54,8 +52,8 @@ getTotalStake ExponentialStakes = mkCoin . sum $
     let g 0 = []
         g n = n : g (n `div` 2)
     in g 5000
-getTotalStake (ExplicitStakes balances) = unsafeIntegerToCoin $
-    sumCoins $ fst <$> balances
+getTotalStake (CustomStakes balances) =
+    unsafeIntegerToCoin $ sumCoins balances
 
 -- | List of distributions accompained by related addresses set (what
 -- to distribute and how).
@@ -79,7 +77,7 @@ mkGenesisCoreData ::
 mkGenesisCoreData distribution bootStakeholders = do
     -- TODO add checks
     -- 1. Every set of address matches by the size to distribution size
-    -- 2. If using ExplicitStakes, addresses in fst match those in snd
+    -- 2. If using CustomStakes, lengths match
     -- 3. (?) Addresses in (map fst) are unique
     -- 4. All the stake is distributed to gcdBootstrapStakeholders
     pure $ UnsafeGenesisCoreData distribution bootStakeholders

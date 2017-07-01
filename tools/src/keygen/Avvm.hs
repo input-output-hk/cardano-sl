@@ -6,28 +6,23 @@
 module Avvm
        ( AvvmData (..)
        , AvvmEntry (..)
-       , genGenesis
+       , avvmAddrDistribution
        , applyBlacklisted
        ) where
 
 import           Data.Aeson           (FromJSON (..), withObject, (.:))
 import qualified Data.ByteString      as BS
 import qualified Data.HashMap.Strict  as HM
+import qualified Data.HashSet         as HS
 import           Data.List            ((\\))
 import qualified Data.Text            as T
 import qualified Serokell.Util.Base64 as B64
-import           Test.QuickCheck      (arbitrary)
 import           Universum
 
 import           Pos.Crypto           (RedeemPublicKey (..), redeemPkBuild)
-import           Pos.Genesis          (GenesisCoreData (..), GenesisGtData (..),
-                                       StakeDistribution (..), genesisSplitBoot)
-import           Pos.Ssc.GodTossing   (vcSigningKey)
-import           Pos.Txp.Core         (TxOutDistribution)
-import           Pos.Types            (Address, Coin, Stakeholders, addressHash,
-                                       makeRedeemAddress, unsafeAddCoin,
+import           Pos.Genesis          (AddrDistribution, StakeDistribution (..))
+import           Pos.Types            (Address, Coin, makeRedeemAddress, unsafeAddCoin,
                                        unsafeIntegerToCoin)
-import           Pos.Util             (runGen)
 
 
 -- | Read the text into a redeeming public key.
@@ -76,42 +71,24 @@ instance FromJSON AvvmEntry where
         aePublicKey <- fromAvvmPk addrText
         return AvvmEntry{..}
 
--- | Generate genesis data out of avvm parameters.
-genGenesis
+-- | Generate genesis address distribution out of avvm
+-- parameters. Txdistr of the utxo is all empty. Redelegate it in
+-- calling funciton.
+avvmAddrDistribution
     :: AvvmData
-    -> Bool          -- ^ Whether to generate random certificates
-    -> Stakeholders  -- ^ Boot stakeholders (will have all stake delegated)
-    -> (GenesisCoreData, GenesisGtData)
-genGenesis avvm genCerts holders =
-    ( GenesisCoreData
-        { gcdAddresses = HM.keys balances
-        , gcdDistribution = ExplicitStakes balances
-        , gcdBootstrapStakeholders = holders
-        }
-    , GenesisGtData
-        { ggdVssCertificates = if genCerts then randCerts else mempty
-        }
-    )
+    -> AddrDistribution
+avvmAddrDistribution (utxo -> avvmData) =
+    one $ (HS.fromList $ HM.keys balances, CustomStakes $ HM.elems balances)
   where
-    randCerts = HM.fromList [(addressHash (vcSigningKey c), c)
-                            | c <- runGen (replicateM 10 arbitrary)]
+--    randCerts = HM.fromList [(addressHash (vcSigningKey c), c)
+--                            | c <- runGen (replicateM 10 arbitrary)]
 
-    sumDistrs :: TxOutDistribution -> TxOutDistribution -> TxOutDistribution
-    sumDistrs (HM.fromList -> h1) (HM.fromList -> h2) =
-        HM.toList $ HM.unionWith unsafeAddCoin h1 h2
-
-    sumOutcomes
-        :: (Coin, TxOutDistribution)
-        -> (Coin, TxOutDistribution)
-        -> (Coin, TxOutDistribution)
-    sumOutcomes (c1, t1) (c2, t2) = (unsafeAddCoin c1 c2, sumDistrs t1 t2)
-
-    balances :: HashMap Address (Coin, TxOutDistribution)
-    balances = HM.fromListWith sumOutcomes $ do
-        AvvmEntry{..} <- utxo avvm
+    balances :: HashMap Address Coin
+    balances = HM.fromListWith unsafeAddCoin $ do
+        AvvmEntry{..} <- avvmData
         let addr = makeRedeemAddress aePublicKey
             adaCoin = unsafeIntegerToCoin aeCoin
-        return (addr, (adaCoin, genesisSplitBoot holders adaCoin))
+        return (addr, adaCoin)
 
 -- | Applies blacklist to avvm utxo, produces warnings and stats about
 -- how much was deleted.

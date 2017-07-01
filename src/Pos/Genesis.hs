@@ -115,8 +115,7 @@ stakeDistribution ts@RichPoorStakes {..} =
         else identity
     basicDist = genericReplicate sdRichmen sdRichStake ++
                 genericReplicate sdPoor sdPoorStake
-stakeDistribution (ExplicitStakes balances) =
-    toList balances
+stakeDistribution (CustomStakes coins) = map (,[]) coins
 
 -- | Generates genesis 'Utxo' given optional boot stakeholders list
 -- and address distribution. In case boot stakeholders are supplied,

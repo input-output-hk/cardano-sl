@@ -24,17 +24,17 @@ import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, get
                                               setTxpLocalData)
 import           Pos.Txp.Toil                (GenericToilModifier (..),
                                               MonadUtxoRead (..), ToilEnv,
-                                              ToilVerFailure (..), Utxo, execToilTLocal,
-                                              getToilEnv, normalizeToil, processTx,
-                                              runDBToil, runToilTLocal, runUtxoReaderT,
+                                              ToilVerFailure (..), Utxo, evalUtxoStateT,
+                                              execToilTLocal, getToilEnv, normalizeToil,
+                                              processTx, runDBToil, runToilTLocal,
                                               utxoGet)
 
-type TxpLocalWorkMode m =
+type TxpLocalWorkMode ctx m =
     ( MonadIO m
     , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
-    , MonadTxpMem () m
+    , MonadTxpMem () ctx m
     , WithLogger m
     , MonadError ToilVerFailure m
     )
@@ -42,7 +42,7 @@ type TxpLocalWorkMode m =
 -- CHECK: @processTx
 -- #processTxDo
 txProcessTransaction
-    :: TxpLocalWorkMode m
+    :: TxpLocalWorkMode ctx m
     => (TxId, TxAux) -> m ()
 txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
@@ -81,7 +81,7 @@ txProcessTransaction itw@(txId, txAux) = do
         | tipDB /= tip = (Left $ ToilTipsMismatch tipDB tip, txld)
         | otherwise =
             let res = (runExceptT $
-                      flip runUtxoReaderT resolved $
+                      flip evalUtxoStateT resolved $
                       execToilTLocal uv mp undo $
                       processTx tx
                       ) toilEnv
@@ -100,7 +100,7 @@ txNormalize ::
        , MonadBaseControl IO m
        , MonadDBRead m
        , MonadGState m
-       , MonadTxpMem () m
+       , MonadTxpMem () ctx m
        )
     => m ()
 txNormalize = do

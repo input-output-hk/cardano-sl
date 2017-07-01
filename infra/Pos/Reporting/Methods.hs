@@ -26,7 +26,6 @@ import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (getCurrentTime)
 import           Data.Version             (Version (..))
-import qualified Ether
 import           Formatting               (sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
@@ -46,8 +45,8 @@ import           Pos.Core.Constants       (protocolMagic)
 import           Pos.Discovery.Class      (MonadDiscovery, getPeers)
 import           Pos.Exception            (CardanoFatalError)
 import           Pos.Reporting.Exceptions (ReportingError (..))
-import           Pos.Reporting.MemState   (MonadReportingMem, rcLoggingConfig,
-                                           rcReportServers)
+import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServers (..),
+                                           HasReportingContext (..))
 import           Pos.Util.Util            (maybeThrow)
 
 -- TODO From Pos.Util, remove after refactoring.
@@ -60,10 +59,11 @@ import           Pos.Util.Util            (maybeThrow)
     lhs' = reverse $ dropWhile isSlash $ reverse lhs
     rhs' = dropWhile isSlash rhs
 
-type MonadReporting m =
+type MonadReporting ctx m =
        ( MonadIO m
        , MonadMask m
-       , MonadReportingMem m
+       , MonadReader ctx m
+       , HasReportingContext ctx
        , WithLogger m
        )
 
@@ -75,12 +75,12 @@ type MonadReporting m =
 -- retrieving all logger files from it. List of servers is also taken
 -- from node's configuration.
 sendReportNode
-    :: (MonadReporting m)
+    :: (MonadReporting ctx m)
     => Version -> ReportType -> m ()
 sendReportNode version reportType = do
-    noServers <- null <$> Ether.asks' (view rcReportServers)
+    noServers <- null <$> view (reportingContext . reportServers)
     if noServers then onNoServers else do
-        logConfig <- Ether.asks' (view rcLoggingConfig)
+        logConfig <- view (reportingContext . loggerConfig)
         let allFiles = map snd $ retrieveLogFiles logConfig
         logFile <-
             maybeThrow (TextException onNoPubfiles)
@@ -107,14 +107,14 @@ sendReportNode version reportType = do
         "servers to [] or include .pub files in log config"
 
 -- | Same as 'sendReportNode', but doesn't attach any logs.
-sendReportNodeNologs :: (MonadReporting m) => Version -> ReportType -> m ()
+sendReportNodeNologs :: (MonadReporting ctx m) => Version -> ReportType -> m ()
 sendReportNodeNologs = sendReportNodeImpl []
 
 sendReportNodeImpl
-    :: (MonadReporting m)
+    :: (MonadReporting ctx m)
     => [Text] -> Version -> ReportType -> m ()
 sendReportNodeImpl rawLogs version reportType = do
-    servers <- Ether.asks' (view rcReportServers)
+    servers <- view (reportingContext . reportServers)
     when (null servers) onNoServers
     errors <- fmap lefts $ forM servers $ try .
         sendReport [] rawLogs reportType "cardano-node" version . toString
@@ -151,7 +151,7 @@ getNodeInfo = do
 -- | Reports misbehaviour given reason string. Effectively designed
 -- for 'WorkMode' context.
 reportMisbehaviour
-    :: (MonadReporting m, MonadDiscovery m)
+    :: (MonadReporting ctx m, MonadDiscovery m)
     => Version -> Text -> m ()
 reportMisbehaviour version reason = do
     logError $ "Reporting misbehaviour \"" <> reason <> "\""
@@ -163,7 +163,7 @@ reportMisbehaviour version reason = do
 -- FIXME catch and squelch *all* exceptions? Probably a bad idea.
 -- | Report misbehaviour, but catch all errors inside
 reportMisbehaviourSilent
-    :: forall m . (MonadReporting m, MonadDiscovery m)
+    :: forall ctx m . (MonadReporting ctx m, MonadDiscovery m)
     => Version -> Text -> m ()
 reportMisbehaviourSilent version reason =
     reportMisbehaviour version reason `catch` handler
@@ -178,7 +178,7 @@ reportMisbehaviourSilent version reason =
 -- happens and rethrow. Errors related to reporting itself are caught,
 -- logged and ignored.
 reportingFatal
-    :: forall m a . (MonadReporting m, MonadDiscovery m)
+    :: forall ctx m a . (MonadReporting ctx m, MonadDiscovery m)
     => Version -> m a -> m a
 reportingFatal version action =
     action `catch` handler1 `catch` handler2

@@ -21,30 +21,31 @@ module Pos.Wallet.Web.Server.Methods
 import           Universum
 
 import           Control.Concurrent               (forkFinally)
-import           Control.Lens                     (ix, makeLenses, traversed, (.=))
+import           Control.Lens                     (each, ix, makeLenses, traversed, (.=))
 import           Control.Monad.Catch              (SomeException, try)
 import qualified Control.Monad.Catch              as E
 import           Control.Monad.State              (runStateT)
+import qualified Data.Aeson                       as A
 import           Data.ByteString.Base58           (bitcoinAlphabet, decodeBase58)
+import qualified Data.ByteString.Lazy             as BSL
 import           Data.Default                     (Default (def))
+import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (findIndex)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
-import           Data.Tagged                      (untag)
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
 import           Data.Time.Units                  (Microsecond, Second)
-import qualified Ether
 import           Formatting                       (bprint, build, sformat, shown, stext,
                                                    (%))
 import qualified Formatting                       as F
 import           Network.Wai                      (Application)
 import           Paths_cardano_sl                 (version)
+import           Pos.DB.Class                     (gsAdoptedBVData)
 import           Pos.ReportServer.Report          (ReportType (RInfo))
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Serokell.Util                    (threadDelay)
 import qualified Serokell.Util.Base64             as B64
-import           Pos.DB.Class                     (gsAdoptedBVData)
 import           Serokell.Util.Text               (listJson)
 import           Servant.API                      ((:<|>) ((:<|>)),
                                                    FromHttpApiData (parseUrlPiece))
@@ -56,30 +57,34 @@ import           System.IO.Error                  (isDoesNotExistError)
 import           System.Wlog                      (logDebug, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes            ()
+import           Pos.Aeson.WalletBackup           ()
+import           Pos.Binary.Class                 (biSize)
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
-import           Pos.Client.Txp.Util              (createMTx)
 import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
                                                    TxHistoryEntry (..))
+import           Pos.Client.Txp.Util              (createMTx)
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
-import           Pos.Core                         (Address (..), Coin, addressF, bvdTxFeePolicy, integerToCoin,
-                                                   TxFeePolicy (..),
-                                                   decodeTextAddress, makePubKeyAddress,
+import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..),
+                                                   addressF, bvdTxFeePolicy,
+                                                   calculateTxSizeLinear,
+                                                   decodeTextAddress, getCurrentTimestamp,
+                                                   getTimestamp, integerToCoin,
                                                    makeRedeemAddress, mkCoin, sumCoins,
                                                    unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin, calculateTxSizeLinear)
-import           Pos.Crypto                       (PassPhrase, aesDecrypt, EncryptedSecretKey, SafeSigner,
+                                                   unsafeSubCoin)
+import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
+                                                   SafeSigner, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
-                                                   deriveAesKeyBS, emptyPassphrase,
-                                                   encToPublic, hash,
+                                                   deriveAesKeyBS, emptyPassphrase, hash,
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys)
-import           Pos.Binary.Class (biSize)
-import           Pos.Reporting.MemState           (rcReportServers)
+import           Pos.Reporting.MemState           (HasReportServers (..),
+                                                   HasReportingContext (..))
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
 import           Pos.Txp                          (Utxo)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..))
@@ -105,6 +110,9 @@ import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    getSKByAccAddr, getSKByAddr,
                                                    myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletApi, walletApi)
+import           Pos.Wallet.Web.Backup            (AccountMetaBackup (..),
+                                                   StateBackup (..), WalletBackup (..),
+                                                   WalletMetaBackup (..), getStateBackup)
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccount (..),
                                                    CAccountId (..), CAccountInit (..),
                                                    CAccountMeta (..), CAddress (..),
@@ -149,6 +157,7 @@ import           Pos.Wallet.Web.Tracking          (CAccModifier (..),
                                                    selectAccountsFromUtxoLock,
                                                    syncWalletsWithGStateLock,
                                                    txMempoolToModifier)
+import           Pos.Wallet.Web.Util              (getWalletAccountIds)
 import           Pos.Web.Server                   (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -360,6 +369,10 @@ servantHandlers sendActions =
      pure curSoftwareVersion
     :<|>
      syncProgress
+    :<|>
+     importStateJSON
+    :<|>
+     exportStateJSON
 
 -- getAddresses :: WalletWebMode m => m [CId]
 -- getAddresses = map addressToCId <$> myAddresses
@@ -451,9 +464,6 @@ decodeCAccountIdOrFail = either wrongAddress pure . decodeCType
 decodeCCoinOrFail :: MonadThrow m => CCoin -> m Coin
 decodeCCoinOrFail c =
     coinFromCCoin c `whenNothing` throwM (DecodeError "Wrong coin format")
-
-getWalletAccountIds :: WalletWebMode m => CId Wal -> m [AccountId]
-getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getWAddressIds
 
 getWalletAddrMetas
     :: WalletWebMode m
@@ -607,8 +617,9 @@ sendMoney sendActions passphrase moneySource dstDistr = do
                     -- TODO: this should be removed in production
                     let txHash    = hash tx
                         srcWallet = getMoneySourceWallet moneySource
+                    ts <- Just <$> liftIO getCurrentTimestamp
                     ctxs <- addHistoryTx srcWallet $
-                        THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs
+                        THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs ts
                     ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
 
     noOutgoingTx = InternalError "Can't report outgoing transaction"
@@ -706,7 +717,7 @@ getFullWalletHistory cWalId = do
     cHistory <- do
         (mInit, cachedTxs) <- transCache <$> getHistoryCache cWalId
 
-        TxHistoryAnswer {..} <- untag @WalletSscType getTxHistory addrs mInit
+        TxHistoryAnswer {..} <- getTxHistory addrs mInit
 
         -- Add allowed portion of result to cache
         let fullHistory = taHistory <> cachedTxs
@@ -728,7 +739,6 @@ getFullWalletHistory cWalId = do
         -> (Maybe (HeaderHash, Utxo), [TxHistoryEntry])
     transCache Nothing                = (Nothing, [])
     transCache (Just (hh, utxo, txs)) = (Just (hh, utxo), txs)
-
 
 getHistory
     :: WalletWebMode m
@@ -788,7 +798,9 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
-    meta <- CTxMeta <$> liftIO getPOSIXTime
+    meta <- CTxMeta <$> case _thTimestamp of
+      Nothing -> liftIO $ getPOSIXTime
+      Just ts -> return $ fromIntegral (getTimestamp ts) / 1000000
     let cId = txIdToCTxId _thTxId
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
@@ -994,8 +1006,9 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
         Right (TxAux {..}, redeemAddress, redeemBalance) -> do
             -- add redemption transaction to the history of new wallet
             let txInputs = [TxOut redeemAddress redeemBalance]
+            ts <- Just <$> liftIO getCurrentTimestamp
             ctxs <- addHistoryTx (aiWId accId)
-                (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr])
+                (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts)
             ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
   where
    noOutgoingTx = InternalError "Can't report outgoing transaction"
@@ -1011,7 +1024,7 @@ reportingInitialized cinit = do
 
 reportingElectroncrash :: forall m. WalletWebMode m => CElectronCrashReport -> m ()
 reportingElectroncrash celcrash = do
-    servers <- Ether.asks' (view rcReportServers)
+    servers <- view (reportingContext . reportServers)
     errors <- fmap lefts $ forM servers $ \serv ->
         try $ sendReport [fdFilePath $ cecUploadDump celcrash]
                          []
@@ -1051,8 +1064,7 @@ importWalletSecret
     -> m CWallet
 importWalletSecret passphrase WalletUserSecret{..} = do
     let key    = _wusRootKey
-        addr   = makePubKeyAddress $ encToPublic key
-        wid    = addressToCId addr
+        wid    = encToCId key
         wMeta  = def { cwName = _wusWalletName }
     addSecretKey key
     importedWallet <- createWalletSafe wid wMeta
@@ -1100,6 +1112,45 @@ testResetAll | isDevelopment = deleteAllKeys >> testReset
         keyNum <- length <$> getSecretKeys
         replicateM_ keyNum $ deleteSecretKey 0
 
+----------------------------------------------------------------------------
+-- JSON backup methods
+----------------------------------------------------------------------------
+
+restoreWalletFromBackup :: WalletWebMode m => WalletBackup -> m CWallet
+restoreWalletFromBackup WalletBackup {..} = do
+    let wId = encToCId wbSecretKey
+        (WalletMetaBackup wMeta) = wbMeta
+        accList = HM.toList wbAccounts
+                  & each . _2 %~ \(AccountMetaBackup am) -> am
+
+    addSecretKey wbSecretKey
+    for_ accList $ \(idx, meta) -> do
+        let aIdx = fromInteger $ fromIntegral idx
+            seedGen = DeterminedSeed aIdx
+        accId <- genUniqueAccountId seedGen wId
+        createAccount accId meta
+
+    _ <- selectAccountsFromUtxoLock @WalletSscType [wbSecretKey]
+    createWalletSafe wId wMeta
+
+restoreStateFromBackup :: WalletWebMode m => StateBackup -> m [CWallet]
+restoreStateFromBackup (FullStateBackup walletBackups) =
+    forM walletBackups restoreWalletFromBackup
+
+importStateJSON :: WalletWebMode m => Text -> m [CWallet]
+importStateJSON (toString -> fp) = do
+    contents <- liftIO $ BSL.readFile fp
+    wState <- either parseErr pure $ A.eitherDecode contents
+    restoreStateFromBackup wState
+  where
+    parseErr err = throwM . RequestError $
+        sformat ("Error while reading JSON backup file: "%stext) $
+        toText err
+
+exportStateJSON :: WalletWebMode m => Text -> m ()
+exportStateJSON (toString -> fp) = do
+    wState <- getStateBackup
+    liftIO $ BSL.writeFile fp $ A.encode wState
 
 ----------------------------------------------------------------------------
 -- Orphan instances

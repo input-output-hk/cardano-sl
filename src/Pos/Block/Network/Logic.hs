@@ -13,6 +13,7 @@ module Pos.Block.Network.Logic
        , handleUnsolicitedHeaders
        , mkHeadersRequest
        , requestHeaders
+       , requestHeaders'
 
        , mkBlocksRequest
        , handleBlocks
@@ -27,7 +28,7 @@ import           Control.Exception          (Exception (..))
 import           Control.Lens               (_Wrapped)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
-import qualified Ether
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (bprint, build, sformat, shown, stext, (%))
 import           Mockable                   (fork)
 import           Paths_cardano_sl           (version)
@@ -48,6 +49,7 @@ import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
                                              MsgHeaders (..))
 import           Pos.Block.Pure             (verifyHeaders)
+import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
@@ -103,8 +105,8 @@ instance Exception BlockNetLogicException where
 -- 'triggerRecovery' does nothing. It's okay because when recovery is in
 -- progress and 'ncRecoveryHeader' is full, we'll be requesting blocks anyway
 -- and until we're finished we shouldn't be asking for new blocks.
-triggerRecovery :: forall ssc m.
-    (SscWorkersClass ssc, WorkMode ssc m)
+triggerRecovery :: forall ssc ctx m.
+    (SscWorkersClass ssc, WorkMode ssc ctx m)
     => SendActions m -> m ()
 triggerRecovery sendActions = unlessM recoveryInProgress $ do
     logDebug "Recovery started, requesting tips from neighbors"
@@ -123,8 +125,8 @@ requestTipOuts =
 -- current blockchain state. Sends "what's your current tip" request
 -- to everybody we know.
 requestTip
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NodeId
     -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
@@ -135,7 +137,7 @@ requestTip nodeId conv = do
   where
     handleTip (MsgHeaders (NewestFirst (tip:|[]))) = do
         logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
-        handleUnsolicitedHeader tip nodeId conv
+        handleUnsolicitedHeader tip nodeId
     handleTip _ = pass
 
 ----------------------------------------------------------------------------
@@ -146,36 +148,35 @@ requestTip nodeId conv = do
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
 -- message.
 mkHeadersRequest
-    :: forall ssc m.
-       WorkMode ssc m
-    => Maybe HeaderHash -> m (Maybe MsgGetHeaders)
-mkHeadersRequest upto = do
-    mbHeaders <- nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
-    pure $ (\h -> MsgGetHeaders (toList h) upto) <$> mbHeaders
+    :: forall ssc ctx m.
+       WorkMode ssc ctx m
+    => HeaderHash -> m (Maybe MsgGetHeaders)
+mkHeadersRequest upto = runMaybeT $ do
+    bHeaders <- MaybeT $ nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
+    guard (not $ upto `elem` bHeaders)
+    pure $ MsgGetHeaders (toList bHeaders) (Just upto)
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
-handleUnsolicitedHeaders (header :| []) nodeId conv =
-    handleUnsolicitedHeader header nodeId conv
+handleUnsolicitedHeaders (header :| []) nodeId =
+    handleUnsolicitedHeader header nodeId
 -- TODO: ban node for sending more than one unsolicited header.
-handleUnsolicitedHeaders (h:|hs) _ _ = do
+handleUnsolicitedHeaders (h:|hs) _ = do
     logWarning "Someone sent us nonzero amount of headers we didn't expect"
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
 handleUnsolicitedHeader
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => BlockHeader ssc
     -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
-handleUnsolicitedHeader header nodeId conv = do
+handleUnsolicitedHeader header nodeId = do
     logDebug $ sformat
         ("handleUnsolicitedHeader: single header "%shortHashF%
          " was propagated, processing")
@@ -188,9 +189,7 @@ handleUnsolicitedHeader header nodeId conv = do
             addToBlockRequestQueue (one header) nodeId Nothing
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
-            mghM <- mkHeadersRequest (Just hHash)
-            whenJust mghM $ \mgh ->
-                requestHeaders mgh nodeId (Just header) conv
+            addToBlockRequestQueue' nodeId header
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
             logDebug $ sformat ("handleUnsolicited: header "%shortHashF%
@@ -241,14 +240,28 @@ matchRequestedHeaders headers MsgGetHeaders {..} inRecovery =
 -- Second argument is mghTo block header (not hash). Don't pass it
 -- only if you don't know it.
 requestHeaders
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => MsgGetHeaders
     -> NodeId
     -> Maybe (BlockHeader ssc)
     -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
-requestHeaders mgh nodeId origTip conv = do
+requestHeaders mgh nodeId origTip =
+    requestHeaders' cont mgh nodeId
+    where
+        cont headersPostfix =
+            addToBlockRequestQueue headersPostfix nodeId origTip
+
+requestHeaders'
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
+    => (NewestFirst NE (BlockHeader ssc) -> m ())
+    -> MsgGetHeaders
+    -> NodeId
+    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> m ()
+requestHeaders' cont mgh nodeId conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
@@ -260,7 +273,7 @@ requestHeaders mgh nodeId origTip conv = do
             (map headerHash headers)
         case matchRequestedHeaders headers mgh inRecovery of
             MRGood           -> do
-                handleRequestedHeaders headers nodeId origTip
+                handleRequestedHeaders cont headers
             MRUnexpected msg -> handleUnexpected headers msg
   where
     onNothing = do
@@ -280,13 +293,12 @@ requestHeaders mgh nodeId origTip conv = do
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
-    :: forall ssc m.
-       WorkMode ssc m
-    => NewestFirst NE (BlockHeader ssc)
-    -> NodeId
-    -> Maybe (BlockHeader ssc)
+    :: forall ssc ctx m.
+       WorkMode ssc ctx m
+    => (NewestFirst NE (BlockHeader ssc) -> m ())
+    -> NewestFirst NE (BlockHeader ssc)
     -> m ()
-handleRequestedHeaders headers nodeId origTip = do
+handleRequestedHeaders cont headers = do
     logDebug "handleRequestedHeaders: headers were requested, will process"
     classificationRes <- classifyHeaders headers
     let newestHeader = headers ^. _Wrapped . _neHead
@@ -303,7 +315,7 @@ handleRequestedHeaders headers nodeId origTip = do
                     "handleRequestedHeaders: couldn't find LCA child " <>
                     "within headers returned, most probably classifyHeaders is broken"
                 Just headersPostfix ->
-                    addToBlockRequestQueue (NewestFirst headersPostfix) nodeId origTip
+                    cont (NewestFirst headersPostfix)
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid reason ->
@@ -324,16 +336,16 @@ handleRequestedHeaders headers nodeId origTip = do
 -- after pack of blocks is processed, next pack of headers will be
 -- requested until this header hash is received.
 addToBlockRequestQueue
-    :: forall ssc m.
-       (WorkMode ssc m)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m)
     => NewestFirst NE (BlockHeader ssc)
     -> NodeId
     -> Maybe (BlockHeader ssc)
     -> m ()
 addToBlockRequestQueue headers nodeId mrecoveryTip = do
-    queue <- Ether.ask @BlockRetrievalQueueTag
-    recHeaderVar <- Ether.ask @RecoveryHeaderTag
-    lastKnownH <- Ether.ask @LastKnownHeaderTag
+    queue <- view (lensOf @BlockRetrievalQueueTag)
+    recHeaderVar <- view (lensOf @RecoveryHeaderTag)
+    lastKnownH <- view (lensOf @LastKnownHeaderTag)
     let updateRecoveryHeader (Just recoveryTip) = do
             oldV <- readTVar lastKnownH
             when (maybe True (recoveryTip `isMoreDifficult`) oldV) $
@@ -351,7 +363,7 @@ addToBlockRequestQueue headers nodeId mrecoveryTip = do
         updateRecoveryHeader mrecoveryTip
         ifM (isFullTBQueue queue)
             (pure False)
-            (True <$ writeTBQueue queue (nodeId, headers))
+            (True <$ writeTBQueue queue (nodeId, RetrieveBlocksByHeaders headers))
     if added
     then logDebug $ sformat ("Added to block request queue: nodeId="%build%
                              ", headers="%listJson)
@@ -362,6 +374,27 @@ addToBlockRequestQueue headers nodeId mrecoveryTip = do
   where
     a `isMoreDifficult` b = a ^. difficultyL > b ^. difficultyL
 
+addToBlockRequestQueue'
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m)
+    => NodeId
+    -> BlockHeader ssc
+    -> m ()
+addToBlockRequestQueue' nodeId tip = do
+    queue <- view (lensOf @BlockRetrievalQueueTag)
+    added <- atomically $ do
+        ifM (isFullTBQueue queue)
+            (pure False)
+            (True <$ writeTBQueue queue (nodeId, RetrieveHeadersByTip tip))
+    if added
+        then logDebug $
+            sformat ("Added to block request queue: nodeId="%build%
+                    ", tip="%build)
+                    nodeId tip
+        else logWarning $
+            sformat ("Failed to add headers from "%build%
+                    " to block retrieval queue: queue is full")
+                    nodeId
 
 ----------------------------------------------------------------------------
 -- Handling blocks
@@ -378,8 +411,8 @@ mkBlocksRequest lcaChild wantedBlock =
     }
 
 handleBlocks
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NodeId
     -> OldestFirst NE (Block ssc)
     -> SendActions m
@@ -399,8 +432,8 @@ handleBlocks nodeId blocks sendActions = do
         "Probably rollback happened in parallel"
 
 handleBlocksWithLca
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
@@ -417,8 +450,8 @@ handleBlocksWithLca nodeId sendActions blocks lcaHash = do
     lcaFmt = "Handling block w/ LCA, which is "%shortHashF
 
 applyWithoutRollback
-    :: forall ssc m.
-       (WorkMode ssc m, SscWorkersClass ssc)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m, SscWorkersClass ssc)
     => SendActions m
     -> OldestFirst NE (Block ssc)
     -> m ()
@@ -455,8 +488,8 @@ applyWithoutRollback sendActions blocks = do
         pure (res, newTip)
 
 applyWithRollback
-    :: forall ssc m.
-       (WorkMode ssc m, SscWorkersClass ssc)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m, SscWorkersClass ssc)
     => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
@@ -501,8 +534,8 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
         getOldestFirst $ toApply
 
 relayBlock
-    :: forall ssc m.
-       (WorkMode ssc m)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m)
     => SendActions m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
 relayBlock sendActions (Right mainBlk) = do
@@ -518,8 +551,8 @@ relayBlock sendActions (Right mainBlk) = do
 
 -- TODO: ban node for it!
 onFailedVerifyBlocks
-    :: forall ssc m.
-       (WorkMode ssc m)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m)
     => NonEmpty (Block ssc) -> Text -> m ()
 onFailedVerifyBlocks blocks err = do
     logWarning $ sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)

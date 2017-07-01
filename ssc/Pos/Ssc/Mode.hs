@@ -7,26 +7,26 @@ module Pos.Ssc.Mode
 import           Universum
 
 import           Control.Monad.Catch         (MonadMask)
-import qualified Ether
+import           Ether.Internal              (HasLens (..))
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Communication.PeerState (WithPeerState)
-import           Pos.Core                    (MonadPrimaryKey)
+import           Pos.Core                    (HasPrimaryKey)
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.Discovery               (MonadDiscovery)
 import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
-import           Pos.Reporting               (MonadReportingMem)
+import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)
-import           Pos.Shutdown                (MonadShutdownMem)
+import           Pos.Shutdown                (HasShutdownContext)
 import           Pos.Slotting                (MonadSlots)
-import           Pos.Ssc.Class.Types         (MonadSscContext)
+import           Pos.Ssc.Class.Types         (HasSscContext)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Util.TimeWarp           (CanJsonLog)
 
 -- | Mode used for all SSC listeners, workers, and the like.
-type SscMode ssc m
+type SscMode ssc ctx m
     = ( WithLogger m
       , CanJsonLog m
       , MonadIO m
@@ -35,14 +35,15 @@ type SscMode ssc m
       , MonadSlots m
       , MonadGState m
       , MonadDB m
-      , MonadSscMem ssc m
-      , MonadPrimaryKey m
+      , MonadSscMem ssc ctx m
       , MonadRecoveryInfo m
-      , MonadReportingMem m
-      , MonadShutdownMem m
+      , HasShutdownContext ctx
       , MonadDiscovery m
       , WithPeerState m
-      , MonadSscContext ssc m
-      , Ether.MonadReader' SecurityParams m
-      , Ether.MonadReader' LrcContext m
+      , MonadReader ctx m
+      , HasSscContext ssc ctx
+      , HasReportingContext ctx
+      , HasPrimaryKey ctx
+      , HasLens SecurityParams ctx SecurityParams
+      , HasLens LrcContext ctx LrcContext
       )

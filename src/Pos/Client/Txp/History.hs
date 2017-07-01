@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -27,29 +28,33 @@ module Pos.Client.Txp.History
 
 import           Universum
 
-import           Control.Lens                (makeLenses, (%=))
+import           Control.Lens                (makeLenses, views, (%=))
 import           Control.Monad.Loops         (unfoldrM)
 import           Control.Monad.Trans         (MonadTrans)
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Maybe   (MaybeT (..))
 import qualified Data.DList                  as DL
 import qualified Data.HashSet                as HS
-import           Data.Tagged                 (Tagged (..))
-import qualified Ether
+import           Ether.Internal              (HasLens (..))
 import           System.Wlog                 (WithLogger)
 
-import           Pos.Block.Core              (Block, mainBlockTxPayload)
+import           Pos.Block.Core              (Block, BlockHeader, mainBlockSlot,
+                                              mainBlockTxPayload)
+import           Pos.Block.Types             (Undo)
 import           Pos.Constants               (blkSecurityParam)
 import           Pos.Context.Context         (GenesisUtxo (..))
 import           Pos.Core                    (Address, ChainDifficulty, HeaderHash,
-                                              difficultyL, prevBlockL)
+                                              IsHeader, Timestamp (..), difficultyL,
+                                              prevBlockL)
 import           Pos.Crypto                  (WithHash (..), withHash)
-import           Pos.DB                      (MonadDBRead, MonadGState, MonadRealDB)
+import           Pos.DB                      (MonadBlockDBGeneric, MonadDBRead,
+                                              MonadGState, MonadRealDB)
 import qualified Pos.DB.Block                as DB
 import           Pos.DB.Error                (DBError (..))
 import qualified Pos.DB.GState               as GS
-import           Pos.Slotting                (MonadSlots)
-import           Pos.Ssc.Class               (SscHelpersClass)
+import           Pos.Slotting                (MonadSlots, SlottingData (..),
+                                              getSlotStartPure)
+import           Pos.Ssc.Class               (SscBlock, SscHelpersClass)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local      (eTxProcessTransaction)
 #else
@@ -62,7 +67,7 @@ import           Pos.Txp                     (MonadTxpMem, MonadUtxoRead, Tx (..
                                               filterUtxoByAddrs, flattenTxPayload,
                                               getLocalTxs, runUtxoStateT, topsortTxs,
                                               txOutAddress, utxoGet)
-import           Pos.Util                    (ether, maybeThrow)
+import           Pos.Util                    (Some, ether, maybeThrow)
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -93,6 +98,7 @@ data TxHistoryEntry = THEntry
     , _thDifficulty  :: !(Maybe ChainDifficulty)
     , _thInputAddrs  :: ![Address]  -- TODO: remove in favor of _thInputs
     , _thOutputAddrs :: ![Address]
+    , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic)
 
 makeLenses ''TxHistoryEntry
@@ -120,7 +126,7 @@ getRelatedTxs (HS.fromList -> addrs) txs = do
         return $ do
             guard . not . null $
                 HS.fromList (incomings ++ outgoings) `HS.intersection` addrs
-            return $ THEntry txId tx inputs Nothing incomings outgoings
+            return $ THEntry txId tx inputs Nothing incomings outgoings Nothing
 
 -- | Given a full blockchain, derive address history and Utxo
 -- TODO: Such functionality will still be useful for merging
@@ -139,7 +145,16 @@ deriveAddrHistoryPartial
     -> [Address]
     -> [Block ssc]
     -> TxSelectorT m [TxHistoryEntry]
-deriveAddrHistoryPartial hist addrs chain =
+deriveAddrHistoryPartial hist addrs chain = deriveAddrHistoryPartialWithTimestamp hist addrs chain Nothing
+
+deriveAddrHistoryPartialWithTimestamp
+    :: (Monad m)
+    => [TxHistoryEntry]
+    -> [Address]
+    -> [Block ssc]
+    -> Maybe SlottingData
+    -> TxSelectorT m [TxHistoryEntry]
+deriveAddrHistoryPartialWithTimestamp hist addrs chain maybeSd =
     DL.toList <$> foldrM updateAll (DL.fromList hist) chain
   where
     updateAll (Left _) hst = pure hst
@@ -149,46 +164,57 @@ deriveAddrHistoryPartial hist addrs chain =
                    map mapper $ flattenTxPayload (blk ^. mainBlockTxPayload)
         let difficulty = blk ^. difficultyL
             txs' = map (thDifficulty .~ Just difficulty) txs
-        return $ DL.fromList txs' <> hst
+        let maybeTimestamp = maybeSd >>= getSlotStartPure True (blk ^. mainBlockSlot)
+            txs'' = map (thTimestamp .~ maybeTimestamp) txs'
+        return $ DL.fromList txs'' <> hst
 
 ----------------------------------------------------------------------------
 -- MonadTxHistory
 ----------------------------------------------------------------------------
 
 -- | A class which have methods to get transaction history
-class Monad m => MonadTxHistory m where
+class (Monad m, SscHelpersClass ssc) => MonadTxHistory ssc m | m -> ssc where
     getTxHistory
-        :: SscHelpersClass ssc
-        => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
+        :: [Address]
+        -> Maybe (HeaderHash, Utxo)
+        -> m TxHistoryAnswer
     saveTx :: (TxId, TxAux) -> m ()
 
 instance {-# OVERLAPPABLE #-}
-    (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
-        MonadTxHistory (t m)
+    (MonadTxHistory ssc m, MonadTrans t, Monad (t m)) =>
+        MonadTxHistory ssc (t m)
   where
-    getTxHistory = fmap lift <<$>> getTxHistory
+    getTxHistory = lift <<$>> getTxHistory
     saveTx = lift . saveTx
 
 
-type TxHistoryEnv m =
-    ( MonadRealDB m
+type TxHistoryEnv ctx m =
+    ( MonadRealDB ctx m
     , MonadDBRead m
     , MonadGState m
     , MonadThrow m
     , WithLogger m
     , MonadSlots m
-    , Ether.MonadReader' GenesisUtxo m
-    , MonadTxpMem TxpExtra_TMP m
+    , MonadReader ctx m
+    , HasLens GenesisUtxo ctx GenesisUtxo
+    , MonadTxpMem TxpExtra_TMP ctx m
     , MonadBaseControl IO m
     )
 
+type TxHistoryEnv' ssc ctx m =
+    ( SscHelpersClass ssc
+    , TxHistoryEnv ctx m
+    , MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo m
+    , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
+    )
+
 getTxHistoryDefault
-    :: forall ssc m. (SscHelpersClass ssc, TxHistoryEnv m)
-    => Tagged ssc ([Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer)
-getTxHistoryDefault = Tagged $ \addrs mInit -> do
+    :: forall ssc ctx m. TxHistoryEnv' ssc ctx m
+    => [Address] -> Maybe (HeaderHash, Utxo) -> m TxHistoryAnswer
+getTxHistoryDefault addrs mInit = do
     tip <- GS.getTip
 
-    let getGenUtxo = Ether.asks' unGenesisUtxo
+    let getGenUtxo = views (lensOf @GenesisUtxo) unGenesisUtxo
     (bot, genUtxo) <- maybe ((,) <$> GS.getBot <*> getGenUtxo) pure mInit
 
     -- Getting list of all hashes in main blockchain (excluding bottom block - it's genesis anyway)
@@ -196,7 +222,7 @@ getTxHistoryDefault = Tagged $ \addrs mInit -> do
         if h == bot
         then return Nothing
         else do
-            header <- DB.runBlockDBRedirect $ DB.blkGetHeader @ssc h >>=
+            header <- DB.blkGetHeader @ssc h >>=
                 maybeThrow (DBMalformed "Best blockchain is non-continuous")
             let prev = header ^. prevBlockL
             return $ Just (h, prev)
@@ -205,14 +231,15 @@ getTxHistoryDefault = Tagged $ \addrs mInit -> do
     let cachedHashes = drop blkSecurityParam hashList
         nonCachedHashes = take blkSecurityParam hashList
 
+    sd <- GS.getSlottingData
     let blockFetcher h txs = do
-            blk <- lift . lift . DB.runBlockDBRedirect $ DB.blkGetBlock @ssc h >>=
+            blk <- DB.blkGetBlock @ssc h >>=
                    maybeThrow (DBMalformed "A block mysteriously disappeared!")
-            deriveAddrHistoryPartial txs addrs [blk]
+            deriveAddrHistoryPartialWithTimestamp txs addrs [blk] (Just sd)
         localFetcher blkTxs = do
             let mp (txid, TxAux {..}) =
                   (WithHash taTx txid, taWitness, taDistribution)
-            ltxs <- lift . lift $ getLocalTxs
+            ltxs <- getLocalTxs
             txs <- getRelatedTxs addrs $ map mp ltxs
             return $ txs ++ blkTxs
 
@@ -229,7 +256,7 @@ getTxHistoryDefault = Tagged $ \addrs mInit -> do
 
     maybe (error "deriveAddrHistory: Nothing") pure mres
 
-saveTxDefault :: TxHistoryEnv m => (TxId, TxAux) -> m ()
+saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
 #ifdef WITH_EXPLORER
 saveTxDefault txw = () <$ runExceptT (eTxProcessTransaction txw)
 #else

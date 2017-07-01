@@ -24,7 +24,7 @@ import           Universum
 
 import           Control.Lens                (each, _Wrapped)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Ether
+import           Ether.Internal              (HasLens (..))
 import           Formatting                  (sformat, (%))
 import           Paths_cardano_sl            (version)
 import           Serokell.Util.Text          (listJson)
@@ -51,7 +51,7 @@ import           Pos.Txp.Logic               (txNormalize)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Discovery.Class         (MonadDiscovery)
 import           Pos.Exception               (assertionFailed)
-import           Pos.Reporting               (MonadReportingMem, reportingFatal)
+import           Pos.Reporting               (HasReportingContext, reportingFatal)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscGStateClass)
@@ -70,29 +70,30 @@ import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst 
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
 
 -- | Set of basic constraints used by high-level block processing.
-type BlockMode ssc m
+type BlockMode ssc ctx m
      = ( SlogMode ssc m
        -- Needed because SSC state is fully stored in memory.
-       , MonadSscMem ssc m
+       , MonadSscMem ssc ctx m
        -- Needed to load blocks (at least delegation does it).
        , MonadBlockDB ssc m
        -- Needed by some components.
        , MonadGState m
        -- LRC is really needed.
-       , Ether.MonadReader' LrcContext m
+       , HasLens LrcContext ctx LrcContext
        -- This constraints define block components' global logic.
-       , Ether.MonadReader' TxpGlobalSettings m
+       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
        , SscGStateClass ssc
        -- And 'MonadIO' is needed as usual.
        , MonadIO m
+       , MonadReader ctx m
        )
 
 -- | Set of constraints necessary for high-level block verification.
-type BlockVerifyMode ssc m = BlockMode ssc m
+type BlockVerifyMode ssc ctx m = BlockMode ssc ctx m
 
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
-type BlockApplyMode ssc m
-     = ( BlockMode ssc m
+type BlockApplyMode ssc ctx m
+     = ( BlockMode ssc ctx m
        , SlogApplyMode ssc m
        -- It's obviously needed to write something to DB, for instance.
        , MonadDB m
@@ -101,14 +102,15 @@ type BlockApplyMode ssc m
        -- Needed to embed custom logic.
        , MonadBListener m
        -- Needed for normalization.
-       , MonadTxpMem TxpExtra_TMP m
-       , MonadDelegation m
+       , MonadTxpMem TxpExtra_TMP ctx m
+       , MonadDelegation ctx m
        , SscLocalDataClass ssc
-       , Ether.MonadReader' UpdateContext m
+       , HasLens UpdateContext ctx UpdateContext
        -- Needed for error reporting.
-       , MonadReportingMem m
+       , HasReportingContext ctx
        , MonadDiscovery m
        , MonadBaseControl IO m
+       , MonadReader ctx m
        )
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,
@@ -117,7 +119,7 @@ type BlockApplyMode ssc m
 --
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
-    :: forall ssc m . BlockApplyMode ssc m
+    :: forall ssc ctx m . BlockApplyMode ssc ctx m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafe blunds pModifier = reportingFatal version $ do
     -- Check that all blunds have the same epoch.
@@ -145,13 +147,13 @@ applyBlocksUnsafe blunds pModifier = reportingFatal version $ do
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksUnsafeDo
-    :: forall ssc m . BlockApplyMode ssc m
+    :: forall ssc ctx m . BlockApplyMode ssc ctx m
     => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
 applyBlocksUnsafeDo blunds pModifier = do
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
     slogBatch <- slogApplyBlocks blunds
-    TxpGlobalSettings {..} <- Ether.ask'
+    TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks blocks
     txpBatch <- tgsApplyBlocks $ map toTxpBlund blunds
@@ -179,7 +181,7 @@ applyBlocksUnsafeDo blunds pModifier = do
 -- head being current tip. It's also assumed that lock on block db is
 -- taken.  application is taken already.
 rollbackBlocksUnsafe
-    :: forall ssc m. (BlockApplyMode ssc m)
+    :: forall ssc ctx m. (BlockApplyMode ssc ctx m)
     => NewestFirst NE (Blund ssc)
     -> m ()
 rollbackBlocksUnsafe toRollback = reportingFatal version $ do
@@ -188,7 +190,7 @@ rollbackBlocksUnsafe toRollback = reportingFatal version $ do
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS
                               & each._1 %~ toUpdateBlock)
-    TxpGlobalSettings {..} <- Ether.ask'
+    TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txRoll <- tgsRollbackBlocks $ map toTxpBlund toRollback
     sscBatch <- SomeBatchOp <$> sscRollbackBlocks
         (map (toSscBlock . fst) toRollback)

@@ -434,19 +434,9 @@ deleteAndInsertIMM
     => [a] -> [a] -> IndexedMapModifier a -> IndexedMapModifier a
 deleteAndInsertIMM dels ins mapModifier =
     -- Insert CWAddressMeta coressponding to outputs of tx.
-    (\mm -> foldl' insertAcc mm ins) $
+    (\mm -> foldl' (flip insertIMM) mm ins) $
     -- Delete CWAddressMeta coressponding to inputs of tx.
-    foldl' deleteAcc mapModifier dels
-  where
-    insertAcc
-        :: (Hashable a, Eq a)
-        => IndexedMapModifier a -> a -> IndexedMapModifier a
-    insertAcc modifier acc = insertIMM acc modifier
-
-    deleteAcc
-        :: (Hashable a, Eq a)
-        => IndexedMapModifier a -> a -> IndexedMapModifier a
-    deleteAcc modifier acc = deleteIMM acc modifier
+    foldl' (flip deleteIMM) mapModifier dels
 
 decryptAccount :: (HDPassphrase, CId Wal) -> Address -> Maybe CWAddressMeta
 decryptAccount (hdPass, wCId) addr@(PubKeyAddress _ (Attributes (AddrPkAttrs (Just hdPayload)) _)) = do

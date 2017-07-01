@@ -17,14 +17,16 @@
 --   Utxo (GStateDB), because blockchain can be large.
 
 module Pos.Wallet.Web.Tracking
-       ( syncWalletsWithGStateLock
+       ( CAccModifier (..)
+       , sortedInsertions
+
+       , syncWalletsWithGStateLock
        , selectAccountsFromUtxoLock
        , trackingApplyTxs
        , trackingRollbackTxs
        , applyModifierToWallet
        , rollbackModifierFromWallet
        , BlockLockMode
-       , CAccModifier (..)
        , MonadWalletTracking (..)
 
        , getWalletAddrMetasDB
@@ -36,8 +38,9 @@ import           Control.Lens               (to)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
+import qualified Data.Text.Buildable
 import qualified Ether
-import           Formatting                 (build, int, sformat, (%))
+import           Formatting                 (bprint, build, int, sformat, (%))
 import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
@@ -85,8 +88,24 @@ import qualified Pos.Wallet.Web.State       as WS
 
 type VoidModifier a = MM.MapModifier a ()
 
-data CAccModifier = CAccModifier {
-      camAddresses :: !(VoidModifier CWAddressMeta)
+data IndexedMapModifier a = IndexedMapModifier
+    { immModifier :: MM.MapModifier a Int
+    , immCounter  :: Int
+    }
+
+sortedInsertions :: IndexedMapModifier a -> [a]
+sortedInsertions = map fst . sortOn snd . MM.insertions . immModifier
+
+indexedDeletetions :: IndexedMapModifier a -> [a]
+indexedDeletetions = MM.deletions . immModifier
+
+instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
+    mempty = IndexedMapModifier mempty 0
+    IndexedMapModifier m1 c1 `mappend` IndexedMapModifier m2 c2 =
+        IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
+
+data CAccModifier = CAccModifier
+    { camAddresses :: !(IndexedMapModifier CWAddressMeta)
     , camUsed      :: !(VoidModifier (CId Addr, HeaderHash))
     , camChange    :: !(VoidModifier (CId Addr, HeaderHash))
     }
@@ -95,6 +114,18 @@ instance Monoid CAccModifier where
     mempty = CAccModifier mempty mempty mempty
     (CAccModifier a b c) `mappend` (CAccModifier a1 b1 c1) =
         CAccModifier (a <> a1) (b <> b1) (c <> c1)
+
+instance Buildable CAccModifier where
+    build CAccModifier{..} =
+        bprint
+            (  "added accounts: "%listJson
+            %", deleted accounts: "%listJson
+            %", used address: "%listJson
+            %", change address: "%listJson)
+        (sortedInsertions camAddresses)
+        (indexedDeletetions camAddresses)
+        (map (fst . fst) $ MM.insertions camUsed)
+        (map (fst . fst) $ MM.insertions camChange)
 
 type BlockLockMode ssc m =
     ( WithLogger m
@@ -212,19 +243,11 @@ syncWalletWithGState encSK = do
                 sformat ("Couldn't get block header of wallet "%build
                          %" by last synced hh: "%build) wAddr wTip
         Just wHeader -> do
-            mapModifier@CAccModifier{..} <- compareHeaders wAddr wHeader tipHeader
+            mapModifier <- compareHeaders wAddr wHeader tipHeader
             applyModifierToWallet wAddr (headerHash tipHeader) mapModifier
-            logDebug $ sformat ("Wallet "%build
-                               %" has been synced with tip "%shortHashF
-                               %", added addresses: "%listJson
-                               %", deleted addresses: "%listJson
-                               %", used addresses: "%listJson
-                               %", change addresses: "%listJson)
-                       wAddr wTip
-                       (map fst $ MM.insertions camAddresses)
-                       (MM.deletions camAddresses)
-                       (map (fst . fst) $ MM.insertions camUsed)
-                       (map (fst . fst) $ MM.insertions camChange)
+            logDebug $ sformat ("Wallet "%build%" has been synced with tip "
+                                %shortHashF%", "%build)
+                       wAddr wTip mapModifier
 
     compareHeaders :: CId Wal -> BlockHeader ssc -> BlockHeader ssc -> m CAccModifier
     compareHeaders wAddr wHeader tipHeader = do
@@ -294,7 +317,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses txs =
         let usedAddrs = map (cwamId . snd) ownOutputs
         let changeAddrs = evalChange allAddresses (map snd ownInputs) (map snd ownOutputs)
         pure $ CAccModifier
-            (deleteAndInsertMM (map snd ownInputs) (map snd ownOutputs) camAddresses)
+            (deleteAndInsertIMM (map snd ownInputs) (map snd ownOutputs) camAddresses)
             (deleteAndInsertMM [] (zip usedAddrs  hhs) camUsed)
             (deleteAndInsertMM [] (zip changeAddrs hhs) camChange)
 
@@ -319,7 +342,7 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
         let usedAddrs = map cwamId ownOutputs
         let changeAddrs = evalChange allAddress ownInputs ownOutputs
         CAccModifier
-            (deleteAndInsertMM ownOutputs ownInputs camAddresses)
+            (deleteAndInsertIMM ownOutputs ownInputs camAddresses)
             (deleteAndInsertMM (zip usedAddrs hhs) [] camUsed)
             (deleteAndInsertMM (zip changeAddrs hhs) [] camChange)
 
@@ -331,7 +354,7 @@ applyModifierToWallet
     -> m ()
 applyModifierToWallet wAddr newTip CAccModifier{..} = do
     -- TODO maybe do it as one acid-state transaction.
-    mapM_ (WS.addWAddress . fst) (MM.insertions camAddresses)
+    mapM_ WS.addWAddress (sortedInsertions camAddresses)
     mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions camUsed)
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
     WS.setWalletSyncTip wAddr newTip
@@ -344,7 +367,7 @@ rollbackModifierFromWallet
     -> m ()
 rollbackModifierFromWallet wAddr newTip CAccModifier{..} = do
     -- TODO maybe do it as one acid-state transaction.
-    mapM_ WS.removeWAddress (MM.deletions camAddresses)
+    mapM_ WS.removeWAddress (indexedDeletetions camAddresses)
     mapM_ (WS.removeCustomAddress UsedAddr) (MM.deletions camUsed)
     mapM_ (WS.removeCustomAddress ChangeAddr) (MM.deletions camChange)
     WS.setWalletSyncTip wAddr newTip
@@ -373,7 +396,27 @@ selectOwnAccounts
 selectOwnAccounts encInfo getAddr =
     mapMaybe (\a -> (a,) <$> decryptAccount encInfo (getAddr a))
 
-deleteAndInsertMM :: (Eq a, Hashable a) => [a] -> [a] -> VoidModifier a -> VoidModifier a
+insertIMM
+    :: (Eq a, Hashable a)
+    => a -> IndexedMapModifier a -> IndexedMapModifier a
+insertIMM k IndexedMapModifier {..} =
+    IndexedMapModifier
+    { immModifier = MM.insert k immCounter immModifier
+    , immCounter  = immCounter + 1
+    }
+
+deleteIMM
+    :: (Eq a, Hashable a)
+    => a -> IndexedMapModifier a -> IndexedMapModifier a
+deleteIMM k IndexedMapModifier {..} =
+    IndexedMapModifier
+    { immModifier = MM.delete k immModifier
+    , ..
+    }
+
+deleteAndInsertMM
+    :: (Eq a, Hashable a)
+    => [a] -> [a] -> VoidModifier a -> VoidModifier a
 deleteAndInsertMM dels ins mapModifier =
     -- Insert CWAddressMeta coressponding to outputs of tx.
     (\mm -> foldl' insertAcc mm ins) $
@@ -385,6 +428,25 @@ deleteAndInsertMM dels ins mapModifier =
 
     deleteAcc :: (Hashable a, Eq a) => VoidModifier a -> a -> VoidModifier a
     deleteAcc modifier acc = MM.delete acc modifier
+
+deleteAndInsertIMM
+    :: (Eq a, Hashable a)
+    => [a] -> [a] -> IndexedMapModifier a -> IndexedMapModifier a
+deleteAndInsertIMM dels ins mapModifier =
+    -- Insert CWAddressMeta coressponding to outputs of tx.
+    (\mm -> foldl' insertAcc mm ins) $
+    -- Delete CWAddressMeta coressponding to inputs of tx.
+    foldl' deleteAcc mapModifier dels
+  where
+    insertAcc
+        :: (Hashable a, Eq a)
+        => IndexedMapModifier a -> a -> IndexedMapModifier a
+    insertAcc modifier acc = insertIMM acc modifier
+
+    deleteAcc
+        :: (Hashable a, Eq a)
+        => IndexedMapModifier a -> a -> IndexedMapModifier a
+    deleteAcc modifier acc = deleteIMM acc modifier
 
 decryptAccount :: (HDPassphrase, CId Wal) -> Address -> Maybe CWAddressMeta
 decryptAccount (hdPass, wCId) addr@(PubKeyAddress _ (Attributes (AddrPkAttrs (Just hdPayload)) _)) = do

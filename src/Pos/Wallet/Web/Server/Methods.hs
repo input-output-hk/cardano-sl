@@ -155,6 +155,7 @@ import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, CAccModifier (..),
                                                    MonadWalletTracking,
                                                    selectAccountsFromUtxoLock,
+                                                   sortedInsertions,
                                                    syncWalletsWithGStateLock,
                                                    txMempoolToModifier)
 import           Pos.Wallet.Web.Util              (getWalletAccountIds)
@@ -449,7 +450,7 @@ getAccount accId = do
         let bSet = S.fromList bs
         filter (`S.notMember` bSet) as <> bs
     gatherAddresses modifier dbAddrs = do
-        let insertions = map fst (MM.insertions modifier)
+        let insertions = sortedInsertions modifier
             relatedIns = filter ((== accId) . addrMetaToAccount) insertions
         dbAddrs `addUnique` relatedIns
 

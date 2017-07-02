@@ -45,7 +45,7 @@ import           Pos.Context                  (GenesisUtxo, genesisUtxoM)
 import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
                                                Timestamp (..), difficultyL)
 import           Pos.Crypto                   (WithHash (..), withHash)
-import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
+import           Pos.DB                       (MonadDBRead, MonadRealDB)
 import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.GState                as GS
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure)
@@ -59,8 +59,8 @@ import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxo
                                                ToilT, Tx (..), TxAux (..), TxDistribution,
                                                TxId, TxOut, TxOutAux (..), TxWitness,
                                                applyTxToUtxo, evalToilTEmpty,
-                                               flattenTxPayload, getLocalTxs, runDBToil,
-                                               runUtxoStateT, txOutAddress, utxoGet)
+                                               flattenTxPayload, getLocalTxs, runDBTxp,
+                                               txOutAddress, utxoGet)
 import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -126,7 +126,7 @@ deriveAddrHistory
     :: MonadUtxo m
     => [Address] -> [Block ssc] -> m [TxHistoryEntry]
 deriveAddrHistory addrs chain =
-    DL.toList <$> foldrM (flip $ deriveAddrHistoryBlk addrs) mempty chain
+    DL.toList <$> foldrM (flip $ deriveAddrHistoryBlk addrs $ const Nothing) mempty chain
 
 deriveAddrHistoryBlk
     :: MonadUtxo m
@@ -239,7 +239,7 @@ instance
             blockFetcher bot
 
     getLocalHistory :: [Address] -> TxHistoryRedirect m (DList TxHistoryEntry)
-    getLocalHistory addrs = runDBToil . evalToilTEmpty $ do
+    getLocalHistory addrs = runDBTxp . evalToilTEmpty $ do
         let mapper (txid, TxAux {..}) =
                 (WithHash taTx txid, taWitness, taDistribution)
         ltxs <- getLocalTxs

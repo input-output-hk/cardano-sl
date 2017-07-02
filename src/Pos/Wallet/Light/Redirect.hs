@@ -88,13 +88,15 @@ instance
     , Ether.MonadReader' LWS.WalletState m
     ) => MonadTxHistory (Ether.TaggedTrans TxHistoryWalletRedirectTag t m)
   where
-    getTxHistory = Tagged $ \addrs _ -> do
+    getBlockHistory = Tagged $ \addrs -> do
         chain <- LWS.getBestChain
         utxo <- LWS.getOldestUtxo
         _ <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
             runMaybeT $ flip runUtxoStateT utxo $
             deriveAddrHistory addrs chain
-        pure $ error "getTxHistory is not implemented for light wallet"
+        pure $ error "getBlockHistory is not implemented for light wallet"
+    getLocalHistory _ =
+        pure $ error "getLocalHistory is not implemented for light wallet"
     saveTx _ = pure ()
 
 ----------------------------------------------------------------------------

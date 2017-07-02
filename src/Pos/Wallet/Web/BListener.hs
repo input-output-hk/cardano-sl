@@ -86,7 +86,7 @@ onApplyTracking blunds = do
 
         let auxToTuple TxAux {..} = (withHash taTx, taWitness, taDistribution)
             whTxs = map auxToTuple txs
-        txHistoryBlk <- runDBToil $
+        txHistoryBlk <- runDBTxp $
                         evalToilTEmpty $
                         getRelatedTxsByAddrs addrs whTxs
 

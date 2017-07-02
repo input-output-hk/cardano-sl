@@ -1,5 +1,21 @@
 #!/usr/bin/env bash
 
+# For example:
+
+# ./scripts/workflow/merge_master.sh -b CSE-162-Explorer-slow-blocks -m 75f7c7f8a549af1e37acdbd6d3d66b68bb0e6643
+
+# Result:
+
+# git checkout master
+# git pull --ff-only # make sure you are using latest master
+# git checkout -b ksaric/merge-CSE-162-Explorer-slow-blocks-to-master # you can choose whatever name you want actually
+# git merge 75f7c7f8a549af1e37acdbd6d3d66b68bb0e6643 # where MERGE_COMMIT is the merge commit corresponding to your PR
+# # resolve conflicts
+# git commit
+# git push -u origin ksaric/merge-CSE-162-Explorer-slow-blocks-to-master
+# # make a PR
+
+
 while getopts u:b:m: option
 do
  case "${option}"

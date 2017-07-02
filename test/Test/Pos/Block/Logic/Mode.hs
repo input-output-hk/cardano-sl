@@ -46,10 +46,11 @@ import           Pos.DB                  (MonadBlockDBGeneric (..), MonadDB (..)
                                           dbDeleteDefault, dbGetDefault,
                                           dbIterSourceDefault, dbPutDefault,
                                           dbWriteBatchDefault)
-import           Pos.DB.Block            (MonadBlockDBWrite (..), dbGetBlockDefault,
-                                          dbGetBlockSscDefault, dbGetHeaderDefault,
-                                          dbGetHeaderSscDefault, dbGetUndoDefault,
-                                          dbGetUndoSscDefault, dbPutBlundDefault)
+import           Pos.DB.Block            (dbGetBlockDefault, dbGetBlockSscDefault,
+                                          dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                          dbGetUndoDefault, dbGetUndoSscDefault,
+                                          dbPutBlundDefault)
+import           Pos.DB.Class            (MonadBlockDBWrite (..))
 import           Pos.DB.DB               (closeNodeDBs, gsAdoptedBVDataDefault,
                                           initNodeDBs, openNodeDBs)
 import qualified Pos.DB.GState           as GState
@@ -297,9 +298,6 @@ instance MonadDB BlockTestMode where
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
 
-instance MonadBlockDBWrite SscGodTossing BlockTestMode where
-    dbPutBlund = dbPutBlundDefault
-
 instance MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode
   where
     dbGetBlock  = dbGetBlockDefault @SscGodTossing
@@ -311,6 +309,9 @@ instance MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTe
     dbGetBlock  = dbGetBlockSscDefault @SscGodTossing
     dbGetUndo   = dbGetUndoSscDefault @SscGodTossing
     dbGetHeader = dbGetHeaderSscDefault @SscGodTossing
+
+instance MonadBlockDBWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode where
+    dbPutBlund = dbPutBlundDefault
 
 instance MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault

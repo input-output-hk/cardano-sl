@@ -24,11 +24,12 @@ import           Pos.Communication.PeerState   (HasPeerState (..), WithPeerState
 import           Pos.Context                   (HasNodeContext (..))
 import           Pos.Core                      (HasPrimaryKey (..), IsHeader)
 import           Pos.DB                        (MonadGState (..))
-import           Pos.DB.Block                  (MonadBlockDBWrite (..), dbGetBlockDefault,
-                                                dbGetBlockSscDefault, dbGetHeaderDefault,
-                                                dbGetHeaderSscDefault, dbGetUndoDefault,
-                                                dbGetUndoSscDefault, dbPutBlundDefault)
-import           Pos.DB.Class                  (MonadBlockDBGeneric (..), MonadDB (..),
+import           Pos.DB.Block                  (dbGetBlockDefault, dbGetBlockSscDefault,
+                                                dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                                dbGetUndoDefault, dbGetUndoSscDefault,
+                                                dbPutBlundDefault)
+import           Pos.DB.Class                  (MonadBlockDBGeneric (..),
+                                                MonadBlockDBWrite (..), MonadDB (..),
                                                 MonadDBRead (..))
 import           Pos.DB.DB                     (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks.Redirect         (dbDeleteDefault, dbGetDefault,
@@ -179,7 +180,7 @@ instance MonadDB WalletWebMode where
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
 
-instance MonadBlockDBWrite WalletSscType WalletWebMode where
+instance MonadBlockDBWrite (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode where
     dbPutBlund = dbPutBlundDefault
 
 instance MonadBlockDBGeneric (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode

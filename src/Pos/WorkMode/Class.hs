@@ -21,6 +21,8 @@ import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)
+import           Pos.Block.Core              (Block, BlockHeader)
+import           Pos.Block.Types             (Undo)
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
@@ -28,8 +30,9 @@ import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
                                               HasSscContext, MonadLastKnownHeader,
                                               MonadProgressHeader, MonadRecoveryHeader,
                                               StartTime, TxpGlobalSettings)
-import           Pos.DB.Block                (MonadBlockDBWrite)
-import           Pos.DB.Class                (MonadDB, MonadGState)
+import           Pos.Core                    (IsHeader)
+import           Pos.DB.Class                (MonadBlockDBGeneric, MonadBlockDBWrite,
+                                              MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.Discovery.Class         (MonadDiscovery)
@@ -46,10 +49,12 @@ import           Pos.Slotting.Class          (MonadSlots)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscGStateClass)
+import           Pos.Ssc.Class.Types         (SscBlock)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Txp.MemState            (MonadTxpMem)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
+import           Pos.Util                    (Some)
 import           Pos.Util.TimeWarp           (CanJsonLog)
 
 -- Something extremely unpleasant.
@@ -67,9 +72,11 @@ type WorkMode ssc ctx m
       , MonadMask m
       , MonadSlots m
       , MonadDB m
-      , MonadBlockDBWrite ssc m
-      , MonadGState m
       , MonadRealDB ctx m
+      , MonadGState m
+      , MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo m
+      , MonadBlockDBWrite (BlockHeader ssc) (Block ssc) Undo m
+      , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
       , MonadTxpMem TxpExtra_TMP ctx m
       , MonadRelayMem ctx m
       , MonadDelegation ctx m

@@ -37,12 +37,12 @@ import           Pos.Block.Types       (Undo)
 import           Pos.Context.Context   (GenesisStakes, GenesisUtxo)
 import           Pos.Core              (IsHeader, Timestamp)
 import           Pos.DB                (NodeDBs)
-import           Pos.DB.Block          (MonadBlockDBWrite (..), dbGetBlockDefault,
-                                        dbGetBlockSscDefault, dbGetHeaderDefault,
-                                        dbGetHeaderSscDefault, dbGetUndoDefault,
-                                        dbGetUndoSscDefault, dbPutBlundDefault)
-import           Pos.DB.Class          (MonadBlockDBGeneric (..), MonadDB (..),
-                                        MonadDBRead (..))
+import           Pos.DB.Block          (dbGetBlockDefault, dbGetBlockSscDefault,
+                                        dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                        dbGetUndoDefault, dbGetUndoSscDefault,
+                                        dbPutBlundDefault)
+import           Pos.DB.Class          (MonadBlockDBGeneric (..), MonadBlockDBWrite (..),
+                                        MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks.Redirect (dbDeleteDefault, dbGetDefault,
                                         dbIterSourceDefault, dbPutDefault,
                                         dbWriteBatchDefault)
@@ -122,9 +122,6 @@ instance MonadDB (InitMode ssc) where
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
 
-instance SscHelpersClass ssc => MonadBlockDBWrite ssc (InitMode ssc) where
-    dbPutBlund = dbPutBlundDefault
-
 instance
     SscHelpersClass ssc =>
     MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (InitMode ssc)
@@ -132,6 +129,10 @@ instance
     dbGetBlock  = dbGetBlockDefault @ssc
     dbGetUndo   = dbGetUndoDefault @ssc
     dbGetHeader = dbGetHeaderDefault @ssc
+
+instance SscHelpersClass ssc =>
+         MonadBlockDBWrite (BlockHeader ssc) (Block ssc) Undo (InitMode ssc) where
+    dbPutBlund = dbPutBlundDefault
 
 instance
     SscHelpersClass ssc =>

@@ -34,11 +34,12 @@ import           Pos.Context                 (HasNodeContext (..), HasPrimaryKey
                                               HasSscContext (..), NodeContext)
 import           Pos.Core                    (IsHeader)
 import           Pos.DB                      (MonadGState (..), NodeDBs)
-import           Pos.DB.Block                (MonadBlockDBWrite (..), dbGetBlockDefault,
-                                              dbGetBlockSscDefault, dbGetHeaderDefault,
-                                              dbGetHeaderSscDefault, dbGetUndoDefault,
-                                              dbGetUndoSscDefault, dbPutBlundDefault)
-import           Pos.DB.Class                (MonadBlockDBGeneric (..), MonadDB (..),
+import           Pos.DB.Block                (dbGetBlockDefault, dbGetBlockSscDefault,
+                                              dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                              dbGetUndoDefault, dbGetUndoSscDefault,
+                                              dbPutBlundDefault)
+import           Pos.DB.Class                (MonadBlockDBGeneric (..),
+                                              MonadBlockDBWrite (..), MonadDB (..),
                                               MonadDBRead (..))
 import           Pos.DB.DB                   (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks                (dbDeleteDefault, dbGetDefault,
@@ -176,9 +177,6 @@ instance MonadDB (RealMode ssc) where
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
 
-instance SscHelpersClass ssc => MonadBlockDBWrite ssc (RealMode ssc) where
-    dbPutBlund = dbPutBlundDefault
-
 instance MonadBListener (RealMode ssc) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
@@ -203,3 +201,7 @@ instance
     dbGetBlock  = dbGetBlockSscDefault @ssc
     dbGetUndo   = dbGetUndoSscDefault @ssc
     dbGetHeader = dbGetHeaderSscDefault @ssc
+
+instance SscHelpersClass ssc =>
+         MonadBlockDBWrite (BlockHeader ssc) (Block ssc) Undo (RealMode ssc) where
+    dbPutBlund = dbPutBlundDefault

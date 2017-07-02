@@ -34,16 +34,15 @@ import           System.Wlog           (WithLogger)
 
 import           Pos.Binary.Core       ()
 import           Pos.Block.BListener   (MonadBListener (..))
-import           Pos.Block.Core        (Block, genBlockLeaders)
+import           Pos.Block.Core        (Block, BlockHeader, genBlockLeaders)
 import           Pos.Block.Pure        (verifyBlocks)
-import           Pos.Block.Types       (Blund)
+import           Pos.Block.Types       (Blund, Undo)
 import           Pos.Constants         (lastKnownBlockVersion)
 import           Pos.Context           (lrcActionOnEpochReason)
 import           Pos.Core              (BlockVersion (..), epochIndexL, headerHash,
                                         headerHashG, prevBlockL)
 import           Pos.DB                (SomeBatchOp (..))
-import           Pos.DB.Block          (MonadBlockDBWrite (dbPutBlund))
-import           Pos.DB.Class          (MonadDBRead)
+import           Pos.DB.Class          (MonadBlockDBWrite (dbPutBlund), MonadDBRead)
 import           Pos.DB.DB             (sanityCheckDB)
 import qualified Pos.DB.GState         as GS
 import           Pos.Exception         (assertionFailed)
@@ -144,7 +143,7 @@ slogVerifyBlocks blocks = do
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
 type SlogApplyMode ssc m =
     ( SlogMode ssc m
-    , MonadBlockDBWrite ssc m
+    , MonadBlockDBWrite (BlockHeader ssc) (Block ssc) Undo m
     , MonadBListener m
     , MonadMask m
     , MonadIO m

@@ -28,20 +28,20 @@ import           System.FilePath            ((</>))
 import           System.Wlog                (WithLogger)
 
 import           Pos.Block.Core             (Block, BlockHeader, mkGenesisBlock)
-import           Pos.Block.Types            (Blund)
+import           Pos.Block.Types            (Blund, Undo)
 import           Pos.Context.Context        (GenesisStakes, GenesisUtxo)
 import           Pos.Context.Functions      (genesisLeadersM)
 import           Pos.Core                   (BlockVersionData, Timestamp, headerHash)
-import           Pos.DB.Block               (MonadBlockDB, MonadBlockDBWrite,
-                                             loadBlundsByDepth, loadBlundsWhile,
-                                             prepareBlockDB)
-import           Pos.DB.Class               (MonadDB, MonadDBRead (..))
+import           Pos.DB.Block               (MonadBlockDB, loadBlundsByDepth,
+                                             loadBlundsWhile, prepareBlockDB)
+import           Pos.DB.Class               (MonadBlockDBWrite, MonadDB, MonadDBRead (..))
 import           Pos.DB.GState.Common       (getTip, getTipBlockGeneric,
                                              getTipHeaderGeneric)
 import           Pos.DB.GState.GState       (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.DB.Misc                (prepareMiscDB)
 import           Pos.DB.Rocks               (NodeDBs (..), closeRocksDB, openRocksDB)
 import           Pos.Lrc.DB                 (prepareLrcDB)
+import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Update.DB              (getAdoptedBVData)
 import           Pos.Util                   (inAssertMode)
 import           Pos.Util.Chrono            (NewestFirst)
@@ -84,7 +84,8 @@ initNodeDBs
        ( MonadReader ctx m
        , HasLens GenesisUtxo ctx GenesisUtxo
        , HasLens GenesisStakes ctx GenesisStakes
-       , MonadBlockDBWrite ssc m
+       , MonadBlockDBWrite (BlockHeader ssc) (Block ssc) Undo m
+       , SscHelpersClass ssc
        , MonadDB m
        )
     => Timestamp -> m ()

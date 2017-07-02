@@ -52,7 +52,7 @@ module Pos.DB.Class
          -- * Block DB
        , MonadBlockDBGeneric (..)
        , dbGetBlund
-
+       , MonadBlockDBWrite (..)
        ) where
 
 import           Universum
@@ -211,3 +211,21 @@ dbGetBlund x =
     runMaybeT $
     (,) <$> MaybeT (dbGetBlock @header @blk @undo x) <*>
     MaybeT (dbGetUndo @header @blk @undo x)
+
+-- | Superclass of 'MonadBlockDB' which allows to modify the Block
+-- DB.
+--
+-- TODO: support deletion when we actually start using deletion
+-- (probably not soon).
+class MonadBlockDBGeneric header blk undo m => MonadBlockDBWrite header blk undo m where
+    -- | Put given blund into the Block DB.
+    dbPutBlund :: (blk,undo) -> m ()
+
+instance {-# OVERLAPPABLE #-}
+    ( MonadBlockDBWrite header blk undo m
+    , MonadBlockDBGeneric header blk undo (t m)
+    , MonadTrans t
+    , LiftLocal t) =>
+        MonadBlockDBWrite header blk undo (t m)
+  where
+    dbPutBlund = lift . dbPutBlund

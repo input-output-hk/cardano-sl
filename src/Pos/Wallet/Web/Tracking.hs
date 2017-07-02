@@ -66,8 +66,8 @@ import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..),
                                              getTxDistribution, toaOut, topsortTxs,
                                              txOutAddress)
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
-import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT, UtxoModifier,
-                                             evalToilTEmpty, runDBTxp)
+import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT, UtxoModifier, Utxo,
+                                             evalToilTEmpty, runDBTxp, runUtxoReaderT)
 import           Pos.Util.Chrono            (getNewestFirst)
 import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Modifier          (MapModifier)
@@ -190,9 +190,9 @@ syncWalletWithGStateUnsafe encSK = do
                     sformat ("Couldn't get block header of wallet "%build
                             %" by last synced hh: "%build) wAddr wTip
             Just wHeader -> do
-                mapModifier@CAccModifier{..} <- computeAccModifier wAddr wHeader tipHeader
+                genesisUtxo <- genesisUtxoM
+                mapModifier@CAccModifier{..} <- computeAccModifier genesisUtxo wAddr wHeader tipHeader
                 when (wTip == genesisHash) $ do
-                    genesisUtxo <- genesisUtxoM
                     let encInfo = getEncInfo encSK
                     let ownGenesisUtxo =
                             M.fromList $
@@ -212,13 +212,13 @@ syncWalletWithGStateUnsafe encSK = do
                         (map (fst . fst) $ MM.insertions camUsed)
                         (map (fst . fst) $ MM.insertions camChange)
 
-    computeAccModifier :: CId Wal -> BlockHeader ssc -> BlockHeader ssc -> m CAccModifier
-    computeAccModifier wAddr wHeader tipHeader = do
+    computeAccModifier :: Utxo -> CId Wal -> BlockHeader ssc -> BlockHeader ssc -> m CAccModifier
+    computeAccModifier genUtxo wAddr wHeader tipHeader = do
         allAddresses <- getWalletAddrMetasDB Ever wAddr
         logDebug $
             sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                     wAddr wHeader tipHeader
-        if | diff tipHeader > diff wHeader -> runDBTxp $ evalToilTEmpty $ do
+        if | diff tipHeader > diff wHeader -> runDBTxp $ evalGenesisToil genUtxo $ do
             -- If walletset syncTip before the current tip,
             -- then it loads wallets starting with @wHeader@.
             -- Sync tip can be before the current tip
@@ -241,14 +241,16 @@ syncWalletWithGStateUnsafe encSK = do
     diff = (^. difficultyL)
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
 
-    rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier
-    rollbackBlock allAddresses (b, u) =
-        trackingRollbackTxs encSK allAddresses (zip3 (gbTxs b) (undoTx u) (repeat $ headerHash b))
+    evalGenesisToil genUtxo = flip runUtxoReaderT genUtxo . evalToilTEmpty
 
     applyBlock :: (WithLogger m1, MonadUtxoRead m1)
                => [CWAddressMeta] -> Blund ssc -> ToilT () m1 CAccModifier
     applyBlock allAddresses (b, _) =
         trackingApplyTxs encSK allAddresses $ zip (gbTxs b) (repeat $ headerHash b)
+
+    rollbackBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier
+    rollbackBlock allAddresses (b, u) =
+        trackingRollbackTxs encSK allAddresses (zip3 (gbTxs b) (undoTx u) (repeat $ headerHash b))
 
 -- Process transactions on block application,
 -- decrypt our addresses, and add/delete them to/from wallet-db.

@@ -320,7 +320,7 @@ removeWAddress addrMeta@(addrMetaToAccount -> accId) = do
 
 totallyRemoveWAddress :: CWAddressMeta -> Update ()
 totallyRemoveWAddress addrMeta@(addrMetaToAccount -> accId) = do
-    wsAccountInfos . ix accId . aiAddresses . at (cwamId addrMeta) .= Nothing
+    wsAccountInfos . ix accId . aiAddresses        . at (cwamId addrMeta) .= Nothing
     wsAccountInfos . ix accId . aiRemovedAddresses . at (cwamId addrMeta) .= Nothing
 
 addUpdate :: CUpdateInfo -> Update ()

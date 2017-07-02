@@ -96,8 +96,8 @@ data IndexedMapModifier a = IndexedMapModifier
 sortedInsertions :: IndexedMapModifier a -> [a]
 sortedInsertions = map fst . sortWith snd . MM.insertions . immModifier
 
-indexedDeletetions :: IndexedMapModifier a -> [a]
-indexedDeletetions = MM.deletions . immModifier
+indexedDeletions :: IndexedMapModifier a -> [a]
+indexedDeletions = MM.deletions . immModifier
 
 instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
     mempty = IndexedMapModifier mempty 0
@@ -123,7 +123,7 @@ instance Buildable CAccModifier where
             %", used address: "%listJson
             %", change address: "%listJson)
         (sortedInsertions camAddresses)
-        (indexedDeletetions camAddresses)
+        (indexedDeletions camAddresses)
         (map (fst . fst) $ MM.insertions camUsed)
         (map (fst . fst) $ MM.insertions camChange)
 
@@ -367,7 +367,7 @@ rollbackModifierFromWallet
     -> m ()
 rollbackModifierFromWallet wAddr newTip CAccModifier{..} = do
     -- TODO maybe do it as one acid-state transaction.
-    mapM_ WS.removeWAddress (indexedDeletetions camAddresses)
+    mapM_ WS.removeWAddress (indexedDeletions camAddresses)
     mapM_ (WS.removeCustomAddress UsedAddr) (MM.deletions camUsed)
     mapM_ (WS.removeCustomAddress ChangeAddr) (MM.deletions camChange)
     WS.setWalletSyncTip wAddr newTip

@@ -37,14 +37,14 @@ import           Control.Monad.Trans        (MonadTrans)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Ether
-import           Formatting                 (build, sformat, (%))
+import           Formatting                 (build, int, sformat, (%))
 import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Block.Core             (Block, BlockHeader, getBlockHeader,
                                              mainBlockTxPayload)
-import           Pos.Block.Logic            (withBlkSemaphore_)
+import           Pos.Block.Logic            (withBlkSemaphore, withBlkSemaphore_)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Constants              (genesisHash)
 import           Pos.Context                (BlkSemaphore)
@@ -74,8 +74,9 @@ import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Util              (maybeThrow)
 
 import           Pos.Wallet.SscType         (WalletSscType)
-import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CId, CWAddressMeta (..),
-                                             Wal, addressToCId, aiWId, encToCId,
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAccountMeta (..), CId,
+                                             CWAddressMeta (..), Wal, addrMetaToAccount,
+                                             addressToCId, aiWId, encToCId,
                                              isTxLocalAddress)
 import           Pos.Wallet.Web.State       (AddressLookupMode (..),
                                              CustomAddressType (..), WalletWebDB,
@@ -139,23 +140,23 @@ instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
 -- Logic
 ----------------------------------------------------------------------------
 
--- THIS FUNCTION ISN'T USED!
 -- Select our accounts from Utxo and put to wallet-db.
 -- Used for importing of a secret key.
 selectAccountsFromUtxoLock
     :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
     => [EncryptedSecretKey]
-    -> m ()
-selectAccountsFromUtxoLock encSKs = withBlkSemaphore_ $ \tip -> do
+    -> m [CWAddressMeta]
+selectAccountsFromUtxoLock encSKs = withBlkSemaphore $ \tip -> do
     let (hdPass, wAddr) = unzip $ map getEncInfo encSKs
     logDebug $ sformat ("Select accounts from Utxo: tip "%build%" for "%listJson) tip wAddr
     addresses <- discoverHDAddresses hdPass
-    let allAddreses = concatMap createWAddresss $ zip wAddr addresses
-    mapM_ WS.addWAddress allAddreses
-    tip <$  logDebug (sformat ("After selection from Utxo addresses was added: "%listJson) allAddreses)
+    let allAddresses = concatMap createWAddresses $ zip wAddr addresses
+    mapM_ addMetaInfo allAddresses
+    logDebug (sformat ("After selection from Utxo addresses was added: "%listJson) allAddresses)
+    return (allAddresses, tip)
   where
-    createWAddresss :: (CId Wal, [(Address, [Word32])]) -> [CWAddressMeta]
-    createWAddresss (wAddr, addresses) = do
+    createWAddresses :: (CId Wal, [(Address, [Word32])]) -> [CWAddressMeta]
+    createWAddresses (wAddr, addresses) = do
         let (ads, paths) = unzip addresses
         mapMaybe createWAddress $ zip3 (repeat wAddr) ads paths
 
@@ -163,6 +164,15 @@ selectAccountsFromUtxoLock encSKs = withBlkSemaphore_ $ \tip -> do
     createWAddress (wAddr, addr, derPath) = do
         guard $ length derPath == 2
         pure $ CWAddressMeta wAddr (derPath !! 0) (derPath !! 1) (addressToCId addr)
+
+    addMetaInfo :: CWAddressMeta -> m ()
+    addMetaInfo cwMeta = do
+        let accId = addrMetaToAccount cwMeta
+            accMeta = CAccountMeta
+                      { caName = sformat ("Account #"%int) $ aiIndex accId
+                      }
+        WS.createAccount accId accMeta
+        WS.addWAddress cwMeta
 
 -- Iterate over blocks (using forward links) and actualize our accounts.
 syncWalletsWithGStateLock
@@ -284,7 +294,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses txs =
         let usedAddrs = map (cwamId . snd) ownOutputs
         let changeAddrs = evalChange allAddresses (map snd ownInputs) (map snd ownOutputs)
         pure $ CAccModifier
-            (deleteAndInsertMM (map snd ownInputs) (map snd ownOutputs) camAddresses)
+            (deleteAndInsertMM [] (map snd ownOutputs) camAddresses)
             (deleteAndInsertMM [] (zip usedAddrs  hhs) camUsed)
             (deleteAndInsertMM [] (zip changeAddrs hhs) camChange)
 
@@ -309,7 +319,7 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
         let usedAddrs = map cwamId ownOutputs
         let changeAddrs = evalChange allAddress ownInputs ownOutputs
         CAccModifier
-            (deleteAndInsertMM ownOutputs ownInputs camAddresses)
+            (deleteAndInsertMM ownOutputs [] camAddresses)
             (deleteAndInsertMM (zip usedAddrs hhs) [] camUsed)
             (deleteAndInsertMM (zip changeAddrs hhs) [] camChange)
 

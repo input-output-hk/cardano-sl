@@ -60,7 +60,7 @@ allWorkers = mconcatPair
     ]
   where
     properSlottingWorkers =
-       fst (recoveryCommGuard (localWorker logNewSlotWorker)) :
+       fst (localWorker (recoveryCommGuard logNewSlotWorker)) :
        map (fst . localWorker) slottingWorkers
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
 

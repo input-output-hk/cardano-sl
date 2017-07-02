@@ -5,7 +5,7 @@ module Pos.Wallet.Web.Account
        , getAddrIdx
        , getSKByAddr
        , getSKByAccAddr
-       , genSaveRootAddress
+       , genSaveRootKey
        , genUniqueAccountId
        , genUniqueAccountAddress
        , deriveAccountSK
@@ -20,7 +20,7 @@ import           Formatting                 (build, sformat, (%))
 import           System.Random              (Random, randomIO)
 import           Universum
 
-import           Pos.Core                   (Address (..))
+import           Pos.Core                   (Address (..), deriveLvl2KeyPair)
 import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase, isHardened)
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
@@ -30,7 +30,6 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta 
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
                                              doesWAddressExist, getAccountMeta)
-import           Pos.Wallet.Web.Util        (deriveLvl2KeyPair)
 
 type AccountMode m = (MonadKeys m, WebWalletModeDB m, MonadThrow m)
 
@@ -68,18 +67,17 @@ getSKByAccAddr passphrase addrMeta@CWAddressMeta {..} = do
         then throwM . InternalError $ "Account is contradictory!"
         else return accKey
 
-genSaveRootAddress
+genSaveRootKey
     :: AccountMode m
     => PassPhrase
     -> BackupPhrase
-    -> m (CId Wal)
-genSaveRootAddress passphrase ph = encToCId <$> genSaveSK
+    -> m EncryptedSecretKey
+genSaveRootKey passphrase ph = do
+    sk <- either keyFromPhraseFailed (pure . fst) $
+        safeKeysFromPhrase passphrase ph
+    addSecretKey sk
+    return sk
   where
-    genSaveSK = do
-        sk <- either keyFromPhraseFailed (pure . fst)
-            $ safeKeysFromPhrase passphrase ph
-        addSecretKey sk
-        return sk
     keyFromPhraseFailed msg =
         throwM . RequestError $ "Key creation from phrase failed: " <> msg
 

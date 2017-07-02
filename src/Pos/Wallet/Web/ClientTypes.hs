@@ -219,6 +219,8 @@ mkCTxs diff THEntry {..} meta wAddrMetas forceIncoming = do
         -- because of the redeem transactions. `isLocalAddr` checks whether
         -- the address belongs to the same _wallet_ as the _inputs_ of the
         -- current transaction, which is never the case for redeem txs.
+        -- TODO(thatguy): since there is only one special case, perhaps we
+        -- want to consider it separately and use `isLocalAddr` in other cases.
         -- [CSM-309] Bad for multiple-destinations transactions
         allOutputsBelongToUs = all (`S.member` wAddrsSet) ctOutputAddrs
         ctAmount =

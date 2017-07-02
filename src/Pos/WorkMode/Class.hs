@@ -30,7 +30,6 @@ import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
                                               HasSscContext, MonadLastKnownHeader,
                                               MonadProgressHeader, MonadRecoveryHeader,
                                               StartTime, TxpGlobalSettings)
-import           Pos.Core                    (IsHeader)
 import           Pos.DB.Class                (MonadBlockDBGeneric, MonadBlockDBWrite,
                                               MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
@@ -40,7 +39,7 @@ import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
-import           Pos.Core                    (HasPrimaryKey)
+import           Pos.Core                    (HasPrimaryKey, IsHeader)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
 import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)

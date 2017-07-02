@@ -17,7 +17,9 @@ module Pos.DB.Pure
        , pureBlocksStorage
 
        , MonadPureDB
+
        , DBPureVar
+       , newDBPureVar
 
        , dbGetPureDefault
        , dbIterSourcePureDefault
@@ -66,6 +68,10 @@ instance Default DBPure where
     def = DBPure mempty mempty mempty mempty mempty
 
 type DBPureVar = RWV.RWVar DBPure
+
+-- | Creates new db var.
+newDBPureVar :: MonadIO m => m DBPureVar
+newDBPureVar = RWV.new def
 
 tagToLens :: DBTag -> Lens' DBPure DBPureMap
 tagToLens BlockIndexDB = pureBlockIndexDB

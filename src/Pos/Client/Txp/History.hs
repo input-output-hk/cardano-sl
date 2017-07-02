@@ -28,43 +28,42 @@ module Pos.Client.Txp.History
 
 import           Universum
 
-import           Control.Lens                (makeLenses)
-import           Control.Monad.Trans         (MonadTrans)
-import           Control.Monad.Trans.Control (MonadBaseControl)
+import           Control.Lens                 (makeLenses)
+import           Control.Monad.Trans          (MonadTrans)
+import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Control.Monad.Trans.Maybe   (MaybeT (..))
-import           Data.DList                  (DList)
+import           Control.Monad.Trans.Maybe    (MaybeT (..))
 import           Data.Coerce                  (coerce)
-import qualified Data.DList                  as DL
-import           Data.Tagged                 (Tagged (..))
+import           Data.DList                   (DList)
+import qualified Data.DList                   as DL
+import           Data.Tagged                  (Tagged (..))
 import qualified Ether
-import           System.Wlog                 (WithLogger)
+import           System.Wlog                  (WithLogger)
 
-import           Pos.Block.Core              (Block, mainBlockTxPayload)
-import           Pos.Block.Types             (Blund)
-import           Pos.Context.Context         (GenesisUtxo (..))
-import           Pos.Core                    (Address, ChainDifficulty, HeaderHash,
-                                              difficultyL)
-import           Pos.Crypto                  (WithHash (..), withHash)
-import           Pos.DB                      (MonadDBRead, MonadGState, MonadRealDB)
-import qualified Pos.DB.Block                as DB
-import qualified Pos.DB.GState               as GS
-import           Pos.Slotting                (MonadSlots)
-import           Pos.Ssc.Class               (SscHelpersClass)
->>>>>>> 5af063da8... Rewrite tx history to `BlockExtra` routine.
+import           Pos.Block.Core               (Block, mainBlockTxPayload)
+import           Pos.Block.Types              (Blund)
+import           Pos.Context.Context          (GenesisUtxo (..))
+import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
+                                               difficultyL)
+import           Pos.Crypto                   (WithHash (..), withHash)
+import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
+import qualified Pos.DB.Block                 as DB
+import qualified Pos.DB.GState                as GS
+import           Pos.Slotting                 (MonadSlots)
+import           Pos.Ssc.Class                (SscHelpersClass)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
 #else
 import           Pos.Txp                      (txProcessTransaction)
 #endif
-import           Pos.Txp                     (MonadTxpMem, MonadUtxoRead, Tx (..),
-                                              TxAux (..), TxDistribution, TxId, TxOut,
-                                              TxOutAux (..), TxWitness, Utxo, UtxoStateT,
-                                              applyTxToUtxo, evalUtxoStateT,
-                                              flattenTxPayload,
-                                              getLocalTxs, runUtxoStateT, topsortTxs,
-                                              txOutAddress, utxoGet)
-import           Pos.WorkMode.Class          (TxpExtra_TMP)
+import           Pos.Txp                      (MonadTxpMem, MonadUtxoRead, Tx (..),
+                                               TxAux (..), TxDistribution, TxId, TxOut,
+                                               TxOutAux (..), TxWitness, Utxo, UtxoStateT,
+                                               applyTxToUtxo, evalUtxoStateT,
+                                               flattenTxPayload, getLocalTxs,
+                                               runUtxoStateT, topsortTxs, txOutAddress,
+                                               utxoGet)
+import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -93,7 +92,6 @@ data TxHistoryEntry = THEntry
     , _thDifficulty  :: !(Maybe ChainDifficulty)
     , _thInputAddrs  :: ![Address]  -- TODO: remove in favor of _thInputs
     , _thOutputAddrs :: ![Address]
-    , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic)
 
 makeLenses ''TxHistoryEntry
@@ -210,14 +208,14 @@ instance
             getGenPair = (,) <$> GS.getBot <*> getGenUtxo
         (bot, bottomUtxo) <- maybe getGenPair pure mInit
 
-        let fromBlund :: Blund ssc -> TxSelectorT (DB.BlockDBRedirect m) (Block ssc)
+        let fromBlund :: Blund ssc -> TxSelectorT (DB.BlockDBRedirect (TxHistoryRedirect m)) (Block ssc)
             fromBlund = pure . fst
 
-            blockFetcher :: HeaderHash -> TxSelectorT (DB.BlockDBRedirect m) (DList TxHistoryEntry)
+            blockFetcher :: HeaderHash -> TxSelectorT (DB.BlockDBRedirect (TxHistoryRedirect m)) (DList TxHistoryEntry)
             blockFetcher start = GS.foldlUpWhileM fromBlund start (const $ const True)
                 (deriveAddrHistoryBlk addrs) mempty
 
-            localFetcher :: TxSelectorT (DB.BlockDBRedirect m) (DList TxHistoryEntry)
+            localFetcher :: TxSelectorT (DB.BlockDBRedirect (TxHistoryRedirect m)) (DList TxHistoryEntry)
             localFetcher = do
                 let mapper (txid, TxAux {..}) =
                         (WithHash taTx txid, taWitness, taDistribution)

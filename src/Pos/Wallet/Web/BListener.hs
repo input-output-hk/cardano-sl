@@ -88,7 +88,7 @@ onApplyTracking blunds = do
             whTxs = map auxToTuple txs
         txHistoryBlk <- runDBTxp $
                         evalToilTEmpty $
-                        getRelatedTxsByAddrs addrs whTxs
+                        getRelatedTxsByAddrs addrs Nothing Nothing whTxs
 
         cachedTxs <- fromMaybe [] <$> WS.getHistoryCache wAddr
         WS.updateHistoryCache wAddr $ txHistoryBlk <> cachedTxs

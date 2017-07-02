@@ -246,24 +246,40 @@ type MonadBlockDB ssc m
 type BlockDBGenericDefaultEnv ssc ctx m =
     (MonadDBRead m, MonadRealDB ctx m, SscHelpersClass ssc)
 
-dbGetBlockDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe (Block ssc))
+dbGetBlockDefault ::
+       forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
+    => HeaderHash
+    -> m (Maybe (Block ssc))
 dbGetBlockDefault = getBlock
 
-dbGetUndoDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe Undo)
+dbGetUndoDefault ::
+       forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
+    => HeaderHash
+    -> m (Maybe Undo)
 dbGetUndoDefault = getUndo
 
-dbGetHeaderDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe (BlockHeader ssc))
+dbGetHeaderDefault ::
+       forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
+    => HeaderHash
+    -> m (Maybe (BlockHeader ssc))
 dbGetHeaderDefault = blkGetHeader
 
--- instance MonadBlockDBGeneric (SscBlock ssc)
-
-dbGetBlockSscDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe (SscBlock ssc))
+dbGetBlockSscDefault ::
+       forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
+    => HeaderHash
+    -> m (Maybe (SscBlock ssc))
 dbGetBlockSscDefault = fmap (toSscBlock <$>) . getBlock
 
-dbGetUndoSscDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe ())
+dbGetUndoSscDefault ::
+       forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
+    => HeaderHash
+    -> m (Maybe ())
 dbGetUndoSscDefault = fmap (const () <$>) . getUndo
 
-dbGetHeaderSscDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe (Some IsHeader))
+dbGetHeaderSscDefault ::
+       forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
+    => HeaderHash
+    -> m (Maybe (Some IsHeader))
 dbGetHeaderSscDefault = fmap (Some <$>) . blkGetHeader @ssc
 
 -- helpers

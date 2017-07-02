@@ -17,10 +17,10 @@ module Pos.DB.Pure
        , pureBlocksStorage
 
        , MonadPureDB
+       , DBPureVar
 
        , dbGetPureDefault
        , dbIterSourcePureDefault
-
        , dbPutPureDefault
        , dbDeletePureDefault
        , dbWriteBatchPureDefault
@@ -81,6 +81,10 @@ type MonadPureDB ctx m =
     , MonadBaseControl IO m
     , MonadIO m
     )
+
+----------------------------------------------------------------------------
+-- MonadDBRead / MonadDB
+----------------------------------------------------------------------------
 
 dbGetPureDefault :: MonadPureDB ctx m => DBTag -> ByteString -> m (Maybe ByteString)
 dbGetPureDefault (tagToLens -> l) key =

@@ -23,6 +23,12 @@ module Pos.DB.Block
        , loadHeadersByDepth
        , loadHeadersByDepthWhile
 
+       -- * Pure implementation
+       , dbGetHeaderPureDefault
+       , dbGetBlockPureDefault
+       , dbGetUndoPureDefault
+       , dbPutBlundPureDefault
+
        -- * MonadBlockDB
        , MonadBlockDB
        , dbGetBlockDefault
@@ -36,36 +42,42 @@ module Pos.DB.Block
 
 import           Universum
 
-import           Control.Lens          (_Wrapped)
-import           Data.ByteArray        (convert)
-import qualified Data.ByteString       as BS (readFile, writeFile)
-import           Data.Default          (Default (def))
-import           Formatting            (build, formatToString, sformat, (%))
-import           System.Directory      (createDirectoryIfMissing, removeFile)
-import           System.FilePath       ((</>))
-import           System.IO.Error       (isDoesNotExistError)
+import           Control.Lens              (at, _Wrapped)
+import           Data.ByteArray            (convert)
+import qualified Data.ByteString           as BS (readFile, writeFile)
+import           Data.Default              (Default (def))
+import           Ether.Internal            (HasLens (..))
+import           Formatting                (build, formatToString, sformat, (%))
+import           System.Directory          (createDirectoryIfMissing, removeFile)
+import           System.FilePath           ((</>))
+import           System.IO.Error           (isDoesNotExistError)
 
-import           Pos.Binary.Block      ()
-import           Pos.Binary.Class      (Bi, decodeFull, encode)
-import           Pos.Block.Core        (Block, BlockHeader, GenesisBlock)
-import qualified Pos.Block.Core        as BC
-import           Pos.Block.Types       (Blund, Undo (..))
-import           Pos.Constants         (genesisHash)
-import           Pos.Core              (HasDifficulty (difficultyL),
-                                        HasPrevBlock (prevBlockL), HeaderHash, IsHeader,
-                                        headerHash)
-import           Pos.Crypto            (hashHexF, shortHashF)
-import           Pos.DB.Class          (DBTag (..), MonadBlockDBGeneric (..),
-                                        MonadBlockDBWrite (..), MonadDBRead, dbGetBlund)
-import           Pos.DB.Error          (DBError (DBMalformed))
-import           Pos.DB.Functions      (dbGetBi)
-import           Pos.DB.Rocks          (MonadRealDB, blockDataDir, getBlockIndexDB,
-                                        getNodeDBs, rocksDelete, rocksDelete, rocksPutBi)
-import           Pos.Ssc.Class.Helpers (SscHelpersClass)
-import           Pos.Ssc.Class.Types   (SscBlock)
-import           Pos.Ssc.Util          (toSscBlock)
-import           Pos.Util              (Some (..), maybeThrow)
-import           Pos.Util.Chrono       (NewestFirst (..))
+import           Pos.Binary.Block          ()
+import           Pos.Binary.Class          (Bi, decodeFull, decodeOrFail, encode)
+import           Pos.Block.Core            (Block, BlockHeader, GenesisBlock)
+import qualified Pos.Block.Core            as BC
+import           Pos.Block.Types           (Blund, Undo (..))
+import           Pos.Constants             (genesisHash)
+import           Pos.Core                  (HasDifficulty (difficultyL),
+                                            HasPrevBlock (prevBlockL), HeaderHash,
+                                            IsHeader, headerHash)
+import           Pos.Crypto                (hashHexF, shortHashF)
+import           Pos.DB.Class              (DBTag (..), MonadBlockDBGeneric (..),
+                                            MonadBlockDBWrite (..), MonadDBRead,
+                                            dbGetBlund)
+import           Pos.DB.Error              (DBError (DBMalformed))
+import           Pos.DB.Functions          (dbGetBi)
+import           Pos.DB.Pure               (DBPureVar, MonadPureDB, pureBlockIndexDB,
+                                            pureBlocksStorage)
+import           Pos.DB.Rocks              (MonadRealDB, blockDataDir, getBlockIndexDB,
+                                            getNodeDBs, rocksDelete, rocksDelete,
+                                            rocksPutBi)
+import           Pos.Ssc.Class.Helpers     (SscHelpersClass)
+import           Pos.Ssc.Class.Types       (SscBlock)
+import           Pos.Ssc.Util              (toSscBlock)
+import           Pos.Util                  (Some (..), maybeThrow)
+import           Pos.Util.Chrono           (NewestFirst (..))
+import           Pos.Util.Concurrent.RWVar as RWV
 
 ----------------------------------------------------------------------------
 -- Implementations for 'MonadRealDB'
@@ -208,6 +220,52 @@ loadHeadersByDepthWhile
     -> HeaderHash
     -> m (NewestFirst [] (BlockHeader ssc))
 loadHeadersByDepthWhile = loadDataByDepth getHeaderThrow
+
+----------------------------------------------------------------------------
+-- Pure implementation
+----------------------------------------------------------------------------
+
+decodeOrFailPureDB :: SscHelpersClass ssc => ByteString -> (Block ssc, Undo)
+decodeOrFailPureDB = decodeOrFail
+
+dbGetBlundPure ::
+       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe (Block ssc, Undo))
+dbGetBlundPure h = do
+    (blund :: Maybe ByteString) <-
+        view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= RWV.read)
+    pure $ decodeOrFailPureDB <$> blund
+
+dbGetBlockPureDefault ::
+       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe (Block ssc))
+dbGetBlockPureDefault h = fmap fst <$> dbGetBlundPure h
+
+dbGetUndoPureDefault ::
+       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe Undo)
+dbGetUndoPureDefault h = fmap snd <$> dbGetBlundPure @ssc @ctx @m h
+
+dbGetHeaderPureDefault ::
+       forall ssc m. (MonadDBRead m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe (BlockHeader ssc))
+dbGetHeaderPureDefault = blkGetHeader
+
+dbPutBlundPureDefault ::
+       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+    => Blund ssc
+    -> m ()
+dbPutBlundPureDefault (blk,undo) = do
+    let h = headerHash blk
+    (var :: DBPureVar) <- view (lensOf @DBPureVar)
+    RWV.modifyPure var $
+        pureBlocksStorage . at h .~ Just (encode (blk,undo))
+    RWV.modifyPure var $
+        pureBlockIndexDB . at (blockIndexKey h) .~ Just (encode $ BC.getBlockHeader blk)
 
 ----------------------------------------------------------------------------
 -- Initialization

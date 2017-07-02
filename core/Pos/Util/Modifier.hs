@@ -23,6 +23,7 @@ module Pos.Util.Modifier
        , mapMaybeM
        , mapMaybe
        , modifyHashMap
+       , modifyMap
        , foldlMapModWKey'
        ) where
 
@@ -31,6 +32,7 @@ import qualified Universum                 (filter, mapMaybe)
 
 import           Data.Hashable             (Hashable)
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.Map                  as M
 import           Test.QuickCheck           (Arbitrary)
 import           Test.QuickCheck.Instances ()
 
@@ -171,6 +173,13 @@ mapMaybe getter f = runIdentity . mapMaybeM (Identity getter) f
 modifyHashMap :: (Eq k, Hashable k) => MapModifier k v -> HashMap k v -> HashMap k v
 modifyHashMap pm hm =
     foldl' (flip (uncurry HM.insert)) (foldl' (flip HM.delete) hm deletes) inserts
+  where
+    inserts = insertions pm
+    deletes = deletions pm
+
+modifyMap :: Ord k => MapModifier k v -> Map k v -> Map k v
+modifyMap pm hm =
+    foldl' (flip (uncurry M.insert)) (foldl' (flip M.delete) hm deletes) inserts
   where
     inserts = insertions pm
     deletes = deletions pm

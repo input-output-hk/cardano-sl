@@ -207,8 +207,9 @@ mkCTxs
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
     -> [CWAddressMeta]    -- ^ Addresses of wallet
+    -> Bool               -- ^ Always report incoming tx (introduced in CSM-330)
     -> Either Text CTxs
-mkCTxs diff THEntry {..} meta wAddrMetas = do
+mkCTxs diff THEntry {..} meta wAddrMetas forceIncoming = do
     ctInputAddrsNe <-
         nonEmpty ctInputAddrs
         `whenNothing` throwError "No input addresses in tx!"
@@ -219,17 +220,21 @@ mkCTxs diff THEntry {..} meta wAddrMetas = do
         ctAmount =
             mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
             filter (not . isLocalTxOutput) outputs
-        mkCTx isOutgoing significantAddrs = do  -- Maybe monad starts here
-            guard . not . null $
-                wAddrsSet `S.intersection` S.fromList significantAddrs
+        mkCTx isOutgoing mbSignificantAddrs = do  -- Maybe monad starts here
+            guard $
+                maybe True
+                (\significantAddrs ->
+                    not . null $ wAddrsSet `S.intersection` S.fromList significantAddrs)
+                mbSignificantAddrs
             return CTx {ctIsOutgoing = isOutgoing, ..}
         -- Output addresses whose presence makes us display the transaction
         -- (incoming half, i.e. one with 'isOutgoing' set to @false@).
         ctSignificantOutputAddrs =
             ctOutputAddrs &
-            if outputsAreOnlyFromOurWallet then identity else filter (not . isLocalAddr)
-        ctsOutgoing = mkCTx True ctInputAddrs
-        ctsIncoming = mkCTx False ctSignificantOutputAddrs
+            if outputsAreOnlyFromOurWallet then
+                identity else filter (not . isLocalAddr)
+        ctsOutgoing = mkCTx True $ Just ctInputAddrs
+        ctsIncoming = mkCTx False $ if forceIncoming then Nothing else Just ctSignificantOutputAddrs
     return CTxs {..}
   where
     ctId = txIdToCTxId _thTxId

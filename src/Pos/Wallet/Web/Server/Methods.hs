@@ -639,7 +639,7 @@ sendMoney sendActions passphrase moneySource dstDistr = do
                     let txHash    = hash tx
                         srcWallet = getMoneySourceWallet moneySource
                     ts <- Just <$> liftIO getCurrentTimestamp
-                    ctxs <- addHistoryTx srcWallet $
+                    ctxs <- addHistoryTx srcWallet False $
                         THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs ts
                     ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
 
@@ -678,7 +678,7 @@ getFullWalletHistory cWalId = do
                 taCachedUtxo
                 (cached <> cachedTxs)
 
-        ctxs <- forM fullHistory $ addHistoryTx cWalId
+        ctxs <- forM fullHistory $ addHistoryTx cWalId False
         pure $ concatMap toList ctxs
     pure (cHistory, fromIntegral $ length cHistory)
   where
@@ -740,9 +740,10 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit =
 addHistoryTx
     :: WalletWebMode m
     => CId Wal
+    -> Bool            -- ^ Always report incoming tx (introduced in CSM-330)
     -> TxHistoryEntry
     -> m CTxs
-addHistoryTx cWalId wtx@THEntry{..} = do
+addHistoryTx cWalId forceIncoming wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
@@ -753,7 +754,7 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
     walAddrMetas <- getWalletAddrMetas Ever cWalId
-    mkCTxs diff wtx meta' walAddrMetas & either (throwM . InternalError) pure
+    mkCTxs diff wtx meta' walAddrMetas forceIncoming & either (throwM . InternalError) pure
 
 newAddress
     :: WalletWebMode m
@@ -958,8 +959,8 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     _ <- getAccount accId
 
     let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
-    dstCAddr <- genUniqueAccountAddress RandomSeed passphrase accId
-    dstAddr <- decodeCIdOrFail $ cwamId dstCAddr
+    dstCWAddrMeta <- genUniqueAccountAddress RandomSeed passphrase accId
+    dstAddr <- decodeCIdOrFail $ cwamId dstCWAddrMeta
     na <- getPeers
     etx <- submitRedemptionTx sendActions redeemSK (toList na) dstAddr
     case etx of
@@ -969,11 +970,11 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
             -- add redemption transaction to the history of new wallet
             let txInputs = [TxOut redeemAddress redeemBalance]
             ts <- Just <$> liftIO getCurrentTimestamp
-            ctxs <- addHistoryTx (aiWId accId)
+            ctxs <- addHistoryTx (aiWId accId) True
                 (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts)
             ctsIncoming ctxs `whenNothing` throwM noIncomingTx
   where
-   noIncomingTx = InternalError "Can't report incoming transaction"
+    noIncomingTx = InternalError "Can't report incoming transaction"
 
 reportingInitialized :: WalletWebMode m => CInitialized -> m ()
 reportingInitialized cinit = do

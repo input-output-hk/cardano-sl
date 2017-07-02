@@ -960,6 +960,8 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
 
     let srcAddr = makeRedeemAddress $ redeemToPublic redeemSK
     dstCWAddrMeta <- genUniqueAccountAddress RandomSeed passphrase accId
+    -- TODO(thatguy): the absence of `addWAddress` here is probably a bug.
+    -- Need to talk to @martoon about this. Discovered in CSM-330.
     dstAddr <- decodeCIdOrFail $ cwamId dstCWAddrMeta
     na <- getPeers
     etx <- submitRedemptionTx sendActions redeemSK (toList na) dstAddr

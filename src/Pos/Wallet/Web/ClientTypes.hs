@@ -215,12 +215,17 @@ mkCTxs diff THEntry {..} meta wAddrMetas forceIncoming = do
         `whenNothing` throwError "No input addresses in tx!"
     let isLocalAddr = isTxLocalAddress wAddrMetas ctInputAddrsNe
         isLocalTxOutput = isLocalAddr . addressToCId . txOutAddress
+        -- We check against `wAddrsSet` instead of using `isLocalAddr` here
+        -- because of the redeem transactions. `isLocalAddr` checks whether
+        -- the address belongs to the same _wallet_ as the _inputs_ of the
+        -- current transaction, which is never the case for redeem txs.
         -- [CSM-309] Bad for multiple-destinations transactions
-        outputsAreOnlyFromOurWallet = all (flip S.member wAddrsSet) ctOutputAddrs
+        allOutputsBelongToUs = all (`S.member` wAddrsSet) ctOutputAddrs
         ctAmount =
             mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
             filter (not . isLocalTxOutput) outputs
         mkCTx isOutgoing mbSignificantAddrs = do  -- Maybe monad starts here
+            -- Return `Nothing` if none of the significantAddrs belong to us.
             guard $
                 maybe True
                 (\significantAddrs ->
@@ -231,8 +236,7 @@ mkCTxs diff THEntry {..} meta wAddrMetas forceIncoming = do
         -- (incoming half, i.e. one with 'isOutgoing' set to @false@).
         ctSignificantOutputAddrs =
             ctOutputAddrs &
-            if outputsAreOnlyFromOurWallet then
-                identity else filter (not . isLocalAddr)
+            if allOutputsBelongToUs then identity else filter (not . isLocalAddr)
         ctsOutgoing = mkCTx True $ Just ctInputAddrs
         ctsIncoming = mkCTx False $ if forceIncoming then Nothing else Just ctSignificantOutputAddrs
     return CTxs {..}

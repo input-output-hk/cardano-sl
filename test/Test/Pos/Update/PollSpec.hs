@@ -13,11 +13,12 @@ import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (..), Property, choose, conjoin, (===))
 
+import           Pos.Core              (ApplicationName, BlockVersion,
+                                        SoftwareVersion (..), StakeholderId, addressHash)
 import           Pos.Crypto            (hash)
 import           Pos.Slotting.Types    (SlottingData)
-import           Pos.Types             (ApplicationName, BlockVersion,
-                                        SoftwareVersion (..), StakeholderId, addressHash)
-import qualified Pos.Update            as Poll
+import           Pos.Update.Core       (UpId, UpdateProposal (..), applyBVM)
+import qualified Pos.Update.Poll       as Poll
 import qualified Pos.Util.Modifier     as MM
 
 import           Test.Pos.Util         (formsMonoid)
@@ -66,7 +67,7 @@ data PollAction
     | AddConfirmedProposal Poll.ConfirmedProposalState
     | DelConfirmedProposal SoftwareVersion
     | InsertActiveProposal Poll.ProposalState
-    | DeactivateProposal Poll.UpId
+    | DeactivateProposal UpId
     | SetSlottingData SlottingData
     | SetEpochProposers (HashSet StakeholderId)
     deriving (Show, Eq)
@@ -91,10 +92,13 @@ applyActionToModifier
     -> Poll.PollModifier
 applyActionToModifier (PutBVState bv bvs) _ = Poll.pmBVsL %~ MM.insert bv bvs
 applyActionToModifier (DelBVState bv) _ = Poll.pmBVsL %~ MM.delete bv
-applyActionToModifier (SetAdoptedBV bv) pst = \p ->
-    case MM.lookup innerLookupFun bv (Poll.pmBVs p) of
-        Nothing                    -> p
-        Just (Poll.bvsData -> bvd) -> p { Poll.pmAdoptedBVFull = Just (bv, bvd) }
+applyActionToModifier (SetAdoptedBV bv) pst = \pm -> do
+    let adoptedBVData = snd $
+            fromMaybe (pst ^. Poll.psAdoptedBV) (Poll.pmAdoptedBVFull pm)
+    case MM.lookup innerLookupFun bv (Poll.pmBVs pm) of
+        Nothing                    -> pm
+        Just (Poll.bvsModifier -> bvm) ->
+            pm { Poll.pmAdoptedBVFull = Just (bv, applyBVM bvm adoptedBVData) }
   where
     innerLookupFun k = pst ^. Poll.psBlockVersions . at k
 applyActionToModifier (SetLastConfirmedSV SoftwareVersion {..}) _ =
@@ -104,7 +108,7 @@ applyActionToModifier (AddConfirmedProposal cps) _ =
     Poll.pmConfirmedPropsL %~ MM.insert (Poll.cpsSoftwareVersion cps) cps
 applyActionToModifier (DelConfirmedProposal sv) _ = Poll.pmConfirmedPropsL %~ MM.delete sv
 applyActionToModifier (InsertActiveProposal ps) pst = \p ->
-    let up@Poll.UnsafeUpdateProposal{..} = Poll.psProposal ps
+    let up@UnsafeUpdateProposal{..} = Poll.psProposal ps
         upId = hash up
         p' = case MM.lookup innerLookupFun upId (Poll.pmActiveProps p) of
             Nothing -> p

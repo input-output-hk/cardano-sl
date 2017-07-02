@@ -10,33 +10,28 @@ module Pos.Util.JsonLog
        , JLTimedEvent(..)
        , jlCreatedBlock
        , jlAdoptedBlock
-       , MonadJL
-       , jlLog
        , appendJL
        , fromJLSlotId
        , JsonLogConfig(..)
+       , HasJsonLogConfig(..)
        , jsonLogConfigFromHandle
        , jsonLogDefault
-       , JLFile(..)
        , fromJLSlotIdUnsafe
        ) where
 
-import           Universum                     hiding (catchAll)
+import           Universum
 
-import           Control.Concurrent.MVar       (withMVar)
 import           Control.Monad.Except          (MonadError)
 import           Data.Aeson                    (encode)
 import           Data.Aeson.TH                 (deriveJSON)
 import           Data.Aeson.Types              (ToJSON)
 import qualified Data.ByteString.Lazy          as LBS
-import qualified Ether
-import           Formatting                    (sformat, shown, (%))
+import           Formatting                    (sformat)
 import           JsonLog.JsonLogT              (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT              as JL
-import           Mockable                      (Catch, Mockable, catchAll)
+import           Mockable                      (Catch, Mockable)
 import           Serokell.Aeson.Options        (defaultOptions)
-import           System.Wlog                   (CanLog, HasLoggerName, WithLogger,
-                                                logWarning)
+import           System.Wlog                   (WithLogger)
 
 import           Pos.Binary.Block              ()
 import           Pos.Binary.Core               ()
@@ -169,28 +164,13 @@ jsonLogConfigFromHandle h = do
     v <- newMVar h
     return $ JsonLogConfig v (\_ -> return True)
 
+class HasJsonLogConfig ctx where
+    jsonLogConfig :: Lens' ctx JsonLogConfig
+
 jsonLogDefault
-    :: (ToJSON a, Ether.MonadReader' JsonLogConfig m, Mockable Catch m,
+    :: (ToJSON a, MonadReader ctx m, HasJsonLogConfig ctx, Mockable Catch m,
         MonadIO m, WithLogger m)
     => a -> m ()
 jsonLogDefault x = do
-    jlc <- Ether.ask'
+    jlc <- view jsonLogConfig
     JL.jsonLogDefault jlc x
-
-newtype JLFile = JLFile (Maybe (MVar FilePath))
-
--- | Monad for things that can log Json log events.
-type MonadJL m =
-    ( Ether.MonadReader' JLFile m
-    , MonadIO m
-    , Mockable Catch m
-    , HasLoggerName m
-    , CanLog m )
-
-jlLog :: MonadJL m => JLEvent -> m ()
-jlLog ev = do
-    JLFile jlFileM <- Ether.ask'
-    whenJust jlFileM $ \logFileMV ->
-        (liftIO . withMVar logFileMV $ flip appendJL ev)
-        `catchAll` \e ->
-            logWarning $ sformat ("Can't write to json log: "%shown) e

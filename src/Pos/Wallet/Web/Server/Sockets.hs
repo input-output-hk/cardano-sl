@@ -22,7 +22,7 @@ import           Control.Monad.State.Strict     (MonadState (get, put))
 import           Data.Aeson                     (encode)
 import           Data.Default                   (Default (def))
 import qualified Data.IntMap.Strict             as IM
-import qualified Ether
+import           Ether.Internal                 (HasLens (..))
 import           Formatting                     (build, sformat, (%))
 import           Network.Wai                    (Application)
 import           Network.Wai.Handler.WebSockets (websocketsOr)
@@ -92,14 +92,14 @@ instance WS.WebSocketsData NotifyEvent where
 --------
 
 -- | MonadWalletWebSockets stands for monad which is able to get web wallet sockets
-type MonadWalletWebSockets = Ether.MonadReader' ConnectionsVar
+type MonadWalletWebSockets ctx m = (MonadReader ctx m, HasLens ConnectionsVar ctx ConnectionsVar)
 
-getWalletWebSockets :: MonadWalletWebSockets m => m ConnectionsVar
-getWalletWebSockets = Ether.ask'
+getWalletWebSockets :: MonadWalletWebSockets ctx m => m ConnectionsVar
+getWalletWebSockets = view (lensOf @ConnectionsVar)
 
-type WebWalletSockets m = (MonadWalletWebSockets m, MonadIO m)
+type WebWalletSockets ctx m = (MonadWalletWebSockets ctx m, MonadIO m)
 
-notifyAll :: WebWalletSockets m => NotifyEvent -> m ()
+notifyAll :: WebWalletSockets ctx m => NotifyEvent -> m ()
 notifyAll msg = do
   var <- getWalletWebSockets
   conns <- readTVarIO var

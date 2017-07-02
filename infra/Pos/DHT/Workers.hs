@@ -21,37 +21,42 @@ import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Constants          (kademliaDumpInterval)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
 import           Pos.Discovery.Class        (MonadDiscovery)
-import           Pos.Reporting              (MonadReportingMem)
-import           Pos.Shutdown               (MonadShutdownMem)
+import           Pos.Recovery.Info          (MonadRecoveryInfo, recoveryCommGuard)
+import           Pos.Reporting              (HasReportingContext)
+import           Pos.Shutdown               (HasShutdownContext)
 import           Pos.Slotting.Class         (MonadSlots)
 
-type DhtWorkMode m =
+type DhtWorkMode ctx m =
     ( WithLogger m
     , MonadSlots m
     , MonadIO m
     , MonadMask m
     , Mockable Fork m
     , Mockable Delay m
-    , MonadReportingMem m
-    , MonadShutdownMem m
+    , MonadRecoveryInfo m
+    , MonadReader ctx m
+    , HasReportingContext ctx
+    , HasShutdownContext ctx
     , MonadDiscovery m
     )
 
 dhtWorkers
-    :: ( DhtWorkMode m
+    :: ( DhtWorkMode ctx m
        )
     => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
 dhtWorkers kademliaInst = first pure (dumpKademliaStateWorker kademliaInst)
 
 dumpKademliaStateWorker
-    :: ( DhtWorkMode m
+    :: ( DhtWorkMode ctx m
        )
     => KademliaDHTInstance
     -> (WorkerSpec m, OutSpecs)
 dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
-    when (flattenSlotId slotId `mod` kademliaDumpInterval == 0) $ do
+    when (isTimeToDump slotId) $ recoveryCommGuard $ do
         let dumpFile = kdiDumpPath kademliaInst
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
         let inst = kdiHandle kademliaInst
         snapshot <- liftIO $ takeSnapshot inst
         liftIO . BSL.writeFile dumpFile . BSL.fromStrict $ Store.encode snapshot
+  where
+    isTimeToDump slotId = flattenSlotId slotId `mod` kademliaDumpInterval == 0

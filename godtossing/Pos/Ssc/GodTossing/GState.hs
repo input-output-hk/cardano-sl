@@ -49,12 +49,12 @@ import           Pos.Util.Util                  (_neHead, _neLast)
 ----------------------------------------------------------------------------
 
 gtGetGlobalState
-    :: (MonadSscMem SscGodTossing m, MonadIO m)
+    :: (MonadSscMem SscGodTossing ctx m, MonadIO m)
     => m GtGlobalState
 gtGetGlobalState = sscRunGlobalQuery ask
 
 getGlobalCerts
-    :: (MonadSscMem SscGodTossing m, MonadIO m)
+    :: (MonadSscMem SscGodTossing ctx m, MonadIO m)
     => SlotId -> m VssCertificatesMap
 getGlobalCerts sl =
     sscRunGlobalQuery $
@@ -64,7 +64,7 @@ getGlobalCerts sl =
 
 -- | Get stable VSS certificates for given epoch.
 getStableCerts
-    :: (MonadSscMem SscGodTossing m, MonadIO m)
+    :: (MonadSscMem SscGodTossing ctx m, MonadIO m)
     => EpochIndex -> m VssCertificatesMap
 getStableCerts epoch =
     getStableCertsPure epoch <$> sscRunGlobalQuery (view gsVssCertificates)

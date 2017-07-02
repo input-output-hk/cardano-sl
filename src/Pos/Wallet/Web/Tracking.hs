@@ -40,7 +40,7 @@ import           Control.Lens               (to)
 import           Control.Monad.Trans        (MonadTrans)
 import           Data.List                  ((!!))
 import qualified Data.List.NonEmpty         as NE
-import qualified Ether
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, int, sformat, (%))
 import           Mockable                   (MonadMockable, SharedAtomicT)
 import           Serokell.Util              (listJson)
@@ -99,10 +99,11 @@ instance Monoid CAccModifier where
     (CAccModifier a b c) `mappend` (CAccModifier a1 b1 c1) =
         CAccModifier (a <> a1) (b <> b1) (c <> c1)
 
-type BlockLockMode ssc m =
+type BlockLockMode ssc ctx m =
     ( WithLogger m
-    , Ether.MonadReader' BlkSemaphore m
-    , MonadRealDB m
+    , MonadReader ctx m
+    , HasLens BlkSemaphore ctx BlkSemaphore
+    , MonadRealDB ctx m
     , DB.MonadBlockDB ssc m
     , MonadMask m
     )
@@ -122,16 +123,16 @@ instance {-# OVERLAPPABLE #-}
     syncOnImport = lift . syncOnImport
     txMempoolToModifier = lift . txMempoolToModifier
 
-type WalletTrackingEnv ext m =
-     (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m, WS.MonadWalletWebDB m)
+type WalletTrackingEnv ext ctx m =
+     (BlockLockMode WalletSscType ctx m, MonadMockable m, MonadTxpMem ext ctx m, WS.MonadWalletWebDB ctx m)
 
-syncWalletsAtStartWebWallet :: WalletTrackingEnv ext m => [EncryptedSecretKey] -> m ()
+syncWalletsAtStartWebWallet :: WalletTrackingEnv ext ctx m => [EncryptedSecretKey] -> m ()
 syncWalletsAtStartWebWallet = syncWalletsWithGStateLock @WalletSscType
 
-syncOnImportWebWallet :: WalletTrackingEnv ext m => EncryptedSecretKey -> m ()
+syncOnImportWebWallet :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m ()
 syncOnImportWebWallet = (() <$) . selectAccountsFromUtxoLock @WalletSscType . one
 
-txMempoolToModifierWebWallet :: WalletTrackingEnv ext m => EncryptedSecretKey -> m CAccModifier
+txMempoolToModifierWebWallet :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m CAccModifier
 txMempoolToModifierWebWallet encSK = do
     let wHash (i, TxAux {..}) = WithHash taTx i
     let wId = encToCId encSK
@@ -152,7 +153,7 @@ txMempoolToModifierWebWallet encSK = do
 -- Select our accounts from Utxo and put to wallet-db.
 -- Used for importing of a secret key.
 selectAccountsFromUtxoLock
-    :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
+    :: forall ssc ctx m . (WebWalletModeDB ctx m, BlockLockMode ssc ctx m)
     => [EncryptedSecretKey]
     -> m [CWAddressMeta]
 selectAccountsFromUtxoLock encSKs = withBlkSemaphore $ \tip -> do
@@ -185,7 +186,7 @@ selectAccountsFromUtxoLock encSKs = withBlkSemaphore $ \tip -> do
 
 -- Iterate over blocks (using forward links) and actualize our accounts.
 syncWalletsWithGStateLock
-    :: forall ssc m . (WebWalletModeDB m, BlockLockMode ssc m)
+    :: forall ssc ctx m . (WebWalletModeDB ctx m, BlockLockMode ssc ctx m)
     => [EncryptedSecretKey]
     -> m ()
 syncWalletsWithGStateLock encSKs = withBlkSemaphore_ $ \tip ->
@@ -197,9 +198,9 @@ syncWalletsWithGStateLock encSKs = withBlkSemaphore_ $ \tip ->
 -- These operation aren't atomic and don't take the block lock.
 
 syncWalletWithGState
-    :: forall ssc m .
-    ( WebWalletModeDB m
-    , MonadRealDB m
+    :: forall ssc ctx m .
+    ( WebWalletModeDB ctx m
+    , MonadRealDB ctx m
     , DB.MonadBlockDB ssc m
     , WithLogger m)
     => EncryptedSecretKey
@@ -303,7 +304,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses txs =
         let usedAddrs = map (cwamId . snd) ownOutputs
         let changeAddrs = evalChange allAddresses (map snd ownInputs) (map snd ownOutputs)
         pure $ CAccModifier
-            (deleteAndInsertMM (map snd ownInputs) (map snd ownOutputs) camAddresses)
+            (deleteAndInsertMM [] (map snd ownOutputs) camAddresses)
             (deleteAndInsertMM [] (zip usedAddrs  hhs) camUsed)
             (deleteAndInsertMM [] (zip changeAddrs hhs) camChange)
 
@@ -328,12 +329,12 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
         let usedAddrs = map cwamId ownOutputs
         let changeAddrs = evalChange allAddress ownInputs ownOutputs
         CAccModifier
-            (deleteAndInsertMM ownOutputs ownInputs camAddresses)
+            (deleteAndInsertMM ownOutputs [] camAddresses)
             (deleteAndInsertMM (zip usedAddrs hhs) [] camUsed)
             (deleteAndInsertMM (zip changeAddrs hhs) [] camChange)
 
 applyModifierToWallet
-    :: WebWalletModeDB m
+    :: WebWalletModeDB ctx m
     => CId Wal
     -> HeaderHash
     -> CAccModifier
@@ -346,7 +347,7 @@ applyModifierToWallet wAddr newTip CAccModifier{..} = do
     WS.setWalletSyncTip wAddr newTip
 
 rollbackModifierFromWallet
-    :: WebWalletModeDB m
+    :: WebWalletModeDB ctx m
     => CId Wal
     -> HeaderHash
     -> CAccModifier
@@ -404,14 +405,14 @@ decryptAccount _ _ = Nothing
 
 -- TODO [CSM-237] Move to somewhere (duplicate getWalletsAddrMetas from Methods.hs)
 getWalletAddrMetasDB
-    :: (WebWalletModeDB m, MonadThrow m)
+    :: (WebWalletModeDB ctx m, MonadThrow m)
     => AddressLookupMode -> CId Wal -> m [CWAddressMeta]
 getWalletAddrMetasDB lookupMode cWalId = do
     walletAccountIds <- filter ((== cWalId) . aiWId) <$> WS.getWAddressIds
     concatMapM (getAccountAddrsOrThrowDB lookupMode) walletAccountIds
   where
     getAccountAddrsOrThrowDB
-        :: (WebWalletModeDB m, MonadThrow m)
+        :: (WebWalletModeDB ctx m, MonadThrow m)
         => AddressLookupMode -> AccountId -> m [CWAddressMeta]
     getAccountAddrsOrThrowDB mode accId =
         WS.getAccountWAddresses mode accId >>= maybeThrow (noWallet accId)

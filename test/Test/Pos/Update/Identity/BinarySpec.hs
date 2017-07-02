@@ -26,6 +26,7 @@ spec =
     describe "Update system" $ do
         describe "Bi instances" $ do
             describe "Core" $ do
+                binaryTest @U.BlockVersionModifier
                 binaryTest @U.SystemTag
                 binaryTest @U.UpdateVote
                 binaryTest @U.UpdateData
@@ -34,7 +35,6 @@ spec =
                 binaryTest @U.UpdatePayload
                 binaryTest @U.VoteState
                 binaryTest @U.UpId
-
             describe "Poll" $ do
                 binaryTest @(U.PrevValue ())
                 binaryTest @U.USUndo

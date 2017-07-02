@@ -124,15 +124,9 @@ verifyToilEnv txAux txFee = do
     toilEnv <- getToilEnv
     let
         limit = teMaxTxSize toilEnv
-        mtxFeePolicy = teTxFeePolicy toilEnv
+        txFeePolicy = teTxFeePolicy toilEnv
         txSize = biSize txAux
-    case mtxFeePolicy of
-        Nothing ->
-            -- There's no adopted minimal transaction fee policy. Allow
-            -- arbitrary fees (including no fee).
-            return ()
-        Just txFeePolicy -> do
-            verifyTxFeePolicy txFee txFeePolicy txSize
+    verifyTxFeePolicy txFee txFeePolicy txSize
     when (txSize > limit) $
         throwError ToilTooLargeTx {ttltSize = txSize, ttltLimit = limit}
 

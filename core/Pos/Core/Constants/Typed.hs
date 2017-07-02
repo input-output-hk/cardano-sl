@@ -122,5 +122,5 @@ genesisUpdateSoftforkThd :: CoinPortion
 genesisUpdateSoftforkThd = unsafeCoinPortionFromDouble $
     ccGenesisUpdateSoftforkThd coreConstants
 
-genesisTxFeePolicy :: Maybe TxFeePolicy
-genesisTxFeePolicy = getConfigOf <$> ccGenesisTxFeePolicy coreConstants
+genesisTxFeePolicy :: TxFeePolicy
+genesisTxFeePolicy = getConfigOf (ccGenesisTxFeePolicy coreConstants)

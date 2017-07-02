@@ -28,6 +28,7 @@ spec =
       describe "Core" $ do
         binaryTest @U.UpId
         binaryTest @U.BlockVersionData
+        binaryTest @U.BlockVersionModifier
         binaryTest @U.UpdateProposal
         binaryTest @U.UpdateVote
         binaryTest @U.UpdateData

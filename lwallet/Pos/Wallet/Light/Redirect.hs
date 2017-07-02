@@ -14,8 +14,7 @@ import           Universum
 
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import           Data.DList                (DList)
-import           Data.Tagged               (Tagged (..))
-import qualified Ether
+import           Ether.Internal            (HasLens (..))
 
 import           Pos.Client.Txp.Balances   (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History    (TxHistoryEntry, deriveAddrHistory)
@@ -29,7 +28,7 @@ import qualified Pos.Wallet.Light.State    as LWS
 -- MonadBalances
 ----------------------------------------------------------------------------
 
-getOwnUtxosWallet :: (MonadIO m, Ether.MonadReader' LWS.WalletState m) => [Address] -> m Utxo
+getOwnUtxosWallet :: (MonadIO m, MonadReader ctx m, HasLens LWS.WalletState ctx LWS.WalletState) => [Address] -> m Utxo
 getOwnUtxosWallet addrs = filterUtxoByAddrs addrs <$> LWS.getUtxo
 
 getBalanceWallet :: (MonadIO m, MonadBalances m) => Address -> m Coin
@@ -40,9 +39,9 @@ getBalanceWallet = getBalanceFromUtxo
 ----------------------------------------------------------------------------
 
 getBlockHistoryWallet
-    :: (Ether.MonadReader' LWS.WalletState m, MonadIO m)
-    => Tagged ssc ([Address] -> m (DList TxHistoryEntry))
-getBlockHistoryWallet = Tagged $ \addrs -> do
+    :: (MonadReader ctx m, HasLens LWS.WalletState ctx LWS.WalletState, MonadIO m)
+    => [Address] -> m (DList TxHistoryEntry)
+getBlockHistoryWallet addrs = do
     chain <- LWS.getBestChain
     utxo <- LWS.getOldestUtxo
     _ <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $
@@ -51,7 +50,7 @@ getBlockHistoryWallet = Tagged $ \addrs -> do
     pure $ error "getBlockHistory is not implemented for light wallet"
 
 getLocalHistoryWallet
-    :: (Ether.MonadReader' LWS.WalletState m, MonadIO m)
+    :: (MonadReader ctx m, HasLens LWS.WalletState ctx LWS.WalletState, MonadIO m)
     => [Address] -> m (DList TxHistoryEntry)
 getLocalHistoryWallet = pure $
     error "getLocalHistory is not implemented for light wallet"

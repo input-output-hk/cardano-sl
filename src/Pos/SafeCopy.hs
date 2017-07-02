@@ -4,27 +4,18 @@ module Pos.SafeCopy
        (
        ) where
 
-import           Data.SafeCopy                   (SafeCopy (..), base, contain,
-                                                  deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Serialize                  as Cereal (getWord8, putWord8)
 import           Universum
 
 import qualified Cardano.Crypto.Wallet           as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
 import qualified Crypto.ECC.Edwards25519         as ED25519
 import qualified Crypto.Sign.Ed25519             as EDS25519
+import           Data.SafeCopy                   (SafeCopy (..), base, contain,
+                                                  deriveSafeCopySimple, safeGet, safePut)
+import qualified Data.Serialize                  as Cereal (getWord8, putWord8)
+
 import           Pos.Binary.Class                (Bi)
 import qualified Pos.Binary.Class                as Bi
-import           Pos.Crypto.HD                   (HDAddressPayload (..))
-import           Pos.Crypto.RedeemSigning        (RedeemPublicKey (..),
-                                                  RedeemSecretKey (..),
-                                                  RedeemSignature (..))
-import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey (..),
-                                                  ProxySignature (..), PublicKey (..),
-                                                  SecretKey (..), Signature (..),
-                                                  Signed (..))
-import           Pos.Ssc.Class.Types             (Ssc (..))
-
 import           Pos.Block.Core
 import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
                                                   TxSizeLinear (..))
@@ -37,10 +28,19 @@ import           Pos.Core.Types                  (AddrPkAttrs (..), Address (..)
                                                   Script (..), SharedSeed (..),
                                                   SlotId (..), SoftwareVersion (..))
 import           Pos.Crypto.Hashing              (AbstractHash (..))
+import           Pos.Crypto.HD                   (HDAddressPayload (..))
+import           Pos.Crypto.RedeemSigning        (RedeemPublicKey (..),
+                                                  RedeemSecretKey (..),
+                                                  RedeemSignature (..))
+import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey (..),
+                                                  ProxySignature (..), PublicKey (..),
+                                                  SecretKey (..), Signature (..),
+                                                  Signed (..))
 import           Pos.Data.Attributes             (Attributes (..))
 import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
                                                   MerkleTree (..))
+import           Pos.Ssc.Class.Types             (Ssc (..))
 import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..), CommitmentsMap,
                                                   GtPayload (..), GtProof (..),
                                                   Opening (..), VssCertificate (..))
@@ -48,7 +48,8 @@ import           Pos.Txp.Core.Types              (Tx (..), TxDistribution (..), 
                                                   TxInWitness (..), TxOut (..),
                                                   TxOutAux (..), TxPayload (..),
                                                   TxProof (..))
-import           Pos.Update.Core.Types           (SystemTag (..), UpdateData (..),
+import           Pos.Update.Core.Types           (BlockVersionModifier (..),
+                                                  SystemTag (..), UpdateData (..),
                                                   UpdatePayload (..), UpdateProposal (..),
                                                   UpdateVote (..))
 
@@ -134,6 +135,7 @@ deriveSafeCopySimple 0 'base ''Coeff
 deriveSafeCopySimple 0 'base ''TxSizeLinear
 deriveSafeCopySimple 0 'base ''TxFeePolicy
 deriveSafeCopySimple 0 'base ''BlockVersionData
+deriveSafeCopySimple 0 'base ''BlockVersionModifier
 deriveSafeCopySimple 0 'base ''UpdateProposal
 deriveSafeCopySimple 0 'base ''UpdateVote
 deriveSafeCopySimple 0 'base ''UpdatePayload

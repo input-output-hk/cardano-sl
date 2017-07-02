@@ -25,11 +25,12 @@ module Pos.Update.Logic.Local
 import           Universum
 
 import           Control.Concurrent.STM (modifyTVar', readTVar, writeTVar)
+import           Control.Lens           (views)
 import           Control.Monad.Except   (runExceptT)
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.HashSet           as HS
-import qualified Ether
+import           Ether.Internal         (HasLens (..))
 import           Formatting             (sformat, (%))
 import           System.Wlog            (WithLogger, logWarning)
 
@@ -56,51 +57,52 @@ import           Pos.Update.Poll        (MonadPoll (deactivateProposal),
                                          runPollT, verifyAndApplyUSPayload)
 
 -- MonadMask is needed because are using Lock. It can be improved later.
-type USLocalLogicMode m =
+type USLocalLogicMode ctx m =
     ( MonadIO m
     , MonadDBRead m
     , MonadMask m
     , WithLogger m
-    , Ether.MonadReader' UpdateContext m
-    , Ether.MonadReader' LrcContext m
+    , MonadReader ctx m
+    , HasLens UpdateContext ctx UpdateContext
+    , HasLens LrcContext ctx LrcContext
     )
 
 getMemPool
-    :: (Ether.MonadReader' UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => m MemPool
 getMemPool = msPool <$>
-    (atomically . readTVar . mvState =<< Ether.asks' ucMemState)
+    (atomically . readTVar . mvState =<< views (lensOf @UpdateContext) ucMemState)
 
 clearUSMemPool
-    :: (Ether.MonadReader' UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => m ()
 clearUSMemPool =
-    atomically . flip modifyTVar' resetData . mvState =<< Ether.asks' ucMemState
+    atomically . flip modifyTVar' resetData . mvState =<< views (lensOf @UpdateContext) ucMemState
   where
     resetData memState = memState {msPool = def, msModifier = def}
 
 getPollModifier
-    :: (Ether.MonadReader' UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => m PollModifier
 getPollModifier = msModifier <$>
-    (atomically . readTVar . mvState =<< Ether.asks' ucMemState)
+    (atomically . readTVar . mvState =<< views (lensOf @UpdateContext) ucMemState)
 
 getLocalProposals
-    :: (Ether.MonadReader' UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => m UpdateProposals
 getLocalProposals = mpProposals <$> getMemPool
 
 getLocalVotes
-    :: (Ether.MonadReader' UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => m LocalVotes
 getLocalVotes = mpLocalVotes <$> getMemPool
 
 withCurrentTip
-    :: (Ether.MonadReader' UpdateContext m, MonadDBRead m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadDBRead m, MonadIO m)
     => (MemState -> m MemState) -> m ()
 withCurrentTip action = do
     tipBefore <- DB.getTip
-    stateVar <- mvState <$> Ether.asks' ucMemState
+    stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
     ms <- atomically $ readTVar stateVar
     newMS <- action ms
     atomically $ modifyTVar' stateVar $ \cur ->
@@ -112,7 +114,7 @@ withCurrentTip action = do
 ----------------------------------------------------------------------------
 
 processSkeleton
-    :: (USLocalLogicMode m)
+    :: (USLocalLogicMode ctx m)
     => UpdatePayload -> m (Either PollVerFailure ())
 processSkeleton payload =
     withUSLock $
@@ -137,8 +139,9 @@ processSkeleton payload =
 refreshMemPool
     :: ( MonadDBRead m
        , MonadIO m
-       , Ether.MonadReader' UpdateContext m
-       , Ether.MonadReader' LrcContext m
+       , MonadReader ctx m
+       , HasLens UpdateContext ctx UpdateContext
+       , HasLens LrcContext ctx LrcContext
        , WithLogger m
        )
     => MemState -> m MemState
@@ -161,13 +164,13 @@ refreshMemPool ms@MemState {..} = do
 -- | This function returns true if update proposal with given
 -- identifier should be requested.
 isProposalNeeded
-    :: (Ether.MonadReader' UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => UpId -> m Bool
 isProposalNeeded id = not . HM.member id <$> getLocalProposals
 
 -- | Get update proposal with given id if it is known.
 getLocalProposalNVotes
-    :: (Ether.MonadReader' UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => UpId -> m (Maybe (UpdateProposal, [UpdateVote]))
 getLocalProposalNVotes id = do
     prop <- HM.lookup id <$> getLocalProposals
@@ -184,7 +187,7 @@ getLocalProposalNVotes id = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processProposal
-    :: (USLocalLogicMode m)
+    :: (USLocalLogicMode ctx m)
     => UpdateProposal -> m (Either PollVerFailure ())
 processProposal proposal = processSkeleton $ UpdatePayload (Just proposal) []
 
@@ -199,7 +202,7 @@ lookupVote propId pk locVotes = HM.lookup propId locVotes >>= HM.lookup pk
 -- identifier issued by stakeholder with given PublicKey and with
 -- given decision should be requested.
 isVoteNeeded
-    :: USLocalLogicMode m
+    :: USLocalLogicMode ctx m
     => UpId -> PublicKey -> Bool -> m Bool
 isVoteNeeded propId pk decision = do
     modifier <- getPollModifier
@@ -215,7 +218,7 @@ isVoteNeeded propId pk decision = do
 -- | Get update vote for proposal with given id from given issuer and
 -- with given decision if it is known.
 getLocalVote
-    :: (Ether.MonadReader' UpdateContext m, MonadIO m)
+    :: (MonadReader ctx m, HasLens UpdateContext ctx UpdateContext, MonadIO m)
     => UpId -> PublicKey -> Bool -> m (Maybe UpdateVote)
 getLocalVote propId pk decision = do
     voteMaybe <- lookupVote propId pk <$> getLocalVotes
@@ -233,7 +236,7 @@ getLocalVote propId pk decision = do
 -- Otherwise 'Left err' is returned and 'err' lets caller decide whether
 -- sender could be sure that error would happen.
 processVote
-    :: (USLocalLogicMode m)
+    :: (USLocalLogicMode ctx m)
     => UpdateVote -> m (Either PollVerFailure ())
 processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 
@@ -245,19 +248,19 @@ processVote vote = processSkeleton $ UpdatePayload Nothing [vote]
 -- current GState.  This function assumes that GState is locked. It
 -- tries to leave as much data as possible. It assumes that
 -- 'blkSemaphore' is taken.
-usNormalize :: (USLocalLogicMode m) => m ()
+usNormalize :: (USLocalLogicMode ctx m) => m ()
 usNormalize =
     withUSLock $ do
         tip <- DB.getTip
-        stateVar <- mvState <$> Ether.asks' ucMemState
+        stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
         atomically . writeTVar stateVar =<< usNormalizeDo (Just tip) Nothing
 
 -- Normalization under lock.
 usNormalizeDo
-    :: (USLocalLogicMode m)
+    :: (USLocalLogicMode ctx m)
     => Maybe HeaderHash -> Maybe SlotId -> m MemState
 usNormalizeDo tip slot = do
-    stateVar <- mvState <$> Ether.asks' ucMemState
+    stateVar <- mvState <$> views (lensOf @UpdateContext) ucMemState
     ms@MemState {..} <- atomically $ readTVar stateVar
     let MemPool {..} = msPool
     ((newProposals, newVotes), newModifier) <-
@@ -280,7 +283,7 @@ usNormalizeDo tip slot = do
     return newMS
 
 -- | Update memory state to make it correct for given slot.
-processNewSlot :: (USLocalLogicMode m) => SlotId -> m ()
+processNewSlot :: (USLocalLogicMode ctx m) => SlotId -> m ()
 processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
     if | msSlot >= slotId -> pure ms
        -- Crucial changes happen only when epoch changes.
@@ -292,7 +295,7 @@ processNewSlot slotId = withUSLock $ withCurrentTip $ \ms@MemState{..} -> do
 -- nobody can apply/rollback blocks in parallel.
 -- Sometimes payload can't be created. It can happen if we are trying to
 -- create block for slot which has already passed, for example.
-usPreparePayload :: (USLocalLogicMode m) => SlotId -> m (Maybe UpdatePayload)
+usPreparePayload :: (USLocalLogicMode ctx m) => SlotId -> m (Maybe UpdatePayload)
 usPreparePayload slotId@SlotId{..} = do
     -- First of all, we make sure that mem state corresponds to given
     -- slot.  If mem state corresponds to newer slot already, it won't

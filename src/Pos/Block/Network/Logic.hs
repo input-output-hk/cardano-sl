@@ -28,7 +28,7 @@ import           Control.Exception          (Exception (..))
 import           Control.Lens               (_Wrapped)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
-import qualified Ether
+import           Ether.Internal             (HasLens (..))
 import           Formatting                 (bprint, build, sformat, shown, stext, (%))
 import           Mockable                   (fork)
 import           Paths_cardano_sl           (version)
@@ -105,8 +105,8 @@ instance Exception BlockNetLogicException where
 -- 'triggerRecovery' does nothing. It's okay because when recovery is in
 -- progress and 'ncRecoveryHeader' is full, we'll be requesting blocks anyway
 -- and until we're finished we shouldn't be asking for new blocks.
-triggerRecovery :: forall ssc m.
-    (SscWorkersClass ssc, WorkMode ssc m)
+triggerRecovery :: forall ssc ctx m.
+    (SscWorkersClass ssc, WorkMode ssc ctx m)
     => SendActions m -> m ()
 triggerRecovery sendActions = unlessM recoveryInProgress $ do
     logDebug "Recovery started, requesting tips from neighbors"
@@ -125,8 +125,8 @@ requestTipOuts =
 -- current blockchain state. Sends "what's your current tip" request
 -- to everybody we know.
 requestTip
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NodeId
     -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
@@ -148,8 +148,8 @@ requestTip nodeId conv = do
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
 -- message.
 mkHeadersRequest
-    :: forall ssc m.
-       WorkMode ssc m
+    :: forall ssc ctx m.
+       WorkMode ssc ctx m
     => HeaderHash -> m (Maybe MsgGetHeaders)
 mkHeadersRequest upto = runMaybeT $ do
     bHeaders <- MaybeT $ nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
@@ -158,8 +158,8 @@ mkHeadersRequest upto = runMaybeT $ do
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NonEmpty (BlockHeader ssc)
     -> NodeId
     -> m ()
@@ -171,8 +171,8 @@ handleUnsolicitedHeaders (h:|hs) _ = do
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
 handleUnsolicitedHeader
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => BlockHeader ssc
     -> NodeId
     -> m ()
@@ -240,8 +240,8 @@ matchRequestedHeaders headers MsgGetHeaders {..} inRecovery =
 -- Second argument is mghTo block header (not hash). Don't pass it
 -- only if you don't know it.
 requestHeaders
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => MsgGetHeaders
     -> NodeId
     -> Maybe (BlockHeader ssc)
@@ -254,8 +254,8 @@ requestHeaders mgh nodeId origTip =
             addToBlockRequestQueue headersPostfix nodeId origTip
 
 requestHeaders'
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => (NewestFirst NE (BlockHeader ssc) -> m ())
     -> MsgGetHeaders
     -> NodeId
@@ -293,8 +293,8 @@ requestHeaders' cont mgh nodeId conv = do
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
-    :: forall ssc m.
-       WorkMode ssc m
+    :: forall ssc ctx m.
+       WorkMode ssc ctx m
     => (NewestFirst NE (BlockHeader ssc) -> m ())
     -> NewestFirst NE (BlockHeader ssc)
     -> m ()
@@ -336,16 +336,16 @@ handleRequestedHeaders cont headers = do
 -- after pack of blocks is processed, next pack of headers will be
 -- requested until this header hash is received.
 addToBlockRequestQueue
-    :: forall ssc m.
-       (WorkMode ssc m)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m)
     => NewestFirst NE (BlockHeader ssc)
     -> NodeId
     -> Maybe (BlockHeader ssc)
     -> m ()
 addToBlockRequestQueue headers nodeId mrecoveryTip = do
-    queue <- Ether.ask @BlockRetrievalQueueTag
-    recHeaderVar <- Ether.ask @RecoveryHeaderTag
-    lastKnownH <- Ether.ask @LastKnownHeaderTag
+    queue <- view (lensOf @BlockRetrievalQueueTag)
+    recHeaderVar <- view (lensOf @RecoveryHeaderTag)
+    lastKnownH <- view (lensOf @LastKnownHeaderTag)
     let updateRecoveryHeader (Just recoveryTip) = do
             oldV <- readTVar lastKnownH
             when (maybe True (recoveryTip `isMoreDifficult`) oldV) $
@@ -375,13 +375,13 @@ addToBlockRequestQueue headers nodeId mrecoveryTip = do
     a `isMoreDifficult` b = a ^. difficultyL > b ^. difficultyL
 
 addToBlockRequestQueue'
-    :: forall ssc m.
-       (WorkMode ssc m)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m)
     => NodeId
     -> BlockHeader ssc
     -> m ()
 addToBlockRequestQueue' nodeId tip = do
-    queue <- Ether.ask @BlockRetrievalQueueTag
+    queue <- view (lensOf @BlockRetrievalQueueTag)
     added <- atomically $ do
         ifM (isFullTBQueue queue)
             (pure False)
@@ -411,8 +411,8 @@ mkBlocksRequest lcaChild wantedBlock =
     }
 
 handleBlocks
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NodeId
     -> OldestFirst NE (Block ssc)
     -> SendActions m
@@ -432,8 +432,8 @@ handleBlocks nodeId blocks sendActions = do
         "Probably rollback happened in parallel"
 
 handleBlocksWithLca
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
@@ -450,8 +450,8 @@ handleBlocksWithLca nodeId sendActions blocks lcaHash = do
     lcaFmt = "Handling block w/ LCA, which is "%shortHashF
 
 applyWithoutRollback
-    :: forall ssc m.
-       (WorkMode ssc m, SscWorkersClass ssc)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m, SscWorkersClass ssc)
     => SendActions m
     -> OldestFirst NE (Block ssc)
     -> m ()
@@ -488,8 +488,8 @@ applyWithoutRollback sendActions blocks = do
         pure (res, newTip)
 
 applyWithRollback
-    :: forall ssc m.
-       (WorkMode ssc m, SscWorkersClass ssc)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m, SscWorkersClass ssc)
     => NodeId
     -> SendActions m
     -> OldestFirst NE (Block ssc)
@@ -534,8 +534,8 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
         getOldestFirst $ toApply
 
 relayBlock
-    :: forall ssc m.
-       (WorkMode ssc m)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m)
     => SendActions m -> Block ssc -> m ()
 relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
 relayBlock sendActions (Right mainBlk) = do
@@ -551,8 +551,8 @@ relayBlock sendActions (Right mainBlk) = do
 
 -- TODO: ban node for it!
 onFailedVerifyBlocks
-    :: forall ssc m.
-       (WorkMode ssc m)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m)
     => NonEmpty (Block ssc) -> Text -> m ()
 onFailedVerifyBlocks blocks err = do
     logWarning $ sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)

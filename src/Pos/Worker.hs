@@ -28,14 +28,14 @@ import           Pos.Txp              (txRelays)
 import           Pos.Txp.Worker       (txpWorkers)
 import           Pos.Update           (usRelays, usWorkers)
 import           Pos.Util             (mconcatPair)
-import           Pos.WorkMode         (RealMode, WorkMode)
+import           Pos.WorkMode         (RealMode, RealModeContext, WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
     :: ( SscListenersClass ssc
        , SscWorkersClass ssc
        , SecurityWorkersClass ssc
-       , WorkMode ssc m
+       , WorkMode ssc ctx m
        )
     => NodeContext ssc  -> ([WorkerSpec m], OutSpecs)
 allWorkers NodeContext {..} = mconcatPair
@@ -73,4 +73,4 @@ allWorkersCount
        , SecurityWorkersClass ssc
        )
     => NodeContext ssc -> Int
-allWorkersCount = length . fst . (allWorkers @ssc @(RealMode ssc))
+allWorkersCount = length . fst . (allWorkers @ssc @(RealModeContext ssc) @(RealMode ssc))

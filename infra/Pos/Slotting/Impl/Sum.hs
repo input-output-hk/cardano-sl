@@ -6,8 +6,6 @@
 module Pos.Slotting.Impl.Sum
        ( SlottingContextSum (..)
        , MonadSlottingSum
-       , SlotsRedirect
-       , runSlotsRedirect
        , askSlottingContextSum
        , getCurrentSlotSum
        , getCurrentSlotBlockingSum
@@ -21,15 +19,17 @@ module Pos.Slotting.Impl.Sum
 
 import           Universum
 
-import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
-import qualified Ether
+import           Ether.Internal           (HasLens (..))
 
-import           Pos.Core.Types               (SlotId (..), Timestamp)
-import           Pos.Slotting.Class           (MonadSlots (..))
-import           Pos.Slotting.Impl.Ntp        (NtpMode, NtpSlottingVar, NtpWorkerMode,
-                                               ntpWorkers, runNtpSlotsRedirect)
-import           Pos.Slotting.Impl.Simple     (SimpleSlottingMode, runSimpleSlotsRedirect)
+import           Pos.Core.Types           (SlotId (..), Timestamp)
+import           Pos.Slotting.Impl.Ntp    (NtpMode, NtpSlottingVar, NtpWorkerMode,
+                                           ntpCurrentTime, ntpGetCurrentSlot,
+                                           ntpGetCurrentSlotBlocking,
+                                           ntpGetCurrentSlotInaccurate, ntpWorkers)
+import           Pos.Slotting.Impl.Simple (SimpleSlottingMode, currentTimeSlottingSimple,
+                                           getCurrentSlotBlockingSimple,
+                                           getCurrentSlotInaccurateSimple,
+                                           getCurrentSlotSimple)
 
 -- | Sum of all contexts used by slotting implementations.
 data SlottingContextSum
@@ -38,48 +38,36 @@ data SlottingContextSum
 
 -- | Monad which combines all 'MonadSlots' implementations (and
 -- uses only one of them).
-type MonadSlottingSum = Ether.MonadReader' SlottingContextSum
+type MonadSlottingSum ctx m = (MonadReader ctx m, HasLens SlottingContextSum ctx SlottingContextSum)
 
-data SlotsRedirectTag
+askSlottingContextSum :: MonadSlottingSum ctx m => m SlottingContextSum
+askSlottingContextSum = view (lensOf @SlottingContextSum)
 
-type SlotsRedirect =
-    Ether.TaggedTrans SlotsRedirectTag IdentityT
+type SlotsSumEnv ctx m = (MonadSlottingSum ctx m, NtpMode m, SimpleSlottingMode m)
 
-runSlotsRedirect :: SlotsRedirect m a -> m a
-runSlotsRedirect = coerce
+getCurrentSlotSum :: SlotsSumEnv ctx m => m (Maybe SlotId)
+getCurrentSlotSum =
+    view (lensOf @SlottingContextSum) >>= \case
+        SCSimple -> getCurrentSlotSimple
+        SCNtp var -> ntpGetCurrentSlot var
 
-askSlottingContextSum :: MonadSlottingSum m => m SlottingContextSum
-askSlottingContextSum = Ether.ask'
+getCurrentSlotBlockingSum :: SlotsSumEnv ctx m => m SlotId
+getCurrentSlotBlockingSum =
+    view (lensOf @SlottingContextSum) >>= \case
+        SCSimple -> getCurrentSlotBlockingSimple
+        SCNtp var -> ntpGetCurrentSlotBlocking var
 
-type SlotsSumEnv m = (MonadSlottingSum m, NtpMode m, SimpleSlottingMode m)
+getCurrentSlotInaccurateSum :: SlotsSumEnv ctx m => m SlotId
+getCurrentSlotInaccurateSum =
+    view (lensOf @SlottingContextSum) >>= \case
+        SCSimple -> getCurrentSlotInaccurateSimple
+        SCNtp var -> ntpGetCurrentSlotInaccurate var
 
-getCurrentSlotSum :: SlotsSumEnv m => m (Maybe SlotId)
-getCurrentSlotSum = helper getCurrentSlot
-
-getCurrentSlotBlockingSum :: SlotsSumEnv m => m SlotId
-getCurrentSlotBlockingSum = helper getCurrentSlotBlocking
-
-getCurrentSlotInaccurateSum :: SlotsSumEnv m => m SlotId
-getCurrentSlotInaccurateSum = helper getCurrentSlotInaccurate
-
-currentTimeSlottingSum :: SlotsSumEnv m => m Timestamp
-currentTimeSlottingSum = helper currentTimeSlotting
-
-instance (SlotsSumEnv m, t ~ IdentityT) =>
-         MonadSlots (Ether.TaggedTrans SlotsRedirectTag t m) where
-    getCurrentSlot = getCurrentSlotSum
-    getCurrentSlotBlocking = getCurrentSlotBlockingSum
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
-    currentTimeSlotting = currentTimeSlottingSum
-
-helper
-    :: SlotsSumEnv m
-    => (forall n. MonadSlots n => n a)
-    -> m a
-helper action =
-    Ether.ask' >>= \case
-        SCSimple -> runSimpleSlotsRedirect action
-        SCNtp var -> Ether.runReaderT' (runNtpSlotsRedirect action) var
+currentTimeSlottingSum :: SlotsSumEnv ctx m => m Timestamp
+currentTimeSlottingSum =
+    view (lensOf @SlottingContextSum) >>= \case
+        SCSimple -> currentTimeSlottingSimple
+        SCNtp var -> ntpCurrentTime var
 
 type SlottingWorkerModeSum m = NtpWorkerMode m
 

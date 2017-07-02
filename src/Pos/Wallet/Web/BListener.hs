@@ -24,6 +24,7 @@ import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Client.Txp.History     (getRelatedTxsByAddrs, thTxId)
 import           Pos.Core                   (HeaderHash, headerHash, prevBlockL)
 import           Pos.Crypto                 (hash, withHash)
+import           Pos.DB.BatchOp             (SomeBatchOp)
 import           Pos.DB.Class               (MonadDBRead, MonadRealDB)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux (..), TxUndo, flattenTxPayload)
@@ -42,19 +43,23 @@ import           Pos.Wallet.Web.Tracking    (CAccModifier (..), applyModifierToW
 
 -- Perform this action under block lock.
 onApplyTracking
-    :: forall ssc m .
+    :: forall ssc ctx m .
     ( SscHelpersClass ssc
-    , AccountMode m
+    , AccountMode ctx m
     , WithLogger m
-    , MonadRealDB m
+    , MonadRealDB ctx m
     , MonadDBRead m
     )
-    => OldestFirst NE (Blund ssc) -> m ()
+    => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = do
     let oldestFirst = getOldestFirst blunds
         txs = concatMap (gbTxs . fst) oldestFirst
         newTip = headerHash $ NE.last oldestFirst
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
+
+    -- It's silly, but when the wallet is migrated to RocksDB, we can write
+    -- something a bit more reasonable.
+    pure mempty
   where
     syncWalletSet :: HeaderHash -> [TxAux] -> CId Wal -> m ()
     syncWalletSet newTip txs wAddr = do
@@ -83,17 +88,21 @@ onApplyTracking blunds = do
 
 -- Perform this action under block lock.
 onRollbackTracking
-    :: forall ssc m .
+    :: forall ssc ctx m .
     ( SscHelpersClass ssc
-    , AccountMode m
+    , AccountMode ctx m
     , WithLogger m
     )
-    => NewestFirst NE (Blund ssc) -> m ()
+    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 onRollbackTracking blunds = do
     let newestFirst = getNewestFirst blunds
         txs = concatMap (reverse . blundTxUn) newestFirst
         newTip = (NE.last newestFirst) ^. prevBlockL
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
+
+    -- It's silly, but when the wallet is migrated to RocksDB, we can write
+    -- something a bit more reasonable.
+    pure mempty
   where
     syncWalletSet :: HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
     syncWalletSet newTip txs wAddr = do

@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -34,8 +35,8 @@ import           Data.Coerce                  (coerce)
 import           Data.DList                   (DList)
 import qualified Data.DList                   as DL
 import qualified Data.Map.Strict              as M (lookup)
-import           Data.Tagged                  (Tagged (..))
 import qualified Ether
+import           Ether.Internal               (HasLens (..))
 import           System.Wlog                  (WithLogger)
 
 import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
@@ -46,7 +47,7 @@ import           Pos.Core                     (Address, ChainDifficulty, HeaderH
                                                Timestamp (..), difficultyL)
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
-import qualified Pos.DB.Block                 as DB
+import           Pos.DB.Block                 (MonadBlockDB)
 import qualified Pos.DB.GState                as GS
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure)
 import           Pos.Ssc.Class                (SscHelpersClass)
@@ -60,7 +61,7 @@ import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxo
                                                TxId, TxOut, TxOutAux (..), TxWitness,
                                                applyTxToUtxo, evalToilTEmpty,
                                                flattenTxPayload, getLocalTxs, runDBToil,
-                                               runUtxoStateT, txOutAddress, utxoGet)
+                                               txOutAddress, utxoGet)
 import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -160,7 +161,7 @@ type GenesisToil = Ether.TaggedTrans GenesisToilTag IdentityT
 runGenesisToil :: GenesisToil m a -> m a
 runGenesisToil = coerce
 
-instance (Ether.MonadReader' GenesisUtxo m) =>
+instance (Monad m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) =>
          MonadUtxoRead (GenesisToil m) where
     utxoGet txIn = M.lookup txIn <$> genesisUtxoM
 
@@ -169,40 +170,45 @@ instance (Ether.MonadReader' GenesisUtxo m) =>
 ----------------------------------------------------------------------------
 
 -- | A class which have methods to get transaction history
-class Monad m => MonadTxHistory m where
+class (Monad m, SscHelpersClass ssc) => MonadTxHistory ssc m | m -> ssc where
     getBlockHistory
-        :: SscHelpersClass ssc
-        => Tagged ssc ([Address] -> m (DList TxHistoryEntry))
+        :: [Address] -> m (DList TxHistoryEntry)
     getLocalHistory
         :: [Address] -> m (DList TxHistoryEntry)
     saveTx :: (TxId, TxAux) -> m ()
 
 instance {-# OVERLAPPABLE #-}
-    (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
-        MonadTxHistory (t m)
+    (MonadTxHistory ssc m, MonadTrans t, Monad (t m)) =>
+        MonadTxHistory ssc (t m)
   where
-    getBlockHistory = (lift .) <$> getBlockHistory
+    getBlockHistory = lift . getBlockHistory
     getLocalHistory = lift . getLocalHistory
     saveTx = lift . saveTx
 
-type TxHistoryEnv m =
-    ( MonadBaseControl IO m
+type TxHistoryEnv ctx m =
+    ( MonadRealDB ctx m
     , MonadDBRead m
     , MonadGState m
-    , MonadTxpMem TxpExtra_TMP m
+    , MonadThrow m
     , WithLogger m
     , MonadSlots m
-    , MonadThrow m
-    , MonadRealDB m
-    , Ether.MonadReader' GenesisUtxo m
+    , MonadReader ctx m
+    , HasLens GenesisUtxo ctx GenesisUtxo
+    , MonadTxpMem TxpExtra_TMP ctx m
+    , MonadBaseControl IO m
     )
 
-type GenesisHistoryFetcher m = ToilT () (GenesisToil (DB.BlockDBRedirect m))
+type TxHistoryEnv' ssc ctx m =
+    ( MonadBlockDB ssc m
+    , TxHistoryEnv ctx m
+    )
+
+type GenesisHistoryFetcher m = ToilT () (GenesisToil m)
 
 getBlockHistoryDefault
-    :: forall ssc m. (SscHelpersClass ssc, TxHistoryEnv m)
-    => Tagged ssc ([Address] -> m (DList TxHistoryEntry))
-getBlockHistoryDefault = Tagged $ \addrs -> do
+    :: forall ssc ctx m. TxHistoryEnv' ssc ctx m
+    => [Address] -> m (DList TxHistoryEntry)
+getBlockHistoryDefault addrs = do
     bot <- GS.getBot
     sd <- GS.getSlottingData
 
@@ -216,11 +222,10 @@ getBlockHistoryDefault = Tagged $ \addrs -> do
         blockFetcher start = GS.foldlUpWhileM fromBlund start (const $ const True)
             (deriveAddrHistoryBlk addrs getBlockTimestamp) mempty
 
-    DB.runBlockDBRedirect . runGenesisToil . evalToilTEmpty $
-        blockFetcher bot
+    runGenesisToil . evalToilTEmpty $ blockFetcher bot
 
 getLocalHistoryDefault
-    :: forall m. TxHistoryEnv m
+    :: forall ctx m. TxHistoryEnv ctx m
     => [Address] -> m (DList TxHistoryEntry)
 getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
     let mapper (txid, TxAux {..}) =
@@ -229,7 +234,7 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
     txs <- getRelatedTxsByAddrs addrs $ map mapper ltxs
     return $ DL.fromList txs
 
-saveTxDefault :: TxHistoryEnv m => (TxId, TxAux) -> m ()
+saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
 #ifdef WITH_EXPLORER
 saveTxDefault txw = () <$ runExceptT (eTxProcessTransaction txw)
 #else

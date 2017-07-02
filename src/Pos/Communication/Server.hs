@@ -27,7 +27,7 @@ import           Pos.WorkMode.Class          (WorkMode)
 
 -- | All listeners running on one node.
 allListeners
-    :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc ctx m)
     => MkListeners m
 allListeners = mconcat
         [ modifier "block"       $ blockListeners

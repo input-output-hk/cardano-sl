@@ -54,7 +54,7 @@ instance GtMessageConstraints => SscListenersClass SscGodTossing where
         ]
 
 commitmentRelay
-    :: (GtMessageConstraints, SscMode SscGodTossing m)
+    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
     => Relay m
 commitmentRelay =
     sscRelay CommitmentMsg
@@ -63,7 +63,7 @@ commitmentRelay =
              (\(MCCommitment comm) -> sscProcessCommitment comm)
 
 openingRelay
-    :: (GtMessageConstraints, SscMode SscGodTossing m)
+    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
     => Relay m
 openingRelay =
     sscRelay OpeningMsg
@@ -72,7 +72,7 @@ openingRelay =
              (\(MCOpening key open) -> sscProcessOpening key open)
 
 sharesRelay
-    :: (GtMessageConstraints, SscMode SscGodTossing m)
+    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
     => Relay m
 sharesRelay =
     sscRelay SharesMsg
@@ -81,7 +81,7 @@ sharesRelay =
              (\(MCShares key shares) -> sscProcessShares key shares)
 
 vssCertRelay
-    :: (GtMessageConstraints, SscMode SscGodTossing m)
+    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
     => Relay m
 vssCertRelay =
     sscRelay VssCertificateMsg
@@ -90,7 +90,7 @@ vssCertRelay =
              (\(MCVssCertificate cert) -> sscProcessCertificate cert)
 
 sscRelay
-    :: ( SscMode SscGodTossing m
+    :: ( SscMode SscGodTossing ctx m
        , Buildable err
        , Buildable contents
        , Typeable contents
@@ -129,7 +129,7 @@ sscRelay gtTag contentsToKey toContents processData =
         | otherwise = sscProcessMessage processData dat
 
 sscProcessMessage
-    :: (SscMode SscGodTossing m, Buildable err)
+    :: (SscMode SscGodTossing ctx m, Buildable err)
     => (a -> ExceptT err m ()) -> a -> m Bool
 sscProcessMessage sscProcessMessageDo dat =
     runExceptT (sscProcessMessageDo dat) >>= \case

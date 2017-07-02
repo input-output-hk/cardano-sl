@@ -18,7 +18,7 @@ module Pos.Update.Poll.Logic.Base
        , getBVScriptVersion
        , confirmBlockVersion
        , updateSlottingData
-       , verifyNextBVData
+       , verifyNextBVMod
 
        , isDecided
        , voteToUProposalState
@@ -44,7 +44,8 @@ import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, H
 import           Pos.Core.Constants      (epochSlots)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
 import           Pos.Slotting            (EpochSlottingData (..), SlottingData (..))
-import           Pos.Update.Core         (BlockVersionData (..), UpId,
+import           Pos.Update.Core         (BlockVersionData (..),
+                                          BlockVersionModifier (..), UpId,
                                           UpdateProposal (..), UpdateVote (..),
                                           combineVotes, isPositiveVote, newVoteState)
 import           Pos.Update.Poll.Class   (MonadPoll (..), MonadPollRead (..))
@@ -226,24 +227,24 @@ updateSlottingData epoch = do
             , sdLast = newLast
             }
 
--- | Verify that 'BlockVersionData' passed as last argument can follow
+-- | Verify that 'BlockVersionModifier' passed as last argument can follow
 -- 'BlockVersionData' passed as second argument. First argument
 -- ('UpId') is used to create error only.
-verifyNextBVData
+verifyNextBVMod
     :: MonadError PollVerFailure m
-    => UpId -> BlockVersionData -> BlockVersionData -> m ()
-verifyNextBVData upId
+    => UpId -> BlockVersionData -> BlockVersionModifier -> m ()
+verifyNextBVMod upId
   BlockVersionData { bvdScriptVersion = oldSV
                    , bvdMaxBlockSize = oldMBS
                    }
-  BlockVersionData { bvdScriptVersion = newSV
-                   , bvdMaxBlockSize = newMBS
-                   }
+  BlockVersionModifier { bvmScriptVersion = newSV
+                       , bvmMaxBlockSize = newMBS
+                       }
     | newSV /= oldSV + 1 =
         throwError
             PollWrongScriptVersion
-            { pwsvExpected = oldSV + 1
-            , pwsvFound = newSV
+            { pwsvAdopted = oldSV
+            , pwsvProposed = newSV
             , pwsvUpId = upId
             }
     | newMBS > oldMBS * 2 =

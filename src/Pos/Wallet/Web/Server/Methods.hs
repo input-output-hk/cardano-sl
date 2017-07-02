@@ -31,8 +31,7 @@ import           Data.ByteString.Base58           (bitcoinAlphabet, decodeBase58
 import qualified Data.ByteString.Lazy             as BSL
 import           Data.Default                     (Default (def))
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (findIndex)
-import           Data.List                        (notElem)
+import           Data.List                        (findIndex, notElem)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
 import           Data.Tagged                      (untag)

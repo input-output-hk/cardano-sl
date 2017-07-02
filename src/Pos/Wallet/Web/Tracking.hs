@@ -94,7 +94,7 @@ data IndexedMapModifier a = IndexedMapModifier
     }
 
 sortedInsertions :: IndexedMapModifier a -> [a]
-sortedInsertions = map fst . sortOn snd . MM.insertions . immModifier
+sortedInsertions = map fst . sortWith snd . MM.insertions . immModifier
 
 indexedDeletetions :: IndexedMapModifier a -> [a]
 indexedDeletetions = MM.deletions . immModifier

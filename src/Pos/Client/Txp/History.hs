@@ -13,6 +13,7 @@ module Pos.Client.Txp.History
        , thDifficulty
        , thInputAddrs
        , thOutputAddrs
+       , thTimestamp
 
        , MonadTxHistory(..)
 
@@ -94,9 +95,11 @@ makeLenses ''TxHistoryEntry
 getTxsByPredicate
     :: MonadUtxo m
     => ([Address] -> Bool)
+    -> Maybe ChainDifficulty
+    -> Maybe Timestamp
     -> [(WithHash Tx, TxWitness, TxDistribution)]
     -> m [TxHistoryEntry]
-getTxsByPredicate pr txs = go txs []
+getTxsByPredicate pr mDiff mTs txs = go txs []
   where
     go [] acc = return acc
     go ((wh@(WithHash tx txId), _wit, dist) : rest) acc = do
@@ -107,7 +110,7 @@ getTxsByPredicate pr txs = go txs []
         applyTxToUtxo wh dist
 
         let acc' = if pr (incomings ++ outgoings)
-                   then (THEntry txId tx inputs Nothing incomings outgoings Nothing : acc)
+                   then (THEntry txId tx inputs mDiff incomings outgoings mTs : acc)
                    else acc
         go rest acc'
 
@@ -115,6 +118,8 @@ getTxsByPredicate pr txs = go txs []
 getRelatedTxsByAddrs
     :: MonadUtxo m
     => [Address]
+    -> Maybe ChainDifficulty
+    -> Maybe Timestamp
     -> [(WithHash Tx, TxWitness, TxDistribution)]
     -> m [TxHistoryEntry]
 getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
@@ -139,13 +144,12 @@ deriveAddrHistoryBlk
 deriveAddrHistoryBlk _ _ hist (Left _) = pure hist
 deriveAddrHistoryBlk addrs getTs hist (Right blk) = do
     let mapper TxAux {..} = (withHash taTx, taWitness, taDistribution)
-    txs <- getRelatedTxsByAddrs addrs . map mapper . flattenTxPayload $
+        difficulty = blk ^. difficultyL
+        mTimestamp = getTs blk
+    txs <- getRelatedTxsByAddrs addrs (Just difficulty) mTimestamp $
+           map mapper . flattenTxPayload $
            blk ^. mainBlockTxPayload
-    let difficulty = blk ^. difficultyL
-        alterEntry e = e & thDifficulty .~ Just difficulty
-                         & thTimestamp .~ getTs blk
-        txs' = map alterEntry txs
-    return $ DL.fromList txs' <> hist
+    return $ DL.fromList txs <> hist
 
 ----------------------------------------------------------------------------
 -- GenesisToil
@@ -231,7 +235,7 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
     let mapper (txid, TxAux {..}) =
             (WithHash taTx txid, taWitness, taDistribution)
     ltxs <- getLocalTxs
-    txs <- getRelatedTxsByAddrs addrs $ map mapper ltxs
+    txs <- getRelatedTxsByAddrs addrs Nothing Nothing $ map mapper ltxs
     return $ DL.fromList txs
 
 saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()

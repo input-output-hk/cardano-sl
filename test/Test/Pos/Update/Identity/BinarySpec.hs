@@ -12,8 +12,8 @@ import           Pos.Binary               ()
 -- import qualified Pos.Communication        as C
 import           Pos.Communication.Relay  ()
 import qualified Pos.Communication.Relay  as R
+import           Pos.Infra.Arbitrary      ()
 import qualified Pos.Update               as U
-import           Test.Pos.Arbitrary.Infra ()
 
 import           Test.Pos.Util            (binaryTest, msgLenLimitedTest,
                                            networkBinaryTest)

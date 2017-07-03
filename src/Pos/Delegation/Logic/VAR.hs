@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Delegation-related verify/apply/rollback part.
 
@@ -10,8 +11,8 @@ module Pos.Delegation.Logic.VAR
 
 import           Universum
 
-import           Control.Lens                 (at, lens, makeLenses, uses, (%=), (.=),
-                                               (?=), _Wrapped)
+import           Control.Lens                 (at, makeLenses, non, (%=), (.=), (?=),
+                                               _Wrapped)
 import           Control.Monad.Except         (runExceptT, throwError)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
@@ -28,8 +29,9 @@ import           Pos.Block.Core               (Block, BlockSignature (..),
                                                mcdSignature)
 import           Pos.Block.Types              (Blund, Undo (undoPsk))
 import           Pos.Context                  (lrcActionOnEpochReason)
-import           Pos.Core                     (addressHash, epochIndexL, gbHeader,
-                                               gbhConsensus, headerHash, prevBlockL)
+import           Pos.Core                     (StakeholderId, addressHash, epochIndexL,
+                                               gbHeader, gbhConsensus, headerHash,
+                                               prevBlockL)
 import           Pos.Crypto                   (ProxySecretKey (..), ProxySignature (..),
                                                PublicKey, psigPsk, shortHashF)
 import           Pos.DB                       (DBError (DBMalformed), MonadDBRead,
@@ -38,6 +40,7 @@ import qualified Pos.DB                       as DB
 import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.GState                as GS
 import           Pos.Delegation.Cede          (CedeModifier, DlgEdgeAction (..), MapCede,
+                                               MonadCedeRead (getPsk),
                                                detectCycleOnAddition, dlgEdgeActionIssuer,
                                                dlgReachesIssuance, evalMapCede,
                                                getPskChain, getPskPk, modPsk,
@@ -52,7 +55,6 @@ import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
 import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUndo)
 import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
-import           Pos.Types                    (StakeholderId)
 import           Pos.Util                     (getKeys, _neHead, _neLast)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
 
@@ -69,8 +71,8 @@ instance (B.Buildable a, B.Buildable b) => B.Buildable (These a b) where
 -- u → (Maybe d₁, Maybe d₂): u changed delegate from d₁ (or didn't
 -- have one) to d₂ (or revoked delegation). These a b ≃ (Maybe a,
 -- Maybe b) w/o (Nothing,Nothing).
-type TransChangeset = HashMap PublicKey (These PublicKey PublicKey)
-type ReverseTrans = HashMap PublicKey (HashSet PublicKey, HashSet PublicKey)
+type TransChangeset = HashMap StakeholderId (These StakeholderId StakeholderId)
+type ReverseTrans = HashMap StakeholderId (HashSet StakeholderId, HashSet StakeholderId)
 
 -- WHENEVER YOU CHANGE THE FUNCTION, CHECK DOCUMENTATION CONSISTENCY! THANK YOU!
 --
@@ -84,31 +86,37 @@ calculateTransCorrections
 calculateTransCorrections eActions = do
     -- Get the changeset and convert it to transitive ops.
     changeset <- transChangeset
-    let toTransOp iPk (This _)      = GS.DelTransitiveDlg iPk
-        toTransOp iPk (That dPk)    = GS.AddTransitiveDlg iPk dPk
-        toTransOp iPk (These _ dPk) = GS.AddTransitiveDlg iPk dPk
+    let toTransOp iSId (This _)       = GS.DelTransitiveDlg iSId
+        toTransOp iSId (That dSId)    = GS.AddTransitiveDlg iSId dSId
+        toTransOp iSId (These _ dSId) = GS.AddTransitiveDlg iSId dSId
     let transOps = map (uncurry toTransOp) (HM.toList changeset)
 
     -- Once we figure out this piece of code works like a charm we
     -- can delete this logging.
     unless (HM.null changeset) $
-        logDebug $ sformat ("Nonempty dlg trans changeset: "%mapJson) $ HM.toList changeset
+        logDebug $ sformat ("Nonempty dlg trans changeset: "%mapJson) $
+        HM.toList changeset
 
     -- Bulid reverse transitive set and convert it to reverseTransOps
     let reverseTrans = buildReverseTrans changeset
 
-    reverseOps <- forM (HM.toList reverseTrans) $ \(k, (ad, dl)) -> do
-        prev <- GS.getDlgTransitiveReverse k
-        unless (HS.null $ ad `HS.intersection` dl) $ throwM $ DBMalformed $
-            sformat ("Couldn't build reverseOps: ad `intersect` dl is nonzero. "%
-                     "ad: "%listJson%", dl: "%listJson)
-                    ad dl
-        unless (all (`HS.member` prev) dl) $ throwM $ DBMalformed $
-            sformat ("Couldn't build reverseOps: revtrans has "%listJson%", while "%
-                     "trans says we should delete "%listJson)
-                    prev dl
-        pure $ GS.SetTransitiveDlgRev k $ (prev `HS.difference` dl) `HS.union` ad
+    let reverseTransIterStep ::
+            (StakeholderId, (HashSet StakeholderId, HashSet StakeholderId))
+            -> m GS.DelegationOp
+        reverseTransIterStep (k, (ad, dl)) = do
+            prev <- GS.getDlgTransitiveReverse k
+            unless (HS.null $ ad `HS.intersection` dl) $ throwM $ DBMalformed $
+                sformat ("Couldn't build reverseOps: ad `intersect` dl is nonzero. "%
+                        "ad: "%listJson%", dl: "%listJson)
+                        ad dl
+            unless (all (`HS.member` prev) dl) $ throwM $
+                DBMalformed $
+                sformat ("Couldn't build reverseOps: revtrans has "%listJson%
+                        ", while "%"trans says we should delete "%listJson)
+                        prev dl
+            pure $ GS.SetTransitiveDlgRev k $ (prev `HS.difference` dl) <> ad
 
+    reverseOps <- mapM reverseTransIterStep (HM.toList reverseTrans)
     pure $ SomeBatchOp $ transOps <> reverseOps
   where
     {-
@@ -172,12 +180,13 @@ calculateTransCorrections eActions = do
     -}
     transChangeset :: m TransChangeset
     transChangeset = do
-        let xPoints :: [PublicKey]
+        let xPoints :: [StakeholderId]
             xPoints = map dlgEdgeActionIssuer $ HS.toList eActions
 
         -- Step 1.
         affected <- mconcat <$> mapM calculateLocalAf xPoints
-        let af = getKeys affected
+        let af :: HashSet StakeholderId
+            af = getKeys affected
 
         -- Step 2.
         dlgNew <- execStateT (for_ af calculateDlgNew) HM.empty
@@ -194,9 +203,9 @@ calculateTransCorrections eActions = do
         let lookupUnsafe k =
                 fromMaybe (error $ "transChangeset shouldn't happen but happened: " <> pretty k) .
                 HM.lookup k
-            toTheseUnsafe :: PublicKey
-                          -> (Maybe PublicKey, Maybe PublicKey)
-                          -> These PublicKey PublicKey
+            toTheseUnsafe :: StakeholderId
+                          -> (Maybe StakeholderId, Maybe StakeholderId)
+                          -> These StakeholderId StakeholderId
             toTheseUnsafe a = \case
                 (Nothing,Nothing) ->
                     error $ "Tried to convert (N,N) to These with affected user: " <> pretty a
@@ -210,73 +219,74 @@ calculateTransCorrections eActions = do
 
     -- Returns map from affected subtree af in original/G to the
     -- common delegate of this subtree. Keys = af. All elems are
-    -- similar and equal to dlg(iPk).
-    calculateLocalAf :: PublicKey -> m (HashMap PublicKey (Maybe PublicKey))
-    calculateLocalAf iPk = (HS.toList <$> GS.getDlgTransitiveReverse iPk) >>= \case
+    -- similar and equal to dlg(sId).
+    calculateLocalAf :: StakeholderId -> m (HashMap StakeholderId (Maybe StakeholderId))
+    calculateLocalAf iSId = (HS.toList <$> GS.getDlgTransitiveReverse iSId) >>= \case
         -- We are intermediate/start of the chain, not the delegate.
-        [] -> GS.getDlgTransitive (addressHash iPk) >>= \case
-            Nothing -> pure $ HM.singleton iPk Nothing
-            Just dPk -> do
+        [] -> GS.getDlgTransitive iSId >>= \case
+            Nothing -> pure $ HM.singleton iSId Nothing
+            Just dSId -> do
                 -- All i | i →→ d in the G. We should leave only those who
                 -- are equal or lower than iPk in the delegation chain.
-                revIssuers <- GS.getDlgTransitiveReverse dPk
+                revIssuers <- GS.getDlgTransitiveReverse dSId
                 -- For these we'll find everyone who's upper (closer to
-                -- root/delegate) and take a diff. If iPk = dPk, then it will
+                -- root/delegate) and take a diff. If iSId = dSId, then it will
                 -- return [].
-                chain <- getKeys <$> runDBCede (getPskChain $ addressHash iPk)
-                let ret = HS.insert iPk (revIssuers `HS.difference` chain)
-                let retHm = HM.map (const $ Just dPk) $ HS.toMap ret
+                chain <- getKeys <$> runDBCede (getPskChain iSId)
+                let ret = HS.insert iSId
+                        (revIssuers `HS.difference` HS.map addressHash chain)
+                let retHm = HM.map (const $ Just dSId) $ HS.toMap ret
                 pure retHm
         -- We are delegate.
-        xs -> pure $ HM.fromList $ (iPk,Nothing):(map (,Just iPk) xs)
+        xs -> pure $ HM.fromList $ (iSId,Nothing):(map (,Just iSId) xs)
 
-    calculateDlgNew :: PublicKey -> StateT (HashMap PublicKey (Maybe PublicKey)) m ()
-    calculateDlgNew iPk =
-        let resolve v = fmap pskDelegatePk <$> getPskPk v
+    calculateDlgNew :: StakeholderId -> StateT (HashMap StakeholderId (Maybe StakeholderId)) m ()
+    calculateDlgNew iSId =
+        let resolve v = fmap (addressHash . pskDelegatePk) <$> getPsk v
             -- Sets real new trans delegate in state, returns it to
             -- child. Makes different if we're delegate d -- we set
             -- Nothing, but return d.
-            retCached v cont = uses identity (HM.lookup iPk) >>= \case
+            retCached v cont = use (at iSId) >>= \case
                 Nothing       -> cont
                 Just (Just d) -> pure d
                 Just Nothing  -> pure v
 
-            loop :: PublicKey ->
-                    MapCede (StateT (HashMap PublicKey (Maybe PublicKey)) m) PublicKey
+            loop :: StakeholderId ->
+                    MapCede (StateT (HashMap StakeholderId (Maybe StakeholderId)) m) StakeholderId
             loop v = retCached v $ resolve v >>= \case
                 -- There's no delegate = we are the delegate/end of the chain.
-                Nothing -> (identity . at v ?= Nothing) $> v
+                Nothing -> (at v ?= Nothing) $> v
                 -- Let's see what's up in the tree
-                Just dPk -> do
-                    dNew <- loop dPk
-                    identity . at v ?= Just dNew
+                Just dSId -> do
+                    dNew <- loop dSId
+                    at v ?= Just dNew
                     pure dNew
 
             eActionsHM :: CedeModifier
             eActionsHM =
-                HM.fromList $ map (\x -> (addressHash $ dlgEdgeActionIssuer x, x)) $
+                HM.fromList $ map (\x -> (dlgEdgeActionIssuer x, x)) $
                 HS.toList eActions
 
-        in void $ evalMapCede eActionsHM $ loop iPk
+        in void $ evalMapCede eActionsHM $ loop iSId
 
     -- Given changeset, returns map d → (ad,dl), where ad is set of
     -- new issuers that delegate to d, while dl is set of issuers that
     -- switched from d to someone else (or to nobody).
     buildReverseTrans :: TransChangeset -> ReverseTrans
     buildReverseTrans changeset =
-        let -- me(mepty). This lens is broken. But it's used in the
-            -- way it should be alright.
-            _me :: (Monoid a) => Lens' (Maybe a) a
-            _me = lens (fromMaybe mempty) (\_ b -> Just b)
-            ins = HS.insert
+        let ins = HS.insert
             foldFoo :: ReverseTrans
-                    -> PublicKey
-                    -> (These PublicKey PublicKey)
+                    -> StakeholderId
+                    -> (These StakeholderId StakeholderId)
                     -> ReverseTrans
-            foldFoo rev iPk (This dPk)        = rev & at dPk . _me . _2 %~ (ins iPk)
-            foldFoo rev iPk (That dPk)        = rev & at dPk . _me . _1 %~ (ins iPk)
-            foldFoo rev iPk (These dPk1 dPk2) = rev & at dPk1 . _me . _2 %~ (ins iPk)
-                                                    & at dPk2 . _me . _1 %~ (ins iPk)
+            foldFoo rev iSId (This dSId)         = rev & at dSId . non mempty . _2
+                                                         %~ (ins iSId)
+            foldFoo rev iSId (That dSId)         = rev & at dSId  . non mempty . _1
+                                                         %~ (ins iSId)
+            foldFoo rev iSId (These dSId1 dSId2) = rev & at dSId1 . non mempty . _2
+                                                         %~ (ins iSId)
+                                                       & at dSId2 . non mempty . _1
+                                                         %~ (ins iSId)
         in HM.foldlWithKey' foldFoo HM.empty changeset
 
 
@@ -469,7 +479,7 @@ dlgApplyBlocks blocks = do
             clearDlgMemPoolAction
             dwThisEpochPosted .= HS.empty
             dwEpochId .= (block ^. epochIndexL)
-        pure (SomeBatchOp ([]::[GS.DelegationOp]))
+        pure mempty
     applyBlock (Right block) = do
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
@@ -531,6 +541,7 @@ dlgRollbackBlocks blunds = do
             issuers = map pskIssuerPk proxySKs
             toUndo = undoPsk undo
             backDeleted = issuers \\ map pskIssuerPk toUndo
-            edgeActions = map DlgEdgeDel backDeleted <> map DlgEdgeAdd toUndo
+            edgeActions = map (DlgEdgeDel . addressHash) backDeleted
+                       <> map DlgEdgeAdd toUndo
         transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
         pure $ SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections

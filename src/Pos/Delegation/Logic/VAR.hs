@@ -29,9 +29,9 @@ import           Pos.Block.Core               (Block, BlockSignature (..),
                                                mcdSignature)
 import           Pos.Block.Types              (Blund, Undo (undoPsk))
 import           Pos.Context                  (lrcActionOnEpochReason)
-import           Pos.Core                     (StakeholderId, addressHash, epochIndexL,
-                                               gbHeader, gbhConsensus, headerHash,
-                                               prevBlockL)
+import           Pos.Core                     (EpochIndex (..), StakeholderId,
+                                               addressHash, epochIndexL, gbHeader,
+                                               gbhConsensus, headerHash, prevBlockL)
 import           Pos.Crypto                   (ProxySecretKey (..), ProxySignature (..),
                                                PublicKey, psigPsk, shortHashF)
 import           Pos.DB                       (DBError (DBMalformed), MonadDBRead,
@@ -458,10 +458,17 @@ dlgVerifyBlocks blocks = do
 -- | Applies a sequence of definitely valid blocks to memory state and
 -- returns batchops. It works correctly only in case blocks don't
 -- cross over epoch. So genesis block is either absent or the head.
-dlgApplyBlocks
-    :: forall ssc ctx m.
-       (MonadDelegation ctx m, MonadIO m, MonadDBRead m, WithLogger m, MonadMask m)
-    => OldestFirst NE (Block ssc) -> m (NonEmpty SomeBatchOp)
+dlgApplyBlocks ::
+       forall ssc ctx m.
+       ( MonadDelegation ctx m
+       , MonadIO m
+       , MonadDBRead m
+       , WithLogger m
+       , MonadMask m
+       , HasLens LrcContext ctx LrcContext
+       )
+    => OldestFirst NE (Block ssc)
+    -> m (NonEmpty SomeBatchOp)
 dlgApplyBlocks blocks = do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
@@ -479,7 +486,7 @@ dlgApplyBlocks blocks = do
             clearDlgMemPoolAction
             dwThisEpochPosted .= HS.empty
             dwEpochId .= (block ^. epochIndexL)
-        pure mempty
+        removeNoLongerRichmen (block ^. epochIndexL)
     applyBlock (Right block) = do
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
@@ -492,6 +499,32 @@ dlgApplyBlocks blocks = do
                 deleteFromDlgMemPool i
                 dwThisEpochPosted %= HS.insert i
         pure $ SomeBatchOp batchOps
+
+-- This function returns a batch operation which removes all delegation
+-- from stakeholders which were richmen but aren't rich anymore.
+removeNoLongerRichmen ::
+       ( Monad m
+       , MonadIO m
+       , MonadDBRead m
+       , WithLogger m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
+       )
+    => EpochIndex
+    -> m SomeBatchOp
+removeNoLongerRichmen (EpochIndex 0) = pure mempty
+removeNoLongerRichmen newEpoch = do
+    let getRichmen e =
+            toList <$>
+            lrcActionOnEpochReason e "removeNoLongerRichmen" LrcDB.getRichmenDlg
+    oldRichmen <- getRichmen (newEpoch - 1)
+    newRichmen <- getRichmen newEpoch
+    let edgeActions = map DlgEdgeDel $ oldRichmen \\ newRichmen
+    -- This batch operation updates part (1) of DB.
+    let edgeOp = SomeBatchOp $ map GS.PskFromEdgeAction edgeActions
+    -- Computed batch operation updates parts (2) and (3) of DB.
+    transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
+    return (edgeOp <> transCorrections)
 
 -- | Rollbacks block list. Erases mempool of certificates. Better to
 -- restore them after the rollback (see Txp#normalizeTxpLD). You can

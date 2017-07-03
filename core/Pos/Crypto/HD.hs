@@ -12,12 +12,12 @@ module Pos.Crypto.HD
        , encryptChaChaPoly
        , toEither
 
-       , firstHardened
        , firstNonHardened
-       , isHardened
+       , isNonHardened
        ) where
 
-import           Cardano.Crypto.Wallet        (deriveXPrv, deriveXPub, unXPub)
+import           Cardano.Crypto.Wallet        (deriveXPrv, deriveXPrvHardened, deriveXPub,
+                                               unXPub)
 import qualified Crypto.Cipher.ChaChaPoly1305 as C
 import           Crypto.Error
 import           Crypto.Hash                  (SHA512 (..))
@@ -67,36 +67,41 @@ deriveHDPassphrase (PublicKey pk) = HDPassphrase $
     -- Password length in bytes
     passLen = 32
 
--- Direct children of node are numbered from 0 to 2^32-1. Children with
--- indices less than @firstHardened@ are non-hardened children.
-firstHardened :: Word32
-firstHardened = 2 ^ (31 :: Word32)
-
+-- Direct children of node are numbered from 0 to 2^32-1.
+-- Child with index greater or equal than @firstNonHardened@ is a non-hardened
+-- child.
 firstNonHardened :: Word32
-firstNonHardened = 0
+firstNonHardened = 2 ^ (31 :: Word32)
 
-isHardened :: Word32 -> Bool
-isHardened = ( >= firstHardened)
+-- Child with index less or equal than @maxHardened@ is a hardened child.
+maxHardened :: Word32
+maxHardened = firstNonHardened - 1
 
--- | Derive public key from public key in non-hardened (normal) way. If you
--- try to pass an 'isHardened' index, error will be called.
+isNonHardened :: Word32 -> Bool
+isNonHardened = ( >= firstNonHardened)
+
+-- | Derive public key from public key in non-hardened (normal) way.
+-- If you try to pass index more than @maxHardened@, error will be called.
 deriveHDPublicKey :: PublicKey -> Word32 -> PublicKey
 deriveHDPublicKey (PublicKey xpub) childIndex
-    | isHardened childIndex =
-        error "Wrong index for non-hardened derivation"
-    | otherwise =
-        maybe (error "deriveHDPublicKey: deriveXPub failed") PublicKey $
-          deriveXPub xpub (childIndex - 1)
+    -- Is it the best solution?
+    | childIndex <= maxHardened = error "Wrong index for non-hardened derivation"
+    | otherwise = PublicKey $ deriveXPub xpub (childIndex - maxHardened - 1)
 
 -- | Derive secret key from secret key.
+-- If @childIndex <= maxHardened@ key will be deriving hardened way, otherwise non-hardened.
 deriveHDSecretKey
     :: Bi PassPhrase
     => PassPhrase -> EncryptedSecretKey -> Word32 -> Maybe EncryptedSecretKey
 deriveHDSecretKey passPhrase (EncryptedSecretKey xprv pph) childIndex
     | hash passPhrase /= pph = Nothing
+    | childIndex <= maxHardened = Just $
+        EncryptedSecretKey
+            (deriveXPrvHardened passPhrase xprv childIndex)
+            pph
     | otherwise = Just $
         EncryptedSecretKey
-            (deriveXPrv passPhrase xprv childIndex)
+            (deriveXPrv passPhrase xprv (childIndex - maxHardened - 1))
             pph
 
 addrAttrNonce :: ByteString

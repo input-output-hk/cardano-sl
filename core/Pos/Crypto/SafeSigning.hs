@@ -116,26 +116,28 @@ sign' t pp sk = coerce . signRaw' (Just t) pp sk . BSL.toStrict . Bi.encode
 safeCreateKeypairFromSeed
     :: BS.ByteString
     -> PassPhrase
-    -> (CC.XPub, CC.XPrv)
-safeCreateKeypairFromSeed seed (PassPhrase pp) =
-    let prv = CC.generate seed pp
-    in  (CC.toXPub prv, prv)
+    -> Maybe (CC.XPub, CC.XPrv)
+safeCreateKeypairFromSeed seed (PassPhrase pp) = do
+    prv <- CC.generate seed pp
+    return (CC.toXPub prv, prv)
 
 safeKeyGen
     :: (MonadIO m, Bi PassPhrase)
     => PassPhrase -> m (PublicKey, EncryptedSecretKey)
 safeKeyGen pp = liftIO $ do
     seed <- secureRandomBS 32
-    let (pk, sk) = safeCreateKeypairFromSeed seed pp
-    return (PublicKey pk, mkEncSecret pp sk)
+    case safeCreateKeypairFromSeed seed pp of
+        Nothing -> error "Pos.Crypto.SafeSigning.safeKeyGen:\
+                         \ creating keypair from seed failed"
+        Just (pk, sk) -> return (PublicKey pk, mkEncSecret pp sk)
 
 safeDeterministicKeyGen
     :: Bi PassPhrase
     => BS.ByteString
     -> PassPhrase
-    -> (PublicKey, EncryptedSecretKey)
+    -> Maybe (PublicKey, EncryptedSecretKey)
 safeDeterministicKeyGen seed pp =
-    bimap PublicKey (mkEncSecret pp) (safeCreateKeypairFromSeed seed pp)
+    bimap PublicKey (mkEncSecret pp) <$> safeCreateKeypairFromSeed seed pp
 
 -- | SafeSigner datatype to encapsulate sensible data
 data SafeSigner = SafeSigner EncryptedSecretKey PassPhrase

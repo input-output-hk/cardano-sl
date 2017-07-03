@@ -31,7 +31,7 @@ import           Data.Time.Units     (Microsecond, fromMicroseconds)
 import           Ether.Internal      (HasLens (..))
 
 import           Pos.Context.Context (BlkSemaphore (..), GenesisUtxo (..), StartTime (..))
-import           Pos.Core            (HeaderHash, SlotLeaders, Stakeholders, StakesMap)
+import           Pos.Core            (HeaderHash, SlotLeaders, StakeholderId, StakesMap)
 import           Pos.Genesis         (genesisLeaders)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
 import           Pos.Txp.Toil        (Utxo, utxoToStakes)
@@ -53,7 +53,7 @@ genesisStakesM = views (lensOf @GenesisUtxo) $ utxoToStakes . unGenesisUtxo
 
 genesisStakeholdersM ::
        (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo)
-    => m Stakeholders
+    => m (HashSet StakeholderId)
 genesisStakeholdersM = getKeys <$> genesisStakesM
 
 genesisLeadersM ::

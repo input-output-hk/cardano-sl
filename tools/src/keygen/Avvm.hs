@@ -13,7 +13,6 @@ module Avvm
 import           Data.Aeson           (FromJSON (..), withObject, (.:))
 import qualified Data.ByteString      as BS
 import qualified Data.HashMap.Strict  as HM
-import qualified Data.HashSet         as HS
 import           Data.List            ((\\))
 import qualified Data.Text            as T
 import qualified Serokell.Util.Base64 as B64
@@ -77,9 +76,9 @@ instance FromJSON AvvmEntry where
 -- calling funciton.
 avvmAddrDistribution
     :: AvvmData
-    -> AddrDistribution
+    -> [AddrDistribution]
 avvmAddrDistribution (utxo -> avvmData) =
-    one $ (HS.fromList $ HM.keys balances, CustomStakes $ HM.elems balances)
+    one $ (HM.keys balances, CustomStakes $ HM.elems balances)
   where
 --    randCerts = HM.fromList [(addressHash (vcSigningKey c), c)
 --                            | c <- runGen (replicateM 10 arbitrary)]

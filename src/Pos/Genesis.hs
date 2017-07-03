@@ -26,15 +26,14 @@ module Pos.Genesis
 import           Universum
 
 import qualified Data.HashMap.Strict        as HM
-import qualified Data.HashSet               as HS
 import           Data.List                  (genericLength, genericReplicate)
 import qualified Data.Map.Strict            as M
 import           Serokell.Util              (enumerate)
 
 import qualified Pos.Constants              as Const
 import           Pos.Core                   (Address, Coin, SlotLeaders, StakeholderId,
-                                             Stakeholders, applyCoinPortion,
-                                             coinToInteger, deriveLvl2KeyPair, divCoin,
+                                             applyCoinPortion, coinToInteger,
+                                             deriveLvl2KeyPair, divCoin,
                                              makePubKeyAddress, mkCoin, unsafeAddCoin,
                                              unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
@@ -121,7 +120,7 @@ stakeDistribution (CustomStakes coins) = map (,[]) coins
 -- and address distribution. In case boot stakeholders are supplied,
 -- all the balance is distributed among them. Otherwise, txDistr is
 -- set to @[]@ or left as it is (in case of 'ExplicitStakes').
-genesisUtxo :: Maybe Stakeholders -> AddrDistribution -> Utxo
+genesisUtxo :: Maybe (HashSet StakeholderId) -> [AddrDistribution] -> Utxo
 genesisUtxo bootStakeholders ad =
     M.fromList $ concatMap (uncurry toUtxo . second stakeDistribution) ad
   where
@@ -129,8 +128,8 @@ genesisUtxo bootStakeholders ad =
         = maybe distr
                 (\genDistr -> genesisSplitBoot genDistr coin)
                 bootStakeholders
-    toUtxo :: HashSet Address -> [(Coin, TxOutDistribution)] -> [(TxIn, TxOutAux)]
-    toUtxo (toList -> addr) distrs =
+    toUtxo :: [Address] -> [(Coin, TxOutDistribution)] -> [(TxIn, TxOutAux)]
+    toUtxo addr distrs =
         let utxoEntry a (coin,txOutDistr) =
                 ( TxIn (unsafeHash a) 0
                 , TxOutAux (TxOut a coin) (defaultStakeDistr coin txOutDistr)
@@ -210,14 +209,14 @@ genesisDevHdwAccountKeyDatas =
 -- | Address distribution for dev mode. It's supposed that you pass
 -- the distribution from 'devStakesDistr' here. This function will add
 -- dev genesis addresses and hd addrs/distr.
-devAddrDistr :: StakeDistribution -> AddrDistribution
+devAddrDistr :: StakeDistribution -> [AddrDistribution]
 devAddrDistr distr =
     [ (mainAddrs, distr)        -- Addresses from passed stake
     , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
     ]
   where
     distrSize = length $ stakeDistribution distr
-    mainAddrs = HS.fromList $
+    mainAddrs =
         take distrSize $ genesisDevAddresses <> tailAddresses
     tailAddresses =
         map (makePubKeyAddress . fst . generateGenesisKeyPair)
@@ -227,7 +226,7 @@ devAddrDistr distr =
     -- to avoid making wallets slot leaders.
     hdwDistr = FlatStakes (fromIntegral hdwSize) (mkCoin 200)
     -- should be enough for testing.
-    hdwAddresses = HS.fromList $ take hdwSize genesisDevHdwAccountAddresses
+    hdwAddresses = take hdwSize genesisDevHdwAccountAddresses
 
     genesisDevHdwAccountAddresses :: [Address]
     genesisDevHdwAccountAddresses = map fst genesisDevHdwAccountKeyDatas

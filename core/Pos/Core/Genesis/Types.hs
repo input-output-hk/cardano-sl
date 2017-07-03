@@ -7,7 +7,6 @@ module Pos.Core.Genesis.Types
        , AddrDistribution
        , GenesisCoreData (..)
        , mkGenesisCoreData
-       , concatGenesisCoreData
        ) where
 
 import           Universum
@@ -15,7 +14,10 @@ import           Universum
 import           Pos.Core.Coin  (coinToInteger, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Types (Address, Coin, StakeholderId, mkCoin)
 
--- | Stake distribution in genesis block.
+-- | Balances distribution in genesis block.
+--
+-- TODO Needs a proper name (maybe "BalancesDistribution"), see
+-- CSL-1124.
 data StakeDistribution
     -- | FlatStakes is a flat distribution, i. e. each node has the
     -- same amount of coins.
@@ -31,9 +33,10 @@ data StakeDistribution
         , sdPoor      :: !Word
         , sdPoorStake :: !Coin
         }
-    -- | First three nodes get 0.875% of stake.
+    -- | First three nodes get 0.875% of balance.
+    -- TODO Doesn't have explicit length, would be nice to have.
     | ExponentialStakes
-    -- | Custom stakes list.
+    -- | Custom balances list.
     | CustomStakes [Coin]
     deriving (Show, Eq)
 
@@ -51,41 +54,28 @@ getTotalStake ExponentialStakes = mkCoin . sum $
 getTotalStake (CustomStakes balances) =
     unsafeIntegerToCoin $ sumCoins balances
 
--- | List of distributions accompained by related addresses set (what
--- to distribute and how).
-type AddrDistribution = [(HashSet Address, StakeDistribution)]
+-- | Distributions accompained by related addresses set (what to
+-- distribute and how).
+type AddrDistribution = ([Address], StakeDistribution)
 
 -- | Hardcoded genesis data to generate utxo from.
 data GenesisCoreData = UnsafeGenesisCoreData
-    { gcdAddrDistribution      :: !AddrDistribution
+    { gcdAddrDistribution      :: !([AddrDistribution])
       -- ^ Address distribution. Determines utxo without boot
       -- stakeholders distribution (addresses and coins).
     , gcdBootstrapStakeholders :: !(HashSet StakeholderId)
       -- ^ Bootstrap era stakeholders.
-    }
-    deriving (Show, Eq)
+    } deriving (Show, Eq)
 
--- | Safe constructor for 'GenesisCoreData'. Throws error if something is wrong.
+-- | Safe constructor for 'GenesisCoreData'. Throws error if something
+-- goes wrong.
 mkGenesisCoreData ::
-       [(HashSet Address, StakeDistribution)]
+       [AddrDistribution]
     -> HashSet StakeholderId
     -> Either String GenesisCoreData
 mkGenesisCoreData distribution bootStakeholders = do
-    -- TODO add checks
+    -- TODO CSL-1205 add checks
     -- 1. Every set of address matches by the size to distribution size
     -- 2. If using CustomStakes, lengths match
     -- 3. (?) Addresses in (map fst) are unique
-    -- 4. All the stake is distributed to gcdBootstrapStakeholders
     pure $ UnsafeGenesisCoreData distribution bootStakeholders
-
--- | Concats 'GenesisCoreData'. We do not use 'Monoid' instance for
--- 'GenesisCoreData' because 'mempty' doesn't make sense (empty boot
--- stakeholders?).
-concatGenesisCoreData ::
-       GenesisCoreData -> GenesisCoreData -> Either String GenesisCoreData
-concatGenesisCoreData
-    (UnsafeGenesisCoreData distA bsA)
-    (UnsafeGenesisCoreData distB bsB) =
-        let distrs = distA <> distB
-            bootStakeholders = bsA <> bsB
-        in mkGenesisCoreData distrs bootStakeholders

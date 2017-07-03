@@ -19,8 +19,7 @@ import           System.Wlog                 (WithLogger, logDebug)
 import           Universum
 import           Unsafe                      (unsafeHead)
 
-import           Pos.Core                    (Coin, HeaderHash, StakeholderId,
-                                              Stakeholders)
+import           Pos.Core                    (Coin, HeaderHash, StakeholderId)
 import           Pos.DB.Class                (MonadDBRead, MonadGState, gsIsBootstrapEra)
 import qualified Pos.DB.GState.Common        as GS
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId,
@@ -95,7 +94,7 @@ txProcessTransaction itw@(txId, txAux) = do
 
     processTxDo
         :: Utxo
-        -> Stakeholders
+        -> HashSet StakeholderId
         -> ToilEnv
         -> HeaderHash
         -> (TxId, TxAux)

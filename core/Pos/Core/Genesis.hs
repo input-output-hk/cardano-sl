@@ -44,8 +44,8 @@ import           Pos.Core.Genesis.Parser (compileGenCoreData)
 import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
                                           StakeDistribution (..), getTotalStake,
                                           mkGenesisCoreData)
-import           Pos.Core.Types          (Address, Coin, StakeholderId, Stakeholders,
-                                          mkCoin, unsafeGetCoin)
+import           Pos.Core.Types          (Address, Coin, StakeholderId, mkCoin,
+                                          unsafeGetCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
                                           safeDeterministicKeyGen)
 import           Pos.Crypto.Signing      (PublicKey, SecretKey, deterministicKeyGen)
@@ -91,11 +91,11 @@ genesisProdAddresses =
     concatMap (toList . fst) $ gcdAddrDistribution compileGenCoreData
 
 -- | Address and distribution set for production mode.
-genesisProdAddrDistribution :: AddrDistribution
+genesisProdAddrDistribution :: [AddrDistribution]
 genesisProdAddrDistribution = gcdAddrDistribution compileGenCoreData
 
 -- | Bootstrap era stakeholders for production mode.
-genesisProdBootStakeholders :: Stakeholders
+genesisProdBootStakeholders :: HashSet StakeholderId
 genesisProdBootStakeholders =
     gcdBootstrapStakeholders compileGenCoreData
 
@@ -123,7 +123,7 @@ generateHdwGenesisSecretKey =
 -- give 1 coin to every addr in the prefix of length @n@. Otherwise we
 -- give quotient to every boot addr and assign remainder randomly
 -- based on passed coin hash among addresses.
-genesisSplitBoot :: Stakeholders -> Coin -> [(StakeholderId, Coin)]
+genesisSplitBoot :: HashSet StakeholderId -> Coin -> [(StakeholderId, Coin)]
 genesisSplitBoot bootHolders0 c
     | cval <= 0 =
       error $ "sendMoney#splitBoot: cval <= 0: " <> show cval

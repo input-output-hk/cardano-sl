@@ -59,7 +59,7 @@ getTestnetData ::
        (MonadIO m, MonadFail m, WithLogger m)
     => FilePath
     -> TestStakeOptions
-    -> m (AddrDistribution, HashSet StakeholderId, GenesisGtData)
+    -> m ([AddrDistribution], HashSet StakeholderId, GenesisGtData)
 getTestnetData dir tso@TestStakeOptions{..} = do
 
     let keysDir = dir </> "keys-testnet"
@@ -90,7 +90,7 @@ getTestnetData dir tso@TestStakeOptions{..} = do
             _ -> error "cardano-keygen: impossible type of generated testnet stake"
         genesisAddrs = map (makePubKeyAddress . fst) genesisList
                     <> map (view _3) poorsList
-        genesisAddrDistr = [(HS.fromList genesisAddrs, distr)]
+        genesisAddrDistr = [(genesisAddrs, distr)]
         genGtData = GenesisGtData
             { ggdVssCertificates =
               HM.fromList $ map (_1 %~ addressHash) genesisListRich
@@ -105,7 +105,7 @@ getTestnetData dir tso@TestStakeOptions{..} = do
 
 getFakeAvvmGenesis
     :: (MonadIO m, WithLogger m)
-    => FilePath -> FakeAvvmOptions -> m AddrDistribution
+    => FilePath -> FakeAvvmOptions -> m [AddrDistribution]
 getFakeAvvmGenesis dir FakeAvvmOptions{..} = do
     let keysDir = dir </> "keys-fakeavvm"
     logInfo $ "Generating fake avvm data into " <> fromString keysDir
@@ -121,12 +121,12 @@ getFakeAvvmGenesis dir FakeAvvmOptions{..} = do
             replicate (length gcdAddresses)
                       (mkCoin $ fromIntegral faoOneStake)
 
-    pure $ [(HS.fromList gcdAddresses, gcdDistribution)]
+    pure $ [(gcdAddresses, gcdDistribution)]
 
 -- Reads avvm json file and returns related 'AddrDistribution'
 getAvvmGenesis
     :: (MonadIO m, WithLogger m, MonadFail m)
-    => AvvmStakeOptions -> m AddrDistribution
+    => AvvmStakeOptions -> m [AddrDistribution]
 getAvvmGenesis AvvmStakeOptions {..} = do
     logInfo "Generating avvm data"
     jsonfile <- liftIO $ BSL.readFile asoJsonPath

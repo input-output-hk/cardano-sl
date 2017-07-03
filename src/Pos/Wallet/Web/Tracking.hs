@@ -136,14 +136,14 @@ instance (BlockLockMode WalletSscType m, MonadMockable m, MonadTxpMem ext m)
             getDiff = const Nothing  -- no difficulty (mempool txs)
             getTs = const Nothing  -- don't give any timestamp
         txs <- getLocalTxs
-        tipH <- DB.getTipHeader @WalletSscType
+        tipH <- DB.getTipHeader @(Block WalletSscType)
         allAddresses <- getWalletAddrMetasDB Ever wId
         case topsortTxs wHash txs of
             Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
             Just (map snd -> ordered) ->
-                runDBToil $
+                runDBTxp $
                 evalToilTEmpty $
-                trackingApplyTxs encSK allAddresses getDiff getTs $
+                trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs $
                 zip ordered $ repeat tipH
 
 ----------------------------------------------------------------------------
@@ -256,7 +256,7 @@ syncWalletWithGState encSK = do
             logDebug $
                 sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                 wAddr wHeader tipH'
-            if | diff tipH' > diff wHeader -> runDBToil $ evalToilTEmpty $ do
+            if | diff tipH' > diff wHeader -> runDBTxp $ evalToilTEmpty $ do
                      -- If walletset syncTip before the current tip,
                      -- then it loads wallets starting with @wHeader@.
                      -- Sync tip can be before the current tip

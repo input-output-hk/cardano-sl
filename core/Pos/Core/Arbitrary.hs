@@ -378,17 +378,9 @@ instance Arbitrary SmallHashMap where
     arbitrary = SmallHashMap <$> makeSmall arbitrary
     shrink = genericShrink
 
-instance (Arbitrary a, Integral a) => Arbitrary (UnsignedVarInt a) where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance (Arbitrary a, Integral a) => Arbitrary (SignedVarInt a) where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-instance (Arbitrary a, Integral a) => Arbitrary (FixedSizeInt a) where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
+deriving instance Arbitrary a => Arbitrary (UnsignedVarInt a)
+deriving instance Arbitrary a => Arbitrary (SignedVarInt a)
+deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
 
 instance Arbitrary a => Arbitrary (Attributes a) where
     arbitrary = genericArbitrary

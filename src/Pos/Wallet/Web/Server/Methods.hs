@@ -674,7 +674,7 @@ getFullWalletHistory cWalId = do
     localHistory <- getLocalHistory addrs
 
     let fullHistory = DL.toList $ localHistory <> blockHistory
-    ctxs <- forM fullHistory $ addHistoryTx cWalId
+    ctxs <- forM fullHistory $ addHistoryTx cWalId False
     let cHistory = concatMap toList ctxs
     pure (cHistory, fromIntegral $ length cHistory)
 

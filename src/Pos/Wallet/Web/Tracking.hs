@@ -70,8 +70,8 @@ import           Pos.DB.Error               (DBError (DBMalformed))
 import qualified Pos.DB.GState              as GS
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting               (getSlotStartPure)
-import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOutAux (..),
-                                             TxUndo, flattenTxPayload, toaOut, topsortTxs,
+import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOutAux (..), TxIn (..) ,
+                                             TxUndo, flattenTxPayload, toaOut, topsortTxs, getTxDistribution,
                                              txOutAddress)
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
 import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT, UtxoModifier, Utxo, runUtxoReaderT,
@@ -309,6 +309,7 @@ trackingApplyTxs
 trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
     foldlM applyTx mempty txs
   where
+    snd3 (_, x, _) = x
     toTxInOut txid (idx, out, dist) = (TxIn txid idx, TxOutAux out dist)
 
     applyTx :: CAccModifier -> (TxAux, BlockHeader ssc) -> m CAccModifier
@@ -322,7 +323,8 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
 
         resolvedInputs <- catMaybes <$> mapM (\tin -> fmap (tin, ) <$> utxoGet tin) inps
         let txOutgoings = map txOutAddress outs
-            txIncomings = map (txOutAddress . toaOut . snd) resolvedInputs
+            txInputs = map (toaOut . snd) resolvedInputs
+            txIncomings = map txOutAddress txInputs
 
             ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut . snd) resolvedInputs
             ownOutputs = selectOwnAccounts encInfo (txOutAddress . snd3) $
@@ -330,11 +332,11 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
             ownInpAddrMetas = map snd ownInputs
             ownOutAddrMetas = map snd ownOutputs
             ownTxIns = map (fst . fst) ownInputs
-            ownTxOuts = map (toTxInOut txid . fst) ownOutputs
+            ownTxOuts = map (toTxInOut txId . fst) ownOutputs
 
             addedHistory =
                 if (not $ null ownOutputs) || (not $ null ownInputs)
-                then DL.cons (THEntry txId tx resolvedInputs mDiff txIncomings txOutgoings mTs)
+                then DL.cons (THEntry txId tx txInputs mDiff txIncomings txOutgoings mTs)
                      camAddedHistory
                 else camAddedHistory
 
@@ -343,9 +345,9 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
 
         applyTxToUtxo (WithHash tx txId) taDistribution
         pure $ CAccModifier
-            (deleteAndInsertMM [] ownOutAddrMetas camAddresses)
-            (deleteAndInsertMM [] (zip usedAddrs hhs) camUsed)
-            (deleteAndInsertMM [] (zip changeAddrs hhs) camChange)
+            (deleteAndInsertIMM [] ownOutAddrMetas camAddresses)
+            (deleteAndInsertVM [] (zip usedAddrs hhs) camUsed)
+            (deleteAndInsertVM [] (zip changeAddrs hhs) camChange)
             (deleteAndInsertMM ownTxIns ownTxOuts camUtxo)
             addedHistory
             camDeletedHistory
@@ -363,8 +365,8 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
     rollbackTx :: CAccModifier -> (TxAux, TxUndo, HeaderHash) -> CAccModifier
     rollbackTx CAccModifier{..} (TxAux {..}, NE.toList -> undoL, hh) = do
         let hhs = repeat hh
-            UnsafeTx _ (toList -> outs) _ = taTx
-            !txid = hash tx
+            UnsafeTx (toList -> inps) (toList -> outs) _ = taTx
+            !txid = hash taTx
             ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut) $ undoL
             ownOutputs = selectOwnAccounts encInfo txOutAddress $ outs
             ownInputMetas = map snd ownInputs
@@ -386,9 +388,9 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
         let usedAddrs = map cwamId ownOutputMetas
             changeAddrs = evalChange allAddress ownInputAddrs ownOutputAddrs
         CAccModifier
-            (deleteAndInsertMM ownOutputMetas [] camAddresses)
-            (deleteAndInsertMM (zip usedAddrs hhs) [] camUsed)
-            (deleteAndInsertMM (zip changeAddrs hhs) [] camChange)
+            (deleteAndInsertIMM ownOutputMetas [] camAddresses)
+            (deleteAndInsertVM (zip usedAddrs hhs) [] camUsed)
+            (deleteAndInsertVM (zip changeAddrs hhs) [] camChange)
             (deleteAndInsertMM ownTxOuts ownTxIns camUtxo)
             camAddedHistory
             deletedHistory

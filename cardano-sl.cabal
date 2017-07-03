@@ -541,9 +541,6 @@ test-suite cardano-test
                        Spec
 
                        -- Something
-                       Test.Pos.Arbitrary.Infra
-                       Test.Pos.Arbitrary.Infra.Communication
-                       Test.Pos.Arbitrary.Infra.DHT
                        Test.Pos.BinarySpec
 
                        -- Pos.Block testing

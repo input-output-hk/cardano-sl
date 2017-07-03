@@ -8,8 +8,8 @@ import           Test.Hspec               (Spec, describe)
 import           Universum
 
 import qualified Pos.DHT.Model            as DHT
+import           Pos.Infra.Arbitrary      ()
 
-import           Test.Pos.Arbitrary.Infra ()
 import           Test.Pos.Util            (binaryTest)
 
 spec :: Spec

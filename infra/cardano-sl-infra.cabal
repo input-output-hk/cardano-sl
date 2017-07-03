@@ -53,6 +53,9 @@ library
                         Pos.DHT.Real.CLI
                         Pos.DHT.Workers
 
+                        -- Arbitrary
+                        Pos.Infra.Arbitrary
+
                         -- Pos.Communication
                         Pos.Communication.Constants
                         Pos.Communication.Types.Protocol

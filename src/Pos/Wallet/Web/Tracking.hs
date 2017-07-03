@@ -392,6 +392,8 @@ applyModifierToWallet wAddr newTip CAccModifier{..} = do
     mapM_ (WS.addWAddress . fst) (MM.insertions camAddresses)
     mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions camUsed)
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
+    oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wAddr
+    WS.updateHistoryCache wAddr $ DL.toList camAddedHistory <> oldCachedHist
     WS.setWalletSyncTip wAddr newTip
 
 rollbackModifierFromWallet
@@ -405,7 +407,21 @@ rollbackModifierFromWallet wAddr newTip CAccModifier{..} = do
     mapM_ WS.removeWAddress (MM.deletions camAddresses)
     mapM_ (WS.removeCustomAddress UsedAddr) (MM.deletions camUsed)
     mapM_ (WS.removeCustomAddress ChangeAddr) (MM.deletions camChange)
+    WS.getHistoryCache wAddr >>= \case
+        Nothing -> pure ()
+        Just oldCachedHist -> do
+            WS.updateHistoryCache wAddr $
+                removeFromHead (DL.toList camDeletedHistory) oldCachedHist
     WS.setWalletSyncTip wAddr newTip
+  where
+    removeFromHead :: [TxId] -> [TxHistoryEntry] -> [TxHistoryEntry]
+    removeFromHead [] ths = ths
+    removeFromHead _ [] = []
+    removeFromHead (txId : txIds) (THEntry {..} : thes) =
+        if txId == _thTxId
+        then removeFromHead txIds thes
+        else error "rollbackModifierFromWallet: removeFromHead: \
+                   \rollbacked tx ID is not present in history cache!"
 
 evalChange
     :: [CWAddressMeta] -- ^ All adresses

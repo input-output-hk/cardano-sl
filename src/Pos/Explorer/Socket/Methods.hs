@@ -306,6 +306,7 @@ unsubscribeFully sessId = do
     modifyLoggerName (const "drop") $ do
         unsubscribeAddr sessId
         unsubscribeBlocks sessId
+        unsubscribeBlocksLastPage sessId
         unsubscribeBlocksOff sessId
         unsubscribeTxs sessId
 

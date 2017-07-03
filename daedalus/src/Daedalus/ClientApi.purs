@@ -553,13 +553,12 @@ newPayment = mkEffFn4 cNewPayment
 -- This is similar to newPayment, except it returns how much fees would the payment take
 txFee
     :: forall eff.
-    EffFn4 (ajax :: AJAX, err :: EXCEPTION | eff)
+    EffFn3 (ajax :: AJAX, err :: EXCEPTION | eff)
     String
     String
     String
-    Foreign
     (Promise Json)
-txFee = mkEffFn4 cTxFee
+txFee = mkEffFn3 cTxFee
   where
     cTxFee
         :: String

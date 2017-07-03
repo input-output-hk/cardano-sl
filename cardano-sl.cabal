@@ -50,6 +50,7 @@ library
                         Pos.Block.Logic
                         Pos.Block.Network
                         Pos.Block.Pure
+                        Pos.Block.RetrievalQueue
                         Pos.CLI
                         Pos.Context
                         Pos.CompileConfig

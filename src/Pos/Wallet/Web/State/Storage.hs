@@ -113,7 +113,7 @@ data WalletStorage = WalletStorage
     , _wsProfile         :: !CProfile
     , _wsReadyUpdates    :: [CUpdateInfo]
     , _wsTxHistory       :: !(HashMap (CId Wal) TransactionHistory)
-    , _wsHistoryCache    :: !(HashMap (CId Wal) (HeaderHash, Utxo, [TxHistoryEntry]))
+    , _wsHistoryCache    :: !(HashMap (CId Wal) [TxHistoryEntry])
     , _wsUtxo            :: !Utxo
     , _wsUsedAddresses   :: !CustomAddresses
     , _wsChangeAddresses :: !CustomAddresses
@@ -233,7 +233,7 @@ getUpdates = view wsReadyUpdates
 getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
-getHistoryCache :: CId Wal -> Query (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
+getHistoryCache :: CId Wal -> Query (Maybe [TxHistoryEntry])
 getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
 
 getCustomAddresses :: CustomAddressType -> Query [CId Addr]
@@ -342,9 +342,9 @@ removeNextUpdate = wsReadyUpdates %= drop 1
 testReset :: Update ()
 testReset = put def
 
-updateHistoryCache :: CId Wal -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
-updateHistoryCache cWalId hh utxo cTxs =
-    wsHistoryCache . at cWalId ?= (hh, utxo, cTxs)
+updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
+updateHistoryCache cWalId cTxs =
+    wsHistoryCache . at cWalId ?= cTxs
 
 deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile

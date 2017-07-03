@@ -52,8 +52,8 @@ import           Serokell.Util.Text               (listJson)
 import           Servant.API                      ((:<|>) ((:<|>)),
                                                    FromHttpApiData (parseUrlPiece))
 import           Servant.Multipart                (fdFilePath)
-import           Servant.Server                   (Handler, Server, ServerT, err403,
-                                                   runHandler, serve)
+import           Servant.Server                   (Handler, Server, ServerT, runHandler,
+                                                   serve)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
 import           System.IO.Error                  (isDoesNotExistError)
 import           System.Wlog                      (logDebug, logError, logInfo)
@@ -65,6 +65,7 @@ import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
+import           Pos.Context                      (GenesisUtxo)
 import           Pos.Core                         (Address (..), Coin, addressF,
                                                    decodeTextAddress, getCurrentTimestamp,
                                                    getTimestamp, makeRedeemAddress,
@@ -153,10 +154,9 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    testReset, updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, CAccModifier (..),
-                                                   MonadWalletTracking,
-                                                   selectAccountsFromUtxoLock,
-                                                   sortedInsertions,
-                                                   syncWalletsWithGStateLock,
+                                                   MonadWalletTracking, sortedInsertions,
+                                                   syncWalletOnImport,
+                                                   syncWalletsWithGState,
                                                    txMempoolToModifier)
 import           Pos.Wallet.Web.Util              (getWalletAccountIds)
 import           Pos.Web.Server                   (serveImpl)
@@ -203,12 +203,15 @@ walletApplication serv = do
     upgradeApplicationWS wsConn . serve walletApi <$> serv
 
 walletServer
-    :: (MonadIO m, WalletWebMode (WalletWebHandler m), Ether.MonadReader (TVar UserSecret) (TVar UserSecret) m)
+    :: ( MonadIO m
+       , WalletWebMode (WalletWebHandler m)
+       , Ether.MonadReader (TVar UserSecret) (TVar UserSecret) m
+       , Ether.MonadReader' GenesisUtxo m)
     => SendActions (WalletWebHandler m)
     -> WalletWebHandler m (WalletWebHandler m :~> Handler)
     -> WalletWebHandler m (Server WalletApi)
 walletServer sendActions nat = do
-    syncWalletsWithGStateLock @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
+    syncWalletsWithGState @WalletSscType =<< mapM getSKByAddr =<< myRootAddresses
     nat >>= launchNotifier
     (`enter` servantHandlers sendActions) <$> nat
 
@@ -821,7 +824,7 @@ newWallet passphrase cwInit = do
 restoreWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 restoreWallet passphrase cwInit = do
     (sk, wId) <- newWalletFromBackupPhrase passphrase cwInit
-    syncWalletsWithGStateLock @WalletSscType [sk]
+    syncWalletOnImport sk
     getWallet wId
 
 updateWallet :: WalletWebMode m => CId Wal -> CWalletMeta -> m CWallet
@@ -1041,7 +1044,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         let accId = AccountId wid walletIndex
         newAddress (DeterminedSeed accountIndex) passphrase accId
 
-    _ <- selectAccountsFromUtxoLock @WalletSscType [key]
+    void $ syncWalletOnImport key
 
     return importedWallet
 
@@ -1067,8 +1070,7 @@ syncProgress = do
     <*> connectedPeers
 
 testResetAll :: WalletWebMode m => m ()
-testResetAll | isDevelopment = deleteAllKeys >> testReset
-             | otherwise     = throwM err403
+testResetAll = deleteAllKeys >> testReset
   where
     deleteAllKeys = do
         keyNum <- length <$> getSecretKeys
@@ -1091,8 +1093,7 @@ restoreWalletFromBackup WalletBackup {..} = do
             seedGen = DeterminedSeed aIdx
         accId <- genUniqueAccountId seedGen wId
         createAccount accId meta
-
-    _ <- selectAccountsFromUtxoLock @WalletSscType [wbSecretKey]
+    void $ syncWalletOnImport wbSecretKey
     createWalletSafe wId wMeta
 
 restoreStateFromBackup :: WalletWebMode m => StateBackup -> m [CWallet]

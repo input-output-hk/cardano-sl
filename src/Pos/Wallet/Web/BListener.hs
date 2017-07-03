@@ -14,18 +14,19 @@ import           Universum
 
 import           Control.Lens               (to)
 import qualified Data.List.NonEmpty         as NE
-import           Formatting                 (build, sformat, stext, (%))
+import           Formatting                 (build, sformat, (%))
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug)
 
 import           Pos.Block.BListener        (MonadBListener (..))
-import           Pos.Block.Core             (mainBlockTxPayload)
+import           Pos.Block.Core             (BlockHeader, blockHeader, mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
-import           Pos.Client.Txp.History     (getRelatedTxsByAddrs, thTxId)
-import           Pos.Core                   (HeaderHash, headerHash, prevBlockL)
-import           Pos.Crypto                 (hash, withHash)
+import           Pos.Core                   (HeaderHash, difficultyL, headerHash,
+                                             headerSlotL, prevBlockL)
 import           Pos.DB.BatchOp             (SomeBatchOp)
 import           Pos.DB.Class               (MonadDBRead, MonadRealDB)
+import qualified Pos.DB.GState              as GS
+import           Pos.Slotting               (SlottingData, getSlotStartPure)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Txp.Toil               (evalToilTEmpty, runDBToil)
@@ -33,8 +34,7 @@ import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (
 import qualified Pos.Util.Modifier          as MM
 
 import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
-import           Pos.Wallet.Web.ClientTypes (CId, CWAddressMeta (..), Wal, cIdToAddress)
-import           Pos.Wallet.Web.Error       (WalletError (..))
+import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import qualified Pos.Wallet.Web.State       as WS
 import           Pos.Wallet.Web.Tracking    (CAccModifier (..), applyModifierToWallet,
                                              getWalletAddrMetasDB,
@@ -54,37 +54,31 @@ onApplyTracking
 onApplyTracking blunds = do
     let oldestFirst = getOldestFirst blunds
         txs = concatMap (gbTxs . fst) oldestFirst
-        newTip = headerHash $ NE.last oldestFirst
-    mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
+        newTipH = NE.last oldestFirst ^. _1 . blockHeader
+    sd <- GS.getSlottingData
+    mapM_ (syncWalletSet sd newTipH txs) =<< WS.getWalletAddresses
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
     pure mempty
   where
-    syncWalletSet :: HeaderHash -> [TxAux] -> CId Wal -> m ()
-    syncWalletSet newTip txs wAddr = do
+    syncWalletSet :: SlottingData -> BlockHeader ssc -> [TxAux] -> CId Wal -> m ()
+    syncWalletSet sd newTipH txs wAddr = do
+        let mainBlkHeaderTs mBlkH =
+                getSlotStartPure True (mBlkH ^. headerSlotL) sd
+            blkHeaderTs = either (const Nothing) mainBlkHeaderTs
+
         allAddresses <- getWalletAddrMetasDB WS.Ever wAddr
         encSK <- getSKByAddr wAddr
         mapModifier <- runDBToil $
                        evalToilTEmpty $
-                       trackingApplyTxs encSK allAddresses $
-                       zip txs (repeat newTip)
-        applyModifierToWallet wAddr newTip mapModifier
-        addrs <- either addrDecodeErr pure $
-                 mapM (cIdToAddress . cwamId) allAddresses
-
-        let auxToTuple TxAux {..} = (withHash taTx, taWitness, taDistribution)
-            whTxs = map auxToTuple txs
-        txHistoryBlk <- runDBToil $
-                        evalToilTEmpty $
-                        getRelatedTxsByAddrs addrs Nothing Nothing whTxs
-
-        cachedTxs <- fromMaybe [] <$> WS.getHistoryCache wAddr
-        WS.updateHistoryCache wAddr $ txHistoryBlk <> cachedTxs
+                       trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs $
+                       zip txs $ repeat newTipH
+        applyModifierToWallet wAddr (headerHash newTipH) mapModifier
         logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
+
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
-    addrDecodeErr = throwM . InternalError .
-        sformat ("onApplyBlocks: error while decoding address: "%stext)
+    gbDiff = Just . view difficultyL
 
 -- Perform this action under block lock.
 onRollbackTracking
@@ -111,16 +105,6 @@ onRollbackTracking blunds = do
         let mapModifier = trackingRollbackTxs encSK allAddresses $
                           map (\(aux, undo) -> (aux, undo, newTip)) txs
         rollbackModifierFromWallet wAddr newTip mapModifier
-
-        let txIds = map (hash . taTx . fst) txs
-            -- TODO: if there's lots of txs in block, this would be slow
-            theInBlock the = (the ^. thTxId) `elem` txIds
-
-        WS.getHistoryCache wAddr >>= \case
-            Nothing -> pure ()
-            Just cachedTxs -> WS.updateHistoryCache wAddr $
-                dropWhile theInBlock cachedTxs
-
         logMsg "rolled back" (getNewestFirst blunds) wAddr mapModifier
     gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
     blundTxUn (b, u) = zip (gbTxs b) (undoTx u)

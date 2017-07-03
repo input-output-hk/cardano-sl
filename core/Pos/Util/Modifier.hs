@@ -42,6 +42,9 @@ newtype MapModifier k v = MapModifier
     { getMapModifier :: HashMap k (Maybe v)
     } deriving (Eq, Show)
 
+instance Functor (MapModifier k) where
+    fmap f (MapModifier m) = MapModifier (f <<$>> m)
+
 deriving instance (Eq k, Hashable k, Arbitrary k, Arbitrary v) =>
     Arbitrary (MapModifier k v)
 

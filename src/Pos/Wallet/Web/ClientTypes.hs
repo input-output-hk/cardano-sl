@@ -300,7 +300,7 @@ data CWAddressMeta = CWAddressMeta
       cwamWalletIndex  :: Word32
     , -- | Second index in derivation path of this account key
       cwamAccountIndex :: Word32
-    , -- | Actual adress of this account
+    , -- | Actual address
       cwamId           :: CId Addr
     } deriving (Eq, Ord, Show, Generic, Typeable)
 

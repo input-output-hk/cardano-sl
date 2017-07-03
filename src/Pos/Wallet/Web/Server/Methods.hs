@@ -31,7 +31,7 @@ import           Data.ByteString.Base58           (bitcoinAlphabet, decodeBase58
 import qualified Data.ByteString.Lazy             as BSL
 import           Data.Default                     (Default (def))
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (findIndex)
+import           Data.List                        (findIndex, notElem)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
 import           Data.Tagged                      (untag)
@@ -154,7 +154,7 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    testReset, updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
 import           Pos.Wallet.Web.Tracking          (BlockLockMode, CAccModifier (..),
-                                                   MonadWalletTracking,
+                                                   MonadWalletTracking, sortedInsertions,
                                                    syncWalletOnImport,
                                                    syncWalletsWithGState,
                                                    txMempoolToModifier)
@@ -449,13 +449,12 @@ getAccount accId = do
   where
     noWallet =
         RequestError $ sformat ("No account with address "%build%" found") accId
-    addUnique as bs = do  -- @bs@ is expected to be much smaller than @as@
-        let bSet = S.fromList bs
-        filter (`S.notMember` bSet) as <> bs
     gatherAddresses modifier dbAddrs = do
-        let insertions = map fst (MM.insertions modifier)
-            relatedIns = filter ((== accId) . addrMetaToAccount) insertions
-        dbAddrs `addUnique` relatedIns
+        let memAddrs = sortedInsertions modifier
+            relatedMemAddrs = filter ((== accId) . addrMetaToAccount) memAddrs
+            -- @|relatedMemAddrs|@ is O(1) while @dbAddrs@ is large
+            unknownMemAddrs = filter (`notElem` dbAddrs) relatedMemAddrs
+        dbAddrs <> unknownMemAddrs
 
 getWallet :: WalletWebMode m => CId Wal -> m CWallet
 getWallet cAddr = do
@@ -766,11 +765,11 @@ newAddress
     -> AccountId
     -> m CAddress
 newAddress addGenSeed passphrase accId = do
-    -- check account exists
+    -- check whether account exists
     _ <- getAccount accId
 
     cAccAddr <- genUniqueAccountAddress addGenSeed passphrase accId
-    _ <- addWAddress cAccAddr
+    addWAddress cAccAddr
     getWAddress cAccAddr
 
 newAccount :: WalletWebMode m => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount

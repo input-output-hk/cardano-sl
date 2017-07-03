@@ -14,20 +14,18 @@ import           Control.Lens               (to)
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable)
-import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logDebug)
 
 import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Core             (mainBlockTxPayload)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Core                   (HeaderHash, headerHash, prevBlockL)
-import           Pos.DB.Class               (MonadRealDB, MonadDBRead)
 import           Pos.DB.BatchOp             (SomeBatchOp)
+import           Pos.DB.Class               (MonadDBRead, MonadRealDB)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux, TxUndo, flattenTxPayload)
 import           Pos.Txp.Toil               (evalToilTEmpty, runDBTxp)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
-import qualified Pos.Util.Modifier          as MM
 
 import           Pos.Wallet.KeyStorage      (MonadKeys)
 import           Pos.Wallet.Web.Account     (AccountMode, getSKByAddr)
@@ -63,7 +61,7 @@ onApplyTracking blunds = do
     let txs = concatMap (gbTxs . fst) $ getOldestFirst blunds
     let newTip = headerHash $ NE.last $ getOldestFirst blunds
     mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
-    
+
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
     pure mempty
@@ -115,15 +113,8 @@ logMsg
     -> CId Wal
     -> CAccModifier
     -> m ()
-logMsg action (NE.length -> bNums) wAddr CAccModifier{..} =
+logMsg action (NE.length -> bNums) wAddr accModifier =
     logDebug $
         sformat ("Wallet Tracking: "%build%" "%build%" block(s) to walletset "%build
-                %", added accounts: "%listJson
-                %", deleted accounts: "%listJson
-                %", used address: "%listJson
-                %", change address: "%listJson)
-        action bNums wAddr
-        (map fst $ MM.insertions camAddresses)
-        (MM.deletions camAddresses)
-        (map (fst . fst) $ MM.insertions camUsed)
-        (map (fst . fst) $ MM.insertions camChange)
+                %", "%build)
+        action bNums wAddr accModifier

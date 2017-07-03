@@ -52,12 +52,6 @@ import           Pos.Ssc.GodTossing.Genesis
 -- Static state
 ----------------------------------------------------------------------------
 
--- 10000 coins in total. For thresholds testing.
--- 0.5,0.25,0.125,0.0625,0.0312,0.0156,0.0078,0.0039,0.0019,0.0008,0.0006,0.0004,0.0002,0.0001
-expTwoDistribution :: [Coin]
-expTwoDistribution =
-    map mkCoin [5000,2500,1250,625,312,156,78,39,19,8,6,4,2,1]
-
 bitcoinDistribution20 :: [Coin]
 bitcoinDistribution20 = map mkCoin
     [200,163,120,105,78,76,57,50,46,31,26,13,11,11,7,4,2,0,0,0]
@@ -101,7 +95,8 @@ stakeDistribution (BitcoinStakes stakeholders coins) =
   where
     normalize x =
         x `unsafeMulCoin` coinToInteger (coins `divCoin` (1000 :: Int))
-stakeDistribution ExponentialStakes = map (, []) expTwoDistribution
+stakeDistribution (ExponentialStakes n) =
+    [(mkCoin (2 ^ i), []) | i <- [n - 1, n - 2 .. 0]]
 stakeDistribution ts@RichPoorStakes {..} =
     checkMpcThd (getTotalStake ts) sdRichStake $
     map (, []) basicDist
@@ -163,14 +158,14 @@ devStakesDistr
     :: Maybe (Int, Int)                   -- flat distr
     -> Maybe (Int, Int)                   -- bitcoin distr
     -> Maybe (Int, Int, Integer, Double)  -- rich/poor distr
-    -> Bool                               -- exp distr
+    -> Maybe Int                          -- exp distr
     -> StakeDistribution
-devStakesDistr Nothing Nothing Nothing False = genesisDevFlatDistr
-devStakesDistr (Just (nodes, coins)) Nothing Nothing False =
+devStakesDistr Nothing Nothing Nothing Nothing = genesisDevFlatDistr
+devStakesDistr (Just (nodes, coins)) Nothing Nothing Nothing =
     FlatStakes (fromIntegral nodes) (mkCoin (fromIntegral coins))
-devStakesDistr Nothing (Just (nodes, coins)) Nothing False =
+devStakesDistr Nothing (Just (nodes, coins)) Nothing Nothing =
     BitcoinStakes (fromIntegral nodes) (mkCoin (fromIntegral coins))
-devStakesDistr Nothing Nothing (Just (richs, poors, coins, richShare)) False =
+devStakesDistr Nothing Nothing (Just (richs, poors, coins, richShare)) Nothing =
     checkConsistency $ RichPoorStakes {..}
   where
     sdRichmen = fromIntegral richs
@@ -187,7 +182,8 @@ devStakesDistr Nothing Nothing (Just (richs, poors, coins, richShare)) False =
         if poorStake <= 0 || richStake <= 0
         then error "Impossible to make RichPoorStakes with given parameters."
         else identity
-devStakesDistr Nothing Nothing Nothing True = ExponentialStakes
+devStakesDistr Nothing Nothing Nothing (Just n) =
+    ExponentialStakes (fromIntegral n)
 devStakesDistr _ _ _ _ =
     error "Conflicting distribution options were enabled. \
           \Choose one at most or nothing."

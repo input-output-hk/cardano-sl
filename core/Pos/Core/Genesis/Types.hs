@@ -2,6 +2,7 @@
 
 module Pos.Core.Genesis.Types
        ( StakeDistribution (..)
+       , getDistributionSize
        , getTotalStake
 
        , AddrDistribution
@@ -10,6 +11,8 @@ module Pos.Core.Genesis.Types
        ) where
 
 import           Universum
+
+import           Serokell.Util  (allDistinct)
 
 import           Pos.Core.Coin  (coinToInteger, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Types (Address, Coin, StakeholderId, mkCoin)
@@ -34,23 +37,28 @@ data StakeDistribution
         , sdPoorStake :: !Coin
         }
     -- | First three nodes get 0.875% of balance.
-    -- TODO Doesn't have explicit length, would be nice to have.
-    | ExponentialStakes
+    | ExponentialStakes !Word
     -- | Custom balances list.
     | CustomStakes [Coin]
     deriving (Show, Eq)
 
--- | Gets total amount of stake and addresses of distribution.
+-- | Get the amount of stakeholders in a distribution.
+getDistributionSize :: StakeDistribution -> Word
+getDistributionSize (FlatStakes n _)         = n
+getDistributionSize (BitcoinStakes n _)      = n
+getDistributionSize (RichPoorStakes a _ b _) = a + b
+getDistributionSize (ExponentialStakes n)    = n
+getDistributionSize (CustomStakes cs)        = fromIntegral (length cs)
+
+-- | Get total amount of stake in a distribution.
 getTotalStake :: StakeDistribution -> Coin
 getTotalStake (FlatStakes _ st) = st
 getTotalStake (BitcoinStakes _ st) = st
 getTotalStake RichPoorStakes {..} = unsafeIntegerToCoin $
     coinToInteger sdRichStake * fromIntegral sdRichmen +
     coinToInteger sdPoorStake * fromIntegral sdPoor
-getTotalStake ExponentialStakes = mkCoin . sum $
-    let g 0 = []
-        g n = n : g (n `div` 2)
-    in g 5000
+getTotalStake (ExponentialStakes n) =
+    mkCoin $ sum $ map (2^) [0 .. n - 1]
 getTotalStake (CustomStakes balances) =
     unsafeIntegerToCoin $ sumCoins balances
 
@@ -74,8 +82,21 @@ mkGenesisCoreData ::
     -> HashSet StakeholderId
     -> Either String GenesisCoreData
 mkGenesisCoreData distribution bootStakeholders = do
-    -- TODO CSL-1205 add checks
-    -- 1. Every set of address matches by the size to distribution size
-    -- 2. If using CustomStakes, lengths match
-    -- 3. (?) Addresses in (map fst) are unique
+    -- Every set of addresses should match the stakeholders count
+    for_ distribution $ \(addrs, distr) ->
+        unless (fromIntegral (length addrs) == getDistributionSize distr) $
+            Left "mkGenesisCoreData: addressCount != stakeholdersCount \
+                 \for some set of addresses"
+    -- Addresses in each list are distinct (except for CustomStakes)
+    for_ distribution $ \(addrs, distr) -> do
+        let isCustom = case distr of
+                CustomStakes{} -> True
+                _              -> False
+        unless (isCustom || allDistinct addrs) $
+            Left "mkGenesisCoreData: addresses in some list aren't distinct"
+    -- No address belongs to more than one distribution
+    let addrList = concatMap (ordNub . fst) distribution
+    unless (allDistinct addrList) $
+        Left "mkGenesisCoreData: some address belongs to more than one distr"
+    -- All checks passed
     pure $ UnsafeGenesisCoreData distribution bootStakeholders

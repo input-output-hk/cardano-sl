@@ -25,7 +25,7 @@ instance Bi StakeDistribution where
         0 -> FlatStakes <$> getUVI <*> get
         1 -> BitcoinStakes <$> getUVI <*> get
         2 -> RichPoorStakes <$> getUVI <*> get <*> getUVI <*> get
-        3 -> pure ExponentialStakes
+        3 -> ExponentialStakes <$> getUVI
         4 -> CustomStakes <$> get
         _ -> fail "Pos.Binary.Genesis: StakeDistribution: invalid tag"
     sizeNPut = labelS "StakeDistribution" $ convertToSizeNPut f
@@ -36,7 +36,7 @@ instance Bi StakeDistribution where
         f (RichPoorStakes m rs n ps) =
             putWord8S 2 <> putUVI m <> putS rs <>
             putUVI n <> putS ps
-        f ExponentialStakes          = putWord8S 3
+        f (ExponentialStakes n)      = putWord8S 3 <> putUVI n
         f (CustomStakes coins)       = putWord8S 4 <> putS coins
 
 instance Bi GenesisCoreData where

@@ -123,7 +123,7 @@ instance Show TestParams where
 -- More distributions can be added if we want (e. g. RichPoor).
 genSuitableStakeDistribution :: Word -> Gen StakeDistribution
 genSuitableStakeDistribution stakeholdersNum =
-    oneof [genFlat{-, genBitcoin-}, pure ExponentialStakes]
+    oneof [genFlat{-, genBitcoin-}, pure (ExponentialStakes stakeholdersNum)]
   where
     totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
     genFlat =

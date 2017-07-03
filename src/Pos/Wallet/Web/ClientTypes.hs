@@ -175,15 +175,16 @@ getTxSourceAccountAddresses walAddrMetas (someInputAddr :| _) = do
         map cwamId $
         filter ((srcAccount ==) . addrMetaToAccount) walAddrMetas
 
--- | Makes function, which for given address says, whether does it belong to
--- same account as sources of given transaction.
--- Note, that applying this function to outputs of transaction, you efficiently
--- get /change/ addresses.
+-- | Produces a function which for a given address says whether this address
+-- belongs to the same account as the addresses which are the sources
+-- of a given transaction. This assumes that the source addresses belong
+-- to the same account.
+-- Note that if you apply this function to the outputs of a transaction,
+-- you will effectively get /change/ addresses.
 isTxLocalAddress
     :: [CWAddressMeta]      -- ^ All addresses in wallet
     -> NonEmpty (CId Addr)  -- ^ Input addresses of transaction
-    -> CId Addr
-    -> Bool
+    -> (CId Addr -> Bool)
 isTxLocalAddress wAddrMetas inputs = do
     let mLocalAddrs = getTxSourceAccountAddresses wAddrMetas inputs
     case mLocalAddrs of
@@ -206,29 +207,40 @@ mkCTxs
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
     -> [CWAddressMeta]    -- ^ Addresses of wallet
+    -> Bool               -- ^ Always report incoming tx (introduced in CSM-330)
     -> Either Text CTxs
-mkCTxs diff THEntry {..} meta wAddrMetas = do
+mkCTxs diff THEntry {..} meta wAddrMetas forceIncoming = do
     ctInputAddrsNe <-
         nonEmpty ctInputAddrs
         `whenNothing` throwError "No input addresses in tx!"
     let isLocalAddr = isTxLocalAddress wAddrMetas ctInputAddrsNe
         isLocalTxOutput = isLocalAddr . addressToCId . txOutAddress
+        -- We check against `wAddrsSet` instead of using `isLocalAddr` here
+        -- because of the redeem transactions. `isLocalAddr` checks whether
+        -- the address belongs to the same _wallet_ as the _inputs_ of the
+        -- current transaction, which is never the case for redeem txs.
+        -- TODO(thatguy): since there is only one special case, perhaps we
+        -- want to consider it separately and use `isLocalAddr` in other cases.
         -- [CSM-309] Bad for multiple-destinations transactions
-        isWithinWallet = all isLocalAddr ctOutputAddrs
+        allOutputsBelongToUs = all (`S.member` wAddrsSet) ctOutputAddrs
         ctAmount =
             mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
             filter (not . isLocalTxOutput) outputs
-        mkCTx isOutgoing significantAddrs = do
-            guard . not . null $
-                wAddrsSet `S.intersection` S.fromList significantAddrs
+        mkCTx isOutgoing mbSignificantAddrs = do  -- Maybe monad starts here
+            -- Return `Nothing` if none of the significantAddrs belong to us.
+            guard $
+                maybe True
+                (\significantAddrs ->
+                    not . null $ wAddrsSet `S.intersection` S.fromList significantAddrs)
+                mbSignificantAddrs
             return CTx {ctIsOutgoing = isOutgoing, ..}
-        -- Output addresses which presence make us to display transaction
+        -- Output addresses whose presence makes us display the transaction
         -- (incoming half, i.e. one with 'isOutgoing' set to @false@).
         ctSignificantOutputAddrs =
             ctOutputAddrs &
-            if isWithinWallet then identity else filter (not . isLocalAddr)
-        ctsOutgoing = mkCTx True ctInputAddrs
-        ctsIncoming = mkCTx False ctSignificantOutputAddrs
+            if allOutputsBelongToUs then identity else filter (not . isLocalAddr)
+        ctsOutgoing = mkCTx True $ Just ctInputAddrs
+        ctsIncoming = mkCTx False $ if forceIncoming then Nothing else Just ctSignificantOutputAddrs
     return CTxs {..}
   where
     ctId = txIdToCTxId _thTxId
@@ -300,7 +312,7 @@ data CWAddressMeta = CWAddressMeta
       cwamWalletIndex  :: Word32
     , -- | Second index in derivation path of this account key
       cwamAccountIndex :: Word32
-    , -- | Actual adress of this account
+    , -- | Actual address
       cwamId           :: CId Addr
     } deriving (Eq, Ord, Show, Generic, Typeable)
 

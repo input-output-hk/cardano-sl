@@ -346,7 +346,7 @@ type ExportBackupJSON =
 -- | Servant API which provides access to wallet.
 -- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis
 type WalletApi = ApiPrefix :> (
-     -- only works in development mode, gives 403 otherwise
+     -- NOTE: enabled in prod mode https://issues.serokell.io/issue/CSM-333
      TestReset
     :<|>
      -------------------------------------------------------------------------

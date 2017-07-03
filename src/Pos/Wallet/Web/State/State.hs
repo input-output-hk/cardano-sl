@@ -33,6 +33,7 @@ module Pos.Wallet.Web.State.State
        , getCustomAddresses
        , getCustomAddress
        , isCustomAddress
+       , getWalletUtxo
 
        -- * Setters
        , testReset
@@ -57,6 +58,7 @@ module Pos.Wallet.Web.State.State
        , addUpdate
        , removeNextUpdate
        , updateHistoryCache
+       , setWalletUtxo
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
@@ -194,6 +196,12 @@ setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId
 
 setWalletTxHistory :: WebWalletModeDB m => CId Wal -> [(CTxId, CTxMeta)] -> m ()
 setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
+
+getWalletUtxo :: WebWalletModeDB m => m Utxo
+getWalletUtxo = queryDisk A.GetWalletUtxo
+
+setWalletUtxo :: WebWalletModeDB m => Utxo -> m ()
+setWalletUtxo = updateDisk . A.SetWalletUtxo
 
 addOnlyNewTxMeta :: WebWalletModeDB m => CId Wal -> CTxId -> CTxMeta -> m ()
 addOnlyNewTxMeta cWalId cTxId = updateDisk . A.AddOnlyNewTxMeta cWalId cTxId

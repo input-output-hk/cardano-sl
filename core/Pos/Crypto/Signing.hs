@@ -46,7 +46,6 @@ import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
-import qualified Data.Hashable          as Hashable
 import qualified Data.Text.Buildable    as B
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting             (Format, bprint, build, fitLeft, later, sformat,
@@ -62,22 +61,6 @@ import qualified Pos.Binary.Class       as Bi
 import           Pos.Crypto.Hashing     (hash)
 import           Pos.Crypto.Random      (secureRandomBS)
 import           Pos.Crypto.SignTag     (SignTag (SignProxySK), signTag)
-
-----------------------------------------------------------------------------
--- Orphan instances
-----------------------------------------------------------------------------
-
-instance Eq CC.XPub where
-    a == b = CC.unXPub a == CC.unXPub b
-
-instance Ord CC.XPub where
-    compare = comparing CC.unXPub
-
-instance Show CC.XPub where
-    show = show . CC.unXPub
-
-instance Hashable CC.XPub where
-    hashWithSalt n = Hashable.hashWithSalt n . CC.unXPub
 
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
@@ -139,22 +122,24 @@ emptyPass = mempty
 
 -- TODO: this is just a placeholder for actual (not ready yet) derivation
 -- of keypair from seed in cardano-crypto API
-createKeypairFromSeed :: BS.ByteString -> (CC.XPub, CC.XPrv)
-createKeypairFromSeed seed =
-    let prv = CC.generate seed emptyPass
-    in  (CC.toXPub prv, prv)
+createKeypairFromSeed :: BS.ByteString -> Maybe (CC.XPub, CC.XPrv)
+createKeypairFromSeed seed = do
+    prv <- CC.generate seed emptyPass
+    return (CC.toXPub prv, prv)
 
 -- | Generate a key pair.
 keyGen :: MonadIO m => m (PublicKey, SecretKey)
 keyGen = liftIO $ do
     seed <- secureRandomBS 32
-    let (pk, sk) = createKeypairFromSeed seed
-    return (PublicKey pk, SecretKey sk)
+    case createKeypairFromSeed seed of
+        Nothing -> error "Pos.Crypto.Signing.keyGen:\
+                         \ createKeypairFromSeed_ failed"
+        Just (pk, sk) -> return (PublicKey pk, SecretKey sk)
 
 -- | Create key pair deterministically from 32 bytes.
-deterministicKeyGen :: BS.ByteString -> (PublicKey, SecretKey)
+deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
 deterministicKeyGen seed =
-    bimap PublicKey SecretKey (createKeypairFromSeed seed)
+    bimap PublicKey SecretKey <$> createKeypairFromSeed seed
 
 ----------------------------------------------------------------------------
 -- Signatures

@@ -565,14 +565,12 @@ txFee = mkEffFn4 cTxFee
         :: String
         -> String
         -> String
-        -> Foreign
         -> Eff  (ajax :: AJAX, err :: EXCEPTION | eff) (Promise Json)
-    cTxFee wFrom addrTo amount spendingPassword = do
-        pass <- mkCPassPhrase spendingPassword
+    cTxFee wFrom addrTo amount = do
         let accountId   = mkCAccountId wFrom
         let cId         = mkCId addrTo
         let cAmount     = mkCCoin amount
-        let txFee' = B.txFee pass accountId cId cAmount
+        let txFee'      = B.txFee accountId cId cAmount
 
         fromAff <<< map encodeJson $ txFee'
 

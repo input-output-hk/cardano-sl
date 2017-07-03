@@ -40,7 +40,7 @@ data MainToSign ssc
     , _msSlot        :: !SlotId
     , _msChainDiff   :: !ChainDifficulty
     , _msExtraHeader :: !MainExtraHeaderData
-    }
+    } deriving Generic
 
 -- | Signature of the block. Can be either regular signature from the
 -- issuer or delegated signature having a constraint on epoch indices

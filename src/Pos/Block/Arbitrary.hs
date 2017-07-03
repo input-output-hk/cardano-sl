@@ -8,30 +8,31 @@ module Pos.Block.Arbitrary
 
 import           Universum
 
-import           Control.Lens             (to)
-import qualified Data.Text.Buildable      as Buildable
-import           Formatting               (bprint, build, (%))
+import           Control.Lens                      (to)
+import qualified Data.Text.Buildable               as Buildable
+import           Formatting                        (bprint, build, (%))
 import qualified Prelude
-import           System.Random            (mkStdGen, randomR)
-import           Test.QuickCheck          (Arbitrary (..), Gen, choose, oneof, vectorOf)
+import           System.Random                     (mkStdGen, randomR)
+import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, vectorOf)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Binary.Class         (Bi, Raw, biSize)
-import qualified Pos.Block.Core           as T
-import           Pos.Block.Network        as T
-import qualified Pos.Block.Pure           as T
-import           Pos.Constants            (epochSlots)
-import qualified Pos.Core                 as Core
-import           Pos.Crypto               (ProxySecretKey, PublicKey, SecretKey,
-                                           createProxySecretKey, hash, toPublic)
-import           Pos.Data.Attributes      (Attributes (..))
-import           Pos.Delegation.Arbitrary (genDlgPayload)
-import           Pos.Ssc.Arbitrary        (SscPayloadDependsOnSlot (..))
-import           Pos.Ssc.Class            (Ssc (..), SscHelpersClass)
-import           Pos.Txp.Arbitrary        ()
-import qualified Pos.Types                as T
-import           Pos.Update.Arbitrary     ()
-import           Pos.Util.Arbitrary       (makeSmall)
-import           Pos.Util.Util            (leftToPanic)
+import           Pos.Binary.Class                  (Bi, Raw, biSize)
+import qualified Pos.Block.Core                    as T
+import           Pos.Block.Network                 as T
+import qualified Pos.Block.Pure                    as T
+import           Pos.Constants                     (epochSlots)
+import qualified Pos.Core                          as Core
+import           Pos.Crypto                        (ProxySecretKey, PublicKey, SecretKey,
+                                                    createProxySecretKey, hash, toPublic)
+import           Pos.Data.Attributes               (Attributes (..))
+import           Pos.Delegation.Arbitrary          (genDlgPayload)
+import           Pos.Ssc.Arbitrary                 (SscPayloadDependsOnSlot (..))
+import           Pos.Ssc.Class                     (Ssc (..), SscHelpersClass)
+import           Pos.Txp.Arbitrary                 ()
+import qualified Pos.Types                         as T
+import           Pos.Update.Arbitrary              ()
+import           Pos.Util.Arbitrary                (makeSmall)
+import           Pos.Util.Util                     (leftToPanic)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot
     { genBodyDepsOnSlot :: Core.SlotId -> Gen (T.Body b)
@@ -43,41 +44,39 @@ newtype BodyDependsOnSlot b = BodyDependsOnSlot
 
 instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
     Arbitrary (T.BlockSignature ssc) where
-    arbitrary = oneof [ T.BlockSignature <$> arbitrary
-                      , T.BlockPSignatureLight <$> arbitrary
-                      , T.BlockPSignatureHeavy <$> arbitrary
-                      ]
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 ------------------------------------------------------------------------------------------
 -- GenesisBlockchain
 ------------------------------------------------------------------------------------------
 
 instance Arbitrary T.GenesisExtraHeaderData where
-    arbitrary = T.GenesisExtraHeaderData <$> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary T.GenesisExtraBodyData where
-    arbitrary = T.GenesisExtraBodyData <$> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary (T.GenesisBlockHeader ssc) where
-    arbitrary = T.UnsafeGenericBlockHeader
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
-        <*> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary (T.BodyProof (T.GenesisBlockchain ssc)) where
-    arbitrary = T.GenesisProof <$> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary (T.ConsensusData (T.GenesisBlockchain ssc)) where
-    arbitrary = T.GenesisConsensusData
-        <$> arbitrary
-        <*> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary (BodyDependsOnSlot (T.GenesisBlockchain ssc)) where
     arbitrary = pure $ BodyDependsOnSlot $ \_ -> arbitrary
 
 instance Arbitrary (T.Body (T.GenesisBlockchain ssc)) where
-    arbitrary = T.GenesisBody <$> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance ( Arbitrary $ SscProof ssc
          , Arbitrary $ SscPayload ssc
@@ -85,6 +84,7 @@ instance ( Arbitrary $ SscProof ssc
          ) =>
          Arbitrary (T.GenericBlock (T.GenesisBlockchain ssc)) where
     arbitrary = T.mkGenesisBlock <$> arbitrary <*> arbitrary <*> arbitrary
+    shrink = genericShrink
 
 ------------------------------------------------------------------------------------------
 -- MainBlockchain
@@ -102,45 +102,33 @@ instance ( Arbitrary (SscPayload ssc)
         pure Nothing <*>
         arbitrary <*>
         arbitrary
-
-instance Arbitrary h => Arbitrary (Attributes h) where
-    arbitrary = Attributes
-        <$> arbitrary
-        <*> arbitrary
+    shrink = genericShrink
 
 instance Arbitrary T.MainExtraHeaderData where
-    arbitrary = T.MainExtraHeaderData
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
-        <*> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary T.MainExtraBodyData where
-    arbitrary = T.MainExtraBodyData <$> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance (Arbitrary (SscProof ssc), Bi Raw) =>
     Arbitrary (T.BodyProof (T.MainBlockchain ssc)) where
-    arbitrary = T.MainProof
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
-        <*> arbitrary
+    arbitrary = genericArbitrary
+    shrink T.MainProof {..} =
+        [T.MainProof txp mpcp prxp updp
+        | (txp, mpcp, prxp, updp) <-
+            shrink (mpTxProof, mpMpcProof, mpProxySKsProof, mpUpdateProof)
+        ]
 
 instance (Arbitrary (SscProof ssc), Bi Raw, Ssc ssc) =>
     Arbitrary (T.ConsensusData (T.MainBlockchain ssc)) where
-    arbitrary = T.MainConsensusData
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
-        <*> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance (Ssc ssc, Arbitrary (SscProof ssc)) => Arbitrary (T.MainToSign ssc) where
-    arbitrary = T.MainToSign
-        <$> arbitrary
-        <*> arbitrary
-        <*> arbitrary
-        <*> arbitrary
-        <*> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 -- | In the main blockchain's body, the number of transactions must be the same as the
 -- number of transaction witnesses.
@@ -166,12 +154,15 @@ instance Arbitrary (SscPayloadDependsOnSlot ssc) =>
         return $ T.MainBody txPayload mpcData dlgPayload mpcUpload
 
 instance Arbitrary (SscPayload ssc) => Arbitrary (T.Body (T.MainBlockchain ssc)) where
-    arbitrary = makeSmall $ do
-        txPayload   <- arbitrary
-        mpcData     <- arbitrary
-        mpcProxySKs <- arbitrary
-        mpcUpload   <- arbitrary
-        return $ T.MainBody txPayload mpcData mpcProxySKs mpcUpload
+    arbitrary = makeSmall genericArbitrary
+    shrink mb =
+        [ T.MainBody txp sscp dlgp updp
+        | (txp, sscp, dlgp, updp) <-
+            shrink (mb ^. T.mbTxPayload,
+                    mb ^. T.mbSscPayload,
+                    mb ^. T.mbDlgPayload,
+                    mb ^. T.mbUpdatePayload)
+        ]
 
 instance ( Arbitrary $ SscPayload ssc
          , Arbitrary $ SscProof ssc
@@ -196,24 +187,24 @@ instance ( Arbitrary $ SscPayload ssc
             pure extraHeaderData
         return $ leftToPanic "arbitrary @MainBlock: " $
             T.recreateGenericBlock header body extraBodyData
+    shrink = genericShrink
 
 ------------------------------------------------------------------------------------------
 -- Block network types
 ------------------------------------------------------------------------------------------
 
 instance Arbitrary T.MsgGetHeaders where
-    arbitrary = T.MsgGetHeaders
-        <$> arbitrary
-        <*> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary T.MsgGetBlocks where
-    arbitrary = T.MsgGetBlocks
-        <$> arbitrary
-        <*> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance (Arbitrary (SscPayload ssc), Arbitrary (SscProof ssc), Bi Raw, SscHelpersClass ssc) =>
          Arbitrary (T.MsgHeaders ssc) where
-    arbitrary = T.MsgHeaders <$> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance ( Arbitrary $ SscPayload ssc
          , Arbitrary (SscProof ssc)
@@ -221,7 +212,8 @@ instance ( Arbitrary $ SscPayload ssc
          , SscHelpersClass ssc
          ) =>
          Arbitrary (T.MsgBlock ssc) where
-    arbitrary = T.MsgBlock <$> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance T.BiSsc ssc => Buildable (T.BlockHeader ssc, PublicKey) where
     build (block, key) =

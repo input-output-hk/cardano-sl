@@ -79,7 +79,7 @@ type SignedCommitment = (PublicKey, Commitment, CommitmentSignature)
 -- from 'SignedCommitment' corresponds to key which is 'StakeholderId'.
 newtype CommitmentsMap = CommitmentsMap
     { getCommitmentsMap :: HashMap StakeholderId SignedCommitment
-    } deriving (Semigroup, Monoid, Show, Eq, Container, NFData)
+    } deriving (Generic, Semigroup, Monoid, Show, Eq, Container, NFData)
 
 type instance Element CommitmentsMap = SignedCommitment
 

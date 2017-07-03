@@ -6,6 +6,7 @@
 
 module Pos.Explorer.BListener
        ( runExplorerBListener 
+       , ExplorerBListener
        -- * Instances
        -- ** MonadBListener (ExplorerBListener m)
        ) where

@@ -1,5 +1,6 @@
-{-# LANGUAGE DataKinds    #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Transformer that carries peer discovery capabilities.
 
@@ -18,14 +19,14 @@ import           Mockable                         (Async, Catch, Mockables, Prom
                                                    Throw)
 import           System.Wlog                      (WithLogger)
 
-import           Pos.Communication.Types.Protocol (NodeId, OutSpecs, WorkerSpec)
+import           Pos.Communication.Types.Protocol (ActionSpec (..), NodeId, OutSpecs,
+                                                   WorkerSpec)
 import           Pos.DHT.Model                    (randomDHTKey)
 import           Pos.DHT.Real                     (KademliaDHTInstance,
                                                    kademliaGetKnownPeers, kdiHandle,
                                                    lookupNode)
 import           Pos.DHT.Workers                  (DhtWorkMode, dhtWorkers)
-import           Pos.Recovery.Info                (MonadRecoveryInfo,
-                                                   recoveryCommGuardSimple)
+import           Pos.Recovery.Info                (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Util.TimeWarp                (addressToNodeId)
 
 ----------------------------------------------------------------------------
@@ -80,11 +81,16 @@ findPeersSum =
 
 -- | Get all discovery workers using 'DiscoveryContextSum'.
 discoveryWorkers ::
-       (MonadRecoveryInfo m, DhtWorkMode ctx m)
+       forall m ctx. (MonadRecoveryInfo m, DhtWorkMode ctx m)
     => DiscoveryContextSum
     -> ([WorkerSpec m], OutSpecs)
 discoveryWorkers ctx =
-    first (map recoveryCommGuardSimple) $
+    first (map convertWorker) $
     case ctx of
         DCStatic _     -> mempty
         DCKademlia var -> dhtWorkers var
+  where
+    convertWorker :: WorkerSpec m -> WorkerSpec m
+    convertWorker (ActionSpec worker) =
+        ActionSpec $ \verInfo sendActions ->
+            recoveryCommGuard (worker verInfo sendActions)

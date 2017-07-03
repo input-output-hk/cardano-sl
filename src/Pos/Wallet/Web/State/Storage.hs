@@ -58,6 +58,7 @@ import           Control.Monad.State.Class  (put)
 import           Data.Default               (Default, def)
 import qualified Data.HashMap.Strict        as HM
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import           Data.Time.Clock.POSIX      (POSIXTime)
 
 import           Pos.Client.Txp.History     (TxHistoryEntry)
 import           Pos.Constants              (genesisHash)
@@ -80,6 +81,7 @@ type CustomAddresses = HashMap (CId Addr) (HeaderHash)
 data WalletInfo = WalletInfo
     { _wiMeta         :: CWalletMeta
     , _wiPassphraseLU :: PassPhraseLU
+    , _wiCreationTime :: POSIXTime
     , _wiSyncTip      :: HeaderHash
     }
 
@@ -171,7 +173,9 @@ getWalletSyncTip cWalId = preview (wsWalletInfos . ix cWalId . wiSyncTip)
 
 
 getWalletAddresses :: Query [CId Wal]
-getWalletAddresses = HM.keys <$> view wsWalletInfos
+getWalletAddresses =
+    map fst . sortOn (view wiCreationTime . snd) . HM.toList <$>
+    view wsWalletInfos
 
 getAccountWAddresses :: AddressLookupMode
                   -> AccountId
@@ -225,9 +229,10 @@ createAccount :: AccountId -> CAccountMeta -> Update ()
 createAccount accId cAccMeta =
     wsAccountInfos . at accId %= Just . fromMaybe (AccountInfo cAccMeta mempty mempty)
 
-createWallet :: CId Wal -> CWalletMeta -> PassPhraseLU -> Update ()
-createWallet cWalId cWalMeta passLU =
-    wsWalletInfos . at cWalId %= Just . fromMaybe (WalletInfo cWalMeta passLU genesisHash)
+createWallet :: CId Wal -> CWalletMeta -> POSIXTime -> Update ()
+createWallet cWalId cWalMeta curTime = do
+    let info = WalletInfo cWalMeta curTime curTime genesisHash
+    wsWalletInfos . at cWalId %= (<|> Just info)
 
 addWAddress :: CWAddressMeta -> Update ()
 addWAddress addr@CWAddressMeta{..} = do

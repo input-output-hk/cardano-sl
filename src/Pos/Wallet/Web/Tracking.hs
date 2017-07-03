@@ -340,7 +340,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs txs =
 
         applyTxToUtxo (WithHash tx txId) taDistribution
         pure $ CAccModifier
-            (deleteAndInsertMM ownInpAddrMetas ownOutAddrMetas camAddresses)
+            (deleteAndInsertMM [] ownOutAddrMetas camAddresses)
             (deleteAndInsertMM [] (zip usedAddrs hhs) camUsed)
             (deleteAndInsertMM [] (zip changeAddrs hhs) camChange)
             addedHistory
@@ -375,7 +375,7 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
         let usedAddrs = map cwamId ownOutputMetas
             changeAddrs = evalChange allAddress ownInputAddrs ownOutputAddrs
         CAccModifier
-            (deleteAndInsertMM ownOutputMetas ownInputMetas camAddresses)
+            (deleteAndInsertMM ownOutputMetas [] camAddresses)
             (deleteAndInsertMM (zip usedAddrs hhs) [] camUsed)
             (deleteAndInsertMM (zip changeAddrs hhs) [] camChange)
             camAddedHistory

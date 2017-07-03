@@ -174,6 +174,9 @@ updateProfile = postRBody $ noQueryParam ["profile"]
 newPayment :: forall eff. Maybe CPassPhrase -> CAccountId -> CId Addr -> CCoin -> Aff (ajax :: AJAX | eff) CTx
 newPayment pass addrFrom addrTo amount = postR $ queryParams ["txs", "payments", walletAddressToUrl addrFrom, _address addrTo, _ccoin amount] [qParam "passphrase" $ _passPhrase <$> pass]
 
+txFee :: forall eff. Maybe CPassPhrase -> CAccountId -> CId Addr -> CCoin -> Aff (ajax :: AJAX | eff) CCoin
+txFee pass addrFrom addrTo amount = getR $ queryParams ["txs", "fee", walletAddressToUrl addrFrom, _address addrTo, _ccoin amount] [qParam "passphrase" $ _passPhrase <$> pass]
+
 updateTransaction :: forall eff. CAccountId -> CTxId -> CTxMeta -> Aff (ajax :: AJAX | eff) Unit
 updateTransaction addr ctxId = postRBody $ noQueryParam ["txs", "payments", walletAddressToUrl addr, _ctxIdValue ctxId]
 

@@ -66,7 +66,9 @@ blkWorkers =
 
 -- Action which should be done when new slot starts.
 blkOnNewSlot :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
-blkOnNewSlot = recoveryCommGuard $ onNewSlotWorker True announceBlockOuts blkOnNewSlotImpl
+blkOnNewSlot =
+    onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
+        recoveryCommGuard $ blkOnNewSlotImpl slotId sendActions
 
 blkOnNewSlotImpl
     :: WorkMode ssc ctx m

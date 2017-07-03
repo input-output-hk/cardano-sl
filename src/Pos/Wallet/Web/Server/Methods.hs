@@ -74,8 +74,8 @@ import           Pos.Core                         (Address (..), Coin, TxFeePoli
                                                    makeRedeemAddress, mkCoin, sumCoins,
                                                    unsafeAddCoin, unsafeIntegerToCoin,
                                                    unsafeSubCoin)
-import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
-                                                   SafeSigner, aesDecrypt,
+import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase, keyGen,
+                                                   SafeSigner, aesDecrypt, fakeSigner,
                                                    changeEncPassphrase, checkPassMatches,
                                                    deriveAesKeyBS, emptyPassphrase, hash,
                                                    redeemDeterministicKeyGen,
@@ -511,14 +511,12 @@ newPayment sa passphrase srcAccount dstAccount coin =
 
 getTxFee
     :: WalletWebMode m
-    => PassPhrase
-    -> AccountId
+    => AccountId
     -> CId Addr
     -> Coin
     -> m CCoin
-getTxFee passphrase srcAccount dstAccount coin =
+getTxFee srcAccount dstAccount coin =
     computeTxFee
-        passphrase
         (AccountMoneySource srcAccount)
         (one (dstAccount, coin))
 
@@ -553,31 +551,33 @@ getMoneySourceWallet (WalletMoneySource wid)     = wid
 
 computeTxFee
     :: WalletWebMode m
-    => PassPhrase
-    -> MoneySource
+    => MoneySource
     -> NonEmpty (CId Addr, Coin)
     -> m CCoin
-computeTxFee passphrase moneySource dstDistr = mkCCoin <$> do
+computeTxFee moneySource dstDistr = mkCCoin <$> do
     feePolicy <- bvdTxFeePolicy <$> gsAdoptedBVData
     case feePolicy of
         TxFeePolicyUnknown w _               -> throwM $ unknownFeePolicy w
         TxFeePolicyTxSizeLinear linearPolicy -> do
-            (srcAddrMetas, outs, _) <- prepareTxInfo passphrase moneySource dstDistr
-            sks <- forM srcAddrMetas $ getSKByAccAddr passphrase
+            (srcAddrMetas, outs, _) <- prepareTxInfo undefined moneySource dstDistr
             srcAddrs <- forM srcAddrMetas $ decodeCIdOrFail . cwamId
-            txAuxEi <- withSafeSigners passphrase sks $ \ss -> do
-                let hdwSigner = NE.zip ss srcAddrs
-                let addrs = map snd $ toList hdwSigner
-                utxo <- getOwnUtxos addrs
-                pure $ createMTx utxo hdwSigner outs
-            either
-                invalidTxEx
-                (maybeThrow negFee .
-                 integerToCoin .
-                 ceiling .
-                 calculateTxSizeLinear linearPolicy .
-                 biSize @TxAux)
-                txAuxEi
+            utxo <- getOwnUtxos (toList srcAddrs)
+            -- We create fake signers instead of safe signers,
+            -- because safe signer requires passphrase
+            -- but we don't want to reveal our passphrase to compute fee.
+            -- Fee depends on size of tx in bytes, sign of a tx has the fixed size
+            -- so we can use arbitrary signer.
+            (_, sk) <- keyGen
+            let fakeSigners = NE.fromList $ replicate (length srcAddrs) (fakeSigner sk)
+            let hdwSigner = NE.zip fakeSigners srcAddrs
+            let txAuxEi = createMTx utxo hdwSigner outs
+            either invalidTxEx
+                   (maybeThrow negFee .
+                   integerToCoin .
+                   ceiling .
+                   calculateTxSizeLinear linearPolicy .
+                   biSize @TxAux)
+                   txAuxEi
   where
     invalidTxEx = throwM . RequestError . sformat ("Couldn't create a transaction, reason: "%build)
     negFee = InternalError "Negative fee"

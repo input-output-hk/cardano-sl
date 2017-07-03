@@ -68,8 +68,8 @@ import           Pos.DB.Error               (DBError (DBMalformed))
 import qualified Pos.DB.GState              as GS
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting               (getSlotStartPure)
-import           Pos.Txp.Core               (Tx (..), TxAux (..), TxOutAux (..), TxUndo,
-                                             flattenTxPayload, toaOut, topsortTxs,
+import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOutAux (..),
+                                             TxUndo, flattenTxPayload, toaOut, topsortTxs,
                                              txOutAddress)
 import           Pos.Txp.MemState.Class     (MonadTxpMem, getLocalTxs)
 import           Pos.Txp.Toil               (MonadUtxo (..), MonadUtxoRead (..), ToilT,
@@ -96,7 +96,7 @@ data CAccModifier = CAccModifier {
     , camUsed           :: !(VoidModifier (CId Addr, HeaderHash))
     , camChange         :: !(VoidModifier (CId Addr, HeaderHash))
     , camAddedHistory   :: !(DList TxHistoryEntry)
-    , camDeletedHistory :: !(DList TxHistoryEntry)
+    , camDeletedHistory :: !(DList TxId)
     }
 
 instance Monoid CAccModifier where
@@ -349,21 +349,27 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress txs =
     rollbackTx :: CAccModifier -> (TxAux, TxUndo, HeaderHash) -> CAccModifier
     rollbackTx CAccModifier{..} (TxAux {..}, NE.toList -> undoL, hh) = do
         let hhs = repeat hh
-        let UnsafeTx _ (toList -> outs) _ = taTx
-        let ownInputs = map snd . selectOwnAccounts encInfo (txOutAddress . toaOut) $ undoL
-        let ownOutputs = map snd . selectOwnAccounts encInfo txOutAddress $ outs
+            UnsafeTx _ (toList -> outs) _ = taTx
+            ownInputMetas = map snd . selectOwnAccounts encInfo (txOutAddress . toaOut) $ undoL
+            ownOutputMetas = map snd . selectOwnAccounts encInfo txOutAddress $ outs
+            ownInputAddrs = map cwamId ownInputMetas
+            ownOutputAddrs = map cwamId ownOutputMetas
+
+            deletedHistory =
+                if (not $ null ownInputAddrs) || (not $ null ownOutputAddrs)
+                then DL.snoc camDeletedHistory $ hash taTx
+                else camDeletedHistory
+
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
-        let usedAddrs = map cwamId ownOutputs
-        let changeAddrs = evalChange allAddress
-                (map cwamId ownInputs)
-                (map cwamId ownOutputs)
+        let usedAddrs = map cwamId ownOutputMetas
+            changeAddrs = evalChange allAddress ownInputAddrs ownOutputAddrs
         CAccModifier
-            (deleteAndInsertMM ownOutputs [] camAddresses)
+            (deleteAndInsertMM ownOutputMetas [] camAddresses)
             (deleteAndInsertMM (zip usedAddrs hhs) [] camUsed)
             (deleteAndInsertMM (zip changeAddrs hhs) [] camChange)
             camAddedHistory
-            camDeletedHistory
+            deletedHistory
 
 applyModifierToWallet
     :: WebWalletModeDB m

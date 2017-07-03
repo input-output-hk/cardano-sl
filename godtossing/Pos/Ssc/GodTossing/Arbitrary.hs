@@ -116,6 +116,9 @@ instance Nonrepeating CommitmentOpening where
 
 instance Arbitrary Commitment where
     arbitrary = coCommitment <$> arbitrary
+    -- No other field is shrunk in the implmentation of 'shrink' for this type because:
+    -- 1. The datatype's invariant cannot be broken
+    -- 2. The cryptographic datatypes used here don't have 'shrink' implemented
     shrink Commitment {..} = [ Commitment { commShares = shrunkShares, .. }
                              | shrunkShares <- filter (not . null) $ shrink commShares
                              ]
@@ -136,6 +139,7 @@ instance Arbitrary Opening where
 
 instance Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
+    -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
 
 -- | For given epoch @e@ enerates vss certificate having epoch in
 -- range @[e+vssMin,e+vssMax)@.

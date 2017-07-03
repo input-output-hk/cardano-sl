@@ -549,6 +549,7 @@ getMoneySourceWallet (AddressMoneySource addrId) = cwamWId addrId
 getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
 getMoneySourceWallet (WalletMoneySource wid)     = wid
 
+-- Read-only function.
 computeTxFee
     :: WalletWebMode m
     => MoneySource
@@ -559,7 +560,8 @@ computeTxFee moneySource dstDistr = mkCCoin <$> do
     case feePolicy of
         TxFeePolicyUnknown w _               -> throwM $ unknownFeePolicy w
         TxFeePolicyTxSizeLinear linearPolicy -> do
-            (srcAddrMetas, outs, _) <- prepareTxInfo undefined moneySource dstDistr
+            (srcAddrMetas, outs_, _, remaining) <- prepareTxInfoRaw moneySource dstDistr
+            let outs = addFakeRemainingTxOut remaining outs_
             srcAddrs <- forM srcAddrMetas $ decodeCIdOrFail . cwamId
             utxo <- getOwnUtxos (toList srcAddrs)
             -- We create fake signers instead of safe signers,
@@ -579,6 +581,13 @@ computeTxFee moneySource dstDistr = mkCCoin <$> do
                    biSize @TxAux)
                    txAuxEi
   where
+    addFakeRemainingTxOut :: WalletWebMode m => Coin -> NonEmpty TxOutAux -> NonEmpty TxOutAux
+    addFakeRemainingTxOut remaining outs@(TxOutAux{..} :| _)
+        | remaining == mkCoin 0 = outs
+        | otherwise = do
+            -- This code implies that all TxOuts of the tx has the same size of a address.
+            let fakeAddress = txOutAddress toaOut
+            TxOutAux (TxOut fakeAddress remaining) [] :| toList outs
     invalidTxEx = throwM . RequestError . sformat ("Couldn't create a transaction, reason: "%build)
     negFee = InternalError "Negative fee"
     unknownFeePolicy =
@@ -655,21 +664,42 @@ prepareTxInfo
     -> NonEmpty (CId Addr, Coin)
     -> m (NonEmpty CWAddressMeta, NonEmpty TxOutAux, [TxOut])
 prepareTxInfo passphrase moneySource dstDistr = do
+    (txIns, txOuts, txInOuts, remaining) <- prepareTxInfoRaw moneySource dstDistr
+    mRemTx <- mkRemainingTxOut remaining
+    let txOutsWithRem = maybe txOuts (\remTx -> remTx :| toList txOuts) mRemTx
+    pure (txIns, txOutsWithRem, txInOuts)
+  where
+    mkRemainingTxOut :: WalletWebMode m => Coin -> m (Maybe TxOutAux)
+    mkRemainingTxOut remaining
+        | remaining == mkCoin 0 = return Nothing
+        | otherwise = do
+            relatedWallet <- getSomeMoneySourceAccount moneySource
+            account       <- newAddress RandomSeed passphrase relatedWallet
+            remAddr       <- decodeCIdOrFail (cadId account)
+            let remTx = TxOutAux (TxOut remAddr remaining) []
+            pure $ Just remTx
+
+-- Returns (input addresses, output addresses, TxOut corresponding to input addresses, remaining money)
+-- Functions doesn't write to db anything.
+prepareTxInfoRaw
+    :: WalletWebMode m
+    => MoneySource
+    -> NonEmpty (CId Addr, Coin)
+    -> m (NonEmpty CWAddressMeta, NonEmpty TxOutAux, [TxOut], Coin)
+prepareTxInfoRaw moneySource dstDistr = do
     allAddrs <- getMoneySourceAddresses moneySource
     let dstAccAddrsSet = S.fromList $ map fst $ toList dstDistr
         notDstAccounts = filter (\a -> not $ cwamId a `S.member` dstAccAddrsSet) allAddrs
         coins = foldr1 unsafeAddCoin $ snd <$> dstDistr
     distr@(remaining, spendings) <- selectSrcAccounts coins notDstAccounts
     logDebug $ buildDistribution distr
-    mRemTx <- mkRemainingTxOut remaining
     txOuts <- forM dstDistr $ \(cAddr, coin) -> do
         addr <- decodeCIdOrFail cAddr
-        return $ TxOutAux (TxOut addr coin) []
-    let txOutsWithRem = maybe txOuts (\remTx -> remTx :| toList txOuts) mRemTx
+        pure $ TxOutAux (TxOut addr coin) []
     srcTxOuts <- forM (toList spendings) $ \(cAddr, c) -> do
         addr <- decodeCIdOrFail $ cwamId cAddr
-        return (TxOut addr c)
-    pure (fst <$> spendings, txOutsWithRem, srcTxOuts)
+        pure $ TxOut addr c
+    pure (fst <$> spendings, txOuts, srcTxOuts, remaining)
   where
     selectSrcAccounts
         :: WalletWebMode m
@@ -693,16 +723,6 @@ prepareTxInfo passphrase moneySource dstDistr = do
                | otherwise ->
                    return
                        (balance `unsafeSubCoin` reqCoins, (acc, reqCoins) :| [])
-
-    mkRemainingTxOut :: WalletWebMode m => Coin -> m (Maybe TxOutAux)
-    mkRemainingTxOut remaining
-        | remaining == mkCoin 0 = return Nothing
-        | otherwise = do
-            relatedWallet <- getSomeMoneySourceAccount moneySource
-            account       <- newAddress RandomSeed passphrase relatedWallet
-            remAddr       <- decodeCIdOrFail (cadId account)
-            let remTx = TxOutAux (TxOut remAddr remaining) []
-            return $ Just remTx
 
     buildDistribution (remaining, spendings) =
         let entries =

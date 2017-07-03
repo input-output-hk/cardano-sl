@@ -110,7 +110,6 @@ library
                       , cardano-report-server
                       , containers
                       , data-default
-                      , derive
                       , directory
                       , either
                       , ether >= 0.5

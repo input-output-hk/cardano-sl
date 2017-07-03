@@ -31,7 +31,6 @@ import           Control.Lens                    (each, to, _tail)
 import           Control.Monad.Fix               (MonadFix)
 import           Data.Default                    (def)
 import           Data.Tagged                     (Tagged (..), untag)
-import           Data.Text                       (pack)
 import qualified Data.Time                       as Time
 import qualified Ether
 import           Formatting                      (build, sformat, shown, (%))
@@ -215,10 +214,10 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
         --   fdef06b1ace22e9d91c5a81f7902eb5d4b6eb44f
         -- for flexible EKG setup.
         ekgStore <- liftIO $ Metrics.newStore
-        ekgMemPoolSize <- liftIO $ Metrics.createGauge (pack "MemPoolSize") ekgStore
-        ekgMemPoolWaitTime <- liftIO $ Metrics.createGauge (pack "MemPoolWaitTime") ekgStore
-        ekgMemPoolModifyTime <- liftIO $ Metrics.createGauge (pack "MemPoolModifyTime") ekgStore
-        ekgMemPoolQueueLength <- liftIO $ Metrics.createGauge (pack "MemPoolQueueLength") ekgStore
+        ekgMemPoolSize <- liftIO $ Metrics.createGauge "MemPoolSize" ekgStore
+        ekgMemPoolWaitTime <- liftIO $ Metrics.createGauge "MemPoolWaitTime" ekgStore
+        ekgMemPoolModifyTime <- liftIO $ Metrics.createGauge "MemPoolModifyTime" ekgStore
+        ekgMemPoolQueueLength <- liftIO $ Metrics.createGauge "MemPoolQueueLength" ekgStore
 
         -- An exponential moving average is used for the time gauges (wait
         -- and modify durations). The parameter alpha is chosen somewhat

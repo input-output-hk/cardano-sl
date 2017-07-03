@@ -7,7 +7,7 @@ packages:
 - '.'
 - location:
     git: https://github.com/input-output-hk/cardano-sl
-    commit: dd4fbf5d601d5049cb5648ec9c5cd1e73697dbca
+    commit: 58d86941a590c7acf3d7ef636fbd7edc365930ae
   extra-dep: true
   subdirs:
       - '.'
@@ -71,7 +71,7 @@ packages:
     - engine-io-wai
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 1cde8e3a8d9093bbf571085920045c05edb3eaa4
+    commit: 84f8c358463bbf6bb09168aac5ad990faa9d310a
   extra-dep: true
 # We're using forked version of 'swagger2' package because of bug in haddock package.
 # Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will

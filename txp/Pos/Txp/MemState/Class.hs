@@ -99,7 +99,7 @@ modifyTxpLocalData reason f =
         lname <- getLoggerName
         liftIO . usingLoggerName lname $ txpMetricsWait reason
         timeBeginWait <- currentTime
-        withLock $ do
+        (res, logMetricsRelease) <- withLock $ do
             timeEndWait <- currentTime
             liftIO . usingLoggerName lname $
                 txpMetricsAcquire (timeEndWait - timeBeginWait)
@@ -119,9 +119,11 @@ modifyTxpLocalData reason f =
                 STM.writeTVar txpExtra newExtra
                 pure (res, _mpSize newMP)
             timeEndModify <- currentTime
-            liftIO . usingLoggerName lname $
-                txpMetricsRelease (timeEndModify - timeBeginModify) newSize
-            pure res
+            let logMetricsRelease = liftIO . usingLoggerName lname $ do
+                    txpMetricsRelease (timeEndModify - timeBeginModify) newSize
+            pure (res, logMetricsRelease)
+        logMetricsRelease
+        pure res
  where
    withLock = L.bracket_ (takeMVar txpLocalDataLock) (putMVar txpLocalDataLock ())
 

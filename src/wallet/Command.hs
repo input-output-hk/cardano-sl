@@ -2,6 +2,7 @@
 
 module Command
        ( Command (..)
+       , ProposeUpdateSystem (..)
        , parseCommand
        ) where
 
@@ -12,8 +13,8 @@ import           Prelude                    (read, show)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Parse        (parseIntegralSafe)
 import           Text.Parsec                (many1, parse, parserFail, try, (<?>))
-import           Text.Parsec.Char           (alphaNum, anyChar, digit, noneOf, space,
-                                             spaces, string)
+import           Text.Parsec.Char           (alphaNum, anyChar, digit, noneOf, oneOf,
+                                             space, spaces, string)
 import           Text.Parsec.Combinator     (eof, manyTill)
 import           Text.Parsec.Text           (Parser)
 import           Universum                  hiding (show)
@@ -39,8 +40,7 @@ data Command
           , puSlotDurationSec :: Int
           , puMaxBlockSize    :: Byte
           , puSoftwareVersion :: SoftwareVersion
-          , puSystemTag       :: SystemTag
-          , puFilePath        :: Maybe FilePath
+          , puUpdates         :: [ProposeUpdateSystem]
           }
     | Help
     | ListAddresses
@@ -51,14 +51,26 @@ data Command
     | Quit
     deriving Show
 
+data ProposeUpdateSystem = ProposeUpdateSystem
+    { pusSystemTag     :: SystemTag
+    , pusInstallerPath :: Maybe FilePath
+    , pusBinDiffPath   :: Maybe FilePath
+    } deriving Show
+
 lexeme :: Parser a -> Parser a
 lexeme p = spaces *> p >>= \x -> spaces $> x
 
 text :: String -> Parser Text
 text = lexeme . fmap toText . string
 
+many1Till :: Show b => Parser a -> Parser b -> Parser [a]
+many1Till p end = (:) <$> p <*> manyTill p end
+
 anyText :: Parser Text
 anyText = lexeme $ fmap toText $ manyTill anyChar (void (try space) <|> try eof)
+
+filePath :: Parser FilePath
+filePath = many1Till (alphaNum <|> oneOf "_.") (void (try space) <|> try eof)
 
 address :: Parser Address
 address = lexeme $ do
@@ -129,8 +141,18 @@ proposeUpdate =
     lexeme parseIntegralSafe <*>
     lexeme parseIntegralSafe <*>
     lexeme parseSoftwareVersion <*>
+    many1 parseProposeUpdateSystem
+
+parseProposeUpdateSystem :: Parser ProposeUpdateSystem
+parseProposeUpdateSystem =
+    ProposeUpdateSystem <$>
     lexeme parseSystemTag <*>
-    optional (lexeme (many1 anyChar))
+    lexeme parseOptionalFilePath <*>
+    lexeme parseOptionalFilePath
+
+parseOptionalFilePath :: Parser (Maybe FilePath)
+parseOptionalFilePath = (text "none" $> Nothing)
+                    <|> (filePath >>= pure . Just)
 
 parseSystemTag :: Parser SystemTag
 parseSystemTag =

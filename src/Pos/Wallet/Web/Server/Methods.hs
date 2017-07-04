@@ -807,6 +807,7 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} = do
 newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit
+    updateHistoryCache wId []
     getWallet wId
 
 restoreWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet

@@ -22,7 +22,7 @@ import           System.Wlog                  (WithLogger, logWarning)
 
 import           Pos.Core                     (AddressIgnoringAttributes (AddressIA))
 import           Pos.Crypto                   (WithHash (..), shortHashF)
-import           Pos.DB                       (MonadDBRead)
+import           Pos.DB                       (MonadDBRead, MonadRealDB)
 import qualified Pos.DB.GState.Balances       as GS
 import           Pos.Txp                      (GenericToilModifier (..), MonadTxpMem,
                                                TxAux (..), TxOutAux (..), Utxo,
@@ -30,6 +30,7 @@ import           Pos.Txp                      (GenericToilModifier (..), MonadTx
                                                getLocalTxsNUndo, getUtxoModifier,
                                                runToilAction, topsortTxs, txOutValue,
                                                _bvStakes)
+import qualified Pos.Txp.DB                   as DB
 import           Pos.Types                    (Address (..), Coin, mkCoin, sumCoins,
                                                unsafeIntegerToCoin)
 import qualified Pos.Util.Modifier            as MM
@@ -68,17 +69,28 @@ runBalancesRedirect = coerce
 
 instance
     ( MonadDBRead m
+    , MonadRealDB m
     , WebWalletModeDB m
-    ,  MonadMask m
+    , MonadMask m
     , WithLogger m
     , MonadTxpMem ext m, t ~ IdentityT) =>
         MonadBalances (Ether.TaggedTrans BalancesRedirectTag t m)
   where
-    getOwnUtxos addr = do
+    getOwnUtxos addrs = do
+        let isRedeem (RedeemAddress _) = True
+            isRedeem _                 = False
+            redeemAddrs = filter isRedeem addrs
+            commonAddrs = filter (not . isRedeem) addrs
+
         updates <- getUtxoModifier
-        locUtxo <- MM.modifyMap updates <$> WS.getWalletUtxo
-        let addrsSet = HS.fromList $ AddressIA <$> addr
-        pure $ M.filter (`addrBelongsToSet` addrsSet) locUtxo
+        commonUtxo <- if null commonAddrs then pure mempty
+                      else WS.getWalletUtxo
+        redeemUtxo <- if null redeemAddrs then pure mempty
+                      else DB.getFilteredUtxo redeemAddrs
+
+        let allUtxo = MM.modifyMap updates $ commonUtxo <> redeemUtxo
+            addrsSet = HS.fromList $ AddressIA <$> addrs
+        pure $ M.filter (`addrBelongsToSet` addrsSet) allUtxo
 
     getBalance PubKeyAddress{..} = do
         (txs, undos) <- getLocalTxsNUndo

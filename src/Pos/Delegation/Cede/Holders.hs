@@ -23,7 +23,7 @@ import           Pos.Delegation.Cede.Class    (MonadCede (..), MonadCedeRead (..
 import           Pos.Delegation.Cede.Types    (CedeModifier, DlgEdgeAction (..),
                                                dlgEdgeActionIssuer)
 import qualified Pos.Delegation.DB            as DB
-import           Pos.Types                    (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Types                    (ProxySKHeavy, StakeholderId)
 import           Pos.Util.Util                (ether)
 
 ----------------------------------------------------------------------------
@@ -66,5 +66,5 @@ instance MonadDBRead m => MonadCedeRead (MapCede m) where
 
 instance MonadDBRead m => MonadCede (MapCede m) where
     modPsk eAction = do
-        let issuer = addressHash $ dlgEdgeActionIssuer eAction
+        let issuer = dlgEdgeActionIssuer eAction
         ether $ identity %= HM.insert issuer eAction

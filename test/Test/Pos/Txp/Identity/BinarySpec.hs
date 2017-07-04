@@ -9,12 +9,11 @@ import           Universum
 import           Data.Tagged                 (Tagged)
 import           Test.Hspec                  (Spec, describe)
 
-import           Pos.Binary                  ()
-import           Pos.Communication.Arbitrary ()
-import           Pos.Communication.Relay     as R
-import qualified Pos.Txp                     as T
-import           Pos.Txp.Arbitrary           (SmallTxPayload)
-import           Test.Pos.Arbitrary.Infra    ()
+import           Pos.Binary               ()
+import           Pos.Communication.Relay  as R
+import           Pos.Infra.Arbitrary      ()
+import qualified Pos.Txp                  as T
+import           Pos.Txp.Arbitrary        (SmallTxPayload)
 
 import           Test.Pos.Util               (binaryTest, msgLenLimitedTest,
                                               networkBinaryTest)

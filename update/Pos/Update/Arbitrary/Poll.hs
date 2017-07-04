@@ -4,10 +4,10 @@
 
 module Pos.Update.Arbitrary.Poll () where
 
-import           Data.DeriveTH                     (derive, makeArbitrary)
-import           Test.QuickCheck                   (Arbitrary (..), choose)
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Universum
+
+import           Test.QuickCheck                   (Arbitrary (..))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Update                 ()
@@ -23,25 +23,46 @@ import           Pos.Update.Poll.Types             (BlockVersionState (..),
                                                     UndecidedProposalState (..),
                                                     UpsExtra (..), USUndo)
 
-derive makeArbitrary ''UpsExtra
-derive makeArbitrary ''UndecidedProposalState
+instance Arbitrary UpsExtra where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
-derive makeArbitrary ''DpsExtra
-derive makeArbitrary ''DecidedProposalState
+instance Arbitrary UndecidedProposalState where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
-derive makeArbitrary ''ConfirmedProposalState
-derive makeArbitrary ''ProposalState
+instance Arbitrary DpsExtra where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
-derive makeArbitrary ''BlockVersionState
+instance Arbitrary DecidedProposalState where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
-derive makeArbitrary ''PollModifier
+instance Arbitrary ConfirmedProposalState where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
-derive makeArbitrary ''PollState
+instance Arbitrary ProposalState  where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
-instance Arbitrary a => Arbitrary (PrevValue a) where
+instance Arbitrary BlockVersionState where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary PollModifier where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary PollState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance Arbitrary USUndo where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary a => Arbitrary (PrevValue a) where
     arbitrary = genericArbitrary
     shrink = genericShrink

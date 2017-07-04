@@ -218,7 +218,7 @@ data PollModifier = PollModifier
     , pmActiveProps    :: !(MapModifier UpId ProposalState)
     , pmSlottingData   :: !(Maybe SlottingData)
     , pmEpochProposers :: !(Maybe (HashSet StakeholderId))
-    } deriving (Eq, Show)
+    } deriving (Eq, Show, Generic)
 
 flip makeLensesFor ''PollModifier
     [ ("pmBVs", "pmBVsL")

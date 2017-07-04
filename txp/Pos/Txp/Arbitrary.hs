@@ -13,35 +13,47 @@ module Pos.Txp.Arbitrary
 
 import           Universum
 
-import           Data.Default        (Default (def))
-import           Data.DeriveTH       (derive, makeArbitrary)
-import           Data.List.NonEmpty  ((<|))
-import qualified Data.List.NonEmpty  as NE
-import qualified Data.Vector         as V
-import           Test.QuickCheck     (Arbitrary (..), Gen, choose, listOf, oneof, scale)
+import           Data.Default                      (Default (def))
+import           Data.List.NonEmpty                ((<|))
+import qualified Data.List.NonEmpty                as NE
+import qualified Data.Vector                       as V
+import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, listOf,
+                                                    oneof, scale)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Binary.Class    (Bi, Raw)
-import           Pos.Binary.Txp.Core ()
-import           Pos.Core.Address    (makePubKeyAddress)
-import           Pos.Core.Types      (Coin)
-import           Pos.Core.Arbitrary  ()
-import           Pos.Crypto          (Hash, SecretKey, SignTag (SignTxIn), hash,
-                                      sign, toPublic)
-import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Merkle          (MerkleRoot (..), MerkleTree, mkMerkleTree)
-import           Pos.Txp.Core.Types  (Tx (..), TxAux (..), TxDistribution (..),
-                                      TxIn (..), TxInWitness (..),TxOut (..),
-                                      TxOutAux (..), TxPayload (..), TxProof (..),
-                                      TxSigData (..), mkTx, mkTxPayload)
-import           Pos.Util.Arbitrary  (makeSmall)
+import           Pos.Binary.Class                  (Bi, Raw)
+import           Pos.Binary.Txp.Core               ()
+import           Pos.Core.Address                  (makePubKeyAddress)
+import           Pos.Core.Types                    (Coin)
+import           Pos.Core.Arbitrary                ()
+import           Pos.Crypto                        (Hash, SecretKey, SignTag (SignTxIn),
+                                                    hash, sign, toPublic)
+import           Pos.Data.Attributes               (mkAttributes)
+import           Pos.Merkle                        (MerkleNode (..), MerkleRoot (..),
+                                                    MerkleTree, mkMerkleTree)
+import           Pos.Txp.Core.Types                (Tx (..), TxAux (..),
+                                                    TxDistribution (..), TxIn (..),
+                                                    TxInWitness (..),TxOut (..),
+                                                    TxOutAux (..), TxPayload (..),
+                                                    TxProof (..), TxSigData (..), mkTx,
+                                                    mkTxPayload)
+import           Pos.Util.Arbitrary                (makeSmall)
 
 ----------------------------------------------------------------------------
 -- Arbitrary txp types
 ----------------------------------------------------------------------------
 
-derive makeArbitrary ''TxOut
-derive makeArbitrary ''TxOutAux
-derive makeArbitrary ''TxSigData
+instance Arbitrary TxOut where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary TxOutAux where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary TxSigData where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary TxInWitness where
     arbitrary = oneof [
@@ -51,9 +63,19 @@ instance Arbitrary TxInWitness where
         ScriptWitness <$> arbitrary <*> arbitrary,
         RedeemWitness <$> arbitrary <*> arbitrary,
         UnknownWitnessType <$> choose (3, 255) <*> scale (min 150) arbitrary ]
+    shrink = \case
+        UnknownWitnessType n a -> UnknownWitnessType n <$> shrink a
+        ScriptWitness a b -> uncurry ScriptWitness <$> shrink (a, b)
+        _ -> []
 
-derive makeArbitrary ''TxDistribution
-derive makeArbitrary ''TxIn
+instance Arbitrary TxDistribution where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary TxIn where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
 
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'mxTx'
@@ -63,6 +85,7 @@ instance Arbitrary Tx where
         pure (mkAttributes ()) <&> \case
             Left err -> error $ "Arbitrary Tx: " <> err
             Right res -> res
+    shrink = genericShrink
 
 -- | Type used to generate valid ('verifyTx')
 -- transactions and accompanying input information.
@@ -118,9 +141,9 @@ buildProperTx triplesList (inCoin, outCoin) = fmap newTx txList
 -- | Well-formed transaction 'Tx'.
 newtype GoodTx = GoodTx
     { getGoodTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
-    } deriving (Show)
+    } deriving (Generic, Show)
 
-newtype SmallGoodTx = SmallGoodTx { getSmallGoodTx :: GoodTx } deriving (Show)
+newtype SmallGoodTx = SmallGoodTx { getSmallGoodTx :: GoodTx } deriving (Generic, Show)
 
 goodTxToTxAux :: GoodTx -> TxAux
 goodTxToTxAux (GoodTx l) = TxAux tx witness distr
@@ -133,39 +156,51 @@ goodTxToTxAux (GoodTx l) = TxAux tx witness distr
 instance Arbitrary GoodTx where
     arbitrary =
         GoodTx <$> (buildProperTx <$> arbitrary <*> pure (identity, identity))
+    shrink = genericShrink
 
 instance Arbitrary SmallGoodTx where
     arbitrary = SmallGoodTx <$> makeSmall arbitrary
+    shrink = genericShrink
 
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx
     { getBadSigsTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
-    } deriving (Show)
+    } deriving (Generic, Show)
 
 newtype SmallBadSigsTx =
     SmallBadSigsTx BadSigsTx
-    deriving Show
+    deriving (Generic, Show)
 
 instance Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
         return $ map (set _4 badSig) goodTxList
+    shrink = genericShrink
 
 instance Arbitrary SmallBadSigsTx where
     arbitrary = SmallBadSigsTx <$> makeSmall arbitrary
+    shrink = genericShrink
 
 instance Arbitrary (MerkleRoot Tx) where
     arbitrary = MerkleRoot <$> (arbitrary @(Hash Raw))
+    shrink = genericShrink
+
+instance Arbitrary (MerkleNode Tx) where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary (MerkleTree Tx) where
     arbitrary = mkMerkleTree <$> arbitrary
+    shrink = genericShrink
 
 instance Arbitrary TxProof where
-    arbitrary = makeSmall $
-        TxProof <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = makeSmall genericArbitrary
+    shrink = genericShrink
 
-derive makeArbitrary ''TxAux
+instance Arbitrary TxAux where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 ----------------------------------------------------------------------------
 -- Utilities used in 'Pos.Block.Arbitrary'
@@ -189,10 +224,12 @@ instance Arbitrary TxPayload where
         fromMaybe (error "arbitrary@TxPayload: mkTxPayload failed") .
         mkTxPayload <$>
         txOutDistGen
+    shrink = genericShrink
 
 newtype SmallTxPayload =
     SmallTxPayload TxPayload
-    deriving (Show, Eq, Bi)
+    deriving (Generic, Show, Eq, Bi)
 
 instance Arbitrary SmallTxPayload where
     arbitrary = SmallTxPayload <$> makeSmall arbitrary
+    shrink = genericShrink

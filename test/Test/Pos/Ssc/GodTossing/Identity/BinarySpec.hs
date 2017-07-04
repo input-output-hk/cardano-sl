@@ -12,8 +12,8 @@ import           Test.Hspec                             (Spec, describe)
 import           Pos.Binary                             ()
 import qualified Pos.Communication.Relay                as R
 import           Pos.Core                               (StakeholderId)
+import           Pos.Infra.Arbitrary                    ()
 import qualified Pos.Ssc.GodTossing                     as GT
-import           Test.Pos.Arbitrary.Infra.Communication ()
 import           Test.Pos.Util                          (binaryTest, msgLenLimitedTest)
 
 spec :: Spec

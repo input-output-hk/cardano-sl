@@ -7,11 +7,11 @@ module Test.Pos.Types.Identity.BinarySpec
 import           Test.Hspec                    (Spec, describe)
 import           Universum
 
-import           Pos.Communication.Arbitrary   ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Core.Arbitrary            ()
 import qualified Pos.Core.Fee                  as Fee
 import           Pos.Data.Attributes           (Attributes (..))
+import           Pos.Infra.Arbitrary           ()
 import qualified Pos.Types                     as T
 
 import           Test.Pos.Util                 (binaryTest)

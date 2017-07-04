@@ -8,9 +8,9 @@ import           Universum
 
 import           Test.Hspec                       (Spec, describe)
 
-import           Pos.Communication.Arbitrary      ()
 import           Pos.Communication.Types.Relay    (DataMsg (..))
 import           Pos.Delegation                   (DlgPayload, ProxySKLightConfirmation)
+import           Pos.Infra.Arbitrary              ()
 import           Test.Pos.Util                    (binaryTest, networkBinaryTest)
 
 

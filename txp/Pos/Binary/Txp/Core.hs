@@ -8,8 +8,9 @@ import           Universum
 
 import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), PokeWithSize,
                                      UnsignedVarInt (..), convertToSizeNPut,
-                                     deriveSimpleBi, getWithLength, getWord8, label,
-                                     labelS, putField, putS, putWithLengthS, putWord8S)
+                                     deriveSimpleBi, getBytes, getWithLength, getWord8,
+                                     label, labelS, putBytesS, putField, putS,
+                                     putWithLengthS, putWord8S)
 import           Pos.Binary.Core    ()
 import           Pos.Binary.Merkle  ()
 import qualified Pos.Core.Types     as T
@@ -51,27 +52,29 @@ instance Bi T.Tx where
         T.mkTx ins outs attrs
 
 instance Bi T.TxInWitness where
-    sizeNPut = labelS "TxInWitness" $ convertToSizeNPut f
+    sizeNPut = labelS "TxInWitness" $ convertToSizeNPut $ \case
+        -- It's important that we use 'putWithTag' for all branches.
+        T.PkWitness key sig ->
+            putWithTag 0 $ putS key <> putS sig
+        T.ScriptWitness val red ->
+            putWithTag 1 $ putS val <> putS red
+        T.RedeemWitness key sig ->
+            putWithTag 2 $ putS key <> putS sig
+        T.UnknownWitnessType t bs ->
+            -- It's important that it's 'putBytesS' and not just 'putS'.
+            putWithTag t $ putBytesS bs
       where
-        withLen :: Bi a => a -> PokeWithSize ()
-        withLen = putWithLengthS . putS
+        -- | Put tag, then length of X, then X itself
+        putWithTag :: Word8 -> PokeWithSize () -> PokeWithSize ()
+        putWithTag t x = putWord8S t <> putWithLengthS x
 
-        f :: T.TxInWitness -> PokeWithSize ()
-        f (T.PkWitness key sig) =
-            putWord8S 0 <> withLen (key, sig)
-        f (T.ScriptWitness val red) =
-            putWord8S 1 <> withLen (val, red)
-        f (T.RedeemWitness key sig) =
-            putWord8S 2 <> withLen (key, sig)
-        f (T.UnknownWitnessType t bs) =
-            putS @Word8 t <> putS bs
     get = label "TxInWitness" $ do
         tag <- getWord8
-        case tag of
-            0 -> uncurry T.PkWitness <$> getWithLength (const get)
-            1 -> uncurry T.ScriptWitness <$> getWithLength (const get)
-            2 -> uncurry T.RedeemWitness <$> getWithLength (const get)
-            t -> T.UnknownWitnessType t <$> get
+        getWithLength $ \len -> case tag of
+            0 -> T.PkWitness <$> get <*> get
+            1 -> T.ScriptWitness <$> get <*> get
+            2 -> T.RedeemWitness <$> get <*> get
+            t -> T.UnknownWitnessType t <$> getBytes (fromIntegral len)
 
 instance Bi T.TxDistribution where
     sizeNPut = labelS "TxDistribution" $ putField f

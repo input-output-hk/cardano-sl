@@ -50,8 +50,9 @@ import           Pos.Context                 (BlkSemaphore (..), ConnectedPeers 
                                               NodeContext (..), StartTime (..))
 import           Pos.Core                    (Timestamp)
 import           Pos.DB                      (MonadDBRead, NodeDBs)
-import           Pos.DB.DB                   (closeNodeDBs, initNodeDBs, openNodeDBs)
+import           Pos.DB.DB                   (initNodeDBs)
 import           Pos.DB.GState               (getTip)
+import           Pos.DB.Rocks                (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.DHT.Real                (KademliaDHTInstance, KademliaParams (..),
                                               startDHTInstance, stopDHTInstance)

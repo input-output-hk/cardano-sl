@@ -41,9 +41,10 @@ import           Pos.DB.Block          (dbGetBlockDefault, dbGetBlockSscDefault,
                                         dbGetHeaderDefault, dbGetHeaderSscDefault,
                                         dbGetUndoDefault, dbGetUndoSscDefault,
                                         dbPutBlundDefault)
-import           Pos.DB.Class          (MonadBlockDBGeneric (..), MonadBlockDBWrite (..),
-                                        MonadDB (..), MonadDBRead (..))
-import           Pos.DB.Rocks.Redirect (dbDeleteDefault, dbGetDefault,
+import           Pos.DB.Class          (MonadBlockDBGeneric (..),
+                                        MonadBlockDBGenericWrite (..), MonadDB (..),
+                                        MonadDBRead (..))
+import           Pos.DB.Rocks          (dbDeleteDefault, dbGetDefault,
                                         dbIterSourceDefault, dbPutDefault,
                                         dbWriteBatchDefault)
 import           Pos.Lrc.Context       (LrcContext)
@@ -131,7 +132,7 @@ instance
     dbGetHeader = dbGetHeaderDefault @ssc
 
 instance SscHelpersClass ssc =>
-         MonadBlockDBWrite (BlockHeader ssc) (Block ssc) Undo (InitMode ssc) where
+         MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (InitMode ssc) where
     dbPutBlund = dbPutBlundDefault
 
 instance

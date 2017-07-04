@@ -29,10 +29,10 @@ import           Pos.DB.Block                  (dbGetBlockDefault, dbGetBlockSsc
                                                 dbGetUndoDefault, dbGetUndoSscDefault,
                                                 dbPutBlundDefault)
 import           Pos.DB.Class                  (MonadBlockDBGeneric (..),
-                                                MonadBlockDBWrite (..), MonadDB (..),
-                                                MonadDBRead (..))
+                                                MonadBlockDBGenericWrite (..),
+                                                MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB                     (gsAdoptedBVDataDefault)
-import           Pos.DB.Rocks.Redirect         (dbDeleteDefault, dbGetDefault,
+import           Pos.DB.Rocks                  (dbDeleteDefault, dbGetDefault,
                                                 dbIterSourceDefault, dbPutDefault,
                                                 dbWriteBatchDefault)
 
@@ -180,7 +180,7 @@ instance MonadDB WalletWebMode where
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
 
-instance MonadBlockDBWrite (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode where
+instance MonadBlockDBGenericWrite (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode where
     dbPutBlund = dbPutBlundDefault
 
 instance MonadBlockDBGeneric (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode

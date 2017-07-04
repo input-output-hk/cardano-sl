@@ -41,7 +41,8 @@ import           Pos.Core                (IsHeader, StakeDistribution (..), Stak
                                           Timestamp (..), addressHash, makePubKeyAddress,
                                           mkCoin, unsafeGetCoin)
 import           Pos.Crypto              (SecretKey, toPublic, unsafeHash)
-import           Pos.DB                  (MonadBlockDBGeneric (..), MonadDB (..),
+import           Pos.DB                  (MonadBlockDBGeneric (..),
+                                          MonadBlockDBGenericWrite (..), MonadDB (..),
                                           MonadDBRead (..), MonadGState (..), NodeDBs,
                                           dbDeleteDefault, dbGetDefault,
                                           dbIterSourceDefault, dbPutDefault,
@@ -50,10 +51,9 @@ import           Pos.DB.Block            (dbGetBlockDefault, dbGetBlockSscDefaul
                                           dbGetHeaderDefault, dbGetHeaderSscDefault,
                                           dbGetUndoDefault, dbGetUndoSscDefault,
                                           dbPutBlundDefault)
-import           Pos.DB.Class            (MonadBlockDBWrite (..))
-import           Pos.DB.DB               (closeNodeDBs, gsAdoptedBVDataDefault,
-                                          initNodeDBs, openNodeDBs)
+import           Pos.DB.DB               (gsAdoptedBVDataDefault, initNodeDBs)
 import qualified Pos.DB.GState           as GState
+import           Pos.DB.Rocks            (closeNodeDBs, openNodeDBs)
 import           Pos.Genesis             (stakeDistribution)
 import           Pos.Launcher            (InitModeContext (..), newInitFuture,
                                           runInitMode)
@@ -310,7 +310,7 @@ instance MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTe
     dbGetUndo   = dbGetUndoSscDefault @SscGodTossing
     dbGetHeader = dbGetHeaderSscDefault @SscGodTossing
 
-instance MonadBlockDBWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode where
+instance MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode where
     dbPutBlund = dbPutBlundDefault
 
 instance MonadGState BlockTestMode where

@@ -52,7 +52,7 @@ module Pos.DB.Class
          -- * Block DB
        , MonadBlockDBGeneric (..)
        , dbGetBlund
-       , MonadBlockDBWrite (..)
+       , MonadBlockDBGenericWrite (..)
        ) where
 
 import           Universum
@@ -217,15 +217,15 @@ dbGetBlund x =
 --
 -- TODO: support deletion when we actually start using deletion
 -- (probably not soon).
-class MonadBlockDBGeneric header blk undo m => MonadBlockDBWrite header blk undo m where
+class MonadBlockDBGeneric header blk undo m => MonadBlockDBGenericWrite header blk undo m where
     -- | Put given blund into the Block DB.
     dbPutBlund :: (blk,undo) -> m ()
 
 instance {-# OVERLAPPABLE #-}
-    ( MonadBlockDBWrite header blk undo m
+    ( MonadBlockDBGenericWrite header blk undo m
     , MonadBlockDBGeneric header blk undo (t m)
     , MonadTrans t
     , LiftLocal t) =>
-        MonadBlockDBWrite header blk undo (t m)
+        MonadBlockDBGenericWrite header blk undo (t m)
   where
     dbPutBlund = lift . dbPutBlund

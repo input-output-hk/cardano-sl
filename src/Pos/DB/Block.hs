@@ -31,6 +31,7 @@ module Pos.DB.Block
 
        -- * MonadBlockDB
        , MonadBlockDB
+       , MonadBlockDBWrite
        , dbGetBlockDefault
        , dbGetUndoDefault
        , dbGetHeaderDefault
@@ -63,7 +64,7 @@ import           Pos.Core                  (HasDifficulty (difficultyL),
                                             IsHeader, headerHash)
 import           Pos.Crypto                (hashHexF, shortHashF)
 import           Pos.DB.Class              (DBTag (..), MonadBlockDBGeneric (..),
-                                            MonadBlockDBWrite (..), MonadDBRead,
+                                            MonadBlockDBGenericWrite (..), MonadDBRead,
                                             dbGetBlund)
 import           Pos.DB.Error              (DBError (DBMalformed))
 import           Pos.DB.Functions          (dbGetBi)
@@ -273,7 +274,7 @@ dbPutBlundPureDefault (blk,undo) = do
 
 prepareBlockDB
     :: forall ssc m.
-       MonadBlockDBWrite (BlockHeader ssc) (Block ssc) Undo m
+       MonadBlockDBWrite ssc m
     => GenesisBlock ssc -> m ()
 prepareBlockDB blk = dbPutBlund @(BlockHeader ssc) @(Block ssc) @Undo (Left blk, def)
 
@@ -293,6 +294,12 @@ type MonadBlockDB ssc m
      = ( MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo m
        , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
        , SscHelpersClass ssc)
+
+-- | 'MonadBlocksDB' with write options
+type MonadBlockDBWrite ssc m
+    = ( MonadBlockDB ssc m
+      , MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo m
+      )
 
 -- instance MonadBlockDBGeneric (Block ssc)
 

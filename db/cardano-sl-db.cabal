@@ -22,7 +22,6 @@ library
                        Pos.DB.Misc.Common
                        Pos.DB.Pure
                        Pos.DB.Rocks
-                       Pos.DB.Rocks.Redirect
                        Pos.DB.Rocks.Functions
                        Pos.DB.Rocks.Types
 
@@ -33,7 +32,9 @@ library
                      , conduit
                      , containers
                      , data-default
+                     , directory
                      , ether >= 0.5
+                     , filepath
                      , formatting
                      , lens
                      , log-warper

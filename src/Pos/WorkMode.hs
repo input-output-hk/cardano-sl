@@ -39,7 +39,7 @@ import           Pos.DB.Block                (dbGetBlockDefault, dbGetBlockSscDe
                                               dbGetUndoDefault, dbGetUndoSscDefault,
                                               dbPutBlundDefault)
 import           Pos.DB.Class                (MonadBlockDBGeneric (..),
-                                              MonadBlockDBWrite (..), MonadDB (..),
+                                              MonadBlockDBGenericWrite (..), MonadDB (..),
                                               MonadDBRead (..))
 import           Pos.DB.DB                   (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks                (dbDeleteDefault, dbGetDefault,
@@ -203,5 +203,5 @@ instance
     dbGetHeader = dbGetHeaderSscDefault @ssc
 
 instance SscHelpersClass ssc =>
-         MonadBlockDBWrite (BlockHeader ssc) (Block ssc) Undo (RealMode ssc) where
+         MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (RealMode ssc) where
     dbPutBlund = dbPutBlundDefault

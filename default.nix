@@ -11,6 +11,7 @@ let
 in ((import ./pkgs { inherit pkgs; }).override {
   overrides = self: super: {
     cardano-sl = overrideCabal super.cardano-sl (drv: {
+      src = cleanSource drv.src;
       doHaddock = false;
       patchPhase = ''
        export CSL_SYSTEM_TAG=linux64

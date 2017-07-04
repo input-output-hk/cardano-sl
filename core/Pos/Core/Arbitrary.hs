@@ -336,8 +336,7 @@ instance Arbitrary Fee.TxFeePolicy where
 
 -- Unsafe? How is it used?
 instance Arbitrary G.GenesisCoreData where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
+    arbitrary = G.UnsafeGenesisCoreData <$> arbitrary <*> arbitrary
 
 instance Arbitrary G.StakeDistribution where
     arbitrary = oneof

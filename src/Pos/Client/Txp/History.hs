@@ -59,9 +59,11 @@ import           Pos.Txp                      (txProcessTransaction)
 import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxoRead,
                                                ToilT, Tx (..), TxAux (..), TxDistribution,
                                                TxId, TxOut, TxOutAux (..), TxWitness,
-                                               applyTxToUtxo, evalToilTEmpty,
-                                               flattenTxPayload, getLocalTxs, runDBTxp,
+                                               TxpError (..), applyTxToUtxo,
+                                               evalToilTEmpty, flattenTxPayload,
+                                               getLocalTxs, runDBTxp, topsortTxs,
                                                txOutAddress, utxoGet)
+import           Pos.Util                     (maybeThrow)
 import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -246,8 +248,11 @@ instance
     getLocalHistory addrs = runDBTxp . evalToilTEmpty $ do
         let mapper (txid, TxAux {..}) =
                 (WithHash taTx txid, taWitness, taDistribution)
-        ltxs <- getLocalTxs
-        txs <- getRelatedTxsByAddrs addrs Nothing Nothing $ map mapper ltxs
+            topsortErr = TxpInternalError
+                "getLocalHistory: transactions couldn't be topsorted!"
+        ltxs <- map mapper <$> getLocalTxs
+        txs <- getRelatedTxsByAddrs addrs Nothing Nothing =<<
+               maybeThrow topsortErr (topsortTxs (view _1) ltxs)
         return $ DL.fromList txs
 
 #ifdef WITH_EXPLORER

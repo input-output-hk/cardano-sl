@@ -58,11 +58,11 @@ import           Control.Monad.State.Class  (put)
 import           Data.Default               (Default, def)
 import qualified Data.HashMap.Strict        as HM
 import           Data.SafeCopy              (base, deriveSafeCopySimple)
+import           Data.Time.Clock.POSIX      (POSIXTime)
 
 import           Pos.Client.Txp.History     (TxHistoryEntry)
 import           Pos.Constants              (genesisHash)
 import           Pos.Core.Types             (Timestamp)
-import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
 import           Pos.Util.BackupPhrase      (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoin, CHash,
@@ -81,6 +81,7 @@ type CustomAddresses = HashMap (CId Addr) (HeaderHash)
 data WalletInfo = WalletInfo
     { _wiMeta         :: CWalletMeta
     , _wiPassphraseLU :: PassPhraseLU
+    , _wiCreationTime :: POSIXTime
     , _wiSyncTip      :: HeaderHash
     }
 
@@ -100,7 +101,7 @@ data WalletStorage = WalletStorage
     , _wsProfile         :: !CProfile
     , _wsReadyUpdates    :: [CUpdateInfo]
     , _wsTxHistory       :: !(HashMap (CId Wal) TransactionHistory)
-    , _wsHistoryCache    :: !(HashMap (CId Wal) (HeaderHash, Utxo, [TxHistoryEntry]))
+    , _wsHistoryCache    :: !(HashMap (CId Wal) [TxHistoryEntry])
     , _wsUsedAddresses   :: !CustomAddresses
     , _wsChangeAddresses :: !CustomAddresses
     }
@@ -172,7 +173,9 @@ getWalletSyncTip cWalId = preview (wsWalletInfos . ix cWalId . wiSyncTip)
 
 
 getWalletAddresses :: Query [CId Wal]
-getWalletAddresses = HM.keys <$> view wsWalletInfos
+getWalletAddresses =
+    map fst . sortOn (view wiCreationTime . snd) . HM.toList <$>
+    view wsWalletInfos
 
 getAccountWAddresses :: AddressLookupMode
                   -> AccountId
@@ -202,7 +205,7 @@ getUpdates = view wsReadyUpdates
 getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
-getHistoryCache :: CId Wal -> Query (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
+getHistoryCache :: CId Wal -> Query (Maybe [TxHistoryEntry])
 getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
 
 getCustomAddresses :: CustomAddressType -> Query [CId Addr]
@@ -226,9 +229,10 @@ createAccount :: AccountId -> CAccountMeta -> Update ()
 createAccount accId cAccMeta =
     wsAccountInfos . at accId %= Just . fromMaybe (AccountInfo cAccMeta mempty mempty)
 
-createWallet :: CId Wal -> CWalletMeta -> PassPhraseLU -> Update ()
-createWallet cWalId cWalMeta passLU =
-    wsWalletInfos . at cWalId %= Just . fromMaybe (WalletInfo cWalMeta passLU genesisHash)
+createWallet :: CId Wal -> CWalletMeta -> POSIXTime -> Update ()
+createWallet cWalId cWalMeta curTime = do
+    let info = WalletInfo cWalMeta curTime curTime genesisHash
+    wsWalletInfos . at cWalId %= (<|> Just info)
 
 addWAddress :: CWAddressMeta -> Update ()
 addWAddress addr@CWAddressMeta{..} = do
@@ -298,9 +302,9 @@ removeNextUpdate = wsReadyUpdates %= drop 1
 testReset :: Update ()
 testReset = put def
 
-updateHistoryCache :: CId Wal -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
-updateHistoryCache cWalId hh utxo cTxs =
-    wsHistoryCache . at cWalId ?= (hh, utxo, cTxs)
+updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
+updateHistoryCache cWalId cTxs =
+    wsHistoryCache . at cWalId ?= cTxs
 
 deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile

@@ -30,7 +30,7 @@ import           Pos.Crypto           (ProxySecretKey (..), PublicKey, verifyPsk
 -- technically a set.
 newtype DlgPayload = UnsafeDlgPayload
     { getDlgPayload :: [ProxySKHeavy]
-    } deriving (Show, Eq, NFData)
+    } deriving (Show, Eq, Generic, NFData)
 
 instance Default DlgPayload where
     def = UnsafeDlgPayload []

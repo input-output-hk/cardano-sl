@@ -75,6 +75,7 @@ library
                      , ether
                      , file-embed
                      , formatting
+                     , generic-arbitrary
                      , lens
                      , log-warper
                      , mono-traversable

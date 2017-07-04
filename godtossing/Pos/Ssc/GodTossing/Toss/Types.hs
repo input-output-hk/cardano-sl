@@ -53,7 +53,7 @@ data TossModifier = TossModifier
     , _tmOpenings     :: !OpeningsMap
     , _tmShares       :: !SharesMap
     , _tmCertificates :: !VssCertificatesMap
-    } deriving (Show, Eq)
+    } deriving (Generic, Show, Eq)
 
 makeLenses ''TossModifier
 

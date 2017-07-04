@@ -40,7 +40,7 @@ data StakeDistribution
     | ExponentialStakes !Word
     -- | Custom balances list.
     | CustomStakes [Coin]
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
 
 -- | Get the amount of stakeholders in a distribution.
 getDistributionSize :: StakeDistribution -> Word
@@ -73,7 +73,8 @@ data GenesisCoreData = UnsafeGenesisCoreData
       -- stakeholders distribution (addresses and coins).
     , gcdBootstrapStakeholders :: !(HashSet StakeholderId)
       -- ^ Bootstrap era stakeholders.
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Generic)
+
 
 -- | Safe constructor for 'GenesisCoreData'. Throws error if something
 -- goes wrong.

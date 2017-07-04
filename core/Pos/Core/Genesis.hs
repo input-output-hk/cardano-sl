@@ -105,7 +105,6 @@ genesisProdBootStakeholders =
 
 generateGenesisKeyPair :: Int -> (PublicKey, SecretKey)
 generateGenesisKeyPair =
-    fromMaybe (error "deterministicKeyGen failed in Genesis") .
     deterministicKeyGen .
     encodeUtf8 .
     T.take 32 . sformat ("My awesome 32-byte seed #" %int % "             ")
@@ -113,7 +112,6 @@ generateGenesisKeyPair =
 generateHdwGenesisSecretKey :: Int -> EncryptedSecretKey
 generateHdwGenesisSecretKey =
     snd .
-    fromMaybe (error "safeDeterministicKeyGen failed in Genesis") .
     flip safeDeterministicKeyGen emptyPassphrase .
     encodeUtf8 .
     T.take 32 . sformat ("My 32-byte hdw seed #" %int % "                  ")

@@ -42,8 +42,10 @@ import           Pos.Util.TimeWarp                (CanJsonLog (..))
 import           Pos.Util.UserSecret              (HasUserSecret (..))
 import           Pos.Util.Util                    (postfixLFields)
 import           Pos.Wallet.KeyStorage            (KeyData)
-import           Pos.Wallet.Light.Redirect        (getBalanceWallet, getOwnUtxosWallet,
-                                                   getTxHistoryWallet, saveTxWallet)
+import           Pos.Wallet.Light.Redirect        (getBalanceWallet,
+                                                   getBlockHistoryWallet,
+                                                   getLocalHistoryWallet,
+                                                   getOwnUtxosWallet, saveTxWallet)
 import           Pos.Wallet.Light.State.Acidic    (WalletState)
 import           Pos.Wallet.Light.State.Core      (gsAdoptedBVDataWallet,
                                                    gsIsBootstrapEraWallet)
@@ -123,5 +125,6 @@ instance MonadBalances LightWalletMode where
     getBalance = getBalanceWallet
 
 instance MonadTxHistory LightWalletSscType LightWalletMode where
-    getTxHistory = getTxHistoryWallet
+    getBlockHistory = getBlockHistoryWallet
+    getLocalHistory = getLocalHistoryWallet
     saveTx = saveTxWallet

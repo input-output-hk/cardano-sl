@@ -175,7 +175,7 @@ data TxOutAux = TxOutAux
     { toaOut   :: !TxOut             -- ^ Tx output
     , toaDistr :: !TxOutDistribution -- ^ Stake distribution
                                      -- associated with output
-    } deriving (Show, Eq)
+    } deriving (Generic, Show, Eq)
 
 instance Buildable TxOutAux where
     build (TxOutAux out distr) =

@@ -219,7 +219,6 @@ update (DashboardExpandTransactions expanded) state = noEffects $
 
 update (DashboardPaginateBlocks mEvent pageNumber) state =
     { state:
-          set (dashboardViewState <<< dbViewBlockPagination) pageNumber $
           set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
     , effects:
           [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
@@ -577,6 +576,7 @@ update (DashboardReceiveBlocksTotalPages (Left error)) state =
 update (RequestPaginatedBlocks pageNumber pageSize) state =
     { state:
           set loading true $
+          set (dashboardViewState <<< dbViewBlockPagination) pageNumber $
           -- Important note: Don't use `set latestBlocks Loading` here,
           -- we will empty `latestBlocks` in this case !!!
           -- set latestBlocks Loading

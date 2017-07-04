@@ -96,12 +96,16 @@ testUpdate =
                 (isLoading $ state ^. (dashboardViewState <<< dbViewMaxBlockPagination)) `shouldEqual` true
 
         describe "handles RequestPaginatedBlocks action" do
-            let effModel = update (RequestPaginatedBlocks (PageNumber 1) (PageSize 1)) initialState
+            let pageNumber = PageNumber 2
+                effModel = update (RequestPaginatedBlocks pageNumber (PageSize 1)) initialState
                 state = _.state effModel
             it "to set dbViewLoadingBlockPagination to true" do
                 (state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)) `shouldEqual` true
             it "to not update state of latestBlocks" do
                 (isNotAsked $ state ^. latestBlocks) `shouldEqual` true
+            it "to update dbViewBlockPagination"
+                let result = (state ^. (dashboardViewState <<< dbViewBlockPagination))
+                in (gShow result) `shouldEqual` (gShow pageNumber)
 
         describe "handles DashboardReceiveBlocksTotalPages action" do
             let totalPages = 70
@@ -109,9 +113,6 @@ testUpdate =
                 state = _.state effModel
             it "to update dbViewMaxBlockPagination to number of total pages"
                 let result = unwrap <<< withDefault (PageNumber 0) $ state ^. (dashboardViewState <<< dbViewMaxBlockPagination )
-                in result `shouldEqual` totalPages
-            it "to update dbViewBlockPagination to number of total pages"
-                let result = unwrap $ state ^. (dashboardViewState <<< dbViewBlockPagination )
                 in result `shouldEqual` totalPages
 
         describe "uses action ReceivePaginatedBlocks" do
@@ -146,9 +147,6 @@ testUpdate =
                 in result `shouldEqual` totalPages
             it "to set loading to false" do
                 (state ^. loading) `shouldEqual` false
-            it "to update dbViewBlockPagination"
-                let result = (state ^. (dashboardViewState <<< dbViewBlockPagination))
-                in (gShow result) `shouldEqual` (gShow pageNumber)
             it "to set dbViewLoadingBlockPagination to false" do
                 (state ^. (dashboardViewState <<< dbViewLoadingBlockPagination))
                     `shouldEqual` false

@@ -26,6 +26,7 @@ module Pos.DB.Pure
        , dbPutPureDefault
        , dbDeletePureDefault
        , dbWriteBatchPureDefault
+       , atomicModifyIORefPure
        ) where
 
 import           Universum
@@ -46,7 +47,6 @@ import           Pos.Core                     (HeaderHash)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), IterType,
                                                iterKeyPrefix)
 import           Pos.DB.Functions             (processIterEntry)
-import           Pos.Util.Concurrent.RWVar    as RWV
 
 -- | Bytestring to Bytestring mapping mimicking rocks kv storage.
 type DBPureMap = Map ByteString ByteString
@@ -67,11 +67,11 @@ makeLenses ''DBPure
 instance Default DBPure where
     def = DBPure mempty mempty mempty mempty mempty
 
-type DBPureVar = RWV.RWVar DBPure
+type DBPureVar = IORef DBPure
 
 -- | Creates new db var.
 newDBPureVar :: MonadIO m => m DBPureVar
-newDBPureVar = RWV.new def
+newDBPureVar = newIORef def
 
 tagToLens :: DBTag -> Lens' DBPure DBPureMap
 tagToLens BlockIndexDB = pureBlockIndexDB
@@ -94,7 +94,7 @@ type MonadPureDB ctx m =
 
 dbGetPureDefault :: MonadPureDB ctx m => DBTag -> ByteString -> m (Maybe ByteString)
 dbGetPureDefault (tagToLens -> l) key =
-    view (l . at key) <$> (view (lensOf @DBPureVar) >>= RWV.read)
+    view (l . at key) <$> (view (lensOf @DBPureVar) >>= readIORef)
 
 dbIterSourcePureDefault ::
        ( MonadPureDB ctx m
@@ -108,20 +108,23 @@ dbIterSourcePureDefault (tagToLens -> l) (_ :: Proxy i) = do
     let filterPrefix = M.filterWithKey $ \k _ -> iterKeyPrefix @i `BS.isPrefixOf` k
     (dbPureVar :: DBPureVar) <- lift $ view (lensOf @DBPureVar)
     (filtered :: [(ByteString, ByteString)]) <-
-        M.toList . filterPrefix . (view l) <$> lift (RWV.read dbPureVar)
+        M.toList . filterPrefix . (view l) <$> lift (readIORef dbPureVar)
     deserialized <- catMaybes <$> mapM (processIterEntry @i) filtered
     CL.sourceList deserialized
 
 dbPutPureDefault :: MonadPureDB ctx m => DBTag -> ByteString -> ByteString -> m ()
 dbPutPureDefault (tagToLens -> l) key val =
-    view (lensOf @DBPureVar) >>= flip RWV.modifyPure (l . at key .~ Just val)
+    view (lensOf @DBPureVar) >>= atomicModifyIORefPure (l . at key .~ Just val)
 
 dbDeletePureDefault :: MonadPureDB ctx m => DBTag -> ByteString -> m ()
 dbDeletePureDefault (tagToLens -> l) key =
-    view (lensOf @DBPureVar) >>= flip RWV.modifyPure (l . at key .~ Nothing)
+    view (lensOf @DBPureVar) >>= atomicModifyIORefPure (l . at key .~ Nothing)
 
 dbWriteBatchPureDefault :: MonadPureDB ctx m => DBTag -> [Rocks.BatchOp] -> m ()
 dbWriteBatchPureDefault tag = mapM_ processOp
   where
     processOp (Rocks.Put k v) = dbPutPureDefault tag k v
     processOp (Rocks.Del k)   = dbDeletePureDefault tag k
+
+atomicModifyIORefPure :: (MonadIO m) => (a -> a) -> IORef a -> m ()
+atomicModifyIORefPure foo = flip atomicModifyIORef $ \a -> (foo a, ())

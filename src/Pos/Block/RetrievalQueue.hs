@@ -5,16 +5,18 @@ module Pos.Block.RetrievalQueue
        , MonadBlockRetrievalQueue
        ) where
 
+import           Universum
+
 import           Control.Concurrent.STM  (TBQueue)
 import qualified Ether
 
 import           Pos.Block.Core          (BlockHeader)
 import           Pos.Communication.Types (NodeId)
-import           Pos.Util.Chrono         (NE, NewestFirst)
 
-data BlockRetrievalTask ssc
-    = RetrieveBlocksByHeaders (NewestFirst NE (BlockHeader ssc))
-    | RetrieveHeadersByTip (BlockHeader ssc)
+data BlockRetrievalTask ssc = BlockRetrievalTask
+    { brtHeader    :: !(BlockHeader ssc)
+    , brtContinues :: !Bool
+    }
 
 data BlockRetrievalQueueTag
 

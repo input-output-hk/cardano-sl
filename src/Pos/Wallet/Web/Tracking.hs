@@ -69,6 +69,7 @@ import           Pos.DB.Class               (MonadRealDB)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
 import qualified Pos.DB.GState              as GS
+import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting               (getSlotStartPure)
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOutAux (..), TxIn (..) ,
@@ -206,9 +207,9 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> do
         if wTip == genesisHash then syncDo encSK Nothing
         else DB.blkGetHeader wTip >>= \case
             Nothing ->
-                logWarning $
-                sformat ("Couldn't get block header of wallet "%build
-                            %" by last synced hh: "%build) wAddr wTip
+                throwM $ InternalError $
+                    sformat ("Couldn't get block header of wallet "%build
+                                %" by last synced hh: "%build) wAddr wTip
             Just wHeader -> syncDo encSK (Just wHeader)
   where
     syncDo :: EncryptedSecretKey -> Maybe (BlockHeader ssc) -> m ()
@@ -221,19 +222,22 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> do
         -- when we call @syncWalletSetWithTip@ at the first time
         -- or if the application was interrupted during rollback.
         -- We don't load all blocks explicitly, because blockain can be long.
-        when (gstateTipH ^. difficultyL > blkSecurityParam + fromIntegral wdiff) $ do
-            -- Wallet tip is "far" from gState tip,
-            -- rollback can't occur more then @blkSecurityParam@ blocks,
-            -- so we can sync wallet and GState without the block lock
-            -- to avoid blocking of blocks verification/application.
-            bh <- unsafeLast . getNewestFirst <$> DB.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
-            logDebug $
-                sformat ("Wallet's tip is far from GState tip. Syncing with "%build%" without the block lock")
-                (headerHash bh)
-            syncWalletWithGStateUnsafe encSK wTipH bh
+        wNewTip <-
+            if (gstateTipH ^. difficultyL > blkSecurityParam + fromIntegral wdiff) then do
+                -- Wallet tip is "far" from gState tip,
+                -- rollback can't occur more then @blkSecurityParam@ blocks,
+                -- so we can sync wallet and GState without the block lock
+                -- to avoid blocking of blocks verification/application.
+                bh <- unsafeLast . getNewestFirst <$> DB.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
+                logDebug $
+                    sformat ("Wallet's tip is far from GState tip. Syncing with "%build%" without the block lock")
+                    (headerHash bh)
+                syncWalletWithGStateUnsafe encSK wTipH bh
+                pure $ Just bh
+            else pure wTipH
         withBlkSemaphore_ $ \tip -> do
             tipH <- maybe (error "Wallet tracking: no block header corresponding to tip") pure =<< DB.blkGetHeader tip
-            tip <$ syncWalletWithGStateUnsafe encSK wTipH tipH
+            tip <$ syncWalletWithGStateUnsafe encSK wNewTip tipH
 
 ----------------------------------------------------------------------------
 -- Unsafe operations. Core logic.

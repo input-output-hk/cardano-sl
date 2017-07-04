@@ -162,12 +162,12 @@ prepareInpOuts utxo addr outputs =
 -- | Make a multi-transaction using given secret key and info for outputs.
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
 createMTx :: Utxo -> NonEmpty (SafeSigner, Address) -> TxOutputs -> Either TxError TxAux
-createMTx utxo hwdSigner outputs =
-    let addr = map snd hwdSigner
+createMTx utxo hwdSigners outputs =
+    let addrs = map snd hwdSigners
     in  uncurry (makeMPubKeyTx getSigner) <$>
-        prepareInpsOuts utxo addr outputs
+        prepareInpsOuts utxo addrs outputs
   where
-    signers = HM.fromList . toList $ map (swap . second AddressIA) hwdSigner
+    signers = HM.fromList . toList $ map (swap . second AddressIA) hwdSigners
     getSigner addr =
         fromMaybe (error "Requested signer for unknown address") $
         HM.lookup (AddressIA addr) signers

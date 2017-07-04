@@ -20,12 +20,11 @@ module Pos.Core.Arbitrary
 import           Universum
 
 import qualified Data.ByteString                   as BS (pack)
-import           Data.DeriveTH                     (derive, makeArbitrary)
 import           Data.Time.Units                   (Microsecond, Millisecond,
-                                                    fromMicroseconds)
+                                                    TimeUnit (..))
 import           System.Random                     (Random)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, oneof,
-                                                    scale, suchThat)
+                                                    scale, shrinkIntegral, suchThat)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
@@ -40,12 +39,10 @@ import           Pos.Core.Coin                     (coinToInteger, divCoin, unsa
 import           Pos.Core.Constants                (sharedSeedLength)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
-import           Pos.Core.Types                    (BlockVersion (..),
-                                                    BlockVersionData (..), Script (..),
-                                                    SoftwareVersion (..))
 import qualified Pos.Core.Types                    as Types
 import           Pos.Crypto                        (PublicKey, Share)
 import           Pos.Crypto.Arbitrary              ()
+import           Pos.Data.Attributes               (Attributes (..))
 import           Pos.Util.Arbitrary                (makeSmall)
 import           Pos.Util.Util                     (leftToPanic)
 
@@ -53,7 +50,9 @@ import           Pos.Util.Util                     (leftToPanic)
 -- Arbitrary core types
 ----------------------------------------------------------------------------
 
-derive makeArbitrary ''Script
+instance Arbitrary Types.Script where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary Types.Address where
     arbitrary = oneof [
@@ -72,25 +71,54 @@ deriving instance Random Types.EpochIndex
 
 instance Arbitrary Types.EpochIndex where
     arbitrary = choose (0, maxReasonableEpoch)
+    shrink = genericShrink
 
 instance Arbitrary Types.LocalSlotIndex where
     arbitrary =
         leftToPanic "arbitrary@LocalSlotIndex: " . Types.mkLocalSlotIndex <$>
         choose (Types.getSlotIndex minBound, Types.getSlotIndex maxBound)
+    shrink = genericShrink
+
+{- NOTE: Deriving an 'Arbitrary' instance
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(As of derive-2.6.2)
+
+Using, as an example,
+
+    {-# LANGUAGE TemplateHaskell #-}
+
+    import Data.Derive.TH (derive, makeArbitrary)
+
+    data A = A
+        { getA  :: [(String, Int)]
+        , getA2 :: Float
+        } deriving (Show, Eq, Generic)
+    -- `A`'s inner types can be anything for which the constraints make sense
+
+    derive makeArbitrary ''A
+
+means the generated 'Arbitrary' instance uses the default 'shrink' implementation:
+
+    shrink = []
+
+'Pos.Util.Util.dumpSplices' can be used to verify this.'
+-}
 
 instance Arbitrary Types.SlotId where
-    arbitrary = Types.SlotId
-        <$> arbitrary
-        <*> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary Types.EpochOrSlot where
     arbitrary = oneof [
           Types.EpochOrSlot . Left <$> arbitrary
         , Types.EpochOrSlot . Right <$> arbitrary
         ]
+    shrink = genericShrink
 
 instance Arbitrary Types.Coin where
     arbitrary = Types.mkCoin <$> choose (1, Types.unsafeGetCoin maxBound)
+    shrink = genericShrink
 
 -- | This datatype has two coins that will always overflow when added.
 -- It is used in tests to make sure addition raises the appropriate exception when this
@@ -265,10 +293,15 @@ instance Arbitrary Types.ApplicationName where
         Types.mkApplicationName .
         toText . map (chr . flip mod 128) . take Types.applicationNameMaxLength <$>
         arbitrary
+    shrink = genericShrink
 
-derive makeArbitrary ''Types.BlockVersion
-derive makeArbitrary ''Types.BlockVersionData
-derive makeArbitrary ''Types.SoftwareVersion
+instance Arbitrary Types.BlockVersion where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary Types.SoftwareVersion where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 ----------------------------------------------------------------------------
 -- Arbitrary types from 'Pos.Core.Fee'
@@ -302,7 +335,8 @@ instance Arbitrary Fee.TxFeePolicy where
 ----------------------------------------------------------------------------
 
 instance Arbitrary G.GenesisCoreData where
-    arbitrary = G.GenesisCoreData <$> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 instance Arbitrary G.StakeDistribution where
     arbitrary = oneof
@@ -320,6 +354,7 @@ instance Arbitrary G.StakeDistribution where
       , return G.ExponentialStakes
       , G.ExplicitStakes <$> arbitrary
       ]
+    shrink = genericShrink
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
@@ -327,19 +362,26 @@ instance Arbitrary G.StakeDistribution where
 
 instance Arbitrary Millisecond where
     arbitrary = fromMicroseconds <$> choose (0, 600 * 1000 * 1000)
+    shrink = shrinkIntegral
 
 instance Arbitrary Microsecond where
     arbitrary = fromMicroseconds <$> choose (0, 600 * 1000 * 1000)
+    shrink = shrinkIntegral
 
 deriving instance Arbitrary Types.Timestamp
 
 newtype SmallHashMap =
     SmallHashMap (HashMap PublicKey (HashMap PublicKey (AsBinary Share)))
-    deriving Show
+    deriving (Show, Generic)
 
 instance Arbitrary SmallHashMap where
     arbitrary = SmallHashMap <$> makeSmall arbitrary
+    shrink = genericShrink
 
-derive makeArbitrary ''UnsignedVarInt
-derive makeArbitrary ''SignedVarInt
-derive makeArbitrary ''FixedSizeInt
+deriving instance Arbitrary a => Arbitrary (UnsignedVarInt a)
+deriving instance Arbitrary a => Arbitrary (SignedVarInt a)
+deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
+
+instance Arbitrary a => Arbitrary (Attributes a) where
+    arbitrary = genericArbitrary
+    shrink = genericShrink

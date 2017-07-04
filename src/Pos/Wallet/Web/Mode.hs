@@ -38,10 +38,10 @@ import           Pos.DB.Rocks                  (dbDeleteDefault, dbGetDefault,
 
 import           Pos.Client.Txp.Balances       (MonadBalances (..), getBalanceDefault,
                                                 getOwnUtxosDefault)
-import           Pos.Client.Txp.History        (MonadTxHistory (..), getTxHistoryDefault,
-                                                saveTxDefault)
-import           Pos.Discovery                 (HasDiscoveryContextSum (..),
-                                                MonadDiscovery (..), findPeersSum,
+import           Pos.Client.Txp.History        (MonadTxHistory (..),
+                                                getBlockHistoryDefault,
+                                                getLocalHistoryDefault, saveTxDefault)
+import           Pos.Discovery                 (MonadDiscovery (..), findPeersSum, HasDiscoveryContextSum (..),
                                                 getPeersSum)
 import           Pos.Reporting                 (HasReportingContext (..))
 import           Pos.Shutdown                  (HasShutdownContext (..))
@@ -217,7 +217,8 @@ instance MonadBalances WalletWebMode where
     getBalance = getBalanceDefault
 
 instance MonadTxHistory WalletSscType WalletWebMode where
-    getTxHistory = getTxHistoryDefault @WalletSscType
+    getBlockHistory = getBlockHistoryDefault @WalletSscType
+    getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
 
 instance MonadWalletTracking WalletWebMode where

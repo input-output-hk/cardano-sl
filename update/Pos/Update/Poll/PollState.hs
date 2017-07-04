@@ -60,7 +60,7 @@ data PollState = PollState
     , _psFullRichmenData    :: !(HM.HashMap EpochIndex FullRichmenData)
       -- | Mapping between epochs and stake of each of the epoch's slot's block issuer
     , _psIssuersStakes      :: !(HM.HashMap EpochIndex IssuersStakes)
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Generic)
 
 makeLenses ''PollState
 

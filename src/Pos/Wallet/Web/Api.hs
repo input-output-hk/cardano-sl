@@ -244,7 +244,6 @@ type NewPayment =
 type TxFee =
        "txs"
     :> "fee"
-    :> DCQueryParam "passphrase" CPassPhrase
     :> CCapture "from" CAccountId
     :> Capture "to" (CId Addr)
     :> Capture "amount" Coin

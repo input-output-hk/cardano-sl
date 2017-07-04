@@ -84,6 +84,7 @@ library
                      , ether >= 0.5
                      , exceptions
                      , formatting
+                     , generic-arbitrary
                      , hashable
                      , lens
                      , log-warper

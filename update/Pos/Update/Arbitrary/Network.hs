@@ -4,8 +4,9 @@ module Pos.Update.Arbitrary.Network
        (
        ) where
 
-import           Test.QuickCheck           (Arbitrary (..), listOf)
 import           Universum
+
+import           Test.QuickCheck           (Arbitrary (..), listOf)
 
 import           Pos.Binary.Update         ()
 import           Pos.Communication.Relay   (DataMsg (..))

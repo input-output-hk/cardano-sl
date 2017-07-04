@@ -240,7 +240,7 @@ verifyNextBVMod upId
   BlockVersionModifier { bvmScriptVersion = newSV
                        , bvmMaxBlockSize = newMBS
                        }
-    | newSV /= oldSV + 1 =
+    | newSV /= oldSV + 1 && newSV /= oldSV =
         throwError
             PollWrongScriptVersion
             { pwsvAdopted = oldSV

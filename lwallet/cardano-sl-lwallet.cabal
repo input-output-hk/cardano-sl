@@ -48,6 +48,7 @@ executable cardano-wallet
                      , cardano-sl-infra
                      , cardano-sl
                      , data-default
+                     , dlist
                      , either
                      , ether
                      , containers

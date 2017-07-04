@@ -45,7 +45,7 @@ after_failure:
 script:
 # DEVOPS-107: wait 20min for output due to haddock generation
 - if [[ "$MODE" == "nix" ]]; then
-    nix-build -A cardano-sl --no-build-output --keep-going || nix-build -A cardano-sl -j 1 ;
+    nix-build -A cardano-sl-static --no-build-output --keep-going || nix-build -A cardano-sl -j 1 ;
   elif [[ "$MODE" == "hlint" ]]; then
     nix-shell -p haskellPackages.hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
   elif [[ "$MODE" == "stack2nix" ]]; then

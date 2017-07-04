@@ -6,7 +6,6 @@ module Pos.Util.Config.Contents
        ) where
 
 import           Pos.Util.Config.Path
-import           Data.Text                  (unpack)
 import           Universum                  hiding (lift)
 import           Language.Haskell.TH.Syntax (lift, runIO)
 

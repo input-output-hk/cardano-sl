@@ -115,10 +115,10 @@ instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
         IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
 
 data CAccModifier = CAccModifier
-    { camAddresses :: !(IndexedMapModifier CWAddressMeta)
-    , camUsed      :: !(VoidModifier (CId Addr, HeaderHash))
-    , camChange    :: !(VoidModifier (CId Addr, HeaderHash))
-    , camUtxo      :: !UtxoModifier
+    { camAddresses      :: !(IndexedMapModifier CWAddressMeta)
+    , camUsed           :: !(VoidModifier (CId Addr, HeaderHash))
+    , camChange         :: !(VoidModifier (CId Addr, HeaderHash))
+    , camUtxo           :: !UtxoModifier
     , camAddedHistory   :: !(DList TxHistoryEntry)
     , camDeletedHistory :: !(DList TxId)
     }
@@ -132,13 +132,19 @@ instance Buildable CAccModifier where
     build CAccModifier{..} =
         bprint
             (  "added accounts: "%listJson
-            %", deleted accounts: "%listJson
-            %", used address: "%listJson
-            %", change address: "%listJson)
+            %",\n deleted accounts: "%listJson
+            %",\n used address: "%listJson
+            %",\n change address: "%listJson
+            %",\n local utxo (difference): "%build
+            %",\n added history entries: "%listJson
+            %",\n deleted history entries: "%listJson)
         (sortedInsertions camAddresses)
         (indexedDeletions camAddresses)
         (map (fst . fst) $ MM.insertions camUsed)
         (map (fst . fst) $ MM.insertions camChange)
+        camUtxo
+        (toList camAddedHistory)
+        (toList camDeletedHistory)
 
 type BlockLockMode ssc m =
     ( WithLogger m
@@ -309,7 +315,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = do
                 selectOwnAccounts encInfo (txOutAddress . toaOut . snd) (M.toList genesisUtxo)
         WS.getWalletUtxo >>= WS.setWalletUtxo . (ownGenesisUtxo <>)
     applyModifierToWallet wAddr gstateHHash mapModifier
-    logInfo $ sformat ("Wallet "%build%" has been synced with tip "
+    logDebug $ sformat ("Wallet "%build%" has been synced with tip "
                         %shortHashF%", "%build)
         wAddr (maybe genesisHash headerHash wTipHeader) mapModifier
     where

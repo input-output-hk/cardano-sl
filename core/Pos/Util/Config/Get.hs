@@ -11,6 +11,7 @@ import qualified Data.HashMap.Strict  as HM
 import qualified Data.Yaml            as Y
 
 import           Pos.Util.Config.Path (cslConfigFilePath)
+import           Pos.Util.Config.Contents (cslConfigFile)
 
 #define QUOTED(x) "/**/x/**/"
 
@@ -23,7 +24,7 @@ import           Pos.Util.Config.Path (cslConfigFilePath)
 -- | Parse @constants.yaml@ and pick the right config according to @CONFIG@.
 getCslConfig :: IO (Either String Y.Value)
 getCslConfig = do
-    mbRes <- Y.decodeFileEither @Y.Object cslConfigFilePath
+    let mbRes = Y.decodeEither' @Y.Object (encodeUtf8 cslConfigFile)
     pure $ do
         val <- case mbRes of
             Right x  -> pure x

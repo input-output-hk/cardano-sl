@@ -289,6 +289,25 @@ calculateTransCorrections eActions = do
                                                          %~ (ins iSId)
         in HM.foldlWithKey' foldFoo HM.empty changeset
 
+-- This function returns identitifers of stakeholders who are no
+-- longer rich in the given epoch, but were rich in the previous one.
+getNoLongerRichmen ::
+       ( Monad m
+       , MonadIO m
+       , MonadDBRead m
+       , WithLogger m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
+       )
+    => EpochIndex
+    -> m [StakeholderId]
+getNoLongerRichmen (EpochIndex 0) = pure mempty
+getNoLongerRichmen newEpoch =
+    (\\) <$> getRichmen (newEpoch - 1) <*> getRichmen newEpoch
+  where
+    getRichmen e =
+        toList <$>
+        lrcActionOnEpochReason e "getNoLongerRichmen" LrcDB.getRichmenDlg
 
 -- State needed for 'delegationVerifyBlocks'.
 data DlgVerState = DlgVerState
@@ -316,6 +335,7 @@ dlgVerifyBlocks ::
        , MonadIO m
        , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
+       , WithLogger m
        )
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE DlgUndo))
@@ -341,7 +361,13 @@ dlgVerifyBlocks blocks = do
         HashSet StakeholderId ->
         Block ssc ->
         ExceptT Text (MapCede (StateT DlgVerState m)) DlgUndo
-    verifyBlock _ (Left _) = [] <$ (dvCurEpoch .= HS.empty)
+    verifyBlock _ (Left genesisBlk) = do
+        dvCurEpoch .= HS.empty
+        let blkEpoch = genesisBlk ^. epochIndexL
+        noLongerRichmen <- getNoLongerRichmen blkEpoch
+        deletedPSKs <- catMaybes <$> mapM getPsk noLongerRichmen
+        let delFromCede = modPsk . DlgEdgeDel . addressHash . pskIssuerPk
+        deletedPSKs <$ mapM_ delFromCede deletedPSKs
     verifyBlock richmen (Right blk) = do
         -- We assume here that issuers list doesn't contain
         -- duplicates (checked in payload construction).
@@ -512,14 +538,9 @@ removeNoLongerRichmen ::
        )
     => EpochIndex
     -> m SomeBatchOp
-removeNoLongerRichmen (EpochIndex 0) = pure mempty
 removeNoLongerRichmen newEpoch = do
-    let getRichmen e =
-            toList <$>
-            lrcActionOnEpochReason e "removeNoLongerRichmen" LrcDB.getRichmenDlg
-    oldRichmen <- getRichmen (newEpoch - 1)
-    newRichmen <- getRichmen newEpoch
-    let edgeActions = map DlgEdgeDel $ oldRichmen \\ newRichmen
+    noLongerRichmen <- getNoLongerRichmen newEpoch
+    let edgeActions = map DlgEdgeDel noLongerRichmen
     -- This batch operation updates part (1) of DB.
     let edgeOp = SomeBatchOp $ map GS.PskFromEdgeAction edgeActions
     -- Computed batch operation updates parts (2) and (3) of DB.

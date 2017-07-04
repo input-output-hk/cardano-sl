@@ -70,8 +70,7 @@ toHashSeed bp = encode . blake2b <$> toSeed bp
 keysFromPhrase :: BackupPhrase -> Either Text (SecretKey, VssKeyPair)
 keysFromPhrase ph = (,) <$> sk <*> vss
   where hashSeed = toHashSeed ph
-        errorMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
-        sk = maybe (Left errorMsg) (Right . snd) . deterministicKeyGen =<< hashSeed
+        sk = snd . deterministicKeyGen <$> hashSeed
         vss = deterministicVssKeyGen <$> hashSeed
 
 safeKeysFromPhrase
@@ -80,6 +79,5 @@ safeKeysFromPhrase
     -> Either Text (EncryptedSecretKey, VssKeyPair)
 safeKeysFromPhrase pp ph = (,) <$> esk <*> vss
   where hashSeed = toHashSeed ph
-        errorMsg = "Pos.Util.BackupPhrase: impossible: seed is always 32-bit"
-        esk = maybe (Left errorMsg) (Right . snd) . flip safeDeterministicKeyGen pp =<< hashSeed
+        esk = snd . flip safeDeterministicKeyGen pp <$> hashSeed
         vss = deterministicVssKeyGen <$> hashSeed

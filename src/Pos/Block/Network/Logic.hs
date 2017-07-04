@@ -13,7 +13,6 @@ module Pos.Block.Network.Logic
        , handleUnsolicitedHeaders
        , mkHeadersRequest
        , requestHeaders
-       , requestHeaders'
 
        , mkBlocksRequest
        , handleBlocks
@@ -21,7 +20,7 @@ module Pos.Block.Network.Logic
 
 import           Universum
 
-import           Control.Concurrent.STM     (isFullTBQueue, putTMVar, readTVar,
+import           Control.Concurrent.STM     (TMVar, isFullTBQueue, putTMVar, readTVar,
                                              tryReadTMVar, tryTakeTMVar, writeTBQueue,
                                              writeTVar)
 import           Control.Exception          (Exception (..))
@@ -49,7 +48,7 @@ import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
                                              MsgHeaders (..))
 import           Pos.Block.Pure             (verifyHeaders)
-import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
+import           Pos.Block.RetrievalQueue   (BlockRetrievalQueue, BlockRetrievalTask (..))
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
@@ -60,6 +59,7 @@ import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHe
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
                                              gbHeader, headerHashG, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
+import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Exception              (cardanoExceptionFromException,
@@ -151,10 +151,13 @@ mkHeadersRequest
     :: forall ssc ctx m.
        WorkMode ssc ctx m
     => HeaderHash -> m (Maybe MsgGetHeaders)
-mkHeadersRequest upto = runMaybeT $ do
-    bHeaders <- MaybeT $ nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
-    guard (not $ upto `elem` bHeaders)
-    pure $ MsgGetHeaders (toList bHeaders) (Just upto)
+mkHeadersRequest upto = do
+    uHdr <- blkGetHeader @ssc upto
+    runMaybeT $ do
+        -- no reason to make a request when we already have the latest header
+        guard (isNothing uHdr)
+        bHeaders <- MaybeT $ nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
+        pure $ MsgGetHeaders (toList bHeaders) (Just upto)
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
@@ -186,10 +189,10 @@ handleUnsolicitedHeader header nodeId = do
     case classificationRes of
         CHContinues -> do
             logDebug $ sformat continuesFormat hHash
-            addToBlockRequestQueue (one header) nodeId Nothing
+            addHeaderToBlockRequestQueue nodeId header True
         CHAlternative -> do
             logInfo $ sformat alternativeFormat hHash
-            addToBlockRequestQueue' nodeId header
+            addHeaderToBlockRequestQueue nodeId header False
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
             logDebug $ sformat ("handleUnsolicited: header "%shortHashF%
@@ -237,23 +240,7 @@ matchRequestedHeaders headers MsgGetHeaders {..} inRecovery =
               MRUnexpected $ "headers are bad: " <> formatFirstError errs
           | otherwise -> MRGood
 
--- Second argument is mghTo block header (not hash). Don't pass it
--- only if you don't know it.
 requestHeaders
-    :: forall ssc ctx m.
-       (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => MsgGetHeaders
-    -> NodeId
-    -> Maybe (BlockHeader ssc)
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
-    -> m ()
-requestHeaders mgh nodeId origTip =
-    requestHeaders' cont mgh nodeId
-    where
-        cont headersPostfix =
-            addToBlockRequestQueue headersPostfix nodeId origTip
-
-requestHeaders'
     :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
     => (NewestFirst NE (BlockHeader ssc) -> m ())
@@ -261,7 +248,7 @@ requestHeaders'
     -> NodeId
     -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
     -> m ()
-requestHeaders' cont mgh nodeId conv = do
+requestHeaders cont mgh nodeId conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
@@ -330,71 +317,62 @@ handleRequestedHeaders cont headers = do
     uselessFormat = genericFormat "useless"
     invalidFormat = genericFormat "invalid"
 
--- | Given nonempty list of valid blockheaders and nodeid, this
--- function will put them into download queue and they will be
--- processed later. Second argument is optional recovery mode tip --
--- after pack of blocks is processed, next pack of headers will be
--- requested until this header hash is received.
-addToBlockRequestQueue
-    :: forall ssc ctx m.
-       (WorkMode ssc ctx m)
-    => NewestFirst NE (BlockHeader ssc)
-    -> NodeId
-    -> Maybe (BlockHeader ssc)
-    -> m ()
-addToBlockRequestQueue headers nodeId mrecoveryTip = do
-    queue <- view (lensOf @BlockRetrievalQueueTag)
-    recHeaderVar <- view (lensOf @RecoveryHeaderTag)
-    lastKnownH <- view (lensOf @LastKnownHeaderTag)
-    let updateRecoveryHeader (Just recoveryTip) = do
-            oldV <- readTVar lastKnownH
-            when (maybe True (recoveryTip `isMoreDifficult`) oldV) $
-                writeTVar lastKnownH (Just recoveryTip)
-            let replace = tryTakeTMVar recHeaderVar >>= \case
-                    Just (_, header')
-                        | not (recoveryTip `isMoreDifficult` header') -> pass
-                    _ -> putTMVar recHeaderVar (nodeId, recoveryTip)
-            tryReadTMVar recHeaderVar >>= \case
-                Nothing -> replace
-                Just (_,curRecHeader) ->
-                    when (recoveryTip `isMoreDifficult` curRecHeader) replace
-        updateRecoveryHeader Nothing = pass
-    added <- atomically $ do
-        updateRecoveryHeader mrecoveryTip
-        ifM (isFullTBQueue queue)
-            (pure False)
-            (True <$ writeTBQueue queue (nodeId, RetrieveBlocksByHeaders headers))
-    if added
-    then logDebug $ sformat ("Added to block request queue: nodeId="%build%
-                             ", headers="%listJson)
-                            nodeId (fmap headerHash headers)
-    else logWarning $ sformat ("Failed to add headers from "%build%
-                               " to block retrieval queue: queue is full")
-                              nodeId
-  where
-    a `isMoreDifficult` b = a ^. difficultyL > b ^. difficultyL
-
-addToBlockRequestQueue'
+-- | Given a valid blockheader and nodeid, this function will put them into
+-- download queue and they will be processed later.
+addHeaderToBlockRequestQueue
     :: forall ssc ctx m.
        (WorkMode ssc ctx m)
     => NodeId
     -> BlockHeader ssc
+    -> Bool -- Continues?
     -> m ()
-addToBlockRequestQueue' nodeId tip = do
+addHeaderToBlockRequestQueue nodeId header continues = do
     queue <- view (lensOf @BlockRetrievalQueueTag)
+    recHeaderVar <- view (lensOf @RecoveryHeaderTag)
+    lastKnownH <- view (lensOf @LastKnownHeaderTag)
     added <- atomically $ do
-        ifM (isFullTBQueue queue)
-            (pure False)
-            (True <$ writeTBQueue queue (nodeId, RetrieveHeadersByTip tip))
+        unless continues $
+            updateRecoveryHeader nodeId recHeaderVar lastKnownH header
+        addTaskToBlockRequestQueue nodeId queue $
+            BlockRetrievalTask { brtHeader = header, brtContinues = continues }
     if added
-        then logDebug $
-            sformat ("Added to block request queue: nodeId="%build%
-                    ", tip="%build)
-                    nodeId tip
-        else logWarning $
-            sformat ("Failed to add headers from "%build%
-                    " to block retrieval queue: queue is full")
-                    nodeId
+    then logDebug $ sformat ("Added headers to block request queue: nodeId="%build%
+                             ", header="%build)
+                            nodeId (headerHash header)
+    else logWarning $ sformat ("Failed to add headers from "%build%
+                               " to block retrieval queue: queue is full")
+                              nodeId
+
+addTaskToBlockRequestQueue
+    :: NodeId
+    -> BlockRetrievalQueue ssc
+    -> BlockRetrievalTask ssc
+    -> STM Bool
+addTaskToBlockRequestQueue nodeId queue task = do
+    ifM (isFullTBQueue queue)
+        (pure False)
+        (True <$ writeTBQueue queue (nodeId, task))
+
+updateRecoveryHeader
+    :: t
+    -> TMVar (t, BlockHeader ssc)
+    -> TVar (Maybe (BlockHeader ssc))
+    -> BlockHeader ssc
+    -> STM ()
+updateRecoveryHeader nodeId recHeaderVar lastKnownH recoveryTip = do
+     oldV <- readTVar lastKnownH
+     when (maybe True (recoveryTip `isMoreDifficult`) oldV) $
+         writeTVar lastKnownH (Just recoveryTip)
+     let replace = tryTakeTMVar recHeaderVar >>= \case
+             Just (_, header')
+                 | not (recoveryTip `isMoreDifficult` header') -> pass
+             _ -> putTMVar recHeaderVar (nodeId, recoveryTip)
+     tryReadTMVar recHeaderVar >>= \case
+         Nothing -> replace
+         Just (_,curRecHeader) ->
+             when (recoveryTip `isMoreDifficult` curRecHeader) replace
+  where
+    a `isMoreDifficult` b = a ^. difficultyL > b ^. difficultyL
 
 ----------------------------------------------------------------------------
 -- Handling blocks

@@ -51,8 +51,8 @@ import           Serokell.Util.Text               (listJson)
 import           Servant.API                      ((:<|>) ((:<|>)),
                                                    FromHttpApiData (parseUrlPiece))
 import           Servant.Multipart                (fdFilePath)
-import           Servant.Server                   (Handler, Server, ServerT, err403,
-                                                   runHandler, serve)
+import           Servant.Server                   (Handler, Server, ServerT, runHandler,
+                                                   serve)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
 import           System.IO.Error                  (isDoesNotExistError)
 import           System.Wlog                      (logDebug, logError, logInfo)
@@ -1132,8 +1132,7 @@ syncProgress = do
     <*> connectedPeers
 
 testResetAll :: WalletWebMode m => m ()
-testResetAll | isDevelopment = deleteAllKeys >> testReset
-             | otherwise     = throwM err403
+testResetAll = deleteAllKeys >> testReset
   where
     deleteAllKeys = do
         keyNum <- length <$> getSecretKeys

@@ -211,7 +211,7 @@ sigStressRedeemer n = fromE $ parseRedeemer Nothing [text|
     |]
   where
     ns = show n
-    Just (pk, sk) = deterministicKeyGen (BS.replicate 32 0)
+    (pk, sk) = deterministicKeyGen (BS.replicate 32 0)
     sig = signRaw Nothing sk (BS.pack [0])
 
     keyS = sformat fullPublicKeyHexF pk

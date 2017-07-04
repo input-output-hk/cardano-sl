@@ -28,7 +28,7 @@ import           Pos.Block.Logic            (ClassifyHeaderRes (..),
 import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic    (handleBlocks, mkBlocksRequest,
                                              mkHeadersRequest, requestHeaders,
-                                             requestHeaders', triggerRecovery)
+                                             triggerRecovery)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..))
 import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
 import           Pos.Communication.Limits   (recvLimited)
@@ -83,24 +83,7 @@ retrievalWorkerImpl sendActions =
     mainLoop = runIfNotShutdown $ reportingFatal version $ do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
-        -- It is not our job to *start* recovery; if we actually need
-        -- recovery, the 'checkForReceivedBlocksWorker' worker in
-        -- Pos.Security.Workers will trigger it. What we do here is simply an
-        -- optimisation: if after doing recovery for some time we are now
-        -- less than K blocks behind, we have two choices:
-        --   a) ask for blocks up to 'ncRecoveryHeader', download them,
-        --      realise that we're still behind (because while recovery was
-        --      in progress new blocks have likely appeared), and then ask our
-        --      neighbors for tips and download another, final chunk of blocks
-        --   b) just clear 'ncRecoveryHeader', ask for tips and download all
-        --      missing blocks in one go
-        -- So, here we take the second approach because it lets us do just one
-        -- block request instead of two.
         needRecovery_ <- needRecovery @ssc
-        unless needRecovery_ $
-            whenJustM (atomically $ tryTakeTMVar recHeaderVar) $ const $ do
-                logDebug "Requesting tips from main loop with triggerRecovery"
-                triggerRecovery sendActions
         -- Here we decide what we'll actually do next
         logDebug "Waiting on the block queue or recovery header var"
         thingToDoNext <- atomically $ do
@@ -111,55 +94,40 @@ retrievalWorkerImpl sendActions =
             case (mbQueuedHeadersChunk, mbRecHeader) of
                 (Nothing, Nothing) -> retry
                 (Just (nodeId, task), _) ->
-                    case task of
-                        RetrieveBlocksByHeaders headers ->
-                            pure (handleBlockRetrieval nodeId headers)
-                        RetrieveHeadersByTip tip ->
-                            pure (handleBlockRetrievalWithTip nodeId tip)
-                (_, Just rec')  ->
-                    pure (handleHeadersRecovery rec')
+                    pure (handleBlockRetrieval nodeId task)
+                (_, Just (nodeId, rHeader))  ->
+                    pure (handleHeadersRecovery nodeId rHeader)
         thingToDoNext
         mainLoop
     mainLoopE e = do
         logError $ sformat ("retrievalWorker: error caught "%shown) e
         throw e
     --
-    handleBlockRetrieval nodeId headers =
-        handleAll (handleBlockRetrievalE nodeId headers) $
+    handleBlockRetrieval nodeId BlockRetrievalTask{..} =
+        handleAll (handleBlockRetrievalE nodeId brtHeader) $
         reportingFatal version $
-        workerHandle sendActions nodeId headers
-    handleBlockRetrievalE nodeId headers e = do
+        (if brtContinues then handleContinues else handleAlternative)
+            nodeId
+            brtHeader
+    handleContinues nodeId header =
+        workerHandle sendActions nodeId (one header)
+    handleAlternative nodeId header = do
+        mghM <- mkHeadersRequest (headerHash header)
+        whenJust mghM $ \mgh ->
+            withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
+                requestHeaders (workerHandle sendActions nodeId) mgh nodeId
+    handleBlockRetrievalE nodeId header e = do
         logWarning $ sformat
-            ("Error handling nodeId="%build%", headers="%listJson%": "%shown)
-            nodeId (fmap headerHash headers) e
+            ("Error handling nodeId="%build%", header="%build%": "%shown)
+            nodeId (headerHash header) e
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat sendActions nodeId
     --
-    handleHeadersRecovery (nodeId, rHeader) = do
+    handleHeadersRecovery nodeId rHeader = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
-                 \ so we will request more headers"
-        whenJustM (mkHeadersRequest (headerHash rHeader)) $ \mghNext ->
-            handleAll (handleHeadersRecoveryE nodeId) $
-            reportingFatal version $
-            withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
-                -- TODO: Write a comment why we use 'requestHeaders' here which
-                -- creates another task in the BlockRetrievalQueue. We could
-                -- just retrieve the blocks right away (see
-                -- 'handleBlockRetrievalWithTip' below). If there isn't a
-                -- reason, change the behavior.
-                requestHeaders mghNext nodeId (Just rHeader)
-    handleHeadersRecoveryE nodeId e = do
-        logWarning $ sformat
-            ("Failed while trying to get more headers "%
-             "for recovery from nodeId="%build%", error: "%shown)
-            nodeId e
-        dropUpdateHeader
-        dropRecoveryHeaderAndRepeat sendActions nodeId
-    handleBlockRetrievalWithTip nodeId tip = do
-        mghM <- mkHeadersRequest (headerHash tip)
-        whenJust mghM $ \mgh ->
-            withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
-                requestHeaders' (handleBlockRetrieval nodeId) mgh nodeId
+                 \ so we will request more headers and blocks"
+        handleBlockRetrieval nodeId $
+            BlockRetrievalTask { brtHeader = rHeader, brtContinues = False }
 
 
 dropUpdateHeader :: WorkMode ssc ctx m => m ()
@@ -264,8 +232,7 @@ handleCHsValid sendActions nodeId lcaChild newestHash = do
     let lcaChildHash = headerHash lcaChild
     logDebug $ sformat validFormat lcaChildHash newestHash
     withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
-      \(conv :: ConversationActions MsgGetBlocks
-           (MsgBlock ssc) m) -> do
+      \(conv :: ConversationActions MsgGetBlocks (MsgBlock ssc) m) -> do
       send conv $ mkBlocksRequest lcaChildHash newestHash
       chainE <- runExceptT (retrieveBlocks conv lcaChild newestHash)
       recHeaderVar <- view (lensOf @RecoveryHeaderTag)
@@ -286,9 +253,16 @@ handleCHsValid sendActions nodeId lcaChild newestHash = do
               -- difficulty than ncrecoveryheader, we're
               -- gracefully exiting recovery mode.
               let isMoreDifficultThan b x = b ^. difficultyL >= x ^. difficultyL
-              atomically $ whenJustM (tryReadTMVar recHeaderVar) $ \(_,rHeader) ->
-                  when (any (`isMoreDifficultThan` rHeader) blocks)
-                       (void $ tryTakeTMVar recHeaderVar)
+              endedRecovery <- atomically $ do
+                  mRecHeader <- tryReadTMVar recHeaderVar
+                  case mRecHeader of
+                      Nothing -> return False
+                      Just (_, rHeader) ->
+                          if any (`isMoreDifficultThan` rHeader) blocks
+                              then isJust <$> tryTakeTMVar recHeaderVar
+                              else return False
+              when endedRecovery $
+                  logDebug "Recovery mode exited gracefully"
   where
     validFormat =
         "Requesting blocks from " %shortHashF % " to " %shortHashF

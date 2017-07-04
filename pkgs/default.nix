@@ -1320,8 +1320,8 @@ self: {
           version = "1.0.0";
           src = fetchgit {
             url = "https://github.com/input-output-hk/cardano-crypto";
-            sha256 = "0k8gm7fh0bypbd4mjb1kqwjp7mz2chl87haqx42av7z502gayy8w";
-            rev = "84f8c358463bbf6bb09168aac5ad990faa9d310a";
+            sha256 = "10f89zm2sd015r6fbhlk1zp0720rzq2dvwazrmcxa3bd5s2l696v";
+            rev = "1cde8e3a8d9093bbf571085920045c05edb3eaa4";
           };
           libraryHaskellDepends = [
             base
@@ -1903,7 +1903,7 @@ self: {
           description = "Cardano SL - Leaders and Richmen computation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-lwallet = callPackage ({ QuickCheck, acid-state, ansi-wl-pprint, base, base58-bytestring, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-update, containers, cpphs, data-default, either, ether, formatting, lens, lifted-async, log-warper, mkDerivation, mmorph, monad-control, monad-loops, mtl, network-transport-tcp, node-sketch, optparse-applicative, parsec, resourcet, safecopy, serokell-util, stdenv, stm-containers, string-qq, tagged, text, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers }:
+      cardano-sl-lwallet = callPackage ({ QuickCheck, acid-state, ansi-wl-pprint, base, base58-bytestring, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-update, containers, cpphs, data-default, dlist, either, ether, formatting, lens, lifted-async, log-warper, mkDerivation, mmorph, monad-control, monad-loops, mtl, network-transport-tcp, node-sketch, optparse-applicative, parsec, resourcet, safecopy, serokell-util, stdenv, stm-containers, string-qq, tagged, text, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-lwallet";
           version = "0.4.4";
@@ -1925,6 +1925,7 @@ self: {
             cardano-sl-update
             containers
             data-default
+            dlist
             either
             ether
             formatting

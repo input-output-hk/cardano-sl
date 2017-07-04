@@ -35,7 +35,6 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (findIndex, notElem)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
-import           Data.Tagged                      (untag)
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
 import           Data.Time.Units                  (Microsecond, Second)
@@ -57,7 +56,8 @@ import           Servant.Server                   (Handler, Server, ServerT, run
                                                    serve)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
 import           System.IO.Error                  (isDoesNotExistError)
-import           System.Wlog                      (logDebug, logError, logInfo)
+import           System.Wlog                      (logDebug, logError, logInfo,
+                                                   logWarning)
 
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
@@ -97,8 +97,8 @@ import           Pos.Wallet.Redirect              (WalletRedirects)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
                                                    blockchainSlotDuration, connectedPeers,
-                                                   getBalance, getBlockHistory,
-                                                   getLocalHistory, localChainDifficulty,
+                                                   getBalance, getLocalHistory,
+                                                   localChainDifficulty,
                                                    networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    genSaveRootKey,
@@ -667,9 +667,10 @@ getFullWalletHistory cWalId = do
     blockHistory <- getHistoryCache cWalId >>= \case
         Just hist -> pure $ DL.fromList hist
         Nothing -> do
-            derivedHistory <- untag @WalletSscType getBlockHistory addrs
-            updateHistoryCache cWalId $ DL.toList derivedHistory
-            pure derivedHistory
+            logWarning $
+                sformat ("getFullWalletHistory: history cache is empty for wallet #"%build)
+                cWalId
+            pure mempty
 
     localHistory <- getLocalHistory addrs
 
@@ -807,6 +808,7 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} = do
 newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit
+    updateHistoryCache wId []
     getWallet wId
 
 restoreWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet

@@ -105,7 +105,6 @@ newtype WaypointItem = WaypointItem
 type DashboardViewState =
     { dbViewBlocksExpanded :: Boolean
     , dbViewBlockPagination :: PageNumber
-    , dbViewNextBlockPagination :: PageNumber
     , dbViewMaxBlockPagination :: RemoteData Error PageNumber
     , dbViewLoadingBlockPagination :: Boolean
     , dbViewBlockPaginationEditable :: Boolean

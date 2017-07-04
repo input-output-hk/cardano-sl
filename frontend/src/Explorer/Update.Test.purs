@@ -9,13 +9,13 @@ import Data.Either (Either(..))
 import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime (mkTime)
 import Data.Tuple (Tuple(..))
 import Explorer.Api.Types (SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Lenses.State (connected, currentAddressSummary, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions)
+import Explorer.Lenses.State (connected, currentAddressSummary, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions)
 import Explorer.State (initialState, mkSocketSubscriptionItem)
 import Explorer.Test.MockFactory (mkCBlockEntry, mkCTxBrief, mkEmptyCAddressSummary, mkEmptyCTxEntry, mkCTxBriefs, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx, setTxOfAddressSummary)
 import Explorer.Types.Actions (Action(..))
@@ -129,9 +129,7 @@ testUpdate =
                 pageNumber = PageNumber 2
                 -- set `latestBlocks` to simulate that we have already blocks before
                 initialState' =
-                    set latestBlocks (Success currentBlocks) $
-                    set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber
-                    initialState
+                    set latestBlocks (Success currentBlocks) initialState
                 paginatedBlocks =
                     [ blockC
                     , blockD
@@ -148,7 +146,7 @@ testUpdate =
                 in result `shouldEqual` totalPages
             it "to set loading to false" do
                 (state ^. loading) `shouldEqual` false
-            it "to update dbViewBlockPagination by using dbViewNextBlockPagination"
+            it "to update dbViewBlockPagination"
                 let result = (state ^. (dashboardViewState <<< dbViewBlockPagination))
                 in (gShow result) `shouldEqual` (gShow pageNumber)
             it "to set dbViewLoadingBlockPagination to false" do
@@ -206,13 +204,6 @@ testUpdate =
                         ]
                 in (gShow result) `shouldEqual` (gShow expected)
 
-        describe "handles DashboardPaginateBlocks action" do
-            let newPage = PageNumber 4
-                effModel = update (DashboardPaginateBlocks Nothing newPage) initialState
-                state = _.state effModel
-            it "to set dbViewNextBlockPagination"
-                let result = state ^. (dashboardViewState <<< dbViewNextBlockPagination)
-                in (gShow result) `shouldEqual` (gShow newPage)
         describe "uses action SocketConnected" do
             it "to update connection to connected"
                 let effModel = update (SocketConnected true) initialState

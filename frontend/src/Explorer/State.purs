@@ -40,7 +40,6 @@ initialState =
         ,  dashboard:
             { dbViewBlocksExpanded: false
             , dbViewBlockPagination: PageNumber minPagination
-            , dbViewNextBlockPagination: PageNumber minPagination
             , dbViewMaxBlockPagination: NotAsked
             , dbViewLoadingBlockPagination: false
             , dbViewBlockPaginationEditable: false

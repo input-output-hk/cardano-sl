@@ -6,7 +6,6 @@ module Pos.Update.Arbitrary.Core
 
 import           Universum
 
-import           Data.DeriveTH                     (derive, makeArbitrary)
 import qualified Data.HashMap.Strict               as HM
 import           Test.QuickCheck                   (Arbitrary (..), listOf1, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)

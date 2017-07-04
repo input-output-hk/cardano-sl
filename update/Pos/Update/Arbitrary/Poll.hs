@@ -4,8 +4,6 @@
 
 module Pos.Update.Arbitrary.Poll () where
 
-import           Universum
-
 import           Test.QuickCheck                   (Arbitrary (..))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 

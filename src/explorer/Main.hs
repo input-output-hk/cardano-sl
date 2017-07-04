@@ -23,7 +23,6 @@ import           System.Wlog                (logInfo)
 import           Pos.Binary                 ()
 import qualified Pos.CLI                    as CLI
 import           Pos.Communication          (OutSpecs, WorkerSpec, worker, wrapActionSpec)
-import           Pos.Context                (recoveryCommGuard)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.DHT.Workers            (dhtWorkers)
 import           Pos.Discovery              (DiscoveryContextSum (..))
@@ -66,14 +65,16 @@ action kad args@Args {..} transport = do
     currentParams <- getNodeParams args systemStart
 
     putText "Running using GodTossing"
-    let wDhtWorkers :: WorkMode SscGodTossing m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
-        wDhtWorkers = (\(ws, outs) -> (map (fst . recoveryCommGuard . (, outs)) ws, outs)) . -- TODO simplify
-                      first (map $ wrapActionSpec $ "worker" <> "dht") . dhtWorkers
+    let wDhtWorkers 
+            :: WorkMode SscGodTossing m 
+            => ([WorkerSpec m], OutSpecs)
+            -> ([WorkerSpec m], OutSpecs)
+        wDhtWorkers workers = runWithLogging workers
 
     let plugins = mconcatPair
             [ explorerPlugin webPort
             , notifierPlugin NotifierSettings{ nsPort = notifierPort }
-            , wDhtWorkers kad
+            , wDhtWorkers $ lDhtWorkers kad
             , updateTriggerWorker
             ]
 
@@ -86,6 +87,24 @@ action kad args@Args {..} transport = do
         plugins
         currentParams
         gtParams
+  where
+    lDhtWorkers
+        :: WorkMode SscGodTossing m 
+        => KademliaDHTInstance 
+        -> ([WorkerSpec m], OutSpecs)
+    lDhtWorkers kDHTInstance = dhtWorkers kDHTInstance
+
+    -- TODO: What's the point of this?
+    -- runWhileNotRecovering
+    --     :: ([WorkerSpec m], OutSpecs)
+    --     -> ([WorkerSpec m], OutSpecs)
+    -- runWhileNotRecovering (ws, outs) = (map (fst . recoveryCommGuard . (, outs)) ws, outs)
+
+    runWithLogging 
+        :: WorkMode SscGodTossing m 
+        => ([WorkerSpec m], OutSpecs)
+        -> ([WorkerSpec m], OutSpecs)
+    runWithLogging workers = first (map $ wrapActionSpec $ "worker" <> "dht") $ workers
 
 updateTriggerWorker
     :: SscConstraint ssc

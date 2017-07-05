@@ -44,7 +44,7 @@ import           Pos.Core                    (HasPrimaryKey (..), addressHash,
                                               bvdMaxBlockSize, epochIndexL)
 import           Pos.Crypto                  (ProxySecretKey (..), PublicKey,
                                               SignTag (SignProxySK), proxyVerify,
-                                              toPublic, verifyProxySecretKey)
+                                              toPublic, verifyPsk)
 import           Pos.DB                      (MonadDB, MonadDBRead, MonadGState,
                                               MonadRealDB)
 import qualified Pos.DB                      as DB
@@ -164,7 +164,7 @@ processProxySKHeavy psk = do
         LrcDB.getRichmenDlg
     maxBlockSize <- bvdMaxBlockSize <$> DB.gsAdoptedBVData
     let msg = Right psk
-        consistent = verifyProxySecretKey psk
+        consistent = verifyPsk psk
         iPk = pskIssuerPk psk
         -- We don't check stake for revoking certs. You can revoke
         -- even if you don't have money anymore.
@@ -247,7 +247,7 @@ processProxySKLight psk = do
             related = pk == pskDelegatePk psk || pk == pskIssuerPk psk
             exists = psk `elem` psks
             msg = Left psk
-            valid = verifyProxySecretKey psk
+            valid = verifyPsk psk
             selfSigned = isRevokePsk psk
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
         dwMessageCache %= LRU.insert msg curTime

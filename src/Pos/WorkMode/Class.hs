@@ -24,7 +24,7 @@ import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
-                                              BlockRetrievalQueueTag, GenesisStakes,
+                                              BlockRetrievalQueueTag, GenesisUtxo,
                                               HasSscContext, MonadLastKnownHeader,
                                               MonadProgressHeader, MonadRecoveryHeader,
                                               StartTime, TxpGlobalSettings)
@@ -92,7 +92,7 @@ type WorkMode ssc ctx m
       , HasLens UpdateParams ctx UpdateParams
       , HasLens SecurityParams ctx SecurityParams
       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
-      , HasLens GenesisStakes ctx GenesisStakes
+      , HasLens GenesisUtxo ctx GenesisUtxo
       , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
       , HasSscContext ssc ctx
       , HasReportingContext ctx

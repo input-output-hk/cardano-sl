@@ -158,6 +158,8 @@ instance {-# OVERLAPPABLE #-}
 -- alternative DBs my be used to provide this data.
 class Monad m => MonadGState m where
     gsAdoptedBVData :: m BlockVersionData
+    gsIsBootstrapEra :: m Bool
+    -- ^ Checks if current era is bootstrap
 
 instance {-# OVERLAPPABLE #-}
     (MonadGState m, MonadTrans t, LiftLocal t,
@@ -165,6 +167,7 @@ instance {-# OVERLAPPABLE #-}
         MonadGState (t m)
   where
     gsAdoptedBVData = lift gsAdoptedBVData
+    gsIsBootstrapEra = lift gsIsBootstrapEra
 
 gsMaxBlockSize :: MonadGState m => m Byte
 gsMaxBlockSize = bvdMaxBlockSize <$> gsAdoptedBVData

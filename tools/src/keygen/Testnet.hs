@@ -1,7 +1,7 @@
 module Testnet
        ( generateKeyfile
        , generateFakeAvvm
-       , genTestnetStakes
+       , genTestnetDistribution
        , rearrangeKeyfile
        ) where
 
@@ -80,8 +80,9 @@ generateFakeAvvm fp = do
     writeFile fp $ B64.encode seed
     return pk
 
-genTestnetStakes :: TestStakeOptions -> StakeDistribution
-genTestnetStakes TestStakeOptions{..} =
+-- | Generates stake distribution for testnet.
+genTestnetDistribution :: TestStakeOptions -> StakeDistribution
+genTestnetDistribution TestStakeOptions{..} =
     checkConsistency $ RichPoorStakes {..}
   where
     richs = fromIntegral tsoRichmen

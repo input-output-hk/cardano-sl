@@ -23,8 +23,9 @@ import qualified Data.ByteString                   as BS (pack)
 import           Data.Time.Units                   (Microsecond, Millisecond,
                                                     TimeUnit (..))
 import           System.Random                     (Random)
-import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, oneof,
-                                                    scale, shrinkIntegral, suchThat)
+import           Test.QuickCheck                   (Arbitrary (..), Gen, NonNegative (..),
+                                                    choose, oneof, scale, shrinkIntegral,
+                                                    suchThat, vector, vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
@@ -43,7 +44,7 @@ import qualified Pos.Core.Types                    as Types
 import           Pos.Crypto                        (PublicKey, Share)
 import           Pos.Crypto.Arbitrary              ()
 import           Pos.Data.Attributes               (Attributes (..))
-import           Pos.Util.Arbitrary                (makeSmall)
+import           Pos.Util.Arbitrary                (makeSmall, nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
 
 ----------------------------------------------------------------------------
@@ -114,6 +115,10 @@ instance Arbitrary Types.EpochOrSlot where
           Types.EpochOrSlot . Left <$> arbitrary
         , Types.EpochOrSlot . Right <$> arbitrary
         ]
+    shrink = genericShrink
+
+instance Arbitrary h => Arbitrary (Attributes h) where
+    arbitrary = genericArbitrary
     shrink = genericShrink
 
 instance Arbitrary Types.Coin where
@@ -334,9 +339,45 @@ instance Arbitrary Fee.TxFeePolicy where
 -- Arbitrary types from 'Pos.Core.Genesis'
 ----------------------------------------------------------------------------
 
+-- Unsafe? How is it used?
 instance Arbitrary G.GenesisCoreData where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
+    arbitrary = do
+        -- This number'll be the length of every address list in the first argument of
+        -- 'mkGenesisCoreData'.
+        innerLen <- getNonNegative <$> arbitrary `suchThat` (<= (NonNegative 7))
+        -- This number is the length of the first argument of 'mkGenesisCoreData'
+        -- Because of the way 'PublicKey's are generated, 'innerLen * outerLen' cannot be
+        -- greater than 50 if a list of unique adresses with that length is to be
+        -- generated.
+        -- '7 = (floor . sqrt) 50', and if 'a * b = 50', then at least one of 'a' or 'b'
+        -- must be less than or equalto '7'.
+        outerLen <- getNonNegative <$>
+            arbitrary `suchThat` (\(NonNegative n) -> n * innerLen <= 50)
+        let chop _ [] = []
+            chop n l = taken : chop n dropped
+              where (taken, dropped) = splitAt n l
+        allAddrs <- fmap makePubKeyAddress <$> nonrepeating (outerLen * innerLen)
+        let listOfAddrList = chop innerLen allAddrs
+        -- This may seem like boilerplate but it's necessary to pass the first check in
+        -- 'mkGenesisCoreData'. Certain parameters in the generated 'StakeDistribution'
+        -- must be equal to the length of the first element of the tuple in
+        -- 'AddrDistribution'
+            wordILen = fromIntegral innerLen
+            distributionGen = oneof
+                [ G.FlatStakes wordILen <$> arbitrary
+                , G.BitcoinStakes wordILen <$> arbitrary
+                , do a <- choose (0, wordILen)
+                     G.RichPoorStakes a
+                         <$> arbitrary
+                         <*> pure (wordILen - a)
+                         <*> arbitrary
+                , pure $ G.ExponentialStakes wordILen
+                , G.CustomStakes <$> vector innerLen
+                ]
+        stakeDistrs <- vectorOf outerLen distributionGen
+        hashSetOfHolders <- arbitrary :: Gen (HashSet Types.StakeholderId)
+        return $ leftToPanic "arbitrary@GenesisCoreData: " $
+            G.mkGenesisCoreData (zip listOfAddrList stakeDistrs) hashSetOfHolders
 
 instance Arbitrary G.StakeDistribution where
     arbitrary = oneof
@@ -351,8 +392,8 @@ instance Arbitrary G.StakeDistribution where
            sdPoor <- choose (0, 20)
            sdPoorStake <- Types.mkCoin <$> choose (1000, 50000)
            return G.RichPoorStakes{..}
-      , return G.ExponentialStakes
-      , G.ExplicitStakes <$> arbitrary
+      , G.ExponentialStakes <$> choose (0, 20)
+      , G.CustomStakes <$> arbitrary
       ]
     shrink = genericShrink
 
@@ -381,7 +422,3 @@ instance Arbitrary SmallHashMap where
 deriving instance Arbitrary a => Arbitrary (UnsignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (SignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
-
-instance Arbitrary a => Arbitrary (Attributes a) where
-    arbitrary = genericArbitrary
-    shrink = genericShrink

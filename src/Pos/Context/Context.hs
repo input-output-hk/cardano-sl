@@ -13,7 +13,7 @@ module Pos.Context.Context
        , BaseParams(..)
        , TxpGlobalSettings
        , GenesisUtxo(..)
-       , GenesisStakes(..)
+       , GenesisStakeholders(..)
        , StartTime(..)
        , LastKnownHeader
        , LastKnownHeaderTag
@@ -46,12 +46,11 @@ import           Pos.Communication.Relay       (HasPropagationFlag (..),
                                                 RelayPropagationQueue)
 import           Pos.Communication.Relay.Types (RelayContext (..))
 import           Pos.Communication.Types       (NodeId)
-import           Pos.Core                      (GenesisStakes (..), HasPrimaryKey (..),
-                                                HeaderHash, Timestamp)
+import           Pos.Core                      (GenesisStakeholders (..),
+                                                HasPrimaryKey (..), HeaderHash, Timestamp)
 import           Pos.Discovery                 (DiscoveryContextSum,
                                                 HasDiscoveryContextSum (..))
-import           Pos.Launcher.Param            (BaseParams (..), GenesisUtxo (..),
-                                                NodeParams (..))
+import           Pos.Launcher.Param            (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context               (LrcContext)
 import           Pos.Reporting.MemState        (HasLoggerConfig (..),
                                                 HasReportServers (..),
@@ -64,6 +63,7 @@ import           Pos.Slotting                  (HasSlottingVar (..), SlottingCon
                                                 SlottingData)
 import           Pos.Ssc.Class.Types           (HasSscContext (..), Ssc (SscNodeContext))
 import           Pos.Txp.Settings              (TxpGlobalSettings)
+import           Pos.Txp.Toil.Types            (GenesisUtxo (..))
 import           Pos.Update.Context            (UpdateContext)
 import           Pos.Update.Params             (UpdateParams)
 import           Pos.Util.UserSecret           (HasUserSecret (..), UserSecret)
@@ -75,15 +75,18 @@ import           Pos.Util.Util                 (postfixLFields)
 
 data LastKnownHeaderTag
 type LastKnownHeader ssc = TVar (Maybe (BlockHeader ssc))
-type MonadLastKnownHeader ssc ctx m = (MonadReader ctx m, HasLens LastKnownHeaderTag ctx (LastKnownHeader ssc))
+type MonadLastKnownHeader ssc ctx m
+     = (MonadReader ctx m, HasLens LastKnownHeaderTag ctx (LastKnownHeader ssc))
 
 data ProgressHeaderTag
 type ProgressHeader ssc = STM.TMVar (BlockHeader ssc)
-type MonadProgressHeader ssc ctx m = (MonadReader ctx m, HasLens ProgressHeaderTag ctx (ProgressHeader ssc))
+type MonadProgressHeader ssc ctx m
+     = (MonadReader ctx m, HasLens ProgressHeaderTag ctx (ProgressHeader ssc))
 
 data RecoveryHeaderTag
 type RecoveryHeader ssc = STM.TMVar (NodeId, BlockHeader ssc)
-type MonadRecoveryHeader ssc ctx m = (MonadReader ctx m, HasLens RecoveryHeaderTag ctx (RecoveryHeader ssc))
+type MonadRecoveryHeader ssc ctx m
+     = (MonadReader ctx m, HasLens RecoveryHeaderTag ctx (RecoveryHeader ssc))
 
 newtype ConnectedPeers = ConnectedPeers { unConnectedPeers :: STM.TVar (Set NodeId) }
 newtype BlkSemaphore = BlkSemaphore { unBlkSemaphore :: MVar HeaderHash }
@@ -211,9 +214,6 @@ instance HasLens SecurityParams (NodeContext ssc) SecurityParams where
 
 instance HasLens GenesisUtxo (NodeContext ssc) GenesisUtxo where
     lensOf = ncNodeParams_L . lensOf @GenesisUtxo
-
-instance HasLens GenesisStakes (NodeContext ssc) GenesisStakes where
-    lensOf = ncNodeParams_L . lensOf @GenesisStakes
 
 instance HasReportServers (NodeContext ssc) where
     reportServers = ncNodeParams_L . reportServers

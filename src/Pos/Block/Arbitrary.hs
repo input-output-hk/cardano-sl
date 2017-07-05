@@ -13,7 +13,8 @@ import qualified Data.Text.Buildable               as Buildable
 import           Formatting                        (bprint, build, (%))
 import qualified Prelude
 import           System.Random                     (mkStdGen, randomR)
-import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, vectorOf)
+import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, suchThat,
+                                                    vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Binary.Class                  (Bi, Raw, biSize)
@@ -23,7 +24,7 @@ import qualified Pos.Block.Pure                    as T
 import           Pos.Constants                     (epochSlots)
 import qualified Pos.Core                          as Core
 import           Pos.Crypto                        (ProxySecretKey, PublicKey, SecretKey,
-                                                    createProxySecretKey, hash, toPublic)
+                                                    createPsk, hash, toPublic)
 import           Pos.Data.Attributes               (Attributes (..))
 import           Pos.Delegation.Arbitrary          (genDlgPayload)
 import           Pos.Ssc.Arbitrary                 (SscPayloadDependsOnSlot (..))
@@ -281,11 +282,11 @@ recursiveHeaderGen genesis
                 Right (issuerSK, delegateSK, isSigEpoch) ->
                     let w = (lowEpoch, highEpoch)
                         delegatePK = toPublic delegateSK
-                        curried :: Bi w => w -> ProxySecretKey w
-                        curried = createProxySecretKey issuerSK delegatePK
+                        toPsk :: Bi w => w -> ProxySecretKey w
+                        toPsk = createPsk issuerSK delegatePK
                         proxy = if isSigEpoch
-                                then Right (curried siEpoch, toPublic issuerSK)
-                                else Left $ curried w
+                                then Right (toPsk siEpoch, toPublic issuerSK)
+                                else Left $ toPsk w
                     in (delegateSK, Just proxy)
         pure $ Right $
             T.mkMainHeader prevHeader slotId leader proxySK body extraHData
@@ -330,7 +331,13 @@ generateBHL :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc)
             -> Int -- ^ Slot count
             -> Gen (BlockHeaderList ssc)
 generateBHL createInitGenesis startSlot slotCount = BHL <$> do
-    leadersList <- vectorOf slotCount arbitrary
+    let correctLeaderGen :: Gen (Either SecretKey (SecretKey, SecretKey, Bool))
+        correctLeaderGen =
+            -- We don't want to create blocks with self-signed psks
+            let issDelDiff (Left _)        = True
+                issDelDiff (Right (i,d,_)) = i /= d
+            in arbitrary `suchThat` issDelDiff
+    leadersList <- vectorOf slotCount correctLeaderGen
     let actualLeaders = map (toPublic . either identity (view _1)) leadersList
         slotIdsRange =
             map T.unflattenSlotId

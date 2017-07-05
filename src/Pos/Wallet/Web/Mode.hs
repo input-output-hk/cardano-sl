@@ -31,7 +31,8 @@ import           Pos.DB.Block                  (dbGetBlockDefault, dbGetBlockSsc
 import           Pos.DB.Class                  (MonadBlockDBGeneric (..),
                                                 MonadBlockDBGenericWrite (..),
                                                 MonadDB (..), MonadDBRead (..))
-import           Pos.DB.DB                     (gsAdoptedBVDataDefault)
+import           Pos.DB.DB                     (gsAdoptedBVDataDefault,
+                                                gsIsBootstrapEraDefault)
 import           Pos.DB.Rocks                  (dbDeleteDefault, dbGetDefault,
                                                 dbIterSourceDefault, dbPutDefault,
                                                 dbWriteBatchDefault)
@@ -41,7 +42,8 @@ import           Pos.Client.Txp.Balances       (MonadBalances (..), getBalanceDe
 import           Pos.Client.Txp.History        (MonadTxHistory (..),
                                                 getBlockHistoryDefault,
                                                 getLocalHistoryDefault, saveTxDefault)
-import           Pos.Discovery                 (MonadDiscovery (..), findPeersSum, HasDiscoveryContextSum (..),
+import           Pos.Discovery                 (HasDiscoveryContextSum (..),
+                                                MonadDiscovery (..), findPeersSum,
                                                 getPeersSum)
 import           Pos.Reporting                 (HasReportingContext (..))
 import           Pos.Shutdown                  (HasShutdownContext (..))
@@ -197,6 +199,7 @@ instance MonadBlockDBGeneric (Some IsHeader) (SscBlock WalletSscType) () WalletW
 
 instance MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
+    gsIsBootstrapEra = gsIsBootstrapEraDefault
 
 instance MonadBListener WalletWebMode where
     onApplyBlocks = onApplyTracking

@@ -34,7 +34,7 @@ import           System.IO.Unsafe      (unsafeInterleaveIO)
 
 import           Pos.Block.Core        (Block, BlockHeader)
 import           Pos.Block.Types       (Undo)
-import           Pos.Context.Context   (GenesisStakes, GenesisUtxo)
+import           Pos.Context.Context   (GenesisUtxo)
 import           Pos.Core              (IsHeader, Timestamp)
 import           Pos.DB                (NodeDBs)
 import           Pos.DB.Block          (dbGetBlockDefault, dbGetBlockSscDefault,
@@ -82,7 +82,6 @@ newInitFuture = do
 data InitModeContext ssc = InitModeContext
     { imcNodeDBs            :: NodeDBs
     , imcGenesisUtxo        :: GenesisUtxo
-    , imcGenesisStakes      :: GenesisStakes
     , imcSlottingVar        :: (Timestamp, TVar SlottingData)
     , imcSlottingContextSum :: SlottingContextSum
     , imcLrcContext         :: LrcContext
@@ -100,9 +99,6 @@ instance HasLens NodeDBs (InitModeContext ssc) NodeDBs where
 
 instance HasLens GenesisUtxo (InitModeContext ssc) GenesisUtxo where
     lensOf = imcGenesisUtxo_L
-
-instance HasLens GenesisStakes (InitModeContext ssc) GenesisStakes where
-    lensOf = imcGenesisStakes_L
 
 instance HasLens SlottingContextSum (InitModeContext ssc) SlottingContextSum where
     lensOf = imcSlottingContextSum_L

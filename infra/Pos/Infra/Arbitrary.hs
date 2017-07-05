@@ -11,9 +11,10 @@ import           Test.QuickCheck                   (Arbitrary (..), choose, oneo
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Communication.Types.Protocol  (HandlerSpec (..), VerInfo (..))
-import           Pos.Communication.Types.Relay     (InvMsg (..), MempoolMsg (..),
-                                                    ReqMsg (..))
+import           Pos.Communication.Types.Relay     (DataMsg (..), InvMsg (..),
+                                                    MempoolMsg (..), ReqMsg (..))
 import           Pos.DHT                           (DHTData (..), DHTKey (..))
+import           Pos.Core.Types                    (ProxySKHeavy, ProxySKLight)
 
 deriving instance Arbitrary DHTData
 
@@ -40,5 +41,13 @@ instance Arbitrary MessageName where
     shrink = genericShrink
 
 instance Arbitrary VerInfo where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary (DataMsg ProxySKHeavy) where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary (DataMsg ProxySKLight) where
     arbitrary = genericArbitrary
     shrink = genericShrink

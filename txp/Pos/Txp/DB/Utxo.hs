@@ -13,7 +13,7 @@ module Pos.Txp.DB.Utxo
        , UtxoOp (..)
 
        -- * Initialization
-       , prepareGStateUtxo
+       , initGStateUtxo
 
        -- * Iteration
        , UtxoIter
@@ -46,10 +46,10 @@ import           Pos.Core             (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
 import           Pos.DB               (DBError (..), DBIteratorClass (..),
-                                       DBTag (GStateDB), IterType, MonadDB,
-                                       MonadDBRead (dbGet), RocksBatchOp (..),
-                                       dbIterSource, encodeWithKeyPrefix)
-import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
+                                       DBTag (GStateDB), IterType, MonadDB, MonadDBRead,
+                                       RocksBatchOp (..), dbIterSource,
+                                       encodeWithKeyPrefix)
+import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
 import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types   (Utxo)
 
@@ -84,16 +84,13 @@ instance RocksBatchOp UtxoOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUtxo :: (MonadDB m) => Utxo -> m ()
-prepareGStateUtxo genesisUtxo =
-    unlessM isUtxoInitialized putGenesisUtxo
+-- | Initializes utxo db.
+initGStateUtxo :: (MonadDB m) => Utxo -> m ()
+initGStateUtxo genesisUtxo =
+    writeBatchGState $ concatMap createBatchOp utxoList
   where
-    putGenesisUtxo = do
-        let utxoList = M.toList genesisUtxo
-        writeBatchGState $ concatMap createBatchOp utxoList
-        gsPutBi initializationFlagKey True
-    createBatchOp (txin, txout) =
-        [AddTxOut txin txout]
+    utxoList = M.toList genesisUtxo
+    createBatchOp (txin, txout) = [AddTxOut txin txout]
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -159,13 +156,3 @@ txInKey = encodeWithKeyPrefix @UtxoIter
 
 iterationUtxoPrefix :: ByteString
 iterationUtxoPrefix = "ut/t/"
-
-initializationFlagKey :: ByteString
-initializationFlagKey = "ut/gutxo/"
-
-----------------------------------------------------------------------------
--- Details
-----------------------------------------------------------------------------
-
-isUtxoInitialized :: MonadDBRead m => m Bool
-isUtxoInitialized = isJust <$> dbGet GStateDB initializationFlagKey

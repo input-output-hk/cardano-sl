@@ -7,13 +7,17 @@
 
 module Pos.DB.DB
        ( initNodeDBs
+
        , getTip
        , getTipBlock
        , getTipHeader
        , loadBlundsFromTipWhile
        , loadBlundsFromTipByDepth
+
        , sanityCheckDB
+
        , gsAdoptedBVDataDefault
+       , gsIsBootstrapEraDefault
        ) where
 
 import           Universum
@@ -24,7 +28,8 @@ import           System.Wlog           (WithLogger)
 
 import           Pos.Block.Core        (Block, BlockHeader, mkGenesisBlock)
 import           Pos.Block.Types       (Blund)
-import           Pos.Context.Context   (GenesisStakes, GenesisUtxo)
+import           Pos.Constants         (isDevelopment)
+import           Pos.Context.Context   (GenesisUtxo)
 import           Pos.Context.Functions (genesisLeadersM)
 import           Pos.Core              (BlockVersionData, Timestamp, headerHash)
 import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
@@ -39,6 +44,7 @@ import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Update.DB         (getAdoptedBVData)
 import           Pos.Util              (inAssertMode)
 import           Pos.Util.Chrono       (NewestFirst)
+
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.DB       (prepareExplorerDB)
 #endif
@@ -49,7 +55,6 @@ initNodeDBs
     :: forall ssc ctx m.
        ( MonadReader ctx m
        , HasLens GenesisUtxo ctx GenesisUtxo
-       , HasLens GenesisStakes ctx GenesisStakes
        , MonadBlockDBWrite ssc m
        , SscHelpersClass ssc
        , MonadDB m
@@ -105,3 +110,10 @@ getTipHeader = getTipHeaderGeneric @(Block ssc)
 
 gsAdoptedBVDataDefault :: MonadDBRead m => m BlockVersionData
 gsAdoptedBVDataDefault = getAdoptedBVData
+
+-- TODO: CSL-1204 provide actual implementation after corresponding
+-- flag is actually stored in the DB
+gsIsBootstrapEraDefault :: MonadDBRead m => m Bool
+gsIsBootstrapEraDefault
+    | isDevelopment = pure False
+    | otherwise     = pure True

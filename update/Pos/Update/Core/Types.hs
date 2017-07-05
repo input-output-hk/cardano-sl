@@ -160,7 +160,7 @@ data UpdateProposalToSign
     , upsSV   :: !SoftwareVersion
     , upsData :: !(HM.HashMap SystemTag UpdateData)
     , upsAttr :: !UpAttributes
-    } deriving Generic
+    } deriving (Eq, Show, Generic)
 
 -- | Proposal for software update
 data UpdateProposal = UnsafeUpdateProposal

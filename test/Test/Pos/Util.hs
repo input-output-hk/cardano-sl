@@ -18,6 +18,8 @@ module Test.Pos.Util
        , shouldThrowException
        , showRead
        , showReadTest
+       , storeEncodeDecode
+       , storeTest
        , (.=.)
        , (>=.)
        ) where
@@ -53,6 +55,9 @@ binaryEncodeDecode a = Store.decodeExWith parser (encode a) === a
   where
     -- CSL-1122: is 'isEmptyPeek' needed here?
     parser = get <* unlessM isEmptyPeek (fail "Unconsumed input")
+
+storeEncodeDecode :: (Show a, Eq a, Store.Store a) => a -> Property
+storeEncodeDecode a = Store.decodeEx (Store.encode a) === a
 
 -- | This check is intended to be used for all messages sent via
 -- networking.
@@ -95,6 +100,9 @@ identityTest fun = prop (typeName @a) fun
 
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 binaryTest = identityTest @Bi @a binaryEncodeDecode
+
+storeTest :: forall a. IdTestingRequiredClasses Store.Store a => Spec
+storeTest = identityTest @Store.Store @a storeEncodeDecode
 
 networkBinaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 networkBinaryTest = identityTest @Bi @a networkBinaryEncodeDecode

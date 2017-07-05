@@ -18,13 +18,13 @@ import           Pos.Constants         (isDevelopment)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
 import           Pos.DHT.Real          (KademliaParams (..))
-import           Pos.Genesis           (genesisStakeDistribution, genesisStakesProdMod,
-                                        genesisUtxo)
+import           Pos.Genesis           (devAddrDistr, devStakesDistr,
+                                        genesisProdAddrDistribution,
+                                        genesisProdBootStakeholders, genesisUtxo)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
-                                        NetworkParams (..), NodeParams (..), stakesDistr)
+                                        NetworkParams (..), NodeParams (..))
 import           Pos.Security          (SecurityParams (..))
 import           Pos.Ssc.GodTossing    (GtParams (..))
-import           Pos.Txp               (utxoToStakes)
 import           Pos.Update.Params     (UpdateParams (..))
 import           Pos.Util.TimeWarp     (NetworkAddress, addressToNodeId, readAddrFile)
 import           Pos.Util.UserSecret   (peekUserSecret)
@@ -89,13 +89,17 @@ getNodeParams args@Args {..} systemStart = do
         updateUserSecretVSS args =<<
         peekUserSecret (getKeyfilePath args)
     npNetwork <- liftIO $ getNetworkParams args
-    let npCustomUtxo = genesisUtxo $
-              if isDevelopment
-                  then stakesDistr (CLI.flatDistr commonArgs)
-                                   (CLI.bitcoinDistr commonArgs)
-                                   (CLI.richPoorDistr commonArgs)
-                                   (CLI.expDistr commonArgs)
-                  else genesisStakeDistribution
+    let devStakeDistr =
+            devStakesDistr
+                (CLI.flatDistr commonArgs)
+                (CLI.bitcoinDistr commonArgs)
+                (CLI.richPoorDistr commonArgs)
+                (CLI.expDistr commonArgs)
+    let npCustomUtxo =
+            if isDevelopment
+            then genesisUtxo Nothing (devAddrDistr devStakeDistr)
+            else genesisUtxo (Just genesisProdBootStakeholders)
+                             genesisProdAddrDistribution
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB
@@ -103,10 +107,6 @@ getNodeParams args@Args {..} systemStart = do
         , npUserSecret = userSecret
         , npSystemStart = systemStart
         , npBaseParams = getBaseParams "node" args
-        , npGenesisStakes =
-              if isDevelopment
-                  then utxoToStakes npCustomUtxo
-                  else genesisStakesProdMod
         , npJLFile = jlPath
         , npPropagation = not (CLI.disablePropagation commonArgs)
         , npReportServers = CLI.reportServers commonArgs

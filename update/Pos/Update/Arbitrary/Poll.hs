@@ -17,9 +17,9 @@ import           Pos.Update.Poll.Types             (BlockVersionState (..),
                                                     ConfirmedProposalState (..),
                                                     DecidedProposalState (..),
                                                     DpsExtra (..), PollModifier (..),
-                                                    ProposalState (..),
+                                                    PrevValue, ProposalState (..),
                                                     UndecidedProposalState (..),
-                                                    UpsExtra (..))
+                                                    UpsExtra (..), USUndo)
 
 instance Arbitrary UpsExtra where
     arbitrary = genericArbitrary
@@ -54,5 +54,13 @@ instance Arbitrary PollModifier where
     shrink = genericShrink
 
 instance Arbitrary PollState where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary USUndo where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary a => Arbitrary (PrevValue a) where
     arbitrary = genericArbitrary
     shrink = genericShrink

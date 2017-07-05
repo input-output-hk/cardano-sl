@@ -12,7 +12,6 @@ import           Ether.Internal  (HasLens (..))
 import           Mockable        (Async, Concurrently, Delay, Mockables)
 import           System.Wlog     (WithLogger)
 
-import           Pos.Core        (GenesisStakes)
 import           Pos.DB.Class    (MonadDB, MonadGState)
 import           Pos.Lrc.Context (LrcContext)
 
@@ -26,5 +25,4 @@ type LrcMode ssc ctx m
        , Mockables m [Async, Concurrently, Delay]
        , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
-       , HasLens GenesisStakes ctx GenesisStakes
        )

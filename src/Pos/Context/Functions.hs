@@ -6,6 +6,7 @@ module Pos.Context.Functions
          GenesisUtxo(..)
        , genesisUtxoM
        , genesisStakesM
+       , genesisStakeholdersM
        , genesisLeadersM
 
          -- * Block semaphore.
@@ -29,25 +30,36 @@ import           Data.Time           (diffUTCTime, getCurrentTime)
 import           Data.Time.Units     (Microsecond, fromMicroseconds)
 import           Ether.Internal      (HasLens (..))
 
-import           Pos.Context.Context (BlkSemaphore (..), GenesisStakes (..),
-                                      GenesisUtxo (..), StartTime (..))
-import           Pos.Core            (HeaderHash, SlotLeaders, StakesMap)
+import           Pos.Context.Context (BlkSemaphore (..), GenesisUtxo (..), StartTime (..))
+import           Pos.Core            (HeaderHash, SlotLeaders, StakeholderId, StakesMap)
 import           Pos.Genesis         (genesisLeaders)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
-import           Pos.Txp.Toil.Types  (Utxo)
+import           Pos.Txp.Toil        (Utxo, utxoToStakes)
+import           Pos.Util.Util       (getKeys)
 
 ----------------------------------------------------------------------------
 -- Genesis
 ----------------------------------------------------------------------------
 
-genesisUtxoM :: (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) => m Utxo
+genesisUtxoM ::
+       (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo)
+    => m Utxo
 genesisUtxoM = views (lensOf @GenesisUtxo) unGenesisUtxo
 
-genesisStakesM :: (Functor m, MonadReader ctx m, HasLens GenesisStakes ctx GenesisStakes) => m StakesMap
-genesisStakesM = views (lensOf @GenesisStakes) unGenesisStakes
+genesisStakesM ::
+       (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo)
+    => m StakesMap
+genesisStakesM = views (lensOf @GenesisUtxo) $ utxoToStakes . unGenesisUtxo
 
-genesisLeadersM :: (Functor m, MonadReader ctx m, HasLens GenesisStakes ctx GenesisStakes) => m SlotLeaders
-genesisLeadersM = genesisLeaders <$> genesisStakesM
+genesisStakeholdersM ::
+       (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo)
+    => m (HashSet StakeholderId)
+genesisStakeholdersM = getKeys <$> genesisStakesM
+
+genesisLeadersM ::
+       (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo)
+    => m SlotLeaders
+genesisLeadersM = genesisLeaders <$> genesisUtxoM
 
 ----------------------------------------------------------------------------
 -- Semaphore-related logic

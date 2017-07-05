@@ -4,7 +4,7 @@ module Pos.Ssc.GodTossing.DB
        ( getGtGlobalState
        , getGtGlobalStateMaybe
        , gtGlobalStateToBatch
-       , prepareGtDB
+       , initGtDB
        ) where
 
 import           Universum
@@ -34,8 +34,8 @@ getGtGlobalStateMaybe = gsGetBi gtKey
 gtGlobalStateToBatch :: GtGlobalState -> GtOp
 gtGlobalStateToBatch = PutGlobalState
 
-prepareGtDB :: MonadDB m => VssCertificatesMap -> m ()
-prepareGtDB _ = pass
+initGtDB :: MonadDB m => VssCertificatesMap -> m ()
+initGtDB _ = pass
 -- Commented due to CSL-1113, maybe uncomment when we will use store serialization.
   --   whenNothingM_ (gsGetBi @_ @GtGlobalState gtKey) $
   --       gsPutBi gtKey (def {_gsVssCertificates = vcd})

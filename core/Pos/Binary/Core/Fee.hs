@@ -9,8 +9,9 @@ import           Universum
 import           Data.Fixed       (Fixed (..))
 
 import           Pos.Binary.Class (Bi (..), FixedSizeInt (..), PokeWithSize,
-                                   convertToSizeNPut, getWithLength, getWord8, label,
-                                   labelS, putField, putS, putWithLengthS, putWord8S)
+                                   convertToSizeNPut, getBytes, getWithLength, getWord8,
+                                   label, labelS, putBytesS, putField, putS,
+                                   putWithLengthS, putWord8S)
 import           Pos.Core.Fee     (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 
 instance Bi Coeff where
@@ -29,17 +30,16 @@ instance Bi TxSizeLinear where
 
 instance Bi TxFeePolicy where
     get = label "TxFeePolicy" $ do
-        policyVersion <- getWord8
-        getWithLength $ const $ case policyVersion of
+        tag <- getWord8
+        getWithLength $ \len -> case tag of
             0 -> TxFeePolicyTxSizeLinear <$> get
-            _ -> TxFeePolicyUnknown policyVersion <$> get
-    sizeNPut = labelS "TxFeePolicy" $ convertToSizeNPut toBi
+            _ -> TxFeePolicyUnknown tag <$> getBytes (fromIntegral len)
+    sizeNPut = labelS "TxFeePolicy" $ convertToSizeNPut $ \case
+        TxFeePolicyTxSizeLinear tsp ->
+            putWithTag 0 $ putS tsp
+        TxFeePolicyUnknown t bs ->
+            putWithTag t $ putBytesS bs
       where
-        toBi :: TxFeePolicy -> PokeWithSize ()
-        toBi = \case
-            TxFeePolicyTxSizeLinear tsp ->
-                putWord8S 0 *>
-                putWithLengthS (putS tsp)
-            TxFeePolicyUnknown v bs ->
-                putWord8S v *>
-                putWithLengthS (putS bs)
+        -- | Put tag, then length of X, then X itself
+        putWithTag :: Word8 -> PokeWithSize () -> PokeWithSize ()
+        putWithTag t x = putWord8S t <> putWithLengthS x

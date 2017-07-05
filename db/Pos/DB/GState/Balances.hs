@@ -51,22 +51,12 @@ ftsSumKey = "b/ftssum"
 
 -- | Get real total amount of stake to be used for follow-the-satoshi
 -- and other procedures which use stake of some stakeholder.
---
--- Word `real` is essential here, because there is also apparent stake
--- during bootstrap era.
---
--- It's different from total amount of spendable coins in the system,
--- because spending is done using Utxo. For example, one can send
--- coins to script address and not include it into transaction
--- distribution.
 getRealTotalStake :: MonadDBRead m => m Coin
 getRealTotalStake =
     maybeThrow (DBMalformed "no total FTS stake in GState DB") =<< getRealStakeSumMaybe
 
 -- | Get real stake owned by given stakeholder (according to rules
--- used for FTS and similar procedures). Word `real` is essential
--- here. See documentation of 'getRealTotalStake' for some
--- explanation.
+-- used for FTS and similar procedures).
 getRealStake :: MonadDBRead m => StakeholderId -> m (Maybe Coin)
 getRealStake = gsGetBi . ftsStakeKey
 

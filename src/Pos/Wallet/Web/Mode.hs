@@ -30,17 +30,18 @@ import           Pos.DB.Block                  (MonadBlockDBWrite (..), dbGetBlo
                                                 dbGetUndoSscDefault, dbPutBlundDefault)
 import           Pos.DB.Class                  (MonadBlockDBGeneric (..), MonadDB (..),
                                                 MonadDBRead (..))
-import           Pos.DB.DB                     (gsAdoptedBVDataDefault)
+import           Pos.DB.DB                     (gsAdoptedBVDataDefault,
+                                                gsIsBootstrapEraDefault)
 import           Pos.DB.Redirect               (dbDeleteDefault, dbGetDefault,
                                                 dbIterSourceDefault, dbPutDefault,
                                                 dbWriteBatchDefault)
 
 import           Pos.Client.Txp.Balances       (MonadBalances (..), getBalanceDefault,
                                                 getOwnUtxosDefault)
-import           Pos.Client.Txp.History        (MonadTxHistory (..), getTxHistoryDefault,
-                                                saveTxDefault)
-import           Pos.Discovery                 (HasDiscoveryContextSum (..),
-                                                MonadDiscovery (..), findPeersSum,
+import           Pos.Client.Txp.History        (MonadTxHistory (..),
+                                                getBlockHistoryDefault,
+                                                getLocalHistoryDefault, saveTxDefault)
+import           Pos.Discovery                 (MonadDiscovery (..), findPeersSum, HasDiscoveryContextSum (..),
                                                 getPeersSum)
 import           Pos.Reporting                 (HasReportingContext (..))
 import           Pos.Shutdown                  (HasShutdownContext (..))
@@ -196,6 +197,7 @@ instance MonadBlockDBGeneric (Some IsHeader) (SscBlock WalletSscType) () WalletW
 
 instance MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
+    gsIsBootstrapEra = gsIsBootstrapEraDefault
 
 instance MonadBListener WalletWebMode where
     onApplyBlocks = onApplyTracking
@@ -216,7 +218,8 @@ instance MonadBalances WalletWebMode where
     getBalance = getBalanceDefault
 
 instance MonadTxHistory WalletSscType WalletWebMode where
-    getTxHistory = getTxHistoryDefault @WalletSscType
+    getBlockHistory = getBlockHistoryDefault @WalletSscType
+    getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
 
 instance MonadWalletTracking WalletWebMode where

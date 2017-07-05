@@ -24,18 +24,21 @@ import           Pos.Txp.Toil.Failure (ToilVerFailure)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Util        (Some)
 
-type TxpCommonMode m = ( WithLogger m
-                       , MonadDBRead m
-                       , MonadGState m
-                       )
+type TxpCommonMode m =
+    ( WithLogger m
+    , MonadDBRead m
+    , MonadGState m
+    )
 
-type TxpGlobalVerifyMode m = ( TxpCommonMode m
-                             , MonadError ToilVerFailure m
-                             )
+type TxpGlobalVerifyMode m =
+    ( TxpCommonMode m
+    , MonadError ToilVerFailure m
+    )
 
-type TxpGlobalApplyMode m = ( TxpCommonMode m
-                            , MonadSlots m  -- TODO: I don't like it (@gromak)
-                            )
+type TxpGlobalApplyMode m =
+    ( TxpCommonMode m
+    , MonadSlots m  -- TODO: I don't like it (@gromak)
+    )
 
 type TxpGlobalRollbackMode m = TxpCommonMode m
 

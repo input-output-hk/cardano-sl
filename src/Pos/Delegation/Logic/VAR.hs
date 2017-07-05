@@ -277,9 +277,9 @@ calculateTransCorrections eActions = do
 
 -- State needed for 'delegationVerifyBlocks'.
 data DlgVerState = DlgVerState
-    { _dvCurEpoch   :: HashSet PublicKey
+    { _dvCurEpoch   :: !(HashSet PublicKey)
       -- ^ Set of issuers that have already posted certificates this epoch
-    , _dvPskChanged :: HashMap PublicKey GS.DlgEdgeAction
+    , _dvPskChanged :: !(HashMap PublicKey GS.DlgEdgeAction)
       -- ^ Psks added/removed from the database. Removed psk is
       -- revoked one.
     }

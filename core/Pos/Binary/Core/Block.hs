@@ -38,7 +38,8 @@ instance ( Bi (T.BHeaderHash b)
         label "GenericBlockHeader" $ do
         blockMagic <- getInt32be
         when (blockMagic /= protocolMagic) $
-            fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
+            fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic <>
+                   ", our magic is : " <> show protocolMagic
         prevBlock <- get
         bodyProof <- get
         consensus <- get

@@ -121,10 +121,13 @@ dbDeletePureDefault (tagToLens -> l) key =
     view (lensOf @DBPureVar) >>= atomicModifyIORefPure (l . at key .~ Nothing)
 
 dbWriteBatchPureDefault :: MonadPureDB ctx m => DBTag -> [Rocks.BatchOp] -> m ()
-dbWriteBatchPureDefault tag = mapM_ processOp
+dbWriteBatchPureDefault (tagToLens -> l) batchOps =
+    view (lensOf @DBPureVar) >>= atomicModifyIORefPure action
   where
-    processOp (Rocks.Put k v) = dbPutPureDefault tag k v
-    processOp (Rocks.Del k)   = dbDeletePureDefault tag k
+    -- Apply actions from left to right (right fold, but reverse application order)
+    action = foldr (\batchop acc -> acc . processOp batchop) identity batchOps
+    processOp (Rocks.Put k v) = l . at k .~ Just v
+    processOp (Rocks.Del k)   = l . at k .~ Nothing
 
 atomicModifyIORefPure :: (MonadIO m) => (a -> a) -> IORef a -> m ()
 atomicModifyIORefPure foo = flip atomicModifyIORef $ \a -> (foo a, ())

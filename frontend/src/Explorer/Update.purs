@@ -23,15 +23,13 @@ import Data.Foldable (traverse_)
 import Data.Foreign (toForeign)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
-import Explorer.I18n.Lang (translate)
-import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), match, toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
@@ -217,11 +215,13 @@ update (DashboardExpandBlocks expanded) state = noEffects $
 update (DashboardExpandTransactions expanded) state = noEffects $
     set (dashboardViewState <<< dbViewTxsExpanded) expanded state
 
-update (DashboardPaginateBlocks pageNumber) state =
+update (DashboardPaginateBlocks mEvent pageNumber) state =
     { state:
-          set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber state
+          set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
     , effects:
-          [ pure <<< Just $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
+          [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+          -- ^ blur element - needed by iOS to close native keyboard
+          , pure <<< Just $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
           ]
     }
 
@@ -248,8 +248,15 @@ update (DashboardShowAPICode code) state = noEffects $
 
 -- Address
 
-update (AddressPaginateTxs value) state = noEffects $
-    set (viewStates <<< addressDetail <<< addressTxPagination) value state
+update (AddressPaginateTxs mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< addressDetail <<< addressTxPagination) pageNumber $
+          set (viewStates <<< addressDetail <<< addressTxPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
+        ]
+    }
 
 update (AddressEditTxsPageNumber event editable) state =
     { state:
@@ -271,8 +278,15 @@ update (AddressInvalidTxsPageNumber event) state =
 
 -- Block
 
-update (BlockPaginateTxs value) state = noEffects $
-    set (viewStates <<< blockDetail <<< blockTxPagination) value state
+update (BlockPaginateTxs mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< blockDetail <<< blockTxPagination) pageNumber $
+          set (viewStates <<< blockDetail <<< blockTxPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
+        ]
+    }
 
 update (BlockEditTxsPageNumber event editable) state =
     { state:
@@ -294,8 +308,15 @@ update (BlockInvalidTxsPageNumber event) state =
 
 -- Blocks
 
-update (BlocksPaginateBlocks value) state = noEffects $
-    set (viewStates <<< blocksViewState <<< blsViewPagination) value state
+update (BlocksPaginateBlocks mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< blocksViewState <<< blsViewPagination) pageNumber $
+          set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
+        ]
+    }
 
 update (BlocksEditBlocksPageNumber event editable) state =
     { state:
@@ -457,16 +478,18 @@ update (GlobalSearch event) state =
           set (viewStates <<< globalViewState <<< gViewSearchQuery) emptySearchQuery $
           set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
           state
-    , effects: [
-      -- set state of focus explicitly
-      pure <<< Just $ GlobalFocusSearchInput false
-      , case state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch) of
-          SearchAddress ->
-              pure <<< Just $ Navigate (toUrl <<< Address $ mkCAddress query) event
-          SearchTx ->
-              pure <<< Just $ Navigate (toUrl <<< Tx $ mkCTxId query) event
-          _ -> pure Nothing  -- TODO (ks) maybe put up a message?
-      ]
+    , effects:
+        [ pure <<< Just $ GlobalFocusSearchInput false
+        -- ^ set state of focus explicitly
+        , pure <<< Just <<< BlurElement <<< nodeToHTMLElement $ target event
+        -- ^ blur element - needed by iOS to close native keyboard
+        , case state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch) of
+            SearchAddress ->
+                pure <<< Just $ Navigate (toUrl <<< Address $ mkCAddress query) event
+            SearchTx ->
+                pure <<< Just $ Navigate (toUrl <<< Tx $ mkCTxId query) event
+            _ -> pure Nothing  -- TODO (ks) maybe put up a message?
+        ]
     }
 update (GlobalSearchTime event) state =
     let query = state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
@@ -475,24 +498,26 @@ update (GlobalSearchTime event) state =
           set (viewStates <<< globalViewState <<< gViewSearchTimeQuery) emptySearchTimeQuery $
           set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
           state
-    , effects: [
-      -- set state of focus explicitly
-      pure <<< Just $ GlobalFocusSearchInput false
-      , case query of
-            Tuple (Just epoch) (Just slot) ->
-                let epochIndex = mkEpochIndex epoch
-                    slotIndex  = mkLocalSlotIndex slot
-                    epochSlotUrl = EpochSlot epochIndex slotIndex
-                in
-                pure <<< Just $ Navigate (toUrl epochSlotUrl) event
-            Tuple (Just epoch) Nothing ->
-                let epochIndex = mkEpochIndex epoch
-                    epochUrl   = Epoch $ epochIndex
-                in
-                pure <<< Just $ Navigate (toUrl epochUrl) event
+    , effects:
+        [ pure <<< Just $ GlobalFocusSearchInput false
+          -- ^ set state of focus explicitly
+          , pure <<< Just <<< BlurElement <<< nodeToHTMLElement $ target event
+          -- ^ blur element - needed by iOS to close native keyboard
+          , case query of
+                Tuple (Just epoch) (Just slot) ->
+                    let epochIndex = mkEpochIndex epoch
+                        slotIndex  = mkLocalSlotIndex slot
+                        epochSlotUrl = EpochSlot epochIndex slotIndex
+                    in
+                    pure <<< Just $ Navigate (toUrl epochSlotUrl) event
+                Tuple (Just epoch) Nothing ->
+                    let epochIndex = mkEpochIndex epoch
+                        epochUrl   = Epoch $ epochIndex
+                    in
+                    pure <<< Just $ Navigate (toUrl epochUrl) event
 
-            _ -> pure Nothing -- TODO (ks) maybe put up a message?
-      ]
+                _ -> pure Nothing -- TODO (ks) maybe put up a message?
+        ]
     }
 
 update (GlobalUpdateSelectedSearch search) state =
@@ -537,7 +562,7 @@ update (DashboardReceiveBlocksTotalPages (Right totalPages)) state =
           set (dashboardViewState <<< dbViewBlockPagination)
               (PageNumber totalPages) state
     , effects:
-        [ pure <<< Just $ DashboardPaginateBlocks (PageNumber totalPages) ]
+        [ pure <<< Just $ DashboardPaginateBlocks Nothing (PageNumber totalPages) ]
     }
 
 update (DashboardReceiveBlocksTotalPages (Left error)) state =
@@ -549,6 +574,7 @@ update (DashboardReceiveBlocksTotalPages (Left error)) state =
 update (RequestPaginatedBlocks pageNumber pageSize) state =
     { state:
           set loading true $
+          set (dashboardViewState <<< dbViewBlockPagination) pageNumber $
           -- Important note: Don't use `set latestBlocks Loading` here,
           -- we will empty `latestBlocks` in this case !!!
           -- set latestBlocks Loading
@@ -561,7 +587,6 @@ update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
     { state:
           set loading false $
           set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages) $
-          set (dashboardViewState <<< dbViewBlockPagination) (PageNumber newPage) $
           set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
           set latestBlocks (Success blocks) state
     , effects:
@@ -570,7 +595,6 @@ update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
         else []
     }
     where
-        newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination <<< _PageNumber)
         subItem = mkSocketSubscriptionItem (SocketSubscription SubBlockLastPage) SocketNoData
 
 update (ReceivePaginatedBlocks (Left error)) state =
@@ -744,8 +768,6 @@ update (Navigate url ev) state = onlyEffects state
 
 update (UpdateView r@Dashboard) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cTitle) $ state ^. lang) $
         set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
         set route r state
     , effects:
@@ -753,7 +775,7 @@ update (UpdateView r@Dashboard) state =
         , pure $ Just ClearWaypoints
         , pure <<< Just <<< DashboardAddWaypoint $ ElementId CSS.dashBoardBlocksViewId
         , if isSuccess maxBlockPage
-          then pure <<< Just <<< DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
+          then pure <<< Just $ DashboardPaginateBlocks Nothing (state ^. (dashboardViewState <<< dbViewBlockPagination))
           else
               -- Note: Request `total pages `only once.
               -- Check is needed due reloading by http pooling
@@ -768,8 +790,6 @@ update (UpdateView r@Dashboard) state =
 
 update (UpdateView r@(Tx tx)) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cTransaction) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -783,8 +803,6 @@ update (UpdateView r@(Address cAddress)) state =
     { state:
         set currentCAddress cAddress $
         set (viewStates <<< addressDetail <<< addressTxPagination) (PageNumber minPagination) $
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cAddress) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -798,8 +816,6 @@ update (UpdateView r@(Epoch epochIndex)) state =
     { state:
         set (viewStates <<< blocksViewState <<< blsViewPagination)
             (PageNumber minPagination) $
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cEpoch) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -810,12 +826,9 @@ update (UpdateView r@(Epoch epochIndex)) state =
 
 update (UpdateView r@(EpochSlot epochIndex slotIndex)) state =
     let lang' = state ^. lang
-        epochTitle = translate (I18nL.common <<< I18nL.cEpoch) lang'
-        slotTitle = translate (I18nL.common <<< I18nL.cSlot) lang'
+
     in
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (epochTitle <> " / " <> slotTitle) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -826,8 +839,6 @@ update (UpdateView r@(EpochSlot epochIndex slotIndex)) state =
 
 update (UpdateView r@Calculator) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cCalculator) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -837,8 +848,6 @@ update (UpdateView r@Calculator) state =
 
 update (UpdateView r@(Block hash)) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cBlock) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -860,8 +869,6 @@ update (UpdateView r@(Playground)) state =
 
 update (UpdateView r@(NotFound)) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.notfound <<< I18nL.nfTitle) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop

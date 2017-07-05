@@ -124,4 +124,9 @@
     background-color: var(--color7); /* overridden */
   }
 
+
+  &__tx-container {
+    lost-utility: clearfix;
+  }
+
 }

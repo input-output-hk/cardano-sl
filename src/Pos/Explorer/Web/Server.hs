@@ -28,10 +28,10 @@ import           Control.Monad.Trans.Maybe      (MaybeT (..))
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
 import           Data.Time.Clock.POSIX          (POSIXTime)
+import           Formatting                     (build, sformat, (%))
 import           Network.Wai                    (Application)
 import           Servant.API                    ((:<|>) ((:<|>)))
 import           Servant.Server                 (Server, ServerT, serve)
-import           Formatting                     (sformat, build, (%))
 
 import           Pos.Communication              (SendActions)
 import           Pos.Crypto                     (WithHash (..), hash, withHash)
@@ -69,8 +69,8 @@ import           Pos.Util.Chrono                (NewestFirst (..))
 import           Pos.Web                        (serveImpl)
 import           Pos.WorkMode                   (WorkMode)
 
-import           Pos.Explorer                   (TxExtra (..), getEpochBlocks,
-                                                 getPageBlocks, getTxExtra)
+import           Pos.Explorer                   (TxExtra (..), getPageBlocks,
+                                                 getTxExtra)
 import qualified Pos.Explorer                   as EX (getAddrBalance,
                                                        getAddrHistory,
                                                        getTxExtra)
@@ -143,7 +143,7 @@ explorerHandlers _sendActions =
     catchExplorerError   = try
 
     getBlocksPagesDefault     page size  =
-      catchExplorerError $ getBlocksPage (defaultPage page) (defaultPageSize size)
+      catchExplorerError $ getBlocksPage page (defaultPageSize size)
 
     getBlocksPagesTotalDefault     size  =
       catchExplorerError $ getBlocksPagesTotal (defaultPageSize size)
@@ -157,7 +157,6 @@ explorerHandlers _sendActions =
     tryEpochSlotSearch   epoch maybeSlot =
       catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    defaultPage  page    = (fromIntegral $ fromMaybe 1   page)
     defaultPageSize size = (fromIntegral $ fromMaybe 10  size)
     defaultLimit limit   = (fromIntegral $ fromMaybe 10  limit)
     defaultSkip  skip    = (fromIntegral $ fromMaybe 0   skip)
@@ -280,18 +279,25 @@ getBlocksTotal = do
 -- Currently the pages are in chronological order.
 getBlocksPage
     :: (ExplorerMode m)
-    => Word
+    => Maybe Word
     -> Word
     -> m (Integer, [CBlockEntry])
-getBlocksPage (toInteger -> pageNumber) pageSize = do
+getBlocksPage mPageNumber pageSize = do
 
     -- Get total pages from the blocks.
     totalPages <- getBlocksPagesTotal pageSize
 
+    -- Initially set on the last page number if page number not defined.
+    let pageNumber = fromMaybe totalPages $ toInteger <$> mPageNumber
+
     -- Make sure the parameters are valid.
+    when (pageNumber <= 0) $
+        throwM $ Internal "Number of pages must be greater than 0."
+
     when (pageNumber > totalPages) $
         throwM $ Internal "Number of pages exceeds total pages number."
 
+    -- TODO: Fix in the future.
     when (pageSize /= 10) $
         throwM $ Internal "We currently support only page size of 10."
 
@@ -313,7 +319,7 @@ getBlocksPage (toInteger -> pageNumber) pageSize = do
         :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
         => Int
         -> m [HeaderHash]
-    getPageHHsOrThrow pageNumber' = getPageBlocks pageNumber' >>=
+    getPageHHsOrThrow pageNumber = getPageBlocks pageNumber >>=
         maybeThrow (Internal errMsg)
       where
         errMsg :: Text
@@ -355,14 +361,10 @@ getBlocksPagesTotal pageSize = do
 getBlocksLastPage
     :: (ExplorerMode m)
     => m (Integer, [CBlockEntry])
-getBlocksLastPage = do
-    -- The default page size for the __explorer__.
-    let pageSize = 10
-
-    -- Get total pages from the blocks.
-    totalPages <- getBlocksPagesTotal pageSize
-
-    getBlocksPage (fromIntegral totalPages) pageSize
+getBlocksLastPage = getBlocksPage Nothing pageSize
+  where
+    pageSize :: Word
+    pageSize = 10
 
 
 -- | Get last transactions from the blockchain

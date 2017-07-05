@@ -1582,10 +1582,6 @@ currently-unhandled@^0.4.1:
   dependencies:
     array-find-index "^1.0.1"
 
-"custom-event-polyfill@https://github.com/serokell/custom-event-polyfill/":
-  version "0.3.0"
-  resolved "https://github.com/serokell/custom-event-polyfill/#c44fc9d062abd06a898ff7c27da08207c43f774d"
-
 d@1:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/d/-/d-1.0.0.tgz#754bb5bfe55451da69a58b94d45f4c5b0462d58f"
@@ -2781,6 +2777,10 @@ isstream@~0.1.2:
 js-base64@^2.1.9:
   version "2.1.9"
   resolved "https://registry.yarnpkg.com/js-base64/-/js-base64-2.1.9.tgz#f0e80ae039a4bd654b5f281fc93f04a914a7fcce"
+
+js-polyfills@^0.1.33:
+  version "0.1.33"
+  resolved "https://registry.yarnpkg.com/js-polyfills/-/js-polyfills-0.1.33.tgz#5e39ac1d34ef1df496423329be227612e63c3b6b"
 
 js-string-escape@^1.0.1:
   version "1.0.1"

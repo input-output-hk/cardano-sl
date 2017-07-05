@@ -93,12 +93,13 @@ mkSummaryItems lang (CBlockEntry entry) =
       , amount: formatADA (entry ^. cbeTotalSent) lang
       , mCurrency: Just ADA
       }
-    , { id: "2"
-      , label: translate (I18nL.block <<< I18nL.blEstVolume) lang
-      -- TODO: We do need real data here
-      , amount: formatADA (mkCoin "0") lang
-      , mCurrency: Just ADA
-      }
+    -- TODO: Enable it later again ([CSE-168] Remove `Est. Volume` temporary)
+    -- , { id: "2"
+    --   , label: translate (I18nL.block <<< I18nL.blEstVolume) lang
+    --   -- TODO: We do need real data here
+    --   , amount: formatADA (mkCoin "0") lang
+    --   , mCurrency: Just ADA
+    --   }
     , { id: "3"
       , label: translate (I18nL.block <<< I18nL.blFees) lang
       -- TODO: We do need real data here
@@ -210,8 +211,8 @@ blockTxsView txs state =
             minTxIndex = (txPagination - minPagination) * maxTxRows
             currentTxs = slice minTxIndex (minTxIndex + maxTxRows) txs
         in
-        S.div do
-            S.div $ for_ currentTxs (\tx -> blockTxView tx lang')
+        do
+            for_ currentTxs (\tx -> blockTxView tx lang')
             txPaginationView  { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                               , currentPage: PageNumber txPagination
                               , minPage: PageNumber minPagination
@@ -225,6 +226,7 @@ blockTxsView txs state =
 
 blockTxView :: CTxBrief -> Language -> P.HTML Action
 blockTxView tx lang =
-    S.div do
+    S.div ! S.className "explorer-block__tx-container"
+        $ do
         txHeaderView lang $ mkTxHeaderViewProps tx
         txBodyView lang $ mkTxBodyViewProps tx

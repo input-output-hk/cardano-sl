@@ -17,16 +17,15 @@ import qualified Ether
 import           Formatting                 (sformat, shown, (%))
 import           Mockable                   (Production, currentTime)
 import           Network.Transport.Abstract (Transport, hoistTransport)
-import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
-import qualified Node
+import qualified Network.Transport.TCP      as TCP (TCPAddr (..),
+                                                    TCPAddrInfo (..))
 import           Serokell.Util              (sec)
-import           System.Wlog                (logInfo)
+import           System.Wlog                (logInfo, logDebug)
 
 import           Pos.Binary                 ()
 import qualified Pos.CLI                    as CLI
-import           Pos.Communication          (ActionSpec (..), OutSpecs, WorkerSpec,
-                                             worker, wrapActionSpec)
-import           Pos.Context                (recoveryCommGuard)
+import           Pos.Communication          (OutSpecs, WorkerSpec, worker,
+                                             wrapActionSpec)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.DHT.Workers            (dhtWorkers)
 import           Pos.Discovery              (DiscoveryContextSum (..))
@@ -35,8 +34,9 @@ import           Pos.Genesis                (genesisStakeDistribution)
 #endif
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
                                              foreverRejoinNetwork)
-import           Pos.Launcher               (NodeParams (..), bracketResourcesKademlia,
-                                             runNodeReal)
+import           Pos.Launcher               (NodeParams (..),
+                                             bracketResourcesKademlia, runNode,
+                                             runRealBasedMode)
 import           Pos.Shutdown               (triggerShutdown)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Types                  (Timestamp (Timestamp))
@@ -46,7 +46,8 @@ import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
 import           Pos.WorkMode               (RealMode, WorkMode)
 
-import           Pos.Explorer               (ExplorerBListener, runExplorerBListener)
+import           Pos.Explorer               (ExplorerBListener,
+                                             runExplorerBListener)
 import           Pos.Explorer.Socket        (NotifierSettings (..))
 import           Pos.Explorer.Web           (explorerPlugin, notifierPlugin)
 
@@ -54,14 +55,19 @@ import           ExplorerOptions            (Args (..), getExplorerOptions)
 import           Params                     (getBaseParams, getKademliaParams,
                                              getNodeParams, gtSscParams)
 
+
 type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
+
+-- | Lift monadic computation to 'ExplorerBListener'.
+liftBListenerRedirects :: m a -> ExplorerBListener m a
+liftBListenerRedirects = coerce
 
 -- Note: for now Kademlia discovery is hardcoded.
 
 action
     :: KademliaDHTInstance
     -> Args
-    -> (forall ssc . Transport (RealMode ssc))
+    -> (forall ssc . Transport (ExplorerBListener (RealMode ssc)))
     -> Production ()
 action kad args@Args {..} transport = do
     systemStart <- getNodeSystemStart $ CLI.sysStart commonArgs
@@ -71,49 +77,59 @@ action kad args@Args {..} transport = do
     currentParams <- getNodeParams args systemStart
 
     putText "Running using GodTossing"
-    let wDhtWorkers :: WorkMode SscGodTossing m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
-        wDhtWorkers = (\(ws, outs) -> (map (fst . recoveryCommGuard . (, outs)) ws, outs)) . -- TODO simplify
-                      first (map $ wrapActionSpec $ "worker" <> "dht") . dhtWorkers
+    let wDhtWorkers 
+            :: ([WorkerSpec ExplorerProd], OutSpecs)
+            -> ([WorkerSpec ExplorerProd], OutSpecs)
+        wDhtWorkers workers = first (map $ wrapActionSpec $ "worker" <> "dht") $ workers
 
     let plugins :: ([WorkerSpec ExplorerProd], OutSpecs)
         plugins = mconcatPair
-            [ explorerPlugin webPort
+            [ explorerPlugin webPort 
             , notifierPlugin NotifierSettings{ nsPort = notifierPort }
-            , wDhtWorkers kad
+            , wDhtWorkers $ lDhtWorkers kad
             , updateTriggerWorker
             ]
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let gtParams = gtSscParams args vssSK
 
-    runNodeReal @SscGodTossing
+    runERealMode
         (DCKademlia kad)
         transport
-        (runProdPlugins plugins)
         currentParams
         gtParams
-
-
-runProdPlugins
-    :: ([WorkerSpec (ExplorerBListener (RealMode SscGodTossing))], OutSpecs)
-    -> ([WorkerSpec (RealMode SscGodTossing)], OutSpecs)
-runProdPlugins (workSpecs, outSpecs) = (prodModeRun <$> workSpecs, outSpecs)
+        (runNode plugins)
   where
-    prodModeRun ::
-           WorkerSpec (ExplorerBListener (RealMode SscGodTossing))
-        -> WorkerSpec (RealMode SscGodTossing)
-    prodModeRun (ActionSpec actionSpec) =
-        ActionSpec $ \verInfo sendActions ->
-            runExplorerBListener $
-            actionSpec verInfo (Node.hoistSendActions coerce coerce sendActions)
+    lDhtWorkers
+        :: WorkMode SscGodTossing m 
+        => KademliaDHTInstance 
+        -> ([WorkerSpec m], OutSpecs)
+    lDhtWorkers kDHTInstance = dhtWorkers kDHTInstance
 
--- type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
+    -- | ExplorerBListener runner.
+    -- This is the part of the code where the tagged transformers get redirect.
+    -- runERealMode
+        -- :: DiscoveryContextSum
+        -- -> Transport m
+        -- -> NodeParams
+        -- -> SscParams SscGodTossing    -- hidden in the ssc package
+        -- -> (ActionSpec m a, OutSpecs)
+        -- -> Production a
+    runERealMode =
+        runRealBasedMode @SscGodTossing
+            unwrapEMode
+            liftBListenerRedirects
+      where
+        unwrapEMode = runExplorerBListener
+
+
 updateTriggerWorker
     :: ([WorkerSpec ExplorerProd], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
     void $ takeMVar =<< Ether.asks' ucUpdateSemaphore
     triggerShutdown
+
 
 getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
 getNodeSystemStart cliOrConfigSystemStart
@@ -135,6 +151,7 @@ getNodeSystemStart cliOrConfigSystemStart
     timestampToSeconds :: Timestamp -> Integer
     timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
 
+
 printFlags :: IO ()
 printFlags = do
 #ifdef DEV_MODE
@@ -143,6 +160,7 @@ printFlags = do
     putText "[Attention] We are in PRODUCTION mode"
 #endif
     inAssertMode $ putText "Asserts are ON"
+
 
 main :: IO ()
 main = do
@@ -157,6 +175,6 @@ main = do
     kademliaParams <- liftIO $ getKademliaParams args
     bracketResourcesKademlia baseParams tcpAddr kademliaParams $ \kademliaInstance transport ->
         let transport' = hoistTransport
-                (powerLift :: forall ssc t . Production t -> RealMode ssc t)
+                (powerLift :: forall ssc t . Production t -> ExplorerBListener (RealMode ssc) t)
                 transport
         in  foreverRejoinNetwork kademliaInstance (action kademliaInstance args transport')

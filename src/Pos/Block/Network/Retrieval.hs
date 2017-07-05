@@ -13,13 +13,16 @@ import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM          (retry)
 import           Data.List.NonEmpty         ((<|))
 import qualified Ether
-import           Formatting                 (build, int, sformat, shown, stext, (%))
+import           Formatting                 (build, builder, int, sformat, shown, stext,
+                                             (%))
 import           Mockable                   (handleAll, throw)
 import           Paths_cardano_sl           (version)
+import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text         (listJson)
 import           System.Wlog                (logDebug, logError, logWarning)
 import           Universum
 
+import           Pos.Binary.Class           (biSize)
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Core             (Block, BlockHeader, blockHeader)
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
@@ -237,8 +240,8 @@ workerHandle
     -> m ()
 workerHandle sendActions endedRecoveryVar nodeId headers = do
     logDebug $ sformat
-        ("retrievalWorker: handling nodeId="%build%", headers="%listJson)
-        nodeId (fmap headerHash headers)
+        ("retrievalWorker: handling nodeId="%build%", headers="%listJson%" of total size"%builder)
+        nodeId (fmap headerHash headers) (unitBuilder $ biSize headers)
     classificationRes <- classifyHeaders' headers
     let newestHeader = headers ^. _Wrapped . _neHead
         newestHash = headerHash newestHeader
@@ -297,7 +300,8 @@ handleCHsValid sendActions endedRecoveryVar nodeId lcaChild newestHash = do
                 dropRecoveryHeaderAndRepeat sendActions nodeId
             Right blocks -> do
                 logDebug $ sformat
-                    ("retrievalWorker: retrieved blocks "%listJson)
+                    ("retrievalWorker: retrieved blocks of size "%builder%": "%listJson)
+                    (unitBuilder $ biSize blocks)
                     (map (headerHash . view blockHeader) blocks)
                 handleBlocks nodeId blocks sendActions
                 dropUpdateHeader

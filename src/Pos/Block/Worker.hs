@@ -215,8 +215,9 @@ queryBlocksWorker = worker requestTipOuts $ \sendActions -> do
     slotDur <- getLastKnownSlotDuration
     let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
         action = forever $ do
-            logInfo "Querying blocks from behind NAT"
-            triggerRecovery sendActions
+            recoveryCommGuard $ do
+                logInfo "Querying blocks from behind NAT"
+                triggerRecovery sendActions
             delay $ delayInterval
         handler (e :: SomeException) = do
             logWarning $ "Exception arised in queryBlocksWorker: " <> show e

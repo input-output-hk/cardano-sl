@@ -54,7 +54,7 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              NodeId, OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
-                                             recoveryInProgress)
+                                             recoveryCommGuard, recoveryInProgress)
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, gbHeader,
                                              headerHashG, isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
@@ -329,6 +329,7 @@ addHeaderToBlockRequestQueue
     -> Bool -- Continues?
     -> m ()
 addHeaderToBlockRequestQueue nodeId header continues = do
+    logDebug $ sformat ("addToBlockRequestQueue, : "%build) header
     queue <- Ether.ask @BlockRetrievalQueueTag
     lastKnownH <- Ether.ask @LastKnownHeaderTag
     added <- atomically $ do
@@ -449,7 +450,9 @@ applyWithoutRollback sendActions blocks = do
     applyWithoutRollbackDo
         :: HeaderHash -> m (Either Text HeaderHash, HeaderHash)
     applyWithoutRollbackDo curTip = do
+        logInfo "Verifying and applying blocks..."
         res <- verifyAndApplyBlocks False blocks
+        logInfo "Verifying and applying blocks done"
         let newTip = either (const curTip) identity res
         pure (res, newTip)
 
@@ -488,7 +491,7 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
         ". Blocks rolled back: "%listJson%
         ", blocks applied: "%listJson
     reportRollback =
-        unlessM recoveryInProgress $ do
+        recoveryCommGuard $ do
             logDebug "Reporting rollback happened"
             reportMisbehaviourSilent version $
                 sformat reportF nodeId toRollbackHashes toApplyHashes

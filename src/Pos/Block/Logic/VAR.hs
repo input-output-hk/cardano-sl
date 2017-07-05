@@ -19,6 +19,7 @@ import           Control.Monad.Except     (ExceptT (ExceptT), MonadError (throwE
 import qualified Data.List.NonEmpty       as NE
 import qualified Ether
 import           Paths_cardano_sl         (version)
+import           System.Wlog              (logDebug)
 
 import           Pos.Block.Core           (Block)
 import           Pos.Block.Logic.Internal (BlockApplyMode, BlockVerifyMode,
@@ -139,6 +140,7 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         -> [NewestFirst NE (Blund ssc)]
         -> ExceptT Text m HeaderHash
     failWithRollback e toRollback = do
+        logDebug "verifyAndapply failed, rolling back"
         lift $ mapM_ rollbackBlocks toRollback
         throwError e
     -- Calculates LRC if it's needed (no lock)
@@ -156,21 +158,26 @@ verifyAndApplyBlocksInternal lrc rollback blocks = runExceptT $ do
         -> ExceptT Text m HeaderHash
     rollingVerifyAndApply blunds (prefix, suffix) = do
         let prefixHead = prefix ^. _Wrapped . _neHead
+        logDebug "Rolling: Calculating LRC if needed"
         when (isLeft prefixHead) $ lift $ calculateLrc (prefixHead ^. epochIndexL)
+        logDebug "Rolling: verifying"
         lift (verifyBlocksPrefix prefix) >>= \case
             Left failure
                 | rollback  -> failWithRollback failure blunds
-                | otherwise ->
+                | otherwise -> do
+                      lift $ logDebug "Rolling: Applying AMAP"
                       applyAMAP failure
                                    (over _Wrapped toList prefix)
                                    (null blunds)
             Right (undos, pModifier) -> do
                 let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
                                               getOldestFirst undos
+                logDebug "Rolling: Verification done, applying unsafe block"
                 lift $ applyBlocksUnsafe newBlunds (Just pModifier)
                 case getOldestFirst suffix of
                     [] -> GS.getTip
                     (genesis:xs) -> do
+                        lift $ logDebug "Rolling: Applying done, next portion"
                         rollingVerifyAndApply (toNewestFirst newBlunds : blunds) $
                             spanEpoch (OldestFirst (genesis:|xs))
 

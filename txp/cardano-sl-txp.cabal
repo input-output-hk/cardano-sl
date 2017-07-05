@@ -44,6 +44,7 @@ library
     Pos.Txp.MemState
     Pos.Txp.MemState.Class
     Pos.Txp.MemState.Holder
+    Pos.Txp.MemState.Metrics
     Pos.Txp.MemState.Types
 
     Pos.Txp.Settings
@@ -66,6 +67,7 @@ library
                      , containers
                      , data-default
                      , derive
+                     , ekg-core
                      , ether
                      , formatting
                      , hashable

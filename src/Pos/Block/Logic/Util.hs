@@ -12,6 +12,7 @@ module Pos.Block.Logic.Util
        , withBlkSemaphore
        , withBlkSemaphore_
        , needRecovery
+       , calcChainQuality
        ) where
 
 import           Universum
@@ -23,10 +24,10 @@ import           Ether.Internal      (HasLens (..))
 import           Formatting          (sformat, stext, (%))
 
 import           Pos.Block.Core      (BlockHeader)
-import           Pos.Constants       (slotSecurityParam)
+import           Pos.Constants       (blkSecurityParam, slotSecurityParam)
 import           Pos.Context         (BlkSemaphore, putBlkSemaphore, takeBlkSemaphore)
-import           Pos.Core            (HeaderHash, diffEpochOrSlot, getEpochOrSlot,
-                                      headerHash, prevBlockL)
+import           Pos.Core            (FlatSlotId, HeaderHash, diffEpochOrSlot,
+                                      getEpochOrSlot, headerHash, prevBlockL)
 import           Pos.Crypto          (shortHashF)
 import           Pos.DB              (MonadDBRead)
 import           Pos.DB.Block        (MonadBlockDB)
@@ -110,3 +111,15 @@ needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
         let distance = getEpochOrSlot currentSlot `diffEpochOrSlot`
                        lastKnownBlockSlot
         pure (distance > slotSecurityParam)
+
+-- | Calculate chain quality using slot of the block which has depth =
+-- 'blkSecurityParam - 1' and another slot after that one for which we
+-- want to know chain quality.
+--
+-- 'Double' as the result type is fine, because this value is not part
+-- of the protocol, we only need to compare it with 0.5 and 'Double'
+-- is perfectly fine for this purpose. All other use cases are
+-- heuristics which are implementation details of this application.
+calcChainQuality :: FlatSlotId -> FlatSlotId -> Double
+calcChainQuality kThSlot newSlot =
+    (realToFrac @Word) blkSecurityParam / realToFrac (newSlot - kThSlot)

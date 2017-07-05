@@ -12,21 +12,26 @@ module Pos.Block.Worker
 import           Universum
 
 import           Control.Lens                (ix)
+import           Data.List.NonEmpty          (nonEmpty)
+import qualified Data.List.NonEmpty          as NE
 import           Formatting                  (bprint, build, sformat, shown, (%))
-import           Mockable                    (delay, fork)
+import           Mockable                    (concurrently, delay, fork)
 import           Serokell.Util               (listJson, pairF)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (createGenesisBlock, createMainBlock)
+import           Pos.Block.Logic             (calcChainQuality, createGenesisBlock,
+                                              createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
+import           Pos.Block.Slog              (slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
                                               onNewSlotWorker)
-import           Pos.Constants               (networkDiameter)
+import           Pos.Constants               (blkSecurityParam, networkDiameter)
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core                    (SlotId (..), Timestamp (Timestamp),
-                                              gbHeader, getSlotIndex, slotIdF)
+                                              flattenSlotId, gbHeader, getSlotIndex,
+                                              slotIdF)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB.GState               (getPskByIssuer)
@@ -39,6 +44,7 @@ import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Util                    (logWarningSWaitLinear, mconcatPair)
+import           Pos.Util.Chrono             (OldestFirst (..))
 import           Pos.Util.JsonLog            (jlCreatedBlock)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logWarningS)
 import           Pos.Util.TimeWarp           (CanJsonLog (..))
@@ -49,6 +55,10 @@ import           Pos.Block.Network           (requestTipOuts, triggerRecovery)
 import           Pos.Communication           (worker)
 import           Pos.Slotting                (getLastKnownSlotDuration)
 #endif
+
+----------------------------------------------------------------------------
+-- All workers
+----------------------------------------------------------------------------
 
 -- | All workers specific to block processing.
 blkWorkers
@@ -68,12 +78,19 @@ blkWorkers =
 blkOnNewSlot :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
 blkOnNewSlot =
     onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
-        recoveryCommGuard $ blkOnNewSlotImpl slotId sendActions
+        recoveryCommGuard $
+        () <$
+        chainQualityChecker slotId `concurrently`
+        blockCreator slotId sendActions
 
-blkOnNewSlotImpl
+----------------------------------------------------------------------------
+-- Block creation worker
+----------------------------------------------------------------------------
+
+blockCreator
     :: WorkMode ssc ctx m
     => SlotId -> SendActions m -> m ()
-blkOnNewSlotImpl (slotId@SlotId {..}) sendActions = do
+blockCreator (slotId@SlotId {..}) sendActions = do
 
     -- First of all we create genesis block if necessary.
     mGenBlock <- createGenesisBlock siEpoch
@@ -196,6 +213,46 @@ onNewSlotWhenLeader slotId pske sendActions = do
             jsonLog $ jlCreatedBlock (Right createdBlk)
             void $ fork $ announceBlock sendActions $ createdBlk ^. gbHeader
     whenNotCreated = logWarningS . (mappend "I couldn't create a new block: ")
+
+----------------------------------------------------------------------------
+-- Chain qualitiy checker
+----------------------------------------------------------------------------
+
+-- This action should be called only when we are synchronized with the
+-- network.  The goal of this worker is not to detect violation of
+-- chain quality assumption, but to produce warnings when this
+-- assumption is close to being violated.
+chainQualityChecker
+    :: WorkMode ssc ctx m
+    => SlotId -> m ()
+chainQualityChecker curSlot = do
+    OldestFirst lastSlots <- slogGetLastSlots
+    -- If total number of blocks is less than `blkSecurityParam' we do
+    -- nothing for two reasons:
+    -- 1. Usually after we deploy cluster we monitor it manually for a while.
+    -- 2. Sometimes we deploy after start time, so chain quality may indeed by
+    --    poor right after launch.
+    case nonEmpty lastSlots of
+        Nothing -> pass
+        Just slotsNE
+            | length slotsNE < blkSecurityParam -> pass
+            | otherwise -> chainQualityCheckerDo (NE.head slotsNE)
+  where
+    chainQualityCheckerDo kThSlot = do
+        let curFlatSlot = flattenSlotId curSlot
+        let chainQuality = calcChainQuality kThSlot curFlatSlot
+        -- TODO [CSL-1342]:
+        -- 1. Make constants configurable.
+        -- 2. Send messages to reporting server, make them contain
+        -- actual values.
+        -- 3. Use constants depending on whether we are in bootstrap era.
+        if | chainQuality < 0.75 -> logWarning "Poor chain quality, less than 0.75"
+           | chainQuality < 0.9 -> logInfo "Poor chain quality, less than 0.9"
+           | otherwise -> pass
+
+----------------------------------------------------------------------------
+-- Block querier
+----------------------------------------------------------------------------
 
 #if defined(WITH_WALLET)
 -- | When we're behind NAT, other nodes can't send data to us and thus we

@@ -117,6 +117,10 @@ instance Arbitrary Types.EpochOrSlot where
         ]
     shrink = genericShrink
 
+instance Arbitrary h => Arbitrary (Attributes h) where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
 instance Arbitrary Types.Coin where
     arbitrary = Types.mkCoin <$> choose (1, Types.unsafeGetCoin maxBound)
     shrink = genericShrink
@@ -418,7 +422,3 @@ instance Arbitrary SmallHashMap where
 deriving instance Arbitrary a => Arbitrary (UnsignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (SignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
-
-instance Arbitrary a => Arbitrary (Attributes a) where
-    arbitrary = genericArbitrary
-    shrink = genericShrink

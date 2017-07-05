@@ -252,6 +252,7 @@ library
 
   -- Explorer (TODO: move into cardano-explorer)
   other-modules:        Pos.Binary.Explorer
+                        Pos.Explorer.Arbitrary
                         Pos.Explorer.Core
                         Pos.Explorer.Core.Types
                         Pos.Explorer.Txp
@@ -554,11 +555,12 @@ test-suite cardano-test
                        Test.Pos.ConstantsSpec
                        Test.Pos.Core.AddressSpec
                        Test.Pos.CryptoSpec
+                       Test.Pos.Delegation.Identity.BinarySpec
                        Test.Pos.DHT.Identity.BinarySpec
+                       Test.Pos.Explorer.Identity.BinarySpec
                        Test.Pos.FollowTheSatoshiSpec
                        Test.Pos.Genesis.Identity.BinarySpec
                        Test.Pos.MerkleSpec
-                       Test.Pos.Script.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.ComputeSharesSpec
                        Test.Pos.Ssc.GodTossing.Identity.BinarySpec
                        Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec

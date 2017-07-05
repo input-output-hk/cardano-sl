@@ -195,7 +195,7 @@ instance Arbitrary (MerkleTree Tx) where
     shrink = genericShrink
 
 instance Arbitrary TxProof where
-    arbitrary = genericArbitrary
+    arbitrary = makeSmall genericArbitrary
     shrink = genericShrink
 
 instance Arbitrary TxAux where

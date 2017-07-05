@@ -11,11 +11,11 @@ import           Test.QuickCheck                   (Arbitrary (..), listOf1, one
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Binary.Update                 ()
+import           Pos.Core.Arbitrary                ()
 import           Pos.Crypto                        (SignTag (SignUSVote), fakeSigner,
                                                     sign, toPublic)
 import           Pos.Crypto.Arbitrary              ()
 import           Pos.Data.Attributes               (mkAttributes)
-import           Pos.Core.Arbitrary                ()
 import           Pos.Update.Core.Types             (BlockVersionData (..),
                                                     BlockVersionModifier, SystemTag,
                                                     UpdateData (..), UpdatePayload (..),

@@ -9,6 +9,7 @@ module Pos.Explorer
        , module Pos.Explorer.Txp.Toil.Types
        ) where
 
+import           Pos.Explorer.Arbitrary ()
 import           Pos.Explorer.Core
 import           Pos.Explorer.Core.Types
 import           Pos.Explorer.DB

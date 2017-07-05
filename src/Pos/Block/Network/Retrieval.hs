@@ -122,7 +122,7 @@ retrievalWorkerImpl sendActions =
             nodeId (headerHash header) e
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat sendActions nodeId
-    --
+
     handleHeadersRecovery nodeId rHeader = do
         logDebug "Block retrieval queue is empty and we're in recovery mode,\
                  \ so we will request more headers and blocks"

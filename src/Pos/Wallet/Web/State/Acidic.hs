@@ -20,6 +20,8 @@ module Pos.Wallet.Web.State.Acidic
        , GetWalletPassLU (..)
        , GetWalletSyncTip (..)
        , GetWalletAddresses (..)
+       , GetWalletUtxo (..)
+       , SetWalletUtxo (..)
        , GetAccountWAddresses (..)
        , DoesWAddressExist (..)
        , GetTxMeta (..)
@@ -101,6 +103,8 @@ makeAcidic ''WalletStorage
     , 'WS.getWalletPassLU
     , 'WS.getWalletSyncTip
     , 'WS.getWalletAddresses
+    , 'WS.getWalletUtxo
+    , 'WS.setWalletUtxo
     , 'WS.getAccountWAddresses
     , 'WS.doesWAddressExist
     , 'WS.getTxMeta

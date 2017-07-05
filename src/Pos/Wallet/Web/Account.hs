@@ -21,7 +21,8 @@ import           System.Random              (Random, randomIO)
 import           Universum
 
 import           Pos.Core                   (Address (..), deriveLvl2KeyPair)
-import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase, isHardened)
+import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
+                                             isNonHardened)
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
@@ -122,7 +123,7 @@ genUniqueAccountId genSeed wsCAddr =
                    notFit
   where
     notFit idx addr = andM
-        [ pure $ not (isHardened idx)
+        [ pure $ isNonHardened idx
         , isJust <$> getAccountMeta addr
         ]
 
@@ -138,7 +139,7 @@ genUniqueAccountAddress genSeed passphrase wCAddr@AccountId{..} =
     mkAccount cwamAccountIndex =
         deriveAccountAddress passphrase wCAddr cwamAccountIndex
     notFit idx addr = andM
-        [ pure $ not (isHardened idx)
+        [ pure $ isNonHardened idx
         , doesWAddressExist Ever addr
         ]
 

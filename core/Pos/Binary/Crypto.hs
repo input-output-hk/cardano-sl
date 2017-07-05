@@ -142,7 +142,7 @@ secretKeyLength, publicKeyLength, signatureLength, chainCodeLength,
     encryptedKeyLength, passphraseLength :: Int
 secretKeyLength = 32
 publicKeyLength = 32
-encryptedKeyLength = 128
+encryptedKeyLength = 96
 signatureLength = 64
 chainCodeLength = 32
 passphraseLength = 32

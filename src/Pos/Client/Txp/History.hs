@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -37,7 +38,6 @@ import           Data.Coerce                  (coerce)
 import           Data.DList                   (DList)
 import qualified Data.DList                   as DL
 import qualified Data.Map.Strict              as M (lookup)
-import           Data.Tagged                  (Tagged (..))
 import qualified Data.Text.Buildable
 import qualified Ether
 import           Ether.Internal               (HasLens (..))
@@ -187,15 +187,15 @@ instance (Monad m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) =>
 class (Monad m, SscHelpersClass ssc) => MonadTxHistory ssc m | m -> ssc where
     getBlockHistory
         :: SscHelpersClass ssc
-        => Tagged ssc ([Address] -> m (DList TxHistoryEntry))
+        => [Address] -> m (DList TxHistoryEntry)
     getLocalHistory
         :: [Address] -> m (DList TxHistoryEntry)
     saveTx :: (TxId, TxAux) -> m ()
 
     default getBlockHistory
         :: (SscHelpersClass ssc, MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
-        => Tagged ssc ([Address] -> m (DList TxHistoryEntry))
-    getBlockHistory = (lift .) <$> getBlockHistory
+        => [Address] -> m (DList TxHistoryEntry)
+    getBlockHistory = lift . getBlockHistory
 
     default getLocalHistory
         :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
@@ -231,8 +231,8 @@ type GenesisHistoryFetcher m = ToilT () (GenesisToil m)
 
 getBlockHistoryDefault
     :: forall ssc ctx m. TxHistoryEnv' ssc ctx m
-    => Tagged ssc ([Address] -> m (DList TxHistoryEntry))
-getBlockHistoryDefault = Tagged $ \addrs -> do
+    => [Address] -> m (DList TxHistoryEntry)
+getBlockHistoryDefault addrs = do
     bot <- GS.getBot
     sd <- GS.getSlottingData
 
@@ -258,7 +258,7 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
             "getLocalHistory: transactions couldn't be topsorted!"
     ltxs <- map mapper <$> getLocalTxs
     txs <- getRelatedTxsByAddrs addrs Nothing Nothing =<<
-            maybeThrow topsortErr (topsortTxs (view _1) ltxs)
+           maybeThrow topsortErr (topsortTxs (view _1) ltxs)
     return $ DL.fromList txs
 
 saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()

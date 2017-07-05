@@ -14,7 +14,6 @@ import           Universum
 
 import           Control.Monad.Trans.Maybe (MaybeT (..))
 import           Data.DList                (DList)
-import           Data.Tagged               (Tagged (..))
 import           Ether.Internal            (HasLens (..))
 
 import           Pos.Client.Txp.Balances   (MonadBalances (..), getBalanceFromUtxo)
@@ -41,8 +40,8 @@ getBalanceWallet = getBalanceFromUtxo
 
 getBlockHistoryWallet
     :: (MonadReader ctx m, HasLens LWS.WalletState ctx LWS.WalletState, MonadIO m)
-    => Tagged ssc ([Address] -> m (DList TxHistoryEntry))
-getBlockHistoryWallet = Tagged $ \addrs -> do
+    => [Address] -> m (DList TxHistoryEntry)
+getBlockHistoryWallet addrs = do
     chain <- LWS.getBestChain
     utxo <- LWS.getOldestUtxo
     _ <- fmap (fst . fromMaybe (error "deriveAddrHistory: Nothing")) $

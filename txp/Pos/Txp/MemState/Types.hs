@@ -10,7 +10,6 @@ module Pos.Txp.MemState.Types
        , TransactionProvenance (..)
        , MemPoolModifyReason (..)
        , TxpMetrics (..)
-       , ignoreTxpMetrics
        ) where
 
 import           Data.Aeson.TH      (deriveJSON, defaultOptions)
@@ -86,12 +85,4 @@ data TxpMetrics = TxpMetrics
       --   released the lock. Parameters indicates time elapsed since acquiring
       --   the lock, and new mempool size.
     , txpMetricsRelease :: !(Microsecond -> Byte -> LoggerNameBox IO ())
-    }
-
--- | A TxpMetrics never does any writes. Use it if you don't care about metrics.
-ignoreTxpMetrics :: TxpMetrics
-ignoreTxpMetrics = TxpMetrics
-    { txpMetricsWait = (const (pure ()))
-    , txpMetricsAcquire = (const (pure ()))
-    , txpMetricsRelease = (const (const (pure ())))
     }

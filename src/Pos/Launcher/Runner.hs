@@ -50,12 +50,11 @@ import           Node                            (Node, NodeAction (..), NodeEnd
 import           Node.Util.Monitor               (setupMonitor, stopMonitor)
 import qualified STMContainers.Map               as SM
 import qualified System.Metrics                  as Metrics
-import qualified System.Metrics.Gauge            as Metrics.Gauge
 import           System.Random                   (newStdGen)
 import qualified System.Remote.Monitoring        as Monitoring
 import qualified System.Remote.Monitoring.Statsd as Monitoring
 import           System.Wlog                     (LoggerConfig (..), WithLogger, logError,
-                                                  logInfo, logDebug, productionB,
+                                                  logInfo, productionB,
                                                   releaseAllHandlers, setupLogging,
                                                   getLoggerName, usingLoggerName)
 import           Universum                       hiding (bracket, finally)
@@ -103,7 +102,7 @@ import           Pos.Statistics                  (EkgParams (..), StatsdParams (
 import           Pos.Txp                         (mkTxpLocalData)
 import           Pos.Txp.DB                      (genesisFakeTotalStake,
                                                   runBalanceIterBootstrap)
-import           Pos.Txp.MemState                (TxpHolderTag, TxpMetrics(..))
+import           Pos.Txp.MemState                (TxpHolderTag, recordTxpMetrics)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                    (explorerTxpGlobalSettings)
 #else
@@ -213,49 +212,8 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
         -- in addition to the non-master
         --   fdef06b1ace22e9d91c5a81f7902eb5d4b6eb44f
         -- for flexible EKG setup.
-        ekgStore <- liftIO $ Metrics.newStore
-        ekgMemPoolSize <- liftIO $ Metrics.createGauge "MemPoolSize" ekgStore
-        ekgMemPoolWaitTime <- liftIO $ Metrics.createGauge "MemPoolWaitTime" ekgStore
-        ekgMemPoolModifyTime <- liftIO $ Metrics.createGauge "MemPoolModifyTime" ekgStore
-        ekgMemPoolQueueLength <- liftIO $ Metrics.createGauge "MemPoolQueueLength" ekgStore
-
-        -- An exponential moving average is used for the time gauges (wait
-        -- and modify durations). The parameter alpha is chosen somewhat
-        -- arbitrarily.
-        -- FIXME take alpha from configuration/CLI, or use a better
-        -- estimator.
-        let alpha :: Double
-            alpha = 0.75
-            -- This TxpMetrics specifies what to do when waiting on the
-            -- mempool lock, when the mempool lock has been granted, and
-            -- when that lock has been released. It updates EKG metrics
-            -- and also logs each data point at debug level.
-            txpMetrics = TxpMetrics
-                { txpMetricsWait = \reason -> do
-                      liftIO $ Metrics.Gauge.inc ekgMemPoolQueueLength
-                      qlen <- liftIO $ Metrics.Gauge.read ekgMemPoolQueueLength
-                      logDebug $ sformat ("MemPool metrics wait: "%shown%" queue length is "%shown) reason qlen
-
-                , txpMetricsAcquire = \timeWaited -> do
-                      liftIO $ Metrics.Gauge.dec ekgMemPoolQueueLength
-                      timeWaited' <- liftIO $ Metrics.Gauge.read ekgMemPoolWaitTime
-                      -- Assume a 0-value estimate means we haven't taken
-                      -- any samples yet.
-                      let new_ = if timeWaited' == 0
-                                then fromIntegral timeWaited
-                                else round $ alpha * fromIntegral timeWaited + (1 - alpha) * fromIntegral timeWaited'
-                      liftIO $ Metrics.Gauge.set ekgMemPoolWaitTime new_
-                      logDebug $ sformat ("MemPool metrics acquire: wait time was "%shown) timeWaited
-
-                , txpMetricsRelease = \timeElapsed memPoolSize -> do
-                      liftIO $ Metrics.Gauge.set ekgMemPoolSize (fromIntegral memPoolSize)
-                      timeElapsed' <- liftIO $ Metrics.Gauge.read ekgMemPoolModifyTime
-                      let new_ = if timeElapsed' == 0
-                                then fromIntegral timeElapsed
-                                else round $ alpha * fromIntegral timeElapsed + (1 - alpha) * fromIntegral timeElapsed'
-                      liftIO $ Metrics.Gauge.set ekgMemPoolModifyTime new_
-                      logDebug $ sformat ("MemPool metrics release: modify time was "%shown%" size is "%shown) timeElapsed memPoolSize
-                }
+        ekgStore   <- liftIO $ Metrics.newStore
+        txpMetrics <- liftIO $ recordTxpMetrics ekgStore
 
         -- TODO [CSL-775] need an effect-free way of running this into IO.
         let runIO :: forall t . RealMode ssc t -> IO t

@@ -23,14 +23,12 @@ import           System.Wlog                (logInfo)
 import           Pos.Binary                 ()
 import qualified Pos.CLI                    as CLI
 import           Pos.Communication          (OutSpecs, WorkerSpec, worker, wrapActionSpec)
+import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
-import           Pos.DHT.Workers            (dhtWorkers)
-import           Pos.Discovery              (DiscoveryContextSum (..))
-#ifndef DEV_MODE
-import           Pos.Genesis                (genesisStakeDistribution)
-#endif
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
                                              foreverRejoinNetwork)
+import           Pos.DHT.Workers            (dhtWorkers)
+import           Pos.Discovery              (DiscoveryContextSum (..))
 import           Pos.Launcher               (NodeParams (..), bracketResourcesKademlia,
                                              runNodeReal)
 import           Pos.Shutdown               (triggerShutdown)
@@ -65,8 +63,8 @@ action kad args@Args {..} transport = do
     currentParams <- getNodeParams args systemStart
 
     putText "Running using GodTossing"
-    let wDhtWorkers 
-            :: WorkMode SscGodTossing m 
+    let wDhtWorkers
+            :: WorkMode SscGodTossing m
             => ([WorkerSpec m], OutSpecs)
             -> ([WorkerSpec m], OutSpecs)
         wDhtWorkers workers = runWithLogging workers
@@ -89,8 +87,8 @@ action kad args@Args {..} transport = do
         gtParams
   where
     lDhtWorkers
-        :: WorkMode SscGodTossing m 
-        => KademliaDHTInstance 
+        :: WorkMode SscGodTossing m
+        => KademliaDHTInstance
         -> ([WorkerSpec m], OutSpecs)
     lDhtWorkers kDHTInstance = dhtWorkers kDHTInstance
 
@@ -100,8 +98,8 @@ action kad args@Args {..} transport = do
     --     -> ([WorkerSpec m], OutSpecs)
     -- runWhileNotRecovering (ws, outs) = (map (fst . recoveryCommGuard . (, outs)) ws, outs)
 
-    runWithLogging 
-        :: WorkMode SscGodTossing m 
+    runWithLogging
+        :: WorkMode SscGodTossing m
         => ([WorkerSpec m], OutSpecs)
         -> ([WorkerSpec m], OutSpecs)
     runWithLogging workers = first (map $ wrapActionSpec $ "worker" <> "dht") $ workers
@@ -136,11 +134,9 @@ getNodeSystemStart cliOrConfigSystemStart
 
 printFlags :: IO ()
 printFlags = do
-#ifdef DEV_MODE
-    putText "[Attention] We are in DEV mode"
-#else
-    putText "[Attention] We are in PRODUCTION mode"
-#endif
+    if isDevelopment
+        then putText "[Attention] We are in DEV mode"
+        else putText "[Attention] We are in PRODUCTION mode"
     inAssertMode $ putText "Asserts are ON"
 
 main :: IO ()

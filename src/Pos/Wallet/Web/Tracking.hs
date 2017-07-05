@@ -49,7 +49,6 @@ import           System.Wlog                (WithLogger, logDebug, logInfo, logW
 
 import           Pos.Block.Core             (Block, BlockHeader, getBlockHeader,
                                              mainBlockTxPayload)
-import           Pos.Block.Logic            (withBlkSemaphore_)
 import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
 import           Pos.Constants              (genesisHash)
@@ -192,8 +191,8 @@ syncWalletsWithGState
       Ether.MonadReader' GenesisUtxo m)
     => [EncryptedSecretKey]
     -> m ()
-syncWalletsWithGState encSKs = withBlkSemaphore_ $ \tip ->
-    tip <$ mapM_ (syncWalletWithGStateUnsafe @ssc) encSKs
+-- TODO workaround: don't take lock, will be fixed with CSL-1307
+syncWalletsWithGState encSKs = mapM_ (syncWalletWithGStateUnsafe @ssc) encSKs
 
 ----------------------------------------------------------------------------
 -- Unsafe operations. Core logic.
@@ -252,6 +251,7 @@ syncWalletWithGStateUnsafe encSK = do
                 Just wHeader -> do
                     genesisUtxo <- genesisUtxoM
                     mapModifier@CAccModifier{..} <- computeAccModifier genesisUtxo wHeader
+                    lastTipHeader <- DB.getTipHeader @(Block ssc) -- TODO will be removed, workaround
                     when (wTip == genesisHash) $ do
                         let encInfo = getEncInfo encSK
                         let ownGenesisUtxo =
@@ -259,7 +259,7 @@ syncWalletWithGStateUnsafe encSK = do
                                 map fst $
                                 selectOwnAccounts encInfo (txOutAddress . toaOut . snd) (M.toList genesisUtxo)
                         WS.getWalletUtxo >>= WS.setWalletUtxo . (ownGenesisUtxo <>)
-                    applyModifierToWallet wAddr (headerHash tipHeader) mapModifier
+                    applyModifierToWallet wAddr (headerHash lastTipHeader) mapModifier
                     logDebug $ sformat ("Wallet "%build%" has been synced with tip "
                                         %shortHashF%", "%build)
                         wAddr wTip mapModifier

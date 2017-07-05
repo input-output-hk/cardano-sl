@@ -90,7 +90,6 @@ swaggerSpecForExplorerApi = toSwagger A.explorerApi
     & info . description ?~ "This is an API for Cardano SL Explorer."
     & host               ?~ "cardanoexplorer.com"
     -- Descriptions for all endpoints.
-    & blocksLast        . description ?~ D.blocksLastDescription
     & blocksTotalNumber . description ?~ D.blocksTotalNumberDescription
     & blocksPages       . description ?~ D.blocksPagesDescription
     & blocksPagesTotal  . description ?~ D.blocksPagesTotalDescription
@@ -103,7 +102,6 @@ swaggerSpecForExplorerApi = toSwagger A.explorerApi
   where
     -- | SubOperations for all endpoints in 'explorerApi'.
     -- We need it to fill description sections in produced HTML-documentation.
-    blocksLast          = subOperations (Proxy @A.BlocksLast) A.explorerApi :: Op
     blocksTotalNumber   = subOperations (Proxy @A.BlocksTotal) A.explorerApi :: Op
     blocksPages         = subOperations (Proxy @A.BlocksPages) A.explorerApi :: Op
     blocksPagesTotal    = subOperations (Proxy @A.BlocksPagesTotal) A.explorerApi :: Op

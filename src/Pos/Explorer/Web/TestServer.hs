@@ -41,8 +41,6 @@ explorerApp = serve explorerApi explorerHandlers
 
 explorerHandlers :: Server ExplorerApi
 explorerHandlers =
-      apiBlocksLast
-    :<|>
       apiBlocksTotal
     :<|>
       apiBlocksPages
@@ -61,7 +59,6 @@ explorerHandlers =
     :<|>
       apiEpochSlotSearch
   where
-    apiBlocksLast        = testBlocksLast
     apiBlocksTotal       = testBlocksTotal
     apiBlocksPages       = testBlocksPages
     apiBlocksPagesTotal  = testBlocksPagesTotal
@@ -89,21 +86,6 @@ sampleAddressSummary = CAddressSummary
 ----------------------------------------------------------------
 -- Test handlers
 ----------------------------------------------------------------
-
-testBlocksLast
-    :: Maybe Word
-    -> Maybe Word
-    -> Handler (Either ExplorerError [CBlockEntry])
-testBlocksLast _ _  = pure . pure $ [CBlockEntry
-    { cbeEpoch      = 37294
-    , cbeSlot       = 10
-    , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
-    , cbeTimeIssued = Nothing
-    , cbeTxNum      = 0
-    , cbeTotalSent  = mkCCoin $ mkCoin 0
-    , cbeSize       = 390
-    , cbeBlockLead  = Nothing
-    }]
 
 testBlocksPagesTotal
     :: Maybe Word

@@ -116,9 +116,8 @@ data NodeContext ssc = NodeContext
     , ncRecoveryHeader      :: !(RecoveryHeader ssc)
     -- ^ In case of recovery mode this variable holds the latest header hash
     -- we know about, and the node we're talking to, so we can do chained
-    -- block requests. Invariant: this mvar is full iff we're more than
-    -- 'recoveryHeadersMessage' blocks deep relatively to some valid header
-    -- and we're downloading blocks. Every time we get block that's more
+    -- block requests. Invariant: this mvar is full iff we're in recovery mode
+    -- and downloading blocks. Every time we get block that's more
     -- difficult than this one, we overwrite. Every time we process some
     -- blocks and fail or see that we've downloaded this header, we clean
     -- mvar.

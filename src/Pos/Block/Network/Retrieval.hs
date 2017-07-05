@@ -6,8 +6,8 @@ module Pos.Block.Network.Retrieval
        ( retrievalWorker
        ) where
 
-import           Control.Concurrent.STM     (putTMVar, tryReadTBQueue, tryReadTMVar,
-                                             tryTakeTMVar)
+import           Control.Concurrent.STM     (putTMVar, swapTMVar, tryReadTBQueue,
+                                             tryReadTMVar, tryTakeTMVar)
 import           Control.Lens               (_Wrapped)
 import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
 import           Control.Monad.STM          (retry)
@@ -24,7 +24,7 @@ import           Pos.Binary.Communication   ()
 import           Pos.Block.Core             (Block, BlockHeader, blockHeader)
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
-                                             classifyNewHeader, needRecovery)
+                                             classifyNewHeader)
 import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic    (handleBlocks, mkBlocksRequest,
                                              mkHeadersRequest, requestHeaders,
@@ -39,7 +39,7 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
 import           Pos.Context                (BlockRetrievalQueueTag, ProgressHeaderTag,
                                              RecoveryHeaderTag)
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
-                                             prevBlockL)
+                                             isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.Reporting.Methods      (reportingFatal)
 import           Pos.Shutdown               (runIfNotShutdown)
@@ -84,14 +84,10 @@ retrievalWorkerImpl sendActions =
     mainLoop = runIfNotShutdown $ reportingFatal version $ do
         queue        <- Ether.ask @BlockRetrievalQueueTag
         recHeaderVar <- Ether.ask @RecoveryHeaderTag
-        needRecovery_ <- needRecovery @ssc
-        -- Here we decide what we'll actually do next
         logDebug "Waiting on the block queue or recovery header var"
         thingToDoNext <- atomically $ do
             mbQueuedHeadersChunk <- tryReadTBQueue queue
-            mbRecHeader <- if needRecovery_
-                               then tryReadTMVar recHeaderVar
-                               else pure Nothing
+            mbRecHeader <- tryReadTMVar recHeaderVar
             case (mbQueuedHeadersChunk, mbRecHeader) of
                 (Nothing, Nothing) -> retry
                 (Just (nodeId, task), _) ->
@@ -110,14 +106,21 @@ retrievalWorkerImpl sendActions =
         (if brtContinues then handleContinues else handleAlternative)
             nodeId
             brtHeader
-    handleContinues nodeId header =
-        workerHandle sendActions nodeId (one header)
+    handleContinues nodeId header = do
+        endedRecoveryVar <- newEmptyMVar
+        workerHandle sendActions endedRecoveryVar nodeId (one header)
     handleAlternative nodeId header = do
         mghM <- mkHeadersRequest (headerHash header)
-        whenJust mghM $ \mgh ->
+        whenJust mghM $ \mgh -> do
+            updateRecoveryHeader nodeId header
+            endedRecoveryVar <- newEmptyMVar
             reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
-            withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $
-                requestHeaders (workerHandle sendActions nodeId) mgh nodeId limPx
+                withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $ \conv ->
+                requestHeaders (workerHandle sendActions endedRecoveryVar nodeId) mgh nodeId limPx conv
+                    `finally` void (tryPutMVar endedRecoveryVar False)
+            -- Block until the conversation has ended.
+            whenM (readMVar endedRecoveryVar) $
+                logDebug "Recovery mode exited gracefully"
     handleBlockRetrievalE nodeId header e = do
         logWarning $ sformat
             ("Error handling nodeId="%build%", header="%build%": "%shown)
@@ -131,6 +134,48 @@ retrievalWorkerImpl sendActions =
         handleBlockRetrieval nodeId $
             BlockRetrievalTask { brtHeader = rHeader, brtContinues = False }
 
+data UpdateRecoveryResult ssc
+    = RecoveryStarted NodeId (BlockHeader ssc)
+    | RecoveryShifted NodeId (BlockHeader ssc) NodeId (BlockHeader ssc)
+    | RecoveryContinued NodeId (BlockHeader ssc)
+
+-- | Be careful to run this in the same thread that ends recovery mode (or
+-- synchronise those threads with an MVar), otherwise a race condition can
+-- occur where we are caught in the recovery mode indefinitely.
+updateRecoveryHeader
+    :: WorkMode ssc m
+    => NodeId
+    -> BlockHeader ssc
+    -> m ()
+updateRecoveryHeader nodeId hdr = do
+    recHeaderVar <- Ether.ask @RecoveryHeaderTag
+    logDebug "Updating recovery header..."
+    updated <- atomically $ do
+        mbRecHeader <- tryReadTMVar recHeaderVar
+        case mbRecHeader of
+            Nothing -> do
+                putTMVar recHeaderVar (nodeId, hdr)
+                return $ RecoveryStarted nodeId hdr
+            Just (oldNodeId, oldHdr) -> do
+                let needUpdate = hdr `isMoreDifficult` oldHdr
+                if needUpdate
+                    then swapTMVar recHeaderVar (nodeId, hdr) $>
+                         RecoveryShifted oldNodeId oldHdr nodeId hdr
+                    else return $ RecoveryContinued oldNodeId oldHdr
+    logDebug $ case updated of
+        RecoveryStarted rNodeId rHeader -> sformat
+            ("Recovery started with nodeId="%build%" and tip="%build)
+            rNodeId
+            (headerHash rHeader)
+        RecoveryShifted rNodeId' rHeader' rNodeId rHeader -> sformat
+            ("Recovery shifted from nodeId="%build%" and tip="%build%
+             " to nodeId="%build%" and tip="%build)
+            rNodeId' (headerHash rHeader')
+            rNodeId  (headerHash rHeader)
+        RecoveryContinued rNodeId rHeader -> sformat
+            ("Recovery continued with nodeId="%build%" and tip="%build)
+            rNodeId
+            (headerHash rHeader)
 
 dropUpdateHeader :: WorkMode ssc m => m ()
 dropUpdateHeader = do
@@ -186,10 +231,11 @@ dropRecoveryHeaderAndRepeat sendActions nodeId = do
 workerHandle
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m
+    -> MVar Bool
     -> NodeId
     -> NewestFirst NE (BlockHeader ssc)
     -> m ()
-workerHandle sendActions nodeId headers = do
+workerHandle sendActions endedRecoveryVar nodeId headers = do
     logDebug $ sformat
         ("retrievalWorker: handling nodeId="%build%", headers="%listJson)
         nodeId (fmap headerHash headers)
@@ -199,7 +245,7 @@ workerHandle sendActions nodeId headers = do
         oldestHash = headerHash $ headers ^. _Wrapped . _neLast
     case classificationRes of
         CHsValid lcaChild ->
-            void $ handleCHsValid sendActions nodeId lcaChild newestHash
+            void $ handleCHsValid sendActions endedRecoveryVar nodeId lcaChild newestHash
         CHsUseless reason ->
             logDebug $ sformat uselessFormat oldestHash newestHash reason
         CHsInvalid reason ->
@@ -226,11 +272,12 @@ handleCHsValid
     :: forall ssc m.
        (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m
+    -> MVar Bool
     -> NodeId
     -> BlockHeader ssc
     -> HeaderHash
     -> m ()
-handleCHsValid sendActions nodeId lcaChild newestHash = do
+handleCHsValid sendActions endedRecoveryVar nodeId lcaChild newestHash = do
     let lcaChildHash = headerHash lcaChild
     logDebug $ sformat validFormat lcaChildHash newestHash
     reifyMsgLimit (Proxy @(MsgBlock ssc)) $ \(_ :: Proxy s0) ->
@@ -266,8 +313,7 @@ handleCHsValid sendActions nodeId lcaChild newestHash = do
                             if any (`isMoreDifficultThan` rHeader) blocks
                                 then isJust <$> tryTakeTMVar recHeaderVar
                                 else return False
-                when endedRecovery $
-                    logDebug "Recovery mode exited gracefully"
+                void $ tryPutMVar endedRecoveryVar endedRecovery
   where
     validFormat =
         "Requesting blocks from " %shortHashF % " to " %shortHashF

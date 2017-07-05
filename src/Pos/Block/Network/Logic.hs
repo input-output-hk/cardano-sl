@@ -20,8 +20,7 @@ module Pos.Block.Network.Logic
 
 import           Universum
 
-import           Control.Concurrent.STM     (TMVar, isFullTBQueue, putTMVar, readTVar,
-                                             tryReadTMVar, tryTakeTMVar, writeTBQueue,
+import           Control.Concurrent.STM     (isFullTBQueue, readTVar, writeTBQueue,
                                              writeTVar)
 import           Control.Exception          (Exception (..))
 import           Control.Lens               (_Wrapped)
@@ -55,9 +54,9 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              NodeId, OutSpecs, SendActions (..), convH,
                                              toOutSpecs)
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
-                                             RecoveryHeaderTag, recoveryInProgress)
-import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
-                                             gbHeader, headerHashG, prevBlockL)
+                                             recoveryInProgress)
+import           Pos.Core                   (HasHeaderHash (..), HeaderHash, gbHeader,
+                                             headerHashG, isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
@@ -109,7 +108,7 @@ triggerRecovery :: forall ssc m.
     (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m -> m ()
 triggerRecovery sendActions = unlessM recoveryInProgress $ do
-    logDebug "Recovery started, requesting tips from neighbors"
+    logDebug "Recovery triggered, requesting tips from neighbors"
     reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limitProxy -> do
         converseToNeighbors sendActions (pure . Conversation . requestTip limitProxy) `catch`
             \(e :: SomeException) -> do
@@ -331,11 +330,9 @@ addHeaderToBlockRequestQueue
     -> m ()
 addHeaderToBlockRequestQueue nodeId header continues = do
     queue <- Ether.ask @BlockRetrievalQueueTag
-    recHeaderVar <- Ether.ask @RecoveryHeaderTag
     lastKnownH <- Ether.ask @LastKnownHeaderTag
     added <- atomically $ do
-        unless continues $
-            updateRecoveryHeader nodeId recHeaderVar lastKnownH header
+        updateLastKnownHeader lastKnownH header
         addTaskToBlockRequestQueue nodeId queue $
             BlockRetrievalTask { brtHeader = header, brtContinues = continues }
     if added
@@ -356,27 +353,14 @@ addTaskToBlockRequestQueue nodeId queue task = do
         (pure False)
         (True <$ writeTBQueue queue (nodeId, task))
 
-updateRecoveryHeader
-    :: t
-    -> TMVar (t, BlockHeader ssc)
-    -> TVar (Maybe (BlockHeader ssc))
+updateLastKnownHeader
+    :: TVar (Maybe (BlockHeader ssc))
     -> BlockHeader ssc
     -> STM ()
-updateRecoveryHeader nodeId recHeaderVar lastKnownH recoveryTip = do
-     oldV <- readTVar lastKnownH
-     when (maybe True (recoveryTip `isMoreDifficult`) oldV) $
-         writeTVar lastKnownH (Just recoveryTip)
-     let replace = tryTakeTMVar recHeaderVar >>= \case
-             Just (_, header')
-                 | not (recoveryTip `isMoreDifficult` header') -> pass
-             _ -> putTMVar recHeaderVar (nodeId, recoveryTip)
-     tryReadTMVar recHeaderVar >>= \case
-         Nothing -> replace
-         Just (_,curRecHeader) ->
-             when (recoveryTip `isMoreDifficult` curRecHeader) replace
-  where
-    a `isMoreDifficult` b = a ^. difficultyL > b ^. difficultyL
-
+updateLastKnownHeader lastKnownH header = do
+    oldV <- readTVar lastKnownH
+    let needUpdate = maybe True (header `isMoreDifficult`) oldV
+    when needUpdate $ writeTVar lastKnownH (Just header)
 
 ----------------------------------------------------------------------------
 -- Handling blocks

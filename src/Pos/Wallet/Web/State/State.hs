@@ -32,6 +32,7 @@ module Pos.Wallet.Web.State.State
        , getCustomAddresses
        , getCustomAddress
        , isCustomAddress
+       , getWalletUtxo
 
        -- * Setters
        , testReset
@@ -56,6 +57,7 @@ module Pos.Wallet.Web.State.State
        , addUpdate
        , removeNextUpdate
        , updateHistoryCache
+       , setWalletUtxo
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
@@ -65,6 +67,7 @@ import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
+import           Pos.Txp                      (Utxo)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
                                                CProfile, CTxId, CTxMeta, CUpdateInfo,
@@ -191,6 +194,12 @@ setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId
 
 setWalletTxHistory :: WebWalletModeDB ctx m => CId Wal -> [(CTxId, CTxMeta)] -> m ()
 setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
+
+getWalletUtxo :: WebWalletModeDB ctx m => m Utxo
+getWalletUtxo = queryDisk A.GetWalletUtxo
+
+setWalletUtxo :: WebWalletModeDB ctx m => Utxo -> m ()
+setWalletUtxo = updateDisk . A.SetWalletUtxo
 
 addOnlyNewTxMeta :: WebWalletModeDB ctx m => CId Wal -> CTxId -> CTxMeta -> m ()
 addOnlyNewTxMeta cWalId cTxId = updateDisk . A.AddOnlyNewTxMeta cWalId cTxId

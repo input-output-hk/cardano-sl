@@ -89,7 +89,7 @@ foldlUpWhileM
     )
     => (Blund ssc -> m b)
     -> a
-    -> (b -> Int -> Bool)
+    -> ((Blund ssc, b) -> Int -> Bool)
     -> (r -> b -> m r)
     -> r
     -> m r
@@ -102,7 +102,7 @@ foldlUpWhileM morphM start condition accM init =
         Just x@(block,_) -> do
             curB <- morphM x
             mbNextLink <- fmap headerHash <$> resolveForwardLink block
-            if | not (condition curB height) -> pure res
+            if | not (condition (x, curB) height) -> pure res
                | Just nextLink <- mbNextLink -> do
                      newRes <- accM res curB
                      loadUpWhileDo nextLink (succ height) newRes
@@ -119,7 +119,7 @@ loadUpWhile morph start condition = OldestFirst . reverse <$>
     foldlUpWhileM
         (pure . morph)
         start
-        condition
+        (\b h -> condition (snd b) h)
         (\l e -> pure (e : l))
         []
 

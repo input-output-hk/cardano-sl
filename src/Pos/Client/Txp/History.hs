@@ -3,6 +3,7 @@
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeFamilies        #-}
 
 module Pos.Client.Txp.History
@@ -14,6 +15,7 @@ module Pos.Client.Txp.History
        , thInputAddrs
        , thOutputAddrs
        , thTimestamp
+       , runGenesisToil
 
        , MonadTxHistory(..)
 
@@ -36,8 +38,10 @@ import           Data.Coerce                  (coerce)
 import           Data.DList                   (DList)
 import qualified Data.DList                   as DL
 import qualified Data.Map.Strict              as M (lookup)
+import qualified Data.Text.Buildable
 import qualified Ether
 import           Ether.Internal               (HasLens (..))
+import           Formatting                   (bprint, build, (%))
 import           System.Wlog                  (WithLogger)
 
 import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
@@ -60,9 +64,11 @@ import           Pos.Txp                      (txProcessTransaction)
 import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxoRead,
                                                ToilT, Tx (..), TxAux (..), TxDistribution,
                                                TxId, TxOut, TxOutAux (..), TxWitness,
-                                               applyTxToUtxo, evalToilTEmpty,
-                                               flattenTxPayload, getLocalTxs, runDBToil,
+                                               TxpError (..), applyTxToUtxo,
+                                               evalToilTEmpty, flattenTxPayload,
+                                               getLocalTxs, runDBToil, topsortTxs,
                                                txOutAddress, utxoGet)
+import           Pos.Util                     (maybeThrow)
 import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -88,6 +94,10 @@ data TxHistoryEntry = THEntry
     , _thOutputAddrs :: ![Address]
     , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic)
+
+instance Buildable TxHistoryEntry where
+    build THEntry{..} =
+        bprint ("TxId "%build%", timestamp "%build) _thTxId _thTimestamp
 
 makeLenses ''TxHistoryEntry
 
@@ -176,18 +186,28 @@ instance (Monad m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) =>
 -- | A class which have methods to get transaction history
 class (Monad m, SscHelpersClass ssc) => MonadTxHistory ssc m | m -> ssc where
     getBlockHistory
-        :: [Address] -> m (DList TxHistoryEntry)
+        :: SscHelpersClass ssc
+        => [Address] -> m (DList TxHistoryEntry)
     getLocalHistory
         :: [Address] -> m (DList TxHistoryEntry)
     saveTx :: (TxId, TxAux) -> m ()
 
+    default getBlockHistory
+        :: (SscHelpersClass ssc, MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
+        => [Address] -> m (DList TxHistoryEntry)
+    getBlockHistory = lift . getBlockHistory
+
+    default getLocalHistory
+        :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
+        => [Address] -> m (DList TxHistoryEntry)
+    getLocalHistory = lift . getLocalHistory
+
+    default saveTx :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m) => (TxId, TxAux) -> m ()
+    saveTx = lift . saveTx
+
 instance {-# OVERLAPPABLE #-}
     (MonadTxHistory ssc m, MonadTrans t, Monad (t m)) =>
         MonadTxHistory ssc (t m)
-  where
-    getBlockHistory = lift . getBlockHistory
-    getLocalHistory = lift . getLocalHistory
-    saveTx = lift . saveTx
 
 type TxHistoryEnv ctx m =
     ( MonadRealDB ctx m
@@ -234,8 +254,11 @@ getLocalHistoryDefault
 getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
     let mapper (txid, TxAux {..}) =
             (WithHash taTx txid, taWitness, taDistribution)
-    ltxs <- getLocalTxs
-    txs <- getRelatedTxsByAddrs addrs Nothing Nothing $ map mapper ltxs
+        topsortErr = TxpInternalError
+            "getLocalHistory: transactions couldn't be topsorted!"
+    ltxs <- map mapper <$> getLocalTxs
+    txs <- getRelatedTxsByAddrs addrs Nothing Nothing =<<
+           maybeThrow topsortErr (topsortTxs (view _1) ltxs)
     return $ DL.fromList txs
 
 saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()

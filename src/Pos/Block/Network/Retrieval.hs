@@ -25,9 +25,7 @@ import           Universum
 import           Pos.Binary.Class           (biSize)
 import           Pos.Binary.Communication   ()
 import           Pos.Block.Core             (Block, BlockHeader, blockHeader)
-import           Pos.Block.Logic            (ClassifyHeaderRes (..),
-                                             ClassifyHeadersRes (..), classifyHeaders,
-                                             classifyNewHeader)
+import           Pos.Block.Logic            (ClassifyHeaderRes (..), classifyNewHeader)
 import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic    (handleBlocks, mkBlocksRequest,
                                              mkHeadersRequest, requestHeaders,
@@ -111,15 +109,19 @@ retrievalWorkerImpl sendActions =
             brtHeader
     handleContinues nodeId header = do
         endedRecoveryVar <- newEmptyMVar
-        workerHandle sendActions endedRecoveryVar nodeId (one header)
+        processContHeader sendActions endedRecoveryVar nodeId header
     handleAlternative nodeId header = do
         mghM <- mkHeadersRequest (headerHash header)
         whenJust mghM $ \mgh -> do
             updateRecoveryHeader nodeId header
             endedRecoveryVar <- newEmptyMVar
+            let cont (headers :: NewestFirst NE (BlockHeader ssc)) =
+                    let firstHeader = headers ^. _Wrapped . _neLast
+                    in handleCHsValid sendActions endedRecoveryVar nodeId
+                                      firstHeader (headerHash header)
             reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
                 withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $ \conv ->
-                requestHeaders (workerHandle sendActions endedRecoveryVar nodeId) mgh nodeId limPx conv
+                requestHeaders cont mgh nodeId limPx conv
                     `finally` void (tryPutMVar endedRecoveryVar False)
             -- Block until the conversation has ended.
             whenM (readMVar endedRecoveryVar) $
@@ -137,14 +139,21 @@ retrievalWorkerImpl sendActions =
         handleBlockRetrieval nodeId $
             BlockRetrievalTask { brtHeader = rHeader, brtContinues = False }
 
+-- | Result of attempt to update recovery header.
 data UpdateRecoveryResult ssc
     = RecoveryStarted NodeId (BlockHeader ssc)
+      -- ^ Recovery header was absent, so we've set it.
     | RecoveryShifted NodeId (BlockHeader ssc) NodeId (BlockHeader ssc)
+      -- ^ Header was present, but we've replaced it with another
+      -- (more difficult) one.
     | RecoveryContinued NodeId (BlockHeader ssc)
+      -- ^ Header is good, but is irrelevant, so recovery variable is
+      -- unchanged.
 
--- | Be careful to run this in the same thread that ends recovery mode (or
--- synchronise those threads with an MVar), otherwise a race condition can
--- occur where we are caught in the recovery mode indefinitely.
+-- | Be careful to run this in the same thread that ends recovery mode
+-- (or synchronise those threads with an MVar), otherwise a race
+-- condition can occur where we are caught in the recovery mode
+-- indefinitely.
 updateRecoveryHeader
     :: WorkMode ssc m
     => NodeId
@@ -228,48 +237,24 @@ dropRecoveryHeaderAndRepeat sendActions nodeId = do
         logError $ "Exception happened while trying to trigger " <>
                    "recovery inside recoveryWorker: " <> show e
 
-
--- | Request blocks corresponding to a chain of headers, if we need those
--- blocks
-workerHandle
+-- | Process header that was thought to be continuation. If it's not
+-- now, it is discarded.
+processContHeader
     :: (SscWorkersClass ssc, WorkMode ssc m)
     => SendActions m
     -> MVar Bool
     -> NodeId
-    -> NewestFirst NE (BlockHeader ssc)
+    -> BlockHeader ssc
     -> m ()
-workerHandle sendActions endedRecoveryVar nodeId headers = do
-    logDebug $ sformat
-        ("retrievalWorker: handling nodeId="%build%", headers="%listJson%" of total size"%builder)
-        nodeId (fmap headerHash headers) (unitBuilder $ biSize headers)
-    classificationRes <- classifyHeaders' headers
-    let newestHeader = headers ^. _Wrapped . _neHead
-        newestHash = headerHash newestHeader
-        oldestHash = headerHash $ headers ^. _Wrapped . _neLast
+processContHeader sendActions endedRecoveryVar nodeId header = do
+    classificationRes <- classifyNewHeader header
     case classificationRes of
-        CHsValid lcaChild ->
-            void $ handleCHsValid sendActions endedRecoveryVar nodeId lcaChild newestHash
-        CHsUseless reason ->
-            logDebug $ sformat uselessFormat oldestHash newestHash reason
-        CHsInvalid reason ->
-            logWarning $ sformat invalidFormat oldestHash newestHash reason
-  where
-    classifyHeaders' (NewestFirst (header :| [])) = do
-        classificationRes <- classifyNewHeader header
-        -- TODO: should we set 'To' hash to hash of header or leave it unlimited?
-        case classificationRes of
-            CHContinues -> pure $ CHsValid header
-            CHAlternative ->
-                pure $ CHsInvalid "Expected header to be continuation, not alternative"
-            CHUseless reason -> pure $ CHsUseless reason
-            CHInvalid reason -> pure $ CHsInvalid reason
-    classifyHeaders' h = classifyHeaders h
-    invalidFormat =
-        "Chain of headers from " %shortHashF % " to " %shortHashF %
-        " is considered invalid: " %stext
-    uselessFormat =
-        "Chain of headers from " %shortHashF % " to " %shortHashF %
-        " is useless for the following reason: " %stext
+        CHContinues ->
+            handleCHsValid sendActions endedRecoveryVar nodeId
+                           header (headerHash header)
+        res -> logDebug $
+            "processContHeader: expected header to " <>
+             "be continuation, but it's " <> show res
 
 handleCHsValid
     :: forall ssc m.

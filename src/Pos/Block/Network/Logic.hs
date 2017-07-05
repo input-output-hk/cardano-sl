@@ -28,13 +28,16 @@ import           Control.Lens               (_Wrapped)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
 import qualified Ether
-import           Formatting                 (bprint, build, sformat, shown, stext, (%))
+import           Formatting                 (bprint, build, builder, sformat, shown,
+                                             stext, (%))
 import           Mockable                   (fork)
 import           Paths_cardano_sl           (version)
+import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatFirstError)
 import           System.Wlog                (logDebug, logInfo, logWarning)
 
+import           Pos.Binary.Class           (biSize)
 import           Pos.Binary.Communication   ()
 import           Pos.Binary.Txp             ()
 import           Pos.Block.Core             (Block, BlockHeader, blockHeader)
@@ -194,21 +197,21 @@ handleUnsolicitedHeader header nodeId = do
             logDebug $ sformat continuesFormat hHash
             addHeaderToBlockRequestQueue nodeId header True
         CHAlternative -> do
-            logInfo $ sformat alternativeFormat hHash
+            logDebug $ sformat alternativeFormat hHash
             addHeaderToBlockRequestQueue nodeId header False
         CHUseless reason -> logDebug $ sformat uselessFormat hHash reason
         CHInvalid _ -> do
-            logDebug $ sformat ("handleUnsolicited: header "%shortHashF%
+            logWarning $ sformat ("handleUnsolicited: header "%shortHashF%
                                 " is invalid") hHash
             pass -- TODO: ban node for sending invalid block.
   where
     hHash = headerHash header
     continuesFormat =
         "Header " %shortHashF %
-        " is a good continuation of our chain, requesting it"
+        " is a good continuation of our chain, will process"
     alternativeFormat =
         "Header " %shortHashF %
-        " potentially represents good alternative chain, requesting more headers"
+        " potentially represents good alternative chain, will process"
     uselessFormat =
         "Header " %shortHashF % " is useless for the following reason: " %stext
 
@@ -260,8 +263,9 @@ requestHeaders cont mgh nodeId _ conv = do
     logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
     flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
-            ("requestHeaders: withConnection: received "%listJson)
-            (map headerHash headers)
+            ("requestHeaders: withConnection: received "%listJson%
+             " from nodeId "%build%" of total size "%builder)
+            (map headerHash headers) nodeId (unitBuilder $ biSize headers)
         case matchRequestedHeaders headers mgh inRecovery of
             MRGood           -> do
                 handleRequestedHeaders cont headers
@@ -290,7 +294,6 @@ handleRequestedHeaders
     -> NewestFirst NE (BlockHeader ssc)
     -> m ()
 handleRequestedHeaders cont headers = do
-    logDebug "handleRequestedHeaders: headers were requested, will process"
     classificationRes <- classifyHeaders headers
     let newestHeader = headers ^. _Wrapped . _neHead
         newestHash = headerHash newestHeader

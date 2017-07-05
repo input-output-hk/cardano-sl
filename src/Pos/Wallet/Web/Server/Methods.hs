@@ -34,7 +34,6 @@ import qualified Data.DList                       as DL
 import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (findIndex, notElem)
 import qualified Data.List.NonEmpty               as NE
-import qualified Data.Set                         as S
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
 import           Data.Time.Units                  (Microsecond, Second)
@@ -562,10 +561,8 @@ sendMoney
     -> m CTx
 sendMoney sendActions passphrase moneySource dstDistr = do
     allAddrs <- getMoneySourceAddresses moneySource
-    let dstAccAddrsSet = S.fromList $ map fst $ toList dstDistr
-        notDstAccounts = filter (\a -> not $ cwamId a `S.member` dstAccAddrsSet) allAddrs
-        coins = foldr1 unsafeAddCoin $ snd <$> dstDistr
-    distr@(remaining, spendings) <- selectSrcAccounts coins notDstAccounts
+    let coins = foldr1 unsafeAddCoin $ snd <$> dstDistr
+    distr@(remaining, spendings) <- selectSrcAccounts coins allAddrs
     logDebug $ buildDistribution distr
     mRemTx <- mkRemainingTx remaining
     txOuts <- forM dstDistr $ \(cAddr, coin) -> do

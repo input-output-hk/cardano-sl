@@ -29,7 +29,7 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
-import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), match, toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
@@ -217,7 +217,6 @@ update (DashboardExpandTransactions expanded) state = noEffects $
 
 update (DashboardPaginateBlocks mEvent pageNumber) state =
     { state:
-          set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber $
           set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
     , effects:
           [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
@@ -575,6 +574,7 @@ update (DashboardReceiveBlocksTotalPages (Left error)) state =
 update (RequestPaginatedBlocks pageNumber pageSize) state =
     { state:
           set loading true $
+          set (dashboardViewState <<< dbViewBlockPagination) pageNumber $
           -- Important note: Don't use `set latestBlocks Loading` here,
           -- we will empty `latestBlocks` in this case !!!
           -- set latestBlocks Loading
@@ -587,7 +587,6 @@ update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
     { state:
           set loading false $
           set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages) $
-          set (dashboardViewState <<< dbViewBlockPagination) (PageNumber newPage) $
           set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
           set latestBlocks (Success blocks) state
     , effects:
@@ -596,7 +595,6 @@ update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
         else []
     }
     where
-        newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination <<< _PageNumber)
         subItem = mkSocketSubscriptionItem (SocketSubscription SubBlockLastPage) SocketNoData
 
 update (ReceivePaginatedBlocks (Left error)) state =

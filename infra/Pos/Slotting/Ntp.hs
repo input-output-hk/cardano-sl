@@ -155,7 +155,6 @@ ntpGetCurrentSlotImpl = do
     t <- Timestamp . (+ _nssLastMargin) <$> currentTime
     case canWeTrustLocalTime _nssLastLocalTime t of
       Nothing -> do
-          penult <- pred <$> getEpochLastIndex
           res <- max _nssLastSlot <$> getCurrentSlotDo t
           atomically $ STM.modifyTVar' var (nssLastSlot %~ max res)
           pure $ CurrentSlot res

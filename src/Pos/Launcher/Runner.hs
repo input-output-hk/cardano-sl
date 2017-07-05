@@ -73,7 +73,7 @@ import           Pos.Context                     (BlkSemaphore (..), ConnectedPe
                                                   NodeContext (..), StartTime (..))
 import           Pos.Core                        (Timestamp ())
 import           Pos.Crypto                      (createProxySecretKey, encToPublic)
-import           Pos.DB                          (MonadDBRead, NodeDBs, runDBPureRedirect)
+import           Pos.DB                          (MonadDBRead, NodeDBs, runDBPureRedirect, MonadRealDB)
 import           Pos.DB.Block                    (runBlockDBRedirect)
 import           Pos.DB.DB                       (initNodeDBs, openNodeDBs,
                                                   runGStateCoreRedirect)
@@ -306,12 +306,9 @@ runRealModeDo discoveryCtx transport np@NodeParams {..} sscnp listeners outSpecs
         whenJust mEkg stopMonitor
 
 -- | Create new 'SlottingVar' using data from DB.
-mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
+mkSlottingVar :: (MonadIO m, MonadDBRead m, MonadRealDB m) => Timestamp -> m SlottingVar
 mkSlottingVar sysStart = do
-    -- AJ: TODO: Figure out if this manual iteration and copying can be avoided
-    li <- GState.getEpochLastIndex
-    built <- forM [0..li] $ \ei -> fmap (ei,) <$> GState.getEpochSlottingData ei
-    let sd = HM.fromList $ catMaybes built
+    sd <- HM.fromList <$> GState.getAllSlottingData
     (sysStart, ) <$> newTVarIO sd
 
 -- | ServiceMode runner.

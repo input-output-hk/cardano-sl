@@ -172,10 +172,9 @@ slogApplyBlocks blunds = do
             GS.PutTip $ headerHash $ NE.last $ getOldestFirst blunds
     sanityCheckDB
 
-    -- TODO: This could be more efficient
-    -- putSlottingData =<< GS.getSlottingData
-    li <- GS.getEpochLastIndex
-    forM_ [0..li] $ \ei -> GS.getEpochSlottingData ei >>= maybe (return ()) (putEpochSlottingData ei)
+    slottingData <- GS.getAllSlottingData
+    -- TODO: Could this be more efficient?
+    forM_ slottingData $ uncurry putEpochSlottingData
 
     return $ SomeBatchOp [putTip, bListenerBatch, forwardLinksBatch, inMainBatch]
   where

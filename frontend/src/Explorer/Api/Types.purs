@@ -6,6 +6,7 @@ import Data.Generic (class Generic, gEq, gShow)
 import Data.Newtype (class Newtype)
 import Network.HTTP.Affjax (AffjaxResponse)
 import Pos.Explorer.Socket.Methods (Subscription)
+import Pos.Explorer.Web.ClientTypes (CAddress(..))
 import Pos.Explorer.Web.Error (ExplorerError)
 
 type Endpoint = String
@@ -42,6 +43,7 @@ derive instance gSocketOffset :: Generic SocketOffset
 data SocketSubscriptionData
     = SocketNoData                    -- no data sending to backend
     | SocketOffsetData SocketOffset   -- sending value of `SocketOffset`
+    | SocketCAddressData CAddress     -- sending value of `CAddress`
 
 derive instance gSocketSubscriptionData :: Generic SocketSubscriptionData
 instance eqSocketSubscriptionData :: Eq SocketSubscriptionData where

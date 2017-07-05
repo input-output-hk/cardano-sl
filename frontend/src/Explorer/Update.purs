@@ -1,61 +1,57 @@
 module Explorer.Update where
 
 import Prelude
+
 import Control.Comonad (extract)
 import Control.Monad.Aff (attempt)
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Class (liftEff)
-import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Now (nowDateTime, NOW)
-import Control.SocketIO.Client (Socket, SocketIO, emit, emit')
+import Control.Monad.Eff.Now (nowDateTime)
+import Control.SocketIO.Client (Socket, SocketIO, emit, emitData)
 import DOM (DOM)
-import DOM.Event.Event (target)
+import DOM.Event.Event (target, preventDefault)
+import DOM.HTML (window)
 import DOM.HTML.HTMLElement (blur, focus)
 import DOM.HTML.HTMLInputElement (select)
-import Data.Array (filter, snoc, take, (:))
+import DOM.HTML.History (DocumentTitle(..), URL(..), pushState)
+import DOM.HTML.Window (history)
 import DOM.Node.Node (contains)
-import DOM.Node.Types (elementToNode)
+import DOM.Node.Types (ElementId(..), elementToNode)
+import Data.Array (filter, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
+import Data.Foreign (toForeign)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
-import Explorer.I18n.Lang (translate)
-import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, globalViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, syncAction, viewStates)
-import Explorer.Routes (Route(..), toUrl)
-import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, minPagination, mkSocketSubscriptionItem, searchContainerId)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
+import Explorer.Routes (Route(..), match, toUrl)
+import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State)
+import Explorer.Types.App (AppEffects)
+import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State, WaypointItem(..))
 import Explorer.Util.Config (SyncAction(..), syncBySocket)
-import Explorer.Util.DOM (findElementById, scrollTop, targetToHTMLElement, targetToHTMLInputElement)
+import Explorer.Util.DOM (addClassToElement, findElementById, removeClassFromElement, scrollTop, nodeToHTMLElement, nodeToHTMLInputElement)
 import Explorer.Util.Data (sortTxsByTime', unionTxs)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkEpochIndex, mkLocalSlotIndex)
 import Explorer.Util.QrCode (generateQrCode)
 import Explorer.View.Blocks (maxBlockRows)
+import Explorer.View.CSS (dashBoardBlocksViewId, headerId, moveIn, moveOut) as CSS
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Explorer.View.Dashboard.Transactions (maxTransactionRows)
-import Network.HTTP.Affjax (AJAX)
-import Network.RemoteData (RemoteData(..), isNotAsked, isSuccess, withDefault)
+import Network.RemoteData (RemoteData(..), _Success, isNotAsked, isSuccess, withDefault)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress)
+import Pos.Explorer.Web.ClientTypes (CAddress(..))
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress, caTxList)
 import Pux (EffModel, noEffects, onlyEffects)
-import Pux.Router (navigateTo) as P
+import Waypoints (WAYPOINT, destroy, waypoint', up) as WP
 
-update :: forall eff. Action -> State ->
-    EffModel State Action
-    ( dom :: DOM
-    , ajax :: AJAX
-    , socket :: SocketIO
-    , now :: NOW
-    , console :: CONSOLE
-    | eff
-    )
+update :: forall eff. Action -> State -> EffModel State Action (AppEffects eff)
 
 -- Language
 
@@ -68,8 +64,8 @@ update (SocketConnected connected') state =
     { state: set (socket <<< connected) connected' state
     , effects:
           [ if connected'
-            then pure SocketReconnectSubscriptions
-            else pure NoOp
+            then pure $ Just SocketReconnectSubscriptions
+            else pure Nothing
           ]
     }
 
@@ -77,9 +73,9 @@ update SocketPing state =
     { state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff <<< emit' socket' $ toEvent CallMe
+              Just socket' -> liftEff <<< emit socket' $ toEvent CallMe
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 update (SocketBlocksPageUpdated (Right (Tuple totalPages blocks))) state =
@@ -116,31 +112,48 @@ update (SocketTxsUpdated (Left error)) state = noEffects $
     -- add incoming errors ahead of previous errors
     over errors (\errors' -> (show error) : errors') state
 
+update (SocketAddressTxsUpdated (Right txs)) state =
+    noEffects $
+    if isSuccess addrSummary
+    then do
+        -- Add latest tx on top to other txs of an address
+        -- Note: We have to "over" `addrSummary` and set
+        -- `currentAddressSummary` explicitly to update the view
+        let addrSummary' = over (_Success <<< _CAddressSummary <<< caTxList)
+                              (\txs' -> txs <> txs') addrSummary
+        set currentAddressSummary addrSummary' state
+    else state
+    where
+        addrSummary = state ^. currentAddressSummary
+
+update (SocketAddressTxsUpdated (Left error)) state = noEffects $
+    over errors (\errors' -> (show error) : errors') state
+
 update SocketCallMe state =
     { state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff <<< emit' socket' $ toEvent CallMe
+              Just socket' -> liftEff <<< emit socket' $ toEvent CallMe
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 update (SocketCallMeString str) state =
     { state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emit socket' (toEvent CallMeString) str
+              Just socket' -> liftEff $ emitData socket' (toEvent CallMeString) str
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 update (SocketCallMeCTxId id) state =
     { state
     , effects : [ do
           _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emit socket' (toEvent CallMeTxId) id
+              Just socket' -> liftEff $ emitData socket' (toEvent CallMeTxId) id
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 -- | Creates a new socket subscription
@@ -151,7 +164,7 @@ update (SocketAddSubscription subItem) state =
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> liftEff $ socketSubscribeEvent socket' subItem
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 -- | Removes an existing socket subscription
@@ -162,7 +175,7 @@ update (SocketRemoveSubscription subItem) state =
           _ <- case state ^. (socket <<< connection) of
               Just socket' -> liftEff $ socketUnsubscribeEvent socket' subItem
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 
@@ -176,7 +189,7 @@ update (SocketClearSubscriptions) state =
                   traverse_ (liftEff <<< socketUnsubscribeEvent socket')
                       (state ^. socket <<< subscriptions)
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 update SocketReconnectSubscriptions state =
@@ -191,7 +204,7 @@ update SocketReconnectSubscriptions state =
                 traverse_ (liftEff <<< socketSubscribeEvent socket') currentSubs
 
               Nothing -> pure unit
-          pure NoOp
+          pure Nothing
     ]}
 
 -- Dashboard
@@ -202,29 +215,31 @@ update (DashboardExpandBlocks expanded) state = noEffects $
 update (DashboardExpandTransactions expanded) state = noEffects $
     set (dashboardViewState <<< dbViewTxsExpanded) expanded state
 
-update (DashboardPaginateBlocks pageNumber) state =
+update (DashboardPaginateBlocks mEvent pageNumber) state =
     { state:
-          set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber state
+          set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
     , effects:
-          [ pure $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
+          [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+          -- ^ blur element - needed by iOS to close native keyboard
+          , pure <<< Just $ RequestPaginatedBlocks pageNumber (PageSize maxBlockRows)
           ]
     }
 
-update (DashboardEditBlocksPageNumber target editable) state =
+update (DashboardEditBlocksPageNumber event editable) state =
     { state:
           set (dashboardViewState <<< dbViewBlockPaginationEditable) editable state
     , effects:
           [ if editable
-            then pure $ SelectInputText $ targetToHTMLInputElement target
-            else pure NoOp
+            then pure <<< Just $ SelectInputText $ nodeToHTMLInputElement (target event)
+            else pure Nothing
           ]
     }
 
-update (DashboardInvalidBlocksPageNumber target) state =
+update (DashboardInvalidBlocksPageNumber event) state =
     { state:
           set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
     , effects:
-          [ pure $ BlurElement $ targetToHTMLElement target
+          [ pure <<< Just $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
 
@@ -233,70 +248,91 @@ update (DashboardShowAPICode code) state = noEffects $
 
 -- Address
 
-update (AddressPaginateTxs value) state = noEffects $
-    set (viewStates <<< addressDetail <<< addressTxPagination) value state
+update (AddressPaginateTxs mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< addressDetail <<< addressTxPagination) pageNumber $
+          set (viewStates <<< addressDetail <<< addressTxPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
+        ]
+    }
 
-update (AddressEditTxsPageNumber target editable) state =
+update (AddressEditTxsPageNumber event editable) state =
     { state:
           set (viewStates <<< addressDetail <<< addressTxPaginationEditable) editable state
     , effects:
           [ if editable
-            then pure $ SelectInputText $ targetToHTMLInputElement target
-            else pure NoOp
+            then pure <<< Just $ SelectInputText $ nodeToHTMLInputElement (target event)
+            else pure Nothing
           ]
     }
 
-update (AddressInvalidTxsPageNumber target) state =
+update (AddressInvalidTxsPageNumber event) state =
     { state:
           set (viewStates <<< addressDetail <<< addressTxPaginationEditable) false state
       , effects:
-          [ pure $ BlurElement $ targetToHTMLElement target
+          [ pure <<< Just $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
 
 -- Block
 
-update (BlockPaginateTxs value) state = noEffects $
-    set (viewStates <<< blockDetail <<< blockTxPagination) value state
+update (BlockPaginateTxs mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< blockDetail <<< blockTxPagination) pageNumber $
+          set (viewStates <<< blockDetail <<< blockTxPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
+        ]
+    }
 
-update (BlockEditTxsPageNumber target editable) state =
+update (BlockEditTxsPageNumber event editable) state =
     { state:
           set (viewStates <<< blockDetail <<< blockTxPaginationEditable) editable state
     , effects:
           [ if editable
-            then pure $ SelectInputText $ targetToHTMLInputElement target
-            else pure NoOp
+            then pure <<< Just $ SelectInputText $ nodeToHTMLInputElement (target event)
+            else pure Nothing
           ]
     }
 
-update (BlockInvalidTxsPageNumber target) state =
+update (BlockInvalidTxsPageNumber event) state =
     { state:
           set (viewStates <<< blockDetail <<< blockTxPaginationEditable) false state
       , effects:
-          [ pure $ BlurElement $ targetToHTMLElement target
+          [ pure <<< Just $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
 
 -- Blocks
 
-update (BlocksPaginateBlocks value) state = noEffects $
-    set (viewStates <<< blocksViewState <<< blsViewPagination) value state
+update (BlocksPaginateBlocks mEvent pageNumber) state =
+    { state:
+          set (viewStates <<< blocksViewState <<< blsViewPagination) pageNumber $
+          set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) false state
+    , effects:
+        [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
+        -- ^ blur element - needed by iOS to close native keyboard
+        ]
+    }
 
-update (BlocksEditBlocksPageNumber target editable) state =
+update (BlocksEditBlocksPageNumber event editable) state =
     { state:
           set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) editable state
     , effects:
           [ if editable
-            then pure $ SelectInputText $ targetToHTMLInputElement target
-            else pure NoOp
+            then pure <<< Just $ SelectInputText $ nodeToHTMLInputElement (target event)
+            else pure Nothing
           ]
     }
 
-update (BlocksInvalidBlocksPageNumber target) state =
+update (BlocksInvalidBlocksPageNumber event) state =
     { state:
           set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) false state
       , effects:
-          [ pure $ BlurElement $ targetToHTMLElement target
+          [ pure <<< Just $ BlurElement $ nodeToHTMLElement (target event)
           ]
     }
 
@@ -308,58 +344,117 @@ update ScrollTop state =
         case state ^. syncAction of
             -- Don't scroll if we are doing polling
             -- TODO (jk) Remove this workaround if socket-io will be fixed
-            SyncByPolling -> [ pure NoOp ]
-            SyncBySocket -> [ liftEff scrollTop >>= \_ -> pure NoOp ]
+            SyncByPolling -> [ pure Nothing ]
+            SyncBySocket -> [ liftEff scrollTop >>= \_ -> pure Nothing ]
     }
 
 update (SelectInputText input) state =
     { state
     , effects:
-        [ liftEff $ select input >>= \_ -> pure NoOp
+        [ liftEff $ select input >>= \_ -> pure Nothing
         ]
     }
 
 update (BlurElement elem) state =
     { state
     , effects:
-        [ liftEff $ blur elem >>= \_ -> pure NoOp
+        [ liftEff $ blur elem >>= \_ -> pure Nothing
         ]
     }
 
 update (FocusElement elem) state =
     { state
     , effects:
-        [ liftEff $ focus elem >>= \_ -> pure NoOp
+        [ liftEff $ focus elem >>= \_ -> pure Nothing
         ]
     }
 
 update (GenerateQrCode address) state =
     { state
     , effects:
-        [ liftEff $ generateQrCode (address ^. _CAddress) addressQRImageId *> pure NoOp
+        [ liftEff $ generateQrCode (address ^. _CAddress) addressQRImageId *> pure Nothing
         ]
     }
+
+update (DashboardAddWaypoint elementId) state =
+    { state
+    , effects:
+        [ liftEff waypoint >>= \wp -> pure <<< Just <<< StoreWaypoint $ WaypointItem { wpInstance: wp, wpRoute: Dashboard }
+        ]
+    }
+    where
+        elId = ElementId CSS.headerId
+        callback = \(direction) ->
+            if direction == WP.up
+                then do
+                    addClassToElement elId CSS.moveOut
+                    removeClassFromElement elId CSS.moveIn
+                else do
+                    addClassToElement elId CSS.moveIn
+                    removeClassFromElement elId CSS.moveOut
+
+        waypoint = WP.waypoint' elementId callback 71 -- 71 == height of header
+
+update (StoreWaypoint wp) state = noEffects $
+    over (viewStates <<< globalViewState <<< gWaypoints) ((:) wp) state
+
+update ClearWaypoints state =
+    { state: set (viewStates <<< globalViewState <<< gWaypoints) [] state
+    , effects:
+          [ do
+                traverse_ (liftEff <<< disposeWaypoint) waypointItems
+                pure Nothing
+          ]
+    }
+    where
+      waypointItems = state ^. (viewStates <<< globalViewState <<< gWaypoints)
+
+      -- | Disposes any `Waypoint` stored in state
+      -- | Use it to reverse any changes which might be added by a Waypoint before,
+      -- | e.g. adding of new CSS classes or something else
+      disposeWaypoint :: forall e. WaypointItem -> Eff (dom :: DOM, waypoint :: WP.WAYPOINT | e) Unit
+      disposeWaypoint (WaypointItem item) = do
+          _ <- case _.wpRoute item of
+                    Dashboard -> do
+                      -- remove all css classes which might be added
+                      -- by waypoint's callback
+                      let elId = ElementId CSS.headerId
+                      _ <- removeClassFromElement elId CSS.moveOut
+                      _ <- removeClassFromElement elId CSS.moveIn
+                      pure unit
+                    -- Add any other effects for any other route if needed here
+                    _ -> pure unit
+          _ <- WP.destroy $ _.wpInstance item
+          pure unit
 
 update (DocumentClicked event) state =
     { state
     , effects:
         [ liftEff $
-            -- ignore effect while opening mobile menue
+            -- First check here is to see if a search container has been clicked or not.
+            -- We do ignore this check if the mobile menue is openend,
+            -- because we don't need to do any effects there
             if (not (state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend)))
             then
                 do
-                  -- Check if children of search container has been clicked or not
-                  el <- findElementById searchContainerId
-                  case el of
-                      Just el' -> do
-                          childrenClicked <- contains (elementToNode el') (target event)
-                          pure $ GlobalFocusSearchInput childrenClicked
-                      Nothing ->
-                          pure NoOp
+                -- Check if any children of one of our three search containers has been clicked or not
+                  heroSearchContainerClicked <- findElementById heroSearchContainerId >>= elementClicked
+                  mobileMenuSearchContainerClicked <- findElementById mobileMenuSearchContainerId >>= elementClicked
+                  headerSearchContainerClicked <- findElementById headerSearchContainerId >>= elementClicked
+                  -- If any of these children are clicked we know, that the search UI has been set to active (focused)
+                  let clicked = heroSearchContainerClicked || mobileMenuSearchContainerClicked || headerSearchContainerClicked
+                  pure <<< Just $ GlobalFocusSearchInput clicked
             else
-                pure NoOp
+                pure Nothing
         ]
     }
+    where
+        elementClicked mEl =
+            case mEl of
+                Just el ->
+                    contains (elementToNode el) (target event)
+                Nothing ->
+                    pure false
 
 -- global state
 update (GlobalToggleMobileMenu toggled) state = noEffects $
@@ -373,51 +468,56 @@ update (GlobalFocusSearchInput value) state = noEffects $
               if value == false &&
                     (not $ state ^. (viewStates <<< globalViewState <<< gViewMobileMenuOpenend))
               then SearchAddress
-              else selectedSearch)
+              else selectedSearch
+        )
     state
 
-update GlobalSearch state =
+update (GlobalSearch event) state =
     let query = state ^. (viewStates <<< globalViewState <<< gViewSearchQuery) in
     { state:
           set (viewStates <<< globalViewState <<< gViewSearchQuery) emptySearchQuery $
           set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
           state
-    , effects: [
-      -- set state of focus explicitly
-      pure $ GlobalFocusSearchInput false
-      , case state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch) of
-          SearchAddress ->
-              (liftEff <<< P.navigateTo <<< toUrl <<< Address $ mkCAddress query) *> pure NoOp
-          SearchTx ->
-              (liftEff <<< P.navigateTo <<< toUrl <<< Tx $ mkCTxId query) *> pure NoOp
-          _ -> pure NoOp  -- TODO (ks) maybe put up a message?
-      ]
+    , effects:
+        [ pure <<< Just $ GlobalFocusSearchInput false
+        -- ^ set state of focus explicitly
+        , pure <<< Just <<< BlurElement <<< nodeToHTMLElement $ target event
+        -- ^ blur element - needed by iOS to close native keyboard
+        , case state ^. (viewStates <<< globalViewState <<< gViewSelectedSearch) of
+            SearchAddress ->
+                pure <<< Just $ Navigate (toUrl <<< Address $ mkCAddress query) event
+            SearchTx ->
+                pure <<< Just $ Navigate (toUrl <<< Tx $ mkCTxId query) event
+            _ -> pure Nothing  -- TODO (ks) maybe put up a message?
+        ]
     }
-update GlobalSearchTime state =
+update (GlobalSearchTime event) state =
     let query = state ^. (viewStates <<< globalViewState <<< gViewSearchTimeQuery)
     in
     { state:
           set (viewStates <<< globalViewState <<< gViewSearchTimeQuery) emptySearchTimeQuery $
           set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
           state
-    , effects: [
-      -- set state of focus explicitly
-      pure $ GlobalFocusSearchInput false
-      , case query of
-            Tuple (Just epoch) (Just slot) ->
-                let epochIndex = mkEpochIndex epoch
-                    slotIndex  = mkLocalSlotIndex slot
-                    epochSlotUrl = EpochSlot epochIndex slotIndex
-                in
-                (liftEff <<< P.navigateTo <<< toUrl $ epochSlotUrl) *> pure NoOp
-            Tuple (Just epoch) Nothing ->
-                let epochIndex = mkEpochIndex epoch
-                    epochUrl   = Epoch $ epochIndex
-                in
-                (liftEff <<< P.navigateTo <<< toUrl $ epochUrl) *> pure NoOp
+    , effects:
+        [ pure <<< Just $ GlobalFocusSearchInput false
+          -- ^ set state of focus explicitly
+          , pure <<< Just <<< BlurElement <<< nodeToHTMLElement $ target event
+          -- ^ blur element - needed by iOS to close native keyboard
+          , case query of
+                Tuple (Just epoch) (Just slot) ->
+                    let epochIndex = mkEpochIndex epoch
+                        slotIndex  = mkLocalSlotIndex slot
+                        epochSlotUrl = EpochSlot epochIndex slotIndex
+                    in
+                    pure <<< Just $ Navigate (toUrl epochSlotUrl) event
+                Tuple (Just epoch) Nothing ->
+                    let epochIndex = mkEpochIndex epoch
+                        epochUrl   = Epoch $ epochIndex
+                    in
+                    pure <<< Just $ Navigate (toUrl epochUrl) event
 
-            _ -> pure NoOp -- TODO (ks) maybe put up a message?
-      ]
+                _ -> pure Nothing -- TODO (ks) maybe put up a message?
+        ]
     }
 
 update (GlobalUpdateSelectedSearch search) state =
@@ -451,7 +551,7 @@ update DashboardRequestBlocksTotalPages state =
           set loading true $
           set (dashboardViewState <<< dbViewMaxBlockPagination) Loading
           state
-    , effects: [ attempt fetchBlocksTotalPages >>= pure <<< DashboardReceiveBlocksTotalPages ]
+    , effects: [ attempt fetchBlocksTotalPages >>= pure <<< Just <<< DashboardReceiveBlocksTotalPages ]
     }
 
 update (DashboardReceiveBlocksTotalPages (Right totalPages)) state =
@@ -462,7 +562,7 @@ update (DashboardReceiveBlocksTotalPages (Right totalPages)) state =
           set (dashboardViewState <<< dbViewBlockPagination)
               (PageNumber totalPages) state
     , effects:
-        [ pure $ DashboardPaginateBlocks (PageNumber totalPages) ]
+        [ pure <<< Just $ DashboardPaginateBlocks Nothing (PageNumber totalPages) ]
     }
 
 update (DashboardReceiveBlocksTotalPages (Left error)) state =
@@ -474,28 +574,27 @@ update (DashboardReceiveBlocksTotalPages (Left error)) state =
 update (RequestPaginatedBlocks pageNumber pageSize) state =
     { state:
           set loading true $
+          set (dashboardViewState <<< dbViewBlockPagination) pageNumber $
           -- Important note: Don't use `set latestBlocks Loading` here,
           -- we will empty `latestBlocks` in this case !!!
           -- set latestBlocks Loading
           set (dashboardViewState <<< dbViewLoadingBlockPagination) true
           state
-    , effects: [ attempt (fetchPageBlocks pageNumber pageSize) >>= pure <<< ReceivePaginatedBlocks ]
+    , effects: [ attempt (fetchPageBlocks pageNumber pageSize) >>= pure <<< Just <<< ReceivePaginatedBlocks ]
     }
 
 update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
     { state:
           set loading false $
           set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages) $
-          set (dashboardViewState <<< dbViewBlockPagination) (PageNumber newPage) $
           set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
           set latestBlocks (Success blocks) state
     , effects:
         if (syncBySocket $ state ^. syncAction)
-        then [ pure $ SocketAddSubscription subItem ]
+        then [ pure <<< Just $ SocketAddSubscription subItem ]
         else []
     }
     where
-        newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination <<< _PageNumber)
         subItem = mkSocketSubscriptionItem (SocketSubscription SubBlockLastPage) SocketNoData
 
 update (ReceivePaginatedBlocks (Left error)) state =
@@ -510,7 +609,7 @@ update (RequestBlockSummary hash) state =
           set loading true $
           set currentBlockSummary Loading
           state
-    , effects: [ attempt (fetchBlockSummary hash) >>= pure <<< ReceiveBlockSummary ]
+    , effects: [ attempt (fetchBlockSummary hash) >>= pure <<< Just <<< ReceiveBlockSummary ]
     }
 update (ReceiveBlockSummary (Right blockSummary)) state =
     noEffects $
@@ -530,7 +629,7 @@ update (RequestSearchBlocks epoch slot) state =
           set loading true $
           set currentBlocksResult Loading
           state
-    , effects: [ attempt (searchEpoch epoch slot) >>= pure <<< ReceiveSearchBlocks ]
+    , effects: [ attempt (searchEpoch epoch slot) >>= pure <<< Just <<< ReceiveSearchBlocks ]
     }
 update (ReceiveSearchBlocks (Right blocks)) state =
     noEffects $
@@ -548,7 +647,7 @@ update (RequestBlockTxs hash) state =
           set loading true $
           set currentBlockTxs Loading
           state
-    , effects: [ attempt (fetchBlockTxs hash) >>= pure <<< ReceiveBlockTxs ]
+    , effects: [ attempt (fetchBlockTxs hash) >>= pure <<< Just <<< ReceiveBlockTxs ]
     }
 update (ReceiveBlockTxs (Right txs)) state =
     noEffects $
@@ -568,7 +667,7 @@ update (RequestLastTxs) state =
           state
     , effects:
         [ attempt (fetchLatestTxs (RequestLimit maxTransactionRows) (RequestOffset 0)) >>=
-              pure <<< ReceiveLastTxs
+              pure <<< Just <<< ReceiveLastTxs
         ]
     }
 
@@ -585,7 +684,7 @@ update (ReceiveLastTxs (Right txs)) state =
           state
     , effects:
         if (syncBySocket $ state ^. syncAction)
-        then [ pure $ SocketAddSubscription subItem ]
+        then [ pure <<< Just $ SocketAddSubscription subItem ]
         else []
     }
     where
@@ -600,7 +699,7 @@ update (RequestTxSummary id) state =
           set loading true $
           set currentTxSummary Loading
           state
-    , effects: [ attempt (fetchTxSummary id) >>= pure <<< ReceiveTxSummary ]
+    , effects: [ attempt (fetchTxSummary id) >>= pure <<< Just <<< ReceiveTxSummary ]
     }
 update (ReceiveTxSummary (Right tx)) state =
     noEffects $
@@ -617,15 +716,26 @@ update (RequestAddressSummary address) state =
           set loading true $
           set currentAddressSummary Loading
           state
-    , effects: [ attempt (fetchAddressSummary address) >>= pure <<< ReceiveAddressSummary ]
+    , effects: [ attempt (fetchAddressSummary address) >>= pure <<< Just <<< ReceiveAddressSummary ]
     }
 update (ReceiveAddressSummary (Right address)) state =
     { state:
         set loading false $
         set currentAddressSummary (Success address) state
     , effects:
-        [ pure $ GenerateQrCode $ address ^. (_CAddressSummary <<< caAddress) ]
+        [ pure <<< Just $ GenerateQrCode caAddress'
+        ]
+        <>  ( if (syncBySocket $ state ^. syncAction)
+              then [ pure <<< Just $ SocketAddSubscription subItem ]
+              else []
+            )
     }
+    where
+        caAddress' = address ^. (_CAddressSummary <<< caAddress)
+        subItem = mkSocketSubscriptionItem (SocketSubscription SubAddr) (SocketCAddressData caAddress')
+
+
+
 update (ReceiveAddressSummary (Left error)) state =
     noEffects $
     set loading false $
@@ -633,10 +743,11 @@ update (ReceiveAddressSummary (Left error)) state =
     over errors (\errors' -> (show error) : errors') state
 
 -- clock
-update UpdateClock state = onlyEffects state $
+update UpdateClock state = onlyEffects state
     [ do
-         SetClock <<< extract <$> liftEff nowDateTime
+        Just <<< SetClock <<< extract <$> liftEff nowDateTime
     ]
+
 update (SetClock date) state = noEffects $ state { now = date }
 
 -- Reload pages
@@ -645,123 +756,124 @@ update Reload state = update (UpdateView state.route) state
 
 -- routing
 
-update (UpdateView route) state = routeEffects route (state { route = route })
+update (Navigate url ev) state = onlyEffects state
+    [ do
+        liftEff do
+            preventDefault ev
+            h <- history =<< window
+            -- TODO (jk) Set document title
+            pushState (toForeign {}) (DocumentTitle "") (URL url) h
+        pure <<< Just $ UpdateView (match url)
+    ]
 
-routeEffects :: forall eff. Route -> State -> EffModel State Action (dom :: DOM
-    , ajax :: AJAX | eff)
-routeEffects Dashboard state =
+update (UpdateView r@Dashboard) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cTitle) $ state ^. lang)
-            state
+        set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
+        set route r state
     , effects:
-        [ pure ScrollTop
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure <<< Just <<< DashboardAddWaypoint $ ElementId CSS.dashBoardBlocksViewId
         , if isSuccess maxBlockPage
-          then pure $ DashboardPaginateBlocks $ state ^. (dashboardViewState <<< dbViewBlockPagination)
+          then pure <<< Just $ DashboardPaginateBlocks Nothing (state ^. (dashboardViewState <<< dbViewBlockPagination))
           else
               -- Note: Request `total pages `only once.
               -- Check is needed due reloading by http pooling
               if isNotAsked maxBlockPage
-              then pure DashboardRequestBlocksTotalPages
-              else pure NoOp
-        , pure RequestLastTxs
+              then pure $ Just DashboardRequestBlocksTotalPages
+              else pure Nothing
+        , pure $ Just RequestLastTxs
         ]
     }
     where
         maxBlockPage = state ^. (dashboardViewState <<< dbViewMaxBlockPagination)
 
-routeEffects (Tx tx) state =
+update (UpdateView r@(Tx tx)) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cTransaction) $ state ^. lang)
-            state
+        set route r state
     , effects:
-        [ pure ScrollTop
-        , pure SocketClearSubscriptions
-        , pure $ RequestTxSummary tx
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure $ Just SocketClearSubscriptions
+        , pure <<< Just $ RequestTxSummary tx
         ]
     }
 
-routeEffects (Address cAddress) state =
+update (UpdateView r@(Address cAddress)) state =
     { state:
         set currentCAddress cAddress $
         set (viewStates <<< addressDetail <<< addressTxPagination) (PageNumber minPagination) $
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cAddress) $ state ^. lang)
-            state
+        set route r state
     , effects:
-        [ pure ScrollTop
-        , pure SocketClearSubscriptions
-        , pure $ RequestAddressSummary cAddress
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure $ Just SocketClearSubscriptions
+        , pure <<< Just $ RequestAddressSummary cAddress
         ]
     }
 
-routeEffects (Epoch epochIndex) state =
+update (UpdateView r@(Epoch epochIndex)) state =
     { state:
         set (viewStates <<< blocksViewState <<< blsViewPagination)
             (PageNumber minPagination) $
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cEpoch) $ state ^. lang)
-            state
+        set route r state
     , effects:
-        [ pure ScrollTop
-        , pure $ RequestSearchBlocks epochIndex Nothing
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure <<< Just $ RequestSearchBlocks epochIndex Nothing
         ]
     }
 
-routeEffects (EpochSlot epochIndex slotIndex) state =
+update (UpdateView r@(EpochSlot epochIndex slotIndex)) state =
     let lang' = state ^. lang
-        epochTitle = translate (I18nL.common <<< I18nL.cEpoch) lang'
-        slotTitle = translate (I18nL.common <<< I18nL.cSlot) lang'
+
     in
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (epochTitle <> " / " <> slotTitle)
-            state
+        set route r state
     , effects:
-        [ pure ScrollTop
-        , pure $ RequestSearchBlocks epochIndex (Just slotIndex)
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure <<< Just $ RequestSearchBlocks epochIndex (Just slotIndex)
         ]
     }
 
-
-routeEffects Calculator state =
+update (UpdateView r@Calculator) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cCalculator) $ state ^. lang)
-            state
-    , effects: [ pure ScrollTop ]
-    }
-
-routeEffects (Block hash) state =
-    { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cBlock) $ state ^. lang)
-            state
+        set route r state
     , effects:
-        [ pure ScrollTop
-        , pure SocketClearSubscriptions
-        , pure $ RequestBlockSummary hash
-        , pure $ RequestBlockTxs hash
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
         ]
     }
 
-routeEffects Playground state =
-    { state
+update (UpdateView r@(Block hash)) state =
+    { state:
+        set route r state
     , effects:
-        [ pure ScrollTop
-        , pure SocketClearSubscriptions
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure $ Just SocketClearSubscriptions
+        , pure <<< Just $ RequestBlockSummary hash
+        , pure <<< Just $ RequestBlockTxs hash
         ]
     }
 
-routeEffects NotFound state =
-    { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.notfound <<< I18nL.nfTitle) $ state ^. lang)
-            state
+update (UpdateView r@(Playground)) state =
+    { state: set route r state
     , effects:
-        [ pure ScrollTop
-        , pure SocketClearSubscriptions
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure $ Just SocketClearSubscriptions
+        ]
+    }
+
+update (UpdateView r@(NotFound)) state =
+    { state:
+        set route r state
+    , effects:
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure $ Just SocketClearSubscriptions
         ]
     }
 
@@ -774,12 +886,13 @@ socketSubscribeEvent socket (SocketSubscriptionItem item) =
         subData = _.socketSubData item
 
         subscribe :: Socket -> String -> SocketSubscriptionData -> Eff (socket :: SocketIO | eff) Unit
-        subscribe s e SocketNoData = emit' s e
-        subscribe s e (SocketOffsetData (SocketOffset o)) = emit s e o
+        subscribe s e SocketNoData = emit s e
+        subscribe s e (SocketOffsetData (SocketOffset o)) = emitData s e o
+        subscribe s e (SocketCAddressData (CAddress addr)) = emitData s e addr
 
 socketUnsubscribeEvent :: forall eff . Socket -> SocketSubscriptionItem
     -> Eff (socket :: SocketIO | eff) Unit
 socketUnsubscribeEvent socket (SocketSubscriptionItem item)  =
-    emit' socket event
+    emit socket event
     where
         event = toEvent <<< Unsubscribe <<< unwrap $ _.socketSub item

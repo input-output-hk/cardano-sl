@@ -19,14 +19,14 @@
       }
 
       &__wrapper {
-        width: 100%;
+        box-item: flex-1;
         box: horizontal;
       }
 
       &__label {
           color: color(var(--color3) a(0.5));
           font-family: var(--fontFamily0-Light);
-          box-item: center;
+          box: center;
           padding-left: 15px;
       }
 
@@ -35,7 +35,11 @@
         font-size: 13px;
         font-family: var(--fontFamily0-Regular);
         padding: 0 5px;
-        color: var(--color0);
+        color: color(var(--color0) a(0.3));
+
+        &.focused {
+          color: var(--color0);
+        }
 
         background-color: transparent;
 
@@ -103,23 +107,17 @@
           box: center;
           padding-right: 5px;
 
-          input[type="radio"] {
-             @extend .hide;
-          }
+          color: color(var(--color3) a(0.5));
+          font-size: 13px;
+          font-family: var(--fontFamily0-Light);
+          cursor: pointer;
+          white-space: nowrap;
 
-          &--label {
-            color: color(var(--color3) a(0.5));
-            font-size: 13px;
-            font-family: var(--fontFamily0-Light);
-            cursor: pointer;
-            white-space: nowrap;
-
-            &:hover,
-            &:active,
-            &.selected {
-              color: color(var(--color0));
-              font-family: var(--fontFamily0-Regular);
-            }
+          &:hover,
+          &:active,
+          &.selected {
+            color: color(var(--color0));
+            font-family: var(--fontFamily0-Regular);
           }
 
         }

@@ -11,4 +11,6 @@ node:
             socket-io:
                 severity: Debug
                 file: socket-io.log
+drop:
+    severity: Error
 

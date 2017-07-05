@@ -23,6 +23,8 @@ import qualified Pos.CLI                    as CLI
 import           Pos.DHT.Model              (DHTKey)
 import           Pos.DHT.Real.CLI           (dhtExplicitInitialOption, dhtKeyOption,
                                              dhtNetworkAddressOption, dhtPeersFileOption)
+import           Pos.Statistics             (EkgParams, StatsdParams,
+                                             ekgParamsOption, statsdParamsOption)
 import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp          (NetworkAddress, addrParser)
 
@@ -49,7 +51,10 @@ data Args = Args
     , webPort            :: !Word16
     , commonArgs         :: !CLI.CommonArgs
     , noSystemStart      :: !Int
-    , monitorPort        :: !(Maybe Int)
+    , noNTP              :: !Bool
+    , enableMetrics      :: !Bool
+    , ekgParams          :: !(Maybe EkgParams)
+    , statsdParams       :: !(Maybe StatsdParams)
     , notifierPort       :: !Word16
     } deriving Show
 
@@ -104,16 +109,22 @@ argsParser = do
     commonArgs <- CLI.commonArgsParser
 
     noSystemStart <- option auto (long "system-start" <> metavar "TIMESTAMP" <> value (-1))
-
-    monitorPort <- optional $ option auto $
-        long    "monitor-port" <>
-        metavar "INT" <>
-        help    "Run web monitor on this port."
+    
+    noNTP <- switch $
+         long "no-ntp" <>
+         help "Whether to use real NTP servers to synchronise time or rely on local time"
 
     notifierPort <- option auto
          (long "notifier-port" <> metavar "PORT" <>
           value 8110 <> showDefault <>
           help "Port for update notifier")
+
+    enableMetrics <- switch $
+        long "metrics" <>
+        help "Enable metrics (EKG, statsd)"
+ 
+    ekgParams <- optional ekgParamsOption
+    statsdParams <- optional statsdParamsOption
 
     pure Args{..}
 

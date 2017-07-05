@@ -1,62 +1,54 @@
 module Main where
 
+import Prelude
+
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Console (CONSOLE)
-import Control.Monad.Eff.Now (NOW)
-import Control.SocketIO.Client (SocketIO, connect, on)
-import DOM (DOM)
+import Control.SocketIO.Client (connect, on)
 import DOM.Event.EventTarget (addEventListener, eventListener)
 import DOM.HTML (window)
 import DOM.HTML.Event.EventTypes (click)
+import DOM.HTML.Location (pathname)
 import DOM.HTML.Types (htmlDocumentToEventTarget)
-import DOM.HTML.Window (document)
+import DOM.HTML.Window (document, location)
 import Data.Lens ((^.), set)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Explorer.Api.Socket (blocksPageUpdatedEventHandler, callYouEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
+import Explorer.Api.Socket (addressTxsUpdatedEventHandler, blocksPageUpdatedEventHandler, callYouEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
 import Explorer.I18n.Lang (Language(..), detectLocale)
 import Explorer.Lenses.State (connection, lang, socket, syncAction)
 import Explorer.Routes (match)
-import Explorer.Types.Actions (Action(..))
 import Explorer.Types.Actions (Action(..), ActionChannel) as Ex
+import Explorer.Types.App (AppEffects)
 import Explorer.Types.State (State) as Ex
 import Explorer.Update (update) as Ex
 import Explorer.Util.Config (SyncAction(..), hostname, isProduction, secureProtocol)
 import Explorer.View.Layout (view)
-import Network.HTTP.Affjax (AJAX)
 import Pos.Explorer.Socket.Methods (ServerEvent(..))
-import Prelude (bind, const, pure, ($), (*), (<$>), (<<<), (<>), (>>=), (>>>))
-import Pux (App, Config, CoreEffects, Update, renderToDOM, start)
-import Pux.Devtool (Action, start) as Pux.Devtool
-import Pux.Router (sampleUrl)
+import Pux (App, Config, CoreEffects, start)
+import Pux.DOM.Events (DOMEvent)
+import Pux.DOM.History (sampleURL)
+import Pux.Renderer.React (renderToDOM)
 import Signal (Signal, (~>))
 import Signal.Channel (channel, send, subscribe)
 import Signal.Time (every, second)
 
-type AppEffects =
-    (dom :: DOM
-    , ajax :: AJAX
-    , socket :: SocketIO
-    , now :: NOW
-    , console :: CONSOLE
-    )
-
-type AppConfig = (Config Ex.State Ex.Action AppEffects)
+type AppConfig eff = (Config (DOMEvent -> Ex.Action) Ex.Action Ex.State (AppEffects eff))
 
 -- | Config to synchronize data by socket-io
-socketConfig :: AppConfig -> Ex.ActionChannel -> Eff (CoreEffects AppEffects) AppConfig
+socketConfig :: forall eff . (AppConfig eff) -> Ex.ActionChannel -> Eff (CoreEffects (AppEffects eff)) (AppConfig eff)
 socketConfig appConfig actionChannel = do
     -- socket
     let pingSignal = every (10.0 * second) ~> const Ex.SocketPing
     socketHost <- Ex.mkSocketHost (secureProtocol isProduction) <$> hostname
     socket' <- connect socketHost
-    on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
-    on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
-    on socket' (Ex.toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel
-    on socket' (Ex.toEvent BlocksLastPageUpdated) $ Ex.blocksPageUpdatedEventHandler actionChannel
+    _ <- on socket' Ex.connectEvent $ Ex.connectHandler actionChannel
+    _ <- on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
+    _ <- on socket' (Ex.toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel
+    _ <- on socket' (Ex.toEvent BlocksLastPageUpdated) $ Ex.blocksPageUpdatedEventHandler actionChannel
+    _ <- on socket' (Ex.toEvent AddrUpdated) $ Ex.addressTxsUpdatedEventHandler actionChannel
     -- Note:
     -- `CallYou` is the answer of `CallMe`.
     -- Handling both events are needed a to be connected with socket.io manually
-    on socket' (Ex.toEvent CallYou) $ Ex.callYouEventHandler actionChannel
+    _ <- on socket' (Ex.toEvent CallYou) $ Ex.callYouEventHandler actionChannel
 --  on socket' (Ex.toEvent CallYouString) $ Ex.callYouStringEventHandler actionChannel
 --  on socket' (Ex.toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel
     pure $ appConfig
@@ -65,7 +57,7 @@ socketConfig appConfig actionChannel = do
         }
 
 -- | Config to synchronize data by polling
-pollingConfig :: AppConfig -> Eff (CoreEffects AppEffects) AppConfig
+pollingConfig :: forall eff . (AppConfig eff) -> Eff (CoreEffects (AppEffects eff)) (AppConfig eff)
 pollingConfig appConfig =
     let reloadSignal = every (60.0 * second) ~> const Ex.Reload in
     pure $ appConfig
@@ -73,11 +65,11 @@ pollingConfig appConfig =
         }
 
 -- | Common config
-commonConfig :: Ex.State -> Ex.ActionChannel -> Eff (CoreEffects AppEffects) AppConfig
+commonConfig :: forall eff . Ex.State -> Ex.ActionChannel -> Eff (CoreEffects (AppEffects eff)) (AppConfig eff)
 commonConfig state actionChannel = do
     -- routing
-    urlSignal <- sampleUrl
-    let routeSignal = urlSignal ~> Ex.UpdateView <<< match
+    urlSignal <- sampleURL =<< window
+    let routeSignal = urlSignal ~> (Ex.UpdateView <<< match)
     -- timer
     let clockSignal = every second ~> const Ex.UpdateClock
     -- detected locale
@@ -86,20 +78,21 @@ commonConfig state actionChannel = do
     let actionSignal = subscribe actionChannel :: Signal Ex.Action
     -- register global (document) click listener
     -- globalClickListener :: forall eff. Event -> Eff (channel :: CHANNEL | eff) Unit
-    let globalClickListener event = send actionChannel $ DocumentClicked event
+    let globalClickListener event = send actionChannel $ Ex.DocumentClicked event
 
-    window >>=
-        document >>=
-            htmlDocumentToEventTarget >>>
-                addEventListener click (eventListener globalClickListener) false
+    _ <- window >>=
+            document >>=
+                htmlDocumentToEventTarget >>>
+                    addEventListener click (eventListener globalClickListener) false
 
     pure
         { initialState: set lang locale state
-        , update: Ex.update :: Update Ex.State Ex.Action AppEffects
-        , view: view
+        , foldp: Ex.update
+        , view
         , inputs:
-              [ clockSignal
-              , actionSignal
+              [
+              -- clockSignal
+              actionSignal
               -- Important note:
               -- routeSignal has to be the last signal in row !!!
               , routeSignal
@@ -109,24 +102,23 @@ commonConfig state actionChannel = do
 appSelector :: String
 appSelector = "#explorer"
 
-main :: Ex.State -> Eff (CoreEffects AppEffects) (App Ex.State Ex.Action)
+type WebApp = App (DOMEvent -> Ex.Action) Ex.Action Ex.State
+
+main :: forall eff . Ex.State -> Eff (CoreEffects (AppEffects eff)) WebApp
 main state = do
-    actionChannel <- channel NoOp
+    actionChannel <- channel Ex.NoOp
     appConfig <- commonConfig state actionChannel
     config <- case state ^. syncAction of
                   SyncByPolling -> pollingConfig appConfig
                   SyncBySocket -> socketConfig appConfig actionChannel
     app <- start config
-    renderToDOM appSelector app.html
-    pure app
+    _ <- renderToDOM appSelector app.markup app.input
 
-debug :: Ex.State -> Eff (CoreEffects AppEffects) (App Ex.State (Pux.Devtool.Action Ex.Action))
-debug state = do
-    actionChannel <- channel NoOp
-    appConfig <- commonConfig state actionChannel
-    config <- case state ^. syncAction of
-                    SyncByPolling -> pollingConfig appConfig
-                    SyncBySocket -> socketConfig appConfig actionChannel
-    app <- Pux.Devtool.start config {opened: false}
-    renderToDOM appSelector app.html
+    -- Trigger `UpdateView` after starting app
+    -- to run side effects which are needed by each route
+    -- Because it's not triggered by Pux 10.x - maybe a bug???
+    _ <- window >>=
+            location >>=
+                pathname >>= send actionChannel <<< Ex.UpdateView <<< match
+
     pure app

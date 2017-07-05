@@ -66,12 +66,7 @@
   }
 
   .row__summary {
-    .ada {
-      padding-right: 10px;
-      background-repeat: no-repeat;
-      background-position: right center;
-      background-size: 8px 7px;
-    }
+
   }
 
   .row__hashes {
@@ -98,6 +93,13 @@
     &__hash--link {
       text-overflow: ellipsis;
     }
+
+    .ada {
+      padding-right: 10px;
+      background-repeat: no-repeat;
+      background-position: right center;
+      background-size: 8px 7px;
+    }
   }
 
   .summary-empty {
@@ -120,6 +122,11 @@
 
   .transaction-header {
     background-color: var(--color7); /* overridden */
+  }
+
+
+  &__tx-container {
+    lost-utility: clearfix;
   }
 
 }

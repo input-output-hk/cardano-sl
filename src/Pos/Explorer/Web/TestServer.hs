@@ -111,8 +111,8 @@ testBlocksPagesTotal
 testBlocksPagesTotal _ = pure $ pure 10
 
 testBlocksPages
-    :: Maybe Word 
-    -> Maybe Word 
+    :: Maybe Word
+    -> Maybe Word
     -> Handler (Either ExplorerError (Integer, [CBlockEntry]))
 testBlocksPages _ _  = pure . pure $ (1, [CBlockEntry
     { cbeEpoch      = 37294
@@ -176,18 +176,21 @@ testTxsSummary
     :: CTxId
     -> Handler (Either ExplorerError CTxSummary)
 testTxsSummary _       = pure . pure $ CTxSummary
-    { ctsId              = CTxId $ CHash "b29fa17156275a8589857376bfaeeef47f1846f82ea492a808e5c6155b450e02"
+    { ctsId              = CTxId $ CHash "8aac4a6b18fafa2783071c66519332157ce96c67e88fc0cc3cb04ba0342d12a1"
     , ctsTxTimeIssued    = posixTime
     , ctsBlockTimeIssued = Nothing
-    , ctsBlockHeight     = Just 11
-    , ctsBlockEpoch      = Just 4
-    , ctsBlockSlot       = Just 17
+    , ctsBlockHeight     = Just 13
+    , ctsBlockEpoch      = Just 0
+    , ctsBlockSlot       = Just 13
+    , ctsBlockHash       = Just $ CHash "a9dea19829e80d9064cd0c33dccf5369638e43c62a090848342037e296120a35"
     , ctsRelayedBy       = Nothing
     , ctsTotalInput      = mkCCoin $ mkCoin 33333
     , ctsTotalOutput     = mkCCoin $ mkCoin 33333
     , ctsFees            = mkCCoin $ mkCoin 0
-    , ctsInputs          = [(CAddress "", mkCCoin $ mkCoin 33333)]
-    , ctsOutputs         = [(CAddress "1fSCHaQhy6L7Rfjn9xR2Y5H7ZKkzKLMXKYLyZvwWVffQwkQ", mkCCoin $ mkCoin 33333)]
+    , ctsInputs          = [(CAddress "19HxN7PseAPT93RftAh7bBmbnJU5gtH6QzvUyZXnbz9Y1UtYwPDdiCGkB2gwvC8CjBUtHXBij9j9Qb6JYgHPi6LtevDcFQ", mkCCoin $ mkCoin 97)]
+    , ctsOutputs         =  [ (CAddress "19F6U1Go5B4KakVoCZfzCtqNAWhUBprxVzL3JsGu74TEwQnXPvAKPUbvG8o4Qe5RaY8Z7WKLfxmNFwBqPV1NQ2hRpKkdEN", mkCCoin $ mkCoin 94)
+                            , (CAddress "1feqWtoyaxFyvKQFWo46vHSc7urynGaRELQE62T74Y3RBs8", mkCCoin $ mkCoin 3)
+                            ]
     }
 
 testAddressSummary

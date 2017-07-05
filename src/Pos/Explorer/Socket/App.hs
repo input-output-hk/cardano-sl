@@ -22,8 +22,8 @@ import qualified GHC.Exts                         as Exts
 import           Network.EngineIO                 (SocketId)
 import           Network.EngineIO.Snap            (snapAPI)
 import           Network.SocketIO                 (RoutingTable, Socket,
-                                                   appendDisconnectHandler,
-                                                   initialize, socketId)
+                                                   appendDisconnectHandler, initialize,
+                                                   socketId)
 import           Pos.Core                         (addressF)
 import qualified Pos.DB.GState                    as DB
 import           Pos.Ssc.Class                    (SscHelpersClass)
@@ -32,46 +32,35 @@ import           Snap.Core                        (MonadSnap, route)
 import qualified Snap.CORS                        as CORS
 import           Snap.Http.Server                 (httpServe)
 import qualified Snap.Internal.Http.Server.Config as Config
-import           System.Wlog                      (CanLog, LoggerName,
-                                                   NamedPureLogger,
+import           System.Wlog                      (CanLog, LoggerName, NamedPureLogger,
                                                    Severity (..), WithLogger,
-                                                   getLoggerName, logDebug,
-                                                   logInfo, logMessage,
-                                                   logWarning, modifyLoggerName,
-                                                   usingLoggerName)
+                                                   getLoggerName, logDebug, logInfo,
+                                                   logMessage, logWarning,
+                                                   modifyLoggerName, usingLoggerName)
 import           Universum                        hiding (on)
 
 import           Pos.Explorer.Aeson.ClientTypes   ()
-import           Pos.Explorer.Socket.Holder       (ConnectionsState,
-                                                   ConnectionsVar,
-                                                   askingConnState,
-                                                   mkConnectionsState,
+import           Pos.Explorer.Socket.Holder       (ConnectionsState, ConnectionsVar,
+                                                   askingConnState, mkConnectionsState,
                                                    withConnState)
-import           Pos.Explorer.Socket.Methods      (ClientEvent (..),
-                                                   ServerEvent (..),
-                                                   Subscription (..),
-                                                   finishSession, getBlockTxs,
-                                                   getBlocksFromTo, getTxInfo,
-                                                   groupTxsInfo,
-                                                   notifyAddrSubscribers,
+import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent (..),
+                                                   Subscription (..), finishSession,
+                                                   getBlockTxs, getBlocksFromTo,
+                                                   getTxInfo, notifyAddrSubscribers,
                                                    notifyBlocksLastPageSubscribers,
                                                    notifyBlocksOffSubscribers,
                                                    notifyBlocksSubscribers,
-                                                   notifyTxsSubscribers,
-                                                   startSession, subscribeAddr,
-                                                   subscribeBlocks,
+                                                   notifyTxsSubscribers, startSession,
+                                                   subscribeAddr, subscribeBlocks,
                                                    subscribeBlocksLastPage,
-                                                   subscribeBlocksOff,
-                                                   subscribeTxs,
-                                                   unsubscribeAddr,
-                                                   unsubscribeBlocks,
+                                                   subscribeBlocksOff, subscribeTxs,
+                                                   unsubscribeAddr, unsubscribeBlocks,
                                                    unsubscribeBlocksLastPage,
-                                                   unsubscribeBlocksOff,
-                                                   unsubscribeTxs)
-import           Pos.Explorer.Socket.Util         (emit, emitJSON,
-                                                   forkAccompanion, on, on_,
+                                                   unsubscribeBlocksOff, unsubscribeTxs)
+import           Pos.Explorer.Socket.Util         (emit, emitJSON, forkAccompanion, on,
+                                                   on_, regroupBySnd,
                                                    runPeriodicallyUnless)
-import           Pos.Explorer.Web.ClientTypes     (CTxId, cteId)
+import           Pos.Explorer.Web.ClientTypes     (CTxId, cteId, tiToTxEntry)
 import           Pos.Explorer.Web.Server          (ExplorerMode, getMempoolTxs)
 
 
@@ -179,17 +168,17 @@ periodicPollChanges connVar closed =
             newBlockchainTxs <- concat <$> forM newBlocks getBlockTxs
             let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
 
-            txsInfo <- mapM getTxInfo (newBlockchainTxs <> newLocalTxs)
-            let groupedTxInfo = Exts.toList $ groupTxsInfo txsInfo
+            let allTxs = newBlockchainTxs <> newLocalTxs
+            let cTxEntries = map tiToTxEntry allTxs
+            txInfos <- Exts.toList . regroupBySnd <$> mapM getTxInfo allTxs
 
             -- notify abuot transactions
-            forM_ groupedTxInfo $ \(addr, cTxEntries) -> do
-                notifyAddrSubscribers addr cTxEntries
+            forM_ txInfos $ \(addr, cTxBriefs) -> do
+                notifyAddrSubscribers addr cTxBriefs
                 logDebug $ sformat ("Notified address "%addressF%" about "
-                           %int%" transactions") addr (length cTxEntries)
+                           %int%" transactions") addr (length cTxBriefs)
 
             -- notify about transactions
-            let cTxEntries = fst <$> txsInfo
             unless (null cTxEntries) $ do
                 notifyTxsSubscribers cTxEntries
                 logDebug $ sformat ("Broadcasted transactions: "%listJson)

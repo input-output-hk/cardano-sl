@@ -71,6 +71,12 @@
         background-position: right center;
         background-size: 8px 7px;
       }
+
+      .link {
+        color: var(--color8);
+        button: standard-button;
+        button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+      }
     }
 
   }

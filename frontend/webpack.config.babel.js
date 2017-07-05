@@ -70,12 +70,18 @@ module.exports = {
   entry: [
     // https://babeljs.io/docs/usage/polyfill/
     'babel-polyfill',
-    // https://github.com/serokell/custom-event-polyfill/
-    'custom-event-polyfill',
+    // https://github.com/inexorabletash/polyfill/
+    path.join(__dirname, 'node_modules/js-polyfills/polyfill.js'),
+    path.join(__dirname, 'node_modules/js-polyfills/keyboard.js'),
     path.join(__dirname, 'src/index.js')
   ],
   resolve: {
-    extensions: [ '.js', '.purs']
+    extensions: [ '.js', '.purs'],
+    // https://webpack.js.org/configuration/resolve/#resolve-alias
+    alias: {
+      // Note: Prefix '@' is needed to run all tests w/ waypoints but w/o webpack
+      '@noframework.waypoints': path.join(__dirname, 'node_modules/waypoints/lib/noframework.waypoints.js')
+    }
   },
   module: {
     rules: [

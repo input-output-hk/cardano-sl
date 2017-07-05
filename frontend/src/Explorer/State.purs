@@ -30,16 +30,15 @@ initialState =
     , viewStates:
         { globalViewState:
             { gViewMobileMenuOpenend: false
-            , gViewTitle: translate (I18nL.common <<< I18nL.cTitle) English
             , gViewSearchInputFocused: false
             , gViewSelectedSearch: SearchAddress
             , gViewSearchQuery: emptySearchQuery
             , gViewSearchTimeQuery: emptySearchTimeQuery
+            , gWaypoints: []
             }
         ,  dashboard:
             { dbViewBlocksExpanded: false
             , dbViewBlockPagination: PageNumber minPagination
-            , dbViewNextBlockPagination: PageNumber minPagination
             , dbViewMaxBlockPagination: NotAsked
             , dbViewLoadingBlockPagination: false
             , dbViewBlockPaginationEditable: false
@@ -89,8 +88,14 @@ minPagination = 1 -- Note: We do start with 1 (not 0)
 addressQRImageId :: String
 addressQRImageId = "qr_image_id"
 
-searchContainerId :: ElementId
-searchContainerId = ElementId "explorer-search__container-id"
+heroSearchContainerId :: ElementId
+heroSearchContainerId = ElementId "heroSearchContainerId"
+
+headerSearchContainerId :: ElementId
+headerSearchContainerId = ElementId "headerSearchContainerId"
+
+mobileMenuSearchContainerId :: ElementId
+mobileMenuSearchContainerId = ElementId "mobileMenuSearchContainerId"
 
 mkSocketSubscriptionItem :: SocketSubscription -> SocketSubscriptionData -> SocketSubscriptionItem
 mkSocketSubscriptionItem socketSub socketSubData = SocketSubscriptionItem

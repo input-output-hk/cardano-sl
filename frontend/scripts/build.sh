@@ -1,7 +1,6 @@
 #!/usr/bin/env nix-shell
 #! nix-shell -j 4 -i bash -p stack git
-#! nix-shell -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/763e21e982370f67c126f92a1113ea949db3b6e0.tar.gz
-export NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/763e21e982370f67c126f92a1113ea949db3b6e0.tar.gz
+#! nix-shell -I nixpkgs=https://github.com/NixOS/nixpkgs/archive/cb90e6a0361554d01b7a576af6c6fae4c28d7513.tar.gz
 
 set -xe
 
@@ -13,6 +12,7 @@ pushd ..
 if [ -n "$EXPLORER_NIX_FILE" ]; then
   $(nix-build -A cardano-sl-explorer-static $EXPLORER_NIX_FILE)/bin/cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
 else
+  stack --nix install happy --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
   stack --nix build --fast --ghc-options="-j +RTS -A128m -n2m -RTS"
   stack --nix exec -- cardano-explorer-hs2purs --bridge-path frontend/src/Generated/
 fi

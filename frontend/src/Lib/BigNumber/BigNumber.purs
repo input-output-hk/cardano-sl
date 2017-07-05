@@ -13,16 +13,16 @@ module BigNumber
     where
 
 import Prelude
-import Control.Monad.Eff (Eff)
-import Data.Function.Eff (EffFn1, EffFn3, runEffFn1, runEffFn3)
+import Control.Monad.Eff (kind Effect, Eff)
+import Control.Monad.Eff.Uncurried (EffFn1, EffFn3, runEffFn1, runEffFn3)
 import Data.Function.Uncurried (Fn2, Fn3, runFn2, runFn3)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 
 -- | BigNumber effect
-foreign import data BIGNUMBER :: !
+foreign import data BIGNUMBER :: Effect
 -- | An reeeaaaaally big integer
-foreign import data BigNumber :: *
+foreign import data BigNumber :: Type
 
 bigNumberBase :: Int
 bigNumberBase = 10

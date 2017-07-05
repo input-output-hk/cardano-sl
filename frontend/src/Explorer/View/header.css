@@ -22,7 +22,6 @@
   }
 
   &__wrapper--vtop {
-    border-bottom: solid 1px color(var(--color3) a(0.5));
     font-size: 12px;
     height: var(--height-header-top-mobile);
   }
@@ -180,7 +179,17 @@
 .explorer-route-dashboard {
     @media (--md) {
       .explorer-header {
+        @extend .animated;
         top: -var(--height-header-top);
+        transition: top 0.3s ease;
+
+        &.moveIn {
+          top: 0;
+        }
+
+        &.moveOut {
+          top: -var(--height-header-top);
+        }
       }
     }
 }

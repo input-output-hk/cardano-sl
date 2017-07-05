@@ -98,7 +98,7 @@ translation =
         }
     , tx:
         { txTime: "Received time"
-        , txIncluded: "Included In Slots"
+        , txIncluded: "Included in"
         , txRelayed: "Relayed by IP"
         , txEmpty: "No transactions"
         , txFees: "Transaction fee"

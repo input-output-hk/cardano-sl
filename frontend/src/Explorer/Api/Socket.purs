@@ -2,21 +2,17 @@ module Explorer.Api.Socket where
 
 import Prelude
 import Control.Monad.Eff (Eff)
-import Control.Monad.Eff.Exception (Error)
 import Control.SocketIO.Client (Event, Host)
 import Data.Argonaut.Core (Json)
 import Data.Array (foldl, last)
-import Data.Either (Either)
 import Data.Foreign (Foreign)
 import Data.Generic (class Generic, gShow)
 import Data.Maybe (fromMaybe)
 import Data.String (Pattern(..), Replacement(..), replaceAll, split, trim)
-import Debug.Trace (traceAnyM)
 import Explorer.Api.Helper (decodeResult')
 import Explorer.Types.Actions (Action(..), ActionChannel)
 import Explorer.Util.Config (Protocol(..))
 import Pos.Explorer.Socket.Methods (ClientEvent, ServerEvent)
-import Pos.Explorer.Web.ClientTypes (CTxId)
 import Signal.Channel (CHANNEL, send)
 
 
@@ -71,6 +67,12 @@ closeHandler :: forall eff. ActionChannel -> Foreign
 closeHandler channel _ =
     send channel $ SocketConnected false
 
+addressTxsUpdatedEventHandler :: forall eff. ActionChannel -> Json
+    -> Eff (channel :: CHANNEL | eff) Unit
+addressTxsUpdatedEventHandler channel json =
+    let result = decodeResult' json in
+    send channel $ SocketAddressTxsUpdated result
+
 blocksPageUpdatedEventHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
 blocksPageUpdatedEventHandler channel json =
@@ -93,16 +95,10 @@ callYouEventHandler channel _ =
 
 callYouStringEventHandler :: forall eff. ActionChannel -> String
     -> Eff (channel :: CHANNEL | eff) Unit
-callYouStringEventHandler channel str = do
-    traceAnyM "callYouStringEventHandler"
-    traceAnyM str
+callYouStringEventHandler channel str =
     send channel NoOp
 
 callYouCTxIdEventHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
-callYouCTxIdEventHandler channel json = do
-    traceAnyM "callYouCTxIdEventHandler"
-    traceAnyM json
-    let result = decodeResult' json
-    traceAnyM (result :: Either Error CTxId)
+callYouCTxIdEventHandler channel json =
     send channel NoOp

@@ -56,8 +56,6 @@
   font-size: 10px;
 
   .hash-container {
-    overflow: hidden;
-    text-overflow: ellipsis;
     lost-column: 1/1;
   }
 
@@ -66,6 +64,9 @@
     line-height: var(--transaction-header-height);
     button: standard-button;
     button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
   }
 
   @media (--md) {
@@ -79,6 +80,10 @@
   }
 
   @media (--md) {
+    .hash {
+      display: inline-block; /* needed to select text in browser */
+    }
+
     .date {
       @extend .show;
       lost-column: 3/12;
@@ -122,6 +127,7 @@
 
 .transaction-body {
   lost-utility: clearfix;
+  lost-column: 1/1;
 
   font-family: var(--fontFamily0-Regular);
   font-size: 10px;
@@ -130,8 +136,6 @@
 
   .from-hash-container {
     box-item: center;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   @media (--md) {
@@ -144,6 +148,9 @@
     button: standard-button;
     button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
     padding: 18px 0 12px 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
   }
 
   .to-hash-container {
@@ -162,15 +169,13 @@
     }
   }
 
-  .to-hash-wrapper {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
   .to-hash {
     button: standard-button;
     button-color: var(--color8) color(var(--color5) a(0.8)) var(--color5);
     padding-bottom: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
   }
 
   .amounts-container {

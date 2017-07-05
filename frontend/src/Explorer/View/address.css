@@ -61,6 +61,14 @@
         &:nth-child(even) {
           background-color: var(--color6);
         };
+
+        &__column {
+          /* DON'T REMOVE THIS EMPTY `__column` declaration
+             It is needed after updating to latest post-css plugins
+            Maybe a bug of `postcss-css-variables` ???
+            see https://github.com/MadLittleMods/postcss-css-variables/issues/50
+          */
+        }
       }
 
       &__column {
@@ -168,6 +176,10 @@
 
   .transaction-header {
     background-color: var(--color7); /* overridden */
+  }
+
+  &__tx-container {
+    lost-utility: clearfix;
   }
 
 }

@@ -35,36 +35,37 @@ module Pos.Explorer.Web.ClientTypes
        ) where
 
 import           Control.Arrow          ((&&&))
-import           Control.Lens           (_Left, ix)
+import           Control.Lens           (ix, _Left)
 import qualified Data.ByteString.Base16 as B16
 import qualified Data.ByteString.Lazy   as BSL
 import qualified Data.List.NonEmpty     as NE
 import           Data.Time.Clock.POSIX  (POSIXTime)
 import           Formatting             (sformat)
+import qualified Pos.Binary             as Bi
+import           Pos.Block.Core         (MainBlock, mainBlockSlot, mainBlockTxPayload,
+                                         mcdSlot)
+import           Pos.Crypto             (Hash, hash)
+import           Pos.DB.Block           (MonadBlockDB)
+import           Pos.DB.Class           (MonadDBRead, MonadRealDB)
+import qualified Pos.DB.GState          as GS
+import           Pos.Explorer           (TxExtra (..))
+import           Pos.Lrc                (getLeaders)
+import           Pos.Merkle             (getMerkleRoot, mtRoot)
+import           Pos.Slotting           (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.GodTossing     (SscGodTossing)
+import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..), txpTxs,
+                                         _txOutputs)
+import           Pos.Types              (Address, AddressHash, Coin, EpochIndex,
+                                         LocalSlotIndex, SlotId (..), StakeholderId,
+                                         Timestamp, addressF, coinToInteger,
+                                         decodeTextAddress, gbHeader, gbhConsensus,
+                                         getEpochIndex, getSlotIndex, headerHash, mkCoin,
+                                         prevBlockL, sumCoins, unsafeAddCoin,
+                                         unsafeGetCoin, unsafeIntegerToCoin)
 import           Prelude                ()
 import           Serokell.Util.Base16   as SB16
 import           Servant.API            (FromHttpApiData (..))
 import           Universum
-import qualified Pos.Binary             as Bi
-import           Pos.Crypto             (Hash, hash)
-import           Pos.Ssc.GodTossing     (SscGodTossing)
-import           Pos.DB.Block           (MonadBlockDB)
-import           Pos.DB.Class           (MonadDBRead, MonadRealDB)
-import qualified Pos.DB.GState          as GS
-import           Pos.Lrc                (getLeaders)
-import           Pos.Explorer           (TxExtra (..))
-import           Pos.Merkle             (getMerkleRoot, mtRoot)
-import           Pos.Slotting           (MonadSlots (..), getSlotStart)
-import           Pos.Txp                (Tx (..), TxId, TxOut (..), TxOutAux (..),
-                                         _txOutputs, txpTxs)
-import           Pos.Block.Core         (MainBlock, mcdSlot, mainBlockSlot, mainBlockTxPayload)
-import           Pos.Types              (Address, Coin, EpochIndex, LocalSlotIndex,
-                                         SlotId (..), Timestamp, StakeholderId, AddressHash,
-                                         addressF, coinToInteger,
-                                         decodeTextAddress, gbHeader, gbhConsensus,
-                                         getEpochIndex, getSlotIndex, headerHash, 
-                                         mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
-                                         unsafeGetCoin, unsafeIntegerToCoin)
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -226,10 +227,10 @@ toBlockSummary blk = do
     cbsNextHash <- fmap toCHash <$> GS.resolveForwardLink blk
 
     let blockTxs      = blk ^. mainBlockTxPayload . txpTxs
-    
+
     let cbsPrevHash   = toCHash $ blk ^. prevBlockL
     let cbsMerkleRoot = toCHash . getMerkleRoot . mtRoot $ blockTxs
-    
+
     return CBlockSummary {..}
 
 data CAddressType =
@@ -266,6 +267,7 @@ data CTxSummary = CTxSummary
     , ctsBlockHeight     :: !(Maybe Word)
     , ctsBlockEpoch      :: !(Maybe Word64)
     , ctsBlockSlot       :: !(Maybe Word16)
+    , ctsBlockHash       :: !(Maybe CHash)
     , ctsRelayedBy       :: !(Maybe CNetworkAddress)
     , ctsTotalInput      :: !CCoin
     , ctsTotalOutput     :: !CCoin
@@ -296,18 +298,24 @@ instance FromHttpApiData CTxId where
 --------------------------------------------------------------------------------
 
 data TxInternal = TxInternal
-    { tiTimestamp :: !Timestamp
-    , tiTx        :: !Tx
-    } deriving (Show, Eq, Ord)
+    { tiExtra :: !TxExtra
+    , tiTx    :: !Tx
+    } deriving (Show, Eq)
+
+instance Ord TxInternal where
+    compare = comparing tiTx
+
+tiTimestamp :: TxInternal -> Timestamp
+tiTimestamp = teReceivedTime . tiExtra
 
 tiToTxEntry :: TxInternal -> CTxEntry
-tiToTxEntry TxInternal{..} = toTxEntry tiTimestamp tiTx
+tiToTxEntry txi@TxInternal{..} = toTxEntry (tiTimestamp txi) tiTx
 
 convertTxOutputs :: [TxOut] -> [(CAddress, Coin)]
 convertTxOutputs = map (toCAddress . txOutAddress &&& txOutValue)
 
-toTxBrief :: TxInternal -> TxExtra -> CTxBrief
-toTxBrief txi txe = CTxBrief {..}
+toTxBrief :: TxInternal -> CTxBrief
+toTxBrief txi = CTxBrief {..}
   where
     tx            = tiTx txi
     ts            = tiTimestamp txi
@@ -318,7 +326,8 @@ toTxBrief txi txe = CTxBrief {..}
     ctbInputSum   = sumCoinOfInputsOutputs txinputs
     ctbOutputSum  = sumCoinOfInputsOutputs txOutputs
 
-    txinputs      = convertTxOutputs $ map toaOut $ NE.toList $ teInputOutputs txe
+    txinputs      = convertTxOutputs $ map toaOut $ NE.toList $
+                    teInputOutputs (tiExtra txi)
     txOutputs     = convertTxOutputs . NE.toList $ _txOutputs tx
 
 -- | Sums the coins of inputs and outputs

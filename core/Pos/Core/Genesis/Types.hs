@@ -1,76 +1,103 @@
+-- | Types related to genesis core data.
+
 module Pos.Core.Genesis.Types
        ( StakeDistribution (..)
-       , GenesisCoreData (..)
+       , getDistributionSize
        , getTotalStake
+
+       , AddrDistribution
+       , GenesisCoreData (..)
+       , mkGenesisCoreData
        ) where
 
 import           Universum
 
-import           Data.Default       (Default (..))
+import           Serokell.Util  (allDistinct)
 
-import           Pos.Core.Coin      (coinToInteger, sumCoins, unsafeAddCoin,
-                                     unsafeIntegerToCoin, unsafeMulCoin)
-import           Pos.Core.Constants (genesisKeysN)
-import           Pos.Core.Types     (Address, Coin, StakeholderId, mkCoin)
+import           Pos.Core.Coin  (coinToInteger, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core.Types (Address, Coin, StakeholderId, mkCoin)
 
--- | Stake distribution in genesis block.
--- FlatStakes is a flat distribution, i. e. each node has the same amount of coins.
--- BitcoinStakes is a Bitcoin mining pool-style ditribution.
+-- | Balances distribution in genesis block.
+--
+-- TODO Needs a proper name (maybe "BalancesDistribution"), see
+-- CSL-1124.
 data StakeDistribution
-    = FlatStakes !Word     -- number of stakeholders
-                 !Coin     -- total number of coins
-    | BitcoinStakes !Word  -- number of stakeholders
-                    !Coin  -- total number of coins
+    -- | FlatStakes is a flat distribution, i. e. each node has the
+    -- same amount of coins.
+    = FlatStakes !Word     -- ^ Number of stakeholders
+                 !Coin     -- ^ Total number of coins
+    -- | Distribution mimicking bitcoin mining pool style.
+    | BitcoinStakes !Word  -- ^ Number of stakeholders
+                    !Coin  -- ^ Total number of coins
+    -- | Rich/poor distribution, for testnet mostly.
     | RichPoorStakes
         { sdRichmen   :: !Word
         , sdRichStake :: !Coin
         , sdPoor      :: !Word
         , sdPoorStake :: !Coin
         }
-    -- First three nodes get 0.875% of stake.
-    | ExponentialStakes
-    -- ExplicitStakes is basically just 'Utxo'. Except that we can't use
-    -- TxOutDistribution here (it's defined in txp/) and instead we use
-    -- @[(StakeholderId, Coin)]@.
-    | ExplicitStakes !(HashMap Address (Coin, [(StakeholderId, Coin)]))
-    | CombinedStakes StakeDistribution StakeDistribution
+    -- | First three nodes get 0.875% of balance.
+    | ExponentialStakes !Word
+    -- | Custom balances list.
+    | CustomStakes [Coin]
     deriving (Show, Eq, Generic)
 
-instance Monoid StakeDistribution where
-    mempty = FlatStakes 0 (mkCoin 0)
-    mappend a b
-        | a == mempty = b
-        | b == mempty = a
-        | otherwise = CombinedStakes a b
+-- | Get the amount of stakeholders in a distribution.
+getDistributionSize :: StakeDistribution -> Word
+getDistributionSize (FlatStakes n _)         = n
+getDistributionSize (BitcoinStakes n _)      = n
+getDistributionSize (RichPoorStakes a _ b _) = a + b
+getDistributionSize (ExponentialStakes n)    = n
+getDistributionSize (CustomStakes cs)        = fromIntegral (length cs)
 
-instance Default StakeDistribution where
-    def = FlatStakes genesisKeysN
-              (mkCoin 10000 `unsafeMulCoin` (genesisKeysN :: Int))
-
+-- | Get total amount of stake in a distribution.
 getTotalStake :: StakeDistribution -> Coin
 getTotalStake (FlatStakes _ st) = st
 getTotalStake (BitcoinStakes _ st) = st
 getTotalStake RichPoorStakes {..} = unsafeIntegerToCoin $
     coinToInteger sdRichStake * fromIntegral sdRichmen +
     coinToInteger sdPoorStake * fromIntegral sdPoor
-getTotalStake ExponentialStakes = mkCoin . sum $
-    let g 0 = []
-        g n = n : g (n `div` 2)
-    in g 5000
-getTotalStake (ExplicitStakes balances) = unsafeIntegerToCoin $
-    sumCoins $ fst <$> balances
-getTotalStake (CombinedStakes st1 st2) =
-    getTotalStake st1 `unsafeAddCoin` getTotalStake st2
+getTotalStake (ExponentialStakes n) =
+    mkCoin $ sum $ map (2^) [0 .. n - 1]
+getTotalStake (CustomStakes balances) =
+    unsafeIntegerToCoin $ sumCoins balances
 
--- | Hardcoded genesis data
-data GenesisCoreData = GenesisCoreData
-    { gcdAddresses         :: [Address]
-    , gcdDistribution      :: StakeDistribution
-    , gcdBootstrapBalances :: !(HashMap StakeholderId Coin)
-    }
-    deriving (Show, Eq, Generic)
+-- | Distributions accompained by related addresses set (what to
+-- distribute and how).
+type AddrDistribution = ([Address], StakeDistribution)
 
-instance Monoid GenesisCoreData where
-    mempty = GenesisCoreData mempty mempty mempty
-    (GenesisCoreData addrsA distA bbsA) `mappend` (GenesisCoreData addrsB distB bbsB) =
-        GenesisCoreData (addrsA <> addrsB) (distA <> distB) (bbsA <> bbsB)
+-- | Hardcoded genesis data to generate utxo from.
+data GenesisCoreData = UnsafeGenesisCoreData
+    { gcdAddrDistribution      :: !([AddrDistribution])
+      -- ^ Address distribution. Determines utxo without boot
+      -- stakeholders distribution (addresses and coins).
+    , gcdBootstrapStakeholders :: !(HashSet StakeholderId)
+      -- ^ Bootstrap era stakeholders.
+    } deriving (Show, Eq, Generic)
+
+
+-- | Safe constructor for 'GenesisCoreData'. Throws error if something
+-- goes wrong.
+mkGenesisCoreData ::
+       [AddrDistribution]
+    -> HashSet StakeholderId
+    -> Either String GenesisCoreData
+mkGenesisCoreData distribution bootStakeholders = do
+    -- Every set of addresses should match the stakeholders count
+    for_ distribution $ \(addrs, distr) ->
+        unless (fromIntegral (length addrs) == getDistributionSize distr) $
+            Left "mkGenesisCoreData: addressCount != stakeholdersCount \
+                 \for some set of addresses"
+    -- Addresses in each list are distinct (except for CustomStakes)
+    for_ distribution $ \(addrs, distr) -> do
+        let isCustom = case distr of
+                CustomStakes{} -> True
+                _              -> False
+        unless (isCustom || allDistinct addrs) $
+            Left "mkGenesisCoreData: addresses in some list aren't distinct"
+    -- No address belongs to more than one distribution
+    let addrList = concatMap (ordNub . fst) distribution
+    unless (allDistinct addrList) $
+        Left "mkGenesisCoreData: some address belongs to more than one distr"
+    -- All checks passed
+    pure $ UnsafeGenesisCoreData distribution bootStakeholders

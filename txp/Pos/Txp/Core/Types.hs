@@ -130,7 +130,7 @@ type TxWitness = Vector TxInWitness
 -- be the same as `txOutValue` of corresponding output.
 type TxOutDistribution = [(StakeholderId, Coin)]
 
--- | Distribution of “fake” stake that follow-the-satoshi would use
+-- | Distribution of "fake" stake that follow-the-satoshi would use
 -- for a particular transaction.  Length of stored list must be same
 -- as length of '_txOutputs' of corresponding transaction.
 newtype TxDistribution = TxDistribution

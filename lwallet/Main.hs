@@ -42,15 +42,17 @@ import           Pos.Communication          (NodeId, OutSpecs, SendActions, Work
 import           Pos.Constants              (genesisBlockVersionData, isDevelopment)
 import           Pos.Crypto                 (Hash, SecretKey, SignTag (SignUSVote),
                                              emptyPassphrase, encToPublic, fakeSigner,
-                                             hash, hashHexF, noPassEncrypt,
-                                             safeCreateProxySecretKey, safeSign, toPublic,
-                                             unsafeHash, withSafeSigner)
+                                             hash, hashHexF, noPassEncrypt, safeCreatePsk,
+                                             safeSign, toPublic, unsafeHash,
+                                             withSafeSigner)
 import           Pos.Data.Attributes        (mkAttributes)
 import           Pos.Discovery              (findPeers, getPeers)
-import           Pos.Genesis                (genesisDevSecretKeys,
-                                             genesisStakeDistribution, genesisUtxo)
+import           Pos.Genesis                (devAddrDistr, devStakesDistr,
+                                             genesisDevSecretKeys,
+                                             genesisProdAddrDistribution,
+                                             genesisProdBootStakeholders, genesisUtxo)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             bracketTransport, loggerBracket, stakesDistr)
+                                             bracketTransport, loggerBracket)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
@@ -222,7 +224,7 @@ runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) CmdCtx{na}
    withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
-          let psk = safeCreateProxySecretKey ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
+          let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
           for_ na $ \nodeId ->
              dataFlow "pskLight" sendActions nodeId psk
    putText "Sent lightweight cert"
@@ -231,7 +233,7 @@ runCmd sendActions (DelegateHeavy i delegatePk curEpoch) CmdCtx{na} = do
    withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
-          let psk = safeCreateProxySecretKey ss delegatePk curEpoch
+          let psk = safeCreatePsk ss delegatePk curEpoch
           for_ na $ \nodeId ->
              dataFlow "pskHeavy" sendActions nodeId psk
    putText "Sent heavyweight cert"
@@ -321,6 +323,17 @@ main = do
         baseParams = BaseParams { bpLoggingParams = logParams }
 
     let sysStart = CLI.sysStart woCommonArgs
+    let devStakeDistr =
+            devStakesDistr
+                (CLI.flatDistr woCommonArgs)
+                (CLI.bitcoinDistr woCommonArgs)
+                (CLI.richPoorDistr woCommonArgs)
+                (CLI.expDistr woCommonArgs)
+    let npCustomUtxo =
+            if isDevelopment
+            then genesisUtxo Nothing (devAddrDistr devStakeDistr)
+            else genesisUtxo (Just genesisProdBootStakeholders)
+                             genesisProdAddrDistribution
     let params =
             WalletParams
             { wpDbPath      = Just woDbPath
@@ -329,15 +342,7 @@ main = do
             , wpSystemStart = sysStart
             , wpGenesisKeys = woDebug
             , wpBaseParams  = baseParams
-            , wpGenesisUtxo =
-                  genesisUtxo $
-                  if isDevelopment
-                      then stakesDistr
-                               (CLI.flatDistr woCommonArgs)
-                               (CLI.bitcoinDistr woCommonArgs)
-                               (CLI.richPoorDistr woCommonArgs)
-                               (CLI.expDistr woCommonArgs)
-                      else genesisStakeDistribution
+            , wpGenesisUtxo = npCustomUtxo
             }
 
     loggerBracket logParams $ runProduction $

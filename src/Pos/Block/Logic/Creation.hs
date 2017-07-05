@@ -129,11 +129,11 @@ createGenesisBlockDo epoch leaders tip = do
         | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
             let blk = mkGenesisBlock (Just tipHeader) epoch leaders
             let newTip = headerHash blk
-            runExceptT (usVerifyBlocks False (one (toUpdateBlock (Left blk)))) >>= \case
+            verifyBlocksPrefix (one (Left blk)) >>= \case
                 Left err -> reportFatalError $ pretty err
-                Right (pModifier, usUndos) -> do
-                    let undo = def {undoUS = usUndos ^. _Wrapped . _neHead}
-                    applyBlocksUnsafe (one (Left blk, undo)) (Just pModifier) $>
+                Right (undos, pollModifier) -> do
+                    let undo = undos ^. _Wrapped . _neHead
+                    applyBlocksUnsafe (one (Left blk, undo)) (Just pollModifier) $>
                         (Just blk, newTip)
         | otherwise = (Nothing, tip) <$ logShouldNot
     logShouldNot =

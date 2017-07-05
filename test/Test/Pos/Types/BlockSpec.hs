@@ -11,7 +11,7 @@ import           Universum
 import           Serokell.Util         (isVerSuccess)
 import           Test.Hspec            (Spec, describe, it)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Property, (===))
+import           Test.QuickCheck       (Property, (===), (==>))
 
 import           Pos.Binary            (Bi)
 import           Pos.Block.Arbitrary   as T
@@ -19,8 +19,8 @@ import qualified Pos.Block.Core        as T
 import qualified Pos.Block.Pure        as T
 import           Pos.Constants         (genesisHash)
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
-                                        SignTag (..), createProxySecretKey, proxySign,
-                                        sign, toPublic)
+                                        SignTag (..), createPsk, proxySign, sign,
+                                        toPublic)
 import           Pos.Data.Attributes   (mkAttributes)
 import           Pos.Ssc.Class         (SscHelpersClass)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
@@ -96,8 +96,10 @@ mainHeaderFormation
     -> T.MainExtraHeaderData
     -> Property
 mainHeaderFormation prevHeader slotId signer body extra =
-    header === manualHeader
+    correctSigner signer ==> (header === manualHeader)
   where
+    correctSigner (Left _)        = True
+    correctSigner (Right (i,d,_)) = i /= d
     header =
         leftToPanic "mainHeaderFormation: " $
         T.mkGenericHeader prevHeader body consensus extra
@@ -116,7 +118,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
             w = (epoch, epoch)
             delegatePK = toPublic delegateSK
             curried :: Bi w => w -> ProxySecretKey w
-            curried = createProxySecretKey issuerSK delegatePK
+            curried = createPsk issuerSK delegatePK
             proxy =
                 if isSigEpoch
                     then Right $ curried epoch

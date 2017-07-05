@@ -21,11 +21,14 @@
 -- mapping. Notice: here also Delegate ∉ Issuers (see (2)).
 
 module Pos.Delegation.DB
-       ( getPskByIssuer
+       (
+         -- * Getters and predicates
+         getPskByIssuer
        , isIssuerByAddressHash
        , getDlgTransitive
        , getDlgTransitiveReverse
 
+         -- * Batch ops
        , DelegationOp (..)
 
          -- * Iteration
@@ -36,13 +39,12 @@ module Pos.Delegation.DB
 import           Universum
 
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit                 (Source, mapOutput)
+import           Data.Conduit                 (Source)
 import qualified Data.HashSet                 as HS
 import qualified Database.RocksDB             as Rocks
 
 import           Pos.Binary.Class             (encode)
-import           Pos.Crypto                   (PublicKey, pskIssuerPk,
-                                               verifyProxySecretKey)
+import           Pos.Crypto                   (PublicKey, pskIssuerPk, verifyPsk)
 import           Pos.DB                       (RocksBatchOp (..), encodeWithKeyPrefix)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..),
                                                MonadDBRead (..))
@@ -68,12 +70,12 @@ isIssuerByAddressHash = fmap isJust . getPskByIssuer . Right
 
 -- | Given issuer @i@ returns @d@ such that there exists @x1..xn@ with
 -- @i->x1->...->xn->d@.
-getDlgTransitive :: MonadDBRead m => StakeholderId -> m (Maybe PublicKey)
+getDlgTransitive :: MonadDBRead m => StakeholderId -> m (Maybe StakeholderId)
 getDlgTransitive issuer = gsGetBi (transDlgKey issuer)
 
 -- | Reverse map of transitive delegation. Given a delegate @d@
 -- returns all @i@ such that 'getDlgTransitive' returns @d@ on @i@.
-getDlgTransitiveReverse :: MonadDBRead m => PublicKey -> m (HashSet PublicKey)
+getDlgTransitiveReverse :: MonadDBRead m => StakeholderId -> m (HashSet StakeholderId)
 getDlgTransitiveReverse dPk = fromMaybe mempty <$> gsGetBi (transRevDlgKey dPk)
 
 ----------------------------------------------------------------------------
@@ -83,11 +85,11 @@ getDlgTransitiveReverse dPk = fromMaybe mempty <$> gsGetBi (transRevDlgKey dPk)
 data DelegationOp
     = PskFromEdgeAction !DlgEdgeAction
     -- ^ Adds or removes Psk. Overwrites on addition if present.
-    | AddTransitiveDlg !PublicKey !PublicKey
+    | AddTransitiveDlg !StakeholderId !StakeholderId
     -- ^ Transitive delegation relation adding.
-    | DelTransitiveDlg !PublicKey
+    | DelTransitiveDlg !StakeholderId
     -- ^ Remove i -> d link for i.
-    | SetTransitiveDlgRev !PublicKey !(HashSet PublicKey)
+    | SetTransitiveDlgRev !StakeholderId !(HashSet StakeholderId)
     -- ^ Set value to map d -> [i], reverse index of transitive dlg
     deriving (Show)
 
@@ -96,19 +98,19 @@ instance RocksBatchOp DelegationOp where
         | isRevokePsk psk =
           error $ "RocksBatchOp DelegationOp: malformed " <>
                   "revoke psk in DlgEdgeAdd: " <> pretty psk
-        | not (verifyProxySecretKey psk) =
+        | not (verifyPsk psk) =
           error $ "Tried to insert invalid psk: " <> pretty psk
         | otherwise =
           [Rocks.Put (pskKey $ addressHash $ pskIssuerPk psk) (encode psk)]
     toBatchOp (PskFromEdgeAction (DlgEdgeDel issuerPk)) =
-        [Rocks.Del $ pskKey $ addressHash issuerPk]
-    toBatchOp (AddTransitiveDlg iPk dPk) =
-        [Rocks.Put (transDlgKey $ addressHash iPk) (encode dPk)]
-    toBatchOp (DelTransitiveDlg iPk) =
-        [Rocks.Del $ transDlgKey $ addressHash iPk]
-    toBatchOp (SetTransitiveDlgRev dPk iPks)
-        | HS.null iPks = [Rocks.Del $ transRevDlgKey dPk]
-        | otherwise    = [Rocks.Put (transRevDlgKey dPk) (encode iPks)]
+        [Rocks.Del $ pskKey issuerPk]
+    toBatchOp (AddTransitiveDlg iSId dSId) =
+        [Rocks.Put (transDlgKey iSId) (encode dSId)]
+    toBatchOp (DelTransitiveDlg sId) =
+        [Rocks.Del $ transDlgKey sId]
+    toBatchOp (SetTransitiveDlgRev dSId iSIds)
+        | HS.null iSIds = [Rocks.Del $ transRevDlgKey dSId]
+        | otherwise     = [Rocks.Put (transRevDlgKey dSId) (encode iSIds)]
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -118,8 +120,8 @@ instance RocksBatchOp DelegationOp where
 data DlgTransRevIter
 
 instance DBIteratorClass DlgTransRevIter where
-    type IterKey DlgTransRevIter = PublicKey
-    type IterValue DlgTransRevIter = HashSet PublicKey
+    type IterKey DlgTransRevIter = StakeholderId
+    type IterValue DlgTransRevIter = HashSet StakeholderId
     iterKeyPrefix = iterTransRevPrefix
 
 -- | For each stakeholder, say who has delegated to that stakeholder
@@ -128,9 +130,7 @@ instance DBIteratorClass DlgTransRevIter where
 -- NB. It's not called @getIssuers@ because we already have issuers (i.e.
 -- block issuers)
 getDelegators :: MonadDBRead m => Source (ResourceT m) (StakeholderId, HashSet StakeholderId)
-getDelegators = mapOutput conv $ dbIterSource GStateDB (Proxy @DlgTransRevIter)
-  where
-    conv (addressHash -> del, issuers) = (del, HS.map addressHash issuers)
+getDelegators = dbIterSource GStateDB (Proxy @DlgTransRevIter)
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -146,5 +146,5 @@ transDlgKey s = "d/t/" <> encode s
 iterTransRevPrefix :: ByteString
 iterTransRevPrefix = "d/tr/"
 
-transRevDlgKey :: PublicKey -> ByteString
+transRevDlgKey :: StakeholderId -> ByteString
 transRevDlgKey = encodeWithKeyPrefix @DlgTransRevIter

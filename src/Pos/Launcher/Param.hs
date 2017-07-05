@@ -8,7 +8,6 @@ module Pos.Launcher.Param
        , BaseParams (..)
        , NetworkParams (..)
        , NodeParams (..)
-       , GenesisUtxo(..)
        ) where
 
 import           Universum
@@ -20,14 +19,13 @@ import           System.Wlog             (LoggerName)
 
 import           Pos.Communication.Relay (HasPropagationFlag (..))
 import           Pos.Communication.Types (NodeId)
-import           Pos.Core                (GenesisStakes (..), HasPrimaryKey (..),
-                                          StakesMap, Timestamp)
+import           Pos.Core                (HasPrimaryKey (..), Timestamp)
 import           Pos.Crypto              (SecretKey)
 import           Pos.DHT.Real            (KademliaParams)
 import           Pos.Reporting.MemState  (HasReportServers (..))
 import           Pos.Security.Params     (SecurityParams)
 import           Pos.Statistics          (EkgParams, StatsdParams)
-import           Pos.Txp.Toil.Types      (Utxo)
+import           Pos.Txp.Toil.Types      (GenesisUtxo (..), Utxo)
 import           Pos.Update.Params       (UpdateParams)
 import           Pos.Util.UserSecret     (UserSecret)
 import           Pos.Util.Util           (postfixLFields)
@@ -54,29 +52,25 @@ data NetworkParams = NetworkParams
     -- It encapsulates bind address and address visible to other nodes.
     }
 
-newtype GenesisUtxo = GenesisUtxo { unGenesisUtxo :: Utxo }
-
 -- | This data type contains all data necessary to launch node and
 -- known in advance (from CLI, configs, etc.)
 data NodeParams = NodeParams
-    { npDbPathM        :: !FilePath          -- ^ Path to node's database.
-    , npRebuildDb      :: !Bool              -- ^ @True@ if data-base should be rebuilt
-    , npSystemStart    :: !Timestamp         -- ^ System start
-    , npSecretKey      :: !SecretKey         -- ^ Primary secret key of node
-    , npUserSecret     :: !UserSecret        -- ^ All node secret keys
-    , npBaseParams     :: !BaseParams        -- ^ See 'BaseParams'
-    , npCustomUtxo     :: !Utxo              -- ^ Predefined genesis utxo.
-    , npGenesisStakes  :: !StakesMap         -- ^ Predefined genesis stakes.
-    , npJLFile         :: !(Maybe FilePath)  -- @georgeee please write comment to this field when you see this sign, i made it very long on purpose so it won't fit even in your huge monitor
-    , npPropagation    :: !Bool              -- ^ Whether to propagate txs, ssc data, blocks to neighbors
-    , npReportServers  :: ![Text]            -- ^ List of report server URLs
-    , npUpdateParams   :: !UpdateParams      -- ^ Params for update system
-    , npSecurityParams :: !SecurityParams    -- ^ Params for "Pos.Security"
-    , npUseNTP         :: !Bool
-    , npNetwork        :: !NetworkParams
-    -- ^ Network parameters.
-    , npEnableMetrics  :: !Bool              -- ^ Gather runtime statistics.
-    , npEkgParams      :: !(Maybe EkgParams) -- ^ EKG statistics monitoring.
+    { npDbPathM        :: !FilePath             -- ^ Path to node's database
+    , npRebuildDb      :: !Bool                 -- ^ @True@ if data-base should be rebuilt
+    , npSystemStart    :: !Timestamp            -- ^ System start
+    , npSecretKey      :: !SecretKey            -- ^ Primary secret key of node
+    , npUserSecret     :: !UserSecret           -- ^ All node secret keys
+    , npBaseParams     :: !BaseParams           -- ^ See 'BaseParams'
+    , npCustomUtxo     :: !Utxo                 -- ^ Predefined genesis utxo
+    , npJLFile         :: !(Maybe FilePath)     -- TODO COMMENT
+    , npPropagation    :: !Bool                 -- ^ Whether to propagate txs, ssc data, blocks to neighbors
+    , npReportServers  :: ![Text]               -- ^ List of report server URLs
+    , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
+    , npSecurityParams :: !SecurityParams       -- ^ Params for "Pos.Security"
+    , npUseNTP         :: !Bool                 -- TODO COMMENT
+    , npNetwork        :: !NetworkParams        -- ^ Network parameters
+    , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
+    , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
     } -- deriving (Show)
 
@@ -90,9 +84,6 @@ instance HasLens SecurityParams NodeParams SecurityParams where
 
 instance HasLens GenesisUtxo NodeParams GenesisUtxo where
     lensOf = npCustomUtxo_L . coerced
-
-instance HasLens GenesisStakes NodeParams GenesisStakes where
-    lensOf = npGenesisStakes_L . coerced
 
 instance HasReportServers NodeParams where
     reportServers = npReportServers_L

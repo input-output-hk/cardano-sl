@@ -25,7 +25,7 @@ import           Pos.Crypto.RedeemSigning          (RedeemPublicKey, RedeemSecre
                                                     RedeemSignature, redeemKeyGen,
                                                     redeemSign)
 import           Pos.Crypto.SafeSigning            (PassPhrase, createProxyCert,
-                                                    createProxySecretKey)
+                                                    createPsk)
 import           Pos.Crypto.SecretSharing          (EncShare, Secret, SecretProof,
                                                     SecretSharingExtra, Share, Threshold,
                                                     VssKeyPair, VssPublicKey,
@@ -134,7 +134,7 @@ instance (Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
     arbitrary = liftA3 createProxyCert arbitrary arbitrary arbitrary
 
 instance (Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
-    arbitrary = liftA3 createProxySecretKey arbitrary arbitrary arbitrary
+    arbitrary = liftA3 createPsk arbitrary arbitrary arbitrary
 
 instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
          Arbitrary (ProxySignature w a) where
@@ -142,7 +142,7 @@ instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
         delegateSk <- arbitrary
         issuerSk <- arbitrary
         w <- arbitrary
-        let psk = createProxySecretKey issuerSk (toPublic delegateSk) w
+        let psk = createPsk issuerSk (toPublic delegateSk) w
         proxySign SignProxySK delegateSk psk <$> arbitrary
 
 ----------------------------------------------------------------------------

@@ -12,45 +12,40 @@ module Pos.Lrc.Logic
 
 import           Universum
 
-import           Data.Conduit        (Sink, runConduitPure, runConduitRes, (.|))
-import qualified Data.Conduit.List   as CL
-import qualified Data.HashMap.Strict as HM
-import qualified Data.HashSet        as HS
-import           Ether.Internal      (HasLens (..))
+import           Data.Conduit           (Sink, runConduitPure, runConduitRes, (.|))
+import qualified Data.Conduit.List      as CL
+import qualified Data.HashMap.Strict    as HM
+import qualified Data.HashSet           as HS
 
-import           Pos.Core            (Coin, GenesisStakes, StakeholderId, sumCoins,
-                                      unsafeIntegerToCoin)
-import           Pos.DB.Class        (MonadDBRead)
-import           Pos.DB.GState       (getDelegators, getEffectiveStake,
-                                      isIssuerByAddressHash)
-import           Pos.Lrc.Core        (findDelegationStakes, findRichmenStake)
-import           Pos.Lrc.Types       (FullRichmenData, RichmenStake)
+import           Pos.Core               (Coin, StakeholderId, sumCoins,
+                                         unsafeIntegerToCoin)
+import           Pos.DB.Class           (MonadDBRead, MonadGState)
+import           Pos.DB.GState          (getDelegators, isIssuerByAddressHash)
+import           Pos.DB.GState.Balances (getRealStake)
+import           Pos.Lrc.Core           (findDelegationStakes, findRichmenStake)
+import           Pos.Lrc.Types          (FullRichmenData, RichmenStake)
 
-type MonadDBReadFull ctx m =
-    ( MonadDBRead m
-    , MonadReader ctx m
-    , HasLens GenesisStakes ctx GenesisStakes
-    )
+type MonadDBReadFull m = (MonadDBRead m, MonadGState m)
 
 -- Can it be improved using conduits?
 -- | Find delegated richmen using precomputed usual richmen.
 -- Do it using one pass by delegation DB.
 findDelRichUsingPrecomp
-    :: forall ctx m.
-       (MonadDBReadFull ctx m)
+    :: forall m.
+       (MonadDBReadFull m)
     => RichmenStake -> Coin -> m RichmenStake
 findDelRichUsingPrecomp precomputed thr = do
     (old, new) <-
         runConduitRes $
         getDelegators .|
-        findDelegationStakes isIssuerByAddressHash getEffectiveStake thr
+        findDelegationStakes isIssuerByAddressHash getRealStake thr
     -- attention: order of new and precomputed is important
     -- we want to use new balances (computed from delegated) of precomputed richmen
     pure (new `HM.union` (precomputed `HM.difference` (HS.toMap old)))
 
 -- | Find delegated richmen.
 findDelegatedRichmen
-    :: (MonadDBReadFull ctx m)
+    :: (MonadDBReadFull m)
     => Coin -> Sink (StakeholderId, Coin) m RichmenStake
 findDelegatedRichmen thr = do
     st <- findRichmenStake thr
@@ -59,8 +54,8 @@ findDelegatedRichmen thr = do
 -- | Function considers all variants of computation
 -- and compute using one pass by stake DB and one pass by delegation DB.
 findAllRichmenMaybe
-    :: forall ctx m.
-       (MonadDBReadFull ctx m)
+    :: forall m.
+       (MonadDBReadFull m)
     => Maybe Coin -- ^ Eligibility threshold (optional)
     -> Maybe Coin -- ^ Delegation threshold (optional)
     -> Sink (StakeholderId, Coin) m (RichmenStake, RichmenStake)

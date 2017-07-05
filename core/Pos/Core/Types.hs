@@ -11,7 +11,7 @@ module Pos.Core.Types
        , AddressHash
        , StakeholderId
        , StakesMap
-       , GenesisStakes (..)
+       , GenesisStakeholders (..)
 
        , Timestamp (..)
 
@@ -102,6 +102,12 @@ import           Pos.Data.Attributes        (Attributes)
 -- Address
 ----------------------------------------------------------------------------
 
+-- | Hash used to identify address.
+type AddressHash = AbstractHash Blake2b_224
+
+-- | Stakeholder identifier (stakeholders are identified by their public keys)
+type StakeholderId = AddressHash PublicKey
+
 -- | Address is where you can send coins.
 data Address
     = PubKeyAddress
@@ -114,6 +120,8 @@ data Address
     | UnknownAddressType !Word8 !ByteString
     deriving (Eq, Ord, Generic, Typeable, Show)
 
+instance NFData Address
+
 newtype AddrPkAttrs = AddrPkAttrs
     { addrPkDerivationPath :: Maybe HDAddressPayload
     } deriving (Eq, Ord, Show, Generic, Typeable, NFData)
@@ -121,17 +129,12 @@ newtype AddrPkAttrs = AddrPkAttrs
 instance Default AddrPkAttrs where
     def = AddrPkAttrs Nothing
 
-type AddressHash = AbstractHash Blake2b_224
-
--- | Stakeholder identifier (stakeholders are identified by their public keys)
-type StakeholderId = AddressHash PublicKey
-
 -- | A mapping between stakeholders and they stakes.
 type StakesMap = HashMap StakeholderId Coin
 
-newtype GenesisStakes = GenesisStakes { unGenesisStakes :: StakesMap }
-
-instance NFData Address
+-- | Newtype over 'StakesMap' to be used in genesis.
+newtype GenesisStakeholders =
+    GenesisStakeholders { unGenesisStakeholders :: HashSet StakeholderId }
 
 ----------------------------------------------------------------------------
 -- ChainDifficulty

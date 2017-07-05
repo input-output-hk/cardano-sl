@@ -136,7 +136,8 @@ getDlgTransPsk issuer = getDlgTransitive issuer >>= \case
     Nothing -> pure Nothing
     Just dPk -> do
         chain <- runDBCede $ HM.elems <$> getPskChain issuer
-        let finalPsk = find (\psk -> pskDelegatePk psk == dPk) chain
+        let finalPsk =
+                find (\psk -> addressHash (pskDelegatePk psk) == dPk) chain
         let iPk = pskIssuerPk <$>
                   find (\psk -> addressHash (pskIssuerPk psk) == issuer) chain
         let throwEmpty = throwM $ DBMalformed $

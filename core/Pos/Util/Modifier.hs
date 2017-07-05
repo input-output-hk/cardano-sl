@@ -33,6 +33,9 @@ import qualified Universum                 (filter, mapMaybe)
 import           Data.Hashable             (Hashable)
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.Map                  as M
+import qualified Data.Text.Buildable
+import           Formatting                (bprint, (%))
+import           Serokell.Util             (listJson, pairF)
 import           Test.QuickCheck           (Arbitrary)
 import           Test.QuickCheck.Instances ()
 
@@ -57,6 +60,11 @@ instance (Eq k, Hashable k) =>
         step m k (Just v) = insert k v m
 
 instance (Eq k, Hashable k) => Semigroup (MapModifier k v)
+
+instance (Buildable k, Buildable v) => Buildable (MapModifier k v) where
+    build mm =
+      bprint ("MapModifier { deletions "%listJson%", insertions: "%listJson%"}")
+      (deletions mm) (map (bprint pairF) (insertions mm))
 
 -- | Perform monadic lookup taking 'MapModifier' into account.
 lookupM

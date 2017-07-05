@@ -66,11 +66,11 @@ import           Pos.Crypto                 (EncryptedSecretKey, HDPassphrase,
 import           Pos.Crypto.HDDiscovery     (discoverHDAddresses)
 import           Pos.Data.Attributes        (Attributes (..))
 import qualified Pos.DB.Block               as DB
-import           Pos.DB.Class               (MonadRealDB)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
 import qualified Pos.DB.GState              as GS
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
+import           Pos.DB.Rocks               (MonadRealDB)
 import           Pos.Slotting               (getSlotStartPure)
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOutAux (..),
                                              TxUndo, flattenTxPayload, toaOut, topsortTxs,

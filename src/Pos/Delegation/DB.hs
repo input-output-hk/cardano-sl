@@ -69,7 +69,7 @@ isIssuerByAddressHash :: MonadDBRead m => StakeholderId -> m Bool
 isIssuerByAddressHash = fmap isJust . getPskByIssuer . Right
 
 -- | Given issuer @i@ returns @d@ such that there exists @x1..xn@ with
--- @i->x1->...->xn->d@.
+-- @i→x1→...→xn→d@.
 getDlgTransitive :: MonadDBRead m => StakeholderId -> m (Maybe StakeholderId)
 getDlgTransitive issuer = gsGetBi (transDlgKey issuer)
 

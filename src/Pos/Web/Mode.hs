@@ -18,7 +18,7 @@ import           Pos.Context          (HasPrimaryKey (..), HasSscContext (..),
                                        NodeContext)
 import           Pos.DB               (NodeDBs)
 import           Pos.DB.Class         (MonadDB (..), MonadDBRead (..))
-import           Pos.DB.Redirect      (dbDeleteDefault, dbGetDefault, dbIterSourceDefault,
+import           Pos.DB.Rocks         (dbDeleteDefault, dbGetDefault, dbIterSourceDefault,
                                        dbPutDefault, dbWriteBatchDefault)
 import           Pos.Txp.MemState     (GenericTxpLocalData, TxpHolderTag)
 import           Pos.Util.Util        (postfixLFields)

@@ -6,9 +6,8 @@
 
 module Pos.Txp.DB.Utxo
        (
-         -- * Getters
-         getTxOutFromDB
-       , getTxOut
+       -- * Getters
+         getTxOut
 
        -- * Operations
        , UtxoOp (..)
@@ -47,11 +46,10 @@ import           Pos.Core             (Address, Coin, coinF, mkCoin, sumCoins,
                                        unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Address     (AddressIgnoringAttributes (..))
 import           Pos.DB               (DBError (..), DBIteratorClass (..),
-                                       DBTag (GStateDB), IterType, MonadDB,
-                                       MonadDBRead (..), RocksBatchOp (..), dbIterSource,
-                                       encodeWithKeyPrefix, rocksGetBi)
+                                       DBTag (GStateDB), IterType, MonadDB, MonadDBRead,
+                                       RocksBatchOp (..), dbIterSource,
+                                       encodeWithKeyPrefix)
 import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
-import           Pos.DB.Types         (DB)
 import           Pos.Txp.Core         (TxIn (..), TxOutAux, addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types   (Utxo)
 
@@ -61,9 +59,6 @@ import           Pos.Txp.Toil.Types   (Utxo)
 
 getTxOut :: MonadDBRead m => TxIn -> m (Maybe TxOutAux)
 getTxOut = gsGetBi . txInKey
-
-getTxOutFromDB :: (MonadIO m, MonadThrow m) => TxIn -> DB -> m (Maybe TxOutAux)
-getTxOutFromDB txIn = rocksGetBi (txInKey txIn)
 
 ----------------------------------------------------------------------------
 -- Batch operations

@@ -3,10 +3,10 @@
 {-# LANGUAGE TypeOperators       #-}
 
 module Pos.Wallet.Web.Mode
-    ( WalletWebMode
-    , WalletWebModeContextTag
-    , WalletWebModeContext(..)
-    ) where
+       ( WalletWebMode
+       , WalletWebModeContextTag
+       , WalletWebModeContext(..)
+       ) where
 
 import           Universum
 
@@ -24,15 +24,16 @@ import           Pos.Communication.PeerState   (HasPeerState (..), WithPeerState
 import           Pos.Context                   (HasNodeContext (..))
 import           Pos.Core                      (HasPrimaryKey (..), IsHeader)
 import           Pos.DB                        (MonadGState (..))
-import           Pos.DB.Block                  (MonadBlockDBWrite (..), dbGetBlockDefault,
-                                                dbGetBlockSscDefault, dbGetHeaderDefault,
-                                                dbGetHeaderSscDefault, dbGetUndoDefault,
-                                                dbGetUndoSscDefault, dbPutBlundDefault)
-import           Pos.DB.Class                  (MonadBlockDBGeneric (..), MonadDB (..),
-                                                MonadDBRead (..))
+import           Pos.DB.Block                  (dbGetBlockDefault, dbGetBlockSscDefault,
+                                                dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                                dbGetUndoDefault, dbGetUndoSscDefault,
+                                                dbPutBlundDefault)
+import           Pos.DB.Class                  (MonadBlockDBGeneric (..),
+                                                MonadBlockDBGenericWrite (..),
+                                                MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB                     (gsAdoptedBVDataDefault,
                                                 gsIsBootstrapEraDefault)
-import           Pos.DB.Redirect               (dbDeleteDefault, dbGetDefault,
+import           Pos.DB.Rocks                  (dbDeleteDefault, dbGetDefault,
                                                 dbIterSourceDefault, dbPutDefault,
                                                 dbWriteBatchDefault)
 
@@ -41,7 +42,8 @@ import           Pos.Client.Txp.Balances       (MonadBalances (..), getBalanceDe
 import           Pos.Client.Txp.History        (MonadTxHistory (..),
                                                 getBlockHistoryDefault,
                                                 getLocalHistoryDefault, saveTxDefault)
-import           Pos.Discovery                 (MonadDiscovery (..), findPeersSum, HasDiscoveryContextSum (..),
+import           Pos.Discovery                 (HasDiscoveryContextSum (..),
+                                                MonadDiscovery (..), findPeersSum,
                                                 getPeersSum)
 import           Pos.Reporting                 (HasReportingContext (..))
 import           Pos.Shutdown                  (HasShutdownContext (..))
@@ -180,7 +182,7 @@ instance MonadDB WalletWebMode where
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
 
-instance MonadBlockDBWrite WalletSscType WalletWebMode where
+instance MonadBlockDBGenericWrite (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode where
     dbPutBlund = dbPutBlundDefault
 
 instance MonadBlockDBGeneric (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode

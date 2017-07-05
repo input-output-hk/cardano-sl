@@ -42,8 +42,8 @@ import           Pos.Context           (lrcActionOnEpochReason)
 import           Pos.Core              (BlockVersion (..), epochIndexL, headerHash,
                                         headerHashG, prevBlockL)
 import           Pos.DB                (SomeBatchOp (..))
-import           Pos.DB.Block          (MonadBlockDBWrite (dbPutBlund))
-import           Pos.DB.Class          (MonadDBRead)
+import           Pos.DB.Block          (MonadBlockDBWrite)
+import           Pos.DB.Class          (MonadDBRead, dbPutBlund)
 import           Pos.DB.DB             (sanityCheckDB)
 import qualified Pos.DB.GState         as GS
 import           Pos.Exception         (assertionFailed)

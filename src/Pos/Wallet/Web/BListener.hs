@@ -24,8 +24,9 @@ import           Pos.Block.Types            (Blund, undoTx)
 import           Pos.Core                   (HeaderHash, difficultyL, headerHash,
                                              headerSlotL, prevBlockL)
 import           Pos.DB.BatchOp             (SomeBatchOp)
-import           Pos.DB.Class               (MonadDBRead, MonadRealDB)
+import           Pos.DB.Class               (MonadDBRead)
 import qualified Pos.DB.GState              as GS
+import           Pos.DB.Rocks               (MonadRealDB)
 import           Pos.Slotting               (SlottingData, getSlotStartPure)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Txp.Core               (TxAux (..), TxUndo, flattenTxPayload)
@@ -52,6 +53,7 @@ onApplyTracking
     )
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = do
+
     let oldestFirst = getOldestFirst blunds
         txs = concatMap (gbTxs . fst) oldestFirst
         newTipH = NE.last oldestFirst ^. _1 . blockHeader

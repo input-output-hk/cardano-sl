@@ -18,14 +18,14 @@ import           System.Wlog                (WithLogger)
 import           Pos.Context.Context        (GenesisUtxo (..))
 import           Pos.Context.Functions      (genesisUtxoM)
 import           Pos.Core                   (HeaderHash, Timestamp)
-import           Pos.DB.Class               (MonadDB, MonadDBRead, MonadRealDB,
-                                             getNodeDBs, usingReadOptions)
+import           Pos.DB.Class               (MonadDB, MonadDBRead)
 import           Pos.DB.GState.Balances     (getRealTotalStake)
 import           Pos.DB.GState.BlockExtra   (initGStateBlockExtra)
 import           Pos.DB.GState.Common       (initGStateCommon, isInitialized,
                                              setInitialized)
-import           Pos.DB.Types               (DB (..), NodeDBs (..), Snapshot (..),
-                                             gStateDB, usingSnapshot)
+import           Pos.DB.Rocks               (DB (..), MonadRealDB, NodeDBs (..),
+                                             Snapshot (..), gStateDB, getNodeDBs,
+                                             usingReadOptions, usingSnapshot)
 import           Pos.Ssc.GodTossing.DB      (initGtDB)
 import           Pos.Ssc.GodTossing.Genesis (genesisCertificates)
 import           Pos.Txp.DB                 (initGStateBalances, initGStateUtxo,

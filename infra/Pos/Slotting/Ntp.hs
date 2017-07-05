@@ -210,14 +210,11 @@ getCurrentSlotDo
 getCurrentSlotDo approxCurTime = do
   li <- getEpochLastIndex
   me <- findMatchingEpoch approxCurTime li getEpochSlottingData
-  case me of
-    Nothing -> return Nothing
-    Just (ei, EpochSlottingData{..}) -> do
-      return $ Just $ SlotId ei $ localSlot $ (getTimestamp approxCurTime - getTimestamp esdStart) `div` convertUnit esdSlotDuration
-  where
-    localSlot n =
-        leftToPanic "getCurrentSlotDo: " $
-        mkLocalSlotIndex (fromIntegral n)
+  return $ do
+    (ei, EpochSlottingData{..}) <- me
+    slot <- either (const Nothing) Just $ mkLocalSlotIndex $ fromIntegral $ (getTimestamp approxCurTime - getTimestamp esdStart) `div` convertUnit esdSlotDuration
+    return $ SlotId ei slot
+
 
 ----------------------------------------------------------------------------
 -- Running

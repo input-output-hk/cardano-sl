@@ -228,7 +228,7 @@ data MatchReqHeadersRes
 matchRequestedHeaders
     :: (SscHelpersClass ssc)
     => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
-matchRequestedHeaders headers MsgGetHeaders {..} inRecovery =
+matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
     let newTip = headers ^. _Wrapped . _neHead
         startHeader = headers ^. _Wrapped . _neLast
         startMatches =
@@ -240,8 +240,15 @@ matchRequestedHeaders headers MsgGetHeaders {..} inRecovery =
             | isNothing mghTo = True
             | otherwise = Just (headerHash newTip) == mghTo
         verRes = verifyHeaders (headers & _Wrapped %~ toList)
-    in if | not startMatches -> MRUnexpected "start (from) doesn't match"
-          | not mghToMatches -> MRUnexpected "finish (to) doesn't match"
+    in if | not startMatches ->
+            MRUnexpected $ sformat ("start (from) header "%build%
+                                    " doesn't match request "%build)
+                                   startHeader mgh
+          | not mghToMatches ->
+            MRUnexpected $ sformat ("finish (to) header "%build%
+                                    " doesn't match request "%build%
+                                    ", recovery: "%shown%", newTip:"%build)
+                                   mghTo mgh inRecovery newTip
           | VerFailure errs <- verRes ->
               MRUnexpected $ "headers are bad: " <> formatFirstError errs
           | otherwise -> MRGood

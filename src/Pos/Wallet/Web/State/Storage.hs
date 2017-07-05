@@ -7,6 +7,7 @@ module Pos.Wallet.Web.State.Storage
          WalletStorage (..)
        , AddressLookupMode (..)
        , CustomAddressType (..)
+       , WalletTip (..)
        , Query
        , Update
        , getProfile
@@ -64,7 +65,6 @@ import           Data.SafeCopy              (base, deriveSafeCopySimple)
 import           Data.Time.Clock.POSIX      (POSIXTime)
 
 import           Pos.Client.Txp.History     (TxHistoryEntry)
-import           Pos.Constants              (genesisHash)
 import           Pos.Core.Types             (Timestamp)
 import           Pos.Txp                    (Utxo)
 import           Pos.Types                  (HeaderHash)
@@ -93,11 +93,15 @@ data AccountInfo = AccountInfo
 
 makeLenses ''AccountInfo
 
+data WalletTip
+    = NotSynced
+    | SyncedWith !HeaderHash
+
 data WalletInfo = WalletInfo
     { _wiMeta         :: !CWalletMeta
     , _wiPassphraseLU :: !PassPhraseLU
     , _wiCreationTime :: !POSIXTime
-    , _wiSyncTip      :: !HeaderHash
+    , _wiSyncTip      :: !WalletTip
     }
 
 makeLenses ''WalletInfo
@@ -182,9 +186,8 @@ getWalletMeta cWalId = preview (wsWalletInfos . ix cWalId . wiMeta)
 getWalletPassLU :: CId Wal -> Query (Maybe PassPhraseLU)
 getWalletPassLU cWalId = preview (wsWalletInfos . ix cWalId . wiPassphraseLU)
 
-getWalletSyncTip :: CId Wal -> Query (Maybe HeaderHash)
+getWalletSyncTip :: CId Wal -> Query (Maybe WalletTip)
 getWalletSyncTip cWalId = preview (wsWalletInfos . ix cWalId . wiSyncTip)
-
 
 getWalletAddresses :: Query [CId Wal]
 getWalletAddresses =
@@ -259,7 +262,7 @@ createAccount accId cAccMeta =
 
 createWallet :: CId Wal -> CWalletMeta -> POSIXTime -> Update ()
 createWallet cWalId cWalMeta curTime = do
-    let info = WalletInfo cWalMeta curTime curTime genesisHash
+    let info = WalletInfo cWalMeta curTime curTime NotSynced
     wsWalletInfos . at cWalId %= (<|> Just info)
 
 addWAddress :: CWAddressMeta -> Update ()
@@ -290,7 +293,7 @@ setWalletPassLU :: CId Wal -> PassPhraseLU -> Update ()
 setWalletPassLU cWalId passLU = wsWalletInfos . ix cWalId . wiPassphraseLU .= passLU
 
 setWalletSyncTip :: CId Wal -> HeaderHash -> Update ()
-setWalletSyncTip cWalId hh = wsWalletInfos . ix cWalId . wiSyncTip .= hh
+setWalletSyncTip cWalId hh = wsWalletInfos . ix cWalId . wiSyncTip .= SyncedWith hh
 
 addWalletTxHistory :: CId Wal -> CTxId -> CTxMeta -> Update ()
 addWalletTxHistory cWalId cTxId cTxMeta =
@@ -367,5 +370,6 @@ deriveSafeCopySimple 0 'base ''AddressLookupMode
 deriveSafeCopySimple 0 'base ''CustomAddressType
 deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
+deriveSafeCopySimple 0 'base ''WalletTip
 deriveSafeCopySimple 0 'base ''WalletInfo
 deriveSafeCopySimple 0 'base ''WalletStorage

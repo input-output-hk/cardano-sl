@@ -92,7 +92,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
                                              isTxLocalAddress)
 import           Pos.Wallet.Web.State       (AddressLookupMode (..),
                                              CustomAddressType (..), WalletWebDB,
-                                             WebWalletModeDB)
+                                             WebWalletModeDB, WalletTip (..))
 import qualified Pos.Wallet.Web.State       as WS
 
 -- VoidModifier describes a difference between two states.
@@ -203,9 +203,10 @@ syncWalletsWithGState
     -> m ()
 syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> do
     let wAddr = encToCId encSK
-    whenJustM (WS.getWalletSyncTip wAddr) $ \wTip ->
-        if wTip == genesisHash then syncDo encSK Nothing
-        else DB.blkGetHeader wTip >>= \case
+    WS.getWalletSyncTip wAddr >>= \case
+        Nothing                -> logWarning $ sformat ("There are no syncTip corresponding to wallet #"%build) wAddr
+        Just NotSynced         -> syncDo encSK Nothing
+        Just (SyncedWith wTip) -> DB.blkGetHeader wTip >>= \case
             Nothing ->
                 throwM $ InternalError $
                     sformat ("Couldn't get block header of wallet "%build

@@ -30,7 +30,6 @@ initialState =
     , viewStates:
         { globalViewState:
             { gViewMobileMenuOpenend: false
-            , gViewTitle: translate (I18nL.common <<< I18nL.cTitle) English
             , gViewSearchInputFocused: false
             , gViewSelectedSearch: SearchAddress
             , gViewSearchQuery: emptySearchQuery

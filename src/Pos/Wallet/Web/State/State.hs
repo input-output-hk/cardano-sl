@@ -52,6 +52,8 @@ module Pos.Wallet.Web.State.State
        , setWalletTxHistory
        , addOnlyNewTxMeta
        , removeWallet
+       , removeTxMetas
+       , removeHistoryCache
        , removeAccount
        , removeWAddress
        , removeCustomAddress
@@ -211,6 +213,12 @@ addOnlyNewTxMeta cWalId cTxId = updateDisk . A.AddOnlyNewTxMeta cWalId cTxId
 
 removeWallet :: WebWalletModeDB m => CId Wal -> m ()
 removeWallet = updateDisk . A.RemoveWallet
+
+removeTxMetas :: WebWalletModeDB m => CId Wal -> m ()
+removeTxMetas = updateDisk . A.RemoveTxMetas
+
+removeHistoryCache :: WebWalletModeDB m => CId Wal -> m ()
+removeHistoryCache = updateDisk . A.RemoveHistoryCache
 
 removeAccount :: WebWalletModeDB m => AccountId -> m ()
 removeAccount = updateDisk . A.RemoveAccount

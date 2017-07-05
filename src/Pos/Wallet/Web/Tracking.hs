@@ -70,7 +70,6 @@ import           Pos.DB.Class               (MonadRealDB)
 import qualified Pos.DB.DB                  as DB
 import           Pos.DB.Error               (DBError (DBMalformed))
 import qualified Pos.DB.GState              as GS
-import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.DB.GState.BlockExtra   (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting               (getSlotStartPure)
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOutAux (..), TxIn (..) ,
@@ -87,6 +86,7 @@ import           Pos.Util.Util              (maybeThrow)
 
 import           Pos.Ssc.Class              (SscHelpersClass)
 import           Pos.Wallet.SscType         (WalletSscType)
+import           Pos.Wallet.Web.Error.Types (WalletError (..))
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
                                              CWAddressMeta (..), Wal,
                                              addressToCId, aiWId, encToCId,
@@ -117,10 +117,10 @@ instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
         IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
 
 data CAccModifier = CAccModifier
-    { camAddresses      :: !(IndexedMapModifier CWAddressMeta)
-    , camUsed           :: !(VoidModifier (CId Addr, HeaderHash))
-    , camChange         :: !(VoidModifier (CId Addr, HeaderHash))
-    , camUtxo           :: !UtxoModifier
+    { camAddresses :: !(IndexedMapModifier CWAddressMeta)
+    , camUsed      :: !(VoidModifier (CId Addr, HeaderHash))
+    , camChange    :: !(VoidModifier (CId Addr, HeaderHash))
+    , camUtxo      :: !UtxoModifier
     , camAddedHistory   :: !(DList TxHistoryEntry)
     , camDeletedHistory :: !(DList TxId)
     }

@@ -207,9 +207,9 @@ mkCTxs
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
     -> [CWAddressMeta]    -- ^ Addresses of wallet
-    -> Bool               -- ^ Always report incoming tx (introduced in CSM-330)
+    -> Bool               -- ^ Workaround for redemption txs (introduced in CSM-330)
     -> Either Text CTxs
-mkCTxs diff THEntry {..} meta wAddrMetas forceIncoming = do
+mkCTxs diff THEntry {..} meta wAddrMetas isRedemptionTx = do
     ctInputAddrsNe <-
         nonEmpty ctInputAddrs
         `whenNothing` throwError "No input addresses in tx!"
@@ -223,9 +223,12 @@ mkCTxs diff THEntry {..} meta wAddrMetas forceIncoming = do
         -- want to consider it separately and use `isLocalAddr` in other cases.
         -- [CSM-309] Bad for multiple-destinations transactions
         allOutputsBelongToUs = all (`S.member` wAddrsSet) ctOutputAddrs
+        outputsForAmountCalc =
+            outputs &
+            if isRedemptionTx then identity else filter (not . isLocalTxOutput)
         ctAmount =
             mkCCoin . unsafeIntegerToCoin . sumCoins . map txOutValue $
-            filter (not . isLocalTxOutput) outputs
+            outputsForAmountCalc
         mkCTx isOutgoing mbSignificantAddrs = do  -- Maybe monad starts here
             -- Return `Nothing` if none of the significantAddrs belong to us.
             guard $
@@ -240,7 +243,7 @@ mkCTxs diff THEntry {..} meta wAddrMetas forceIncoming = do
             ctOutputAddrs &
             if allOutputsBelongToUs then identity else filter (not . isLocalAddr)
         ctsOutgoing = mkCTx True $ Just ctInputAddrs
-        ctsIncoming = mkCTx False $ if forceIncoming then Nothing else Just ctSignificantOutputAddrs
+        ctsIncoming = mkCTx False $ if isRedemptionTx then Nothing else Just ctSignificantOutputAddrs
     return CTxs {..}
   where
     ctId = txIdToCTxId _thTxId

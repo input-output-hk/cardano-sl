@@ -35,7 +35,6 @@ import qualified Data.HashMap.Strict              as HM
 import           Data.List                        (findIndex, notElem)
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
-import           Data.Tagged                      (untag)
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX            (getPOSIXTime)
 import           Data.Time.Units                  (Microsecond, Second)
@@ -57,7 +56,8 @@ import           Servant.Server                   (Handler, Server, ServerT, run
                                                    serve)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
 import           System.IO.Error                  (isDoesNotExistError)
-import           System.Wlog                      (logDebug, logError, logInfo)
+import           System.Wlog                      (logDebug, logError, logInfo,
+                                                   logWarning)
 
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
@@ -97,8 +97,8 @@ import           Pos.Wallet.Redirect              (WalletRedirects)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (WalletMode, applyLastUpdate,
                                                    blockchainSlotDuration, connectedPeers,
-                                                   getBalance, getBlockHistory,
-                                                   getLocalHistory, localChainDifficulty,
+                                                   getBalance, getLocalHistory,
+                                                   localChainDifficulty,
                                                    networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    genSaveRootKey,
@@ -145,7 +145,8 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    getWAddressIds, getWalletAddresses,
                                                    getWalletMeta, getWalletPassLU,
                                                    isCustomAddress, openState,
-                                                   removeAccount, removeNextUpdate,
+                                                   removeAccount, removeHistoryCache,
+                                                   removeNextUpdate, removeTxMetas,
                                                    removeWallet, setAccountMeta,
                                                    setProfile, setWalletMeta,
                                                    setWalletPassLU, setWalletTxMeta,
@@ -667,9 +668,10 @@ getFullWalletHistory cWalId = do
     blockHistory <- getHistoryCache cWalId >>= \case
         Just hist -> pure $ DL.fromList hist
         Nothing -> do
-            derivedHistory <- untag @WalletSscType getBlockHistory addrs
-            updateHistoryCache cWalId $ DL.toList derivedHistory
-            pure derivedHistory
+            logWarning $
+                sformat ("getFullWalletHistory: history cache is empty for wallet #"%build)
+                cWalId
+            pure mempty
 
     localHistory <- getLocalHistory addrs
 
@@ -730,10 +732,10 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit =
 addHistoryTx
     :: WalletWebMode m
     => CId Wal
-    -> Bool            -- ^ Always report incoming tx (introduced in CSM-330)
+    -> Bool            -- ^ Workaround for redemption txs (introduced in CSM-330)
     -> TxHistoryEntry
     -> m CTxs
-addHistoryTx cWalId forceIncoming wtx@THEntry{..} = do
+addHistoryTx cWalId isRedemptionTx wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
@@ -744,7 +746,7 @@ addHistoryTx cWalId forceIncoming wtx@THEntry{..} = do
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
     walAddrMetas <- getWalletAddrMetas Ever cWalId
-    mkCTxs diff wtx meta' walAddrMetas forceIncoming & either (throwM . InternalError) pure
+    mkCTxs diff wtx meta' walAddrMetas isRedemptionTx & either (throwM . InternalError) pure
 
 newAddress
     :: WalletWebMode m
@@ -807,6 +809,7 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} = do
 newWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit
+    updateHistoryCache wId []
     getWallet wId
 
 restoreWallet :: WalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
@@ -834,6 +837,8 @@ deleteWallet wid = do
     accounts <- getAccounts (Just wid)
     mapM_ (\acc -> deleteAccount =<< decodeCAccountIdOrFail (caId acc)) accounts
     removeWallet wid
+    removeTxMetas wid
+    removeHistoryCache wid
     deleteSecretKey . fromIntegral =<< getAddrIdx wid
 
 deleteAccount :: WalletWebMode m => AccountId -> m ()

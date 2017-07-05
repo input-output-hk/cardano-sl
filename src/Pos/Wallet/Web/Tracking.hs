@@ -93,7 +93,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
                                              isTxLocalAddress)
 import           Pos.Wallet.Web.State       (AddressLookupMode (..),
                                              CustomAddressType (..),
-                                             WebWalletModeDB)
+                                             WebWalletModeDB, WalletTip (..))
 import qualified Pos.Wallet.Web.State       as WS
 
 -- VoidModifier describes a difference between two states.
@@ -209,8 +209,44 @@ syncWalletsWithGState
     , BlockLockMode ssc ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo)
     => [EncryptedSecretKey] -> m ()
-syncWalletsWithGState encSKs = withBlkSemaphore_ $ \tip ->
-    tip <$ mapM_ (syncWalletWithGStateUnsafe @ssc) encSKs
+syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> do
+    let wAddr = encToCId encSK
+    WS.getWalletSyncTip wAddr >>= \case
+        Nothing                -> logWarning $ sformat ("There are no syncTip corresponding to wallet #"%build) wAddr
+        Just NotSynced         -> syncDo encSK Nothing
+        Just (SyncedWith wTip) -> DB.blkGetHeader wTip >>= \case
+            Nothing ->
+                throwM $ InternalError $
+                    sformat ("Couldn't get block header of wallet "%build
+                                %" by last synced hh: "%build) wAddr wTip
+            Just wHeader -> syncDo encSK (Just wHeader)
+  where
+    syncDo :: EncryptedSecretKey -> Maybe (BlockHeader ssc) -> m ()
+    syncDo encSK wTipH = do
+        let wdiff = maybe (0::Word32) (fromIntegral . ( ^. difficultyL)) wTipH
+        gstateTipH <- DB.getTipHeader @(Block ssc)
+        -- If account's syncTip is before the current gstate's tip,
+        -- then it loads accounts and addresses starting with @wHeader@.
+        -- syncTip can be before gstate's the current tip
+        -- when we call @syncWalletSetWithTip@ at the first time
+        -- or if the application was interrupted during rollback.
+        -- We don't load all blocks explicitly, because blockain can be long.
+        wNewTip <-
+            if (gstateTipH ^. difficultyL > blkSecurityParam + fromIntegral wdiff) then do
+                -- Wallet tip is "far" from gState tip,
+                -- rollback can't occur more then @blkSecurityParam@ blocks,
+                -- so we can sync wallet and GState without the block lock
+                -- to avoid blocking of blocks verification/application.
+                bh <- unsafeLast . getNewestFirst <$> DB.loadHeadersByDepth (blkSecurityParam + 1) (headerHash gstateTipH)
+                logDebug $
+                    sformat ("Wallet's tip is far from GState tip. Syncing with "%build%" without the block lock")
+                    (headerHash bh)
+                syncWalletWithGStateUnsafe encSK wTipH bh
+                pure $ Just bh
+            else pure wTipH
+        withBlkSemaphore_ $ \tip -> do
+            tipH <- maybe (error "Wallet tracking: no block header corresponding to tip") pure =<< DB.blkGetHeader tip
+            tip <$ syncWalletWithGStateUnsafe encSK wNewTip tipH
 
 ----------------------------------------------------------------------------
 -- Unsafe operations. Core logic.

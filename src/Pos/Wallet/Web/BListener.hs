@@ -14,7 +14,7 @@ import           Control.Lens               (to)
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable)
-import           System.Wlog                (WithLogger, logDebug)
+import           System.Wlog                (WithLogger, logDebug, logWarning)
 
 import           Pos.Block.BListener        (MonadBListener (..))
 import           Pos.Block.Core             (BlockHeader, blockHeader, mainBlockTxPayload)
@@ -50,6 +50,25 @@ instance ( MonadRealDB m
     onApplyBlocks = onApplyTracking
     onRollbackBlocks = onRollbackTracking
 
+
+walletGuard ::
+    ( AccountMode m
+    , WithLogger m
+    )
+    => HeaderHash
+    -> CId Wal
+    -> m ()
+    -> m ()
+walletGuard curTip wAddr action = WS.getWalletSyncTip wAddr >>= \case
+    Nothing -> logWarning $ sformat ("Wallet Tracking: there is no syncTip corresponding to wallet #"%build) wAddr
+    Just WS.NotSynced    -> logDebug $ sformat ("Wallet Tracking: Wallet #"%build%" hasn't been synced yet") wAddr
+    Just (WS.SyncedWith wTip)
+        | wTip /= curTip ->
+            logDebug $
+                sformat ("Wallet Tracking: skip wallet #"%build
+                        %", because of wallet's tip "%build%" mismatched with current tip") wAddr wTip
+        | otherwise -> action
+
 -- Perform this action under block lock.
 onApplyTracking
     :: forall ssc m .
@@ -64,15 +83,16 @@ onApplyTracking blunds = do
     let oldestFirst = getOldestFirst blunds
         txs = concatMap (gbTxs . fst) oldestFirst
         newTipH = NE.last oldestFirst ^. _1 . blockHeader
+    currentTipHH <- GS.getTip
     sd <- GS.getSlottingData
-    mapM_ (syncWalletSet sd newTipH txs) =<< WS.getWalletAddresses
+    mapM_ (syncWallet sd currentTipHH newTipH txs) =<< WS.getWalletAddresses
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
     pure mempty
   where
-    syncWalletSet :: SlottingData -> BlockHeader ssc -> [TxAux] -> CId Wal -> m ()
-    syncWalletSet sd newTipH txs wAddr = do
+    syncWallet :: SlottingData -> HeaderHash -> BlockHeader ssc -> [TxAux] -> CId Wal -> m ()
+    syncWallet sd curTip newTipH txs wAddr = walletGuard curTip wAddr $ do
         let mainBlkHeaderTs mBlkH =
                 getSlotStartPure True (mBlkH ^. headerSlotL) sd
             blkHeaderTs = either (const Nothing) mainBlkHeaderTs
@@ -80,9 +100,9 @@ onApplyTracking blunds = do
         allAddresses <- getWalletAddrMetasDB WS.Ever wAddr
         encSK <- getSKByAddr wAddr
         mapModifier <- runDBTxp $
-                       evalToilTEmpty $
-                       trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs $
-                       zip txs $ repeat newTipH
+                    evalToilTEmpty $
+                    trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs $
+                    zip txs $ repeat newTipH
         applyModifierToWallet wAddr (headerHash newTipH) mapModifier
         logMsg "applied" (getOldestFirst blunds) wAddr mapModifier
 
@@ -95,20 +115,22 @@ onRollbackTracking
     ( SscHelpersClass ssc
     , AccountMode m
     , WithLogger m
+    , MonadDBRead m
     )
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 onRollbackTracking blunds = do
     let newestFirst = getNewestFirst blunds
         txs = concatMap (reverse . blundTxUn) newestFirst
         newTip = (NE.last newestFirst) ^. prevBlockL
-    mapM_ (syncWalletSet newTip txs) =<< WS.getWalletAddresses
+    currentTipHH <- GS.getTip
+    mapM_ (syncWallet currentTipHH newTip txs) =<< WS.getWalletAddresses
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
     -- something a bit more reasonable.
     pure mempty
   where
-    syncWalletSet :: HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
-    syncWalletSet newTip txs wAddr = do
+    syncWallet :: HeaderHash -> HeaderHash -> [(TxAux, TxUndo)] -> CId Wal -> m ()
+    syncWallet curTip newTip txs wAddr = walletGuard curTip wAddr $ do
         allAddresses <- getWalletAddrMetasDB Ever wAddr
         encSK <- getSKByAddr wAddr
         let mapModifier = trackingRollbackTxs encSK allAddresses $

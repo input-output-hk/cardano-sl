@@ -17,6 +17,9 @@ module Pos.Client.Txp.History
 
        , MonadTxHistory(..)
 
+       , GenesisToil
+       , runGenesisToil
+
        -- * History derivation
        , getRelatedTxsByAddrs
        , deriveAddrHistory
@@ -33,12 +36,12 @@ import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import           Data.DList                   (DList)
-import qualified Data.Text.Buildable
-import           Formatting                   (build, (%), bprint)
 import qualified Data.DList                   as DL
 import qualified Data.Map.Strict              as M (lookup)
 import           Data.Tagged                  (Tagged (..))
+import qualified Data.Text.Buildable
 import qualified Ether
+import           Formatting                   (bprint, build, (%))
 import           System.Wlog                  (WithLogger)
 
 import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,

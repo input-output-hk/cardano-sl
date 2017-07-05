@@ -18,6 +18,7 @@ module Pos.Txp.Toil.Types
        , bvTotal
        , UndoMap
        , UtxoModifier
+       , fromUtxo
        , GenericToilModifier (..)
        , ToilModifier
        , tmUtxo
@@ -103,6 +104,9 @@ instance Default MemPool where
 
 type UtxoModifier = MM.MapModifier TxIn TxOutAux
 type UndoMap = HashMap TxId TxUndo
+
+fromUtxo :: Utxo -> UtxoModifier
+fromUtxo = foldr (uncurry MM.insert) mempty . M.toList
 
 instance Default UndoMap where
     def = mempty

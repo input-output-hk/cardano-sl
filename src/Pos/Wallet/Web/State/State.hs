@@ -3,7 +3,6 @@
 module Pos.Wallet.Web.State.State
        ( WalletState
        , MonadWalletWebDB
-       , WalletWebDBTag
        , WalletTip (..)
        , getWalletWebState
        , WebWalletModeDB

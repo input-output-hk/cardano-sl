@@ -29,9 +29,7 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
-import Explorer.I18n.Lang (translate)
-import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), match, toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
@@ -770,8 +768,6 @@ update (Navigate url ev) state = onlyEffects state
 
 update (UpdateView r@Dashboard) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cTitle) $ state ^. lang) $
         set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
         set route r state
     , effects:
@@ -794,8 +790,6 @@ update (UpdateView r@Dashboard) state =
 
 update (UpdateView r@(Tx tx)) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cTransaction) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -809,8 +803,6 @@ update (UpdateView r@(Address cAddress)) state =
     { state:
         set currentCAddress cAddress $
         set (viewStates <<< addressDetail <<< addressTxPagination) (PageNumber minPagination) $
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cAddress) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -824,8 +816,6 @@ update (UpdateView r@(Epoch epochIndex)) state =
     { state:
         set (viewStates <<< blocksViewState <<< blsViewPagination)
             (PageNumber minPagination) $
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cEpoch) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -836,12 +826,9 @@ update (UpdateView r@(Epoch epochIndex)) state =
 
 update (UpdateView r@(EpochSlot epochIndex slotIndex)) state =
     let lang' = state ^. lang
-        epochTitle = translate (I18nL.common <<< I18nL.cEpoch) lang'
-        slotTitle = translate (I18nL.common <<< I18nL.cSlot) lang'
+
     in
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (epochTitle <> " / " <> slotTitle) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -852,8 +839,6 @@ update (UpdateView r@(EpochSlot epochIndex slotIndex)) state =
 
 update (UpdateView r@Calculator) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cCalculator) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -863,8 +848,6 @@ update (UpdateView r@Calculator) state =
 
 update (UpdateView r@(Block hash)) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cBlock) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -886,8 +869,6 @@ update (UpdateView r@(Playground)) state =
 
 update (UpdateView r@(NotFound)) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.notfound <<< I18nL.nfTitle) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop

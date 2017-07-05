@@ -87,7 +87,6 @@ type ViewStates =
 
 type GlobalViewState =
     { gViewMobileMenuOpenend :: Boolean
-    , gViewTitle :: String
     , gViewSearchInputFocused :: Boolean
     , gViewSelectedSearch :: Search
     , gViewSearchQuery :: String

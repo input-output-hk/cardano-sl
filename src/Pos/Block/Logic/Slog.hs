@@ -34,13 +34,14 @@ import           System.Wlog           (WithLogger)
 
 import           Pos.Binary.Core       ()
 import           Pos.Block.BListener   (MonadBListener (..))
-import           Pos.Block.Core        (Block, genBlockLeaders)
+import           Pos.Block.Core        (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.Block.Pure        (verifyBlocks)
-import           Pos.Block.Types       (Blund)
-import           Pos.Constants         (lastKnownBlockVersion)
+import           Pos.Block.Types       (Blund, SlogUndo (..), Undo (..))
+import           Pos.Constants         (blkSecurityParam, lastKnownBlockVersion)
 import           Pos.Context           (lrcActionOnEpochReason)
-import           Pos.Core              (BlockVersion (..), epochIndexL, headerHash,
-                                        headerHashG, prevBlockL)
+import           Pos.Core              (BlockVersion (..), FlatSlotId, epochIndexL,
+                                        flattenSlotId, headerHash, headerHashG,
+                                        prevBlockL)
 import           Pos.DB                (SomeBatchOp (..))
 import           Pos.DB.Block          (MonadBlockDBWrite)
 import           Pos.DB.Class          (MonadDBRead, dbPutBlund)
@@ -53,7 +54,7 @@ import           Pos.Slotting          (MonadSlots (getCurrentSlot), putSlotting
 import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
 import           Pos.Util              (inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono       (NE, NewestFirst (getNewestFirst),
-                                        OldestFirst (getOldestFirst))
+                                        OldestFirst (..), toOldestFirst)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -118,7 +119,7 @@ slogVerifyBlocks
     :: forall ssc ctx m.
        SlogVerifyMode ssc ctx m
     => OldestFirst NE (Block ssc)
-    -> m ()
+    -> m (OldestFirst NE SlogUndo)
 slogVerifyBlocks blocks = do
     curSlot <- getCurrentSlot
     (adoptedBV, adoptedBVD) <- GS.getAdoptedBVFull
@@ -126,20 +127,50 @@ slogVerifyBlocks blocks = do
     let headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
     leaders <-
         lrcActionOnEpochReason
-        headEpoch
-        (sformat
-         ("slogVerifyBlocks: there are no leaders for epoch "%build) headEpoch)
-        LrcDB.getLeaders
+            headEpoch
+            (sformat
+                 ("slogVerifyBlocks: there are no leaders for epoch " %build)
+                 headEpoch)
+            LrcDB.getLeaders
     -- We take head here, because blocks are in oldest first order and
     -- we know that all of them are from the same epoch. So if there
     -- is a genesis block, it must be head and only head.
     case blocks ^. _Wrapped . _neHead of
         (Left block) ->
             when (block ^. genBlockLeaders /= leaders) $
-                throwError "Genesis block leaders don't match with LRC-computed"
+            throwError "Genesis block leaders don't match with LRC-computed"
         _ -> pass
     verResToMonadError formatAllErrors $
         verifyBlocks curSlot dataMustBeKnown adoptedBVD leaders blocks
+    -- Here we need to compute 'SlogUndo'. When we add apply a block,
+    -- we can remove one of the last slots stored in
+    -- 'BlockExtra'. This removed slot must be put into 'SlogUndo'.
+    lastSlots <- GS.getLastSlots
+    let toFlatSlot = fmap (flattenSlotId . view mainBlockSlot) . rightToMaybe
+    -- these slots will be added if we apply all blocks
+    let newSlots = mapMaybe toFlatSlot (toList blocks)
+    let combinedSlots :: OldestFirst [] FlatSlotId
+        combinedSlots = lastSlots & _Wrapped %~ (<> newSlots)
+    -- these slots will be removed if we apply all blocks, because we store
+    -- only limited number of slots
+    let removedSlots :: OldestFirst [] FlatSlotId
+        removedSlots =
+            combinedSlots & _Wrapped %~
+            (take $ length combinedSlots - blkSecurityParam)
+    -- Note: here we exploit the fact that genesis block can be only 'head'.
+    -- If we have genesis block, then size of 'newSlots' will be less than
+    -- number of blocks we verify. It means that there will definitely
+    -- be 'Nothing' in the head of the result.
+    --
+    -- It also works fine if we store less than 'blkSecurityParam' slots.
+    -- In this case we will use 'Nothing' for the oldest blocks.
+    let slogUndo :: OldestFirst [] (Maybe FlatSlotId)
+        slogUndo =
+            map Just removedSlots & _Wrapped %~
+            (replicate (length blocks - length removedSlots) Nothing <>)
+    -- NE.fromList is safe here, because it's obvious that the size of
+    -- 'slogUndo' is the same as the size of 'blocks'.
+    return $ over _Wrapped NE.fromList $ map SlogUndo slogUndo
 
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
 type SlogApplyMode ssc m =
@@ -171,17 +202,29 @@ slogApplyBlocks blunds = do
     let putTip =
             SomeBatchOp $
             GS.PutTip $ headerHash $ NE.last $ getOldestFirst blunds
+    lastSlots <- GS.getLastSlots
     sanityCheckDB
     putSlottingData =<< GS.getSlottingData
-    return $ SomeBatchOp [putTip, bListenerBatch, forwardLinksBatch, inMainBatch]
+    return $ SomeBatchOp [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
   where
     blocks = fmap fst blunds
     forwardLinks = map (view prevBlockL &&& view headerHashG) $ toList blocks
-    forwardLinksBatch =
-        SomeBatchOp $ map (uncurry GS.AddForwardLink) forwardLinks
+    forwardLinksBatch = map (uncurry GS.AddForwardLink) forwardLinks
     inMainBatch =
-        SomeBatchOp . getOldestFirst $
+        toList $
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
+    mainBlocks = mapMaybe rightToMaybe $ toList blocks
+    newSlots = flattenSlotId . view mainBlockSlot <$> mainBlocks
+    knownSlotsBatch lastSlots
+        | null newSlots = []
+        | otherwise = [GS.SetLastSlots $ lastSlots & _Wrapped %~ updateLastSlots]
+    -- Slots are in 'OldestFirst' order. So we put new slots to the
+    -- end and drop old slots from the beginning.
+    updateLastSlots lastSlots = leaveAtMostN blkSecurityParam (lastSlots ++ newSlots)
+    leaveAtMostN :: Int -> [a] -> [a]
+    leaveAtMostN n lst = drop (length lst - n) lst
+    blockExtraBatch lastSlots =
+        mconcat [knownSlotsBatch lastSlots, forwardLinksBatch, inMainBatch]
 
 -- | This function does everything that should be done when rollback
 -- happens and that is not done in other components.
@@ -190,25 +233,34 @@ slogRollbackBlocks ::
     => NewestFirst NE (Blund ssc)
     -> m SomeBatchOp
 slogRollbackBlocks blunds = do
-    inAssertMode $
-        when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
+    inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $
         assertionFailed $
         colorize Red "FATAL: we are TRYING TO ROLLBACK 0-TH GENESIS block"
     bListenerBatch <- onRollbackBlocks blunds
-
-    let putTip = SomeBatchOp $
-                 GS.PutTip $
-                 headerHash $
-                 (NE.last $ getNewestFirst blunds) ^. prevBlockL
+    let putTip =
+            SomeBatchOp $ GS.PutTip $ headerHash $
+            (NE.last $ getNewestFirst blunds) ^.
+            prevBlockL
+    lastSlots <- GS.getLastSlots
     sanityCheckDB
-    return $ SomeBatchOp [putTip, bListenerBatch, forwardLinksBatch, inMainBatch]
+    return $
+        SomeBatchOp
+            [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
   where
     blocks = fmap fst blunds
     inMainBatch =
-        SomeBatchOp . getNewestFirst $
-        fmap (GS.SetInMainChain False . view headerHashG) blocks
+        map (GS.SetInMainChain False . view headerHashG) $ toList blocks
     forwardLinksBatch =
-        SomeBatchOp . getNewestFirst $
-        fmap (GS.RemoveForwardLink . view prevBlockL) blocks
+        map (GS.RemoveForwardLink . view prevBlockL) $ toList blocks
     isGenesis0 (Left genesisBlk) = genesisBlk ^. epochIndexL == 0
     isGenesis0 (Right _)         = False
+    lastSlotsToPrepend =
+        mapMaybe (getSlogUndo . undoSlog . snd) $ toList (toOldestFirst blunds)
+    knownSlotsBatch lastSlots
+        | null lastSlotsToPrepend = []
+        | otherwise =
+            [GS.SetLastSlots $ lastSlots & _Wrapped %~ updateLastSlots]
+    updateLastSlots lastSlots =
+        take blkSecurityParam (lastSlotsToPrepend ++ lastSlots)
+    blockExtraBatch lastSlots =
+        mconcat [knownSlotsBatch lastSlots, forwardLinksBatch, inMainBatch]

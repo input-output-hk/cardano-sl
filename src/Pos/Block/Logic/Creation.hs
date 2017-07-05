@@ -14,6 +14,7 @@ module Pos.Block.Logic.Creation
        ) where
 
 import           Universum
+import           Unsafe                     (unsafeHead)
 
 import           Control.Lens               (uses, (-=), (.=), _Wrapped)
 import           Control.Monad.Catch        (try)
@@ -34,8 +35,8 @@ import           Pos.Block.Logic.Internal   (BlockApplyMode, BlockVerifyMode,
                                              applyBlocksUnsafe, toUpdateBlock)
 import           Pos.Block.Logic.Util       (withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
-import           Pos.Block.Types            (Undo (..))
-import           Pos.Constants              (slotSecurityParam)
+import           Pos.Block.Types            (SlogUndo (..), Undo (..))
+import           Pos.Constants              (blkSecurityParam, slotSecurityParam)
 import           Pos.Context                (BlkSemaphore, HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
@@ -47,6 +48,7 @@ import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
+import qualified Pos.DB.GState              as GS
 import           Pos.Delegation.Logic       (clearDlgMemPool, getDlgMempool)
 import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), ProxySKBlockInfo,
                                              mkDlgPayload)
@@ -65,6 +67,7 @@ import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload, usVerifyBlocks)
 import           Pos.Update.Poll            (PollModifier, USUndo)
 import           Pos.Util                   (maybeThrow, _neHead)
+import           Pos.Util.Chrono            (OldestFirst (..))
 import           Pos.Util.Util              (leftToPanic)
 
 type CreationMode ssc ctx m
@@ -269,7 +272,8 @@ getRawPayloadAndUndo slotId = do
     usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
     (dlgPayload, pskUndo) <- lift $ getDlgMempool
     txpUndo <- reverse <$> foldM (prependToUndo txUndo) [] sortedTxs
-    let undo usUndo = Undo txpUndo pskUndo usUndo
+    slogUndo <- getSlogUndo
+    let undo usUndo = Undo txpUndo pskUndo usUndo slogUndo
     let rawPayload =
             RawPayload
             { rpTxp = map snd sortedTxs
@@ -280,13 +284,18 @@ getRawPayloadAndUndo slotId = do
     return (rawPayload, undo)
   where
     prependToUndo txUndo undos tx =
-        case (:undos) <$> HM.lookup (fst tx) txUndo of
+        case (: undos) <$> HM.lookup (fst tx) txUndo of
             Just res -> pure res
             Nothing  -> onAbsentUndo
     convertTx (txId, txAux) = WithHash (taTx txAux) txId
     onBrokenTopo = throwError "Topology of local transactions is broken!"
     onAbsentUndo = throwError "Undo for tx from local transactions not found"
     onNoUS = "can't obtain US payload to create block"
+    getSlogUndo =
+        GS.getLastSlots <&> \case
+            (OldestFirst lastSlots)
+                | length lastSlots < blkSecurityParam -> SlogUndo Nothing
+                | otherwise -> SlogUndo $ Just $ unsafeHead lastSlots
 
 createMainBlockPure
     :: forall m ssc .

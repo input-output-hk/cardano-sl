@@ -39,7 +39,7 @@ import           Pos.Txp                     (GenericTxpLocalData, TxpHolderTag,
                                               askTxpMem)
 import           Pos.WorkMode                (RealMode (..))
 
-import           Pos.Explorer                (ExplorerExtra)
+import           Pos.Explorer                (ExplorerExtra, ExplorerBListener, runExplorerBListener)
 import           Pos.Explorer.Socket.App     (NotifierSettings, notifierApp)
 import           Pos.Explorer.Web.Server     (explorerApp, explorerHandlers,
                                               explorerServeImpl)
@@ -49,7 +49,7 @@ import           Pos.Util.TimeWarp           (runWithoutJsonLogT)
 -- Transformation to `Handler`
 -----------------------------------------------------------------
 
-type ExplorerProd = RealMode SscGodTossing
+type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
 
 notifierPlugin :: NotifierSettings -> ([WorkerSpec ExplorerProd], OutSpecs)
 notifierPlugin = first pure . worker mempty .
@@ -86,7 +86,7 @@ convertHandler
     -> ExplorerProd a
     -> Handler a
 convertHandler nc modernDBs tlw ssc delWrap psCtx slotVar ntpSlotVar handler =
-    liftIO (realRunner handler) `Catch.catches` excHandlers
+    liftIO (realRunner . runExplorerBListener $ handler) `Catch.catches` excHandlers
   where
     realRunner :: forall t . RealMode SscGodTossing t -> IO t
     realRunner (RealMode act) = runProduction

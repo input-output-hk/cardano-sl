@@ -14,7 +14,7 @@ import           Universum
 import           Control.Lens                (ix)
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (delay, fork)
-import           Serokell.Util               (listJson, pairF)
+import           Serokell.Util               (listJson, pairF, sec)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
@@ -212,16 +212,20 @@ queryBlocksWorker
     :: (WorkMode ssc m, SscWorkersClass ssc)
     => (WorkerSpec m, OutSpecs)
 queryBlocksWorker = worker requestTipOuts $ \sendActions -> do
-    slotDur <- getLastKnownSlotDuration
-    let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
-        action = forever $ do
+    let action = forever $ do
+            slotDur <- getLastKnownSlotDuration
+            let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
             recoveryCommGuard $ do
                 logInfo "Querying blocks from behind NAT"
                 triggerRecovery sendActions
             delay $ delayInterval
         handler (e :: SomeException) = do
             logWarning $ "Exception arised in queryBlocksWorker: " <> show e
-            delay $ delayInterval * 2
+             -- getLastKnownSlotDuration may fail, so we'll just wait
+             -- arbitrary number of seconds (instead of e.g. slotDur / 4)
+            delay $ sec 4
             action `catch` handler
-    action `catch` handler
+    afterDelay $ action `catch` handler
+  where
+    afterDelay action = delay (sec 3) >> action
 #endif

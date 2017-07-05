@@ -15,11 +15,11 @@ import           Data.List.NonEmpty         ((<|))
 import qualified Ether
 import           Formatting                 (build, builder, int, sformat, shown, stext,
                                              (%))
-import           Mockable                   (handleAll, throw)
+import           Mockable                   (delay, handleAll, throw)
 import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (unitBuilder)
-import           Serokell.Util.Text         (listJson)
-import           System.Wlog                (logDebug, logError, logWarning)
+import           Serokell.Util              (listJson, sec)
+import           System.Wlog                (logDebug, logError, logInfo, logWarning)
 import           Universum
 
 import           Pos.Binary.Class           (biSize)
@@ -230,7 +230,8 @@ dropRecoveryHeaderAndRepeat sendActions nodeId = do
     when kicked $ attemptRestartRecovery
   where
     attemptRestartRecovery = do
-        logDebug "Attempting to restart recovery"
+        logInfo "Attempting to restart recovery"
+        delay $ sec 2
         handleAll handleRecoveryTriggerE $ triggerRecovery sendActions
         logDebug "Attempting to restart recovery over"
     handleRecoveryTriggerE e =

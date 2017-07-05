@@ -731,10 +731,10 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit =
 addHistoryTx
     :: WalletWebMode m
     => CId Wal
-    -> Bool            -- ^ Always report incoming tx (introduced in CSM-330)
+    -> Bool            -- ^ Workaround for redemption txs (introduced in CSM-330)
     -> TxHistoryEntry
     -> m CTxs
-addHistoryTx cWalId forceIncoming wtx@THEntry{..} = do
+addHistoryTx cWalId isRedemptionTx wtx@THEntry{..} = do
     -- TODO: this should be removed in production
     diff <- maybe localChainDifficulty pure =<<
             networkChainDifficulty
@@ -745,7 +745,7 @@ addHistoryTx cWalId forceIncoming wtx@THEntry{..} = do
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
     walAddrMetas <- getWalletAddrMetas Ever cWalId
-    mkCTxs diff wtx meta' walAddrMetas forceIncoming & either (throwM . InternalError) pure
+    mkCTxs diff wtx meta' walAddrMetas isRedemptionTx & either (throwM . InternalError) pure
 
 newAddress
     :: WalletWebMode m

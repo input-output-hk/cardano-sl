@@ -21,8 +21,6 @@ module Pos.Client.Txp.History
        , getRelatedTxsByAddrs
        , deriveAddrHistory
        , deriveAddrHistoryBlk
-       , deriveAddrHistoryPartialWithTimestamp
-       , deriveAddrHistoryPartialWithoutTimestamp
        , TxHistoryRedirect
        , runTxHistoryRedirect
        ) where

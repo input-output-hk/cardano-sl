@@ -42,7 +42,6 @@ import           Formatting                       (bprint, build, sformat, shown
 import qualified Formatting                       as F
 import           Network.Wai                      (Application)
 import           Paths_cardano_sl                 (version)
-import           Pos.DB.Class                     (gsAdoptedBVData)
 import           Pos.ReportServer.Report          (ReportType (RInfo))
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Serokell.Util                    (threadDelay)
@@ -66,23 +65,28 @@ import           Pos.Client.Txp.Util              (createMTx)
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
+import           Pos.Context                      (genesisStakeholdersM)
 import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..),
                                                    addressF, bvdTxFeePolicy,
                                                    calculateTxSizeLinear,
                                                    decodeTextAddress, getCurrentTimestamp,
                                                    getTimestamp, integerToCoin,
                                                    makeRedeemAddress, mkCoin, sumCoins,
-                                                   unsafeAddCoin, unsafeIntegerToCoin,
+                                                   unsafeAddCoin, unsafeAddCoin,
+                                                   unsafeGetCoin, unsafeIntegerToCoin,
                                                    unsafeSubCoin)
-import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase, keyGen,
-                                                   SafeSigner, aesDecrypt, fakeSigner,
+import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
+                                                   SafeSigner, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
-                                                   deriveAesKeyBS, emptyPassphrase, hash,
+                                                   deriveAesKeyBS, emptyPassphrase,
+                                                   fakeSigner, hash, keyGen,
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
+import           Pos.DB.Class                     (gsAdoptedBVData, gsIsBootstrapEra)
 import           Pos.Discovery                    (getPeers)
-import           Pos.Genesis                      (genesisDevHdwSecretKeys)
+import           Pos.Genesis                      (genesisDevHdwSecretKeys,
+                                                   genesisSplitBoot)
 import           Pos.Reporting.MemState           (HasReportServers (..),
                                                    HasReportingContext (..))
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
@@ -691,9 +695,24 @@ prepareTxInfoRaw moneySource dstDistr = do
         coins = foldr1 unsafeAddCoin $ snd <$> dstDistr
     distr@(remaining, spendings) <- selectSrcAccounts coins notDstAccounts
     logDebug $ buildDistribution distr
+    bootEra <- gsIsBootstrapEra
+    genStakeholders <- genesisStakeholdersM
+    let cantSpendDust c =
+            throwM $ RequestError $
+            sformat ("Can't spend "%build%" coins: amount is too small for boot "%
+                     " era and can't be distributed among genStakeholders")
+                    c
+    let stakeDistr c =
+            if not bootEra then pure [] else do
+                -- we want to be able to distribute at least 1 coin to everybody
+                when (unsafeGetCoin c < fromIntegral (length genStakeholders)) $
+                    cantSpendDust c
+                pure $ genesisSplitBoot genStakeholders c
+
     txOuts <- forM dstDistr $ \(cAddr, coin) -> do
         addr <- decodeCIdOrFail cAddr
-        pure $ TxOutAux (TxOut addr coin) []
+        realDistr <- stakeDistr coin
+        pure $ TxOutAux (TxOut addr coin) realDistr
     srcTxOuts <- forM (toList spendings) $ \(cAddr, c) -> do
         addr <- decodeCIdOrFail $ cwamId cAddr
         pure $ TxOut addr c

@@ -31,13 +31,14 @@ import           Pos.Block.Logic.Internal   (BlockApplyMode, applyBlocksUnsafe,
 import           Pos.Block.Logic.Util       (withBlkSemaphore_)
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
 import           Pos.Constants              (slotSecurityParam)
-import           Pos.Context                (BlkSemaphore, recoveryCommGuard)
+import           Pos.Context                (BlkSemaphore, GenesisUtxo, recoveryCommGuard)
 import           Pos.Core                   (Coin, EpochIndex, EpochOrSlot (..),
                                              EpochOrSlot (..), HeaderHash, SharedSeed,
                                              SlotId (..), StakeholderId, crucialSlot,
                                              epochIndexL, getEpochOrSlot, getSlotIndex)
 import qualified Pos.DB.DB                  as DB
 import qualified Pos.DB.GState              as GS
+import qualified Pos.DB.GState.Balances     as GS
 import           Pos.Lrc.Consumer           (LrcConsumer (..))
 import           Pos.Lrc.Consumers          (allLrcConsumers)
 import           Pos.Lrc.Context            (LrcContext (lcLrcSync), LrcSyncData (..))
@@ -88,6 +89,7 @@ type LrcModeFull ssc ctx m =
     , BlockApplyMode ssc ctx m
     , MonadReader ctx m
     , HasLens BlkSemaphore ctx BlkSemaphore
+    , HasLens GenesisUtxo ctx GenesisUtxo
     )
 
 -- | Run leaders and richmen computation for given epoch. If stable
@@ -202,7 +204,7 @@ issuersComputationDo epochId = do
   where
     unionHSs = foldl' (flip HS.union) mempty
     putIsStake :: IssuersStakes -> StakeholderId -> m IssuersStakes
-    putIsStake hm id = GS.getEffectiveStake id >>= \case
+    putIsStake hm id = GS.getRealStake id >>= \case
         Nothing ->
            hm <$ (logWarning $ sformat ("Stake for issuer "%build% " not found") id)
         Just stake -> pure $ HM.insert id stake hm
@@ -210,7 +212,7 @@ issuersComputationDo epochId = do
 leadersComputationDo :: LrcMode ssc ctx m => EpochIndex -> SharedSeed -> m ()
 leadersComputationDo epochId seed =
     unlessM (isJust <$> getLeaders epochId) $ do
-        totalStake <- GS.getEffectiveTotalStake
+        totalStake <- GS.getRealTotalStake
         leaders <- runConduitRes $ GS.balanceSource .| followTheSatoshiM seed totalStake
         putLeaders epochId leaders
 
@@ -219,7 +221,7 @@ richmenComputationDo
        LrcMode ssc ctx m
     => EpochIndex -> [LrcConsumer m] -> m ()
 richmenComputationDo epochIdx consumers = unless (null consumers) $ do
-    total <- GS.getEffectiveTotalStake
+    total <- GS.getRealTotalStake
     logDebug $ "Effective total stake: " <> pretty total
     consumersAndThds <-
         zip consumers <$> mapM (flip lcThreshold total) consumers

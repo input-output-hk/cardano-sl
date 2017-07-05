@@ -29,7 +29,7 @@ import qualified Pos.Constants       as Const
 import           Pos.Context         (BlkSemaphore (..), HasNodeContext (..),
                                       HasPrimaryKey (..), NodeContext,
                                       getOurPubKeyAddress, getOurPublicKey)
-import           Pos.Crypto          (createProxySecretKey, encToPublic)
+import           Pos.Crypto          (createPsk, encToPublic)
 import           Pos.DB              (MonadDB)
 import qualified Pos.DB.GState       as GS
 import           Pos.DB.Misc         (addProxySecretKey)
@@ -142,7 +142,7 @@ putProxySecretKeys = do
     secretKey <- view primaryKey
     let eternity = (minBound, maxBound)
         makeOwnPSK =
-            flip (createProxySecretKey secretKey) eternity . encToPublic
+            flip (createPsk secretKey) eternity . encToPublic
         ownPSKs = uSecret ^.. usKeys . _tail . each . to makeOwnPSK
     for_ ownPSKs addProxySecretKey
 

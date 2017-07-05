@@ -1,3 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | Compile-time genesis data parser
 
 module Pos.Core.Genesis.Parser
@@ -19,7 +21,6 @@ compileGenCoreData :: GenesisCoreData
 compileGenCoreData =
     let file = $(embedFile =<< makeRelativeToProject ("genesis-core-" <> genesisBinSuffix <> ".bin"))
     in case decodeFull file of
-        Left a  -> error $ toText a
-        Right d -> if null (gcdAddresses d)
-                   then error "No addresses in genesis-core.bin"
-                   else d
+        Left a                        ->
+            error $ "Failed to read genesis: " <> toText a
+        Right d -> d

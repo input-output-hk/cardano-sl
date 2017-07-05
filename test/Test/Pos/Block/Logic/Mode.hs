@@ -36,7 +36,7 @@ import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Block.Core          (Block, BlockHeader)
 import           Pos.Block.Types         (Undo)
-import           Pos.Context             (GenesisStakes (..), GenesisUtxo (..))
+import           Pos.Context             (GenesisUtxo (..))
 import           Pos.Core                (IsHeader, StakeDistribution (..), StakeholderId,
                                           Timestamp (..), addressHash, makePubKeyAddress,
                                           mkCoin, unsafeGetCoin)
@@ -51,7 +51,8 @@ import           Pos.DB.Block            (MonadBlockDBWrite (..), dbGetBlockDefa
                                           dbGetHeaderSscDefault, dbGetUndoDefault,
                                           dbGetUndoSscDefault, dbPutBlundDefault)
 import           Pos.DB.DB               (closeNodeDBs, gsAdoptedBVDataDefault,
-                                          initNodeDBs, openNodeDBs)
+                                          gsIsBootstrapEraDefault, initNodeDBs,
+                                          openNodeDBs)
 import qualified Pos.DB.GState           as GState
 import           Pos.Genesis             (stakeDistribution)
 import           Pos.Launcher            (InitModeContext (..), newInitFuture,
@@ -70,8 +71,7 @@ import           Pos.Ssc.Class           (SscBlock)
 import           Pos.Ssc.Extra           (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing      (SscGodTossing)
 import           Pos.Txp                 (TxIn (..), TxOut (..), TxOutAux (..),
-                                          TxpGlobalSettings, txpGlobalSettings, utxoF,
-                                          utxoToStakes)
+                                          TxpGlobalSettings, txpGlobalSettings, utxoF)
 import           Pos.Update.Context      (UpdateContext, mkUpdateContext)
 import           Pos.Util.LoggerName     (HasLoggerName' (..), getLoggerNameDefault,
                                           modifyLoggerNameDefault)
@@ -123,7 +123,7 @@ instance Show TestParams where
 -- More distributions can be added if we want (e. g. RichPoor).
 genSuitableStakeDistribution :: Word -> Gen StakeDistribution
 genSuitableStakeDistribution stakeholdersNum =
-    oneof [genFlat{-, genBitcoin-}, pure ExponentialStakes]
+    oneof [genFlat{-, genBitcoin-}, pure (ExponentialStakes stakeholdersNum)]
   where
     totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
     genFlat =
@@ -189,7 +189,6 @@ bracketBlockTestContext testParams@TestParams {..} callback =
                     InitModeContext
                         nodeDBs
                         tpGenUtxo
-                        (GenesisStakes $ utxoToStakes $ unGenesisUtxo tpGenUtxo)
                         futureSlottingVar
                         SCSimple
                         futureLrcCtx
@@ -314,3 +313,4 @@ instance MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTe
 
 instance MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
+    gsIsBootstrapEra = gsIsBootstrapEraDefault

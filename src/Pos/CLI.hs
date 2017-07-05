@@ -138,7 +138,7 @@ data CommonArgs = CommonArgs
     , flatDistr          :: !(Maybe (Int, Int))
     , bitcoinDistr       :: !(Maybe (Int, Int))
     , richPoorDistr      :: !(Maybe (Int, Int, Integer, Double))
-    , expDistr           :: !Bool
+    , expDistr           :: !(Maybe Int)
     , sysStart           :: !Timestamp
       -- ^ The system start time.
     } deriving Show
@@ -158,7 +158,7 @@ commonArgsParser = do
     flatDistr     <- if isDevelopment then flatDistrOptional else pure Nothing
     bitcoinDistr  <- if isDevelopment then btcDistrOptional  else pure Nothing
     richPoorDistr <- if isDevelopment then rnpDistrOptional  else pure Nothing
-    expDistr      <- if isDevelopment then expDistrOption    else pure False
+    expDistr      <- if isDevelopment then expDistrOption    else pure Nothing
     --
     sysStart <- sysStartParser
     pure CommonArgs{..}
@@ -278,10 +278,14 @@ rnpDistrOptional =
                 \ (number of richmen, number of poors, total stake, richmen's\
                 \ share of stake)."
 
-expDistrOption :: Opt.Parser Bool
+expDistrOption :: Opt.Parser (Maybe Int)
 expDistrOption =
-    Opt.switch
-        (Opt.long "exp-distr" <> Opt.help "Enable exponential distribution")
+    Opt.optional $
+        Opt.option Opt.auto $
+            templateParser
+                "exp-distr"
+                "INT"
+                "Use exponential distribution with given amount of nodes."
 
 timeLordOption :: Opt.Parser Bool
 timeLordOption =

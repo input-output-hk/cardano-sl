@@ -33,8 +33,6 @@ import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import           Data.DList                   (DList)
-import qualified Data.Text.Buildable
-import           Formatting                   (build, (%), bprint)
 import qualified Data.DList                   as DL
 import qualified Data.Map.Strict              as M (lookup)
 import           Data.Tagged                  (Tagged (..))
@@ -91,10 +89,6 @@ data TxHistoryEntry = THEntry
     , _thOutputAddrs :: ![Address]
     , _thTimestamp   :: !(Maybe Timestamp)
     } deriving (Show, Eq, Generic)
-
-instance Buildable TxHistoryEntry where
-    build THEntry{..} =
-        bprint ("TxId "%build%", timestamp "%build) _thTxId _thTimestamp
 
 makeLenses ''TxHistoryEntry
 

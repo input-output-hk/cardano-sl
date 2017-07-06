@@ -13,6 +13,6 @@ yarn install # or use npm install
 scripts/generate-backend-lenses.sh
 scripts/generate-frontend-lenses.sh
 
-yarn start # or use npm install
+yarn start # or use npm start
 
 # open http://localhost:3100/

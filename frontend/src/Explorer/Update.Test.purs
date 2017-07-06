@@ -60,7 +60,8 @@ testUpdate =
                         , blockD
                         ]
                     initialState' = set latestBlocks (Success currentBlocks) $
-                        set (dashboardViewState <<< dbViewBlockPagination) (PageNumber totalPages)
+                        set (dashboardViewState <<< dbViewBlockPagination) (PageNumber totalPages) $
+                        set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages)
                         initialState
                     effModel = update (SocketBlocksPageUpdated (Right (Tuple totalPages newBlocks))) initialState'
                     state = _.state effModel
@@ -72,19 +73,20 @@ testUpdate =
                 let currentBlocks =
                         [ blockA
                         , blockB
+                        , blockC
                         ]
                     newBlocks =
-                        [ blockC
-                        , blockD
+                        [ blockD
                         ]
                     initialState' = set latestBlocks (Success currentBlocks) $
-                        set (dashboardViewState <<< dbViewBlockPagination) (PageNumber totalPages)
+                        set (dashboardViewState <<< dbViewBlockPagination) (PageNumber totalPages) $
+                        set (dashboardViewState <<< dbViewMaxBlockPagination) (Success <<< PageNumber $ totalPages - 1)
                         initialState
-                    effModel = update (SocketBlocksPageUpdated (Right (Tuple (totalPages + 1) newBlocks))) initialState'
+                    effModel = update (SocketBlocksPageUpdated (Right (Tuple totalPages newBlocks))) initialState'
                     state = _.state effModel
                     blocksResult = withDefault [] $ state ^. latestBlocks
                     pageResult = state ^. (dashboardViewState <<< dbViewBlockPagination)
-                (gShow blocksResult) `shouldEqual` (gShow currentBlocks)
+                (gShow blocksResult) `shouldEqual` (gShow newBlocks)
                 (gShow pageResult) `shouldEqual` (gShow $ PageNumber totalPages)
             it "not to update latestBlocks and current page number since we are not at the last page" do
                 let currentBlocks =
@@ -96,16 +98,17 @@ testUpdate =
                         , blockC
                         , blockD
                         ]
+                    currentPage = totalPages - 2
                     initialState' = set latestBlocks (Success currentBlocks) $
-                        set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber (totalPages + 2))
+                        set (dashboardViewState <<< dbViewBlockPagination) (PageNumber currentPage) $
+                        set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages)
                         initialState
                     effModel = update (SocketBlocksPageUpdated (Right (Tuple totalPages newBlocks))) initialState'
                     state = _.state effModel
                     blockResult = withDefault [] $ state ^. latestBlocks
                     pageResult = state ^. (dashboardViewState <<< dbViewBlockPagination)
-                    expectedPage = initialState' ^. (dashboardViewState <<< dbViewBlockPagination)
                 (gShow blockResult) `shouldEqual` (gShow currentBlocks)
-                (gShow pageResult) `shouldEqual` (gShow expectedPage)
+                (gShow pageResult) `shouldEqual` (gShow $ PageNumber currentPage)
             it "to count total pages"
                 let blocks = [ blockC ]
                     effModel = update (SocketBlocksPageUpdated (Right (Tuple totalPages blocks))) initialState

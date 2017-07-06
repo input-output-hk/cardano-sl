@@ -81,7 +81,9 @@ update SocketPing state =
 update (SocketBlocksPageUpdated (Right (Tuple totalPages blocks))) state =
     noEffects $
     over latestBlocks (\bl -> if updateBlocks then Success blocks else bl) $
-    over (dashboardViewState <<< dbViewBlockPagination) (\currentPage -> if updateCurrentPage then PageNumber totalPages else currentPage) $
+    over (dashboardViewState <<< dbViewBlockPagination)
+        (\ pn@(PageNumber page) -> if updateCurrentPage then PageNumber totalPages else pn) $
+        -- ^ to keep staying at last page we have to update `dbViewBlockPagination`
     set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages) state
   where
     latestBlocksCheck = if updateBlocks
@@ -90,7 +92,6 @@ update (SocketBlocksPageUpdated (Right (Tuple totalPages blocks))) state =
     currentBlockPage = state ^. (dashboardViewState <<< dbViewBlockPagination)
     updateBlocks = (currentBlockPage == PageNumber totalPages) || updateCurrentPage
     updateCurrentPage = currentBlockPage == (PageNumber $ totalPages - 1) && (length blocks == 1)
-                        -- ^ to keep staying at last page
 
 
 update (SocketBlocksPageUpdated (Left error)) state = noEffects $

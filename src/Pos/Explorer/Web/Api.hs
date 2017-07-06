@@ -6,11 +6,10 @@
 module Pos.Explorer.Web.Api
        ( ExplorerApi
        , explorerApi
-       , BlocksTotal  
        , BlocksPages
        , BlocksPagesTotal
        , BlocksSummary
-       , BlocksTxs  
+       , BlocksTxs
        , TxsLast
        , TxsSummary
        , AddressSummary
@@ -31,11 +30,6 @@ import           Universum
 
 -- | Common prefix for all endpoints.
 type API = "api"
-
-type BlocksTotal = API
-    :> "blocks"
-    :> "total"
-    :> Get '[JSON] (Either ExplorerError Integer)
 
 type BlocksPages = API
     :> "blocks"
@@ -93,11 +87,10 @@ type EpochSlotSearch = API
 
 -- | Servant API which provides access to explorer
 type ExplorerApi =
-         BlocksTotal
-    :<|> BlocksPages
+         BlocksPages
     :<|> BlocksPagesTotal
     :<|> BlocksSummary
-    :<|> BlocksTxs  
+    :<|> BlocksTxs
     :<|> TxsLast
     :<|> TxsSummary
     :<|> AddressSummary

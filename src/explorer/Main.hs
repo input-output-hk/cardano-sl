@@ -17,26 +17,21 @@ import qualified Ether
 import           Formatting                 (sformat, shown, (%))
 import           Mockable                   (Production, currentTime)
 import           Network.Transport.Abstract (Transport, hoistTransport)
-import qualified Network.Transport.TCP      as TCP (TCPAddr (..),
-                                                    TCPAddrInfo (..))
+import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
 import           Serokell.Util              (sec)
-import           System.Wlog                (logInfo, logDebug)
+import           System.Wlog                (logInfo)
 
 import           Pos.Binary                 ()
 import qualified Pos.CLI                    as CLI
-import           Pos.Communication          (OutSpecs, WorkerSpec, worker,
-                                             wrapActionSpec)
+import           Pos.Communication          (OutSpecs, WorkerSpec, worker, wrapActionSpec)
+import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
-import           Pos.DHT.Workers            (dhtWorkers)
-import           Pos.Discovery              (DiscoveryContextSum (..))
-#ifndef DEV_MODE
-import           Pos.Genesis                (genesisStakeDistribution)
-#endif
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
                                              foreverRejoinNetwork)
-import           Pos.Launcher               (NodeParams (..),
-                                             bracketResourcesKademlia, runNode,
-                                             runRealBasedMode)
+import           Pos.DHT.Workers            (dhtWorkers)
+import           Pos.Discovery              (DiscoveryContextSum (..))
+import           Pos.Launcher               (NodeParams (..), bracketResourcesKademlia,
+                                             runNode, runRealBasedMode)
 import           Pos.Shutdown               (triggerShutdown)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Types                  (Timestamp (Timestamp))
@@ -46,8 +41,7 @@ import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
 import           Pos.WorkMode               (RealMode, WorkMode)
 
-import           Pos.Explorer               (ExplorerBListener,
-                                             runExplorerBListener)
+import           Pos.Explorer               (ExplorerBListener, runExplorerBListener)
 import           Pos.Explorer.Socket        (NotifierSettings (..))
 import           Pos.Explorer.Web           (explorerPlugin, notifierPlugin)
 
@@ -77,14 +71,14 @@ action kad args@Args {..} transport = do
     currentParams <- getNodeParams args systemStart
 
     putText "Running using GodTossing"
-    let wDhtWorkers 
+    let wDhtWorkers
             :: ([WorkerSpec ExplorerProd], OutSpecs)
             -> ([WorkerSpec ExplorerProd], OutSpecs)
         wDhtWorkers workers = first (map $ wrapActionSpec $ "worker" <> "dht") $ workers
 
     let plugins :: ([WorkerSpec ExplorerProd], OutSpecs)
         plugins = mconcatPair
-            [ explorerPlugin webPort 
+            [ explorerPlugin webPort
             , notifierPlugin NotifierSettings{ nsPort = notifierPort }
             , wDhtWorkers $ lDhtWorkers kad
             , updateTriggerWorker
@@ -101,8 +95,8 @@ action kad args@Args {..} transport = do
         (runNode plugins)
   where
     lDhtWorkers
-        :: WorkMode SscGodTossing m 
-        => KademliaDHTInstance 
+        :: WorkMode SscGodTossing m
+        => KademliaDHTInstance
         -> ([WorkerSpec m], OutSpecs)
     lDhtWorkers kDHTInstance = dhtWorkers kDHTInstance
 
@@ -121,7 +115,6 @@ action kad args@Args {..} transport = do
             liftBListenerRedirects
       where
         unwrapEMode = runExplorerBListener
-
 
 updateTriggerWorker
     :: ([WorkerSpec ExplorerProd], OutSpecs)
@@ -154,11 +147,9 @@ getNodeSystemStart cliOrConfigSystemStart
 
 printFlags :: IO ()
 printFlags = do
-#ifdef DEV_MODE
-    putText "[Attention] We are in DEV mode"
-#else
-    putText "[Attention] We are in PRODUCTION mode"
-#endif
+    if isDevelopment
+        then putText "[Attention] We are in DEV mode"
+        else putText "[Attention] We are in PRODUCTION mode"
     inAssertMode $ putText "Asserts are ON"
 
 

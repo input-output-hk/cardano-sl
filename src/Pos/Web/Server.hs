@@ -41,8 +41,9 @@ import qualified Pos.Lrc.DB                           as LrcDB
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp                              (TxOut (..), toaOut)
-import           Pos.Txp.MemState                     (GenericTxpLocalData, TxpHolderTag,
-                                                       askTxpMem, getLocalTxs)
+import           Pos.Txp.MemState                     (GenericTxpLocalData, TxpMetrics,
+                                                       TxpHolderTag, askTxpMem,
+                                                       getLocalTxs, ignoreTxpMetrics)
 import           Pos.Types                            (EpochIndex (..), SlotLeaders)
 import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
@@ -93,7 +94,7 @@ type WebHandler ssc =
     DBPureRedirect $
     Ether.ReadersT
         ( Tagged DB.NodeDBs DB.NodeDBs
-        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
+        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
         ) (
     Ether.ReadersT (NodeContext ssc) Production
     )
@@ -110,7 +111,7 @@ convertHandler nc nodeDBs wrap handler =
             flip Ether.runReadersT nc .
             flip Ether.runReadersT
               ( Tagged @DB.NodeDBs nodeDBs
-              , Tagged @TxpHolderTag wrap
+              , Tagged @TxpHolderTag (wrap, ignoreTxpMetrics)
               ) .
             runDBPureRedirect $
             handler)

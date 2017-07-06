@@ -244,7 +244,7 @@ createMainBlockFinish slotId pske prevHeader = do
         verifyBlocksPrefix (one (Right block)) >>=
         either onFailure (const onSuccess)
     clearMempools = do
-        clearTxpMemPool
+        clearTxpMemPool "createMainBlockFinish"
         sscResetLocal
         clearUSMemPool
         lift $ clearDlgMemPool

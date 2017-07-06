@@ -34,6 +34,7 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import           Data.DList                   (DList)
 import qualified Data.DList                   as DL
+import qualified Data.HashMap.Strict          as HM
 import qualified Data.Map.Strict              as M (lookup)
 import           Data.Tagged                  (Tagged (..))
 import qualified Ether
@@ -43,13 +44,15 @@ import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
                                                mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
 import           Pos.Context                  (GenesisUtxo, genesisUtxoM)
-import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
-                                               Timestamp (..), difficultyL, SlotId(..), EpochIndex)
+import           Pos.Core                     (Address, ChainDifficulty, EpochIndex,
+                                               HeaderHash, SlotId (..), Timestamp (..),
+                                               difficultyL)
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadRealDB)
 import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.GState                as GS
-import           Pos.Slotting                 (MonadSlots, getSlotStartPure, EpochSlottingData)
+import           Pos.Slotting                 (EpochSlottingData, MonadSlots,
+                                               getSlotStartPure)
 import           Pos.Ssc.Class                (SscHelpersClass)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
@@ -229,13 +232,14 @@ instance
         => Tagged ssc ([Address] -> TxHistoryRedirect m (DList TxHistoryEntry))
     getBlockHistory = Tagged $ \addrs -> do
         bot <- GS.getBot
-        sd <- GS.getSlottingData
+        -- AJ: TODO: Efficiency
+        sd <- HM.fromList <$> GS.getAllSlottingData
 
         let fromBlund :: Blund ssc -> GenesisHistoryFetcher m (Block ssc)
             fromBlund = pure . fst
 
             getBlockTimestamp :: MainBlock ssc -> Maybe Timestamp
-            getBlockTimestamp blk = getSlotStartPure True (blk ^. mainBlockSlot) sd
+            getBlockTimestamp blk = getSlotStartPure (blk ^. mainBlockSlot) sd
 
             blockFetcher :: HeaderHash -> GenesisHistoryFetcher m (DList TxHistoryEntry)
             blockFetcher start = GS.foldlUpWhileM fromBlund start (const $ const True)

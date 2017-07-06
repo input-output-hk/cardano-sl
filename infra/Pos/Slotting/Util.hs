@@ -42,7 +42,8 @@ import           Pos.Shutdown           (MonadShutdownMem, runIfNotShutdown)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
 import           Pos.Slotting.MemState  (MonadSlotsData (..))
-import           Pos.Slotting.Types     (EpochSlottingData (..), computeSlotStart)
+import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData,
+                                         computeSlotStart, lookupEpochSlottingData)
 import           Pos.Util.Util          (maybeThrow)
 
 -- | Get flat id of current slot based on MonadSlots.
@@ -51,11 +52,16 @@ getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
 getSlotStart :: MonadSlotsData m => SlotId -> m (Maybe Timestamp)
-getSlotStart si@(SlotId {..}) = fmap (getSlotStartPure si) <$> getEpochSlottingData siEpoch
+getSlotStart si@(SlotId {..}) = fmap (getSlotStartPureFromEpoch si) <$> getEpochSlottingData siEpoch
 
 -- | Pure timestamp calculation for a given slot.
-getSlotStartPure :: SlotId -> EpochSlottingData -> Timestamp
-getSlotStartPure = computeSlotStart
+getSlotStartPureFromEpoch :: SlotId -> EpochSlottingData -> Timestamp
+getSlotStartPureFromEpoch = computeSlotStart
+
+-- | Pure timestamp calculation for a given slot.
+getSlotStartPure :: SlotId -> SlottingData -> Maybe Timestamp
+getSlotStartPure si sd = getSlotStartPureFromEpoch si <$> esd
+  where esd = lookupEpochSlottingData (siEpoch si) sd
 
 -- | Get timestamp when given slot starts empatically, which means
 -- that function throws exception when slot start is unknown.

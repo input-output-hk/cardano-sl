@@ -15,13 +15,12 @@ module Pos.Explorer.Web.Server
        -- function useful for socket-io server
        , topsortTxsOrFail
        , getMempoolTxs
-       , getLastBlocks
        , getBlocksLastPage
        ) where
 
 import           Universum
 
-import           Control.Lens                   (at, _Right, _Wrapped)
+import           Control.Lens                   (at, _Right)
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
@@ -56,10 +55,8 @@ import           Pos.Txp                        (MonadTxpMem, txpTxs)
 import           Pos.Types                      (Address (..), Coin, EpochIndex,
                                                  HeaderHash,
                                                  LocalSlotIndex (..), Timestamp,
-                                                 difficultyL, gbHeader,
-                                                 gbhConsensus,
-                                                 getChainDifficulty,
-                                                 headerHashG, mkCoin,
+                                                 difficultyL, gbHeader, gbhConsensus,
+                                                 getChainDifficulty, mkCoin,
                                                  mkLocalSlotIndex, prevBlockL,
                                                  siEpoch, siSlot, sumCoins,
                                                  unsafeIntegerToCoin,
@@ -112,8 +109,6 @@ explorerApp serv = serve explorerApi <$> serv
 
 explorerHandlers :: ExplorerMode m => SendActions m -> ServerT ExplorerApi m
 explorerHandlers _sendActions =
-      apiBlocksTotal
-    :<|>
       apiBlocksPages
     :<|>
       apiBlocksPagesTotal
@@ -130,7 +125,6 @@ explorerHandlers _sendActions =
     :<|>
       apiEpochSlotSearch
   where
-    apiBlocksTotal       = catchExplorerError getBlocksTotal
     apiBlocksPages       = getBlocksPagesDefault
     apiBlocksPagesTotal  = getBlocksPagesTotalDefault
     apiBlocksSummary     = catchExplorerError . getBlockSummary
@@ -164,100 +158,6 @@ explorerHandlers _sendActions =
 ----------------------------------------------------------------
 -- API Functions
 ----------------------------------------------------------------
-
--- TODO: Currently waiting for removal if no one requests this in the near future.
-
--- | Get last blocks from the blockchain.
---
--- What we see when offset < blocksTotal is:
---
---  * we start at blocksTotal - offset (we have 180 blocks and we offset them
---    by 170 - we start at the block 10)
---
---  * we end at blocksTotal - offset - limit (we have 180 blocks and we offset them
---    by 170 and set the limit to 10 - we end at the block 0)
---
--- Why this offset/limit scheme - https://www.petefreitag.com/item/451.cfm
-getLastBlocks
-    :: (ExplorerMode m)
-    => Word
-    -> Word
-    -> m [CBlockEntry]
-getLastBlocks limit offset = do
-    -- Get tip block header hash.
-    tipHash     <- GS.getTip
-
-    -- Get total blocks in the blockchain. We presume that the chance that the
-    -- a new block is going to be generated from here until we search for them
-    -- is very low.
-    blocksTotal <- toInteger <$> getBlocksTotal
-
-    -- Make sure we aren't offseting more than the beginning of the blockchain.
-    when (offsetInt > blocksTotal) $
-        throwM $ Internal "Offset cannot be greater than total blocks number."
-
-    -- Calculate from where to where we should take blocks.
-    let blocksEndIndex   = blocksTotal - offsetInt
-    let blocksStartIndex = max 0 (blocksEndIndex - limitInt)
-
-    -- Verify limit/offset calculation.
-    when (blocksStartIndex > blocksEndIndex) $
-        throwM $ Internal "Starting index cannot be larger than the beginning index."
-
-    -- Find the end main block at the end index if it exists, and return it.
-    foundEndBlock <- findMainBlockWithIndex tipHash blocksEndIndex >>=
-        maybeThrow (Internal "Block with specified index cannot be found!")
-
-    -- Get the header hash from the found end block.
-    let foundEndHeaderHash  = foundEndBlock ^. headerHashG
-
-    -- Take blocks until you reach the start index.
-    let takeBlocks block    = getBlockIndex block >= blocksStartIndex
-
-    -- Now we can reuse an existing function to fetch blocks.
-    foundBlocks   <- DB.loadBlocksWhile @SscGodTossing takeBlocks foundEndHeaderHash
-
-    -- Unwrap the blocks from @NewestFirst@ wrapper.
-    let blocks     = foundBlocks ^. _Wrapped
-    -- We want just the Main blocks, not the Genesis blocks, so we fetch them.
-    let mainBlocks = rights blocks
-
-    -- Transfrom all @MainBlock@ to @CBlockEntry@.
-    pure mainBlocks >>= traverse toBlockEntry
-  where
-    offsetInt           = toInteger offset
-    limitInt            = toInteger limit - 1 -- Remove included block
-    getBlockIndex block = toInteger $ getChainDifficulty $ block ^. difficultyL
-
-    -- | Find block matching the sent index/difficulty.
-    findMainBlockWithIndex
-        :: (DB.MonadBlockDB SscGodTossing m, MonadDBRead m)
-        => HeaderHash
-        -> Integer
-        -> m (Maybe (MainBlock SscGodTossing))
-    findMainBlockWithIndex headerHash index
-        -- When we reach the genesis block, return @Nothing@. This is
-        -- literaly the first block ever, so we reached the begining of the
-        -- whole blockchain and there is nothing more to search.
-        | headerHash == genesisHash = pure $ Nothing
-        -- Otherwise iterate back from the top block (called tip) and
-        -- search for the block satisfying the predicate.
-        | otherwise = do
-            -- Get the block with the sent hash, throw exception if/when the block
-            -- search fails.
-            block <- DB.blkGetBlock @SscGodTossing headerHash >>=
-                maybeThrow (Internal "Block with hash cannot be found!")
-
-            -- If there is a block then iterate backwards with the predicate
-            let prevBlock = block ^. prevBlockL
-
-            -- If the index is correct and it's a @Main@ block
-            if (getBlockIndex block == index) && (isRight block)
-                -- When the predicate is true, return the @Main@ block
-                then pure $ block ^? _Right
-                -- When the predicate is false, keep searching backwards
-                else findMainBlockWithIndex prevBlock index
-
 
 -- | Get the total number of blocks/slots currently available.
 -- Total number of main blocks   = difficulty of the topmost (tip) header.
@@ -315,7 +215,7 @@ getBlocksPage mPageNumber pageSize = do
   where
 
     -- Either get the @HeaderHash@es from the @Page@ or throw an exception.
-    getPageHHsOrThrow 
+    getPageHHsOrThrow
         :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
         => Int
         -> m [HeaderHash]
@@ -326,11 +226,11 @@ getBlocksPage mPageNumber pageSize = do
         errMsg = sformat ("No blocks on page "%build%" found!") pageNumber
 
     -- Either get the block from the @HeaderHash@ or throw an exception.
-    getBlockOrThrow 
-        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m) 
-        => HeaderHash 
+    getBlockOrThrow
+        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        => HeaderHash
         -> m (Block SscGodTossing)
-    getBlockOrThrow headerHash = DB.blkGetBlock headerHash >>= 
+    getBlockOrThrow headerHash = DB.blkGetBlock headerHash >>=
         maybeThrow (Internal "Block with hash cannot be found!")
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 stack exec -- cardano-explorer \
-    --system-start 1498743070 \
+    --system-start 1499246772 \
     --log-config log-config.yaml \
     --logs-prefix "logs/testnet" \
     --db-path db-testnet \

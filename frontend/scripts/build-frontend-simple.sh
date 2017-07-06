@@ -2,7 +2,6 @@
 
 set -e
 
-cd cardano-sl-explorer
 rm -rf frontend/src/Generated
 stack exec -- cardano-explorer-hs2purs --bridge-path ./frontend/src/Generated
 

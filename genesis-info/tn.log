@@ -1,0 +1,28 @@
+Running command: stack exec cardano-keygen -- -f /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-{}.key -m 4 -n 12000 --richmen-share 0.94 --testnet-stake 19072918462000000 --utxo-file /home/georgeee/work/cardano-sl/scripts/generate/../avvm-files/utxo-dump-last-new.json --randcerts --blacklisted /home/georgeee/work/cardano-sl/scripts/generate/../avvm-files/full_blacklist.js --fake-avvm-seed-pattern avvm/fake-{}.seed --fake-avvm-entries 100
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-1.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-2.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-3.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-4.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-5.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-6.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-7.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-8.key has access mode 644 instead of 600. Fixing it automatically.
+Key file at /home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-9.key has access mode 644 instead of 600. Fixing it automatically.
+USING RANDOM STAKEHOLDER ID, WRITING KEY TO redeemingHolderKey15648
+NOT FOR PRODUCTION USAGE, ONLY FOR TESTING
+IF YOU INTEND TO GENERATE GENESIS FOR PRODUCTION, STOP RIGHT HERE AND USE `--fileholder <path to secret>` OPTION. THIS IS SERIOUS.
+Removing 101 entries from utxo (out of 188 total entries in the blacklist)
+Total avvm stake after applying blacklist: 25927070538000000
+12004 keyfiles are generated
+Total testnet genesis stake: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 24000, sdPoorStake = Coin {getCoin = 47682296155}}
+100 fake avvm seeds are generated
+testnet genesis created successfully. First 30 addresses: [PubKeyAddress 7bfeaf07a48336f74667ac63857cb1045c1c8ebeae83b54fabb4770c (attrs: {}), PubKeyAddress 60b447024e78c88f841722e4707788a78859e28783f09c28cc0bdf45 (attrs: {}), PubKeyAddress 562cfb3cc5e3dcdf19bc7f0a00faad9f419b85a1d73a92bbe0e93559 (attrs: {}), PubKeyAddress 85d25785f2cca1b963497fe8bde4606968b63e5d36ee10e7fa060d4e (attrs: {}), PubKeyAddress 85b2f5a8f5e830130cc4d2dd6030b38d96887f88c7eb18bd2e0a5dc5 (attrs: {}), PubKeyAddress cf946f7464867bb5be247d62907ed43276b2cf1e01dfbb72ec49f03c (attrs: {}), PubKeyAddress 9e6d40a3b387a1da77ec7d8fc1d67b5a9fc84ba299d8ad3525efd061 (attrs: {}), PubKeyAddress 35531c3d3ee70587dc69a3cdc151fd12062b3e041560cf3f135d1160 (attrs: {}), PubKeyAddress 573b105e21a2ebea496768a5492fc323dac3b877c36e73eec3fc0e66 (attrs: {}), PubKeyAddress 7a516823a26a4786a177f606d80c63a0c1beca7de5ce41395c941b45 (attrs: {})] distr: RichPoorStakes {sdRichmen = 4, sdRichStake = Coin {getCoin = 4482135838570000}, sdPoor = 24000, sdPoorStake = Coin {getCoin = 47682296155}}
+core/genesis-core.bin generated successfully
+[generating VSS keys for tests...]
+[generating keys for tests...]
+godtossing/genesis-godtossing.bin generated successfully
+'/home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-1.key.primary' -> 'nodes/key1.sk'
+'/home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-2.key.primary' -> 'nodes/key2.sk'
+'/home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-3.key.primary' -> 'nodes/key3.sk'
+'/home/georgeee/work/cardano-sl/scripts/generate/../../secrets/secret-4.key.primary' -> 'nodes/key4.sk'
+'redeemingHolderKey15648' -> 'nodes/key0.sk'

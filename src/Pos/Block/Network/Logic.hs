@@ -291,7 +291,7 @@ requestHeaders cont mgh nodeId _ conv = do
             (map headerHash headers) nodeId (unitBuilder $ biSize headers)
         case matchRequestedHeaders headers mgh inRecovery of
             MRGood           -> do
-                handleRequestedHeaders cont headers
+                handleRequestedHeaders cont inRecovery headers
             MRUnexpected msg -> handleUnexpected headers msg
   where
     onNothing = do
@@ -314,10 +314,11 @@ handleRequestedHeaders
     :: forall ssc m.
        WorkMode ssc m
     => (NewestFirst NE (BlockHeader ssc) -> m ())
+    -> Bool -- recovery in progress?
     -> NewestFirst NE (BlockHeader ssc)
     -> m ()
-handleRequestedHeaders cont headers = do
-    classificationRes <- classifyHeaders headers
+handleRequestedHeaders cont inRecovery headers = do
+    classificationRes <- classifyHeaders inRecovery headers
     let newestHeader = headers ^. _Wrapped . _neHead
         newestHash = headerHash newestHeader
         oldestHash = headerHash $ headers ^. _Wrapped . _neLast

@@ -26,7 +26,7 @@ import           Serokell.Util.Verify      (VerificationRes (..), isVerSuccess)
 import           System.Wlog               (WithLogger, logDebug)
 
 import           Pos.Block.Core            (Block, BlockHeader)
-import           Pos.Block.Logic.Util      (lcaWithMainChain, needRecovery)
+import           Pos.Block.Logic.Util      (lcaWithMainChain)
 import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeader,
                                             verifyHeaders)
 import           Pos.Constants             (blkSecurityParam, genesisHash,
@@ -152,15 +152,15 @@ classifyHeaders ::
        , MonadCatch m
        , WithLogger m
        )
-    => NewestFirst NE (BlockHeader ssc)
+    => Bool -- recovery in progress?
+    -> NewestFirst NE (BlockHeader ssc)
     -> m (ClassifyHeadersRes ssc)
-classifyHeaders headers = do
+classifyHeaders inRecovery headers = do
     tipHeader <- DB.getTipHeader @(Block ssc)
     let tip = headerHash tipHeader
     haveOldestParent <- isJust <$> DB.blkGetHeader @ssc oldestParentHash
     let headersValid = isVerSuccess $
                        verifyHeaders (headers & _Wrapped %~ toList)
-    needRecovery_ <- needRecovery @ssc
     mbCurrentSlot <- getCurrentSlot
     let newestHeaderConvertedSlot =
             case newestHeader ^. epochOrSlotG of
@@ -178,7 +178,7 @@ classifyHeaders headers = do
              pure $ CHsUseless
                  "Newest hash difficulty is not greater than our tip's"
        | Just currentSlot <- mbCurrentSlot,
-         not needRecovery_,
+         not inRecovery,
          newestHeaderConvertedSlot /= currentSlot ->
              pure $ CHsUseless $ sformat
                  ("Newest header is from slot "%build%", but current slot"%

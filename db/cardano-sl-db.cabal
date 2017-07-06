@@ -20,16 +20,21 @@ library
                        Pos.DB.GState.Common
                        Pos.DB.GState.Balances
                        Pos.DB.Misc.Common
-                       Pos.DB.Redirect
-                       Pos.DB.Types
+                       Pos.DB.Pure
+                       Pos.DB.Rocks
+                       Pos.DB.Rocks.Functions
+                       Pos.DB.Rocks.Types
 
   build-depends:       base
                      , bytestring
                      , cardano-sl-core
                      , concurrent-extra
                      , conduit
+                     , containers
                      , data-default
+                     , directory
                      , ether >= 0.5
+                     , filepath
                      , formatting
                      , lens
                      , log-warper

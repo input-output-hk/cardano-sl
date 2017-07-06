@@ -23,9 +23,15 @@ module Pos.DB.Block
        , loadHeadersByDepth
        , loadHeadersByDepthWhile
 
+       -- * Pure implementation
+       , dbGetHeaderPureDefault
+       , dbGetBlockPureDefault
+       , dbGetUndoPureDefault
+       , dbPutBlundPureDefault
+
        -- * MonadBlockDB
        , MonadBlockDB
-       , MonadBlockDBWrite (..)
+       , MonadBlockDBWrite
        , dbGetBlockDefault
        , dbGetUndoDefault
        , dbGetHeaderDefault
@@ -37,39 +43,40 @@ module Pos.DB.Block
 
 import           Universum
 
-import           Control.Lens                   (_Wrapped)
-import           Control.Monad.Trans            (MonadTrans (..))
-import           Control.Monad.Trans.Control    (MonadBaseControl)
-import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Data.ByteArray                 (convert)
-import qualified Data.ByteString                as BS (readFile, writeFile)
-import           Data.Default                   (Default (def))
-import           Formatting                     (build, formatToString, sformat, (%))
-import           System.Directory               (createDirectoryIfMissing, removeFile)
-import           System.FilePath                ((</>))
-import           System.IO.Error                (isDoesNotExistError)
+import           Control.Lens          (at, _Wrapped)
+import           Data.ByteArray        (convert)
+import qualified Data.ByteString       as BS (readFile, writeFile)
+import           Data.Default          (Default (def))
+import           Ether.Internal        (HasLens (..))
+import           Formatting            (build, formatToString, sformat, (%))
+import           System.Directory      (createDirectoryIfMissing, removeFile)
+import           System.FilePath       ((</>))
+import           System.IO.Error       (isDoesNotExistError)
 
-import           Pos.Binary.Block               ()
-import           Pos.Binary.Class               (Bi, decodeFull, encode)
-import           Pos.Block.Core                 (Block, BlockHeader, GenesisBlock)
-import qualified Pos.Block.Core                 as BC
-import           Pos.Block.Types                (Blund, Undo (..))
-import           Pos.Constants                  (genesisHash)
-import           Pos.Core                       (HasDifficulty (difficultyL),
-                                                 HasPrevBlock (prevBlockL), HeaderHash,
-                                                 IsHeader, headerHash)
-import           Pos.Crypto                     (hashHexF, shortHashF)
-import           Pos.DB.Class                   (DBTag (..), MonadBlockDBGeneric (..),
-                                                 MonadDBRead, MonadRealDB, dbGetBlund,
-                                                 getBlockIndexDB, getNodeDBs)
-import           Pos.DB.Error                   (DBError (DBMalformed))
-import           Pos.DB.Functions               (dbGetBi, rocksDelete, rocksPutBi)
-import           Pos.DB.Types                   (blockDataDir)
-import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
-import           Pos.Ssc.Class.Types            (SscBlock)
-import           Pos.Ssc.Util                   (toSscBlock)
-import           Pos.Util                       (Some (..), maybeThrow)
-import           Pos.Util.Chrono                (NewestFirst (..))
+import           Pos.Binary.Block      ()
+import           Pos.Binary.Class      (Bi, decodeFull, decodeOrFail, encode)
+import           Pos.Block.Core        (Block, BlockHeader, GenesisBlock)
+import qualified Pos.Block.Core        as BC
+import           Pos.Block.Types       (Blund, Undo (..))
+import           Pos.Constants         (genesisHash)
+import           Pos.Core              (HasDifficulty (difficultyL),
+                                        HasPrevBlock (prevBlockL), HeaderHash, IsHeader,
+                                        headerHash)
+import           Pos.Crypto            (hashHexF, shortHashF)
+import           Pos.DB.Class          (DBTag (..), MonadBlockDBGeneric (..),
+                                        MonadBlockDBGenericWrite (..), MonadDBRead,
+                                        dbGetBlund)
+import           Pos.DB.Error          (DBError (DBMalformed))
+import           Pos.DB.Functions      (dbGetBi)
+import           Pos.DB.Pure           (DBPureVar, MonadPureDB, atomicModifyIORefPure,
+                                        pureBlockIndexDB, pureBlocksStorage)
+import           Pos.DB.Rocks          (MonadRealDB, blockDataDir, getBlockIndexDB,
+                                        getNodeDBs, rocksDelete, rocksDelete, rocksPutBi)
+import           Pos.Ssc.Class.Helpers (SscHelpersClass)
+import           Pos.Ssc.Class.Types   (SscBlock)
+import           Pos.Ssc.Util          (toSscBlock)
+import           Pos.Util              (Some (..), maybeThrow)
+import           Pos.Util.Chrono       (NewestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Implementations for 'MonadRealDB'
@@ -214,6 +221,51 @@ loadHeadersByDepthWhile
 loadHeadersByDepthWhile = loadDataByDepth getHeaderThrow
 
 ----------------------------------------------------------------------------
+-- Pure implementation
+----------------------------------------------------------------------------
+
+decodeOrFailPureDB :: SscHelpersClass ssc => ByteString -> (Block ssc, Undo)
+decodeOrFailPureDB = decodeOrFail
+
+dbGetBlundPure ::
+       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe (Block ssc, Undo))
+dbGetBlundPure h = do
+    (blund :: Maybe ByteString) <-
+        view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
+    pure $ decodeOrFailPureDB <$> blund
+
+dbGetBlockPureDefault ::
+       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe (Block ssc))
+dbGetBlockPureDefault h = fmap fst <$> dbGetBlundPure h
+
+dbGetUndoPureDefault ::
+       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe Undo)
+dbGetUndoPureDefault h = fmap snd <$> dbGetBlundPure @ssc @ctx @m h
+
+dbGetHeaderPureDefault ::
+       forall ssc m. (MonadDBRead m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe (BlockHeader ssc))
+dbGetHeaderPureDefault = blkGetHeader
+
+dbPutBlundPureDefault ::
+       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+    => Blund ssc
+    -> m ()
+dbPutBlundPureDefault (blk,undo) = do
+    let h = headerHash blk
+    (var :: DBPureVar) <- view (lensOf @DBPureVar)
+    flip atomicModifyIORefPure var $
+        (pureBlocksStorage . at h .~ Just (encode (blk,undo))) .
+        (pureBlockIndexDB . at (blockIndexKey h) .~ Just (encode $ BC.getBlockHeader blk))
+
+----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
@@ -221,7 +273,7 @@ prepareBlockDB
     :: forall ssc m.
        MonadBlockDBWrite ssc m
     => GenesisBlock ssc -> m ()
-prepareBlockDB blk = dbPutBlund (Left blk, def)
+prepareBlockDB blk = dbPutBlund @(BlockHeader ssc) @(Block ssc) @Undo (Left blk, def)
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -240,30 +292,57 @@ type MonadBlockDB ssc m
        , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
        , SscHelpersClass ssc)
 
+-- | 'MonadBlocksDB' with write options
+type MonadBlockDBWrite ssc m
+    = ( MonadBlockDB ssc m
+      , MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo m
+      )
+
 -- instance MonadBlockDBGeneric (Block ssc)
 
 type BlockDBGenericDefaultEnv ssc ctx m =
     (MonadDBRead m, MonadRealDB ctx m, SscHelpersClass ssc)
 
-dbGetBlockDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe (Block ssc))
+dbGetBlockDefault ::
+       forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
+    => HeaderHash
+    -> m (Maybe (Block ssc))
 dbGetBlockDefault = getBlock
 
-dbGetUndoDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe Undo)
+dbGetUndoDefault ::
+       forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
+    => HeaderHash
+    -> m (Maybe Undo)
 dbGetUndoDefault = getUndo
 
-dbGetHeaderDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe (BlockHeader ssc))
+dbGetHeaderDefault ::
+       forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
+    => HeaderHash
+    -> m (Maybe (BlockHeader ssc))
 dbGetHeaderDefault = blkGetHeader
 
--- instance MonadBlockDBGeneric (SscBlock ssc)
-
-dbGetBlockSscDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe (SscBlock ssc))
+dbGetBlockSscDefault ::
+       forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
+    => HeaderHash
+    -> m (Maybe (SscBlock ssc))
 dbGetBlockSscDefault = fmap (toSscBlock <$>) . getBlock
 
-dbGetUndoSscDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe ())
+dbGetUndoSscDefault ::
+       forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
+    => HeaderHash
+    -> m (Maybe ())
 dbGetUndoSscDefault = fmap (const () <$>) . getUndo
 
-dbGetHeaderSscDefault :: forall ssc ctx m . BlockDBGenericDefaultEnv ssc ctx m => HeaderHash -> m (Maybe (Some IsHeader))
+dbGetHeaderSscDefault ::
+       forall ssc ctx m. BlockDBGenericDefaultEnv ssc ctx m
+    => HeaderHash
+    -> m (Maybe (Some IsHeader))
 dbGetHeaderSscDefault = fmap (Some <$>) . blkGetHeader @ssc
+
+-- instance MonadBlockDBWrite
+
+dbPutBlundDefault :: (MonadDBRead m, MonadRealDB ctx m, SscHelpersClass ssc) => Blund ssc -> m ()
+dbPutBlundDefault = putBlundReal
 
 -- helpers
 
@@ -284,33 +363,6 @@ blkGetBlund ::
     => HeaderHash
     -> m $ Maybe (Blund ssc)
 blkGetBlund = dbGetBlund @(BlockHeader ssc) @(Block ssc) @Undo
-
--- modifications
-
--- | Superclass of 'MonadBlockDB' which allows to modify the Block
--- DB. It's defined here instead of `cardano-sl-db`, because it makes
--- sense to use it only in block processing component.
---
--- TODO: support deletion when we actually start using deletion
--- (probably not soon).
-class MonadBlockDB ssc m => MonadBlockDBWrite ssc m where
-    -- | Put given 'Blund' into the Block DB.
-    dbPutBlund :: Blund ssc -> m ()
-
-instance {-# OVERLAPPABLE #-}
-    ( MonadBlockDBWrite ssc m
-    , MonadTrans t
-    , LiftLocal t
-    , MonadThrow (t m)
-    , MonadBaseControl IO (t m)) =>
-        MonadBlockDBWrite ssc (t m)
-  where
-    dbPutBlund = lift . dbPutBlund
-
--- instance MonadBlockDBWrite
-
-dbPutBlundDefault :: (MonadDBRead m, MonadRealDB ctx m, SscHelpersClass ssc) => Blund ssc -> m ()
-dbPutBlundDefault = putBlundReal
 
 ----------------------------------------------------------------------------
 -- Helpers

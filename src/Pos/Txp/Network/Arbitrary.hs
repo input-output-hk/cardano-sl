@@ -11,7 +11,6 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 
 import           Pos.Binary.Update                 ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
-import           Pos.Core.Arbitrary                ()
 import           Pos.Txp.Arbitrary                 ()
 import           Pos.Txp.Network.Types             (TxMsgContents (..))
 

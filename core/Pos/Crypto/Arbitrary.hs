@@ -20,7 +20,7 @@ import           Pos.Binary.Crypto                 ()
 import           Pos.Crypto.Arbitrary.Unsafe       ()
 import           Pos.Crypto.AsBinary               ()
 import           Pos.Crypto.Hashing                (AbstractHash, HashAlgorithm)
-import           Pos.Crypto.HD                     (HDPassphrase (..))
+import           Pos.Crypto.HD                     (HDAddressPayload, HDPassphrase (..))
 import           Pos.Crypto.RedeemSigning          (RedeemPublicKey, RedeemSecretKey,
                                                     RedeemSignature, redeemKeyGen,
                                                     redeemSign)
@@ -230,3 +230,6 @@ instance Arbitrary PassPhrase where
 
 instance Arbitrary HDPassphrase where
     arbitrary = HDPassphrase . fromString <$> vector 32
+
+instance Arbitrary HDAddressPayload where
+    arbitrary = genericArbitrary

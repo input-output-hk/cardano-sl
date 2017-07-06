@@ -236,7 +236,7 @@ flip makeLensesFor ''PollModifier
 
 -- | Previous value of something that could be missing.
 data PrevValue a = PrevValue a | NoExist
-    deriving (Generic,Show)
+    deriving (Generic, Show, Eq)
 
 
 maybeToPrev :: Maybe a -> PrevValue a
@@ -255,7 +255,7 @@ data USUndo = USUndo
     -- ^ Previous slotting data, i. e. data which should be in GState
     -- if this 'USUndo' is applied (i. e. corresponding block is
     -- rolled back).
-    } deriving (Generic, Show)
+    } deriving (Generic, Show, Eq)
 
 
 makeLensesFor [ ("unChangedBV", "unChangedBVL")

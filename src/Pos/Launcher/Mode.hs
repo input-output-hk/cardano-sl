@@ -37,13 +37,14 @@ import           Pos.Block.Types       (Undo)
 import           Pos.Context.Context   (GenesisUtxo)
 import           Pos.Core              (IsHeader, Timestamp)
 import           Pos.DB                (NodeDBs)
-import           Pos.DB.Block          (MonadBlockDBWrite (..), dbGetBlockDefault,
-                                        dbGetBlockSscDefault, dbGetHeaderDefault,
-                                        dbGetHeaderSscDefault, dbGetUndoDefault,
-                                        dbGetUndoSscDefault, dbPutBlundDefault)
-import           Pos.DB.Class          (MonadBlockDBGeneric (..), MonadDB (..),
+import           Pos.DB.Block          (dbGetBlockDefault, dbGetBlockSscDefault,
+                                        dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                        dbGetUndoDefault, dbGetUndoSscDefault,
+                                        dbPutBlundDefault)
+import           Pos.DB.Class          (MonadBlockDBGeneric (..),
+                                        MonadBlockDBGenericWrite (..), MonadDB (..),
                                         MonadDBRead (..))
-import           Pos.DB.Redirect       (dbDeleteDefault, dbGetDefault,
+import           Pos.DB.Rocks          (dbDeleteDefault, dbGetDefault,
                                         dbIterSourceDefault, dbPutDefault,
                                         dbWriteBatchDefault)
 import           Pos.Lrc.Context       (LrcContext)
@@ -118,9 +119,6 @@ instance MonadDB (InitMode ssc) where
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
 
-instance SscHelpersClass ssc => MonadBlockDBWrite ssc (InitMode ssc) where
-    dbPutBlund = dbPutBlundDefault
-
 instance
     SscHelpersClass ssc =>
     MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (InitMode ssc)
@@ -128,6 +126,10 @@ instance
     dbGetBlock  = dbGetBlockDefault @ssc
     dbGetUndo   = dbGetUndoDefault @ssc
     dbGetHeader = dbGetHeaderDefault @ssc
+
+instance SscHelpersClass ssc =>
+         MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (InitMode ssc) where
+    dbPutBlund = dbPutBlundDefault
 
 instance
     SscHelpersClass ssc =>

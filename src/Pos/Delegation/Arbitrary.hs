@@ -8,13 +8,15 @@ import           Universum
 
 import qualified Data.HashMap.Strict               as HM
 import           Test.QuickCheck                   (Arbitrary (..), Gen, listOf)
-import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Binary.Core                   ()
+import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex)
 import           Pos.Core.Arbitrary                ()
 import           Pos.Crypto                        (ProxySecretKey (..), createPsk)
-import           Pos.Delegation.Types              (DlgPayload, mkDlgPayload)
+import           Pos.Delegation.Types              (DlgPayload, mkDlgPayload,
+                                                    ProxySKLightConfirmation)
 import           Pos.Util.Util                     (leftToPanic)
 
 genDlgPayload :: EpochIndex -> Gen DlgPayload
@@ -28,4 +30,8 @@ genDlgPayload epoch =
 
 instance Arbitrary DlgPayload where
     arbitrary = arbitrary >>= genDlgPayload
+    shrink = genericShrink
+
+instance Arbitrary (DataMsg ProxySKLightConfirmation) where
+    arbitrary = genericArbitrary
     shrink = genericShrink

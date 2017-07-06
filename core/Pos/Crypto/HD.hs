@@ -33,8 +33,7 @@ import           Pos.Crypto.SafeSigning       (EncryptedSecretKey (..), PassPhra
 import           Pos.Crypto.Signing           (PublicKey (..))
 
 -- | Passphrase is a hash of root public key.
---- We don't use root public key to store money, we use hash of it
---- instead.
+--- We don't use root public key to store money, we use its hash instead.
 data HDPassphrase = HDPassphrase !ByteString
     deriving Show
 

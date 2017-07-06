@@ -41,19 +41,20 @@ import           Pos.Core                (IsHeader, StakeDistribution (..), Stak
                                           Timestamp (..), addressHash, makePubKeyAddress,
                                           mkCoin, unsafeGetCoin)
 import           Pos.Crypto              (SecretKey, toPublic, unsafeHash)
-import           Pos.DB                  (MonadBlockDBGeneric (..), MonadDB (..),
+import           Pos.DB                  (MonadBlockDBGeneric (..),
+                                          MonadBlockDBGenericWrite (..), MonadDB (..),
                                           MonadDBRead (..), MonadGState (..), NodeDBs,
                                           dbDeleteDefault, dbGetDefault,
                                           dbIterSourceDefault, dbPutDefault,
                                           dbWriteBatchDefault)
-import           Pos.DB.Block            (MonadBlockDBWrite (..), dbGetBlockDefault,
-                                          dbGetBlockSscDefault, dbGetHeaderDefault,
-                                          dbGetHeaderSscDefault, dbGetUndoDefault,
-                                          dbGetUndoSscDefault, dbPutBlundDefault)
-import           Pos.DB.DB               (closeNodeDBs, gsAdoptedBVDataDefault,
-                                          gsIsBootstrapEraDefault, initNodeDBs,
-                                          openNodeDBs)
+import           Pos.DB.Block            (dbGetBlockDefault, dbGetBlockSscDefault,
+                                          dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                          dbGetUndoDefault, dbGetUndoSscDefault,
+                                          dbPutBlundDefault)
+import           Pos.DB.DB               (gsAdoptedBVDataDefault, gsIsBootstrapEraDefault,
+                                          initNodeDBs)
 import qualified Pos.DB.GState           as GState
+import           Pos.DB.Rocks            (closeNodeDBs, openNodeDBs)
 import           Pos.Genesis             (stakeDistribution)
 import           Pos.Launcher            (InitModeContext (..), newInitFuture,
                                           runInitMode)
@@ -296,9 +297,6 @@ instance MonadDB BlockTestMode where
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
 
-instance MonadBlockDBWrite SscGodTossing BlockTestMode where
-    dbPutBlund = dbPutBlundDefault
-
 instance MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode
   where
     dbGetBlock  = dbGetBlockDefault @SscGodTossing
@@ -310,6 +308,9 @@ instance MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTe
     dbGetBlock  = dbGetBlockSscDefault @SscGodTossing
     dbGetUndo   = dbGetUndoSscDefault @SscGodTossing
     dbGetHeader = dbGetHeaderSscDefault @SscGodTossing
+
+instance MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode where
+    dbPutBlund = dbPutBlundDefault
 
 instance MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault

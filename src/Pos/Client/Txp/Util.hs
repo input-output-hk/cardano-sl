@@ -121,6 +121,8 @@ prepareInpsOuts
     -> TxOutputs
     -> Either TxError (TxOwnedInputs Address, TxOutputs)
 prepareInpsOuts utxo addrs@(someAddr :| _) outputs = do
+    when (totalMoney == mkCoin 0) $
+        fail "Attempted to send 0 money"
     futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
     let inputSum =
             unsafeIntegerToCoin $ sumCoins $ map (txOutValue . toaOut . snd) futxo

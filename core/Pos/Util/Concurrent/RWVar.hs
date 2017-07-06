@@ -8,7 +8,9 @@ module Pos.Util.Concurrent.RWVar
        ( RWVar
        , new
        , with
+       , read
        , modify
+       , modifyPure
        ) where
 
 import           Universum                  hiding (modify)
@@ -32,6 +34,10 @@ new = liftA2 RWVar RWL.new . newIORef
 with :: (MonadIO m, MonadMask m) => RWVar a -> (a -> m b) -> m b
 with (RWVar l r) action = RWL.withRead l $ readIORef r >>= action
 
+-- | Reads the value inside 'RWVar'.
+read :: (MonadIO m, MonadMask m) => RWVar a -> m a
+read var = with var pure
+
 -- | Executes 'MonadIO' action taking an exclusive lock inside.
 modify :: (MonadIO m, MonadMask m) => RWVar a -> (a -> m (a, b)) -> m b
 modify (RWVar l r) = RWL.withWrite l . modifyIORefM r
@@ -41,3 +47,7 @@ modifyIORefM r f = do
     (y, z) <- f =<< readIORef r
     writeIORef r y
     pure z
+
+-- | Executes 'MonadIO' action taking an exclusive lock inside.
+modifyPure :: (MonadIO m, MonadMask m) => RWVar a -> (a -> a) -> m ()
+modifyPure var foo = modify var $ \x -> pure (foo x, ())

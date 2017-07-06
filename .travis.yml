@@ -17,7 +17,8 @@ env:
 cache:
   directories:
   - "$HOME/.stack"
-  #- "$HOME/build/input-output-hk/cardano-sl/.stack-work"
+  - /nix/store
+  # we need to cache nix store as well to have system libraries for stack files
 
 before_install:
 - echo $TRAVIS_OS_NAME

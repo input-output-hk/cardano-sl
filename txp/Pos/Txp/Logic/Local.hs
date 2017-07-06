@@ -19,9 +19,10 @@ import           System.Wlog                 (WithLogger, logDebug)
 import           Universum
 import           Unsafe                      (unsafeHead)
 
-import           Pos.Core                    (Coin, HeaderHash, StakeholderId)
+import           Pos.Core                    (Coin, HeaderHash, StakeholderId, siEpoch)
 import           Pos.DB.Class                (MonadDBRead, MonadGState, gsIsBootstrapEra)
 import qualified Pos.DB.GState.Common        as GS
+import           Pos.Slotting                (MonadSlots (..))
 import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId,
                                               getTxDistribution)
 import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
@@ -40,6 +41,7 @@ type TxpLocalWorkMode ctx m =
     , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
+    , MonadSlots m
     , MonadTxpMem () ctx m
     , WithLogger m
     , HasLens GenesisUtxo ctx GenesisUtxo
@@ -54,7 +56,8 @@ txProcessTransaction
 txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
-    bootEra <- gsIsBootstrapEra
+    epoch <- siEpoch <$> getCurrentSlotBlocking
+    bootEra <- gsIsBootstrapEra epoch
     bootHolders <- views (lensOf @GenesisUtxo) $ getKeys . utxoToStakes . unGenesisUtxo
     localUM <- getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If

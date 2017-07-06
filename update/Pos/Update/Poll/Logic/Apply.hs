@@ -20,11 +20,10 @@ import           Pos.Binary.Class              (biSize)
 import           Pos.Core                      (ChainDifficulty, Coin, EpochIndex,
                                                 HeaderHash, IsMainHeader (..),
                                                 SlotId (siEpoch), SoftwareVersion (..),
-                                                addressHash, addressHash,
-                                                applyCoinPortion, blockVersionL,
-                                                coinToInteger, difficultyL, epochIndexL,
-                                                flattenSlotId, headerHashG, headerSlotL,
-                                                sumCoins, unflattenSlotId,
+                                                addressHash, applyCoinPortion,
+                                                blockVersionL, coinToInteger, difficultyL,
+                                                epochIndexL, flattenSlotId, headerHashG,
+                                                headerSlotL, sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
 import           Pos.Core.Constants            (blkSecurityParam, genesisUpdateVoteThd)
 import           Pos.Crypto                    (hash, shortHashF)
@@ -177,7 +176,7 @@ verifyAndApplyProposal verifyAllIsKnown slotOrHeader votes
         const $ throwError $ PollProposalAlreadyActive upId
     -- Here we verify consistency with regards to data from 'BlockVersionState'
     -- and update relevant state if necessary.
-    verifyAndApplyProposalBVS upId up
+    verifyAndApplyProposalBVS upId epoch up
     -- Then we verify that protocol version from proposal can follow last
     -- adopted software version.
     verifyBlockVersion upId up

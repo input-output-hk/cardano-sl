@@ -29,6 +29,7 @@ dev: &dev
     txSizeLinear:
       a: 0
       b: 0
+  genesisUnlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
 
 
   # P2P, networking

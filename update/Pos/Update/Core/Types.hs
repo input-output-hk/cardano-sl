@@ -66,9 +66,9 @@ import           Serokell.Util.Text         (listJson)
 import           Pos.Binary.Class           (Bi, Raw)
 import           Pos.Binary.Crypto          ()
 import           Pos.Core                   (BlockVersion, BlockVersionData (..),
-                                             CoinPortion, FlatSlotId, IsGenesisHeader,
-                                             IsMainHeader, ScriptVersion, SoftwareVersion,
-                                             TxFeePolicy, addressHash)
+                                             CoinPortion, EpochIndex, FlatSlotId,
+                                             IsGenesisHeader, IsMainHeader, ScriptVersion,
+                                             SoftwareVersion, TxFeePolicy, addressHash)
 import           Pos.Crypto                 (Hash, PublicKey, SafeSigner,
                                              SignTag (SignUSProposal), Signature,
                                              checkSig, hash, safeSign, safeToPublic,
@@ -96,6 +96,7 @@ data BlockVersionModifier = BlockVersionModifier
     , bvmUpdateImplicit    :: !FlatSlotId
     , bvmUpdateSoftforkThd :: !CoinPortion
     , bvmTxFeePolicy       :: !(Maybe TxFeePolicy)
+    , bvmUnlockStakeEpoch  :: !(Maybe EpochIndex)
     } deriving (Show, Eq, Generic, Typeable)
 
 instance NFData BlockVersionModifier

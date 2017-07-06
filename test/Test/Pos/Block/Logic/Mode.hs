@@ -51,8 +51,7 @@ import           Pos.DB.Block            (dbGetBlockDefault, dbGetBlockSscDefaul
                                           dbGetHeaderDefault, dbGetHeaderSscDefault,
                                           dbGetUndoDefault, dbGetUndoSscDefault,
                                           dbPutBlundDefault)
-import           Pos.DB.DB               (gsAdoptedBVDataDefault, gsIsBootstrapEraDefault,
-                                          initNodeDBs)
+import           Pos.DB.DB               (gsAdoptedBVDataDefault, initNodeDBs)
 import qualified Pos.DB.GState           as GState
 import           Pos.DB.Rocks            (closeNodeDBs, openNodeDBs)
 import           Pos.Genesis             (stakeDistribution)
@@ -314,4 +313,3 @@ instance MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossi
 
 instance MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
-    gsIsBootstrapEra = gsIsBootstrapEraDefault

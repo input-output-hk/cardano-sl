@@ -8,6 +8,7 @@ module Pos.Core.Slotting
        , diffEpochOrSlot
        , crucialSlot
        , unsafeMkLocalSlotIndex
+       , isBootstrapEra
        ) where
 
 import           Universum
@@ -96,3 +97,22 @@ instance Enum EpochOrSlot where
 unsafeMkLocalSlotIndex :: Word16 -> LocalSlotIndex
 unsafeMkLocalSlotIndex =
     leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndex
+
+-- | Bootstrap era is ongoing until stakes are unlocked. The reward era starts
+-- from the epoch specified as the epoch that unlocks stakes:
+--
+-- @
+--                     [unlock stake epoch]
+--                             /
+-- Epoch: ...  E-3  E-2  E-1   E+0  E+1  E+2  E+3  ...
+--        ------------------ | -----------------------
+--             Bootstrap era   Reward era
+-- @
+--
+isBootstrapEra
+    :: EpochIndex -- ^ Unlock stake epoch
+    -> EpochIndex -- ^ Epoch in question (for which we determine whether it
+                  --                      belongs to the bootstrap era).
+    -> Bool
+isBootstrapEra unlockStakeEpoch epoch = do
+    epoch < unlockStakeEpoch

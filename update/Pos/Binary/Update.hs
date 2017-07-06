@@ -16,9 +16,9 @@ import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw
 import           Pos.Binary.Infra           ()
 import           Pos.Core                   (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, CoinPortion,
-                                             FlatSlotId, HeaderHash, NumSoftwareVersion,
-                                             ScriptVersion, SlotId, SoftwareVersion,
-                                             StakeholderId, TxFeePolicy)
+                                             EpochIndex, FlatSlotId, HeaderHash,
+                                             NumSoftwareVersion, ScriptVersion, SlotId,
+                                             SoftwareVersion, StakeholderId, TxFeePolicy)
 import           Pos.Crypto                 (Hash, SignTag (SignUSVote), checkSig)
 import           Pos.Slotting.Types         (SlottingData)
 import qualified Pos.Update.Core.Types      as U
@@ -72,7 +72,8 @@ deriveSimpleBi ''U.BlockVersionModifier [
         Field [| U.bvmUpdateProposalThd :: CoinPortion       |],
         Field [| U.bvmUpdateImplicit    :: FlatSlotId        |],
         Field [| U.bvmUpdateSoftforkThd :: CoinPortion       |],
-        Field [| U.bvmTxFeePolicy       :: Maybe TxFeePolicy |]
+        Field [| U.bvmTxFeePolicy       :: Maybe TxFeePolicy |],
+        Field [| U.bvmUnlockStakeEpoch  :: Maybe EpochIndex  |]
     ]]
 
 instance Bi U.UpdateProposal where

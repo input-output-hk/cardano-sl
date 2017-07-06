@@ -28,7 +28,7 @@ if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
 fi
 
 if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-  export EXTRA_STACK="--flag cardano-sl:for-installer $EXTRA_STACK"
+  export EXTRA_STACK="--flag cardano-sl-tools:for-installer $EXTRA_STACK"
 fi
 
 stack --nix --no-terminal install happy \

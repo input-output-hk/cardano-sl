@@ -8,9 +8,6 @@ matrix:
     - os: osx
       osx_image: xcode8
       # don't use sierra (xcode 8.1+) because of too restrictive linker path (DEVOPS-168)
-
-  allow_failures:
-    - os: osx
 env:
   global:
     - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz

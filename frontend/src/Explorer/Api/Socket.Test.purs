@@ -1,6 +1,7 @@
 module Explorer.Api.Socket.Test where
 
 import Prelude
+
 import Control.Monad.Aff (Aff)
 import Control.Monad.State (StateT)
 import Data.Identity (Identity)
@@ -15,6 +16,6 @@ testApiSocket =
     describe "Explorer.Api.Socket" do
         describe "toEvent" do
             it "converts a ClientEvent to an 'event' string" do
-                (toEvent CallMeString) `shouldEqual` "CallMeString"
+                (toEvent CallMe) `shouldEqual` "CallMe"
             it "converts a ServerEvent to an 'event' string " do
-                (toEvent BlocksUpdated) `shouldEqual` "BlocksUpdated"
+                (toEvent AddrUpdated) `shouldEqual` "AddrUpdated"

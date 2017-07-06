@@ -134,33 +134,6 @@ update (SocketAddressTxsUpdated (Right txs)) state =
 update (SocketAddressTxsUpdated (Left error)) state = noEffects $
     over errors (\errors' -> (show error) : errors') state
 
-update SocketCallMe state =
-    { state
-    , effects : [ do
-          _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff <<< emit socket' $ toEvent CallMe
-              Nothing -> pure unit
-          pure Nothing
-    ]}
-
-update (SocketCallMeString str) state =
-    { state
-    , effects : [ do
-          _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emitData socket' (toEvent CallMeString) str
-              Nothing -> pure unit
-          pure Nothing
-    ]}
-
-update (SocketCallMeCTxId id) state =
-    { state
-    , effects : [ do
-          _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emitData socket' (toEvent CallMeTxId) id
-              Nothing -> pure unit
-          pure Nothing
-    ]}
-
 -- | Creates a new socket subscription
 update (SocketAddSubscription subItem) state =
     { state:

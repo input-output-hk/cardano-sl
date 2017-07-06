@@ -41,8 +41,6 @@ explorerApp = serve explorerApi explorerHandlers
 
 explorerHandlers :: Server ExplorerApi
 explorerHandlers =
-      apiBlocksTotal
-    :<|>
       apiBlocksPages
     :<|>
       apiBlocksPagesTotal
@@ -59,7 +57,6 @@ explorerHandlers =
     :<|>
       apiEpochSlotSearch
   where
-    apiBlocksTotal       = testBlocksTotal
     apiBlocksPages       = testBlocksPages
     apiBlocksPagesTotal  = testBlocksPagesTotal
     apiBlocksSummary     = testBlocksSummary
@@ -139,10 +136,6 @@ testBlocksTxs _ _ _ = pure . pure $ [CTxBrief
     , ctbInputSum   = mkCCoin $ mkCoin 33333
     , ctbOutputSum  = mkCCoin $ mkCoin 33333
     }]
-
-testBlocksTotal
-    :: Handler (Either ExplorerError Integer)
-testBlocksTotal = pure $ pure 333
 
 testTxsLast
     :: Maybe Word

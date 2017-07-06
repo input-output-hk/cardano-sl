@@ -49,8 +49,6 @@ socketConfig appConfig actionChannel = do
     -- `CallYou` is the answer of `CallMe`.
     -- Handling both events are needed a to be connected with socket.io manually
     _ <- on socket' (Ex.toEvent CallYou) $ Ex.callYouEventHandler actionChannel
---  on socket' (Ex.toEvent CallYouString) $ Ex.callYouStringEventHandler actionChannel
---  on socket' (Ex.toEvent CallYouTxId) $ Ex.callYouCTxIdEventHandler actionChannel
     pure $ appConfig
         { initialState = set (socket <<< connection) (Just socket') appConfig.initialState
         , inputs = [ pingSignal ] <> appConfig.inputs

@@ -115,10 +115,6 @@ retrievalWorkerImpl sendActions =
         case mhrr of
             MhrrBlockAdopted ->
                 logDebug "Block already adopted, nothing to be done"
-            MhrrWithoutCheckpoints mgh -> do
-                logDebug "Checkpoints not available, headers request made\
-                         \ from the tip"
-                handleHeadersRequest nodeId header mgh
             MhrrWithCheckpoints mgh -> do
                 logDebug "Checkpoints available, headers request assembled"
                 handleHeadersRequest nodeId header mgh

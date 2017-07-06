@@ -65,7 +65,6 @@ import           Pos.Core                   (HasHeaderHash (..), HeaderHash, gbH
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
-import qualified Pos.DB.GState              as GS
 import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
@@ -157,8 +156,6 @@ data MkHeadersRequestResult
     = MhrrBlockAdopted
       -- ^ The block pointed by the header is already adopted, no need to
       -- make the request.
-    | MhrrWithoutCheckpoints MsgGetHeaders
-      -- ^ The request can be made, but no checkpoints available.
     | MhrrWithCheckpoints MsgGetHeaders
       -- ^ A good request with checkpoints can be made.
 
@@ -172,14 +169,8 @@ mkHeadersRequest
 mkHeadersRequest upto = do
     uHdr <- blkGetHeader @ssc upto
     if isJust uHdr then return MhrrBlockAdopted else do
-        mCheckpoints <- nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
-        case mCheckpoints of
-            Nothing -> do
-                tip <- GS.getTip
-                return $ MhrrWithoutCheckpoints $
-                    MsgGetHeaders [tip] (Just upto)
-            Just bHeaders -> return $ MhrrWithCheckpoints $
-                MsgGetHeaders (toList bHeaders) (Just upto)
+        bHeaders <- toList <$> getHeadersOlderExp @ssc Nothing
+        pure $ MhrrWithCheckpoints $ MsgGetHeaders (toList bHeaders) (Just upto)
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders

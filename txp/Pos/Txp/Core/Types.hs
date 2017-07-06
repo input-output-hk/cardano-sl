@@ -125,9 +125,10 @@ instance NFData TxInWitness
 -- is provided for each input.
 type TxWitness = Vector TxInWitness
 
--- | Distribution of "fake" stake that follow-the-satoshi would use
--- for a particular transaction output. Sum of coins in the list should
--- be the same as `txOutValue` of corresponding output.
+-- | Distribution of stake associated with one of transaction's
+-- outputs. This stake is used mostly by LRC (including
+-- follow-the-satoshi algorithm).  Sum of coins in the list should be
+-- the same as `txOutValue` of corresponding output.
 type TxOutDistribution = [(StakeholderId, Coin)]
 
 -- | Distribution of "fake" stake that follow-the-satoshi would use

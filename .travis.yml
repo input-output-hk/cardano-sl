@@ -42,7 +42,6 @@ script:
 - if [[ "$HLINT" == "true" ]]; then
     nix-shell -p haskellPackages.hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
   else
-    travis_wait 20 sleep 4600&
     nix-shell -p moreutils expect --run "unbuffer ./scripts/ci/travis.sh | ts";
   fi
 

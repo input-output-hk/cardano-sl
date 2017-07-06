@@ -32,7 +32,7 @@ import           Serokell.Util.Text          (listJson)
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Block.Core              (Block, GenesisBlock, MainBlock, mbTxPayload,
                                               mbUpdatePayload)
-import           Pos.Block.Logic.Slog        (SlogApplyMode, SlogMode, slogApplyBlocks,
+import           Pos.Block.Slog              (SlogApplyMode, SlogMode, slogApplyBlocks,
                                               slogRollbackBlocks)
 import           Pos.Block.Types             (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                    (IsGenesisHeader, IsMainHeader, epochIndexL,

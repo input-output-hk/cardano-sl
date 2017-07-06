@@ -3,13 +3,10 @@
 
 -- | This module does some hard work related to block processing
 -- logic, but not specific to any particular part of the
--- system. Contrary, modules like 'VAR' unite logic from multiple
--- components into functions.
---
--- You can treat this part as another block component, while another
--- part of 'Pos.Block' is dedicated to whole blocks.
+-- system. Contrary, modules like 'Pos.Block.Logic.VAR' unite logic
+-- from multiple components into functions.
 
-module Pos.Block.Logic.Slog
+module Pos.Block.Slog.Logic
        ( mustDataBeKnown
 
        , SlogMode

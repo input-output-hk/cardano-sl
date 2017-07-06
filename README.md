@@ -40,7 +40,8 @@ stack exec cardano-explorer-mock
 ### Prod version (connects explorer to testnet staging cluster)
 
 - run `./scripts/build/cardano-sl.sh --tns`
-- run `./frontend/scripts/build.sh`
 - run `./scripts/launch/staging.sh`
+- run `./frontend/scripts/build-frontend-fast.sh`
+- open http://localhost:3100/ 
 
 NOTE: before running explorer if you want clean sync (explorer will have to sync and download blockchain from start) - remove db with `rm -rf db-testnet` 

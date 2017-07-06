@@ -209,7 +209,8 @@ followTheSatoshiM (SharedSeed seed) totalCoins = do
   where
     coinIndices :: [CoinIndex]
     coinIndices = map (CoinIndex . fromInteger) . deterministic seed $
-        replicateM epochSlots (randomNumber (coinToInteger totalCoins))
+        replicateM (fromIntegral epochSlots)
+            (randomNumber (coinToInteger totalCoins))
 
     findLeaders = (traverse . _2) findLeader
 

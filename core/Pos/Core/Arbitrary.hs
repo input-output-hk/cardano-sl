@@ -63,6 +63,8 @@ instance Arbitrary Types.Address where
         Types.UnknownAddressType <$> choose (3, 255) <*> scale (min 150) arbitrary
         ]
 
+deriving instance Arbitrary Types.BlockCount
+deriving instance Arbitrary Types.SlotCount
 deriving instance Arbitrary Types.ChainDifficulty
 
 maxReasonableEpoch :: Integral a => a

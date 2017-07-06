@@ -64,7 +64,7 @@ lrcOnNewSlotWorker
     => (WorkerSpec m, OutSpecs)
 lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     recoveryCommGuard $
-        when (getSlotIndex siSlot < slotSecurityParam) $
+        when (getSlotIndex siSlot < fromIntegral slotSecurityParam) $
             lrcSingleShot @ssc siEpoch `catch` onLrcError
   where
     -- Here we log it as a warning and report an error, even though it

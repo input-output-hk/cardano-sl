@@ -150,7 +150,8 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    getWAddressIds, getWalletAddresses,
                                                    getWalletMeta, getWalletPassLU,
                                                    isCustomAddress, openState,
-                                                   removeAccount, removeNextUpdate,
+                                                   removeAccount, removeHistoryCache,
+                                                   removeNextUpdate, removeTxMetas,
                                                    removeWallet, setAccountMeta,
                                                    setProfile, setWalletMeta,
                                                    setWalletPassLU, setWalletTxMeta,
@@ -932,6 +933,8 @@ deleteWallet wid = do
     accounts <- getAccounts (Just wid)
     mapM_ (\acc -> deleteAccount =<< decodeCAccountIdOrFail (caId acc)) accounts
     removeWallet wid
+    removeTxMetas wid
+    removeHistoryCache wid
     deleteSecretKey . fromIntegral =<< getAddrIdx wid
 
 deleteAccount :: WalletWebMode m => AccountId -> m ()

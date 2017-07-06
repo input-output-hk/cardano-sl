@@ -13,6 +13,7 @@ module Pos.Block.Network.Logic
 
        , handleUnsolicitedHeaders
        , mkHeadersRequest
+       , MkHeadersRequestResult(..)
        , requestHeaders
 
        , mkBlocksRequest
@@ -44,8 +45,8 @@ import           Pos.Block.Core             (Block, BlockHeader, blockHeader)
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
                                              classifyNewHeader, getHeadersOlderExp,
-                                             lcaWithMainChain, needRecovery,
-                                             verifyAndApplyBlocks, withBlkSemaphore)
+                                             lcaWithMainChain, verifyAndApplyBlocks,
+                                             withBlkSemaphore)
 import qualified Pos.Block.Logic            as L
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
@@ -150,20 +151,26 @@ requestTip _ nodeId conv = do
 -- Headers processing
 ----------------------------------------------------------------------------
 
+-- | Result of creating a request message for more headers.
+data MkHeadersRequestResult
+    = MhrrBlockAdopted
+      -- ^ The block pointed by the header is already adopted, no need to
+      -- make the request.
+    | MhrrWithCheckpoints MsgGetHeaders
+      -- ^ A good request with checkpoints can be made.
+
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
 -- message.
 mkHeadersRequest
     :: forall ssc m.
        WorkMode ssc m
-    => HeaderHash -> m (Maybe MsgGetHeaders)
+    => HeaderHash -> m MkHeadersRequestResult
 mkHeadersRequest upto = do
     uHdr <- blkGetHeader @ssc upto
-    runMaybeT $ do
-        -- no reason to make a request when we already have the latest header
-        guard (isNothing uHdr)
-        bHeaders <- MaybeT $ nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
-        pure $ MsgGetHeaders (toList bHeaders) (Just upto)
+    if isJust uHdr then return MhrrBlockAdopted else do
+        bHeaders <- toList <$> getHeadersOlderExp @ssc Nothing
+        pure $ MhrrWithCheckpoints $ MsgGetHeaders (toList bHeaders) (Just upto)
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
@@ -266,7 +273,7 @@ requestHeaders cont mgh nodeId _ conv = do
     logDebug $ sformat ("requestHeaders: withConnection: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
-    inRecovery <- needRecovery @ssc
+    inRecovery <- recoveryInProgress
     logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
     flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
         logDebug $ sformat
@@ -275,7 +282,7 @@ requestHeaders cont mgh nodeId _ conv = do
             (map headerHash headers) nodeId (unitBuilder $ biSize headers)
         case matchRequestedHeaders headers mgh inRecovery of
             MRGood           -> do
-                handleRequestedHeaders cont headers
+                handleRequestedHeaders cont inRecovery headers
             MRUnexpected msg -> handleUnexpected headers msg
   where
     onNothing = do
@@ -298,10 +305,11 @@ handleRequestedHeaders
     :: forall ssc m.
        WorkMode ssc m
     => (NewestFirst NE (BlockHeader ssc) -> m ())
+    -> Bool -- recovery in progress?
     -> NewestFirst NE (BlockHeader ssc)
     -> m ()
-handleRequestedHeaders cont headers = do
-    classificationRes <- classifyHeaders headers
+handleRequestedHeaders cont inRecovery headers = do
+    classificationRes <- classifyHeaders inRecovery headers
     let newestHeader = headers ^. _Wrapped . _neHead
         newestHash = headerHash newestHeader
         oldestHash = headerHash $ headers ^. _Wrapped . _neLast

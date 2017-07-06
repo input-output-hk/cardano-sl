@@ -9,14 +9,18 @@ module Pos.Txp.MemState.Types
        , TxpLocalDataPure
        , TransactionProvenance (..)
        , MemPoolModifyReason (..)
+       , TxpMetrics (..)
        ) where
 
 import           Data.Aeson.TH      (deriveJSON, defaultOptions)
 import           Universum
+import           Data.Time.Units        (Microsecond)
+import           System.Wlog            (LoggerNameBox)
 
 import           Pos.Core.Types     (HeaderHash)
 import           Pos.Communication.Types.Protocol (PeerId)
 import           Pos.Txp.Toil.Types (MemPool, UndoMap, UtxoModifier)
+import           Serokell.Data.Memory.Units (Byte)
 
 -- | LocalData of transactions processing.
 -- There are two invariants which must hold for local data
@@ -65,3 +69,20 @@ data MemPoolModifyReason =
     deriving Show
 
 $(deriveJSON defaultOptions ''MemPoolModifyReason)
+
+-- | Effectful getters and setters for metrics related to the Txp data.
+--   TODO this should not be fixed at IO, if being able to mock features
+--   remains a goal. But we can't free it up right now because the current
+--   mockable system doesn't work well with ether.
+data TxpMetrics = TxpMetrics
+    { -- | Called when a thread begins to wait to modify the mempool.
+      --   Parameter is the reason for modifying the mempool.
+      txpMetricsWait :: !(String -> LoggerNameBox IO ())
+      -- | Called when a thread is granted the lock on the mempool. Parameter
+      --   indicates how long it waited.
+    , txpMetricsAcquire :: !(Microsecond -> LoggerNameBox IO ())
+      -- | Called when a thread is finished modifying the mempool and has
+      --   released the lock. Parameters indicates time elapsed since acquiring
+      --   the lock, and new mempool size.
+    , txpMetricsRelease :: !(Microsecond -> Byte -> LoggerNameBox IO ())
+    }

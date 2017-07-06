@@ -60,7 +60,7 @@ txProcessTransaction itw@(txId, txAux) = do
                    catMaybes $
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    pRes <- modifyTxpLocalData $
+    pRes <- modifyTxpLocalData "txProcessTransaction" $
             processTxDo resolved toilEnv tipDB itw
     case pRes of
         Left er -> do
@@ -101,4 +101,4 @@ txNormalize = do
     localTxs <- getLocalTxs
     ToilModifier {..} <-
         runDBTxp $ execToilTLocal mempty def mempty $ normalizeToil localTxs
-    setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+    setTxpLocalData "txNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

@@ -36,6 +36,10 @@ blockListeners = constantListeners
     , handleBlockHeaders
     ]
 
+----------------------------------------------------------------------------
+-- Getters (return currently stored data)
+----------------------------------------------------------------------------
+
 -- | Handles GetHeaders request which means client wants to get
 -- headers from some checkpoints that are older than optional @to@
 -- field.
@@ -72,6 +76,10 @@ handleGetBlocks = listenerConv $ \__ourVerInfo nodeId conv -> do
         throwM $ DBMalformed $
         "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
         "have corresponding block in storage."
+
+----------------------------------------------------------------------------
+-- Header propagation
+----------------------------------------------------------------------------
 
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders

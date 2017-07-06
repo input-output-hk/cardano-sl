@@ -6,6 +6,7 @@ module Pos.Recovery.Info
        , recoveryCommGuard
        ) where
 
+import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
 class Monad m => MonadRecoveryInfo m where
@@ -17,6 +18,8 @@ class Monad m => MonadRecoveryInfo m where
 -- not doing recovery at this moment.  It is useful for workers which
 -- shouldn't do anything while we are not synchronized.
 recoveryCommGuard
-    :: MonadRecoveryInfo m
+    :: (MonadRecoveryInfo m, WithLogger m)
     => m () -> m ()
-recoveryCommGuard action = unlessM recoveryInProgress action
+recoveryCommGuard action = ifM recoveryInProgress onIgnore action
+  where
+    onIgnore = logDebug "recoveryCommGuard: recovery in process, skipping action"

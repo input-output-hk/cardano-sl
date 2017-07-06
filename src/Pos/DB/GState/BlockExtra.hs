@@ -26,6 +26,7 @@ import           Serokell.Util.Text   (listJson)
 
 import           Pos.Binary.Class     (encode)
 import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
+import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
 import           Pos.Block.Types      (Blund)
 import           Pos.Constants        (genesisHash)
 import           Pos.Core             (FlatSlotId, HasHeaderHash, HeaderHash, headerHash,
@@ -53,12 +54,10 @@ isBlockInMainChain
 isBlockInMainChain h =
     maybe False (\() -> True) <$> gsGetBi (mainChainKey $ headerHash h)
 
--- | This function returns 'FlatSlotId's of the blocks whose depth
--- less than 'blkSecurityParam'. 'FlatSlotId' is chosen in favor of
--- 'SlotId', because the main use case is chain quality calculation,
--- for which flat slot is more convenient.
-getLastSlots :: forall m . MonadDBRead m => m (OldestFirst [] FlatSlotId)
-getLastSlots = fromMaybe (OldestFirst []) <$> gsGetBi lastSlotsKey
+-- | This function returns 'FlatSlotId's of the blocks whose depth is
+-- less than 'blkSecurityParam'.
+getLastSlots :: forall m . MonadDBRead m => m LastBlkSlots
+getLastSlots = fromMaybe noLastBlkSlots <$> gsGetBi lastSlotsKey
 
 ----------------------------------------------------------------------------
 -- BlockOp

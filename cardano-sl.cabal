@@ -162,6 +162,7 @@ library
                         Pos.Block.Network.Logic
                         Pos.Block.Network.Retrieval
                         Pos.Block.Slog
+                        Pos.Block.Slog.Context
                         Pos.Block.Slog.Logic
                         Pos.Block.Slog.Types
                         Pos.Block.Worker

@@ -94,7 +94,7 @@ type BlockVerifyMode ssc ctx m = BlockMode ssc ctx m
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
 type BlockApplyMode ssc ctx m
      = ( BlockMode ssc ctx m
-       , SlogApplyMode ssc m
+       , SlogApplyMode ssc ctx m
        -- It's obviously needed to write something to DB, for instance.
        , MonadDB m
        -- Needed for iteration over DB.

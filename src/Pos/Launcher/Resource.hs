@@ -42,6 +42,7 @@ import           System.Wlog                 (CanLog, LoggerConfig (..), WithLog
                                               usingLoggerName)
 
 import           Pos.Binary                  ()
+import           Pos.Block.Slog              (mkSlogContext)
 import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication.PeerState (PeerStateCtx)
 import qualified Pos.Constants               as Const
@@ -237,6 +238,7 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     ncLastKnownHeader <- newTVarIO Nothing
     ncUpdateContext <- mkUpdateContext
     ncSscContext <- untag @ssc sscCreateNodeContext sscnp
+    ncSlogContext <- mkSlogContext
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty

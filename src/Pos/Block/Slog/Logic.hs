@@ -20,38 +20,40 @@ module Pos.Block.Slog.Logic
 
 import           Universum
 
-import           Control.Lens          (_Wrapped)
-import           Control.Monad.Except  (MonadError (throwError))
-import qualified Data.List.NonEmpty    as NE
-import           Ether.Internal        (HasLens (..))
-import           Formatting            (build, sformat, (%))
-import           Serokell.Util         (Color (Red), colorize)
-import           Serokell.Util.Verify  (formatAllErrors, verResToMonadError)
-import           System.Wlog           (WithLogger)
+import           Control.Lens           (_Wrapped)
+import           Control.Monad.Except   (MonadError (throwError))
+import qualified Data.List.NonEmpty     as NE
+import           Ether.Internal         (HasLens (..))
+import           Formatting             (build, sformat, (%))
+import           Serokell.Util          (Color (Red), colorize)
+import           Serokell.Util.Verify   (formatAllErrors, verResToMonadError)
+import           System.Wlog            (WithLogger)
 
-import           Pos.Binary.Core       ()
-import           Pos.Block.BListener   (MonadBListener (..))
-import           Pos.Block.Core        (Block, genBlockLeaders, mainBlockSlot)
-import           Pos.Block.Pure        (verifyBlocks)
-import           Pos.Block.Types       (Blund, SlogUndo (..), Undo (..))
-import           Pos.Constants         (blkSecurityParam, lastKnownBlockVersion)
-import           Pos.Context           (lrcActionOnEpochReason)
-import           Pos.Core              (BlockVersion (..), FlatSlotId, epochIndexL,
-                                        flattenSlotId, headerHash, headerHashG,
-                                        prevBlockL)
-import           Pos.DB                (SomeBatchOp (..))
-import           Pos.DB.Block          (MonadBlockDBWrite)
-import           Pos.DB.Class          (MonadDBRead, dbPutBlund)
-import           Pos.DB.DB             (sanityCheckDB)
-import qualified Pos.DB.GState         as GS
-import           Pos.Exception         (assertionFailed)
-import           Pos.Lrc.Context       (LrcContext)
-import qualified Pos.Lrc.DB            as LrcDB
-import           Pos.Slotting          (MonadSlots (getCurrentSlot), putSlottingData)
-import           Pos.Ssc.Class.Helpers (SscHelpersClass (..))
-import           Pos.Util              (inAssertMode, _neHead, _neLast)
-import           Pos.Util.Chrono       (NE, NewestFirst (getNewestFirst),
-                                        OldestFirst (..), toOldestFirst)
+import           Pos.Binary.Core        ()
+import           Pos.Block.BListener    (MonadBListener (..))
+import           Pos.Block.Core         (Block, genBlockLeaders, mainBlockSlot)
+import           Pos.Block.Pure         (verifyBlocks)
+import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
+import           Pos.Block.Slog.Types   (HasSlogContext, SlogUndo (..))
+import           Pos.Block.Types        (Blund, Undo (..))
+import           Pos.Constants          (blkSecurityParam, lastKnownBlockVersion)
+import           Pos.Context            (lrcActionOnEpochReason)
+import           Pos.Core               (BlockVersion (..), FlatSlotId, epochIndexL,
+                                         flattenSlotId, headerHash, headerHashG,
+                                         prevBlockL)
+import           Pos.DB                 (SomeBatchOp (..))
+import           Pos.DB.Block           (MonadBlockDBWrite)
+import           Pos.DB.Class           (MonadDBRead, dbPutBlund)
+import           Pos.DB.DB              (sanityCheckDB)
+import qualified Pos.DB.GState          as GS
+import           Pos.Exception          (assertionFailed)
+import           Pos.Lrc.Context        (LrcContext)
+import qualified Pos.Lrc.DB             as LrcDB
+import           Pos.Slotting           (MonadSlots (getCurrentSlot), putSlottingData)
+import           Pos.Ssc.Class.Helpers  (SscHelpersClass (..))
+import           Pos.Util               (inAssertMode, _neHead, _neLast)
+import           Pos.Util.Chrono        (NE, NewestFirst (getNewestFirst),
+                                         OldestFirst (..), toOldestFirst)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -170,18 +172,20 @@ slogVerifyBlocks blocks = do
     return $ over _Wrapped NE.fromList $ map SlogUndo slogUndo
 
 -- | Set of constraints necessary to apply/rollback blocks in Slog.
-type SlogApplyMode ssc m =
+type SlogApplyMode ssc ctx m =
     ( SlogMode ssc m
     , MonadBlockDBWrite ssc m
     , MonadBListener m
     , MonadMask m
     , MonadIO m
+    , MonadReader ctx m
+    , HasSlogContext ctx
     )
 
 -- | This function does everything that should be done when blocks are
 -- applied and is not done in other components.
 slogApplyBlocks ::
-       forall ssc m. SlogApplyMode ssc m
+       forall ssc ctx m. SlogApplyMode ssc ctx m
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
 slogApplyBlocks blunds = do
@@ -199,7 +203,8 @@ slogApplyBlocks blunds = do
     let putTip =
             SomeBatchOp $
             GS.PutTip $ headerHash $ NE.last $ getOldestFirst blunds
-    lastSlots <- GS.getLastSlots
+    lastSlots <- slogGetLastSlots
+    slogPutLastSlots (newLastSlots lastSlots)
     sanityCheckDB
     putSlottingData =<< GS.getSlottingData
     return $ SomeBatchOp [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
@@ -212,9 +217,10 @@ slogApplyBlocks blunds = do
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
     mainBlocks = mapMaybe rightToMaybe $ toList blocks
     newSlots = flattenSlotId . view mainBlockSlot <$> mainBlocks
+    newLastSlots lastSlots = lastSlots & _Wrapped %~ updateLastSlots
     knownSlotsBatch lastSlots
         | null newSlots = []
-        | otherwise = [GS.SetLastSlots $ lastSlots & _Wrapped %~ updateLastSlots]
+        | otherwise = [GS.SetLastSlots $ newLastSlots lastSlots]
     -- Slots are in 'OldestFirst' order. So we put new slots to the
     -- end and drop old slots from the beginning.
     updateLastSlots lastSlots = leaveAtMostN blkSecurityParam (lastSlots ++ newSlots)
@@ -226,7 +232,7 @@ slogApplyBlocks blunds = do
 -- | This function does everything that should be done when rollback
 -- happens and that is not done in other components.
 slogRollbackBlocks ::
-       forall ssc m. SlogApplyMode ssc m
+       forall ssc ctx m. SlogApplyMode ssc ctx m
     => NewestFirst NE (Blund ssc)
     -> m SomeBatchOp
 slogRollbackBlocks blunds = do
@@ -238,7 +244,8 @@ slogRollbackBlocks blunds = do
             SomeBatchOp $ GS.PutTip $ headerHash $
             (NE.last $ getNewestFirst blunds) ^.
             prevBlockL
-    lastSlots <- GS.getLastSlots
+    lastSlots <- slogGetLastSlots
+    slogPutLastSlots (newLastSlots lastSlots)
     sanityCheckDB
     return $
         SomeBatchOp
@@ -253,11 +260,9 @@ slogRollbackBlocks blunds = do
     isGenesis0 (Right _)         = False
     lastSlotsToPrepend =
         mapMaybe (getSlogUndo . undoSlog . snd) $ toList (toOldestFirst blunds)
-    knownSlotsBatch lastSlots
-        | null lastSlotsToPrepend = []
-        | otherwise =
-            [GS.SetLastSlots $ lastSlots & _Wrapped %~ updateLastSlots]
+    newLastSlots lastSlots = lastSlots & _Wrapped %~ updateLastSlots
     updateLastSlots lastSlots =
         take blkSecurityParam (lastSlotsToPrepend ++ lastSlots)
     blockExtraBatch lastSlots =
-        mconcat [knownSlotsBatch lastSlots, forwardLinksBatch, inMainBatch]
+        GS.SetLastSlots (newLastSlots lastSlots) :
+        mconcat [forwardLinksBatch, inMainBatch]

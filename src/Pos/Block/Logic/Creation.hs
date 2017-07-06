@@ -35,7 +35,9 @@ import           Pos.Block.Logic.Internal   (BlockApplyMode, BlockVerifyMode,
                                              applyBlocksUnsafe, toUpdateBlock)
 import           Pos.Block.Logic.Util       (withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
-import           Pos.Block.Types            (SlogUndo (..), Undo (..))
+import           Pos.Block.Slog             (HasSlogContext (..), SlogUndo (..),
+                                             slogGetLastSlots)
+import           Pos.Block.Types            (Undo (..))
 import           Pos.Constants              (blkSecurityParam, slotSecurityParam)
 import           Pos.Context                (BlkSemaphore, HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
@@ -48,7 +50,6 @@ import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
-import qualified Pos.DB.GState              as GS
 import           Pos.Delegation.Logic       (clearDlgMemPool, getDlgMempool)
 import           Pos.Delegation.Types       (DlgPayload (getDlgPayload), ProxySKBlockInfo,
                                              mkDlgPayload)
@@ -75,6 +76,7 @@ type CreationMode ssc ctx m
        , MonadReader ctx m
        , HasPrimaryKey ctx
        , HasLens BlkSemaphore ctx BlkSemaphore
+       , HasSlogContext ctx
        )
 
 ----------------------------------------------------------------------------
@@ -292,7 +294,7 @@ getRawPayloadAndUndo slotId = do
     onAbsentUndo = throwError "Undo for tx from local transactions not found"
     onNoUS = "can't obtain US payload to create block"
     getSlogUndo =
-        GS.getLastSlots <&> \case
+        slogGetLastSlots <&> \case
             (OldestFirst lastSlots)
                 | length lastSlots < blkSecurityParam -> SlogUndo Nothing
                 | otherwise -> SlogUndo $ Just $ unsafeHead lastSlots

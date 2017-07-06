@@ -41,6 +41,7 @@ import           System.Wlog                   (LoggerConfig)
 import           Pos.Block.Core                (BlockHeader)
 import           Pos.Block.RetrievalQueue      (BlockRetrievalQueue,
                                                 BlockRetrievalQueueTag)
+import           Pos.Block.Slog.Types          (HasSlogContext (..), SlogContext (..))
 import           Pos.Communication.Relay       (HasPropagationFlag (..),
                                                 HasPropagationQueue (..),
                                                 RelayPropagationQueue)
@@ -110,6 +111,8 @@ data NodeContext ssc = NodeContext
     -- ^ Context needed for Slotting.
     , ncShutdownContext     :: !ShutdownContext
     -- ^ Context needed for Shutdown
+    , ncSlogContext         :: !SlogContext
+    -- ^ Context needed for Slog.
     , ncBlkSemaphore        :: !BlkSemaphore
     -- ^ Semaphore which manages access to block application.
     -- Stored hash is a hash of last applied block.
@@ -166,6 +169,9 @@ instance HasDiscoveryContextSum (NodeContext ssc) where
 instance HasSlottingVar (NodeContext ssc) where
     slottingTimestamp = ncSlottingVar_L . _1
     slottingVar = ncSlottingVar_L . _2
+
+instance HasSlogContext (NodeContext ssc) where
+    slogContextL = ncSlogContext_L
 
 instance HasLens SlottingContextSum (NodeContext ssc) SlottingContextSum where
     lensOf = ncSlottingContext_L

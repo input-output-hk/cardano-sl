@@ -80,6 +80,10 @@ instance Bi Word where
     encode = encodeWord
     decode = decodeWord
 
+instance Bi Word8 where
+    encode = encodeWord8
+    decode = decodeWord8
+
 instance Bi Word16 where
     encode = encodeWord16
     decode = decodeWord16

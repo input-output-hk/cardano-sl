@@ -72,6 +72,9 @@ library
                        Pos.Exception
 
                        Pos.Binary.Cbor.Class
+                       Pos.Binary.Cbor.Serialization
+                       Pos.Binary.Cbor.TH
+                       Pos.Binary.Cbor.Test
 
                        Pos.Binary.Class
                        Pos.Binary.Class.Core

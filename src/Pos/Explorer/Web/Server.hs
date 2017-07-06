@@ -20,7 +20,7 @@ module Pos.Explorer.Web.Server
 
 import           Universum
 
-import           Control.Lens                   (at, _Right)
+import           Control.Lens                   (at)
 import           Control.Monad.Catch            (try)
 import           Control.Monad.Loops            (unfoldrM)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
@@ -42,7 +42,6 @@ import qualified Pos.DB.GState                  as GS
 import           Pos.Block.Core                 (Block, MainBlock,
                                                  mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
-import           Pos.Constants                  (genesisHash)
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
@@ -56,8 +55,7 @@ import           Pos.Types                      (Address (..), Coin, EpochIndex,
                                                  HeaderHash, Timestamp,
                                                  difficultyL, gbHeader,
                                                  gbhConsensus,
-                                                 getChainDifficulty,
-                                                 headerHashG, mkCoin,
+                                                 getChainDifficulty, mkCoin,
                                                  prevBlockL, siEpoch, siSlot,
                                                  sumCoins, unsafeIntegerToCoin,
                                                  unsafeSubCoin)

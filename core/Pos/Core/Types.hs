@@ -370,7 +370,7 @@ mkLocalSlotIndex idx
     | otherwise =
         throwError $
         "local slot is greater than or equal to the number of slots in epoch: " <>
-        show idx <> " >= " <> show epochSlots
+        show idx
 
 -- | Slot is identified by index of epoch and local index of slot in
 -- this epoch. This is a global index

@@ -35,17 +35,14 @@ import           Serokell.Util                (sec)
 import           System.Wlog                  (WithLogger, logDebug, logInfo, logWarning)
 
 import qualified Pos.Core.Constants           as C
-import           Pos.Core.Slotting            (flattenEpochIndex, unflattenSlotId)
+import           Pos.Core.Slotting            (unflattenSlotId)
 import           Pos.Core.Types               (EpochIndex, SlotId (..), Timestamp (..),
                                                mkLocalSlotIndex)
-import           Pos.Util.Util                (leftToPanic)
 
 import           Pos.Slotting.Class           (MonadSlots (..))
 import qualified Pos.Slotting.Constants       as C
 import           Pos.Slotting.MemState.Class  (MonadSlotsData (..))
-import           Pos.Slotting.Types           (EpochSlottingData (..), findMatchingEpoch,
-                                               getLastEpoch, getPenultEpoch,
-                                               getPenultEpochIndex)
+import           Pos.Slotting.Types           (EpochSlottingData (..), findMatchingEpoch)
 
 ----------------------------------------------------------------------------
 -- State

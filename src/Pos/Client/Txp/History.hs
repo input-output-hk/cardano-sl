@@ -44,15 +44,13 @@ import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
                                                mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
 import           Pos.Context                  (GenesisUtxo, genesisUtxoM)
-import           Pos.Core                     (Address, ChainDifficulty, EpochIndex,
-                                               HeaderHash, SlotId (..), Timestamp (..),
-                                               difficultyL)
+import           Pos.Core                     (Address, ChainDifficulty, HeaderHash,
+                                               Timestamp (..), difficultyL)
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadRealDB)
 import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.GState                as GS
-import           Pos.Slotting                 (EpochSlottingData, MonadSlots,
-                                               getSlotStartPure)
+import           Pos.Slotting                 (MonadSlots, getSlotStartPure)
 import           Pos.Ssc.Class                (SscHelpersClass)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)

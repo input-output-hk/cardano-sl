@@ -7,11 +7,11 @@ stack exec -- cardano-explorer-hs2purs --bridge-path ./frontend/src/Generated
 
 cd frontend
 rm -rf output node_modules bower_components
-yarn install # or use npm install
+npm install # or use yarn install
 
 scripts/generate-backend-lenses.sh
 scripts/generate-frontend-lenses.sh
 
-yarn start # or use npm start
+npm start # or use yarn start
 
 # open http://localhost:3100/

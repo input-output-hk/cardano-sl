@@ -27,9 +27,9 @@ import           Pos.Binary.Communication   ()
 import           Pos.Block.Core             (Block, BlockHeader, blockHeader)
 import           Pos.Block.Logic            (ClassifyHeaderRes (..), classifyNewHeader)
 import           Pos.Block.Network.Announce (announceBlockOuts)
-import           Pos.Block.Network.Logic    (handleBlocks, mkBlocksRequest,
-                                             mkHeadersRequest, requestHeaders,
-                                             triggerRecovery)
+import           Pos.Block.Network.Logic    (MkHeadersRequestResult (..), handleBlocks,
+                                             mkBlocksRequest, mkHeadersRequest,
+                                             requestHeaders, triggerRecovery)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
                                              MsgHeaders (..))
 import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
@@ -92,7 +92,7 @@ retrievalWorkerImpl sendActions =
             case (mbQueuedHeadersChunk, mbRecHeader) of
                 (Nothing, Nothing) -> retry
                 (Just (nodeId, task), _) ->
-                    pure (handleBlockRetrieval nodeId task)
+                    pure (handleBlockRetrievalFromQueue nodeId task)
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleHeadersRecovery nodeId rHeader)
         thingToDoNext
@@ -111,21 +111,31 @@ retrievalWorkerImpl sendActions =
         endedRecoveryVar <- newEmptyMVar
         processContHeader sendActions endedRecoveryVar nodeId header
     handleAlternative nodeId header = do
-        mghM <- mkHeadersRequest (headerHash header)
-        whenJust mghM $ \mgh -> do
-            updateRecoveryHeader nodeId header
-            endedRecoveryVar <- newEmptyMVar
-            let cont (headers :: NewestFirst NE (BlockHeader ssc)) =
-                    let firstHeader = headers ^. _Wrapped . _neLast
-                    in handleCHsValid sendActions endedRecoveryVar nodeId
-                                      firstHeader (headerHash header)
-            reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
-                withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $ \conv ->
-                requestHeaders cont mgh nodeId limPx conv
-                    `finally` void (tryPutMVar endedRecoveryVar False)
-            -- Block until the conversation has ended.
-            whenM (readMVar endedRecoveryVar) $
-                logDebug "Recovery mode exited gracefully"
+        mhrr <- mkHeadersRequest (headerHash header)
+        case mhrr of
+            MhrrBlockAdopted ->
+                logDebug "Block already adopted, nothing to be done"
+            MhrrWithoutCheckpoints mgh -> do
+                logDebug "Checkpoints not available, headers request made\
+                         \ from the tip"
+                handleHeadersRequest nodeId header mgh
+            MhrrWithCheckpoints mgh -> do
+                logDebug "Checkpoints available, headers request assembled"
+                handleHeadersRequest nodeId header mgh
+    handleHeadersRequest nodeId header mgh = do
+        updateRecoveryHeader nodeId header
+        endedRecoveryVar <- newEmptyMVar
+        let cont (headers :: NewestFirst NE (BlockHeader ssc)) =
+                let firstHeader = headers ^. _Wrapped . _neLast
+                in handleCHsValid sendActions endedRecoveryVar nodeId
+                                  firstHeader (headerHash header)
+        reifyMsgLimit (Proxy @(MsgHeaders ssc)) $ \limPx ->
+            withConnectionTo sendActions nodeId $ \_ -> pure $ Conversation $ \conv ->
+            requestHeaders cont mgh nodeId limPx conv
+                `finally` void (tryPutMVar endedRecoveryVar False)
+        -- Block until the conversation has ended.
+        whenM (readMVar endedRecoveryVar) $
+            logDebug "Recovery mode exited gracefully"
     handleBlockRetrievalE nodeId header e = do
         logWarning $ sformat
             ("Error handling nodeId="%build%", header="%build%": "%shown)
@@ -138,6 +148,14 @@ retrievalWorkerImpl sendActions =
                  \ so we will request more headers and blocks"
         handleBlockRetrieval nodeId $
             BlockRetrievalTask { brtHeader = rHeader, brtContinues = False }
+    handleBlockRetrievalFromQueue nodeId task = do
+        logDebug $ sformat
+            ("Block retrieval queue task received, nodeId="%build%
+             ", header="%build%", continues="%build)
+            nodeId
+            (headerHash $ brtHeader task)
+            (brtContinues task)
+        handleBlockRetrieval nodeId task
 
 -- | Result of attempt to update recovery header.
 data UpdateRecoveryResult ssc

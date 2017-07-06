@@ -13,6 +13,7 @@ module Pos.Block.Network.Logic
 
        , handleUnsolicitedHeaders
        , mkHeadersRequest
+       , MkHeadersRequestResult(..)
        , requestHeaders
 
        , mkBlocksRequest
@@ -64,6 +65,7 @@ import           Pos.Core                   (HasHeaderHash (..), HeaderHash, gbH
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
+import qualified Pos.DB.GState              as GS
 import           Pos.Discovery              (converseToNeighbors)
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
@@ -150,20 +152,34 @@ requestTip _ nodeId conv = do
 -- Headers processing
 ----------------------------------------------------------------------------
 
+-- | Result of creating a request message for more headers.
+data MkHeadersRequestResult
+    = MhrrBlockAdopted
+      -- ^ The block pointed by the header is already adopted, no need to
+      -- make the request.
+    | MhrrWithoutCheckpoints MsgGetHeaders
+      -- ^ The request can be made, but no checkpoints available.
+    | MhrrWithCheckpoints MsgGetHeaders
+      -- ^ A good request with checkpoints can be made.
+
 -- | Make 'GetHeaders' message using our main chain. This function
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
 -- message.
 mkHeadersRequest
     :: forall ssc m.
        WorkMode ssc m
-    => HeaderHash -> m (Maybe MsgGetHeaders)
+    => HeaderHash -> m MkHeadersRequestResult
 mkHeadersRequest upto = do
     uHdr <- blkGetHeader @ssc upto
-    runMaybeT $ do
-        -- no reason to make a request when we already have the latest header
-        guard (isNothing uHdr)
-        bHeaders <- MaybeT $ nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
-        pure $ MsgGetHeaders (toList bHeaders) (Just upto)
+    if isJust uHdr then return MhrrBlockAdopted else do
+        mCheckpoints <- nonEmpty . toList <$> getHeadersOlderExp @ssc Nothing
+        case mCheckpoints of
+            Nothing -> do
+                tip <- GS.getTip
+                return $ MhrrWithoutCheckpoints $
+                    MsgGetHeaders [tip] (Just upto)
+            Just bHeaders -> return $ MhrrWithCheckpoints $
+                MsgGetHeaders (toList bHeaders) (Just upto)
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders

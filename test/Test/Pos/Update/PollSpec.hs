@@ -6,22 +6,24 @@ module Test.Pos.Update.PollSpec
 
 import           Universum
 
-import           Control.Lens          (at)
-import           Data.DeriveTH         (derive, makeArbitrary)
-import qualified Data.HashSet          as HS
-import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary (..), Property, choose, conjoin, (===))
+import           Control.Lens                      (at)
+import qualified Data.HashSet                      as HS
+import           Test.Hspec                        (Spec, describe)
+import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
+import           Test.QuickCheck                   (Arbitrary (..), Property, conjoin,
+                                                   (===))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Core              (ApplicationName, BlockVersion,
-                                        SoftwareVersion (..), StakeholderId, addressHash)
-import           Pos.Crypto            (hash)
-import           Pos.Slotting.Types    (SlottingData)
-import           Pos.Update.Core       (UpId, UpdateProposal (..), applyBVM)
-import qualified Pos.Update.Poll       as Poll
-import qualified Pos.Util.Modifier     as MM
+import           Pos.Core                          (ApplicationName, BlockVersion,
+                                                    SoftwareVersion (..), StakeholderId,
+                                                    addressHash)
+import           Pos.Crypto                        (hash)
+import           Pos.Slotting.Types                (SlottingData)
+import           Pos.Update.Core                   (UpId, UpdateProposal (..), applyBVM)
+import qualified Pos.Update.Poll                   as Poll
+import qualified Pos.Util.Modifier                 as MM
 
-import           Test.Pos.Util         (formsMonoid)
+import           Test.Pos.Util                     (formsMonoid)
 
 spec :: Spec
 spec = describe "Poll" $ do
@@ -70,7 +72,11 @@ data PollAction
     | DeactivateProposal UpId
     | SetSlottingData SlottingData
     | SetEpochProposers (HashSet StakeholderId)
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
+
+instance Arbitrary PollAction where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 actionToMonad :: Poll.MonadPoll m => PollAction -> m ()
 actionToMonad (PutBVState bv bvs)        = Poll.putBVState bv bvs
@@ -144,5 +150,3 @@ applyActions ps actionList =
         resultPStates = ps : scanl Poll.execPurePollWithLogger ps pollSts
         newPollStates = scanl (flip Poll.modifyPollState) ps resultModifiers
     in conjoin $ zipWith (===) resultPStates newPollStates
-
-derive makeArbitrary ''PollAction

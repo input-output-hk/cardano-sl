@@ -67,7 +67,6 @@ library
                      , containers
                      , conduit
                      , data-default
-                     , derive
                      , ether
                      , formatting
                      , generic-arbitrary

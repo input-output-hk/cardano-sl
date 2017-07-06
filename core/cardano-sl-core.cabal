@@ -135,7 +135,6 @@ library
                      , cryptonite-openssl >= 0.5
                      , data-default
                      , deepseq
-                     , derive
                      , deriving-compat
                      , digest
                      , directory

@@ -328,7 +328,6 @@ library
                       , cryptonite-openssl >= 0.6
                       , data-default
                       , deepseq
-                      , derive
                       , deriving-compat
                       , digest
                       , directory
@@ -601,9 +600,9 @@ test-suite cardano-test
                      , containers
                      , cryptonite
                      , data-default
-                     , derive
                      , ether
                      , formatting
+                     , generic-arbitrary
                      , hspec
                      , kademlia
                      , lens
@@ -679,7 +678,6 @@ benchmark cardano-bench-criterion
                      , cardano-sl
                      , containers
                      , criterion
-                     , derive
                      , formatting
                      , hashtables
                      , lens

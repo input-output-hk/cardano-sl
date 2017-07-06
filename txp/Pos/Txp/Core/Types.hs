@@ -47,7 +47,6 @@ module Pos.Txp.Core.Types
        ) where
 
 import           Control.Lens         (makeLenses, makePrisms)
-import           Data.DeriveTH        (derive, makeNFData)
 import           Data.Hashable        (Hashable)
 import           Data.Text.Buildable  (Buildable)
 import qualified Data.Text.Buildable  as Buildable
@@ -119,6 +118,8 @@ instance Buildable TxInWitness where
     build (UnknownWitnessType t bs) =
         bprint ("UnknownWitnessType "%build%" "%base16F) t bs
 
+instance NFData TxInWitness
+
 -- | A witness is a proof that a transaction is allowed to spend the funds it
 -- spends (by providing signatures, redeeming scripts, etc). A separate proof
 -- is provided for each input.
@@ -140,6 +141,8 @@ instance Buildable TxDistribution where
     build (TxDistribution x) =
         listBuilderJSON . map (listBuilderJSON . map pairBuilder) $ x
 
+instance NFData TxDistribution
+
 ----------------------------------------------------------------------------
 -- Tx parts
 ----------------------------------------------------------------------------
@@ -157,6 +160,8 @@ instance Hashable TxIn
 instance Buildable TxIn where
     build TxIn {..} = bprint ("TxIn "%shortHashF%" #"%int) txInHash txInIndex
 
+instance NFData TxIn
+
 -- | Transaction output.
 data TxOut = TxOut
     { txOutAddress :: !Address
@@ -168,6 +173,8 @@ instance Hashable TxOut
 instance Buildable TxOut where
     build TxOut {..} =
         bprint ("TxOut "%coinF%" -> "%build) txOutValue txOutAddress
+
+instance NFData TxOut
 
 -- | Transaction output and auxilary data corresponding to it.
 -- [CSL-366] Add more data.
@@ -181,6 +188,8 @@ instance Buildable TxOutAux where
     build (TxOutAux out distr) =
         bprint ("{txout = "%build%", distr = "%listJson%"}")
                out (map pairBuilder distr)
+
+instance NFData TxOutAux
 
 -- | Represents transaction attributes: map from 1-byte integer to
 -- arbitrary-type value. To be used for extending transaction with new
@@ -221,6 +230,8 @@ instance Bi Tx => Buildable Tx where
         attrs = _txAttributes
         attrsBuilder | areAttributesKnown attrs = mempty
                      | otherwise = bprint (", attributes: "%build) attrs
+
+instance NFData Tx
 
 -- | Specialized formatter for 'Tx'.
 txF :: Bi Tx => Format r (Tx -> r)
@@ -267,6 +278,8 @@ data TxProof = TxProof
     , txpDistributionsHash :: !(Hash [TxDistribution])
     } deriving (Show, Eq, Generic)
 
+instance NFData TxProof
+
 -- | Payload of Txp component which is part of main block. Constructor
 -- is unsafe, because it lets one create invalid payload, for example
 -- with different number of transactions and witnesses.
@@ -289,6 +302,8 @@ data TxPayload = UnsafeTxPayload
       -- also other things distributions are useful for.
       _txpDistributions :: ![TxDistribution]
     } deriving (Show, Eq, Generic)
+
+instance NFData TxPayload
 
 makeLenses ''TxPayload
 
@@ -335,14 +350,5 @@ type TxpUndo = [TxUndo]
 ----------------------------------------------------------------------------
 -- TH instances
 ----------------------------------------------------------------------------
-
-derive makeNFData ''TxIn
-derive makeNFData ''TxInWitness
-derive makeNFData ''TxOut
-derive makeNFData ''TxOutAux
-derive makeNFData ''TxDistribution
-derive makeNFData ''Tx
-derive makeNFData ''TxProof
-derive makeNFData ''TxPayload
 
 makePrisms ''TxOut

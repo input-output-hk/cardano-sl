@@ -18,7 +18,6 @@ import           Universum
 
 import qualified Data.ByteString     as BS
 import           Data.Default        (Default (..))
-import           Data.DeriveTH       (derive, makeNFData)
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
@@ -66,6 +65,8 @@ instance Buildable (Attributes ()) where
                 (length attrRemain)
 
 instance Hashable h => Hashable (Attributes h)
+
+instance NFData h => NFData (Attributes h)
 
 -- | Check whether all data from 'Attributes' is known, i. e. was
 -- successfully parsed into some structured data.
@@ -173,5 +174,3 @@ putAttributesS putMapper Attributes {..} =
  where
    putAttr (k, v) = putWord8S k *> v
    kvs = sortOn fst $ putMapper attrData
-
-derive makeNFData ''Attributes

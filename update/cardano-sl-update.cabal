@@ -80,7 +80,6 @@ library
                      , containers
                      , conduit
                      , data-default
-                     , derive
                      , ether >= 0.5
                      , exceptions
                      , formatting

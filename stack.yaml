@@ -20,6 +20,12 @@ packages:
 - txp
 
 - location:
+    git: https://github.com/arybczak/binary-serialise-cbor
+    commit: a1770a6ab0a6f457fe56269fb684a9f8dad0da17
+  subdirs:
+  - cborg
+  extra-dep: true
+- location:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
   extra-dep: true

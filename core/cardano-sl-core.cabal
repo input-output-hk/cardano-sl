@@ -71,6 +71,8 @@ library
                        Pos.Data.Attributes
                        Pos.Exception
 
+                       Pos.Binary.Cbor.Class
+
                        Pos.Binary.Class
                        Pos.Binary.Class.Core
                        Pos.Binary.Class.Instances
@@ -114,6 +116,7 @@ library
                      , autoexporter
                      , base
                      , base58-bytestring
+                     , cborg
                      , concurrent-extra
                      , ether >= 0.5
                      , log-warper >= 1.0.3

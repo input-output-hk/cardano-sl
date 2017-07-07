@@ -68,7 +68,6 @@ module.exports = {
           dead_code: true,
           warnings: false
         }
-        // pure_funcs: [ 'console.assert' ]
       })
     ] : []
     )

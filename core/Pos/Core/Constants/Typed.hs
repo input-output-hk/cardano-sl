@@ -6,6 +6,7 @@ module Pos.Core.Constants.Typed
          staticSysStart
        , blkSecurityParam
        , slotSecurityParam
+       , chainQualityThreshold
        , epochSlots
 
        -- * Genesis constants
@@ -54,9 +55,22 @@ blkSecurityParam :: BlockCount
 blkSecurityParam = fromIntegral $ ccK coreConstants
 
 -- | Security parameter expressed in number of slots. It uses chain
--- quality property. It's basically @blkSecurityParam / chain_quality@.
+-- quality property. It's basically @blkSecurityParam / chainQualityThreshold@.
 slotSecurityParam :: SlotCount
 slotSecurityParam = fromIntegral $ 2 * ccK coreConstants
+
+-- | Minimal chain quality (number of blocks divided by number of
+-- slots) necessary for security of the system.
+--
+-- We don't have a special newtype for it, so it can be any
+-- 'Fractional'. I think adding newtype here would be overkill
+-- (@gromak). Also this value is not actually part of the protocol,
+-- but rather implementation detail, so we don't need to ensure
+-- conrete precision. Apart from that, in reality we know that it's
+-- 0.5, so any fractional type should be fine ☺
+chainQualityThreshold :: Fractional fractional => fractional
+chainQualityThreshold =
+    realToFrac blkSecurityParam / realToFrac slotSecurityParam
 
 -- | Number of slots inside one epoch.
 epochSlots :: SlotCount

@@ -242,7 +242,7 @@ chainQualityChecker curSlot = do
         -- We use monadic version here, because it also does sanity
         -- check and we don't want to copy-paste it and it's easier
         -- and cheap.
-        chainQuality <- calcChainQualityM curFlatSlot
+        chainQuality :: Double <- calcChainQualityM curFlatSlot
         -- TODO [CSL-1342]:
         -- 1. Make constants configurable.
         -- 2. Send messages to reporting server, make them contain

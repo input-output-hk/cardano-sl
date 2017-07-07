@@ -22,7 +22,7 @@ import           Control.Monad.Except       (MonadError (throwError), runExceptT
 import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
 import           Ether.Internal             (HasLens (..))
-import           Formatting                 (build, ords, sformat, stext, (%))
+import           Formatting                 (build, fixed, ords, sformat, stext, (%))
 import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog                (logDebug, logError, logInfo)
@@ -38,14 +38,14 @@ import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Slog             (HasSlogContext (..), SlogUndo (..),
                                              slogGetLastSlots)
 import           Pos.Block.Types            (Undo (..))
-import           Pos.Constants              (blkSecurityParam, slotSecurityParam)
+import           Pos.Constants              (blkSecurityParam, chainQualityThreshold,
+                                             epochSlots)
 import           Pos.Context                (BlkSemaphore, HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
-                                             EpochOrSlot (..), HeaderHash, LocalSlotIndex,
-                                             SlotId (..), SlotLeaders, addLocalSlotIndex,
-                                             epochIndexL, epochOrSlot, flattenSlotId,
-                                             getEpochOrSlot, headerHash, siSlotL)
+                                             EpochOrSlot (..), HeaderHash, SlotId (..),
+                                             SlotLeaders, epochIndexL, flattenSlotId,
+                                             getEpochOrSlot, headerHash)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.DB                     (DBError (..))
 import qualified Pos.DB.Block               as DB
@@ -130,9 +130,6 @@ createGenesisBlockDo epoch leaders tip = do
         False -> (Nothing, tip) <$ logShouldNot
         True -> actuallyCreate tipHeader
   where
-    chainQualityThreshold :: Double
-    chainQualityThreshold =
-        realToFrac blkSecurityParam / realToFrac slotSecurityParam
     shouldCreate (Left _) = pure False
     -- This is true iff tip is from 'epoch' - 1 and last
     -- 'blkSecurityParam' blocks fully fit into last
@@ -140,7 +137,7 @@ createGenesisBlockDo epoch leaders tip = do
     shouldCreate (Right mb)
         | mb ^. epochIndexL /= epoch - 1 = pure False
         | otherwise =
-            (chainQualityThreshold <=) <$>
+            (chainQualityThreshold @Double <=) <$>
             calcChainQualityM (flattenSlotId $ SlotId epoch minBound)
     actuallyCreate tipHeader = do
         let blk = mkGenesisBlock (Just tipHeader) epoch leaders
@@ -162,11 +159,17 @@ createGenesisBlockDo epoch leaders tip = do
 -- MainBlock creation
 ----------------------------------------------------------------------------
 
--- | Create a new main block on top of best chain if possible.
+-- | Create a new main block on top of our tip if possible.
 -- Block can be created if:
--- • we know genesis block for epoch from given SlotId
--- • last known block is not more than 'slotSecurityParam' blocks away from
--- given SlotId
+-- • our software is not obsolete (see 'usCanCreateBlock');
+-- • our tip's slot is less than the slot for which we want to create a block;
+-- • there are at least 'blkSecurityParam' blocks in the last
+-- 'slotSecurityParam' slots prior to the given slot (i. e. chain quality
+-- is decent).
+--
+-- In theory we can create main block even if chain quality is
+-- bad. See documentation of 'createGenesisBlock' which explains why
+-- we don't create blocks in such cases.
 createMainBlock
     :: forall ssc ctx m.
        (CreationMode ssc ctx m)
@@ -180,30 +183,40 @@ createMainBlock sId pske =
     createMainBlockDo tip = do
         tipHeader <- DB.getTipHeader @ssc
         logInfo $ sformat msgFmt tipHeader
-        canWrtUs <- usCanCreateBlock
-        case (canCreateBlock sId tipHeader, canWrtUs) of
-            (_, False) ->
-                return (Left "this software can't create block", tip)
-            (Nothing, True)  -> convertRes tip <$>
+        canCreateBlock sId tipHeader >>= \case
+            Left reason -> pure (Left reason, tip)
+            Right () ->
+                convertRes tip <$>
                 runExceptT (createMainBlockFinish sId pske tipHeader)
-            (Just err, True) -> return (Left err, tip)
     convertRes oldTip (Left e) = (Left e, oldTip)
     convertRes _ (Right blk)   = (Right blk, headerHash blk)
 
-canCreateBlock :: SlotId -> BlockHeader ssc -> Maybe Text
-canCreateBlock sId tipHeader
-    | sId > maxSlotId = Just "slot id is too big, we don't know recent block"
-    | (EpochOrSlot $ Right sId) <= headSlot =
-        Just "slot id is not greater than one from the tip block"
-    | otherwise = Nothing
+canCreateBlock ::
+       forall ssc ctx m. CreationMode ssc ctx m
+    => SlotId
+    -> BlockHeader ssc
+    -> m (Either Text ())
+canCreateBlock sId tipHeader =
+    runExceptT $ do
+        unlessM usCanCreateBlock $
+            throwError "this software is obsolete and can't create block"
+        unless (EpochOrSlot (Right sId) > tipEOS) $
+            throwError "slot id is not greater than one from the tip block"
+        unless (tipHeader ^. epochIndexL == siEpoch sId) $
+            throwError "we don't know genesis block for this epoch"
+        let flatSId = flattenSlotId sId
+        -- Small heuristic: let's not check chain quality during the
+        -- first quarter of the 0-th epoch, because during this time
+        -- weird things can happen (we just launched the system) and
+        -- usually we monitor it manually anyway.
+        unless (flatSId <= fromIntegral (epochSlots `div` 4)) $ do
+            chainQuality <- calcChainQualityM flatSId
+            unless (chainQuality >= chainQualityThreshold @Double) $
+                throwError $
+                sformat ("chain quality is below threshold: "%fixed 3) chainQuality
   where
-    headSlot :: EpochOrSlot
-    headSlot = getEpochOrSlot tipHeader
-    addSafe :: LocalSlotIndex -> LocalSlotIndex
-    addSafe = fromMaybe maxBound . addLocalSlotIndex slotSecurityParam
-    maxSlotId :: SlotId
-    maxSlotId = over siSlotL addSafe $
-                epochOrSlot (`SlotId` minBound) identity headSlot
+    tipEOS :: EpochOrSlot
+    tipEOS = getEpochOrSlot tipHeader
 
 data RawPayload ssc = RawPayload
     { rpTxp    :: ![TxAux]

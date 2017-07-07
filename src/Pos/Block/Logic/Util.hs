@@ -127,11 +127,10 @@ needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
 -- 'blocksCount' and another slot after that one for which we
 -- want to know chain quality.
 --
--- 'Double' as the result type is fine, because this value is not part
--- of the protocol, we only need to compare it with 0.5 and 'Double'
--- is perfectly fine for this purpose. All other use cases are
--- heuristics which are implementation details of this application.
-calcChainQuality :: BlockCount -> FlatSlotId -> FlatSlotId -> Double
+-- See documentation of 'chainQualityThreshold' to see why this
+-- function returns any 'Fractional'.
+calcChainQuality ::
+       Fractional res => BlockCount -> FlatSlotId -> FlatSlotId -> res
 calcChainQuality blockCount deepSlot newSlot =
     realToFrac blockCount / realToFrac (newSlot - deepSlot)
 
@@ -143,9 +142,10 @@ calcChainQualityM ::
        , MonadIO m
        , MonadThrow m
        , WithLogger m
+       , Fractional res
        )
     => FlatSlotId
-    -> m Double
+    -> m res
 calcChainQualityM newSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
     let len = length lastSlots

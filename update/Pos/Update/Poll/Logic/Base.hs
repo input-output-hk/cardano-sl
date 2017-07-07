@@ -38,8 +38,8 @@ import           Pos.Binary.Update       ()
 import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, HeaderHash,
                                           IsMainHeader (..), ScriptVersion, SlotId,
                                           Timestamp (..), addressHash, coinToInteger,
-                                          difficultyL, headerHashG, sumCoins,
-                                          unsafeAddCoin, unsafeIntegerToCoin,
+                                          difficultyL, headerHashG, isBootstrapEra,
+                                          sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
                                           unsafeSubCoin)
 import           Pos.Core.Constants      (epochSlots)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
@@ -233,13 +233,19 @@ updateSlottingData epoch = do
 -- ('UpId') is used to create error only.
 verifyNextBVMod
     :: MonadError PollVerFailure m
-    => UpId -> BlockVersionData -> BlockVersionModifier -> m ()
-verifyNextBVMod upId
+    => UpId
+    -> EpochIndex -- block epoch index
+    -> BlockVersionData
+    -> BlockVersionModifier
+    -> m ()
+verifyNextBVMod upId epoch
   BlockVersionData { bvdScriptVersion = oldSV
                    , bvdMaxBlockSize = oldMBS
+                   , bvdUnlockStakeEpoch = oldUnlockStakeEpoch
                    }
   BlockVersionModifier { bvmScriptVersion = newSV
                        , bvmMaxBlockSize = newMBS
+                       , bvmUnlockStakeEpoch = newUnlockStakeEpochM
                        }
     | newSV /= oldSV + 1 && newSV /= oldSV =
         throwError
@@ -255,6 +261,16 @@ verifyNextBVMod upId
             , plmbsFound = newMBS
             , plmbsUpId = upId
             }
+    | Just newUnlockStakeEpoch <- newUnlockStakeEpochM,
+      oldUnlockStakeEpoch /= newUnlockStakeEpoch = do
+          let bootstrap = isBootstrapEra oldUnlockStakeEpoch epoch
+          unless bootstrap $ throwError
+              PollBootstrapEraInvalidChange
+              { pbeicLast = epoch
+              , pbeicAdopted = oldUnlockStakeEpoch
+              , pbeicProposed = newUnlockStakeEpoch
+              , pbeicUpId = upId
+              }
     | otherwise = pass
 
 ----------------------------------------------------------------------------

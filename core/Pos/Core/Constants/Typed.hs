@@ -22,6 +22,7 @@ module Pos.Core.Constants.Typed
        , genesisUpdateProposalThd
        , genesisUpdateImplicit
        , genesisUpdateSoftforkThd
+       , genesisUnlockStakeEpoch
        ) where
 
 import           Universum
@@ -35,8 +36,9 @@ import           Pos.Core.Constants.Raw     (CoreConstants (..), coreConstants,
 import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Fee.Config        (ConfigOf (..))
 import           Pos.Core.Types             (BlockCount, BlockVersionData (..),
-                                             CoinPortion, ScriptVersion, SlotCount,
-                                             Timestamp (..), unsafeCoinPortionFromDouble)
+                                             CoinPortion, EpochIndex (..), ScriptVersion,
+                                             SlotCount, Timestamp (..),
+                                             unsafeCoinPortionFromDouble)
 
 ----------------------------------------------------------------------------
 -- Constants taken from the config
@@ -81,6 +83,7 @@ genesisBlockVersionData =
     , bvdUpdateImplicit = genesisUpdateImplicit
     , bvdUpdateSoftforkThd = genesisUpdateSoftforkThd
     , bvdTxFeePolicy = genesisTxFeePolicy
+    , bvdUnlockStakeEpoch = genesisUnlockStakeEpoch
     }
 
 -- | ScriptVersion used at the very beginning
@@ -141,3 +144,7 @@ genesisUpdateSoftforkThd = unsafeCoinPortionFromDouble $
 
 genesisTxFeePolicy :: TxFeePolicy
 genesisTxFeePolicy = getConfigOf (ccGenesisTxFeePolicy coreConstants)
+
+genesisUnlockStakeEpoch :: EpochIndex
+genesisUnlockStakeEpoch = EpochIndex $
+    ccGenesisUnlockStakeEpoch coreConstants

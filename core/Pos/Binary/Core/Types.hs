@@ -95,5 +95,6 @@ deriveSimpleBi ''T.BlockVersionData [
         Field [| T.bvdUpdateProposalThd :: T.CoinPortion   |],
         Field [| T.bvdUpdateImplicit    :: T.FlatSlotId    |],
         Field [| T.bvdUpdateSoftforkThd :: T.CoinPortion   |],
-        Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |]
+        Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |],
+        Field [| T.bvdUnlockStakeEpoch  :: T.EpochIndex    |]
     ]]

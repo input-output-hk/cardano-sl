@@ -232,6 +232,7 @@ data BlockVersionData = BlockVersionData
     , bvdUpdateImplicit    :: !FlatSlotId
     , bvdUpdateSoftforkThd :: !CoinPortion
     , bvdTxFeePolicy       :: !TxFeePolicy
+    , bvdUnlockStakeEpoch  :: !EpochIndex
     } deriving (Show, Eq, Generic, Typeable)
 
 ----------------------------------------------------------------------------

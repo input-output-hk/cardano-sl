@@ -97,6 +97,7 @@ data CoreConstants = CoreConstants
       -- block version is adopted.
     , ccGenesisUpdateSoftforkThd     :: !Double
     , ccGenesisTxFeePolicy           :: !(ConfigOf TxFeePolicy)
+    , ccGenesisUnlockStakeEpoch      :: !Word64
       -- | Maximum block size in bytes
     , ccGenesisMaxBlockSize          :: !Byte
       -- | Maximum block header size in bytes

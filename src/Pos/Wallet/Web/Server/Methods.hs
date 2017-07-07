@@ -67,15 +67,15 @@ import           Pos.Client.Txp.Util              (createMTx)
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
-import           Pos.Context                      (genesisStakeholdersM, GenesisUtxo)
-import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..), addressF,
-                                                   bvdTxFeePolicy, calculateTxSizeLinear,
+import           Pos.Context                      (GenesisUtxo, genesisStakeholdersM)
+import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..),
+                                                   addressF, bvdTxFeePolicy,
+                                                   calculateTxSizeLinear,
                                                    decodeTextAddress, getCurrentTimestamp,
                                                    getTimestamp, integerToCoin,
-                                                   makeRedeemAddress, mkCoin, sumCoins,
-                                                   unsafeAddCoin, unsafeAddCoin,
-                                                   unsafeGetCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin)
+                                                   makeRedeemAddress, mkCoin, siEpoch,
+                                                   sumCoins, unsafeAddCoin, unsafeGetCoin,
+                                                   unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
                                                    SafeSigner, aesDecrypt,
                                                    changeEncPassphrase, checkPassMatches,
@@ -91,6 +91,7 @@ import           Pos.Genesis                      (genesisDevHdwSecretKeys,
 import           Pos.Reporting.MemState           (HasReportServers (..),
                                                    HasReportingContext (..))
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
+import           Pos.Slotting                     (MonadSlots (..))
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..))
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
@@ -103,7 +104,8 @@ import           Pos.Wallet.KeyStorage            (addSecretKey, deleteSecretKey
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (applyLastUpdate,
                                                    blockchainSlotDuration, connectedPeers,
-                                                   getBalance, getLocalHistory, localChainDifficulty,
+                                                   getBalance, getLocalHistory,
+                                                   localChainDifficulty,
                                                    networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    genSaveRootKey,
@@ -140,8 +142,7 @@ import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
-import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing),
-                                                   CustomAddressType (ChangeAddr, UsedAddr),
+import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing), CustomAddressType (ChangeAddr, UsedAddr),
                                                    addOnlyNewTxMeta, addUpdate,
                                                    addWAddress, closeState, createAccount,
                                                    createWallet, getAccountMeta,
@@ -157,7 +158,7 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    setWalletPassLU, setWalletTxMeta,
                                                    testReset, updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
-import           Pos.Wallet.Web.Tracking          (sortedInsertions, CAccModifier (..),
+import           Pos.Wallet.Web.Tracking          (CAccModifier (..), sortedInsertions,
                                                    syncWalletOnImport,
                                                    syncWalletsWithGState,
                                                    txMempoolToModifier)
@@ -698,7 +699,12 @@ prepareTxInfoRaw moneySource dstDistr = do
         coins = foldr1 unsafeAddCoin $ snd <$> dstDistr
     distr@(remaining, spendings) <- selectSrcAccounts coins notDstAccounts
     logDebug $ buildDistribution distr
-    bootEra <- gsIsBootstrapEra
+    epoch <- siEpoch <$>
+        -- @pva701 suggests that blocking here is fine. A prompt will be shown
+        -- to the user saying something along the lines of "Syncing with
+        -- blockchain 95.0%".
+        getCurrentSlotBlocking
+    bootEra <- gsIsBootstrapEra epoch
     genStakeholders <- genesisStakeholdersM
     let cantSpendDust c =
             throwM $ RequestError $

@@ -109,8 +109,12 @@ needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
     isTooOld currentSlot = do
         lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader @ssc
         let distance = getEpochOrSlot currentSlot `diffEpochOrSlot`
-                       lastKnownBlockSlot
-        pure (distance > slotSecurityParam)
+                         lastKnownBlockSlot
+        pure $ case distance of
+            Just d  -> d > slotSecurityParam
+            Nothing -> True   -- if current slot < last known slot, it's very
+                              -- weird but at least we definitely know that
+                              -- we don't need to do recovery
 
 -- | Calculate chain quality using slot of the block which has depth =
 -- 'blkSecurityParam - 1' and another slot after that one for which we
@@ -122,4 +126,4 @@ needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
 -- heuristics which are implementation details of this application.
 calcChainQuality :: FlatSlotId -> FlatSlotId -> Double
 calcChainQuality kThSlot newSlot =
-    (realToFrac @Word) blkSecurityParam / realToFrac (newSlot - kThSlot)
+    realToFrac blkSecurityParam / realToFrac (newSlot - kThSlot)

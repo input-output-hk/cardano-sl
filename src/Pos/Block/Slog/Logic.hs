@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -34,7 +35,7 @@ import           Pos.Block.BListener    (MonadBListener (..))
 import           Pos.Block.Core         (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.Block.Pure         (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
-import           Pos.Block.Slog.Types   (HasSlogContext, SlogUndo (..))
+import           Pos.Block.Slog.Types   (HasSlogContext, LastBlkSlots, SlogUndo (..))
 import           Pos.Block.Types        (Blund, Undo (..))
 import           Pos.Constants          (blkSecurityParam, lastKnownBlockVersion)
 import           Pos.Context            (lrcActionOnEpochReason)
@@ -155,7 +156,7 @@ slogVerifyBlocks blocks = do
     let removedSlots :: OldestFirst [] FlatSlotId
         removedSlots =
             combinedSlots & _Wrapped %~
-            (take $ length combinedSlots - blkSecurityParam)
+            (take $ length combinedSlots - fromIntegral blkSecurityParam)
     -- Note: here we exploit the fact that genesis block can be only 'head'.
     -- If we have genesis block, then size of 'newSlots' will be less than
     -- number of blocks we verify. It means that there will definitely
@@ -212,7 +213,7 @@ slogApplyBlocks blunds = do
             SomeBatchOp $
             GS.PutTip $ headerHash $ NE.last $ getOldestFirst blunds
     lastSlots <- slogGetLastSlots
-    slogCommon (newLastSlots lastSlots)
+    slogCommon @ssc (newLastSlots lastSlots)
     return $ SomeBatchOp [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
   where
     blocks = fmap fst blunds
@@ -229,7 +230,8 @@ slogApplyBlocks blunds = do
         | otherwise = [GS.SetLastSlots $ newLastSlots lastSlots]
     -- Slots are in 'OldestFirst' order. So we put new slots to the
     -- end and drop old slots from the beginning.
-    updateLastSlots lastSlots = leaveAtMostN blkSecurityParam (lastSlots ++ newSlots)
+    updateLastSlots lastSlots =
+        leaveAtMostN (fromIntegral blkSecurityParam) (lastSlots ++ newSlots)
     leaveAtMostN :: Int -> [a] -> [a]
     leaveAtMostN n lst = drop (length lst - n) lst
     blockExtraBatch lastSlots =
@@ -251,7 +253,7 @@ slogRollbackBlocks blunds = do
             (NE.last $ getNewestFirst blunds) ^.
             prevBlockL
     lastSlots <- slogGetLastSlots
-    slogCommon (newLastSlots lastSlots)
+    slogCommon @ssc (newLastSlots lastSlots)
     return $
         SomeBatchOp
             [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
@@ -267,7 +269,7 @@ slogRollbackBlocks blunds = do
         mapMaybe (getSlogUndo . undoSlog . snd) $ toList (toOldestFirst blunds)
     newLastSlots lastSlots = lastSlots & _Wrapped %~ updateLastSlots
     updateLastSlots lastSlots =
-        take blkSecurityParam (lastSlotsToPrepend ++ lastSlots)
+        take (fromIntegral blkSecurityParam) (lastSlotsToPrepend ++ lastSlots)
     blockExtraBatch lastSlots =
         GS.SetLastSlots (newLastSlots lastSlots) :
         mconcat [forwardLinksBatch, inMainBatch]

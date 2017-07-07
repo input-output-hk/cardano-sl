@@ -188,6 +188,7 @@ runCmd sendActions ProposeUpdate{..} CmdCtx{na} = do
             , bvmUpdateImplicit    = bvdUpdateImplicit
             , bvmUpdateSoftforkThd = bvdUpdateSoftforkThd
             , bvmTxFeePolicy       = Nothing
+            , bvmUnlockStakeEpoch  = Nothing
             }
     let udata' h = HM.fromList [(puSystemTag, UpdateData h h h h)]
     let udata = maybe (error "Failed to read prop file") udata' diffFile

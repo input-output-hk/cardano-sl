@@ -92,7 +92,7 @@ instance Arbitrary StakeAndHolder where
 
 ftsListLength :: SharedSeed -> StakeAndHolder -> Bool
 ftsListLength fts (getNoStake -> (_, utxo)) =
-    length (followTheSatoshiUtxo fts utxo) == epochSlots
+    length (followTheSatoshiUtxo fts utxo) == fromIntegral epochSlots
 
 ftsNoStake
     :: SharedSeed
@@ -118,8 +118,9 @@ ftsAllStake fts key ah v =
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
 -- run.
 numberOfRuns :: Int
-numberOfRuns = 300000 `div` blkSecurityParam -- Higher we have `blkSecurityParam`,
-                                             -- longer epochs and more time FTS takes
+-- The higher is 'blkSecurityParam', the longer epochs will be and the more
+-- time FTS will take
+numberOfRuns = 300000 `div` fromIntegral blkSecurityParam
 
 newtype FtsStream = Stream
     { getStream :: [SharedSeed]

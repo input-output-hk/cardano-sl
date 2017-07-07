@@ -173,7 +173,9 @@ instance RocksBatchOp UpdateOp where
 
 initGStateUS :: (MonadDB m) => Timestamp -> m ()
 initGStateUS systemStart = do
-    let genesisSlottingData = SlottingData
+    let genesisEpochDuration =
+            fromIntegral epochSlots * convertUnit genesisSlotDuration
+        genesisSlottingData = SlottingData
             { sdPenult      = esdPenult
             , sdPenultEpoch = 0
             , sdLast        = esdLast
@@ -182,9 +184,7 @@ initGStateUS systemStart = do
             { esdSlotDuration = genesisSlotDuration
             , esdStart        = systemStart
             }
-        epoch1Start =
-            systemStart +
-            epochSlots * Timestamp (convertUnit genesisSlotDuration)
+        epoch1Start = systemStart + Timestamp genesisEpochDuration
         esdLast = EpochSlottingData
             { esdSlotDuration = genesisSlotDuration
             , esdStart        = epoch1Start

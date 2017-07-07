@@ -48,6 +48,8 @@ module Pos.DB.Class
        , gsMaxHeaderSize
        , gsMaxTxSize
        , gsMaxProposalSize
+       , gsUnlockStakeEpoch
+       , gsIsBootstrapEra
 
          -- * Block DB
        , MonadBlockDBGeneric (..)
@@ -57,17 +59,17 @@ module Pos.DB.Class
 
 import           Universum
 
-import           Control.Monad.Morph            (hoist)
-import           Control.Monad.Trans            (MonadTrans (..))
-import           Control.Monad.Trans.Control    (MonadBaseControl)
-import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource   (ResourceT)
-import           Data.Conduit                   (Source)
-import qualified Database.RocksDB               as Rocks
-import           Serokell.Data.Memory.Units     (Byte)
+import           Control.Monad.Morph          (hoist)
+import           Control.Monad.Trans          (MonadTrans (..))
+import           Control.Monad.Trans.Control  (MonadBaseControl)
+import           Control.Monad.Trans.Resource (ResourceT)
+import           Data.Conduit                 (Source)
+import qualified Database.RocksDB             as Rocks
+import           Serokell.Data.Memory.Units   (Byte)
 
-import           Pos.Binary.Class               (Bi)
-import           Pos.Core                       (BlockVersionData (..), HeaderHash)
+import           Pos.Binary.Class             (Bi)
+import           Pos.Core                     (BlockVersionData (..), EpochIndex,
+                                               HeaderHash, isBootstrapEra)
 
 ----------------------------------------------------------------------------
 -- Pure
@@ -158,16 +160,13 @@ instance {-# OVERLAPPABLE #-}
 -- alternative DBs my be used to provide this data.
 class Monad m => MonadGState m where
     gsAdoptedBVData :: m BlockVersionData
-    gsIsBootstrapEra :: m Bool
-    -- ^ Checks if current era is bootstrap
 
 instance {-# OVERLAPPABLE #-}
-    (MonadGState m, MonadTrans t, LiftLocal t,
+    (MonadGState m, MonadTrans t,
      Monad (t m)) =>
         MonadGState (t m)
   where
     gsAdoptedBVData = lift gsAdoptedBVData
-    gsIsBootstrapEra = lift gsIsBootstrapEra
 
 gsMaxBlockSize :: MonadGState m => m Byte
 gsMaxBlockSize = bvdMaxBlockSize <$> gsAdoptedBVData
@@ -180,6 +179,15 @@ gsMaxTxSize = bvdMaxTxSize <$> gsAdoptedBVData
 
 gsMaxProposalSize :: MonadGState m => m Byte
 gsMaxProposalSize = bvdMaxProposalSize <$> gsAdoptedBVData
+
+gsUnlockStakeEpoch :: MonadGState m => m EpochIndex
+gsUnlockStakeEpoch = bvdUnlockStakeEpoch <$> gsAdoptedBVData
+
+-- | Checks if provided epoch is in the bootstrap era.
+gsIsBootstrapEra :: MonadGState m => EpochIndex -> m Bool
+gsIsBootstrapEra epoch = do
+    unlockStakeEpoch <- gsUnlockStakeEpoch
+    return $ isBootstrapEra unlockStakeEpoch epoch
 
 ----------------------------------------------------------------------------
 -- Block DB abstraction
@@ -196,7 +204,7 @@ class MonadDBRead m =>
     dbGetUndo :: HeaderHash -> m (Maybe undo)
 
 instance {-# OVERLAPPABLE #-}
-    (MonadBlockDBGeneric header blk undo m, MonadTrans t, LiftLocal t,
+    (MonadBlockDBGeneric header blk undo m, MonadTrans t,
      MonadDBRead (t m)) =>
         MonadBlockDBGeneric header blk undo (t m)
   where
@@ -228,7 +236,7 @@ instance {-# OVERLAPPABLE #-}
     ( MonadBlockDBGenericWrite header blk undo m
     , MonadBlockDBGeneric header blk undo (t m)
     , MonadTrans t
-    , LiftLocal t) =>
+    ) =>
         MonadBlockDBGenericWrite header blk undo (t m)
   where
     dbPutBlund = lift . dbPutBlund

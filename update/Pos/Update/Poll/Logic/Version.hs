@@ -16,7 +16,7 @@ module Pos.Update.Poll.Logic.Version
 import           Control.Monad.Except       (MonadError, throwError)
 import           Universum
 
-import           Pos.Core                   (SoftwareVersion (..))
+import           Pos.Core                   (EpochIndex, SoftwareVersion (..))
 import           Pos.Update.Core            (BlockVersionData (..),
                                              BlockVersionModifier (..), UpId,
                                              UpdateProposal (..))
@@ -38,10 +38,15 @@ import           Pos.Update.Poll.Types      (BlockVersionState (..))
 -- 2. But if the proposal has a new 'BlockVersion', we check that
 -- a) its 'ScriptVersion' is @lastScriptVersion + 1@, and
 -- b) its 'maxBlockSize' is at most 2× the previous block size.
+-- c) its 'unlockStakeEpoch' does not affect past transactions. That is, we
+--    cannot change the end of the boostrap era post factum.
 verifyAndApplyProposalBVS
     :: forall m. (MonadError PollVerFailure m, MonadPoll m)
-    => UpId -> UpdateProposal -> m ()
-verifyAndApplyProposalBVS upId up =
+    => UpId
+    -> EpochIndex -- block epoch index
+    -> UpdateProposal
+    -> m ()
+verifyAndApplyProposalBVS upId epoch up =
     getBVDataOrModifier >>= \case
         -- This block version is adopted, so we check
         -- 'BlockVersionModifier' against the adopted 'BlockVersionData'.
@@ -71,7 +76,7 @@ verifyAndApplyProposalBVS upId up =
                   , bvsLastBlockUnstable = Nothing
                   }
             oldBVD <- getAdoptedBVData
-            verifyNextBVMod upId oldBVD proposedBVM
+            verifyNextBVMod upId epoch oldBVD proposedBVM
             putBVState (upBlockVersion up) newBVS
   where
     proposedBV = upBlockVersion up
@@ -122,6 +127,7 @@ bvmMatchesBVD
     bvmUpdateImplicit
     bvmUpdateSoftforkThd
     bvmTxFeePolicy
+    bvmUnlockStakeEpoch
         ) ( BlockVersionData
     bvdScriptVersion
     bvdSlotDuration
@@ -136,6 +142,7 @@ bvmMatchesBVD
     bvdUpdateImplicit
     bvdUpdateSoftforkThd
     bvdTxFeePolicy
+    bvdUnlockStakeEpoch
           ) =
           and [
       bvmScriptVersion == bvdScriptVersion
@@ -151,6 +158,7 @@ bvmMatchesBVD
     , bvmUpdateImplicit == bvdUpdateImplicit
     , bvmUpdateSoftforkThd == bvdUpdateSoftforkThd
     , maybe True (== bvdTxFeePolicy) bvmTxFeePolicy
+    , maybe True (== bvdUnlockStakeEpoch) bvmUnlockStakeEpoch
     ]
 
 -- Here we verify that proposed protocol version could be proposed.

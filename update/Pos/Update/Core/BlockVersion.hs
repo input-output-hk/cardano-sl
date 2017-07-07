@@ -27,4 +27,5 @@ applyBVM BlockVersionModifier {..} BlockVersionData {..} =
     , bvdUpdateImplicit    =                       bvmUpdateImplicit
     , bvdUpdateSoftforkThd =                    bvmUpdateSoftforkThd
     , bvdTxFeePolicy       = fromMaybe bvdTxFeePolicy bvmTxFeePolicy
+    , bvdUnlockStakeEpoch  = fromMaybe bvdUnlockStakeEpoch bvmUnlockStakeEpoch
     }

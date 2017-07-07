@@ -362,7 +362,7 @@ waitUntilSend
 waitUntilSend msgTag epoch slMultiplier = do
     let slot =
             leftToPanic "waitUntilSend: " $
-            mkLocalSlotIndex $ slMultiplier * slotSecurityParam
+            mkLocalSlotIndex $ slMultiplier * fromIntegral slotSecurityParam
     Timestamp beginning <-
         getSlotStartEmpatically $
         SlotId {siEpoch = epoch, siSlot = slot}

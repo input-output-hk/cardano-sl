@@ -15,7 +15,7 @@ import           Control.Lens                (ix)
 import qualified Data.List.NonEmpty          as NE
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (concurrently, delay, fork)
-import           Serokell.Util               (listJson, pairF)
+import           Serokell.Util               (listJson, pairF, sec)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
@@ -234,7 +234,7 @@ chainQualityChecker curSlot = do
     case nonEmpty lastSlots of
         Nothing -> pass
         Just slotsNE
-            | length slotsNE < blkSecurityParam -> pass
+            | length slotsNE < fromIntegral blkSecurityParam -> pass
             | otherwise -> chainQualityCheckerDo (NE.head slotsNE)
   where
     chainQualityCheckerDo kThSlot = do
@@ -269,15 +269,20 @@ queryBlocksWorker
     :: (WorkMode ssc ctx m, SscWorkersClass ssc)
     => (WorkerSpec m, OutSpecs)
 queryBlocksWorker = worker requestTipOuts $ \sendActions -> do
-    slotDur <- getLastKnownSlotDuration
-    let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
-        action = forever $ do
-            logInfo "Querying blocks from behind NAT"
-            triggerRecovery sendActions
+    let action = forever $ do
+            slotDur <- getLastKnownSlotDuration
+            let delayInterval = max (slotDur `div` 4) (convertUnit $ (5 :: Second))
+            recoveryCommGuard $ do
+                logInfo "Querying blocks from behind NAT"
+                triggerRecovery sendActions
             delay $ delayInterval
         handler (e :: SomeException) = do
             logWarning $ "Exception arised in queryBlocksWorker: " <> show e
-            delay $ delayInterval * 2
+             -- getLastKnownSlotDuration may fail, so we'll just wait
+             -- arbitrary number of seconds (instead of e.g. slotDur / 4)
+            delay $ sec 4
             action `catch` handler
-    action `catch` handler
+    afterDelay $ action `catch` handler
+  where
+    afterDelay action = delay (sec 3) >> action
 #endif

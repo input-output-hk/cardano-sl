@@ -6,16 +6,16 @@ matrix:
     - env: HLINT=true
     - env: HLINT=false
     - os: osx
-      osx_image: xcode8.3
-  allow_failures:
-    - os: osx
+      osx_image: xcode8
+      # don't use sierra (xcode 8.1+) because of too restrictive linker path (DEVOPS-168)
 env:
   global:
     - NIX_PATH=nixpkgs=https://github.com/NixOS/nixpkgs/archive/8bed8fb53227932886ab23e5f5f9eabe139f8e9f.tar.gz
 cache:
   directories:
   - "$HOME/.stack"
-  #- "$HOME/build/input-output-hk/cardano-sl/.stack-work"
+  - /nix/store
+  # we need to cache nix store as well to have system libraries for stack files
 
 before_install:
 - echo $TRAVIS_OS_NAME
@@ -40,7 +40,6 @@ script:
 - if [[ "$HLINT" == "true" ]]; then
     nix-shell -p haskellPackages.hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
   else
-    travis_wait 20 sleep 4600&
     nix-shell -p moreutils expect --run "unbuffer ./scripts/ci/travis.sh | ts";
   fi
 

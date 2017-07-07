@@ -42,8 +42,7 @@ import           Pos.DB.Block                (dbGetBlockDefault, dbGetBlockSscDe
 import           Pos.DB.Class                (MonadBlockDBGeneric (..),
                                               MonadBlockDBGenericWrite (..), MonadDB (..),
                                               MonadDBRead (..))
-import           Pos.DB.DB                   (gsAdoptedBVDataDefault,
-                                              gsIsBootstrapEraDefault)
+import           Pos.DB.DB                   (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks                (dbDeleteDefault, dbGetDefault,
                                               dbIterSourceDefault, dbPutDefault,
                                               dbWriteBatchDefault)
@@ -172,7 +171,6 @@ instance MonadDiscovery (RealMode ssc) where
 
 instance MonadGState (RealMode ssc) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
-    gsIsBootstrapEra = gsIsBootstrapEraDefault
 
 instance MonadDBRead (RealMode ssc) where
     dbGet = dbGetDefault

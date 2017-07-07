@@ -8,6 +8,7 @@ module Pos.Core.Slotting
        , diffEpochOrSlot
        , crucialSlot
        , unsafeMkLocalSlotIndex
+       , isBootstrapEra
        ) where
 
 import           Universum
@@ -15,18 +16,20 @@ import           Universum
 import           Pos.Core.Class     (HasEpochOrSlot (..), getEpochOrSlot)
 import           Pos.Core.Constants (epochSlots, slotSecurityParam)
 import           Pos.Core.Types     (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
-                                     LocalSlotIndex, SlotId (..), epochOrSlot,
+                                     LocalSlotIndex, SlotCount, SlotId (..), epochOrSlot,
                                      getSlotIndex, mkLocalSlotIndex)
 import           Pos.Util.Util      (leftToPanic)
 
 -- | Flatten 'SlotId' (which is basically pair of integers) into a single number.
 flattenSlotId :: SlotId -> FlatSlotId
-flattenSlotId SlotId {..} =
-    fromIntegral siEpoch * epochSlots + fromIntegral (getSlotIndex siSlot)
+flattenSlotId SlotId {..} = fromIntegral $
+    fromIntegral siEpoch * epochSlots +
+    fromIntegral (getSlotIndex siSlot)
 
 -- | Flattens 'EpochIndex' into a single number.
 flattenEpochIndex :: EpochIndex -> FlatSlotId
-flattenEpochIndex EpochIndex {..} = getEpochIndex * epochSlots
+flattenEpochIndex (EpochIndex i) =
+    fromIntegral (fromIntegral i * epochSlots)
 
 -- | Transforms some 'HasEpochOrSlot' to a single number.
 flattenEpochOrSlot :: (HasEpochOrSlot a) => a -> FlatSlotId
@@ -36,17 +39,23 @@ flattenEpochOrSlot =
 -- | Construct 'SlotId' from a flattened variant.
 unflattenSlotId :: FlatSlotId -> SlotId
 unflattenSlotId n =
-    let (fromIntegral -> siEpoch, fromIntegral -> slot) = n `divMod` epochSlots
+    let (fromIntegral -> siEpoch, fromIntegral -> slot) =
+            n `divMod` fromIntegral epochSlots
         siSlot = leftToPanic "unflattenSlotId: " $ mkLocalSlotIndex slot
     in SlotId {..}
 
 -- | Distance (in slots) between two slots. The first slot is newer, the
 -- second slot is older. An epoch is considered the same as the 0th slot of
 -- that epoch.
-diffEpochOrSlot :: EpochOrSlot -> EpochOrSlot -> Int64
-diffEpochOrSlot a b =
-    fromInteger $
-    toInteger (flattenEpochOrSlot a) - toInteger (flattenEpochOrSlot b)
+--
+-- If the difference is negative, the result will be 'Nothing'.
+diffEpochOrSlot :: EpochOrSlot -> EpochOrSlot -> Maybe SlotCount
+diffEpochOrSlot a b
+    | a' < b'   = Nothing
+    | otherwise = Just (fromInteger (a' - b'))
+  where
+    a' = toInteger (flattenEpochOrSlot a)
+    b' = toInteger (flattenEpochOrSlot b)
 
 instance Enum SlotId where
     toEnum = unflattenSlotId . fromIntegral
@@ -60,7 +69,7 @@ crucialSlot epochIdx = SlotId {siEpoch = epochIdx - 1, ..}
   where
     siSlot =
         leftToPanic "crucialSlot: " $
-        mkLocalSlotIndex (epochSlots - slotSecurityParam - 1)
+        mkLocalSlotIndex (fromIntegral (epochSlots - slotSecurityParam - 1))
 
 instance Enum EpochOrSlot where
     succ (EpochOrSlot (Left e)) =
@@ -77,14 +86,15 @@ instance Enum EpochOrSlot where
     pred (EpochOrSlot (Right si@SlotId {..}))
         | siSlot == minBound = EpochOrSlot (Left siEpoch)
         | otherwise = EpochOrSlot $ Right si {siSlot = pred siSlot}
-    fromEnum (EpochOrSlot (Left e)) = fromIntegral e * epochSlots + 1
+    fromEnum (EpochOrSlot (Left e)) =
+        fromIntegral $ fromIntegral e * epochSlots + 1
     fromEnum (EpochOrSlot (Right SlotId {..})) =
         fromEnum (EpochOrSlot (Left siEpoch)) +
         fromIntegral (getSlotIndex siSlot) +
         1
     toEnum x =
         let (fromIntegral -> epoch, fromIntegral -> slot) =
-                x `divMod` (epochSlots + 1)
+                x `divMod` (fromIntegral epochSlots + 1)
             slotIdx =
                 leftToPanic "toEnum @EpochOrSlot" $ mkLocalSlotIndex (slot - 1)
         in if | slot == 0 -> EpochOrSlot (Left epoch)
@@ -96,3 +106,22 @@ instance Enum EpochOrSlot where
 unsafeMkLocalSlotIndex :: Word16 -> LocalSlotIndex
 unsafeMkLocalSlotIndex =
     leftToPanic "unsafeMkLocalSlotIndex failed: " . mkLocalSlotIndex
+
+-- | Bootstrap era is ongoing until stakes are unlocked. The reward era starts
+-- from the epoch specified as the epoch that unlocks stakes:
+--
+-- @
+--                     [unlock stake epoch]
+--                             /
+-- Epoch: ...  E-3  E-2  E-1   E+0  E+1  E+2  E+3  ...
+--        ------------------ | -----------------------
+--             Bootstrap era   Reward era
+-- @
+--
+isBootstrapEra
+    :: EpochIndex -- ^ Unlock stake epoch
+    -> EpochIndex -- ^ Epoch in question (for which we determine whether it
+                  --                      belongs to the bootstrap era).
+    -> Bool
+isBootstrapEra unlockStakeEpoch epoch = do
+    epoch < unlockStakeEpoch

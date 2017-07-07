@@ -7,7 +7,7 @@ module Pos.Slotting.Impl.Util
 
 import           Universum
 
-import           Data.Time.Units             (convertUnit)
+import           Data.Time.Units             (Microsecond, convertUnit)
 import           NTP.Example                 ()
 
 import qualified Pos.Core.Constants          as C
@@ -52,12 +52,15 @@ computeSlotUsingEpoch
     -> Maybe SlotId
 computeSlotUsingEpoch (Timestamp curTime) epoch EpochSlottingData {..}
     | curTime < start = Nothing
-    | curTime < start + duration * C.epochSlots = Just $ SlotId epoch localSlot
+    | curTime < start + epochDuration = Just $ SlotId epoch localSlot
     | otherwise = Nothing
   where
-    localSlotNumeric = fromIntegral $ (curTime - start) `div` duration
+    localSlotNumeric = fromIntegral $ (curTime - start) `div` slotDuration
     localSlot =
         leftToPanic "computeSlotUsingEpoch: " $
         mkLocalSlotIndex localSlotNumeric
-    duration = convertUnit esdSlotDuration
     start = getTimestamp esdStart
+
+    slotDuration, epochDuration :: Microsecond
+    slotDuration = convertUnit esdSlotDuration
+    epochDuration = slotDuration * fromIntegral C.epochSlots

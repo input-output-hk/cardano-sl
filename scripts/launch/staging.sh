@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# clear old data, don't remove the databases since they may contains some data
+# that will help speed up the syncing process
+rm -rf run/* node-* *key* *.dump
+
 stack exec -- cardano-explorer \
     --system-start 1499246772 \
     --log-config log-config.yaml \

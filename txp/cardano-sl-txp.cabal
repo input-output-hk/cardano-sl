@@ -1,5 +1,5 @@
 name:                cardano-sl-txp
-version:             0.5.0
+version:             0.5.1
 synopsis:            Cardano SL - transaction processing
 description:         Cardano SL - transaction processing
 license:             MIT

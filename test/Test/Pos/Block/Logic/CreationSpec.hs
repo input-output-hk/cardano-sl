@@ -117,7 +117,7 @@ spec = describe "Block.Logic.Creation" $ do
         -> SecretKey
         -> Either Text (MainBlock SscGodTossing)
     noSscBlock limit prevHeader txs proxyCerts updatePayload sk =
-        let neutralSId = SlotId 0 (unsafeMkLocalSlotIndex $ blkSecurityParam * 2)
+        let neutralSId = SlotId 0 (unsafeMkLocalSlotIndex $ fromIntegral $ blkSecurityParam * 2)
         in producePureBlock
             limit prevHeader txs Nothing neutralSId proxyCerts (defGTP neutralSId) updatePayload sk
 
@@ -139,7 +139,7 @@ spec = describe "Block.Logic.Creation" $ do
 validGtPayloadGen :: Gen (GtPayload, SlotId)
 validGtPayloadGen = do
     vssCerts <- makeSmall $ fmap mkVssCertificatesMap $ listOf $ vssCertificateEpochGen 0
-    let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex i)
+    let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex (fromIntegral i))
     oneof [ do commMap <- makeSmall $ commitmentMapEpochGen 0
                pure (CommitmentsPayload commMap vssCerts, SlotId 0 minBound)
           , do openingsMap <- makeSmall arbitrary

@@ -25,7 +25,7 @@ import           Ether.Internal            (HasLens (..))
 import           System.Wlog               (WithLogger)
 
 import           Pos.Block.Core            (BlockHeader)
-import           Pos.Constants             (blkSecurityParam)
+import           Pos.Constants             (slotSecurityParam)
 import qualified Pos.Context               as PC
 import           Pos.Core                  (ChainDifficulty, difficultyL,
                                             flattenEpochOrSlot, flattenSlotId)
@@ -78,7 +78,7 @@ networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
         cSlot <- flattenSlotId <$> MaybeT getCurrentSlot
         th <- lift (getTipHeader @ssc)
         let hSlot = flattenEpochOrSlot th
-        when (hSlot <= cSlot - blkSecurityParam) $
+        when (hSlot + fromIntegral slotSecurityParam <= cSlot) $
             fail "Local tip is outdated"
         return $ th ^. difficultyL
 

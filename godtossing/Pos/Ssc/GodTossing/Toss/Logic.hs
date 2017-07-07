@@ -17,8 +17,7 @@ import           System.Wlog                     (logError)
 import           Universum
 
 import           Pos.Core                        (EpochIndex, EpochOrSlot (..),
-                                                  IsMainHeader,
-                                                  LocalSlotIndex (getSlotIndex),
+                                                  IsMainHeader, LocalSlotIndex, SlotCount,
                                                   SlotId (siSlot), StakeholderId,
                                                   epochIndexL, epochOrSlot,
                                                   getEpochOrSlot, headerSlotL, mkCoin)
@@ -62,11 +61,14 @@ verifyAndApplyGtPayload eoh payload = do
         Right header -> do
             let eos = EpochOrSlot $ Right $ header ^. headerSlotL
             setEpochOrSlot eos
-            let slot = epochOrSlot (const 0) (getSlotIndex . siSlot) eos
-            -- We can freely clear shares after 'slotSecurityParam'
-            -- because it's guaranteed that rollback on more than 'slotSecurityParam'
+            -- We can freely clear shares after 'slotSecurityParam' because
+            -- it's guaranteed that rollback on more than 'slotSecurityParam'
             -- can't happen
-            when (slot >= slotSecurityParam && slot < 2 * slotSecurityParam) resetShares
+            let indexToCount :: LocalSlotIndex -> SlotCount
+                indexToCount = fromIntegral . fromEnum
+            let slot = epochOrSlot (const 0) (indexToCount . siSlot) eos
+            when (slotSecurityParam <= slot && slot < 2 * slotSecurityParam) $
+                resetShares
     mapM_ putCertificate blockCerts
     case payload of
         CommitmentsPayload  comms  _ ->

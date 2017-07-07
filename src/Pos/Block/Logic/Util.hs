@@ -108,5 +108,9 @@ needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
     isTooOld currentSlot = do
         lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader @ssc
         let distance = getEpochOrSlot currentSlot `diffEpochOrSlot`
-                       lastKnownBlockSlot
-        pure (distance > slotSecurityParam)
+                         lastKnownBlockSlot
+        pure $ case distance of
+            Just d  -> d > slotSecurityParam
+            Nothing -> True   -- if current slot < last known slot, it's very
+                              -- weird but at least we definitely know that
+                              -- we don't need to do recovery

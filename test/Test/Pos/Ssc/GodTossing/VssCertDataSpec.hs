@@ -168,13 +168,13 @@ instance Arbitrary RollbackData where
     arbitrary = do
         goodVssCertData@(VssCertData {..}) <- getVssCertData <$> arbitrary
         certsToRollbackN <- choose (0, 100) >>= choose . (0,)
-        slotsToRollback <- choose (1, slotSecurityParam :: Word64)
+        slotsToRollback <- choose (1, slotSecurityParam)
         let lastKEoSWord = flattenEpochOrSlot lastKnownEoS
-            rollbackFrom = slotsToRollback + lastKEoSWord
+            rollbackFrom = fromIntegral slotsToRollback + lastKEoSWord
             rollbackGen = do
                 sk <- arbitrary
                 binVssPK <- arbitrary
-                thisEpoch  <-
+                thisEpoch <-
                     siEpoch . unflattenSlotId <$>
                         choose (succ lastKEoSWord, rollbackFrom)
                 return $ mkVssCertificate sk binVssPK thisEpoch

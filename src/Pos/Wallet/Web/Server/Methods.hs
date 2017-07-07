@@ -699,7 +699,11 @@ prepareTxInfoRaw moneySource dstDistr = do
         coins = foldr1 unsafeAddCoin $ snd <$> dstDistr
     distr@(remaining, spendings) <- selectSrcAccounts coins notDstAccounts
     logDebug $ buildDistribution distr
-    epoch <- siEpoch <$> getCurrentSlotBlocking
+    epoch <- siEpoch <$>
+        -- @pva701 suggests that blocking here is fine. A prompt will be shown
+        -- to the user saying something along the lines of "Syncing with
+        -- blockchain 95.0%".
+        getCurrentSlotBlocking
     bootEra <- gsIsBootstrapEra epoch
     genStakeholders <- genesisStakeholdersM
     let cantSpendDust c =

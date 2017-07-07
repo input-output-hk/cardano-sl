@@ -56,7 +56,10 @@ txProcessTransaction
 txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
-    epoch <- siEpoch <$> getCurrentSlotBlocking
+    epoch <- siEpoch <$>
+        -- TODO: Don't use inaccurate slotting here. If we don't know the
+        -- current slot, we should reject transactions. See CSL-1341.
+        getCurrentSlotInaccurate
     bootEra <- gsIsBootstrapEra epoch
     bootHolders <- views (lensOf @GenesisUtxo) $ getKeys . utxoToStakes . unGenesisUtxo
     localUM <- getUtxoModifier @()

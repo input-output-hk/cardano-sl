@@ -182,6 +182,14 @@ type SlogApplyMode ssc ctx m =
     , HasSlogContext ctx
     )
 
+-- {-# ANN slogApplyBlocks ("HLint: ignore Reduce duplication" :: Text) #-}
+-- ↑ Doesn't work, HALP HALP
+-- {-# ANN slogRollbackBlocks ("HLint: ignore Reduce duplication" :: Text) #-}
+-- ↑ Doesn't work, HALP HALP
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+-- ↑ I reduced duplication by introducing 'slogCommon', but it wants
+-- more and I don't.
+
 -- | This function does everything that should be done when blocks are
 -- applied and is not done in other components.
 slogApplyBlocks ::
@@ -204,9 +212,7 @@ slogApplyBlocks blunds = do
             SomeBatchOp $
             GS.PutTip $ headerHash $ NE.last $ getOldestFirst blunds
     lastSlots <- slogGetLastSlots
-    slogPutLastSlots (newLastSlots lastSlots)
-    sanityCheckDB
-    putSlottingData =<< GS.getSlottingData
+    slogCommon (newLastSlots lastSlots)
     return $ SomeBatchOp [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
   where
     blocks = fmap fst blunds
@@ -215,7 +221,7 @@ slogApplyBlocks blunds = do
     inMainBatch =
         toList $
         fmap (GS.SetInMainChain True . view headerHashG . fst) blunds
-    mainBlocks = mapMaybe rightToMaybe $ toList blocks
+    mainBlocks = rights $ toList blocks
     newSlots = flattenSlotId . view mainBlockSlot <$> mainBlocks
     newLastSlots lastSlots = lastSlots & _Wrapped %~ updateLastSlots
     knownSlotsBatch lastSlots
@@ -245,8 +251,7 @@ slogRollbackBlocks blunds = do
             (NE.last $ getNewestFirst blunds) ^.
             prevBlockL
     lastSlots <- slogGetLastSlots
-    slogPutLastSlots (newLastSlots lastSlots)
-    sanityCheckDB
+    slogCommon (newLastSlots lastSlots)
     return $
         SomeBatchOp
             [putTip, bListenerBatch, SomeBatchOp (blockExtraBatch lastSlots)]
@@ -266,3 +271,10 @@ slogRollbackBlocks blunds = do
     blockExtraBatch lastSlots =
         GS.SetLastSlots (newLastSlots lastSlots) :
         mconcat [forwardLinksBatch, inMainBatch]
+
+-- Common actions for rollback and apply.
+slogCommon :: SlogApplyMode ssc ctx m => LastBlkSlots -> m ()
+slogCommon newLastSlots = do
+    sanityCheckDB
+    slogPutLastSlots newLastSlots
+    putSlottingData =<< GS.getSlottingData

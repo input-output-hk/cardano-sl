@@ -12,7 +12,6 @@ module Pos.Block.Worker
 import           Universum
 
 import           Control.Lens                (ix)
-import           Data.List.NonEmpty          (nonEmpty)
 import qualified Data.List.NonEmpty          as NE
 import           Formatting                  (bprint, build, sformat, shown, (%))
 import           Mockable                    (concurrently, delay, fork)

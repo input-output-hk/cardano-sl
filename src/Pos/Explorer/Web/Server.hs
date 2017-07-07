@@ -53,13 +53,12 @@ import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, Tx
                                                  mpLocalTxs, taTx, topsortTxs, txOutValue,
                                                  txpTxs, _txOutputs)
 import           Pos.Types                      (Address (..), Coin, EpochIndex,
-                                                 HeaderHash, LocalSlotIndex (..),
-                                                 Timestamp, difficultyL, gbHeader,
-                                                 gbhConsensus, getChainDifficulty,
-                                                 headerHashG, makeRedeemAddress, mkCoin,
-                                                 mkLocalSlotIndex, prevBlockL, prevBlockL,
-                                                 siEpoch, siSlot, sumCoins,
-                                                 unsafeIntegerToCoin, unsafeSubCoin)
+                                                 HeaderHash, Timestamp, difficultyL,
+                                                 gbHeader, gbhConsensus,
+                                                 getChainDifficulty, makeRedeemAddress,
+                                                 mkCoin, prevBlockL, prevBlockL, siEpoch,
+                                                 siSlot, sumCoins, unsafeIntegerToCoin,
+                                                 unsafeSubCoin)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
 import           Pos.Web                        (serveImpl)

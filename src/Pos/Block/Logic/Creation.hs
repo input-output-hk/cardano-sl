@@ -33,7 +33,7 @@ import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBloc
 import qualified Pos.Block.Core             as BC
 import           Pos.Block.Logic.Internal   (BlockApplyMode, BlockVerifyMode,
                                              applyBlocksUnsafe, toUpdateBlock)
-import           Pos.Block.Logic.Util       (withBlkSemaphore)
+import           Pos.Block.Logic.Util       (calcChainQualityM, withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
 import           Pos.Block.Slog             (HasSlogContext (..), SlogUndo (..),
                                              slogGetLastSlots)
@@ -44,7 +44,7 @@ import           Pos.Context                (BlkSemaphore, HasPrimaryKey, getOur
 import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              EpochOrSlot (..), HeaderHash, LocalSlotIndex,
                                              SlotId (..), SlotLeaders, addLocalSlotIndex,
-                                             crucialSlot, epochOrSlot, flattenSlotId,
+                                             epochIndexL, epochOrSlot, flattenSlotId,
                                              getEpochOrSlot, headerHash, siSlotL)
 import           Pos.Crypto                 (SecretKey, WithHash (WithHash))
 import           Pos.DB                     (DBError (..))
@@ -85,18 +85,25 @@ type CreationMode ssc ctx m
 
 -- | Create genesis block if necessary.
 --
--- We create genesis block for current epoch when head of currently
--- known best chain is a 'MainBlock' corresponding to one of last
--- `slotSecurityParam` slots of (i - 1)-th epoch. Main check is that
--- given 'epoch' is `(last stored epoch + 1)`, but we also don't want to
--- create genesis block on top of blocks from previous epoch which are
--- not from last slotSecurityParam slots, because it's practically
--- impossible for them to be valid.
--- [CSL-481] We can consider doing it though.
+-- We can /try/ to create a genesis block at any moment. However, it
+-- only makes sense to do it if the following conditions are met:
+--
+-- • our tip is a 'MainBlock' and its epoch is less than the given
+--   epoch by one;
+-- • chain quality is at least 0.5. To be more precise, it means that
+--   there are at least `blkSecurityParam` blocks in the last
+--   'slotSecurityParam' slots. If this condition is violated, it means
+--   that we are either desynchronized\/eclipsed\/attacked or that
+--   important security assumption is violated globally.
+--   In the former case, it doesn't make sense to create a block.
+--   In the latter case, we want the system to stop completely, rather
+--   than running in insecure mode.
 createGenesisBlock
     :: forall ssc ctx m.
        CreationMode ssc ctx m
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
+-- Genesis block for 0-th epoch is hardcoded.
+createGenesisBlock 0 = pure Nothing
 createGenesisBlock epoch = reportingFatal version $ do
     leadersOrErr <-
         try $
@@ -106,15 +113,6 @@ createGenesisBlock epoch = reportingFatal version $ do
             Nothing <$ logInfo "createGenesisBlock: not enough blocks for LRC"
         Left err -> throwM err
         Right leaders -> withBlkSemaphore (createGenesisBlockDo epoch leaders)
-
-shouldCreateGenesisBlock :: EpochIndex -> EpochOrSlot -> Bool
--- Genesis block for 0-th epoch is hardcoded.
-shouldCreateGenesisBlock 0 _ = False
-shouldCreateGenesisBlock epoch headEpochOrSlot =
-    epochOrSlot (const False) doCheck headEpochOrSlot
-  where
-    doCheck SlotId {siSlot = slot, ..} =
-        siEpoch == epoch - 1 && slot > siSlot (crucialSlot epoch)
 
 createGenesisBlockDo
     :: forall ssc ctx m.
@@ -128,19 +126,31 @@ createGenesisBlockDo epoch leaders tip = do
             "There is no header is DB corresponding to tip from semaphore"
     tipHeader <- maybeThrow (DBMalformed noHeaderMsg) =<< DB.blkGetHeader tip
     logDebug $ sformat msgTryingFmt epoch tipHeader
-    createGenesisBlockFinally tipHeader
+    shouldCreate tipHeader >>= \case
+        False -> (Nothing, tip) <$ logShouldNot
+        True -> actuallyCreate tipHeader
   where
-    createGenesisBlockFinally tipHeader
-        | shouldCreateGenesisBlock epoch (getEpochOrSlot tipHeader) = do
-            let blk = mkGenesisBlock (Just tipHeader) epoch leaders
-            let newTip = headerHash blk
-            verifyBlocksPrefix (one (Left blk)) >>= \case
-                Left err -> reportFatalError $ pretty err
-                Right (undos, pollModifier) -> do
-                    let undo = undos ^. _Wrapped . _neHead
-                    applyBlocksUnsafe (one (Left blk, undo)) (Just pollModifier) $>
-                        (Just blk, newTip)
-        | otherwise = (Nothing, tip) <$ logShouldNot
+    chainQualityThreshold :: Double
+    chainQualityThreshold =
+        realToFrac blkSecurityParam / realToFrac slotSecurityParam
+    shouldCreate (Left _) = pure False
+    -- This is true iff tip is from 'epoch' - 1 and last
+    -- 'blkSecurityParam' blocks fully fit into last
+    -- 'slotSecurityParam' slots of 'epoch'.
+    shouldCreate (Right mb)
+        | mb ^. epochIndexL /= epoch - 1 = pure False
+        | otherwise =
+            (chainQualityThreshold <=) <$>
+            calcChainQualityM (flattenSlotId $ SlotId epoch minBound)
+    actuallyCreate tipHeader = do
+        let blk = mkGenesisBlock (Just tipHeader) epoch leaders
+        let newTip = headerHash blk
+        verifyBlocksPrefix (one (Left blk)) >>= \case
+            Left err -> reportFatalError $ pretty err
+            Right (undos, pollModifier) ->
+                let undo = undos ^. _Wrapped . _neHead
+                in applyBlocksUnsafe (one (Left blk, undo)) (Just pollModifier) $>
+                   (Just blk, newTip)
     logShouldNot =
         logDebug
             "After we took lock for genesis block creation, we noticed that we shouldn't create it"

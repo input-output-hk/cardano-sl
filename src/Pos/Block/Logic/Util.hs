@@ -13,30 +13,37 @@ module Pos.Block.Logic.Util
        , withBlkSemaphore_
        , needRecovery
        , calcChainQuality
+       , calcChainQualityM
        ) where
 
 import           Universum
 
-import           Control.Lens        (_Wrapped)
-import           Control.Monad.Catch (bracketOnError)
-import           Data.List.NonEmpty  ((<|))
-import           Ether.Internal      (HasLens (..))
-import           Formatting          (sformat, stext, (%))
+import           Control.Lens           (_Wrapped)
+import           Control.Monad.Catch    (bracketOnError)
+import           Data.List.NonEmpty     ((<|))
+import qualified Data.List.NonEmpty     as NE
+import           Ether.Internal         (HasLens (..))
+import           Formatting             (int, sformat, stext, (%))
+import           System.Wlog            (WithLogger)
 
-import           Pos.Block.Core      (BlockHeader)
-import           Pos.Constants       (blkSecurityParam, slotSecurityParam)
-import           Pos.Context         (BlkSemaphore, putBlkSemaphore, takeBlkSemaphore)
-import           Pos.Core            (FlatSlotId, HeaderHash, diffEpochOrSlot,
-                                      getEpochOrSlot, headerHash, prevBlockL)
-import           Pos.Crypto          (shortHashF)
-import           Pos.DB              (MonadDBRead)
-import           Pos.DB.Block        (MonadBlockDB)
-import qualified Pos.DB.DB           as DB
-import qualified Pos.DB.GState       as GS
-import           Pos.Slotting.Class  (MonadSlots, getCurrentSlot)
-import           Pos.Ssc.Class       (SscHelpersClass)
-import           Pos.Util            (_neHead)
-import           Pos.Util.Chrono     (NE, OldestFirst (getOldestFirst))
+import           Pos.Block.Core         (BlockHeader)
+import           Pos.Block.Slog.Context (slogGetLastSlots)
+import           Pos.Block.Slog.Types   (HasSlogContext)
+import           Pos.Constants          (blkSecurityParam, slotSecurityParam)
+import           Pos.Context            (BlkSemaphore, putBlkSemaphore, takeBlkSemaphore)
+import           Pos.Core               (BlockCount, FlatSlotId, HeaderHash,
+                                         diffEpochOrSlot, getEpochOrSlot, headerHash,
+                                         prevBlockL)
+import           Pos.Crypto             (shortHashF)
+import           Pos.DB                 (MonadDBRead)
+import           Pos.DB.Block           (MonadBlockDB)
+import qualified Pos.DB.DB              as DB
+import qualified Pos.DB.GState          as GS
+import           Pos.Exception          (reportFatalError)
+import           Pos.Slotting.Class     (MonadSlots, getCurrentSlot)
+import           Pos.Ssc.Class          (SscHelpersClass)
+import           Pos.Util               (_neHead)
+import           Pos.Util.Chrono        (NE, OldestFirst (..))
 
 -- | This function can be used to create a message when tip mismatch
 -- is detected (usually between tip stored in DB and some other tip
@@ -117,13 +124,40 @@ needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
                               -- we don't need to do recovery
 
 -- | Calculate chain quality using slot of the block which has depth =
--- 'blkSecurityParam - 1' and another slot after that one for which we
+-- 'blocksCount' and another slot after that one for which we
 -- want to know chain quality.
 --
 -- 'Double' as the result type is fine, because this value is not part
 -- of the protocol, we only need to compare it with 0.5 and 'Double'
 -- is perfectly fine for this purpose. All other use cases are
 -- heuristics which are implementation details of this application.
-calcChainQuality :: FlatSlotId -> FlatSlotId -> Double
-calcChainQuality kThSlot newSlot =
-    realToFrac blkSecurityParam / realToFrac (newSlot - kThSlot)
+calcChainQuality :: BlockCount -> FlatSlotId -> FlatSlotId -> Double
+calcChainQuality blockCount deepSlot newSlot =
+    realToFrac blockCount / realToFrac (newSlot - deepSlot)
+
+-- | Version of 'calcChainQuality' which takes last blocks' slots from
+-- the monadic context.
+calcChainQualityM ::
+       ( MonadReader ctx m
+       , HasSlogContext ctx
+       , MonadIO m
+       , MonadThrow m
+       , WithLogger m
+       )
+    => FlatSlotId
+    -> m Double
+calcChainQualityM newSlot = do
+    OldestFirst lastSlots <- slogGetLastSlots
+    let len = length lastSlots
+    case nonEmpty lastSlots of
+        Nothing -> return 0
+        Just slotsNE
+            | len > fromIntegral blkSecurityParam ->
+                reportFatalError $
+                sformat ("number of last slots is greater than 'k': "%int) len
+            | otherwise ->
+                return
+                    (calcChainQuality
+                         (fromIntegral len)
+                         (NE.head slotsNE)
+                         newSlot)

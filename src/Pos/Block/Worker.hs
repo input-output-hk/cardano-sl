@@ -19,7 +19,7 @@ import           Serokell.Util               (listJson, pairF, sec)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (calcChainQuality, createGenesisBlock,
+import           Pos.Block.Logic             (calcChainQualityM, createGenesisBlock,
                                               createMainBlock)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
@@ -237,15 +237,19 @@ chainQualityChecker curSlot = do
             | length slotsNE < fromIntegral blkSecurityParam -> pass
             | otherwise -> chainQualityCheckerDo (NE.head slotsNE)
   where
-    chainQualityCheckerDo kThSlot = do
+    chainQualityCheckerDo __kThSlot = do
         let curFlatSlot = flattenSlotId curSlot
-        let chainQuality = calcChainQuality kThSlot curFlatSlot
+        -- We use monadic version here, because it also does sanity
+        -- check and we don't want to copy-paste it and it's easier
+        -- and cheap.
+        chainQuality <- calcChainQualityM curFlatSlot
         -- TODO [CSL-1342]:
         -- 1. Make constants configurable.
         -- 2. Send messages to reporting server, make them contain
         -- actual values.
         -- 3. Use constants depending on whether we are in bootstrap era.
-        if | chainQuality < 0.75 -> logWarning "Poor chain quality, less than 0.75"
+        if | chainQuality < 0.75 ->
+               logWarning "Poor chain quality, less than 0.75"
            | chainQuality < 0.9 -> logInfo "Poor chain quality, less than 0.9"
            | otherwise -> pass
 

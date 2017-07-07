@@ -71,7 +71,7 @@ import           Pos.DB.Functions      (dbGetBi)
 import           Pos.DB.Pure           (DBPureVar, MonadPureDB, atomicModifyIORefPure,
                                         pureBlockIndexDB, pureBlocksStorage)
 import           Pos.DB.Rocks          (MonadRealDB, blockDataDir, getBlockIndexDB,
-                                        getNodeDBs, rocksDelete, rocksDelete, rocksPutBi)
+                                        getNodeDBs, rocksDelete, rocksPutBi)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Ssc.Util          (toSscBlock)
@@ -183,7 +183,8 @@ loadBlundsWhile
     => (Block ssc -> Bool) -> HeaderHash -> m (NewestFirst [] (Blund ssc))
 loadBlundsWhile predicate = loadDataWhile getBlundThrow (predicate . fst)
 
--- | Load blunds which have depth less than given.
+-- | Load blunds which have depth less than given (depth = number of
+-- blocks that will be returned).
 loadBlundsByDepth
     :: (MonadBlockDB ssc m)
     => BlockCount -> HeaderHash -> m (NewestFirst [] (Blund ssc))

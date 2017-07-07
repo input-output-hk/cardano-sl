@@ -1,11 +1,11 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Blockchain listener for Explorer.
 -- Callbacks on application and rollback.
 
 module Pos.Explorer.BListener
-       ( runExplorerBListener 
+       ( runExplorerBListener
        , ExplorerBListener
        -- * Instances
        -- ** MonadBListener (ExplorerBListener m)
@@ -26,16 +26,14 @@ import           Mockable                     (MonadMockable)
 import           Pos.Block.BListener          (MonadBListener (..))
 import           Pos.Block.Core               (Block)
 import           Pos.Block.Types              (Blund)
-import           Pos.Core                     (HeaderHash, difficultyL,
-                                               epochIndexL, getChainDifficulty,
-                                               headerHash)
+import           Pos.Core                     (HeaderHash, difficultyL, epochIndexL,
+                                               getChainDifficulty, headerHash)
 import           Pos.DB.BatchOp               (SomeBatchOp (..))
 import           Pos.DB.Class                 (MonadDBRead)
-import           Pos.Explorer.DB              (Page, Epoch)
+import           Pos.Explorer.DB              (Epoch, Page)
 import qualified Pos.Explorer.DB              as DB
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
-import           Pos.Util.Chrono              (NE, NewestFirst (..),
-                                               OldestFirst (..))
+import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Declarations
@@ -51,7 +49,7 @@ runExplorerBListener :: ExplorerBListener m a -> m a
 runExplorerBListener = coerce
 
 -- Type alias, remove duplication
-type MonadBListenerT m ssc = 
+type MonadBListenerT m ssc =
     ( SscHelpersClass ssc
     , WithLogger m
     , MonadCatch m
@@ -75,7 +73,7 @@ instance ( MonadDBRead m
 
 
 onApplyCallGeneral
-    :: forall ssc m . 
+    :: forall ssc m .
     MonadBListenerT m ssc
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyCallGeneral    blunds = do
@@ -103,18 +101,18 @@ onRollbackCallGeneral blunds = do
 onApplyEpochBlocksExplorer
     :: forall ssc m.
     MonadBListenerT m ssc
-    => OldestFirst NE (Blund ssc) 
+    => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
-onApplyEpochBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds epochBlocksMap 
+onApplyEpochBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds epochBlocksMap
 
 
 -- For @PageBlocks@
 onApplyPageBlocksExplorer
     :: forall ssc m .
     MonadBListenerT m ssc
-    => OldestFirst NE (Blund ssc) 
+    => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
-onApplyPageBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds pageBlocksMap 
+onApplyPageBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds pageBlocksMap
 
 
 ----------------------------------------------------------------------------
@@ -144,9 +142,9 @@ onRollbackPageBlocksExplorer blunds = onRollbackGeneralBlocks blunds pageBlocksM
 
 
 -- Return a map from @Epoch@ to @HeaderHash@es for all non-empty blocks.
-epochBlocksMap 
+epochBlocksMap
     :: forall ssc. (SscHelpersClass ssc)
-    => NE (Block ssc) 
+    => NE (Block ssc)
     -> M.Map Epoch [HeaderHash]
 epochBlocksMap neBlocks = blocksEpochs
   where
@@ -156,9 +154,9 @@ epochBlocksMap neBlocks = blocksEpochs
 
     blockEpochBlocks :: [(Epoch, HeaderHash)]
     blockEpochBlocks = blockEpochs `zip` blocksHHs
-      where 
+      where
         blocksHHs :: [HeaderHash]
-        blocksHHs = headerHash <$> blocks 
+        blocksHHs = headerHash <$> blocks
 
         blockEpochs :: [Epoch]
         blockEpochs = getBlockEpoch <$> blocks
@@ -171,9 +169,9 @@ epochBlocksMap neBlocks = blocksEpochs
 
 
 -- Return a map from @Page@ to @HeaderHash@es for all non-empty blocks.
-pageBlocksMap 
-    :: forall ssc. (SscHelpersClass ssc) 
-    => NE (Block ssc) 
+pageBlocksMap
+    :: forall ssc. (SscHelpersClass ssc)
+    => NE (Block ssc)
     -> M.Map Page [HeaderHash]
 pageBlocksMap neBlocks = blocksPages
   where
@@ -183,15 +181,15 @@ pageBlocksMap neBlocks = blocksPages
 
     blockIndexBlock :: [(Page, HeaderHash)]
     blockIndexBlock = blockPages `zip` blocksHHs
-      where 
+      where
         blocksHHs :: [HeaderHash]
-        blocksHHs = headerHash <$> blocks 
+        blocksHHs = headerHash <$> blocks
 
         blockPages :: [Page]
         blockPages = getCurrentPage <$> blockIndexes
 
         getCurrentPage :: Int -> Page
-        getCurrentPage blockIndex = (blockIndex `div` pageSize) + 1
+        getCurrentPage blockIndex = ((blockIndex - 1) `div` pageSize) + 1
 
         pageSize :: Int
         pageSize = 10
@@ -267,7 +265,7 @@ putKeysBlocks
     -> [DB.ExplorerOp]
 putKeysBlocks keysBlocks = putKeyBlocks <$> M.toList keysBlocks
   where
-    putKeyBlocks 
+    putKeyBlocks
         :: (k, [HeaderHash])
         -> DB.ExplorerOp
     putKeyBlocks keyBlocks = putKeyBlocksF key uniqueBlocks
@@ -279,7 +277,7 @@ putKeysBlocks keysBlocks = putKeyBlocks <$> M.toList keysBlocks
 
 -- Get exisiting key blocks paired with the key.
 getExistingBlocks
-    :: forall k m. (MonadDBRead m, KeyBlocksOperation k) 
+    :: forall k m. (MonadDBRead m, KeyBlocksOperation k)
     => [k]
     -> m (M.Map k [HeaderHash])
 getExistingBlocks keys = do
@@ -288,9 +286,9 @@ getExistingBlocks keys = do
   where
     -- Get exisiting key blocks paired with the key. If there are no
     -- saved blocks on the key return an empty list.
-    getExistingKeyBlocks 
+    getExistingKeyBlocks
         :: (MonadDBRead m)
-        => k 
+        => k
         -> m (M.Map k [HeaderHash])
     getExistingKeyBlocks key = do
         keyBlocks        <- getKeyBlocksF key
@@ -303,7 +301,7 @@ getExistingBlocks keys = do
 onApplyKeyBlocksGeneral
     :: forall k ssc m.
     (MonadBListenerT m ssc, KeyBlocksOperation k)
-    => OldestFirst NE (Blund ssc) 
+    => OldestFirst NE (Blund ssc)
     -> (NE (Block ssc) -> M.Map k [HeaderHash])
     -> m SomeBatchOp
 onApplyKeyBlocksGeneral blunds newBlocksMapF = do
@@ -328,7 +326,7 @@ onApplyKeyBlocksGeneral blunds newBlocksMapF = do
     newBlocks :: M.Map k [HeaderHash]
     newBlocks = newBlocksMapF blocksNE
 
-    blocksNE :: NE (Block ssc)  
+    blocksNE :: NE (Block ssc)
     blocksNE = fst <$> getOldestFirst blunds
 
 
@@ -337,11 +335,11 @@ onApplyKeyBlocksGeneral blunds newBlocksMapF = do
 onRollbackGeneralBlocks
     :: forall k ssc m.
     (MonadBListenerT m ssc, KeyBlocksOperation k)
-    => NewestFirst NE (Blund ssc) 
+    => NewestFirst NE (Blund ssc)
     -> (NE (Block ssc) -> M.Map k [HeaderHash])
     -> m SomeBatchOp
 onRollbackGeneralBlocks blunds newBlocksMapF = do
-    
+
     -- Get existing @HeaderHash@es from the keys so we can merge them.
     existingBlocks <- getExistingBlocks keys
     let prevKeyBlocks = PrevKBlocks existingBlocks
@@ -364,5 +362,5 @@ onRollbackGeneralBlocks blunds newBlocksMapF = do
     newBlocks :: M.Map k [HeaderHash]
     newBlocks = newBlocksMapF blocksNE
 
-    blocksNE :: NE (Block ssc)  
+    blocksNE :: NE (Block ssc)
     blocksNE = fst <$> getNewestFirst blunds

@@ -32,17 +32,14 @@ class Bi a where
 
 -- | Default @'Encoding'@ for list types.
 defaultEncodeList :: Bi a => [a] -> Encoding
-defaultEncodeList [] = encodeListLen 0
 defaultEncodeList xs = encodeListLenIndef
                     <> Universum.foldr (\x r -> encode x <> r) encodeBreak xs
 
 -- | Default @'Decoder'@ for list types.
 defaultDecodeList :: Bi a => Decoder s [a]
 defaultDecodeList = do
-    mn <- decodeListLenOrIndef
-    case mn of
-        Nothing -> decodeSequenceLenIndef (flip (:)) [] reverse   decode
-        Just n  -> decodeSequenceLenN     (flip (:)) [] reverse n decode
+    decodeListLenIndef
+    decodeSequenceLenIndef (flip (:)) [] reverse decode
 
 ----------------------------------------------------------------------------
 -- Primitive types

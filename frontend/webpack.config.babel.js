@@ -62,7 +62,13 @@ module.exports = {
       new UglifyJsPlugin({
         sourceMap: false,
         beautify: false,
-        comments: false
+        comments: false,
+        compress: {
+          drop_console: true,
+          dead_code: true,
+          warnings: false
+        }
+        // pure_funcs: [ 'console.assert' ]
       })
     ] : []
     )

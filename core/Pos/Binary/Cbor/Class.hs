@@ -1,9 +1,12 @@
 module Pos.Binary.Cbor.Class
     ( Bi(..)
+    , encodeBinary
+    , decodeBinary
     ) where
 
 import           Codec.CBOR.Decoding
 import           Codec.CBOR.Encoding
+import qualified Data.Binary                 as Binary
 import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Lazy        as BS.Lazy
 import qualified Data.HashMap.Strict         as HM
@@ -19,6 +22,20 @@ import qualified Data.Vector.Generic         as Vector.Generic
 import           Serokell.Data.Memory.Units  (Byte, fromBytes, toBytes)
 import           Universum                   hiding (foldr)
 import qualified Universum
+
+encodeBinary :: Binary.Binary a => a -> Encoding
+encodeBinary = encode . BS.Lazy.toStrict . Binary.encode
+
+decodeBinary :: Binary.Binary a => Decoder s a
+decodeBinary = do
+    x <- decode @ByteString
+    case Binary.decodeOrFail (BS.Lazy.fromStrict x) of
+        Left (_, _, err) -> fail err
+        Right (bs, _, res)
+            | BS.Lazy.null bs -> pure res
+            | otherwise       -> fail "decodeBinary: unconsumed input"
+
+----------------------------------------
 
 class Bi a where
     encode :: a -> Encoding

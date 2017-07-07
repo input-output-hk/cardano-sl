@@ -8,6 +8,7 @@ import           Universum
 import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
+import qualified Pos.Binary.Cbor            as Cbor
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw,
                                              convertSize, convertToSizeNPut,
                                              deriveSimpleBi, getAsciiString1b, getWord8,

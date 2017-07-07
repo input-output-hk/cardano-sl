@@ -23,6 +23,7 @@ import qualified Data.Store                 as Store
 import qualified Data.Store.TH              as Store
 import           Formatting                 (int, sformat, stext, (%))
 
+import qualified Pos.Binary.Cbor            as Cbor
 import           Pos.Binary.Class           (AsBinary (..), Bi (..), Size (..),
                                              StaticSize (..), getBytes, getCopyBi, label,
                                              labelP, labelS, putBytes, putCopyBi,
@@ -30,7 +31,7 @@ import           Pos.Binary.Class           (AsBinary (..), Bi (..), Size (..),
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Crypto.Hashing         (AbstractHash (..), HashAlgorithm,
                                              WithHash (..), hashDigestSize',
-                                             reifyHashDigestSize, withHash)
+                                             reifyHashDigestSize, withHash, withHashCbor)
 import           Pos.Crypto.HD              (HDAddressPayload (..))
 import           Pos.Crypto.RedeemSigning   (RedeemPublicKey (..), RedeemSecretKey (..),
                                              RedeemSignature (..))
@@ -46,6 +47,10 @@ instance Bi a => Bi (WithHash a) where
     size = contramap whData size
     put = put . whData
     get = withHash <$> get
+
+instance Cbor.Bi a => Cbor.Bi (WithHash a) where
+    encode = Cbor.encode . whData
+    decode = withHashCbor <$> Cbor.decode
 
 instance Bi a => SafeCopy (WithHash a) where
     putCopy = putCopyBi
@@ -70,6 +75,14 @@ instance HashAlgorithm algo => Bi (AbstractHash algo a) where
                 -- weren't enough bytes available
                 Nothing -> error "AbstractHash.peek: impossible"
                 Just x  -> pure (AbstractHash x))
+
+instance HashAlgorithm algo => Cbor.Bi (AbstractHash algo a) where
+    encode (AbstractHash digest) = Cbor.encode (ByteArray.convert digest :: ByteString)
+    decode = do
+        bs <- Cbor.decode @ByteString
+        case digestFromByteString bs of
+            Nothing -> fail "AbstractHash.decode: invalid digest"
+            Just x  -> pure (AbstractHash x)
 
 ----------------------------------------------------------------------------
 -- SecretSharing
@@ -101,6 +114,19 @@ BiPvss (Pvss.DecryptedShare, Share, 101)     -- 4+33+64
 BiPvss (Pvss.EncryptedShare, EncShare, 101)
 BiPvss (Pvss.Proof, SecretProof, 64)
 
+#define CborBiPvss(T, PT) \
+  instance Cbor.Bi T where {\
+    encode = Cbor.encodeBinary ;\
+    decode = Cbor.decodeBinary };\
+  deriving instance Cbor.Bi PT ;\
+
+CborBiPvss (Pvss.PublicKey, VssPublicKey)
+CborBiPvss (Pvss.KeyPair, VssKeyPair)
+CborBiPvss (Pvss.Secret, Secret)
+CborBiPvss (Pvss.DecryptedShare, Share)
+CborBiPvss (Pvss.EncryptedShare, EncShare)
+CborBiPvss (Pvss.Proof, SecretProof)
+
 instance Store.Store Pvss.ExtraGen where
     size = ConstSize 33
     poke = labelP "Pvss.ExtraGen" . putBytes . BSL.toStrict . Binary.encode
@@ -118,6 +144,10 @@ instance Bi SecretSharingExtra where
 
 deriving instance Bi (AsBinary SecretSharingExtra)
 
+instance Cbor.Bi SecretSharingExtra where
+    encode = error "encode SecretSharingExtra"
+    decode = error "decode SecretSharingExtra"
+
 ----------------------------------------------------------------------------
 -- SecretSharing AsBinary
 ----------------------------------------------------------------------------
@@ -133,6 +163,17 @@ BiMacro(Secret, 33)
 BiMacro(Share, 101) --4+33+64
 BiMacro(EncShare, 101)
 BiMacro(SecretProof, 64)
+
+#define CborBiMacro(B) \
+  instance Cbor.Bi (AsBinary B) where {\
+    encode (AsBinary bs) = Cbor.encode bs ;\
+    decode = AsBinary <$> Cbor.decode}; \
+
+CborBiMacro(VssPublicKey)
+CborBiMacro(Secret)
+CborBiMacro(Share)
+CborBiMacro(EncShare)
+CborBiMacro(SecretProof)
 
 ----------------------------------------------------------------------------
 -- Signing
@@ -161,6 +202,10 @@ instance Bi Ed25519.PointCompressed where
     get = label "Ed25519.PointCompressed" $
         Ed25519.pointCompressed <$> getBytes publicKeyLength
 
+instance Cbor.Bi Ed25519.PointCompressed where
+  encode (Ed25519.unPointCompressed -> k) = Cbor.encode k
+  decode = Ed25519.pointCompressed <$> Cbor.decode
+
 instance Bi Ed25519.Scalar where
     size = ConstSize secretKeyLength
     put (Ed25519.unScalar -> k) = labelP "Ed25519.Scalar" $ do
@@ -168,6 +213,10 @@ instance Bi Ed25519.Scalar where
         putBytes k
     get = label "Ed25519.Scalar" $
         Ed25519.scalar <$> getBytes secretKeyLength
+
+instance Cbor.Bi Ed25519.Scalar where
+  encode (Ed25519.unScalar -> k) = Cbor.encode k
+  decode = Ed25519.scalar <$> Cbor.decode
 
 instance Bi Ed25519.Signature where
     size = ConstSize signatureLength
@@ -177,6 +226,10 @@ instance Bi Ed25519.Signature where
     get = label "Ed25519.Signature" $
         Ed25519.Signature <$> getBytes signatureLength
 
+instance Cbor.Bi Ed25519.Signature where
+  encode (Ed25519.Signature s) = Cbor.encode s
+  decode = Ed25519.Signature <$> Cbor.decode
+
 instance Bi CC.ChainCode where
     size = ConstSize chainCodeLength
     put (CC.ChainCode c) = do
@@ -184,6 +237,10 @@ instance Bi CC.ChainCode where
         putBytes c
     get = label "CC.ChainCode" $
         CC.ChainCode <$> getBytes chainCodeLength
+
+instance Cbor.Bi CC.ChainCode where
+    encode (CC.ChainCode c) = Cbor.encode c
+    decode = CC.ChainCode <$> Cbor.decode
 
 instance Bi CC.XPub where
     size = ConstSize (publicKeyLength + chainCodeLength)
@@ -194,6 +251,10 @@ instance Bi CC.XPub where
         getBytes (publicKeyLength + chainCodeLength) >>=
         either fail pure . CC.xpub
 
+instance Cbor.Bi CC.XPub where
+    encode (CC.unXPub -> kc) = Cbor.encode kc
+    decode = either fail pure . CC.xpub =<< Cbor.decode
+
 instance Bi CC.XPrv where
     size = ConstSize encryptedKeyLength
     put (CC.unXPrv -> kc) = labelP "CC.XPrv" $ do
@@ -202,6 +263,10 @@ instance Bi CC.XPrv where
     get = label "CC.XPrv" $
         getBytes encryptedKeyLength >>=
         either fail pure . CC.xprv
+
+instance Cbor.Bi CC.XPrv where
+    encode (CC.unXPrv -> kc) = Cbor.encode kc
+    decode = either fail pure . CC.xprv =<< Cbor.decode @ByteString
 
 instance Bi CC.XSignature where
     size = ConstSize signatureLength
@@ -212,21 +277,38 @@ instance Bi CC.XSignature where
         getBytes signatureLength >>=
         either fail pure . CC.xsignature
 
+instance Cbor.Bi CC.XSignature where
+    encode (CC.unXSignature -> bs) = Cbor.encode bs
+    decode = either fail pure . CC.xsignature =<< Cbor.decode
+
 deriving instance Bi (Signature a)
 deriving instance Bi PublicKey
 deriving instance Bi SecretKey
+
+deriving instance Cbor.Bi (Signature a)
+deriving instance Cbor.Bi PublicKey
+deriving instance Cbor.Bi SecretKey
 
 instance Bi EncryptedSecretKey where
     size = Bi.combineSize (eskPayload, eskHash)
     put (EncryptedSecretKey sk pph) = put sk >> put pph
     get = label "EncryptedSecretKey" $ liftM2 EncryptedSecretKey get get
 
+instance Cbor.Bi EncryptedSecretKey where
+    encode (EncryptedSecretKey sk pph) = Cbor.encode sk <> Cbor.encode pph
+    decode = EncryptedSecretKey <$> Cbor.decode <*> Cbor.decode
+
 instance Bi a => Bi (Signed a) where
     size = Bi.combineSize (signedValue, signedSig)
     put (Signed v s) = put (v,s)
     get = label "Signed" $ Signed <$> get <*> get
 
+instance Cbor.Bi a => Cbor.Bi (Signed a) where
+    encode (Signed v s) = Cbor.encode v <> Cbor.encode s
+    decode = Signed <$> Cbor.decode <*> Cbor.decode
+
 deriving instance Bi (ProxyCert w)
+deriving instance Cbor.Bi (ProxyCert w)
 
 instance (Bi w) => Bi (ProxySecretKey w) where
     sizeNPut = labelS "ProxySecretKey" $
@@ -236,9 +318,23 @@ instance (Bi w) => Bi (ProxySecretKey w) where
         putField pskCert
     get = label "ProxySecretKey" $ liftM4 ProxySecretKey get get get get
 
+instance Cbor.Bi w => Cbor.Bi (ProxySecretKey w) where
+    encode ProxySecretKey{..} = Cbor.encode pskOmega
+                             <> Cbor.encode pskIssuerPk
+                             <> Cbor.encode pskDelegatePk
+                             <> Cbor.encode pskCert
+    decode = ProxySecretKey <$> Cbor.decode
+                            <*> Cbor.decode
+                            <*> Cbor.decode
+                            <*> Cbor.decode
+
 instance (Bi w) => Bi (ProxySignature w a) where
     sizeNPut = labelS "ProxySignature" $ putField psigPsk <> putField psigSig
     get = label "ProxySignature" $ liftM2 ProxySignature get get
+
+instance Cbor.Bi w => Cbor.Bi (ProxySignature w a) where
+    encode ProxySignature{..} = Cbor.encode psigPsk <> Cbor.encode psigSig
+    decode = ProxySignature <$> Cbor.decode <*> Cbor.decode
 
 instance Bi PassPhrase where
     size = ConstSize passphraseLength
@@ -259,6 +355,19 @@ instance Bi PassPhrase where
               ByteArray.convert . norm <$>
               getBytes passphraseLength
 
+instance Cbor.Bi PassPhrase where
+    encode pp = Cbor.encode (ByteArray.convert pp :: ByteString)
+    decode = do
+        bs <- Cbor.decode @ByteString
+        let bl = BS.length bs
+        -- Currently passphrase may be 32-byte long, or empty (for
+        -- unencrypted keys).
+        if bl == 0 || bl == passphraseLength
+            then pure $ ByteArray.convert bs
+            else fail . toString $ sformat
+                 ("put@PassPhrase: expected length 0 or "%int%", not "%int)
+                 passphraseLength bl
+
 -------------------------------------------------------------------------------
 -- Hierarchical derivation
 -------------------------------------------------------------------------------
@@ -267,6 +376,10 @@ instance Bi HDAddressPayload where
     size = sizeOf getHDAddressPayload
     put (HDAddressPayload payload) = labelP "HDAddressPayload" $ put payload
     get = label "HDAddressPayload" $ HDAddressPayload <$> get
+
+instance Cbor.Bi HDAddressPayload where
+    encode (HDAddressPayload payload) = Cbor.encode payload
+    decode = HDAddressPayload <$> Cbor.decode
 
 -------------------------------------------------------------------------------
 -- Standard Ed25519 instances for ADA redeem keys
@@ -285,6 +398,10 @@ instance Bi EdStandard.PublicKey where
     get = label "EdStandard.PublicKey" $
         EdStandard.PublicKey <$> getBytes standardPublicKeyLength
 
+instance Cbor.Bi EdStandard.PublicKey where
+    encode (EdStandard.PublicKey k) = Cbor.encode k
+    decode = EdStandard.PublicKey <$> Cbor.decode
+
 instance Bi EdStandard.SecretKey where
     size = ConstSize standardSecretKeyLength
     put (EdStandard.SecretKey k) = labelP "EdStandard.SecretKey" $ do
@@ -292,6 +409,10 @@ instance Bi EdStandard.SecretKey where
         putBytes k
     get = label "EdStandard.SecretKey" $
         EdStandard.SecretKey <$> getBytes standardSecretKeyLength
+
+instance Cbor.Bi EdStandard.SecretKey where
+    encode (EdStandard.SecretKey k) = Cbor.encode k
+    decode = EdStandard.SecretKey <$> Cbor.decode
 
 instance Bi EdStandard.Signature where
     size = ConstSize standardSignatureLength
@@ -301,6 +422,14 @@ instance Bi EdStandard.Signature where
     get = label "EdStandard.Signature" $
         EdStandard.Signature <$> getBytes standardSignatureLength
 
+instance Cbor.Bi EdStandard.Signature where
+    encode (EdStandard.Signature s) = Cbor.encode s
+    decode = EdStandard.Signature <$> Cbor.decode
+
 deriving instance Bi RedeemPublicKey
 deriving instance Bi RedeemSecretKey
 deriving instance Bi (RedeemSignature a)
+
+deriving instance Cbor.Bi RedeemPublicKey
+deriving instance Cbor.Bi RedeemSecretKey
+deriving instance Cbor.Bi (RedeemSignature a)

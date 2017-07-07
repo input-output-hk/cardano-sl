@@ -125,7 +125,7 @@ bvmMatchesBVD
     bvmUpdateVoteThd
     bvmUpdateProposalThd
     bvmUpdateImplicit
-    bvmUpdateSoftforkThd
+    bvmSoftforkRule
     bvmTxFeePolicy
     bvmUnlockStakeEpoch
         ) ( BlockVersionData
@@ -140,7 +140,7 @@ bvmMatchesBVD
     bvdUpdateVoteThd
     bvdUpdateProposalThd
     bvdUpdateImplicit
-    bvdUpdateSoftforkThd
+    bvdSoftforkRule
     bvdTxFeePolicy
     bvdUnlockStakeEpoch
           ) =
@@ -156,7 +156,7 @@ bvmMatchesBVD
     , bvmUpdateVoteThd == bvdUpdateVoteThd
     , bvmUpdateProposalThd == bvdUpdateProposalThd
     , bvmUpdateImplicit == bvdUpdateImplicit
-    , bvmUpdateSoftforkThd == bvdUpdateSoftforkThd
+    , maybe True (== bvdSoftforkRule) bvmSoftforkRule
     , maybe True (== bvdTxFeePolicy) bvmTxFeePolicy
     , maybe True (== bvdUnlockStakeEpoch) bvmUnlockStakeEpoch
     ]

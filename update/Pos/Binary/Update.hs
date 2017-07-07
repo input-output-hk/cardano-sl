@@ -18,7 +18,8 @@ import           Pos.Core                   (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, CoinPortion,
                                              EpochIndex, FlatSlotId, HeaderHash,
                                              NumSoftwareVersion, ScriptVersion, SlotId,
-                                             SoftwareVersion, StakeholderId, TxFeePolicy)
+                                             SoftforkRule, SoftwareVersion, StakeholderId,
+                                             TxFeePolicy)
 import           Pos.Crypto                 (Hash, SignTag (SignUSVote), checkSig)
 import           Pos.Slotting.Types         (SlottingData)
 import qualified Pos.Update.Core.Types      as U
@@ -71,7 +72,7 @@ deriveSimpleBi ''U.BlockVersionModifier [
         Field [| U.bvmUpdateVoteThd     :: CoinPortion       |],
         Field [| U.bvmUpdateProposalThd :: CoinPortion       |],
         Field [| U.bvmUpdateImplicit    :: FlatSlotId        |],
-        Field [| U.bvmUpdateSoftforkThd :: CoinPortion       |],
+        Field [| U.bvmSoftforkRule      :: Maybe SoftforkRule|],
         Field [| U.bvmTxFeePolicy       :: Maybe TxFeePolicy |],
         Field [| U.bvmUnlockStakeEpoch  :: Maybe EpochIndex  |]
     ]]

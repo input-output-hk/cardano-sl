@@ -290,6 +290,14 @@ instance Arbitrary Types.SharedSeed where
         bs <- replicateM sharedSeedLength (choose (0, 255))
         return $ Types.SharedSeed $ BS.pack bs
 
+instance Arbitrary Types.SoftforkRule where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
+instance Arbitrary Types.BlockVersionData where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
+
 ----------------------------------------------------------------------------
 -- Arbitrary types from MainExtra[header/body]data
 ----------------------------------------------------------------------------

@@ -5,17 +5,19 @@ module Pos.Update.Poll.Logic.Softfork
        , processGenesisBlock
        ) where
 
+import           Universum
+
 import           Control.Monad.Except       (MonadError, throwError)
 import qualified Data.HashSet               as HS
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, (%))
 import           Serokell.Util.Text         (listJson)
 import           System.Wlog                (logInfo)
-import           Universum
 
 import           Pos.Core                   (BlockVersion, Coin, EpochIndex, HeaderHash,
-                                             SlotId (..), StakeholderId, applyCoinPortion,
-                                             crucialSlot, sumCoins, unsafeIntegerToCoin)
+                                             SlotId (..), SoftforkRule (..),
+                                             StakeholderId, applyCoinPortion, crucialSlot,
+                                             sumCoins, unsafeIntegerToCoin)
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure    (PollVerFailure (..))
@@ -72,7 +74,9 @@ processGenesisBlock epoch = do
     -- First thing to do is to find out threshold for softfork resolution rule.
     totalStake <- note (PollUnknownStakes epoch) =<< getEpochTotalStake epoch
     BlockVersionData {..} <- getAdoptedBVData
-    let threshold = applyCoinPortion bvdUpdateSoftforkThd totalStake
+    -- TODO: compute threshold properly
+    let softforkThd = srInitThd bvdSoftforkRule
+    let threshold = applyCoinPortion softforkThd totalStake
     -- Then we take all confirmed BlockVersions and check softfork
     -- resolution rule for them.
     confirmed <- getCompetingBVStates

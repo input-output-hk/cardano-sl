@@ -21,7 +21,7 @@ module Pos.Core.Constants.Typed
        , genesisMaxUpdateProposalSize
        , genesisUpdateProposalThd
        , genesisUpdateImplicit
-       , genesisUpdateSoftforkThd
+       , genesisSoftforkRule
        , genesisUnlockStakeEpoch
        ) where
 
@@ -37,7 +37,7 @@ import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Fee.Config        (ConfigOf (..))
 import           Pos.Core.Types             (BlockCount, BlockVersionData (..),
                                              CoinPortion, EpochIndex (..), ScriptVersion,
-                                             SlotCount, Timestamp (..),
+                                             SlotCount, SoftforkRule (..), Timestamp (..),
                                              unsafeCoinPortionFromDouble)
 
 ----------------------------------------------------------------------------
@@ -81,7 +81,7 @@ genesisBlockVersionData =
     , bvdUpdateVoteThd = genesisUpdateVoteThd
     , bvdUpdateProposalThd = genesisUpdateProposalThd
     , bvdUpdateImplicit = genesisUpdateImplicit
-    , bvdUpdateSoftforkThd = genesisUpdateSoftforkThd
+    , bvdSoftforkRule = genesisSoftforkRule
     , bvdTxFeePolicy = genesisTxFeePolicy
     , bvdUnlockStakeEpoch = genesisUnlockStakeEpoch
     }
@@ -137,10 +137,17 @@ genesisUpdateImplicit :: Integral i => i
 genesisUpdateImplicit = fromIntegral $
     ccGenesisUpdateImplicit coreConstants
 
--- | See 'ccGenesisUpdateSoftforkThd'.
-genesisUpdateSoftforkThd :: CoinPortion
-genesisUpdateSoftforkThd = unsafeCoinPortionFromDouble $
-    ccGenesisUpdateSoftforkThd coreConstants
+-- | Genesis softfork resolution rule.
+genesisSoftforkRule :: SoftforkRule
+genesisSoftforkRule =
+    SoftforkRule
+    { srMinThd =
+          unsafeCoinPortionFromDouble $ ccGenesisSoftforkMin coreConstants
+    , srInitThd =
+          unsafeCoinPortionFromDouble $ ccGenesisSoftforkInit coreConstants
+    , srThdDecrement =
+          unsafeCoinPortionFromDouble $ ccGenesisSoftforkDec coreConstants
+    }
 
 genesisTxFeePolicy :: TxFeePolicy
 genesisTxFeePolicy = getConfigOf (ccGenesisTxFeePolicy coreConstants)

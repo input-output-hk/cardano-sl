@@ -18,6 +18,7 @@ import           Control.Monad.Catch         (MonadCatch (..), MonadMask (..),
                                               MonadThrow (..))
 import           Control.Monad.Fix           (MonadFix)
 import           Control.Monad.IO.Class      (MonadIO)
+import qualified Crypto.Random               as Rand
 import           Data.Time.Units             (Hour)
 import           System.Wlog                 (CanLog (..), HasLoggerName (..))
 
@@ -48,6 +49,7 @@ deriving instance MonadFix Production
 deriving instance MonadThrow Production
 deriving instance MonadCatch Production
 deriving instance CanLog Production
+deriving instance Rand.MonadRandom Production
 
 type instance ThreadId Production = Conc.ThreadId
 

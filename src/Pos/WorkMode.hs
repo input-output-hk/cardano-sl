@@ -50,7 +50,8 @@ import           Pos.Slotting.MemState.Holder   (SlotsDataRedirect)
 import           Pos.Slotting.Ntp               (NtpSlottingVar, SlotsRedirect)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState)
-import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag)
+import           Pos.Txp.MemState               (GenericTxpLocalData, TxpHolderTag,
+                                                 TxpMetrics)
 import           Pos.Types                      (HeaderHash)
 import           Pos.Util.Util                  (PowerLift (..))
 import           Pos.Util.TimeWarp              (JsonLogT, CanJsonLog (..))
@@ -75,7 +76,7 @@ type RealMode' ssc =
         , Tagged SlottingVar SlottingVar
         , Tagged (Bool, NtpSlottingVar) (Bool, NtpSlottingVar)
         , Tagged SscMemTag (SscState ssc)
-        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP)
+        , Tagged TxpHolderTag (GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
         , Tagged DelegationVar DelegationVar
         , Tagged PeerStateTag (PeerStateCtx Production)
         ) (

@@ -125,11 +125,11 @@ blockRow state (CBlockEntry entry) =
                       , clazz: CSS.blocksColumnSlot
                       , mCurrency: Nothing
                       }
-          blockColumn { label: labelAge
-                      , mRoute: Nothing
-                      , clazz: CSS.blocksColumnAge
-                      , mCurrency: Nothing
-                      }
+          --blockColumn { label: labelAge
+          --            , mRoute: Nothing
+          --            , clazz: CSS.blocksColumnAge
+          --            , mCurrency: Nothing
+          --            }
           blockColumn { label: show $ entry ^. cbeTxNum
                       , mRoute: Nothing
                       , clazz: CSS.blocksColumnTxs
@@ -195,10 +195,10 @@ mkBlocksHeaderProps lang =
       , label: translate (I18nL.common <<< I18nL.cSlot) lang
       , clazz: CSS.blocksColumnSlot
       }
-    , { id: "2"
-      , label: translate (I18nL.common <<< I18nL.cAge) lang
-      , clazz: CSS.blocksColumnAge
-      }
+    --, { id: "2"
+    --  , label: translate (I18nL.common <<< I18nL.cAge) lang
+    --  , clazz: CSS.blocksColumnAge
+    --  }
     , { id: "3"
       , label: translate (I18nL.common <<< I18nL.cTransactions) lang
       , clazz: CSS.blocksColumnTxs

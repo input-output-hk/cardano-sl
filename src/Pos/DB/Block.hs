@@ -71,7 +71,7 @@ import           Pos.DB.Functions      (dbGetBi)
 import           Pos.DB.Pure           (DBPureVar, MonadPureDB, atomicModifyIORefPure,
                                         pureBlockIndexDB, pureBlocksStorage)
 import           Pos.DB.Rocks          (MonadRealDB, blockDataDir, getBlockIndexDB,
-                                        getNodeDBs, rocksDelete, rocksDelete, rocksPutBi)
+                                        getNodeDBs, rocksDelete, rocksPutBi)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock)
 import           Pos.Ssc.Util          (toSscBlock)

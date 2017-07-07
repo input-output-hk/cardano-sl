@@ -3,13 +3,13 @@ module Pos.Txp.MemState.Metrics
     , recordTxpMetrics
     ) where
 
-import           Formatting                      (sformat, shown, (%))
-import qualified System.Metrics                  as Metrics
-import qualified System.Metrics.Gauge            as Metrics.Gauge
-import           System.Wlog                     (logDebug)
+import           Formatting             (sformat, shown, (%))
+import qualified System.Metrics         as Metrics
+import qualified System.Metrics.Gauge   as Metrics.Gauge
+import           System.Wlog            (logDebug)
 import           Universum
 
-import           Pos.Txp.MemState.Types          (TxpMetrics(..))
+import           Pos.Txp.MemState.Types (TxpMetrics (..))
 
 -- | A TxpMetrics that never does any writes. Use it if you don't care about
 -- metrics.

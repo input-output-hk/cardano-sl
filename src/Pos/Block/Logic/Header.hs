@@ -26,7 +26,7 @@ import           Serokell.Util.Verify      (VerificationRes (..), isVerSuccess)
 import           System.Wlog               (WithLogger, logDebug)
 
 import           Pos.Block.Core            (BlockHeader)
-import           Pos.Block.Logic.Util      (lcaWithMainChain, needRecovery)
+import           Pos.Block.Logic.Util      (lcaWithMainChain)
 import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeader,
                                             verifyHeaders)
 import           Pos.Constants             (blkSecurityParam, genesisHash,
@@ -35,7 +35,7 @@ import           Pos.Core                  (BlockCount, EpochOrSlot (..), Header
                                             SlotId (..), difficultyL, epochOrSlotG,
                                             getChainDifficulty, getEpochOrSlot,
                                             headerHash, headerHashG, headerSlotL,
-                                            prevBlockL, prevBlockL)
+                                            prevBlockL)
 import           Pos.Crypto                (hash)
 import           Pos.DB                    (MonadDBRead)
 import qualified Pos.DB.Block              as DB

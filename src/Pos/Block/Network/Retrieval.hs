@@ -30,8 +30,7 @@ import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic    (MkHeadersRequestResult (..), handleBlocks,
                                              mkBlocksRequest, mkHeadersRequest,
                                              requestHeaders, triggerRecovery)
-import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
-                                             MsgHeaders (..))
+import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..))
 import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),

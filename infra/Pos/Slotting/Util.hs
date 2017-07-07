@@ -36,6 +36,7 @@ import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..)
                                          flattenSlotId, getSlotIndex, slotIdF)
 import           Pos.Discovery.Class    (MonadDiscovery)
 import           Pos.Exception          (CardanoException)
+import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
 import           Pos.Reporting.MemState (HasReportingContext)
 import           Pos.Reporting.Methods  (reportMisbehaviourSilent, reportingFatal)
 import           Pos.Shutdown           (HasShutdownContext, runIfNotShutdown)
@@ -103,6 +104,7 @@ type OnNewSlot ctx m =
     , HasReportingContext ctx
     , HasShutdownContext ctx
     , MonadDiscovery m
+    , MonadRecoveryInfo m
     )
 
 -- | Run given action as soon as new slot starts, passing SlotId to
@@ -161,14 +163,22 @@ onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdow
         onNewSlotDo withLogging (Just nextSlot) True action
   where
     waitUntilExpectedSlot = do
-        slot <- getCurrentSlotBlocking
-        if | maybe (const True) (<=) expectedSlotId slot -> return slot
-        -- Here we wait for short intervals to be sure that expected slot
-        -- has really started, taking into account possible inaccuracies.
-        -- Usually it shouldn't happen.
-           | otherwise -> delay shortDelay >> waitUntilExpectedSlot
+        -- onNewSlotWorker doesn't make sense in recovery phase. Most
+        -- definitely we don't know current slot and even if we do
+        -- (same epoch), the only priority is to sync with the
+        -- chain. So we're skipping and checking again.
+        let skipRound = delay recoveryRefreshDelay >> waitUntilExpectedSlot
+        ifM recoveryInProgress skipRound $ do
+            slot <- getCurrentSlotBlocking
+            if | maybe (const True) (<=) expectedSlotId slot -> return slot
+            -- Here we wait for short intervals to be sure that expected slot
+            -- has really started, taking into account possible inaccuracies.
+            -- Usually it shouldn't happen.
+               | otherwise -> delay shortDelay >> waitUntilExpectedSlot
     shortDelay :: Millisecond
     shortDelay = 42
+    recoveryRefreshDelay :: Millisecond
+    recoveryRefreshDelay = 150
     logTTW timeToWait = modifyLoggerName (<> "slotting") $ logDebug $
                  sformat ("Waiting for "%shown%" before new slot") timeToWait
 

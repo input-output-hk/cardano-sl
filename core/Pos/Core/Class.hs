@@ -5,6 +5,7 @@ module Pos.Core.Class
        -- * Classes for overloaded accessors
          HasPrevBlock (..)
        , HasDifficulty (..)
+       , isMoreDifficult
        , HasBlockVersion (..)
        , HasSoftwareVersion (..)
        , HasHeaderHash (..)
@@ -59,6 +60,9 @@ class HasDifficulty a where
     difficultyL :: Lens' a ChainDifficulty
 
 SOME_LENS_CLASS(HasDifficulty, difficultyL, HasDifficulty)
+
+isMoreDifficult :: HasDifficulty a => a -> a -> Bool
+a `isMoreDifficult` b = a ^. difficultyL > b ^. difficultyL
 
 -- HasBlockVersion
 class HasBlockVersion a where

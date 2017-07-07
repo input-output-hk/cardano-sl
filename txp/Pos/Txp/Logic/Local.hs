@@ -6,6 +6,9 @@ module Pos.Txp.Logic.Local
        , txNormalize
        ) where
 
+import           Universum
+import           Unsafe                      (unsafeHead)
+
 import           Control.Lens                (views)
 import           Control.Monad.Except        (MonadError (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
@@ -16,8 +19,6 @@ import qualified Data.Map                    as M (fromList)
 import           Ether.Internal              (HasLens (..))
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
-import           Universum
-import           Unsafe                      (unsafeHead)
 
 import           Pos.Core                    (Coin, HeaderHash, StakeholderId)
 import           Pos.DB.Class                (MonadDBRead, MonadGState, gsIsBootstrapEra)
@@ -71,7 +72,7 @@ txProcessTransaction itw@(txId, txAux) = do
                    catMaybes $
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    pRes <- modifyTxpLocalData $
+    pRes <- modifyTxpLocalData "txProcessTransaction" $
             processTxDo resolved bootHolders toilEnv tipDB itw bootEra
     case pRes of
         Left er -> do
@@ -128,6 +129,7 @@ txNormalize ::
        , MonadDBRead m
        , MonadGState m
        , MonadTxpMem () ctx m
+       , WithLogger m
        )
     => m ()
 txNormalize = do
@@ -135,4 +137,4 @@ txNormalize = do
     localTxs <- getLocalTxs
     ToilModifier {..} <-
         runDBToil $ execToilTLocal mempty def mempty $ normalizeToil localTxs
-    setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+    setTxpLocalData "txNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

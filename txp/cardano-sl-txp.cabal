@@ -46,6 +46,7 @@ library
     Pos.Txp.MemState
     Pos.Txp.MemState.Class
     Pos.Txp.MemState.Holder
+    Pos.Txp.MemState.Metrics
     Pos.Txp.MemState.Types
 
     Pos.Txp.Settings
@@ -67,6 +68,7 @@ library
                      , containers
                      , conduit
                      , data-default
+                     , ekg-core
                      , ether
                      , formatting
                      , generic-arbitrary
@@ -87,6 +89,7 @@ library
                      , template-haskell
                      , text
                      , text-format
+                     , time-units
                      , transformers
                      , universum
                      , unordered-containers

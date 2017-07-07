@@ -39,9 +39,13 @@ module Pos.Wallet.Web.State.Storage
        , setWalletSyncTip
        , setWalletTxHistory
        , getWalletTxHistory
+       , getWalletUtxo
+       , setWalletUtxo
        , addOnlyNewTxMeta
        , setWalletTxMeta
        , removeWallet
+       , removeTxMetas
+       , removeHistoryCache
        , removeAccount
        , removeWAddress
        , totallyRemoveWAddress
@@ -54,7 +58,7 @@ module Pos.Wallet.Web.State.Storage
 import           Universum
 
 import           Control.Lens               (at, ix, makeClassy, makeLenses, non', (%=),
-                                             (.=), (<<.=), (?=), _Empty, _head)
+                                             (+=), (.=), (<<.=), (?=), _Empty, _head)
 import           Control.Monad.State.Class  (put)
 import           Data.Default               (Default, def)
 import qualified Data.HashMap.Strict        as HM
@@ -73,29 +77,37 @@ import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CCoi
                                              CWalletMeta, PassPhraseLU, Wal,
                                              addrMetaToAccount)
 
-type TransactionHistory = HashMap CTxId CTxMeta
+type AddressSortingKey = Int
 
-type CAddresses = HashSet CWAddressMeta
+data AddressInfo = AddressInfo
+    { adiCWAddressMeta :: !CWAddressMeta
+    , adiSortingKey    :: !AddressSortingKey
+    }
 
--- | For each address - first occurance in blockchain
-type CustomAddresses = HashMap (CId Addr) (HeaderHash)
+type CAddresses = HashMap (CId Addr) AddressInfo
+
+data AccountInfo = AccountInfo
+    { _aiMeta             :: !CAccountMeta
+    , _aiAddresses        :: !CAddresses
+    , _aiRemovedAddresses :: !CAddresses
+    , _aiUnusedKey        :: !AddressSortingKey
+    }
+
+makeLenses ''AccountInfo
 
 data WalletInfo = WalletInfo
-    { _wiMeta         :: CWalletMeta
-    , _wiPassphraseLU :: PassPhraseLU
-    , _wiCreationTime :: POSIXTime
-    , _wiSyncTip      :: HeaderHash
+    { _wiMeta         :: !CWalletMeta
+    , _wiPassphraseLU :: !PassPhraseLU
+    , _wiCreationTime :: !POSIXTime
+    , _wiSyncTip      :: !HeaderHash
     }
 
 makeLenses ''WalletInfo
 
-data AccountInfo = AccountInfo
-    { _aiMeta            :: CAccountMeta
-    , _aiAccounts        :: CAddresses
-    , _aiRemovedAccounts :: CAddresses
-    }
+type TransactionHistory = HashMap CTxId CTxMeta
 
-makeLenses ''AccountInfo
+-- | Maps addresses to their first occurrence in the blockchain
+type CustomAddresses = HashMap (CId Addr) HeaderHash
 
 data WalletStorage = WalletStorage
     { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
@@ -103,7 +115,8 @@ data WalletStorage = WalletStorage
     , _wsProfile         :: !CProfile
     , _wsReadyUpdates    :: [CUpdateInfo]
     , _wsTxHistory       :: !(HashMap (CId Wal) TransactionHistory)
-    , _wsHistoryCache    :: !(HashMap (CId Wal) (HeaderHash, Utxo, [TxHistoryEntry]))
+    , _wsHistoryCache    :: !(HashMap (CId Wal) [TxHistoryEntry])
+    , _wsUtxo            :: !Utxo
     , _wsUsedAddresses   :: !CustomAddresses
     , _wsChangeAddresses :: !CustomAddresses
     }
@@ -121,6 +134,7 @@ instance Default WalletStorage where
         , _wsHistoryCache    = mempty
         , _wsUsedAddresses   = mempty
         , _wsChangeAddresses = mempty
+        , _wsUtxo            = mempty
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
@@ -182,18 +196,26 @@ getWalletAddresses =
 getAccountWAddresses :: AddressLookupMode
                   -> AccountId
                   -> Query (Maybe [CWAddressMeta])
-getAccountWAddresses mode accId = do
-    let fetch which = toList <<$>> preview (wsAccountInfos . ix accId . which)
-    withAccLookupMode mode (fetch aiAccounts) (fetch aiRemovedAccounts)
+getAccountWAddresses mode accId =
+    withAccLookupMode mode (fetch aiAddresses) (fetch aiRemovedAddresses)
+  where
+    fetch :: MonadReader WalletStorage m => Lens' AccountInfo CAddresses -> m (Maybe [CWAddressMeta])
+    fetch which = do
+        cAddresses <- preview (wsAccountInfos . ix accId . which)
+        -- here `cAddresses` has type `Maybe CAddresses`
+        pure $
+            (map adiCWAddressMeta . sortOn adiSortingKey . map snd . HM.toList)
+            <$> cAddresses
 
 doesWAddressExist :: AddressLookupMode -> CWAddressMeta -> Query Bool
-doesWAddressExist mode accAddr@(addrMetaToAccount -> wAddr) = do
-    let exists :: Lens' AccountInfo CAddresses -> Query Any
-        exists which =
-            Any . isJust <$>
-            preview (wsAccountInfos . ix wAddr . which . ix accAddr)
+doesWAddressExist mode addrMeta@(addrMetaToAccount -> wAddr) =
     getAny <$>
-        withAccLookupMode mode (exists aiAccounts) (exists aiRemovedAccounts)
+        withAccLookupMode mode (exists aiAddresses) (exists aiRemovedAddresses)
+  where
+    exists :: Lens' AccountInfo CAddresses -> Query Any
+    exists which =
+        Any . isJust <$>
+        preview (wsAccountInfos . ix wAddr . which . ix (cwamId addrMeta))
 
 getTxMeta :: CId Wal -> CTxId -> Query (Maybe CTxMeta)
 getTxMeta cid ctxId = preview $ wsTxHistory . ix cid . ix ctxId
@@ -201,13 +223,19 @@ getTxMeta cid ctxId = preview $ wsTxHistory . ix cid . ix ctxId
 getWalletTxHistory :: CId Wal -> Query (Maybe [CTxMeta])
 getWalletTxHistory cWalId = toList <<$>> preview (wsTxHistory . ix cWalId)
 
+getWalletUtxo :: Query Utxo
+getWalletUtxo = view wsUtxo
+
+setWalletUtxo :: Utxo -> Update ()
+setWalletUtxo utxo = wsUtxo .= utxo
+
 getUpdates :: Query [CUpdateInfo]
 getUpdates = view wsReadyUpdates
 
 getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
-getHistoryCache :: CId Wal -> Query (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
+getHistoryCache :: CId Wal -> Query (Maybe [TxHistoryEntry])
 getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
 
 getCustomAddresses :: CustomAddressType -> Query [CId Addr]
@@ -229,7 +257,7 @@ removeCustomAddress t (addr, hh) = do
 
 createAccount :: AccountId -> CAccountMeta -> Update ()
 createAccount accId cAccMeta =
-    wsAccountInfos . at accId %= Just . fromMaybe (AccountInfo cAccMeta mempty mempty)
+    wsAccountInfos . at accId %= Just . fromMaybe (AccountInfo cAccMeta mempty mempty 0)
 
 createWallet :: CId Wal -> CWalletMeta -> POSIXTime -> Update ()
 createWallet cWalId cWalMeta curTime = do
@@ -237,15 +265,22 @@ createWallet cWalId cWalMeta curTime = do
     wsWalletInfos . at cWalId %= (<|> Just info)
 
 addWAddress :: CWAddressMeta -> Update ()
-addWAddress addr@CWAddressMeta{..} = do
-    wsAccountInfos . ix (addrMetaToAccount addr) . aiAccounts . at addr ?= ()
+addWAddress addrMeta@CWAddressMeta{..} = do
+    let accInfo :: Traversal' WalletStorage AccountInfo
+        accInfo = wsAccountInfos . ix (addrMetaToAccount addrMeta)
+    whenJustM (preuse (accInfo . aiUnusedKey)) $ \key -> do
+        accInfo . aiUnusedKey += 1
+        accInfo . aiAddresses . at cwamId ?= AddressInfo addrMeta key
 
 -- see also 'removeWAddress'
 addRemovedAccount :: CWAddressMeta -> Update ()
-addRemovedAccount addr@CWAddressMeta{..} = do
-    let acc = addrMetaToAccount addr
-    wsAccountInfos . ix acc . aiAccounts . at addr .= Nothing
-    wsAccountInfos . ix acc . aiRemovedAccounts . at addr ?= ()
+addRemovedAccount addrMeta@CWAddressMeta{..} = do
+    let accInfo :: Traversal' WalletStorage AccountInfo
+        accInfo = wsAccountInfos . ix (addrMetaToAccount addrMeta)
+    whenJustM (preuse (accInfo . aiUnusedKey)) $ \key -> do
+        accInfo . aiUnusedKey += 1
+        accInfo . aiAddresses        . at cwamId .= Nothing
+        accInfo . aiRemovedAddresses . at cwamId ?= AddressInfo addrMeta key
 
 setAccountMeta :: AccountId -> CAccountMeta -> Update ()
 setAccountMeta accId cAccMeta = wsAccountInfos . ix accId . aiMeta .= cAccMeta
@@ -280,20 +315,31 @@ setWalletTxMeta cWalId cTxId cTxMeta =
 removeWallet :: CId Wal -> Update ()
 removeWallet cWalId = wsWalletInfos . at cWalId .= Nothing
 
+removeTxMetas :: CId Wal -> Update ()
+removeTxMetas cWalId = wsTxHistory . at cWalId .= Nothing
+
+removeHistoryCache :: CId Wal -> Update ()
+removeHistoryCache cWalId = wsHistoryCache . at cWalId .= Nothing
+
 removeAccount :: AccountId -> Update ()
 removeAccount accId = wsAccountInfos . at accId .= Nothing
 
 -- see also 'addRemovedAccount'
 removeWAddress :: CWAddressMeta -> Update ()
-removeWAddress addr@(addrMetaToAccount -> accId) = do
-    existed <- wsAccountInfos . ix accId . aiAccounts . at addr <<.= Nothing
-    whenJust existed $ \_ ->
-        wsAccountInfos . ix accId . aiRemovedAccounts . at addr ?= ()
+removeWAddress addrMeta@(addrMetaToAccount -> accId) = do
+    let addrId = cwamId addrMeta
+    -- If the address exists, move it to 'addressesRemoved'
+    whenJustM (preuse (accAddresses accId . ix addrId)) $ \addressInfo -> do
+        accAddresses        accId . at addrId .= Nothing
+        accRemovedAddresses accId . at addrId .= Just addressInfo
+  where
+    accAddresses        accId' = wsAccountInfos . ix accId' . aiAddresses
+    accRemovedAddresses accId' = wsAccountInfos . ix accId' . aiRemovedAddresses
 
 totallyRemoveWAddress :: CWAddressMeta -> Update ()
-totallyRemoveWAddress addr@(addrMetaToAccount -> accId) = do
-    wsAccountInfos . ix accId . aiAccounts . at addr .= Nothing
-    wsAccountInfos . ix accId . aiRemovedAccounts . at addr .= Nothing
+totallyRemoveWAddress addrMeta@(addrMetaToAccount -> accId) = do
+    wsAccountInfos . ix accId . aiAddresses        . at (cwamId addrMeta) .= Nothing
+    wsAccountInfos . ix accId . aiRemovedAddresses . at (cwamId addrMeta) .= Nothing
 
 addUpdate :: CUpdateInfo -> Update ()
 addUpdate ui = wsReadyUpdates %= (++ [ui])
@@ -304,9 +350,9 @@ removeNextUpdate = wsReadyUpdates %= drop 1
 testReset :: Update ()
 testReset = put def
 
-updateHistoryCache :: CId Wal -> HeaderHash -> Utxo -> [TxHistoryEntry] -> Update ()
-updateHistoryCache cWalId hh utxo cTxs =
-    wsHistoryCache . at cWalId ?= (hh, utxo, cTxs)
+updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
+updateHistoryCache cWalId cTxs =
+    wsHistoryCache . at cWalId ?= cTxs
 
 deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile
@@ -327,6 +373,7 @@ deriveSafeCopySimple 0 'base ''CTxMeta
 deriveSafeCopySimple 0 'base ''CUpdateInfo
 deriveSafeCopySimple 0 'base ''AddressLookupMode
 deriveSafeCopySimple 0 'base ''CustomAddressType
-deriveSafeCopySimple 0 'base ''WalletInfo
+deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
+deriveSafeCopySimple 0 'base ''WalletInfo
 deriveSafeCopySimple 0 'base ''WalletStorage

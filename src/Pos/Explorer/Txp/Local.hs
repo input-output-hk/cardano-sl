@@ -45,7 +45,6 @@ type ETxpLocalWorkMode m =
     , WithLogger m
     , MonadError ToilVerFailure m
     , MonadSlots m
-    , MonadDBRead m
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
@@ -97,7 +96,7 @@ eTxProcessTransaction itw@(txId, TxAux {taTx = UnsafeTx {..}}) = do
     -- with data to update. In case of `TxExtra` data is only added, but never updated,
     -- hence `mempty` here.
     let eet = ExplorerExtraTxp mempty hmHistories hmBalances
-    pRes <- modifyTxpLocalData $
+    pRes <- modifyTxpLocalData "eTxProcessTransaction" $
             processTxDo resolved toilEnv tipBefore itw curTime eet
     case pRes of
         Left er -> do
@@ -156,4 +155,4 @@ eTxNormalize = do
         runDBTxp $
         snd <$>
         runToilTLocalExtra mempty def mempty def (eNormalizeToil toNormalize)
-    setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+    setTxpLocalData "eTxNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

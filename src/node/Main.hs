@@ -32,7 +32,7 @@ import qualified Pos.CLI                    as CLI
 import           Pos.Communication          (ActionSpec (..), NodeId, OutSpecs,
                                              WorkerSpec, worker, wrapActionSpec)
 import           Pos.Constants              (isDevelopment)
-import           Pos.Context                (MonadNodeContext, recoveryCommGuard)
+import           Pos.Context                (MonadNodeContext)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
                                              foreverRejoinNetwork)
@@ -88,8 +88,10 @@ action peerHolder args@Args {..} transport = do
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let gtParams = gtSscParams args vssSK
+    -- TODO: this code is impossible to maintain, hence we have 'identity' here.
+    -- Fortunately it's refactored in master.
     let wDhtWorkers :: WorkMode ssc m => KademliaDHTInstance -> ([WorkerSpec m], OutSpecs)
-        wDhtWorkers = (\(ws, outs) -> (map (fst . recoveryCommGuard . (, outs)) ws, outs)) . -- TODO simplify
+        wDhtWorkers = (\(ws, outs) -> (map (fst . identity . (, outs)) ws, outs)) . -- TODO simplify
                       first (map $ wrapActionSpec $ "worker" <> "dht") . dhtWorkers
 
 #ifdef WITH_WEB

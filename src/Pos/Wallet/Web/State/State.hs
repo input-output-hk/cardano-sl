@@ -33,6 +33,7 @@ module Pos.Wallet.Web.State.State
        , getCustomAddresses
        , getCustomAddress
        , isCustomAddress
+       , getWalletUtxo
 
        -- * Setters
        , testReset
@@ -50,6 +51,8 @@ module Pos.Wallet.Web.State.State
        , setWalletTxHistory
        , addOnlyNewTxMeta
        , removeWallet
+       , removeTxMetas
+       , removeHistoryCache
        , removeAccount
        , removeWAddress
        , removeCustomAddress
@@ -57,6 +60,7 @@ module Pos.Wallet.Web.State.State
        , addUpdate
        , removeNextUpdate
        , updateHistoryCache
+       , setWalletUtxo
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
@@ -148,7 +152,7 @@ getUpdates = queryDisk A.GetUpdates
 getNextUpdate :: WebWalletModeDB m => m (Maybe CUpdateInfo)
 getNextUpdate = queryDisk A.GetNextUpdate
 
-getHistoryCache :: WebWalletModeDB m => CId Wal -> m (Maybe (HeaderHash, Utxo, [TxHistoryEntry]))
+getHistoryCache :: WebWalletModeDB m => CId Wal -> m (Maybe [TxHistoryEntry])
 getHistoryCache = queryDisk . A.GetHistoryCache
 
 getCustomAddresses :: WebWalletModeDB m => CustomAddressType -> m [CId Addr]
@@ -196,11 +200,23 @@ setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId
 setWalletTxHistory :: WebWalletModeDB m => CId Wal -> [(CTxId, CTxMeta)] -> m ()
 setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
 
+getWalletUtxo :: WebWalletModeDB m => m Utxo
+getWalletUtxo = queryDisk A.GetWalletUtxo
+
+setWalletUtxo :: WebWalletModeDB m => Utxo -> m ()
+setWalletUtxo = updateDisk . A.SetWalletUtxo
+
 addOnlyNewTxMeta :: WebWalletModeDB m => CId Wal -> CTxId -> CTxMeta -> m ()
 addOnlyNewTxMeta cWalId cTxId = updateDisk . A.AddOnlyNewTxMeta cWalId cTxId
 
 removeWallet :: WebWalletModeDB m => CId Wal -> m ()
 removeWallet = updateDisk . A.RemoveWallet
+
+removeTxMetas :: WebWalletModeDB m => CId Wal -> m ()
+removeTxMetas = updateDisk . A.RemoveTxMetas
+
+removeHistoryCache :: WebWalletModeDB m => CId Wal -> m ()
+removeHistoryCache = updateDisk . A.RemoveHistoryCache
 
 removeAccount :: WebWalletModeDB m => AccountId -> m ()
 removeAccount = updateDisk . A.RemoveAccount
@@ -225,5 +241,5 @@ removeNextUpdate = updateDisk A.RemoveNextUpdate
 testReset :: WebWalletModeDB m => m ()
 testReset = updateDisk A.TestReset
 
-updateHistoryCache :: WebWalletModeDB m => CId Wal -> HeaderHash -> Utxo -> [TxHistoryEntry] -> m ()
-updateHistoryCache cWalId hh utxo = updateDisk . A.UpdateHistoryCache cWalId hh utxo
+updateHistoryCache :: WebWalletModeDB m => CId Wal -> [TxHistoryEntry] -> m ()
+updateHistoryCache cWalId = updateDisk . A.UpdateHistoryCache cWalId

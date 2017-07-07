@@ -1,5 +1,5 @@
 name:                cardano-sl-txp
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL - transaction processing
 description:         Cardano SL - transaction processing
 license:             MIT
@@ -44,6 +44,7 @@ library
     Pos.Txp.MemState
     Pos.Txp.MemState.Class
     Pos.Txp.MemState.Holder
+    Pos.Txp.MemState.Metrics
     Pos.Txp.MemState.Types
 
     Pos.Txp.Settings
@@ -66,6 +67,7 @@ library
                      , containers
                      , data-default
                      , derive
+                     , ekg-core
                      , ether
                      , formatting
                      , hashable
@@ -83,6 +85,7 @@ library
                      , template-haskell
                      , text
                      , text-format
+                     , time-units
                      , transformers
                      , universum
                      , unordered-containers

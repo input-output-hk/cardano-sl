@@ -141,6 +141,8 @@ testnet_staging: &testnet_staging
   <<: *testnet
   protocolMagic: 50987900
 
+  genesisBinSuffix: tns
+
 ##############################################################################
 ##                                                                          ##
 ##   Wallet config                                                          ##

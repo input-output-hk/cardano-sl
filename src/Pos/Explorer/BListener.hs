@@ -191,7 +191,7 @@ pageBlocksMap neBlocks = blocksPages
         blockPages = getCurrentPage <$> blockIndexes
 
         getCurrentPage :: Int -> Page
-        getCurrentPage blockIndex = (blockIndex `div` pageSize) + 1
+        getCurrentPage blockIndex = ((blockIndex - 1) `div` pageSize) + 1
 
         pageSize :: Int
         pageSize = 10

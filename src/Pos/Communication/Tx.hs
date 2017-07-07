@@ -9,7 +9,7 @@ module Pos.Communication.Tx
        , sendTxOuts
        ) where
 
-import           Control.Monad.Except       (ExceptT (..), runExceptT)
+import           Control.Monad.Except       (ExceptT (..), runExceptT, throwError)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (MonadMockable, mapConcurrently)
 import           System.Wlog                (logInfo)
@@ -98,6 +98,8 @@ submitRedemptionTx sendActions rsk na output = do
             txouts =
                 one $
                 TxOutAux {toaOut = TxOut output redeemBalance, toaDistr = []}
+        when (redeemBalance == mkCoin 0) $
+            throwError "Redeem balance is 0"
         txw <- ExceptT $ return $ createRedemptionTx utxo rsk txouts
         txAux <- submitAndSave sendActions na txw
         pure (txAux, redeemAddress, redeemBalance)

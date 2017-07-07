@@ -17,6 +17,7 @@ import           Control.Monad.Trans.Control      (MonadBaseControl)
 import           Data.Aeson                       (Value)
 import qualified Data.Set                         as S
 import           Data.Time.Units                  (Millisecond)
+import           Ether.TaggedTrans                ()
 import           Formatting                       (int, sformat, (%))
 import qualified GHC.Exts                         as Exts
 import           Network.EngineIO                 (SocketId)
@@ -24,9 +25,11 @@ import           Network.EngineIO.Snap            (snapAPI)
 import           Network.SocketIO                 (RoutingTable, Socket,
                                                    appendDisconnectHandler, initialize,
                                                    socketId)
+import           Pos.Block.Types                  (Blund)
 import           Pos.Core                         (addressF)
 import qualified Pos.DB.GState                    as DB
 import           Pos.Ssc.Class                    (SscHelpersClass)
+import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Serokell.Util.Text               (listJson)
 import           Snap.Core                        (MonadSnap, route)
 import qualified Snap.CORS                        as CORS
@@ -45,7 +48,7 @@ import           Pos.Explorer.Socket.Holder       (ConnectionsState, Connections
                                                    withConnState)
 import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent (..),
                                                    Subscription (..), finishSession,
-                                                   getBlockTxs, getBlocksFromTo,
+                                                   getBlockTxs, getBlundsFromTo,
                                                    getTxInfo, notifyAddrSubscribers,
                                                    notifyBlocksLastPageSubscribers,
                                                    notifyBlocksOffSubscribers,
@@ -132,62 +135,62 @@ notifierServer settings connVar = do
             route [("/socket.io", handler)]
 
 periodicPollChanges
-    :: forall ssc m.
-       (ExplorerMode m, SscHelpersClass ssc)
+    :: forall ssc ctx m.
+       (ExplorerMode ctx m, SscHelpersClass ssc)
     => ConnectionsVar -> m Bool -> m ()
 periodicPollChanges connVar closed =
     -- Runs every 5 seconds.
     runPeriodicallyUnless (5000 :: Millisecond) closed (Nothing, mempty) $ do
         curBlock   <- DB.getTip
-        mempoolTxs <- lift $ S.fromList <$> getMempoolTxs
+        mempoolTxs <- lift $ S.fromList <$> getMempoolTxs @ctx
 
         mWasBlock     <- _1 <<.= Just curBlock
         wasMempoolTxs <- _2 <<.= mempoolTxs
 
         lift . askingConnState connVar $ do
-            mNewBlocks <-
+            mNewBlunds :: Maybe [Blund SscGodTossing] <-
                 if mWasBlock == Just curBlock
                     then return Nothing
                     else forM mWasBlock $ \wasBlock -> do
-                        mBlocks <- getBlocksFromTo curBlock wasBlock
+                        mBlocks <- lift $ getBlundsFromTo @ctx curBlock wasBlock
                         case mBlocks of
                             Nothing     -> do
                                 logWarning "Failed to fetch blocks from db"
                                 return []
                             Just blocks -> return blocks
-            let newBlocks = fromMaybe [] mNewBlocks
+            let newBlunds = fromMaybe [] mNewBlunds
 
             -- notify about blocks and blocks with offset
-            unless (null newBlocks) $ do
-                notifyBlocksSubscribers newBlocks
-                notifyBlocksLastPageSubscribers
-                notifyBlocksOffSubscribers (length newBlocks)
+            unless (null newBlunds) $ do
+                notifyBlocksSubscribers @ctx newBlunds
+                notifyBlocksLastPageSubscribers @ctx
+                notifyBlocksOffSubscribers @ctx (length newBlunds)
                 logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
-                    (length newBlocks)
+                    (length newBlunds)
 
-            newBlockchainTxs <- concat <$> forM newBlocks getBlockTxs
+            newBlockchainTxs <- lift $ concat <$> forM newBlunds (getBlockTxs @SscGodTossing @ctx . fst)
             let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
 
             let allTxs = newBlockchainTxs <> newLocalTxs
             let cTxEntries = map tiToTxEntry allTxs
-            txInfos <- Exts.toList . regroupBySnd <$> mapM getTxInfo allTxs
+            txInfos <- Exts.toList . regroupBySnd <$> lift (mapM (getTxInfo @ctx) allTxs)
 
             -- notify abuot transactions
             forM_ txInfos $ \(addr, cTxBriefs) -> do
-                notifyAddrSubscribers addr cTxBriefs
+                notifyAddrSubscribers @ctx addr cTxBriefs
                 logDebug $ sformat ("Notified address "%addressF%" about "
                            %int%" transactions") addr (length cTxBriefs)
 
             -- notify about transactions
             unless (null cTxEntries) $ do
-                notifyTxsSubscribers cTxEntries
+                notifyTxsSubscribers @ctx cTxEntries
                 logDebug $ sformat ("Broadcasted transactions: "%listJson)
                            (cteId <$> cTxEntries)
 
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp
-    :: forall ssc m.
-       (ExplorerMode m, SscHelpersClass ssc)
+    :: forall ssc ctx m.
+       (ExplorerMode ctx m, SscHelpersClass ssc)
     => NotifierSettings -> m ()
 notifierApp settings = modifyLoggerName (<> "notifier.socket-io") $ do
     logInfo "Starting"

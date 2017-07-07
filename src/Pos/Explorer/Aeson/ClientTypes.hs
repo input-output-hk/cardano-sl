@@ -13,11 +13,7 @@ import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CAddre
                                                CNetworkAddress, CTxBrief, CTxEntry, CTxId,
                                                CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
-import           Pos.Types                    (ChainDifficulty)
-
-
-
-
+import           Pos.Types                    (BlockCount, ChainDifficulty)
 
 deriveJSON defaultOptions ''CHash
 deriveJSON defaultOptions ''CAddress
@@ -34,4 +30,5 @@ deriveToJSON defaultOptions ''CBlockSummary
 deriveToJSON defaultOptions ''CNetworkAddress
 deriveToJSON defaultOptions ''CTxSummary
 
+deriveFromJSON defaultOptions ''BlockCount
 deriveFromJSON defaultOptions ''ChainDifficulty

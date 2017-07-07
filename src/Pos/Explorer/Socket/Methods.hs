@@ -1,6 +1,8 @@
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE RankNTypes      #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 
 -- | Logic of Explorer socket-io Server.
 
@@ -27,7 +29,7 @@ module Pos.Explorer.Socket.Methods
        , notifyBlocksLastPageSubscribers
        , notifyBlocksOffSubscribers
        , notifyTxsSubscribers
-       , getBlocksFromTo
+       , getBlundsFromTo
        , addrsTouchedByTx
        , getBlockTxs
        , getTxInfo
@@ -43,6 +45,7 @@ import           Network.EngineIO               (SocketId)
 import           Network.SocketIO               (Socket, socketId)
 import           Pos.Block.Core                 (Block, mainBlockTxPayload)
 import qualified Pos.Block.Logic                as DB
+import           Pos.Block.Types                (Blund)
 import           Pos.Crypto                     (withHash)
 import           Pos.Crypto                     (hash)
 import qualified Pos.DB.Block                   as DB
@@ -62,8 +65,8 @@ import           Universum
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Socket.Holder     (ClientContext, ConnectionsState,
-                                                 ccAddress, ccBlockOff, ccConnection,
-                                                 csAddressSubscribers,
+                                                 ExplorerSockets, ccAddress, ccBlockOff,
+                                                 ccConnection, csAddressSubscribers,
                                                  csBlocksOffSubscribers,
                                                  csBlocksPageSubscribers,
                                                  csBlocksSubscribers, csClients,
@@ -312,14 +315,9 @@ unsubscribeFully sessId = do
 
 -- * Notifications
 
-type NotificationMode m =
-    ( ExplorerMode m
-    , MonadReader ConnectionsState m
-    )
-
 broadcast
-    :: (NotificationMode m, EventName event, ToJSON args)
-    => event -> args -> Set SocketId -> m ()
+    :: (ExplorerMode ctx m, EventName event, ToJSON args)
+    => event -> args -> Set SocketId -> ExplorerSockets m ()
 broadcast event args recipients = do
     forM_ recipients $ \sockid -> do
         mSock <- preview $ csClients . ix sockid . ccConnection
@@ -333,56 +331,56 @@ broadcast event args recipients = do
         sformat ("Failed to send to SocketId="%shown%": "%shown) sockid
 
 notifyAddrSubscribers
-    :: NotificationMode m
-    => Address -> [CTxBrief] -> m ()
+    :: forall ctx m . ExplorerMode ctx m
+    => Address -> [CTxBrief] -> ExplorerSockets m ()
 notifyAddrSubscribers addr cTxEntries = do
     mRecipients <- view $ csAddressSubscribers . at addr
-    whenJust mRecipients $ broadcast AddrUpdated cTxEntries
+    whenJust mRecipients $ broadcast @ctx AddrUpdated cTxEntries
 
 notifyBlocksLastPageSubscribers
-    :: (NotificationMode m)
-    => m ()
+    :: forall ctx m . ExplorerMode ctx m
+    => ExplorerSockets m ()
 notifyBlocksLastPageSubscribers = do
     recipients <- view csBlocksPageSubscribers
-    blocks     <- getBlocksLastPage
-    broadcast BlocksLastPageUpdated blocks recipients
+    blocks     <- lift $ getBlocksLastPage @ctx
+    broadcast @ctx BlocksLastPageUpdated blocks recipients
 
 notifyBlocksSubscribers
-    :: (NotificationMode m)
-    => [Block SscGodTossing] -> m ()
-notifyBlocksSubscribers blocks = do
+    :: forall ctx m . ExplorerMode ctx m
+    => [Blund SscGodTossing] -> ExplorerSockets m ()
+notifyBlocksSubscribers blunds = do
     recipients <- view csBlocksSubscribers
-    cblocks    <- catMaybes <$> forM blocks toClientType
-    broadcast BlocksUpdated cblocks recipients
+    cblocks    <- lift $ catMaybes <$> forM blunds toClientType
+    broadcast @ctx BlocksUpdated cblocks recipients
   where
-    toClientType (Left _)          = return Nothing
-    toClientType (Right mainBlock) = Just <$> toBlockEntry mainBlock
+    toClientType (Left _, _)             = return Nothing
+    toClientType (Right mainBlock, undo) = Just <$> toBlockEntry @ctx (mainBlock, undo)
 
 notifyBlocksOffSubscribers
-    :: NotificationMode m
-    => Int -> m ()
+    :: forall ctx m . ExplorerMode ctx m
+    => Int -> ExplorerSockets m ()
 notifyBlocksOffSubscribers newBlocksNum = do
     recipientsByOffset <- M.toList <$> view csBlocksOffSubscribers
     for_ recipientsByOffset $ \(offset, recipients) -> do
-        cblocks <- getLastBlocks (fromIntegral newBlocksNum) offset
-        broadcast BlocksOffUpdated cblocks recipients
+        cblocks <- lift $ getLastBlocks @ctx (fromIntegral newBlocksNum) offset
+        broadcast @ctx BlocksOffUpdated cblocks recipients
 
 notifyTxsSubscribers
-    :: NotificationMode m
-    => [CTxEntry] -> m ()
+    :: forall ctx m . ExplorerMode ctx m
+    => [CTxEntry] -> ExplorerSockets m ()
 notifyTxsSubscribers cTxEntries =
-    view csTxsSubscribers >>= broadcast TxsUpdated cTxEntries
+    view csTxsSubscribers >>= broadcast @ctx TxsUpdated cTxEntries
 
 -- * Helpers
 
 -- | Gets blocks from recent inclusive to old one exclusive.
-getBlocksFromTo
-    :: (ExplorerMode m)
-    => HeaderHash -> HeaderHash -> m (Maybe [Block SscGodTossing])
-getBlocksFromTo recentBlock oldBlock = do
+getBlundsFromTo
+    :: forall ctx m . ExplorerMode ctx m
+    => HeaderHash -> HeaderHash -> m (Maybe [Blund SscGodTossing])
+getBlundsFromTo recentBlock oldBlock = do
     mheaders <- DB.getHeadersFromToIncl @SscGodTossing oldBlock recentBlock
     forM (getOldestFirst <$> mheaders) $ \(_ :| headers) ->
-        fmap catMaybes $ forM headers (DB.blkGetBlock @SscGodTossing)
+        fmap catMaybes $ forM headers (DB.blkGetBlund @SscGodTossing)
 
 addrsTouchedByTx
     :: (MonadDBRead m, WithLogger m)
@@ -399,7 +397,7 @@ addrsTouchedByTx tx = do
     return . S.fromList $ txOutAddress <$> relatedTxs
 
 getBlockTxs
-    :: (ExplorerMode m)
+    :: forall ssc ctx m . ExplorerMode ctx m
     => Block ssc -> m [TxInternal]
 getBlockTxs (Left  _  ) = return []
 getBlockTxs (Right blk) = do
@@ -411,7 +409,7 @@ getBlockTxs (Right blk) = do
         pure $ TxInternal extra tx
 
 getTxInfo
-    :: (ExplorerMode m)
+    :: (ExplorerMode ctx m)
     => TxInternal -> m (CTxBrief, S.Set Address)
 getTxInfo tx = do
     let ctxBrief = toTxBrief tx

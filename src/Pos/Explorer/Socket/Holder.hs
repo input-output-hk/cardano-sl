@@ -1,12 +1,12 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | `ExplorerSockets` monad.
 
 module Pos.Explorer.Socket.Holder
        ( ExplorerSockets
-       , MonadExplorerSockets (..)
-       , runExplorerSockets
-       , runNewExplorerSockets
 
        , ClientContext
        , ConnectionsState
@@ -27,12 +27,7 @@ module Pos.Explorer.Socket.Holder
        , ccConnection
        ) where
 
-import qualified Control.Concurrent.STM   as STM
---import           Control.Concurrent.STM.TVar (TVar)
 import           Control.Lens             (makeClassy)
-import           Control.Monad.Catch      (MonadCatch, MonadMask, MonadThrow)
-import           Control.Monad.Reader     (MonadReader)
-import           Control.Monad.Trans      (MonadIO (liftIO))
 import qualified Data.Map.Strict          as M
 import qualified Data.Set                 as S
 import           Network.EngineIO         (SocketId)
@@ -95,28 +90,10 @@ withConnState var = launchNamedPureLog $ liftIO . atomically . modifyTVarS var
 askingConnState
     :: MonadIO m
     => ConnectionsVar
-    -> ReaderT ConnectionsState m a
+    -> ExplorerSockets m a
     -> m a
 askingConnState var action = do
     v <- liftIO $ readTVarIO var
     runReaderT action v
 
--- TODO: not used, may be removed
-newtype ExplorerSockets m a = ExplorerSockets
-    { getExplorerSockets :: ReaderT ConnectionsVar m a
-    } deriving (Functor, Applicative, Monad, MonadIO, MonadThrow, MonadCatch,
-                MonadMask, MonadReader ConnectionsVar)
-
-class Monad m => MonadExplorerSockets m where
-    getSockets :: m ConnectionsVar
-
-instance Monad m => MonadExplorerSockets (ExplorerSockets m) where
-    getSockets = ExplorerSockets ask
-
-runExplorerSockets :: ConnectionsVar -> ExplorerSockets m a -> m a
-runExplorerSockets conn = flip runReaderT conn . getExplorerSockets
-
-runNewExplorerSockets :: MonadIO m => ExplorerSockets m a -> m a
-runNewExplorerSockets es = do
-    conn <- liftIO $ STM.newTVarIO mkConnectionsState
-    runExplorerSockets conn es
+type ExplorerSockets = ReaderT ConnectionsState

@@ -23,8 +23,8 @@ import qualified Pos.CLI                    as CLI
 import           Pos.DHT.Model              (DHTKey)
 import           Pos.DHT.Real.CLI           (dhtExplicitInitialOption, dhtKeyOption,
                                              dhtNetworkAddressOption, dhtPeersFileOption)
-import           Pos.Statistics             (EkgParams, StatsdParams,
-                                             ekgParamsOption, statsdParamsOption)
+import           Pos.Statistics             (EkgParams, StatsdParams, ekgParamsOption,
+                                             statsdParamsOption)
 import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.TimeWarp          (NetworkAddress, addrParser)
 
@@ -56,6 +56,7 @@ data Args = Args
     , ekgParams          :: !(Maybe EkgParams)
     , statsdParams       :: !(Maybe StatsdParams)
     , notifierPort       :: !Word16
+    , staticPeers        :: !Bool
     } deriving Show
 
 argsParser :: Parser Args
@@ -109,7 +110,7 @@ argsParser = do
     commonArgs <- CLI.commonArgsParser
 
     noSystemStart <- option auto (long "system-start" <> metavar "TIMESTAMP" <> value (-1))
-    
+
     noNTP <- switch $
          long "no-ntp" <>
          help "Whether to use real NTP servers to synchronise time or rely on local time"
@@ -122,9 +123,13 @@ argsParser = do
     enableMetrics <- switch $
         long "metrics" <>
         help "Enable metrics (EKG, statsd)"
- 
+
     ekgParams <- optional ekgParamsOption
     statsdParams <- optional statsdParamsOption
+
+    staticPeers <- switch $
+        long "static-peers" <>
+        help "Don't use Kademlia, use only static peers"
 
     pure Args{..}
 

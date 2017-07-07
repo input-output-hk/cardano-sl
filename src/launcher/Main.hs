@@ -309,10 +309,12 @@ writeWindowsUpdaterRunner runnerPath = do
         -- Delete updater
         , "del %1"
         -- Run launcher again
-        , (toText exePath) <> " " <> (unwords $ map toText launcherArgs)
+        , "start \"cardano launcher\" /b " <> (quote $ toText exePath) <> " " <> (unwords $ map (quote . toText) launcherArgs)
         -- Delete the bat file
         , "(goto) 2>nul & del \"%~f0\""
         ]
+  where
+    quote str = "\"" <> str <> "\""
 
 ----------------------------------------------------------------------------
 -- Running stuff

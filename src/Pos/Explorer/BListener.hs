@@ -35,7 +35,7 @@ import           Pos.Explorer.DB              (Page, Epoch)
 import qualified Pos.Explorer.DB              as DB
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
 import           Pos.Util.Chrono              (NE, NewestFirst (..),
-                                               OldestFirst (..))
+                                               OldestFirst (..), toNewestFirst)
 
 ----------------------------------------------------------------------------
 -- Declarations
@@ -329,7 +329,10 @@ onApplyKeyBlocksGeneral blunds newBlocksMapF = do
     newBlocks = newBlocksMapF blocksNE
 
     blocksNE :: NE (Block ssc)  
-    blocksNE = fst <$> getOldestFirst blunds
+    blocksNE = fst <$> getNewestFirst blocksNewF
+
+    blocksNewF :: NewestFirst NE (Blund ssc) 
+    blocksNewF = toNewestFirst blunds
 
 
 -- A general @Key@ @Block@ database application for the rollback call.

@@ -13,7 +13,7 @@ import           Universum
 
 import           Control.Lens                (ix)
 import qualified Data.List.NonEmpty          as NE
-import           Formatting                  (bprint, build, sformat, shown, (%))
+import           Formatting                  (bprint, build, fixed, sformat, shown, (%))
 import           Mockable                    (concurrently, delay, fork)
 import           Serokell.Util               (listJson, pairF, sec)
 import           System.Wlog                 (logDebug, logInfo, logWarning)
@@ -243,6 +243,10 @@ chainQualityChecker curSlot = do
         -- check and we don't want to copy-paste it and it's easier
         -- and cheap.
         chainQuality :: Double <- calcChainQualityM curFlatSlot
+        logDebug $
+            sformat
+                ("Chain quality for the last 'k' blocks is "%fixed 3)
+                chainQuality
         -- TODO [CSL-1342]:
         -- 1. Make constants configurable.
         -- 2. Send messages to reporting server, make them contain

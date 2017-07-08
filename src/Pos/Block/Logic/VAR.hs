@@ -21,7 +21,6 @@ import qualified Data.List.NonEmpty       as NE
 import           Ether.Internal           (HasLens (..))
 import           System.Wlog              (logDebug)
 
-import           Paths_cardano_sl         (version)
 import           Pos.Block.Core           (Block)
 import           Pos.Block.Logic.Internal (BlockApplyMode, BlockVerifyMode,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe,

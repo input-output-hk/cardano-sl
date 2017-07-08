@@ -243,7 +243,7 @@ applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
             else onGoodRollback
   where
     reApply = toOldestFirst toRollback
-    applyBack = applyBlocks True Nothing reApply
+    applyBack = applyBlocks False Nothing reApply
     expectedTipApply = toApply ^. _Wrapped . _neHead . prevBlockL
     newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG
 

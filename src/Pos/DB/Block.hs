@@ -173,7 +173,8 @@ loadBlundsWhile
     => (Block ssc -> Bool) -> HeaderHash -> m (NewestFirst [] (Blund ssc))
 loadBlundsWhile predicate = loadDataWhile getBlundThrow (predicate . fst)
 
--- | Load blunds which have depth less than given.
+-- | Load blunds which have depth less than given (depth = number of
+-- blocks that will be returned).
 loadBlundsByDepth
     :: (MonadBlockDB ssc m)
     => Word -> HeaderHash -> m (NewestFirst [] (Blund ssc))

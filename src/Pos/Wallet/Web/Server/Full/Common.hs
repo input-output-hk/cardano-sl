@@ -38,7 +38,7 @@ import           Pos.Slotting.Ntp              (runSlotsRedirect)
 import           Pos.Ssc.Extra                 (SscMemTag, SscState)
 import           Pos.Ssc.Extra.Class           (askSscMem)
 import           Pos.Txp                       (GenericTxpLocalData, TxpHolderTag,
-                                                askTxpMem)
+                                                askTxpMem, ignoreTxpMetrics)
 import           Pos.Wallet.Redirect           (runWalletRedirects)
 import           Pos.Util.TimeWarp             (runWithoutJsonLogT)
 import           Pos.Wallet.SscType            (WalletSscType)
@@ -99,7 +99,7 @@ convertHandler nc modernDBs tlw ssc ws delWrap psCtx
                    , Tagged @SlottingVar slotVar
                    , Tagged @(Bool, NtpSlottingVar) ntpSlotVar
                    , Tagged @SscMemTag ssc
-                   , Tagged @TxpHolderTag tlw
+                   , Tagged @TxpHolderTag (tlw, ignoreTxpMetrics)
                    , Tagged @DelegationVar delWrap
                    , Tagged @PeerStateTag peerStateCtx
                    ))

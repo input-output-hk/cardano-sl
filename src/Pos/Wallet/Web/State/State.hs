@@ -4,6 +4,7 @@ module Pos.Wallet.Web.State.State
        ( WalletState
        , MonadWalletWebDB
        , WalletWebDBTag
+       , WalletTip (..)
        , getWalletWebState
        , WebWalletModeDB
        , openState
@@ -80,7 +81,8 @@ import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemS
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
-                                               CustomAddressType (..), WalletStorage)
+                                               CustomAddressType (..), WalletStorage,
+                                               WalletTip (..))
 
 data WalletWebDBTag
 
@@ -124,7 +126,7 @@ getWalletMetas = queryDisk A.GetWalletMetas
 getWalletPassLU :: WebWalletModeDB m => CId Wal -> m (Maybe PassPhraseLU)
 getWalletPassLU = queryDisk . A.GetWalletPassLU
 
-getWalletSyncTip :: WebWalletModeDB m => CId Wal -> m (Maybe HeaderHash)
+getWalletSyncTip :: WebWalletModeDB m => CId Wal -> m (Maybe WalletTip)
 getWalletSyncTip = queryDisk . A.GetWalletSyncTip
 
 getAccountWAddresses

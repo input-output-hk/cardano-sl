@@ -585,11 +585,11 @@ topsortTxsOrFail f =
 cAddrToAddr :: MonadThrow m => CAddress -> m Address
 cAddrToAddr cAddr@(CAddress rawAddrText) =
     if (not $ T.null rawAddrText) && (T.last rawAddrText == '=') then do
-        -- RSCoin
+        -- cAddr is in RSCoin address format, converting to equivalent Cardano address
         cardanoAddr <- convertAddr rawAddrText
         either badRSCoinAddress pure (fromCAddress $ CAddress cardanoAddr)
     else
-        -- Cardano
+        -- cAddr is in Cardano address format
         either badCardanoAddress pure (fromCAddress cAddr)
   where
     badCardanoAddress = const $ throwM $ Internal "Invalid Cardano address!"
@@ -605,7 +605,7 @@ cAddrToAddr cAddr@(CAddress rawAddrText) =
             throwM errorLength
         pure $ redeemPkBuild addrParsed
     errorBase64 addrText = Internal $ "Address " <> addrText <> " is not base64(url) format"
-    errorLength = Internal "Address' length is not equal to 32, can't be redeeming pk"
+    errorLength = Internal "Address length is not equal to 32, can't be redeeming pk"
     -- Copied from cardano-sl/tools/src/addr-convert/Main.hs
     convertAddr :: (MonadThrow m, Monad m) => Text -> m Text
     convertAddr addr = pretty . makeRedeemAddress <$> fromAvvmPk (toText addr)

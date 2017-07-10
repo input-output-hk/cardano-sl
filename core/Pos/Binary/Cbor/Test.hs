@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -ddump-splices #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Pos.Binary.Cbor.Test where
 
 import           Pos.Binary.Cbor
@@ -9,6 +10,14 @@ import           Test.QuickCheck
 import           Pos.Core.Fee
 import           Pos.Binary.Core.Fee()
 import           Pos.Core.Arbitrary()
+import           Pos.Binary.Core.Script()
+import           Pos.Core.Types (Script)
+import qualified PlutusCore.Program as Plutus
+import qualified PlutusCore.Term    as Plutus
+import qualified PlutusTypes.Type   as Plutus
+import qualified PlutusTypes.Type   as Plutus
+import qualified Utils.Vars         as Plutus
+import qualified Utils.ABT          as Plutus
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -68,3 +77,4 @@ roundtrips = do
   quickCheck (roundtripProperty @Coeff Proxy)
   quickCheck (roundtripProperty @TxSizeLinear Proxy)
   quickCheck (roundtripProperty @TxFeePolicy Proxy)
+  quickCheck (roundtripProperty @Script Proxy)

@@ -24,8 +24,11 @@
     lost-utility: clearfix;
 
     .headline {
-      lost-column: 1/2;
+      lost-column: 1/1;
+      /*lost-column: 1/2;*/
+      /* Change it to ^ again, if we will roll back a "more" link (`more__container`) */
     }
+
     .more {
       &__container {
         lost-column: 1/2;

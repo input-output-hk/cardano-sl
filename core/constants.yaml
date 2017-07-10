@@ -87,6 +87,12 @@ dev: &dev
   propagationQueueSize: 100
   recoveryHeadersMessage: 20 # should be greater than k
 
+  # Chain quality thresholds
+  nonCriticalCQBootstrap: 0.95
+  criticalCQBootstrap: 0.8888
+  nonCriticalCQ: 0.8
+  criticalCQ: 0.654321
+
   # These constants mostly depend on hardware capabilities
   memPoolLimitRatio: 2 # mem pool will be limited by this value
                        # muliplied by block size limit

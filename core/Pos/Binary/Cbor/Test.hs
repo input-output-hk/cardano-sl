@@ -78,3 +78,6 @@ roundtrips = do
   quickCheck (roundtripProperty @CoinPortion Proxy)
   quickCheck (roundtripProperty @LocalSlotIndex Proxy)
   quickCheck (roundtripProperty @SlotId Proxy)
+  quickCheck (roundtripProperty @EpochOrSlot Proxy)
+  quickCheck (roundtripProperty @SharedSeed Proxy)
+  quickCheck (roundtripProperty @ChainDifficulty Proxy)

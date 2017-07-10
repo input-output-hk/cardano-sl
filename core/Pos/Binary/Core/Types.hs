@@ -95,6 +95,10 @@ instance Bi T.EpochOrSlot where
     sizeNPut = labelS "EpochOrSlot" $ putField T.unEpochOrSlot
     get = label "EpochOrSlot" $ T.EpochOrSlot <$> get
 
+instance Cbor.Bi T.EpochOrSlot where
+  encode (T.EpochOrSlot e) = Cbor.encode e
+  decode = T.EpochOrSlot <$> Cbor.decode @(Either T.EpochIndex T.SlotId)
+
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
 
@@ -103,10 +107,19 @@ deriveSimpleBi ''T.SharedSeed [
         Field [| T.getSharedSeed :: ByteString |]
     ]]
 
+Cbor.deriveSimpleBi ''T.SharedSeed [
+    Cbor.Cons 'T.SharedSeed [
+        Cbor.Field [| T.getSharedSeed :: ByteString |]
+    ]]
+
 instance Bi T.ChainDifficulty where
     sizeNPut = labelS "ChainDifficulty" $ putField (UnsignedVarInt . T.getChainDifficulty)
     get = label "ChainDifficulty" $
           T.ChainDifficulty . getUnsignedVarInt <$> get
+
+instance Cbor.Bi T.ChainDifficulty where
+  encode (T.ChainDifficulty word64) = Cbor.encode word64
+  decode = T.ChainDifficulty <$> Cbor.decode @Word64
 
 deriveSimpleBi ''T.BlockVersionData [
     Cons 'T.BlockVersionData [
@@ -123,4 +136,21 @@ deriveSimpleBi ''T.BlockVersionData [
         Field [| T.bvdUpdateImplicit    :: T.FlatSlotId    |],
         Field [| T.bvdUpdateSoftforkThd :: T.CoinPortion   |],
         Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |]
+    ]]
+
+Cbor.deriveSimpleBi ''T.BlockVersionData [
+    Cbor.Cons 'T.BlockVersionData [
+        Cbor.Field [| T.bvdScriptVersion     :: T.ScriptVersion |],
+        Cbor.Field [| T.bvdSlotDuration      :: Millisecond     |],
+        Cbor.Field [| T.bvdMaxBlockSize      :: Byte            |],
+        Cbor.Field [| T.bvdMaxHeaderSize     :: Byte            |],
+        Cbor.Field [| T.bvdMaxTxSize         :: Byte            |],
+        Cbor.Field [| T.bvdMaxProposalSize   :: Byte            |],
+        Cbor.Field [| T.bvdMpcThd            :: T.CoinPortion   |],
+        Cbor.Field [| T.bvdHeavyDelThd       :: T.CoinPortion   |],
+        Cbor.Field [| T.bvdUpdateVoteThd     :: T.CoinPortion   |],
+        Cbor.Field [| T.bvdUpdateProposalThd :: T.CoinPortion   |],
+        Cbor.Field [| T.bvdUpdateImplicit    :: T.FlatSlotId    |],
+        Cbor.Field [| T.bvdUpdateSoftforkThd :: T.CoinPortion   |],
+        Cbor.Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |]
     ]]

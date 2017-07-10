@@ -39,17 +39,21 @@
 .blocks-column {
 
   &__epoch {
-    lost-column: 3/12;
+    lost-column: 6/12;
+    /* TODO change it ^ to 3/12 if `since` (age) column will be back */
     button: standard-button;
     button-color: var(--color8) var(--color5) var(--color5);
   }
   &__slot {
-    lost-column: 3/12;
+    lost-column: 5/12;
+    /* TODO change it ^ to 3/12 if `since` (age) column will be back */
     button: standard-button;
     button-color: var(--color8) var(--color5) var(--color5);
   }
   &__age {
-    lost-column: 6/12 3;
+    @extend .hide;
+    /*lost-column: 6/12 3;*/
+    /* TODO set it ^ back if `since` (age) column will be back */
   }
   &__txs {
     @extend .hide;
@@ -83,7 +87,9 @@
       lost-column: 1/12;
     }
     &__age {
-      lost-column: 3/12;
+      @extend .hide;
+      /*lost-column: 3/12;*/
+      /* TODO set it ^ back if `since` (age) column will be back */
     }
     &__txs {
       @extend .show;
@@ -91,15 +97,18 @@
     }
     &__totalSend {
       @extend .show;
-      lost-column: 2/12;
+      lost-column: 3/12;
+      /* TODO change it ^ to 2/12 if `since` column will be back */
     }
     &__lead {
       @extend .show;
-      lost-column: 2/12;
+      lost-column: 3/12;
+      /* TODO change it ^ to 2/12 if `since` column will be back */
     }
     &__size {
       @extend .show;
-      lost-column: 1/12;
+      lost-column: 2/12;
+      /* TODO change it ^ to 1/12 if `since` column will be back */
     }
   }
 }

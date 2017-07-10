@@ -90,15 +90,3 @@ callYouEventHandler :: forall eff. ActionChannel -> Foreign -> Eff eff Unit
 callYouEventHandler channel _ =
     -- just an empty callback to be connected with socket.io
     pure unit
-
--- all following event handler are for debugging only
-
-callYouStringEventHandler :: forall eff. ActionChannel -> String
-    -> Eff (channel :: CHANNEL | eff) Unit
-callYouStringEventHandler channel str =
-    send channel NoOp
-
-callYouCTxIdEventHandler :: forall eff. ActionChannel -> Json
-    -> Eff (channel :: CHANNEL | eff) Unit
-callYouCTxIdEventHandler channel json =
-    send channel NoOp

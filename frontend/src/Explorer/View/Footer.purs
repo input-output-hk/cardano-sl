@@ -78,10 +78,10 @@ resourcesNavRow lang =
 navItemsRow0 :: Language -> Array NavItem
 navItemsRow0 lang =
     [ { label: translate (I18nL.common <<< I18nL.cApi) lang
-      , link: "https://github.com/input-output-hk/cardano-sl-explorer/blob/master/docs/cardano-explorer-table-web-api.md"
+      , link: "https://cardanodocs.com/technical/explorer/api/"
       }
     , { label: translate (I18nL.footer <<< I18nL.fooDocumentation) lang
-      , link: "https://github.com/input-output-hk/cardano-sl-explorer/blob/master/docs/cardano-explorer-web-api.md"
+      , link: "https://cardanodocs.com/cardano/explorer/"
       }
     -- TODO (ks) Add when we have the links
     -- , { label: "Support"

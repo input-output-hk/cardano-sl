@@ -30,7 +30,6 @@ initialState =
     , viewStates:
         { globalViewState:
             { gViewMobileMenuOpenend: false
-            , gViewTitle: translate (I18nL.common <<< I18nL.cTitle) English
             , gViewSearchInputFocused: false
             , gViewSelectedSearch: SearchAddress
             , gViewSearchQuery: emptySearchQuery
@@ -40,7 +39,6 @@ initialState =
         ,  dashboard:
             { dbViewBlocksExpanded: false
             , dbViewBlockPagination: PageNumber minPagination
-            , dbViewNextBlockPagination: PageNumber minPagination
             , dbViewMaxBlockPagination: NotAsked
             , dbViewLoadingBlockPagination: false
             , dbViewBlockPaginationEditable: false

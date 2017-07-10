@@ -162,7 +162,7 @@ import           Pos.Wallet.Web.Tracking          (CAccModifier (..), sortedInse
                                                    syncWalletOnImport,
                                                    syncWalletsWithGState,
                                                    txMempoolToModifier)
-import           Pos.Wallet.Web.Util              (getWalletAccountIds)
+import           Pos.Wallet.Web.Util              (getWalletAccountIds, rewrapTxError)
 import           Pos.Web.Server                   (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -623,25 +623,21 @@ sendMoney sendActions passphrase moneySource dstDistr = do
         let dstAddrs = txOutAddress . toaOut <$> toList txs
         withSafeSigners passphrase sks $ \ss -> do
             let hdwSigner = NE.zip ss srcAddrs
-            etx <- submitMTx sendActions hdwSigner (toList na) txs
-            case etx of
-                Left err ->
-                    throwM . RequestError $
-                    sformat ("Cannot send transaction: " %stext) err
-                Right (TxAux {taTx = tx}) -> do
-                    logInfo $
-                        sformat ("Successfully spent money from "%
-                                 listF ", " addressF % " addresses on " %
-                                 listF ", " addressF)
-                        (toList srcAddrs)
-                        dstAddrs
-                    -- TODO: this should be removed in production
-                    let txHash    = hash tx
-                        srcWallet = getMoneySourceWallet moneySource
-                    ts <- Just <$> liftIO getCurrentTimestamp
-                    ctxs <- addHistoryTx srcWallet False $
-                        THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs ts
-                    ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
+            TxAux {taTx = tx} <- rewrapTxError "Cannot send transaction" $
+                submitMTx sendActions hdwSigner (toList na) txs
+            logInfo $
+                sformat ("Successfully spent money from "%
+                         listF ", " addressF % " addresses on " %
+                         listF ", " addressF)
+                (toList srcAddrs)
+                dstAddrs
+            -- TODO: this should be removed in production
+            let txHash    = hash tx
+                srcWallet = getMoneySourceWallet moneySource
+            ts <- Just <$> liftIO getCurrentTimestamp
+            ctxs <- addHistoryTx srcWallet False $
+                THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs ts
+            ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
 
     noOutgoingTx = InternalError "Can't report outgoing transaction"
     -- TODO eliminate copy-paste
@@ -1061,17 +1057,15 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     -- Need to talk to @martoon about this. Discovered in CSM-330.
     dstAddr <- decodeCIdOrFail $ cwamId dstCWAddrMeta
     na <- getPeers
-    etx <- submitRedemptionTx sendActions redeemSK (toList na) dstAddr
-    case etx of
-        Left err -> throwM . RequestError $
-                    "Cannot send redemption transaction: " <> err
-        Right (TxAux {..}, redeemAddress, redeemBalance) -> do
-            -- add redemption transaction to the history of new wallet
-            let txInputs = [TxOut redeemAddress redeemBalance]
-            ts <- Just <$> liftIO getCurrentTimestamp
-            ctxs <- addHistoryTx (aiWId accId) True
-                (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts)
-            ctsIncoming ctxs `whenNothing` throwM noIncomingTx
+    (TxAux {..}, redeemAddress, redeemBalance) <-
+        rewrapTxError "Cannot send redemption transaction" $
+        submitRedemptionTx sendActions redeemSK (toList na) dstAddr
+    -- add redemption transaction to the history of new wallet
+    let txInputs = [TxOut redeemAddress redeemBalance]
+    ts <- Just <$> liftIO getCurrentTimestamp
+    ctxs <- addHistoryTx (aiWId accId) True $
+        THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts
+    ctsIncoming ctxs `whenNothing` throwM noIncomingTx
   where
     noIncomingTx = InternalError "Can't report incoming transaction"
 
@@ -1116,8 +1110,8 @@ importWallet passphrase (toString -> fp) = do
     getWallet wId
   where
     noWalletSecret = RequestError "This key doesn't contain HD wallet info"
-    noFile _ = "File doesn't exist"
-    decodeFailed = sformat ("Invalid secret file ("%build%")")
+    noFile _ = RequestError "File doesn't exist"
+    decodeFailed = RequestError . sformat ("Invalid secret file ("%build%")")
 
 importWalletSecret
     :: WalletWebMode m

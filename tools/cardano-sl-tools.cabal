@@ -395,7 +395,7 @@ executable cardano-launcher
                      , async
                      , base
                      , optparse-simple
-                     , cardano-report-server >= 0.1.1
+                     , cardano-report-server >= 0.2.0
                      , log-warper
                      , cardano-sl
                      , cardano-sl-infra

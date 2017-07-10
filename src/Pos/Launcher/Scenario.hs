@@ -94,9 +94,11 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?
+    -- FIXME: looks like something bad.
+    -- FIXME [CSL-1340]: it should be reported as 'RError'.
     reportHandler (SomeException e) = do
         loggerName <- getLoggerName
-        reportMisbehaviourSilent version $
+        reportMisbehaviourSilent version False $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e

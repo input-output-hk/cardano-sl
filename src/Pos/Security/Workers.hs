@@ -137,8 +137,10 @@ checkForReceivedBlocksWorkerImpl sendActions = afterDelay $ do
         let reason =
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)
+        -- TODO [CSL-1340]: should it be critical or not? Is it
+        -- misbehavior or error?
         when nonTrivialUptime $ recoveryCommGuard $
-            reportMisbehaviourSilent version reason
+            reportMisbehaviourSilent version True reason
 
 checkForIgnoredCommitmentsWorker
     :: forall ctx m.

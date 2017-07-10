@@ -316,7 +316,7 @@ library
                       , binary-orphans
                       , bytestring
                       , cardano-crypto
-                      , cardano-report-server >= 0.1.1
+                      , cardano-report-server >= 0.2.0
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-sl-godtossing

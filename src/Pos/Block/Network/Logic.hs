@@ -517,10 +517,11 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
         "Fork happened, data received from "%build%
         ". Blocks rolled back: "%listJson%
         ", blocks applied: "%listJson
+    -- TODO [CSL-1340]: set isCritical flag based on rollback depth.
     reportRollback =
         recoveryCommGuard $ do
             logDebug "Reporting rollback happened"
-            reportMisbehaviourSilent version $
+            reportMisbehaviourSilent version False $
                 sformat reportF nodeId toRollbackHashes toApplyHashes
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

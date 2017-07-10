@@ -76,8 +76,9 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
         logWarning
             "LRC worker can't do anything, because recent blocks aren't known"
     onLrcError e = reportError e >> throwM e
+    -- FIXME [CSL-1340]: it should be reported as 'RError'.
     reportError e =
-        reportMisbehaviourSilent version $ "Lrc worker failed with error: " <> show e
+        reportMisbehaviourSilent version False $ "Lrc worker failed with error: " <> show e
 
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.
 type LrcModeFull ssc ctx m =

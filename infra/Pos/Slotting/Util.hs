@@ -138,7 +138,8 @@ onNewSlotImpl withLogging startImmediately action =
     workerHandler e = do
         let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
         logError $ msg
-        reportMisbehaviourSilent version msg
+        -- [CSL-1340] FIXME: it's not misbehavior, it should be reported as 'RError'.
+        reportMisbehaviourSilent version False msg
         delay =<< getLastKnownSlotDuration
         onNewSlotImpl withLogging startImmediately action
 

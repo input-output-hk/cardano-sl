@@ -152,11 +152,12 @@ getNodeInfo = do
 -- for 'WorkMode' context.
 reportMisbehaviour
     :: (MonadReporting ctx m, MonadDiscovery m)
-    => Version -> Text -> m ()
-reportMisbehaviour version reason = do
+    => Version -> Bool -> Text -> m ()
+reportMisbehaviour version isCritical reason = do
     logError $ "Reporting misbehaviour \"" <> reason <> "\""
     nodeInfo <- getNodeInfo
-    sendReportNode version $ RMisbehavior $ sformat misbehF reason nodeInfo
+    sendReportNode version $
+        RMisbehavior isCritical $ sformat misbehF reason nodeInfo
   where
     misbehF = stext%", nodeInfo: "%stext
 
@@ -164,9 +165,9 @@ reportMisbehaviour version reason = do
 -- | Report misbehaviour, but catch all errors inside
 reportMisbehaviourSilent
     :: forall ctx m . (MonadReporting ctx m, MonadDiscovery m)
-    => Version -> Text -> m ()
-reportMisbehaviourSilent version reason =
-    reportMisbehaviour version reason `catch` handler
+    => Version -> Bool -> Text -> m ()
+reportMisbehaviourSilent version isCritical reason =
+    reportMisbehaviour version isCritical reason `catch` handler
   where
     handler :: SomeException -> m ()
     handler e =

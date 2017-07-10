@@ -275,7 +275,8 @@ createMainBlockFinish slotId pske prevHeader = do
     fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
     fallbackCreateBlock er = do
         logError $ sformat ("We've created bad main block: "%stext) er
-        lift $ reportMisbehaviourSilent version $
+        -- FIXME [CSL-1340]: it should be reported as 'RError'.
+        lift $ reportMisbehaviourSilent version False $
             sformat ("We've created bad main block: "%build) er
         logDebug $ "Creating empty block"
         clearMempools

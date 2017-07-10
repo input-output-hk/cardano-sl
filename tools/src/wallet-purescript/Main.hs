@@ -69,6 +69,7 @@ main = do
       , mkSumType (Proxy @CT.CWalletAssurance)
       , mkSumType (Proxy @CT.CCoin)
       , mkSumType (Proxy @PT.Coin)
+      , mkSumType (Proxy @PT.BlockCount)
       , mkSumType (Proxy @PT.ChainDifficulty)
       , mkSumType (Proxy @PT.BlockVersion)
       , mkSumType (Proxy @PT.SoftwareVersion)
@@ -97,7 +98,7 @@ word32Bridge :: BridgePart
 word32Bridge = typeName ^== "Word32" >> pure psInt53
 
 -- FIXME: this is not actually correct, but we don't
--- use >= Int53 except for Coin, and Coin is representat
+-- use >= Int53 except for Coin, and Coin is represented
 -- as String in `0.4` branch
 word64Bridge :: BridgePart
 word64Bridge = typeName ^== "Word64" >> pure psInt53

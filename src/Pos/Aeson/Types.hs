@@ -12,8 +12,9 @@ import           Pos.Aeson.Crypto     ()
 import           Pos.Data.Attributes  (Attributes (..))
 import           Pos.Txp              (TxOut (..))
 import           Pos.Types            (Address (..), ApplicationName (..),
-                                       ChainDifficulty, Coin, EpochIndex, LocalSlotIndex,
-                                       SharedSeed, SlotId, coinToInteger)
+                                       BlockCount (..), ChainDifficulty, Coin, EpochIndex,
+                                       LocalSlotIndex, SharedSeed, SlotCount (..), SlotId,
+                                       coinToInteger)
 import           Pos.Web.Types        (GodTossingStage)
 
 instance ToJSON SharedSeed where
@@ -41,6 +42,9 @@ instance ToJSON TxOut where
     toJSON TxOut{..} = object [
         "coin"    .= coinToInteger txOutValue,
         "address" .= sformat build txOutAddress ]
+
+deriving instance ToJSON SlotCount
+deriving instance ToJSON BlockCount
 
 -- NOTE: some of these types are used on frontend (PureScript).
 -- We are automatically deriving instances there and they are

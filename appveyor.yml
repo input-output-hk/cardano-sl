@@ -11,6 +11,7 @@ environment:
     CSL_SYSTEM_TAG: "win64"
     CACHE_DIR: "c:\\c"
     WORK_DIR: "c:\\w"
+    DCONFIG: "qanet_tns_wallet"
 
 init:
   - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%
@@ -64,6 +65,7 @@ before_test:
 test_script:
   - cd "%WORK_DIR%"
   - stack setup --no-reinstall
+  # Install happy separately: https://github.com/commercialhaskell/stack/issues/3151#issuecomment-310642487
   - stack install happy
       -j 2
       --no-terminal
@@ -86,7 +88,7 @@ test_script:
       --bench
       --no-run-benchmarks
       --work-dir %STACK_WORK%
-      --ghc-options="-DCONFIG=wallet"
+      --ghc-options="-DCONFIG=%DCONFIG%"
       --flag cardano-sl:with-web
       --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
@@ -96,18 +98,6 @@ test_script:
       --extra-lib-dirs="C:\OpenSSL-Win64"
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
-  # - scripts\ci\appveyor-retry call stack --no-terminal --local-bin-path daedalus
-  #     install -j 2 --no-haddock-deps
-  #     --work-dir %STACK_WORK%
-  #     --flag cardano-sl:for-installer
-  #     --flag cardano-sl:with-web
-  #     --flag cardano-sl:with-wallet
-  #     --flag cardano-sl-core:-asserts
-  #     --flag cardano-sl-core:-dev-mode
-  #     --extra-include-dirs="C:\OpenSSL-Win64\include"
-  #     --extra-lib-dirs="C:\OpenSSL-Win64"
-  #     --extra-include-dirs="C:\projects\cardano-sl\rocksdb\include"
-  #     --extra-lib-dirs="C:\projects\cardano-sl"
   - stack exec --work-dir %STACK_WORK% -- cardano-wallet-hs2purs
   - copy log-config-prod.yaml daedalus\log-config-prod.yaml
   - cd daedalus

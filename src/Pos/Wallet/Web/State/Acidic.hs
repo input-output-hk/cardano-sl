@@ -20,6 +20,8 @@ module Pos.Wallet.Web.State.Acidic
        , GetWalletPassLU (..)
        , GetWalletSyncTip (..)
        , GetWalletAddresses (..)
+       , GetWalletUtxo (..)
+       , SetWalletUtxo (..)
        , GetAccountWAddresses (..)
        , DoesWAddressExist (..)
        , GetTxMeta (..)
@@ -44,6 +46,8 @@ module Pos.Wallet.Web.State.Acidic
        , GetWalletTxHistory (..)
        , AddOnlyNewTxMeta (..)
        , RemoveWallet (..)
+       , RemoveTxMetas (..)
+       , RemoveHistoryCache (..)
        , RemoveAccount (..)
        , RemoveWAddress (..)
        , RemoveCustomAddress (..)
@@ -101,6 +105,8 @@ makeAcidic ''WalletStorage
     , 'WS.getWalletPassLU
     , 'WS.getWalletSyncTip
     , 'WS.getWalletAddresses
+    , 'WS.getWalletUtxo
+    , 'WS.setWalletUtxo
     , 'WS.getAccountWAddresses
     , 'WS.doesWAddressExist
     , 'WS.getTxMeta
@@ -125,6 +131,8 @@ makeAcidic ''WalletStorage
     , 'WS.getWalletTxHistory
     , 'WS.addOnlyNewTxMeta
     , 'WS.removeWallet
+    , 'WS.removeTxMetas
+    , 'WS.removeHistoryCache
     , 'WS.removeAccount
     , 'WS.removeWAddress
     , 'WS.totallyRemoveWAddress

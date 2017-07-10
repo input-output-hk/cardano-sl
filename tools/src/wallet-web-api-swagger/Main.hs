@@ -39,9 +39,9 @@ import           Servant.Swagger.Internal.TypeLevel (IsSubAPI)
 import           Universum
 
 import qualified Paths_cardano_sl                   as CSL
-import           Pos.Types                          (ApplicationName, BlockVersion,
-                                                     ChainDifficulty, Coin,
-                                                     SoftwareVersion)
+import           Pos.Types                          (ApplicationName, BlockCount (..),
+                                                     BlockVersion, ChainDifficulty, Coin,
+                                                     SlotCount (..), SoftwareVersion)
 import           Pos.Util.BackupPhrase              (BackupPhrase)
 import           Pos.Util.Servant                   (CDecodeApiArg, VerbMod,
                                                      WithDefaultApiArg)
@@ -137,6 +137,8 @@ instance ToSchema      W.CUpdateInfo
 instance ToSchema      SoftwareVersion
 instance ToSchema      ApplicationName
 instance ToSchema      W.SyncProgress
+instance ToSchema      BlockCount
+instance ToSchema      SlotCount
 instance ToSchema      ChainDifficulty
 instance ToSchema      BlockVersion
 instance ToSchema      BackupPhrase

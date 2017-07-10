@@ -16,8 +16,8 @@ import           Pos.Ssc.Class.Workers (SscWorkersClass (sscLrcConsumers))
 import           Pos.Update.Lrc        (usLrcConsumer)
 
 allLrcConsumers
-    :: forall ssc m.
-       (LrcMode ssc m, SscWorkersClass ssc)
+    :: forall ssc ctx m.
+       (LrcMode ssc ctx m, SscWorkersClass ssc)
     => [LrcConsumer m]
 allLrcConsumers = [delegationLrcConsumer, usLrcConsumer] ++
                   sscLrcConsumers @ssc

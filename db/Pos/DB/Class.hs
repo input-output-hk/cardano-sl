@@ -6,17 +6,9 @@
 
 -- | A set of type classes which provide access to database.
 --
--- 'MonadRealDB' is the most featured class (actually just a set of
--- constraints) which wraps 'NodeDBs' which contains RocksDB
--- databases. This class can be used to manipulate RocksDB
--- directly. It may be useful when you need an access to advanced
--- features of RocksDB.
---
--- Apart from that we have few more classes here.
---
--- 'MonadDBRead' contains only 'dbGet' method.  The advantage of it is
--- that you don't need to do any 'IO' to use it which makes it
--- suitable for pure testing. TODO: add iteration abilitiy.
+-- 'MonadDBRead' contains reading and iterating capabilities. The
+-- advantage of it is that you don't need to do any 'IO' to use it
+-- which makes it suitable for pure testing.
 --
 -- 'MonadDB' is a superclass of 'MonadDB' and allows to modify
 -- DB. Again, its purpose is to make it possible to use DB w/o IO
@@ -27,6 +19,9 @@
 -- code and where in DB, i. e. by which key). For example, if X wants
 -- to get data maintained by Y and doesn't know about Y, it can use
 -- 'MonadGState' (which is at pretty low level).
+--
+-- Described two classes have RocksDB implementation "DB.Rocks" and
+-- pure one for testing "DB.Pure".
 --
 -- 'MonadBlockDBGeneric' contains functions which provide read-only
 -- access to the Block DB.
@@ -42,7 +37,6 @@ module Pos.DB.Class
        (
          -- * Pure
          DBTag (..)
-       , dbTagToLens
        , DBIteratorClass (..)
        , IterType
        , MonadDBRead (..)
@@ -54,39 +48,28 @@ module Pos.DB.Class
        , gsMaxHeaderSize
        , gsMaxTxSize
        , gsMaxProposalSize
+       , gsUnlockStakeEpoch
+       , gsIsBootstrapEra
 
          -- * Block DB
        , MonadBlockDBGeneric (..)
        , dbGetBlund
-
-         -- * RocksDB
-       , MonadRealDB
-       , getNodeDBs
-       , usingReadOptions
-       , usingWriteOptions
-       , getBlockIndexDB
-       , getGStateDB
-       , getLrcDB
-       , getMiscDB
+       , MonadBlockDBGenericWrite (..)
        ) where
 
 import           Universum
 
-import           Control.Lens                   (ASetter')
-import           Control.Monad.Morph            (hoist)
-import           Control.Monad.Trans            (MonadTrans (..))
-import           Control.Monad.Trans.Control    (MonadBaseControl)
-import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource   (ResourceT)
-import           Data.Conduit                   (Source)
-import qualified Database.RocksDB               as Rocks
-import qualified Ether
-import           Serokell.Data.Memory.Units     (Byte)
+import           Control.Monad.Morph          (hoist)
+import           Control.Monad.Trans          (MonadTrans (..))
+import           Control.Monad.Trans.Control  (MonadBaseControl)
+import           Control.Monad.Trans.Resource (ResourceT)
+import           Data.Conduit                 (Source)
+import qualified Database.RocksDB             as Rocks
+import           Serokell.Data.Memory.Units   (Byte)
 
-import           Pos.Binary.Class               (Bi)
-import           Pos.Core                       (BlockVersionData (..), HeaderHash)
-import           Pos.DB.Types                   (DB (..), NodeDBs, blockIndexDB, gStateDB,
-                                                 lrcDB, miscDB)
+import           Pos.Binary.Class             (Bi)
+import           Pos.Core                     (BlockVersionData (..), EpochIndex,
+                                               HeaderHash, isBootstrapEra)
 
 ----------------------------------------------------------------------------
 -- Pure
@@ -99,12 +82,6 @@ data DBTag
     | LrcDB
     | MiscDB
     deriving (Eq)
-
-dbTagToLens :: DBTag -> Lens' NodeDBs DB
-dbTagToLens BlockIndexDB = blockIndexDB
-dbTagToLens GStateDB     = gStateDB
-dbTagToLens LrcDB        = lrcDB
-dbTagToLens MiscDB       = miscDB
 
 -- | Key-value type family encapsulating the iterator (something we
 -- can iterate on) functionality.
@@ -185,7 +162,7 @@ class Monad m => MonadGState m where
     gsAdoptedBVData :: m BlockVersionData
 
 instance {-# OVERLAPPABLE #-}
-    (MonadGState m, MonadTrans t, LiftLocal t,
+    (MonadGState m, MonadTrans t,
      Monad (t m)) =>
         MonadGState (t m)
   where
@@ -203,6 +180,15 @@ gsMaxTxSize = bvdMaxTxSize <$> gsAdoptedBVData
 gsMaxProposalSize :: MonadGState m => m Byte
 gsMaxProposalSize = bvdMaxProposalSize <$> gsAdoptedBVData
 
+gsUnlockStakeEpoch :: MonadGState m => m EpochIndex
+gsUnlockStakeEpoch = bvdUnlockStakeEpoch <$> gsAdoptedBVData
+
+-- | Checks if provided epoch is in the bootstrap era.
+gsIsBootstrapEra :: MonadGState m => EpochIndex -> m Bool
+gsIsBootstrapEra epoch = do
+    unlockStakeEpoch <- gsUnlockStakeEpoch
+    return $ isBootstrapEra unlockStakeEpoch epoch
+
 ----------------------------------------------------------------------------
 -- Block DB abstraction
 ----------------------------------------------------------------------------
@@ -218,7 +204,7 @@ class MonadDBRead m =>
     dbGetUndo :: HeaderHash -> m (Maybe undo)
 
 instance {-# OVERLAPPABLE #-}
-    (MonadBlockDBGeneric header blk undo m, MonadTrans t, LiftLocal t,
+    (MonadBlockDBGeneric header blk undo m, MonadTrans t,
      MonadDBRead (t m)) =>
         MonadBlockDBGeneric header blk undo (t m)
   where
@@ -237,47 +223,20 @@ dbGetBlund x =
     (,) <$> MaybeT (dbGetBlock @header @blk @undo x) <*>
     MaybeT (dbGetUndo @header @blk @undo x)
 
-----------------------------------------------------------------------------
--- RocksDB
-----------------------------------------------------------------------------
+-- | Superclass of 'MonadBlockDB' which allows to modify the Block
+-- DB.
+--
+-- TODO: support deletion when we actually start using deletion
+-- (probably not soon).
+class MonadBlockDBGeneric header blk undo m => MonadBlockDBGenericWrite header blk undo m where
+    -- | Put given blund into the Block DB.
+    dbPutBlund :: (blk,undo) -> m ()
 
--- | This is the set of constraints necessary to operate on «real» DBs
--- (which are wrapped into 'NodeDBs').  Apart from providing access to
--- 'NodeDBs' it also has 'MonadIO' constraint, because it's impossible
--- to use real DB without IO. Finally, it has 'MonadCatch' constraints
--- (partially for historical reasons, partially for good ones).
-type MonadRealDB m
-     = (Ether.MonadReader' NodeDBs m, MonadIO m, MonadBaseControl IO m, MonadCatch m)
-
-getNodeDBs :: MonadRealDB m => m NodeDBs
-getNodeDBs = Ether.ask'
-
-usingReadOptions
-    :: MonadRealDB m
-    => Rocks.ReadOptions
-    -> ASetter' NodeDBs DB
-    -> m a
-    -> m a
-usingReadOptions opts l =
-    Ether.local' (over l (\db -> db {rocksReadOpts = opts}))
-
-usingWriteOptions
-    :: MonadRealDB m
-    => Rocks.WriteOptions
-    -> ASetter' NodeDBs DB
-    -> m a
-    -> m a
-usingWriteOptions opts l =
-    Ether.local' (over l (\db -> db {rocksWriteOpts = opts}))
-
-getBlockIndexDB :: MonadRealDB m => m DB
-getBlockIndexDB = view blockIndexDB <$> getNodeDBs
-
-getGStateDB :: MonadRealDB m => m DB
-getGStateDB = view gStateDB <$> getNodeDBs
-
-getLrcDB :: MonadRealDB m => m DB
-getLrcDB = view lrcDB <$> getNodeDBs
-
-getMiscDB :: MonadRealDB m => m DB
-getMiscDB = view miscDB <$> getNodeDBs
+instance {-# OVERLAPPABLE #-}
+    ( MonadBlockDBGenericWrite header blk undo m
+    , MonadBlockDBGeneric header blk undo (t m)
+    , MonadTrans t
+    ) =>
+        MonadBlockDBGenericWrite header blk undo (t m)
+  where
+    dbPutBlund = lift . dbPutBlund

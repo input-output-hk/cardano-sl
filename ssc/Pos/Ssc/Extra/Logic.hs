@@ -32,7 +32,7 @@ import           Control.Monad.Except     (MonadError, runExceptT)
 import           Control.Monad.Morph      (generalize, hoist)
 import           Control.Monad.State      (get, put)
 import           Data.Tagged              (untag)
-import qualified Ether
+import           Ether.Internal           (HasLens (..))
 import           Formatting               (build, int, sformat, (%))
 import           Serokell.Util            (listJson)
 import           System.Wlog              (NamedPureLogger, WithLogger,
@@ -74,8 +74,8 @@ syncingStateWith var action = do
 -- | Run something that reads 'SscLocalData' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
 sscRunLocalQuery
-    :: forall ssc m a.
-       (MonadSscMem ssc m, MonadIO m)
+    :: forall ssc ctx m a.
+       (MonadSscMem ssc ctx m, MonadIO m)
     => ReaderT (SscLocalData ssc) m a -> m a
 sscRunLocalQuery action = do
     localVar <- sscLocal <$> askSscMem
@@ -84,8 +84,8 @@ sscRunLocalQuery action = do
 
 -- | Run STM transaction which modifies 'SscLocalData' and also can log.
 sscRunLocalSTM
-    :: forall ssc m a.
-       (MonadSscMem ssc m, MonadIO m, WithLogger m)
+    :: forall ssc ctx m a.
+       (MonadSscMem ssc ctx m, MonadIO m, WithLogger m)
     => StateT (SscLocalData ssc) (NamedPureLogger STM) a -> m a
 sscRunLocalSTM action = do
     localVar <- sscLocal <$> askSscMem
@@ -94,8 +94,8 @@ sscRunLocalSTM action = do
 -- | Run something that reads 'SscGlobalState' in 'MonadSscMem'.
 -- 'MonadIO' is also needed to use stm.
 sscRunGlobalQuery
-    :: forall ssc m a.
-       (MonadSscMem ssc m, MonadIO m)
+    :: forall ssc ctx m a.
+       (MonadSscMem ssc ctx m, MonadIO m)
     => ReaderT (SscGlobalState ssc) m a -> m a
 sscRunGlobalQuery action = do
     globalVar <- sscGlobal <$> askSscMem
@@ -108,11 +108,12 @@ sscRunGlobalQuery action = do
 
 -- | Calculate 'SharedSeed' for given epoch.
 sscCalculateSeed
-    :: forall ssc m.
-       ( MonadSscMem ssc m
+    :: forall ssc ctx m.
+       ( MonadSscMem ssc ctx m
        , MonadDBRead m
        , SscGStateClass ssc
-       , Ether.MonadReader' LrcContext m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
        , MonadIO m
        , WithLogger m )
     => EpochIndex
@@ -131,8 +132,8 @@ sscCalculateSeed epoch = do
 
 -- | Get 'SscPayload' for inclusion into main block with given 'SlotId'.
 sscGetLocalPayload
-    :: forall ssc m.
-       (MonadIO m, MonadSscMem ssc m, SscLocalDataClass ssc, WithLogger m)
+    :: forall ssc ctx m.
+       (MonadIO m, MonadSscMem ssc ctx m, SscLocalDataClass ssc, WithLogger m)
     => SlotId -> m (SscPayload ssc)
 sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 
@@ -140,12 +141,13 @@ sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ @ssc
 -- function is assumed to be called after applying block and before
 -- releasing lock on block application.
 sscNormalize
-    :: forall ssc m.
+    :: forall ssc ctx m.
        ( MonadDBRead m
        , MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () m
-       , MonadSscMem ssc m
+       , MonadSscMem ssc ctx m
        , SscLocalDataClass ssc
-       , Ether.MonadReader' LrcContext m
+       , MonadReader ctx m
+       , HasLens LrcContext ctx LrcContext
        , SscHelpersClass ssc
        , WithLogger m
        , MonadIO m
@@ -166,9 +168,9 @@ sscNormalize = do
 -- we detect that something is really bad. In this case it makes sense
 -- to remove all local data to be sure it's valid.
 sscResetLocal ::
-       forall ssc m.
+       forall ssc ctx m.
        ( MonadDBRead m
-       , MonadSscMem ssc m
+       , MonadSscMem ssc ctx m
        , SscLocalDataClass ssc
        , MonadSlots m
        , MonadIO m
@@ -184,17 +186,17 @@ sscResetLocal = do
 ----------------------------------------------------------------------------
 
 -- 'MonadIO' is needed only for 'TVar' (I hope).
-type SscGlobalApplyMode ssc m =
-    (MonadSscMem ssc m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
-     MonadDBRead m, MonadIO m, Ether.MonadReader' LrcContext m)
-type SscGlobalVerifyMode ssc m =
-    (MonadSscMem ssc m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
-     MonadDBRead m, Ether.MonadReader' LrcContext m, MonadIO m,
+type SscGlobalApplyMode ssc ctx m =
+    (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
+     MonadDBRead m, MonadIO m, MonadReader ctx m, HasLens LrcContext ctx LrcContext)
+type SscGlobalVerifyMode ssc ctx m =
+    (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc, WithLogger m,
+     MonadDBRead m, MonadReader ctx m, HasLens LrcContext ctx LrcContext, MonadIO m,
      MonadError (SscVerifyError ssc) m)
 
 sscRunGlobalUpdate
-    :: forall ssc m a.
-       SscGlobalApplyMode ssc m
+    :: forall ssc ctx m a.
+       SscGlobalApplyMode ssc ctx m
     => StateT (SscGlobalState ssc) (NamedPureLogger Identity) a -> m a
 sscRunGlobalUpdate action = do
     globalVar <- sscGlobal <$> askSscMem
@@ -208,8 +210,8 @@ sscRunGlobalUpdate action = do
 -- result of application of these blocks can be optionally passed as
 -- argument (it can be calculated in advance using 'sscVerifyBlocks').
 sscApplyBlocks
-    :: forall ssc m.
-       SscGlobalApplyMode ssc m
+    :: forall ssc ctx m.
+       SscGlobalApplyMode ssc ctx m
     => OldestFirst NE (SscBlock ssc)
     -> Maybe (SscGlobalState ssc)
     -> m [SomeBatchOp]
@@ -224,7 +226,7 @@ sscApplyBlocks blocks Nothing =
     sscApplyBlocksFinish =<< sscVerifyValidBlocks blocks
 
 sscApplyBlocksFinish
-    :: forall ssc m . SscGlobalApplyMode ssc m
+    :: forall ssc ctx m . SscGlobalApplyMode ssc ctx m
     => SscGlobalState ssc -> m [SomeBatchOp]
 sscApplyBlocksFinish gs = do
     sscRunGlobalUpdate (put gs)
@@ -234,8 +236,8 @@ sscApplyBlocksFinish gs = do
     pure $ untag @ssc $ sscGlobalStateToBatch gs
 
 sscVerifyValidBlocks
-    :: forall ssc m.
-       SscGlobalApplyMode ssc m
+    :: forall ssc ctx m.
+       SscGlobalApplyMode ssc ctx m
     => OldestFirst NE (SscBlock ssc) -> m (SscGlobalState ssc)
 sscVerifyValidBlocks blocks =
     runExceptT (sscVerifyBlocks @ssc blocks) >>= \case
@@ -268,8 +270,8 @@ onUnexpectedVerify hashes = assertionFailed msg
 -- | Rollback application of given sequence of blocks. Bad things can
 -- happen if these blocks haven't been applied before.
 sscRollbackBlocks
-    :: forall ssc m.
-       SscGlobalApplyMode ssc m
+    :: forall ssc ctx m.
+       SscGlobalApplyMode ssc ctx m
     => NewestFirst NE (SscBlock ssc) -> m [SomeBatchOp]
 sscRollbackBlocks blocks = sscRunGlobalUpdate $ do
     sscRollbackU @ssc blocks
@@ -280,8 +282,8 @@ sscRollbackBlocks blocks = sscRunGlobalUpdate $ do
 -- this function will return it using 'MonadError' type class.
 -- All blocks must be from the same epoch.
 sscVerifyBlocks
-    :: forall ssc m.
-       SscGlobalVerifyMode ssc m
+    :: forall ssc ctx m.
+       SscGlobalVerifyMode ssc ctx m
     => OldestFirst NE (SscBlock ssc) -> m (SscGlobalState ssc)
 sscVerifyBlocks blocks = do
     let epoch = blocks ^. _Wrapped . _neHead . epochIndexL
@@ -303,7 +305,7 @@ sscVerifyBlocks blocks = do
 ----------------------------------------------------------------------------
 
 getRichmenFromLrc
-    :: (MonadIO m, MonadDBRead m, Ether.MonadReader' LrcContext m)
+    :: (MonadIO m, MonadDBRead m, MonadReader ctx m, HasLens LrcContext ctx LrcContext)
     => Text -> EpochIndex -> m RichmenStake
 getRichmenFromLrc fname epoch =
     lrcActionOnEpochReason

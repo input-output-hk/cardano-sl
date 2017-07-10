@@ -36,6 +36,7 @@ import           Network.Transport.Concrete  (concrete)
 import qualified Network.Transport.TCP       as TCP
 import qualified STMContainers.Map           as SM
 import           System.IO                   (Handle, hClose)
+import qualified System.Metrics              as Metrics
 import           System.Wlog                 (CanLog, LoggerConfig (..), WithLogger,
                                               getLoggerName, logError, productionB,
                                               releaseAllHandlers, setupLogging,
@@ -46,12 +47,13 @@ import           Pos.CLI                     (readLoggerConfig)
 import           Pos.Communication.PeerState (PeerStateCtx)
 import qualified Pos.Constants               as Const
 import           Pos.Context                 (BlkSemaphore (..), ConnectedPeers (..),
-                                              GenesisStakes (..), GenesisUtxo (..),
-                                              NodeContext (..), StartTime (..))
+                                              GenesisUtxo (..), NodeContext (..),
+                                              StartTime (..))
 import           Pos.Core                    (Timestamp)
 import           Pos.DB                      (MonadDBRead, NodeDBs)
-import           Pos.DB.DB                   (closeNodeDBs, initNodeDBs, openNodeDBs)
+import           Pos.DB.DB                   (initNodeDBs)
 import           Pos.DB.GState               (getTip)
+import           Pos.DB.Rocks                (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation.Class        (DelegationVar)
 import           Pos.DHT.Real                (KademliaDHTInstance, KademliaParams (..),
                                               startDHTInstance, stopDHTInstance)
@@ -60,12 +62,13 @@ import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..
                                               NetworkParams (..), NodeParams (..))
 import           Pos.Lrc.Context             (LrcContext (..), mkLrcSyncData)
 import           Pos.Shutdown.Types          (ShutdownContext (..))
-import           Pos.Slotting                (SlottingContextSum (..), SlottingVar,
+import           Pos.Slotting                (SlottingContextSum (..), SlottingData,
                                               mkNtpSlottingVar)
 import           Pos.Ssc.Class               (SscConstraint, SscParams,
                                               sscCreateNodeContext)
 import           Pos.Ssc.Extra               (SscState, mkSscState)
-import           Pos.Txp                     (GenericTxpLocalData, mkTxpLocalData)
+import           Pos.Txp                     (GenericTxpLocalData, TxpMetrics,
+                                              mkTxpLocalData, recordTxpMetrics)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                (explorerTxpGlobalSettings)
 #else
@@ -93,12 +96,13 @@ data NodeResources ssc m = NodeResources
     { nrContext    :: !(NodeContext ssc)
     , nrDBs        :: !NodeDBs
     , nrSscState   :: !(SscState ssc)
-    , nrTxpState   :: !(GenericTxpLocalData TxpExtra_TMP)
+    , nrTxpState   :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , nrDlgState   :: !DelegationVar
     , nrPeerState  :: !(PeerStateCtx Production)
     , nrTransport  :: !(Transport m)
     , nrJLogHandle :: !(Maybe Handle)
     -- ^ Handle for JSON logging (optional).
+    , nrEkgStore   :: !Metrics.Store
     }
 
 hoistNodeResources ::
@@ -131,7 +135,6 @@ allocateNodeResources np@NodeParams {..} sscnp = do
         initModeContext = InitModeContext
             db
             (GenesisUtxo npCustomUtxo)
-            (GenesisStakes npGenesisStakes)
             futureSlottingVar
             futureSlottingContext
             futureLrcContext
@@ -150,11 +153,26 @@ allocateNodeResources np@NodeParams {..} sscnp = do
             case npJLFile of
                 Nothing -> pure Nothing
                 Just fp -> Just <$> openFile fp WriteMode
+
+        -- EKG monitoring stuff.
+        --
+        -- Relevant even if monitoring is turned off (no port given). The
+        -- gauge and distribution can be sampled by the server dispatcher
+        -- and used to inform a policy for delaying the next receive event.
+        --
+        -- TODO implement this. Requires time-warp-nt commit
+        --   275c16b38a715264b0b12f32c2f22ab478db29e9
+        -- in addition to the non-master
+        --   fdef06b1ace22e9d91c5a81f7902eb5d4b6eb44f
+        -- for flexible EKG setup.
+        nrEkgStore <- liftIO $ Metrics.newStore
+        txpMetrics <- liftIO $ recordTxpMetrics nrEkgStore
+
         return NodeResources
             { nrContext = ctx
             , nrDBs = db
             , nrSscState = sscState
-            , nrTxpState = txpVar
+            , nrTxpState = (txpVar, txpMetrics)
             , nrDlgState = dlgVar
             , nrPeerState = peerState
             , ..
@@ -210,7 +228,7 @@ allocateNodeContext
       (SscConstraint ssc, SecurityWorkersClass ssc)
     => NodeParams
     -> SscParams ssc
-    -> (SlottingVar -> SlottingContextSum -> InitMode ssc ())
+    -> ((Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ())
     -> InitMode ssc (NodeContext ssc)
 allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
@@ -221,7 +239,7 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
             Left peers -> pure (DCStatic peers)
             Right kadParams ->
                 DCKademlia <$> createKademliaInstance npBaseParams kadParams
-    ncSlottingVar <- mkSlottingVar npSystemStart
+    ncSlottingVar <- (npSystemStart,) <$> mkSlottingVar
     ncSlottingContext <-
         case npUseNTP of
             True  -> SCNtp <$> mkNtpSlottingVar
@@ -266,10 +284,8 @@ releaseNodeContext NodeContext {..} =
 
 -- Create new 'SlottingVar' using data from DB. Probably it would be
 -- good to have it in 'infra', but it's complicated.
-mkSlottingVar :: (MonadIO m, MonadDBRead m) => Timestamp -> m SlottingVar
-mkSlottingVar sysStart = do
-    sd <- GState.getSlottingData
-    (sysStart, ) <$> newTVarIO sd
+mkSlottingVar :: (MonadIO m, MonadDBRead m) => m (TVar SlottingData)
+mkSlottingVar = newTVarIO =<< GState.getSlottingData
 
 ----------------------------------------------------------------------------
 -- Kademlia

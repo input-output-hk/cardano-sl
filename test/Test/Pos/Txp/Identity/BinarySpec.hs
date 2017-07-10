@@ -6,29 +6,30 @@ module Test.Pos.Txp.Identity.BinarySpec
 
 import           Universum
 
-import           Data.Tagged              (Tagged)
-import           Test.Hspec               (Spec, describe)
+import           Data.Tagged                 (Tagged)
+import           Test.Hspec                  (Spec, describe)
 
 import           Pos.Binary               ()
 import           Pos.Communication.Relay  as R
+import           Pos.Infra.Arbitrary      ()
 import qualified Pos.Txp                  as T
 import           Pos.Txp.Arbitrary        (SmallTxPayload)
-import           Test.Pos.Arbitrary.Infra ()
 
-import           Test.Pos.Util            (binaryTest, msgLenLimitedTest,
-                                           networkBinaryTest)
+import           Test.Pos.Util               (binaryTest, msgLenLimitedTest,
+                                              networkBinaryTest)
 
 spec :: Spec
 spec =
   describe "Txp (transaction processing) system" $ do
     describe "Bi instances" $ do
       describe "Core" $ do
-          binaryTest @T.TxInWitness
-          binaryTest @T.TxDistribution
           binaryTest @T.TxIn
           binaryTest @T.TxOut
           binaryTest @T.TxOutAux
           binaryTest @T.Tx
+          binaryTest @T.TxInWitness
+          binaryTest @T.TxDistribution
+          binaryTest @T.TxSigData
           binaryTest @T.TxAux
           binaryTest @T.TxProof
           binaryTest @SmallTxPayload

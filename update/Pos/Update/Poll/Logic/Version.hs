@@ -1,3 +1,7 @@
+{-# LANGUAGE Rank2Types          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
+
 -- | Version related checks of proposal:
 -- * BlockVersionState
 -- * BlockVersion
@@ -12,13 +16,13 @@ module Pos.Update.Poll.Logic.Version
 import           Control.Monad.Except       (MonadError, throwError)
 import           Universum
 
-import           Pos.Core                   (SoftwareVersion (..))
-import           Pos.Update.Core            (BlockVersionData (..), UpId,
-                                             UpdateProposal (..), upMaxBlockSize,
-                                             upScriptVersion, upSlotDuration)
+import           Pos.Core                   (EpochIndex, SoftwareVersion (..))
+import           Pos.Update.Core            (BlockVersionData (..),
+                                             BlockVersionModifier (..), UpId,
+                                             UpdateProposal (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure    (PollVerFailure (..))
-import           Pos.Update.Poll.Logic.Base (canBeProposedBV, verifyNextBVData)
+import           Pos.Update.Poll.Logic.Base (canBeProposedBV, verifyNextBVMod)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
 
 
@@ -34,36 +38,37 @@ import           Pos.Update.Poll.Types      (BlockVersionState (..))
 -- 2. But if the proposal has a new 'BlockVersion', we check that
 -- a) its 'ScriptVersion' is @lastScriptVersion + 1@, and
 -- b) its 'maxBlockSize' is at most 2× the previous block size.
+-- c) its 'unlockStakeEpoch' does not affect past transactions. That is, we
+--    cannot change the end of the boostrap era post factum.
 verifyAndApplyProposalBVS
-    :: (MonadError PollVerFailure m, MonadPoll m)
-    => UpId -> UpdateProposal -> m ()
-verifyAndApplyProposalBVS upId up =
-    getBVD >>= \case
-        -- This block version is already known, so we just check that
-        -- everything is the same
-        Just BlockVersionData {..}
-            | bvdScriptVersion /= upScriptVersion up -> throwError
-                  PollWrongScriptVersion
-                      { pwsvExpected = bvdScriptVersion
-                      , pwsvFound    = upScriptVersion up
-                      , pwsvUpId     = upId }
-            | bvdSlotDuration /= upSlotDuration up -> throwError
-                  PollWrongSlotDuration
-                      { pwsdExpected = bvdSlotDuration
-                      , pwsdFound    = upSlotDuration up
-                      , pwsdUpId     = upId }
-            | bvdMaxBlockSize /= upMaxBlockSize up -> throwError
-                  PollWrongMaxBlockSize
-                      { pwmbsExpected = bvdMaxBlockSize
-                      , pwmbsFound    = upMaxBlockSize up
-                      , pwmbsUpId     = upId }
-            | otherwise -> pass
+    :: forall m. (MonadError PollVerFailure m, MonadPoll m)
+    => UpId
+    -> EpochIndex -- block epoch index
+    -> UpdateProposal
+    -> m ()
+verifyAndApplyProposalBVS upId epoch up =
+    getBVDataOrModifier >>= \case
+        -- This block version is adopted, so we check
+        -- 'BlockVersionModifier' against the adopted 'BlockVersionData'.
+        Just (Left adoptedBVD) -> unless (bvmMatchesBVD proposedBVM adoptedBVD) $
+           throwError PollAlreadyAdoptedDiffers
+                      { paadProposed = proposedBVM
+                      , paadAdopted = adoptedBVD
+                      , paadUpId = upId
+                      }
+        -- This block version is competing, so we check that
+        -- 'BlockVersionModifier' is the same.
+        Just (Right competingBVM) -> unless (competingBVM == proposedBVM) $
+            throwError PollInconsistentBVM
+                       { pibExpected = competingBVM
+                       , pibFound = proposedBVM
+                       , pibUpId = upId
+                       }
         -- This block version isn't known, so we can add it after doing
         -- checks against the previous known block version state
         Nothing -> do
-            let bvd = upBlockVersionData up
             let newBVS = BlockVersionState
-                  { bvsData = bvd
+                  { bvsModifier = proposedBVM
                   , bvsIsConfirmed   = False
                   , bvsIssuersStable = mempty
                   , bvsIssuersUnstable = mempty
@@ -71,17 +76,90 @@ verifyAndApplyProposalBVS upId up =
                   , bvsLastBlockUnstable = Nothing
                   }
             oldBVD <- getAdoptedBVData
-            verifyNextBVData upId oldBVD bvd
+            verifyNextBVMod upId epoch oldBVD proposedBVM
             putBVState (upBlockVersion up) newBVS
   where
     proposedBV = upBlockVersion up
-    getBVD =
-        maybe tryAdoptedBVD (pure . Just . bvsData) =<< getBVState proposedBV
+    proposedBVM = upBlockVersionMod up
+    -- We have three different cases:
+    --
+    -- • proposed 'BlockVersion' might be completely new, in this case
+    -- we check that proposed modifier can follow the adopted block
+    -- version data;
+    --
+    -- • proposed 'BlockVersion' might be the adopted one,
+    -- in this case we check that proposed modifier corresponds to the
+    -- adopted block version data;
+    --
+    -- • proposed 'BlockVersion' might be not adopted but competing,
+    -- in this case we check that proposed modifier is the same as the
+    -- one associated with the proposed block version.
+    getBVDataOrModifier ::
+           m $ Maybe $ Either BlockVersionData BlockVersionModifier
+    getBVDataOrModifier =
+        -- maybe tryAdoptedBVD (pure . pure . pure . bvsModifier) =<<
+        maybe tryAdoptedBVD (pure . Just . Right . bvsModifier) =<<
+        getBVState proposedBV
     tryAdoptedBVD =
         getAdoptedBVFull <&> \case
             (bv, bvd)
-                | bv == proposedBV -> Just bvd
+                | bv == proposedBV -> Just (Left bvd)
                 | otherwise -> Nothing
+
+-- Check whether all filled fields from 'BlockVersionModifier'
+-- correspond to their analogues from 'BlockVersionData'.
+bvmMatchesBVD :: BlockVersionModifier -> BlockVersionData -> Bool
+-- Note: record wild cards and all other approaches to pattern
+-- matching are not used here, because we want to have a warning if we
+-- add something to these types and forget to update this function.
+bvmMatchesBVD
+          ( BlockVersionModifier
+    bvmScriptVersion
+    bvmSlotDuration
+    bvmMaxBlockSize
+    bvmMaxHeaderSize
+    bvmMaxTxSize
+    bvmMaxProposalSize
+    bvmMpcThd
+    bvmHeavyDelThd
+    bvmUpdateVoteThd
+    bvmUpdateProposalThd
+    bvmUpdateImplicit
+    bvmUpdateSoftforkThd
+    bvmTxFeePolicy
+    bvmUnlockStakeEpoch
+        ) ( BlockVersionData
+    bvdScriptVersion
+    bvdSlotDuration
+    bvdMaxBlockSize
+    bvdMaxHeaderSize
+    bvdMaxTxSize
+    bvdMaxProposalSize
+    bvdMpcThd
+    bvdHeavyDelThd
+    bvdUpdateVoteThd
+    bvdUpdateProposalThd
+    bvdUpdateImplicit
+    bvdUpdateSoftforkThd
+    bvdTxFeePolicy
+    bvdUnlockStakeEpoch
+          ) =
+          and [
+      bvmScriptVersion == bvdScriptVersion
+    , bvmSlotDuration == bvdSlotDuration
+    , bvmMaxBlockSize == bvdMaxBlockSize
+    , bvmMaxHeaderSize == bvdMaxHeaderSize
+    , bvmMaxTxSize == bvdMaxTxSize
+    , bvmMaxProposalSize == bvdMaxProposalSize
+    , bvmMpcThd == bvdMpcThd
+    , bvmHeavyDelThd == bvdHeavyDelThd
+    , bvmUpdateVoteThd == bvdUpdateVoteThd
+    , bvmUpdateProposalThd == bvdUpdateProposalThd
+    , bvmUpdateImplicit == bvdUpdateImplicit
+    , bvmUpdateSoftforkThd == bvdUpdateSoftforkThd
+    , maybe True (== bvdTxFeePolicy) bvmTxFeePolicy
+    , maybe True (== bvdUnlockStakeEpoch) bvmUnlockStakeEpoch
+    ]
 
 -- Here we verify that proposed protocol version could be proposed.
 -- See documentation of 'Logic.Base.canBeProposedBV' for details.

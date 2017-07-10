@@ -23,6 +23,7 @@ module Pos.Util.Modifier
        , mapMaybeM
        , mapMaybe
        , modifyHashMap
+       , modifyMap
        , foldlMapModWKey'
        ) where
 
@@ -31,6 +32,10 @@ import qualified Universum                 (filter, mapMaybe)
 
 import           Data.Hashable             (Hashable)
 import qualified Data.HashMap.Strict       as HM
+import qualified Data.Map                  as M
+import qualified Data.Text.Buildable
+import           Formatting                (bprint, (%))
+import           Serokell.Util             (listJson, pairF)
 import           Test.QuickCheck           (Arbitrary)
 import           Test.QuickCheck.Instances ()
 
@@ -39,6 +44,9 @@ import           Test.QuickCheck.Instances ()
 newtype MapModifier k v = MapModifier
     { getMapModifier :: HashMap k (Maybe v)
     } deriving (Eq, Show)
+
+instance Functor (MapModifier k) where
+    fmap f (MapModifier m) = MapModifier (f <<$>> m)
 
 deriving instance (Eq k, Hashable k, Arbitrary k, Arbitrary v) =>
     Arbitrary (MapModifier k v)
@@ -52,6 +60,11 @@ instance (Eq k, Hashable k) =>
         step m k (Just v) = insert k v m
 
 instance (Eq k, Hashable k) => Semigroup (MapModifier k v)
+
+instance (Buildable k, Buildable v) => Buildable (MapModifier k v) where
+    build mm =
+      bprint ("MapModifier { deletions "%listJson%", insertions: "%listJson%"}")
+      (deletions mm) (map (bprint pairF) (insertions mm))
 
 -- | Perform monadic lookup taking 'MapModifier' into account.
 lookupM
@@ -171,6 +184,13 @@ mapMaybe getter f = runIdentity . mapMaybeM (Identity getter) f
 modifyHashMap :: (Eq k, Hashable k) => MapModifier k v -> HashMap k v -> HashMap k v
 modifyHashMap pm hm =
     foldl' (flip (uncurry HM.insert)) (foldl' (flip HM.delete) hm deletes) inserts
+  where
+    inserts = insertions pm
+    deletes = deletions pm
+
+modifyMap :: Ord k => MapModifier k v -> Map k v -> Map k v
+modifyMap pm hm =
+    foldl' (flip (uncurry M.insert)) (foldl' (flip M.delete) hm deletes) inserts
   where
     inserts = insertions pm
     deletes = deletions pm

@@ -14,5 +14,5 @@ import           Pos.Ssc.Mode            (SscMode)
 -- | Class for defining listeners in DHT @SSC@ implementation.
 class Ssc ssc => SscListenersClass ssc where
     sscRelays
-        :: SscMode ssc m
+        :: SscMode ssc ctx m
         => Tagged ssc [Relay m]

@@ -12,11 +12,10 @@ module Pos.Wallet.Web.Server.Full
 
 import           Universum                     hiding (over)
 
-import           Control.Lens                  (over)
 import qualified Control.Monad.Catch           as Catch
 import           Control.Monad.Except          (MonadError (throwError))
 import qualified Control.Monad.Reader          as Mtl
-import qualified Ether
+import           Ether.Internal                (HasLens (..))
 import           Mockable                      (Production, runProduction)
 import           Network.Wai                   (Application)
 import           Servant.Server                (Handler)
@@ -25,12 +24,11 @@ import           System.Wlog                   (logInfo)
 
 import           Pos.Communication             (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol    (SendActions)
-import           Pos.ExecMode                  (_ExecMode)
 import           Pos.Launcher.Resource         (NodeResources)
 import           Pos.Launcher.Runner           (runRealBasedMode)
 import           Pos.Wallet.SscType            (WalletSscType)
 import           Pos.Wallet.Web.Mode           (WalletWebMode, WalletWebModeContext (..),
-                                                WalletWebModeContextTag, unWalletWebMode)
+                                                WalletWebModeContextTag)
 import           Pos.Wallet.Web.Server.Methods (addInitialRichAccount, walletApplication,
                                                 walletServeImpl, walletServer)
 import           Pos.Wallet.Web.Server.Sockets (ConnectionsVar)
@@ -45,8 +43,8 @@ runWRealMode
     -> Production a
 runWRealMode db conn =
     runRealBasedMode
-        (over _ExecMode (Mtl.withReaderT (WalletWebModeContext db conn)))
-        (over _ExecMode (Mtl.withReaderT (\(WalletWebModeContext _ _ rmc) -> rmc)))
+        (Mtl.withReaderT (WalletWebModeContext db conn))
+        (Mtl.withReaderT (\(WalletWebModeContext _ _ rmc) -> rmc))
 
 walletServeWebFull
     :: SendActions WalletWebMode
@@ -59,11 +57,11 @@ walletServeWebFull sendActions debug = walletServeImpl action
     action = do
         logInfo "DAEDALUS has STARTED!"
         when debug $ addInitialRichAccount 0
-        walletApplication $ walletServer sendActions nat
+        walletApplication $ walletServer @WalletWebModeContext sendActions nat
 
 nat :: WalletWebMode (WalletWebMode :~> Handler)
 nat = do
-    wwmc <- Ether.ask @WalletWebModeContextTag
+    wwmc <- view (lensOf @WalletWebModeContextTag)
     pure $ NT (convertHandler wwmc)
 
 convertHandler
@@ -76,7 +74,7 @@ convertHandler wwmc handler =
 
     walletRunner :: forall a . WalletWebMode a -> IO a
     walletRunner act = runProduction $
-        Mtl.runReaderT (unWalletWebMode act) wwmc
+        Mtl.runReaderT act wwmc
 
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError

@@ -23,8 +23,7 @@ import           Pos.Ssc.GodTossing      ()
 
 import           Test.Pos.Util           (binaryEncodeDecode, binaryTest,
                                           msgLenLimitedTest, safeCopyEncodeDecode,
-                                          safeCopyTest, serDeserId,
-                                          (.=.))
+                                          safeCopyTest, serDeserId, storeTest, (.=.))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
@@ -112,6 +111,7 @@ spec = describe "Crypto" $ do
                 binaryTest @(AsBinary Crypto.EncShare)
                 binaryTest @(AsBinary Crypto.SecretProof)
                 binaryTest @(AsBinary Crypto.SecretSharingExtra)
+                binaryTest @Crypto.HDAddressPayload
             describe "SafeCopy instances" $ do
                 safeCopyTest @Crypto.SecretKey
                 safeCopyTest @Crypto.PublicKey
@@ -131,6 +131,8 @@ spec = describe "Crypto" $ do
                 safeCopyTest @(AsBinary Crypto.EncShare)
                 safeCopyTest @(AsBinary Crypto.SecretProof)
                 safeCopyTest @(AsBinary Crypto.SecretSharingExtra)
+            describe "Store" $ do
+                storeTest @Crypto.SecretSharingExtra
             describe "msgLenLimitedTest" $ do
                 msgLenLimitedTest @Crypto.PublicKey
                 msgLenLimitedTest @Crypto.EncShare
@@ -307,17 +309,17 @@ signThenVerifyDifferentData t sk a b =
 proxySecretKeyCheckCorrect
     :: (Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> w -> Bool
 proxySecretKeyCheckCorrect issuerSk delegateSk w =
-    Crypto.verifyProxySecretKey proxySk
+    Crypto.verifyPsk proxySk
   where
-    proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
+    proxySk = Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
 
 proxySecretKeyCheckIncorrect
     :: (Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> Crypto.PublicKey -> w -> Property
 proxySecretKeyCheckIncorrect issuerSk delegateSk pk2 w = do
     let Crypto.ProxySecretKey{..} =
-            Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
+            Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
         wrongPsk = Crypto.ProxySecretKey { pskIssuerPk = pk2, ..}
-    (Crypto.toPublic issuerSk /= pk2) ==> not (Crypto.verifyProxySecretKey wrongPsk)
+    (Crypto.toPublic issuerSk /= pk2) ==> not (Crypto.verifyPsk wrongPsk)
 
 proxySignVerify
     :: (Bi a, Bi w, Eq w)
@@ -329,7 +331,7 @@ proxySignVerify
 proxySignVerify issuerSk delegateSk w m =
     Crypto.proxyVerify Crypto.SignForTestingOnly signature (== w) m
   where
-    proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
+    proxySk = Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
     signature = Crypto.proxySign Crypto.SignForTestingOnly delegateSk proxySk m
 
 proxySignVerifyDifferentKey
@@ -339,7 +341,7 @@ proxySignVerifyDifferentKey issuerSk delegateSk pk2 w m =
     (Crypto.toPublic issuerSk /= pk2) ==>
     not (Crypto.proxyVerify Crypto.SignForTestingOnly sigBroken (== w) m)
   where
-    proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
+    proxySk = Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
     signature = Crypto.proxySign Crypto.SignForTestingOnly delegateSk proxySk m
     sigBroken = signature { Crypto.psigPsk = proxySk { Crypto.pskIssuerPk = pk2 } }
 
@@ -350,7 +352,7 @@ proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
     (m /= m2) ==>
     not (Crypto.proxyVerify Crypto.SignForTestingOnly signature (== w) m2)
   where
-    proxySk = Crypto.createProxySecretKey issuerSk (Crypto.toPublic delegateSk) w
+    proxySk = Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
     signature = Crypto.proxySign Crypto.SignForTestingOnly delegateSk proxySk m
 
 redeemSignCheck :: Bi a => Crypto.RedeemSecretKey -> a -> Bool

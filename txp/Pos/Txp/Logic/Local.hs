@@ -6,53 +6,70 @@ module Pos.Txp.Logic.Local
        , txNormalize
        ) where
 
+import           Universum
+import           Unsafe                      (unsafeHead)
+
+import           Control.Lens                (views)
 import           Control.Monad.Except        (MonadError (..))
 import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Data.Default                (Default (def))
+import qualified Data.HashSet                as HS
 import qualified Data.List.NonEmpty          as NE
 import qualified Data.Map                    as M (fromList)
+import           Ether.Internal              (HasLens (..))
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (WithLogger, logDebug)
-import           Universum
 
-import           Pos.Core                    (HeaderHash)
-import           Pos.DB.Class                (MonadDBRead, MonadGState)
+import           Pos.Core                    (Coin, HeaderHash, StakeholderId, siEpoch)
+import           Pos.DB.Class                (MonadDBRead, MonadGState, gsIsBootstrapEra)
 import qualified Pos.DB.GState.Common        as GS
-import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId)
+import           Pos.Slotting                (MonadSlots (..))
+import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId,
+                                              getTxDistribution)
 import           Pos.Txp.MemState            (MonadTxpMem, TxpLocalDataPure, getLocalTxs,
                                               getUtxoModifier, modifyTxpLocalData,
                                               setTxpLocalData)
-import           Pos.Txp.Toil                (GenericToilModifier (..),
+import           Pos.Txp.Toil                (GenericToilModifier (..), GenesisUtxo (..),
                                               MonadUtxoRead (..), ToilEnv,
-                                              ToilVerFailure (..), Utxo, execToilTLocal,
-                                              getToilEnv, normalizeToil, processTx,
-                                              runDBToil, runToilTLocal, runUtxoReaderT,
-                                              utxoGet)
+                                              ToilVerFailure (..), Utxo, evalUtxoStateT,
+                                              execToilTLocal, getToilEnv, normalizeToil,
+                                              processTx, runDBToil, runToilTLocal,
+                                              utxoGet, utxoToStakes)
+import           Pos.Util.Util               (getKeys)
 
-type TxpLocalWorkMode m =
+type TxpLocalWorkMode ctx m =
     ( MonadIO m
     , MonadBaseControl IO m
     , MonadDBRead m
     , MonadGState m
-    , MonadTxpMem () m
+    , MonadSlots m
+    , MonadTxpMem () ctx m
     , WithLogger m
+    , HasLens GenesisUtxo ctx GenesisUtxo
     , MonadError ToilVerFailure m
     )
 
 -- CHECK: @processTx
 -- #processTxDo
 txProcessTransaction
-    :: TxpLocalWorkMode m
+    :: TxpLocalWorkMode ctx m
     => (TxId, TxAux) -> m ()
 txProcessTransaction itw@(txId, txAux) = do
     let UnsafeTx {..} = taTx txAux
     tipDB <- GS.getTip
+    epoch <- siEpoch <$>
+        -- TODO: Don't use inaccurate slotting here. If we don't know the
+        -- current slot, we should reject transactions. See CSL-1341.
+        getCurrentSlotInaccurate
+    bootEra <- gsIsBootstrapEra epoch
+    bootHolders <- views (lensOf @GenesisUtxo) $ getKeys . utxoToStakes . unGenesisUtxo
     localUM <- getUtxoModifier @()
     -- Note: snapshot isn't used here, because it's not necessary.  If
     -- tip changes after 'getTip' and before resolving all inputs, it's
     -- possible that invalid transaction will appear in
     -- mempool. However, in this case it will be removed by
     -- normalization before releasing lock on block application.
+    let runUM um = runToilTLocal um def mempty
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
     toilEnv <- runDBToil getToilEnv
     -- Resolved are unspent transaction outputs corresponding to input
@@ -61,8 +78,8 @@ txProcessTransaction itw@(txId, txAux) = do
                    catMaybes $
                    toList $
                    NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    pRes <- modifyTxpLocalData $
-            processTxDo resolved toilEnv tipDB itw
+    pRes <- modifyTxpLocalData "txProcessTransaction" $
+            processTxDo resolved bootHolders toilEnv tipDB itw bootEra
     case pRes of
         Left er -> do
             logDebug $ sformat ("Transaction processing failed: "%build) txId
@@ -70,27 +87,44 @@ txProcessTransaction itw@(txId, txAux) = do
         Right _   ->
             logDebug (sformat ("Transaction is processed successfully: "%build) txId)
   where
+    notBootRelated bootHolders =
+        let txDistr = getTxDistribution $ taDistribution txAux
+            inBoot s = s `HS.member` bootHolders
+            mentioned pool addr = addr `elem` pool
+            bad :: [(StakeholderId, Coin)] -> Bool
+            bad (map fst -> txOutDistr) =
+                -- Has unrelated address
+                any (not . inBoot) txOutDistr ||
+                -- Not all genesis boot addrs are mentioned
+                any (not . mentioned txOutDistr) (HS.toList bootHolders)
+        in NE.filter bad txDistr
+
     processTxDo
         :: Utxo
+        -> HashSet StakeholderId
         -> ToilEnv
         -> HeaderHash
         -> (TxId, TxAux)
+        -> Bool
         -> TxpLocalDataPure
         -> (Either ToilVerFailure (), TxpLocalDataPure)
-    processTxDo resolved toilEnv tipDB tx txld@(uv, mp, undo, tip, ())
-        | tipDB /= tip = (Left $ ToilTipsMismatch tipDB tip, txld)
-        | otherwise =
-            let res = (runExceptT $
-                      flip runUtxoReaderT resolved $
-                      execToilTLocal uv mp undo $
-                      processTx tx
-                      ) toilEnv
-            in
-            case res of
-                Left er  -> (Left er, txld)
-                Right ToilModifier{..} ->
-                    (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, ()))
-    runUM um = runToilTLocal um def mempty
+    processTxDo resolved bootHolders toilEnv tipDB tx bootEra txld@(uv, mp, undo, tip, ()) = do
+        let tipMismatch = tipDB /= tip
+            bootRel = notBootRelated bootHolders
+        if | tipMismatch ->
+             (Left $ ToilTipsMismatch tipDB tip, txld)
+           | bootEra && not (null bootRel) ->
+            -- We do not allow txs with non-boot-addr stake distr in boot era.
+             (Left $ ToilBootDifferentStake $ unsafeHead bootRel, txld)
+           | otherwise ->
+             let res = (runExceptT $
+                        flip evalUtxoStateT resolved $
+                        execToilTLocal uv mp undo $
+                        processTx tx) toilEnv
+             in case res of
+                 Left er  -> (Left er, txld)
+                 Right ToilModifier{..} ->
+                     (Right (), (_tmUtxo, _tmMemPool, _tmUndos, tip, ()))
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool
@@ -100,7 +134,8 @@ txNormalize ::
        , MonadBaseControl IO m
        , MonadDBRead m
        , MonadGState m
-       , MonadTxpMem () m
+       , MonadTxpMem () ctx m
+       , WithLogger m
        )
     => m ()
 txNormalize = do
@@ -108,4 +143,4 @@ txNormalize = do
     localTxs <- getLocalTxs
     ToilModifier {..} <-
         runDBToil $ execToilTLocal mempty def mempty $ normalizeToil localTxs
-    setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+    setTxpLocalData "txNormalize" (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)

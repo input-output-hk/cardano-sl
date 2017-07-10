@@ -10,7 +10,7 @@ module Pos.Ssc.GodTossing.Workers
 import           Universum
 
 import           Control.Concurrent.STM                (readTVar)
-import           Control.Lens                          (at, to)
+import           Control.Lens                          (at, to, views)
 import           Control.Monad.Except                  (runExceptT)
 import           Control.Monad.Trans.Maybe             (runMaybeT)
 import qualified Data.HashMap.Strict                   as HM
@@ -18,7 +18,6 @@ import qualified Data.List.NonEmpty                    as NE
 import           Data.Tagged                           (Tagged)
 import           Data.Time.Units                       (Microsecond, Millisecond,
                                                         convertUnit)
-import qualified Ether
 import           Formatting                            (build, ords, sformat, shown, (%))
 import           Mockable                              (currentTime, delay)
 import           Serokell.Util.Exceptions              ()
@@ -38,9 +37,8 @@ import           Pos.Communication.Relay               (DataMsg, ReqMsg,
 import           Pos.Communication.Specs               (createOutSpecs)
 import           Pos.Communication.Types.Relay         (InvOrData, InvOrDataTK)
 import           Pos.Core                              (EpochIndex, SlotId (..),
-                                                        StakeholderId, StakeholderId,
-                                                        Timestamp (..), addressHash,
-                                                        getOurSecretKey,
+                                                        StakeholderId, Timestamp (..),
+                                                        addressHash, getOurSecretKey,
                                                         getOurStakeholderId,
                                                         mkLocalSlotIndex)
 import           Pos.Core.Constants                    (slotSecurityParam)
@@ -53,7 +51,7 @@ import           Pos.Lrc.Types                         (RichmenStake)
 import           Pos.Recovery.Info                     (recoveryCommGuard)
 import           Pos.Slotting                          (getCurrentSlot,
                                                         getSlotStartEmpatically)
-import           Pos.Ssc.Class                         (SscContextTag,
+import           Pos.Ssc.Class                         (HasSscContext (..),
                                                         SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Constants          (mpcSendInterval, vssMaxTTL)
 import           Pos.Ssc.GodTossing.Core               (Commitment (..), SignedCommitment,
@@ -97,24 +95,25 @@ instance GtMessageConstraints => SscWorkersClass SscGodTossing where
 -- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert
 onNewSlotSsc
-    :: (GtMessageConstraints, SscMode SscGodTossing m)
+    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
     => (WorkerSpec m, OutSpecs)
-onNewSlotSsc = recoveryCommGuard $ onNewSlotWorker True outs $ \slotId sendActions -> do
-    richmen <- lrcActionOnEpochReason (siEpoch slotId)
-        "couldn't get SSC richmen"
-        getRichmenSsc
-    localOnNewSlot slotId
-    participationEnabled <- Ether.ask @SscContextTag >>=
-        atomically . readTVar . gtcParticipateSsc
-    ourId <- getOurStakeholderId
-    let enoughStake = ourId `HM.member` richmen
-    when (participationEnabled && not enoughStake) $
-        logDebug "Not enough stake to participate in MPC"
-    when (participationEnabled && enoughStake) $ do
-        checkNSendOurCert sendActions
-        onNewSlotCommitment slotId sendActions
-        onNewSlotOpening slotId sendActions
-        onNewSlotShares slotId sendActions
+onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
+    recoveryCommGuard $ do
+        richmen <- lrcActionOnEpochReason (siEpoch slotId)
+            "couldn't get SSC richmen"
+            getRichmenSsc
+        localOnNewSlot slotId
+        participationEnabled <- view sscContext >>=
+            atomically . readTVar . gtcParticipateSsc
+        ourId <- getOurStakeholderId
+        let enoughStake = ourId `HM.member` richmen
+        when (participationEnabled && not enoughStake) $
+            logDebug "Not enough stake to participate in MPC"
+        when (participationEnabled && enoughStake) $ do
+            checkNSendOurCert sendActions
+            onNewSlotCommitment slotId sendActions
+            onNewSlotOpening slotId sendActions
+            onNewSlotShares slotId sendActions
   where
     outs = mconcat
         [ createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCCommitment))
@@ -126,8 +125,8 @@ onNewSlotSsc = recoveryCommGuard $ onNewSlotWorker True outs $ \slotId sendActio
 -- CHECK: @checkNSendOurCert
 -- Checks whether 'our' VSS certificate has been announced
 checkNSendOurCert
-    :: forall m.
-       (GtMessageConstraints, SscMode SscGodTossing m)
+    :: forall ctx m.
+       (GtMessageConstraints, SscMode SscGodTossing ctx m)
     => Worker' m
 checkNSendOurCert sendActions = do
     ourId <- getOurStakeholderId
@@ -177,12 +176,12 @@ checkNSendOurCert sendActions = do
                         (+) (vssMaxTTL - 1) . siEpoch
                 return $ createOurCert slot
 
-getOurVssKeyPair :: SscMode SscGodTossing m => m VssKeyPair
-getOurVssKeyPair = Ether.asks @SscContextTag gtcVssKeyPair
+getOurVssKeyPair :: SscMode SscGodTossing ctx m => m VssKeyPair
+getOurVssKeyPair = views sscContext gtcVssKeyPair
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
-    :: (GtMessageConstraints, SscMode SscGodTossing m)
+    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
     => SlotId -> Worker' m
 onNewSlotCommitment slotId@SlotId {..} sendActions
     | not (isCommitmentIdx siSlot) = pass
@@ -216,7 +215,7 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
-    :: (GtMessageConstraints, SscMode SscGodTossing m)
+    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
     => SlotId -> Worker' m
 onNewSlotOpening SlotId {..} sendActions
     | not $ isOpeningIdx siSlot = pass
@@ -241,7 +240,7 @@ onNewSlotOpening SlotId {..} sendActions
 
 -- Shares-related part of new slot processing
 onNewSlotShares
-    :: (GtMessageConstraints, SscMode SscGodTossing m)
+    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
     => SlotId -> Worker' m
 onNewSlotShares SlotId {..} sendActions = do
     ourId <- getOurStakeholderId
@@ -250,7 +249,7 @@ onNewSlotShares SlotId {..} sendActions = do
         sharesInBlockchain <- hasShares ourId <$> gtGetGlobalState
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
-        ourVss <- Ether.asks @SscContextTag gtcVssKeyPair
+        ourVss <- views sscContext gtcVssKeyPair
         shares <- getOurShares ourVss
         let lShares = fmap (NE.map asBinary) shares
         unless (HM.null shares) $ do
@@ -259,7 +258,7 @@ onNewSlotShares SlotId {..} sendActions = do
             sendOurData sendActions SharesMsg ourId msg siEpoch 4
 
 sscProcessOurMessage
-    :: (Buildable err, SscMode SscGodTossing m)
+    :: (Buildable err, SscMode SscGodTossing ctx m)
     => ExceptT err m () -> m ()
 sscProcessOurMessage action =
     runExceptT action >>= logResult
@@ -270,7 +269,7 @@ sscProcessOurMessage action =
         sformat ("We have rejected our message, reason: "%build) er
 
 sendOurData ::
-    ( SscMode SscGodTossing m
+    ( SscMode SscGodTossing ctx m
     , MessagePart contents
     , Bi (DataMsg contents)
     , Typeable contents
@@ -300,8 +299,8 @@ sendOurData sendActions msgTag ourId dt epoch slMultiplier = do
 -- node doesn't have recent enough blocks and needs to be
 -- synchronized).
 generateAndSetNewSecret
-    :: forall m.
-       (SscMode SscGodTossing m, Bi Commitment)
+    :: forall ctx m.
+       (SscMode SscGodTossing ctx m, Bi Commitment)
     => SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)
@@ -348,7 +347,7 @@ generateAndSetNewSecret sk SlotId {..} = do
                             Just comm <$ SS.putOurSecret comm open siEpoch
 
 randomTimeInInterval
-    :: SscMode SscGodTossing m
+    :: SscMode SscGodTossing ctx m
     => Microsecond -> m Microsecond
 randomTimeInInterval interval =
     -- Type applications here ensure that the same time units are used.
@@ -358,12 +357,12 @@ randomTimeInInterval interval =
     n = toInteger @Microsecond interval
 
 waitUntilSend
-    :: SscMode SscGodTossing m
+    :: SscMode SscGodTossing ctx m
     => GtTag -> EpochIndex -> Word16 -> m ()
 waitUntilSend msgTag epoch slMultiplier = do
     let slot =
             leftToPanic "waitUntilSend: " $
-            mkLocalSlotIndex $ slMultiplier * slotSecurityParam
+            mkLocalSlotIndex $ slMultiplier * fromIntegral slotSecurityParam
     Timestamp beginning <-
         getSlotStartEmpatically $
         SlotId {siEpoch = epoch, siSlot = slot}

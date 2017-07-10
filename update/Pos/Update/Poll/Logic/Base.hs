@@ -18,7 +18,7 @@ module Pos.Update.Poll.Logic.Base
        , getBVScriptVersion
        , confirmBlockVersion
        , updateSlottingData
-       , verifyNextBVData
+       , verifyNextBVMod
 
        , isDecided
        , voteToUProposalState
@@ -38,13 +38,14 @@ import           Pos.Binary.Update       ()
 import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, HeaderHash,
                                           IsMainHeader (..), ScriptVersion, SlotId,
                                           Timestamp (..), addressHash, coinToInteger,
-                                          difficultyL, headerHashG, sumCoins,
-                                          unsafeAddCoin, unsafeIntegerToCoin,
+                                          difficultyL, headerHashG, isBootstrapEra,
+                                          sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
                                           unsafeSubCoin)
 import           Pos.Core.Constants      (epochSlots)
 import           Pos.Crypto              (PublicKey, hash, shortHashF)
 import           Pos.Slotting            (EpochSlottingData (..), SlottingData (..))
-import           Pos.Update.Core         (BlockVersionData (..), UpId,
+import           Pos.Update.Core         (BlockVersionData (..),
+                                          BlockVersionModifier (..), UpId,
                                           UpdateProposal (..), UpdateVote (..),
                                           combineVotes, isPositiveVote, newVoteState)
 import           Pos.Update.Poll.Class   (MonadPoll (..), MonadPollRead (..))
@@ -213,9 +214,10 @@ updateSlottingData epoch = do
   where
     updateSlottingDataDo sd@SlottingData {..} = do
         latestSlotDuration <- bvdSlotDuration <$> getAdoptedBVData
+        let epochDuration = fromIntegral epochSlots *
+                            convertUnit (esdSlotDuration sdLast)
         let newLastStart =
-                esdStart sdLast +
-                epochSlots * (Timestamp $ convertUnit $ esdSlotDuration sdLast)
+                esdStart sdLast + Timestamp epochDuration
         let newLast =
                 EpochSlottingData
                 {esdSlotDuration = latestSlotDuration, esdStart = newLastStart}
@@ -226,24 +228,30 @@ updateSlottingData epoch = do
             , sdLast = newLast
             }
 
--- | Verify that 'BlockVersionData' passed as last argument can follow
+-- | Verify that 'BlockVersionModifier' passed as last argument can follow
 -- 'BlockVersionData' passed as second argument. First argument
 -- ('UpId') is used to create error only.
-verifyNextBVData
+verifyNextBVMod
     :: MonadError PollVerFailure m
-    => UpId -> BlockVersionData -> BlockVersionData -> m ()
-verifyNextBVData upId
+    => UpId
+    -> EpochIndex -- block epoch index
+    -> BlockVersionData
+    -> BlockVersionModifier
+    -> m ()
+verifyNextBVMod upId epoch
   BlockVersionData { bvdScriptVersion = oldSV
                    , bvdMaxBlockSize = oldMBS
+                   , bvdUnlockStakeEpoch = oldUnlockStakeEpoch
                    }
-  BlockVersionData { bvdScriptVersion = newSV
-                   , bvdMaxBlockSize = newMBS
-                   }
-    | newSV /= oldSV + 1 =
+  BlockVersionModifier { bvmScriptVersion = newSV
+                       , bvmMaxBlockSize = newMBS
+                       , bvmUnlockStakeEpoch = newUnlockStakeEpochM
+                       }
+    | newSV /= oldSV + 1 && newSV /= oldSV =
         throwError
             PollWrongScriptVersion
-            { pwsvExpected = oldSV + 1
-            , pwsvFound = newSV
+            { pwsvAdopted = oldSV
+            , pwsvProposed = newSV
             , pwsvUpId = upId
             }
     | newMBS > oldMBS * 2 =
@@ -253,6 +261,16 @@ verifyNextBVData upId
             , plmbsFound = newMBS
             , plmbsUpId = upId
             }
+    | Just newUnlockStakeEpoch <- newUnlockStakeEpochM,
+      oldUnlockStakeEpoch /= newUnlockStakeEpoch = do
+          let bootstrap = isBootstrapEra oldUnlockStakeEpoch epoch
+          unless bootstrap $ throwError
+              PollBootstrapEraInvalidChange
+              { pbeicLast = epoch
+              , pbeicAdopted = oldUnlockStakeEpoch
+              , pbeicProposed = newUnlockStakeEpoch
+              , pbeicUpId = upId
+              }
     | otherwise = pass
 
 ----------------------------------------------------------------------------

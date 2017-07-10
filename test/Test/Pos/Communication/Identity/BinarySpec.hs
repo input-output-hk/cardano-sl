@@ -9,8 +9,8 @@ import           Universum
 import           Test.Hspec               (Spec, describe)
 
 import qualified Pos.Communication        as C
+import           Pos.Infra.Arbitrary      ()
 
-import           Test.Pos.Arbitrary.Infra ()
 import           Test.Pos.Util            (networkBinaryTest)
 
 spec :: Spec

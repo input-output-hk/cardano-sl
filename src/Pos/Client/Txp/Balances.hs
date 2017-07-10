@@ -20,16 +20,18 @@ import           System.Wlog            (WithLogger, logWarning)
 import           Pos.Core               (AddressIgnoringAttributes (AddressIA))
 import           Pos.Crypto             (WithHash (..), shortHashF)
 import           Pos.DB                 (MonadDBRead, MonadGState, MonadRealDB)
-import qualified Pos.DB.GState          as GS
 import qualified Pos.DB.GState.Balances as GS
 import           Pos.Txp                (GenericToilModifier (..), MonadTxpMem,
                                          TxAux (..), TxOutAux (..), Utxo,
                                          addrBelongsToSet, applyToil, getLocalTxsNUndo,
                                          getUtxoModifier, runToilAction, topsortTxs,
                                          txOutValue, _bvStakes)
+import qualified Pos.Txp.DB             as DB
 import           Pos.Types              (Address (..), Coin, mkCoin, sumCoins,
                                          unsafeIntegerToCoin)
 import qualified Pos.Util.Modifier      as MM
+import           Pos.Wallet.Web.State   (WebWalletModeDB)
+import qualified Pos.Wallet.Web.State   as WS
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -45,27 +47,38 @@ instance {-# OVERLAPPABLE #-}
     getOwnUtxos = lift . getOwnUtxos
     getBalance = lift . getBalance
 
-
 getBalanceFromUtxo :: MonadBalances m => Address -> m Coin
 getBalanceFromUtxo addr =
     unsafeIntegerToCoin . sumCoins .
     map (txOutValue . toaOut) . toList <$> getOwnUtxo addr
 
-type BalancesEnv ext m =
-    (MonadRealDB m, MonadDBRead m, MonadGState m, MonadMask m, WithLogger m, MonadTxpMem ext m)
+type BalancesEnv ext ctx m =
+    ( MonadRealDB ctx m
+    , MonadDBRead m
+    , MonadGState m
+    , WebWalletModeDB ctx m
+    , MonadMask m
+    , WithLogger m
+    , MonadTxpMem ext ctx m)
 
-getOwnUtxosDefault :: BalancesEnv ext m => [Address] -> m Utxo
-getOwnUtxosDefault addr = do
-    utxo <- GS.getFilteredUtxo addr
+getOwnUtxosDefault :: BalancesEnv ext ctx m => [Address] -> m Utxo
+getOwnUtxosDefault addrs = do
+    let isRedeem (RedeemAddress _) = True
+        isRedeem _                 = False
+        redeemAddrs = filter isRedeem addrs
+        commonAddrs = filter (not . isRedeem) addrs
+
     updates <- getUtxoModifier
-    let addrsSet = HS.fromList $ AddressIA <$> addr
-        toDel    = MM.deletions updates
-        toAdd    = HM.filter (`addrBelongsToSet` addrsSet) $
-                   MM.insertionsMap updates
-        utxo'    = foldr M.delete utxo toDel
-    return $ HM.foldrWithKey M.insert utxo' toAdd
+    commonUtxo <- if null commonAddrs then pure mempty
+                    else WS.getWalletUtxo
+    redeemUtxo <- if null redeemAddrs then pure mempty
+                    else DB.getFilteredUtxo redeemAddrs
 
-getBalanceDefault :: (BalancesEnv ext m, MonadBalances m) => Address -> m Coin
+    let allUtxo = MM.modifyMap updates $ commonUtxo <> redeemUtxo
+        addrsSet = HS.fromList $ AddressIA <$> addrs
+    pure $ M.filter (`addrBelongsToSet` addrsSet) allUtxo
+
+getBalanceDefault :: (BalancesEnv ext ctx m, MonadBalances m) => Address -> m Coin
 getBalanceDefault PubKeyAddress{..} = do
     (txs, undos) <- getLocalTxsNUndo
     let wHash (i, TxAux tx _ _) = WithHash tx i
@@ -78,10 +91,10 @@ getBalanceDefault PubKeyAddress{..} = do
             (_, ToilModifier{..}) <- runToilAction @_ @() (applyToil txsAndUndos)
             let stake = HM.lookup addrKeyHash $ _bvStakes _tmBalances
             maybe getFromDb pure stake
-  where
+    where
     logWarn er = logWarning $
         sformat ("Couldn't compute balance of "%shortHashF%
-                     " using mempool, reason: "%stext) addrKeyHash er
+                        " using mempool, reason: "%stext) addrKeyHash er
     getFromDb = fromMaybe (mkCoin 0) <$> GS.getRealStake addrKeyHash
 getBalanceDefault addr = getBalanceFromUtxo addr
 

@@ -17,15 +17,14 @@ module Pos.Core.Constants.Raw
        , coreConstants
 
        -- * Constants
-       , epochSlots
-       , blkSecurityParam
-       , slotSecurityParam
+       , epochSlotsRaw
        , isDevelopment
        , protocolMagic
        , staticSysStartRaw
        , genesisKeysN
        , memPoolLimitRatio
 
+       , genesisBinSuffix
        ) where
 
 import           Universum
@@ -78,9 +77,7 @@ data CoreConstants = CoreConstants
       -- size limit.
     , ccMemPoolLimitRatio            :: !Word
 
-       ----------------------------------------------------------------------------
        -- Genesis block version data
-       ----------------------------------------------------------------------------
 
       -- | Genesis length of slot in seconds.
     , ccGenesisSlotDurationSec       :: !Int
@@ -99,7 +96,8 @@ data CoreConstants = CoreConstants
       -- blocks with some block version is bigger than this portion, this
       -- block version is adopted.
     , ccGenesisUpdateSoftforkThd     :: !Double
-    , ccGenesisTxFeePolicy           :: !(Maybe (ConfigOf TxFeePolicy))
+    , ccGenesisTxFeePolicy           :: !(ConfigOf TxFeePolicy)
+    , ccGenesisUnlockStakeEpoch      :: !Word64
       -- | Maximum block size in bytes
     , ccGenesisMaxBlockSize          :: !Byte
       -- | Maximum block header size in bytes
@@ -110,8 +108,14 @@ data CoreConstants = CoreConstants
     , ccGenesisHeavyDelThd           :: !Double
       -- | Eligibility threshold for MPC
     , ccGenesisMpcThd                :: !Double
+      -- | Suffix for genesis.bin files
+    , ccGenesisBinSuffix             :: ![Char]
     }
     deriving (Show, Generic)
+
+-- | Suffix for genesis.bin files
+genesisBinSuffix :: [Char]
+genesisBinSuffix = ccGenesisBinSuffix coreConstants
 
 coreConstants :: CoreConstants
 coreConstants =
@@ -146,19 +150,9 @@ checkConstants cs@CoreConstants{..} = do
 -- Constants taken from the config
 ----------------------------------------------------------------------------
 
--- | Security parameter which is maximum number of blocks which can be
--- rolled back.
-blkSecurityParam :: Integral a => a
-blkSecurityParam = fromIntegral . ccK $ coreConstants
-
--- | Security parameter expressed in number of slots. It uses chain
--- quality property. It's basically @blkSecurityParam / chain_quality@.
-slotSecurityParam :: Integral a => a
-slotSecurityParam = 2 * blkSecurityParam
-
 -- | Number of slots inside one epoch.
-epochSlots :: Integral a => a
-epochSlots = 10 * blkSecurityParam
+epochSlotsRaw :: Integral a => a
+epochSlotsRaw = 10 * fromIntegral (ccK coreConstants)
 
 -- | @True@ if current mode is 'Development'.
 isDevelopment :: Bool

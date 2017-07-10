@@ -6,8 +6,9 @@ module Test.Pos.Block.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec          (Spec, describe)
 import           Universum
+
+import           Test.Hspec          (Spec, describe)
 
 import           Pos.Block.Arbitrary ()
 import qualified Pos.Block.Core      as BT
@@ -42,6 +43,8 @@ spec = describe "Block types" $ do
                     binaryTest @(BT.MainBlockHeader SscGodTossing)
             describe "GenesisBlockchain" $ do
                 describe "BodyProof" $ do
+                    binaryTest @BT.GenesisExtraHeaderData
+                    binaryTest @BT.GenesisExtraBodyData
                     binaryTest @(BT.BodyProof (BT.GenesisBlockchain SscNistBeacon))
                     binaryTest @(BT.BodyProof (BT.GenesisBlockchain SscGodTossing))
                 describe "ConsensusData" $ do
@@ -51,8 +54,6 @@ spec = describe "Block types" $ do
                     binaryTest @(BT.Body (BT.GenesisBlockchain SscNistBeacon))
                     binaryTest @(BT.Body (BT.GenesisBlockchain SscGodTossing))
             describe "MainBlockchain" $ do
-                binaryTest @BT.MainExtraHeaderData
-                binaryTest @BT.MainExtraBodyData
                 describe "BodyProof" $ do
                     binaryTest @(BT.BodyProof (BT.MainBlockchain SscNistBeacon))
                     binaryTest @(BT.BodyProof (BT.MainBlockchain SscGodTossing))
@@ -65,3 +66,8 @@ spec = describe "Block types" $ do
                 describe "Body" $ do
                     binaryTest @(BT.Body (BT.MainBlockchain SscNistBeacon))
                     binaryTest @(BT.Body (BT.MainBlockchain SscGodTossing))
+                binaryTest @BT.MainExtraHeaderData
+                binaryTest @BT.MainExtraBodyData
+                describe "MainToSign" $ do
+                    binaryTest @(BT.MainToSign SscNistBeacon)
+                    binaryTest @(BT.MainToSign SscGodTossing)

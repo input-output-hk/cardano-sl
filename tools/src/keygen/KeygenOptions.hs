@@ -3,6 +3,7 @@
 
 module KeygenOptions
        ( KeygenOptions (..)
+       , GenesisGenOptions (..)
        , AvvmStakeOptions (..)
        , TestStakeOptions (..)
        , FakeAvvmOptions (..)
@@ -14,19 +15,26 @@ import           Data.Version                 (showVersion)
 import           Options.Applicative          (Parser, auto, execParser, footerDoc,
                                                fullDesc, header, help, helper, info,
                                                infoOption, long, metavar, option,
-                                               progDesc, short, strOption, switch, value)
+                                               progDesc, short, strOption, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Universum                    hiding (show)
 
 import           Paths_cardano_sl             (version)
 
+-- Keygen has 3 operation modes. Yes, it's "better" to implement it
+-- using optparse command api.
 data KeygenOptions = KeygenOptions
-    { koGenesisDir     :: FilePath
-    , koRearrangeMask  :: Maybe FilePath
+    { koRearrangeMask  :: Maybe FilePath
     , koDumpDevGenKeys :: Maybe FilePath
-    , koTestStake      :: Maybe TestStakeOptions
-    , koAvvmStake      :: Maybe AvvmStakeOptions
-    , koFakeAvvmStake  :: Maybe FakeAvvmOptions
+    , koGenesisGen     :: Maybe GenesisGenOptions
+    }
+
+data GenesisGenOptions = GenesisGenOptions
+    { ggoGenesisDir    :: FilePath
+      -- ^ Output directory everything will be put into
+    , ggoTestStake     :: Maybe TestStakeOptions
+    , ggoAvvmStake     :: Maybe AvvmStakeOptions
+    , ggoFakeAvvmStake :: Maybe FakeAvvmOptions
     } deriving (Show)
 
 data TestStakeOptions = TestStakeOptions
@@ -39,24 +47,17 @@ data TestStakeOptions = TestStakeOptions
 
 data AvvmStakeOptions = AvvmStakeOptions
     { asoJsonPath      :: FilePath
-    , asoIsRandcerts   :: Bool
     , asoHolderKeyfile :: Maybe FilePath
     , asoBlacklisted   :: Maybe FilePath
     } deriving (Show)
 
 data FakeAvvmOptions = FakeAvvmOptions
-    { faoSeedPattern :: FilePath
-    , faoCount       :: Word
-    , faoOneStake    :: Word64
+    { faoCount    :: Word
+    , faoOneStake :: Word64
     } deriving (Show)
 
 optionsParser :: Parser KeygenOptions
 optionsParser = do
-    koGenesisDir <- strOption $
-        long    "genesis-dir" <>
-        metavar "DIR" <>
-        value   "." <>
-        help    "Directory to dump genesis data into"
     koRearrangeMask <- optional $ strOption $
         long    "rearrange-mask" <>
         metavar "PATTERN" <>
@@ -66,10 +67,20 @@ optionsParser = do
         metavar "PATTERN" <>
         help    "Dump keys from genesisDevSecretKeys to files \
                 \named according to this pattern."
-    koTestStake <- optional testStakeParser
-    koAvvmStake <- optional avvmStakeParser
-    koFakeAvvmStake <- optional fakeAvvmParser
+    koGenesisGen <- optional genesisGenParser
     pure KeygenOptions{..}
+
+genesisGenParser :: Parser GenesisGenOptions
+genesisGenParser = do
+    ggoGenesisDir <- strOption $
+        long    "genesis-dir" <>
+        metavar "DIR" <>
+        value   "." <>
+        help    "Directory to dump genesis data into"
+    ggoTestStake <- optional testStakeParser
+    ggoAvvmStake <- optional avvmStakeParser
+    ggoFakeAvvmStake <- optional fakeAvvmParser
+    pure $ GenesisGenOptions{..}
 
 testStakeParser :: Parser TestStakeOptions
 testStakeParser = do
@@ -77,8 +88,9 @@ testStakeParser = do
         long    "file-pattern" <>
         short   'f' <>
         metavar "PATTERN" <>
+        value   "testnet{}.key" <>
         help    "Filename pattern for generated keyfiles \
-                \(`{}` is a place for number)."
+                \(`{}` is a place for number). E.g. key{}.kek"
     tsoPoors <- option auto $
         long    "testnet-keys" <>
         short   'n' <>
@@ -105,9 +117,6 @@ avvmStakeParser = do
         long    "utxo-file" <>
         metavar "FILE" <>
         help    "JSON file with AVVM stakes data."
-    asoIsRandcerts <- switch $
-        long    "randcerts" <>
-        help    "Whether to include random VSS certificates to genesis data."
     asoHolderKeyfile <- optional $ strOption $
         long    "fileholder" <>
         metavar "FILE" <>
@@ -122,11 +131,6 @@ avvmStakeParser = do
 
 fakeAvvmParser :: Parser FakeAvvmOptions
 fakeAvvmParser = do
-    faoSeedPattern <- strOption $
-        long    "fake-avvm-seed-pattern" <>
-        metavar "PATTERN" <>
-        help    "Filename pattern for generated AVVM seeds \
-                \(`{}` is a place for number)."
     faoCount <- option auto $
         long    "fake-avvm-entries" <>
         metavar "INT" <>
@@ -156,7 +160,6 @@ Command example:
 
   stack exec -- cardano-keygen                          \
     --genesis-dir genesis                               \
-    -f secrets/secret-{}.key                            \
     -m 5                                                \
     -n 1000                                             \
     --richmen-share 0.94                                \
@@ -164,7 +167,6 @@ Command example:
     --utxo-file /tmp/avvm-files/utxo-dump-last-new.json \
     --randcerts                                         \
     --blacklisted /tmp/avvm-files/full_blacklist.js     \
-    --fake-avvm-seed-pattern avvm/fake-{}.seed          \
     --fake-avvm-entries 100
 
 Subdirectory 'genesis-*/nodes' contains keys for uploading to nodes (in cluster).

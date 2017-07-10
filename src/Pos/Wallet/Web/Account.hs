@@ -21,8 +21,7 @@ import           System.Random              (Random, randomIO)
 import           Universum
 
 import           Pos.Core                   (Address (..), deriveLvl2KeyPair)
-import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
-                                             isNonHardened)
+import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase, isHardened)
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
@@ -32,18 +31,18 @@ import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
                                              doesWAddressExist, getAccountMeta)
 
-type AccountMode m = (MonadKeys m, WebWalletModeDB m, MonadThrow m)
+type AccountMode ctx m = (MonadKeys ctx m, WebWalletModeDB ctx m, MonadThrow m)
 
-myRootAddresses :: MonadKeys m => m [CId Wal]
+myRootAddresses :: MonadKeys ctx m => m [CId Wal]
 myRootAddresses = encToCId <<$>> getSecretKeys
 
-getAddrIdx :: AccountMode m => CId Wal -> m Int
+getAddrIdx :: AccountMode ctx m => CId Wal -> m Int
 getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
   where notFound =
           RequestError $ sformat ("No wallet set with address "%build%" found") addr
 
 getSKByAddr
-    :: AccountMode m
+    :: AccountMode ctx m
     => CId Wal
     -> m EncryptedSecretKey
 getSKByAddr addr = do
@@ -53,7 +52,7 @@ getSKByAddr addr = do
           RequestError $ sformat ("No wallet set with address "%build%" found") addr
 
 getSKByAccAddr
-    :: AccountMode m
+    :: AccountMode ctx m
     => PassPhrase
     -> CWAddressMeta
     -> m EncryptedSecretKey
@@ -69,7 +68,7 @@ getSKByAccAddr passphrase addrMeta@CWAddressMeta {..} = do
         else return accKey
 
 genSaveRootKey
-    :: AccountMode m
+    :: AccountMode ctx m
     => PassPhrase
     -> BackupPhrase
     -> m EncryptedSecretKey
@@ -112,7 +111,7 @@ generateUnique desc (DeterminedSeed seed) generator notFit = do
     return value
 
 genUniqueAccountId
-    :: AccountMode m
+    :: AccountMode ctx m
     => AddrGenSeed
     -> CId Wal
     -> m AccountId
@@ -123,12 +122,12 @@ genUniqueAccountId genSeed wsCAddr =
                    notFit
   where
     notFit idx addr = andM
-        [ pure $ isNonHardened idx
+        [ pure $ not (isHardened idx)
         , isJust <$> getAccountMeta addr
         ]
 
 genUniqueAccountAddress
-    :: AccountMode m
+    :: AccountMode ctx m
     => AddrGenSeed
     -> PassPhrase
     -> AccountId
@@ -139,12 +138,12 @@ genUniqueAccountAddress genSeed passphrase wCAddr@AccountId{..} =
     mkAccount cwamAccountIndex =
         deriveAccountAddress passphrase wCAddr cwamAccountIndex
     notFit idx addr = andM
-        [ pure $ isNonHardened idx
+        [ pure $ not (isHardened idx)
         , doesWAddressExist Ever addr
         ]
 
 deriveAccountSK
-    :: AccountMode m
+    :: AccountMode ctx m
     => PassPhrase
     -> AccountId
     -> Word32
@@ -161,7 +160,7 @@ deriveAccountSK passphrase AccountId{..} accIndex = do
     badPass = RequestError "Passphrase doesn't match"
 
 deriveAccountAddress
-    :: AccountMode m
+    :: AccountMode ctx m
     => PassPhrase
     -> AccountId
     -> Word32

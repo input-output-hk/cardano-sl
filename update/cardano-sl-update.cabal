@@ -1,5 +1,5 @@
 name:                cardano-sl-update
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL - update
 description:         Cardano SL - update
 license:             MIT
@@ -14,8 +14,12 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Pos.Update.Arbitrary
                        Pos.Update.Error
+
+                       -- Core
                        Pos.Update.Core
+                       Pos.Update.Core.BlockVersion
                        Pos.Update.Core.Types
+
                        Pos.Update.Mode
                        Pos.Update.DB
                        Pos.Update.Constants
@@ -76,10 +80,10 @@ library
                      , containers
                      , conduit
                      , data-default
-                     , derive
                      , ether >= 0.5
                      , exceptions
                      , formatting
+                     , generic-arbitrary
                      , hashable
                      , lens
                      , log-warper

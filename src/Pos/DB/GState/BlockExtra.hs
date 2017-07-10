@@ -11,7 +11,7 @@ module Pos.DB.GState.BlockExtra
        , foldlUpWhileM
        , loadHeadersUpWhile
        , loadBlocksUpWhile
-       , prepareGStateBlockExtra
+       , initGStateBlockExtra
        ) where
 
 import qualified Data.Text.Buildable
@@ -89,7 +89,7 @@ foldlUpWhileM
     )
     => (Blund ssc -> m b)
     -> a
-    -> (b -> Int -> Bool)
+    -> ((Blund ssc, b) -> Int -> Bool)
     -> (r -> b -> m r)
     -> r
     -> m r
@@ -102,7 +102,7 @@ foldlUpWhileM morphM start condition accM init =
         Just x@(block,_) -> do
             curB <- morphM x
             mbNextLink <- fmap headerHash <$> resolveForwardLink block
-            if | not (condition curB height) -> pure res
+            if | not (condition (x, curB) height) -> pure res
                | Just nextLink <- mbNextLink -> do
                      newRes <- accM res curB
                      loadUpWhileDo nextLink (succ height) newRes
@@ -119,7 +119,7 @@ loadUpWhile morph start condition = OldestFirst . reverse <$>
     foldlUpWhileM
         (pure . morph)
         start
-        condition
+        (\b h -> condition (snd b) h)
         (\l e -> pure (e : l))
         []
 
@@ -144,8 +144,8 @@ loadBlocksUpWhile start condition = loadUpWhile fst start condition
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
-prepareGStateBlockExtra firstGenesisHash = do
+initGStateBlockExtra :: MonadDB m => HeaderHash -> m ()
+initGStateBlockExtra firstGenesisHash = do
     gsPutBi (mainChainKey firstGenesisHash) ()
     gsPutBi (forwardLinkKey genesisHash) firstGenesisHash
 

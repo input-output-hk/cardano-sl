@@ -20,7 +20,7 @@ module Pos.Update.DB
        , UpdateOp (..)
 
          -- * Initialization
-       , prepareGStateUS
+       , initGStateUS
 
         -- * Iteration and related getters
        , PropIter
@@ -122,6 +122,7 @@ getEpochProposers = maybeThrow (DBMalformed msg) =<< gsGetBi epochProposersKey
   where
     msg =
         "Update System part of GState DB is not initialized (epoch proposers are missing)"
+
 ----------------------------------------------------------------------------
 -- Operations
 ----------------------------------------------------------------------------
@@ -170,33 +171,29 @@ instance RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareGStateUS :: (MonadDB m) => Timestamp -> m ()
-prepareGStateUS systemStart =
-    unlessM isInitialized $ do
-        let genesisSlottingData = SlottingData
-                { sdPenult      = esdPenult
-                , sdPenultEpoch = 0
-                , sdLast        = esdLast
-                }
-            esdPenult = EpochSlottingData
-                { esdSlotDuration = genesisSlotDuration
-                , esdStart        = systemStart
-                }
-            epoch1Start =
-                systemStart +
-                epochSlots * Timestamp (convertUnit genesisSlotDuration)
-            esdLast = EpochSlottingData
-                { esdSlotDuration = genesisSlotDuration
-                , esdStart        = epoch1Start
-                }
-        writeBatchGState $
-            PutSlottingData genesisSlottingData :
-            PutEpochProposers mempty :
-            SetAdopted genesisBlockVersion genesisBlockVersionData :
-            map ConfirmVersion genesisSoftwareVersions
-
-isInitialized :: (MonadDBRead m) => m Bool
-isInitialized = isJust <$> getAdoptedBVFullMaybe
+initGStateUS :: (MonadDB m) => Timestamp -> m ()
+initGStateUS systemStart = do
+    let genesisEpochDuration =
+            fromIntegral epochSlots * convertUnit genesisSlotDuration
+        genesisSlottingData = SlottingData
+            { sdPenult      = esdPenult
+            , sdPenultEpoch = 0
+            , sdLast        = esdLast
+            }
+        esdPenult = EpochSlottingData
+            { esdSlotDuration = genesisSlotDuration
+            , esdStart        = systemStart
+            }
+        epoch1Start = systemStart + Timestamp genesisEpochDuration
+        esdLast = EpochSlottingData
+            { esdSlotDuration = genesisSlotDuration
+            , esdStart        = epoch1Start
+            }
+    writeBatchGState $
+        PutSlottingData genesisSlottingData :
+        PutEpochProposers mempty :
+        SetAdopted genesisBlockVersion genesisBlockVersionData :
+        map ConfirmVersion genesisSoftwareVersions
 
 ----------------------------------------------------------------------------
 -- Iteration

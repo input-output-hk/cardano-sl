@@ -16,7 +16,7 @@ import           Pos.Block.Logic            (getHeadersFromToIncl)
 import           Pos.Block.Network.Announce (handleHeadersCommunication)
 import           Pos.Block.Network.Logic    (handleUnsolicitedHeaders)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..),
-                                             MsgHeaders (..))
+                                             MsgGetHeaders, MsgHeaders (..))
 import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
@@ -28,7 +28,7 @@ import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.WorkMode.Class         (WorkMode)
 
 blockListeners
-    :: (SscWorkersClass ssc, WorkMode ssc m)
+    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
     => MkListeners m
 blockListeners = constantListeners
     [ handleGetHeaders
@@ -36,20 +36,24 @@ blockListeners = constantListeners
     , handleBlockHeaders
     ]
 
+----------------------------------------------------------------------------
+-- Getters (return currently stored data)
+----------------------------------------------------------------------------
+
 -- | Handles GetHeaders request which means client wants to get
 -- headers from some checkpoints that are older than optional @to@
 -- field.
 handleGetHeaders
-    :: forall ssc m.
-       (WorkMode ssc m)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m)
     => (ListenerSpec m, OutSpecs)
 handleGetHeaders = listenerConv $ \__ourVerInfo nodeId conv -> do
     logDebug $ "handleGetHeaders: request from " <> show nodeId
     handleHeadersCommunication conv --(convToSProxy conv)
 
 handleGetBlocks
-    :: forall ssc m.
-       (WorkMode ssc m)
+    :: forall ssc ctx m.
+       (WorkMode ssc ctx m)
     => (ListenerSpec m, OutSpecs)
 handleGetBlocks = listenerConv $ \__ourVerInfo nodeId conv -> do
     mbMsg <- recvLimited conv
@@ -73,13 +77,20 @@ handleGetBlocks = listenerConv $ \__ourVerInfo nodeId conv -> do
         "hadleGetBlocks: getHeadersFromToIncl returned header that doesn't " <>
         "have corresponding block in storage."
 
+----------------------------------------------------------------------------
+-- Header propagation
+----------------------------------------------------------------------------
+
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
-    :: forall ssc m.
-       (SscWorkersClass ssc, WorkMode ssc m)
+    :: forall ssc ctx m.
+       (SscWorkersClass ssc, WorkMode ssc ctx m)
     => (ListenerSpec m, OutSpecs)
-handleBlockHeaders = listenerConv $ \__ourVerInfo nodeId conv -> do
+handleBlockHeaders = listenerConv @MsgGetHeaders $ \__ourVerInfo nodeId conv -> do
+    -- The type of the messages we send is set to 'MsgGetHeaders' for
+    -- protocol compatibility reasons only. We could use 'Void' here because
+    -- we don't really send any messages.
     logDebug "handleBlockHeaders: got some unsolicited block header(s)"
     mHeaders <- recvLimited conv
     whenJust mHeaders $ \(MsgHeaders headers) ->
-        handleUnsolicitedHeaders (getNewestFirst headers) nodeId conv
+        handleUnsolicitedHeaders (getNewestFirst headers) nodeId

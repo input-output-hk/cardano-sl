@@ -125,4 +125,4 @@ data GtSecretStorage = GtSecretStorage
       gssOpening    :: !Opening
     , -- | Epoch for which this secret were generated
       gssEpoch      :: !EpochIndex
-    } deriving (Show, Eq)
+    } deriving (Generic, Show, Eq)

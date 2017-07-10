@@ -4,6 +4,9 @@ module Main
   ( main
   ) where
 
+import           Universum
+import           Unsafe                     (unsafeFromJust)
+
 import           Data.Aeson                 (decode, fromJSON, json')
 import qualified Data.Aeson                 as A
 import           Data.Attoparsec.ByteString (eitherResult, many', parseWith)
@@ -14,15 +17,14 @@ import           Data.Time.Clock            (UTCTime)
 import           Data.Time.Clock.POSIX      (posixSecondsToUTCTime)
 import           Data.Time.Units            (Millisecond)
 import           Formatting                 (fixed, int, sformat, shown, string, (%))
-import           Universum
-import           Unsafe                     (unsafeFromJust)
 
 import           AnalyzerOptions            (Args (..), getAnalyzerOptions)
+import           Pos.Core                   (BlockCount)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
+import           Pos.Util                   (mapEither)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
                                              fromJLSlotIdUnsafe)
 import           Pos.Util.TimeWarp          (JLTimed (..), fromEvent)
-import           Pos.Util                   (mapEither)
 
 type TxId = Text
 type BlockId = Text
@@ -44,7 +46,10 @@ main = do
         putText $ sformat ("Writing TPS stats to file: "%string) csvFile
         writeFile csvFile $ tpsToCsv ds
 
-analyzeVerifyTimes :: FilePath -> Word64 -> HM.HashMap FilePath [JLTimed JLEvent] -> IO ()
+analyzeVerifyTimes :: FilePath
+                   -> BlockCount
+                   -> HM.HashMap FilePath [JLTimed JLEvent]
+                   -> IO ()
 analyzeVerifyTimes txFile cParam logs = do
     (txSenderMap :: HashMap TxId Integer) <-
         HM.fromList . fromMaybe (error "failed to read txSenderMap") . decode <$>
@@ -63,7 +68,9 @@ analyzeVerifyTimes txFile cParam logs = do
         length common
     print averageMsec
 
-getTxAcceptTimeAvgs :: Word64 -> HM.HashMap FilePath [JLTimed JLEvent] -> HM.HashMap TxId Integer
+getTxAcceptTimeAvgs :: BlockCount
+                    -> HM.HashMap FilePath [JLTimed JLEvent]
+                    -> HM.HashMap TxId Integer
 getTxAcceptTimeAvgs confirmations fileEvsMap = result
   where
     n = HM.size fileEvsMap
@@ -94,7 +101,12 @@ getTxAcceptTimeAvgs confirmations fileEvsMap = result
                   |otherwise     = Nothing
       where
         mInitB = initId `HM.lookup` blocks
-        kSl = unflattenSlotId $ flattenSlotId (fromJLSlotIdUnsafe $ jlSlot $ unsafeFromJust mInitB) - confirmations
+        -- TODO: it's wrong to subtract blocks from slots (N confirmations
+        -- could've happened over the period of *more* than N slots), but
+        -- probably not very important in the analyzer
+        kSl = unflattenSlotId $
+                flattenSlotId (fromJLSlotIdUnsafe $ jlSlot $ unsafeFromJust mInitB) -
+                fromIntegral confirmations
         impl id = HM.lookup id blocks >>=
                       \b -> if (fromJLSlotIdUnsafe $ jlSlot b) <= kSl
                                then return b

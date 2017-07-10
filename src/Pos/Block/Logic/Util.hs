@@ -19,7 +19,7 @@ import           Universum
 import           Control.Lens        (_Wrapped)
 import           Control.Monad.Catch (bracketOnError)
 import           Data.List.NonEmpty  ((<|))
-import qualified Ether
+import           Ether.Internal      (HasLens (..))
 import           Formatting          (sformat, stext, (%))
 
 import           Pos.Block.Core      (BlockHeader)
@@ -71,7 +71,7 @@ lcaWithMainChain headers =
 -- | Run action acquiring lock on block application. Argument of
 -- action is an old tip, result is put as a new tip.
 withBlkSemaphore
-    :: Each [MonadIO, MonadMask, Ether.MonadReader' BlkSemaphore] '[m]
+    :: (MonadIO m, MonadMask m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
     => (HeaderHash -> m (a, HeaderHash)) -> m a
 withBlkSemaphore action =
     bracketOnError takeBlkSemaphore putBlkSemaphore doAction
@@ -82,7 +82,7 @@ withBlkSemaphore action =
 
 -- | Version of withBlkSemaphore which doesn't have any result.
 withBlkSemaphore_
-    :: Each [MonadIO, MonadMask, Ether.MonadReader' BlkSemaphore] '[m]
+    :: (MonadIO m, MonadMask m, MonadReader ctx m, HasLens BlkSemaphore ctx BlkSemaphore)
     => (HeaderHash -> m HeaderHash) -> m ()
 withBlkSemaphore_ = withBlkSemaphore . (fmap pure .)
 
@@ -108,5 +108,9 @@ needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
     isTooOld currentSlot = do
         lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader @ssc
         let distance = getEpochOrSlot currentSlot `diffEpochOrSlot`
-                       lastKnownBlockSlot
-        pure (distance > slotSecurityParam)
+                         lastKnownBlockSlot
+        pure $ case distance of
+            Just d  -> d > slotSecurityParam
+            Nothing -> True   -- if current slot < last known slot, it's very
+                              -- weird but at least we definitely know that
+                              -- we don't need to do recovery

@@ -30,7 +30,8 @@ module Pos.Crypto.Signing
        , ProxyCert (..)
        , verifyProxyCert
        , ProxySecretKey (..)
-       , verifyProxySecretKey
+       , verifyPsk
+       , isSelfSignedPsk
        , ProxySignature (..)
        , proxySign
        , proxyVerify
@@ -43,6 +44,7 @@ import           Data.ByteArray         (ScrubbedBytes)
 import qualified Data.ByteString        as BS
 import           Data.Coerce            (coerce)
 import           Data.Hashable          (Hashable)
+import qualified Data.Hashable          as Hashable
 import qualified Data.Text.Buildable    as B
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting             (Format, bprint, build, fitLeft, later, sformat,
@@ -58,6 +60,22 @@ import qualified Pos.Binary.Class       as Bi
 import           Pos.Crypto.Hashing     (hash)
 import           Pos.Crypto.Random      (secureRandomBS)
 import           Pos.Crypto.SignTag     (SignTag (SignProxySK), signTag)
+
+----------------------------------------------------------------------------
+-- Orphan instances
+----------------------------------------------------------------------------
+
+instance Eq CC.XPub where
+    a == b = CC.unXPub a == CC.unXPub b
+
+instance Ord CC.XPub where
+    compare = comparing CC.unXPub
+
+instance Show CC.XPub where
+    show = show . CC.unXPub
+
+instance Hashable CC.XPub where
+    hashWithSalt n = Hashable.hashWithSalt n . CC.unXPub
 
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding
@@ -117,24 +135,22 @@ emptyPass = mempty
 
 -- TODO: this is just a placeholder for actual (not ready yet) derivation
 -- of keypair from seed in cardano-crypto API
-createKeypairFromSeed :: BS.ByteString -> Maybe (CC.XPub, CC.XPrv)
-createKeypairFromSeed seed = do
-    prv <- CC.generate seed emptyPass
-    return (CC.toXPub prv, prv)
+createKeypairFromSeed :: BS.ByteString -> (CC.XPub, CC.XPrv)
+createKeypairFromSeed seed =
+    let prv = CC.generate seed emptyPass
+    in  (CC.toXPub prv, prv)
 
 -- | Generate a key pair.
 keyGen :: MonadIO m => m (PublicKey, SecretKey)
 keyGen = liftIO $ do
     seed <- secureRandomBS 32
-    case createKeypairFromSeed seed of
-        Nothing -> error "Pos.Crypto.Signing.keyGen:\
-                         \ createKeypairFromSeed_ failed"
-        Just (pk, sk) -> return (PublicKey pk, SecretKey sk)
+    let (pk, sk) = createKeypairFromSeed seed
+    return (PublicKey pk, SecretKey sk)
 
 -- | Create key pair deterministically from 32 bytes.
-deterministicKeyGen :: BS.ByteString -> Maybe (PublicKey, SecretKey)
+deterministicKeyGen :: BS.ByteString -> (PublicKey, SecretKey)
 deterministicKeyGen seed =
-    bimap PublicKey SecretKey <$> createKeypairFromSeed seed
+    bimap PublicKey SecretKey (createKeypairFromSeed seed)
 
 ----------------------------------------------------------------------------
 -- Signatures
@@ -237,16 +253,21 @@ instance (B.Buildable w, Bi PublicKey) => B.Buildable (ProxySecretKey (w,w)) whe
 
 -- | Checks if proxy secret key is valid (the signature/cert inside is
 -- correct).
-verifyProxySecretKey :: (Bi w) => ProxySecretKey w -> Bool
-verifyProxySecretKey ProxySecretKey{..} =
+verifyPsk :: (Bi w) => ProxySecretKey w -> Bool
+verifyPsk ProxySecretKey{..} =
     verifyProxyCert pskIssuerPk pskDelegatePk pskOmega pskCert
+
+-- | Checks if delegate and issuer fields of proxy secret key are
+-- equal.
+isSelfSignedPsk :: ProxySecretKey w -> Bool
+isSelfSignedPsk ProxySecretKey{..} = pskIssuerPk == pskDelegatePk
 
 -- | Delegate signature made with certificate-based permission. @w@
 -- stays for message type used in proxy (ω in the implementation
 -- notes), @a@ for type of message signed.
 --
 -- We add whole psk as a field because otherwise we can't verify sig
--- in heavyweight psk transitive delegation: i -> x -> d, we have psk
+-- in heavyweight psk transitive delegation: i → x → d, we have psk
 -- from x to d, slot leader is i.
 data ProxySignature w a = ProxySignature
     { psigPsk :: ProxySecretKey w
@@ -302,7 +323,7 @@ proxyVerify t ProxySignature{..} omegaPred m =
     PublicKey issuerPk = pskIssuerPk
     PublicKey pdDelegatePkRaw = pskDelegatePk
     predCorrect = omegaPred pskOmega
-    pskValid = verifyProxySecretKey psigPsk
+    pskValid = verifyPsk psigPsk
     sigValid =
         CC.verify
             pdDelegatePkRaw

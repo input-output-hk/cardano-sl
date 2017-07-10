@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -52,6 +52,9 @@ library
                         Pos.DHT.Real.Param
                         Pos.DHT.Real.CLI
                         Pos.DHT.Workers
+
+                        -- Arbitrary
+                        Pos.Infra.Arbitrary
 
                         -- Pos.Communication
                         Pos.Communication.Constants
@@ -107,13 +110,13 @@ library
                       , cardano-report-server
                       , containers
                       , data-default
-                      , derive
                       , directory
                       , either
                       , ether >= 0.5
                       , exceptions
                       , filepath
                       , formatting
+                      , generic-arbitrary
                       , hashable
                       , kademlia
                       , lens

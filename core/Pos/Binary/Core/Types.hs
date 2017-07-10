@@ -2,20 +2,20 @@ module Pos.Binary.Core.Types () where
 
 import           Universum
 
-import           Serokell.Data.Memory.Units (Byte)
 import           Data.Time.Units            (Millisecond)
+import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Size (..),
                                              UnsignedVarInt (..), deriveSimpleBi, label,
                                              labelP, labelS, putField, putWord8)
-import qualified Pos.Binary.Core.Coin    as BinCoin
-import           Pos.Binary.Core.Fee     ()
-import           Pos.Binary.Core.Script  ()
-import           Pos.Binary.Core.Version ()
-import qualified Pos.Core.Types          as T
-import qualified Pos.Core.Fee            as T
-import qualified Pos.Data.Attributes     as A
-import           Pos.Util.Util           (eitherToFail)
+import qualified Pos.Binary.Core.Coin       as BinCoin
+import           Pos.Binary.Core.Fee        ()
+import           Pos.Binary.Core.Script     ()
+import           Pos.Binary.Core.Version    ()
+import qualified Pos.Core.Fee               as T
+import qualified Pos.Core.Types             as T
+import qualified Pos.Data.Attributes        as A
+import           Pos.Util.Util              (eitherToFail)
 
 -- kind of boilerplate, but anyway that's what it was made for --
 -- verbosity and clarity
@@ -60,6 +60,14 @@ instance Bi T.EpochOrSlot where
     sizeNPut = labelS "EpochOrSlot" $ putField T.unEpochOrSlot
     get = label "EpochOrSlot" $ T.EpochOrSlot <$> get
 
+instance Bi T.SlotCount where
+    sizeNPut = labelS "SlotCount" $ putField (UnsignedVarInt . T.getSlotCount)
+    get = label "SlotCount" $ T.SlotCount . getUnsignedVarInt <$> get
+
+instance Bi T.BlockCount where
+    sizeNPut = labelS "BlockCount" $ putField (UnsignedVarInt . T.getBlockCount)
+    get = label "BlockCount" $ T.BlockCount . getUnsignedVarInt <$> get
+
 -- serialized as vector of TxInWitness
 --instance Bi T.TxWitness where
 
@@ -68,24 +76,25 @@ deriveSimpleBi ''T.SharedSeed [
         Field [| T.getSharedSeed :: ByteString |]
     ]]
 
-instance Bi T.ChainDifficulty where
-    sizeNPut = labelS "ChainDifficulty" $ putField (UnsignedVarInt . T.getChainDifficulty)
-    get = label "ChainDifficulty" $
-          T.ChainDifficulty . getUnsignedVarInt <$> get
+deriveSimpleBi ''T.ChainDifficulty [
+    Cons 'T.ChainDifficulty [
+        Field [| T.getChainDifficulty :: T.BlockCount |]
+    ]]
 
 deriveSimpleBi ''T.BlockVersionData [
     Cons 'T.BlockVersionData [
-        Field [| T.bvdScriptVersion     :: T.ScriptVersion     |],
-        Field [| T.bvdSlotDuration      :: Millisecond         |],
-        Field [| T.bvdMaxBlockSize      :: Byte                |],
-        Field [| T.bvdMaxHeaderSize     :: Byte                |],
-        Field [| T.bvdMaxTxSize         :: Byte                |],
-        Field [| T.bvdMaxProposalSize   :: Byte                |],
-        Field [| T.bvdMpcThd            :: T.CoinPortion       |],
-        Field [| T.bvdHeavyDelThd       :: T.CoinPortion       |],
-        Field [| T.bvdUpdateVoteThd     :: T.CoinPortion       |],
-        Field [| T.bvdUpdateProposalThd :: T.CoinPortion       |],
-        Field [| T.bvdUpdateImplicit    :: T.FlatSlotId        |],
-        Field [| T.bvdUpdateSoftforkThd :: T.CoinPortion       |],
-        Field [| T.bvdTxFeePolicy       :: Maybe T.TxFeePolicy |]
+        Field [| T.bvdScriptVersion     :: T.ScriptVersion |],
+        Field [| T.bvdSlotDuration      :: Millisecond     |],
+        Field [| T.bvdMaxBlockSize      :: Byte            |],
+        Field [| T.bvdMaxHeaderSize     :: Byte            |],
+        Field [| T.bvdMaxTxSize         :: Byte            |],
+        Field [| T.bvdMaxProposalSize   :: Byte            |],
+        Field [| T.bvdMpcThd            :: T.CoinPortion   |],
+        Field [| T.bvdHeavyDelThd       :: T.CoinPortion   |],
+        Field [| T.bvdUpdateVoteThd     :: T.CoinPortion   |],
+        Field [| T.bvdUpdateProposalThd :: T.CoinPortion   |],
+        Field [| T.bvdUpdateImplicit    :: T.FlatSlotId    |],
+        Field [| T.bvdUpdateSoftforkThd :: T.CoinPortion   |],
+        Field [| T.bvdTxFeePolicy       :: T.TxFeePolicy   |],
+        Field [| T.bvdUnlockStakeEpoch  :: T.EpochIndex    |]
     ]]

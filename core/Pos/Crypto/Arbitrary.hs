@@ -6,34 +6,38 @@ module Pos.Crypto.Arbitrary
 
 import           Universum
 
-import           Control.Monad               (zipWithM)
-import qualified Data.ByteArray              as ByteArray
-import           Data.DeriveTH               (derive, makeArbitrary)
-import           Data.List.NonEmpty          (fromList)
-import           System.IO.Unsafe            (unsafePerformIO)
-import           Test.QuickCheck             (Arbitrary (..), choose, elements, generate,
-                                              oneof, vector)
+import           Control.Monad                     (zipWithM)
+import qualified Data.ByteArray                    as ByteArray
+import           Data.List.NonEmpty                (fromList)
+import           System.IO.Unsafe                  (unsafePerformIO)
+import           Test.QuickCheck                   (Arbitrary (..), choose, elements,
+                                                    generate, oneof, vector)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary,
+                                                    genericShrink)
 
-import           Pos.Binary.Class            (AsBinary (..), AsBinaryClass (..), Bi)
-import           Pos.Binary.Crypto           ()
-import           Pos.Crypto.Arbitrary.Unsafe ()
-import           Pos.Crypto.AsBinary         ()
-import           Pos.Crypto.Hashing          (AbstractHash, HashAlgorithm)
-import           Pos.Crypto.HD               (HDPassphrase (..))
-import           Pos.Crypto.RedeemSigning    (RedeemPublicKey, RedeemSecretKey,
-                                              RedeemSignature, redeemKeyGen, redeemSign)
-import           Pos.Crypto.SafeSigning      (PassPhrase, createProxyCert,
-                                              createProxySecretKey)
-import           Pos.Crypto.SecretSharing    (EncShare, Secret, SecretProof,
-                                              SecretSharingExtra, Share, Threshold,
-                                              VssKeyPair, VssPublicKey, decryptShare,
-                                              genSharedSecret, toVssPublicKey, vssKeyGen)
-import           Pos.Crypto.Signing          (ProxyCert, ProxySecretKey, ProxySignature,
-                                              PublicKey, SecretKey, Signature, Signed,
-                                              keyGen, mkSigned, proxySign, sign, toPublic)
-import           Pos.Crypto.SignTag          (SignTag (..))
-import           Pos.Util.Arbitrary          (Nonrepeating (..), arbitraryUnsafe,
-                                              sublistN, unsafeMakePool)
+import           Pos.Binary.Class                  (AsBinary (..), AsBinaryClass (..), Bi)
+import           Pos.Binary.Crypto                 ()
+import           Pos.Crypto.Arbitrary.Unsafe       ()
+import           Pos.Crypto.AsBinary               ()
+import           Pos.Crypto.Hashing                (AbstractHash, HashAlgorithm)
+import           Pos.Crypto.HD                     (HDAddressPayload, HDPassphrase (..))
+import           Pos.Crypto.RedeemSigning          (RedeemPublicKey, RedeemSecretKey,
+                                                    RedeemSignature, redeemKeyGen,
+                                                    redeemSign)
+import           Pos.Crypto.SafeSigning            (PassPhrase, createProxyCert,
+                                                    createPsk)
+import           Pos.Crypto.SecretSharing          (EncShare, Secret, SecretProof,
+                                                    SecretSharingExtra, Share, Threshold,
+                                                    VssKeyPair, VssPublicKey,
+                                                    decryptShare, genSharedSecret,
+                                                    toVssPublicKey, vssKeyGen)
+import           Pos.Crypto.Signing                (ProxyCert, ProxySecretKey,
+                                                    ProxySignature, PublicKey, SecretKey,
+                                                    Signature, Signed, keyGen, mkSigned,
+                                                    proxySign, sign, toPublic)
+import           Pos.Crypto.SignTag                (SignTag (..))
+import           Pos.Util.Arbitrary                (Nonrepeating (..), arbitraryUnsafe,
+                                                    sublistN, unsafeMakePool)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -50,7 +54,9 @@ production and in tests?). So, we just generate lots of keys and seeds with
 -- SignTag
 ----------------------------------------------------------------------------
 
-derive makeArbitrary ''SignTag
+instance Arbitrary SignTag where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 ----------------------------------------------------------------------------
 -- Arbitrary signing keys
@@ -128,7 +134,7 @@ instance (Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
     arbitrary = liftA3 createProxyCert arbitrary arbitrary arbitrary
 
 instance (Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
-    arbitrary = liftA3 createProxySecretKey arbitrary arbitrary arbitrary
+    arbitrary = liftA3 createPsk arbitrary arbitrary arbitrary
 
 instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
          Arbitrary (ProxySignature w a) where
@@ -136,7 +142,7 @@ instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
         delegateSk <- arbitrary
         issuerSk <- arbitrary
         w <- arbitrary
-        let psk = createProxySecretKey issuerSk (toPublic delegateSk) w
+        let psk = createPsk issuerSk (toPublic delegateSk) w
         proxySign SignProxySK delegateSk psk <$> arbitrary
 
 ----------------------------------------------------------------------------
@@ -224,3 +230,6 @@ instance Arbitrary PassPhrase where
 
 instance Arbitrary HDPassphrase where
     arbitrary = HDPassphrase . fromString <$> vector 32
+
+instance Arbitrary HDAddressPayload where
+    arbitrary = genericArbitrary

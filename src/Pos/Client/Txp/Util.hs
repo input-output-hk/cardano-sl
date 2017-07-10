@@ -120,16 +120,9 @@ prepareInpsOuts
     -> TxOutputs
     -> Either TxError (TxOwnedInputs Address, TxOutputs)
 prepareInpsOuts utxo addrs outputs = do
+    when (totalMoney == mkCoin 0) $
+        fail "Attempted to send 0 money"
     futxo <- evalStateT (pickInputs []) (totalMoney, sortedUnspent)
-    -- @pva701: @flyingleaf, we added fees and this code became invalid,
-    -- I just commented it. Remove these comments if it's ok or rewrite otherwise.
-    -- let inputSum =
-    --         unsafeIntegerToCoin $ sumCoins $ map (txOutValue . toaOut . snd) futxo
-        -- newOuts
-        --     | inputSum > totalMoney =
-        --         TxOutAux (TxOut someAddr (inputSum `unsafeSubCoin` totalMoney)) [] <|
-        --         outputs
-        --     | otherwise = outputs
     case nonEmpty futxo of
         Nothing       -> fail "Failed to prepare inputs!"
         Just inputsNE -> pure (map formTxInputs inputsNE, outputs)
@@ -163,12 +156,12 @@ prepareInpOuts utxo addr outputs =
 -- | Make a multi-transaction using given secret key and info for outputs.
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
 createMTx :: Utxo -> NonEmpty (SafeSigner, Address) -> TxOutputs -> Either TxError TxAux
-createMTx utxo hwdSigner outputs =
-    let addr = map snd hwdSigner
+createMTx utxo hwdSigners outputs =
+    let addrs = map snd hwdSigners
     in  uncurry (makeMPubKeyTx getSigner) <$>
-        prepareInpsOuts utxo addr outputs
+        prepareInpsOuts utxo addrs outputs
   where
-    signers = HM.fromList . toList $ map (swap . second AddressIA) hwdSigner
+    signers = HM.fromList . toList $ map (swap . second AddressIA) hwdSigners
     getSigner addr =
         fromMaybe (error "Requested signer for unknown address") $
         HM.lookup (AddressIA addr) signers

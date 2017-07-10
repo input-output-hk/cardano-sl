@@ -6,9 +6,9 @@ module Test.Pos.Block.Logic.VarSpec
 
 import           Universum
 
-import           Control.Lens              (at)
+import           Control.Lens              (at, views)
 import qualified Data.List.NonEmpty        as NE
-import qualified Ether
+import           Ether.Internal            (HasLens (..))
 import           Formatting                (sformat, (%))
 import           Serokell.Util             (listJson)
 import           Test.Hspec                (Spec, describe)
@@ -62,7 +62,7 @@ verifyEmptyMainBlock = do
     genesisLeaders <-
         maybeStopProperty "no genesis leaders" =<< lift (getLeaders 0)
     let theLeader = NE.head genesisLeaders
-    idToSecret <- lift (Ether.asks' tpSecretKeys)
+    idToSecret <- lift $ views (lensOf @TestParams) tpSecretKeys
     let unknownLeaderMsg =
             sformat
                 ("the secret key of the leader is unknown, leaders are: "

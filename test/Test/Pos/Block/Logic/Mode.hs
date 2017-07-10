@@ -11,7 +11,6 @@ module Test.Pos.Block.Logic.Mode
        , BlockTestContextTag
        , BlockTestContext(..)
        , BlockTestMode
-       , unBlockTestMode
        , runBlockTestMode
 
        , BlockProperty
@@ -19,11 +18,12 @@ module Test.Pos.Block.Logic.Mode
 
 import           Universum
 
+import           Control.Lens            (makeLensesWith)
 import qualified Control.Monad.Reader    as Mtl
 import qualified Data.HashMap.Strict     as HM
 import qualified Data.Map.Strict         as M
 import qualified Data.Text.Buildable
-import qualified Ether
+import           Ether.Internal          (HasLens (..))
 import           Formatting              (bprint, build, formatToString, int, shown, (%))
 import           Mockable                (Production, currentTime, runProduction)
 import qualified Prelude
@@ -36,46 +36,46 @@ import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Block.Core          (Block, BlockHeader)
 import           Pos.Block.Types         (Undo)
-import           Pos.Context             (GenesisStakes (..), GenesisUtxo (..))
+import           Pos.Context             (GenesisUtxo (..))
 import           Pos.Core                (IsHeader, StakeDistribution (..), StakeholderId,
                                           Timestamp (..), addressHash, makePubKeyAddress,
                                           mkCoin, unsafeGetCoin)
 import           Pos.Crypto              (SecretKey, toPublic, unsafeHash)
-import           Pos.DB                  (MonadBlockDBGeneric (..), MonadDB (..),
+import           Pos.DB                  (MonadBlockDBGeneric (..),
+                                          MonadBlockDBGenericWrite (..), MonadDB (..),
                                           MonadDBRead (..), MonadGState (..), NodeDBs,
                                           dbDeleteDefault, dbGetDefault,
                                           dbIterSourceDefault, dbPutDefault,
                                           dbWriteBatchDefault)
-import           Pos.DB.Block            (MonadBlockDBWrite (..), dbGetBlockDefault,
-                                          dbGetBlockSscDefault, dbGetHeaderDefault,
-                                          dbGetHeaderSscDefault, dbGetUndoDefault,
-                                          dbGetUndoSscDefault, dbPutBlundDefault)
-import           Pos.DB.DB               (closeNodeDBs, gsAdoptedBVDataDefault,
-                                          initNodeDBs, openNodeDBs)
+import           Pos.DB.Block            (dbGetBlockDefault, dbGetBlockSscDefault,
+                                          dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                          dbGetUndoDefault, dbGetUndoSscDefault,
+                                          dbPutBlundDefault)
+import           Pos.DB.DB               (gsAdoptedBVDataDefault, initNodeDBs)
 import qualified Pos.DB.GState           as GState
-import           Pos.ExecMode            ((:::), ExecMode (..), ExecModeM, HasLens (..),
-                                          modeContext)
+import           Pos.DB.Rocks            (closeNodeDBs, openNodeDBs)
 import           Pos.Genesis             (stakeDistribution)
 import           Pos.Launcher            (InitModeContext (..), newInitFuture,
                                           runInitMode)
 import           Pos.Lrc                 (LrcContext (..), mkLrcSyncData)
-import           Pos.Slotting            (MonadSlots (..), SlottingContextSum (SCSimple),
+import           Pos.Slotting            (HasSlottingVar (..), MonadSlots (..),
+                                          SlottingContextSum (SCSimple), SlottingData,
                                           currentTimeSlottingSimple,
                                           getCurrentSlotBlockingSimple,
                                           getCurrentSlotInaccurateSimple,
                                           getCurrentSlotSimple)
-import           Pos.Slotting.MemState   (MonadSlotsData (..), SlottingVar,
-                                          getSlottingDataDefault, getSystemStartDefault,
-                                          putSlottingDataDefault,
+import           Pos.Slotting.MemState   (MonadSlotsData (..), getSlottingDataDefault,
+                                          getSystemStartDefault, putSlottingDataDefault,
                                           waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class           (SscBlock)
 import           Pos.Ssc.Extra           (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing      (SscGodTossing)
 import           Pos.Txp                 (TxIn (..), TxOut (..), TxOutAux (..),
-                                          TxpGlobalSettings, txpGlobalSettings, utxoF,
-                                          utxoToStakes)
+                                          TxpGlobalSettings, txpGlobalSettings, utxoF)
 import           Pos.Update.Context      (UpdateContext, mkUpdateContext)
-import           Pos.Util.Util           (Some)
+import           Pos.Util.LoggerName     (HasLoggerName' (..), getLoggerNameDefault,
+                                          modifyLoggerNameDefault)
+import           Pos.Util.Util           (Some, postfixLFields)
 
 -- TODO: it shouldn't be 'Production', but currently we don't have anything else.
 -- Expect some changes here somewhere in 2019.
@@ -123,7 +123,7 @@ instance Show TestParams where
 -- More distributions can be added if we want (e. g. RichPoor).
 genSuitableStakeDistribution :: Word -> Gen StakeDistribution
 genSuitableStakeDistribution stakeholdersNum =
-    oneof [genFlat{-, genBitcoin-}, pure ExponentialStakes]
+    oneof [genFlat{-, genBitcoin-}, pure (ExponentialStakes stakeholdersNum)]
   where
     totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum, unsafeGetCoin maxBound)
     genFlat =
@@ -155,18 +155,18 @@ instance Arbitrary TestParams where
 -- Main context
 ----------------------------------------------------------------------------
 
-modeContext [d|
-    data BlockTestContext = BlockTestContext
-        { btcDBs               :: !(NodeDBs     ::: NodeDBs)
-        , btcSlottingVar       :: !(SlottingVar ::: SlottingVar)
-        , btcLoggerName        :: !(LoggerName  ::: LoggerName)
-        , btcLrcContext        :: !(LrcContext  ::: LrcContext)
-        , btcUpdateContext     :: !(UpdateContext ::: UpdateContext)
-        , btcSscState          :: !(SscMemTag     ::: SscState SscGodTossing)
-        , btcTxpGlobalSettings :: !(TxpGlobalSettings ::: TxpGlobalSettings)
-        , btcParams            :: !(TestParams  ::: TestParams)
-        }
-    |]
+data BlockTestContext = BlockTestContext
+    { btcDBs               :: !NodeDBs
+    , btcSlottingVar       :: !(Timestamp, TVar SlottingData)
+    , btcLoggerName        :: !LoggerName
+    , btcLrcContext        :: !LrcContext
+    , btcUpdateContext     :: !UpdateContext
+    , btcSscState          :: !(SscState SscGodTossing)
+    , btcTxpGlobalSettings :: !TxpGlobalSettings
+    , btcParams            :: !TestParams
+    }
+
+makeLensesWith postfixLFields ''BlockTestContext
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -189,7 +189,6 @@ bracketBlockTestContext testParams@TestParams {..} callback =
                     InitModeContext
                         nodeDBs
                         tpGenUtxo
-                        (GenesisStakes $ utxoToStakes $ unGenesisUtxo tpGenUtxo)
                         futureSlottingVar
                         SCSimple
                         futureLrcCtx
@@ -210,7 +209,7 @@ bracketBlockTestContext testParams@TestParams {..} callback =
         btcSscState <- mkSscState @SscGodTossing
         let btcTxpGlobalSettings = txpGlobalSettings
         let btcParams = testParams
-        ExecMode . lift $ callback BlockTestContext {..}
+        lift $ callback BlockTestContext {..}
 
 ----------------------------------------------------------------------------
 -- ExecMode
@@ -221,18 +220,10 @@ data BlockTestContextTag
 instance HasLens BlockTestContextTag BlockTestContext BlockTestContext where
     lensOf = identity
 
-data BTest
-
-type BlockTestMode = ExecMode BTest
-
-type instance ExecModeM BTest =
-    Mtl.ReaderT BlockTestContext BaseMonad
-
-unBlockTestMode :: ExecMode BTest a -> ExecModeM BTest a
-unBlockTestMode = unExecMode
+type BlockTestMode = Mtl.ReaderT BlockTestContext BaseMonad
 
 runBlockTestMode :: TestParams -> BlockTestMode a -> IO a
-runBlockTestMode tp (unBlockTestMode -> action) =
+runBlockTestMode tp action =
     runProduction $ bracketBlockTestContext tp (runReaderT action)
 
 ----------------------------------------------------------------------------
@@ -252,9 +243,37 @@ instance Testable (BlockProperty a) where
 
 -- Test mode
 
-instance HasLoggerName BlockTestMode where
-    getLoggerName = Ether.ask'
-    modifyLoggerName = Ether.local'
+instance HasLens NodeDBs BlockTestContext NodeDBs where
+      lensOf = btcDBs_L
+
+instance HasLens LoggerName BlockTestContext LoggerName where
+      lensOf = btcLoggerName_L
+
+instance HasLens LrcContext BlockTestContext LrcContext where
+      lensOf = btcLrcContext_L
+
+instance HasLens UpdateContext BlockTestContext UpdateContext where
+      lensOf = btcUpdateContext_L
+
+instance HasLens SscMemTag BlockTestContext (SscState SscGodTossing) where
+      lensOf = btcSscState_L
+
+instance HasLens TxpGlobalSettings BlockTestContext TxpGlobalSettings where
+      lensOf = btcTxpGlobalSettings_L
+
+instance HasLens TestParams BlockTestContext TestParams where
+      lensOf = btcParams_L
+
+instance HasSlottingVar BlockTestContext where
+    slottingTimestamp = btcSlottingVar_L . _1
+    slottingVar = btcSlottingVar_L . _2
+
+instance HasLoggerName' BlockTestContext where
+    loggerName = lensOf @LoggerName
+
+instance {-# OVERLAPPING #-} HasLoggerName BlockTestMode where
+    getLoggerName = getLoggerNameDefault
+    modifyLoggerName = modifyLoggerNameDefault
 
 instance MonadSlotsData BlockTestMode where
     getSystemStart = getSystemStartDefault
@@ -277,9 +296,6 @@ instance MonadDB BlockTestMode where
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
 
-instance MonadBlockDBWrite SscGodTossing BlockTestMode where
-    dbPutBlund = dbPutBlundDefault
-
 instance MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode
   where
     dbGetBlock  = dbGetBlockDefault @SscGodTossing
@@ -291,6 +307,9 @@ instance MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTe
     dbGetBlock  = dbGetBlockSscDefault @SscGodTossing
     dbGetUndo   = dbGetUndoSscDefault @SscGodTossing
     dbGetHeader = dbGetHeaderSscDefault @SscGodTossing
+
+instance MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode where
+    dbPutBlund = dbPutBlundDefault
 
 instance MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault

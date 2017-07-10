@@ -19,7 +19,7 @@ import           Data.List                 (partition)
 import           Pos.Block.Core.Main.Lens  (mainBlockDlgPayload)
 import           Pos.Block.Core.Main.Types (MainBlock)
 import           Pos.Core                  (EpochIndex)
-import           Pos.Crypto                (ProxySecretKey (..))
+import           Pos.Crypto                (ProxySecretKey (..), isSelfSignedPsk)
 import           Pos.Delegation.Types      (DlgMemPool, DlgPayload (getDlgPayload))
 
 -- | Verify delegation payload without using GState. This function can
@@ -32,9 +32,9 @@ dlgVerifyPayload epoch (getDlgPayload -> proxySKs) =
   where
     notMatchingEpochs = filter ((/= epoch) . pskOmega) proxySKs
 
--- | Checks if given PSK revokes delegation (issuer = delegate).
+-- | Checks if given PSK revokes delegation (issuer == delegate).
 isRevokePsk :: ProxySecretKey w -> Bool
-isRevokePsk ProxySecretKey{..} = pskIssuerPk == pskDelegatePk
+isRevokePsk = isSelfSignedPsk
 
 -- | Applies block certificates to 'ProxySKHeavyMap'.
 dlgMemPoolApplyBlock :: MainBlock ssc -> DlgMemPool -> DlgMemPool

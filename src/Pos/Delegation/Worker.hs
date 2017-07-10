@@ -18,26 +18,27 @@ import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.Delegation.Logic       (invalidateProxyCaches,
                                              runDelegationStateAction)
 import           Pos.Discovery.Class        (MonadDiscovery)
-import           Pos.Reporting              (MonadReportingMem)
+import           Pos.Reporting              (HasReportingContext)
 import           Pos.Reporting.Methods      (reportingFatal)
-import           Pos.Shutdown               (MonadShutdownMem, runIfNotShutdown)
+import           Pos.Shutdown               (HasShutdownContext, runIfNotShutdown)
 import           Pos.WorkMode.Class         (WorkMode)
 
 -- | All workers specific to proxy sertificates processing.
-dlgWorkers :: (WorkMode ssc m) => ([WorkerSpec m], OutSpecs)
+dlgWorkers :: (WorkMode ssc ctx m) => ([WorkerSpec m], OutSpecs)
 dlgWorkers = first pure $ localWorker dlgInvalidateCaches
 
 -- | Runs proxy caches invalidating action every second.
 dlgInvalidateCaches
     :: ( MonadIO m
-       , MonadDelegation m
+       , MonadDelegation ctx m
        , MonadMask m
        , WithLogger m
        , Mockable Delay m
-       , MonadReportingMem m
-       , MonadShutdownMem m
-       , MonadDelegation m
+       , HasReportingContext ctx
+       , HasShutdownContext ctx
+       , MonadDelegation ctx m
        , MonadDiscovery m
+       , MonadReader ctx m
        )
     => m ()
 dlgInvalidateCaches = runIfNotShutdown $ do

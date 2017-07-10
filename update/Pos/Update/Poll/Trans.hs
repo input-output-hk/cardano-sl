@@ -20,7 +20,7 @@ import           Universum
 import           Pos.Binary.Update     ()
 import           Pos.Core              (SoftwareVersion (..), addressHash)
 import           Pos.Crypto            (hash)
-import           Pos.Update.Core       (UpdateProposal (..))
+import           Pos.Update.Core       (UpdateProposal (..), applyBVM)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
                                         PollModifier (..), ProposalState (..),
@@ -123,10 +123,12 @@ instance MonadPollRead m =>
     delBVState bv = ether $ pmBVsL %= MM.delete bv
     setAdoptedBV bv = ether $ do
         bvs <- getBVState bv
+        adoptedBVD <- getAdoptedBVData
         case bvs of
             Nothing ->
                 logWarning $ "setAdoptedBV: unknown version " <> pretty bv -- can't happen actually
-            Just (bvsData -> bvd) -> pmAdoptedBVFullL .= Just (bv, bvd)
+            Just (bvsModifier -> bvm) ->
+                pmAdoptedBVFullL .= Just (bv, applyBVM bvm adoptedBVD)
     setLastConfirmedSV SoftwareVersion {..} = ether $
         pmConfirmedL %= MM.insert svAppName svNumber
     delConfirmedSV appName = ether $

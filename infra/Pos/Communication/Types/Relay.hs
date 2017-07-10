@@ -38,7 +38,7 @@ data MempoolMsg tag = MempoolMsg
 -- | Data message. Can be used to send actual data.
 data DataMsg contents = DataMsg
     { dmContents :: !contents
-    } deriving (Show, Eq)
+    } deriving (Generic, Show, Eq)
 
 type InvOrData key contents = Either (InvMsg key) (DataMsg contents)
 

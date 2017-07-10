@@ -266,9 +266,8 @@ instance MessageLimited (MsgBlock ssc) where
 instance MessageLimitedPure MsgGetHeaders where
     msgLenLimit = MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
       where
-        maxGetHeadersNum =
-            ceiling $
-            log ((fromIntegral :: Int -> Double) Const.blkSecurityParam) + 5
+        maxGetHeadersNum = ceiling $
+            log (fromIntegral Const.blkSecurityParam) + (5 :: Double)
 
 instance MessageLimited MsgGetHeaders
 

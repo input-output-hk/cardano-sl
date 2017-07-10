@@ -5,22 +5,24 @@ module Pos.Binary.Update
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..), Raw,
-                                          convertSize, convertToSizeNPut, deriveSimpleBi,
-                                          getAsciiString1b, getWord8, label, labelP,
-                                          labelS, putAsciiString1b, putField, putS,
-                                          putWord8S, sizeAsciiString1b)
-import           Pos.Binary.Core         ()
-import           Pos.Binary.Core.Version ()
-import           Pos.Binary.Infra        ()
-import           Pos.Core.Types          (ApplicationName, BlockVersion, BlockVersionData,
-                                          ChainDifficulty, Coin, HeaderHash,
-                                          NumSoftwareVersion, SlotId, SoftwareVersion,
-                                          StakeholderId)
-import           Pos.Crypto              (Hash, SignTag (SignUSVote), checkSig)
-import           Pos.Slotting.Types      (SlottingData)
-import qualified Pos.Update.Core.Types   as U
-import qualified Pos.Update.Poll.Types   as U
+import           Data.Time.Units            (Millisecond)
+import           Serokell.Data.Memory.Units (Byte)
+
+import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw,
+                                             convertSize, convertToSizeNPut,
+                                             deriveSimpleBi, getAsciiString1b, getWord8,
+                                             label, labelP, labelS, putAsciiString1b,
+                                             putField, putS, putWord8S, sizeAsciiString1b)
+import           Pos.Binary.Infra           ()
+import           Pos.Core                   (ApplicationName, BlockVersion,
+                                             ChainDifficulty, Coin, CoinPortion,
+                                             EpochIndex, FlatSlotId, HeaderHash,
+                                             NumSoftwareVersion, ScriptVersion, SlotId,
+                                             SoftwareVersion, StakeholderId, TxFeePolicy)
+import           Pos.Crypto                 (Hash, SignTag (SignUSVote), checkSig)
+import           Pos.Slotting.Types         (SlottingData)
+import qualified Pos.Update.Core.Types      as U
+import qualified Pos.Update.Poll.Types      as U
 
 instance Bi U.SystemTag where
     size = convertSize (toString . U.getSystemTag) sizeAsciiString1b
@@ -56,10 +58,28 @@ deriveSimpleBi ''U.UpdateData [
         Field [| U.udMetadataHash :: Hash Raw |]
     ]]
 
+deriveSimpleBi ''U.BlockVersionModifier [
+    Cons 'U.BlockVersionModifier [
+        Field [| U.bvmScriptVersion     :: ScriptVersion     |],
+        Field [| U.bvmSlotDuration      :: Millisecond       |],
+        Field [| U.bvmMaxBlockSize      :: Byte              |],
+        Field [| U.bvmMaxHeaderSize     :: Byte              |],
+        Field [| U.bvmMaxTxSize         :: Byte              |],
+        Field [| U.bvmMaxProposalSize   :: Byte              |],
+        Field [| U.bvmMpcThd            :: CoinPortion       |],
+        Field [| U.bvmHeavyDelThd       :: CoinPortion       |],
+        Field [| U.bvmUpdateVoteThd     :: CoinPortion       |],
+        Field [| U.bvmUpdateProposalThd :: CoinPortion       |],
+        Field [| U.bvmUpdateImplicit    :: FlatSlotId        |],
+        Field [| U.bvmUpdateSoftforkThd :: CoinPortion       |],
+        Field [| U.bvmTxFeePolicy       :: Maybe TxFeePolicy |],
+        Field [| U.bvmUnlockStakeEpoch  :: Maybe EpochIndex  |]
+    ]]
+
 instance Bi U.UpdateProposal where
     sizeNPut = labelS "UpdateProposal" $
         putField U.upBlockVersion <>
-        putField U.upBlockVersionData <>
+        putField U.upBlockVersionMod <>
         putField U.upSoftwareVersion <>
         putField U.upData <>
         putField U.upAttributes <>
@@ -78,7 +98,7 @@ instance Bi U.UpdateProposal where
 deriveSimpleBi ''U.UpdateProposalToSign [
     Cons 'U.UpdateProposalToSign [
         Field [| U.upsBV   :: BlockVersion                     |],
-        Field [| U.upsBVD  :: BlockVersionData                 |],
+        Field [| U.upsBVM  :: U.BlockVersionModifier           |],
         Field [| U.upsSV   :: SoftwareVersion                  |],
         Field [| U.upsData :: HashMap U.SystemTag U.UpdateData |],
         Field [| U.upsAttr :: U.UpAttributes                   |]
@@ -180,10 +200,10 @@ deriveSimpleBi ''U.ConfirmedProposalState [
 
 deriveSimpleBi ''U.BlockVersionState [
     Cons 'U.BlockVersionState [
-        Field [| U.bvsData              :: BlockVersionData      |],
-        Field [| U.bvsIsConfirmed       :: Bool                  |],
-        Field [| U.bvsIssuersStable     :: HashSet StakeholderId |],
-        Field [| U.bvsIssuersUnstable   :: HashSet StakeholderId |],
-        Field [| U.bvsLastBlockStable   :: Maybe HeaderHash      |],
-        Field [| U.bvsLastBlockUnstable :: Maybe HeaderHash      |]
+        Field [| U.bvsModifier          :: U.BlockVersionModifier |],
+        Field [| U.bvsIsConfirmed       :: Bool                   |],
+        Field [| U.bvsIssuersStable     :: HashSet StakeholderId  |],
+        Field [| U.bvsIssuersUnstable   :: HashSet StakeholderId  |],
+        Field [| U.bvsLastBlockStable   :: Maybe HeaderHash       |],
+        Field [| U.bvsLastBlockUnstable :: Maybe HeaderHash       |]
     ]]

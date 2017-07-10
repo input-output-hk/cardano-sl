@@ -2,6 +2,9 @@
 set -e
 set -o pipefail
 
+readonly CARDANO_SL_BUILD_MODE=$1
+# Please see scripts/build/cardano-sl.sh for supported modes.
+
 echo "Building Daedalus Bridge..."
 
 # Cleaning node modules, bower components, etc.
@@ -9,7 +12,7 @@ echo "Building Daedalus Bridge..."
 
 # We have to build Cardano SL because there's a code in Haskell
 # codebase that needs to be recompiled for Bridge building.
-./scripts/build/cardano-sl.sh
+./scripts/build/cardano-sl.sh "${CARDANO_SL_BUILD_MODE}"
 
 echo "2. Generating types for Bridge..."
 stack exec -- cardano-wallet-hs2purs

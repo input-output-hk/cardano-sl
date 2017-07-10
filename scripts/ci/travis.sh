@@ -12,14 +12,23 @@ fi
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
     if [[ "$with_haddock" == "true" ]]; then
       # export EXTRA_STACK="--haddock";
-      :
+
+      # We need to pass CONFIG=wallet to compile cardano-sl-core, but Stack doesn't
+      # support passing arguments to Haddock yet (this will be fixed in the next
+      # release after 1.4.0). For now, a workaround is to manually replace CONFIG
+      # with "wallet" in *.hs files.
+      #
+      # When new Stack is released, delete this and add an argument to Stack:
+      #    --haddock-arguments="--optghc=-DCONFIG=wallet"
+      find core/ -name '*.hs' -exec sed -i 's/defined(CONFIG)/1/g' {} +
+      find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"'$DCONFIG'"/g' {} +
     fi
 
     export EXTRA_STACK="--test $EXTRA_STACK";
 fi
 
 if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-  export EXTRA_STACK="--flag cardano-sl:for-installer $EXTRA_STACK"
+  export EXTRA_STACK="--flag cardano-sl-tools:for-installer $EXTRA_STACK"
 fi
 
 stack --nix --no-terminal install happy \
@@ -34,7 +43,7 @@ stack --nix --no-terminal install happy \
 #    --haddock-arguments="--optghc=-DCONFIG=wallet"
 if [[ "$with_haddock" == "true" ]]; then
   find core/ -name '*.hs' -exec sed -i 's/defined(CONFIG)/1/g' {} +
-  find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"wallet"/g' {} +
+  find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"'$DCONFIG'"/g' {} +
 fi
 
 targets="cardano-sl cardano-sl-lwallet cardano-sl-tools"
@@ -43,7 +52,7 @@ for trgt in $targets; do
 
     stack --nix --no-terminal --local-bin-path daedalus/ install "$trgt" \
       $EXTRA_STACK --fast --jobs=2 \
-      --ghc-options="-j -DCONFIG=wallet +RTS -A128m -n2m -RTS" \
+      --ghc-options="-j -DCONFIG=$DCONFIG +RTS -A128m -n2m -RTS" \
       --flag cardano-sl-core:-asserts \
       --flag cardano-sl-core:-dev-mode
 

@@ -6,21 +6,24 @@ module Test.Pos.Update.PollSpec
 
 import           Universum
 
-import           Control.Lens          (at)
-import           Data.DeriveTH         (derive, makeArbitrary)
-import qualified Data.HashSet          as HS
-import           Test.Hspec            (Spec, describe)
-import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary (..), Property, choose, conjoin, (===))
+import           Control.Lens                      (at)
+import qualified Data.HashSet                      as HS
+import           Test.Hspec                        (Spec, describe)
+import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
+import           Test.QuickCheck                   (Arbitrary (..), Property, conjoin,
+                                                   (===))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Crypto            (hash)
-import           Pos.Slotting.Types    (SlottingData)
-import           Pos.Types             (ApplicationName, BlockVersion,
-                                        SoftwareVersion (..), StakeholderId, addressHash)
-import qualified Pos.Update            as Poll
-import qualified Pos.Util.Modifier     as MM
+import           Pos.Core                          (ApplicationName, BlockVersion,
+                                                    SoftwareVersion (..), StakeholderId,
+                                                    addressHash)
+import           Pos.Crypto                        (hash)
+import           Pos.Slotting.Types                (SlottingData)
+import           Pos.Update.Core                   (UpId, UpdateProposal (..), applyBVM)
+import qualified Pos.Update.Poll                   as Poll
+import qualified Pos.Util.Modifier                 as MM
 
-import           Test.Pos.Util         (formsMonoid)
+import           Test.Pos.Util                     (formsMonoid)
 
 spec :: Spec
 spec = describe "Poll" $ do
@@ -66,10 +69,14 @@ data PollAction
     | AddConfirmedProposal Poll.ConfirmedProposalState
     | DelConfirmedProposal SoftwareVersion
     | InsertActiveProposal Poll.ProposalState
-    | DeactivateProposal Poll.UpId
+    | DeactivateProposal UpId
     | SetSlottingData SlottingData
     | SetEpochProposers (HashSet StakeholderId)
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
+
+instance Arbitrary PollAction where
+    arbitrary = genericArbitrary
+    shrink = genericShrink
 
 actionToMonad :: Poll.MonadPoll m => PollAction -> m ()
 actionToMonad (PutBVState bv bvs)        = Poll.putBVState bv bvs
@@ -91,10 +98,13 @@ applyActionToModifier
     -> Poll.PollModifier
 applyActionToModifier (PutBVState bv bvs) _ = Poll.pmBVsL %~ MM.insert bv bvs
 applyActionToModifier (DelBVState bv) _ = Poll.pmBVsL %~ MM.delete bv
-applyActionToModifier (SetAdoptedBV bv) pst = \p ->
-    case MM.lookup innerLookupFun bv (Poll.pmBVs p) of
-        Nothing                    -> p
-        Just (Poll.bvsData -> bvd) -> p { Poll.pmAdoptedBVFull = Just (bv, bvd) }
+applyActionToModifier (SetAdoptedBV bv) pst = \pm -> do
+    let adoptedBVData = snd $
+            fromMaybe (pst ^. Poll.psAdoptedBV) (Poll.pmAdoptedBVFull pm)
+    case MM.lookup innerLookupFun bv (Poll.pmBVs pm) of
+        Nothing                    -> pm
+        Just (Poll.bvsModifier -> bvm) ->
+            pm { Poll.pmAdoptedBVFull = Just (bv, applyBVM bvm adoptedBVData) }
   where
     innerLookupFun k = pst ^. Poll.psBlockVersions . at k
 applyActionToModifier (SetLastConfirmedSV SoftwareVersion {..}) _ =
@@ -104,7 +114,7 @@ applyActionToModifier (AddConfirmedProposal cps) _ =
     Poll.pmConfirmedPropsL %~ MM.insert (Poll.cpsSoftwareVersion cps) cps
 applyActionToModifier (DelConfirmedProposal sv) _ = Poll.pmConfirmedPropsL %~ MM.delete sv
 applyActionToModifier (InsertActiveProposal ps) pst = \p ->
-    let up@Poll.UnsafeUpdateProposal{..} = Poll.psProposal ps
+    let up@UnsafeUpdateProposal{..} = Poll.psProposal ps
         upId = hash up
         p' = case MM.lookup innerLookupFun upId (Poll.pmActiveProps p) of
             Nothing -> p
@@ -140,5 +150,3 @@ applyActions ps actionList =
         resultPStates = ps : scanl Poll.execPurePollWithLogger ps pollSts
         newPollStates = scanl (flip Poll.modifyPollState) ps resultModifiers
     in conjoin $ zipWith (===) resultPStates newPollStates
-
-derive makeArbitrary ''PollAction

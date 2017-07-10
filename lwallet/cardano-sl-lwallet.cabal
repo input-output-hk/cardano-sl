@@ -1,5 +1,5 @@
 name:                cardano-sl-lwallet
-version:             0.4.4
+version:             0.5.1
 synopsis:            Cardano SL - Light wallet
 description:         Cardano SL - Light wallet
 license:             MIT
@@ -48,6 +48,7 @@ executable cardano-wallet
                      , cardano-sl-infra
                      , cardano-sl
                      , data-default
+                     , dlist
                      , either
                      , ether
                      , containers

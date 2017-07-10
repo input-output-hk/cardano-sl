@@ -10,16 +10,17 @@ module Pos.Lrc.Arbitrary
 
 import           Universum
 
-import qualified Data.HashMap.Strict      as HM
-import           Data.Reflection          (Reifies (..))
-import           Test.QuickCheck          (Arbitrary (..), Gen, choose)
+import qualified Data.HashMap.Strict               as HM
+import           Data.Reflection                   (Reifies (..))
+import           Test.QuickCheck                   (Arbitrary (..), Gen, choose)
+import           Test.QuickCheck.Arbitrary.Generic (genericShrink)
 
-import           Pos.Core.Constants       (genesisMpcThd)
-import           Pos.Core                 (Coin, CoinPortion, StakeholderId, mkCoin,
-                                           unsafeGetCoin)
-import           Pos.Core.Coin            (coinPortionToDouble)
-import           Pos.Lrc.Types            (RichmenStake)
-import           Pos.Core.Arbitrary       ()
+import           Pos.Core.Constants                (genesisMpcThd)
+import           Pos.Core                          (Coin, CoinPortion, StakeholderId,
+                                                    mkCoin, unsafeGetCoin)
+import           Pos.Core.Coin                     (coinPortionToDouble)
+import           Pos.Lrc.Types                     (RichmenStake)
+import           Pos.Core.Arbitrary                ()
 
 -- | Wrapper over 'RichmenStake'. Its 'Arbitrary' instance enforces that the stake
 -- distribution inside must be valid with respect to the threshold 'thd', i.e. all of the
@@ -29,23 +30,25 @@ import           Pos.Core.Arbitrary       ()
 -- case.
 newtype ValidRichmenStake thd = Valid
     { getValid :: RichmenStake
-    } deriving (Show, Eq)
+    } deriving (Generic, Show, Eq)
 
 instance (Reifies thd CoinPortion) => Arbitrary (ValidRichmenStake thd) where
     arbitrary = Valid <$> genRichmenStake (reflect (Proxy @thd))
+    shrink = genericShrink
 
 -- | Wrapper over 'RichmenStake'. Its 'Arbitrary' instance enforces that the stake
 -- distribution inside must be invalid, i.e. one of the stakeholders does not have
 -- sufficient coins to participate.
 newtype InvalidRichmenStake thd = Invalid
     { getInvalid :: RichmenStake
-    } deriving (Show, Eq)
+    } deriving (Generic, Show, Eq)
 
 instance (Reifies thd CoinPortion) => Arbitrary (InvalidRichmenStake thd) where
     arbitrary = Invalid <$> do
         validRichmenStake <- genRichmenStake (reflect (Proxy @thd))
         poorMan <- arbitrary
         return $ HM.insert poorMan (mkCoin 0) validRichmenStake
+    shrink = genericShrink
 
 genRichmenStake
     :: CoinPortion -> Gen RichmenStake

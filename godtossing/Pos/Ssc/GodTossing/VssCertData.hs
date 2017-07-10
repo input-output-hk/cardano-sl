@@ -55,7 +55,7 @@ data VssCertData = VssCertData
       --   in previous epoch.
       -- Set (full expired slot, (id, insertion slot, cert))
     , expiredCerts :: !(Set (EpochOrSlot, (StakeholderId, EpochOrSlot, VssCertificate)))
-    } deriving (Show, Eq)
+    } deriving (Generic, Show, Eq)
 
 -- | Create empty 'VssCertData'.
 empty :: VssCertData

@@ -42,7 +42,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-report-server.git
-    commit: 424e4ecacdf038a01542025dd1296bd272ce770d
+    commit: d1247bef8fa71a4201fdc15d8b1b25ca53f289a3
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
@@ -59,7 +59,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/input-output-hk/cardano-crypto
-    commit: 84f8c358463bbf6bb09168aac5ad990faa9d310a
+    commit: 1cde8e3a8d9093bbf571085920045c05edb3eaa4
   extra-dep: true
 # We're using forked version of 'swagger2' package because of bug in haddock package.
 # Now we don't build Haddock-docs for this 'swagger2' package, and when that bug will
@@ -99,6 +99,8 @@ extra-deps:
 - th-abstraction-0.2.2.0          # needed for lens
 - rocksdb-haskell-1.0.0
 - generic-arbitrary-0.1.0
+- happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
+- entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

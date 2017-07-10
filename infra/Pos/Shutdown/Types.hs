@@ -1,9 +1,15 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Pos.Shutdown.Types
        ( ShutdownContext (..)
+       , shdnIsTriggered
+       , shdnNotifyQueue
        ) where
 
-import           Control.Concurrent.STM (TBQueue)
 import           Universum
+
+import           Control.Concurrent.STM (TBQueue)
+import           Control.Lens           (makeLenses)
 
 data ShutdownContext = ShutdownContext
     { _shdnIsTriggered :: !(TVar Bool)
@@ -12,3 +18,5 @@ data ShutdownContext = ShutdownContext
     -- ^ A queue which is used to count how many workers have successfully
     -- terminated.
     }
+
+makeLenses ''ShutdownContext

@@ -13,7 +13,7 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf, suchThat)
 import           Universum
 
-import           Pos.Constants         (epochSlots)
+import           Pos.Constants         (blkSecurityParam, epochSlots)
 import           Pos.Core              (Address (..), Coin, SharedSeed, StakeholderId,
                                         mkCoin, sumCoins, unsafeAddCoin,
                                         unsafeIntegerToCoin)
@@ -92,7 +92,7 @@ instance Arbitrary StakeAndHolder where
 
 ftsListLength :: SharedSeed -> StakeAndHolder -> Bool
 ftsListLength fts (getNoStake -> (_, utxo)) =
-    length (followTheSatoshiUtxo fts utxo) == epochSlots
+    length (followTheSatoshiUtxo fts utxo) == fromIntegral epochSlots
 
 ftsNoStake
     :: SharedSeed
@@ -117,8 +117,10 @@ ftsAllStake fts key ah v =
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
 -- run.
-numberOfRuns :: Num a => a
-numberOfRuns = 3000
+numberOfRuns :: Int
+-- The higher is 'blkSecurityParam', the longer epochs will be and the more
+-- time FTS will take
+numberOfRuns = 300000 `div` fromIntegral blkSecurityParam
 
 newtype FtsStream = Stream
     { getStream :: [SharedSeed]
@@ -187,7 +189,7 @@ ftsReasonableStake
         picks        = followTheSatoshiUtxo fts newUtxo
         pLen         = length picks
         newPresent   = present +
-            if adrH `elem` picks then 1 / numberOfRuns else 0
+            if adrH `elem` picks then 1 / (fromIntegral numberOfRuns) else 0
         newChosen    = chosen +
             fromIntegral (length (filter (== adrH) (toList picks))) /
-            (numberOfRuns * fromIntegral pLen)
+            (fromIntegral numberOfRuns * fromIntegral pLen)

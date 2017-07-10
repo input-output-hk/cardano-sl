@@ -82,7 +82,7 @@ applyBlocksWith ApplyBlocksSettings {..} blunds = do
         verdict <- runExceptT $ verifyBlocks False blocks
         whenLeft verdict $
             assertionFailed .
-            sformat ("we are trying to apply txp blocks which we fail to verify :("%build)
+            sformat ("we are trying to apply txp blocks which we fail to verify: "%build)
     genericToilModifierToBatch absExtraOperations . snd <$>
         runToilAction (mapM absApplySingle blunds)
 
@@ -101,12 +101,14 @@ rollbackBlocks blunds =
 genericToilModifierToBatch :: (e -> SomeBatchOp)
                            -> GenericToilModifier e
                            -> SomeBatchOp
-genericToilModifierToBatch convertExtra ToilModifier { _tmUtxo = um
-                                                     , _tmBalances = (BalancesView (HM.toList -> stakes) total)
-                                                     , _tmExtra = extra
-                                                     } =
+genericToilModifierToBatch convertExtra modifier =
     SomeBatchOp (extraOp : [SomeBatchOp utxoOps, SomeBatchOp balancesOps])
   where
+    ToilModifier
+        { _tmUtxo = um
+        , _tmBalances = (BalancesView (HM.toList -> stakes) total)
+        , _tmExtra = extra
+        } = modifier
     utxoOps =
         map DB.DelTxIn (MM.deletions um) ++
         map (uncurry DB.AddTxOut) (MM.insertions um)

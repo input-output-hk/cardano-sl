@@ -12,6 +12,9 @@ import qualified Pos.Binary.Core.Coin       as BinCoin
 import           Pos.Binary.Core.Fee        ()
 import           Pos.Binary.Core.Script     ()
 import           Pos.Binary.Core.Version    ()
+import qualified Pos.Binary.Cbor            as Cbor
+import qualified Codec.CBOR.Encoding        as Cbor.Encoding
+import qualified Codec.CBOR.Decoding        as Cbor.Decoding
 import qualified Pos.Core.Fee               as T
 import qualified Pos.Core.Types             as T
 import qualified Pos.Data.Attributes        as A
@@ -24,9 +27,17 @@ instance Bi T.Timestamp where
     sizeNPut = labelS "Timestamp" $ putField toInteger
     get = label "Timestamp" $ fromInteger <$> get
 
+instance Cbor.Bi T.Timestamp where
+  encode (T.Timestamp ms) = Cbor.encode . toInteger $ ms
+  decode = T.Timestamp . fromIntegral <$> Cbor.decode @Integer
+
 instance Bi T.EpochIndex where
     sizeNPut = labelS "EpochIndex" $ putField (UnsignedVarInt . T.getEpochIndex)
     get = label "EpochIndex" $ T.EpochIndex . getUnsignedVarInt <$> get
+
+instance Cbor.Bi T.EpochIndex where
+  encode (T.EpochIndex epoch) = Cbor.Encoding.encodeWord64 epoch
+  decode = T.EpochIndex <$> Cbor.Decoding.decodeWord64
 
 instance Bi (A.Attributes ()) where
     size = VarSize $ A.sizeAttributes (\() -> [])

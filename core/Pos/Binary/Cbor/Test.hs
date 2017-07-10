@@ -11,7 +11,7 @@ import           Pos.Core.Fee
 import           Pos.Binary.Core.Fee()
 import           Pos.Core.Arbitrary()
 import           Pos.Binary.Core.Script()
-import           Pos.Core.Types (Script)
+import           Pos.Core.Types
 import qualified PlutusCore.Program as Plutus
 import qualified PlutusCore.Term    as Plutus
 import qualified PlutusTypes.Type   as Plutus
@@ -78,3 +78,5 @@ roundtrips = do
   quickCheck (roundtripProperty @TxSizeLinear Proxy)
   quickCheck (roundtripProperty @TxFeePolicy Proxy)
   quickCheck (roundtripProperty @Script Proxy)
+  quickCheck (roundtripProperty @Timestamp Proxy)
+  quickCheck (roundtripProperty @EpochIndex Proxy)

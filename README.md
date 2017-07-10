@@ -37,9 +37,10 @@ stack exec cardano-explorer-mock
 - run `./start-dev.sh` if you have both `cardano-sl` and `cardano-sl-explorer` under the *same* folder.
 - run `./start-dev.sh {path/to/}cardano-sl` if you have both `cardano-sl` and `cardano-sl-explorer` under *different* folders.
 
-### Prod version
+### Prod version (connects explorer to testnet staging cluster)
 
-- run `./scripts/build.sh`
+- run `./scripts/build/cardano-sl.sh --tns`
 - run `./frontend/scripts/build.sh`
-- run `./start-prod.sh` if you have both `cardano-sl` and `cardano-sl-explorer` under the *same* folder.
-- run `./start-prod.sh {path/to/}cardano-sl` if you have both `cardano-sl` and `cardano-sl-explorer` under *different* folders.
+- run `./scripts/launch/staging.sh`
+
+NOTE: before running explorer if you want clean sync (explorer will have to sync and download blockchain from start) - remove db with `rm -rf db-testnet` 

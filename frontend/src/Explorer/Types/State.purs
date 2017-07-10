@@ -87,7 +87,6 @@ type ViewStates =
 
 type GlobalViewState =
     { gViewMobileMenuOpenend :: Boolean
-    , gViewTitle :: String
     , gViewSearchInputFocused :: Boolean
     , gViewSelectedSearch :: Search
     , gViewSearchQuery :: String
@@ -105,7 +104,6 @@ newtype WaypointItem = WaypointItem
 type DashboardViewState =
     { dbViewBlocksExpanded :: Boolean
     , dbViewBlockPagination :: PageNumber
-    , dbViewNextBlockPagination :: PageNumber
     , dbViewMaxBlockPagination :: RemoteData Error PageNumber
     , dbViewLoadingBlockPagination :: Boolean
     , dbViewBlockPaginationEditable :: Boolean

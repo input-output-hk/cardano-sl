@@ -17,7 +17,7 @@ import DOM.HTML.History (DocumentTitle(..), URL(..), pushState)
 import DOM.HTML.Window (history)
 import DOM.Node.Node (contains)
 import DOM.Node.Types (ElementId(..), elementToNode)
-import Data.Array (filter, snoc, take, (:))
+import Data.Array (filter, length, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Foreign (toForeign)
@@ -29,9 +29,7 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (RequestLimit(..), RequestOffset(..), SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
-import Explorer.I18n.Lang (translate)
-import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gViewTitle, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), match, toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
@@ -82,14 +80,19 @@ update SocketPing state =
 
 update (SocketBlocksPageUpdated (Right (Tuple totalPages blocks))) state =
     noEffects $
-    set latestBlocks latestBlocksCheck $
+    over latestBlocks (\bl -> if updateBlocks then Success blocks else bl) $
+    over (dashboardViewState <<< dbViewBlockPagination)
+        (\ pn@(PageNumber page) -> if updateCurrentPage then PageNumber totalPages else pn) $
+        -- ^ to keep staying at last page we have to update `dbViewBlockPagination`
     set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages) state
   where
-    latestBlocksCheck = if pageIsLastPage
+    latestBlocksCheck = if updateBlocks
                         then (Success blocks)
                         else (state ^. latestBlocks)
-    pageIsLastPage = (state ^. (dashboardViewState <<< dbViewBlockPagination))
-                  == PageNumber totalPages
+    currentBlockPage = state ^. (dashboardViewState <<< dbViewBlockPagination)
+    updateBlocks = (currentBlockPage == PageNumber totalPages) || updateCurrentPage
+    updateCurrentPage = currentBlockPage == (PageNumber $ totalPages - 1) && (length blocks == 1)
+
 
 update (SocketBlocksPageUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $
@@ -130,33 +133,6 @@ update (SocketAddressTxsUpdated (Right txs)) state =
 
 update (SocketAddressTxsUpdated (Left error)) state = noEffects $
     over errors (\errors' -> (show error) : errors') state
-
-update SocketCallMe state =
-    { state
-    , effects : [ do
-          _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff <<< emit socket' $ toEvent CallMe
-              Nothing -> pure unit
-          pure Nothing
-    ]}
-
-update (SocketCallMeString str) state =
-    { state
-    , effects : [ do
-          _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emitData socket' (toEvent CallMeString) str
-              Nothing -> pure unit
-          pure Nothing
-    ]}
-
-update (SocketCallMeCTxId id) state =
-    { state
-    , effects : [ do
-          _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emitData socket' (toEvent CallMeTxId) id
-              Nothing -> pure unit
-          pure Nothing
-    ]}
 
 -- | Creates a new socket subscription
 update (SocketAddSubscription subItem) state =
@@ -219,7 +195,6 @@ update (DashboardExpandTransactions expanded) state = noEffects $
 
 update (DashboardPaginateBlocks mEvent pageNumber) state =
     { state:
-          set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber $
           set (dashboardViewState <<< dbViewBlockPaginationEditable) false state
     , effects:
           [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
@@ -577,6 +552,7 @@ update (DashboardReceiveBlocksTotalPages (Left error)) state =
 update (RequestPaginatedBlocks pageNumber pageSize) state =
     { state:
           set loading true $
+          set (dashboardViewState <<< dbViewBlockPagination) pageNumber $
           -- Important note: Don't use `set latestBlocks Loading` here,
           -- we will empty `latestBlocks` in this case !!!
           -- set latestBlocks Loading
@@ -589,7 +565,6 @@ update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
     { state:
           set loading false $
           set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages) $
-          set (dashboardViewState <<< dbViewBlockPagination) (PageNumber newPage) $
           set (dashboardViewState <<< dbViewLoadingBlockPagination) false $
           set latestBlocks (Success blocks) state
     , effects:
@@ -598,7 +573,6 @@ update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
         else []
     }
     where
-        newPage = state ^. (dashboardViewState <<< dbViewNextBlockPagination <<< _PageNumber)
         subItem = mkSocketSubscriptionItem (SocketSubscription SubBlockLastPage) SocketNoData
 
 update (ReceivePaginatedBlocks (Left error)) state =
@@ -772,8 +746,6 @@ update (Navigate url ev) state = onlyEffects state
 
 update (UpdateView r@Dashboard) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cTitle) $ state ^. lang) $
         set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
         set route r state
     , effects:
@@ -796,8 +768,6 @@ update (UpdateView r@Dashboard) state =
 
 update (UpdateView r@(Tx tx)) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cTransaction) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -811,8 +781,6 @@ update (UpdateView r@(Address cAddress)) state =
     { state:
         set currentCAddress cAddress $
         set (viewStates <<< addressDetail <<< addressTxPagination) (PageNumber minPagination) $
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cAddress) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -826,8 +794,6 @@ update (UpdateView r@(Epoch epochIndex)) state =
     { state:
         set (viewStates <<< blocksViewState <<< blsViewPagination)
             (PageNumber minPagination) $
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cEpoch) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -838,12 +804,9 @@ update (UpdateView r@(Epoch epochIndex)) state =
 
 update (UpdateView r@(EpochSlot epochIndex slotIndex)) state =
     let lang' = state ^. lang
-        epochTitle = translate (I18nL.common <<< I18nL.cEpoch) lang'
-        slotTitle = translate (I18nL.common <<< I18nL.cSlot) lang'
+
     in
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (epochTitle <> " / " <> slotTitle) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -854,8 +817,6 @@ update (UpdateView r@(EpochSlot epochIndex slotIndex)) state =
 
 update (UpdateView r@Calculator) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cCalculator) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -865,8 +826,6 @@ update (UpdateView r@Calculator) state =
 
 update (UpdateView r@(Block hash)) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.common <<< I18nL.cBlock) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -888,8 +847,6 @@ update (UpdateView r@(Playground)) state =
 
 update (UpdateView r@(NotFound)) state =
     { state:
-        set (viewStates <<< globalViewState <<< gViewTitle)
-            (translate (I18nL.notfound <<< I18nL.nfTitle) $ state ^. lang) $
         set route r state
     , effects:
         [ pure $ Just ScrollTop

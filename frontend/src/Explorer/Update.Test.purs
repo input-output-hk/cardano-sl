@@ -9,13 +9,13 @@ import Data.Either (Either(..))
 import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime (mkTime)
 import Data.Tuple (Tuple(..))
 import Explorer.Api.Types (SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Lenses.State (connected, currentAddressSummary, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewNextBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions)
+import Explorer.Lenses.State (connected, currentAddressSummary, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions)
 import Explorer.State (initialState, mkSocketSubscriptionItem)
 import Explorer.Test.MockFactory (mkCBlockEntry, mkCTxBrief, mkEmptyCAddressSummary, mkEmptyCTxEntry, mkCTxBriefs, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx, setTxOfAddressSummary)
 import Explorer.Types.Actions (Action(..))
@@ -47,29 +47,73 @@ testUpdate =
                 blockB = setEpochSlotOfBlock 0 2 $ setHashOfBlock (mkCHash "B") mkCBlockEntry
                 blockC = setEpochSlotOfBlock 1 0 $ setHashOfBlock (mkCHash "C") mkCBlockEntry
                 blockD = setEpochSlotOfBlock 1 1 $ setHashOfBlock (mkCHash "D") mkCBlockEntry
-                currentBlocks =
-                    [ blockA
-                    , blockB
-                    ]
-                -- set `latestBlocks` to mock some previous blocks
-                initialState' =
-                    set latestBlocks (Success currentBlocks) initialState
-                newBlocks =
-                    [ blockB
-                    , blockC
-                    , blockD
-                    ]
-                effModel = update (SocketBlocksPageUpdated (Right (Tuple totalPages newBlocks))) initialState'
-                state = _.state effModel
-            it "not to update latestBlocks since they are not on the last page"
-                let result = withDefault [] $ state ^. latestBlocks
-                    expected =
+            it "to update latestBlocks (but not currentPage number) at the last (current) page" do
+                let currentBlocks =
+                        [ blockA
+                        , blockB
+                        , blockC
+                        ]
+                    newBlocks =
+                        [ blockA
+                        , blockB
+                        , blockC
+                        , blockD
+                        ]
+                    initialState' = set latestBlocks (Success currentBlocks) $
+                        set (dashboardViewState <<< dbViewBlockPagination) (PageNumber totalPages) $
+                        set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages)
+                        initialState
+                    effModel = update (SocketBlocksPageUpdated (Right (Tuple totalPages newBlocks))) initialState'
+                    state = _.state effModel
+                    blocksResult = withDefault [] $ state ^. latestBlocks
+                    pageResult = state ^. (dashboardViewState <<< dbViewBlockPagination)
+                (gShow blocksResult) `shouldEqual` (gShow newBlocks)
+                (gShow pageResult) `shouldEqual` (gShow $ PageNumber totalPages)
+            it "to update latestBlocks and currentPage number to switch to the last page" do
+                let currentBlocks =
+                        [ blockA
+                        , blockB
+                        , blockC
+                        ]
+                    newBlocks =
+                        [ blockD
+                        ]
+                    initialState' = set latestBlocks (Success currentBlocks) $
+                        set (dashboardViewState <<< dbViewBlockPagination) (PageNumber totalPages) $
+                        set (dashboardViewState <<< dbViewMaxBlockPagination) (Success <<< PageNumber $ totalPages - 1)
+                        initialState
+                    effModel = update (SocketBlocksPageUpdated (Right (Tuple totalPages newBlocks))) initialState'
+                    state = _.state effModel
+                    blocksResult = withDefault [] $ state ^. latestBlocks
+                    pageResult = state ^. (dashboardViewState <<< dbViewBlockPagination)
+                (gShow blocksResult) `shouldEqual` (gShow newBlocks)
+                (gShow pageResult) `shouldEqual` (gShow $ PageNumber totalPages)
+            it "not to update latestBlocks and current page number since we are not at the last page" do
+                let currentBlocks =
                         [ blockA
                         , blockB
                         ]
-                in (gShow result) `shouldEqual` (gShow expected)
+                    newBlocks =
+                        [ blockB
+                        , blockC
+                        , blockD
+                        ]
+                    currentPage = totalPages - 2
+                    initialState' = set latestBlocks (Success currentBlocks) $
+                        set (dashboardViewState <<< dbViewBlockPagination) (PageNumber currentPage) $
+                        set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages)
+                        initialState
+                    effModel = update (SocketBlocksPageUpdated (Right (Tuple totalPages newBlocks))) initialState'
+                    state = _.state effModel
+                    blockResult = withDefault [] $ state ^. latestBlocks
+                    pageResult = state ^. (dashboardViewState <<< dbViewBlockPagination)
+                (gShow blockResult) `shouldEqual` (gShow currentBlocks)
+                (gShow pageResult) `shouldEqual` (gShow $ PageNumber currentPage)
             it "to count total pages"
-                let result = unwrap <<< withDefault (PageNumber 0) $ state ^. (dashboardViewState <<< dbViewMaxBlockPagination )
+                let blocks = [ blockC ]
+                    effModel = update (SocketBlocksPageUpdated (Right (Tuple totalPages blocks))) initialState
+                    state = _.state effModel
+                    result = unwrap <<< withDefault (PageNumber 0) $ state ^. (dashboardViewState <<< dbViewMaxBlockPagination )
                 in result `shouldEqual` totalPages
 
         describe "handles SocketAddressTxsUpdated action" do
@@ -96,12 +140,16 @@ testUpdate =
                 (isLoading $ state ^. (dashboardViewState <<< dbViewMaxBlockPagination)) `shouldEqual` true
 
         describe "handles RequestPaginatedBlocks action" do
-            let effModel = update (RequestPaginatedBlocks (PageNumber 1) (PageSize 1)) initialState
+            let pageNumber = PageNumber 2
+                effModel = update (RequestPaginatedBlocks pageNumber (PageSize 1)) initialState
                 state = _.state effModel
             it "to set dbViewLoadingBlockPagination to true" do
                 (state ^. (dashboardViewState <<< dbViewLoadingBlockPagination)) `shouldEqual` true
             it "to not update state of latestBlocks" do
                 (isNotAsked $ state ^. latestBlocks) `shouldEqual` true
+            it "to update dbViewBlockPagination"
+                let result = (state ^. (dashboardViewState <<< dbViewBlockPagination))
+                in (gShow result) `shouldEqual` (gShow pageNumber)
 
         describe "handles DashboardReceiveBlocksTotalPages action" do
             let totalPages = 70
@@ -109,9 +157,6 @@ testUpdate =
                 state = _.state effModel
             it "to update dbViewMaxBlockPagination to number of total pages"
                 let result = unwrap <<< withDefault (PageNumber 0) $ state ^. (dashboardViewState <<< dbViewMaxBlockPagination )
-                in result `shouldEqual` totalPages
-            it "to update dbViewBlockPagination to number of total pages"
-                let result = unwrap $ state ^. (dashboardViewState <<< dbViewBlockPagination )
                 in result `shouldEqual` totalPages
 
         describe "uses action ReceivePaginatedBlocks" do
@@ -129,9 +174,7 @@ testUpdate =
                 pageNumber = PageNumber 2
                 -- set `latestBlocks` to simulate that we have already blocks before
                 initialState' =
-                    set latestBlocks (Success currentBlocks) $
-                    set (dashboardViewState <<< dbViewNextBlockPagination) pageNumber
-                    initialState
+                    set latestBlocks (Success currentBlocks) initialState
                 paginatedBlocks =
                     [ blockC
                     , blockD
@@ -148,9 +191,6 @@ testUpdate =
                 in result `shouldEqual` totalPages
             it "to set loading to false" do
                 (state ^. loading) `shouldEqual` false
-            it "to update dbViewBlockPagination by using dbViewNextBlockPagination"
-                let result = (state ^. (dashboardViewState <<< dbViewBlockPagination))
-                in (gShow result) `shouldEqual` (gShow pageNumber)
             it "to set dbViewLoadingBlockPagination to false" do
                 (state ^. (dashboardViewState <<< dbViewLoadingBlockPagination))
                     `shouldEqual` false
@@ -206,13 +246,6 @@ testUpdate =
                         ]
                 in (gShow result) `shouldEqual` (gShow expected)
 
-        describe "handles DashboardPaginateBlocks action" do
-            let newPage = PageNumber 4
-                effModel = update (DashboardPaginateBlocks Nothing newPage) initialState
-                state = _.state effModel
-            it "to set dbViewNextBlockPagination"
-                let result = state ^. (dashboardViewState <<< dbViewNextBlockPagination)
-                in (gShow result) `shouldEqual` (gShow newPage)
         describe "uses action SocketConnected" do
             it "to update connection to connected"
                 let effModel = update (SocketConnected true) initialState
@@ -227,7 +260,7 @@ testUpdate =
 
         describe "uses action SocketAddSubscription" do
             it "to add a first subscription"
-                let subItem = mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
+                let subItem = mkSocketSubscriptionItem (SocketSubscription SubAddr) SocketNoData
                     effModel = update (SocketAddSubscription subItem) initialState
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
@@ -237,27 +270,27 @@ testUpdate =
                                         [ mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
                                         ]
                                         initialState
-                    subItem = mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
+                    subItem = mkSocketSubscriptionItem (SocketSubscription SubAddr) SocketNoData
                     effModel = update (SocketAddSubscription subItem) initialState'
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
                     expected =  [ mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
-                                , mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
+                                , mkSocketSubscriptionItem (SocketSubscription SubAddr) SocketNoData
                                 ]
                 in (gShow result) `shouldEqual` (gShow expected)
 
         describe "uses action SocketRemoveSubscription" do
             it "to not remove anything, if we do have an empty list of subscriptions"
-                let subItem = mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
+                let subItem = mkSocketSubscriptionItem (SocketSubscription SubAddr) SocketNoData
                     effModel = update (SocketRemoveSubscription subItem) initialState
                     state = _.state effModel
                     result = length $ state ^. socket <<< subscriptions
                 in result `shouldEqual` 0
             it "to remove a subscription"
-                let subItem = mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
+                let subItem = mkSocketSubscriptionItem (SocketSubscription SubAddr) SocketNoData
                     initialState' = set (socket <<< subscriptions)
                                         [ mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
-                                        , mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
+                                        , mkSocketSubscriptionItem (SocketSubscription SubAddr) SocketNoData
                                         ]
                                         initialState
                     effModel = update (SocketRemoveSubscription subItem) initialState'
@@ -277,7 +310,7 @@ testUpdate =
             it "to remove all subscription"
                 let initialState' = set (socket <<< subscriptions)
                                         [ mkSocketSubscriptionItem (SocketSubscription SubTx) SocketNoData
-                                        , mkSocketSubscriptionItem (SocketSubscription SubBlock) SocketNoData
+                                        , mkSocketSubscriptionItem (SocketSubscription SubAddr) SocketNoData
                                         ]
                                         initialState
                     effModel = update SocketClearSubscriptions initialState'

@@ -2,10 +2,12 @@
 {-# OPTIONS_GHC -ddump-splices #-}
 module Pos.Binary.Cbor.Test where
 
-import           Pos.Binary.Cbor.Class
-import           Pos.Binary.Cbor.TH
-import           Pos.Binary.Cbor.Serialization
+import           Pos.Binary.Cbor
 import           Universum
+import           Data.Fixed
+import           Test.QuickCheck hiding (Fixed)
+import           Pos.Core.Fee
+import           Pos.Binary.Core.Fee()
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -51,3 +53,11 @@ instance Bi T where
         0 ->         T1 . deserialize . BSL.fromStrict <$> decode
         1 -> uncurry T2 . deserialize . BSL.fromStrict <$> decode
         t -> Unknown t                                 <$> decode
+
+coeffRoundtripProperty :: Property
+coeffRoundtripProperty = forAll arbitrary $ \integer ->
+  let input = Coeff ((MkFixed integer) :: Nano)
+  in ((deserialize . serialize $ input) :: Coeff) === input
+
+roundtrips = do
+  quickCheck coeffRoundtripProperty

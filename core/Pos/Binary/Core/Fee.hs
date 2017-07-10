@@ -6,13 +6,15 @@ module Pos.Binary.Core.Fee () where
 
 import           Universum
 
-import           Data.Fixed       (Fixed (..))
+import           Data.Fixed       (Fixed (..), Nano)
 
 import           Pos.Binary.Class (Bi (..), FixedSizeInt (..), PokeWithSize,
                                    convertToSizeNPut, getBytes, getWithLength, getWord8,
                                    label, labelS, putBytesS, putField, putS,
                                    putWithLengthS, putWord8S)
 import           Pos.Core.Fee     (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
+
+import qualified Pos.Binary.Cbor  as Cbor
 
 instance Bi Coeff where
     get = label "Coeff" $ do
@@ -21,12 +23,23 @@ instance Bi Coeff where
     sizeNPut = labelS "Coeff" $
         putField $ \(Coeff (MkFixed a)) -> FixedSizeInt (fromIntegral a :: Int64)
 
+instance Cbor.Bi Coeff where
+  encode (Coeff n) = Cbor.encode n
+  decode = Coeff <$> Cbor.decode @Nano
+
 instance Bi TxSizeLinear where
     get = label "TxSizeLinear" $
         TxSizeLinear <$> get <*> get
     sizeNPut = labelS "TxSizeLinear" $
         putField (\(TxSizeLinear a _) -> a) <>
         putField (\(TxSizeLinear _ b) -> b)
+
+instance Cbor.Bi TxSizeLinear where
+  encode (TxSizeLinear a b) = Cbor.encode a <> Cbor.encode b
+  decode = do
+    a <- Cbor.decode @Coeff
+    b <- Cbor.decode @Coeff
+    return $ TxSizeLinear a b
 
 instance Bi TxFeePolicy where
     get = label "TxFeePolicy" $ do
@@ -43,3 +56,13 @@ instance Bi TxFeePolicy where
         -- | Put tag, then length of X, then X itself
         putWithTag :: Word8 -> PokeWithSize () -> PokeWithSize ()
         putWithTag t x = putWord8S t <> putWithLengthS x
+
+instance Cbor.Bi TxFeePolicy where
+  encode policy = case policy of
+    TxFeePolicyTxSizeLinear txSizeLinear -> Cbor.encode (0 :: Word8) <> Cbor.encode txSizeLinear
+    TxFeePolicyUnknown word8 bs          -> Cbor.encode word8 <> Cbor.encode bs
+  decode = do
+    tag <- Cbor.decode @Word8
+    case tag of
+      0 -> TxFeePolicyTxSizeLinear <$> Cbor.decode @TxSizeLinear
+      _ -> TxFeePolicyUnknown tag <$> Cbor.decode

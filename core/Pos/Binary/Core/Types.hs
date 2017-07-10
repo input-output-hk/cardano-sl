@@ -13,8 +13,6 @@ import           Pos.Binary.Core.Fee        ()
 import           Pos.Binary.Core.Script     ()
 import           Pos.Binary.Core.Version    ()
 import qualified Pos.Binary.Cbor            as Cbor
-import qualified Codec.CBOR.Encoding        as Cbor.Encoding
-import qualified Codec.CBOR.Decoding        as Cbor.Decoding
 import qualified Pos.Core.Fee               as T
 import qualified Pos.Core.Types             as T
 import qualified Pos.Data.Attributes        as A
@@ -36,8 +34,8 @@ instance Bi T.EpochIndex where
     get = label "EpochIndex" $ T.EpochIndex . getUnsignedVarInt <$> get
 
 instance Cbor.Bi T.EpochIndex where
-  encode (T.EpochIndex epoch) = Cbor.Encoding.encodeWord64 epoch
-  decode = T.EpochIndex <$> Cbor.Decoding.decodeWord64
+  encode (T.EpochIndex epoch) = Cbor.encode epoch
+  decode = T.EpochIndex <$> Cbor.decode
 
 instance Bi (A.Attributes ()) where
     size = VarSize $ A.sizeAttributes (\() -> [])
@@ -50,9 +48,21 @@ instance Bi T.Coin where
     put = labelP "Coin" . mapM_ putWord8 . BinCoin.encode
     get = label "Coin" $ BinCoin.decode
 
+instance Cbor.Bi T.Coin where
+  encode = Cbor.encode . T.unsafeGetCoin
+  decode = T.mkCoin <$> Cbor.decode
+
 instance Bi T.CoinPortion where
     sizeNPut = labelS "CoinPortion" $ putField T.getCoinPortion
     get = label "CoinPortion" $ get >>= T.mkCoinPortion
+
+instance Cbor.Bi T.CoinPortion where
+  encode = Cbor.encode . T.getCoinPortion
+  decode = do
+    coinPortion <- Cbor.decode @Word64
+    case T.mkCoinPortion coinPortion of
+      Nothing -> fail $ "Cannot construct valid CoinPortion from " <> show coinPortion
+      Just cp -> return cp
 
 instance Bi T.LocalSlotIndex where
     sizeNPut = labelS "LocalSlotIndex" $

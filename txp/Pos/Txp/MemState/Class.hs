@@ -7,6 +7,7 @@
 module Pos.Txp.MemState.Class
        ( MonadTxpMem
        , askTxpMem
+       , askTxpMemAndMetrics
        , TxpHolderTag
        , getUtxoModifier
        , getLocalTxsNUndo

@@ -1,11 +1,14 @@
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -ddump-splices #-}
 module Pos.Binary.Cbor.Test where
 
-import           Pos.Binary.Cbor.Class
-import           Pos.Binary.Cbor.TH
-import           Pos.Binary.Cbor.Serialization
+import           Pos.Binary.Cbor
 import           Universum
+import           Test.QuickCheck
+import           Pos.Core.Fee
+import           Pos.Binary.Core.Fee()
+import           Pos.Core.Arbitrary()
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -51,3 +54,17 @@ instance Bi T where
         0 ->         T1 . deserialize . BSL.fromStrict <$> decode
         1 -> uncurry T2 . deserialize . BSL.fromStrict <$> decode
         t -> Unknown t                                 <$> decode
+
+-- | Given a data type which can be generated randomly and for which the CBOR
+-- encoding is defined, generates the roundtrip tests.
+roundtripProperty :: (Arbitrary a, Eq a, Show a, Bi a) => Proxy a -> Property
+roundtripProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
+  ((deserialize . serialize $ input) :: a) === input
+
+-- | A set of basic yet-useful roundtrips properties to be included as part
+-- of a bigger testsuite.
+roundtrips :: IO ()
+roundtrips = do
+  quickCheck (roundtripProperty @Coeff Proxy)
+  quickCheck (roundtripProperty @TxSizeLinear Proxy)
+  quickCheck (roundtripProperty @TxFeePolicy Proxy)

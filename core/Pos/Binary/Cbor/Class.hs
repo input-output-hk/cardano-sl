@@ -9,6 +9,7 @@ import           Codec.CBOR.Encoding
 import qualified Data.Binary                 as Binary
 import qualified Data.ByteString             as BS
 import qualified Data.ByteString.Lazy        as BS.Lazy
+import           Data.Fixed                  (Fixed(..), Nano)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
 import qualified Data.Set                    as S
@@ -117,6 +118,10 @@ instance Bi Int where
 instance Bi Int32 where
     encode = encodeInt32
     decode = decodeInt32
+
+instance Bi Nano where
+    encode (MkFixed resolution) = encodeInteger resolution
+    decode = MkFixed <$> decodeInteger
 
 ----------------------------------------------------------------------------
 -- Tagged

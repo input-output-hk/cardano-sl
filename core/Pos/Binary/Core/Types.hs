@@ -59,10 +59,10 @@ instance Bi T.CoinPortion where
 instance Cbor.Bi T.CoinPortion where
   encode = Cbor.encode . T.getCoinPortion
   decode = do
-    coinPortion <- Cbor.decode @Word64
-    case T.mkCoinPortion coinPortion of
-      Nothing -> fail $ "Cannot construct valid CoinPortion from " <> show coinPortion
-      Just cp -> return cp
+    word64 <- Cbor.decode @Word64
+    case T.mkCoinPortion word64 of
+      Left err          -> fail err
+      Right coinPortion -> return coinPortion
 
 instance Bi T.LocalSlotIndex where
     sizeNPut = labelS "LocalSlotIndex" $
@@ -71,10 +71,24 @@ instance Bi T.LocalSlotIndex where
         label "LocalSlotIndex" $
         eitherToFail . T.mkLocalSlotIndex . getUnsignedVarInt =<< get
 
+instance Cbor.Bi T.LocalSlotIndex where
+  encode = Cbor.encode . T.getSlotIndex
+  decode = do
+    word16 <- Cbor.decode @Word16
+    case T.mkLocalSlotIndex word16 of
+      Left err        -> fail (toString err)
+      Right slotIndex -> return slotIndex
+
 deriveSimpleBi ''T.SlotId [
     Cons 'T.SlotId [
         Field [| T.siEpoch :: T.EpochIndex     |],
         Field [| T.siSlot  :: T.LocalSlotIndex |]
+    ]]
+
+Cbor.deriveSimpleBi ''T.SlotId [
+    Cbor.Cons 'T.SlotId [
+        Cbor.Field [| T.siEpoch :: T.EpochIndex     |],
+        Cbor.Field [| T.siSlot  :: T.LocalSlotIndex |]
     ]]
 
 instance Bi T.EpochOrSlot where

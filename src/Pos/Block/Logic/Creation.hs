@@ -23,7 +23,6 @@ import           Data.Default               (Default (def))
 import qualified Data.HashMap.Strict        as HM
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, fixed, ords, sformat, stext, (%))
-import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (Byte, memory)
 import           System.Wlog                (logDebug, logError, logInfo)
 
@@ -104,7 +103,7 @@ createGenesisBlock
     => EpochIndex -> m (Maybe (GenesisBlock ssc))
 -- Genesis block for 0-th epoch is hardcoded.
 createGenesisBlock 0 = pure Nothing
-createGenesisBlock epoch = reportingFatal version $ do
+createGenesisBlock epoch = reportingFatal $ do
     leadersOrErr <-
         try $
         lrcActionOnEpochReason epoch "there are no leaders" LrcDB.getLeaders
@@ -177,7 +176,7 @@ createMainBlock
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
 createMainBlock sId pske =
-    reportingFatal version $ withBlkSemaphore createMainBlockDo
+    reportingFatal $ withBlkSemaphore createMainBlockDo
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
     createMainBlockDo tip = do
@@ -276,7 +275,7 @@ createMainBlockFinish slotId pske prevHeader = do
     fallbackCreateBlock er = do
         logError $ sformat ("We've created bad main block: "%stext) er
         -- FIXME [CSL-1340]: it should be reported as 'RError'.
-        lift $ reportMisbehaviourSilent version False $
+        lift $ reportMisbehaviourSilent False $
             sformat ("We've created bad main block: "%build) er
         logDebug $ "Creating empty block"
         clearMempools

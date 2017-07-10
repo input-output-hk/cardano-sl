@@ -383,7 +383,7 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    sendReport (encodeString logPath:logFiles) [] (RCrash ec) "cardano-node" version reportServ
+    sendReport (encodeString logPath:logFiles) [] (RCrash ec) "cardano-node" reportServ
 
 ----------------------------------------------------------------------------
 -- Utils

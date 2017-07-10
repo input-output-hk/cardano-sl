@@ -18,7 +18,6 @@ import           Control.Monad.Except     (ExceptT (ExceptT), MonadError (throwE
                                            runExceptT, withExceptT)
 import qualified Data.List.NonEmpty       as NE
 import           Ether.Internal           (HasLens (..))
-import           Paths_cardano_sl         (version)
 import           System.Wlog              (logDebug)
 
 import           Pos.Block.Core           (Block)
@@ -102,7 +101,7 @@ verifyAndApplyBlocks
     :: (BlockLrcMode ssc ctx m)
     => Bool -> OldestFirst NE (Block ssc) -> m (Either Text HeaderHash)
 verifyAndApplyBlocks rollback =
-    reportingFatal version . verifyAndApplyBlocksInternal True rollback
+    reportingFatal . verifyAndApplyBlocksInternal True rollback
 
 -- See the description for verifyAndApplyBlocks. This method also
 -- parameterizes LRC calculation which can be turned on/off with the first
@@ -229,7 +228,7 @@ applyWithRollback
     => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
     -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
     -> m (Either Text HeaderHash)
-applyWithRollback toRollback toApply = reportingFatal version $ runExceptT $ do
+applyWithRollback toRollback toApply = reportingFatal $ runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $ do
         throwError (tipMismatchMsg "rollback in 'apply with rollback'" tip newestToRollback)

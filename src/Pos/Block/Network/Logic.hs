@@ -32,7 +32,6 @@ import           Ether.Internal             (HasLens (..))
 import           Formatting                 (bprint, build, builder, sformat, shown,
                                              stext, (%))
 import           Mockable                   (fork)
-import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatFirstError)
@@ -521,7 +520,7 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
     reportRollback =
         recoveryCommGuard $ do
             logDebug "Reporting rollback happened"
-            reportMisbehaviourSilent version False $
+            reportMisbehaviourSilent False $
                 sformat reportF nodeId toRollbackHashes toApplyHashes
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

@@ -17,7 +17,6 @@ import           Development.GitRev  (gitBranch, gitHash)
 import           Ether.Internal      (HasLens (..))
 import           Formatting          (build, sformat, shown, (%))
 import           Mockable            (fork)
-import           Paths_cardano_sl    (version)
 import           Serokell.Util.Text  (listJson)
 import           System.Exit         (ExitCode (..))
 import           System.Wlog         (WithLogger, getLoggerName, logError, logInfo,
@@ -98,7 +97,7 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     -- FIXME [CSL-1340]: it should be reported as 'RError'.
     reportHandler (SomeException e) = do
         loggerName <- getLoggerName
-        reportMisbehaviourSilent version False $
+        reportMisbehaviourSilent False $
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e

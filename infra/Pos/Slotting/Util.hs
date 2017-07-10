@@ -25,7 +25,6 @@ module Pos.Slotting.Util
 import           Data.Time.Units        (Millisecond, convertUnit)
 import           Formatting             (build, int, sformat, shown, (%))
 import           Mockable               (Delay, Fork, Mockable, delay, fork)
-import           Paths_cardano_sl_infra (version)
 import           Serokell.Util          (sec)
 import           System.Wlog            (WithLogger, logDebug, logError, logInfo,
                                          logNotice, modifyLoggerName)
@@ -125,7 +124,7 @@ onNewSlotImpl
     :: forall ctx m. OnNewSlot ctx m
     => Bool -> Bool -> (SlotId -> m ()) -> m ()
 onNewSlotImpl withLogging startImmediately action =
-    reportingFatal version impl `catch` workerHandler
+    reportingFatal impl `catch` workerHandler
   where
     impl = onNewSlotDo withLogging Nothing startImmediately actionWithCatch
     actionWithCatch s = action s `catch` actionHandler
@@ -139,7 +138,7 @@ onNewSlotImpl withLogging startImmediately action =
         let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
         logError $ msg
         -- [CSL-1340] FIXME: it's not misbehavior, it should be reported as 'RError'.
-        reportMisbehaviourSilent version False msg
+        reportMisbehaviourSilent False msg
         delay =<< getLastKnownSlotDuration
         onNewSlotImpl withLogging startImmediately action
 

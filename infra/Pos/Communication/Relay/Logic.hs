@@ -37,7 +37,6 @@ import           Formatting                         (build, sformat, shown, stex
 import           Mockable                           (Mockable, MonadMockable, Throw,
                                                      currentTime, handleAll, throw)
 import           Node.Message.Class                 (Message)
-import           Paths_cardano_sl_infra             (version)
 import           System.Wlog                        (WithLogger, logDebug, logError,
                                                      logInfo, logWarning)
 import           Universum
@@ -340,7 +339,7 @@ relayWorkersImpl
     => OutSpecs -> ([WorkerSpec m], OutSpecs)
 relayWorkersImpl allOutSpecs =
     first (:[]) $ worker allOutSpecs $ \sendActions ->
-        handleAll handleWE $ reportingFatal version $ action sendActions
+        handleAll handleWE $ reportingFatal $ action sendActions
   where
     action sendActions = do
         queue <- _rlyPropagationQueue <$> askRelayMem

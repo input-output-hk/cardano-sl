@@ -21,7 +21,6 @@ import qualified Data.HashSet               as HS
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (forConcurrently)
-import           Paths_cardano_sl           (version)
 import           Serokell.Util.Exceptions   ()
 import           System.Wlog                (logDebug, logInfo, logWarning)
 
@@ -78,7 +77,8 @@ lrcOnNewSlotWorker = localOnNewSlotWorker True $ \SlotId {..} ->
     onLrcError e = reportError e >> throwM e
     -- FIXME [CSL-1340]: it should be reported as 'RError'.
     reportError e =
-        reportMisbehaviourSilent version False $ "Lrc worker failed with error: " <> show e
+        reportMisbehaviourSilent False $
+        "Lrc worker failed with error: " <> show e
 
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.
 type LrcModeFull ssc ctx m =

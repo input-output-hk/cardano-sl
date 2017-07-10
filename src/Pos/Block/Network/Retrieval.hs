@@ -16,7 +16,6 @@ import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, builder, int, sformat, shown, stext,
                                              (%))
 import           Mockable                   (delay, handleAll, throw)
-import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util              (listJson, sec)
 import           System.Wlog                (logDebug, logError, logInfo, logWarning)
@@ -81,7 +80,7 @@ retrievalWorkerImpl sendActions =
         logDebug "Starting retrievalWorker loop"
         mainLoop
   where
-    mainLoop = runIfNotShutdown $ reportingFatal version $ do
+    mainLoop = runIfNotShutdown $ reportingFatal $ do
         queue        <- view (lensOf @BlockRetrievalQueueTag)
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         logDebug "Waiting on the block queue or recovery header var"
@@ -102,7 +101,7 @@ retrievalWorkerImpl sendActions =
     --
     handleBlockRetrieval nodeId BlockRetrievalTask{..} =
         handleAll (handleBlockRetrievalE nodeId brtHeader) $
-        reportingFatal version $
+        reportingFatal $
         (if brtContinues then handleContinues else handleAlternative)
             nodeId
             brtHeader

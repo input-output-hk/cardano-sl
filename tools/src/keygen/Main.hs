@@ -175,11 +175,11 @@ genGenesisFiles GenesisGenOptions{..} = do
             [mAvvmAddrDistr, mFakeAvvmAddrDistr, view _1 <$> mTestnetData]
     when (null gcdAddrDistribution) $ error "gcdAddrDistribution is empty"
     -- boot stakeholders
-    let gcdBootstrapStakeholders =
-            mconcat $ catMaybes
-            [ view _2 <$> mTestnetData
-            -- , CSL-1315 real boot stakeholders for mainnet, as addresses list
-            ]
+    let gcdBootstrapStakeholders
+            | null ggoBootStakeholders =
+                mconcat $ catMaybes [ view _2 <$> mTestnetData ]
+            | otherwise =
+                HM.fromList ggoBootStakeholders
     when (null gcdBootstrapStakeholders) $
         error "gcdBootstrapStakeholders is empty. Current keygen implementation \
               \doesn't support explicit boot stakeholders, so if testnet is not \

@@ -43,7 +43,7 @@ data GenesisGenOptions = GenesisGenOptions
     , ggoFakeAvvmStake    :: Maybe FakeAvvmOptions
     , ggoBootStakeholders :: [(StakeholderId, Word16)]
       -- ^ Explicit bootstrap era stakeholders, list of addresses with
-      -- weights (@[(A, 0.5), (B, 0.2), (C, 0.3)]@). Setting this
+      -- weights (@[(A, 5), (B, 2), (C, 3)]@). Setting this
       -- overrides default settings for boot stakeholders (e.g. rich
       -- in testnet stakes).
     } deriving (Show)

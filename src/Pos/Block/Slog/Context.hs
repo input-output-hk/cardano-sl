@@ -16,8 +16,8 @@ import           Pos.DB.GState        (getLastSlots)
 -- | Make new 'SlogContext' using data from DB.
 mkSlogContext :: (MonadIO m, MonadDBRead m) => m SlogContext
 mkSlogContext = do
-  _scLastBlkSlots <- getLastSlots >>= newIORef
-  return SlogContext {..}
+    _scLastBlkSlots <- getLastSlots >>= newIORef
+    return SlogContext {..}
 
 -- | Read 'LastBlkSlots' from in-memory state.
 slogGetLastSlots ::

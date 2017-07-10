@@ -54,7 +54,7 @@ import           Pos.Update.Poll.Types   (BlockVersionState (..),
                                           ConfirmedProposalState (..),
                                           DecidedProposalState (..), DpsExtra (..),
                                           ProposalState (..), UndecidedProposalState (..),
-                                          UpsExtra (..), bvsScriptVersion,
+                                          UpsExtra (..), bvsIsConfirmed, bvsScriptVersion,
                                           cpsBlockVersion)
 
 ----------------------------------------------------------------------------
@@ -69,12 +69,13 @@ isConfirmedBV = fmap (maybe False bvsIsConfirmed) . getBVState
 getBVScriptVersion :: MonadPollRead m => BlockVersion -> m (Maybe ScriptVersion)
 getBVScriptVersion = fmap (fmap bvsScriptVersion) . getBVState
 
--- | Mark given 'BlockVersion' as confirmed if it is known.
-confirmBlockVersion :: MonadPoll m => BlockVersion -> m ()
-confirmBlockVersion bv =
+-- | Mark given 'BlockVersion' as confirmed if it is known. This
+-- function also takes epoch when proposal was confirmed.
+confirmBlockVersion :: MonadPoll m => EpochIndex -> BlockVersion -> m ()
+confirmBlockVersion confirmedEpoch bv =
     getBVState bv >>= \case
         Nothing -> pass
-        Just bvs -> putBVState bv bvs {bvsIsConfirmed = True}
+        Just bvs -> putBVState bv bvs {bvsConfirmedEpoch = Just confirmedEpoch}
 
 -- | Check whether block with given 'BlockVersion' can be created
 -- according to current Poll.

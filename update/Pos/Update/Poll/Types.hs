@@ -18,6 +18,7 @@ module Pos.Update.Poll.Types
 
          -- * BlockVersion state
        , BlockVersionState (..)
+       , bvsIsConfirmed
        , bvsScriptVersion
        , bvsSlotDuration
        , bvsMaxBlockSize
@@ -54,9 +55,10 @@ import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Core.Types             (ApplicationName, BlockVersion,
-                                             ChainDifficulty, Coin, HeaderHash,
-                                             NumSoftwareVersion, ScriptVersion, SlotId,
-                                             SoftwareVersion, StakeholderId, mkCoin)
+                                             ChainDifficulty, Coin, EpochIndex,
+                                             HeaderHash, NumSoftwareVersion,
+                                             ScriptVersion, SlotId, SoftwareVersion,
+                                             StakeholderId, mkCoin)
 import           Pos.Slotting.Types         (SlottingData)
 import           Pos.Update.Core            (BlockVersionData (..),
                                              BlockVersionModifier (..), StakeholderVotes,
@@ -177,8 +179,9 @@ instance NFData ProposalState
 data BlockVersionState = BlockVersionState
     { bvsModifier          :: !BlockVersionModifier
     -- ^ 'BlockVersionModifier' associated with this block version.
-    , bvsIsConfirmed       :: !Bool
-    -- ^ Whether proposal with this block version is confirmed.
+    , bvsConfirmedEpoch    :: !(Maybe EpochIndex)
+    -- ^ Epoch when proposal which generated this block block version
+    -- was confirmed.
     , bvsIssuersStable     :: !(HashSet StakeholderId)
     -- ^ Identifiers of stakeholders which issued stable blocks with this
     -- 'BlockVersion'. Stability is checked by the same rules as used in LRC.
@@ -193,6 +196,11 @@ data BlockVersionState = BlockVersionState
     , bvsLastBlockUnstable :: !(Maybe HeaderHash)
     -- ^ Identifier of last block which modified set of 'bvsIssuersUnstable'.
     } deriving (Eq, Show, Generic)
+
+-- | Check whether proposal which generated given 'BlockVersionState'
+-- is confirmed.
+bvsIsConfirmed :: BlockVersionState -> Bool
+bvsIsConfirmed = isJust . bvsConfirmedEpoch
 
 bvsScriptVersion :: BlockVersionState -> ScriptVersion
 bvsScriptVersion = bvmScriptVersion . bvsModifier

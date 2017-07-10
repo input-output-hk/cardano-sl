@@ -202,7 +202,7 @@ deriveSimpleBi ''U.ConfirmedProposalState [
 deriveSimpleBi ''U.BlockVersionState [
     Cons 'U.BlockVersionState [
         Field [| U.bvsModifier          :: U.BlockVersionModifier |],
-        Field [| U.bvsIsConfirmed       :: Bool                   |],
+        Field [| U.bvsConfirmedEpoch    :: Maybe EpochIndex       |],
         Field [| U.bvsIssuersStable     :: HashSet StakeholderId  |],
         Field [| U.bvsIssuersUnstable   :: HashSet StakeholderId  |],
         Field [| U.bvsLastBlockStable   :: Maybe HeaderHash       |],

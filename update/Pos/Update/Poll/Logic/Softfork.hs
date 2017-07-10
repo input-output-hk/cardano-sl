@@ -77,22 +77,22 @@ processGenesisBlock epoch = do
     -- TODO: compute threshold properly
     let softforkThd = srInitThd bvdSoftforkRule
     let threshold = applyCoinPortion softforkThd totalStake
-    -- Then we take all confirmed BlockVersions and check softfork
+    -- Then we take all competing BlockVersions and check softfork
     -- resolution rule for them.
-    confirmed <- getCompetingBVStates
-    logConfirmedBVStates confirmed
-    toAdoptList <- catMaybes <$> mapM (checkThreshold threshold) confirmed
+    competing <- getCompetingBVStates
+    logCompetingBVStates competing
+    toAdoptList <- catMaybes <$> mapM (checkThreshold threshold) competing
     logWhichCanBeAdopted $ map fst toAdoptList
     -- We also do sanity check in assert mode just in case.
-    inAssertMode $ sanityCheckConfirmed $ map fst confirmed
+    inAssertMode $ sanityCheckCompeting $ map fst competing
     case nonEmpty toAdoptList of
         -- If there is nothing to adopt, we move unstable issuers to stable
         -- and that's all.
-        Nothing                         -> mapM_ moveUnstable confirmed
+        Nothing                         -> mapM_ moveUnstable competing
         -- Otherwise we choose version to adopt, adopt it, remove all
         -- versions which no longer can be adopted and only then move
         -- unstable to stable.
-        Just (chooseToAdopt -> toAdopt) -> adoptAndFinish confirmed toAdopt
+        Just (chooseToAdopt -> toAdopt) -> adoptAndFinish competing toAdopt
     -- In the end we also update slotting data to the most recent state.
     updateSlottingData epoch
     setEpochProposers mempty
@@ -108,12 +108,13 @@ processGenesisBlock epoch = do
         adoptBlockVersion winningBlock bv
         filterBVAfterAdopt (fst <$> allConfirmed)
         mapM_ moveUnstable =<< getCompetingBVStates
-    logConfirmedBVStates [] =
+    logCompetingBVStates [] =
         logInfo ("We are processing genesis block, currently we don't have " <>
                 "competing block versions")
-    logConfirmedBVStates versions = do
+    logCompetingBVStates versions = do
         logInfo $ sformat
-                  ("We are processing genesis block, competing block versions are: "%listJson)
+                  ("We are processing genesis block, "%
+                   "competing block versions are: "%listJson)
                   (map fst versions)
         mapM_ logBVIssuers versions
     logBVIssuers (bv, BlockVersionState {..}) =
@@ -164,13 +165,13 @@ filterBVAfterAdopt = mapM_ filterBVAfterAdoptDo
   where
     filterBVAfterAdoptDo bv = unlessM (canBeAdoptedBV bv) $ delBVState bv
 
--- Here we check that all confirmed versions satisfy 'canBeAdoptedBV' predicate.
-sanityCheckConfirmed
+-- Here we check that all competing versions satisfy 'canBeAdoptedBV' predicate.
+sanityCheckCompeting
     :: (MonadError PollVerFailure m, MonadPollRead m)
     => [BlockVersion] -> m ()
-sanityCheckConfirmed = mapM_ sanityCheckConfirmedDo
+sanityCheckCompeting = mapM_ sanityCheckConfirmedDo
   where
     sanityCheckConfirmedDo bv = unlessM (canBeAdoptedBV bv) $
         throwError $ PollInternalError $ sformat fmt bv
-    fmt = "we have confirmed block version which doesn't satisfy "%
+    fmt = "we have competing block version which doesn't satisfy "%
           "'canBeAdoptedBV' predicate: "%build%" :unamused:"

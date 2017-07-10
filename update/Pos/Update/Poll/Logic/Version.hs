@@ -68,11 +68,11 @@ verifyAndApplyProposalBVS upId epoch up =
         -- checks against the previous known block version state
         Nothing -> do
             let newBVS = BlockVersionState
-                  { bvsModifier = proposedBVM
-                  , bvsIsConfirmed   = False
-                  , bvsIssuersStable = mempty
-                  , bvsIssuersUnstable = mempty
-                  , bvsLastBlockStable = Nothing
+                  { bvsModifier          = proposedBVM
+                  , bvsConfirmedEpoch    = Nothing
+                  , bvsIssuersStable     = mempty
+                  , bvsIssuersUnstable   = mempty
+                  , bvsLastBlockStable   = Nothing
                   , bvsLastBlockUnstable = Nothing
                   }
             oldBVD <- getAdoptedBVData

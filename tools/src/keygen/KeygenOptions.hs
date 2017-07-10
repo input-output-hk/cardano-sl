@@ -41,7 +41,7 @@ data GenesisGenOptions = GenesisGenOptions
     , ggoTestStake        :: Maybe TestStakeOptions
     , ggoAvvmStake        :: Maybe AvvmStakeOptions
     , ggoFakeAvvmStake    :: Maybe FakeAvvmOptions
-    , ggoBootStakeholders :: [(StakeholderId, Double)]
+    , ggoBootStakeholders :: [(StakeholderId, Word16)]
       -- ^ Explicit bootstrap era stakeholders, list of addresses with
       -- weights (@[(A, 0.5), (B, 0.2), (C, 0.3)]@). Setting this
       -- overrides default settings for boot stakeholders (e.g. rich
@@ -154,27 +154,29 @@ fakeAvvmParser = do
         help    "A stake assigned to each of fake AVVM stakeholders."
     return FakeAvvmOptions{..}
 
-bootStakeholderParser :: Parser (StakeholderId, Double)
+bootStakeholderParser :: Parser (StakeholderId, Word16)
 bootStakeholderParser =
     option (fromParsec pairParser) $
         long "bootstakeholder" <>
-        metavar "ADDRESS,DOUBLE" <>
+        metavar "ADDRESS,INTEGER" <>
         help "Explicit boot stakeholder with his stake weight for the boot era."
   where
-    pairParser :: P.Parser (StakeholderId, Double)
+    pairParser :: P.Parser (StakeholderId, Word16)
     pairParser = do
         st <- stakeholderId
         void $ P.char ','
-        d <- double
+        d <- word16
         pure (st,d)
 
     lexeme :: P.Parser a -> P.Parser a
     lexeme p = P.spaces *> p >>= \x -> P.spaces $> x
 
-    double :: P.Parser Double
-    double = lexeme $ do
-        val <- readMaybe <$> P.many1 (P.digit <|> P.char '.')
-        maybe (fail $ show val <> " is not a valid double") pure val
+    word16 :: P.Parser Word16
+    word16 = lexeme $ do
+        val <- readMaybe <$> P.many1 P.digit
+        maybe (fail $ show val <> " is not a valid word16")
+              (pure . fromInteger)
+              val
 
     stakeholderId :: P.Parser StakeholderId
     stakeholderId = lexeme $ do
@@ -183,7 +185,8 @@ bootStakeholderParser =
             Left err                  -> fail (toString err)
             Right (PubKeyAddress{..}) -> pure addrKeyHash
             Right p                   ->
-                fail $ "Expected public key address, but it's " <> pretty p
+                fail $ "Expected public key address, but it's " ++
+                       toString (pretty p)
 
 getKeygenOptions :: IO KeygenOptions
 getKeygenOptions = execParser programInfo
@@ -211,9 +214,9 @@ Command example:
     --randcerts                                         \
     --blacklisted /tmp/avvm-files/full_blacklist.js     \
     --fake-avvm-entries 100                             \
-    --bootstakeholder "1fKNcnJ44voGtWmekuKic1HJdbHEwd1YEwZNu6XaAwE8RSk,0.5" \
-    --bootstakeholder "1HJdbHEwd1YEwZNu6XaAwE8RSk1fKNcnJ44voGtWmekuKic,0.3" \
-    --bootstakeholder "8RSk1fKNcnJ41HJdbNu6XaAwE4voGtWmekuHEwd1YEwZKic,0.2"
+    --bootstakeholder "1fKNcnJ44voGtWmekuKic1HJdbHEwd1YEwZNu6XaAwE8RSk,5" \
+    --bootstakeholder "1HJdbHEwd1YEwZNu6XaAwE8RSk1fKNcnJ44voGtWmekuKic,3" \
+    --bootstakeholder "8RSk1fKNcnJ41HJdbNu6XaAwE4voGtWmekuHEwd1YEwZKic,2"
 
 Subdirectory 'genesis-*/keys-testnet' contains keys for uploading to nodes (in cluster).
 Subdirectory 'genesis-*/keys-fakeavvm' contains AVVM seeds. |]

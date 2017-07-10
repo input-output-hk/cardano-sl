@@ -67,9 +67,10 @@ import           Pos.Client.Txp.Util              (createMTx)
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
-import           Pos.Context                      (genesisStakeholdersM, GenesisUtxo)
-import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..), addressF,
-                                                   bvdTxFeePolicy, calculateTxSizeLinear,
+import           Pos.Context                      (GenesisUtxo, genesisStakeholdersM)
+import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..),
+                                                   addressF, bvdTxFeePolicy,
+                                                   calculateTxSizeLinear,
                                                    decodeTextAddress, getCurrentTimestamp,
                                                    getTimestamp, integerToCoin,
                                                    makeRedeemAddress, mkCoin, sumCoins,
@@ -103,7 +104,8 @@ import           Pos.Wallet.KeyStorage            (addSecretKey, deleteSecretKey
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.WalletMode            (applyLastUpdate,
                                                    blockchainSlotDuration, connectedPeers,
-                                                   getBalance, getLocalHistory, localChainDifficulty,
+                                                   getBalance, getLocalHistory,
+                                                   localChainDifficulty,
                                                    networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.Account           (AddrGenSeed, GenSeed (..),
                                                    genSaveRootKey,
@@ -140,8 +142,7 @@ import           Pos.Wallet.Web.Secret            (WalletUserSecret (..),
 import           Pos.Wallet.Web.Server.Sockets    (ConnectionsVar, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    notifyAll, upgradeApplicationWS)
-import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing),
-                                                   CustomAddressType (ChangeAddr, UsedAddr),
+import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing), CustomAddressType (ChangeAddr, UsedAddr),
                                                    addOnlyNewTxMeta, addUpdate,
                                                    addWAddress, closeState, createAccount,
                                                    createWallet, getAccountMeta,
@@ -157,7 +158,7 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Exis
                                                    setWalletPassLU, setWalletTxMeta,
                                                    testReset, updateHistoryCache)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
-import           Pos.Wallet.Web.Tracking          (sortedInsertions, CAccModifier (..),
+import           Pos.Wallet.Web.Tracking          (CAccModifier (..), sortedInsertions,
                                                    syncWalletOnImport,
                                                    syncWalletsWithGState,
                                                    txMempoolToModifier)
@@ -710,7 +711,8 @@ prepareTxInfoRaw moneySource dstDistr = do
                 -- we want to be able to distribute at least 1 coin to everybody
                 when (unsafeGetCoin c < fromIntegral (length genStakeholders)) $
                     cantSpendDust c
-                pure $ genesisSplitBoot genStakeholders c
+                -- TODO CSL-1351 boot stakeholders' weights are not used
+                pure $ genesisSplitBoot (HM.fromList $ map (,1) $ toList genStakeholders) c
 
     txOuts <- forM dstDistr $ \(cAddr, coin) -> do
         addr <- decodeCIdOrFail cAddr

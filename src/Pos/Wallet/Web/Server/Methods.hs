@@ -655,8 +655,13 @@ prepareTxInfo passphrase moneySource dstDistr = do
         notDstAddrs = filter (\a -> not $ cwamId a `S.member` dstAccAddrsSet) allAddrs
         coins = foldr1 unsafeAddCoin $ snd <$> dstDistr
     balances <- mapM getWAddressBalance notDstAddrs
-    -- Sort in decrease order
-    let addrWBal = reverse $ sortWith snd $ zip notDstAddrs balances
+    -- We want to minimise a fee of the transaction,
+    -- fee depends on a size of the transaction and
+    -- size depends on a number of inputs and outputs.
+    -- Hence we want to minimise the number of inputs,
+    -- so we should sort in descending order by amount
+    -- to minimise the number of taken inputs.
+    let addrWBal =  sortBy (comparing (Down . snd)) $ zip notDstAddrs balances
     txOuts <- forM dstDistr $ \(cAddr, coin) -> do
         addr <- decodeCIdOrFail cAddr
         pure $ TxOutAux (TxOut addr coin) []
@@ -677,7 +682,7 @@ prepareTxInfo passphrase moneySource dstDistr = do
     stabilizeTxFee
         :: WalletWebMode m
         => TxSizeLinear
-        -> [(CWAddressMeta, Coin)] -- All inputs, immputable
+        -> [(CWAddressMeta, Coin)] -- All inputs, immutable
         -> NonEmpty TxOutAux       -- Outputs, immutable
         -> Coin                    -- Total coins of outputs
         -> Int
@@ -735,7 +740,7 @@ prepareTxInfo passphrase moneySource dstDistr = do
     unknownFeePolicy =
         InternalError . sformat ("Unknown Fee Policy, tag: "%build)
 
--- Accept all addresses in decrease order (by coins)
+-- | Accept all addresses in descending order (by coins)
 -- Destination addresses
 -- Sum of destination addresses
 -- Approximate fee for buildable transaction

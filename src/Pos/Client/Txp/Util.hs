@@ -193,3 +193,4 @@ createRedemptionTx :: Utxo -> RedeemSecretKey -> TxOutputs -> Either TxError TxA
 createRedemptionTx utxo rsk outputs =
     uncurry (makeRedemptionTx rsk) <$>
     prepareInpOuts utxo (makeRedeemAddress $ redeemToPublic rsk) outputs
+

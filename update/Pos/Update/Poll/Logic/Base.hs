@@ -19,26 +19,33 @@ module Pos.Update.Poll.Logic.Base
        , confirmBlockVersion
        , updateSlottingData
        , verifyNextBVMod
+       , CurEpoch
+       , ConfirmedEpoch
+       , calcSoftforkThreshold
 
        , isDecided
        , voteToUProposalState
        , putNewProposal
        ) where
 
+import           Universum
+
 import           Control.Lens            (at)
 import           Control.Monad.Except    (MonadError (throwError))
 import qualified Data.HashMap.Strict     as HM
 import qualified Data.Set                as S
+import           Data.Tagged             (Tagged, untag)
 import           Data.Time.Units         (convertUnit)
 import           Formatting              (build, int, sformat, (%))
 import           System.Wlog             (WithLogger, logDebug, logNotice)
-import           Universum
 
 import           Pos.Binary.Update       ()
 import           Pos.Core                (BlockVersion (..), Coin, EpochIndex, HeaderHash,
                                           IsMainHeader (..), ScriptVersion, SlotId,
-                                          Timestamp (..), addressHash, coinToInteger,
-                                          difficultyL, headerHashG, isBootstrapEra,
+                                          SoftforkRule (..), Timestamp (..), addressHash,
+                                          applyCoinPortion, coinPortionDenominator,
+                                          coinToInteger, difficultyL, getCoinPortion,
+                                          headerHashG, isBootstrapEra, mkCoinPortion,
                                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin,
                                           unsafeSubCoin)
 import           Pos.Core.Constants      (epochSlots)
@@ -56,6 +63,7 @@ import           Pos.Update.Poll.Types   (BlockVersionState (..),
                                           ProposalState (..), UndecidedProposalState (..),
                                           UpsExtra (..), bvsIsConfirmed, bvsScriptVersion,
                                           cpsBlockVersion)
+import           Pos.Util.Util           (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- BlockVersion-related simple functions/operations
@@ -273,6 +281,58 @@ verifyNextBVMod upId epoch
               , pbeicUpId = upId
               }
     | otherwise = pass
+
+-- | Dummy type for tagging used by 'calcSoftforkThreshold'.
+data CurEpoch
+
+-- | Dummy type for tagging used by 'calcSoftforkThreshold'.
+data ConfirmedEpoch
+
+-- | Calculate how much stake issuers of blocks with some block
+-- version should have to make this version adopted.
+calcSoftforkThreshold ::
+       SoftforkRule
+    -> Coin
+    -> Tagged CurEpoch EpochIndex
+    -> Tagged ConfirmedEpoch EpochIndex
+    -> Coin
+calcSoftforkThreshold SoftforkRule {..} totalStake (untag -> curEpoch) (untag -> confirmedEpoch)
+    | curEpoch < confirmedEpoch =
+        error
+            "calcSoftforkThreshold: logical error, curEpoch < confirmedEpoch, can't happen"
+    | otherwise = applyCoinPortion portion totalStake
+  where
+    minuend :: Word64
+    minuend = getCoinPortion srInitThd
+    -- ↓ Can't overflow, because we explicitly check it above (↑). ↓
+    epochDiff :: Word64
+    epochDiff = fromIntegral $ curEpoch - confirmedEpoch
+    -- ↓ Maximal epoch difference such that decrement can be
+    -- calculated w/o overflow. ↓
+    maxEpochDiff = coinPortionDenominator `div` getCoinPortion srThdDecrement
+    -- ↓ Is evaluated only if 'epochDiff ≤ maxEpochDiff', in which
+    -- case overflow is impossible, moreover, 'subtrahend' should
+    -- represent a valid 'CoinPortion'. ↓
+    subtrahend :: Word64
+    subtrahend = getCoinPortion srThdDecrement * epochDiff
+    portion
+        -- ↓This condition↓ means that too many epochs passed so that
+        -- decrement doesn't even fit into 'CoinPortion'.
+        | epochDiff > maxEpochDiff = srMinThd
+        -- 'subtrahend + getCoinPortion srMinThd' can not overflow as
+        -- long as 2 'coinPortionDenominator's fit into 'Word64'
+        -- (which is true).
+        --
+        -- ↓Here↓ 'mkCoinPortion' is safe because:
+        -- • 'minued - subtrahend' can't underflow because it's ensured by
+        --   the guard;
+        -- • the value can't be negative, because the type is unsigned;
+        -- • the value can't be greater than max possible one, because
+        --   minuend represents a valid coin portion.
+        | minuend > subtrahend + getCoinPortion srMinThd =
+            leftToPanic @Text "calcSoftforkThreshold " $
+            mkCoinPortion (minuend - subtrahend)
+        | otherwise = srMinThd
 
 ----------------------------------------------------------------------------
 -- Wrappers for type-safety

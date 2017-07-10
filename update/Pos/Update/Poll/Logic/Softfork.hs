@@ -1,3 +1,6 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeOperators       #-}
+
 -- | Softfork resolution logic.
 
 module Pos.Update.Poll.Logic.Softfork
@@ -10,18 +13,20 @@ import           Universum
 import           Control.Monad.Except       (MonadError, throwError)
 import qualified Data.HashSet               as HS
 import qualified Data.List.NonEmpty         as NE
+import           Data.Tagged                (Tagged (..))
 import           Formatting                 (build, sformat, (%))
 import           Serokell.Util.Text         (listJson)
 import           System.Wlog                (logInfo)
 
 import           Pos.Core                   (BlockVersion, Coin, EpochIndex, HeaderHash,
                                              SlotId (..), SoftforkRule (..),
-                                             StakeholderId, applyCoinPortion, crucialSlot,
-                                             sumCoins, unsafeIntegerToCoin)
+                                             StakeholderId, crucialSlot, sumCoins,
+                                             unsafeIntegerToCoin)
 import           Pos.Update.Core            (BlockVersionData (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure    (PollVerFailure (..))
-import           Pos.Update.Poll.Logic.Base (adoptBlockVersion, canBeAdoptedBV,
+import           Pos.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch, adoptBlockVersion,
+                                             calcSoftforkThreshold, canBeAdoptedBV,
                                              updateSlottingData)
 import           Pos.Update.Poll.Types      (BlockVersionState (..))
 import           Pos.Util.Util              (inAssertMode)
@@ -68,20 +73,19 @@ recordBlockIssuance id bv slot h = do
 
 -- | Process creation of genesis block for given epoch.
 processGenesisBlock
-    :: (MonadError PollVerFailure m, MonadPoll m)
+    :: forall m. (MonadError PollVerFailure m, MonadPoll m)
     => EpochIndex -> m ()
 processGenesisBlock epoch = do
-    -- First thing to do is to find out threshold for softfork resolution rule.
+    -- First thing to do is to obtain values threshold for softfork
+    -- resolution rule check.
     totalStake <- note (PollUnknownStakes epoch) =<< getEpochTotalStake epoch
     BlockVersionData {..} <- getAdoptedBVData
-    -- TODO: compute threshold properly
-    let softforkThd = srInitThd bvdSoftforkRule
-    let threshold = applyCoinPortion softforkThd totalStake
-    -- Then we take all competing BlockVersions and check softfork
+    -- Then we take all competing BlockVersions and actually check softfork
     -- resolution rule for them.
     competing <- getCompetingBVStates
     logCompetingBVStates competing
-    toAdoptList <- catMaybes <$> mapM (checkThreshold threshold) competing
+    let checkThreshold' = checkThreshold totalStake bvdSoftforkRule
+    toAdoptList <- catMaybes <$> mapM checkThreshold' competing
     logWhichCanBeAdopted $ map fst toAdoptList
     -- We also do sanity check in assert mode just in case.
     inAssertMode $ sanityCheckCompeting $ map fst competing
@@ -97,11 +101,36 @@ processGenesisBlock epoch = do
     updateSlottingData epoch
     setEpochProposers mempty
   where
-    checkThreshold thd (bv, bvs) =
-        checkThresholdDo thd (bv, bvs) <$> calculateIssuersStake epoch bvs
-    checkThresholdDo thd (bv, bvs) stake
-        | stake >= thd = Just (bv, bvs)
-        | otherwise = Nothing
+    checkThreshold ::
+           Coin
+        -> SoftforkRule
+        -> (BlockVersion, BlockVersionState)
+        -> m $ Maybe (BlockVersion, BlockVersionState)
+    checkThreshold totalStake sr bvData@(bv, bvs) = do
+        let onNoConfirmedEpoch =
+                PollInternalError $
+                sformat
+                    ("checkThresholdDo: block version " %build %
+                     " is not competing, hello!")
+                    bv
+        confirmedEpoch <- note onNoConfirmedEpoch (bvsConfirmedEpoch bvs)
+        checkThresholdDo totalStake sr confirmedEpoch bvData <$>
+            calculateIssuersStake epoch bvs
+    checkThresholdDo ::
+           Coin
+        -> SoftforkRule
+        -> EpochIndex
+        -> (BlockVersion, BlockVersionState)
+        -> Coin
+        -> Maybe (BlockVersion, BlockVersionState)
+    checkThresholdDo totalStake sr confirmedEpoch bvData issuersStake =
+        let thd =
+                calcSoftforkThreshold
+                    sr
+                    totalStake
+                    (Tagged @CurEpoch epoch)
+                    (Tagged @ConfirmedEpoch confirmedEpoch)
+        in bvData <$ guard (issuersStake >= thd)
     adoptAndFinish allConfirmed (bv, BlockVersionState {..}) = do
         winningBlock <-
             note (PollInternalError "no winning block") bvsLastBlockStable

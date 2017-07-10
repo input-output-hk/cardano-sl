@@ -343,6 +343,7 @@ executable cardano-keygen
                      , text
                      , lens
                      , optparse-applicative >= 0.12
+                     , parsec
                      , string-qq
                      , unordered-containers
                      , bytestring >= 0.10

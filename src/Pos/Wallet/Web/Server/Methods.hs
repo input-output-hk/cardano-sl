@@ -62,28 +62,13 @@ import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
 import           Pos.Binary.Class                 (biSize)
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
-<<<<<<< HEAD
-import           Pos.Client.Txp.Util              (createMTx, TxError)
-import           Pos.Client.Txp.History           (TxHistoryAnswer (..),
-                                                   TxHistoryEntry (..))
-import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
-                                                   submitMTx, submitRedemptionTx)
-import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
-import           Pos.Core                         (Address (..), Coin, addressF, bvdTxFeePolicy,
-                                                   TxSizeLinear (..), integerToCoin, TxFeePolicy (..),
-                                                   decodeTextAddress, getCurrentTimestamp, getTimestamp,
-                                                   makeRedeemAddress, mkCoin, sumCoins,
-                                                   unsafeAddCoin, unsafeIntegerToCoin,
-                                                   unsafeSubCoin, calculateTxSizeLinear)
-import           Pos.Crypto                       (PassPhrase, aesDecrypt, EncryptedSecretKey, SafeSigner,
-=======
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util              (createMTx)
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
 import           Pos.Context                      (GenesisUtxo, genesisStakeholdersM)
-import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..),
+import           Pos.Core                         (Address (..), Coin, TxFeePolicy (..), TxSizeLinear (..),
                                                    addressF, bvdTxFeePolicy,
                                                    calculateTxSizeLinear,
                                                    decodeTextAddress, getCurrentTimestamp,
@@ -93,30 +78,22 @@ import           Pos.Core                         (Address (..), Coin, TxFeePoli
                                                    unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.Crypto                       (EncryptedSecretKey, PassPhrase,
                                                    SafeSigner, aesDecrypt,
->>>>>>> 0f9840b99eb5b356bdd3277bb53a654fda3b797e
                                                    changeEncPassphrase, checkPassMatches,
                                                    deriveAesKeyBS, emptyPassphrase,
                                                    fakeSigner, hash, keyGen,
                                                    redeemDeterministicKeyGen,
                                                    redeemToPublic, withSafeSigner,
                                                    withSafeSigner)
-<<<<<<< HEAD
-import           Pos.DB.Class                     (gsAdoptedBVData)
-=======
 import           Pos.DB.Class                     (gsAdoptedBVData, gsIsBootstrapEra)
->>>>>>> 0f9840b99eb5b356bdd3277bb53a654fda3b797e
 import           Pos.Discovery                    (getPeers)
 import           Pos.Genesis                      (genesisDevHdwSecretKeys,
                                                    genesisSplitBoot)
 import           Pos.Reporting.MemState           (HasReportServers (..),
                                                    HasReportingContext (..))
 import           Pos.Reporting.Methods            (sendReport, sendReportNodeNologs)
-<<<<<<< HEAD
-import           Pos.Txp                          (Utxo, TxFee (..))
-=======
 import           Pos.Slotting                     (MonadSlots (..))
->>>>>>> 0f9840b99eb5b356bdd3277bb53a654fda3b797e
-import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..))
+import           Pos.Txp                          (TxFee (..))
+import           Pos.Txp.Core                     (TxAux (..), TxOut (..), TxOutAux (..), TxOutDistribution)
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.BackupPhrase            (toSeed)
 import qualified Pos.Util.Modifier                as MM
@@ -580,8 +557,6 @@ getMoneySourceWallet (AddressMoneySource addrId) = cwamWId addrId
 getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
 getMoneySourceWallet (WalletMoneySource wid)     = wid
 
-<<<<<<< HEAD
-=======
 -- Read-only function.
 computeTxFee
     :: WalletWebMode m
@@ -593,40 +568,17 @@ computeTxFee moneySource dstDistr = mkCCoin <$> do
     case feePolicy of
         TxFeePolicyUnknown w _               -> throwM $ unknownFeePolicy w
         TxFeePolicyTxSizeLinear linearPolicy -> do
-            (srcAddrMetas, outs_, _, remaining) <- prepareTxInfoRaw moneySource dstDistr
-            let outs = addFakeRemainingTxOut remaining outs_
-            srcAddrs <- forM srcAddrMetas $ decodeCIdOrFail . cwamId
-            utxo <- getOwnUtxos (toList srcAddrs)
-            -- We create fake signers instead of safe signers,
-            -- because safe signer requires passphrase
-            -- but we don't want to reveal our passphrase to compute fee.
-            -- Fee depends on size of tx in bytes, sign of a tx has the fixed size
-            -- so we can use arbitrary signer.
-            (_, sk) <- keyGen
-            let fakeSigners = NE.fromList $ replicate (length srcAddrs) (fakeSigner sk)
-            let hdwSigner = NE.zip fakeSigners srcAddrs
-            let txAuxEi = createMTx utxo hdwSigner outs
-            either invalidTxEx
-                   (maybeThrow negFee .
-                   integerToCoin .
-                   ceiling .
-                   calculateTxSizeLinear linearPolicy .
-                   biSize @TxAux)
-                   txAuxEi
+            txAux <- stabilizeTxFee linearPolicy moneySource dstDistr >>= createFakeTxFromRawTx
+            maybeThrow negFee .
+                integerToCoin .
+                ceiling .
+                calculateTxSizeLinear linearPolicy .
+                biSize @TxAux $ txAux
   where
-    addFakeRemainingTxOut :: WalletWebMode m => Coin -> NonEmpty TxOutAux -> NonEmpty TxOutAux
-    addFakeRemainingTxOut remaining outs@(TxOutAux{..} :| _)
-        | remaining == mkCoin 0 = outs
-        | otherwise = do
-            -- This code implies that all TxOuts of the tx has the same size of a address.
-            let fakeAddress = txOutAddress toaOut
-            TxOutAux (TxOut fakeAddress remaining) [] :| toList outs
-    invalidTxEx = throwM . RequestError . sformat ("Couldn't create a transaction, reason: "%build)
     negFee = InternalError "Negative fee"
     unknownFeePolicy =
         InternalError . sformat ("UnknownFeePolicy, tag: "%build)
 
->>>>>>> 0f9840b99eb5b356bdd3277bb53a654fda3b797e
 sendMoney
     :: WalletWebMode m
     => SendActions m
@@ -635,16 +587,17 @@ sendMoney
     -> NonEmpty (CId Addr, Coin)
     -> m CTx
 sendMoney sendActions passphrase moneySource dstDistr = do
-    (inputMetas, outputs, inpTxOuts) <- prepareTxInfo passphrase moneySource dstDistr
-    sendDo inputMetas outputs inpTxOuts
+    (spendings, outputs) <- prepareTx passphrase moneySource dstDistr
+    sendDo spendings outputs
   where
     sendDo
         :: WalletWebMode m
-        => NonEmpty CWAddressMeta
+        => NonEmpty (CWAddressMeta, TxOut)
         -> NonEmpty TxOutAux
-        -> [TxOut]
         -> m CTx
-    sendDo inputMetas outputs inpTxOuts = do
+    sendDo spendings outputs = do
+        let inputMetas = NE.map fst spendings
+        let inpTxOuts = NE.map snd spendings
         na <- getPeers
         sks <- forM inputMetas $ getSKByAccAddr passphrase
         srcAddrs <- forM inputMetas $ decodeCIdOrFail . cwamId
@@ -667,39 +620,14 @@ sendMoney sendActions passphrase moneySource dstDistr = do
                     let txHash    = hash tx
                         srcWallet = getMoneySourceWallet moneySource
                     ts <- Just <$> liftIO getCurrentTimestamp
-<<<<<<< HEAD
-                    ctxs <- addHistoryTx srcWallet $
-                        THEntry txHash tx inpTxOuts Nothing (toList srcAddrs) dstAddrs ts
-=======
                     ctxs <- addHistoryTx srcWallet False $
-                        THEntry txHash tx srcTxOuts Nothing (toList srcAddrs) dstAddrs ts
->>>>>>> 0f9840b99eb5b356bdd3277bb53a654fda3b797e
+                        THEntry txHash tx (toList inpTxOuts) Nothing (toList srcAddrs) dstAddrs ts
                     ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
 
     noOutgoingTx = InternalError "Can't report outgoing transaction"
     -- TODO eliminate copy-paste
     listF separator formatter =
         F.later $ fold . intersperse separator . fmap (F.bprint formatter)
-
-computeTxFee
-    :: WalletWebMode m
-    => PassPhrase
-    -> MoneySource
-    -> NonEmpty (CId Addr, Coin)
-    -> m CCoin
-computeTxFee passphrase moneySource dstDistr = mkCCoin <$> do
-    feesPolicyMB <- bvdTxFeePolicy <$> gsAdoptedBVData
-    case feesPolicyMB of
-        Nothing -> pure $ mkCoin 0
-        Just feePolicy -> case feePolicy of
-            TxFeePolicyUnknown w _               -> throwM $ unknownFeePolicy w
-            TxFeePolicyTxSizeLinear linearPolicy -> do
-                (inps, outs, _) <- prepareTxInfo passphrase moneySource dstDistr
-                either invalidTxEx (txToLinearFee linearPolicy) =<< createTxByInpNOut passphrase inps outs
-  where
-    invalidTxEx = throwM . RequestError . sformat ("Couldn't create a transaction, reason: "%build)
-    unknownFeePolicy =
-        InternalError . sformat ("Unknown Fee Policy, tag: "%build)
 
 txToLinearFee :: MonadThrow m => TxSizeLinear -> TxAux -> m Coin
 txToLinearFee linearPolicy =
@@ -711,90 +639,132 @@ txToLinearFee linearPolicy =
   where
     negFee = InternalError "Negative fee"
 
-createTxByInpNOut
-    :: WalletWebMode m
-    => PassPhrase
-    -> NonEmpty CWAddressMeta
-    -> NonEmpty TxOutAux
-    -> m (Either TxError TxAux)
-createTxByInpNOut passphrase inps outs = do
-    sks <- forM inps $ getSKByAccAddr passphrase
-    srcAddrs <- forM inps $ decodeCIdOrFail . cwamId
-    withSafeSigners passphrase sks $ \ss -> do
-        let hdwSigner = NE.zip ss srcAddrs
-        utxo <- getOwnUtxos (toList srcAddrs)
-        pure $ createMTx utxo hdwSigner outs
-
 -- Returns (input addresses, output addresses, TxOut corresponding to input addresses)
-prepareTxInfo
+-- Function creates remaing output in db.
+prepareTx
     :: WalletWebMode m
     => PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
-    -> m (NonEmpty CWAddressMeta, NonEmpty TxOutAux, [TxOut])
-prepareTxInfo passphrase moneySource dstDistr = do
-<<<<<<< HEAD
-    linearPolicy <- bvdTxFeePolicy <$> gsAdoptedBVData >>= \case
-        Nothing -> pure $ TxSizeLinear 0 0
-        Just feePolicy -> case feePolicy of
-            TxFeePolicyUnknown w _     -> throwM $ unknownFeePolicy w
-            TxFeePolicyTxSizeLinear lp -> pure lp
-=======
-    (txIns, txOuts, txInOuts, remaining) <- prepareTxInfoRaw moneySource dstDistr
-    mRemTx <- mkRemainingTxOut remaining
-    let txOutsWithRem = maybe txOuts (\remTx -> remTx :| toList txOuts) mRemTx
-    pure (txIns, txOutsWithRem, txInOuts)
+    -> m (NonEmpty (CWAddressMeta, TxOut), NonEmpty TxOutAux)
+prepareTx passphrase moneySource dstDistr = do
+    feePolicy <- bvdTxFeePolicy <$> gsAdoptedBVData
+    case feePolicy of
+        TxFeePolicyUnknown w _               -> throwM $ unknownFeePolicy w
+        TxFeePolicyTxSizeLinear linearPolicy -> do
+            raw@TxRaw{..} <- stabilizeTxFee linearPolicy moneySource dstDistr
+            logDebug $ buildDistribution raw
+            mRemTx <- mkRemainingTxOut trRemaining
+            let txOutsWithRem = maybe trOutputs (\remTx -> remTx :| toList trOutputs) mRemTx
+            inpTxOuts <- spendings2TxOuts trSpendings
+            let txInps = NE.zipWith (\(addr, _) txout -> (addr, txout)) trSpendings inpTxOuts
+            pure (txInps, txOutsWithRem)
   where
-    mkRemainingTxOut :: WalletWebMode m => Coin -> m (Maybe TxOutAux)
-    mkRemainingTxOut remaining
+    mkRemainingTxOut :: WalletWebMode m => (Coin, TxOutDistribution) -> m (Maybe TxOutAux)
+    mkRemainingTxOut (remaining, distr)
         | remaining == mkCoin 0 = return Nothing
         | otherwise = do
             relatedWallet <- getSomeMoneySourceAccount moneySource
             account       <- newAddress RandomSeed passphrase relatedWallet
             remAddr       <- decodeCIdOrFail (cadId account)
-            let remTx = TxOutAux (TxOut remAddr remaining) []
-            pure $ Just remTx
+            pure $ Just $ TxOutAux (TxOut remAddr remaining) distr
 
--- Returns (input addresses, output addresses, TxOut corresponding to input addresses, remaining money)
+    buildDistribution :: TxRaw -> Text
+    buildDistribution TxRaw{..} =
+        let entries =
+                trSpendings <&> \(CWAddressMeta {..}, c) ->
+                    F.bprint (build % ": " %build) c cwamId
+            remains = F.bprint ("Remaining: " %build) (fst trRemaining)
+        in sformat
+               ("Transaction input distribution:\n" %listF "\n" build %
+                "\n" %build)
+               (toList entries)
+               remains
+    listF separator formatter =
+        F.later $ fold . intersperse separator . fmap (F.bprint formatter)
+
+    unknownFeePolicy =
+        InternalError . sformat ("Unknown Fee Policy, tag: "%build)
+
+-- | Search such spendings that transaction's fee would be stable.
+stabilizeTxFee
+    :: forall m . WalletWebMode m
+    => TxSizeLinear
+    -> MoneySource
+    -> NonEmpty (CId Addr, Coin)
+    -> m TxRaw
+stabilizeTxFee linearPolicy moneySource dstDistr =
+    stabilizeTxFeeDo 5 (TxFee $ mkCoin 0)
+  where
+    stabilizeTxFeeDo :: Int -> TxFee -> m TxRaw
+    stabilizeTxFeeDo 0 _ = throwM $ RequestError "Couldn't stabilize tx after 5 attempts"
+    stabilizeTxFeeDo attempt efee@(TxFee expectedFee) = do
+        txRaw <- prepareTxRaw moneySource dstDistr efee
+        txAux <- createFakeTxFromRawTx txRaw
+        txFee <- txToLinearFee linearPolicy txAux
+        if expectedFee == txFee then pure txRaw
+        else stabilizeTxFeeDo (attempt - 1) (TxFee txFee)
+
+-- This datatype corresponds to raw transaction.
+data TxRaw
+    = TxRaw {
+      trSpendings :: !(NonEmpty (CWAddressMeta, Coin))
+    -- ^ Input addresses of tx and coins on them
+    , trOutputs   :: !(NonEmpty TxOutAux)
+    -- ^ Output addresses of tx (without remaing output)
+    , trRemaining :: !(Coin, TxOutDistribution)
+    -- ^ Remaing money and distribution
+    }
+
+spendings2TxOuts :: MonadThrow m => NonEmpty (CWAddressMeta, Coin) -> m (NonEmpty TxOut)
+spendings2TxOuts spendings = fmap NE.fromList . forM (toList spendings) $ \(cAddr, c) -> do
+    addr <- decodeCIdOrFail $ cwamId cAddr
+    pure $ TxOut addr c
+
+createFakeTxFromRawTx :: WalletWebMode m => TxRaw -> m TxAux
+createFakeTxFromRawTx TxRaw{..} = do
+    let fakeAddr = txOutAddress . toaOut . NE.head $ trOutputs
+    let fakeOutMB
+            | fst trRemaining == mkCoin 0 = Nothing
+            | otherwise                   = Just $ TxOutAux (TxOut fakeAddr (fst trRemaining)) (snd trRemaining)
+    let txOutsWithRem = maybe trOutputs (\remTx -> remTx :| toList trOutputs) fakeOutMB
+    -- We create fake signers instead of safe signers,
+    -- because safe signer requires passphrase
+    -- but we don't want to reveal our passphrase to compute fee.
+    -- Fee depends on size of tx in bytes, sign of a tx has the fixed size
+    -- so we can use arbitrary signer.
+    srcAddrs <- NE.map txOutAddress <$> spendings2TxOuts trSpendings
+    utxo <- getOwnUtxos (toList srcAddrs)
+    (_, sk) <- keyGen
+    let fakeSigners = NE.fromList $ replicate (length srcAddrs) (fakeSigner sk)
+    let hdwSigners = NE.zip fakeSigners srcAddrs
+    let txAuxEi = createMTx utxo hdwSigners txOutsWithRem
+    either invalidTxEx pure txAuxEi
+  where
+    invalidTxEx = throwM . RequestError . sformat ("Couldn't create a fake transaction, reason: "%build)
+
 -- Functions doesn't write to db anything.
-prepareTxInfoRaw
+prepareTxRaw
     :: WalletWebMode m
     => MoneySource
     -> NonEmpty (CId Addr, Coin)
-    -> m (NonEmpty CWAddressMeta, NonEmpty TxOutAux, [TxOut], Coin)
-prepareTxInfoRaw moneySource dstDistr = do
->>>>>>> 0f9840b99eb5b356bdd3277bb53a654fda3b797e
+    -> TxFee
+    -> m TxRaw
+prepareTxRaw moneySource dstDistr fee = do
     allAddrs <- getMoneySourceAddresses moneySource
     let dstAccAddrsSet = S.fromList $ map fst $ toList dstDistr
         notDstAddrs = filter (\a -> not $ cwamId a `S.member` dstAccAddrsSet) allAddrs
         coins = foldr1 unsafeAddCoin $ snd <$> dstDistr
-<<<<<<< HEAD
-    balances <- mapM getWAddressBalance notDstAddrs
+    balancesInps <- mapM getWAddressBalance notDstAddrs
     -- We want to minimise a fee of the transaction,
     -- fee depends on a size of the transaction and
     -- size depends on a number of inputs and outputs.
     -- Hence we want to minimise the number of inputs,
     -- so we should sort in descending order by amount
     -- to minimise the number of taken inputs.
-    let addrWBal =  sortBy (comparing (Down . snd)) $ zip notDstAddrs balances
-    txOuts <- forM dstDistr $ \(cAddr, coin) -> do
-        addr <- decodeCIdOrFail cAddr
-        pure $ TxOutAux (TxOut addr coin) []
-    let initTxFee = TxFee $ mkCoin 0
-    distrMB <- stabilizeTxFee linearPolicy addrWBal txOuts coins 5 initTxFee
-    case distrMB of
-        Nothing -> throwM $ RequestError $ "Transaction with fee can't be created"
-        Just distr@(remaining, spendings) -> do
-            logDebug $ buildDistribution distr
-            mRemTx <- mkRemainingTxOut remaining
-            let txOutsWithRem = maybe txOuts (\remTx -> remTx :| toList txOuts) mRemTx
-            srcTxOuts <- forM (toList spendings) $ \(cAddr, c) -> do
-                addr <- decodeCIdOrFail $ cwamId cAddr
-                pure (TxOut addr c)
-            pure (fst <$> spendings, txOutsWithRem, srcTxOuts)
-=======
-    distr@(remaining, spendings) <- selectSrcAccounts coins notDstAccounts
-    logDebug $ buildDistribution distr
+    let addrWBal = reverse $ sortWith snd $ zip notDstAddrs balancesInps
+    (remaining, trSpendings) <- selectSrcAddresses addrWBal coins fee
+
     epoch <- siEpoch <$>
         -- @pva701 suggests that blocking here is fine. A prompt will be shown
         -- to the user saying something along the lines of "Syncing with
@@ -814,80 +784,13 @@ prepareTxInfoRaw moneySource dstDistr = do
                     cantSpendDust c
                 pure $ genesisSplitBoot genStakeholders c
 
-    txOuts <- forM dstDistr $ \(cAddr, coin) -> do
+    trOutputs <- forM dstDistr $ \(cAddr, coin) -> do
         addr <- decodeCIdOrFail cAddr
         realDistr <- stakeDistr coin
         pure $ TxOutAux (TxOut addr coin) realDistr
-    srcTxOuts <- forM (toList spendings) $ \(cAddr, c) -> do
-        addr <- decodeCIdOrFail $ cwamId cAddr
-        pure $ TxOut addr c
-    pure (fst <$> spendings, txOuts, srcTxOuts, remaining)
->>>>>>> 0f9840b99eb5b356bdd3277bb53a654fda3b797e
-  where
-    -- Search such distribution, that tx fee will be stable.
-    stabilizeTxFee
-        :: WalletWebMode m
-        => TxSizeLinear
-        -> [(CWAddressMeta, Coin)] -- All inputs, immutable
-        -> NonEmpty TxOutAux       -- Outputs, immutable
-        -> Coin                    -- Total coins of outputs
-        -> Int
-        -> TxFee
-        -> m (Maybe (Coin, NonEmpty (CWAddressMeta, Coin)))
-    stabilizeTxFee _ _ _ _ 0 _ = pure Nothing
-    stabilizeTxFee linearPolicy allAddrs txOuts total attempt pfee@(TxFee prevfee) = do
-        distr <- selectSrcAddresses allAddrs total pfee
-        createTxFromDistr distr txOuts >>= \case
-            Left _      -> pure Nothing
-            Right txAux -> do
-                txFee <- txToLinearFee linearPolicy txAux
-                if prevfee == txFee then pure $ Just distr
-                else stabilizeTxFee linearPolicy allAddrs txOuts total (attempt - 1) (TxFee txFee)
-
-    -- We don't creat real address for remaining outputs,
-    -- because created transaction can be invalid
-    createTxFromDistr
-        :: WalletWebMode m
-        => (Coin, NonEmpty (CWAddressMeta, Coin))
-        -> NonEmpty TxOutAux
-        -> m (Either TxError TxAux)
-    createTxFromDistr (remaining, spendings) txOuts@(f :| _) = do
-       let fakeAddr = txOutAddress . toaOut $ f
-       let fakeOutMB
-             | remaining == mkCoin 0 = Nothing
-             | otherwise             = Just $ TxOutAux (TxOut fakeAddr remaining) []
-       let txOutsWithRem = maybe txOuts
-                                 (\remTx -> remTx :| toList txOuts) fakeOutMB
-       createTxByInpNOut passphrase (map fst spendings) txOutsWithRem
-
-<<<<<<< HEAD
-    mkRemainingTxOut :: WalletWebMode m => Coin -> m (Maybe TxOutAux)
-    mkRemainingTxOut remaining
-        | remaining == mkCoin 0 = return Nothing
-        | otherwise = do
-            relatedWallet <- getSomeMoneySourceAccount moneySource
-            account       <- newAddress RandomSeed passphrase relatedWallet
-            remAddr       <- decodeCIdOrFail (cadId account)
-            let remTx = TxOutAux (TxOut remAddr remaining) []
-            pure $ Just remTx
-
-=======
->>>>>>> 0f9840b99eb5b356bdd3277bb53a654fda3b797e
-    buildDistribution (remaining, spendings) =
-        let entries =
-                spendings <&> \(CWAddressMeta {..}, c) ->
-                    F.bprint (build % ": " %build) c cwamId
-            remains = F.bprint ("Remaining: " %build) remaining
-        in sformat
-               ("Transaction input distribution:\n" %listF "\n" build %
-                "\n" %build)
-               (toList entries)
-               remains
-    listF separator formatter =
-        F.later $ fold . intersperse separator . fmap (F.bprint formatter)
-
-    unknownFeePolicy =
-        InternalError . sformat ("Unknown Fee Policy, tag: "%build)
+    remainingDistr <- stakeDistr remaining -- check bootstrap statement for remaining coins
+    let trRemaining = (remaining, remainingDistr)
+    pure TxRaw{..}
 
 -- | Accept all addresses in descending order (by coins)
 -- Destination addresses

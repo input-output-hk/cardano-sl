@@ -68,7 +68,8 @@ import           Pos.Binary.Crypto          ()
 import           Pos.Core                   (BlockVersion, BlockVersionData (..),
                                              CoinPortion, EpochIndex, FlatSlotId,
                                              IsGenesisHeader, IsMainHeader, ScriptVersion,
-                                             SoftwareVersion, TxFeePolicy, addressHash)
+                                             SoftforkRule, SoftwareVersion, TxFeePolicy,
+                                             addressHash)
 import           Pos.Crypto                 (Hash, PublicKey, SafeSigner,
                                              SignTag (SignUSProposal), Signature,
                                              checkSig, hash, safeSign, safeToPublic,
@@ -94,7 +95,7 @@ data BlockVersionModifier = BlockVersionModifier
     , bvmUpdateVoteThd     :: !CoinPortion
     , bvmUpdateProposalThd :: !CoinPortion
     , bvmUpdateImplicit    :: !FlatSlotId
-    , bvmUpdateSoftforkThd :: !CoinPortion
+    , bvmSoftforkRule      :: !(Maybe SoftforkRule)
     , bvmTxFeePolicy       :: !(Maybe TxFeePolicy)
     , bvmUnlockStakeEpoch  :: !(Maybe EpochIndex)
     } deriving (Show, Eq, Generic, Typeable)
@@ -114,8 +115,9 @@ instance Buildable BlockVersionModifier where
               ", update vote threshold: "%build%
               ", update proposal threshold: "%build%
               ", update implicit period: "%int%" slots"%
-              ", update softfork threshold: "%build%
               ", "%builder%
+              ", "%builder%
+              ", unlock stake epoch: "%build%
               " }")
         bvmScriptVersion
         bvmSlotDuration
@@ -128,11 +130,15 @@ instance Buildable BlockVersionModifier where
         bvmUpdateVoteThd
         bvmUpdateProposalThd
         bvmUpdateImplicit
-        bvmUpdateSoftforkThd
+        softforkRuleBuilder
         feePolicyBuilder
+        bvmUnlockStakeEpoch
       where
         feePolicyBuilder =
             maybe "no tx fee policy" (bprint build) bvmTxFeePolicy
+        softforkRuleBuilder =
+            maybe "no softfork rule" (mappend "softfork rule: " . bprint build)
+                  bvmSoftforkRule
 
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
 newtype SystemTag = SystemTag { getSystemTag :: Text }

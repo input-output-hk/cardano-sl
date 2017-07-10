@@ -71,7 +71,8 @@ import           Pos.Update.Poll.Types        (BlockVersionState (..),
                                                DecidedProposalState (dpsDifficulty),
                                                ProposalState (..),
                                                UndecidedProposalState (upsSlot),
-                                               cpsSoftwareVersion, psProposal)
+                                               bvsIsConfirmed, cpsSoftwareVersion,
+                                               psProposal)
 import           Pos.Util.Util                (maybeThrow)
 
 ----------------------------------------------------------------------------

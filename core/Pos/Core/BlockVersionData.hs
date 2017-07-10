@@ -1,18 +1,29 @@
 -- | BlockVersionData-related stuff.
 
 module Pos.Core.BlockVersionData
-       (
+       ( softforkRuleF
        ) where
 
 import           Universum
 
 import qualified Data.Text.Buildable        as Buildable
-import           Formatting                 (bprint, build, int, (%))
+import           Formatting                 (Format, bprint, build, int, (%))
 import           Serokell.Data.Memory.Units (memory)
 
 import           Pos.Core.Coin              ()
-import           Pos.Core.Types             (BlockVersionData (..))
+import           Pos.Core.Types             (BlockVersionData (..), SoftforkRule (..))
 import           Pos.Util.Util              ()
+
+instance NFData SoftforkRule
+
+instance Buildable SoftforkRule where
+    build SoftforkRule {..} =
+        bprint ("(init = "%build%", min = "%build%", decrement = "%build%")")
+        srInitThd srMinThd srThdDecrement
+
+-- | 'SoftforkRule' formatter which restricts type.
+softforkRuleF :: Format r (SoftforkRule -> r)
+softforkRuleF = build
 
 instance Buildable BlockVersionData where
     build BlockVersionData {..} =
@@ -27,7 +38,7 @@ instance Buildable BlockVersionData where
               ", update vote threshold: "%build%
               ", update proposal threshold: "%build%
               ", update implicit period: "%int%" slots"%
-              ", update softfork threshold: "%build%
+              ", softfork rule: "%softforkRuleF%
               ", tx fee policy: "%build%
               " }")
         bvdScriptVersion
@@ -41,7 +52,7 @@ instance Buildable BlockVersionData where
         bvdUpdateVoteThd
         bvdUpdateProposalThd
         bvdUpdateImplicit
-        bvdUpdateSoftforkThd
+        bvdSoftforkRule
         bvdTxFeePolicy
 
 instance NFData BlockVersionData where

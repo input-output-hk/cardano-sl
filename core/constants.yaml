@@ -24,7 +24,9 @@ dev: &dev
   genesisMaxUpdateProposalSize: 700 # 700 bytes
   genesisUpdateProposalThd: 0.1 # 10% of total stake
   genesisUpdateImplicit: 10 # slots
-  genesisUpdateSoftforkThd: 0.75 # 75% of total stake
+  genesisSoftforkInit: 0.9 # 90% of total stake
+  genesisSoftforkMin: 0.6 # 60% of total stake
+  genesisSoftforkDec: 0.05 # 5% of total stake
   genesisTxFeePolicy:
     txSizeLinear:
       a: 0

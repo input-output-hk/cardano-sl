@@ -39,7 +39,7 @@ import           Pos.Slotting.Ntp            (runSlotsRedirect)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, askSscMem)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (GenericTxpLocalData, TxpHolderTag,
-                                              TxpMetrics)
+                                              TxpMetrics, askTxpMemAndMetrics)
 import           Pos.WorkMode                (RealMode (..))
 
 import           Pos.Explorer                (ExplorerBListener, ExplorerExtra,
@@ -69,7 +69,7 @@ explorerServeWebReal sendActions = explorerServeImpl . explorerApp $
 
 nat :: ExplorerProd (ExplorerProd :~> Handler)
 nat = do
-    tlw        <- Ether.ask @TxpHolderTag -- askTxpMemAndMetrics -- askTxpMem
+    tlw        <- askTxpMemAndMetrics
     ssc        <- askSscMem
     delWrap    <- askDelegationState
     psCtx      <- getAllStates

@@ -26,13 +26,16 @@ import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog              (slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions, Worker', WorkerSpec,
                                               onNewSlotWorker)
-import           Pos.Constants               (blkSecurityParam, networkDiameter)
+import           Pos.Constants               (blkSecurityParam, criticalCQ,
+                                              criticalCQBootstrap, networkDiameter,
+                                              nonCriticalCQ, nonCriticalCQBootstrap)
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core                    (SlotId (..), Timestamp (Timestamp),
                                               flattenSlotId, gbHeader, getSlotIndex,
                                               slotIdF)
 import           Pos.Core.Address            (addressHash)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
+import           Pos.DB                      (gsIsBootstrapEra)
 import           Pos.DB.GState               (getPskByIssuer)
 import           Pos.DB.Misc                 (getProxySecretKeys)
 import           Pos.Delegation.Helpers      (isRevokePsk)
@@ -245,16 +248,22 @@ chainQualityChecker curSlot = do
         chainQuality :: Double <- calcChainQualityM curFlatSlot
         logDebug $
             sformat
-                ("Chain quality for the last 'k' blocks is "%fixed 3)
+                ("Chain quality for the last 'k' blocks is " %fixed 3)
                 chainQuality
+        isBootstrap <- gsIsBootstrapEra (siEpoch curSlot)
+        let nonCriticalThreshold
+                | isBootstrap = nonCriticalCQBootstrap
+                | otherwise = nonCriticalCQ
+        let criticalThreshold
+                | isBootstrap = criticalCQBootstrap
+                | otherwise = criticalCQ
         -- TODO [CSL-1342]:
-        -- 1. Make constants configurable.
-        -- 2. Send messages to reporting server, make them contain
+        -- 1. Send messages to reporting server, make them contain
         -- actual values.
-        -- 3. Use constants depending on whether we are in bootstrap era.
-        if | chainQuality < 0.75 ->
+        if | chainQuality < criticalThreshold ->
                logWarning "Poor chain quality, less than 0.75"
-           | chainQuality < 0.9 -> logInfo "Poor chain quality, less than 0.9"
+           | chainQuality < nonCriticalThreshold ->
+               logInfo "Poor chain quality, less than 0.9"
            | otherwise -> pass
 
 ----------------------------------------------------------------------------

@@ -10,7 +10,6 @@ module Main
 
 import           Control.Monad.Error.Class  (throwError)
 import           Control.Monad.Trans.Either (EitherT (..))
-import           Control.Monad.Trans.Maybe  (MaybeT (..))
 import qualified Data.ByteString            as BS
 import           Data.ByteString.Base58     (bitcoinAlphabet, encodeBase58)
 import qualified Data.HashMap.Strict        as HM
@@ -20,7 +19,7 @@ import qualified Data.Set                   as S (fromList, toList)
 import           Data.String.QQ             (s)
 import qualified Data.Text                  as T
 import           Data.Time.Units            (convertUnit)
-import           Formatting                 (build, int, sformat, stext, (%))
+import           Formatting                 (build, int, sformat, stext, string, (%))
 import           Mockable                   (Production, delay, runProduction)
 import           Network.Transport.Abstract (Transport, hoistTransport)
 import           System.IO                  (hFlush, stdout)
@@ -58,8 +57,9 @@ import           Pos.Ssc.SscAlgo            (SscAlgo (..))
 import           Pos.Txp                    (TxOut (..), TxOutAux (..), txaF)
 import           Pos.Types                  (coinF, makePubKeyAddress)
 import           Pos.Update                 (BlockVersionData (..),
-                                             BlockVersionModifier (..), UpdateData (..),
-                                             UpdateVote (..), mkUpdateProposalWSign)
+                                             BlockVersionModifier (..), SystemTag (..),
+                                             UpdateData (..), UpdateVote (..),
+                                             mkUpdateProposalWSign)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Util.Util              (powerLift)
 import           Pos.Wallet                 (MonadWallet, addSecretKey, getBalance,
@@ -68,7 +68,8 @@ import           Pos.Wallet.Light           (LightWalletMode, WalletParams (..),
                                              runWalletStaticPeers)
 import           Pos.WorkMode               (RealMode, RealModeContext)
 
-import           Command                    (Command (..), parseCommand)
+import           Command                    (Command (..), ProposeUpdateSystem (..),
+                                             parseCommand)
 import qualified Network.Transport.TCP      as TCP (TCPAddr (..))
 import           WalletOptions              (WalletAction (..), WalletOptions (..),
                                              getWalletOptions)
@@ -163,15 +164,6 @@ runCmd sendActions v@(Vote idx decision upid) CmdCtx{na} = do
 runCmd sendActions ProposeUpdate{..} CmdCtx{na} = do
     logDebug "Proposing update..."
     skey <- (!! puIdx) <$> getSecretKeys
-    (diffFile :: Maybe (Hash Raw)) <-
-        runMaybeT $ do
-            filePath <- MaybeT $ pure puFilePath
-            fileData <- liftIO $ BS.readFile filePath
-            let h = unsafeHash fileData
-            liftIO $
-                putText $
-                sformat ("Read file succesfuly, its hash: " %hashHexF) h
-            pure h
     let BlockVersionData {..} = genesisBlockVersionData
     let bvm =
             BlockVersionModifier
@@ -190,8 +182,8 @@ runCmd sendActions ProposeUpdate{..} CmdCtx{na} = do
             , bvmTxFeePolicy       = Nothing
             , bvmUnlockStakeEpoch  = Nothing
             }
-    let udata' h = HM.fromList [(puSystemTag, UpdateData h h h h)]
-    let udata = maybe (error "Failed to read prop file") udata' diffFile
+    updateData <- mapM updateDataElement puUpdates
+    let udata = HM.fromList updateData
     let whenCantCreate = error . mappend "Failed to create update proposal: "
     withSafeSigner skey (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
@@ -245,6 +237,23 @@ runCmd _ (AddKeyFromFile f) _ = do
     secret <- readUserSecret f
     mapM_ addSecretKey $ secret ^. usKeys
 runCmd _ Quit _ = pure ()
+
+dummyHash :: Hash Raw
+dummyHash = unsafeHash (0 :: Integer)
+
+hashFile :: MonadIO m => Maybe FilePath -> m (Hash Raw)
+hashFile Nothing  = pure dummyHash
+hashFile (Just filename) = do
+    fileData <- liftIO $ BS.readFile filename
+    let h = unsafeHash fileData
+    putText $ sformat ("Read file "%string%" succesfuly, its hash: "%hashHexF) filename h
+    pure h
+
+updateDataElement :: MonadIO m => ProposeUpdateSystem -> m (SystemTag, UpdateData)
+updateDataElement ProposeUpdateSystem{..} = do
+    diffHash <- hashFile pusBinDiffPath
+    installerHash <- hashFile pusInstallerPath
+    pure (pusSystemTag, UpdateData diffHash installerHash dummyHash dummyHash)
 
 -- This solution is hacky, but will work for now
 runCmdOuts :: OutSpecs

@@ -20,13 +20,13 @@ import           Pos.DB               (NodeDBs)
 import           Pos.DB.Class         (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks         (dbDeleteDefault, dbGetDefault, dbIterSourceDefault,
                                        dbPutDefault, dbWriteBatchDefault)
-import           Pos.Txp.MemState     (GenericTxpLocalData, TxpHolderTag)
+import           Pos.Txp.MemState     (GenericTxpLocalData, TxpHolderTag, TxpMetrics)
 import           Pos.Util.Util        (postfixLFields)
 import           Pos.WorkMode         (TxpExtra_TMP)
 
 data WebModeContext ssc = WebModeContext
     { wmcNodeDBs      :: !NodeDBs
-    , wmcTxpLocalData :: !(GenericTxpLocalData TxpExtra_TMP)
+    , wmcTxpLocalData :: !(GenericTxpLocalData TxpExtra_TMP, TxpMetrics)
     , wmcNodeContext  :: !(NodeContext ssc)
     }
 
@@ -35,7 +35,8 @@ makeLensesWith postfixLFields ''WebModeContext
 instance HasLens NodeDBs (WebModeContext ssc) NodeDBs where
     lensOf = wmcNodeDBs_L
 
-instance HasLens TxpHolderTag (WebModeContext ssc) (GenericTxpLocalData TxpExtra_TMP) where
+instance HasLens TxpHolderTag (WebModeContext ssc) ( GenericTxpLocalData TxpExtra_TMP
+                                                   , TxpMetrics) where
     lensOf = wmcTxpLocalData_L
 
 instance {-# OVERLAPPABLE #-}

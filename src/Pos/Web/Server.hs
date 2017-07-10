@@ -33,6 +33,7 @@ import           Pos.Aeson.Types                      ()
 import           Pos.Context                          (HasNodeContext (..),
                                                        HasSscContext (..), NodeContext,
                                                        getOurPublicKey)
+import           Pos.Core                             (EpochIndex (..), SlotLeaders)
 import qualified Pos.DB                               as DB
 import qualified Pos.DB.GState                        as GS
 import qualified Pos.Lrc.DB                           as LrcDB
@@ -40,8 +41,7 @@ import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp                              (TxOut (..), toaOut)
 import           Pos.Txp.MemState                     (GenericTxpLocalData, askTxpMem,
-                                                       getLocalTxs)
-import           Pos.Types                            (EpochIndex (..), SlotLeaders)
+                                                       getLocalTxs, ignoreTxpMetrics)
 import           Pos.Web.Mode                         (WebMode, WebModeContext (..))
 import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
@@ -95,10 +95,12 @@ convertHandler
     -> GenericTxpLocalData TxpExtra_TMP
     -> WebMode ssc a
     -> Handler a
-convertHandler nc nodeDBs wrap handler =
-    liftIO (runProduction $
-        Mtl.runReaderT handler (WebModeContext nodeDBs wrap nc))
-    `Catch.catches`
+convertHandler nc nodeDBs txpData handler =
+    liftIO
+        (runProduction $
+         Mtl.runReaderT
+             handler
+             (WebModeContext nodeDBs (txpData, ignoreTxpMetrics) nc)) `Catch.catches`
     excHandlers
   where
     excHandlers = [Catch.Handler catchServant]

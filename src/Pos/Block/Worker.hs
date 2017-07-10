@@ -42,6 +42,7 @@ import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Lrc.DB                  (getLeaders)
+import           Pos.Reporting               (reportMisbehaviour)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscWorkersClass)
@@ -246,10 +247,7 @@ chainQualityChecker curSlot = do
         -- check and we don't want to copy-paste it and it's easier
         -- and cheap.
         chainQuality :: Double <- calcChainQualityM curFlatSlot
-        logDebug $
-            sformat
-                ("Chain quality for the last 'k' blocks is " %fixed 3)
-                chainQuality
+        let cqF = fixed 3 -- chain quality formatter
         isBootstrap <- gsIsBootstrapEra (siEpoch curSlot)
         let nonCriticalThreshold
                 | isBootstrap = nonCriticalCQBootstrap
@@ -257,14 +255,24 @@ chainQualityChecker curSlot = do
         let criticalThreshold
                 | isBootstrap = criticalCQBootstrap
                 | otherwise = criticalCQ
-        -- TODO [CSL-1342]:
-        -- 1. Send messages to reporting server, make them contain
-        -- actual values.
+        let formatCQWarning thd =
+                sformat
+                    ("Poor chain quality for the last 'k' blocks, "%
+                     "less than " %cqF % ": " %cqF)
+                                   thd         chainQuality
         if | chainQuality < criticalThreshold ->
-               logWarning "Poor chain quality, less than 0.75"
+               do let msg = formatCQWarning criticalThreshold
+                  logWarning msg
+                  reportMisbehaviour True msg
            | chainQuality < nonCriticalThreshold ->
-               logInfo "Poor chain quality, less than 0.9"
-           | otherwise -> pass
+               do let msg = formatCQWarning nonCriticalThreshold
+                  logWarning msg
+                  reportMisbehaviour False msg
+           | otherwise ->
+               logDebug $
+               sformat
+                   ("Chain quality for the last 'k' blocks is " %cqF)
+                   chainQuality
 
 ----------------------------------------------------------------------------
 -- Block querier

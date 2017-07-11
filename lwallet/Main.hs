@@ -116,12 +116,11 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
         withSafeSigner (skeys !! idx) (pure emptyPassphrase) $ \mss ->
         runEitherT $ do
             ss <- mss `whenNothing` throwError "Invalid passphrase"
-            EitherT $
-                submitTx
-                    sendActions
-                    ss
-                    na
-                    (map (flip TxOutAux []) outputs)
+            lift $ submitTx
+                sendActions
+                ss
+                na
+                (map (flip TxOutAux []) outputs)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) err
         Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
@@ -131,15 +130,13 @@ runCmd sendActions (SendToAllGenesis amount delay_) CmdCtx{..} = do
             txOutAddress = makePubKeyAddress (toPublic key),
             txOutValue = amount
         }
-        etx <-
+        tx <-
             submitTx
                 sendActions
                 (fakeSigner key)
                 na
                 (NE.fromList [TxOutAux txOut []])
-        case etx of
-            Left err -> putText $ sformat ("Error: "%stext) err
-            Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
+        putText $ sformat ("Submitted transaction: "%txaF) tx
         delay $ ms delay_
 runCmd sendActions v@(Vote idx decision upid) CmdCtx{na} = do
     logDebug $ "Submitting a vote :" <> show v

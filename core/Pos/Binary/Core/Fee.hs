@@ -35,10 +35,11 @@ instance Bi TxSizeLinear where
         putField (\(TxSizeLinear _ b) -> b)
 
 instance Cbor.Bi TxSizeLinear where
-  encode (TxSizeLinear a b) = Cbor.encode a <> Cbor.encode b
+  encode (TxSizeLinear a b) = Cbor.encodeListLen 2 <> Cbor.encode a <> Cbor.encode b
   decode = do
-    a <- Cbor.decode @Coeff
-    b <- Cbor.decode @Coeff
+    Cbor.enforceSize "TxSizeLinear" 2
+    !a <- Cbor.decode @Coeff
+    !b <- Cbor.decode @Coeff
     return $ TxSizeLinear a b
 
 instance Bi TxFeePolicy where
@@ -59,10 +60,11 @@ instance Bi TxFeePolicy where
 
 instance Cbor.Bi TxFeePolicy where
   encode policy = case policy of
-    TxFeePolicyTxSizeLinear txSizeLinear -> Cbor.encode (0 :: Word8) <> Cbor.encode txSizeLinear
-    TxFeePolicyUnknown word8 bs          -> Cbor.encode word8 <> Cbor.encode bs
+    TxFeePolicyTxSizeLinear txSizeLinear -> Cbor.encodeListLen 2 <> Cbor.encode (0 :: Word8) <> Cbor.encode txSizeLinear
+    TxFeePolicyUnknown word8 bs          -> Cbor.encodeListLen 2 <> Cbor.encode word8        <> Cbor.encode bs
   decode = do
+    Cbor.enforceSize "TxFeePolicy" 2
     tag <- Cbor.decode @Word8
     case tag of
       0 -> TxFeePolicyTxSizeLinear <$> Cbor.decode @TxSizeLinear
-      _ -> TxFeePolicyUnknown tag <$> Cbor.decode
+      _ -> TxFeePolicyUnknown tag  <$> Cbor.decode

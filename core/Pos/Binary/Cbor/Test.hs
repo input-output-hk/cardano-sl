@@ -1,14 +1,18 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -ddump-splices #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Pos.Binary.Cbor.Test where
 
+import qualified Codec.CBOR.FlatTerm as CBOR
 import           Pos.Binary.Cbor
 import           Universum
 import           Test.QuickCheck
 import           Pos.Core.Fee
 import           Pos.Binary.Core.Fee()
 import           Pos.Core.Arbitrary()
+import           Pos.Binary.Core.Script()
+import           Pos.Core.Types
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -35,6 +39,20 @@ deriveSimpleBi ''User [
         Field [| sex       :: Bool   |]
     ]]
 
+data MyScript = MyScript
+    { version :: ScriptVersion -- ^ Version
+    , script  :: LByteString   -- ^ Serialized script
+    } deriving (Eq, Show, Generic, Typeable)
+
+instance Arbitrary MyScript where
+  arbitrary = MyScript <$> arbitrary <*> arbitrary
+
+deriveSimpleBi ''MyScript [
+    Cons 'MyScript [
+        Field [| version :: ScriptVersion |],
+        Field [| script  :: LByteString   |]
+    ]]
+
 u1 :: User
 u1 = deserialize $ serialize $ Login "asd" 34
 
@@ -55,16 +73,40 @@ instance Bi T where
         1 -> uncurry T2 . deserialize . BSL.fromStrict <$> decode
         t -> Unknown t                                 <$> decode
 
+-- Machinery to test we perform "flat" encoding.
+hasValidFlatTerm :: Bi a => a -> Bool
+hasValidFlatTerm = CBOR.validFlatTerm . CBOR.toFlatTerm . encode
+
 -- | Given a data type which can be generated randomly and for which the CBOR
 -- encoding is defined, generates the roundtrip tests.
-roundtripProperty :: (Arbitrary a, Eq a, Show a, Bi a) => Proxy a -> Property
-roundtripProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
-  ((deserialize . serialize $ input) :: a) === input
+roundtripProperty :: (Arbitrary a, Eq a, Show a, Bi a) => a -> Property
+roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === input
+
+soundInstanceProperty :: (Arbitrary a, Eq a, Show a, Bi a) => Proxy a -> Property
+soundInstanceProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
+  let itRoundtrips = roundtripProperty input
+      isFlat       = hasValidFlatTerm input === True
+  in itRoundtrips .&&. isFlat
+
+-- Override the `Args` to be a bit more exhaustive.
+qc :: Property -> IO ()
+qc = quickCheckWith (stdArgs { maxSuccess = 1000 })
 
 -- | A set of basic yet-useful roundtrips properties to be included as part
 -- of a bigger testsuite.
-roundtrips :: IO ()
-roundtrips = do
-  quickCheck (roundtripProperty @Coeff Proxy)
-  quickCheck (roundtripProperty @TxSizeLinear Proxy)
-  quickCheck (roundtripProperty @TxFeePolicy Proxy)
+soundInstancesTest :: IO ()
+soundInstancesTest = do
+  qc (soundInstanceProperty @MyScript Proxy)
+  qc (soundInstanceProperty @Coeff Proxy)
+  qc (soundInstanceProperty @TxSizeLinear Proxy)
+  qc (soundInstanceProperty @TxFeePolicy Proxy)
+  qc (soundInstanceProperty @Script Proxy)
+  qc (soundInstanceProperty @Timestamp Proxy)
+  qc (soundInstanceProperty @EpochIndex Proxy)
+  qc (soundInstanceProperty @Coin Proxy)
+  qc (soundInstanceProperty @CoinPortion Proxy)
+  qc (soundInstanceProperty @LocalSlotIndex Proxy)
+  qc (soundInstanceProperty @SlotId Proxy)
+  qc (soundInstanceProperty @EpochOrSlot Proxy)
+  qc (soundInstanceProperty @SharedSeed Proxy)
+  qc (soundInstanceProperty @ChainDifficulty Proxy)

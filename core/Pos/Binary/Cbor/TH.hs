@@ -72,6 +72,8 @@ import           TH.ReifySimple        (DataCon (..), DataType (..), reifyDataTy
 import           TH.Utilities          (plainInstanceD)
 
 import qualified Pos.Binary.Cbor.Class as Bi
+import qualified Codec.CBOR.Encoding   as Cbor
+import qualified Codec.CBOR.Decoding   as Cbor
 
 data Cons = Cons
     { -- | Name of a constructor.
@@ -201,9 +203,13 @@ deriveSimpleBi headTy constrs = do
       where
         body val = normalB $
             if length constrs >= 2 then
-                mconcatE (encodeTag ix : map (encodeField val) cFields)
+                mconcatE (encodeFlat (length cFields + 1) : encodeTag ix : map (encodeField val) cFields)
             else
-                mconcatE (map (encodeField val) cFields)
+                mconcatE (encodeFlat (length cFields) : map (encodeField val) cFields)
+
+    -- Ensure the encoding of constructors with multiple arguments are encoded as a flat term.
+    encodeFlat :: Int -> Q Exp
+    encodeFlat listLen = [| Cbor.encodeListLen listLen |]
 
     encodeTag :: Int -> Q Exp
     encodeTag ix = [| Bi.encode (ix :: $tagType) |]
@@ -219,17 +225,24 @@ deriveSimpleBi headTy constrs = do
     biDecodeExpr = case constrs of
         []     ->
             failText $ sformat ("Attempting to decode type without constructors "%shown) headTy
-        [cons] ->
-            (biDecodeConstr cons) -- There is one constructor
+        [cons] -> do
+          let unused = mkName "_"
+          doE [ bindS (varP unused)  [| Cbor.decodeListLen |]
+              , noBindS (biDecodeConstr cons) -- There is one constructor
+              ]
         _      -> do
             let tagName = mkName "tag"
+            let unused  = mkName "_"
             let getMatch ix con = match (litP (IntegerL (fromIntegral ix)))
                                         (normalB (biDecodeConstr con)) []
             let mismatchConstr =
                     match wildP (normalB
                         [| fail $ toString ("Found invalid tag while decoding " <> shortNameTy) |]) []
             doE
-                [ bindS (varP tagName) [| Bi.decode |]
+                -- Unfortunately we cannot do any size-checking here as the incoming length won't
+                -- be known a-priori as this is machine-generated code.
+                [ bindS (varP unused)  [| Cbor.decodeListLen |]
+                , bindS (varP tagName) [| Bi.decode |]
                 , noBindS (caseE
                                 (sigE (varE tagName) tagType)
                                 (imap getMatch constrs ++ [mismatchConstr]))

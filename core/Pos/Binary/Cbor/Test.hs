@@ -4,6 +4,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Pos.Binary.Cbor.Test where
 
+import qualified Codec.CBOR.FlatTerm as CBOR
 import           Pos.Binary.Cbor
 import           Universum
 import           Test.QuickCheck
@@ -58,26 +59,35 @@ instance Bi T where
         1 -> uncurry T2 . deserialize . BSL.fromStrict <$> decode
         t -> Unknown t                                 <$> decode
 
+-- Machinery to test we perform "flat" encoding.
+hasValidFlatTerm :: Bi a => a -> Bool
+hasValidFlatTerm = CBOR.validFlatTerm . CBOR.toFlatTerm . encode
+
 -- | Given a data type which can be generated randomly and for which the CBOR
 -- encoding is defined, generates the roundtrip tests.
-roundtripProperty :: (Arbitrary a, Eq a, Show a, Bi a) => Proxy a -> Property
-roundtripProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
-  ((deserialize . serialize $ input) :: a) === input
+roundtripProperty :: (Arbitrary a, Eq a, Show a, Bi a) => a -> Property
+roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === input
+
+soundInstanceProperty :: (Arbitrary a, Eq a, Show a, Bi a) => Proxy a -> Property
+soundInstanceProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
+  let itRoundtrips = roundtripProperty input
+      isFlat       = hasValidFlatTerm input === True
+  in itRoundtrips .&&. isFlat
 
 -- | A set of basic yet-useful roundtrips properties to be included as part
 -- of a bigger testsuite.
-roundtrips :: IO ()
-roundtrips = do
-  quickCheck (roundtripProperty @Coeff Proxy)
-  quickCheck (roundtripProperty @TxSizeLinear Proxy)
-  quickCheck (roundtripProperty @TxFeePolicy Proxy)
-  quickCheck (roundtripProperty @Script Proxy)
-  quickCheck (roundtripProperty @Timestamp Proxy)
-  quickCheck (roundtripProperty @EpochIndex Proxy)
-  quickCheck (roundtripProperty @Coin Proxy)
-  quickCheck (roundtripProperty @CoinPortion Proxy)
-  quickCheck (roundtripProperty @LocalSlotIndex Proxy)
-  quickCheck (roundtripProperty @SlotId Proxy)
-  quickCheck (roundtripProperty @EpochOrSlot Proxy)
-  quickCheck (roundtripProperty @SharedSeed Proxy)
-  quickCheck (roundtripProperty @ChainDifficulty Proxy)
+soundInstancesTest :: IO ()
+soundInstancesTest = do
+  quickCheck (soundInstanceProperty @Coeff Proxy)
+  quickCheck (soundInstanceProperty @TxSizeLinear Proxy)
+  quickCheck (soundInstanceProperty @TxFeePolicy Proxy)
+  quickCheck (soundInstanceProperty @Script Proxy)
+  quickCheck (soundInstanceProperty @Timestamp Proxy)
+  quickCheck (soundInstanceProperty @EpochIndex Proxy)
+  quickCheck (soundInstanceProperty @Coin Proxy)
+  quickCheck (soundInstanceProperty @CoinPortion Proxy)
+  quickCheck (soundInstanceProperty @LocalSlotIndex Proxy)
+  quickCheck (soundInstanceProperty @SlotId Proxy)
+  quickCheck (soundInstanceProperty @EpochOrSlot Proxy)
+  quickCheck (soundInstanceProperty @SharedSeed Proxy)
+  quickCheck (soundInstanceProperty @ChainDifficulty Proxy)

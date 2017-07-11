@@ -32,7 +32,7 @@ import           Serokell.Util.Text          (listJson)
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Block.Core              (Block, GenesisBlock, MainBlock, mbTxPayload,
                                               mbUpdatePayload)
-import           Pos.Block.Logic.Slog        (SlogApplyMode, SlogMode, slogApplyBlocks,
+import           Pos.Block.Slog              (SlogApplyMode, SlogMode, slogApplyBlocks,
                                               slogRollbackBlocks)
 import           Pos.Block.Types             (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                    (IsGenesisHeader, IsMainHeader, epochIndexL,
@@ -94,7 +94,7 @@ type BlockVerifyMode ssc ctx m = BlockMode ssc ctx m
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
 type BlockApplyMode ssc ctx m
      = ( BlockMode ssc ctx m
-       , SlogApplyMode ssc m
+       , SlogApplyMode ssc ctx m
        -- It's obviously needed to write something to DB, for instance.
        , MonadDB m
        -- Needed for iteration over DB.

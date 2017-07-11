@@ -127,6 +127,7 @@ library
                         Pos.Binary.Block
                         Pos.Binary.Block.Block
                         Pos.Binary.Block.Core
+                        Pos.Binary.Block.Slog
                         Pos.Binary.Communication
                         Pos.Binary.Delegation
                         Pos.Binary.Relay
@@ -153,7 +154,6 @@ library
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header
                         Pos.Block.Logic.Internal
-                        Pos.Block.Logic.Slog
                         Pos.Block.Logic.Util
                         Pos.Block.Logic.VAR
                         Pos.Block.Network.Announce
@@ -161,6 +161,10 @@ library
                         Pos.Block.Network.Listeners
                         Pos.Block.Network.Logic
                         Pos.Block.Network.Retrieval
+                        Pos.Block.Slog
+                        Pos.Block.Slog.Context
+                        Pos.Block.Slog.Logic
+                        Pos.Block.Slog.Types
                         Pos.Block.Worker
 
                         -- Compile config

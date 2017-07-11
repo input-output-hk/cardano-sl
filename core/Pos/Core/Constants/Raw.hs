@@ -92,10 +92,13 @@ data CoreConstants = CoreConstants
       -- | Number of slots after which update is implicitly approved unless
       -- it has more negative votes than positive.
     , ccGenesisUpdateImplicit        :: !Word
-      -- | Portion of total stake such that if total stake of issuers of
-      -- blocks with some block version is bigger than this portion, this
-      -- block version is adopted.
-    , ccGenesisUpdateSoftforkThd     :: !Double
+      -- | The following three values define 'SoftforkRule', see the
+      -- documentation of this type for more detail.
+    , ccGenesisSoftforkInit          :: !Double
+      -- | See 'SoftforkRule'.
+    , ccGenesisSoftforkMin           :: !Double
+      -- | See 'SoftforkRule'.
+    , ccGenesisSoftforkDec           :: !Double
     , ccGenesisTxFeePolicy           :: !(ConfigOf TxFeePolicy)
     , ccGenesisUnlockStakeEpoch      :: !Word64
       -- | Maximum block size in bytes
@@ -142,8 +145,12 @@ checkConstants cs@CoreConstants{..} = do
         fail "CoreConstants: genesisHeavyDelThd is not in range [0, 1)"
     unless (check [(> 0), (< 1)] ccGenesisUpdateProposalThd) $
         fail "CoreConstants: genesisUpdateProposalThd is not in range (0, 1)"
-    unless (check [(> 0), (< 1)] ccGenesisUpdateSoftforkThd) $
-        fail "CoreConstants: genesisUpdateSoftforkThd is not in range (0, 1)"
+    unless (check [(> 0), (< 1)] ccGenesisSoftforkInit) $
+        fail "CoreConstants: genesisSoftforkInit is not in range (0, 1)"
+    unless (check [(> 0), (< 1)] ccGenesisSoftforkMin) $
+        fail "CoreConstants: genesisSoftforkMin is not in range (0, 1)"
+    unless (check [(> 0), (< 1)] ccGenesisSoftforkDec) $
+        fail "CoreConstants: genesisSoftforkDec is not in range (0, 1)"
     pure cs
 
 ----------------------------------------------------------------------------

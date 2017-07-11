@@ -186,7 +186,7 @@ runCmd sendActions ProposeUpdate{..} CmdCtx{na} = do
             , bvmUpdateVoteThd     = bvdUpdateVoteThd
             , bvmUpdateProposalThd = bvdUpdateProposalThd
             , bvmUpdateImplicit    = bvdUpdateImplicit
-            , bvmUpdateSoftforkThd = bvdUpdateSoftforkThd
+            , bvmSoftforkRule      = Nothing
             , bvmTxFeePolicy       = Nothing
             , bvmUnlockStakeEpoch  = Nothing
             }

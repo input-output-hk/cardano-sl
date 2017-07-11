@@ -6,6 +6,7 @@ module Pos.Core.Constants.Typed
          staticSysStart
        , blkSecurityParam
        , slotSecurityParam
+       , chainQualityThreshold
        , epochSlots
 
        -- * Genesis constants
@@ -21,7 +22,7 @@ module Pos.Core.Constants.Typed
        , genesisMaxUpdateProposalSize
        , genesisUpdateProposalThd
        , genesisUpdateImplicit
-       , genesisUpdateSoftforkThd
+       , genesisSoftforkRule
        , genesisUnlockStakeEpoch
        ) where
 
@@ -37,7 +38,7 @@ import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Fee.Config        (ConfigOf (..))
 import           Pos.Core.Types             (BlockCount, BlockVersionData (..),
                                              CoinPortion, EpochIndex (..), ScriptVersion,
-                                             SlotCount, Timestamp (..),
+                                             SlotCount, SoftforkRule (..), Timestamp (..),
                                              unsafeCoinPortionFromDouble)
 
 ----------------------------------------------------------------------------
@@ -54,9 +55,22 @@ blkSecurityParam :: BlockCount
 blkSecurityParam = fromIntegral $ ccK coreConstants
 
 -- | Security parameter expressed in number of slots. It uses chain
--- quality property. It's basically @blkSecurityParam / chain_quality@.
+-- quality property. It's basically @blkSecurityParam / chainQualityThreshold@.
 slotSecurityParam :: SlotCount
 slotSecurityParam = fromIntegral $ 2 * ccK coreConstants
+
+-- We don't have a special newtype for it, so it can be any
+-- 'Fractional'. I think adding newtype here would be overkill
+-- (@gromak). Also this value is not actually part of the protocol,
+-- but rather implementation detail, so we don't need to ensure
+-- conrete precision. Apart from that, in reality we know that it's
+-- 0.5, so any fractional type should be fine ☺
+--
+-- | Minimal chain quality (number of blocks divided by number of
+-- slots) necessary for security of the system.
+chainQualityThreshold :: Fractional fractional => fractional
+chainQualityThreshold =
+    realToFrac blkSecurityParam / realToFrac slotSecurityParam
 
 -- | Number of slots inside one epoch.
 epochSlots :: SlotCount
@@ -81,7 +95,7 @@ genesisBlockVersionData =
     , bvdUpdateVoteThd = genesisUpdateVoteThd
     , bvdUpdateProposalThd = genesisUpdateProposalThd
     , bvdUpdateImplicit = genesisUpdateImplicit
-    , bvdUpdateSoftforkThd = genesisUpdateSoftforkThd
+    , bvdSoftforkRule = genesisSoftforkRule
     , bvdTxFeePolicy = genesisTxFeePolicy
     , bvdUnlockStakeEpoch = genesisUnlockStakeEpoch
     }
@@ -137,10 +151,17 @@ genesisUpdateImplicit :: Integral i => i
 genesisUpdateImplicit = fromIntegral $
     ccGenesisUpdateImplicit coreConstants
 
--- | See 'ccGenesisUpdateSoftforkThd'.
-genesisUpdateSoftforkThd :: CoinPortion
-genesisUpdateSoftforkThd = unsafeCoinPortionFromDouble $
-    ccGenesisUpdateSoftforkThd coreConstants
+-- | Genesis softfork resolution rule.
+genesisSoftforkRule :: SoftforkRule
+genesisSoftforkRule =
+    SoftforkRule
+    { srMinThd =
+          unsafeCoinPortionFromDouble $ ccGenesisSoftforkMin coreConstants
+    , srInitThd =
+          unsafeCoinPortionFromDouble $ ccGenesisSoftforkInit coreConstants
+    , srThdDecrement =
+          unsafeCoinPortionFromDouble $ ccGenesisSoftforkDec coreConstants
+    }
 
 genesisTxFeePolicy :: TxFeePolicy
 genesisTxFeePolicy = getConfigOf (ccGenesisTxFeePolicy coreConstants)

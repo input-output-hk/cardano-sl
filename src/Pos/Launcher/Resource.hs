@@ -64,7 +64,7 @@ import           Pos.Launcher.Param          (BaseParams (..), LoggingParams (..
 import           Pos.Lrc.Context             (LrcContext (..), mkLrcSyncData)
 import           Pos.Shutdown.Types          (ShutdownContext (..))
 import           Pos.Slotting                (SlottingContextSum (..), SlottingData,
-                                              mkNtpSlottingVar)
+                                              mkNtpSlottingVar, mkSimpleSlottingVar)
 import           Pos.Ssc.Class               (SscConstraint, SscParams,
                                               sscCreateNodeContext)
 import           Pos.Ssc.Extra               (SscState, mkSscState)
@@ -244,7 +244,7 @@ allocateNodeContext np@NodeParams {..} sscnp putSlotting = do
     ncSlottingContext <-
         case npUseNTP of
             True  -> SCNtp <$> mkNtpSlottingVar
-            False -> pure SCSimple
+            False -> SCSimple <$> mkSimpleSlottingVar
     putSlotting ncSlottingVar ncSlottingContext
     ncUserSecret <- newTVarIO $ npUserSecret
     ncBlockRetrievalQueue <- liftIO $ newTBQueueIO Const.blockRetrievalQueueSize

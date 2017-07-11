@@ -59,11 +59,12 @@ import           Pos.Launcher            (InitModeContext (..), newInitFuture,
                                           runInitMode)
 import           Pos.Lrc                 (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting            (HasSlottingVar (..), MonadSlots (..),
+                                          SimpleSlottingVar,
                                           SlottingContextSum (SCSimple), SlottingData,
                                           currentTimeSlottingSimple,
                                           getCurrentSlotBlockingSimple,
                                           getCurrentSlotInaccurateSimple,
-                                          getCurrentSlotSimple)
+                                          getCurrentSlotSimple, mkSimpleSlottingVar)
 import           Pos.Slotting.MemState   (MonadSlotsData (..), getSlottingDataDefault,
                                           getSystemStartDefault, putSlottingDataDefault,
                                           waitPenultEpochEqualsDefault)
@@ -160,6 +161,7 @@ data BlockTestContext = BlockTestContext
     , btcSlottingVar       :: !(Timestamp, TVar SlottingData)
     , btcLoggerName        :: !LoggerName
     , btcLrcContext        :: !LrcContext
+    , btcSSlottingVar      :: !SimpleSlottingVar
     , btcUpdateContext     :: !UpdateContext
     , btcSscState          :: !(SscState SscGodTossing)
     , btcTxpGlobalSettings :: !TxpGlobalSettings
@@ -185,12 +187,13 @@ bracketBlockTestContext testParams@TestParams {..} callback =
         bracket (openNodeDBs False dbPath) closeNodeDBs $ \nodeDBs -> do
             (futureLrcCtx, putLrcCtx) <- newInitFuture
             (futureSlottingVar, putSlottingVar) <- newInitFuture
+            simpleSlot <- SCSimple <$> mkSimpleSlottingVar
             let initCtx =
                     InitModeContext
                         nodeDBs
                         tpGenUtxo
                         futureSlottingVar
-                        SCSimple
+                        simpleSlot
                         futureLrcCtx
             runInitMode @SscGodTossing initCtx $
                 bracketBlockTestContextDo nodeDBs putSlottingVar putLrcCtx
@@ -201,6 +204,7 @@ bracketBlockTestContext testParams@TestParams {..} callback =
         slottingData <- GState.getSlottingData
         btcSlottingVar <- (systemStart, ) <$> newTVarIO slottingData
         putSlottingVar btcSlottingVar
+        btcSSlottingVar <- mkSimpleSlottingVar
         let btcLoggerName = "testing"
         lcLrcSync <- mkLrcSyncData >>= newTVarIO
         let btcLrcContext = LrcContext {..}
@@ -264,6 +268,9 @@ instance HasLens TxpGlobalSettings BlockTestContext TxpGlobalSettings where
 instance HasLens TestParams BlockTestContext TestParams where
       lensOf = btcParams_L
 
+instance HasLens SimpleSlottingVar BlockTestContext SimpleSlottingVar where
+      lensOf = btcSSlottingVar_L
+
 instance HasSlottingVar BlockTestContext where
     slottingTimestamp = btcSlottingVar_L . _1
     slottingVar = btcSlottingVar_L . _2
@@ -282,9 +289,9 @@ instance MonadSlotsData BlockTestMode where
     putSlottingData = putSlottingDataDefault
 
 instance MonadSlots BlockTestMode where
-    getCurrentSlot = getCurrentSlotSimple
-    getCurrentSlotBlocking = getCurrentSlotBlockingSimple
-    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
+    getCurrentSlot = getCurrentSlotSimple =<< view btcSSlottingVar_L
+    getCurrentSlotBlocking = getCurrentSlotBlockingSimple =<< view btcSSlottingVar_L
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple =<< view btcSSlottingVar_L
     currentTimeSlotting = currentTimeSlottingSimple
 
 instance MonadDBRead BlockTestMode where

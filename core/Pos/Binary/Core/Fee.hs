@@ -60,11 +60,13 @@ instance Bi TxFeePolicy where
 
 instance Cbor.Bi TxFeePolicy where
   encode policy = case policy of
-    TxFeePolicyTxSizeLinear txSizeLinear -> Cbor.encodeListLen 2 <> Cbor.encode (0 :: Word8) <> Cbor.encode txSizeLinear
-    TxFeePolicyUnknown word8 bs          -> Cbor.encodeListLen 2 <> Cbor.encode word8        <> Cbor.encode bs
+    TxFeePolicyTxSizeLinear txSizeLinear -> Cbor.encodeListLen 2 <> Cbor.encode (0 :: Word8)
+                                                                 <> Cbor.encode (Cbor.serialize' txSizeLinear)
+    TxFeePolicyUnknown word8 bs          -> Cbor.encodeListLen 2 <> Cbor.encode word8
+                                                                 <> Cbor.encode bs
   decode = do
     Cbor.enforceSize "TxFeePolicy" 2
     tag <- Cbor.decode @Word8
     case tag of
-      0 -> TxFeePolicyTxSizeLinear <$> Cbor.decode @TxSizeLinear
-      _ -> TxFeePolicyUnknown tag  <$> Cbor.decode
+      0 -> TxFeePolicyTxSizeLinear . Cbor.deserialize' <$> Cbor.decode
+      _ -> TxFeePolicyUnknown tag                      <$> Cbor.decode

@@ -60,6 +60,17 @@ u1 = deserialize $ serialize $ Login "asd" 34
 data T = T1 Int | T2 Int Int | Unknown Word8 BS.ByteString
     deriving Show
 
+-- Type to be used to simulate a breaking change in the serialisation
+-- schema, so we can test instances which uses the `UnknownXX` pattern
+-- for extensibility.
+data U = U Word8 BS.ByteString
+
+instance Bi U where
+  encode (U word8 bs) = encodeListLen 2 <> encode (word8 :: Word8) <> encode bs
+  decode = do
+    _ <- decodeListLen
+    U <$> decode <*> decode
+
 instance Bi T where
     encode = \case
         T1 a         -> encode (0::Word8)
@@ -83,6 +94,17 @@ hasValidFlatTerm = CBOR.validFlatTerm . CBOR.toFlatTerm . encode
 roundtripProperty :: (Arbitrary a, Eq a, Show a, Bi a) => a -> Property
 roundtripProperty (input :: a) = ((deserialize . serialize $ input) :: a) === input
 
+-- | Given a data type which can be extended, verify we can indeed do so
+-- without breaking anything. This should work with every time which adopted
+-- the schema of having at least one constructor of the form:
+-- .... | Unknown Word8 ByteString
+extensionProperty :: (Arbitrary a, Eq a, Show a, Bi a) => Proxy a -> Property
+extensionProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
+  let serialized      = serialize input -- We now have a BS blob
+      (u :: U)        = deserialize serialized
+      (encoded :: a)  = deserialize (serialize u)
+  in encoded === input
+
 soundInstanceProperty :: (Arbitrary a, Eq a, Show a, Bi a) => Proxy a -> Property
 soundInstanceProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input ->
   let itRoundtrips = roundtripProperty input
@@ -100,7 +122,7 @@ soundInstancesTest = do
   qc (soundInstanceProperty @MyScript Proxy)
   qc (soundInstanceProperty @Coeff Proxy)
   qc (soundInstanceProperty @TxSizeLinear Proxy)
-  qc (soundInstanceProperty @TxFeePolicy Proxy)
+  qc (soundInstanceProperty @TxFeePolicy Proxy .&&. extensionProperty @TxFeePolicy Proxy)
   qc (soundInstanceProperty @Script Proxy)
   qc (soundInstanceProperty @Timestamp Proxy)
   qc (soundInstanceProperty @EpochIndex Proxy)

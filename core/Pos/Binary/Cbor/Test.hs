@@ -134,3 +134,6 @@ soundInstancesTest = do
   qc (soundInstanceProperty @SharedSeed Proxy)
   qc (soundInstanceProperty @ChainDifficulty Proxy)
   qc (soundInstanceProperty @StakeDistribution Proxy)
+  qc (soundInstanceProperty @ApplicationName Proxy)
+  qc (soundInstanceProperty @SoftwareVersion Proxy)
+  qc (soundInstanceProperty @BlockVersion Proxy)

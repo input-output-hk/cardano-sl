@@ -110,6 +110,10 @@ library
                         Pos.WorkMode
                         Pos.WorkMode.Class
 
+                        -- Generators
+                        Pos.Generators
+                        Pos.Generators.BlockEvent
+
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer

@@ -27,6 +27,9 @@ module Pos.DB.Block
        , dbGetHeaderPureDefault
        , dbGetBlockPureDefault
        , dbGetUndoPureDefault
+       , dbGetBlockSscPureDefault
+       , dbGetUndoSscPureDefault
+       , dbGetHeaderSscPureDefault
        , dbPutBlundPureDefault
 
        -- * MonadBlockDB
@@ -265,6 +268,24 @@ dbPutBlundPureDefault (blk,undo) = do
     flip atomicModifyIORefPure var $
         (pureBlocksStorage . at h .~ Just (encode (blk,undo))) .
         (pureBlockIndexDB . at (blockIndexKey h) .~ Just (encode $ BC.getBlockHeader blk))
+
+dbGetBlockSscPureDefault ::
+       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe (SscBlock ssc))
+dbGetBlockSscPureDefault = fmap (toSscBlock <$>) . dbGetBlockPureDefault
+
+dbGetUndoSscPureDefault ::
+       forall ssc ctx m. (MonadPureDB ctx m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe ())
+dbGetUndoSscPureDefault = fmap (const () <$>) . dbGetUndoPureDefault @ssc
+
+dbGetHeaderSscPureDefault ::
+       forall ssc m. (MonadDBRead m, SscHelpersClass ssc)
+    => HeaderHash
+    -> m (Maybe (Some IsHeader))
+dbGetHeaderSscPureDefault = fmap (Some <$>) . dbGetHeaderPureDefault @ssc
 
 ----------------------------------------------------------------------------
 -- Initialization

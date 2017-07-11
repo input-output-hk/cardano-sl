@@ -162,8 +162,6 @@ qanet_tns: &qanet_tns
   protocolMagic: 50987900
   genesisBinSuffix: qa
 
-  genesisBinSuffix: tns
-
 ##############################################################################
 ##                                                                          ##
 ##   Wallet config                                                          ##

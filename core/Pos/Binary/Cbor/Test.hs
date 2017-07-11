@@ -13,6 +13,7 @@ import           Pos.Binary.Core.Fee()
 import           Pos.Core.Arbitrary()
 import           Pos.Binary.Core.Script()
 import           Pos.Core.Types
+import           Pos.Core.Genesis.Types
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -110,3 +111,4 @@ soundInstancesTest = do
   qc (soundInstanceProperty @EpochOrSlot Proxy)
   qc (soundInstanceProperty @SharedSeed Proxy)
   qc (soundInstanceProperty @ChainDifficulty Proxy)
+  qc (soundInstanceProperty @StakeDistribution Proxy)

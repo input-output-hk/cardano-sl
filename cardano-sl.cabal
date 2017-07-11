@@ -54,6 +54,10 @@ library
 
                         Pos.Delegation
 
+                        -- Arbitrary data generation
+                        Pos.Generator
+                        Pos.Generator.Block
+
                         -- Genesis data
                         Pos.Genesis
 
@@ -196,6 +200,12 @@ library
                         Pos.Delegation.Lrc
                         Pos.Delegation.Types
                         Pos.Delegation.Worker
+
+                        -- Arbitrary data generation
+                        Pos.Generator.Block.Error
+                        Pos.Generator.Block.Logic
+                        Pos.Generator.Block.Mode
+                        Pos.Generator.Block.Param
 
                         -- Launcher
                         Pos.Launcher.Launcher

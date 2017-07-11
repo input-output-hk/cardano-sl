@@ -57,7 +57,7 @@ import           Pos.Binary.Block      ()
 import           Pos.Binary.Class      (Bi, decodeFull, decodeOrFail, encode)
 import           Pos.Block.Core        (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Block.Core        as BC
-import           Pos.Block.Types       (Blund, Undo (..))
+import           Pos.Block.Types       (Blund, SlogUndo (..), Undo (..))
 import           Pos.Constants         (genesisHash)
 import           Pos.Core              (BlockCount, HasDifficulty (difficultyL),
                                         HasPrevBlock (prevBlockL), HeaderHash, IsHeader,
@@ -274,7 +274,16 @@ prepareBlockDB
     :: forall ssc m.
        MonadBlockDBWrite ssc m
     => GenesisBlock ssc -> m ()
-prepareBlockDB blk = dbPutBlund @(BlockHeader ssc) @(Block ssc) @Undo (Left blk, def)
+prepareBlockDB blk =
+    dbPutBlund @(BlockHeader ssc) @(Block ssc) @Undo (Left blk, genesisUndo)
+  where
+    genesisUndo =
+        Undo
+        { undoTx = mempty
+        , undoPsk = mempty
+        , undoUS = def
+        , undoSlog = SlogUndo Nothing
+        }
 
 ----------------------------------------------------------------------------
 -- Keys

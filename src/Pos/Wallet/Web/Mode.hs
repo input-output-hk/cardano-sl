@@ -17,6 +17,7 @@ import           Mockable                      (Production, SharedAtomicT)
 import           System.Wlog                   (HasLoggerName (..))
 
 import           Pos.Block.Core                (Block, BlockHeader)
+import           Pos.Block.Slog.Types          (HasSlogContext (..))
 import           Pos.Block.Types               (Undo)
 import           Pos.Communication.PeerState   (HasPeerState (..), WithPeerState (..),
                                                 clearPeerStateDefault,
@@ -132,6 +133,9 @@ instance {-# OVERLAPPABLE #-}
 
 instance HasLoggerName' WalletWebModeContext where
     loggerName = wwmcRealModeContext_L . loggerName
+
+instance HasSlogContext WalletWebModeContext where
+    slogContextL = wwmcRealModeContext_L . slogContextL
 
 instance HasJsonLogConfig WalletWebModeContext where
     jsonLogConfig = wwmcRealModeContext_L . jsonLogConfig

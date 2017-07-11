@@ -21,6 +21,7 @@ import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)
+import           Pos.Block.Slog.Types        (HasSlogContext)
 import           Pos.Communication.PeerState (WithPeerState)
 import           Pos.Communication.Relay     (MonadRelayMem)
 import           Pos.Context                 (BlkSemaphore, BlockRetrievalQueue,
@@ -98,6 +99,7 @@ type WorkMode ssc ctx m
       , HasReportingContext ctx
       , HasPrimaryKey ctx
       , HasShutdownContext ctx
+      , HasSlogContext ctx
       )
 
 -- | More relaxed version of 'WorkMode'.

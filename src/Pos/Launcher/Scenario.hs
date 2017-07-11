@@ -16,7 +16,7 @@ import           Control.Lens        (each, to, views, _tail)
 import           Development.GitRev  (gitBranch, gitHash)
 import           Ether.Internal      (HasLens (..))
 import           Formatting          (build, sformat, shown, (%))
-import           Mockable            (fork)
+import           Mockable            (mapConcurrently, concurrently)
 import           Serokell.Util.Text  (listJson)
 import           System.Exit         (ExitCode (..))
 import           System.Wlog         (WithLogger, getLoggerName, logError, logInfo,
@@ -82,14 +82,15 @@ runNode' plugins' = ActionSpec $ \vI sendActions -> do
     initDelegation @ssc
     initSemaphore
     waitSystemStart
+    nc <- view nodeContext
     let unpackPlugin (ActionSpec action) =
             action vI sendActions `catch` reportHandler
-    mapM_ (fork . unpackPlugin) plugins'
-
-    nc <- view nodeContext
 
     -- Instead of sleeping forever, we wait until graceful shutdown
-    waitForWorkers (allWorkersCount @ssc nc)
+    void
+      (concurrently
+         (void (mapConcurrently (unpackPlugin) plugins'))
+         (waitForWorkers (allWorkersCount @ssc nc)))
     exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?

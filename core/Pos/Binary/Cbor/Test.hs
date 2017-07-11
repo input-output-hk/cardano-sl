@@ -39,6 +39,20 @@ deriveSimpleBi ''User [
         Field [| sex       :: Bool   |]
     ]]
 
+data MyScript = MyScript
+    { version :: ScriptVersion -- ^ Version
+    , script  :: LByteString   -- ^ Serialized script
+    } deriving (Eq, Show, Generic, Typeable)
+
+instance Arbitrary MyScript where
+  arbitrary = MyScript <$> arbitrary <*> arbitrary
+
+deriveSimpleBi ''MyScript [
+    Cons 'MyScript [
+        Field [| version :: ScriptVersion |],
+        Field [| script  :: LByteString   |]
+    ]]
+
 u1 :: User
 u1 = deserialize $ serialize $ Login "asd" 34
 
@@ -82,6 +96,7 @@ qc = quickCheckWith (stdArgs { maxSuccess = 1000 })
 -- of a bigger testsuite.
 soundInstancesTest :: IO ()
 soundInstancesTest = do
+  qc (soundInstanceProperty @MyScript Proxy)
   qc (soundInstanceProperty @Coeff Proxy)
   qc (soundInstanceProperty @TxSizeLinear Proxy)
   qc (soundInstanceProperty @TxFeePolicy Proxy)

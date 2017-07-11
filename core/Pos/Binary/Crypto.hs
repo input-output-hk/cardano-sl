@@ -148,6 +148,8 @@ instance Cbor.Bi SecretSharingExtra where
     encode = error "encode SecretSharingExtra"
     decode = error "decode SecretSharingExtra"
 
+deriving instance Cbor.Bi (AsBinary SecretSharingExtra)
+
 ----------------------------------------------------------------------------
 -- SecretSharing AsBinary
 ----------------------------------------------------------------------------

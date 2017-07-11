@@ -1,6 +1,7 @@
 module Explorer.Api.Http where
 
 import Prelude
+
 import Control.Monad.Aff (Aff)
 import Control.Monad.Eff.Exception (Error, error)
 import Control.Monad.Error.Class (throwError)
@@ -14,6 +15,7 @@ import Data.Tuple (Tuple)
 import Explorer.Api.Helper (decodeResult)
 import Explorer.Api.Types (Endpoint, EndpointError(..), RequestLimit(..), RequestOffset(..))
 import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, PageNumber(..), PageSize(..))
+import Global (encodeURIComponent)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
@@ -73,7 +75,7 @@ fetchTxSummary id = get $ "txs/summary/" <> id ^. (_CTxId <<< _CHash)
 
 -- addresses
 fetchAddressSummary :: forall eff. CAddress -> Aff (ajax::AJAX | eff) CAddressSummary
-fetchAddressSummary (CAddress address) = get $ "addresses/summary/" <> address
+fetchAddressSummary (CAddress address) = get $ "addresses/summary/" <> (encodeURIComponent address)
 
 -- search by epoch / slot
 searchEpoch :: forall eff. EpochIndex -> Maybe LocalSlotIndex -> Aff (ajax::AJAX | eff) CBlockEntries

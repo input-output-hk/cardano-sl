@@ -39,17 +39,12 @@ import           Pos.Core                    (IsGenesisHeader, IsMainHeader, epo
 import           Pos.DB                      (MonadDB, MonadGState, SomeBatchOp (..))
 import           Pos.DB.Block                (MonadBlockDB, MonadSscBlockDB)
 import qualified Pos.DB.GState               as GS
-import           Pos.Delegation.Logic        (dlgApplyBlocks, dlgRollbackBlocks)
-import           Pos.Lrc.Context             (LrcContext)
-import           Pos.Txp.Core                (TxPayload)
-#ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp            (eTxNormalize)
-#else
-import           Pos.Txp.Logic               (txNormalize)
-#endif
 import           Pos.Delegation.Class        (MonadDelegation)
+import           Pos.Delegation.Logic        (dlgApplyBlocks, dlgNormalize,
+                                              dlgRollbackBlocks)
 import           Pos.Discovery.Class         (MonadDiscovery)
 import           Pos.Exception               (assertionFailed)
+import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Reporting               (HasReportingContext, reportingFatal)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
@@ -57,6 +52,7 @@ import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Extra               (MonadSscMem, sscApplyBlocks, sscNormalize,
                                               sscRollbackBlocks)
 import           Pos.Ssc.Util                (toSscBlock)
+import           Pos.Txp.Core                (TxPayload)
 import           Pos.Txp.MemState            (MonadTxpMem)
 import           Pos.Txp.Settings            (TxpBlock, TxpBlund, TxpGlobalSettings (..))
 import           Pos.Update.Context          (UpdateContext)
@@ -67,6 +63,11 @@ import           Pos.Update.Poll             (PollModifier)
 import           Pos.Util                    (Some (..), spanSafe)
 import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
+#ifdef WITH_EXPLORER
+import           Pos.Explorer.Txp            (eTxNormalize)
+#else
+import           Pos.Txp.Logic               (txNormalize)
+#endif
 
 -- | Set of basic constraints used by high-level block processing.
 type MonadBlockBase ssc ctx m
@@ -165,6 +166,7 @@ applyBlocksUnsafeDo blunds pModifier = do
         , slogBatch
         ]
     sscNormalize
+    dlgNormalize @ssc
 #ifdef WITH_EXPLORER
     eTxNormalize
 #else

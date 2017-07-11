@@ -150,7 +150,7 @@ testnet: &testnet
   #  ^ This timeout shouldn't be triggered at all, it's some precaution for bug somewhere in networking 
   recoveryHeadersMessage: 2200
 
-  genesisBinSuffix: tns
+  genesisBinSuffix: tn
 
 testnet_staging: &testnet_staging
   <<: *testnet

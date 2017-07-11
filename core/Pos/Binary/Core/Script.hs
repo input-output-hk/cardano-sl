@@ -61,14 +61,8 @@ instance Bi Script where
         putField (UnsignedVarInt . scrVersion) <>
         putField scrScript
 
---Cbor.deriveSimpleBi ''Script [
---    Cbor.Cons 'Script [
---        Cbor.Field [| scrVersion :: ScriptVersion |],
---        Cbor.Field [| scrScript  :: LByteString   |]
---    ]]
-
-instance Cbor.Bi Script where
-  encode (Script vr scr) = Cbor.encodeListLen 2 <> Cbor.encode vr <> Cbor.encode scr
-  decode = do
-    Cbor.enforceSize "Script" 2
-    Script <$> Cbor.decode <*> Cbor.decode
+Cbor.deriveSimpleBi ''Script [
+    Cbor.Cons 'Script [
+        Cbor.Field [| scrVersion :: ScriptVersion |],
+        Cbor.Field [| scrScript  :: LByteString   |]
+    ]]

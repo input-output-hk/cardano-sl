@@ -16,6 +16,7 @@ module Pos.Util.Util
 
        , maybeThrow
        , eitherToFail
+       , eitherToThrow
        , getKeys
        , sortWithMDesc
        , leftToPanic
@@ -273,6 +274,12 @@ maybeThrow e = maybe (throwM e) pure
 -- | Fail or return result depending on what is stored in 'Either'.
 eitherToFail :: (MonadFail m, ToString s) => Either s a -> m a
 eitherToFail = either (fail . toString) pure
+
+-- | Throw exception or return result depending on what is stored in 'Either'
+eitherToThrow
+    :: (MonadThrow m, Exception e)
+    => (s -> e) -> Either s a -> m a
+eitherToThrow f = either (throwM . f) pure
 
 -- | Create HashSet from HashMap's keys
 getKeys :: HashMap k v -> HashSet k

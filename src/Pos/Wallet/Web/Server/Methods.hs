@@ -63,7 +63,7 @@ import           Pos.Aeson.WalletBackup           ()
 import           Pos.Binary.Class                 (biSize)
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
-import           Pos.Client.Txp.Util              (createMTx)
+import           Pos.Client.Txp.Util              (createMTx, TxError (..))
 import           Pos.Communication                (OutSpecs, SendActions, sendTxOuts,
                                                    submitMTx, submitRedemptionTx)
 import           Pos.Constants                    (curSoftwareVersion, isDevelopment)
@@ -164,7 +164,7 @@ import           Pos.Wallet.Web.Tracking          (CAccModifier (..), sortedInse
                                                    syncWalletOnImport,
                                                    syncWalletsWithGState,
                                                    txMempoolToModifier)
-import           Pos.Wallet.Web.Util              (getWalletAccountIds)
+import           Pos.Wallet.Web.Util              (getWalletAccountIds, rewrapTxError)
 import           Pos.Web.Server                   (serveImpl)
 
 ----------------------------------------------------------------------------
@@ -597,32 +597,28 @@ sendMoney sendActions passphrase moneySource dstDistr = do
         -> m CTx
     sendDo spendings outputs = do
         let inputMetas = NE.map fst spendings
-        let inpTxOuts = NE.map snd spendings
+        let inpTxOuts = toList $ NE.map snd spendings
         na <- getPeers
         sks <- forM inputMetas $ getSKByAccAddr passphrase
         srcAddrs <- forM inputMetas $ decodeCIdOrFail . cwamId
         let dstAddrs = txOutAddress . toaOut <$> toList outputs
         withSafeSigners passphrase sks $ \ss -> do
             let hdwSigner = NE.zip ss srcAddrs
-            etx <- submitMTx sendActions hdwSigner (toList na) outputs
-            case etx of
-                Left err ->
-                    throwM . RequestError $
-                    sformat ("Cannot send transaction: " %stext) err
-                Right (TxAux {taTx = tx}) -> do
-                    logInfo $
-                        sformat ("Successfully spent money from "%
-                                 listF ", " addressF % " addresses on " %
-                                 listF ", " addressF)
-                        (toList srcAddrs)
-                        dstAddrs
-                    -- TODO: this should be removed in production
-                    let txHash    = hash tx
-                        srcWallet = getMoneySourceWallet moneySource
-                    ts <- Just <$> liftIO getCurrentTimestamp
-                    ctxs <- addHistoryTx srcWallet False $
-                        THEntry txHash tx (toList inpTxOuts) Nothing (toList srcAddrs) dstAddrs ts
-                    ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
+            TxAux {taTx = tx} <- rewrapTxError "Cannot send transaction" $
+                submitMTx sendActions hdwSigner (toList na) outputs
+            logInfo $
+                sformat ("Successfully spent money from "%
+                         listF ", " addressF % " addresses on " %
+                         listF ", " addressF)
+                (toList srcAddrs)
+                dstAddrs
+            -- TODO: this should be removed in production
+            let txHash    = hash tx
+                srcWallet = getMoneySourceWallet moneySource
+            ts <- Just <$> liftIO getCurrentTimestamp
+            ctxs <- addHistoryTx srcWallet False $
+                THEntry txHash tx inpTxOuts Nothing (toList srcAddrs) dstAddrs ts
+            ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
 
     noOutgoingTx = InternalError "Can't report outgoing transaction"
     -- TODO eliminate copy-paste
@@ -697,7 +693,7 @@ stabilizeTxFee linearPolicy moneySource dstDistr =
     stabilizeTxFeeDo 5 (TxFee $ mkCoin 0)
   where
     stabilizeTxFeeDo :: Int -> TxFee -> m TxRaw
-    stabilizeTxFeeDo 0 _ = throwM $ RequestError "Couldn't stabilize tx after 5 attempts"
+    stabilizeTxFeeDo 0 _ = throwM $ TxError "Couldn't stabilize tx after 5 attempts"
     stabilizeTxFeeDo attempt efee@(TxFee expectedFee) = do
         txRaw <- prepareTxRaw moneySource dstDistr efee
         txAux <- createFakeTxFromRawTx txRaw
@@ -741,7 +737,7 @@ createFakeTxFromRawTx TxRaw{..} = do
     let txAuxEi = createMTx utxo hdwSigners txOutsWithRem
     either invalidTxEx pure txAuxEi
   where
-    invalidTxEx = throwM . RequestError . sformat ("Couldn't create a fake transaction, reason: "%build)
+    invalidTxEx = throwM . TxError . sformat ("Couldn't create a fake transaction, reason: "%build)
 
 -- Functions doesn't write to db anything.
 prepareTxRaw
@@ -1141,17 +1137,15 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
     -- Need to talk to @martoon about this. Discovered in CSM-330.
     dstAddr <- decodeCIdOrFail $ cwamId dstCWAddrMeta
     na <- getPeers
-    etx <- submitRedemptionTx sendActions redeemSK (toList na) dstAddr
-    case etx of
-        Left err -> throwM . RequestError $
-                    "Cannot send redemption transaction: " <> err
-        Right (TxAux {..}, redeemAddress, redeemBalance) -> do
-            -- add redemption transaction to the history of new wallet
-            let txInputs = [TxOut redeemAddress redeemBalance]
-            ts <- Just <$> liftIO getCurrentTimestamp
-            ctxs <- addHistoryTx (aiWId accId) True
-                (THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts)
-            ctsIncoming ctxs `whenNothing` throwM noIncomingTx
+    (TxAux {..}, redeemAddress, redeemBalance) <-
+        rewrapTxError "Cannot send redemption transaction" $
+        submitRedemptionTx sendActions redeemSK (toList na) dstAddr
+    -- add redemption transaction to the history of new wallet
+    let txInputs = [TxOut redeemAddress redeemBalance]
+    ts <- Just <$> liftIO getCurrentTimestamp
+    ctxs <- addHistoryTx (aiWId accId) True $
+        THEntry (hash taTx) taTx txInputs Nothing [srcAddr] [dstAddr] ts
+    ctsIncoming ctxs `whenNothing` throwM noIncomingTx
   where
     noIncomingTx = InternalError "Can't report incoming transaction"
 
@@ -1196,8 +1190,8 @@ importWallet passphrase (toString -> fp) = do
     getWallet wId
   where
     noWalletSecret = RequestError "This key doesn't contain HD wallet info"
-    noFile _ = "File doesn't exist"
-    decodeFailed = sformat ("Invalid secret file ("%build%")")
+    noFile _ = RequestError "File doesn't exist"
+    decodeFailed = RequestError . sformat ("Invalid secret file ("%build%")")
 
 importWalletSecret
     :: WalletWebMode m

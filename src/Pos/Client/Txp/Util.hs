@@ -13,7 +13,7 @@ module Pos.Client.Txp.Util
        , createRedemptionTx
 
        -- * Additional datatypes
-       , TxError
+       , TxError (..)
        ) where
 
 import           Control.Lens        (traversed, (%=), (.=))
@@ -21,7 +21,9 @@ import           Control.Monad.State (StateT (..), evalStateT)
 import qualified Data.HashMap.Strict as HM
 import           Data.List           (tail)
 import qualified Data.Map            as M
+import qualified Data.Text.Buildable
 import qualified Data.Vector         as V
+import           Formatting          (bprint, stext, (%))
 import           Universum
 
 import           Pos.Binary          ()
@@ -43,7 +45,15 @@ import           Pos.Types           (Address, Coin, makePubKeyAddress, makePubK
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
 type TxOutputs = NonEmpty TxOutAux
-type TxError = Text
+
+data TxError
+    = TxError !Text
+    deriving (Show, Generic)
+
+instance Exception TxError
+
+instance Buildable TxError where
+    build (TxError msg) = bprint ("Transaction creation error ("%stext%")") msg
 
 -----------------------------------------------------------------------------
 -- Tx creation
@@ -110,7 +120,7 @@ makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
             }
 
 type FlatUtxo = [(TxIn, TxOutAux)]
-type InputPicker = StateT (Coin, FlatUtxo) (Either TxError)
+type InputPicker = StateT (Coin, FlatUtxo) (Either Text)
 
 -- | Given Utxo, desired source addresses and desired outputs, prepare lists
 -- of correct inputs and outputs to form a transaction
@@ -118,7 +128,7 @@ prepareInpsOuts
     :: Utxo
     -> NonEmpty Address
     -> TxOutputs
-    -> Either TxError (TxOwnedInputs Address, TxOutputs)
+    -> Either Text (TxOwnedInputs Address, TxOutputs)
 prepareInpsOuts utxo addrs outputs = do
     when (totalMoney == mkCoin 0) $
         fail "Attempted to send 0 money"
@@ -148,14 +158,14 @@ prepareInpsOuts utxo addrs outputs = do
     formTxInputs (inp, TxOutAux TxOut{..} _) = (txOutAddress, inp)
 
 -- | Common use case of 'prepaseInpsOuts' - with single source address
-prepareInpOuts :: Utxo -> Address -> TxOutputs -> Either TxError (TxInputs, TxOutputs)
+prepareInpOuts :: Utxo -> Address -> TxOutputs -> Either Text (TxInputs, TxOutputs)
 prepareInpOuts utxo addr outputs =
     prepareInpsOuts utxo (one addr) outputs <&>
     _1 . traversed %~ snd
 
 -- | Make a multi-transaction using given secret key and info for outputs.
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
-createMTx :: Utxo -> NonEmpty (SafeSigner, Address) -> TxOutputs -> Either TxError TxAux
+createMTx :: Utxo -> NonEmpty (SafeSigner, Address) -> TxOutputs -> Either Text TxAux
 createMTx utxo hwdSigners outputs =
     let addrs = map snd hwdSigners
     in  uncurry (makeMPubKeyTx getSigner) <$>
@@ -167,13 +177,13 @@ createMTx utxo hwdSigners outputs =
         HM.lookup (AddressIA addr) signers
 
 -- | Make a multi-transaction using given secret key and info for outputs
-createTx :: Utxo -> SafeSigner -> TxOutputs -> Either TxError TxAux
+createTx :: Utxo -> SafeSigner -> TxOutputs -> Either Text TxAux
 createTx utxo ss outputs =
     uncurry (makePubKeyTx ss) <$>
     prepareInpOuts utxo (makePubKeyAddress $ safeToPublic ss) outputs
 
 -- | Make a transaction, using M-of-N script as a source
-createMOfNTx :: Utxo -> [(PublicKey, Maybe SafeSigner)] -> TxOutputs -> Either TxError TxAux
+createMOfNTx :: Utxo -> [(PublicKey, Maybe SafeSigner)] -> TxOutputs -> Either Text TxAux
 createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
   where pks = map fst keys
         sks = map snd keys
@@ -182,7 +192,7 @@ createMOfNTx utxo keys outputs = uncurry (makeMOfNTx validator sks) <$> inpOuts
         addr = makeScriptAddress validator
         inpOuts = prepareInpOuts utxo addr outputs
 
-createRedemptionTx :: Utxo -> RedeemSecretKey -> TxOutputs -> Either TxError TxAux
+createRedemptionTx :: Utxo -> RedeemSecretKey -> TxOutputs -> Either Text TxAux
 createRedemptionTx utxo rsk outputs =
     uncurry (makeRedemptionTx rsk) <$>
     prepareInpOuts utxo (makeRedeemAddress $ redeemToPublic rsk) outputs

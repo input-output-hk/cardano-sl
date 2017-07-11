@@ -6,7 +6,7 @@ import Data.Lens ((^.))
 import Data.Monoid (mempty)
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (common, cAddress, cBlock, cCalculator, cEpoch, cSlot, cTitle, cTransaction, notfound, nfTitle) as I18nL
-import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewSelectedSearch, globalViewState, lang, route, viewStates)
+import Explorer.Lenses.State (gViewMobileMenuOpenend, gViewSelectedSearch, globalViewState, testnet, lang, route, viewStates)
 import Explorer.Routes (Route(..))
 import Explorer.State (headerSearchContainerId, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
@@ -31,7 +31,7 @@ headerView state =
               ! S.id CSS.headerId $ do
         S.div ! S.className "explorer-header__wrapper--vtop"
               $ S.div ! S.className "explorer-header__container" $ do
-                  clickableLogoView Dashboard
+                  clickableLogoView Dashboard $ state ^. testnet
                   -- desktop views
                   S.div ! S.className "middle-content__search"
                         $ S.div ! S.className "middle-content__search--wrapper"

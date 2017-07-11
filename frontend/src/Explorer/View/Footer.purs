@@ -50,7 +50,7 @@ footerView state =
                       $ langView state
             S.div ! S.className "explorer-footer__container explorer-footer__meta" $ do
                 S.span  ! S.className "version"
-                        $ S.text ("v. " <> (show version))
+                        $ S.text ("v. " <> version)
                 S.a ! S.className "commit"
                     ! S.href ("https://github.com/input-output-hk/cardano-sl-explorer/commit/" <> commitHash)
                     $ S.text $ "( " <> (take 7 $ commitHash) <> " )"

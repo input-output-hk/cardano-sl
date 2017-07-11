@@ -69,6 +69,7 @@ initialState =
     , errors: []
     , loading: false
     , now: toDateTime $ unsafePartial $ fromJust $ instant $ Milliseconds 0.0
+    , testnet: false
     }
 
 -- all constants are following here:

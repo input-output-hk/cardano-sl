@@ -715,7 +715,8 @@ prepareTxInfoRaw moneySource dstDistr = do
                 -- we want to be able to distribute at least 1 coin to everybody
                 when (unsafeGetCoin c < fromIntegral (length genStakeholders)) $
                     cantSpendDust c
-                pure $ genesisSplitBoot genStakeholders c
+                -- TODO CSL-1351 boot stakeholders' weights are not used
+                pure $ genesisSplitBoot (HM.fromList $ map (,1) $ toList genStakeholders) c
 
     txOuts <- forM dstDistr $ \(cAddr, coin) -> do
         addr <- decodeCIdOrFail cAddr

@@ -8,7 +8,6 @@ import           Control.Lens         ((?~))
 import           Data.Aeson           (eitherDecode)
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.HashMap.Strict  as HM
-import qualified Data.HashSet         as HS
 import qualified Data.Text            as T
 import           Formatting           (sformat, shown, (%))
 import           Serokell.Util.Text   (listJson)
@@ -59,7 +58,7 @@ getTestnetData ::
        (MonadIO m, MonadFail m, WithLogger m)
     => FilePath
     -> TestStakeOptions
-    -> m ([AddrDistribution], HashSet StakeholderId, GenesisGtData)
+    -> m ([AddrDistribution], HashMap StakeholderId Word16, GenesisGtData)
 getTestnetData dir tso@TestStakeOptions{..} = do
 
     let keysDir = dir </> "keys-testnet"
@@ -86,7 +85,7 @@ getTestnetData dir tso@TestStakeOptions{..} = do
     let distr = genTestnetDistribution tso
         richmenStakeholders = case distr of
             RichPoorStakes {..} ->
-                HS.fromList $ map (addressHash . fst) genesisListRich
+                HM.fromList $ map ((,1) . addressHash . fst) genesisListRich
             _ -> error "cardano-keygen: impossible type of generated testnet stake"
         genesisAddrs = map (makePubKeyAddress . fst) genesisList
                     <> map (view _3) poorsList
@@ -176,11 +175,11 @@ genGenesisFiles GenesisGenOptions{..} = do
             [mAvvmAddrDistr, mFakeAvvmAddrDistr, view _1 <$> mTestnetData]
     when (null gcdAddrDistribution) $ error "gcdAddrDistribution is empty"
     -- boot stakeholders
-    let gcdBootstrapStakeholders =
-            mconcat $ catMaybes
-            [ view _2 <$> mTestnetData
-            -- , CSL-1315 real boot stakeholders for mainnet, as addresses list
-            ]
+    let gcdBootstrapStakeholders
+            | null ggoBootStakeholders =
+                mconcat $ catMaybes [ view _2 <$> mTestnetData ]
+            | otherwise =
+                HM.fromList ggoBootStakeholders
     when (null gcdBootstrapStakeholders) $
         error "gcdBootstrapStakeholders is empty. Current keygen implementation \
               \doesn't support explicit boot stakeholders, so if testnet is not \

@@ -25,7 +25,6 @@ import           Data.List                (isSuffixOf)
 import qualified Data.List.NonEmpty       as NE
 import qualified Data.Text.IO             as TIO
 import           Data.Time.Clock          (getCurrentTime)
-import           Data.Version             (Version (..))
 import           Formatting               (sformat, shown, stext, (%))
 import           Network.Info             (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Network.Wreq             (partFile, partLBS, post)
@@ -41,6 +40,7 @@ import           System.Wlog              (LoggerConfig (..), WithLogger, hwFile
                                            lcTree, logDebug, logError, logInfo, ltFiles,
                                            ltSubloggers, retrieveLogContent)
 
+import           Paths_cardano_sl_infra   (version)
 import           Pos.Core.Constants       (protocolMagic)
 import           Pos.Discovery.Class      (MonadDiscovery, getPeers)
 import           Pos.Exception            (CardanoFatalError)
@@ -76,8 +76,8 @@ type MonadReporting ctx m =
 -- from node's configuration.
 sendReportNode
     :: (MonadReporting ctx m)
-    => Version -> ReportType -> m ()
-sendReportNode version reportType = do
+    => ReportType -> m ()
+sendReportNode reportType = do
     noServers <- null <$> view (reportingContext . reportServers)
     if noServers then onNoServers else do
         logConfig <- view (reportingContext . loggerConfig)
@@ -88,7 +88,7 @@ sendReportNode version reportType = do
         logContent <-
             takeGlobalSize charsConst <$>
             retrieveLogContent logFile (Just 5000)
-        sendReportNodeImpl (reverse logContent) version reportType
+        sendReportNodeImpl (reverse logContent) reportType
 
   where
     -- 2 megabytes, assuming we use chars which are ASCII mostly
@@ -107,17 +107,17 @@ sendReportNode version reportType = do
         "servers to [] or include .pub files in log config"
 
 -- | Same as 'sendReportNode', but doesn't attach any logs.
-sendReportNodeNologs :: (MonadReporting ctx m) => Version -> ReportType -> m ()
+sendReportNodeNologs :: (MonadReporting ctx m) => ReportType -> m ()
 sendReportNodeNologs = sendReportNodeImpl []
 
 sendReportNodeImpl
     :: (MonadReporting ctx m)
-    => [Text] -> Version -> ReportType -> m ()
-sendReportNodeImpl rawLogs version reportType = do
+    => [Text] -> ReportType -> m ()
+sendReportNodeImpl rawLogs reportType = do
     servers <- view (reportingContext . reportServers)
     when (null servers) onNoServers
     errors <- fmap lefts $ forM servers $ try .
-        sendReport [] rawLogs reportType "cardano-node" version . toString
+        sendReport [] rawLogs reportType "cardano-node" . toString
     whenNotNull errors $ throwSE . NE.head
   where
     onNoServers =
@@ -152,11 +152,12 @@ getNodeInfo = do
 -- for 'WorkMode' context.
 reportMisbehaviour
     :: (MonadReporting ctx m, MonadDiscovery m)
-    => Version -> Text -> m ()
-reportMisbehaviour version reason = do
+    => Bool -> Text -> m ()
+reportMisbehaviour isCritical reason = do
     logError $ "Reporting misbehaviour \"" <> reason <> "\""
     nodeInfo <- getNodeInfo
-    sendReportNode version $ RMisbehavior $ sformat misbehF reason nodeInfo
+    sendReportNode $
+        RMisbehavior isCritical $ sformat misbehF reason nodeInfo
   where
     misbehF = stext%", nodeInfo: "%stext
 
@@ -164,9 +165,9 @@ reportMisbehaviour version reason = do
 -- | Report misbehaviour, but catch all errors inside
 reportMisbehaviourSilent
     :: forall ctx m . (MonadReporting ctx m, MonadDiscovery m)
-    => Version -> Text -> m ()
-reportMisbehaviourSilent version reason =
-    reportMisbehaviour version reason `catch` handler
+    => Bool -> Text -> m ()
+reportMisbehaviourSilent isCritical reason =
+    reportMisbehaviour isCritical reason `catch` handler
   where
     handler :: SomeException -> m ()
     handler e =
@@ -179,8 +180,8 @@ reportMisbehaviourSilent version reason =
 -- logged and ignored.
 reportingFatal
     :: forall ctx m a . (MonadReporting ctx m, MonadDiscovery m)
-    => Version -> m a -> m a
-reportingFatal version action =
+    => m a -> m a
+reportingFatal action =
     action `catch` handler1 `catch` handler2
   where
     andThrow :: (Exception e, MonadThrow n) => (e -> n x) -> e -> n y
@@ -189,7 +190,7 @@ reportingFatal version action =
         logDebug $ "Reporting error \"" <> reason <> "\""
         let errorF = stext%", nodeInfo: "%stext
         nodeInfo <- getNodeInfo
-        sendReportNode version (RError $ sformat errorF reason nodeInfo) `catch`
+        sendReportNode (RError $ sformat errorF reason nodeInfo) `catch`
             handlerSend reason
     handlerSend reason (e :: SomeException) =
         logError $
@@ -206,7 +207,7 @@ reportingFatal version action =
 ----------------------------------------------------------------------------
 
 -- | Given logs files list and report type, sends reports to URI
--- asked. All files _must_ exist. Report server URI should be in form
+-- asked. All files __must__ exist. Report server URI should be in form
 -- like "http(s)://host:port/" without specified endpoint.
 --
 -- __Important notice__: if given paths are logs that we're currently
@@ -220,10 +221,9 @@ sendReport
     -> [Text]                     -- ^ Raw log text (optional)
     -> ReportType
     -> Text
-    -> Version
     -> String
     -> m ()
-sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
+sendReport logFiles rawLogs reportType appName reportServerUri = do
     curTime <- liftIO getCurrentTime
     existingFiles <- filterM (liftIO . doesFileExist) logFiles
     when (null existingFiles && not (null logFiles)) $
@@ -247,7 +247,10 @@ sendReport logFiles rawLogs reportType appName appVersion reportServerUri = do
     reportInfo curTime files =
         ReportInfo
         { rApplication = appName
-        , rVersion = appVersion
+        -- We are using version of 'cardano-sl-infra' here. We agreed
+        -- that the version of 'cardano-sl' and it subpackages should
+        -- be same.
+        , rVersion = version
         , rBuild = 0 -- what should be put here?
         , rOS = toText (os <> "-" <> arch)
         , rLogs = map toFileName files

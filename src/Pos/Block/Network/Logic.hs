@@ -32,7 +32,6 @@ import           Ether.Internal             (HasLens (..))
 import           Formatting                 (bprint, build, builder, sformat, shown,
                                              stext, (%))
 import           Mockable                   (fork)
-import           Paths_cardano_sl           (version)
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatFirstError)
@@ -517,10 +516,11 @@ applyWithRollback nodeId sendActions toApply lca toRollback = do
         "Fork happened, data received from "%build%
         ". Blocks rolled back: "%listJson%
         ", blocks applied: "%listJson
+    -- TODO [CSL-1340]: set isCritical flag based on rollback depth.
     reportRollback =
         recoveryCommGuard $ do
             logDebug "Reporting rollback happened"
-            reportMisbehaviourSilent version $
+            reportMisbehaviourSilent False $
                 sformat reportF nodeId toRollbackHashes toApplyHashes
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

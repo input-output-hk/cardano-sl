@@ -8,7 +8,6 @@ import           Control.Monad.Catch        (catch)
 import           Data.Time.Clock            (getCurrentTime)
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (Delay, Mockable, delay)
-import           Paths_cardano_sl           (version)
 import           Serokell.Util              (sec)
 import           System.Wlog                (WithLogger, logError)
 import           Universum
@@ -42,7 +41,7 @@ dlgInvalidateCaches
        )
     => m ()
 dlgInvalidateCaches = runIfNotShutdown $ do
-    reportingFatal version invalidate `catch` handler
+    reportingFatal invalidate `catch` handler
     delay (sec 1)
     dlgInvalidateCaches
   where

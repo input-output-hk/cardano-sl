@@ -42,7 +42,6 @@ import           Formatting                       (bprint, build, sformat, shown
                                                    (%))
 import qualified Formatting                       as F
 import           Network.Wai                      (Application)
-import           Paths_cardano_sl                 (version)
 import           Pos.ReportServer.Report          (ReportType (RInfo))
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Serokell.Util                    (threadDelay)
@@ -1077,7 +1076,7 @@ redeemAdaInternal sendActions passphrase cAccId seedBs = do
 
 reportingInitialized :: WalletWebMode m => CInitialized -> m ()
 reportingInitialized cinit = do
-    sendReportNodeNologs version (RInfo $ show cinit) `catchAll` handler
+    sendReportNodeNologs (RInfo $ show cinit) `catchAll` handler
   where
     handler e =
         logError $
@@ -1092,7 +1091,6 @@ reportingElectroncrash celcrash = do
                          []
                          (RInfo $ show celcrash)
                          "daedalus"
-                         version
                          (toString serv)
     whenNotNull errors $ handler . NE.head
   where

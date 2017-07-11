@@ -9,11 +9,12 @@
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE RankNTypes            #-}
 
 module Main where
 
-import           Control.Monad              (forM_)
 import           Control.Monad.IO.Class     (liftIO)
+import qualified Data.Set                   as S
 import           Data.Store                 (Store)
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Char8      as B8
@@ -26,6 +27,8 @@ import           Network.Transport.Abstract (closeTransport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP      as TCP
 import           Node
+import           Node.Conversation
+import           Node.OutboundQueue
 import           Node.Message.Store         (StoreP (..))
 import           Node.Util.Monitor          (startMonitor)
 import           System.Random
@@ -47,10 +50,10 @@ instance Store Pong
 
 type Packing = StoreP
 
-worker :: NodeId -> StdGen -> [NodeId] -> Worker Packing BS.ByteString Production
+worker :: NodeId -> StdGen -> [NodeId] -> Worker Packing BS.ByteString NodeId () Production
 worker anId generator peerIds = pingWorker generator
     where
-    pingWorker :: StdGen -> SendActions Packing BS.ByteString Production -> Production ()
+    pingWorker :: StdGen -> SendActions Packing BS.ByteString NodeId () Production -> Production ()
     pingWorker gen sendActions = loop gen
         where
         loop :: StdGen -> Production ()
@@ -65,15 +68,15 @@ worker anId generator peerIds = pingWorker generator
                     case received of
                         Just Pong -> liftIO . putStrLn $ show anId ++ " heard PONG from " ++ show peerId
                         Nothing -> error "Unexpected end of input"
-            forM_ peerIds $ \peerId -> withConnectionTo sendActions peerId $
-                \_ -> Conversation (pong peerId)
+            _ <- enqueueConversation sendActions (S.fromList peerIds) () $
+                \peerId _ -> Conversation (pong peerId)
             loop gen'
 
-listeners :: NodeId -> BS.ByteString -> [Listener Packing BS.ByteString Production]
-listeners anId = const [pongListener]
+listeners :: NodeId -> BS.ByteString -> [Listener Packing BS.ByteString NodeId () Production]
+listeners anId peerData = [pongListener]
     where
-    pongListener :: Listener Packing BS.ByteString Production
-    pongListener = Listener $ \peerData peerId (cactions :: ConversationActions Pong Ping Production) -> do
+    pongListener :: Listener Packing BS.ByteString NodeId () Production
+    pongListener = Listener $ \_ peerId _ (cactions :: ConversationActions Pong Ping Production) -> do
         liftIO . putStrLn $ show anId ++  " heard PING from " ++ show peerId ++ " with peer data " ++ B8.unpack peerData
         send cactions Pong
         liftIO . putStrLn $ show anId ++ " sent PONG to " ++ show peerId
@@ -92,12 +95,16 @@ main = runProduction $ do
     let prng4 = mkStdGen 3
 
     liftIO . putStrLn $ "Starting nodes"
+    let mkOutboundQueue
+            :: Converse Packing B8.ByteString Production
+            -> Production (OutboundQueue Packing B8.ByteString NodeId () Production)
+        mkOutboundQueue converse = pure (freeForAll id converse)
     node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
-         prng1 StoreP (B8.pack "I am node 1") defaultNodeEnvironment $ \node1 ->
+         mkOutboundQueue prng1 StoreP (B8.pack "I am node 1") defaultNodeEnvironment $ \node1 ->
         NodeAction (listeners . nodeId $ node1) $ \sactions1 -> do
             _ <- startMonitor 8000 runProduction node1
             node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay)
-                  prng2 StoreP (B8.pack "I am node 2") defaultNodeEnvironment $ \node2 ->
+                  mkOutboundQueue prng2 StoreP (B8.pack "I am node 2") defaultNodeEnvironment $ \node2 ->
                 NodeAction (listeners . nodeId $ node2) $ \sactions2 -> do
                     _ <- startMonitor 8001 runProduction node2
                     tid1 <- fork $ worker (nodeId node1) prng3 [nodeId node2] sactions1

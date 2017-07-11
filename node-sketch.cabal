@@ -42,6 +42,8 @@ Library
                         Mockable.Metrics
 
                         Node.Internal
+                        Node.Conversation
+                        Node.OutboundQueue
                         Node.Message.Decoder
                         Node.Message.Class
                         Node.Message.Binary
@@ -143,6 +145,7 @@ executable ping-pong
   build-depends:       base >= 4.8 && < 5
                      , binary
                      , bytestring
+                     , containers
                      , network-transport-tcp
                      , node-sketch
                      , random

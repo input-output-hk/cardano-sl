@@ -25,6 +25,7 @@ module Network.Broadcast.OutboundQueue (
     OutboundQ -- opaque
     -- * Initialization
   , new
+  , asOutboundQueue
     -- ** Enqueueing policy
   , Precedence(..)
   , MaxAhead(..)
@@ -81,6 +82,10 @@ import Network.Broadcast.OutboundQueue.Classification
 import Network.Broadcast.OutboundQueue.ConcurrentMultiQueue (MultiQueue)
 import qualified Network.Broadcast.OutboundQueue.ConcurrentMultiQueue as MQ
 import qualified Mockable as M
+
+import Node.Internal (NodeId)
+import Node.Conversation (Conversation, Converse)
+import Node.OutboundQueue (OutboundQueue (..))
 
 {-------------------------------------------------------------------------------
   Precedence levels
@@ -1093,3 +1098,50 @@ timed act = do
   where
     conv :: NominalDiffTime -> ExecutionTime
     conv t = round (realToFrac t * 1000000 :: Double)
+
+newtype ClassifiedConversation peerData packingType peer m t =
+    ClassifiedConversation (MsgType, Origin peer, peer -> peerData -> Conversation packingType m t)
+
+instance ClassifyMsg (ClassifiedConversation peerData packingType peer m) where
+    classifyMsg (ClassifiedConversation (msgClass, _, _)) = msgClass
+    formatMsg = flip fmap shown $ \k -> \(ClassifiedConversation (msgClass, _, _)) -> k msgClass
+
+-- | Use an OutboundQ as an OutboundQueue.
+asOutboundQueue
+    :: forall packingType peerData msg nid m .
+       ( MonadIO              m
+       , M.Mockable M.Async   m
+       , M.Mockable M.Bracket m
+       , M.Mockable M.Throw   m
+       , M.Mockable M.Catch   m
+       , M.Mockable M.Fork    m
+       , Ord (M.ThreadId      m)
+       , WithLogger           m
+       , Ord nid
+       , ClassifyNode nid
+       )
+    => OutboundQ (ClassifiedConversation peerData packingType nid m) nid
+    -> (nid -> NodeId)
+    -> (msg -> MsgType)
+    -> (msg -> Origin nid)
+    -> Converse packingType peerData m
+    -> m (OutboundQueue packingType peerData nid msg m)
+asOutboundQueue oq mkNodeId mkMsgType mkOrigin converse = do
+    thread <- M.async $ dequeueThread oq sendMsg
+    return $ OutboundQueue { oqEnqueue = enqueueIt, oqClose = M.cancel thread }
+  where
+    sendMsg :: SendMsg m (ClassifiedConversation peerData packingType nid m) nid
+    sendMsg (ClassifiedConversation (_, _, k)) nid =
+        converse (mkNodeId nid) (k nid)
+    enqueueIt
+        :: forall t .
+           Set nid
+        -> msg
+        -> (nid -> peerData -> Conversation packingType m t)
+        -> m (Map nid (m t))
+    enqueueIt peers msg conversation = do
+        let peers' = simplePeers (Set.toList peers)
+            cc = ClassifiedConversation (mkMsgType msg, mkOrigin msg, conversation)
+        tlist <- enqueueSync' oq cc (mkOrigin msg) peers'
+        let tmap = Map.fromList tlist
+        return $ fmap (either M.throw return) tmap

@@ -836,6 +836,16 @@ update (UpdateView r@(Block hash)) state =
         ]
     }
 
+update (UpdateView r@(GenesisBlock)) state =
+    { state:
+        set route r state
+    , effects:
+        [ pure $ Just ScrollTop
+        , pure $ Just ClearWaypoints
+        , pure $ Just SocketClearSubscriptions
+        ]
+    }
+
 update (UpdateView r@(Playground)) state =
     { state: set route r state
     , effects:

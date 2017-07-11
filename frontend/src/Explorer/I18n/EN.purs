@@ -19,6 +19,7 @@ translation =
         , cNetwork: "Network"
         , cSummary: "Summary"
         , cBlock: "Slot"
+        , cGenesis: "Genesis block"
         , cHash: "Hash"
         , cHashes: "Hashes"
         , cEpoch: "Epoch"

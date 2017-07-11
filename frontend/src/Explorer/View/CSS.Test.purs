@@ -35,6 +35,9 @@ testCSS =
             it "Block"
               let result = route <<< Block $ mkCHash "0"
               in result `shouldEqual` "explorer-route-slot"
+            it "Genesis"
+              let result = route GenesisBlock
+              in result `shouldEqual` "explorer-route-genesis"
             it "Playground"
               let result = route Playground
               in result `shouldEqual` "explorer-route-playground"

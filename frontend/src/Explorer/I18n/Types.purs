@@ -31,6 +31,7 @@ type Common =
     , cAddress :: String
     , cSummary :: String
     , cBlock :: String
+    , cGenesis :: String
     , cHash :: String
     , cHashes :: String
     , cEpoch :: String

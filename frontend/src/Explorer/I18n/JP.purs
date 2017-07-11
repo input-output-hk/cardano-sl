@@ -19,6 +19,7 @@ translation =
         , cNetwork: "ネットワーク"
         , cSummary: "概要"
         , cBlock: "スロット"
+        , cGenesis: "JP - Genesis block"
         , cHash: "ハッシュ値"
         , cHashes: "ハッシュ値"
         , cEpoch: "エポック"

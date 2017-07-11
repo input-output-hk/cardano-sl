@@ -27,7 +27,7 @@ module Explorer.View.CSS
   where
 
 import Prelude
-import Explorer.Routes (Route(..), addressLit, calculatorLit, dashboardLit, epochLit, notFoundLit, playgroundLit, slotLit, transactionLit)
+import Explorer.Routes (Route(..), addressLit, calculatorLit, dashboardLit, epochLit, genesisBlockLit, notFoundLit, playgroundLit, slotLit, transactionLit)
 
 
 -----------------------------------------------------------
@@ -163,5 +163,6 @@ route (EpochSlot epoch slot) = routePrefix <> epochLit <> "-" <> slotLit
 route (Epoch epoch) = routePrefix <> epochLit
 route Calculator = routePrefix <> calculatorLit
 route (Block hash) = routePrefix <> slotLit
+route GenesisBlock = routePrefix <> genesisBlockLit
 route Playground = routePrefix <> playgroundLit
 route NotFound = routePrefix <> notFoundLit

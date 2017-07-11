@@ -19,6 +19,7 @@ translation =
         , cVersion: "Version"
         , cSummary: "Zusammenfassung"
         , cBlock: "Slot"
+        , cGenesis: "Genesis Block"
         , cHash: "Hash"
         , cHashes: "Hashes"
         , cEpoch: "Epoche"

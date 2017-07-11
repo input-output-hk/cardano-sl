@@ -2,6 +2,7 @@ module Pos.Binary.Cbor.Class
     ( Bi(..)
     , encodeBinary
     , decodeBinary
+    , enforceSize
     ) where
 
 import           Codec.CBOR.Decoding
@@ -35,6 +36,14 @@ decodeBinary = do
         Right (bs, _, res)
             | BS.Lazy.null bs -> pure res
             | otherwise       -> fail "decodeBinary: unconsumed input"
+
+-- | Enforces that the input size is the same as the decoded one, failing in case it's not.
+enforceSize :: String -> Int -> Decoder s ()
+enforceSize label requestedSize = do
+  actualSize <- decodeListLen
+  case actualSize == requestedSize of
+    True  -> return ()
+    False -> fail (label <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)
 
 ----------------------------------------
 

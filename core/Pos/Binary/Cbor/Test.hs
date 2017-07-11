@@ -74,20 +74,24 @@ soundInstanceProperty (Proxy :: Proxy a) = forAll (arbitrary :: Gen a) $ \input 
       isFlat       = hasValidFlatTerm input === True
   in itRoundtrips .&&. isFlat
 
+-- Override the `Args` to be a bit more exhaustive.
+qc :: Property -> IO ()
+qc = quickCheckWith (stdArgs { maxSuccess = 1000 })
+
 -- | A set of basic yet-useful roundtrips properties to be included as part
 -- of a bigger testsuite.
 soundInstancesTest :: IO ()
 soundInstancesTest = do
-  quickCheck (soundInstanceProperty @Coeff Proxy)
-  quickCheck (soundInstanceProperty @TxSizeLinear Proxy)
-  quickCheck (soundInstanceProperty @TxFeePolicy Proxy)
-  quickCheck (soundInstanceProperty @Script Proxy)
-  quickCheck (soundInstanceProperty @Timestamp Proxy)
-  quickCheck (soundInstanceProperty @EpochIndex Proxy)
-  quickCheck (soundInstanceProperty @Coin Proxy)
-  quickCheck (soundInstanceProperty @CoinPortion Proxy)
-  quickCheck (soundInstanceProperty @LocalSlotIndex Proxy)
-  quickCheck (soundInstanceProperty @SlotId Proxy)
-  quickCheck (soundInstanceProperty @EpochOrSlot Proxy)
-  quickCheck (soundInstanceProperty @SharedSeed Proxy)
-  quickCheck (soundInstanceProperty @ChainDifficulty Proxy)
+  qc (soundInstanceProperty @Coeff Proxy)
+  qc (soundInstanceProperty @TxSizeLinear Proxy)
+  qc (soundInstanceProperty @TxFeePolicy Proxy)
+  qc (soundInstanceProperty @Script Proxy)
+  qc (soundInstanceProperty @Timestamp Proxy)
+  qc (soundInstanceProperty @EpochIndex Proxy)
+  qc (soundInstanceProperty @Coin Proxy)
+  qc (soundInstanceProperty @CoinPortion Proxy)
+  qc (soundInstanceProperty @LocalSlotIndex Proxy)
+  qc (soundInstanceProperty @SlotId Proxy)
+  qc (soundInstanceProperty @EpochOrSlot Proxy)
+  qc (soundInstanceProperty @SharedSeed Proxy)
+  qc (soundInstanceProperty @ChainDifficulty Proxy)

@@ -7,9 +7,9 @@ import           Universum                       hiding (bracket)
 
 import           Control.Monad.Fix               (MonadFix)
 import qualified Control.Monad.Reader            as Mtl
-import           Formatting                      (sformat, shown, (%))
+import           Formatting                      (sformat, shown, (%), int)
 import           Mockable                        (MonadMockable, Production, bracket,
-                                                  fork, sleepForever)
+                                                  mapConcurrently)
 import           Network.Transport.Abstract      (Transport)
 import           Node                            (noReceiveDelay, simpleNodeEndPoint)
 import qualified STMContainers.Map               as SM
@@ -63,10 +63,9 @@ runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     logInfo "Wallet is initialized!"
     peers <- findPeers
     logInfo $ sformat ("Known peers: "%shown) (toList peers)
+    logDebug $ sformat ("Forking "%int%" plugins ...") (length peers)
     let unpackPlugin (ActionSpec action) = action vI sendActions
-    mapM_ (fork . unpackPlugin) $ plugins' ++ workers'
-    logDebug "Forked all plugins successfully"
-    sleepForever
+    void (mapConcurrently unpackPlugin (plugins' ++ workers'))
   where
     (workers', wouts) = allWorkers
     outs = wouts <> pouts

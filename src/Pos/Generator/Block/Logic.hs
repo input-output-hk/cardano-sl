@@ -16,7 +16,8 @@ import           Pos.DB.DB                 (getTipHeader)
 import           Pos.Generator.Block.Error (BlockGenError (..))
 import           Pos.Generator.Block.Mode  (BlockGenMode, MonadBlockGen,
                                             MonadBlockGenBase, mkBlockGenContext)
-import           Pos.Generator.Block.Param (HasAllSecrets (..), HasBlockGenParams (..))
+import           Pos.Generator.Block.Param (BlockGenParams, HasAllSecrets (..),
+                                            HasBlockGenParams (..))
 import           Pos.Lrc.Context           (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB                as LrcDB
 import           Pos.Ssc.GodTossing        (SscGodTossing)
@@ -35,14 +36,17 @@ import           Pos.Util.Util             (maybeThrow)
 -- | Generate an arbitrary sequence of valid blocks. The blocks are
 -- valid with respect to the global state right before this function
 -- call.
-genBlocks :: MonadBlockGen ctx m => m (OldestFirst [] (Block SscGodTossing))
-genBlocks = do
-    ctx <- mkBlockGenContext
+genBlocks ::
+       MonadBlockGen ctx m
+    => BlockGenParams
+    -> m (OldestFirst [] (Block SscGodTossing))
+genBlocks params = do
+    ctx <- mkBlockGenContext params
     runReaderT genBlocksDo ctx
   where
     genBlocksDo =
         OldestFirst <$> do
-            numberOfBlocks <- view bgpBlockCount <$> view blockGenParams
+            let numberOfBlocks = params ^. bgpBlockCount
             tipEOS <- getEpochOrSlot <$> getTipHeader @SscGodTossing
             let startEOS = succ tipEOS
             let finishEOS =

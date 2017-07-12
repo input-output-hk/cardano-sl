@@ -69,7 +69,6 @@ type MonadBlockGenBase m
 type MonadBlockGen ctx m
      = ( MonadBlockGenBase m
        , MonadReader ctx m
-       , HasBlockGenParams ctx
        -- TODO: we don't really need to require pure db from the
        -- outside. We can clone real DB into a pure one. Or we can use
        -- 'DBProxyT' approach. Currently we require pure DB because
@@ -121,9 +120,8 @@ type BlockGenMode m = ReaderT BlockGenContext m
 -- | Make new 'BlockGenContext' using data provided by 'MonadBlockGen'
 -- context. Persistent data (DB) is cloned. Other mutable data is
 -- recreated.
-mkBlockGenContext :: MonadBlockGen ctx m => m BlockGenContext
-mkBlockGenContext = do
-    bgcParams <- view blockGenParams
+mkBlockGenContext :: MonadBlockGen ctx m => BlockGenParams -> m BlockGenContext
+mkBlockGenContext bgcParams = do
     let bgcPrimaryKey = error "bgcPrimaryKey was forced before being set"
     bgcDB <- DB.cloneDBPure =<< view (lensOf @DBPureVar)
     bgcSystemStart <- view slottingTimestamp

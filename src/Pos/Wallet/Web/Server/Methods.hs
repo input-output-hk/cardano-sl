@@ -1075,25 +1075,33 @@ testResetAll = deleteAllKeys >> testReset
 -- JSON backup methods
 ----------------------------------------------------------------------------
 
-restoreWalletFromBackup :: WalletWebMode m => WalletBackup -> m CWallet
+restoreWalletFromBackup :: WalletWebMode m => WalletBackup -> m (Maybe CWallet)
 restoreWalletFromBackup WalletBackup {..} = do
     let wId = encToCId wbSecretKey
-        (WalletMetaBackup wMeta) = wbMeta
-        accList = HM.toList wbAccounts
-                  & each . _2 %~ \(AccountMetaBackup am) -> am
+    wExists <- isJust <$> getWalletMeta wId
 
-    addSecretKey wbSecretKey
-    for_ accList $ \(idx, meta) -> do
-        let aIdx = fromInteger $ fromIntegral idx
-            seedGen = DeterminedSeed aIdx
-        accId <- genUniqueAccountId seedGen wId
-        createAccount accId meta
-    void $ syncWalletOnImport wbSecretKey
-    createWalletSafe wId wMeta
+    if wExists
+        then do
+            logWarning $
+                sformat ("Wallet with id "%build%" already exists") wId
+            pure Nothing
+        else do
+            let (WalletMetaBackup wMeta) = wbMeta
+                accList = HM.toList wbAccounts
+                          & each . _2 %~ \(AccountMetaBackup am) -> am
+
+            addSecretKey wbSecretKey
+            for_ accList $ \(idx, meta) -> do
+                let aIdx = fromInteger $ fromIntegral idx
+                    seedGen = DeterminedSeed aIdx
+                accId <- genUniqueAccountId seedGen wId
+                createAccount accId meta
+            void $ syncWalletOnImport wbSecretKey
+            Just <$> createWalletSafe wId wMeta
 
 restoreStateFromBackup :: WalletWebMode m => StateBackup -> m [CWallet]
 restoreStateFromBackup (FullStateBackup walletBackups) =
-    forM walletBackups restoreWalletFromBackup
+    catMaybes <$> forM walletBackups restoreWalletFromBackup
 
 importStateJSON :: WalletWebMode m => Text -> m [CWallet]
 importStateJSON (toString -> fp) = do

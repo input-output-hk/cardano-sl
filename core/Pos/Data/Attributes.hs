@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | Helper data type for block, tx attributes.
 --
 -- Map with integer 1-byte keys, arbitrary-type polymorph values.
@@ -5,8 +6,13 @@
 -- parsed and put to some constructor or left as unparsed.
 
 module Pos.Data.Attributes
-       ( Attributes (..)
+       ( UnparsedFields(..)
+       , fromRaw
+       , toRaw
+       , Attributes (..)
        , areAttributesKnown
+       , encodeAttributes
+       , decodeAttributes
        , getAttributes
        , putAttributes
        , putAttributesS
@@ -19,58 +25,88 @@ import           Universum
 import qualified Data.ByteString     as BS
 import           Data.Default        (Default (..))
 import           Data.DeriveTH       (derive, makeNFData)
+import qualified Data.Hashable       as H
+import qualified Data.Map            as M
 import           Data.Text.Buildable (Buildable)
 import qualified Data.Text.Buildable as Buildable
 import           Formatting          (bprint, build, int, (%))
 import qualified Prelude
 
+import qualified Pos.Binary.Cbor     as Cbor
 import           Pos.Binary.Class    (Peek, Poke, PokeWithSize (..), getBytes,
                                       getPeekLength, getWithLength, getWithLengthLimited,
                                       getWord8, lookAhead, putBytesS, putWithLengthS,
                                       putWord8S)
 
+-- | Representation of unparsed fields in Attributes. Newtype wrapper is used
+-- for clear backward compatibility between previous representation (which was
+-- just a single ByteString) during transition from Store to CBOR.
+newtype UnparsedFields = UnparsedFields (Map Word8 ByteString)
+    deriving (Eq, Ord, Show, Generic, Typeable, NFData)
+
+instance Hashable UnparsedFields where
+    hashWithSalt salt = H.hashWithSalt salt . M.toList . fromUnparsedFields
+
+fromUnparsedFields :: UnparsedFields -> Map Word8 ByteString
+fromUnparsedFields (UnparsedFields m) = m
+
+-- | Convert from Store format.
+fromRaw :: BS.ByteString -> UnparsedFields
+fromRaw = \case
+    "" -> UnparsedFields $ M.empty
+    bs -> UnparsedFields $ M.singleton maxBound bs
+
+-- | Extract Store format.
+toRaw :: UnparsedFields -> BS.ByteString
+toRaw = fromMaybe BS.empty . M.lookup maxBound . fromUnparsedFields
+
+----------------------------------------
+
 mkAttributes :: h -> Attributes h
-mkAttributes dat = Attributes dat BS.empty
+mkAttributes dat = Attributes dat (UnparsedFields M.empty)
 
 -- | Convenient wrapper for the datatype to represent it (in binary
 -- format) as k-v map.
 data Attributes h = Attributes
     { -- | Data, containing known keys (deserialized)
       attrData   :: h
-      -- | Unparsed ByteString
-    , attrRemain :: ByteString
+      -- | Remaining, unparsed fields.
+    , attrRemain :: UnparsedFields
     } deriving (Eq, Ord, Generic, Typeable)
 
 instance Default h => Default (Attributes h) where
     def = mkAttributes def
 
 instance Show h => Show (Attributes h) where
-    show Attributes {..} =
-        let remain | BS.null attrRemain = ""
-                   | otherwise = ", remain: <" <> show (BS.length attrRemain) <> " bytes>"
+    show attr@Attributes {..} =
+        let remain | areAttributesKnown attr = ""
+                   | otherwise = ", remain: <" <> show (unknownAttributesLength attr) <> " bytes>"
         in mconcat [ "Attributes { data: ", show attrData, remain, " }"]
 
 instance {-# OVERLAPPABLE #-} Buildable h => Buildable (Attributes h) where
-    build Attributes {..} =
-        if BS.null attrRemain
+    build attr@Attributes {..} =
+        if areAttributesKnown attr
         then Buildable.build attrData
         else bprint ("Attributes { data: "%build%", remain: <"%int%" bytes> }")
-               attrData (BS.length attrRemain)
+               attrData (unknownAttributesLength attr)
 
 instance Buildable (Attributes ()) where
-    build Attributes {..}
-        | null attrRemain = "<no attributes>"
+    build attr
+        | areAttributesKnown attr = "<no attributes>"
         | otherwise =
             bprint
                 ("Attributes { data: (), remain: <"%int%" bytes> }")
-                (length attrRemain)
+                (unknownAttributesLength attr)
 
 instance Hashable h => Hashable (Attributes h)
 
 -- | Check whether all data from 'Attributes' is known, i. e. was
 -- successfully parsed into some structured data.
 areAttributesKnown :: Attributes __ -> Bool
-areAttributesKnown = null . attrRemain
+areAttributesKnown = M.null . fromUnparsedFields . attrRemain
+
+unknownAttributesLength :: Attributes __ -> Int
+unknownAttributesLength = sum . map BS.length . fromUnparsedFields . attrRemain
 
 {- NOTE: Attributes serialization
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -148,7 +184,7 @@ getAttributes keyGetMapper maxLen initData = maybeLimit $ \len -> do
     (attrData, remaining) <- readWhileKnown len initData
     -- It's important that we use 'getBytes' here and not 'get'.
     -- See the note above.
-    attrRemain <- getBytes (fromIntegral remaining)
+    attrRemain <- fromRaw <$> getBytes (fromIntegral remaining)
     pure $ Attributes {..}
  where
    maybeLimit act = case maxLen of
@@ -169,9 +205,43 @@ putAttributesS putMapper Attributes {..} =
         traverse_ putAttr kvs *>
         -- Note: it's important that we use 'putBytesS' here and not 'putS'.
         -- See the note above.
-        putBytesS attrRemain
+        putBytesS (toRaw attrRemain)
  where
    putAttr (k, v) = putWord8S k *> v
    kvs = sortOn fst $ putMapper attrData
+
+-- | CBOR serialization of Attributes.
+encodeAttributes
+    :: forall t. [(Word8, t -> BS.ByteString)]
+    -> Attributes t
+    -> Cbor.Encoding
+encodeAttributes encs Attributes{..} =
+    Cbor.encode $ foldr go (fromUnparsedFields attrRemain) encs
+  where
+    go :: (Word8, t -> BS.ByteString)
+       -> Map Word8 BS.ByteString
+       -> Map Word8 BS.ByteString
+    go (k, f) = M.alter (insertCheck $ f attrData) k
+        where
+          insertCheck v Nothing   = Just v
+          insertCheck _ (Just v') = error $ "encodeAttributes: impossible: field no. "
+              <> show k <> " is already encoded as unparsed field: " <> show v'
+
+-- | CBOR deserialization of Attributes.
+decodeAttributes
+    :: forall t s. t
+    -> (Word8 -> BS.ByteString -> t -> Maybe t)
+    -> Cbor.Decoder s (Attributes t)
+decodeAttributes initval updater = do
+    raw <- Cbor.decode @(Map Word8 BS.ByteString)
+    pure . foldr go (Attributes initval $ UnparsedFields raw) $ M.toList raw
+  where
+    go :: (Word8, BS.ByteString) -> Attributes t -> Attributes t
+    go (k, v) attr@Attributes{..} = case updater k v attrData of
+        Nothing      -> attr
+        Just newData -> Attributes
+            { attrData   = newData
+            , attrRemain = UnparsedFields . M.delete k $ fromUnparsedFields attrRemain
+            }
 
 derive makeNFData ''Attributes

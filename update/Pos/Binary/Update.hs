@@ -20,7 +20,7 @@ import           Pos.Core                   (ApplicationName, BlockVersion,
                                              FlatSlotId, HeaderHash, NumSoftwareVersion,
                                              ScriptVersion, SlotId, SoftwareVersion,
                                              StakeholderId, TxFeePolicy)
-import           Pos.Crypto                 (Hash, SignTag (SignUSVote), Signature, checkSig)
+import           Pos.Crypto                 (Hash, SignTag (SignUSVote), checkSig)
 import           Pos.Slotting.Types         (SlottingData)
 import qualified Pos.Update.Core.Types      as U
 import qualified Pos.Update.Poll.Types      as U

@@ -5,6 +5,7 @@ import           Universum
 
 import           Data.Default        (def)
 import           Data.Digest.CRC32   (CRC32 (..), crc32)
+--import qualified Pos.Binary.Cbor     as Cbor
 import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (..),
                                       convertToSizeNPut, encodeWithS, getBytes,
                                       getSmallWithLength, getWord8, label, labelS,

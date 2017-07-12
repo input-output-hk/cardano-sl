@@ -4,6 +4,7 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE RankNTypes            #-}
 
 module Main where
 
@@ -34,6 +35,8 @@ import           Node                           (NodeAction (..), node, Node(Nod
                                                  noReceiveDelay)
 import           Node.Internal                  (NodeId (..))
 import           Node.Message.Binary            (BinaryP (..))
+import           Node.Conversation
+import           Node.OutboundQueue
 
 
 import           Bench.Network.Commons          (MeasureEvent (..), Payload (..),
@@ -67,6 +70,11 @@ main = do
     Right transport_ <- TCP.createTransport (TCP.defaultTCPAddr "127.0.0.1" "3432") TCP.defaultTCPParameters
     let transport = concrete transport_
 
+    let mkOutboundQueue
+            :: Converse BinaryP () (LoggerNameBox Production)
+            -> LoggerNameBox Production (OutboundQueue BinaryP () NodeId () (LoggerNameBox Production))
+        mkOutboundQueue converse = pure (freeForAll id converse)
+
     let prngNode = mkStdGen 0
     let prngWork = mkStdGen 1
     let nodeIds  = [ NodeId $ TCP.encodeEndPointAddress host (show port) 0
@@ -81,7 +89,7 @@ main = do
             let pingWorkers = liftA2 (pingSender prngWork payloadBound startTime msgRate)
                                      tasksIds
                                      (zip [0, msgNum..] nodeIds)
-            node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prngNode BinaryP () defaultNodeEnvironment $ \node' ->
+            node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue prngNode BinaryP () defaultNodeEnvironment $ \node' ->
                 NodeAction (const []) $ \sactions -> do
                     drones <- forM nodeIds (startDrone node')
                     _ <- forM pingWorkers (fork . flip ($) sactions)

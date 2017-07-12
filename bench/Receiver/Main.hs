@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE RankNTypes            #-}
 
 module Main where
 
@@ -13,7 +14,7 @@ import           GHC.IO.Encoding            (setLocaleEncoding, utf8)
 import           Options.Applicative.Simple (simpleOptions)
 import           Serokell.Util.Concurrent   (threadDelay)
 import           System.Random              (mkStdGen)
-import           System.Wlog                (usingLoggerName)
+import           System.Wlog                (LoggerNameBox, usingLoggerName)
 
 import           Mockable                   (Production (runProduction))
 
@@ -23,7 +24,9 @@ import qualified Network.Transport.TCP      as TCP
 import           Network.Transport.Concrete (concrete)
 import           Node                       (Listener (..), NodeAction (..), node,
                                              defaultNodeEnvironment, ConversationActions (..),
-                                             simpleNodeEndPoint, noReceiveDelay)
+                                             simpleNodeEndPoint, noReceiveDelay, NodeId)
+import           Node.Conversation
+import           Node.OutboundQueue
 import           Node.Message.Binary        (BinaryP (..))
 import           ReceiverOptions            (Args (..), argsParser)
 
@@ -46,13 +49,18 @@ main = do
 
     let prng = mkStdGen 0
 
+    let mkOutboundQueue
+            :: Converse BinaryP () (LoggerNameBox Production)
+            -> LoggerNameBox Production (OutboundQueue BinaryP () NodeId () (LoggerNameBox Production))
+        mkOutboundQueue converse = pure (freeForAll id converse)
+
     runProduction $ usingLoggerName "receiver" $ do
-        node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) prng BinaryP () defaultNodeEnvironment $ \_ ->
+        node (simpleNodeEndPoint transport) (const noReceiveDelay) (const noReceiveDelay) mkOutboundQueue prng BinaryP () defaultNodeEnvironment $ \_ ->
             NodeAction (const [pingListener noPong]) $ \_ -> do
                 threadDelay (fromIntegral duration :: Second)
   where
     pingListener noPong =
-        Listener $ \_ _ cactions -> do
+        Listener $ \_ _ _ cactions -> do
             Just (Ping mid payload) <- recv cactions maxBound
             logMeasure PingReceived mid payload
             unless noPong $ do

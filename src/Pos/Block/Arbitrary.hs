@@ -8,7 +8,6 @@ module Pos.Block.Arbitrary
 
 import           Universum
 
-import           Control.Lens                      (to)
 import qualified Data.Text.Buildable               as Buildable
 import           Formatting                        (bprint, build, (%))
 import qualified Prelude
@@ -25,7 +24,7 @@ import           Pos.Constants                     (epochSlots)
 import qualified Pos.Core                          as Core
 import           Pos.Crypto                        (ProxySecretKey, PublicKey, SecretKey,
                                                     createPsk, hash, toPublic)
-import           Pos.Data.Attributes               (Attributes (..))
+import           Pos.Data.Attributes               (areAttributesKnown)
 import           Pos.Delegation.Arbitrary          (genDlgPayload)
 import           Pos.Ssc.Arbitrary                 (SscPayloadDependsOnSlot (..))
 import           Pos.Ssc.Class                     (Ssc (..), SscHelpersClass)
@@ -412,10 +411,10 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc) =>
                             rndSlot = T.SlotId rndEpoch rndSlotIdx
                         in Just rndSlot
             hasUnknownAttributes =
-                not . null $
+                not . areAttributesKnown $
                 either
-                    (view $ Core.gbhExtra . T.gehAttributes . to attrRemain)
-                    (view $ Core.gbhExtra . T.mehAttributes . to attrRemain)
+                    (view $ Core.gbhExtra . T.gehAttributes)
+                    (view $ Core.gbhExtra . T.mehAttributes)
                     header
             params = T.VerifyHeaderParams
                 { T.vhpPrevHeader = prev

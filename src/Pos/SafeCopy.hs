@@ -36,7 +36,7 @@ import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey
                                                   ProxySignature (..), PublicKey (..),
                                                   SecretKey (..), Signature (..),
                                                   Signed (..))
-import           Pos.Data.Attributes             (Attributes (..))
+import           Pos.Data.Attributes             (Attributes (..), UnparsedFields)
 import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
                                                   MerkleTree (..))
@@ -106,6 +106,7 @@ deriveSafeCopySimple 0 'base ''EpochIndex
 deriveSafeCopySimple 0 'base ''LocalSlotIndex
 deriveSafeCopySimple 0 'base ''SlotId
 deriveSafeCopySimple 0 'base ''EpochOrSlot
+deriveSafeCopySimple 0 'base ''UnparsedFields
 deriveSafeCopySimple 0 'base ''Coin
 deriveSafeCopySimple 0 'base ''HDAddressPayload
 deriveSafeCopySimple 0 'base ''AddrPkAttrs

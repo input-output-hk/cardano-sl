@@ -43,7 +43,8 @@ import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Types                    as Types
 import           Pos.Crypto                        (PublicKey, Share)
 import           Pos.Crypto.Arbitrary              ()
-import           Pos.Data.Attributes               (Attributes (..))
+import           Pos.Data.Attributes               (Attributes (..), UnparsedFields,
+                                                    fromRaw)
 import           Pos.Util.Arbitrary                (makeSmall, nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
 
@@ -115,6 +116,12 @@ instance Arbitrary Types.EpochOrSlot where
           Types.EpochOrSlot . Left <$> arbitrary
         , Types.EpochOrSlot . Right <$> arbitrary
         ]
+    shrink = genericShrink
+
+-- | TODO: Replace with code from Pos.Binary.Cbo.Test:arbitraryUnparsedFields
+-- after transition to CBOR serialization.
+instance Arbitrary UnparsedFields where
+    arbitrary = fromRaw <$> arbitrary
     shrink = genericShrink
 
 instance Arbitrary h => Arbitrary (Attributes h) where

@@ -14,6 +14,7 @@ import qualified Data.ByteString.Lazy        as BS.Lazy
 import           Data.Fixed                  (Fixed(..), Nano)
 import qualified Data.HashMap.Strict         as HM
 import qualified Data.HashSet                as HS
+import qualified Data.Map                    as M
 import qualified Data.Set                    as S
 import qualified Data.Store.Internal         as Store
 import           Data.Tagged
@@ -320,6 +321,10 @@ decodeMapSkel fromList = do
 instance (Hashable k, Eq k, Bi k, Bi v) => Bi (HM.HashMap k v) where
   encode = encodeMapSkel HM.size HM.foldrWithKey
   decode = decodeMapSkel HM.fromList
+
+instance (Ord k, Bi k, Bi v) => Bi (Map k v) where
+  encode = encodeMapSkel M.size M.foldrWithKey
+  decode = decodeMapSkel M.fromList
 
 encodeSetSkel :: Bi a
               => (s -> Int)

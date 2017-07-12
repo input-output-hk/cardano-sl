@@ -19,12 +19,15 @@ import           Servant.Utils.Enter         ((:~>) (..), enter)
 import           System.Wlog                 (usingLoggerName)
 
 import           Pos.Block.BListener         (runBListenerStub)
-import           Pos.Communication           (OutSpecs, PeerStateSnapshot, SendActions,
-                                              WithPeerState (..), WorkerSpec,
-                                              getAllStates, peerStateFromSnapshot, worker)
-import           Pos.Communication.PeerState (PeerStateTag, runPeerStateRedirect)
+import           Pos.Communication           (OutSpecs, PeerStateSnapshot,
+                                              SendActions, WithPeerState (..),
+                                              WorkerSpec, getAllStates,
+                                              peerStateFromSnapshot, worker)
+import           Pos.Communication.PeerState (PeerStateTag,
+                                              runPeerStateRedirect)
 import           Pos.Context                 (NodeContext, NodeContextTag)
-import           Pos.DB                      (NodeDBs, getNodeDBs, runDBPureRedirect)
+import           Pos.DB                      (NodeDBs, getNodeDBs,
+                                              runDBPureRedirect)
 import           Pos.DB.Block                (runBlockDBRedirect)
 import           Pos.DB.DB                   (runGStateCoreRedirect)
 import           Pos.Delegation              (DelegationVar, askDelegationState)
@@ -36,20 +39,22 @@ import           Pos.Slotting.Ntp            (runSlotsRedirect)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, askSscMem)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (GenericTxpLocalData, TxpHolderTag,
-                                              askTxpMem)
+                                              TxpMetrics, askTxpMemAndMetrics)
 import           Pos.WorkMode                (RealMode (..))
 
-import           Pos.Explorer                (ExplorerExtra)
+import           Pos.Explorer                (ExplorerBListener, ExplorerExtra,
+                                              runExplorerBListener)
 import           Pos.Explorer.Socket.App     (NotifierSettings, notifierApp)
 import           Pos.Explorer.Web.Server     (explorerApp, explorerHandlers,
                                               explorerServeImpl)
 import           Pos.Util.TimeWarp           (runWithoutJsonLogT)
 
+
 -----------------------------------------------------------------
 -- Transformation to `Handler`
 -----------------------------------------------------------------
 
-type ExplorerProd = RealMode SscGodTossing
+type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
 
 notifierPlugin :: NotifierSettings -> ([WorkerSpec ExplorerProd], OutSpecs)
 notifierPlugin = first pure . worker mempty .
@@ -64,7 +69,7 @@ explorerServeWebReal sendActions = explorerServeImpl . explorerApp $
 
 nat :: ExplorerProd (ExplorerProd :~> Handler)
 nat = do
-    tlw        <- askTxpMem
+    tlw        <- askTxpMemAndMetrics
     ssc        <- askSscMem
     delWrap    <- askDelegationState
     psCtx      <- getAllStates
@@ -77,7 +82,7 @@ nat = do
 convertHandler
     :: NodeContext SscGodTossing
     -> NodeDBs
-    -> GenericTxpLocalData ExplorerExtra
+    -> (GenericTxpLocalData ExplorerExtra, TxpMetrics)
     -> SscState SscGodTossing
     -> DelegationVar
     -> PeerStateSnapshot
@@ -86,10 +91,12 @@ convertHandler
     -> ExplorerProd a
     -> Handler a
 convertHandler nc modernDBs tlw ssc delWrap psCtx slotVar ntpSlotVar handler =
-    liftIO (realRunner handler) `Catch.catches` excHandlers
+    liftIO (realRunner . runExplorerBListener $ handler) `Catch.catches` excHandlers
   where
+
     realRunner :: forall t . RealMode SscGodTossing t -> IO t
-    realRunner (RealMode act) = runProduction
+    realRunner (RealMode act) = 
+        runProduction
            . runWithoutJsonLogT
            . usingLoggerName "explorer-api"
            . flip Ether.runReadersT nc

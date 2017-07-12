@@ -5,6 +5,7 @@ output
 .DS_Store
 typings
 npm-debug.log
+package-lock.json
 .psc-ide-port
 .psci_modules
 # generated backend types + lenses

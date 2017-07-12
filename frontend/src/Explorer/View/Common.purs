@@ -43,6 +43,7 @@ import Explorer.Util.DOM (enterKeyPressed)
 import Explorer.Util.Factory (mkCAddress, mkCTxId, mkCoin)
 import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDate)
+import Explorer.Util.Config (testNetVersion)
 import Explorer.View.Lenses (txbAmount, txbInputs, txbOutputs, txhAmount, txhHash, txhTimeIssued)
 import Exporer.View.Types (TxBodyViewProps(..), TxHeaderViewProps(..))
 
@@ -301,26 +302,32 @@ txEmptyContentView message =
 -- logo
 -- -----------------
 
-logoView' :: Maybe Route -> P.HTML Action
-logoView' mRoute =
+logoView' :: Maybe Route -> Boolean -> P.HTML Action
+logoView' mRoute isTestnet =
     let logoContentTag = case mRoute of
                               Just route ->
                                   S.a ! S.href (toUrl route)
                                       #! P.onClick (Navigate $ toUrl route)
-                                      $ mempty
                               Nothing ->
-                                  S.div $ mempty
+                                  S.div
+
+        iconHiddenClazz = if isTestnet then "" else " hide"
     in
-    S.div ! S.className "logo__container"
-          $ S.div ! S.className "logo__wrapper"
-                  $ logoContentTag  ! S.className "logo__img bg-logo"
-                                    ! S.href (toUrl Dashboard)
+    S.div
+        ! S.className "logo__container"
+        $ S.div
+            ! S.className "logo__wrapper"
+            $ logoContentTag
+                ! S.className "logo__img bg-logo"
+                $ S.div
+                    ! S.className ("testnet-icon" <> iconHiddenClazz)
+                    $ S.text ("TN " <> testNetVersion)
 
-logoView :: P.HTML Action
-logoView = logoView' Nothing
+logoView :: Boolean -> P.HTML Action
+logoView isTestnet = logoView' Nothing isTestnet
 
-clickableLogoView :: Route -> P.HTML Action
-clickableLogoView = logoView' <<< Just
+clickableLogoView :: Route -> Boolean -> P.HTML Action
+clickableLogoView route isTestnet = logoView' (Just route) isTestnet
 
 -- -----------------
 -- lang

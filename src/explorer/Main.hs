@@ -9,6 +9,7 @@ module Main where
 import           Universum
 
 import qualified Data.ByteString.Char8      as BS8 (unpack)
+import           Data.Coerce                (coerce)
 import           Data.Maybe                 (fromJust)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Data.Time.Units            (toMicroseconds)
@@ -23,18 +24,15 @@ import           System.Wlog                (logInfo)
 import           Pos.Binary                 ()
 import qualified Pos.CLI                    as CLI
 import           Pos.Communication          (OutSpecs, WorkerSpec, worker, wrapActionSpec)
+import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
-import           Pos.DHT.Workers            (dhtWorkers)
-import           Pos.Discovery              (DiscoveryContextSum (..))
-#ifndef DEV_MODE
-import           Pos.Genesis                (genesisStakeDistribution)
-#endif
 import           Pos.DHT.Real               (KademliaDHTInstance (..),
                                              foreverRejoinNetwork)
+import           Pos.DHT.Workers            (dhtWorkers)
+import           Pos.Discovery              (DiscoveryContextSum (..))
 import           Pos.Launcher               (NodeParams (..), bracketResourcesKademlia,
-                                             runNodeReal)
+                                             runNode, runRealBasedMode)
 import           Pos.Shutdown               (triggerShutdown)
-import           Pos.Ssc.Class              (SscConstraint)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Types                  (Timestamp (Timestamp))
 import           Pos.Update.Context         (ucUpdateSemaphore)
@@ -43,6 +41,7 @@ import           Pos.Util.UserSecret        (usVss)
 import           Pos.Util.Util              (powerLift)
 import           Pos.WorkMode               (RealMode, WorkMode)
 
+import           Pos.Explorer               (ExplorerBListener, runExplorerBListener)
 import           Pos.Explorer.Socket        (NotifierSettings (..))
 import           Pos.Explorer.Web           (explorerPlugin, notifierPlugin)
 
@@ -50,12 +49,19 @@ import           ExplorerOptions            (Args (..), getExplorerOptions)
 import           Params                     (getBaseParams, getKademliaParams,
                                              getNodeParams, gtSscParams)
 
+
+type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
+
+-- | Lift monadic computation to 'ExplorerBListener'.
+liftBListenerRedirects :: m a -> ExplorerBListener m a
+liftBListenerRedirects = coerce
+
 -- Note: for now Kademlia discovery is hardcoded.
 
 action
     :: KademliaDHTInstance
     -> Args
-    -> (forall ssc . Transport (RealMode ssc))
+    -> (forall ssc . Transport (ExplorerBListener (RealMode ssc)))
     -> Production ()
 action kad args@Args {..} transport = do
     systemStart <- getNodeSystemStart $ CLI.sysStart commonArgs
@@ -65,13 +71,13 @@ action kad args@Args {..} transport = do
     currentParams <- getNodeParams args systemStart
 
     putText "Running using GodTossing"
-    let wDhtWorkers 
-            :: WorkMode SscGodTossing m 
-            => ([WorkerSpec m], OutSpecs)
-            -> ([WorkerSpec m], OutSpecs)
-        wDhtWorkers workers = runWithLogging workers
+    let wDhtWorkers
+            :: ([WorkerSpec ExplorerProd], OutSpecs)
+            -> ([WorkerSpec ExplorerProd], OutSpecs)
+        wDhtWorkers workers = first (map $ wrapActionSpec $ "worker" <> "dht") $ workers
 
-    let plugins = mconcatPair
+    let plugins :: ([WorkerSpec ExplorerProd], OutSpecs)
+        plugins = mconcatPair
             [ explorerPlugin webPort
             , notifierPlugin NotifierSettings{ nsPort = notifierPort }
             , wDhtWorkers $ lDhtWorkers kad
@@ -81,38 +87,42 @@ action kad args@Args {..} transport = do
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let gtParams = gtSscParams args vssSK
 
-    runNodeReal @SscGodTossing
+    runERealMode
         (DCKademlia kad)
         transport
-        plugins
         currentParams
         gtParams
+        (runNode plugins)
   where
     lDhtWorkers
-        :: WorkMode SscGodTossing m 
-        => KademliaDHTInstance 
+        :: WorkMode SscGodTossing m
+        => KademliaDHTInstance
         -> ([WorkerSpec m], OutSpecs)
     lDhtWorkers kDHTInstance = dhtWorkers kDHTInstance
 
-    -- TODO: What's the point of this?
-    -- runWhileNotRecovering
-    --     :: ([WorkerSpec m], OutSpecs)
-    --     -> ([WorkerSpec m], OutSpecs)
-    -- runWhileNotRecovering (ws, outs) = (map (fst . recoveryCommGuard . (, outs)) ws, outs)
-
-    runWithLogging 
-        :: WorkMode SscGodTossing m 
-        => ([WorkerSpec m], OutSpecs)
-        -> ([WorkerSpec m], OutSpecs)
-    runWithLogging workers = first (map $ wrapActionSpec $ "worker" <> "dht") $ workers
+    -- | ExplorerBListener runner.
+    -- This is the part of the code where the tagged transformers get redirect.
+    -- runERealMode
+        -- :: DiscoveryContextSum
+        -- -> Transport m
+        -- -> NodeParams
+        -- -> SscParams SscGodTossing    -- hidden in the ssc package
+        -- -> (ActionSpec m a, OutSpecs)
+        -- -> Production a
+    runERealMode =
+        runRealBasedMode @SscGodTossing
+            unwrapEMode
+            liftBListenerRedirects
+      where
+        unwrapEMode = runExplorerBListener
 
 updateTriggerWorker
-    :: SscConstraint ssc
-    => ([WorkerSpec (RealMode ssc)], OutSpecs)
+    :: ([WorkerSpec ExplorerProd], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
     void $ takeMVar =<< Ether.asks' ucUpdateSemaphore
     triggerShutdown
+
 
 getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
 getNodeSystemStart cliOrConfigSystemStart
@@ -134,14 +144,14 @@ getNodeSystemStart cliOrConfigSystemStart
     timestampToSeconds :: Timestamp -> Integer
     timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
 
+
 printFlags :: IO ()
 printFlags = do
-#ifdef DEV_MODE
-    putText "[Attention] We are in DEV mode"
-#else
-    putText "[Attention] We are in PRODUCTION mode"
-#endif
+    if isDevelopment
+        then putText "[Attention] We are in DEV mode"
+        else putText "[Attention] We are in PRODUCTION mode"
     inAssertMode $ putText "Asserts are ON"
+
 
 main :: IO ()
 main = do
@@ -156,6 +166,6 @@ main = do
     kademliaParams <- liftIO $ getKademliaParams args
     bracketResourcesKademlia baseParams tcpAddr kademliaParams $ \kademliaInstance transport ->
         let transport' = hoistTransport
-                (powerLift :: forall ssc t . Production t -> RealMode ssc t)
+                (powerLift :: forall ssc t . Production t -> ExplorerBListener (RealMode ssc) t)
                 transport
         in  foreverRejoinNetwork kademliaInstance (action kademliaInstance args transport')

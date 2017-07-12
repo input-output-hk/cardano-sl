@@ -1,18 +1,25 @@
 module Explorer.Util.Config where
 
-import Control.Bind ((>>=))
+import Prelude
+
 import Control.Monad.Eff (Eff)
 import DOM (DOM)
 import DOM.HTML (window)
 import DOM.HTML.Location (hostname) as L
 import DOM.HTML.Window (location)
 import Data.Generic (class Generic, gEq, gShow)
-import Prelude (class Eq, class Show, (==))
+import Data.Maybe (isJust)
+import Data.String.Regex (search)
+import Data.String.Regex.Flags (noFlags)
+import Data.String.Regex.Unsafe (unsafeRegex)
 
-foreign import versionImpl :: Int
+foreign import versionImpl :: String
 
-version :: Int
+version :: String
 version = versionImpl
+
+testNetVersion :: String
+testNetVersion = "0.5"
 
 foreign import commitHashImpl :: String
 
@@ -45,3 +52,7 @@ syncBySocket = (==) SyncBySocket
 
 syncByPolling :: SyncAction -> Boolean
 syncByPolling = (==) SyncByPolling
+
+isTestnet :: String -> Boolean
+isTestnet location =
+  isJust $ search (unsafeRegex "testnet\\." noFlags) location

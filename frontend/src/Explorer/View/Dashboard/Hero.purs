@@ -8,7 +8,7 @@ import Data.Lens ((^.))
 
 import Explorer.I18n.Lang (translate)
 import Explorer.I18n.Lenses (common, hero, cTitle, hrSubtitle) as I18nL
-import Explorer.Lenses.State (lang)
+import Explorer.Lenses.State (testnet, lang)
 import Explorer.State (heroSearchContainerId)
 import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
@@ -30,7 +30,7 @@ heroView state =
     S.div ! S.className "explorer-dashboard__hero"
           ! S.id "explorer-dashboard__hero-id"
           $ S.div ! S.className "hero-container" $ do
-                logoView
+                logoView $ state ^. testnet
                 S.h1  ! S.className "hero-headline"
                       $ S.text (translate (I18nL.common <<< I18nL.cTitle) lang')
                 S.h2  ! S.className "hero-subheadline"

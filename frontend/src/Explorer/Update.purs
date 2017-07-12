@@ -17,7 +17,7 @@ import DOM.HTML.History (DocumentTitle(..), URL(..), pushState)
 import DOM.HTML.Window (history)
 import DOM.Node.Node (contains)
 import DOM.Node.Types (ElementId(..), elementToNode)
-import Data.Array (filter, snoc, take, (:))
+import Data.Array (filter, length, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Foreign (toForeign)
@@ -80,14 +80,19 @@ update SocketPing state =
 
 update (SocketBlocksPageUpdated (Right (Tuple totalPages blocks))) state =
     noEffects $
-    set latestBlocks latestBlocksCheck $
+    over latestBlocks (\bl -> if updateBlocks then Success blocks else bl) $
+    over (dashboardViewState <<< dbViewBlockPagination)
+        (\ pn@(PageNumber page) -> if updateCurrentPage then PageNumber totalPages else pn) $
+        -- ^ to keep staying at last page we have to update `dbViewBlockPagination`
     set (dashboardViewState <<< dbViewMaxBlockPagination) (Success $ PageNumber totalPages) state
   where
-    latestBlocksCheck = if pageIsLastPage
+    latestBlocksCheck = if updateBlocks
                         then (Success blocks)
                         else (state ^. latestBlocks)
-    pageIsLastPage = (state ^. (dashboardViewState <<< dbViewBlockPagination))
-                  == PageNumber totalPages
+    currentBlockPage = state ^. (dashboardViewState <<< dbViewBlockPagination)
+    updateBlocks = (currentBlockPage == PageNumber totalPages) || updateCurrentPage
+    updateCurrentPage = currentBlockPage == (PageNumber $ totalPages - 1) && (length blocks == 1)
+
 
 update (SocketBlocksPageUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $
@@ -128,33 +133,6 @@ update (SocketAddressTxsUpdated (Right txs)) state =
 
 update (SocketAddressTxsUpdated (Left error)) state = noEffects $
     over errors (\errors' -> (show error) : errors') state
-
-update SocketCallMe state =
-    { state
-    , effects : [ do
-          _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff <<< emit socket' $ toEvent CallMe
-              Nothing -> pure unit
-          pure Nothing
-    ]}
-
-update (SocketCallMeString str) state =
-    { state
-    , effects : [ do
-          _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emitData socket' (toEvent CallMeString) str
-              Nothing -> pure unit
-          pure Nothing
-    ]}
-
-update (SocketCallMeCTxId id) state =
-    { state
-    , effects : [ do
-          _ <- case state ^. (socket <<< connection) of
-              Just socket' -> liftEff $ emitData socket' (toEvent CallMeTxId) id
-              Nothing -> pure unit
-          pure Nothing
-    ]}
 
 -- | Creates a new socket subscription
 update (SocketAddSubscription subItem) state =

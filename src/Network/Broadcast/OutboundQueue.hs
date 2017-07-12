@@ -1118,6 +1118,9 @@ instance ClassifyMsg (ClassifiedConversation peerData packingType peer m) where
 
 newtype ClassifiedNode nid = ClassifiedNode (NodeType, nid)
 
+instance Show (ClassifiedNode nid) where
+    show (ClassifiedNode (ty, _)) = show ty
+
 instance ClassifyNode (ClassifiedNode nid) where
     classifyNode (ClassifiedNode (nodeType, _)) = nodeType
 
@@ -1145,7 +1148,6 @@ asOutboundQueue
        , Ord (M.ThreadId      m)
        , WithLogger           m
        , Ord nid
-       , ClassifyNode nid
        )
     => OutboundQ (ClassifiedConversation peerData packingType nid m) (ClassifiedNode nid)
     -> (nid -> NodeId)

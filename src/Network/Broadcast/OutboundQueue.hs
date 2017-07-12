@@ -421,13 +421,15 @@ inFlightWithPrec :: Ord nid => nid -> Precedence -> Lens' (InFlight nid) Int
 inFlightWithPrec nid prec = inFlightTo nid . at prec . anon 0 (== 0)
 
 -- | The outbound queue (opaque data structure)
-data OutboundQ msg nid = ( ClassifyMsg msg
+data OutboundQ msg nid = forall self .
+                         ( ClassifyMsg msg
                          , ClassifyNode nid
                          , Ord nid
                          , Show nid
+                         , Show self
                          ) => OutQ {
       -- | Node ID of the current node (primarily for debugging purposes)
-      qSelf :: nid
+      qSelf :: self
 
       -- | Enqueuing policy
     , qEnqueuePolicy :: EnqueuePolicy nid
@@ -465,8 +467,9 @@ new :: ( MonadIO m
        , ClassifyNode nid
        , Ord nid
        , Show nid
+       , Show self
        )
-    => nid            -- ^ Node ID of the current node
+    => self -- ^ Showable identifier of this node, for logging purposes.
     -> EnqueuePolicy nid
     -> DequeuePolicy
     -> FailurePolicy

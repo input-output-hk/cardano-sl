@@ -18,6 +18,7 @@ import qualified Prelude
 
 import           Crypto.Hash         (Blake2b_256)
 import           Pos.Binary          (Bi (..), encode, label, labelS, putField)
+import qualified Pos.Binary.Cbor     as Cbor
 import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhrase,
                                       SecretKey, VssKeyPair, deterministicKeyGen,
                                       deterministicVssKeyGen, safeDeterministicKeyGen,
@@ -33,6 +34,10 @@ newtype BackupPhrase = BackupPhrase
 instance Bi BackupPhrase where
     sizeNPut = labelS "BackupPhrase" $ putField bpToList
     get = label "BackupPhrase" $ BackupPhrase <$> get
+
+instance Cbor.Bi BackupPhrase where
+  encode = Cbor.encode
+  decode = BackupPhrase <$> Cbor.decode
 
 -- | Number of words in backup phrase
 backupPhraseWordsNum :: Int

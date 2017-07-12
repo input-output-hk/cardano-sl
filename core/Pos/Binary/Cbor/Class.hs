@@ -3,6 +3,7 @@ module Pos.Binary.Cbor.Class
     , encodeBinary
     , decodeBinary
     , enforceSize
+    , matchSize
     ) where
 
 import           Codec.CBOR.Decoding
@@ -39,8 +40,11 @@ decodeBinary = do
 
 -- | Enforces that the input size is the same as the decoded one, failing in case it's not.
 enforceSize :: String -> Int -> Decoder s ()
-enforceSize label requestedSize = do
-  actualSize <- decodeListLen
+enforceSize label requestedSize = decodeListLen >>= matchSize requestedSize label
+
+-- | Compare two sizes, failing if they are not equal.
+matchSize :: Int -> String -> Int -> Decoder s ()
+matchSize requestedSize label actualSize = do
   case actualSize == requestedSize of
     True  -> return ()
     False -> fail (label <> " failed the size check. Expected " <> show requestedSize <> ", found " <> show actualSize)

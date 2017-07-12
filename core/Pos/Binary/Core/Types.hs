@@ -43,6 +43,11 @@ instance Bi (A.Attributes ()) where
         A.getAttributes (\_ () -> Nothing) (Just (128 * 1024 * 1024)) ()
     put = labelP "Attributes" . A.putAttributes (\() -> [])
 
+-- Stubbed in preparation to refactoring to better fit it into the CBOR model.
+instance Cbor.Bi (A.Attributes ()) where
+  encode = error "Attributes () encode: Unimplemented."
+  decode = fail  "Attributes () decode: Unimplemented."
+
 instance Bi T.Coin where
     size = VarSize BinCoin.size
     put = labelP "Coin" . mapM_ putWord8 . BinCoin.encode

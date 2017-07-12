@@ -17,6 +17,7 @@ import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..
                                                    getBytes, getSmallWithLength, getWord8,
                                                    label, labelS, putBytesS, putField,
                                                    putS, putSmallWithLengthS, putWord8S)
+import qualified Pos.Binary.Cbor                  as Cbor
 import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
@@ -28,7 +29,8 @@ import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 -- MessageName
 ----------------------------------------------------------------------------
 
-deriving instance Bi MessageName
+deriving instance      Bi MessageName
+deriving instance Cbor.Bi MessageName
 
 -- TODO: move into each component
 
@@ -42,10 +44,22 @@ deriveSimpleBi ''MsgGetHeaders [
         Field [| mghTo   :: Maybe HeaderHash |]
     ]]
 
+Cbor.deriveSimpleBi ''MsgGetHeaders [
+    Cbor.Cons 'MsgGetHeaders [
+        Cbor.Field [| mghFrom :: [HeaderHash]     |],
+        Cbor.Field [| mghTo   :: Maybe HeaderHash |]
+    ]]
+
 deriveSimpleBi ''MsgGetBlocks [
     Cons 'MsgGetBlocks [
         Field [| mgbFrom :: HeaderHash |],
         Field [| mgbTo   :: HeaderHash |]
+    ]]
+
+Cbor.deriveSimpleBi ''MsgGetBlocks [
+    Cbor.Cons 'MsgGetBlocks [
+        Cbor.Field [| mgbFrom :: HeaderHash |],
+        Cbor.Field [| mgbTo   :: HeaderHash |]
     ]]
 
 instance SscHelpersClass ssc => Bi (MsgHeaders ssc) where
@@ -95,10 +109,29 @@ instance Bi HandlerSpec where
           | otherwise -> UnknownHandler t <$>
                 getSmallWithLength (getBytes . fromIntegral)
 
+instance Cbor.Bi HandlerSpec where
+  encode input = case input of
+    ConvHandler mname        -> Cbor.encodeListLen 2 <> Cbor.encode (0 :: Word8) <> Cbor.encode (Cbor.serialize' mname)
+    UnknownHandler word8 bs  -> Cbor.encodeListLen 2 <> Cbor.encode word8 <> Cbor.encode bs
+  decode = do
+    Cbor.enforceSize "HandlerSpec" 2
+    tag <- Cbor.decode @Word8
+    case tag of
+      0 -> ConvHandler . Cbor.deserialize' <$> Cbor.decode
+      _ -> UnknownHandler tag              <$> Cbor.decode
+
 deriveSimpleBi ''VerInfo [
     Cons 'VerInfo [
         Field [| vIMagic        :: Int32        |],
         Field [| vIBlockVersion :: BlockVersion |],
         Field [| vIInHandlers   :: HandlerSpecs |],
         Field [| vIOutHandlers  :: HandlerSpecs |]
+    ]]
+
+Cbor.deriveSimpleBi ''VerInfo [
+    Cbor.Cons 'VerInfo [
+        Cbor.Field [| vIMagic        :: Int32        |],
+        Cbor.Field [| vIBlockVersion :: BlockVersion |],
+        Cbor.Field [| vIInHandlers   :: HandlerSpecs |],
+        Cbor.Field [| vIOutHandlers  :: HandlerSpecs |]
     ]]

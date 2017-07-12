@@ -16,6 +16,7 @@ import           Formatting          (Format, bprint, build, later, (%))
 import           Universum
 
 import           Pos.Binary.Class    (Cons (..), Field (..), deriveSimpleBi)
+import qualified Pos.Binary.Cbor     as Cbor
 import           Pos.Crypto          (EncryptedSecretKey, encToPublic)
 import           Pos.Genesis         (accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Types           (addressF, makePubKeyAddress)
@@ -48,6 +49,14 @@ deriveSimpleBi ''WalletUserSecret [
         Field [| _wusWalletName :: Text               |],
         Field [| _wusAccounts   :: [(Word32, Text)]   |],
         Field [| _wusAddrs      :: [(Word32, Word32)] |]
+    ]]
+
+Cbor.deriveSimpleBi ''WalletUserSecret [
+    Cbor.Cons 'WalletUserSecret [
+        Cbor.Field [| _wusRootKey    :: EncryptedSecretKey |],
+        Cbor.Field [| _wusWalletName :: Text               |],
+        Cbor.Field [| _wusAccounts   :: [(Word32, Text)]   |],
+        Cbor.Field [| _wusAddrs      :: [(Word32, Word32)] |]
     ]]
 
 mkGenesisWalletUserSecret :: EncryptedSecretKey -> WalletUserSecret

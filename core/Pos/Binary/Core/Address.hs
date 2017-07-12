@@ -10,6 +10,7 @@ import           Pos.Binary.Class    (Bi (..), Peek, Poke, PokeWithSize, Size (.
                                       getSmallWithLength, getWord8, label, labelS,
                                       putBytesS, putField, putS, putSmallWithLengthS,
                                       putWord8S)
+import qualified Pos.Binary.Cbor     as Cbor
 import           Pos.Binary.Crypto   ()
 import           Pos.Core.Types      (AddrPkAttrs (..), Address (..))
 import           Pos.Data.Attributes (getAttributes, putAttributesS)
@@ -100,3 +101,8 @@ instance Bi Address where
        if checksum /= crc32 addr
            then fail "Address has invalid checksum!"
            else return addr
+
+-- Just a stub as @arybczak is working on it.
+instance Cbor.Bi Address where
+  encode = error "Address encode: unimplemented"
+  decode = fail  "Address decode: unimplemented"

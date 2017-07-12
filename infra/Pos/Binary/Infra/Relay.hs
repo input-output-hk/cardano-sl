@@ -6,6 +6,7 @@ import           Universum
 
 import           Pos.Binary.Class              (Bi (..), getWord8, label, labelS,
                                                 putConst, putField)
+import qualified Pos.Binary.Cbor               as Cbor
 import           Pos.Communication.Types.Relay (InvMsg (..), MempoolMsg (..), ReqMsg (..))
 
 instance Bi key => Bi (InvMsg key) where
@@ -24,3 +25,10 @@ instance Bi (MempoolMsg tag) where
         x <- getWord8
         when (x /= 228) $ fail "wrong byte"
         pure MempoolMsg
+
+instance Cbor.Bi (MempoolMsg tag) where
+  encode MempoolMsg = Cbor.encode (228 :: Word8)
+  decode = do
+    x <- Cbor.decode @Word8
+    when (x /= 228) $ fail "wrong byte"
+    pure MempoolMsg

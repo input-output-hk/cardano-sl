@@ -42,6 +42,7 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi (..), decodeFull, encode, label, labelS,
                                         putField)
+import qualified Pos.Binary.Cbor       as Cbor
 import           Pos.Binary.Crypto     ()
 import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
 
@@ -140,6 +141,23 @@ instance Bi UserSecret where
             & usPrimKey .~ pkey
             & usKeys .~ keys
             & usWalletSet .~ wset
+
+instance Cbor.Bi UserSecret where
+  encode us = Cbor.encodeListLen 4 <> Cbor.encode (_usVss us) <>
+                                      Cbor.encode (_usPrimKey us) <>
+                                      Cbor.encode (_usKeys us) <>
+                                      Cbor.encode (_usWalletSet us)
+  decode = do
+    Cbor.enforceSize "UserSecret" 4
+    vss  <- Cbor.decode
+    pkey <- Cbor.decode
+    keys <- Cbor.decode
+    wset <- Cbor.decode
+    return $ def
+        & usVss .~ vss
+        & usPrimKey .~ pkey
+        & usKeys .~ keys
+        & usWalletSet .~ wset
 
 #ifdef POSIX
 -- | Constant that defines file mode 600 (readable & writable only by owner).

@@ -28,11 +28,6 @@ import           Pos.Util.Util             (maybeThrow)
 -- Block generation
 ----------------------------------------------------------------------------
 
--- TODO: the blocks are also applied, but usually we shouldn't modify
--- the state.  The idea is to use 'DBProxyT' (which doesn't exist yet)
--- akin to 'PollT', 'TossT', etc. to put all modifications into a
--- temporary state instead of applying them to the given DB directly.
---
 -- | Generate an arbitrary sequence of valid blocks. The blocks are
 -- valid with respect to the global state right before this function
 -- call.

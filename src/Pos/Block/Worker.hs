@@ -20,7 +20,7 @@ import           System.Wlog                 (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Communication    ()
 import           Pos.Block.Logic             (calcChainQualityM, createGenesisBlock,
-                                              createMainBlock)
+                                              createMainBlockAndApply)
 import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
 import           Pos.Block.Slog              (slogGetLastSlots)
@@ -207,7 +207,7 @@ onNewSlotWhenLeader slotId pske sendActions = do
   where
     onNewSlotWhenLeaderDo = do
         logInfoS "It's time to create a block for current slot"
-        createdBlock <- createMainBlock slotId pske
+        createdBlock <- createMainBlockAndApply slotId pske
         either whenNotCreated whenCreated createdBlock
         logInfoS "onNewSlotWhenLeader: done"
     whenCreated createdBlk = do

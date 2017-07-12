@@ -6,7 +6,8 @@
 
 module Pos.Block.Logic.Creation
        ( createGenesisBlock
-       , createMainBlock
+       , createMainBlockAndApply
+       , createMainBlockInternal
 
        -- * Internals
        , RawPayload (..)
@@ -14,13 +15,11 @@ module Pos.Block.Logic.Creation
        ) where
 
 import           Universum
-import           Unsafe                     (unsafeHead)
 
 import           Control.Lens               (uses, (-=), (.=), _Wrapped)
 import           Control.Monad.Catch        (try)
 import           Control.Monad.Except       (MonadError (throwError), runExceptT)
 import           Data.Default               (Default (def))
-import qualified Data.HashMap.Strict        as HM
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
@@ -30,15 +29,11 @@ import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBlock,
                                              MainBlockchain, mkGenesisBlock, mkMainBlock)
 import qualified Pos.Block.Core             as BC
-import           Pos.Block.Logic.Internal   (BlockApplyMode, BlockVerifyMode,
-                                             applyBlocksUnsafe, toUpdateBlock)
+import           Pos.Block.Logic.Internal   (BlockApplyMode, applyBlocksUnsafe)
 import           Pos.Block.Logic.Util       (calcChainQualityM, withBlkSemaphore)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
-import           Pos.Block.Slog             (HasSlogContext (..), SlogUndo (..),
-                                             slogGetLastSlots)
-import           Pos.Block.Types            (Undo (..))
-import           Pos.Constants              (blkSecurityParam, chainQualityThreshold,
-                                             epochSlots)
+import           Pos.Block.Slog             (HasSlogContext (..))
+import           Pos.Constants              (chainQualityThreshold, epochSlots)
 import           Pos.Context                (BlkSemaphore, HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
@@ -60,14 +55,12 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefau
 import           Pos.Ssc.Extra              (sscGetLocalPayload, sscResetLocal)
 import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload,
                                              topsortTxs)
-import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxsNUndo)
+import           Pos.Txp.MemState           (clearTxpMemPool, getLocalTxs)
 import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
-                                             usPreparePayload, usVerifyBlocks)
-import           Pos.Update.Poll            (PollModifier, USUndo)
+                                             usPreparePayload)
 import           Pos.Util                   (maybeThrow, _neHead)
-import           Pos.Util.Chrono            (OldestFirst (..))
 import           Pos.Util.Util              (leftToPanic)
 
 type CreationMode ssc ctx m
@@ -155,10 +148,10 @@ createGenesisBlockDo epoch leaders tip = do
         " epoch, our tip header is\n" %build
 
 ----------------------------------------------------------------------------
--- MainBlock creation
+-- MainBlock
 ----------------------------------------------------------------------------
 
--- | Create a new main block on top of our tip if possible.
+-- | Create a new main block on top of our tip if possible and apply it.
 -- Block can be created if:
 -- • our software is not obsolete (see 'usCanCreateBlock');
 -- • our tip's slot is less than the slot for which we want to create a block;
@@ -169,26 +162,55 @@ createGenesisBlockDo epoch leaders tip = do
 -- In theory we can create main block even if chain quality is
 -- bad. See documentation of 'createGenesisBlock' which explains why
 -- we don't create blocks in such cases.
-createMainBlock
+createMainBlockAndApply
     :: forall ssc ctx m.
        (CreationMode ssc ctx m)
     => SlotId
     -> ProxySKBlockInfo
     -> m (Either Text (MainBlock ssc))
-createMainBlock sId pske =
-    reportingFatal $ withBlkSemaphore createMainBlockDo
+createMainBlockAndApply sId pske =
+    reportingFatal $ withBlkSemaphore createAndApply
+  where
+    createAndApply tip =
+        createMainBlockInternal sId pske >>= \case
+            Left reason -> pure (Left reason, tip)
+            Right blk -> convertRes <$> applyCreatedBlock pske blk
+    convertRes createdBlk = (Right createdBlk, headerHash createdBlk)
+
+----------------------------------------------------------------------------
+-- MainBlock creation
+----------------------------------------------------------------------------
+
+-- | Create a new main block for the given slot on top of our
+-- tip. This function assumes that lock on block application is taken
+-- (hence 'Internal' suffix). It doesn't apply or verify created
+-- block. It only checks whether a block can be created (see
+-- 'createMainBlockAndApply') and creates it checks passes.
+createMainBlockInternal ::
+       forall ssc ctx m. (CreationMode ssc ctx m)
+    => SlotId
+    -> ProxySKBlockInfo
+    -> m (Either Text (MainBlock ssc))
+createMainBlockInternal sId pske = do
+    tipHeader <- DB.getTipHeader @ssc
+    logInfo $ sformat msgFmt tipHeader
+    canCreateBlock sId tipHeader >>= \case
+        Left reason -> pure (Left reason)
+        Right () -> runExceptT (createMainBlockFinish tipHeader)
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
-    createMainBlockDo tip = do
-        tipHeader <- DB.getTipHeader @ssc
-        logInfo $ sformat msgFmt tipHeader
-        canCreateBlock sId tipHeader >>= \case
-            Left reason -> pure (Left reason, tip)
-            Right () ->
-                convertRes tip <$>
-                runExceptT (createMainBlockFinish sId pske tipHeader)
-    convertRes oldTip (Left e) = (Left e, oldTip)
-    convertRes _ (Right blk)   = (Right blk, headerHash blk)
+    createMainBlockFinish :: BlockHeader ssc -> ExceptT Text m (MainBlock ssc)
+    createMainBlockFinish prevHeader = do
+        rawPay <- getRawPayload sId
+        sk <- getOurSecretKey
+        -- 100 bytes is substracted to account for different unexpected
+        -- overhead.  You can see that in bitcoin blocks are 1-2kB less
+        -- than limit. So i guess it's fine in general.
+        sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
+        block <- createMainBlockPure sizeLimit prevHeader pske sId sk rawPay
+        logInfo $
+            "Created main block of size: " <> sformat memory (biSize block)
+        block <$ evaluateNF_ block
 
 canCreateBlock ::
        forall ssc ctx m. CreationMode ssc ctx m
@@ -216,111 +238,6 @@ canCreateBlock sId tipHeader =
   where
     tipEOS :: EpochOrSlot
     tipEOS = getEpochOrSlot tipHeader
-
-data RawPayload ssc = RawPayload
-    { rpTxp    :: ![TxAux]
-    , rpSsc    :: !(SscPayload ssc)
-    , rpDlg    :: !DlgPayload
-    , rpUpdate :: !UpdatePayload
-    }
-
--- Create main block and apply it, if block passed checks,
--- otherwise clear mem pools and try again.
--- Returns valid block or fail.
--- Here we assume that blkSemaphore has been taken.
-createMainBlockFinish
-    :: forall ssc ctx m.
-       (CreationMode ssc ctx m)
-    => SlotId
-    -> ProxySKBlockInfo
-    -> BlockHeader ssc
-    -> ExceptT Text m (MainBlock ssc)
-createMainBlockFinish slotId pske prevHeader = do
-    unchecked@(uncheckedBlock, _, _) <- createBlundFromMemPool
-    (block, undo, pModifier) <-
-        verifyCreatedBlock uncheckedBlock (pure unchecked) fallbackCreateBlock
-    lift $ applyBlocksUnsafe (one (Right block, undo)) (Just pModifier)
-    pure block
-  where
-    createBlundFromMemPool :: ExceptT Text m (MainBlock ssc, Undo, PollModifier)
-    createBlundFromMemPool = do
-        (rawPay, undoNoUS) <- getRawPayloadAndUndo slotId
-        -- Create block
-        sk <- getOurSecretKey
-        -- 100 bytes is substracted to account for different unexpected
-        -- overhead.  You can see that in bitcoin blocks are 1-2kB less
-        -- than limit. So i guess it's fine in general.
-        sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
-        block <- createMainBlockPure sizeLimit prevHeader pske slotId sk rawPay
-        logInfo $ "Created main block of size: " <> sformat memory (biSize block)
-        -- Create Undo
-        (pModifier, usUndo) <-
-            runExceptT (usVerifyBlocks False (one (toUpdateBlock (Right block)))) >>=
-            either (const $ throwError "Couldn't get pModifier while creating MainBlock") pure
-        let undo = undoNoUS (usUndo ^. _Wrapped . _neHead)
-        evaluateNF_ (undo, block)
-        pure (block, undo, pModifier)
-    verifyCreatedBlock ::
-        forall n a. BlockVerifyMode ssc ctx n =>
-        MainBlock ssc -> n a -> (Text -> n a) -> n a
-    verifyCreatedBlock block onSuccess onFailure =
-        verifyBlocksPrefix (one (Right block)) >>=
-        either onFailure (const onSuccess)
-    clearMempools = do
-        clearTxpMemPool "createMainBlockFinish"
-        sscResetLocal
-        clearUSMemPool
-        lift $ clearDlgMemPool
-    fallbackCreateBlock :: Text -> ExceptT Text m (MainBlock ssc, Undo, PollModifier)
-    fallbackCreateBlock er = do
-        logError $ sformat ("We've created bad main block: "%stext) er
-        -- FIXME [CSL-1340]: it should be reported as 'RError'.
-        lift $ reportMisbehaviourSilent False $
-            sformat ("We've created bad main block: "%build) er
-        logDebug $ "Creating empty block"
-        clearMempools
-        emptyBlund@(emptyBlock, _, _) <- createBlundFromMemPool
-        lift $ verifyCreatedBlock emptyBlock (pure emptyBlund)
-            (assertionFailed . sformat
-             ("We couldn't create even block with empty payload: "%stext))
-
-getRawPayloadAndUndo
-    :: forall ssc ctx m.
-       (CreationMode ssc ctx m)
-    => SlotId
-    -> ExceptT Text m (RawPayload ssc, (USUndo -> Undo))
-getRawPayloadAndUndo slotId = do
-    (localTxs, txUndo) <- getLocalTxsNUndo
-    sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
-    sscData <- sscGetLocalPayload @ssc slotId
-    usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
-    (dlgPayload, pskUndo) <- lift $ getDlgMempool
-    txpUndo <- reverse <$> foldM (prependToUndo txUndo) [] sortedTxs
-    slogUndo <- getSlogUndo
-    let undo usUndo = Undo txpUndo pskUndo usUndo slogUndo
-    let rawPayload =
-            RawPayload
-            { rpTxp = map snd sortedTxs
-            , rpSsc = sscData
-            , rpDlg = dlgPayload
-            , rpUpdate = usPayload
-            }
-    return (rawPayload, undo)
-  where
-    prependToUndo txUndo undos tx =
-        case (: undos) <$> HM.lookup (fst tx) txUndo of
-            Just res -> pure res
-            Nothing  -> onAbsentUndo
-    convertTx (txId, txAux) = WithHash (taTx txAux) txId
-    onBrokenTopo = throwError "Topology of local transactions is broken!"
-    onAbsentUndo = throwError "Undo for tx from local transactions not found"
-    onNoUS = "can't obtain US payload to create block"
-    getSlogUndo =
-        slogGetLastSlots <&> \case
-            (OldestFirst lastSlots)
-                | length lastSlots < fromIntegral blkSecurityParam ->
-                    SlogUndo Nothing
-                | otherwise -> SlogUndo $ Just $ unsafeHead lastSlots
 
 createMainBlockPure
     :: forall m ssc .
@@ -350,6 +267,96 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
         when (mhbSize > limit) $ throwError $
             "Musthave block size is more than limit: " <> show mhbSize
         identity -= biSize musthaveBlock
+
+----------------------------------------------------------------------------
+-- MainBlock apply
+----------------------------------------------------------------------------
+
+-- This function tries to apply the block we've just created. It also
+-- verifies the block before applying it. If the block turns out to be
+-- invalid (which should never happen, but it's a precaution) we clear
+-- all mempools and try to create a block again. The returned value is
+-- the block we applied (usually it's the same as the argument, but
+-- can differ if verification fails).
+applyCreatedBlock ::
+       forall ssc ctx m. (CreationMode ssc ctx m)
+    => ProxySKBlockInfo
+    -> MainBlock ssc
+    -> m (MainBlock ssc)
+applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
+  where
+    slotId = createdBlock ^. BC.mainBlockSlot
+    applyCreatedBlockDo :: Bool -> MainBlock ssc -> m (MainBlock ssc)
+    applyCreatedBlockDo isFallback blockToApply =
+        verifyBlocksPrefix (one (Right blockToApply)) >>= \case
+            Left reason
+                | isFallback -> onFailedFallback reason
+                | otherwise -> fallback reason
+            Right (undos, pollModifier) ->
+                let undo = undos ^. _Wrapped . _neHead
+                in blockToApply <$
+                   applyBlocksUnsafe
+                       (one (Right blockToApply, undo))
+                       (Just pollModifier)
+    clearMempools :: m ()
+    clearMempools = do
+        clearTxpMemPool "fallback@applyCreatedBlock"
+        sscResetLocal
+        clearUSMemPool
+        clearDlgMemPool
+    fallback :: Text -> m (MainBlock ssc)
+    fallback reason = do
+        let message = sformat ("We've created bad main block: "%stext) reason
+        logError message
+        -- FIXME [CSL-1340]: it should be reported as 'RError'.
+        reportMisbehaviourSilent False message
+        logDebug $ "Clearing mempools"
+        clearMempools
+        logDebug $ "Creating empty block"
+        createMainBlockInternal slotId pske >>= \case
+            Left err ->
+                assertionFailed $
+                sformat ("Couldn't create a block in fallback: "%stext) err
+            Right mainBlock -> applyCreatedBlockDo True mainBlock
+    onFailedFallback =
+        assertionFailed .
+        sformat
+            ("We've created bad main block even with empty payload: "%stext)
+
+----------------------------------------------------------------------------
+-- MainBody, payload
+----------------------------------------------------------------------------
+
+data RawPayload ssc = RawPayload
+    { rpTxp    :: ![TxAux]
+    , rpSsc    :: !(SscPayload ssc)
+    , rpDlg    :: !DlgPayload
+    , rpUpdate :: !UpdatePayload
+    }
+
+getRawPayload
+    :: forall ssc ctx m.
+       (CreationMode ssc ctx m)
+    => SlotId
+    -> ExceptT Text m (RawPayload ssc)
+getRawPayload slotId = do
+    localTxs <- getLocalTxs
+    sortedTxs <- maybe onBrokenTopo pure $ topsortTxs convertTx localTxs
+    sscData <- sscGetLocalPayload @ssc slotId
+    usPayload <- note onNoUS =<< lift (usPreparePayload slotId)
+    dlgPayload <- fst <$> lift getDlgMempool
+    let rawPayload =
+            RawPayload
+            { rpTxp = map snd sortedTxs
+            , rpSsc = sscData
+            , rpDlg = dlgPayload
+            , rpUpdate = usPayload
+            }
+    return rawPayload
+  where
+    convertTx (txId, txAux) = WithHash (taTx txAux) txId
+    onBrokenTopo = throwError "Topology of local transactions is broken!"
+    onNoUS = "can't obtain US payload to create block"
 
 -- Main purpose of this function is to create main block's body taking
 -- limit into account. Usually this function doesn't fail, but we

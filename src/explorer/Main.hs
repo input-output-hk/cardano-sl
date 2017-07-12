@@ -18,9 +18,7 @@ import           System.Wlog         (logInfo)
 import           Pos.Binary          ()
 import qualified Pos.CLI             as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec, worker)
-#ifndef DEV_MODE
-import           Pos.Genesis         (genesisStakeDistribution)
-#endif
+import           Pos.Constants       (isDevelopment)
 import           Pos.Launcher        (NodeParams (..), runNodeReal)
 import           Pos.Shutdown        (triggerShutdown)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
@@ -41,11 +39,9 @@ updateTriggerWorker = first pure $ worker mempty $ \_ -> do
 
 printFlags :: IO ()
 printFlags = do
-#ifdef DEV_MODE
-    putText "[Attention] We are in DEV mode"
-#else
-    putText "[Attention] We are in PRODUCTION mode"
-#endif
+    if isDevelopment
+        then putText "[Attention] We are in DEV mode"
+        else putText "[Attention] We are in PRODUCTION mode"
     inAssertMode $ putText "Asserts are ON"
 
 ----------------------------------------------------------------------------

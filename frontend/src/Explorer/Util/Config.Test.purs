@@ -4,7 +4,7 @@ import Prelude
 import Control.Monad.Aff (Aff)
 import Control.Monad.State (StateT)
 import Data.Identity (Identity)
-import Explorer.Util.Config (SyncAction(..), syncByPolling, syncBySocket)
+import Explorer.Util.Config (SyncAction(..), isTestnet, syncByPolling, syncBySocket)
 import Test.Spec (Group, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -22,3 +22,8 @@ testConfigUtil =
                 (syncByPolling SyncByPolling) `shouldEqual` true
             it "should be false" do
                 (syncByPolling SyncBySocket) `shouldEqual` false
+        describe "isTestnet" do
+            it "should be true" do
+                (isTestnet "https://www.testnet.cardanoexplorer.com/") `shouldEqual` true
+            it "should be false" do
+                (isTestnet "https://www.cardanoexplorer.com") `shouldEqual` false

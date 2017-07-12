@@ -14,7 +14,6 @@ module Pos.Explorer.Socket.App
 import qualified Control.Concurrent.STM           as STM
 import           Control.Lens                     ((<<.=))
 import           Control.Monad.Trans.Control      (MonadBaseControl)
-import           Data.Aeson                       (Value)
 import qualified Data.Set                         as S
 import           Data.Time.Units                  (Millisecond)
 import           Ether.TaggedTrans                ()
@@ -51,19 +50,14 @@ import           Pos.Explorer.Socket.Methods      (ClientEvent (..), ServerEvent
                                                    getBlockTxs, getBlundsFromTo,
                                                    getTxInfo, notifyAddrSubscribers,
                                                    notifyBlocksLastPageSubscribers,
-                                                   notifyBlocksOffSubscribers,
-                                                   notifyBlocksSubscribers,
                                                    notifyTxsSubscribers, startSession,
-                                                   subscribeAddr, subscribeBlocks,
-                                                   subscribeBlocksLastPage,
-                                                   subscribeBlocksOff, subscribeTxs,
-                                                   unsubscribeAddr, unsubscribeBlocks,
+                                                   subscribeAddr, subscribeBlocksLastPage,
+                                                   subscribeTxs, unsubscribeAddr,
                                                    unsubscribeBlocksLastPage,
-                                                   unsubscribeBlocksOff, unsubscribeTxs)
-import           Pos.Explorer.Socket.Util         (emit, emitJSON, forkAccompanion, on,
-                                                   on_, regroupBySnd,
-                                                   runPeriodicallyUnless)
-import           Pos.Explorer.Web.ClientTypes     (CTxId, cteId, tiToTxEntry)
+                                                   unsubscribeTxs)
+import           Pos.Explorer.Socket.Util         (emitJSON, forkAccompanion, on, on_,
+                                                   regroupBySnd, runPeriodicallyUnless)
+import           Pos.Explorer.Web.ClientTypes     (cteId, tiToTxEntry)
 import           Pos.Explorer.Web.Server          (ExplorerMode, getMempoolTxs)
 
 
@@ -90,19 +84,13 @@ notifierHandler
 notifierHandler connVar loggerName = do
     _ <- asHandler' startSession
     on  (Subscribe SubAddr)            $ asHandler  subscribeAddr
-    on_ (Subscribe SubBlock)           $ asHandler_ subscribeBlocks
     on_ (Subscribe SubBlockLastPage)   $ asHandler_ subscribeBlocksLastPage
-    on  (Subscribe SubBlockOff)        $ asHandler  subscribeBlocksOff
     on_ (Subscribe SubTx)              $ asHandler_ subscribeTxs
     on_ (Unsubscribe SubAddr)          $ asHandler_ unsubscribeAddr
-    on_ (Unsubscribe SubBlock)         $ asHandler_ unsubscribeBlocks
     on_ (Unsubscribe SubBlockLastPage) $ asHandler_ unsubscribeBlocksLastPage
-    on_ (Unsubscribe SubBlockOff)      $ asHandler_ unsubscribeBlocksOff
     on_ (Unsubscribe SubTx)            $ asHandler_ unsubscribeTxs
 
     on_ CallMe                         $ emitJSON CallYou empty
-    on CallMeString                    $ \(s :: Value) -> emit CallYouString s
-    on CallMeTxId                      $ \(txid :: CTxId) -> emit CallYouTxId txid
     appendDisconnectHandler . void     $ asHandler_ finishSession
  where
     -- handlers provide context for logging and `ConnectionsVar` changes
@@ -162,9 +150,7 @@ periodicPollChanges connVar closed =
 
             -- notify about blocks and blocks with offset
             unless (null newBlunds) $ do
-                notifyBlocksSubscribers @ctx newBlunds
-                notifyBlocksLastPageSubscribers @ctx
-                notifyBlocksOffSubscribers @ctx (length newBlunds)
+                notifyBlocksLastPageSubscribers
                 logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
                     (length newBlunds)
 

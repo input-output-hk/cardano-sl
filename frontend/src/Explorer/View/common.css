@@ -337,9 +337,32 @@
 }
 
 .logo__img {
+  position: relative;
   box-item: center;
   background-repeat: no-repeat;
   background-position: center center;
+}
+
+.testnet-icon {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  margin-left: 3px;
+  padding: 1px 2px;
+  border-radius: 3px;
+  background-color: var(--color15);
+  color: var(--color0);
+  font-family: var(--fontFamily0-Regular);
+  font-size: 7px;
+  white-space: nowrap;
+
+  @media (--md) {
+    top: -1px;
+    margin-left: 6px;
+    font-size: 9px;
+    padding: 2px 3px;
+    border-radius: 2px;
+  }
 }
 
 

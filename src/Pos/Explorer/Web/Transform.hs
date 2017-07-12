@@ -20,6 +20,7 @@ import           Pos.Communication       (OutSpecs, SendActions, WorkerSpec, wor
 import           Pos.Ssc.GodTossing      (SscGodTossing)
 import           Pos.WorkMode            (RealMode, RealModeContext (..))
 
+import           Pos.Explorer            (ExplorerBListener, runExplorerBListener)
 import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
 import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
                                           explorerServeImpl)
@@ -28,7 +29,7 @@ import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
 -- Transformation to `Handler`
 -----------------------------------------------------------------
 
-type ExplorerProd = RealMode SscGodTossing
+type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
 
 notifierPlugin :: NotifierSettings -> ([WorkerSpec ExplorerProd], OutSpecs)
 notifierPlugin = first pure . worker mempty .
@@ -51,8 +52,9 @@ convertHandler
     -> ExplorerProd a
     -> Handler a
 convertHandler rctx handler =
-    liftIO (realRunner handler) `Catch.catches` excHandlers
+    liftIO (realRunner $ runExplorerBListener $ handler) `Catch.catches` excHandlers
   where
+
     realRunner :: forall t . RealMode SscGodTossing t -> IO t
     realRunner act = runProduction $ Mtl.runReaderT act rctx
 

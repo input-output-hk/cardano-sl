@@ -2,7 +2,12 @@
 
 # First argument is path to common.sh
 common_path=$1
-system_start=$((`date +%s` + 1))
+
+# Check if exists, if not assign
+if [ -z "$system_start" ]
+  then
+    system_start=$((`date +%s` + 1))
+fi
 
 # Second is the number of nodes in network (to match genesis utxo distribution)
 n=3

@@ -12,16 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-flag asserts
-  default: True
-  manual: True
-
-flag dev-mode
-  default:     True
-  manual:      True
-
-  description: Switch between Development and Production mode
-
 library
   exposed-modules:      Pos.Explorer.Socket
                         Pos.Explorer.Web
@@ -108,11 +98,6 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(asserts)
-    cpp-options: -DASSERTS_ON
-  if flag(dev-mode)
-    cpp-options: -DDEV_MODE
-
   -- linker speed up for linux
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
@@ -178,9 +163,6 @@ executable cardano-explorer
   if os(linux)
     ghc-options:       -optl-fuse-ld=gold
     ld-options:        -fuse-ld=gold
-
-  if flag(dev-mode)
-    cpp-options: -DDEV_MODE
 
 executable cardano-explorer-hs2purs
   hs-source-dirs:      src/purescript

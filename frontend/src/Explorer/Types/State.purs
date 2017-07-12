@@ -35,6 +35,7 @@ type State =
     , errors :: Errors
     , loading :: Boolean
     , now :: DateTime
+    , testnet :: Boolean
     }
 
 data Search

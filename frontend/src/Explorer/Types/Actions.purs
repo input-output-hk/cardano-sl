@@ -41,10 +41,6 @@ data Action
     | SocketClearSubscriptions
     | SocketReconnectSubscriptions
     | SocketPing
-    -- socket endpoints for debugging only
-    | SocketCallMe
-    | SocketCallMeString String
-    | SocketCallMeCTxId CTxId
     -- http endpoints
     | RequestPaginatedBlocks PageNumber PageSize
     | ReceivePaginatedBlocks (Either Error (Tuple Int CBlockEntries))

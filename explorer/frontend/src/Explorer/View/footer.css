@@ -1,0 +1,195 @@
+
+:root {
+  --height-footer-bottom: 70px;
+
+  --cardano-logo-width: 103.5px;
+  --cardano-logo-height: 30px;
+
+
+}
+.explorer-footer {
+  background-color: var(--color2);
+
+  &__container {
+    lost-utility: clearfix;
+  }
+
+  &__top {
+    border-bottom: 1px solid color(var(--color3) a(0.1));
+
+    .nav__container {
+      @extend .outer-container;
+      padding: 24px 18px 0 18px;
+    }
+
+    @media (--md) {
+      .nav__container {
+        padding: 48px 72px 24px 72px;
+      }
+    }
+
+    .nav-item {
+
+      &__container {
+        padding-bottom: 24px;
+      }
+
+      &__container {
+        lost-column: 1/2;
+      }
+
+      @media (--md) {
+        &__container {
+          lost-column: 1/5;
+        }
+      }
+
+      &__header {
+        padding-bottom: 12px;
+        color: var(--color0);
+        font-family: var(--fontFamily0-Light);
+        font-size: 12px;
+      }
+
+      &__item {
+        font-family: var(--fontFamily0-Light);
+        font-size: 11px;
+        line-height: 20px;
+        display: block;
+
+        button: standard-button;
+        button-color: color(var(--color3) a(0.5)) color(var(--color3) a(0.3)) color(var(--color3) a(0.3));
+      }
+    }
+  }
+
+  &__bottom {
+    @extend .outer-container;
+    color: color(var(--color0) a(0.5));
+    padding: 0 18px;
+
+    .content {
+      height: var(--height-footer-bottom);
+
+      .logo__container {
+        box: horizontal;
+        height: 100%;
+      }
+
+      .logo__cardano-name {
+        display: block;
+        width: 90.2px;
+        height: 26px;
+        box-item: center;
+      }
+
+      @media (--md) {
+        .logo__cardano-name {
+          width: 104px;
+          height: 30px;
+        }
+      }
+
+      .logo__iohk-name {
+        width: 120.1px;
+        height: 26px;
+        margin-left: 24px;
+        box-item: center;
+        display: block;
+      }
+
+      @media (--md) {
+        .logo__iohk-name {
+          width: 138.5px;
+          height: 30px;
+        }
+      }
+
+      .split {
+        display: inline-block;
+        background: var(--color14);
+        opacity: 0.2;
+        width: 1px;
+        height: 30px;
+        margin: 0 24px;
+        box-item: center;
+      }
+
+      .support {
+        color: var(--color3);
+        opacity: 0.7;
+        font-family: var(--fontFamily0-Regular);
+        font-size: 8px;
+        box-sizing: border-box;
+        text-transform: uppercase;
+        box-item: center;
+        display: block;
+      }
+
+      @media (--md) {
+        .support {
+          font-size: 9px;
+        }
+      }
+
+      &__left {
+        lost-column: 1/1;
+        box: horizontal;
+      }
+
+      @media (--md) {
+        &__left {
+          lost-column: 3/4;
+        }
+      }
+
+      &__right {
+        @extend .hide;
+      }
+
+      @media (--md) {
+        &__right {
+          @extend .show;
+          box: horizontal right;
+          lost-column: 1/4;
+        }
+      }
+    }
+
+    .copy {
+      font-family: var(--fontFamily0-Light);
+      font-size: 10px;
+      box-item: center;
+    }
+
+    .lang__select {
+      padding-right: 10px;
+    }
+  }
+
+  &__meta {
+    text-align: center;
+
+    .version {
+      font-family: var(--fontFamily0-Light);
+      font-size: 9px;
+      color: color(var(--color3) a(0.3))
+    }
+
+    .commit {
+        font-family: var(--fontFamily0-Light);
+        font-size: 9px;
+        padding-left: 5px;
+
+        button: standard-button;
+        button-color: color(var(--color3) a(0.3)) color(var(--color3) a(0.3)) color(var(--color3) a(0.3));
+    }
+  }
+
+  @media (--md) {
+    &__bottom {
+      padding: 10px 72px 5px 72px;
+    }
+  }
+
+}

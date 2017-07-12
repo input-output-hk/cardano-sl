@@ -8,6 +8,8 @@ module Pos.Merkle
        , MerkleTree (..)
        , mtRoot
        , mkMerkleTree
+       -- Temporary CBOR variant
+       , mkMerkleTreeCbor
 
        , MerkleNode (..)
        , mkBranch
@@ -22,6 +24,7 @@ import           Prelude          (Show (..))
 import           Universum        hiding (show)
 
 import           Pos.Binary.Class (Bi, Raw, encode)
+import qualified Pos.Binary.Cbor  as Cbor
 import           Pos.Crypto       (Hash, hashRaw)
 
 -- | Data type for root of merkle tree.
@@ -72,6 +75,17 @@ mkLeaf a =
               hashRaw (one 0 <> encode a)
     }
 
+-- | A variant of `mkLeaf` with a `Cbor.Bi` constraint.
+-- Hopefully it will be removed after committing to a single
+-- serialisation format, or at least generalised.
+mkLeafCbor :: Cbor.Bi a => a -> MerkleNode a
+mkLeafCbor a =
+    MerkleLeaf
+    { mVal  = a
+    , mRoot = MerkleRoot $ coerce $
+              hashRaw (one 0 <> Cbor.serialize'  a)
+    }
+
 mkBranch :: MerkleNode a -> MerkleNode a -> MerkleNode a
 mkBranch a b =
     MerkleBranch
@@ -90,6 +104,20 @@ mkMerkleTree ls = MerkleTree (fromIntegral lsLen) (go lsLen ls)
   where
     lsLen = length ls
     go _  [x] = mkLeaf x
+    go len xs = mkBranch (go i l) (go (len - i) r)
+      where
+        i = powerOfTwo len
+        (l, r) = splitAt i xs
+
+-- | A variant of `mkMerkleTree` with a `Cbor.Bi` constraint.
+-- Hopefully it will be removed after committing to a single
+-- serialisation format, or at least generalised.
+mkMerkleTreeCbor :: Cbor.Bi a => [a] -> MerkleTree a
+mkMerkleTreeCbor [] = MerkleEmpty
+mkMerkleTreeCbor ls = MerkleTree (fromIntegral lsLen) (go lsLen ls)
+  where
+    lsLen = length ls
+    go _  [x] = mkLeafCbor x
     go len xs = mkBranch (go i l) (go (len - i) r)
       where
         i = powerOfTwo len

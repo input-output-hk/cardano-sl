@@ -612,6 +612,7 @@ test-suite cardano-test
                      , lens
                      , log-warper
                      , memory
+                     , monad-control
                      , mtl
                      , node-sketch
                      , pvss
@@ -627,6 +628,7 @@ test-suite cardano-test
                      , temporary
                      , text-format
                      , time-units
+                     , transformers-base
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector

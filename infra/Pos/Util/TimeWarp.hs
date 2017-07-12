@@ -5,7 +5,6 @@
 module Pos.Util.TimeWarp
        ( NetworkAddress
        , localhost
-       , currentTime
        , addressToNodeId
        , addressToNodeId'
        , nodeIdToAddress
@@ -19,7 +18,6 @@ import qualified Data.ByteString.Char8          as BS8
 import           Data.Time.Units                (Microsecond)
 import           Formatting                     (build, formatToString, shown, (%))
 import           JsonLog
-import           Mockable                       (realTime)
 import qualified Network.Transport.TCP.Internal as TCP
 import           Node                           (NodeId (..))
 import qualified Serokell.Util.Parse            as P
@@ -33,10 +31,6 @@ localhost = "127.0.0.1"
 
 -- | Full node address.
 type NetworkAddress = (ByteString, Word16)
-
--- | Temporal solution
-currentTime :: MonadIO m => m Microsecond
-currentTime = realTime
 
 -- TODO: What about node index, i.e. last number in '127.0.0.1:3000:0' ?
 addressToNodeId :: NetworkAddress -> NodeId

@@ -256,7 +256,7 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
             (WithHash taTx txid, taWitness, taDistribution)
         topsortErr = TxpInternalError
             "getLocalHistory: transactions couldn't be topsorted!"
-    ltxs <- map mapper <$> getLocalTxs
+    ltxs <- lift $ map mapper <$> getLocalTxs
     txs <- getRelatedTxsByAddrs addrs Nothing Nothing =<<
            maybeThrow topsortErr (topsortTxs (view _1) ltxs)
     return $ DL.fromList txs

@@ -79,6 +79,7 @@ library
                      , mtl
                      , monad-control
                      , neat-interpolation
+                     , node-sketch
                      , plutus-prototype
                      , QuickCheck
                      , resourcet

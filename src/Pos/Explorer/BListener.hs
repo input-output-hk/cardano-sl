@@ -342,9 +342,9 @@ getExistingBlocks keys = do
         => k 
         -> m (M.Map k [HeaderHash])
     getExistingKeyBlocks key = do
-        keyBlocks        <- getKeyBlocksF key
-        let mKeyBlocks = fromMaybe [] keyBlocks
-        pure $ M.singleton key mKeyBlocks
+        mKeyBlocks    <- getKeyBlocksF key
+        let keyBlocks  = fromMaybe [] mKeyBlocks
+        pure $ M.singleton key keyBlocks
 
 
 -- A general @Key@ @Block@ database application for the apply call.

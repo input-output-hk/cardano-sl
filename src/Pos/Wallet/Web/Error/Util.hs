@@ -22,12 +22,12 @@ import           Pos.Wallet.Web.Error.Types (WalletError (..), _RequestError)
 rewrapToWalletError
     :: forall e m a.
        (MonadCatch m, Exception e)
-    => (e -> Bool) -> (e -> Text) -> m a -> m a
-rewrapToWalletError whetherCatch toMsg = flip catches
+    => (e -> Bool) -> (e -> WalletError) -> m a -> m a
+rewrapToWalletError whetherCatch toWE = flip catches
      [ Handler $ throwM @_ @WalletError
      , Handler $ \e ->
            if whetherCatch e
-           then throwM . RequestError $ toMsg e
+           then throwM $ toWE e
            else throwM e
      ]
 

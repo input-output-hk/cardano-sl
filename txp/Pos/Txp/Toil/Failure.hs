@@ -42,6 +42,8 @@ data ToilVerFailure
     | ToilBootDifferentStake !TxOutDistribution
     deriving (Show, Eq)
 
+instance Exception ToilVerFailure
+
 instance Buildable ToilVerFailure where
     build ToilKnown =
         "transaction already is in the mem pool"

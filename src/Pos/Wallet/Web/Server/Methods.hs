@@ -1271,8 +1271,10 @@ restoreWalletFromBackup WalletBackup {..} = do
                     seedGen = DeterminedSeed aIdx
                 accId <- genUniqueAccountId seedGen wId
                 createAccount accId meta
+            void $ createWalletSafe wId wMeta
             void $ syncWalletOnImport wbSecretKey
-            Just <$> createWalletSafe wId wMeta
+            -- Get wallet again to return correct balance and stuff
+            Just <$> getWallet wId
 
 restoreStateFromBackup :: WalletWebMode m => StateBackup -> m [CWallet]
 restoreStateFromBackup (FullStateBackup walletBackups) =

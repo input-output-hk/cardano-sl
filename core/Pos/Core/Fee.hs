@@ -14,7 +14,7 @@ import           Serokell.Data.Memory.Units (Byte, toBytes)
 
 -- | A fractional coefficient of fixed precision.
 newtype Coeff = Coeff Nano
-    deriving (Eq, Show, Generic, NFData)
+    deriving (Eq, Show, Generic, NFData, Num)
 
 instance Buildable Coeff where
     build (Coeff x) = fromString (showFixed True x)

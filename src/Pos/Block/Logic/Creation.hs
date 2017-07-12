@@ -132,7 +132,7 @@ createGenesisBlockDo epoch leaders tip = do
     shouldCreate (Left _) = pure False
     -- This is true iff tip is from 'epoch' - 1 and last
     -- 'blkSecurityParam' blocks fully fit into last
-    -- 'slotSecurityParam' slots of 'epoch'.
+    -- 'slotSecurityParam' slots from 'epoch' - 1.
     shouldCreate (Right mb)
         | mb ^. epochIndexL /= epoch - 1 = pure False
         | otherwise =

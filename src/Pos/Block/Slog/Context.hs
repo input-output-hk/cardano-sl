@@ -2,6 +2,7 @@
 
 module Pos.Block.Slog.Context
        ( mkSlogContext
+       , cloneSlogContext
        , slogGetLastSlots
        , slogPutLastSlots
        ) where
@@ -18,6 +19,11 @@ mkSlogContext :: (MonadIO m, MonadDBRead m) => m SlogContext
 mkSlogContext = do
     _scLastBlkSlots <- getLastSlots >>= newIORef
     return SlogContext {..}
+
+-- | Make a copy of existing 'SlogContext'.
+cloneSlogContext :: (MonadIO m) => SlogContext -> m SlogContext
+cloneSlogContext SlogContext {..} =
+    SlogContext <$> (readIORef _scLastBlkSlots >>= newIORef)
 
 -- | Read 'LastBlkSlots' from in-memory state.
 slogGetLastSlots ::

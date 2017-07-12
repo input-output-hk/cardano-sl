@@ -6,41 +6,48 @@ module Pos.Generator.Block.Mode
        , BlockGenContext (..)
        , BlockGenMode
        , mkBlockGenContext
+
+       , InitBlockGenContext (..) -- useless
        ) where
 
 import           Universum
 
-import           Control.Exception           (Exception (..))
 import           Control.Lens.TH             (makeLensesWith)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Data.Text.Buildable
 import           Mockable                    (MonadMockable)
 import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.Core              (Block, BlockHeader)
-import           Pos.Block.Slog              (HasSlogContext (..), SlogContext)
+import           Pos.Block.Slog              (HasSlogContext (..), SlogContext,
+                                              cloneSlogContext)
 import           Pos.Block.Types             (Undo)
-import           Pos.Context                 (GenesisUtxo (..))
-import           Pos.Core                    (BlockCount, EpochOrSlot (..),
-                                              HasPrimaryKey (..), IsHeader, SlotId,
-                                              StakeholderId, Timestamp, getEpochOrSlot)
+import           Pos.Core                    (HasPrimaryKey (..), IsHeader, Timestamp)
 import           Pos.Crypto                  (SecretKey)
 import           Pos.DB                      (DBPureVar, MonadBlockDBGeneric (..),
                                               MonadDB, MonadDBRead)
 import qualified Pos.DB                      as DB
 import qualified Pos.DB.Block                as BDB
-import           Pos.Delegation              (DelegationVar)
+import           Pos.Delegation              (DelegationVar, mkDelegationVar)
 import           Pos.Generator.Block.Param   (BlockGenParams, HasBlockGenParams (..))
-import           Pos.Lrc                     (LrcContext (..), mkLrcSyncData)
-import           Pos.Slotting                (SlottingData)
+import           Pos.Lrc                     (LrcContext (..), cloneLrcContext)
+import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (..),
+                                              SlottingData, currentTimeSlottingSimple,
+                                              getCurrentSlotBlockingSimple,
+                                              getCurrentSlotInaccurateSimple,
+                                              getCurrentSlotSimple)
+import           Pos.Slotting.MemState       (MonadSlotsData (..), cloneSlottingVar,
+                                              getSlottingDataDefault,
+                                              getSystemStartDefault,
+                                              putSlottingDataDefault,
+                                              waitPenultEpochEqualsDefault)
 import           Pos.Ssc.Class               (SscBlock)
-import           Pos.Ssc.Extra               (SscMemTag, SscState)
+import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
-import           Pos.Txp                     (GenericTxpLocalData, TxPayload,
-                                              TxpHolderTag, TxpMetrics, emptyTxPayload)
-import           Pos.Update.Context          (UpdateContext)
+import           Pos.Txp                     (GenericTxpLocalData, TxpHolderTag,
+                                              TxpMetrics, ignoreTxpMetrics,
+                                              mkTxpLocalData)
+import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, postfixLFields)
-import           Pos.Util.Chrono             (OldestFirst (..))
 import           Pos.WorkMode.Class          (TxpExtra_TMP)
 
 ----------------------------------------------------------------------------
@@ -68,6 +75,9 @@ type MonadBlockGen ctx m
        -- 'DBProxyT' approach. Currently we require pure DB because
        -- it's easier.
        , HasLens DBPureVar ctx DBPureVar
+       , HasSlottingVar ctx
+       , HasLens LrcContext ctx LrcContext
+       , HasSlogContext ctx
        )
 
 ----------------------------------------------------------------------------
@@ -89,6 +99,8 @@ data BlockGenContext = BlockGenContext
     -- pure DB and assume it always fit in memory. It allows us to
     -- simply clone existing DB.
     , bgcSlogContext   :: !SlogContext
+    , bgcSystemStart   :: !Timestamp
+    , bgcSlottingVar   :: !(TVar SlottingData)
     , bgcParams        :: !BlockGenParams
     , bgcDelegation    :: !DelegationVar
     , bgcLrcContext    :: !LrcContext
@@ -102,8 +114,76 @@ makeLensesWith postfixLFields ''BlockGenContext
 -- | Execution mode for blockchain generation.
 type BlockGenMode m = ReaderT BlockGenContext m
 
+----------------------------------------------------------------------------
+-- Context creation
+----------------------------------------------------------------------------
+
+-- | Make new 'BlockGenContext' using data provided by 'MonadBlockGen'
+-- context. Persistent data (DB) is cloned. Other mutable data is
+-- recreated.
 mkBlockGenContext :: MonadBlockGen ctx m => m BlockGenContext
-mkBlockGenContext = undefined
+mkBlockGenContext = do
+    bgcParams <- view blockGenParams
+    let bgcPrimaryKey = error "bgcPrimaryKey was forced before being set"
+    bgcDB <- DB.cloneDBPure =<< view (lensOf @DBPureVar)
+    bgcSystemStart <- view slottingTimestamp
+    bgcSlottingVar <- cloneSlottingVar =<< view slottingVar
+    bgcLrcContext <- cloneLrcContext =<< view (lensOf @LrcContext)
+    bgcSlogContext <- cloneSlogContext =<< view slogContextL
+    let initCtx =
+            InitBlockGenContext
+                bgcDB
+                bgcSystemStart
+                bgcSlottingVar
+                bgcLrcContext
+    usingReaderT initCtx $ do
+        bgcSscState <- mkSscState @SscGodTossing
+        bgcUpdateContext <- mkUpdateContext
+        bgcTxpMem <- (,) <$> mkTxpLocalData <*> pure ignoreTxpMetrics
+        bgcDelegation <- mkDelegationVar
+        return BlockGenContext {..}
+
+data InitBlockGenContext = InitBlockGenContext
+    { ibgcDB          :: !DBPureVar
+    , ibgcSystemStart :: !Timestamp
+    , ibgcSlottingVar :: !(TVar SlottingData)
+    , ibgcLrcContext  :: !LrcContext
+    }
+
+makeLensesWith postfixLFields ''InitBlockGenContext
+
+type InitBlockGenMode m = ReaderT InitBlockGenContext m
+
+instance HasLens DBPureVar InitBlockGenContext DBPureVar where
+    lensOf = ibgcDB_L
+
+instance HasLens LrcContext InitBlockGenContext LrcContext where
+    lensOf = ibgcLrcContext_L
+
+instance HasSlottingVar InitBlockGenContext where
+    slottingTimestamp = ibgcSystemStart_L
+    slottingVar = ibgcSlottingVar_L
+
+instance MonadBlockGenBase m => MonadDBRead (InitBlockGenMode m) where
+    dbGet = DB.dbGetPureDefault
+    dbIterSource = DB.dbIterSourcePureDefault
+
+instance MonadBlockGenBase m => MonadDB (InitBlockGenMode m) where
+    dbPut = DB.dbPutPureDefault
+    dbWriteBatch = DB.dbWriteBatchPureDefault
+    dbDelete = DB.dbDeletePureDefault
+
+instance MonadBlockGenBase m => MonadSlotsData (InitBlockGenMode m) where
+    getSystemStart = getSystemStartDefault
+    getSlottingData = getSlottingDataDefault
+    waitPenultEpochEquals = waitPenultEpochEqualsDefault
+    putSlottingData = putSlottingDataDefault
+
+instance MonadBlockGenBase m => MonadSlots (InitBlockGenMode m) where
+    getCurrentSlot = getCurrentSlotSimple
+    getCurrentSlotBlocking = getCurrentSlotBlockingSimple
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateSimple
+    currentTimeSlotting = currentTimeSlottingSimple
 
 ----------------------------------------------------------------------------
 -- Boilerplate instances
@@ -114,6 +194,10 @@ instance HasLens BlockGenContext BlockGenContext BlockGenContext where
 
 instance HasBlockGenParams BlockGenContext where
     blockGenParams = bgcParams_L
+
+instance HasSlottingVar BlockGenContext where
+    slottingTimestamp = bgcSystemStart_L
+    slottingVar = bgcSlottingVar_L
 
 instance HasLens DBPureVar BlockGenContext DBPureVar where
     lensOf = bgcDB_L

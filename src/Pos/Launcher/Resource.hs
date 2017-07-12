@@ -24,7 +24,6 @@ module Pos.Launcher.Resource
 import           Universum                   hiding (bracket, finally)
 
 import           Control.Concurrent.STM      (newEmptyTMVarIO, newTBQueueIO)
-import           Data.Default                (def)
 import           Data.Tagged                 (untag)
 import qualified Data.Time                   as Time
 import           Formatting                  (sformat, shown, (%))
@@ -53,9 +52,8 @@ import           Pos.Context                 (BlkSemaphore (..), ConnectedPeers 
 import           Pos.Core                    (Timestamp)
 import           Pos.DB                      (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                   (initNodeDBs)
-import           Pos.DB.GState               (getTip)
 import           Pos.DB.Rocks                (closeNodeDBs, openNodeDBs)
-import           Pos.Delegation.Class        (DelegationVar)
+import           Pos.Delegation.Class        (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real                (KademliaDHTInstance, KademliaParams (..),
                                               startDHTInstance, stopDHTInstance)
 import           Pos.Discovery               (DiscoveryContextSum (..))
@@ -80,7 +78,6 @@ import           Pos.Launcher.Mode           (InitMode, InitModeContext (..),
 import           Pos.Security                (SecurityWorkersClass)
 import           Pos.Update.Context          (mkUpdateContext)
 import qualified Pos.Update.DB               as GState
-import           Pos.Util.Concurrent.RWVar   as RWV
 import           Pos.Util.Util               (powerLift)
 import           Pos.Worker                  (allWorkersCount)
 import           Pos.WorkMode                (TxpExtra_TMP)
@@ -143,10 +140,9 @@ allocateNodeResources np@NodeParams {..} sscnp = do
         initNodeDBs @ssc npSystemStart
         ctx@NodeContext {..} <- allocateNodeContext np sscnp putSlotting
         putLrcContext ncLrcContext
-        initTip <- getTip
         setupLoggers $ bpLoggingParams npBaseParams
-        dlgVar <- RWV.new def
-        txpVar <- mkTxpLocalData mempty initTip
+        dlgVar <- mkDelegationVar
+        txpVar <- mkTxpLocalData
         peerState <- liftIO SM.newIO
         sscState <- mkSscState @ssc
         nrTransport <- powerLift @Production $ createTransportTCP $ npTcpAddr npNetwork

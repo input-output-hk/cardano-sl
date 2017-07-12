@@ -1349,11 +1349,11 @@ self: {
       cardano-report-server = callPackage ({ HUnit, QuickCheck, aeson, aeson-pretty, base, bytestring, case-insensitive, directory, exceptions, fetchgit, filelock, filepath, formatting, hspec, http-types, lens, lifted-base, log-warper, mkDerivation, monad-control, mtl, network, optparse-applicative, optparse-simple, parsec, quickcheck-text, random, scotty, stdenv, text, time, transformers, universum, vector, wai, wai-extra, warp }:
       mkDerivation {
           pname = "cardano-report-server";
-          version = "0.1.2";
+          version = "0.2.0";
           src = fetchgit {
             url = "https://github.com/input-output-hk/cardano-report-server.git";
-            sha256 = "15hrdnwn6f7h6ks9r63jmkmwxiz91kdjmc7rrjky6df2ayc7fmlv";
-            rev = "d1247bef8fa71a4201fdc15d8b1b25ca53f289a3";
+            sha256 = "1rcspln6xn54mh65z0ayhivai6sc55xl72hh22l1g2y0j3xd9h54";
+            rev = "b4fbd07c077b41c0e948bd377f1662b599f0bc4c";
           };
           isLibrary = true;
           isExecutable = true;
@@ -6330,8 +6330,8 @@ self: {
       purescript-bridge = callPackage ({ base, containers, directory, filepath, generic-deriving, hspec, hspec-expectations-pretty-diff, lens, mkDerivation, mtl, stdenv, text, transformers }:
       mkDerivation {
           pname = "purescript-bridge";
-          version = "0.8.0.1";
-          sha256 = "0aa32a83hyaamklxl17lnp7lmblrarp1crm2ihvy0lvhcdzzhg5b";
+          version = "0.10.1.0";
+          sha256 = "08v2b4n3zpbwdz8v41scjpvwha3xnk0g6vgd58ki98h1gyvr4pqs";
           libraryHaskellDepends = [
             base
             containers

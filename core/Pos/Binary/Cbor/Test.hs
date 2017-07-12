@@ -14,6 +14,7 @@ import           Pos.Core.Arbitrary()
 import           Pos.Binary.Core.Script()
 import           Pos.Core.Types
 import           Pos.Core.Genesis.Types
+import           Pos.Binary.Class.Numbers
 
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -119,6 +120,19 @@ qc = quickCheckWith (stdArgs { maxSuccess = 1000 })
 -- of a bigger testsuite.
 soundInstancesTest :: IO ()
 soundInstancesTest = do
+  qc (soundInstanceProperty @(UnsignedVarInt Int) Proxy)
+  qc (soundInstanceProperty @(SignedVarInt Int) Proxy)
+  qc (soundInstanceProperty @(FixedSizeInt Int) Proxy)
+  qc (soundInstanceProperty @(UnsignedVarInt Int64) Proxy)
+  qc (soundInstanceProperty @(SignedVarInt Int64) Proxy)
+  qc (soundInstanceProperty @(FixedSizeInt Int64) Proxy)
+  qc (soundInstanceProperty @(UnsignedVarInt Word) Proxy)
+  qc (soundInstanceProperty @(FixedSizeInt Word) Proxy)
+  qc (soundInstanceProperty @(UnsignedVarInt Word16) Proxy)
+  qc (soundInstanceProperty @(UnsignedVarInt Word32) Proxy)
+  qc (soundInstanceProperty @(UnsignedVarInt Word64) Proxy)
+  qc (soundInstanceProperty @TinyVarInt Proxy)
+  qc (soundInstanceProperty @Int64 Proxy)
   qc (soundInstanceProperty @MyScript Proxy)
   qc (soundInstanceProperty @Coeff Proxy)
   qc (soundInstanceProperty @TxSizeLinear Proxy)

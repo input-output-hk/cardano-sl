@@ -132,6 +132,10 @@ instance Bi Int32 where
     encode = encodeInt32
     decode = decodeInt32
 
+instance Bi Int64 where
+    encode = encodeInt64
+    decode = decodeInt64
+
 instance Bi Nano where
     encode (MkFixed resolution) = encodeInteger resolution
     decode = MkFixed <$> decodeInteger

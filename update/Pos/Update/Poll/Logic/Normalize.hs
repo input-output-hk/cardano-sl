@@ -20,10 +20,10 @@ import           System.Wlog                 (logWarning)
 import           Pos.Core                    (Coin, EpochIndex, SlotId (siEpoch),
                                               addressHash, applyCoinPortion, mkCoin,
                                               unsafeAddCoin)
-import           Pos.Core.Constants          (genesisUpdateProposalThd)
 import           Pos.Crypto                  (PublicKey, hash)
 import           Pos.Update.Core             (LocalVotes, UpId, UpdateProposal,
-                                              UpdateProposals, UpdateVote (..))
+                                              UpdateProposals, UpdateVote (..),
+                                              bvdUpdateProposalThd)
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure     (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Apply (verifyAndApplyProposal,
@@ -141,9 +141,9 @@ normalizeVotes votesGroups =
                                      (HM.fromList verifiedPKs))
             | otherwise  -> pure Nothing
 
--- | Leave only those proposals which have enough stake for inclusion
--- into block according to 'genesisUpdateProposalThd'. Note that this
--- function is read-only.
+-- | Leave only those proposals which have enough stake for inclusion into
+-- block according to 'bvdUpdateProposalThd'. Note that this function is
+-- read-only.
 filterProposalsByThd
     :: forall m . (MonadPollRead m)
     => EpochIndex -> UpdateProposals -> m (UpdateProposals, HashSet UpId)
@@ -154,7 +154,8 @@ filterProposalsByThd epoch proposalsHM = getEpochTotalStake epoch >>= \case
                 (sformat ("Couldn't get stake in filterProposalsByTxd for epoch "%build)
                          epoch)
     Just totalStake -> do
-        let threshold = applyCoinPortion genesisUpdateProposalThd totalStake
+        thresholdPortion <- bvdUpdateProposalThd <$> getAdoptedBVData
+        let threshold = applyCoinPortion thresholdPortion totalStake
         let proposals = HM.toList proposalsHM
         filtered <-
             HM.fromList <$> filterM (hasEnoughStake threshold . fst) proposals
